@@ -28,7 +28,9 @@ export interface ProjectStore {
 }
 
 /** Thrown by save() when the browser refuses the write (usually: storage full). Nothing is half-written. */
-export class StoreWriteError extends Error {}
+export class StoreWriteError extends Error {
+  override name = "StoreWriteError";
+}
 
 function defaultStorage(): Storage | null {
   try {
@@ -60,13 +62,16 @@ function isEntry(x: unknown): x is ProjectListEntry {
   return typeof e.id === "string" && typeof e.name === "string" && typeof e.updatedAt === "number";
 }
 
-const UNAVAILABLE: ProjectStore = {
-  list: () => [],
-  load: () => null,
-  save: () => undefined,
-  remove: () => undefined,
-  available: false,
-};
+/** A fresh object per call, so no consumer can change what another one sees. */
+function unavailableStore(): ProjectStore {
+  return {
+    list: () => [],
+    load: () => null,
+    save: () => undefined,
+    remove: () => undefined,
+    available: false,
+  };
+}
 
 /**
  * The local project list (spec §8.4): one key per project plus an index of
@@ -79,7 +84,7 @@ const UNAVAILABLE: ProjectStore = {
  */
 export function createProjectStore(storage: Storage | null = defaultStorage()): ProjectStore {
   if (!isReadable(storage)) {
-    return UNAVAILABLE;
+    return unavailableStore();
   }
   const s = storage;
 
@@ -91,9 +96,17 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
     }
   }
 
-  /** The valid, de-duplicated entries of the index; empty when it is missing or corrupt. */
-  function readIndexEntries(): ProjectListEntry[] {
-    const text = read(INDEX_KEY);
+  /**
+   * The valid, de-duplicated entries of the index, oldest save first; empty
+   * when it is missing or corrupt, and null when reading it threw.
+   */
+  function readIndexEntries(): ProjectListEntry[] | null {
+    let text: string | null;
+    try {
+      text = s.getItem(INDEX_KEY);
+    } catch {
+      return null;
+    }
     if (text === null) {
       return [];
     }
@@ -117,58 +130,59 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
     return entries;
   }
 
-  /** Ids of all stored projects, found from the project keys themselves. */
-  function storedProjectIds(): string[] {
-    const ids: string[] = [];
+  /** Ids of all stored projects, from the project keys themselves; null when the scan throws. */
+  function storedProjectIds(): Set<string> | null {
+    const ids = new Set<string>();
     try {
       for (let i = 0; i < s.length; i++) {
         const key = s.key(i);
         if (key?.startsWith(PROJECT_PREFIX)) {
-          ids.push(key.slice(PROJECT_PREFIX.length));
+          ids.add(key.slice(PROJECT_PREFIX.length));
         }
       }
     } catch {
-      // Keep what was found; the index still lists the rest.
+      return null;
     }
     return ids;
   }
 
-  /** The name of a stored project that is not in the index; null when it is unreadable. */
-  function nameOfStored(id: string): string | null {
-    const text = read(PROJECT_PREFIX + id);
-    if (text === null) {
-      return null;
-    }
+  /** The name stored in a project entry; the id when it is unreadable or has no name. */
+  function nameOfStored(id: string): string {
     try {
-      const parsed = JSON.parse(text) as unknown;
-      if (typeof parsed !== "object" || parsed === null) {
-        return null;
+      const parsed = JSON.parse(read(PROJECT_PREFIX + id) ?? "null") as unknown;
+      if (typeof parsed === "object" && parsed !== null) {
+        const name = (parsed as Record<string, unknown>).name;
+        if (typeof name === "string") {
+          return name;
+        }
       }
-      const name = (parsed as Record<string, unknown>).name;
-      return typeof name === "string" ? name : id;
     } catch {
-      return null;
+      // Damaged entry: listed by id so the user can remove it.
     }
+    return id;
   }
 
   /**
-   * The index entries whose project still exists, plus the stored projects the
-   * index doesn't list (missing or corrupt index, interrupted write), those
-   * with updatedAt 0. Unreadable unlisted entries are skipped.
+   * The entries to show, newest save first: the index entries whose project
+   * still exists (the index is in save order, so ties go to the later save),
+   * then every stored project key the index doesn't list (missing or corrupt
+   * index, interrupted write, damaged entry) by id, with updatedAt 0. If the
+   * key scan throws, only the index is used.
    */
   function currentEntries(): ProjectListEntry[] {
-    const entries = readIndexEntries().filter((e) => read(PROJECT_PREFIX + e.id) !== null);
-    const known = new Set(entries.map((e) => e.id));
-    for (const id of storedProjectIds()) {
-      if (!known.has(id)) {
-        const name = nameOfStored(id);
-        if (name !== null) {
-          known.add(id);
-          entries.push({ id, name, updatedAt: 0 });
-        }
-      }
+    const stored = storedProjectIds();
+    const indexed = (readIndexEntries() ?? [])
+      .filter((e) => stored === null || stored.has(e.id))
+      .reverse();
+    if (stored === null) {
+      return indexed;
     }
-    return entries;
+    const listed = new Set(indexed.map((e) => e.id));
+    const unlisted = [...stored]
+      .filter((id) => !listed.has(id))
+      .sort((x, y) => (x < y ? -1 : x > y ? 1 : 0))
+      .map((id) => ({ id, name: nameOfStored(id), updatedAt: 0 }));
+    return [...indexed, ...unlisted];
   }
 
   function writeError(name: string, cause: unknown): StoreWriteError {
@@ -177,15 +191,17 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
     });
   }
 
-  function restore(key: string, previous: string | null): void {
+  /** Puts a key back as it was; returns the error if that fails too. */
+  function restore(key: string, previous: string | null): unknown {
     try {
       if (previous === null) {
         s.removeItem(key);
       } else {
         s.setItem(key, previous);
       }
-    } catch {
-      // Best effort: the original write already failed.
+      return undefined;
+    } catch (e) {
+      return e ?? new Error("restore failed");
     }
   }
 
@@ -193,6 +209,7 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
     available: true,
 
     list() {
+      // Stable sort: equal times keep the order from currentEntries().
       return currentEntries().sort((a, b) => b.updatedAt - a.updatedAt);
     },
 
@@ -213,7 +230,10 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
     save(p, foreign) {
       const key = PROJECT_PREFIX + p.id;
       const json = serializeProject(p, foreign);
-      const index = currentEntries().filter((e) => e.id !== p.id);
+      // Save order, oldest first: currentEntries() is newest first.
+      const index = currentEntries()
+        .filter((e) => e.id !== p.id)
+        .reverse();
       index.push({ id: p.id, name: p.name, updatedAt: Date.now() });
       let previous: string | null;
       try {
@@ -230,8 +250,11 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
       try {
         s.setItem(INDEX_KEY, JSON.stringify(index));
       } catch (e) {
-        restore(key, previous);
-        throw writeError(p.name, e);
+        const restoreError = restore(key, previous);
+        throw writeError(
+          p.name,
+          restoreError === undefined ? e : { write: e, restore: restoreError },
+        );
       }
     },
 
@@ -243,8 +266,13 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
         // Still stored and listed; the user can retry.
         return;
       }
+      const entries = readIndexEntries();
+      if (entries === null) {
+        // The index couldn't be read: don't overwrite it with a guess.
+        return;
+      }
       try {
-        s.setItem(INDEX_KEY, JSON.stringify(readIndexEntries().filter((e) => e.id !== id)));
+        s.setItem(INDEX_KEY, JSON.stringify(entries.filter((e) => e.id !== id)));
       } catch {
         // A stale index entry is harmless: list() skips entries without a project.
       }

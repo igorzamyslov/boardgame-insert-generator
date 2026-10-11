@@ -188,9 +188,24 @@ describe("createProjectStore without usable storage", () => {
     expect(still?.ok && still.project.name).toBe("A");
   });
 
+  it("gives every unavailable store its own state", () => {
+    const first = createProjectStore(null);
+    const second = createProjectStore(null);
+    expect(first).not.toBe(second);
+    first.available = true;
+    first.list = () => [{ id: "x", name: "X", updatedAt: 1 }];
+    expect(second.available).toBe(false);
+    expect(second.list()).toEqual([]);
+    expect(createProjectStore(null).available).toBe(false);
+  });
+
   it("does not write anything when it is created", () => {
     const storage = new MemoryStorage();
+    const setItem = vi.spyOn(storage, "setItem");
+    const removeItem = vi.spyOn(storage, "removeItem");
     createProjectStore(storage);
+    expect(setItem).not.toHaveBeenCalled();
+    expect(removeItem).not.toHaveBeenCalled();
     expect(storage.length).toBe(0);
   });
 });
@@ -273,15 +288,31 @@ describe("createProjectStore with a damaged index", () => {
 });
 
 describe("createProjectStore with damaged project entries", () => {
-  it("skips an unreadable entry the index does not list", () => {
+  it("lists every unlisted project key by its id, whatever its content", () => {
     const storage = new MemoryStorage();
     const store = createProjectStore(storage);
-    store.save(named("A"), noForeign());
     storage.setItem(projectKey("bad"), "{oops");
     storage.setItem(projectKey("scalar"), "42");
     storage.setItem(projectKey("nameless"), "{}");
-    storage.removeItem(INDEX);
-    expect(store.list().map((e) => e.name)).toEqual(["A", "nameless"]);
+    storage.setItem(projectKey("named"), '{"name":"Readable"}');
+    expect(store.list().map((e) => [e.id, e.name])).toEqual([
+      ["bad", "bad"],
+      ["named", "Readable"],
+      ["nameless", "nameless"],
+      ["scalar", "scalar"],
+    ]);
+    expect(store.load("bad")).toEqual({ ok: false, error: expect.stringMatching(/damaged/) });
+    expect(store.load("scalar")?.ok).toBe(false);
+  });
+
+  it("lets the user remove an unlisted damaged entry to recover space", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    storage.setItem(projectKey("bad"), "{oops");
+    expect(store.list().map((e) => e.id)).toEqual(["bad"]);
+    store.remove("bad");
+    expect(storage.getItem(projectKey("bad"))).toBeNull();
+    expect(store.list()).toEqual([]);
   });
 
   it("keeps a listed but damaged entry visible so it can be removed", () => {
@@ -309,13 +340,13 @@ describe("createProjectStore when storage calls throw", () => {
     throw new DOMException("blocked", "SecurityError");
   };
 
-  it("treats a throwing getItem as empty and refuses to save", () => {
+  it("treats a throwing getItem as unreadable and refuses to save", () => {
     const storage = new MemoryStorage();
     const store = createProjectStore(storage);
     const a = named("A");
     store.save(a, noForeign());
     vi.spyOn(storage, "getItem").mockImplementation(boom);
-    expect(store.list()).toEqual([]);
+    expect(store.list()).toEqual([{ id: a.id, name: a.id, updatedAt: 0 }]);
     expect(store.load(a.id)).toBeNull();
     expect(() => {
       store.save({ ...a, name: "B" }, noForeign());
@@ -430,5 +461,122 @@ describe("createProjectStore rollback details", () => {
         .map((e) => e.name)
         .sort(),
     ).toEqual(["A", "B"]);
+  });
+});
+
+describe("createProjectStore ordering, namespacing and errors", () => {
+  it("lists the later save first when two saves share a timestamp", () => {
+    const store = createProjectStore(new MemoryStorage());
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    store.save(named("First"), noForeign());
+    store.save(named("Second"), noForeign());
+    store.save(named("Third"), noForeign());
+    expect(store.list().map((e) => e.name)).toEqual(["Third", "Second", "First"]);
+    store.save(named("Fourth"), noForeign());
+    expect(store.list().map((e) => e.name)).toEqual(["Fourth", "Third", "Second", "First"]);
+  });
+
+  it("orders rebuilt entries by id, after entries from the index", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    for (const id of ["c", "a", "b"]) {
+      storage.setItem(projectKey(id), `{"name":"${id}"}`);
+    }
+    expect(store.list().map((e) => e.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("only reads the keys that were asked for once per list", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    store.save(named("A"), noForeign());
+    store.save(named("B"), noForeign());
+    const getItem = vi.spyOn(storage, "getItem");
+    store.list();
+    expect(getItem).toHaveBeenCalledTimes(1);
+    expect(getItem).toHaveBeenCalledWith(INDEX);
+  });
+
+  it("ignores keys outside its namespace when rebuilding", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    const a = named("A");
+    store.save(a, noForeign());
+    storage.removeItem(INDEX);
+    storage.setItem("other-app:project:zzz", '{"name":"Other"}');
+    storage.setItem(`${STORAGE_PREFIX}index2`, "[]");
+    storage.setItem(`${STORAGE_PREFIX}projectX`, '{"name":"X"}');
+    storage.setItem(`${STORAGE_PREFIX}probe`, "1");
+    expect(store.list()).toEqual([{ id: a.id, name: "A", updatedAt: 0 }]);
+  });
+
+  it("names its error class", () => {
+    const error = new StoreWriteError("x");
+    expect(error.name).toBe("StoreWriteError");
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(StoreWriteError);
+  });
+
+  it("attaches both errors when the rollback fails as well", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    const p = named("Before");
+    store.save(p, noForeign());
+    // Every write fails except the project's own, so the index write fails and
+    // so does the rollback that puts the old project text back.
+    let projectWrites = 0;
+    storage.failOn = (key) => {
+      if (key === projectKey(p.id)) {
+        projectWrites++;
+        return projectWrites > 1;
+      }
+      return key === INDEX;
+    };
+    let caught: unknown;
+    try {
+      store.save({ ...p, name: "After" }, noForeign());
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(StoreWriteError);
+    const cause = (caught as StoreWriteError).cause as { write: unknown; restore: unknown };
+    expect(cause.write).toBeInstanceOf(DOMException);
+    expect(cause.restore).toBeInstanceOf(DOMException);
+  });
+
+  it("keeps the plain write error as the cause when the rollback works", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    storage.failOn = (key) => key === INDEX;
+    let caught: unknown;
+    try {
+      store.save(named("X"), noForeign());
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as StoreWriteError).cause).toBeInstanceOf(DOMException);
+  });
+
+  it("does not rewrite the index when reading it threw", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    const a = named("A");
+    const b = named("B");
+    store.save(a, noForeign());
+    store.save(b, noForeign());
+    const indexBefore = storage.getItem(INDEX);
+    const realGet = storage.getItem.bind(storage);
+    vi.spyOn(storage, "getItem").mockImplementation((key) => {
+      if (key === INDEX) {
+        throw new DOMException("blocked", "SecurityError");
+      }
+      return realGet(key);
+    });
+    const setItem = vi.spyOn(storage, "setItem");
+    store.remove(a.id);
+    expect(setItem).not.toHaveBeenCalled();
+    expect(storage.getItem(projectKey(a.id))).toBeNull();
+    vi.restoreAllMocks();
+    expect(storage.getItem(INDEX)).toBe(indexBefore);
+    expect(store.list().map((e) => e.name)).toEqual(["B"]);
   });
 });
