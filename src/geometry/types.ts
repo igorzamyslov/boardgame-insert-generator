@@ -3,18 +3,22 @@ import type { CompartmentSpec, FeatureSpec, Settings, TraySpec } from "../model/
 // The part, compartment kind and feature values this geometry version can build. A stored
 // tray using anything else (a newer-minor file, spec §9) is refused with
 // UnsupportedFeatureError; the UI checks the same lists before calling the worker.
-export const KNOWN_PARTS: readonly TraySpec["part"][] = ["tray", "leftover", "spacer"];
-export const KNOWN_COMPARTMENT_KINDS: readonly CompartmentSpec["kind"][] = [
+export const KNOWN_PARTS: readonly TraySpec["part"][] = Object.freeze([
+  "tray",
+  "leftover",
+  "spacer",
+]);
+export const KNOWN_COMPARTMENT_KINDS: readonly CompartmentSpec["kind"][] = Object.freeze([
   "well",
   "scoop",
   "pocket",
   "spare",
-];
-export const KNOWN_FEATURE_TYPES: readonly FeatureSpec["type"][] = [
+]);
+export const KNOWN_FEATURE_TYPES: readonly FeatureSpec["type"][] = Object.freeze([
   "fingerPocket",
   "scoop",
   "cornerRelief",
-];
+]);
 
 export interface Mesh {
   positions: Float32Array; // xyz per vertex, mm

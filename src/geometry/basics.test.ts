@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { GEOMETRY_VERSION } from "./version";
 import { UnsupportedFeatureError } from "./errors";
 import { Scope, withScope } from "./scope";
+import { KNOWN_COMPARTMENT_KINDS, KNOWN_FEATURE_TYPES, KNOWN_PARTS } from "./types";
 
 function item(log: string[], name: string) {
   return { delete: () => log.push(name) };
@@ -49,5 +50,13 @@ describe("UnsupportedFeatureError and GEOMETRY_VERSION", () => {
 
   it("starts at 0.1.0", () => {
     expect(GEOMETRY_VERSION).toBe("0.1.0");
+  });
+});
+
+describe("known value lists", () => {
+  it("are frozen", () => {
+    expect(Object.isFrozen(KNOWN_PARTS)).toBe(true);
+    expect(Object.isFrozen(KNOWN_COMPARTMENT_KINDS)).toBe(true);
+    expect(Object.isFrozen(KNOWN_FEATURE_TYPES)).toBe(true);
   });
 });
