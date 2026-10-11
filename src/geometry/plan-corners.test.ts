@@ -1,17 +1,22 @@
 import { describe, expect, it } from "vitest";
+import bitsHeavy from "../../test/fixtures/bits-heavy.json";
+import cardsHeavy from "../../test/fixtures/cards-heavy.json";
+import tilesMinis from "../../test/fixtures/tiles-minis.json";
+import tinyBox from "../../test/fixtures/tiny-box.json";
 import { planTray } from "./plan";
 import {
-  CORNER_MARGIN,
   MIN_FEATURE_MM,
   SPEC_TOLERANCE,
   maxBottomChamfer,
   maxCornerRadius,
 } from "../model/settings";
 import type { Settings } from "../model/types";
-import { INNER_CORNER_RADIUS } from "./plan-types";
+import { SETTING_RANGES, settingsValid } from "../model/validate";
+import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
+import type { RealizeOptions } from "../sizing/types";
 import { quarterSegments, roundedRectRing } from "./shapes";
-import type { TrayPlan } from "./plan-types";
-import { GEO, compartment, hexTiles, traySpec } from "./test-specs";
+import type { Rect, TrayPlan } from "./plan-types";
+import { GEO, compartment, hexTiles, loadFixture, traySpec, traySpecFrom } from "./test-specs";
 
 describe("corner reliefs", () => {
   it("passes each relief circle through its content corner", () => {
@@ -88,11 +93,12 @@ describe("outer corner radius", () => {
   });
 });
 
-// Material between a point of the cut and the outer surface at height z, measured on the
-// polygon tray geometry builds: the rounded rectangle pulled in by e = chamfer − z below the
-// chamfer top (arc radius R − e), its corners split into quarterSegments(R) segments. The ring is
-// convex, so the material is the smallest distance to the lines of its edges.
-function materialAt(plan: TrayPlan, x: number, y: number, z: number): number {
+// Material between a disc of the cut (radius rho; 0 for a point) and the outer surface at height z,
+// measured on the polygon tray geometry builds: the rounded rectangle pulled in by e = chamfer − z
+// below the chamfer top (arc radius R − e), its corners split into quarterSegments(R) segments.
+// The ring is convex, so the material is the smallest distance from the centre to the lines of
+// its edges, minus rho.
+function materialAt(plan: TrayPlan, x: number, y: number, z: number, rho = 0): number {
   const e = Math.max(0, plan.chamfer - z);
   const R = plan.cornerRadius;
   const ring = roundedRectRing(e, e, plan.w - e, plan.d - e, R - e, quarterSegments(R));
@@ -104,67 +110,68 @@ function materialAt(plan: TrayPlan, x: number, y: number, z: number): number {
       material = Math.min(material, ((bx - ax) * (y - ay) - (by - ay) * (x - ax)) / length);
     }
   });
-  return material;
+  return material - rho;
 }
 
-// Thinnest outer material at the floor of the compartment, over its rounded corners (the real cut,
-// inner radius) and the relief circles; with `sharp` also over the sharp corners, which is what
-// planCornerRadius assumes.
-function thinnestAtFloor(plan: TrayPlan, sharp: boolean): number {
-  let thinnest = Number.POSITIVE_INFINITY;
-  const sample = (x: number, y: number, z: number): void => {
-    thinnest = Math.min(thinnest, materialAt(plan, x, y, z));
+function cornersOf(r: Rect): [number, number][] {
+  return [
+    [r.x0, r.y0],
+    [r.x1, r.y0],
+    [r.x1, r.y1],
+    [r.x0, r.y1],
+  ];
+}
+
+// Thinnest outer material over every cut, each at its lowest height: the compartment corners at
+// the compartment floor (sharp, as planCornerRadius assumes; the wells' rounded inner corners only
+// add material), the sharp footprint corners of each finger slot at its bottomZ, and the relief
+// circles at the compartment floor. `slots` is the thinnest over slot corners alone.
+function thinnestCut(plan: TrayPlan): { all: number; slots: number; slotCorners: number } {
+  const result = { all: Number.POSITIVE_INFINITY, slots: Number.POSITIVE_INFINITY, slotCorners: 0 };
+  const sample = (x: number, y: number, z: number, rho = 0): number => {
+    const material = materialAt(plan, x, y, z, rho);
+    result.all = Math.min(result.all, material);
+    return material;
   };
   for (const c of plan.compartments) {
-    const { x0, y0, x1, y1 } = c.rect;
-    for (const [x, y, sx, sy] of [
-      [x0, y0, 1, 1],
-      [x1, y0, -1, 1],
-      [x1, y1, -1, -1],
-      [x0, y1, 1, -1],
-    ] as const) {
-      if (sharp) {
-        sample(x, y, c.floorZ);
-      }
-      const ri = INNER_CORNER_RADIUS;
-      for (let i = 0; i <= 16; i++) {
-        const t = (i / 16) * (Math.PI / 2);
-        sample(x + sx * ri - sx * ri * Math.cos(t), y + sy * ri - sy * ri * Math.sin(t), c.floorZ);
+    cornersOf(c.rect).forEach(([x, y]) => sample(x, y, c.floorZ));
+    for (const slot of c.slots) {
+      for (const [x, y] of cornersOf(slot)) {
+        result.slots = Math.min(result.slots, sample(x, y, slot.bottomZ));
+        result.slotCorners++;
       }
     }
-    for (const r of c.reliefs) {
-      for (let i = 0; i < 72; i++) {
-        const t = (i / 72) * 2 * Math.PI;
-        sample(r.cx + r.r * Math.cos(t), r.cy + r.r * Math.sin(t), c.floorZ);
-      }
-    }
+    c.reliefs.forEach((r) => sample(r.cx, r.cy, c.floorZ, r.r));
   }
-  return thinnest;
+  return result;
+}
+
+// The smallest valid wall (SETTING_RANGES).
+const WALL_MIN = SETTING_RANGES.find((r) => r.path === "wall")?.min ?? Number.NaN;
+const LIMIT = MIN_FEATURE_MM - SPEC_TOLERANCE;
+
+// Wall and floor pairs from the smallest valid wall up, each also at its largest chamfer.
+const WALL_FLOOR: [number, number][] = [
+  [WALL_MIN, 0.8],
+  [WALL_MIN, 1.2],
+  [WALL_MIN, 3],
+  [1.2, 0.8],
+  [1.2, 1.2],
+  [1.6, 1.2],
+  [2, 3],
+  [3, 3],
+];
+
+function withLargestChamfer(base: Settings, wall: number, floor: number): Settings {
+  const walled: Settings = { ...base, wall, floor };
+  return { ...walled, bottomChamfer: Math.min(3, maxBottomChamfer(walled)) };
 }
 
 describe("corner material under the bottom chamfer", () => {
-  it("relies on a well corner radius of at least 0.5 mm for walls under 0.9 mm", () => {
-    // maxCornerRadius gives walls < 0.8 + CORNER_MARGIN no arc margin; their ≥ 0.8 mm of corner
-    // material comes from the rounded inner corner (the measuring tests below).
-    expect(INNER_CORNER_RADIUS).toBeGreaterThanOrEqual(0.5);
-  });
-
-  const profiles: [number, number][] = [
-    [0.8, 0.8],
-    [0.8, 1.2],
-    [0.8, 3],
-    [1.2, 0.8],
-    [1.2, 1.2],
-    [1.6, 1.2],
-    [2, 3],
-    [3, 3],
-  ];
-
-  it.each(profiles)(
+  it.each(WALL_FLOOR)(
     "keeps 0.8 mm at the well floor at the largest chamfer (wall %d, floor %d)",
     (wall, floor) => {
-      const base: Settings = { ...GEO, wall, floor };
-      const settings: Settings = { ...base, bottomChamfer: Math.min(3, maxBottomChamfer(base)) };
+      const settings = withLargestChamfer(GEO, wall, floor);
       const side = 60;
       const spec = traySpec({
         key: "corner-material",
@@ -186,13 +193,7 @@ describe("corner material under the bottom chamfer", () => {
       });
       const plan = planTray(spec, settings);
       expect(plan.chamfer).toBeCloseTo(settings.bottomChamfer, 9);
-      const limit = MIN_FEATURE_MM - SPEC_TOLERANCE;
-      expect(thinnestAtFloor(plan, false)).toBeGreaterThanOrEqual(limit);
-      // Walls thinner than 0.8 + CORNER_MARGIN keep the disc on the arc's tangent line instead of
-      // a margin (maxCornerRadius), so the sharp-corner assumption only holds from there on.
-      if (wall >= MIN_FEATURE_MM + CORNER_MARGIN) {
-        expect(thinnestAtFloor(plan, true)).toBeGreaterThanOrEqual(limit);
-      }
+      expect(thinnestCut(plan).all).toBeGreaterThanOrEqual(LIMIT);
     },
   );
 
@@ -212,4 +213,72 @@ describe("corner material under the bottom chamfer", () => {
     expect(flat.cornerRadius).toBe(3);
     expect(steep.cornerRadius).toBeCloseTo(Math.max(1.6, maxCornerRadius(1.6, 1.6, 0.4)), 9);
   });
+});
+
+const OPTIONS: RealizeOptions[] = [
+  { lipped: false, level: 0 },
+  { lipped: true, level: 0 },
+  { lipped: false, level: 1 },
+  { lipped: true, level: 1 },
+];
+
+const SLACKS: [number, number, number][] = [
+  [0, 0, 0],
+  [5, 0, 0],
+  [0, 5, 0],
+  [0.01, 0.01, 0.01],
+];
+
+describe("corner material of sizing output", () => {
+  // Name, project, and whether its trays have finger slots.
+  const fixtures: [string, unknown, boolean][] = [
+    ["cards-heavy", cardsHeavy, true],
+    ["bits-heavy", bitsHeavy, false],
+    ["tiles-minis", tilesMinis, true],
+    ["tiny-box", tinyBox, true],
+  ];
+
+  it.each(fixtures)(
+    "keeps 0.8 mm at every well, slot and relief corner of %s",
+    (_name, raw, hasSlots) => {
+      const { components, settings: base } = loadFixture(raw);
+      const failures: string[] = [];
+      let slotCorners = 0;
+      for (const [wall, floor] of WALL_FLOOR) {
+        for (const settings of [{ ...base, wall, floor }, withLargestChamfer(base, wall, floor)]) {
+          expect(settingsValid(settings), `wall ${wall}, floor ${floor} is valid`).toBe(true);
+          const variants = size(components, settings).requirements.flatMap((r) => r.variants);
+          for (const variant of variants) {
+            for (const part of variant.parts) {
+              for (const opts of OPTIONS) {
+                const min = minOuter(part, settings, opts);
+                for (const [dw, dd, dh] of SLACKS) {
+                  const outer = { w: min.w + dw, d: min.d + dd, h: min.h + dh };
+                  const realized = realizeTray(part, outer, settings, opts);
+                  const turned = rotateRealized(realized, outer);
+                  const turnedOuter = { w: outer.d, d: outer.w, h: outer.h };
+                  for (const spec of [
+                    traySpecFrom(realized, outer, opts, settings, part.trayKey),
+                    traySpecFrom(turned, turnedOuter, opts, settings, part.trayKey),
+                  ]) {
+                    const thinnest = thinnestCut(planTray(spec, settings));
+                    slotCorners += thinnest.slotCorners;
+                    if (thinnest.all < LIMIT) {
+                      failures.push(
+                        `wall ${wall}, floor ${floor}, chamfer ${settings.bottomChamfer}, ${part.trayKey} ${JSON.stringify(opts)}: ${thinnest.all.toFixed(3)} mm (slots ${thinnest.slots.toFixed(3)})`,
+                      );
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      expect(failures.slice(0, 3)).toEqual([]);
+      if (hasSlots) {
+        expect(slotCorners).toBeGreaterThan(0);
+      }
+    },
+  );
 });
