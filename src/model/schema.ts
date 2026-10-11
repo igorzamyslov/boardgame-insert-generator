@@ -154,7 +154,11 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
     (n) => isBlocking(n) && (enforceBounds || !n.code.startsWith("limit.")),
   );
   if (blocking.length > 0) {
-    return fail(`This project can't be opened: ${summarize(blocking.map((n) => n.message))}`);
+    const items = blocking.map((n) => {
+      const message = n.message.replace(/\.$/, "");
+      return n.path === undefined ? message : `${n.path}: ${message}`;
+    });
+    return fail(`This project can't be opened: ${summarize(items)}.`);
   }
   return { ...result, notices: [...notices, ...result.notices] };
 }

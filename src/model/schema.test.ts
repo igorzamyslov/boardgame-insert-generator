@@ -226,7 +226,20 @@ describe("parseProject: spec §5 bounds", () => {
   it("refuses counts over 2000", () => {
     const input = raw(sampleProject());
     firstCards(input).decks = [{ name: "Huge", count: 5000 }];
-    expect(expectError(input)).toMatch(/can't be opened: Card count must be at most 2000/);
+    expect(expectError(input)).toBe(
+      "This project can't be opened: /components/0/decks/0/count: Card count must be at most 2000.",
+    );
+  });
+
+  it("names the path of every refused value and ends with one full stop", () => {
+    const input = raw(newProject());
+    Object.assign(input.box as Json, { innerWidth: 1001, innerDepth: 1001 });
+    input.components = [{ ...newComponent("custom"), count: 2001 }];
+    expect(expectError(input)).toBe(
+      "This project can't be opened: /box/innerWidth: Box width must be at most 1000 mm; " +
+        "/box/innerDepth: Box depth must be at most 1000 mm; " +
+        "/components/0/count: Count must be at most 2000.",
+    );
   });
 
   it("refuses more than 100 components", () => {
