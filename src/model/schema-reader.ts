@@ -125,6 +125,11 @@ export class Reader {
     if (typeof v === "number" && Number.isFinite(v)) {
       return v;
     }
+    // JSON has no NaN: JSON.stringify writes a NaN (a half-edited field) as null.
+    // Read it back as NaN so validateProject() reports the field and the project still loads.
+    if (v === null) {
+      return Number.NaN;
+    }
     this.problem(key, v === undefined ? "missing" : "expected a number");
     return 0;
   }

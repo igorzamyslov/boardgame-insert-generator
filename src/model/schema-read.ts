@@ -19,6 +19,9 @@ import type { Box, ForeignData, Lock, ParseResult, Printer, Project, Settings } 
 // Turns untrusted project JSON of a known schema line into a typed Project.
 // Version dispatch (which line, newer or not, migrations) lives in schema.ts.
 
+/** The error for input nested deeper than MAX_JSON_DEPTH (also used before migrations run). */
+export const TOO_DEEP_ERROR = `This project file is damaged: nested too deeply (more than ${MAX_JSON_DEPTH} levels).`;
+
 export type { Json } from "./json";
 export { isRecord, MAX_JSON_DEPTH, pointerKeys, summarize, valueAt } from "./json";
 
@@ -59,7 +62,8 @@ function readLock(r: Reader): Lock | null {
 /**
  * Locks are always droppable (spec §7.2): an unreadable lock is dropped with a
  * notice, never fatal. In newer-minor files a lock of an unknown kind is not
- * applied but kept verbatim in `kept`, and written back at its index on save.
+ * applied but kept verbatim in `kept` (its path indexes the surviving locks,
+ * not the file), and written back at that index on save.
  */
 function readLocks(list: unknown[], ctx: Ctx): { locks: Lock[]; kept: ForeignValue[] } {
   const locks: Lock[] = [];
@@ -72,7 +76,9 @@ function readLocks(list: unknown[], ctx: Ctx): { locks: Lock[]; kept: ForeignVal
       locks.push(lock);
       adopt(ctx, sub);
     } else if (ctx.newer && sub.unknownValues.length > 0) {
-      kept.push({ path, raw: structuredClone(raw) });
+      // The index among surviving locks: it is where the lock goes in the saved
+      // array, which has no room for the dropped ones ahead of it in the file.
+      kept.push({ path: `/locks/${locks.length + kept.length}`, raw: structuredClone(raw) });
       ctx.notices.push({
         level: "warning",
         code: "schema.unknownValue",
@@ -196,10 +202,7 @@ export interface ReadOptions {
 export function readProject(data: Json, opts: ReadOptions): ParseResult {
   // Before anything recursive (structuredClone of kept values, hashing, saving) sees the data.
   if (jsonDepthExceeds(data, MAX_JSON_DEPTH)) {
-    return {
-      ok: false,
-      error: `This project file is damaged: nested too deeply (more than ${MAX_JSON_DEPTH} levels).`,
-    };
+    return { ok: false, error: TOO_DEEP_ERROR };
   }
   const ctx = newCtx(opts.newer);
   const r = new Reader(data, "", ctx);

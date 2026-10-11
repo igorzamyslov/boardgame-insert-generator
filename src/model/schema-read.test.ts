@@ -285,6 +285,30 @@ describe("readProject: files from a newer minor", () => {
     ]);
   });
 
+  it("indexes a kept lock among the surviving locks, not the file's", () => {
+    const input = sampleJson();
+    const known = list(input, "locks");
+    const magnet = { kind: "magnet", trayKey: "x" };
+    const glue = { kind: "glue", trayKey: "y" };
+    // File order: dropped, unknown, known x3, dropped, unknown.
+    input.locks = [{ kind: "size", trayKey: "d" }, magnet, ...known, "junk", glue];
+    const result = expectOk(readProject(input, NEWER));
+    expect(result.project.locks).toEqual(sampleProject().locks);
+    expect(result.foreign.values).toEqual([
+      { path: "/locks/0", raw: magnet },
+      { path: "/locks/4", raw: glue },
+    ]);
+  });
+
+  it("reads a JSON null as NaN where a number belongs, so validateProject can report it", () => {
+    const input = sampleJson();
+    (input.box as Json).innerDepth = null;
+    (input.settings as Json).wall = null;
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.project.box.innerDepth).toBeNaN();
+    expect(result.project.settings.wall).toBeNaN();
+  });
+
   it("still drops an unreadable lock of a known kind", () => {
     const input = sampleJson();
     list(input, "locks").push({ kind: "size", trayKey: "x" });

@@ -3,6 +3,7 @@ import { sampleProject } from "../test-support/sample";
 import { newComponent, newProject } from "./defaults";
 import { noForeign, parseProject, serializeProject, toSerializable } from "./schema";
 import type { Project } from "./types";
+import { validateProject } from "./validate";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
 
 type Json = Record<string, unknown>;
@@ -46,7 +47,70 @@ describe("serializeProject / parseProject", () => {
   });
 });
 
+describe("a half-edited project (NaN fields)", () => {
+  it("survives serialize and parse, and validateProject reports the fields", () => {
+    const p = sampleProject();
+    p.box.innerDepth = Number.NaN;
+    const cards = p.components[0];
+    if (cards?.kind !== "cards") {
+      throw new Error("the sample starts with a cards component");
+    }
+    const deck = cards.decks[0];
+    if (!deck) {
+      throw new Error("the sample cards have a deck");
+    }
+    deck.count = Number.NaN;
+
+    const result = parseProject(raw(p));
+    if (!result.ok) {
+      throw new Error(`expected ok, got: ${result.error}`);
+    }
+    expect(result.project.box.innerDepth).toBeNaN();
+    const loadedCards = result.project.components[0];
+    expect(loadedCards?.kind === "cards" && loadedCards.decks[0]?.count).toBeNaN();
+    const paths = validateProject(result.project).map((n) => n.path);
+    expect(paths).toContain("/box/innerDepth");
+    expect(paths).toContain("/components/0/decks/0/count");
+  });
+
+  it("still refuses text and other types where a number belongs", () => {
+    for (const bad of ["12", {}, [], true]) {
+      const input = raw(newProject());
+      (input.box as Json).innerDepth = bad;
+      expect(expectError(input)).toMatch(/\/box\/innerDepth: expected a number/);
+    }
+  });
+});
+
 describe("toSerializable", () => {
+  it("returns a deep copy that shares nothing with the project or the foreign data", () => {
+    const foreigns = [
+      noForeign(),
+      {
+        components: [{ index: 0, raw: { kind: "dial", nested: { a: 1 } } }],
+        values: [{ path: "/settings/leftover", raw: "hollow" }],
+      },
+    ];
+    for (const foreign of foreigns) {
+      const p = sampleProject();
+      const projectBefore = structuredClone(p);
+      const foreignBefore = structuredClone(foreign);
+      const out = toSerializable(p, foreign);
+      (out.box as Json).innerWidth = 1;
+      (out.settings as Json).wall = 99;
+      for (const comp of out.components as Json[]) {
+        comp.name = "changed";
+        comp.nested = "changed";
+      }
+      for (const lock of out.locks as Json[]) {
+        lock.trayKey = "changed";
+      }
+      ((out.layout as Json).trays as Json[]).length = 0;
+      expect(p).toEqual(projectBefore);
+      expect(foreign).toEqual(foreignBefore);
+    }
+  });
+
   it("re-inserts foreign components at their original indices", () => {
     const p = newProject();
     const [a, b] = [newComponent("custom"), newComponent("cards")];

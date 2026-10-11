@@ -1,6 +1,15 @@
 import { DEFAULT_BOX, DEFAULT_PRINTER } from "./defaults";
+import { jsonDepthExceeds } from "./json";
 import type { Json } from "./schema-read";
-import { isRecord, pointerKeys, readProject, summarize, valueAt } from "./schema-read";
+import {
+  isRecord,
+  MAX_JSON_DEPTH,
+  pointerKeys,
+  readProject,
+  summarize,
+  TOO_DEEP_ERROR,
+  valueAt,
+} from "./schema-read";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ForeignData, Notice, ParseResult, Project } from "./types";
 import { isBlocking, validateProject } from "./validate";
@@ -55,6 +64,10 @@ function fail(error: string): ParseResult {
 }
 
 function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
+  // Before anything recursive (structuredClone for migrations, the reader) sees the input.
+  if (jsonDepthExceeds(raw, MAX_JSON_DEPTH)) {
+    return fail(TOO_DEEP_ERROR);
+  }
   if (!isRecord(raw)) {
     return fail("This is not an insert generator project (expected a JSON object).");
   }
@@ -78,6 +91,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
   const notices: Notice[] = [];
   let data: Json = raw;
   let version = file;
+  let versionText = fileVersion;
   while (compareRank(compat(version).rank, appCompat.rank) < 0) {
     const from = compat(version);
     const step = opts.migrations.find((m) => m.from === from.line);
@@ -90,6 +104,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
     }
     data = { ...step.migrate(structuredClone(data)), schemaVersion: step.to };
     version = to;
+    versionText = step.to;
   }
   if (version !== file) {
     notices.push({
@@ -110,7 +125,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
     notices.push({
       level: "warning",
       code: "schema.newerMinor",
-      message: `Made with app ${createdWith}, which is newer than this app (${APP_VERSION}). Parts this app doesn't know are kept but not laid out. Re-optimizing needs confirmation.`,
+      message: `Made with app ${createdWith} (schema ${versionText}), which is newer than this app (${APP_VERSION}, schema ${opts.appSchemaVersion}). Parts this app doesn't know are kept but not laid out. Re-optimizing needs confirmation.`,
     });
   }
 
@@ -232,21 +247,18 @@ function restoreValues(out: Json, values: readonly ForeignValue[]): void {
  * The object written to links, files and storage: the project with
  * createdWith set to this app (spec §5: "app version that last saved it"),
  * foreign components re-inserted at their original indices, and foreign
- * values written back (see restoreValues). Never modifies `p`.
+ * values written back (see restoreValues). Never modifies `p`, and the result
+ * is a deep copy, so callers may change it freely.
  */
 export function toSerializable(p: Project, foreign: ForeignData): Json {
   const components: unknown[] = [...p.components];
   for (const f of [...foreign.components].sort((a, b) => a.index - b.index)) {
     components.splice(Math.min(f.index, components.length), 0, f.raw);
   }
-  const out: Json = { ...p, createdWith: APP_VERSION, components };
-  const values = foreign.values ?? [];
-  if (values.length === 0) {
-    return out;
-  }
-  const copy = structuredClone(out);
-  restoreValues(copy, values);
-  return copy;
+  // Always a deep copy: the result shares nothing with `p` or `foreign`.
+  const out = structuredClone({ ...p, createdWith: APP_VERSION, components }) as Json;
+  restoreValues(out, foreign.values ?? []);
+  return out;
 }
 
 /** Compact JSON for links and storage. */

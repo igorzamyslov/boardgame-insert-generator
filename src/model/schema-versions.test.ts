@@ -3,7 +3,9 @@ import { sampleProject } from "../test-support/sample";
 import type { Migration } from "./schema";
 import { MIGRATIONS, noForeign, parseProject, parseProjectWith, serializeProject } from "./schema";
 import { DEFAULT_SETTINGS } from "./settings";
+import { Reader } from "./schema-reader";
 import type { ParseResult } from "./types";
+import { valueAt, pointerKeys } from "./json";
 import { SCHEMA_VERSION, parseSemver } from "./version";
 
 type Json = Record<string, unknown>;
@@ -60,7 +62,8 @@ describe("same line, newer minor", () => {
   it("loads with a 'made with a newer app' warning and keeps the file's version", () => {
     const result = expectOk(parseProject(newerFile(), "1.0.0"));
     expect(result.notices[0]).toMatchObject({ level: "warning", code: "schema.newerMinor" });
-    expect(result.notices[0]?.message).toContain("1.2.0");
+    expect(result.notices[0]?.message).toContain("(schema 1.2.0)");
+    expect(result.notices[0]?.message).toContain("this app (");
     expect(result.project.schemaVersion).toBe("1.2.0");
     expect(result.foreign.components.map((f) => f.index)).toEqual([1]);
   });
@@ -94,6 +97,24 @@ describe("same line, newer minor", () => {
     expect(result.notices.map((n) => n.code)).toEqual(["schema.newerMinor"]);
   });
 
+  it("names the schema version even when the file has no createdWith", () => {
+    const input = newerFile();
+    delete input.createdWith;
+    const result = expectOk(parseProject(input, "1.0.0"));
+    expect(result.notices[0]?.message).toMatch(/Made with app unknown \(schema 1\.2\.0\)/);
+  });
+
+  it("keeps unknown locks in their relative order when a dropped lock precedes them", () => {
+    const input = newerFile();
+    // [dropped, unknown, ...known]: the dropped one is gone, the unknown one comes first.
+    const magnet = { kind: "magnet", trayKey: "x" };
+    const known = (input.locks as Json[]).filter((l) => l.kind !== "magnet");
+    input.locks = [{ kind: "size", trayKey: "d" }, magnet, ...known];
+    const result = expectOk(parseProject(input, "1.0.0"));
+    const saved = JSON.parse(serializeProject(result.project, result.foreign)) as Json;
+    expect(saved.locks).toEqual([magnet, ...known]);
+  });
+
   it("keeps an own __proto__ field through parse, serialize and parse", () => {
     // JSON.parse makes "__proto__" an own data property; object literals would not.
     const text = JSON.stringify(newerFile()).replace(
@@ -111,7 +132,19 @@ describe("same line, newer minor", () => {
   });
 });
 
+describe("same line, newer patch from 1.0 on", () => {
+  it("loads silently and takes the app's version", () => {
+    const result = expectOk(parseProject(fileAt("1.2.5"), "1.2.0"));
+    expect(result.notices).toEqual([]);
+    expect(result.project.schemaVersion).toBe("1.2.0");
+  });
+});
+
 describe("refused files", () => {
+  it("refuses a 1.0.0 file in a 0.x app", () => {
+    expect(expectError(parseProject(fileAt("1.0.0", "1.0.0"), "0.1.0"))).toMatch(/Update the app/);
+  });
+
   it("refuses a newer major and names both versions", () => {
     const message = expectError(parseProject(fileAt("2.0.0", "2.1.0"), "1.4.0"));
     expect(message).toMatch(/made with app 2\.1\.0/);
@@ -184,6 +217,36 @@ describe("migrations (fake registry)", () => {
     expect(expectError(result)).toMatch(/no migration from schema line 1/);
   });
 
+  it("refuses a step whose target version can't be read", () => {
+    const unreadable: Migration[] = [{ from: "1", to: "two", migrate: (raw) => raw }];
+    const result = parseProjectWith(v1File(), {
+      appSchemaVersion: "2.0.0",
+      migrations: unreadable,
+    });
+    expect(expectError(result)).toMatch(/no migration from schema line 1/);
+  });
+
+  it("refuses deeply nested input before any migration runs", () => {
+    const migrate = vi.fn((raw: Json) => raw);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      let nest: unknown = 1;
+      for (let i = 0; i < 5000; i += 1) {
+        nest = { a: nest };
+      }
+      const input = { ...v1File(), extra: nest };
+      const result = parseProjectWith(input, {
+        appSchemaVersion: "2.0.0",
+        migrations: [{ from: "1", to: "2.0.0", migrate }],
+      });
+      expect(expectError(result)).toMatch(/nested too deeply/);
+      expect(migrate).not.toHaveBeenCalled();
+      expect(logged).not.toHaveBeenCalled();
+    } finally {
+      logged.mockRestore();
+    }
+  });
+
   it("supports 0.MINOR lines", () => {
     const zero: Migration[] = [{ from: "0.1", to: "0.2.0", migrate: (raw) => raw }];
     const result = parseProjectWith(fileAt("0.1.4"), {
@@ -220,9 +283,72 @@ describe("migrations (fake registry)", () => {
   });
 });
 
-describe("the real registry", () => {
-  it("is empty while the schema is 0.x (no compatibility promise)", () => {
-    expect(parseSemver(SCHEMA_VERSION)?.major).toBe(0);
-    expect(MIGRATIONS).toEqual([]);
+/**
+ * Compatibility lines below the app's that have no migration to a later line.
+ * From 1.0 on every MAJOR line 1..A-1 needs one (spec §9); none are needed while 0.x.
+ */
+function linesWithoutMigration(appSchemaVersion: string, migrations: readonly Migration[]) {
+  const app = parseSemver(appSchemaVersion)?.major ?? 0;
+  const missing: string[] = [];
+  for (let line = 1; line < app; line += 1) {
+    const step = migrations.find((m) => m.from === String(line));
+    const to = step ? parseSemver(step.to) : null;
+    if (!to || to.major <= line) {
+      missing.push(String(line));
+    }
+  }
+  return missing;
+}
+
+describe("the migration registry invariant", () => {
+  const step = (from: string, to: string): Migration => ({ from, to, migrate: (raw) => raw });
+
+  it("holds for the real registry and the app's schema version", () => {
+    expect(linesWithoutMigration(SCHEMA_VERSION, MIGRATIONS)).toEqual([]);
+  });
+
+  it("is checked for real: a complete fake registry passes, a gap or a stuck step fails", () => {
+    expect(linesWithoutMigration("3.0.0", [step("1", "2.0.0"), step("2", "3.0.0")])).toEqual([]);
+    expect(linesWithoutMigration("3.0.0", [step("1", "2.0.0")])).toEqual(["2"]);
+    expect(linesWithoutMigration("3.0.0", [step("1", "2.0.0"), step("2", "2.5.0")])).toEqual(["2"]);
+    expect(linesWithoutMigration("0.4.0", [])).toEqual([]);
+  });
+});
+
+describe("unknown-value fallbacks", () => {
+  /** Paths of every enum the reader reads in box, printer and settings. */
+  function enumPaths(): string[] {
+    const spy = vi.spyOn(Reader.prototype, "oneOf");
+    try {
+      expectOk(parseProject(fileAt(SCHEMA_VERSION)));
+      const paths = spy.mock.contexts.map((reader, i) =>
+        (reader as Reader).at(String(spy.mock.calls[i]?.[0])),
+      );
+      return paths.filter((path) => /^\/(box|printer|settings)\//.test(path));
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
+  it("finds the enum fields it should (so the check below is not vacuous)", () => {
+    expect(enumPaths()).toEqual(
+      expect.arrayContaining(["/box/headroomCoverage", "/settings/leftover"]),
+    );
+  });
+
+  it("round-trips an unknown value at every enum field of box, printer and settings", () => {
+    for (const path of enumPaths()) {
+      const raw = fileAt("0.1.9");
+      const keys = pointerKeys(path);
+      const parent = valueAt(raw, keys.slice(0, -1)) as Json;
+      parent[keys.at(-1) ?? ""] = "not-a-known-value";
+      const result = expectOk(parseProject(raw, "0.1.0"));
+      // The reader substituted something known and recorded the original...
+      expect(result.foreign.values, path).toEqual([{ path, raw: "not-a-known-value" }]);
+      expect(valueAt(result.project, keys), path).not.toBe("not-a-known-value");
+      // ...and the writer recognises that substitute as "unchanged", writing the original back.
+      const saved = JSON.parse(serializeProject(result.project, result.foreign)) as Json;
+      expect(valueAt(saved, keys), path).toBe("not-a-known-value");
+    }
   });
 });
