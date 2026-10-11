@@ -1,12 +1,6 @@
 import { groupOf } from "./defaults";
 import { deepFreeze } from "./freeze";
-import {
-  CORNER_MARGIN,
-  MIN_FEATURE_MM,
-  SPEC_TOLERANCE,
-  maxBottomChamfer,
-  topPlane,
-} from "./settings";
+import { CORNER_MARGIN, MIN_FEATURE_MM, maxBottomChamfer, topPlane } from "./settings";
 import type { Component, Lock, Notice, Project, Settings } from "./types";
 
 /**
@@ -362,6 +356,14 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
 }
 
 /**
+ * Absorbs float noise when a setting is compared with a derived limit. Settings are not on the
+ * TraySpec 0.01 mm grid, so SPEC_TOLERANCE does not apply: a chamfer even 0.005 mm above
+ * maxBottomChamfer leaves a forced R = c corner under MIN_FEATURE_MM + CORNER_MARGIN, which
+ * planTray rejects.
+ */
+const SETTINGS_EPSILON = 1e-9;
+
+/**
  * One field.setting error per setting outside its SETTING_RANGES entry (NaN included), then the
  * cross-field rule: bottomChamfer ≤ maxBottomChamfer (field.bottomChamfer), checked only when
  * wall, floor and bottomChamfer are in range themselves.
@@ -383,7 +385,7 @@ function checkSettings(ck: Checker, settings: Settings): void {
     return;
   }
   const limit = maxBottomChamfer(settings);
-  if (settings.bottomChamfer > limit + SPEC_TOLERANCE) {
+  if (settings.bottomChamfer > limit + SETTINGS_EPSILON) {
     ck.error(
       VALIDATION_NOTICE_CODES.field.bottomChamfer,
       "/settings/bottomChamfer",

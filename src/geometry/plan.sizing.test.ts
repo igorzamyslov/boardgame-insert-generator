@@ -3,7 +3,7 @@ import bitsHeavy from "../../test/fixtures/bits-heavy.json";
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import tilesMinis from "../../test/fixtures/tiles-minis.json";
 import tinyBox from "../../test/fixtures/tiny-box.json";
-import { MIN_FEATURE_MM, maxBottomChamfer } from "../model/settings";
+import { DEFAULT_SETTINGS, MIN_FEATURE_MM, maxBottomChamfer } from "../model/settings";
 import type { Component, Settings, TraySpec } from "../model/types";
 import { SETTING_RANGES, settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
@@ -37,6 +37,20 @@ const PROFILES: [string, Profile][] = [
   ],
   ["no chamfer", (s) => ({ ...s, bottomChamfer: 0 })],
   ["largest chamfer", (s) => ({ ...s, bottomChamfer: maxBottomChamfer(s) })],
+  [
+    "largest chamfer, default wall and floor",
+    (s) => {
+      const walls = { ...s, wall: DEFAULT_SETTINGS.wall, floor: DEFAULT_SETTINGS.floor };
+      return { ...walls, bottomChamfer: maxBottomChamfer(walls) };
+    },
+  ],
+  [
+    "largest chamfer, wall and floor 0.9",
+    (s) => {
+      const thin = { ...s, wall: WALL_MIN, floor: WALL_MIN };
+      return { ...thin, bottomChamfer: maxBottomChamfer(thin) };
+    },
+  ],
   [
     "largest chamfer, thin wall and floor",
     (s) => {

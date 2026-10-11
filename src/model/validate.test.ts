@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { newComponent, newProject } from "./defaults";
+import { DEFAULT_SETTINGS, maxBottomChamfer } from "./settings";
 import type {
   BulkComponent,
   CardsComponent,
@@ -587,6 +588,24 @@ describe("setting ranges", () => {
     ]);
     expect(settingsValid(withChamfer(0.9, 0.8, 3).settings)).toBe(false);
     expect(settingsValid(withChamfer(0.9, 0.8, 0.82).settings)).toBe(true);
+  });
+
+  it("compares the bottom chamfer with its limit without the TraySpec grid tolerance", () => {
+    for (const [wall, floor] of [
+      [DEFAULT_SETTINGS.wall, DEFAULT_SETTINGS.floor],
+      [0.9, 0.9],
+      [1.2, 1.2],
+    ] as const) {
+      const p = newProject();
+      const limit = maxBottomChamfer({ ...p.settings, wall, floor });
+      p.settings = { ...p.settings, wall, floor, bottomChamfer: limit };
+      expect(validateProject(p)).toEqual([]);
+      p.settings = { ...p.settings, bottomChamfer: limit + 0.001 };
+      expect(codes(validateProject(p))).toEqual([[field.bottomChamfer, "/settings/bottomChamfer"]]);
+    }
+    // Regression: the defaults allow 1.812 mm; 1.816 passed with the 0.005 mm tolerance and then
+    // made planTray reject sizing output (a forced R = c corner keeps 0.9 − √2·0.004 mm).
+    expect(settingsValid({ ...DEFAULT_SETTINGS, bottomChamfer: 1.816 })).toBe(false);
   });
 
   it("does not add a chamfer notice when the wall, floor or chamfer is out of range", () => {
