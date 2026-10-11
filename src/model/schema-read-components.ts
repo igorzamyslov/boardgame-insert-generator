@@ -1,8 +1,8 @@
 import { KIND_NAMES } from "./defaults";
 import { newId } from "./ids";
-import { isRecord } from "./json";
+import { isRecord, quote } from "./json";
 import type { Ctx } from "./schema-reader";
-import { adopt, childCtx, Reader, readEnum } from "./schema-reader";
+import { absorbErrors, addError, adopt, childCtx, Reader, readEnum } from "./schema-reader";
 import type {
   BulkItem,
   Component,
@@ -18,7 +18,7 @@ const SLEEVE_NAMES = ["none", "standard", "premium"] as const;
 
 function readBase(r: Reader, kind: ComponentKind): ComponentBase {
   const base: ComponentBase = {
-    id: r.str("id", newId()),
+    id: r.optStr("id") ?? newId(),
     name: r.str("name", KIND_NAMES[kind]),
     access: r.oneOf("access", ["often", "sometimes", "setup"], "sometimes"),
   };
@@ -55,7 +55,7 @@ function readCards(r: Reader, base: ComponentBase): Component {
       level: "info",
       code: "schema.cardSidesSwapped",
       path: r.at("shortSide"),
-      message: `Card sides of "${base.name}" were the wrong way round and have been swapped.`,
+      message: `Card sides of ${quote(base.name)} were the wrong way round and have been swapped.`,
     });
   }
   const decks = r
@@ -105,7 +105,10 @@ function readTileShape(r: Reader): TileShape {
   if (!s) {
     return { type: "rect", w: 0, d: 0 };
   }
-  const type = s.oneOf("type", ["rect", "hex"]);
+  const type = s.tag("type", ["rect", "hex"]);
+  if (type === null) {
+    return { type: "rect", w: 0, d: 0 };
+  }
   if (type === "hex") {
     return s.finish({
       type,
@@ -162,7 +165,8 @@ function readKnownComponent(r: Reader, kind: ComponentKind): Component {
 /**
  * Newer-minor files: a component of an unknown kind, or with a value or shape
  * this app can't read, becomes foreign: kept verbatim, not laid out, and
- * re-inserted at its original index on save. Other files: it is an error.
+ * re-inserted at its original index on save. Other files: it is an error. A
+ * list entry that isn't an object is damaged data in every file, never foreign.
  */
 export function readComponents(
   list: unknown[],
@@ -173,21 +177,18 @@ export function readComponents(
   list.forEach((raw, index) => {
     const path = `/components/${index}`;
     const sub = childCtx(ctx);
-    let component: Component | null = null;
     if (!isRecord(raw)) {
-      sub.errors.push(`${path}: expected an object`);
-    } else {
-      const r = new Reader(raw, path, sub);
-      const kind = r.oneOf("kind", COMPONENT_KINDS);
-      if (sub.errors.length === 0 && sub.unknownValues.length === 0) {
-        component = readKnownComponent(r, kind);
-      }
+      // Not a component of any version: damaged, never foreign.
+      addError(ctx, `${path}: expected an object`);
+      return;
     }
+    const r = new Reader(raw, path, sub);
+    const kind = r.tag("kind", COMPONENT_KINDS);
+    const component = kind ? readKnownComponent(r, kind) : null;
     const unreadable = sub.errors.length > 0 || sub.unknownValues.length > 0;
     if (unreadable && ctx.newer) {
-      foreign.components.push({ index, raw });
-      const name =
-        isRecord(raw) && typeof raw.name === "string" ? `"${raw.name}"` : `#${index + 1}`;
+      foreign.components.push({ index, raw: structuredClone(raw) });
+      const name = typeof raw.name === "string" ? quote(raw.name) : `#${index + 1}`;
       ctx.notices.push({
         level: "warning",
         code: "schema.foreignComponent",
@@ -195,7 +196,7 @@ export function readComponents(
         message: `Component ${name} uses features this app version doesn't know. It is kept but not laid out.`,
       });
     } else if (unreadable) {
-      ctx.errors.push(...sub.errors);
+      absorbErrors(ctx, sub);
     } else if (component) {
       components.push(component);
       adopt(ctx, sub);

@@ -1,11 +1,11 @@
 import { DEFAULT_BOX, DEFAULT_PRINTER, DEFAULT_PROJECT_NAME } from "./defaults";
 import { newId } from "./ids";
 import type { Json } from "./json";
-import { pointerKeys, summarize, valueAt, isRecord } from "./json";
+import { isRecord, pointerKeys, summarize, valueAt } from "./json";
 import { readComponents } from "./schema-read-components";
 import { readLayout } from "./schema-read-layout";
 import type { Ctx } from "./schema-reader";
-import { adopt, childCtx, Reader } from "./schema-reader";
+import { addError, adopt, childCtx, newCtx, Reader } from "./schema-reader";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { Box, ForeignData, Lock, ParseResult, Printer, Project, Settings } from "./types";
 
@@ -17,8 +17,8 @@ export { isRecord, pointerKeys, summarize, valueAt } from "./json";
 
 type ForeignValue = NonNullable<ForeignData["values"]>[number];
 
-function readLock(r: Reader): Lock {
-  const kind = r.oneOf("kind", ["position", "size", "stack"]);
+function readLock(r: Reader): Lock | null {
+  const kind = r.tag("kind", ["position", "size", "stack"]);
   switch (kind) {
     case "position":
       return r.finish({
@@ -38,12 +38,14 @@ function readLock(r: Reader): Lock {
     case "stack": {
       const trayKeys = r.list("trayKeys").map((k, i) => {
         if (typeof k !== "string") {
-          r.ctx.errors.push(`${r.at("trayKeys")}/${i}: expected text`);
+          addError(r.ctx, `${r.at("trayKeys")}/${i}: expected text`);
         }
         return String(k);
       });
       return r.finish({ kind, trayKeys });
     }
+    case null:
+      return null;
   }
 }
 
@@ -63,7 +65,7 @@ function readLocks(list: unknown[], ctx: Ctx): { locks: Lock[]; kept: ForeignVal
       locks.push(lock);
       adopt(ctx, sub);
     } else if (ctx.newer && sub.unknownValues.length > 0) {
-      kept.push({ path, raw });
+      kept.push({ path, raw: structuredClone(raw) });
       ctx.notices.push({
         level: "warning",
         code: "schema.unknownValue",
@@ -184,11 +186,11 @@ export interface ReadOptions {
  * validate bounds; see validateProject().
  */
 export function readProject(data: Json, opts: ReadOptions): ParseResult {
-  const ctx: Ctx = { newer: opts.newer, errors: [], unknownValues: [], dropped: [], notices: [] };
+  const ctx = newCtx(opts.newer);
   const r = new Reader(data, "", ctx);
   r.take("schemaVersion");
   const createdWith = r.str("createdWith", "unknown");
-  const id = r.str("id", newId());
+  const id = r.optStr("id") ?? newId();
   const name = r.str("name", DEFAULT_PROJECT_NAME);
   const box = readBox(r.child("box"));
   const printer = readPrinter(r.child("printer"));
@@ -212,13 +214,16 @@ export function readProject(data: Json, opts: ReadOptions): ParseResult {
     project.layout = layout;
   }
   if (ctx.errors.length > 0) {
-    return { ok: false, error: `This project file is damaged: ${summarize(ctx.errors)}.` };
+    return {
+      ok: false,
+      error: `This project file is damaged: ${summarize(ctx.errors, ctx.omitted)}.`,
+    };
   }
   // Box, printer and settings values this app doesn't know: the project uses
   // the default, and serializeProject writes the original back (spec §9).
   const values: ForeignValue[] = ctx.unknownValues.map((path) => ({
     path,
-    raw: valueAt(data, pointerKeys(path)),
+    raw: structuredClone(valueAt(data, pointerKeys(path))),
   }));
   for (const path of ctx.unknownValues) {
     ctx.notices.push({
@@ -229,7 +234,9 @@ export function readProject(data: Json, opts: ReadOptions): ParseResult {
         "This setting uses a value this app version doesn't know. The default is used here; the original value is saved back unless you change this setting.",
     });
   }
-  values.push(...kept);
+  for (const value of kept) {
+    values.push(value);
+  }
   if (values.length > 0) {
     foreign.values = values;
   }

@@ -1,16 +1,21 @@
 import type { Json } from "./json";
-import { isRecord } from "./json";
+import { escapePointerKey, isRecord, quote, shorten } from "./json";
 import type { Notice } from "./types";
 
 // The read machinery behind schema-read.ts: a per-scope context and a Reader
 // that pulls typed fields out of one JSON object.
 
-export /** Shared state of one read. Child scopes (a component, a lock, a tray) get their own errors. */
-interface Ctx {
+/** Collected problems per scope; summarize() shows three, so keeping more only costs memory. */
+const MAX_ERRORS = 100;
+
+/** Shared state of one read. Child scopes (a component, a lock, a tray) get their own errors. */
+export interface Ctx {
   /** File is from a newer MINOR of the same line: keep unknown fields, don't fail on unknown values. */
   newer: boolean;
-  /** Structural problems; any left at the end of a scope make that scope unreadable. */
+  /** Structural problems (at most MAX_ERRORS); any left at the end of a scope make that scope unreadable. */
   errors: string[];
+  /** Structural problems beyond MAX_ERRORS, counted but not kept. */
+  omitted: number;
   /** Newer files only: paths of enum values this app doesn't know. */
   unknownValues: string[];
   /** Same-or-older files only: paths of unknown fields that were dropped. */
@@ -18,16 +23,42 @@ interface Ctx {
   notices: Notice[];
 }
 
+export function newCtx(newer: boolean): Ctx {
+  return { newer, errors: [], omitted: 0, unknownValues: [], dropped: [], notices: [] };
+}
+
 export function childCtx(ctx: Ctx): Ctx {
-  return { newer: ctx.newer, errors: [], unknownValues: [], dropped: [], notices: [] };
+  return newCtx(ctx.newer);
+}
+
+/** Records a structural problem, keeping only the first MAX_ERRORS of them. */
+export function addError(ctx: Ctx, message: string): void {
+  if (ctx.errors.length < MAX_ERRORS) {
+    ctx.errors.push(message);
+  } else {
+    ctx.omitted += 1;
+  }
+}
+
+/** Passes a failed child scope's problems on to its parent. */
+export function absorbErrors(parent: Ctx, child: Ctx): void {
+  for (const message of child.errors) {
+    addError(parent, message);
+  }
+  parent.omitted += child.omitted;
 }
 
 /** Keeps a child scope's dropped-field paths and notices once the scope itself is kept. */
 export function adopt(parent: Ctx, child: Ctx): void {
-  parent.dropped.push(...child.dropped);
-  parent.notices.push(...child.notices);
+  for (const path of child.dropped) {
+    parent.dropped.push(path);
+  }
+  for (const notice of child.notices) {
+    parent.notices.push(notice);
+  }
 }
 
+/** Reads one of `allowed`. An unknown value is an error, or in newer files a recorded unknown value. */
 export function readEnum<T extends string>(
   value: unknown,
   allowed: readonly [T, ...T[]],
@@ -43,9 +74,12 @@ export function readEnum<T extends string>(
   }
   if (typeof value === "string" && ctx.newer) {
     ctx.unknownValues.push(path);
+  } else if (value === undefined) {
+    addError(ctx, `${path}: missing`);
   } else {
-    ctx.errors.push(
-      `${path}: ${value === undefined ? "missing" : `unknown value ${JSON.stringify(value)}`}`,
+    addError(
+      ctx,
+      `${path}: ${typeof value === "string" ? `unknown value ${quote(value)}` : "expected text"}`,
     );
   }
   return fallback ?? allowed[0];
@@ -64,8 +98,9 @@ export class Reader {
     this.ctx = ctx;
   }
 
+  /** JSON pointer of a key of this object. */
   at(key: string): string {
-    return `${this.path}/${key}`;
+    return `${this.path}/${escapePointerKey(key)}`;
   }
 
   has(key: string): boolean {
@@ -79,7 +114,7 @@ export class Reader {
   }
 
   private problem(key: string, message: string): void {
-    this.ctx.errors.push(`${this.at(key)}: ${message}`);
+    addError(this.ctx, `${this.at(key)}: ${message}`);
   }
 
   num(key: string, fallback?: number): number {
@@ -138,6 +173,20 @@ export class Reader {
     return readEnum(this.take(key), allowed, this.at(key), this.ctx, fallback);
   }
 
+  /**
+   * Like oneOf, for the field that decides which other fields exist (a kind or
+   * type). Null when the value is missing or unknown (the problem is recorded),
+   * so the caller can stop instead of reading fields of a shape that isn't there.
+   */
+  tag<T extends string>(key: string, allowed: readonly [T, ...T[]]): T | null {
+    const v = this.take(key);
+    if (typeof v === "string" && (allowed as readonly string[]).includes(v)) {
+      return v as T;
+    }
+    readEnum(v, allowed, this.at(key), this.ctx);
+    return null;
+  }
+
   /** A nested object; null (and an error) when missing or not an object. */
   child(key: string): Reader | null {
     const v = this.take(key);
@@ -176,7 +225,7 @@ export class Reader {
       if (isRecord(v)) {
         out.push(new Reader(v, `${this.at(key)}/${i}`, this.ctx));
       } else {
-        this.ctx.errors.push(`${this.at(key)}/${i}: expected an object`);
+        addError(this.ctx, `${this.at(key)}/${i}: expected an object`);
       }
     });
     return out;
@@ -184,26 +233,30 @@ export class Reader {
 
   /**
    * Call after reading every known key. Newer files: unknown keys are kept
-   * (spec §9: preserved verbatim on save). Otherwise they are dropped and
-   * reported once.
+   * (spec §9: preserved verbatim on save), as copies, so the result never
+   * shares objects with the input. Otherwise they are dropped and reported once.
    */
   finish<T extends object>(value: T): T {
-    const rest: Json = {};
-    for (const [k, v] of Object.entries(this.raw)) {
-      if (!this.used.has(k)) {
-        rest[k] = v;
-      }
-    }
-    const keys = Object.keys(rest);
-    if (keys.length === 0) {
+    const unknown = Object.keys(this.raw).filter((k) => !this.used.has(k));
+    if (unknown.length === 0) {
       return value;
     }
-    if (this.ctx.newer) {
-      return { ...rest, ...value };
+    if (!this.ctx.newer) {
+      for (const k of unknown) {
+        this.ctx.dropped.push(this.at(shorten(k)));
+      }
+      return value;
     }
-    for (const k of keys) {
-      this.ctx.dropped.push(this.at(k));
+    const rest: Json = {};
+    for (const k of unknown) {
+      // defineProperty, not assignment: a "__proto__" field must stay an own property.
+      Object.defineProperty(rest, k, {
+        value: structuredClone(this.raw[k]),
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
     }
-    return value;
+    return { ...rest, ...value };
   }
 }

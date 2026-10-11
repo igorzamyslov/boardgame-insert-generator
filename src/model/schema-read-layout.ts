@@ -1,16 +1,29 @@
-import { isRecord } from "./json";
+import type { Json } from "./json";
+import { isRecord, shorten, summarize } from "./json";
 import type { Ctx } from "./schema-reader";
-import { adopt, childCtx, Reader } from "./schema-reader";
+import { absorbErrors, adopt, childCtx, Reader } from "./schema-reader";
 import type { CompartmentSpec, FeatureSpec, StoredLayout, TraySpec } from "./types";
 
 const SIDES = ["front", "back", "left", "right"] as const;
 
+/**
+ * A copy of a stored tray or feature, exactly as the file has it, typed as if
+ * it were known. It is not: a newer-minor file may carry a feature type or tray
+ * part outside the FeatureSpec / TraySpec unions (and fields this app doesn't
+ * know). readLayout reports such trays with the `layout.unsupportedTrays`
+ * notice. Consumers must check stored trays against the KNOWN_* lists of plan 3
+ * (geometry/types.ts) before switching exhaustively on `part` or `type`.
+ */
+function verbatim<T>(raw: Json): T {
+  return structuredClone(raw) as unknown as T;
+}
+
 function readFeature(r: Reader): FeatureSpec {
-  const known = r.ctx.unknownValues.length;
-  const type = r.oneOf("type", ["fingerPocket", "scoop", "cornerRelief"]);
-  if (r.ctx.unknownValues.length > known) {
+  const type = r.tag("type", ["fingerPocket", "scoop", "cornerRelief"]);
+  if (type === null) {
     // Newer file, unknown feature type: keep it verbatim (its fields are unknown too).
-    return r.raw as unknown as FeatureSpec;
+    // In other files the recorded error makes the whole layout unreadable.
+    return verbatim<FeatureSpec>(r.raw);
   }
   switch (type) {
     case "fingerPocket":
@@ -92,11 +105,12 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
   const trays = r.objects("trays").map((t) => {
     const traySub = childCtx(sub);
     const tray = readTray(new Reader(t.raw, t.path, traySub));
-    sub.errors.push(...traySub.errors);
     if (traySub.unknownValues.length > 0) {
-      unsupported.push(tray.key);
-      return t.raw as unknown as TraySpec;
+      // Kept as is even if it also lacks fields: its shape is a newer one.
+      unsupported.push(tray.key || t.path);
+      return verbatim<TraySpec>(t.raw);
     }
+    absorbErrors(sub, traySub);
     adopt(sub, traySub);
     return tray;
   });
@@ -118,7 +132,7 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
       level: "warning",
       code: "layout.unsupportedTrays",
       path: "/layout/trays",
-      message: `Some trays use features this app version can't build (${unsupported.join(", ")}). They are shown but can't be exported.`,
+      message: `Some trays use features this app version can't build (${summarize(unsupported.map(shorten))}). They are shown but can't be exported.`,
     });
   }
   return layout;

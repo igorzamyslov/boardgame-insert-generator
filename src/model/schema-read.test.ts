@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { sampleProject } from "../test-support/sample";
 import type { Json, ReadOptions } from "./schema-read";
 import { readProject } from "./schema-read";
@@ -305,5 +305,228 @@ describe("readProject: files from a newer minor", () => {
     const current = expectOk(readProject(input, CURRENT));
     expect(current.project.layout).toBeUndefined();
     expect(current.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+  });
+});
+
+/** The sample project's single stored tray, as plain JSON. */
+function firstTray(raw: Json): Json {
+  return at(raw.layout as Json, "trays", 0);
+}
+
+/** The sample project as JSON text with a leading own "__proto__" field, as a hostile file could have it. */
+function jsonWithProtoField(): Json {
+  const text = JSON.stringify(sampleProject()).replace(/^\{/, '{"__proto__":{"polluted":true},');
+  return JSON.parse(text) as Json;
+}
+
+describe("readProject: hostile input", () => {
+  it("survives 150,000 damaged list entries and counts them", () => {
+    const input = sampleJson();
+    at(input, "components", 0).decks = Array.from({ length: 150_000 }, () => ({ name: "d" }));
+    const error = expectError(readProject(input, CURRENT));
+    expect(error).toMatch(
+      /^This project file is damaged: \/components\/0\/decks\/0\/count: missing;/,
+    );
+    expect(error).toContain("and 149997 more");
+  });
+
+  it("survives 150,000 unknown fields and reports them once", () => {
+    const input = sampleJson();
+    at(input, "components", 0).decks = Array.from({ length: 150_000 }, () => ({
+      name: "d",
+      count: 1,
+      extra: true,
+    }));
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.notices).toHaveLength(1);
+    expect(result.notices[0]?.message).toContain("and 149997 more");
+  });
+
+  it("survives 300,000 bad features in a stored tray by dropping the layout", () => {
+    const input = sampleJson();
+    const compartment = at(firstTray(input), "compartments", 0);
+    compartment.features = Array.from({ length: 300_000 }, () => ({ type: "bogus" }));
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.project.layout).toBeUndefined();
+    expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+  });
+
+  it("survives 300,000 unknown features in a newer file by keeping the tray", () => {
+    const input = sampleJson();
+    const compartment = at(firstTray(input), "compartments", 0);
+    compartment.features = Array.from({ length: 300_000 }, () => ({ type: "bogus" }));
+    const result = expectOk(readProject(input, NEWER));
+    expect(result.project.layout?.trays).toHaveLength(1);
+    expect(result.notices.map((n) => n.code)).toEqual(["layout.unsupportedTrays"]);
+  });
+
+  it("keeps error messages short however long the quoted value is", () => {
+    const huge = "x".repeat(1e6);
+    const error = expectError(readProject({ ...MINIMAL, components: [{ kind: huge }] }, CURRENT));
+    expect(error.length).toBeLessThan(200);
+    expect(error).toContain(`"${"x".repeat(40)}…"`);
+  });
+
+  it("does not dump non-text values into messages", () => {
+    const input = { ...MINIMAL, components: [{ kind: { deep: "y".repeat(1e5) } }] };
+    expect(expectError(readProject(input, CURRENT))).toMatch(
+      /\/components\/0\/kind: expected text\.$/,
+    );
+    const number = { ...MINIMAL, components: [{ kind: 42 }] };
+    expect(expectError(readProject(number, CURRENT))).toMatch(/kind: expected text\.$/);
+  });
+
+  it("keeps notices short too", () => {
+    const huge = "x".repeat(1e6);
+
+    const swapped = sampleJson();
+    Object.assign(at(swapped, "components", 0), { name: huge, shortSide: 88, longSide: 63.5 });
+    const swappedResult = expectOk(readProject(swapped, CURRENT));
+    expect(swappedResult.notices[0]?.message.length).toBeLessThan(200);
+
+    const foreign = sampleJson();
+    list(foreign, "components").push({ kind: "dial", name: huge });
+    const foreignResult = expectOk(readProject(foreign, NEWER));
+    expect(foreignResult.notices[0]?.message.length).toBeLessThan(200);
+
+    const unknownKey = sampleJson();
+    unknownKey[huge] = 1;
+    const droppedResult = expectOk(readProject(unknownKey, CURRENT));
+    expect(droppedResult.notices[0]?.message.length).toBeLessThan(200);
+
+    const tray = sampleJson();
+    Object.assign(firstTray(tray), { part: "drawer", key: huge });
+    const trayResult = expectOk(readProject(tray, NEWER));
+    expect(trayResult.notices[0]?.message.length).toBeLessThan(250);
+  });
+
+  it("never touches Object.prototype through a __proto__ field", () => {
+    expectOk(readProject(jsonWithProtoField(), CURRENT));
+    expectOk(readProject(jsonWithProtoField(), NEWER));
+    expect(({} as Json).polluted).toBeUndefined();
+  });
+
+  it("lists a __proto__ field as unknown in a current file and drops it", () => {
+    const result = expectOk(readProject(jsonWithProtoField(), CURRENT));
+    expect(Object.hasOwn(result.project, "__proto__")).toBe(false);
+    expect(Object.getPrototypeOf(result.project)).toBe(Object.prototype);
+    expect(result.notices).toHaveLength(1);
+    expect(result.notices[0]?.message).toContain("/__proto__");
+  });
+
+  it("keeps a __proto__ field as an own property in a newer file", () => {
+    const result = expectOk(readProject(jsonWithProtoField(), NEWER));
+    expect(Object.hasOwn(result.project, "__proto__")).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(result.project, "__proto__")?.value).toEqual({
+      polluted: true,
+    });
+    expect(Object.getPrototypeOf(result.project)).toBe(Object.prototype);
+    expect(result.notices).toEqual([]);
+  });
+
+  it("treats a component entry that is not an object as damage in a newer file", () => {
+    for (const entry of [42, null, "cards", [1]]) {
+      const input = sampleJson();
+      list(input, "components").splice(1, 0, entry as unknown as Json);
+      expect(expectError(readProject(input, NEWER))).toMatch(/\/components\/1: expected an object/);
+      expect(expectError(readProject(input, CURRENT))).toMatch(
+        /\/components\/1: expected an object/,
+      );
+    }
+  });
+
+  it("reports an unknown tile shape type once, without follow-on problems", () => {
+    const input = sampleJson();
+    at(input, "components", 3).shape = { type: "circle", diameter: 30 };
+    expect(expectError(readProject(input, CURRENT))).toBe(
+      'This project file is damaged: /components/3/shape/type: unknown value "circle".',
+    );
+  });
+
+  it("keeps a stored tray of an unknown part verbatim even if it lacks fields", () => {
+    const input = sampleJson();
+    const tray = firstTray(input);
+    tray.part = "drawer";
+    delete tray.wall;
+    const result = expectOk(readProject(input, NEWER));
+    expect(result.project.layout?.trays[0]).toEqual(tray);
+    expect(result.notices.map((n) => n.code)).toEqual(["layout.unsupportedTrays"]);
+
+    const current = expectOk(readProject(input, CURRENT));
+    expect(current.project.layout).toBeUndefined();
+    expect(current.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+  });
+
+  it("still drops the layout for a missing field in a tray of a known part", () => {
+    const input = sampleJson();
+    delete firstTray(input).wall;
+    const result = expectOk(readProject(input, NEWER));
+    expect(result.project.layout).toBeUndefined();
+    expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+  });
+
+  it("does not generate ids that the file already has", () => {
+    const random = vi.spyOn(crypto, "getRandomValues");
+    try {
+      expectOk(readProject(sampleJson(), CURRENT));
+      expect(random).not.toHaveBeenCalled();
+    } finally {
+      random.mockRestore();
+    }
+  });
+});
+
+describe("readProject: newer files, unknown fields and independence from the input", () => {
+  it("keeps unknown fields on nested objects", () => {
+    const input = sampleJson();
+    (input.settings as Json).extra1 = 1;
+    ((input.settings as Json).lip as Json).extra2 = 2;
+    (input.layout as Json).extra3 = 3;
+    firstTray(input).extra4 = 4;
+    at(input, "locks", 0).extra5 = 5;
+    (at(input, "components", 0).decks as Json[]).forEach((d) => (d.extra6 = 6));
+    const { project, notices } = expectOk(readProject(input, NEWER));
+    expect(project.settings).toHaveProperty("extra1", 1);
+    expect(project.settings.lip).toHaveProperty("extra2", 2);
+    expect(project.layout).toHaveProperty("extra3", 3);
+    expect(project.layout?.trays[0]).toHaveProperty("extra4", 4);
+    expect(project.locks[0]).toHaveProperty("extra5", 5);
+    const cards = project.components[0];
+    expect(cards?.kind === "cards" && cards.decks[0]).toHaveProperty("extra6", 6);
+    expect(notices).toEqual([]);
+  });
+
+  it("does not modify its input in a newer file", () => {
+    const input = sampleJson();
+    input.theme = { colours: ["dark"] };
+    list(input, "components").push({ kind: "dial", ring: { n: 1 } });
+    list(input, "locks").push({ kind: "magnet", strength: { n: 3 } });
+    (input.box as Json).headroomCoverage = "none";
+    const feature = { type: "magnetHole", d: 6 };
+    list(at(firstTray(input), "compartments", 0), "features").push(feature);
+    const copy = structuredClone(input);
+    readProject(input, NEWER);
+    expect(input).toEqual(copy);
+  });
+
+  it("never shares objects with its input", () => {
+    const input = sampleJson();
+    input.theme = { colours: ["dark"] };
+    (input.box as Json).insertColour = { r: 1 };
+    list(input, "components").push({ kind: "dial", ring: { n: 1 } });
+    list(input, "locks").push({ kind: "magnet", strength: { n: 3 } });
+    list(at(firstTray(input), "compartments", 0), "features").push({ type: "magnetHole", d: 6 });
+    const copy = structuredClone(input);
+    const result = expectOk(readProject(input, NEWER));
+
+    (result.project as unknown as Json & { theme: { colours: string[] } }).theme.colours.push("x");
+    (result.project.box as unknown as { insertColour: Json }).insertColour.r = 2;
+    ((result.foreign.components[0]?.raw as Json).ring as Json).n = 2;
+    ((result.foreign.values?.[0]?.raw as Json).strength as Json).n = 4;
+    const tray = result.project.layout?.trays[0];
+    const compartment = tray?.compartments[0] as unknown as Json;
+    (compartment.features as Json[]).forEach((f) => (f.d = 7));
+    compartment.x = 99;
+    expect(input).toEqual(copy);
   });
 });
