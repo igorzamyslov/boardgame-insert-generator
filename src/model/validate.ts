@@ -1,15 +1,20 @@
 import type { Component, Lock, Notice, Project, Settings } from "./types";
+import { topPlane } from "./settings";
 
-/** Spec §5 bounds, applied to UI edits, URL input and files. */
-export const BOUNDS: { maxComponents: 100; maxCount: 2000; maxLength: 1000; maxPlayers: 10 } = {
+/** Spec §5 bounds, applied to UI edits, URL input and files. Frozen. */
+export const BOUNDS = Object.freeze({
   maxComponents: 100,
   maxCount: 2000,
   maxLength: 1000,
   maxPlayers: 10,
-};
+} as const);
 
 /** 1000 mm × 1000 mm × 1000 mm, in ml. */
 export const MAX_VOLUME_ML = 1_000_000;
+
+/** Printable layer height range, in mm. */
+export const LAYER_HEIGHT_MIN = 0.05;
+export const LAYER_HEIGHT_MAX = 1;
 
 /**
  * Notices that make a file or link unloadable: upper bounds (`limit.*`, they
@@ -21,7 +26,7 @@ export function isBlocking(n: Notice): boolean {
   return n.level === "error" && (n.code.startsWith("limit.") || n.code.startsWith("invalid."));
 }
 
-interface SettingRange {
+export interface SettingRange {
   path: string;
   label: string;
   get: (s: Settings) => number;
@@ -29,11 +34,7 @@ interface SettingRange {
   max: number;
 }
 
-/**
- * Advanced-settings ranges. Minimums of 0.8 mm follow the minimum printable
- * feature width (spec §6.1); topPressFit is spec §3 rule 2.
- */
-export const SETTING_RANGES: SettingRange[] = [
+const settingRanges: SettingRange[] = [
   { path: "wall", label: "Wall", get: (s) => s.wall, min: 0.8, max: 10 },
   { path: "floor", label: "Floor", get: (s) => s.floor, min: 0.8, max: 10 },
   { path: "divider", label: "Divider", get: (s) => s.divider, min: 0.8, max: 10 },
@@ -100,6 +101,18 @@ export const SETTING_RANGES: SettingRange[] = [
   },
 ];
 
+/**
+ * Advanced-settings ranges. Minimums of 0.8 mm follow the minimum printable
+ * feature width (spec §6.1); topPressFit is spec §3 rule 2. Frozen, entries included.
+ */
+export const SETTING_RANGES: readonly SettingRange[] = Object.freeze(
+  settingRanges.map((r) => Object.freeze(r)),
+);
+
+/**
+ * Collects notices. Each check returns true when the value is valid (no notice
+ * was added), so cross-field checks can run only on values that passed.
+ */
 class Checker {
   readonly notices: Notice[] = [];
 
@@ -112,30 +125,42 @@ class Checker {
   }
 
   /** 0 < x ≤ 1000 mm. `!(x > 0)` also catches NaN. */
-  length(path: string, label: string, x: number): void {
+  length(path: string, label: string, x: number): boolean {
     if (!(x > 0)) {
       this.error("field.length", path, `${label} must be greater than 0 mm.`);
-    } else if (x > BOUNDS.maxLength) {
-      this.error("limit.length", path, `${label} must be at most ${BOUNDS.maxLength} mm.`);
+      return false;
     }
+    if (x > BOUNDS.maxLength) {
+      this.error("limit.length", path, `${label} must be at most ${BOUNDS.maxLength} mm.`);
+      return false;
+    }
+    return true;
   }
 
   /** 0 ≤ x ≤ 1000 mm. */
-  nonNegativeLength(path: string, label: string, x: number): void {
+  nonNegativeLength(path: string, label: string, x: number): boolean {
     if (!(x >= 0)) {
       this.error("field.length", path, `${label} must be 0 mm or more.`);
-    } else if (x > BOUNDS.maxLength) {
-      this.error("limit.length", path, `${label} must be at most ${BOUNDS.maxLength} mm.`);
+      return false;
     }
+    if (x > BOUNDS.maxLength) {
+      this.error("limit.length", path, `${label} must be at most ${BOUNDS.maxLength} mm.`);
+      return false;
+    }
+    return true;
   }
 
-  /** Whole number 1…2000. */
-  count(path: string, label: string, n: number): void {
+  /** Whole number 1…2000. The upper bound is tested first so 2000.5 and Infinity are blocking. */
+  count(path: string, label: string, n: number): boolean {
+    if (n > BOUNDS.maxCount) {
+      this.error("limit.count", path, `${label} must be at most ${BOUNDS.maxCount}.`);
+      return false;
+    }
     if (!Number.isInteger(n) || n < 1) {
       this.error("field.count", path, `${label} must be a whole number of at least 1.`);
-    } else if (n > BOUNDS.maxCount) {
-      this.error("limit.count", path, `${label} must be at most ${BOUNDS.maxCount}.`);
+      return false;
     }
+    return true;
   }
 
   notEmpty(path: string, what: string, list: unknown[]): void {
@@ -148,17 +173,17 @@ class Checker {
 function checkBase(ck: Checker, c: Component, at: string): void {
   if (c.perPlayer) {
     const n = c.perPlayer.players;
-    if (!Number.isInteger(n) || n < 1) {
-      ck.error(
-        "field.players",
-        `${at}/perPlayer/players`,
-        "Players must be a whole number of at least 1.",
-      );
-    } else if (n > BOUNDS.maxPlayers) {
+    if (n > BOUNDS.maxPlayers) {
       ck.error(
         "limit.players",
         `${at}/perPlayer/players`,
         `Players must be at most ${BOUNDS.maxPlayers}.`,
+      );
+    } else if (!Number.isInteger(n) || n < 1) {
+      ck.error(
+        "field.players",
+        `${at}/perPlayer/players`,
+        "Players must be a whole number of at least 1.",
       );
     }
     if (c.groupId !== undefined) {
@@ -178,9 +203,9 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
   checkBase(ck, c, at);
   switch (c.kind) {
     case "cards": {
-      ck.length(`${at}/shortSide`, "Card short side", c.shortSide);
-      ck.length(`${at}/longSide`, "Card long side", c.longSide);
-      if (c.shortSide > c.longSide) {
+      const shortOk = ck.length(`${at}/shortSide`, "Card short side", c.shortSide);
+      const longOk = ck.length(`${at}/longSide`, "Card long side", c.longSide);
+      if (shortOk && longOk && c.shortSide > c.longSide) {
         ck.warning(
           "field.cardSides",
           `${at}/shortSide`,
@@ -191,7 +216,7 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
       c.decks.forEach((deck, i) => {
         ck.count(`${at}/decks/${i}/count`, "Card count", deck.count);
       });
-      if (typeof c.sleeve === "object") {
+      if (c.sleeve !== null && typeof c.sleeve === "object") {
         ck.length(`${at}/sleeve/w`, "Sleeve width", c.sleeve.w);
         ck.length(`${at}/sleeve/h`, "Sleeve height", c.sleeve.h);
         ck.nonNegativeLength(`${at}/sleeve/thickness`, "Sleeve thickness", c.sleeve.thickness);
@@ -256,8 +281,12 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
 function checkLock(ck: Checker, lock: Lock, at: string): void {
   switch (lock.kind) {
     case "position":
-      if (!/^[01]*$/.test(lock.path)) {
-        ck.error("field.lockPath", `${at}/path`, "A position lock path may only contain 0 and 1.");
+      if (!/^[01]{0,64}$/.test(lock.path)) {
+        ck.error(
+          "field.lockPath",
+          `${at}/path`,
+          "A position lock path may only contain 0 and 1, up to 64 characters.",
+        );
       }
       return;
     case "size":
@@ -275,8 +304,10 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
 
 /**
  * Field-level validation (spec §5 bounds, spec §10). Never throws; every
- * problem is a Notice whose `path` points at the field. Plans 4 and 5 must not
- * optimize while any notice has level "error".
+ * problem is a Notice whose `path` points at the field. Cross-field checks run
+ * only on values that passed their own check, so one bad value never produces
+ * a second notice. Plans 4 and 5 must not optimize while any notice has level
+ * "error".
  */
 export function validateProject(p: Project): Notice[] {
   const ck = new Checker();
@@ -284,21 +315,34 @@ export function validateProject(p: Project): Notice[] {
 
   ck.length("/box/innerWidth", "Box width", box.innerWidth);
   ck.length("/box/innerDepth", "Box depth", box.innerDepth);
-  ck.length("/box/innerHeight", "Box height", box.innerHeight);
-  ck.nonNegativeLength("/box/headroom", "Headroom", box.headroom);
-  if (box.headroom >= box.innerHeight) {
-    ck.error("field.headroom", "/box/headroom", "Headroom must be less than the box height.");
+  const heightOk = ck.length("/box/innerHeight", "Box height", box.innerHeight);
+  const headroomOk = ck.nonNegativeLength("/box/headroom", "Headroom", box.headroom);
+  if (heightOk && headroomOk) {
+    if (box.headroom >= box.innerHeight) {
+      ck.error("field.headroom", "/box/headroom", "Headroom must be less than the box height.");
+    } else if (topPlane(box, settings) <= 0) {
+      ck.error(
+        "field.topPlane",
+        "/box/headroom",
+        "Box height minus headroom and press-fit leaves no room for trays",
+      );
+    }
   }
 
-  ck.length("/printer/bedX", "Bed X", printer.bedX);
-  ck.length("/printer/bedY", "Bed Y", printer.bedY);
+  const bedXOk = ck.length("/printer/bedX", "Bed X", printer.bedX);
+  const bedYOk = ck.length("/printer/bedY", "Bed Y", printer.bedY);
   ck.length("/printer/bedZ", "Bed Z", printer.bedZ);
-  ck.nonNegativeLength("/printer/bedMargin", "Bed margin", printer.bedMargin);
-  if (2 * printer.bedMargin >= Math.min(printer.bedX, printer.bedY)) {
+  const marginOk = ck.nonNegativeLength("/printer/bedMargin", "Bed margin", printer.bedMargin);
+  const usableBed = 2 * printer.bedMargin >= Math.min(printer.bedX, printer.bedY);
+  if (bedXOk && bedYOk && marginOk && usableBed) {
     ck.error("field.bedMargin", "/printer/bedMargin", "Bed margin leaves no usable bed.");
   }
-  if (!(printer.layerHeight >= 0.05 && printer.layerHeight <= 1)) {
-    ck.error("field.layerHeight", "/printer/layerHeight", "Layer height must be 0.05 to 1 mm.");
+  if (!(printer.layerHeight >= LAYER_HEIGHT_MIN && printer.layerHeight <= LAYER_HEIGHT_MAX)) {
+    ck.error(
+      "field.layerHeight",
+      "/printer/layerHeight",
+      `Layer height must be ${LAYER_HEIGHT_MIN} to ${LAYER_HEIGHT_MAX} mm.`,
+    );
   }
 
   for (const r of SETTING_RANGES) {
@@ -319,17 +363,31 @@ export function validateProject(p: Project): Notice[] {
       `Too many components (${p.components.length}); the maximum is ${BOUNDS.maxComponents}.`,
     );
   }
+  const idCounts = new Map<string, number>();
+  for (const c of p.components) {
+    idCounts.set(c.id, (idCounts.get(c.id) ?? 0) + 1);
+  }
   const seen = new Set<string>();
   p.components.forEach((c, i) => {
-    if (seen.has(c.id)) {
-      ck.error(
-        "invalid.duplicateId",
-        `/components/${i}/id`,
-        `Two components share the id "${c.id}".`,
-      );
+    const at = `/components/${i}`;
+    if (c.id === "") {
+      ck.error("invalid.id", `${at}/id`, "Component id must not be empty.");
+    } else if (seen.has(c.id)) {
+      ck.error("invalid.duplicateId", `${at}/id`, `Two components share the id "${c.id}".`);
     }
     seen.add(c.id);
-    checkComponent(ck, c, `/components/${i}`);
+    if (c.groupId !== undefined) {
+      // A component naming its own id as its group is not a collision.
+      const others = (idCounts.get(c.groupId) ?? 0) - (c.groupId === c.id ? 1 : 0);
+      if (others > 0) {
+        ck.error(
+          "field.groupId",
+          `${at}/groupId`,
+          "Group name collides with another component's id",
+        );
+      }
+    }
+    checkComponent(ck, c, at);
   });
 
   p.locks.forEach((lock, i) => {

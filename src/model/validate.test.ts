@@ -12,7 +12,8 @@ import type {
   Project,
   TilesComponent,
 } from "./types";
-import { BOUNDS, isBlocking, validateProject } from "./validate";
+import type { SettingRange } from "./validate";
+import { BOUNDS, isBlocking, SETTING_RANGES, validateProject } from "./validate";
 
 const KINDS: ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
 
@@ -24,9 +25,27 @@ function cards(patch: Partial<CardsComponent> = {}): CardsComponent {
   return { ...(newComponent("cards") as CardsComponent), ...patch };
 }
 
+function custom(patch: Partial<CustomComponent> = {}): CustomComponent {
+  return { ...(newComponent("custom") as CustomComponent), ...patch };
+}
+
 /** [code, path] pairs, which is what the UI uses to place a message. */
 function codes(notices: Notice[]): [string, string | undefined][] {
   return notices.map((n) => [n.code, n.path]);
+}
+
+/** Writes `value` at a JSON pointer such as "/settings/lip/thickness". */
+function setAtPointer(root: object, pointer: string, value: number): void {
+  const keys = pointer.split("/").slice(1);
+  const last = keys.pop();
+  if (last === undefined) {
+    throw new Error(`Empty pointer: ${pointer}`);
+  }
+  let node = root as Record<string, unknown>;
+  for (const key of keys) {
+    node = node[key] as Record<string, unknown>;
+  }
+  node[last] = value;
 }
 
 describe("validateProject", () => {
@@ -226,5 +245,209 @@ describe("validateProject", () => {
       ["limit.length", "/locks/1/w"],
       ["field.lockStack", "/locks/2/trayKeys"],
     ]);
+  });
+
+  it("limits position lock paths to 64 binary digits", () => {
+    const p = newProject();
+    p.locks = [
+      { kind: "position", trayKey: "a:p0:0", path: "0102", rotated: false },
+      { kind: "position", trayKey: "a:p0:0", path: "0".repeat(65), rotated: false },
+      { kind: "position", trayKey: "a:p0:0", path: "1".repeat(64), rotated: false },
+    ];
+    expect(codes(validateProject(p))).toEqual([
+      ["field.lockPath", "/locks/0/path"],
+      ["field.lockPath", "/locks/1/path"],
+    ]);
+  });
+
+  const countCases: [number, string][] = [
+    [2000.5, "limit.count"],
+    [Number.POSITIVE_INFINITY, "limit.count"],
+    [Number.NaN, "field.count"],
+  ];
+  it.each(countCases)(
+    "tests the count upper bound before integrality (%s gives %s)",
+    (count, code) => {
+      expect(codes(validateProject(withComponents(custom({ count }))))).toEqual([
+        [code, "/components/0/count"],
+      ]);
+    },
+  );
+
+  const playerCases: [number, string][] = [
+    [10.5, "limit.players"],
+    [Number.POSITIVE_INFINITY, "limit.players"],
+    [2.5, "field.players"],
+  ];
+  it.each(playerCases)(
+    "tests the players upper bound before integrality (%s gives %s)",
+    (players, code) => {
+      expect(codes(validateProject(withComponents(cards({ perPlayer: { players } }))))).toEqual([
+        [code, "/components/0/perPlayer/players"],
+      ]);
+    },
+  );
+
+  it("bounds bulk volumes above 1 000 000 ml as blocking", () => {
+    const bulk: BulkComponent = {
+      ...(newComponent("bulk") as BulkComponent),
+      items: [{ name: "pile", volumeMl: 1_000_001 }],
+    };
+    const notices = validateProject(withComponents(bulk));
+    expect(codes(notices)).toEqual([["limit.volume", "/components/0/items/0/volumeMl"]]);
+    expect(notices.every(isBlocking)).toBe(true);
+  });
+
+  it("checks tile rect sides and tile count", () => {
+    const tiles: TilesComponent = {
+      ...(newComponent("tiles") as TilesComponent),
+      shape: { type: "rect", w: 0, d: 1001 },
+      count: 2001,
+    };
+    expect(codes(validateProject(withComponents(tiles)))).toEqual([
+      ["field.length", "/components/0/shape/w"],
+      ["limit.length", "/components/0/shape/d"],
+      ["limit.count", "/components/0/count"],
+    ]);
+  });
+
+  it("checks bulk item count, width and height", () => {
+    const bulk: BulkComponent = {
+      ...(newComponent("bulk") as BulkComponent),
+      items: [{ name: "cube", count: 0, w: 1001, d: 5, h: -1 }],
+    };
+    expect(codes(validateProject(withComponents(bulk)))).toEqual([
+      ["field.count", "/components/0/items/0/count"],
+      ["limit.length", "/components/0/items/0/w"],
+      ["field.length", "/components/0/items/0/h"],
+    ]);
+  });
+
+  it("checks minis figure width, depth and count", () => {
+    const minis: MinisComponent = {
+      ...(newComponent("minis") as MinisComponent),
+      figures: [{ name: "hero", w: 0, d: 1001, h: 10, count: 2001 }],
+    };
+    expect(codes(validateProject(withComponents(minis)))).toEqual([
+      ["field.length", "/components/0/figures/0/w"],
+      ["limit.length", "/components/0/figures/0/d"],
+      ["limit.count", "/components/0/figures/0/count"],
+    ]);
+  });
+
+  it("checks custom width, depth and height", () => {
+    expect(
+      codes(validateProject(withComponents(custom({ w: 1001, d: 0, h: Number.NaN })))),
+    ).toEqual([
+      ["limit.length", "/components/0/w"],
+      ["field.length", "/components/0/d"],
+      ["field.length", "/components/0/h"],
+    ]);
+  });
+
+  it("checks bed X, Y and Z lengths", () => {
+    const p = newProject();
+    p.printer = { ...p.printer, bedX: 0, bedY: 1001, bedZ: Number.NaN };
+    expect(codes(validateProject(p))).toEqual([
+      ["field.length", "/printer/bedX"],
+      ["limit.length", "/printer/bedY"],
+      ["field.length", "/printer/bedZ"],
+    ]);
+  });
+
+  it("bounds sleeve thickness and clearance at 1000 mm as blocking", () => {
+    const p = withComponents(
+      cards({ sleeve: { w: 66.5, h: 88, thickness: 1001 } }),
+      cards({ clearance: 1001 }),
+    );
+    expect(codes(validateProject(p))).toEqual([
+      ["limit.length", "/components/0/sleeve/thickness"],
+      ["limit.length", "/components/1/clearance"],
+    ]);
+  });
+
+  it("rejects layer heights above 1 mm", () => {
+    const p = newProject();
+    p.printer = { ...p.printer, layerHeight: 1.5 };
+    expect(codes(validateProject(p))).toEqual([["field.layerHeight", "/printer/layerHeight"]]);
+  });
+
+  it("does not warn about card sides when they are equal", () => {
+    expect(validateProject(withComponents(cards({ shortSide: 63.5, longSide: 63.5 })))).toEqual([]);
+  });
+
+  it("skips the headroom cross-check when the box height is invalid", () => {
+    const p = newProject();
+    p.box = { ...p.box, innerHeight: 0, headroom: 0 };
+    expect(codes(validateProject(p))).toEqual([["field.length", "/box/innerHeight"]]);
+  });
+
+  it("reports an out-of-range headroom exactly once", () => {
+    const p = newProject();
+    p.box = { ...p.box, headroom: 1001 };
+    expect(codes(validateProject(p))).toEqual([["limit.length", "/box/headroom"]]);
+  });
+
+  it("skips the bed margin cross-check when a bed side is invalid", () => {
+    const p = newProject();
+    p.printer = { ...p.printer, bedX: 0, bedY: 200, bedMargin: 100 };
+    expect(codes(validateProject(p))).toEqual([["field.length", "/printer/bedX"]]);
+  });
+
+  it("rejects a press fit that leaves no room for trays", () => {
+    const p = newProject();
+    p.box = { ...p.box, innerHeight: 40, headroom: 39.5 };
+    p.settings = { ...p.settings, topPressFit: -2 };
+    expect(codes(validateProject(p))).toEqual([["field.topPlane", "/box/headroom"]]);
+  });
+
+  it("flags a group id that names another component", () => {
+    const target = newComponent("custom");
+    const member = cards({ groupId: target.id });
+    expect(codes(validateProject(withComponents(target, member)))).toEqual([
+      ["field.groupId", "/components/1/groupId"],
+    ]);
+  });
+
+  it("does not flag a component whose group is its own id", () => {
+    const solo = cards();
+    expect(validateProject(withComponents({ ...solo, groupId: solo.id }))).toEqual([]);
+  });
+
+  it("treats an empty component id as blocking", () => {
+    const notices = validateProject(withComponents({ ...newComponent("custom"), id: "" }));
+    expect(codes(notices)).toEqual([["invalid.id", "/components/0/id"]]);
+    expect(notices.every(isBlocking)).toBe(true);
+  });
+
+  it("does not throw on a null sleeve", () => {
+    const c = { ...cards(), sleeve: null } as unknown as CardsComponent;
+    expect(validateProject(withComponents(c))).toEqual([]);
+  });
+});
+
+describe("shared constants", () => {
+  it("freezes BOUNDS with the spec values", () => {
+    expect(Object.isFrozen(BOUNDS)).toBe(true);
+    expect(BOUNDS).toEqual({ maxComponents: 100, maxCount: 2000, maxLength: 1000, maxPlayers: 10 });
+  });
+
+  it("freezes SETTING_RANGES and every entry", () => {
+    expect(Object.isFrozen(SETTING_RANGES)).toBe(true);
+    for (const r of SETTING_RANGES) {
+      expect(Object.isFrozen(r)).toBe(true);
+    }
+  });
+});
+
+describe("setting ranges", () => {
+  const rangeCases: [string, SettingRange][] = SETTING_RANGES.map((r) => [r.path, r]);
+
+  it.each(rangeCases)("flags %s one step outside either end", (_path, range) => {
+    for (const value of [range.min - 0.001, range.max + 0.001]) {
+      const p = newProject();
+      setAtPointer(p, `/settings/${range.path}`, value);
+      expect(codes(validateProject(p))).toEqual([["field.setting", `/settings/${range.path}`]]);
+    }
   });
 });
