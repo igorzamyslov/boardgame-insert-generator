@@ -1,3 +1,4 @@
+import { MIN_FEATURE_MM } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
 import {
   CORNER_RELIEF_D,
@@ -8,6 +9,8 @@ import {
 } from "./constants";
 import { pocketSides, reachU } from "./common";
 import { chamferMinimumsU, minLayoutU, wallFor } from "./outer";
+import { doubled, placeSlots, separation, slotFootprint } from "./slots";
+import type { Rect2, SlotPlacement, SlotRequest } from "./slots";
 import type { CompartmentReq, OuterSize, RealizeOptions, RealizedTray, TrayPartReq } from "./types";
 import { ceilU, fillCapped, floorU, fromU, splitEven, sum, toU } from "./units";
 
@@ -27,11 +30,9 @@ interface Placed {
 }
 
 interface FeatureContext {
-  W: number;
-  D: number;
-  wall: number;
   reach: number;
   settings: Settings;
+  slots: ReadonlyMap<Side, SlotPlacement>; // this compartment's finger slots (placeSlots)
 }
 
 function lastIndex<T>(items: readonly T[], test: (item: T) => boolean): number {
@@ -82,23 +83,54 @@ function featureSpecs(
       const r = Math.min(floorU(ctx.settings.scoopRadius), depth, Math.floor(content.w / 2));
       return { type: "scoop", side, r: fromU(r) };
     }
-    const alongX = side === "front" || side === "back";
-    const lo = ctx.wall;
-    const hi = (alongX ? ctx.W : ctx.D) - ctx.wall;
-    const width = Math.min(ceilU(ctx.settings.fingerPocket.width), hi - lo);
-    const centre = alongX ? content.x + content.w / 2 : content.y + content.d / 2;
-    const half = Math.ceil(width / 2);
-    const at = Math.min(Math.max(Math.round(centre), lo + half), hi - half);
+    const slot = ctx.slots.get(side);
+    if (slot === undefined) {
+      throw new RangeError(`internal: no finger slot placed on the ${side} side`);
+    }
     return {
       type: "fingerPocket",
       side,
-      at: fromU(at),
-      width: fromU(width),
+      at: fromU(slot.at),
+      width: fromU(slot.width),
       reach: fromU(ctx.reach),
-      // At least one unit: the geometry rejects a zero-depth pocket (depth itself is ≥ 1 unit).
-      depth: fromU(Math.max(1, Math.round(depth * (f.depthFraction ?? 1)))),
+      depth: fromU(slot.depth),
     };
   });
+}
+
+/** The depth a finger pocket asks for: at least one unit (the geometry rejects zero). */
+function pocketDepth(depth: number, depthFraction: number | undefined): number {
+  return Math.max(1, Math.round(depth * (depthFraction ?? 1)));
+}
+
+/**
+ * Moves the start of a spare compartment (along `axis`) until it keeps MIN_FEATURE_MM from every
+ * finger slot: spares take only room no slot needs (roadmap §4.7). Null when less than MIN_SPARE
+ * is left.
+ */
+function clearOfSlots(spare: Rect, axis: "x" | "y", slots: readonly Rect2[]): Rect | null {
+  const min = 2 * ceilU(MIN_FEATURE_MM);
+  let r = spare;
+  for (;;) {
+    const r2 = doubled(r);
+    const hit = slots.find((f) => separation(f, r2) < min);
+    if (hit === undefined) {
+      return r;
+    }
+    if (axis === "x") {
+      const x = Math.ceil((hit.x1 + min) / 2);
+      r = { ...r, x, w: r.x + r.w - x };
+      if (r.w < toU(MIN_SPARE)) {
+        return null;
+      }
+    } else {
+      const y = Math.ceil((hit.y1 + min) / 2);
+      r = { ...r, y, d: r.y + r.d - y };
+      if (r.d < toU(MIN_SPARE)) {
+        return null;
+      }
+    }
+  }
 }
 
 function spacerSpec(
@@ -215,7 +247,7 @@ export function realizeTray(
   // X, per row: elastic bulk → else one card/tile spacer per tray → thicker walls/dividers →
   // a spare compartment at the row end → the rest to the side walls.
   const placed: Placed[] = [];
-  const spares: Rect[] = [];
+  const spares: [Rect, "x" | "y"][] = []; // and the axis along which a slot may push its start
   let spacerUsed = false;
   rows.forEach((row, r) => {
     const rowY = rowYs[r] ?? wall;
@@ -264,34 +296,76 @@ export function realizeTray(
       }
     });
     if (spareW > 0) {
-      spares.push({ x: x + divider, y: rowY, w: spareW, d: rowDepth });
+      spares.push([{ x: x + divider, y: rowY, w: spareW, d: rowDepth }, "x"]);
     }
   });
   if (spareRowDepth > 0) {
-    spares.push({ x: wall, y: rowsEnd + divider, w: innerW, d: spareRowDepth });
+    spares.push([{ x: wall, y: rowsEnd + divider, w: innerW, d: spareRowDepth }, "y"]);
   }
 
-  const ctx: FeatureContext = { W, D, wall, reach, settings };
-  const spacers: TraySpec[] = [];
-  const compartments: CompartmentSpec[] = placed.map(({ req, alloc, spacer }) => {
-    const well = wellOf(alloc, req, reach);
-    const depth = contentDepth(req, well, H, floor);
-    const floorZ = H - depth;
-    if (spacer > 0) {
-      spacers.push(spacerSpec(part.trayKey, well, spacer, floorZ, depth));
-    }
-    const content: Rect = { ...well, w: well.w - spacer };
-    return {
-      ...rectSpec(alloc),
-      floorZ: fromU(floorZ),
-      kind: req.kind,
-      contents: req.contents,
-      features: featureSpecs(req, content, depth, ctx),
-    };
+  // Content depth and the well proper of every compartment, then its finger slots.
+  const items = placed.map((p) => {
+    const well = wellOf(p.alloc, p.req, reach);
+    const depth = contentDepth(p.req, well, H, floor);
+    // The slot is centred on the contents, not on the spacer beside them.
+    const content: Rect = { ...well, w: well.w - p.spacer };
+    return { ...p, well, depth, content, slots: new Map<Side, SlotPlacement>() };
   });
-  for (const rect of spares) {
+  const requests: SlotRequest[] = items.flatMap(({ req, depth, content }, owner) =>
+    pocketSides(req.features).map((side): SlotRequest => {
+      const alongX = side === "front" || side === "back";
+      const depths = req.features.flatMap((f) =>
+        f.type === "fingerPocket" && f.side === side ? [pocketDepth(depth, f.depthFraction)] : [],
+      );
+      return {
+        owner,
+        side,
+        centre: Math.round(alongX ? content.x + content.w / 2 : content.y + content.d / 2),
+        depth: Math.min(...depths),
+      };
+    }),
+  );
+  const placements = placeSlots(requests, {
+    rects: items.map((item) => item.alloc),
+    span: { x: W, y: D },
+    wall,
+    reach,
+    width: ceilU(settings.fingerPocket.width),
+  });
+  const footprints: Rect2[] = [];
+  requests.forEach((q, k) => {
+    const slot = placements[k];
+    const item = items[q.owner];
+    if (slot === undefined || item === undefined) {
+      throw new RangeError("internal: finger slot without a compartment");
+    }
+    item.slots.set(q.side, slot);
+    footprints.push(slotFootprint(item.alloc, q.side, slot, reach));
+  });
+
+  const spacers: TraySpec[] = [];
+  const compartments: CompartmentSpec[] = items.map(
+    ({ req, alloc, spacer, well, depth, content, slots }) => {
+      const floorZ = H - depth;
+      if (spacer > 0) {
+        spacers.push(spacerSpec(part.trayKey, well, spacer, floorZ, depth));
+      }
+      return {
+        ...rectSpec(alloc),
+        floorZ: fromU(floorZ),
+        kind: req.kind,
+        contents: req.contents,
+        features: featureSpecs(req, content, depth, { reach, settings, slots }),
+      };
+    },
+  );
+  for (const [rect, axis] of spares) {
+    const clear = clearOfSlots(rect, axis, footprints);
+    if (clear === null) {
+      continue;
+    }
     compartments.push({
-      ...rectSpec(rect),
+      ...rectSpec(clear),
       floorZ: fromU(floor),
       kind: "spare",
       contents: "spare",

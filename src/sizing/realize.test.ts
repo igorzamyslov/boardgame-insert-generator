@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "../model/settings";
+import { DEFAULT_SETTINGS, maxChannelSpacing } from "../model/settings";
 import type { Settings } from "../model/types";
 import { minOuter } from "./outer";
 import { realizeTray } from "./realize";
@@ -108,14 +108,19 @@ describe("realizeTray", () => {
       "upright-long|rows2|split1",
     );
     expect(minOuter(part, s, ground)).toEqual({ w: 26.7, d: 237.4, h: 69.2 });
-    const r = realizeTray(part, { w: 36.7, d: 237.4, h: 69.2 }, s, ground);
+    const r = realizeTray(part, { w: 46.7, d: 237.4, h: 69.2 }, s, ground);
+    // The spare starts 0.8 mm past the 22 mm slot of "B ×30" (1.6…23.6), not right after the
+    // divider at 18.38.
     expect(r.compartments.map((c) => [c.contents, c.x, c.y, c.w, c.d])).toEqual([
-      ["A ×52", 1.6, 1.6, 33.5, 116.5],
+      ["A ×52", 1.6, 1.6, 43.5, 116.5],
       ["B ×30", 3.2, 119.3, 13.98, 116.5],
-      ["spare", 18.38, 119.3, 15.12, 116.5],
+      ["spare", 24.4, 119.3, 19.1, 116.5],
     ]);
     expect(r.spacers).toHaveLength(1);
-    expect(at(r.spacers, 0)).toMatchObject({ x: 25.1, y: 13.6, w: 10, d: 92.5, h: 63 });
+    expect(at(r.spacers, 0)).toMatchObject({ x: 25.1, y: 13.6, w: 20, d: 92.5, h: 63 });
+    // 10 mm narrower, the spare would be under MIN_SPARE: the slack stays solid.
+    const narrow = realizeTray(part, { w: 36.7, d: 237.4, h: 69.2 }, s, ground);
+    expect(narrow.compartments.map((c) => c.kind)).toEqual(["well", "well"]);
   });
 
   it("gives a one-card deck a full-width finger pocket and a spacer", () => {
@@ -557,6 +562,95 @@ describe("realizeTray", () => {
           assertTrayInvariants(realizeTray(part, outer, odd, opts), outer, odd, opts);
         }
       }
+    });
+  });
+
+  describe("finger slot clearance", () => {
+    const lipped: RealizeOptions = { lipped: true, level: 0 };
+    const objectives = partOf(
+      [
+        cards({
+          decks: [
+            { name: "Goals", count: 45 },
+            { name: "Starting hands", count: 50 },
+          ],
+          storage: "auto",
+        }),
+      ],
+      "upright-long|rows2|split1",
+    );
+
+    it("keeps a spare compartment clear of a deck's slot (plan 3 regression)", () => {
+      const min = minOuter(objectives, s, lipped);
+      const outer = { w: min.w + 10, d: min.d + 10, h: min.h + 10 };
+      const r = realizeTray(objectives, outer, s, lipped);
+      assertTrayInvariants(r, outer, s, lipped);
+      // The slack beside "Goals ×45" no longer becomes a spare its slot would reach into.
+      expect(r.compartments.map((c) => c.contents)).toEqual(["Starting hands ×50", "Goals ×45"]);
+      expect(at(at(r.compartments, 1).features, 0)).toMatchObject({ at: 13.9, width: 22 });
+    });
+
+    it("keeps a spare when there is room beside the slot", () => {
+      const min = minOuter(objectives, s, lipped);
+      const outer = { w: min.w + 30, d: min.d, h: min.h };
+      const r = realizeTray(objectives, outer, s, lipped);
+      assertTrayInvariants(r, outer, s, lipped);
+      const spare = at(r.compartments, 2);
+      expect(spare.kind).toBe("spare");
+      const slot = at(at(r.compartments, 1).features, 0);
+      if (slot.type !== "fingerPocket") {
+        throw new Error("expected a finger pocket");
+      }
+      expect(spare.x).toBeCloseTo(slot.at + slot.width / 2 + 0.8, 9);
+    });
+
+    const strip = (counts: number[]): TrayPartReq =>
+      partOf(
+        [
+          cards({
+            sleeve: "none",
+            decks: counts.map((count, i) => ({ name: `D${i + 1}`, count })),
+          }),
+        ],
+        "upright-long|strip|split1",
+      );
+    const slotsOf = (part: TrayPartReq) => {
+      const outer = minOuter(part, s, ground);
+      const r = realizeTray(part, outer, s, ground);
+      assertTrayInvariants(r, outer, s, ground);
+      return r.compartments.map((c) => {
+        const f = at(c.features, 0);
+        if (f.type !== "fingerPocket") {
+          throw new Error("expected a finger pocket");
+        }
+        return f;
+      });
+    };
+
+    it("merges the slots of narrow neighbouring decks into one channel", () => {
+      const slots = slotsOf(strip([45, 45, 45, 45]));
+      expect(slots.map((f) => [f.at, f.width])).toEqual([
+        [12.6, 22],
+        [26.56, 22],
+        [43.6, 22],
+        [57.56, 22],
+      ]);
+      // Each overlaps the next, centres at most maxChannelSpacing(11) = 20.06 mm apart.
+      slots.slice(1).forEach((f, i) => {
+        const spacing = f.at - at(slots, i).at;
+        expect(spacing).toBeLessThan(22);
+        expect(spacing).toBeLessThanOrEqual(maxChannelSpacing(11));
+      });
+    });
+
+    it("narrows the slots where neighbours would overlap too little to merge", () => {
+      // The narrow decks' slots are pushed against the wall, 21.6 mm from the wide deck's centre.
+      const slots = slotsOf(strip([120, 12, 12]));
+      expect(slots.map((f) => [f.at, f.width])).toEqual([
+        [21.88, 20.8],
+        [44.08, 20.8],
+        [44.08, 20.8],
+      ]);
     });
   });
 });
