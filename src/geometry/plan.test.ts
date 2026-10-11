@@ -405,10 +405,10 @@ describe("validation", () => {
         compartment({ x: 41.6, y: 1.6, w: 40, d: 36.8 }),
       ],
     });
-    expect(() => planTray(spec, GEO)).toThrow(/compartments 0 and 1 overlap or touch/);
+    expect(() => planTray(spec, GEO)).toThrow(/compartments 0 and 1 are less than 0.8 mm apart/);
   });
 
-  it("accepts a thin divider (printability reports it)", () => {
+  it("rejects a divider thinner than 0.8 mm", () => {
     const spec = traySpec({
       key: "thin-divider",
       w: 1.6 + 40 + 0.3 + 40 + 1.6,
@@ -419,7 +419,8 @@ describe("validation", () => {
         compartment({ x: 41.9, y: 1.6, w: 40, d: 36.8 }),
       ],
     });
-    expect(planTray(spec, GEO).compartments).toHaveLength(2);
+    expect(() => planTray(spec, GEO)).toThrow(TraySpecError);
+    expect(() => planTray(spec, GEO)).toThrow(/compartments 0 and 1 are less than 0.8 mm apart/);
   });
 
   it("rejects floors outside the tray and non-positive sizes", () => {
@@ -673,15 +674,16 @@ describe("compartment separation grid", () => {
     });
 
   it.each([
-    [41.6, 41.61],
-    [41, 41.01],
-    [7.29 + 1, 8.3],
-  ])("accepts a 0.01 mm divider on the 0.01 grid (%d to %d)", (end, start) => {
+    [41.6, 42.4],
+    [41, 41.8],
+    [7.29 + 1, 9.09],
+  ])("accepts a 0.8 mm divider on the 0.01 grid (%d to %d)", (end, start) => {
     expect(planTray(pair(end, start), GEO).compartments).toHaveLength(2);
   });
 
-  it("still rejects compartments touching or overlapping", () => {
-    expect(() => planTray(pair(41.6, 41.6), GEO)).toThrow(/overlap or touch/);
-    expect(() => planTray(pair(41.6, 41.4), GEO)).toThrow(/overlap or touch/);
+  it("rejects a divider under 0.8 mm, touching or overlapping compartments", () => {
+    for (const start of [42.39, 41.61, 41.6, 41.4]) {
+      expect(() => planTray(pair(41.6, start), GEO)).toThrow(/less than 0.8 mm apart/);
+    }
   });
 });

@@ -112,16 +112,12 @@ function checkRect(
   return rect;
 }
 
+// Compartments keep MIN_FEATURE_MM of divider between them (along x or y, so at every height).
 function checkSeparated(spec: TraySpec, rects: Rect[]): void {
   rects.forEach((a, i) => {
     rects.forEach((b, j) => {
-      if (j <= i) {
-        return;
-      }
-      const gapX = Math.max(b.x0 - a.x1, a.x0 - b.x1);
-      const gapY = Math.max(b.y0 - a.y1, a.y0 - b.y1);
-      if (gapX < TOL && gapY < TOL) {
-        fail(spec, `compartments ${i} and ${j} overlap or touch`);
+      if (j > i && !keepsApart(a, b, TOL)) {
+        fail(spec, `compartments ${i} and ${j} are less than ${MIN_FEATURE_MM} mm apart`);
       }
     });
   });
@@ -407,11 +403,12 @@ function planCompartment(
 
 // Validates `spec` and computes everything buildTray needs.
 // Throws UnsupportedFeatureError for an unknown part, compartment kind or
-// feature type (a newer-minor file) and TraySpecError (a RangeError) for a spec that can't be built safely:
-// non-positive sizes, a floor outside the tray, compartments that overlap,
-// touch, or come closer to an outer face than the (lipped) outer wall,
-// finger pockets that would cut through an outer wall, and finger pockets that
-// break the finger slot clearance rule.
+// feature type (a newer-minor file) and TraySpecError (a RangeError) for a spec that can't be
+// built safely (roadmap §4.6): non-positive sizes, a wall or lip under MIN_WALL_MM, a floor
+// outside the tray, compartments less than MIN_FEATURE_MM apart or closer to an outer face than
+// the (lipped) outer wall, reach bands that leave less than MIN_POCKET_CONTENT, finger pockets
+// that would cut through an outer wall or break the finger slot clearance rule, and a bottom
+// chamfer the tray, its walls, floors or corners cannot take.
 export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   checkKnown(spec);
   if (![spec.w, spec.d, spec.h].every(isPositive)) {

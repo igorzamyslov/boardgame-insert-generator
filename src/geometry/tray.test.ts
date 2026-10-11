@@ -10,7 +10,7 @@ import type { RealizeOptions } from "../sizing/types";
 import { loadManifold } from "./load";
 import { buildTray } from "./tray";
 import { checkPrintability } from "./printability";
-import { UnsupportedFeatureError } from "./errors";
+import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { bounds, signedVolume, topology } from "./test-mesh";
 import { thinnestWedge } from "./test-wedge";
 import {
@@ -177,7 +177,7 @@ describe("buildTray review focus", () => {
     expectWellFormed(thin);
   });
 
-  it("a 0.3 mm divider builds but is reported as too thin", () => {
+  it("refuses a 0.3 mm divider instead of building it", () => {
     const spec = traySpec({
       key: "thin-divider",
       w: 1.6 + 40 + 0.3 + 40 + 1.6,
@@ -188,12 +188,7 @@ describe("buildTray review focus", () => {
         compartment({ x: 41.9, y: 1.6, w: 40, d: 36.8 }),
       ],
     });
-    const { mesh } = buildTray(m, spec, GEO);
-    expect(topology(mesh).closed).toBe(true);
-    const report = checkPrintability(mesh);
-    expect(report.ok).toBe(false);
-    expect(report.minFeatureMm).toBeCloseTo(0.3, 2);
-    expect(report.problems.join(" ")).toMatch(/0\.300 mm/);
+    expect(() => buildTray(m, spec, GEO)).toThrow(TraySpecError);
   });
 
   it("a shallow scoop tray keeps its height (radius clamped to the depth)", () => {

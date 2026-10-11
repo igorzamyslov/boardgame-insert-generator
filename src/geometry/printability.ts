@@ -87,7 +87,9 @@ function smallestExtent(mesh: Mesh): number {
   return Math.min(...max.map((hi, k) => hi - (min[k] ?? 0)));
 }
 
-// Rule 6 + minimum feature check on a finished mesh.
+// Rule 6 + minimum feature check on a finished mesh: a test-time verifier. planTray rejects every
+// spec that would build a feature under MIN_FEATURE_MM (roadmap §4.6), so production builds never
+// run this; tests run it on built meshes to confirm the rules leave nothing thinner.
 // - Overhangs: triangles facing down more steeply than 45° (normal.z < −0.71)
 //   that are not on the bed (z = 0).
 // - Minimum feature: from the centroid of every wall face a horizontal ray
@@ -106,9 +108,7 @@ function smallestExtent(mesh: Mesh): number {
 //   reports its smallest bounding-box extent instead, so minFeatureMm is
 //   always finite and survives JSON.
 //
-// Cost: about 1 s per 50k triangles (a BVH ray query per sampled face). Run it
-// only in the geometry worker on a finished build, never per keystroke or on
-// the main thread.
+// Cost: about 1 s per 50k triangles (a BVH ray query per sampled face).
 export function checkPrintability(mesh: Mesh): PrintabilityReport {
   const tri = triangles(mesh);
   let usableCount = 0;
