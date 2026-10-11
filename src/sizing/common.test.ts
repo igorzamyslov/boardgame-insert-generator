@@ -8,6 +8,8 @@ import {
   fingerPocket,
   label,
   mainClearance,
+  pocketSides,
+  reachU,
 } from "./common";
 import { cards, custom } from "./test-helpers";
 
@@ -129,5 +131,27 @@ describe("label", () => {
   it("falls back when the name is blank", () => {
     expect(label("  ", "Cards")).toBe("Cards");
     expect(label("Main", "Cards")).toBe("Main");
+  });
+});
+
+describe("pocketSides", () => {
+  it("lists each finger-pocket side once, in feature order", () => {
+    expect(
+      pocketSides([
+        fingerPocket("back", 1, true),
+        cornerRelief(),
+        { type: "scoop", side: "left" },
+        fingerPocket("front", 1, true),
+        fingerPocket("back", 1 / 3, true),
+      ]),
+    ).toEqual(["back", "front"]);
+    expect(pocketSides([])).toEqual([]);
+  });
+});
+
+describe("reachU", () => {
+  it("rounds the finger reach up to whole 0.01 mm", () => {
+    expect(reachU(s)).toBe(1200);
+    expect(reachU({ ...s, fingerPocket: { ...s.fingerPocket, reach: 12.341 } })).toBe(1235);
   });
 });

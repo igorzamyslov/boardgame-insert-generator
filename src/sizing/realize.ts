@@ -7,9 +7,10 @@ import {
   SPACER_TOP_GAP,
   WALL_GROW_LIMIT,
 } from "./constants";
-import { minLayoutU, rowsOf } from "./outer";
+import { pocketSides, reachU } from "./common";
+import { minLayoutU } from "./outer";
 import type { CompartmentReq, OuterSize, RealizeOptions, RealizedTray, TrayPartReq } from "./types";
-import { ceilU, fillCapped, floorU, fromU, maxOf, splitEven, sum, toU } from "./units";
+import { ceilU, fillCapped, floorU, fromU, splitEven, sum, toU } from "./units";
 
 // Everything below is in integer 0.01 mm units until converted with fromU.
 
@@ -44,15 +45,9 @@ function lastIndex<T>(items: readonly T[], test: (item: T) => boolean): number {
   return -1;
 }
 
-function pocketSides(req: CompartmentReq): Side[] {
-  return req.features.flatMap((f) =>
-    f.type === "fingerPocket" && f.side !== undefined ? [f.side] : [],
-  );
-}
-
 /** The well proper (contents): the allocation minus the finger-reach band on each pocket side. */
 function wellOf(alloc: Rect, req: CompartmentReq, reach: number): Rect {
-  const sides = pocketSides(req);
+  const sides = pocketSides(req.features);
   const cut = (side: Side): number => (sides.includes(side) ? reach : 0);
   return {
     x: alloc.x + cut("left"),
@@ -160,10 +155,10 @@ export function realizeTray(
   const spareMin = toU(MIN_SPARE) + divider;
   const innerW = W - 2 * wall;
   const innerD = D - 2 * wall;
-  const rows = rowsOf(part.arrangement, part.compartments);
+  const { rows } = min;
 
   // Y: elastic rows → thicker walls/dividers → a spare row at the back → the rest to the walls.
-  const rowDepths = rows.map((row) => maxOf(row.map((c) => ceilU(c.minD))));
+  const rowDepths = min.rowDepths.slice();
   let slackY = innerD - sum(rowDepths) - (rows.length - 1) * divider;
   const elasticRows = rows.flatMap((row, i) => (row.some((c) => c.elastic.d) ? [i] : []));
   if (elasticRows.length > 0) {
@@ -199,7 +194,7 @@ export function realizeTray(
   rows.forEach((row, r) => {
     const rowY = rowYs[r] ?? wall;
     const rowDepth = rowDepths[r] ?? 0;
-    const widths = row.map((c) => ceilU(c.minW));
+    const widths = min.widths[r] ?? [];
     const growth = row.map(() => 0);
     let slack = innerW - sum(widths) - (row.length - 1) * divider;
     let spacerAt = -1;
@@ -256,7 +251,7 @@ export function realizeTray(
   }
 
   // The band realize reserves is the reach each pocket reports, rounded up to whole units.
-  const reach = ceilU(settings.fingerPocket.reach);
+  const reach = reachU(settings);
   const ctx: FeatureContext = { W, D, wall, reach, settings };
   const spacers: TraySpec[] = [];
   const compartments: CompartmentSpec[] = placed.map(({ req, alloc, spacer }) => {

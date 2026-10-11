@@ -19,9 +19,14 @@ interface Dims {
   h: number;
 }
 
+/** Taller than wide: only such a figure is laid down (spec §7.1). */
+function isTall(f: Dims): boolean {
+  return f.h > Math.max(f.w, f.d);
+}
+
 /** Lying: h swapped with the larger of w, d — only when the figure is taller than wide (spec §7.1). */
 export function lyingDims(f: Dims): Dims {
-  if (f.h <= Math.max(f.w, f.d)) {
+  if (!isTall(f)) {
     return { w: f.w, d: f.d, h: f.h };
   }
   return f.w >= f.d ? { w: f.h, d: f.d, h: f.w } : { w: f.w, d: f.h, h: f.d };
@@ -74,7 +79,7 @@ export function minisOptions(c: MinisComponent, s: Settings): OptionsResult {
   const options: StorageOption[] = [
     { id: "standing", blocks: c.figures.map((f) => pockets(c, f, f, clearance, s)) },
   ];
-  if (c.figures.some((f) => f.h > Math.max(f.w, f.d))) {
+  if (c.figures.some(isTall)) {
     options.push({
       id: "lying",
       blocks: c.figures.map((f) => pockets(c, f, lyingDims(f), clearance, s)),

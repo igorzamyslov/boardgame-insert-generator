@@ -45,6 +45,22 @@ export function mainClearance(c: Component, s: Settings): number {
   return c.kind === "cards" ? e.cardClearance : e.pieceClearance;
 }
 
+/** The sides that carry a finger pocket, each once, in feature order. */
+export function pocketSides(features: readonly FeatureReq[]): Side[] {
+  const sides: Side[] = [];
+  for (const f of features) {
+    if (f.type === "fingerPocket" && f.side !== undefined && !sides.includes(f.side)) {
+      sides.push(f.side);
+    }
+  }
+  return sides;
+}
+
+/** The finger-reach band in whole 0.01 mm units: the setting rounded up. */
+export function reachU(s: Settings): number {
+  return ceilU(s.fingerPocket.reach);
+}
+
 export function fingerPocket(side: Side, depthFraction: number, perItem: boolean): FeatureReq {
   return { type: "fingerPocket", side, depthFraction, perItem };
 }
@@ -73,20 +89,16 @@ export interface CompartmentInput {
  * whole-unit band realizeTray subtracts again, so the well is never narrower than the content.
  */
 export function compartment(input: CompartmentInput, s: Settings): CompartmentReq {
-  const reachU = ceilU(s.fingerPocket.reach);
-  const sides = new Set(
-    input.features.flatMap((f) =>
-      f.type === "fingerPocket" && f.side !== undefined ? [f.side] : [],
-    ),
-  );
-  const xSides = Number(sides.has("left")) + Number(sides.has("right"));
-  const ySides = Number(sides.has("front")) + Number(sides.has("back"));
+  const reach = reachU(s);
+  const sides = pocketSides(input.features);
+  const xSides = Number(sides.includes("left")) + Number(sides.includes("right"));
+  const ySides = Number(sides.includes("front")) + Number(sides.includes("back"));
   const req: CompartmentReq = {
     componentId: input.componentId,
     contents: input.contents,
     kind: input.kind,
-    minW: fromU(ceilU(input.w) + xSides * reachU),
-    minD: fromU(ceilU(input.d) + ySides * reachU),
+    minW: fromU(ceilU(input.w) + xSides * reach),
+    minD: fromU(ceilU(input.d) + ySides * reach),
     minH: input.h,
     elastic: {
       w: input.elastic?.w ?? false,

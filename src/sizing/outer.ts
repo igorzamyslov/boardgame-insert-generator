@@ -1,7 +1,8 @@
 import { MIN_FEATURE_MM } from "../model/settings";
 import type { Settings, Side } from "../model/types";
 import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
-import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
+import { pocketSides } from "./common";
+import type { CompartmentReq, OuterSize, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, fromU, maxOf, sum, toU } from "./units";
 
 /** Outer wall thickness: lipped walls are max(wall, lip.thickness + lip.ledge) (spec §6.1). */
@@ -27,6 +28,9 @@ export interface MinLayout {
   wall: number;
   divider: number;
   floor: number;
+  rows: CompartmentReq[][]; // rowsOf(part.arrangement, part.compartments)
+  widths: number[][]; // per row: each compartment's minW, rounded up
+  rowDepths: number[]; // per row: the deepest compartment's minD, rounded up
   innerW: number;
   innerD: number;
   w: number;
@@ -35,11 +39,7 @@ export interface MinLayout {
 }
 
 function hasPocketOn(part: TrayPartReq, sides: readonly Side[]): boolean {
-  return part.compartments.some((c) =>
-    c.features.some(
-      (f) => f.type === "fingerPocket" && f.side !== undefined && sides.includes(f.side),
-    ),
-  );
+  return part.compartments.some((c) => pocketSides(c.features).some((s) => sides.includes(s)));
 }
 
 export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeOptions): MinLayout {
@@ -54,9 +54,8 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
   const pocketU = toU(settings.fingerPocket.width);
   const pocketWidth = pocketU + (pocketU % 2);
   const rows = rowsOf(part.arrangement, part.compartments);
-  const rowWidths = rows.map(
-    (row) => sum(row.map((c) => ceilU(c.minW))) + (row.length - 1) * divider,
-  );
+  const widths = rows.map((row) => row.map((c) => ceilU(c.minW)));
+  const rowWidths = widths.map((row) => sum(row) + (row.length - 1) * divider);
   const rowDepths = rows.map((row) => maxOf(row.map((c) => ceilU(c.minD))));
   const innerW = Math.max(maxOf(rowWidths), hasPocketOn(part, ["front", "back"]) ? pocketWidth : 0);
   const innerD = Math.max(
@@ -68,7 +67,19 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
     opts.level > 0 && settings.lip.enabled
       ? Math.max(content, ceilU(settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP))
       : content;
-  return { wall, divider, floor, innerW, innerD, w: innerW + 2 * wall, d: innerD + 2 * wall, h };
+  return {
+    wall,
+    divider,
+    floor,
+    rows,
+    widths,
+    rowDepths,
+    innerW,
+    innerD,
+    w: innerW + 2 * wall,
+    d: innerD + 2 * wall,
+    h,
+  };
 }
 
 /** Smallest outer box (tray's own frame, lip excluded) that holds the part (roadmap §4.2). */
