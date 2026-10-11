@@ -122,7 +122,7 @@ const settingRanges: SettingRange[] = [
     path: "fingerPocket/reach",
     label: "Finger pocket reach",
     get: (s) => s.fingerPocket.reach,
-    min: 0,
+    min: 5,
     max: 100,
   },
   { path: "lip/height", label: "Lip height", get: (s) => s.lip.height, min: 0.5, max: 10 },
@@ -148,7 +148,8 @@ const settingRanges: SettingRange[] = [
 /**
  * Advanced-settings ranges. Wall, floor, divider and lip-thickness minimums are
  * MIN_FEATURE_MM, the minimum printable feature width (spec §6.1); topPressFit is
- * spec §3 rule 2. Frozen, entries included.
+ * spec §3 rule 2. The finger pocket reach is at least 5 mm, so every pocket sizing emits
+ * has a positive reach (the geometry rejects a zero one). Frozen, entries included.
  */
 export const SETTING_RANGES: readonly SettingRange[] = Object.freeze(
   settingRanges.map((r) => Object.freeze(r)),

@@ -182,7 +182,7 @@ const settingsArb: Arbitrary<Settings> = fc
       height: setting(0.5, 5),
     }),
     pocketUnits: fc.integer({ min: 500, max: 4000 }),
-    reach: setting(0, 20),
+    reach: setting(5, 20),
   })
   .map((r): Settings => ({
     ...DEFAULT_SETTINGS,

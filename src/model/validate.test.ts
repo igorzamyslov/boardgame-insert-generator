@@ -525,4 +525,12 @@ describe("setting ranges", () => {
       expect(codes(validateProject(p))).toEqual([[field.setting, `/settings/${range.path}`]]);
     }
   });
+
+  it("needs a finger pocket reach of at least 5 mm", () => {
+    const p = newProject();
+    p.settings = { ...p.settings, fingerPocket: { ...p.settings.fingerPocket, reach: 4.99 } };
+    expect(codes(validateProject(p))).toEqual([[field.setting, "/settings/fingerPocket/reach"]]);
+    p.settings = { ...p.settings, fingerPocket: { ...p.settings.fingerPocket, reach: 5 } };
+    expect(validateProject(p)).toEqual([]);
+  });
 });
