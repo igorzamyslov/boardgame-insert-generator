@@ -230,13 +230,12 @@ describe("buildVariants", () => {
     expect(contents("A|strip|split3")).toEqual([["a0", "a1"], ["b0"], ["c0", "c1", "c2"]]);
   });
 
-  it("returns no variants without options, blocks or players", () => {
+  it("returns no variants without options or blocks", () => {
     expect(buildVariants({ key: "k", options: [], players: null })).toEqual([]);
     expect(buildVariants({ key: "k", options: [{ id: "A", blocks: [] }], players: null })).toEqual(
       [],
     );
     expect(buildVariants({ key: "k", options: [{ id: "A", blocks: [] }], players: 2 })).toEqual([]);
-    expect(buildVariants({ key: "k", options: [opt("A", 2)], players: 0 })).toEqual([]);
   });
 
   it("is deterministic", () => {

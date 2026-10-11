@@ -125,15 +125,12 @@ function separateCandidates(
 }
 
 /**
- * Enumerates up to MAX_VARIANTS (0..8) tray variants for one requirement, best first.
- * `players` is the perPlayer count (1..10) or null without perPlayer; fewer than 1 yields no
- * variants. `key` is passed through into the tray keys unchanged.
+ * Enumerates up to MAX_VARIANTS (0..8) tray variants for one requirement, best first; none when
+ * no option has a compartment. `players` is the perPlayer count (1..10, validateComponent's
+ * range) or null without perPlayer. `key` is passed through into the tray keys unchanged.
  */
 export function buildVariants(input: VariantInput): TrayVariant[] {
   const { key, options, players } = input;
-  if (players !== null && players < 1) {
-    return [];
-  }
   const candidates: Candidate[] = [];
   options.forEach((option, s) => {
     if (players === null) {

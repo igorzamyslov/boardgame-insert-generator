@@ -63,22 +63,6 @@ describe("cardDims", () => {
     expect(notices).toEqual([]);
   });
 
-  it("falls back to the preset when the measured card count or stack is unusable", () => {
-    for (const thickness of [
-      { mode: "measured" as const, cards: 0, stackMm: 45 },
-      { mode: "measured" as const, cards: -5, stackMm: 45 },
-      { mode: "measured" as const, cards: Number.NaN, stackMm: 45 },
-      { mode: "measured" as const, cards: 100, stackMm: Number.NaN },
-      { mode: "measured" as const, cards: 100, stackMm: Number.POSITIVE_INFINITY },
-    ]) {
-      const { dims, notices } = cardDims(cards({ thickness }), s, 4);
-      expect(dims.t).toBeCloseTo(0.42, 9);
-      expect(notices.map((n) => [n.level, n.code, n.path])).toEqual([
-        ["warning", "sizing.measuredInvalid", "/components/4/thickness"],
-      ]);
-    }
-  });
-
   it("falls back to the preset when the measured stack is implausibly thin", () => {
     const { dims, notices } = cardDims(
       cards({ thickness: { mode: "measured", cards: 100, stackMm: 5 } }),

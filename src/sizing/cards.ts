@@ -41,6 +41,12 @@ function sleeved(c: CardsComponent, s: Settings): { S: number; L: number; tPrese
   };
 }
 
+/**
+ * Sleeved card size and per-card thickness. Precondition: `c` passes validateComponent, so a
+ * measured thickness has a whole card count ≥ 1 and a stack height > 0 (componentOptions only
+ * calls this for valid components). A measured value under MIN_MEASURED_CARD_T per card falls
+ * back to the preset with a warning.
+ */
 export function cardDims(
   c: CardsComponent,
   s: Settings,
@@ -50,19 +56,7 @@ export function cardDims(
   if (c.thickness.mode === "preset") {
     return { dims: { S, L, t: tPreset }, notices: [] };
   }
-  const { cards: count, stackMm } = c.thickness;
-  // A non-positive or non-finite card count (or a non-finite stack) has no per-card thickness.
-  // validateComponent rejects these first; this guard keeps cardDims safe when called directly.
-  if (!(Number.isFinite(count) && count > 0 && Number.isFinite(stackMm))) {
-    const unusable: Notice = {
-      level: "warning",
-      code: "sizing.measuredInvalid",
-      message: `${displayName(c)}: the measured card count and stack height must be positive numbers; using ${tPreset.toFixed(2)} mm per card instead.`,
-      path: `/components/${index}/thickness`,
-    };
-    return { dims: { S, L, t: tPreset }, notices: [unusable] };
-  }
-  const measured = stackMm / count;
+  const measured = c.thickness.stackMm / c.thickness.cards;
   if (measured >= MIN_MEASURED_CARD_T) {
     return { dims: { S, L, t: measured }, notices: [] };
   }
