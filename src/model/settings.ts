@@ -160,6 +160,24 @@ export function maxChannelSpacing(r: number): number {
 }
 
 /**
+ * A finger slot of radius r may cross a well face whose solid side lies toward the slot's centre
+ * (contents the slot meets only within its SLOT_CONTENT_OVERLAP) only this far from the centre
+ * (roadmap §4.6). The round bottom meets the face k = √(r² − dx²) below the arc centre; m below that
+ * tip the wedge between face and bottom is dx − √(r² − (k + m)²) wide. Keeping that ≥ m =
+ * MIN_FEATURE_MM gives k ≥ dx − m, i.e. dx ≤ m/2 + √(r²/2 − m²/4): 8.17 mm for 22 mm slots.
+ */
+export function maxWellFaceOffset(r: number): number {
+  const m = MIN_FEATURE_MM;
+  return m / 2 + Math.sqrt(Math.max(0, (r * r) / 2 - (m * m) / 4));
+}
+
+/**
+ * Finger slots are never narrower than this (or the fingerPocket.width setting, if smaller): sizing
+ * drops the slot of a compartment that is a grip by itself, or refuses the tray (roadmap §4.7).
+ */
+export const MIN_SLOT_WIDTH = 15;
+
+/**
  * Largest outer corner radius that keeps MIN_FEATURE_MM + CORNER_MARGIN between the rounded
  * outer corner and a cut disc whose centre is p and q from the corner's two outer faces (radius
  * rho; 0 for a sharp cut corner). Solves R − hypot(R − p, R − q) = m with

@@ -12,6 +12,7 @@ import {
   MIN_FEATURE_MM,
   maxBottomChamfer,
   maxChannelSpacing,
+  maxWellFaceOffset,
   topPlane,
   wallChoiceOf,
 } from "./settings";
@@ -208,5 +209,25 @@ describe("maxChannelSpacing", () => {
     expect(ridge(r, spacing)).toBeCloseTo(MIN_FEATURE_MM, 9);
     expect(ridge(r, spacing - 0.1)).toBeGreaterThan(MIN_FEATURE_MM);
     expect(ridge(r, spacing + 0.1)).toBeLessThan(MIN_FEATURE_MM);
+  });
+});
+
+describe("maxWellFaceOffset", () => {
+  // Width, MIN_FEATURE_MM below its tip, of the wedge between a well face dx from the centre of a
+  // round slot bottom (radius r) and that bottom.
+  function wedge(r: number, dx: number): number {
+    const k = Math.sqrt(r * r - dx * dx);
+    return dx - Math.sqrt(r * r - (k + MIN_FEATURE_MM) ** 2);
+  }
+
+  it("is 8.17 mm for 22 mm slots", () => {
+    expect(maxWellFaceOffset(11)).toBeCloseTo(8.17, 2);
+  });
+
+  it.each([2.5, 7.5, 11, 25, 50])("leaves a wedge exactly MIN_FEATURE_MM wide for r = %d", (r) => {
+    const dx = maxWellFaceOffset(r);
+    expect(wedge(r, dx)).toBeCloseTo(MIN_FEATURE_MM, 9);
+    expect(wedge(r, dx - 0.1)).toBeGreaterThan(MIN_FEATURE_MM);
+    expect(wedge(r, dx + 0.1)).toBeLessThan(MIN_FEATURE_MM);
   });
 });
