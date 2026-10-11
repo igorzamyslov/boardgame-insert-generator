@@ -1,6 +1,6 @@
 # Board Game Insert Generator — Design
 
-Date: 2026-10-11 · Status: approved for planning · App: `apps/insert-generator/`
+Date: 2026-10-11 · Status: reviewed, pending user approval · App: `apps/insert-generator/`
 
 ## 1. Goal
 
@@ -20,7 +20,7 @@ Research (2026-10) found no tool that does box-first automatic layout:
 - Gridfinity Layout Tool — web, auto-splits baseplates to the bed, manual bin
   placement; not box-specific.
 - MakerWorld parametric generator — packs components into the _smallest box_,
-  not into a given box (claim unverified).
+  not into a given box (per its listing).
 - Broken Token / Folded Space — commercial, per game.
 
 BoardGameGeek's XML API requires a registered token since 2025 and blocks
@@ -33,11 +33,11 @@ box.
 
 - Component types: cards, bulk bits, tiles, miniatures, custom block.
 - Automatic layout with lock / swap and re-optimize.
-- Simple and advanced input modes.
+- Simple and advanced input modes. Decimal comma or point accepted.
 - 3D preview and 2D plan view.
-- Export: 3MF per tray, combined 3MF, optional STL zip.
+- Export: 3MF per printed part, combined 3MF, optional STL zip.
 - Assembly pictures (printable page → PDF via browser, PNG per layer).
-- Share via URL hash; autosave; JSON import/export.
+- Share via URL hash; local project list with autosave; JSON import/export.
 
 ### Not in v1 (future releases)
 
@@ -50,52 +50,91 @@ box.
 - Bundled game presets library.
 - Calibration test print.
 - Print-time estimate.
+- Inch input.
+- Cross-engine bit-identical layouts (see §7.2 Determinism).
+- Frozen versioned builds (e.g. `…/insert-generator/v1/`).
 
 ## 3. Hard rules (every generated layout satisfies all of them)
 
-1. **No lateral movement.** Trays tile the box floor completely. The only gap
-   is the configured tray-to-box clearance (default 0.5 mm per side).
+1. **No lateral movement.** Trays tile the box floor. The only gaps are the
+   tray-to-box clearance (`boxClearance`, default 0.5 mm per side) and the
+   gap between neighbouring trays (`trayGap`, default 0.2 mm total), which
+   absorbs printed oversize. Nominal play per axis =
+   `2·boxClearance + (n − 1)·trayGap`, where `n` is the most trays crossed
+   along that axis: about 1–1.5 mm at Fit "normal". It is shown per axis in
+   the summary; above 1.5 mm it is penalized (§7.2) and warned about.
 2. **No vertical movement.** Every stack reaches the same top plane:
    `topPlane = box.innerHeight − box.headroom + settings.topPressFit`
-   (`topPressFit` default 0, range 0–1 mm). Headroom items (boards, rulebooks,
+   (`topPressFit` default 0, range −2…+1 mm). Stack height = Σ `tray.h`
+   (the lip is excluded, §6.1). Headroom items (boards, rulebooks,
    punchboards) lie directly on the tray rims.
 3. **Closed from above.** Every compartment is covered by the tray stacked
    on it, by the headroom items, or (with zero headroom) by the box lid.
-   The app warns when it cannot ensure this (see §7.3).
+   Where that can't be ensured (partial headroom coverage, box stored on its
+   side), the optimizer avoids it via the score and the layout carries an
+   explicit warning (§7.3).
 4. **Clean stacking.** A stacked tray sits inside the lower tray's chamfered
-   locating lip (§6.1) and cannot shift.
-5. **Fits the bed.** Every tray fits the printer's X × Y × Z, in either
-   XY rotation.
+   locating lip (§6.1) and cannot shift more than `lip.play` per side.
+   With the lip turned off this is not ensured and the app warns.
+5. **Fits the bed.** Every printed part fits the usable bed
+   `(bedX − 2·bedMargin) × (bedY − 2·bedMargin) × bedZ`, in either XY rotation.
 6. **Openings face up.** Box orientation = print orientation. No supports,
-   no bridges, no ceilings.
+   no bridges, no ceilings: no downward-facing surface above z = 0 steeper
+   than 45° from vertical. Raised floors are solid.
 7. **Contents fit.** Each compartment meets its minimum inner size, clearances
-   included.
+   and finger pockets included.
+8. **Every tray has a grip.** Either a compartment whose smaller inner
+   dimension is ≥ 25 mm, or a finger pocket (§6.1). Finger features lie inside
+   the tray's own footprint; nothing is cut through an outer wall. Upper trays
+   are lifted the same way.
 
 ## 4. Architecture
 
 Vite + TypeScript + Preact (with signals), following the repo's built-app
-conventions (`base: "./"`, output to `dist/`, `app.json`, README). Libraries:
-`manifold-3d` (Apache-2.0, WASM CSG), `three` (preview), `fflate` (zip +
-URL compression). No copyleft dependencies.
+conventions (`base: "./"`, output to `dist/`, `app.json`, README). Preact
+(~4 kB) is used because this UI is form-heavy with many views derived from one
+project state, which would be unwieldy in the vanilla DOM style of the other
+apps. Libraries: `manifold-3d` (Apache-2.0, WASM CSG), `three` (preview),
+`fflate` (zip + URL compression). No copyleft dependencies.
 
 Each module is a pure, independently tested unit with plain-data interfaces:
 
-| Module          | Responsibility                                                                   | Interface                                                |
-| --------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `model/`        | Types, project schema, defaults, version migration                               | `Project`, `parseProject(json) → Result<Project>`        |
-| `sizing/`       | Component + settings → tray requirements with size variants                      | `size(component, settings) → TrayRequirement[]`          |
-| `layout/`       | Optimizer (runs in a Web Worker, deterministic per seed)                         | `optimize(input, seed, budget) → LayoutResult`           |
-| `geometry/`     | Tray spec → manifold mesh (Web Worker)                                           | `buildTray(spec) → Mesh`                                 |
-| `export/`       | 3MF and STL writers, zip                                                         | `to3mf(meshes) → Uint8Array`, `toStl(mesh) → Uint8Array` |
-| `viewer/`       | three.js scene: box outline, trays, explode slider, layer toggle, tray selection | Preact component, props: layout + meshes                 |
-| `plan/`         | 2D top-down per-layer view; drag-to-swap and lock                                | Preact component, emits lock/swap edits                  |
-| `instructions/` | Per-layer SVG diagrams + packing order; printable page; PNG                      | `render(layout, project) → SVG[]`                        |
-| `share/`        | URL hash encode/decode, autosave (localStorage, wrapped in try/catch), JSON file | `encode(project) → string`, `decode(string) → Result`    |
-| `ui/`           | Input forms (simple/advanced), results summary, warnings                         | Preact components                                        |
+| Module          | Responsibility                                                                   | Interface                                                                                                   |
+| --------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `model/`        | Types, project schema, defaults, version migration                               | `Project`, `parseProject(json) → Result<Project>`                                                           |
+| `sizing/`       | Component group + settings → tray requirements with size variants                | `size(group: Component[], settings) → TrayRequirement[]`                                                    |
+| `layout/`       | Optimizer (one Web Worker, deterministic per §7.2)                               | `optimize({ requirements, box, printer, settings, locks, previous? }, seed, { iterations }) → LayoutResult` |
+| `geometry/`     | `TraySpec` → manifold mesh (Web Worker)                                          | `buildTray(spec: TraySpec) → Mesh`                                                                          |
+| `export/`       | 3MF and STL writers, zip                                                         | `to3mf(parts: { name, mesh, transform }[]) → Uint8Array`, `toStl(mesh) → Uint8Array`                        |
+| `viewer/`       | three.js scene: box outline, trays, explode slider, layer toggle, tray selection | Preact component, props: layout + meshes                                                                    |
+| `plan/`         | 2D top-down per-layer view; swap (drag or keyboard) and lock                     | Preact component, emits lock/swap edits                                                                     |
+| `instructions/` | Per-layer SVG diagrams + packing order; printable page; PNG                      | `render(layout, project) → SVG[]`                                                                           |
+| `share/`        | URL hash encode/decode, project list in localStorage (try/catch), JSON file      | `encode(project) → string`, `decode(string) → Result<Project>`                                              |
+| `ui/`           | Input forms (simple/advanced), results summary, warnings                         | Preact components                                                                                           |
 
-**Data flow:** edit `Project` → `sizing` (sync) → `layout` worker (debounced,
-progress events, "improve more" button) → `LayoutResult` → `geometry` worker
-(per tray, on demand) → viewer / export / instructions.
+**Data flow:** edit `Project` → if `inputsHash` (§5) changed: `sizing` (sync)
+→ `layout` worker (debounced, progress events, "improve more" button) →
+`LayoutResult`, auto-accepted into `project.layout` when the run completes
+(the previous layout is kept for one-step undo) → `geometry` worker (per tray,
+on demand) → viewer / export / instructions.
+
+### Build and tooling notes
+
+- `tsconfig.json`: `"jsx": "react-jsx"`, `"jsxImportSource": "preact"`;
+  `@preact/preset-vite`.
+- manifold-3d: use the single-threaded build (GitHub Pages can't send
+  COOP/COEP headers, so no SharedArrayBuffer). Import the WASM with `?url`
+  and pass it to `locateFile`; `worker.format: "es"`;
+  `optimizeDeps.exclude: ["manifold-3d"]`.
+- Lazy-load the geometry worker and three.js so the input UI loads fast.
+- The app's `build` script is `vitest run && tsc --noEmit && vite build`,
+  because the repo's quality gate runs only lint, format and build.
+- `renovate.json`: a package rule that disables automerge for `manifold-3d`.
+- Root ESLint config: ban `Math.random` in `apps/insert-generator/src/layout/**`
+  (`no-restricted-properties`).
+- Ship a third-party licenses page in `dist/` (e.g. `rollup-plugin-license`),
+  including manifold's Apache-2.0 license/NOTICE and its embedded Clipper2
+  (BSL-1.0).
 
 ## 5. Data model
 
@@ -104,57 +143,68 @@ All lengths in millimetres.
 ```ts
 interface Project {
   schemaVersion: string; // semver, see §9
+  createdWith: string; // app version that last saved it
+  id: string; // short base36, keys the local project list
   name: string;
-  box: {
-    innerWidth: number;
-    innerDepth: number;
-    innerHeight: number;
-    headroom: number; // height of boards/rulebooks lying on top
-    headroomCoverage: "full" | "partial"; // do headroom items cover the whole footprint
-    storedOnSide: boolean; // stricter coverage warnings
-  };
-  printer: { bedX: number; bedY: number; bedZ: number };
-  settings: Settings;
+  box: Box;
+  printer: Printer;
+  settings: Settings; // fully resolved values, see §9
   components: Component[];
   locks: Lock[];
   layout?: StoredLayout; // last accepted layout, see §8.4
 }
 
+interface Box {
+  innerWidth: number; // X: left → right, seen from the box front
+  innerDepth: number; // Y: front → back
+  innerHeight: number; // floor to the rim of the bottom part
+  headroom: number; // boards/rulebooks lying on top, measured stacked
+  headroomCoverage: "full" | "partial"; // ignored when headroom = 0
+  storedOnSide: boolean; // stricter coverage handling
+}
+
+interface Printer {
+  bedX: number;
+  bedY: number;
+  bedZ: number;
+  bedMargin: number; // per side, for purge line / skirt
+  layerHeight: number; // tray heights are rounded to multiples (§7.2)
+}
+
 type Component = CardsComponent | BulkComponent | TilesComponent | MinisComponent | CustomComponent;
 
 interface ComponentBase {
-  id: string;
+  id: string; // short base36
   name: string;
   access: "often" | "sometimes" | "setup"; // play-time access frequency
   groupId?: string; // same group → same tray, separate compartments
-  clearance?: number; // advanced override
+  perPlayer?: { players: number }; // counts are per player; not allowed with groupId
+  clearance?: number; // advanced: absolute total, replaces the main clearance, not scaled by Fit
 }
 
 interface CardsComponent extends ComponentBase {
   kind: "cards";
-  cardWidth: number;
-  cardHeight: number; // from size presets or custom
+  shortSide: number; // card size (not sleeve size); the UI swaps the two if entered the other way round
+  longSide: number;
   decks: { name: string; count: number }[];
-  thickness:
-    | { mode: "preset"; sleeve: "none" | "standard" | "premium" }
-    | { mode: "measured"; cards: number; stackMm: number };
-  storage: "upright" | "flat" | "auto";
+  sleeve: "none" | "standard" | "premium" | { w: number; h: number; thickness: number }; // custom: sleeve outer size, added thickness per card
+  thickness: { mode: "preset" } | { mode: "measured"; cards: number; stackMm: number }; // measured: as stored, sleeves included
+  storage: "upright-long" | "upright-short" | "flat" | "auto";
 }
 
 interface BulkComponent extends ComponentBase {
   kind: "bulk";
   items: (
-    | { count: number; w: number; d: number; h: number } // tokens, cubes, dice, coins
-    | { volumeMl: number }
+    | { name: string; count: number; w: number; d: number; h: number } // tokens, cubes, dice, coins
+    | { name: string; volumeMl: number } // space the pile needs (packing included)
   )[];
-  perPlayer?: { players: number }; // one tray per player
 }
 
 interface TilesComponent extends ComponentBase {
   kind: "tiles";
-  shape: "square" | "rect" | "hex";
-  w: number;
-  d: number; // hex: flat-to-flat in w, d ignored
+  shape:
+    | { type: "rect"; w: number; d: number } // square: w = d
+    | { type: "hex"; flatToFlat: number; orientation: "flat" | "pointy" }; // flat: a flat edge faces the tray front
   thickness: number;
   count: number;
   storage: "flat" | "upright" | "auto";
@@ -171,226 +221,494 @@ interface CustomComponent extends ComponentBase {
   w: number;
   d: number;
   h: number;
+  count: number;
 }
 
 type Lock =
-  | { kind: "position"; trayKey: string; x: number; y: number; rotated: boolean }
-  | { kind: "size"; trayKey: string; w: number; d: number; h: number }
-  | { kind: "stack"; trayKeys: string[] }; // keep this stack as-is
+  | { kind: "position"; trayKey: string; path: string; rotated: boolean } // guillotine path of its leaf, e.g. "0110"
+  | { kind: "size"; trayKey: string; w: number; d: number; h: number } // outer size
+  | { kind: "stack"; trayKeys: string[] }; // bottom → top, kept as-is
 ```
 
-`trayKey` is a stable ID derived from component IDs (and the player index for
-per-player trays), so locks survive edits to unrelated components.
+`trayKey = "<groupId ?? componentId>:p<player>:<part>"` (`p0` without
+`perPlayer`; `part` counts split trays from 0), so locks survive edits to
+unrelated components. Leftover trays are keyed `leftover:<n>` and can't be
+locked. Card spacers are keyed `<trayKey>:spacer`.
 
-### Defaults (`Settings`)
+Component defaults: `access: "sometimes"`, `storage: "auto"`, minis
+`storage: "pockets"`.
 
-| Setting                     | Simple-mode control          | Default          |
-| --------------------------- | ---------------------------- | ---------------- |
-| Wall                        | thin / normal / sturdy       | 1.2 / 1.6 / 2.0  |
-| Floor                       | —                            | 1.2              |
-| Divider                     | —                            | 1.2              |
-| Fit (scales all clearances) | tight / normal / loose       | ×0.7 / ×1 / ×1.4 |
-| Card clearance (W, L)       | via Fit                      | +1.5             |
-| Card clearance (stack)      | via Fit                      | +1.0             |
-| Tile / mini clearance       | via Fit                      | +1.0             |
-| Tray-to-box clearance       | via Fit                      | 0.5 per side     |
-| Vertical corner radius      | advanced                     | 3                |
-| Scoop radius                | advanced                     | 12               |
-| Finger notch width / depth  | advanced                     | 22 / ⅓ of well   |
-| Locating lip on/off, height | advanced                     | on, 1.5          |
-| Top press-fit               | advanced                     | 0                |
-| Bulk packing factor         | advanced                     | 0.6              |
-| Leftover handling           | advanced: spare tray / solid | spare tray       |
-| Round walls to line width   | advanced: off / nozzle mm    | off              |
+Validation bounds (also applied to URL and file input): ≤ 100 components,
+every count 1…2000, every length 0 < x ≤ 1000 mm, `players` 1…10.
 
-Card thickness presets per card: none 0.32, standard sleeve 0.42, premium
-sleeve 0.6. A measured stack overrides them. Card size presets: Standard
+### Settings
+
+```ts
+interface Settings {
+  wall: number;
+  floor: number;
+  divider: number;
+  fit: number; // multiplies every clearance marked ×Fit
+  cardClearance: number; // W/L, total
+  cardStackClearance: number; // per deck, total, plus cardStackClearancePct
+  cardStackClearancePct: number;
+  cardThickness: number; // unsleeved card
+  pieceClearance: number; // tiles, minis, custom; total
+  boxClearance: number; // per side
+  trayGap: number; // total between neighbouring trays
+  bottomChamfer: number; // outer bottom edge (elephant foot)
+  cornerRadius: number; // outer vertical corners
+  scoopRadius: number;
+  fingerPocket: { width: number; reach: number };
+  lip: { enabled: boolean; height: number; thickness: number; ledge: number; play: number };
+  topPressFit: number;
+  packingFactor: number;
+  leftover: "spare" | "solid";
+}
+```
+
+| Setting                                     | Simple-mode control          | Default                  |
+| ------------------------------------------- | ---------------------------- | ------------------------ |
+| `wall`                                      | thin / normal / sturdy       | 1.2 / 1.6 / 2.0          |
+| `floor`                                     | —                            | 1.2                      |
+| `divider`                                   | —                            | 1.2                      |
+| `fit`                                       | tight / normal / loose       | 0.7 / 1 / 1.4            |
+| `cardClearance` (×Fit)                      | via Fit                      | 1.5                      |
+| `cardStackClearance` + `Pct` (×Fit)         | via Fit                      | 1.0 + 3 % of the stack   |
+| `cardThickness`                             | advanced                     | 0.32                     |
+| `pieceClearance` (×Fit)                     | via Fit                      | 1.0                      |
+| `boxClearance` (×Fit)                       | via Fit                      | 0.5 per side             |
+| `trayGap` (×Fit)                            | via Fit                      | 0.2                      |
+| `bottomChamfer`                             | advanced                     | 0.4 (upper trays: ≥ 0.5) |
+| `cornerRadius`                              | advanced                     | 3                        |
+| `scoopRadius`                               | advanced                     | 12                       |
+| `fingerPocket` width / reach                | advanced                     | 22 / 12                  |
+| `lip` on / height / thickness / ledge       | advanced                     | on / 2 / 1.2 / 1.7       |
+| `lip.play` (×Fit)                           | via Fit                      | 0.25                     |
+| `topPressFit`                               | advanced                     | 0 (−2…+1)                |
+| `packingFactor`                             | advanced                     | 0.5                      |
+| `leftover`                                  | advanced: spare tray / solid | spare tray               |
+| `printer.bedMargin` / `printer.layerHeight` | advanced                     | 5 / 0.2                  |
+
+Simple-mode controls write resolved numbers into `settings`; the project
+never stores "use the default".
+
+**Cards.** Card size presets (card sizes, not sleeve sizes): Standard
 63.5×88, Standard American 56×87, Euro 59×92, Mini Euro 44×68, Mini American
 41×63, Tarot 70×120, French Tarot 61×112, Extra Large 65×100, Dixit 80×120.
-Sleeving adds about +3 mm to width and height. Bed presets: 256³ (Bambu),
-250×210×220 (Prusa MK4), 220×220×250 (Ender 3), custom.
+
+| Sleeve   | Added thickness per card | Added to short and long side |
+| -------- | ------------------------ | ---------------------------- |
+| none     | 0                        | 0                            |
+| standard | +0.10 (→ 0.42 per card)  | +3                           |
+| premium  | +0.28 (→ 0.60 per card)  | +3                           |
+| custom   | given                    | outer size given             |
+
+A measured stack replaces the thickness, not the sleeve size.
+
+**Bed presets:** 256³ (Bambu), 250×210×220 (Prusa MK4), 220×220×250
+(Ender 3), custom.
+
+### StoredLayout
+
+```ts
+interface StoredLayout {
+  createdWith: string; // app version
+  geometryVersion: string; // semver of the tray geometry generator, §9
+  inputsHash: string; // hash of canonical box, printer, settings, components (names excluded), locks
+  seed: number;
+  iterations: number;
+  capped: boolean; // stopped by the safety time cap → not reproducible
+  trays: TraySpec[]; // fully resolved; geometry is a pure function of TraySpec
+}
+
+interface TraySpec {
+  key: string; // trayKey, "leftover:<n>", or "<trayKey>:spacer"
+  part: "tray" | "leftover" | "spacer";
+  path: string; // guillotine path of its leaf ("" for spacers)
+  stack: number;
+  level: number; // 0 = bottom
+  x: number; // min corner of the outer footprint, box coordinates after boxClearance
+  y: number;
+  z: number;
+  w: number; // outer size; h excludes the lip
+  d: number;
+  h: number;
+  rotated: boolean;
+  wall: number;
+  floor: number;
+  lip: boolean;
+  solid: boolean; // solid leftover
+  compartments: {
+    x: number; // inner, tray-local
+    y: number;
+    w: number;
+    d: number;
+    floorZ: number; // > floor when the floor is raised
+    kind: "well" | "scoop" | "pocket" | "spare";
+    contents: string;
+    features: (
+      | {
+          type: "fingerPocket";
+          side: "front" | "back" | "left" | "right";
+          at: number;
+          width: number;
+          reach: number;
+          depth: number;
+        }
+      | { type: "scoop"; side: "front" | "back" | "left" | "right"; r: number }
+      | { type: "cornerRelief"; d: number }
+    )[];
+  }[];
+}
+```
+
+Coordinates are stored in mm and computed as integer 0.01 mm units.
 
 ## 6. Geometry
 
 ### 6.1 Common to all trays
 
-- Outer block with rounded vertical corners. Walls, floor and dividers come
-  from settings.
-- Walls are vertical and the top is open. Floor fillets are concave. Finger
-  notches are U-shaped cuts down from the top. No bridges or ceilings.
-- **Locating lip** (when a tray has a tray stacked on it): the lower tray's
-  outer wall rises `lipHeight` above the rim, with a 45° chamfer on the inside.
-  The upper tray's footprint is inset by `wall/2 + 0.3 mm` per side. It rests on
-  the inner half of the lower tray's walls and on its dividers, and the chamfer
-  guides it into place. A finger notch in the lip lets you lift the upper tray.
-  Stack height accounting includes `lipHeight`.
+- Outer block with rounded vertical corners (`cornerRadius`). Wells have inner
+  vertical corners ≤ 0.5 mm; tile and custom wells add Ø 3 mm corner reliefs.
+- Walls are vertical and the top is open. Floor fillets are concave. No
+  bridges or ceilings; raised floors are solid.
+- Outer bottom edge chamfer `bottomChamfer` × 45° against elephant foot
+  (upper trays ≥ 0.5 mm, so they slide into the lip).
+- Fill (§7.2) thickens walls and dividers toward the compartment only; outer
+  faces, lip and insets never move.
+- Minimum feature width 0.8 mm (2 lines of a fixed internal 0.4 mm line-width
+  assumption); no wall, divider or lip is thinner.
 - Meshes come out of manifold and are watertight by construction.
+
+**Finger pockets.** A U-slot `fingerPocket.width` wide, cut down from the
+top, extending `fingerPocket.reach` beyond the content into the tray body,
+inside the tray's own footprint. Sizing adds the reach to the compartment
+requirement. Pockets never cut through an outer wall. A cut through a divider
+is allowed only between compartments of the same tray. Adjacent pockets on
+one side may merge into one channel.
+
+| Content                 | Pocket position                                                               | Depth       |
+| ----------------------- | ----------------------------------------------------------------------------- | ----------- |
+| Cards / tiles, upright  | Both sides touching the card edges (perpendicular to the faces), one per deck | ⅓ of well   |
+| Cards, flat             | Both short sides, half-round                                                  | Full        |
+| Tiles, flat             | Two opposite sides                                                            | Full        |
+| Minis, pockets          | One per pocket                                                                | ⅓ of pocket |
+| Custom                  | One side                                                                      | Full        |
+| Bulk, spare, minis bulk | None: compartments ≥ 25 mm are the grip (rule 8)                              | —           |
+
+**Locating lip** (on any tray with a tray stacked on it):
+
+| Part       | Geometry                                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Lip        | The outer `lip.thickness` (1.2) of the wall rises `lip.height` (2) above the rim. 0.6 × 45° chamfer on its inner top edge, flat top 0.6. |
+| Ledge      | The next `lip.ledge` (1.7) stays at rim height. A lipped outer wall is `max(wall, thickness + ledge)` (2.9).                             |
+| Upper tray | Outer face inset `thickness + play` (1.45) per side from the lower tray's outer face.                                                    |
+| Bearing    | ≥ `ledge − 2·play − upper bottom chamfer` (0.7) in any shifted position; the upper tray also rests on the lower tray's dividers.         |
+| Insets     | Add up: the tray at level k is inset `k·(thickness + play)` per side.                                                                    |
+| Height     | The lip is not part of `tray.h`; it overlaps the upper tray. Upper trays need `h ≥ lip.height + 3`.                                      |
+
+With the lip off, upper trays keep the same inset, rest on the rim, and the
+app warns (rule 4).
 
 ### 6.2 Per type
 
-| Type           | Shape                                                    | Notes                                                                                                                                                                                                           |
-| -------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cards, upright | One well per deck, dividers between                      | Card stands on its long edge (variant: short edge). Well depth ≥ standing height + clearance. Finger notch through both long walls. Spare stack length goes to a removable card spacer, or to thicker dividers. |
-| Cards, flat    | Rectangular well                                         | Half-round finger cutouts through both short walls, full depth.                                                                                                                                                 |
-| Bulk           | Scoop tray, N compartments (one per item line)           | Front floor fillet (`scoopRadius`). Per-player gives one tray per player.                                                                                                                                       |
-| Tiles, flat    | Square/rect/hex well                                     | Corner-relief circles. Finger cutouts on two opposite sides.                                                                                                                                                    |
-| Tiles, upright | As upright cards                                         | —                                                                                                                                                                                                               |
-| Minis, pockets | One rounded pocket per figure (bounding box + clearance) | Finger notch per pocket. The tallest figure sets a minimum tray height.                                                                                                                                         |
-| Minis, bulk    | As bulk                                                  | Volume from bounding boxes × packing factor.                                                                                                                                                                    |
-| Custom         | Plain well                                               | —                                                                                                                                                                                                               |
-| Leftover       | Open "spare" tray (default) or solid block               | Fills space that can't be used, so the box is always full.                                                                                                                                                      |
+| Type           | Shape                                                    | Notes                                                                                                                                                                                       |
+| -------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cards, upright | One well per deck in a strip, dividers between           | `upright-long`: stands on its long edge (well height from the short side); `upright-short`: the reverse (§7.1). Spare stack length goes to a removable card spacer, or to thicker dividers. |
+| Card spacer    | Separate solid block                                     | Well width × spare length × (well height − 5), printed standing.                                                                                                                            |
+| Cards, flat    | Rectangular well                                         | —                                                                                                                                                                                           |
+| Bulk           | Scoop tray, compartments in a strip (one per item line)  | Scoop fillet on the compartment's front wall (tray-local −Y), radius `min(scoopRadius, depth, width/2)`.                                                                                    |
+| Tiles, flat    | Rect/hex wells, one per column                           | Columns added when `count × thickness` exceeds the well height. Hex corner-to-corner = `flatToFlat · 2/√3`.                                                                                 |
+| Tiles, upright | As upright cards                                         | Hex stands on a flat edge: height `flatToFlat`, length corner-to-corner.                                                                                                                    |
+| Minis, pockets | One rounded pocket per figure (bounding box + clearance) | Each pocket's depth = its figure's `h` + clearance (solid raised pocket floor). The tallest figure sets the minimum tray height.                                                            |
+| Minis, bulk    | As bulk                                                  | Volume = Σ bounding boxes ÷ `packingFactor`.                                                                                                                                                |
+| Custom         | Plain well per item                                      | `pieceClearance`.                                                                                                                                                                           |
+| Leftover       | Open "spare" tray (default) or solid block               | Fills space that can't be used, so the box is always full.                                                                                                                                  |
+
+**Groups and multi-compartment trays.** Compartments are laid out as a 1-D
+strip, or 2 rows, along the tray's long axis. Every compartment uses the full
+tray height: elastic kinds (bulk) grow deeper, others get a solid raised floor.
 
 ## 7. Layout engine
 
 ### 7.1 Sizing
 
-`sizing` turns each component (or group) into `TrayRequirement`s:
+`sizing` turns each component, or each group, into `TrayRequirement`s:
 
-- the minimum inner size of each compartment;
+- the minimum inner size of each compartment, finger pockets included;
 - which axes can grow ("elastic") and by how much: for upright cards only stack
-  length; for bulk any axis, as long as volume stays ≥ required;
+  length; for bulk any axis, as long as volume stays ≥ required and the
+  per-axis minimums below hold;
 - whether the tray may be rotated in XY;
 - the `access` priority;
-- **size variants**: e.g. cards upright on the long or short edge, or flat;
-  one or two rows of decks; bulk wide-and-shallow vs narrow-and-deep;
-  minis in pockets split across 1–3 trays.
+- **size variants**: upright on the long or short edge, or flat; one or two
+  rows; bulk wide-and-shallow vs narrow-and-deep; minis standing or lying
+  (`h` swapped with the larger of `w`, `d`) when too tall; and **splits**
+  across 1–3 trays for every kind (cards and tiles at deck/column boundaries,
+  bulk by item line, minis by figure). At most 8 variants per requirement, in
+  a fixed order. Decks are split into rows greedily by size, largest first.
 
-Stored with `storage: "auto"` → `sizing` emits all variants. Otherwise only
-the chosen ones.
+With `storage: "auto"`, `sizing` emits all variants. Otherwise only the
+chosen ones. With `perPlayer`, it emits one requirement per player, plus a
+variant with all players in one tray (one compartment each).
+
+**Card math** (`S`, `L` = sleeved short/long side; `t` = per-card thickness
+from the sleeve table or `stackMm / cards`; clearances ×Fit unless overridden):
+
+| Storage         | Well height (vertical)               | Well length         | Well width (stack)                            |
+| --------------- | ------------------------------------ | ------------------- | --------------------------------------------- |
+| `upright-long`  | `S + cardClearance`                  | `L + cardClearance` | `n·t·(1 + pct) + cardStackClearance` per deck |
+| `upright-short` | `L + cardClearance`                  | `S + cardClearance` | as above                                      |
+| `flat`          | `n·t·(1 + pct) + cardStackClearance` | `L + cardClearance` | `S + cardClearance`                           |
+
+**Bulk:** required volume = Σ `count·w·d·h` ÷ `packingFactor` (`volumeMl`
+lines are used as given). Each compartment has min width/depth =
+`max(largest item dim + pieceClearance, 25)` (25 for `volumeMl` lines) and
+height ≤ 1.5 × its smaller horizontal size.
 
 ### 7.2 Search
 
 - **Representation:** a guillotine tree over the box floor
   (`innerWidth − 2·boxClearance` × `innerDepth − 2·boxClearance`). Internal
-  nodes are X or Y cuts. Each leaf is a **stack**: an ordered list of trays,
-  all with the leaf's footprint (minus the lip inset for upper trays). The
-  stack's total height equals `topPlane`.
-- **Fill:** after placement, slack is shared out. First it goes to elastic
-  axes. Then to divider and wall thickness, up to a cap. Then height goes to
-  the tray in the stack that benefits most (deeper scoop), or to a raised
-  floor (hollow false floor). Whatever is left becomes a leftover tray.
-- **Search:** several greedy starting layouts, then simulated annealing.
-  Moves: swap leaves, flip a cut axis, move a cut, change a variant, rotate,
-  reorder a stack, merge or split a stack. Runs in a Web Worker, deterministic
-  for a given seed, with a time budget (default 3 s; "improve more" adds 10 s).
-  Reports progress and the best result so far.
-- **Score** (lower is better; weights are internal constants, tuned against
-  fixtures):
-  - leftover volume;
-  - number of stacked trays (beyond one per stack);
-  - access penalty: `often` items under other trays;
-  - tray count;
-  - filament volume.
-- **Locks:** locked positions, sizes and stacks are fixed in the tree. Moves
-  never change them. Drag-to-swap in the plan view = swap two leaves, lock
-  both, re-optimize.
+  nodes are X or Y cuts; neighbouring leaves are separated by `trayGap`. Each
+  leaf is a **stack**: an ordered list of trays. The bottom tray has the
+  leaf's footprint; the tray at level k is inset `k·(lip.thickness + lip.play)`
+  per side. A leaf is feasible when, for every level k,
+  `leaf ≥ req_k + 2·k·(lip.thickness + lip.play)`. The stack's total height
+  (Σ `tray.h`) equals `topPlane`.
+- **Fill:** after placement, slack is shared out.
+  - Footprint slack inside a stack goes to elastic axes, then to an extra empty
+    compartment in that tray (stacked trays can't have a leftover tray beside
+    them).
+  - Leaf slack goes to elastic axes, then to wall and divider thickness (inward
+    only) up to `min(2 × setting, 4 mm)`, then to a leftover leaf at full
+    stack height.
+  - Leftover regions narrower than 12 mm are absorbed into the neighbouring
+    outer wall regardless of the cap. Leftovers larger than the bed are split
+    with further cuts.
+  - Height slack goes to the tray in the stack that benefits most (deeper
+    scoop), or to a solid raised floor.
+  - In each stack, every tray except the top one has its `h` rounded to a
+    multiple of `printer.layerHeight`; the top tray takes the remainder.
+- **Search:** greedy starting layouts (first-fit decreasing along X and along
+  Y), then simulated annealing. Moves: swap leaves, flip a cut axis, move a
+  cut, change a variant, rotate, reorder a stack, merge or split a stack.
+  Re-runs after an edit start from the current layout (warm start).
+- **Feasibility:** constraint violations count as an overflow penalty during
+  the search; the best _feasible_ layout is tracked separately and is the
+  result. If none is found, the least-overflow layout is reported (§7.3).
+- **Budget:** runs in one Web Worker, in chunks of 1 000 iterations (progress
+  events, best result so far, cancel). The default budget is N iterations,
+  calibrated to ≈ 3 s on a mid-range laptop; "improve more" adds 3N,
+  continuing from the stored `(seed, iterations)`. A 30 s time cap is only a
+  safety stop; a capped result is marked `capped`.
+- **Determinism:** a seeded PRNG (xoshiro128\*\*); `Math.random` is banned in
+  `layout/` by lint. All lengths are integer 0.01 mm units. The seed is kept
+  across re-runs. Guarantee: same app version + same JS engine + seed +
+  iterations → same layout. Sharing reproduces a layout through
+  `StoredLayout`, not by recomputing.
+- **Score** (lower is better). Terms in order of decreasing weight; the
+  weights are internal constants, tuned against fixtures:
+  1. leftover volume;
+  2. coverage penalty: bulk, minis-bulk and tiles in the top layer when
+     `headroomCoverage` is `partial` or `storedOnSide` is set;
+  3. access penalty: `often` items under other trays;
+  4. lateral play above 1.5 mm per axis (rule 1);
+  5. number of stacked trays (beyond one per stack);
+  6. tray count;
+  7. filament volume;
+  8. on warm starts, moving trays whose requirements didn't change.
+- **Locks:**
+  - Locked paths, sizes and stacks are fixed in the tree; moves never change
+    them. A position lock fixes the tree topology along its path; cut
+    positions may still move.
+  - Drag-to-swap in the plan view swaps two leaves' paths, locks both, and
+    re-optimizes.
+  - Locks are checked for feasibility before optimizing. A lock that can't be
+    satisfied (contents no longer fit a size lock, box edits, conflicting
+    paths), or whose `trayKey` no longer exists, is dropped with a visible
+    notice, never silently.
 
 ### 7.3 Infeasibility and warnings
 
-- **Doesn't fit:** report the closest attempt and the shortfall per axis,
-  plus concrete suggestions: unsleeve, store flat or upright, lower the
-  headroom, loosen fit, split groups.
-- **Coverage:** if `headroom > 0`, `box.headroomCoverage` says whether the
-  headroom items cover the full footprint. When `partial`, warn about top-layer trays
-  holding small loose bits and suggest moving them below other trays.
-  `storedOnSide` makes the warnings stricter (any loose bits in the top layer
-  → warning).
-- **Bed:** a requirement too large for the bed in every variant → error
-  naming the component.
+- **Doesn't fit:** report the least-overflow attempt and the shortfall per
+  axis, plus concrete suggestions: unsleeve, store flat or upright, move the
+  rulebook or boards elsewhere (less headroom), loosen fit, split groups.
+- **Coverage:** applies when `headroom > 0` and `headroomCoverage` is
+  `partial`. The score keeps loose bits out of the top layer. Any that remain
+  are warned about, with a suggestion to move them below other trays. With
+  `storedOnSide`, any loose bits in the top layer trigger a warning, whatever
+  the coverage.
+- **Bed:** a requirement too large for the bed in every variant, splits
+  included → error naming the component.
+- **Play:** lateral play above 1.5 mm on an axis → warning.
+- **Lip off:** warning (rule 4).
+- **Dropped locks**, **capped runs** and a **stale stored layout** (§8.4) are
+  shown as notices.
 
 ## 8. UI
 
 ### 8.1 Layout
 
-One page. Inputs on the left (Box → Components → Settings), results on the
-right (summary, plan view, 3D view, export). A global Simple ⇄ Advanced toggle
-plus a per-component "more options" section. On narrow screens the panels stack.
+One page. Inputs on the left (Box → Printer → Components → Settings), results
+on the right (summary, plan view, 3D view, export). A global Simple ⇄ Advanced
+toggle plus a per-component "more options" section. On narrow screens the
+panels stack. Plan-view edits use pointer events (mouse and touch) and have a
+keyboard alternative (select A, then "swap with" B). Without WebGL, the 3D
+view shows a message and the rest works. Before 1.0 a "preview — links may
+break" banner is shown.
 
 ### 8.2 Inputs
 
-- **Box:** inner W × D × H (hint: measure at the narrowest point), headroom,
-  stored-on-side, bed preset.
+Numbers accept a decimal comma or point.
+
+- **Box:** inner W (X, left → right from the front) × D (Y, front → back) × H
+  (floor to the rim of the bottom part). Hint: measure at the narrowest point.
+  Headroom: boards and rulebooks stacked, plus 1 mm for warp. Coverage,
+  stored-on-side.
+- **Printer:** bed preset or custom X × Y × Z; advanced: bed margin, layer
+  height.
 - **Components:** add cards / bits / tiles / minis / custom. Simple fields:
   type, size preset, count, access. Advanced: overrides from §5.
 
 ### 8.3 Results
 
 - **Summary:** box fill %, tray count, stack count, filament in grams
-  (PLA 1.24 g/cm³), warnings.
-- **Plan view:** per-layer top-down drawing; click to select, drag to swap,
-  lock toggle.
+  (PLA 1.24 g/cm³; upper bound at 100 % fill), lateral play per axis,
+  warnings.
+- **Plan view:** per-layer top-down drawing; click to select, drag or
+  keyboard to swap, lock toggle.
 - **3D view:** explode slider, layer toggle, click a tray for contents and
   dimensions.
 - **Export:**
   - zip of one 3MF per printed part: trays, plus any card spacers (named
-    `NN-<contents>.3mf`);
-  - one combined 3MF with all trays as separate objects;
-  - optional STL zip.
+    `NN-<contents>.3mf`, sanitized to `[A-Za-z0-9._-]`);
+  - one combined 3MF with all parts as separate objects, laid out in a grid
+    at z = 0 (not in box position);
+  - optional STL zip (binary STL).
+  - 3MF: `[Content_Types].xml` (rels +
+    `application/vnd.ms-package.3dmanufacturing-3dmodel+xml`), `_rels/.rels`
+    → `/3D/3dmodel.model`, `unit="millimeter"`, counter-clockwise outward
+    winding, object `name`s, numbers written with `toFixed` (never
+    locale-formatted).
 - **Assembly page:** per-layer numbered SVG, "what goes where" list, packing
   order (bottom first). Printable via the browser (PDF), PNG download per
   layer.
 
 ### 8.4 Persistence and sharing
 
-- `Project` (inputs + `layout`, the last accepted layout) is autosaved to
-  localStorage and encoded into the URL hash (JSON → deflate → base64url).
-  "Copy link" button. JSON file import/export.
-- The stored layout makes a shared link show exactly the same insert even
-  after the optimizer changes. Loading a project never re-optimizes. The
-  optimizer runs only after an input edit (debounced) or when the user clicks
-  "Re-optimize".
+- **Local projects:** a small project list in localStorage, keyed by
+  `Project.id`, autosaved. Opening a shared link or a file adds it, or opens
+  it if the id already exists, as a separate project; it never overwrites
+  another project.
+- **URL hash:** `#1.<payload>`, where `1` is the hash format version and the
+  payload is JSON → deflate → base64url. Updated with
+  `history.replaceState`. "Copy link" button; JSON file import/export.
+  Decoding caps the inflated size at 1 MB and applies the §5 bounds.
+  Target ≤ 1 900 characters for typical projects, so links fit in a Discord
+  message (measured on fixtures). If a link is longer, "Copy link" warns and
+  offers the JSON file.
+- **Stored layout:** makes a shared link show exactly the same insert even
+  after the optimizer changes.
+  - Loading a project that has a stored layout never re-optimizes.
+  - The optimizer runs only after an edit that changes `inputsHash`
+    (debounced), or when the user clicks "Re-optimize".
+  - A finished run is auto-accepted into `project.layout`; "Undo" restores
+    the previous layout (one step).
+  - If a loaded project's `inputsHash` doesn't match its inputs, the stored
+    layout is shown with an "inputs changed — re-optimize?" banner.
+  - A project without a stored layout is optimized on load.
 
 ## 9. Versioning
 
 Both the app and the project schema use semver `MAJOR.MINOR.PATCH`. **Only a
-MAJOR bump may break backward compatibility.**
+MAJOR bump may break backward compatibility** (new app reading old files).
+Older apps reading newer files is best effort, as below.
 
 - **Schema (`Project.schemaVersion`):**
   - PATCH: clarifications or fixes with no change to the shape.
-  - MINOR: additive only. New optional fields with defaults, new enum values,
-    new component kinds.
+  - MINOR: additive only. New optional fields, new enum values, new component
+    kinds. A new field's default must reproduce the previous behaviour exactly.
   - MAJOR: anything that removes, renames or changes the meaning of a field.
 - **Loading rules** (app schema `A.b.c`, file `X.y.z`):
-  - `X == A`, `y ≤ b` → load, filling in defaults for missing fields.
-  - `X == A`, `y > b` (newer file) → load, ignore unknown fields, show a
-    "made with a newer version" warning.
-  - `X < A` → run the registered migrations `X → … → A`. If no migration
-    exists, show an error naming both versions; never a silent failure.
-  - `X > A` → refuse with "requires app version X.x".
-- **App version** (`package.json`, shown in the footer):
-  - MAJOR when the schema MAJOR changes, or when the same saved project would
-    produce an incompatible export.
+
+  | Case              | Behaviour                                                                                                                                                                                                                                                                                        |
+  | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+  | `X == A`, `y ≤ b` | Load, filling in defaults for missing fields.                                                                                                                                                                                                                                                    |
+  | `X == A`, `y > b` | Load with a "made with app `<createdWith>`" warning. Unknown fields, enum values and components are preserved verbatim on save. Unsupported components are "kept but not laid out". The stored layout is shown; trays with unknown features can't be exported. Re-optimizing needs confirmation. |
+  | `X < A`           | Run the registered migrations `X → … → A`. A migration from every previous MAJOR is mandatory.                                                                                                                                                                                                   |
+  | `X > A`           | Refuse: "made with app `<createdWith>`; this is app `<version>`".                                                                                                                                                                                                                                |
+
+- **Geometry (`StoredLayout.geometryVersion`):**
+  - PATCH: mesh-only changes that don't affect fit (triangulation, fillet
+    smoothness).
+  - MINOR: new optional features; existing `TraySpec`s export with the same
+    interfaces.
+  - MAJOR: changes to outer dimensions, the lip/inset/stacking interface, or
+    minimum compartment sizes for the same `TraySpec`. Trays exported before
+    and after won't mate. Loading a layout with an older geometry MAJOR warns:
+    reprint the whole insert.
+- **Resolved settings:** projects store resolved `settings` values (§5), so
+  changing a default never changes an existing project.
+- **App version** (`package.json`, shown in the footer, written to
+  `createdWith`):
+  - MAJOR when the schema MAJOR or the geometry MAJOR changes.
   - MINOR for features, including optimizer improvements. Stored layouts keep
     shared links stable.
   - PATCH for fixes.
 - Before the first release the app is `0.x` and makes no compatibility
-  promise. The first release is app `1.0.0` / schema `1.0.0`, and the rules
-  above apply from then on.
+  promise; a preview banner says so (§8.1). The first release is app `1.0.0`
+  / schema `1.0.0`. It rejects `0.x` files with an explicit error, and the
+  rules above apply from then on.
 
 ## 10. Error handling
 
-- Field-level validation (positive numbers, card count ≥ 1, etc.), shown
-  next to the field.
+- Field-level validation (positive numbers, card count ≥ 1, the §5 bounds,
+  no `perPlayer` inside a group, etc.), shown next to the field.
 - Infeasible layout and coverage warnings as in §7.3.
 - Worker or WASM failures: a visible error with retry; the last good result
   stays on screen.
-- Corrupt or unknown URL hash or file: error with the reason; the current
-  project is kept.
-- localStorage unavailable: the app works normally and autosave is off
-  (with a notice).
+- Corrupt or unknown URL hash or file, or input over the bounds or inflate
+  cap: error with the reason; the current project is kept.
+- Dropped locks: notice naming the lock and the reason.
+- localStorage unavailable: the app works normally and autosave and the
+  project list are off (with a notice).
+- No WebGL: the 3D view shows a message; everything else works.
 
 ## 11. Testing
+
+All tests run in the app's `build` script (`vitest run`), so CI and Renovate
+updates run them.
 
 - **Vitest** for the pure modules (`model`, `sizing`, `layout`, `share`,
   `export`, `instructions`).
 - **Layout properties**, on randomized inputs plus fixture games: every result
-  satisfies all §3 hard rules (tiling with no gaps, equal stack heights,
-  bed fit, minimum sizes, locks respected). Same seed gives the same result.
+  satisfies all §3 hard rules (tiling with only `boxClearance`/`trayGap`
+  gaps, equal stack heights, lip insets and bearing, bed fit with margin,
+  minimum sizes, grip on every tray, locks respected or dropped with a
+  notice). Same seed + iterations gives the same result (same engine).
+- **Sizing:** card math table, bulk per-axis minimums, packing factor
+  division, sleeve handling in measured mode, split variants, variant cap.
 - **Geometry:** per tray type, the mesh is manifold, and its volume and bounding
-  box match the spec. Snapshot of the 3MF XML structure.
-- **Schema:** round-trip encode/decode, and loading each loading rule's case
-  in §9 (older minor, newer minor, older major with and without migration,
-  newer major).
-- **Fixtures:** 3–5 real games measured by hand (one card-heavy, one bits-heavy,
-  one with tiles, one with minis), used for tuning and regression.
+  box match the spec. No overhangs: every triangle with normal.z < −0.71 lies
+  at z = 0. No feature thinner than 0.8 mm. 3MF output re-parsed with three's
+  `3MFLoader` (objects, names, units, manifold), plus a snapshot of the XML
+  structure.
+- **Schema:** round-trip encode/decode; every loading case in §9 (older
+  minor, newer minor with unknown fields and kinds preserved on save, older
+  major with migration, newer major, `0.x` rejected); one saved fixture file
+  per historical schema MAJOR must still load.
+- **Build:** smoke test of the built `dist/` served from a subpath (WASM and
+  workers load with the relative base).
+- **Fixtures:** 3–5 real games measured by hand (§12), used for tuning and
+  regression.
 - The repo's `npm run verify` (lint, format, build) passes.
+
+## 12. Pre-planning dependencies
+
+- **Fixture games** (to be chosen and measured by the user): 3–5 games
+  covering one card-heavy, one bits-heavy, one with tiles and one with minis.
+  Box, headroom and every component measured per §5.
+- **Physical lip test print** before 1.0: a 2-stack with default settings, to
+  confirm the lip fit, bearing and grip.
