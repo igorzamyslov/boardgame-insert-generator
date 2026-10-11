@@ -12,11 +12,6 @@ export const MIN_SPARE = 10;
 export const MIN_SPACER = 5;
 /** Card spacer: this much lower than the well (spec §6.2: well height − 5). */
 export const SPACER_TOP_GAP = 5;
-/**
- * A compartment with a finger pocket keeps at least this much content (mm) inside its reach
- * bands on both axes; the geometry rejects less (plan 3, planCompartment).
- */
-export const MIN_POCKET_CONTENT = 1;
 /** Corner relief diameter in tile and custom wells (spec §6.1). */
 export const CORNER_RELIEF_D = 3;
 /** At most this many variants per requirement (spec §7.1). */

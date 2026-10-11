@@ -1,6 +1,7 @@
 import type { CompartmentSpec, Settings, Side, TraySpec } from "../model/types";
 import {
   MIN_FEATURE_MM,
+  MIN_POCKET_CONTENT,
   MIN_WALL_MM,
   SLOT_CONTENT_OVERLAP,
   SPEC_TOLERANCE as TOL,
@@ -418,7 +419,8 @@ function planCompartment(
   };
   // TOL: TraySpec numbers are on the 0.01 mm grid, but their differences carry float noise
   // (8.29 − 7.29 = 0.9999999999999991), so a value exactly on a limit must pass.
-  if (content.x1 - content.x0 < 1 - TOL || content.y1 - content.y0 < 1 - TOL) {
+  const least = MIN_POCKET_CONTENT - TOL;
+  if (content.x1 - content.x0 < least || content.y1 - content.y0 < least) {
     fail(spec, `compartment ${index}: finger-pocket reach leaves no room for the contents`);
   }
 

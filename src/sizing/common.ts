@@ -1,8 +1,7 @@
-import { effective } from "../model/settings";
+import { MIN_POCKET_CONTENT, effective } from "../model/settings";
 import type { Component, Notice, Settings, Side } from "../model/types";
 import { validateComponent } from "../model/validate";
 import type { CompartmentReq, FeatureReq } from "./types";
-import { MIN_POCKET_CONTENT } from "./constants";
 import { ceilU, fromU, toU } from "./units";
 
 /** One way to store a component. Blocks are compartment groups a split never separates. */

@@ -206,6 +206,12 @@ export function cutRidgeWidth(r: number, dContents: number, dSolid: number): num
 }
 
 /**
+ * A compartment with a finger pocket keeps at least this much content (mm) inside its reach bands
+ * on both axes: sizing never emits less and planTray rejects less (roadmap §4.2, §4.6).
+ */
+export const MIN_POCKET_CONTENT = 1;
+
+/**
  * Finger slots are never narrower than this (or the fingerPocket.width setting, if smaller):
  * sizing refuses a tray whose slots cannot keep it (roadmap §4.7).
  */
