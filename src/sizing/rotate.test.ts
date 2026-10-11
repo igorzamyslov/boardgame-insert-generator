@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Settings } from "../model/types";
-import { minOuter } from "./outer";
+import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
 import { rotateRealized } from "./rotate";
 import { assertTrayInvariants, at, bulk, cards, partOf } from "./test-helpers";

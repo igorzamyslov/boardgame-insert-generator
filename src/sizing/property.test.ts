@@ -385,7 +385,7 @@ describe("sizing properties", () => {
   });
 
   it(
-    "realizes every larger outer of a part that realizes at minOuter",
+    "realizes a part at a larger outer exactly when it realizes at minOuter",
     { timeout: 120_000 },
     () => {
       let larger = 0;
@@ -398,10 +398,11 @@ describe("sizing properties", () => {
           (components, s, extra, opts) => {
             for (const part of allParts(components, s)) {
               const m = minOuter(part, s, opts);
+              const outer = { w: m.w + extra.w, d: m.d + extra.d, h: m.h + extra.h };
               if (!realizes(part, m, s, opts)) {
+                expect(realizes(part, outer, s, opts), part.trayKey).toBe(false);
                 continue;
               }
-              const outer = { w: m.w + extra.w, d: m.d + extra.d, h: m.h + extra.h };
               expect(
                 checkTray(part, outer, s, opts),
                 `${part.trayKey} at +${JSON.stringify(extra)}`,

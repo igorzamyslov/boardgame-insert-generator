@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, MIN_WALL_MM } from "../model/settings";
 import type { Settings } from "../model/types";
-import { minOuter, rowsOf, wallFor } from "./outer";
+import { rowsOf, wallFor } from "./outer";
+import { minOuter } from "./realize";
 import { cards, custom, partOf, tiles } from "./test-helpers";
 import type { RealizeOptions, TrayPartReq } from "./types";
 

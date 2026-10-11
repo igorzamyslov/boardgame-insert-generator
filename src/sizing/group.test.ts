@@ -3,10 +3,12 @@ import { DEFAULT_SETTINGS } from "../model/settings";
 import * as componentModule from "./component";
 import { SlotFitError } from "./errors";
 import { combineOptions, mostFrequentAccess, size } from "./group";
-import { minOuter } from "./outer";
+import { minLayoutU } from "./outer";
+import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
 import { at, bulk, cards, custom, minis, tiles } from "./test-helpers";
 import type { TrayPartReq } from "./types";
+import { fromU } from "./units";
 
 // The real componentOptions, wrapped so one test can return options without compartments.
 vi.mock("./component", async (importOriginal) => {
@@ -161,13 +163,15 @@ describe("size", () => {
     };
     const decks = (...counts: number[]) => counts.map((count, i) => ({ name: `D${i + 1}`, count }));
 
-    it("keeps only the variants whose parts realize at minOuter, in rank order", () => {
-      // A one-card deck beside a 120-card one: no upright strip in one tray leaves room for a
-      // 15 mm slot by the small deck, so those variants go; flat, split and two-row ones stay.
+    it("keeps a variant whose slots fit only wider than its minimum layout", () => {
+      // A one-card deck beside a 120-card one: an upright strip fits 15 mm slots once minOuter
+      // widens it (slotFootprintU), so every variant stays.
       const { requirements, notices } = size([cards({ storage: "auto", decks: decks(1, 120) })], s);
       expect(notices).toEqual([]);
       const req = at(requirements, 0);
       expect(req.variants.map((v) => v.id)).toEqual([
+        "upright-long|strip|split1",
+        "upright-short|strip|split1",
         "flat|strip|split1",
         "upright-long|strip|split2",
         "upright-long|rows2|split1",
@@ -176,13 +180,27 @@ describe("size", () => {
         "flat|strip|split2",
       ]);
       expect(req.variants.every((v) => v.parts.every(realizable))).toBe(true);
+      const strip = at(at(req.variants, 0).parts, 0);
+      expect(minOuter(strip, s, ground).w).toBeGreaterThan(fromU(minLayoutU(strip, s, ground).w));
+    });
+
+    it("keeps only the variants whose parts realize at minOuter, in rank order", () => {
+      // Five one-card decks: no upright arrangement fits 15 mm slots, flat ones do.
+      const { requirements, notices } = size(
+        [cards({ storage: "auto", decks: decks(1, 1, 1, 1, 1) })],
+        s,
+      );
+      expect(notices).toEqual([]);
+      const req = at(requirements, 0);
+      expect(req.variants.map((v) => v.id)).toEqual(["flat|strip|split1", "flat|strip|split2"]);
+      expect(req.variants.every((v) => v.parts.every(realizable))).toBe(true);
     });
 
     it("warns and leaves the component out when no variant realizes", () => {
       const { requirements, notices } = size(
         [
           bulk(),
-          cards({ id: "c2", name: "Cards", storage: "upright-long", decks: decks(1, 1, 1, 120) }),
+          cards({ id: "c2", name: "Cards", storage: "upright-long", decks: decks(1, 1, 1, 1, 1) }),
         ],
         s,
       );
@@ -193,7 +211,7 @@ describe("size", () => {
           code: "sizing.noFingerSlot",
           path: "/components/1",
           message:
-            "Cards: no tray arrangement leaves room for a finger slot of at least 15 mm by D1 ×1, D2 ×1, D3 ×1, D4 ×120, so it is left out. Try another storage or a narrower finger pocket.",
+            "Cards: no tray arrangement leaves room for a finger slot of at least 15 mm by D1 ×1, D2 ×1, D3 ×1, D4 ×1, D5 ×1, even up to 22 mm wider, so it is left out. Try another storage or a narrower finger pocket.",
         },
       ]);
     });
@@ -201,7 +219,7 @@ describe("size", () => {
       const { requirements, notices } = size(
         [
           bulk({ groupId: "g" }),
-          cards({ id: "c2", groupId: "g", storage: "upright-long", decks: decks(1, 1, 1, 120) }),
+          cards({ id: "c2", groupId: "g", storage: "upright-long", decks: decks(1, 1, 1, 1, 1) }),
         ],
         s,
       );

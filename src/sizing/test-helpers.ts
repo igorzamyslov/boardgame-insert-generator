@@ -12,7 +12,10 @@ import type {
   TilesComponent,
   TraySpec,
 } from "../model/types";
-import { sizeAllVariants } from "./group";
+import { groupOf } from "../model/defaults";
+import { componentOptions } from "./component";
+import { combineOptions } from "./group";
+import { buildVariants } from "./variants";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, floorU, fromU, toU } from "./units";
 
@@ -93,8 +96,9 @@ export function custom(over: Partial<CustomComponent> = {}): CustomComponent {
 }
 
 /**
- * The part `partIndex` of variant `variantId` of the first requirement of `size(components)`,
- * including variants size() drops because their finger slots do not fit (sizeAllVariants).
+ * The part `partIndex` of variant `variantId` of the first requirement size() would make from
+ * `components` (the first component's group), before size() drops the variants whose finger
+ * slots do not fit, so tests can realize those too. Built from size()'s own pieces.
  */
 export function partOf(
   components: Component[],
@@ -102,10 +106,19 @@ export function partOf(
   settings: Settings = DEFAULT_SETTINGS,
   partIndex = 0,
 ): TrayPartReq {
-  const req = at(sizeAllVariants(components, settings).requirements, 0);
-  const variant = req.variants.find((v) => v.id === variantId);
+  const first = at(components, 0);
+  const key = groupOf(first) ?? first.id;
+  const members = components.flatMap((c, index) =>
+    (groupOf(c) ?? c.id) === key ? [componentOptions(c, settings, index).options] : [],
+  );
+  const variants = buildVariants({
+    key,
+    options: combineOptions(members.filter((options) => options.length > 0)),
+    players: members.length === 1 ? (first.perPlayer?.players ?? null) : null,
+  });
+  const variant = variants.find((v) => v.id === variantId);
   if (variant === undefined) {
-    throw new Error(`no variant ${variantId}; have ${req.variants.map((v) => v.id).join(", ")}`);
+    throw new Error(`no variant ${variantId}; have ${variants.map((v) => v.id).join(", ")}`);
   }
   return at(variant.parts, partIndex);
 }

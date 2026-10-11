@@ -10,7 +10,7 @@ export type {
 } from "./types";
 export { SlotFitError } from "./errors";
 export { size } from "./group";
-export { minOuter, wallFor } from "./outer";
-export { realizeTray } from "./realize";
+export { wallFor } from "./outer";
+export { minOuter, realizeTray } from "./realize";
 export { rotateRealized } from "./rotate";
 export { hasGrip } from "./grip";

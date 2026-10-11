@@ -439,12 +439,129 @@ function layoutAt(
   return { wall: fromU(ceilU(wallFor(settings, false))), compartments, spacers };
 }
 
+/** The footprint (units) at which a part's finger slots fit (slotFootprintU). */
+interface SlotFootprint {
+  min: MinLayout;
+  w: number;
+  d: number;
+  // Why the slots fit at no footprint up to the cap (then w, d are min's), or null.
+  error: SlotFitError | null;
+}
+
+const footprints = new WeakMap<TrayPartReq, WeakMap<Settings, Map<string, SlotFootprint>>>();
+
+/** The coarse step of the footprint search (2 mm); the first fit is bisected to 0.01 mm. */
+const SEARCH_STEP = 200;
+
+function slotFitAt(
+  part: TrayPartReq,
+  min: MinLayout,
+  [w, d]: readonly [number, number],
+  settings: Settings,
+): SlotFitError | null {
+  try {
+    layoutAt(part, min, [w, d, min.h], settings);
+    return null;
+  } catch (error) {
+    if (error instanceof SlotFitError) {
+      return error;
+    }
+    throw error;
+  }
+}
+
+/**
+ * The footprint at which the part's finger slots fit (roadmap §4.2): the minimum layout (walls,
+ * dividers, contents, chamfer) as is, or widened along the axes that carry slots (x for front and
+ * back pockets, y for left and right) by up to fingerPocket.width. Widening by e tries x alone, y
+ * alone, then both. e runs in SEARCH_STEP units up to the cap, and the first fit is bisected,
+ * in whole 0.01 mm units, against the last widening that did not fit (on 5544 card strip parts
+ * this found the same smallest footprint as trying every 0.01 mm). Slot placement depends on the
+ * footprint only, never on the height. Memoized per part, settings and options object (they are
+ * never mutated).
+ */
+function slotFootprintU(
+  part: TrayPartReq,
+  settings: Settings,
+  opts: RealizeOptions,
+): SlotFootprint {
+  let bySettings = footprints.get(part);
+  if (bySettings === undefined) {
+    bySettings = new WeakMap();
+    footprints.set(part, bySettings);
+  }
+  let byOpts = bySettings.get(settings);
+  if (byOpts === undefined) {
+    byOpts = new Map();
+    bySettings.set(settings, byOpts);
+  }
+  const key = `${opts.lipped}|${opts.level}`;
+  const cached = byOpts.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const min = minLayoutU(part, settings, opts);
+  const found = searchFootprint(part, min, settings);
+  byOpts.set(key, found);
+  return found;
+}
+
+function searchFootprint(part: TrayPartReq, min: MinLayout, settings: Settings): SlotFootprint {
+  const error = slotFitAt(part, min, [min.w, min.d], settings);
+  if (error === null) {
+    return { min, w: min.w, d: min.d, error: null };
+  }
+  const sides = new Set(part.compartments.flatMap((c) => pocketSides(c.features)));
+  const alongX = sides.has("front") || sides.has("back");
+  const alongY = sides.has("left") || sides.has("right");
+  const widened = (e: number): [number, number][] => [
+    ...(alongX ? [[min.w + e, min.d] as [number, number]] : []),
+    ...(alongY ? [[min.w, min.d + e] as [number, number]] : []),
+    ...(alongX && alongY ? [[min.w + e, min.d + e] as [number, number]] : []),
+  ];
+  const fits = (e: number): [number, number] | undefined =>
+    widened(e).find((size) => slotFitAt(part, min, size, settings) === null);
+  const cap = ceilU(settings.fingerPocket.width);
+  let failed = 0; // the largest widening known not to fit
+  for (let coarse = SEARCH_STEP; coarse < cap + SEARCH_STEP; coarse += SEARCH_STEP) {
+    const e = Math.min(coarse, cap);
+    let size = fits(e);
+    if (size !== undefined) {
+      // Bisect down to the smallest widening that fits between the last miss and this fit.
+      let hi = e;
+      while (hi - failed > 1) {
+        const mid = Math.floor((failed + hi) / 2);
+        const at = fits(mid);
+        if (at === undefined) {
+          failed = mid;
+        } else {
+          hi = mid;
+          size = at;
+        }
+      }
+      return { min, w: size[0], d: size[1], error: null };
+    }
+    failed = e;
+  }
+  return { min, w: min.w, d: min.d, error };
+}
+
+/**
+ * Smallest outer box (tray's own frame, lip excluded) that holds the part with its finger slots
+ * (roadmap §4.2): minLayoutU's minimum, wider where the slots need it (slotFootprintU).
+ */
+export function minOuter(part: TrayPartReq, settings: Settings, opts: RealizeOptions): OuterSize {
+  const fp = slotFootprintU(part, settings, opts);
+  return { w: fromU(fp.w), d: fromU(fp.d), h: fromU(fp.min.h) };
+}
+
 /**
  * Realizes `part` in `outer` (roadmap §4.2, §4.7). Throws RangeError when `outer` is smaller than
- * minOuter, and SlotFitError when the finger slots cannot fit. Monotonic in slack: a part that
- * realizes at minOuter realizes in every larger outer. Where the slack would leave its slots no
- * room (a wider row moving a slot against a well face, say), the tray keeps its minOuter
- * arrangement, centred, and the slack thickens the outer walls instead.
+ * minOuter, and SlotFitError when the finger slots fit at no footprint the search tries
+ * (slotFootprintU). Realizable at minOuter ⇔ realizable at all: minOuter is the footprint the
+ * search found, and where the slack of a larger outer would leave the slots no room (a wider row
+ * moving a slot against a well face, say), the tray keeps its minOuter arrangement, centred, and
+ * the slack thickens the outer walls instead.
  */
 export function realizeTray(
   part: TrayPartReq,
@@ -452,24 +569,29 @@ export function realizeTray(
   settings: Settings,
   opts: RealizeOptions,
 ): RealizedTray {
-  const min = minLayoutU(part, settings, opts);
+  const fp = slotFootprintU(part, settings, opts);
+  const { min } = fp;
+  // Realizable at minOuter ⇔ realizable at all: a part whose slots fit nowhere is refused at
+  // every outer, also where a larger outer happens to fit them.
+  if (fp.error !== null) {
+    throw fp.error;
+  }
   // Round an off-grid outer down, so one a hair under minOuter is rejected, not accepted.
   const W = floorU(outer.w);
   const D = floorU(outer.d);
   const H = floorU(outer.h);
-  if (W < min.w || D < min.d || H < min.h) {
+  if (W < fp.w || D < fp.d || H < min.h) {
     throw new RangeError(
-      `Tray ${part.trayKey}: outer ${outer.w}×${outer.d}×${outer.h} mm is smaller than its minimum ${fromU(min.w)}×${fromU(min.d)}×${fromU(min.h)} mm`,
+      `Tray ${part.trayKey}: outer ${outer.w}×${outer.d}×${outer.h} mm is smaller than its minimum ${fromU(fp.w)}×${fromU(fp.d)}×${fromU(min.h)} mm`,
     );
   }
   try {
     return layoutAt(part, min, [W, D, H], settings);
   } catch (error) {
-    if (!(error instanceof SlotFitError) || (W === min.w && D === min.d)) {
+    if (!(error instanceof SlotFitError) || (W === fp.w && D === fp.d)) {
       throw error;
     }
   }
-  // Slot placement depends on the footprint only, so this fails exactly when minOuter does.
-  const centred = layoutAt(part, min, [min.w, min.d, H], settings);
-  return shifted(centred, Math.floor((W - min.w) / 2), Math.floor((D - min.d) / 2));
+  const centred = layoutAt(part, min, [fp.w, fp.d, H], settings);
+  return shifted(centred, Math.floor((W - fp.w) / 2), Math.floor((D - fp.d) / 2));
 }

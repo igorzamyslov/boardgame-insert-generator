@@ -4,7 +4,7 @@ import { settingsValid } from "../model/validate";
 import { displayName, type StorageOption } from "./common";
 import { componentOptions, isLoose } from "./component";
 import { SlotFitError } from "./errors";
-import { minOuter } from "./outer";
+import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
 import type { RealizeOptions, TrayPartReq, TrayRequirement } from "./types";
 import { buildVariants } from "./variants";
@@ -36,8 +36,9 @@ const GROUND: RealizeOptions = { lipped: false, level: 0 };
 
 /**
  * The SlotFitError of the first part that realizeTray cannot realize at its minOuter (unlipped,
- * level 0), or null when every part realizes. Realizing is monotonic in slack, so such a part
- * fits no outer at all.
+ * level 0), or null when every part realizes. minOuter is the footprint at which the part's
+ * finger slots fit, searched up to fingerPocket.width wider than the layout needs; a part whose
+ * slots fit at none of them is refused at every outer (roadmap §4.2, §4.7).
  */
 function slotFitError(parts: readonly TrayPartReq[], settings: Settings): SlotFitError | null {
   for (const part of parts) {
@@ -54,13 +55,18 @@ function slotFitError(parts: readonly TrayPartReq[], settings: Settings): SlotFi
 }
 
 /** The warning for a requirement none of whose variants fits its finger slots. */
-function noFingerSlot(error: SlotFitError, key: string, usable: readonly Usable[]): Notice {
+function noFingerSlot(
+  error: SlotFitError,
+  key: string,
+  usable: readonly Usable[],
+  settings: Settings,
+): Notice {
   const stuck = usable.find((u) => error.componentIds.includes(u.c.id)) ?? usable[0];
   const what = usable.length > 1 ? `the group "${key}"` : "it";
   return {
     level: "warning",
     code: "sizing.noFingerSlot",
-    message: `${stuck ? displayName(stuck.c) : key}: no tray arrangement leaves room for a finger slot of at least ${error.minWidth} mm by ${error.contents.join(", ")}, so ${what} is left out. Try another storage or a narrower finger pocket.`,
+    message: `${stuck ? displayName(stuck.c) : key}: no tray arrangement leaves room for a finger slot of at least ${error.minWidth} mm by ${error.contents.join(", ")}, even up to ${settings.fingerPocket.width} mm wider, so ${what} is left out. Try another storage or a narrower finger pocket.`,
     path: `/components/${stuck?.index ?? 0}`,
   };
 }
@@ -131,22 +137,6 @@ function sizeBuckets(components: Component[], settings: Settings, notices: Notic
 }
 
 /**
- * size() without dropping the variants whose finger slots do not fit, for tests that realize
- * those variants (test-helpers partOf).
- */
-export function sizeAllVariants(
-  components: Component[],
-  settings: Settings,
-): { requirements: TrayRequirement[]; notices: Notice[] } {
-  if (!settingsValid(settings)) {
-    return { requirements: [], notices: [] };
-  }
-  const notices: Notice[] = [];
-  const requirements = sizeBuckets(components, settings, notices).map((b) => b.requirement);
-  return { requirements, notices };
-}
-
-/**
  * Sizes components into tray requirements: one per group (or per ungrouped component), in the
  * order each key first appears. Sizing assumes a valid project: with out-of-range settings it
  * returns nothing, and invalid components (including perPlayer inside a group) have no options,
@@ -168,7 +158,7 @@ export function size(
     const variants = requirement.variants.filter((_, i) => errors[i] === null);
     const preferred = errors[0];
     if (variants.length === 0 && preferred) {
-      notices.push(noFingerSlot(preferred, requirement.key, usable));
+      notices.push(noFingerSlot(preferred, requirement.key, usable, settings));
     } else {
       requirements.push({ ...requirement, variants });
     }

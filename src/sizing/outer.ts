@@ -2,8 +2,8 @@ import { MIN_FEATURE_MM, MIN_WALL_MM, chamferMinimums } from "../model/settings"
 import type { Settings, Side } from "../model/types";
 import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
 import { pocketSides } from "./common";
-import type { CompartmentReq, OuterSize, RealizeOptions, TrayPartReq } from "./types";
-import { ceilU, fromU, maxOf, sum } from "./units";
+import type { CompartmentReq, RealizeOptions, TrayPartReq } from "./types";
+import { ceilU, maxOf, sum } from "./units";
 
 /**
  * Outer wall thickness: max(wall, MIN_WALL_MM); lipped walls are at least lip.thickness +
@@ -97,10 +97,4 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
     d: Math.max(innerD + 2 * wall, chamfer.side),
     h,
   };
-}
-
-/** Smallest outer box (tray's own frame, lip excluded) that holds the part (roadmap §4.2). */
-export function minOuter(part: TrayPartReq, settings: Settings, opts: RealizeOptions): OuterSize {
-  const m = minLayoutU(part, settings, opts);
-  return { w: fromU(m.w), d: fromU(m.d), h: fromU(m.h) };
 }

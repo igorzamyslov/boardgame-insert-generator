@@ -3,7 +3,7 @@ import { thinnestWedge } from "../geometry/test-wedge";
 import { traySpecFrom } from "../geometry/test-specs";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { SlotFitError } from "./errors";
-import { minOuter } from "./outer";
+import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
 import { assertTrayInvariants, cards, partOf } from "./test-helpers";
 import type { RealizeOptions } from "./types";
@@ -17,7 +17,8 @@ describe("finger slots of card strips", () => {
   // meet within their overlap is ≥ 0.8 mm wide 0.8 mm below its top (thinnestWedge, measured
   // from the cut profile). realizeTray refuses only strips with a one- or two-card
   // deck: against the wall, a slot of at least 15 mm would cross such a deck's own well face too
-  // far from its centre. A strip it realizes at minOuter it realizes wider too (monotonic in slack).
+  // far from its centre, even with minOuter up to fingerPocket.width wider. Realizable at minOuter
+  // ⇔ realizable at every larger outer tried.
   it("plans every two- and three-deck strip", { timeout: 60_000 }, () => {
     let realized = 0;
     const refused: string[] = [];
@@ -37,20 +38,22 @@ describe("finger slots of card strips", () => {
             "upright-long|strip|split1",
           );
           const min = minOuter(part, DEFAULT_SETTINGS, ground);
+          const name = `${sleeve} ${counts.join("+")}`;
           for (const slack of [0, 3, 7]) {
             const outer = { ...min, w: min.w + slack };
+            // Realizable at minOuter ⇔ realizable wider: a strip refused at +0 is refused at every
+            // slack, and one realized at +0 is realized at every slack.
+            const refusedAtMin = refused.includes(`${name} +0`);
             let tray;
             try {
               tray = realizeTray(part, outer, DEFAULT_SETTINGS, ground);
             } catch (error) {
               expect(error).toBeInstanceOf(SlotFitError);
-              // Monotonic in slack: only a strip refused at minOuter is refused when larger.
-              if (slack > 0) {
-                expect(refused).toContain(`${sleeve} ${counts.join("+")} +0`);
-              }
-              refused.push(`${sleeve} ${counts.join("+")} +${slack}`);
+              expect(slack === 0 || refusedAtMin, `${name} +${slack}`).toBe(true);
+              refused.push(`${name} +${slack}`);
               continue;
             }
+            expect(refusedAtMin, `${name} +${slack}`).toBe(false);
             assertTrayInvariants(tray, outer, DEFAULT_SETTINGS, ground);
             const wedge = thinnestWedge(
               traySpecFrom(tray, outer, ground, DEFAULT_SETTINGS, part.trayKey),
