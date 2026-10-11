@@ -1,6 +1,6 @@
 // Test-only builders. Production code never imports this file.
 import { expect } from "vitest";
-import { DEFAULT_SETTINGS } from "../model/settings";
+import { DEFAULT_SETTINGS, MIN_FEATURE_MM } from "../model/settings";
 import type {
   BulkComponent,
   CardsComponent,
@@ -10,7 +10,6 @@ import type {
   Settings,
   TilesComponent,
 } from "../model/types";
-import { MIN_FEATURE } from "./constants";
 import { size } from "./group";
 import { wallFor } from "./outer";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
@@ -119,8 +118,8 @@ export function assertTrayInvariants(
   opts: RealizeOptions,
 ): void {
   const wall = ceilU(wallFor(settings, opts.lipped));
-  const gap = ceilU(Math.max(settings.divider, MIN_FEATURE));
-  const minFloor = ceilU(Math.max(settings.floor, MIN_FEATURE));
+  const gap = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
+  const minFloor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
   const u = (mm: number): number => Math.round(mm * 100);
   const W = floorU(outer.w);
   const D = floorU(outer.d);

@@ -1,7 +1,3 @@
-import { MIN_FEATURE_MM } from "../model/settings";
-
-/** Minimum printable feature width: 2 lines of 0.4 mm (spec §6.1). */
-export const MIN_FEATURE = MIN_FEATURE_MM;
 /** A compartment whose smaller inner side is at least this is a grip (spec §3 rule 8). */
 export const MIN_GRIP = 25;
 /** Bulk compartments: minimum width and depth (spec §7.1). */

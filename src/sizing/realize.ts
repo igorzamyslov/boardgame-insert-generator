@@ -1,7 +1,7 @@
+import { MIN_FEATURE_MM } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
 import {
   CORNER_RELIEF_D,
-  MIN_FEATURE,
   MIN_SPACER,
   MIN_SPARE,
   SPACER_TOP_GAP,
@@ -284,5 +284,5 @@ export function realizeTray(
       features: [],
     });
   }
-  return { wall: Math.max(settings.wall, MIN_FEATURE), compartments, spacers };
+  return { wall: Math.max(settings.wall, MIN_FEATURE_MM), compartments, spacers };
 }

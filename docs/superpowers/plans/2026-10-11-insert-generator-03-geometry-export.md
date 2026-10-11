@@ -593,7 +593,7 @@ git commit -m "Add manifold loader and convex solid helpers"
 
 - Consumes: `TraySpec`, `CompartmentSpec`, `FeatureSpec`, `Settings`, `Side` (roadmap §4.1); `DEFAULT_SETTINGS` from `src/model/settings.ts` (roadmap §4.5); `UnsupportedFeatureError` (Task 1).
 - Produces:
-  - `src/geometry/plan-types.ts`: constants `MIN_FEATURE = 0.8`, `INNER_CORNER_RADIUS = 0.5`, `LIP_CHAMFER = 0.6`, `UPPER_MIN_CHAMFER = 0.5`, `MIN_RELIEF_RADIUS = 0.3`, `MIN_SCOOP_RADIUS = 0.5`, `SPEC_TOLERANCE = 0.005`, `CORNER_MARGIN = 0.1`, `RELIEF_CUT = 1 − 1/√2`; interfaces `Rect { x0; y0; x1; y1 }`, `SlotPlan extends Rect { side: Side; bottomZ: number; radius: number }`, `ScoopPlan { side: Side; r: number }`, `ReliefPlan { cx: number; cy: number; r: number }`, `CompartmentPlan { index; rect: Rect; content: Rect; floorZ; slots: SlotPlan[]; scoops: ScoopPlan[]; reliefs: ReliefPlan[] }`, `LipPlan { height; thickness; chamfer }`, `TrayPlan { w; d; h; topZ; chamfer; cornerRadius; outerWall; lip: LipPlan | null; compartments: CompartmentPlan[] }` (all numbers in mm).
+  - `src/geometry/plan-types.ts`: constants (no `MIN_FEATURE`: see the note in Step 4) `INNER_CORNER_RADIUS = 0.5`, `LIP_CHAMFER = 0.6`, `UPPER_MIN_CHAMFER = 0.5`, `MIN_RELIEF_RADIUS = 0.3`, `MIN_SCOOP_RADIUS = 0.5`, `SPEC_TOLERANCE = 0.005`, `CORNER_MARGIN = 0.1`, `RELIEF_CUT = 1 − 1/√2`; interfaces `Rect { x0; y0; x1; y1 }`, `SlotPlan extends Rect { side: Side; bottomZ: number; radius: number }`, `ScoopPlan { side: Side; r: number }`, `ReliefPlan { cx: number; cy: number; r: number }`, `CompartmentPlan { index; rect: Rect; content: Rect; floorZ; slots: SlotPlan[]; scoops: ScoopPlan[]; reliefs: ReliefPlan[] }`, `LipPlan { height; thickness; chamfer }`, `TrayPlan { w; d; h; topZ; chamfer; cornerRadius; outerWall; lip: LipPlan | null; compartments: CompartmentPlan[] }` (all numbers in mm).
   - `src/geometry/plan-corners.ts`: `interface TraySize { w: number; d: number }`, `sideBudget(size: TraySize, plans: CompartmentPlan[], self: CompartmentPlan, side: Side): number`, `planReliefs(size: TraySize, plans: CompartmentPlan[], self: CompartmentPlan, diameter: number): ReliefPlan[]`, `maxCornerRadius(p: number, q: number, rho: number): number`, `planCornerRadius(size: TraySize, setting: number, chamfer: number, compartments: CompartmentPlan[]): number`.
   - `src/geometry/plan.ts`: `planTray(spec: TraySpec, settings: Settings): TrayPlan` (throws `RangeError` / `UnsupportedFeatureError`, see Design notes; the known values come from `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` in `types.ts`, Task 1; an unknown kind throws `UnsupportedFeatureError("kind:<kind>")`, an unknown part `"part:<part>"`).
   - `src/geometry/test-specs.ts`: `GEO: Settings`, `traySpec(over)`, `compartment(over)`, `strip(widths, y, d, start, divider, make)`, `pocket(side, at, depth, width = 22, reach = 12): FeatureSpec`, and one fixture per tray type: `plainBox`, `cardUpright`, `flatCards`, `scoopBulk`, `hexTiles`, `miniPockets`, `customBlock`, `spareLeftover`, `solidLeftover`, `spacer`, `lippedLower`, `upperLevel1`.
@@ -1100,15 +1100,17 @@ Expected: FAIL — `Cannot find module './plan'`.
 
 - [ ] **Step 4: Write the implementation**
 
+> **Note (from plan 2's final review):** do not define `MIN_FEATURE = 0.8` in `plan-types.ts`. Import the shared `MIN_FEATURE_MM` from `src/model/settings.ts` (spec §6.1: 2 lines of 0.4 mm) and use it wherever this plan writes `MIN_FEATURE` (`plan.ts`, `plan-corners.ts`, `printability.ts` and their tests). Sizing imports it the same way, so both sides of the TraySpec contract share one value.
+
 `src/geometry/plan-types.ts`:
 
 ```ts
 import type { Side } from "../model/types";
 
 // Constants and result types of tray planning (plan.ts). A TrayPlan holds
-// every number tray.ts needs to build the solid.
+// every number tray.ts needs to build the solid. The minimum feature width is
+// MIN_FEATURE_MM from ../model/settings (see the note above), not defined here.
 
-export const MIN_FEATURE = 0.8; // spec §6.1: 2 lines of 0.4 mm
 export const INNER_CORNER_RADIUS = 0.5; // spec §6.1: wells' inner vertical corners ≤ 0.5
 export const LIP_CHAMFER = 0.6; // spec §6.1: 0.6 × 45° on the lip's inner top edge
 export const UPPER_MIN_CHAMFER = 0.5; // spec §6.1: upper trays' bottom chamfer ≥ 0.5

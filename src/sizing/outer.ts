@@ -1,11 +1,12 @@
+import { MIN_FEATURE_MM } from "../model/settings";
 import type { Settings, Side } from "../model/types";
-import { MIN_FEATURE, UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
+import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
 import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, fromU, maxOf, sum, toU } from "./units";
 
 /** Outer wall thickness: lipped walls are max(wall, lip.thickness + lip.ledge) (spec §6.1). */
 export function wallFor(settings: Settings, lipped: boolean): number {
-  const base = Math.max(settings.wall, MIN_FEATURE);
+  const base = Math.max(settings.wall, MIN_FEATURE_MM);
   if (!lipped || !settings.lip.enabled) {
     return base;
   }
@@ -47,8 +48,8 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
   }
   // Every minimum rounds up, so a setting that is not a whole 0.01 mm is never undershot.
   const wall = ceilU(wallFor(settings, opts.lipped));
-  const divider = ceilU(Math.max(settings.divider, MIN_FEATURE));
-  const floor = ceilU(Math.max(settings.floor, MIN_FEATURE));
+  const divider = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
+  const floor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
   // An even unit count, so the centred pocket slot can sit on whole units inside the walls.
   const pocketU = toU(settings.fingerPocket.width);
   const pocketWidth = pocketU + (pocketU % 2);
