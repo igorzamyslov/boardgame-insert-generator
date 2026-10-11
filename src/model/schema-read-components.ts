@@ -1,0 +1,205 @@
+import { KIND_NAMES } from "./defaults";
+import { newId } from "./ids";
+import { isRecord } from "./json";
+import type { Ctx } from "./schema-reader";
+import { adopt, childCtx, Reader, readEnum } from "./schema-reader";
+import type {
+  BulkItem,
+  Component,
+  ComponentBase,
+  ComponentKind,
+  ForeignData,
+  Sleeve,
+  TileShape,
+} from "./types";
+
+const COMPONENT_KINDS = ["cards", "bulk", "tiles", "minis", "custom"] as const;
+const SLEEVE_NAMES = ["none", "standard", "premium"] as const;
+
+function readBase(r: Reader, kind: ComponentKind): ComponentBase {
+  const base: ComponentBase = {
+    id: r.str("id", newId()),
+    name: r.str("name", KIND_NAMES[kind]),
+    access: r.oneOf("access", ["often", "sometimes", "setup"], "sometimes"),
+  };
+  const groupId = r.optStr("groupId");
+  if (groupId !== undefined) {
+    base.groupId = groupId;
+  }
+  const perPlayer = r.optChild("perPlayer");
+  if (perPlayer) {
+    base.perPlayer = perPlayer.finish({ players: perPlayer.num("players") });
+  }
+  const clearance = r.optNum("clearance");
+  if (clearance !== undefined) {
+    base.clearance = clearance;
+  }
+  return base;
+}
+
+function readSleeve(r: Reader): Sleeve {
+  const v = r.take("sleeve");
+  if (isRecord(v)) {
+    const s = new Reader(v, r.at("sleeve"), r.ctx);
+    return s.finish({ w: s.num("w"), h: s.num("h"), thickness: s.num("thickness") });
+  }
+  return readEnum(v, SLEEVE_NAMES, r.at("sleeve"), r.ctx, "none");
+}
+
+function readCards(r: Reader, base: ComponentBase): Component {
+  let shortSide = r.num("shortSide");
+  let longSide = r.num("longSide");
+  if (shortSide > longSide) {
+    [shortSide, longSide] = [longSide, shortSide];
+    r.ctx.notices.push({
+      level: "info",
+      code: "schema.cardSidesSwapped",
+      path: r.at("shortSide"),
+      message: `Card sides of "${base.name}" were the wrong way round and have been swapped.`,
+    });
+  }
+  const decks = r
+    .objects("decks")
+    .map((d) => d.finish({ name: d.str("name", ""), count: d.num("count") }));
+  const sleeve = readSleeve(r);
+  const t = r.optChild("thickness");
+  let thickness: { mode: "preset" } | { mode: "measured"; cards: number; stackMm: number } = {
+    mode: "preset",
+  };
+  if (t) {
+    const mode = t.oneOf("mode", ["preset", "measured"]);
+    thickness = t.finish(
+      mode === "measured"
+        ? { mode, cards: t.num("cards"), stackMm: t.num("stackMm") }
+        : { mode: "preset" as const },
+    );
+  }
+  const storage = r.oneOf("storage", ["upright-long", "upright-short", "flat", "auto"], "auto");
+  return r.finish({
+    ...base,
+    kind: "cards",
+    shortSide,
+    longSide,
+    decks,
+    sleeve,
+    thickness,
+    storage,
+  });
+}
+
+function readBulkItem(r: Reader): BulkItem {
+  if (r.has("volumeMl")) {
+    return r.finish({ name: r.str("name", ""), volumeMl: r.num("volumeMl") });
+  }
+  return r.finish({
+    name: r.str("name", ""),
+    count: r.num("count"),
+    w: r.num("w"),
+    d: r.num("d"),
+    h: r.num("h"),
+  });
+}
+
+function readTileShape(r: Reader): TileShape {
+  const s = r.child("shape");
+  if (!s) {
+    return { type: "rect", w: 0, d: 0 };
+  }
+  const type = s.oneOf("type", ["rect", "hex"]);
+  if (type === "hex") {
+    return s.finish({
+      type,
+      flatToFlat: s.num("flatToFlat"),
+      orientation: s.oneOf("orientation", ["flat", "pointy"], "flat"),
+    });
+  }
+  return s.finish({ type, w: s.num("w"), d: s.num("d") });
+}
+
+function readKnownComponent(r: Reader, kind: ComponentKind): Component {
+  const base = readBase(r, kind);
+  switch (kind) {
+    case "cards":
+      return readCards(r, base);
+    case "bulk":
+      return r.finish({ ...base, kind, items: r.objects("items").map(readBulkItem) });
+    case "tiles":
+      return r.finish({
+        ...base,
+        kind,
+        shape: readTileShape(r),
+        thickness: r.num("thickness"),
+        count: r.num("count"),
+        storage: r.oneOf("storage", ["flat", "upright", "auto"], "auto"),
+      });
+    case "minis":
+      return r.finish({
+        ...base,
+        kind,
+        figures: r.objects("figures").map((f) =>
+          f.finish({
+            name: f.str("name", ""),
+            w: f.num("w"),
+            d: f.num("d"),
+            h: f.num("h"),
+            count: f.num("count"),
+          }),
+        ),
+        storage: r.oneOf("storage", ["pockets", "bulk"], "pockets"),
+      });
+    case "custom":
+      return r.finish({
+        ...base,
+        kind,
+        w: r.num("w"),
+        d: r.num("d"),
+        h: r.num("h"),
+        count: r.num("count"),
+      });
+  }
+}
+
+/**
+ * Newer-minor files: a component of an unknown kind, or with a value or shape
+ * this app can't read, becomes foreign: kept verbatim, not laid out, and
+ * re-inserted at its original index on save. Other files: it is an error.
+ */
+export function readComponents(
+  list: unknown[],
+  ctx: Ctx,
+): { components: Component[]; foreign: ForeignData } {
+  const components: Component[] = [];
+  const foreign: ForeignData = { components: [] };
+  list.forEach((raw, index) => {
+    const path = `/components/${index}`;
+    const sub = childCtx(ctx);
+    let component: Component | null = null;
+    if (!isRecord(raw)) {
+      sub.errors.push(`${path}: expected an object`);
+    } else {
+      const r = new Reader(raw, path, sub);
+      const kind = r.oneOf("kind", COMPONENT_KINDS);
+      if (sub.errors.length === 0 && sub.unknownValues.length === 0) {
+        component = readKnownComponent(r, kind);
+      }
+    }
+    const unreadable = sub.errors.length > 0 || sub.unknownValues.length > 0;
+    if (unreadable && ctx.newer) {
+      foreign.components.push({ index, raw });
+      const name =
+        isRecord(raw) && typeof raw.name === "string" ? `"${raw.name}"` : `#${index + 1}`;
+      ctx.notices.push({
+        level: "warning",
+        code: "schema.foreignComponent",
+        path,
+        message: `Component ${name} uses features this app version doesn't know. It is kept but not laid out.`,
+      });
+    } else if (unreadable) {
+      ctx.errors.push(...sub.errors);
+    } else if (component) {
+      components.push(component);
+      adopt(ctx, sub);
+    }
+  });
+  return { components, foreign };
+}
