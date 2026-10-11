@@ -84,8 +84,20 @@ export function wellFaceProblem(
 ): FaceProblem | null {
   const { at, solid } = face;
   const min = MIN_FEATURE_MM - tol - FLOAT_EPSILON;
-  const covering = centres.filter((c) => c - r < at - CROSSING && c + r > at + CROSSING);
-  if (covering.length === 0) {
+  // Plain loops: sizing calls this in its slot search, many thousand times per tray.
+  let nearest = Number.NaN;
+  let best = Number.POSITIVE_INFINITY;
+  for (const c of centres) {
+    if (c - r < at - CROSSING && c + r > at + CROSSING) {
+      const offset = solid * (c - at); // > 0: on the solid side
+      const rank = Math.abs(offset) - (offset > 0 ? tol + FLOAT_EPSILON : 0);
+      if (rank < best) {
+        best = rank;
+        nearest = c;
+      }
+    }
+  }
+  if (Number.isNaN(nearest)) {
     for (const c of centres) {
       // How far the slot's end toward the contents stops short of the face (< 0: on the contents
       // side, past the face).
@@ -96,11 +108,7 @@ export function wellFaceProblem(
     }
     return null;
   }
-  const offset = (c: number): number => solid * (c - at); // > 0: on the solid side
-  const rank = (c: number): number =>
-    Math.abs(offset(c)) - (offset(c) > 0 ? tol + FLOAT_EPSILON : 0);
-  const nearest = covering.reduce((best, c) => (rank(c) < rank(best) ? c : best));
-  const dx = offset(nearest);
+  const dx = solid * (nearest - at);
   if (dx > 0) {
     const most = maxWellFaceOffset(r);
     return dx <= most + tol + FLOAT_EPSILON
@@ -108,10 +116,14 @@ export function wellFaceProblem(
       : { kind: "offset", centre: nearest, offset: dx, most };
   }
   // On the contents' side: the half ridge with the next slot toward the solid side, if they merge.
-  const across = centres
-    .map(offset)
-    .filter((d) => d > tol + FLOAT_EPSILON && d - dx < 2 * r - tol - FLOAT_EPSILON);
-  const width = across.length === 0 ? Infinity : cutRidgeWidth(r, -dx, Math.min(...across));
+  let across = Number.POSITIVE_INFINITY;
+  for (const c of centres) {
+    const d = solid * (c - at);
+    if (d > tol + FLOAT_EPSILON && d - dx < 2 * r - tol - FLOAT_EPSILON) {
+      across = Math.min(across, d);
+    }
+  }
+  const width = across === Number.POSITIVE_INFINITY ? across : cutRidgeWidth(r, -dx, across);
   return width >= min ? null : { kind: "ridge", width };
 }
 
