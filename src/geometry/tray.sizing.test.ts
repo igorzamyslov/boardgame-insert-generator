@@ -13,6 +13,7 @@ import type { RealizeOptions } from "../sizing/types";
 import { loadManifold } from "./load";
 import { checkPrintability } from "./printability";
 import { bounds, signedVolume, topology } from "./test-mesh";
+import { thinnestWedge } from "./test-wedge";
 import { loadFixture, traySpecFrom } from "./test-specs";
 import { buildTray } from "./tray";
 
@@ -120,6 +121,10 @@ function problemsOf(m: ManifoldToplevel, spec: TraySpec, settings: Settings): st
   const report = checkPrintability(mesh);
   if (!report.ok) {
     problems.push(...report.problems);
+  }
+  const wedge = thinnestWedge(spec, settings);
+  if (wedge.width < 0.8 - 0.01) {
+    problems.push(`${wedge.width.toFixed(3)} mm wedge at ${wedge.where}`);
   }
   return problems;
 }

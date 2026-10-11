@@ -12,6 +12,7 @@ import { buildTray } from "./tray";
 import { checkPrintability } from "./printability";
 import { UnsupportedFeatureError } from "./errors";
 import { bounds, signedVolume, topology } from "./test-mesh";
+import { thinnestWedge } from "./test-wedge";
 import {
   GEO,
   cardUpright,
@@ -266,25 +267,25 @@ describe("finger slot clearance regression (plan 3)", () => {
   });
 });
 
-describe("well face regression (review round 2)", () => {
-  // Two decks, sleeve "none", in one strip: the narrow deck's 22 mm slot used to end just past the
-  // other deck's well face, leaving a feather under its round bottom inside the 0.5 mm overlap.
+describe("well face regression (review rounds 2 and 4)", () => {
+  // Decks, sleeve "none", in one strip: a 22 mm slot used to end just past another deck's well
+  // face, or a face to cut the ridge of two merged slots just past its peak, leaving a feather
+  // inside the 0.5 mm overlap. thinnestWedge measures it; checkPrintability does not see it.
   const settings = DEFAULT_SETTINGS;
   const ground: RealizeOptions = { lipped: false, level: 0 };
-  const cases: [string, [number, number], number][] = [
+  const cases: [string, number[], number][] = [
     ["60 then 120 cards at minOuter", [60, 120], 0],
     ["120 then 56 cards, 7 mm wider", [120, 56], 7],
+    // Review round 4: a well face just past the ridge peak of two merged slots.
+    ["60, 35 and 60 cards, 3 mm wider", [60, 35, 60], 3],
   ];
 
-  it.each(cases)("%s builds printable", (_label, [first, second], slack) => {
+  it.each(cases)("%s builds printable", (_label, counts, slack) => {
     const part = partOf(
       [
         cards({
           sleeve: "none",
-          decks: [
-            { name: "First", count: first },
-            { name: "Second", count: second },
-          ],
+          decks: counts.map((count, i) => ({ name: `D${i}`, count })),
         }),
       ],
       "upright-long|strip|split1",
@@ -300,6 +301,8 @@ describe("well face regression (review round 2)", () => {
     );
     const report = checkPrintability(buildTray(m, spec, settings).mesh);
     expect(report.problems).toEqual([]);
+    const wedge = thinnestWedge(spec, settings);
+    expect(wedge.width, wedge.where).toBeGreaterThanOrEqual(0.8 - 0.01);
   });
 });
 
