@@ -403,8 +403,17 @@ export type GeometryRequest =
 
 export type GeometryResponse =
   | { type: "built"; requestId: number; key: string; mesh: Mesh; volumeMm3: number }
-  | { type: "error"; requestId: number; key: string; message: string };
+  | {
+      type: "error";
+      requestId: number;
+      key: string;
+      message: string;
+      name?: string; // the thrown error's name; absent for a non-Error throw
+      feature?: string; // set with name "UnsupportedFeatureError"
+    };
 ```
+
+A "cancel" for a build that has not started is answered with an error response named `"AbortError"` (message `"cancelled"`). The worker queues builds and runs one per macrotask, so a cancel is seen before a queued build starts.
 
 Exports:
 
@@ -421,9 +430,21 @@ export class UnsupportedFeatureError extends Error {}
 export const GEOMETRY_VERSION: string;
 // src/geometry/client.ts
 export function createGeometryClient(): {
-  build(spec: TraySpec, settings: Settings): Promise<{ mesh: Mesh; volumeMm3: number }>;
+  build(
+    spec: TraySpec,
+    settings: Settings,
+    signal?: AbortSignal,
+  ): Promise<{ mesh: Mesh; volumeMm3: number }>;
   dispose(): void;
 };
+export const BUILD_TIMEOUT_MS: number; // 30000
+// What every failed build rejects with (disposed clients reject with a plain Error).
+// `name` is the reason: the worker's error name ("RangeError", "UnsupportedFeatureError"
+// with `feature`), or the client's own: "AbortError", "TimeoutError", "WorkerError",
+// "WorkerRestartedError". Defined in client.ts so the main thread never imports the kernel.
+export class GeometryBuildError extends Error {
+  readonly feature: string | undefined;
+}
 // src/export/index.ts
 export function to3mf(
   parts: { name: string; mesh: Mesh; transform?: [number, number, number] }[],
