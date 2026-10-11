@@ -170,7 +170,7 @@ export function realizeTray(
       `Tray ${part.trayKey}: outer ${outer.w}×${outer.d}×${outer.h} mm is smaller than its minimum ${fromU(min.w)}×${fromU(min.d)}×${fromU(min.h)} mm`,
     );
   }
-  const { wall, divider, floor } = min;
+  const { wall, divider, floor, rows } = min;
   // The band realize reserves is the reach each pocket reports, rounded up to whole units.
   const reach = reachU(settings);
   // Growth caps are maximums, so they round down; minimums (wall, divider, pocket) round up.
@@ -182,7 +182,6 @@ export function realizeTray(
   const spareMin = toU(MIN_SPARE) + divider;
   const innerW = W - 2 * wall;
   const innerD = D - 2 * wall;
-  const { rows } = min;
 
   // Y: elastic rows → thicker walls/dividers → a spare row at the back → the rest to the walls.
   const rowDepths = min.rowDepths.slice();

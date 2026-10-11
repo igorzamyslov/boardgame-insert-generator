@@ -40,8 +40,8 @@ export interface MinLayout {
   divider: number;
   floor: number;
   rows: CompartmentReq[][]; // rowsOf(part.arrangement, part.compartments)
-  widths: number[][]; // per row: each compartment's minW, rounded up
-  rowDepths: number[]; // per row: the deepest compartment's minD, rounded up
+  widths: number[][]; // per row: each compartment's minW
+  rowDepths: number[]; // per row: the deepest compartment's minD
   innerW: number;
   innerD: number;
   w: number; // innerW + 2·wall, or more for the bottom chamfer (chamferMinimumsU)
