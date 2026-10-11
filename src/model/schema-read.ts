@@ -41,9 +41,10 @@ function readLock(r: Reader): Lock | null {
       return r.finish({
         kind,
         trayKey: r.str("trayKey"),
-        w: r.num("w"),
-        d: r.num("d"),
-        h: r.num("h"),
+        // Size locks are computed from a layout, so never NaN (unlike what the user types).
+        w: r.strictNum("w"),
+        d: r.strictNum("d"),
+        h: r.strictNum("h"),
       });
     case "stack": {
       const trayKeys = r.list("trayKeys").map((k, i) => {

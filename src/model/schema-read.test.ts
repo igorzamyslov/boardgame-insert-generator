@@ -4,6 +4,7 @@ import type { Json, ReadOptions } from "./schema-read";
 import { MAX_JSON_DEPTH, readProject } from "./schema-read";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ParseResult } from "./types";
+import { validateProject } from "./validate";
 import { SCHEMA_VERSION } from "./version";
 
 const CURRENT: ReadOptions = { newer: false, schemaVersion: SCHEMA_VERSION };
@@ -313,11 +314,13 @@ describe("readProject: files from a newer minor", () => {
     const input = sampleJson();
     const cards = at(input, "components", 0);
     cards.shortSide = null;
+    cards.clearance = null;
     const custom = list(input, "components").find((c) => c.kind === "custom") as Json;
     custom.w = null;
     const result = expectOk(readProject(input, CURRENT));
     const [first] = result.project.components;
     expect(first?.kind === "cards" && first.shortSide).toBeNaN();
+    expect(first?.clearance).toBeNaN();
     const loaded = result.project.components.find((c) => c.kind === "custom");
     expect(loaded?.kind === "custom" && loaded.w).toBeNaN();
   });
@@ -328,6 +331,15 @@ describe("readProject: files from a newer minor", () => {
     const result = expectOk(readProject(input, CURRENT));
     expect(result.project.layout).toBeUndefined();
     expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+  });
+
+  it("drops a size lock with a null dimension, with no field-level error", () => {
+    const input = sampleJson();
+    input.locks = [{ kind: "size", trayKey: "a:p0:0", w: null, d: 10, h: 10 }];
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.project.locks).toEqual([]);
+    expect(result.notices.map((n) => [n.code, n.path])).toEqual([["lock.dropped", "/locks/0"]]);
+    expect(validateProject(result.project).filter((n) => n.path?.startsWith("/locks"))).toEqual([]);
   });
 
   it("drops a stored layout with a null number in a compartment or in the settings", () => {
