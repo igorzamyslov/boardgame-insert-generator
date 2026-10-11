@@ -1,4 +1,5 @@
 import { DEFAULT_BOX, DEFAULT_PRINTER } from "./defaults";
+import { deepFreeze } from "./freeze";
 import type { Json } from "./json";
 import {
   isArrayIndex,
@@ -51,9 +52,9 @@ export interface Migration {
 /**
  * Registered migrations. Empty before 1.0 (0.x promises no compatibility).
  * From 1.0 on, every schema MAJOR bump adds one migration from the previous
- * line, and a saved file of the old MAJOR to test/fixtures/schema/.
+ * line, and a saved file of the old MAJOR to test/fixtures/schema/. Frozen.
  */
-export const MIGRATIONS: Migration[] = [];
+export const MIGRATIONS: Migration[] = deepFreeze([]);
 
 export interface ParseOptions {
   appSchemaVersion: string;

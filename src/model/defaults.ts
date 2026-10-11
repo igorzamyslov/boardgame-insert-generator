@@ -1,3 +1,4 @@
+import { deepFreeze } from "./freeze";
 import { newId } from "./ids";
 import { BED_PRESETS } from "./presets";
 import { DEFAULT_SETTINGS } from "./settings";
@@ -33,14 +34,14 @@ export const DEFAULT_PRINTER: Printer = Object.freeze({
 
 export const DEFAULT_PROJECT_NAME = "Untitled insert";
 
-/** Default display name per component kind. */
-export const KIND_NAMES: Record<ComponentKind, string> = {
+/** Default display name per component kind. Frozen. */
+export const KIND_NAMES: Record<ComponentKind, string> = deepFreeze({
   cards: "Cards",
   bulk: "Bits",
   tiles: "Tiles",
   minis: "Miniatures",
   custom: "Item",
-};
+});
 
 export function newProject(): Project {
   return {

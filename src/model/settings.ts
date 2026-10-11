@@ -1,16 +1,5 @@
+import { deepFreeze } from "./freeze";
 import type { Box, Settings } from "./types";
-
-/** Freezes a value and everything nested in it, so shared defaults cannot be changed by aliasing. */
-function deepFreeze<T>(value: T): T {
-  if (typeof value === "object" && value !== null) {
-    Object.freeze(value);
-    const children: unknown[] = Object.values(value);
-    for (const child of children) {
-      deepFreeze(child);
-    }
-  }
-  return value;
-}
 
 /** Spec §5 defaults. Projects store resolved values, never "use the default". Deeply frozen. */
 export const DEFAULT_SETTINGS: Settings = deepFreeze({
@@ -38,8 +27,18 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
 export type WallChoice = "thin" | "normal" | "sturdy";
 export type FitChoice = "tight" | "normal" | "loose";
 
-export const WALL_CHOICES: Record<WallChoice, number> = { thin: 1.2, normal: 1.6, sturdy: 2 };
-export const FIT_CHOICES: Record<FitChoice, number> = { tight: 0.7, normal: 1, loose: 1.4 };
+/** Frozen. */
+export const WALL_CHOICES: Record<WallChoice, number> = deepFreeze({
+  thin: 1.2,
+  normal: 1.6,
+  sturdy: 2,
+});
+/** Frozen. */
+export const FIT_CHOICES: Record<FitChoice, number> = deepFreeze({
+  tight: 0.7,
+  normal: 1,
+  loose: 1.4,
+});
 
 // Choice values are stored exactly, so this only absorbs float noise; it is far tighter than round6's 1e-6.
 const EPS = 1e-9;
