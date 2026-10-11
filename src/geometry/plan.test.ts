@@ -522,6 +522,16 @@ describe("rejections", () => {
     expect(planTray(lippedLower, exact).lip?.thickness).toBe(0.9);
   });
 
+  it("keeps a flat lip top of at least 0.6 mm: chamfer min(0.6, thickness − 0.6)", () => {
+    // The ledge keeps the lipped wall at lippedLower's 2.9 mm.
+    const lipOf = (thickness: number) =>
+      planTray(lippedLower, { ...GEO, lip: { ...GEO.lip, thickness, ledge: 2.9 - thickness } }).lip;
+    expect(lipOf(0.9)?.chamfer).toBeCloseTo(0.3, 9);
+    expect(lipOf(1)?.chamfer).toBeCloseTo(0.4, 9);
+    expect(lipOf(1.2)?.chamfer).toBe(0.6);
+    expect(lipOf(2)?.chamfer).toBe(0.6);
+  });
+
   it("plans the lowest lip height settings allow (1 mm)", () => {
     const low = { ...GEO, lip: { ...GEO.lip, height: 1 } };
     const plan = planTray(lippedLower, low);

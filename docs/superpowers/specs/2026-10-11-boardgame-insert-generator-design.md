@@ -384,8 +384,9 @@ Coordinates are stored in mm and computed as integer 0.01 mm units.
   faces, lip and insets never move.
 - Minimum feature width 0.8 mm (2 lines of a fixed internal 0.4 mm line-width
   assumption); no wall, divider or lip is thinner. Exception: the lip's
-  chamfered top tapers to a 0.6 mm flat over its last 0.6 mm of height; the lip
-  is 1.2 mm thick below the chamfer.
+  chamfered top tapers to a flat of at least 0.6 mm (the chamfer is
+  `min(0.6, lip.thickness − 0.6)`); the lip is `lip.thickness` (1.2 mm) thick
+  below the chamfer.
 - Meshes come out of manifold and are watertight by construction.
 
 **Finger pockets.** A U-slot `fingerPocket.width` wide, cut down from the
@@ -406,14 +407,14 @@ one side may merge into one channel.
 
 **Locating lip** (on any tray with a tray stacked on it):
 
-| Part       | Geometry                                                                                                                                 |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Lip        | The outer `lip.thickness` (1.2) of the wall rises `lip.height` (2) above the rim. 0.6 × 45° chamfer on its inner top edge, flat top 0.6. |
-| Ledge      | The next `lip.ledge` (1.7) stays at rim height. A lipped outer wall is `max(wall, thickness + ledge)` (2.9).                             |
-| Upper tray | Outer face inset `thickness + play` (1.45) per side from the lower tray's outer face.                                                    |
-| Bearing    | ≥ `ledge − 2·play − upper bottom chamfer` (0.7) in any shifted position; the upper tray also rests on the lower tray's dividers.         |
-| Insets     | Add up: the tray at level k is inset `k·(thickness + play)` per side.                                                                    |
-| Height     | The lip is not part of `tray.h`; it overlaps the upper tray. Upper trays need `h ≥ lip.height + 3`.                                      |
+| Part       | Geometry                                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lip        | The outer `lip.thickness` (1.2) of the wall rises `lip.height` (2) above the rim. `min(0.6, thickness − 0.6)` × 45° chamfer on its inner top edge, flat top ≥ 0.6. |
+| Ledge      | The next `lip.ledge` (1.7) stays at rim height. A lipped outer wall is `max(wall, thickness + ledge)` (2.9).                                                       |
+| Upper tray | Outer face inset `thickness + play` (1.45) per side from the lower tray's outer face.                                                                              |
+| Bearing    | ≥ `ledge − 2·play − upper bottom chamfer` (0.7) in any shifted position; the upper tray also rests on the lower tray's dividers.                                   |
+| Insets     | Add up: the tray at level k is inset `k·(thickness + play)` per side.                                                                                              |
+| Height     | The lip is not part of `tray.h`; it overlaps the upper tray. Upper trays need `h ≥ lip.height + 3`.                                                                |
 
 With the lip off, upper trays keep the same inset, rest on the rim, and the
 app warns (rule 4).

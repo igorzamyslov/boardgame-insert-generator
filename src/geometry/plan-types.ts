@@ -6,7 +6,8 @@ import type { Side } from "../model/types";
 // ../model/settings (spec §6.1, roadmap §4.6) and are not defined here.
 
 export const INNER_CORNER_RADIUS = 0.5; // spec §6.1: wells' inner vertical corners ≤ 0.5
-export const LIP_CHAMFER = 0.6; // spec §6.1: 0.6 × 45° on the lip's inner top edge
+export const LIP_CHAMFER = 0.6; // spec §6.1: 0.6 × 45° on the lip's inner top edge…
+export const LIP_FLAT = 0.6; // …less on a thin lip, so its flat top stays at least this wide
 export const MIN_RELIEF_RADIUS = 0.3; // smaller corner reliefs are dropped
 export const MIN_SCOOP_RADIUS = 0.5; // smaller scoop fillets are dropped
 export const RELIEF_CUT = 1 - Math.SQRT1_2; // wall depth a relief through the corner cuts, per mm of radius

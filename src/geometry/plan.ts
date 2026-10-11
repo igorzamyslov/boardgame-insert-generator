@@ -12,7 +12,7 @@ import {
 import { keepsApart, slotsApart, slotsMerge, wellFaceProblem } from "../model/slot-rules";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
-import { LIP_CHAMFER, MIN_SCOOP_RADIUS } from "./plan-types";
+import { LIP_CHAMFER, LIP_FLAT, MIN_SCOOP_RADIUS } from "./plan-types";
 import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, SlotPlan, TrayPlan } from "./plan-types";
 import { KNOWN_COMPARTMENT_KINDS, KNOWN_FEATURE_TYPES, KNOWN_PARTS } from "./types";
 
@@ -44,7 +44,7 @@ function planLip(spec: TraySpec, settings: Settings): LipPlan | null {
   if (!Number.isFinite(thickness) || !(thickness >= MIN_WALL_MM - TOL)) {
     fail(spec, `lip thickness ${thickness} mm is below ${MIN_WALL_MM} mm`);
   }
-  const chamfer = Math.min(LIP_CHAMFER, thickness / 2);
+  const chamfer = Math.min(LIP_CHAMFER, thickness - LIP_FLAT);
   if (!Number.isFinite(height) || !(height > chamfer)) {
     fail(spec, `lip height ${height} mm must exceed its ${chamfer} mm chamfer`);
   }
