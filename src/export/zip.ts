@@ -3,7 +3,7 @@ import type { Zippable } from "fflate";
 
 // Fixed timestamp (local time, as zip stores it) so equal inputs give
 // byte-identical archives.
-const ZIP_TIME = new Date(2020, 0, 1, 0, 0, 0);
+export const ZIP_TIME = new Date(2020, 0, 1, 0, 0, 0);
 
 // Zip archive of the given files. Already-compressed .3mf files are stored;
 // everything else is deflated. Names must be unique.

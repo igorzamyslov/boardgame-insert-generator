@@ -1,15 +1,12 @@
 import { Zip, ZipDeflate, strToU8 } from "fflate";
 import type { Mesh } from "../geometry/types";
+import { ZIP_TIME } from "./zip";
 
 export interface ThreeMfPart {
   name: string;
   mesh: Mesh;
   transform?: [number, number, number];
 }
-
-// Fixed timestamp (local time, as zip stores it) so equal inputs give
-// byte-identical files.
-const ZIP_TIME = new Date(2020, 0, 1, 0, 0, 0);
 
 export const CONTENT_TYPES_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
