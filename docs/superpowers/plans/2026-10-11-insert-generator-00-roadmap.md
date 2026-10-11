@@ -427,6 +427,7 @@ export function buildTray(
 ): { mesh: Mesh; volumeMm3: number };
 export function checkPrintability(mesh: Mesh): PrintabilityReport;
 export class UnsupportedFeatureError extends Error {}
+export class TraySpecError extends RangeError {} // name "TraySpecError": every spec rejection of planTray/buildTray
 export const GEOMETRY_VERSION: string;
 // src/geometry/client.ts
 export function createGeometryClient(): {
@@ -438,8 +439,9 @@ export function createGeometryClient(): {
   dispose(): void;
 };
 export const BUILD_TIMEOUT_MS: number; // 30000
-// What every failed build rejects with (disposed clients reject with a plain Error).
-// `name` is the reason: the worker's error name ("RangeError", "UnsupportedFeatureError"
+// What every failed build rejects with (disposed clients reject with a plain Error). After any
+// failure other than TraySpecError, UnsupportedFeatureError or AbortError the client replaces its worker.
+// `name` is the reason: the worker's error name ("TraySpecError", "UnsupportedFeatureError"
 // with `feature`), or the client's own: "AbortError", "TimeoutError", "WorkerError",
 // "WorkerRestartedError". Defined in client.ts so the main thread never imports the kernel.
 export class GeometryBuildError extends Error {
@@ -628,7 +630,7 @@ export function importJsonText(text: string): ParseResult;
   - **Settings:** `model/settings.ts` exports `effectiveBottomChamfer(s, level)`, `chamferMinimums(s, level)`, `maxCornerRadius` and `maxBottomChamfer(s) = min(wall + floor − 0.8, wall + (floor − 0.9)/√2, maxCornerRadius(wall, wall, 0))`; the middle term is the sharp corner at `R = c`, whose material is `floor − √2·(c − wall)`, plus the 0.1 mm `CORNER_MARGIN` that every corner term keeps for the polygon approximating the arc (defaults: 1.812 mm). `validateProject` reports a `bottomChamfer` above it as `field.bottomChamfer` at `/settings/bottomChamfer`, and `size()` returns no requirements for settings that fail `settingsValid(s)` (ranges plus this rule). `lip.height` is at least 1 mm, and `wall` and `lip.thickness` at least `MIN_FEATURE_MM + CORNER_MARGIN` = 0.9 mm (`SETTING_RANGES`): a sharp cut corner at the wall keeps 0.8 mm to the arc polygon only with that margin (`maxCornerRadius` has none to give a cut closer than 0.9 mm to a face), and the lip ring between two concentric polygons is only `t·cos(Δ/2)` thick at a corner facet, so `checkPrintability` measures a 0.8 mm lip below 0.8 mm (0.9·cos(22.5°) ≈ 0.83 mm passes). Floors and dividers keep their 0.8 mm minimum.
 - Geometry may shrink corner-relief and outer-corner radii below `settings.cornerRadius` to keep walls ≥ 0.8 mm. Outer dimensions never change.
 - `UnsupportedFeatureError` has a `feature: string` property and constructor `(feature: string)`. It is thrown for any `part`, compartment `kind` or feature `type` outside `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` (`geometry/types.ts`); `feature` is the feature type, `part:<part>` or `kind:<kind>`. The UI imports the same lists (no copies).
-- Main-thread and layout code import `GEOMETRY_VERSION` from `geometry/version`, types from `geometry/types` and the worker client from `geometry/client` only. Importing `geometry/index` pulls manifold-3d and its WASM into that bundle. The root ESLint config forbids it (static and dynamic imports of `manifold-3d`, `geometry/index`, `tray`, `load`, `worker*`, or the bare `geometry` directory) outside `geometry/` and test files, and a test checks that `client.ts`'s import graph stays inside `geometry/{client,types,version}` and `model/`.
+- Main-thread and layout code import `GEOMETRY_VERSION` from `geometry/version`, types from `geometry/types` and the worker client from `geometry/client` only. Importing `geometry/index` pulls manifold-3d and its WASM into that bundle. The root ESLint config forbids every other `geometry/*` module (static and dynamic imports, and the bare `geometry` directory) and `manifold-3d` outside `geometry/`, test files and `test-*.ts` helpers, and a test checks that `client.ts`'s import graph stays inside `geometry/{client,types,version}` and `model/`.
 - Ownership: the Renovate `manifold-3d` no-automerge rule belongs to plan 1 (Task 2), not plan 3.
 
 ### 4.7 Sizing conventions (from plan 2; binding for plans 4, 5)
