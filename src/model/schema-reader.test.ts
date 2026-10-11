@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pointerKeys, summarize } from "./json";
-import { absorbErrors, addError, childCtx, newCtx, Reader } from "./schema-reader";
+import { absorbErrors, addError, adopt, childCtx, newCtx, Reader } from "./schema-reader";
 
 describe("Reader.at", () => {
   it("escapes keys as RFC 6901 segments so pointerKeys can read them back", () => {
@@ -30,6 +30,29 @@ describe("Reader.tag", () => {
     expect(new Reader({ t: "z" }, "", ctx).tag("t", ["a"])).toBeNull();
     expect(ctx.errors).toEqual([]);
     expect(ctx.unknownValues).toEqual(["/t"]);
+  });
+});
+
+describe("adopt", () => {
+  it("re-bases the child's notice paths from its place in the file to its place in the project", () => {
+    const parent = newCtx(false);
+    const child = childCtx(parent);
+    child.notices.push(
+      { level: "info", code: "a", message: "a", path: "/locks/3" },
+      { level: "info", code: "b", message: "b", path: "/locks/3/w" },
+      { level: "info", code: "c", message: "c", path: "/locks/30" },
+      { level: "info", code: "d", message: "d" },
+    );
+    child.dropped.push("/locks/3/extra");
+    adopt(parent, child, { from: "/locks/3", to: "/locks/1" });
+    expect(parent.notices.map((n) => n.path)).toEqual([
+      "/locks/1",
+      "/locks/1/w",
+      "/locks/30",
+      undefined,
+    ]);
+    // Dropped fields aren't in the project, so they keep their place in the file.
+    expect(parent.dropped).toEqual(["/locks/3/extra"]);
   });
 });
 

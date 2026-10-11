@@ -66,8 +66,8 @@ function readLocks(list: unknown[], ctx: Ctx): { locks: Lock[]; kept: ForeignVal
     const sub = childCtx(ctx);
     const lock = isRecord(raw) ? readLock(new Reader(raw, path, sub)) : null;
     if (lock && sub.errors.length === 0 && sub.unknownValues.length === 0) {
+      adopt(ctx, sub, { from: path, to: `/locks/${locks.length}` });
       locks.push(lock);
-      adopt(ctx, sub);
     } else if (ctx.newer && sub.unknownValues.length > 0) {
       // The index among surviving locks: it is where the lock goes in the saved
       // array, which has no room for the dropped ones ahead of it in the file.
@@ -254,7 +254,7 @@ export function readProject(data: Json, opts: ReadOptions): ParseResult {
     ctx.notices.push({
       level: "info",
       code: "schema.unknownFields",
-      message: `Ignored unknown fields: ${summarize(ctx.dropped)}.`,
+      message: `Ignored unknown fields in the file: ${summarize(ctx.dropped)}.`,
     });
   }
   return { ok: true, project, foreign, notices: ctx.notices };

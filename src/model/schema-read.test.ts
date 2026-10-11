@@ -279,6 +279,25 @@ describe("readProject: files from a newer minor", () => {
     ]);
   });
 
+  it("points notices at the loaded project, and at the file for foreign components", () => {
+    const input = sampleJson();
+    list(input, "components").unshift({ name: "Dial", kind: "dial" }, { kind: "spinner" });
+    Object.assign(at(input, "components", 2), { shortSide: 88, longSide: 63.5 });
+    const result = expectOk(readProject(input, NEWER));
+    expect(result.project.components[0]).toMatchObject({ id: "cards001", shortSide: 63.5 });
+    expect(result.notices.map((n) => [n.code, n.path])).toEqual([
+      ["schema.foreignComponent", "/components/0"],
+      ["schema.foreignComponent", "/components/1"],
+      ["schema.cardSidesSwapped", "/components/0/shortSide"],
+    ]);
+    expect(result.notices[0]?.message).toBe(
+      'Component "Dial" (component 1 in the file) uses features this app version doesn\'t know. It is kept but not laid out.',
+    );
+    expect(result.notices[1]?.message).toBe(
+      "Component 2 in the file uses features this app version doesn't know. It is kept but not laid out.",
+    );
+  });
+
   it("uses the default for unknown box and settings values and keeps the raw ones", () => {
     const input = sampleJson();
     (input.box as Json).headroomCoverage = "none";

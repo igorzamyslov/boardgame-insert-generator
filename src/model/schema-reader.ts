@@ -48,13 +48,35 @@ export function absorbErrors(parent: Ctx, child: Ctx): void {
   parent.omitted += child.omitted;
 }
 
-/** Keeps a child scope's dropped-field paths and notices once the scope itself is kept. */
-export function adopt(parent: Ctx, child: Ctx): void {
+/** Where a kept item was in the file and where it is in the loaded project. */
+export interface Rebase {
+  from: string; // e.g. "/components/3"
+  to: string; // e.g. "/components/1"
+}
+
+/** `path` moved from `rebase.from` to `rebase.to`, if it is inside it. */
+function rebased(path: string, rebase: Rebase): string {
+  return path === rebase.from || path.startsWith(`${rebase.from}/`)
+    ? `${rebase.to}${path.slice(rebase.from.length)}`
+    : path;
+}
+
+/**
+ * Keeps a child scope's dropped-field paths and notices once the scope itself
+ * is kept. With `rebase`, notice paths are moved from the item's place in the
+ * file to its place in the project, so they point at the loaded data. Dropped
+ * fields keep their file paths: they aren't in the project.
+ */
+export function adopt(parent: Ctx, child: Ctx, rebase?: Rebase): void {
   for (const path of child.dropped) {
     parent.dropped.push(path);
   }
   for (const notice of child.notices) {
-    parent.notices.push(notice);
+    parent.notices.push(
+      rebase && notice.path !== undefined
+        ? { ...notice, path: rebased(notice.path, rebase) }
+        : notice,
+    );
   }
 }
 

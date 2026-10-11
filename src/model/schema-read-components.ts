@@ -195,18 +195,22 @@ export function readComponents(
     const unreadable = sub.errors.length > 0 || sub.unknownValues.length > 0;
     if (unreadable && ctx.newer) {
       foreign.components.push({ index, raw: structuredClone(raw) });
-      const name = typeof raw.name === "string" ? quote(raw.name) : `#${index + 1}`;
+      // Not in project.components, so the notice points into the file.
+      const which =
+        typeof raw.name === "string"
+          ? `${quote(raw.name)} (component ${index + 1} in the file)`
+          : `${index + 1} in the file`;
       ctx.notices.push({
         level: "warning",
         code: "schema.foreignComponent",
         path,
-        message: `Component ${name} uses features this app version doesn't know. It is kept but not laid out.`,
+        message: `Component ${which} uses features this app version doesn't know. It is kept but not laid out.`,
       });
     } else if (unreadable) {
       absorbErrors(ctx, sub);
     } else if (component) {
+      adopt(ctx, sub, { from: path, to: `/components/${components.length}` });
       components.push(component);
-      adopt(ctx, sub);
     }
   });
   return { components, foreign };
