@@ -2836,7 +2836,7 @@ git commit -m "Add size variant enumeration"
 
 Rules: requirements appear in the order their key first appears in `components`. `key = groupId ?? componentId` (an empty `groupId` counts as none). Members whose options are empty are left out with their notices; a requirement with no usable member, or with no variants, is not emitted.
 
-> **Superseded by the plan 2 reviews (the implementation is authoritative):** sizing assumes a valid project. A component with both `groupId` and `perPlayer`, or with a `perPlayer.players` outside 1..10, fails `validateComponent` (`field.perPlayerInGroup`, `field.players` / `limit.players`), so `componentOptions` gives it no options and no notices and it is left out; there is no `sizing.perPlayerInGroup` or `sizing.invalid` notice. Settings outside `SETTING_RANGES` (`settingsInRange` from `model/validate`) make `size` return nothing. The step code below still shows the original notices; the repo's `group.ts` and `group.test.ts` replace it.
+> **Superseded by the plan 2 reviews (the implementation is authoritative):** sizing assumes a valid project. A component with both `groupId` and `perPlayer`, or with a `perPlayer.players` outside 1..10, fails `validateComponent` (`field.perPlayerInGroup`, `field.players` / `limit.players`), so `componentOptions` gives it no options and no notices and it is left out; there is no `sizing.perPlayerInGroup` or `sizing.invalid` notice. Settings that fail `settingsValid` (`model/validate`: `SETTING_RANGES` plus the cross-field rules, roadmap §4.6) make `size` return nothing. The step code below still shows the original notices; the repo's `group.ts` and `group.test.ts` replace it.
 
 - [ ] **Step 1: Write the failing test**
 
