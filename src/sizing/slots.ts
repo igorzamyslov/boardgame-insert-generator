@@ -2,10 +2,10 @@ import {
   MIN_FEATURE_MM,
   MIN_SLOT_WIDTH,
   SLOT_CONTENT_OVERLAP,
-  cutRidgeWidth,
   maxChannelSpacing,
-  maxWellFaceOffset,
 } from "../model/settings";
+import { slotsApart, slotsMerge, wellFaceHolds } from "../model/slot-rules";
+import type { RectMm } from "../model/slot-rules";
 import type { Side } from "../model/types";
 import { ceilU, fromU, toU } from "./units";
 
@@ -88,13 +88,13 @@ export function slotFootprint(rect: RectU, side: Side, slot: SlotPlacement, reac
   return alongX(side) ? { x0: u0, x1: u1, y0: v0, y1: v1 } : { x0: v0, x1: v1, y0: u0, y1: u1 };
 }
 
-/** How far apart two rectangles are along the axis that separates them most (< 0: overlap). */
-export function separation(a: Rect2, b: Rect2): number {
-  return Math.max(b.x0 - a.x1, a.x0 - b.x1, b.y0 - a.y1, a.y0 - b.y1);
-}
-
 export function doubled(r: RectU): Rect2 {
   return { x0: 2 * r.x, y0: 2 * r.y, x1: 2 * (r.x + r.w), y1: 2 * (r.y + r.d) };
+}
+
+/** A doubled-unit rectangle in mm, for the shared slot rules (model/slot-rules). */
+export function rectMm(r: Rect2): RectMm {
+  return { x0: r.x0 / 200, y0: r.y0 / 200, x1: r.x1 / 200, y1: r.y1 / 200 };
 }
 
 /** Every slot placed, or the requests of a run that has no room for slots ≥ the minimum width. */
@@ -213,11 +213,6 @@ function runsOf(
   });
 }
 
-/** Whether two slots of width w centred `spacing` apart merge into one channel (units). */
-function merges(spacing: number, width: number): boolean {
-  return fromU(spacing) <= maxChannelSpacing(fromU(width) / 2);
-}
-
 interface Face {
   at: number; // doubled
   solid: -1 | 1; // the side its solid material lies on
@@ -230,33 +225,11 @@ interface Move {
 }
 
 /**
- * Whether a well face holds against the slots centred on `ats` (planTray checkWellFaces, roadmap
- * §4.6, here in doubled units). planTray allows SPEC_TOLERANCE (one doubled unit) on each limit;
- * this never does, and refuses a slot end within one doubled unit of a face, which planTray may
- * count either way.
+ * Whether a well face holds against the slots of width `width` centred on `ats` (wellFaceHolds,
+ * the rule planTray checks, with no tolerance).
  */
-function faceHolds({ at: face, solid }: Face, ats: readonly number[], width: number): boolean {
-  const r = fromU(width) / 2;
-  const covering = ats.filter((a) => 2 * a - width < face - 1 && 2 * a + width > face + 1);
-  if (covering.length === 0) {
-    return ats.every((a) => {
-      const short = solid * (2 * a - solid * width - face);
-      return short < -1 || short >= MIN2;
-    });
-  }
-  // The nearest centre decides; on a tie the one on the solid side, whose bottom is lower there.
-  const offset = (a: number): number => solid * (2 * a - face); // doubled; > 0: on the solid side
-  const nearest = covering.reduce((best, a) => {
-    const d = Math.abs(offset(a)) - Math.abs(offset(best));
-    return d < 0 || (d === 0 && offset(a) > 0) ? a : best;
-  });
-  const dx = offset(nearest) / 200; // mm
-  if (dx > 0) {
-    return dx <= maxWellFaceOffset(r);
-  }
-  // On the contents' side: the half ridge with the next slot toward the solid side, if they merge.
-  const across = ats.filter((a) => offset(a) > 0 && Math.abs(a - nearest) < width).map(offset);
-  return across.length === 0 || cutRidgeWidth(r, -dx, Math.min(...across) / 200) >= MIN_FEATURE_MM;
+function faceHolds({ at, solid }: Face, ats: readonly number[], width: number): boolean {
+  return wellFaceHolds({ at: at / 200, solid }, ats.map(fromU), fromU(width) / 2, 0);
 }
 
 /**
@@ -345,10 +318,10 @@ function checkPairs(ats: readonly number[], width: number): Pairs {
     const atA = ats[a] ?? 0;
     const atB = ats[b] ?? 0;
     const spacing = atB - atA;
-    if (spacing - width >= minGap) {
+    if (slotsApart(fromU(spacing), fromU(width) / 2, 0)) {
       continue;
     }
-    if (merges(spacing, width)) {
+    if (slotsMerge(fromU(spacing), fromU(width) / 2, 0)) {
       chain[root(b)] = root(a);
       continue;
     }

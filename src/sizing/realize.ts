@@ -1,4 +1,5 @@
 import { MIN_FEATURE_MM, MIN_SLOT_WIDTH } from "../model/settings";
+import { keepsApart } from "../model/slot-rules";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
 import {
   CORNER_RELIEF_D,
@@ -11,7 +12,7 @@ import { pocketSides, reachU } from "./common";
 import { chamferMinimumsU, minLayoutU, wallFor } from "./outer";
 import type { MinLayout } from "./outer";
 import { SlotFitError } from "./errors";
-import { doubled, placeSlots, separation, slotFootprint } from "./slots";
+import { doubled, placeSlots, rectMm, slotFootprint } from "./slots";
 import type { Rect2, SlotPlacement, SlotRequest } from "./slots";
 import type { CompartmentReq, OuterSize, RealizeOptions, RealizedTray, TrayPartReq } from "./types";
 import { ceilU, fillCapped, floorU, fromU, splitEven, sum, toU } from "./units";
@@ -114,8 +115,8 @@ function clearOfSlots(spare: Rect, axis: "x" | "y", slots: readonly Rect2[]): Re
   const min = 2 * ceilU(MIN_FEATURE_MM);
   let r = spare;
   for (;;) {
-    const r2 = doubled(r);
-    const hit = slots.find((f) => separation(f, r2) < min);
+    const at = rectMm(doubled(r));
+    const hit = slots.find((f) => !keepsApart(rectMm(f), at, 0));
     if (hit === undefined) {
       return r;
     }
