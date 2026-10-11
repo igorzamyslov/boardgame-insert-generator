@@ -14,7 +14,7 @@
 
 Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts this plan was written against. The amended roadmap is binding; where this plan's prose and an amendment disagree, the amendment wins. The code blocks named below are already patched: transcribe them as shown.
 
-1. **Finger slots may not fit (`SlotFitError`, roadmap §4.2, §4.7).** `realizeTray` throws `SlotFitError` (a `RangeError` named `"SlotFitError"`, exported from `../sizing`) when a part's finger slots cannot keep their minimum width. It is monotonic in slack (if it realizes at `minOuter` it realizes at every larger outer), and `size()` emits only variants whose parts realize unlipped at level 0; a lipped (thicker wall) or upper tray of them may still fail. Layout's duty:
+1. **Finger slots may not fit (`SlotFitError`, roadmap §4.2, §4.7).** `realizeTray` throws `SlotFitError` (a `RangeError` named `"SlotFitError"`, exported from `../sizing`) when a part's finger slots cannot keep their minimum width. `minOuter` widens a part, by up to `fingerPocket.width`, until its slots fit, so a part realizes at `minOuter` exactly when it realizes at any outer, and `size()` emits only variants whose parts realize unlipped at level 0; a lipped (thicker wall) or upper tray of them may still fail. Layout's duty:
    - `Ctx.metrics(ref, lipped, level)` also reports `realizable`, cached with the other metrics per (part, lipped, level). It comes from `fits(part, settings, opts)`, injected into `createCtx` like `measure`: the default `slotsFit` realizes the part at its `minOuter` and is false only on `SlotFitError`; with an injected (fake) `measure` the default is "always fits". Never call `realizeTray` per candidate outer to find out.
    - `Level.realizable` (Task 6); `placeStack` charges `SLOT_OVERFLOW_U` (1 m) of overflow per level that is not realizable (`Overflow.slot`, summed by `overflowTotal`; Task 7), so such a placement is never feasible and the annealer moves away from it. Greedy starts (Task 11) work unchanged: an unrealizable choice simply carries overflow.
    - `materialize` (Task 12) catches only `SlotFitError`, which can only come from an infeasible `bestAttempt`: that tray is emitted as a plain box without compartments or spacers. Every other error propagates.
@@ -957,8 +957,9 @@ export type Measure = (part: TrayPartReq, settings: Settings, opts: RealizeOptio
 export type Fits = (part: TrayPartReq, settings: Settings, opts: RealizeOptions) => boolean;
 
 /**
- * realizeTray at minOuter, false only on SlotFitError. Realizing is monotonic in slack, so a
- * part that fails here fails at every outer; any other error is a bug and propagates.
+ * realizeTray at minOuter, false only on SlotFitError. minOuter is the footprint at which the
+ * part's finger slots fit (widened by up to fingerPocket.width), and a part refused there is
+ * refused at every outer; any other error is a bug and propagates.
  */
 export const slotsFit: Fits = (part, settings, opts) => {
   try {
