@@ -1,7 +1,6 @@
 import { isRecord } from "../model/json";
-import { MIGRATIONS, parseProjectWith, serializeProject } from "../model/schema";
+import { parseStoredProject, serializeProject } from "../model/schema";
 import type { ForeignData, ParseResult, Project } from "../model/types";
-import { SCHEMA_VERSION } from "../model/version";
 
 /** Every localStorage key this app uses starts with this. */
 export const STORAGE_PREFIX = "insert-generator:";
@@ -228,19 +227,10 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
       } catch {
         return { ok: false, error: "This saved project is damaged and can't be opened." };
       }
-      // Bounds aren't enforced: the user's own autosave must always open
-      // (validateProject still reports anything over a limit).
-      const result = parseProjectWith(raw, {
-        appSchemaVersion: SCHEMA_VERSION,
-        migrations: MIGRATIONS,
-        enforceBounds: false,
-      });
-      // The storage key is authoritative: an entry without an id (the reader
-      // made one up) or with another id would otherwise autosave to a second key.
-      if (result.ok && result.project.id !== id) {
-        return { ...result, project: { ...result.project, id } };
-      }
-      return result;
+      // The storage key is authoritative, before validation: an entry without an
+      // id, with an empty one or with another one would otherwise be refused or
+      // autosave to a second key. A shallow copy, so `raw` itself is untouched.
+      return parseStoredProject(isRecord(raw) ? { ...raw, id } : raw);
     },
 
     save(p, foreign) {

@@ -197,6 +197,20 @@ export function parseProject(raw: unknown, appSchemaVersion = SCHEMA_VERSION): P
   return parseProjectWith(raw, { appSchemaVersion, migrations: MIGRATIONS });
 }
 
+/**
+ * parseProject for the user's own local autosave (ProjectStore.load): the same
+ * schema version and migrations, but input over the spec §5 upper bounds still
+ * opens, so an autosave never locks the user out. validateProject() reports the
+ * limits; corrupt structure (`invalid.*`) is still refused. Never throws.
+ */
+export function parseStoredProject(raw: unknown): ParseResult {
+  return parseProjectWith(raw, {
+    appSchemaVersion: SCHEMA_VERSION,
+    migrations: MIGRATIONS,
+    enforceBounds: false,
+  });
+}
+
 /** No foreign components (new projects, and projects from this app version). */
 export function noForeign(): ForeignData {
   return { components: [] };

@@ -7,6 +7,7 @@ import {
   noForeign,
   parseProject,
   parseProjectWith,
+  parseStoredProject,
   serializeProject,
   toSerializable,
 } from "./schema";
@@ -287,6 +288,19 @@ describe("parseProject: spec §5 bounds", () => {
     components.push({ ...firstCards(twins) });
     const refused = parseProjectWith(twins, { ...opts, enforceBounds: false });
     expect(refused.ok ? "loaded" : refused.error).toMatch(/share the id/);
+  });
+
+  it("opens a stored project over the bounds, but never corrupt structure", () => {
+    const input = raw(sampleProject());
+    firstCards(input).decks = [{ name: "Huge", count: 5000 }];
+    expect(parseProject(input).ok).toBe(false);
+    const loaded = parseStoredProject(input);
+    expect(loaded.ok && loaded.project.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(loaded.ok && validateProject(loaded.project).map((n) => n.code)).toContain(
+      VALIDATION_NOTICE_CODES.limit.count,
+    );
+    const refused = parseStoredProject({ ...raw(newProject()), id: "" });
+    expect(refused.ok ? "loaded" : refused.error).toMatch(/\/id: Project id must not be empty/);
   });
 
   it("uses the current schema version by default", () => {

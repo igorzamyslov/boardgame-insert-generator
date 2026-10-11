@@ -342,8 +342,9 @@ describe("createProjectStore ids", () => {
     >;
     storage.setItem(projectKey("idless"), JSON.stringify({ ...stored, id: undefined }));
     storage.setItem(projectKey("keyed"), JSON.stringify({ ...stored, id: "other" }));
+    storage.setItem(projectKey("blank"), JSON.stringify({ ...stored, id: "" }));
 
-    for (const id of ["idless", "keyed"]) {
+    for (const id of ["idless", "keyed", "blank"]) {
       const loaded = store.load(id);
       if (!loaded?.ok) {
         throw new Error(`expected ${id} to load`);
@@ -356,7 +357,7 @@ describe("createProjectStore ids", () => {
         .list()
         .map((e) => e.id)
         .sort(),
-    ).toEqual(["idless", "keyed"]);
+    ).toEqual(["blank", "idless", "keyed"]);
   });
 });
 
