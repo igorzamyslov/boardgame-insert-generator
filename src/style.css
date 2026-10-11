@@ -1,0 +1,28 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+}
+
+.preview-banner {
+  padding: 0.5rem 1rem;
+  background: #fff3cd;
+  color: #664d03;
+  text-align: center;
+}
+
+main {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+footer {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
