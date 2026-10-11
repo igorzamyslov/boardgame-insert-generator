@@ -10,6 +10,7 @@ import {
   effectiveBottomChamfer,
   fitChoiceOf,
   MIN_FEATURE_MM,
+  cutRidgeWidth,
   maxBottomChamfer,
   maxChannelSpacing,
   maxWellFaceOffset,
@@ -229,5 +230,52 @@ describe("maxWellFaceOffset", () => {
     expect(wedge(r, dx)).toBeCloseTo(MIN_FEATURE_MM, 9);
     expect(wedge(r, dx - 0.1)).toBeGreaterThan(MIN_FEATURE_MM);
     expect(wedge(r, dx + 0.1)).toBeLessThan(MIN_FEATURE_MM);
+  });
+});
+
+describe("cutRidgeWidth", () => {
+  // Measures the piece a well face at u = 0 leaves on its solid side (u < 0) under two round
+  // bottoms (radius r) centred at dContents (contents side) and −dSolid: its top is the lower
+  // envelope of the arcs, and its width is taken MIN_FEATURE_MM below its highest point.
+  function sampled(r: number, dContents: number, dSolid: number): number {
+    const depth = (u: number): number =>
+      Math.max(
+        ...[dContents, -dSolid].map((c) =>
+          Math.abs(u - c) < r ? Math.sqrt(r * r - (u - c) ** 2) : Number.NEGATIVE_INFINITY,
+        ),
+      );
+    const step = 1e-4;
+    let top = Number.POSITIVE_INFINITY; // smallest depth below the arc centres = highest material
+    for (let u = 0; u > -dSolid; u -= step) {
+      top = Math.min(top, depth(u));
+    }
+    // The face, or the near bottom if it lies beyond the face, to the far bottom.
+    let first = 0;
+    while (depth(first) > top + MIN_FEATURE_MM) {
+      first -= step;
+    }
+    let last = first;
+    while (depth(last - step) <= top + MIN_FEATURE_MM) {
+      last -= step;
+    }
+    return first - last;
+  }
+
+  it.each([
+    [11, 9.9, 10.1],
+    [11, 9.99, 10.01],
+    [11, 9.6, 10.4],
+    [11, 5, 12],
+    [7.5, 6, 7],
+  ])("matches the sampled half ridge for r = %d, %d and %d mm from the centres", (r, dc, ds) => {
+    expect(cutRidgeWidth(r, dc, ds)).toBeCloseTo(sampled(r, dc, ds), 3);
+  });
+
+  it("is 0.51 mm for 22 mm slots 20 mm apart, the face 0.1 mm from the peak", () => {
+    expect(cutRidgeWidth(11, 9.9, 10.1)).toBeCloseTo(0.507, 3);
+  });
+
+  it("is unbounded once MIN_FEATURE_MM below the peak lies below the bottoms", () => {
+    expect(cutRidgeWidth(11, 1, 2)).toBe(Number.POSITIVE_INFINITY);
   });
 });

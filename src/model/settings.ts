@@ -172,6 +172,27 @@ export function maxWellFaceOffset(r: number): number {
 }
 
 /**
+ * Two merged finger slots of radius r leave a ridge between their round bottoms, its peak at the
+ * midpoint of their centres, k = √(r² − (Δ/2)²) below the arc centres. A well face that crosses
+ * the nearer slot (dContents from its centre, on the face's contents side) with the peak on its
+ * solid side, toward the other slot (dSolid away), leaves half that ridge, cut vertically.
+ * MIN_FEATURE_MM below the peak the bottoms lie s = √(r² − (k + m)²) from their centres, so the
+ * piece runs from the far slot's bottom (dSolid − s from the face) to the face, or to the near
+ * slot's bottom if that is closer (the whole ridge, Δ − 2s): dSolid − s + min(0, dContents − s).
+ * Infinite once that depth lies below the bottoms (k + m ≥ r). Roadmap §4.6.
+ */
+export function cutRidgeWidth(r: number, dContents: number, dSolid: number): number {
+  const m = MIN_FEATURE_MM;
+  const half = (dContents + dSolid) / 2;
+  const k = Math.sqrt(Math.max(0, r * r - half * half));
+  if (k + m >= r) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const s = Math.sqrt(r * r - (k + m) ** 2);
+  return dSolid - s + Math.min(0, dContents - s);
+}
+
+/**
  * Finger slots are never narrower than this (or the fingerPocket.width setting, if smaller):
  * sizing refuses a tray whose slots cannot keep it (roadmap §4.7).
  */
