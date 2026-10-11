@@ -1,6 +1,6 @@
 import { groupOf } from "./defaults";
 import { deepFreeze } from "./freeze";
-import { topPlane } from "./settings";
+import { MIN_FEATURE_MM, topPlane } from "./settings";
 import type { Component, Lock, Notice, Project, Settings } from "./types";
 
 /**
@@ -73,9 +73,9 @@ export interface SettingRange {
 }
 
 const settingRanges: SettingRange[] = [
-  { path: "wall", label: "Wall", get: (s) => s.wall, min: 0.8, max: 10 },
-  { path: "floor", label: "Floor", get: (s) => s.floor, min: 0.8, max: 10 },
-  { path: "divider", label: "Divider", get: (s) => s.divider, min: 0.8, max: 10 },
+  { path: "wall", label: "Wall", get: (s) => s.wall, min: MIN_FEATURE_MM, max: 10 },
+  { path: "floor", label: "Floor", get: (s) => s.floor, min: MIN_FEATURE_MM, max: 10 },
+  { path: "divider", label: "Divider", get: (s) => s.divider, min: MIN_FEATURE_MM, max: 10 },
   { path: "fit", label: "Fit", get: (s) => s.fit, min: 0.1, max: 3 },
   { path: "cardClearance", label: "Card clearance", get: (s) => s.cardClearance, min: 0, max: 20 },
   {
@@ -126,7 +126,13 @@ const settingRanges: SettingRange[] = [
     max: 100,
   },
   { path: "lip/height", label: "Lip height", get: (s) => s.lip.height, min: 0.5, max: 10 },
-  { path: "lip/thickness", label: "Lip thickness", get: (s) => s.lip.thickness, min: 0.8, max: 5 },
+  {
+    path: "lip/thickness",
+    label: "Lip thickness",
+    get: (s) => s.lip.thickness,
+    min: MIN_FEATURE_MM,
+    max: 5,
+  },
   { path: "lip/ledge", label: "Lip ledge", get: (s) => s.lip.ledge, min: 0.5, max: 10 },
   { path: "lip/play", label: "Lip play", get: (s) => s.lip.play, min: 0, max: 2 },
   { path: "topPressFit", label: "Top press fit", get: (s) => s.topPressFit, min: -2, max: 1 },
@@ -140,8 +146,9 @@ const settingRanges: SettingRange[] = [
 ];
 
 /**
- * Advanced-settings ranges. Minimums of 0.8 mm follow the minimum printable
- * feature width (spec §6.1); topPressFit is spec §3 rule 2. Frozen, entries included.
+ * Advanced-settings ranges. Wall, floor, divider and lip-thickness minimums are
+ * MIN_FEATURE_MM, the minimum printable feature width (spec §6.1); topPressFit is
+ * spec §3 rule 2. Frozen, entries included.
  */
 export const SETTING_RANGES: readonly SettingRange[] = Object.freeze(
   settingRanges.map((r) => Object.freeze(r)),

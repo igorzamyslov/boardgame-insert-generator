@@ -1,6 +1,9 @@
 import { deepFreeze } from "./freeze";
 import type { Box, Settings } from "./types";
 
+/** Minimum printable feature width in mm: 2 lines of 0.4 mm (spec §6.1). */
+export const MIN_FEATURE_MM = 0.8;
+
 /** Spec §5 defaults. Projects store resolved values, never "use the default". Deeply frozen. */
 export const DEFAULT_SETTINGS: Settings = deepFreeze({
   wall: 1.6,
