@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ceilU, fillCapped, fromU, maxOf, round2, splitEven, sum, toU } from "./units";
+import { ceilU, fillCapped, floorU, fromU, maxOf, round2, splitEven, sum, toU } from "./units";
 
 describe("units", () => {
   it("converts mm to whole 0.01 mm units and back", () => {
@@ -13,6 +13,9 @@ describe("units", () => {
     expect(ceilU(23.4952)).toBe(2350);
     expect(ceilU(64.5)).toBe(6450);
     expect(ceilU(0.001)).toBe(1);
+    expect(floorU(26.696)).toBe(2669);
+    expect(floorU(26.7)).toBe(2670);
+    expect(floorU(0.57)).toBe(57);
     expect(ceilU(0.42 * 100)).toBe(4200);
   });
 

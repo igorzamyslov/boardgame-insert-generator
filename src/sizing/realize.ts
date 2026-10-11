@@ -9,7 +9,7 @@ import {
 } from "./constants";
 import { minLayoutU, rowsOf } from "./outer";
 import type { CompartmentReq, OuterSize, RealizeOptions, RealizedTray, TrayPartReq } from "./types";
-import { ceilU, fillCapped, fromU, maxOf, round2, splitEven, sum, toU } from "./units";
+import { ceilU, fillCapped, floorU, fromU, maxOf, splitEven, sum, toU } from "./units";
 
 // Everything below is in integer 0.01 mm units until converted with fromU.
 
@@ -30,6 +30,7 @@ interface FeatureContext {
   W: number;
   D: number;
   wall: number;
+  reach: number;
   settings: Settings;
 }
 
@@ -84,21 +85,22 @@ function featureSpecs(
     }
     const side = f.side ?? "front";
     if (f.type === "scoop") {
-      const r = Math.min(ctx.settings.scoopRadius, fromU(depth), fromU(content.w) / 2);
-      return { type: "scoop", side, r: round2(r) };
+      const r = Math.min(toU(ctx.settings.scoopRadius), depth, Math.floor(content.w / 2));
+      return { type: "scoop", side, r: fromU(r) };
     }
     const alongX = side === "front" || side === "back";
     const lo = ctx.wall;
     const hi = (alongX ? ctx.W : ctx.D) - ctx.wall;
     const width = Math.min(toU(ctx.settings.fingerPocket.width), hi - lo);
     const centre = alongX ? content.x + content.w / 2 : content.y + content.d / 2;
-    const at = Math.min(Math.max(centre, lo + width / 2), hi - width / 2);
+    const half = Math.ceil(width / 2);
+    const at = Math.min(Math.max(Math.round(centre), lo + half), hi - half);
     return {
       type: "fingerPocket",
       side,
-      at: round2(fromU(at)),
+      at: fromU(at),
       width: fromU(width),
-      reach: ctx.settings.fingerPocket.reach,
+      reach: fromU(ctx.reach),
       depth: fromU(Math.round(depth * (f.depthFraction ?? 1))),
     };
   });
@@ -143,9 +145,10 @@ export function realizeTray(
   opts: RealizeOptions,
 ): RealizedTray {
   const min = minLayoutU(part, settings, opts);
-  const W = toU(outer.w);
-  const D = toU(outer.d);
-  const H = toU(outer.h);
+  // Round an off-grid outer down, so one a hair under minOuter is rejected, not accepted.
+  const W = floorU(outer.w);
+  const D = floorU(outer.d);
+  const H = floorU(outer.h);
   if (W < min.w || D < min.d || H < min.h) {
     throw new RangeError(
       `Tray ${part.trayKey}: outer ${outer.w}×${outer.d}×${outer.h} mm is smaller than its minimum ${fromU(min.w)}×${fromU(min.d)}×${fromU(min.h)} mm`,
@@ -252,8 +255,9 @@ export function realizeTray(
     spares.push({ x: wall, y: rowsEnd + divider, w: innerW, d: spareRowDepth });
   }
 
-  const ctx: FeatureContext = { W, D, wall, settings };
-  const reach = toU(settings.fingerPocket.reach);
+  // The band realize reserves is the reach each pocket reports, rounded up to whole units.
+  const reach = ceilU(settings.fingerPocket.reach);
+  const ctx: FeatureContext = { W, D, wall, reach, settings };
   const spacers: TraySpec[] = [];
   const compartments: CompartmentSpec[] = placed.map(({ req, alloc, spacer }) => {
     const well = wellOf(alloc, req, reach);

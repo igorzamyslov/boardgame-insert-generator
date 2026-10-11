@@ -10,6 +10,11 @@ export function ceilU(mm: number): number {
   return Math.ceil(mm * 100 - 1e-6);
 }
 
+/** Largest whole unit count ≤ mm (1e-6 u tolerance for float noise). Used for outer sizes. */
+export function floorU(mm: number): number {
+  return Math.floor(mm * 100 + 1e-6);
+}
+
 export function fromU(u: number): number {
   return u / 100;
 }

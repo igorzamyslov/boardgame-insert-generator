@@ -3,8 +3,8 @@ import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Settings } from "../model/types";
 import { minOuter } from "./outer";
 import { realizeTray } from "./realize";
-import { at, bulk, cards, custom, minis, partOf } from "./test-helpers";
-import type { RealizeOptions } from "./types";
+import { assertTrayInvariants, at, bulk, cards, custom, minis, partOf } from "./test-helpers";
+import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
 const s: Settings = DEFAULT_SETTINGS;
 const ground: RealizeOptions = { lipped: false, level: 0 };
@@ -253,5 +253,209 @@ describe("realizeTray", () => {
     expect(() => realizeTray(single, { w: 26.7, d: 119.7, h: 69.19 }, s, ground)).toThrow(
       RangeError,
     );
+  });
+
+  it("rejects an outer a hair below minOuter instead of rounding it up", () => {
+    expect(() => realizeTray(single, { w: 26.696, d: 119.7, h: 69.2 }, s, ground)).toThrow(
+      RangeError,
+    );
+    expect(() => realizeTray(single, { w: 26.7, d: 119.7, h: 69.1999 }, s, ground)).toThrow(
+      RangeError,
+    );
+  });
+
+  it("keeps the scoop radius within half the content width at any unit", () => {
+    const part = partOf(
+      [
+        bulk({
+          items: [
+            { name: "Cubes", count: 30, w: 10, d: 10, h: 10 },
+            { name: "Coins", volumeMl: 50 },
+          ],
+        }),
+      ],
+      "shallow|strip|split1",
+    );
+    const r = realizeTray(part, { w: 119.19, d: 57.98, h: 40 }, { ...s, scoopRadius: 50 }, ground);
+    expect(r.compartments.map((c) => [c.w, c.features])).toEqual([
+      [59.79, [{ type: "scoop", side: "front", r: 29.89 }]],
+      [55, [{ type: "scoop", side: "front", r: 27.5 }]],
+    ]);
+  });
+
+  describe("settings that are not whole multiples of 0.01 mm", () => {
+    const odd: Settings = {
+      ...s,
+      wall: 1.234,
+      divider: 1.234,
+      floor: 1.234,
+      lip: { ...s.lip, thickness: 1.234 },
+    };
+
+    it("never undershoots the wall, divider or floor", () => {
+      const part = partOf(
+        [
+          cards({
+            decks: [
+              { name: "A", count: 52 },
+              { name: "B", count: 30 },
+            ],
+          }),
+        ],
+        "upright-long|strip|split1",
+        odd,
+      );
+      const outer = minOuter(part, odd, ground);
+      const r = realizeTray(part, outer, odd, ground);
+      expect(r.compartments.map((c) => [c.x, c.y, c.floorZ])).toEqual([
+        [1.24, 1.24, 1.24],
+        [25.98, 1.24, 1.24],
+      ]);
+      const [a, b] = [at(r.compartments, 0), at(r.compartments, 1)];
+      expect(b.x - (a.x + a.w)).toBeCloseTo(1.24, 9);
+      assertTrayInvariants(r, outer, odd, ground);
+    });
+
+    it("keeps lipped compartments the lipped wall from the face", () => {
+      const lipped: RealizeOptions = { lipped: true, level: 0 };
+      const part = partOf([cards()], "upright-long|strip|split1", odd);
+      const outer = minOuter(part, odd, lipped);
+      const r = realizeTray(part, outer, odd, lipped);
+      expect(at(r.compartments, 0)).toMatchObject({ x: 2.94, y: 2.94 });
+      assertTrayInvariants(r, outer, odd, lipped);
+    });
+
+    it("keeps odd-width finger slots inside the walls", () => {
+      for (const [width, decks] of [
+        [
+          16.49,
+          [
+            { name: "A", count: 30 },
+            { name: "B", count: 30 },
+          ],
+        ],
+        [22.01, [{ name: "Solo", count: 1 }]],
+      ] as const) {
+        const cfg: Settings = { ...s, fingerPocket: { ...s.fingerPocket, width } };
+        const part = partOf(
+          [cards({ sleeve: "none", decks: [...decks] })],
+          "upright-long|strip|split1",
+          cfg,
+        );
+        const outer = minOuter(part, cfg, ground);
+        assertTrayInvariants(realizeTray(part, outer, cfg, ground), outer, cfg, ground);
+      }
+    });
+
+    it("reports the reach it reserves", () => {
+      const cfg: Settings = { ...s, fingerPocket: { ...s.fingerPocket, reach: 12.345 } };
+      const part = partOf([cards()], "upright-long|strip|split1", cfg);
+      const outer = minOuter(part, cfg, ground);
+      const wide = { ...outer, w: outer.w + 30 };
+      const r = realizeTray(part, wide, cfg, ground);
+      const well = at(r.compartments, 0);
+      expect(at(well.features, 0)).toMatchObject({ reach: 12.35 });
+      expect(at(r.spacers, 0).d).toBeCloseTo(well.d - 2 * 12.35, 9);
+      assertTrayInvariants(r, wide, cfg, ground);
+    });
+  });
+
+  describe("geometry contract", () => {
+    const lipped: RealizeOptions = { lipped: true, level: 0 };
+    const upper: RealizeOptions = { lipped: false, level: 1 };
+    const group = partOf(
+      [cards({ groupId: "g" }), custom({ groupId: "g", count: 1 })],
+      "upright-long+custom|strip|split1",
+    );
+    const rows = partOf(
+      [
+        cards({
+          decks: [
+            { name: "A", count: 52 },
+            { name: "B", count: 30 },
+            { name: "C", count: 10 },
+          ],
+        }),
+      ],
+      "upright-long|rows2|split1",
+    );
+    const loose = partOf(
+      [
+        bulk({
+          items: [
+            { name: "Cubes", count: 30, w: 10, d: 10, h: 10 },
+            { name: "Coins", volumeMl: 50 },
+          ],
+        }),
+      ],
+      "shallow|strip|split1",
+    );
+    const figures = partOf([minis()], "standing|strip|split1");
+    const grow = (outer: OuterSize, dw: number, dd: number, dh: number): OuterSize => ({
+      w: outer.w + dw,
+      d: outer.d + dd,
+      h: outer.h + dh,
+    });
+    const cases: [string, TrayPartReq, RealizeOptions][] = [
+      ["one deck", single, ground],
+      ["one deck, lipped", single, lipped],
+      ["one deck, upper tray", single, upper],
+      ["two rows", rows, ground],
+      ["group", group, ground],
+      ["bulk", loose, ground],
+      ["minis", figures, ground],
+    ];
+    const slacks: [number, number, number][] = [
+      [0, 0, 0],
+      [30, 0, 0],
+      [0, 20, 0],
+      [3.37, 4.11, 5],
+      [37, 37, 20],
+    ];
+
+    it.each(cases)("holds for %s at default settings", (_name, part, opts) => {
+      for (const [dw, dd, dh] of slacks) {
+        const outer = grow(minOuter(part, s, opts), dw, dd, dh);
+        assertTrayInvariants(realizeTray(part, outer, s, opts), outer, s, opts);
+      }
+    });
+
+    it("holds with 3-decimal settings", () => {
+      const odd: Settings = {
+        ...s,
+        wall: 1.234,
+        divider: 1.007,
+        floor: 1.111,
+        fingerPocket: { width: 21.337, reach: 11.987 },
+        lip: { ...s.lip, thickness: 1.234 },
+      };
+      const parts: [TrayPartReq, RealizeOptions][] = [
+        [partOf([cards()], "upright-long|strip|split1", odd), ground],
+        [partOf([cards()], "upright-long|strip|split1", odd), lipped],
+        [partOf([minis()], "standing|strip|split1", odd), ground],
+        [
+          partOf(
+            [
+              cards({
+                decks: [
+                  { name: "A", count: 52 },
+                  { name: "B", count: 30 },
+                  { name: "C", count: 10 },
+                ],
+              }),
+            ],
+            "upright-long|rows2|split1",
+            odd,
+          ),
+          ground,
+        ],
+      ];
+      for (const [part, opts] of parts) {
+        for (const [dw, dd, dh] of slacks) {
+          const outer = grow(minOuter(part, odd, opts), dw, dd, dh);
+          assertTrayInvariants(realizeTray(part, outer, odd, opts), outer, odd, opts);
+        }
+      }
+    });
   });
 });
