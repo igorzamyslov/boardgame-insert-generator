@@ -83,15 +83,17 @@ export function pocket(side: Side, at: number, depth: number, width = 22, reach 
 }
 
 // Three sleeved Standard decks standing on their long edge (well 68 high,
-// 92.5 long + 2 × 12 reach), the last deck only 15 wide so its pockets
-// cross the divider into the middle deck's pockets.
+// 92.5 long + 2 × 12 reach). The last deck is only 15 wide, so its 22 mm
+// slots sit 0.2 mm inside the outer wall (50.8…72.8) and cross the divider
+// into the middle deck's slots (30.8…52.8): centres 20 mm apart, within
+// maxChannelSpacing(11) = 20.06 mm, so they merge into one channel.
 export const cardUpright = traySpec({
   key: "cards:p0:0",
   w: 1.6 + 24 + 1.2 + 30 + 1.2 + 15 + 1.6,
   d: 1.6 + 116.5 + 1.6,
   h: 1.2 + 68,
   compartments: strip([24, 30, 15], 1.6, 116.5, 1.6, 1.2, (x, w, i) => {
-    const at = i === 2 ? 74.6 - 1.6 - 11 : x + w / 2;
+    const at = i === 2 ? 74.6 - 1.6 - 11 - 0.2 : x + w / 2;
     return {
       contents: `Deck ${i + 1}`,
       features: [pocket("front", at, 68 / 3), pocket("back", at, 68 / 3)],
@@ -199,6 +201,49 @@ export const spacer = traySpec({
   d: 8,
   h: 63,
 });
+
+// cards-heavy fixture, part fxcrd003:p0:0, upright-long|rows2|split1, lipped,
+// minOuter + 10: two decks in two rows, the slack beside "Goals ×45".
+const objectivesDecks: CompartmentSpec[] = [
+  compartment({
+    x: 2.9,
+    y: 7.3,
+    w: 32.63,
+    d: 116.5,
+    floorZ: 11.2,
+    contents: "Starting hands ×50",
+    features: [pocket("front", 14.22, 22.67), pocket("back", 14.22, 22.67)],
+  }),
+  compartment({
+    x: 3.2,
+    y: 126.2,
+    w: 20.47,
+    d: 116.5,
+    floorZ: 11.2,
+    contents: "Goals ×45",
+    features: [pocket("front", 13.9, 22.67), pocket("back", 13.9, 22.67)],
+  }),
+];
+
+// The plan 3 regression, as sizing emitted it before the finger slot clearance
+// rule: the slack became a spare compartment starting at x 24.87, but the
+// 22 mm slots of "Goals ×45" (centre 13.9) run to x 24.9. Their round bottoms
+// left a 0.04 mm feather of the divider. planTray rejects it now.
+export const slotIntoSpare = traySpec({
+  key: "fxcrd003:p0:0",
+  w: 38.43,
+  d: 250,
+  h: 79.2,
+  lip: true,
+  compartments: [
+    ...objectivesDecks,
+    compartment({ x: 24.87, y: 126.2, w: 10.36, d: 116.5, kind: "spare", contents: "spare" }),
+  ],
+});
+
+// The same tray as sizing emits it now: a spare would have to start 0.8 mm past
+// the slots (x 25.7) and be narrower than MIN_SPARE, so the slack stays solid.
+export const slotBesideSlack: TraySpec = { ...slotIntoSpare, compartments: objectivesDecks };
 
 // Bottom tray of a two-stack: lipped wall max(1.6, 1.2 + 1.7) = 2.9.
 export const lippedLower = traySpec({

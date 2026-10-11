@@ -16,7 +16,8 @@ function pullIn(chamfer: number, z: number): number {
 // Material on one side of a content rectangle that a corner relief may cut
 // into: everything above MIN_FEATURE_MM toward an outer face (at the compartment
 // floor, where the chamfer pulls the face in by chamfer − floorZ), half of it
-// toward another compartment (which may have reliefs of its own).
+// toward another compartment (which may have reliefs of its own) or its finger
+// slots (which may reach past that compartment toward this one).
 export function sideBudget(
   size: TraySize,
   plans: CompartmentPlan[],
@@ -27,11 +28,8 @@ export function sideBudget(
   const c = self.content;
   const toFace = { front: c.y0, back: size.d - c.y1, left: c.x0, right: size.w - c.x1 }[side];
   let budget = toFace - pullIn(chamfer, self.floorZ) - MIN_FEATURE_MM;
-  for (const other of plans) {
-    if (other === self) {
-      continue;
-    }
-    const o = other.rect;
+  const obstacles = plans.flatMap((other) => (other === self ? [] : [other.rect, ...other.slots]));
+  for (const o of obstacles) {
     const overlapsX = o.x0 < c.x1 && o.x1 > c.x0;
     const overlapsY = o.y0 < c.y1 && o.y1 > c.y0;
     let gap = Number.POSITIVE_INFINITY;

@@ -1,7 +1,10 @@
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
+import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import type { TraySpec } from "../model/types";
+import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
+import type { RealizeOptions } from "../sizing/types";
 import { loadManifold } from "./load";
 import { buildTray } from "./tray";
 import { checkPrintability } from "./printability";
@@ -15,13 +18,16 @@ import {
   flatCards,
   hexTiles,
   lippedLower,
+  loadFixture,
   miniPockets,
   plainBox,
   scoopBulk,
+  slotBesideSlack,
   solidLeftover,
   spacer,
   spareLeftover,
   traySpec,
+  traySpecFrom,
   upperLevel1,
 } from "./test-specs";
 
@@ -71,7 +77,7 @@ describe("buildTray per tray type", () => {
     expect(Math.abs(volumeMm3 - expected) / expected).toBeLessThan(0.002);
   });
 
-  it("upright cards: three decks, finger slots crossing into the neighbour deck", () => {
+  it("upright cards: three decks, the two narrow ones sharing one finger channel", () => {
     const { volumeMm3 } = expectWellFormed(cardUpright);
     const solidBlock = blockVolume(cardUpright.w, cardUpright.d, cardUpright.h, 3, 0.4);
     const wells = [24, 30, 15].reduce((sum, w) => sum + wellVolume(w, 92.5, 68), 0);
@@ -206,5 +212,61 @@ describe("buildTray review focus", () => {
       buildTray(m, hexTiles, GEO);
     }
     expect(() => buildTray(m, scoopBulk, GEO)).not.toThrow();
+  });
+});
+
+describe("finger slot clearance regression (plan 3)", () => {
+  // cards-heavy, part fxcrd003:p0:0: "Goals ×45" beside the slack of its row. Sizing used to put
+  // a spare compartment 0.03 mm inside the deck's 22 mm slot, leaving a 0.04 mm feather.
+  const { components, settings } = loadFixture(cardsHeavy);
+  const part = (variantId: string) => {
+    const found = size(components, settings)
+      .requirements.flatMap((req) => req.variants)
+      .filter((v) => v.id === variantId)
+      .flatMap((v) => v.parts)
+      .find((p) => p.trayKey === "fxcrd003:p0:0");
+    if (found === undefined) {
+      throw new Error(`no part fxcrd003:p0:0 in ${variantId}`);
+    }
+    return found;
+  };
+  const cases: [string, RealizeOptions][] = [
+    "upright-long|rows2|split1",
+    "upright-short|rows2|split1",
+  ].flatMap((id) => [
+    [id, { lipped: true, level: 0 }],
+    [id, { lipped: true, level: 1 }],
+  ]);
+
+  it.each(cases)("%s %o at minOuter + 10 builds printable, plain and rotated", (id, opts) => {
+    const p = part(id);
+    const min = minOuter(p, settings, opts);
+    const outer = { w: min.w + 10, d: min.d + 10, h: min.h + 10 };
+    const realized = realizeTray(p, outer, settings, opts);
+    const turned = rotateRealized(realized, outer);
+    for (const spec of [
+      traySpecFrom(realized, outer, opts, settings, p.trayKey),
+      traySpecFrom(turned, { w: outer.d, d: outer.w, h: outer.h }, opts, settings, p.trayKey),
+    ]) {
+      const report = checkPrintability(buildTray(m, spec, settings).mesh);
+      expect(report.problems).toEqual([]);
+      expect(report.minFeatureMm).toBeGreaterThanOrEqual(0.8 - 1e-3);
+    }
+  });
+
+  it("sizing emits the hand-written tray, which builds printable", () => {
+    const opts: RealizeOptions = { lipped: true, level: 0 };
+    const p = part("upright-long|rows2|split1");
+    const min = minOuter(p, settings, opts);
+    const outer = { w: min.w + 10, d: min.d + 10, h: min.h + 10 };
+    const spec = traySpecFrom(
+      realizeTray(p, outer, settings, opts),
+      outer,
+      opts,
+      settings,
+      p.trayKey,
+    );
+    expect(spec).toEqual(slotBesideSlack);
+    expectWellFormed(slotBesideSlack, slotBesideSlack.h + GEO.lip.height);
   });
 });

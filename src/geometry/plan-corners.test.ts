@@ -60,6 +60,38 @@ describe("corner reliefs", () => {
     const plan = planTray(spec, GEO);
     expect(plan.compartments[0]?.reliefs).toHaveLength(2);
   });
+
+  it("budgets against a neighbour's finger slot, not only its compartment", () => {
+    // A deck 1.6…21.6 whose 22 mm slot reaches 23.6, 0.8 mm before the tile well at 24.4: the
+    // well's left reliefs may not cut into the 0.8 mm between them.
+    const spec = traySpec({
+      key: "relief-slot",
+      w: 70,
+      d: 60,
+      h: 30,
+      compartments: [
+        compartment({
+          x: 1.6,
+          y: 1.6,
+          w: 20,
+          d: 56.8,
+          features: [
+            { type: "fingerPocket", side: "front", at: 12.6, width: 22, reach: 12, depth: 10 },
+          ],
+        }),
+        compartment({
+          x: 24.4,
+          y: 1.6,
+          w: 44,
+          d: 56.8,
+          features: [{ type: "cornerRelief", d: 3 }],
+        }),
+      ],
+    });
+    const reliefs = planTray(spec, GEO).compartments[1]?.reliefs ?? [];
+    // Only the corners on the right (toward the outer wall) keep a relief.
+    expect(reliefs.map((r) => r.cx > 40)).toEqual([true, true]);
+  });
 });
 
 describe("outer corner radius", () => {

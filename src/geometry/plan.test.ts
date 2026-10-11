@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
 import { UnsupportedFeatureError } from "./errors";
 import { maxCornerRadius } from "../model/settings";
-import type { FeatureSpec, TraySpec } from "../model/types";
+import type { CompartmentSpec, FeatureSpec, TraySpec } from "../model/types";
 import {
   GEO,
   cardUpright,
@@ -12,6 +12,7 @@ import {
   plainBox,
   pocket,
   scoopBulk,
+  slotIntoSpare,
   spacer,
   traySpec,
   upperLevel1,
@@ -101,6 +102,93 @@ describe("finger pockets", () => {
       ],
     });
     expect(() => planTray(spec, GEO)).toThrow(/no room/);
+  });
+});
+
+describe("finger slot clearance", () => {
+  // Deck A (1.6…21.6) with a slot centred on `slotAt`, and a neighbour starting at `next`.
+  const pair = (slotAt: number, width: number, next: CompartmentSpec): TraySpec =>
+    traySpec({
+      key: "slot-pair",
+      w: 70,
+      d: 60,
+      h: 30,
+      compartments: [
+        compartment({
+          x: 1.6,
+          y: 1.6,
+          w: 20,
+          d: 56.8,
+          features: [pocket("front", slotAt, 10, width)],
+        }),
+        next,
+      ],
+    });
+  const well = (x: number, features: FeatureSpec[] = []): CompartmentSpec =>
+    compartment({ x, y: 1.6, w: 68.4 - x, d: 56.8, features });
+
+  it("rejects the slot that reached into a spare compartment (plan 3 regression)", () => {
+    expect(() => planTray(slotIntoSpare, GEO)).toThrow(RangeError);
+    expect(() => planTray(slotIntoSpare, GEO)).toThrow(
+      /Tray fxcrd003:p0:0: compartment 1: a finger pocket comes within 0\.8 mm of compartment 2/,
+    );
+  });
+
+  it("accepts a slot exactly 0.8 mm from another compartment and rejects 0.79 mm", () => {
+    // Slot 1.6…23.6: the neighbour may start at 24.4.
+    expect(planTray(pair(12.6, 22, well(24.4)), GEO).compartments).toHaveLength(2);
+    expect(() => planTray(pair(12.6, 22, well(24.39)), GEO)).toThrow(/within 0\.8 mm/);
+  });
+
+  it("merges neighbouring slots on one band line into one channel", () => {
+    // cardUpright: decks 2 and 3 have slots 20 mm apart, within maxChannelSpacing(11) = 20.06.
+    expect(planTray(cardUpright, GEO).compartments[2]?.slots).toHaveLength(2);
+    // Deck B (22.8…) with a slot 20.06 mm (merges) or 20.1 mm (does not) right of A's.
+    const merged = pair(12.6, 22, well(22.8, [pocket("front", 32.66, 10)]));
+    expect(planTray(merged, GEO).compartments[1]?.slots).toHaveLength(1);
+    expect(() => planTray(pair(12.6, 22, well(22.8, [pocket("front", 32.7, 10)])), GEO)).toThrow(
+      /a finger pocket of compartment 1 without merging into one channel \(centres 20\.10 mm apart, at most 20\.06 mm\)/,
+    );
+    // The very same slot is one channel too.
+    const same = pair(22.2, 40, well(22.8, [pocket("front", 22.2, 10, 40)]));
+    expect(planTray(same, GEO).compartments[1]?.slots).toHaveLength(1);
+  });
+
+  it("merges only slots of one band line: same side, band, width and depth", () => {
+    const next = (feature: FeatureSpec, y = 1.6): CompartmentSpec =>
+      compartment({ x: 22.8, y, w: 45.6, d: 56.8 - (y - 1.6), features: [feature] });
+    for (const other of [
+      next(pocket("front", 31.6, 9)),
+      next(pocket("front", 31.6, 10, 21.8)),
+      next(pocket("front", 31.6, 10, 22, 11)),
+      next(pocket("front", 31.6, 10), 1.7),
+    ]) {
+      expect(() => planTray(pair(12.6, 22, other), GEO)).toThrow(
+        /compartment 0: a finger pocket comes within 0\.8 mm of (a finger pocket of )?compartment 1/,
+      );
+    }
+    expect(planTray(pair(12.6, 22, next(pocket("front", 31.6, 10))), GEO)).toBeTruthy();
+  });
+
+  it("lets a slot run into a neighbour's solid reach band", () => {
+    // A's slot ends at 23.6, inside B's band (B's contents start behind it); B's own slot is far.
+    const spec = pair(12.6, 22, well(22.8, [pocket("front", 50, 10)]));
+    expect(planTray(spec, GEO).compartments).toHaveLength(2);
+  });
+
+  it("rejects slots that overlap too little to merge", () => {
+    const next = well(22.8, [pocket("front", 34, 10)]);
+    expect(() => planTray(pair(12.6, 22, next), GEO)).toThrow(/without merging into one channel/);
+  });
+
+  it("rejects two slots that come within 0.8 mm across a wide divider", () => {
+    // Slots 1.6…23.6 and 24.39…: each keeps 0.8 mm from the other's compartment, not from the slot.
+    const near = well(26.6, [pocket("front", 35.39, 10)]);
+    expect(() => planTray(pair(12.6, 22, near), GEO)).toThrow(
+      /compartment 0: a finger pocket comes within 0\.8 mm of a finger pocket of compartment 1/,
+    );
+    const apart = well(26.6, [pocket("front", 35.4, 10)]);
+    expect(planTray(pair(12.6, 22, apart), GEO).compartments).toHaveLength(2);
   });
 });
 
