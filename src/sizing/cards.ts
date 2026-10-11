@@ -13,8 +13,8 @@ import {
 import { MIN_MEASURED_CARD_T } from "./constants";
 import type { CompartmentReq } from "./types";
 
-export type CardStorage = "upright-long" | "upright-short" | "flat";
-export const CARD_STORAGES: readonly CardStorage[] = ["upright-long", "upright-short", "flat"];
+type CardStorage = "upright-long" | "upright-short" | "flat";
+const CARD_STORAGES: readonly CardStorage[] = ["upright-long", "upright-short", "flat"];
 
 /** S, L = sleeved short/long side; t = per-card thickness (spec §7.1). */
 export interface CardDims {
@@ -81,7 +81,7 @@ export function stackWidth(n: number, t: number, s: Settings): number {
   return n * t * (1 + pct) + effective(s).cardStackClearance;
 }
 
-export function deckCompartment(
+function deckCompartment(
   c: CardsComponent,
   deck: { name: string; count: number },
   storage: CardStorage,

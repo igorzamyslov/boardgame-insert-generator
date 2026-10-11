@@ -30,7 +30,7 @@ export function flatFootprint(shape: TileShape): { x: number; y: number } {
 }
 
 /** A standing tile: rect on its longer edge, hex on a flat edge (spec §6.2). */
-export function uprightProfile(shape: TileShape): { height: number; length: number } {
+function uprightProfile(shape: TileShape): { height: number; length: number } {
   if (shape.type === "rect") {
     return { height: Math.min(shape.w, shape.d), length: Math.max(shape.w, shape.d) };
   }
