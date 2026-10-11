@@ -1,11 +1,16 @@
 // Test-only builders. Production code never imports this file.
+import { DEFAULT_SETTINGS } from "../model/settings";
 import type {
   BulkComponent,
   CardsComponent,
+  Component,
   CustomComponent,
   MinisComponent,
+  Settings,
   TilesComponent,
 } from "../model/types";
+import { size } from "./group";
+import type { TrayPartReq } from "./types";
 
 /** Index access for tests under noUncheckedIndexedAccess: throws instead of returning undefined. */
 export function at<T>(items: readonly T[], index: number): T {
@@ -81,4 +86,19 @@ export function custom(over: Partial<CustomComponent> = {}): CustomComponent {
     count: 2,
     ...over,
   };
+}
+
+/** The part `partIndex` of variant `variantId` of the first requirement of `size(components)`. */
+export function partOf(
+  components: Component[],
+  variantId: string,
+  settings: Settings = DEFAULT_SETTINGS,
+  partIndex = 0,
+): TrayPartReq {
+  const req = at(size(components, settings).requirements, 0);
+  const variant = req.variants.find((v) => v.id === variantId);
+  if (variant === undefined) {
+    throw new Error(`no variant ${variantId}; have ${req.variants.map((v) => v.id).join(", ")}`);
+  }
+  return at(variant.parts, partIndex);
 }
