@@ -1,15 +1,14 @@
 import { DEFAULT_BOX, DEFAULT_PRINTER } from "./defaults";
-import { jsonDepthExceeds } from "./json";
-import type { Json } from "./schema-read";
+import type { Json } from "./json";
 import {
   isRecord,
+  jsonDepthExceeds,
   MAX_JSON_DEPTH,
   pointerKeys,
-  readProject,
   summarize,
-  TOO_DEEP_ERROR,
   valueAt,
-} from "./schema-read";
+} from "./json";
+import { readProject, TOO_DEEP_ERROR } from "./schema-read";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ForeignData, Notice, ParseResult, Project } from "./types";
 import { isBlocking, validateProject } from "./validate";

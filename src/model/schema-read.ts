@@ -22,9 +22,6 @@ import type { Box, ForeignData, Lock, ParseResult, Printer, Project, Settings } 
 /** The error for input nested deeper than MAX_JSON_DEPTH (also used before migrations run). */
 export const TOO_DEEP_ERROR = `This project file is damaged: nested too deeply (more than ${MAX_JSON_DEPTH} levels).`;
 
-export type { Json } from "./json";
-export { isRecord, MAX_JSON_DEPTH, pointerKeys, summarize, valueAt } from "./json";
-
 type ForeignValue = NonNullable<ForeignData["values"]>[number];
 
 function readLock(r: Reader): Lock | null {

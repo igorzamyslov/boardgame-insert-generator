@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { sampleProject } from "../test-support/sample";
-import type { Json, ReadOptions } from "./schema-read";
-import { MAX_JSON_DEPTH, readProject } from "./schema-read";
+import type { Json } from "./json";
+import { MAX_JSON_DEPTH } from "./json";
+import type { ReadOptions } from "./schema-read";
+import { readProject } from "./schema-read";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ParseResult } from "./types";
 import { validateProject } from "./validate";
