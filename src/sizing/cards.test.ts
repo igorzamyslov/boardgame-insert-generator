@@ -53,6 +53,32 @@ describe("cardDims", () => {
     expect(dims.S).toBeCloseTo(66.5, 9);
   });
 
+  it("accepts exactly the minimum measured thickness", () => {
+    const { dims, notices } = cardDims(
+      cards({ thickness: { mode: "measured", cards: 100, stackMm: 10 } }),
+      s,
+      0,
+    );
+    expect(dims.t).toBe(0.1);
+    expect(notices).toEqual([]);
+  });
+
+  it("falls back to the preset when the measured card count or stack is unusable", () => {
+    for (const thickness of [
+      { mode: "measured" as const, cards: 0, stackMm: 45 },
+      { mode: "measured" as const, cards: -5, stackMm: 45 },
+      { mode: "measured" as const, cards: Number.NaN, stackMm: 45 },
+      { mode: "measured" as const, cards: 100, stackMm: Number.NaN },
+      { mode: "measured" as const, cards: 100, stackMm: Number.POSITIVE_INFINITY },
+    ]) {
+      const { dims, notices } = cardDims(cards({ thickness }), s, 4);
+      expect(dims.t).toBeCloseTo(0.42, 9);
+      expect(notices.map((n) => [n.level, n.code, n.path])).toEqual([
+        ["warning", "sizing.measuredInvalid", "/components/4/thickness"],
+      ]);
+    }
+  });
+
   it("falls back to the preset when the measured stack is implausibly thin", () => {
     const { dims, notices } = cardDims(
       cards({ thickness: { mode: "measured", cards: 100, stackMm: 5 } }),
@@ -174,17 +200,85 @@ describe("cardOptions", () => {
     expect(flat.minD).toBeCloseTo(148.5, 9);
   });
 
-  it("reports invalid input and stores nothing", () => {
-    const empty = cardOptions(cards({ decks: [] }), s, 0);
-    expect(empty.options).toEqual([]);
-    expect(empty.notices.map((n) => [n.code, n.path])).toEqual([
-      ["sizing.empty", "/components/0/decks"],
+  it("passes the measuredTooThin notice through", () => {
+    const { options, notices } = cardOptions(
+      cards({ thickness: { mode: "measured", cards: 100, stackMm: 5 } }),
+      s,
+      3,
+    );
+    expect(options).toHaveLength(1);
+    expect(notices.map((n) => [n.code, n.path])).toEqual([
+      ["sizing.measuredTooThin", "/components/3/thickness/stackMm"],
     ]);
-    const bad = cardOptions(cards({ shortSide: 0, decks: [{ name: "A", count: 0 }] }), s, 2);
-    expect(bad.options).toEqual([]);
-    expect(bad.notices.map((n) => n.path)).toEqual([
-      "/components/2/shortSide",
-      "/components/2/decks/0/count",
+  });
+
+  it("lays out a component whose validation only warns", () => {
+    const { options, notices } = cardOptions(cards({ shortSide: 88, longSide: 63.5 }), s, 0);
+    expect(options).toHaveLength(1);
+    expect(notices).toEqual([]);
+  });
+
+  it("returns no options and no notices for a component with validation errors", () => {
+    // validateProject already reports these; sizing must not repeat them.
+    for (const bad of [
+      cards({ decks: [] }),
+      cards({ shortSide: 0 }),
+      cards({ decks: [{ name: "A", count: 0 }] }),
+      cards({ sleeve: { w: 0, h: 70, thickness: 0.2 } }),
+      cards({ thickness: { mode: "measured", cards: 0, stackMm: 45 } }),
+    ]) {
+      expect(cardOptions(bad, s, 2)).toEqual({ options: [], notices: [] });
+    }
+  });
+
+  it("labels an unnamed deck with the component name, or its id when that is blank", () => {
+    const named = deck(cards({ decks: [{ name: " ", count: 5 }] }));
+    expect(named.contents).toBe("Cards ×5");
+    const unnamed = deck(cards({ name: "", decks: [{ name: "", count: 5 }] }));
+    expect(unnamed.contents).toBe("c1 ×5");
+  });
+
+  it("auto with a custom sleeve offers all three storages", () => {
+    const { options } = cardOptions(
+      cards({
+        storage: "auto",
+        sleeve: { w: 95, h: 70, thickness: 0.2 },
+        decks: [{ name: "Big", count: 10 }],
+      }),
+      s,
+      0,
+    );
+    expect(options.map((o) => o.id)).toEqual(["upright-long", "upright-short", "flat"]);
+    const [long, short, flat] = options.map((o) => at(at(o.blocks, 0), 0));
+    // S = 70, L = 95, t = 0.52, stack = 10 · 0.52 · 1.03 + 1 = 6.356
+    expect(long?.minW).toBeCloseTo(6.356, 9);
+    expect([long?.minD, long?.minH]).toEqual([expect.closeTo(120.5, 9), expect.closeTo(71.5, 9)]);
+    expect([short?.minD, short?.minH]).toEqual([expect.closeTo(95.5, 9), expect.closeTo(96.5, 9)]);
+    expect([flat?.minW, flat?.minD, flat?.minH]).toEqual([
+      expect.closeTo(71.5, 9),
+      expect.closeTo(120.5, 9),
+      expect.closeTo(6.356, 9),
+    ]);
+  });
+
+  it("unsleeved cards in all three storages", () => {
+    const { options } = cardOptions(cards({ sleeve: "none", storage: "auto" }), s, 0);
+    const [long, short, flat] = options.map((o) => at(at(o.blocks, 0), 0));
+    // S = 63.5, L = 88, t = 0.32, stack = 52 · 0.32 · 1.03 + 1 = 18.1392
+    expect([long?.minW, long?.minD, long?.minH]).toEqual([
+      expect.closeTo(18.1392, 9),
+      expect.closeTo(113.5, 9),
+      expect.closeTo(65, 9),
+    ]);
+    expect([short?.minW, short?.minD, short?.minH]).toEqual([
+      expect.closeTo(18.1392, 9),
+      expect.closeTo(89, 9),
+      expect.closeTo(89.5, 9),
+    ]);
+    expect([flat?.minW, flat?.minD, flat?.minH]).toEqual([
+      expect.closeTo(65, 9),
+      expect.closeTo(113.5, 9),
+      expect.closeTo(18.1392, 9),
     ]);
   });
 });

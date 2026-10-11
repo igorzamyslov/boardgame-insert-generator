@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { compartment, cornerRelief, fingerPocket, label, mainClearance } from "./common";
+import {
+  componentIsValid,
+  compartment,
+  cornerRelief,
+  displayName,
+  fingerPocket,
+  label,
+  mainClearance,
+} from "./common";
 import { cards, custom } from "./test-helpers";
 
 const s = DEFAULT_SETTINGS;
@@ -49,6 +57,59 @@ describe("compartment", () => {
     expect(c.spacerAxis).toBe("w");
     expect(c.minVolume).toBe(100);
     expect(c.maxHRatio).toBe(1.5);
+  });
+});
+
+describe("compartment pocket sides", () => {
+  it("counts the reach once per pocket side, however many features sit on it", () => {
+    const c = compartment(
+      {
+        componentId: "a",
+        contents: "A",
+        kind: "well",
+        w: 10,
+        d: 20,
+        h: 5,
+        features: [
+          fingerPocket("front", 1 / 3, true),
+          fingerPocket("front", 1, false),
+          fingerPocket("left", 1, false),
+          fingerPocket("left", 1 / 3, true),
+        ],
+      },
+      s,
+    );
+    expect(c.minD).toBe(32);
+    expect(c.minW).toBe(22);
+  });
+});
+
+describe("features", () => {
+  it("builds a finger pocket and a corner relief", () => {
+    expect(fingerPocket("back", 0.5, true)).toEqual({
+      type: "fingerPocket",
+      side: "back",
+      depthFraction: 0.5,
+      perItem: true,
+    });
+    expect(cornerRelief()).toEqual({ type: "cornerRelief" });
+  });
+});
+
+describe("displayName", () => {
+  it("is the name, or the id when the name is blank", () => {
+    expect(displayName(cards({ name: "Deck" }))).toBe("Deck");
+    expect(displayName(cards({ name: "  " }))).toBe("c1");
+  });
+});
+
+describe("componentIsValid", () => {
+  it("is false only for error-level notices from validateComponent", () => {
+    expect(componentIsValid(cards(), 0)).toBe(true);
+    // short side longer than long side is a warning, not an error
+    expect(componentIsValid(cards({ shortSide: 88, longSide: 63.5 }), 0)).toBe(true);
+    expect(componentIsValid(cards({ shortSide: 0 }), 0)).toBe(false);
+    expect(componentIsValid(custom({ count: 3000 }), 1)).toBe(false);
   });
 });
 

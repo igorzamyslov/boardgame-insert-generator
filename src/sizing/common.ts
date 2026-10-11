@@ -1,5 +1,6 @@
 import { effective } from "../model/settings";
 import type { Component, Notice, Settings, Side } from "../model/types";
+import { validateComponent } from "../model/validate";
 import type { CompartmentReq, FeatureReq } from "./types";
 
 /** One way to store a component. Blocks are compartment groups a split never separates. */
@@ -13,38 +14,22 @@ export interface OptionsResult {
   notices: Notice[];
 }
 
-export function displayName(c: Component): string {
-  return c.name.trim() !== "" ? c.name : c.id;
-}
-
 export function label(name: string, fallback: string): string {
   return name.trim() !== "" ? name : fallback;
 }
 
-export function isPos(x: number): boolean {
-  return Number.isFinite(x) && x > 0;
+export function displayName(c: Component): string {
+  return label(c.name, c.id);
 }
 
-export function isCount(x: number): boolean {
-  return Number.isInteger(x) && x >= 1;
-}
-
-export function invalid(index: number, c: Component, field: string): Notice {
-  return {
-    level: "error",
-    code: "sizing.invalid",
-    message: `${displayName(c)}: ${field} is out of range, so this component is not laid out.`,
-    path: `/components/${index}/${field}`,
-  };
-}
-
-export function emptyNotice(index: number, c: Component, field: string): Notice {
-  return {
-    level: "warning",
-    code: "sizing.empty",
-    message: `${displayName(c)}: nothing to store (${field} is empty), so this component is not laid out.`,
-    path: `/components/${index}/${field}`,
-  };
+/**
+ * Sizing precondition: size() is only meaningful for a project without error-level notices
+ * (plans 4 and 5 never optimize otherwise), and the UI already shows validateProject's notices.
+ * Each component's options function calls this defensively and, when it is false, returns no
+ * options and no notices, so sizing never repeats validation.
+ */
+export function componentIsValid(c: Component, index: number): boolean {
+  return !validateComponent(c, index).some((n) => n.level === "error");
 }
 
 /**
@@ -81,14 +66,16 @@ export interface CompartmentInput {
   maxHRatio?: number;
 }
 
-/** Builds a CompartmentReq; adds fingerPocket.reach to minW/minD once per pocket side (spec §6.1). */
+/** Builds a CompartmentReq; adds fingerPocket.reach to minW/minD once per pocket side, however many pockets share it (spec §6.1). */
 export function compartment(input: CompartmentInput, s: Settings): CompartmentReq {
   const reach = s.fingerPocket.reach;
-  const sides = input.features.flatMap((f) =>
-    f.type === "fingerPocket" && f.side !== undefined ? [f.side] : [],
+  const sides = new Set(
+    input.features.flatMap((f) =>
+      f.type === "fingerPocket" && f.side !== undefined ? [f.side] : [],
+    ),
   );
-  const xSides = sides.filter((side) => side === "left" || side === "right").length;
-  const ySides = sides.filter((side) => side === "front" || side === "back").length;
+  const xSides = Number(sides.has("left")) + Number(sides.has("right"));
+  const ySides = Number(sides.has("front")) + Number(sides.has("back"));
   const req: CompartmentReq = {
     componentId: input.componentId,
     contents: input.contents,

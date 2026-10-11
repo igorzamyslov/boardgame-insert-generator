@@ -3,12 +3,9 @@ import { effective } from "../model/settings";
 import type { CardsComponent, Notice, Settings } from "../model/types";
 import {
   compartment,
+  componentIsValid,
   displayName,
-  emptyNotice,
   fingerPocket,
-  invalid,
-  isCount,
-  isPos,
   label,
   mainClearance,
   type OptionsResult,
@@ -53,7 +50,19 @@ export function cardDims(
   if (c.thickness.mode === "preset") {
     return { dims: { S, L, t: tPreset }, notices: [] };
   }
-  const measured = c.thickness.stackMm / c.thickness.cards;
+  const { cards: count, stackMm } = c.thickness;
+  // A non-positive or non-finite card count (or a non-finite stack) has no per-card thickness.
+  // validateComponent rejects these first; this guard keeps cardDims safe when called directly.
+  if (!(Number.isFinite(count) && count > 0 && Number.isFinite(stackMm))) {
+    const unusable: Notice = {
+      level: "warning",
+      code: "sizing.measuredInvalid",
+      message: `${displayName(c)}: the measured card count and stack height must be positive numbers; using ${tPreset.toFixed(2)} mm per card instead.`,
+      path: `/components/${index}/thickness`,
+    };
+    return { dims: { S, L, t: tPreset }, notices: [unusable] };
+  }
+  const measured = stackMm / count;
   if (measured >= MIN_MEASURED_CARD_T) {
     return { dims: { S, L, t: measured }, notices: [] };
   }
@@ -83,7 +92,7 @@ export function deckCompartment(
   const stack = stackWidth(deck.count, dims.t, s);
   const base = {
     componentId: c.id,
-    contents: `${label(deck.name, c.name)} ×${deck.count}`,
+    contents: `${label(deck.name, displayName(c))} ×${deck.count}`,
     kind: "well" as const,
   };
   if (storage === "flat") {
@@ -113,48 +122,10 @@ export function deckCompartment(
   );
 }
 
-function validateCards(c: CardsComponent, index: number): Notice[] {
-  const out: Notice[] = [];
-  if (!isPos(c.shortSide)) {
-    out.push(invalid(index, c, "shortSide"));
-  }
-  if (!isPos(c.longSide)) {
-    out.push(invalid(index, c, "longSide"));
-  }
-  if (c.decks.length === 0) {
-    out.push(emptyNotice(index, c, "decks"));
-  }
-  c.decks.forEach((deck, i) => {
-    if (!isCount(deck.count)) {
-      out.push(invalid(index, c, `decks/${i}/count`));
-    }
-  });
-  if (typeof c.sleeve !== "string") {
-    if (!isPos(c.sleeve.w)) {
-      out.push(invalid(index, c, "sleeve/w"));
-    }
-    if (!isPos(c.sleeve.h)) {
-      out.push(invalid(index, c, "sleeve/h"));
-    }
-    if (!(Number.isFinite(c.sleeve.thickness) && c.sleeve.thickness >= 0)) {
-      out.push(invalid(index, c, "sleeve/thickness"));
-    }
-  }
-  if (c.thickness.mode === "measured") {
-    if (!isCount(c.thickness.cards)) {
-      out.push(invalid(index, c, "thickness/cards"));
-    }
-    if (!isPos(c.thickness.stackMm)) {
-      out.push(invalid(index, c, "thickness/stackMm"));
-    }
-  }
-  return out;
-}
-
+/** Storage options for a cards component; none (and no notices) when it fails validation. */
 export function cardOptions(c: CardsComponent, s: Settings, index: number): OptionsResult {
-  const problems = validateCards(c, index);
-  if (problems.length > 0) {
-    return { options: [], notices: problems };
+  if (!componentIsValid(c, index)) {
+    return { options: [], notices: [] };
   }
   const { dims, notices } = cardDims(c, s, index);
   const storages = c.storage === "auto" ? CARD_STORAGES : [c.storage];
