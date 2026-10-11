@@ -579,4 +579,32 @@ describe("createProjectStore ordering, namespacing and errors", () => {
     expect(storage.getItem(INDEX)).toBe(indexBefore);
     expect(store.list().map((e) => e.name)).toEqual(["B"]);
   });
+
+  it("refuses to save when the index can't be read, and writes nothing", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    const a = named("A");
+    store.save(a, noForeign());
+    const before = [storage.getItem(INDEX), storage.getItem(projectKey(a.id))];
+    const realGet = storage.getItem.bind(storage);
+    vi.spyOn(storage, "getItem").mockImplementation((key) => {
+      if (key === INDEX) {
+        throw new DOMException("blocked", "SecurityError");
+      }
+      return realGet(key);
+    });
+    const setItem = vi.spyOn(storage, "setItem");
+    const removeItem = vi.spyOn(storage, "removeItem");
+    expect(() => {
+      store.save({ ...a, name: "A2" }, noForeign());
+    }).toThrow(StoreWriteError);
+    expect(() => {
+      store.save(named("B"), noForeign());
+    }).toThrow(StoreWriteError);
+    expect(setItem).not.toHaveBeenCalled();
+    expect(removeItem).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+    expect([storage.getItem(INDEX), storage.getItem(projectKey(a.id))]).toEqual(before);
+    expect(storage.length).toBe(2);
+  });
 });

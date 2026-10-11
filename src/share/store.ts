@@ -27,7 +27,11 @@ export interface ProjectStore {
   available: boolean;
 }
 
-/** Thrown by save() when the browser refuses the write (usually: storage full). Nothing is half-written. */
+/**
+ * Thrown by save() when the browser refuses the write (usually: storage full),
+ * or when the stored state can't be read safely. The previous state is
+ * restored; if even that fails, `cause.restore` holds that error.
+ */
 export class StoreWriteError extends Error {
   override name = "StoreWriteError";
 }
@@ -169,11 +173,9 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
    * index, interrupted write, damaged entry) by id, with updatedAt 0. If the
    * key scan throws, only the index is used.
    */
-  function currentEntries(): ProjectListEntry[] {
+  function currentEntries(indexEntries: ProjectListEntry[]): ProjectListEntry[] {
     const stored = storedProjectIds();
-    const indexed = (readIndexEntries() ?? [])
-      .filter((e) => stored === null || stored.has(e.id))
-      .reverse();
+    const indexed = indexEntries.filter((e) => stored === null || stored.has(e.id)).reverse();
     if (stored === null) {
       return indexed;
     }
@@ -210,7 +212,7 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
 
     list() {
       // Stable sort: equal times keep the order from currentEntries().
-      return currentEntries().sort((a, b) => b.updatedAt - a.updatedAt);
+      return currentEntries(readIndexEntries() ?? []).sort((a, b) => b.updatedAt - a.updatedAt);
     },
 
     load(id) {
@@ -230,8 +232,13 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
     save(p, foreign) {
       const key = PROJECT_PREFIX + p.id;
       const json = serializeProject(p, foreign);
+      const stored = readIndexEntries();
+      if (stored === null) {
+        // The index can't be read, so it can't be safely updated.
+        throw writeError(p.name, new Error("The project index could not be read."));
+      }
       // Save order, oldest first: currentEntries() is newest first.
-      const index = currentEntries()
+      const index = currentEntries(stored)
         .filter((e) => e.id !== p.id)
         .reverse();
       index.push({ id: p.id, name: p.name, updatedAt: Date.now() });
