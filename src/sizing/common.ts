@@ -2,7 +2,8 @@ import { effective } from "../model/settings";
 import type { Component, Notice, Settings, Side } from "../model/types";
 import { validateComponent } from "../model/validate";
 import type { CompartmentReq, FeatureReq } from "./types";
-import { ceilU, fromU } from "./units";
+import { MIN_POCKET_CONTENT } from "./constants";
+import { ceilU, fromU, toU } from "./units";
 
 /** One way to store a component. Blocks are compartment groups a split never separates. */
 export interface StorageOption {
@@ -87,19 +88,22 @@ export interface CompartmentInput {
  * Builds a CompartmentReq; adds fingerPocket.reach to minW/minD once per pocket side, however many
  * pockets share it (spec §6.1). Content rounds up to whole 0.01 mm and the reach is added as the
  * whole-unit band realizeTray subtracts again, so the well is never narrower than the content.
- * minW, minD and minH are therefore whole 0.01 mm, and layout reads them with toU.
+ * minW, minD and minH are therefore whole 0.01 mm, and layout reads them with toU. A compartment
+ * with a finger pocket keeps at least MIN_POCKET_CONTENT of content on both axes, which is what
+ * the geometry checks (its content rectangle is the compartment minus the reach bands).
  */
 export function compartment(input: CompartmentInput, s: Settings): CompartmentReq {
   const reach = reachU(s);
   const sides = pocketSides(input.features);
   const xSides = Number(sides.includes("left")) + Number(sides.includes("right"));
   const ySides = Number(sides.includes("front")) + Number(sides.includes("back"));
+  const least = sides.length > 0 ? toU(MIN_POCKET_CONTENT) : 0;
   const req: CompartmentReq = {
     componentId: input.componentId,
     contents: input.contents,
     kind: input.kind,
-    minW: fromU(ceilU(input.w) + xSides * reach),
-    minD: fromU(ceilU(input.d) + ySides * reach),
+    minW: fromU(Math.max(ceilU(input.w), least) + xSides * reach),
+    minD: fromU(Math.max(ceilU(input.d), least) + ySides * reach),
     minH: fromU(ceilU(input.h)),
     elastic: {
       w: input.elastic?.w ?? false,

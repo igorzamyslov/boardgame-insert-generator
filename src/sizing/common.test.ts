@@ -54,6 +54,21 @@ describe("compartment", () => {
     expect([c.minW, c.minD, c.minH]).toEqual([10.01, 20.01, 5.01]);
   });
 
+  it("leaves at least 1 mm of content in a compartment with a finger pocket", () => {
+    const input = {
+      componentId: "a",
+      contents: "A",
+      kind: "pocket" as const,
+      w: 0.5,
+      d: 0.5,
+      h: 0.5,
+    };
+    const c = compartment({ ...input, features: [fingerPocket("front", 1 / 3, true)] }, s);
+    expect([c.minW, c.minD, c.minH]).toEqual([1, 13, 0.5]);
+    const plain = compartment({ ...input, features: [cornerRelief()] }, s);
+    expect([plain.minW, plain.minD]).toEqual([0.5, 0.5]);
+  });
+
   it("keeps optional fields when given", () => {
     const c = compartment(
       {

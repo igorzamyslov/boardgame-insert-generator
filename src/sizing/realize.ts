@@ -95,7 +95,8 @@ function featureSpecs(
       at: fromU(at),
       width: fromU(width),
       reach: fromU(ctx.reach),
-      depth: fromU(Math.round(depth * (f.depthFraction ?? 1))),
+      // At least one unit: the geometry rejects a zero-depth pocket (depth itself is ≥ 1 unit).
+      depth: fromU(Math.max(1, Math.round(depth * (f.depthFraction ?? 1)))),
     };
   });
 }

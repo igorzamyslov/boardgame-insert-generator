@@ -243,6 +243,21 @@ describe("realizeTray", () => {
     expect(at(at(r.compartments, 0).features, 0)).toMatchObject({ at: 14.65 });
   });
 
+  it("keeps 1 mm of content and a real finger pocket for a tiny figure", () => {
+    const part = partOf(
+      [minis({ clearance: 0, figures: [{ name: "Pip", w: 0.5, d: 0.5, h: 0.01, count: 1 }] })],
+      "standing|strip|split1",
+    );
+    const outer = minOuter(part, s, ground);
+    const r = realizeTray(part, outer, s, ground);
+    const c = at(r.compartments, 0);
+    expect(c.w).toBeGreaterThanOrEqual(1);
+    expect(c.d - 12).toBeGreaterThanOrEqual(1); // minus the front reach band
+    const slot = at(c.features, 0);
+    expect(slot.type === "fingerPocket" && slot.depth).toBe(0.01);
+    assertTrayInvariants(r, outer, s, ground);
+  });
+
   it("throws RangeError when the outer is below minOuter", () => {
     expect(() => realizeTray(single, { w: 26.69, d: 119.7, h: 69.2 }, s, ground)).toThrow(
       RangeError,
