@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "0.1.0",
+  "createdWith": "0.1.0",
+  "id": "fxbits01",
+  "name": "Fixture: bits heavy",
+  "box": {
+    "innerWidth": 300,
+    "innerDepth": 220,
+    "innerHeight": 60,
+    "headroom": 4,
+    "headroomCoverage": "full",
+    "storedOnSide": false
+  },
+  "printer": { "bedX": 256, "bedY": 256, "bedZ": 256, "bedMargin": 5, "layerHeight": 0.2 },
+  "settings": {
+    "wall": 1.6,
+    "floor": 1.2,
+    "divider": 1.2,
+    "fit": 1,
+    "cardClearance": 1.5,
+    "cardStackClearance": 1,
+    "cardStackClearancePct": 0.03,
+    "cardThickness": 0.32,
+    "pieceClearance": 1,
+    "boxClearance": 0.5,
+    "trayGap": 0.2,
+    "bottomChamfer": 0.4,
+    "cornerRadius": 3,
+    "scoopRadius": 12,
+    "fingerPocket": { "width": 22, "reach": 12 },
+    "lip": {
+      "enabled": true,
+      "height": 2,
+      "thickness": 1.2,
+      "ledge": 1.7,
+      "play": 0.25
+    },
+    "topPressFit": 0,
+    "packingFactor": 0.5,
+    "leftover": "spare"
+  },
+  "components": [
+    {
+      "id": "fxbit001",
+      "name": "Resources",
+      "access": "often",
+      "kind": "bulk",
+      "items": [
+        { "name": "Wood cube", "count": 40, "w": 8, "d": 8, "h": 8 },
+        { "name": "Stone cube", "count": 40, "w": 8, "d": 8, "h": 8 },
+        { "name": "Coin", "count": 30, "w": 20, "d": 20, "h": 2 }
+      ]
+    },
+    {
+      "id": "fxbit002",
+      "name": "Player pieces",
+      "access": "sometimes",
+      "kind": "bulk",
+      "perPlayer": { "players": 4 },
+      "items": [
+        { "name": "Meeple", "count": 5, "w": 16, "d": 10, "h": 16 },
+        { "name": "Disc", "count": 10, "w": 15, "d": 15, "h": 4 }
+      ]
+    },
+    {
+      "id": "fxbit003",
+      "name": "Tokens",
+      "access": "sometimes",
+      "kind": "bulk",
+      "items": [{ "name": "Cardboard tokens", "volumeMl": 150 }]
+    },
+    {
+      "id": "fxbit004",
+      "name": "Dice",
+      "access": "often",
+      "kind": "bulk",
+      "items": [{ "name": "D6", "count": 10, "w": 16, "d": 16, "h": 16 }]
+    }
+  ],
+  "locks": []
+}

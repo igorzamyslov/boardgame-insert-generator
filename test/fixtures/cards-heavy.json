@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "0.1.0",
+  "createdWith": "0.1.0",
+  "id": "fxcards1",
+  "name": "Fixture: cards heavy",
+  "box": {
+    "innerWidth": 290,
+    "innerDepth": 290,
+    "innerHeight": 70,
+    "headroom": 8,
+    "headroomCoverage": "full",
+    "storedOnSide": false
+  },
+  "printer": { "bedX": 256, "bedY": 256, "bedZ": 256, "bedMargin": 5, "layerHeight": 0.2 },
+  "settings": {
+    "wall": 1.6,
+    "floor": 1.2,
+    "divider": 1.2,
+    "fit": 1,
+    "cardClearance": 1.5,
+    "cardStackClearance": 1,
+    "cardStackClearancePct": 0.03,
+    "cardThickness": 0.32,
+    "pieceClearance": 1,
+    "boxClearance": 0.5,
+    "trayGap": 0.2,
+    "bottomChamfer": 0.4,
+    "cornerRadius": 3,
+    "scoopRadius": 12,
+    "fingerPocket": { "width": 22, "reach": 12 },
+    "lip": {
+      "enabled": true,
+      "height": 2,
+      "thickness": 1.2,
+      "ledge": 1.7,
+      "play": 0.25
+    },
+    "topPressFit": 0,
+    "packingFactor": 0.5,
+    "leftover": "spare"
+  },
+  "components": [
+    {
+      "id": "fxcrd001",
+      "name": "Action cards",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 63.5,
+      "longSide": 88,
+      "decks": [
+        { "name": "Action", "count": 90 },
+        { "name": "Bonus", "count": 40 }
+      ],
+      "sleeve": "standard",
+      "thickness": { "mode": "preset" },
+      "storage": "auto"
+    },
+    {
+      "id": "fxcrd002",
+      "name": "Market",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 63.5,
+      "longSide": 88,
+      "decks": [
+        { "name": "Market", "count": 80 },
+        { "name": "Events", "count": 60 }
+      ],
+      "sleeve": "standard",
+      "thickness": { "mode": "preset" },
+      "storage": "auto"
+    },
+    {
+      "id": "fxcrd003",
+      "name": "Objectives",
+      "access": "sometimes",
+      "kind": "cards",
+      "shortSide": 63.5,
+      "longSide": 88,
+      "decks": [
+        { "name": "Goals", "count": 45 },
+        { "name": "Starting hands", "count": 50 }
+      ],
+      "sleeve": "standard",
+      "thickness": { "mode": "preset" },
+      "storage": "auto"
+    }
+  ],
+  "locks": []
+}

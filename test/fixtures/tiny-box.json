@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "0.1.0",
+  "createdWith": "0.1.0",
+  "id": "fxtiny01",
+  "name": "Fixture: tiny box (does not fit)",
+  "box": {
+    "innerWidth": 150,
+    "innerDepth": 100,
+    "innerHeight": 40,
+    "headroom": 0,
+    "headroomCoverage": "full",
+    "storedOnSide": false
+  },
+  "printer": { "bedX": 256, "bedY": 256, "bedZ": 256, "bedMargin": 5, "layerHeight": 0.2 },
+  "settings": {
+    "wall": 1.6,
+    "floor": 1.2,
+    "divider": 1.2,
+    "fit": 1,
+    "cardClearance": 1.5,
+    "cardStackClearance": 1,
+    "cardStackClearancePct": 0.03,
+    "cardThickness": 0.32,
+    "pieceClearance": 1,
+    "boxClearance": 0.5,
+    "trayGap": 0.2,
+    "bottomChamfer": 0.4,
+    "cornerRadius": 3,
+    "scoopRadius": 12,
+    "fingerPocket": { "width": 22, "reach": 12 },
+    "lip": {
+      "enabled": true,
+      "height": 2,
+      "thickness": 1.2,
+      "ledge": 1.7,
+      "play": 0.25
+    },
+    "topPressFit": 0,
+    "packingFactor": 0.5,
+    "leftover": "spare"
+  },
+  "components": [
+    {
+      "id": "fxtny001",
+      "name": "Far too many cards",
+      "access": "sometimes",
+      "kind": "cards",
+      "shortSide": 63.5,
+      "longSide": 88,
+      "decks": [
+        { "name": "Deck A", "count": 100 },
+        { "name": "Deck B", "count": 100 },
+        { "name": "Deck C", "count": 100 },
+        { "name": "Deck D", "count": 100 }
+      ],
+      "sleeve": "standard",
+      "thickness": { "mode": "preset" },
+      "storage": "auto"
+    }
+  ],
+  "locks": []
+}
