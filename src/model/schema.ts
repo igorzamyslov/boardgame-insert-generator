@@ -19,6 +19,8 @@ import { isBlocking, validateProject } from "./validate";
 import type { Semver } from "./version";
 import { APP_VERSION, SCHEMA_VERSION, UNKNOWN_APP_VERSION, parseSemver } from "./version";
 
+export { SCHEMA_NOTICE_CODES } from "./schema-reader";
+
 /**
  * A compatibility line groups versions that read each other's files (spec §9).
  * From 1.0 on it is the MAJOR ("1", "2") and MINOR is the additive part.
@@ -42,8 +44,6 @@ function compat(v: Semver): Compat {
 function compareRank(a: [number, number], b: [number, number]): number {
   return a[0] - b[0] || a[1] - b[1];
 }
-
-export { SCHEMA_NOTICE_CODES } from "./schema-reader";
 
 /** Upgrades raw project JSON from one compatibility line to a later one. */
 export interface Migration {
