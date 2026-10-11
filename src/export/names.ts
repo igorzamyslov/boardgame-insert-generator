@@ -25,7 +25,7 @@ export function partFileName(index: number, contents: string, ext: "3mf" | "stl"
     .map((ch) => TRANSLITERATE[ch] ?? ch)
     .join("")
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "");
+    .replace(/[\u0300-\u036f]/g, "");
   const cleaned = ascii
     .replace(/[^A-Za-z0-9._-]+/g, "-")
     .replace(/([._-])[._-]+/g, "$1")
