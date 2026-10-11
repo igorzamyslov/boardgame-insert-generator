@@ -1,4 +1,5 @@
 // Test-only builders. Production code never imports this file.
+import { expect } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type {
   BulkComponent,
@@ -9,8 +10,11 @@ import type {
   Settings,
   TilesComponent,
 } from "../model/types";
+import { MIN_FEATURE } from "./constants";
 import { size } from "./group";
-import type { TrayPartReq } from "./types";
+import { wallFor } from "./outer";
+import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
+import { ceilU, fromU } from "./units";
 
 /** Index access for tests under noUncheckedIndexedAccess: throws instead of returning undefined. */
 export function at<T>(items: readonly T[], index: number): T {
@@ -101,4 +105,52 @@ export function partOf(
     throw new Error(`no variant ${variantId}; have ${req.variants.map((v) => v.id).join(", ")}`);
   }
   return at(variant.parts, partIndex);
+}
+
+/**
+ * Asserts the geometry contract of a realized tray (roadmap §4.6) in whole 0.01 mm units:
+ * compartments keep a divider apart and a wall from every outer face, floors sit inside the
+ * tray, and finger slots stay between the inner faces.
+ */
+export function assertTrayInvariants(
+  realized: RealizedTray,
+  outer: OuterSize,
+  settings: Settings,
+  opts: RealizeOptions,
+): void {
+  const wall = ceilU(wallFor(settings, opts.lipped));
+  const gap = ceilU(Math.max(settings.divider, MIN_FEATURE));
+  const minFloor = ceilU(Math.max(settings.floor, MIN_FEATURE));
+  const u = (mm: number): number => Math.round(mm * 100);
+  const W = u(outer.w);
+  const D = u(outer.d);
+  const H = u(outer.h);
+  const list = realized.compartments;
+  list.forEach((c, i) => {
+    const label = `compartment ${i} (${c.contents})`;
+    expect(u(c.x), `${label} x`).toBeGreaterThanOrEqual(wall);
+    expect(u(c.y), `${label} y`).toBeGreaterThanOrEqual(wall);
+    expect(u(c.x + c.w), `${label} x end`).toBeLessThanOrEqual(W - wall);
+    expect(u(c.y + c.d), `${label} y end`).toBeLessThanOrEqual(D - wall);
+    expect(u(c.floorZ), `${label} floorZ`).toBeGreaterThanOrEqual(minFloor);
+    expect(u(c.floorZ), `${label} floorZ`).toBeLessThan(H);
+    for (const f of c.features) {
+      if (f.type !== "fingerPocket") {
+        continue;
+      }
+      const alongX = f.side === "front" || f.side === "back";
+      const lo = wall;
+      const hi = (alongX ? W : D) - wall;
+      expect(u(f.at - f.width / 2), `${label} slot start`).toBeGreaterThanOrEqual(lo);
+      expect(u(f.at + f.width / 2), `${label} slot end`).toBeLessThanOrEqual(hi);
+    }
+    for (const other of list.slice(i + 1)) {
+      const apartX = Math.max(u(other.x) - u(c.x + c.w), u(c.x) - u(other.x + other.w));
+      const apartY = Math.max(u(other.y) - u(c.y + c.d), u(c.y) - u(other.y + other.d));
+      expect(
+        Math.max(apartX, apartY),
+        `${label} and ${other.contents} must be ≥ ${fromU(gap)} mm apart`,
+      ).toBeGreaterThanOrEqual(gap);
+    }
+  });
 }
