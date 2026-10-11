@@ -58,8 +58,8 @@ export function buildBvh(mesh: Mesh, centroids: Float64Array): Bvh {
   return { mesh, root: count === 0 ? null : build(mesh, all, centroids) };
 }
 
-// Distance along the ray to the box, or Infinity if missed.
-function hitBox(node: Node, o: number[], inv: number[], best: number): number {
+// Whether the ray enters the box before `best` (slab method).
+function hitsBox(node: Node, o: number[], inv: number[], best: number): boolean {
   let tmin = 0;
   let tmax = best;
   for (let k = 0; k < 3; k += 1) {
@@ -69,7 +69,7 @@ function hitBox(node: Node, o: number[], inv: number[], best: number): number {
     const hi = node.max[k] ?? 0;
     if (!Number.isFinite(ik)) {
       if (ok < lo || ok > hi) {
-        return Infinity;
+        return false;
       }
       continue;
     }
@@ -81,10 +81,10 @@ function hitBox(node: Node, o: number[], inv: number[], best: number): number {
     tmin = Math.max(tmin, t0);
     tmax = Math.min(tmax, t1);
     if (tmin > tmax) {
-      return Infinity;
+      return false;
     }
   }
-  return tmin;
+  return true;
 }
 
 // Möller–Trumbore; returns t > 0 or Infinity.
@@ -136,7 +136,7 @@ export function nearestHit(
   const stack: Node[] = [bvh.root];
   while (stack.length > 0) {
     const node = stack.pop();
-    if (node === undefined || hitBox(node, origin, inv, best) === Infinity) {
+    if (node === undefined || !hitsBox(node, origin, inv, best)) {
       continue;
     }
     if (node.left !== null && node.right !== null) {
