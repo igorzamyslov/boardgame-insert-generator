@@ -58,7 +58,7 @@ function wellOf(alloc: Rect, req: CompartmentReq, reach: number): Rect {
 
 /** Content depth: fixed for non-elastic contents (raised floor); bulk grows up to maxHRatio. */
 function contentDepth(req: CompartmentReq, well: Rect, H: number, floor: number): number {
-  const need = toU(req.minH);
+  const need = ceilU(req.minH);
   if (!req.elastic.h) {
     return need;
   }
@@ -141,8 +141,8 @@ function spacerFits(
 ): boolean {
   const chamfer = chamferMinimumsU(settings, 0);
   const bands = pocketSides(req.features).filter((s) => s === "front" || s === "back").length;
-  const depth = toU(req.minD) - bands * reach; // the well's depth, which the spacer spans
-  const height = toU(req.minH) - toU(SPACER_TOP_GAP);
+  const depth = ceilU(req.minD) - bands * reach; // the well's depth, which the spacer spans
+  const height = ceilU(req.minH) - toU(SPACER_TOP_GAP);
   return (
     length >= Math.max(toU(MIN_SPACER), chamfer.side) &&
     depth >= chamfer.side &&
@@ -251,7 +251,7 @@ export function realizeTray(
     let x = wall + (xExtra[0] ?? 0) + Math.floor(slack / 2);
     row.forEach((req, i) => {
       const w = (widths[i] ?? 0) + (growth[i] ?? 0);
-      const d = req.elastic.d ? rowDepth : toU(req.minD);
+      const d = req.elastic.d ? rowDepth : ceilU(req.minD);
       const top = req.elastic.d ? rowY : rowY + Math.floor((rowDepth - d) / 2);
       placed.push({
         req,

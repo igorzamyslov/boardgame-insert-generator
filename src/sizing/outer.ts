@@ -3,7 +3,7 @@ import type { Settings, Side } from "../model/types";
 import { UPPER_MIN_CHAMFER, UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
 import { pocketSides } from "./common";
 import type { CompartmentReq, OuterSize, RealizeOptions, TrayPartReq } from "./types";
-import { ceilU, fromU, maxOf, sum, toU } from "./units";
+import { ceilU, fromU, maxOf, sum } from "./units";
 
 /** Outer wall thickness: lipped walls are max(wall, lip.thickness + lip.ledge) (spec §6.1). */
 export function wallFor(settings: Settings, lipped: boolean): number {
@@ -58,7 +58,7 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
     throw new RangeError(`Tray part ${part.trayKey} has no compartments`);
   }
   // Every minimum rounds up, so a setting that is not a whole 0.01 mm is never undershot.
-  // Compartment minimums are already whole units (see compartment()).
+  // Compartment minimums too: size() emits whole units, but a hand-built part may not.
   const wall = ceilU(wallFor(settings, opts.lipped));
   const divider = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
   const floor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
@@ -66,15 +66,15 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
   const pocketU = ceilU(settings.fingerPocket.width);
   const pocketWidth = pocketU + (pocketU % 2);
   const rows = rowsOf(part.arrangement, part.compartments);
-  const widths = rows.map((row) => row.map((c) => toU(c.minW)));
+  const widths = rows.map((row) => row.map((c) => ceilU(c.minW)));
   const rowWidths = widths.map((row) => sum(row) + (row.length - 1) * divider);
-  const rowDepths = rows.map((row) => maxOf(row.map((c) => toU(c.minD))));
+  const rowDepths = rows.map((row) => maxOf(row.map((c) => ceilU(c.minD))));
   const innerW = Math.max(maxOf(rowWidths), hasPocketOn(part, ["front", "back"]) ? pocketWidth : 0);
   const innerD = Math.max(
     sum(rowDepths) + (rows.length - 1) * divider,
     hasPocketOn(part, ["left", "right"]) ? pocketWidth : 0,
   );
-  const content = floor + maxOf(part.compartments.map((c) => toU(c.minH)));
+  const content = floor + maxOf(part.compartments.map((c) => ceilU(c.minH)));
   const chamfer = chamferMinimumsU(settings, opts.level);
   const h = Math.max(
     content,

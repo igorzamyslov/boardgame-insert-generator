@@ -271,6 +271,32 @@ describe("realizeTray", () => {
     assertTrayInvariants(r, outer, s, ground);
   });
 
+  it("never undershoots a hand-built, off-grid compartment minimum", () => {
+    const part: TrayPartReq = {
+      trayKey: "hand:p0:0",
+      arrangement: "strip",
+      rotatable: true,
+      compartments: [
+        {
+          componentId: "hand",
+          contents: "Hand-built",
+          kind: "well",
+          minW: 20.004,
+          minD: 30.004,
+          minH: 10.004,
+          elastic: { w: false, d: false, h: false },
+          features: [],
+        },
+      ],
+    };
+    const outer = minOuter(part, s, ground);
+    expect(outer).toEqual({ w: 23.21, d: 33.21, h: 11.21 });
+    const r = realizeTray(part, outer, s, ground);
+    const c = at(r.compartments, 0);
+    expect([c.w, c.d, outer.h - c.floorZ]).toEqual([20.01, 30.01, expect.closeTo(10.01, 9)]);
+    assertTrayInvariants(r, outer, s, ground);
+  });
+
   it("throws RangeError when the outer is below minOuter", () => {
     expect(() => realizeTray(single, { w: 26.69, d: 119.7, h: 69.2 }, s, ground)).toThrow(
       RangeError,

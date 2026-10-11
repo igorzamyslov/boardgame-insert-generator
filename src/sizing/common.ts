@@ -88,9 +88,10 @@ export interface CompartmentInput {
  * Builds a CompartmentReq; adds fingerPocket.reach to minW/minD once per pocket side, however many
  * pockets share it (spec §6.1). Content rounds up to whole 0.01 mm and the reach is added as the
  * whole-unit band realizeTray subtracts again, so the well is never narrower than the content.
- * minW, minD and minH are therefore whole 0.01 mm, and layout reads them with toU. A compartment
- * with a finger pocket keeps at least MIN_POCKET_CONTENT of content on both axes, which is what
- * the geometry checks (its content rectangle is the compartment minus the reach bands).
+ * minW, minD and minH are therefore whole 0.01 mm (layout still rounds them up, for hand-built
+ * requirements). A compartment with a finger pocket keeps at least MIN_POCKET_CONTENT of content
+ * on both axes, which is what the geometry checks (its content rectangle is the compartment minus
+ * the reach bands).
  */
 export function compartment(input: CompartmentInput, s: Settings): CompartmentReq {
   const reach = reachU(s);
