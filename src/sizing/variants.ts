@@ -12,8 +12,11 @@ export interface VariantInput {
 type Arrangement = TrayPartReq["arrangement"];
 const ARRANGEMENTS: readonly Arrangement[] = ["strip", "rows2"];
 
+/** (m + a + k, s, m, a, k): see the design decisions, "Variant rank". */
+type Rank = readonly [number, number, number, number, number];
+
 interface Candidate {
-  rank: readonly number[];
+  rank: Rank;
   variant: TrayVariant;
 }
 
@@ -22,6 +25,9 @@ function makePart(
   arrangement: Arrangement,
   compartments: CompartmentReq[],
 ): TrayPartReq | null {
+  if (compartments.length === 0) {
+    return null;
+  }
   if (arrangement === "strip") {
     return { trayKey, arrangement, compartments, rotatable: true };
   }
@@ -48,27 +54,31 @@ function forPlayer(blocks: readonly CompartmentReq[][], player: number): Compart
   );
 }
 
-function compareRank(a: readonly number[], b: readonly number[]): number {
-  const length = Math.max(a.length, b.length);
-  for (let i = 0; i < length; i++) {
-    const diff = (a[i] ?? 0) - (b[i] ?? 0);
-    if (diff !== 0) {
-      return diff;
-    }
-  }
-  return 0;
+function compareRank(a: Rank, b: Rank): number {
+  return a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3] || a[4] - b[4];
+}
+
+/**
+ * Two variants are duplicates when every part has the same arrangement and compartments.
+ * Tray keys and ids are deliberately excluded, which is why a "combined" split by player
+ * collapses into the equivalent "separate" variant (the earlier one wins).
+ */
+function dedupeKey(variant: TrayVariant): string {
+  return JSON.stringify(variant.parts.map((part) => [part.arrangement, part.compartments]));
+}
+
+interface SplitInput {
+  key: string;
+  optionId: string;
+  blocks: readonly CompartmentReq[][];
+  s: number; // storage option index
+  m: 0 | 1; // 0: no perPlayer, 1: "combined"
 }
 
 /** Strip/rows2 × 1–3 trays for one block list (no perPlayer, or the "combined" mode). */
-function splitCandidates(
-  key: string,
-  tag: string,
-  blocks: readonly CompartmentReq[][],
-  s: number,
-  m: number,
-  optionId: string,
-  suffix: string,
-): Candidate[] {
+function splitCandidates({ key, optionId, blocks, s, m }: SplitInput): Candidate[] {
+  const tag = m === 0 ? "p0" : "pall";
+  const suffix = m === 0 ? "" : "|combined";
   const out: Candidate[] = [];
   ARRANGEMENTS.forEach((arrangement, a) => {
     for (let k = 0; k < MAX_SPLITS; k++) {
@@ -92,42 +102,65 @@ function splitCandidates(
   return out;
 }
 
+/** One tray per player (strip or rows2); `perPlayer[p]` is the option's blocks for player p. */
+function separateCandidates(
+  key: string,
+  optionId: string,
+  perPlayer: readonly (readonly CompartmentReq[][])[],
+  s: number,
+): Candidate[] {
+  const out: Candidate[] = [];
+  ARRANGEMENTS.forEach((arrangement, a) => {
+    const parts = allOrNull(
+      perPlayer.map((blocks, p) => makePart(`${key}:p${p}:0`, arrangement, blocks.flat())),
+    );
+    if (parts !== null) {
+      out.push({
+        rank: [a, s, 0, a, 0],
+        variant: { id: `${optionId}|${arrangement}|split1|separate`, parts },
+      });
+    }
+  });
+  return out;
+}
+
+/**
+ * Enumerates up to MAX_VARIANTS (0..8) tray variants for one requirement, best first.
+ * `players` is the perPlayer count (1..10) or null without perPlayer; fewer than 1 yields no
+ * variants. `key` is passed through into the tray keys unchanged.
+ */
 export function buildVariants(input: VariantInput): TrayVariant[] {
   const { key, options, players } = input;
+  if (players !== null && players < 1) {
+    return [];
+  }
   const candidates: Candidate[] = [];
   options.forEach((option, s) => {
     if (players === null) {
-      candidates.push(...splitCandidates(key, "p0", option.blocks, s, 0, option.id, ""));
+      candidates.push(
+        ...splitCandidates({ key, optionId: option.id, blocks: option.blocks, s, m: 0 }),
+      );
       return;
     }
     const perPlayer = Array.from({ length: players }, (_, p) => forPlayer(option.blocks, p));
-    ARRANGEMENTS.forEach((arrangement, a) => {
-      const parts = allOrNull(
-        perPlayer.map((blocks, p) => makePart(`${key}:p${p}:0`, arrangement, blocks.flat())),
-      );
-      if (parts !== null) {
-        candidates.push({
-          rank: [a, s, 0, a, 0],
-          variant: { id: `${option.id}|${arrangement}|split1|separate`, parts },
-        });
-      }
-    });
+    candidates.push(...separateCandidates(key, option.id, perPlayer, s));
     if (players > 1) {
       candidates.push(
-        ...splitCandidates(key, "pall", perPlayer.flat(), s, 1, option.id, "|combined"),
+        ...splitCandidates({ key, optionId: option.id, blocks: perPlayer.flat(), s, m: 1 }),
       );
     }
   });
   candidates.sort((x, y) => compareRank(x.rank, y.rank));
   const seen = new Set<string>();
   const variants: TrayVariant[] = [];
-  for (const candidate of candidates) {
-    const signature = JSON.stringify(
-      candidate.variant.parts.map((part) => [part.arrangement, part.compartments]),
-    );
-    if (variants.length < MAX_VARIANTS && !seen.has(signature)) {
+  for (const { variant } of candidates) {
+    if (variants.length >= MAX_VARIANTS) {
+      break;
+    }
+    const signature = dedupeKey(variant);
+    if (!seen.has(signature)) {
       seen.add(signature);
-      variants.push(candidate.variant);
+      variants.push(variant);
     }
   }
   return variants;
