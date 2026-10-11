@@ -2,6 +2,7 @@ import type { ManifoldToplevel } from "manifold-3d";
 import type { Settings, TraySpec } from "../model/types";
 import type { GeometryRequest, GeometryResponse } from "./types";
 import { UnsupportedFeatureError } from "./errors";
+import { nextMacrotask } from "./macrotask";
 import { buildTray } from "./tray";
 
 export type PostResponse = (message: GeometryResponse, transfer: Transferable[]) => void;
@@ -40,14 +41,6 @@ interface Job {
   settings: Settings;
   finish: () => void;
   fail: (error: unknown) => void;
-}
-
-// Lets the worker's event loop deliver messages (a "cancel", say) that arrived
-// while the previous build was running.
-function nextMacrotask(): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, 0);
-  });
 }
 
 // Message handler shared by the real worker and tests.
