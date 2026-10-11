@@ -4,6 +4,7 @@ import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import tilesMinis from "../../test/fixtures/tiles-minis.json";
 import tinyBox from "../../test/fixtures/tiny-box.json";
 import { planTray } from "./plan";
+import { thinCorner } from "./plan-corners";
 import {
   MIN_FEATURE_MM,
   SPEC_TOLERANCE,
@@ -15,7 +16,7 @@ import { SETTING_RANGES, settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
 import type { RealizeOptions } from "../sizing/types";
 import { quarterSegments, roundedRectRing } from "./shapes";
-import type { Rect, TrayPlan } from "./plan-types";
+import type { CompartmentPlan, Rect, TrayPlan } from "./plan-types";
 import { GEO, compartment, hexTiles, loadFixture, traySpec, traySpecFrom } from "./test-specs";
 
 describe("corner reliefs", () => {
@@ -281,4 +282,32 @@ describe("corner material of sizing output", () => {
       }
     },
   );
+});
+
+describe("thin outer corners", () => {
+  // One well 1.2 mm from the faces, its floor above the chamfer (e = 0): its sharp corner keeps
+  // R − √2·(R − 1.2) on the true arc.
+  const rect: Rect = { x0: 1.2, y0: 1.2, x1: 48.8, y1: 48.8 };
+  const well: CompartmentPlan = {
+    index: 0,
+    rect,
+    content: rect,
+    floorZ: 2,
+    slots: [],
+    scoops: [],
+    reliefs: [],
+  };
+  const tray = { w: 50, d: 50 };
+
+  it("accepts a corner keeping 0.8 mm plus the corner margin on the true arc", () => {
+    // maxCornerRadius(1.2, 1.2, 0) leaves exactly 0.8 + CORNER_MARGIN.
+    expect(thinCorner(tray, maxCornerRadius(1.2, 1.2, 0), 0.4, [well])).toBeNull();
+  });
+
+  it("rejects a corner under 0.8 mm plus the corner margin, which the arc polygon thins", () => {
+    // R = 2.1: 2.1 − √2·0.9 = 0.83 mm on the true arc, up to 0.08 mm less on the polygon.
+    expect(thinCorner(tray, 2.1, 0.4, [well])).toEqual(
+      expect.stringMatching(/keeps only 0\.83 mm/),
+    );
+  });
 });

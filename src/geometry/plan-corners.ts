@@ -1,5 +1,5 @@
 import type { Side } from "../model/types";
-import { MIN_FEATURE_MM, SPEC_TOLERANCE, maxCornerRadius } from "../model/settings";
+import { CORNER_MARGIN, MIN_FEATURE_MM, SPEC_TOLERANCE, maxCornerRadius } from "../model/settings";
 import { MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
 import type { CompartmentPlan, Rect, ReliefPlan } from "./plan-types";
 
@@ -146,7 +146,8 @@ export function planCornerRadius(
 
 // The thinnest outer material left at a cut corner or relief when the outer corner radius is
 // `radius`: R − e − rho − distance(centre, arc centre), measured on the true arc. Null when every
-// one keeps MIN_FEATURE_MM (SPEC_TOLERANCE aside), else a description of the first that does not.
+// one keeps MIN_FEATURE_MM + CORNER_MARGIN (the polygon approximating the arc lies up to 0.08 mm
+// inside it; SPEC_TOLERANCE aside), else a description of the first that does not.
 export function thinCorner(
   size: TraySize,
   radius: number,
@@ -157,7 +158,7 @@ export function thinCorner(
     const { p, q } = nearestCorner(size, disc);
     if (p < radius && q < radius) {
       const material = radius - disc.e - disc.rho - Math.hypot(radius - p, radius - q);
-      if (material < MIN_FEATURE_MM - SPEC_TOLERANCE) {
+      if (material < MIN_FEATURE_MM + CORNER_MARGIN - SPEC_TOLERANCE) {
         return `a cut at ${p.toFixed(2)} × ${q.toFixed(2)} mm from an outer corner keeps only ${material.toFixed(2)} mm`;
       }
     }

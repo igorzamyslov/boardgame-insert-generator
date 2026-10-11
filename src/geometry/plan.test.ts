@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
 import { UnsupportedFeatureError } from "./errors";
+import { maxCornerRadius } from "../model/settings";
 import type { FeatureSpec, TraySpec } from "../model/types";
 import {
   GEO,
@@ -358,7 +359,14 @@ describe("bottom chamfer against walls and floor", () => {
       compartments: [compartment({ x: 1.6, y: 1.6, w: 56.8, d: 56.8 })],
     });
     expect(() => planTray(corner, { ...GEO, bottomChamfer: 1.95 })).toThrow(/outer corner radius/);
-    expect(planTray(corner, { ...GEO, bottomChamfer: 1.88 }).cornerRadius).toBeCloseTo(1.88, 9);
+    // R = chamfer = 1.88 keeps 1.88 − 0.68 − √2·0.28 = 0.80 mm on the true arc: not the 0.8 mm plus
+    // CORNER_MARGIN the arc polygon needs.
+    expect(() => planTray(corner, { ...GEO, bottomChamfer: 1.88 })).toThrow(/keeps only 0.80 mm/);
+    // At 1.81 the corner limit for e = 0.61 is rounder than the chamfer.
+    expect(planTray(corner, { ...GEO, bottomChamfer: 1.81 }).cornerRadius).toBeCloseTo(
+      maxCornerRadius(1.6, 1.6, 0.61),
+      9,
+    );
   });
 
   it("measures the floor of each compartment, not the tray's nominal floor", () => {
