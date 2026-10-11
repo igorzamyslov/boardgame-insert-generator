@@ -89,7 +89,10 @@ describe("toSerializable", () => {
       noForeign(),
       {
         components: [{ index: 0, raw: { kind: "dial", nested: { a: 1 } } }],
-        values: [{ path: "/settings/leftover", raw: "hollow" }],
+        values: [
+          { path: "/settings/leftover", raw: { mode: "hollow", nested: { a: 1 } } },
+          { path: "/locks/1", raw: { kind: "magnet", trayKey: "x", strength: { n: 3 } } },
+        ],
       },
     ];
     for (const foreign of foreigns) {
@@ -105,6 +108,11 @@ describe("toSerializable", () => {
       }
       for (const lock of out.locks as Json[]) {
         lock.trayKey = "changed";
+        lock.strength = "changed";
+      }
+      const leftover = (out.settings as Json).leftover;
+      if (typeof leftover === "object" && leftover !== null) {
+        (leftover as Json).nested = "changed";
       }
       ((out.layout as Json).trays as Json[]).length = 0;
       expect(p).toEqual(projectBefore);

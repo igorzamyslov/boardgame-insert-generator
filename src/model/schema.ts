@@ -214,7 +214,7 @@ function restoreValues(out: Json, values: readonly ForeignValue[]): void {
     const keys = pointerKeys(v.path);
     const index = arrayIndex(out, keys);
     if (index !== null) {
-      inserts.push({ keys, index, raw: v.raw });
+      inserts.push({ keys, index, raw: structuredClone(v.raw) });
       continue;
     }
     const parent = valueAt(out, keys.slice(0, -1));
@@ -228,7 +228,7 @@ function restoreValues(out: Json, values: readonly ForeignValue[]): void {
     ) {
       // defineProperty, not assignment: a "__proto__" key must stay an own data property.
       Object.defineProperty(parent, last, {
-        value: v.raw,
+        value: structuredClone(v.raw),
         writable: true,
         enumerable: true,
         configurable: true,
