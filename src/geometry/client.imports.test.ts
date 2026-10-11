@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NON_LITERAL_IMPORT, importGraph, specifiers } from "./test-import-graph";
 
 // Every source file, as text, keyed by its absolute path under a fake root so
 // that relative specifiers can be resolved with the URL class.
@@ -13,63 +14,113 @@ const sources = new Map(
   ).map(([key, source]) => [new URL(key, ROOT).pathname, source]),
 );
 
-// Static `import ... from "x"` / `export ... from "x"` specifiers of a file.
-// The worker is reached through `new URL("./worker.ts", import.meta.url)`,
-// which is not an import and so (correctly) stays out of the graph.
-function specifiers(source: string): string[] {
-  return [...source.matchAll(/^\s*(?:import|export)\b[^;]*?\bfrom\s*["']([^"']+)["']/gms)].flatMap(
-    (m) => (m[1] === undefined ? [] : [m[1]]),
+// What main-thread code may reach (roadmap 4.6): the worker client, the
+// geometry types and version, and the model they are written in terms of.
+function allowed(path: string): boolean {
+  return (
+    ["/src/geometry/client.ts", "/src/geometry/types.ts", "/src/geometry/version.ts"].includes(
+      path,
+    ) || path.startsWith("/src/model/")
   );
 }
 
-function resolveLocal(from: string, specifier: string): string {
-  const base = new URL(specifier, `file://${from}`).pathname;
-  const found = [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`].find((c) => sources.has(c));
-  if (found === undefined) {
-    throw new Error(`Cannot resolve ${specifier} from ${from}`);
-  }
-  return found;
-}
-
-// Walks every module reachable from `entry` through static imports. Local
-// modules are followed; package imports are collected, not followed.
-function importGraph(entry: string): { files: Set<string>; packages: Set<string> } {
-  const files = new Set<string>();
-  const packages = new Set<string>();
-  const queue = [entry];
-  for (let file = queue.pop(); file !== undefined; file = queue.pop()) {
-    if (files.has(file)) {
-      continue;
-    }
-    files.add(file);
-    for (const specifier of specifiers(sources.get(file) ?? "")) {
-      if (specifier.startsWith(".")) {
-        queue.push(resolveLocal(file, specifier));
-      } else {
-        packages.add(specifier);
-      }
-    }
-  }
-  return { files, packages };
-}
-
 describe("client.ts import graph (roadmap 4.6)", () => {
-  const { files, packages } = importGraph("/src/geometry/client.ts");
-  const reached = [...files];
+  const { files, packages } = importGraph("/src/geometry/client.ts", sources);
 
-  it("never reaches manifold-3d or any other package", () => {
+  it("reaches no package, so no manifold-3d", () => {
     expect([...packages]).toEqual([]);
   });
 
-  it("never reaches the geometry kernel or the worker", () => {
-    for (const kernel of ["index", "tray", "load", "worker", "worker-core"]) {
-      expect(reached).not.toContain(`/src/geometry/${kernel}.ts`);
-    }
+  it("stays inside the modules the main thread may use", () => {
+    expect([...files].filter((path) => !allowed(path))).toEqual([]);
   });
 
-  it("walks the graph for real (sanity check of this test)", () => {
-    expect(reached).toContain("/src/geometry/client.ts");
-    expect(reached).toContain("/src/geometry/types.ts");
-    expect(specifiers(`import { a } from "manifold-3d";`)).toEqual(["manifold-3d"]);
+  it("reaches the geometry types, so the walk is real", () => {
+    expect([...files]).toContain("/src/geometry/types.ts");
+  });
+});
+
+describe("specifiers", () => {
+  it("finds every way of importing a module", () => {
+    const source = `
+      import a from "./default";
+      import { b } from "./named";
+      import type { T } from "./type-only";
+      import {
+        c,
+        d,
+      } from "./multiline";
+      import "./side-effect";
+      export * from "./star";
+      export { e } from "./reexport";
+      const lazy = import("./dynamic");
+      import * as ns from 'pkg';
+    `;
+    expect(specifiers(source)).toEqual([
+      "./default",
+      "./named",
+      "./type-only",
+      "./multiline",
+      "./star",
+      "./reexport",
+      "pkg",
+      "./side-effect",
+      "./dynamic",
+    ]);
+  });
+
+  it("reports a dynamic import it cannot read", () => {
+    expect(specifiers("const name = 'x'; import(name);")).toEqual([NON_LITERAL_IMPORT]);
+    expect(specifiers("import(`./${name}`);")).toEqual([NON_LITERAL_IMPORT]);
+  });
+
+  it("ignores imports in comments and exports without a source", () => {
+    const source = `
+      // import { x } from "./line-comment";
+      /* import { y } from "./block-comment"; */
+      export const z = 1;
+      export { z as w };
+    `;
+    expect(specifiers(source)).toEqual([]);
+  });
+});
+
+describe("importGraph", () => {
+  const fixture = new Map([
+    ["/src/a.ts", `import { b } from "./b";\nimport "pkg-side-effect";\nexport const a = b;`],
+    ["/src/b.ts", `export * from "./sub/c";\nconst x = import("./d");\nexport const b = x;`],
+    [
+      "/src/sub/c.ts",
+      `import { a } from "../a";\nimport lib from "lib";\nexport const c = [a, lib];`,
+    ],
+    ["/src/d.ts", `import type { Thing } from "types-pkg";\nexport type D = Thing;`],
+    ["/src/unreached.ts", `import "never";`],
+  ]);
+
+  it("follows static, re-exported and dynamic imports, cycles included", () => {
+    const { files, packages } = importGraph("/src/a.ts", fixture);
+    expect([...files].sort()).toEqual(["/src/a.ts", "/src/b.ts", "/src/d.ts", "/src/sub/c.ts"]);
+    expect([...packages].sort()).toEqual(["lib", "pkg-side-effect", "types-pkg"]);
+  });
+
+  it("resolves directory imports to their index", () => {
+    const graph = new Map([
+      ["/src/a.ts", `import { x } from "./dir";`],
+      ["/src/dir/index.ts", "export const x = 1;"],
+    ]);
+    expect([...importGraph("/src/a.ts", graph).files].sort()).toEqual([
+      "/src/a.ts",
+      "/src/dir/index.ts",
+    ]);
+  });
+
+  it("collects a non-literal dynamic import as a package-like specifier", () => {
+    const graph = new Map([["/src/a.ts", "import(name);"]]);
+    expect([...importGraph("/src/a.ts", graph).packages]).toEqual([NON_LITERAL_IMPORT]);
+  });
+
+  it("fails loudly on an import it cannot resolve", () => {
+    const graph = new Map([["/src/a.ts", `import "./missing";`]]);
+    expect(() => importGraph("/src/a.ts", graph)).toThrow(/Cannot resolve \.\/missing/);
   });
 });
