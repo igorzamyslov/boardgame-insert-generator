@@ -172,8 +172,8 @@ export function maxWellFaceOffset(r: number): number {
 }
 
 /**
- * Finger slots are never narrower than this (or the fingerPocket.width setting, if smaller): sizing
- * drops the slot of a compartment that is a grip by itself, or refuses the tray (roadmap §4.7).
+ * Finger slots are never narrower than this (or the fingerPocket.width setting, if smaller):
+ * sizing refuses a tray whose slots cannot keep it (roadmap §4.7).
  */
 export const MIN_SLOT_WIDTH = 15;
 

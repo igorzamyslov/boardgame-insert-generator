@@ -645,6 +645,15 @@ describe("realizeTray", () => {
       });
     });
 
+    it("refuses a tray whose finger slots cannot be at least MIN_SLOT_WIDTH", () => {
+      // A one-card deck against the wall: a slot of at least 15 mm would cross its own well face
+      // too far from the slot's centre (roadmap §4.6).
+      const part = strip([1, 120]);
+      expect(() => realizeTray(part, minOuter(part, s, ground), s, ground)).toThrow(
+        /Tray c1:p0:0: cannot fit a finger slot of at least 15 mm for D1 ×1/,
+      );
+    });
+
     it("moves a slot so neighbours merge instead of narrowing them", () => {
       // The narrow decks' slots, pushed against the wall, start 21.6 mm from the wide deck's centre:
       // too far to merge, too close to keep apart. The middle deck's slot moves 3.9 mm toward the

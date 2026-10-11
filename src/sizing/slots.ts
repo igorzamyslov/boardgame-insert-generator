@@ -25,7 +25,6 @@ export interface SlotRequest {
   side: Side;
   centre: number; // where the slot wants to be centred along the side (its contents' centre)
   depth: number; // wanted depth below the rim, ≥ 1
-  grip: boolean; // the compartment is a grip without its slot (spec §3 rule 8)
 }
 
 export interface SlotPlacement {
