@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, maxChannelSpacing } from "../model/settings";
 import type { Settings } from "../model/types";
+import { SlotFitError } from "./errors";
 import { minOuter } from "./outer";
 import { realizeTray } from "./realize";
 import { assertTrayInvariants, at, bulk, cards, custom, minis, partOf } from "./test-helpers";
@@ -649,9 +650,34 @@ describe("realizeTray", () => {
       // A one-card deck against the wall: a slot of at least 15 mm would cross its own well face
       // too far from the slot's centre (roadmap §4.6).
       const part = strip([1, 120]);
-      expect(() => realizeTray(part, minOuter(part, s, ground), s, ground)).toThrow(
-        /Tray c1:p0:0: cannot fit a finger slot of at least 15 mm for D1 ×1/,
+      let error: unknown;
+      try {
+        realizeTray(part, minOuter(part, s, ground), s, ground);
+      } catch (thrown) {
+        error = thrown;
+      }
+      expect(error).toBeInstanceOf(SlotFitError);
+      expect(error).toBeInstanceOf(RangeError);
+      const fit = error as SlotFitError;
+      expect(fit.name).toBe("SlotFitError");
+      expect(fit.message).toBe(
+        "Tray c1:p0:0: cannot fit a finger slot of at least 15 mm for D1 ×1, D2 ×120",
       );
+      expect(fit.componentIds).toEqual(["c1"]);
+      expect(fit.contents).toEqual(["D1 ×1", "D2 ×120"]);
+    });
+
+    it("throws a plain RangeError, not a SlotFitError, for an outer below minOuter", () => {
+      const part = strip([1, 120]);
+      const min = minOuter(part, s, ground);
+      let error: unknown;
+      try {
+        realizeTray(part, { ...min, w: min.w - 0.01 }, s, ground);
+      } catch (thrown) {
+        error = thrown;
+      }
+      expect(error).toBeInstanceOf(RangeError);
+      expect(error).not.toBeInstanceOf(SlotFitError);
     });
 
     it("moves a slot so neighbours merge instead of narrowing them", () => {

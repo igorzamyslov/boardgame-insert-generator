@@ -9,6 +9,7 @@ import {
 } from "./constants";
 import { pocketSides, reachU } from "./common";
 import { chamferMinimumsU, minLayoutU, wallFor } from "./outer";
+import { SlotFitError } from "./errors";
 import { doubled, placeSlots, separation, slotFootprint } from "./slots";
 import type { Rect2, SlotPlacement, SlotRequest } from "./slots";
 import type { CompartmentReq, OuterSize, RealizeOptions, RealizedTray, TrayPartReq } from "./types";
@@ -85,7 +86,7 @@ function featureSpecs(
     }
     const slot = ctx.slots.get(side);
     if (slot === undefined) {
-      throw new RangeError(`internal: no finger slot placed on the ${side} side`);
+      throw new Error(`internal: no finger slot placed on the ${side} side`);
     }
     return {
       type: "fingerPocket",
@@ -199,8 +200,8 @@ interface SlotFrame {
 
 /**
  * The finger slots of every placed compartment (placeSlots). A run of slots that cannot keep
- * min(MIN_SLOT_WIDTH, setting) means the tray cannot be realized at this size (RangeError); layout
- * treats that variant and outer as infeasible (roadmap §4.7).
+ * min(MIN_SLOT_WIDTH, setting) means the tray cannot be realized in this frame (SlotFitError);
+ * layout treats that part as infeasible at these options (roadmap §4.7).
  */
 function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
   const { W, D, H, floor, wall, reach, settings } = frame;
@@ -236,12 +237,16 @@ function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
   if ("placements" in outcome) {
     return { items, requests, placements: outcome.placements };
   }
-  const names = [
-    ...new Set(outcome.stuck.map((k) => items[requests[k]?.owner ?? -1]?.req.contents)),
-  ].join(", ");
+  const stuck = outcome.stuck.flatMap((k) => {
+    const req = items[requests[k]?.owner ?? -1]?.req;
+    return req === undefined ? [] : [req];
+  });
+  const contents = [...new Set(stuck.map((req) => req.contents))];
   const least = fromU(Math.min(toU(MIN_SLOT_WIDTH), ceilU(settings.fingerPocket.width)));
-  throw new RangeError(
-    `Tray ${frame.trayKey}: cannot fit a finger slot of at least ${least} mm for ${names}`,
+  throw new SlotFitError(
+    `Tray ${frame.trayKey}: cannot fit a finger slot of at least ${least} mm for ${contents.join(", ")}`,
+    [...new Set(stuck.map((req) => req.componentId))],
+    contents,
   );
 }
 
@@ -377,7 +382,7 @@ export function realizeTray(
     const slot = placements[k];
     const item = items[q.owner];
     if (slot === undefined || item === undefined) {
-      throw new RangeError("internal: finger slot without a compartment");
+      throw new Error("internal: finger slot without a compartment");
     }
     item.slots.set(q.side, slot);
     footprints.push(slotFootprint(item.alloc, q.side, slot, reach));

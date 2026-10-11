@@ -138,7 +138,7 @@ export function placeSlots(requests: readonly SlotRequest[], ctx: SlotContext): 
   return {
     placements: placed.map((slot) => {
       if (slot === undefined) {
-        throw new RangeError("internal: unplaced finger slot");
+        throw new Error("internal: unplaced finger slot");
       }
       return slot;
     }),
@@ -148,7 +148,7 @@ export function placeSlots(requests: readonly SlotRequest[], ctx: SlotContext): 
 function rectOf(ctx: SlotContext, q: SlotRequest | undefined): RectU {
   const rect = q === undefined ? undefined : ctx.rects[q.owner];
   if (rect === undefined) {
-    throw new RangeError("internal: finger slot without a compartment");
+    throw new Error("internal: finger slot without a compartment");
   }
   return rect;
 }
@@ -380,7 +380,7 @@ function placeRun(
   const faces: Face[] = owners.flatMap((owner) => {
     const content = ctx.contents[owner];
     if (content === undefined) {
-      throw new RangeError("internal: finger slot without contents");
+      throw new Error("internal: finger slot without contents");
     }
     const a = axes(content, side);
     return [

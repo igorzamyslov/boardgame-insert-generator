@@ -11,7 +11,7 @@ import type {
 } from "../model/types";
 import { validateComponent } from "../model/validate";
 import { MIN_SPACER } from "./constants";
-import { hasGrip, minOuter, realizeTray, rotateRealized, size } from "./index";
+import { SlotFitError, hasGrip, minOuter, realizeTray, rotateRealized, size } from "./index";
 import { assertTrayInvariants } from "./test-helpers";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
 
@@ -256,9 +256,6 @@ function checkAgainstPart(part: TrayPartReq, outer: OuterSize, r: RealizedTray):
   expect(hasGrip(r.compartments)).toBe(true);
 }
 
-/** realizeTray's refusal of a tray whose finger slots cannot keep the minimum width. */
-const NO_SLOT = /cannot fit a finger slot of at least/;
-
 /**
  * Realizes `part` in `outer`, checks it, then checks the same tray rotated by 90°. Returns false
  * (without checking anything) when realizeTray refuses the tray because its finger slots cannot
@@ -274,7 +271,7 @@ function checkTray(
   try {
     realized = realizeTray(part, outer, s, opts);
   } catch (error) {
-    if (error instanceof RangeError && NO_SLOT.test(error.message)) {
+    if (error instanceof SlotFitError) {
       return false;
     }
     throw error;

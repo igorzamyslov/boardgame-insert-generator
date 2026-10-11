@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { thinnestWedge } from "../geometry/test-wedge";
 import { traySpecFrom } from "../geometry/test-specs";
 import { DEFAULT_SETTINGS } from "../model/settings";
+import { SlotFitError } from "./errors";
 import { minOuter } from "./outer";
 import { realizeTray } from "./realize";
 import { assertTrayInvariants, cards, partOf } from "./test-helpers";
@@ -42,7 +43,7 @@ describe("finger slots of card strips", () => {
             try {
               tray = realizeTray(part, outer, DEFAULT_SETTINGS, ground);
             } catch (error) {
-              expect(String(error)).toMatch(/cannot fit a finger slot of at least 15 mm/);
+              expect(error).toBeInstanceOf(SlotFitError);
               refused.push(`${sleeve} ${counts.join("+")} +${slack}`);
               continue;
             }
