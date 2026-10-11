@@ -7,7 +7,13 @@ import type { CardsComponent, ParseResult } from "../model/types";
 import { APP_VERSION } from "../model/version";
 import { sampleProject } from "../test-support/sample";
 import { toBase64Url } from "./base64url";
-import { MAX_INFLATED_BYTES, decodeHash, encodeHash, inflateCapped } from "./link";
+import {
+  InflateLimitError,
+  MAX_INFLATED_BYTES,
+  decodeHash,
+  encodeHash,
+  inflateCapped,
+} from "./link";
 
 function expectOk(result: ParseResult) {
   if (!result.ok) {
@@ -41,13 +47,31 @@ describe("encodeHash / decodeHash", () => {
     expect(expectOk(decodeHash(encodeHash(p, noForeign()))).project).toEqual(p);
   });
 
-  it("keeps foreign components from a newer-minor project", () => {
+  it("keeps foreign components, unknown values and unknown fields of a newer-minor project", () => {
     const raw = JSON.parse(serializeProject(newProject(), noForeign())) as Record<string, unknown>;
     raw.schemaVersion = "0.1.9";
     raw.components = [{ id: "dial0001", kind: "dial", diameter: 40 }];
+    raw.futureField = { nested: [1, 2, 3] };
+    (raw.settings as Record<string, unknown>).leftover = "hollow";
     const loaded = expectOk(parseProject(raw));
+    expect(loaded.foreign.components).toHaveLength(1);
+    expect(loaded.foreign.values).toEqual([{ path: "/settings/leftover", raw: "hollow" }]);
+
     const again = expectOk(decodeHash(encodeHash(loaded.project, loaded.foreign)));
     expect(again.foreign).toEqual(loaded.foreign);
+    expect(again.project).toEqual({ ...loaded.project, createdWith: APP_VERSION });
+    expect(serializeProject(again.project, again.foreign)).toBe(
+      serializeProject(loaded.project, loaded.foreign),
+    );
+    expect(JSON.parse(serializeProject(again.project, again.foreign))).toMatchObject({
+      futureField: { nested: [1, 2, 3] },
+      settings: { leftover: "hollow" },
+    });
+  });
+
+  it("round-trips non-ASCII project names", () => {
+    const p = { ...newProject(), name: "Ünïcödé 🎲 日本語" };
+    expect(expectOk(decodeHash(encodeHash(p, noForeign()))).project.name).toBe(p.name);
   });
 
   it("accepts the hash without '#', and a whole URL", () => {
@@ -74,6 +98,19 @@ describe("decodeHash: links damaged on the way", () => {
   it("ignores punctuation swallowed from the surrounding text", () => {
     expect(decodeHash(`${hash}).`).ok).toBe(true);
     expect(decodeHash(`${hash}>`).ok).toBe(true);
+  });
+
+  it("ignores zero-width characters and soft hyphens inserted into the payload", () => {
+    const mid = Math.floor(hash.length / 2);
+    for (const invisible of ["\u200b", "\u200c", "\u200d", "\u2060", "\u00ad", "\ufeff"]) {
+      expect(decodeHash(`${hash.slice(0, mid)}${invisible}${hash.slice(mid)}`).ok).toBe(true);
+    }
+  });
+
+  it("accepts '=' padding added by encoders that pad", () => {
+    for (const padding of ["=", "=="]) {
+      expect(decodeHash(`${hash}${padding}`).ok).toBe(true);
+    }
   });
 
   it("rejects characters outside base64url, and bytes that are not deflate or not JSON", () => {
@@ -160,6 +197,20 @@ describe("decodeHash never throws", () => {
 });
 
 describe("inflateCapped", () => {
+  it("stops a deflate bomb while inflating, before the stream ends", () => {
+    const bomb = deflateSync(new Uint8Array(50 * 1024 * 1024));
+    // Cutting the stream's tail makes a non-streaming inflater fail with "unexpected EOF"
+    // instead; only a streaming one reaches the cap first.
+    expect(() => inflateCapped(bomb.subarray(0, bomb.length - 3), MAX_INFLATED_BYTES)).toThrow(
+      InflateLimitError,
+    );
+  });
+
+  it("treats empty input as truncated data, not as an empty result", () => {
+    expect(() => inflateCapped(new Uint8Array(0), 100)).toThrow(/unexpected EOF/);
+    expect(() => inflateCapped(new Uint8Array(0), 100)).not.toThrow(InflateLimitError);
+  });
+
   it("returns data up to the cap exactly", () => {
     const data = strToU8("x".repeat(5000));
     expect(inflateCapped(deflateSync(data), 5000)).toEqual(data);

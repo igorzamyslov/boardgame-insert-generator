@@ -5,6 +5,15 @@ for (let i = 0; i < ALPHABET.length; i++) {
   DECODE[ALPHABET.charCodeAt(i)] = i;
 }
 
+/** True for a single character of the base64url alphabet (no padding). */
+export function isBase64UrlChar(char: string | undefined): boolean {
+  if (char === undefined || char.length !== 1) {
+    return false;
+  }
+  const code = char.charCodeAt(0);
+  return code < 128 && (DECODE[code] ?? -1) >= 0;
+}
+
 /** RFC 4648 §5 base64url without padding. */
 export function toBase64Url(bytes: Uint8Array): string {
   let out = "";

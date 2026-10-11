@@ -1,7 +1,7 @@
 import { Inflate, deflateSync, strToU8 } from "fflate";
 import { parseProject, serializeProject } from "../model/schema";
 import type { ForeignData, ParseResult, Project } from "../model/types";
-import { fromBase64Url, toBase64Url } from "./base64url";
+import { fromBase64Url, isBase64UrlChar, toBase64Url } from "./base64url";
 
 /** Version of the `#<format>.<payload>` link format (spec §8.4). */
 export const HASH_FORMAT = 1;
@@ -16,6 +16,9 @@ export const LINK_TARGET_CHARS = 1900;
 export const LINK_MAX_URL_CHARS = 2000;
 
 const CHUNK_BYTES = 1024;
+
+/** Whitespace plus zero-width and soft-hyphen characters that chat apps insert into long links. */
+const INVISIBLE = /[\s\u00ad\u200b-\u200d\u2060\ufeff]+/g;
 
 const DAMAGED =
   "This link is incomplete or damaged. It may have been cut off when it was copied or sent. Ask for the link again, or for the project file.";
@@ -32,12 +35,14 @@ export class InflateLimitError extends Error {}
  * Inflates raw DEFLATE data and throws InflateLimitError once the output
  * passes `cap` bytes. Input is fed 1 KB at a time, so a deflate bomb can't
  * allocate much beyond the cap (DEFLATE expands at most ≈ 1032:1).
- * Throws fflate's error on damaged or truncated data.
+ * Throws on damaged, truncated or empty data.
  */
 export function inflateCapped(data: Uint8Array, cap: number): Uint8Array {
   const parts: Uint8Array[] = [];
   let size = 0;
-  const inflate = new Inflate((chunk) => {
+  let finished = false;
+  const inflate = new Inflate((chunk, final) => {
+    finished = finished || final;
     size += chunk.length;
     if (size > cap) {
       throw new InflateLimitError(`Inflated data exceeds ${cap} bytes`);
@@ -46,6 +51,10 @@ export function inflateCapped(data: Uint8Array, cap: number): Uint8Array {
   });
   for (let i = 0; i < data.length; i += CHUNK_BYTES) {
     inflate.push(data.subarray(i, i + CHUNK_BYTES), i + CHUNK_BYTES >= data.length);
+  }
+  if (!finished) {
+    // fflate doesn't flag an empty input as truncated, so say so here.
+    throw new Error("unexpected EOF");
   }
   const out = new Uint8Array(size);
   let at = 0;
@@ -60,9 +69,10 @@ function fail(error: string): ParseResult {
   return { ok: false, error };
 }
 
-const isBase64UrlChar = (c: string | undefined) => c !== undefined && /[A-Za-z0-9_-]/.test(c);
-
-/** Drops trailing characters outside the base64url alphabet, e.g. the `).` of "(see link)." */
+/**
+ * Drops trailing characters outside the base64url alphabet: the `).` of "(see link).", and
+ * `=` padding added by encoders that pad.
+ */
 function trimTrailingPunctuation(text: string): string {
   let end = text.length;
   while (end > 0 && !isBase64UrlChar(text[end - 1])) {
@@ -73,7 +83,7 @@ function trimTrailingPunctuation(text: string): string {
 
 function decodeUnchecked(hash: string): ParseResult {
   const fromHash = hash.includes("#") ? hash.slice(hash.indexOf("#") + 1) : hash;
-  const text = fromHash.replace(/\s+/g, "");
+  const text = fromHash.replace(INVISIBLE, "");
   const m = /^(\d+)\.(.*)$/.exec(text);
   if (!m) {
     return fail("This link doesn't contain an insert generator project.");
@@ -110,14 +120,18 @@ function decodeUnchecked(hash: string): ParseResult {
 
 /**
  * Reads a link hash (`#1.…`, `1.…`, or a whole URL containing one). Tolerates
- * what chat apps and mail clients do to links: inserted line breaks or spaces,
- * and trailing punctuation such as `).` swallowed from the surrounding text.
+ * what chat apps and mail clients do to links: inserted line breaks, spaces or
+ * zero-width characters, trailing punctuation such as `).` swallowed from the surrounding text,
+ * and `=` padding added by encoders that pad.
  * Never throws; the result says why a link can't be opened.
  */
 export function decodeHash(hash: string): ParseResult {
   try {
     return decodeUnchecked(hash);
-  } catch {
+  } catch (error) {
+    // Last-resort guard for the never-throws rule: every expected failure is handled above, so
+    // reaching this means a bug. Log it so it isn't hidden behind the user-facing message.
+    console.error("Reading a link failed unexpectedly", error);
     return fail(DAMAGED);
   }
 }
