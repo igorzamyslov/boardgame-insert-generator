@@ -1,24 +1,24 @@
 import { describe, expect, it } from "vitest";
-import bitsHeavy from "../../test/fixtures/bits-heavy.json";
-import cardsHeavy from "../../test/fixtures/cards-heavy.json";
-import tilesMinis from "../../test/fixtures/tiles-minis.json";
-import tinyBox from "../../test/fixtures/tiny-box.json";
 import { planTray } from "./plan";
 import { thinCorner } from "./plan-corners";
-import {
-  MIN_FEATURE_MM,
-  MIN_WALL_MM,
-  SPEC_TOLERANCE,
-  maxBottomChamfer,
-  maxCornerRadius,
-} from "../model/settings";
+import { MIN_FEATURE_MM, MIN_WALL_MM, SPEC_TOLERANCE, maxCornerRadius } from "../model/settings";
 import type { Settings } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
-import type { RealizeOptions } from "../sizing/types";
 import { quarterSegments, roundedRectRing } from "./shapes";
 import type { CompartmentPlan, Rect, TrayPlan } from "./plan-types";
-import { GEO, compartment, hexTiles, loadFixture, traySpec, traySpecFrom } from "./test-specs";
+import {
+  GEO,
+  SWEEP_FIXTURES,
+  SWEEP_OPTIONS,
+  SWEEP_SLACKS,
+  compartment,
+  hexTiles,
+  largestChamfer,
+  loadFixture,
+  traySpec,
+  traySpecFrom,
+} from "./test-specs";
 
 describe("corner reliefs", () => {
   it("passes each relief circle through its content corner", () => {
@@ -195,8 +195,7 @@ const WALL_FLOOR: [number, number][] = [
 ];
 
 function withLargestChamfer(base: Settings, wall: number, floor: number): Settings {
-  const walled: Settings = { ...base, wall, floor };
-  return { ...walled, bottomChamfer: Math.min(3, maxBottomChamfer(walled)) };
+  return largestChamfer({ ...base, wall, floor });
 }
 
 describe("corner material under the bottom chamfer", () => {
@@ -247,32 +246,13 @@ describe("corner material under the bottom chamfer", () => {
   });
 });
 
-const OPTIONS: RealizeOptions[] = [
-  { lipped: false, level: 0 },
-  { lipped: true, level: 0 },
-  { lipped: false, level: 1 },
-  { lipped: true, level: 1 },
-];
-
-const SLACKS: [number, number, number][] = [
-  [0, 0, 0],
-  [5, 0, 0],
-  [0, 5, 0],
-  [0.01, 0.01, 0.01],
-];
-
 describe("corner material of sizing output", () => {
-  // Name, project, and whether its trays have finger slots.
-  const fixtures: [string, unknown, boolean][] = [
-    ["cards-heavy", cardsHeavy, true],
-    ["bits-heavy", bitsHeavy, false],
-    ["tiles-minis", tilesMinis, true],
-    ["tiny-box", tinyBox, true],
-  ];
-
-  it.each(fixtures)(
+  // Every fixture but bits-heavy (bulk only) has trays with finger slots.
+  it.each(SWEEP_FIXTURES)(
     "keeps 0.8 mm at every well, slot and relief corner of %s",
-    (_name, raw, hasSlots) => {
+    { timeout: 60_000 },
+    (name, raw) => {
+      const hasSlots = name !== "bits-heavy";
       const { components, settings: base } = loadFixture(raw);
       const failures: string[] = [];
       let slotCorners = 0;
@@ -282,9 +262,9 @@ describe("corner material of sizing output", () => {
           const variants = size(components, settings).requirements.flatMap((r) => r.variants);
           for (const variant of variants) {
             for (const part of variant.parts) {
-              for (const opts of OPTIONS) {
+              for (const opts of SWEEP_OPTIONS) {
                 const min = minOuter(part, settings, opts);
-                for (const [dw, dd, dh] of SLACKS) {
+                for (const [dw, dd, dh] of SWEEP_SLACKS) {
                   const outer = { w: min.w + dw, d: min.d + dd, h: min.h + dh };
                   const realized = realizeTray(part, outer, settings, opts);
                   const turned = rotateRealized(realized, outer);

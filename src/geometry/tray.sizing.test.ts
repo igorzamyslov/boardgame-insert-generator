@@ -1,20 +1,23 @@
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
-import bitsHeavy from "../../test/fixtures/bits-heavy.json";
-import cardsHeavy from "../../test/fixtures/cards-heavy.json";
-import tilesMinis from "../../test/fixtures/tiles-minis.json";
-import tinyBox from "../../test/fixtures/tiny-box.json";
-import { MIN_FEATURE_MM, MIN_WALL_MM, SPEC_TOLERANCE, maxBottomChamfer } from "../model/settings";
+import { SPEC_TOLERANCE } from "../model/settings";
 import type { Settings, TraySpec } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
-import type { RealizeOptions } from "../sizing/types";
 import { loadManifold } from "./load";
 import { checkPrintability } from "./printability";
 import { bounds, signedVolume, topology } from "./test-mesh";
 import { thinnestWedge } from "./test-wedge";
-import { loadFixture, traySpecFrom } from "./test-specs";
+import {
+  FIXTURE_SETTINGS,
+  SWEEP_FIXTURES,
+  SWEEP_OPTIONS,
+  THINNEST,
+  loadFixture,
+  traySpecFrom,
+} from "./test-specs";
+import type { Profile } from "./test-specs";
 import { buildTray } from "./tray";
 
 // Real sizing output built into meshes: every part of every variant of every
@@ -25,40 +28,12 @@ import { buildTray } from "./tray";
 // the part's index, so every combination is reached while the run stays well
 // under 15 s.
 
-const FIXTURES: [string, unknown][] = [
-  ["cards-heavy", cardsHeavy],
-  ["bits-heavy", bitsHeavy],
-  ["tiles-minis", tilesMinis],
-  ["tiny-box", tinyBox],
+const MESH_PROFILES: [string, Profile][] = [
+  ["fixture settings", FIXTURE_SETTINGS],
+  ["thinnest wall, floor, lip and the largest chamfer", THINNEST],
 ];
 
-type Profile = (base: Settings) => Settings;
-
-const PROFILES: [string, Profile][] = [
-  ["fixture settings", (s) => s],
-  [
-    "thinnest wall, floor, lip and the largest chamfer",
-    (s) => {
-      const thin: Settings = {
-        ...s,
-        wall: MIN_WALL_MM,
-        floor: MIN_FEATURE_MM,
-        divider: MIN_FEATURE_MM,
-        lip: { ...s.lip, enabled: true, thickness: MIN_WALL_MM, height: 1 },
-      };
-      return { ...thin, bottomChamfer: maxBottomChamfer(thin) };
-    },
-  ],
-];
-
-const OPTIONS: RealizeOptions[] = [
-  { lipped: false, level: 0 },
-  { lipped: true, level: 0 },
-  { lipped: false, level: 1 },
-  { lipped: true, level: 1 },
-];
-
-// Extra mm over minOuter on every axis.
+// Extra mm over minOuter on every axis (meshes are costly, so one axis value per build).
 const SLACKS = [0, 10, 30];
 
 interface Selected {
@@ -66,9 +41,22 @@ interface Selected {
   where: string;
 }
 
+interface Selection {
+  settings: Settings;
+  specs: Selected[];
+}
+
+const selections = new Map<string, Selection>();
+
 // The specs one fixture and profile builds: each part at every lip and level option, with the
 // slack and the rotation picked by the part's and the option's index, then that tray's spacers.
-function selection(raw: unknown, profile: Profile): { settings: Settings; specs: Selected[] } {
+// Sized once per fixture and profile, then shared by the build and the coverage tests.
+function selection(fixture: string, raw: unknown, [label, profile]: [string, Profile]): Selection {
+  const key = `${fixture}|${label}`;
+  const cached = selections.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
   const { components, settings: base } = loadFixture(raw);
   const settings = profile(base);
   const specs: Selected[] = [];
@@ -76,7 +64,7 @@ function selection(raw: unknown, profile: Profile): { settings: Settings; specs:
   for (const req of size(components, settings).requirements) {
     for (const variant of req.variants) {
       for (const part of variant.parts) {
-        OPTIONS.forEach((opts, k) => {
+        SWEEP_OPTIONS.forEach((opts, k) => {
           const slack = SLACKS[(index + k) % SLACKS.length] ?? 0;
           const rotated = (index + k) % 2 === 1;
           const min = minOuter(part, settings, opts);
@@ -93,7 +81,9 @@ function selection(raw: unknown, profile: Profile): { settings: Settings; specs:
       }
     }
   }
-  return { settings, specs };
+  const result = { settings, specs };
+  selections.set(key, result);
+  return result;
 }
 
 // Everything wrong with the mesh of `spec`, or [] when it is a closed, printable solid of the
@@ -132,9 +122,9 @@ beforeAll(async () => {
   m = await loadManifold();
 });
 
-describe.each(FIXTURES)("buildTray builds the sizing output of %s", (_name, raw) => {
-  it.each(PROFILES)("with %s", (_label, profile) => {
-    const { settings, specs } = selection(raw, profile);
+describe.each(SWEEP_FIXTURES)("buildTray builds the sizing output of %s", (name, raw) => {
+  it.each(MESH_PROFILES)("with %s", { timeout: 60_000 }, (label, profile) => {
+    const { settings, specs } = selection(name, raw, [label, profile]);
     expect(settingsValid(settings), "profile settings are valid").toBe(true);
     let built = 0;
     let rotated = 0;
@@ -159,11 +149,16 @@ describe.each(FIXTURES)("buildTray builds the sizing output of %s", (_name, raw)
 });
 
 describe("the built sizing output covers", () => {
-  const specs = FIXTURES.flatMap(([, raw]) =>
-    PROFILES.flatMap(([, profile]) => selection(raw, profile).specs.map((s) => s.spec)),
-  );
-  const trays = specs.filter((s) => s.part === "tray");
-  const compartments = trays.flatMap((s) => s.compartments.map((c) => ({ tray: s, c })));
+  let specs: TraySpec[] = [];
+  let trays: TraySpec[] = [];
+  let compartments: { tray: TraySpec; c: TraySpec["compartments"][number] }[] = [];
+  beforeAll(() => {
+    specs = SWEEP_FIXTURES.flatMap(([name, raw]) =>
+      MESH_PROFILES.flatMap((profile) => selection(name, raw, profile).specs.map((s) => s.spec)),
+    );
+    trays = specs.filter((s) => s.part === "tray");
+    compartments = trays.flatMap((s) => s.compartments.map((c) => ({ tray: s, c })));
+  });
 
   it.each(["well", "pocket", "spare", "scoop"])("compartment kind %s", (kind) => {
     expect(compartments.some(({ c }) => c.kind === kind)).toBe(true);

@@ -8,7 +8,18 @@ import type {
   Side,
   TraySpec,
 } from "../model/types";
-import { DEFAULT_SETTINGS } from "../model/settings";
+import bitsHeavy from "../../test/fixtures/bits-heavy.json";
+import cardsHeavy from "../../test/fixtures/cards-heavy.json";
+import tilesMinis from "../../test/fixtures/tiles-minis.json";
+import tinyBox from "../../test/fixtures/tiny-box.json";
+import {
+  DEFAULT_SETTINGS,
+  MIN_FEATURE_MM,
+  MIN_WALL_MM,
+  UPPER_MIN_CHAMFER,
+  effective,
+  maxBottomChamfer,
+} from "../model/settings";
 import { parseProject } from "../model/schema";
 import type { OuterSize, RealizedTray, RealizeOptions } from "../sizing/types";
 import { ceilU, fromU } from "../sizing/units";
@@ -297,8 +308,108 @@ export function traySpecFrom(
     rotated: false,
     wall: realized.wall,
     floor: fromU(ceilU(settings.floor)),
-    lip: opts.lipped,
+    // RealizeOptions.lipped takes effect only with lips enabled (roadmap §4.7).
+    lip: opts.lipped && settings.lip.enabled,
     solid: false,
     compartments: realized.compartments,
   };
 }
+
+// Shared scaffolding of the sizing sweeps (plan.sizing, tray.sizing and plan-corners tests): real
+// sizing output of the fixture projects, under fixture and edge-of-range settings, at every lip
+// and level option and a few outer sizes.
+
+export const SWEEP_FIXTURES: readonly [string, unknown][] = [
+  ["cards-heavy", cardsHeavy],
+  ["bits-heavy", bitsHeavy],
+  ["tiles-minis", tilesMinis],
+  ["tiny-box", tinyBox],
+];
+
+export const SWEEP_OPTIONS: readonly RealizeOptions[] = [
+  { lipped: false, level: 0 },
+  { lipped: true, level: 0 },
+  { lipped: false, level: 1 },
+  { lipped: true, level: 1 },
+];
+
+// Extra mm over minOuter per axis: uniform, one axis at a time, and a hair.
+export const SWEEP_SLACKS: readonly [number, number, number][] = [
+  [0, 0, 0],
+  [10, 10, 10],
+  [5, 0, 0],
+  [0, 5, 0],
+  [0, 0, 5],
+  [0.01, 0.01, 0.01],
+];
+
+export type Profile = (base: Settings) => Settings;
+
+/**
+ * `s` at the largest bottom chamfer its wall and floor allow (maxBottomChamfer, at most 3:
+ * SETTING_RANGES), the lip ledge raised where needed so upper trays still rest on it
+ * (field.lipBearing): the settings stay valid.
+ */
+export function largestChamfer(s: Settings): Settings {
+  const bottomChamfer = Math.min(3, maxBottomChamfer(s));
+  const bearing = Math.max(bottomChamfer, UPPER_MIN_CHAMFER) + 2 * effective(s).lipPlay + 0.01;
+  const ledge = Math.max(s.lip.ledge, Math.ceil(bearing * 100) / 100);
+  return { ...s, bottomChamfer, lip: { ...s.lip, ledge } };
+}
+
+/** The fixture's own settings. */
+export const FIXTURE_SETTINGS: Profile = (s) => s;
+
+/** The thinnest wall, floor, divider and lip, the lowest lip and the largest chamfer. */
+export const THINNEST: Profile = (s) =>
+  largestChamfer({
+    ...s,
+    wall: MIN_WALL_MM,
+    floor: MIN_FEATURE_MM,
+    divider: MIN_FEATURE_MM,
+    lip: { ...s.lip, enabled: true, thickness: MIN_WALL_MM, height: 1 },
+  });
+
+// Settings at the SETTING_RANGES extremes; each is valid (settingsValid), so the chamfer profiles
+// sit exactly on maxBottomChamfer.
+export const PROFILES: readonly [string, Profile][] = [
+  ["fixture settings", FIXTURE_SETTINGS],
+  [
+    "thinnest wall, floor and divider",
+    (s) => ({ ...s, wall: MIN_WALL_MM, floor: MIN_FEATURE_MM, divider: MIN_FEATURE_MM }),
+  ],
+  ["thinnest wall, floor, lip and the largest chamfer", THINNEST],
+  ["no chamfer", (s) => ({ ...s, bottomChamfer: 0 })],
+  ["largest chamfer", largestChamfer],
+  [
+    "largest chamfer, default wall and floor",
+    (s) => largestChamfer({ ...s, wall: DEFAULT_SETTINGS.wall, floor: DEFAULT_SETTINGS.floor }),
+  ],
+  [
+    "largest chamfer, wall and floor 0.9",
+    (s) => largestChamfer({ ...s, wall: MIN_WALL_MM, floor: MIN_WALL_MM }),
+  ],
+  [
+    "largest chamfer, thin wall and floor",
+    (s) => largestChamfer({ ...s, wall: MIN_WALL_MM, floor: MIN_FEATURE_MM }),
+  ],
+  ["largest chamfer, wall and floor 1.2", (s) => largestChamfer({ ...s, wall: 1.2, floor: 1.2 })],
+  ["largest chamfer, thick wall and floor", (s) => largestChamfer({ ...s, wall: 3, floor: 3 })],
+  ["lip height 1", (s) => ({ ...s, lip: { ...s.lip, enabled: true, height: 1 } })],
+  [
+    "lip thickness 0.9",
+    (s) => ({ ...s, lip: { ...s.lip, enabled: true, thickness: MIN_WALL_MM } }),
+  ],
+  [
+    "three decimals",
+    (s) => ({
+      ...s,
+      wall: 1.234,
+      floor: 1.001,
+      divider: 0.999,
+      bottomChamfer: 0.333,
+      fingerPocket: { width: 22.001, reach: 12.003 },
+      lip: { ...s.lip, enabled: true, height: 2.001, thickness: 1.003, ledge: 1.707 },
+    }),
+  ],
+];

@@ -1,6 +1,15 @@
 import { groupOf } from "./defaults";
 import { deepFreeze } from "./freeze";
-import { FLOAT_EPSILON, MIN_FEATURE_MM, MIN_WALL_MM, maxBottomChamfer, topPlane } from "./settings";
+import {
+  FLOAT_EPSILON,
+  MIN_FEATURE_MM,
+  MIN_WALL_MM,
+  UPPER_MIN_CHAMFER,
+  effective,
+  effectiveBottomChamfer,
+  maxBottomChamfer,
+  topPlane,
+} from "./settings";
 import type { Component, Lock, Notice, Project, Settings } from "./types";
 
 /**
@@ -19,6 +28,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     headroom: "field.headroom",
     layerHeight: "field.layerHeight",
     length: "field.length",
+    lipBearing: "field.lipBearing",
     lockPath: "field.lockPath",
     lockStack: "field.lockStack",
     perPlayerInGroup: "field.perPlayerInGroup",
@@ -359,8 +369,12 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
 
 /**
  * One field.setting error per setting outside its SETTING_RANGES entry (NaN included), then the
- * cross-field rule: bottomChamfer ≤ maxBottomChamfer (field.bottomChamfer), checked only when
- * wall, floor and bottomChamfer are in range themselves.
+ * cross-field rules, each checked only when the settings it reads are in range themselves:
+ * - bottomChamfer ≤ maxBottomChamfer (field.bottomChamfer);
+ * - with the lip on, an upper tray's bottom chamfer (effectiveBottomChamfer at level 1, at least
+ *   UPPER_MIN_CHAMFER) is less than lip.ledge − 2 × the effective lip play, so the tray still
+ *   rests on the ledge (field.lipBearing, at /settings/bottomChamfer; not added on top of
+ *   field.bottomChamfer).
  */
 function checkSettings(ck: Checker, settings: Settings): void {
   const outside = new Set<string>();
@@ -387,12 +401,25 @@ function checkSettings(ck: Checker, settings: Settings): void {
       "/settings/bottomChamfer",
       `Bottom chamfer must be at most ${Math.floor(limit * 100 + 1e-6) / 100} mm for this wall and floor.`,
     );
+    return;
+  }
+  if (!settings.lip.enabled || ["lip/ledge", "lip/play", "fit"].some((path) => outside.has(path))) {
+    return;
+  }
+  const bearing = settings.lip.ledge - 2 * effective(settings).lipPlay;
+  if (!(effectiveBottomChamfer(settings, 1) < bearing - FLOAT_EPSILON)) {
+    ck.error(
+      VALIDATION_NOTICE_CODES.field.lipBearing,
+      "/settings/bottomChamfer",
+      `Upper trays would not rest on the lip: their bottom chamfer (at least ${UPPER_MIN_CHAMFER} mm) must be less than the lip ledge minus twice the play, ${Math.round(bearing * 100) / 100} mm.`,
+    );
   }
 }
 
 /**
  * True when validateProject finds no settings problem: every setting inside its SETTING_RANGES
- * entry and the bottom chamfer within what the wall and floor leave. Sizing needs this.
+ * entry, the bottom chamfer within what the wall and floor leave, and (with the lip on) an upper
+ * tray's chamfer still resting on the lip ledge. Sizing needs this.
  */
 export function settingsValid(settings: Settings): boolean {
   const ck = new Checker();

@@ -11,6 +11,7 @@ import type {
   MinisComponent,
   Notice,
   Project,
+  Settings,
   TilesComponent,
 } from "./types";
 import type { SettingRange } from "./validate";
@@ -518,10 +519,11 @@ describe("shared constants", () => {
 });
 
 describe("setting ranges", () => {
-  // Thick walls and floor, so the largest bottomChamfer (3) is allowed too (2 + 2.2/√2 = 3.56).
+  // Thick walls and floor, so the largest bottomChamfer (3) is allowed too (2 + 2.2/√2 = 3.56),
+  // and no lip, so no chamfer, ledge, play or fit is too large for upper trays to bear on it.
   const roomy = (): Project => {
     const p = newProject();
-    p.settings = { ...p.settings, wall: 2, floor: 3 };
+    p.settings = { ...p.settings, wall: 2, floor: 3, lip: { ...p.settings.lip, enabled: false } };
     return p;
   };
   const rangeCases: [string, SettingRange][] = SETTING_RANGES.map((r) => [r.path, r]);
@@ -578,9 +580,11 @@ describe("setting ranges", () => {
   });
 
   it("limits the bottom chamfer to what the wall and floor leave (field.bottomChamfer)", () => {
+    // A 3 mm lip ledge bears any chamfer below 2.5 mm (lipBearing).
     const withChamfer = (wall: number, floor: number, bottomChamfer: number): Project => {
       const p = newProject();
-      p.settings = { ...p.settings, wall, floor, bottomChamfer };
+      const lip = { ...p.settings.lip, ledge: 3 };
+      p.settings = { ...p.settings, wall, floor, bottomChamfer, lip };
       return p;
     };
     // Defaults: 1.6 + 0.3/√2 = 1.812 mm at most.
@@ -608,7 +612,8 @@ describe("setting ranges", () => {
     ] as const) {
       const p = newProject();
       const limit = maxBottomChamfer({ ...p.settings, wall, floor });
-      p.settings = { ...p.settings, wall, floor, bottomChamfer: limit };
+      const lip = { ...p.settings.lip, ledge: 3 };
+      p.settings = { ...p.settings, wall, floor, bottomChamfer: limit, lip };
       expect(validateProject(p)).toEqual([]);
       p.settings = { ...p.settings, bottomChamfer: limit + 0.001 };
       expect(codes(validateProject(p))).toEqual([[field.bottomChamfer, "/settings/bottomChamfer"]]);
@@ -616,6 +621,44 @@ describe("setting ranges", () => {
     // Regression: the defaults allow 1.812 mm; 1.816 passed with the 0.005 mm tolerance and then
     // made planTray reject sizing output (a forced R = c corner keeps 0.9 − √2·0.004 mm).
     expect(settingsValid({ ...DEFAULT_SETTINGS, bottomChamfer: 1.816 })).toBe(false);
+  });
+
+  it("keeps the lip ledge bearing upper trays past their bottom chamfer (field.lipBearing)", () => {
+    // Upper trays (chamfer ≥ 0.5 mm) rest on ledge − 2 × play × fit; defaults: 1.7 − 0.5 = 1.2 mm.
+    const withLip = (over: Partial<Settings>, lip: Partial<Settings["lip"]> = {}): Project => {
+      const p = newProject();
+      p.settings = { ...p.settings, ...over, lip: { ...p.settings.lip, ...lip } };
+      return p;
+    };
+    const bearing = [[field.lipBearing, "/settings/bottomChamfer"]];
+    expect(validateProject(withLip({ bottomChamfer: 1.19 }))).toEqual([]);
+    expect(codes(validateProject(withLip({ bottomChamfer: 1.2 })))).toEqual(bearing);
+    expect(settingsValid(withLip({ bottomChamfer: 1.2 }).settings)).toBe(false);
+    // Play scales with fit: 1.7 − 2 × 0.25 × 1.4 = 1 mm.
+    expect(validateProject(withLip({ bottomChamfer: 0.99, fit: 1.4 }))).toEqual([]);
+    expect(codes(validateProject(withLip({ bottomChamfer: 1, fit: 1.4 })))).toEqual(bearing);
+    // Upper trays keep UPPER_MIN_CHAMFER (0.5 mm) whatever bottomChamfer says.
+    expect(validateProject(withLip({ bottomChamfer: 0 }, { ledge: 1.01 }))).toEqual([]);
+    expect(codes(validateProject(withLip({ bottomChamfer: 0 }, { ledge: 1 })))).toEqual(bearing);
+    // Without a lip nothing rests on a ledge.
+    expect(validateProject(withLip({ bottomChamfer: 1.2 }, { enabled: false }))).toEqual([]);
+  });
+
+  it("checks the lip bearing only with the chamfer, ledge, play and fit in range", () => {
+    for (const [over, lip, path] of [
+      [{ bottomChamfer: 3.1 }, {}, "/settings/bottomChamfer"],
+      [{}, { ledge: 0.4 }, "/settings/lip/ledge"],
+      [{}, { play: 2.1 }, "/settings/lip/play"],
+      [{ fit: 3.1 }, {}, "/settings/fit"],
+    ] as const) {
+      const p = newProject();
+      p.settings = { ...p.settings, ...over, lip: { ...p.settings.lip, ...lip } };
+      expect(codes(validateProject(p))).toEqual([[field.setting, path]]);
+    }
+    // A chamfer over maxBottomChamfer gets that notice only.
+    const p = newProject();
+    p.settings = { ...p.settings, bottomChamfer: 2 };
+    expect(codes(validateProject(p))).toEqual([[field.bottomChamfer, "/settings/bottomChamfer"]]);
   });
 
   it("does not add a chamfer notice when the wall, floor or chamfer is out of range", () => {

@@ -139,9 +139,10 @@ describe("size", () => {
   it("returns nothing when the bottom chamfer breaks through the wall or floor", () => {
     const steep = { ...s, wall: 0.9, floor: 0.8, bottomChamfer: 3 };
     expect(size([cards(), bulk()], steep)).toEqual({ requirements: [], notices: [] });
-    // The same chamfer is fine with enough material around it.
+    // The same chamfer is fine with enough material around it (and a lip ledge that bears it).
+    const lip = { ...s.lip, ledge: 4 };
     expect(
-      size([cards()], { ...s, wall: 2, floor: 3, bottomChamfer: 3 }).requirements,
+      size([cards()], { ...s, wall: 2, floor: 3, bottomChamfer: 3, lip }).requirements,
     ).toHaveLength(1);
   });
 

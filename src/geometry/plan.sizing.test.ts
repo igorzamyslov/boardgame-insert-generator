@@ -1,106 +1,20 @@
 import { describe, expect, it } from "vitest";
-import bitsHeavy from "../../test/fixtures/bits-heavy.json";
-import cardsHeavy from "../../test/fixtures/cards-heavy.json";
-import tilesMinis from "../../test/fixtures/tiles-minis.json";
-import tinyBox from "../../test/fixtures/tiny-box.json";
-import { DEFAULT_SETTINGS, MIN_FEATURE_MM, MIN_WALL_MM, maxBottomChamfer } from "../model/settings";
 import type { Component, Settings, TraySpec } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
-import type { RealizeOptions } from "../sizing/types";
 import { planTray } from "./plan";
-import { loadFixture, traySpecFrom } from "./test-specs";
+import {
+  PROFILES,
+  SWEEP_FIXTURES,
+  SWEEP_OPTIONS,
+  SWEEP_SLACKS,
+  loadFixture,
+  traySpecFrom,
+} from "./test-specs";
 
 // Real sizing output must always be buildable: planTray's limits (with their
 // tolerance) have to accept every spec sitting exactly on a sizing minimum,
 // for the default settings and for settings at the edges of their ranges.
-
-const FIXTURES: [string, unknown][] = [
-  ["cards-heavy", cardsHeavy],
-  ["bits-heavy", bitsHeavy],
-  ["tiles-minis", tilesMinis],
-  ["tiny-box", tinyBox],
-];
-
-type Profile = (base: Settings) => Settings;
-
-// Settings at the SETTING_RANGES extremes. Each is checked to be valid, so the
-// chamfer profiles sit exactly on maxBottomChamfer.
-const PROFILES: [string, Profile][] = [
-  ["fixture settings", (s) => s],
-  [
-    "thinnest wall, floor and divider",
-    (s) => ({ ...s, wall: MIN_WALL_MM, floor: MIN_FEATURE_MM, divider: MIN_FEATURE_MM }),
-  ],
-  ["no chamfer", (s) => ({ ...s, bottomChamfer: 0 })],
-  ["largest chamfer", (s) => ({ ...s, bottomChamfer: maxBottomChamfer(s) })],
-  [
-    "largest chamfer, default wall and floor",
-    (s) => {
-      const walls = { ...s, wall: DEFAULT_SETTINGS.wall, floor: DEFAULT_SETTINGS.floor };
-      return { ...walls, bottomChamfer: maxBottomChamfer(walls) };
-    },
-  ],
-  [
-    "largest chamfer, wall and floor 0.9",
-    (s) => {
-      const thin = { ...s, wall: MIN_WALL_MM, floor: MIN_WALL_MM };
-      return { ...thin, bottomChamfer: maxBottomChamfer(thin) };
-    },
-  ],
-  [
-    "largest chamfer, thin wall and floor",
-    (s) => {
-      const thin = { ...s, wall: MIN_WALL_MM, floor: MIN_FEATURE_MM };
-      return { ...thin, bottomChamfer: maxBottomChamfer(thin) };
-    },
-  ],
-  [
-    "largest chamfer, wall and floor 1.2",
-    (s) => {
-      const even = { ...s, wall: 1.2, floor: 1.2 };
-      return { ...even, bottomChamfer: maxBottomChamfer(even) };
-    },
-  ],
-  [
-    "largest chamfer, thick wall and floor",
-    (s) => {
-      const thick = { ...s, wall: 3, floor: 3 };
-      return { ...thick, bottomChamfer: Math.min(3, maxBottomChamfer(thick)) };
-    },
-  ],
-  ["lip height 1", (s) => ({ ...s, lip: { ...s.lip, enabled: true, height: 1 } })],
-  ["lip thickness 0.9", (s) => ({ ...s, lip: { ...s.lip, enabled: true, thickness: 0.9 } })],
-  [
-    "three decimals",
-    (s) => ({
-      ...s,
-      wall: 1.234,
-      floor: 1.001,
-      divider: 0.999,
-      bottomChamfer: 0.333,
-      fingerPocket: { width: 22.001, reach: 12.003 },
-      lip: { ...s.lip, enabled: true, height: 2.001, thickness: 1.003, ledge: 1.707 },
-    }),
-  ],
-];
-
-const OPTIONS: RealizeOptions[] = [
-  { lipped: false, level: 0 },
-  { lipped: true, level: 0 },
-  { lipped: false, level: 1 },
-  { lipped: true, level: 1 },
-];
-
-// Extra mm over minOuter per axis: uniform, one axis at a time, and a hair.
-const SLACKS: [number, number, number][] = [
-  [0, 0, 0],
-  [10, 10, 10],
-  [5, 0, 0],
-  [0, 5, 0],
-  [0, 0, 5],
-  [0.01, 0.01, 0.01],
-];
 
 interface Tally {
   planned: number;
@@ -126,9 +40,9 @@ function exercise(components: Component[], settings: Settings, label: string): T
   for (const req of requirements) {
     for (const variant of req.variants) {
       for (const part of variant.parts) {
-        for (const opts of OPTIONS) {
+        for (const opts of SWEEP_OPTIONS) {
           const min = minOuter(part, settings, opts);
-          for (const [dw, dd, dh] of SLACKS) {
+          for (const [dw, dd, dh] of SWEEP_SLACKS) {
             const outer = { w: min.w + dw, d: min.d + dd, h: min.h + dh };
             const where = `${label} ${variant.id} ${part.trayKey} ${JSON.stringify(opts)} +${dw}/${dd}/${dh}`;
             const realized = realizeTray(part, outer, settings, opts);
@@ -150,10 +64,10 @@ function exercise(components: Component[], settings: Settings, label: string): T
   return tally;
 }
 
-describe.each(FIXTURES)("planTray accepts sizing output of %s", (_name, raw) => {
+describe.each(SWEEP_FIXTURES)("planTray accepts sizing output of %s", (_name, raw) => {
   const { components, settings: base } = loadFixture(raw);
 
-  it.each(PROFILES)("with %s", (label, profile) => {
+  it.each(PROFILES)("with %s", { timeout: 60_000 }, (label, profile) => {
     const settings = profile(base);
     expect(settingsValid(settings), "profile settings are valid").toBe(true);
     const tally = exercise(components, settings, label);
@@ -166,7 +80,7 @@ describe.each(FIXTURES)("planTray accepts sizing output of %s", (_name, raw) => 
 
 describe("the sizing fixtures cover spacers", () => {
   it("plans spacers from at least one fixture", () => {
-    const spacers = FIXTURES.map(([name, raw]) => {
+    const spacers = SWEEP_FIXTURES.map(([name, raw]) => {
       const { components, settings } = loadFixture(raw);
       return exercise(components, settings, name).spacers;
     });

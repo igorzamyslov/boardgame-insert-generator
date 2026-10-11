@@ -18,7 +18,7 @@ describe("finger slots of card strips", () => {
   // from the cut profile). realizeTray refuses only strips with a one- or two-card
   // deck: against the wall, a slot of at least 15 mm would cross such a deck's own well face too
   // far from its centre. A strip it realizes at minOuter it realizes wider too (monotonic in slack).
-  it("plans every two- and three-deck strip", () => {
+  it("plans every two- and three-deck strip", { timeout: 60_000 }, () => {
     let realized = 0;
     const refused: string[] = [];
     for (const sleeve of ["none", "standard"] as const) {

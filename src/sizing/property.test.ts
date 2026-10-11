@@ -190,13 +190,22 @@ const settingsArb: Arbitrary<Settings> = fc
   })
   .map((r): Settings => {
     const walls = { ...DEFAULT_SETTINGS, wall: r.wall, floor: r.floor };
+    // With the lip on, upper trays (chamfer ≥ 0.5) rest on ledge − 2 × play × fit (field.lipBearing):
+    // the ledge leaves room for that, and the chamfer stays below it, on the 0.001 mm grid.
+    const play = 2 * DEFAULT_SETTINGS.lip.play * r.fit;
+    const ledge = r.lip.enabled ? Math.max(r.lip.ledge, 0.502 + play) : r.lip.ledge;
+    const bearing = r.lip.enabled ? Math.floor((ledge - play) * 1000) / 1000 - 0.001 : 3;
     return {
       ...walls,
       divider: r.divider,
       // At most what the wall and floor allow (settingsValid), on the 0.001 mm grid.
-      bottomChamfer: Math.min(r.bottomChamfer, Math.floor(maxBottomChamfer(walls) * 1000) / 1000),
+      bottomChamfer: Math.min(
+        r.bottomChamfer,
+        Math.floor(maxBottomChamfer(walls) * 1000) / 1000,
+        bearing,
+      ),
       fit: r.fit,
-      lip: { ...DEFAULT_SETTINGS.lip, ...r.lip },
+      lip: { ...DEFAULT_SETTINGS.lip, ...r.lip, ledge },
       // Odd and even unit counts of 0.01 mm alike, with a third decimal on top.
       fingerPocket: { width: r.pocketUnits / 100 + (r.pocketUnits % 3) / 1000, reach: r.reach },
     };
