@@ -17,7 +17,7 @@ import {
   BOUNDS,
   isBlocking,
   SETTING_RANGES,
-  settingsInRange,
+  settingsValid,
   VALIDATION_NOTICE_CODES,
   validateComponent,
   validateProject,
@@ -517,6 +517,12 @@ describe("shared constants", () => {
 });
 
 describe("setting ranges", () => {
+  // Thick walls and floor, so the largest bottomChamfer (3) is allowed too.
+  const roomy = (): Project => {
+    const p = newProject();
+    p.settings = { ...p.settings, wall: 2, floor: 2 };
+    return p;
+  };
   const rangeCases: [string, SettingRange][] = SETTING_RANGES.map((r) => [r.path, r]);
 
   it.each(rangeCases)("flags %s one step outside either end", (_path, range) => {
@@ -524,22 +530,58 @@ describe("setting ranges", () => {
       const p = newProject();
       setAtPointer(p, `/settings/${range.path}`, value);
       expect(codes(validateProject(p))).toEqual([[field.setting, `/settings/${range.path}`]]);
-      expect(settingsInRange(p.settings)).toBe(false);
+      expect(settingsValid(p.settings)).toBe(false);
     }
   });
 
   it.each(rangeCases)("accepts %s at either end", (_path, range) => {
     for (const value of [range.min, range.max]) {
-      const p = newProject();
+      const p = roomy();
       setAtPointer(p, `/settings/${range.path}`, value);
-      expect(settingsInRange(p.settings)).toBe(true);
+      expect(settingsValid(p.settings)).toBe(true);
     }
+  });
+
+  it("needs a lip at least 1 mm high", () => {
+    const p = newProject();
+    p.settings = { ...p.settings, lip: { ...p.settings.lip, height: 0.99 } };
+    expect(codes(validateProject(p))).toEqual([[field.setting, "/settings/lip/height"]]);
+    p.settings = { ...p.settings, lip: { ...p.settings.lip, height: 1 } };
+    expect(validateProject(p)).toEqual([]);
   });
 
   it("rejects a NaN setting", () => {
     const p = newProject();
     p.settings = { ...p.settings, wall: Number.NaN };
-    expect(settingsInRange(p.settings)).toBe(false);
+    expect(settingsValid(p.settings)).toBe(false);
+  });
+
+  it("limits the bottom chamfer to what the wall and floor leave (field.bottomChamfer)", () => {
+    const withChamfer = (wall: number, floor: number, bottomChamfer: number): Project => {
+      const p = newProject();
+      p.settings = { ...p.settings, wall, floor, bottomChamfer };
+      return p;
+    };
+    // Defaults: 1.6 + 1.2 − 0.8 = 2 mm at most.
+    expect(validateProject(withChamfer(1.6, 1.2, 2))).toEqual([]);
+    expect(codes(validateProject(withChamfer(1.6, 1.2, 2.01)))).toEqual([
+      [field.bottomChamfer, "/settings/bottomChamfer"],
+    ]);
+    // 0.8 mm walls and floor: at most 0.8 mm.
+    expect(validateProject(withChamfer(0.8, 0.8, 0.8))).toEqual([]);
+    expect(codes(validateProject(withChamfer(0.8, 0.8, 3)))).toEqual([
+      [field.bottomChamfer, "/settings/bottomChamfer"],
+    ]);
+    expect(settingsValid(withChamfer(0.8, 0.8, 3).settings)).toBe(false);
+    expect(settingsValid(withChamfer(0.8, 0.8, 0.8).settings)).toBe(true);
+  });
+
+  it("does not add a chamfer notice when the wall, floor or chamfer is out of range", () => {
+    const p = newProject();
+    p.settings = { ...p.settings, wall: 0.5, bottomChamfer: 3 };
+    expect(codes(validateProject(p))).toEqual([[field.setting, "/settings/wall"]]);
+    p.settings = { ...p.settings, wall: Number.NaN };
+    expect(codes(validateProject(p))).toEqual([[field.setting, "/settings/wall"]]);
   });
 
   it("needs a finger pocket reach of at least 5 mm", () => {

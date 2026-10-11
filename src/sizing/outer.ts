@@ -1,4 +1,4 @@
-import { MIN_FEATURE_MM, UPPER_MIN_CHAMFER } from "../model/settings";
+import { MIN_FEATURE_MM, chamferMinimums } from "../model/settings";
 import type { Settings, Side } from "../model/types";
 import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
 import { pocketSides } from "./common";
@@ -15,14 +15,12 @@ export function wallFor(settings: Settings, lipped: boolean): number {
 }
 
 /**
- * The smallest outer footprint side and height (0.01 mm units) the geometry builds under a 45°
- * bottom chamfer c: 2·(c + MIN_FEATURE_MM) and c + MIN_FEATURE_MM (plan 3, planTray). c is
- * bottomChamfer, at least UPPER_MIN_CHAMFER above level 0; spacers pass level 0.
+ * chamferMinimums (model/settings: what planTray requires under the 45° bottom chamfer) in whole
+ * 0.01 mm units, rounded up. Spacers pass level 0.
  */
 export function chamferMinimumsU(settings: Settings, level: number): { side: number; h: number } {
-  const base = Math.max(0, settings.bottomChamfer);
-  const c = level > 0 ? Math.max(base, UPPER_MIN_CHAMFER) : base;
-  return { side: ceilU(2 * (c + MIN_FEATURE_MM)), h: ceilU(c + MIN_FEATURE_MM) };
+  const min = chamferMinimums(settings, level);
+  return { side: ceilU(min.side), h: ceilU(min.h) };
 }
 
 /** strip → one row; rows2 → first ceil(n/2) items, then the rest. Empty rows are dropped. */

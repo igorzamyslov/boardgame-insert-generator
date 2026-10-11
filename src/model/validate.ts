@@ -1,6 +1,6 @@
 import { groupOf } from "./defaults";
 import { deepFreeze } from "./freeze";
-import { MIN_FEATURE_MM, topPlane } from "./settings";
+import { MIN_FEATURE_MM, SPEC_TOLERANCE, maxBottomChamfer, topPlane } from "./settings";
 import type { Component, Lock, Notice, Project, Settings } from "./types";
 
 /**
@@ -11,6 +11,7 @@ import type { Component, Lock, Notice, Project, Settings } from "./types";
 export const VALIDATION_NOTICE_CODES = deepFreeze({
   field: {
     bedMargin: "field.bedMargin",
+    bottomChamfer: "field.bottomChamfer",
     cardSides: "field.cardSides",
     count: "field.count",
     empty: "field.empty",
@@ -125,7 +126,7 @@ const settingRanges: SettingRange[] = [
     min: 5,
     max: 100,
   },
-  { path: "lip/height", label: "Lip height", get: (s) => s.lip.height, min: 0.5, max: 10 },
+  { path: "lip/height", label: "Lip height", get: (s) => s.lip.height, min: 1, max: 10 },
   {
     path: "lip/thickness",
     label: "Lip thickness",
@@ -149,7 +150,9 @@ const settingRanges: SettingRange[] = [
  * Advanced-settings ranges. Wall, floor, divider and lip-thickness minimums are
  * MIN_FEATURE_MM, the minimum printable feature width (spec §6.1); topPressFit is
  * spec §3 rule 2. The finger pocket reach is at least 5 mm, so every pocket sizing emits
- * has a positive reach (the geometry rejects a zero one). Frozen, entries included.
+ * has a positive reach (the geometry rejects a zero one). The lip is at least 1 mm high: the
+ * geometry chamfers its inner top edge by 0.6 mm and a lower lip is useless. Frozen, entries
+ * included.
  */
 export const SETTING_RANGES: readonly SettingRange[] = Object.freeze(
   settingRanges.map((r) => Object.freeze(r)),
@@ -344,11 +347,17 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
   }
 }
 
-/** One field.setting error per setting outside its SETTING_RANGES entry (NaN included). */
+/**
+ * One field.setting error per setting outside its SETTING_RANGES entry (NaN included), then the
+ * cross-field rule: bottomChamfer ≤ maxBottomChamfer (field.bottomChamfer), checked only when
+ * wall, floor and bottomChamfer are in range themselves.
+ */
 function checkSettings(ck: Checker, settings: Settings): void {
+  const outside = new Set<string>();
   for (const r of SETTING_RANGES) {
     const v = r.get(settings);
     if (!(v >= r.min && v <= r.max)) {
+      outside.add(r.path);
       ck.error(
         VALIDATION_NOTICE_CODES.field.setting,
         `/settings/${r.path}`,
@@ -356,10 +365,24 @@ function checkSettings(ck: Checker, settings: Settings): void {
       );
     }
   }
+  if (["wall", "floor", "bottomChamfer"].some((path) => outside.has(path))) {
+    return;
+  }
+  const limit = maxBottomChamfer(settings);
+  if (settings.bottomChamfer > limit + SPEC_TOLERANCE) {
+    ck.error(
+      VALIDATION_NOTICE_CODES.field.bottomChamfer,
+      "/settings/bottomChamfer",
+      `Bottom chamfer must be at most ${Math.floor(limit * 100 + 1e-6) / 100} mm for this wall and floor.`,
+    );
+  }
 }
 
-/** True when every setting is inside its SETTING_RANGES entry (what validateProject checks). */
-export function settingsInRange(settings: Settings): boolean {
+/**
+ * True when validateProject finds no settings problem: every setting inside its SETTING_RANGES
+ * entry and the bottom chamfer within what the wall and floor leave. Sizing needs this.
+ */
+export function settingsValid(settings: Settings): boolean {
   const ck = new Checker();
   checkSettings(ck, settings);
   return ck.notices.length === 0;

@@ -10,6 +10,15 @@ export const MIN_FEATURE_MM = 0.8;
  */
 export const UPPER_MIN_CHAMFER = 0.5;
 
+/**
+ * TraySpec lengths are rounded to 0.01 mm, but sums and differences of them carry float noise
+ * (8.29 − 7.29 = 0.9999999999999991), so every geometry limit allows half a grid step (spec §6.1).
+ */
+export const SPEC_TOLERANCE = 0.005;
+
+/** The outer corner arc polygon lies up to 0.08 mm inside the true arc; plus a little margin. */
+export const CORNER_MARGIN = 0.1;
+
 /** Spec §5 defaults. Projects store resolved values, never "use the default". Deeply frozen. */
 export const DEFAULT_SETTINGS: Settings = deepFreeze({
   wall: 1.6,
@@ -111,4 +120,49 @@ export function effective(s: Settings): Effective {
 /** Height every stack must reach (spec §3 rule 2). */
 export function topPlane(box: Box, s: Settings): number {
   return round6(box.innerHeight - box.headroom + s.topPressFit);
+}
+
+/**
+ * The 45° bottom chamfer of a tray at `level` in mm: bottomChamfer, at least UPPER_MIN_CHAMFER
+ * above level 0 (spacers always pass level 0), never negative (spec §6.1).
+ */
+export function effectiveBottomChamfer(s: Settings, level: number): number {
+  const base = Math.max(0, s.bottomChamfer);
+  return level > 0 ? Math.max(base, UPPER_MIN_CHAMFER) : base;
+}
+
+/**
+ * The smallest outer footprint side and height in mm that fit the chamfer c at `level`:
+ * 2·(c + MIN_FEATURE_MM) and c + MIN_FEATURE_MM. Shared by sizing and geometry.
+ */
+export function chamferMinimums(s: Settings, level: number): { side: number; h: number } {
+  const c = effectiveBottomChamfer(s, level);
+  return { side: 2 * (c + MIN_FEATURE_MM), h: c + MIN_FEATURE_MM };
+}
+
+/**
+ * Largest outer corner radius that keeps MIN_FEATURE_MM + CORNER_MARGIN between the rounded
+ * outer corner and a cut disc whose centre is p and q from the corner's two outer faces (radius
+ * rho; 0 for a sharp cut corner). Solves R − hypot(R − p, R − q) = m with
+ * m = MIN_FEATURE_MM + CORNER_MARGIN + rho, i.e. R² − 2(p + q − m)R + p² + q² − m² = 0, for the
+ * larger root.
+ */
+export function maxCornerRadius(p: number, q: number, rho: number): number {
+  const m = MIN_FEATURE_MM + CORNER_MARGIN + rho;
+  if (p < m || q < m) {
+    // Too close to a straight face for any arc: keep the disc out of the arc
+    // zone (it is in the zone only while p < R and q < R).
+    return Math.max(p, q);
+  }
+  return p + q - m + Math.sqrt(2 * (p - m) * (q - m));
+}
+
+/**
+ * Largest bottomChamfer the wall and floor allow (spec §6.1): it leaves at least MIN_FEATURE_MM of
+ * wall plus floor under the well's bottom corner (wall + floor − MIN_FEATURE_MM), and the outer
+ * corner, which is never below the chamfer, must stay ≥ MIN_FEATURE_MM clear of it (maxCornerRadius for a sharp
+ * well corner at the wall). Validation and sizing refuse settings above it.
+ */
+export function maxBottomChamfer(s: Settings): number {
+  return Math.min(s.wall + s.floor - MIN_FEATURE_MM, maxCornerRadius(s.wall, s.wall, 0));
 }

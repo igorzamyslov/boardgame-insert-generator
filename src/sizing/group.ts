@@ -1,6 +1,6 @@
 import { groupOf } from "../model/defaults";
 import type { Access, Component, Notice, Settings } from "../model/types";
-import { settingsInRange } from "../model/validate";
+import { settingsValid } from "../model/validate";
 import type { StorageOption } from "./common";
 import { componentOptions, isLoose } from "./component";
 import type { TrayRequirement } from "./types";
@@ -49,7 +49,7 @@ export function size(
   components: Component[],
   settings: Settings,
 ): { requirements: TrayRequirement[]; notices: Notice[] } {
-  if (!settingsInRange(settings)) {
+  if (!settingsValid(settings)) {
     return { requirements: [], notices: [] };
   }
   const notices: Notice[] = [];

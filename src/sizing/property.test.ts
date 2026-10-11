@@ -1,6 +1,6 @@
 import fc, { type Arbitrary } from "fast-check";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "../model/settings";
+import { DEFAULT_SETTINGS, maxBottomChamfer } from "../model/settings";
 import type {
   Access,
   CardsComponent,
@@ -169,7 +169,7 @@ const componentsArb: Arbitrary<Component[]> = fc
 
 /**
  * Wall, divider, floor, bottom chamfer, lip and finger pocket values on a 0.001 mm grid, inside
- * SETTING_RANGES.
+ * SETTING_RANGES and settingsValid.
  */
 const settingsArb: Arbitrary<Settings> = fc
   .record({
@@ -182,22 +182,24 @@ const settingsArb: Arbitrary<Settings> = fc
       enabled: fc.boolean(),
       thickness: setting(0.8, 2),
       ledge: setting(0.5, 3),
-      height: setting(0.5, 5),
+      height: setting(1, 5),
     }),
     pocketUnits: fc.integer({ min: 500, max: 4000 }),
     reach: setting(5, 20),
   })
-  .map((r): Settings => ({
-    ...DEFAULT_SETTINGS,
-    wall: r.wall,
-    divider: r.divider,
-    floor: r.floor,
-    bottomChamfer: r.bottomChamfer,
-    fit: r.fit,
-    lip: { ...DEFAULT_SETTINGS.lip, ...r.lip },
-    // Odd and even unit counts of 0.01 mm alike, with a third decimal on top.
-    fingerPocket: { width: r.pocketUnits / 100 + (r.pocketUnits % 3) / 1000, reach: r.reach },
-  }));
+  .map((r): Settings => {
+    const walls = { ...DEFAULT_SETTINGS, wall: r.wall, floor: r.floor };
+    return {
+      ...walls,
+      divider: r.divider,
+      // At most what the wall and floor allow (settingsValid), on the 0.001 mm grid.
+      bottomChamfer: Math.min(r.bottomChamfer, Math.floor(maxBottomChamfer(walls) * 1000) / 1000),
+      fit: r.fit,
+      lip: { ...DEFAULT_SETTINGS.lip, ...r.lip },
+      // Odd and even unit counts of 0.01 mm alike, with a third decimal on top.
+      fingerPocket: { width: r.pocketUnits / 100 + (r.pocketUnits % 3) / 1000, reach: r.reach },
+    };
+  });
 
 const OPTS: RealizeOptions[] = [
   { lipped: false, level: 0 },

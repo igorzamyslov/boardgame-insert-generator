@@ -132,6 +132,15 @@ describe("size", () => {
     expect(size([cards()], { ...s, wall: Number.NaN })).toEqual({ requirements: [], notices: [] });
   });
 
+  it("returns nothing when the bottom chamfer breaks through the wall or floor", () => {
+    const steep = { ...s, wall: 0.8, floor: 0.8, bottomChamfer: 3 };
+    expect(size([cards(), bulk()], steep)).toEqual({ requirements: [], notices: [] });
+    // The same chamfer is fine with enough material around it.
+    expect(
+      size([cards()], { ...s, wall: 2, floor: 2, bottomChamfer: 3 }).requirements,
+    ).toHaveLength(1);
+  });
+
   it("is deterministic", () => {
     const components = [cards({ storage: "auto" }), bulk(), tiles({ storage: "auto" }), custom()];
     expect(size(components, s)).toEqual(size(components, s));

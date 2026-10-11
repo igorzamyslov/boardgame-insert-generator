@@ -5,8 +5,11 @@ import {
   WALL_CHOICES,
   applyFitChoice,
   applyWallChoice,
+  chamferMinimums,
   effective,
+  effectiveBottomChamfer,
   fitChoiceOf,
+  maxBottomChamfer,
   topPlane,
   wallChoiceOf,
 } from "./settings";
@@ -152,5 +155,31 @@ describe("topPlane", () => {
   it("rounds away float noise from decimal inputs", () => {
     const decimalBox: Box = { ...box, innerHeight: 70.1, headroom: 8.2 };
     expect(topPlane(decimalBox, { ...DEFAULT_SETTINGS, topPressFit: 0.3 })).toBe(62.2);
+  });
+});
+
+describe("bottom chamfer rules", () => {
+  it("uses bottomChamfer on level 0 and at least 0.5 above, never below 0", () => {
+    const s = { ...DEFAULT_SETTINGS, bottomChamfer: 0.4 };
+    expect(effectiveBottomChamfer(s, 0)).toBe(0.4);
+    expect(effectiveBottomChamfer(s, 1)).toBe(0.5);
+    expect(effectiveBottomChamfer({ ...s, bottomChamfer: 0.8 }, 2)).toBe(0.8);
+    expect(effectiveBottomChamfer({ ...s, bottomChamfer: -1 }, 0)).toBe(0);
+  });
+
+  it("needs 2·(c + 0.8) across and c + 0.8 up", () => {
+    const s = { ...DEFAULT_SETTINGS, bottomChamfer: 2.27 };
+    expect(chamferMinimums(s, 0).side).toBeCloseTo(6.14, 9);
+    expect(chamferMinimums(s, 0).h).toBeCloseTo(3.07, 9);
+    expect(chamferMinimums({ ...s, bottomChamfer: 0.2 }, 1).h).toBeCloseTo(1.3, 9);
+  });
+
+  it("allows chamfers that leave 0.8 mm of wall + floor and a corner radius that fits", () => {
+    // Defaults: 1.6 + 1.2 − 0.8 = 2 (the corner limit 3.29 is looser).
+    expect(maxBottomChamfer(DEFAULT_SETTINGS)).toBeCloseTo(2, 9);
+    // 0.8 mm walls: the corner limit is the wall itself.
+    expect(maxBottomChamfer({ ...DEFAULT_SETTINGS, wall: 0.8, floor: 3 })).toBeCloseTo(0.8, 9);
+    expect(maxBottomChamfer({ ...DEFAULT_SETTINGS, wall: 0.8, floor: 0.8 })).toBeCloseTo(0.8, 9);
+    expect(maxBottomChamfer({ ...DEFAULT_SETTINGS, wall: 3, floor: 3 })).toBeCloseTo(5.2, 9);
   });
 });
