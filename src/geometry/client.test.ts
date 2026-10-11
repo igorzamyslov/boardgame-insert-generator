@@ -164,7 +164,7 @@ describe("createGeometryClient", () => {
       client.dispose();
     });
 
-    it.each(["RangeError", "UnsupportedFeatureError", "AbortError"])(
+    it.each(["TraySpecError", "UnsupportedFeatureError", "AbortError"])(
       "keeps the worker after a %s, which only says something about that spec",
       async (name) => {
         const client = createGeometryClient();
@@ -181,8 +181,8 @@ describe("createGeometryClient", () => {
       },
     );
 
-    it.each([["Error"], [undefined]])(
-      "restarts the worker after a kernel failure (name %s)",
+    it.each([["Error"], ["RangeError"], [undefined]])(
+      "restarts the worker after a kernel or runtime failure (name %s)",
       async (name) => {
         const client = createGeometryClient();
         const a = client.build(plainBox, GEO);
@@ -293,7 +293,13 @@ describe("createGeometryClient", () => {
       vi.useFakeTimers();
       const client = createGeometryClient();
       FakeWorker.constructorError = new Error("workers are blocked");
-      await expect(client.build(plainBox, GEO)).rejects.toThrow("workers are blocked");
+      const error = await reasonOf(client.build(plainBox, GEO));
+      expect(error).toBeInstanceOf(GeometryBuildError);
+      expect(error).toMatchObject({
+        name: "WorkerError",
+        message: expect.stringMatching(/workers are blocked/),
+        cause: FakeWorker.constructorError,
+      });
       expect(vi.getTimerCount()).toBe(0);
       FakeWorker.constructorError = null;
       const retry = client.build(plainBox, GEO);
@@ -306,8 +312,15 @@ describe("createGeometryClient", () => {
       vi.useFakeTimers();
       const client = createGeometryClient();
       fireAndForget(client.build(plainBox, GEO));
-      worker(0).postError = new Error("DataCloneError");
-      await expect(client.build(plainBox, GEO)).rejects.toThrow("DataCloneError");
+      const postError = new Error("DataCloneError");
+      worker(0).postError = postError;
+      const error = await reasonOf(client.build(plainBox, GEO));
+      expect(error).toBeInstanceOf(GeometryBuildError);
+      expect(error).toMatchObject({
+        name: "WorkerError",
+        message: expect.stringMatching(/DataCloneError/),
+        cause: postError,
+      });
       expect(vi.getTimerCount()).toBe(1); // only the first build's timeout
       client.dispose();
       expect(vi.getTimerCount()).toBe(0);
@@ -372,6 +385,16 @@ describe("createGeometryClient", () => {
       worker(0).respond({ type: "built", requestId: 2, key: "k", mesh, volumeMm3: 2 });
       await expect(other).resolves.toEqual({ mesh, volumeMm3: 2 });
       expect(worker(0).terminated).toBe(false);
+      client.dispose();
+    });
+
+    it("still rejects when the cancel cannot be posted", async () => {
+      const client = createGeometryClient();
+      const controller = new AbortController();
+      const a = client.build(plainBox, GEO, controller.signal);
+      worker(0).postError = new Error("port closed");
+      controller.abort();
+      expect(await reasonOf(a)).toMatchObject({ name: "AbortError" });
       client.dispose();
     });
 

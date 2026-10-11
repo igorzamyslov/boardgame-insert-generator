@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
-import { UnsupportedFeatureError } from "./errors";
+import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { maxCornerRadius } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, TraySpec } from "../model/types";
 import {
@@ -126,6 +126,20 @@ describe("finger slot clearance", () => {
     });
   const well = (x: number, features: FeatureSpec[] = []): CompartmentSpec =>
     compartment({ x, y: 1.6, w: 68.4 - x, d: 56.8, features });
+
+  it("throws a TraySpecError, a RangeError of its own name, for a spec it rejects", () => {
+    const error: unknown = (() => {
+      try {
+        planTray(slotIntoSpare, GEO);
+      } catch (e) {
+        return e;
+      }
+      return undefined;
+    })();
+    expect(error).toBeInstanceOf(TraySpecError);
+    expect(error).toBeInstanceOf(RangeError);
+    expect(error).toMatchObject({ name: "TraySpecError" });
+  });
 
   it("rejects the slot that reached into a spare compartment (plan 3 regression)", () => {
     expect(() => planTray(slotIntoSpare, GEO)).toThrow(RangeError);

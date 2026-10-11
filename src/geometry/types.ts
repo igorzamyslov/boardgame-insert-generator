@@ -43,6 +43,6 @@ export type GeometryResponse =
       requestId: number;
       key: string;
       message: string;
-      name?: string; // the thrown error's name ("RangeError", "AbortError", ...); absent for non-Error throws
+      name?: string; // the thrown error's name ("TraySpecError", "AbortError", ...); absent for non-Error throws
       feature?: string; // the unsupported feature, when name is "UnsupportedFeatureError"
     };

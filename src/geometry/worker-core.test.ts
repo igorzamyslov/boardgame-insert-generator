@@ -71,11 +71,21 @@ describe("geometry worker handler", () => {
         type: "error",
         requestId: 2,
         message: expect.stringMatching(/positive/),
-        name: "RangeError",
+        name: "TraySpecError",
       }),
     ]);
     const [, invalid] = sent;
     expect(invalid?.message).not.toHaveProperty("feature");
+  });
+
+  it("keeps the name of a runtime RangeError, which is not a spec failure", async () => {
+    const sent: GeometryResponse[] = [];
+    const handle = createGeometryHandler(
+      () => Promise.reject(new RangeError("WebAssembly.Memory(): could not allocate memory")),
+      (m) => sent.push(m),
+    );
+    await handle({ type: "build", requestId: 5, spec: plainBox, settings: GEO });
+    expect(sent[0]).toMatchObject({ type: "error", requestId: 5, name: "RangeError" });
   });
 
   it.each([

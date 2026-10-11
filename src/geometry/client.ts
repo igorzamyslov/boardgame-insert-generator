@@ -20,7 +20,7 @@ export interface GeometryClient {
 export const BUILD_TIMEOUT_MS = 30_000;
 
 // Why a build failed. `name` is the reason: the thrown error's name in the
-// worker ("RangeError" for an invalid spec, "UnsupportedFeatureError" with its
+// worker ("TraySpecError" for an invalid spec, "UnsupportedFeatureError" with its
 // `feature` for a tray from a newer app version), or one the client makes up:
 // "AbortError", "TimeoutError", "WorkerError" (the worker crashed) and
 // "WorkerRestartedError" (it was replaced while this build waited). Defined
@@ -36,10 +36,11 @@ export class GeometryBuildError extends Error {
 }
 
 // Failures that say something about one spec, not about the worker: the worker
-// stays up after them. Any other failure is a kernel failure, after which the
-// WASM heap cannot be trusted, so the worker is replaced.
+// stays up after them. Any other failure (a kernel failure, a runtime
+// RangeError from the WASM heap, a bug) means the WASM heap cannot be
+// trusted, so the worker is replaced.
 const SPEC_FAILURES: ReadonlySet<string> = new Set([
-  "RangeError",
+  "TraySpecError",
   "UnsupportedFeatureError",
   "AbortError",
 ]);
@@ -158,12 +159,26 @@ export function createGeometryClient(): GeometryClient {
         const request: GeometryRequest = { type: "build", requestId, spec, settings };
         // Sent before the build is registered, so a worker that cannot be
         // created or posted to leaves nothing pending.
-        const target = ensureWorker();
-        target.postMessage(request);
+        let target: Worker;
+        try {
+          target = ensureWorker();
+          target.postMessage(request);
+        } catch (cause) {
+          const why = cause instanceof Error ? cause.message : String(cause);
+          reject(
+            new GeometryBuildError(`Geometry worker unavailable: ${why}`, "WorkerError", { cause }),
+          );
+          return;
+        }
         const onAbort = (): void => {
           if (take(requestId) !== undefined) {
-            target.postMessage({ type: "cancel", requestId } satisfies GeometryRequest);
             reject(abortError());
+            try {
+              target.postMessage({ type: "cancel", requestId } satisfies GeometryRequest);
+            } catch {
+              // Best effort: the build is already rejected, and a worker that
+              // misses the cancel only finishes a build nobody waits for.
+            }
           }
         };
         signal?.addEventListener("abort", onAbort, { once: true });

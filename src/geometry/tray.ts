@@ -180,7 +180,7 @@ function toMesh(solid: Manifold): Mesh {
 // Builds one printed part from its TraySpec alone (plus the settings that
 // define lip, chamfer, corner radius and scoop sizes). Mesh frame: tray-local,
 // origin at the outer min corner, z = 0 at the bottom.
-// Throws RangeError for an invalid spec, UnsupportedFeatureError for parts or
+// Throws TraySpecError (a RangeError) for an invalid spec, UnsupportedFeatureError for parts or
 // features from a newer app version, Error if the kernel fails.
 export function buildTray(
   m: ManifoldToplevel,

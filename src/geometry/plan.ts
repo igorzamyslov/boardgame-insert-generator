@@ -10,7 +10,7 @@ import {
   maxChannelSpacing,
   maxWellFaceOffset,
 } from "../model/settings";
-import { UnsupportedFeatureError } from "./errors";
+import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
 import { LIP_CHAMFER, MIN_SCOOP_RADIUS } from "./plan-types";
 import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, SlotPlan, TrayPlan } from "./plan-types";
@@ -24,7 +24,7 @@ import { KNOWN_COMPARTMENT_KINDS, KNOWN_FEATURE_TYPES, KNOWN_PARTS } from "./typ
 const SIDES: readonly Side[] = ["front", "back", "left", "right"];
 
 function fail(spec: TraySpec, message: string): never {
-  throw new RangeError(`Tray ${spec.key}: ${message}`);
+  throw new TraySpecError(`Tray ${spec.key}: ${message}`);
 }
 
 function isPositive(n: number): boolean {
@@ -143,7 +143,7 @@ interface Pocket {
 //   y for left/right), runs across the band, and is cut down `depth` below
 //   the rim (never below the compartment floor) with a round bottom;
 // - along the side it may extend past the compartment through dividers,
-//   but never into the outer wall (RangeError), and only as far as the
+//   but never into the outer wall (TraySpecError), and only as far as the
 //   finger slot clearance rule allows (checkSlotClearance).
 function planSlot(
   spec: TraySpec,
@@ -442,7 +442,7 @@ function planCompartment(
 
 // Validates `spec` and computes everything buildTray needs.
 // Throws UnsupportedFeatureError for an unknown part, compartment kind or
-// feature type (a newer-minor file) and RangeError for a spec that can't be built safely:
+// feature type (a newer-minor file) and TraySpecError (a RangeError) for a spec that can't be built safely:
 // non-positive sizes, a floor outside the tray, compartments that overlap,
 // touch, or come closer to an outer face than the (lipped) outer wall,
 // finger pockets that would cut through an outer wall, and finger pockets that

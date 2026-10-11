@@ -37,7 +37,11 @@ describe("geometry worker entry", () => {
       data: { type: "build", requestId: 4, spec: { ...plainBox, w: -1 }, settings: GEO },
     });
     await vi.waitFor(() => expect(posted).toHaveLength(1));
-    expect(posted[0]?.message).toMatchObject({ type: "error", requestId: 4, name: "RangeError" });
+    expect(posted[0]?.message).toMatchObject({
+      type: "error",
+      requestId: 4,
+      name: "TraySpecError",
+    });
     expect(posted[0]?.options).toEqual({ transfer: [] });
   });
 
