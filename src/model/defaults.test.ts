@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { newComponent, newProject } from "./defaults";
+import { DEFAULT_BOX, DEFAULT_PRINTER, newComponent, newProject } from "./defaults";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ComponentKind } from "./types";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
@@ -7,6 +7,11 @@ import { APP_VERSION, SCHEMA_VERSION } from "./version";
 const KINDS: ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
 
 describe("newProject", () => {
+  it("freezes the shared DEFAULT_BOX and DEFAULT_PRINTER", () => {
+    expect(Object.isFrozen(DEFAULT_BOX)).toBe(true);
+    expect(Object.isFrozen(DEFAULT_PRINTER)).toBe(true);
+  });
+
   it("starts empty at the current versions with default settings and printer", () => {
     const p = newProject();
     expect(p.schemaVersion).toBe(SCHEMA_VERSION);
@@ -36,6 +41,18 @@ describe("newProject", () => {
     expect(p.settings.fingerPocket.width).toBe(30);
     expect(DEFAULT_SETTINGS.lip.height).toBe(2);
     expect(DEFAULT_SETTINGS.fingerPocket.width).toBe(22);
+  });
+
+  it("lets a project change its box and printer without touching the defaults", () => {
+    const p = newProject();
+    expect(() => {
+      p.box.innerHeight = 90;
+      p.printer.bedZ = 180;
+    }).not.toThrow();
+    expect(p.box.innerHeight).toBe(90);
+    expect(p.printer.bedZ).toBe(180);
+    expect(DEFAULT_BOX.innerHeight).toBe(70);
+    expect(DEFAULT_PRINTER.bedZ).toBe(256);
   });
 
   it("gives every project a new id", () => {

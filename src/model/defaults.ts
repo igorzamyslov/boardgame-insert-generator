@@ -6,27 +6,30 @@ import { APP_VERSION, SCHEMA_VERSION } from "./version";
 
 /**
  * Box for a new project. Its headroom, headroomCoverage and storedOnSide also
- * fill files that lack them (spec §9).
+ * fill files that lack them (spec §9). Frozen: projects copy it, never alias it.
  */
-export const DEFAULT_BOX: Box = {
+export const DEFAULT_BOX: Box = Object.freeze({
   innerWidth: 285,
   innerDepth: 285,
   innerHeight: 70,
   headroom: 0,
   headroomCoverage: "full",
   storedOnSide: false,
-};
+});
 
 const defaultBed = BED_PRESETS[0] ?? { bedX: 256, bedY: 256, bedZ: 256 };
 
-/** Printer for a new project. bedMargin and layerHeight also fill files that lack them. */
-export const DEFAULT_PRINTER: Printer = {
+/**
+ * Printer for a new project. bedMargin and layerHeight also fill files that lack them.
+ * Frozen: projects copy it, never alias it.
+ */
+export const DEFAULT_PRINTER: Printer = Object.freeze({
   bedX: defaultBed.bedX,
   bedY: defaultBed.bedY,
   bedZ: defaultBed.bedZ,
   bedMargin: 5,
   layerHeight: 0.2,
-};
+});
 
 export const DEFAULT_PROJECT_NAME = "Untitled insert";
 
