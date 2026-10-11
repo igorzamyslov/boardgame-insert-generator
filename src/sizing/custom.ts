@@ -1,7 +1,6 @@
 import type { CustomComponent, Settings } from "../model/types";
 import {
   compartment,
-  componentIsValid,
   cornerRelief,
   displayName,
   fingerPocket,
@@ -9,11 +8,8 @@ import {
   type OptionsResult,
 } from "./common";
 
-/** Storage options for a custom component; none (and no notices) when it fails validation. */
-export function customOptions(c: CustomComponent, s: Settings, index: number): OptionsResult {
-  if (!componentIsValid(c, index)) {
-    return { options: [], notices: [] };
-  }
+/** Storage options for a custom component. Precondition: it passes validateComponent. */
+export function customOptions(c: CustomComponent, s: Settings): OptionsResult {
   const clearance = mainClearance(c, s);
   const name = displayName(c);
   const blocks = Array.from({ length: c.count }, (_, i) => [

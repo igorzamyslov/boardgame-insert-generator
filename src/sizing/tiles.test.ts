@@ -9,7 +9,7 @@ const s: Settings = DEFAULT_SETTINGS;
 const C2C40 = (40 * 2) / Math.sqrt(3); // 46.18802…
 
 function first(component: TilesComponent, option = 0, block = 0): CompartmentReq {
-  return at(at(at(tileOptions(component, s, 0).options, option).blocks, block), 0);
+  return at(at(at(tileOptions(component, s).options, option).blocks, block), 0);
 }
 
 describe("tile geometry", () => {
@@ -43,7 +43,7 @@ describe("tile geometry", () => {
 
 describe("tileOptions", () => {
   it("lays hex tiles flat, a flat edge to the front, with full-depth pockets and corner reliefs", () => {
-    const { options, notices } = tileOptions(tiles(), s, 0);
+    const { options, notices } = tileOptions(tiles(), s);
     expect(notices).toEqual([]);
     expect(options.map((o) => o.id)).toEqual(["flat-c1", "flat-c3", "flat-c5"]);
     const column = first(tiles());
@@ -67,7 +67,7 @@ describe("tileOptions", () => {
   });
 
   it("splits a tall stack into columns, one block each", () => {
-    const { options } = tileOptions(tiles(), s, 0);
+    const { options } = tileOptions(tiles(), s);
     const three = at(options, 1);
     expect(three.blocks).toHaveLength(3);
     expect(three.blocks.map((b) => at(b, 0).minH)).toEqual([41, 41, 41]);
@@ -75,7 +75,7 @@ describe("tileOptions", () => {
   });
 
   it("spreads uneven counts with the extra tiles in the first columns", () => {
-    const { options } = tileOptions(tiles({ count: 7, thickness: 10 }), s, 0);
+    const { options } = tileOptions(tiles({ count: 7, thickness: 10 }), s);
     expect(at(options, 2).blocks.map((b) => at(b, 0).minH)).toEqual([31, 21, 21]);
     expect(at(options, 2).blocks.map((b) => at(b, 0).contents)).toEqual([
       "Hexes ×3",
@@ -86,7 +86,7 @@ describe("tileOptions", () => {
 
   it("stands hex tiles upright on a flat edge, like upright cards", () => {
     const upright = tiles({ storage: "upright" });
-    expect(tileOptions(upright, s, 0).options.map((o) => o.id)).toEqual([
+    expect(tileOptions(upright, s).options.map((o) => o.id)).toEqual([
       "upright-c1",
       "upright-c3",
       "upright-c5",
@@ -115,7 +115,7 @@ describe("tileOptions", () => {
   });
 
   it("auto lists flat options before upright ones", () => {
-    expect(tileOptions(tiles({ storage: "auto" }), s, 0).options.map((o) => o.id)).toEqual([
+    expect(tileOptions(tiles({ storage: "auto" }), s).options.map((o) => o.id)).toEqual([
       "flat-c1",
       "flat-c3",
       "flat-c5",
@@ -129,16 +129,5 @@ describe("tileOptions", () => {
     const column = first(tiles({ shape: { type: "rect", w: 30, d: 20 }, clearance: 0 }));
     expect(column.minW).toBe(30);
     expect(column.minD).toBe(44);
-  });
-
-  it("returns no options and no notices for an invalid component", () => {
-    for (const component of [
-      tiles({ thickness: 0 }),
-      tiles({ count: 0 }),
-      tiles({ shape: { type: "rect", w: 0, d: 20 } }),
-      tiles({ shape: { type: "hex", flatToFlat: -1, orientation: "flat" } }),
-    ]) {
-      expect(tileOptions(component, s, 2)).toEqual({ options: [], notices: [] });
-    }
   });
 });

@@ -20,7 +20,7 @@ describe("lyingDims", () => {
 
 describe("minisOptions", () => {
   it("makes one pocket per figure with a ⅓-depth finger pocket in front", () => {
-    const { options, notices } = minisOptions(minis(), s, 0);
+    const { options, notices } = minisOptions(minis(), s);
     expect(notices).toEqual([]);
     expect(options.map((o) => o.id)).toEqual(["standing", "lying"]);
     const standing = at(options, 0);
@@ -40,7 +40,6 @@ describe("minisOptions", () => {
     const { options } = minisOptions(
       minis({ figures: [{ name: "Cart", w: 30, d: 20, h: 15, count: 1 }] }),
       s,
-      0,
     );
     expect(options.map((o) => o.id)).toEqual(["standing"]);
     expect(at(at(at(options, 0).blocks, 0), 0).contents).toBe("Cart");
@@ -55,7 +54,6 @@ describe("minisOptions", () => {
         ],
       }),
       s,
-      0,
     );
     expect(at(options, 0).blocks.map((b) => b.length)).toEqual([2, 1]);
   });
@@ -64,13 +62,12 @@ describe("minisOptions", () => {
     const { options } = minisOptions(
       minis({ figures: [{ name: " ", w: 30, d: 20, h: 15, count: 1 }] }),
       s,
-      0,
     );
     expect(at(at(at(options, 0).blocks, 0), 0).contents).toBe("Minis");
   });
 
   it("bulk mode uses the bounding-box volume ÷ packingFactor", () => {
-    const { options } = minisOptions(minis({ storage: "bulk" }), s, 0);
+    const { options } = minisOptions(minis({ storage: "bulk" }), s);
     expect(options.map((o) => o.id)).toEqual(["bulk-shallow", "bulk-deep"]);
     const shallow = at(at(at(options, 0).blocks, 0), 0);
     expect(shallow.kind).toBe("scoop");
@@ -81,16 +78,5 @@ describe("minisOptions", () => {
     const deep = at(at(at(options, 1).blocks, 0), 0);
     expect(deep.minW).toBe(41);
     expect(deep.minH).toBeCloseTo(100000 / (41 * 41), 9); // 59.488…
-  });
-
-  it("returns no options and no notices for an invalid component", () => {
-    for (const component of [
-      minis({ figures: [] }),
-      minis({ figures: [{ name: "X", w: 0, d: 10, h: 10, count: 1 }] }),
-      minis({ figures: [{ name: "X", w: 10, d: 10, h: 10, count: 1.5 }] }),
-      minis({ storage: "bulk", figures: [] }),
-    ]) {
-      expect(minisOptions(component, s, 4)).toEqual({ options: [], notices: [] });
-    }
   });
 });

@@ -2,7 +2,6 @@ import type { MinisComponent, Settings } from "../model/types";
 import { BULK_SHAPES, bulkCompartment, bulkLine } from "./bulk";
 import {
   compartment,
-  componentIsValid,
   displayName,
   fingerPocket,
   label,
@@ -52,11 +51,8 @@ function pockets(
   );
 }
 
-/** Storage options for a minis component; none (and no notices) when it fails validation. */
-export function minisOptions(c: MinisComponent, s: Settings, index: number): OptionsResult {
-  if (!componentIsValid(c, index)) {
-    return { options: [], notices: [] };
-  }
+/** Storage options for a minis component. Precondition: it passes validateComponent. */
+export function minisOptions(c: MinisComponent, s: Settings): OptionsResult {
   const clearance = mainClearance(c, s);
   if (c.storage === "bulk") {
     return {

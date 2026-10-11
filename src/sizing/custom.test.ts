@@ -7,7 +7,7 @@ const s = DEFAULT_SETTINGS;
 
 describe("customOptions", () => {
   it("makes one well per item with a full-depth front pocket and corner reliefs", () => {
-    const { options, notices } = customOptions(custom(), s, 0);
+    const { options, notices } = customOptions(custom(), s);
     expect(notices).toEqual([]);
     expect(options.map((o) => o.id)).toEqual(["custom"]);
     const blocks = at(options, 0).blocks;
@@ -28,20 +28,14 @@ describe("customOptions", () => {
   });
 
   it("uses the clearance override, unscaled by fit", () => {
-    const { options } = customOptions(custom({ clearance: 0.5, count: 1 }), { ...s, fit: 1.4 }, 0);
+    const { options } = customOptions(custom({ clearance: 0.5, count: 1 }), { ...s, fit: 1.4 });
     const well = at(at(at(options, 0).blocks, 0), 0);
     expect(well.minW).toBe(40.5);
     expect(well.contents).toBe("Dial");
   });
 
   it("falls back to the component id when the name is blank", () => {
-    const { options } = customOptions(custom({ name: "  ", count: 1 }), s, 0);
+    const { options } = customOptions(custom({ name: "  ", count: 1 }), s);
     expect(at(at(at(options, 0).blocks, 0), 0).contents).toBe("x1");
-  });
-
-  it("returns no options and no notices for an invalid component", () => {
-    for (const component of [custom({ h: -1 }), custom({ count: 0 }), custom({ count: 1.5 })]) {
-      expect(customOptions(component, s, 5)).toEqual({ options: [], notices: [] });
-    }
   });
 });

@@ -1,12 +1,5 @@
 import type { BulkComponent, BulkItem, Settings } from "../model/types";
-import {
-  compartment,
-  componentIsValid,
-  displayName,
-  label,
-  mainClearance,
-  type OptionsResult,
-} from "./common";
+import { compartment, displayName, label, mainClearance, type OptionsResult } from "./common";
 import { BULK_MIN_SIDE, MAX_H_RATIO, SHALLOW_H } from "./constants";
 import type { CompartmentReq } from "./types";
 
@@ -72,11 +65,8 @@ function itemLabel(item: BulkItem, fallback: string): string {
   return "volumeMl" in item ? `${name} ${item.volumeMl} ml` : `${name} ×${item.count}`;
 }
 
-/** Storage options for a bulk component; none (and no notices) when it fails validation. */
-export function bulkOptions(c: BulkComponent, s: Settings, index: number): OptionsResult {
-  if (!componentIsValid(c, index)) {
-    return { options: [], notices: [] };
-  }
+/** Storage options for a bulk component. Precondition: it passes validateComponent. */
+export function bulkOptions(c: BulkComponent, s: Settings): OptionsResult {
   const clearance = mainClearance(c, s);
   return {
     options: BULK_SHAPES.map((shape) => ({

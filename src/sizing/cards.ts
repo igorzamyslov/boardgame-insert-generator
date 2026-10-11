@@ -3,7 +3,6 @@ import { effective } from "../model/settings";
 import type { CardsComponent, Notice, Settings } from "../model/types";
 import {
   compartment,
-  componentIsValid,
   displayName,
   fingerPocket,
   label,
@@ -116,11 +115,8 @@ function deckCompartment(
   );
 }
 
-/** Storage options for a cards component; none (and no notices) when it fails validation. */
+/** Storage options for a cards component. Precondition: it passes validateComponent. */
 export function cardOptions(c: CardsComponent, s: Settings, index: number): OptionsResult {
-  if (!componentIsValid(c, index)) {
-    return { options: [], notices: [] };
-  }
   const { dims, notices } = cardDims(c, s, index);
   const storages = c.storage === "auto" ? CARD_STORAGES : [c.storage];
   return {

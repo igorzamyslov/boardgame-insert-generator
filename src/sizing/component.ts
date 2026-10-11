@@ -1,23 +1,31 @@
 import type { Component, Settings } from "../model/types";
 import { bulkOptions } from "./bulk";
 import { cardOptions } from "./cards";
-import type { OptionsResult } from "./common";
+import { componentIsValid, type OptionsResult } from "./common";
 import { customOptions } from "./custom";
 import { minisOptions } from "./minis";
 import { tileOptions } from "./tiles";
 
+/**
+ * Storage options for one component, by kind. An invalid component (one validateComponent gives an
+ * error) has no options and no notices: validateProject already reports it, so sizing never
+ * repeats validation. The per-kind functions assume a valid component.
+ */
 export function componentOptions(c: Component, s: Settings, index: number): OptionsResult {
+  if (!componentIsValid(c, index)) {
+    return { options: [], notices: [] };
+  }
   switch (c.kind) {
     case "cards":
       return cardOptions(c, s, index);
     case "bulk":
-      return bulkOptions(c, s, index);
+      return bulkOptions(c, s);
     case "tiles":
-      return tileOptions(c, s, index);
+      return tileOptions(c, s);
     case "minis":
-      return minisOptions(c, s, index);
+      return minisOptions(c, s);
     case "custom":
-      return customOptions(c, s, index);
+      return customOptions(c, s);
     default: {
       const unreachable: never = c;
       return unreachable;

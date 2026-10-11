@@ -8,12 +8,12 @@ import type { CompartmentReq } from "./types";
 const s: Settings = DEFAULT_SETTINGS;
 
 function line(component = bulk(), settings: Settings = s, option = 0, item = 0): CompartmentReq {
-  return at(at(at(bulkOptions(component, settings, 0).options, option).blocks, item), 0);
+  return at(at(at(bulkOptions(component, settings).options, option).blocks, item), 0);
 }
 
 describe("bulkOptions", () => {
   it("divides the item volume by the packing factor; shallow first, then deep", () => {
-    const { options, notices } = bulkOptions(bulk(), s, 0);
+    const { options, notices } = bulkOptions(bulk(), s);
     expect(notices).toEqual([]);
     expect(options.map((o) => o.id)).toEqual(["shallow", "deep"]);
     // V = 30 · 10³ / 0.5 = 60 000 mm³
@@ -81,7 +81,6 @@ describe("bulkOptions", () => {
         ],
       }),
       s,
-      0,
     );
     expect(at(options, 0).blocks.map((b) => b.map((c) => c.contents))).toEqual([
       ["Cubes ×30"],
@@ -102,16 +101,6 @@ describe("bulkOptions", () => {
     }
     expect(line(component).minW).toBe(73.49); // √5400 = 73.48…, rounded up
     expect(line(component, s, 1).minW).toBe(41.61); // ∛72000 = 41.601…, rounded up
-  });
-
-  it("returns no options and no notices for an invalid component", () => {
-    for (const component of [
-      bulk({ items: [] }),
-      bulk({ items: [{ name: "X", count: 0, w: 1, d: 0, h: 1 }] }),
-      bulk({ items: [{ name: "Y", volumeMl: -1 }] }),
-    ]) {
-      expect(bulkOptions(component, s, 1)).toEqual({ options: [], notices: [] });
-    }
   });
 });
 

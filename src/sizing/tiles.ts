@@ -1,7 +1,6 @@
 import type { Settings, TileShape, TilesComponent } from "../model/types";
 import {
   compartment,
-  componentIsValid,
   cornerRelief,
   displayName,
   fingerPocket,
@@ -97,11 +96,8 @@ function uprightStack(
   );
 }
 
-/** Storage options for a tiles component; none (and no notices) when it fails validation. */
-export function tileOptions(c: TilesComponent, s: Settings, index: number): OptionsResult {
-  if (!componentIsValid(c, index)) {
-    return { options: [], notices: [] };
-  }
+/** Storage options for a tiles component. Precondition: it passes validateComponent. */
+export function tileOptions(c: TilesComponent, s: Settings): OptionsResult {
   const clearance = mainClearance(c, s);
   const counts = columnCounts(c.count, c.thickness);
   const options: StorageOption[] = [];

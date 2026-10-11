@@ -26,8 +26,8 @@ export function displayName(c: Component): string {
 /**
  * Sizing precondition: size() is only meaningful for a project without error-level notices
  * (plans 4 and 5 never optimize otherwise), and the UI already shows validateProject's notices.
- * Each component's options function calls this defensively and, when it is false, returns no
- * options and no notices, so sizing never repeats validation.
+ * componentOptions calls this once, defensively, and when it is false returns no options and no
+ * notices, so sizing never repeats validation.
  */
 export function componentIsValid(c: Component, index: number): boolean {
   return !validateComponent(c, index).some((n) => n.level === "error");

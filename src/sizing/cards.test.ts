@@ -202,19 +202,6 @@ describe("cardOptions", () => {
     expect(notices).toEqual([]);
   });
 
-  it("returns no options and no notices for a component with validation errors", () => {
-    // validateProject already reports these; sizing must not repeat them.
-    for (const bad of [
-      cards({ decks: [] }),
-      cards({ shortSide: 0 }),
-      cards({ decks: [{ name: "A", count: 0 }] }),
-      cards({ sleeve: { w: 0, h: 70, thickness: 0.2 } }),
-      cards({ thickness: { mode: "measured", cards: 0, stackMm: 45 } }),
-    ]) {
-      expect(cardOptions(bad, s, 2)).toEqual({ options: [], notices: [] });
-    }
-  });
-
   it("labels an unnamed deck with the component name, or its id when that is blank", () => {
     const named = deck(cards({ decks: [{ name: " ", count: 5 }] }));
     expect(named.contents).toBe("Cards ×5");
