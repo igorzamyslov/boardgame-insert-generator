@@ -1,7 +1,7 @@
 import { DEFAULT_BOX, DEFAULT_PRINTER, DEFAULT_PROJECT_NAME } from "./defaults";
 import { newId } from "./ids";
 import type { Json } from "./json";
-import { isRecord, MAX_JSON_DEPTH, pointerKeys, summarize, valueAt } from "./json";
+import { isRecord, MAX_JSON_DEPTH, pointerKeys, quote, summarize, valueAt } from "./json";
 import { readComponents } from "./schema-read-components";
 import { readLayout } from "./schema-read-layout";
 import type { Ctx } from "./schema-reader";
@@ -53,10 +53,23 @@ function readLock(r: Reader): Lock | null {
 }
 
 /**
+ * A lock as far as the file says what it is, for notices about locks that
+ * aren't in the project: `"size" lock for tray "a:p0:0" (lock 4 in the file)`.
+ */
+function describeLock(raw: unknown, index: number): string {
+  const fields = isRecord(raw) ? raw : {};
+  const kind = typeof fields.kind === "string" ? `${quote(fields.kind)} lock` : "lock";
+  const tray = typeof fields.trayKey === "string" ? ` for tray ${quote(fields.trayKey)}` : "";
+  return `${kind}${tray} (lock ${index + 1} in the file)`;
+}
+
+/**
  * Locks are always droppable (spec §7.2): an unreadable lock is dropped with a
- * notice, never fatal. In newer-minor files a lock of an unknown kind is not
- * applied but kept verbatim in `kept` (its path indexes the surviving locks,
- * not the file), and written back at that index on save.
+ * notice that names it and says why, never fatal. In newer-minor files a lock
+ * of an unknown kind is not applied but kept verbatim in `kept` (its path
+ * indexes the surviving locks, not the file), and written back at that index
+ * on save. Notices about dropped or kept locks point into the file, as those
+ * locks aren't in project.locks.
  */
 function readLocks(list: unknown[], ctx: Ctx): { locks: Lock[]; kept: ForeignValue[] } {
   const locks: Lock[] = [];
@@ -64,7 +77,12 @@ function readLocks(list: unknown[], ctx: Ctx): { locks: Lock[]; kept: ForeignVal
   list.forEach((raw, i) => {
     const path = `/locks/${i}`;
     const sub = childCtx(ctx);
-    const lock = isRecord(raw) ? readLock(new Reader(raw, path, sub)) : null;
+    let lock: Lock | null = null;
+    if (isRecord(raw)) {
+      lock = readLock(new Reader(raw, path, sub));
+    } else {
+      addError(sub, `${path}: expected an object`);
+    }
     if (lock && sub.errors.length === 0 && sub.unknownValues.length === 0) {
       adopt(ctx, sub, { from: path, to: `/locks/${locks.length}` });
       locks.push(lock);
@@ -76,15 +94,14 @@ function readLocks(list: unknown[], ctx: Ctx): { locks: Lock[]; kept: ForeignVal
         level: "warning",
         code: "schema.unknownValue",
         path,
-        message:
-          "This lock is of a kind this app version doesn't know. It is kept and saved back, but not applied.",
+        message: `The ${describeLock(raw, i)} is of a kind this app version doesn't know. It is kept and saved back, but not applied.`,
       });
     } else {
       ctx.notices.push({
         level: "warning",
         code: "lock.dropped",
         path,
-        message: "A saved lock couldn't be read and was dropped.",
+        message: `Couldn't read the ${describeLock(raw, i)}, so it was dropped: ${summarize(sub.errors, sub.omitted)}.`,
       });
     }
   });

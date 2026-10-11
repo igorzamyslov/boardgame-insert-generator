@@ -88,17 +88,17 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
   if (raw === undefined) {
     return undefined;
   }
-  const dropped = (): undefined => {
+  const dropped = (reason: string): undefined => {
     ctx.notices.push({
       level: "warning",
       code: "layout.dropped",
       path: "/layout",
-      message: "The saved layout couldn't be read. The insert will be optimized again.",
+      message: `The saved layout couldn't be read (${reason}). The insert will be optimized again.`,
     });
     return undefined;
   };
   if (!isRecord(raw)) {
-    return dropped();
+    return dropped("/layout: expected an object");
   }
   const sub = childCtx(ctx);
   const r = new Reader(raw, "/layout", sub);
@@ -125,7 +125,8 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
     trays,
   });
   if (sub.errors.length > 0 || sub.unknownValues.length > 0) {
-    return dropped();
+    const problems = [...sub.errors, ...sub.unknownValues.map((p) => `${p}: unknown value`)];
+    return dropped(summarize(problems, sub.omitted));
   }
   adopt(ctx, sub);
   if (unsupported.length > 0) {

@@ -228,6 +228,20 @@ describe("readProject: files of this schema line", () => {
       ["lock.dropped", "/locks/3"],
       ["lock.dropped", "/locks/4"],
     ]);
+    expect(result.notices.map((n) => n.message)).toEqual([
+      'Couldn\'t read the "size" lock for tray "x" (lock 4 in the file), so it was dropped: /locks/3/w: missing; /locks/3/d: missing; /locks/3/h: missing.',
+      "Couldn't read the lock (lock 5 in the file), so it was dropped: /locks/4: expected an object.",
+    ]);
+  });
+
+  it("names a dropped lock as far as it can be read", () => {
+    const input = sampleJson();
+    input.locks = [{ kind: "teleport", trayKeys: ["a"] }, { trayKey: "t".repeat(100) }];
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.notices.map((n) => n.message)).toEqual([
+      'Couldn\'t read the "teleport" lock (lock 1 in the file), so it was dropped: /locks/0/kind: unknown value "teleport".',
+      `Couldn't read the lock for tray "${"t".repeat(40)}…" (lock 2 in the file), so it was dropped: /locks/1/kind: missing.`,
+    ]);
   });
 
   it("drops an unreadable stored layout with a notice", () => {
@@ -236,6 +250,16 @@ describe("readProject: files of this schema line", () => {
     const result = expectOk(readProject(input, CURRENT));
     expect(result.project.layout).toBeUndefined();
     expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+    expect(result.notices[0]?.message).toBe(
+      "The saved layout couldn't be read (/layout/seed: expected a number). The insert will be optimized again.",
+    );
+  });
+
+  it("says why a stored layout that isn't an object was dropped", () => {
+    const result = expectOk(readProject({ ...sampleJson(), layout: [1] }, CURRENT));
+    expect(result.notices[0]?.message).toBe(
+      "The saved layout couldn't be read (/layout: expected an object). The insert will be optimized again.",
+    );
   });
 });
 
@@ -325,6 +349,9 @@ describe("readProject: files from a newer minor", () => {
     expect(result.notices.map((n) => [n.code, n.path])).toEqual([
       ["schema.unknownValue", "/locks/3"],
     ]);
+    expect(result.notices[0]?.message).toBe(
+      'The "magnet" lock for tray "x" (lock 4 in the file) is of a kind this app version doesn\'t know. It is kept and saved back, but not applied.',
+    );
   });
 
   it("indexes a kept lock among the surviving locks, not the file's", () => {
