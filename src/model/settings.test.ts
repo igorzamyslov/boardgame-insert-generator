@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SETTINGS,
+  FIT_CHOICES,
+  WALL_CHOICES,
   applyFitChoice,
   applyWallChoice,
   effective,
@@ -8,6 +10,7 @@ import {
   topPlane,
   wallChoiceOf,
 } from "./settings";
+import type { FitChoice, WallChoice } from "./settings";
 import type { Box } from "./types";
 
 describe("DEFAULT_SETTINGS", () => {
@@ -33,6 +36,24 @@ describe("DEFAULT_SETTINGS", () => {
       packingFactor: 0.5,
       leftover: "spare",
     });
+  });
+
+  it("is deeply frozen, including the nested lip and fingerPocket objects", () => {
+    expect(Object.isFrozen(DEFAULT_SETTINGS)).toBe(true);
+    expect(Object.isFrozen(DEFAULT_SETTINGS.lip)).toBe(true);
+    expect(Object.isFrozen(DEFAULT_SETTINGS.fingerPocket)).toBe(true);
+  });
+
+  it("cannot be changed through a derived object's shared nested fields", () => {
+    const derived = applyFitChoice(DEFAULT_SETTINGS, "tight");
+    expect(() => {
+      derived.lip.play = 9;
+    }).toThrow(TypeError);
+    expect(() => {
+      derived.fingerPocket.width = 9;
+    }).toThrow(TypeError);
+    expect(DEFAULT_SETTINGS.lip.play).toBe(0.25);
+    expect(DEFAULT_SETTINGS.fingerPocket.width).toBe(22);
   });
 });
 
@@ -62,6 +83,19 @@ describe("simple-mode choices", () => {
     expect(wallChoiceOf({ ...DEFAULT_SETTINGS, wall: 1.8 })).toBe("custom");
     expect(fitChoiceOf({ ...DEFAULT_SETTINGS, fit: 1.2 })).toBe("custom");
   });
+
+  it.each(Object.keys(WALL_CHOICES) as WallChoice[])("round-trips wall choice %s", (c) => {
+    expect(wallChoiceOf(applyWallChoice(DEFAULT_SETTINGS, c))).toBe(c);
+  });
+
+  it.each(Object.keys(FIT_CHOICES) as FitChoice[])("round-trips fit choice %s", (c) => {
+    expect(fitChoiceOf(applyFitChoice(DEFAULT_SETTINGS, c))).toBe(c);
+  });
+
+  it("treats float noise as the same choice, and a real difference as custom", () => {
+    expect(wallChoiceOf({ ...DEFAULT_SETTINGS, wall: 1.6 + 1e-12 })).toBe("normal");
+    expect(wallChoiceOf({ ...DEFAULT_SETTINGS, wall: 1.6 + 1e-6 })).toBe("custom");
+  });
 });
 
 describe("effective", () => {
@@ -86,6 +120,17 @@ describe("effective", () => {
       lipPlay: 0.175,
     });
   });
+
+  it("scales to clean values at fit 1.4 (loose)", () => {
+    expect(effective(applyFitChoice(DEFAULT_SETTINGS, "loose"))).toEqual({
+      cardClearance: 2.1,
+      cardStackClearance: 1.4,
+      pieceClearance: 1.4,
+      boxClearance: 0.7,
+      trayGap: 0.28,
+      lipPlay: 0.35,
+    });
+  });
 });
 
 describe("topPlane", () => {
@@ -102,5 +147,10 @@ describe("topPlane", () => {
     expect(topPlane(box, DEFAULT_SETTINGS)).toBe(62);
     expect(topPlane(box, { ...DEFAULT_SETTINGS, topPressFit: 0.3 })).toBe(62.3);
     expect(topPlane({ ...box, headroom: 0 }, { ...DEFAULT_SETTINGS, topPressFit: -2 })).toBe(68);
+  });
+
+  it("rounds away float noise from decimal inputs", () => {
+    const decimalBox: Box = { ...box, innerHeight: 70.1, headroom: 8.2 };
+    expect(topPlane(decimalBox, { ...DEFAULT_SETTINGS, topPressFit: 0.3 })).toBe(62.2);
   });
 });
