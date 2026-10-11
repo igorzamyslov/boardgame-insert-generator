@@ -1,6 +1,12 @@
 import { groupOf } from "./defaults";
 import { deepFreeze } from "./freeze";
-import { MIN_FEATURE_MM, SPEC_TOLERANCE, maxBottomChamfer, topPlane } from "./settings";
+import {
+  CORNER_MARGIN,
+  MIN_FEATURE_MM,
+  SPEC_TOLERANCE,
+  maxBottomChamfer,
+  topPlane,
+} from "./settings";
 import type { Component, Lock, Notice, Project, Settings } from "./types";
 
 /**
@@ -74,7 +80,13 @@ export interface SettingRange {
 }
 
 const settingRanges: SettingRange[] = [
-  { path: "wall", label: "Wall", get: (s) => s.wall, min: MIN_FEATURE_MM, max: 10 },
+  {
+    path: "wall",
+    label: "Wall",
+    get: (s) => s.wall,
+    min: MIN_FEATURE_MM + CORNER_MARGIN,
+    max: 10,
+  },
   { path: "floor", label: "Floor", get: (s) => s.floor, min: MIN_FEATURE_MM, max: 10 },
   { path: "divider", label: "Divider", get: (s) => s.divider, min: MIN_FEATURE_MM, max: 10 },
   { path: "fit", label: "Fit", get: (s) => s.fit, min: 0.1, max: 3 },
@@ -147,8 +159,10 @@ const settingRanges: SettingRange[] = [
 ];
 
 /**
- * Advanced-settings ranges. Wall, floor, divider and lip-thickness minimums are
- * MIN_FEATURE_MM, the minimum printable feature width (spec §6.1); topPressFit is
+ * Advanced-settings ranges. Floor, divider and lip-thickness minimums are MIN_FEATURE_MM, the
+ * minimum printable feature width (spec §6.1). The wall minimum adds CORNER_MARGIN: a sharp cut
+ * corner at the wall keeps MIN_FEATURE_MM to the polygon of the rounded outer corner only with
+ * that margin (maxCornerRadius in ./settings). Lipped walls are thicker anyway. topPressFit is
  * spec §3 rule 2. The finger pocket reach is at least 5 mm, so every pocket sizing emits
  * has a positive reach (the geometry rejects a zero one). The lip is at least 1 mm high: the
  * geometry chamfers its inner top edge by 0.6 mm and a lower lip is useless. Frozen, entries

@@ -56,19 +56,19 @@ describe("minOuter", () => {
         "flat-c1|strip|split1",
         cfg,
       );
-    // A 5 mm finger pocket and 0.8 mm walls: 6.6 × 26.6 × 2.2 at the default 0.4 mm chamfer.
-    const narrow: Settings = { ...s, wall: 0.8, fingerPocket: { width: 5, reach: 12 } };
-    expect(minOuter(pip(1, narrow), narrow, ground)).toEqual({ w: 6.6, d: 26.6, h: 2.2 });
-    // minOuter is plain arithmetic: a 3 mm chamfer on 0.8 mm walls is invalid for size() (settingsValid)
+    // A 5 mm finger pocket and 0.9 mm walls: 6.8 × 26.8 × 2.2 at the default 0.4 mm chamfer.
+    const narrow: Settings = { ...s, wall: 0.9, fingerPocket: { width: 5, reach: 12 } };
+    expect(minOuter(pip(1, narrow), narrow, ground)).toEqual({ w: 6.8, d: 26.8, h: 2.2 });
+    // minOuter is plain arithmetic: a 3 mm chamfer on 0.9 mm walls is invalid for size() (settingsValid)
     // but still gives the chamfer minimums.
     const steep = { ...narrow, bottomChamfer: 3 };
-    expect(minOuter(pip(1, narrow), steep, ground)).toEqual({ w: 7.6, d: 26.6, h: 3.8 });
+    expect(minOuter(pip(1, narrow), steep, ground)).toEqual({ w: 7.6, d: 26.8, h: 3.8 });
   });
 
   it("uses a chamfer of at least 0.5 mm above the ground level", () => {
     const thin: Settings = {
       ...s,
-      wall: 0.8,
+      wall: 0.9,
       floor: 0.8,
       bottomChamfer: 0.2,
       fingerPocket: { width: 5, reach: 12 },
@@ -88,8 +88,8 @@ describe("minOuter", () => {
       thin,
     );
     // Content depth 0.81: h = max(0.81, 0.2 + 0.8) on level 0, max(0.81, 0.5 + 0.8) above it.
-    expect(minOuter(part, thin, ground)).toEqual({ w: 6.6, d: 26.6, h: 1 });
-    expect(minOuter(part, thin, { lipped: false, level: 1 })).toEqual({ w: 6.6, d: 26.6, h: 1.3 });
+    expect(minOuter(part, thin, ground)).toEqual({ w: 6.8, d: 26.8, h: 1 });
+    expect(minOuter(part, thin, { lipped: false, level: 1 })).toEqual({ w: 6.8, d: 26.8, h: 1.3 });
   });
 
   it("uses the lipped wall on a tray that carries a lip", () => {

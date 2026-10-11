@@ -173,7 +173,7 @@ const componentsArb: Arbitrary<Component[]> = fc
  */
 const settingsArb: Arbitrary<Settings> = fc
   .record({
-    wall: setting(0.8, 3),
+    wall: setting(0.9, 3),
     divider: setting(0.8, 3),
     floor: setting(0.8, 3),
     bottomChamfer: setting(0, 3),

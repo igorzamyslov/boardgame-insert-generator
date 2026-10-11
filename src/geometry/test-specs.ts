@@ -1,7 +1,17 @@
 // TraySpec fixtures for geometry and export tests, one per tray type.
 // Numbers follow spec §6/§7.1 with the geometry settings pinned in GEO.
-import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
+import type {
+  CompartmentSpec,
+  Component,
+  FeatureSpec,
+  Settings,
+  Side,
+  TraySpec,
+} from "../model/types";
 import { DEFAULT_SETTINGS } from "../model/settings";
+import { parseProject } from "../model/schema";
+import type { OuterSize, RealizedTray, RealizeOptions } from "../sizing/types";
+import { ceilU, fromU } from "../sizing/units";
 
 export const GEO: Settings = {
   ...DEFAULT_SETTINGS,
@@ -209,3 +219,41 @@ export const upperLevel1 = traySpec({
   h: 20,
   compartments: [compartment({ x: 1.6, y: 1.6, w: 100 - 2.9 - 3.2, d: 60 - 2.9 - 3.2 })],
 });
+
+// The components and settings of a test/fixtures project.
+export function loadFixture(raw: unknown): { components: Component[]; settings: Settings } {
+  const parsed = parseProject(raw);
+  if (!parsed.ok) {
+    throw new Error(parsed.error);
+  }
+  return parsed.project;
+}
+
+// A tray as the layout builds it from a realized tray placed at `outer`.
+export function traySpecFrom(
+  realized: RealizedTray,
+  outer: OuterSize,
+  opts: RealizeOptions,
+  settings: Settings,
+  key: string,
+): TraySpec {
+  return {
+    key,
+    part: "tray",
+    path: "0",
+    stack: 0,
+    level: opts.level,
+    x: 0,
+    y: 0,
+    z: 0,
+    w: outer.w,
+    d: outer.d,
+    h: outer.h,
+    rotated: false,
+    wall: realized.wall,
+    floor: fromU(ceilU(settings.floor)),
+    lip: opts.lipped,
+    solid: false,
+    compartments: realized.compartments,
+  };
+}

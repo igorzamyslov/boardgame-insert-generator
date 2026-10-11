@@ -550,6 +550,16 @@ describe("setting ranges", () => {
     expect(validateProject(p)).toEqual([]);
   });
 
+  it("needs a wall of at least 0.9 mm (0.8 plus the corner margin)", () => {
+    const p = newProject();
+    p.settings = { ...p.settings, wall: 0.89 };
+    expect(codes(validateProject(p))).toEqual([[field.setting, "/settings/wall"]]);
+    expect(settingsValid(p.settings)).toBe(false);
+    p.settings = { ...p.settings, wall: 0.9 };
+    expect(validateProject(p)).toEqual([]);
+    expect(settingsValid(p.settings)).toBe(true);
+  });
+
   it("rejects a NaN setting", () => {
     const p = newProject();
     p.settings = { ...p.settings, wall: Number.NaN };
@@ -567,16 +577,16 @@ describe("setting ranges", () => {
     expect(codes(validateProject(withChamfer(1.6, 1.2, 1.82)))).toEqual([
       [field.bottomChamfer, "/settings/bottomChamfer"],
     ]);
-    // 0.8 mm walls and floor: at most 0.8 − 0.1/√2 = 0.729 mm.
-    expect(validateProject(withChamfer(0.8, 0.8, 0.72))).toEqual([]);
-    expect(codes(validateProject(withChamfer(0.8, 0.8, 0.74)))).toEqual([
+    // The thinnest wall (0.9 mm) and floor (0.8 mm): at most 0.9 − 0.1/√2 = 0.829 mm.
+    expect(validateProject(withChamfer(0.9, 0.8, 0.82))).toEqual([]);
+    expect(codes(validateProject(withChamfer(0.9, 0.8, 0.84)))).toEqual([
       [field.bottomChamfer, "/settings/bottomChamfer"],
     ]);
-    expect(codes(validateProject(withChamfer(0.8, 0.8, 3)))).toEqual([
+    expect(codes(validateProject(withChamfer(0.9, 0.8, 3)))).toEqual([
       [field.bottomChamfer, "/settings/bottomChamfer"],
     ]);
-    expect(settingsValid(withChamfer(0.8, 0.8, 3).settings)).toBe(false);
-    expect(settingsValid(withChamfer(0.8, 0.8, 0.72).settings)).toBe(true);
+    expect(settingsValid(withChamfer(0.9, 0.8, 3).settings)).toBe(false);
+    expect(settingsValid(withChamfer(0.9, 0.8, 0.82).settings)).toBe(true);
   });
 
   it("does not add a chamfer notice when the wall, floor or chamfer is out of range", () => {

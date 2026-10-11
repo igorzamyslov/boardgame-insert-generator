@@ -183,8 +183,8 @@ describe("bottom chamfer rules", () => {
     expect(at(1.6, 1.2)).toBeCloseTo(1.6 + 0.3 / Math.SQRT2, 9);
     expect(at(1.2, 1.2)).toBeCloseTo(1.2 + 0.3 / Math.SQRT2, 9);
     expect(at(3, 3)).toBeCloseTo(3 + 2.1 / Math.SQRT2, 9);
-    expect(at(0.8, 0.8)).toBeCloseTo(0.8 - 0.1 / Math.SQRT2, 9);
-    // 0.8 mm walls: the outer corner limit is the wall itself.
-    expect(at(0.8, 3)).toBeCloseTo(0.8, 9);
+    expect(at(0.9, 0.8)).toBeCloseTo(0.9 - 0.1 / Math.SQRT2, 9);
+    // The thinnest valid wall, 0.9 mm: the outer corner limit is the wall itself.
+    expect(at(0.9, 3)).toBeCloseTo(0.9, 9);
   });
 });
