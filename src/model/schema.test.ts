@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { sampleProject } from "../test-support/sample";
 import { newComponent, newProject } from "./defaults";
 import { MAX_JSON_DEPTH } from "./json";
-import { noForeign, parseProject, serializeProject, toSerializable } from "./schema";
+import {
+  MIGRATIONS,
+  noForeign,
+  parseProject,
+  parseProjectWith,
+  serializeProject,
+  toSerializable,
+} from "./schema";
 import type { Project } from "./types";
 import { validateProject } from "./validate";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
@@ -239,6 +246,24 @@ describe("parseProject: spec §5 bounds", () => {
     const input = raw(sampleProject());
     firstCards(input).decks = [{ name: "Empty", count: 0 }];
     expect(parseProject(input).ok).toBe(true);
+  });
+
+  it("loads over-limit input without enforceBounds, but never corrupt structure", () => {
+    const input = raw(sampleProject());
+    firstCards(input).decks = [{ name: "Huge", count: 5000 }];
+    const opts = { appSchemaVersion: SCHEMA_VERSION, migrations: MIGRATIONS };
+    expect(parseProjectWith(input, opts).ok).toBe(false);
+    expect(parseProjectWith(input, { ...opts, enforceBounds: true }).ok).toBe(false);
+    const loaded = parseProjectWith(input, { ...opts, enforceBounds: false });
+    expect(loaded.ok && validateProject(loaded.project).map((n) => n.code)).toContain(
+      "limit.count",
+    );
+
+    const twins = raw(sampleProject());
+    const components = twins.components as Json[];
+    components.push({ ...firstCards(twins) });
+    const refused = parseProjectWith(twins, { ...opts, enforceBounds: false });
+    expect(refused.ok ? "loaded" : refused.error).toMatch(/share the id/);
   });
 
   it("uses the current schema version by default", () => {

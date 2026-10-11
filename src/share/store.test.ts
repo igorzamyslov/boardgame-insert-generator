@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { newProject } from "../model/defaults";
+import { newComponent, newProject } from "../model/defaults";
 import { noForeign, serializeProject } from "../model/schema";
 import type { Project } from "../model/types";
+import { validateProject } from "../model/validate";
 import { APP_VERSION } from "../model/version";
 import { MemoryStorage } from "../test-support/memory-storage";
 import { sampleProject } from "../test-support/sample";
+import { importJsonText } from "./file";
+import { decodeHash, encodeHash } from "./link";
 import { STORAGE_PREFIX, StoreWriteError, createProjectStore } from "./store";
 
 function named(name: string): Project {
@@ -284,6 +287,38 @@ describe("createProjectStore with a damaged index", () => {
     expect(() => {
       JSON.parse(storage.getItem(INDEX) ?? "");
     }).not.toThrow();
+  });
+});
+
+describe("createProjectStore and the spec §5 upper bounds", () => {
+  it("loads an autosave over the bounds, which links and files refuse", () => {
+    const store = createProjectStore(new MemoryStorage());
+    const p = named("Big");
+    p.components = Array.from({ length: 101 }, () => newComponent("custom"));
+    store.save(p, noForeign());
+
+    const loaded = store.load(p.id);
+    if (!loaded?.ok) {
+      throw new Error("expected the autosave to load");
+    }
+    expect(loaded.project.components).toHaveLength(101);
+    expect(validateProject(loaded.project).map((n) => n.code)).toContain("limit.components");
+
+    const refused = /Too many components \(101\)/;
+    const file = importJsonText(serializeProject(p, noForeign()));
+    expect(file.ok ? "loaded" : file.error).toMatch(refused);
+    const link = decodeHash(encodeHash(p, noForeign()));
+    expect(link.ok ? "loaded" : link.error).toMatch(refused);
+  });
+
+  it("still refuses a stored project with corrupt structure", () => {
+    const store = createProjectStore(new MemoryStorage());
+    const p = named("Twins");
+    const c = newComponent("custom");
+    p.components = [c, { ...c }];
+    store.save(p, noForeign());
+    const loaded = store.load(p.id);
+    expect(loaded?.ok ? "loaded" : loaded?.error).toMatch(/share the id/);
   });
 });
 

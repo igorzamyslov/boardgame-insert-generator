@@ -1,6 +1,7 @@
 import { isRecord } from "../model/json";
-import { parseProject, serializeProject } from "../model/schema";
+import { MIGRATIONS, parseProjectWith, serializeProject } from "../model/schema";
 import type { ForeignData, ParseResult, Project } from "../model/types";
+import { SCHEMA_VERSION } from "../model/version";
 
 /** Every localStorage key this app uses starts with this. */
 export const STORAGE_PREFIX = "insert-generator:";
@@ -87,6 +88,8 @@ function unavailableStore(): ProjectStore {
  * `available` is false and the store does nothing; a full storage stays
  * available (readable) and only save() fails. Only save() throws
  * (StoreWriteError); a damaged index or entry never makes any method throw.
+ * load() opens projects over the spec §5 upper bounds (links and files refuse
+ * them), so an autosave never locks the user out.
  */
 export function createProjectStore(storage: Storage | null = defaultStorage()): ProjectStore {
   if (!isReadable(storage)) {
@@ -225,7 +228,13 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
       } catch {
         return { ok: false, error: "This saved project is damaged and can't be opened." };
       }
-      return parseProject(raw);
+      // Bounds aren't enforced: the user's own autosave must always open
+      // (validateProject still reports anything over a limit).
+      return parseProjectWith(raw, {
+        appSchemaVersion: SCHEMA_VERSION,
+        migrations: MIGRATIONS,
+        enforceBounds: false,
+      });
     },
 
     save(p, foreign) {

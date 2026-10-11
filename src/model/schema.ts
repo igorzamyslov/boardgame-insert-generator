@@ -59,6 +59,13 @@ export const MIGRATIONS: Migration[] = deepFreeze([]);
 export interface ParseOptions {
   appSchemaVersion: string;
   migrations: readonly Migration[];
+  /**
+   * Refuse input over the spec §5 upper bounds (`limit.*` notices). Default
+   * true, for links and files. ProjectStore.load passes false so the user's
+   * own autosave always opens; validateProject() still reports the limits.
+   * Corrupt structure (`invalid.*`) is refused either way.
+   */
+  enforceBounds?: boolean;
 }
 
 function fail(error: string): ParseResult {
@@ -142,7 +149,10 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
   if (!result.ok) {
     return result;
   }
-  const blocking = validateProject(result.project).filter(isBlocking);
+  const enforceBounds = opts.enforceBounds ?? true;
+  const blocking = validateProject(result.project).filter(
+    (n) => isBlocking(n) && (enforceBounds || !n.code.startsWith("limit.")),
+  );
   if (blocking.length > 0) {
     return fail(`This project can't be opened: ${summarize(blocking.map((n) => n.message))}`);
   }
