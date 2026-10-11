@@ -73,7 +73,7 @@ const PROFILES: [string, Profile][] = [
     },
   ],
   ["lip height 1", (s) => ({ ...s, lip: { ...s.lip, enabled: true, height: 1 } })],
-  ["lip thickness 0.8", (s) => ({ ...s, lip: { ...s.lip, enabled: true, thickness: 0.8 } })],
+  ["lip thickness 0.9", (s) => ({ ...s, lip: { ...s.lip, enabled: true, thickness: 0.9 } })],
   [
     "three decimals",
     (s) => ({

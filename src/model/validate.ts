@@ -137,7 +137,7 @@ const settingRanges: SettingRange[] = [
     path: "lip/thickness",
     label: "Lip thickness",
     get: (s) => s.lip.thickness,
-    min: MIN_FEATURE_MM,
+    min: MIN_FEATURE_MM + CORNER_MARGIN,
     max: 5,
   },
   { path: "lip/ledge", label: "Lip ledge", get: (s) => s.lip.ledge, min: 0.5, max: 10 },
@@ -153,10 +153,12 @@ const settingRanges: SettingRange[] = [
 ];
 
 /**
- * Advanced-settings ranges. Floor, divider and lip-thickness minimums are MIN_FEATURE_MM, the
- * minimum printable feature width (spec §6.1). The wall minimum adds CORNER_MARGIN: a sharp cut
- * corner at the wall keeps MIN_FEATURE_MM to the polygon of the rounded outer corner only with
- * that margin (maxCornerRadius in ./settings). Lipped walls are thicker anyway. topPressFit is
+ * Advanced-settings ranges. Floor and divider minimums are MIN_FEATURE_MM, the minimum printable
+ * feature width (spec §6.1). The wall minimum adds CORNER_MARGIN: a sharp cut corner at the wall
+ * keeps MIN_FEATURE_MM to the polygon of the rounded outer corner only with that margin
+ * (maxCornerRadius in ./settings). The lip thickness minimum adds it too: the lip is a ring
+ * between two concentric polygons, only t·cos(Δ/2) thick at a corner facet, so a lip of
+ * MIN_FEATURE_MM measures thinner than that (0.9·cos(22.5°) = 0.83 mm passes). topPressFit is
  * spec §3 rule 2. The finger pocket reach is at least 5 mm, so every pocket sizing emits
  * has a positive reach (the geometry rejects a zero one). The lip is at least 1 mm high: the
  * geometry chamfers its inner top edge by 0.6 mm and a lower lip is useless. Frozen, entries

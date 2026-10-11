@@ -561,6 +561,16 @@ describe("setting ranges", () => {
     expect(settingsValid(p.settings)).toBe(true);
   });
 
+  it("needs a lip thickness of at least 0.9 mm (0.8 plus the corner margin)", () => {
+    const p = newProject();
+    p.settings = { ...p.settings, lip: { ...p.settings.lip, thickness: 0.89 } };
+    expect(codes(validateProject(p))).toEqual([[field.setting, "/settings/lip/thickness"]]);
+    expect(settingsValid(p.settings)).toBe(false);
+    p.settings = { ...p.settings, lip: { ...p.settings.lip, thickness: 0.9 } };
+    expect(validateProject(p)).toEqual([]);
+    expect(settingsValid(p.settings)).toBe(true);
+  });
+
   it("rejects a NaN setting", () => {
     const p = newProject();
     p.settings = { ...p.settings, wall: Number.NaN };

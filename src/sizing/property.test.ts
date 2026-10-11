@@ -180,7 +180,7 @@ const settingsArb: Arbitrary<Settings> = fc
     fit: fc.constantFrom(0.7, 1, 1.4),
     lip: fc.record({
       enabled: fc.boolean(),
-      thickness: setting(0.8, 2),
+      thickness: setting(0.9, 2),
       ledge: setting(0.5, 3),
       height: setting(1, 5),
     }),
