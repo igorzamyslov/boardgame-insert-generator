@@ -1,6 +1,6 @@
 # Board Game Insert Generator — Design
 
-Date: 2026-10-11 · Status: reviewed, pending user approval · App: `apps/insert-generator/`
+Date: 2026-10-11 · Status: approved; implementation planned (see `docs/superpowers/plans/`) · App: `apps/insert-generator/`
 
 ## 1. Goal
 
@@ -75,7 +75,8 @@ box.
    explicit warning (§7.3).
 4. **Clean stacking.** A stacked tray sits inside the lower tray's chamfered
    locating lip (§6.1) and cannot shift more than `lip.play` per side.
-   With the lip turned off this is not ensured and the app warns.
+   With the lip turned off this is not ensured, and the app warns when a
+   layout has stacked trays.
 5. **Fits the bed.** Every printed part fits the usable bed
    `(bedX − 2·bedMargin) × (bedY − 2·bedMargin) × bedZ`, in either XY rotation.
 6. **Openings face up.** Box orientation = print orientation. No supports,
@@ -97,7 +98,10 @@ project state, which would be unwieldy in the vanilla DOM style of the other
 apps. Libraries: `manifold-3d` (Apache-2.0, WASM CSG), `three` (preview),
 `fflate` (zip + URL compression). No copyleft dependencies.
 
-Each module is a pure, independently tested unit with plain-data interfaces:
+Each module is a pure, independently tested unit with plain-data interfaces.
+The exact, binding signatures live in the implementation roadmap
+(`docs/superpowers/plans/2026-10-11-insert-generator-00-roadmap.md` §4); the
+table below is a summary:
 
 | Module          | Responsibility                                                                   | Interface                                                                                                   |
 | --------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -132,7 +136,8 @@ on demand) → viewer / export / instructions.
 - `renovate.json`: a package rule that disables automerge for `manifold-3d`.
 - Root ESLint config: ban `Math.random` in `apps/insert-generator/src/layout/**`
   (`no-restricted-properties`).
-- Ship a third-party licenses page in `dist/` (e.g. `rollup-plugin-license`),
+- Ship a third-party licenses file (`dist/third-party-licenses.txt`, linked
+  from the footer) (e.g. `rollup-plugin-license`),
   including manifold's Apache-2.0 license/NOTICE and its embedded Clipper2
   (BSL-1.0).
 
@@ -378,7 +383,9 @@ Coordinates are stored in mm and computed as integer 0.01 mm units.
 - Fill (§7.2) thickens walls and dividers toward the compartment only; outer
   faces, lip and insets never move.
 - Minimum feature width 0.8 mm (2 lines of a fixed internal 0.4 mm line-width
-  assumption); no wall, divider or lip is thinner.
+  assumption); no wall, divider or lip is thinner. Exception: the lip's
+  chamfered top tapers to a 0.6 mm flat over its last 0.6 mm of height; the lip
+  is 1.2 mm thick below the chamfer.
 - Meshes come out of manifold and are watertight by construction.
 
 **Finger pockets.** A U-slot `fingerPocket.width` wide, cut down from the
@@ -450,8 +457,11 @@ tray height: elastic kinds (bulk) grow deeper, others get a solid raised floor.
   a fixed order. Decks are split into rows greedily by size, largest first.
 
 With `storage: "auto"`, `sizing` emits all variants. Otherwise only the
-chosen ones. With `perPlayer`, it emits one requirement per player, plus a
-variant with all players in one tray (one compartment each).
+chosen ones. With `perPlayer`, it emits one requirement with two variant
+families: "separate" (one tray per player) and "combined" (all players in one
+tray, one compartment each). Sizing never sees the box, so variants that only
+matter for some boxes (extra tile columns, minis lying down) are always
+emitted, and the layout picks a feasible one.
 
 **Card math** (`S`, `L` = sleeved short/long side; `t` = per-card thickness
 from the sleeve table or `stackMm / cards`; clearances ×Fit unless overridden):
@@ -465,7 +475,10 @@ from the sleeve table or `stackMm / cards`; clearances ×Fit unless overridden):
 **Bulk:** required volume = Σ `count·w·d·h` ÷ `packingFactor` (`volumeMl`
 lines are used as given). Each compartment has min width/depth =
 `max(largest item dim + pieceClearance, 25)` (25 for `volumeMl` lines) and
-height ≤ 1.5 × its smaller horizontal size.
+height ≤ 1.5 × its smaller horizontal size and ≥ 20 mm.
+
+A measured card thickness below 0.1 mm per card is treated as a typo: the
+sleeve-table thickness is used instead, with a notice.
 
 ### 7.2 Search
 
@@ -478,17 +491,20 @@ height ≤ 1.5 × its smaller horizontal size.
   `leaf ≥ req_k + 2·k·(lip.thickness + lip.play)`. The stack's total height
   (Σ `tray.h`) equals `topPlane`.
 - **Fill:** after placement, slack is shared out.
-  - Footprint slack inside a stack goes to elastic axes, then to an extra empty
+  - Footprint slack inside a stack goes to elastic axes, then to wall and
+    divider thickness (inward, up to the cap below), then to an extra empty
     compartment in that tray (stacked trays can't have a leftover tray beside
     them).
   - Leaf slack goes to elastic axes, then to wall and divider thickness (inward
     only) up to `min(2 × setting, 4 mm)`, then to a leftover leaf at full
     stack height.
   - Leftover regions narrower than 12 mm are absorbed into the neighbouring
-    outer wall regardless of the cap. Leftovers larger than the bed are split
+    outer wall regardless of the cap. Leftovers narrower than 25 mm + 2 walls
+    are made solid (no grip possible). Leftovers larger than the bed are split
     with further cuts.
-  - Height slack goes to the tray in the stack that benefits most (deeper
-    scoop), or to a solid raised floor.
+  - A stack holds at most 4 trays.
+  - Height slack goes to the lowest tray in the stack with an elastic height
+    (deeper scoop); otherwise to the top tray, as a solid raised floor.
   - In each stack, every tray except the top one has its `h` rounded to a
     multiple of `printer.layerHeight`; the top tray takes the remainder.
 - **Search:** greedy starting layouts (first-fit decreasing along X and along
@@ -500,13 +516,14 @@ height ≤ 1.5 × its smaller horizontal size.
   result. If none is found, the least-overflow layout is reported (§7.3).
 - **Budget:** runs in one Web Worker, in chunks of 1 000 iterations (progress
   events, best result so far, cancel). The default budget is N iterations,
-  calibrated to ≈ 3 s on a mid-range laptop; "improve more" adds 3N,
-  continuing from the stored `(seed, iterations)`. A 30 s time cap is only a
+  calibrated to ≈ 3 s on a mid-range laptop; "improve more" runs 3N more,
+  warm-started from the stored layout with the same seed. The `iterations`
+  argument is that run's budget; `StoredLayout.iterations` is cumulative. A 30 s time cap is only a
   safety stop; a capped result is marked `capped`.
 - **Determinism:** a seeded PRNG (xoshiro128\*\*); `Math.random` is banned in
   `layout/` by lint. All lengths are integer 0.01 mm units. The seed is kept
   across re-runs. Guarantee: same app version + same JS engine + seed +
-  iterations → same layout. Sharing reproduces a layout through
+  iterations + warm-start layout → same layout. Sharing reproduces a layout through
   `StoredLayout`, not by recomputing.
 - **Score** (lower is better). Terms in order of decreasing weight; the
   weights are internal constants, tuned against fixtures:
@@ -528,13 +545,16 @@ height ≤ 1.5 × its smaller horizontal size.
   - Locks are checked for feasibility before optimizing. A lock that can't be
     satisfied (contents no longer fit a size lock, box edits, conflicting
     paths), or whose `trayKey` no longer exists, is dropped with a visible
-    notice, never silently.
+    notice, never silently, and removed from `project.locks` when the result
+    is accepted.
+  - The tray details offer "Lock size", which locks the tray's current outer
+    size.
 
 ### 7.3 Infeasibility and warnings
 
 - **Doesn't fit:** report the least-overflow attempt and the shortfall per
   axis, plus concrete suggestions: unsleeve, store flat or upright, move the
-  rulebook or boards elsewhere (less headroom), loosen fit, split groups.
+  rulebook or boards elsewhere (less headroom), choose a tighter fit, split groups.
 - **Coverage:** applies when `headroom > 0` and `headroomCoverage` is
   `partial`. The score keeps loose bits out of the top layer. Any that remain
   are warned about, with a suggestion to move them below other trays. With
@@ -543,7 +563,7 @@ height ≤ 1.5 × its smaller horizontal size.
 - **Bed:** a requirement too large for the bed in every variant, splits
   included → error naming the component.
 - **Play:** lateral play above 1.5 mm on an axis → warning.
-- **Lip off:** warning (rule 4).
+- **Lip off:** warning when the layout has stacked trays (rule 4).
 - **Dropped locks**, **capped runs** and a **stale stored layout** (§8.4) are
   shown as notices.
 
@@ -606,9 +626,9 @@ Numbers accept a decimal comma or point.
   payload is JSON → deflate → base64url. Updated with
   `history.replaceState`. "Copy link" button; JSON file import/export.
   Decoding caps the inflated size at 1 MB and applies the §5 bounds.
-  Target ≤ 1 900 characters for typical projects, so links fit in a Discord
-  message (measured on fixtures). If a link is longer, "Copy link" warns and
-  offers the JSON file.
+  Target: the full URL, stored layout included, fits a 2 000-character Discord
+  message for typical projects (measured on fixtures). If a link is longer,
+  "Copy link" warns and offers the JSON file.
 - **Stored layout:** makes a shared link show exactly the same insert even
   after the optimizer changes.
   - Loading a project that has a stored layout never re-optimizes.
@@ -658,7 +678,9 @@ Older apps reading newer files is best effort, as below.
     shared links stable.
   - PATCH for fixes.
 - Before the first release the app is `0.x` and makes no compatibility
-  promise; a preview banner says so (§8.1). The first release is app `1.0.0`
+  promise; a preview banner says so (§8.1). Pre-1.0, each `0.MINOR` is treated
+  as a major line (PATCH acts as minor), so a newer `0.MINOR` file is refused.
+  The first release is app `1.0.0`
   / schema `1.0.0`. It rejects `0.x` files with an explicit error, and the
   rules above apply from then on.
 
@@ -699,8 +721,9 @@ updates run them.
   minor, newer minor with unknown fields and kinds preserved on save, older
   major with migration, newer major, `0.x` rejected); one saved fixture file
   per historical schema MAJOR must still load.
-- **Build:** smoke test of the built `dist/` served from a subpath (WASM and
-  workers load with the relative base).
+- **Build:** smoke test of the built `dist/` served from a subpath: every
+  referenced asset (scripts, WASM, workers) is relative and returns 200. That
+  they actually load in a browser is checked in the manual end-to-end pass.
 - **Fixtures:** 3–5 real games measured by hand (§12), used for tuning and
   regression.
 - The repo's `npm run verify` (lint, format, build) passes.
