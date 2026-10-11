@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { sampleProject } from "../test-support/sample";
 import { COMPONENT_DEFAULTS } from "./defaults";
 import type { Json } from "./json";
+import { SCHEMA_NOTICE_CODES } from "./schema";
 import type { ReadOptions } from "./schema-read";
 import { readProject } from "./schema-read";
 import { DEFAULT_SETTINGS } from "./settings";
@@ -202,7 +203,10 @@ describe("readProject: files of this schema line", () => {
     expect(result.project).not.toHaveProperty("extra");
     expect(result.project.box).not.toHaveProperty("lidColour");
     expect(result.notices).toHaveLength(1);
-    expect(result.notices[0]).toMatchObject({ level: "info", code: "schema.unknownFields" });
+    expect(result.notices[0]).toMatchObject({
+      level: "info",
+      code: SCHEMA_NOTICE_CODES.unknownFields,
+    });
     expect(result.notices[0]?.message).toContain("/extra");
     expect(result.notices[0]?.message).toContain("/box/lidColour");
   });
@@ -215,7 +219,10 @@ describe("readProject: files of this schema line", () => {
     const result = expectOk(readProject(input, CURRENT));
     expect(result.project.components[0]).toMatchObject({ shortSide: 63.5, longSide: 88 });
     expect(result.notices).toEqual([
-      expect.objectContaining({ code: "schema.cardSidesSwapped", path: "/components/0/shortSide" }),
+      expect.objectContaining({
+        code: SCHEMA_NOTICE_CODES.cardSidesSwapped,
+        path: "/components/0/shortSide",
+      }),
     ]);
   });
 
@@ -225,8 +232,8 @@ describe("readProject: files of this schema line", () => {
     const result = expectOk(readProject(input, CURRENT));
     expect(result.project.locks).toEqual(sampleProject().locks);
     expect(result.notices.map((n) => [n.code, n.path])).toEqual([
-      ["lock.dropped", "/locks/3"],
-      ["lock.dropped", "/locks/4"],
+      [SCHEMA_NOTICE_CODES.lockDropped, "/locks/3"],
+      [SCHEMA_NOTICE_CODES.lockDropped, "/locks/4"],
     ]);
     expect(result.notices.map((n) => n.message)).toEqual([
       'Couldn\'t read the "size" lock for tray "x" (lock 4 in the file), so it was dropped: /locks/3/w: missing; /locks/3/d: missing; /locks/3/h: missing.',
@@ -249,7 +256,7 @@ describe("readProject: files of this schema line", () => {
     (input.layout as Json).seed = "forty-two";
     const result = expectOk(readProject(input, CURRENT));
     expect(result.project.layout).toBeUndefined();
-    expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutDropped]);
     expect(result.notices[0]?.message).toBe(
       "The saved layout couldn't be read (/layout/seed: expected a number). The insert will be optimized again.",
     );
@@ -298,8 +305,8 @@ describe("readProject: files from a newer minor", () => {
       { index: 4, raw: comps[4] },
     ]);
     expect(result.notices.map((n) => [n.code, n.path])).toEqual([
-      ["schema.foreignComponent", "/components/1"],
-      ["schema.foreignComponent", "/components/4"],
+      [SCHEMA_NOTICE_CODES.foreignComponent, "/components/1"],
+      [SCHEMA_NOTICE_CODES.foreignComponent, "/components/4"],
     ]);
   });
 
@@ -310,9 +317,9 @@ describe("readProject: files from a newer minor", () => {
     const result = expectOk(readProject(input, NEWER));
     expect(result.project.components[0]).toMatchObject({ id: "cards001", shortSide: 63.5 });
     expect(result.notices.map((n) => [n.code, n.path])).toEqual([
-      ["schema.foreignComponent", "/components/0"],
-      ["schema.foreignComponent", "/components/1"],
-      ["schema.cardSidesSwapped", "/components/0/shortSide"],
+      [SCHEMA_NOTICE_CODES.foreignComponent, "/components/0"],
+      [SCHEMA_NOTICE_CODES.foreignComponent, "/components/1"],
+      [SCHEMA_NOTICE_CODES.cardSidesSwapped, "/components/0/shortSide"],
     ]);
     expect(result.notices[0]?.message).toBe(
       'Component "Dial" (component 1 in the file) uses features this app version doesn\'t know. It is kept but not laid out.',
@@ -334,8 +341,8 @@ describe("readProject: files from a newer minor", () => {
       { path: "/settings/leftover", raw: "hollow" },
     ]);
     expect(result.notices.map((n) => [n.code, n.path])).toEqual([
-      ["schema.unknownValue", "/box/headroomCoverage"],
-      ["schema.unknownValue", "/settings/leftover"],
+      [SCHEMA_NOTICE_CODES.unknownValue, "/box/headroomCoverage"],
+      [SCHEMA_NOTICE_CODES.unknownValue, "/settings/leftover"],
     ]);
   });
 
@@ -347,7 +354,7 @@ describe("readProject: files from a newer minor", () => {
     expect(result.project.locks).toEqual(sampleProject().locks);
     expect(result.foreign.values).toEqual([{ path: "/locks/3", raw: magnet }]);
     expect(result.notices.map((n) => [n.code, n.path])).toEqual([
-      ["schema.unknownValue", "/locks/3"],
+      [SCHEMA_NOTICE_CODES.unknownValue, "/locks/3"],
     ]);
     expect(result.notices[0]?.message).toBe(
       'The "magnet" lock for tray "x" (lock 4 in the file) is of a kind this app version doesn\'t know. It is kept and saved back, but not applied.',
@@ -398,7 +405,7 @@ describe("readProject: files from a newer minor", () => {
     at(input.layout as Json, "trays", 0).x = null;
     const result = expectOk(readProject(input, CURRENT));
     expect(result.project.layout).toBeUndefined();
-    expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutDropped]);
   });
 
   it("drops a size lock with a null dimension, with no field-level error", () => {
@@ -406,7 +413,9 @@ describe("readProject: files from a newer minor", () => {
     input.locks = [{ kind: "size", trayKey: "a:p0:0", w: null, d: 10, h: 10 }];
     const result = expectOk(readProject(input, CURRENT));
     expect(result.project.locks).toEqual([]);
-    expect(result.notices.map((n) => [n.code, n.path])).toEqual([["lock.dropped", "/locks/0"]]);
+    expect(result.notices.map((n) => [n.code, n.path])).toEqual([
+      [SCHEMA_NOTICE_CODES.lockDropped, "/locks/0"],
+    ]);
     expect(validateProject(result.project).filter((n) => n.path?.startsWith("/locks"))).toEqual([]);
   });
 
@@ -423,7 +432,7 @@ describe("readProject: files from a newer minor", () => {
       mutate(input.layout as Json);
       const result = expectOk(readProject(input, CURRENT));
       expect(result.project.layout).toBeUndefined();
-      expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+      expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutDropped]);
     }
   });
 
@@ -432,7 +441,9 @@ describe("readProject: files from a newer minor", () => {
     list(input, "locks").push({ kind: "size", trayKey: "x" });
     const result = expectOk(readProject(input, NEWER));
     expect(result.foreign.values).toBeUndefined();
-    expect(result.notices.map((n) => [n.code, n.path])).toEqual([["lock.dropped", "/locks/3"]]);
+    expect(result.notices.map((n) => [n.code, n.path])).toEqual([
+      [SCHEMA_NOTICE_CODES.lockDropped, "/locks/3"],
+    ]);
   });
 
   it("keeps a stored tray with an unknown feature verbatim and flags it", () => {
@@ -442,11 +453,11 @@ describe("readProject: files from a newer minor", () => {
     list(compartment, "features").push({ type: "magnetHole", d: 6 });
     const result = expectOk(readProject(input, NEWER));
     expect(result.project.layout?.trays[0]).toEqual(tray);
-    expect(result.notices.map((n) => n.code)).toEqual(["layout.unsupportedTrays"]);
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutUnsupportedTrays]);
 
     const current = expectOk(readProject(input, CURRENT));
     expect(current.project.layout).toBeUndefined();
-    expect(current.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+    expect(current.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutDropped]);
   });
 });
 
@@ -490,7 +501,7 @@ describe("readProject: hostile input", () => {
     compartment.features = Array.from({ length: 300_000 }, () => ({ type: "bogus" }));
     const result = expectOk(readProject(input, CURRENT));
     expect(result.project.layout).toBeUndefined();
-    expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutDropped]);
   });
 
   it("survives 300,000 unknown features in a newer file by keeping the tray", () => {
@@ -499,7 +510,7 @@ describe("readProject: hostile input", () => {
     compartment.features = Array.from({ length: 300_000 }, () => ({ type: "bogus" }));
     const result = expectOk(readProject(input, NEWER));
     expect(result.project.layout?.trays).toHaveLength(1);
-    expect(result.notices.map((n) => n.code)).toEqual(["layout.unsupportedTrays"]);
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutUnsupportedTrays]);
   });
 
   it("keeps error messages short however long the quoted value is", () => {
@@ -592,11 +603,11 @@ describe("readProject: hostile input", () => {
     delete tray.wall;
     const result = expectOk(readProject(input, NEWER));
     expect(result.project.layout?.trays[0]).toEqual(tray);
-    expect(result.notices.map((n) => n.code)).toEqual(["layout.unsupportedTrays"]);
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutUnsupportedTrays]);
 
     const current = expectOk(readProject(input, CURRENT));
     expect(current.project.layout).toBeUndefined();
-    expect(current.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+    expect(current.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutDropped]);
   });
 
   it("still drops the layout for a missing field in a tray of a known part", () => {
@@ -604,7 +615,7 @@ describe("readProject: hostile input", () => {
     delete firstTray(input).wall;
     const result = expectOk(readProject(input, NEWER));
     expect(result.project.layout).toBeUndefined();
-    expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutDropped]);
   });
 
   it("does not generate ids that the file already has", () => {

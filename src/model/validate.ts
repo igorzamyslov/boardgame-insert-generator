@@ -1,6 +1,43 @@
 import { groupOf } from "./defaults";
+import { deepFreeze } from "./freeze";
 import { topPlane } from "./settings";
 import type { Component, Lock, Notice, Project, Settings } from "./types";
+
+/**
+ * Codes of the notices validateProject() emits, by family: `field.*` (shown
+ * next to the field), `limit.*` (spec §5 upper bounds) and `invalid.*`
+ * (corrupt structure). See isBlocking(). Frozen.
+ */
+export const VALIDATION_NOTICE_CODES = deepFreeze({
+  field: {
+    bedMargin: "field.bedMargin",
+    cardSides: "field.cardSides",
+    count: "field.count",
+    empty: "field.empty",
+    groupId: "field.groupId",
+    headroom: "field.headroom",
+    layerHeight: "field.layerHeight",
+    length: "field.length",
+    lockPath: "field.lockPath",
+    lockStack: "field.lockStack",
+    perPlayerInGroup: "field.perPlayerInGroup",
+    players: "field.players",
+    setting: "field.setting",
+    topPlane: "field.topPlane",
+    volume: "field.volume",
+  },
+  limit: {
+    components: "limit.components",
+    count: "limit.count",
+    length: "limit.length",
+    players: "limit.players",
+    volume: "limit.volume",
+  },
+  invalid: {
+    duplicateId: "invalid.duplicateId",
+    id: "invalid.id",
+  },
+} as const);
 
 /** Spec §5 bounds, applied to UI edits, URL input and files. Frozen. */
 export const BOUNDS = Object.freeze({
@@ -128,11 +165,15 @@ class Checker {
   /** 0 < x ≤ 1000 mm. `!(x > 0)` also catches NaN. */
   length(path: string, label: string, x: number): boolean {
     if (!(x > 0)) {
-      this.error("field.length", path, `${label} must be greater than 0 mm.`);
+      this.error(VALIDATION_NOTICE_CODES.field.length, path, `${label} must be greater than 0 mm.`);
       return false;
     }
     if (x > BOUNDS.maxLength) {
-      this.error("limit.length", path, `${label} must be at most ${BOUNDS.maxLength} mm.`);
+      this.error(
+        VALIDATION_NOTICE_CODES.limit.length,
+        path,
+        `${label} must be at most ${BOUNDS.maxLength} mm.`,
+      );
       return false;
     }
     return true;
@@ -141,11 +182,15 @@ class Checker {
   /** 0 ≤ x ≤ 1000 mm. */
   nonNegativeLength(path: string, label: string, x: number): boolean {
     if (!(x >= 0)) {
-      this.error("field.length", path, `${label} must be 0 mm or more.`);
+      this.error(VALIDATION_NOTICE_CODES.field.length, path, `${label} must be 0 mm or more.`);
       return false;
     }
     if (x > BOUNDS.maxLength) {
-      this.error("limit.length", path, `${label} must be at most ${BOUNDS.maxLength} mm.`);
+      this.error(
+        VALIDATION_NOTICE_CODES.limit.length,
+        path,
+        `${label} must be at most ${BOUNDS.maxLength} mm.`,
+      );
       return false;
     }
     return true;
@@ -154,11 +199,19 @@ class Checker {
   /** Whole number 1…2000. The upper bound is tested first so 2000.5 and Infinity are blocking. */
   count(path: string, label: string, n: number): boolean {
     if (n > BOUNDS.maxCount) {
-      this.error("limit.count", path, `${label} must be at most ${BOUNDS.maxCount}.`);
+      this.error(
+        VALIDATION_NOTICE_CODES.limit.count,
+        path,
+        `${label} must be at most ${BOUNDS.maxCount}.`,
+      );
       return false;
     }
     if (!Number.isInteger(n) || n < 1) {
-      this.error("field.count", path, `${label} must be a whole number of at least 1.`);
+      this.error(
+        VALIDATION_NOTICE_CODES.field.count,
+        path,
+        `${label} must be a whole number of at least 1.`,
+      );
       return false;
     }
     return true;
@@ -166,7 +219,7 @@ class Checker {
 
   notEmpty(path: string, what: string, list: unknown[]): void {
     if (list.length === 0) {
-      this.error("field.empty", path, `Add at least one ${what}.`);
+      this.error(VALIDATION_NOTICE_CODES.field.empty, path, `Add at least one ${what}.`);
     }
   }
 }
@@ -176,20 +229,20 @@ function checkBase(ck: Checker, c: Component, at: string): void {
     const n = c.perPlayer.players;
     if (n > BOUNDS.maxPlayers) {
       ck.error(
-        "limit.players",
+        VALIDATION_NOTICE_CODES.limit.players,
         `${at}/perPlayer/players`,
         `Players must be at most ${BOUNDS.maxPlayers}.`,
       );
     } else if (!Number.isInteger(n) || n < 1) {
       ck.error(
-        "field.players",
+        VALIDATION_NOTICE_CODES.field.players,
         `${at}/perPlayer/players`,
         "Players must be a whole number of at least 1.",
       );
     }
     if (groupOf(c) !== undefined) {
       ck.error(
-        "field.perPlayerInGroup",
+        VALIDATION_NOTICE_CODES.field.perPlayerInGroup,
         `${at}/perPlayer`,
         "A grouped component can't be per player. Remove it from the group or turn off per player.",
       );
@@ -208,7 +261,7 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
       const longOk = ck.length(`${at}/longSide`, "Card long side", c.longSide);
       if (shortOk && longOk && c.shortSide > c.longSide) {
         ck.warning(
-          "field.cardSides",
+          VALIDATION_NOTICE_CODES.field.cardSides,
           `${at}/shortSide`,
           "The short side is longer than the long side; they will be swapped.",
         );
@@ -234,10 +287,14 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
         const p = `${at}/items/${i}`;
         if ("volumeMl" in item) {
           if (!(item.volumeMl > 0)) {
-            ck.error("field.volume", `${p}/volumeMl`, "Volume must be greater than 0 ml.");
+            ck.error(
+              VALIDATION_NOTICE_CODES.field.volume,
+              `${p}/volumeMl`,
+              "Volume must be greater than 0 ml.",
+            );
           } else if (item.volumeMl > MAX_VOLUME_ML) {
             ck.error(
-              "limit.volume",
+              VALIDATION_NOTICE_CODES.limit.volume,
               `${p}/volumeMl`,
               `Volume must be at most ${MAX_VOLUME_ML} ml.`,
             );
@@ -284,7 +341,7 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
     case "position":
       if (!/^[01]{0,64}$/.test(lock.path)) {
         ck.error(
-          "field.lockPath",
+          VALIDATION_NOTICE_CODES.field.lockPath,
           `${at}/path`,
           "A position lock path may only contain 0 and 1, up to 64 characters.",
         );
@@ -297,7 +354,11 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
       return;
     case "stack":
       if (lock.trayKeys.length === 0) {
-        ck.error("field.lockStack", `${at}/trayKeys`, "A stack lock needs at least one tray.");
+        ck.error(
+          VALIDATION_NOTICE_CODES.field.lockStack,
+          `${at}/trayKeys`,
+          "A stack lock needs at least one tray.",
+        );
       }
       return;
   }
@@ -318,7 +379,7 @@ export function validateProject(p: Project): Notice[] {
 
   // A cast or hand-built Project may lack an id; storage and links key projects by it.
   if (typeof p.id !== "string" || p.id === "") {
-    ck.error("invalid.id", "/id", "Project id must not be empty.");
+    ck.error(VALIDATION_NOTICE_CODES.invalid.id, "/id", "Project id must not be empty.");
   }
 
   ck.length("/box/innerWidth", "Box width", box.innerWidth);
@@ -327,10 +388,14 @@ export function validateProject(p: Project): Notice[] {
   const headroomOk = ck.nonNegativeLength("/box/headroom", "Headroom", box.headroom);
   if (heightOk && headroomOk) {
     if (box.headroom >= box.innerHeight) {
-      ck.error("field.headroom", "/box/headroom", "Headroom must be less than the box height.");
+      ck.error(
+        VALIDATION_NOTICE_CODES.field.headroom,
+        "/box/headroom",
+        "Headroom must be less than the box height.",
+      );
     } else if (topPlane(box, settings) <= 0) {
       ck.error(
-        "field.topPlane",
+        VALIDATION_NOTICE_CODES.field.topPlane,
         "/box/headroom",
         "Box height minus headroom and press-fit leaves no room for trays.",
       );
@@ -343,11 +408,15 @@ export function validateProject(p: Project): Notice[] {
   const marginOk = ck.nonNegativeLength("/printer/bedMargin", "Bed margin", printer.bedMargin);
   const bedTooSmallForMargin = 2 * printer.bedMargin >= Math.min(printer.bedX, printer.bedY);
   if (bedXOk && bedYOk && marginOk && bedTooSmallForMargin) {
-    ck.error("field.bedMargin", "/printer/bedMargin", "Bed margin leaves no usable bed.");
+    ck.error(
+      VALIDATION_NOTICE_CODES.field.bedMargin,
+      "/printer/bedMargin",
+      "Bed margin leaves no usable bed.",
+    );
   }
   if (!(printer.layerHeight >= LAYER_HEIGHT_MIN && printer.layerHeight <= LAYER_HEIGHT_MAX)) {
     ck.error(
-      "field.layerHeight",
+      VALIDATION_NOTICE_CODES.field.layerHeight,
       "/printer/layerHeight",
       `Layer height must be ${LAYER_HEIGHT_MIN} to ${LAYER_HEIGHT_MAX} mm.`,
     );
@@ -357,7 +426,7 @@ export function validateProject(p: Project): Notice[] {
     const v = r.get(settings);
     if (!(v >= r.min && v <= r.max)) {
       ck.error(
-        "field.setting",
+        VALIDATION_NOTICE_CODES.field.setting,
         `/settings/${r.path}`,
         `${r.label} must be from ${r.min} to ${r.max}.`,
       );
@@ -366,7 +435,7 @@ export function validateProject(p: Project): Notice[] {
 
   if (p.components.length > BOUNDS.maxComponents) {
     ck.error(
-      "limit.components",
+      VALIDATION_NOTICE_CODES.limit.components,
       "/components",
       `Too many components (${p.components.length}); the maximum is ${BOUNDS.maxComponents}.`,
     );
@@ -379,9 +448,13 @@ export function validateProject(p: Project): Notice[] {
   p.components.forEach((c, i) => {
     const at = `/components/${i}`;
     if (c.id === "") {
-      ck.error("invalid.id", `${at}/id`, "Component id must not be empty.");
+      ck.error(VALIDATION_NOTICE_CODES.invalid.id, `${at}/id`, "Component id must not be empty.");
     } else if (seen.has(c.id)) {
-      ck.error("invalid.duplicateId", `${at}/id`, `Two components share the id "${c.id}".`);
+      ck.error(
+        VALIDATION_NOTICE_CODES.invalid.duplicateId,
+        `${at}/id`,
+        `Two components share the id "${c.id}".`,
+      );
     }
     seen.add(c.id);
     const group = groupOf(c);
@@ -390,7 +463,7 @@ export function validateProject(p: Project): Notice[] {
       const others = (idCounts.get(group) ?? 0) - (group === c.id ? 1 : 0);
       if (others > 0) {
         ck.error(
-          "field.groupId",
+          VALIDATION_NOTICE_CODES.field.groupId,
           `${at}/groupId`,
           "Group name collides with another component's id.",
         );

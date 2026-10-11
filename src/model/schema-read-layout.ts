@@ -1,7 +1,7 @@
 import type { Json } from "./json";
 import { isRecord, shorten, summarize } from "./json";
 import type { Ctx } from "./schema-reader";
-import { absorbErrors, adopt, childCtx, Reader } from "./schema-reader";
+import { absorbErrors, adopt, childCtx, Reader, SCHEMA_NOTICE_CODES } from "./schema-reader";
 import type { CompartmentSpec, FeatureSpec, StoredLayout, TraySpec } from "./types";
 import { UNKNOWN_APP_VERSION } from "./version";
 
@@ -91,7 +91,7 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
   const dropped = (reason: string): undefined => {
     ctx.notices.push({
       level: "warning",
-      code: "layout.dropped",
+      code: SCHEMA_NOTICE_CODES.layoutDropped,
       path: "/layout",
       message: `The saved layout couldn't be read (${reason}). The insert will be optimized again.`,
     });
@@ -132,7 +132,7 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
   if (unsupported.length > 0) {
     ctx.notices.push({
       level: "warning",
-      code: "layout.unsupportedTrays",
+      code: SCHEMA_NOTICE_CODES.layoutUnsupportedTrays,
       path: "/layout/trays",
       message: `Some trays use features this app version can't build (${summarize(unsupported.map(shorten))}). They are shown but can't be exported.`,
     });

@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { sampleProject } from "../test-support/sample";
 import type { Migration } from "./schema";
-import { MIGRATIONS, noForeign, parseProject, parseProjectWith, serializeProject } from "./schema";
+import {
+  MIGRATIONS,
+  noForeign,
+  parseProject,
+  parseProjectWith,
+  SCHEMA_NOTICE_CODES,
+  serializeProject,
+} from "./schema";
 import { DEFAULT_SETTINGS } from "./settings";
 import { Reader } from "./schema-reader";
 import type { ParseResult } from "./types";
@@ -61,7 +68,10 @@ describe("same line, newer minor", () => {
 
   it("loads with a 'made with a newer app' warning and keeps the file's version", () => {
     const result = expectOk(parseProject(newerFile(), "1.0.0"));
-    expect(result.notices[0]).toMatchObject({ level: "warning", code: "schema.newerMinor" });
+    expect(result.notices[0]).toMatchObject({
+      level: "warning",
+      code: SCHEMA_NOTICE_CODES.newerMinor,
+    });
     expect(result.notices[0]?.message).toContain("(schema 1.2.0)");
     expect(result.notices[0]?.message).toContain("this app (");
     expect(result.project.schemaVersion).toBe("1.2.0");
@@ -94,7 +104,7 @@ describe("same line, newer minor", () => {
 
   it("treats a newer 0.MINOR.PATCH as a newer minor before 1.0", () => {
     const result = expectOk(parseProject(fileAt("0.1.3"), "0.1.0"));
-    expect(result.notices.map((n) => n.code)).toEqual(["schema.newerMinor"]);
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.newerMinor]);
   });
 
   it("names the schema version even when the file has no createdWith", () => {
@@ -199,7 +209,9 @@ describe("migrations (fake registry)", () => {
     );
     expect(result.project.box).toEqual(sampleProject().box);
     expect(result.project.schemaVersion).toBe("3.0.0");
-    expect(result.notices).toEqual([expect.objectContaining({ code: "schema.migrated" })]);
+    expect(result.notices).toEqual([
+      expect.objectContaining({ code: SCHEMA_NOTICE_CODES.migrated }),
+    ]);
     expect(input).toEqual(copy);
   });
 

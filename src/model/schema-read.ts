@@ -5,7 +5,7 @@ import { isRecord, MAX_JSON_DEPTH, pointerKeys, quote, summarize, valueAt } from
 import { readComponents } from "./schema-read-components";
 import { readLayout } from "./schema-read-layout";
 import type { Ctx } from "./schema-reader";
-import { addError, adopt, childCtx, newCtx, Reader } from "./schema-reader";
+import { addError, adopt, childCtx, newCtx, Reader, SCHEMA_NOTICE_CODES } from "./schema-reader";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { Box, ForeignData, Lock, ParseResult, Printer, Project, Settings } from "./types";
 import { UNKNOWN_APP_VERSION } from "./version";
@@ -92,14 +92,14 @@ function readLocks(list: unknown[], ctx: Ctx): { locks: Lock[]; kept: ForeignVal
       kept.push({ path: `/locks/${locks.length + kept.length}`, raw: structuredClone(raw) });
       ctx.notices.push({
         level: "warning",
-        code: "schema.unknownValue",
+        code: SCHEMA_NOTICE_CODES.unknownValue,
         path,
         message: `The ${describeLock(raw, i)} is of a kind this app version doesn't know. It is kept and saved back, but not applied.`,
       });
     } else {
       ctx.notices.push({
         level: "warning",
-        code: "lock.dropped",
+        code: SCHEMA_NOTICE_CODES.lockDropped,
         path,
         message: `Couldn't read the ${describeLock(raw, i)}, so it was dropped: ${summarize(sub.errors, sub.omitted)}.`,
       });
@@ -255,7 +255,7 @@ export function readProject(data: Json, opts: ReadOptions): ParseResult {
   for (const path of ctx.unknownValues) {
     ctx.notices.push({
       level: "warning",
-      code: "schema.unknownValue",
+      code: SCHEMA_NOTICE_CODES.unknownValue,
       path,
       message:
         "This setting uses a value this app version doesn't know. The default is used here; the original value is saved back unless you change this setting.",
@@ -270,7 +270,7 @@ export function readProject(data: Json, opts: ReadOptions): ParseResult {
   if (ctx.dropped.length > 0) {
     ctx.notices.push({
       level: "info",
-      code: "schema.unknownFields",
+      code: SCHEMA_NOTICE_CODES.unknownFields,
       message: `Ignored unknown fields in the file: ${summarize(ctx.dropped)}.`,
     });
   }

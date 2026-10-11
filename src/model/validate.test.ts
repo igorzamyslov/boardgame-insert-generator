@@ -13,7 +13,15 @@ import type {
   TilesComponent,
 } from "./types";
 import type { SettingRange } from "./validate";
-import { BOUNDS, isBlocking, SETTING_RANGES, validateProject } from "./validate";
+import {
+  BOUNDS,
+  isBlocking,
+  SETTING_RANGES,
+  VALIDATION_NOTICE_CODES,
+  validateProject,
+} from "./validate";
+
+const { field, limit, invalid } = VALIDATION_NOTICE_CODES;
 
 const KINDS: ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
 
@@ -48,6 +56,17 @@ function setAtPointer(root: object, pointer: string, value: number): void {
   node[last] = value;
 }
 
+describe("VALIDATION_NOTICE_CODES", () => {
+  it("names each code after its family, and only limit and invalid codes block", () => {
+    for (const [family, codesOfFamily] of Object.entries(VALIDATION_NOTICE_CODES)) {
+      for (const [name, code] of Object.entries(codesOfFamily)) {
+        expect(code).toBe(`${family}.${name}`);
+        expect(isBlocking({ level: "error", code, message: "" })).toBe(family !== "field");
+      }
+    }
+  });
+});
+
 describe("validateProject", () => {
   it("accepts a new project with no components", () => {
     expect(validateProject(newProject())).toEqual([]);
@@ -60,7 +79,7 @@ describe("validateProject", () => {
   it("enforces the component limit as blocking", () => {
     const many = Array.from({ length: BOUNDS.maxComponents + 1 }, () => newComponent("custom"));
     const notices = validateProject(withComponents(...many));
-    expect(codes(notices)).toEqual([["limit.components", "/components"]]);
+    expect(codes(notices)).toEqual([[limit.components, "/components"]]);
     expect(notices.every(isBlocking)).toBe(true);
     expect(validateProject(withComponents(...many.slice(1)))).toEqual([]);
   });
@@ -78,9 +97,9 @@ describe("validateProject", () => {
     );
     const notices = validateProject(p);
     expect(codes(notices)).toEqual([
-      ["field.count", "/components/0/decks/0/count"],
-      ["field.count", "/components/0/decks/1/count"],
-      ["limit.count", "/components/0/decks/2/count"],
+      [field.count, "/components/0/decks/0/count"],
+      [field.count, "/components/0/decks/1/count"],
+      [limit.count, "/components/0/decks/2/count"],
     ]);
     expect(notices.map(isBlocking)).toEqual([false, false, true]);
   });
@@ -91,9 +110,9 @@ describe("validateProject", () => {
         const custom: CustomComponent = { ...(newComponent("custom") as CustomComponent), count };
         const found = codes(validateProject(withComponents(custom))).map(([code]) => code);
         if (count < 1) {
-          expect(found).toEqual(["field.count"]);
+          expect(found).toEqual([field.count]);
         } else if (count > BOUNDS.maxCount) {
-          expect(found).toEqual(["limit.count"]);
+          expect(found).toEqual([limit.count]);
         } else {
           expect(found).toEqual([]);
         }
@@ -105,9 +124,9 @@ describe("validateProject", () => {
     const p = newProject();
     p.box = { ...p.box, innerWidth: 0, innerDepth: Number.NaN, innerHeight: 1000.5 };
     expect(codes(validateProject(p))).toEqual([
-      ["field.length", "/box/innerWidth"],
-      ["field.length", "/box/innerDepth"],
-      ["limit.length", "/box/innerHeight"],
+      [field.length, "/box/innerWidth"],
+      [field.length, "/box/innerDepth"],
+      [limit.length, "/box/innerHeight"],
     ]);
   });
 
@@ -129,11 +148,11 @@ describe("validateProject", () => {
       figures: [{ name: "hero", w: 25, d: 25, h: 0, count: 1 }],
     };
     expect(codes(validateProject(withComponents(bulk, tiles, minis)))).toEqual([
-      ["field.length", "/components/0/items/0/d"],
-      ["field.volume", "/components/0/items/1/volumeMl"],
-      ["limit.length", "/components/1/shape/flatToFlat"],
-      ["field.length", "/components/1/thickness"],
-      ["field.length", "/components/2/figures/0/h"],
+      [field.length, "/components/0/items/0/d"],
+      [field.volume, "/components/0/items/1/volumeMl"],
+      [limit.length, "/components/1/shape/flatToFlat"],
+      [field.length, "/components/1/thickness"],
+      [field.length, "/components/2/figures/0/h"],
     ]);
   });
 
@@ -144,16 +163,16 @@ describe("validateProject", () => {
       { ...(newComponent("minis") as MinisComponent), figures: [] },
     );
     expect(codes(validateProject(p))).toEqual([
-      ["field.empty", "/components/0/decks"],
-      ["field.empty", "/components/1/items"],
-      ["field.empty", "/components/2/figures"],
+      [field.empty, "/components/0/decks"],
+      [field.empty, "/components/1/items"],
+      [field.empty, "/components/2/figures"],
     ]);
   });
 
   it("forbids perPlayer inside a group", () => {
     const p = withComponents(cards({ groupId: "g1", perPlayer: { players: 4 } }));
     expect(codes(validateProject(p))).toEqual([
-      ["field.perPlayerInGroup", "/components/0/perPlayer"],
+      [field.perPlayerInGroup, "/components/0/perPlayer"],
     ]);
   });
 
@@ -171,8 +190,8 @@ describe("validateProject", () => {
       cards({ perPlayer: { players: 11 } }),
     );
     expect(codes(validateProject(p))).toEqual([
-      ["field.players", "/components/0/perPlayer/players"],
-      ["limit.players", "/components/1/perPlayer/players"],
+      [field.players, "/components/0/perPlayer/players"],
+      [limit.players, "/components/1/perPlayer/players"],
     ]);
   });
 
@@ -181,7 +200,7 @@ describe("validateProject", () => {
     expect(notices).toEqual([
       expect.objectContaining({
         level: "warning",
-        code: "field.cardSides",
+        code: field.cardSides,
         path: "/components/0/shortSide",
       }),
     ]);
@@ -195,16 +214,16 @@ describe("validateProject", () => {
       }),
     );
     expect(codes(validateProject(p))).toEqual([
-      ["field.length", "/components/0/sleeve/h"],
-      ["field.length", "/components/0/sleeve/thickness"],
-      ["field.count", "/components/0/thickness/cards"],
+      [field.length, "/components/0/sleeve/h"],
+      [field.length, "/components/0/sleeve/thickness"],
+      [field.count, "/components/0/thickness/cards"],
     ]);
   });
 
   it("allows a clearance override of 0 but not below", () => {
     expect(validateProject(withComponents(cards({ clearance: 0 })))).toEqual([]);
     expect(codes(validateProject(withComponents(cards({ clearance: -1 }))))).toEqual([
-      ["field.length", "/components/0/clearance"],
+      [field.length, "/components/0/clearance"],
     ]);
   });
 
@@ -213,9 +232,9 @@ describe("validateProject", () => {
     p.box = { ...p.box, innerHeight: 40, headroom: 40 };
     p.printer = { ...p.printer, bedX: 200, bedY: 200, bedMargin: 100, layerHeight: 0 };
     expect(codes(validateProject(p))).toEqual([
-      ["field.headroom", "/box/headroom"],
-      ["field.bedMargin", "/printer/bedMargin"],
-      ["field.layerHeight", "/printer/layerHeight"],
+      [field.headroom, "/box/headroom"],
+      [field.bedMargin, "/printer/bedMargin"],
+      [field.layerHeight, "/printer/layerHeight"],
     ]);
   });
 
@@ -228,16 +247,16 @@ describe("validateProject", () => {
       lip: { ...p.settings.lip, thickness: 0.4 },
     };
     expect(codes(validateProject(p))).toEqual([
-      ["field.setting", "/settings/wall"],
-      ["field.setting", "/settings/lip/thickness"],
-      ["field.setting", "/settings/topPressFit"],
+      [field.setting, "/settings/wall"],
+      [field.setting, "/settings/lip/thickness"],
+      [field.setting, "/settings/topPressFit"],
     ]);
   });
 
   it("treats duplicate component ids as blocking", () => {
     const a = newComponent("custom");
     const notices = validateProject(withComponents(a, { ...a }));
-    expect(codes(notices)).toEqual([["invalid.duplicateId", "/components/1/id"]]);
+    expect(codes(notices)).toEqual([[invalid.duplicateId, "/components/1/id"]]);
     expect(notices.every(isBlocking)).toBe(true);
   });
 
@@ -249,9 +268,9 @@ describe("validateProject", () => {
       { kind: "stack", trayKeys: [] },
     ];
     expect(codes(validateProject(p))).toEqual([
-      ["field.lockPath", "/locks/0/path"],
-      ["limit.length", "/locks/1/w"],
-      ["field.lockStack", "/locks/2/trayKeys"],
+      [field.lockPath, "/locks/0/path"],
+      [limit.length, "/locks/1/w"],
+      [field.lockStack, "/locks/2/trayKeys"],
     ]);
   });
 
@@ -263,15 +282,15 @@ describe("validateProject", () => {
       { kind: "position", trayKey: "a:p0:0", path: "1".repeat(64), rotated: false },
     ];
     expect(codes(validateProject(p))).toEqual([
-      ["field.lockPath", "/locks/0/path"],
-      ["field.lockPath", "/locks/1/path"],
+      [field.lockPath, "/locks/0/path"],
+      [field.lockPath, "/locks/1/path"],
     ]);
   });
 
   const countCases: [number, string][] = [
-    [2000.5, "limit.count"],
-    [Number.POSITIVE_INFINITY, "limit.count"],
-    [Number.NaN, "field.count"],
+    [2000.5, limit.count],
+    [Number.POSITIVE_INFINITY, limit.count],
+    [Number.NaN, field.count],
   ];
   it.each(countCases)(
     "tests the count upper bound before integrality (%s gives %s)",
@@ -283,9 +302,9 @@ describe("validateProject", () => {
   );
 
   const playerCases: [number, string][] = [
-    [10.5, "limit.players"],
-    [Number.POSITIVE_INFINITY, "limit.players"],
-    [2.5, "field.players"],
+    [10.5, limit.players],
+    [Number.POSITIVE_INFINITY, limit.players],
+    [2.5, field.players],
   ];
   it.each(playerCases)(
     "tests the players upper bound before integrality (%s gives %s)",
@@ -302,7 +321,7 @@ describe("validateProject", () => {
       items: [{ name: "pile", volumeMl: 1_000_001 }],
     };
     const notices = validateProject(withComponents(bulk));
-    expect(codes(notices)).toEqual([["limit.volume", "/components/0/items/0/volumeMl"]]);
+    expect(codes(notices)).toEqual([[limit.volume, "/components/0/items/0/volumeMl"]]);
     expect(notices.every(isBlocking)).toBe(true);
   });
 
@@ -313,9 +332,9 @@ describe("validateProject", () => {
       count: 2001,
     };
     expect(codes(validateProject(withComponents(tiles)))).toEqual([
-      ["field.length", "/components/0/shape/w"],
-      ["limit.length", "/components/0/shape/d"],
-      ["limit.count", "/components/0/count"],
+      [field.length, "/components/0/shape/w"],
+      [limit.length, "/components/0/shape/d"],
+      [limit.count, "/components/0/count"],
     ]);
   });
 
@@ -325,9 +344,9 @@ describe("validateProject", () => {
       items: [{ name: "cube", count: 0, w: 1001, d: 5, h: -1 }],
     };
     expect(codes(validateProject(withComponents(bulk)))).toEqual([
-      ["field.count", "/components/0/items/0/count"],
-      ["limit.length", "/components/0/items/0/w"],
-      ["field.length", "/components/0/items/0/h"],
+      [field.count, "/components/0/items/0/count"],
+      [limit.length, "/components/0/items/0/w"],
+      [field.length, "/components/0/items/0/h"],
     ]);
   });
 
@@ -337,9 +356,9 @@ describe("validateProject", () => {
       figures: [{ name: "hero", w: 0, d: 1001, h: 10, count: 2001 }],
     };
     expect(codes(validateProject(withComponents(minis)))).toEqual([
-      ["field.length", "/components/0/figures/0/w"],
-      ["limit.length", "/components/0/figures/0/d"],
-      ["limit.count", "/components/0/figures/0/count"],
+      [field.length, "/components/0/figures/0/w"],
+      [limit.length, "/components/0/figures/0/d"],
+      [limit.count, "/components/0/figures/0/count"],
     ]);
   });
 
@@ -347,9 +366,9 @@ describe("validateProject", () => {
     expect(
       codes(validateProject(withComponents(custom({ w: 1001, d: 0, h: Number.NaN })))),
     ).toEqual([
-      ["limit.length", "/components/0/w"],
-      ["field.length", "/components/0/d"],
-      ["field.length", "/components/0/h"],
+      [limit.length, "/components/0/w"],
+      [field.length, "/components/0/d"],
+      [field.length, "/components/0/h"],
     ]);
   });
 
@@ -357,9 +376,9 @@ describe("validateProject", () => {
     const p = newProject();
     p.printer = { ...p.printer, bedX: 0, bedY: 1001, bedZ: Number.NaN };
     expect(codes(validateProject(p))).toEqual([
-      ["field.length", "/printer/bedX"],
-      ["limit.length", "/printer/bedY"],
-      ["field.length", "/printer/bedZ"],
+      [field.length, "/printer/bedX"],
+      [limit.length, "/printer/bedY"],
+      [field.length, "/printer/bedZ"],
     ]);
   });
 
@@ -369,15 +388,15 @@ describe("validateProject", () => {
       cards({ clearance: 1001 }),
     );
     expect(codes(validateProject(p))).toEqual([
-      ["limit.length", "/components/0/sleeve/thickness"],
-      ["limit.length", "/components/1/clearance"],
+      [limit.length, "/components/0/sleeve/thickness"],
+      [limit.length, "/components/1/clearance"],
     ]);
   });
 
   it("rejects layer heights above 1 mm", () => {
     const p = newProject();
     p.printer = { ...p.printer, layerHeight: 1.5 };
-    expect(codes(validateProject(p))).toEqual([["field.layerHeight", "/printer/layerHeight"]]);
+    expect(codes(validateProject(p))).toEqual([[field.layerHeight, "/printer/layerHeight"]]);
   });
 
   it("does not warn about card sides when they are equal", () => {
@@ -387,33 +406,33 @@ describe("validateProject", () => {
   it("skips the headroom cross-check when the box height is invalid", () => {
     const p = newProject();
     p.box = { ...p.box, innerHeight: 0, headroom: 0 };
-    expect(codes(validateProject(p))).toEqual([["field.length", "/box/innerHeight"]]);
+    expect(codes(validateProject(p))).toEqual([[field.length, "/box/innerHeight"]]);
   });
 
   it("reports an out-of-range headroom exactly once", () => {
     const p = newProject();
     p.box = { ...p.box, headroom: 1001 };
-    expect(codes(validateProject(p))).toEqual([["limit.length", "/box/headroom"]]);
+    expect(codes(validateProject(p))).toEqual([[limit.length, "/box/headroom"]]);
   });
 
   it("skips the bed margin cross-check when a bed side is invalid", () => {
     const p = newProject();
     p.printer = { ...p.printer, bedX: 0, bedY: 200, bedMargin: 100 };
-    expect(codes(validateProject(p))).toEqual([["field.length", "/printer/bedX"]]);
+    expect(codes(validateProject(p))).toEqual([[field.length, "/printer/bedX"]]);
   });
 
   it("rejects a press fit that leaves no room for trays", () => {
     const p = newProject();
     p.box = { ...p.box, innerHeight: 40, headroom: 39.5 };
     p.settings = { ...p.settings, topPressFit: -2 };
-    expect(codes(validateProject(p))).toEqual([["field.topPlane", "/box/headroom"]]);
+    expect(codes(validateProject(p))).toEqual([[field.topPlane, "/box/headroom"]]);
   });
 
   it("flags a group id that names another component", () => {
     const target = newComponent("custom");
     const member = cards({ groupId: target.id });
     expect(codes(validateProject(withComponents(target, member)))).toEqual([
-      ["field.groupId", "/components/1/groupId"],
+      [field.groupId, "/components/1/groupId"],
     ]);
   });
 
@@ -424,7 +443,7 @@ describe("validateProject", () => {
 
   it("treats an empty component id as blocking", () => {
     const notices = validateProject(withComponents({ ...newComponent("custom"), id: "" }));
-    expect(codes(notices)).toEqual([["invalid.id", "/components/0/id"]]);
+    expect(codes(notices)).toEqual([[invalid.id, "/components/0/id"]]);
     expect(notices.every(isBlocking)).toBe(true);
   });
 
@@ -432,7 +451,7 @@ describe("validateProject", () => {
     const missing = { ...newProject(), id: undefined } as unknown as Project;
     for (const p of [{ ...newProject(), id: "" }, missing]) {
       const notices = validateProject(p);
-      expect(codes(notices)).toEqual([["invalid.id", "/id"]]);
+      expect(codes(notices)).toEqual([[invalid.id, "/id"]]);
       expect(notices.every(isBlocking)).toBe(true);
     }
   });
@@ -464,7 +483,7 @@ describe("setting ranges", () => {
     for (const value of [range.min - 0.001, range.max + 0.001]) {
       const p = newProject();
       setAtPointer(p, `/settings/${range.path}`, value);
-      expect(codes(validateProject(p))).toEqual([["field.setting", `/settings/${range.path}`]]);
+      expect(codes(validateProject(p))).toEqual([[field.setting, `/settings/${range.path}`]]);
     }
   });
 });

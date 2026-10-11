@@ -2,7 +2,15 @@ import { COMPONENT_DEFAULTS, KIND_NAMES } from "./defaults";
 import { newId } from "./ids";
 import { isRecord, quote } from "./json";
 import type { Ctx } from "./schema-reader";
-import { absorbErrors, addError, adopt, childCtx, Reader, readEnum } from "./schema-reader";
+import {
+  absorbErrors,
+  addError,
+  adopt,
+  childCtx,
+  Reader,
+  readEnum,
+  SCHEMA_NOTICE_CODES,
+} from "./schema-reader";
 import type {
   BulkItem,
   CardsComponent,
@@ -54,7 +62,7 @@ function readCards(r: Reader, base: ComponentBase): Component {
     [shortSide, longSide] = [longSide, shortSide];
     r.ctx.notices.push({
       level: "info",
-      code: "schema.cardSidesSwapped",
+      code: SCHEMA_NOTICE_CODES.cardSidesSwapped,
       path: r.at("shortSide"),
       message: `Card sides of ${quote(base.name)} were the wrong way round and have been swapped.`,
     });
@@ -202,7 +210,7 @@ export function readComponents(
           : `${index + 1} in the file`;
       ctx.notices.push({
         level: "warning",
-        code: "schema.foreignComponent",
+        code: SCHEMA_NOTICE_CODES.foreignComponent,
         path,
         message: `Component ${which} uses features this app version doesn't know. It is kept but not laid out.`,
       });

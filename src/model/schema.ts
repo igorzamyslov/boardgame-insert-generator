@@ -12,6 +12,7 @@ import {
 } from "./json";
 import type { ForeignValue } from "./schema-read";
 import { readProject, TOO_DEEP_ERROR } from "./schema-read";
+import { SCHEMA_NOTICE_CODES } from "./schema-reader";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ForeignData, Notice, ParseResult, Project } from "./types";
 import { isBlocking, validateProject } from "./validate";
@@ -41,6 +42,8 @@ function compat(v: Semver): Compat {
 function compareRank(a: [number, number], b: [number, number]): number {
   return a[0] - b[0] || a[1] - b[1];
 }
+
+export { SCHEMA_NOTICE_CODES } from "./schema-reader";
 
 /** Upgrades raw project JSON from one compatibility line to a later one. */
 export interface Migration {
@@ -118,7 +121,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
   if (version !== file) {
     notices.push({
       level: "info",
-      code: "schema.migrated",
+      code: SCHEMA_NOTICE_CODES.migrated,
       message: `Upgraded from schema ${fileVersion} to ${opts.appSchemaVersion}.`,
     });
   }
@@ -133,7 +136,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
   if (newer) {
     notices.push({
       level: "warning",
-      code: "schema.newerMinor",
+      code: SCHEMA_NOTICE_CODES.newerMinor,
       message: `Made with app ${createdWith} (schema ${versionText}), which is newer than this app (${APP_VERSION}, schema ${opts.appSchemaVersion}). Parts this app doesn't know are kept but not laid out. Re-optimizing needs confirmation.`,
     });
   }

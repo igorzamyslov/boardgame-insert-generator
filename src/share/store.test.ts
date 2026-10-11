@@ -3,7 +3,7 @@ import { newComponent, newProject } from "../model/defaults";
 import type { Json } from "../model/json";
 import { noForeign, parseProject, serializeProject } from "../model/schema";
 import type { Project } from "../model/types";
-import { validateProject } from "../model/validate";
+import { VALIDATION_NOTICE_CODES, validateProject } from "../model/validate";
 import { APP_VERSION } from "../model/version";
 import { MemoryStorage } from "../test-support/memory-storage";
 import { sampleProject } from "../test-support/sample";
@@ -372,7 +372,9 @@ describe("createProjectStore and the spec §5 upper bounds", () => {
       throw new Error("expected the autosave to load");
     }
     expect(loaded.project.components).toHaveLength(101);
-    expect(validateProject(loaded.project).map((n) => n.code)).toContain("limit.components");
+    expect(validateProject(loaded.project).map((n) => n.code)).toContain(
+      VALIDATION_NOTICE_CODES.limit.components,
+    );
 
     const refused = /Too many components \(101\)/;
     const file = importJsonText(serializeProject(p, noForeign()));

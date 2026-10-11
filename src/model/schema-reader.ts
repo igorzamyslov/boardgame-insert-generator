@@ -1,9 +1,26 @@
+import { deepFreeze } from "./freeze";
 import type { Json } from "./json";
 import { escapePointerKey, isRecord, quote, shorten } from "./json";
 import type { Notice } from "./types";
 
 // The read machinery behind schema-read.ts: a per-scope context and a Reader
 // that pulls typed fields out of one JSON object.
+
+/**
+ * Codes of the notices parseProject() emits (stable, for the UI to match on).
+ * Re-exported from schema.ts. Frozen.
+ */
+export const SCHEMA_NOTICE_CODES = deepFreeze({
+  migrated: "schema.migrated",
+  newerMinor: "schema.newerMinor",
+  unknownFields: "schema.unknownFields",
+  unknownValue: "schema.unknownValue",
+  foreignComponent: "schema.foreignComponent",
+  cardSidesSwapped: "schema.cardSidesSwapped",
+  lockDropped: "lock.dropped",
+  layoutDropped: "layout.dropped",
+  layoutUnsupportedTrays: "layout.unsupportedTrays",
+} as const);
 
 /** Collected problems per scope; summarize() shows three, so keeping more only costs memory. */
 const MAX_ERRORS = 100;

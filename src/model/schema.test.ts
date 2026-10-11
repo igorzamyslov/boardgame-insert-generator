@@ -11,7 +11,7 @@ import {
   toSerializable,
 } from "./schema";
 import type { Project } from "./types";
-import { validateProject } from "./validate";
+import { VALIDATION_NOTICE_CODES, validateProject } from "./validate";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
 
 type Json = Record<string, unknown>;
@@ -279,7 +279,7 @@ describe("parseProject: spec §5 bounds", () => {
     expect(parseProjectWith(input, { ...opts, enforceBounds: true }).ok).toBe(false);
     const loaded = parseProjectWith(input, { ...opts, enforceBounds: false });
     expect(loaded.ok && validateProject(loaded.project).map((n) => n.code)).toContain(
-      "limit.count",
+      VALIDATION_NOTICE_CODES.limit.count,
     );
 
     const twins = raw(sampleProject());
