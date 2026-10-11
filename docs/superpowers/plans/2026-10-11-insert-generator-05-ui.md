@@ -15,7 +15,7 @@
 Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts this plan was written against. The amended roadmap is binding; where this plan's prose and an amendment disagree, the amendment wins. The code blocks named below are already patched: transcribe them as shown.
 
 1. **Geometry client (roadmap §4.3).** `build(spec, settings, signal?)` takes an `AbortSignal`. Every failure rejects with `GeometryBuildError` (`geometry/client.ts`), whose `name` is the reason: `"TraySpecError"` (an invalid spec, message `Tray <key>: …`), `"UnsupportedFeatureError"` (with `feature`), `"AbortError"`, `"TimeoutError"` (after `BUILD_TIMEOUT_MS` = 30 s from the call, queue time included), `"WorkerError"` or `"WorkerRestartedError"` (the worker was replaced while the build waited). Detect an invalid spec by `name === "TraySpecError"`, never by `instanceof RangeError` (Task 16 `support.ts`: `buildErrorReason`, `isInvalidSpec`; the tests of Tasks 16 and 17).
-2. **`meshes.ts` retry and poison contract (roadmap §4.3).** A build that fails with `"WorkerRestartedError"` is retried once; a spec that fails twice (aborts aside) is marked failed and rejects at once until `reset()`, so a spec that kills the worker cannot keep restarting it; at most `MAX_IN_FLIGHT` (2) builds are in the worker at once, because the timeout counts queue time; `get(spec, settings, signal?)` passes the signal to `build`, and the 3D view aborts the builds of trays it no longer shows (Tasks 16, 18). Task 23 adds a bulk-build smoke test of about 40 real trays that checks `BUILD_TIMEOUT_MS` against real build times.
+2. **`meshes.ts` retry and poison contract (roadmap §4.3).** A build that fails with `"WorkerRestartedError"` or `"WorkerError"` (the worker died under it) is retried once; a spec that fails twice in a row (aborts aside; a success clears the count) is marked failed and rejects at once until `reset()`, so a spec that kills the worker cannot keep restarting it; at most `MAX_IN_FLIGHT` (2) builds are in the worker at once, because the timeout counts queue time; `get(spec, settings, signal?)` passes the signal to `build`, and the 3D view aborts the builds of trays it no longer shows (Tasks 16, 18). Task 23 adds a bulk-build smoke test of every part of the optimized fixture layouts that checks `BUILD_TIMEOUT_MS` against real build times.
 3. **Geometry version lines (spec §9).** The "reprint the whole insert" notice uses plan 3's `isOlderGeometryLine(layout.geometryVersion)` (`geometry/version.ts`, pure): pre-1.0 each `0.MINOR` is a major line, so `0.0.x` is older than `0.1.0` and `0.1.x` is not (Task 2 `state.ts`).
 4. **Sizing notices.** `size()` drops variants whose finger slots cannot fit and, when none is left, emits a warning `sizing.noFingerSlot` at `/components/<i>` (roadmap §4.2); `sizingNotices` shows it like the other sizing warnings. `settingsValid` adds the cross-field settings errors `field.bottomChamfer` and `field.lipBearing` (both at `/settings/bottomChamfer`, shown next to the bottom chamfer field), and the wall and lip thickness minimum is `MIN_WALL_MM` = 0.9 mm (`SETTING_RANGES`).
 5. **Test-only helpers.** Plan 4's checker and fixture loader are `layout/test-hard-rules.ts` and `layout/test-fixtures.ts`; production code never imports a `test-*` module (root ESLint rule), and outside `geometry/` it imports only `geometry/{types,version,client}`.
@@ -7050,7 +7050,7 @@ git commit -m "Add plan view with drag, keyboard swap and lock"
   - `unsupportedReason(spec: TraySpec): string | null` — `part`, compartment `kind` or feature `type` outside plan 3's `KNOWN_*` lists (newer-minor files, spec §9).
   - `buildErrorReason(e: unknown): string` — by `GeometryBuildError.name` (never `instanceof RangeError`): `"UnsupportedFeatureError"` → `Uses feature "<feature>" from a newer app version.`; `"TimeoutError"` → `Building this tray took too long.`; `"AbortError"` → `Cancelled.`; `"TraySpecError"` ("Tray <key>: …", an invalid spec) and others → their message. `isInvalidSpec(e): boolean` — `e.name === "TraySpecError"`.
   - `interface BuiltMesh { mesh: Mesh; volumeMm3: number }`; `class UnsupportedTrayError extends Error`
-  - `interface MeshSource { get(spec: TraySpec, settings: Settings, signal?: AbortSignal): Promise<BuiltMesh>; reset(): void; dispose(): void }`; `MESH_CACHE_LIMIT = 64`; `MAX_IN_FLIGHT = 2`; `createMeshSource(load: () => Promise<GeometryClient>): MeshSource` — cached by `(spec, settings)`, failures are not cached, LRU-capped. Roadmap §4.3 contract: a build that fails with `"WorkerRestartedError"` is retried once; a spec that fails twice (aborts aside) is marked failed and rejects at once with its last error until `reset()`; at most `MAX_IN_FLIGHT` builds are in the worker at a time (the timeout counts queue time); the signal is passed to `build`, and a build still waiting for its turn when the signal aborts rejects without being sent.
+  - `interface MeshSource { get(spec: TraySpec, settings: Settings, signal?: AbortSignal): Promise<BuiltMesh>; reset(): void; dispose(): void }`; `MESH_CACHE_LIMIT = 64`; `MAX_IN_FLIGHT = 2`; `createMeshSource(load: () => Promise<GeometryClient>): MeshSource` — cached by `(spec, settings)`, failures are not cached, LRU-capped. Roadmap §4.3 contract: a build that fails with `"WorkerRestartedError"` or `"WorkerError"` is retried once; a spec that fails twice in a row (aborts aside; a success clears the count) is marked failed and rejects at once with its last error until `reset()`; at most `MAX_IN_FLIGHT` builds are in the worker at a time (the timeout counts queue time); the signal is passed to `build`, and a build still waiting for its turn when the signal aborts rejects without being sent.
   - `interface ExportPlan { parts: NumberedPart[]; skipped: { part: NumberedPart; reason: string }[] }`; `planExport(trays: readonly TraySpec[]): ExportPlan`
   - `interface ExportProgress { done: number; total: number }`; `interface ExportOptions { getMesh: (spec: TraySpec) => Promise<BuiltMesh>; onProgress: (p: ExportProgress) => void; yieldToUi?: () => Promise<void> }`; `interface ExportOutput { data: Uint8Array; failed: { part: NumberedPart; reason: string }[]; included: number }`
   - `GRID_GAP_MM = 5`; `yieldToUi(): Promise<void>`; `objectName(part: NumberedPart): string`; `meshFootprint(mesh: Mesh): { w: number; d: number }`; `usableBed(p: Printer): { x: number; y: number }`; `class NothingToExportError extends Error`
@@ -7154,12 +7154,34 @@ describe("createMeshSource", () => {
     expect(f.build).toHaveBeenCalledTimes(2);
   });
 
-  it("retries a build once when the worker was restarted under it", async () => {
+  it("retries a build once when the worker was restarted under it or crashed", async () => {
+    for (const reason of ["WorkerRestartedError", "WorkerError"]) {
+      const f = fakeClient();
+      f.build.mockRejectedValueOnce(new GeometryBuildError("worker gone", reason));
+      const source = createMeshSource(() => Promise.resolve(f.client));
+      await expect(source.get(makeTray(), DEFAULT_SETTINGS)).resolves.toBeDefined();
+      expect(f.build).toHaveBeenCalledTimes(2);
+    }
+  });
+
+  it("clears a spec's failure count when it builds", async () => {
     const f = fakeClient();
-    f.build.mockRejectedValueOnce(new GeometryBuildError("restarted", "WorkerRestartedError"));
     const source = createMeshSource(() => Promise.resolve(f.client));
+    const fail = (): void => {
+      f.build.mockRejectedValueOnce(new GeometryBuildError("Tray t: bad", "TraySpecError"));
+    };
+    fail();
+    await expect(source.get(makeTray(), DEFAULT_SETTINGS)).rejects.toThrow("bad");
     await expect(source.get(makeTray(), DEFAULT_SETTINGS)).resolves.toBeDefined();
-    expect(f.build).toHaveBeenCalledTimes(2);
+    // Evict its mesh from the cache, so the next get builds it again.
+    for (let i = 0; i < MESH_CACHE_LIMIT; i += 1) {
+      await source.get(makeTray({ key: `other${i}` }), DEFAULT_SETTINGS);
+    }
+    fail();
+    await expect(source.get(makeTray(), DEFAULT_SETTINGS)).rejects.toThrow("bad");
+    // One failure since the success: not marked failed, so it builds again.
+    await expect(source.get(makeTray(), DEFAULT_SETTINGS)).resolves.toBeDefined();
+    expect(f.build).toHaveBeenCalledTimes(MESH_CACHE_LIMIT + 4);
   });
 
   it("marks a spec that fails twice as failed until reset, so it can't livelock the worker", async () => {
@@ -7177,11 +7199,11 @@ describe("createMeshSource", () => {
 
   it("passes the abort signal on and never sends a build aborted while it waited", async () => {
     const f = fakeClient();
-    let release = (): void => undefined;
+    const releases: (() => void)[] = [];
     f.build.mockImplementation(
       () =>
         new Promise((resolve) => {
-          release = () => resolve({ mesh: cubeMesh(), volumeMm3: 1000 });
+          releases.push(() => resolve({ mesh: cubeMesh(), volumeMm3: 1000 }));
         }),
     );
     const source = createMeshSource(() => Promise.resolve(f.client));
@@ -7194,8 +7216,11 @@ describe("createMeshSource", () => {
     expect(f.build.mock.calls[0]?.[2]).toBeUndefined();
     controller.abort();
     await expect(waiting).rejects.toMatchObject({ name: "AbortError" });
-    release();
-    await Promise.all(busy.slice(-1));
+    for (const release of releases) {
+      release();
+    }
+    await Promise.all(busy);
+    await vi.waitFor(() => expect(f.build).toHaveBeenCalledTimes(MAX_IN_FLIGHT));
     expect(f.build).toHaveBeenCalledTimes(MAX_IN_FLIGHT);
   });
 
@@ -7517,7 +7542,11 @@ export function createMeshSource(load: () => Promise<GeometryClient>): MeshSourc
     }
   }
 
-  /** One build, retried once after a worker restart; counts failures toward `failed`. */
+  /**
+   * One build, retried once when the worker died under it (restarted while the build waited, or
+   * crashed, maybe because of another build). Failures in a row count toward `failed`; a success
+   * clears the count.
+   */
   async function build(
     key: string,
     spec: TraySpec,
@@ -7526,7 +7555,9 @@ export function createMeshSource(load: () => Promise<GeometryClient>): MeshSourc
   ): Promise<BuiltMesh> {
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return await buildOnce(spec, settings, signal);
+        const built = await buildOnce(spec, settings, signal);
+        failures.delete(key);
+        return built;
       } catch (error) {
         if (isNamed(error, "AbortError")) {
           throw error;
@@ -7537,7 +7568,8 @@ export function createMeshSource(load: () => Promise<GeometryClient>): MeshSourc
           failed.set(key, error);
           throw error;
         }
-        if (attempt > 0 || !isNamed(error, "WorkerRestartedError")) {
+        const workerDied = isNamed(error, "WorkerRestartedError") || isNamed(error, "WorkerError");
+        if (attempt > 0 || !workerDied) {
           throw error;
         }
       }
@@ -7793,7 +7825,7 @@ export async function buildStlZip(
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd apps/insert-generator && npx vitest run src/app/meshes.test.ts src/app/exportBuild.test.ts`
-Expected: PASS (14 tests).
+Expected: PASS (15 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -11218,7 +11250,7 @@ Expected: all tests pass, both `tsc` runs print nothing, Vite prints `✓ built`
 
 - [ ] **Step 6: Bulk-build smoke test of the geometry timeout**
 
-The geometry client (plan 3) rejects a build after `BUILD_TIMEOUT_MS` (30 s) counted from the call, queue time included, and `meshes.ts` keeps at most `MAX_IN_FLIGHT` builds in the worker (roadmap §4.3). Build about 40 real trays (the optimized fixture layouts) with the kernel, in Node, and check the slowest build leaves that timeout a wide margin: a build waits for at most `MAX_IN_FLIGHT − 1` others, and a slow laptop is assumed 5× slower.
+The geometry client (plan 3) rejects a build after `BUILD_TIMEOUT_MS` (30 s) counted from the call, queue time included, and `meshes.ts` keeps at most `MAX_IN_FLIGHT` builds in the worker (roadmap §4.3). Build every part (trays, spacers, leftovers) of the optimized fixture layouts with the kernel, in Node, and check the slowest build leaves that timeout a wide margin: a build waits for at most `MAX_IN_FLIGHT − 1` others, and a slow laptop is assumed 5× slower.
 
 ```ts
 // src/app/bulkBuild.smoke.test.ts
@@ -11231,27 +11263,34 @@ import { FIXTURES, fixtureInput, type FixtureName } from "../layout/test-fixture
 import { MAX_IN_FLIGHT } from "./meshes";
 
 describe("bulk build smoke", () => {
-  it("builds about 40 real trays well inside BUILD_TIMEOUT_MS", { timeout: 120_000 }, async () => {
-    const m = await loadManifold();
-    const names = Object.keys(FIXTURES) as FixtureName[];
-    const builds = names
-      .flatMap((name) => {
+  it(
+    "builds every part of the fixture layouts well inside BUILD_TIMEOUT_MS",
+    { timeout: 120_000 },
+    async () => {
+      const m = await loadManifold();
+      const names = Object.keys(FIXTURES) as FixtureName[];
+      const layouts = names.map((name) => {
         const input = fixtureInput(name);
-        const trays = optimize(input, 1, 2000).layout?.trays ?? [];
-        return trays.map((spec) => ({ spec, settings: input.settings }));
-      })
-      .slice(0, 40);
-    expect(builds.length).toBeGreaterThanOrEqual(20);
-    let slowest = 0;
-    for (const { spec, settings } of builds) {
-      const start = performance.now();
-      buildTray(m, spec, settings);
-      slowest = Math.max(slowest, performance.now() - start);
-    }
-    expect(slowest * MAX_IN_FLIGHT * 5, `slowest build ${slowest.toFixed(0)} ms`).toBeLessThan(
-      BUILD_TIMEOUT_MS,
-    );
-  });
+        return { name, settings: input.settings, layout: optimize(input, 1, 2000).layout };
+      });
+      // Every fixture but tiny-box (infeasible by design, roadmap §5) has a layout to build.
+      expect(layouts.filter((l) => l.layout === null).map((l) => l.name)).toEqual(["tiny-box"]);
+      const builds = layouts.flatMap(({ settings, layout }) =>
+        (layout?.trays ?? []).map((spec) => ({ spec, settings })),
+      );
+      // At least one part per feasible fixture.
+      expect(builds.length).toBeGreaterThanOrEqual(names.length - 1);
+      let slowest = 0;
+      for (const { spec, settings } of builds) {
+        const start = performance.now();
+        buildTray(m, spec, settings);
+        slowest = Math.max(slowest, performance.now() - start);
+      }
+      expect(slowest * MAX_IN_FLIGHT * 5, `slowest build ${slowest.toFixed(0)} ms`).toBeLessThan(
+        BUILD_TIMEOUT_MS,
+      );
+    },
+  );
 });
 ```
 
