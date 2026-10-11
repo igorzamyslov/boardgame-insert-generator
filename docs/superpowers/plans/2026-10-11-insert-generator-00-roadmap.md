@@ -358,12 +358,21 @@ export function realizeTray(
   settings: Settings,
   opts: RealizeOptions,
 ): RealizedTray;
+// realizeTray's refusal of a tray whose finger slots cannot keep their minimum width (§4.7).
+export class SlotFitError extends RangeError {
+  // name "SlotFitError"
+  readonly minWidth: number; // mm: min(MIN_SLOT_WIDTH, fingerPocket.width)
+  readonly componentIds: readonly string[]; // of the compartments whose slots did not fit
+  readonly contents: readonly string[]; // their contents labels
+}
 ```
 
-- `size` groups components by `groupId` and expands `perPlayer`. It assumes a valid project: invalid components and out-of-range settings yield nothing, without notices of their own, because `validateProject` already reports them (plans 4 and 5 never optimize while it has errors). Its own notices are sizing warnings such as an implausibly thin measured card thickness. Every requirement it returns has 1..8 variants.
-- `CompartmentReq.minW`, `minD` and `minH` are whole 0.01 mm (rounded up). A compartment with a finger pocket keeps at least 1 mm of content on both axes.
+- `size` groups components by `groupId` and expands `perPlayer`. It assumes a valid project: invalid components and out-of-range settings (`settingsValid` false) yield nothing, without notices of their own, because `validateProject` already reports them (plans 4 and 5 never optimize while it has errors). Its own notices are sizing warnings such as an implausibly thin measured card thickness. Every requirement it returns has 1..8 variants.
+- `size` keeps only variants whose every part `realizeTray` realizes at its `minOuter` unlipped at level 0; the rest keep their rank order. A requirement none of whose variants does is left out, with a warning `sizing.noFingerSlot` at `/components/<i>` (the first member whose slots did not fit) naming that component and the contents of the preferred variant's failing run, e.g. "Cards: no tray arrangement leaves room for a finger slot of at least 15 mm by D1 ×1, D2 ×1, …, so it is left out.". At the default settings a one-card deck beside wide ones in an upright strip does this; flat, split and two-row variants usually remain.
+- `CompartmentReq.minW`, `minD` and `minH` are whole 0.01 mm (rounded up). A compartment with a finger pocket keeps at least `MIN_POCKET_CONTENT` (1 mm, `model/settings.ts`) of content on both axes.
 - `minOuter` returns the smallest outer box that holds the part (walls, dividers, floor, lipped wall included). `h` = floor + max compartment `minH`, raised to the bottom-chamfer and upper-tray minimums (§4.6, §4.7); `w` and `d` are raised to the bottom-chamfer minimum too.
-- `realizeTray` spreads slack in `outer` over the compartments (elastic axes first, then dividers/walls inward up to `min(2 × setting, 4)`, with upright card/tile stack slack becoming a spacer first when ≥ 5 mm (§4.7), otherwise thicker dividers/walls, then an extra `spare` compartment). It raises floors so every compartment top is at the rim (`floorZ = h − compartment content depth`, never below `settings.floor`). It throws `RangeError` if `outer` is smaller than `minOuter` on any axis, or if its finger slots cannot keep their minimum width (§4.7).
+- `realizeTray` spreads slack in `outer` over the compartments (elastic axes first, then dividers/walls inward up to `min(2 × setting, 4)`, with upright card/tile stack slack becoming a spacer first when ≥ 5 mm (§4.7), otherwise thicker dividers/walls, then an extra `spare` compartment). It raises floors so every compartment top is at the rim (`floorZ = h − compartment content depth`, never below `settings.floor`). It throws a plain `RangeError` if `outer` is smaller than `minOuter` on any axis (a programming error), `SlotFitError` if its finger slots cannot keep their minimum width (§4.7), and a plain `Error` for a broken internal invariant (a bug).
+- **Monotonic in slack:** if `realizeTray(part, minOuter(part, s, opts), s, opts)` succeeds, `realizeTray(part, outer, s, opts)` succeeds for every larger `outer` with the same settings and options. Where the slack would leave the slots no room (a wider row pushing a slot against a well face, a spare compartment), the tray keeps its `minOuter` arrangement, centred in `outer`, and the slack thickens the outer walls. Slot placement depends on the footprint only, so the height never matters.
 
 ### 4.3 `src/geometry/types.ts` (plan 3)
 
@@ -429,15 +438,21 @@ export function checkPrintability(mesh: Mesh): PrintabilityReport;
 export class UnsupportedFeatureError extends Error {}
 export class TraySpecError extends RangeError {} // name "TraySpecError": every spec rejection of planTray/buildTray
 export const GEOMETRY_VERSION: string;
+// src/geometry/version.ts (pure: main-thread code may import it)
+export function isOlderGeometryLine(stored: string): boolean; // spec §9 line rule, see below
 // src/geometry/client.ts
-export function createGeometryClient(): {
+export interface GeometryClient {
+  // Rejects with a GeometryBuildError when the build fails, the signal aborts it, or it takes
+  // longer than BUILD_TIMEOUT_MS (counted from the call, queue time included).
   build(
     spec: TraySpec,
     settings: Settings,
     signal?: AbortSignal,
   ): Promise<{ mesh: Mesh; volumeMm3: number }>;
+  // Terminal: stops the worker and rejects pending and later builds.
   dispose(): void;
-};
+}
+export function createGeometryClient(): GeometryClient;
 export const BUILD_TIMEOUT_MS: number; // 30000
 // What every failed build rejects with (disposed clients reject with a plain Error). After any
 // failure other than TraySpecError, UnsupportedFeatureError or AbortError the client replaces its worker.
@@ -462,6 +477,9 @@ export function gridLayout(
 ```
 
 Mesh frame: tray-local, origin at the outer min corner, z = 0 at the bottom.
+
+- `isOlderGeometryLine(stored)` is true when `stored` belongs to an older compatibility line than `GEOMETRY_VERSION`: an older MAJOR, or pre-1.0 an older `0.MINOR` (each `0.MINOR` is a major line, spec §9). False for the same or a newer line and for an unreadable version. Plan 5 uses it for the "reprint the whole insert" warning.
+- **Callers of `build` (plan 5 `meshes.ts`, binding).** Tell failures apart by `GeometryBuildError.name`, never by `instanceof RangeError`: `"TraySpecError"` (the spec is invalid; a bug upstream, show it, don't retry), `"UnsupportedFeatureError"` (a newer-minor tray: shown, not built or exported), `"AbortError"` (you cancelled it), `"TimeoutError"`, `"WorkerError"` and `"WorkerRestartedError"`. Retry a build that failed with `"WorkerRestartedError"` (the worker was replaced while it waited) once; a spec that fails twice is marked failed and not retried again, so a spec that kills the worker cannot livelock the queue. Pass an `AbortSignal` and abort builds whose result is no longer wanted. Don't fire an unbounded number of builds at once: the timeout counts queue time, so keep a bounded number in flight (or rely on the worker's one-at-a-time queue with few enough outstanding builds that the last finishes within `BUILD_TIMEOUT_MS`). Plan 5's smoke run bulk-builds about 40 trays to check `BUILD_TIMEOUT_MS` against real build times.
 
 ### 4.4 `src/layout/types.ts` (plan 4)
 
@@ -571,6 +589,42 @@ export interface Effective {
 }
 export function effective(s: Settings): Effective; // base × fit
 export function topPlane(box: Box, s: Settings): number;
+// Geometry limits shared by sizing, geometry and layout (spec §6.1, §4.6 below):
+export const MIN_FEATURE_MM: number; // 0.8: dividers, floors, every cut's material
+export const CORNER_MARGIN: number; // 0.1: what the outer corner arc polygon may lose
+export const MIN_WALL_MM: number; // 0.9 = MIN_FEATURE_MM + CORNER_MARGIN: walls and lips
+export const UPPER_MIN_CHAMFER: number; // 0.5: bottom chamfer of trays above level 0
+export const SPEC_TOLERANCE: number; // 0.005: half the TraySpec grid, forgiven by planTray
+export const FLOAT_EPSILON: number; // 1e-9: float noise, forgiven where no grid applies
+export const SLOT_CONTENT_OVERLAP: number; // 0.5: how far a finger slot runs into its contents
+export const MIN_SLOT_WIDTH: number; // 15: narrowest finger slot (or fingerPocket.width)
+export const MIN_POCKET_CONTENT: number; // 1: content left inside a pocket's reach bands
+export function effectiveBottomChamfer(s: Settings, level: number): number;
+export function chamferMinimums(s: Settings, level: number): { side: number; h: number };
+export function maxBottomChamfer(s: Settings): number;
+export function maxCornerRadius(p: number, q: number, rho: number): number;
+export function maxChannelSpacing(r: number): number;
+export function maxWellFaceOffset(r: number): number;
+export function cutRidgeWidth(r: number, dContents: number, dSolid: number): number;
+// model/slot-rules.ts: the finger slot clearance rule (§4.6) as predicates on mm, shared by
+// sizing (tol 0) and planTray (tol SPEC_TOLERANCE). RectMm is { x0, y0, x1, y1 }, WellFace
+// { at, solid: -1 | 1 }; FaceProblem says why a face fails ("short", "offset" or "ridge").
+export function separation(a: RectMm, b: RectMm): number;
+export function keepsApart(a: RectMm, b: RectMm, tol: number): boolean;
+export function slotsApart(spacing: number, r: number, tol: number): boolean;
+export function slotsMerge(spacing: number, r: number, tol: number): boolean;
+export function wellFaceProblem(
+  face: WellFace,
+  centres: readonly number[],
+  r: number,
+  tol: number,
+): FaceProblem | null;
+export function wellFaceHolds(
+  face: WellFace,
+  centres: readonly number[],
+  r: number,
+  tol: number,
+): boolean;
 // model/presets.ts
 export const CARD_PRESETS: { id: string; label: string; shortSide: number; longSide: number }[];
 export const SLEEVES: Record<
@@ -586,6 +640,13 @@ export function parseNumber(text: string): number | null; // "63,5" → 63.5, ""
 // model/validate.ts
 export const BOUNDS: { maxComponents: 100; maxCount: 2000; maxLength: 1000; maxPlayers: 10 };
 export function validateProject(p: Project): Notice[];
+export const SETTING_RANGES: readonly SettingRange[]; // { path, label, get, min, max } per setting
+export function settingsValid(s: Settings): boolean; // ranges plus the cross-field rules (§4.6)
+export const VALIDATION_NOTICE_CODES: {
+  field: Record<string, string>; // "field.<name>", e.g. field.bottomChamfer, field.lipBearing
+  limit: Record<string, string>;
+  invalid: Record<string, string>;
+};
 // model/schema.ts
 export function parseProject(raw: unknown, appSchemaVersion?: string): ParseResult;
 export function serializeProject(p: Project, foreign: ForeignData): string; // JSON
@@ -619,15 +680,19 @@ export function importJsonText(text: string): ParseResult;
 - **Well faces in the overlap.** Where a slot's round bottom crosses a well face it meets only within its 0.5 mm overlap (its own compartment's or a twin's), it leaves a wedge of the divider between the two; with the solid side of the face toward the slot's centre the wedge is acute. Take, at each such face, the covering twin slot whose centre is nearest (on a tie the one on the solid side, whose bottom is lower there):
   - centre on the contents' side of the face (`dc` from it): the edge at the face is obtuse. But if the next twin toward the solid side (`ds` from the face) merges with that slot, their ridge peaks at the midpoint of the centres, on the face's solid side, and the face leaves half of it, cut vertically. With `k = √(r² − ((dc + ds)/2)²)` the peak's depth below the arc centres and `s = √(r² − (k + 0.8)²)`, that piece is `ds − s + min(0, dc − s)` wide 0.8 mm below the peak (`cutRidgeWidth`, `model/settings.ts`: from the far slot's bottom to the face, or to the near slot's bottom when that is closer, which is the whole ridge, ≥ 0.8 mm by the channel rule). It must be ≥ 0.8 mm. A 22 mm pair 20 mm apart needs the face ≥ 0.4 mm from the peak;
   - centre on the solid side: the face must lie at most `maxWellFaceOffset(r) = 0.4 + √(0.5r² − 0.16)` mm from it (`model/settings.ts`; 8.17 mm for 22 mm slots). The bottom meets the face `k = √(r² − dx²)` below the arc centre, and 0.8 mm lower the wedge is `dx − √(r² − (k + 0.8)²)` wide; `k ≥ dx − 0.8` keeps that ≥ 0.8 mm, which is `dx ≤ maxWellFaceOffset(r)`. So the wedge, too, is thinner than 0.8 mm only within 0.8 mm of its tip;
-  - no slot covers the face: every slot whose end lies on its solid side ends ≥ 0.8 mm short of it.
+  - no slot covers the face: every slot whose end lies on its solid side ends ≥ 0.8 mm short of it. A slot end within `SPEC_TOLERANCE` of a face counts as up to it, never as crossing it.
+
+  `model/slot-rules.ts` implements these predicates once, in mm (`keepsApart`, `slotsApart`, `slotsMerge`, `wellFaceProblem`), with a tolerance: sizing places slots with tolerance 0, planTray checks them with `SPEC_TOLERANCE`, so whatever sizing places planTray accepts.
 
   Everything else is rejected, in particular a partial overlap: a round bottom ending just past a vertical well face leaves a near-vertical feather of the divider (a 22 mm slot ending 0.03 mm inside a neighbouring spare well left 0.04 mm; one ending 0.02 mm past a twin deck's well face left 0.05 mm inside the overlap). With the rule, every other cut stays ≥ 0.8 mm away horizontally at every height, including under the round bottom. Where slots and well faces meet within the overlap, every piece of material is ≥ 0.8 mm wide 0.8 mm below its highest point: the ridge between merged slots, the wedge between a round bottom and a face, and a ridge cut by a face. Thinner material lies only within 0.8 mm of those tips, on sloped tops that `checkPrintability` does not sample; the test helper `geometry/test-wedge.ts` (`thinnestWedge`) measures it from the cut profile, and the sizing sweep and `tray.sizing.test.ts` assert it. Corner reliefs budget against neighbouring slots as against their compartments.
 
-- **`buildTray` rejects** (throws `RangeError`) compartments that overlap or touch each other, that come closer to an outer face than the outer wall (`max(wall, lip.thickness + lip.ledge)` when lipped), or whose `floorZ` is outside (0, h). It also rejects a finger pocket whose `width`, `reach` or `depth` is not > 0; a compartment whose reach bands (the deepest `reach` on each side) leave less than 1 mm for the contents on either axis; finger slots that break the finger slot clearance rule above; and a tray or spacer too small for its 45° bottom chamfer `c`: `min(w, d) < 2·(c + 0.8)` or `h < c + 0.8`, where `c = bottomChamfer`, or `max(bottomChamfer, 0.5)` for `level > 0` (spacers always use `bottomChamfer`). All these limits, like the wall and outer-wall checks, are compared with a 0.005 mm tolerance (`SPEC_TOLERANCE`): TraySpec numbers are on the 0.01 mm grid, so a spec exactly on a limit passes despite float noise (e.g. content 8.29 − 7.29 mm, or `h = 3.07` with `c = 2.27`). Sizing and layout must never emit such specs. Their tests should assert it.
+- **`planTray` and `buildTray` reject** a spec by throwing `TraySpecError` (`geometry/errors.ts`, a `RangeError` named `"TraySpecError"`; across the worker it arrives as a `GeometryBuildError` of that name). They reject non-positive or non-finite sizes and non-finite `bottomChamfer`, `cornerRadius` or lip settings; a tray `wall` below `MIN_WALL_MM` (0.9 mm; solid parts and spacers are exempt); on a lipped tray a `lip.thickness` below `MIN_WALL_MM` or a `lip.height` not above the lip chamfer; compartments closer than `MIN_FEATURE_MM` (0.8 mm) to each other, along x or y (so every divider is ≥ 0.8 mm; overlapping and touching ones included); compartments closer to an outer face than the outer wall (`max(wall, lip.thickness + lip.ledge)` when lipped), or whose `floorZ` is outside (0, h). They also reject a finger pocket whose `width`, `reach` or `depth` is not > 0; a compartment whose reach bands (the deepest `reach` on each side) leave less than `MIN_POCKET_CONTENT` (1 mm) for the contents on either axis; finger slots that cut into the outer wall or break the finger slot clearance rule above; and a tray or spacer too small for its 45° bottom chamfer `c`: `min(w, d) < 2·(c + 0.8)` or `h < c + 0.8`, where `c = bottomChamfer`, or `max(bottomChamfer, 0.5)` for `level > 0` (spacers always use `bottomChamfer`), plus the bottom chamfer limits below. All these limits, like the wall and outer-wall checks, are compared with a 0.005 mm tolerance (`SPEC_TOLERANCE`): TraySpec numbers are on the 0.01 mm grid, so a spec exactly on a limit passes despite float noise (e.g. content 8.29 − 7.29 mm, or `h = 3.07` with `c = 2.27`). Sizing and layout must never emit such specs. Their tests should assert it (call `planTray(spec, settings)` on every emitted spec).
+- **Printability.** planTray's rules are what keep every wall, divider, floor and lip ≥ 0.8 mm: a spec that would build a thinner feature is rejected, never built. `checkPrintability` is a test-time verifier: tests run it on built meshes to confirm the rules leave nothing thinner; production builds don't run it.
+- **Lip.** The lip's inner top edge has a `min(0.6, lip.thickness − 0.6)` × 45° chamfer, so its flat top stays ≥ 0.6 mm. Upper trays rest on the ledge: with the lip on, `validateProject` requires an upper tray's bottom chamfer (`effectiveBottomChamfer(s, 1)`, at least 0.5) to be less than `lip.ledge − 2·effective(s).lipPlay` (`field.lipBearing` at `/settings/bottomChamfer`, checked when the chamfer, ledge, play and fit are in range and the chamfer is within `maxBottomChamfer`); `settingsValid` includes it.
 - **Bottom chamfer limit.** The 45° chamfer `c` pulls the outer contour in by `e = c − z` at height `z < c` (corner arc radius `R − e`), and the outer corner is never rounder than the chamfer (`R ≥ c`). Everything cut at height `z` must keep 0.8 mm of material to that contour:
-  - **Straight faces:** `distance to the nearest outer face + z − c ≥ 0.8` for each compartment (at its `floorZ`) and each finger slot (its lowest line `bottomZ`; for a slot's side ends `bottomZ + (2 − √2)·radius`). `buildTray` rejects a violation with `RangeError`.
+  - **Straight faces:** `distance to the nearest outer face + z − c ≥ 0.8` for each compartment (at its `floorZ`) and each finger slot (its lowest line `bottomZ`; for a slot's side ends `bottomZ + (2 − √2)·radius`). `buildTray` rejects a violation with `TraySpecError`.
   - **Corners:** `planCornerRadius` shrinks `R` for every well corner, slot corner and relief circle with the extra margin `e = max(0, c − floorZ)`, and `buildTray` rejects a chamfer that still leaves such a corner under 0.8 mm plus the 0.1 mm `CORNER_MARGIN` on the true arc (`R = c` forced). Corner reliefs keep `e` out of their wall budget.
-  - **Settings:** `model/settings.ts` exports `effectiveBottomChamfer(s, level)`, `chamferMinimums(s, level)`, `maxCornerRadius` and `maxBottomChamfer(s) = min(wall + floor − 0.8, wall + (floor − 0.9)/√2, maxCornerRadius(wall, wall, 0))`; the middle term is the sharp corner at `R = c`, whose material is `floor − √2·(c − wall)`, plus the 0.1 mm `CORNER_MARGIN` that every corner term keeps for the polygon approximating the arc (defaults: 1.812 mm). `validateProject` reports a `bottomChamfer` above it as `field.bottomChamfer` at `/settings/bottomChamfer`, and `size()` returns no requirements for settings that fail `settingsValid(s)` (ranges plus this rule). `lip.height` is at least 1 mm, and `wall` and `lip.thickness` at least `MIN_FEATURE_MM + CORNER_MARGIN` = 0.9 mm (`SETTING_RANGES`): a sharp cut corner at the wall keeps 0.8 mm to the arc polygon only with that margin (`maxCornerRadius` has none to give a cut closer than 0.9 mm to a face), and the lip ring between two concentric polygons is only `t·cos(Δ/2)` thick at a corner facet, so `checkPrintability` measures a 0.8 mm lip below 0.8 mm (0.9·cos(22.5°) ≈ 0.83 mm passes). Floors and dividers keep their 0.8 mm minimum.
+  - **Settings:** `model/settings.ts` exports `effectiveBottomChamfer(s, level)`, `chamferMinimums(s, level)`, `maxCornerRadius` and `maxBottomChamfer(s) = min(wall + floor − 0.8, wall + (floor − 0.9)/√2, maxCornerRadius(wall, wall, 0))`; the middle term is the sharp corner at `R = c`, whose material is `floor − √2·(c − wall)`, plus the 0.1 mm `CORNER_MARGIN` that every corner term keeps for the polygon approximating the arc (defaults: 1.812 mm). `validateProject` reports a `bottomChamfer` above it as `field.bottomChamfer` at `/settings/bottomChamfer`, and `size()` returns no requirements for settings that fail `settingsValid(s)` (ranges plus this rule and the lip bearing rule above). `lip.height` is at least 1 mm, and `wall` and `lip.thickness` at least `MIN_WALL_MM` = `MIN_FEATURE_MM + CORNER_MARGIN` = 0.9 mm (`SETTING_RANGES`; planTray rejects thinner walls and lips, and `wallFor` never returns less): a sharp cut corner at the wall keeps 0.8 mm to the arc polygon only with that margin (`maxCornerRadius` has none to give a cut closer than 0.9 mm to a face), and the lip ring between two concentric polygons is only `t·cos(Δ/2)` thick at a corner facet, so `checkPrintability` measures a 0.8 mm lip below 0.8 mm (0.9·cos(22.5°) ≈ 0.83 mm passes). Floors and dividers keep their 0.8 mm minimum.
 - Geometry may shrink corner-relief and outer-corner radii below `settings.cornerRadius` to keep walls ≥ 0.8 mm. Outer dimensions never change.
 - `UnsupportedFeatureError` has a `feature: string` property and constructor `(feature: string)`. It is thrown for any `part`, compartment `kind` or feature `type` outside `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` (`geometry/types.ts`); `feature` is the feature type, `part:<part>` or `kind:<kind>`. The UI imports the same lists (no copies).
 - Main-thread and layout code import `GEOMETRY_VERSION` from `geometry/version`, types from `geometry/types` and the worker client from `geometry/client` only. Importing `geometry/index` pulls manifold-3d and its WASM into that bundle. The root ESLint config forbids every other `geometry/*` module (static and dynamic imports, and the bare `geometry` directory) and `manifold-3d` outside `geometry/`, test files and `test-*.ts` helpers, and a test checks that `client.ts`'s import graph stays inside `geometry/{client,types,version}` and `model/`.
@@ -638,12 +703,13 @@ export function importJsonText(text: string): ParseResult;
 - `realizeTray` works in the tray's own (unrotated) frame. For a rotated placement, layout calls `realizeTray` with the unrotated outer, then `rotateRealized(realized, outer)` (90° counter-clockwise; exported from `sizing/index.ts`).
 - Spacers: at most one per tray, key `<trayKey>:spacer`, `x/y/z` relative to the tray, height = well depth − 5. Created only when the spacer is buildable: the spare upright stack length is ≥ max(5 mm, 2·(bottomChamfer + 0.8)), the well it fills is ≥ 2·(bottomChamfer + 0.8) deep, and its height (content depth − 5) is ≥ max(5 mm, bottomChamfer + 0.8). Otherwise slack goes to thicker walls/dividers, then a spare compartment.
 - `RealizedTray.compartments[i]` corresponds to `part.compartments[i]`; spare compartments come after.
-- `RealizedTray.wall` = `max(settings.wall, 0.8)` rounded up to 0.01 mm, the base wall, never the lipped one.
-- `wallFor(settings, lipped)` is exported from `sizing/index.ts`: the outer wall, `max(wall, lip.thickness + lip.ledge)` on a lipped tray. Plan 4 must use it instead of re-deriving the lipped wall.
+- `RealizedTray.wall` = `max(settings.wall, MIN_WALL_MM)` rounded up to 0.01 mm, the base wall, never the lipped one.
+- `wallFor(settings, lipped)` is exported from `sizing/index.ts`: the outer wall, `max(settings.wall, MIN_WALL_MM)`, and at least `lip.thickness + lip.ledge` on a lipped tray. Plan 4 must use it instead of re-deriving the (lipped) wall, rounded up to 0.01 mm like sizing.
 - `RealizeOptions.lipped` only takes effect when `settings.lip.enabled`. Upper trays (`level > 0`) are at least `lip.height + 3` tall.
 - `minOuter` widens the inner span to `fingerPocket.width` on sides that carry a pocket, so tiny decks still get a usable slot.
 - Finger slots (`sizing/slots.ts`) satisfy the finger slot clearance rule (§4.6): compartments whose pockets share a band line are twins; any other compartment within 0.8 mm of the band blocks them. A run of twins between two blockers shares one slot width (at most `fingerPocket.width`); each slot is centred on its contents (minus the spacer) as far as the run's room allows: inside the outer walls and at most half way into the gap to a blocker, less 0.4 mm, so it keeps 0.8 mm from the blocker and from any slot reaching toward it from the other side. Neighbouring twins that overlap merge into one channel when their centres are at most `maxChannelSpacing` apart (the channel takes its members' smallest depth). A pair that neither merges nor keeps apart, or a well face that does not hold (crossed too far from the nearest slot's centre, cutting a merged ridge too close to its peak, or a slot ending less than 0.8 mm short of it), first moves one slot (toward merging, or the smallest move of a nearby slot, at most 5 mm, that makes the face hold) as long as the slot stays in the room and still covers the centre of its own contents; otherwise the run's width shrinks (by 0.1 mm steps for a well face).
-- Slots are never narrower than `min(MIN_SLOT_WIDTH, fingerPocket.width)` (`MIN_SLOT_WIDTH` = 15 mm, `model/settings.ts`). If a run cannot keep that width, `realizeTray` throws `RangeError("Tray <key>: cannot fit a finger slot of at least <w> mm for <contents>")`, and layout treats that variant at that outer size as infeasible. At the default settings this happens for strips with a one- or two-card deck against the wall: any slot of 15 mm or more crosses that deck's own well face too far from its centre.
+- Slots are never narrower than `min(MIN_SLOT_WIDTH, fingerPocket.width)` (`MIN_SLOT_WIDTH` = 15 mm, `model/settings.ts`). If a run cannot keep that width, `realizeTray` throws `SlotFitError("Tray <key>: cannot fit a finger slot of at least <w> mm for <contents>")` (§4.2). At the default settings this happens for strips with a one- or two-card deck against the wall: any slot of 15 mm or more crosses that deck's own well face too far from its centre. Realizing is monotonic in slack (§4.2), so a larger outer never helps, and `size()` already dropped variants that fail unlipped at level 0. A lipped tray (thicker wall) or an upper one may still fail.
+- **Plan 4's duty.** Layout treats a part whose `realizeTray` throws `SlotFitError` as infeasible for that (lipped, level): it never places it so, and it caches realizability per (part, lipped, level) instead of calling `realizeTray` again for every candidate outer. `materialize` catches only `SlotFitError` (it cannot occur there for a pair the feasibility check passed, but stays a defined failure); every other error is a bug and propagates.
 - Spare compartments take only room no slot needs: a spare starts 0.8 mm past every finger slot it would otherwise come within 0.8 mm of, and is dropped when that leaves less than `MIN_SPARE`; the slack then stays solid.
 - `cardStackClearancePct` is a fraction (0.03). It is not in `Effective`; sizing multiplies it by `fit`.
 - Sizing never sees the box. It emits variants (tile column counts, minis lying, all storages under `auto`). Layout treats a variant whose `minOuter` exceeds the available height or bed as infeasible and tries the others.
@@ -667,7 +733,7 @@ Later plans edit these files in place and keep everything earlier plans put ther
 - `tsconfig.json` (app, `src/`): plan 1 only. `tsconfig.node.json` (Node-side config, `@types/node`): plan 1 creates it for `vite.config.ts`; plan 5 Task 22 adds `licenses.config.ts`.
 - `vite.config.ts`: plan 1 creates it; plan 3 Task 6 adds `worker` and `optimizeDeps`; plan 5 Task 15 adds `test.css`, Task 22 the license plugin, Task 23 `scripts/**/*.test.mjs` in `test.include`.
 - `index.html`, `src/main.tsx`, `src/app/App.tsx` (+ test), `src/style.css`, `README.md`, `app.json`: plan 1 placeholders; plan 5 Tasks 21 and 24 replace them, keeping the preview banner, the version footer and the "All apps" link.
-- Root `eslint.config.mjs` and `renovate.json`: plan 1 Task 2 only.
+- Root `eslint.config.mjs` and `renovate.json`: plan 1 Task 2 creates them. Plan 3 adds the insert-generator blocks to `eslint.config.mjs`: the main-thread guard (outside `geometry/`, app code may import only `geometry/{types,version,client}` and never `manifold-3d`, statically or dynamically; §4.6) and the rule that production code anywhere in `src/` never imports test-only helpers (`**/test-*`). Later plans keep both.
 
 ## 5. Fixtures
 
