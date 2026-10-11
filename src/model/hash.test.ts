@@ -38,6 +38,20 @@ describe("inputsHash", () => {
     expect(inputsHash(sample())).toMatch(/^[0-9a-f]{14}$/);
   });
 
+  it("includes an own __proto__ field of a component", () => {
+    const base = sample();
+    const withProtoField = (value: number): Project => {
+      const [first, ...rest] = structuredClone(base.components);
+      const text = JSON.stringify(first).replace(/^\{/, `{"__proto__":{"a":${value}},`);
+      const component = JSON.parse(text) as Project["components"][number];
+      return { ...base, components: [component, ...rest] };
+    };
+    const one = withProtoField(1);
+    expect(Object.hasOwn(one.components[0] as object, "__proto__")).toBe(true);
+    expect(inputsHash(one)).not.toBe(inputsHash(withProtoField(2)));
+    expect(inputsHash(one)).not.toBe(inputsHash(base));
+  });
+
   it("ignores every name, the project id, versions and the stored layout", () => {
     const p = sample();
     const before = inputsHash(p);

@@ -28,7 +28,13 @@ function withoutNames(value: unknown): unknown {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) {
       if (k !== "name") {
-        out[k] = withoutNames(v);
+        // defineProperty, not assignment: an own "__proto__" field must be copied, not become the prototype.
+        Object.defineProperty(out, k, {
+          value: withoutNames(v),
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
       }
     }
     return out;

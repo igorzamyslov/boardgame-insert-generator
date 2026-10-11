@@ -1,7 +1,14 @@
 import { DEFAULT_BOX, DEFAULT_PRINTER, DEFAULT_PROJECT_NAME } from "./defaults";
 import { newId } from "./ids";
 import type { Json } from "./json";
-import { isRecord, pointerKeys, summarize, valueAt } from "./json";
+import {
+  isRecord,
+  jsonDepthExceeds,
+  MAX_JSON_DEPTH,
+  pointerKeys,
+  summarize,
+  valueAt,
+} from "./json";
 import { readComponents } from "./schema-read-components";
 import { readLayout } from "./schema-read-layout";
 import type { Ctx } from "./schema-reader";
@@ -13,7 +20,7 @@ import type { Box, ForeignData, Lock, ParseResult, Printer, Project, Settings } 
 // Version dispatch (which line, newer or not, migrations) lives in schema.ts.
 
 export type { Json } from "./json";
-export { isRecord, pointerKeys, summarize, valueAt } from "./json";
+export { isRecord, MAX_JSON_DEPTH, pointerKeys, summarize, valueAt } from "./json";
 
 type ForeignValue = NonNullable<ForeignData["values"]>[number];
 
@@ -182,10 +189,18 @@ export interface ReadOptions {
  * `foreign.values` (with the raw value), and locks of an unknown kind go to
  * `foreign.values` unapplied. Without `newer`,
  * unknown fields are dropped with one info notice and unknown values are
- * errors. Unreadable locks and layouts are dropped with a notice. Does not
- * validate bounds; see validateProject().
+ * errors. Unreadable locks and layouts are dropped with a notice. Input nested
+ * deeper than MAX_JSON_DEPTH is an error. Does not validate bounds; see
+ * validateProject().
  */
 export function readProject(data: Json, opts: ReadOptions): ParseResult {
+  // Before anything recursive (structuredClone of kept values, hashing, saving) sees the data.
+  if (jsonDepthExceeds(data, MAX_JSON_DEPTH)) {
+    return {
+      ok: false,
+      error: `This project file is damaged: nested too deeply (more than ${MAX_JSON_DEPTH} levels).`,
+    };
+  }
   const ctx = newCtx(opts.newer);
   const r = new Reader(data, "", ctx);
   r.take("schemaVersion");

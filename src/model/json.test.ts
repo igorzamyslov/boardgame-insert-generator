@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   escapePointerKey,
   isRecord,
+  jsonDepthExceeds,
+  MAX_JSON_DEPTH,
   pointerKeys,
   quote,
   shorten,
@@ -74,6 +76,46 @@ describe("valueAt", () => {
     expect(valueAt([1, 2], ["01"])).toBeUndefined();
     expect(valueAt([1, 2], ["-1"])).toBeUndefined();
     expect(valueAt([1, 2], ["1.5"])).toBeUndefined();
+  });
+});
+
+/** `levels` arrays nested in each other, built without recursion. */
+function nested(levels: number, leaf: unknown = 1): unknown {
+  let value = leaf;
+  for (let i = 0; i < levels; i++) {
+    value = [value];
+  }
+  return value;
+}
+
+describe("jsonDepthExceeds", () => {
+  it("is false for scalars and flat containers", () => {
+    expect(jsonDepthExceeds(1, 64)).toBe(false);
+    expect(jsonDepthExceeds(null, 64)).toBe(false);
+    expect(jsonDepthExceeds([], 64)).toBe(false);
+    expect(jsonDepthExceeds({ a: 1, b: [1, 2, 3] }, 64)).toBe(false);
+  });
+
+  it("counts containers, not scalars", () => {
+    expect(jsonDepthExceeds({ a: 1 }, 1)).toBe(false);
+    expect(jsonDepthExceeds({ a: [1] }, 1)).toBe(true);
+    expect(jsonDepthExceeds({ a: [1] }, 2)).toBe(false);
+  });
+
+  it("allows exactly 64 levels and rejects 65", () => {
+    expect(MAX_JSON_DEPTH).toBe(64);
+    expect(jsonDepthExceeds(nested(64), MAX_JSON_DEPTH)).toBe(false);
+    expect(jsonDepthExceeds(nested(65), MAX_JSON_DEPTH)).toBe(true);
+  });
+
+  it("finds a deep branch among shallow ones", () => {
+    expect(jsonDepthExceeds({ a: [1, 2], b: { c: nested(70) }, d: "x" }, MAX_JSON_DEPTH)).toBe(
+      true,
+    );
+  });
+
+  it("handles 100,000 levels without overflowing the stack", () => {
+    expect(jsonDepthExceeds(nested(100_000), MAX_JSON_DEPTH)).toBe(true);
   });
 });
 

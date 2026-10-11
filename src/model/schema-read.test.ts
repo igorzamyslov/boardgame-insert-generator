@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { sampleProject } from "../test-support/sample";
 import type { Json, ReadOptions } from "./schema-read";
-import { readProject } from "./schema-read";
+import { MAX_JSON_DEPTH, readProject } from "./schema-read";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ParseResult } from "./types";
 import { SCHEMA_VERSION } from "./version";
@@ -358,6 +358,37 @@ describe("readProject: hostile input", () => {
     const result = expectOk(readProject(input, NEWER));
     expect(result.project.layout?.trays).toHaveLength(1);
     expect(result.notices.map((n) => n.code)).toEqual(["layout.unsupportedTrays"]);
+  });
+
+  it("rejects deeply nested data without throwing, in newer and current files", () => {
+    let deep: unknown = 1;
+    for (let i = 0; i < 5000; i++) {
+      deep = [deep];
+    }
+    const expected = `This project file is damaged: nested too deeply (more than ${MAX_JSON_DEPTH} levels).`;
+
+    const field = sampleJson();
+    field.extra = deep;
+    expect(expectError(readProject(field, NEWER))).toBe(expected);
+    expect(expectError(readProject(field, CURRENT))).toBe(expected);
+
+    const component = sampleJson();
+    list(component, "components").push({ kind: "dial", ring: deep });
+    expect(expectError(readProject(component, NEWER))).toBe(expected);
+
+    const lock = sampleJson();
+    list(lock, "locks").push({ kind: "magnet", strength: deep });
+    expect(expectError(readProject(lock, NEWER))).toBe(expected);
+  });
+
+  it("accepts data nested exactly as deep as the limit", () => {
+    let deep: unknown = 1;
+    for (let i = 0; i < MAX_JSON_DEPTH - 1; i++) {
+      deep = [deep];
+    }
+    const input = sampleJson();
+    input.extra = deep;
+    expectOk(readProject(input, NEWER));
   });
 
   it("keeps error messages short however long the quoted value is", () => {
