@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { newComponent, newProject } from "../model/defaults";
-import { noForeign, serializeProject } from "../model/schema";
+import type { Json } from "../model/json";
+import { noForeign, parseProject, serializeProject } from "../model/schema";
 import type { Project } from "../model/types";
 import { validateProject } from "../model/validate";
 import { APP_VERSION } from "../model/version";
@@ -287,6 +288,47 @@ describe("createProjectStore with a damaged index", () => {
     expect(() => {
       JSON.parse(storage.getItem(INDEX) ?? "");
     }).not.toThrow();
+  });
+});
+
+describe("createProjectStore with a project from a newer minor", () => {
+  it("keeps foreign parts and extras and saves them back byte for byte", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    const file = JSON.parse(serializeProject(sampleProject(), noForeign())) as Json;
+    file.schemaVersion = "0.1.9";
+    file.theme = { colours: ["dark"] };
+    (file.box as Json).lidColour = "blue";
+    (file.components as Json[]).splice(1, 0, { kind: "dial", id: "dial0001", ring: { n: 1 } });
+    (file.settings as Json).leftover = "hollow";
+    (file.locks as Json[]).push({ kind: "magnet", trayKey: "x", strength: 3 });
+    const opened = parseProject(file);
+    if (!opened.ok) {
+      throw new Error(`expected the file to open: ${opened.error}`);
+    }
+    const key = projectKey(opened.project.id);
+    store.save(opened.project, opened.foreign);
+    const saved = storage.getItem(key);
+    expect(JSON.parse(saved ?? "null")).toEqual(file);
+
+    const loaded = store.load(opened.project.id);
+    if (!loaded?.ok) {
+      throw new Error("expected the autosave to load");
+    }
+    expect(loaded.project.schemaVersion).toBe("0.1.9");
+    expect(loaded.project).toHaveProperty("theme", { colours: ["dark"] });
+    expect(loaded.project.box).toHaveProperty("lidColour", "blue");
+    expect(loaded.foreign).toEqual(opened.foreign);
+    expect(loaded.foreign.components).toEqual([
+      { index: 1, raw: { kind: "dial", id: "dial0001", ring: { n: 1 } } },
+    ]);
+    expect(loaded.foreign.values).toEqual([
+      { path: "/settings/leftover", raw: "hollow" },
+      { path: "/locks/3", raw: { kind: "magnet", trayKey: "x", strength: 3 } },
+    ]);
+    expect(serializeProject(loaded.project, loaded.foreign)).toBe(saved);
+    store.save(loaded.project, loaded.foreign);
+    expect(storage.getItem(key)).toBe(saved);
   });
 });
 
