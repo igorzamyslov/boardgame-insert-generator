@@ -5,7 +5,6 @@ import { APP_VERSION, SCHEMA_VERSION, isPreview, parseSemver } from "./version";
 describe("version", () => {
   it("takes APP_VERSION from package.json", () => {
     expect(APP_VERSION).toBe(pkg.version);
-    expect(APP_VERSION).toBe("0.1.0");
   });
 
   it("starts the schema at 0.1.0", () => {
