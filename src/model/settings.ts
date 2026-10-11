@@ -152,6 +152,10 @@ export function maxCornerRadius(p: number, q: number, rho: number): number {
   if (p < m || q < m) {
     // Too close to a straight face for any arc: keep the disc out of the arc
     // zone (it is in the zone only while p < R and q < R).
+    // For walls < MIN_FEATURE_MM + CORNER_MARGIN this gives no margin for the polygon arc (a sharp
+    // corner at 0.8 mm keeps only about 0.74 mm of it). The ≥ MIN_FEATURE_MM of corner material
+    // there relies on the wells' 0.5 mm inner corner radius (INNER_CORNER_RADIUS in
+    // geometry/plan-types.ts); the measuring test in geometry/plan-corners.test.ts guards it.
     return Math.max(p, q);
   }
   return p + q - m + Math.sqrt(2 * (p - m) * (q - m));

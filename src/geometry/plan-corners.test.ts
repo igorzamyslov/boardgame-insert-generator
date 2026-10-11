@@ -143,6 +143,12 @@ function thinnestAtFloor(plan: TrayPlan, sharp: boolean): number {
 }
 
 describe("corner material under the bottom chamfer", () => {
+  it("relies on a well corner radius of at least 0.5 mm for walls under 0.9 mm", () => {
+    // maxCornerRadius gives walls < 0.8 + CORNER_MARGIN no arc margin; their ≥ 0.8 mm of corner
+    // material comes from the rounded inner corner (the measuring tests below).
+    expect(INNER_CORNER_RADIUS).toBeGreaterThanOrEqual(0.5);
+  });
+
   const profiles: [number, number][] = [
     [0.8, 0.8],
     [0.8, 1.2],
