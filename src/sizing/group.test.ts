@@ -137,7 +137,7 @@ describe("size", () => {
     expect(size([cards(), bulk()], steep)).toEqual({ requirements: [], notices: [] });
     // The same chamfer is fine with enough material around it.
     expect(
-      size([cards()], { ...s, wall: 2, floor: 2, bottomChamfer: 3 }).requirements,
+      size([cards()], { ...s, wall: 2, floor: 3, bottomChamfer: 3 }).requirements,
     ).toHaveLength(1);
   });
 

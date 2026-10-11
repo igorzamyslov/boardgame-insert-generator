@@ -158,11 +158,21 @@ export function maxCornerRadius(p: number, q: number, rho: number): number {
 }
 
 /**
- * Largest bottomChamfer the wall and floor allow (spec §6.1): it leaves at least MIN_FEATURE_MM of
- * wall plus floor under the well's bottom corner (wall + floor − MIN_FEATURE_MM), and the outer
- * corner, which is never below the chamfer, must stay ≥ MIN_FEATURE_MM clear of it (maxCornerRadius for a sharp
- * well corner at the wall). Validation and sizing refuse settings above it.
+ * Largest bottomChamfer the wall and floor allow (spec §6.1). Validation and sizing refuse
+ * settings above it. The 45° chamfer c pulls the outer contour in by e = c − z at height z < c
+ * (corner arc radius R − e), and the corner is never rounder than the chamfer (R ≥ c). Three
+ * bounds, for a sharp well corner at the wall at the well floor f:
+ * - straight faces keep wall + f − c ≥ MIN_FEATURE_MM;
+ * - at the corner R = c is the worst case, with material f − √2·(c − wall) (arc distance
+ *   R − e − √2·(R − wall), e = c − f), so c ≤ wall + (f − MIN_FEATURE_MM)/√2. This implies the
+ *   straight-face bound whenever f ≥ MIN_FEATURE_MM; both are kept for out-of-range input;
+ * - without the chamfer's e (c ≤ f), the corner limit maxCornerRadius(wall, wall, 0), which
+ *   also keeps CORNER_MARGIN clear of the polygon-approximated arc.
  */
 export function maxBottomChamfer(s: Settings): number {
-  return Math.min(s.wall + s.floor - MIN_FEATURE_MM, maxCornerRadius(s.wall, s.wall, 0));
+  return Math.min(
+    s.wall + s.floor - MIN_FEATURE_MM,
+    s.wall + (s.floor - MIN_FEATURE_MM) / Math.SQRT2,
+    maxCornerRadius(s.wall, s.wall, 0),
+  );
 }

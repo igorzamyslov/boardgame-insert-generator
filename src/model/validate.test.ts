@@ -517,10 +517,10 @@ describe("shared constants", () => {
 });
 
 describe("setting ranges", () => {
-  // Thick walls and floor, so the largest bottomChamfer (3) is allowed too.
+  // Thick walls and floor, so the largest bottomChamfer (3) is allowed too (2 + 2.2/√2 = 3.56).
   const roomy = (): Project => {
     const p = newProject();
-    p.settings = { ...p.settings, wall: 2, floor: 2 };
+    p.settings = { ...p.settings, wall: 2, floor: 3 };
     return p;
   };
   const rangeCases: [string, SettingRange][] = SETTING_RANGES.map((r) => [r.path, r]);
@@ -562,9 +562,9 @@ describe("setting ranges", () => {
       p.settings = { ...p.settings, wall, floor, bottomChamfer };
       return p;
     };
-    // Defaults: 1.6 + 1.2 − 0.8 = 2 mm at most.
-    expect(validateProject(withChamfer(1.6, 1.2, 2))).toEqual([]);
-    expect(codes(validateProject(withChamfer(1.6, 1.2, 2.01)))).toEqual([
+    // Defaults: 1.6 + 0.4/√2 = 1.883 mm at most.
+    expect(validateProject(withChamfer(1.6, 1.2, 1.88))).toEqual([]);
+    expect(codes(validateProject(withChamfer(1.6, 1.2, 1.89)))).toEqual([
       [field.bottomChamfer, "/settings/bottomChamfer"],
     ]);
     // 0.8 mm walls and floor: at most 0.8 mm.
