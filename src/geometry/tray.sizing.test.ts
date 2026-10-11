@@ -5,9 +5,9 @@ import bitsHeavy from "../../test/fixtures/bits-heavy.json";
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import tilesMinis from "../../test/fixtures/tiles-minis.json";
 import tinyBox from "../../test/fixtures/tiny-box.json";
-import { MIN_FEATURE_MM, SPEC_TOLERANCE, maxBottomChamfer } from "../model/settings";
+import { MIN_FEATURE_MM, MIN_WALL_MM, SPEC_TOLERANCE, maxBottomChamfer } from "../model/settings";
 import type { Settings, TraySpec } from "../model/types";
-import { SETTING_RANGES, settingsValid } from "../model/validate";
+import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
 import type { RealizeOptions } from "../sizing/types";
 import { loadManifold } from "./load";
@@ -32,8 +32,6 @@ const FIXTURES: [string, unknown][] = [
   ["tiny-box", tinyBox],
 ];
 
-const WALL_MIN = SETTING_RANGES.find((r) => r.path === "wall")?.min ?? Number.NaN;
-
 type Profile = (base: Settings) => Settings;
 
 const PROFILES: [string, Profile][] = [
@@ -43,10 +41,10 @@ const PROFILES: [string, Profile][] = [
     (s) => {
       const thin: Settings = {
         ...s,
-        wall: WALL_MIN,
+        wall: MIN_WALL_MM,
         floor: MIN_FEATURE_MM,
         divider: MIN_FEATURE_MM,
-        lip: { ...s.lip, enabled: true, thickness: WALL_MIN, height: 1 },
+        lip: { ...s.lip, enabled: true, thickness: MIN_WALL_MM, height: 1 },
       };
       return { ...thin, bottomChamfer: maxBottomChamfer(thin) };
     },

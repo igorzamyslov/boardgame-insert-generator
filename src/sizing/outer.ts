@@ -1,13 +1,16 @@
-import { MIN_FEATURE_MM, chamferMinimums } from "../model/settings";
+import { MIN_FEATURE_MM, MIN_WALL_MM, chamferMinimums } from "../model/settings";
 import type { Settings, Side } from "../model/types";
 import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
 import { pocketSides } from "./common";
 import type { CompartmentReq, OuterSize, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, fromU, maxOf, sum } from "./units";
 
-/** Outer wall thickness: lipped walls are max(wall, lip.thickness + lip.ledge) (spec §6.1). */
+/**
+ * Outer wall thickness: max(wall, MIN_WALL_MM); lipped walls are at least lip.thickness +
+ * lip.ledge (spec §6.1).
+ */
 export function wallFor(settings: Settings, lipped: boolean): number {
-  const base = Math.max(settings.wall, MIN_FEATURE_MM);
+  const base = Math.max(settings.wall, MIN_WALL_MM);
   if (!lipped || !settings.lip.enabled) {
     return base;
   }

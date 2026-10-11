@@ -1,6 +1,6 @@
 import { groupOf } from "./defaults";
 import { deepFreeze } from "./freeze";
-import { CORNER_MARGIN, MIN_FEATURE_MM, maxBottomChamfer, topPlane } from "./settings";
+import { FLOAT_EPSILON, MIN_FEATURE_MM, MIN_WALL_MM, maxBottomChamfer, topPlane } from "./settings";
 import type { Component, Lock, Notice, Project, Settings } from "./types";
 
 /**
@@ -78,7 +78,7 @@ const settingRanges: SettingRange[] = [
     path: "wall",
     label: "Wall",
     get: (s) => s.wall,
-    min: MIN_FEATURE_MM + CORNER_MARGIN,
+    min: MIN_WALL_MM,
     max: 10,
   },
   { path: "floor", label: "Floor", get: (s) => s.floor, min: MIN_FEATURE_MM, max: 10 },
@@ -137,7 +137,7 @@ const settingRanges: SettingRange[] = [
     path: "lip/thickness",
     label: "Lip thickness",
     get: (s) => s.lip.thickness,
-    min: MIN_FEATURE_MM + CORNER_MARGIN,
+    min: MIN_WALL_MM,
     max: 5,
   },
   { path: "lip/ledge", label: "Lip ledge", get: (s) => s.lip.ledge, min: 0.5, max: 10 },
@@ -154,9 +154,9 @@ const settingRanges: SettingRange[] = [
 
 /**
  * Advanced-settings ranges. Floor and divider minimums are MIN_FEATURE_MM, the minimum printable
- * feature width (spec §6.1). The wall minimum adds CORNER_MARGIN: a sharp cut corner at the wall
- * keeps MIN_FEATURE_MM to the polygon of the rounded outer corner only with that margin
- * (maxCornerRadius in ./settings). The lip thickness minimum adds it too: the lip is a ring
+ * feature width (spec §6.1). Wall and lip thickness minimums are MIN_WALL_MM, which adds
+ * CORNER_MARGIN: a sharp cut corner at the wall keeps MIN_FEATURE_MM to the polygon of the rounded
+ * outer corner only with that margin (maxCornerRadius in ./settings), and the lip is a ring
  * between two concentric polygons, only t·cos(Δ/2) thick at a corner facet, so a lip of
  * MIN_FEATURE_MM measures thinner than that (0.9·cos(22.5°) = 0.83 mm passes). topPressFit is
  * spec §3 rule 2. The finger pocket reach is at least 5 mm, so every pocket sizing emits
@@ -358,14 +358,6 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
 }
 
 /**
- * Absorbs float noise when a setting is compared with a derived limit. Settings are not on the
- * TraySpec 0.01 mm grid, so SPEC_TOLERANCE does not apply: a chamfer even 0.005 mm above
- * maxBottomChamfer leaves a forced R = c corner under MIN_FEATURE_MM + CORNER_MARGIN, which
- * planTray rejects.
- */
-const SETTINGS_EPSILON = 1e-9;
-
-/**
  * One field.setting error per setting outside its SETTING_RANGES entry (NaN included), then the
  * cross-field rule: bottomChamfer ≤ maxBottomChamfer (field.bottomChamfer), checked only when
  * wall, floor and bottomChamfer are in range themselves.
@@ -386,8 +378,10 @@ function checkSettings(ck: Checker, settings: Settings): void {
   if (["wall", "floor", "bottomChamfer"].some((path) => outside.has(path))) {
     return;
   }
+  // FLOAT_EPSILON, not SPEC_TOLERANCE: a chamfer even 0.005 mm above maxBottomChamfer leaves a
+  // forced R = c corner under MIN_FEATURE_MM + CORNER_MARGIN, which planTray rejects.
   const limit = maxBottomChamfer(settings);
-  if (settings.bottomChamfer > limit + SETTINGS_EPSILON) {
+  if (settings.bottomChamfer > limit + FLOAT_EPSILON) {
     ck.error(
       VALIDATION_NOTICE_CODES.field.bottomChamfer,
       "/settings/bottomChamfer",

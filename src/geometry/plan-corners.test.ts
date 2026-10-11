@@ -7,12 +7,13 @@ import { planTray } from "./plan";
 import { thinCorner } from "./plan-corners";
 import {
   MIN_FEATURE_MM,
+  MIN_WALL_MM,
   SPEC_TOLERANCE,
   maxBottomChamfer,
   maxCornerRadius,
 } from "../model/settings";
 import type { Settings } from "../model/types";
-import { SETTING_RANGES, settingsValid } from "../model/validate";
+import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
 import type { RealizeOptions } from "../sizing/types";
 import { quarterSegments, roundedRectRing } from "./shapes";
@@ -179,15 +180,13 @@ function thinnestCut(plan: TrayPlan): { all: number; slots: number; slotCorners:
   return result;
 }
 
-// The smallest valid wall (SETTING_RANGES).
-const WALL_MIN = SETTING_RANGES.find((r) => r.path === "wall")?.min ?? Number.NaN;
 const LIMIT = MIN_FEATURE_MM - SPEC_TOLERANCE;
 
 // Wall and floor pairs from the smallest valid wall up, each also at its largest chamfer.
 const WALL_FLOOR: [number, number][] = [
-  [WALL_MIN, 0.8],
-  [WALL_MIN, 1.2],
-  [WALL_MIN, 3],
+  [MIN_WALL_MM, 0.8],
+  [MIN_WALL_MM, 1.2],
+  [MIN_WALL_MM, 3],
   [1.2, 0.8],
   [1.2, 1.2],
   [1.6, 1.2],

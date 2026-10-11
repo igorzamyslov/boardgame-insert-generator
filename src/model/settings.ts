@@ -16,8 +16,23 @@ export const UPPER_MIN_CHAMFER = 0.5;
  */
 export const SPEC_TOLERANCE = 0.005;
 
+/**
+ * Absorbs float noise when a computed value is compared with an exact one (a stored choice, a
+ * derived limit). Far tighter than round6's 1e-6 and than SPEC_TOLERANCE: settings are not on the
+ * TraySpec 0.01 mm grid, so only noise is forgiven.
+ */
+export const FLOAT_EPSILON = 1e-9;
+
 /** The outer corner arc polygon lies up to 0.08 mm inside the true arc; plus a little margin. */
 export const CORNER_MARGIN = 0.1;
+
+/**
+ * Thinnest outer wall and lip, in mm (0.9): MIN_FEATURE_MM plus CORNER_MARGIN. A sharp cut corner
+ * at the wall keeps MIN_FEATURE_MM to the polygon of the rounded outer corner only with that
+ * margin (maxCornerRadius), and a lip ring between two concentric polygons is only t·cos(Δ/2)
+ * thick at a corner facet. SETTING_RANGES, wallFor and planTray use it.
+ */
+export const MIN_WALL_MM = MIN_FEATURE_MM + CORNER_MARGIN;
 
 /**
  * A finger slot runs across its reach band and this far into its compartment's contents
@@ -65,9 +80,6 @@ export const FIT_CHOICES: Record<FitChoice, number> = deepFreeze({
   loose: 1.4,
 });
 
-// Choice values are stored exactly, so this only absorbs float noise; it is far tighter than round6's 1e-6.
-const EPS = 1e-9;
-
 /** Simple-mode "Walls" control: writes the resolved wall thickness. */
 export function applyWallChoice(s: Settings, c: WallChoice): Settings {
   return { ...s, wall: WALL_CHOICES[c] };
@@ -80,7 +92,8 @@ export function applyFitChoice(s: Settings, c: FitChoice): Settings {
 
 function choiceOf<C extends string>(table: Record<C, number>, value: number): C | "custom" {
   for (const [choice, v] of Object.entries(table) as [C, number][]) {
-    if (Math.abs(v - value) < EPS) {
+    // Choice values are stored exactly, so only float noise is forgiven.
+    if (Math.abs(v - value) < FLOAT_EPSILON) {
       return choice;
     }
   }

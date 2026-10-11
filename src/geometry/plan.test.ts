@@ -508,10 +508,10 @@ describe("rejections", () => {
     expect(() => planTray(spec, GEO)).toThrow(/unknown side "up"/);
   });
 
-  it("rejects a wall below 0.8 mm", () => {
-    const thin = { ...plainBox, wall: 0.79 };
-    expect(() => planTray(thin, GEO)).toThrow(/wall 0.79 mm is below 0.8 mm/);
-    expect(planTray({ ...plainBox, wall: 0.8 }, GEO).outerWall).toBe(0.8);
+  it("rejects a wall below MIN_WALL_MM (0.8 mm plus the corner margin)", () => {
+    const thin = { ...plainBox, wall: 0.89 };
+    expect(() => planTray(thin, GEO)).toThrow(/wall 0.89 mm is below 0.9 mm/);
+    expect(planTray({ ...plainBox, wall: 0.9 }, GEO).outerWall).toBe(0.9);
   });
 
   it("rejects a lip thinner than 0.9 mm (0.8 plus the corner margin)", () => {
@@ -569,21 +569,21 @@ describe("bottom chamfer against walls and floor", () => {
 
   it("rejects a chamfer that breaks out through the wall or floor", () => {
     const steep = { ...GEO, bottomChamfer: 3 };
-    expect(() => planTray(thinTray(0.8, 0.8), steep)).toThrow(RangeError);
-    expect(() => planTray(thinTray(0.8, 0.8), steep)).toThrow(/3 mm bottom chamfer/);
+    expect(() => planTray(thinTray(0.9, 0.8), steep)).toThrow(RangeError);
+    expect(() => planTray(thinTray(0.9, 0.8), steep)).toThrow(/3 mm bottom chamfer/);
   });
 
   it("accepts a chamfer leaving exactly 0.8 mm of material", () => {
-    // A compartment 0.8 mm from the left face only (its corners are far from the outer corners):
-    // wall + floor − chamfer = 0.8 + 1.4 − 1.4 = 0.8, float noise included.
+    // A compartment 0.9 mm from the left face only (its corners are far from the outer corners):
+    // wall + floor − chamfer = 0.9 + 1.3 − 1.4 = 0.8, float noise included.
     const edge = traySpec({
       key: "edge",
-      wall: 0.8,
-      floor: 1.4,
+      wall: 0.9,
+      floor: 1.3,
       w: 60,
       d: 60,
       h: 20,
-      compartments: [compartment({ x: 0.8, y: 20, w: 20, d: 20, floorZ: 1.4 })],
+      compartments: [compartment({ x: 0.9, y: 20, w: 20, d: 20, floorZ: 1.3 })],
     });
     expect(planTray(edge, { ...GEO, bottomChamfer: 1.4 }).chamfer).toBe(1.4);
     expect(() => planTray(edge, { ...GEO, bottomChamfer: 1.41 })).toThrow(/bottom chamfer/);

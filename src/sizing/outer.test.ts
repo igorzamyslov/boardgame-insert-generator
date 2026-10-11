@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "../model/settings";
+import { DEFAULT_SETTINGS, MIN_WALL_MM } from "../model/settings";
 import type { Settings } from "../model/types";
 import { minOuter, rowsOf, wallFor } from "./outer";
 import { cards, custom, partOf, tiles } from "./test-helpers";
@@ -23,7 +23,8 @@ describe("wallFor", () => {
     expect(wallFor(s, true)).toBeCloseTo(2.9, 9);
     expect(wallFor({ ...s, lip: { ...s.lip, enabled: false } }, true)).toBe(1.6);
     expect(wallFor({ ...s, wall: 3.5 }, true)).toBe(3.5);
-    expect(wallFor({ ...s, wall: 0.5 }, false)).toBe(0.8);
+    expect(wallFor({ ...s, wall: 0.5 }, false)).toBe(MIN_WALL_MM);
+    expect(MIN_WALL_MM).toBeCloseTo(0.9, 9);
   });
 });
 
@@ -149,9 +150,9 @@ describe("minOuter", () => {
     ).toBe(3.2);
   });
 
-  it("never goes below the 0.8 mm minimum feature", () => {
+  it("never goes below MIN_WALL_MM walls and 0.8 mm dividers and floors", () => {
     const flimsy = { ...s, wall: 0.5, divider: 0.3, floor: 0.4 };
-    expect(minOuter(single, flimsy, ground)).toEqual({ w: 25.1, d: 118.1, h: 68.8 });
+    expect(minOuter(single, flimsy, ground)).toEqual({ w: 25.3, d: 118.3, h: 68.8 });
   });
 
   describe("settings that are not whole multiples of 0.01 mm", () => {

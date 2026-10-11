@@ -3,9 +3,9 @@ import bitsHeavy from "../../test/fixtures/bits-heavy.json";
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import tilesMinis from "../../test/fixtures/tiles-minis.json";
 import tinyBox from "../../test/fixtures/tiny-box.json";
-import { DEFAULT_SETTINGS, MIN_FEATURE_MM, maxBottomChamfer } from "../model/settings";
+import { DEFAULT_SETTINGS, MIN_FEATURE_MM, MIN_WALL_MM, maxBottomChamfer } from "../model/settings";
 import type { Component, Settings, TraySpec } from "../model/types";
-import { SETTING_RANGES, settingsValid } from "../model/validate";
+import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
 import type { RealizeOptions } from "../sizing/types";
 import { planTray } from "./plan";
@@ -24,16 +24,13 @@ const FIXTURES: [string, unknown][] = [
 
 type Profile = (base: Settings) => Settings;
 
-// The thinnest valid wall (SETTING_RANGES).
-const WALL_MIN = SETTING_RANGES.find((r) => r.path === "wall")?.min ?? Number.NaN;
-
 // Settings at the SETTING_RANGES extremes. Each is checked to be valid, so the
 // chamfer profiles sit exactly on maxBottomChamfer.
 const PROFILES: [string, Profile][] = [
   ["fixture settings", (s) => s],
   [
     "thinnest wall, floor and divider",
-    (s) => ({ ...s, wall: WALL_MIN, floor: MIN_FEATURE_MM, divider: MIN_FEATURE_MM }),
+    (s) => ({ ...s, wall: MIN_WALL_MM, floor: MIN_FEATURE_MM, divider: MIN_FEATURE_MM }),
   ],
   ["no chamfer", (s) => ({ ...s, bottomChamfer: 0 })],
   ["largest chamfer", (s) => ({ ...s, bottomChamfer: maxBottomChamfer(s) })],
@@ -47,14 +44,14 @@ const PROFILES: [string, Profile][] = [
   [
     "largest chamfer, wall and floor 0.9",
     (s) => {
-      const thin = { ...s, wall: WALL_MIN, floor: WALL_MIN };
+      const thin = { ...s, wall: MIN_WALL_MM, floor: MIN_WALL_MM };
       return { ...thin, bottomChamfer: maxBottomChamfer(thin) };
     },
   ],
   [
     "largest chamfer, thin wall and floor",
     (s) => {
-      const thin = { ...s, wall: WALL_MIN, floor: MIN_FEATURE_MM };
+      const thin = { ...s, wall: MIN_WALL_MM, floor: MIN_FEATURE_MM };
       return { ...thin, bottomChamfer: maxBottomChamfer(thin) };
     },
   ],

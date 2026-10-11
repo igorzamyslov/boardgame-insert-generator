@@ -1,7 +1,7 @@
 import type { CompartmentSpec, Settings, Side, TraySpec } from "../model/types";
 import {
-  CORNER_MARGIN,
   MIN_FEATURE_MM,
+  MIN_WALL_MM,
   SLOT_CONTENT_OVERLAP,
   SPEC_TOLERANCE as TOL,
   chamferMinimums,
@@ -40,10 +40,9 @@ function planLip(spec: TraySpec, settings: Settings): LipPlan | null {
     fail(spec, `lip ledge ${ledge} mm is not a number`);
   }
   // The lip ring between two concentric polygons is thinner at its corner facets, so it keeps
-  // the CORNER_MARGIN the wall setting has (SETTING_RANGES lip/thickness).
-  const minThickness = MIN_FEATURE_MM + CORNER_MARGIN;
-  if (!Number.isFinite(thickness) || !(thickness >= minThickness - TOL)) {
-    fail(spec, `lip thickness ${thickness} mm is below ${minThickness} mm`);
+  // the CORNER_MARGIN the wall has (MIN_WALL_MM).
+  if (!Number.isFinite(thickness) || !(thickness >= MIN_WALL_MM - TOL)) {
+    fail(spec, `lip thickness ${thickness} mm is below ${MIN_WALL_MM} mm`);
   }
   const chamfer = Math.min(LIP_CHAMFER, thickness / 2);
   if (!Number.isFinite(height) || !(height > chamfer)) {
@@ -470,8 +469,8 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   }
   const lip = planLip(spec, settings);
   const solid = spec.solid || spec.part === "spacer";
-  if (!solid && !(spec.wall >= MIN_FEATURE_MM - TOL)) {
-    fail(spec, `wall ${spec.wall} mm is below ${MIN_FEATURE_MM} mm`);
+  if (!solid && !(spec.wall >= MIN_WALL_MM - TOL)) {
+    fail(spec, `wall ${spec.wall} mm is below ${MIN_WALL_MM} mm`);
   }
   const outerWall = lip ? Math.max(spec.wall, lip.thickness + settings.lip.ledge) : spec.wall;
 
