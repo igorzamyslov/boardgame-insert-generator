@@ -10,6 +10,16 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-11-boardgame-insert-generator-design.md` · Roadmap with binding contracts: `docs/superpowers/plans/2026-10-11-insert-generator-00-roadmap.md`
 
+## Amendments from plans 1–3 (binding, read first)
+
+Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts this plan was written against. The amended roadmap is binding; where this plan's prose and an amendment disagree, the amendment wins. The code blocks named below are already patched: transcribe them as shown.
+
+1. **Geometry client (roadmap §4.3).** `build(spec, settings, signal?)` takes an `AbortSignal`. Every failure rejects with `GeometryBuildError` (`geometry/client.ts`), whose `name` is the reason: `"TraySpecError"` (an invalid spec, message `Tray <key>: …`), `"UnsupportedFeatureError"` (with `feature`), `"AbortError"`, `"TimeoutError"` (after `BUILD_TIMEOUT_MS` = 30 s from the call, queue time included), `"WorkerError"` or `"WorkerRestartedError"` (the worker was replaced while the build waited). Detect an invalid spec by `name === "TraySpecError"`, never by `instanceof RangeError` (Task 16 `support.ts`: `buildErrorReason`, `isInvalidSpec`; the tests of Tasks 16 and 17).
+2. **`meshes.ts` retry and poison contract (roadmap §4.3).** A build that fails with `"WorkerRestartedError"` is retried once; a spec that fails twice (aborts aside) is marked failed and rejects at once until `reset()`, so a spec that kills the worker cannot keep restarting it; at most `MAX_IN_FLIGHT` (2) builds are in the worker at once, because the timeout counts queue time; `get(spec, settings, signal?)` passes the signal to `build`, and the 3D view aborts the builds of trays it no longer shows (Tasks 16, 18). Task 23 adds a bulk-build smoke test of about 40 real trays that checks `BUILD_TIMEOUT_MS` against real build times.
+3. **Geometry version lines (spec §9).** The "reprint the whole insert" notice uses plan 3's `isOlderGeometryLine(layout.geometryVersion)` (`geometry/version.ts`, pure): pre-1.0 each `0.MINOR` is a major line, so `0.0.x` is older than `0.1.0` and `0.1.x` is not (Task 2 `state.ts`).
+4. **Sizing notices.** `size()` drops variants whose finger slots cannot fit and, when none is left, emits a warning `sizing.noFingerSlot` at `/components/<i>` (roadmap §4.2); `sizingNotices` shows it like the other sizing warnings. `settingsValid` adds the cross-field settings errors `field.bottomChamfer` and `field.lipBearing` (both at `/settings/bottomChamfer`, shown next to the bottom chamfer field), and the wall and lip thickness minimum is `MIN_WALL_MM` = 0.9 mm (`SETTING_RANGES`).
+5. **Test-only helpers.** Plan 4's checker and fixture loader are `layout/test-hard-rules.ts` and `layout/test-fixtures.ts`; production code never imports a `test-*` module (root ESLint rule), and outside `geometry/` it imports only `geometry/{types,version,client}`.
+
 ## Global Constraints
 
 - App lives in `apps/insert-generator/`. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
@@ -565,7 +575,7 @@ git commit -m "Add pure project edit actions"
 
 **Interfaces:**
 
-- Consumes: `createLayoutClient`, `LayoutClient` (`layout/client`), `createGeometryClient`, `GeometryClient` (`geometry/client`), `summarize` (`layout`), `size` (`sizing`), `validateProject`, `inputsHash`, `parseSemver`, `parseProject`, `GEOMETRY_VERSION` (`geometry/version`), `ProjectListEntry` (`share`), `noForeign` (`model/schema`).
+- Consumes: `createLayoutClient`, `LayoutClient` (`layout/client`), `createGeometryClient`, `GeometryClient` (`geometry/client`), `summarize` (`layout`), `size` (`sizing`), `validateProject`, `inputsHash`, `parseProject`, `isOlderGeometryLine` (`geometry/version`, plan 3: spec §9's line rule, pre-1.0 each `0.MINOR` is a major line), `ProjectListEntry` (`share`), `noForeign` (`model/schema`).
 - Produces:
   - re-exported types `LayoutClient` (plan 4 `layout/client.ts`) and `GeometryClient` (plan 3 `geometry/client.ts`)
   - `loadLayoutClient(): Promise<LayoutClient>`; `loadGeometryClient(): Promise<GeometryClient>` (dynamic imports → separate chunks)
@@ -783,7 +793,14 @@ export async function flush(): Promise<void> {
 // src/app/state.test.ts
 import { describe, expect, it } from "vitest";
 import { inputsHash } from "../model/hash";
-import { CAPPED_CODE, STALE_CODE, createState, dismissNotice, pushNotice } from "./state";
+import {
+  CAPPED_CODE,
+  GEOMETRY_MAJOR_CODE,
+  STALE_CODE,
+  createState,
+  dismissNotice,
+  pushNotice,
+} from "./state";
 import { fixtureProject, makeLayout, makeResult } from "./test-helpers";
 
 describe("createState", () => {
@@ -841,6 +858,19 @@ describe("createState", () => {
     expect(s.layoutNotices.value).toContainEqual(notice);
   });
 
+  it("asks for a reprint for a layout from an older geometry line only", () => {
+    const p = fixtureProject();
+    const codesFor = (geometryVersion: string) =>
+      createState({
+        ...p,
+        layout: makeLayout(inputsHash(p), undefined, { geometryVersion }),
+      }).layoutNotices.value.map((n) => n.code);
+    // GEOMETRY_VERSION is 0.1.0: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
+    expect(codesFor("0.0.9")).toContain(GEOMETRY_MAJOR_CODE);
+    expect(codesFor("0.1.4")).not.toContain(GEOMETRY_MAJOR_CODE);
+    expect(codesFor("0.2.0")).not.toContain(GEOMETRY_MAJOR_CODE);
+  });
+
   it("validates the project", () => {
     const p = fixtureProject();
     const s = createState(p);
@@ -874,13 +904,12 @@ Expected: FAIL — `Failed to resolve import "./state"`.
 // src/app/state.ts
 import { computed, signal } from "@preact/signals";
 import type { ReadonlySignal, Signal } from "@preact/signals";
-import { GEOMETRY_VERSION } from "../geometry/version";
+import { isOlderGeometryLine } from "../geometry/version";
 import { summarize } from "../layout";
 import type { LayoutResult, LayoutSummary } from "../layout/types";
 import { inputsHash } from "../model/hash";
 import type { ForeignData, Notice, Project, StoredLayout } from "../model/types";
 import { validateProject } from "../model/validate";
-import { parseSemver } from "../model/version";
 import type { ProjectListEntry } from "../share";
 import { size } from "../sizing";
 
@@ -934,12 +963,6 @@ function sizingNoticesOf(p: Project): Notice[] {
       },
     ];
   }
-}
-
-function olderGeometryMajor(version: string): boolean {
-  const stored = parseSemver(version);
-  const current = parseSemver(GEOMETRY_VERSION);
-  return stored !== null && current !== null && stored.major < current.major;
 }
 
 function dedupe(list: Notice[]): Notice[] {
@@ -998,7 +1021,8 @@ export function createState(initial: Project, foreign: ForeignData = { component
         message: "Inputs changed since this layout was made — re-optimize?",
       });
     }
-    if (layout && olderGeometryMajor(layout.geometryVersion)) {
+    // An older compatibility line: an older MAJOR, or pre-1.0 an older 0.MINOR (spec §9).
+    if (layout && isOlderGeometryLine(layout.geometryVersion)) {
       out.push({
         level: "warning",
         code: GEOMETRY_MAJOR_CODE,
@@ -1042,7 +1066,7 @@ export function dismissNotice(state: State, code: string): void {
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `cd apps/insert-generator && npx vitest run src/app/state.test.ts`
-Expected: PASS (8 tests).
+Expected: PASS (9 tests).
 
 - [ ] **Step 6: Commit**
 
@@ -5148,7 +5172,7 @@ git commit -m "Add component cards and the component list"
 
 **Interfaces:**
 
-- Consumes: `LINK_MAX_URL_CHARS` (2000, Discord's message limit on the whole URL; plan 1), `encodeHash`, `ProjectListEntry` (`share`); `optimize`, `DEFAULT_ITERATIONS` (`layout`), `FIXTURES`, `fixtureInput` (`layout/fixtures`, plan 4 test helper), `parseProject` (tests); `TextField`, `SelectField` (Task 6).
+- Consumes: `LINK_MAX_URL_CHARS` (2000, Discord's message limit on the whole URL; plan 1), `encodeHash`, `ProjectListEntry` (`share`); `optimize`, `DEFAULT_ITERATIONS` (`layout`), `FIXTURES`, `fixtureInput` (`layout/test-fixtures`, plan 4 test helper), `parseProject` (tests); `TextField`, `SelectField` (Task 6).
 - Produces:
   - `downloadBlob(blob: Blob, filename: string): void`; `bytesToBlob(data: Uint8Array, type: string): Blob`; `fileSlug(name: string): string` (`[A-Za-z0-9._-]`, `"insert"` when empty)
   - `shareLink(href: string, hash: string): string` — replaces any existing fragment.
@@ -5162,7 +5186,7 @@ git commit -m "Add component cards and the component list"
 // src/app/link.test.ts
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_ITERATIONS, optimize } from "../layout";
-import { FIXTURES, fixtureInput } from "../layout/fixtures";
+import { FIXTURES, fixtureInput } from "../layout/test-fixtures";
 import { parseProject } from "../model/schema";
 import { LINK_MAX_URL_CHARS, encodeHash } from "../share";
 import { fileSlug } from "./download";
@@ -7021,12 +7045,12 @@ git commit -m "Add plan view with drag, keyboard swap and lock"
 
 **Interfaces:**
 
-- Consumes: `GeometryClient` (Task 2; plan 3: `build(spec, settings): Promise<{ mesh; volumeMm3 }>`, lazy worker, a crashed worker is restarted by the next `build`), `Mesh`, `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` (`geometry/types`, plan 3 Task 1, roadmap §4.3); `to3mf`, `toStl`, `zipFiles`, `partFileName`, `gridLayout` (`export`, plan 3); `numberParts`, `NumberedPart` (Task 13); `cubeMesh`, `makeTray` (Task 2, tests).
+- Consumes: `GeometryClient` (Task 2; plan 3, roadmap §4.3: `build(spec, settings, signal?): Promise<{ mesh; volumeMm3 }>`, lazy worker; every failure rejects with a `GeometryBuildError` whose `name` is the reason: `"TraySpecError"`, `"UnsupportedFeatureError"` (with `feature`), `"AbortError"`, `"TimeoutError"` after `BUILD_TIMEOUT_MS` counted from the call, queue time included, `"WorkerError"`, or `"WorkerRestartedError"` for builds that waited while the worker was replaced), `GeometryBuildError` (`geometry/client`, tests only), `Mesh`, `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` (`geometry/types`, plan 3 Task 1, roadmap §4.3); `to3mf`, `toStl`, `zipFiles`, `partFileName`, `gridLayout` (`export`, plan 3); `numberParts`, `NumberedPart` (Task 13); `cubeMesh`, `makeTray` (Task 2, tests).
 - Produces:
   - `unsupportedReason(spec: TraySpec): string | null` — `part`, compartment `kind` or feature `type` outside plan 3's `KNOWN_*` lists (newer-minor files, spec §9).
-  - `buildErrorReason(e: unknown): string` — worker `UnsupportedFeatureError` message → `Uses feature "<feature>" from a newer app version.`; `RangeError` ("Tray <key>: …") and others → their message.
+  - `buildErrorReason(e: unknown): string` — by `GeometryBuildError.name` (never `instanceof RangeError`): `"UnsupportedFeatureError"` → `Uses feature "<feature>" from a newer app version.`; `"TimeoutError"` → `Building this tray took too long.`; `"AbortError"` → `Cancelled.`; `"TraySpecError"` ("Tray <key>: …", an invalid spec) and others → their message. `isInvalidSpec(e): boolean` — `e.name === "TraySpecError"`.
   - `interface BuiltMesh { mesh: Mesh; volumeMm3: number }`; `class UnsupportedTrayError extends Error`
-  - `interface MeshSource { get(spec: TraySpec, settings: Settings): Promise<BuiltMesh>; reset(): void; dispose(): void }`; `MESH_CACHE_LIMIT = 64`; `createMeshSource(load: () => Promise<GeometryClient>): MeshSource` — cached by `(spec, settings)`, failures are not cached, LRU-capped.
+  - `interface MeshSource { get(spec: TraySpec, settings: Settings, signal?: AbortSignal): Promise<BuiltMesh>; reset(): void; dispose(): void }`; `MESH_CACHE_LIMIT = 64`; `MAX_IN_FLIGHT = 2`; `createMeshSource(load: () => Promise<GeometryClient>): MeshSource` — cached by `(spec, settings)`, failures are not cached, LRU-capped. Roadmap §4.3 contract: a build that fails with `"WorkerRestartedError"` is retried once; a spec that fails twice (aborts aside) is marked failed and rejects at once with its last error until `reset()`; at most `MAX_IN_FLIGHT` builds are in the worker at a time (the timeout counts queue time); the signal is passed to `build`, and a build still waiting for its turn when the signal aborts rejects without being sent.
   - `interface ExportPlan { parts: NumberedPart[]; skipped: { part: NumberedPart; reason: string }[] }`; `planExport(trays: readonly TraySpec[]): ExportPlan`
   - `interface ExportProgress { done: number; total: number }`; `interface ExportOptions { getMesh: (spec: TraySpec) => Promise<BuiltMesh>; onProgress: (p: ExportProgress) => void; yieldToUi?: () => Promise<void> }`; `interface ExportOutput { data: Uint8Array; failed: { part: NumberedPart; reason: string }[]; included: number }`
   - `GRID_GAP_MM = 5`; `yieldToUi(): Promise<void>`; `objectName(part: NumberedPart): string`; `meshFootprint(mesh: Mesh): { w: number; d: number }`; `usableBed(p: Printer): { x: number; y: number }`; `class NothingToExportError extends Error`
@@ -7034,7 +7058,7 @@ git commit -m "Add plan view with drag, keyboard swap and lock"
   - `buildCombined3mf(parts: readonly NumberedPart[], bed: { x: number; y: number }, opts: ExportOptions): Promise<ExportOutput>` (all parts in a grid at z = 0)
   - `buildStlZip(parts: readonly NumberedPart[], opts: ExportOptions): Promise<ExportOutput>`
 
-A part whose mesh fails (e.g. `RangeError` for an invalid spec) is reported in `failed` and the export continues with the others. The builders await `yieldToUi()` after every mesh and every written file, so a 25-part export keeps the page responsive and the progress bar moving.
+A part whose mesh fails (e.g. a `GeometryBuildError` named `"TraySpecError"` for an invalid spec) is reported in `failed` and the export continues with the others. The builders await `yieldToUi()` after every mesh and every written file, so a 25-part export keeps the page responsive and the progress bar moving.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -7043,9 +7067,10 @@ A part whose mesh fails (e.g. `RangeError` for an invalid spec) is reported in `
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { FeatureSpec } from "../model/types";
+import { GeometryBuildError } from "../geometry/client";
 import type { GeometryClient } from "./clients";
-import { MESH_CACHE_LIMIT, UnsupportedTrayError, createMeshSource } from "./meshes";
-import { buildErrorReason, unsupportedReason } from "./support";
+import { MAX_IN_FLIGHT, MESH_CACHE_LIMIT, UnsupportedTrayError, createMeshSource } from "./meshes";
+import { buildErrorReason, isInvalidSpec, unsupportedReason } from "./support";
 import { cubeMesh, makeTray } from "./test-helpers";
 
 function fakeClient() {
@@ -7079,15 +7104,22 @@ describe("unsupportedReason / buildErrorReason", () => {
     expect(unsupportedReason(magnet)).toBe('Uses feature "magnet" from a newer app version.');
   });
 
-  it("turns worker messages into readable reasons", () => {
-    expect(
-      buildErrorReason(
-        new Error('Unsupported tray feature "lid": this tray was made with a newer app version'),
-      ),
-    ).toBe('Uses feature "lid" from a newer app version.');
-    expect(buildErrorReason(new Error("Tray a:p0:0: compartments overlap"))).toBe(
-      "Tray a:p0:0: compartments overlap",
+  it("turns build errors into readable reasons by their name", () => {
+    const unsupported = new GeometryBuildError(
+      'Unsupported tray feature "lid": this tray was made with a newer app version',
+      "UnsupportedFeatureError",
+      { feature: "lid" },
     );
+    expect(buildErrorReason(unsupported)).toBe('Uses feature "lid" from a newer app version.');
+    const invalid = new GeometryBuildError("Tray a:p0:0: compartments overlap", "TraySpecError");
+    expect(buildErrorReason(invalid)).toBe("Tray a:p0:0: compartments overlap");
+    expect(isInvalidSpec(invalid)).toBe(true);
+    // A RangeError from elsewhere (the WASM heap) is not a verdict on the spec.
+    expect(isInvalidSpec(new RangeError("Tray a:p0:0: out of memory"))).toBe(false);
+    expect(buildErrorReason(new GeometryBuildError("slow", "TimeoutError"))).toBe(
+      "Building this tray took too long.",
+    );
+    expect(buildErrorReason(new GeometryBuildError("cancelled", "AbortError"))).toBe("Cancelled.");
     expect(buildErrorReason("boom")).toBe("boom");
   });
 });
@@ -7122,6 +7154,51 @@ describe("createMeshSource", () => {
     expect(f.build).toHaveBeenCalledTimes(2);
   });
 
+  it("retries a build once when the worker was restarted under it", async () => {
+    const f = fakeClient();
+    f.build.mockRejectedValueOnce(new GeometryBuildError("restarted", "WorkerRestartedError"));
+    const source = createMeshSource(() => Promise.resolve(f.client));
+    await expect(source.get(makeTray(), DEFAULT_SETTINGS)).resolves.toBeDefined();
+    expect(f.build).toHaveBeenCalledTimes(2);
+  });
+
+  it("marks a spec that fails twice as failed until reset, so it can't livelock the worker", async () => {
+    const f = fakeClient();
+    f.build.mockRejectedValueOnce(new GeometryBuildError("restarted", "WorkerRestartedError"));
+    f.build.mockRejectedValueOnce(new GeometryBuildError("too slow", "TimeoutError"));
+    const source = createMeshSource(() => Promise.resolve(f.client));
+    await expect(source.get(makeTray(), DEFAULT_SETTINGS)).rejects.toThrow("too slow");
+    await expect(source.get(makeTray(), DEFAULT_SETTINGS)).rejects.toThrow("too slow");
+    expect(f.build).toHaveBeenCalledTimes(2);
+    source.reset();
+    await expect(source.get(makeTray(), DEFAULT_SETTINGS)).resolves.toBeDefined();
+    expect(f.build).toHaveBeenCalledTimes(3);
+  });
+
+  it("passes the abort signal on and never sends a build aborted while it waited", async () => {
+    const f = fakeClient();
+    let release = (): void => undefined;
+    f.build.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve({ mesh: cubeMesh(), volumeMm3: 1000 });
+        }),
+    );
+    const source = createMeshSource(() => Promise.resolve(f.client));
+    const busy = Array.from({ length: MAX_IN_FLIGHT }, (_v, i) =>
+      source.get(makeTray({ key: `busy${i}` }), DEFAULT_SETTINGS),
+    );
+    const controller = new AbortController();
+    const waiting = source.get(makeTray({ key: "late" }), DEFAULT_SETTINGS, controller.signal);
+    await vi.waitFor(() => expect(f.build).toHaveBeenCalledTimes(MAX_IN_FLIGHT));
+    expect(f.build.mock.calls[0]?.[2]).toBeUndefined();
+    controller.abort();
+    await expect(waiting).rejects.toMatchObject({ name: "AbortError" });
+    release();
+    await Promise.all(busy.slice(-1));
+    expect(f.build).toHaveBeenCalledTimes(MAX_IN_FLIGHT);
+  });
+
   it("caps the cache, resets and disposes", async () => {
     const f = fakeClient();
     const source = createMeshSource(() => Promise.resolve(f.client));
@@ -7145,6 +7222,7 @@ describe("createMeshSource", () => {
 // src/app/exportBuild.test.ts
 import { unzipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
+import { GeometryBuildError } from "../geometry/client";
 import type { FeatureSpec } from "../model/types";
 import {
   NothingToExportError,
@@ -7218,7 +7296,9 @@ describe("export builders", () => {
     const parts = planExport(trays(3)).parts;
     const getMesh = vi.fn((spec: { key: string }) =>
       spec.key === "t1:p0:0"
-        ? Promise.reject(new RangeError("Tray t1:p0:0: compartments overlap"))
+        ? Promise.reject(
+            new GeometryBuildError("Tray t1:p0:0: compartments overlap", "TraySpecError"),
+          )
         : ok(),
     );
     const out = await buildStlZip(parts, {
@@ -7305,13 +7385,33 @@ export function unsupportedReason(spec: TraySpec): string | null {
   return null;
 }
 
-const UNSUPPORTED = /^Unsupported tray feature "([^"]*)"/;
-
-/** Readable reason for a failed mesh build (worker errors arrive as plain messages). */
+/**
+ * Readable reason for a failed mesh build. The geometry client rejects with a
+ * GeometryBuildError whose `name` is the reason (roadmap §4.3); it is matched by name, so this
+ * module never imports the client.
+ */
 export function buildErrorReason(e: unknown): string {
-  const message = e instanceof Error ? e.message : String(e);
-  const m = UNSUPPORTED.exec(message);
-  return m ? `Uses feature "${m[1] ?? ""}" from a newer app version.` : message;
+  if (!(e instanceof Error)) {
+    return String(e);
+  }
+  switch (e.name) {
+    case "UnsupportedFeatureError": {
+      const feature = (e as { feature?: unknown }).feature;
+      return `Uses feature "${typeof feature === "string" ? feature : "?"}" from a newer app version.`;
+    }
+    case "TimeoutError":
+      return "Building this tray took too long.";
+    case "AbortError":
+      return "Cancelled.";
+    default:
+      // "TraySpecError" (an invalid spec: "Tray <key>: …"), worker failures and anything else.
+      return e.message;
+  }
+}
+
+/** Whether a build failed because the spec is invalid (planTray's TraySpecError), by name. */
+export function isInvalidSpec(e: unknown): boolean {
+  return e instanceof Error && e.name === "TraySpecError";
 }
 ```
 
@@ -7335,17 +7435,114 @@ export class UnsupportedTrayError extends Error {
 }
 
 export interface MeshSource {
-  get(spec: TraySpec, settings: Settings): Promise<BuiltMesh>;
-  /** Forget cached meshes (Retry after a failure). */
+  get(spec: TraySpec, settings: Settings, signal?: AbortSignal): Promise<BuiltMesh>;
+  /** Forget cached meshes and failed specs (Retry after a failure). */
   reset(): void;
   dispose(): void;
 }
 
 export const MESH_CACHE_LIMIT = 64;
 
+/**
+ * Builds in the geometry worker at a time. The worker runs one build at a time and
+ * BUILD_TIMEOUT_MS counts queue time, so the rest wait here (roadmap §4.3).
+ */
+export const MAX_IN_FLIGHT = 2;
+
+function abortError(): Error {
+  const error = new Error("cancelled");
+  error.name = "AbortError";
+  return error;
+}
+
+function isNamed(e: unknown, name: string): boolean {
+  return e instanceof Error && e.name === name;
+}
+
 export function createMeshSource(load: () => Promise<GeometryClient>): MeshSource {
   let client: Promise<GeometryClient> | null = null;
   const cache = new Map<string, Promise<BuiltMesh>>();
+  // Roadmap §4.3: a spec that fails twice is not built again until reset(), so a spec that kills
+  // the worker can't keep restarting it.
+  const failures = new Map<string, number>();
+  const failed = new Map<string, unknown>();
+  let inFlight = 0;
+  const waiting: { start: () => void }[] = [];
+
+  /** Waits for a free build slot; rejects when the signal aborts first. */
+  function acquire(signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) {
+      return Promise.reject(abortError());
+    }
+    if (inFlight < MAX_IN_FLIGHT) {
+      inFlight += 1;
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      const entry = {
+        start: () => {
+          signal?.removeEventListener("abort", onAbort);
+          inFlight += 1;
+          resolve();
+        },
+      };
+      const onAbort = (): void => {
+        const i = waiting.indexOf(entry);
+        if (i >= 0) {
+          waiting.splice(i, 1);
+        }
+        reject(abortError());
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+      waiting.push(entry);
+    });
+  }
+
+  function release(): void {
+    inFlight -= 1;
+    waiting.shift()?.start();
+  }
+
+  async function buildOnce(
+    spec: TraySpec,
+    settings: Settings,
+    signal?: AbortSignal,
+  ): Promise<BuiltMesh> {
+    const c = await getClient();
+    await acquire(signal);
+    try {
+      return await c.build(spec, settings, signal);
+    } finally {
+      release();
+    }
+  }
+
+  /** One build, retried once after a worker restart; counts failures toward `failed`. */
+  async function build(
+    key: string,
+    spec: TraySpec,
+    settings: Settings,
+    signal?: AbortSignal,
+  ): Promise<BuiltMesh> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await buildOnce(spec, settings, signal);
+      } catch (error) {
+        if (isNamed(error, "AbortError")) {
+          throw error;
+        }
+        const count = (failures.get(key) ?? 0) + 1;
+        failures.set(key, count);
+        if (count >= 2) {
+          failed.set(key, error);
+          throw error;
+        }
+        if (attempt > 0 || !isNamed(error, "WorkerRestartedError")) {
+          throw error;
+        }
+      }
+    }
+  }
 
   function getClient(): Promise<GeometryClient> {
     if (!client) {
@@ -7360,37 +7557,58 @@ export function createMeshSource(load: () => Promise<GeometryClient>): MeshSourc
     return client;
   }
 
-  return {
-    get(spec, settings) {
+  /** The cached (or a new) build of a spec; the signal of the caller that started it applies. */
+  function shared(
+    key: string,
+    spec: TraySpec,
+    settings: Settings,
+    signal?: AbortSignal,
+  ): Promise<BuiltMesh> {
+    const hit = cache.get(key);
+    if (hit) {
+      cache.delete(key);
+      cache.set(key, hit);
+      return hit;
+    }
+    const built = build(key, spec, settings, signal);
+    cache.set(key, built);
+    built.catch(() => {
+      if (cache.get(key) === built) {
+        cache.delete(key);
+      }
+    });
+    while (cache.size > MESH_CACHE_LIMIT) {
+      const oldest = cache.keys().next().value;
+      if (oldest === undefined) {
+        break;
+      }
+      cache.delete(oldest);
+    }
+    return built;
+  }
+
+  const source: MeshSource = {
+    get(spec, settings, signal) {
       const reason = unsupportedReason(spec);
       if (reason !== null) {
         return Promise.reject(new UnsupportedTrayError(reason));
       }
       const key = JSON.stringify([spec, settings]);
-      const hit = cache.get(key);
-      if (hit) {
-        cache.delete(key);
-        cache.set(key, hit);
-        return hit;
+      if (failed.has(key)) {
+        return Promise.reject(failed.get(key));
       }
-      const built = getClient().then((c) => c.build(spec, settings));
-      cache.set(key, built);
-      built.catch(() => {
-        if (cache.get(key) === built) {
-          cache.delete(key);
-        }
-      });
-      while (cache.size > MESH_CACHE_LIMIT) {
-        const oldest = cache.keys().next().value;
-        if (oldest === undefined) {
-          break;
-        }
-        cache.delete(oldest);
-      }
-      return built;
+      // Another caller's abort must not fail this one: an aborted build has left the cache, so
+      // asking again starts a new one.
+      return shared(key, spec, settings, signal).catch((error: unknown) =>
+        isNamed(error, "AbortError") && signal?.aborted !== true
+          ? source.get(spec, settings, signal)
+          : Promise.reject(error),
+      );
     },
     reset() {
       cache.clear();
+      failures.clear();
+      failed.clear();
     },
     dispose() {
       cache.clear();
@@ -7402,6 +7620,7 @@ export function createMeshSource(load: () => Promise<GeometryClient>): MeshSourc
       );
     },
   };
+  return source;
 }
 ```
 
@@ -7574,7 +7793,7 @@ export async function buildStlZip(
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd apps/insert-generator && npx vitest run src/app/meshes.test.ts src/app/exportBuild.test.ts`
-Expected: PASS (11 tests).
+Expected: PASS (14 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -7611,6 +7830,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/pr
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MeshSource } from "../app/meshes";
 import { cubeMesh, makeTray } from "../app/test-helpers";
+import { GeometryBuildError } from "../geometry/client";
 import { DEFAULT_PRINTER } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { FeatureSpec } from "../model/types";
@@ -7688,7 +7908,9 @@ describe("ExportPanel", () => {
     const m = meshes();
     m.get.mockImplementation((spec) =>
       spec.key === "b:p0:0"
-        ? Promise.reject(new RangeError("Tray b:p0:0: compartments overlap"))
+        ? Promise.reject(
+            new GeometryBuildError("Tray b:p0:0: compartments overlap", "TraySpecError"),
+          )
         : Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }),
     );
     const p = props({ meshes: m });
@@ -8442,6 +8664,8 @@ export function Viewer(p: ViewerProps) {
       return undefined;
     }
     let cancelled = false;
+    // Builds this effect no longer needs are aborted (roadmap §4.3): the worker skips them.
+    const controller = new AbortController();
     const list = p.trays;
     const results: (SceneTray | null)[] = list.map(() => null);
     let done = 0;
@@ -8450,7 +8674,7 @@ export function Viewer(p: ViewerProps) {
     void Promise.all(
       list.map(async (spec, i) => {
         try {
-          const built = await p.meshes.get(spec, p.settings);
+          const built = await p.meshes.get(spec, p.settings, controller.signal);
           results[i] = { spec, mesh: built.mesh };
         } catch {
           failed += 1;
@@ -8467,6 +8691,7 @@ export function Viewer(p: ViewerProps) {
     });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [status, p.trays, p.settings, p.meshes, attempt]);
 
@@ -10648,6 +10873,7 @@ git commit -m "Ship a third-party licenses file with the build"
 
 - Create: `scripts/smoke-dist.mjs`
 - Create: `scripts/smoke-dist.test.mjs`
+- Create: `src/app/bulkBuild.smoke.test.ts`
 - Modify: `package.json` (`build` script)
 - Modify: `vite.config.ts` (`test.include`)
 
@@ -10990,11 +11216,53 @@ In `package.json`, change only the `build` script (plan 1's value plus the smoke
 Run: `cd apps/insert-generator && npm run build`
 Expected: all tests pass, both `tsc` runs print nothing, Vite prints `✓ built`, and the last line is `smoke-dist: OK (…/dist served from /static-web-apps/insert-generator/)`. Two Vite warnings are expected and harmless: `Module "node:module" has been externalized for browser compatibility` (manifold's Node-only branch, plan 3) and "Some chunks are larger than 500 kB" for the lazily loaded three.js chunk (`scene-<hash>.js`, ≈ 550 kB, loaded only when the 3D view opens). If it reports fewer than two worker scripts, list `dist/assets` and check the worker file names: Vite names worker chunks after their source file (`worker-<hash>.js` for both `layout/worker.ts` and `geometry/worker.ts`).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Bulk-build smoke test of the geometry timeout**
+
+The geometry client (plan 3) rejects a build after `BUILD_TIMEOUT_MS` (30 s) counted from the call, queue time included, and `meshes.ts` keeps at most `MAX_IN_FLIGHT` builds in the worker (roadmap §4.3). Build about 40 real trays (the optimized fixture layouts) with the kernel, in Node, and check the slowest build leaves that timeout a wide margin: a build waits for at most `MAX_IN_FLIGHT − 1` others, and a slow laptop is assumed 5× slower.
+
+```ts
+// src/app/bulkBuild.smoke.test.ts
+// @vitest-environment node
+import { describe, expect, it } from "vitest";
+import { buildTray, loadManifold } from "../geometry";
+import { BUILD_TIMEOUT_MS } from "../geometry/client";
+import { optimize } from "../layout";
+import { FIXTURES, fixtureInput, type FixtureName } from "../layout/test-fixtures";
+import { MAX_IN_FLIGHT } from "./meshes";
+
+describe("bulk build smoke", () => {
+  it("builds about 40 real trays well inside BUILD_TIMEOUT_MS", { timeout: 120_000 }, async () => {
+    const m = await loadManifold();
+    const names = Object.keys(FIXTURES) as FixtureName[];
+    const builds = names
+      .flatMap((name) => {
+        const input = fixtureInput(name);
+        const trays = optimize(input, 1, 2000).layout?.trays ?? [];
+        return trays.map((spec) => ({ spec, settings: input.settings }));
+      })
+      .slice(0, 40);
+    expect(builds.length).toBeGreaterThanOrEqual(20);
+    let slowest = 0;
+    for (const { spec, settings } of builds) {
+      const start = performance.now();
+      buildTray(m, spec, settings);
+      slowest = Math.max(slowest, performance.now() - start);
+    }
+    expect(slowest * MAX_IN_FLIGHT * 5, `slowest build ${slowest.toFixed(0)} ms`).toBeLessThan(
+      BUILD_TIMEOUT_MS,
+    );
+  });
+});
+```
+
+Run: `cd apps/insert-generator && npx vitest run src/app/bulkBuild.smoke.test.ts`
+Expected: PASS. If it fails, raise `BUILD_TIMEOUT_MS` in plan 3's `geometry/client.ts` (and roadmap §4.3) rather than lowering the margin.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 cd apps/insert-generator
-git add scripts/smoke-dist.mjs scripts/smoke-dist.test.mjs package.json vite.config.ts
+git add scripts/smoke-dist.mjs scripts/smoke-dist.test.mjs src/app/bulkBuild.smoke.test.ts package.json vite.config.ts
 git commit -m "Add a build smoke test of dist served from a subpath"
 ```
 
@@ -11094,8 +11362,12 @@ built on demand by the geometry worker and cached in `app/meshes.ts`.
    MINOR (MAJOR is breaking). Add a fixture under `test/fixtures/schema/`.
 2. **Sizing:** turn it into `TrayRequirement` variants in `src/sizing/`
    (one compartment requirement per item, finger pockets, elastic axes).
-3. **Geometry:** only if it needs a new compartment kind or feature; new
-   features are a geometry MINOR (`geometry/version.ts`).
+3. **Geometry:** only if it needs a new compartment kind or feature. Bump
+   `GEOMETRY_VERSION` (`geometry/version.ts`): while MAJOR is 0 a new optional
+   feature is a PATCH and a change that breaks fit (or makes `planTray` reject
+   specs it accepted before) is a MINOR, which `isOlderGeometryLine` treats as
+   a new line ("reprint the whole insert"); from 1.0 on they are MINOR and
+   MAJOR.
 4. **UI:** create `src/ui/components/<Kind>Editor.tsx` taking
    `EditorProps<YourComponent>` (simple fields first, extra ones inside
    `<MoreOptions open={advanced}>` together with `<CommonOptions …/>`), add a
@@ -11184,9 +11456,9 @@ git commit -m "Fix issues found in the end-to-end check"
 
 None to the names, types or signatures in roadmap §4. This plan relies on these additive exports and conventions from the final plans 1–4, and records two clarifications:
 
-1. **Imports used (all exist in plans 1–4):** `share/index.ts` (`encodeHash`, `decodeHash`, `createProjectStore(storage?: Storage | null)`, `ProjectStore`, `ProjectListEntry`, `StoreWriteError`, `exportJsonFile`, `importJsonText`, `jsonFileName`, `LINK_MAX_URL_CHARS`); `model/schema.ts` `noForeign()`; `model/validate.ts` `SETTING_RANGES`; `model/defaults.ts` `DEFAULT_BOX`, `DEFAULT_PRINTER`, `KIND_NAMES`; `model/settings.ts` `WALL_CHOICES`, `FIT_CHOICES`; `model/version.ts` `isPreview`; `layout/index.ts` `swapLocks(locks, keyA, keyB, layout)`, `summarize`, `DEFAULT_ITERATIONS`; `layout/client.ts` `LayoutClient` (and `LayoutCancelledError`, matched by `name` so the lazily loaded client isn't imported statically); `geometry/client.ts` `GeometryClient`; `geometry/version.ts` `GEOMETRY_VERSION`; `test-support/memory-storage.ts` `MemoryStorage` (tests only). The page never imports `geometry/index`.
+1. **Imports used (all exist in plans 1–4):** `share/index.ts` (`encodeHash`, `decodeHash`, `createProjectStore(storage?: Storage | null)`, `ProjectStore`, `ProjectListEntry`, `StoreWriteError`, `exportJsonFile`, `importJsonText`, `jsonFileName`, `LINK_MAX_URL_CHARS`); `model/schema.ts` `noForeign()`; `model/validate.ts` `SETTING_RANGES`; `model/defaults.ts` `DEFAULT_BOX`, `DEFAULT_PRINTER`, `KIND_NAMES`; `model/settings.ts` `WALL_CHOICES`, `FIT_CHOICES`; `model/version.ts` `isPreview`; `layout/index.ts` `swapLocks(locks, keyA, keyB, layout)`, `summarize`, `DEFAULT_ITERATIONS`; `layout/client.ts` `LayoutClient` (and `LayoutCancelledError`, matched by `name` so the lazily loaded client isn't imported statically); `geometry/client.ts` `GeometryClient`, `GeometryBuildError` (tests; the app matches errors by `name`); `geometry/version.ts` `isOlderGeometryLine`; `test-support/memory-storage.ts` `MemoryStorage` (tests only). The page never imports `geometry/index`.
 2. **"Improve more" call shape (roadmap §4.8).** The UI calls `run(input, layout.seed, 3 × DEFAULT_ITERATIONS, layout, onProgress)`: `iterations` is this run's budget and `warmStart` is the stored layout, so plan 4 continues the search from it and stores `layout.iterations + 3 × DEFAULT_ITERATIONS` (spec §7.2 "improve more adds 3N, continuing from the stored (seed, iterations)").
 3. **Node types stay out of the app.** `licenses.config.ts` (Node-side, `node:fs` / `node:url`) is added to plan 1's `tsconfig.node.json`, which has `"types": ["node"]` (`@types/node ^22.0.0`, installed by plan 1). The app's `tsconfig.json` covers only `src/` without Node types, so browser code can't use `process` or `Buffer` by accident. `npm run build` and `npm run typecheck` check both projects.
-4. **Unsupported trays are detected on the UI side too.** `app/support.ts` imports plan 3's `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS` and `KNOWN_FEATURE_TYPES` from `geometry/types` (roadmap §4.3; no WASM) to disable those trays in the export panel before any worker call; worker messages starting `Unsupported tray feature "<feature>"` (plan 3 `UnsupportedFeatureError`) and `Tray <key>: …` (`RangeError`) are shown per tray. New values are added in plan 3's lists only.
+4. **Unsupported trays are detected on the UI side too.** `app/support.ts` imports plan 3's `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS` and `KNOWN_FEATURE_TYPES` from `geometry/types` (roadmap §4.3; no WASM) to disable those trays in the export panel before any worker call; failed builds reject with plan 3's `GeometryBuildError`, told apart by `name`, never `instanceof RangeError`: `"UnsupportedFeatureError"` (with `feature`) and `"TraySpecError"` (an invalid spec, `Tray <key>: …`) are shown per tray, like `"TimeoutError"` and worker failures (roadmap §4.3). New values are added in plan 3's lists only.
 5. **Dropped locks and size locks.** Plan 4's `lock.dropped` notices carry `path: "/locks/<index>"` (the lock's index in `LayoutInput.locks`, i.e. `project.locks`); the runner removes those locks when it accepts a result and stores the layout under the post-prune `inputsHash` (Task 3). Size locks are created from the tray details ("Lock size", Tasks 1, 15, 18, 21).
 6. **Link length.** The warning compares the whole URL with plan 1's `LINK_MAX_URL_CHARS = 2000` (Discord's message limit); plan 1's `LINK_TARGET_CHARS = 1900` stays the hash budget for fixtures without a layout.
