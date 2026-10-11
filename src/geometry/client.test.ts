@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGeometryClient } from "./client";
+import { GeometryBuildError, createGeometryClient } from "./client";
 import type { GeometryRequest, GeometryResponse } from "./types";
 import { GEO, plainBox } from "./test-specs";
 
@@ -93,6 +93,33 @@ describe("createGeometryClient", () => {
       message: "boom",
     });
     await expect(a).rejects.toThrow("boom");
+  });
+
+  it("rejects with a GeometryBuildError carrying the reason and the feature", async () => {
+    const client = createGeometryClient();
+    const a = client.build(plainBox, GEO);
+    const b = client.build(plainBox, GEO);
+    const worker = FakeWorker.instances[0];
+    worker?.respond({
+      type: "error",
+      requestId: 1,
+      key: plainBox.key,
+      message: "no magnets yet",
+      name: "UnsupportedFeatureError",
+      feature: "magnet",
+    });
+    worker?.respond({ type: "error", requestId: 2, key: plainBox.key, message: "plain" });
+    const first: unknown = await a.catch((e: unknown) => e);
+    expect(first).toBeInstanceOf(GeometryBuildError);
+    expect(first).toMatchObject({
+      name: "UnsupportedFeatureError",
+      message: "no magnets yet",
+      feature: "magnet",
+    });
+    const second: unknown = await b.catch((e: unknown) => e);
+    expect(second).toBeInstanceOf(GeometryBuildError);
+    expect(second).toMatchObject({ name: "Error", message: "plain", feature: undefined });
+    client.dispose();
   });
 
   it("rejects pending builds when the worker crashes and retries with a new worker", async () => {

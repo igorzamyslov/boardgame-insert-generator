@@ -38,4 +38,11 @@ export type GeometryRequest =
 
 export type GeometryResponse =
   | { type: "built"; requestId: number; key: string; mesh: Mesh; volumeMm3: number }
-  | { type: "error"; requestId: number; key: string; message: string };
+  | {
+      type: "error";
+      requestId: number;
+      key: string;
+      message: string;
+      name?: string; // the thrown error's name ("RangeError", "AbortError", ...); absent for non-Error throws
+      feature?: string; // the unsupported feature, when name is "UnsupportedFeatureError"
+    };

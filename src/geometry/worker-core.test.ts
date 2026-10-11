@@ -6,6 +6,12 @@ import { createGeometryHandler } from "./worker-core";
 import type { GeometryResponse } from "./types";
 import { GEO, compartment, plainBox } from "./test-specs";
 
+function cyclic(): object {
+  const loop: Record<string, unknown> = {};
+  loop.self = loop;
+  return loop;
+}
+
 function collect() {
   const sent: { message: GeometryResponse; transfer: Transferable[] }[] = [];
   const handle = createGeometryHandler(
@@ -50,13 +56,34 @@ describe("geometry worker handler", () => {
         requestId: 1,
         key: plainBox.key,
         message: expect.stringMatching(/magnet/),
+        name: "UnsupportedFeatureError",
+        feature: "magnet",
       }),
       expect.objectContaining({
         type: "error",
         requestId: 2,
         message: expect.stringMatching(/positive/),
+        name: "RangeError",
       }),
     ]);
+    const [, invalid] = sent;
+    expect(invalid?.message).not.toHaveProperty("feature");
+  });
+
+  it.each([
+    ["a number (a WASM exception pointer)", 12345, "WASM error 12345"],
+    ["a string", "out of memory", "out of memory"],
+    ["a plain object", { code: 7 }, '{"code":7}'],
+    ["a cyclic object", cyclic(), "[object Object]"],
+    ["undefined", undefined, "undefined"],
+  ])("describes %s thrown by the kernel without an error name", async (_what, thrown, message) => {
+    const sent: GeometryResponse[] = [];
+    const handle = createGeometryHandler(
+      () => Promise.reject(thrown),
+      (m) => sent.push(m),
+    );
+    await handle({ type: "build", requestId: 3, spec: plainBox, settings: GEO });
+    expect(sent).toEqual([{ type: "error", requestId: 3, key: plainBox.key, message }]);
   });
 
   it("skips a build cancelled before the module finished loading", async () => {

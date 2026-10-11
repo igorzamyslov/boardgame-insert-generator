@@ -6,6 +6,21 @@ export interface GeometryClient {
   dispose(): void;
 }
 
+// Why a build failed. `name` is the reason: the thrown error's name in the
+// worker ("RangeError" for an invalid spec, "UnsupportedFeatureError" with its
+// `feature` for a newer-version tray), or "AbortError", "TimeoutError", ...
+// from the client itself. Defined here, not in the kernel, so the main thread
+// never imports geometry code.
+export class GeometryBuildError extends Error {
+  readonly feature: string | undefined;
+
+  constructor(message: string, reason: string, feature?: string) {
+    super(message);
+    this.name = reason;
+    this.feature = feature;
+  }
+}
+
 interface Pending {
   resolve: (result: { mesh: Mesh; volumeMm3: number }) => void;
   reject: (error: Error) => void;
@@ -37,7 +52,9 @@ export function createGeometryClient(): GeometryClient {
     if (response.type === "built") {
       p.resolve({ mesh: response.mesh, volumeMm3: response.volumeMm3 });
     } else {
-      p.reject(new Error(response.message));
+      p.reject(
+        new GeometryBuildError(response.message, response.name ?? "Error", response.feature),
+      );
     }
   }
 
