@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
-import { maxCornerRadius } from "./plan-corners";
-import { MIN_FEATURE_MM } from "../model/settings";
+import { MIN_FEATURE_MM, maxCornerRadius } from "../model/settings";
 import { GEO, compartment, hexTiles, traySpec } from "./test-specs";
 
 describe("corner reliefs", () => {

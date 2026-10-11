@@ -123,7 +123,8 @@ describe("limits", () => {
       w: 60,
       d: 60,
       h: 3.07,
-      compartments: [compartment({ x: 1.6, y: 1.6, w: 56.8, d: 56.8 })],
+      // A raised floor keeps wall + floor − chamfer ≥ 0.8 under the steep chamfer.
+      compartments: [compartment({ x: 1.6, y: 1.6, w: 56.8, d: 56.8, floorZ: 2 })],
     });
     expect(planTray(low, steep).chamfer).toBe(2.27);
     expect(planTray({ ...spacer, d: 6.14, h: 3.07 }, steep).chamfer).toBe(2.27);
@@ -195,18 +196,188 @@ describe("validation", () => {
 
   it("throws UnsupportedFeatureError for unknown feature types, compartment kinds and parts", () => {
     const magnet = { type: "magnet", d: 6 } as unknown as FeatureSpec;
-    const spec = {
+    const withMagnet = {
       ...customBlock,
       compartments: [{ ...compartment({ x: 1.6, y: 1.6, w: 50, d: 52 }), features: [magnet] }],
     };
-    expect(() => planTray(spec, GEO)).toThrow(UnsupportedFeatureError);
-    expect(() => planTray(spec, GEO)).toThrow(/magnet/);
     const lid = { ...plainBox, part: "lid" } as unknown as TraySpec;
-    expect(() => planTray(lid, GEO)).toThrow(UnsupportedFeatureError);
     const hollow = {
       ...customBlock,
       compartments: [{ ...compartment({ x: 1.6, y: 1.6, w: 50, d: 52 }), kind: "hollow" }],
     } as unknown as TraySpec;
-    expect(() => planTray(hollow, GEO)).toThrow(/kind:hollow/);
+    const cases: [TraySpec, string][] = [
+      [withMagnet, "magnet"],
+      [lid, "part:lid"],
+      [hollow, "kind:hollow"],
+    ];
+    for (const [spec, feature] of cases) {
+      let thrown: unknown;
+      try {
+        planTray(spec, GEO);
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBeInstanceOf(UnsupportedFeatureError);
+      expect(thrown).toMatchObject({ feature });
+    }
+  });
+});
+
+describe("rejections", () => {
+  const withPocket = (feature: Record<string, unknown>): TraySpec =>
+    traySpec({
+      key: "bad-pocket",
+      w: 60,
+      d: 60,
+      h: 20,
+      compartments: [
+        compartment({
+          x: 1.6,
+          y: 1.6,
+          w: 56.8,
+          d: 56.8,
+          features: [{ ...pocket("front", 30, 5), ...feature } as FeatureSpec],
+        }),
+      ],
+    });
+
+  it.each([
+    ["width", 0],
+    ["width", -1],
+    ["reach", 0],
+    ["reach", -1],
+    ["depth", 0],
+    ["depth", -1],
+  ])("rejects a finger pocket with %s %d", (field, value) => {
+    expect(() => planTray(withPocket({ [field]: value }), GEO)).toThrow(/invalid finger pocket/);
+  });
+
+  it("rejects a finger pocket with a NaN position", () => {
+    expect(() => planTray(withPocket({ at: Number.NaN }), GEO)).toThrow(/invalid finger pocket/);
+  });
+
+  it("rejects an unknown side", () => {
+    expect(() => planTray(withPocket({ side: "top" }), GEO)).toThrow(/unknown side "top"/);
+    const scoop = { type: "scoop", side: "up", r: 5 } as unknown as FeatureSpec;
+    const spec = {
+      ...plainBox,
+      compartments: [compartment({ x: 1.6, y: 1.6, w: 96.8, d: 56.8, features: [scoop] })],
+    };
+    expect(() => planTray(spec, GEO)).toThrow(/unknown side "up"/);
+  });
+
+  it("rejects a wall below 0.8 mm", () => {
+    const thin = { ...plainBox, wall: 0.79 };
+    expect(() => planTray(thin, GEO)).toThrow(/wall 0.79 mm is below 0.8 mm/);
+    expect(planTray({ ...plainBox, wall: 0.8 }, GEO).outerWall).toBe(0.8);
+  });
+
+  it("rejects a lip thinner than 0.8 mm", () => {
+    const thin = { ...GEO, lip: { ...GEO.lip, thickness: 0.79 } };
+    expect(() => planTray(lippedLower, thin)).toThrow(/lip thickness 0.79 mm is below 0.8 mm/);
+    const exact = { ...GEO, lip: { ...GEO.lip, thickness: 0.8 } };
+    expect(planTray(lippedLower, exact).lip?.thickness).toBe(0.8);
+  });
+
+  it("plans the lowest lip height settings allow (1 mm)", () => {
+    const low = { ...GEO, lip: { ...GEO.lip, height: 1 } };
+    const plan = planTray(lippedLower, low);
+    expect(plan.lip).toEqual({ height: 1, thickness: 1.2, chamfer: 0.6 });
+    expect(plan.topZ).toBe(26);
+  });
+
+  it("rejects a tray just too small for its chamfer", () => {
+    const steep = { ...GEO, bottomChamfer: 2 };
+    const box = (w: number, d: number, h: number): TraySpec =>
+      traySpec({ key: "small", w, d, h, compartments: [] });
+    // Limits: min(w, d) ≥ 2 · (2 + 0.8) = 5.6 and h ≥ 2.8.
+    expect(planTray(box(5.6, 5.6, 2.8), steep).chamfer).toBe(2);
+    expect(() => planTray(box(5.59, 6, 3), steep)).toThrow(/too small/);
+    expect(() => planTray(box(6, 5.59, 3), steep)).toThrow(/too small/);
+    expect(() => planTray(box(6, 6, 2.79), steep)).toThrow(/too small/);
+    expect(() => planTray({ ...spacer, w: 40, d: 5.59, h: 20 }, steep)).toThrow(/too small/);
+  });
+
+  it("rejects non-finite chamfer, corner radius and lip ledge settings", () => {
+    const nan = Number.NaN;
+    expect(() => planTray(plainBox, { ...GEO, bottomChamfer: nan })).toThrow(/bottom chamfer/);
+    expect(() => planTray(plainBox, { ...GEO, cornerRadius: nan })).toThrow(/corner radius/);
+    expect(() => planTray(lippedLower, { ...GEO, lip: { ...GEO.lip, ledge: nan } })).toThrow(
+      /lip ledge/,
+    );
+    expect(() => planTray(lippedLower, { ...GEO, lip: { ...GEO.lip, height: nan } })).toThrow(
+      /lip height/,
+    );
+  });
+});
+
+describe("bottom chamfer against walls and floor", () => {
+  const thinTray = (wall: number, floor: number): TraySpec =>
+    traySpec({
+      key: "thin",
+      wall,
+      floor,
+      w: 60,
+      d: 60,
+      h: 20,
+      compartments: [
+        compartment({ x: wall, y: wall, w: 60 - 2 * wall, d: 60 - 2 * wall, floorZ: floor }),
+      ],
+    });
+
+  it("rejects a chamfer that breaks out through the wall or floor", () => {
+    const steep = { ...GEO, bottomChamfer: 3 };
+    expect(() => planTray(thinTray(0.8, 0.8), steep)).toThrow(RangeError);
+    expect(() => planTray(thinTray(0.8, 0.8), steep)).toThrow(/3 mm bottom chamfer/);
+  });
+
+  it("accepts a chamfer leaving exactly 0.8 mm of material", () => {
+    // wall + floor − chamfer = 0.8 + 1.4 − 1.4 = 0.8, float noise included.
+    expect(planTray(thinTray(0.8, 1.4), { ...GEO, bottomChamfer: 1.4 }).chamfer).toBe(1.4);
+    expect(() => planTray(thinTray(0.8, 1.4), { ...GEO, bottomChamfer: 1.41 })).toThrow(/chamfer/);
+  });
+
+  it("measures the floor of each compartment, not the tray's nominal floor", () => {
+    const spec = traySpec({
+      key: "low-floor",
+      w: 60,
+      d: 60,
+      h: 20,
+      compartments: [compartment({ x: 1.6, y: 1.6, w: 56.8, d: 56.8, floorZ: 0.8 })],
+    });
+    // 1.6 + 0.8 − 1.6 = 0.8 passes, 1.6 + 0.8 − 1.7 = 0.7 does not (spec.floor is 1.2).
+    expect(planTray(spec, { ...GEO, bottomChamfer: 1.6 }).chamfer).toBe(1.6);
+    expect(() => planTray(spec, { ...GEO, bottomChamfer: 1.7 })).toThrow(/chamfer/);
+  });
+
+  it("does not check solid parts", () => {
+    expect(planTray({ ...spacer }, { ...GEO, bottomChamfer: 3 }).chamfer).toBe(3);
+  });
+});
+
+describe("compartment separation grid", () => {
+  const pair = (firstEnd: number, secondStart: number): TraySpec =>
+    traySpec({
+      key: "pair",
+      w: 100,
+      d: 40,
+      h: 20,
+      compartments: [
+        compartment({ x: 1.6, y: 1.6, w: firstEnd - 1.6, d: 36.8 }),
+        compartment({ x: secondStart, y: 1.6, w: 98.4 - secondStart, d: 36.8 }),
+      ],
+    });
+
+  it.each([
+    [41.6, 41.61],
+    [41, 41.01],
+    [7.29 + 1, 8.3],
+  ])("accepts a 0.01 mm divider on the 0.01 grid (%d to %d)", (end, start) => {
+    expect(planTray(pair(end, start), GEO).compartments).toHaveLength(2);
+  });
+
+  it("still rejects compartments touching or overlapping", () => {
+    expect(() => planTray(pair(41.6, 41.6), GEO)).toThrow(/overlap or touch/);
+    expect(() => planTray(pair(41.6, 41.4), GEO)).toThrow(/overlap or touch/);
   });
 });

@@ -1,6 +1,6 @@
 import type { Side } from "../model/types";
-import { MIN_FEATURE_MM } from "../model/settings";
-import { CORNER_MARGIN, MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
+import { MIN_FEATURE_MM, maxCornerRadius } from "../model/settings";
+import { MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
 import type { CompartmentPlan, ReliefPlan } from "./plan-types";
 
 export interface TraySize {
@@ -78,21 +78,6 @@ export function planReliefs(
     }
   }
   return reliefs;
-}
-
-// Largest outer corner radius that keeps MIN_FEATURE_MM + CORNER_MARGIN between
-// the rounded outer corner and a cut disc whose centre is p and q from the
-// corner's two outer faces (radius rho; 0 for a sharp cut corner). Solves
-// R − hypot(R − p, R − q) = m, m = MIN_FEATURE_MM + CORNER_MARGIN + rho, i.e.
-// R² − 2(p + q − m)R + p² + q² − m² = 0, for the larger root.
-export function maxCornerRadius(p: number, q: number, rho: number): number {
-  const m = MIN_FEATURE_MM + CORNER_MARGIN + rho;
-  if (p < m || q < m) {
-    // Too close to a straight face for any arc: keep the disc out of the arc
-    // zone (it is in the zone only while p < R and q < R).
-    return Math.max(p, q);
-  }
-  return p + q - m + Math.sqrt(2 * (p - m) * (q - m));
 }
 
 // Effective outer corner radius: the setting, reduced so no compartment

@@ -1,8 +1,13 @@
 import type { CompartmentSpec, Settings, Side, TraySpec } from "../model/types";
-import { MIN_FEATURE_MM, UPPER_MIN_CHAMFER } from "../model/settings";
+import {
+  MIN_FEATURE_MM,
+  SPEC_TOLERANCE as TOL,
+  chamferMinimums,
+  effectiveBottomChamfer,
+} from "../model/settings";
 import { UnsupportedFeatureError } from "./errors";
 import { planCornerRadius, planReliefs } from "./plan-corners";
-import { LIP_CHAMFER, MIN_SCOOP_RADIUS, SPEC_TOLERANCE as TOL } from "./plan-types";
+import { LIP_CHAMFER, MIN_SCOOP_RADIUS } from "./plan-types";
 import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, SlotPlan, TrayPlan } from "./plan-types";
 import { KNOWN_COMPARTMENT_KINDS, KNOWN_FEATURE_TYPES, KNOWN_PARTS } from "./types";
 
@@ -21,19 +26,14 @@ function isPositive(n: number): boolean {
   return Number.isFinite(n) && n > 0;
 }
 
-function bottomChamfer(spec: TraySpec, settings: Settings): number {
-  const base = Math.max(0, settings.bottomChamfer);
-  if (spec.part === "spacer" || spec.level === 0) {
-    return base;
-  }
-  return Math.max(base, UPPER_MIN_CHAMFER);
-}
-
 function planLip(spec: TraySpec, settings: Settings): LipPlan | null {
   if (!spec.lip) {
     return null;
   }
-  const { height, thickness } = settings.lip;
+  const { height, thickness, ledge } = settings.lip;
+  if (!Number.isFinite(ledge)) {
+    fail(spec, `lip ledge ${ledge} mm is not a number`);
+  }
   if (!Number.isFinite(thickness) || !(thickness >= MIN_FEATURE_MM - TOL)) {
     fail(spec, `lip thickness ${thickness} mm is below ${MIN_FEATURE_MM} mm`);
   }
@@ -72,7 +72,13 @@ function sideOf(spec: TraySpec, side: unknown): Side {
   return fail(spec, `unknown side "${String(side)}"`);
 }
 
-function checkRect(spec: TraySpec, index: number, c: CompartmentSpec, outerWall: number): Rect {
+function checkRect(
+  spec: TraySpec,
+  index: number,
+  c: CompartmentSpec,
+  outerWall: number,
+  chamfer: number,
+): Rect {
   if (![c.x, c.y].every(Number.isFinite) || !isPositive(c.w) || !isPositive(c.d)) {
     fail(spec, `compartment ${index} has an invalid size or position`);
   }
@@ -88,6 +94,14 @@ function checkRect(spec: TraySpec, index: number, c: CompartmentSpec, outerWall:
   ) {
     fail(spec, `compartment ${index} cuts into the ${outerWall} mm outer wall`);
   }
+  // The 45° chamfer cuts into the wall and floor under the well's bottom corner.
+  const wall = Math.min(rect.x0, rect.y0, spec.w - rect.x1, spec.d - rect.y1);
+  if (wall + c.floorZ - chamfer < MIN_FEATURE_MM - TOL) {
+    fail(
+      spec,
+      `compartment ${index}: a ${chamfer} mm bottom chamfer leaves less than ${MIN_FEATURE_MM} mm of wall and floor`,
+    );
+  }
   return rect;
 }
 
@@ -99,7 +113,7 @@ function checkSeparated(spec: TraySpec, rects: Rect[]): void {
       }
       const gapX = Math.max(b.x0 - a.x1, a.x0 - b.x1);
       const gapY = Math.max(b.y0 - a.y1, a.y0 - b.y1);
-      if (gapX < 2 * TOL && gapY < 2 * TOL) {
+      if (gapX < TOL && gapY < TOL) {
         fail(spec, `compartments ${i} and ${j} overlap or touch`);
       }
     });
@@ -221,12 +235,20 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   if (![spec.w, spec.d, spec.h].every(isPositive)) {
     fail(spec, "outer size must be positive");
   }
-  const chamfer = bottomChamfer(spec, settings);
+  for (const [name, value] of [
+    ["bottom chamfer", settings.bottomChamfer],
+    ["corner radius", settings.cornerRadius],
+  ] as const) {
+    if (!Number.isFinite(value)) {
+      fail(spec, `${name} ${value} mm is not a number`);
+    }
+  }
+  // Spacers are always built with the level 0 chamfer.
+  const level = spec.part === "spacer" ? 0 : spec.level;
+  const chamfer = effectiveBottomChamfer(settings, level);
+  const min = chamferMinimums(settings, level);
   // With TOL, like every limit here: 2.27 + 0.8 = 3.0700000000000003 must accept h = 3.07.
-  if (
-    Math.min(spec.w, spec.d) < 2 * (chamfer + MIN_FEATURE_MM) - TOL ||
-    spec.h < chamfer + MIN_FEATURE_MM - TOL
-  ) {
+  if (Math.min(spec.w, spec.d) < min.side - TOL || spec.h < min.h - TOL) {
     fail(spec, `outer size ${spec.w} × ${spec.d} × ${spec.h} mm is too small`);
   }
   const lip = planLip(spec, settings);
@@ -237,7 +259,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   const outerWall = lip ? Math.max(spec.wall, lip.thickness + settings.lip.ledge) : spec.wall;
 
   const specs = solid ? [] : spec.compartments;
-  const rects = specs.map((c, i) => checkRect(spec, i, c, outerWall));
+  const rects = specs.map((c, i) => checkRect(spec, i, c, outerWall, chamfer));
   checkSeparated(spec, rects);
   const planned = specs.map((c, i) =>
     planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect"), outerWall),
