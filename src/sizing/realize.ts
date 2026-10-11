@@ -9,6 +9,7 @@ import {
 } from "./constants";
 import { pocketSides, reachU } from "./common";
 import { chamferMinimumsU, minLayoutU, wallFor } from "./outer";
+import type { MinLayout } from "./outer";
 import { SlotFitError } from "./errors";
 import { doubled, placeSlots, separation, slotFootprint } from "./slots";
 import type { Rect2, SlotPlacement, SlotRequest } from "./slots";
@@ -250,22 +251,37 @@ function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
   );
 }
 
-export function realizeTray(
+/** The tray moved by dx, dy units: compartments, finger slot centres and spacers. */
+function shifted(r: RealizedTray, dx: number, dy: number): RealizedTray {
+  const move = <T extends { x: number; y: number }>(item: T): T => ({
+    ...item,
+    x: fromU(toU(item.x) + dx),
+    y: fromU(toU(item.y) + dy),
+  });
+  const moveFeature = (f: FeatureSpec): FeatureSpec =>
+    f.type === "fingerPocket"
+      ? { ...f, at: fromU(toU(f.at) + (f.side === "front" || f.side === "back" ? dx : dy)) }
+      : f;
+  return {
+    wall: r.wall,
+    compartments: r.compartments.map((c) => ({
+      ...move(c),
+      features: c.features.map(moveFeature),
+    })),
+    spacers: r.spacers.map(move),
+  };
+}
+
+/**
+ * Realizes `part` in an outer of W × D × H units (at least `min`). Throws SlotFitError when its
+ * finger slots do not fit.
+ */
+function layoutAt(
   part: TrayPartReq,
-  outer: OuterSize,
+  min: MinLayout,
+  [W, D, H]: readonly [number, number, number],
   settings: Settings,
-  opts: RealizeOptions,
 ): RealizedTray {
-  const min = minLayoutU(part, settings, opts);
-  // Round an off-grid outer down, so one a hair under minOuter is rejected, not accepted.
-  const W = floorU(outer.w);
-  const D = floorU(outer.d);
-  const H = floorU(outer.h);
-  if (W < min.w || D < min.d || H < min.h) {
-    throw new RangeError(
-      `Tray ${part.trayKey}: outer ${outer.w}×${outer.d}×${outer.h} mm is smaller than its minimum ${fromU(min.w)}×${fromU(min.d)}×${fromU(min.h)} mm`,
-    );
-  }
   const { wall, divider, floor, rows } = min;
   // The band realize reserves is the reach each pocket reports, rounded up to whole units.
   const reach = reachU(settings);
@@ -419,4 +435,39 @@ export function realizeTray(
   }
   // The base (unlipped) wall, rounded up to 0.01 mm like every other TraySpec length.
   return { wall: fromU(ceilU(wallFor(settings, false))), compartments, spacers };
+}
+
+/**
+ * Realizes `part` in `outer` (roadmap §4.2, §4.7). Throws RangeError when `outer` is smaller than
+ * minOuter, and SlotFitError when the finger slots cannot fit. Monotonic in slack: a part that
+ * realizes at minOuter realizes in every larger outer. Where the slack would leave its slots no
+ * room (a wider row moving a slot against a well face, say), the tray keeps its minOuter
+ * arrangement, centred, and the slack thickens the outer walls instead.
+ */
+export function realizeTray(
+  part: TrayPartReq,
+  outer: OuterSize,
+  settings: Settings,
+  opts: RealizeOptions,
+): RealizedTray {
+  const min = minLayoutU(part, settings, opts);
+  // Round an off-grid outer down, so one a hair under minOuter is rejected, not accepted.
+  const W = floorU(outer.w);
+  const D = floorU(outer.d);
+  const H = floorU(outer.h);
+  if (W < min.w || D < min.d || H < min.h) {
+    throw new RangeError(
+      `Tray ${part.trayKey}: outer ${outer.w}×${outer.d}×${outer.h} mm is smaller than its minimum ${fromU(min.w)}×${fromU(min.d)}×${fromU(min.h)} mm`,
+    );
+  }
+  try {
+    return layoutAt(part, min, [W, D, H], settings);
+  } catch (error) {
+    if (!(error instanceof SlotFitError) || (W === min.w && D === min.d)) {
+      throw error;
+    }
+  }
+  // Slot placement depends on the footprint only, so this fails exactly when minOuter does.
+  const centred = layoutAt(part, min, [min.w, min.d, H], settings);
+  return shifted(centred, Math.floor((W - min.w) / 2), Math.floor((D - min.d) / 2));
 }

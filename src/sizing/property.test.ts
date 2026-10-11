@@ -289,6 +289,19 @@ function checkTray(
   return true;
 }
 
+/** Whether realizeTray realizes `part` in `outer`, false when it throws SlotFitError. */
+function realizes(part: TrayPartReq, outer: OuterSize, s: Settings, opts: RealizeOptions): boolean {
+  try {
+    realizeTray(part, outer, s, opts);
+    return true;
+  } catch (error) {
+    if (error instanceof SlotFitError) {
+      return false;
+    }
+    throw error;
+  }
+}
+
 /** Counts realized and refused trays; refusals must stay rare (tiny slots, 1-card decks). */
 function tally(): { add: (ok: boolean) => void; expectRare: () => void } {
   let realized = 0;
@@ -362,26 +375,37 @@ describe("sizing properties", () => {
     trays.expectRare();
   });
 
-  it("stays valid for larger outers", { timeout: 120_000 }, () => {
-    const trays = tally();
-    fc.assert(
-      fc.property(
-        componentsArb,
-        settingsArb,
-        fc.record({ w: mm(0, 80), d: mm(0, 80), h: mm(0, 40) }),
-        fc.constantFrom(...OPTS),
-        (components, s, extra, opts) => {
-          for (const part of allParts(components, s)) {
-            const m = minOuter(part, s, opts);
-            const outer = { w: m.w + extra.w, d: m.d + extra.d, h: m.h + extra.h };
-            trays.add(checkTray(part, outer, s, opts));
-          }
-        },
-      ),
-      { numRuns: 100, seed: SEED },
-    );
-    trays.expectRare();
-  });
+  it(
+    "realizes every larger outer of a part that realizes at minOuter",
+    { timeout: 120_000 },
+    () => {
+      let larger = 0;
+      fc.assert(
+        fc.property(
+          componentsArb,
+          settingsArb,
+          fc.record({ w: mm(0, 80), d: mm(0, 80), h: mm(0, 40) }),
+          fc.constantFrom(...OPTS),
+          (components, s, extra, opts) => {
+            for (const part of allParts(components, s)) {
+              const m = minOuter(part, s, opts);
+              if (!realizes(part, m, s, opts)) {
+                continue;
+              }
+              const outer = { w: m.w + extra.w, d: m.d + extra.d, h: m.h + extra.h };
+              expect(
+                checkTray(part, outer, s, opts),
+                `${part.trayKey} at +${JSON.stringify(extra)}`,
+              ).toBe(true);
+              larger += 1;
+            }
+          },
+        ),
+        { numRuns: 100, seed: SEED },
+      );
+      expect(larger).toBeGreaterThan(0);
+    },
+  );
 
   it("is deterministic", { timeout: 60_000 }, () => {
     fc.assert(

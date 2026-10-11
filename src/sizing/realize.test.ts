@@ -4,6 +4,7 @@ import type { Settings } from "../model/types";
 import { SlotFitError } from "./errors";
 import { minOuter } from "./outer";
 import { realizeTray } from "./realize";
+import { round2 } from "./units";
 import { assertTrayInvariants, at, bulk, cards, custom, minis, partOf } from "./test-helpers";
 import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
@@ -678,6 +679,47 @@ describe("realizeTray", () => {
       }
       expect(error).toBeInstanceOf(RangeError);
       expect(error).not.toBeInstanceOf(SlotFitError);
+    });
+
+    it("is monotonic in slack: slots that fit at minOuter fit in any larger outer", () => {
+      // Two rows, a one-card deck beside a 120-card one, on a lipped tray: the slots fit at
+      // minOuter, but the slack of a 5 mm larger outer (a wider row, a spare) left no room for
+      // them. The tray falls back to its minOuter arrangement, centred: the slack goes to the
+      // outer walls.
+      const part = partOf(
+        [
+          cards({
+            decks: [
+              { name: "D1", count: 1 },
+              { name: "D2", count: 120 },
+            ],
+          }),
+        ],
+        "upright-long|rows2|split1",
+      );
+      const lipped: RealizeOptions = { lipped: true, level: 0 };
+      const min = minOuter(part, s, lipped);
+      const atMin = realizeTray(part, min, s, lipped);
+      for (const extra of [5, 20.01]) {
+        const outer = { w: min.w + extra, d: min.d + extra, h: min.h };
+        const r = realizeTray(part, outer, s, lipped);
+        assertTrayInvariants(r, outer, s, lipped);
+        expect(r.wall).toBe(atMin.wall);
+        const shift = Math.floor(extra * 50) / 100; // half the slack, rounded down to 0.01 mm
+        expect(r.spacers).toEqual(
+          atMin.spacers.map((sp) => ({ ...sp, x: round2(sp.x + shift), y: round2(sp.y + shift) })),
+        );
+        expect(r.compartments).toEqual(
+          atMin.compartments.map((c) => ({
+            ...c,
+            x: round2(c.x + shift),
+            y: round2(c.y + shift),
+            features: c.features.map((f) =>
+              f.type === "fingerPocket" ? { ...f, at: round2(f.at + shift) } : f,
+            ),
+          })),
+        );
+      }
     });
 
     it("moves a slot so neighbours merge instead of narrowing them", () => {

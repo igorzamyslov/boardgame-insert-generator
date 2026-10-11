@@ -17,7 +17,7 @@ describe("finger slots of card strips", () => {
   // meet within their overlap is ≥ 0.8 mm wide 0.8 mm below its top (thinnestWedge, measured
   // from the cut profile). realizeTray refuses only strips with a one- or two-card
   // deck: against the wall, a slot of at least 15 mm would cross such a deck's own well face too
-  // far from its centre.
+  // far from its centre. A strip it realizes at minOuter it realizes wider too (monotonic in slack).
   it("plans every two- and three-deck strip", () => {
     let realized = 0;
     const refused: string[] = [];
@@ -44,6 +44,10 @@ describe("finger slots of card strips", () => {
               tray = realizeTray(part, outer, DEFAULT_SETTINGS, ground);
             } catch (error) {
               expect(error).toBeInstanceOf(SlotFitError);
+              // Monotonic in slack: only a strip refused at minOuter is refused when larger.
+              if (slack > 0) {
+                expect(refused).toContain(`${sleeve} ${counts.join("+")} +0`);
+              }
               refused.push(`${sleeve} ${counts.join("+")} +${slack}`);
               continue;
             }
