@@ -303,8 +303,10 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
 }
 
 /**
- * Field-level validation (spec §5 bounds, spec §10). Never throws; every
- * problem is a Notice whose `path` points at the field. Cross-field checks run
+ * Field-level validation (spec §5 bounds, spec §10). Never throws for a
+ * well-typed Project, such as one from parseProject or newProject; untrusted
+ * JSON must go through parseProject first. Every problem is a Notice whose
+ * `path` points at the field. Cross-field checks run
  * only on values that passed their own check, so one bad value never produces
  * a second notice. Plans 4 and 5 must not optimize while any notice has level
  * "error".
