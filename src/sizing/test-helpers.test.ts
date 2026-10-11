@@ -7,7 +7,7 @@ import type { OuterSize, RealizeOptions, RealizedTray } from "./types";
 const outer: OuterSize = { w: 26.7, d: 119.7, h: 69.2 };
 const ground: RealizeOptions = { lipped: false, level: 0 };
 
-function trayWithSlot(slotAt: number, width = 22): RealizedTray {
+function trayWithSlot(slotAt: number, width = 22, reach = 12, depth = 22.67): RealizedTray {
   const compartment: CompartmentSpec = {
     x: 1.6,
     y: 1.6,
@@ -16,7 +16,7 @@ function trayWithSlot(slotAt: number, width = 22): RealizedTray {
     floorZ: 1.2,
     kind: "well",
     contents: "Main ×52",
-    features: [{ type: "fingerPocket", side: "front", at: slotAt, width, reach: 12, depth: 22.67 }],
+    features: [{ type: "fingerPocket", side: "front", at: slotAt, width, reach, depth }],
   };
   return { wall: 1.6, compartments: [compartment], spacers: [] };
 }
@@ -92,6 +92,27 @@ describe("assertTrayInvariants", () => {
     }).not.toThrow();
     expect(() => {
       assertTrayInvariants(tray, outer, steep, ground);
+    }).toThrow();
+  });
+
+  it("rejects a finger pocket without width, reach or depth", () => {
+    for (const tray of [
+      trayWithSlot(12.6, 0),
+      trayWithSlot(12.6, 22, 0),
+      trayWithSlot(12.6, 22, 12, 0),
+    ]) {
+      expect(() => {
+        assertTrayInvariants(tray, outer, DEFAULT_SETTINGS, ground);
+      }).toThrow();
+    }
+  });
+
+  it("rejects reach bands that leave less than 1 mm for the contents", () => {
+    expect(() => {
+      assertTrayInvariants(trayWithSlot(12.6, 22, 115.5), outer, DEFAULT_SETTINGS, ground);
+    }).not.toThrow();
+    expect(() => {
+      assertTrayInvariants(trayWithSlot(12.6, 22, 115.51), outer, DEFAULT_SETTINGS, ground);
     }).toThrow();
   });
 });

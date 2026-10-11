@@ -4,7 +4,6 @@ import { DEFAULT_SETTINGS } from "../model/settings";
 import type {
   Access,
   CardsComponent,
-  CompartmentSpec,
   Component,
   MinisComponent,
   Settings,
@@ -206,13 +205,6 @@ const OPTS: RealizeOptions[] = [
   { lipped: false, level: 1 },
 ];
 
-/** The well proper inside a compartment rectangle (rectangle minus its finger-reach bands). */
-function wellOf(c: CompartmentSpec, reach: number): { w: number; d: number } {
-  const band = (side: string): number =>
-    c.features.some((f) => f.type === "fingerPocket" && f.side === side) ? reach : 0;
-  return { w: c.w - band("left") - band("right"), d: c.d - band("front") - band("back") };
-}
-
 function spacersInsideCompartments(r: RealizedTray): void {
   for (const sp of r.spacers) {
     const inside = r.compartments.some(
@@ -227,17 +219,12 @@ function spacersInsideCompartments(r: RealizedTray): void {
 }
 
 /** Everything assertTrayInvariants does not cover: the contract with the requested part. */
-function checkAgainstPart(part: TrayPartReq, outer: OuterSize, s: Settings, r: RealizedTray): void {
+function checkAgainstPart(part: TrayPartReq, outer: OuterSize, r: RealizedTray): void {
   expect(r.compartments.length).toBeGreaterThanOrEqual(part.compartments.length);
   r.compartments.forEach((c, i) => {
-    const well = wellOf(c, s.fingerPocket.reach);
-    expect(well.w).toBeGreaterThan(0);
-    expect(well.d).toBeGreaterThan(0);
     const depth = outer.h - c.floorZ;
     for (const f of c.features) {
       if (f.type === "fingerPocket") {
-        expect(f.width).toBeGreaterThan(0);
-        expect(f.depth).toBeGreaterThan(0);
         expect(f.depth).toBeLessThanOrEqual(depth + EPS);
       }
     }
@@ -271,7 +258,7 @@ function checkAgainstPart(part: TrayPartReq, outer: OuterSize, s: Settings, r: R
 function checkTray(part: TrayPartReq, outer: OuterSize, s: Settings, opts: RealizeOptions): void {
   const realized = realizeTray(part, outer, s, opts);
   assertTrayInvariants(realized, outer, s, opts);
-  checkAgainstPart(part, outer, s, realized);
+  checkAgainstPart(part, outer, realized);
   expect(realizeTray(part, outer, s, opts)).toEqual(realized);
 
   const turnedOuter = { w: outer.d, d: outer.w, h: outer.h };

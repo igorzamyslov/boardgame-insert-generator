@@ -10,10 +10,11 @@ import type {
   Settings,
   TilesComponent,
 } from "../model/types";
+import { MIN_POCKET_CONTENT } from "./constants";
 import { size } from "./group";
 import { chamferMinimumsU, wallFor } from "./outer";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
-import { ceilU, floorU, fromU } from "./units";
+import { ceilU, floorU, fromU, maxOf, toU } from "./units";
 
 /** Index access for tests under noUncheckedIndexedAccess: throws instead of returning undefined. */
 export function at<T>(items: readonly T[], index: number): T {
@@ -109,8 +110,9 @@ export function partOf(
 /**
  * Asserts the geometry contract of a realized tray (roadmap §4.6) in whole 0.01 mm units:
  * the tray and its spacers are big enough for their bottom chamfer, compartments keep a divider
- * apart and a wall from every outer face, floors sit inside the tray, and finger slots stay
- * between the inner faces.
+ * apart and a wall from every outer face, floors sit inside the tray, reach bands leave at least
+ * MIN_POCKET_CONTENT for the contents on both axes, finger pockets have a positive width, reach
+ * and depth, and finger slots stay between the inner faces.
  */
 export function assertTrayInvariants(
   realized: RealizedTray,
@@ -145,10 +147,27 @@ export function assertTrayInvariants(
     expect(u(c.y + c.d), `${label} y end`).toBeLessThanOrEqual(D - wall);
     expect(u(c.floorZ), `${label} floorZ`).toBeGreaterThanOrEqual(minFloor);
     expect(u(c.floorZ), `${label} floorZ`).toBeLessThan(H);
+    // The geometry's content rectangle: the compartment minus each side's deepest reach band.
+    const band = (side: string): number =>
+      maxOf(
+        c.features.flatMap((f) =>
+          f.type === "fingerPocket" && f.side === side ? [u(f.reach)] : [],
+        ),
+      );
+    const minContent = toU(MIN_POCKET_CONTENT);
+    expect(u(c.w) - band("left") - band("right"), `${label} content width`).toBeGreaterThanOrEqual(
+      minContent,
+    );
+    expect(u(c.d) - band("front") - band("back"), `${label} content depth`).toBeGreaterThanOrEqual(
+      minContent,
+    );
     for (const f of c.features) {
       if (f.type !== "fingerPocket") {
         continue;
       }
+      expect(u(f.width), `${label} pocket width`).toBeGreaterThan(0);
+      expect(u(f.reach), `${label} pocket reach`).toBeGreaterThan(0);
+      expect(u(f.depth), `${label} pocket depth`).toBeGreaterThan(0);
       const alongX = f.side === "front" || f.side === "back";
       const lo = wall;
       const hi = (alongX ? W : D) - wall;
