@@ -2,60 +2,98 @@ import type { Settings, TraySpec } from "../model/types";
 import type { GeometryRequest, GeometryResponse, Mesh } from "./types";
 
 export interface GeometryClient {
-  build(spec: TraySpec, settings: Settings): Promise<{ mesh: Mesh; volumeMm3: number }>;
+  // Rejects with a GeometryBuildError when the build fails, the signal aborts
+  // it, or it takes longer than BUILD_TIMEOUT_MS.
+  build(
+    spec: TraySpec,
+    settings: Settings,
+    signal?: AbortSignal,
+  ): Promise<{ mesh: Mesh; volumeMm3: number }>;
+  // Terminal: stops the worker and rejects pending and later builds.
   dispose(): void;
 }
 
+// How long one build may take, from the call to build() to the answer. It
+// covers waiting behind earlier builds and the one-off WASM load (a few
+// seconds on a slow phone), not just the geometry. A worker that has not
+// answered by then is presumed stuck, so it is terminated and replaced.
+export const BUILD_TIMEOUT_MS = 30_000;
+
 // Why a build failed. `name` is the reason: the thrown error's name in the
 // worker ("RangeError" for an invalid spec, "UnsupportedFeatureError" with its
-// `feature` for a newer-version tray), or "AbortError", "TimeoutError", ...
-// from the client itself. Defined here, not in the kernel, so the main thread
-// never imports geometry code.
+// `feature` for a tray from a newer app version), or one the client makes up:
+// "AbortError", "TimeoutError", "WorkerError" (the worker crashed) and
+// "WorkerRestartedError" (it was replaced while this build waited). Defined
+// here, not in the kernel, so the main thread never imports geometry code.
 export class GeometryBuildError extends Error {
   readonly feature: string | undefined;
 
-  constructor(message: string, reason: string, feature?: string) {
-    super(message);
+  constructor(message: string, reason: string, options?: { feature?: string; cause?: unknown }) {
+    super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = reason;
-    this.feature = feature;
+    this.feature = options?.feature;
   }
 }
+
+// Failures that say something about one spec, not about the worker: the worker
+// stays up after them. Any other failure is a kernel failure, after which the
+// WASM heap cannot be trusted, so the worker is replaced.
+const SPEC_FAILURES: ReadonlySet<string> = new Set([
+  "RangeError",
+  "UnsupportedFeatureError",
+  "AbortError",
+]);
 
 interface Pending {
   resolve: (result: { mesh: Mesh; volumeMm3: number }) => void;
   reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+  release: () => void; // detaches the abort listener
+}
+
+function abortError(): GeometryBuildError {
+  return new GeometryBuildError("cancelled", "AbortError");
 }
 
 // Main-thread side of the geometry worker. The worker (and the WASM) is
-// started on the first build. If the worker crashes, every pending build is
-// rejected and the next build starts a fresh worker (retry).
+// started on the first build. If the worker crashes, hangs or hits a kernel
+// failure, the builds waiting for it are rejected and the next build starts a
+// fresh worker (retry).
 export function createGeometryClient(): GeometryClient {
   let worker: Worker | null = null;
+  let disposed = false;
   let nextId = 1;
   const pending = new Map<number, Pending>();
 
+  // Removes a build from the pending set (and its timer and abort listener).
+  function take(requestId: number): Pending | undefined {
+    const p = pending.get(requestId);
+    if (p !== undefined) {
+      pending.delete(requestId);
+      clearTimeout(p.timer);
+      p.release();
+    }
+    return p;
+  }
+
   function failAll(error: Error): void {
-    const waiting = [...pending.values()];
-    pending.clear();
-    for (const p of waiting) {
-      p.reject(error);
+    for (const requestId of [...pending.keys()]) {
+      take(requestId)?.reject(error);
     }
   }
 
-  function onMessage(event: MessageEvent<GeometryResponse>): void {
-    const response = event.data;
-    const p = pending.get(response.requestId);
-    if (p === undefined) {
-      return;
+  // Terminates a worker that can no longer be trusted. Builds still waiting
+  // for it cannot be answered, so they are rejected as well.
+  function retire(retired: Worker, error: Error): void {
+    retired.terminate();
+    if (worker === retired) {
+      worker = null;
     }
-    pending.delete(response.requestId);
-    if (response.type === "built") {
-      p.resolve({ mesh: response.mesh, volumeMm3: response.volumeMm3 });
-    } else {
-      p.reject(
-        new GeometryBuildError(response.message, response.name ?? "Error", response.feature),
-      );
-    }
+    failAll(error);
+  }
+
+  function restartedError(why: string): GeometryBuildError {
+    return new GeometryBuildError(`Geometry worker restarted ${why}`, "WorkerRestartedError");
   }
 
   function ensureWorker(): Worker {
@@ -63,30 +101,93 @@ export function createGeometryClient(): GeometryClient {
       return worker;
     }
     const created = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
-    created.addEventListener("message", onMessage);
+    // A worker that has been replaced may still deliver events it queued.
+    const current = (): boolean => worker === created;
+    const crashed = (why: string, cause: unknown): void => {
+      if (current()) {
+        retire(
+          created,
+          new GeometryBuildError(`Geometry worker failed: ${why}`, "WorkerError", { cause }),
+        );
+      }
+    };
+    created.addEventListener("message", (event: MessageEvent<GeometryResponse>) => {
+      if (!current()) {
+        return;
+      }
+      const response = event.data;
+      const p = take(response.requestId);
+      if (p === undefined) {
+        return;
+      }
+      if (response.type === "built") {
+        p.resolve({ mesh: response.mesh, volumeMm3: response.volumeMm3 });
+        return;
+      }
+      const error = new GeometryBuildError(response.message, response.name ?? "Error", {
+        feature: response.feature,
+      });
+      p.reject(error);
+      if (!SPEC_FAILURES.has(error.name)) {
+        retire(created, restartedError("after a kernel failure"));
+      }
+    });
     created.addEventListener("error", (event: ErrorEvent) => {
       event.preventDefault();
-      created.terminate();
-      if (worker === created) {
-        worker = null;
-      }
-      failAll(new Error(`Geometry worker failed: ${event.message || "unknown error"}`));
+      const where = event.filename ? ` (${event.filename}:${event.lineno}:${event.colno})` : "";
+      crashed(`${event.message || "unknown error"}${where}`, event);
+    });
+    created.addEventListener("messageerror", (event: MessageEvent) => {
+      crashed("a message could not be deserialised", event);
     });
     worker = created;
     return created;
   }
 
   return {
-    build(spec, settings) {
+    build(spec, settings, signal) {
+      if (disposed) {
+        return Promise.reject(new Error("Geometry client disposed"));
+      }
+      if (signal?.aborted === true) {
+        return Promise.reject(abortError());
+      }
       return new Promise((resolve, reject) => {
         const requestId = nextId;
         nextId += 1;
-        pending.set(requestId, { resolve, reject });
         const request: GeometryRequest = { type: "build", requestId, spec, settings };
-        ensureWorker().postMessage(request);
+        // Sent before the build is registered, so a worker that cannot be
+        // created or posted to leaves nothing pending.
+        const target = ensureWorker();
+        target.postMessage(request);
+        const onAbort = (): void => {
+          if (take(requestId) !== undefined) {
+            target.postMessage({ type: "cancel", requestId } satisfies GeometryRequest);
+            reject(abortError());
+          }
+        };
+        signal?.addEventListener("abort", onAbort, { once: true });
+        const timer = setTimeout(() => {
+          if (take(requestId) !== undefined) {
+            reject(
+              new GeometryBuildError(
+                `Geometry build did not finish within ${BUILD_TIMEOUT_MS / 1000} s`,
+                "TimeoutError",
+              ),
+            );
+            retire(target, restartedError("after a build timed out"));
+          }
+        }, BUILD_TIMEOUT_MS);
+        pending.set(requestId, {
+          resolve,
+          reject,
+          timer,
+          release: () => signal?.removeEventListener("abort", onAbort),
+        });
       });
     },
     dispose() {
+      disposed = true;
       worker?.terminate();
       worker = null;
       failAll(new Error("Geometry client disposed"));
