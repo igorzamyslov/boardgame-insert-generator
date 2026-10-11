@@ -256,9 +256,29 @@ function checkAgainstPart(part: TrayPartReq, outer: OuterSize, r: RealizedTray):
   expect(hasGrip(r.compartments)).toBe(true);
 }
 
-/** Realizes `part` in `outer`, checks it, then checks the same tray rotated by 90°. */
-function checkTray(part: TrayPartReq, outer: OuterSize, s: Settings, opts: RealizeOptions): void {
-  const realized = realizeTray(part, outer, s, opts);
+/** realizeTray's refusal of a tray whose finger slots cannot keep the minimum width. */
+const NO_SLOT = /cannot fit a finger slot of at least/;
+
+/**
+ * Realizes `part` in `outer`, checks it, then checks the same tray rotated by 90°. Returns false
+ * (without checking anything) when realizeTray refuses the tray because its finger slots cannot
+ * keep the minimum width, which layout treats as an infeasible variant (roadmap §4.7).
+ */
+function checkTray(
+  part: TrayPartReq,
+  outer: OuterSize,
+  s: Settings,
+  opts: RealizeOptions,
+): boolean {
+  let realized: RealizedTray;
+  try {
+    realized = realizeTray(part, outer, s, opts);
+  } catch (error) {
+    if (error instanceof RangeError && NO_SLOT.test(error.message)) {
+      return false;
+    }
+    throw error;
+  }
   assertTrayInvariants(realized, outer, s, opts);
   checkAgainstPart(part, outer, realized);
   expect(realizeTray(part, outer, s, opts)).toEqual(realized);
@@ -269,6 +289,28 @@ function checkTray(part: TrayPartReq, outer: OuterSize, s: Settings, opts: Reali
   spacersInsideCompartments(turned);
   expect(hasGrip(turned.compartments)).toBe(true);
   expect(turned.compartments).toHaveLength(realized.compartments.length);
+  return true;
+}
+
+/** Counts realized and refused trays; refusals must stay rare (tiny slots, 1-card decks). */
+function tally(): { add: (ok: boolean) => void; expectRare: () => void } {
+  let realized = 0;
+  let refused = 0;
+  return {
+    add: (ok) => {
+      if (ok) {
+        realized += 1;
+      } else {
+        refused += 1;
+      }
+    },
+    expectRare: () => {
+      expect(realized).toBeGreaterThan(0);
+      expect(refused, `${refused} of ${realized + refused} trays refused`).toBeLessThanOrEqual(
+        (realized + refused) / 100,
+      );
+    },
+  };
 }
 
 /** size() of valid components: asserts the property is not vacuous (every component is sized). */
@@ -309,19 +351,22 @@ describe("sizing properties", () => {
   });
 
   it("realizes every variant part at its minOuter", { timeout: 120_000 }, () => {
+    const trays = tally();
     fc.assert(
       fc.property(componentsArb, settingsArb, (components, s) => {
         for (const part of allParts(components, s)) {
           for (const opts of OPTS) {
-            checkTray(part, minOuter(part, s, opts), s, opts);
+            trays.add(checkTray(part, minOuter(part, s, opts), s, opts));
           }
         }
       }),
       { numRuns: 100, seed: SEED },
     );
+    trays.expectRare();
   });
 
   it("stays valid for larger outers", { timeout: 120_000 }, () => {
+    const trays = tally();
     fc.assert(
       fc.property(
         componentsArb,
@@ -331,12 +376,14 @@ describe("sizing properties", () => {
         (components, s, extra, opts) => {
           for (const part of allParts(components, s)) {
             const m = minOuter(part, s, opts);
-            checkTray(part, { w: m.w + extra.w, d: m.d + extra.d, h: m.h + extra.h }, s, opts);
+            const outer = { w: m.w + extra.w, d: m.d + extra.d, h: m.h + extra.h };
+            trays.add(checkTray(part, outer, s, opts));
           }
         },
       ),
       { numRuns: 100, seed: SEED },
     );
+    trays.expectRare();
   });
 
   it("is deterministic", { timeout: 60_000 }, () => {

@@ -70,12 +70,14 @@ describe("realizeTray", () => {
     // 6 mm of spare stack: a spacer at the default 0.4 mm chamfer (needs max(5, 2.4) mm) …
     const six = { w: 32.7, d: 119.7, h: 69.2 };
     expect(realizeTray(single, six, s, ground).spacers.map((sp) => sp.w)).toEqual([6]);
-    // … but not at a 3 mm chamfer, which needs 2 × (3 + 0.8) = 7.6 mm.
-    const steep: Settings = { ...s, bottomChamfer: 3 };
-    const r = realizeTray(single, six, steep, ground);
+    // … but not at a 3 mm chamfer, which needs 2 × (3 + 0.8) = 7.6 mm (3 mm walls and floor make
+    // that chamfer valid; the same deck then needs 2.8 mm more width and 1.8 mm more height).
+    const steep: Settings = { ...s, wall: 3, floor: 3, bottomChamfer: 3 };
+    const sixSteep = { w: 35.5, d: 122.5, h: 71 };
+    const r = realizeTray(single, sixSteep, steep, ground);
     expect(r.spacers).toEqual([]);
-    assertTrayInvariants(r, six, steep, ground);
-    const longer = { ...six, w: 34.3 };
+    assertTrayInvariants(r, sixSteep, steep, ground);
+    const longer = { ...sixSteep, w: 37.1 };
     expect(realizeTray(single, longer, steep, ground).spacers.map((sp) => sp.w)).toEqual([7.6]);
   });
 
@@ -643,13 +645,15 @@ describe("realizeTray", () => {
       });
     });
 
-    it("narrows the slots where neighbours would overlap too little to merge", () => {
-      // The narrow decks' slots are pushed against the wall, 21.6 mm from the wide deck's centre.
+    it("moves a slot so neighbours merge instead of narrowing them", () => {
+      // The narrow decks' slots, pushed against the wall, start 21.6 mm from the wide deck's centre:
+      // too far to merge, too close to keep apart. The middle deck's slot moves 3.9 mm toward the
+      // wide deck (still covering its own centre, 45.84) to within maxChannelSpacing(11).
       const slots = slotsOf(strip([120, 12, 12]));
       expect(slots.map((f) => [f.at, f.width])).toEqual([
-        [21.88, 20.8],
-        [44.08, 20.8],
-        [44.08, 20.8],
+        [21.88, 22],
+        [41.94, 22],
+        [43.48, 22],
       ]);
     });
   });

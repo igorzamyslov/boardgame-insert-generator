@@ -1,7 +1,8 @@
-import { MIN_FEATURE_MM } from "../model/settings";
+import { MIN_FEATURE_MM, MIN_SLOT_WIDTH } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
 import {
   CORNER_RELIEF_D,
+  MIN_GRIP,
   MIN_SPACER,
   MIN_SPARE,
   SPACER_TOP_GAP,
@@ -186,6 +187,82 @@ function rectSpec(r: Rect): Pick<CompartmentSpec, "x" | "y" | "w" | "d"> {
   return { x: fromU(r.x), y: fromU(r.y), w: fromU(r.w), d: fromU(r.d) };
 }
 
+interface SlotFrame {
+  trayKey: string;
+  W: number;
+  D: number;
+  H: number;
+  floor: number;
+  wall: number;
+  reach: number;
+  settings: Settings;
+}
+
+/**
+ * The finger slots of every placed compartment (placeSlots). A run of slots that cannot keep
+ * min(MIN_SLOT_WIDTH, setting) loses the slots of its compartments that are a grip by themselves
+ * (their reach band becomes part of the well) and is placed again; if none of them is a grip, the
+ * tray cannot be realized at this size (RangeError).
+ */
+function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
+  const { W, D, H, floor, wall, reach, settings } = frame;
+  const dropped = new Set<string>();
+  for (;;) {
+    const items = placed.map((p, owner) => {
+      const req: CompartmentReq = {
+        ...p.req,
+        features: p.req.features.filter(
+          (f) => f.type !== "fingerPocket" || !dropped.has(`${owner}:${f.side ?? "front"}`),
+        ),
+      };
+      const well = wellOf(p.alloc, req, reach);
+      const depth = contentDepth(req, well, H, floor);
+      // The slot is centred on the contents, not on the spacer beside them.
+      const content: Rect = { ...well, w: well.w - p.spacer };
+      return { ...p, req, well, depth, content, slots: new Map<Side, SlotPlacement>() };
+    });
+    const requests: SlotRequest[] = items.flatMap(({ req, alloc, depth, content }, owner) =>
+      pocketSides(req.features).map((side): SlotRequest => {
+        const alongX = side === "front" || side === "back";
+        const depths = req.features.flatMap((f) =>
+          f.type === "fingerPocket" && f.side === side ? [pocketDepth(depth, f.depthFraction)] : [],
+        );
+        return {
+          owner,
+          side,
+          centre: Math.round(alongX ? content.x + content.w / 2 : content.y + content.d / 2),
+          depth: Math.min(...depths),
+          grip: Math.min(alloc.w, alloc.d) >= toU(MIN_GRIP),
+        };
+      }),
+    );
+    const outcome = placeSlots(requests, {
+      rects: items.map((item) => item.alloc),
+      contents: items.map((item) => item.well),
+      span: { x: W, y: D },
+      wall,
+      reach,
+      width: ceilU(settings.fingerPocket.width),
+    });
+    if ("placements" in outcome) {
+      return { items, requests, placements: outcome.placements };
+    }
+    const stuck = outcome.stuck.flatMap((k) => {
+      const q = requests[k];
+      return q === undefined ? [] : [q];
+    });
+    const grips = stuck.filter((q) => q.grip);
+    if (grips.length === 0) {
+      const names = [...new Set(stuck.map((q) => items[q.owner]?.req.contents))].join(", ");
+      const least = fromU(Math.min(toU(MIN_SLOT_WIDTH), ceilU(settings.fingerPocket.width)));
+      throw new RangeError(
+        `Tray ${frame.trayKey}: cannot fit a finger slot of at least ${least} mm for ${names}`,
+      );
+    }
+    grips.forEach((q) => dropped.add(`${q.owner}:${q.side}`));
+  }
+}
+
 export function realizeTray(
   part: TrayPartReq,
   outer: OuterSize,
@@ -303,34 +380,15 @@ export function realizeTray(
     spares.push([{ x: wall, y: rowsEnd + divider, w: innerW, d: spareRowDepth }, "y"]);
   }
 
-  // Content depth and the well proper of every compartment, then its finger slots.
-  const items = placed.map((p) => {
-    const well = wellOf(p.alloc, p.req, reach);
-    const depth = contentDepth(p.req, well, H, floor);
-    // The slot is centred on the contents, not on the spacer beside them.
-    const content: Rect = { ...well, w: well.w - p.spacer };
-    return { ...p, well, depth, content, slots: new Map<Side, SlotPlacement>() };
-  });
-  const requests: SlotRequest[] = items.flatMap(({ req, depth, content }, owner) =>
-    pocketSides(req.features).map((side): SlotRequest => {
-      const alongX = side === "front" || side === "back";
-      const depths = req.features.flatMap((f) =>
-        f.type === "fingerPocket" && f.side === side ? [pocketDepth(depth, f.depthFraction)] : [],
-      );
-      return {
-        owner,
-        side,
-        centre: Math.round(alongX ? content.x + content.w / 2 : content.y + content.d / 2),
-        depth: Math.min(...depths),
-      };
-    }),
-  );
-  const placements = placeSlots(requests, {
-    rects: items.map((item) => item.alloc),
-    span: { x: W, y: D },
+  const { items, requests, placements } = fingerSlots(placed, {
+    trayKey: part.trayKey,
+    W,
+    D,
+    H,
+    floor,
     wall,
     reach,
-    width: ceilU(settings.fingerPocket.width),
+    settings,
   });
   const footprints: Rect2[] = [];
   requests.forEach((q, k) => {

@@ -1,4 +1,10 @@
-import { MIN_FEATURE_MM, SLOT_CONTENT_OVERLAP, maxChannelSpacing } from "../model/settings";
+import {
+  MIN_FEATURE_MM,
+  MIN_SLOT_WIDTH,
+  SLOT_CONTENT_OVERLAP,
+  maxChannelSpacing,
+  maxWellFaceOffset,
+} from "../model/settings";
 import type { Side } from "../model/types";
 import { ceilU, fromU, toU } from "./units";
 
@@ -19,6 +25,7 @@ export interface SlotRequest {
   side: Side;
   centre: number; // where the slot wants to be centred along the side (its contents' centre)
   depth: number; // wanted depth below the rim, ≥ 1
+  grip: boolean; // the compartment is a grip without its slot (spec §3 rule 8)
 }
 
 export interface SlotPlacement {
@@ -29,6 +36,7 @@ export interface SlotPlacement {
 
 export interface SlotContext {
   rects: readonly RectU[]; // every compartment rectangle of the tray (spares excluded)
+  contents: readonly RectU[]; // the same compartments minus their reach bands (the wells)
   span: { x: number; y: number }; // outer size along x and y
   wall: number; // outer wall: slots stay inside it
   reach: number; // finger-reach band
@@ -89,6 +97,9 @@ export function doubled(r: RectU): Rect2 {
   return { x0: 2 * r.x, y0: 2 * r.y, x1: 2 * (r.x + r.w), y1: 2 * (r.y + r.d) };
 }
 
+/** Every slot placed, or the requests of a run that has no room for slots ≥ the minimum width. */
+export type SlotOutcome = { placements: SlotPlacement[] } | { stuck: number[] };
+
 /**
  * Places every requested finger slot so that it satisfies the finger slot clearance rule
  * (roadmap §4.6):
@@ -101,9 +112,12 @@ export function doubled(r: RectU): Rect2 {
  * - A run's slots share one width, at most the setting. Each is centred on its contents as far as
  *   the run's room allows. Neighbouring slots either keep MIN_FEATURE_MM apart or overlap with
  *   centres at most maxChannelSpacing apart (one channel, every member at the smallest depth of
- *   the channel); otherwise the run's width shrinks until they keep apart.
+ *   the channel), and every well face of the run's contents that a slot crosses lies at most
+ *   maxWellFaceOffset from the centre of the nearest covering slot, or keeps MIN_FEATURE_MM from
+ *   the slots' ends. Otherwise the run's width shrinks, never below min(MIN_SLOT_WIDTH, setting):
+ *   a run that cannot keep that is stuck.
  */
-export function placeSlots(requests: readonly SlotRequest[], ctx: SlotContext): SlotPlacement[] {
+export function placeSlots(requests: readonly SlotRequest[], ctx: SlotContext): SlotOutcome {
   const placed: (SlotPlacement | undefined)[] = requests.map(() => undefined);
   const lines = new Map<string, number[]>();
   requests.forEach((q, i) => {
@@ -112,17 +126,23 @@ export function placeSlots(requests: readonly SlotRequest[], ctx: SlotContext): 
   });
   for (const twins of lines.values()) {
     for (const run of runsOf(requests, twins, ctx)) {
-      placeRun(requests, run, ctx).forEach((slot, k) => {
+      const slots = placeRun(requests, run, ctx);
+      if (slots === null) {
+        return { stuck: run.members };
+      }
+      slots.forEach((slot, k) => {
         placed[run.members[k] ?? -1] = slot;
       });
     }
   }
-  return placed.map((slot) => {
-    if (slot === undefined) {
-      throw new RangeError("internal: unplaced finger slot");
-    }
-    return slot;
-  });
+  return {
+    placements: placed.map((slot) => {
+      if (slot === undefined) {
+        throw new RangeError("internal: unplaced finger slot");
+      }
+      return slot;
+    }),
+  };
 }
 
 function rectOf(ctx: SlotContext, q: SlotRequest | undefined): RectU {
@@ -198,57 +218,180 @@ function merges(spacing: number, width: number): boolean {
   return fromU(spacing) <= maxChannelSpacing(fromU(width) / 2);
 }
 
-function placeRun(requests: readonly SlotRequest[], run: Run, ctx: SlotContext): SlotPlacement[] {
-  const { members, lo2, hi2 } = run;
-  const minGap = ceilU(MIN_FEATURE_MM);
-  let width = Math.min(ctx.width, Math.floor((hi2 - lo2) / 2));
-  for (;;) {
-    if (width < 1) {
-      throw new RangeError("internal: no room for a finger slot");
+interface Face {
+  at: number; // doubled
+  solid: -1 | 1; // the side its solid material lies on
+}
+
+/** A slot move that may fix a well face: slot k centred on `at`. */
+interface Move {
+  k: number;
+  at: number;
+}
+
+/**
+ * Checks the well faces of the run's contents against the slots centred on `ats` (planTray
+ * checkWellFaces, roadmap §4.6, here in doubled units). planTray allows SPEC_TOLERANCE (one
+ * doubled unit) on each limit; this never does, and refuses a slot end within one doubled unit of
+ * a face, which planTray may count either way. Returns null when every face holds, otherwise the
+ * candidate moves of the slot at fault: toward the face until it is close enough, or away from it
+ * until it ends MIN_FEATURE_MM short.
+ */
+function faultyFace(faces: readonly Face[], ats: readonly number[], width: number): Move[] | null {
+  const most = Math.floor(maxWellFaceOffset(fromU(width) / 2) * 100);
+  for (const { at: face, solid } of faces) {
+    const covering = ats.flatMap((a, k) =>
+      2 * a - width < face - 1 && 2 * a + width > face + 1 ? [k] : [],
+    );
+    // Clear of the face: its end MIN_FEATURE_MM short on the solid side.
+    const clear = (k: number): Move => ({
+      k,
+      at: solid < 0 ? Math.floor((face - MIN2 - width) / 2) : Math.ceil((face + MIN2 + width) / 2),
+    });
+    if (covering.length === 0) {
+      const k = ats.findIndex((a) => {
+        const short = solid * (2 * a - solid * width - face);
+        return short >= -1 && short < MIN2;
+      });
+      if (k >= 0) {
+        // Or across the face, close enough to it.
+        const across: Move = {
+          k,
+          at:
+            solid < 0
+              ? Math.max(Math.ceil((face + 2 - width) / 2), Math.ceil((face - 2 * most) / 2))
+              : Math.min(Math.floor((face - 2 + width) / 2), Math.floor((face + 2 * most) / 2)),
+        };
+        return [clear(k), across];
+      }
+      continue;
     }
+    // The nearest centre decides; on a tie the one on the solid side, whose bottom is lower there.
+    const distance = (k: number): number => Math.abs(2 * (ats[k] ?? 0) - face);
+    const nearest = Math.min(...covering.map(distance));
+    const k = covering.find(
+      (c) => distance(c) === nearest && solid * (2 * (ats[c] ?? 0) - face) > 0,
+    );
+    if (k !== undefined && nearest > 2 * most) {
+      const toward: Move = {
+        k,
+        at: solid < 0 ? Math.ceil((face - 2 * most) / 2) : Math.floor((face + 2 * most) / 2),
+      };
+      return [toward, clear(k)];
+    }
+  }
+  return null;
+}
+
+interface Pairs {
+  moves: Move[]; // empty when every pair holds, else ways to fix the first one that does not
+  narrower: number; // the width that keeps that pair apart without moving it
+  root: (k: number) => number; // the channel each slot belongs to
+}
+
+/**
+ * Neighbouring slots either keep MIN_FEATURE_MM apart or merge into one channel. For the first
+ * pair that does neither, the moves that would merge it (centres maxChannelSpacing apart) or keep
+ * it apart.
+ */
+function checkPairs(ats: readonly number[], width: number): Pairs {
+  const minGap = ceilU(MIN_FEATURE_MM);
+  const order = ats.map((_, k) => k).sort((a, b) => (ats[a] ?? 0) - (ats[b] ?? 0));
+  const chain = ats.map((_, k) => k); // union-find over overlapping neighbours
+  const root = (k: number): number => {
+    let r = k;
+    while (chain[r] !== r) {
+      r = chain[r] ?? r;
+    }
+    return r;
+  };
+  const merge = Math.floor(maxChannelSpacing(fromU(width) / 2) * 100);
+  for (let n = 1; n < order.length; n++) {
+    const a = order[n - 1] ?? 0;
+    const b = order[n] ?? 0;
+    const atA = ats[a] ?? 0;
+    const atB = ats[b] ?? 0;
+    const spacing = atB - atA;
+    if (spacing - width >= minGap) {
+      continue;
+    }
+    if (merges(spacing, width)) {
+      chain[root(b)] = root(a);
+      continue;
+    }
+    const apart = width + minGap;
+    return {
+      moves: [
+        { k: b, at: atA + merge },
+        { k: a, at: atB - merge },
+        { k: b, at: atA + apart },
+        { k: a, at: atB - apart },
+      ],
+      narrower: Math.min(width - 1, spacing - minGap),
+      root,
+    };
+  }
+  return { moves: [], narrower: width, root };
+}
+
+function placeRun(
+  requests: readonly SlotRequest[],
+  run: Run,
+  ctx: SlotContext,
+): SlotPlacement[] | null {
+  const { members, lo2, hi2 } = run;
+  const floor = Math.min(toU(MIN_SLOT_WIDTH), ctx.width);
+  const side = requests[members[0] ?? -1]?.side ?? "front";
+  const centres = members.map((i) => requests[i]?.centre ?? 0);
+  const owners = [...new Set(members.map((i) => requests[i]?.owner ?? -1))];
+  const faces: Face[] = owners.flatMap((owner) => {
+    const content = ctx.contents[owner];
+    if (content === undefined) {
+      throw new RangeError("internal: finger slot without contents");
+    }
+    const a = axes(content, side);
+    return [
+      { at: a.u0, solid: -1 },
+      { at: a.u1, solid: 1 },
+    ];
+  });
+  let width = Math.min(ctx.width, Math.floor((hi2 - lo2) / 2));
+  for (; width >= floor; width--) {
     const least = Math.ceil((lo2 + width) / 2);
     const most = Math.floor((hi2 - width) / 2);
     if (least > most) {
-      width -= 1;
       continue;
     }
-    const ats = members.map((i) => Math.min(Math.max(requests[i]?.centre ?? 0, least), most));
-    const order = members.map((_, k) => k).sort((a, b) => (ats[a] ?? 0) - (ats[b] ?? 0));
-    let narrower = width;
-    const chain = members.map((_, k) => k); // union-find over overlapping neighbours
-    const root = (k: number): number => {
-      let r = k;
-      while (chain[r] !== r) {
-        r = chain[r] ?? r;
+    // Each slot centred on its contents as far as the room allows; a well face may move a slot,
+    // as long as the slot stays in the room and still covers the centre of its contents.
+    const ats = centres.map((c) => Math.min(Math.max(c, least), most));
+    const fits = (k: number, at: number): boolean =>
+      at >= least && at <= most && 2 * Math.abs(at - (centres[k] ?? 0)) < width;
+    let placed: SlotPlacement[] | null = null;
+    for (let moves = 0; moves <= 4 * members.length; moves++) {
+      const pairs = checkPairs(ats, width);
+      const fix = pairs.moves.length > 0 ? pairs.moves : faultyFace(faces, ats, width);
+      if (fix === null) {
+        const depth = new Map<number, number>();
+        members.forEach((i, k) => {
+          const r = pairs.root(k);
+          depth.set(r, Math.min(depth.get(r) ?? Number.POSITIVE_INFINITY, requests[i]?.depth ?? 1));
+        });
+        placed = ats.map((at, k) => ({ at, width, depth: depth.get(pairs.root(k)) ?? 1 }));
+        break;
       }
-      return r;
-    };
-    for (let n = 1; n < order.length; n++) {
-      const a = order[n - 1] ?? 0;
-      const b = order[n] ?? 0;
-      const spacing = (ats[b] ?? 0) - (ats[a] ?? 0);
-      if (spacing - width >= minGap) {
-        continue;
+      const move = fix.find((m) => m.at !== ats[m.k] && fits(m.k, m.at));
+      if (move === undefined) {
+        // No move helps: narrow (straight to the width that keeps a failing pair apart).
+        const target = pairs.moves.length > 0 ? pairs.narrower : width - 1;
+        width = Math.max(target, floor - 1) + 1; // the loop's decrement lands on it
+        break;
       }
-      if (merges(spacing, width)) {
-        chain[root(b)] = root(a);
-      } else {
-        narrower = Math.min(narrower, width - 1, spacing - minGap);
-      }
+      ats[move.k] = move.at;
     }
-    if (narrower < width) {
-      width = narrower;
-      continue;
+    if (placed !== null) {
+      return placed;
     }
-    const depth = new Map<number, number>();
-    members.forEach((i, k) => {
-      const r = root(k);
-      depth.set(r, Math.min(depth.get(r) ?? Number.POSITIVE_INFINITY, requests[i]?.depth ?? 1));
-    });
-    return members.map((_, k) => ({
-      at: ats[k] ?? 0,
-      width,
-      depth: depth.get(root(k)) ?? 1,
-    }));
   }
+  return null;
 }

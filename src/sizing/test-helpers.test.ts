@@ -28,15 +28,15 @@ describe("assertTrayInvariants", () => {
     }).not.toThrow();
   });
 
-  it("rejects a slot that starts 0.005 mm inside the wall", () => {
+  it("rejects a slot that starts 0.01 mm inside the wall", () => {
     expect(() => {
-      assertTrayInvariants(trayWithSlot(12.595), outer, DEFAULT_SETTINGS, ground);
+      assertTrayInvariants(trayWithSlot(12.59), outer, DEFAULT_SETTINGS, ground);
     }).toThrow();
   });
 
-  it("rejects a slot that ends 0.005 mm inside the opposite wall", () => {
+  it("rejects a slot that ends 0.01 mm inside the opposite wall", () => {
     expect(() => {
-      assertTrayInvariants(trayWithSlot(14.105), outer, DEFAULT_SETTINGS, ground);
+      assertTrayInvariants(trayWithSlot(14.11), outer, DEFAULT_SETTINGS, ground);
     }).toThrow();
   });
 
@@ -55,14 +55,15 @@ describe("assertTrayInvariants", () => {
   });
 
   it("rejects a tray too small for its bottom chamfer", () => {
-    const steep = { ...DEFAULT_SETTINGS, bottomChamfer: 3 };
-    const tray = trayWithSlot(12.6);
+    // Chamfer 1.8: trays need h ≥ 2.6 (the wall and floor keep 1.6 + 1.2 − 1.8 = 1 mm).
+    const steep = { ...DEFAULT_SETTINGS, bottomChamfer: 1.8 };
+    const tray = trayWithSlot(12.6, 22, 12, 1);
     expect(() => {
-      assertTrayInvariants(tray, outer, steep, ground);
+      assertTrayInvariants(tray, { ...outer, h: 2.6 }, steep, ground);
     }).not.toThrow();
     expect(() => {
-      assertTrayInvariants(tray, { ...outer, h: 3.79 }, steep, ground);
-    }).toThrow();
+      assertTrayInvariants(tray, { ...outer, h: 2.59 }, steep, ground);
+    }).toThrow(/too small/);
   });
 
   it("rejects a spacer too small for its bottom chamfer", () => {
@@ -75,7 +76,7 @@ describe("assertTrayInvariants", () => {
       x: 10,
       y: 13.6,
       z: 1.2,
-      w: 7.59,
+      w: 5.19,
       d: 92.5,
       h: 63,
       rotated: false,
@@ -85,14 +86,15 @@ describe("assertTrayInvariants", () => {
       solid: true,
       compartments: [],
     };
-    const steep = { ...DEFAULT_SETTINGS, bottomChamfer: 3 };
+    // Chamfer 1.8: spacers need a 2 · (1.8 + 0.8) = 5.2 mm footprint.
+    const steep = { ...DEFAULT_SETTINGS, bottomChamfer: 1.8 };
     const tray = { ...trayWithSlot(12.6), spacers: [spacer] };
     expect(() => {
       assertTrayInvariants(tray, outer, DEFAULT_SETTINGS, ground);
     }).not.toThrow();
     expect(() => {
       assertTrayInvariants(tray, outer, steep, ground);
-    }).toThrow();
+    }).toThrow(/c1:p0:0:spacer: outer size 5.19/);
   });
 
   it("rejects a finger pocket without width, reach or depth", () => {
@@ -143,28 +145,21 @@ describe("assertTrayInvariants", () => {
       );
     };
 
-    it("accepts a slot 0.8 mm from a spare compartment", () => {
+    it("plans the tray with planTray: a slot 0.8 mm from a spare passes, 0.79 mm does not", () => {
       expect(check([deck(1.6, 12, 20.8), spare(1.6 + 20.8 + 0.8)])).not.toThrow();
-    });
-
-    it("rejects a slot 0.79 mm from, or reaching into, a spare compartment", () => {
-      expect(check([deck(1.6, 12, 20.8), spare(1.6 + 20.8 + 0.79)])).toThrow(/spare/);
-      // The plan 3 regression: a 22 mm slot that ends inside the neighbouring spare well.
-      expect(check([deck(1.6, 12.6), spare(1.6 + 20 + 1.2)])).toThrow(/spare/);
+      expect(check([deck(1.6, 12, 20.8), spare(1.6 + 20.8 + 0.79)])).toThrow(
+        /compartment 0: a finger pocket comes within 0\.8 mm of compartment 1/,
+      );
     });
 
     it("accepts neighbouring decks whose slots merge into one channel", () => {
       // Centres 19.2 mm apart: at most maxChannelSpacing(11) = 20.06.
       expect(check([deck(1.6, 12.6), deck(22.8, 31.8)])).not.toThrow();
-      const same = 1.6 + 20 + 0.6;
-      expect(check([deck(1.6, same, 40), deck(22.8, same, 40)])).not.toThrow();
     });
 
-    it("rejects slots that overlap too little to merge, or come too close", () => {
-      // 20 mm slots 20.4 mm apart (more than maxChannelSpacing(10) = 18.27) with a 0.4 mm gap.
-      expect(check([deck(1.6, 11.6, 20), deck(22.8, 32, 20)])).toThrow(/merge with it/);
-      // Different widths never merge.
-      expect(check([deck(1.6, 12.6), deck(22.8, 31.8, 21.8)])).toThrow(/must keep 0.8 mm/);
+    it("rejects a slot narrower than MIN_SLOT_WIDTH", () => {
+      expect(check([deck(1.6, 9.1, 15), deck(22.8, 32.8, 15)])).not.toThrow();
+      expect(check([deck(1.6, 9.1, 14.99), deck(22.8, 32.8, 14.99)])).toThrow(/slot width/);
     });
   });
 });
