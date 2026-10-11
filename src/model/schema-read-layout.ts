@@ -3,6 +3,7 @@ import { isRecord, shorten, summarize } from "./json";
 import type { Ctx } from "./schema-reader";
 import { absorbErrors, adopt, childCtx, Reader } from "./schema-reader";
 import type { CompartmentSpec, FeatureSpec, StoredLayout, TraySpec } from "./types";
+import { UNKNOWN_APP_VERSION } from "./version";
 
 const SIDES = ["front", "back", "left", "right"] as const;
 
@@ -115,7 +116,7 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
     return tray;
   });
   const layout: StoredLayout = r.finish({
-    createdWith: r.str("createdWith", "unknown"),
+    createdWith: r.str("createdWith", UNKNOWN_APP_VERSION),
     geometryVersion: r.str("geometryVersion"),
     inputsHash: r.str("inputsHash"),
     seed: r.strictNum("seed"),

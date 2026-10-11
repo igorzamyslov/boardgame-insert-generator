@@ -1,28 +1,23 @@
 import { DEFAULT_BOX, DEFAULT_PRINTER, DEFAULT_PROJECT_NAME } from "./defaults";
 import { newId } from "./ids";
 import type { Json } from "./json";
-import {
-  isRecord,
-  jsonDepthExceeds,
-  MAX_JSON_DEPTH,
-  pointerKeys,
-  summarize,
-  valueAt,
-} from "./json";
+import { isRecord, MAX_JSON_DEPTH, pointerKeys, summarize, valueAt } from "./json";
 import { readComponents } from "./schema-read-components";
 import { readLayout } from "./schema-read-layout";
 import type { Ctx } from "./schema-reader";
 import { addError, adopt, childCtx, newCtx, Reader } from "./schema-reader";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { Box, ForeignData, Lock, ParseResult, Printer, Project, Settings } from "./types";
+import { UNKNOWN_APP_VERSION } from "./version";
 
 // Turns untrusted project JSON of a known schema line into a typed Project.
 // Version dispatch (which line, newer or not, migrations) lives in schema.ts.
 
-/** The error for input nested deeper than MAX_JSON_DEPTH (also used before migrations run). */
+/** The error for input nested deeper than MAX_JSON_DEPTH (parseProjectWith checks before migrations run). */
 export const TOO_DEEP_ERROR = `This project file is damaged: nested too deeply (more than ${MAX_JSON_DEPTH} levels).`;
 
-type ForeignValue = NonNullable<ForeignData["values"]>[number];
+/** One unknown value kept from a newer-minor file (spec §9), written back on save. */
+export type ForeignValue = NonNullable<ForeignData["values"]>[number];
 
 function readLock(r: Reader): Lock | null {
   const kind = r.tag("kind", ["position", "size", "stack"]);
@@ -193,19 +188,18 @@ export interface ReadOptions {
  * `foreign.values` (with the raw value), and locks of an unknown kind go to
  * `foreign.values` unapplied. Without `newer`,
  * unknown fields are dropped with one info notice and unknown values are
- * errors. Unreadable locks and layouts are dropped with a notice. Input nested
- * deeper than MAX_JSON_DEPTH is an error. Does not validate bounds; see
- * validateProject().
+ * errors. Unreadable locks and layouts are dropped with a notice. Does not
+ * validate bounds; see validateProject().
+ *
+ * Precondition: callers must reject input deeper than MAX_JSON_DEPTH first
+ * (parseProjectWith does), because reading recurses and structuredClones kept
+ * values. Use parseProject or parseProjectWith rather than calling this directly.
  */
 export function readProject(data: Json, opts: ReadOptions): ParseResult {
-  // Before anything recursive (structuredClone of kept values, hashing, saving) sees the data.
-  if (jsonDepthExceeds(data, MAX_JSON_DEPTH)) {
-    return { ok: false, error: TOO_DEEP_ERROR };
-  }
   const ctx = newCtx(opts.newer);
   const r = new Reader(data, "", ctx);
   r.take("schemaVersion");
-  const createdWith = r.str("createdWith", "unknown");
+  const createdWith = r.str("createdWith", UNKNOWN_APP_VERSION);
   const id = r.optStr("id") ?? newId();
   const name = r.str("name", DEFAULT_PROJECT_NAME);
   const box = readBox(r.child("box"));

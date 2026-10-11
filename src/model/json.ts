@@ -17,6 +17,11 @@ export function escapePointerKey(key: string): string {
   return key.replace(/~/g, "~0").replace(/\//g, "~1");
 }
 
+/** True for a canonical array index as a pointer key: "0", "12", but not "01", "-1" or "1.5". */
+export function isArrayIndex(key: string): boolean {
+  return /^(0|[1-9]\d*)$/.test(key);
+}
+
 /**
  * The value at `keys` inside plain JSON data, or undefined. Follows own
  * properties and array indices only, so "constructor", "__proto__" or "length"
@@ -26,7 +31,7 @@ export function valueAt(root: unknown, keys: string[]): unknown {
   let node = root;
   for (const k of keys) {
     if (Array.isArray(node)) {
-      if (!/^(0|[1-9]\d*)$/.test(k)) {
+      if (!isArrayIndex(k)) {
         return undefined;
       }
       node = node[Number(k)];

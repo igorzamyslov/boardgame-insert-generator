@@ -1,6 +1,7 @@
 import { DEFAULT_BOX, DEFAULT_PRINTER } from "./defaults";
 import type { Json } from "./json";
 import {
+  isArrayIndex,
   isRecord,
   jsonDepthExceeds,
   MAX_JSON_DEPTH,
@@ -8,12 +9,13 @@ import {
   summarize,
   valueAt,
 } from "./json";
+import type { ForeignValue } from "./schema-read";
 import { readProject, TOO_DEEP_ERROR } from "./schema-read";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ForeignData, Notice, ParseResult, Project } from "./types";
 import { isBlocking, validateProject } from "./validate";
 import type { Semver } from "./version";
-import { APP_VERSION, SCHEMA_VERSION, parseSemver } from "./version";
+import { APP_VERSION, SCHEMA_VERSION, UNKNOWN_APP_VERSION, parseSemver } from "./version";
 
 /**
  * A compatibility line groups versions that read each other's files (spec §9).
@@ -78,7 +80,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
   if (!file) {
     return fail(`This project has an unreadable schema version "${fileVersion}".`);
   }
-  const createdWith = typeof raw.createdWith === "string" ? raw.createdWith : "unknown";
+  const createdWith = typeof raw.createdWith === "string" ? raw.createdWith : UNKNOWN_APP_VERSION;
   const appCompat = compat(app);
 
   if (app.major >= 1 && file.major === 0) {
@@ -188,13 +190,11 @@ const SUBSTITUTED_DEFAULTS = {
   settings: DEFAULT_SETTINGS,
 };
 
-type ForeignValue = NonNullable<ForeignData["values"]>[number];
-
 /** Index of an array-element pointer such as "/locks/3", or null for an object field. */
 function arrayIndex(out: Json, keys: string[]): number | null {
   const parent = valueAt(out, keys.slice(0, -1));
   const last = keys.at(-1) ?? "";
-  return Array.isArray(parent) && /^(0|[1-9]\d*)$/.test(last) ? Number(last) : null;
+  return Array.isArray(parent) && isArrayIndex(last) ? Number(last) : null;
 }
 
 /**

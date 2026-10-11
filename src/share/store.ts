@@ -1,3 +1,4 @@
+import { isRecord } from "../model/json";
 import { parseProject, serializeProject } from "../model/schema";
 import type { ForeignData, ParseResult, Project } from "../model/types";
 
@@ -59,11 +60,12 @@ function isReadable(storage: Storage | null | undefined): storage is Storage {
 }
 
 function isEntry(x: unknown): x is ProjectListEntry {
-  if (typeof x !== "object" || x === null) {
-    return false;
-  }
-  const e = x as Record<string, unknown>;
-  return typeof e.id === "string" && typeof e.name === "string" && typeof e.updatedAt === "number";
+  return (
+    isRecord(x) &&
+    typeof x.id === "string" &&
+    typeof x.name === "string" &&
+    typeof x.updatedAt === "number"
+  );
 }
 
 /** A fresh object per call, so no consumer can change what another one sees. */
@@ -154,11 +156,8 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
   function nameOfStored(id: string): string {
     try {
       const parsed = JSON.parse(read(PROJECT_PREFIX + id) ?? "null") as unknown;
-      if (typeof parsed === "object" && parsed !== null) {
-        const name = (parsed as Record<string, unknown>).name;
-        if (typeof name === "string") {
-          return name;
-        }
+      if (isRecord(parsed) && typeof parsed.name === "string") {
+        return parsed.name;
       }
     } catch {
       // Damaged entry: listed by id so the user can remove it.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { sampleProject } from "../test-support/sample";
 import { newComponent, newProject } from "./defaults";
+import { MAX_JSON_DEPTH } from "./json";
 import { noForeign, parseProject, serializeProject, toSerializable } from "./schema";
 import type { Project } from "./types";
 import { validateProject } from "./validate";
@@ -238,7 +239,18 @@ describe("parseProject: spec §5 bounds", () => {
   });
 });
 
+/** `levels` arrays nested inside each other around a number. */
+function nested(levels: number): unknown {
+  let deep: unknown = 1;
+  for (let i = 0; i < levels; i++) {
+    deep = [deep];
+  }
+  return deep;
+}
+
 describe("parseProject: hostile input", () => {
+  const TOO_DEEP = `This project file is damaged: nested too deeply (more than ${MAX_JSON_DEPTH} levels).`;
+
   it("rejects input nested too deeply with an error result", () => {
     const input = raw(newProject());
     let nest: unknown = 1;
@@ -246,6 +258,33 @@ describe("parseProject: hostile input", () => {
       nest = { a: nest };
     }
     input.extra = nest;
-    expect(parseProject(input).ok).toBe(false);
+    expect(expectError(input)).toBe(TOO_DEEP);
+  });
+
+  it("rejects deeply nested data without throwing, in newer and current files", () => {
+    const deep = nested(5000);
+    const newer = (input: Json): Json => ({ ...input, schemaVersion: "0.1.9" });
+
+    const field = raw(sampleProject());
+    field.extra = deep;
+    expect(expectError(newer(field))).toBe(TOO_DEEP);
+    expect(expectError(field)).toBe(TOO_DEEP);
+
+    const component = raw(sampleProject());
+    (component.components as unknown[]).push({ kind: "dial", ring: deep });
+    expect(expectError(newer(component))).toBe(TOO_DEEP);
+
+    const lock = raw(sampleProject());
+    (lock.locks as unknown[]).push({ kind: "magnet", strength: deep });
+    expect(expectError(newer(lock))).toBe(TOO_DEEP);
+  });
+
+  it("accepts data nested exactly as deep as the limit", () => {
+    const input: Json = { ...raw(sampleProject()), schemaVersion: "0.1.9" };
+    // The project object is one level, so the field may hold MAX_JSON_DEPTH - 1 more.
+    input.extra = nested(MAX_JSON_DEPTH - 1);
+    expect(parseProject(input).ok).toBe(true);
+    input.extra = nested(MAX_JSON_DEPTH);
+    expect(expectError(input)).toBe(TOO_DEEP);
   });
 });

@@ -4,6 +4,9 @@ export const SCHEMA_VERSION = "0.1.0";
 /** App version from package.json, injected by Vite `define`. */
 export const APP_VERSION = __APP_VERSION__;
 
+/** createdWith of a file or stored layout that doesn't say which app version made it. */
+export const UNKNOWN_APP_VERSION = "unknown";
+
 export interface Semver {
   major: number;
   minor: number;
