@@ -2,6 +2,7 @@ import {
   MIN_FEATURE_MM,
   MIN_SLOT_WIDTH,
   SLOT_CONTENT_OVERLAP,
+  cutRidgeWidth,
   maxChannelSpacing,
   maxWellFaceOffset,
 } from "../model/settings";
@@ -222,62 +223,95 @@ interface Face {
   solid: -1 | 1; // the side its solid material lies on
 }
 
-/** A slot move that may fix a well face: slot k centred on `at`. */
+/** A slot move that may fix a pair or a well face: slot k centred on `at`. */
 interface Move {
   k: number;
   at: number;
 }
 
 /**
- * Checks the well faces of the run's contents against the slots centred on `ats` (planTray
- * checkWellFaces, roadmap §4.6, here in doubled units). planTray allows SPEC_TOLERANCE (one
- * doubled unit) on each limit; this never does, and refuses a slot end within one doubled unit of
- * a face, which planTray may count either way. Returns null when every face holds, otherwise the
- * candidate moves of the slot at fault: toward the face until it is close enough, or away from it
- * until it ends MIN_FEATURE_MM short.
+ * Whether a well face holds against the slots centred on `ats` (planTray checkWellFaces, roadmap
+ * §4.6, here in doubled units). planTray allows SPEC_TOLERANCE (one doubled unit) on each limit;
+ * this never does, and refuses a slot end within one doubled unit of a face, which planTray may
+ * count either way.
  */
-function faultyFace(faces: readonly Face[], ats: readonly number[], width: number): Move[] | null {
-  const most = Math.floor(maxWellFaceOffset(fromU(width) / 2) * 100);
-  for (const { at: face, solid } of faces) {
-    const covering = ats.flatMap((a, k) =>
-      2 * a - width < face - 1 && 2 * a + width > face + 1 ? [k] : [],
-    );
-    // Clear of the face: its end MIN_FEATURE_MM short on the solid side.
-    const clear = (k: number): Move => ({
-      k,
-      at: solid < 0 ? Math.floor((face - MIN2 - width) / 2) : Math.ceil((face + MIN2 + width) / 2),
+function faceHolds({ at: face, solid }: Face, ats: readonly number[], width: number): boolean {
+  const r = fromU(width) / 2;
+  const covering = ats.filter((a) => 2 * a - width < face - 1 && 2 * a + width > face + 1);
+  if (covering.length === 0) {
+    return ats.every((a) => {
+      const short = solid * (2 * a - solid * width - face);
+      return short < -1 || short >= MIN2;
     });
-    if (covering.length === 0) {
-      const k = ats.findIndex((a) => {
-        const short = solid * (2 * a - solid * width - face);
-        return short >= -1 && short < MIN2;
-      });
-      if (k >= 0) {
-        // Or across the face, close enough to it.
-        const across: Move = {
-          k,
-          at:
-            solid < 0
-              ? Math.max(Math.ceil((face + 2 - width) / 2), Math.ceil((face - 2 * most) / 2))
-              : Math.min(Math.floor((face - 2 + width) / 2), Math.floor((face + 2 * most) / 2)),
-        };
-        return [clear(k), across];
-      }
+  }
+  // The nearest centre decides; on a tie the one on the solid side, whose bottom is lower there.
+  const offset = (a: number): number => solid * (2 * a - face); // doubled; > 0: on the solid side
+  const nearest = covering.reduce((best, a) => {
+    const d = Math.abs(offset(a)) - Math.abs(offset(best));
+    return d < 0 || (d === 0 && offset(a) > 0) ? a : best;
+  });
+  const dx = offset(nearest) / 200; // mm
+  if (dx > 0) {
+    return dx <= maxWellFaceOffset(r);
+  }
+  // On the contents' side: the half ridge with the next slot toward the solid side, if they merge.
+  const across = ats.filter((a) => offset(a) > 0 && Math.abs(a - nearest) < width).map(offset);
+  return across.length === 0 || cutRidgeWidth(r, -dx, Math.min(...across) / 200) >= MIN_FEATURE_MM;
+}
+
+/**
+ * The farthest a slot moves to fix a well face, the step the search for that move takes beyond
+ * its first SCAN_STEP units, and the step a run narrows by when no move fixes the face (units).
+ */
+const MAX_MOVE = 500;
+const NARROW_STEP = 10;
+const SCAN_STEP = 10;
+
+/**
+ * The first well face that does not hold, as the smallest move of a nearby slot (toward or away
+ * from the face, at most MAX_MOVE) that makes it hold and that `fits`; [] when no such move exists.
+ * Null when every face holds.
+ */
+function faultyFace(
+  faces: readonly Face[],
+  ats: readonly number[],
+  width: number,
+  fits: (k: number, at: number) => boolean,
+): Move[] | null {
+  for (const face of faces) {
+    if (faceHolds(face, ats, width)) {
       continue;
     }
-    // The nearest centre decides; on a tie the one on the solid side, whose bottom is lower there.
-    const distance = (k: number): number => Math.abs(2 * (ats[k] ?? 0) - face);
-    const nearest = Math.min(...covering.map(distance));
-    const k = covering.find(
-      (c) => distance(c) === nearest && solid * (2 * (ats[c] ?? 0) - face) > 0,
-    );
-    if (k !== undefined && nearest > 2 * most) {
-      const toward: Move = {
-        k,
-        at: solid < 0 ? Math.ceil((face - 2 * most) / 2) : Math.floor((face + 2 * most) / 2),
-      };
-      return [toward, clear(k)];
+    const near = ats.flatMap((a, k) => (Math.abs(2 * a - face.at) <= 3 * width + MIN2 ? [k] : []));
+    const moved = ats.slice();
+    const holdsAt = (k: number, at: number): boolean => {
+      if (!fits(k, at)) {
+        return false;
+      }
+      const a = moved[k] ?? 0;
+      moved[k] = at;
+      const holds = faceHolds(face, moved, width);
+      moved[k] = a;
+      return holds;
+    };
+    // Every shift up to SCAN_STEP, then every SCAN_STEP-th, refined back to the smallest.
+    for (let shift = 1; shift <= MAX_MOVE; shift += shift < SCAN_STEP ? 1 : SCAN_STEP) {
+      for (const k of near) {
+        const a = ats[k] ?? 0;
+        for (const direction of [-1, 1]) {
+          if (holdsAt(k, a + direction * shift)) {
+            let best = shift;
+            for (let finer = shift - 1; finer > shift - SCAN_STEP && finer > 0; finer--) {
+              if (holdsAt(k, a + direction * finer)) {
+                best = finer;
+              }
+            }
+            return [{ k, at: a + direction * best }];
+          }
+        }
+      }
     }
+    return [];
   }
   return null;
 }
@@ -366,31 +400,30 @@ function placeRun(
     const ats = centres.map((c) => Math.min(Math.max(c, least), most));
     const fits = (k: number, at: number): boolean =>
       at >= least && at <= most && 2 * Math.abs(at - (centres[k] ?? 0)) < width;
-    let placed: SlotPlacement[] | null = null;
+    // Narrower next time: straight to the width that keeps a failing pair apart, else by
+    // NARROW_STEP (at most 0.1 mm narrower than the widest that would do).
+    let next = width - NARROW_STEP;
     for (let moves = 0; moves <= 4 * members.length; moves++) {
       const pairs = checkPairs(ats, width);
-      const fix = pairs.moves.length > 0 ? pairs.moves : faultyFace(faces, ats, width);
+      const fix = pairs.moves.length > 0 ? pairs.moves : faultyFace(faces, ats, width, fits);
       if (fix === null) {
         const depth = new Map<number, number>();
         members.forEach((i, k) => {
           const r = pairs.root(k);
           depth.set(r, Math.min(depth.get(r) ?? Number.POSITIVE_INFINITY, requests[i]?.depth ?? 1));
         });
-        placed = ats.map((at, k) => ({ at, width, depth: depth.get(pairs.root(k)) ?? 1 }));
-        break;
+        return ats.map((at, k) => ({ at, width, depth: depth.get(pairs.root(k)) ?? 1 }));
       }
       const move = fix.find((m) => m.at !== ats[m.k] && fits(m.k, m.at));
       if (move === undefined) {
-        // No move helps: narrow (straight to the width that keeps a failing pair apart).
-        const target = pairs.moves.length > 0 ? pairs.narrower : width - 1;
-        width = Math.max(target, floor - 1) + 1; // the loop's decrement lands on it
+        if (pairs.moves.length > 0) {
+          next = pairs.narrower;
+        }
         break;
       }
       ats[move.k] = move.at;
     }
-    if (placed !== null) {
-      return placed;
-    }
+    width = Math.max(next, floor - 1) + 1; // the loop's decrement lands on it
   }
   return null;
 }
