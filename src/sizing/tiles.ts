@@ -11,7 +11,7 @@ import {
 } from "./common";
 import { TILE_STACK_TARGETS } from "./constants";
 import type { CompartmentReq } from "./types";
-import { splitEven } from "./units";
+import { ROUNDING_TOLERANCE, splitEven } from "./units";
 
 export function hexCornerToCorner(flatToFlat: number): number {
   return (flatToFlat * 2) / Math.sqrt(3);
@@ -40,7 +40,10 @@ export function uprightProfile(shape: TileShape): { height: number; length: numb
 /** Column (flat) or stack (upright) counts to offer as variants; sizing doesn't know topPlane. */
 export function columnCounts(count: number, thickness: number): number[] {
   const total = count * thickness;
-  const raw = [1, ...TILE_STACK_TARGETS.map((target) => Math.ceil(total / target - 1e-9))];
+  const raw = [
+    1,
+    ...TILE_STACK_TARGETS.map((target) => Math.ceil(total / target - ROUNDING_TOLERANCE)),
+  ];
   const out: number[] = [];
   for (const columns of raw) {
     const clamped = Math.min(Math.max(columns, 1), count);

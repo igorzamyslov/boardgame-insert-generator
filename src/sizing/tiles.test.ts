@@ -35,6 +35,10 @@ describe("tile geometry", () => {
     expect(columnCounts(7, 10)).toEqual([1, 2, 3]);
     expect(columnCounts(2, 40)).toEqual([1, 2]);
   });
+
+  it("ignores float noise in the stack height (625 × 0.56 is 350.00000000000006)", () => {
+    expect(columnCounts(625, 0.56)).toEqual([1, 7, 14]);
+  });
 });
 
 describe("tileOptions", () => {

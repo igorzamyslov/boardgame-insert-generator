@@ -1,18 +1,21 @@
 // Sizing does its layout arithmetic in integer 0.01 mm units ("u") so that
 // rounding is exact and deterministic. Public results are converted back to mm.
 
+/** Float-noise tolerance for rounding a computed value up or down to a whole number. */
+export const ROUNDING_TOLERANCE = 1e-6;
+
 export function toU(mm: number): number {
   return Math.round(mm * 100);
 }
 
-/** Smallest whole unit count ≥ mm (1e-6 u tolerance for float noise). Used for minimums. */
+/** Smallest whole unit count ≥ mm (ROUNDING_TOLERANCE u for float noise). Used for minimums. */
 export function ceilU(mm: number): number {
-  return Math.ceil(mm * 100 - 1e-6);
+  return Math.ceil(mm * 100 - ROUNDING_TOLERANCE);
 }
 
-/** Largest whole unit count ≤ mm (1e-6 u tolerance for float noise). Used for outer sizes. */
+/** Largest whole unit count ≤ mm (ROUNDING_TOLERANCE u for float noise). Used for outer sizes. */
 export function floorU(mm: number): number {
-  return Math.floor(mm * 100 + 1e-6);
+  return Math.floor(mm * 100 + ROUNDING_TOLERANCE);
 }
 
 export function fromU(u: number): number {
