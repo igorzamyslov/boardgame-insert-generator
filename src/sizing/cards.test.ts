@@ -106,7 +106,7 @@ describe("stackWidth", () => {
 describe("cardOptions", () => {
   it("upright-long: stack along X, length + two reaches along Y, height from the short side", () => {
     const c = deck(cards());
-    expect(c.minW).toBeCloseTo(23.4952, 9);
+    expect(c.minW).toBe(23.5);
     expect(c.minD).toBeCloseTo(116.5, 9);
     expect(c.minH).toBeCloseTo(68, 9);
     expect(c.kind).toBe("well");
@@ -119,7 +119,7 @@ describe("cardOptions", () => {
 
   it("upright-short: height from the long side, length from the short side", () => {
     const c = deck(cards({ storage: "upright-short" }));
-    expect(c.minW).toBeCloseTo(23.4952, 9);
+    expect(c.minW).toBe(23.5);
     expect(c.minD).toBeCloseTo(92, 9);
     expect(c.minH).toBeCloseTo(92.5, 9);
   });
@@ -159,24 +159,24 @@ describe("cardOptions", () => {
     const c = deck(cards(), { ...s, fit: 1.4 });
     expect(c.minD).toBeCloseTo(117.1, 9);
     expect(c.minH).toBeCloseTo(68.6, 9);
-    expect(c.minW).toBeCloseTo(24.15728, 9);
+    expect(c.minW).toBe(24.16);
   });
 
   it("a clearance override replaces cardClearance only and is not scaled", () => {
     const c = deck(cards({ clearance: 2 }), { ...s, fit: 1.4 });
     expect(c.minD).toBeCloseTo(117, 9);
     expect(c.minH).toBeCloseTo(68.5, 9);
-    expect(c.minW).toBeCloseTo(24.15728, 9); // stack clearance still × fit
+    expect(c.minW).toBe(24.16); // stack clearance still × fit
   });
 
   it("drives the stack width from a measured thickness", () => {
     const c = deck(cards({ thickness: { mode: "measured", cards: 100, stackMm: 45 } }));
-    expect(c.minW).toBeCloseTo(25.102, 9);
+    expect(c.minW).toBe(25.11);
   });
 
   it("a deck of one card is a 1.33 mm well", () => {
     const c = deck(cards({ sleeve: "none", decks: [{ name: "Solo", count: 1 }] }));
-    expect(c.minW).toBeCloseTo(1.3296, 9);
+    expect(c.minW).toBe(1.33);
     expect(c.minD).toBeCloseTo(113.5, 9);
     expect(c.minH).toBeCloseTo(65, 9);
   });
@@ -251,7 +251,7 @@ describe("cardOptions", () => {
     expect(options.map((o) => o.id)).toEqual(["upright-long", "upright-short", "flat"]);
     const [long, short, flat] = options.map((o) => at(at(o.blocks, 0), 0));
     // S = 70, L = 95, t = 0.52, stack = 10 · 0.52 · 1.03 + 1 = 6.356
-    expect(long?.minW).toBeCloseTo(6.356, 9);
+    expect(long?.minW).toBe(6.36);
     expect([long?.minD, long?.minH]).toEqual([expect.closeTo(120.5, 9), expect.closeTo(71.5, 9)]);
     expect([short?.minD, short?.minH]).toEqual([expect.closeTo(95.5, 9), expect.closeTo(96.5, 9)]);
     expect([flat?.minW, flat?.minD, flat?.minH]).toEqual([
@@ -264,14 +264,14 @@ describe("cardOptions", () => {
   it("unsleeved cards in all three storages", () => {
     const { options } = cardOptions(cards({ sleeve: "none", storage: "auto" }), s, 0);
     const [long, short, flat] = options.map((o) => at(at(o.blocks, 0), 0));
-    // S = 63.5, L = 88, t = 0.32, stack = 52 · 0.32 · 1.03 + 1 = 18.1392
+    // S = 63.5, L = 88, t = 0.32, stack = 52 · 0.32 · 1.03 + 1 = 18.1392 → 18.14 rounded up
     expect([long?.minW, long?.minD, long?.minH]).toEqual([
-      expect.closeTo(18.1392, 9),
+      expect.closeTo(18.14, 9),
       expect.closeTo(113.5, 9),
       expect.closeTo(65, 9),
     ]);
     expect([short?.minW, short?.minD, short?.minH]).toEqual([
-      expect.closeTo(18.1392, 9),
+      expect.closeTo(18.14, 9),
       expect.closeTo(89, 9),
       expect.closeTo(89.5, 9),
     ]);

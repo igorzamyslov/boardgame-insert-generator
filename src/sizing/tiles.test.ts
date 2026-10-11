@@ -43,7 +43,7 @@ describe("tileOptions", () => {
     expect(notices).toEqual([]);
     expect(options.map((o) => o.id)).toEqual(["flat-c1", "flat-c3", "flat-c5"]);
     const column = first(tiles());
-    expect(column.minW).toBeCloseTo(C2C40 + 1, 9);
+    expect(column.minW).toBe(47.19);
     expect(column.minD).toBeCloseTo(65, 9);
     expect(column.minH).toBeCloseTo(121, 9);
     expect(column.kind).toBe("well");
@@ -59,7 +59,7 @@ describe("tileOptions", () => {
   it("swaps the footprint axes for pointy hexes", () => {
     const column = first(tiles({ shape: { type: "hex", flatToFlat: 40, orientation: "pointy" } }));
     expect(column.minW).toBeCloseTo(41, 9);
-    expect(column.minD).toBeCloseTo(C2C40 + 1 + 24, 9);
+    expect(column.minD).toBe(71.19);
   });
 
   it("splits a tall stack into columns, one block each", () => {
@@ -89,7 +89,7 @@ describe("tileOptions", () => {
     ]);
     const stack = first(upright);
     expect(stack.minW).toBeCloseTo(121, 9);
-    expect(stack.minD).toBeCloseTo(C2C40 + 1 + 24, 9);
+    expect(stack.minD).toBe(71.19);
     expect(stack.minH).toBeCloseTo(41, 9);
     expect(stack.elastic).toEqual({ w: true, d: false, h: false });
     expect(stack.spacerAxis).toBe("w");

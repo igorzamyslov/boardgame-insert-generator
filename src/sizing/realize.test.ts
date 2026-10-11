@@ -347,6 +347,16 @@ describe("realizeTray", () => {
       }
     });
 
+    it("never makes the well narrower than the content", () => {
+      const cfg: Settings = { ...s, fingerPocket: { ...s.fingerPocket, reach: 12.345 } };
+      const part = partOf([custom({ w: 29.001, d: 29.001, count: 1 })], "custom|strip|split1", cfg);
+      const outer = minOuter(part, cfg, ground);
+      const c = at(realizeTray(part, outer, cfg, ground).compartments, 0);
+      const band = 1235; // one front pocket, reach 12.345 rounded up to whole units
+      expect(c.w).toBeGreaterThanOrEqual(30.001);
+      expect((Math.round(c.d * 100) - band) / 100).toBeGreaterThanOrEqual(30.001);
+    });
+
     it("reports the reach it reserves", () => {
       const cfg: Settings = { ...s, fingerPocket: { ...s.fingerPocket, reach: 12.345 } };
       const part = partOf([cards()], "upright-long|strip|split1", cfg);

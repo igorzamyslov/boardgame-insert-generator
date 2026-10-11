@@ -20,15 +20,15 @@ describe("bulkOptions", () => {
     const shallow = line();
     expect(shallow.minVolume).toBe(60000);
     expect(shallow.minH).toBe(20);
-    expect(shallow.minW).toBeCloseTo(Math.sqrt(3000), 9); // 54.772…
-    expect(shallow.minD).toBeCloseTo(Math.sqrt(3000), 9);
+    expect(shallow.minW).toBe(54.78); // √3000 = 54.772…, rounded up
+    expect(shallow.minD).toBe(54.78);
     expect(shallow.kind).toBe("scoop");
     expect(shallow.contents).toBe("Cubes ×30");
     expect(shallow.elastic).toEqual({ w: true, d: true, h: true });
     expect(shallow.maxHRatio).toBe(1.5);
     expect(shallow.features).toEqual([{ type: "scoop", side: "front" }]);
     const deep = line(bulk(), s, 1);
-    expect(deep.minW).toBeCloseTo(Math.cbrt(40000), 9); // 34.1995…
+    expect(deep.minW).toBe(34.2); // ∛40000 = 34.1995…, rounded up
     expect(deep.minH).toBeCloseTo(1.5 * Math.cbrt(40000), 6); // 51.299…
   });
 
@@ -37,10 +37,10 @@ describe("bulkOptions", () => {
     const shallow = line(component);
     expect(shallow.minVolume).toBe(120000);
     expect(shallow.contents).toBe("Coins 120 ml");
-    expect(shallow.minW).toBeCloseTo(Math.sqrt(6000), 9); // 77.459…
+    expect(shallow.minW).toBe(77.46); // √6000 = 77.459…, rounded up
     expect(shallow.minH).toBe(20);
     const deep = line(component, s, 1);
-    expect(deep.minW).toBeCloseTo(Math.cbrt(80000), 9); // 43.088…
+    expect(deep.minW).toBe(43.09); // ∛80000 = 43.088…, rounded up
     expect(deep.minH).toBeCloseTo(1.5 * Math.cbrt(80000), 6);
   });
 
@@ -100,8 +100,8 @@ describe("bulkOptions", () => {
       expect(c.minW * c.minD * c.minH).toBeGreaterThanOrEqual(108000 * (1 - 1e-9));
       expect(c.minH).toBeLessThanOrEqual(1.5 * Math.min(c.minW, c.minD) + 1e-9);
     }
-    expect(line(component).minW).toBeCloseTo(Math.sqrt(5400), 9); // 73.48…
-    expect(line(component, s, 1).minW).toBeCloseTo(Math.cbrt(72000), 9); // 41.60…
+    expect(line(component).minW).toBe(73.49); // √5400 = 73.48…, rounded up
+    expect(line(component, s, 1).minW).toBe(41.61); // ∛72000 = 41.601…, rounded up
   });
 
   it("returns no options and no notices for an invalid component", () => {

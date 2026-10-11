@@ -77,7 +77,7 @@ describe("minisOptions", () => {
     expect(shallow.contents).toBe("Hero ×2");
     expect(shallow.minVolume).toBe(100000);
     expect(shallow.minH).toBe(26);
-    expect(shallow.minW).toBeCloseTo(Math.sqrt(100000 / 26), 9); // 62.017…
+    expect(shallow.minW).toBe(62.02); // √(100000/26) = 62.017…, rounded up
     const deep = at(at(at(options, 1).blocks, 0), 0);
     expect(deep.minW).toBe(41);
     expect(deep.minH).toBeCloseTo(100000 / (41 * 41), 9); // 59.488…

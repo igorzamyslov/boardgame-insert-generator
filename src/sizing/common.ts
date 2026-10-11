@@ -2,6 +2,7 @@ import { effective } from "../model/settings";
 import type { Component, Notice, Settings, Side } from "../model/types";
 import { validateComponent } from "../model/validate";
 import type { CompartmentReq, FeatureReq } from "./types";
+import { ceilU, fromU } from "./units";
 
 /** One way to store a component. Blocks are compartment groups a split never separates. */
 export interface StorageOption {
@@ -66,9 +67,13 @@ export interface CompartmentInput {
   maxHRatio?: number;
 }
 
-/** Builds a CompartmentReq; adds fingerPocket.reach to minW/minD once per pocket side, however many pockets share it (spec §6.1). */
+/**
+ * Builds a CompartmentReq; adds fingerPocket.reach to minW/minD once per pocket side, however many
+ * pockets share it (spec §6.1). Content rounds up to whole 0.01 mm and the reach is added as the
+ * whole-unit band realizeTray subtracts again, so the well is never narrower than the content.
+ */
 export function compartment(input: CompartmentInput, s: Settings): CompartmentReq {
-  const reach = s.fingerPocket.reach;
+  const reachU = ceilU(s.fingerPocket.reach);
   const sides = new Set(
     input.features.flatMap((f) =>
       f.type === "fingerPocket" && f.side !== undefined ? [f.side] : [],
@@ -80,8 +85,8 @@ export function compartment(input: CompartmentInput, s: Settings): CompartmentRe
     componentId: input.componentId,
     contents: input.contents,
     kind: input.kind,
-    minW: input.w + xSides * reach,
-    minD: input.d + ySides * reach,
+    minW: fromU(ceilU(input.w) + xSides * reachU),
+    minD: fromU(ceilU(input.d) + ySides * reachU),
     minH: input.h,
     elastic: {
       w: input.elastic?.w ?? false,
