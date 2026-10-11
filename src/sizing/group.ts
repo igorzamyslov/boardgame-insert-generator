@@ -79,16 +79,21 @@ export function size(
     }
     // perPlayer is only valid on an ungrouped component, so it is always alone in its bucket.
     const only = usable.length === 1 ? usable[0] : undefined;
+    const variants = buildVariants({
+      key,
+      options: combineOptions(usable.map((u) => u.options)),
+      players: only?.c.perPlayer?.players ?? null,
+    });
+    // Defensive: options without compartments have no variants, and a requirement needs 1–8.
+    if (variants.length === 0) {
+      continue;
+    }
     requirements.push({
       key,
       componentIds: usable.map((u) => u.c.id),
       access: mostFrequentAccess(usable.map((u) => u.c)),
       loose: usable.some((u) => isLoose(u.c)),
-      variants: buildVariants({
-        key,
-        options: combineOptions(usable.map((u) => u.options)),
-        players: only?.c.perPlayer?.players ?? null,
-      }),
+      variants,
     });
   }
   return { requirements, notices };

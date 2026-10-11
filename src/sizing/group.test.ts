@@ -1,11 +1,27 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
+import * as componentModule from "./component";
 import { combineOptions, mostFrequentAccess, size } from "./group";
 import { at, bulk, cards, custom, minis, tiles } from "./test-helpers";
+
+// The real componentOptions, wrapped so one test can return options without compartments.
+vi.mock("./component", async (importOriginal) => {
+  const actual = await importOriginal<typeof componentModule>();
+  return { ...actual, componentOptions: vi.fn(actual.componentOptions) };
+});
 
 const s = DEFAULT_SETTINGS;
 
 describe("size", () => {
+  it("leaves out a requirement without variants, so every requirement has 1–8", () => {
+    vi.mocked(componentModule.componentOptions).mockReturnValueOnce({
+      options: [{ id: "empty", blocks: [] }],
+      notices: [],
+    });
+    const { requirements } = size([custom(), cards()], s);
+    expect(requirements.map((r) => r.key)).toEqual(["c1"]);
+  });
+
   it("sizes one component into one requirement keyed by its id", () => {
     const { requirements, notices } = size([cards()], s);
     expect(notices).toEqual([]);
