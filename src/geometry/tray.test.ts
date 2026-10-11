@@ -206,13 +206,6 @@ describe("buildTray review focus", () => {
     } as unknown as TraySpec;
     expect(() => buildTray(m, spec, GEO)).toThrow(UnsupportedFeatureError);
   });
-
-  it("does not leak WASM memory across many builds", () => {
-    for (let i = 0; i < 30; i += 1) {
-      buildTray(m, hexTiles, GEO);
-    }
-    expect(() => buildTray(m, scoopBulk, GEO)).not.toThrow();
-  });
 });
 
 describe("finger slot clearance regression (plan 3)", () => {
@@ -268,5 +261,125 @@ describe("finger slot clearance regression (plan 3)", () => {
     );
     expect(spec).toEqual(slotBesideSlack);
     expectWellFormed(slotBesideSlack, slotBesideSlack.h + GEO.lip.height);
+  });
+});
+
+describe("WASM handles", () => {
+  interface Handle {
+    isDeleted(): boolean;
+  }
+
+  function isHandle(value: unknown): value is Handle {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      typeof (value as { isDeleted?: unknown }).isDeleted === "function"
+    );
+  }
+
+  // Runs `run` with every Manifold static and instance method wrapped, so each handle the kernel
+  // returns is recorded; returns them. The wrappers are removed again even if `run` throws.
+  function recordHandles(run: () => void): Set<Handle> {
+    const statics = m.Manifold as unknown as Record<string, unknown>;
+    const probe = m.Manifold.cube([1, 1, 1]);
+    const methods = Object.getPrototypeOf(probe) as Record<string, unknown>;
+    probe.delete();
+    const handles = new Set<Handle>();
+    const restore: (() => void)[] = [];
+    const wrap = (target: Record<string, unknown>, name: string): void => {
+      const original = target[name];
+      if (name === "constructor" || name === "prototype" || typeof original !== "function") {
+        return;
+      }
+      target[name] = function (this: unknown, ...args: unknown[]): unknown {
+        const result: unknown = Reflect.apply(original, this, args);
+        if (isHandle(result)) {
+          handles.add(result);
+        }
+        return result;
+      };
+      restore.push(() => {
+        target[name] = original;
+      });
+    };
+    try {
+      Object.getOwnPropertyNames(statics).forEach((name) => {
+        wrap(statics, name);
+      });
+      Object.getOwnPropertyNames(methods).forEach((name) => {
+        wrap(methods, name);
+      });
+      run();
+    } finally {
+      restore.forEach((undo) => {
+        undo();
+      });
+    }
+    return handles;
+  }
+
+  function live(handles: Set<Handle>): number {
+    return [...handles].filter((h) => !h.isDeleted()).length;
+  }
+
+  it("records handles created outside a build as live", () => {
+    let outside: { delete(): void } | undefined;
+    const handles = recordHandles(() => {
+      outside = m.Manifold.cube([1, 1, 1]);
+    });
+    expect(live(handles)).toBe(1);
+    outside?.delete();
+    expect(live(handles)).toBe(0);
+  });
+
+  it("deletes every handle of a build", () => {
+    for (const spec of [hexTiles, cardUpright, scoopBulk, lippedLower, miniPockets]) {
+      const handles = recordHandles(() => {
+        buildTray(m, spec, GEO);
+      });
+      expect(handles.size, spec.key).toBeGreaterThan(3);
+      expect(live(handles), spec.key).toBe(0);
+    }
+  });
+
+  it("deletes every handle when a kernel call throws mid-build", () => {
+    const statics = m.Manifold as unknown as { union: (...args: unknown[]) => unknown };
+    const handles = recordHandles(() => {
+      const union = statics.union;
+      let calls = 0;
+      statics.union = function (this: unknown, ...args: unknown[]): unknown {
+        calls += 1;
+        if (calls === 3) {
+          throw new Error("kernel failure");
+        }
+        return Reflect.apply(union, this, args);
+      };
+      try {
+        expect(() => buildTray(m, hexTiles, GEO)).toThrow("kernel failure");
+      } finally {
+        statics.union = union;
+      }
+    });
+    expect(handles.size).toBeGreaterThan(3);
+    expect(live(handles)).toBe(0);
+  });
+
+  it("deletes every handle when the result is not a valid manifold", () => {
+    const probe = m.Manifold.cube([1, 1, 1]);
+    const methods = Object.getPrototypeOf(probe) as { status: () => string };
+    probe.delete();
+    const handles = recordHandles(() => {
+      const status = methods.status;
+      methods.status = () => "NotManifold";
+      try {
+        expect(() => buildTray(m, plainBox, GEO)).toThrow(
+          "Tray plain:p0:0: geometry kernel failed (NotManifold)",
+        );
+      } finally {
+        methods.status = status;
+      }
+    });
+    expect(handles.size).toBeGreaterThan(3);
+    expect(live(handles)).toBe(0);
   });
 });
