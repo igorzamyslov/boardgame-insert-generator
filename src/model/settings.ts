@@ -4,6 +4,12 @@ import type { Box, Settings } from "./types";
 /** Minimum printable feature width in mm: 2 lines of 0.4 mm (spec §6.1). */
 export const MIN_FEATURE_MM = 0.8;
 
+/**
+ * Bottom chamfer of trays above level 0 is at least this, in mm (spec §6.1); spacers and
+ * level-0 trays use bottomChamfer as set. Shared by sizing and geometry.
+ */
+export const UPPER_MIN_CHAMFER = 0.5;
+
 /** Spec §5 defaults. Projects store resolved values, never "use the default". Deeply frozen. */
 export const DEFAULT_SETTINGS: Settings = deepFreeze({
   wall: 1.6,

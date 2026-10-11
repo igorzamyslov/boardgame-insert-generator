@@ -1,6 +1,6 @@
-import { MIN_FEATURE_MM } from "../model/settings";
+import { MIN_FEATURE_MM, UPPER_MIN_CHAMFER } from "../model/settings";
 import type { Settings, Side } from "../model/types";
-import { UPPER_MIN_CHAMFER, UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
+import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
 import { pocketSides } from "./common";
 import type { CompartmentReq, OuterSize, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, fromU, maxOf, sum } from "./units";
