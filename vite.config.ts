@@ -10,6 +10,11 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  // Geometry worker: an ES module worker (spec §4). manifold-3d ships its own
+  // WASM loader, so keep it out of dependency pre-bundling; the worker passes
+  // the `?url`-imported WASM to locateFile.
+  worker: { format: "es" },
+  optimizeDeps: { exclude: ["manifold-3d"] },
   test: {
     // Pure modules run in Node. Component tests opt in to a DOM with a
     // `// @vitest-environment jsdom` comment on their first line.
