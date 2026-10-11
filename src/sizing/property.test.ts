@@ -9,6 +9,7 @@ import type {
   Settings,
   TilesComponent,
 } from "../model/types";
+import { groupOf } from "../model/defaults";
 import { validateComponent } from "../model/validate";
 import { MIN_SPACER } from "./constants";
 import { SlotFitError, hasGrip, minOuter, realizeTray, rotateRealized, size } from "./index";
@@ -302,37 +303,29 @@ function realizes(part: TrayPartReq, outer: OuterSize, s: Settings, opts: Realiz
   }
 }
 
-/** Counts realized and refused trays; refusals must stay rare (tiny slots, 1-card decks). */
-function tally(): { add: (ok: boolean) => void; expectRare: () => void } {
-  let realized = 0;
-  let refused = 0;
-  return {
-    add: (ok) => {
-      if (ok) {
-        realized += 1;
-      } else {
-        refused += 1;
-      }
-    },
-    expectRare: () => {
-      expect(realized).toBeGreaterThan(0);
-      expect(refused, `${refused} of ${realized + refused} trays refused`).toBeLessThanOrEqual(
-        (realized + refused) / 100,
-      );
-    },
-  };
-}
-
-/** size() of valid components: asserts the property is not vacuous (every component is sized). */
+/**
+ * size() of valid components: asserts the property is not vacuous. Every component is sized,
+ * except a component or group size() leaves out with a sizing.noFingerSlot warning naming one of
+ * its members.
+ */
 function sized(components: Component[], s: Settings): ReturnType<typeof size> {
   components.forEach((c, i) => {
     expect(validateComponent(c, i).filter((n) => n.level === "error")).toEqual([]);
   });
   const result = size(components, s);
-  expect(result.requirements.length).toBeGreaterThan(0);
-  expect(result.requirements.flatMap((req) => req.componentIds).sort()).toEqual(
-    components.map((c) => c.id).sort(),
+  const ids = result.requirements.flatMap((req) => req.componentIds);
+  expect(new Set(ids).size).toBe(ids.length);
+  const keyOf = (c: Component): string => groupOf(c) ?? c.id;
+  const warned = new Set(
+    components.flatMap((c, i) =>
+      result.notices.some((n) => n.code === "sizing.noFingerSlot" && n.path === `/components/${i}`)
+        ? [keyOf(c)]
+        : [],
+    ),
   );
+  for (const c of components) {
+    expect(ids.includes(c.id) !== warned.has(keyOf(c)), c.id).toBe(true);
+  }
   return result;
 }
 
@@ -361,18 +354,25 @@ describe("sizing properties", () => {
   });
 
   it("realizes every variant part at its minOuter", { timeout: 120_000 }, () => {
-    const trays = tally();
+    // size() keeps only variants whose parts realize unlipped at level 0; a lipped or upper
+    // tray's thicker wall or chamfer may still leave a slot no room (SlotFitError), which layout
+    // treats as infeasible (roadmap §4.7).
+    let realized = 0;
     fc.assert(
       fc.property(componentsArb, settingsArb, (components, s) => {
         for (const part of allParts(components, s)) {
           for (const opts of OPTS) {
-            trays.add(checkTray(part, minOuter(part, s, opts), s, opts));
+            const ok = checkTray(part, minOuter(part, s, opts), s, opts);
+            if (!opts.lipped && opts.level === 0) {
+              expect(ok, part.trayKey).toBe(true);
+            }
+            realized += ok ? 1 : 0;
           }
         }
       }),
       { numRuns: 100, seed: SEED },
     );
-    trays.expectRare();
+    expect(realized).toBeGreaterThan(0);
   });
 
   it(

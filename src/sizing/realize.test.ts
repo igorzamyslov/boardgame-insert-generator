@@ -664,6 +664,7 @@ describe("realizeTray", () => {
       expect(fit.message).toBe(
         "Tray c1:p0:0: cannot fit a finger slot of at least 15 mm for D1 ×1, D2 ×120",
       );
+      expect(fit.minWidth).toBe(15);
       expect(fit.componentIds).toEqual(["c1"]);
       expect(fit.contents).toEqual(["D1 ×1", "D2 ×120"]);
     });

@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import * as componentModule from "./component";
+import { SlotFitError } from "./errors";
 import { combineOptions, mostFrequentAccess, size } from "./group";
+import { minOuter } from "./outer";
+import { realizeTray } from "./realize";
 import { at, bulk, cards, custom, minis, tiles } from "./test-helpers";
+import type { TrayPartReq } from "./types";
 
 // The real componentOptions, wrapped so one test can return options without compartments.
 vi.mock("./component", async (importOriginal) => {
@@ -139,6 +143,73 @@ describe("size", () => {
     expect(
       size([cards()], { ...s, wall: 2, floor: 3, bottomChamfer: 3 }).requirements,
     ).toHaveLength(1);
+  });
+
+  describe("finger slot fit", () => {
+    const ground = { lipped: false, level: 0 };
+    const realizable = (part: TrayPartReq): boolean => {
+      try {
+        realizeTray(part, minOuter(part, s, ground), s, ground);
+        return true;
+      } catch (error) {
+        if (error instanceof SlotFitError) {
+          return false;
+        }
+        throw error;
+      }
+    };
+    const decks = (...counts: number[]) => counts.map((count, i) => ({ name: `D${i + 1}`, count }));
+
+    it("keeps only the variants whose parts realize at minOuter, in rank order", () => {
+      // A one-card deck beside a 120-card one: no upright strip in one tray leaves room for a
+      // 15 mm slot by the small deck, so those variants go; flat, split and two-row ones stay.
+      const { requirements, notices } = size([cards({ storage: "auto", decks: decks(1, 120) })], s);
+      expect(notices).toEqual([]);
+      const req = at(requirements, 0);
+      expect(req.variants.map((v) => v.id)).toEqual([
+        "flat|strip|split1",
+        "upright-long|strip|split2",
+        "upright-long|rows2|split1",
+        "upright-short|strip|split2",
+        "upright-short|rows2|split1",
+        "flat|strip|split2",
+      ]);
+      expect(req.variants.every((v) => v.parts.every(realizable))).toBe(true);
+    });
+
+    it("warns and leaves the component out when no variant realizes", () => {
+      const { requirements, notices } = size(
+        [
+          bulk(),
+          cards({ id: "c2", name: "Cards", storage: "upright-long", decks: decks(1, 1, 1, 120) }),
+        ],
+        s,
+      );
+      expect(requirements.map((r) => r.key)).toEqual(["b1"]);
+      expect(notices).toEqual([
+        {
+          level: "warning",
+          code: "sizing.noFingerSlot",
+          path: "/components/1",
+          message:
+            "Cards: no tray arrangement leaves room for a finger slot of at least 15 mm by D1 ×1, D2 ×1, D3 ×1, D4 ×120, so it is left out. Try another storage or a narrower finger pocket.",
+        },
+      ]);
+    });
+    it("names the stuck member of a group whose variants all fail", () => {
+      const { requirements, notices } = size(
+        [
+          bulk({ groupId: "g" }),
+          cards({ id: "c2", groupId: "g", storage: "upright-long", decks: decks(1, 1, 1, 120) }),
+        ],
+        s,
+      );
+      expect(requirements).toEqual([]);
+      expect(notices.map((n) => [n.code, n.path])).toEqual([
+        ["sizing.noFingerSlot", "/components/1"],
+      ]);
+      expect(at(notices, 0).message).toMatch(/so the group "g" is left out/);
+    });
   });
 
   it("is deterministic", () => {

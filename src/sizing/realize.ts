@@ -246,6 +246,7 @@ function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
   const least = fromU(Math.min(toU(MIN_SLOT_WIDTH), ceilU(settings.fingerPocket.width)));
   throw new SlotFitError(
     `Tray ${frame.trayKey}: cannot fit a finger slot of at least ${least} mm for ${contents.join(", ")}`,
+    least,
     [...new Set(stuck.map((req) => req.componentId))],
     contents,
   );

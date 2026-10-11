@@ -1,9 +1,12 @@
 import { groupOf } from "../model/defaults";
 import type { Access, Component, Notice, Settings } from "../model/types";
 import { settingsValid } from "../model/validate";
-import type { StorageOption } from "./common";
+import { displayName, type StorageOption } from "./common";
 import { componentOptions, isLoose } from "./component";
-import type { TrayRequirement } from "./types";
+import { SlotFitError } from "./errors";
+import { minOuter } from "./outer";
+import { realizeTray } from "./realize";
+import type { RealizeOptions, TrayPartReq, TrayRequirement } from "./types";
 import { buildVariants } from "./variants";
 
 const ACCESS_RANK: Record<Access, number> = { often: 0, sometimes: 1, setup: 2 };
@@ -15,6 +18,7 @@ interface Member {
 
 interface Usable {
   c: Component;
+  index: number;
   options: StorageOption[];
 }
 
@@ -28,6 +32,39 @@ export function mostFrequentAccess(members: readonly Component[]): Access {
   return best;
 }
 
+const GROUND: RealizeOptions = { lipped: false, level: 0 };
+
+/**
+ * The SlotFitError of the first part that realizeTray cannot realize at its minOuter (unlipped,
+ * level 0), or null when every part realizes. Realizing is monotonic in slack, so such a part
+ * fits no outer at all.
+ */
+function slotFitError(parts: readonly TrayPartReq[], settings: Settings): SlotFitError | null {
+  for (const part of parts) {
+    try {
+      realizeTray(part, minOuter(part, settings, GROUND), settings, GROUND);
+    } catch (error) {
+      if (error instanceof SlotFitError) {
+        return error;
+      }
+      throw error;
+    }
+  }
+  return null;
+}
+
+/** The warning for a requirement none of whose variants fits its finger slots. */
+function noFingerSlot(error: SlotFitError, key: string, usable: readonly Usable[]): Notice {
+  const stuck = usable.find((u) => error.componentIds.includes(u.c.id)) ?? usable[0];
+  const what = usable.length > 1 ? `the group "${key}"` : "it";
+  return {
+    level: "warning",
+    code: "sizing.noFingerSlot",
+    message: `${stuck ? displayName(stuck.c) : key}: no tray arrangement leaves room for a finger slot of at least ${error.minWidth} mm by ${error.contents.join(", ")}, so ${what} is left out. Try another storage or a narrower finger pocket.`,
+    path: `/components/${stuck?.index ?? 0}`,
+  };
+}
+
 export function combineOptions(lists: readonly StorageOption[][]): StorageOption[] {
   const count = Math.max(0, ...lists.map((list) => list.length));
   return Array.from({ length: count }, (_, s) => {
@@ -39,20 +76,13 @@ export function combineOptions(lists: readonly StorageOption[][]): StorageOption
   });
 }
 
-/**
- * Sizes components into tray requirements: one per group (or per ungrouped component), in the
- * order each key first appears. Sizing assumes a valid project: with out-of-range settings it
- * returns nothing, and invalid components (including perPlayer inside a group) have no options,
- * so they are left out without notices of their own.
- */
-export function size(
-  components: Component[],
-  settings: Settings,
-): { requirements: TrayRequirement[]; notices: Notice[] } {
-  if (!settingsValid(settings)) {
-    return { requirements: [], notices: [] };
-  }
-  const notices: Notice[] = [];
+interface Sized {
+  requirement: TrayRequirement;
+  usable: Usable[];
+}
+
+/** One requirement per bucket, with every variant buildVariants enumerates. */
+function sizeBuckets(components: Component[], settings: Settings, notices: Notice[]): Sized[] {
   const buckets = new Map<string, Member[]>();
   components.forEach((c, index) => {
     const key = groupOf(c) ?? c.id;
@@ -64,14 +94,14 @@ export function size(
     }
   });
 
-  const requirements: TrayRequirement[] = [];
+  const sized: Sized[] = [];
   for (const [key, members] of buckets) {
     const usable: Usable[] = [];
     for (const { c, index } of members) {
       const result = componentOptions(c, settings, index);
       notices.push(...result.notices);
       if (result.options.length > 0) {
-        usable.push({ c, options: result.options });
+        usable.push({ c, index, options: result.options });
       }
     }
     if (usable.length === 0) {
@@ -88,13 +118,60 @@ export function size(
     if (variants.length === 0) {
       continue;
     }
-    requirements.push({
+    const requirement: TrayRequirement = {
       key,
       componentIds: usable.map((u) => u.c.id),
       access: mostFrequentAccess(usable.map((u) => u.c)),
       loose: usable.some((u) => isLoose(u.c)),
       variants,
-    });
+    };
+    sized.push({ requirement, usable });
+  }
+  return sized;
+}
+
+/**
+ * size() without dropping the variants whose finger slots do not fit, for tests that realize
+ * those variants (test-helpers partOf).
+ */
+export function sizeAllVariants(
+  components: Component[],
+  settings: Settings,
+): { requirements: TrayRequirement[]; notices: Notice[] } {
+  if (!settingsValid(settings)) {
+    return { requirements: [], notices: [] };
+  }
+  const notices: Notice[] = [];
+  const requirements = sizeBuckets(components, settings, notices).map((b) => b.requirement);
+  return { requirements, notices };
+}
+
+/**
+ * Sizes components into tray requirements: one per group (or per ungrouped component), in the
+ * order each key first appears. Sizing assumes a valid project: with out-of-range settings it
+ * returns nothing, and invalid components (including perPlayer inside a group) have no options,
+ * so they are left out without notices of their own. Variants whose finger slots do not fit at
+ * minOuter (unlipped, level 0) are dropped, the rest keep their order; a requirement left without
+ * variants is left out with a `sizing.noFingerSlot` warning (roadmap §4.2, §4.7).
+ */
+export function size(
+  components: Component[],
+  settings: Settings,
+): { requirements: TrayRequirement[]; notices: Notice[] } {
+  if (!settingsValid(settings)) {
+    return { requirements: [], notices: [] };
+  }
+  const notices: Notice[] = [];
+  const requirements: TrayRequirement[] = [];
+  for (const { requirement, usable } of sizeBuckets(components, settings, notices)) {
+    const errors = requirement.variants.map((v) => slotFitError(v.parts, settings));
+    const variants = requirement.variants.filter((_, i) => errors[i] === null);
+    const preferred = errors[0];
+    if (variants.length === 0 && preferred) {
+      notices.push(noFingerSlot(preferred, requirement.key, usable));
+    } else {
+      requirements.push({ ...requirement, variants });
+    }
   }
   return { requirements, notices };
 }

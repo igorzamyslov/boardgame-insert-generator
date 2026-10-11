@@ -12,7 +12,7 @@ import type {
   TilesComponent,
   TraySpec,
 } from "../model/types";
-import { size } from "./group";
+import { sizeAllVariants } from "./group";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, floorU, fromU, toU } from "./units";
 
@@ -92,14 +92,17 @@ export function custom(over: Partial<CustomComponent> = {}): CustomComponent {
   };
 }
 
-/** The part `partIndex` of variant `variantId` of the first requirement of `size(components)`. */
+/**
+ * The part `partIndex` of variant `variantId` of the first requirement of `size(components)`,
+ * including variants size() drops because their finger slots do not fit (sizeAllVariants).
+ */
 export function partOf(
   components: Component[],
   variantId: string,
   settings: Settings = DEFAULT_SETTINGS,
   partIndex = 0,
 ): TrayPartReq {
-  const req = at(size(components, settings).requirements, 0);
+  const req = at(sizeAllVariants(components, settings).requirements, 0);
   const variant = req.variants.find((v) => v.id === variantId);
   if (variant === undefined) {
     throw new Error(`no variant ${variantId}; have ${req.variants.map((v) => v.id).join(", ")}`);
