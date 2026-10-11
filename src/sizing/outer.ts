@@ -52,7 +52,7 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
   const divider = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
   const floor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
   // An even unit count, so the centred pocket slot can sit on whole units inside the walls.
-  const pocketU = toU(settings.fingerPocket.width);
+  const pocketU = ceilU(settings.fingerPocket.width);
   const pocketWidth = pocketU + (pocketU % 2);
   const rows = rowsOf(part.arrangement, part.compartments);
   const widths = rows.map((row) => row.map((c) => toU(c.minW)));

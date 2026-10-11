@@ -359,6 +359,41 @@ describe("realizeTray", () => {
       expect((Math.round(c.d * 100) - band) / 100).toBeGreaterThanOrEqual(30.001);
     });
 
+    it("never makes a finger pocket narrower than the setting", () => {
+      const cfg: Settings = { ...s, fingerPocket: { ...s.fingerPocket, width: 22.004 } };
+      const part = partOf(
+        [minis({ figures: [{ name: "Pip", w: 5, d: 5, h: 5, count: 1 }] })],
+        "standing|strip|split1",
+        cfg,
+      );
+      const outer = minOuter(part, cfg, ground);
+      expect(outer.w - 2 * 1.6).toBeGreaterThanOrEqual(22.01);
+      const r = realizeTray(part, outer, cfg, ground);
+      const slot = at(at(r.compartments, 0).features, 0);
+      expect(slot).toMatchObject({ type: "fingerPocket", width: 22.01 });
+      assertTrayInvariants(r, outer, cfg, ground);
+    });
+
+    it("grows walls and dividers to at most 2 × the setting, rounded down", () => {
+      const cfg: Settings = { ...s, wall: 1.7976, divider: 1.7976 };
+      const part = partOf([custom({ count: 2 })], "custom|strip|split1", cfg);
+      const outer = minOuter(part, cfg, ground);
+      const wide = { ...outer, w: outer.w + 40 };
+      const r = realizeTray(part, wide, cfg, ground);
+      const [a, b] = [at(r.compartments, 0), at(r.compartments, 1)];
+      expect(a.x).toBe(3.59); // 2 × 1.7976 = 3.5952
+      expect(b.x - (a.x + a.w)).toBeCloseTo(3.59, 9);
+      expect(at(r.compartments, 2).kind).toBe("spare");
+      assertTrayInvariants(r, wide, cfg, ground);
+    });
+
+    it("caps the scoop radius at the setting, rounded down", () => {
+      const cfg: Settings = { ...s, scoopRadius: 10.006 };
+      const part = partOf([bulk()], "shallow|strip|split1", cfg);
+      const r = realizeTray(part, minOuter(part, cfg, ground), cfg, ground);
+      expect(at(r.compartments, 0).features).toEqual([{ type: "scoop", side: "front", r: 10 }]);
+    });
+
     it("reports the reach it reserves", () => {
       const cfg: Settings = { ...s, fingerPocket: { ...s.fingerPocket, reach: 12.345 } };
       const part = partOf([cards()], "upright-long|strip|split1", cfg);

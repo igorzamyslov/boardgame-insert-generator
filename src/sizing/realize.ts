@@ -79,13 +79,13 @@ function featureSpecs(
     }
     const side = f.side ?? "front";
     if (f.type === "scoop") {
-      const r = Math.min(toU(ctx.settings.scoopRadius), depth, Math.floor(content.w / 2));
+      const r = Math.min(floorU(ctx.settings.scoopRadius), depth, Math.floor(content.w / 2));
       return { type: "scoop", side, r: fromU(r) };
     }
     const alongX = side === "front" || side === "back";
     const lo = ctx.wall;
     const hi = (alongX ? ctx.W : ctx.D) - ctx.wall;
-    const width = Math.min(toU(ctx.settings.fingerPocket.width), hi - lo);
+    const width = Math.min(ceilU(ctx.settings.fingerPocket.width), hi - lo);
     const centre = alongX ? content.x + content.w / 2 : content.y + content.d / 2;
     const half = Math.ceil(width / 2);
     const at = Math.min(Math.max(Math.round(centre), lo + half), hi - half);
@@ -149,8 +149,12 @@ export function realizeTray(
     );
   }
   const { wall, divider, floor } = min;
-  const wallRoom = Math.max(0, toU(Math.min(2 * settings.wall, WALL_GROW_LIMIT)) - wall);
-  const dividerRoom = Math.max(0, toU(Math.min(2 * settings.divider, WALL_GROW_LIMIT)) - divider);
+  // Growth caps are maximums, so they round down; minimums (wall, divider, pocket) round up.
+  const wallRoom = Math.max(0, floorU(Math.min(2 * settings.wall, WALL_GROW_LIMIT)) - wall);
+  const dividerRoom = Math.max(
+    0,
+    floorU(Math.min(2 * settings.divider, WALL_GROW_LIMIT)) - divider,
+  );
   const spareMin = toU(MIN_SPARE) + divider;
   const innerW = W - 2 * wall;
   const innerD = D - 2 * wall;
