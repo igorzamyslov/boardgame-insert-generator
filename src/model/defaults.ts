@@ -1,6 +1,6 @@
 import { deepFreeze } from "./freeze";
 import { newId } from "./ids";
-import { BED_PRESETS } from "./presets";
+import { BAMBU_256_BED, STANDARD_CARD } from "./presets";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { Box, Component, ComponentKind, Printer, Project } from "./types";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
@@ -18,16 +18,14 @@ export const DEFAULT_BOX: Box = Object.freeze({
   storedOnSide: false,
 });
 
-const defaultBed = BED_PRESETS[0] ?? { bedX: 256, bedY: 256, bedZ: 256 };
-
 /**
  * Printer for a new project. bedMargin and layerHeight also fill files that lack them.
  * Frozen: projects copy it, never alias it.
  */
 export const DEFAULT_PRINTER: Printer = Object.freeze({
-  bedX: defaultBed.bedX,
-  bedY: defaultBed.bedY,
-  bedZ: defaultBed.bedZ,
+  bedX: BAMBU_256_BED.bedX,
+  bedY: BAMBU_256_BED.bedY,
+  bedZ: BAMBU_256_BED.bedZ,
   bedMargin: 5,
   layerHeight: 0.2,
 });
@@ -65,8 +63,8 @@ export function newComponent(kind: ComponentKind): Component {
       return {
         ...base,
         kind,
-        shortSide: 63.5,
-        longSide: 88,
+        shortSide: STANDARD_CARD.shortSide,
+        longSide: STANDARD_CARD.longSide,
         decks: [{ name: "Deck", count: 50 }],
         sleeve: "none",
         thickness: { mode: "preset" },

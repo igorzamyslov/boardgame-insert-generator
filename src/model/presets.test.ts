@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BED_PRESETS, CARD_PRESETS, SLEEVES } from "./presets";
+import { BAMBU_256_BED, BED_PRESETS, CARD_PRESETS, SLEEVES, STANDARD_CARD } from "./presets";
 
 describe("presets", () => {
   it("has the nine card sizes from the spec", () => {
@@ -29,6 +29,13 @@ describe("presets", () => {
       standard: { addThickness: 0.1, addSize: 3 },
       premium: { addThickness: 0.28, addSize: 3 },
     });
+  });
+
+  it("names the standard card and the Bambu bed, first in their lists", () => {
+    expect(CARD_PRESETS[0]).toBe(STANDARD_CARD);
+    expect(STANDARD_CARD).toMatchObject({ id: "standard", shortSide: 63.5, longSide: 88 });
+    expect(BED_PRESETS[0]).toBe(BAMBU_256_BED);
+    expect(BAMBU_256_BED).toMatchObject({ id: "bambu-256", bedX: 256, bedY: 256, bedZ: 256 });
   });
 
   it("has the three bed presets from the spec", () => {

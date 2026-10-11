@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BOX, DEFAULT_PRINTER, newComponent, newProject } from "./defaults";
+import { BAMBU_256_BED, STANDARD_CARD } from "./presets";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ComponentKind } from "./types";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
@@ -55,6 +56,14 @@ describe("newProject", () => {
     expect(DEFAULT_PRINTER.bedZ).toBe(256);
   });
 
+  it("uses the Bambu 256 bed preset for the default printer", () => {
+    expect(DEFAULT_PRINTER).toMatchObject({
+      bedX: BAMBU_256_BED.bedX,
+      bedY: BAMBU_256_BED.bedY,
+      bedZ: BAMBU_256_BED.bedZ,
+    });
+  });
+
   it("gives every project a new id", () => {
     expect(newProject().id).not.toBe(newProject().id);
   });
@@ -82,8 +91,8 @@ describe("newComponent", () => {
   it("defaults cards to Standard size, unsleeved, preset thickness", () => {
     const c = newComponent("cards");
     expect(c).toMatchObject({
-      shortSide: 63.5,
-      longSide: 88,
+      shortSide: STANDARD_CARD.shortSide,
+      longSide: STANDARD_CARD.longSide,
       sleeve: "none",
       thickness: { mode: "preset" },
     });
