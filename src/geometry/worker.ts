@@ -13,5 +13,12 @@ const handle = createGeometryHandler(
 );
 
 self.addEventListener("message", (event: MessageEvent<GeometryRequest>) => {
-  void handle(event.data);
+  handle(event.data).catch((err: unknown) => {
+    // A malformed request, or a response that could not be posted: nothing
+    // can answer that request, so raise an uncaught error. The client's
+    // "error" listener rejects its pending builds and restarts the worker.
+    setTimeout(() => {
+      throw err;
+    }, 0);
+  });
 });

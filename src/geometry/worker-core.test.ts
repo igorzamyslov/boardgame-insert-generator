@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { TraySpec } from "../model/types";
 import { loadManifold } from "./load";
 import { createGeometryHandler } from "./worker-core";
-import type { GeometryResponse } from "./types";
+import type { GeometryRequest, GeometryResponse } from "./types";
 import { GEO, compartment, plainBox } from "./test-specs";
 
 function cyclic(): object {
@@ -38,6 +38,14 @@ describe("geometry worker handler", () => {
       first.message.mesh.positions.buffer,
       first.message.mesh.indices.buffer,
     ]);
+    // Posting with the transfer list moves the buffers: they detach here and
+    // arrive intact on the other side.
+    const { positions, indices } = first.message.mesh;
+    const copy = structuredClone(first.message, { transfer: first.transfer });
+    expect(positions.byteLength).toBe(0);
+    expect(indices.byteLength).toBe(0);
+    expect(copy.type === "built" && copy.mesh.positions.length).toBeGreaterThan(0);
+    expect(copy.type === "built" && copy.mesh.indices.length).toBeGreaterThan(0);
   });
 
   it("answers an invalid or newer-version spec with an error message", async () => {
@@ -86,7 +94,7 @@ describe("geometry worker handler", () => {
     expect(sent).toEqual([{ type: "error", requestId: 3, key: plainBox.key, message }]);
   });
 
-  it("skips a build cancelled before the module finished loading", async () => {
+  it("answers a build cancelled before the module finished loading with an AbortError", async () => {
     const sent: GeometryResponse[] = [];
     let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {
@@ -104,6 +112,101 @@ describe("geometry worker handler", () => {
     await handle({ type: "cancel", requestId: 1 });
     release();
     await Promise.all([first, second]);
-    expect(sent.map((s) => s.requestId)).toEqual([2]);
+    expect(sent.map((s) => [s.requestId, s.type])).toEqual([
+      [1, "error"],
+      [2, "built"],
+    ]);
+    expect(sent[0]).toEqual({
+      type: "error",
+      requestId: 1,
+      key: plainBox.key,
+      name: "AbortError",
+      message: "cancelled",
+    });
+  });
+
+  it("runs queued builds one at a time, in order, and honours a cancel for a queued one", async () => {
+    const { sent, handle } = collect();
+    const keys = ["a", "b", "c", "d", "e"];
+    const done = keys.map((key, i) =>
+      handle({ type: "build", requestId: i + 1, spec: { ...plainBox, key }, settings: GEO }),
+    );
+    // The cancel arrives while 3 is still queued behind 1 and 2.
+    await handle({ type: "cancel", requestId: 3 });
+    await Promise.all(done);
+    expect(sent.map((s) => [s.message.requestId, s.message.type, s.message.key])).toEqual([
+      [1, "built", "a"],
+      [2, "built", "b"],
+      [3, "error", "c"],
+      [4, "built", "d"],
+      [5, "built", "e"],
+    ]);
+    expect(sent[2]?.message).toMatchObject({ name: "AbortError" });
+  });
+
+  it("lets a cancel message through between two queued builds", async () => {
+    const { sent, handle } = collect();
+    const first = handle({ type: "build", requestId: 1, spec: plainBox, settings: GEO });
+    const second = handle({ type: "build", requestId: 2, spec: plainBox, settings: GEO });
+    // Sent only once build 1 has been answered, as the worker's event loop would.
+    await first;
+    await handle({ type: "cancel", requestId: 2 });
+    await second;
+    expect(sent.map((s) => [s.message.requestId, s.message.type])).toEqual([
+      [1, "built"],
+      [2, "error"],
+    ]);
+  });
+
+  it("forgets cancels for finished and unknown builds, so ids can be reused", async () => {
+    const { sent, handle } = collect();
+    await handle({ type: "build", requestId: 1, spec: plainBox, settings: GEO });
+    await handle({ type: "cancel", requestId: 1 });
+    await handle({ type: "cancel", requestId: 99 });
+    await handle({ type: "build", requestId: 1, spec: plainBox, settings: GEO });
+    await handle({ type: "build", requestId: 99, spec: plainBox, settings: GEO });
+    expect(sent.map((s) => [s.message.requestId, s.message.type])).toEqual([
+      [1, "built"],
+      [1, "built"],
+      [99, "built"],
+    ]);
+  });
+
+  it("retries the module load on the next build after a failed load", async () => {
+    const sent: GeometryResponse[] = [];
+    let attempts = 0;
+    const handle = createGeometryHandler(
+      () => {
+        attempts += 1;
+        return attempts === 1 ? Promise.reject(new Error("wasm fetch failed")) : loadManifold();
+      },
+      (message) => sent.push(message),
+    );
+    await handle({ type: "build", requestId: 1, spec: plainBox, settings: GEO });
+    await handle({ type: "build", requestId: 2, spec: plainBox, settings: GEO });
+    expect(sent.map((s) => [s.requestId, s.type])).toEqual([
+      [1, "error"],
+      [2, "built"],
+    ]);
+    expect(sent[0]).toMatchObject({ message: "wasm fetch failed", name: "Error" });
+  });
+
+  it("rejects when a response cannot be posted, so the worker can surface it", async () => {
+    const handle = createGeometryHandler(
+      () => loadManifold(),
+      () => {
+        throw new Error("port closed");
+      },
+    );
+    await expect(
+      handle({ type: "build", requestId: 1, spec: plainBox, settings: GEO }),
+    ).rejects.toThrow("port closed");
+  });
+
+  it("rejects a malformed request instead of queueing it", async () => {
+    const { sent, handle } = collect();
+    const malformed = null as unknown as GeometryRequest;
+    await expect(handle(malformed)).rejects.toThrow(TypeError);
+    expect(sent).toEqual([]);
   });
 });
