@@ -1579,16 +1579,16 @@ git commit -m "Add debounced optimizer runner with stale-result guard"
 
 **Interfaces:**
 
-- Consumes: `State`, `pushNotice`, `dismissNotice` (Task 2); `newProject` (`model/defaults`), `newId` (`model/ids`), `serializeProject`, `noForeign` (`model/schema`); `decodeHash`, `encodeHash`, `importJsonText`, `createProjectStore(storage?: Storage | null)`, `ProjectStore`, `StoreWriteError` (`share`); `MemoryStorage` (`test-support/memory-storage`, tests only).
+- Consumes: `State`, `pushNotice`, `dismissNotice` (Task 2); `newProject` (`model/defaults`), `newId` (`model/ids`), `serializeProject`, `noForeign`, `SCHEMA_NOTICE_CODES` (`model/schema`); `decodeHash`, `encodeHash`, `importJsonText`, `createProjectStore(storage?: Storage | null)`, `ProjectStore`, `StoreWriteError` (`share`); `MemoryStorage` (`test-support/memory-storage`, tests only).
 - Produces:
-  - `SAVE_DEBOUNCE_MS = 500`; notice codes `NEWER_MINOR_CODE = "schema.newerMinor"`, `STORAGE_UNAVAILABLE_CODE = "storage.unavailable"`, `CONFLICT_CODE = "storage.conflict"`, `OPEN_FAILED_CODE = "open.failed"`, `FOREIGN_KEPT_CODE = "schema.foreignKept"`, `SAVE_FAILED_CODE = "storage.saveFailed"`
+  - `SAVE_DEBOUNCE_MS = 500`; notice codes `STORAGE_UNAVAILABLE_CODE = "storage.unavailable"`, `CONFLICT_CODE = "storage.conflict"`, `OPEN_FAILED_CODE = "open.failed"`, `SAVE_FAILED_CODE = "storage.saveFailed"` (parse notice codes such as `schema.newerMinor` come from plan 1's `SCHEMA_NOTICE_CODES`, never redeclared here)
   - `type OpenSource = "link" | "file"`; `type ConflictChoice = "keepMine" | "loadTheirs"`
   - `interface PersistenceDeps { projectStore: ProjectStore; replaceHash: (hash: string) => void; confirm: (message: string) => boolean }`
   - `interface PersistenceHooks { onClosing: () => void; onOpened: () => void }`
   - `interface Persistence { scheduleSave(): void; flush(): void; start(hash: string): void; openFromHash(hash: string): boolean; openParsed(result: ParseResult, source: OpenSource): boolean; openProject(id: string): void; newProject(): void; deleteProject(id: string): void; importJson(text: string): boolean; onExternalChange(): void; resolveConflict(choice: ConflictChoice): void; dispose(): void }`
   - `createPersistence(state: State, deps: PersistenceDeps, hooks: PersistenceHooks): Persistence`
 
-Rules implemented (spec §8.4, §9, §10): startup order hash → most recent stored project → `newProject()`; a link or file is added as its own project — if its id exists with different content it becomes a copy with a new id, never an overwrite; failed opens keep the current project and show the reason; newer-minor files set `needsConfirm`; foreign components get a "kept but not laid out" notice; saves are debounced, write the URL hash with `replaceHash`, turn a thrown `StoreWriteError` (quota, blocked write — the store has already restored its previous state) into an "Autosave failed" warning that clears on the next successful save, and pause with a conflict notice if another tab saved the same id since we last saw it; storage unavailable → notice, everything else works.
+Rules implemented (spec §8.4, §9, §10): startup order hash → most recent stored project → `newProject()`; a link or file is added as its own project — if its id exists with different content it becomes a copy with a new id, never an overwrite; failed opens keep the current project and show the reason; newer-minor files set `needsConfirm`; foreign components are reported by plan 1's per-component `schema.foreignComponent` warnings ("kept but not laid out"), shown with the other parse notices; saves are debounced, write the URL hash with `replaceHash`, turn a thrown `StoreWriteError` (quota, blocked write — the store has already restored its previous state) into an "Autosave failed" warning that clears on the next successful save, and pause with a conflict notice if another tab saved the same id since we last saw it; storage unavailable → notice, everything else works.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1597,12 +1597,11 @@ Rules implemented (spec §8.4, §9, §10): startup order hash → most recent st
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
+import { SCHEMA_NOTICE_CODES } from "../model/schema";
 import { createProjectStore, encodeHash } from "../share";
 import type { ProjectStore } from "../share";
 import {
   CONFLICT_CODE,
-  FOREIGN_KEPT_CODE,
-  NEWER_MINOR_CODE,
   OPEN_FAILED_CODE,
   SAVE_DEBOUNCE_MS,
   SAVE_FAILED_CODE,
@@ -1831,14 +1830,26 @@ describe("persistence", () => {
         ok: true,
         project: p,
         foreign: { components: [{ index: 0, raw: { kind: "dice", id: "zz" } }] },
-        notices: [{ level: "warning", code: NEWER_MINOR_CODE, message: "Made with app 0.2.0" }],
+        notices: [
+          {
+            level: "warning",
+            code: SCHEMA_NOTICE_CODES.newerMinor,
+            message: "Made with app 0.2.0",
+          },
+          {
+            level: "warning",
+            code: SCHEMA_NOTICE_CODES.foreignComponent,
+            path: "/components/0",
+            message: "Component 1 in the file uses features this app version doesn't know.",
+          },
+        ],
       },
       "file",
     );
     expect(t.state.needsConfirm.value).toBe(true);
     const codes = t.state.appNotices.value.map((n) => n.code);
-    expect(codes).toContain(NEWER_MINOR_CODE);
-    expect(codes).toContain(FOREIGN_KEPT_CODE);
+    expect(codes).toContain(SCHEMA_NOTICE_CODES.newerMinor);
+    expect(codes).toContain(SCHEMA_NOTICE_CODES.foreignComponent);
   });
 });
 ```
@@ -1855,7 +1866,7 @@ Expected: FAIL — `Failed to resolve import "./persistence"`.
 import { batch } from "@preact/signals";
 import { newProject as makeNewProject } from "../model/defaults";
 import { newId } from "../model/ids";
-import { noForeign, serializeProject } from "../model/schema";
+import { SCHEMA_NOTICE_CODES, noForeign, serializeProject } from "../model/schema";
 import type { ForeignData, Notice, ParseResult, Project } from "../model/types";
 import { StoreWriteError, decodeHash, encodeHash, importJsonText } from "../share";
 import type { ProjectStore } from "../share";
@@ -1863,11 +1874,9 @@ import { dismissNotice, pushNotice } from "./state";
 import type { State } from "./state";
 
 export const SAVE_DEBOUNCE_MS = 500;
-export const NEWER_MINOR_CODE = "schema.newerMinor";
 export const STORAGE_UNAVAILABLE_CODE = "storage.unavailable";
 export const CONFLICT_CODE = "storage.conflict";
 export const OPEN_FAILED_CODE = "open.failed";
-export const FOREIGN_KEPT_CODE = "schema.foreignKept";
 export const SAVE_FAILED_CODE = "storage.saveFailed";
 
 export type OpenSource = "link" | "file";
@@ -1993,16 +2002,6 @@ export function createPersistence(
     flush();
     hooks.onClosing();
     const kept = state.appNotices.value.filter((n) => n.code === STORAGE_UNAVAILABLE_CODE);
-    const extra: Notice[] =
-      foreign.components.length > 0
-        ? [
-            {
-              level: "info",
-              code: FOREIGN_KEPT_CODE,
-              message: `${foreign.components.length} component(s) from a newer app version are kept but not laid out.`,
-            },
-          ]
-        : [];
     batch(() => {
       state.project.value = project;
       state.foreign.value = foreign;
@@ -2012,8 +2011,10 @@ export function createPersistence(
       state.run.value = { status: "idle" };
       state.conflict.value = false;
       state.needsConfirm.value =
-        foreign.components.length > 0 || notices.some((n) => n.code === NEWER_MINOR_CODE);
-      state.appNotices.value = [...kept, ...notices, ...extra];
+        foreign.components.length > 0 ||
+        notices.some((n) => n.code === SCHEMA_NOTICE_CODES.newerMinor);
+      // Parse notices include one schema.foreignComponent warning per kept component.
+      state.appNotices.value = [...kept, ...notices];
     });
     active = true;
     knownUpdatedAt = entryOf(project.id)?.updatedAt ?? null;
