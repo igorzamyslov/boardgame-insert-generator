@@ -164,15 +164,16 @@ export function maxCornerRadius(p: number, q: number, rho: number): number {
  * bounds, for a sharp well corner at the wall at the well floor f:
  * - straight faces keep wall + f − c ≥ MIN_FEATURE_MM;
  * - at the corner R = c is the worst case, with material f − √2·(c − wall) (arc distance
- *   R − e − √2·(R − wall), e = c − f), so c ≤ wall + (f − MIN_FEATURE_MM)/√2. This implies the
- *   straight-face bound whenever f ≥ MIN_FEATURE_MM; both are kept for out-of-range input;
- * - without the chamfer's e (c ≤ f), the corner limit maxCornerRadius(wall, wall, 0), which
- *   also keeps CORNER_MARGIN clear of the polygon-approximated arc.
+ *   R − e − √2·(R − wall), e = c − f); like every corner term it keeps CORNER_MARGIN on top
+ *   (the polygon approximating the arc lies up to 0.08 mm inside it), so
+ *   c ≤ wall + (f − MIN_FEATURE_MM − CORNER_MARGIN)/√2. For f ≥ MIN_FEATURE_MM + CORNER_MARGIN this
+ *   implies the straight-face bound; both are kept for other input;
+ * - without the chamfer's e (c ≤ f), the corner limit maxCornerRadius(wall, wall, 0).
  */
 export function maxBottomChamfer(s: Settings): number {
   return Math.min(
     s.wall + s.floor - MIN_FEATURE_MM,
-    s.wall + (s.floor - MIN_FEATURE_MM) / Math.SQRT2,
+    s.wall + (s.floor - MIN_FEATURE_MM - CORNER_MARGIN) / Math.SQRT2,
     maxCornerRadius(s.wall, s.wall, 0),
   );
 }

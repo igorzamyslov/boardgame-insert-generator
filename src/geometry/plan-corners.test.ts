@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
 import {
+  CORNER_MARGIN,
   MIN_FEATURE_MM,
   SPEC_TOLERANCE,
   maxBottomChamfer,
@@ -8,6 +9,7 @@ import {
 } from "../model/settings";
 import type { Settings } from "../model/types";
 import { INNER_CORNER_RADIUS } from "./plan-types";
+import { quarterSegments, roundedRectRing } from "./shapes";
 import type { TrayPlan } from "./plan-types";
 import { GEO, compartment, hexTiles, traySpec } from "./test-specs";
 
@@ -86,20 +88,29 @@ describe("outer corner radius", () => {
   });
 });
 
-// Material between a point of the cut and the outer surface at height z, on the true outer
-// contour (no polygon error): the rounded rectangle pulled in by e = chamfer − z below the
-// chamfer top, with arc radius R − e.
+// Material between a point of the cut and the outer surface at height z, measured on the
+// polygon tray geometry builds: the rounded rectangle pulled in by e = chamfer − z below the
+// chamfer top (arc radius R − e), its corners split into quarterSegments(R) segments. The ring is
+// convex, so the material is the smallest distance to the lines of its edges.
 function materialAt(plan: TrayPlan, x: number, y: number, z: number): number {
   const e = Math.max(0, plan.chamfer - z);
-  const p = Math.min(x, plan.w - x);
-  const q = Math.min(y, plan.d - y);
   const R = plan.cornerRadius;
-  return p < R && q < R ? R - e - Math.hypot(R - p, R - q) : Math.min(p, q) - e;
+  const ring = roundedRectRing(e, e, plan.w - e, plan.d - e, R - e, quarterSegments(R));
+  let material = Number.POSITIVE_INFINITY;
+  ring.forEach(([ax, ay], i) => {
+    const [bx, by] = ring[(i + 1) % ring.length] ?? [ax, ay];
+    const length = Math.hypot(bx - ax, by - ay);
+    if (length > 1e-9) {
+      material = Math.min(material, ((bx - ax) * (y - ay) - (by - ay) * (x - ax)) / length);
+    }
+  });
+  return material;
 }
 
-// Thinnest outer material at the floor of the compartment, over its sharp corners, the rounded
-// corners (inner radius) and the relief circles.
-function thinnestAtFloor(plan: TrayPlan): number {
+// Thinnest outer material at the floor of the compartment, over its rounded corners (the real cut,
+// inner radius) and the relief circles; with `sharp` also over the sharp corners, which is what
+// planCornerRadius assumes.
+function thinnestAtFloor(plan: TrayPlan, sharp: boolean): number {
   let thinnest = Number.POSITIVE_INFINITY;
   const sample = (x: number, y: number, z: number): void => {
     thinnest = Math.min(thinnest, materialAt(plan, x, y, z));
@@ -112,7 +123,9 @@ function thinnestAtFloor(plan: TrayPlan): number {
       [x1, y1, -1, -1],
       [x0, y1, 1, -1],
     ] as const) {
-      sample(x, y, c.floorZ);
+      if (sharp) {
+        sample(x, y, c.floorZ);
+      }
       const ri = INNER_CORNER_RADIUS;
       for (let i = 0; i <= 16; i++) {
         const t = (i / 16) * (Math.PI / 2);
@@ -167,7 +180,13 @@ describe("corner material under the bottom chamfer", () => {
       });
       const plan = planTray(spec, settings);
       expect(plan.chamfer).toBeCloseTo(settings.bottomChamfer, 9);
-      expect(thinnestAtFloor(plan)).toBeGreaterThanOrEqual(MIN_FEATURE_MM - SPEC_TOLERANCE);
+      const limit = MIN_FEATURE_MM - SPEC_TOLERANCE;
+      expect(thinnestAtFloor(plan, false)).toBeGreaterThanOrEqual(limit);
+      // Walls thinner than 0.8 + CORNER_MARGIN keep the disc on the arc's tangent line instead of
+      // a margin (maxCornerRadius), so the sharp-corner assumption only holds from there on.
+      if (wall >= MIN_FEATURE_MM + CORNER_MARGIN) {
+        expect(thinnestAtFloor(plan, true)).toBeGreaterThanOrEqual(limit);
+      }
     },
   );
 

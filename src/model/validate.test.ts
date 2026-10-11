@@ -562,18 +562,21 @@ describe("setting ranges", () => {
       p.settings = { ...p.settings, wall, floor, bottomChamfer };
       return p;
     };
-    // Defaults: 1.6 + 0.4/√2 = 1.883 mm at most.
-    expect(validateProject(withChamfer(1.6, 1.2, 1.88))).toEqual([]);
-    expect(codes(validateProject(withChamfer(1.6, 1.2, 1.89)))).toEqual([
+    // Defaults: 1.6 + 0.3/√2 = 1.812 mm at most.
+    expect(validateProject(withChamfer(1.6, 1.2, 1.81))).toEqual([]);
+    expect(codes(validateProject(withChamfer(1.6, 1.2, 1.82)))).toEqual([
       [field.bottomChamfer, "/settings/bottomChamfer"],
     ]);
-    // 0.8 mm walls and floor: at most 0.8 mm.
-    expect(validateProject(withChamfer(0.8, 0.8, 0.8))).toEqual([]);
+    // 0.8 mm walls and floor: at most 0.8 − 0.1/√2 = 0.729 mm.
+    expect(validateProject(withChamfer(0.8, 0.8, 0.72))).toEqual([]);
+    expect(codes(validateProject(withChamfer(0.8, 0.8, 0.74)))).toEqual([
+      [field.bottomChamfer, "/settings/bottomChamfer"],
+    ]);
     expect(codes(validateProject(withChamfer(0.8, 0.8, 3)))).toEqual([
       [field.bottomChamfer, "/settings/bottomChamfer"],
     ]);
     expect(settingsValid(withChamfer(0.8, 0.8, 3).settings)).toBe(false);
-    expect(settingsValid(withChamfer(0.8, 0.8, 0.8).settings)).toBe(true);
+    expect(settingsValid(withChamfer(0.8, 0.8, 0.72).settings)).toBe(true);
   });
 
   it("does not add a chamfer notice when the wall, floor or chamfer is out of range", () => {

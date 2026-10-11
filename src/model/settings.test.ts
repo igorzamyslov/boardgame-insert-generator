@@ -177,13 +177,14 @@ describe("bottom chamfer rules", () => {
   it("allows the chamfer the wall, floor and outer corner can take", () => {
     const at = (wall: number, floor: number) =>
       maxBottomChamfer({ ...DEFAULT_SETTINGS, wall, floor });
-    // wall + (floor − 0.8)/√2: a sharp well corner keeps 0.8 mm at the floor (corner material
-    // floor − √2·(c − wall)), tighter than wall + floor − 0.8 for the straight faces.
-    expect(at(1.6, 1.2)).toBeCloseTo(1.6 + 0.4 / Math.SQRT2, 9);
-    expect(at(1.2, 1.2)).toBeCloseTo(1.2 + 0.4 / Math.SQRT2, 9);
-    expect(at(3, 3)).toBeCloseTo(3 + 2.2 / Math.SQRT2, 9);
+    // wall + (floor − 0.8 − 0.1)/√2: a sharp well corner keeps 0.8 mm plus the arc margin at the
+    // floor (corner material floor − √2·(c − wall)), tighter than wall + floor − 0.8 for the
+    // straight faces.
+    expect(at(1.6, 1.2)).toBeCloseTo(1.6 + 0.3 / Math.SQRT2, 9);
+    expect(at(1.2, 1.2)).toBeCloseTo(1.2 + 0.3 / Math.SQRT2, 9);
+    expect(at(3, 3)).toBeCloseTo(3 + 2.1 / Math.SQRT2, 9);
+    expect(at(0.8, 0.8)).toBeCloseTo(0.8 - 0.1 / Math.SQRT2, 9);
     // 0.8 mm walls: the outer corner limit is the wall itself.
     expect(at(0.8, 3)).toBeCloseTo(0.8, 9);
-    expect(at(0.8, 0.8)).toBeCloseTo(0.8, 9);
   });
 });
