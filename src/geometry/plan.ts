@@ -7,6 +7,7 @@ import {
   chamferMinimums,
   effectiveBottomChamfer,
   maxChannelSpacing,
+  maxWellFaceOffset,
 } from "../model/settings";
 import { UnsupportedFeatureError } from "./errors";
 import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
@@ -247,18 +248,27 @@ function onlyInOverlap(slot: SlotPlan, content: Rect, other: Rect): boolean {
   }
 }
 
+function opposite(a: Side, b: Side): boolean {
+  const pairs: Record<Side, Side> = { front: "back", back: "front", left: "right", right: "left" };
+  return pairs[a] === b;
+}
+
+interface PlacedSlot {
+  plan: CompartmentPlan;
+  slot: SlotPlan;
+}
+
 // Finger slot clearance (roadmap §4.6). A slot keeps MIN_FEATURE_MM (along x or y) from
 // - the contents of every other compartment, unless those reach into it only within its overlap
-//   into its own contents (a 0.5 mm neck, bridged on both sides);
-// - every slot of another compartment, except its twins (one band line): taken in order along the
-//   side, neighbouring twins either keep apart or merge into one channel, their centres at most
-//   maxChannelSpacing apart, so the ridge left between their round bottoms is ≥ MIN_FEATURE_MM
-//   wide MIN_FEATURE_MM below its top. A twin further along is then either further apart or cut
-//   away by the slots between.
-// A partial overlap is rejected: a round bottom ending just past a well's face leaves a feather.
-// Slots of one compartment are not checked against each other (sizing never puts two on one side).
+//   into its own contents (checkWellFaces judges their faces);
+// - every other slot, except its twins (one band line: same side, band, width and bottom) and the
+//   slot on the opposite side of its own compartment (only the contents lie between them): taken
+//   in order along the side, neighbouring twins either keep apart or merge into one channel, their
+//   centres at most maxChannelSpacing apart, so the ridge left between their round bottoms is
+//   ≥ MIN_FEATURE_MM wide MIN_FEATURE_MM below its top. A twin further along is then either
+//   further apart or cut away by the slots between.
 function checkSlotClearance(spec: TraySpec, plans: CompartmentPlan[]): void {
-  const slots = plans.flatMap((plan) => plan.slots.map((slot) => ({ plan, slot })));
+  const slots: PlacedSlot[] = plans.flatMap((plan) => plan.slots.map((slot) => ({ plan, slot })));
   const min = MIN_FEATURE_MM - TOL;
   for (const { plan, slot } of slots) {
     const where = `compartment ${plan.index}: a finger pocket comes within ${MIN_FEATURE_MM} mm of`;
@@ -272,7 +282,8 @@ function checkSlotClearance(spec: TraySpec, plans: CompartmentPlan[]): void {
       }
     }
     for (const t of slots) {
-      if (t.plan !== plan && !twins(slot, t.slot) && separation(slot, t.slot) < min) {
+      const across = t.plan === plan && opposite(slot.side, t.slot.side);
+      if (t.slot !== slot && !across && !twins(slot, t.slot) && separation(slot, t.slot) < min) {
         fail(spec, `${where} a finger pocket of compartment ${t.plan.index}`);
       }
     }
@@ -288,6 +299,62 @@ function checkSlotClearance(spec: TraySpec, plans: CompartmentPlan[]): void {
           spec,
           `${where} a finger pocket of compartment ${next.plan.index} without merging into one channel (centres ${spacing.toFixed(2)} mm apart, at most ${most.toFixed(2)} mm)`,
         );
+      }
+    }
+  }
+  checkWellFaces(spec, plans, slots);
+}
+
+// The well faces a slot meets within its overlap into the contents (its own compartment's and
+// those of compartments sharing its band line). Where a round bottom crosses such a face with the
+// solid side toward its centre, it leaves a wedge between the two; the wedge is ≥ MIN_FEATURE_MM
+// wide MIN_FEATURE_MM below its tip only while the face is at most maxWellFaceOffset from the
+// centre. The lowest bottom at the face decides: that of the covering twin whose centre is
+// nearest. A centre on the contents' side of the face leaves an obtuse edge, which is fine. A
+// face no slot covers keeps MIN_FEATURE_MM from the end of every slot on its solid side.
+function checkWellFaces(spec: TraySpec, plans: CompartmentPlan[], slots: PlacedSlot[]): void {
+  for (const { plan, slot } of slots) {
+    const alongX = slot.side === "front" || slot.side === "back";
+    const span = (t: SlotPlan): [number, number] => (alongX ? [t.x0, t.x1] : [t.y0, t.y1]);
+    const [lo, hi] = span(slot);
+    const line = slots.filter((t) => twins(slot, t.slot));
+    for (const other of plans) {
+      if (!onlyInOverlap(slot, plan.content, other.content)) {
+        continue;
+      }
+      const c = other.content;
+      // Each face, and the direction its solid side lies in.
+      for (const [face, solid] of [
+        [alongX ? c.x0 : c.y0, -1],
+        [alongX ? c.x1 : c.y1, 1],
+      ] as const) {
+        const covering = line.filter((t) => {
+          const [a, b] = span(t.slot);
+          return a < face - TOL && b > face + TOL;
+        });
+        const at = `the well face of compartment ${other.index} at ${face.toFixed(2)} mm`;
+        if (covering.length === 0) {
+          const end = solid < 0 ? hi : lo;
+          const short = solid * (end - face);
+          if (short > -TOL && short < MIN_FEATURE_MM - TOL) {
+            fail(
+              spec,
+              `compartment ${plan.index}: a finger pocket ends less than ${MIN_FEATURE_MM} mm short of ${at}`,
+            );
+          }
+          continue;
+        }
+        const nearest = covering.reduce((best, t) =>
+          Math.abs(slotCentre(t.slot) - face) < Math.abs(slotCentre(best.slot) - face) ? t : best,
+        );
+        const dx = solid * (slotCentre(nearest.slot) - face);
+        const most = maxWellFaceOffset(nearest.slot.radius);
+        if (dx > most + TOL) {
+          fail(
+            spec,
+            `compartment ${nearest.plan.index}: a finger pocket crosses ${at} ${dx.toFixed(2)} mm from its centre (at most ${most.toFixed(2)} mm)`,
+          );
+        }
       }
     }
   }

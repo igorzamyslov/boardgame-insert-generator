@@ -2,8 +2,10 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
+import { DEFAULT_SETTINGS } from "../model/settings";
 import type { TraySpec } from "../model/types";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
+import { cards, partOf } from "../sizing/test-helpers";
 import type { RealizeOptions } from "../sizing/types";
 import { loadManifold } from "./load";
 import { buildTray } from "./tray";
@@ -261,6 +263,43 @@ describe("finger slot clearance regression (plan 3)", () => {
     );
     expect(spec).toEqual(slotBesideSlack);
     expectWellFormed(slotBesideSlack, slotBesideSlack.h + GEO.lip.height);
+  });
+});
+
+describe("well face regression (review round 2)", () => {
+  // Two decks, sleeve "none", in one strip: the narrow deck's 22 mm slot used to end just past the
+  // other deck's well face, leaving a feather under its round bottom inside the 0.5 mm overlap.
+  const settings = DEFAULT_SETTINGS;
+  const ground: RealizeOptions = { lipped: false, level: 0 };
+  const cases: [string, [number, number], number][] = [
+    ["60 then 120 cards at minOuter", [60, 120], 0],
+    ["120 then 56 cards, 7 mm wider", [120, 56], 7],
+  ];
+
+  it.each(cases)("%s builds printable", (_label, [first, second], slack) => {
+    const part = partOf(
+      [
+        cards({
+          sleeve: "none",
+          decks: [
+            { name: "First", count: first },
+            { name: "Second", count: second },
+          ],
+        }),
+      ],
+      "upright-long|strip|split1",
+    );
+    const min = minOuter(part, settings, ground);
+    const outer = { ...min, w: min.w + slack };
+    const spec = traySpecFrom(
+      realizeTray(part, outer, settings, ground),
+      outer,
+      ground,
+      settings,
+      part.trayKey,
+    );
+    const report = checkPrintability(buildTray(m, spec, settings).mesh);
+    expect(report.problems).toEqual([]);
   });
 });
 
