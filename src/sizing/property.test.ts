@@ -168,12 +168,16 @@ const componentsArb: Arbitrary<Component[]> = fc
     }),
   );
 
-/** Wall, divider, floor, lip and finger pocket values on a 0.001 mm grid, inside SETTING_RANGES. */
+/**
+ * Wall, divider, floor, bottom chamfer, lip and finger pocket values on a 0.001 mm grid, inside
+ * SETTING_RANGES.
+ */
 const settingsArb: Arbitrary<Settings> = fc
   .record({
     wall: setting(0.8, 3),
     divider: setting(0.8, 3),
     floor: setting(0.8, 3),
+    bottomChamfer: setting(0, 3),
     fit: fc.constantFrom(0.7, 1, 1.4),
     lip: fc.record({
       enabled: fc.boolean(),
@@ -189,6 +193,7 @@ const settingsArb: Arbitrary<Settings> = fc
     wall: r.wall,
     divider: r.divider,
     floor: r.floor,
+    bottomChamfer: r.bottomChamfer,
     fit: r.fit,
     lip: { ...DEFAULT_SETTINGS.lip, ...r.lip },
     // Odd and even unit counts of 0.01 mm alike, with a third decimal on top.

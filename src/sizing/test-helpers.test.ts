@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { CompartmentSpec } from "../model/types";
+import type { CompartmentSpec, TraySpec } from "../model/types";
 import { assertTrayInvariants, at } from "./test-helpers";
 import type { OuterSize, RealizeOptions, RealizedTray } from "./types";
 
@@ -51,6 +51,47 @@ describe("assertTrayInvariants", () => {
         DEFAULT_SETTINGS,
         ground,
       );
+    }).toThrow();
+  });
+
+  it("rejects a tray too small for its bottom chamfer", () => {
+    const steep = { ...DEFAULT_SETTINGS, bottomChamfer: 3 };
+    const tray = trayWithSlot(12.6);
+    expect(() => {
+      assertTrayInvariants(tray, outer, steep, ground);
+    }).not.toThrow();
+    expect(() => {
+      assertTrayInvariants(tray, { ...outer, h: 3.79 }, steep, ground);
+    }).toThrow();
+  });
+
+  it("rejects a spacer too small for its bottom chamfer", () => {
+    const spacer: TraySpec = {
+      key: "c1:p0:0:spacer",
+      part: "spacer",
+      path: "",
+      stack: 0,
+      level: 0,
+      x: 10,
+      y: 13.6,
+      z: 1.2,
+      w: 7.59,
+      d: 92.5,
+      h: 63,
+      rotated: false,
+      wall: 0,
+      floor: 0,
+      lip: false,
+      solid: true,
+      compartments: [],
+    };
+    const steep = { ...DEFAULT_SETTINGS, bottomChamfer: 3 };
+    const tray = { ...trayWithSlot(12.6), spacers: [spacer] };
+    expect(() => {
+      assertTrayInvariants(tray, outer, DEFAULT_SETTINGS, ground);
+    }).not.toThrow();
+    expect(() => {
+      assertTrayInvariants(tray, outer, steep, ground);
     }).toThrow();
   });
 });

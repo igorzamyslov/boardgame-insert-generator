@@ -7,7 +7,7 @@ import {
   WALL_GROW_LIMIT,
 } from "./constants";
 import { pocketSides, reachU } from "./common";
-import { minLayoutU, wallFor } from "./outer";
+import { chamferMinimumsU, minLayoutU, wallFor } from "./outer";
 import type { CompartmentReq, OuterSize, RealizeOptions, RealizedTray, TrayPartReq } from "./types";
 import { ceilU, fillCapped, floorU, fromU, splitEven, sum, toU } from "./units";
 
@@ -129,6 +129,27 @@ function spacerSpec(
   };
 }
 
+/**
+ * Whether the spare stack length `length` of `req` becomes a spacer: at least MIN_SPACER long and
+ * tall (content depth − SPACER_TOP_GAP), and big enough for the spacer's own bottom chamfer.
+ */
+function spacerFits(
+  req: CompartmentReq,
+  length: number,
+  reach: number,
+  settings: Settings,
+): boolean {
+  const chamfer = chamferMinimumsU(settings, 0);
+  const bands = pocketSides(req.features).filter((s) => s === "front" || s === "back").length;
+  const depth = toU(req.minD) - bands * reach; // the well's depth, which the spacer spans
+  const height = toU(req.minH) - toU(SPACER_TOP_GAP);
+  return (
+    length >= Math.max(toU(MIN_SPACER), chamfer.side) &&
+    depth >= chamfer.side &&
+    height >= Math.max(toU(MIN_SPACER), chamfer.h)
+  );
+}
+
 function rectSpec(r: Rect): Pick<CompartmentSpec, "x" | "y" | "w" | "d"> {
   return { x: fromU(r.x), y: fromU(r.y), w: fromU(r.w), d: fromU(r.d) };
 }
@@ -150,6 +171,8 @@ export function realizeTray(
     );
   }
   const { wall, divider, floor } = min;
+  // The band realize reserves is the reach each pocket reports, rounded up to whole units.
+  const reach = reachU(settings);
   // Growth caps are maximums, so they round down; minimums (wall, divider, pocket) round up.
   const wallRoom = Math.max(0, floorU(Math.min(2 * settings.wall, WALL_GROW_LIMIT)) - wall);
   const dividerRoom = Math.max(
@@ -212,12 +235,7 @@ export function realizeTray(
     } else {
       const candidate = lastIndex(row, (c) => c.spacerAxis === "w");
       const req = row[candidate];
-      if (
-        !spacerUsed &&
-        req !== undefined &&
-        slack >= toU(MIN_SPACER) &&
-        toU(req.minH) - toU(SPACER_TOP_GAP) >= toU(MIN_SPACER)
-      ) {
+      if (!spacerUsed && req !== undefined && spacerFits(req, slack, reach, settings)) {
         growth[candidate] = slack;
         spacerAt = candidate;
         spacerUsed = true;
@@ -254,8 +272,6 @@ export function realizeTray(
     spares.push({ x: wall, y: rowsEnd + divider, w: innerW, d: spareRowDepth });
   }
 
-  // The band realize reserves is the reach each pocket reports, rounded up to whole units.
-  const reach = reachU(settings);
   const ctx: FeatureContext = { W, D, wall, reach, settings };
   const spacers: TraySpec[] = [];
   const compartments: CompartmentSpec[] = placed.map(({ req, alloc, spacer }) => {

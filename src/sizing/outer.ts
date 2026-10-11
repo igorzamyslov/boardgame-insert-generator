@@ -1,6 +1,6 @@
 import { MIN_FEATURE_MM } from "../model/settings";
 import type { Settings, Side } from "../model/types";
-import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
+import { UPPER_MIN_CHAMFER, UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
 import { pocketSides } from "./common";
 import type { CompartmentReq, OuterSize, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, fromU, maxOf, sum, toU } from "./units";
@@ -12,6 +12,17 @@ export function wallFor(settings: Settings, lipped: boolean): number {
     return base;
   }
   return Math.max(base, settings.lip.thickness + settings.lip.ledge);
+}
+
+/**
+ * The smallest outer footprint side and height (0.01 mm units) the geometry builds under a 45°
+ * bottom chamfer c: 2·(c + MIN_FEATURE_MM) and c + MIN_FEATURE_MM (plan 3, planTray). c is
+ * bottomChamfer, at least UPPER_MIN_CHAMFER above level 0; spacers pass level 0.
+ */
+export function chamferMinimumsU(settings: Settings, level: number): { side: number; h: number } {
+  const base = Math.max(0, settings.bottomChamfer);
+  const c = level > 0 ? Math.max(base, UPPER_MIN_CHAMFER) : base;
+  return { side: ceilU(2 * (c + MIN_FEATURE_MM)), h: ceilU(c + MIN_FEATURE_MM) };
 }
 
 /** strip → one row; rows2 → first ceil(n/2) items, then the rest. Empty rows are dropped. */
@@ -33,7 +44,7 @@ export interface MinLayout {
   rowDepths: number[]; // per row: the deepest compartment's minD, rounded up
   innerW: number;
   innerD: number;
-  w: number;
+  w: number; // innerW + 2·wall, or more for the bottom chamfer (chamferMinimumsU)
   d: number;
   h: number;
 }
@@ -64,10 +75,14 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
     hasPocketOn(part, ["left", "right"]) ? pocketWidth : 0,
   );
   const content = floor + maxOf(part.compartments.map((c) => toU(c.minH)));
-  const h =
+  const chamfer = chamferMinimumsU(settings, opts.level);
+  const h = Math.max(
+    content,
+    chamfer.h,
     opts.level > 0 && settings.lip.enabled
-      ? Math.max(content, ceilU(settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP))
-      : content;
+      ? ceilU(settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP)
+      : 0,
+  );
   return {
     wall,
     divider,
@@ -77,8 +92,8 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
     rowDepths,
     innerW,
     innerD,
-    w: innerW + 2 * wall,
-    d: innerD + 2 * wall,
+    w: Math.max(innerW + 2 * wall, chamfer.side),
+    d: Math.max(innerD + 2 * wall, chamfer.side),
     h,
   };
 }

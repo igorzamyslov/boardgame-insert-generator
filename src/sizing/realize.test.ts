@@ -66,6 +66,19 @@ describe("realizeTray", () => {
     ]);
   });
 
+  it("makes a spacer only when it is long enough for its bottom chamfer", () => {
+    // 6 mm of spare stack: a spacer at the default 0.4 mm chamfer (needs max(5, 2.4) mm) …
+    const six = { w: 32.7, d: 119.7, h: 69.2 };
+    expect(realizeTray(single, six, s, ground).spacers.map((sp) => sp.w)).toEqual([6]);
+    // … but not at a 3 mm chamfer, which needs 2 × (3 + 0.8) = 7.6 mm.
+    const steep: Settings = { ...s, bottomChamfer: 3 };
+    const r = realizeTray(single, six, steep, ground);
+    expect(r.spacers).toEqual([]);
+    assertTrayInvariants(r, six, steep, ground);
+    const longer = { ...six, w: 34.3 };
+    expect(realizeTray(single, longer, steep, ground).spacers.map((sp) => sp.w)).toEqual([7.6]);
+  });
+
   it("thickens walls first, then adds a spare row for depth slack", () => {
     const r = realizeTray(single, { w: 26.7, d: 139.7, h: 69.2 }, s, ground);
     expect(r.compartments).toHaveLength(2);

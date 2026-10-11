@@ -11,7 +11,7 @@ import type {
   TilesComponent,
 } from "../model/types";
 import { size } from "./group";
-import { wallFor } from "./outer";
+import { chamferMinimumsU, wallFor } from "./outer";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, floorU, fromU } from "./units";
 
@@ -108,8 +108,9 @@ export function partOf(
 
 /**
  * Asserts the geometry contract of a realized tray (roadmap §4.6) in whole 0.01 mm units:
- * compartments keep a divider apart and a wall from every outer face, floors sit inside the
- * tray, and finger slots stay between the inner faces.
+ * the tray and its spacers are big enough for their bottom chamfer, compartments keep a divider
+ * apart and a wall from every outer face, floors sit inside the tray, and finger slots stay
+ * between the inner faces.
  */
 export function assertTrayInvariants(
   realized: RealizedTray,
@@ -124,6 +125,17 @@ export function assertTrayInvariants(
   const W = floorU(outer.w);
   const D = floorU(outer.d);
   const H = floorU(outer.h);
+  const chamfer = chamferMinimumsU(settings, opts.level);
+  expect(Math.min(W, D), "tray footprint vs bottom chamfer").toBeGreaterThanOrEqual(chamfer.side);
+  expect(H, "tray height vs bottom chamfer").toBeGreaterThanOrEqual(chamfer.h);
+  const spacerChamfer = chamferMinimumsU(settings, 0);
+  for (const sp of realized.spacers) {
+    expect(
+      Math.min(u(sp.w), u(sp.d)),
+      `${sp.key} footprint vs bottom chamfer`,
+    ).toBeGreaterThanOrEqual(spacerChamfer.side);
+    expect(u(sp.h), `${sp.key} height vs bottom chamfer`).toBeGreaterThanOrEqual(spacerChamfer.h);
+  }
   const list = realized.compartments;
   list.forEach((c, i) => {
     const label = `compartment ${i} (${c.contents})`;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Settings } from "../model/types";
 import { minOuter, rowsOf, wallFor } from "./outer";
-import { cards, custom, partOf } from "./test-helpers";
+import { cards, custom, partOf, tiles } from "./test-helpers";
 import type { RealizeOptions, TrayPartReq } from "./types";
 
 const s: Settings = DEFAULT_SETTINGS;
@@ -39,6 +39,55 @@ describe("minOuter", () => {
   it("adds walls and floor around one upright deck", () => {
     // inner 23.50 × 116.50, content 68 → 26.7 × 119.7 × 69.2
     expect(minOuter(single, s, ground)).toEqual({ w: 26.7, d: 119.7, h: 69.2 });
+  });
+
+  it("leaves room for the bottom chamfer c: w, d ≥ 2·(c + 0.8) and h ≥ c + 0.8", () => {
+    const pip = (thickness: number, cfg: Settings): TrayPartReq =>
+      partOf(
+        [
+          tiles({
+            shape: { type: "rect", w: 1, d: 1 },
+            thickness,
+            count: 1,
+            storage: "flat",
+            clearance: 0,
+          }),
+        ],
+        "flat-c1|strip|split1",
+        cfg,
+      );
+    // A 5 mm finger pocket and 0.8 mm walls: 6.6 × 26.6 × 2.2 at the default 0.4 mm chamfer.
+    const narrow: Settings = { ...s, wall: 0.8, fingerPocket: { width: 5, reach: 12 } };
+    expect(minOuter(pip(1, narrow), narrow, ground)).toEqual({ w: 6.6, d: 26.6, h: 2.2 });
+    const steep = { ...narrow, bottomChamfer: 3 };
+    expect(minOuter(pip(1, steep), steep, ground)).toEqual({ w: 7.6, d: 26.6, h: 3.8 });
+  });
+
+  it("uses a chamfer of at least 0.5 mm above the ground level", () => {
+    const thin: Settings = {
+      ...s,
+      wall: 0.8,
+      floor: 0.8,
+      bottomChamfer: 0.2,
+      fingerPocket: { width: 5, reach: 12 },
+      lip: { ...s.lip, enabled: false },
+    };
+    const part = partOf(
+      [
+        tiles({
+          shape: { type: "rect", w: 1, d: 1 },
+          thickness: 0.01,
+          count: 1,
+          storage: "flat",
+          clearance: 0,
+        }),
+      ],
+      "flat-c1|strip|split1",
+      thin,
+    );
+    // Content depth 0.81: h = max(0.81, 0.2 + 0.8) on level 0, max(0.81, 0.5 + 0.8) above it.
+    expect(minOuter(part, thin, ground)).toEqual({ w: 6.6, d: 26.6, h: 1 });
+    expect(minOuter(part, thin, { lipped: false, level: 1 })).toEqual({ w: 6.6, d: 26.6, h: 1.3 });
   });
 
   it("uses the lipped wall on a tray that carries a lip", () => {
