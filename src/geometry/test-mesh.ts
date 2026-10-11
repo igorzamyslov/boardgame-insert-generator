@@ -1,4 +1,4 @@
-// Test helpers: mesh topology and bounds.
+// Test helpers: mesh topology, bounds, signed volume and a cube mesh.
 import type { Mesh } from "./types";
 
 export interface Topology {
@@ -72,35 +72,33 @@ export function signedVolume(mesh: Mesh): number {
 
 // Cube 0..s mesh (8 vertices, 12 triangles, CCW outward) for export tests.
 export function cubeMesh(s = 10): Mesh {
-  const positions = new Float32Array([
-    0,
-    0,
-    0,
-    s,
-    0,
-    0,
-    s,
-    s,
-    0,
-    0,
-    s,
-    0,
-    0,
-    0,
-    s,
-    s,
-    0,
-    s,
-    s,
-    s,
-    s,
-    0,
-    s,
-    s,
-  ]);
-  const indices = new Uint32Array([
-    0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0,
-    4, 3, 4, 7,
-  ]);
+  const positions = new Float32Array(
+    [
+      [0, 0, 0],
+      [s, 0, 0],
+      [s, s, 0],
+      [0, s, 0],
+      [0, 0, s],
+      [s, 0, s],
+      [s, s, s],
+      [0, s, s],
+    ].flat(),
+  );
+  const indices = new Uint32Array(
+    [
+      [0, 2, 1], // bottom
+      [0, 3, 2],
+      [4, 5, 6], // top
+      [4, 6, 7],
+      [0, 1, 5], // front (y = 0)
+      [0, 5, 4],
+      [1, 2, 6], // right (x = s)
+      [1, 6, 5],
+      [2, 3, 7], // back (y = s)
+      [2, 7, 6],
+      [3, 0, 4], // left (x = 0)
+      [3, 4, 7],
+    ].flat(),
+  );
   return { positions, indices };
 }
