@@ -183,7 +183,8 @@ export function parseProjectWith(raw: unknown, opts: ParseOptions): ParseResult 
  * defaults, keeps newer-minor extras, migrates older lines, refuses newer
  * lines and (from 1.0 on) 0.x files, and refuses input over the spec §5 upper
  * bounds. Field-level problems don't block loading; call validateProject().
- * Never throws.
+ * Never throws for any `raw`; throws only for an invalid `appSchemaVersion`
+ * argument (a programming error).
  */
 export function parseProject(raw: unknown, appSchemaVersion = SCHEMA_VERSION): ParseResult {
   return parseProjectWith(raw, { appSchemaVersion, migrations: MIGRATIONS });
