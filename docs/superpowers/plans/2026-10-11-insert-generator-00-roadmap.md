@@ -311,7 +311,7 @@ export interface TrayPartReq {
 }
 
 export interface TrayVariant {
-  id: string; // stable, e.g. "upright-long|rows1|split1"
+  id: string; // stable, e.g. "upright-long|strip|split1"
   parts: TrayPartReq[]; // > 1 when the variant splits across trays
 }
 
@@ -360,8 +360,9 @@ export function realizeTray(
 ): RealizedTray;
 ```
 
-- `size` groups components by `groupId`, expands `perPlayer`, and skips nothing silently: problems become `Notice`s.
-- `minOuter` returns the smallest outer box that holds the part (walls, dividers, floor, lipped wall included). `h` = floor + max compartment `minH`.
+- `size` groups components by `groupId` and expands `perPlayer`. It assumes a valid project: invalid components and out-of-range settings yield nothing, without notices of their own, because `validateProject` already reports them (plans 4 and 5 never optimize while it has errors). Its own notices are sizing warnings such as an implausibly thin measured card thickness. Every requirement it returns has 1..8 variants.
+- `CompartmentReq.minW`, `minD` and `minH` are whole 0.01 mm (rounded up). A compartment with a finger pocket keeps at least 1 mm of content on both axes.
+- `minOuter` returns the smallest outer box that holds the part (walls, dividers, floor, lipped wall included). `h` = floor + max compartment `minH`, raised to the bottom-chamfer and upper-tray minimums (§4.6, §4.7); `w` and `d` are raised to the bottom-chamfer minimum too.
 - `realizeTray` spreads slack in `outer` over the compartments (elastic axes first, then dividers/walls inward up to `min(2 × setting, 4)`, with upright card/tile stack slack becoming a spacer first when ≥ 5 mm (§4.7), otherwise thicker dividers/walls, then an extra `spare` compartment). It raises floors so every compartment top is at the rim (`floorZ = h − compartment content depth`, never below `settings.floor`). It throws `RangeError` if `outer` is smaller than `minOuter` on any axis.
 
 ### 4.3 `src/geometry/types.ts` (plan 3)
@@ -589,7 +590,7 @@ export function importJsonText(text: string): ParseResult;
 ### 4.6 Geometry conventions (from plan 3; binding for plans 2, 4, 5)
 
 - **Finger pocket semantics.** A compartment's rectangle includes a solid band `reach` deep along the pocket's `side`. The U-slot (`width` wide) is cut into that band. `at` = slot centre in tray-local coordinates along that side (x for front/back, y for left/right). `depth` is measured down from the rim and clamped to the floor. A slot may cross dividers but must not enter the outer wall: sizing must shift `at` inward for narrow decks at the strip ends.
-- **`buildTray` rejects** (throws `RangeError`) compartments that overlap or touch each other, that come closer to an outer face than the outer wall (`max(wall, lip.thickness + lip.ledge)` when lipped), or whose `floorZ` is outside (0, h). Sizing and layout must never emit such specs. Their tests should assert it.
+- **`buildTray` rejects** (throws `RangeError`) compartments that overlap or touch each other, that come closer to an outer face than the outer wall (`max(wall, lip.thickness + lip.ledge)` when lipped), or whose `floorZ` is outside (0, h). It also rejects a finger pocket whose `width`, `reach` or `depth` is not > 0; a compartment whose reach bands (the deepest `reach` on each side) leave less than 1 mm for the contents on either axis; and a tray or spacer too small for its 45° bottom chamfer `c`: `min(w, d) < 2·(c + 0.8)` or `h < c + 0.8`, where `c = bottomChamfer`, or `max(bottomChamfer, 0.5)` for `level > 0` (spacers always use `bottomChamfer`). Sizing and layout must never emit such specs. Their tests should assert it.
 - Geometry may shrink corner-relief and outer-corner radii below `settings.cornerRadius` to keep walls ≥ 0.8 mm. Outer dimensions never change.
 - `UnsupportedFeatureError` has a `feature: string` property and constructor `(feature: string)`. It is thrown for any `part`, compartment `kind` or feature `type` outside `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` (`geometry/types.ts`); `feature` is the feature type, `part:<part>` or `kind:<kind>`. The UI imports the same lists (no copies).
 - Main-thread and layout code import `GEOMETRY_VERSION` from `geometry/version` and types from `geometry/types` only. Importing `geometry/index` pulls manifold-3d and its WASM into that bundle.
@@ -598,9 +599,10 @@ export function importJsonText(text: string): ParseResult;
 ### 4.7 Sizing conventions (from plan 2; binding for plans 4, 5)
 
 - `realizeTray` works in the tray's own (unrotated) frame. For a rotated placement, layout calls `realizeTray` with the unrotated outer, then `rotateRealized(realized, outer)` (90° counter-clockwise; exported from `sizing/index.ts`).
-- Spacers: at most one per tray, key `<trayKey>:spacer`, `x/y/z` relative to the tray, height = well depth − 5. Created only when the spare upright stack length is ≥ 5 mm. Otherwise slack goes to thicker walls/dividers, then a spare compartment.
+- Spacers: at most one per tray, key `<trayKey>:spacer`, `x/y/z` relative to the tray, height = well depth − 5. Created only when the spacer is buildable: the spare upright stack length is ≥ max(5 mm, 2·(bottomChamfer + 0.8)), the well it fills is ≥ 2·(bottomChamfer + 0.8) deep, and its height (content depth − 5) is ≥ max(5 mm, bottomChamfer + 0.8). Otherwise slack goes to thicker walls/dividers, then a spare compartment.
 - `RealizedTray.compartments[i]` corresponds to `part.compartments[i]`; spare compartments come after.
-- `RealizedTray.wall` = `max(settings.wall, 0.8)`, the base wall, never the lipped one.
+- `RealizedTray.wall` = `max(settings.wall, 0.8)` rounded up to 0.01 mm, the base wall, never the lipped one.
+- `wallFor(settings, lipped)` is exported from `sizing/index.ts`: the outer wall, `max(wall, lip.thickness + lip.ledge)` on a lipped tray. Plan 4 must use it instead of re-deriving the lipped wall.
 - `RealizeOptions.lipped` only takes effect when `settings.lip.enabled`. Upper trays (`level > 0`) are at least `lip.height + 3` tall.
 - `minOuter` widens the inner span to `fingerPocket.width` on sides that carry a pocket, so tiny decks still get a usable slot.
 - `cardStackClearancePct` is a fraction (0.03). It is not in `Effective`; sizing multiplies it by `fit`.

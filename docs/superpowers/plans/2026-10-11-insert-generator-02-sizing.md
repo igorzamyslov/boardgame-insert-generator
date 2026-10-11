@@ -53,16 +53,16 @@ These are interpretations of the spec/roadmap that every task relies on. None ch
 
 **Variant rank (fixed, deterministic).** Each candidate is a tuple `(s, m, a, k)`: storage option index `s` (preference order), player mode `m` (0 = no perPlayer or "separate", 1 = "combined"), arrangement `a` (0 strip, 1 rows2), split index `k` (0, 1, 2 → 1, 2, 3 trays; "separate" uses k = 0 only). Candidates are sorted ascending by `(m + a + k, s, m, a, k)`. Invalid candidates are skipped (rows2 needs ≥ 2 compartments in every part; a split into k trays needs ≥ k blocks). Duplicates (same arrangements and compartments in every part, tray keys ignored) keep the earlier one. The first 8 survive. Variant id: `<optionId>|<strip|rows2>|split<k+1>` plus `|separate` / `|combined` with perPlayer. Group option ids join the members' option ids with `+`.
 
-**Groups.** Group storage option `s` uses each member's option `min(s, len − 1)`; compartments are concatenated in component order. `perPlayer` inside a group: warning notice `sizing.perPlayerInGroup`, the component is sized alone (keeps its perPlayer).
+**Groups.** Group storage option `s` uses each member's option `min(s, len − 1)`; compartments are concatenated in component order. `perPlayer` inside a group is a validation error (`field.perPlayerInGroup` from `validateComponent`), so sizing never sizes such a component: like any invalid component it has no options and is left out without a sizing notice. A group therefore never has perPlayer, and an ungrouped perPlayer component is alone in its requirement.
 
-**Splits.** Blocks: one per deck (cards), column/stack (tiles), item line (bulk), figure line (minis, pockets or bulk), item (custom). Splits are contiguous; block weight = Σ `minW × minD`; minimise the heaviest part, ties → smaller cut index.
+**Splits.** Blocks: one per deck (cards), column/stack (tiles), item line (bulk), figure line (minis, pockets or bulk), item (custom). Splits are contiguous; block weight = Σ `minW × minD`; minimise the heaviest part, ties → the smaller sum of squared part weights (the more even split), then the smaller cut indices.
 
 **rows2 order.** Greedy by `minW`, largest first (ties by index): each compartment goes to the row with the smaller running width unless that row is full (row 0 capacity `ceil(n/2)`, row 1 `floor(n/2)`). Inside a row, original order is kept. Output: row 0 then row 1.
 
 **Slack in `realizeTray` (per axis).**
 
 - Y: rows with an elastic-`d` compartment (bulk) share the slack → walls and the inter-row divider thicken inward up to `min(2 × setting, 4)` → a spare row at the back (if ≥ 10 mm + divider) → the rest is split onto the front/back walls.
-- X, per row: elastic-`w` compartments without `spacerAxis` (bulk) share the slack. Otherwise, upright card/tile stack length is elastic (spec §7.1): the whole slack goes to the last `spacerAxis: "w"` compartment of the row **as a spacer** when slack ≥ 5 mm and its content depth − 5 ≥ 5 mm, at most one spacer per tray (key `<trayKey>:spacer`). If no spacer is made, the slack goes to thicker dividers/walls (cap) → a spare compartment at the row end (≥ 10 mm + divider) → the rest onto the two side walls.
+- X, per row: elastic-`w` compartments without `spacerAxis` (bulk) share the slack. Otherwise, upright card/tile stack length is elastic (spec §7.1): the whole slack goes to the last `spacerAxis: "w"` compartment of the row **as a spacer** when the spacer is buildable (slack ≥ max(5 mm, 2·(bottomChamfer + 0.8)), well depth ≥ 2·(bottomChamfer + 0.8), content depth − 5 ≥ max(5 mm, bottomChamfer + 0.8)), at most one spacer per tray (key `<trayKey>:spacer`). If no spacer is made, the slack goes to thicker dividers/walls (cap) → a spare compartment at the row end (≥ 10 mm + divider) → the rest onto the two side walls.
 - Non-elastic compartments keep their min size; in a deeper row they are centred in Y.
 - Height: non-elastic compartments get a solid raised floor so their top is at the rim (`floorZ = h − minH`). Bulk grows deeper, but `depth ≤ maxHRatio × min(w, d)` (floor raised above that).
 
@@ -70,7 +70,7 @@ These are interpretations of the spec/roadmap that every task relies on. None ch
 
 **Compartment order in `RealizedTray`.** `compartments[i]` corresponds to `part.compartments[i]`; spare compartments follow (row spares in row order, then the spare row).
 
-**Other values.** `RealizedTray.wall` = base wall `max(settings.wall, 0.8)`. `lipped` is honoured only when `settings.lip.enabled`. Walls, dividers and floors are never below 0.8 mm. Upper trays (`level > 0`, lip enabled) get `h ≥ lip.height + 3`.
+**Other values.** `RealizedTray.wall` = base wall `max(settings.wall, 0.8)`, rounded up to 0.01 mm. `lipped` is honoured only when `settings.lip.enabled`. Walls, dividers and floors are never below 0.8 mm. Upper trays (`level > 0`, lip enabled) get `h ≥ lip.height + 3`. Every tray is at least `2·(c + 0.8)` wide and deep and `c + 0.8` tall for its bottom chamfer `c` (`bottomChamfer`, at least 0.5 above level 0; roadmap §4.6).
 
 ## File structure
 
@@ -2834,7 +2834,9 @@ git commit -m "Add size variant enumeration"
   - `mostFrequentAccess(members: readonly Component[]): Access` — `often` > `sometimes` > `setup`.
   - `combineOptions(lists: readonly StorageOption[][]): StorageOption[]` — group option `s` takes each member's option `min(s, len − 1)`, ids joined with `+`, blocks concatenated in member order.
 
-Rules: requirements appear in the order their key first appears in `components`. `key = groupId ?? componentId` (an empty `groupId` counts as none). A component with both `groupId` and `perPlayer` gets warning `sizing.perPlayerInGroup` (path `/components/<i>/groupId`) and is sized alone, keeping `perPlayer`. Members whose options are empty (invalid/empty input) are left out with their notices; a requirement with no usable member is not emitted. `perPlayer.players` that is not an integer ≥ 1 → `sizing.invalid` and it is treated as no perPlayer.
+Rules: requirements appear in the order their key first appears in `components`. `key = groupId ?? componentId` (an empty `groupId` counts as none). Members whose options are empty are left out with their notices; a requirement with no usable member, or with no variants, is not emitted.
+
+> **Superseded by the plan 2 reviews (the implementation is authoritative):** sizing assumes a valid project. A component with both `groupId` and `perPlayer`, or with a `perPlayer.players` outside 1..10, fails `validateComponent` (`field.perPlayerInGroup`, `field.players` / `limit.players`), so `componentOptions` gives it no options and no notices and it is left out; there is no `sizing.perPlayerInGroup` or `sizing.invalid` notice. Settings outside `SETTING_RANGES` (`settingsInRange` from `model/validate`) make `size` return nothing. The step code below still shows the original notices; the repo's `group.ts` and `group.test.ts` replace it.
 
 - [ ] **Step 1: Write the failing test**
 
