@@ -11083,11 +11083,14 @@ built on demand by the geometry worker and cached in `app/meshes.ts`.
 
 ## How to add a component kind
 
-1. **Model (schema MINOR bump):** add the interface to `src/model/types.ts`
+1. **Model (additive schema bump):** add the interface to `src/model/types.ts`
    (roadmap §4.1), add it to the `Component` union, give it defaults in
    `newComponent()` and `KIND_NAMES` (`model/defaults.ts`), validation in
-   `model/validate.ts`, and reading support in `model/schema-read.ts`. Bump
-   `SCHEMA_VERSION`'s minor and add a fixture under `test/fixtures/schema/`.
+   `model/validate.ts`, and reading support in
+   `model/schema-read-components.ts`. Bump `SCHEMA_VERSION`
+   (`model/version.ts`) for an additive change: while MAJOR is 0 that is the
+   PATCH (MINOR is breaking and needs a migration); from 1.0 on it is the
+   MINOR (MAJOR is breaking). Add a fixture under `test/fixtures/schema/`.
 2. **Sizing:** turn it into `TrayRequirement` variants in `src/sizing/`
    (one compartment requirement per item, finger pockets, elastic axes).
 3. **Geometry:** only if it needs a new compartment kind or feature; new
