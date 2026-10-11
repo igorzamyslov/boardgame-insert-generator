@@ -1,10 +1,17 @@
-// @vitest-environment node
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const here = dirname(fileURLToPath(import.meta.url));
+// Every source file, as text, keyed by its absolute path under a fake root so
+// that relative specifiers can be resolved with the URL class.
+const ROOT = "file:///src/geometry/";
+const sources = new Map(
+  Object.entries(
+    import.meta.glob<string>("../**/*.{ts,tsx}", {
+      query: "?raw",
+      import: "default",
+      eager: true,
+    }),
+  ).map(([key, source]) => [new URL(key, ROOT).pathname, source]),
+);
 
 // Static `import ... from "x"` / `export ... from "x"` specifiers of a file.
 // The worker is reached through `new URL("./worker.ts", import.meta.url)`,
@@ -16,8 +23,8 @@ function specifiers(source: string): string[] {
 }
 
 function resolveLocal(from: string, specifier: string): string {
-  const base = resolve(dirname(from), specifier);
-  const found = [`${base}.ts`, `${base}.tsx`, resolve(base, "index.ts")].find((c) => existsSync(c));
+  const base = new URL(specifier, `file://${from}`).pathname;
+  const found = [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`].find((c) => sources.has(c));
   if (found === undefined) {
     throw new Error(`Cannot resolve ${specifier} from ${from}`);
   }
@@ -35,7 +42,7 @@ function importGraph(entry: string): { files: Set<string>; packages: Set<string>
       continue;
     }
     files.add(file);
-    for (const specifier of specifiers(readFileSync(file, "utf8"))) {
+    for (const specifier of specifiers(sources.get(file) ?? "")) {
       if (specifier.startsWith(".")) {
         queue.push(resolveLocal(file, specifier));
       } else {
@@ -47,21 +54,22 @@ function importGraph(entry: string): { files: Set<string>; packages: Set<string>
 }
 
 describe("client.ts import graph (roadmap 4.6)", () => {
-  const { files, packages } = importGraph(resolve(here, "client.ts"));
-  const reached = [...files].map((f) => f.slice(here.length + 1));
+  const { files, packages } = importGraph("/src/geometry/client.ts");
+  const reached = [...files];
 
   it("never reaches manifold-3d or any other package", () => {
     expect([...packages]).toEqual([]);
   });
 
   it("never reaches the geometry kernel or the worker", () => {
-    for (const kernel of ["index.ts", "tray.ts", "load.ts", "worker.ts", "worker-core.ts"]) {
-      expect(reached).not.toContain(kernel);
+    for (const kernel of ["index", "tray", "load", "worker", "worker-core"]) {
+      expect(reached).not.toContain(`/src/geometry/${kernel}.ts`);
     }
   });
 
   it("walks the graph for real (sanity check of this test)", () => {
-    expect(reached).toContain("client.ts");
+    expect(reached).toContain("/src/geometry/client.ts");
+    expect(reached).toContain("/src/geometry/types.ts");
     expect(specifiers(`import { a } from "manifold-3d";`)).toEqual(["manifold-3d"]);
   });
 });
