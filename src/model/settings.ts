@@ -19,6 +19,13 @@ export const SPEC_TOLERANCE = 0.005;
 /** The outer corner arc polygon lies up to 0.08 mm inside the true arc; plus a little margin. */
 export const CORNER_MARGIN = 0.1;
 
+/**
+ * A finger slot runs across its reach band and this far into its compartment's contents
+ * (at most half the contents), so it opens into the well (roadmap §4.6). Shared by sizing and
+ * geometry.
+ */
+export const SLOT_CONTENT_OVERLAP = 0.5;
+
 /** Spec §5 defaults. Projects store resolved values, never "use the default". Deeply frozen. */
 export const DEFAULT_SETTINGS: Settings = deepFreeze({
   wall: 1.6,
@@ -138,6 +145,18 @@ export function effectiveBottomChamfer(s: Settings, level: number): number {
 export function chamferMinimums(s: Settings, level: number): { side: number; h: number } {
   const c = effectiveBottomChamfer(s, level);
   return { side: 2 * (c + MIN_FEATURE_MM), h: c + MIN_FEATURE_MM };
+}
+
+/**
+ * Two finger slots of radius r on one band line (same side, band, width and depth) merge into one
+ * channel when their centres are at most this far apart (roadmap §4.6). Their round bottoms
+ * cross at the midpoint, k = √(r² − Δ²/4) below the arc centres, and leave a ridge there; m below
+ * its top the ridge is Δ − 2√(r² − (k + m)²) wide. Keeping that ≥ m = MIN_FEATURE_MM gives
+ * k ≥ Δ/4 − 5m/8, i.e. Δ ≤ m/2 + √(3.2r² − m²): 20.06 mm for 22 mm slots.
+ */
+export function maxChannelSpacing(r: number): number {
+  const m = MIN_FEATURE_MM;
+  return m / 2 + Math.sqrt(Math.max(0, 3.2 * r * r - m * m));
 }
 
 /**

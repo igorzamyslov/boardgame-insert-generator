@@ -9,7 +9,9 @@ import {
   effective,
   effectiveBottomChamfer,
   fitChoiceOf,
+  MIN_FEATURE_MM,
   maxBottomChamfer,
+  maxChannelSpacing,
   topPlane,
   wallChoiceOf,
 } from "./settings";
@@ -186,5 +188,25 @@ describe("bottom chamfer rules", () => {
     expect(at(0.9, 0.8)).toBeCloseTo(0.9 - 0.1 / Math.SQRT2, 9);
     // The thinnest valid wall, 0.9 mm: the outer corner limit is the wall itself.
     expect(at(0.9, 3)).toBeCloseTo(0.9, 9);
+  });
+});
+
+describe("maxChannelSpacing", () => {
+  // Width of the ridge two round slot bottoms (radius r, centres spacing apart) leave, MIN_FEATURE_MM
+  // below its top.
+  function ridge(r: number, spacing: number): number {
+    const k = Math.sqrt(r * r - (spacing * spacing) / 4);
+    return spacing - 2 * Math.sqrt(r * r - (k + MIN_FEATURE_MM) ** 2);
+  }
+
+  it("is 20.06 mm for 22 mm slots", () => {
+    expect(maxChannelSpacing(11)).toBeCloseTo(20.06, 2);
+  });
+
+  it.each([2.5, 7.5, 11, 25, 50])("leaves a ridge exactly MIN_FEATURE_MM wide for r = %d", (r) => {
+    const spacing = maxChannelSpacing(r);
+    expect(ridge(r, spacing)).toBeCloseTo(MIN_FEATURE_MM, 9);
+    expect(ridge(r, spacing - 0.1)).toBeGreaterThan(MIN_FEATURE_MM);
+    expect(ridge(r, spacing + 0.1)).toBeLessThan(MIN_FEATURE_MM);
   });
 });
