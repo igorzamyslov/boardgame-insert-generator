@@ -103,6 +103,40 @@ describe("minOuter", () => {
     expect(minOuter(single, flimsy, ground)).toEqual({ w: 25.1, d: 118.1, h: 68.8 });
   });
 
+  describe("settings that are not whole multiples of 0.01 mm", () => {
+    const tiny = (over: Partial<Settings>): Settings => ({ ...s, ...over });
+
+    it("rounds the wall up", () => {
+      for (const [wall, w] of [
+        [1.234, 25.98],
+        [1.005, 25.52],
+      ] as const) {
+        const odd = tiny({ wall });
+        const part = partOf([cards()], "upright-long|strip|split1", odd);
+        expect(minOuter(part, odd, ground).w).toBe(w);
+      }
+    });
+
+    it("rounds the divider up", () => {
+      const odd = tiny({ divider: 1.234 });
+      const part = partOf(twoDecks, "upright-long|strip|split1", odd);
+      expect(minOuter(part, odd, ground).w).toBe(41.92);
+    });
+
+    it("rounds the floor up", () => {
+      const odd = tiny({ floor: 1.234 });
+      const part = partOf([cards()], "upright-long|strip|split1", odd);
+      expect(minOuter(part, odd, ground).h).toBe(69.24);
+    });
+
+    it("rounds the lipped wall and the upper-tray height up", () => {
+      const odd = tiny({ lip: { ...s.lip, thickness: 1.234, height: 2.004 } });
+      const thin = partOf([custom({ h: 1, count: 1 })], "custom|strip|split1", odd);
+      expect(minOuter(single, odd, { lipped: true, level: 0 }).w).toBe(29.38);
+      expect(minOuter(thin, odd, { lipped: false, level: 1 }).h).toBe(5.01);
+    });
+  });
+
   it("rejects a part without compartments", () => {
     const empty: TrayPartReq = {
       trayKey: "x:p0:0",

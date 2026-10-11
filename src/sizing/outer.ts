@@ -45,10 +45,13 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
   if (part.compartments.length === 0) {
     throw new RangeError(`Tray part ${part.trayKey} has no compartments`);
   }
-  const wall = toU(wallFor(settings, opts.lipped));
-  const divider = toU(Math.max(settings.divider, MIN_FEATURE));
-  const floor = toU(Math.max(settings.floor, MIN_FEATURE));
-  const pocketWidth = toU(settings.fingerPocket.width);
+  // Every minimum rounds up, so a setting that is not a whole 0.01 mm is never undershot.
+  const wall = ceilU(wallFor(settings, opts.lipped));
+  const divider = ceilU(Math.max(settings.divider, MIN_FEATURE));
+  const floor = ceilU(Math.max(settings.floor, MIN_FEATURE));
+  // An even unit count, so the centred pocket slot can sit on whole units inside the walls.
+  const pocketU = toU(settings.fingerPocket.width);
+  const pocketWidth = pocketU + (pocketU % 2);
   const rows = rowsOf(part.arrangement, part.compartments);
   const rowWidths = rows.map(
     (row) => sum(row.map((c) => ceilU(c.minW))) + (row.length - 1) * divider,
@@ -62,7 +65,7 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
   const content = floor + maxOf(part.compartments.map((c) => ceilU(c.minH)));
   const h =
     opts.level > 0 && settings.lip.enabled
-      ? Math.max(content, toU(settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP))
+      ? Math.max(content, ceilU(settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP))
       : content;
   return { wall, divider, floor, innerW, innerD, w: innerW + 2 * wall, d: innerD + 2 * wall, h };
 }
