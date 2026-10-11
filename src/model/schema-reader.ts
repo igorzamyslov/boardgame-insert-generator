@@ -117,18 +117,28 @@ export class Reader {
     addError(this.ctx, `${this.at(key)}: ${message}`);
   }
 
+  /**
+   * A number the user types (box, settings, components). JSON has no NaN:
+   * JSON.stringify writes a NaN (a half-edited field) as null, so null reads
+   * back as NaN and validateProject() reports the field instead of the file
+   * becoming unloadable.
+   */
   num(key: string, fallback?: number): number {
+    if (this.raw[key] === null) {
+      this.used.add(key);
+      return Number.NaN;
+    }
+    return this.strictNum(key, fallback);
+  }
+
+  /** A finite number; null is damage. For computed data (a stored layout) that must never hold NaN. */
+  strictNum(key: string, fallback?: number): number {
     const v = this.take(key);
     if (v === undefined && fallback !== undefined) {
       return fallback;
     }
     if (typeof v === "number" && Number.isFinite(v)) {
       return v;
-    }
-    // JSON has no NaN: JSON.stringify writes a NaN (a half-edited field) as null.
-    // Read it back as NaN so validateProject() reports the field and the project still loads.
-    if (v === null) {
-      return Number.NaN;
     }
     this.problem(key, v === undefined ? "missing" : "expected a number");
     return 0;

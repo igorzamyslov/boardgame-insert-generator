@@ -30,25 +30,25 @@ function readFeature(r: Reader): FeatureSpec {
       return r.finish({
         type,
         side: r.oneOf("side", SIDES),
-        at: r.num("at"),
-        width: r.num("width"),
-        reach: r.num("reach"),
-        depth: r.num("depth"),
+        at: r.strictNum("at"),
+        width: r.strictNum("width"),
+        reach: r.strictNum("reach"),
+        depth: r.strictNum("depth"),
       });
     case "scoop":
-      return r.finish({ type, side: r.oneOf("side", SIDES), r: r.num("r") });
+      return r.finish({ type, side: r.oneOf("side", SIDES), r: r.strictNum("r") });
     case "cornerRelief":
-      return r.finish({ type, d: r.num("d") });
+      return r.finish({ type, d: r.strictNum("d") });
   }
 }
 
 function readCompartment(r: Reader): CompartmentSpec {
   return r.finish({
-    x: r.num("x"),
-    y: r.num("y"),
-    w: r.num("w"),
-    d: r.num("d"),
-    floorZ: r.num("floorZ"),
+    x: r.strictNum("x"),
+    y: r.strictNum("y"),
+    w: r.strictNum("w"),
+    d: r.strictNum("d"),
+    floorZ: r.strictNum("floorZ"),
     kind: r.oneOf("kind", ["well", "scoop", "pocket", "spare"]),
     contents: r.str("contents", ""),
     features: r.objects("features", []).map(readFeature),
@@ -60,17 +60,17 @@ function readTray(r: Reader): TraySpec {
     key: r.str("key"),
     part: r.oneOf("part", ["tray", "leftover", "spacer"]),
     path: r.str("path", ""),
-    stack: r.num("stack"),
-    level: r.num("level"),
-    x: r.num("x"),
-    y: r.num("y"),
-    z: r.num("z"),
-    w: r.num("w"),
-    d: r.num("d"),
-    h: r.num("h"),
+    stack: r.strictNum("stack"),
+    level: r.strictNum("level"),
+    x: r.strictNum("x"),
+    y: r.strictNum("y"),
+    z: r.strictNum("z"),
+    w: r.strictNum("w"),
+    d: r.strictNum("d"),
+    h: r.strictNum("h"),
     rotated: r.bool("rotated", false),
-    wall: r.num("wall"),
-    floor: r.num("floor"),
+    wall: r.strictNum("wall"),
+    floor: r.strictNum("floor"),
     lip: r.bool("lip"),
     solid: r.bool("solid", false),
     compartments: r.objects("compartments", []).map(readCompartment),
@@ -118,8 +118,8 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
     createdWith: r.str("createdWith", "unknown"),
     geometryVersion: r.str("geometryVersion"),
     inputsHash: r.str("inputsHash"),
-    seed: r.num("seed"),
-    iterations: r.num("iterations"),
+    seed: r.strictNum("seed"),
+    iterations: r.strictNum("iterations"),
     capped: r.bool("capped", false),
     trays,
   });

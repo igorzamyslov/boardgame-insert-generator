@@ -309,6 +309,44 @@ describe("readProject: files from a newer minor", () => {
     expect(result.project.settings.wall).toBeNaN();
   });
 
+  it("reads a JSON null as NaN in a component, optional numbers included", () => {
+    const input = sampleJson();
+    const cards = at(input, "components", 0);
+    cards.shortSide = null;
+    const custom = list(input, "components").find((c) => c.kind === "custom") as Json;
+    custom.w = null;
+    const result = expectOk(readProject(input, CURRENT));
+    const [first] = result.project.components;
+    expect(first?.kind === "cards" && first.shortSide).toBeNaN();
+    const loaded = result.project.components.find((c) => c.kind === "custom");
+    expect(loaded?.kind === "custom" && loaded.w).toBeNaN();
+  });
+
+  it("drops a stored layout that holds a null number (computed data is never NaN)", () => {
+    const input = sampleJson();
+    at(input.layout as Json, "trays", 0).x = null;
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.project.layout).toBeUndefined();
+    expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+  });
+
+  it("drops a stored layout with a null number in a compartment or in the settings", () => {
+    for (const mutate of [
+      (layout: Json) => {
+        at(at(layout, "trays", 0), "compartments", 0).w = null;
+      },
+      (layout: Json) => {
+        layout.seed = null;
+      },
+    ]) {
+      const input = sampleJson();
+      mutate(input.layout as Json);
+      const result = expectOk(readProject(input, CURRENT));
+      expect(result.project.layout).toBeUndefined();
+      expect(result.notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+    }
+  });
+
   it("still drops an unreadable lock of a known kind", () => {
     const input = sampleJson();
     list(input, "locks").push({ kind: "size", trayKey: "x" });
