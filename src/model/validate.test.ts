@@ -18,6 +18,7 @@ import {
   isBlocking,
   SETTING_RANGES,
   VALIDATION_NOTICE_CODES,
+  validateComponent,
   validateProject,
 } from "./validate";
 
@@ -459,6 +460,44 @@ describe("validateProject", () => {
   it("does not throw on a null sleeve", () => {
     const c = { ...cards(), sleeve: null } as unknown as CardsComponent;
     expect(validateProject(withComponents(c))).toEqual([]);
+  });
+});
+
+describe("validateComponent", () => {
+  it("returns exactly the per-component notices of validateProject, with the same paths", () => {
+    const bad = withComponents(
+      { ...newComponent("bulk"), items: [] } as Component,
+      cards({ shortSide: 0, decks: [{ name: "A", count: 0 }], clearance: -1 }),
+      custom({ w: 0, count: 3000 }),
+      { ...newComponent("tiles"), thickness: 0 } as Component,
+      { ...newComponent("minis"), figures: [] } as Component,
+      custom({ perPlayer: { players: 0 }, groupId: "g" }),
+    );
+    // A duplicate id and a colliding group name are cross-component: not part of validateComponent.
+    const dup = { ...custom({ h: 0 }), id: bad.components.map((c) => c.id)[0] ?? "" };
+    const project = { ...bad, components: [...bad.components, dup] };
+    const all = validateProject(project);
+    const crossComponent = new Set<string>([invalid.duplicateId, invalid.id, field.groupId]);
+    project.components.forEach((c, i) => {
+      const slice = all.filter(
+        (n) => n.path?.startsWith(`/components/${i}/`) === true && !crossComponent.has(n.code),
+      );
+      expect(validateComponent(c, i)).toEqual(slice);
+    });
+    expect(all.some((n) => n.code === invalid.duplicateId)).toBe(true);
+    expect(validateComponent(dup, 6).some((n) => n.code === invalid.duplicateId)).toBe(false);
+    expect(project.components.map((c, i) => validateComponent(c, i).length)).toEqual([
+      1, 3, 2, 1, 1, 2, 1,
+    ]);
+  });
+
+  it.each(KINDS)("is empty for a default %s component", (kind) => {
+    expect(validateComponent(newComponent(kind), 4)).toEqual([]);
+  });
+
+  it("roots every path at the given index", () => {
+    const notices = validateComponent(custom({ w: 0 }), 7);
+    expect(codes(notices)).toEqual([[field.length, "/components/7/w"]]);
   });
 });
 

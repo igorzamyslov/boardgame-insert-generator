@@ -343,6 +343,18 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
   }
 }
 
+/**
+ * Per-component checks of validateProject: everything about one component's own
+ * fields, with `path` rooted at `/components/<index>`. Cross-component checks
+ * (empty or duplicate ids, group-name collisions) stay in validateProject. Sizing
+ * calls this to skip a component that has an error-level notice.
+ */
+export function validateComponent(c: Component, index: number): Notice[] {
+  const ck = new Checker();
+  checkComponent(ck, c, `/components/${index}`);
+  return ck.notices;
+}
+
 function checkLock(ck: Checker, lock: Lock, at: string): void {
   switch (lock.kind) {
     case "position":
