@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_BOX, DEFAULT_PRINTER, newComponent, newProject } from "./defaults";
+import {
+  COMPONENT_DEFAULTS,
+  DEFAULT_BOX,
+  DEFAULT_PRINTER,
+  newComponent,
+  newProject,
+} from "./defaults";
 import { BAMBU_256_BED, STANDARD_CARD } from "./presets";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ComponentKind } from "./types";
@@ -86,6 +92,22 @@ describe("newComponent", () => {
     expect(cards.kind === "cards" && cards.storage).toBe("auto");
     expect(tiles.kind === "tiles" && tiles.storage).toBe("auto");
     expect(minis.kind === "minis" && minis.storage).toBe("pockets");
+  });
+
+  it("takes access, storage, sleeve and thickness from COMPONENT_DEFAULTS", () => {
+    const d = COMPONENT_DEFAULTS;
+    expect(d).toEqual({
+      access: "sometimes",
+      cards: { sleeve: "none", thickness: { mode: "preset" }, storage: "auto" },
+      tiles: { storage: "auto", hexOrientation: "flat" },
+      minis: { storage: "pockets" },
+    });
+    expect(Object.isFrozen(d.cards.thickness)).toBe(true);
+    const cards = newComponent("cards");
+    expect(cards).toMatchObject({ access: d.access, ...d.cards });
+    expect(cards.kind === "cards" && cards.thickness).not.toBe(d.cards.thickness);
+    expect(newComponent("tiles")).toMatchObject({ storage: d.tiles.storage });
+    expect(newComponent("minis")).toMatchObject({ storage: d.minis.storage });
   });
 
   it("defaults cards to Standard size, unsleeved, preset thickness", () => {

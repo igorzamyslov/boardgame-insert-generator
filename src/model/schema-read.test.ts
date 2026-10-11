@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { sampleProject } from "../test-support/sample";
+import { COMPONENT_DEFAULTS } from "./defaults";
 import type { Json } from "./json";
 import type { ReadOptions } from "./schema-read";
 import { readProject } from "./schema-read";
@@ -132,6 +133,26 @@ describe("readProject: files of this schema line", () => {
     });
     expect(cards?.id).toMatch(/^[0-9a-z]{8}$/);
     expect(minis).toMatchObject({ name: "Miniatures", storage: "pockets", access: "sometimes" });
+  });
+
+  it("fills component defaults from COMPONENT_DEFAULTS, as mutable copies", () => {
+    const d = COMPONENT_DEFAULTS;
+    const input = {
+      ...MINIMAL,
+      components: [
+        { kind: "cards", shortSide: 63.5, longSide: 88, decks: [{ count: 10 }] },
+        { kind: "tiles", shape: { type: "hex", flatToFlat: 40 }, thickness: 2, count: 5 },
+        { kind: "minis", figures: [{ w: 25, d: 25, h: 40, count: 1 }] },
+      ],
+    };
+    const [cards, tiles, minis] = expectOk(readProject(input, CURRENT)).project.components;
+    expect(cards).toMatchObject({ access: d.access, ...d.cards });
+    expect(cards?.kind === "cards" && cards.thickness).not.toBe(d.cards.thickness);
+    expect(tiles).toMatchObject({
+      storage: d.tiles.storage,
+      shape: { orientation: d.tiles.hexOrientation },
+    });
+    expect(minis).toMatchObject({ storage: d.minis.storage });
   });
 
   it("names a field with the wrong type", () => {

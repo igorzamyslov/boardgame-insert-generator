@@ -1,10 +1,11 @@
-import { KIND_NAMES } from "./defaults";
+import { COMPONENT_DEFAULTS, KIND_NAMES } from "./defaults";
 import { newId } from "./ids";
 import { isRecord, quote } from "./json";
 import type { Ctx } from "./schema-reader";
 import { absorbErrors, addError, adopt, childCtx, Reader, readEnum } from "./schema-reader";
 import type {
   BulkItem,
+  CardsComponent,
   Component,
   ComponentBase,
   ComponentKind,
@@ -20,7 +21,7 @@ function readBase(r: Reader, kind: ComponentKind): ComponentBase {
   const base: ComponentBase = {
     id: r.optStr("id") ?? newId(),
     name: r.str("name", KIND_NAMES[kind]),
-    access: r.oneOf("access", ["often", "sometimes", "setup"], "sometimes"),
+    access: r.oneOf("access", ["often", "sometimes", "setup"], COMPONENT_DEFAULTS.access),
   };
   const groupId = r.optStr("groupId");
   if (groupId !== undefined) {
@@ -43,7 +44,7 @@ function readSleeve(r: Reader): Sleeve {
     const s = new Reader(v, r.at("sleeve"), r.ctx);
     return s.finish({ w: s.num("w"), h: s.num("h"), thickness: s.num("thickness") });
   }
-  return readEnum(v, SLEEVE_NAMES, r.at("sleeve"), r.ctx, "none");
+  return readEnum(v, SLEEVE_NAMES, r.at("sleeve"), r.ctx, COMPONENT_DEFAULTS.cards.sleeve);
 }
 
 function readCards(r: Reader, base: ComponentBase): Component {
@@ -63,9 +64,7 @@ function readCards(r: Reader, base: ComponentBase): Component {
     .map((d) => d.finish({ name: d.str("name", ""), count: d.num("count") }));
   const sleeve = readSleeve(r);
   const t = r.optChild("thickness");
-  let thickness: { mode: "preset" } | { mode: "measured"; cards: number; stackMm: number } = {
-    mode: "preset",
-  };
+  let thickness: CardsComponent["thickness"] = { ...COMPONENT_DEFAULTS.cards.thickness };
   if (t) {
     const mode = t.oneOf("mode", ["preset", "measured"]);
     thickness = t.finish(
@@ -74,7 +73,11 @@ function readCards(r: Reader, base: ComponentBase): Component {
         : { mode: "preset" as const },
     );
   }
-  const storage = r.oneOf("storage", ["upright-long", "upright-short", "flat", "auto"], "auto");
+  const storage = r.oneOf(
+    "storage",
+    ["upright-long", "upright-short", "flat", "auto"],
+    COMPONENT_DEFAULTS.cards.storage,
+  );
   return r.finish({
     ...base,
     kind: "cards",
@@ -113,7 +116,11 @@ function readTileShape(r: Reader): TileShape {
     return s.finish({
       type,
       flatToFlat: s.num("flatToFlat"),
-      orientation: s.oneOf("orientation", ["flat", "pointy"], "flat"),
+      orientation: s.oneOf(
+        "orientation",
+        ["flat", "pointy"],
+        COMPONENT_DEFAULTS.tiles.hexOrientation,
+      ),
     });
   }
   return s.finish({ type, w: s.num("w"), d: s.num("d") });
@@ -133,7 +140,7 @@ function readKnownComponent(r: Reader, kind: ComponentKind): Component {
         shape: readTileShape(r),
         thickness: r.num("thickness"),
         count: r.num("count"),
-        storage: r.oneOf("storage", ["flat", "upright", "auto"], "auto"),
+        storage: r.oneOf("storage", ["flat", "upright", "auto"], COMPONENT_DEFAULTS.tiles.storage),
       });
     case "minis":
       return r.finish({
@@ -148,7 +155,7 @@ function readKnownComponent(r: Reader, kind: ComponentKind): Component {
             count: f.num("count"),
           }),
         ),
-        storage: r.oneOf("storage", ["pockets", "bulk"], "pockets"),
+        storage: r.oneOf("storage", ["pockets", "bulk"], COMPONENT_DEFAULTS.minis.storage),
       });
     case "custom":
       return r.finish({

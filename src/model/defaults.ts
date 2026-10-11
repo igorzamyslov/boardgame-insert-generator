@@ -2,7 +2,19 @@ import { deepFreeze } from "./freeze";
 import { newId } from "./ids";
 import { BAMBU_256_BED, STANDARD_CARD } from "./presets";
 import { DEFAULT_SETTINGS } from "./settings";
-import type { Box, Component, ComponentKind, Printer, Project } from "./types";
+import type {
+  Access,
+  Box,
+  CardsComponent,
+  Component,
+  ComponentKind,
+  MinisComponent,
+  Printer,
+  Project,
+  Sleeve,
+  TileShape,
+  TilesComponent,
+} from "./types";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
 
 /**
@@ -41,6 +53,30 @@ export const KIND_NAMES: Record<ComponentKind, string> = deepFreeze({
   custom: "Item",
 });
 
+/**
+ * Spec §5 defaults of the component fields a file may leave out. newComponent
+ * uses them, and the reader fills missing fields with them. Frozen: copy the
+ * nested `thickness` object, never alias it.
+ */
+export const COMPONENT_DEFAULTS: {
+  access: Access;
+  cards: {
+    sleeve: Exclude<Sleeve, object>;
+    thickness: { mode: "preset" };
+    storage: CardsComponent["storage"];
+  };
+  tiles: {
+    storage: TilesComponent["storage"];
+    hexOrientation: Extract<TileShape, { type: "hex" }>["orientation"];
+  };
+  minis: { storage: MinisComponent["storage"] };
+} = deepFreeze({
+  access: "sometimes",
+  cards: { sleeve: "none", thickness: { mode: "preset" }, storage: "auto" },
+  tiles: { storage: "auto", hexOrientation: "flat" },
+  minis: { storage: "pockets" },
+});
+
 export function newProject(): Project {
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -55,9 +91,10 @@ export function newProject(): Project {
   };
 }
 
-/** A new component with spec §5 defaults (access "sometimes", storage "auto", minis "pockets"). */
+/** A new component with the spec §5 defaults of COMPONENT_DEFAULTS and sample sizes. */
 export function newComponent(kind: ComponentKind): Component {
-  const base = { id: newId(), name: KIND_NAMES[kind], access: "sometimes" as const };
+  const d = COMPONENT_DEFAULTS;
+  const base = { id: newId(), name: KIND_NAMES[kind], access: d.access };
   switch (kind) {
     case "cards":
       return {
@@ -66,9 +103,9 @@ export function newComponent(kind: ComponentKind): Component {
         shortSide: STANDARD_CARD.shortSide,
         longSide: STANDARD_CARD.longSide,
         decks: [{ name: "Deck", count: 50 }],
-        sleeve: "none",
-        thickness: { mode: "preset" },
-        storage: "auto",
+        sleeve: d.cards.sleeve,
+        thickness: { ...d.cards.thickness },
+        storage: d.cards.storage,
       };
     case "bulk":
       return { ...base, kind, items: [{ name: "Tokens", count: 20, w: 20, d: 20, h: 2 }] };
@@ -79,14 +116,14 @@ export function newComponent(kind: ComponentKind): Component {
         shape: { type: "rect", w: 50, d: 50 },
         thickness: 2,
         count: 20,
-        storage: "auto",
+        storage: d.tiles.storage,
       };
     case "minis":
       return {
         ...base,
         kind,
         figures: [{ name: "Figure", w: 25, d: 25, h: 40, count: 4 }],
-        storage: "pockets",
+        storage: d.minis.storage,
       };
     case "custom":
       return { ...base, kind, w: 50, d: 50, h: 20, count: 1 };
