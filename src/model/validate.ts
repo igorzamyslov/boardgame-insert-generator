@@ -344,6 +344,27 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
   }
 }
 
+/** One field.setting error per setting outside its SETTING_RANGES entry (NaN included). */
+function checkSettings(ck: Checker, settings: Settings): void {
+  for (const r of SETTING_RANGES) {
+    const v = r.get(settings);
+    if (!(v >= r.min && v <= r.max)) {
+      ck.error(
+        VALIDATION_NOTICE_CODES.field.setting,
+        `/settings/${r.path}`,
+        `${r.label} must be from ${r.min} to ${r.max}.`,
+      );
+    }
+  }
+}
+
+/** True when every setting is inside its SETTING_RANGES entry (what validateProject checks). */
+export function settingsInRange(settings: Settings): boolean {
+  const ck = new Checker();
+  checkSettings(ck, settings);
+  return ck.notices.length === 0;
+}
+
 /**
  * Per-component checks of validateProject: everything about one component's own
  * fields, with `path` rooted at `/components/<index>`. Cross-component checks
@@ -442,16 +463,7 @@ export function validateProject(p: Project): Notice[] {
     );
   }
 
-  for (const r of SETTING_RANGES) {
-    const v = r.get(settings);
-    if (!(v >= r.min && v <= r.max)) {
-      ck.error(
-        VALIDATION_NOTICE_CODES.field.setting,
-        `/settings/${r.path}`,
-        `${r.label} must be from ${r.min} to ${r.max}.`,
-      );
-    }
-  }
+  checkSettings(ck, settings);
 
   if (p.components.length > BOUNDS.maxComponents) {
     ck.error(

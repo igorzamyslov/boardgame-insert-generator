@@ -1,6 +1,6 @@
 import { groupOf } from "../model/defaults";
 import type { Access, Component, Notice, Settings } from "../model/types";
-import { SETTING_RANGES } from "../model/validate";
+import { settingsInRange } from "../model/validate";
 import type { StorageOption } from "./common";
 import { componentOptions, isLoose } from "./component";
 import type { TrayRequirement } from "./types";
@@ -36,13 +36,6 @@ export function combineOptions(lists: readonly StorageOption[][]): StorageOption
       return option === undefined ? [] : [option];
     });
     return { id: picked.map((o) => o.id).join("+"), blocks: picked.flatMap((o) => o.blocks) };
-  });
-}
-
-function settingsInRange(settings: Settings): boolean {
-  return SETTING_RANGES.every((r) => {
-    const v = r.get(settings);
-    return v >= r.min && v <= r.max;
   });
 }
 

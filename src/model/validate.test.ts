@@ -17,6 +17,7 @@ import {
   BOUNDS,
   isBlocking,
   SETTING_RANGES,
+  settingsInRange,
   VALIDATION_NOTICE_CODES,
   validateComponent,
   validateProject,
@@ -523,7 +524,22 @@ describe("setting ranges", () => {
       const p = newProject();
       setAtPointer(p, `/settings/${range.path}`, value);
       expect(codes(validateProject(p))).toEqual([[field.setting, `/settings/${range.path}`]]);
+      expect(settingsInRange(p.settings)).toBe(false);
     }
+  });
+
+  it.each(rangeCases)("accepts %s at either end", (_path, range) => {
+    for (const value of [range.min, range.max]) {
+      const p = newProject();
+      setAtPointer(p, `/settings/${range.path}`, value);
+      expect(settingsInRange(p.settings)).toBe(true);
+    }
+  });
+
+  it("rejects a NaN setting", () => {
+    const p = newProject();
+    p.settings = { ...p.settings, wall: Number.NaN };
+    expect(settingsInRange(p.settings)).toBe(false);
   });
 
   it("needs a finger pocket reach of at least 5 mm", () => {
