@@ -157,6 +157,14 @@ describe("validateProject", () => {
     ]);
   });
 
+  it("treats an empty groupId as no group", () => {
+    const p = withComponents(
+      { ...newComponent("custom"), id: "x" },
+      cards({ groupId: "", perPlayer: { players: 4 } }),
+    );
+    expect(validateProject(p)).toEqual([]);
+  });
+
   it("bounds players to 1…10", () => {
     const p = withComponents(
       cards({ perPlayer: { players: 0 } }),

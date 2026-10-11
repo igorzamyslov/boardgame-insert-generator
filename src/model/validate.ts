@@ -1,5 +1,6 @@
-import type { Component, Lock, Notice, Project, Settings } from "./types";
+import { groupOf } from "./defaults";
 import { topPlane } from "./settings";
+import type { Component, Lock, Notice, Project, Settings } from "./types";
 
 /** Spec §5 bounds, applied to UI edits, URL input and files. Frozen. */
 export const BOUNDS = Object.freeze({
@@ -186,7 +187,7 @@ function checkBase(ck: Checker, c: Component, at: string): void {
         "Players must be a whole number of at least 1.",
       );
     }
-    if (c.groupId !== undefined) {
+    if (groupOf(c) !== undefined) {
       ck.error(
         "field.perPlayerInGroup",
         `${at}/perPlayer`,
@@ -383,9 +384,10 @@ export function validateProject(p: Project): Notice[] {
       ck.error("invalid.duplicateId", `${at}/id`, `Two components share the id "${c.id}".`);
     }
     seen.add(c.id);
-    if (c.groupId !== undefined) {
+    const group = groupOf(c);
+    if (group !== undefined) {
       // A component naming its own id as its group is not a collision.
-      const others = (idCounts.get(c.groupId) ?? 0) - (c.groupId === c.id ? 1 : 0);
+      const others = (idCounts.get(group) ?? 0) - (group === c.id ? 1 : 0);
       if (others > 0) {
         ck.error(
           "field.groupId",

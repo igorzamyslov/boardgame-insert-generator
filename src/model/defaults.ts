@@ -77,6 +77,11 @@ export const COMPONENT_DEFAULTS: {
   minis: { storage: "pockets" },
 });
 
+/** The component's group, or undefined when it has none. An empty groupId means no group. */
+export function groupOf(c: Component): string | undefined {
+  return c.groupId === "" ? undefined : c.groupId;
+}
+
 export function newProject(): Project {
   return {
     schemaVersion: SCHEMA_VERSION,

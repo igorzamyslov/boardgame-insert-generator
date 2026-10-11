@@ -3,6 +3,7 @@ import {
   COMPONENT_DEFAULTS,
   DEFAULT_BOX,
   DEFAULT_PRINTER,
+  groupOf,
   newComponent,
   newProject,
 } from "./defaults";
@@ -72,6 +73,15 @@ describe("newProject", () => {
 
   it("gives every project a new id", () => {
     expect(newProject().id).not.toBe(newProject().id);
+  });
+});
+
+describe("groupOf", () => {
+  it("is the group id, with an empty one meaning no group", () => {
+    const c = newComponent("custom");
+    expect(groupOf(c)).toBeUndefined();
+    expect(groupOf({ ...c, groupId: "" })).toBeUndefined();
+    expect(groupOf({ ...c, groupId: "g1" })).toBe("g1");
   });
 });
 
