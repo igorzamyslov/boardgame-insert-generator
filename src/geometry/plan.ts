@@ -6,6 +6,7 @@ import {
   SPEC_TOLERANCE as TOL,
   chamferMinimums,
   effectiveBottomChamfer,
+  cutRidgeWidth,
   maxChannelSpacing,
   maxWellFaceOffset,
 } from "../model/settings";
@@ -310,8 +311,11 @@ function checkSlotClearance(spec: TraySpec, plans: CompartmentPlan[]): void {
 // solid side toward its centre, it leaves a wedge between the two; the wedge is ≥ MIN_FEATURE_MM
 // wide MIN_FEATURE_MM below its tip only while the face is at most maxWellFaceOffset from the
 // centre. The lowest bottom at the face decides: that of the covering twin whose centre is
-// nearest. A centre on the contents' side of the face leaves an obtuse edge, which is fine. A
-// face no slot covers keeps MIN_FEATURE_MM from the end of every slot on its solid side.
+// nearest. A centre on the contents' side of the face leaves an obtuse edge, unless the next twin
+// toward the solid side merges with that slot: then the face cuts their ridge on its solid side,
+// and the half ridge it leaves must be ≥ MIN_FEATURE_MM wide MIN_FEATURE_MM below its peak
+// (cutRidgeWidth). A face no slot covers keeps MIN_FEATURE_MM from the end of every slot on its
+// solid side.
 function checkWellFaces(spec: TraySpec, plans: CompartmentPlan[], slots: PlacedSlot[]): void {
   for (const { plan, slot } of slots) {
     const alongX = slot.side === "front" || slot.side === "back";
@@ -344,16 +348,35 @@ function checkWellFaces(spec: TraySpec, plans: CompartmentPlan[], slots: PlacedS
           }
           continue;
         }
-        const nearest = covering.reduce((best, t) =>
-          Math.abs(slotCentre(t.slot) - face) < Math.abs(slotCentre(best.slot) - face) ? t : best,
-        );
+        // Nearest to the face; on a tie the one on the solid side, whose bottom is lower there.
+        const rank = (t: PlacedSlot): number =>
+          Math.abs(slotCentre(t.slot) - face) - (solid * (slotCentre(t.slot) - face) > 0 ? TOL : 0);
+        const nearest = covering.reduce((best, t) => (rank(t) < rank(best) ? t : best));
+        const r = nearest.slot.radius;
         const dx = solid * (slotCentre(nearest.slot) - face);
-        const most = maxWellFaceOffset(nearest.slot.radius);
+        const most = maxWellFaceOffset(r);
         if (dx > most + TOL) {
           fail(
             spec,
             `compartment ${nearest.plan.index}: a finger pocket crosses ${at} ${dx.toFixed(2)} mm from its centre (at most ${most.toFixed(2)} mm)`,
           );
+        }
+        if (dx > 0) {
+          continue;
+        }
+        // The centre lies on the contents' side. If the next slot toward the solid side merges
+        // with it, their ridge peaks on the face's solid side, and the face leaves half of it.
+        const across = line
+          .map((t) => solid * (slotCentre(t.slot) - face))
+          .filter((d) => d > TOL && d - dx < 2 * r - TOL);
+        if (across.length > 0) {
+          const width = cutRidgeWidth(r, -dx, Math.min(...across));
+          if (width < MIN_FEATURE_MM - TOL) {
+            fail(
+              spec,
+              `${at} leaves half the ridge between two finger pockets ${width.toFixed(2)} mm wide ${MIN_FEATURE_MM} mm below its peak (at least ${MIN_FEATURE_MM} mm)`,
+            );
+          }
         }
       }
     }

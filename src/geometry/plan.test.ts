@@ -143,10 +143,11 @@ describe("finger slot clearance", () => {
   it("merges neighbouring slots on one band line into one channel", () => {
     // cardUpright: decks 2 and 3 have slots 20 mm apart, within maxChannelSpacing(11) = 20.06.
     expect(planTray(cardUpright, GEO).compartments[2]?.slots).toHaveLength(2);
-    // Deck B (22.8…) with a slot 20.06 mm (merges) or 20.1 mm (does not) right of A's.
-    const merged = pair(12.6, 22, well(22.8, [pocket("front", 32.66, 10)]));
+    // Deck B (30…) with a slot 20.06 mm (merges) or 20.1 mm (does not) right of A's; their ridge
+    // peaks at 22.63, well clear of both decks' well faces.
+    const merged = pair(12.6, 22, well(30, [pocket("front", 32.66, 10)]));
     expect(planTray(merged, GEO).compartments[1]?.slots).toHaveLength(1);
-    expect(() => planTray(pair(12.6, 22, well(22.8, [pocket("front", 32.7, 10)])), GEO)).toThrow(
+    expect(() => planTray(pair(12.6, 22, well(30, [pocket("front", 32.7, 10)])), GEO)).toThrow(
       /a finger pocket of compartment 1 without merging into one channel \(centres 20\.10 mm apart, at most 20\.06 mm\)/,
     );
     // The very same slot is one channel too.
@@ -210,6 +211,40 @@ describe("finger slot clearance", () => {
       expect(() => planTray(decks(20, 24.39), GEO)).toThrow(
         /compartment 0: a finger pocket ends less than 0\.8 mm short of the well face of compartment 1 at 24\.39 mm/,
       );
+    });
+
+    it("rejects a face that cuts the ridge between two merged slots just past its peak", () => {
+      // Slots centred on 12.6 and 32.6 (20 mm apart, merged): their ridge peaks at 22.6. A's well
+      // face at 22.5 leaves half the ridge on its solid side, 0.51 mm wide 0.8 mm below the peak.
+      const straddle = (aEnd: number): TraySpec =>
+        traySpec({
+          key: "straddle",
+          w: 45.2,
+          d: 60,
+          h: 30,
+          compartments: [
+            compartment({
+              x: 1.6,
+              y: 1.6,
+              w: aEnd - 1.6,
+              d: 56.8,
+              features: [pocket("front", 12.6, 20)],
+            }),
+            compartment({
+              x: aEnd + 1.2,
+              y: 1.6,
+              w: 43.6 - aEnd - 1.2,
+              d: 56.8,
+              features: [pocket("front", 32.6, 20)],
+            }),
+          ],
+        });
+      expect(() => planTray(straddle(22.5), GEO)).toThrow(
+        /the well face of compartment 0 at 22\.50 mm leaves half the ridge between two finger pockets 0\.51 mm wide 0\.8 mm below its peak/,
+      );
+      expect(() => planTray(straddle(22.25), GEO)).toThrow(/0\.76 mm wide/);
+      // 0.4 mm from the peak the half ridge is 0.81 mm wide.
+      expect(planTray(straddle(22.2), GEO).compartments).toHaveLength(2);
     });
 
     it("judges a face by the nearest slot covering it", () => {
