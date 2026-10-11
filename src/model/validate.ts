@@ -326,7 +326,7 @@ export function validateProject(p: Project): Notice[] {
       ck.error(
         "field.topPlane",
         "/box/headroom",
-        "Box height minus headroom and press-fit leaves no room for trays",
+        "Box height minus headroom and press-fit leaves no room for trays.",
       );
     }
   }
@@ -335,8 +335,8 @@ export function validateProject(p: Project): Notice[] {
   const bedYOk = ck.length("/printer/bedY", "Bed Y", printer.bedY);
   ck.length("/printer/bedZ", "Bed Z", printer.bedZ);
   const marginOk = ck.nonNegativeLength("/printer/bedMargin", "Bed margin", printer.bedMargin);
-  const usableBed = 2 * printer.bedMargin >= Math.min(printer.bedX, printer.bedY);
-  if (bedXOk && bedYOk && marginOk && usableBed) {
+  const bedTooSmallForMargin = 2 * printer.bedMargin >= Math.min(printer.bedX, printer.bedY);
+  if (bedXOk && bedYOk && marginOk && bedTooSmallForMargin) {
     ck.error("field.bedMargin", "/printer/bedMargin", "Bed margin leaves no usable bed.");
   }
   if (!(printer.layerHeight >= LAYER_HEIGHT_MIN && printer.layerHeight <= LAYER_HEIGHT_MAX)) {
@@ -385,7 +385,7 @@ export function validateProject(p: Project): Notice[] {
         ck.error(
           "field.groupId",
           `${at}/groupId`,
-          "Group name collides with another component's id",
+          "Group name collides with another component's id.",
         );
       }
     }
