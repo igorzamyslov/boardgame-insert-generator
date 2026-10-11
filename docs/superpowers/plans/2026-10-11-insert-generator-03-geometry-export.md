@@ -52,7 +52,7 @@
 - **Scoop** (`{ type: "scoop", side, r }`): a concave quarter-round fillet between the floor and the wall on `side`: the solid `r × r` corner region minus a cylinder of radius `r` whose vertices sit exactly at 0°/90°/180°/270°, so it meets floor and wall tangentially. `r` is clamped to the compartment depth and to its size across the side; below 0.5 mm it is dropped. All fillet normals point up.
 - **Corner relief** (`{ type: "cornerRelief", d }`): a vertical cylinder at each content corner whose circle passes through the corner and is centred on the corner's diagonal, so it cuts `r·(1 − 1/√2)` into both adjoining walls. `r = min(d/2, budget/(1 − 1/√2))` where the budget is the material above 0.8 mm on that side (half of it toward another compartment, which may have reliefs too); reliefs under 0.3 mm are dropped. Between two Ø3 tile wells with a 1.2 mm divider the reliefs facing the divider shrink to r = 0.683 mm.
 
-**Validation** (`RangeError`, message starts with `Tray <key>:`): non-positive or non-finite sizes, tray too small for its chamfer, wall < 0.8 mm (non-solid parts), lip thickness < 0.8 mm, `floorZ` outside (0, h), compartments that overlap or touch (gap < 0.01 mm on both axes), compartments closer than the (lipped) outer wall to an outer face, finger pockets that would reach into the outer wall, and reach bands that leave less than 1 mm for the contents. Unknown `part`, compartment `kind` or feature `type` (checked against `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` from `types.ts`, in every compartment): `UnsupportedFeatureError`. Otherwise, compartments of solid leftovers and spacers are ignored.
+**Validation** (`RangeError`, message starts with `Tray <key>:`): non-positive or non-finite sizes, tray too small for its chamfer, wall < 0.8 mm (non-solid parts), lip thickness < 0.8 mm, `floorZ` outside (0, h), compartments that overlap or touch (gap < 0.01 mm on both axes), compartments closer than the (lipped) outer wall to an outer face, finger pockets that would reach into the outer wall, and reach bands that leave less than 1 mm for the contents. Every limit is compared with `SPEC_TOLERANCE` (0.005 mm): TraySpec numbers sit on the 0.01 mm grid, so a spec exactly on a limit passes despite float noise in sums and differences. Unknown `part`, compartment `kind` or feature `type` (checked against `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` from `types.ts`, in every compartment): `UnsupportedFeatureError`. Otherwise, compartments of solid leftovers and spacers are ignored.
 
 **Printability check (mesh only).** Overhangs: triangles with area ≥ 1e-4 mm², `normal.z < −0.71` and any vertex above z = 0.001. Minimum feature (an estimate, sampled at triangle centroids): from each wall face (`|normal.z| < 0.02`) a horizontal ray goes into the material and stops at the nearest wall face it exits through; from each horizontal face (`|normal.z| > 0.98`) a vertical ray stops at the nearest opposite horizontal face. Sloped faces are not sampled, so the sloped tops of dividers under a finger slot are not reported as knife edges. Because only centroids are sampled, a polygon vertex can be up to the facet sagitta thinner than reported; the planning rules above guarantee the 0.8 mm minimum, the check verifies it.
 
@@ -593,7 +593,7 @@ git commit -m "Add manifold loader and convex solid helpers"
 
 - Consumes: `TraySpec`, `CompartmentSpec`, `FeatureSpec`, `Settings`, `Side` (roadmap §4.1); `DEFAULT_SETTINGS` from `src/model/settings.ts` (roadmap §4.5); `UnsupportedFeatureError` (Task 1).
 - Produces:
-  - `src/geometry/plan-types.ts`: constants (no `MIN_FEATURE`: see the note in Step 4) `INNER_CORNER_RADIUS = 0.5`, `LIP_CHAMFER = 0.6`, `UPPER_MIN_CHAMFER = 0.5`, `MIN_RELIEF_RADIUS = 0.3`, `MIN_SCOOP_RADIUS = 0.5`, `SPEC_TOLERANCE = 0.005`, `CORNER_MARGIN = 0.1`, `RELIEF_CUT = 1 − 1/√2`; interfaces `Rect { x0; y0; x1; y1 }`, `SlotPlan extends Rect { side: Side; bottomZ: number; radius: number }`, `ScoopPlan { side: Side; r: number }`, `ReliefPlan { cx: number; cy: number; r: number }`, `CompartmentPlan { index; rect: Rect; content: Rect; floorZ; slots: SlotPlan[]; scoops: ScoopPlan[]; reliefs: ReliefPlan[] }`, `LipPlan { height; thickness; chamfer }`, `TrayPlan { w; d; h; topZ; chamfer; cornerRadius; outerWall; lip: LipPlan | null; compartments: CompartmentPlan[] }` (all numbers in mm).
+  - `src/geometry/plan-types.ts`: constants (no `MIN_FEATURE` or `UPPER_MIN_CHAMFER`: see the note in Step 4) `INNER_CORNER_RADIUS = 0.5`, `LIP_CHAMFER = 0.6`, `MIN_RELIEF_RADIUS = 0.3`, `MIN_SCOOP_RADIUS = 0.5`, `SPEC_TOLERANCE = 0.005`, `CORNER_MARGIN = 0.1`, `RELIEF_CUT = 1 − 1/√2`; interfaces `Rect { x0; y0; x1; y1 }`, `SlotPlan extends Rect { side: Side; bottomZ: number; radius: number }`, `ScoopPlan { side: Side; r: number }`, `ReliefPlan { cx: number; cy: number; r: number }`, `CompartmentPlan { index; rect: Rect; content: Rect; floorZ; slots: SlotPlan[]; scoops: ScoopPlan[]; reliefs: ReliefPlan[] }`, `LipPlan { height; thickness; chamfer }`, `TrayPlan { w; d; h; topZ; chamfer; cornerRadius; outerWall; lip: LipPlan | null; compartments: CompartmentPlan[] }` (all numbers in mm).
   - `src/geometry/plan-corners.ts`: `interface TraySize { w: number; d: number }`, `sideBudget(size: TraySize, plans: CompartmentPlan[], self: CompartmentPlan, side: Side): number`, `planReliefs(size: TraySize, plans: CompartmentPlan[], self: CompartmentPlan, diameter: number): ReliefPlan[]`, `maxCornerRadius(p: number, q: number, rho: number): number`, `planCornerRadius(size: TraySize, setting: number, chamfer: number, compartments: CompartmentPlan[]): number`.
   - `src/geometry/plan.ts`: `planTray(spec: TraySpec, settings: Settings): TrayPlan` (throws `RangeError` / `UnsupportedFeatureError`, see Design notes; the known values come from `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` in `types.ts`, Task 1; an unknown kind throws `UnsupportedFeatureError("kind:<kind>")`, an unknown part `"part:<part>"`).
   - `src/geometry/test-specs.ts`: `GEO: Settings`, `traySpec(over)`, `compartment(over)`, `strip(widths, y, d, start, divider, make)`, `pocket(side, at, depth, width = 22, reach = 12): FeatureSpec`, and one fixture per tray type: `plainBox`, `cardUpright`, `flatCards`, `scoopBulk`, `hexTiles`, `miniPockets`, `customBlock`, `spareLeftover`, `solidLeftover`, `spacer`, `lippedLower`, `upperLevel1`.
@@ -926,6 +926,33 @@ describe("finger pockets", () => {
   });
 });
 
+describe("limits", () => {
+  it("accepts specs exactly on a limit despite float noise (sizing output, 0.01 mm grid)", () => {
+    // Content 8.29 − 7.29 = 0.9999999999999991 mm: exactly the 1 mm minimum.
+    const narrow = traySpec({
+      key: "narrow",
+      w: 20,
+      d: 30,
+      h: 10,
+      compartments: [
+        compartment({ x: 7.29, y: 1.6, w: 1, d: 26.8, features: [pocket("front", 7.79, 3, 1)] }),
+      ],
+    });
+    expect(planTray(narrow, GEO).compartments[0]?.content.x0).toBe(7.29);
+    // Chamfer 2.27: h ≥ 2.27 + 0.8 = 3.0700000000000003 and min(w, d) ≥ 6.140000000000001.
+    const steep = { ...GEO, bottomChamfer: 2.27 };
+    const low = traySpec({
+      key: "low",
+      w: 60,
+      d: 60,
+      h: 3.07,
+      compartments: [compartment({ x: 1.6, y: 1.6, w: 56.8, d: 56.8 })],
+    });
+    expect(planTray(low, steep).chamfer).toBe(2.27);
+    expect(planTray({ ...spacer, d: 6.14, h: 3.07 }, steep).chamfer).toBe(2.27);
+  });
+});
+
 describe("scoops", () => {
   it("uses the requested radius when it fits", () => {
     expect(planTray(scoopBulk, GEO).compartments[0]?.scoops).toEqual([{ side: "front", r: 12 }]);
@@ -1100,7 +1127,7 @@ Expected: FAIL — `Cannot find module './plan'`.
 
 - [ ] **Step 4: Write the implementation**
 
-> **Note (from plan 2's final review):** do not define `MIN_FEATURE = 0.8` in `plan-types.ts`. Import the shared `MIN_FEATURE_MM` from `src/model/settings.ts` (spec §6.1: 2 lines of 0.4 mm) and use it wherever this plan writes `MIN_FEATURE` (`plan.ts`, `plan-corners.ts`, `printability.ts` and their tests). Sizing imports it the same way, so both sides of the TraySpec contract share one value.
+> **Note (from plan 2's final review):** do not define `MIN_FEATURE = 0.8` or `UPPER_MIN_CHAMFER = 0.5` in `plan-types.ts`. Import the shared `MIN_FEATURE_MM` and `UPPER_MIN_CHAMFER` from `src/model/settings.ts` (spec §6.1) and use `MIN_FEATURE_MM` wherever this plan writes `MIN_FEATURE` (`plan.ts`, `plan-corners.ts`, `printability.ts` and their tests); `plan.ts` imports `UPPER_MIN_CHAMFER` from there too, not from `./plan-types`. Sizing imports both the same way, so both sides of the TraySpec contract share one value.
 
 `src/geometry/plan-types.ts`:
 
@@ -1108,12 +1135,12 @@ Expected: FAIL — `Cannot find module './plan'`.
 import type { Side } from "../model/types";
 
 // Constants and result types of tray planning (plan.ts). A TrayPlan holds
-// every number tray.ts needs to build the solid. The minimum feature width is
-// MIN_FEATURE_MM from ../model/settings (see the note above), not defined here.
+// every number tray.ts needs to build the solid. The minimum feature width
+// (MIN_FEATURE_MM) and the upper trays' minimum bottom chamfer (UPPER_MIN_CHAMFER)
+// come from ../model/settings (see the note above) and are not defined here.
 
 export const INNER_CORNER_RADIUS = 0.5; // spec §6.1: wells' inner vertical corners ≤ 0.5
 export const LIP_CHAMFER = 0.6; // spec §6.1: 0.6 × 45° on the lip's inner top edge
-export const UPPER_MIN_CHAMFER = 0.5; // spec §6.1: upper trays' bottom chamfer ≥ 0.5
 export const MIN_RELIEF_RADIUS = 0.3; // smaller corner reliefs are dropped
 export const MIN_SCOOP_RADIUS = 0.5; // smaller scoop fillets are dropped
 export const SPEC_TOLERANCE = 0.005; // TraySpec numbers are rounded to 0.01 mm
@@ -1510,7 +1537,9 @@ function planCompartment(
     x1: rect.x1 - band("right"),
     y1: rect.y1 - band("back"),
   };
-  if (content.x1 - content.x0 < 1 || content.y1 - content.y0 < 1) {
+  // TOL: TraySpec numbers are on the 0.01 mm grid, but their differences carry float noise
+  // (8.29 − 7.29 = 0.9999999999999991), so a value exactly on a limit must pass.
+  if (content.x1 - content.x0 < 1 - TOL || content.y1 - content.y0 < 1 - TOL) {
     fail(spec, `compartment ${index}: finger-pocket reach leaves no room for the contents`);
   }
 
@@ -1543,7 +1572,11 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     fail(spec, "outer size must be positive");
   }
   const chamfer = bottomChamfer(spec, settings);
-  if (Math.min(spec.w, spec.d) < 2 * (chamfer + MIN_FEATURE) || spec.h < chamfer + MIN_FEATURE) {
+  // With TOL, like every limit here: 2.27 + 0.8 = 3.0700000000000003 must accept h = 3.07.
+  if (
+    Math.min(spec.w, spec.d) < 2 * (chamfer + MIN_FEATURE) - TOL ||
+    spec.h < chamfer + MIN_FEATURE - TOL
+  ) {
     fail(spec, `outer size ${spec.w} × ${spec.d} × ${spec.h} mm is too small`);
   }
   const lip = planLip(spec, settings);
@@ -1582,7 +1615,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
 - [ ] **Step 5: Run the tests and the type check**
 
 Run: `npx vitest run src/geometry/plan.test.ts src/geometry/plan-corners.test.ts && npx tsc --noEmit`
-Expected: PASS (22 tests), no type errors.
+Expected: PASS (23 tests), no type errors.
 
 - [ ] **Step 6: Commit**
 
