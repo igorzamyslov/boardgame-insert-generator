@@ -315,6 +315,11 @@ export function validateProject(p: Project): Notice[] {
   const ck = new Checker();
   const { box, printer, settings } = p;
 
+  // A cast or hand-built Project may lack an id; storage and links key projects by it.
+  if (typeof p.id !== "string" || p.id === "") {
+    ck.error("invalid.id", "/id", "Project id must not be empty.");
+  }
+
   ck.length("/box/innerWidth", "Box width", box.innerWidth);
   ck.length("/box/innerDepth", "Box depth", box.innerDepth);
   const heightOk = ck.length("/box/innerHeight", "Box height", box.innerHeight);

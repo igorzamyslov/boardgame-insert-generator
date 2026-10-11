@@ -230,11 +230,17 @@ export function createProjectStore(storage: Storage | null = defaultStorage()): 
       }
       // Bounds aren't enforced: the user's own autosave must always open
       // (validateProject still reports anything over a limit).
-      return parseProjectWith(raw, {
+      const result = parseProjectWith(raw, {
         appSchemaVersion: SCHEMA_VERSION,
         migrations: MIGRATIONS,
         enforceBounds: false,
       });
+      // The storage key is authoritative: an entry without an id (the reader
+      // made one up) or with another id would otherwise autosave to a second key.
+      if (result.ok && result.project.id !== id) {
+        return { ...result, project: { ...result.project, id } };
+      }
+      return result;
     },
 
     save(p, foreign) {

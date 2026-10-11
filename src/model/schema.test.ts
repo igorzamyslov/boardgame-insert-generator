@@ -255,6 +255,16 @@ describe("parseProject: spec §5 bounds", () => {
     expect(expectError(input)).toMatch(/Too many components \(101\)/);
   });
 
+  it("refuses an empty project id, and gives a file without one a new id", () => {
+    const input = raw(newProject());
+    expect(expectError({ ...input, id: "" })).toBe(
+      "This project can't be opened: /id: Project id must not be empty.",
+    );
+    delete input.id;
+    const result = parseProject(input);
+    expect(result.ok && result.project.id).toMatch(/^[0-9a-z]{8}$/);
+  });
+
   it("still loads field-level problems, so a half-edited project can be fixed", () => {
     const input = raw(sampleProject());
     firstCards(input).decks = [{ name: "Empty", count: 0 }];

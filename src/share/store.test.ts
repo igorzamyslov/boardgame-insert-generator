@@ -290,6 +290,34 @@ describe("createProjectStore with a damaged index", () => {
   });
 });
 
+describe("createProjectStore ids", () => {
+  it("takes the id from the storage key, so saving never forks a second entry", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    const stored = JSON.parse(serializeProject(named("Stored"), noForeign())) as Record<
+      string,
+      unknown
+    >;
+    storage.setItem(projectKey("idless"), JSON.stringify({ ...stored, id: undefined }));
+    storage.setItem(projectKey("keyed"), JSON.stringify({ ...stored, id: "other" }));
+
+    for (const id of ["idless", "keyed"]) {
+      const loaded = store.load(id);
+      if (!loaded?.ok) {
+        throw new Error(`expected ${id} to load`);
+      }
+      expect(loaded.project.id).toBe(id);
+      store.save(loaded.project, loaded.foreign);
+    }
+    expect(
+      store
+        .list()
+        .map((e) => e.id)
+        .sort(),
+    ).toEqual(["idless", "keyed"]);
+  });
+});
+
 describe("createProjectStore and the spec §5 upper bounds", () => {
   it("loads an autosave over the bounds, which links and files refuse", () => {
     const store = createProjectStore(new MemoryStorage());

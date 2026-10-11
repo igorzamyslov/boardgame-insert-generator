@@ -420,6 +420,15 @@ describe("validateProject", () => {
     expect(notices.every(isBlocking)).toBe(true);
   });
 
+  it("treats an empty or missing project id as blocking", () => {
+    const missing = { ...newProject(), id: undefined } as unknown as Project;
+    for (const p of [{ ...newProject(), id: "" }, missing]) {
+      const notices = validateProject(p);
+      expect(codes(notices)).toEqual([["invalid.id", "/id"]]);
+      expect(notices.every(isBlocking)).toBe(true);
+    }
+  });
+
   it("does not throw on a null sleeve", () => {
     const c = { ...cards(), sleeve: null } as unknown as CardsComponent;
     expect(validateProject(withComponents(c))).toEqual([]);
