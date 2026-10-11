@@ -14,7 +14,7 @@ import { MIN_FEATURE } from "./constants";
 import { size } from "./group";
 import { wallFor } from "./outer";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
-import { ceilU, fromU } from "./units";
+import { ceilU, floorU, fromU } from "./units";
 
 /** Index access for tests under noUncheckedIndexedAccess: throws instead of returning undefined. */
 export function at<T>(items: readonly T[], index: number): T {
@@ -122,9 +122,9 @@ export function assertTrayInvariants(
   const gap = ceilU(Math.max(settings.divider, MIN_FEATURE));
   const minFloor = ceilU(Math.max(settings.floor, MIN_FEATURE));
   const u = (mm: number): number => Math.round(mm * 100);
-  const W = u(outer.w);
-  const D = u(outer.d);
-  const H = u(outer.h);
+  const W = floorU(outer.w);
+  const D = floorU(outer.d);
+  const H = floorU(outer.h);
   const list = realized.compartments;
   list.forEach((c, i) => {
     const label = `compartment ${i} (${c.contents})`;
@@ -141,8 +141,11 @@ export function assertTrayInvariants(
       const alongX = f.side === "front" || f.side === "back";
       const lo = wall;
       const hi = (alongX ? W : D) - wall;
-      expect(u(f.at - f.width / 2), `${label} slot start`).toBeGreaterThanOrEqual(lo);
-      expect(u(f.at + f.width / 2), `${label} slot end`).toBeLessThanOrEqual(hi);
+      // Edges sit on half units for an odd width, so compare in half units: 2·edge = 2·at ∓ width.
+      const centre = Math.round(f.at * 200);
+      const width = u(f.width);
+      expect(centre - width, `${label} slot start`).toBeGreaterThanOrEqual(2 * lo);
+      expect(centre + width, `${label} slot end`).toBeLessThanOrEqual(2 * hi);
     }
     for (const other of list.slice(i + 1)) {
       const apartX = Math.max(u(other.x) - u(c.x + c.w), u(c.x) - u(other.x + other.w));
