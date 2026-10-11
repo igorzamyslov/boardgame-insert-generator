@@ -273,11 +273,11 @@ describe("rejections", () => {
     expect(planTray({ ...plainBox, wall: 0.8 }, GEO).outerWall).toBe(0.8);
   });
 
-  it("rejects a lip thinner than 0.8 mm", () => {
-    const thin = { ...GEO, lip: { ...GEO.lip, thickness: 0.79 } };
-    expect(() => planTray(lippedLower, thin)).toThrow(/lip thickness 0.79 mm is below 0.8 mm/);
-    const exact = { ...GEO, lip: { ...GEO.lip, thickness: 0.8 } };
-    expect(planTray(lippedLower, exact).lip?.thickness).toBe(0.8);
+  it("rejects a lip thinner than 0.9 mm (0.8 plus the corner margin)", () => {
+    const thin = { ...GEO, lip: { ...GEO.lip, thickness: 0.89 } };
+    expect(() => planTray(lippedLower, thin)).toThrow(/lip thickness 0.89 mm is below 0.9 mm/);
+    const exact = { ...GEO, lip: { ...GEO.lip, thickness: 0.9 } };
+    expect(planTray(lippedLower, exact).lip?.thickness).toBe(0.9);
   });
 
   it("plans the lowest lip height settings allow (1 mm)", () => {

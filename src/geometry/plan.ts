@@ -1,5 +1,6 @@
 import type { CompartmentSpec, Settings, Side, TraySpec } from "../model/types";
 import {
+  CORNER_MARGIN,
   MIN_FEATURE_MM,
   SPEC_TOLERANCE as TOL,
   chamferMinimums,
@@ -34,8 +35,11 @@ function planLip(spec: TraySpec, settings: Settings): LipPlan | null {
   if (!Number.isFinite(ledge)) {
     fail(spec, `lip ledge ${ledge} mm is not a number`);
   }
-  if (!Number.isFinite(thickness) || !(thickness >= MIN_FEATURE_MM - TOL)) {
-    fail(spec, `lip thickness ${thickness} mm is below ${MIN_FEATURE_MM} mm`);
+  // The lip ring between two concentric polygons is thinner at its corner facets, so it keeps
+  // the CORNER_MARGIN the wall setting has (SETTING_RANGES lip/thickness).
+  const minThickness = MIN_FEATURE_MM + CORNER_MARGIN;
+  if (!Number.isFinite(thickness) || !(thickness >= minThickness - TOL)) {
+    fail(spec, `lip thickness ${thickness} mm is below ${minThickness} mm`);
   }
   const chamfer = Math.min(LIP_CHAMFER, thickness / 2);
   if (!Number.isFinite(height) || !(height > chamfer)) {
