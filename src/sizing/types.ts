@@ -59,7 +59,7 @@ export interface RealizeOptions {
 }
 
 export interface RealizedTray {
-  wall: number; // base wall used
+  wall: number; // base wall used: wallFor(settings, false) rounded up to 0.01 mm
   compartments: CompartmentSpec[];
   spacers: TraySpec[]; // positioned in tray-local coords (x, y, z relative to tray min corner); layout translates them
 }

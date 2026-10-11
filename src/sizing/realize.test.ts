@@ -307,6 +307,7 @@ describe("realizeTray", () => {
       );
       const outer = minOuter(part, odd, ground);
       const r = realizeTray(part, outer, odd, ground);
+      expect(r.wall).toBe(1.24);
       expect(r.compartments.map((c) => [c.x, c.y, c.floorZ])).toEqual([
         [1.24, 1.24, 1.24],
         [25.98, 1.24, 1.24],
@@ -321,6 +322,7 @@ describe("realizeTray", () => {
       const part = partOf([cards()], "upright-long|strip|split1", odd);
       const outer = minOuter(part, odd, lipped);
       const r = realizeTray(part, outer, odd, lipped);
+      expect(r.wall).toBe(1.24); // the base wall; the lipped wall is derived from it
       expect(at(r.compartments, 0)).toMatchObject({ x: 2.94, y: 2.94 });
       assertTrayInvariants(r, outer, odd, lipped);
     });

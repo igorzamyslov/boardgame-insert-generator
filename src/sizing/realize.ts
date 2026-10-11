@@ -1,4 +1,3 @@
-import { MIN_FEATURE_MM } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
 import {
   CORNER_RELIEF_D,
@@ -8,7 +7,7 @@ import {
   WALL_GROW_LIMIT,
 } from "./constants";
 import { pocketSides, reachU } from "./common";
-import { minLayoutU } from "./outer";
+import { minLayoutU, wallFor } from "./outer";
 import type { CompartmentReq, OuterSize, RealizeOptions, RealizedTray, TrayPartReq } from "./types";
 import { ceilU, fillCapped, floorU, fromU, splitEven, sum, toU } from "./units";
 
@@ -279,5 +278,6 @@ export function realizeTray(
       features: [],
     });
   }
-  return { wall: Math.max(settings.wall, MIN_FEATURE_MM), compartments, spacers };
+  // The base (unlipped) wall, rounded up to 0.01 mm like every other TraySpec length.
+  return { wall: fromU(ceilU(wallFor(settings, false))), compartments, spacers };
 }
