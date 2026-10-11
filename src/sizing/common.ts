@@ -87,6 +87,7 @@ export interface CompartmentInput {
  * Builds a CompartmentReq; adds fingerPocket.reach to minW/minD once per pocket side, however many
  * pockets share it (spec §6.1). Content rounds up to whole 0.01 mm and the reach is added as the
  * whole-unit band realizeTray subtracts again, so the well is never narrower than the content.
+ * minW, minD and minH are therefore whole 0.01 mm, and layout reads them with toU.
  */
 export function compartment(input: CompartmentInput, s: Settings): CompartmentReq {
   const reach = reachU(s);
@@ -99,7 +100,7 @@ export function compartment(input: CompartmentInput, s: Settings): CompartmentRe
     kind: input.kind,
     minW: fromU(ceilU(input.w) + xSides * reach),
     minD: fromU(ceilU(input.d) + ySides * reach),
-    minH: input.h,
+    minH: fromU(ceilU(input.h)),
     elastic: {
       w: input.elastic?.w ?? false,
       d: input.elastic?.d ?? false,

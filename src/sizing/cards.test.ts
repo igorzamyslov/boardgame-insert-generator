@@ -112,7 +112,7 @@ describe("cardOptions", () => {
     const c = deck(cards({ storage: "flat" }));
     expect(c.minW).toBeCloseTo(68, 9);
     expect(c.minD).toBeCloseTo(116.5, 9);
-    expect(c.minH).toBeCloseTo(23.4952, 9);
+    expect(c.minH).toBe(23.5); // 23.4952 rounded up
     expect(c.elastic).toEqual({ w: false, d: false, h: false });
     expect(c.spacerAxis).toBeUndefined();
     expect(c.features).toEqual([pocket("front", 1), pocket("back", 1)]);
@@ -179,7 +179,7 @@ describe("cardOptions", () => {
     const upright = at(at(at(options, 0).blocks, 0), 0);
     const flat = at(at(at(options, 2).blocks, 0), 0);
     expect(upright.minH).toBeCloseTo(74.5, 9);
-    expect(flat.minH).toBeCloseTo(35.608, 9);
+    expect(flat.minH).toBe(35.61); // 35.608 rounded up
     expect(flat.minW).toBeCloseTo(74.5, 9);
     expect(flat.minD).toBeCloseTo(148.5, 9);
   });
@@ -228,7 +228,7 @@ describe("cardOptions", () => {
     expect([flat?.minW, flat?.minD, flat?.minH]).toEqual([
       expect.closeTo(71.5, 9),
       expect.closeTo(120.5, 9),
-      expect.closeTo(6.356, 9),
+      expect.closeTo(6.36, 9),
     ]);
   });
 
@@ -249,7 +249,7 @@ describe("cardOptions", () => {
     expect([flat?.minW, flat?.minD, flat?.minH]).toEqual([
       expect.closeTo(65, 9),
       expect.closeTo(113.5, 9),
-      expect.closeTo(18.1392, 9),
+      expect.closeTo(18.14, 9),
     ]);
   });
 });

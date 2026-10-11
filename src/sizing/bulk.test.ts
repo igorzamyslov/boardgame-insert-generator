@@ -29,7 +29,7 @@ describe("bulkOptions", () => {
     expect(shallow.features).toEqual([{ type: "scoop", side: "front" }]);
     const deep = line(bulk(), s, 1);
     expect(deep.minW).toBe(34.2); // ∛40000 = 34.1995…, rounded up
-    expect(deep.minH).toBeCloseTo(1.5 * Math.cbrt(40000), 6); // 51.299…
+    expect(deep.minH).toBe(51.3); // 1.5 · ∛40000 = 51.299…, rounded up
   });
 
   it("uses volumeMl lines as given (1 ml = 1000 mm³)", () => {
@@ -41,7 +41,7 @@ describe("bulkOptions", () => {
     expect(shallow.minH).toBe(20);
     const deep = line(component, s, 1);
     expect(deep.minW).toBe(43.09); // ∛80000 = 43.088…, rounded up
-    expect(deep.minH).toBeCloseTo(1.5 * Math.cbrt(80000), 6);
+    expect(deep.minH).toBe(64.64); // 1.5 · ∛80000 = 64.633…, rounded up
   });
 
   it("keeps the per-axis minimum: largest item dimension + clearance, at least 25", () => {

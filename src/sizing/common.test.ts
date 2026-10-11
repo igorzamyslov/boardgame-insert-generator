@@ -38,6 +38,22 @@ describe("compartment", () => {
     expect("maxHRatio" in c).toBe(false);
   });
 
+  it("rounds the content up to whole 0.01 mm on every axis", () => {
+    const c = compartment(
+      {
+        componentId: "a",
+        contents: "A",
+        kind: "well",
+        w: 10.001,
+        d: 20.004,
+        h: 5.001,
+        features: [],
+      },
+      s,
+    );
+    expect([c.minW, c.minD, c.minH]).toEqual([10.01, 20.01, 5.01]);
+  });
+
   it("keeps optional fields when given", () => {
     const c = compartment(
       {

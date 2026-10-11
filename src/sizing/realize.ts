@@ -58,7 +58,7 @@ function wellOf(alloc: Rect, req: CompartmentReq, reach: number): Rect {
 
 /** Content depth: fixed for non-elastic contents (raised floor); bulk grows up to maxHRatio. */
 function contentDepth(req: CompartmentReq, well: Rect, H: number, floor: number): number {
-  const need = ceilU(req.minH);
+  const need = toU(req.minH);
   if (!req.elastic.h) {
     return need;
   }
@@ -211,7 +211,7 @@ export function realizeTray(
         !spacerUsed &&
         req !== undefined &&
         slack >= toU(MIN_SPACER) &&
-        ceilU(req.minH) - toU(SPACER_TOP_GAP) >= toU(MIN_SPACER)
+        toU(req.minH) - toU(SPACER_TOP_GAP) >= toU(MIN_SPACER)
       ) {
         growth[candidate] = slack;
         spacerAt = candidate;
@@ -229,7 +229,7 @@ export function realizeTray(
     let x = wall + (xExtra[0] ?? 0) + Math.floor(slack / 2);
     row.forEach((req, i) => {
       const w = (widths[i] ?? 0) + (growth[i] ?? 0);
-      const d = req.elastic.d ? rowDepth : ceilU(req.minD);
+      const d = req.elastic.d ? rowDepth : toU(req.minD);
       const top = req.elastic.d ? rowY : rowY + Math.floor((rowDepth - d) / 2);
       placed.push({
         req,
