@@ -145,14 +145,53 @@ describe("createProjectStore without usable storage", () => {
     }).not.toThrow();
   });
 
-  it("is unavailable when every write throws (blocked or private-mode storage)", () => {
+  it("is unavailable when reading from storage throws", () => {
     const storage = new MemoryStorage();
-    storage.failOn = () => true;
+    vi.spyOn(storage, "getItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
     const store = createProjectStore(storage);
     expect(store.available).toBe(false);
+    expect(store.list()).toEqual([]);
+    expect(store.load("x")).toBeNull();
     expect(() => {
       store.save(newProject(), noForeign());
+      store.remove("x");
     }).not.toThrow();
+  });
+
+  it("stays available when every write throws: reads and removes work, save fails", () => {
+    const storage = new MemoryStorage();
+    const seeded = createProjectStore(storage);
+    const a = named("A");
+    const b = named("B");
+    seeded.save(a, noForeign());
+    seeded.save(b, noForeign());
+    storage.failOn = () => true;
+    const store = createProjectStore(storage);
+    expect(store.available).toBe(true);
+    expect(
+      store
+        .list()
+        .map((e) => e.name)
+        .sort(),
+    ).toEqual(["A", "B"]);
+    const loaded = store.load(a.id);
+    expect(loaded?.ok && loaded.project.name).toBe("A");
+    expect(() => {
+      store.save({ ...a, name: "A2" }, noForeign());
+    }).toThrow(StoreWriteError);
+    store.remove(b.id);
+    expect(store.list().map((e) => e.name)).toEqual(["A"]);
+    expect(store.load(b.id)).toBeNull();
+    const still = store.load(a.id);
+    expect(still?.ok && still.project.name).toBe("A");
+  });
+
+  it("does not write anything when it is created", () => {
+    const storage = new MemoryStorage();
+    createProjectStore(storage);
+    expect(storage.length).toBe(0);
   });
 });
 

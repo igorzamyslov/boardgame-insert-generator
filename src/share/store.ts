@@ -5,7 +5,6 @@ import type { ForeignData, ParseResult, Project } from "../model/types";
 export const STORAGE_PREFIX = "insert-generator:";
 const INDEX_KEY = `${STORAGE_PREFIX}index`;
 const PROJECT_PREFIX = `${STORAGE_PREFIX}project:`;
-const PROBE_KEY = `${STORAGE_PREFIX}probe`;
 
 export interface ProjectListEntry {
   id: string;
@@ -18,6 +17,13 @@ export interface ProjectStore {
   load(id: string): ParseResult | null;
   save(p: Project, foreign: ForeignData): void;
   remove(id: string): void;
+  /**
+   * True when storage is readable (it exists and reading from it doesn't
+   * throw). It says nothing about free space: when storage is full, list(),
+   * load() and remove() keep working and save() throws StoreWriteError (the UI
+   * shows that as "autosave failed"). False means storage is missing or
+   * blocked: list() is empty, load() is null, and save() and remove() do nothing.
+   */
   available: boolean;
 }
 
@@ -33,13 +39,13 @@ function defaultStorage(): Storage | null {
   }
 }
 
-function probe(storage: Storage | null): storage is Storage {
+/** Storage is usable when it exists and can be read; it is never written to here. */
+function isReadable(storage: Storage | null | undefined): storage is Storage {
   if (!storage) {
     return false;
   }
   try {
-    storage.setItem(PROBE_KEY, "1");
-    storage.removeItem(PROBE_KEY);
+    storage.getItem(INDEX_KEY);
     return true;
   } catch {
     return false;
@@ -67,11 +73,12 @@ const UNAVAILABLE: ProjectStore = {
  * { id, name, updatedAt }. Projects are keyed by id, so saving one project
  * never touches another; saving an existing id updates it in place.
  * Every storage call is wrapped: when storage is missing or blocked,
- * `available` is false and the store does nothing. Only save() throws
+ * `available` is false and the store does nothing; a full storage stays
+ * available (readable) and only save() fails. Only save() throws
  * (StoreWriteError); a damaged index or entry never makes any method throw.
  */
 export function createProjectStore(storage: Storage | null = defaultStorage()): ProjectStore {
-  if (!probe(storage)) {
+  if (!isReadable(storage)) {
     return UNAVAILABLE;
   }
   const s = storage;
