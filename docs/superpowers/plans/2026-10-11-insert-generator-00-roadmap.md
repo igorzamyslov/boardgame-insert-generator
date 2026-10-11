@@ -362,7 +362,7 @@ export function realizeTray(
 
 - `size` groups components by `groupId`, expands `perPlayer`, and skips nothing silently: problems become `Notice`s.
 - `minOuter` returns the smallest outer box that holds the part (walls, dividers, floor, lipped wall included). `h` = floor + max compartment `minH`.
-- `realizeTray` spreads slack in `outer` over the compartments (elastic axes first, then dividers/walls inward up to `min(2 × setting, 4)`, then an extra `spare` compartment, then spacers). It raises floors so every compartment top is at the rim (`floorZ = h − compartment content depth`, never below `settings.floor`). It throws `RangeError` if `outer` is smaller than `minOuter` on any axis.
+- `realizeTray` spreads slack in `outer` over the compartments (elastic axes first, then dividers/walls inward up to `min(2 × setting, 4)`, with upright card/tile stack slack becoming a spacer first when ≥ 5 mm (§4.7), otherwise thicker dividers/walls, then an extra `spare` compartment). It raises floors so every compartment top is at the rim (`floorZ = h − compartment content depth`, never below `settings.floor`). It throws `RangeError` if `outer` is smaller than `minOuter` on any axis.
 
 ### 4.3 `src/geometry/types.ts` (plan 3)
 
