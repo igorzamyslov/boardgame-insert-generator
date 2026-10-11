@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
-import { MIN_FEATURE_MM, maxCornerRadius } from "../model/settings";
+import {
+  MIN_FEATURE_MM,
+  SPEC_TOLERANCE,
+  maxBottomChamfer,
+  maxCornerRadius,
+} from "../model/settings";
+import type { Settings } from "../model/types";
+import { INNER_CORNER_RADIUS } from "./plan-types";
+import type { TrayPlan } from "./plan-types";
 import { GEO, compartment, hexTiles, traySpec } from "./test-specs";
 
 describe("corner reliefs", () => {
@@ -75,5 +83,108 @@ describe("outer corner radius", () => {
   it("never goes below the bottom chamfer", () => {
     const tiny = traySpec({ key: "r0", w: 30, d: 30, h: 10 });
     expect(planTray(tiny, { ...GEO, cornerRadius: 0 }).cornerRadius).toBe(0.4);
+  });
+});
+
+// Material between a point of the cut and the outer surface at height z, on the true outer
+// contour (no polygon error): the rounded rectangle pulled in by e = chamfer − z below the
+// chamfer top, with arc radius R − e.
+function materialAt(plan: TrayPlan, x: number, y: number, z: number): number {
+  const e = Math.max(0, plan.chamfer - z);
+  const p = Math.min(x, plan.w - x);
+  const q = Math.min(y, plan.d - y);
+  const R = plan.cornerRadius;
+  return p < R && q < R ? R - e - Math.hypot(R - p, R - q) : Math.min(p, q) - e;
+}
+
+// Thinnest outer material at the floor of the compartment, over its sharp corners, the rounded
+// corners (inner radius) and the relief circles.
+function thinnestAtFloor(plan: TrayPlan): number {
+  let thinnest = Number.POSITIVE_INFINITY;
+  const sample = (x: number, y: number, z: number): void => {
+    thinnest = Math.min(thinnest, materialAt(plan, x, y, z));
+  };
+  for (const c of plan.compartments) {
+    const { x0, y0, x1, y1 } = c.rect;
+    for (const [x, y, sx, sy] of [
+      [x0, y0, 1, 1],
+      [x1, y0, -1, 1],
+      [x1, y1, -1, -1],
+      [x0, y1, 1, -1],
+    ] as const) {
+      sample(x, y, c.floorZ);
+      const ri = INNER_CORNER_RADIUS;
+      for (let i = 0; i <= 16; i++) {
+        const t = (i / 16) * (Math.PI / 2);
+        sample(x + sx * ri - sx * ri * Math.cos(t), y + sy * ri - sy * ri * Math.sin(t), c.floorZ);
+      }
+    }
+    for (const r of c.reliefs) {
+      for (let i = 0; i < 72; i++) {
+        const t = (i / 72) * 2 * Math.PI;
+        sample(r.cx + r.r * Math.cos(t), r.cy + r.r * Math.sin(t), c.floorZ);
+      }
+    }
+  }
+  return thinnest;
+}
+
+describe("corner material under the bottom chamfer", () => {
+  const profiles: [number, number][] = [
+    [0.8, 0.8],
+    [0.8, 1.2],
+    [0.8, 3],
+    [1.2, 0.8],
+    [1.2, 1.2],
+    [1.6, 1.2],
+    [2, 3],
+    [3, 3],
+  ];
+
+  it.each(profiles)(
+    "keeps 0.8 mm at the well floor at the largest chamfer (wall %d, floor %d)",
+    (wall, floor) => {
+      const base: Settings = { ...GEO, wall, floor };
+      const settings: Settings = { ...base, bottomChamfer: Math.min(3, maxBottomChamfer(base)) };
+      const side = 60;
+      const spec = traySpec({
+        key: "corner-material",
+        wall,
+        floor,
+        w: side,
+        d: side,
+        h: 20,
+        compartments: [
+          compartment({
+            x: wall,
+            y: wall,
+            w: side - 2 * wall,
+            d: side - 2 * wall,
+            floorZ: floor,
+            features: [{ type: "cornerRelief", d: 3 }],
+          }),
+        ],
+      });
+      const plan = planTray(spec, settings);
+      expect(plan.chamfer).toBeCloseTo(settings.bottomChamfer, 9);
+      expect(thinnestAtFloor(plan)).toBeGreaterThanOrEqual(MIN_FEATURE_MM - SPEC_TOLERANCE);
+    },
+  );
+
+  it("shrinks the outer corner radius for the extra e = chamfer − floor", () => {
+    const base = { ...GEO, wall: 1.6, floor: 1.2 };
+    const spec = (floorZ: number) =>
+      traySpec({
+        key: "e",
+        w: 60,
+        d: 60,
+        h: 20,
+        compartments: [compartment({ x: 1.6, y: 1.6, w: 56.8, d: 56.8, floorZ })],
+      });
+    const flat = planTray(spec(1.2), { ...base, bottomChamfer: 0.4 });
+    const steep = planTray(spec(1.2), { ...base, bottomChamfer: 1.6 });
+    // Same corner and floor: only the chamfer's e = 0.4 differs, and R follows maxCornerRadius.
+    expect(flat.cornerRadius).toBe(3);
+    expect(steep.cornerRadius).toBeCloseTo(Math.max(1.6, maxCornerRadius(1.6, 1.6, 0.4)), 9);
   });
 });

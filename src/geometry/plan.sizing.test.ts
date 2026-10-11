@@ -40,6 +40,13 @@ const PROFILES: [string, Profile][] = [
     },
   ],
   [
+    "largest chamfer, wall and floor 1.2",
+    (s) => {
+      const even = { ...s, wall: 1.2, floor: 1.2 };
+      return { ...even, bottomChamfer: maxBottomChamfer(even) };
+    },
+  ],
+  [
     "largest chamfer, thick wall and floor",
     (s) => {
       const thick = { ...s, wall: 3, floor: 3 };

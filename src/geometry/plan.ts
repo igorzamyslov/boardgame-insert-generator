@@ -6,7 +6,7 @@ import {
   effectiveBottomChamfer,
 } from "../model/settings";
 import { UnsupportedFeatureError } from "./errors";
-import { planCornerRadius, planReliefs } from "./plan-corners";
+import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
 import { LIP_CHAMFER, MIN_SCOOP_RADIUS } from "./plan-types";
 import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, SlotPlan, TrayPlan } from "./plan-types";
 import { KNOWN_COMPARTMENT_KINDS, KNOWN_FEATURE_TYPES, KNOWN_PARTS } from "./types";
@@ -167,6 +167,36 @@ function planSlot(
   }
 }
 
+// A finger slot must keep MIN_FEATURE_MM of material against the bottom chamfer, like a
+// compartment (checkRect). Measured as distance + height − chamfer, where height is the slot's
+// lowest line for the end facing the outer face it cuts through, and for a side end the height
+// where the round bottom (radius r) first reaches it: min over the profile is
+// bottomZ + (2 − √2)·r (the arc point 45° up from the bottom).
+function checkSlotMaterial(
+  spec: TraySpec,
+  index: number,
+  slot: SlotPlan,
+  outerLimit: number,
+  chamfer: number,
+): void {
+  const alongX = slot.side === "front" || slot.side === "back";
+  const [lo, hi] = alongX ? [slot.x0, slot.x1] : [slot.y0, slot.y1];
+  const through = {
+    front: slot.y0,
+    back: spec.d - slot.y1,
+    left: slot.x0,
+    right: spec.w - slot.x1,
+  }[slot.side];
+  const sideHeight = slot.bottomZ + (2 - Math.SQRT2) * slot.radius;
+  const material = Math.min(through + slot.bottomZ, lo + sideHeight, outerLimit - hi + sideHeight);
+  if (material - chamfer < MIN_FEATURE_MM - TOL) {
+    fail(
+      spec,
+      `compartment ${index}: a finger pocket leaves less than ${MIN_FEATURE_MM} mm of wall and floor against the ${chamfer} mm bottom chamfer`,
+    );
+  }
+}
+
 function planCompartment(
   spec: TraySpec,
   index: number,
@@ -265,10 +295,30 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect"), outerWall),
   );
   const plans = planned.map((p) => p.plan);
+  plans.forEach((plan) =>
+    plan.slots.forEach((slot) =>
+      checkSlotMaterial(
+        spec,
+        plan.index,
+        slot,
+        slot.side === "front" || slot.side === "back" ? spec.w : spec.d,
+        chamfer,
+      ),
+    ),
+  );
   const compartments = planned.map(({ plan, reliefDiameter }) => ({
     ...plan,
-    reliefs: planReliefs(spec, plans, plan, reliefDiameter),
+    reliefs: planReliefs(spec, plans, plan, reliefDiameter, chamfer),
   }));
+
+  const cornerRadius = planCornerRadius(spec, settings.cornerRadius, chamfer, compartments);
+  const thin = thinCorner(spec, cornerRadius, chamfer, compartments);
+  if (thin !== null) {
+    fail(
+      spec,
+      `the ${chamfer} mm bottom chamfer forces an outer corner radius of ${cornerRadius} mm, and ${thin}`,
+    );
+  }
 
   return {
     w: spec.w,
@@ -276,7 +326,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     h: spec.h,
     topZ: spec.h + (lip ? lip.height : 0),
     chamfer,
-    cornerRadius: planCornerRadius(spec, settings.cornerRadius, chamfer, compartments),
+    cornerRadius,
     outerWall,
     lip,
     compartments,

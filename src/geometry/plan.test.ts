@@ -332,9 +332,33 @@ describe("bottom chamfer against walls and floor", () => {
   });
 
   it("accepts a chamfer leaving exactly 0.8 mm of material", () => {
+    // A compartment 0.8 mm from the left face only (its corners are far from the outer corners):
     // wall + floor − chamfer = 0.8 + 1.4 − 1.4 = 0.8, float noise included.
-    expect(planTray(thinTray(0.8, 1.4), { ...GEO, bottomChamfer: 1.4 }).chamfer).toBe(1.4);
-    expect(() => planTray(thinTray(0.8, 1.4), { ...GEO, bottomChamfer: 1.41 })).toThrow(/chamfer/);
+    const edge = traySpec({
+      key: "edge",
+      wall: 0.8,
+      floor: 1.4,
+      w: 60,
+      d: 60,
+      h: 20,
+      compartments: [compartment({ x: 0.8, y: 20, w: 20, d: 20, floorZ: 1.4 })],
+    });
+    expect(planTray(edge, { ...GEO, bottomChamfer: 1.4 }).chamfer).toBe(1.4);
+    expect(() => planTray(edge, { ...GEO, bottomChamfer: 1.41 })).toThrow(/bottom chamfer/);
+  });
+
+  it("rejects a chamfer that leaves a thin outer corner at the well floor", () => {
+    // Straight faces keep 1.6 + 1.2 − 1.95 = 0.85 mm, but the corner (R = chamfer = 1.95, pulled in
+    // by 0.75 at the floor) keeps 1.95 − 0.75 − √2·0.35 = 0.71 mm.
+    const corner = traySpec({
+      key: "steep-corner",
+      w: 60,
+      d: 60,
+      h: 20,
+      compartments: [compartment({ x: 1.6, y: 1.6, w: 56.8, d: 56.8 })],
+    });
+    expect(() => planTray(corner, { ...GEO, bottomChamfer: 1.95 })).toThrow(/outer corner radius/);
+    expect(planTray(corner, { ...GEO, bottomChamfer: 1.88 }).cornerRadius).toBeCloseTo(1.88, 9);
   });
 
   it("measures the floor of each compartment, not the tray's nominal floor", () => {
@@ -348,6 +372,37 @@ describe("bottom chamfer against walls and floor", () => {
     // 1.6 + 0.8 − 1.6 = 0.8 passes, 1.6 + 0.8 − 1.7 = 0.7 does not (spec.floor is 1.2).
     expect(planTray(spec, { ...GEO, bottomChamfer: 1.6 }).chamfer).toBe(1.6);
     expect(() => planTray(spec, { ...GEO, bottomChamfer: 1.7 })).toThrow(/chamfer/);
+  });
+
+  it("keeps the same material at the ends of a finger slot", () => {
+    const steep = { ...GEO, bottomChamfer: 3 };
+    // The compartment is far from the outer faces; its slot at the left end of a front band is not:
+    // the slot's side end is lo from the left face, its round bottom (radius r) rises over the floor.
+    const slotAt = (at: number): TraySpec =>
+      traySpec({
+        key: "slot-end",
+        w: 80,
+        d: 60,
+        h: 20,
+        compartments: [
+          compartment({
+            x: 12,
+            y: 6,
+            w: 60,
+            d: 50,
+            floorZ: 1.5,
+            features: [pocket("front", at, 20, 2, 5)],
+          }),
+        ],
+      });
+    // End 1.6 mm from the face: 1.6 + 1.5 + (2 − √2)·1 − 3 = 0.69 < 0.8.
+    expect(() => planTray(slotAt(2.6), steep)).toThrow(/finger pocket.*bottom chamfer/);
+    // 0.3 mm further in: 0.99.
+    expect(planTray(slotAt(2.9), steep).compartments[0]?.slots).toHaveLength(1);
+    // The far end is checked the same way.
+    expect(() => planTray(slotAt(80 - 2.6), steep)).toThrow(/finger pocket.*bottom chamfer/);
+    // And a pocket that is fine without a steep chamfer is accepted with the default.
+    expect(planTray(slotAt(2.6), GEO).compartments[0]?.slots).toHaveLength(1);
   });
 
   it("does not check solid parts", () => {
