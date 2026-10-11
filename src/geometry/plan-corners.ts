@@ -3,7 +3,7 @@ import { CORNER_MARGIN, MIN_FEATURE_MM, SPEC_TOLERANCE, maxCornerRadius } from "
 import { MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
 import type { CompartmentPlan, Rect, ReliefPlan } from "./plan-types";
 
-export interface TraySize {
+interface TraySize {
   w: number;
   d: number;
 }
@@ -18,7 +18,7 @@ function pullIn(chamfer: number, z: number): number {
 // floor, where the chamfer pulls the face in by chamfer − floorZ), half of it
 // toward another compartment (which may have reliefs of its own) or its finger
 // slots (which may reach past that compartment toward this one).
-export function sideBudget(
+function sideBudget(
   size: TraySize,
   plans: CompartmentPlan[],
   self: CompartmentPlan,
@@ -120,12 +120,12 @@ function nearestCorner(size: TraySize, disc: CornerDisc): { p: number; q: number
   return { p: Math.min(disc.x, size.w - disc.x), q: Math.min(disc.y, size.d - disc.y) };
 }
 
-// Effective outer corner radius: the setting, reduced so no compartment
-// corner, slot corner or relief comes closer than MIN_FEATURE_MM to a rounded
-// outer corner (also below the chamfer top, where the contour is pulled in by e),
-// never below the bottom chamfer (a 45° chamfer under a corner tighter than the
-// chamfer would overhang; planTray rejects a chamfer that then leaves a corner
-// too thin).
+// Effective outer corner radius: the setting, reduced so every compartment
+// corner, slot corner and relief keeps MIN_FEATURE_MM + CORNER_MARGIN to the
+// rounded outer corner (maxCornerRadius; also below the chamfer top, where the
+// contour is pulled in by e), never below the bottom chamfer (a 45° chamfer
+// under a corner tighter than the chamfer would overhang; planTray rejects a
+// chamfer that then leaves a corner too thin, thinCorner).
 export function planCornerRadius(
   size: TraySize,
   setting: number,

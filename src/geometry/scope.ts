@@ -2,7 +2,7 @@
 // Every Manifold created during a build is registered with a Scope and freed
 // in one place, even when the build throws.
 
-export interface Deletable {
+interface Deletable {
   delete(): void;
 }
 

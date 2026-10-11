@@ -177,11 +177,12 @@ function toMesh(solid: Manifold): Mesh {
   return { positions, indices: new Uint32Array(raw.triVerts) };
 }
 
-// Builds one printed part from its TraySpec alone (plus the settings that
-// define lip, chamfer, corner radius and scoop sizes). Mesh frame: tray-local,
-// origin at the outer min corner, z = 0 at the bottom.
-// Throws TraySpecError (a RangeError) for an invalid spec, UnsupportedFeatureError for parts or
-// features from a newer app version, Error if the kernel fails.
+// Builds one printed part from its TraySpec alone, plus the settings that define
+// the lip and the bottom chamfer and cap the outer corner radius (scoop radii
+// and every other size come from the spec). Mesh frame: tray-local, origin at
+// the outer min corner, z = 0 at the bottom.
+// Throws TraySpecError (a RangeError) for a spec planTray rejects, UnsupportedFeatureError for
+// parts or features from a newer app version, Error if the kernel fails.
 export function buildTray(
   m: ManifoldToplevel,
   spec: TraySpec,

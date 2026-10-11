@@ -9,9 +9,9 @@ export interface Triangles {
   maxZ: Float64Array;
 }
 
-export type Point = [number, number, number];
+type Point = [number, number, number];
 
-export function vertex(mesh: Mesh, index: number): Point {
+function vertex(mesh: Mesh, index: number): Point {
   const p = mesh.positions;
   return [p[index * 3] ?? 0, p[index * 3 + 1] ?? 0, p[index * 3 + 2] ?? 0];
 }

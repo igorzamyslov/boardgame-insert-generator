@@ -4,7 +4,7 @@ import { MIN_FEATURE_MM } from "../model/settings";
 import { buildBvh, nearestHit } from "./bvh";
 import { triangles } from "./triangles";
 
-export const OVERHANG_NZ = -0.71; // a 45° face has normal.z = −0.7071, which passes
+const OVERHANG_NZ = -0.71; // a 45° face has normal.z = −0.7071, which passes
 const BED_Z = 1e-3; // triangles entirely below this lie on the bed
 const MIN_AREA = 1e-4; // mm²; ignore slivers whose float32 normals are noise
 const VERTICAL = 0.02; // |normal.z| below this: a wall face
