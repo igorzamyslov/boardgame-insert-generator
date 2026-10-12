@@ -21,18 +21,22 @@ describe("parts the lip makes too big for the bed", () => {
 
   // The search is seed-dependent: on these seeds the main chain never found the packing that
   // another chain finds. One extra chain from a derived seed rescues them.
-  it("case1: seeds whose first chain dead-ends are rescued by the derived-seed chain", () => {
-    const input = bedLipInput("case1");
-    for (const seed of [5, 9]) {
-      const r = optimize(input, seed, 50_000);
-      expect(r.layout).not.toBeNull();
-      expect(r.layout?.seed).toBe(seed);
-      // the rescuing chain ran the same budget
-      expect(r.layout?.iterations).toBe(50_000);
-      expect(checkHardRules(input, r.layout ?? emptyLayout(), r.notices)).toEqual([]);
-      expect(r).toEqual(optimize(input, seed, 50_000));
-    }
-  });
+  it(
+    "case1: seeds whose first chain dead-ends are rescued by the derived-seed chain",
+    { timeout: 30_000 }, // 2 s alone, 6 s under the full parallel run
+    () => {
+      const input = bedLipInput("case1");
+      for (const seed of [5, 9]) {
+        const r = optimize(input, seed, 50_000);
+        expect(r.layout).not.toBeNull();
+        expect(r.layout?.seed).toBe(seed);
+        // the rescuing chain ran the same budget
+        expect(r.layout?.iterations).toBe(50_000);
+        expect(checkHardRules(input, r.layout ?? emptyLayout(), r.notices)).toEqual([]);
+        expect(r).toEqual(optimize(input, seed, 50_000));
+      }
+    },
+  );
 
   for (const [name, tray] of [
     ["case0", "r2c0"],

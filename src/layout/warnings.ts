@@ -2,7 +2,7 @@ import { FIT_CHOICES } from "../model/settings";
 import type { Notice, TraySpec } from "../model/types";
 import type { TrayRequirement } from "../sizing/types";
 import { fitsBed } from "./bed";
-import { PLAY_LIMIT_U, printedHeight, type Ctx, type PartRef } from "./context";
+import { PLAY_LIMIT_MM, printedHeight, type Ctx, type PartRef } from "./context";
 import { coverageApplies } from "./score";
 import type { LayoutSummary } from "./types";
 import { toMm, toU, type U } from "./units";
@@ -71,7 +71,7 @@ export function layoutWarnings(
       });
     }
   }
-  const limit = toMm(PLAY_LIMIT_U);
+  const limit = PLAY_LIMIT_MM;
   for (const [axis, play] of [
     ["X", summary.playX],
     ["Y", summary.playY],

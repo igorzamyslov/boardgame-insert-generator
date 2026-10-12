@@ -5,7 +5,7 @@ import { MIN_GRIP, UPPER_TRAY_MIN_ABOVE_LIP, WALL_GROW_LIMIT } from "../sizing/c
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import type { Bed } from "./bed";
 import type { LayoutInput } from "./types";
-import { toU, toUCeil, toUFloor, type U } from "./units";
+import { toMm, toU, toUCeil, toUFloor, type U } from "./units";
 
 /** Same signature as sizing's minOuter; injectable so unit tests can use fixed sizes. */
 export type Measure = (part: TrayPartReq, settings: Settings, opts: RealizeOptions) => OuterSize;
@@ -27,6 +27,8 @@ export const MIN_PIECE_U: U = 300;
 export const GRIP_U: U = toU(MIN_GRIP);
 /** Nominal lateral play above this is penalized and warned about (hard rule 1). */
 export const PLAY_LIMIT_U: U = 150;
+/** The same limit in millimetres, for messages and for the UI (spec §7.3). */
+export const PLAY_LIMIT_MM: number = toMm(PLAY_LIMIT_U);
 
 export interface PartRef {
   readonly req: number;
