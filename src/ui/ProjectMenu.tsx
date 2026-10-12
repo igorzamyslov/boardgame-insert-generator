@@ -68,6 +68,12 @@ export function ProjectMenu(props: ProjectMenuProps) {
   const [problem, setProblem] = useState<{ id: string; message: string } | null>(null);
   // The tag already hides a result from another project; clearing also stops it coming back
   // when the user returns to the first one.
+  // Counts project switches, so a request started before one is recognised when it resolves,
+  // even if the user has come back to the same project by then.
+  const switches = useRef({ id: currentId, count: 0 });
+  if (switches.current.id !== currentId) {
+    switches.current = { id: currentId, count: switches.current.count + 1 };
+  }
   useEffect(() => {
     setCopy(null);
     setProblem(null);
@@ -97,13 +103,19 @@ export function ProjectMenu(props: ProjectMenuProps) {
 
   function copyCurrentLink(): void {
     const id = currentId;
+    const started = switches.current.count;
     setProblem(null);
     props.onCopyLink().then(
       (result) => {
-        setCopy({ id, result });
+        // A result for a project that was left meanwhile is dropped, not kept for its return.
+        if (switches.current.count === started) {
+          setCopy({ id, result });
+        }
       },
       (e: unknown) => {
-        setProblem({ id, message: `Couldn't make the link: ${errorText(e)}` });
+        if (switches.current.count === started) {
+          setProblem({ id, message: `Couldn't make the link: ${errorText(e)}` });
+        }
       },
     );
   }

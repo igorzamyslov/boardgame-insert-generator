@@ -65,13 +65,20 @@ export function Summary(p: SummaryProps) {
   const running = p.run.status === "running";
   // The percent only ever goes up during a run (the total can change under it) and stops at 100.
   const shown = useRef(0);
+  const lastDone = useRef(0);
   let percent = 0;
   if (p.run.status === "running") {
     const raw = Math.floor((100 * p.run.done) / Math.max(1, p.run.total));
+    // `done` never goes down within a run, so a lower one is a new run replacing this one.
+    if (p.run.done < lastDone.current) {
+      shown.current = 0;
+    }
+    lastDone.current = p.run.done;
     percent = Math.max(shown.current, Math.min(100, Math.max(0, raw)));
     shown.current = percent;
   } else {
     shown.current = 0;
+    lastDone.current = 0;
   }
   const shortfall = p.shortfall ? shortfallText(p.shortfall) : null;
   return (

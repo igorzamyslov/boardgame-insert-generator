@@ -1,5 +1,6 @@
 // src/instructions/numbering.ts
 import type { Settings, TraySpec } from "../model/types";
+import { compareCodeUnits } from "../util/compare";
 
 export interface NumberedPart {
   number: number;
@@ -33,18 +34,10 @@ export function partLabel(spec: TraySpec): string {
   return names.length > 0 ? names.join(" + ") : spec.key;
 }
 
-/** Code-unit order: the same on every machine, unlike `localeCompare`. */
-function compareKeys(a: string, b: string): number {
-  if (a === b) {
-    return 0;
-  }
-  return a < b ? -1 : 1;
-}
-
 export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
   const main = trays
     .filter((t) => t.part !== "spacer")
-    .sort((a, b) => a.stack - b.stack || a.level - b.level || compareKeys(a.key, b.key));
+    .sort((a, b) => a.stack - b.stack || a.level - b.level || compareCodeUnits(a.key, b.key));
   const spacers = trays.filter((t) => t.part === "spacer");
   const used = new Set<TraySpec>();
   const ordered: TraySpec[] = [];
@@ -57,7 +50,9 @@ export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
       }
     }
   }
-  const orphans = spacers.filter((s) => !used.has(s)).sort((a, b) => compareKeys(a.key, b.key));
+  const orphans = spacers
+    .filter((s) => !used.has(s))
+    .sort((a, b) => compareCodeUnits(a.key, b.key));
   ordered.push(...orphans);
   const numberOf = new Map<string, number>();
   ordered.forEach((t, i) => {

@@ -18,6 +18,8 @@ export function bytesToBlob(data: Uint8Array, type: string): Blob {
 }
 
 const MAX_SLUG_LENGTH = 80;
+/** Device names Windows refuses as a file name, with or without an extension. */
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 
 /** A file-name-safe version of a project name: accents dropped to their base letters
  * ("Würfelkönig" → "Wurfelkonig"), anything else unsafe to "-", at most 80 characters. */
@@ -30,5 +32,8 @@ export function fileSlug(name: string): string {
     .replace(/^[-.]+/, "")
     .slice(0, MAX_SLUG_LENGTH)
     .replace(/[-.]+$/, "");
-  return slug === "" ? "insert" : slug;
+  if (slug === "") {
+    return "insert";
+  }
+  return WINDOWS_RESERVED.test(slug) ? `${slug}-insert` : slug;
 }

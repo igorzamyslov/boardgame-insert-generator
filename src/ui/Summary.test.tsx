@@ -242,4 +242,17 @@ describe("Summary", () => {
       view.unmount();
     }
   });
+
+  it("starts the bar again when a new run replaces a running one", () => {
+    const view = render(
+      <Summary {...props({ run: { status: "running", done: 600, total: 1000 } })} />,
+    );
+    expect(screen.getByText(/60%/)).toBeTruthy();
+    // a new run starts without an idle state in between (open or switch project)
+    view.rerender(<Summary {...props({ run: { status: "running", done: 0, total: 1000 } })} />);
+    expect(screen.getByText(/Optimizing… 0%/)).toBeTruthy();
+    expect(screen.queryByText(/60%/)).toBeNull();
+    view.rerender(<Summary {...props({ run: { status: "running", done: 100, total: 1000 } })} />);
+    expect(screen.getByText(/10%/)).toBeTruthy();
+  });
 });

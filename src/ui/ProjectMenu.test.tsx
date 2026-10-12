@@ -186,4 +186,43 @@ describe("ProjectMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Download JSON instead" }));
     expect(p.onExportJson).toHaveBeenCalled();
   });
+
+  it("ignores a link result that arrives after the project was switched away and back", async () => {
+    let resolve: (r: CopyLinkResult) => void = () => undefined;
+    const p = props({
+      onCopyLink: () =>
+        new Promise<CopyLinkResult>((r) => {
+          resolve = r;
+        }),
+    });
+    const view = render(<ProjectMenu {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+    view.rerender(<ProjectMenu {...p} currentId="b" name="Ark Nova" />);
+    view.rerender(<ProjectMenu {...p} />);
+    resolve({ status: "copied", length: 10, tooLong: false });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByRole("status")).toBeNull();
+    // a result for the project that is open still shows
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+    resolve({ status: "copied", length: 10, tooLong: false });
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Link copied."));
+  });
+
+  it("ignores a link result that arrives while another project is open", async () => {
+    let resolve: (r: CopyLinkResult) => void = () => undefined;
+    const p = props({
+      onCopyLink: () =>
+        new Promise<CopyLinkResult>((r) => {
+          resolve = r;
+        }),
+    });
+    const view = render(<ProjectMenu {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+    view.rerender(<ProjectMenu {...p} currentId="b" name="Ark Nova" />);
+    resolve({ status: "copied", length: 10, tooLong: false });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByRole("status")).toBeNull();
+    view.rerender(<ProjectMenu {...p} />);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
 });

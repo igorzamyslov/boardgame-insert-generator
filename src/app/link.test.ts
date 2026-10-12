@@ -90,6 +90,16 @@ describe("fileSlug", () => {
     expect(fileSlug("Игра 2")).toBe("2");
   });
 
+  it("avoids Windows reserved device names", () => {
+    for (const name of ["CON", "con", "Prn", "AUX", "nul", "COM1", "com9", "LPT1", "lpt9"]) {
+      expect(fileSlug(name)).toBe(`${name}-insert`);
+    }
+    expect(fileSlug("con.txt")).toBe("con.txt-insert");
+    expect(fileSlug("CONSOLE")).toBe("CONSOLE");
+    expect(fileSlug("COM10")).toBe("COM10");
+    expect(fileSlug("Nul Game")).toBe("Nul-Game");
+  });
+
   it("caps the length without leaving a trailing separator", () => {
     expect(fileSlug("a".repeat(200))).toBe("a".repeat(80));
     const cut = `${"a".repeat(79)} ${"b".repeat(50)}`;

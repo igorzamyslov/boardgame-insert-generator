@@ -1,4 +1,5 @@
 import type { Lock, Notice, StoredLayout, TraySpec } from "../model/types";
+import { compareCodeUnits } from "../util/compare";
 import { fitsBed } from "./bed";
 import {
   MAX_DEPTH,
@@ -549,7 +550,7 @@ export function applyLocks(
   );
 
   const displaced: { items: StackItem[]; frozen: boolean }[] = [];
-  for (const locked of [...resolved.leaves].sort((a, b) => a.path.localeCompare(b.path))) {
+  for (const locked of [...resolved.leaves].sort((a, b) => compareCodeUnits(a.path, b.path))) {
     for (let n = 0; n < locked.path.length; n++) {
       const q = locked.path.slice(0, n);
       const node = nodeAt(root, q);
