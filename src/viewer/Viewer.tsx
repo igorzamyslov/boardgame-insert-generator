@@ -14,6 +14,8 @@ export interface ViewerProps {
   trays: readonly TraySpec[];
   box: Box;
   settings: Settings;
+  /** The inputs no longer match the layout: keep what was built rather than build for new settings. */
+  stale?: boolean;
   meshes: MeshSource;
   selectedKey: string | null;
   lockedKeys: ReadonlySet<string>;
@@ -132,7 +134,9 @@ export function Viewer(p: ViewerProps) {
 
   useEffect(() => {
     const h = handleRef.current;
-    if (status !== "ready" || !h) {
+    // While stale the scene keeps the meshes it has (settings that don't match the layout
+    // would build trays that never were in it); the effect runs again when the layout is current.
+    if (status !== "ready" || !h || p.stale) {
       return undefined;
     }
     let cancelled = false;
@@ -171,7 +175,7 @@ export function Viewer(p: ViewerProps) {
       cancelled = true;
       controller.abort();
     };
-  }, [status, p.trays, p.settings, p.meshes, attempt]);
+  }, [status, p.trays, p.settings, p.stale, p.meshes, attempt]);
 
   useEffect(() => {
     handleRef.current?.setExplode(explode);
@@ -230,7 +234,12 @@ export function Viewer(p: ViewerProps) {
           </button>
         </p>
       ) : null}
-      {build.total > 0 && build.done < build.total ? (
+      {p.stale ? (
+        <p class="hint">
+          Inputs changed: the preview shows the last layout. Re-optimize to update it.
+        </p>
+      ) : null}
+      {!p.stale && build.total > 0 && build.done < build.total ? (
         <div class="run-status" role="status">
           <progress value={build.done} max={build.total} aria-label="Building 3D models" />
           <span>{`Building 3D models ${build.done}/${build.total}…`}</span>

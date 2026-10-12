@@ -30,6 +30,8 @@ export interface ExportPanelProps {
   meshes: MeshSource;
   projectName: string;
   disabled: boolean;
+  /** The inputs no longer match the layout: exporting would build trays for other settings. */
+  stale?: boolean;
   download?: (blob: Blob, filename: string) => void;
 }
 
@@ -51,6 +53,7 @@ export function ExportPanel(p: ExportPanelProps) {
   const cancelButton = useRef<HTMLButtonElement | null>(null);
   const download = p.download ?? downloadBlob;
   const slug = fileSlug(p.projectName);
+  const blocked = p.disabled || p.stale === true;
 
   // Preact calls a ref with null just before it removes the element, while it still has the
   // focus: whatever makes Cancel go away (a finished or aborted export, not only a click on it)
@@ -150,12 +153,13 @@ export function ExportPanel(p: ExportPanelProps) {
         Every part prints open side up, the way it sits in the box. Parts are numbered as in the
         plan view and on the assembly page.
       </p>
+      {p.stale ? <p class="hint">Inputs changed — re-optimize before exporting.</p> : null}
       <div class="button-row" ref={buttonRow}>
         {KINDS.map((k) => (
           <button
             type="button"
             key={k}
-            disabled={p.disabled || busy !== null || plan.parts.length === 0}
+            disabled={blocked || busy !== null || plan.parts.length === 0}
             onClick={() => {
               void run(k);
             }}
@@ -178,7 +182,7 @@ export function ExportPanel(p: ExportPanelProps) {
           <p>{`Export failed: ${error.message}`}</p>
           <button
             type="button"
-            disabled={p.disabled}
+            disabled={blocked}
             onClick={() => {
               p.meshes.reset();
               void run(error.kind);
@@ -199,7 +203,7 @@ export function ExportPanel(p: ExportPanelProps) {
           {failed.length > 0 ? (
             <button
               type="button"
-              disabled={p.disabled || busy !== null}
+              disabled={blocked || busy !== null}
               onClick={() => {
                 p.meshes.forget(
                   failed.map((f) => f.part.spec),

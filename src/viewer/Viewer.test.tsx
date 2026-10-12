@@ -186,6 +186,28 @@ describe("Viewer", () => {
     expect(shown.map((t) => t.spec.key)).toEqual(["z:p0:0"]);
   });
 
+  it("keeps the last built meshes while the layout is stale and rebuilds when it is current", async () => {
+    const scene = stubScene();
+    const m = meshes();
+    const p = props({ meshes: m }, scene);
+    const view = render(<Viewer {...p} />);
+    await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalledTimes(1));
+    expect(m.get).toHaveBeenCalledTimes(2);
+    const changed = { ...DEFAULT_SETTINGS, wall: DEFAULT_SETTINGS.wall + 0.4 };
+    view.rerender(<Viewer {...p} settings={changed} stale />);
+    await flush();
+    view.rerender(<Viewer {...p} settings={{ ...changed, wall: changed.wall + 0.2 }} stale />);
+    await flush();
+    expect(m.get).toHaveBeenCalledTimes(2);
+    expect(scene.handle.setTrays).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/shows the last layout/)).toBeTruthy();
+    view.rerender(<Viewer {...p} settings={changed} />);
+    await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalledTimes(2));
+    expect(m.get).toHaveBeenCalledTimes(4);
+    expect(m.get.mock.calls.at(-1)?.[1]).toBe(changed);
+    expect(screen.queryByText(/shows the last layout/)).toBeNull();
+  });
+
   it("re-fits the camera only when the box outline changes, not on other settings", async () => {
     const scene = stubScene();
     const p = props({}, scene);

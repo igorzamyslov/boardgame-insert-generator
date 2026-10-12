@@ -284,6 +284,7 @@ export function App(props: AppProps) {
                     trays={layout.trays}
                     box={project.box}
                     settings={project.settings}
+                    stale={s.stale.value}
                     meshes={meshes}
                     selectedKey={s.selection.value}
                     lockedKeys={locked}
@@ -305,6 +306,7 @@ export function App(props: AppProps) {
                     meshes={meshes}
                     projectName={project.name}
                     disabled={run.status === "running"}
+                    stale={s.stale.value}
                     download={download}
                   />
                   <p>

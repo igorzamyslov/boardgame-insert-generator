@@ -82,6 +82,19 @@ describe("App", () => {
     ]);
   });
 
+  it("blocks exporting while the inputs differ from the layout, even before a run starts", async () => {
+    const { store } = renderApp(withLayoutHash());
+    const stl = screen.getByRole("button", { name: "STL files (.zip)" });
+    expect(stl.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(screen.getByLabelText("Advanced"));
+    store.edit((q) => ({ ...q, settings: { ...q.settings, wall: q.settings.wall + 0.4 } }));
+    expect(store.state.stale.value).toBe(true);
+    expect(await screen.findByText("Inputs changed — re-optimize before exporting.")).toBeTruthy();
+    for (const name of ["3MF per part (.zip)", "One combined 3MF", "STL files (.zip)"]) {
+      expect(screen.getByRole("button", { name }).hasAttribute("disabled")).toBe(true);
+    }
+  });
+
   it("locks and unlocks a tray's size from the tray details", () => {
     const { store } = renderApp(withLayoutHash());
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });

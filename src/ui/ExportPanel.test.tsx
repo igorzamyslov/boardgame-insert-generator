@@ -125,6 +125,38 @@ describe("ExportPanel", () => {
     }
   });
 
+  it("blocks every export of a stale layout and says why", () => {
+    render(<ExportPanel {...props({ stale: true })} />);
+    for (const name of ["3MF per part (.zip)", "One combined 3MF", "STL files (.zip)"]) {
+      expect(screen.getByRole("button", { name }).hasAttribute("disabled")).toBe(true);
+    }
+    expect(screen.getByText("Inputs changed — re-optimize before exporting.")).toBeTruthy();
+  });
+
+  it("offers the exports again once the layout is current", () => {
+    const view = render(<ExportPanel {...props({ stale: true })} />);
+    view.rerender(<ExportPanel {...props({ stale: false })} />);
+    expect(screen.getByRole("button", { name: "STL files (.zip)" }).hasAttribute("disabled")).toBe(
+      false,
+    );
+    expect(screen.queryByText(/re-optimize before exporting/)).toBeNull();
+  });
+
+  it("disables Retry and Retry failed trays for a stale layout", async () => {
+    const m = meshes();
+    m.get.mockImplementation((spec) =>
+      spec.key === "a:p0:0"
+        ? Promise.reject(new GeometryBuildError("boom", "WorkerError"))
+        : Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1 }),
+    );
+    const p = props({ meshes: m });
+    const view = render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "STL files (.zip)" }));
+    const retry = await screen.findByRole("button", { name: "Retry failed trays" });
+    view.rerender(<ExportPanel {...p} stale />);
+    expect(retry.hasAttribute("disabled")).toBe(true);
+  });
+
   it("cancels an export under way: nothing is downloaded and the buttons come back", async () => {
     const m = meshes();
     m.get.mockImplementation(waitsForAbort);
