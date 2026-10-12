@@ -14,7 +14,7 @@ const roomy = applyFingerRoom(s, true);
 
 const decks = (...counts: number[]) => counts.map((count, i) => ({ name: `D${i + 1}`, count }));
 
-function cutout(side: string, atMm: number, depth: number, floorNotch = 0, width = 22) {
+function cutout(side: string, atMm: number, depth: number, floorNotch = 0, width = 25) {
   return { type: "wallCutout", side, at: atMm, width, depth, floorNotch };
 }
 
@@ -103,7 +103,7 @@ describe("upright cards and tiles: one finger channel", () => {
     // Spacer frame: the well's 92.5 mm along Y from y 1.6, its top 5 mm below the rim.
     expect(at(r.spacers, 0)).toMatchObject({ y: 1.6, w: 30, d: 92.5, h: 63 });
     expect(at(r.spacers, 0).features).toEqual([
-      { type: "spacerNotch", axis: "x", at: 46.25, width: 22, depth: 29 },
+      { type: "spacerNotch", axis: "x", at: 46.25, width: 25, depth: 29 },
     ]);
   });
 

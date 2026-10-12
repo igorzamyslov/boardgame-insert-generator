@@ -48,7 +48,7 @@ describe("newProject", () => {
     expect(p.settings.lip.height).toBe(3);
     expect(p.settings.fingerPocket.width).toBe(30);
     expect(DEFAULT_SETTINGS.lip.height).toBe(2);
-    expect(DEFAULT_SETTINGS.fingerPocket.width).toBe(22);
+    expect(DEFAULT_SETTINGS.fingerPocket.width).toBe(25);
   });
 
   it("lets a project change its box and printer without touching the defaults", () => {

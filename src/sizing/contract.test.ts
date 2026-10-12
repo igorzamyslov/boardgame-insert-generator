@@ -15,7 +15,7 @@ describe("plan 1 values that sizing relies on", () => {
       cardThickness: 0.32,
       pieceClearance: 1,
       scoopRadius: 12,
-      fingerPocket: { width: 22, reach: 12 },
+      fingerPocket: { width: 25, reach: 12 },
       lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
       packingFactor: 0.5,
     });

@@ -20,8 +20,8 @@ describe("rotateRealized", () => {
     const turned = rotateRealized(realized, outer);
     expect(at(turned.compartments, 0)).toMatchObject({ x: 1.6, y: 1.6, w: 92.5, d: 53.5 });
     expect(at(turned.compartments, 0).features).toEqual([
-      { type: "wallCutout", side: "front", at: 47.85, width: 22, depth: 34, floorNotch: 0 },
-      { type: "wallCutout", side: "back", at: 47.85, width: 22, depth: 34, floorNotch: 0 },
+      { type: "wallCutout", side: "front", at: 47.85, width: 25, depth: 34, floorNotch: 0 },
+      { type: "wallCutout", side: "back", at: 47.85, width: 25, depth: 34, floorNotch: 0 },
     ]);
     expect(at(turned.spacers, 0)).toMatchObject({
       x: 1.6,

@@ -289,7 +289,7 @@ interface Settings {
 | `bottomChamfer`                                    | advanced                                | 0.4 (upper trays: ≥ 0.5) |
 | `cornerRadius`                                     | advanced                                | 3                        |
 | `scoopRadius`                                      | advanced                                | 12                       |
-| `fingerPocket` width / reach (reach: pockets only) | advanced                                | 22 / 12                  |
+| `fingerPocket` width / reach (reach: pockets only) | advanced                                | 25 / 12                  |
 | `fingerPocket.floorNotch`                          | advanced                                | 8 (0 = none, up to 20)   |
 | `fingerPocket.wallRoom`                            | "Extra finger room in the box": on = 10 | 0 (off; up to 20)        |
 | `lip` on / height / thickness / ledge              | advanced                                | on / 2 / 1.2 / 1.7       |

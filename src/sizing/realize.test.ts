@@ -11,7 +11,7 @@ import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 const s: Settings = DEFAULT_SETTINGS;
 const ground: RealizeOptions = { lipped: false, level: 0 };
 const single = partOf([cards()], "upright-long|strip|split1");
-const cutout = (side: "left" | "right", atMm: number, depth: number, width = 22) => ({
+const cutout = (side: "left" | "right", atMm: number, depth: number, width = 25) => ({
   type: "wallCutout",
   side,
   at: atMm,
@@ -48,7 +48,7 @@ describe("realizeTray", () => {
     expect(r.compartments).toHaveLength(1);
     const well = at(r.compartments, 0);
     expect(well).toMatchObject({ x: 1.6, y: 1.6, w: 53.5, d: 92.5, floorZ: 1.2 });
-    expect(at(well.features, 0)).toMatchObject({ at: 47.85, width: 22 });
+    expect(at(well.features, 0)).toMatchObject({ at: 47.85, width: 25 });
     expect(r.spacers).toEqual([
       {
         key: "c1:p0:0:spacer",
@@ -69,7 +69,7 @@ describe("realizeTray", () => {
         solid: true,
         compartments: [],
         // The deck's finger channel runs on through the spacer.
-        features: [{ type: "spacerNotch", axis: "x", at: 46.25, width: 22, depth: 29 }],
+        features: [{ type: "spacerNotch", axis: "x", at: 46.25, width: 25, depth: 29 }],
       },
     ]);
   });
@@ -173,7 +173,7 @@ describe("realizeTray", () => {
       kind: "well",
       contents: "Dial",
       features: [
-        { type: "fingerPocket", side: "front", at: 46.8, width: 22, reach: 12, depth: 11 },
+        { type: "fingerPocket", side: "front", at: 46.8, width: 25, reach: 12, depth: 11 },
         { type: "cornerRelief", d: 3 },
       ],
     });
@@ -253,8 +253,8 @@ describe("realizeTray", () => {
       ["Hero 2/2", "pocket", 28.8, 1.6, 26, 38, 1.2],
     ]);
     expect(r.compartments.map((c) => c.features)).toEqual([
-      [{ type: "fingerPocket", side: "front", at: 14.6, width: 22, reach: 12, depth: 13.67 }],
-      [{ type: "fingerPocket", side: "front", at: 41.8, width: 22, reach: 12, depth: 13.67 }],
+      [{ type: "fingerPocket", side: "front", at: 14.6, width: 25, reach: 12, depth: 13.67 }],
+      [{ type: "fingerPocket", side: "front", at: 41.8, width: 25, reach: 12, depth: 13.67 }],
     ]);
   });
 
@@ -586,7 +586,12 @@ describe("realizeTray", () => {
   describe("finger slot clearance", () => {
     // Minis pockets and custom wells keep their finger pockets (reach band and U-slot). These
     // pockets are as wide as the card wells the rules were first worked out on (a stack of n
-    // cards, sleeve "none" or "standard"), each 65 mm deep, so their ⅓-depth slots match.
+    // cards, sleeve "none" or "standard"), each 65 mm deep, so their ⅓-depth slots match, with
+    // the 22 mm finger width of that time.
+    const s: Settings = {
+      ...DEFAULT_SETTINGS,
+      fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, width: 22 },
+    };
     const lipped: RealizeOptions = { lipped: true, level: 0 };
     const pockets = (widths: number[], names?: string[]) =>
       minis({

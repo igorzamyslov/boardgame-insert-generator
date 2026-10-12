@@ -136,9 +136,9 @@ describe("assertTrayInvariants", () => {
     const check = (tray: RealizedTray) => () => {
       assertTrayInvariants(tray, short, DEFAULT_SETTINGS, ground);
     };
-    expect(check(cut(22, 8))).not.toThrow();
-    expect(check(cut(22.02, 8))).toThrow(/cutout width/);
-    expect(check(cut(22, 8.01))).toThrow(/floor notch/);
+    expect(check(cut(25, 8))).not.toThrow();
+    expect(check(cut(25.02, 8))).toThrow(/cutout width/);
+    expect(check(cut(25, 8.01))).toThrow(/floor notch/);
     expect(check(cut(12, 6.5))).toThrow(/floor notch/);
   });
 

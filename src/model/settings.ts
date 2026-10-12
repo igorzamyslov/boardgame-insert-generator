@@ -57,7 +57,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   bottomChamfer: 0.4,
   cornerRadius: 3,
   scoopRadius: 12,
-  fingerPocket: { width: 22, reach: 12, floorNotch: 8, wallRoom: 0 },
+  fingerPocket: { width: 25, reach: 12, floorNotch: 8, wallRoom: 0 },
   lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
   topPressFit: 0,
   packingFactor: 0.5,

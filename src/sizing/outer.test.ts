@@ -115,8 +115,8 @@ describe("minOuter", () => {
 
   it("widens the inner span to a full finger pocket for a tiny custom piece", () => {
     const pip = partOf([custom({ w: 1, d: 1, h: 5, count: 1 })], "custom|strip|split1");
-    // A 2 mm well with its 12 mm reach band, widened to the 22 mm pocket.
-    expect(minOuter(pip, s, ground)).toEqual({ w: 25.2, d: 17.2, h: 7.2 });
+    // A 2 mm well with its 12 mm reach band, widened to the 25 mm pocket.
+    expect(minOuter(pip, s, ground)).toEqual({ w: 28.2, d: 17.2, h: 7.2 });
   });
 
   it("does not widen a one-card deck: its finger channel needs no room of its own", () => {

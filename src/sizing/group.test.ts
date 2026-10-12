@@ -149,6 +149,12 @@ describe("size", () => {
   });
 
   describe("finger slot fit", () => {
+    // Minis pockets and custom wells keep finger pockets, whose slots may not fit; the finger
+    // channels and cutouts of cards and tiles always do. Pinned to 22 mm slots.
+    const s = {
+      ...DEFAULT_SETTINGS,
+      fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, width: 22 },
+    };
     const ground = { lipped: false, level: 0 };
     const realizable = (part: TrayPartReq): boolean => {
       try {
@@ -161,8 +167,6 @@ describe("size", () => {
         throw error;
       }
     };
-    // Minis pockets and custom wells keep finger pockets, whose slots may not fit; the finger
-    // channels and cutouts of cards and tiles always do.
     const figures = (...sizes: [string, number, number, number][]) =>
       sizes.map(([name, w, d, h]) => ({ name, w, d, h, count: 1 }));
 
