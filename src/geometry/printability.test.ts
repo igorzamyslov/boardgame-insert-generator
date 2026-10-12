@@ -153,6 +153,23 @@ describe("checkPrintability", () => {
       expect(report.problems[0]).toBe("1 triangle overhangs more than 45° above the bed");
     });
 
+    it("skips a sliver whose float32 normal is noise (review 2, M-b), still catching a real one", () => {
+      // 2 mm long, 0.00078 mm high: normal.z −0.768, area 7.8e-4 mm² (a true 45° chamfer face).
+      const sliver: [P, P, P] = [
+        [12, 0, 5],
+        [13, 0.0006, 5.0005],
+        [14, 0, 5],
+      ];
+      expect(checkPrintability(withExtraTriangle(cubeMesh(10), sliver)).overhangTriangles).toBe(0);
+      // The same face 0.01 mm high is real.
+      const face: [P, P, P] = [
+        [12, 0, 5],
+        [13, 0.006, 5.005],
+        [14, 0, 5],
+      ];
+      expect(checkPrintability(withExtraTriangle(cubeMesh(10), face)).overhangTriangles).toBe(1);
+    });
+
     it("accepts exactly 45° (normal.z = −0.7071 > −0.71)", () => {
       expect(checkPrintability(frustum(2, 2)).overhangTriangles).toBe(0);
     });

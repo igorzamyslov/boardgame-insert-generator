@@ -240,8 +240,9 @@ describe("size", () => {
       );
     });
 
-    it("never drops a card or tile variant: their channels and cutouts always fit", () => {
-      // Five one-card decks once had no upright arrangement with room for a finger slot.
+    it("keeps every variant of five one-card decks: their channels run along the card length", () => {
+      // Five one-card decks once had no upright arrangement with room for a finger slot; a channel
+      // only needs a 10 mm cut with 3 mm posts along the 92.5 mm wells.
       const decks = [1, 1, 1, 1, 1].map((count, i) => ({ name: `D${i + 1}`, count }));
       const { requirements, notices } = size([cards({ storage: "auto", decks })], s);
       expect(notices).toEqual([]);

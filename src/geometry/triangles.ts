@@ -1,11 +1,12 @@
 import type { Mesh } from "./types";
 
-// Per-triangle data in float64: unit normal, centroid, area, highest vertex.
+// Per-triangle data in float64: unit normal, centroid, area, shortest altitude, highest vertex.
 export interface Triangles {
   count: number;
   normals: Float64Array; // 3 per triangle (0,0,0 when degenerate)
   centroids: Float64Array; // 3 per triangle
   areas: Float64Array;
+  altitudes: Float64Array; // 2 · area / longest edge
   maxZ: Float64Array;
 }
 
@@ -30,6 +31,7 @@ export function triangles(mesh: Mesh): Triangles {
   const normals = new Float64Array(count * 3);
   const centroids = new Float64Array(count * 3);
   const areas = new Float64Array(count);
+  const altitudes = new Float64Array(count);
   const maxZ = new Float64Array(count);
   for (let t = 0; t < count; t += 1) {
     const [a, b, c] = corners(mesh, t);
@@ -44,6 +46,12 @@ export function triangles(mesh: Mesh): Triangles {
     const nz = ux * vy - uy * vx;
     const len = Math.hypot(nx, ny, nz);
     areas[t] = len / 2;
+    const longest = Math.max(
+      Math.hypot(ux, uy, uz),
+      Math.hypot(vx, vy, vz),
+      Math.hypot(c[0] - b[0], c[1] - b[1], c[2] - b[2]),
+    );
+    altitudes[t] = longest > 0 ? len / longest : 0;
     if (len > 0) {
       normals[t * 3] = nx / len;
       normals[t * 3 + 1] = ny / len;
@@ -54,5 +62,5 @@ export function triangles(mesh: Mesh): Triangles {
     centroids[t * 3 + 2] = (a[2] + b[2] + c[2]) / 3;
     maxZ[t] = Math.max(a[2], b[2], c[2]);
   }
-  return { count, normals, centroids, areas, maxZ };
+  return { count, normals, centroids, areas, altitudes, maxZ };
 }

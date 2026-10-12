@@ -465,7 +465,9 @@ keeps its upright ones.
   a spare a cut runs into) is `dividerRoom` thicker. That holds for wherever
   the cuts actually go, a well cut across its row instead included; walls and
   dividers without a cut, also where a cut was asked for but none fits, are
-  unchanged; a spare at the end of a row takes the wall room instead.
+  unchanged; a spare at the end of a row takes the wall room instead. Which
+  walls get room is decided on the tray's smallest layout; a larger tray keeps
+  that room, also in the rare case where its slack moves a cut elsewhere.
 - **Top fillets:** the two top corners of every cut's U (through walls and
   dividers, and the spacer notch's), where a side meets the top, are rounded
   with 3 mm (`FINGER_FILLET_MM`) across the whole wall, so the opening flares

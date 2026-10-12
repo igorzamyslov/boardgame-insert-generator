@@ -6,7 +6,8 @@ import { triangles } from "./triangles";
 
 const OVERHANG_NZ = -0.71; // a 45° face has normal.z = −0.7071, which passes
 const BED_Z = 1e-3; // triangles entirely below this lie on the bed
-const MIN_AREA = 1e-4; // mm²; ignore slivers whose float32 normals are noise
+const MIN_AREA = 1e-4; // mm²; ignore slivers whose float32 normals are noise…
+const MIN_ALTITUDE = 1e-3; // mm; …also long thin ones (a 45° face 2 mm long, 0.0008 mm high)
 const VERTICAL = 0.02; // |normal.z| below this: a wall face
 const HORIZONTAL = 0.98; // |normal.z| above this: a floor, top or bottom face
 const FACING = 0.5; // an exit wall must face the ray by at least this cosine
@@ -16,7 +17,7 @@ const at = (values: Float64Array, index: number): number => values[index] ?? 0;
 
 // Triangles with a normal that means something.
 function usable(tri: Triangles, t: number): boolean {
-  return at(tri.areas, t) >= MIN_AREA;
+  return at(tri.areas, t) >= MIN_AREA && at(tri.altitudes, t) >= MIN_ALTITUDE;
 }
 
 function overhangCount(tri: Triangles): number {

@@ -501,9 +501,10 @@ function layoutAt(
   const { wall, divider, floor, rows, room } = min;
   // The band realize reserves is the reach each pocket reports, rounded up to whole units.
   const reach = reachU(settings);
-  // Growth caps are maximums, so they round down; minimums (wall, divider, pocket) round up.
-  const wallRoom = Math.max(0, floorU(Math.min(2 * settings.wall, WALL_GROW_LIMIT)) - wall);
-  const dividerRoom = Math.max(
+  // How much slack a wall or divider may still take (thicker walls, not finger room). Growth caps
+  // are maximums, so they round down; minimums (wall, divider, pocket) round up.
+  const wallGrow = Math.max(0, floorU(Math.min(2 * settings.wall, WALL_GROW_LIMIT)) - wall);
+  const dividerGrow = Math.max(
     0,
     floorU(Math.min(2 * settings.divider, WALL_GROW_LIMIT)) - divider,
   );
@@ -525,7 +526,7 @@ function layoutAt(
     });
     slackY = 0;
   }
-  const yExtra = fillCapped(slackY, [wallRoom, ...rows.slice(1).map(() => dividerRoom), wallRoom]);
+  const yExtra = fillCapped(slackY, [wallGrow, ...rows.slice(1).map(() => dividerGrow), wallGrow]);
   slackY -= sum(yExtra);
   let spareRowDepth = 0;
   if (slackY >= toU(MIN_SPARE) + spareRowGap) {
@@ -578,7 +579,7 @@ function layoutAt(
         slack = 0;
       }
     }
-    const xExtra = fillCapped(slack, [wallRoom, ...row.slice(1).map(() => dividerRoom), wallRoom]);
+    const xExtra = fillCapped(slack, [wallGrow, ...row.slice(1).map(() => dividerGrow), wallGrow]);
     slack -= sum(xExtra);
     let spareW = 0;
     if (slack >= toU(MIN_SPARE) + spareGap) {
