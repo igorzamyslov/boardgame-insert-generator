@@ -90,7 +90,8 @@ describe("a box taller than the print bed", () => {
     const dnf = r.notices.find((n) => n.code === "layout.doesNotFit")?.message ?? "";
     expect(dnf).not.toContain("Some trays don't fit");
     expect(dnf).toContain("filler pieces");
-    expect(dnf).toContain("100.0 mm tall");
+    expect(dnf).toContain("The stacks are 100.0 mm tall");
+    expect(dnf).not.toContain("tall inside");
     expect(dnf).toContain("60.0 mm high");
     expect(dnf).toContain("taller bed");
     expect(dnf).toContain("fills the gaps");

@@ -205,6 +205,22 @@ describe("layout warnings", () => {
     expect(plain).not.toContain("only on its own");
   });
 
+  it("describes a tray that is over the bed only because of its lip with the lip's height", () => {
+    const ctx = createCtx(
+      makeInput([wide], { printer: { bedX: 130, bedY: 130, bedZ: 20 } }),
+      fakeMeasure,
+    );
+    const [over] = overBedParts(ctx, [
+      traySpec({ key: "wide:p0:0", w: 100, d: 40, h: 19, lip: true }),
+      traySpec({ key: "cards:p0:0", w: 50, d: 50, h: 19, lip: false }),
+    ]);
+    // 19 mm of body plus the 2 mm lip prints 21 mm tall on a 20 mm bed
+    expect(over?.h).toBe(21);
+    const message = doesNotFitNotice(ctx, { x: 0, y: 0, z: 0 }, over ? [over] : []).message;
+    expect(message).toContain("100.0 × 40.0 × 21.0 mm");
+    expect(message).toContain("usable bed is 120.0 × 120.0 × 20.0 mm");
+  });
+
   it("leaves the lip tip out when the lip is already off", () => {
     const off = createCtx(
       makeInput([wide], {

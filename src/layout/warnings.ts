@@ -224,7 +224,10 @@ function partLabel(contents: readonly string[], key: string): string {
   return names.length > 0 ? names.join(", ") : key;
 }
 
-/** A printed tray or filler piece the print bed cannot hold (mm), with what the bed allows it. */
+/**
+ * A printed tray or filler piece the print bed cannot hold, with what the bed allows it. Sizes
+ * are in mm and `h` is the printed height, the lip included.
+ */
 export interface OverBedPart {
   /** A leftover: it is as tall as the stacks beside it, so only the box's height can be the reason. */
   readonly filler: boolean;
@@ -270,7 +273,7 @@ export function overBedParts(ctx: Ctx, trays: readonly TraySpec[]): OverBedPart[
         ),
         w: t.w,
         d: t.d,
-        h: t.h,
+        h: toMm(printedHeight(ctx, toU(t.h), t.lip)),
         stackPhrase: roles && !(roles.bottom && roles.top) ? rolesPhrase(roles) : null,
       },
     ];
@@ -342,7 +345,7 @@ export function doesNotFitNotice(
   if (fillers.length > 0) {
     const height = Math.max(...fillers.map((o) => o.h));
     sentences.push(
-      `The box is ${mm(height)} mm tall inside but the print bed is only ${mm(toMm(ctx.bed.z))} mm high, so the filler pieces that fill the gaps around the trays can't be printed in one piece.`,
+      `The stacks are ${mm(height)} mm tall but the print bed is only ${mm(toMm(ctx.bed.z))} mm high, so the filler pieces that fill the gaps around the trays can't be printed in one piece.`,
     );
   }
   if (sentences.length === 0) {
