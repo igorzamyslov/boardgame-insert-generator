@@ -1,7 +1,5 @@
 // src/app/actions.ts
 import { groupOf, newComponent } from "../model/defaults";
-import { applyFitChoice, applyWallChoice } from "../model/settings";
-import type { FitChoice, WallChoice } from "../model/settings";
 import type {
   Box,
   CardsComponent,
@@ -81,14 +79,6 @@ export function removeComponent(p: Project, id: string): Project {
     p,
     p.components.filter((c) => c.id !== id),
   );
-}
-
-export function setWallChoice(p: Project, c: WallChoice): Project {
-  return { ...p, settings: applyWallChoice(p.settings, c) };
-}
-
-export function setFitChoice(p: Project, c: FitChoice): Project {
-  return { ...p, settings: applyFitChoice(p.settings, c) };
 }
 
 export function setSettings(p: Project, s: Settings): Project {

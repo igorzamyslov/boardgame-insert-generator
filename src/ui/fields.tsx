@@ -3,11 +3,6 @@ import { useEffect, useState } from "preact/hooks";
 import { FieldMessages, describedByIds, messagesOf } from "./FieldMessages";
 import { useFieldNotices } from "./validation";
 
-function describedBy(...ids: (string | null)[]): string | undefined {
-  const joined = ids.filter((x): x is string => x !== null).join(" ");
-  return joined === "" ? undefined : joined;
-}
-
 export interface TextFieldProps {
   id: string;
   label: string;
@@ -106,7 +101,7 @@ export function SelectField<T extends string>({
       <select
         id={id}
         value={value}
-        aria-describedby={describedBy(hintId)}
+        aria-describedby={describedByIds(id, hint, [], [])}
         onChange={(e) => {
           const picked = options.find((o) => o.value === e.currentTarget.value);
           if (picked) {

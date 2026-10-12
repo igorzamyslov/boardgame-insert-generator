@@ -1,7 +1,6 @@
 // src/app/actions.test.ts
 import { describe, expect, it } from "vitest";
 import { newComponent, newProject } from "../model/defaults";
-import { applyFitChoice, applyWallChoice } from "../model/settings";
 import { GEOMETRY_VERSION } from "../geometry/version";
 import { NOTICE_CODES } from "../layout";
 import type { CardsComponent, Lock, Notice, Project, TraySpec } from "../model/types";
@@ -15,12 +14,10 @@ import {
   renameProject,
   setCardSides,
   setClearance,
-  setFitChoice,
   setGroup,
   setLock,
   setPerPlayer,
   setSettings,
-  setWallChoice,
   sizeLockedKeys,
   swapTrays,
   toggleLock,
@@ -136,10 +133,8 @@ describe("project actions", () => {
     expect(updateComponent(ungrouped, c.id, setGroup(c, "g")).locks).toEqual([]);
   });
 
-  it("applies simple setting choices and advanced settings", () => {
+  it("replaces the settings", () => {
     const p = newProject();
-    expect(setWallChoice(p, "sturdy").settings).toEqual(applyWallChoice(p.settings, "sturdy"));
-    expect(setFitChoice(p, "loose").settings).toEqual(applyFitChoice(p.settings, "loose"));
     const s = { ...p.settings, cornerRadius: 4 };
     expect(setSettings(p, s).settings.cornerRadius).toBe(4);
   });
