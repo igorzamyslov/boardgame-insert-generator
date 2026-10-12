@@ -196,10 +196,10 @@ interface Printer {
 type Component = CardsComponent | BulkComponent | TilesComponent | MinisComponent | CustomComponent;
 
 interface ComponentBase {
-  id: string; // short base36
+  id: string; // short base36; can't contain ':' (it ends the tray key's group part)
   name: string;
   access: "often" | "sometimes" | "setup"; // play-time access frequency
-  groupId?: string; // same group → same tray, separate compartments
+  groupId?: string; // same group → same tray, separate compartments; a group name can't contain ':'
   perPlayer?: { players: number }; // counts are per player; not allowed with groupId
   clearance?: number; // advanced: absolute total, replaces the main clearance, not scaled by Fit
   fingerCuts?: boolean; // a centred finger cut through a wall of each compartment (§6.1)
@@ -257,7 +257,9 @@ type Lock =
 
 `trayKey = "<groupId ?? componentId>:p<player>:<part>"` (`p0` without
 `perPlayer`; `part` counts split trays from 0), so locks survive edits to
-unrelated components. Leftover trays are keyed `leftover:<n>` and can't be
+unrelated components. Keys are matched by prefix, so a group name or a
+component id can't contain `:`; validation reports a group name with one at
+the field, and a file with such a component id is refused (`invalid.id`). Leftover trays are keyed `leftover:<n>` and can't be
 locked. Card spacers are keyed `<trayKey>:spacer`.
 
 Component defaults: `access: "sometimes"`, `storage: "auto"`, minis
@@ -765,7 +767,20 @@ Numbers accept a decimal comma or point.
 - **Local projects:** a small project list in localStorage, keyed by
   `Project.id`, autosaved. Opening a shared link or a file adds it, or opens
   it if the id already exists, as a separate project; it never overwrites
-  another project.
+  another project. A link or file whose id exists with the same content just
+  opens the stored project; with different content (or a stored project this
+  app can't read) it opens as a copy named "… (copy)".
+- **Several tabs:** every tab compares what it last saw in storage with
+  what is stored now (by content, on a `storage` event and before each save).
+  - A tab with no edits of its own silently shows the newer version.
+  - A tab with edits pauses its autosave, shows a notice that can't be
+    dismissed, and offers "Keep my version" (saves it over the other one) or
+    "Load the other tab's version". Edits made while paused are never written.
+  - Leaving the project while paused keeps this tab's version as a copy
+    ("… (copy)"); "Keep my version" never overwrites a stored version this app
+    can't read (it saves a copy instead).
+  - Leaving a project whose last save failed asks first; a declined question
+    changes nothing, an accepted one leaves a notice naming the project.
 - **URL hash:** `#1.<payload>`, where `1` is the hash format version and the
   payload is JSON → deflate → base64url. Updated with
   `history.replaceState`. "Copy link" button; JSON file import/export.

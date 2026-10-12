@@ -11,8 +11,8 @@
 // absolute /assets/ path, and that the third-party licenses file is complete.
 //
 // Limits: no browser runs the page. This proves the files are there and wired
-// relatively; it does not prove that the workers or the WASM execute. The
-// manual end-to-end check in the UI plan covers that.
+// relatively; it does not prove that the workers or the WASM execute. That takes the check in a
+// real browser that the README describes ("Build smoke test and its limits").
 import { createServer } from "node:http";
 import { readFile, readdir } from "node:fs/promises";
 import { extname, join, posix, relative, resolve, sep } from "node:path";

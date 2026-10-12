@@ -121,10 +121,10 @@ export type Component =
 export type ComponentKind = Component["kind"];
 
 export interface ComponentBase {
-  id: string;
+  id: string; // can't contain ":" (invalid.id; tray keys are matched by prefix)
   name: string;
   access: Access;
-  groupId?: string;
+  groupId?: string; // can't contain ":" (field.groupId)
   perPlayer?: { players: number };
   clearance?: number;
   fingerCuts?: boolean; // absent: on, but off for bulk and minis stored as bulk (fingerCutsOn)

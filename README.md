@@ -26,15 +26,18 @@ geometry clients, so they never start a worker or load WASM.
 
 1. **Describe the box and the printer** (inner size, bed size), then **add
    components**: cards ("Add cards"), bits such as tokens, cubes and dice
-   ("Add bits"), tiles, miniatures and other items. A Simple / Advanced switch
-   shows or hides the extra fields (each editor's "More options").
+   ("Add bits"), tiles, miniatures and other items. The Simple / Advanced
+   switch changes how much you see: Advanced opens every editor's "More
+   options", shows the printer's bed margin and layer height, and replaces the
+   Settings choices (walls, fit, finger room) with the numbers they set.
 2. **Per component toggles.** Every editor has "Finger cuts" (a cut through a
    wall of each compartment, to reach in) and, for bits, miniatures and other
    items, "Curved floor" (a scoop ramp). "Corner reliefs" (round holes in the
    compartment corners, so square pieces sit flat) shows in Advanced mode. Each
    toggle starts at the default of its kind and writes an explicit value when
-   changed. Under Settings, the "Extra finger room in the box" switch leaves
-   extra room beside the walls and dividers for fingers.
+   changed. In Simple mode, the Settings switch "Extra finger room in the box"
+   leaves extra room beside the walls and dividers for fingers; Advanced mode
+   edits the wall and divider room numbers it sets.
 3. **Bulk fallback.** When no tray variant can give a tiles, miniatures
    (pockets) or other item a finger cut, its pieces are stored loose in a bin
    with a curved floor instead. The editor says so, and what the bin has.
@@ -54,12 +57,17 @@ geometry clients, so they never start a worker or load WASM.
    download per layer and "Print / save as PDF".
 7. **Save and share.** Projects autosave in the browser. "Copy link" puts the
    whole project in the `#1.` link (the project menu offers JSON download
-   when the link is too long) and "Import JSON…" opens a file as a separate
-   project.
+   when the link is too long), "Export JSON" saves the project as a file, and
+   "Import JSON…" opens a file as a separate project (a file whose id and
+   content match a stored project just opens that project; one whose id
+   matches a different project opens as a copy). When another tab changes the
+   project you are editing, autosave pauses until you choose which version to
+   keep.
 
 If you change the inputs after a layout was made, the layout stays and an
 "Inputs changed since this layout was made — re-optimize?" notice offers
-"Re-optimize now". A layout whose geometry version is on an older line than
+"Re-optimize now"; export is off, and the 3D view keeps showing the last
+layout, until you do. A layout whose geometry version is on an older line than
 the app's gets a "reprint the whole insert" notice: its trays no longer mate
 with trays exported now.
 
@@ -86,9 +94,10 @@ cancels any running optimization, runs `size()` and the layout worker (same
 seed, warm start from the current layout) and auto-accepts the result into
 `project.layout`, keeping the previous layout for one-step Undo. A result whose
 inputs no longer match the project is discarded. `app/persistence.ts` autosaves
-(500 ms) to localStorage, writes the `#1.` link with `history.replaceState`,
-opens links and files as separate projects (a different project with the same
-id becomes a copy) and pauses autosave if another tab saved the same project.
+(500 ms) to localStorage, tells `main.tsx` the new `#1.` link (which writes it
+with `history.replaceState`), opens links and files as separate projects (a
+different project with the same id becomes a copy) and pauses autosave if
+another tab saved the same project.
 A project with a stored layout is never re-optimized on load; if its inputs
 changed, the "Inputs changed since this layout was made — re-optimize?" notice
 appears instead. Meshes are built on demand by the geometry worker and cached
@@ -127,10 +136,11 @@ in `app/meshes.ts`.
 ## Build smoke test and its limits
 
 `scripts/smoke-dist.mjs` serves `dist/` from `/static-web-apps/insert-generator/`
-(the deploy subpath) with a tiny `node:http` server and checks that `index.html` only uses relative
-URLs that load, that the layout and geometry worker scripts and the manifold
-WASM exist and are referenced by name, that nothing points at `/assets/`
-absolutely, and that `third-party-licenses.txt` names every bundled library.
+(the deploy subpath) with a tiny `node:http` server and checks that
+`index.html` only uses relative URLs that load, that the layout and geometry
+worker scripts and the manifold WASM exist and are referenced by name, that
+nothing points at `/assets/` absolutely, and that `third-party-licenses.txt`
+names every bundled library.
 No browser runs the page, so it cannot prove the workers or WASM execute; do a
 manual check in a real browser (import a fixture from `test/fixtures/`, export,
 open the link) before a release.

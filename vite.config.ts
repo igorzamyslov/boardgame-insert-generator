@@ -16,9 +16,14 @@ export default defineConfig({
   // the `?url`-imported WASM to locateFile.
   worker: { format: "es" },
   optimizeDeps: { exclude: ["manifold-3d"] },
+  build: {
+    // The 3D view's chunk (three.js, ~550 kB) is loaded lazily, only when WebGL is there, and the
+    // main chunk stays near 200 kB; the default 500 kB warning would only repeat that on every build.
+    chunkSizeWarningLimit: 600,
+  },
   test: {
     // Pure modules run in Node. Component tests opt in to a DOM with a
-    // `// @vitest-environment jsdom` comment on their first line.
+    // `// @vitest-environment jsdom` comment in the header comment at the top of the file.
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     // Vitest stubs CSS imports to ""; PlanView.test.tsx reads plan.css and style.test.ts reads
