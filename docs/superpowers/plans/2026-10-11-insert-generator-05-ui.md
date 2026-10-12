@@ -114,7 +114,7 @@ Import locations from the final plans 1–4: `../model/{types,version,settings,p
   - `setWallChoice(p: Project, c: WallChoice): Project`, `setFitChoice(p: Project, c: FitChoice): Project`, `setSettings(p: Project, s: Settings): Project`
   - `setLock(p: Project, lock: Lock): Project` — replaces a lock of the same kind on the same tray (or the same stack-key list).
   - `removeLock(p: Project, trayKey: string, kind?: Lock["kind"]): Project`
-  - `toggleLock(p: Project, tray: TraySpec): Project` — position lock on/off; no-op for non-lockable trays.
+  - `toggleLock(p: Project, tray: TraySpec): Project` — position lock on/off; no-op for non-lockable trays. A tray that shares its path with others in `p.layout` (a stack) is locked with the whole stack, like `swapLocks` does: a position lock per tray plus a stack lock in level order (any stack lock already naming one of them is replaced); unlocking removes the position locks of the whole stack and its stack lock together. Locking only an upper tray would put it on the floor and evict its stack-mates, and plan 4 drops such a lock with a notice.
   - `lockedKeys(p: Project): Set<string>` — trayKeys with a position lock.
   - `sizeLockedKeys(p: Project): Set<string>` — trayKeys with a size lock.
   - `toggleSizeLock(p: Project, tray: TraySpec): Project` — size lock `{ kind: "size", trayKey, w, d, h }` from the tray's current outer size on/off; no-op for non-lockable trays; a position lock on the same tray stays.
@@ -256,6 +256,26 @@ describe("project actions", () => {
     expect(lockedKeys(on)).toEqual(new Set(["a:p0:0"]));
     expect(toggleLock(on, t).locks).toEqual([]);
     expect(toggleLock(p, tray({ key: "leftover:0", part: "leftover" }))).toBe(p);
+  });
+
+  it("locks and unlocks a whole stack together", () => {
+    const lower = tray({ key: "a:p0:0", path: "1", level: 0, rotated: true });
+    const upper = tray({ key: "b:p0:0", path: "1", level: 1 });
+    const beside = tray({ key: "c:p0:0", path: "0" });
+    const other: Lock = { kind: "position", trayKey: "c:p0:0", path: "0", rotated: false };
+    const swapped: Lock = { kind: "stack", trayKeys: ["b:p0:0", "a:p0:0"] };
+    const p = { ...withLayout(newProject(), [beside, upper, lower]), locks: [other, swapped] };
+    const on = toggleLock(p, upper);
+    expect(on.locks).toEqual([
+      other,
+      { kind: "position", trayKey: "a:p0:0", path: "1", rotated: true },
+      { kind: "position", trayKey: "b:p0:0", path: "1", rotated: false },
+      { kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] },
+    ]);
+    expect(lockedKeys(on)).toEqual(new Set(["a:p0:0", "b:p0:0", "c:p0:0"]));
+    // either tray of the stack unlocks it all; the tray beside stays locked
+    expect(toggleLock(on, lower).locks).toEqual([other]);
+    expect(toggleLock(on, upper).locks).toEqual([other]);
   });
 
   it("only locks real trays", () => {
@@ -453,15 +473,31 @@ export function toggleLock(p: Project, tray: TraySpec): Project {
   if (!isLockable(tray)) {
     return p;
   }
+  // The whole stack: locking one tray of a stack alone would put it on the floor and evict
+  // the trays under and over it (plan 4 drops such a lock with a notice).
+  const stack = (p.layout?.trays ?? [])
+    .filter((t) => t.part === "tray" && t.path === tray.path)
+    .sort((a, b) => a.level - b.level);
+  const members = stack.some((t) => t.key === tray.key) ? stack : [tray];
+  const keys = new Set(members.map((t) => t.key));
+  const rest = p.locks.filter((l) =>
+    l.kind === "stack"
+      ? !l.trayKeys.some((k) => keys.has(k))
+      : !(l.kind === "position" && keys.has(l.trayKey)),
+  );
   if (lockedKeys(p).has(tray.key)) {
-    return removeLock(p, tray.key, "position");
+    return { ...p, locks: rest };
   }
-  return setLock(p, {
+  const locks: Lock[] = members.map((t) => ({
     kind: "position",
-    trayKey: tray.key,
-    path: tray.path,
-    rotated: tray.rotated,
-  });
+    trayKey: t.key,
+    path: t.path,
+    rotated: t.rotated,
+  }));
+  if (members.length > 1) {
+    locks.push({ kind: "stack", trayKeys: members.map((t) => t.key) });
+  }
+  return { ...p, locks: [...rest, ...locks] };
 }
 
 /** trayKeys with a size lock. */
