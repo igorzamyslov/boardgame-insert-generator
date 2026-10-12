@@ -37,7 +37,7 @@ interface Probe {
 }
 
 // The ray that measures the material behind triangle `t`, or null for a sloped (or unusable)
-// face: chamfers, scoop fillets and slot bottoms are not sampled.
+// face: chamfers, scoop fillets and cut bottoms are not sampled.
 function probe(tri: Triangles, t: number): Probe | null {
   if (!usable(tri, t)) {
     return null;
@@ -98,7 +98,7 @@ function smallestExtent(mesh: Mesh): number {
 //   through (one facing the ray); from every horizontal face a vertical ray
 //   stops at the nearest opposite horizontal face. The shortest such distance
 //   is the thinnest wall, divider, lip or floor. Sloped faces (chamfers,
-//   scoop fillets, slot bottoms) are neither sampled nor stopped at, so sloped
+//   scoop fillets, cut bottoms) are neither sampled nor stopped at, so sloped
 //   tops of walls are not reported as thin; a ray that skips a sloped exit
 //   continues to a farther face, so a thickness may be overestimated, but the
 //   reported distance is always a real one along the ray. Only centroids are

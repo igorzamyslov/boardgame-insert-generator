@@ -102,14 +102,14 @@ function buildSpandrel(
 
 // A cut's U: vertical sides, round bottom; convex, so one hull.
 type UPlan = Pick<CutPlan, "x0" | "x1" | "y0" | "y1" | "side" | "bottomZ" | "radius">;
-function buildU(m: ManifoldToplevel, scope: Scope, slot: UPlan, topZ: number): Manifold {
-  const alongX = slot.side === "front" || slot.side === "back";
-  const r = slot.radius;
-  const centre = alongX ? (slot.x0 + slot.x1) / 2 : (slot.y0 + slot.y1) / 2;
-  const zc = slot.bottomZ + r;
+function buildU(m: ManifoldToplevel, scope: Scope, cut: UPlan, topZ: number): Manifold {
+  const alongX = cut.side === "front" || cut.side === "back";
+  const r = cut.radius;
+  const centre = alongX ? (cut.x0 + cut.x1) / 2 : (cut.y0 + cut.y1) / 2;
+  const zc = cut.bottomZ + r;
   const zTop = Math.max(topZ, zc);
   const segments = 4 * quarterSegments(r);
-  const ends = alongX ? [slot.y0, slot.y1] : [slot.x0, slot.x1];
+  const ends = alongX ? [cut.y0, cut.y1] : [cut.x0, cut.x1];
   const points: Vec3[] = [];
   for (const e of ends) {
     const profile: [number, number][] = [

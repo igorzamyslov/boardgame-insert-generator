@@ -12,7 +12,7 @@ export class UnsupportedFeatureError extends Error {
 }
 
 // Thrown when a TraySpec cannot be built safely: non-positive sizes, a floor
-// outside the tray, overlapping compartments, a slot into the outer wall and
+// outside the tray, overlapping compartments, a cut without its posts and
 // so on. A RangeError of its own name, so a runtime RangeError (the WASM heap
 // running out, say) is not mistaken for a verdict on the spec.
 export class TraySpecError extends RangeError {

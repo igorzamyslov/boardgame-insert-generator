@@ -14,16 +14,13 @@
 
 Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts this plan was written against. The amended roadmap is binding; where this plan's prose and an amendment disagree, the amendment wins. The code blocks named below are already patched: transcribe them as shown.
 
-1. **Finger slots may not fit (`SlotFitError`, roadmap §4.2, §4.7).** `realizeTray` throws `SlotFitError` (a `RangeError` named `"SlotFitError"`, exported from `../sizing`) when a part's finger slots cannot keep their minimum width. Only minis pockets and custom wells have finger slots; the wall cutouts of cards and tiles always fit (amendment 7). `minOuter` widens a part, by up to `fingerPocket.width`, until its slots fit, so a part realizes at `minOuter` exactly when it realizes at any outer, and `size()` emits only variants whose parts realize unlipped at level 0; a lipped (thicker wall) or upper tray of them may still fail. Layout's duty:
-   - `Ctx.metrics(ref, lipped, level)` also reports `realizable`, cached with the other metrics per (part, lipped, level). It comes from `fits(part, settings, opts)`, injected into `createCtx` like `measure`: the default `slotsFit` realizes the part at its `minOuter` and is false only on `SlotFitError`; with an injected (fake) `measure` the default is "always fits". Never call `realizeTray` per candidate outer to find out.
-   - `Level.realizable` (Task 6); `placeStack` charges `SLOT_OVERFLOW_U` (1 m) of overflow per level that is not realizable (`Overflow.slot`, summed by `overflowTotal`; Task 7), so such a placement is never feasible and the annealer moves away from it. Greedy starts (Task 11) work unchanged: an unrealizable choice simply carries overflow.
-   - `materialize` (Task 12) catches only `SlotFitError`, which can only come from an infeasible `bestAttempt`: that tray is emitted as a plain box without compartments or spacers. Every other error propagates.
+1. **Sizing guarantees realizability (roadmap §4.2, §4.7).** Every part `size()` returns realizes at every option (unlipped or lipped, level 0 or upper) and at every outer ≥ its `minOuter`; `size()` drops the variants where a card, tile, minis or custom compartment gets no finger cut and leaves a requirement with none out with the `sizing.noFingerSlot` warning. So layout has no realizability machinery: no `fits`/`slotsFit`, no `realizable` on metrics or levels, no `SLOT_OVERFLOW_U` or `Overflow.slot`, and `materialize` catches nothing (every error propagates, and any throw from `realizeTray` is a bug). `../sizing` exports no error class. The task code blocks below are patched accordingly.
 2. **Leftover pieces fit their bottom chamfer.** `Ctx.minPiece = max(MIN_PIECE_U, toUCeil(chamferMinimums(settings, 0).side))` (Task 4): planTray rejects a part narrower than `2·(chamfer + 0.8)`, so a leftover forced by a bed or size-lock cap is never thinner than that; `axisExtent` (Task 7) uses `ctx.minPiece`, and slack below it is absorbed by the tray.
 3. **Walls and floors as sizing writes them.** `Ctx.wall = toUCeil(wallFor(settings, false))` (never below `MIN_WALL_MM` = 0.9 mm) and `Ctx.floor = toUCeil(max(settings.floor, MIN_FEATURE_MM))` (Task 4). Materialized trays and leftovers (Task 12) write `wall` and `floor` from them, rounded up to 0.01 mm, never the raw settings: planTray rejects a wall under 0.9 mm, and every TraySpec length sits on the 0.01 mm grid.
-4. **Geometry rejects what it cannot build (roadmap §4.6).** planTray/buildTray throw `TraySpecError` for compartments less than 0.8 mm apart, walls or lips under 0.9 mm, reach bands that leave less than `MIN_POCKET_CONTENT`, a part too small for its chamfer, and the rest of §4.6. Layout emits sizing's realized trays plus leftovers; the hard-rule checker (Task 17) calls `planTray(spec, settings)` on every printed `TraySpec`, so a spec geometry would reject is a violation in every fixture and property test.
+4. **Geometry rejects what it cannot build (roadmap §4.6).** planTray/buildTray throw `TraySpecError` for compartments less than 0.8 mm apart, walls or lips under 0.9 mm, a part too small for its chamfer, and the rest of §4.6. Layout emits sizing's realized trays plus leftovers; the hard-rule checker (Task 17) calls `planTray(spec, settings)` on every printed `TraySpec`, so a spec geometry would reject is a violation in every fixture and property test.
 5. **The checker uses the shared helpers.** `checkHardRules` takes the upper chamfer from `effectiveBottomChamfer(settings, 1)` and the lipped wall from `wallFor(settings, true)`, never hand derivations (Task 17). The checker and the fixture loader are test-only helpers, and the checker imports `geometry/plan`, so they are named `test-hard-rules.ts` and `test-fixtures.ts`: the root ESLint config exempts `test-*.ts` from the main-thread geometry rule, and forbids production code from importing any `test-*` module.
-6. **Settings.** `settingsValid` (plan 1, `model/validate`) adds the cross-field rules `field.bottomChamfer` and `field.lipBearing` (with the lip on, an upper tray's chamfer is less than `lip.ledge − 2·lipPlay`), so the checker's bearing test always has room for valid settings. Import `MIN_FEATURE_MM`, `MIN_WALL_MM`, `chamferMinimums` and `effectiveBottomChamfer` from `model/settings` and `wallFor`, `realizeTray`, `rotateRealized` and `SlotFitError` from `../sizing`; never hard-code 0.8, 0.9 or 0.5.
-7. **Finger channels (roadmap §4.6, §4.7; implemented after plans 1–3).** Cards and tiles get wall cutouts (`FeatureSpec` `"wallCutout"`) instead of finger pockets (the default finger width is 25 mm): no reach bands (their `CompartmentReq.minD`/`minW` and compartment rectangles are content + clearance, which `meetsMinimum` compares as before), cuts through outer walls and dividers, and `hasGrip` counts them. With `settings.fingerPocket.wallRoom` or `.dividerRoom` > 0, `minOuter` and `realizeTray` thicken the outer walls and the dividers the placed cuts pass through (the room of the `minOuter` layout; a larger outer keeps it): layout needs nothing extra, because it only ever sees `minOuter` and realized trays (`TraySpec.wall` stays the base wall, and compartments still keep at least `wallFor` from every face, which the checker tests). The checker's `planTray` call covers the cutout rules. A spacer in a channelled well carries a notch (`TraySpec.features`, `"spacerNotch"`, in its own frame): materialize translates spacers' `x/y/z` only and keeps their `features` as sizing emitted them.
+6. **Settings.** `settingsValid` (plan 1, `model/validate`) adds the cross-field rules `field.bottomChamfer` and `field.lipBearing` (with the lip on, an upper tray's chamfer is less than `lip.ledge − 2·lipPlay`), so the checker's bearing test always has room for valid settings. Import `MIN_FEATURE_MM`, `MIN_WALL_MM`, `chamferMinimums` and `effectiveBottomChamfer` from `model/settings` and `wallFor`, `realizeTray` and `rotateRealized` from `../sizing`; never hard-code 0.8, 0.9 or 0.5.
+7. **Finger channels (roadmap §4.6, §4.7; implemented after plans 1–3).** Cards, tiles, minis pockets and custom wells get wall cutouts (`FeatureSpec` `"wallCutout"`; finger pockets are gone; the default finger width is 25 mm): no reach bands (their `CompartmentReq.minD`/`minW` and compartment rectangles are content + clearance, which `meetsMinimum` compares as before), cuts through outer walls and dividers that keep 3 mm full-height posts and are at least 10 mm wide (`MIN_CUT_MM`, or the width setting if smaller), and `hasGrip` counts them. With `settings.fingerPocket.wallRoom` or `.dividerRoom` > 0, `minOuter` and `realizeTray` thicken the outer walls and the dividers the placed cuts pass through (the room of the `minOuter` layout; a larger outer keeps it): layout needs nothing extra, because it only ever sees `minOuter` and realized trays (`TraySpec.wall` stays the base wall, and compartments still keep at least `wallFor` from every face, which the checker tests). The checker's `planTray` call covers the cutout rules. A spacer in a channelled well carries a notch (`TraySpec.features`, `"spacerNotch"`, in its own frame): materialize translates spacers' `x/y/z` only and keeps their `features` as sizing emitted them.
 
 ## Global Constraints
 
@@ -707,7 +704,7 @@ git commit -m "Add bed fit checks for layout parts"
 **Interfaces:**
 
 - Consumes: `effective(s)`, `topPlane(box, s)`, `DEFAULT_SETTINGS` (`../model/settings`); `minOuter(part, settings, opts)` (`../sizing`); `OuterSize`, `RealizeOptions`, `TrayPartReq`, `TrayRequirement`, `CompartmentReq`, `TrayVariant` (`../sizing/types`); `Bed` (Task 3); units (Task 1).
-- Produces: `type Measure = (part: TrayPartReq, settings: Settings, opts: RealizeOptions) => OuterSize`; constants `INF_U`, `MAX_LEVELS = 4`, `MAX_DEPTH = 32`, `SLIVER_U = 1200`, `MIN_PIECE_U = 300`, `GRIP_U = 2500`, `PLAY_LIMIT_U = 150`; `interface PartRef { req; variant; part }`; `SLOT_OVERFLOW_U = 100000`; `type Fits = (part, settings, opts) => boolean`; `slotsFit: Fits`; `interface PartMetrics { w; d; h; capW; capD; elasticH; realizable }`; `interface FixedSize { w; d; h; rotated }`; `interface Ctx { input; floorW; floorD; topPlane; boxClearance; gap; inset; layer; lipOn; upperMinH; wall; floor; minPiece; bed; sizeLocks; part(ref); partId(ref); metrics(ref, lipped, level); refsOfKey(trayKey) }`; `partId(ref): number`; `createCtx(input: LayoutInput, measure: Measure = minOuter, fits?: Fits): Ctx`; `withSizeLocks(ctx, sizeLocks): Ctx`. Test helpers: `TEST_BOX`, `TEST_PRINTER`, `comp(o)`, `part(trayKey, compartments, rotatable?)`, `variant(id, parts)`, `req(key, variants, o?)`, `boxReq(key, minW, minD, minH, o?)`, `makeInput(requirements, o?)`, `fakeMeasure: Measure` (outer = inner + 2 × 2 mm walls, 3 mm when lipped; h = minH + 1.2).
+- Produces: `type Measure = (part: TrayPartReq, settings: Settings, opts: RealizeOptions) => OuterSize`; constants `INF_U`, `MAX_LEVELS = 4`, `MAX_DEPTH = 32`, `SLIVER_U = 1200`, `MIN_PIECE_U = 300`, `GRIP_U = 2500`, `PLAY_LIMIT_U = 150`; `interface PartRef { req; variant; part }`; `interface PartMetrics { w; d; h; capW; capD; elasticH }`; `interface FixedSize { w; d; h; rotated }`; `interface Ctx { input; floorW; floorD; topPlane; boxClearance; gap; inset; layer; lipOn; upperMinH; wall; floor; minPiece; bed; sizeLocks; part(ref); partId(ref); metrics(ref, lipped, level); refsOfKey(trayKey) }`; `partId(ref): number`; `createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx`; `withSizeLocks(ctx, sizeLocks): Ctx`. Test helpers: `TEST_BOX`, `TEST_PRINTER`, `comp(o)`, `part(trayKey, compartments, rotatable?)`, `variant(id, parts)`, `req(key, variants, o?)`, `boxReq(key, minW, minD, minH, o?)`, `makeInput(requirements, o?)`, `fakeMeasure: Measure` (outer = inner + 2 × 2 mm walls, 3 mm when lipped; h = minH + 1.2).
 
 - [ ] **Step 1: Write the test helpers**
 
@@ -746,9 +743,9 @@ export interface CompOpts {
   contents?: string;
 }
 
-/** A compartment; adds a finger pocket when no inner dimension reaches the 25 mm grip. */
+/** A compartment; adds a front wall cutout when no inner dimension reaches the 25 mm grip. */
 export function comp(o: CompOpts): CompartmentReq {
-  const needsPocket = Math.min(o.minW, o.minD) < 25;
+  const needsCut = Math.min(o.minW, o.minD) < 25;
   return {
     componentId: "c",
     contents: o.contents ?? `${o.minW}x${o.minD}x${o.minH}`,
@@ -757,7 +754,9 @@ export function comp(o: CompOpts): CompartmentReq {
     minD: o.minD,
     minH: o.minH,
     elastic: { w: false, d: false, h: false, ...o.elastic },
-    features: needsPocket ? [{ type: "fingerPocket", side: "front", depthFraction: 1 / 3 }] : [],
+    features: needsCut
+      ? [{ type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false }]
+      : [],
   };
 }
 
@@ -854,7 +853,7 @@ export const fakeMeasure: Measure = (p, _settings, opts) => {
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { createCtx, INF_U, MIN_PIECE_U, withSizeLocks, type Fits } from "./context";
+import { createCtx, INF_U, MIN_PIECE_U, withSizeLocks } from "./context";
 import { boxReq, fakeMeasure, makeInput } from "./test-utils";
 
 describe("createCtx", () => {
@@ -889,7 +888,6 @@ describe("createCtx", () => {
     expect(a.h).toBe(2120);
     expect(a.capW).toBe(320);
     expect(a.elasticH).toBe(false);
-    expect(a.realizable).toBe(true);
     const b = ctx.metrics({ req: 1, variant: 0, part: 0 }, true, 1);
     expect(b.w).toBe(5600);
     expect(b.capW).toBe(INF_U);
@@ -919,14 +917,6 @@ describe("createCtx", () => {
     expect(ctx.minPiece).toBe(760); // 2 × (3 + 0.8)
     expect(createCtx(makeInput([]), fakeMeasure).minPiece).toBe(MIN_PIECE_U);
   });
-
-  it("reports parts whose finger slots do not fit as unrealizable, per lip flag and level", () => {
-    const fits: Fits = (_part, _settings, opts) => !opts.lipped;
-    const ctx = createCtx(makeInput([boxReq("a", 30, 30, 10)]), fakeMeasure, fits);
-    const ref = { req: 0, variant: 0, part: 0 };
-    expect(ctx.metrics(ref, false, 0).realizable).toBe(true);
-    expect(ctx.metrics(ref, true, 0).realizable).toBe(false);
-  });
 });
 ```
 
@@ -943,7 +933,7 @@ Expected: FAIL — `Failed to resolve import "./context" from "src/layout/contex
 ```ts
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
 import type { Settings } from "../model/types";
-import { SlotFitError, minOuter, realizeTray, wallFor } from "../sizing";
+import { minOuter, wallFor } from "../sizing";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import type { Bed } from "./bed";
 import type { LayoutInput } from "./types";
@@ -951,26 +941,6 @@ import { toU, toUCeil, toUFloor, type U } from "./units";
 
 /** Same signature as sizing's minOuter; injectable so unit tests can use fixed sizes. */
 export type Measure = (part: TrayPartReq, settings: Settings, opts: RealizeOptions) => OuterSize;
-
-/** Whether a part's finger slots fit at these options (roadmap §4.7); injectable like Measure. */
-export type Fits = (part: TrayPartReq, settings: Settings, opts: RealizeOptions) => boolean;
-
-/**
- * realizeTray at minOuter, false only on SlotFitError. minOuter is the footprint at which the
- * part's finger slots fit (widened by up to fingerPocket.width), and a part refused there is
- * refused at every outer; any other error is a bug and propagates.
- */
-export const slotsFit: Fits = (part, settings, opts) => {
-  try {
-    realizeTray(part, minOuter(part, settings, opts), settings, opts);
-    return true;
-  } catch (error) {
-    if (error instanceof SlotFitError) {
-      return false;
-    }
-    throw error;
-  }
-};
 
 /** "No limit" for slack capacities. */
 export const INF_U: U = 1_000_000_000;
@@ -985,8 +955,6 @@ export const SLIVER_U: U = 1200;
  * raises it to what the bottom chamfer needs.
  */
 export const MIN_PIECE_U: U = 300;
-/** Overflow charged per tray whose finger slots do not fit (more than any box). */
-export const SLOT_OVERFLOW_U: U = 100_000;
 /** Smallest inner dimension that counts as a grip (hard rule 8). */
 export const GRIP_U: U = 2500;
 /** Nominal lateral play above this is penalized and warned about (hard rule 1). */
@@ -1008,8 +976,6 @@ export interface PartMetrics {
   readonly capD: U;
   /** Some compartment can grow deeper (scoop): height slack goes here first. */
   readonly elasticH: boolean;
-  /** Its finger slots fit (Fits); false makes every placement of it infeasible. */
-  readonly realizable: boolean;
 }
 
 /** A size lock in units, in the box frame (after rotation). */
@@ -1057,10 +1023,8 @@ function capacity(part: TrayPartReq, axis: "w" | "d", wallCap: U): U {
   return elastic ? INF_U : wallCap;
 }
 
-export function createCtx(input: LayoutInput, measure: Measure = minOuter, fits?: Fits): Ctx {
+export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx {
   const { box, printer, settings } = input;
-  // A fake measure has no real slot placement behind it, so it always fits.
-  const slots: Fits = fits ?? (measure === minOuter ? slotsFit : () => true);
   const eff = effective(settings);
   const boxClearance = toU(eff.boxClearance);
   // Rounded up like sizing (roadmap §4.7): never below MIN_WALL_MM.
@@ -1120,7 +1084,6 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter, fits?
         capW: capacity(p, "w", wallCap),
         capD: capacity(p, "d", wallCap),
         elasticH: p.compartments.some((c) => c.elastic.h),
-        realizable: slots(p, settings, { lipped, level }),
       };
       cache.set(key, m);
       return m;
@@ -1555,7 +1518,7 @@ git commit -m "Add guillotine tree with exact integer tiling"
 **Interfaces:**
 
 - Consumes: `Ctx`, `FixedSize`, `INF_U`, `SLIVER_U` (Task 4); `StackItem` (Task 5); `roundUpTo`, `roundDownTo`, `Ext`, `U` (Task 1).
-- Produces: `interface Level { item; level; lipped; minW; minD; minH; capW; capD; elasticH; realizable; fixed }` (box frame); `stackLevels(ctx, stack): Level[]`; `stackMinFootprint(ctx, levels): Ext` (leaf ≥ req_k + 2·k·inset); `stackLockCap(ctx, levels): Ext`; `stackAbsorb(ctx, levels, foot): Ext`; `interface StackHeights { h: U[]; overflow: U; lockOverflow: U }`; `stackHeights(ctx, levels): StackHeights` (Σ h = topPlane, layer rounding, top takes the remainder).
+- Produces: `interface Level { item; level; lipped; minW; minD; minH; capW; capD; elasticH; fixed }` (box frame); `stackLevels(ctx, stack): Level[]`; `stackMinFootprint(ctx, levels): Ext` (leaf ≥ req_k + 2·k·inset); `stackLockCap(ctx, levels): Ext`; `stackAbsorb(ctx, levels, foot): Ext`; `interface StackHeights { h: U[]; overflow: U; lockOverflow: U }`; `stackHeights(ctx, levels): StackHeights` (Σ h = topPlane, layer rounding, top takes the remainder).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1691,8 +1654,6 @@ export interface Level {
   readonly capW: U;
   readonly capD: U;
   readonly elasticH: boolean;
-  /** Its finger slots fit at this level and lip flag (PartMetrics.realizable). */
-  readonly realizable: boolean;
   readonly fixed: FixedSize | undefined;
 }
 
@@ -1714,7 +1675,6 @@ export function stackLevels(ctx: Ctx, stack: readonly StackItem[]): Level[] {
       capW: rot ? m.capD : m.capW,
       capD: rot ? m.capW : m.capD,
       elasticH: m.elasticH,
-      realizable: m.realizable,
       fixed,
     };
   });
@@ -1847,7 +1807,7 @@ git commit -m "Add stack feasibility with lip insets and heights"
 **Interfaces:**
 
 - Consumes: `bedExcess`, `bedOrientations`, `splitForBed` (Task 3); `Ctx`, `GRIP_U`, `MIN_PIECE_U`, `SLIVER_U` (Task 4); `placeLeaves`, `Leaf`, `StackItem`, `Tree` (Task 5); stack functions (Task 6).
-- Produces: `interface PlacedTray { path; stack; level; item; x; y; z; w; d; h; lipped; top; minW; minD; capW; capD }`; `interface PlacedLeftover { path; stack; x; y; w; d; h; solid }`; `interface Overflow { x; y; z; bed; lock; slot }`; `interface Plan { trays; leftovers; overflow; shortfall: { x; y; z }; crossX; crossY }`; `overflowTotal(o): U`; `placeStack(ctx, levels, rect): StackPlacement`; `maxCrossing(rects, alongX): number`; `evaluate(ctx, tree): Plan`.
+- Produces: `interface PlacedTray { path; stack; level; item; x; y; z; w; d; h; lipped; top; minW; minD; capW; capD }`; `interface PlacedLeftover { path; stack; x; y; w; d; h; solid }`; `interface Overflow { x; y; z; bed; lock }`; `interface Plan { trays; leftovers; overflow; shortfall: { x; y; z }; crossX; crossY }`; `overflowTotal(o): U`; `placeStack(ctx, levels, rect): StackPlacement`; `maxCrossing(rects, alongX): number`; `evaluate(ctx, tree): Plan`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1855,7 +1815,7 @@ git commit -m "Add stack feasibility with lip insets and heights"
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { SLOT_OVERFLOW_U, createCtx, withSizeLocks, type Ctx } from "./context";
+import { createCtx, withSizeLocks, type Ctx } from "./context";
 import { evaluate, overflowTotal, placeStack } from "./fill";
 import { stackLevels } from "./stack";
 import { boxReq, fakeMeasure, makeInput } from "./test-utils";
@@ -1933,16 +1893,6 @@ describe("fill", () => {
     expect(sp.leftovers[0]?.w).toBe(760);
   });
 
-  it("charges SLOT_OVERFLOW_U for every tray whose finger slots do not fit", () => {
-    const input = makeInput([boxReq("a", 100, 60, 20)]);
-    const ctx = createCtx(input, fakeMeasure, () => false);
-    const sp = placeStack(ctx, stackLevels(ctx, [it0(0)]), { x: 0, y: 0, w: 10400, d: 6400 });
-    expect(sp.overflowSlot).toBe(SLOT_OVERFLOW_U);
-    const plan = evaluate(ctx, { root: leaf([it0(0)]), variants: [0] });
-    expect(plan.overflow.slot).toBe(SLOT_OVERFLOW_U);
-    expect(overflowTotal(plan.overflow)).toBeGreaterThanOrEqual(SLOT_OVERFLOW_U);
-  });
-
   it("forces a leftover beside a size-locked tray", () => {
     const base = ctxOf([boxReq("a", 100, 60, 20)]);
     const ctx = withSizeLocks(base, new Map([[0, { w: 10500, d: 6400, h: 6000, rotated: false }]]));
@@ -2003,7 +1953,7 @@ Expected: FAIL — `Failed to resolve import "./fill" from "src/layout/fill.test
 
 ```ts
 import { bedExcess, bedOrientations, splitForBed } from "./bed";
-import { GRIP_U, SLIVER_U, SLOT_OVERFLOW_U, type Ctx } from "./context";
+import { GRIP_U, SLIVER_U, type Ctx } from "./context";
 import {
   stackAbsorb,
   stackHeights,
@@ -2054,8 +2004,6 @@ export interface Overflow {
   readonly z: U;
   readonly bed: U;
   readonly lock: U;
-  /** SLOT_OVERFLOW_U per tray whose finger slots do not fit (amendment 1). */
-  readonly slot: U;
 }
 
 export interface Plan {
@@ -2070,7 +2018,7 @@ export interface Plan {
 }
 
 export function overflowTotal(o: Overflow): U {
-  return o.x + o.y + o.z + o.bed + o.lock + o.slot;
+  return o.x + o.y + o.z + o.bed + o.lock;
 }
 
 interface Bottom {
@@ -2122,7 +2070,6 @@ export interface StackPlacement {
   readonly leftovers: Rect[];
   readonly overflowZ: U;
   readonly overflowLock: U;
-  readonly overflowSlot: U;
 }
 
 /**
@@ -2133,7 +2080,7 @@ export interface StackPlacement {
  */
 export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): StackPlacement {
   if (levels.length === 0) {
-    return { trays: [], leftovers: [rect], overflowZ: 0, overflowLock: 0, overflowSlot: 0 };
+    return { trays: [], leftovers: [rect], overflowZ: 0, overflowLock: 0 };
   }
   const { foot } = chooseBottom(ctx, levels, rect);
   const lockCap = stackLockCap(ctx, levels);
@@ -2180,8 +2127,7 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
   });
   const lockOver =
     Math.max(0, foot.w - lockCap.w) + Math.max(0, foot.d - lockCap.d) + heights.lockOverflow;
-  const overflowSlot = levels.filter((l) => !l.realizable).length * SLOT_OVERFLOW_U;
-  return { trays, leftovers, overflowZ: heights.overflow, overflowLock: lockOver, overflowSlot };
+  return { trays, leftovers, overflowZ: heights.overflow, overflowLock: lockOver };
 }
 
 /** Most rectangles crossed by one straight line along X (alongX) or along Y. */
@@ -2224,7 +2170,6 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
   let zMax = 0;
   let bed = 0;
   let lock = 0;
-  let slot = 0;
   let stack = 0;
   const leftoverH = Math.max(0, ctx.topPlane);
   const pending: { path: string; rect: Rect }[] = [];
@@ -2234,7 +2179,6 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
     z += sp.overflowZ;
     zMax = Math.max(zMax, sp.overflowZ);
     lock += sp.overflowLock;
-    slot += sp.overflowSlot;
     if (sp.trays.length > 0) {
       for (const t of sp.trays) {
         trays.push({ ...t, path: pl.path, stack });
@@ -2268,7 +2212,7 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
   return {
     trays,
     leftovers,
-    overflow: { x: ox, y: oy, z, bed, lock, slot },
+    overflow: { x: ox, y: oy, z, bed, lock },
     shortfall: { x: ox, y: oy, z: zMax },
     crossX: maxCrossing(bottoms, true),
     crossY: maxCrossing(bottoms, false),
@@ -4213,7 +4157,7 @@ git commit -m "Add first-fit-decreasing starting layouts"
 
 **Interfaces:**
 
-- Consumes: `realizeTray(part, outer, settings, opts)`, `rotateRealized(r: RealizedTray, outer: OuterSize)`, `SlotFitError` (`../sizing`, plan 2 / roadmap §4.7); `Ctx` (Task 4); `Plan` (Task 7); `roundMm`, `toMm` (Task 1).
+- Consumes: `realizeTray(part, outer, settings, opts)`, `rotateRealized(r: RealizedTray, outer: OuterSize)` (`../sizing`, plan 2 / roadmap §4.7); `Ctx` (Task 4); `Plan` (Task 7); `roundMm`, `toMm` (Task 1).
 - Produces: `type Realize = (part, outer, settings, opts) => RealizedTray`; `materialize(ctx, plan, realize: Realize = realizeTray): TraySpec[]` (trays in leaf order with their spacer right after, then `leftover:<n>`); test helper `fakeRealize: Realize`.
 
 - [ ] **Step 1: Extend the test helpers with a fake realize**
@@ -4264,9 +4208,9 @@ export interface CompOpts {
   contents?: string;
 }
 
-/** A compartment; adds a finger pocket when no inner dimension reaches the 25 mm grip. */
+/** A compartment; adds a front wall cutout when no inner dimension reaches the 25 mm grip. */
 export function comp(o: CompOpts): CompartmentReq {
-  const needsPocket = Math.min(o.minW, o.minD) < 25;
+  const needsCut = Math.min(o.minW, o.minD) < 25;
   return {
     componentId: "c",
     contents: o.contents ?? `${o.minW}x${o.minD}x${o.minH}`,
@@ -4275,7 +4219,9 @@ export function comp(o: CompOpts): CompartmentReq {
     minD: o.minD,
     minH: o.minH,
     elastic: { w: false, d: false, h: false, ...o.elastic },
-    features: needsPocket ? [{ type: "fingerPocket", side: "front", depthFraction: 1 / 3 }] : [],
+    features: needsCut
+      ? [{ type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false }]
+      : [],
   };
 }
 
@@ -4367,7 +4313,7 @@ export const fakeMeasure: Measure = (p, _settings, opts) => {
 
 /**
  * Simple realize for unit tests: compartments side by side along X filling the inner
- * area, a finger pocket on the left side of each, one 5 mm spacer in the first well.
+ * area, a wall cutout on the left side of each, one 5 mm spacer in the first well.
  */
 export const fakeRealize: Realize = (p, outer, settings) => {
   const wall = settings.wall;
@@ -4383,7 +4329,7 @@ export const fakeRealize: Realize = (p, outer, settings) => {
     kind: c.kind,
     contents: c.contents,
     features: [
-      { type: "fingerPocket", side: "left", at: outer.d / 2, width: 22, reach: 12, depth: 5 },
+      { type: "wallCutout", side: "left", at: outer.d / 2, width: 22, depth: 5, floorNotch: 0 },
     ],
   }));
   const spacer: TraySpec = {
@@ -4479,7 +4425,7 @@ Expected: FAIL — `Failed to resolve import "./materialize" from "src/layout/ma
 
 ```ts
 import type { Settings, TraySpec } from "../model/types";
-import { SlotFitError, realizeTray, rotateRealized } from "../sizing";
+import { realizeTray, rotateRealized } from "../sizing";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "../sizing/types";
 import type { Ctx } from "./context";
 import type { Plan } from "./fill";
@@ -4498,29 +4444,15 @@ export type Realize = (
  * compartments (slack, raised floors, spacers) with the same `lipped` flag the TraySpec
  * carries (roadmap §4.6); spacers are translated into box coordinates and follow their
  * tray; leftovers become a spare tray or a solid block. Clamping to the minimum outer size
- * only matters for infeasible attempts (feasible plans are never below it), and so does a
- * SlotFitError (an unrealizable tray only ever sits in an infeasible plan, amendment 1): that
- * tray becomes a plain box. Walls and floors are written as sizing writes them (ctx.wall,
- * ctx.floor: rounded up to 0.01 mm, the wall at least MIN_WALL_MM).
+ * only matters for infeasible attempts (feasible plans are never below it); at or above it
+ * sizing guarantees the tray realizes, so any error from realize is a bug and propagates
+ * (amendment 1). Walls and floors are written as sizing writes them (ctx.wall, ctx.floor:
+ * rounded up to 0.01 mm, the wall at least MIN_WALL_MM).
  */
 export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray): TraySpec[] {
   const s = ctx.input.settings;
   const wall = toMm(ctx.wall);
   const floor = toMm(ctx.floor);
-  const realizeOrBox = (
-    part: TrayPartReq,
-    outer: OuterSize,
-    opts: RealizeOptions,
-  ): RealizedTray => {
-    try {
-      return realize(part, outer, s, opts);
-    } catch (error) {
-      if (error instanceof SlotFitError) {
-        return { wall, compartments: [], spacers: [] };
-      }
-      throw error;
-    }
-  };
   const out: TraySpec[] = [];
   for (const t of plan.trays) {
     const part = ctx.part(t.item);
@@ -4538,8 +4470,8 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
     // swapped size and turned 90° counter-clockwise by sizing's rotateRealized.
     const own = t.item.rotated ? { w: d, d: w, h } : { w, d, h };
     const realized = t.item.rotated
-      ? rotateRealized(realizeOrBox(part, own, opts), own)
-      : realizeOrBox(part, own, opts);
+      ? rotateRealized(realize(part, own, s, opts), own)
+      : realize(part, own, s, opts);
     const x = toMm(t.x);
     const y = toMm(t.y);
     const z = toMm(t.z);
@@ -4645,7 +4577,7 @@ git commit -m "Materialize layout plans into tray specs"
 **Interfaces:**
 
 - Consumes: `TraySpec`, `CompartmentSpec`; `CompartmentReq`, `TrayPartReq` (`../sizing/types`); `Ctx`, `MAX_DEPTH` (Task 4); `LockHints` (Task 10); `PrevPos` (Task 8); `stackLevels`, `stackMinFootprint` (Task 6); `cut`, `leaf`, `minExtents`, `splitRect`, `SHARE_HALF`, `SHARE_MAX` (Task 5); `toU`, `Rect` (Task 1).
-- Produces: `meetsMinimum(c: CompartmentReq, s: CompartmentSpec, trayH: number): boolean` (rule 7 for one compartment; the rectangle includes the finger reach, roadmap §4.6); `inferVariant(ctx, req, trays): number | undefined` (a `TraySpec` doesn't record its variant and plan 2 gives every variant of a requirement the same trayKeys, e.g. `<key>:p0:0` for upright and flat cards, so the variant is the first whose key set matches and whose compartments meet their minimums); `interface WarmHints extends Required<LockHints> { axisOf(path): Axis | undefined; prev: ReadonlyMap<string, PrevPos> }`; `warmHints(ctx, trays): WarmHints` (`variantOf` = `inferVariant`); `warmTree(ctx, trays, pinnedVariant, hints): Tree | null` (null for corrupt or prefix-conflicting paths).
+- Produces: `meetsMinimum(c: CompartmentReq, s: CompartmentSpec, trayH: number): boolean` (rule 7 for one compartment; the rectangle is content + clearance, no reach bands: amendment 7); `inferVariant(ctx, req, trays): number | undefined` (a `TraySpec` doesn't record its variant and plan 2 gives every variant of a requirement the same trayKeys, e.g. `<key>:p0:0` for upright and flat cards, so the variant is the first whose key set matches and whose compartments meet their minimums); `interface WarmHints extends Required<LockHints> { axisOf(path): Axis | undefined; prev: ReadonlyMap<string, PrevPos> }`; `warmHints(ctx, trays): WarmHints` (`variantOf` = `inferVariant`); `warmTree(ctx, trays, pinnedVariant, hints): Tree | null` (null for corrupt or prefix-conflicting paths).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -4881,7 +4813,7 @@ function bbox(rects: readonly { path: string; r: Box2 }[], prefix: string): Box2
   return out;
 }
 
-/** Rule 7 for one compartment: its rectangle (finger reach included, roadmap §4.6) holds the
+/** Rule 7 for one compartment: its rectangle (content + clearance, no reach bands: amendment 7) holds the
  * minimum footprint in either orientation, and its depth below the rim is at least `minH`. */
 export function meetsMinimum(c: CompartmentReq, s: CompartmentSpec, trayH: number): boolean {
   const eps = 1e-6;
@@ -6060,7 +5992,7 @@ export function checkHardRules(
   }
 
   // Rule 7: compartments meet their minimums (compartment i ↔ CompartmentReq i; the
-  // rectangle includes the finger reach, roadmap §4.6). Rule 8: grip.
+  // rectangle is content + clearance, no reach bands: amendment 7). Rule 8: grip.
   for (const t of real) {
     const ref = refOf.get(t.key);
     const part = ref ? ctx.part(ref) : undefined;
