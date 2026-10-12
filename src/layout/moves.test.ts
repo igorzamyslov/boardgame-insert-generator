@@ -253,6 +253,32 @@ describe("stacks the bed cannot print", () => {
     }
   });
 
+  it("rotating one tray of a stack refuses a turn that makes the stack too big for the bed", () => {
+    // usable bed 120 × 70 mm; two 109 × 44 mm trays, both long along X, stack fine (the upper
+    // one's footprint needs 111.9 mm), but one turned long along Y would need 111.9 mm of the
+    // 70 mm side
+    const longReqs = [boxReq("l1", 105, 40, 10), boxReq("l2", 105, 40, 10)];
+    const longCtx = createCtx(
+      makeInput(longReqs, { printer: { bedX: 130, bedY: 80 }, box: { innerHeight: 100 } }),
+      fakeMeasure,
+    );
+    const env: MoveEnv = {
+      ctx: longCtx,
+      lockedPaths: [],
+      variantPinned: [false, false],
+      rotationFixed: new Set(),
+    };
+    expect(printable(longCtx, [at(0), at(1)])).toBe(true);
+    expect(printable(longCtx, [at(0), { ...at(1), rotated: true }])).toBe(false);
+    const stackTree: Tree = { root: leaf([at(0), at(1)]), variants: [0, 0] };
+    for (let s = 0; s < 50; s++) {
+      expect(rotateItem(stackTree, env, createRng(s))).toBeNull();
+    }
+    // the same trays standing alone turn freely
+    const alone: Tree = { root: cut("x", leaf([at(0)]), leaf([at(1)])), variants: [0, 0] };
+    expect(rotateItem(alone, env, createRng(1))).not.toBeNull();
+  });
+
   it("insertItem never puts an item on or under such a part", () => {
     const base: TreeNode = leaf([wide]);
     for (let s = 0; s < 100; s++) {

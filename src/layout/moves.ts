@@ -222,6 +222,10 @@ export const rotateItem: Move = (tree, env, rng) => {
   const stack = o.leaf.stack.map((item, k) =>
     k === o.k ? { ...item, rotated: !item.rotated } : item,
   );
+  // a turned tray can outgrow the bed in a stack (the other trays' footprints stay as they are)
+  if (!stackAllowed(env.ctx, stack)) {
+    return null;
+  }
   return { ...tree, root: replaceAt(tree.root, o.path, leaf(stack, o.leaf.frozen)) };
 };
 
