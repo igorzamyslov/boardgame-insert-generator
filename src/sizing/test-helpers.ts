@@ -13,6 +13,7 @@ import type {
   TilesComponent,
   TraySpec,
 } from "../model/types";
+import { axes } from "../model/cut-rules";
 import { groupOf } from "../model/defaults";
 import { componentOptions } from "./component";
 import { combineOptions } from "./group";
@@ -131,8 +132,9 @@ export function partOf(
  * compartments keep the divider setting apart, floors are at least the floor setting, and wall
  * cutouts are min(MIN_CUT_MM, the width setting) to the width setting wide, POST_MM inside their
  * compartment's faces, their floor notch at most the notch setting. Given the `part` it was
- * realized from, every compartment that asks for wall cutouts (cards, tiles, minis pockets and
- * custom wells) has at least one: finger access is never left out silently (review 1, I2).
+ * realized from, every compartment that asks for wall cutouts (its component's finger cuts on)
+ * has at least one: finger access is never left out silently (review 1, I2). The
+ * posts are checked in the compartment each cut runs into as well, as planTray places it.
  */
 export function assertTrayInvariants(
   realized: RealizedTray,
@@ -201,8 +203,25 @@ export function assertTrayInvariants(
     solid: false,
     compartments: list,
   };
-  for (const spec of [tray, ...realized.spacers]) {
-    planTray(spec, settings);
+  const plan = planTray(tray, settings);
+  for (const spacer of realized.spacers) {
+    planTray(spacer, settings);
+  }
+  // The posts in the compartment each cut runs into, too (review 3, M3), where planTray says it runs.
+  for (const p of plan.compartments) {
+    for (const cut of p.cuts) {
+      const into = cut.into === null ? undefined : plan.compartments[cut.into];
+      if (into !== undefined) {
+        const c = axes(cut, cut.side);
+        const r = axes(into.rect, cut.side);
+        const post = Math.min(u(c.u0) - u(r.u0), u(r.u1) - u(c.u1));
+        const label = `compartment ${p.index} (${list[p.index]?.contents ?? ""})`;
+        expect(
+          post,
+          `${label} ${cut.side} cutout posts in compartment ${cut.into}`,
+        ).toBeGreaterThanOrEqual(toU(POST_MM));
+      }
+    }
   }
   for (const sp of realized.spacers) {
     expectSpacerNotched(sp, list, u(tray.h));
