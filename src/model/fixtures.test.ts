@@ -66,4 +66,24 @@ describe("schema history", () => {
   it.each(Object.entries(HISTORY))("%s still loads", (_path, raw) => {
     expect(parseProject(raw).ok).toBe(true);
   });
+
+  it("reads the 0.1.1 component toggles", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.1.json"]);
+    // Only its stored layout, whose trays still carry finger pockets, is dropped.
+    expect(notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+    const toggles = project.components.map((c) => [
+      c.id,
+      c.fingerCuts,
+      c.curvedFloor,
+      c.cornerReliefs,
+    ]);
+    expect(toggles).toEqual([
+      ["cards001", undefined, undefined, undefined],
+      ["cards002", false, undefined, true],
+      ["bulk0001", true, false, undefined],
+      ["tiles001", undefined, undefined, undefined],
+      ["minis001", undefined, undefined, undefined],
+      ["custom01", undefined, true, false],
+    ]);
+  });
 });

@@ -115,6 +115,21 @@ describe("finger cuts and curved floor toggles", () => {
     expect(at(r.compartments, 1).features.map((f) => f.type)).toEqual(["cornerRelief"]);
   });
 
+  it("notches a deck's spacer only when the deck has its channel", () => {
+    for (const [fingerCuts, notched] of [
+      [true, 1],
+      [false, 0],
+    ] as const) {
+      const part = partOf([cards({ fingerCuts })], "upright-long|strip|split1");
+      const min = minOuter(part, s, ground);
+      const outer = { ...min, w: min.w + 20 };
+      const r = realizeTray(part, outer, s, ground);
+      assertTrayInvariants(r, outer, s, ground, part);
+      expect(r.spacers).toHaveLength(1);
+      expect(r.spacers.map((spacer) => spacer.features?.length ?? 0)).toEqual([notched]);
+    }
+  });
+
   it("settles the finger room where it moves the cuts back and forth", () => {
     // Property-test counterexample: four players' curved-floor pockets with 12.6 mm of divider
     // room, whose cuts move as the room moves the layout and never agree with it. After ROOM_ROUNDS

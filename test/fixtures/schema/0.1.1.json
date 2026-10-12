@@ -98,7 +98,9 @@
       },
       "storage": "flat",
       "groupId": "setup",
-      "clearance": 2
+      "clearance": 2,
+      "fingerCuts": false,
+      "cornerReliefs": true
     },
     {
       "id": "bulk0001",
@@ -120,7 +122,9 @@
           "name": "Score marker",
           "volumeMl": 20
         }
-      ]
+      ],
+      "fingerCuts": true,
+      "curvedFloor": false
     },
     {
       "id": "tiles001",
@@ -168,7 +172,9 @@
       "w": 100,
       "d": 70,
       "h": 10,
-      "count": 1
+      "count": 1,
+      "curvedFloor": true,
+      "cornerReliefs": false
     }
   ],
   "locks": [
