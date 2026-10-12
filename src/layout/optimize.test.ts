@@ -247,11 +247,58 @@ describe("optimize", () => {
       const r = optimize(fallbackInput, 1, 1000);
       expect(r.notices.some((n) => n.code === "lock.dropped")).toBe(true);
       expect(r.layout?.iterations).toBe(1000);
-      // stopped as soon as the unlocked phase started: it ran nothing yet
-      const capped = optimize(fallbackInput, 1, 1000, { timeCapMs: 0 });
+      // stopped as soon as the unlocked phase started (after the main and derived-seed chains):
+      // it ran nothing yet
+      let t = 0;
+      const run = createRun(fallbackInput, 1, 1000, { timeCapMs: 2, now: () => t++ });
+      while (!run.step()) {
+        // step until the cap
+      }
+      const capped = run.result();
       expect(capped.layout).not.toBeNull();
       expect(capped.layout?.capped).toBe(true);
       expect(capped.layout?.iterations).toBe(0);
+    });
+
+    it("keeps the progress fraction from going backwards when the extra chains start", () => {
+      const run = createRun(fallbackInput, 1, 3000);
+      const fractions: number[] = [];
+      const totals = new Set<number>();
+      let steps = 0;
+      do {
+        steps++;
+        const finished = run.step();
+        fractions.push(run.done / run.total);
+        totals.add(run.total);
+        if (finished) {
+          break;
+        }
+      } while (steps < 100);
+      // main chain, derived-seed chain, unlocked chain: 3 chunks each
+      expect(steps).toBe(9);
+      expect(totals.size).toBe(1);
+      expect(fractions.every((f, i) => i === 0 || f >= (fractions[i - 1] ?? 0))).toBe(true);
+      expect(fractions.every((f) => f <= 1)).toBe(true);
+    });
+
+    it("runs the derived-seed chain before the lock fallback", () => {
+      // a clock that ticks once per step: the cap is hit after the first step, when the main
+      // chain is over and only the derived chain has started, so the locks are still kept
+      const capAfter = (steps: number) => {
+        let t = 0;
+        const run = createRun(fallbackInput, 1, 1000, { timeCapMs: steps, now: () => t++ });
+        while (!run.step()) {
+          // step until the cap
+        }
+        return run.result();
+      };
+      const early = capAfter(1);
+      expect(early.layout).toBeNull();
+      expect(early.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+      // one step later the unlocked chain has started (it ran nothing yet) and gives the layout
+      const late = capAfter(2);
+      expect(late.layout?.capped).toBe(true);
+      expect(late.notices.some((n) => n.code === "lock.dropped")).toBe(true);
     });
 
     it("adds a capped run's iterations to the warm start's cumulative count", () => {

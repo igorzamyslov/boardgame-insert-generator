@@ -62,9 +62,9 @@ These are interpretations of the spec and roadmap that every task relies on. Non
 
 **Score.** Lower is better; integer weights in the spec order with documented "unit step" equivalents (Task 8). Any hard-rule violation counts as overflow (0.01 mm units) × 10^9, more than any feasible score. Best feasible and least-overflow candidates are tracked separately.
 
-**Locks.** Resolved before optimizing (Task 10): unknown keys, size locks the contents outgrew or that no longer fit box/bed, invalid or prefix-conflicting paths, duplicate or too-tall stack locks are dropped with `lock.dropped` notices. Locks pin the variant that contains their keys. Position-locked trays sit in frozen leaves at exactly their path; trays locked to one path stack in the order of their level in the warm-start layout (`LockHints.levelOf`; input order without one), except that a stack lock keeps the order it gives; a position lock on a tray that sat above others in the warm-start layout, with nothing under it locked to the same path and no stack lock around it, is dropped with a `lock.dropped` notice (it would silently go to the floor and evict its stack-mates; the UI locks a whole stack: a position lock per tray plus a stack lock, like `swapLocks`); the root path `""` is a valid position when there is a single tray or the warm start is one single stack (`LockHints.singleLeaf`); cuts on the route to a locked path keep their axis (taken from the warm start when available) and can't be flipped or collapsed, but their shares move. Stack locks become frozen leaves that may move. If no feasible layout keeps the remaining locks, a second phase runs without locks; if that one is feasible it is returned and every kept lock gets a `lock.dropped` notice ("no layout that keeps it fits in the box").
+**Locks.** Resolved before optimizing (Task 10): unknown keys, size locks the contents outgrew or that no longer fit box/bed, invalid or prefix-conflicting paths, duplicate or too-tall stack locks are dropped with `lock.dropped` notices. Locks pin the variant that contains their keys. Position-locked trays sit in frozen leaves at exactly their path; trays locked to one path stack in the order of their level in the warm-start layout (`LockHints.levelOf`; input order without one), except that a stack lock keeps the order it gives; a position lock on a tray that sat above others in the warm-start layout, with nothing under it locked to the same path and no stack lock around it, is dropped with a `lock.dropped` notice (it would silently go to the floor and evict its stack-mates; the UI locks a whole stack: a position lock per tray plus a stack lock, like `swapLocks`); the root path `""` is a valid position when there is a single tray or the warm start is one single stack (`LockHints.singleLeaf`); cuts on the route to a locked path keep their axis (taken from the warm start when available) and can't be flipped or collapsed, but their shares move. Stack locks become frozen leaves that may move. If the main chain finds no feasible layout, one more chain with the same budget runs from a derived seed (`(seed ^ 0x9e3779b9) >>> 0`; the search is seed-dependent, and a bigger budget does not rescue the seeds that dead-end, a second seed rescues nine in ten of them); it keeps the locks. If neither chain finds one and locks were kept, a further chain runs without locks; if that one is feasible it is returned and every kept lock gets a `lock.dropped` notice ("no layout that keeps it fits in the box").
 
-**Determinism.** All randomness comes from `createRng(seed)`; Math.exp/Math.pow are the only float steps. Chunk size never changes the result. Same input + warm start + seed + iterations → deep-equal `LayoutResult` on the same engine, unless the 30 s time cap stopped the run (`capped: true`). The `iterations` argument is this run's budget; `StoredLayout.iterations` is cumulative: `warmStart.iterations` (if any) + this run's budget, or + the iterations actually run when capped. "Improve more" (spec §7.2: adds 3N, continuing from the stored layout) is a run of 3N with the stored layout as warm start and its seed.
+**Determinism.** All randomness comes from `createRng(seed)`; Math.exp/Math.pow are the only float steps. Chunk size never changes the result. Same input + warm start + seed + iterations → deep-equal `LayoutResult` on the same engine, unless the 30 s time cap stopped the run (`capped: true`). The `iterations` argument is this run's budget; `StoredLayout.iterations` is cumulative: `warmStart.iterations` (if any) + this run's budget, or + the iterations actually run when capped. "Improve more" (spec §7.2: adds 3N, continuing from the stored layout) is a run of 3N with the stored layout as warm start and its seed. The extra chains of an infeasible run (derived seed, then unlocked) are deterministic too, and `StoredLayout.iterations` counts the chain that produced the layout. Progress: `Run.total` is the first chain's budget, fixed for the run, and `Run.done` is held at it while the extra chains run, so `done / total` never goes backwards.
 
 **Warm start.** The previous `StoredLayout` is turned back into a tree: leaves from tray paths, cut axes from positions, shares recovered exactly; unchanged inputs reproduce the stored trays exactly (tested). The "moved trays" score term compares positions with it.
 
@@ -76,30 +76,30 @@ These are interpretations of the spec and roadmap that every task relies on. Non
 
 All under `src/layout/`:
 
-| File                                                      | Responsibility                                                                      |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `types.ts`                                                | Roadmap §4.4 contract types, verbatim                                               |
-| `units.ts`                                                | Integer 0.01 mm units, rounding rules, `Ext`/`Rect`                                 |
-| `prng.ts`                                                 | `xoshiro128**` seeded via splitmix32                                                |
-| `bed.ts`                                                  | Usable bed, either rotation, bed-split of leftovers                                 |
-| `context.ts`                                              | `Ctx`: input converted to units, cached part metrics, constants                     |
-| `tree.ts`                                                 | Immutable guillotine tree, paths, placement of leaf rectangles                      |
-| `stack.ts`                                                | Stack feasibility: insets, minimum footprint, absorbable slack, heights             |
-| `fill.ts`                                                 | `evaluate()`: tree → integer plan (trays, leftovers, overflow, crossings)           |
-| `score.ts`                                                | Integer score terms and weights                                                     |
-| `moves.ts`                                                | Eight pure moves + insertion/removal helpers                                        |
-| `locks.ts`                                                | Lock validation, applying locks to a tree, `swapLocks`                              |
-| `greedy.ts`                                               | First-fit-decreasing shelf starts along X and along Y                               |
-| `materialize.ts`                                          | Plan → `TraySpec[]` via `realizeTray`/`rotateRealized`                              |
-| `warmstart.ts`                                            | Stored layout → tree (exact shares) and hints                                       |
-| `anneal.ts`                                               | Simulated annealing with deterministic acceptance                                   |
-| `summarize.ts`                                            | `LayoutSummary`                                                                     |
-| `warnings.ts`                                             | Coverage, play, lip-off, bed, doesNotFit, capped notices                            |
-| `optimize.ts`                                             | `createRun()` (chunks, time cap, lock fallback), `optimize()`, `DEFAULT_ITERATIONS` |
-| `index.ts`                                                | Public exports                                                                      |
-| `worker-core.ts`, `worker.ts`                             | Worker message handling / worker entry                                              |
-| `client.ts`                                               | `createLayoutClient()`                                                              |
-| `test-utils.ts`, `test-hard-rules.ts`, `test-fixtures.ts` | Test helpers (imported only by tests)                                               |
+| File                                                      | Responsibility                                                                                          |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `types.ts`                                                | Roadmap §4.4 contract types, verbatim                                                                   |
+| `units.ts`                                                | Integer 0.01 mm units, rounding rules, `Ext`/`Rect`                                                     |
+| `prng.ts`                                                 | `xoshiro128**` seeded via splitmix32                                                                    |
+| `bed.ts`                                                  | Usable bed, either rotation, bed-split of leftovers                                                     |
+| `context.ts`                                              | `Ctx`: input converted to units, cached part metrics, constants                                         |
+| `tree.ts`                                                 | Immutable guillotine tree, paths, placement of leaf rectangles                                          |
+| `stack.ts`                                                | Stack feasibility: insets, minimum footprint, absorbable slack, heights                                 |
+| `fill.ts`                                                 | `evaluate()`: tree → integer plan (trays, leftovers, overflow, crossings)                               |
+| `score.ts`                                                | Integer score terms and weights                                                                         |
+| `moves.ts`                                                | Eight pure moves + insertion/removal helpers                                                            |
+| `locks.ts`                                                | Lock validation, applying locks to a tree, `swapLocks`                                                  |
+| `greedy.ts`                                               | First-fit-decreasing shelf starts along X and along Y                                                   |
+| `materialize.ts`                                          | Plan → `TraySpec[]` via `realizeTray`/`rotateRealized`                                                  |
+| `warmstart.ts`                                            | Stored layout → tree (exact shares) and hints                                                           |
+| `anneal.ts`                                               | Simulated annealing with deterministic acceptance                                                       |
+| `summarize.ts`                                            | `LayoutSummary`                                                                                         |
+| `warnings.ts`                                             | Coverage, play, lip-off, bed, doesNotFit, capped notices                                                |
+| `optimize.ts`                                             | `createRun()` (chunks, time cap, derived-seed chain, lock fallback), `optimize()`, `DEFAULT_ITERATIONS` |
+| `index.ts`                                                | Public exports                                                                                          |
+| `worker-core.ts`, `worker.ts`                             | Worker message handling / worker entry                                                                  |
+| `client.ts`                                               | `createLayoutClient()`                                                                                  |
+| `test-utils.ts`, `test-hard-rules.ts`, `test-fixtures.ts` | Test helpers (imported only by tests)                                                                   |
 
 ### Task 1: Layout contract types and integer units
 

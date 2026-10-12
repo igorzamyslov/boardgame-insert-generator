@@ -55,7 +55,13 @@ export interface RunOptions {
 /** An optimization in progress; step() runs one chunk and returns true when finished. */
 export interface Run {
   step(): boolean;
+  /**
+   * Progress, at most `total`: the iterations run so far, held at `total` while the extra
+   * chains of an infeasible run (derived seed, then unlocked) follow the first, so that
+   * done / total never goes backwards.
+   */
   readonly done: number;
+  /** The first chain's budget; fixed for the run. */
   readonly total: number;
   /** Best result so far (materialized; costs realizeTray calls). */
   snapshot(): LayoutResult;
@@ -68,6 +74,15 @@ interface Phase {
   readonly resolved: ResolvedLocks;
   readonly notices: Notice[];
   readonly annealer: Annealer;
+}
+
+/** The seed of the one extra chain a run makes when the first one found nothing. */
+function derivedSeed(seed: number): number {
+  return (seed ^ 0x9e3779b9) >>> 0;
+}
+
+function overflowOf(phase: Phase): number {
+  return phase.annealer.leastOverflow.score.overflow;
 }
 
 const NO_HINTS: WarmHints = {
@@ -148,17 +163,22 @@ export function createRun(
   // edit) continues the stored search, so its count carries over (spec §7.2).
   const prior = opts.warmStart?.iterations ?? 0;
   const carried = Number.isFinite(prior) ? Math.max(0, Math.floor(prior)) : 0;
+  // Chains run in order while none has found a feasible layout: the main chain; one more from
+  // a derived seed (a seed can trap the search in a dead end that another escapes, and a
+  // bigger budget does not help); then, when locks were kept, one without them.
   const main = startPhase(input, seed, budget, opts, hints, true);
+  let derived: Phase | null = null;
   let fallback: Phase | null = null;
   let finished = false;
   let stop: StopReason | null = null;
 
+  const chains = (): Phase[] => [main, derived, fallback].filter((p) => p !== null);
+  const feasible = (): Phase | undefined => chains().find((p) => p.annealer.bestFeasible !== null);
+
   const build = (): LayoutResult => {
-    const fb = fallback;
-    const useFallback = fb !== null && fb.annealer.bestFeasible !== null;
-    const phase = useFallback ? fb : main;
+    const phase = feasible();
     const notices: Notice[] = [...main.notices];
-    if (useFallback) {
+    if (phase !== undefined && phase === fallback) {
       for (const lock of main.resolved.kept) {
         notices.push(
           lockDroppedNotice(
@@ -169,10 +189,10 @@ export function createRun(
         );
       }
     }
-    notices.push(...bedNotices(phase.ctx));
-    const best = phase.annealer.bestFeasible;
+    const best = phase?.annealer.bestFeasible;
     const capped = stop !== null;
-    if (best) {
+    if (phase !== undefined && best) {
+      notices.push(...bedNotices(phase.ctx));
       const trays = materialize(phase.ctx, best.plan, opts.realize);
       const summary = summarize(trays, input);
       notices.push(...layoutWarnings(phase.ctx, trays, summary));
@@ -185,7 +205,7 @@ export function createRun(
           geometryVersion: GEOMETRY_VERSION,
           inputsHash: input.inputsHash,
           seed,
-          // the iterations the producing phase ran (all of its budget unless it was stopped)
+          // the iterations the producing chain ran (all of its budget unless it was stopped)
           iterations: carried + phase.annealer.done,
           capped,
           trays,
@@ -195,15 +215,18 @@ export function createRun(
         notices,
       };
     }
-    // Nothing fits: report the main phase's least-overflow attempt, the one that keeps the
-    // locks it did not drop (the unlocked fallback phase may overflow less, but its trays
-    // would silently ignore locks the notices still call kept).
-    const attempt = main.annealer.leastOverflow;
+    // Nothing fits: report the least-overflow attempt of the chains that keep the locks (the
+    // main chain, or the derived-seed one when it came closer; ties go to the main chain).
+    // The unlocked chain may overflow less, but its trays would silently ignore locks the
+    // notices still call kept.
+    const closest = derived !== null && overflowOf(derived) < overflowOf(main) ? derived : main;
+    const attempt = closest.annealer.leastOverflow;
     const sf = attempt.plan.shortfall;
     const shortfall = { x: toMm(sf.x), y: toMm(sf.y), z: toMm(sf.z) };
-    const attemptTrays = materialize(main.ctx, attempt.plan, opts.realize);
-    const overBed = attempt.plan.overflow.bed > 0 ? overBedParts(main.ctx, attemptTrays) : [];
-    notices.push(doesNotFitNotice(main.ctx, shortfall, overBed));
+    const attemptTrays = materialize(closest.ctx, attempt.plan, opts.realize);
+    const overBed = attempt.plan.overflow.bed > 0 ? overBedParts(closest.ctx, attemptTrays) : [];
+    notices.push(...bedNotices(closest.ctx));
+    notices.push(doesNotFitNotice(closest.ctx, shortfall, overBed));
     if (stop) {
       notices.push(cappedNotice(stop));
     }
@@ -220,12 +243,14 @@ export function createRun(
       if (finished) {
         return true;
       }
-      const active = fallback ?? main;
+      const active = fallback ?? derived ?? main;
       active.annealer.step(CHUNK);
       if (active.annealer.done >= budget) {
-        const retry =
-          fallback === null && main.annealer.bestFeasible === null && main.resolved.kept.length > 0;
-        if (retry) {
+        if (feasible() !== undefined) {
+          finished = true;
+        } else if (derived === null) {
+          derived = startPhase(input, derivedSeed(seed), budget, opts, hints, true);
+        } else if (fallback === null && main.resolved.kept.length > 0) {
           fallback = startPhase(input, seed, budget, opts, hints, false);
         } else {
           finished = true;
@@ -238,11 +263,10 @@ export function createRun(
       return finished;
     },
     get done() {
-      return main.annealer.done + (fallback?.annealer.done ?? 0);
+      const run = chains().reduce((sum, p) => sum + p.annealer.done, 0);
+      return Math.min(run, budget);
     },
-    get total() {
-      return fallback ? 2 * budget : budget;
-    },
+    total: budget,
     snapshot: build,
     result() {
       if (!finished) {

@@ -536,6 +536,7 @@ export type LayoutRequest =
   | { type: "cancel"; runId: number };
 
 export type LayoutResponse =
+  // done ≤ total, and done / total never goes backwards within a run (plan 4)
   | { type: "progress"; runId: number; done: number; total: number; best: LayoutResult }
   | { type: "done"; runId: number; result: LayoutResult }
   | { type: "error"; runId: number; message: string };
