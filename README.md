@@ -66,8 +66,8 @@ geometry clients, so they never start a worker or load WASM.
 
 If you change the inputs after a layout was made, the layout stays and an
 "Inputs changed since this layout was made — re-optimize?" notice offers
-"Re-optimize now"; export is off, and the 3D view keeps showing the last
-layout, until you do. A layout whose geometry version is on an older line than
+"Re-optimize now"; export and the assembly page are off, and the 3D view keeps
+showing the last layout, until you do. A layout whose geometry version is on an older line than
 the app's gets a "reprint the whole insert" notice: its trays no longer mate
 with trays exported now.
 
