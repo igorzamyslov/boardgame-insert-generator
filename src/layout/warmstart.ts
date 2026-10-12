@@ -134,6 +134,8 @@ export function warmHints(ctx: Ctx, trays: readonly TraySpec[]): WarmHints {
   return {
     variantOf: (req) => inferVariant(ctx, req, trays),
     rotatedOf: (key) => rotated.get(key),
+    levelOf: (key) => prev.get(key)?.level,
+    singleLeaf: rects.length > 0 && rects.every((r) => r.path === ""),
     axisOf(path) {
       const a = bbox(rects, `${path}0`);
       const b = bbox(rects, `${path}1`);

@@ -74,6 +74,8 @@ const NO_HINTS: WarmHints = {
   variantOf: () => undefined,
   rotatedOf: () => undefined,
   axisOf: () => undefined,
+  levelOf: () => undefined,
+  singleLeaf: false,
   prev: new Map<string, PrevPos>(),
 };
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Lock, StoredLayout } from "../model/types";
 import { createCtx, withSizeLocks } from "./context";
 import { applyLocks, completeTree, moveEnvOf, noLocks, resolveLocks, swapLocks } from "./locks";
+import { optimize } from "./optimize";
 import { createRng } from "./prng";
 import { boxReq, comp, fakeMeasure, makeInput, part, req, traySpec, variant } from "./test-utils";
 import { cut, itemsOf, leaf, leaves, nodeAt, type StackItem, type Tree } from "./tree";
@@ -255,5 +256,131 @@ describe("swapLocks", () => {
 
   it("ignores unknown keys", () => {
     expect(swapLocks([], "a", "zzz", layout)).toEqual([]);
+  });
+});
+
+describe("position locks on stacked trays", () => {
+  const pos = (trayKey: string, path: string): Lock => ({
+    kind: "position",
+    trayKey,
+    path,
+    rotated: false,
+  });
+  const ctxOf = (locks: Lock[]) => createCtx(makeInput(reqs, { locks }), fakeMeasure);
+  const level = (key: string): number | undefined => ({ "a:p0:0": 0, "b:p0:0": 1 })[key];
+
+  it("stacks trays locked to the same path by their level in the layout being re-run, not by lock order", () => {
+    const locks = [pos("b:p0:0", "0"), pos("a:p0:0", "0")];
+    const keys = (hints: Parameters<typeof resolveLocks>[2]) =>
+      resolveLocks(ctxOf(locks), locks, hints).resolved.leaves[0]?.items.map(
+        (i) => reqs[i.req]?.key,
+      );
+    expect(keys({ levelOf: level })).toEqual(["a", "b"]);
+    // no layout to go by: input order
+    expect(keys({})).toEqual(["b", "a"]);
+  });
+
+  it("keeps the order a stack lock gives, whatever the levels were", () => {
+    const locks: Lock[] = [
+      pos("a:p0:0", "0"),
+      pos("b:p0:0", "0"),
+      { kind: "stack", trayKeys: ["b:p0:0", "a:p0:0"] },
+    ];
+    const r = resolveLocks(ctxOf(locks), locks, { levelOf: level });
+    expect(r.notices).toEqual([]);
+    expect(r.resolved.leaves[0]?.items.map((i) => reqs[i.req]?.key)).toEqual(["b", "a"]);
+  });
+
+  it("drops a position lock on a tray that sits on top of others in the layout, with a notice", () => {
+    const lone = [pos("b:p0:0", "0")];
+    const r = resolveLocks(ctxOf(lone), lone, { levelOf: level });
+    expect(r.resolved.kept).toEqual([]);
+    expect(r.resolved.leaves).toEqual([]);
+    expect(r.notices).toEqual([
+      expect.objectContaining({ level: "warning", code: "lock.dropped", path: "/locks/0" }),
+    ]);
+    expect(r.notices[0]?.message).toContain("b:p0:0");
+    expect(r.notices[0]?.message).toContain("on top of other trays");
+    // locked together with the tray under it, or as a stack, it stays
+    const both = [pos("a:p0:0", "0"), pos("b:p0:0", "0")];
+    expect(resolveLocks(ctxOf(both), both, { levelOf: level }).notices).toEqual([]);
+    const stack: Lock[] = [pos("b:p0:0", "0"), { kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] }];
+    expect(resolveLocks(ctxOf(stack), stack, { levelOf: level }).notices).toEqual([]);
+    // the bottom tray alone is fine too
+    const bottom = [pos("a:p0:0", "0")];
+    expect(resolveLocks(ctxOf(bottom), bottom, { levelOf: level }).notices).toEqual([]);
+  });
+
+  it("allows the root path when the layout being re-run is one single stack", () => {
+    const locks = [pos("a:p0:0", ""), pos("b:p0:0", "")];
+    const without = resolveLocks(ctxOf(locks), locks, { levelOf: level });
+    expect(without.notices).toHaveLength(2);
+    const r = resolveLocks(ctxOf(locks), locks, { levelOf: level, singleLeaf: true });
+    expect(r.notices).toEqual([]);
+    expect(r.resolved.leaves.map((l) => l.path)).toEqual([""]);
+    expect(r.resolved.leaves[0]?.items.map((i) => reqs[i.req]?.key)).toEqual(["a", "b"]);
+  });
+
+  describe("through optimize", () => {
+    // d stacks (50 mm tall), a (20) / b / c share the other column; the box is 90 mm tall.
+    const a = boxReq("a", 120, 80, 20);
+    const b = boxReq("b", 60, 80, 20);
+    const c = boxReq("c", 60, 80, 20);
+    const d = boxReq("d", 120, 80, 50);
+    const input = makeInput([a, b, c, d], {
+      box: { innerWidth: 270, innerDepth: 100, innerHeight: 90 },
+    });
+    const base = optimize(input, 1, 5000);
+    const layout = base.layout as StoredLayout;
+    const trays = layout.trays.filter((t) => t.part === "tray");
+    const upper = trays.find((t) => t.level > 0) as StoredLayout["trays"][number];
+    const lower = trays.find(
+      (t) => t.path === upper.path && t.level === upper.level - 1,
+    ) as StoredLayout["trays"][number];
+    const lockOf = (t: StoredLayout["trays"][number]): Lock => ({
+      kind: "position",
+      trayKey: t.key,
+      path: t.path,
+      rotated: t.rotated,
+    });
+    const at = (r: ReturnType<typeof optimize>, key: string) =>
+      r.layout?.trays.find((t) => t.key === key && t.part === "tray");
+
+    it("keeps the stack's order when the upper tray is locked before the lower one", () => {
+      const r = optimize({ ...input, locks: [lockOf(upper), lockOf(lower)] }, 1, 5000, {
+        warmStart: layout,
+      });
+      expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+      expect(at(r, lower.key)?.path).toBe(at(r, upper.key)?.path);
+      expect(at(r, lower.key)?.level).toBeLessThan(at(r, upper.key)?.level ?? -1);
+    });
+
+    it("says so when a lock on an upper tray alone can't be kept, instead of moving it silently", () => {
+      const r = optimize({ ...input, locks: [lockOf(upper)] }, 1, 5000, { warmStart: layout });
+      const dropped = r.notices.filter((n) => n.code === "lock.dropped");
+      expect(dropped).toHaveLength(1);
+      expect(dropped[0]?.message).toContain(upper.key);
+    });
+  });
+
+  it("keeps position locks on a layout that is one single stack", () => {
+    const input = makeInput([boxReq("a", 80, 80, 20), boxReq("b", 80, 80, 20)], {
+      box: { innerWidth: 100, innerDepth: 100, innerHeight: 60 },
+    });
+    const first = optimize(input, 1, 3000);
+    const layout = first.layout as StoredLayout;
+    const trays = layout.trays.filter((t) => t.part === "tray");
+    expect(trays.map((t) => t.path)).toEqual(["", ""]);
+    const locks: Lock[] = trays.map((t) => ({
+      kind: "position",
+      trayKey: t.key,
+      path: t.path,
+      rotated: t.rotated,
+    }));
+    const r = optimize({ ...input, locks }, 1, 3000, { warmStart: layout });
+    expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+    expect(r.layout?.trays.map((t) => [t.key, t.level])).toEqual(
+      layout.trays.map((t) => [t.key, t.level]),
+    );
   });
 });

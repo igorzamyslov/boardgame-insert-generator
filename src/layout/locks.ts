@@ -50,6 +50,10 @@ export interface ResolvedLocks {
 export interface LockHints {
   variantOf?(req: number): number | undefined;
   rotatedOf?(trayKey: string): boolean | undefined;
+  /** The tray's level in the layout being re-run: orders trays locked to one path. */
+  levelOf?(trayKey: string): number | undefined;
+  /** The layout being re-run is a single stack at the root path "": the only path a lock can name. */
+  readonly singleLeaf?: boolean;
 }
 
 export function noLocks(ctx: Ctx): ResolvedLocks {
@@ -100,6 +104,15 @@ interface PosLock {
  * trayKey, contents that no longer fit a size lock, box edits, conflicting paths or
  * stacks — is dropped with a "lock.dropped" notice, never silently. A dropped lock
  * constrains nothing: only the requirements a kept lock names stay pinned to a variant.
+ *
+ * Position locks: trays locked to one path stack in the order of their level in the layout
+ * being re-run (`hints.levelOf`; input order without one), except that a stack lock keeps the
+ * order it gives. A position lock on a tray that sits above other trays in that layout, with
+ * none of the trays under it locked to the same path and no stack lock around it, would drop
+ * it to the floor and evict its stack-mates, so it is dropped with a notice (the UI locks a
+ * whole stack with a position lock per tray plus a stack lock). The root path "" is a valid
+ * position only when the layout is a single tray, or the layout being re-run is one single
+ * stack (`hints.singleLeaf`).
  *
  * Size locks are checked against the unlipped level-0 metrics. A size-locked tray that ends
  * up lower in a stack (lipped) can need more; the search then sees lock overflow, and the
@@ -280,7 +293,7 @@ function resolveOnce(
       drop(lock, `it conflicts with the position lock on ${clash.lock.trayKey}`);
       continue;
     }
-    if (lock.path === "" && !singleTray) {
+    if (lock.path === "" && !singleTray && hints.singleLeaf !== true) {
       drop(lock, "it conflicts with the other trays");
       continue;
     }
@@ -343,37 +356,68 @@ function resolveOnce(
     }
   }
 
-  // 5. Locked leaves: position-locked trays (and their stack groups) per path.
-  const byPath = new Map<string, { items: StackItem[]; locks: PosLock[]; groups: Set<object> }>();
+  // 5. Locked leaves: position-locked trays (and their stack groups) per path. Trays locked to
+  // one path stack in the order of their level in the layout being re-run (input order without
+  // one); a stack lock keeps the order it gives. A tray that sat above others there and now
+  // would be the lowest locked one at its path would silently drop to the floor, so its lock
+  // is dropped with a notice instead.
+  interface Unit {
+    readonly items: StackItem[];
+    readonly pos: PosLock | null;
+    /** Level in the layout being re-run; Infinity when unknown. */
+    readonly level: number;
+  }
+  const levelOf = (item: StackItem): number => {
+    const key = ctx.part(item)?.trayKey;
+    return (key === undefined ? undefined : hints.levelOf?.(key)) ?? Infinity;
+  };
+  const byPath = new Map<string, { units: Unit[]; locks: PosLock[]; groups: Set<object> }>();
   for (const lock of accepted) {
     if (lock.kind !== "position" || dropped.has(lock)) {
       continue;
     }
     const ref = refOf(lock.trayKey);
     const id = ctx.partId(ref);
-    const entry = byPath.get(lock.path) ?? { items: [], locks: [], groups: new Set<object>() };
+    const entry = byPath.get(lock.path) ?? { units: [], locks: [], groups: new Set<object>() };
     const g = inGroup.get(id);
+    const posLock = { lock, ref, id };
     if (g) {
       if (!entry.groups.has(g)) {
         entry.groups.add(g);
-        entry.items.push(...g.items);
+        const first = g.items[0];
+        entry.units.push({ items: [...g.items], pos: null, level: first ? levelOf(first) : 0 });
       }
     } else {
-      entry.items.push(itemOf(lock.trayKey));
+      const item = itemOf(lock.trayKey);
+      entry.units.push({ items: [item], pos: posLock, level: levelOf(item) });
     }
-    entry.locks.push({ lock, ref, id });
+    entry.locks.push(posLock);
     byPath.set(lock.path, entry);
   }
   const lockedLeaves: LockedLeaf[] = [];
   for (const [path, entry] of byPath) {
-    if (entry.items.length > MAX_LEVELS || !fitsHeight(entry.items)) {
+    // a stable sort: trays of unknown level, and all trays without a layout, keep input order
+    const units = [...entry.units].sort((a, b) =>
+      a.level === b.level ? 0 : a.level < b.level ? -1 : 1,
+    );
+    const lowest = units[0];
+    if (lowest?.pos && lowest.level > 0 && lowest.level !== Infinity) {
+      drop(
+        lowest.pos.lock,
+        "it is on top of other trays in the current layout and nothing under it is locked to the same position; lock the whole stack to keep it there",
+      );
+      pos.delete(lowest.pos.id);
+      continue;
+    }
+    const items = units.flatMap((u) => u.items);
+    if (items.length > MAX_LEVELS || !fitsHeight(items)) {
       for (const p of entry.locks) {
         drop(p.lock, "the trays locked to this position don't fit on top of each other");
         pos.delete(p.id);
       }
       continue;
     }
-    lockedLeaves.push({ path, items: entry.items });
+    lockedLeaves.push({ path, items });
   }
   const groups = groupsAll
     .filter((g) => !g.items.some((i) => pos.has(ctx.partId(i))))
