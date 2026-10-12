@@ -4,11 +4,13 @@ import type { ManifoldToplevel } from "manifold-3d";
 import { DEFAULT_SETTINGS, MIN_FEATURE_MM, applyFingerRoom } from "../model/settings";
 import type { Component, Settings } from "../model/types";
 import { minOuter, realizeTray, size } from "../sizing";
-import { at, bulk, cards, partOf, tiles } from "../sizing/test-helpers";
+import { at, bulk, cards, custom, partOf, tiles } from "../sizing/test-helpers";
 import { loadManifold } from "./load";
+import { filletSpans } from "./plan-cuts";
 import { planTray } from "./plan";
+import type { Rect } from "./plan-types";
 import { heightAt } from "./test-mesh";
-import { problemsOf } from "./test-build";
+import { problemsOf, thinSlices } from "./test-build";
 import {
   CHAMFER_1,
   SWEEP_OPTIONS,
@@ -214,45 +216,62 @@ describe("buildTray with the finger cut and curved floor toggles", () => {
 });
 
 describe("corner reliefs beside the posts of a cut", () => {
-  // A relief at a well corner next to a cut's 3 mm post shrinks so the post keeps MIN_FEATURE_MM
-  // between the relief and the cut (spec §6.1), and the tray builds: 15 mm squares laid flat
-  // (reliefs on by default, 3 mm posts exactly) and two upright decks of 20 × 25 mm cards with
-  // reliefs turned on, whose channel is as wide as its posts allow.
+  // A relief at a well corner beside a cut's post keeps MIN_FEATURE_MM from the cut and from the
+  // span its top fillet may round (spec §6.1; review 3, M1), so the post keeps 0.8 mm: it shrinks,
+  // or goes where the post is 3 mm and the fillet rounds it all. 15 mm squares laid flat (reliefs
+  // on by default) have 3 mm posts; two upright decks of 20 × 31.5 mm cards with reliefs turned
+  // on have 4 mm posts beside their 25 mm channel.
   const squares = tiles({ shape: { type: "rect", w: 15, d: 15 }, thickness: 2, count: 40 });
   const decks = cards({
     cornerReliefs: true,
     shortSide: 20,
-    longSide: 25,
+    longSide: 31.5,
     decks: [
       { name: "A", count: 30 },
       { name: "B", count: 30 },
     ],
   });
-  it.each<[string, Component, string]>([
-    ["15 mm squares laid flat", squares, "flat-c4|strip|split1"],
-    ["upright mini decks with reliefs on", decks, "upright-long|strip|split1"],
-  ])("%s", (_name, component, variant) => {
+  const gap = (r: { cx: number; cy: number; r: number }, box: Rect): number =>
+    Math.hypot(
+      Math.max(box.x0 - r.cx, 0, r.cx - box.x1),
+      Math.max(box.y0 - r.cy, 0, r.cy - box.y1),
+    ) - r.r;
+  it.each<[string, Component, string, (radii: number[]) => boolean]>([
+    [
+      "15 mm squares laid flat: 3 mm posts",
+      squares,
+      "flat-c4|strip|split1",
+      (radii) => radii.length < 4,
+    ],
+    [
+      "upright mini decks with reliefs on: 4 mm posts",
+      decks,
+      "upright-long|strip|split1",
+      (radii) => radii.some((r) => r < 1.5 - 1e-6),
+    ],
+  ])("%s", (_name, component, variant, beside) => {
     const part = partOf([component], variant);
     for (const opts of SWEEP_OPTIONS) {
       const outer = minOuter(part, DEFAULT_SETTINGS, opts);
       const realized = realizeTray(part, outer, DEFAULT_SETTINGS, opts);
       const spec = traySpecFrom(realized, outer, opts, DEFAULT_SETTINGS, part.trayKey);
       const plan = planTray(spec, DEFAULT_SETTINGS);
-      const cuts = plan.compartments.flatMap((c) => c.cuts);
-      let besidePosts = 0;
+      const boxes = [
+        ...plan.compartments.flatMap((c) => c.cuts),
+        ...filletSpans(plan.compartments, spec, plan.lip),
+      ];
       for (const c of plan.compartments) {
         for (const r of c.reliefs) {
-          const gaps = cuts.map((cut) => {
-            const dx = Math.max(cut.x0 - r.cx, 0, r.cx - cut.x1);
-            const dy = Math.max(cut.y0 - r.cy, 0, r.cy - cut.y1);
-            return Math.hypot(dx, dy) - r.r;
-          });
-          expect(Math.min(...gaps)).toBeGreaterThanOrEqual(MIN_FEATURE_MM - 1e-6);
-          // Shrunk below its Ø 3 mm for a post (not vacuous).
-          besidePosts += Math.min(...gaps) < 3 && r.r < 1.5 - 1e-6 ? 1 : 0;
+          expect(Math.min(...boxes.map((box) => gap(r, box)))).toBeGreaterThanOrEqual(
+            MIN_FEATURE_MM - 1e-6,
+          );
         }
       }
-      expect(besidePosts).toBeGreaterThan(0);
+      // Not vacuous: at the posts of the unlipped tray, reliefs went or shrank.
+      if (!opts.lipped) {
+        const cut = plan.compartments.filter((c) => c.cuts.length > 0);
+        expect(cut.some((c) => beside(c.reliefs.map((r) => r.r)))).toBe(true);
+      }
       expect(problemsOf(m, spec, DEFAULT_SETTINGS), JSON.stringify(opts)).toEqual([]);
     }
   });
@@ -271,6 +290,34 @@ describe("top fillets on interior dividers (review 3, M2)", () => {
     expect(through.length).toBeGreaterThan(0);
     for (const cut of through) {
       expect(cut.topFillets).toEqual([3, 3]);
+    }
+  });
+});
+
+describe("no piece thinner than 0.8 mm near the rim (review 3, M1)", () => {
+  // checkPrintability sees faces only; slicing finds thin solid between sloped faces, such as a
+  // top fillet meeting a corner relief at a post (0.04 mm wide at h − 0.2).
+  const below = (h: number) => [0.1, 0.2, 0.4, 0.8, 1.5, 2.5, 3.5].map((t) => h - t);
+  it.each<[string, Component, string]>([
+    ["three 16 mm custom wells", custom({ w: 16, d: 16, h: 20, count: 3 }), ""],
+    [
+      "15 mm squares laid flat (sample 25)",
+      tiles({ shape: { type: "rect", w: 15, d: 15 }, thickness: 2, count: 40 }),
+      "flat-c4|strip|split1",
+    ],
+  ])("%s", (_name, component, variantId) => {
+    const req = at(size([component], DEFAULT_SETTINGS).requirements, 0);
+    const variant =
+      variantId === "" ? at(req.variants, 0) : req.variants.find((v) => v.id === variantId);
+    for (const part of variant?.parts ?? []) {
+      for (const opts of SWEEP_OPTIONS) {
+        const outer = minOuter(part, DEFAULT_SETTINGS, opts);
+        const realized = realizeTray(part, outer, DEFAULT_SETTINGS, opts);
+        const spec = traySpecFrom(realized, outer, opts, DEFAULT_SETTINGS, part.trayKey);
+        const { mesh } = buildTray(m, spec, DEFAULT_SETTINGS);
+        // Below the rim: the lip's chamfered top is 0.6 mm wide by design (spec §6.1).
+        expect(thinSlices(m, mesh, below(spec.h)), JSON.stringify(opts)).toEqual([]);
+      }
     }
   });
 });

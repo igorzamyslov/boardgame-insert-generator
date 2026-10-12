@@ -399,8 +399,10 @@ Coordinates are stored in mm and computed as integer 0.01 mm units.
 - Outer block with rounded vertical corners (`cornerRadius`). Wells have inner
   vertical corners ≤ 0.5 mm; compartments of components with `cornerReliefs`
   on (§5) add Ø 3 mm corner reliefs. They shrink to keep 0.9 mm to the outer
-  faces and 0.8 mm from other compartments and every cut (so a post beside a
-  cut stays at least 0.8 mm), and are left out under Ø 0.6 mm.
+  faces and 0.8 mm from other compartments, every cut and the 3 mm beside a
+  cut that its top fillet may round (so a post beside a cut stays at least
+  0.8 mm and no feather is left between a relief and a fillet; at a 3 mm post
+  the relief is left out), and are left out under Ø 0.6 mm.
 - Walls are vertical and the top is open. Floor fillets are concave. No
   bridges or ceilings; raised floors are solid.
 - Outer bottom edge chamfer `bottomChamfer` × 45° against elephant foot

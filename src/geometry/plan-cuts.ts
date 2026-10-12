@@ -351,6 +351,32 @@ export function filletStrip(
 }
 
 /**
+ * Where the cuts' top fillets may reach: beside each side of each cut, FINGER_FILLET_MM along it,
+ * across its fillet strip (filletStrip). Corner reliefs keep MIN_FEATURE_MM from these, so a relief
+ * at a post's corner leaves no feather against the fillet that rounds the post (review 3, M1). The
+ * reliefs are planned before the fillets' radii (those wait for the outer corner radius, which
+ * waits for the reliefs), so the spans take the largest radius.
+ */
+export function filletSpans(
+  plans: readonly CompartmentPlan[],
+  frame: { w: number; d: number; h: number },
+  lip: LipPlan | null,
+): Rect[] {
+  return plans.flatMap((plan) =>
+    plan.cuts.flatMap((cut) => {
+      const { v0, v1 } = filletStrip(cut, frame, lip);
+      const { u0, u1 } = axes(cut, cut.side);
+      return [
+        [u0 - FINGER_FILLET_MM, u0],
+        [u1, u1 + FINGER_FILLET_MM],
+      ].map(([a = 0, b = 0]) =>
+        alongX(cut.side) ? { x0: a, x1: b, y0: v0, y1: v1 } : { x0: v0, x1: v1, y0: a, y1: b },
+      );
+    }),
+  );
+}
+
+/**
  * The radii of a U's two top corners (spec §6.1): FINGER_FILLET_MM, less where that would leave
  * less than MIN_FEATURE_MM of top beside it, along the side up to the nearest void across the same
  * strip (`voids`, other compartments), or to the outer corner's arc of radius `radius` (from the

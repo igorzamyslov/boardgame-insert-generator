@@ -67,7 +67,7 @@ function reliefBox(x: number, y: number, sx: number, sy: number, r: number): Rec
 }
 
 // The largest radius up to `r` whose relief keeps MIN_FEATURE_MM from every wall cutout footprint
-// (bisection: the relief's box only grows with its radius).
+// and fillet span (bisection: the relief's box only grows with its radius).
 function clearOfCuts(
   x: number,
   y: number,
@@ -97,14 +97,16 @@ function clearOfCuts(
 // Ø`diameter` reliefs at the four compartment corners. Each circle passes
 // through its corner and is centred on the corner's diagonal, so it cuts
 // r·(1 − 1/√2) into both adjoining walls; r shrinks to fit the side budgets
-// and to keep MIN_FEATURE_MM from every wall cutout and floor notch (its own compartment's too),
-// and reliefs below MIN_RELIEF_RADIUS are dropped.
+// and to keep MIN_FEATURE_MM from every wall cutout and floor notch (its own compartment's too)
+// and from the spans the cuts' top fillets may take (`fillets`, filletSpans: beside a 3 mm post
+// that leaves none), and reliefs below MIN_RELIEF_RADIUS are dropped.
 export function planReliefs(
   size: TraySize,
   plans: CompartmentPlan[],
   self: CompartmentPlan,
   diameter: number,
   chamfer: number,
+  fillets: readonly Rect[],
 ): ReliefPlan[] {
   if (!(diameter > 0)) {
     return [];
@@ -123,7 +125,7 @@ export function planReliefs(
     [c.x1, c.y1, -1, -1, "right", "back"],
     [c.x0, c.y1, 1, -1, "left", "back"],
   ];
-  const cuts = cutFootprints(plans);
+  const cuts = [...cutFootprints(plans), ...fillets];
   const reliefs: ReliefPlan[] = [];
   for (const [x, y, sx, sy, sideX, sideY] of corners) {
     const fit = Math.min(maxR, budget[sideX] / RELIEF_CUT, budget[sideY] / RELIEF_CUT);
