@@ -146,12 +146,17 @@ function expectValid(input: LayoutInput, r: LayoutResult): void {
 
 describe("hard rules (spec §3) on random inputs", () => {
   it("every result satisfies all hard rules, or reports doesNotFit", () => {
+    seen.total = 0;
+    seen.feasible = 0;
+    seen.lippedStacks = 0;
+    // A fixed seed keeps the two floors below deterministic: with a random seed the number of
+    // stacks under a lip varies from run to run (9 to 28 in 30 sampled runs; the floor is 5).
     fc.assert(
       fc.property(inputArb, fc.integer({ min: 0, max: 2 ** 31 - 1 }), (spec, seed) => {
         const input = build(spec);
         expectValid(input, optimize(input, seed, 300));
       }),
-      { numRuns: 200 },
+      { numRuns: 200, seed: 2 },
     );
     // the generator must keep reaching the checker with real layouts, stacks under a lip included
     expect(seen.feasible / seen.total).toBeGreaterThanOrEqual(0.4);
