@@ -12,7 +12,6 @@ import {
   objectName,
   planExport,
 } from "./exportBuild";
-import type { ExportProgress } from "./exportBuild";
 import type { BuiltMesh } from "./meshes";
 import { cubeMesh, makeTray } from "./test-helpers";
 
@@ -52,23 +51,52 @@ describe("planExport", () => {
 describe("export builders", () => {
   it("yields after every part for 25 parts and reports monotonic progress", async () => {
     const parts = planExport(trays(25)).parts;
-    const progress: ExportProgress[] = [];
-    const yieldToUi = vi.fn(() => Promise.resolve());
+    const events: string[] = [];
     const out = await buildPartsZip(parts, {
-      getMesh: ok,
-      onProgress: (p) => progress.push(p),
-      yieldToUi,
+      getMesh: () => {
+        events.push("mesh");
+        return ok();
+      },
+      onProgress: (p) => {
+        expect(p.total).toBe(25);
+        events.push(`progress:${p.done}`);
+      },
+      yieldToUi: () => {
+        events.push("yield");
+        return Promise.resolve();
+      },
     });
-    expect(yieldToUi.mock.calls.length).toBeGreaterThanOrEqual(25);
-    expect(progress[0]).toEqual({ done: 0, total: 25 });
-    expect(progress.at(-1)).toEqual({ done: 25, total: 25 });
-    for (let i = 1; i < progress.length; i += 1) {
-      expect(progress[i]?.done).toBeGreaterThanOrEqual(progress[i - 1]?.done ?? 0);
+    // Mesh phase: progress 0, then per part a mesh, its progress and a yield before the next mesh.
+    const expected = ["progress:0"];
+    for (let i = 1; i <= 25; i += 1) {
+      expected.push("mesh", `progress:${String(i)}`, "yield");
     }
+    expect(events.slice(0, expected.length)).toEqual(expected);
+    // Write phase: one yield after every file.
+    expect(events.slice(expected.length)).toEqual(Array.from({ length: 25 }, () => "yield"));
+    expect(events.filter((e) => e.startsWith("progress"))).toHaveLength(26);
+    expect(events.filter((e) => e === "yield")).toHaveLength(50);
     const files = Object.keys(unzipSync(out.data));
     expect(files).toHaveLength(25);
     expect(files.every((f) => /^\d\d-[A-Za-z0-9._-]+\.3mf$/.test(f))).toBe(true);
     expect(out.included).toBe(25);
+  });
+
+  it("rethrows an abort instead of reporting it as a failed part", async () => {
+    const parts = planExport(trays(3)).parts;
+    const getMesh = vi.fn((spec: { key: string }) =>
+      spec.key === "t1:p0:0"
+        ? Promise.reject(new GeometryBuildError("cancelled", "AbortError"))
+        : ok(),
+    );
+    await expect(
+      buildPartsZip(parts, {
+        getMesh,
+        onProgress: vi.fn(),
+        yieldToUi: () => Promise.resolve(),
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(getMesh).toHaveBeenCalledTimes(2);
   });
 
   it("continues past a tray whose mesh fails and reports it", async () => {

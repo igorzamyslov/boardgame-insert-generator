@@ -159,6 +159,40 @@ describe("createMeshSource", () => {
     expect(f.build).toHaveBeenCalledTimes(MAX_IN_FLIGHT);
   });
 
+  it("rejects a caller that aborts while sharing a build, without cancelling it for the others", async () => {
+    const f = fakeClient();
+    let release: () => void = () => undefined;
+    f.build.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve({ mesh: cubeMesh(), volumeMm3: 1000 });
+        }),
+    );
+    const source = createMeshSource(() => Promise.resolve(f.client));
+    const first = source.get(makeTray(), DEFAULT_SETTINGS);
+    await vi.waitFor(() => expect(f.build).toHaveBeenCalledTimes(1));
+    const controller = new AbortController();
+    const sharer = source.get(makeTray(), DEFAULT_SETTINGS, controller.signal);
+    controller.abort();
+    await expect(sharer).rejects.toMatchObject({ name: "AbortError" });
+    release();
+    await expect(first).resolves.toBeDefined();
+    expect(f.build).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects at once for a signal that is already aborted, without sending the build", async () => {
+    const f = fakeClient();
+    const source = createMeshSource(() => Promise.resolve(f.client));
+    const controller = new AbortController();
+    controller.abort();
+    await expect(source.get(makeTray(), DEFAULT_SETTINGS, controller.signal)).rejects.toMatchObject(
+      { name: "AbortError" },
+    );
+    // Give the abandoned build time to settle: it must not surface as an unhandled rejection.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(f.build).not.toHaveBeenCalled();
+  });
+
   it("caps the cache, resets and disposes", async () => {
     const f = fakeClient();
     const source = createMeshSource(() => Promise.resolve(f.client));

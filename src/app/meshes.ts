@@ -37,6 +37,36 @@ function abortError(): Error {
   return error;
 }
 
+/**
+ * A caller that shares someone else's build stops waiting when its own signal aborts; the build
+ * itself goes on for the others (it is cancelled only by the signal of the caller that started it).
+ */
+function rejectOnAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) {
+    return promise;
+  }
+  if (signal.aborted) {
+    promise.catch(() => undefined);
+    return Promise.reject(abortError());
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => {
+      reject(abortError());
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 function isNamed(e: unknown, name: string): boolean {
   return e instanceof Error && e.name === name;
 }
@@ -188,11 +218,12 @@ export function createMeshSource(load: () => Promise<GeometryClient>): MeshSourc
       }
       // Another caller's abort must not fail this one: an aborted build has left the cache, so
       // asking again starts a new one.
-      return shared(key, spec, settings, signal).catch((error: unknown) =>
+      const result = shared(key, spec, settings, signal).catch((error: unknown) =>
         isNamed(error, "AbortError") && signal?.aborted !== true
           ? source.get(spec, settings, signal)
           : Promise.reject(error),
       );
+      return rejectOnAbort(result, signal);
     },
     reset() {
       cache.clear();

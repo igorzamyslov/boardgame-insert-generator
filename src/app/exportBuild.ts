@@ -95,6 +95,10 @@ async function collect(
       const { mesh } = await opts.getMesh(part.spec);
       built.push({ part, mesh });
     } catch (e) {
+      // A cancelled export is not a part's failure: stop and let the caller see the abort.
+      if (e instanceof Error && e.name === "AbortError") {
+        throw e;
+      }
       failed.push({ part, reason: buildErrorReason(e) });
     }
     opts.onProgress({ done: i + 1, total });
