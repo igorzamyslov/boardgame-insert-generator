@@ -11,6 +11,7 @@ import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 const s: Settings = DEFAULT_SETTINGS;
 const ground: RealizeOptions = { lipped: false, level: 0 };
 const roomy = applyFingerRoom(s, true);
+const wallOnly: Settings = { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: 10 } };
 
 const decks = (...counts: number[]) => counts.map((count, i) => ({ name: `D${i + 1}`, count }));
 
@@ -189,8 +190,8 @@ describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {
   const strip = partOf([cards({ decks: decks(40, 60, 30) })], "upright-long|strip|split1");
 
   it("makes the cut end walls 10 mm thicker and the tray 20 mm longer", () => {
-    expect(minOuter(strip, roomy, ground)).toEqual({ w: 84.85, d: 95.7, h: 69.2 });
-    const r = realize(strip, roomy);
+    expect(minOuter(strip, wallOnly, ground)).toEqual({ w: 84.85, d: 95.7, h: 69.2 });
+    const r = realize(strip, wallOnly);
     expect(r.compartments.map((c) => c.x)).toEqual([11.6, 31.11, 59.27]);
     expect(cutsOf(at(r.compartments, 0))).toEqual([
       cutout("left", 47.85, 34),
@@ -204,8 +205,8 @@ describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {
       "flat-c1|strip|split1",
     );
     const plain = minOuter(part, s, ground);
-    expect(minOuter(part, roomy, ground)).toEqual({ ...plain, d: plain.d + 20 });
-    expect(at(realize(part, roomy).compartments, 0).y).toBe(11.6);
+    expect(minOuter(part, wallOnly, ground)).toEqual({ ...plain, d: plain.d + 20 });
+    expect(at(realize(part, wallOnly).compartments, 0).y).toBe(11.6);
   });
 
   it("leaves the walls of trays without cutouts alone", () => {
@@ -215,8 +216,8 @@ describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {
 
   it("gives the room to a spare at the row end, which the cutout runs into", () => {
     const part = partOf([cards({ storage: "flat", decks: decks(30, 30) })], "flat|strip|split1");
-    const min = minOuter(part, roomy, ground);
-    const r = realize(part, roomy, ground, { ...min, w: min.w + 30 });
+    const min = minOuter(part, wallOnly, ground);
+    const r = realize(part, wallOnly, ground, { ...min, w: min.w + 30 });
     const spare = at(r.compartments, 2);
     expect(spare.kind).toBe("spare");
     // The spare reaches the grown wall: it took the 10 mm of finger room.
@@ -224,7 +225,53 @@ describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {
   });
 
   it("reproduces the trays without finger room at 0", () => {
-    const zero = { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: 0 } };
+    const zero = { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: 0, dividerRoom: 0 } };
+    expect(realize(strip, zero)).toEqual(realize(strip, s));
+  });
+});
+
+describe("finger room in the cut dividers (fingerPocket.dividerRoom)", () => {
+  const strip = partOf([cards({ decks: decks(40, 60, 30) })], "upright-long|strip|split1");
+  const dividersOnly: Settings = { ...s, fingerPocket: { ...s.fingerPocket, dividerRoom: 5 } };
+  const gaps = (r: { compartments: CompartmentSpec[] }) =>
+    r.compartments
+      .slice(1)
+      .map(
+        (c, i) =>
+          Math.round((c.x - (r.compartments[i]?.x ?? 0) - (r.compartments[i]?.w ?? 0)) * 100) / 100,
+      );
+
+  it("makes each divider the channel crosses 5 mm thicker and the tray 10 mm longer", () => {
+    expect(minOuter(strip, dividersOnly, ground)).toEqual({ w: 74.85, d: 95.7, h: 69.2 });
+    expect(gaps(realize(strip, dividersOnly))).toEqual([6.2, 6.2]);
+    // The simple-mode switch: 10 mm on the end walls, 5 mm on the dividers.
+    expect(minOuter(strip, roomy, ground)).toEqual({ w: 94.85, d: 95.7, h: 69.2 });
+    expect(realize(strip, roomy).compartments.map((c) => c.x)).toEqual([11.6, 36.11, 69.27]);
+  });
+
+  it("leaves a divider no cut crosses alone", () => {
+    const part = partOf(
+      [cards({ groupId: "g", decks: decks(30, 30) }), bulk({ groupId: "g" })],
+      "upright-long+shallow|strip|split1",
+    );
+    const plain = realize(part);
+    const thick = realize(part, dividersOnly);
+    expect(gaps(plain)).toEqual([1.2, 1.2]);
+    expect(gaps(thick)).toEqual([6.2, 1.2]);
+    expect(minOuter(part, dividersOnly, ground).w).toBeCloseTo(minOuter(part, s, ground).w + 5, 9);
+  });
+
+  it("thickens the dividers between flat decks with long-wall cutouts", () => {
+    const part = partOf(
+      [cards({ storage: "flat", decks: decks(30, 30, 30) })],
+      "flat|strip|split1",
+    );
+    expect(gaps(realize(part, dividersOnly))).toEqual([6.2, 6.2]);
+    expect(minOuter(part, dividersOnly, ground).w).toBeCloseTo(minOuter(part, s, ground).w + 10, 9);
+  });
+
+  it("reproduces the trays without divider room at 0", () => {
+    const zero = { ...s, fingerPocket: { ...s.fingerPocket, dividerRoom: 0 } };
     expect(realize(strip, zero)).toEqual(realize(strip, s));
   });
 });

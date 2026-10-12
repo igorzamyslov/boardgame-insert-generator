@@ -27,7 +27,13 @@
     "bottomChamfer": 0.4,
     "cornerRadius": 3,
     "scoopRadius": 12,
-    "fingerPocket": { "width": 25, "reach": 12, "floorNotch": 12.5, "wallRoom": 0 },
+    "fingerPocket": {
+      "width": 25,
+      "reach": 12,
+      "floorNotch": 12.5,
+      "wallRoom": 0,
+      "dividerRoom": 0
+    },
     "lip": {
       "enabled": true,
       "height": 2,

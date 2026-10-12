@@ -669,10 +669,11 @@ describe("setting ranges", () => {
     expect(codes(validateProject(p))).toEqual([[field.setting, "/settings/wall"]]);
   });
 
-  it("allows a floor notch of 0 to 50 mm and a wall room of 0 to 20 mm", () => {
+  it("allows a floor notch of 0 to 50 mm and a wall and divider room of 0 to 20 mm", () => {
     for (const [key, max] of [
       ["floorNotch", 50],
       ["wallRoom", 20],
+      ["dividerRoom", 20],
     ] as const) {
       const p = newProject();
       for (const value of [0, max]) {

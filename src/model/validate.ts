@@ -156,6 +156,13 @@ const settingRanges: SettingRange[] = [
     min: 0,
     max: 20,
   },
+  {
+    path: "fingerPocket/dividerRoom",
+    label: "Finger room in cut dividers",
+    get: (s) => s.fingerPocket.dividerRoom,
+    min: 0,
+    max: 20,
+  },
   { path: "lip/height", label: "Lip height", get: (s) => s.lip.height, min: 1, max: 10 },
   {
     path: "lip/thickness",
@@ -186,7 +193,7 @@ const settingRanges: SettingRange[] = [
  * spec §3 rule 2. The finger pocket reach is at least 5 mm, so every pocket sizing emits
  * has a positive reach (the geometry rejects a zero one). The floor notch of flat cards' and tiles'
  * wall cutouts reaches 0 (off) to 50 mm into the floor (a half-disc at half the finger width), and
- * the finger room added to the outer walls they cut is 0 (off) to 20 mm. The lip
+ * the finger room added to the outer walls and dividers they cut is 0 (off) to 20 mm. The lip
  * is at least 1 mm high: the geometry chamfers its inner top edge by 0.6 mm and a lower lip is
  * useless. Frozen, entries included.
  */

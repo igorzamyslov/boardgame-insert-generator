@@ -266,7 +266,13 @@ interface Settings {
   bottomChamfer: number; // outer bottom edge (elephant foot)
   cornerRadius: number; // outer vertical corners
   scoopRadius: number;
-  fingerPocket: { width: number; reach: number; floorNotch: number; wallRoom: number };
+  fingerPocket: {
+    width: number;
+    reach: number;
+    floorNotch: number;
+    wallRoom: number;
+    dividerRoom: number;
+  };
   lip: { enabled: boolean; height: number; thickness: number; ledge: number; play: number };
   topPressFit: number;
   packingFactor: number;
@@ -292,6 +298,7 @@ interface Settings {
 | `fingerPocket` width / reach (reach: pockets only) | advanced                                | 25 / 12                   |
 | `fingerPocket.floorNotch`                          | advanced                                | 12.5 (0 = none, up to 50) |
 | `fingerPocket.wallRoom`                            | "Extra finger room in the box": on = 10 | 0 (off; up to 20)         |
+| `fingerPocket.dividerRoom`                         | "Extra finger room in the box": on = 5  | 0 (off; up to 20)         |
 | `lip` on / height / thickness / ledge              | advanced                                | on / 2 / 1.2 / 1.7        |
 | `lip.play` (×Fit)                                  | via Fit                                 | 0.25                      |
 | `topPressFit`                                      | advanced                                | 0 (−2…+1)                 |
@@ -436,12 +443,15 @@ content + clearance.
   Its far end is rounded with half the cut's width (at most the reach), so a
   longer reach is straight sides ending in that half-round. A fingertip gets
   under the stack. A notch under a divider leaves a hole in the floor.
-- **Finger room** (`fingerPocket.wallRoom`, simple mode "Extra finger room in
-  the box": 10 mm): the outer walls a cutout leaves through are that much
-  thicker (inward; the tray is 2 × that longer on that axis), so the cut gives
-  a finger room even when the tray sits flush against its neighbours. Dividers
-  and other walls are unchanged; a spare at the end of a row takes the room
-  instead.
+- **Finger room** (`fingerPocket.wallRoom` and `.dividerRoom`; simple mode
+  "Extra finger room in the box" sets 10 and 5 mm): the outer walls a cutout
+  leaves through are `wallRoom` thicker (inward; the tray is 2 × that longer on
+  that axis), so the cut gives a finger room even when the tray sits flush
+  against its neighbours, and every divider a cut passes through (between
+  upright decks or tile stacks on the channel, between flat decks or tiles with
+  long-wall cutouts, before a spare a cut runs into) is `dividerRoom` thicker.
+  Walls and dividers without a cut are unchanged; a spare at the end of a row
+  takes the wall room instead.
 - Where a cutout leaves through a lipped wall it interrupts the lip; the lip on
   the other walls and beside the cut still locates the upper tray, which rests
   on the ledge and dividers around the cut.

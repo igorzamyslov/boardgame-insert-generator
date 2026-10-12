@@ -436,7 +436,11 @@ function layoutAt(
     const growth = row.map(() => 0);
     const roomLeft = room.left[r] ?? 0;
     const roomRight = room.right[r] ?? 0;
-    let slack = innerW - roomLeft - roomRight - sum(widths) - (row.length - 1) * divider;
+    // Dividers a finger cut passes through are thicker by the divider room (minLayoutU).
+    const gaps = min.gaps[r] ?? [];
+    const gapAfter = (i: number): number => gaps[i] ?? divider;
+    const spareGap = gapAfter(row.length - 1);
+    let slack = innerW - roomLeft - roomRight - sum(widths) - sum(gaps.slice(0, -1));
     let spacerAt = -1;
     const elastic = row.flatMap((c, i) => (c.elastic.w && c.spacerAxis !== "w" ? [i] : []));
     if (elastic.length > 0) {
@@ -458,8 +462,8 @@ function layoutAt(
     const xExtra = fillCapped(slack, [wallRoom, ...row.slice(1).map(() => dividerRoom), wallRoom]);
     slack -= sum(xExtra);
     let spareW = 0;
-    if (slack >= spareMin) {
-      spareW = slack - divider;
+    if (slack >= toU(MIN_SPARE) + spareGap) {
+      spareW = slack - spareGap;
       slack = 0;
     }
     let x = wall + roomLeft + (xExtra[0] ?? 0) + Math.floor(slack / 2);
@@ -474,12 +478,12 @@ function layoutAt(
       });
       x += w;
       if (i < row.length - 1) {
-        x += divider + (xExtra[i + 1] ?? 0);
+        x += gapAfter(i) + (xExtra[i + 1] ?? 0);
       }
     });
     // A spare at the row end takes the finger room too: a cutout runs into it instead.
     if (spareW > 0) {
-      spares.push([{ x: x + divider, y: rowY, w: spareW + roomRight, d: rowDepth }, "x"]);
+      spares.push([{ x: x + spareGap, y: rowY, w: spareW + roomRight, d: rowDepth }, "x"]);
     }
   });
   if (spareRowDepth > 0) {

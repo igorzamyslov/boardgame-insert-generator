@@ -34,7 +34,7 @@ export const GEO: Settings = {
   bottomChamfer: 0.4,
   cornerRadius: 3,
   scoopRadius: 12,
-  fingerPocket: { width: 22, reach: 12, floorNotch: 8, wallRoom: 0 },
+  fingerPocket: { width: 22, reach: 12, floorNotch: 11, wallRoom: 0, dividerRoom: 0 },
   lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
 };
 
@@ -483,7 +483,8 @@ export const PROFILES: readonly [string, Profile][] = [
     "the widest finger room and floor notch, thinnest walls and largest chamfer",
     (s) => {
       const thin = THINNEST(s);
-      return { ...thin, fingerPocket: { ...thin.fingerPocket, floorNotch: 20, wallRoom: 20 } };
+      const fingerPocket = { ...thin.fingerPocket, floorNotch: 50, wallRoom: 20, dividerRoom: 20 };
+      return { ...thin, fingerPocket };
     },
   ],
   [
@@ -494,7 +495,13 @@ export const PROFILES: readonly [string, Profile][] = [
       floor: 1.001,
       divider: 0.999,
       bottomChamfer: 0.333,
-      fingerPocket: { width: 22.001, reach: 12.003, floorNotch: 7.999, wallRoom: 3.333 },
+      fingerPocket: {
+        width: 22.001,
+        reach: 12.003,
+        floorNotch: 7.999,
+        wallRoom: 3.333,
+        dividerRoom: 1.111,
+      },
       lip: { ...s.lip, enabled: true, height: 2.001, thickness: 1.003, ledge: 1.707 },
     }),
   ],

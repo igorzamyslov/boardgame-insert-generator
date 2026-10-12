@@ -115,7 +115,13 @@ export interface Settings {
   bottomChamfer: number;
   cornerRadius: number;
   scoopRadius: number;
-  fingerPocket: { width: number; reach: number; floorNotch: number; wallRoom: number };
+  fingerPocket: {
+    width: number;
+    reach: number;
+    floorNotch: number;
+    wallRoom: number;
+    dividerRoom: number;
+  };
   lip: { enabled: boolean; height: number; thickness: number; ledge: number; play: number };
   topPressFit: number;
   packingFactor: number;

@@ -57,7 +57,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   bottomChamfer: 0.4,
   cornerRadius: 3,
   scoopRadius: 12,
-  fingerPocket: { width: 25, reach: 12, floorNotch: 12.5, wallRoom: 0 },
+  fingerPocket: { width: 25, reach: 12, floorNotch: 12.5, wallRoom: 0, dividerRoom: 0 },
   lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
   topPressFit: 0,
   packingFactor: 0.5,
@@ -107,15 +107,35 @@ function choiceOf<C extends string>(table: Record<C, number>, value: number): C 
  */
 export const FINGER_ROOM_MM = 10;
 
-/** Simple-mode finger room toggle: writes the resolved fingerPocket.wallRoom. */
+/**
+ * The same toggle's divider room (mm): the dividers a finger cut passes through get this much
+ * thicker, so a finger fits between the stacks too.
+ */
+export const FINGER_DIVIDER_ROOM_MM = 5;
+
+/**
+ * Simple-mode finger room toggle: writes the resolved fingerPocket.wallRoom and .dividerRoom
+ * (FINGER_ROOM_MM and FINGER_DIVIDER_ROOM_MM, or 0 and 0).
+ */
 export function applyFingerRoom(s: Settings, on: boolean): Settings {
-  return { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: on ? FINGER_ROOM_MM : 0 } };
+  return {
+    ...s,
+    fingerPocket: {
+      ...s.fingerPocket,
+      wallRoom: on ? FINGER_ROOM_MM : 0,
+      dividerRoom: on ? FINGER_DIVIDER_ROOM_MM : 0,
+    },
+  };
 }
 
-/** Whether the finger room toggle is on, off, or "custom" (another wall room, set in advanced mode). */
+/**
+ * Whether the finger room toggle is on (exactly its wall and divider room), off (no room) or
+ * "custom" (any other pair, set in advanced mode).
+ */
 export function fingerRoomOf(s: Settings): boolean | "custom" {
-  const choice = choiceOf({ on: FINGER_ROOM_MM, off: 0 }, s.fingerPocket.wallRoom);
-  return choice === "custom" ? "custom" : choice === "on";
+  const wall = choiceOf({ on: FINGER_ROOM_MM, off: 0 }, s.fingerPocket.wallRoom);
+  const divider = choiceOf({ on: FINGER_DIVIDER_ROOM_MM, off: 0 }, s.fingerPocket.dividerRoom);
+  return wall === "custom" || wall !== divider ? "custom" : wall === "on";
 }
 
 /** Which simple-mode choice the current wall matches, or "custom" (set in advanced mode). */

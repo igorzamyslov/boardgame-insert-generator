@@ -196,7 +196,13 @@ export interface Settings {
   bottomChamfer: number;
   cornerRadius: number;
   scoopRadius: number;
-  fingerPocket: { width: number; reach: number; floorNotch: number; wallRoom: number };
+  fingerPocket: {
+    width: number;
+    reach: number;
+    floorNotch: number;
+    wallRoom: number;
+    dividerRoom: number;
+  };
   lip: { enabled: boolean; height: number; thickness: number; ledge: number; play: number };
   topPressFit: number;
   packingFactor: number;
@@ -582,7 +588,7 @@ export function createLayoutClient(): {
 
 ```ts
 // model/version.ts
-export const SCHEMA_VERSION: string; // "0.1.1": 0.1.0 plus fingerPocket.floorNotch and .wallRoom
+export const SCHEMA_VERSION: string; // "0.1.1": 0.1.0 plus fingerPocket.floorNotch, .wallRoom, .dividerRoom
 export const APP_VERSION: string; // from package.json via Vite define __APP_VERSION__
 export function parseSemver(v: string): { major: number; minor: number; patch: number } | null;
 // model/settings.ts
@@ -594,8 +600,10 @@ export function applyFitChoice(s: Settings, c: FitChoice): Settings;
 export function wallChoiceOf(s: Settings): WallChoice | "custom";
 export function fitChoiceOf(s: Settings): FitChoice | "custom";
 // Simple mode's "Extra finger room in the box" toggle (spec §5, §6.1): on writes
-// fingerPocket.wallRoom = FINGER_ROOM_MM, off writes 0; "custom" for any other advanced value.
+// fingerPocket.wallRoom = FINGER_ROOM_MM and .dividerRoom = FINGER_DIVIDER_ROOM_MM, off writes 0
+// and 0; fingerRoomOf is "custom" for any other pair.
 export const FINGER_ROOM_MM: number; // 10
+export const FINGER_DIVIDER_ROOM_MM: number; // 5
 export function applyFingerRoom(s: Settings, on: boolean): Settings;
 export function fingerRoomOf(s: Settings): boolean | "custom";
 export interface Effective {
@@ -690,7 +698,7 @@ export function exportJsonFile(p: Project, foreign: ForeignData): Blob;
 export function importJsonText(text: string): ParseResult;
 ```
 
-Schema `0.1.1` added `settings.fingerPocket.floorNotch` (default 12.5: how far a flat cutout's notch reaches into the floor) and `.wallRoom` (default 0) and the `wallCutout` feature of stored trays. A `0.1.0` file loads with those defaults, so its `inputsHash` changes and a stored layout shows as made for other inputs ("re-optimize?"); its stored trays (finger pockets on cards) still build and mate as before: geometry `0.1.1` adds the cutout and keeps corner reliefs 0.9 mm from the outer faces (slightly smaller reliefs beside thin outer walls, a mesh-only change inside the wells), so it is a PATCH on the same line (spec §9).
+Schema `0.1.1` added `settings.fingerPocket.floorNotch` (default 12.5: how far a flat cutout's notch reaches into the floor) `.wallRoom` and `.dividerRoom` (default 0) and the `wallCutout` feature of stored trays. A `0.1.0` file loads with those defaults, so its `inputsHash` changes and a stored layout shows as made for other inputs ("re-optimize?"); its stored trays (finger pockets on cards) still build and mate as before: geometry `0.1.1` adds the cutout and keeps corner reliefs 0.9 mm from the outer faces (slightly smaller reliefs beside thin outer walls, a mesh-only change inside the wells), so it is a PATCH on the same line (spec §9).
 
 ### 4.6 Geometry conventions (from plan 3; binding for plans 2, 4, 5)
 
@@ -732,7 +740,7 @@ Schema `0.1.1` added `settings.fingerPocket.floorNotch` (default 12.5: how far a
 - `RealizeOptions.lipped` only takes effect when `settings.lip.enabled`. Upper trays (`level > 0`) are at least `lip.height + 3` tall.
 - `minOuter` widens the inner span to `fingerPocket.width` on sides that carry a finger pocket, so tiny minis and custom pieces still get a usable slot. Wall cutouts need no room of their own.
 - **Wall cutouts** (`sizing/cutouts.ts`, after the finger slots and spares are placed). Upright cards and tiles ask for cutouts on their left and right (the walls their faces touch, half the shallowest well deep); flat cards on their left and right (long side along Y), flat tiles on the two walls along their longer side (front and back when the footprint is wider than deep, else left and right), both down to the floor with a floor notch. A request's cut runs out through the outer wall when no compartment lies across its side, into a spare there, or across the divider into a compartment that asks for a cut on the facing side, faces it (each is the other's nearest across) and is centred within 0.01 mm of it; toward anything else (bits, minis, custom wells, a well of the other row not centred on it) it is left out. The cuts so linked, and those on both sides of one compartment, form a run: one channel centred on its first member, as wide as `fingerPocket.width` (rounded up to an even unit count) or the room it has: its sides keep out of the outer walls along it and of the bottom chamfer's corner zone (`max(wall, chamfer)` from those faces), and reach at most half way into the gap to any other compartment or finger slot within `MIN_FEATURE_MM` of its cuts, less `MIN_FEATURE_MM / 2`, so the other row's channel keeps the other half (rows2: each row of upright cards or tiles has its own channel, and the divider between the rows stays whole; flat tiles cut through it only into a well of the other row centred on the same line). Depth: to its own floor for flat contents, half the run's shallowest well for upright ones, and where it leaves the tray without a floor notch at most so deep that its bottom stands `chamfer + MIN_FEATURE_MM` above the bed. The floor notch reaches `fingerPocket.floorNotch` into the floor, `MIN_FEATURE_MM` short of an opposite notch and `chamfer + MIN_FEATURE_MM` from the outer face behind; there is none where the cut does not lie within the compartment along the side or its sides come closer than `chamfer + MIN_FEATURE_MM` to the faces they run along, and none under 1 mm. Cutouts never fail: no `SlotFitError`, no minimum width.
-- **Finger room.** `fingerPocket.wallRoom` (0 = off; simple mode "Extra finger room in the box" = `FINGER_ROOM_MM` = 10 mm) thickens the outer walls cutouts leave through, inward: per row on the left and right where the row's first or last compartment asks for a cutout there, at the front where row 0 asks for front cutouts and at the back where the last row asks for back ones. `minOuter` grows by the room on each such wall (a strip of upright decks is 2 × 10 mm longer); dividers and the other walls are unchanged. A spare compartment at the end of a row (or the spare row) takes the room instead: the cutout runs into it.
+- **Finger room.** `fingerPocket.wallRoom` (0 = off; simple mode "Extra finger room in the box" = `FINGER_ROOM_MM` = 10 mm) thickens the outer walls cutouts leave through, inward: per row on the left and right where the row's first or last compartment asks for a cutout there, at the front where row 0 asks for front cutouts and at the back where the last row asks for back ones. `minOuter` grows by the room on each such wall (a strip of upright decks is 2 × 10 mm longer); a spare compartment at the end of a row (or the spare row) takes the room instead: the cutout runs into it. `fingerPocket.dividerRoom` (simple mode: `FINGER_DIVIDER_ROOM_MM` = 5 mm) thickens every divider in a row that a cut passes through: between two compartments that ask for cutouts on the facing sides (upright decks and stacks on the channel, flat decks and tiles cut through their left and right walls), and before a spare at the row end after one that asks for a right cutout (`MinLayout.gaps`); `minOuter` grows by it per such divider. The divider between two rows is not thickened (only aligned flat tiles cut through it). Walls and dividers without a cut are unchanged.
 
 - Finger slots (`sizing/slots.ts`) satisfy the finger slot clearance rule (§4.6): compartments whose pockets share a band line are twins; any other compartment within 0.8 mm of the band blocks them. A run of twins between two blockers shares one slot width (at most `fingerPocket.width`); each slot is centred on its contents (minus the spacer) as far as the run's room allows: inside the outer walls and at most half way into the gap to a blocker, less 0.4 mm, so it keeps 0.8 mm from the blocker and from any slot reaching toward it from the other side. Neighbouring twins that overlap merge into one channel when their centres are at most `maxChannelSpacing` apart (the channel takes its members' smallest depth). A pair that neither merges nor keeps apart, or a well face that does not hold (crossed too far from the nearest slot's centre, cutting a merged ridge too close to its peak, or a slot ending less than 0.8 mm short of it), first moves one slot (toward merging, or the smallest move of a nearby slot, at most 5 mm, that makes the face hold) as long as the slot stays in the room and still covers the centre of its own contents; otherwise the run's width shrinks (by 0.1 mm steps for a well face).
 - Slots are never narrower than `min(MIN_SLOT_WIDTH, fingerPocket.width)` (`MIN_SLOT_WIDTH` = 15 mm, `model/settings.ts`). If a run cannot keep that width, `realizeTray` throws `SlotFitError("Tray <key>: cannot fit a finger slot of at least <w> mm for <contents>")` (§4.2). Only minis pockets and custom wells have finger slots; at the default settings this happens for tiny pockets of different depths side by side (their slots run on two band lines and block each other). `minOuter` widens such a part until its slots fit (by up to `fingerPocket.width`), so a part that `realizeTray` refuses at `minOuter` is refused at every outer (§4.2), and `size()` already dropped variants that fail unlipped at level 0. A lipped tray (thicker wall) or an upper one may still fail.

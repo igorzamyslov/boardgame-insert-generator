@@ -175,6 +175,7 @@ function readSettings(r: Reader | undefined): Settings {
           reach: fp.num("reach", d.fingerPocket.reach),
           floorNotch: fp.num("floorNotch", d.fingerPocket.floorNotch),
           wallRoom: fp.num("wallRoom", d.fingerPocket.wallRoom),
+          dividerRoom: fp.num("dividerRoom", d.fingerPocket.dividerRoom),
         })
       : { ...d.fingerPocket },
     lip: lip

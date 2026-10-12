@@ -124,6 +124,7 @@ describe("readProject: files of this schema line", () => {
       reach: 10,
       floorNotch: DEFAULT_SETTINGS.fingerPocket.floorNotch,
       wallRoom: 0,
+      dividerRoom: 0,
     });
   });
 

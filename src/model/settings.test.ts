@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SETTINGS,
+  FINGER_DIVIDER_ROOM_MM,
   FINGER_ROOM_MM,
   FIT_CHOICES,
   WALL_CHOICES,
@@ -40,7 +41,7 @@ describe("DEFAULT_SETTINGS", () => {
       bottomChamfer: 0.4,
       cornerRadius: 3,
       scoopRadius: 12,
-      fingerPocket: { width: 25, reach: 12, floorNotch: 12.5, wallRoom: 0 },
+      fingerPocket: { width: 25, reach: 12, floorNotch: 12.5, wallRoom: 0, dividerRoom: 0 },
       lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
       topPressFit: 0,
       packingFactor: 0.5,
@@ -107,23 +108,31 @@ describe("simple-mode choices", () => {
     expect(wallChoiceOf({ ...DEFAULT_SETTINGS, wall: 1.6 + 1e-6 })).toBe("custom");
   });
 
-  it("maps the finger room toggle to a 10 mm or no wall room", () => {
+  it("maps the finger room toggle to 10 mm of wall room and 5 mm of divider room, or none", () => {
     expect(FINGER_ROOM_MM).toBe(10);
+    expect(FINGER_DIVIDER_ROOM_MM).toBe(5);
     const on = applyFingerRoom(DEFAULT_SETTINGS, true);
-    expect(on.fingerPocket).toEqual({ ...DEFAULT_SETTINGS.fingerPocket, wallRoom: 10 });
+    expect(on.fingerPocket).toEqual({
+      ...DEFAULT_SETTINGS.fingerPocket,
+      wallRoom: 10,
+      dividerRoom: 5,
+    });
     expect(applyFingerRoom(on, false).fingerPocket).toEqual(DEFAULT_SETTINGS.fingerPocket);
     expect(DEFAULT_SETTINGS.fingerPocket.wallRoom).toBe(0);
+    expect(DEFAULT_SETTINGS.fingerPocket.dividerRoom).toBe(0);
   });
 
   it("reads the finger room toggle back, or custom", () => {
     expect(fingerRoomOf(DEFAULT_SETTINGS)).toBe(false);
     expect(fingerRoomOf(applyFingerRoom(DEFAULT_SETTINGS, true))).toBe(true);
-    const room = (wallRoom: number) => ({
+    const room = (wallRoom: number, dividerRoom: number) => ({
       ...DEFAULT_SETTINGS,
-      fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, wallRoom },
+      fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, wallRoom, dividerRoom },
     });
-    expect(fingerRoomOf(room(10 + 1e-12))).toBe(true);
-    expect(fingerRoomOf(room(4))).toBe("custom");
+    expect(fingerRoomOf(room(10 + 1e-12, 5))).toBe(true);
+    expect(fingerRoomOf(room(4, 5))).toBe("custom");
+    expect(fingerRoomOf(room(10, 0))).toBe("custom");
+    expect(fingerRoomOf(room(0, 5))).toBe("custom");
   });
 });
 

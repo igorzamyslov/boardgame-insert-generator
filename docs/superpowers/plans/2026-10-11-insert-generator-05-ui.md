@@ -19,7 +19,7 @@ Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts
 3. **Geometry version lines (spec §9).** The "reprint the whole insert" notice uses plan 3's `isOlderGeometryLine(layout.geometryVersion)` (`geometry/version.ts`, pure): pre-1.0 each `0.MINOR` is a major line, so `0.0.x` is older than `0.1.0` and `0.1.x` is not (Task 2 `state.ts`).
 4. **Sizing notices.** `size()` drops variants whose finger slots cannot fit and, when none is left, emits a warning `sizing.noFingerSlot` at `/components/<i>` (roadmap §4.2); `sizingNotices` shows it like the other sizing warnings. `settingsValid` adds the cross-field settings errors `field.bottomChamfer` and `field.lipBearing` (both at `/settings/bottomChamfer`, shown next to the bottom chamfer field), and the wall and lip thickness minimum is `MIN_WALL_MM` = 0.9 mm (`SETTING_RANGES`).
 5. **Test-only helpers.** Plan 4's checker and fixture loader are `layout/test-hard-rules.ts` and `layout/test-fixtures.ts`; production code never imports a `test-*` module (root ESLint rule), and outside `geometry/` it imports only `geometry/{types,version,client}`.
-6. **Finger channels (roadmap §4.5, §4.6, §4.7; implemented after plans 1–3).** Cards and tiles get wall cutouts (`FeatureSpec` `"wallCutout"`, in `KNOWN_FEATURE_TYPES`) instead of finger pockets. The default finger width (`fingerPocket.width`, one setting for cutouts and pockets) is 25 mm. `Settings.fingerPocket` gained `floorNotch` (advanced, how far a flat cutout's notch reaches into the floor: 0–50 mm, default 12.5, a half-disc as wide as the cut) and `wallRoom` (0–20 mm, default 0), both in `SETTING_RANGES` (paths `fingerPocket/floorNotch`, `fingerPocket/wallRoom`), so `SETTING_SETTERS` has a setter for each (Task 8). Simple mode adds a third control, the "Extra finger room in the box" switch, bound to `fingerRoomOf`/`applyFingerRoom` and `FINGER_ROOM_MM` (`model/settings`): on writes `wallRoom` = 10 mm, off 0; a custom advanced value shows as on, with a hint naming it (Task 8). `SCHEMA_VERSION` and `GEOMETRY_VERSION` are `0.1.1` (same line as `0.1.0`). A card spacer standing in a channelled well carries its own `features: [{ type: "spacerNotch", … }]` (`TraySpec.features`, roadmap §4.1): `unsupportedReason` checks those too (Task 16). The code blocks of Tasks 8 and 16 are patched.
+6. **Finger channels (roadmap §4.5, §4.6, §4.7; implemented after plans 1–3).** Cards and tiles get wall cutouts (`FeatureSpec` `"wallCutout"`, in `KNOWN_FEATURE_TYPES`) instead of finger pockets. The default finger width (`fingerPocket.width`, one setting for cutouts and pockets) is 25 mm. `Settings.fingerPocket` gained `floorNotch` (advanced, how far a flat cutout's notch reaches into the floor: 0–50 mm, default 12.5, a half-disc as wide as the cut) `wallRoom` and `dividerRoom` (0–20 mm, default 0), all in `SETTING_RANGES` (paths `fingerPocket/floorNotch`, `fingerPocket/wallRoom`, `fingerPocket/dividerRoom`), so `SETTING_SETTERS` has a setter for each (Task 8). Simple mode adds a third control, the "Extra finger room in the box" switch, bound to `fingerRoomOf`/`applyFingerRoom`, `FINGER_ROOM_MM` and `FINGER_DIVIDER_ROOM_MM` (`model/settings`): on writes `wallRoom` = 10 mm and `dividerRoom` = 5 mm, off 0 and 0; a custom advanced pair shows as on, with a hint naming it (Task 8). `SCHEMA_VERSION` and `GEOMETRY_VERSION` are `0.1.1` (same line as `0.1.0`). A card spacer standing in a channelled well carries its own `features: [{ type: "spacerNotch", … }]` (`TraySpec.features`, roadmap §4.1): `unsupportedReason` checks those too (Task 16). The code blocks of Tasks 8 and 16 are patched.
 
 ## Global Constraints
 
@@ -3487,7 +3487,7 @@ git commit -m "Add box and printer forms"
 
 **Interfaces:**
 
-- Consumes: `SETTING_RANGES` (`model/validate`: `{ path, label, get, min, max }[]`, paths like `"wall"`, `"fingerPocket/width"`, `"lip/play"`), `applyWallChoice`, `applyFitChoice`, `wallChoiceOf`, `fitChoiceOf`, `WALL_CHOICES`, `FIT_CHOICES`, `WallChoice`, `FitChoice`, `applyFingerRoom`, `fingerRoomOf`, `FINGER_ROOM_MM` (`model/settings`); `NumberField`, `SelectField`, `CheckField` (Task 6).
+- Consumes: `SETTING_RANGES` (`model/validate`: `{ path, label, get, min, max }[]`, paths like `"wall"`, `"fingerPocket/width"`, `"lip/play"`), `applyWallChoice`, `applyFitChoice`, `wallChoiceOf`, `fitChoiceOf`, `WALL_CHOICES`, `FIT_CHOICES`, `WallChoice`, `FitChoice`, `applyFingerRoom`, `fingerRoomOf`, `FINGER_ROOM_MM`, `FINGER_DIVIDER_ROOM_MM` (`model/settings`); `NumberField`, `SelectField`, `CheckField` (Task 6).
 - Produces:
   - `SETTING_SETTERS: Record<string, (s: Settings, v: number) => Settings>` — one pure setter per `SETTING_RANGES` path.
   - `settingUnit(path: string): string | undefined` — `"mm"` except fit, fractions.
@@ -3555,7 +3555,7 @@ describe("SettingsForm", () => {
       throw new Error("not a checkbox");
     }
     expect(box.checked).toBe(true);
-    expect(screen.getByText(/Custom: 4 mm/)).toBeTruthy();
+    expect(screen.getByText(/Custom: 4 mm walls, 0 mm dividers/)).toBeTruthy();
     fireEvent.click(box);
     expect(onChange).toHaveBeenCalledWith(applyFingerRoom(four, false));
   });
@@ -3638,6 +3638,10 @@ export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Setting
     fingerPocket: { ...s.fingerPocket, floorNotch: v },
   }),
   "fingerPocket/wallRoom": (s, v) => ({ ...s, fingerPocket: { ...s.fingerPocket, wallRoom: v } }),
+  "fingerPocket/dividerRoom": (s, v) => ({
+    ...s,
+    fingerPocket: { ...s.fingerPocket, dividerRoom: v },
+  }),
   "lip/height": (s, v) => ({ ...s, lip: { ...s.lip, height: v } }),
   "lip/thickness": (s, v) => ({ ...s, lip: { ...s.lip, thickness: v } }),
   "lip/ledge": (s, v) => ({ ...s, lip: { ...s.lip, ledge: v } }),
@@ -3656,6 +3660,7 @@ export function settingUnit(path: string): string | undefined {
 ```tsx
 // src/ui/SettingsForm.tsx
 import {
+  FINGER_DIVIDER_ROOM_MM,
   FINGER_ROOM_MM,
   FIT_CHOICES,
   WALL_CHOICES,
@@ -3755,8 +3760,11 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
 
 /** The finger room switch's hint: what it does, and a custom advanced value if there is one. */
 function fingerRoomHint(s: Settings): string {
-  const base = `Makes the outer walls the finger cutouts go through ${FINGER_ROOM_MM} mm thicker, so you can reach in when trays sit tight.`;
-  return fingerRoomOf(s) === "custom" ? `${base} Custom: ${s.fingerPocket.wallRoom} mm.` : base;
+  const base = `Makes the outer walls the finger cutouts go through ${FINGER_ROOM_MM} mm and the dividers they cross ${FINGER_DIVIDER_ROOM_MM} mm thicker, so you can reach in when trays sit tight.`;
+  const { wallRoom, dividerRoom } = s.fingerPocket;
+  return fingerRoomOf(s) === "custom"
+    ? `${base} Custom: ${wallRoom} mm walls, ${dividerRoom} mm dividers.`
+    : base;
 }
 
 /**
