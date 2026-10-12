@@ -95,6 +95,21 @@ describe("App", () => {
     }
   });
 
+  it("says why the optimizer is blocked by an error whose field is hidden in simple mode", async () => {
+    const { store } = renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Add cards" }));
+    const results = screen.getByRole("region", { name: "Results" });
+    expect(within(results).queryByText(/Fix the errors/)).toBeNull();
+    store.edit((q) => ({ ...q, settings: { ...q.settings, bottomChamfer: 3 } }));
+    expect(await within(results).findByText(/Fix the errors marked in the inputs/)).toBeTruthy();
+    expect(within(results).queryByText(/add at least one component/)).toBeNull();
+    const list = within(results).getByRole("list", { name: "Errors without a field" });
+    expect(list.textContent).toMatch(/Bottom chamfer must be at most/);
+    fireEvent.click(screen.getByLabelText("Advanced"));
+    expect(within(results).queryByRole("list", { name: "Errors without a field" })).toBeNull();
+    expect(within(results).getByText(/Fix the errors marked in the inputs/)).toBeTruthy();
+  });
+
   it("locks and unlocks a tray's size from the tray details", () => {
     const { store } = renderApp(withLayoutHash());
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });

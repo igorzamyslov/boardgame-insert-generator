@@ -14,7 +14,7 @@ import { PrinterForm } from "../ui/PrinterForm";
 import { ProjectMenu } from "../ui/ProjectMenu";
 import { SettingsForm } from "../ui/SettingsForm";
 import { Summary } from "../ui/Summary";
-import { SizingContext, ValidationContext } from "../ui/validation";
+import { SizingContext, ValidationContext, errorsWithoutField } from "../ui/validation";
 import { Viewer } from "../viewer/Viewer";
 import type { ViewerProps } from "../viewer/Viewer";
 import {
@@ -251,7 +251,9 @@ export function App(props: AppProps) {
               notices={s.layoutNotices.value}
               hasLayout={layout !== undefined}
               canUndo={s.undoSlot.value !== null}
-              canOptimize={canOptimize(project)}
+              canOptimize={canOptimize(project, s.validation.value)}
+              hasComponents={project.components.length > 0}
+              hiddenErrors={errorsWithoutField(s.validation.value, advanced)}
               shortfall={s.shortfall.value}
               onReoptimize={() => store.reoptimize()}
               onImprove={() => store.improveMore()}

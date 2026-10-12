@@ -14,6 +14,10 @@ export interface SummaryProps {
   hasLayout: boolean;
   canUndo: boolean;
   canOptimize: boolean;
+  /** Components exist: when the optimizer is blocked, errors are the reason, not an empty project. */
+  hasComponents: boolean;
+  /** The errors that have no field on screen (`errorsWithoutField`). */
+  hiddenErrors: readonly Notice[];
   shortfall: { x: number; y: number; z: number } | null;
   onReoptimize: () => void;
   onImprove: () => void;
@@ -132,12 +136,24 @@ export function Summary(p: SummaryProps) {
           <Play label="Play front–back" mm={p.summary.playY} />
         </dl>
       ) : running ? null : (
-        <p class="hint">
-          {p.canOptimize
-            ? "No layout yet."
-            : "No layout yet. Enter the box size and add at least one component."}
-        </p>
+        <p class="hint">No layout yet.</p>
       )}
+      {!p.canOptimize && !running ? (
+        <div class="hint optimizer-blocked">
+          <p>
+            {p.hasComponents
+              ? "Fix the errors marked in the inputs."
+              : "Enter the box size and add at least one component."}
+          </p>
+          {p.hiddenErrors.length > 0 ? (
+            <ul aria-label="Errors without a field">
+              {p.hiddenErrors.map((n) => (
+                <li key={`${n.code}|${n.path ?? ""}|${n.message}`}>{n.message}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
       {shortfall ? <p class="shortfall">{shortfall}</p> : null}
       <div class="button-row">
         <button type="button" onClick={p.onReoptimize} disabled={running || !p.canOptimize}>

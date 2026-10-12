@@ -27,6 +27,8 @@ function props(over: Partial<SummaryProps> = {}): SummaryProps {
     hasLayout: true,
     canUndo: true,
     canOptimize: true,
+    hasComponents: true,
+    hiddenErrors: [],
     shortfall: null,
     onReoptimize: vi.fn(),
     onImprove: vi.fn(),
@@ -87,6 +89,50 @@ describe("Summary", () => {
     expect(p.onUndo).toHaveBeenCalledTimes(1);
   });
 
+  describe("when the optimizer is blocked", () => {
+    const blocked = (over: Partial<SummaryProps>) =>
+      props({ summary: null, hasLayout: false, canUndo: false, canOptimize: false, ...over });
+
+    it("asks for the box size and a component when there are none", () => {
+      render(<Summary {...blocked({ hasComponents: false })} />);
+      expect(screen.getByText(/Enter the box size and add at least one component/)).toBeTruthy();
+      expect(screen.queryByText(/Fix the errors/)).toBeNull();
+    });
+
+    it("points at the marked inputs when components exist, instead of asking for them", () => {
+      render(<Summary {...blocked({})} />);
+      expect(screen.getByText(/Fix the errors marked in the inputs/)).toBeTruthy();
+      expect(screen.queryByText(/add at least one component/)).toBeNull();
+    });
+
+    it("lists the errors that have no field on screen", () => {
+      const hiddenErrors = [
+        { level: "error" as const, code: "field.bottomChamfer", message: "Chamfer too big." },
+        { level: "error" as const, code: "invalid.lock", message: "Lock 1 is broken." },
+      ];
+      render(<Summary {...blocked({ hiddenErrors })} />);
+      const list = screen.getByRole("list", { name: "Errors without a field" });
+      expect(Array.from(list.querySelectorAll("li")).map((li) => li.textContent)).toEqual([
+        "Chamfer too big.",
+        "Lock 1 is broken.",
+      ]);
+    });
+
+    it("explains the disabled buttons when a layout is shown", () => {
+      render(<Summary {...props({ canOptimize: false })} />);
+      expect(screen.getByText(/Fix the errors marked in the inputs/)).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Re-optimize" }).hasAttribute("disabled")).toBe(
+        true,
+      );
+    });
+
+    it("says nothing while the optimizer can run", () => {
+      render(<Summary {...props({ summary: null, hasLayout: false })} />);
+      expect(screen.queryByText(/Fix the errors/)).toBeNull();
+      expect(screen.getByText("No layout yet.")).toBeTruthy();
+    });
+  });
+
   it("explains an empty project and an infeasible run", () => {
     const view = render(
       <Summary
@@ -95,6 +141,7 @@ describe("Summary", () => {
           hasLayout: false,
           canUndo: false,
           canOptimize: false,
+          hasComponents: false,
           run: { status: "idle" },
         })}
       />,

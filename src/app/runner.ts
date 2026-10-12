@@ -3,7 +3,7 @@ import { batch } from "@preact/signals";
 import { DEFAULT_ITERATIONS } from "../layout";
 import type { LayoutInput, LayoutResult } from "../layout/types";
 import { inputsHash } from "../model/hash";
-import type { Project } from "../model/types";
+import type { Notice, Project } from "../model/types";
 import { validateProject } from "../model/validate";
 import { APP_VERSION } from "../model/version";
 import { size } from "../sizing";
@@ -42,8 +42,12 @@ export interface Runner {
   dispose(): void;
 }
 
-export function canOptimize(p: Project): boolean {
-  return p.components.length > 0 && !validateProject(p).some((n) => n.level === "error");
+/** Components exist and nothing is in error; pass the project's current validation to reuse it. */
+export function canOptimize(
+  p: Project,
+  validation: readonly Notice[] = validateProject(p),
+): boolean {
+  return p.components.length > 0 && !validation.some((n) => n.level === "error");
 }
 
 export function buildLayoutInput(p: Project): LayoutInput {
