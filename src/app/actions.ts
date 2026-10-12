@@ -1,5 +1,5 @@
 // src/app/actions.ts
-import { newComponent } from "../model/defaults";
+import { groupOf, newComponent } from "../model/defaults";
 import { applyFitChoice, applyWallChoice } from "../model/settings";
 import type { FitChoice, WallChoice } from "../model/settings";
 import type {
@@ -37,21 +37,50 @@ export function addComponent(p: Project, kind: ComponentKind): Project {
   return { ...p, components: [...p.components, newComponent(kind)] };
 }
 
+/** The key a component's requirement and its trays carry: its group, else its own id. */
+function requirementKey(c: Component): string {
+  return groupOf(c) ?? c.id;
+}
+
+/**
+ * Drops the locks of trays keyed `<key>:…`; a stack lock keeps the rest of its stack, in
+ * order, while two or more trays remain (one tray alone is no stack).
+ */
+function withoutKeys(locks: readonly Lock[], keys: ReadonlySet<string>): Lock[] {
+  const gone = (trayKey: string): boolean => [...keys].some((key) => trayKey.startsWith(`${key}:`));
+  return locks.flatMap((l): Lock[] => {
+    if (l.kind !== "stack") {
+      return gone(l.trayKey) ? [] : [l];
+    }
+    const trayKeys = l.trayKeys.filter((k) => !gone(k));
+    return trayKeys.length >= 2 ? [{ ...l, trayKeys }] : [];
+  });
+}
+
+/**
+ * Locks follow their trays' key: a key (component id, or group id) that no component has
+ * after an edit but one had before leaves its locks behind, and the next run would warn
+ * about trays "that don't exist any more" that the user removed on purpose.
+ */
+function withComponents(p: Project, components: Component[]): Project {
+  const after = new Set(components.map(requirementKey));
+  const gone = new Set(p.components.map(requirementKey).filter((k) => !after.has(k)));
+  const locks = gone.size === 0 ? p.locks : withoutKeys(p.locks, gone);
+  return { ...p, components, locks };
+}
+
 export function updateComponent(p: Project, id: string, next: Component): Project {
-  return { ...p, components: p.components.map((c) => (c.id === id ? next : c)) };
+  return withComponents(
+    p,
+    p.components.map((c) => (c.id === id ? next : c)),
+  );
 }
 
 export function removeComponent(p: Project, id: string): Project {
-  const prefix = `${id}:`;
-  const locks = p.locks.flatMap((l): Lock[] => {
-    if (l.kind !== "stack") {
-      return l.trayKey.startsWith(prefix) ? [] : [l];
-    }
-    // the rest of the stack stays locked, in order; one tray alone is no stack
-    const trayKeys = l.trayKeys.filter((k) => !k.startsWith(prefix));
-    return trayKeys.length >= 2 ? [{ ...l, trayKeys }] : [];
-  });
-  return { ...p, components: p.components.filter((c) => c.id !== id), locks };
+  return withComponents(
+    p,
+    p.components.filter((c) => c.id !== id),
+  );
 }
 
 export function setWallChoice(p: Project, c: WallChoice): Project {
@@ -125,7 +154,17 @@ export function toggleLock(p: Project, tray: TraySpec): Project {
     rotated: t.rotated,
   }));
   if (members.length > 1) {
-    locks.push({ kind: "stack", trayKeys: members.map((t) => t.key) });
+    // A pending swap is a stack lock in the swapped order: keep it rather than level order.
+    const swapped = p.locks.find(
+      (l) =>
+        l.kind === "stack" &&
+        l.trayKeys.length === keys.size &&
+        l.trayKeys.every((k) => keys.has(k)),
+    );
+    locks.push({
+      kind: "stack",
+      trayKeys: swapped?.kind === "stack" ? swapped.trayKeys : members.map((t) => t.key),
+    });
   }
   return { ...p, locks: [...rest, ...locks] };
 }

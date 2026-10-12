@@ -6,7 +6,7 @@ import { NOTICE_CODES, summarize } from "../layout";
 import type { LayoutResult, LayoutSummary } from "../layout/types";
 import { inputsHash } from "../model/hash";
 import { noForeign } from "../model/schema";
-import type { ForeignData, Notice, Project, StoredLayout } from "../model/types";
+import type { ForeignData, Lock, Notice, Project, StoredLayout } from "../model/types";
 import { validateProject } from "../model/validate";
 import type { ProjectListEntry } from "../share";
 import { size } from "../sizing";
@@ -20,6 +20,15 @@ export type RunState =
   | { status: "done" }
   | { status: "error"; message: string };
 
+/**
+ * What undo restores: the layout before the last accepted run and, when that run pruned
+ * locks it had to drop, the locks as they were, so the restored layout matches its inputs.
+ */
+export interface UndoSlot {
+  layout: StoredLayout;
+  locks?: Lock[];
+}
+
 export const STALE_CODE = "layout.stale";
 export const CAPPED_CODE = NOTICE_CODES.capped;
 export const GEOMETRY_MAJOR_CODE = "geometry.olderMajor";
@@ -31,7 +40,9 @@ export interface State {
   mode: Signal<Mode>;
   run: Signal<RunState>;
   lastResult: Signal<LayoutResult | null>;
-  undoSlot: Signal<StoredLayout | null>;
+  /** The inputs hash `lastResult` was computed for; its notices show only while it is current. */
+  lastResultHash: Signal<string | null>;
+  undoSlot: Signal<UndoSlot | null>;
   selection: Signal<string | null>;
   appNotices: Signal<Notice[]>;
   /** Newer-minor file: automatic runs are skipped, a user run asks first (spec §9). */
@@ -75,6 +86,7 @@ function dedupe(list: Notice[]): Notice[] {
 export function createState(initial: Project, foreign: ForeignData = noForeign()): State {
   const project = signal(initial);
   const lastResult = signal<LayoutResult | null>(null);
+  const lastResultHash = signal<string | null>(null);
   const validation = computed(() => validateProject(project.value));
   const currentHash = computed(() => inputsHash(project.value));
   const stale = computed(() => {
@@ -98,7 +110,11 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     const layout = project.value.layout;
     const r = lastResult.value;
     const out: Notice[] = [];
-    if (r && (r.layout === null || r.layout === layout)) {
+    // An infeasible run has no layout to belong to: its notices stand only for its own inputs.
+    if (
+      r &&
+      (r.layout === null ? lastResultHash.value === currentHash.value : r.layout === layout)
+    ) {
       out.push(...r.notices);
     }
     if (layout?.capped && !out.some((n) => n.code === CAPPED_CODE)) {
@@ -135,7 +151,8 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     mode: signal<Mode>("simple"),
     run: signal<RunState>({ status: "idle" }),
     lastResult,
-    undoSlot: signal<StoredLayout | null>(null),
+    lastResultHash,
+    undoSlot: signal<UndoSlot | null>(null),
     selection: signal<string | null>(null),
     appNotices: signal<Notice[]>([]),
     needsConfirm: signal(false),

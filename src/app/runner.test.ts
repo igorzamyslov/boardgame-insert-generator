@@ -6,6 +6,7 @@ import type { Lock, Notice, Project } from "../model/types";
 import { DEBOUNCE_MS, IMPROVE_FACTOR, canOptimize, createRunner } from "./runner";
 import { STALE_CODE, createState } from "./state";
 import type { State } from "./state";
+import type { LayoutClient } from "./clients";
 import { fixtureProject, flush, makeLayout, makeResult, stubLayoutClient } from "./test-helpers";
 
 function bumpHeight(state: State): void {
@@ -64,7 +65,7 @@ describe("runner", () => {
     call.resolve(makeResult(next));
     await flush();
     expect(state.project.value.layout).toBe(next);
-    expect(state.undoSlot.value).toBe(old);
+    expect(state.undoSlot.value).toEqual({ layout: old });
     expect(state.run.value).toEqual({ status: "done" });
     expect(onAccepted).toHaveBeenCalledTimes(1);
   });
@@ -242,5 +243,114 @@ describe("runner", () => {
     void runner.runNow("edit", "user");
     await flush();
     expect(state.run.value).toEqual({ status: "error", message: "no worker" });
+  });
+});
+
+describe("runner guards", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("discards a result for inputs edited without schedule()", async () => {
+    const { state, stub, runner, onAccepted } = setup();
+    void runner.runNow("edit", "user");
+    await flush();
+    const call = stub.calls[0];
+    if (!call) {
+      throw new Error("no run");
+    }
+    bumpHeight(state);
+    call.resolve(makeResult(makeLayout(call.input.inputsHash)));
+    await flush();
+    expect(state.project.value.layout).toBeUndefined();
+    expect(state.run.value).toEqual({ status: "idle" });
+    expect(onAccepted).not.toHaveBeenCalled();
+  });
+
+  it("schedule() during a run cancels it and ignores its later progress", async () => {
+    const { state, stub, runner } = setup();
+    void runner.runNow("edit", "user");
+    await flush();
+    const cancels = stub.cancelCount();
+    runner.schedule();
+    expect(stub.cancelCount()).toBeGreaterThan(cancels);
+    expect(state.run.value).toEqual({ status: "idle" });
+    stub.calls[0]?.onProgress(50, 100, makeResult(null));
+    expect(state.run.value).toEqual({ status: "idle" });
+  });
+
+  it("dispose() clears a pending debounce timer", async () => {
+    const { stub, runner } = setup();
+    runner.schedule();
+    runner.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+    await flush();
+    expect(stub.calls).toHaveLength(0);
+  });
+
+  it("dispose() while the client loads disposes it, stops the run and blocks later runs", async () => {
+    const state = createState(fixtureProject());
+    const stub = stubLayoutClient();
+    let release: (c: LayoutClient) => void = () => undefined;
+    const load = vi.fn(
+      () =>
+        new Promise<LayoutClient>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const runner = createRunner(
+      state,
+      { loadLayoutClient: load, confirm: () => true },
+      { onAccepted: vi.fn() },
+    );
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(state.run.value.status).toBe("running");
+    runner.dispose();
+    expect(state.run.value).toEqual({ status: "idle" });
+    release(stub.client);
+    await flush();
+    expect(stub.disposed()).toBe(true);
+    expect(stub.calls).toHaveLength(0);
+    expect(state.run.value).toEqual({ status: "idle" });
+    // after dispose nothing starts again
+    void runner.runNow("edit", "user");
+    runner.schedule();
+    runner.afterOpen();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+    await flush();
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(state.run.value).toEqual({ status: "idle" });
+  });
+
+  it("undo slot keeps the locks a run pruned, so undo can restore both", async () => {
+    const p = fixtureProject();
+    const old = makeLayout("old-hash");
+    const locks: Lock[] = [
+      { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
+      { kind: "size", trayKey: "b:p0:0", w: 50, d: 40, h: 20 },
+    ];
+    const { state, stub, runner } = setup({ ...p, locks, layout: old });
+    void runner.runNow("edit", "user");
+    await flush();
+    const call = stub.calls[0];
+    if (!call) {
+      throw new Error("no run");
+    }
+    const notice: Notice = {
+      level: "warning",
+      code: NOTICE_CODES.lockDropped,
+      message: "dropped",
+      path: "/locks/1",
+    };
+    call.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
+    await flush();
+    expect(state.project.value.locks).toEqual([locks[0]]);
+    expect(state.undoSlot.value).toEqual({ layout: old, locks });
   });
 });

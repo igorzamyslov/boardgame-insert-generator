@@ -72,7 +72,22 @@ describe("createState", () => {
       message: "Doesn't fit",
     };
     s.lastResult.value = makeResult(null, { notices: [notice] });
+    s.lastResultHash.value = s.currentHash.value;
     expect(s.layoutNotices.value).toContainEqual(notice);
+  });
+
+  it("drops the notices of an infeasible run once the inputs change", () => {
+    const p = fixtureProject();
+    const s = createState(p);
+    const notice = {
+      level: "error" as const,
+      code: NOTICE_CODES.doesNotFit,
+      message: "Doesn't fit",
+    };
+    s.lastResult.value = makeResult(null, { notices: [notice] });
+    s.lastResultHash.value = s.currentHash.value;
+    s.project.value = { ...p, box: { ...p.box, innerHeight: p.box.innerHeight + 1 } };
+    expect(s.layoutNotices.value).not.toContainEqual(notice);
   });
 
   it("asks for a reprint for a layout from an older geometry line only", () => {

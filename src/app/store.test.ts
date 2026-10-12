@@ -1,7 +1,9 @@
 // src/app/store.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renameProject, updateBox } from "./actions";
+import { NOTICE_CODES } from "../layout";
 import { inputsHash } from "../model/hash";
+import type { Lock, Notice } from "../model/types";
 import { STORAGE_PREFIX, createProjectStore, encodeHash } from "../share";
 import { DEBOUNCE_MS } from "./runner";
 import { CONFLICT_CODE, SAVE_DEBOUNCE_MS } from "./persistence";
@@ -84,6 +86,34 @@ describe("app store", () => {
     expect(store.state.project.value.layout).toEqual(first);
     expect(store.state.undoSlot.value).toBeNull();
     expect(store.state.stale.value).toBe(true);
+  });
+
+  it("undo restores the locks a run pruned, so the restored layout is fresh", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    const locks: Lock[] = [
+      { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
+      { kind: "size", trayKey: "b:p0:0", w: 50, d: 40, h: 20 },
+    ];
+    const withLocks = { ...p, locks };
+    const first = makeLayout(inputsHash(withLocks));
+    store.start(encodeHash({ ...withLocks, layout: first }, EMPTY_FOREIGN));
+    store.reoptimize();
+    await flush();
+    const call = stub.calls[0];
+    const notice: Notice = {
+      level: "warning",
+      code: NOTICE_CODES.lockDropped,
+      message: "dropped",
+      path: "/locks/1",
+    };
+    call?.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
+    await flush();
+    expect(store.state.project.value.locks).toEqual([locks[0]]);
+    store.undo();
+    expect(store.state.project.value.locks).toEqual(locks);
+    expect(store.state.project.value.layout).toEqual(first);
+    expect(store.state.stale.value).toBe(false);
   });
 
   it("opens a pasted link on hashchange and flushes on pagehide", () => {

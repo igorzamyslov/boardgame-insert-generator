@@ -65,11 +65,17 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
   let lastKind: RunKind = "edit";
   let clientPromise: Promise<LayoutClient> | null = null;
   let client: LayoutClient | null = null;
+  let disposed = false;
 
   function getClient(): Promise<LayoutClient> {
     if (!clientPromise) {
       const loading = deps.loadLayoutClient().then((c) => {
-        client = c;
+        if (disposed) {
+          // dispose() came while the worker was loading: nobody will use this client.
+          c.dispose();
+        } else {
+          client = c;
+        }
         return c;
       });
       loading.catch(() => {
@@ -108,8 +114,11 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
         : result;
     batch(() => {
       state.lastResult.value = accepted;
+      state.lastResultHash.value = inputsHash(pruned);
       if (accepted.layout) {
-        state.undoSlot.value = current.layout ?? null;
+        state.undoSlot.value = current.layout
+          ? { layout: current.layout, ...(pruned !== current && { locks: current.locks }) }
+          : null;
         state.project.value = { ...pruned, layout: accepted.layout };
       } else if (pruned !== current) {
         state.project.value = pruned;
@@ -122,6 +131,9 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
   }
 
   async function runNow(kind: RunKind, trigger: RunTrigger): Promise<void> {
+    if (disposed) {
+      return;
+    }
     clearTimer();
     const p = state.project.value;
     if (!canOptimize(p)) {
@@ -178,6 +190,9 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
 
   return {
     schedule() {
+      if (disposed) {
+        return;
+      }
       clearTimer();
       invalidate();
       if (state.run.value.status === "running") {
@@ -198,6 +213,9 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       return runNow(lastKind, "user");
     },
     afterOpen() {
+      if (disposed) {
+        return;
+      }
       clearTimer();
       invalidate();
       if (!state.project.value.layout) {
@@ -205,8 +223,12 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       }
     },
     dispose() {
+      disposed = true;
       clearTimer();
       invalidate();
+      if (state.run.value.status === "running") {
+        state.run.value = { status: "idle" };
+      }
       client?.dispose();
       client = null;
       clientPromise = null;

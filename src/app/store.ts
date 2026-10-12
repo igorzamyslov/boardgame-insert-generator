@@ -71,7 +71,11 @@ export function createAppStore(deps: AppDeps): AppStore {
         return;
       }
       batch(() => {
-        state.project.value = { ...state.project.value, layout: previous };
+        state.project.value = {
+          ...state.project.value,
+          layout: previous.layout,
+          ...(previous.locks && { locks: previous.locks }),
+        };
         state.undoSlot.value = null;
       });
       persistence.scheduleSave();

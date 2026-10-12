@@ -112,6 +112,30 @@ describe("project actions", () => {
     ]);
   });
 
+  it("drops locks keyed by a group no component keeps any more", () => {
+    const a = { ...newComponent("bulk"), groupId: "g" };
+    const b = { ...newComponent("bulk"), groupId: "g" };
+    const lockG: Lock = { kind: "position", trayKey: "g:p0:0", path: "0", rotated: false };
+    const lockH: Lock = { kind: "position", trayKey: "h:p0:0", path: "1", rotated: false };
+    const base: Project = { ...newProject(), components: [a, b], locks: [lockG, lockH] };
+    // another member keeps the group: its locks stay
+    expect(removeComponent(base, a.id).locks).toEqual([lockG, lockH]);
+    // the last member goes: so do its locks
+    const last = removeComponent(removeComponent(base, a.id), b.id);
+    expect(last.locks).toEqual([lockH]);
+    // regrouping the last member frees the old key, and the new key has no locks yet
+    const solo: Project = { ...base, components: [a] };
+    expect(updateComponent(solo, a.id, setGroup(a, "other")).locks).toEqual([lockH]);
+    expect(updateComponent(solo, a.id, setGroup(a, undefined)).locks).toEqual([lockH]);
+    // an edit that keeps the group keeps its locks
+    expect(updateComponent(solo, a.id, { ...a, name: "x" }).locks).toEqual([lockG, lockH]);
+    // an ungrouped component joining a group frees the lock keyed by its own id
+    const c = newComponent("bulk");
+    const lockC: Lock = { kind: "position", trayKey: `${c.id}:p0:0`, path: "2", rotated: false };
+    const ungrouped: Project = { ...newProject(), components: [c], locks: [lockC] };
+    expect(updateComponent(ungrouped, c.id, setGroup(c, "g")).locks).toEqual([]);
+  });
+
   it("applies simple setting choices and advanced settings", () => {
     const p = newProject();
     expect(setWallChoice(p, "sturdy").settings).toEqual(applyWallChoice(p.settings, "sturdy"));
@@ -146,12 +170,16 @@ describe("project actions", () => {
     const swapped: Lock = { kind: "stack", trayKeys: ["b:p0:0", "a:p0:0"] };
     const p = { ...withLayout(newProject(), [beside, upper, lower]), locks: [other, swapped] };
     const on = toggleLock(p, upper);
+    // a pending swap (the stack lock's order) survives locking the stack
     expect(on.locks).toEqual([
       other,
       { kind: "position", trayKey: "a:p0:0", path: "1", rotated: true },
       { kind: "position", trayKey: "b:p0:0", path: "1", rotated: false },
-      { kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] },
+      swapped,
     ]);
+    // without a pending swap the stack lock is in level order
+    const plain = toggleLock({ ...p, locks: [other] }, upper);
+    expect(plain.locks.at(-1)).toEqual({ kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] });
     expect(lockedKeys(on)).toEqual(new Set(["a:p0:0", "b:p0:0", "c:p0:0"]));
     // either tray of the stack unlocks it all; the tray beside stays locked
     expect(toggleLock(on, lower).locks).toEqual([other]);
