@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createCtx, INF_U, MIN_PIECE_U, withSizeLocks } from "./context";
-import { boxReq, fakeMeasure, makeInput } from "./test-utils";
+import { createCtx, INF_U, MIN_PIECE_U, printedHeight, withSizeLocks } from "./context";
+import { boxReq, comp, fakeMeasure, makeInput, part, req, variant } from "./test-utils";
 
 describe("createCtx", () => {
   it("converts box, printer and settings to integer units", () => {
@@ -12,6 +12,7 @@ describe("createCtx", () => {
     expect(ctx.inset).toBe(145);
     expect(ctx.layer).toBe(20);
     expect(ctx.upperMinH).toBe(500);
+    expect(ctx.lipHeight).toBe(200);
     expect(ctx.bed).toEqual({ w: 24600, d: 24600, z: 25600 });
   });
 
@@ -62,5 +63,26 @@ describe("createCtx", () => {
     expect(ctx.floor).toBe(124);
     expect(ctx.minPiece).toBe(760); // 2 × (3 + 0.8)
     expect(createCtx(makeInput([]), fakeMeasure).minPiece).toBe(MIN_PIECE_U);
+  });
+
+  it("adds the lip's height to a lipped tray's printed height only", () => {
+    const ctx = createCtx(makeInput([]), fakeMeasure);
+    expect(printedHeight(ctx, 3000, true)).toBe(3200);
+    expect(printedHeight(ctx, 3000, false)).toBe(3000);
+  });
+
+  it("rejects more variants or parts than partId can index (256 each)", () => {
+    const c = comp({ minW: 30, minD: 30, minH: 10 });
+    const variants = (n: number) =>
+      Array.from({ length: n }, (_, i) => variant(`v${i}`, [part(`k:p${i}:0`, [c])]));
+    expect(() => createCtx(makeInput([req("k", variants(256))]), fakeMeasure)).not.toThrow();
+    expect(() => createCtx(makeInput([req("k", variants(257))]), fakeMeasure)).toThrow(RangeError);
+    const parts = (n: number) =>
+      variant(
+        "v",
+        Array.from({ length: n }, (_, i) => part(`k:p0:${i}`, [c])),
+      );
+    expect(() => createCtx(makeInput([req("k", [parts(256)])]), fakeMeasure)).not.toThrow();
+    expect(() => createCtx(makeInput([req("k", [parts(257)])]), fakeMeasure)).toThrow(RangeError);
   });
 });

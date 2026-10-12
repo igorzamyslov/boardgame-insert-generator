@@ -92,8 +92,11 @@ export function printedHeight(ctx: Ctx, h: U, lipped: boolean): U {
   return lipped ? h + ctx.lipHeight : h;
 }
 
+/** partId's base for the variant and part indices: each must be below it. */
+const PART_ID_RADIX = 256;
+
 export function partId(ref: PartRef): number {
-  return (ref.req * 256 + ref.variant) * 256 + ref.part;
+  return (ref.req * PART_ID_RADIX + ref.variant) * PART_ID_RADIX + ref.part;
 }
 
 function capacity(part: TrayPartReq, axis: "w" | "d", wallCap: U): U {
@@ -112,7 +115,16 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
   const cache = new Map<number, PartMetrics>();
   const byKey = new Map<string, PartRef[]>();
   input.requirements.forEach((r: TrayRequirement, req) => {
+    // partId packs variant and part into one byte each
+    if (r.variants.length > PART_ID_RADIX) {
+      throw new RangeError(`requirement "${r.key}" has more than ${PART_ID_RADIX} variants`);
+    }
     r.variants.forEach((v, variant) => {
+      if (v.parts.length > PART_ID_RADIX) {
+        throw new RangeError(
+          `variant "${v.id}" of requirement "${r.key}" has more than ${PART_ID_RADIX} parts`,
+        );
+      }
       v.parts.forEach((p, part) => {
         const list = byKey.get(p.trayKey) ?? [];
         list.push({ req, variant, part });
