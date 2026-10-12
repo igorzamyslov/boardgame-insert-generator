@@ -78,6 +78,19 @@ const L = makeTray({
   compartments: [],
 });
 
+const L2 = makeTray({
+  key: "leftover:1",
+  part: "leftover",
+  path: "12",
+  stack: 3,
+  x: 91,
+  y: 0,
+  w: 8,
+  d: 8,
+  compartments: [],
+});
+const centerL2 = at(95, 4);
+
 /** Client pixel of an SVG point: the SVG is laid out 1 px per mm at (0, 0). */
 function at(svgX: number, svgY: number) {
   return { clientX: svgX - vb.x, clientY: svgY - vb.y };
@@ -142,6 +155,8 @@ describe("PlanView", () => {
   it("touch drag swaps; svg has touch-action none", () => {
     expect(planCss).toMatch(/\.plan-svg\s*{[^}]*touch-action:\s*none/);
     const { p, svg } = setup();
+    // The stylesheet rule applies to the element PlanView renders.
+    expect(svg.getAttribute("class")).toContain("plan-svg");
     const touch = { pointerId: 7, pointerType: "touch", button: 0 };
     fireEvent.pointerDown(screen.getByRole("button", { name: /a:p0:0/ }), { ...centerA, ...touch });
     fireEvent.pointerMove(svg, { ...at(100, 49.5), ...touch });
@@ -168,6 +183,88 @@ describe("PlanView", () => {
     expect(screen.getByRole("button", { name: /b:p0:0/ }).getAttribute("class")).not.toContain(
       "is-drop",
     );
+  });
+
+  it("does not drag leftovers or drop onto them", () => {
+    const { p, svg } = setup({ trays: [A, B, L2] });
+    fireEvent.pointerDown(screen.getByRole("button", { name: /a:p0:0/ }), {
+      ...centerA,
+      pointerId: 3,
+      button: 0,
+    });
+    fireEvent.pointerMove(svg, { ...centerL2, pointerId: 3 });
+    expect(screen.getByRole("button", { name: /Spare tray/ }).getAttribute("class")).not.toContain(
+      "is-drop",
+    );
+    fireEvent.pointerUp(svg, { ...centerL2, pointerId: 3 });
+    expect(p.onSwap).not.toHaveBeenCalled();
+    // A leftover can't start a drag either, but a tap still selects it.
+    fireEvent.pointerDown(screen.getByRole("button", { name: /Spare tray/ }), {
+      ...centerL2,
+      pointerId: 4,
+      button: 0,
+    });
+    fireEvent.pointerMove(svg, { ...centerA, pointerId: 4 });
+    expect(screen.getByRole("button", { name: /a:p0:0/ }).getAttribute("class")).not.toContain(
+      "is-drop",
+    );
+    expect(screen.getByRole("button", { name: /Spare tray/ }).getAttribute("class")).not.toContain(
+      "is-source",
+    );
+    fireEvent.pointerUp(svg, { ...centerA, pointerId: 4 });
+    expect(p.onSwap).not.toHaveBeenCalled();
+    fireEvent.pointerDown(screen.getByRole("button", { name: /Spare tray/ }), {
+      ...centerL2,
+      pointerId: 5,
+      button: 0,
+    });
+    fireEvent.pointerUp(svg, { ...centerL2, pointerId: 5 });
+    expect(p.onSelect).toHaveBeenCalledWith("leftover:1");
+  });
+
+  it("refuses a leftover as the swap partner and cannot start a swap from one", () => {
+    const { p, view } = setup({ trays: [A, B, L2], selectedKey: "a:p0:0" });
+    fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
+    fireEvent.keyDown(screen.getByRole("button", { name: /Spare tray/ }), { key: "Enter" });
+    expect(p.onSwap).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toMatch(/can't be swapped/);
+    fireEvent.keyDown(screen.getByRole("button", { name: /b:p0:0/ }), { key: "Enter" });
+    expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
+    view.rerender(<PlanView {...p} selectedKey="leftover:1" />);
+    expect(screen.getByRole("button", { name: "Swap with…" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("clears the selection and swap mode on Escape wherever the focus is", () => {
+    const { p, view } = setup({ selectedKey: "a:p0:0" });
+    fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
+    expect(screen.getByRole("status")).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Swap with…" }), { key: "Escape" });
+    expect(p.onSelect).toHaveBeenCalledWith(null);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(view.container.querySelectorAll("[data-key]").length).toBeGreaterThan(0);
+  });
+
+  it("ignores the cancel of another pointer and a second press during a drag", () => {
+    const { p, svg } = setup();
+    fireEvent.pointerDown(screen.getByRole("button", { name: /a:p0:0/ }), {
+      ...centerA,
+      pointerId: 1,
+      button: 0,
+    });
+    fireEvent.pointerDown(screen.getByRole("button", { name: /b:p0:0/ }), {
+      ...centerB,
+      pointerId: 2,
+      button: 0,
+    });
+    fireEvent.pointerUp(svg, { ...centerB, pointerId: 2 });
+    expect(p.onSelect).not.toHaveBeenCalled();
+    fireEvent.pointerMove(svg, { ...centerB, pointerId: 1 });
+    fireEvent.pointerCancel(svg, { pointerId: 3 });
+    expect(screen.getByRole("button", { name: /b:p0:0/ }).getAttribute("class")).toContain(
+      "is-drop",
+    );
+    fireEvent.pointerUp(svg, { ...centerB, pointerId: 1 });
+    expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
   });
 
   it("swaps with the keyboard: select, Swap with…, Enter on the other tray", () => {

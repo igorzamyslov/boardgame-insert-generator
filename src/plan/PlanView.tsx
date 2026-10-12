@@ -39,6 +39,8 @@ interface Drag {
   startX: number;
   startY: number;
   moved: boolean;
+  /** Only real trays can be swapped: a leftover or spacer can be tapped, not dragged. */
+  swappable: boolean;
 }
 
 type SvgPointer = JSX.TargetedPointerEvent<SVGSVGElement>;
@@ -64,6 +66,7 @@ export function PlanView(props: PlanViewProps) {
   const [swapFrom, setSwapFrom] = useState<string | null>(null);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
+  const [swapRefused, setSwapRefused] = useState(false);
   const dragRef = useRef<Drag | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -75,14 +78,25 @@ export function PlanView(props: PlanViewProps) {
   const rects = shown.map((t) => ({ key: t.key, rect: toSvgRect(t, frame) }));
   const selectedPart = selectedKey === null ? null : (byKey.get(selectedKey) ?? null);
 
+  function swappable(key: string | null): boolean {
+    const part = key === null ? undefined : byKey.get(key);
+    return part !== undefined && isLockable(part.spec);
+  }
+
   function choose(key: string): void {
     if (swapFrom !== null && swapFrom !== key) {
+      if (!swappable(key)) {
+        setSwapRefused(true);
+        return;
+      }
       onSwap(swapFrom, key);
+      setSwapRefused(false);
       setSwapFrom(null);
       onSelect(swapFrom);
       return;
     }
     setSwapFrom(null);
+    setSwapRefused(false);
     onSelect(key === selectedKey ? null : key);
   }
 
@@ -95,6 +109,11 @@ export function PlanView(props: PlanViewProps) {
     return p ? hitTest(rects, p) : null;
   }
 
+  function clearSwap(): void {
+    setSwapFrom(null);
+    setSwapRefused(false);
+  }
+
   function endDrag(): void {
     dragRef.current = null;
     setDragKey(null);
@@ -102,7 +121,8 @@ export function PlanView(props: PlanViewProps) {
   }
 
   const onPointerDown = (e: SvgPointer): void => {
-    if (e.button !== 0) {
+    // A second pointer (another finger) must not take over a drag that is under way.
+    if (e.button !== 0 || dragRef.current !== null) {
       return;
     }
     const target = e.target instanceof Element ? e.target.closest("[data-key]") : null;
@@ -124,6 +144,7 @@ export function PlanView(props: PlanViewProps) {
       startX: e.clientX,
       startY: e.clientY,
       moved: false,
+      swappable: swappable(key),
     };
   };
 
@@ -132,14 +153,18 @@ export function PlanView(props: PlanViewProps) {
     if (!d || d.pointerId !== e.pointerId) {
       return;
     }
-    if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > DRAG_THRESHOLD_PX) {
+    if (
+      d.swappable &&
+      !d.moved &&
+      Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > DRAG_THRESHOLD_PX
+    ) {
       d.moved = true;
       setDragKey(d.key);
     }
     if (d.moved) {
       e.preventDefault();
       const over = keyAt(e.clientX, e.clientY);
-      setDropKey(over !== d.key ? over : null);
+      setDropKey(over !== d.key && swappable(over) ? over : null);
     }
   };
 
@@ -150,11 +175,17 @@ export function PlanView(props: PlanViewProps) {
     }
     endDrag();
     if (!d.moved) {
-      choose(d.key);
+      // A press that moved on a leftover or spacer is neither a tap nor a drag.
+      if (
+        d.swappable ||
+        Math.hypot(e.clientX - d.startX, e.clientY - d.startY) <= DRAG_THRESHOLD_PX
+      ) {
+        choose(d.key);
+      }
       return;
     }
     const over = keyAt(e.clientX, e.clientY);
-    if (over !== null && over !== d.key) {
+    if (over !== null && over !== d.key && swappable(over)) {
       onSwap(d.key, over);
       onSelect(d.key);
     }
@@ -164,16 +195,27 @@ export function PlanView(props: PlanViewProps) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       choose(key);
-    } else if (e.key === "Escape") {
-      setSwapFrom(null);
+    }
+  };
+
+  // Escape works wherever the focus is inside the plan (a tray, a button, the layer picker).
+  const onPlanKeyDown = (e: { key: string }): void => {
+    if (e.key === "Escape") {
+      clearSwap();
       onSelect(null);
+    }
+  };
+
+  const onPointerCancel = (e: SvgPointer): void => {
+    if (dragRef.current?.pointerId === e.pointerId) {
+      endDrag();
     }
   };
 
   const selectedLocked = selectedPart !== null && lockedKeys.has(selectedPart.spec.key);
 
   return (
-    <div class="plan">
+    <div class="plan" onKeyDown={onPlanKeyDown}>
       {levels.length > 1 ? (
         <fieldset class="layer-picker">
           <legend>Layer</legend>
@@ -199,7 +241,7 @@ export function PlanView(props: PlanViewProps) {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={endDrag}
+        onPointerCancel={onPointerCancel}
       >
         <rect
           class="plan-box"
@@ -287,7 +329,11 @@ export function PlanView(props: PlanViewProps) {
           “Swap with…”. Swapped trays are locked in place, then the layout is re-optimized.
         </p>
         {swapFrom !== null ? (
-          <p role="status">Choose the tray to swap with, or press Escape.</p>
+          <p role="status">
+            {swapRefused
+              ? "Leftover trays and spacers can't be swapped. Choose another tray, or press Escape."
+              : "Choose the tray to swap with, or press Escape."}
+          </p>
         ) : null}
         {selectedPart ? (
           <>
@@ -302,8 +348,11 @@ export function PlanView(props: PlanViewProps) {
               <button
                 type="button"
                 aria-pressed={swapFrom !== null}
-                disabled={selectedPart.spec.part === "spacer"}
-                onClick={() => setSwapFrom(swapFrom === null ? selectedPart.spec.key : null)}
+                disabled={!isLockable(selectedPart.spec)}
+                onClick={() => {
+                  setSwapRefused(false);
+                  setSwapFrom(swapFrom === null ? selectedPart.spec.key : null);
+                }}
               >
                 Swap with…
               </button>
