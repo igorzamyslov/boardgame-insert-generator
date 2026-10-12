@@ -14,8 +14,9 @@ import type { Semver } from "../model/version";
  *
  * 0.1.1 added the wall cutout (finger channels through walls and dividers), a new feature, and
  * keeps corner reliefs MIN_WALL_MM from the outer faces (slightly smaller reliefs beside thin outer
- * walls: a mesh-only change inside the wells that doesn't affect fit). Every spec 0.1.0 accepted is
- * still accepted, and trays still mate, so it is a PATCH.
+ * walls: a mesh-only change inside the wells that doesn't affect fit); its cuts' top corners are
+ * rounded (mesh only). Every spec 0.1.0 accepted is still accepted, and trays still mate, so it is
+ * a PATCH.
  */
 export const GEOMETRY_VERSION = "0.1.1";
 

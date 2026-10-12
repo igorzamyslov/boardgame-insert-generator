@@ -457,15 +457,20 @@ it). Wells need no extra room (no reach bands): they are content + clearance.
   the cuts actually go, a well cut across its row instead included; walls and
   dividers without a cut, also where a cut was asked for but none fits, are
   unchanged; a spare at the end of a row takes the wall room instead.
-- **Fillets:** the vertical edges where a cutout's sides meet a wall or
-  divider face (inside the well and on the outer face, and the spacer notch's)
-  are rounded with 1.5 mm (`FINGER_FILLET_MM`), less where the wall or divider
-  is thinner: at least 0.8 mm of its end stays flat between the fillets on its
-  two faces, the chamfer plus 0.8 mm to the outer face beside the cut, and
-  0.8 mm of a lipped tray's lip there. Fillets under 0.2 mm are left out. They are vertical, so support-free.
+- **Top fillets:** the two top corners of every cut's U (through walls and
+  dividers, and the spacer notch's), where a side meets the top, are rounded
+  with 3 mm (`FINGER_FILLET_MM`) across the whole wall, so the opening flares
+  at the top. Through a lipped wall only the lip is rounded, on its top (at
+  most the lip's height), so the ledge the upper tray rests on stays square.
+  The radius shrinks where less than 0.8 mm of top would stay beside it (the
+  outer corner, another compartment or cut across the wall), to stay on the
+  faces of the compartments the cut runs between, and to the U's straight
+  side; under 0.2 mm it is left out. The surface faces up and into the cut, so
+  it needs no support. Sizing does not change for it. The cut's vertical edges
+  stay square.
 - **Outer corners beside a cut:** where a cutout (or the spacer notch) leaves
   through an outer face, the rounded outer corner ends at least 0.8 mm before
-  its side (or the fillet there), so the wall beside the cut stays 0.8 mm thick
+  its side, so the wall beside the cut stays 0.8 mm thick
   right up to that face; the corner radius shrinks for it (never below the
   bottom chamfer, so the cuts' sides keep the chamfer plus 0.8 mm from the
   faces they run along).

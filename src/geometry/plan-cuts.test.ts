@@ -12,7 +12,6 @@ import {
   notchedSpacer,
   pocket,
   traySpec,
-  lippedThickWall,
   uprightChannel,
   uprightChannelLipped,
 } from "./test-specs";
@@ -110,11 +109,10 @@ describe("wall cutouts", () => {
   });
 
   it("shrinks the outer corner radius so a cut's rounded side meets the flat end face", () => {
-    // The 55.8 mm cut runs 2.1 mm from the front and back faces, its edges there rounded 0.4 mm
-    // (the 1.6 mm wall less its 0.8 mm flat, halved): the arc ends 0.8 mm before the fillet, so the
-    // wall beside the cut keeps 0.8 mm at the exit face.
+    // The 55.8 mm cut runs 2.1 mm from the front and back faces: the arc ends 0.8 mm before it,
+    // so the wall beside the cut keeps 0.8 mm at the exit face.
     const spec = beside([cutout("left", 30, 10, 0, 55.8)]);
-    expect(planTray(spec, GEO).cornerRadius).toBeCloseTo(0.9, 9);
+    expect(planTray(spec, GEO).cornerRadius).toBeCloseTo(1.3, 9);
     expect(planTray(beside([cutout("left", 30, 10)]), GEO).cornerRadius).toBe(3);
   });
 
@@ -283,10 +281,9 @@ describe("spacer notches", () => {
     rejects(notch({ width: 91.5 }), /leaves less than 1.20 mm beside the spacer notch/);
   });
 
-  it("shrinks the spacer's corner radius so the notch's rounded edges meet its flat end faces", () => {
-    // 2.25 mm beside the notch, its edges rounded 1.045 mm (the 0.4 mm chamfer, 0.8 mm and the
-    // 0.005 mm tolerance stay): the arc ends 0.8 mm before the fillet.
-    expect(planTray(notch({ width: 88 }), GEO).cornerRadius).toBeCloseTo(0.405, 9);
+  it("shrinks the spacer's corner radius so it ends 0.8 mm before the notch's sides", () => {
+    // 2.25 mm beside the notch.
+    expect(planTray(notch({ width: 88 }), GEO).cornerRadius).toBeCloseTo(1.45, 9);
   });
 
   describe("rejects", () => {
@@ -321,85 +318,104 @@ describe("spacer notches", () => {
   });
 });
 
-describe("finger fillets", () => {
-  interface Fillet {
-    x: number;
-    y: number;
-    r: number;
-    z0: number;
-  }
-  const fillets = (list: readonly Fillet[] | undefined) =>
-    (list ?? []).map((f) => [f.x, f.y, f.r, f.z0].map((v) => Number(v.toFixed(3))));
+describe("top fillets", () => {
+  const radii = (cut: { topFillets: readonly [number, number] } | null | undefined) =>
+    cut?.topFillets.map((r) => Number(r.toFixed(3)));
 
-  it("rounds the edges where a channel meets each wall and divider face, keeping 0.8 mm flat", () => {
-    const [left, right] = planTray(uprightChannel, GEO).compartments[0]?.cuts ?? [];
-    const zc = 69.2 - 34 + 11;
-    // Through the 1.6 mm end wall: 0.4 mm on the outer face and on the well's face, 0.8 mm of the
-    // wall's end flat between them.
-    expect(fillets(left?.fillets)).toEqual([
-      [1.6, 36.85, 0.4, zc],
-      [1.6, 58.85, 0.4, zc],
-      [0, 36.85, 0.4, zc],
-      [0, 58.85, 0.4, zc],
-    ]);
-    // Across the 1.2 mm divider: 0.2 mm.
-    expect(fillets(right?.fillets).map(([, , r]) => r)).toEqual([0.2, 0.2, 0.2, 0.2]);
+  it("rounds both top corners of every cut with 3 mm where the wall and divider tops are long", () => {
+    expect(FINGER_FILLET_MM).toBe(3);
+    const plan = planTray(uprightChannel, GEO);
+    for (const c of plan.compartments) {
+      expect(c.cuts.map(radii)).toEqual([
+        [3, 3],
+        [3, 3],
+      ]);
+    }
   });
 
-  it("uses the full 1.5 mm where the wall is thick enough", () => {
-    expect(FINGER_FILLET_MM).toBe(1.5);
+  it("keeps 0.8 mm of top between a fillet and the outer corner's arc", () => {
+    // The 50 mm cut's sides lie 5 mm from the front and back faces, the arc 3 mm: 1.2 mm fillets.
+    const plan = planTray(beside([cutout("left", 30, 28, 0, 50)]), GEO);
+    expect(plan.cornerRadius).toBe(3);
+    expect(radii(plan.compartments[0]?.cuts[0])).toEqual([1.2, 1.2]);
+  });
+
+  it("is no taller than the U's straight sides", () => {
+    // 13 mm deep, radius 11: 2 mm of straight side under the rim.
+    expect(radii(planTray(beside([cutout("left", 30, 13)]), GEO).compartments[0]?.cuts[0])).toEqual(
+      [2, 2],
+    );
+  });
+
+  it("stays on the faces the strip runs between, half the gap from another channel", () => {
+    // Two wells, one behind the other, each cut out through the left wall.
     const spec = traySpec({
-      key: "thick",
-      w: 60,
+      key: "rows",
+      w: 30,
+      d: 58.4,
+      h: 30,
+      compartments: [
+        compartment({
+          x: 1.6,
+          y: 1.6,
+          w: 26.8,
+          d: 27,
+          features: [cutout("left", 15.1, 20, 0, 25)],
+        }),
+        compartment({ x: 1.6, y: 29.8, w: 26.8, d: 27, features: [cutout("left", 42, 20, 0, 20)] }),
+      ],
+    });
+    const [first, second] = planTray(spec, GEO).compartments.map((c) => radii(c.cuts[0]));
+    // Cuts 2.6…27.6 and 32…52: the first ends 1 mm before its well's back face, so 1 mm; the
+    // second takes (4.4 − 0.8) / 2 = 1.8 mm of the gap. The outer corners end 0.8 mm before the
+    // 1.8 mm arc: none beside the first cut, 3 mm beside the second.
+    expect(first).toEqual([0, 1]);
+    expect(second).toEqual([1.8, 3]);
+  });
+
+  it("keeps 0.8 mm of top to a compartment lying across the strip", () => {
+    // C, in the left wall's strip beside the well, ends 3 mm before the cut: 2.2 mm.
+    const spec = traySpec({
+      key: "across",
+      w: 40,
       d: 60,
       h: 30,
       compartments: [
-        compartment({ x: 11.6, y: 1.6, w: 20, d: 56.8, features: [cutout("left", 30, 10)] }),
+        compartment({ x: 10, y: 20, w: 20, d: 20, features: [cutout("left", 30, 20, 0, 10)] }),
+        compartment({ x: 1.6, y: 1.6, w: 7.4, d: 20.4 }),
       ],
     });
-    const cut = planTray(spec, GEO).compartments[0]?.cuts[0];
-    expect(fillets(cut?.fillets).map(([, , r]) => r)).toEqual([1.5, 1.5, 1.5, 1.5]);
+    expect(radii(planTray(spec, GEO).compartments[0]?.cuts[0])).toEqual([2.2, 3]);
   });
 
-  it("keeps 0.8 mm of a lipped wall's lip beside a fillet where the cut leaves the tray", () => {
-    const cut = planTray(lippedThickWall, GEO).compartments[0]?.cuts[0];
-    // Only the lip stands above the channel's round bottom there: the 1.2 mm lip ring keeps
-    // 0.8 mm beside 0.4 mm fillets on the outer face (none on the well's, whose corners they meet).
-    expect(fillets(cut?.fillets)).toEqual([
-      [2.9, 0, 0.4, 17.2],
-      [18.9, 0, 0.4, 17.2],
+  it("rounds a lipped wall's cut on the lip's top, and drops fillets under 0.2 mm", () => {
+    // Out through the end walls only the 2 mm high lip is rounded, above the ledge: 2 mm.
+    const plan = planTray(uprightChannelLipped, GEO);
+    expect(plan.compartments.map((c) => c.cuts.map(radii))).toEqual([
+      [
+        [2, 2],
+        [3, 3],
+      ],
+      [
+        [3, 3],
+        [3, 3],
+      ],
+      [
+        [3, 3],
+        [2, 2],
+      ],
     ]);
+    // 2.1 mm from the faces: the 1.3 mm arc leaves no room for a fillet beside the sides.
+    const tight = planTray(beside([cutout("left", 30, 10, 0, 55.8)]), GEO);
+    expect(radii(tight.compartments[0]?.cuts[0])).toEqual([0, 0]);
   });
 
-  it("rounds a notched cut from the bed where it leaves the tray and from the floor inside", () => {
-    const cut = planTray(flatCutouts, GEO).compartments[0]?.cuts[0];
-    expect(fillets(cut?.fillets).map(([x, , , z0]) => [x, z0])).toEqual([
-      [1.6, 1.2],
-      [1.6, 1.2],
-      [0, 0],
-      [0, 0],
-    ]);
-  });
-
-  it("shrinks a fillet that would come near another compartment, or drops it", () => {
-    const next = compartment({ x: 22.8, y: 1.6, w: 30, d: 39.5 });
-    const row = compartment({ x: 22.8, y: 41.9, w: 30, d: 16.5 });
-    const cut = planTray(beside([cutout("right", 30, 10)], [next, row]), GEO).compartments[0]
-      ?.cuts[0];
-    // The divider strip 21.6…22.8 ends 0.9 mm from `row`: no room for a fillet on that side.
-    expect(fillets(cut?.fillets).map(([x, y, r]) => [x, y, r])).toEqual([
-      [21.6, 19, 0.2],
-      [22.8, 19, 0.2],
-    ]);
-  });
-
-  it("rounds a spacer notch where it leaves the spacer", () => {
-    const notch = planTray(notchedSpacer, GEO).notch;
-    expect(fillets(notch?.fillets).map(([x, y, r]) => [x, y, r])).toEqual([
-      [0, 35.25, 1.5],
-      [0, 57.25, 1.5],
-      [30, 35.25, 1.5],
-      [30, 57.25, 1.5],
-    ]);
+  it("rounds a spacer notch on the spacer's top, not where a side passes its face", () => {
+    expect(radii(planTray(notchedSpacer, GEO).notch)).toEqual([3, 3]);
+    const notch = (over: Partial<Extract<FeatureSpec, { type: "spacerNotch" }>>): TraySpec => ({
+      ...notchedSpacer,
+      features: [{ type: "spacerNotch", axis: "x", at: 46.25, width: 22, depth: 29, ...over }],
+    });
+    expect(radii(planTray(notch({ at: 5, width: 20 }), GEO).notch)).toEqual([0, 3]);
   });
 });

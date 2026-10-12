@@ -7,7 +7,7 @@ import {
   maxCornerRadius,
 } from "../model/settings";
 import { keepsApart } from "../model/slot-rules";
-import { cutFootprints, filletBox, notchFloorBox } from "./plan-cuts";
+import { cutFootprints, notchFloorBox } from "./plan-cuts";
 import { MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
 import type { CompartmentPlan, Rect, ReliefPlan } from "./plan-types";
 
@@ -181,15 +181,13 @@ function cornerDiscs(
       } else {
         corners(cut, pullIn(chamfer, cut.bottomZ));
       }
-      // A fillet takes its square from the corner, at most (the disc it keeps aside is solid).
-      cut.fillets.forEach((f) => corners(filletBox(f), pullIn(chamfer, f.z0)));
     }
     c.reliefs.forEach((r) => discs.push({ x: r.cx, y: r.cy, rho: r.r, e }));
   }
   return discs;
 }
 
-// A cut point on an outer face (where a cut that leaves the tray meets it, or its fillet there):
+// A cut point on an outer face (where a cut that leaves the tray meets it):
 // its distance q along the face from the corner, else null. The wall between the cut's side and the
 // face it runs along is thinnest at the exit face, where the corner's arc ends: q − R there, on the
 // true arc and on its polygon alike (the polygon's vertices lie on the arc, its chords further

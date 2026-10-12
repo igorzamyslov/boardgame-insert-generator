@@ -17,7 +17,8 @@ import {
   checkNotches,
   notchEdges,
   planCut,
-  planFillets,
+  planNotchFillets,
+  planTopFillets,
   planSpacerNotch,
 } from "./plan-cuts";
 import type { CutRequest } from "./plan-cuts";
@@ -486,11 +487,10 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   const frame = { w: spec.w, d: spec.d, h: spec.h, outerWall, chamfer };
   const failWith = (message: string): never => fail(spec, message);
   const uncut = planned.map((p) => p.plan);
-  const withCuts = planned.map(({ plan, cutRequests }) => ({
+  const plans = planned.map(({ plan, cutRequests }) => ({
     ...plan,
     cuts: cutRequests.map((q) => planCut(q, plan.index, uncut, frame, failWith)),
   }));
-  const plans = planFillets(withCuts, spec, chamfer, lip ? lip.thickness : null);
   plans.forEach((plan) => {
     checkNotches(plan, failWith);
   });
@@ -532,7 +532,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     cornerRadius,
     outerWall,
     lip,
-    compartments,
-    notch,
+    compartments: planTopFillets(compartments, spec, cornerRadius, lip),
+    notch: planNotchFillets(notch, spec, cornerRadius),
   };
 }

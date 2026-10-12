@@ -111,10 +111,17 @@ describe("buildTray per tray type", () => {
     }
     // Front and back walls stay whole.
     expect(heightAt(mesh, 40, 0.8)).toBeCloseTo(h, 3);
-    // The channel's vertical edges are rounded (0.4 mm in the 1.6 mm end wall): the wall's corner
-    // is gone down to where the round bottom begins.
-    expect(heightAt(mesh, 0.1, 47.85 - 11 - 0.1)).toBeCloseTo(h - 34 + 11, 2);
-    expect(heightAt(mesh, 0.8, 47.85 - 11 - 0.8)).toBeCloseTo(h, 3);
+    // The U's top corners are rounded with 3 mm across the whole wall (the opening is 28 mm wide
+    // at the rim), its vertical edges are not: 0.1 mm beside the side the top stands 2.23 mm below
+    // the rim on the outer face and on the well's face alike, 3 mm beside it at the rim.
+    const side = 47.85 - 11;
+    const dip = 3 - Math.sqrt(3 * 3 - 2.9 * 2.9);
+    for (const x of [0.05, 0.8, 1.55]) {
+      expect(heightAt(mesh, x, side - 0.1), `x ${x}`).toBeCloseTo(h - dip, 1);
+      expect(heightAt(mesh, x, side - 3.05), `x ${x}`).toBeCloseTo(h, 3);
+    }
+    // Below the fillet the side is straight down to the round bottom.
+    expect(heightAt(mesh, 0.8, side + 0.05)).toBeLessThan(h - 3);
   });
 
   it("a channel through a lipped tray interrupts the lip where it leaves the tray", () => {
@@ -122,9 +129,12 @@ describe("buildTray per tray type", () => {
     const { mesh } = expectWellFormed(spec, spec.h + GEO.lip.height);
     const at = 1.3 + 47.85;
     expect(heightAt(mesh, 0.3, at)).toBeCloseTo(spec.h - 34, 3);
-    // The lip keeps its full height beside the channel, on the end walls and everywhere else.
-    expect(heightAt(mesh, 0.3, at - 11 - 0.5)).toBeCloseTo(spec.h + 2, 3);
-    expect(heightAt(mesh, 0.3, at + 11 + 0.5)).toBeCloseTo(spec.h + 2, 3);
+    // The lip's top corners are rounded with its 2 mm height; past them it keeps its full height,
+    // on the end walls and everywhere else. The ledge beside the lip stays square at the rim.
+    expect(heightAt(mesh, 0.3, at - 11 - 0.1)).toBeLessThan(spec.h + 1);
+    expect(heightAt(mesh, 0.3, at - 11 - 2.05)).toBeCloseTo(spec.h + 2, 3);
+    expect(heightAt(mesh, 0.3, at + 11 + 2.05)).toBeCloseTo(spec.h + 2, 3);
+    expect(heightAt(mesh, 2, at - 11 - 0.1)).toBeCloseTo(spec.h, 3);
     expect(heightAt(mesh, 40, 0.3)).toBeCloseTo(spec.h + 2, 3);
   });
 
@@ -136,7 +146,7 @@ describe("buildTray per tray type", () => {
       expect(heightAt(mesh, 0.8, y), `y ${y}`).toBe(Number.NEGATIVE_INFINITY);
       expect(heightAt(mesh, 71.2 - 0.8, y), `y ${y}`).toBe(Number.NEGATIVE_INFINITY);
     }
-    expect(heightAt(mesh, 0.8, at + 12)).toBeCloseTo(flatCutouts.h, 3);
+    expect(heightAt(mesh, 0.8, at + 14.05)).toBeCloseTo(flatCutouts.h, 3);
     // …and it notches the floor with a half-disc of its width, 11 mm into the floor.
     for (const [x, y] of [
       [1.6 + 5, at - 9],
@@ -309,8 +319,8 @@ describe("finger cuts beside a well's rounded inner corners", () => {
 });
 
 describe("a channel leaving a lipped tray through a thick wall", () => {
-  it("keeps 0.8 mm of the lip beside the fillets on the outer face", () => {
-    // Fillets of 1.5 mm there thinned the 1.2 mm lip ring to 0.707 mm beside the cut.
+  it("rounds the lip's top corners beside the cut, keeping it printable", () => {
+    // Its sides lie on the well's side faces, 2.9 mm from the outer faces (sizing output).
     expectWellFormed(lippedThickWall, lippedThickWall.h + GEO.lip.height);
   });
 });

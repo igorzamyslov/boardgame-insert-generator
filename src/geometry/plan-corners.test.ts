@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
 import { planCornerRadius, thinCorner } from "./plan-corners";
-import { filletBox, notchFloorBox } from "./plan-cuts";
+import { notchFloorBox } from "./plan-cuts";
 import { MIN_FEATURE_MM, MIN_WALL_MM, SPEC_TOLERANCE, maxCornerRadius } from "../model/settings";
 import type { Settings } from "../model/types";
 import { settingsValid } from "../model/validate";
@@ -237,36 +237,15 @@ function thinnestCut(plan: TrayPlan): { all: number; slots: number; slotCorners:
             record(materialAt(plan, x, y, 0), true);
           });
       }
-      // A side that leaves the tray meets the outer face where its fillet there ends.
-      const exitFillet = (u: number): number =>
-        Math.max(
-          0,
-          ...cut.fillets
-            .filter(
-              (f) =>
-                (alongX ? f.x : f.y) === u &&
-                (alongX ? [0, plan.d] : [0, plan.w]).includes(alongX ? f.y : f.x),
-            )
-            .map((f) => f.r),
-        );
       for (const [rect, z] of footprints) {
         if (cut.into === null) {
           const [u0, u1] = alongX ? [rect.x0, rect.x1] : [rect.y0, rect.y1];
-          record(exitSide(plan, u0 - exitFillet(u0), z), true);
-          record(exitSide(plan, span - u1 - exitFillet(u1), z), true);
+          record(exitSide(plan, u0, z), true);
+          record(exitSide(plan, span - u1, z), true);
         } else {
           corners(rect, z);
         }
       }
-      // Inside the tray a fillet takes at most the square from its corner.
-      cut.fillets
-        .filter(
-          (f) =>
-            cut.into !== null || !(alongX ? [0, plan.d] : [0, plan.w]).includes(alongX ? f.y : f.x),
-        )
-        .forEach((f) => {
-          corners(filletBox(f), f.z0);
-        });
     }
     c.reliefs.forEach((r) => {
       record(materialAt(plan, r.cx, r.cy, c.floorZ, r.r), false);

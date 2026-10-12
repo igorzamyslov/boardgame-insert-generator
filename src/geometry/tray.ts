@@ -2,12 +2,11 @@ import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
 import type { Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
-import { cutFace, cutReach } from "./plan-cuts";
+import { cutFace, cutReach, filletStrip } from "./plan-cuts";
 import { INNER_CORNER_RADIUS_MM } from "../model/settings";
 import type {
   CompartmentPlan,
   CutPlan,
-  FilletPlan,
   LipPlan,
   Rect,
   ScoopPlan,
@@ -195,16 +194,51 @@ function buildCut(
   return [u, through, ...beside, prism(m, scope, ring, -OVERSHOOT, top)];
 }
 
-// A fillet on a finger cut's vertical edge: the square from the corner toward the material, EPS
-// into the cut and past the face so no face of it is coplanar, less the cylinder that stays.
-function buildFillet(m: ManifoldToplevel, scope: Scope, f: FilletPlan, top: number): Manifold {
-  const [x0, x1] = [f.x - f.sx * EPS, f.x + f.sx * f.r].sort((p, q) => p - q) as [number, number];
-  const [y0, y1] = [f.y - f.sy * EPS, f.y + f.sy * f.r].sort((p, q) => p - q) as [number, number];
-  const z0 = f.z0 <= 0 ? -OVERSHOOT : f.z0;
-  const square = box(m, scope, [x0, y0, z0], [x1, y1, top]);
-  const ring = circleRing(f.x + f.sx * f.r, f.y + f.sy * f.r, f.r, 4 * quarterSegments(f.r));
-  const kept = prism(m, scope, ring, z0 - 1, top + 1);
-  return scope.track(square.subtract(kept));
+// A U's top fillets (CutPlan.topFillets): at each top corner the square of radius r beside the
+// side, EPS into the cut and OVERSHOOT above the top, across the strip v0..v1 and past its ends
+// (past the compartments' rounded inner corners, as the U), less the horizontal cylinder along the
+// strip that stays. The surface left faces up and into the cut, so it needs no support.
+function buildTopFillets(
+  m: ManifoldToplevel,
+  scope: Scope,
+  cut: CutPlan,
+  { top, v0, v1 }: { top: number; v0: number; v1: number },
+): Manifold[] {
+  const along = cut.side === "front" || cut.side === "back";
+  const [a, b] = along ? [cut.x0, cut.x1] : [cut.y0, cut.y1];
+  const [r0, r1] = cut.topFillets;
+  return [
+    { r: r0, from: a - r0, to: a + EPS, centre: a - r0 },
+    { r: r1, from: b - EPS, to: b + r1, centre: b + r1 },
+  ].flatMap(({ r, from, to, centre }) => {
+    if (r <= 0) {
+      return [];
+    }
+    const lo: Vec3 = along ? [from, v0, top - r] : [v0, from, top - r];
+    const hi: Vec3 = along ? [to, v1, top + OVERSHOOT] : [v1, to, top + OVERSHOOT];
+    const square = box(m, scope, lo, hi);
+    const axis = along ? "y" : "x";
+    const kept = horizontalCylinder(m, scope, axis, v0 - 1, v1 + 1, centre, top - r, r);
+    return [scope.track(square.subtract(kept))];
+  });
+}
+
+// The strip a cut's top fillets are cut across, reaching past its ends like the U: OVERSHOOT out
+// through an outer face, INNER_CORNER_RADIUS_MM + EPS into the compartments past their corners; on
+// a lipped wall's lip ring, EPS past its inner side (above the ledge, so into air).
+function filletReach(
+  cut: CutPlan,
+  strip: { top: number; v0: number; v1: number },
+  lipped: boolean,
+): { top: number; v0: number; v1: number } {
+  const exit = cut.into === null;
+  const outerLow = cut.side === "front" || cut.side === "left";
+  const inner = exit && lipped ? EPS : INNER_CORNER_RADIUS_MM + EPS;
+  return {
+    top: strip.top,
+    v0: strip.v0 - (exit && outerLow ? OVERSHOOT : inner),
+    v1: strip.v1 + (exit && !outerLow ? OVERSHOOT : inner),
+  };
 }
 
 // The floor of compartment `index` of the plan, or null for none.
@@ -241,7 +275,12 @@ function buildCutter(
     ...c.slots.map((slot) => buildSlot(m, scope, slot, top)),
     ...c.cuts.flatMap((cut) => [
       ...buildCut(m, scope, cut, floorOf(plan, cut.into), top),
-      ...cut.fillets.map((f) => buildFillet(m, scope, f, top)),
+      ...buildTopFillets(
+        m,
+        scope,
+        cut,
+        filletReach(cut, filletStrip(cut, plan, plan.lip), plan.lip !== null),
+      ),
     ]),
     ...c.reliefs.map((rl) =>
       prism(m, scope, circleRing(rl.cx, rl.cy, rl.r, 4 * quarterSegments(rl.r)), c.floorZ, top),
@@ -294,7 +333,10 @@ export function buildTray(
         ? { x0: n.x0 - OVERSHOOT, x1: n.x1 + OVERSHOOT }
         : { y0: n.y0 - OVERSHOOT, y1: n.y1 + OVERSHOOT };
       cutters.push(buildSlot(m, scope, { ...n, ...ends }, plan.topZ + OVERSHOOT));
-      n.fillets.forEach((f) => cutters.push(buildFillet(m, scope, f, plan.topZ + OVERSHOOT)));
+      const strip = along
+        ? { v0: -OVERSHOOT, v1: plan.w + OVERSHOOT }
+        : { v0: -OVERSHOOT, v1: plan.d + OVERSHOOT };
+      cutters.push(...buildTopFillets(m, scope, n, { top: plan.h, ...strip }));
     }
     if (cutters.length > 0) {
       solid = scope.track(solid.subtract(scope.track(m.Manifold.union(cutters))));
