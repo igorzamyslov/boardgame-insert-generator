@@ -54,6 +54,17 @@ box.
 - Cross-engine bit-identical layouts (see §7.2 Determinism).
 - Frozen versioned builds (e.g. `…/insert-generator/v1/`).
 
+#### Future: lids and cover sheet
+
+Notes for adding them later without reworking the layout engine:
+
+- The layout treats tray height as opaque: a lid only raises `minOuter.h`.
+- Stacking on a lidded tray needs a per-level flag next to `lipped`.
+- The closed-from-above check (rule 3) lives in one predicate (`coverageApplies`
+  and the coverage score term); a lidded tray would be exempt there.
+- A cover sheet is a reduction of `topPlane` plus one extra printed part,
+  emitted like leftovers.
+
 ## 3. Hard rules (every generated layout satisfies all of them)
 
 1. **No lateral movement.** Trays tile the box floor. The only gaps are the

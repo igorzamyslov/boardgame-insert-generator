@@ -56,7 +56,7 @@ These are interpretations of the spec and roadmap that every task relies on. Non
 
 **Leaf = stack.** Level k is inset `k·(lip.thickness + effective lip play)` per side on both axes, also with the lip off (spec §6.1). `lipped = lip.enabled && k < top`, and that same flag goes to `minOuter`/`realizeTray` and `TraySpec.lip` (roadmap §4.6). Heights: every level but the top is rounded up to the layer height; height slack goes in whole layers to the lowest tray with an elastic-h compartment, the top tray takes the remainder; Σ h = topPlane exactly. Upper trays need `h ≥ lip.height + 3` when the lip is on. At most 4 levels per stack.
 
-**Fill and leftovers are derived, not stored in the tree.** In a leaf, the bottom tray takes the leaf footprint unless the stack can't absorb the slack (elastic axes → unlimited; otherwise inward wall growth `2·(min(2·wall, 4) − wall)`); unabsorbable slack ≥ 12 mm becomes a leftover strip (full stack height), smaller slack is absorbed by the tray (realizeTray spreads it). Bed caps and size-lock caps force a leftover of at least 3 mm. Leftovers larger than the bed are split by further guillotine cuts. Leftovers narrower than 25 mm + 2 walls (no grip possible) are solid. Leftover `TraySpec.path` = the path of their leaf; each leftover piece gets its own `stack` number after all tray stacks. An empty leaf (allowed only to keep locked routes intact, or produced by moves) is entirely leftover.
+**Fill and leftovers are derived, not stored in the tree.** In a leaf, the bottom tray takes the leaf footprint unless the stack can't absorb the slack (elastic axes → unlimited; otherwise inward wall growth `2·(min(2·wall, 4) − wall)`); unabsorbable slack ≥ 12 mm becomes a leftover strip (full stack height), smaller slack is absorbed by the tray (realizeTray spreads it). Bed caps and size-lock caps force a leftover of at least `Ctx.minPiece` (3 mm, more for a large bottom chamfer). Leftovers larger than the bed are split by further guillotine cuts. Leftovers narrower than 25 mm + 2 walls (no grip possible) are solid. Leftover `TraySpec.path` = the path of their leaf; each leftover piece gets its own `stack` number after all tray stacks. An empty leaf (allowed only to keep locked routes intact, or produced by moves) is entirely leftover.
 
 **Variants.** Sizing never sees the box (roadmap §4.7). Starting layouts use the first variant whose parts fit height, bed and floor; the annealer's "change variant" move explores the others; infeasible variants just carry overflow.
 
@@ -703,8 +703,8 @@ git commit -m "Add bed fit checks for layout parts"
 
 **Interfaces:**
 
-- Consumes: `effective(s)`, `topPlane(box, s)`, `DEFAULT_SETTINGS` (`../model/settings`); `minOuter(part, settings, opts)` (`../sizing`); `OuterSize`, `RealizeOptions`, `TrayPartReq`, `TrayRequirement`, `CompartmentReq`, `TrayVariant` (`../sizing/types`); `Bed` (Task 3); units (Task 1).
-- Produces: `type Measure = (part: TrayPartReq, settings: Settings, opts: RealizeOptions) => OuterSize`; constants `INF_U`, `MAX_LEVELS = 4`, `MAX_DEPTH = 32`, `SLIVER_U = 1200`, `MIN_PIECE_U = 300`, `GRIP_U = 2500`, `PLAY_LIMIT_U = 150`; `interface PartRef { req; variant; part }`; `interface PartMetrics { w; d; h; capW; capD; elasticH }`; `interface FixedSize { w; d; h; rotated }`; `interface Ctx { input; floorW; floorD; topPlane; boxClearance; gap; inset; layer; lipOn; upperMinH; wall; floor; minPiece; bed; sizeLocks; part(ref); partId(ref); metrics(ref, lipped, level); refsOfKey(trayKey) }`; `partId(ref): number`; `createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx`; `withSizeLocks(ctx, sizeLocks): Ctx`. Test helpers: `TEST_BOX`, `TEST_PRINTER`, `comp(o)`, `part(trayKey, compartments, rotatable?)`, `variant(id, parts)`, `req(key, variants, o?)`, `boxReq(key, minW, minD, minH, o?)`, `makeInput(requirements, o?)`, `fakeMeasure: Measure` (outer = inner + 2 × 2 mm walls, 3 mm when lipped; h = minH + 1.2).
+- Consumes: `effective(s)`, `topPlane(box, s)`, `DEFAULT_SETTINGS`, `MIN_FEATURE_MM`, `chamferMinimums(s, level)` (`../model/settings`); `minOuter(part, settings, opts)`, `wallFor(settings, lipped)` (`../sizing`); `MIN_GRIP`, `WALL_GROW_LIMIT`, `UPPER_TRAY_MIN_ABOVE_LIP`, `CHANNEL_DEPTH` (`../sizing/constants`); `OuterSize`, `RealizeOptions`, `TrayPartReq`, `TrayRequirement`, `CompartmentReq`, `TrayVariant` (`../sizing/types`); `Bed` (Task 3); units (Task 1). Sizing's constants are imported, never re-derived: the grip size, the wall growth limit, the minimum height above the lip and the finger channel depth each have one definition.
+- Produces: `type Measure = (part: TrayPartReq, settings: Settings, opts: RealizeOptions) => OuterSize`; constants `INF_U`, `MAX_LEVELS = 4`, `MAX_DEPTH = 32`, `SLIVER_U = 1200`, `MIN_PIECE_U = 300`, `GRIP_U = toU(MIN_GRIP)` (2500), `PLAY_LIMIT_U = 150`; `interface PartRef { req; variant; part }`; `interface PartMetrics { w; d; h; capW; capD; elasticH }`; `interface FixedSize { w; d; h; rotated }`; `interface Ctx { input; floorW; floorD; topPlane; boxClearance; gap; inset; layer; lipOn; upperMinH; wall; floor; minPiece; bed; sizeLocks; part(ref); partId(ref); metrics(ref, lipped, level); refsOfKey(trayKey) }`; `partId(ref): number`; `createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx`; `withSizeLocks(ctx, sizeLocks): Ctx`. Test helpers: `TEST_BOX`, `TEST_PRINTER`, `comp(o)` (`o.fingerCut` forces or suppresses the front wall cutout), `part(trayKey, compartments, rotatable?)`, `variant(id, parts)`, `req(key, variants, o?)`, `boxReq(key, minW, minD, minH, o?)`, `makeInput(requirements, o?)`, `fakeMeasure: Measure` (outer = inner + 2 × 2 mm walls, 3 mm when lipped; h = minH + 1.2).
 
 - [ ] **Step 1: Write the test helpers**
 
@@ -712,6 +712,7 @@ git commit -m "Add bed fit checks for layout parts"
 
 ```ts
 import { DEFAULT_SETTINGS } from "../model/settings";
+import { CHANNEL_DEPTH, MIN_GRIP } from "../sizing/constants";
 import type { Access, Box, Lock, Printer, Settings } from "../model/types";
 import type { CompartmentReq, TrayPartReq, TrayRequirement, TrayVariant } from "../sizing/types";
 import type { Measure } from "./context";
@@ -741,11 +742,16 @@ export interface CompOpts {
   elastic?: Partial<CompartmentReq["elastic"]>;
   kind?: CompartmentReq["kind"];
   contents?: string;
+  /** Forces (true) or suppresses (false) the front wall cutout. */
+  fingerCut?: boolean;
 }
 
-/** A compartment; adds a front wall cutout when no inner dimension reaches the 25 mm grip. */
+/**
+ * A compartment. It asks for a front wall cutout when `fingerCut` says so or, by default, when
+ * a side is under the MIN_GRIP size.
+ */
 export function comp(o: CompOpts): CompartmentReq {
-  const needsCut = Math.min(o.minW, o.minD) < 25;
+  const needsCut = o.fingerCut ?? Math.min(o.minW, o.minD) < MIN_GRIP;
   return {
     componentId: "c",
     contents: o.contents ?? `${o.minW}x${o.minD}x${o.minH}`,
@@ -755,7 +761,7 @@ export function comp(o: CompOpts): CompartmentReq {
     minH: o.minH,
     elastic: { w: false, d: false, h: false, ...o.elastic },
     features: needsCut
-      ? [{ type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false }]
+      ? [{ type: "wallCutout", side: "front", depthFraction: CHANNEL_DEPTH, floorNotch: false }]
       : [],
   };
 }
@@ -934,6 +940,7 @@ Expected: FAIL — `Failed to resolve import "./context" from "src/layout/contex
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
 import type { Settings } from "../model/types";
 import { minOuter, wallFor } from "../sizing";
+import { MIN_GRIP, UPPER_TRAY_MIN_ABOVE_LIP, WALL_GROW_LIMIT } from "../sizing/constants";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import type { Bed } from "./bed";
 import type { LayoutInput } from "./types";
@@ -955,8 +962,8 @@ export const SLIVER_U: U = 1200;
  * raises it to what the bottom chamfer needs.
  */
 export const MIN_PIECE_U: U = 300;
-/** Smallest inner dimension that counts as a grip (hard rule 8). */
-export const GRIP_U: U = 2500;
+/** Smallest inner dimension that counts as a grip (hard rule 8): sizing's MIN_GRIP. */
+export const GRIP_U: U = toU(MIN_GRIP);
 /** Nominal lateral play above this is penalized and warned about (hard rule 1). */
 export const PLAY_LIMIT_U: U = 150;
 
@@ -998,7 +1005,7 @@ export interface Ctx {
   readonly inset: U;
   readonly layer: U;
   readonly lipOn: boolean;
-  /** Minimum h of a tray at level ≥ 1 when the lip is on: lip.height + 3 mm. */
+  /** Minimum h of a tray at level ≥ 1 when the lip is on: lip.height + UPPER_TRAY_MIN_ABOVE_LIP (3 mm). */
   readonly upperMinH: U;
   /** Base outer wall and floor as sizing writes them: wallFor, floor ≥ MIN_FEATURE_MM, rounded up. */
   readonly wall: U;
@@ -1029,8 +1036,8 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
   const boxClearance = toU(eff.boxClearance);
   // Rounded up like sizing (roadmap §4.7): never below MIN_WALL_MM.
   const wall = toUCeil(wallFor(settings, false));
-  // Walls may thicken inward up to min(2 × wall, 4 mm) on both sides (spec §7.2).
-  const wallCap = Math.max(0, 2 * (Math.min(2 * wall, 400) - wall));
+  // Walls may thicken inward up to min(2 × wall, WALL_GROW_LIMIT = 4 mm) on both sides (spec §7.2).
+  const wallCap = Math.max(0, 2 * (Math.min(2 * wall, toU(WALL_GROW_LIMIT)) - wall));
   const cache = new Map<number, PartMetrics>();
   const byKey = new Map<string, PartRef[]>();
   input.requirements.forEach((r: TrayRequirement, req) => {
@@ -1054,7 +1061,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     inset: toU(settings.lip.thickness + eff.lipPlay),
     layer: Math.max(1, toU(printer.layerHeight)),
     lipOn: settings.lip.enabled,
-    upperMinH: toU(settings.lip.height) + 300,
+    upperMinH: toU(settings.lip.height) + toU(UPPER_TRAY_MIN_ABOVE_LIP),
     wall,
     floor: toUCeil(Math.max(settings.floor, MIN_FEATURE_MM)),
     minPiece: Math.max(MIN_PIECE_U, toUCeil(chamferMinimums(settings, 0).side)),
@@ -1119,19 +1126,40 @@ git commit -m "Add layout context with cached part metrics"
 **Files:**
 
 - Create: `src/layout/tree.ts`
+- Modify: `src/layout/test-utils.ts` (add `item`)
 - Test: `src/layout/tree.test.ts`
 
 **Interfaces:**
 
 - Consumes: `mulDiv`, `Ext`, `Rect`, `U` (Task 1).
-- Produces: `type Axis = "x" | "y"`; `interface StackItem { req; variant; part; rotated }`; `interface Leaf { kind: "leaf"; stack: readonly StackItem[]; frozen: boolean }`; `interface Cut { kind: "cut"; axis; share; a; b }`; `type TreeNode = Leaf | Cut`; `interface Tree { root: TreeNode; variants: readonly number[] }`; `SHARE_MAX = 2^20`, `SHARE_HALF`; `leaf(stack, frozen?)`, `cut(axis, a, b, share?)`, `otherAxis(axis)`, `nodeAt(root, path)`, `replaceAt(root, path, node)`, `leaves(root): LeafAt[]`, `cuts(root): CutAt[]`, `itemsOf(root)`, `removeLeafAt(root, path): TreeNode | null`, `splitLeafAt(root, path, axis, added, addedFirst)`, `minExtents(gap, leafMin): (node) => Ext`, `splitRect(cut, rect, gap, minOf): [Rect, Rect]`, `placeLeaves(root, rect, gap, leafMin: (leaf: Leaf) => Ext): Placement` with `Placement { leaves: PlacedLeaf[]; min: Ext }`, `PlacedLeaf { path; leaf; rect }`.
+- Produces: `type Axis = "x" | "y"`; `interface StackItem { req; variant; part; rotated }`; `interface Leaf { kind: "leaf"; stack: readonly StackItem[]; frozen: boolean }`; `interface Cut { kind: "cut"; axis; share; a; b }`; `type TreeNode = Leaf | Cut`; `interface Tree { root: TreeNode; variants: readonly number[] }`; `SHARE_MAX = 2^20`, `SHARE_HALF`; `leaf(stack, frozen?)`, `cut(axis, a, b, share?)`, `otherAxis(axis)`, `nodeAt(root, path)`, `replaceAt(root, path, node)`, `leaves(root): LeafAt[]`, `cuts(root): CutAt[]`, `itemsOf(root)`, `removeLeafAt(root, path): TreeNode | null`, `splitLeafAt(root, path, axis, added, addedFirst)`, `minExtents(gap, leafMin): (node) => Ext`, `splitRect(cut, rect, gap, minOf): [Rect, Rect]`, `placeLeaves(root, rect, gap, leafMin: (leaf: Leaf) => Ext): Placement` with `Placement { leaves: PlacedLeaf[]; min: Ext }`, `PlacedLeaf { path; leaf; rect }`. Test helper (added to `test-utils.ts`; the stack, fill and score tests use it too): `item(req, rotated?): StackItem`.
 
 - [ ] **Step 1: Write the failing test**
+
+First add the `item` helper to the shared test helpers.
+
+Add to the imports of `src/layout/test-utils.ts`:
+
+```ts
+import type { StackItem } from "./tree";
+```
+
+Append to `src/layout/test-utils.ts`:
+
+```ts
+/** A stack item for part 0 of variant 0 of requirement `req`. */
+export function item(req: number, rotated = false): StackItem {
+  return { req, variant: 0, part: 0, rotated };
+}
+```
+
+Then the test.
 
 `src/layout/tree.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
+import { item } from "./test-utils";
 import {
   cut,
   cuts,
@@ -1144,10 +1172,7 @@ import {
   replaceAt,
   SHARE_MAX,
   splitLeafAt,
-  type StackItem,
 } from "./tree";
-
-const item = (req: number): StackItem => ({ req, variant: 0, part: 0, rotated: false });
 
 describe("guillotine tree", () => {
   const t = cut("x", leaf([item(0)]), cut("y", leaf([item(1)]), leaf([item(2), item(3)])));
@@ -1504,7 +1529,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 From the repo root:
 
 ```bash
-git add src/layout/tree.test.ts src/layout/tree.ts
+git add src/layout/tree.test.ts src/layout/tree.ts src/layout/test-utils.ts
 git commit -m "Add guillotine tree with exact integer tiling"
 ```
 
@@ -1517,7 +1542,7 @@ git commit -m "Add guillotine tree with exact integer tiling"
 
 **Interfaces:**
 
-- Consumes: `Ctx`, `FixedSize`, `INF_U`, `SLIVER_U` (Task 4); `StackItem` (Task 5); `roundUpTo`, `roundDownTo`, `Ext`, `U` (Task 1).
+- Consumes: `Ctx`, `FixedSize`, `INF_U`, `SLIVER_U` (Task 4); `StackItem` (Task 5); `roundUpTo`, `roundDownTo`, `Ext`, `U` (Task 1); test helper `item` (Task 5).
 - Produces: `interface Level { item; level; lipped; minW; minD; minH; capW; capD; elasticH; fixed }` (box frame); `stackLevels(ctx, stack): Level[]`; `stackMinFootprint(ctx, levels): Ext` (leaf ≥ req_k + 2·k·inset); `stackLockCap(ctx, levels): Ext`; `stackAbsorb(ctx, levels, foot): Ext`; `interface StackHeights { h: U[]; overflow: U; lockOverflow: U }`; `stackHeights(ctx, levels): StackHeights` (Σ h = topPlane, layer rounding, top takes the remainder).
 
 - [ ] **Step 1: Write the failing test**
@@ -1528,10 +1553,7 @@ git commit -m "Add guillotine tree with exact integer tiling"
 import { describe, expect, it } from "vitest";
 import { createCtx, INF_U, withSizeLocks, type Ctx } from "./context";
 import { stackAbsorb, stackHeights, stackLevels, stackLockCap, stackMinFootprint } from "./stack";
-import { boxReq, fakeMeasure, makeInput } from "./test-utils";
-import type { StackItem } from "./tree";
-
-const it0 = (req: number, rotated = false): StackItem => ({ req, variant: 0, part: 0, rotated });
+import { boxReq, fakeMeasure, item, makeInput } from "./test-utils";
 
 function ctxFor(box: { innerHeight?: number; headroom?: number } = {}): Ctx {
   return createCtx(
@@ -1552,20 +1574,20 @@ function ctxFor(box: { innerHeight?: number; headroom?: number } = {}): Ctx {
 describe("stack feasibility", () => {
   it("applies rotation and the lipped measure per level", () => {
     const ctx = ctxFor();
-    const levels = stackLevels(ctx, [it0(0), it0(1, true)]);
+    const levels = stackLevels(ctx, [item(0), item(1, true)]);
     expect(levels[0]?.lipped).toBe(true);
     expect(levels[1]?.lipped).toBe(false);
     expect(levels[0]?.minW).toBe(10600);
     expect(levels[1]?.minW).toBe(4400);
     expect(levels[1]?.minD).toBe(5400);
     expect(levels[1]?.minH).toBe(1120);
-    const thin = stackLevels(ctx, [it0(0), it0(4)]);
+    const thin = stackLevels(ctx, [item(0), item(4)]);
     expect(thin[1]?.minH).toBe(ctx.upperMinH);
   });
 
   it("requires leaf ≥ req_k + 2·k·inset", () => {
     const ctx = ctxFor();
-    const levels = stackLevels(ctx, [it0(1), it0(0)]);
+    const levels = stackLevels(ctx, [item(1), item(0)]);
     const f = stackMinFootprint(ctx, levels);
     expect(f.w).toBe(Math.max(5600, 10400 + 2 * ctx.inset));
     expect(f.d).toBe(Math.max(4600, 6400 + 2 * ctx.inset));
@@ -1574,16 +1596,16 @@ describe("stack feasibility", () => {
 
   it("reports absorbable slack: elastic axes unlimited, else wall growth", () => {
     const ctx = ctxFor();
-    const solo = stackLevels(ctx, [it0(1)]);
+    const solo = stackLevels(ctx, [item(1)]);
     expect(stackAbsorb(ctx, solo, stackMinFootprint(ctx, solo))).toEqual({ w: 320, d: 320 });
-    const scoop = stackLevels(ctx, [it0(2)]);
+    const scoop = stackLevels(ctx, [item(2)]);
     expect(stackAbsorb(ctx, scoop, stackMinFootprint(ctx, scoop))).toEqual({ w: INF_U, d: INF_U });
     expect(stackLockCap(ctx, solo)).toEqual({ w: INF_U, d: INF_U });
   });
 
   it("makes stack heights sum to topPlane, rounding all but the top tray", () => {
     const ctx = ctxFor();
-    const h = stackHeights(ctx, stackLevels(ctx, [it0(0), it0(1)]));
+    const h = stackHeights(ctx, stackLevels(ctx, [item(0), item(1)]));
     expect(h.overflow).toBe(0);
     expect(h.h[0]).toBe(2120);
     expect((h.h[0] ?? 0) % ctx.layer).toBe(0);
@@ -1592,7 +1614,7 @@ describe("stack feasibility", () => {
 
   it("gives height slack to the lowest scoop tray in whole layers", () => {
     const ctx = ctxFor({ innerHeight: 60.05 });
-    const h = stackHeights(ctx, stackLevels(ctx, [it0(2), it0(4)]));
+    const h = stackHeights(ctx, stackLevels(ctx, [item(2), item(4)]));
     expect(h.h[1]).toBe(ctx.upperMinH + 5);
     expect((h.h[0] ?? 0) % ctx.layer).toBe(0);
     expect(h.h.reduce((s, v) => s + v, 0)).toBe(ctx.topPlane);
@@ -1600,13 +1622,13 @@ describe("stack feasibility", () => {
 
   it("reports height overflow when the stack is taller than topPlane", () => {
     const ctx = ctxFor({ innerHeight: 50 });
-    const h = stackHeights(ctx, stackLevels(ctx, [it0(3), it0(1)]));
+    const h = stackHeights(ctx, stackLevels(ctx, [item(3), item(1)]));
     expect(h.overflow).toBe(4620 + 1120 - 5000);
   });
 
   it("reports overflow instead of throwing when headroom ≥ inner height", () => {
     const ctx = ctxFor({ innerHeight: 40, headroom: 45 });
-    const h = stackHeights(ctx, stackLevels(ctx, [it0(1)]));
+    const h = stackHeights(ctx, stackLevels(ctx, [item(1)]));
     expect(ctx.topPlane).toBe(-500);
     expect(h.overflow).toBe(1120 + 500);
   });
@@ -1615,9 +1637,9 @@ describe("stack feasibility", () => {
     const base = ctxFor();
     const ctx = withSizeLocks(
       base,
-      new Map([[base.partId(it0(0)), { w: 12000, d: 7000, h: 3000, rotated: false }]]),
+      new Map([[base.partId(item(0)), { w: 12000, d: 7000, h: 3000, rotated: false }]]),
     );
-    const levels = stackLevels(ctx, [it0(0), it0(1)]);
+    const levels = stackLevels(ctx, [item(0), item(1)]);
     expect(levels[0]?.minW).toBe(12000);
     expect(stackLockCap(ctx, levels)).toEqual({ w: 12000, d: 7000 });
     const h = stackHeights(ctx, levels);
@@ -1806,7 +1828,7 @@ git commit -m "Add stack feasibility with lip insets and heights"
 
 **Interfaces:**
 
-- Consumes: `bedExcess`, `bedOrientations`, `splitForBed` (Task 3); `Ctx`, `GRIP_U`, `MIN_PIECE_U`, `SLIVER_U` (Task 4); `placeLeaves`, `Leaf`, `StackItem`, `Tree` (Task 5); stack functions (Task 6).
+- Consumes: `bedExcess`, `bedOrientations`, `splitForBed` (Task 3); `Ctx` (including `Ctx.minPiece`), `GRIP_U`, `SLIVER_U` (Task 4); `placeLeaves`, `Leaf`, `StackItem`, `Tree` (Task 5); stack functions (Task 6); test helper `item` (Task 5).
 - Produces: `interface PlacedTray { path; stack; level; item; x; y; z; w; d; h; lipped; top; minW; minD; capW; capD }`; `interface PlacedLeftover { path; stack; x; y; w; d; h; solid }`; `interface Overflow { x; y; z; bed; lock }`; `interface Plan { trays; leftovers; overflow; shortfall: { x; y; z }; crossX; crossY }`; `overflowTotal(o): U`; `placeStack(ctx, levels, rect): StackPlacement`; `maxCrossing(rects, alongX): number`; `evaluate(ctx, tree): Plan`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1818,11 +1840,9 @@ import { describe, expect, it } from "vitest";
 import { createCtx, withSizeLocks, type Ctx } from "./context";
 import { evaluate, overflowTotal, placeStack } from "./fill";
 import { stackLevels } from "./stack";
-import { boxReq, fakeMeasure, makeInput } from "./test-utils";
-import { cut, leaf, type StackItem } from "./tree";
+import { boxReq, fakeMeasure, item, makeInput } from "./test-utils";
+import { cut, leaf } from "./tree";
 import type { TrayRequirement } from "../sizing/types";
-
-const it0 = (req: number, rotated = false): StackItem => ({ req, variant: 0, part: 0, rotated });
 
 function ctxOf(reqs: TrayRequirement[], o: Parameters<typeof makeInput>[1] = {}): Ctx {
   return createCtx(makeInput(reqs, o), fakeMeasure);
@@ -1831,7 +1851,7 @@ function ctxOf(reqs: TrayRequirement[], o: Parameters<typeof makeInput>[1] = {})
 describe("fill", () => {
   it("absorbs slivers narrower than 12 mm into the tray", () => {
     const ctx = ctxOf([boxReq("a", 100, 60, 20)]);
-    const sp = placeStack(ctx, stackLevels(ctx, [it0(0)]), {
+    const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), {
       x: 0,
       y: 0,
       w: 10400 + 1000,
@@ -1843,21 +1863,21 @@ describe("fill", () => {
 
   it("turns larger unabsorbable slack into a leftover strip with a gap", () => {
     const ctx = ctxOf([boxReq("a", 100, 60, 20)]);
-    const sp = placeStack(ctx, stackLevels(ctx, [it0(0)]), { x: 0, y: 0, w: 20000, d: 6400 });
+    const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), { x: 0, y: 0, w: 20000, d: 6400 });
     expect(sp.trays[0]?.w).toBe(10400 + 320);
     expect(sp.leftovers).toEqual([{ x: 10720 + 20, y: 0, w: 20000 - 10720 - 20, d: 6400 }]);
   });
 
   it("gives all slack to an elastic tray", () => {
     const ctx = ctxOf([boxReq("s", 50, 40, 10, { elastic: { w: true, d: true, h: true } })]);
-    const sp = placeStack(ctx, stackLevels(ctx, [it0(0)]), { x: 0, y: 0, w: 20000, d: 9000 });
+    const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), { x: 0, y: 0, w: 20000, d: 9000 });
     expect(sp.leftovers).toEqual([]);
     expect(sp.trays[0]?.w).toBe(20000);
   });
 
   it("insets upper levels by k·inset per side and stacks z", () => {
     const ctx = ctxOf([boxReq("a", 100, 60, 20), boxReq("b", 50, 40, 10)]);
-    const sp = placeStack(ctx, stackLevels(ctx, [it0(0), it0(1)]), {
+    const sp = placeStack(ctx, stackLevels(ctx, [item(0), item(1)]), {
       x: 100,
       y: 200,
       w: 10600,
@@ -1875,10 +1895,10 @@ describe("fill", () => {
 
   it("caps the bottom tray to the bed and leaves at least MIN_PIECE_U as leftover", () => {
     const ctx = ctxOf([boxReq("a", 100, 60, 20)], { printer: { bedX: 120, bedY: 120 } });
-    const sp = placeStack(ctx, stackLevels(ctx, [it0(0)]), { x: 0, y: 0, w: 11500, d: 6400 });
+    const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), { x: 0, y: 0, w: 11500, d: 6400 });
     expect(sp.trays[0]?.w).toBe(11000);
     expect(sp.leftovers[0]?.w).toBe(11500 - 11000 - 20);
-    const sp2 = placeStack(ctx, stackLevels(ctx, [it0(0)]), { x: 0, y: 0, w: 11050, d: 6400 });
+    const sp2 = placeStack(ctx, stackLevels(ctx, [item(0)]), { x: 0, y: 0, w: 11050, d: 6400 });
     expect(sp2.trays[0]?.w).toBe(11050 - 20 - 300);
   });
 
@@ -1888,7 +1908,7 @@ describe("fill", () => {
       printer: { bedX: 120, bedY: 120 },
       settings: { bottomChamfer: 3, wall: 3, floor: 3 },
     });
-    const sp = placeStack(ctx, stackLevels(ctx, [it0(0)]), { x: 0, y: 0, w: 11500, d: 6400 });
+    const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), { x: 0, y: 0, w: 11500, d: 6400 });
     expect(sp.trays[0]?.w).toBe(11500 - 20 - 760);
     expect(sp.leftovers[0]?.w).toBe(760);
   });
@@ -1896,7 +1916,7 @@ describe("fill", () => {
   it("forces a leftover beside a size-locked tray", () => {
     const base = ctxOf([boxReq("a", 100, 60, 20)]);
     const ctx = withSizeLocks(base, new Map([[0, { w: 10500, d: 6400, h: 6000, rotated: false }]]));
-    const sp = placeStack(ctx, stackLevels(ctx, [it0(0)]), { x: 0, y: 0, w: 11000, d: 6400 });
+    const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), { x: 0, y: 0, w: 11000, d: 6400 });
     expect(sp.trays[0]?.w).toBe(10500);
     expect(sp.leftovers[0]?.w).toBe(480);
     expect(sp.overflowLock).toBe(0);
@@ -1905,7 +1925,7 @@ describe("fill", () => {
   it("evaluates a tree: exact tiling, leftovers numbered after stacks, no overflow", () => {
     const ctx = ctxOf([boxReq("a", 100, 60, 20), boxReq("b", 100, 60, 20)]);
     const plan = evaluate(ctx, {
-      root: cut("x", leaf([it0(0)]), leaf([it0(1)])),
+      root: cut("x", leaf([item(0)]), leaf([item(1)])),
       variants: [0, 0],
     });
     expect(overflowTotal(plan.overflow)).toBe(0);
@@ -1918,7 +1938,7 @@ describe("fill", () => {
   it("reports x overflow and shortfall when trays don't fit side by side", () => {
     const ctx = ctxOf([boxReq("a", 200, 60, 20), boxReq("b", 200, 60, 20)]);
     const plan = evaluate(ctx, {
-      root: cut("x", leaf([it0(0)]), leaf([it0(1)])),
+      root: cut("x", leaf([item(0)]), leaf([item(1)])),
       variants: [0, 0],
     });
     expect(plan.overflow.x).toBe(2 * 20400 + 20 - ctx.floorW);
@@ -1934,7 +1954,7 @@ describe("fill", () => {
 
   it("marks narrow leftovers solid", () => {
     const ctx = ctxOf([boxReq("a", 100, 60, 20)], { box: { innerWidth: 125, innerDepth: 65 } });
-    const plan = evaluate(ctx, { root: leaf([it0(0)]), variants: [0] });
+    const plan = evaluate(ctx, { root: leaf([item(0)]), variants: [0] });
     expect(plan.leftovers.length).toBe(1);
     expect(plan.leftovers[0]?.solid).toBe(true);
   });
@@ -2246,8 +2266,8 @@ git commit -m "Add layout fill with leftovers, bed caps and slivers"
 
 **Interfaces:**
 
-- Consumes: `Ctx`, `PLAY_LIMIT_U` (Task 4); `Plan`, `overflowTotal` (Task 7); `volMm3`, `U` (Task 1).
-- Produces: `interface PrevPos { x: U; y: U; level: number }`; `interface ScoreTerms { leftover; coverage; access; play; stacked; trays; filament; moved }`; `interface Score { total: number; overflow: U; terms: ScoreTerms }`; `WEIGHTS: Readonly<ScoreTerms>`; `OVERFLOW_WEIGHT = 1e9`; `coverageApplies(ctx): boolean`; `nominalPlay(ctx, crossed): U`; `scorePlan(ctx, plan, prev?: ReadonlyMap<string, PrevPos>): Score`.
+- Consumes: `Ctx`, `PLAY_LIMIT_U` (Task 4); `Plan`, `overflowTotal` (Task 7); `volMm3`, `U` (Task 1); test helper `item` (Task 5).
+- Produces: `interface PrevPos { x: U; y: U; level: number }`; `interface ScoreTerms { leftover; coverage; access; play; stacked; trays; filament; moved }`; `interface Score { total: number; overflow: U; terms: ScoreTerms }`; `WEIGHTS: Readonly<ScoreTerms>`; `OVERFLOW_WEIGHT = 1e9`; `coverageApplies(ctx): boolean`; `nominalPlayU(boxClearance: U, gap: U, crossed: number): U` (nominal lateral play of a line crossing `crossed` trays, in units; Task 15 converts the effective clearances with it too); `scorePlan(ctx, plan, prev?: ReadonlyMap<string, PrevPos>): Score`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2258,10 +2278,8 @@ import { describe, expect, it } from "vitest";
 import { createCtx } from "./context";
 import { evaluate } from "./fill";
 import { OVERFLOW_WEIGHT, scorePlan, WEIGHTS, type PrevPos } from "./score";
-import { boxReq, fakeMeasure, makeInput } from "./test-utils";
-import { cut, leaf, type StackItem, type Tree } from "./tree";
-
-const it0 = (req: number, rotated = false): StackItem => ({ req, variant: 0, part: 0, rotated });
+import { boxReq, fakeMeasure, item, makeInput } from "./test-utils";
+import { cut, leaf, type Tree } from "./tree";
 
 describe("score", () => {
   it("orders the unit steps of the terms as in spec §7.2", () => {
@@ -2299,7 +2317,7 @@ describe("score", () => {
 
   it("penalizes leftover volume", () => {
     const ctx = createCtx(makeInput(reqs), fakeMeasure);
-    const side: Tree = { root: cut("x", leaf([it0(0)]), leaf([it0(1)])), variants: [0, 0] };
+    const side: Tree = { root: cut("x", leaf([item(0)]), leaf([item(1)])), variants: [0, 0] };
     const s = scorePlan(ctx, evaluate(ctx, side));
     expect(s.overflow).toBe(0);
     expect(s.terms.leftover).toBeGreaterThan(0);
@@ -2310,7 +2328,7 @@ describe("score", () => {
   });
 
   it("applies the coverage penalty only with partial coverage or a box stored on its side", () => {
-    const tree: Tree = { root: cut("x", leaf([it0(0)]), leaf([it0(1)])), variants: [0, 0] };
+    const tree: Tree = { root: cut("x", leaf([item(0)]), leaf([item(1)])), variants: [0, 0] };
     const full = createCtx(makeInput(reqs, { box: { headroom: 5 } }), fakeMeasure);
     expect(scorePlan(full, evaluate(full, tree)).terms.coverage).toBe(0);
     const partial = createCtx(
@@ -2324,17 +2342,17 @@ describe("score", () => {
 
   it("penalizes often-used trays under other trays and counts stacked trays", () => {
     const ctx = createCtx(makeInput(reqs), fakeMeasure);
-    const buried: Tree = { root: leaf([it0(1), it0(0)]), variants: [0, 0] };
+    const buried: Tree = { root: leaf([item(1), item(0)]), variants: [0, 0] };
     const s = scorePlan(ctx, evaluate(ctx, buried));
     expect(s.terms.access).toBe(1);
     expect(s.terms.stacked).toBe(1);
-    const onTop: Tree = { root: leaf([it0(0), it0(1)]), variants: [0, 0] };
+    const onTop: Tree = { root: leaf([item(0), item(1)]), variants: [0, 0] };
     expect(scorePlan(ctx, evaluate(ctx, onTop)).terms.access).toBe(0);
   });
 
   it("counts trays moved relative to a warm start", () => {
     const ctx = createCtx(makeInput(reqs), fakeMeasure);
-    const tree: Tree = { root: cut("x", leaf([it0(0)]), leaf([it0(1)])), variants: [0, 0] };
+    const tree: Tree = { root: cut("x", leaf([item(0)]), leaf([item(1)])), variants: [0, 0] };
     const plan = evaluate(ctx, tree);
     const prev = new Map<string, PrevPos>(
       plan.trays.map((t) => [
@@ -2350,9 +2368,9 @@ describe("score", () => {
   it("penalizes nominal play above 1.5 mm", () => {
     const many = Array.from({ length: 8 }, (_, i) => boxReq(`r${i}`, 20, 20, 10));
     const ctx = createCtx(makeInput(many), fakeMeasure);
-    let root = leaf([it0(7)]) as Tree["root"];
+    let root = leaf([item(7)]) as Tree["root"];
     for (let i = 6; i >= 0; i--) {
-      root = cut("x", leaf([it0(i)]), root);
+      root = cut("x", leaf([item(i)]), root);
     }
     const s = scorePlan(ctx, evaluate(ctx, { root, variants: many.map(() => 0) }));
     expect(s.terms.play).toBeGreaterThan(0);
@@ -2444,8 +2462,9 @@ export function coverageApplies(ctx: Ctx): boolean {
   return (box.headroom > 0 && box.headroomCoverage === "partial") || box.storedOnSide;
 }
 
-export function nominalPlay(ctx: Ctx, crossed: number): U {
-  return 2 * ctx.boxClearance + Math.max(0, crossed - 1) * ctx.gap;
+/** Nominal lateral play along a line crossing `crossed` trays: clearance twice, gap between trays. */
+export function nominalPlayU(boxClearance: U, gap: U, crossed: number): U {
+  return 2 * boxClearance + Math.max(0, crossed - 1) * gap;
 }
 
 function shell(ctx: Ctx, w: U, d: U, h: U): number {
@@ -2489,7 +2508,7 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     filamentMm3 += l.solid ? volMm3(l.w, l.d, l.h) : shell(ctx, l.w, l.d, l.h);
   }
   const playExcess = (crossed: number): number =>
-    Math.max(0, nominalPlay(ctx, crossed) - PLAY_LIMIT_U);
+    Math.max(0, nominalPlayU(ctx.boxClearance, ctx.gap, crossed) - PLAY_LIMIT_U);
   const terms: ScoreTerms = {
     leftover: share(leftoverMm3, boxMm3),
     coverage,
@@ -2635,8 +2654,10 @@ describe("moves", () => {
 
   it("flips a cut axis and moves a cut share", () => {
     const f = flipCut(start, env(), createRng(2));
+    expect(f).not.toBeNull();
     expect(f && cuts(f.root).map((c) => c.cut.axis)).not.toEqual(["x", "y"]);
     const m = moveCut(start, env(), createRng(3));
+    expect(m).not.toBeNull();
     expect(m && cuts(m.root).map((c) => c.cut.share)).not.toEqual(
       cuts(start.root).map((c) => c.cut.share),
     );
@@ -3077,24 +3098,63 @@ git commit -m "Add pure annealing moves that respect locked paths"
 **Files:**
 
 - Create: `src/layout/locks.ts`
+- Modify: `src/layout/test-utils.ts` (add `traySpec`)
 - Test: `src/layout/locks.test.ts`
 
 **Interfaces:**
 
 - Consumes: `Lock`, `Notice`, `StoredLayout`, `TraySpec` (`../model/types`); `fitsBed` (Task 3); `Ctx`, `FixedSize`, `PartRef`, `MAX_DEPTH`, `MAX_LEVELS`, `withSizeLocks` (Task 4); tree functions (Task 5); `stackHeights`, `stackLevels` (Task 6); `MoveEnv`, `insertItem`, `insertLeaf`, `removeItems` (Task 9); `Rng` (Task 2); `toU` (Task 1).
-- Produces: `interface LockedLeaf { path; items }`; `interface ResolvedLocks { leaves; groups; lockedPaths; pinnedVariant: readonly (number | null)[]; sizes: ReadonlyMap<number, FixedSize>; rotationFixed; kept: readonly Lock[] }`; `interface LockHints { variantOf?(req): number | undefined; rotatedOf?(trayKey): boolean | undefined }`; `noLocks(ctx)`; `describeLock(lock): string`; `lockDroppedNotice(lock, reason, index = -1): Notice` (code `lock.dropped`; `path: "/locks/<index>"` when `index ≥ 0`, the lock's index in the input locks, so the UI can remove exactly that lock); `resolveLocks(ctx, locks, hints?): { resolved; notices }`; `moveEnvOf(ctx, resolved): MoveEnv`; `completeTree(tree, env, rng): Tree | null`; `applyLocks(tree, resolved, env, rng, axisOf?): Tree | null`; `swapLocks(locks: readonly Lock[], keyA: string, keyB: string, layout: StoredLayout): Lock[]`.
+- Produces: `interface LockedLeaf { path; items }`; `interface ResolvedLocks { leaves; groups; lockedPaths; pinnedVariant: readonly (number | null)[]; sizes: ReadonlyMap<number, FixedSize>; rotationFixed; kept: readonly Lock[] }`; `interface LockHints { variantOf?(req): number | undefined; rotatedOf?(trayKey): boolean | undefined }`; `noLocks(ctx)`; `isValidPath(path): boolean` (a 0/1 path of at most `MAX_DEPTH` digits; Task 13 uses it for stored layouts); `describeLock(lock): string`; `lockDroppedNotice(lock, reason, index = -1): Notice` (code `lock.dropped`; `path: "/locks/<index>"` when `index ≥ 0`, the lock's index in the input locks, so the UI can remove exactly that lock); `resolveLocks(ctx, locks, hints?): { resolved; notices }`; `moveEnvOf(ctx, resolved): MoveEnv`; `completeTree(tree, env, rng): Tree | null`; `applyLocks(tree, resolved, env, rng, axisOf?): Tree | null`; `swapLocks(locks: readonly Lock[], keyA: string, keyB: string, layout: StoredLayout): Lock[]`. Test helper (added to `test-utils.ts`; the summarize, warnings and warm-start tests use it too): `traySpec(o?: Partial<TraySpec>): TraySpec`, a plain 100 × 50 × 20 tray at path `"0"`.
 
 - [ ] **Step 1: Write the failing test**
+
+First add the `traySpec` helper to the shared test helpers.
+
+Add `TraySpec` to the `../model/types` import of `src/layout/test-utils.ts`:
+
+```ts
+import type { Access, Box, Lock, Printer, Settings, TraySpec } from "../model/types";
+```
+
+Append to `src/layout/test-utils.ts`:
+
+```ts
+/** A printed tray spec: a plain 100 × 50 × 20 tray at path "0", with `o` laid over it. */
+export function traySpec(o: Partial<TraySpec> = {}): TraySpec {
+  return {
+    key: "k",
+    part: "tray",
+    path: "0",
+    stack: 0,
+    level: 0,
+    x: 0,
+    y: 0,
+    z: 0,
+    w: 100,
+    d: 50,
+    h: 20,
+    rotated: false,
+    wall: 1.6,
+    floor: 1.2,
+    lip: false,
+    solid: false,
+    compartments: [],
+    ...o,
+  };
+}
+```
+
+Then the test.
 
 `src/layout/locks.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import type { Lock, StoredLayout, TraySpec } from "../model/types";
+import type { Lock, StoredLayout } from "../model/types";
 import { createCtx, withSizeLocks } from "./context";
 import { applyLocks, moveEnvOf, noLocks, resolveLocks, swapLocks } from "./locks";
 import { createRng } from "./prng";
-import { boxReq, comp, fakeMeasure, makeInput, part, req, variant } from "./test-utils";
+import { boxReq, comp, fakeMeasure, makeInput, part, req, traySpec, variant } from "./test-utils";
 import { cut, itemsOf, leaf, leaves, nodeAt, type Tree } from "./tree";
 
 const reqs = [
@@ -3136,6 +3196,21 @@ describe("resolveLocks", () => {
       { path: "1", items: [{ req: 2, variant: 1, part: 1, rotated: false }] },
     ]);
     expect(r.notices).toEqual([]);
+  });
+
+  it("does not let a dropped lock pin the variant of its component", () => {
+    // The path is invalid, so the lock is dropped; it must not keep forcing variant 1.
+    const dropped = resolve([{ kind: "position", trayKey: "c:p0:1", path: "2", rotated: false }]);
+    expect(dropped.resolved.kept).toEqual([]);
+    expect(dropped.notices).toHaveLength(1);
+    expect(dropped.resolved.pinnedVariant).toEqual([null, null, null]);
+    // A kept lock on the same component still pins it.
+    const mixed = resolve([
+      { kind: "position", trayKey: "c:p0:1", path: "1", rotated: false },
+      { kind: "position", trayKey: "c:p0:1", path: "2", rotated: false },
+    ]);
+    expect(mixed.resolved.kept).toHaveLength(1);
+    expect(mixed.resolved.pinnedVariant).toEqual([null, null, 1]);
   });
 
   it("drops position locks with invalid, conflicting or impossible values", () => {
@@ -3234,28 +3309,6 @@ describe("applyLocks", () => {
   });
 });
 
-function tray(key: string, path: string, level: number): TraySpec {
-  return {
-    key,
-    part: "tray",
-    path,
-    stack: 0,
-    level,
-    x: 0,
-    y: 0,
-    z: 0,
-    w: 10,
-    d: 10,
-    h: 10,
-    rotated: false,
-    wall: 1.6,
-    floor: 1.2,
-    lip: false,
-    solid: false,
-    compartments: [],
-  };
-}
-
 describe("swapLocks", () => {
   const layout: StoredLayout = {
     createdWith: "t",
@@ -3264,7 +3317,11 @@ describe("swapLocks", () => {
     seed: 1,
     iterations: 1,
     capped: false,
-    trays: [tray("a", "0", 0), tray("x", "0", 1), tray("b", "1", 0)],
+    trays: [
+      traySpec({ key: "a", path: "0", level: 0 }),
+      traySpec({ key: "x", path: "0", level: 1 }),
+      traySpec({ key: "b", path: "1", level: 0 }),
+    ],
   };
 
   it("swaps whole leaves and locks both", () => {
@@ -3368,6 +3425,11 @@ export function noLocks(ctx: Ctx): ResolvedLocks {
   };
 }
 
+/** A guillotine path (a string of 0/1 digits) no longer than MAX_DEPTH: locks, stored layouts. */
+export function isValidPath(path: string): boolean {
+  return /^[01]*$/.test(path) && path.length <= MAX_DEPTH;
+}
+
 export function describeLock(lock: Lock): string {
   if (lock.kind === "stack") {
     return `Stack lock on ${lock.trayKeys.join(", ")}`;
@@ -3397,7 +3459,12 @@ interface PosLock {
 /**
  * Validates locks before optimizing (spec §7.2). Every lock that can't be kept — unknown
  * trayKey, contents that no longer fit a size lock, box edits, conflicting paths or
- * stacks — is dropped with a "lock.dropped" notice, never silently.
+ * stacks — is dropped with a "lock.dropped" notice, never silently. A dropped lock
+ * constrains nothing: only the requirements a kept lock names stay pinned to a variant.
+ *
+ * Size locks are checked against the unlipped level-0 metrics. A size-locked tray that ends
+ * up lower in a stack (lipped) can need more; the search then sees lock overflow, and the
+ * fallback in `optimize` (Task 18) drops the lock with its generic reason.
  */
 export function resolveLocks(
   ctx: Ctx,
@@ -3506,7 +3573,7 @@ export function resolveLocks(
     }
     const ref = refOf(lock.trayKey);
     const id = ctx.partId(ref);
-    if (!/^[01]*$/.test(lock.path) || lock.path.length > MAX_DEPTH) {
+    if (!isValidPath(lock.path)) {
       drop(lock, "its position is not valid");
       continue;
     }
@@ -3631,15 +3698,25 @@ export function resolveLocks(
     .filter((g) => !g.items.some((i) => pos.has(ctx.partId(i))))
     .map((g) => g.items);
   const rotationFixed = new Set<number>([...pos.keys(), ...sizes.keys(), ...inGroup.keys()]);
+
+  // 6. Locks dropped above must not keep pinning their requirement's variant. A requirement a
+  // kept lock names keeps its pin: the kept locks were resolved under it, and it lies in
+  // their intersection.
+  const kept = locks.filter((l) => !dropped.has(l));
+  const named = new Set(
+    kept.flatMap((l) =>
+      (l.kind === "stack" ? l.trayKeys : [l.trayKey]).map((k) => ctx.refsOfKey(k)[0]?.req ?? 0),
+    ),
+  );
   return {
     resolved: {
       leaves: lockedLeaves,
       groups,
       lockedPaths: lockedLeaves.map((l) => l.path),
-      pinnedVariant,
+      pinnedVariant: pinnedVariant.map((v, r) => (named.has(r) ? v : null)),
       sizes,
       rotationFixed,
-      kept: locks.filter((l) => !dropped.has(l)),
+      kept,
     },
     notices,
   };
@@ -3857,7 +3934,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 From the repo root:
 
 ```bash
-git add src/layout/locks.test.ts src/layout/locks.ts
+git add src/layout/locks.test.ts src/layout/locks.ts src/layout/test-utils.ts
 git commit -m "Add lock validation, application and drag-to-swap"
 ```
 
@@ -4162,12 +4239,13 @@ git commit -m "Add first-fit-decreasing starting layouts"
 
 - [ ] **Step 1: Extend the test helpers with a fake realize**
 
-Replace the whole file with the version below. It adds the `CompartmentSpec`/`TraySpec`/`Realize` imports and `fakeRealize` at the end; everything else is unchanged.
+Replace the whole file with the version below. It keeps the earlier additions (`item` from Task 5, `traySpec` from Task 10) and adds the `CompartmentSpec`/`Realize` imports and `fakeRealize` at the end; everything else is unchanged.
 
 `src/layout/test-utils.ts`:
 
 ```ts
 import { DEFAULT_SETTINGS } from "../model/settings";
+import { CHANNEL_DEPTH, MIN_GRIP } from "../sizing/constants";
 import type {
   Access,
   Box,
@@ -4180,6 +4258,7 @@ import type {
 import type { CompartmentReq, TrayPartReq, TrayRequirement, TrayVariant } from "../sizing/types";
 import type { Measure } from "./context";
 import type { Realize } from "./materialize";
+import type { StackItem } from "./tree";
 import type { LayoutInput } from "./types";
 
 export const TEST_BOX: Box = {
@@ -4206,11 +4285,16 @@ export interface CompOpts {
   elastic?: Partial<CompartmentReq["elastic"]>;
   kind?: CompartmentReq["kind"];
   contents?: string;
+  /** Forces (true) or suppresses (false) the front wall cutout. */
+  fingerCut?: boolean;
 }
 
-/** A compartment; adds a front wall cutout when no inner dimension reaches the 25 mm grip. */
+/**
+ * A compartment. It asks for a front wall cutout when `fingerCut` says so or, by default, when
+ * a side is under the MIN_GRIP size.
+ */
 export function comp(o: CompOpts): CompartmentReq {
-  const needsCut = Math.min(o.minW, o.minD) < 25;
+  const needsCut = o.fingerCut ?? Math.min(o.minW, o.minD) < MIN_GRIP;
   return {
     componentId: "c",
     contents: o.contents ?? `${o.minW}x${o.minD}x${o.minH}`,
@@ -4220,7 +4304,7 @@ export function comp(o: CompOpts): CompartmentReq {
     minH: o.minH,
     elastic: { w: false, d: false, h: false, ...o.elastic },
     features: needsCut
-      ? [{ type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false }]
+      ? [{ type: "wallCutout", side: "front", depthFraction: CHANNEL_DEPTH, floorNotch: false }]
       : [],
   };
 }
@@ -4311,9 +4395,39 @@ export const fakeMeasure: Measure = (p, _settings, opts) => {
   return { w, d, h };
 };
 
+/** A stack item for part 0 of variant 0 of requirement `req`. */
+export function item(req: number, rotated = false): StackItem {
+  return { req, variant: 0, part: 0, rotated };
+}
+
+/** A printed tray spec: a plain 100 × 50 × 20 tray at path "0", with `o` laid over it. */
+export function traySpec(o: Partial<TraySpec> = {}): TraySpec {
+  return {
+    key: "k",
+    part: "tray",
+    path: "0",
+    stack: 0,
+    level: 0,
+    x: 0,
+    y: 0,
+    z: 0,
+    w: 100,
+    d: 50,
+    h: 20,
+    rotated: false,
+    wall: 1.6,
+    floor: 1.2,
+    lip: false,
+    solid: false,
+    compartments: [],
+    ...o,
+  };
+}
+
 /**
  * Simple realize for unit tests: compartments side by side along X filling the inner
- * area, a wall cutout on the left side of each, one 5 mm spacer in the first well.
+ * area, a wall cutout on the left side of each, one 5 mm spacer in the first well with a
+ * notch (its own feature, which materialize must keep).
  */
 export const fakeRealize: Realize = (p, outer, settings) => {
   const wall = settings.wall;
@@ -4350,6 +4464,7 @@ export const fakeRealize: Realize = (p, outer, settings) => {
     lip: false,
     solid: true,
     compartments: [],
+    features: [{ type: "spacerNotch", axis: "y", at: 2.5, width: 10, depth: 3 }],
   };
   return { wall, compartments, spacers: [spacer] };
 };
@@ -4395,6 +4510,18 @@ describe("materialize", () => {
         expect(toU(v) / 100).toBe(v);
       }
     }
+  });
+
+  it("keeps a spacer's own features and translates only its position", () => {
+    const tree: Tree = {
+      root: leaf([{ req: 0, variant: 0, part: 0, rotated: false }]),
+      variants: [0, 0],
+    };
+    const specs = materialize(ctx, evaluate(ctx, tree), fakeRealize);
+    const spacer = specs.find((t) => t.key === "a:p0:0:spacer");
+    expect(spacer?.features).toEqual([
+      { type: "spacerNotch", axis: "y", at: 2.5, width: 10, depth: 3 },
+    ]);
   });
 
   it("realizes a rotated tray inside its rotated footprint", () => {
@@ -4488,7 +4615,7 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
       d,
       h,
       rotated: t.item.rotated,
-      wall: realized.wall,
+      wall,
       floor,
       lip: t.lipped,
       solid: false,
@@ -4576,7 +4703,7 @@ git commit -m "Materialize layout plans into tray specs"
 
 **Interfaces:**
 
-- Consumes: `TraySpec`, `CompartmentSpec`; `CompartmentReq`, `TrayPartReq` (`../sizing/types`); `Ctx`, `MAX_DEPTH` (Task 4); `LockHints` (Task 10); `PrevPos` (Task 8); `stackLevels`, `stackMinFootprint` (Task 6); `cut`, `leaf`, `minExtents`, `splitRect`, `SHARE_HALF`, `SHARE_MAX` (Task 5); `toU`, `Rect` (Task 1).
+- Consumes: `TraySpec`, `CompartmentSpec`; `CompartmentReq`, `TrayPartReq` (`../sizing/types`); `Ctx`, `MAX_DEPTH` (Task 4); `isValidPath`, `LockHints` (Task 10); `PrevPos` (Task 8); `stackLevels`, `stackMinFootprint` (Task 6); `cut`, `leaf`, `minExtents`, `splitRect`, `SHARE_HALF`, `SHARE_MAX` (Task 5); `toU`, `Rect` (Task 1); test helper `traySpec` (Task 10).
 - Produces: `meetsMinimum(c: CompartmentReq, s: CompartmentSpec, trayH: number): boolean` (rule 7 for one compartment; the rectangle is content + clearance, no reach bands: amendment 7); `inferVariant(ctx, req, trays): number | undefined` (a `TraySpec` doesn't record its variant and plan 2 gives every variant of a requirement the same trayKeys, e.g. `<key>:p0:0` for upright and flat cards, so the variant is the first whose key set matches and whose compartments meet their minimums); `interface WarmHints extends Required<LockHints> { axisOf(path): Axis | undefined; prev: ReadonlyMap<string, PrevPos> }`; `warmHints(ctx, trays): WarmHints` (`variantOf` = `inferVariant`); `warmTree(ctx, trays, pinnedVariant, hints): Tree | null` (null for corrupt or prefix-conflicting paths).
 
 - [ ] **Step 1: Write the failing test**
@@ -4597,6 +4724,7 @@ import {
   makeInput,
   part,
   req,
+  traySpec,
   variant,
 } from "./test-utils";
 import { cut, leaf, SHARE_MAX, type Tree } from "./tree";
@@ -4705,27 +4833,18 @@ describe("warm start", () => {
       ]),
     ];
     const sctx = createCtx(makeInput(shared), fakeMeasure);
-    const tray = (w: number, h: number): TraySpec => ({
-      key: "s:p0:0",
-      part: "tray",
-      path: "",
-      stack: 0,
-      level: 0,
-      x: 0,
-      y: 0,
-      z: 0,
-      w: w + 4,
-      d: 94,
-      h,
-      rotated: false,
-      wall: 2,
-      floor: 1.2,
-      lip: false,
-      solid: false,
-      compartments: [
-        { x: 2, y: 2, w, d: 90, floorZ: 1.2, kind: "well", contents: "s", features: [] },
-      ],
-    });
+    const tray = (w: number, h: number): TraySpec =>
+      traySpec({
+        key: "s:p0:0",
+        path: "",
+        w: w + 4,
+        d: 94,
+        h,
+        wall: 2,
+        compartments: [
+          { x: 2, y: 2, w, d: 90, floorZ: 1.2, kind: "well", contents: "s", features: [] },
+        ],
+      });
     expect(inferVariant(sctx, 0, [tray(66, 32)])).toBe(1); // only "flat" holds
     expect(inferVariant(sctx, 0, [tray(31, 67)])).toBe(0); // only "upright" holds
     expect(inferVariant(sctx, 0, [tray(66, 67)])).toBe(0); // both hold: the first
@@ -4748,7 +4867,7 @@ Expected: FAIL — `Failed to resolve import "./warmstart" from "src/layout/warm
 import type { CompartmentSpec, TraySpec } from "../model/types";
 import type { CompartmentReq, TrayPartReq } from "../sizing/types";
 import { MAX_DEPTH, type Ctx } from "./context";
-import type { LockHints } from "./locks";
+import { isValidPath, type LockHints } from "./locks";
 import type { PrevPos } from "./score";
 import { stackLevels, stackMinFootprint } from "./stack";
 import {
@@ -4779,15 +4898,11 @@ interface Box2 {
   y1: number;
 }
 
-function validPath(p: string): boolean {
-  return /^[01]*$/.test(p) && p.length <= MAX_DEPTH;
-}
-
 /** Bottom-level footprints (level-0 trays and leftovers) of a stored layout, in units. */
 function bottomRects(trays: readonly TraySpec[]): { path: string; r: Box2 }[] {
   return trays
     .filter((t) => (t.part === "tray" && t.level === 0) || t.part === "leftover")
-    .filter((t) => validPath(t.path))
+    .filter((t) => isValidPath(t.path))
     .map((t) => {
       const x0 = toU(t.x);
       const y0 = toU(t.y);
@@ -4916,7 +5031,7 @@ export function warmTree(
   hints: WarmHints,
 ): Tree | null {
   const parts = trays.filter((t) => t.part === "tray" || t.part === "leftover");
-  if (parts.length === 0 || parts.some((t) => !validPath(t.path))) {
+  if (parts.length === 0 || parts.some((t) => !isValidPath(t.path))) {
     return null;
   }
   const paths = [...new Set(parts.map((t) => t.path))].sort();
@@ -5220,7 +5335,7 @@ git commit -m "Add deterministic simulated annealing"
 
 **Interfaces:**
 
-- Consumes: `effective`, `topPlane` (`../model/settings`); `maxCrossing` (Task 7); `LayoutInput`, `LayoutSummary` (Task 1); `toU`, `Rect` (Task 1).
+- Consumes: `effective`, `topPlane` (`../model/settings`); `maxCrossing` (Task 7); `nominalPlayU` (Task 8); `LayoutInput`, `LayoutSummary` (Task 1); `toMm`, `toU`, `Rect` (Task 1); test helper `traySpec` (Task 10).
 - Produces: `summarize(trays: TraySpec[], input: Pick<LayoutInput, "box" | "settings">): LayoutSummary` (roadmap §4.4 signature; fill %, printed parts without spacers, stacks, filament upper bound incl. lip ring and spacers at 1.24 g/cm³, nominal play per axis).
 
 - [ ] **Step 1: Write the failing test**
@@ -5229,39 +5344,15 @@ git commit -m "Add deterministic simulated annealing"
 
 ```ts
 import { describe, expect, it } from "vitest";
-import type { TraySpec } from "../model/types";
 import { summarize } from "./summarize";
-import { makeInput } from "./test-utils";
-
-function spec(o: Partial<TraySpec>): TraySpec {
-  return {
-    key: "k",
-    part: "tray",
-    path: "0",
-    stack: 0,
-    level: 0,
-    x: 0,
-    y: 0,
-    z: 0,
-    w: 100,
-    d: 50,
-    h: 20,
-    rotated: false,
-    wall: 1.6,
-    floor: 1.2,
-    lip: false,
-    solid: false,
-    compartments: [],
-    ...o,
-  };
-}
+import { makeInput, traySpec } from "./test-utils";
 
 describe("summarize", () => {
   const input = makeInput([], { box: { innerWidth: 201.4, innerDepth: 51, innerHeight: 20 } });
 
   it("computes fill, counts, filament and play", () => {
     const trays = [
-      spec({
+      traySpec({
         key: "a",
         x: 0,
         stack: 0,
@@ -5269,8 +5360,8 @@ describe("summarize", () => {
           { x: 1, y: 1, w: 98, d: 48, floorZ: 1, kind: "well", contents: "", features: [] },
         ],
       }),
-      spec({ key: "leftover:0", part: "leftover", x: 100.2, stack: 1, solid: true }),
-      spec({ key: "a:spacer", part: "spacer", path: "", w: 5, d: 10, h: 10, solid: true }),
+      traySpec({ key: "leftover:0", part: "leftover", x: 100.2, stack: 1, solid: true }),
+      traySpec({ key: "a:spacer", part: "spacer", path: "", w: 5, d: 10, h: 10, solid: true }),
     ];
     const s = summarize(trays, input);
     expect(s.trayCount).toBe(2);
@@ -5283,8 +5374,8 @@ describe("summarize", () => {
   });
 
   it("adds the lip ring to the filament estimate", () => {
-    const plain = summarize([spec({ solid: false })], input).filamentG;
-    const lipped = summarize([spec({ lip: true })], input).filamentG;
+    const plain = summarize([traySpec({ solid: false })], input).filamentG;
+    const lipped = summarize([traySpec({ lip: true })], input).filamentG;
     const ring = (100 * 50 - 97.6 * 47.6) * 2 * 0.00124;
     expect(lipped).toBeCloseTo(plain + ring, 1);
   });
@@ -5313,8 +5404,9 @@ Expected: FAIL — `Failed to resolve import "./summarize" from "src/layout/summ
 import { effective, topPlane } from "../model/settings";
 import type { TraySpec } from "../model/types";
 import { maxCrossing } from "./fill";
+import { nominalPlayU } from "./score";
 import type { LayoutInput, LayoutSummary } from "./types";
-import { toU, type Rect } from "./units";
+import { toMm, toU, type Rect } from "./units";
 
 /** PLA density, g/mm³ (1.24 g/cm³). */
 const PLA_G_PER_MM3 = 0.00124;
@@ -5356,7 +5448,7 @@ export function summarize(
     .filter((t) => t.level === 0)
     .map((t) => ({ x: toU(t.x), y: toU(t.y), w: toU(t.w), d: toU(t.d) }));
   const play = (crossed: number): number =>
-    round(2 * eff.boxClearance + Math.max(0, crossed - 1) * eff.trayGap, 2);
+    toMm(nominalPlayU(toU(eff.boxClearance), toU(eff.trayGap), crossed));
   return {
     fillPct: usable > 0 ? round((outerVolume / usable) * 100, 1) : 0,
     trayCount: printed.length,
@@ -5394,7 +5486,7 @@ git commit -m "Add layout summary"
 
 **Interfaces:**
 
-- Consumes: `fitsBed` (Task 3); `Ctx`, `PLAY_LIMIT_U` (Task 4); `coverageApplies` (Task 8); `LayoutSummary` (Task 1); `toMm`, `toU` (Task 1).
+- Consumes: `FIT_CHOICES` (`../model/settings`); `fitsBed` (Task 3); `Ctx`, `PLAY_LIMIT_U` (Task 4); `coverageApplies` (Task 8); `LayoutSummary` (Task 1); `toMm` (Task 1); test helper `traySpec` (Task 10).
 - Produces: `NOTICE_CODES = { coverage: "layout.coverage", play: "layout.play", lipOff: "layout.lipOff", capped: "layout.capped", bed: "layout.bed", doesNotFit: "layout.doesNotFit", lockDropped: "lock.dropped" }`; `requirementLabel(r)`; `layoutWarnings(ctx, trays, summary): Notice[]`; `bedNotices(ctx): Notice[]`; `doesNotFitNotice(ctx, shortfallMm): Notice`; `cappedNotice(): Notice`.
 
 - [ ] **Step 1: Write the failing test**
@@ -5405,7 +5497,7 @@ git commit -m "Add layout summary"
 import { describe, expect, it } from "vitest";
 import type { TraySpec } from "../model/types";
 import { createCtx } from "./context";
-import { boxReq, fakeMeasure, makeInput } from "./test-utils";
+import { boxReq, fakeMeasure, makeInput, traySpec } from "./test-utils";
 import type { LayoutSummary } from "./types";
 import {
   bedNotices,
@@ -5417,27 +5509,16 @@ import {
 } from "./warnings";
 
 function tray(key: string, path: string, level: number, contents: string): TraySpec {
-  return {
+  return traySpec({
     key,
-    part: "tray",
     path,
-    stack: 0,
     level,
-    x: 0,
-    y: 0,
-    z: 0,
     w: 50,
     d: 50,
-    h: 20,
-    rotated: false,
-    wall: 1.6,
-    floor: 1.2,
-    lip: false,
-    solid: false,
     compartments: [
       { x: 2, y: 2, w: 46, d: 46, floorZ: 1.2, kind: "scoop", contents, features: [] },
     ],
-  };
+  });
 }
 
 const okSummary: LayoutSummary = {
@@ -5531,13 +5612,14 @@ Expected: FAIL — `Failed to resolve import "./warnings" from "src/layout/warni
 `src/layout/warnings.ts`:
 
 ```ts
+import { FIT_CHOICES } from "../model/settings";
 import type { Notice, TraySpec } from "../model/types";
 import type { TrayRequirement } from "../sizing/types";
 import { fitsBed } from "./bed";
 import { PLAY_LIMIT_U, type Ctx } from "./context";
 import { coverageApplies } from "./score";
 import type { LayoutSummary } from "./types";
-import { toMm, toU } from "./units";
+import { toMm } from "./units";
 
 /** Stable notice codes emitted by the layout engine (spec §7.3). */
 export const NOTICE_CODES = {
@@ -5666,7 +5748,7 @@ export function doesNotFitNotice(ctx: Ctx, shortfall: { x: number; y: number; z:
   if (ctx.input.box.headroom > 0) {
     tips.push("move the rulebook or boards elsewhere (less headroom)");
   }
-  if (toU(ctx.input.settings.fit) > 70) {
+  if (ctx.input.settings.fit > FIT_CHOICES.tight) {
     tips.push("choose a tighter fit (Fit: tight)");
   }
   tips.push("split groups into separate components");
@@ -5718,7 +5800,7 @@ git commit -m "Add layout warnings and doesNotFit suggestions"
 
 **Interfaces:**
 
-- Consumes: `hasGrip(compartments)`, `needsGrip(part)`, `wallFor(settings, lipped)` (`../sizing`, plan 2); `planTray(spec, settings)` (`../geometry/plan`, plan 3); `effectiveBottomChamfer` (`../model/settings`); `size`, `parseProject`, `inputsHash` (plans 1–2); fixtures `test/fixtures/{cards-heavy,bits-heavy,tiles-minis,tiny-box}.json` (plan 1); `fitsBed` (Task 3); `createCtx`, `PartRef` (Task 4); `describeLock` (Task 10); `inferVariant`, `meetsMinimum` (Task 13); units (Task 1).
+- Consumes: `hasGrip(compartments)`, `needsGrip(part)`, `wallFor(settings, lipped)` (`../sizing`, plan 2); `planTray(spec, settings)` (`../geometry/plan`, plan 3); `effectiveBottomChamfer` (`../model/settings`); `size`, `parseProject`, `inputsHash` (plans 1–2); fixtures `test/fixtures/{cards-heavy,bits-heavy,tiles-minis,small-tiles,tiny-box}.json` (plan 1; `small-tiles` is the finger-channel review fixture); `fitsBed` (Task 3); `createCtx`, `PartRef` (Task 4); `describeLock` (Task 10); `inferVariant`, `meetsMinimum` (Task 13); units (Task 1).
 - Produces: `isGuillotineTiling(rects, region, gap): boolean`; `isDropped(lock, notices): boolean`; `checkHardRules(input, layout, notices): string[]` (empty = all rules hold); `FIXTURES`, `type FixtureName`, `fixtureInput(name): LayoutInput`.
 
 - [ ] **Step 1: Write the failing test**
@@ -5800,7 +5882,7 @@ import { createCtx, type PartRef } from "./context";
 import { describeLock } from "./locks";
 import { inferVariant, meetsMinimum } from "./warmstart";
 import type { LayoutInput } from "./types";
-import { toU, type Rect, type U } from "./units";
+import { toMm, toU, type Rect, type U } from "./units";
 
 function tiles(rects: readonly Rect[], region: Rect, gap: U): boolean {
   if (rects.length === 0) {
@@ -5923,7 +6005,7 @@ export function checkHardRules(
     byPath.set(t.path, [...(byPath.get(t.path) ?? []), t]);
   }
   const chamfer = effectiveBottomChamfer(settings, 1);
-  const play = ctx.inset / 100 - settings.lip.thickness;
+  const play = toMm(ctx.inset) - settings.lip.thickness;
   for (const [path, list] of byPath) {
     const stack = [...list].sort((a, b) => a.level - b.level);
     const sum = stack.reduce((s, t) => s + toU(t.h), 0);
@@ -6127,6 +6209,7 @@ import { parseProject } from "../model/schema";
 import { size } from "../sizing";
 import bitsHeavy from "../../test/fixtures/bits-heavy.json";
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
+import smallTiles from "../../test/fixtures/small-tiles.json";
 import tilesMinis from "../../test/fixtures/tiles-minis.json";
 import tinyBox from "../../test/fixtures/tiny-box.json";
 import type { LayoutInput } from "./types";
@@ -6135,6 +6218,7 @@ export const FIXTURES = {
   "cards-heavy": cardsHeavy,
   "bits-heavy": bitsHeavy,
   "tiles-minis": tilesMinis,
+  "small-tiles": smallTiles,
   "tiny-box": tinyBox,
 } as const;
 
@@ -6229,7 +6313,7 @@ describe("optimize", () => {
       iterations: 3000,
       capped: false,
     });
-    expect(checkHardRules(input, r.layout ?? { ...emptyLayout() }, r.notices)).toEqual([]);
+    expect(checkHardRules(input, r.layout ?? emptyLayout(), r.notices)).toEqual([]);
   });
 
   it("is deterministic: same seed + iterations → deep-equal result", () => {
@@ -6352,7 +6436,11 @@ describe("optimize", () => {
       },
     });
     const r = optimize(exact, 1, 500);
-    expect(r.layout?.trays.filter((t) => t.part !== "spacer")).toHaveLength(1);
+    const printed = r.layout?.trays.filter((t) => t.part !== "spacer") ?? [];
+    expect(printed).toHaveLength(1);
+    // exactly the floor size: the box minus the clearance on every side
+    expect(printed[0]?.w).toBeCloseTo(exact.box.innerWidth - 2 * bc, 2);
+    expect(printed[0]?.d).toBeCloseTo(exact.box.innerDepth - 2 * bc, 2);
     expect(checkHardRules(exact, r.layout ?? emptyLayout(), r.notices)).toEqual([]);
   });
 
@@ -6438,21 +6526,7 @@ describe("checkHardRules on optimizer output", () => {
 
   it("passes a real layout", () => {
     expect(r.layout).not.toBeNull();
-    expect(
-      checkHardRules(
-        input,
-        r.layout ?? {
-          createdWith: "",
-          geometryVersion: "",
-          inputsHash: "",
-          seed: 0,
-          iterations: 0,
-          capped: false,
-          trays: [],
-        },
-        r.notices,
-      ),
-    ).toEqual([]);
+    expect(checkHardRules(input, r.layout ?? emptyLayout(), r.notices)).toEqual([]);
   });
 
   it("flags a moved tray, a wrong height and an ignored lock", () => {
@@ -6821,7 +6895,7 @@ git commit -m "Add layout optimizer orchestration"
 
 - [ ] **Step 1: Write the property tests**
 
-Random requirement sets (1–6 requirements, 1–3 compartments, elastic flags, split variants, rotation, access, loose), random boxes, headroom, coverage, lip on/off, Fit, leftover mode and bed size; plus the synthetic fixtures. Every result must satisfy `checkHardRules` or report `doesNotFit` with a best attempt.
+Random requirement sets (1–6 requirements, 1–3 compartments, elastic flags, split variants, rotation, access, loose, finger cuts on every compartment of a requirement), random boxes, headroom, coverage, lip on/off, Fit, leftover mode and bed size; plus the synthetic fixtures. Every result must satisfy `checkHardRules` or report `doesNotFit` with a best attempt.
 
 `src/layout/properties.test.ts`:
 
@@ -6851,6 +6925,8 @@ const reqArb = fc.record({
   access: fc.constantFrom("often" as const, "sometimes" as const, "setup" as const),
   loose: fc.boolean(),
   split: fc.boolean(),
+  // every compartment asks for a front wall cutout, so rule 8 and the cutout rules are exercised
+  fingerCuts: fc.boolean(),
 });
 
 const inputArb = fc.record({
@@ -6879,6 +6955,7 @@ function build(spec: InputSpec): LayoutInput {
         minH: c.minH,
         elastic: { w: c.ew, d: c.ed, h: c.eh },
         contents: `${key}c${k}`,
+        fingerCut: r.fingerCuts ? true : undefined,
       }),
     );
     const variants = [variant("one", [part(`${key}:p0:0`, comps, r.rotatable)])];
@@ -6969,7 +7046,7 @@ describe("hard rules (spec §3) on random inputs", () => {
 });
 
 describe("hard rules on the synthetic fixtures", () => {
-  const feasible: FixtureName[] = ["cards-heavy", "bits-heavy", "tiles-minis"];
+  const feasible: FixtureName[] = ["cards-heavy", "bits-heavy", "tiles-minis", "small-tiles"];
   for (const name of feasible) {
     it(`${name}: feasible and every hard rule holds`, () => {
       const input = fixtureInput(name);
@@ -7009,7 +7086,13 @@ import { optimize } from "./optimize";
 
 const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
 const RUN_ITERATIONS = 10_000;
-const NAMES: FixtureName[] = ["cards-heavy", "bits-heavy", "tiles-minis", "tiny-box"];
+const NAMES: FixtureName[] = [
+  "cards-heavy",
+  "bits-heavy",
+  "tiles-minis",
+  "small-tiles",
+  "tiny-box",
+];
 
 it.skipIf(env?.CALIBRATE !== "1")("measures iterations per second on the fixtures", () => {
   const rates = NAMES.map((name) => {
@@ -7031,7 +7114,7 @@ it.skipIf(env?.CALIBRATE !== "1")("measures iterations per second on the fixture
 
 Run: `npx vitest run src/layout/properties.test.ts src/layout/optimize.calibrate.test.ts`
 
-Expected: PASS (7 tests) and 1 skipped. The engine is complete at this point, so these pass on the first run; when a property fails, fast-check prints the counterexample and seed — fix the engine module the violation names (tiling → `tree.ts`/`fill.ts`, heights → `stack.ts`, compartments/grip → the `realizeTray` call in `materialize.ts`), never the checker.
+Expected: PASS (8 tests) and 1 skipped. The engine is complete at this point, so these pass on the first run; when a property fails, fast-check prints the counterexample and seed — fix the engine module the violation names (tiling → `tree.ts`/`fill.ts`, heights → `stack.ts`, compartments/grip → the `realizeTray` call in `materialize.ts`), never the checker.
 
 - [ ] **Step 4: Calibrate (informational)**
 
@@ -7315,7 +7398,16 @@ describe("layout client", () => {
     client.cancel();
     await expect(p).rejects.toBeInstanceOf(LayoutCancelledError);
     expect(workers[0]?.sent[1]).toEqual({ type: "cancel", runId: 1 });
-    workers[0]?.emit({ type: "done", runId: 1, result });
+    // A late message of the cancelled run is dropped, also while the next run is pending.
+    const late: LayoutResult = {
+      ...result,
+      notices: [{ level: "info", code: "x", message: "late" }],
+    };
+    workers[0]?.emit({ type: "done", runId: 1, result: late });
+    const next = client.run(input, 2, 1000, undefined, () => undefined);
+    workers[0]?.emit({ type: "done", runId: 1, result: late });
+    workers[0]?.emit({ type: "done", runId: 2, result });
+    await expect(next).resolves.toBe(result);
   });
 
   it("a new run supersedes the previous one on the same worker", async () => {
@@ -7507,9 +7599,9 @@ Expected: all layout test files pass (the calibration test is skipped), no type 
 
 - [ ] **Step 2: Confirm no forbidden imports or randomness**
 
-Run: `grep -rn "Math.random\|from \"../geometry\"\|geometry/index" src/layout`
+Run: `grep -rnE 'Math\.random *\(|from "\.\./geometry"|geometry/index' src/layout`
 
-Expected: no output (only `../geometry/version` is imported; `Math.random` is also rejected by ESLint).
+Expected: no output (production code imports only `../geometry/version`; the test-only `test-hard-rules.ts` imports `../geometry/plan`; `Math.random` is also rejected by ESLint).
 
 - [ ] **Step 3: Run the repo gate**
 
