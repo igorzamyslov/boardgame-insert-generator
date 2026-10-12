@@ -456,8 +456,8 @@ content + clearance.
   divider face (inside the well and on the outer face, and the spacer notch's)
   are rounded with 1.5 mm (`FINGER_FILLET_MM`), less where the wall or divider
   is thinner: at least 0.8 mm of its end stays flat between the fillets on its
-  two faces, and the chamfer plus 0.8 mm to the outer face beside the cut.
-  Fillets under 0.2 mm are left out. They are vertical, so support-free.
+  two faces, the chamfer plus 0.8 mm to the outer face beside the cut, and
+  0.8 mm of a lipped tray's lip there. Fillets under 0.2 mm are left out. They are vertical, so support-free.
 - **Outer corners beside a cut:** where a cutout (or the spacer notch) leaves
   through an outer face, the rounded outer corner ends at least 0.8 mm before
   its side (or the fillet there), so the wall beside the cut stays 0.8 mm thick

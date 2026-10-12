@@ -337,7 +337,9 @@ export function planSpacerNotch(
   // Its sides on the spacer are rounded where they leave through the end faces (above the
   // chamfer: the bottom stands at least chamfer + MIN_FEATURE_MM up).
   const across = { w: spec.w, d: spec.d };
-  const fillets = [0, length].flatMap((face) => filletsAt(cut, face, null, across, chamfer, []));
+  const fillets = [0, length].flatMap((face) =>
+    filletsAt(cut, face, null, across, chamfer, null, []),
+  );
   return { ...cut, fillets };
 }
 
@@ -385,7 +387,8 @@ export function notchEdges(
  * whose face it is (its range along the side must cover the fillet, and the fillet starts at its
  * floor with a floor notch), or null for an outer face the cut leaves through (the fillet ends on
  * it at least the chamfer plus MIN_FEATURE_MM from the face the cut runs along: the outer corner's
- * arc, at least the chamfer, ends MIN_FEATURE_MM before it). A fillet is at most FINGER_FILLET_MM, leaves MIN_FEATURE_MM of the
+ * arc, at least the chamfer, ends MIN_FEATURE_MM before it; and on a lipped tray, whose `lip` ring
+ * is all the rim has beside the cut, it leaves MIN_FEATURE_MM of the lip). A fillet is at most FINGER_FILLET_MM, leaves MIN_FEATURE_MM of the
  * wall or divider end flat between the fillets on its two faces, keeps
  * MIN_FEATURE_MM from every obstacle (half that gap toward another cut), and is left out below
  * MIN_FILLET.
@@ -396,6 +399,7 @@ function filletsAt(
   comp: CompartmentPlan | null,
   size: { w: number; d: number },
   chamfer: number,
+  lip: number | null,
   obstacles: readonly { rect: Rect; share: number }[],
 ): FilletPlan[] {
   const side = cut.side;
@@ -426,6 +430,10 @@ function filletsAt(
       // least the chamfer (plan-corners.ts): the wall beside it keeps that much at the face.
       const beside = away < 0 ? u : span - u;
       r = Math.min(r, beside - chamfer - MIN_FEATURE_MM - TOL);
+      if (lip !== null) {
+        // On a lipped tray the lip ring is all the rim has beside the cut: it keeps MIN_FEATURE_MM.
+        r = Math.min(r, lip - MIN_FEATURE_MM);
+      }
     } else {
       // On the compartment's flat face, past its rounded inner corner.
       const c = axes(comp.rect, side);
@@ -458,6 +466,7 @@ export function planFillets(
   plans: readonly CompartmentPlan[],
   size: { w: number; d: number },
   chamfer: number,
+  lip: number | null,
 ): CompartmentPlan[] {
   return plans.map((plan) => ({
     ...plan,
@@ -477,8 +486,8 @@ export function planFillets(
       return {
         ...cut,
         fillets: [
-          ...filletsAt(cut, own, plan, size, chamfer, obstacles),
-          ...filletsAt(cut, far, next, size, chamfer, obstacles),
+          ...filletsAt(cut, own, plan, size, chamfer, lip, obstacles),
+          ...filletsAt(cut, far, next, size, chamfer, lip, obstacles),
         ],
       };
     }),

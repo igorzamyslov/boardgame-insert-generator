@@ -12,6 +12,7 @@ import {
   notchedSpacer,
   pocket,
   traySpec,
+  lippedThickWall,
   uprightChannel,
   uprightChannelLipped,
 } from "./test-specs";
@@ -321,7 +322,7 @@ describe("finger fillets", () => {
     z0: number;
   }
   const fillets = (list: readonly Fillet[] | undefined) =>
-    (list ?? []).map((f) => [f.x, f.y, Number(f.r.toFixed(3)), Number(f.z0.toFixed(3))]);
+    (list ?? []).map((f) => [f.x, f.y, f.r, f.z0].map((v) => Number(v.toFixed(3))));
 
   it("rounds the edges where a channel meets each wall and divider face, keeping 0.8 mm flat", () => {
     const [left, right] = planTray(uprightChannel, GEO).compartments[0]?.cuts ?? [];
@@ -351,6 +352,16 @@ describe("finger fillets", () => {
     });
     const cut = planTray(spec, GEO).compartments[0]?.cuts[0];
     expect(fillets(cut?.fillets).map(([, , r]) => r)).toEqual([1.5, 1.5, 1.5, 1.5]);
+  });
+
+  it("keeps 0.8 mm of a lipped wall's lip beside a fillet where the cut leaves the tray", () => {
+    const cut = planTray(lippedThickWall, GEO).compartments[0]?.cuts[0];
+    // Only the lip stands above the channel's round bottom there: the 1.2 mm lip ring keeps
+    // 0.8 mm beside 0.4 mm fillets on the outer face (none on the well's, whose corners they meet).
+    expect(fillets(cut?.fillets)).toEqual([
+      [2.9, 0, 0.4, 17.2],
+      [18.9, 0, 0.4, 17.2],
+    ]);
   });
 
   it("rounds a notched cut from the bed where it leaves the tray and from the floor inside", () => {

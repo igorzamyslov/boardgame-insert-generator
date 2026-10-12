@@ -490,7 +490,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     ...plan,
     cuts: cutRequests.map((q) => planCut(q, plan.index, uncut, frame, failWith)),
   }));
-  const plans = planFillets(withCuts, spec, chamfer);
+  const plans = planFillets(withCuts, spec, chamfer, lip ? lip.thickness : null);
   plans.forEach((plan) => {
     checkNotches(plan, failWith);
   });

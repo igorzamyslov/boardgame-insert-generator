@@ -135,6 +135,25 @@ export const uprightChannelLipped = traySpec({
   })),
 });
 
+// Upright 15 mm square tiles in a lipped tray with 10 mm of finger room in its 12.9 mm end walls
+// (sizing output, turned): the channel leaves through both, its sides on the well's side faces.
+export const lippedThickWall = traySpec({
+  key: "lipped-thick:p0:0",
+  w: 21.8,
+  d: 106.8,
+  h: 17.2,
+  lip: true,
+  compartments: [
+    compartment({
+      x: 2.9,
+      y: 12.9,
+      w: 16,
+      d: 81,
+      features: [cutout("front", 10.9, 8, 0, 16), cutout("back", 10.9, 8, 0, 16)],
+    }),
+  ],
+});
+
 // One deck of sleeved Standard cards lying flat (68 × 92.5, 20 high): full-depth half-round
 // cutouts through both long walls; each goes on down through the floor at its full 22 mm and
 // notches it with a half-disc reaching 11 mm in.

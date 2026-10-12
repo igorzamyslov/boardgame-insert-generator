@@ -36,6 +36,7 @@ import {
   traySpec,
   traySpecFrom,
   upperLevel1,
+  lippedThickWall,
   uprightChannel,
   uprightChannelLipped,
 } from "./test-specs";
@@ -305,6 +306,13 @@ describe("finger cuts beside a well's rounded inner corners", () => {
       expectWellFormed(spec);
     },
   );
+});
+
+describe("a channel leaving a lipped tray through a thick wall", () => {
+  it("keeps 0.8 mm of the lip beside the fillets on the outer face", () => {
+    // Fillets of 1.5 mm there thinned the 1.2 mm lip ring to 0.707 mm beside the cut.
+    expectWellFormed(lippedThickWall, lippedThickWall.h + GEO.lip.height);
+  });
 });
 
 describe("a floor-notched cut into a compartment with a lower floor", () => {
