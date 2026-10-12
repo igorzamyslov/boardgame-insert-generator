@@ -143,13 +143,9 @@ describe("posts: a cut never removes a whole wall", () => {
     const spec = traySpecFrom(realized, outer, opts, DEFAULT_SETTINGS, part.trayKey);
     const { mesh } = buildTray(m, spec, DEFAULT_SETTINGS);
     expect(problemsOf(m, spec, DEFAULT_SETTINGS)).toEqual([]);
-    // The rim stands at full height 0.5…2.5 mm beside each well's corners on the cut walls.
-    const top: [number, number][] = [];
-    for (let i = 0; i < mesh.positions.length; i += 3) {
-      if (Math.abs((mesh.positions[i + 2] ?? 0) - spec.h) < 1e-3) {
-        top.push([mesh.positions[i] ?? 0, mesh.positions[i + 1] ?? 0]);
-      }
-    }
+    // The middle of each 3 mm post, in the wall beside the well's face: the wall stands to the
+    // rim there, less what the 3 mm top fillet rounds off (spec §6.1: at the rim the fillet may
+    // round a post into its wall; 3 − √(9 − 1.5²) ≈ 0.4 mm at its middle).
     for (const c of spec.compartments) {
       for (const f of c.features) {
         if (f.type !== "wallCutout") {
@@ -158,15 +154,13 @@ describe("posts: a cut never removes a whole wall", () => {
         const across = f.side === "left" || f.side === "right";
         const [lo, hi] = across ? [c.y, c.y + c.d] : [c.x, c.x + c.w];
         const face = { front: c.y, back: c.y + c.d, left: c.x, right: c.x + c.w }[f.side];
-        for (const [p0, p1] of [
-          [lo + 0.5, lo + 2.5],
-          [hi - 2.5, hi - 0.5],
-        ]) {
-          const post = top.some(([x, y]) => {
-            const [u, v] = across ? [y, x] : [x, y];
-            return u >= (p0 ?? 0) && u <= (p1 ?? 0) && Math.abs(v - face) < 0.8;
-          });
-          expect(post, `${f.side} post of the well at ${c.x}, ${c.y}`).toBe(true);
+        const into = f.side === "front" || f.side === "left" ? -0.4 : 0.4;
+        for (const u of [lo + 1.5, hi - 1.5]) {
+          const [x, y] = across ? [face + into, u] : [u, face + into];
+          const top = heightAt(mesh, x, y);
+          expect(top, `${f.side} post of the well at ${c.x}, ${c.y}`).toBeGreaterThan(
+            spec.h - 0.45,
+          );
         }
       }
     }
@@ -260,6 +254,23 @@ describe("corner reliefs beside the posts of a cut", () => {
       }
       expect(besidePosts).toBeGreaterThan(0);
       expect(problemsOf(m, spec, DEFAULT_SETTINGS), JSON.stringify(opts)).toEqual([]);
+    }
+  });
+});
+
+describe("top fillets on interior dividers (review 3, M2)", () => {
+  it("rounds the dividers' cuts of 15 mm squares laid flat with the full 3 mm (sample 25)", () => {
+    const squares = tiles({ shape: { type: "rect", w: 15, d: 15 }, thickness: 2, count: 40 });
+    const part = partOf([squares], "flat-c4|strip|split1");
+    const opts = { lipped: false, level: 0 };
+    const outer = minOuter(part, DEFAULT_SETTINGS, opts);
+    const realized = realizeTray(part, outer, DEFAULT_SETTINGS, opts);
+    const spec = traySpecFrom(realized, outer, opts, DEFAULT_SETTINGS, part.trayKey);
+    const plan = planTray(spec, DEFAULT_SETTINGS);
+    const through = plan.compartments.flatMap((c) => c.cuts.filter((cut) => cut.into !== null));
+    expect(through.length).toBeGreaterThan(0);
+    for (const cut of through) {
+      expect(cut.topFillets).toEqual([3, 3]);
     }
   });
 });

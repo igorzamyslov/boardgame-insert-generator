@@ -353,8 +353,8 @@ export function filletStrip(
 /**
  * The radii of a U's two top corners (spec §6.1): FINGER_FILLET_MM, less where that would leave
  * less than MIN_FEATURE_MM of top beside it, along the side up to the nearest void across the same
- * strip (`voids`, other compartments), or to
- * the outer corner's arc of radius `radius` (from the faces at 0 and `span`); and no longer than the
+ * strip (`voids`, other compartments), or to the outer corner's arc of radius `radius` (from the
+ * faces at 0 and `span`; 0 for a strip clear of the corners), or to those faces; and no longer than the
  * U's straight side (`side`, from the round bottom's top to the top). Under MIN_FILLET: 0. (It
  * stays on the faces of the compartments the strip runs between: their posts are POST_MM, at least
  * FINGER_FILLET_MM.)
@@ -408,6 +408,10 @@ export function planTopFillets(
       );
       const { u0, u1 } = axes(cut, cut.side);
       const span = alongX(cut.side) ? frame.w : frame.d;
+      // The outer corners' arcs lie within cornerRadius of the faces across the strip too: a strip
+      // through an interior divider is clear of them (review 3, M2).
+      const depth = alongX(cut.side) ? frame.d : frame.w;
+      const nearCorner = strip.v0 < cornerRadius - TOL || strip.v1 > depth - cornerRadius + TOL;
       // No longer than the U's straight side; above the floors of the compartments at the strip's
       // ends (its cutter reaches into them, past their rounded corners); through a lipped wall,
       // in the lip, above the ledge.
@@ -418,7 +422,8 @@ export function planTopFillets(
         strip.top - Math.max(...floors),
         lip !== null && cut.into === null ? lip.height : straight,
       );
-      return { ...cut, topFillets: topRadii([u0, u1], span, cornerRadius, side, voids) };
+      const radius = nearCorner ? cornerRadius : 0;
+      return { ...cut, topFillets: topRadii([u0, u1], span, radius, side, voids) };
     }),
   }));
 }
