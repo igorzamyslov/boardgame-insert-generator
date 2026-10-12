@@ -461,6 +461,13 @@ describe("validateProject", () => {
     ]);
   });
 
+  it("rejects a group name containing a colon, which would collide with tray key prefixes", () => {
+    const notices = validateProject(withComponents(cards({ groupId: "g:x" })));
+    expect(codes(notices)).toEqual([[field.groupId, "/components/0/groupId"]]);
+    expect(notices[0]?.message).toBe("A group name can't contain ':'.");
+    expect(validateProject(withComponents(cards({ groupId: "g x" })))).toEqual([]);
+  });
+
   it("does not flag a component whose group is its own id", () => {
     const solo = cards();
     expect(validateProject(withComponents({ ...solo, groupId: solo.id }))).toEqual([]);

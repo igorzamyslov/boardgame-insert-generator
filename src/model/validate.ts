@@ -578,7 +578,14 @@ export function validateProject(p: Project): Notice[] {
     }
     seen.add(c.id);
     const group = groupOf(c);
-    if (group !== undefined) {
+    if (group?.includes(":")) {
+      // Tray keys are `<group or component id>:p…`, matched by prefix: a ":" would let two groups collide.
+      ck.error(
+        VALIDATION_NOTICE_CODES.field.groupId,
+        `${at}/groupId`,
+        "A group name can't contain ':'.",
+      );
+    } else if (group !== undefined) {
       // A component naming its own id as its group is not a collision.
       const others = (idCounts.get(group) ?? 0) - (group === c.id ? 1 : 0);
       if (others > 0) {
