@@ -20,7 +20,7 @@ export default defineConfig({
     // Pure modules run in Node. Component tests opt in to a DOM with a
     // `// @vitest-environment jsdom` comment on their first line.
     environment: "node",
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     // Vitest stubs CSS imports to ""; PlanView.test.tsx reads plan.css as `?raw` to check
     // `touch-action: none`, so that file is passed through.
     css: { include: [/plan\.css/] },
