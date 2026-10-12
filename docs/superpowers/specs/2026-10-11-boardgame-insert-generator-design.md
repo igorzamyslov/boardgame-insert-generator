@@ -1,6 +1,6 @@
 # Board Game Insert Generator — Design
 
-Date: 2026-10-11 · Status: approved; implementation planned (see `docs/superpowers/plans/`) · App: `apps/insert-generator/`
+Date: 2026-10-11 · Status: approved; implementation planned (see `docs/superpowers/plans/`) · App: ``
 
 ## 1. Goal
 
@@ -136,7 +136,7 @@ on demand) → viewer / export / instructions.
 - The app's `build` script is `vitest run && tsc --noEmit && vite build`,
   because the repo's quality gate runs only lint, format and build.
 - `renovate.json`: a package rule that disables automerge for `manifold-3d`.
-- Root ESLint config: ban `Math.random` in `apps/insert-generator/src/layout/**`
+- Root ESLint config: ban `Math.random` in `src/layout/**`
   (`no-restricted-properties`).
 - Ship a third-party licenses file (`dist/third-party-licenses.txt`, linked
   from the footer) (e.g. `rollup-plugin-license`),

@@ -24,17 +24,17 @@ Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts
 
 ## Global Constraints
 
-- App lives in `apps/insert-generator/`. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
+- App lives in ``. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
 - Node 22 (`.nvmrc`). Dependency versions (exact ranges): `vite ^6.4.0`, `vitest ^5.0.3`, `typescript ^6.0.3`, `preact ^10.29.8`, `@preact/signals ^2.11.3`, `@preact/preset-vite ^2.10.6`, `manifold-3d ^3.5.4` (single-threaded build only), `three ^0.186.1`, `@types/three ^0.186.0`, `fflate ^0.8.3`, `fast-check ^4.10.2`, `jsdom ^30.1.2`, `@testing-library/preact ^3.2.4`, `rollup-plugin-license ^3.7.1`, `@types/node ^22.0.0` (type-only, for `tsconfig.node.json`). No copyleft dependencies.
 - TypeScript strictness from `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax` → use `import type`). App `tsconfig.json` (covers `src/`, no Node types): `"jsx": "react-jsx"`, `"jsxImportSource": "preact"`. `tsconfig.node.json` covers the Node-side config files (`vite.config.ts`, later `licenses.config.ts`) with `"types": ["node"]`.
 - Lint: root `eslint.config.mjs` (non-type-checked `strict` + `stylistic`, `curly: all`, `eqeqeq`, `prefer-template`, `no-param-reassign`, `no-console` except warn/error). Prettier: `printWidth` from `.prettierrc.json`. Stylelint for CSS. html-validate for `index.html`.
-- The app's `build` script: `vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build` (plan 5 appends `&& node scripts/smoke-dist.mjs dist`); `npm run typecheck` runs both `tsc` checks. Tests run in CI via `npm run build:all`.
-- `Math.random` is banned in `apps/insert-generator/src/layout/**` (root ESLint rule, plan 1).
+- The app's `build` script: `vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build` (plan 5 appends `&& node scripts/smoke-dist.mjs dist`); `npm run typecheck` runs both `tsc` checks. Tests run in CI via `npm run verify` (lint, format check, build).
+- `Math.random` is banned in `src/layout/**` (root ESLint rule, plan 1).
 - All lengths are millimetres. Inside `layout/`, lengths are integer 0.01 mm units (`Units` helpers, plan 4); `TraySpec` stores mm rounded to 0.01.
 - Versions start at app `0.1.0`, `SCHEMA_VERSION = "0.1.0"`, `GEOMETRY_VERSION = "0.1.0"`. Pre-1.0 makes no compatibility promise (spec §9).
 - Never use `localStorage` without `try/catch`. No network calls at runtime.
 - Commits: plain imperative messages (e.g. `Add card sizing`). **No `Co-Authored-By` or any trailer.** Commit after every task.
-- Run tests from the app folder: `cd apps/insert-generator && npx vitest run <path>`. Run repo checks from the root: `npm run lint`, `npm run format:check`, `npm run verify`.
+- Run tests and repo checks from the repo root: `npx vitest run <path>`, `npm run lint`, `npm run format:check`, `npm run verify`.
 
 ## Review Focus
 
@@ -49,7 +49,7 @@ Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts
 
 ## File map
 
-All paths are relative to `apps/insert-generator/`.
+All paths are relative to ``.
 
 | File                                                                                                                            | Responsibility                                                                                                                                             |
 | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -345,7 +345,7 @@ describe("pruneDroppedLocks", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/actions.test.ts`
+Run: `npx vitest run src/app/actions.test.ts`
 Expected: FAIL — `Failed to resolve import "./actions"`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -553,13 +553,12 @@ export function setClearance<C extends Component>(c: C, clearance: number | unde
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/actions.test.ts`
+Run: `npx vitest run src/app/actions.test.ts`
 Expected: PASS (13 tests). Also run `npx tsc --noEmit`; if it reports "The operand of a 'delete' operator must be optional" in the three generic helpers, replace each `const next = { ...c };` with `const next: C & Partial<Pick<ComponentBase, "groupId" | "perPlayer" | "clearance">> = { ...c };` and add `ComponentBase` to the type import (every one of those fields is optional on `ComponentBase`, so `delete` then type-checks).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/app/actions.ts src/app/actions.test.ts
 git commit -m "Add pure project edit actions"
 ```
@@ -897,7 +896,7 @@ describe("app notices", () => {
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/state.test.ts`
+Run: `npx vitest run src/app/state.test.ts`
 Expected: FAIL — `Failed to resolve import "./state"`.
 
 - [ ] **Step 4: Write the implementation**
@@ -1067,13 +1066,12 @@ export function dismissNotice(state: State, code: string): void {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/state.test.ts`
+Run: `npx vitest run src/app/state.test.ts`
 Expected: PASS (9 tests).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/app/clients.ts src/app/test-helpers.ts src/app/state.ts src/app/state.test.ts
 git commit -m "Add app state signals and test helpers"
 ```
@@ -1355,7 +1353,7 @@ describe("runner", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/runner.test.ts`
+Run: `npx vitest run src/app/runner.test.ts`
 Expected: FAIL — `Failed to resolve import "./runner"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -1583,13 +1581,12 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/runner.test.ts`
+Run: `npx vitest run src/app/runner.test.ts`
 Expected: PASS (13 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/app/runner.ts src/app/runner.test.ts
 git commit -m "Add debounced optimizer runner with stale-result guard"
 ```
@@ -1882,7 +1879,7 @@ describe("persistence", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/persistence.test.ts`
+Run: `npx vitest run src/app/persistence.test.ts`
 Expected: FAIL — `Failed to resolve import "./persistence"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -2201,13 +2198,12 @@ export function createPersistence(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/persistence.test.ts`
+Run: `npx vitest run src/app/persistence.test.ts`
 Expected: PASS (13 tests). (The conflict tests rely on plan 1's store stamping `updatedAt` with `Date.now()`, which fake timers advance.)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/app/persistence.ts src/app/persistence.test.ts
 git commit -m "Add project persistence, startup and link handling"
 ```
@@ -2342,7 +2338,7 @@ describe("app store", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/store.test.ts`
+Run: `npx vitest run src/app/store.test.ts`
 Expected: FAIL — `Failed to resolve import "./store"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -2494,13 +2490,12 @@ export function connectWindow(store: AppStore, win: Window): () => void {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/store.test.ts`
+Run: `npx vitest run src/app/store.test.ts`
 Expected: PASS (5 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/app/store.ts src/app/store.test.ts
 git commit -m "Compose the app store and wire window events"
 ```
@@ -2780,7 +2775,7 @@ describe("Notices", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/NumberField.test.tsx src/ui/fields.test.tsx`
+Run: `npx vitest run src/ui/NumberField.test.tsx src/ui/fields.test.tsx`
 Expected: FAIL — `Failed to resolve import "./NumberField"` and `"./fields"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -3162,13 +3157,12 @@ export function Notices({ notices, onDismiss, renderAction, label = "Messages" }
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/NumberField.test.tsx src/ui/fields.test.tsx`
+Run: `npx vitest run src/ui/NumberField.test.tsx src/ui/fields.test.tsx`
 Expected: PASS (13 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/ui/validation.ts src/ui/NumberField.tsx src/ui/fields.tsx src/ui/Notices.tsx src/ui/NumberField.test.tsx src/ui/fields.test.tsx
 git commit -m "Add form primitives with decimal-comma number input"
 ```
@@ -3270,7 +3264,7 @@ describe("PrinterForm", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/BoxForm.test.tsx`
+Run: `npx vitest run src/ui/BoxForm.test.tsx`
 Expected: FAIL — `Failed to resolve import "./BoxForm"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -3473,13 +3467,12 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/BoxForm.test.tsx`
+Run: `npx vitest run src/ui/BoxForm.test.tsx`
 Expected: PASS (6 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/ui/BoxForm.tsx src/ui/PrinterForm.tsx src/ui/BoxForm.test.tsx
 git commit -m "Add box and printer forms"
 ```
@@ -3615,7 +3608,7 @@ describe("SettingsForm", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/SettingsForm.test.tsx`
+Run: `npx vitest run src/ui/SettingsForm.test.tsx`
 Expected: FAIL — `Failed to resolve import "./SettingsForm"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -3819,13 +3812,12 @@ function SimpleChoices({ settings, onChange }: Omit<SettingsFormProps, "advanced
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/SettingsForm.test.tsx`
+Run: `npx vitest run src/ui/SettingsForm.test.tsx`
 Expected: PASS (6 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/ui/settingsFields.ts src/ui/SettingsForm.tsx src/ui/SettingsForm.test.tsx
 git commit -m "Add simple and advanced settings form"
 ```
@@ -4013,7 +4005,7 @@ describe("CardsEditor", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/components/CardsEditor.test.tsx`
+Run: `npx vitest run src/ui/components/CardsEditor.test.tsx`
 Expected: FAIL — `Failed to resolve import "./CardsEditor"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -4439,13 +4431,12 @@ export function CardsEditor({
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/components/CardsEditor.test.tsx`
+Run: `npx vitest run src/ui/components/CardsEditor.test.tsx`
 Expected: PASS (8 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/ui/components/types.ts src/ui/components/MoreOptions.tsx src/ui/components/CommonOptions.tsx src/ui/components/ToggleOptions.tsx src/ui/components/CardsEditor.tsx src/ui/components/CardsEditor.test.tsx
 git commit -m "Add cards editor with shared component options"
 ```
@@ -4638,7 +4629,7 @@ describe("CustomEditor", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/components/editors.test.tsx`
+Run: `npx vitest run src/ui/components/editors.test.tsx`
 Expected: FAIL — `Failed to resolve import "./BulkEditor"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -5104,13 +5095,12 @@ export function CustomEditor({
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/components/editors.test.tsx`
+Run: `npx vitest run src/ui/components/editors.test.tsx`
 Expected: PASS (9 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/ui/components/BulkEditor.tsx src/ui/components/TilesEditor.tsx src/ui/components/MinisEditor.tsx src/ui/components/CustomEditor.tsx src/ui/components/editors.test.tsx
 git commit -m "Add bits, tiles, minis and custom editors"
 ```
@@ -5192,7 +5182,7 @@ describe("ComponentList", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/components/ComponentList.test.tsx`
+Run: `npx vitest run src/ui/components/ComponentList.test.tsx`
 Expected: FAIL — `Failed to resolve import "./ComponentList"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -5345,13 +5335,12 @@ export function ComponentList({
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/components/ComponentList.test.tsx`
+Run: `npx vitest run src/ui/components/ComponentList.test.tsx`
 Expected: PASS (3 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/ui/components/ComponentCard.tsx src/ui/components/ComponentList.tsx src/ui/components/ComponentList.test.tsx
 git commit -m "Add component cards and the component list"
 ```
@@ -5374,7 +5363,7 @@ git commit -m "Add component cards and the component list"
   - `downloadBlob(blob: Blob, filename: string): void`; `bytesToBlob(data: Uint8Array, type: string): Blob`; `fileSlug(name: string): string` (`[A-Za-z0-9._-]`, `"insert"` when empty)
   - `shareLink(href: string, hash: string): string` — replaces any existing fragment.
   - `type CopyLinkResult = { status: "copied"; length: number; tooLong: boolean } | { status: "failed"; length: number; tooLong: boolean; link: string; error: string }`
-  - `copyLink(link: string, write: (text: string) => Promise<void>): Promise<CopyLinkResult>` — `tooLong` when the whole `link.length > LINK_MAX_URL_CHARS`. A test builds each feasible fixture's link with a stored layout (`optimize(fixtureInput(name), 1, DEFAULT_ITERATIONS)`) on the GitHub Pages URL `https://igorzamyslov.github.io/static-web-apps/insert-generator/` and checks it fits (measured: ≈ 1 650–1 980 characters).
+  - `copyLink(link: string, write: (text: string) => Promise<void>): Promise<CopyLinkResult>` — `tooLong` when the whole `link.length > LINK_MAX_URL_CHARS`. A test builds each feasible fixture's link with a stored layout (`optimize(fixtureInput(name), 1, DEFAULT_ITERATIONS)`) on the GitHub Pages URL `https://igorzamyslov.github.io/static-web-` and checks it fits (measured: ≈ 1 650–1 980 characters).
   - `interface ProjectMenuProps { name: string; currentId: string; projects: readonly ProjectListEntry[]; storageAvailable: boolean; onRename: (name: string) => void; onOpen: (id: string) => void; onNew: () => void; onDelete: (id: string) => void; onImport: (text: string) => void; onExportJson: () => void; onCopyLink: () => Promise<CopyLinkResult> }`; `ProjectMenu(props)`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -5422,7 +5411,7 @@ describe("copyLink", () => {
 });
 
 // The real deployment: the whole URL must fit a Discord message (2 000 characters).
-const PAGES_URL = "https://igorzamyslov.github.io/static-web-apps/insert-generator/";
+const PAGES_URL = "https://igorzamyslov.github.io/static-web-";
 
 describe("share links of the fixtures with a stored layout", () => {
   for (const name of ["cards-heavy", "bits-heavy", "tiles-minis"] as const) {
@@ -5555,7 +5544,7 @@ describe("ProjectMenu", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/link.test.ts src/ui/ProjectMenu.test.tsx`
+Run: `npx vitest run src/app/link.test.ts src/ui/ProjectMenu.test.tsx`
 Expected: FAIL — `Failed to resolve import "./link"` / `"./ProjectMenu"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -5762,13 +5751,12 @@ export function ProjectMenu(props: ProjectMenuProps) {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/link.test.ts src/ui/ProjectMenu.test.tsx`
+Run: `npx vitest run src/app/link.test.ts src/ui/ProjectMenu.test.tsx`
 Expected: PASS (13 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/app/download.ts src/app/link.ts src/app/link.test.ts src/ui/ProjectMenu.tsx src/ui/ProjectMenu.test.tsx
 git commit -m "Add project menu with copy-link length warning"
 ```
@@ -5935,7 +5923,7 @@ describe("plan geometry", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd apps/insert-generator && npx vitest run src/instructions/numbering.test.ts src/plan/layers.test.ts`
+Run: `npx vitest run src/instructions/numbering.test.ts src/plan/layers.test.ts`
 Expected: FAIL — `Failed to resolve import "./numbering"` / `"./layers"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -6133,13 +6121,12 @@ export function labelFontSize(r: SvgRect): number {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd apps/insert-generator && npx vitest run src/instructions/numbering.test.ts src/plan/layers.test.ts`
+Run: `npx vitest run src/instructions/numbering.test.ts src/plan/layers.test.ts`
 Expected: PASS (9 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/instructions/numbering.ts src/instructions/numbering.test.ts src/plan/layers.ts src/plan/layers.test.ts
 git commit -m "Add part numbering and plan geometry helpers"
 ```
@@ -6280,7 +6267,7 @@ describe("Summary", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/Summary.test.tsx`
+Run: `npx vitest run src/ui/Summary.test.tsx`
 Expected: FAIL — `Failed to resolve import "./Summary"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -6423,13 +6410,12 @@ export function Summary(p: SummaryProps) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/Summary.test.tsx`
+Run: `npx vitest run src/ui/Summary.test.tsx`
 Expected: PASS (5 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/ui/Summary.tsx src/ui/Summary.test.tsx
 git commit -m "Add summary panel with optimizer controls"
 ```
@@ -6679,7 +6665,7 @@ describe("PlanView", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/plan/PlanView.test.tsx`
+Run: `npx vitest run src/plan/PlanView.test.tsx`
 Expected: FAIL — `Failed to resolve import "./plan.css?raw"` (and `./PlanView`).
 
 - [ ] **Step 3: Write the implementation**
@@ -7212,7 +7198,7 @@ export default defineConfig({
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/plan/PlanView.test.tsx`
+Run: `npx vitest run src/plan/PlanView.test.tsx`
 Expected: PASS (8 tests).
 
 - [ ] **Step 5: Manual check on a touch device emulation**
@@ -7222,7 +7208,6 @@ Run `npm run dev`, open the printed URL in Chrome, open DevTools → Toggle devi
 - [ ] **Step 6: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/ui/TrayDetails.tsx src/plan/PlanView.tsx src/plan/plan.css src/plan/PlanView.test.tsx vite.config.ts
 git commit -m "Add plan view with drag, keyboard swap and lock"
 ```
@@ -7574,7 +7559,7 @@ describe("export builders", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/meshes.test.ts src/app/exportBuild.test.ts`
+Run: `npx vitest run src/app/meshes.test.ts src/app/exportBuild.test.ts`
 Expected: FAIL — `Failed to resolve import "./meshes"` / `"./exportBuild"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -8027,13 +8012,12 @@ export async function buildStlZip(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/meshes.test.ts src/app/exportBuild.test.ts`
+Run: `npx vitest run src/app/meshes.test.ts src/app/exportBuild.test.ts`
 Expected: PASS (15 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/app/support.ts src/app/meshes.ts src/app/exportBuild.ts src/app/meshes.test.ts src/app/exportBuild.test.ts
 git commit -m "Add cached mesh source and yielding export builders"
 ```
@@ -8181,7 +8165,7 @@ describe("ExportPanel", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/ExportPanel.test.tsx`
+Run: `npx vitest run src/ui/ExportPanel.test.tsx`
 Expected: FAIL — `Failed to resolve import "./ExportPanel"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -8324,13 +8308,12 @@ export function ExportPanel(p: ExportPanelProps) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/ui/ExportPanel.test.tsx`
+Run: `npx vitest run src/ui/ExportPanel.test.tsx`
 Expected: PASS (5 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/ui/ExportPanel.tsx src/ui/ExportPanel.test.tsx
 git commit -m "Add export panel with progress and per-tray failures"
 ```
@@ -8522,7 +8505,7 @@ describe("Viewer", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd apps/insert-generator && npx vitest run src/viewer`
+Run: `npx vitest run src/viewer`
 Expected: FAIL — `Failed to resolve import "./transform"` / `"./Viewer"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -9049,18 +9032,17 @@ export function Viewer(p: ViewerProps) {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd apps/insert-generator && npx vitest run src/viewer`
+Run: `npx vitest run src/viewer`
 Expected: PASS (8 tests).
 
 - [ ] **Step 5: Type-check the three.js module**
 
-Run: `cd apps/insert-generator && npx tsc --noEmit`
+Run: `npx tsc --noEmit`
 Expected: no errors (`scene.ts` is only type-checked; jsdom has no WebGL, so it is exercised in the manual check of Task 21).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/viewer
 git commit -m "Add lazy three.js viewer with explode, layers and picking"
 ```
@@ -9201,7 +9183,7 @@ describe("png helpers", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/instructions/render.test.ts`
+Run: `npx vitest run src/instructions/render.test.ts`
 Expected: FAIL — `Failed to resolve import "./png"` / `"./render"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -9400,13 +9382,12 @@ export async function svgToPng(svg: string, widthPx = 1600): Promise<Blob> {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/instructions/render.test.ts`
+Run: `npx vitest run src/instructions/render.test.ts`
 Expected: PASS (5 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/instructions/render.ts src/instructions/png.ts src/instructions/render.test.ts
 git commit -m "Add assembly diagrams, packing order and PNG helpers"
 ```
@@ -9507,7 +9488,7 @@ describe("AssemblyPage", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/instructions/AssemblyPage.test.tsx`
+Run: `npx vitest run src/instructions/AssemblyPage.test.tsx`
 Expected: FAIL — `Failed to resolve import "./AssemblyPage"`.
 
 - [ ] **Step 3: Write the implementation**
@@ -9637,13 +9618,12 @@ export function AssemblyPage(p: AssemblyPageProps) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/instructions/AssemblyPage.test.tsx`
+Run: `npx vitest run src/instructions/AssemblyPage.test.tsx`
 Expected: PASS (3 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/instructions/AssemblyPage.tsx src/instructions/AssemblyPage.test.tsx
 git commit -m "Add printable assembly page with PNG per layer"
 ```
@@ -9808,7 +9788,7 @@ describe("App", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/App.test.tsx`
+Run: `npx vitest run src/app/App.test.tsx`
 Expected: FAIL — the placeholder `App` has no "Inputs" region (`Unable to find role="region" and name "Inputs"`).
 
 - [ ] **Step 3: Write the shell**
@@ -10738,15 +10718,15 @@ input[aria-invalid="true"] {
 
 - [ ] **Step 5: Run the tests and the repo checks**
 
-Run: `cd apps/insert-generator && npx vitest run src/app/App.test.tsx && npx tsc --noEmit`
+Run: `npx vitest run src/app/App.test.tsx && npx tsc --noEmit`
 Expected: PASS (7 tests); no type errors.
 
-Run (repo root): `npx stylelint "apps/insert-generator/**/*.css" && npx html-validate apps/insert-generator/index.html`
+Run (repo root): `npx stylelint "**/*.css" && npx html-validate index.html`
 Expected: no output (both clean).
 
 - [ ] **Step 6: Manual check (layout, responsiveness, focus, 3D)**
 
-1. `cd apps/insert-generator && npm run dev`, open the printed URL.
+1. `npm run dev`, open the printed URL.
 2. Desktop width: inputs on the left (Box, Printer, Components, Settings), Summary on the right. Click "Add cards": after about half a second the summary shows "Optimizing…", then numbers, a plan, a 3D view and the export panel.
 3. Press Tab repeatedly from the top: every control, including each tray in the plan, shows an orange focus ring.
 4. In the 3D view: drag to orbit, move the Explode slider (upper trays lift), pick "Bottom layer only", click a tray: its details appear under the canvas.
@@ -10757,7 +10737,6 @@ Expected: no output (both clean).
 - [ ] **Step 7: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/app/App.tsx src/app/App.test.tsx src/main.tsx src/style.css index.html
 git commit -m "Wire the app shell, entry point and styles"
 ```
@@ -10837,7 +10816,7 @@ describe("licenses file", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd apps/insert-generator && npx vitest run src/licenses/renderLicenses.test.ts`
+Run: `npx vitest run src/licenses/renderLicenses.test.ts`
 Expected: FAIL — `Failed to resolve import "./renderLicenses"`.
 
 - [ ] **Step 3: Write the renderer**
@@ -10916,7 +10895,7 @@ export function missingPackages(text: string, required: readonly string[]): stri
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run src/licenses/renderLicenses.test.ts`
+Run: `npx vitest run src/licenses/renderLicenses.test.ts`
 Expected: PASS (3 tests).
 
 - [ ] **Step 5: Add the Clipper2 license, the plugin and wire it into Vite**
@@ -10956,7 +10935,6 @@ DEALINGS IN THE SOFTWARE.
 `licenses.config.ts` runs in Node (it reads files with `node:fs`), so it belongs to plan 1's `tsconfig.node.json`, which has `@types/node`; the app's `tsconfig.json` (`src/`) stays without Node types. Check the license file name first:
 
 ```bash
-cd apps/insert-generator
 ls node_modules/manifold-3d
 ```
 
@@ -11091,13 +11069,12 @@ export default defineConfig({
 
 - [ ] **Step 6: Build and check the file**
 
-Run: `cd apps/insert-generator && npm run typecheck && npx vite build && grep -E "^(manifold-3d|Clipper2|three|preact|@preact/signals|fflate)" dist/third-party-licenses.txt`
+Run: `npm run typecheck && npx vite build && grep -E "^(manifold-3d|Clipper2|three|preact|@preact/signals|fflate)" dist/third-party-licenses.txt`
 Expected: both `tsc` runs print nothing (`licenses.config.ts` is checked by `tsconfig.node.json`); the build succeeds; grep prints one title line per required package (e.g. `fflate 0.8.3 — MIT`, `manifold-3d 3.5.4 — Apache-2.0`, `Clipper2 (inside manifold-3d's WASM) — BSL-1.0`).
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd apps/insert-generator
 git add src/licenses licenses.config.ts licenses/clipper2-LICENSE.txt vite.config.ts tsconfig.node.json
 git commit -m "Ship a third-party licenses file with the build"
 ```
@@ -11118,7 +11095,7 @@ git commit -m "Ship a third-party licenses file with the build"
 
 - Consumes: the built `dist/` (Tasks 21–22), Node 22 built-ins only (`node:http`, `node:fs/promises`, `node:path`, `node:process`), global `fetch`.
 - Produces: `node scripts/smoke-dist.mjs [distDir]` — exits 0 and prints `smoke-dist: OK …`, or exits 1 listing every problem. Checks (spec §11 "Build"):
-  1. `index.html` exists; every `src`/`href` in it is relative (no leading `/`, `//` or scheme) and loads with HTTP 200 when the page is served from `/static-web-apps/insert-generator/`.
+  1. `index.html` exists; every `src`/`href` in it is relative (no leading `/`, `//` or scheme) and loads with HTTP 200 when the page is served from `/static-web-`.
   2. At least one `.wasm` and at least two worker scripts (`*worker*.js`: layout + geometry) exist in `dist/`, each is referenced by name from some `.js` file, and each loads with 200 (`.wasm` with `content-type: application/wasm`).
   3. No `.html`, `.js` or `.css` file references an absolute `/assets/…` path.
   4. `third-party-licenses.txt` exists and names manifold-3d, Clipper2, three, preact, @preact/signals and fflate.
@@ -11257,7 +11234,7 @@ export default defineConfig({
 });
 ```
 
-Run: `cd apps/insert-generator && npx vitest run scripts/smoke-dist.test.mjs`
+Run: `npx vitest run scripts/smoke-dist.test.mjs`
 Expected: FAIL — every case reports a non-zero status with `Cannot find module '…/scripts/smoke-dist.mjs'` in `stderr`.
 
 - [ ] **Step 3: Write the smoke script**
@@ -11269,7 +11246,7 @@ Expected: FAIL — every case reports a non-zero status with `Cannot find module
 //   node scripts/smoke-dist.mjs [distDir]
 //
 // Serves dist/ from a subpath, the way GitHub Pages does
-// (/static-web-apps/insert-generator/), and checks that index.html only uses
+// (/static-web-), and checks that index.html only uses
 // relative asset URLs that load, that the layout and geometry workers and the
 // manifold WASM exist and are referenced by name, that no file points at an
 // absolute /assets/ path, and that the third-party licenses file is complete.
@@ -11282,7 +11259,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 
-const BASE = "/static-web-apps/insert-generator/";
+const BASE = "/static-web-";
 const REQUIRED_LICENSES = [
   "manifold-3d",
   "Clipper2",
@@ -11438,7 +11415,7 @@ process.stdout.write(`smoke-dist: OK (${root} served from ${BASE})\n`);
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd apps/insert-generator && npx vitest run scripts/smoke-dist.test.mjs`
+Run: `npx vitest run scripts/smoke-dist.test.mjs`
 Expected: PASS (5 tests).
 
 - [ ] **Step 5: Wire the smoke test into the build and run it on the real dist**
@@ -11450,8 +11427,8 @@ In `package.json`, change only the `build` script (plan 1's value plus the smoke
 +    "build": "vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build && node scripts/smoke-dist.mjs dist",
 ```
 
-Run: `cd apps/insert-generator && npm run build`
-Expected: all tests pass, both `tsc` runs print nothing, Vite prints `✓ built`, and the last line is `smoke-dist: OK (…/dist served from /static-web-apps/insert-generator/)`. Two Vite warnings are expected and harmless: `Module "node:module" has been externalized for browser compatibility` (manifold's Node-only branch, plan 3) and "Some chunks are larger than 500 kB" for the lazily loaded three.js chunk (`scene-<hash>.js`, ≈ 550 kB, loaded only when the 3D view opens). If it reports fewer than two worker scripts, list `dist/assets` and check the worker file names: Vite names worker chunks after their source file (`worker-<hash>.js` for both `layout/worker.ts` and `geometry/worker.ts`).
+Run: `npm run build`
+Expected: all tests pass, both `tsc` runs print nothing, Vite prints `✓ built`, and the last line is `smoke-dist: OK (…/dist served from /static-web-)`. Two Vite warnings are expected and harmless: `Module "node:module" has been externalized for browser compatibility` (manifold's Node-only branch, plan 3) and "Some chunks are larger than 500 kB" for the lazily loaded three.js chunk (`scene-<hash>.js`, ≈ 550 kB, loaded only when the 3D view opens). If it reports fewer than two worker scripts, list `dist/assets` and check the worker file names: Vite names worker chunks after their source file (`worker-<hash>.js` for both `layout/worker.ts` and `geometry/worker.ts`).
 
 - [ ] **Step 6: Bulk-build smoke test of the geometry timeout**
 
@@ -11499,13 +11476,12 @@ describe("bulk build smoke", () => {
 });
 ```
 
-Run: `cd apps/insert-generator && npx vitest run src/app/bulkBuild.smoke.test.ts`
+Run: `npx vitest run src/app/bulkBuild.smoke.test.ts`
 Expected: PASS. If it fails, raise `BUILD_TIMEOUT_MS` in plan 3's `geometry/client.ts` (and roadmap §4.3) rather than lowering the margin.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd apps/insert-generator
 git add scripts/smoke-dist.mjs scripts/smoke-dist.test.mjs src/app/bulkBuild.smoke.test.ts package.json vite.config.ts
 git commit -m "Add a build smoke test of dist served from a subpath"
 ```
@@ -11525,10 +11501,10 @@ git commit -m "Add a build smoke test of dist served from a subpath"
 
 - [ ] **Step 1: Write the failing check**
 
-Run (repo root): `grep -q "How to add a component kind" apps/insert-generator/README.md && grep -q "stacking trays" apps/insert-generator/app.json`
+Run (repo root): `grep -q "How to add a component kind" README.md && grep -q "stacking trays" app.json`
 Expected: exit status 1 (plan 1's placeholder README and app.json don't contain these yet).
 
-- [ ] **Step 2: Replace `apps/insert-generator/app.json`**
+- [ ] **Step 2: Replace `app.json`**
 
 ```json
 {
@@ -11537,7 +11513,7 @@ Expected: exit status 1 (plan 1's placeholder README and app.json don't contain 
 }
 ```
 
-- [ ] **Step 3: Replace `apps/insert-generator/README.md`**
+- [ ] **Step 3: Replace `README.md`**
 
 ````markdown
 # insert-generator
@@ -11551,7 +11527,6 @@ Status: **preview (0.x)**: saved projects and shared links may break between
 versions.
 
 ```bash
-cd apps/insert-generator
 npm install
 npm run dev        # dev server
 npm test           # vitest run (unit + jsdom component tests + script tests)
@@ -11623,7 +11598,7 @@ built on demand by the geometry worker and cached in `app/meshes.ts`.
 
 ## Build smoke test and its limits
 
-`scripts/smoke-dist.mjs` serves `dist/` from `/static-web-apps/insert-generator/`
+`scripts/smoke-dist.mjs` serves `dist/` from `/static-web-`
 with a tiny `node:http` server and checks that `index.html` only uses relative
 URLs that load, that the layout and geometry worker scripts and the manifold
 WASM exist and are referenced by name, that nothing points at `/assets/`
@@ -11639,13 +11614,12 @@ repo's [`tsconfig.base.json`](../../tsconfig.base.json).
 
 - [ ] **Step 4: Run the check and the formatter**
 
-Run (repo root): `grep -q "How to add a component kind" apps/insert-generator/README.md && grep -q "stacking trays" apps/insert-generator/app.json && npx prettier --check apps/insert-generator/README.md apps/insert-generator/app.json`
-Expected: exit status 0 and `All matched files use Prettier code style!` (if Prettier reports the README, run `npx prettier --write apps/insert-generator/README.md` and re-check).
+Run (repo root): `grep -q "How to add a component kind" README.md && grep -q "stacking trays" app.json && npx prettier --check README.md app.json`
+Expected: exit status 0 and `All matched files use Prettier code style!` (if Prettier reports the README, run `npx prettier --write README.md` and re-check).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd apps/insert-generator
 git add README.md app.json
 git commit -m "Document the insert generator UI and architecture"
 ```
@@ -11666,14 +11640,14 @@ git commit -m "Document the insert generator UI and architecture"
 - [ ] **Step 1: Run the repo quality gate**
 
 Run (repo root): `npm run verify`
-Expected: ESLint, Stylelint and html-validate print no errors; Prettier prints `All matched files use Prettier code style!`; `build:all` builds every app, and the insert-generator build ends with `smoke-dist: OK …`. Final line: `Built 4 app(s).`
+Expected: ESLint, Stylelint and html-validate print no errors; Prettier prints `All matched files use Prettier code style!`; the build ends with `smoke-dist: OK …`.
 
-If Prettier fails, run `npx prettier --write apps/insert-generator` and re-run. If ESLint reports `curly`, `eqeqeq`, `prefer-template` or `no-param-reassign`, fix the code the way the rule says (never disable the rule).
+If Prettier fails, run `npx prettier --write .` and re-run. If ESLint reports `curly`, `eqeqeq`, `prefer-template` or `no-param-reassign`, fix the code the way the rule says (never disable the rule).
 
 - [ ] **Step 2: Manual end-to-end check in a real browser**
 
-1. `cd apps/insert-generator && npm run build && npx vite preview --base /static-web-apps/insert-generator/ --port 4173`, open `http://localhost:4173/static-web-apps/insert-generator/` in Chrome (real subpath, real workers and WASM).
-2. **Import:** Project menu → "Import JSON…" → choose `apps/insert-generator/test/fixtures/cards-heavy.json`. Expected: the project name changes, inputs fill in, the summary shows "Optimizing… N%" and then fill %, trays, stacks, "≤ N g (upper bound…)" and play per axis; the plan view and 3D view appear.
+1. `npm run build && npx vite preview --base /static-web- --port 4173`, open `http://localhost:4173/static-web-` in Chrome (real subpath, real workers and WASM).
+2. **Import:** Project menu → "Import JSON…" → choose `test/fixtures/cards-heavy.json`. Expected: the project name changes, inputs fill in, the summary shows "Optimizing… N%" and then fill %, trays, stacks, "≤ N g (upper bound…)" and play per axis; the plan view and 3D view appear.
 3. **No re-optimize on reload:** reload the page. Expected: the same layout appears at once, no "Optimizing…".
 4. **Lock & swap:** in the plan view, drag tray 1 onto tray 2 (mouse). Expected: both show "locked", a re-optimize runs, the trays have traded places. Then select tray 3, click "Lock position": its label gets ", locked". Click "Undo layout": the previous layout returns and the "Inputs changed — re-optimize?" notice offers "Re-optimize now".
 5. **Edit storm:** in Box → Inner width type `2`, `29`, `290,5` quickly. Expected: one "Optimizing…" after you stop typing, no error message while typing `290,`.
@@ -11690,7 +11664,7 @@ Write down any failure, fix it in the owning task's files with a test that repro
 - [ ] **Step 3: Commit fix-ups (only if Step 1 or 2 needed changes)**
 
 ```bash
-git add apps/insert-generator
+git add -A
 git commit -m "Fix issues found in the end-to-end check"
 ```
 

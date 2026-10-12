@@ -24,17 +24,17 @@ Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts
 
 ## Global Constraints
 
-- App lives in `apps/insert-generator/`. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
+- App lives in ``. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
 - Node 22 (`.nvmrc`). Dependency versions (exact ranges): `vite ^6.4.0`, `vitest ^5.0.3`, `typescript ^6.0.3`, `preact ^10.29.8`, `@preact/signals ^2.11.3`, `@preact/preset-vite ^2.10.6`, `manifold-3d ^3.5.4` (single-threaded build only), `three ^0.186.1`, `@types/three ^0.186.0`, `fflate ^0.8.3`, `fast-check ^4.10.2`, `jsdom ^30.1.2`, `@testing-library/preact ^3.2.4`, `rollup-plugin-license ^3.7.1`, `@types/node ^22.0.0` (type-only, for `tsconfig.node.json`). No copyleft dependencies.
 - TypeScript strictness from `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax` → use `import type`). App `tsconfig.json` (covers `src/`, no Node types): `"jsx": "react-jsx"`, `"jsxImportSource": "preact"`. `tsconfig.node.json` covers the Node-side config files (`vite.config.ts`, later `licenses.config.ts`) with `"types": ["node"]`.
 - Lint: root `eslint.config.mjs` (non-type-checked `strict` + `stylistic`, `curly: all`, `eqeqeq`, `prefer-template`, `no-param-reassign`, `no-console` except warn/error). Prettier: `printWidth` from `.prettierrc.json`. Stylelint for CSS. html-validate for `index.html`.
-- The app's `build` script: `vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build` (plan 5 appends `&& node scripts/smoke-dist.mjs dist`); `npm run typecheck` runs both `tsc` checks. Tests run in CI via `npm run build:all`.
-- `Math.random` is banned in `apps/insert-generator/src/layout/**` (root ESLint rule, plan 1).
+- The app's `build` script: `vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build` (plan 5 appends `&& node scripts/smoke-dist.mjs dist`); `npm run typecheck` runs both `tsc` checks. Tests run in CI via `npm run verify` (lint, format check, build).
+- `Math.random` is banned in `src/layout/**` (root ESLint rule, plan 1).
 - All lengths are millimetres. Inside `layout/`, lengths are integer 0.01 mm units (`Units` helpers, plan 4); `TraySpec` stores mm rounded to 0.01.
 - Versions start at app `0.1.0`, `SCHEMA_VERSION = "0.1.0"`, `GEOMETRY_VERSION = "0.1.0"`. Pre-1.0 makes no compatibility promise (spec §9).
 - Never use `localStorage` without `try/catch`. No network calls at runtime.
 - Commits: plain imperative messages (e.g. `Add card sizing`). **No `Co-Authored-By` or any trailer.** Commit after every task.
-- Run tests from the app folder: `cd apps/insert-generator && npx vitest run <path>`. Run repo checks from the root: `npm run lint`, `npm run format:check`, `npm run verify`.
+- Run tests and repo checks from the repo root: `npx vitest run <path>`, `npm run lint`, `npm run format:check`, `npm run verify`.
 
 ## Review Focus
 
@@ -74,7 +74,7 @@ These are interpretations of the spec and roadmap that every task relies on. Non
 
 ## File structure
 
-All under `apps/insert-generator/src/layout/`:
+All under `src/layout/`:
 
 | File                                                      | Responsibility                                                                      |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -105,9 +105,9 @@ All under `apps/insert-generator/src/layout/`:
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/types.ts`
-- Create: `apps/insert-generator/src/layout/units.ts`
-- Test: `apps/insert-generator/src/layout/units.test.ts`
+- Create: `src/layout/types.ts`
+- Create: `src/layout/units.ts`
+- Test: `src/layout/units.test.ts`
 
 **Interfaces:**
 
@@ -116,7 +116,7 @@ All under `apps/insert-generator/src/layout/`:
 
 - [ ] **Step 1: Add the contract types (roadmap §4.4, verbatim)**
 
-`apps/insert-generator/src/layout/types.ts`:
+`src/layout/types.ts`:
 
 ```ts
 import type { Box, Printer, Settings, Lock, StoredLayout, TraySpec, Notice } from "../model/types";
@@ -167,7 +167,7 @@ export type LayoutResponse =
 
 - [ ] **Step 2: Write the failing test**
 
-`apps/insert-generator/src/layout/units.test.ts`:
+`src/layout/units.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -227,13 +227,13 @@ describe("units", () => {
 
 - [ ] **Step 3: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/units.test.ts`
+Run: `npx vitest run src/layout/units.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./units" from "src/layout/units.test.ts"`.
 
 - [ ] **Step 4: Write the implementation**
 
-`apps/insert-generator/src/layout/units.ts`:
+`src/layout/units.ts`:
 
 ```ts
 /**
@@ -320,7 +320,7 @@ export interface Rect extends Ext {
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/units.test.ts`
+Run: `npx vitest run src/layout/units.test.ts`
 
 Expected: PASS.
 
@@ -328,7 +328,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 6: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/types.ts src/layout/units.ts src/layout/units.test.ts
@@ -339,8 +339,8 @@ git commit -m "Add layout contract types and integer units"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/prng.ts`
-- Test: `apps/insert-generator/src/layout/prng.test.ts`
+- Create: `src/layout/prng.ts`
+- Test: `src/layout/prng.test.ts`
 
 **Interfaces:**
 
@@ -349,7 +349,7 @@ git commit -m "Add layout contract types and integer units"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/prng.test.ts`:
+`src/layout/prng.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -419,13 +419,13 @@ describe("prng", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/prng.test.ts`
+Run: `npx vitest run src/layout/prng.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./prng" from "src/layout/prng.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/prng.ts`:
+`src/layout/prng.ts`:
 
 ```ts
 /**
@@ -525,7 +525,7 @@ export function createRng(seed: number): Rng {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/prng.test.ts`
+Run: `npx vitest run src/layout/prng.test.ts`
 
 Expected: PASS.
 
@@ -533,7 +533,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/prng.test.ts src/layout/prng.ts
@@ -544,8 +544,8 @@ git commit -m "Add seeded xoshiro128** PRNG for the layout engine"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/bed.ts`
-- Test: `apps/insert-generator/src/layout/bed.test.ts`
+- Create: `src/layout/bed.ts`
+- Test: `src/layout/bed.test.ts`
 
 **Interfaces:**
 
@@ -554,7 +554,7 @@ git commit -m "Add seeded xoshiro128** PRNG for the layout engine"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/bed.test.ts`:
+`src/layout/bed.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -595,13 +595,13 @@ describe("bed fit", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/bed.test.ts`
+Run: `npx vitest run src/layout/bed.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./bed" from "src/layout/bed.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/bed.ts`:
+`src/layout/bed.ts`:
 
 ```ts
 import type { Ext, Rect, U } from "./units";
@@ -678,7 +678,7 @@ export function splitForBed(bed: Bed, rect: Rect, gap: U): Rect[] {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/bed.test.ts`
+Run: `npx vitest run src/layout/bed.test.ts`
 
 Expected: PASS.
 
@@ -686,7 +686,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/bed.test.ts src/layout/bed.ts
@@ -697,9 +697,9 @@ git commit -m "Add bed fit checks for layout parts"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/context.ts`
-- Create: `apps/insert-generator/src/layout/test-utils.ts` (test helper; Task 12 extends it)
-- Test: `apps/insert-generator/src/layout/context.test.ts`
+- Create: `src/layout/context.ts`
+- Create: `src/layout/test-utils.ts` (test helper; Task 12 extends it)
+- Test: `src/layout/context.test.ts`
 
 **Interfaces:**
 
@@ -708,7 +708,7 @@ git commit -m "Add bed fit checks for layout parts"
 
 - [ ] **Step 1: Write the test helpers**
 
-`apps/insert-generator/src/layout/test-utils.ts`:
+`src/layout/test-utils.ts`:
 
 ```ts
 import { DEFAULT_SETTINGS } from "../model/settings";
@@ -849,7 +849,7 @@ export const fakeMeasure: Measure = (p, _settings, opts) => {
 
 - [ ] **Step 2: Write the failing test**
 
-`apps/insert-generator/src/layout/context.test.ts`:
+`src/layout/context.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -922,13 +922,13 @@ describe("createCtx", () => {
 
 - [ ] **Step 3: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/context.test.ts`
+Run: `npx vitest run src/layout/context.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./context" from "src/layout/context.test.ts"`.
 
 - [ ] **Step 4: Write the implementation**
 
-`apps/insert-generator/src/layout/context.ts`:
+`src/layout/context.ts`:
 
 ```ts
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
@@ -1099,7 +1099,7 @@ export function withSizeLocks(ctx: Ctx, sizeLocks: ReadonlyMap<number, FixedSize
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/context.test.ts`
+Run: `npx vitest run src/layout/context.test.ts`
 
 Expected: PASS.
 
@@ -1107,7 +1107,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 6: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/context.ts src/layout/context.test.ts src/layout/test-utils.ts
@@ -1118,8 +1118,8 @@ git commit -m "Add layout context with cached part metrics"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/tree.ts`
-- Test: `apps/insert-generator/src/layout/tree.test.ts`
+- Create: `src/layout/tree.ts`
+- Test: `src/layout/tree.test.ts`
 
 **Interfaces:**
 
@@ -1128,7 +1128,7 @@ git commit -m "Add layout context with cached part metrics"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/tree.test.ts`:
+`src/layout/tree.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1232,13 +1232,13 @@ describe("guillotine tree", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/tree.test.ts`
+Run: `npx vitest run src/layout/tree.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./tree" from "src/layout/tree.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/tree.ts`:
+`src/layout/tree.ts`:
 
 ```ts
 import { mulDiv, type Ext, type Rect, type U } from "./units";
@@ -1493,7 +1493,7 @@ export function placeLeaves(
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/tree.test.ts`
+Run: `npx vitest run src/layout/tree.test.ts`
 
 Expected: PASS.
 
@@ -1501,7 +1501,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/tree.test.ts src/layout/tree.ts
@@ -1512,8 +1512,8 @@ git commit -m "Add guillotine tree with exact integer tiling"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/stack.ts`
-- Test: `apps/insert-generator/src/layout/stack.test.ts`
+- Create: `src/layout/stack.ts`
+- Test: `src/layout/stack.test.ts`
 
 **Interfaces:**
 
@@ -1522,7 +1522,7 @@ git commit -m "Add guillotine tree with exact integer tiling"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/stack.test.ts`:
+`src/layout/stack.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1629,13 +1629,13 @@ describe("stack feasibility", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/stack.test.ts`
+Run: `npx vitest run src/layout/stack.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./stack" from "src/layout/stack.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/stack.ts`:
+`src/layout/stack.ts`:
 
 ```ts
 import { INF_U, SLIVER_U, type Ctx, type FixedSize } from "./context";
@@ -1782,7 +1782,7 @@ export function stackHeights(ctx: Ctx, levels: readonly Level[]): StackHeights {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/stack.test.ts`
+Run: `npx vitest run src/layout/stack.test.ts`
 
 Expected: PASS.
 
@@ -1790,7 +1790,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/stack.test.ts src/layout/stack.ts
@@ -1801,8 +1801,8 @@ git commit -m "Add stack feasibility with lip insets and heights"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/fill.ts`
-- Test: `apps/insert-generator/src/layout/fill.test.ts`
+- Create: `src/layout/fill.ts`
+- Test: `src/layout/fill.test.ts`
 
 **Interfaces:**
 
@@ -1811,7 +1811,7 @@ git commit -m "Add stack feasibility with lip insets and heights"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/fill.test.ts`:
+`src/layout/fill.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1943,13 +1943,13 @@ describe("fill", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/fill.test.ts`
+Run: `npx vitest run src/layout/fill.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./fill" from "src/layout/fill.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/fill.ts`:
+`src/layout/fill.ts`:
 
 ```ts
 import { bedExcess, bedOrientations, splitForBed } from "./bed";
@@ -2222,7 +2222,7 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/fill.test.ts`
+Run: `npx vitest run src/layout/fill.test.ts`
 
 Expected: PASS.
 
@@ -2230,7 +2230,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/fill.test.ts src/layout/fill.ts
@@ -2241,8 +2241,8 @@ git commit -m "Add layout fill with leftovers, bed caps and slivers"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/score.ts`
-- Test: `apps/insert-generator/src/layout/score.test.ts`
+- Create: `src/layout/score.ts`
+- Test: `src/layout/score.test.ts`
 
 **Interfaces:**
 
@@ -2251,7 +2251,7 @@ git commit -m "Add layout fill with leftovers, bed caps and slivers"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/score.test.ts`:
+`src/layout/score.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -2362,13 +2362,13 @@ describe("score", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/score.test.ts`
+Run: `npx vitest run src/layout/score.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./score" from "src/layout/score.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/score.ts`:
+`src/layout/score.ts`:
 
 ```ts
 import { PLAY_LIMIT_U, type Ctx } from "./context";
@@ -2517,7 +2517,7 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/score.test.ts`
+Run: `npx vitest run src/layout/score.test.ts`
 
 Expected: PASS.
 
@@ -2525,7 +2525,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/score.test.ts src/layout/score.ts
@@ -2536,8 +2536,8 @@ git commit -m "Add integer layout score with ordered weights"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/moves.ts`
-- Test: `apps/insert-generator/src/layout/moves.test.ts`
+- Create: `src/layout/moves.ts`
+- Test: `src/layout/moves.test.ts`
 
 **Interfaces:**
 
@@ -2546,7 +2546,7 @@ git commit -m "Add integer layout score with ordered weights"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/moves.test.ts`:
+`src/layout/moves.test.ts`:
 
 ```ts
 import fc from "fast-check";
@@ -2732,13 +2732,13 @@ describe("moves", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/moves.test.ts`
+Run: `npx vitest run src/layout/moves.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./moves" from "src/layout/moves.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/moves.ts`:
+`src/layout/moves.ts`:
 
 ```ts
 import { MAX_LEVELS, type Ctx } from "./context";
@@ -3057,7 +3057,7 @@ export function pickMove(rng: Rng): Move {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/moves.test.ts`
+Run: `npx vitest run src/layout/moves.test.ts`
 
 Expected: PASS.
 
@@ -3065,7 +3065,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/moves.test.ts src/layout/moves.ts
@@ -3076,8 +3076,8 @@ git commit -m "Add pure annealing moves that respect locked paths"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/locks.ts`
-- Test: `apps/insert-generator/src/layout/locks.test.ts`
+- Create: `src/layout/locks.ts`
+- Test: `src/layout/locks.test.ts`
 
 **Interfaces:**
 
@@ -3086,7 +3086,7 @@ git commit -m "Add pure annealing moves that respect locked paths"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/locks.test.ts`:
+`src/layout/locks.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -3294,13 +3294,13 @@ describe("swapLocks", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/locks.test.ts`
+Run: `npx vitest run src/layout/locks.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./locks" from "src/layout/locks.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/locks.ts`:
+`src/layout/locks.ts`:
 
 ```ts
 import type { Lock, Notice, StoredLayout, TraySpec } from "../model/types";
@@ -3846,7 +3846,7 @@ export function swapLocks(
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/locks.test.ts`
+Run: `npx vitest run src/layout/locks.test.ts`
 
 Expected: PASS.
 
@@ -3854,7 +3854,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/locks.test.ts src/layout/locks.ts
@@ -3865,8 +3865,8 @@ git commit -m "Add lock validation, application and drag-to-swap"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/greedy.ts`
-- Test: `apps/insert-generator/src/layout/greedy.test.ts`
+- Create: `src/layout/greedy.ts`
+- Test: `src/layout/greedy.test.ts`
 
 **Interfaces:**
 
@@ -3875,7 +3875,7 @@ git commit -m "Add lock validation, application and drag-to-swap"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/greedy.test.ts`:
+`src/layout/greedy.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -3955,13 +3955,13 @@ describe("greedyTree", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/greedy.test.ts`
+Run: `npx vitest run src/layout/greedy.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./greedy" from "src/layout/greedy.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/greedy.ts`:
+`src/layout/greedy.ts`:
 
 ```ts
 import { fitsBed } from "./bed";
@@ -4132,7 +4132,7 @@ export function greedyTree(ctx: Ctx, resolved: ResolvedLocks, along: Axis): Tree
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/greedy.test.ts`
+Run: `npx vitest run src/layout/greedy.test.ts`
 
 Expected: PASS.
 
@@ -4140,7 +4140,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/greedy.test.ts src/layout/greedy.ts
@@ -4151,9 +4151,9 @@ git commit -m "Add first-fit-decreasing starting layouts"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/materialize.ts`
-- Modify: `apps/insert-generator/src/layout/test-utils.ts` (add `fakeRealize`)
-- Test: `apps/insert-generator/src/layout/materialize.test.ts`
+- Create: `src/layout/materialize.ts`
+- Modify: `src/layout/test-utils.ts` (add `fakeRealize`)
+- Test: `src/layout/materialize.test.ts`
 
 **Interfaces:**
 
@@ -4164,7 +4164,7 @@ git commit -m "Add first-fit-decreasing starting layouts"
 
 Replace the whole file with the version below. It adds the `CompartmentSpec`/`TraySpec`/`Realize` imports and `fakeRealize` at the end; everything else is unchanged.
 
-`apps/insert-generator/src/layout/test-utils.ts`:
+`src/layout/test-utils.ts`:
 
 ```ts
 import { DEFAULT_SETTINGS } from "../model/settings";
@@ -4357,7 +4357,7 @@ export const fakeRealize: Realize = (p, outer, settings) => {
 
 - [ ] **Step 2: Write the failing test**
 
-`apps/insert-generator/src/layout/materialize.test.ts`:
+`src/layout/materialize.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -4415,13 +4415,13 @@ describe("materialize", () => {
 
 - [ ] **Step 3: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/materialize.test.ts`
+Run: `npx vitest run src/layout/materialize.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./materialize" from "src/layout/materialize.test.ts"`.
 
 - [ ] **Step 4: Write the implementation**
 
-`apps/insert-generator/src/layout/materialize.ts`:
+`src/layout/materialize.ts`:
 
 ```ts
 import type { Settings, TraySpec } from "../model/types";
@@ -4552,7 +4552,7 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/materialize.test.ts`
+Run: `npx vitest run src/layout/materialize.test.ts`
 
 Expected: PASS.
 
@@ -4560,7 +4560,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 6: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/materialize.ts src/layout/materialize.test.ts src/layout/test-utils.ts
@@ -4571,8 +4571,8 @@ git commit -m "Materialize layout plans into tray specs"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/warmstart.ts`
-- Test: `apps/insert-generator/src/layout/warmstart.test.ts`
+- Create: `src/layout/warmstart.ts`
+- Test: `src/layout/warmstart.test.ts`
 
 **Interfaces:**
 
@@ -4581,7 +4581,7 @@ git commit -m "Materialize layout plans into tray specs"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/warmstart.test.ts`:
+`src/layout/warmstart.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -4736,13 +4736,13 @@ describe("warm start", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/warmstart.test.ts`
+Run: `npx vitest run src/layout/warmstart.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./warmstart" from "src/layout/warmstart.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/warmstart.ts`:
+`src/layout/warmstart.ts`:
 
 ```ts
 import type { CompartmentSpec, TraySpec } from "../model/types";
@@ -4987,7 +4987,7 @@ export function warmTree(
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/warmstart.test.ts`
+Run: `npx vitest run src/layout/warmstart.test.ts`
 
 Expected: PASS.
 
@@ -4995,7 +4995,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/warmstart.test.ts src/layout/warmstart.ts
@@ -5006,8 +5006,8 @@ git commit -m "Rebuild guillotine trees from stored layouts for warm starts"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/anneal.ts`
-- Test: `apps/insert-generator/src/layout/anneal.test.ts`
+- Create: `src/layout/anneal.ts`
+- Test: `src/layout/anneal.test.ts`
 
 **Interfaces:**
 
@@ -5016,7 +5016,7 @@ git commit -m "Rebuild guillotine trees from stored layouts for warm starts"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/anneal.test.ts`:
+`src/layout/anneal.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -5087,13 +5087,13 @@ describe("annealer", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/anneal.test.ts`
+Run: `npx vitest run src/layout/anneal.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./anneal" from "src/layout/anneal.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/anneal.ts`:
+`src/layout/anneal.ts`:
 
 ```ts
 import type { Plan } from "./fill";
@@ -5196,7 +5196,7 @@ export function createAnnealer(
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/anneal.test.ts`
+Run: `npx vitest run src/layout/anneal.test.ts`
 
 Expected: PASS.
 
@@ -5204,7 +5204,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/anneal.test.ts src/layout/anneal.ts
@@ -5215,8 +5215,8 @@ git commit -m "Add deterministic simulated annealing"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/summarize.ts`
-- Test: `apps/insert-generator/src/layout/summarize.test.ts`
+- Create: `src/layout/summarize.ts`
+- Test: `src/layout/summarize.test.ts`
 
 **Interfaces:**
 
@@ -5225,7 +5225,7 @@ git commit -m "Add deterministic simulated annealing"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/summarize.test.ts`:
+`src/layout/summarize.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -5301,13 +5301,13 @@ function round1(v: number): number {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/summarize.test.ts`
+Run: `npx vitest run src/layout/summarize.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./summarize" from "src/layout/summarize.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/summarize.ts`:
+`src/layout/summarize.ts`:
 
 ```ts
 import { effective, topPlane } from "../model/settings";
@@ -5370,7 +5370,7 @@ export function summarize(
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/summarize.test.ts`
+Run: `npx vitest run src/layout/summarize.test.ts`
 
 Expected: PASS.
 
@@ -5378,7 +5378,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/summarize.test.ts src/layout/summarize.ts
@@ -5389,8 +5389,8 @@ git commit -m "Add layout summary"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/warnings.ts`
-- Test: `apps/insert-generator/src/layout/warnings.test.ts`
+- Create: `src/layout/warnings.ts`
+- Test: `src/layout/warnings.test.ts`
 
 **Interfaces:**
 
@@ -5399,7 +5399,7 @@ git commit -m "Add layout summary"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/warnings.test.ts`:
+`src/layout/warnings.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -5522,13 +5522,13 @@ describe("layout warnings", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/warnings.test.ts`
+Run: `npx vitest run src/layout/warnings.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./warnings" from "src/layout/warnings.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/warnings.ts`:
+`src/layout/warnings.ts`:
 
 ```ts
 import type { Notice, TraySpec } from "../model/types";
@@ -5693,7 +5693,7 @@ export function cappedNotice(): Notice {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/warnings.test.ts`
+Run: `npx vitest run src/layout/warnings.test.ts`
 
 Expected: PASS.
 
@@ -5701,7 +5701,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/warnings.test.ts src/layout/warnings.ts
@@ -5712,9 +5712,9 @@ git commit -m "Add layout warnings and doesNotFit suggestions"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/test-hard-rules.ts`
-- Create: `apps/insert-generator/src/layout/test-fixtures.ts`
-- Test: `apps/insert-generator/src/layout/hard-rules.test.ts`
+- Create: `src/layout/test-hard-rules.ts`
+- Create: `src/layout/test-fixtures.ts`
+- Test: `src/layout/hard-rules.test.ts`
 
 **Interfaces:**
 
@@ -5723,7 +5723,7 @@ git commit -m "Add layout warnings and doesNotFit suggestions"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/hard-rules.test.ts`:
+`src/layout/hard-rules.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -5775,7 +5775,7 @@ describe("isGuillotineTiling", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/hard-rules.test.ts`
+Run: `npx vitest run src/layout/hard-rules.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./test-hard-rules" from "src/layout/hard-rules.test.ts"`.
 
@@ -5783,7 +5783,7 @@ Expected: FAIL — `Failed to resolve import "./test-hard-rules" from "src/layou
 
 It checks every spec §3 rule on a `StoredLayout` plus the roadmap §4.6 conditions `buildTray` enforces (compartments inside the outer wall — the lipped wall when `lip` is set — not touching each other, `0 < floorZ < h`). Rule 8 uses sizing's `hasGrip`, on the trays whose part `needsGrip` (a tray whose components all have finger cuts and curved floor off is exempt).
 
-`apps/insert-generator/src/layout/test-hard-rules.ts`:
+`src/layout/test-hard-rules.ts`:
 
 ```ts
 /**
@@ -6118,7 +6118,7 @@ export function checkHardRules(
 
 Loads plan 1's synthetic fixtures through `parseProject`, sizes them with plan 2's `size()`, and builds a `LayoutInput`.
 
-`apps/insert-generator/src/layout/test-fixtures.ts`:
+`src/layout/test-fixtures.ts`:
 
 ```ts
 /** Test helper: loads the synthetic fixture projects (roadmap §5) as LayoutInputs. */
@@ -6161,7 +6161,7 @@ export function fixtureInput(name: FixtureName): LayoutInput {
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/hard-rules.test.ts`
+Run: `npx vitest run src/layout/hard-rules.test.ts`
 
 Expected: PASS.
 
@@ -6169,7 +6169,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean; `tsc` also 
 
 - [ ] **Step 6: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/test-hard-rules.ts src/layout/hard-rules.test.ts src/layout/test-fixtures.ts
@@ -6180,9 +6180,9 @@ git commit -m "Add hard-rule checker and fixture loader for layout tests"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/optimize.ts`
-- Create: `apps/insert-generator/src/layout/index.ts`
-- Test: `apps/insert-generator/src/layout/optimize.test.ts`, `apps/insert-generator/src/layout/index.test.ts`
+- Create: `src/layout/optimize.ts`
+- Create: `src/layout/index.ts`
+- Test: `src/layout/optimize.test.ts`, `src/layout/index.test.ts`
 
 **Interfaces:**
 
@@ -6191,7 +6191,7 @@ git commit -m "Add hard-rule checker and fixture loader for layout tests"
 
 - [ ] **Step 1: Write the failing tests**
 
-`apps/insert-generator/src/layout/optimize.test.ts`:
+`src/layout/optimize.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -6476,7 +6476,7 @@ describe("checkHardRules on optimizer output", () => {
 });
 ```
 
-`apps/insert-generator/src/layout/index.test.ts`:
+`src/layout/index.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -6495,13 +6495,13 @@ describe("layout public API", () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/optimize.test.ts src/layout/index.test.ts`
+Run: `npx vitest run src/layout/optimize.test.ts src/layout/index.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./optimize" from "src/layout/optimize.test.ts"`.
 
 - [ ] **Step 3: Write the orchestration**
 
-`apps/insert-generator/src/layout/optimize.ts`:
+`src/layout/optimize.ts`:
 
 ```ts
 import { GEOMETRY_VERSION } from "../geometry/version";
@@ -6781,7 +6781,7 @@ export function optimize(
 
 - [ ] **Step 4: Write the public index**
 
-`apps/insert-generator/src/layout/index.ts`:
+`src/layout/index.ts`:
 
 ```ts
 export { optimize, DEFAULT_ITERATIONS } from "./optimize";
@@ -6792,7 +6792,7 @@ export { NOTICE_CODES } from "./warnings";
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/optimize.test.ts src/layout/index.test.ts`
+Run: `npx vitest run src/layout/optimize.test.ts src/layout/index.test.ts`
 
 Expected: PASS. If "reports the infeasible tiny-box fixture" finds a layout, check `size()` output for `tiny-box.json` first (4 × 100 sleeved cards must not fit 150 × 100 × 40).
 
@@ -6800,7 +6800,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 6: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/optimize.ts src/layout/optimize.test.ts src/layout/index.ts src/layout/index.test.ts
@@ -6811,8 +6811,8 @@ git commit -m "Add layout optimizer orchestration"
 
 **Files:**
 
-- Test: `apps/insert-generator/src/layout/properties.test.ts`
-- Test: `apps/insert-generator/src/layout/optimize.calibrate.test.ts`
+- Test: `src/layout/properties.test.ts`
+- Test: `src/layout/optimize.calibrate.test.ts`
 
 **Interfaces:**
 
@@ -6823,7 +6823,7 @@ git commit -m "Add layout optimizer orchestration"
 
 Random requirement sets (1–6 requirements, 1–3 compartments, elastic flags, split variants, rotation, access, loose), random boxes, headroom, coverage, lip on/off, Fit, leftover mode and bed size; plus the synthetic fixtures. Every result must satisfy `checkHardRules` or report `doesNotFit` with a best attempt.
 
-`apps/insert-generator/src/layout/properties.test.ts`:
+`src/layout/properties.test.ts`:
 
 ```ts
 import fc from "fast-check";
@@ -6992,12 +6992,12 @@ describe("hard rules on the synthetic fixtures", () => {
 
 Skipped unless `CALIBRATE=1`; it measures iterations/s on the fixtures and prints the suggested `DEFAULT_ITERATIONS`.
 
-`apps/insert-generator/src/layout/optimize.calibrate.test.ts`:
+`src/layout/optimize.calibrate.test.ts`:
 
 ```ts
 /**
  * Calibration for DEFAULT_ITERATIONS (spec §7.2: the default budget runs ≈ 3 s on a
- * mid-range laptop). Skipped in normal runs. On such a machine, from apps/insert-generator:
+ * mid-range laptop). Skipped in normal runs. On such a machine, from the repo root:
  *   CALIBRATE=1 npx vitest run src/layout/optimize.calibrate.test.ts --reporter=verbose
  * It prints iterations/s per fixture and the suggested constant:
  * 3 × (iterations/s of the slowest fixture), rounded down to a multiple of 1000.
@@ -7029,19 +7029,19 @@ it.skipIf(env?.CALIBRATE !== "1")("measures iterations per second on the fixture
 
 - [ ] **Step 3: Run the tests**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/properties.test.ts src/layout/optimize.calibrate.test.ts`
+Run: `npx vitest run src/layout/properties.test.ts src/layout/optimize.calibrate.test.ts`
 
 Expected: PASS (7 tests) and 1 skipped. The engine is complete at this point, so these pass on the first run; when a property fails, fast-check prints the counterexample and seed — fix the engine module the violation names (tiling → `tree.ts`/`fill.ts`, heights → `stack.ts`, compartments/grip → the `realizeTray` call in `materialize.ts`), never the checker.
 
 - [ ] **Step 4: Calibrate (informational)**
 
-Run (from `apps/insert-generator`): `CALIBRATE=1 npx vitest run src/layout/optimize.calibrate.test.ts --reporter=verbose`
+Run: `CALIBRATE=1 npx vitest run src/layout/optimize.calibrate.test.ts --reporter=verbose`
 
 Expected: PASS and a JSON block with `rates` and `suggestedDefaultIterations`. Keep `DEFAULT_ITERATIONS = 50_000` unless this runs on a mid-range laptop; there, set it to the suggestion and update the measurement comment above the constant in `optimize.ts` (then re-run `npx vitest run src/layout/optimize.test.ts`).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/properties.test.ts src/layout/optimize.calibrate.test.ts
@@ -7052,9 +7052,9 @@ git commit -m "Add hard-rule property tests and optimizer calibration"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/worker-core.ts`
-- Create: `apps/insert-generator/src/layout/worker.ts`
-- Test: `apps/insert-generator/src/layout/worker-core.test.ts`
+- Create: `src/layout/worker-core.ts`
+- Create: `src/layout/worker.ts`
+- Test: `src/layout/worker-core.test.ts`
 
 **Interfaces:**
 
@@ -7063,7 +7063,7 @@ git commit -m "Add hard-rule property tests and optimizer calibration"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/worker-core.test.ts`:
+`src/layout/worker-core.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -7138,13 +7138,13 @@ describe("layout worker handler", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/worker-core.test.ts`
+Run: `npx vitest run src/layout/worker-core.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./worker-core" from "src/layout/worker-core.test.ts"`.
 
 - [ ] **Step 3: Write the handler**
 
-`apps/insert-generator/src/layout/worker-core.ts`:
+`src/layout/worker-core.ts`:
 
 ```ts
 import { createRun } from "./optimize";
@@ -7199,7 +7199,7 @@ export function createWorkerHandler(
 
 Thin wiring of `self`; it has no logic of its own (the handler is tested above). A cast is used instead of `/// <reference lib="webworker" />` because the app's tsconfig includes the DOM lib.
 
-`apps/insert-generator/src/layout/worker.ts`:
+`src/layout/worker.ts`:
 
 ```ts
 import type { LayoutRequest, LayoutResponse } from "./types";
@@ -7219,7 +7219,7 @@ scope.onmessage = (e) => {
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/worker-core.test.ts`
+Run: `npx vitest run src/layout/worker-core.test.ts`
 
 Expected: PASS.
 
@@ -7227,7 +7227,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 6: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/worker-core.ts src/layout/worker-core.test.ts src/layout/worker.ts
@@ -7238,8 +7238,8 @@ git commit -m "Add layout worker"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/layout/client.ts`
-- Test: `apps/insert-generator/src/layout/client.test.ts`
+- Create: `src/layout/client.ts`
+- Test: `src/layout/client.test.ts`
 
 **Interfaces:**
 
@@ -7248,7 +7248,7 @@ git commit -m "Add layout worker"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/layout/client.test.ts`:
+`src/layout/client.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -7347,13 +7347,13 @@ describe("layout client", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/client.test.ts`
+Run: `npx vitest run src/layout/client.test.ts`
 
 Expected: FAIL — `Failed to resolve import "./client" from "src/layout/client.test.ts"`.
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/layout/client.ts`:
+`src/layout/client.ts`:
 
 ```ts
 import type { StoredLayout } from "../model/types";
@@ -7473,7 +7473,7 @@ export function createLayoutClient(): LayoutClient {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout/client.test.ts`
+Run: `npx vitest run src/layout/client.test.ts`
 
 Expected: PASS.
 
@@ -7481,7 +7481,7 @@ Also run `npx tsc --noEmit` and `npx eslint src/layout` (both clean).
 
 - [ ] **Step 5: Commit**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 git add src/layout/client.test.ts src/layout/client.ts
@@ -7501,13 +7501,13 @@ git commit -m "Add layout worker client"
 
 - [ ] **Step 1: Run the whole layout suite and type-check**
 
-Run (from `apps/insert-generator`): `npx vitest run src/layout && npx tsc --noEmit && npx eslint src/layout`
+Run: `npx vitest run src/layout && npx tsc --noEmit && npx eslint src/layout`
 
 Expected: all layout test files pass (the calibration test is skipped), no type or lint errors.
 
 - [ ] **Step 2: Confirm no forbidden imports or randomness**
 
-Run (from `apps/insert-generator`): `grep -rn "Math.random\|from \"../geometry\"\|geometry/index" src/layout`
+Run: `grep -rn "Math.random\|from \"../geometry\"\|geometry/index" src/layout`
 
 Expected: no output (only `../geometry/version` is imported; `Math.random` is also rejected by ESLint).
 
@@ -7515,14 +7515,14 @@ Expected: no output (only `../geometry/version` is imported; `Math.random` is al
 
 Run (from the repo root): `npm run verify`
 
-Expected: exits 0 (lint, format check, and `build:all`, whose insert-generator build runs `vitest run && tsc --noEmit && vite build`). If `format:check` fails, run `npx prettier --write apps/insert-generator/src/layout` and re-run.
+Expected: exits 0 (lint, format check, and the build: `vitest run`, both `tsc` runs, `vite build`). If `format:check` fails, run `npx prettier --write src/layout` and re-run.
 
 - [ ] **Step 4: Commit any formatting fixes**
 
 Only if Step 3 required changes:
 
 ```bash
-git add apps/insert-generator/src/layout
+git add src/layout
 git commit -m "Format layout engine"
 ```
 

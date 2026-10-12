@@ -12,17 +12,17 @@
 
 ## Global Constraints
 
-- App lives in `apps/insert-generator/`. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
+- App lives in ``. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
 - Node 22 (`.nvmrc`). Dependency versions (exact ranges): `vite ^6.4.0`, `vitest ^5.0.3`, `typescript ^6.0.3`, `preact ^10.29.8`, `@preact/signals ^2.11.3`, `@preact/preset-vite ^2.10.6`, `manifold-3d ^3.5.4` (single-threaded build only), `three ^0.186.1`, `@types/three ^0.186.0`, `fflate ^0.8.3`, `fast-check ^4.10.2`, `jsdom ^30.1.2`, `@testing-library/preact ^3.2.4`, `rollup-plugin-license ^3.7.1`, `@types/node ^22.0.0` (type-only, for `tsconfig.node.json`). No copyleft dependencies.
 - TypeScript strictness from `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax` → use `import type`). App `tsconfig.json` (covers `src/`, no Node types): `"jsx": "react-jsx"`, `"jsxImportSource": "preact"`. `tsconfig.node.json` covers the Node-side config files (`vite.config.ts`, later `licenses.config.ts`) with `"types": ["node"]`.
 - Lint: root `eslint.config.mjs` (non-type-checked `strict` + `stylistic`, `curly: all`, `eqeqeq`, `prefer-template`, `no-param-reassign`, `no-console` except warn/error). Prettier: `printWidth` 100 from `.prettierrc.json`. Stylelint for CSS. html-validate for `index.html`.
 - The app's `build` script: `vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build` (plan 5 appends `&& node scripts/smoke-dist.mjs dist`); `npm run typecheck` runs both `tsc` checks. Tests run in CI via `npm run build:all`.
-- `Math.random` is banned in `apps/insert-generator/src/layout/**` (root ESLint rule, plan 1). Sizing does not use it either.
+- `Math.random` is banned in `src/layout/**` (root ESLint rule, plan 1). Sizing does not use it either.
 - All lengths are millimetres. Inside `layout/`, lengths are integer 0.01 mm units; `TraySpec` stores mm rounded to 0.01.
 - Versions start at app `0.1.0`, `SCHEMA_VERSION = "0.1.0"`, `GEOMETRY_VERSION = "0.1.0"`. Pre-1.0 makes no compatibility promise.
 - Never use `localStorage` without `try/catch`. No network calls at runtime.
 - Commits: plain imperative messages (e.g. `Add card sizing`). **No `Co-Authored-By` or any trailer.** Commit after every task.
-- Run tests from the app folder: `cd apps/insert-generator && npx vitest run <path>`. Run repo checks from the root: `npm run lint`, `npm run format:check`, `npm run verify`.
+- Run tests and repo checks from the repo root: `npx vitest run <path>`, `npm run lint`, `npm run format:check`, `npm run verify`.
 - No non-null assertions (`!`), no `Array<T>` (use `T[]`), interfaces over object type aliases, `findLastIndex` is not available (lib ES2022).
 
 ## Review Focus
@@ -76,7 +76,7 @@ These are interpretations of the spec/roadmap that every task relies on. None ch
 
 ## File structure
 
-All under `apps/insert-generator/src/sizing/`:
+All under `src/sizing/`:
 
 | File               | Responsibility                                               |
 | ------------------ | ------------------------------------------------------------ |
@@ -107,12 +107,12 @@ All under `apps/insert-generator/src/sizing/`:
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/types.ts`
-- Create: `apps/insert-generator/src/sizing/constants.ts`
-- Create: `apps/insert-generator/src/sizing/units.ts`
-- Create: `apps/insert-generator/src/sizing/test-helpers.ts`
-- Test: `apps/insert-generator/src/sizing/units.test.ts`
-- Test: `apps/insert-generator/src/sizing/contract.test.ts`
+- Create: `src/sizing/types.ts`
+- Create: `src/sizing/constants.ts`
+- Create: `src/sizing/units.ts`
+- Create: `src/sizing/test-helpers.ts`
+- Test: `src/sizing/units.test.ts`
+- Test: `src/sizing/contract.test.ts`
 
 **Interfaces:**
 
@@ -125,7 +125,7 @@ All under `apps/insert-generator/src/sizing/`:
 
 - [ ] **Step 1: Write the failing tests**
 
-`apps/insert-generator/src/sizing/units.test.ts`:
+`src/sizing/units.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -173,7 +173,7 @@ describe("units", () => {
 });
 ```
 
-`apps/insert-generator/src/sizing/contract.test.ts` (pins the plan 1 values this plan's worked examples rely on; it passes as soon as plan 1 is in place):
+`src/sizing/contract.test.ts` (pins the plan 1 values this plan's worked examples rely on; it passes as soon as plan 1 is in place):
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -218,12 +218,12 @@ describe("plan 1 values that sizing relies on", () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run (from `apps/insert-generator`): `npx vitest run src/sizing/units.test.ts src/sizing/contract.test.ts`
+Run: `npx vitest run src/sizing/units.test.ts src/sizing/contract.test.ts`
 Expected: `units.test.ts` FAILS with "Failed to resolve import "./units"". `contract.test.ts` PASSES (if it fails, plan 1 deviates from the roadmap: stop and reconcile before continuing — every worked example below assumes these values).
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/types.ts`:
+`src/sizing/types.ts`:
 
 ```ts
 // Cross-plan contract: roadmap §4.2. Do not rename or change these types.
@@ -293,7 +293,7 @@ export interface RealizedTray {
 }
 ```
 
-`apps/insert-generator/src/sizing/constants.ts`:
+`src/sizing/constants.ts`:
 
 ```ts
 /** Minimum printable feature width: 2 lines of 0.4 mm (spec §6.1). */
@@ -328,7 +328,7 @@ export const UPPER_TRAY_MIN_ABOVE_LIP = 3;
 export const WALL_GROW_LIMIT = 4;
 ```
 
-`apps/insert-generator/src/sizing/units.ts`:
+`src/sizing/units.ts`:
 
 ```ts
 // Sizing does its layout arithmetic in integer 0.01 mm units ("u") so that
@@ -406,7 +406,7 @@ export function fillCapped(total: number, caps: readonly number[]): number[] {
 }
 ```
 
-`apps/insert-generator/src/sizing/test-helpers.ts`:
+`src/sizing/test-helpers.ts`:
 
 ```ts
 // Test-only builders. Production code never imports this file.
@@ -518,10 +518,10 @@ git commit -m "Add sizing types, constants and unit helpers"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/common.ts`
-- Create: `apps/insert-generator/src/sizing/cards.ts`
-- Test: `apps/insert-generator/src/sizing/common.test.ts`
-- Test: `apps/insert-generator/src/sizing/cards.test.ts`
+- Create: `src/sizing/common.ts`
+- Create: `src/sizing/cards.ts`
+- Test: `src/sizing/common.test.ts`
+- Test: `src/sizing/cards.test.ts`
 
 **Interfaces:**
 
@@ -550,7 +550,7 @@ Worked numbers used below (defaults, Standard 63.5 × 88, standard sleeve, 52 ca
 
 - [ ] **Step 1: Write the failing tests**
 
-`apps/insert-generator/src/sizing/common.test.ts`:
+`src/sizing/common.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -627,7 +627,7 @@ describe("label", () => {
 });
 ```
 
-`apps/insert-generator/src/sizing/cards.test.ts`:
+`src/sizing/cards.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -829,7 +829,7 @@ Expected: FAIL with "Failed to resolve import "./common"" and "./cards".
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/common.ts`:
+`src/sizing/common.ts`:
 
 ```ts
 import { effective } from "../model/settings";
@@ -950,7 +950,7 @@ export function compartment(input: CompartmentInput, s: Settings): CompartmentRe
 }
 ```
 
-`apps/insert-generator/src/sizing/cards.ts`:
+`src/sizing/cards.ts`:
 
 ```ts
 import { SLEEVES } from "../model/presets";
@@ -1146,8 +1146,8 @@ git commit -m "Add card sizing"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/bulk.ts`
-- Test: `apps/insert-generator/src/sizing/bulk.test.ts`
+- Create: `src/sizing/bulk.ts`
+- Test: `src/sizing/bulk.test.ts`
 
 **Interfaces:**
 
@@ -1165,7 +1165,7 @@ Formulas: volume = `count·w·d·h ÷ packingFactor` (`volumeMl × 1000` as give
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/sizing/bulk.test.ts`:
+`src/sizing/bulk.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1318,7 +1318,7 @@ Expected: FAIL with "Failed to resolve import "./bulk"".
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/bulk.ts`:
+`src/sizing/bulk.ts`:
 
 ```ts
 import type { BulkComponent, BulkItem, Component, Notice, Settings } from "../model/types";
@@ -1481,8 +1481,8 @@ git commit -m "Add bulk sizing"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/tiles.ts`
-- Test: `apps/insert-generator/src/sizing/tiles.test.ts`
+- Create: `src/sizing/tiles.ts`
+- Test: `src/sizing/tiles.test.ts`
 
 **Interfaces:**
 
@@ -1500,7 +1500,7 @@ Worked numbers (hex f2f 40, 2 mm, 60 tiles, defaults): c2c = 46.18802; total 120
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/sizing/tiles.test.ts`:
+`src/sizing/tiles.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1650,7 +1650,7 @@ Expected: FAIL with "Failed to resolve import "./tiles"".
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/tiles.ts`:
+`src/sizing/tiles.ts`:
 
 ```ts
 import type { Notice, Settings, TileShape, TilesComponent } from "../model/types";
@@ -1823,8 +1823,8 @@ git commit -m "Add tile sizing"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/minis.ts`
-- Test: `apps/insert-generator/src/sizing/minis.test.ts`
+- Create: `src/sizing/minis.ts`
+- Test: `src/sizing/minis.test.ts`
 
 **Interfaces:**
 
@@ -1839,7 +1839,7 @@ Worked numbers (Hero 25 × 25 × 40, ×2, defaults): standing pocket 26 × 38 ×
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/sizing/minis.test.ts`:
+`src/sizing/minis.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1943,7 +1943,7 @@ Expected: FAIL with "Failed to resolve import "./minis"".
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/minis.ts`:
+`src/sizing/minis.ts`:
 
 ```ts
 import type { MinisComponent, Notice, Settings } from "../model/types";
@@ -2082,10 +2082,10 @@ git commit -m "Add minis sizing"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/custom.ts`
-- Create: `apps/insert-generator/src/sizing/component.ts`
-- Test: `apps/insert-generator/src/sizing/custom.test.ts`
-- Test: `apps/insert-generator/src/sizing/component.test.ts`
+- Create: `src/sizing/custom.ts`
+- Create: `src/sizing/component.ts`
+- Test: `src/sizing/custom.test.ts`
+- Test: `src/sizing/component.test.ts`
 
 **Interfaces:**
 
@@ -2097,7 +2097,7 @@ git commit -m "Add minis sizing"
 
 - [ ] **Step 1: Write the failing tests**
 
-`apps/insert-generator/src/sizing/custom.test.ts`:
+`src/sizing/custom.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -2144,7 +2144,7 @@ describe("customOptions", () => {
 });
 ```
 
-`apps/insert-generator/src/sizing/component.test.ts`:
+`src/sizing/component.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -2188,7 +2188,7 @@ Expected: FAIL with "Failed to resolve import "./custom"" and "./component".
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/custom.ts`:
+`src/sizing/custom.ts`:
 
 ```ts
 import type { CustomComponent, Notice, Settings } from "../model/types";
@@ -2242,7 +2242,7 @@ export function customOptions(c: CustomComponent, s: Settings, index: number): O
 }
 ```
 
-`apps/insert-generator/src/sizing/component.ts`:
+`src/sizing/component.ts`:
 
 ```ts
 import type { Component, Settings } from "../model/types";
@@ -2297,8 +2297,8 @@ git commit -m "Add custom sizing and component dispatch"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/arrange.ts`
-- Test: `apps/insert-generator/src/sizing/arrange.test.ts`
+- Create: `src/sizing/arrange.ts`
+- Test: `src/sizing/arrange.test.ts`
 
 **Interfaces:**
 
@@ -2310,7 +2310,7 @@ git commit -m "Add custom sizing and component dispatch"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/sizing/arrange.test.ts`:
+`src/sizing/arrange.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -2412,7 +2412,7 @@ Expected: FAIL with "Failed to resolve import "./arrange"".
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/arrange.ts`:
+`src/sizing/arrange.ts`:
 
 ```ts
 import { MAX_SPLITS } from "./constants";
@@ -2533,8 +2533,8 @@ git commit -m "Add row arrangement and split helpers"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/variants.ts`
-- Test: `apps/insert-generator/src/sizing/variants.test.ts`
+- Create: `src/sizing/variants.ts`
+- Test: `src/sizing/variants.test.ts`
 
 **Interfaces:**
 
@@ -2545,7 +2545,7 @@ git commit -m "Add row arrangement and split helpers"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/sizing/variants.test.ts`:
+`src/sizing/variants.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -2663,7 +2663,7 @@ Expected: FAIL with "Failed to resolve import "./variants"".
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/variants.ts`:
+`src/sizing/variants.ts`:
 
 ```ts
 import { rows2Order, splitBlocks } from "./arrange";
@@ -2825,8 +2825,8 @@ git commit -m "Add size variant enumeration"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/group.ts`
-- Test: `apps/insert-generator/src/sizing/group.test.ts`
+- Create: `src/sizing/group.ts`
+- Test: `src/sizing/group.test.ts`
 
 **Interfaces:**
 
@@ -2842,7 +2842,7 @@ Rules: requirements appear in the order their key first appears in `components`.
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/sizing/group.test.ts`:
+`src/sizing/group.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -2990,7 +2990,7 @@ Expected: FAIL with "Failed to resolve import "./group"".
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/group.ts`:
+`src/sizing/group.ts`:
 
 ```ts
 import type { Access, Component, Notice, Settings } from "../model/types";
@@ -3124,9 +3124,9 @@ git commit -m "Add size() with groups and per-player variants"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/outer.ts`
-- Modify: `apps/insert-generator/src/sizing/test-helpers.ts` (add `partOf`)
-- Test: `apps/insert-generator/src/sizing/outer.test.ts`
+- Create: `src/sizing/outer.ts`
+- Modify: `src/sizing/test-helpers.ts` (add `partOf`)
+- Test: `src/sizing/outer.test.ts`
 
 **Interfaces:**
 
@@ -3143,7 +3143,7 @@ Formulas (units, each min rounded up with `ceilU`): `wall = toU(wallFor)`, `divi
 
 - [ ] **Step 1: Add the `partOf` test helper**
 
-In `apps/insert-generator/src/sizing/test-helpers.ts`, replace the import block at the top with:
+In `src/sizing/test-helpers.ts`, replace the import block at the top with:
 
 ```ts
 // Test-only builders. Production code never imports this file.
@@ -3182,7 +3182,7 @@ export function partOf(
 
 - [ ] **Step 2: Write the failing test**
 
-`apps/insert-generator/src/sizing/outer.test.ts`:
+`src/sizing/outer.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -3309,7 +3309,7 @@ Expected: FAIL with "Failed to resolve import "./outer"".
 
 - [ ] **Step 4: Write the implementation**
 
-`apps/insert-generator/src/sizing/outer.ts`:
+`src/sizing/outer.ts`:
 
 ```ts
 import type { Settings, Side } from "../model/types";
@@ -3411,8 +3411,8 @@ git commit -m "Add minOuter"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/realize.ts`
-- Test: `apps/insert-generator/src/sizing/realize.test.ts`
+- Create: `src/sizing/realize.ts`
+- Test: `src/sizing/realize.test.ts`
 
 **Interfaces:**
 
@@ -3423,7 +3423,7 @@ Worked example used by the tests (one upright deck, defaults, `minOuter` 26.7 ×
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/sizing/realize.test.ts`:
+`src/sizing/realize.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -3692,7 +3692,7 @@ Expected: FAIL with "Failed to resolve import "./realize"".
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/realize.ts`:
+`src/sizing/realize.ts`:
 
 ```ts
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
@@ -4004,12 +4004,12 @@ git commit -m "Add realizeTray"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/sizing/rotate.ts`
-- Create: `apps/insert-generator/src/sizing/grip.ts`
-- Create: `apps/insert-generator/src/sizing/index.ts`
-- Test: `apps/insert-generator/src/sizing/rotate.test.ts`
-- Test: `apps/insert-generator/src/sizing/grip.test.ts`
-- Test: `apps/insert-generator/src/sizing/index.test.ts`
+- Create: `src/sizing/rotate.ts`
+- Create: `src/sizing/grip.ts`
+- Create: `src/sizing/index.ts`
+- Test: `src/sizing/rotate.test.ts`
+- Test: `src/sizing/grip.test.ts`
+- Test: `src/sizing/index.test.ts`
 
 **Interfaces:**
 
@@ -4021,7 +4021,7 @@ git commit -m "Add realizeTray"
 
 - [ ] **Step 1: Write the failing tests**
 
-`apps/insert-generator/src/sizing/rotate.test.ts`:
+`src/sizing/rotate.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -4109,7 +4109,7 @@ describe("rotateRealized", () => {
 });
 ```
 
-`apps/insert-generator/src/sizing/grip.test.ts`:
+`src/sizing/grip.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -4153,7 +4153,7 @@ describe("hasGrip", () => {
 });
 ```
 
-`apps/insert-generator/src/sizing/index.test.ts`:
+`src/sizing/index.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -4219,7 +4219,7 @@ Expected: FAIL with "Failed to resolve import "./rotate"", "./grip" and "./index
 
 - [ ] **Step 3: Write the implementation**
 
-`apps/insert-generator/src/sizing/rotate.ts`:
+`src/sizing/rotate.ts`:
 
 ```ts
 import type { CompartmentSpec, FeatureSpec, Side, TraySpec } from "../model/types";
@@ -4261,7 +4261,7 @@ export function rotateRealized(r: RealizedTray, outer: OuterSize): RealizedTray 
 }
 ```
 
-`apps/insert-generator/src/sizing/grip.ts`:
+`src/sizing/grip.ts`:
 
 ```ts
 import type { CompartmentSpec } from "../model/types";
@@ -4275,7 +4275,7 @@ export function hasGrip(compartments: readonly CompartmentSpec[]): boolean {
 }
 ```
 
-`apps/insert-generator/src/sizing/index.ts`:
+`src/sizing/index.ts`:
 
 ```ts
 export type {
@@ -4318,8 +4318,8 @@ git commit -m "Add tray rotation, grip check and sizing index"
 
 **Files:**
 
-- Test: `apps/insert-generator/src/sizing/property.test.ts`
-- Modify (only if missing): `apps/insert-generator/package.json`, `apps/insert-generator/package-lock.json` / root lockfile (add `fast-check ^4.10.2` as a dev dependency)
+- Test: `src/sizing/property.test.ts`
+- Modify (only if missing): `package.json`, `package-lock.json` / root lockfile (add `fast-check ^4.10.2` as a dev dependency)
 
 **Interfaces:**
 
@@ -4337,12 +4337,12 @@ Properties, on random valid components (1–3 per project, optionally all in one
 
 - [ ] **Step 1: Make sure fast-check is installed**
 
-Run (from `apps/insert-generator`): `npm ls fast-check`
+Run: `npm ls fast-check`
 Expected: `fast-check@4.x`. If it prints `(empty)`, run `npm install --save-dev fast-check@^4.10.2` and include the changed `package.json` and lockfile in this task's commit.
 
 - [ ] **Step 2: Write the property tests**
 
-`apps/insert-generator/src/sizing/property.test.ts`:
+`src/sizing/property.test.ts`:
 
 ```ts
 import fc, { type Arbitrary } from "fast-check";
@@ -4732,12 +4732,12 @@ Expected: lint, format check and `build:all` pass (the app build runs `vitest ru
 
 - [ ] **Step 2: Fix anything it reports**
 
-If `format:check` fails: `npx prettier --write apps/insert-generator/src/sizing` and re-run. If lint fails: fix the reported lines (do not disable rules). Re-run `npm run verify` until it passes.
+If `format:check` fails: `npx prettier --write src/sizing` and re-run. If lint fails: fix the reported lines (do not disable rules). Re-run `npm run verify` until it passes.
 
 - [ ] **Step 3: Commit fixes (only if Step 2 changed files)**
 
 ```bash
-git add apps/insert-generator/src/sizing
+git add src/sizing
 git commit -m "Fix sizing lint and formatting"
 ```
 

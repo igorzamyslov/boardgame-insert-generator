@@ -24,7 +24,7 @@ Plans 2 and 3 can run in parallel after plan 1. Each plan ends with
 
 ## 2. Global constraints (apply to every task of every plan)
 
-- App lives in `apps/insert-generator/`. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
+- App lives in ``. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
 - Node 22 (`.nvmrc`). Dependency versions (exact ranges):
   `vite ^6.4.0`, `vitest ^5.0.3`, `typescript ^6.0.3`, `preact ^10.29.8`,
   `@preact/signals ^2.11.3`, `@preact/preset-vite ^2.10.6`, `manifold-3d ^3.5.4`
@@ -35,17 +35,17 @@ Plans 2 and 3 can run in parallel after plan 1. Each plan ends with
 - TypeScript strictness from `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax` → use `import type`). App `tsconfig.json` (covers `src/`, no Node types): `"jsx": "react-jsx"`, `"jsxImportSource": "preact"`. `tsconfig.node.json` covers the Node-side config files (`vite.config.ts`, later `licenses.config.ts`) with `"types": ["node"]`.
 - Lint: root `eslint.config.mjs` (non-type-checked `strict` + `stylistic`, `curly: all`, `eqeqeq`, `prefer-template`, `no-param-reassign`, `no-console` except warn/error). Prettier: `printWidth` from `.prettierrc.json`. Stylelint for CSS. html-validate for `index.html`.
 - The app's `build` script: `vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build` (plan 5 appends `&& node scripts/smoke-dist.mjs dist`); `npm run typecheck` runs both `tsc` checks. Tests run in CI via `npm run build:all`.
-- `Math.random` is banned in `apps/insert-generator/src/layout/**` (root ESLint rule, plan 1).
+- `Math.random` is banned in `src/layout/**` (root ESLint rule, plan 1).
 - All lengths are millimetres. Inside `layout/`, lengths are integer 0.01 mm units (`Units` helpers, plan 4); `TraySpec` stores mm rounded to 0.01.
 - Versions start at app `0.1.0`, `SCHEMA_VERSION = "0.1.0"`, `GEOMETRY_VERSION = "0.1.0"`. Pre-1.0 makes no compatibility promise (spec §9). The finger channels (§4.6 wall cutouts) made both `0.1.1`: additive, so files and layouts of `0.1.0` stay on the same line.
 - Never use `localStorage` without `try/catch`. No network calls at runtime.
 - Commits: plain imperative messages (e.g. `Add card sizing`). **No `Co-Authored-By` or any trailer.** Commit after every task.
-- Run tests from the app folder: `cd apps/insert-generator && npx vitest run <path>`. Run repo checks from the root: `npm run lint`, `npm run format:check`, `npm run verify`.
+- Run tests and repo checks from the repo root: `npx vitest run <path>`, `npm run lint`, `npm run format:check`, `npm run verify`.
 
 ## 3. File layout
 
 ```
-apps/insert-generator/
+
   package.json  tsconfig.json  tsconfig.node.json  vite.config.ts  index.html  app.json  README.md
   src/
     main.tsx                     # mounts <App/>                       (plan 1 stub, plan 5)
@@ -744,7 +744,7 @@ Schema `0.1.1` added `settings.fingerPocket.floorNotch` (default 12.5: how far a
 
 Later plans edit these files in place and keep everything earlier plans put there. Steps that change a config file show the whole resulting file.
 
-- `apps/insert-generator/package.json` and its lockfile: plan 1 creates them with every §2 dependency. Later plans only run `npm install <pkg>@<§2 range>` (a no-op when present); plan 5 Task 23 changes only the `build` script (appends the smoke step).
+- `package.json` and its lockfile: plan 1 creates them with every §2 dependency. Later plans only run `npm install <pkg>@<§2 range>` (a no-op when present); plan 5 Task 23 changes only the `build` script (appends the smoke step).
 - `tsconfig.json` (app, `src/`): plan 1 only. `tsconfig.node.json` (Node-side config, `@types/node`): plan 1 creates it for `vite.config.ts`; plan 5 Task 22 adds `licenses.config.ts`.
 - `vite.config.ts`: plan 1 creates it; plan 3 Task 6 adds `worker` and `optimizeDeps`; plan 5 Task 15 adds `test.css`, Task 22 the license plugin, Task 23 `scripts/**/*.test.mjs` in `test.include`.
 - `index.html`, `src/main.tsx`, `src/app/App.tsx` (+ test), `src/style.css`, `README.md`, `app.json`: plan 1 placeholders; plan 5 Tasks 21 and 24 replace them, keeping the preview banner, the version footer and the "All apps" link.
@@ -753,7 +753,7 @@ Later plans edit these files in place and keep everything earlier plans put ther
 ## 5. Fixtures
 
 Until the user supplies real measured games (spec §12), plans use synthetic
-fixtures in `apps/insert-generator/test/fixtures/` (plan 1 creates them):
+fixtures in `test/fixtures/` (plan 1 creates them):
 
 - `cards-heavy.json` — 290 × 290 × 70 box, headroom 8, 6 decks of Standard cards (sleeved, 40–90 cards each).
 - `bits-heavy.json` — 300 × 220 × 60 box, headroom 4, 4 bulk components, one `perPlayer: 4`.

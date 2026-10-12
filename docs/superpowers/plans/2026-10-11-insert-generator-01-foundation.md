@@ -12,17 +12,17 @@
 
 ## Global Constraints
 
-- App lives in `apps/insert-generator/`. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
+- App lives in ``. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
 - Node 22 (`.nvmrc`). Dependency versions (exact ranges): `vite ^6.4.0`, `vitest ^5.0.3`, `typescript ^6.0.3`, `preact ^10.29.8`, `@preact/signals ^2.11.3`, `@preact/preset-vite ^2.10.6`, `manifold-3d ^3.5.4` (single-threaded build only), `three ^0.186.1`, `@types/three ^0.186.0`, `fflate ^0.8.3`, `fast-check ^4.10.2`, `jsdom ^30.1.2`, `@testing-library/preact ^3.2.4`, `rollup-plugin-license ^3.7.1`, `@types/node ^22.0.0` (type-only, for `tsconfig.node.json`). No copyleft dependencies.
 - TypeScript strictness from `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax` → use `import type`). App `tsconfig.json` (covers `src/`, no Node types): `"jsx": "react-jsx"`, `"jsxImportSource": "preact"`. `tsconfig.node.json` covers the Node-side config files (`vite.config.ts`, later `licenses.config.ts`) with `"types": ["node"]`.
 - Lint: root `eslint.config.mjs` (non-type-checked `strict` + `stylistic`, `curly: all`, `eqeqeq`, `prefer-template`, `no-param-reassign`, `no-console` except warn/error). Prettier: `printWidth` 100 from `.prettierrc.json`. Stylelint for CSS. html-validate for `index.html`.
 - The app's `build` script: `vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build` (plan 5 appends `&& node scripts/smoke-dist.mjs dist`); `npm run typecheck` runs both `tsc` checks. Tests run in CI via `npm run build:all`.
-- `Math.random` is banned in `apps/insert-generator/src/layout/**` (root ESLint rule, this plan).
+- `Math.random` is banned in `src/layout/**` (root ESLint rule, this plan).
 - All lengths are millimetres. Inside `layout/`, lengths are integer 0.01 mm units (plan 4); `TraySpec` stores mm rounded to 0.01.
 - Versions start at app `0.1.0`, `SCHEMA_VERSION = "0.1.0"`, `GEOMETRY_VERSION = "0.1.0"`. Pre-1.0 makes no compatibility promise (spec §9).
 - Never use `localStorage` without `try/catch`. No network calls at runtime.
 - Commits: plain imperative messages (e.g. `Add card sizing`). **No `Co-Authored-By` or any trailer.** Commit after every task.
-- Run tests from the app folder: `cd apps/insert-generator && npx vitest run <path>`. Run repo checks from the root: `npm run lint`, `npm run format:check`, `npm run verify`.
+- Run tests and repo checks from the repo root: `npx vitest run <path>`, `npm run lint`, `npm run format:check`, `npm run verify`.
 - No non-null assertions (`!`), no `any`, `curly` on every `if`, `===` only, template literals instead of `+` on strings, no `delete obj[computed]`, `interface` instead of object `type` aliases (typescript-eslint `stylistic`).
 
 ## Review Focus
@@ -37,7 +37,7 @@
 
 ## File map
 
-| Path (under `apps/insert-generator/`)                                                                                               | Responsibility                                                                   | Task  |
+| Path (under ``)                                                                                                                     | Responsibility                                                                   | Task  |
 | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----- |
 | `package.json`, `package-lock.json`, `tsconfig.json`, `tsconfig.node.json`, `vite.config.ts`, `index.html`, `app.json`, `README.md` | Built-app scaffold                                                               | 1     |
 | `src/env.d.ts`, `src/main.tsx`, `src/style.css`, `src/app/App.tsx`                                                                  | Placeholder shell with preview banner and version footer (plan 5 replaces `App`) | 1     |
@@ -81,9 +81,9 @@
 
 **Files:**
 
-- Create: `apps/insert-generator/package.json`, `apps/insert-generator/package-lock.json` (generated), `apps/insert-generator/tsconfig.json`, `apps/insert-generator/tsconfig.node.json`, `apps/insert-generator/vite.config.ts`, `apps/insert-generator/index.html`, `apps/insert-generator/app.json`, `apps/insert-generator/README.md`
-- Create: `apps/insert-generator/src/env.d.ts`, `apps/insert-generator/src/main.tsx`, `apps/insert-generator/src/style.css`, `apps/insert-generator/src/app/App.tsx`, `apps/insert-generator/src/model/version.ts`
-- Test: `apps/insert-generator/src/model/version.test.ts`, `apps/insert-generator/src/app/App.test.tsx`
+- Create: `package.json`, `package-lock.json` (generated), `tsconfig.json`, `tsconfig.node.json`, `vite.config.ts`, `index.html`, `app.json`, `README.md`
+- Create: `src/env.d.ts`, `src/main.tsx`, `src/style.css`, `src/app/App.tsx`, `src/model/version.ts`
+- Test: `src/model/version.test.ts`, `src/app/App.test.tsx`
 
 **Interfaces:**
 
@@ -108,7 +108,7 @@ Expected: exits 0 (installs ESLint, Prettier, Stylelint, html-validate, Husky).
 
 - [ ] **Step 2: Create the package manifest and install dependencies**
 
-`apps/insert-generator/package.json`:
+`package.json`:
 
 ```json
 {
@@ -145,7 +145,7 @@ Expected: exits 0 (installs ESLint, Prettier, Stylelint, html-validate, Husky).
 }
 ```
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 npm install
@@ -155,7 +155,7 @@ Expected: exits 0 and creates `package-lock.json` and `node_modules/`. (npm 11 m
 
 - [ ] **Step 3: Add the TypeScript, Vite and Vitest configuration**
 
-`apps/insert-generator/tsconfig.json`:
+`tsconfig.json`:
 
 ```json
 {
@@ -170,7 +170,7 @@ Expected: exits 0 and creates `package-lock.json` and `node_modules/`. (npm 11 m
 }
 ```
 
-`apps/insert-generator/tsconfig.node.json` (the config files run in Node, not in the browser, so only they get Node's types; `src/` never sees `process` or `Buffer`):
+`tsconfig.node.json` (the config files run in Node, not in the browser, so only they get Node's types; `src/` never sees `process` or `Buffer`):
 
 ```json
 {
@@ -183,7 +183,7 @@ Expected: exits 0 and creates `package-lock.json` and `node_modules/`. (npm 11 m
 }
 ```
 
-`apps/insert-generator/vite.config.ts`:
+`vite.config.ts`:
 
 ```ts
 import { defineConfig } from "vitest/config";
@@ -207,7 +207,7 @@ export default defineConfig({
 });
 ```
 
-`apps/insert-generator/src/env.d.ts`:
+`src/env.d.ts`:
 
 ```ts
 // Injected by Vite `define` from package.json (see vite.config.ts).
@@ -216,7 +216,7 @@ declare const __APP_VERSION__: string;
 
 - [ ] **Step 4: Write the failing tests**
 
-`apps/insert-generator/src/model/version.test.ts`:
+`src/model/version.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -252,7 +252,7 @@ describe("version", () => {
 });
 ```
 
-`apps/insert-generator/src/app/App.test.tsx`:
+`src/app/App.test.tsx`:
 
 ```tsx
 // @vitest-environment jsdom
@@ -277,13 +277,13 @@ describe("App shell", () => {
 
 - [ ] **Step 5: Run the tests to verify they fail**
 
-From `apps/insert-generator`: `npx vitest run`
+From the repo root: `npx vitest run`
 
 Expected: FAIL. `src/model/version.test.ts` reports `Error: Cannot find module './version'`, and `src/app/App.test.tsx` reports `Failed to resolve import "./App"`.
 
 - [ ] **Step 6: Implement the version module, the shell and the page**
 
-`apps/insert-generator/src/model/version.ts`:
+`src/model/version.ts`:
 
 ```ts
 /** Schema version of project files written by this app (spec §9). */
@@ -315,7 +315,7 @@ export function isPreview(version: string): boolean {
 }
 ```
 
-`apps/insert-generator/src/app/App.tsx`:
+`src/app/App.tsx`:
 
 ```tsx
 import { APP_VERSION, isPreview } from "../model/version";
@@ -341,7 +341,7 @@ export function App() {
 }
 ```
 
-`apps/insert-generator/src/main.tsx`:
+`src/main.tsx`:
 
 ```tsx
 import { render } from "preact";
@@ -355,7 +355,7 @@ if (!root) {
 render(<App />, root);
 ```
 
-`apps/insert-generator/src/style.css`:
+`src/style.css`:
 
 ```css
 :root {
@@ -388,7 +388,7 @@ footer {
 }
 ```
 
-`apps/insert-generator/index.html`:
+`index.html`:
 
 ```html
 <!doctype html>
@@ -405,7 +405,7 @@ footer {
 </html>
 ```
 
-`apps/insert-generator/app.json`:
+`app.json`:
 
 ```json
 {
@@ -414,7 +414,7 @@ footer {
 }
 ```
 
-`apps/insert-generator/README.md`:
+`README.md`:
 
 ````markdown
 # insert-generator
@@ -427,7 +427,6 @@ Status: **preview (0.x)**: saved projects and shared links may break between
 versions.
 
 ```bash
-cd apps/insert-generator
 npm install
 npm run dev        # dev server
 npm test           # vitest run
@@ -448,7 +447,7 @@ the config files that run in Node. `npm run typecheck` runs both.
 
 - [ ] **Step 7: Run the tests, the type check and the build**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 npx vitest run && npm run build
@@ -479,24 +478,24 @@ git commit -m "Scaffold insert-generator app with version module and preview she
 
 - Modify: `eslint.config.mjs` (new config object just before the final `prettier,` entry)
 - Modify: `renovate.json` (new last entry of `packageRules`)
-- Test: temporary probe files `apps/insert-generator/src/layout/lint-probe.ts` and `apps/insert-generator/src/model/lint-probe.ts` (deleted in this task)
+- Test: temporary probe files `src/layout/lint-probe.ts` and `src/model/lint-probe.ts` (deleted in this task)
 
 **Interfaces:**
 
 - Consumes: the app folder from Task 1.
-- Produces: ESLint error `no-restricted-properties` for `Math.random` (including destructuring `const { random } = Math`) in `apps/insert-generator/src/layout/**` only. Plan 4 relies on it.
+- Produces: ESLint error `no-restricted-properties` for `Math.random` (including destructuring `const { random } = Math`) in `src/layout/**` only. Plan 4 relies on it.
 - Already true, no change needed: the root config lints `.tsx` (typescript-eslint's configs add `**/*.tsx` to the linted files), `vite.config.ts` gets Node globals through the existing `**/*.config.{js,mjs,ts}` block, and tests import `describe`/`it`/`expect` from `vitest` explicitly, so no test globals are needed.
 
 - [ ] **Step 1: Write the failing lint probe**
 
-Create `apps/insert-generator/src/layout/lint-probe.ts`:
+Create `src/layout/lint-probe.ts`:
 
 ```ts
 export const probe = (): number => Math.random();
 export const { random } = Math;
 ```
 
-Create `apps/insert-generator/src/model/lint-probe.ts` (outside `layout/`, must stay allowed):
+Create `src/model/lint-probe.ts` (outside `layout/`, must stay allowed):
 
 ```ts
 export const probe = (): number => Math.random();
@@ -504,7 +503,7 @@ export const probe = (): number => Math.random();
 
 - [ ] **Step 2: Run the probe to verify the rule is missing**
 
-From the repo root: `npx eslint apps/insert-generator/src/layout/lint-probe.ts`
+From the repo root: `npx eslint src/layout/lint-probe.ts`
 
 Expected: exits 0 with no output (the ban does not exist yet; this is the failure we fix).
 
@@ -524,7 +523,7 @@ In `eslint.config.mjs`, insert this object directly above the `// Turn off styli
   // insert-generator: the layout optimizer must be deterministic (spec §7.2),
   // so it may only use its seeded PRNG.
   {
-    files: ["apps/insert-generator/src/layout/**"],
+    files: ["src/layout/**"],
     rules: {
       "no-restricted-properties": [
         "error",
@@ -556,13 +555,13 @@ In `renovate.json`, append this object as the **last** element of `packageRules`
 From the repo root:
 
 ```bash
-npx eslint apps/insert-generator/src/layout/lint-probe.ts
+npx eslint src/layout/lint-probe.ts
 ```
 
 Expected: exit code 1 with two errors, both `'Math.random' is restricted from being used. layout/ must be deterministic: use the seeded PRNG (spec §7.2)  no-restricted-properties` (lines 1 and 2).
 
 ```bash
-npx eslint apps/insert-generator/src/model/lint-probe.ts
+npx eslint src/model/lint-probe.ts
 ```
 
 Expected: exits 0, no output (the ban is scoped to `layout/`).
@@ -572,7 +571,7 @@ Re-run the `node -e …` Renovate check from Step 2. Expected: `renovate ok`.
 - [ ] **Step 6: Delete the probes and run the root checks**
 
 ```bash
-rm -r apps/insert-generator/src/layout apps/insert-generator/src/model/lint-probe.ts
+rm -r src/layout src/model/lint-probe.ts
 npm run lint && npx prettier --check eslint.config.mjs renovate.json
 ```
 
@@ -591,8 +590,8 @@ git commit -m "Ban Math.random in insert-generator layout and stop manifold-3d a
 
 **Files:**
 
-- Create: `apps/insert-generator/src/model/types.ts`, `apps/insert-generator/src/model/presets.ts`, `apps/insert-generator/src/model/settings.ts`
-- Test: `apps/insert-generator/src/model/presets.test.ts`, `apps/insert-generator/src/model/settings.test.ts`
+- Create: `src/model/types.ts`, `src/model/presets.ts`, `src/model/settings.ts`
+- Test: `src/model/presets.test.ts`, `src/model/settings.test.ts`
 
 **Interfaces:**
 
@@ -609,7 +608,7 @@ git commit -m "Ban Math.random in insert-generator layout and stop manifold-3d a
 
 - [ ] **Step 1: Write the failing tests**
 
-`apps/insert-generator/src/model/presets.test.ts`:
+`src/model/presets.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -655,7 +654,7 @@ describe("presets", () => {
 });
 ```
 
-`apps/insert-generator/src/model/settings.test.ts`:
+`src/model/settings.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -768,7 +767,7 @@ describe("topPlane", () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-From `apps/insert-generator`: `npx vitest run src/model/presets.test.ts src/model/settings.test.ts`
+From the repo root: `npx vitest run src/model/presets.test.ts src/model/settings.test.ts`
 
 Expected: FAIL with `Error: Cannot find module './presets'` and `Error: Cannot find module './settings'`.
 
@@ -776,7 +775,7 @@ Expected: FAIL with `Error: Cannot find module './presets'` and `Error: Cannot f
 
 `types.ts` is roadmap §4.1 verbatim, plus a header comment. Do not rename or change anything in it.
 
-`apps/insert-generator/src/model/types.ts`:
+`src/model/types.ts`:
 
 ```ts
 // Cross-plan contract: roadmap §4.1 (spec §5 types plus shared helpers).
@@ -971,7 +970,7 @@ export type ParseResult =
 
 - [ ] **Step 4: Implement presets and settings**
 
-`apps/insert-generator/src/model/presets.ts`:
+`src/model/presets.ts`:
 
 ```ts
 /** Card sizes (card, not sleeve), spec §5. shortSide ≤ longSide. */
@@ -1014,7 +1013,7 @@ export const BED_PRESETS: {
 ];
 ```
 
-`apps/insert-generator/src/model/settings.ts`:
+`src/model/settings.ts`:
 
 ```ts
 import type { Box, Settings } from "./types";
@@ -1113,7 +1112,7 @@ export function topPlane(box: Box, s: Settings): number {
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 npx vitest run src/model/presets.test.ts src/model/settings.test.ts && npx tsc --noEmit
@@ -1124,7 +1123,7 @@ Expected: `Tests  12 passed`; `tsc` prints nothing.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/insert-generator/src/model
+git add src/model
 git commit -m "Add insert-generator model types, presets and settings"
 ```
 
@@ -1134,8 +1133,8 @@ git commit -m "Add insert-generator model types, presets and settings"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/model/numbers.ts`, `apps/insert-generator/src/model/ids.ts`
-- Test: `apps/insert-generator/src/model/numbers.test.ts`, `apps/insert-generator/src/model/ids.test.ts`
+- Create: `src/model/numbers.ts`, `src/model/ids.ts`
+- Test: `src/model/numbers.test.ts`, `src/model/ids.test.ts`
 
 **Interfaces:**
 
@@ -1144,7 +1143,7 @@ git commit -m "Add insert-generator model types, presets and settings"
 
 - [ ] **Step 1: Write the failing tests**
 
-`apps/insert-generator/src/model/numbers.test.ts`:
+`src/model/numbers.test.ts`:
 
 ```ts
 import fc from "fast-check";
@@ -1204,7 +1203,7 @@ describe("parseNumber", () => {
 });
 ```
 
-`apps/insert-generator/src/model/ids.test.ts`:
+`src/model/ids.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1224,13 +1223,13 @@ describe("newId", () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-From `apps/insert-generator`: `npx vitest run src/model/numbers.test.ts src/model/ids.test.ts`
+From the repo root: `npx vitest run src/model/numbers.test.ts src/model/ids.test.ts`
 
 Expected: FAIL with `Error: Cannot find module './numbers'` and `Error: Cannot find module './ids'`.
 
 - [ ] **Step 3: Implement**
 
-`apps/insert-generator/src/model/numbers.ts`:
+`src/model/numbers.ts`:
 
 ```ts
 /**
@@ -1262,7 +1261,7 @@ export function parseNumber(text: string): number | null {
 }
 ```
 
-`apps/insert-generator/src/model/ids.ts`:
+`src/model/ids.ts`:
 
 ```ts
 const ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -1289,7 +1288,7 @@ Expected: `Tests  30 passed`; `tsc` prints nothing.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/insert-generator/src/model
+git add src/model
 git commit -m "Add decimal-comma number parsing and id generation"
 ```
 
@@ -1299,8 +1298,8 @@ git commit -m "Add decimal-comma number parsing and id generation"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/model/defaults.ts`
-- Test: `apps/insert-generator/src/model/defaults.test.ts`
+- Create: `src/model/defaults.ts`
+- Test: `src/model/defaults.test.ts`
 
 **Interfaces:**
 
@@ -1312,7 +1311,7 @@ git commit -m "Add decimal-comma number parsing and id generation"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/model/defaults.test.ts`:
+`src/model/defaults.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1381,13 +1380,13 @@ describe("newComponent", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-From `apps/insert-generator`: `npx vitest run src/model/defaults.test.ts`
+From the repo root: `npx vitest run src/model/defaults.test.ts`
 
 Expected: FAIL with `Error: Cannot find module './defaults'`.
 
 - [ ] **Step 3: Implement**
 
-`apps/insert-generator/src/model/defaults.ts`:
+`src/model/defaults.ts`:
 
 ```ts
 import { newId } from "./ids";
@@ -1495,7 +1494,7 @@ Expected: `Tests  10 passed`; `tsc` prints nothing.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/insert-generator/src/model
+git add src/model
 git commit -m "Add project and component defaults"
 ```
 
@@ -1505,8 +1504,8 @@ git commit -m "Add project and component defaults"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/model/validate.ts`
-- Test: `apps/insert-generator/src/model/validate.test.ts`
+- Create: `src/model/validate.ts`
+- Test: `src/model/validate.test.ts`
 
 **Interfaces:**
 
@@ -1520,7 +1519,7 @@ git commit -m "Add project and component defaults"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/model/validate.test.ts`:
+`src/model/validate.test.ts`:
 
 ```ts
 import fc from "fast-check";
@@ -1757,13 +1756,13 @@ describe("validateProject", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-From `apps/insert-generator`: `npx vitest run src/model/validate.test.ts`
+From the repo root: `npx vitest run src/model/validate.test.ts`
 
 Expected: FAIL with `Error: Cannot find module './validate'`.
 
 - [ ] **Step 3: Implement**
 
-`apps/insert-generator/src/model/validate.ts`:
+`src/model/validate.ts`:
 
 ```ts
 import type { Component, Lock, Notice, Project, Settings } from "./types";
@@ -2119,7 +2118,7 @@ Expected: `Tests  21 passed`; `tsc` prints nothing.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/insert-generator/src/model
+git add src/model
 git commit -m "Add project validation with spec bounds"
 ```
 
@@ -2129,8 +2128,8 @@ git commit -m "Add project validation with spec bounds"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/model/hash.ts`
-- Test: `apps/insert-generator/src/model/hash.test.ts`
+- Create: `src/model/hash.ts`
+- Test: `src/model/hash.test.ts`
 
 **Interfaces:**
 
@@ -2139,7 +2138,7 @@ git commit -m "Add project validation with spec bounds"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/model/hash.test.ts`:
+`src/model/hash.test.ts`:
 
 ```ts
 import fc from "fast-check";
@@ -2267,13 +2266,13 @@ describe("inputsHash", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-From `apps/insert-generator`: `npx vitest run src/model/hash.test.ts`
+From the repo root: `npx vitest run src/model/hash.test.ts`
 
 Expected: FAIL with `Error: Cannot find module './hash'`.
 
 - [ ] **Step 3: Implement**
 
-`apps/insert-generator/src/model/hash.ts`:
+`src/model/hash.ts`:
 
 ```ts
 import type { Project } from "./types";
@@ -2360,7 +2359,7 @@ Expected: `Tests  8 passed`; `tsc` prints nothing.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/insert-generator/src/model
+git add src/model
 git commit -m "Add inputs hash that ignores names"
 ```
 
@@ -2370,9 +2369,9 @@ git commit -m "Add inputs hash that ignores names"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/model/schema-read.ts`
-- Create (test-only helper): `apps/insert-generator/src/test-support/sample.ts`
-- Test: `apps/insert-generator/src/model/schema-read.test.ts`
+- Create: `src/model/schema-read.ts`
+- Create (test-only helper): `src/test-support/sample.ts`
+- Test: `src/model/schema-read.test.ts`
 
 **Interfaces:**
 
@@ -2386,7 +2385,7 @@ git commit -m "Add inputs hash that ignores names"
 
 - [ ] **Step 1: Write the test helper and the failing test**
 
-`apps/insert-generator/src/test-support/sample.ts`:
+`src/test-support/sample.ts`:
 
 ```ts
 import { DEFAULT_SETTINGS } from "../model/settings";
@@ -2539,7 +2538,7 @@ export function sampleProject(): Project {
 }
 ```
 
-`apps/insert-generator/src/model/schema-read.test.ts`:
+`src/model/schema-read.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -2838,13 +2837,13 @@ describe("readProject: files from a newer minor", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-From `apps/insert-generator`: `npx vitest run src/model/schema-read.test.ts`
+From the repo root: `npx vitest run src/model/schema-read.test.ts`
 
 Expected: FAIL with `Error: Cannot find module './schema-read'`.
 
 - [ ] **Step 3: Implement**
 
-`apps/insert-generator/src/model/schema-read.ts`:
+`src/model/schema-read.ts`:
 
 ```ts
 import { DEFAULT_BOX, DEFAULT_PRINTER, DEFAULT_PROJECT_NAME, KIND_NAMES } from "./defaults";
@@ -3663,7 +3662,7 @@ Expected: `Tests  20 passed`; `tsc` prints nothing.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/insert-generator/src/model apps/insert-generator/src/test-support
+git add src/model src/test-support
 git commit -m "Add schema reader that keeps newer-minor data"
 ```
 
@@ -3673,8 +3672,8 @@ git commit -m "Add schema reader that keeps newer-minor data"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/model/schema.ts`
-- Test: `apps/insert-generator/src/model/schema.test.ts`, `apps/insert-generator/src/model/schema-versions.test.ts`
+- Create: `src/model/schema.ts`
+- Test: `src/model/schema.test.ts`, `src/model/schema-versions.test.ts`
 
 **Interfaces:**
 
@@ -3690,7 +3689,7 @@ git commit -m "Add schema reader that keeps newer-minor data"
 
 - [ ] **Step 1: Write the failing tests**
 
-`apps/insert-generator/src/model/schema.test.ts`:
+`src/model/schema.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -3861,7 +3860,7 @@ describe("parseProject: spec §5 bounds", () => {
 });
 ```
 
-`apps/insert-generator/src/model/schema-versions.test.ts`:
+`src/model/schema-versions.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -4054,13 +4053,13 @@ describe("the real registry", () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-From `apps/insert-generator`: `npx vitest run src/model/schema.test.ts src/model/schema-versions.test.ts`
+From the repo root: `npx vitest run src/model/schema.test.ts src/model/schema-versions.test.ts`
 
 Expected: FAIL with `Error: Cannot find module './schema'` in both files.
 
 - [ ] **Step 3: Implement**
 
-`apps/insert-generator/src/model/schema.ts`:
+`src/model/schema.ts`:
 
 ```ts
 import { DEFAULT_BOX, DEFAULT_PRINTER } from "./defaults";
@@ -4310,7 +4309,7 @@ Expected: every `src/model` test file passes (`Test Files  11 passed`); `tsc` pr
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/insert-generator/src/model
+git add src/model
 git commit -m "Add schema versioning, migrations and serialization"
 ```
 
@@ -4320,8 +4319,8 @@ git commit -m "Add schema versioning, migrations and serialization"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/share/base64url.ts`, `apps/insert-generator/src/share/link.ts`
-- Test: `apps/insert-generator/src/share/base64url.test.ts`, `apps/insert-generator/src/share/link.test.ts`
+- Create: `src/share/base64url.ts`, `src/share/link.ts`
+- Test: `src/share/base64url.test.ts`, `src/share/link.test.ts`
 
 **Interfaces:**
 
@@ -4331,7 +4330,7 @@ git commit -m "Add schema versioning, migrations and serialization"
 
 - [ ] **Step 1: Write the failing tests**
 
-`apps/insert-generator/src/share/base64url.test.ts`:
+`src/share/base64url.test.ts`:
 
 ```ts
 import fc from "fast-check";
@@ -4365,7 +4364,7 @@ describe("base64url", () => {
 });
 ```
 
-`apps/insert-generator/src/share/link.test.ts`:
+`src/share/link.test.ts`:
 
 ```ts
 import { deflateSync, strToU8 } from "fflate";
@@ -4490,13 +4489,13 @@ describe("inflateCapped", () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-From `apps/insert-generator`: `npx vitest run src/share`
+From the repo root: `npx vitest run src/share`
 
 Expected: FAIL with `Error: Cannot find module './base64url'` and `Error: Cannot find module './link'`.
 
 - [ ] **Step 3: Implement**
 
-`apps/insert-generator/src/share/base64url.ts`:
+`src/share/base64url.ts`:
 
 ```ts
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -4545,7 +4544,7 @@ export function fromBase64Url(text: string): Uint8Array | null {
 }
 ```
 
-`apps/insert-generator/src/share/link.ts`:
+`src/share/link.ts`:
 
 ```ts
 import { Inflate, deflateSync, strFromU8, strToU8 } from "fflate";
@@ -4663,7 +4662,7 @@ Expected: `Tests  21 passed`; `tsc` prints nothing.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/insert-generator/src/share
+git add src/share
 git commit -m "Add URL-hash link codec with inflate cap"
 ```
 
@@ -4673,9 +4672,9 @@ git commit -m "Add URL-hash link codec with inflate cap"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/share/store.ts`
-- Create (test-only helper): `apps/insert-generator/src/test-support/memory-storage.ts`
-- Test: `apps/insert-generator/src/share/store.test.ts`
+- Create: `src/share/store.ts`
+- Create (test-only helper): `src/test-support/memory-storage.ts`
+- Test: `src/share/store.test.ts`
 
 **Interfaces:**
 
@@ -4686,7 +4685,7 @@ git commit -m "Add URL-hash link codec with inflate cap"
 
 - [ ] **Step 1: Write the test helper and the failing test**
 
-`apps/insert-generator/src/test-support/memory-storage.ts`:
+`src/test-support/memory-storage.ts`:
 
 ```ts
 /**
@@ -4739,7 +4738,7 @@ export class MemoryStorage implements Storage {
 }
 ```
 
-`apps/insert-generator/src/share/store.test.ts`:
+`src/share/store.test.ts`:
 
 ```ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -4903,13 +4902,13 @@ describe("createProjectStore without usable storage", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-From `apps/insert-generator`: `npx vitest run src/share/store.test.ts`
+From the repo root: `npx vitest run src/share/store.test.ts`
 
 Expected: FAIL with `Error: Cannot find module './store'`.
 
 - [ ] **Step 3: Implement**
 
-`apps/insert-generator/src/share/store.ts`:
+`src/share/store.ts`:
 
 ```ts
 import { parseProject, serializeProject } from "../model/schema";
@@ -5127,7 +5126,7 @@ Expected: `Tests  11 passed`; `tsc` prints nothing.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/insert-generator/src/share apps/insert-generator/src/test-support
+git add src/share src/test-support
 git commit -m "Add local project store with safe storage access"
 ```
 
@@ -5137,8 +5136,8 @@ git commit -m "Add local project store with safe storage access"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/share/file.ts`, `apps/insert-generator/src/share/index.ts`
-- Test: `apps/insert-generator/src/share/file.test.ts`
+- Create: `src/share/file.ts`, `src/share/index.ts`
+- Test: `src/share/file.test.ts`
 
 **Interfaces:**
 
@@ -5148,7 +5147,7 @@ git commit -m "Add local project store with safe storage access"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/share/file.test.ts`:
+`src/share/file.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -5220,13 +5219,13 @@ describe("jsonFileName", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-From `apps/insert-generator`: `npx vitest run src/share/file.test.ts`
+From the repo root: `npx vitest run src/share/file.test.ts`
 
 Expected: FAIL with `Error: Cannot find module './file'`.
 
 - [ ] **Step 3: Implement**
 
-`apps/insert-generator/src/share/file.ts`:
+`src/share/file.ts`:
 
 ```ts
 import { parseProject, toSerializable } from "../model/schema";
@@ -5266,7 +5265,7 @@ export function importJsonText(text: string): ParseResult {
 }
 ```
 
-`apps/insert-generator/src/share/index.ts`:
+`src/share/index.ts`:
 
 ```ts
 // Public surface of share/ (roadmap §4.5).
@@ -5293,7 +5292,7 @@ Expected: `Test Files  4 passed`, `Tests  42 passed`; `tsc` prints nothing.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/insert-generator/src/share
+git add src/share
 git commit -m "Add JSON project file export and import"
 ```
 
@@ -5303,8 +5302,8 @@ git commit -m "Add JSON project file export and import"
 
 **Files:**
 
-- Create: `apps/insert-generator/test/fixtures/cards-heavy.json`, `apps/insert-generator/test/fixtures/bits-heavy.json`, `apps/insert-generator/test/fixtures/tiles-minis.json`, `apps/insert-generator/test/fixtures/tiny-box.json`, `apps/insert-generator/test/fixtures/schema/0.1.0.json`
-- Test: `apps/insert-generator/src/model/fixtures.test.ts`
+- Create: `test/fixtures/cards-heavy.json`, `test/fixtures/bits-heavy.json`, `test/fixtures/tiles-minis.json`, `test/fixtures/tiny-box.json`, `test/fixtures/schema/0.1.0.json`
+- Test: `src/model/fixtures.test.ts`
 
 **Interfaces:**
 
@@ -5313,7 +5312,7 @@ git commit -m "Add JSON project file export and import"
 
 - [ ] **Step 1: Write the failing test**
 
-`apps/insert-generator/src/model/fixtures.test.ts`:
+`src/model/fixtures.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -5387,7 +5386,7 @@ describe("schema history", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-From `apps/insert-generator`: `npx vitest run src/model/fixtures.test.ts`
+From the repo root: `npx vitest run src/model/fixtures.test.ts`
 
 Expected: FAIL with `Error: Cannot find module '../../test/fixtures/bits-heavy.json'`.
 
@@ -5395,7 +5394,7 @@ Expected: FAIL with `Error: Cannot find module '../../test/fixtures/bits-heavy.j
 
 `cards-heavy.json` — 290 × 290 × 70 box, headroom 8, 6 decks of standard-sleeved Standard cards (40–90 cards each) in three components:
 
-`apps/insert-generator/test/fixtures/cards-heavy.json`:
+`test/fixtures/cards-heavy.json`:
 
 ```json
 {
@@ -5492,7 +5491,7 @@ Expected: FAIL with `Error: Cannot find module '../../test/fixtures/bits-heavy.j
 
 `bits-heavy.json` — 300 × 220 × 60 box, headroom 4, four bulk components, one `perPlayer: 4`:
 
-`apps/insert-generator/test/fixtures/bits-heavy.json`:
+`test/fixtures/bits-heavy.json`:
 
 ```json
 {
@@ -5580,7 +5579,7 @@ Expected: FAIL with `Error: Cannot find module '../../test/fixtures/bits-heavy.j
 
 `tiles-minis.json` — 300 × 300 × 80 box, headroom 10, 60 hex tiles (flat-to-flat 40, 2 mm), 12 minis:
 
-`apps/insert-generator/test/fixtures/tiles-minis.json`:
+`test/fixtures/tiles-minis.json`:
 
 ```json
 {
@@ -5654,7 +5653,7 @@ Expected: FAIL with `Error: Cannot find module '../../test/fixtures/bits-heavy.j
 
 `tiny-box.json` — 150 × 100 × 40 box with 400 sleeved cards (valid input; it cannot fit: upright cards need ≈ 68 mm of height, a flat stack ≈ 170 mm):
 
-`apps/insert-generator/test/fixtures/tiny-box.json`:
+`test/fixtures/tiny-box.json`:
 
 ```json
 {
@@ -5723,7 +5722,7 @@ Expected: FAIL with `Error: Cannot find module '../../test/fixtures/bits-heavy.j
 
 `schema/0.1.0.json` — the `sampleProject()` of Task 8 frozen as a file (every component kind, every lock kind, a stored layout). Never regenerate it from code: it records what schema 0.1.0 looked like.
 
-`apps/insert-generator/test/fixtures/schema/0.1.0.json`:
+`test/fixtures/schema/0.1.0.json`:
 
 ```json
 {
@@ -5910,7 +5909,7 @@ Expected: `Tests  14 passed`; `tsc` prints nothing.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/insert-generator/test apps/insert-generator/src/model/fixtures.test.ts
+git add test src/model/fixtures.test.ts
 git commit -m "Add synthetic fixtures and schema history file"
 ```
 
@@ -5928,7 +5927,7 @@ git commit -m "Add synthetic fixtures and schema history file"
 
 - [ ] **Step 1: Run the whole app test suite and build**
 
-From `apps/insert-generator`:
+From the repo root:
 
 ```bash
 npm run build
@@ -5954,7 +5953,7 @@ If Prettier flags files, run `npx prettier --write <files>` from the root; if ES
 git status --short
 ```
 
-Expected: clean, or only the fixes from Step 2. `apps/insert-generator/node_modules/`, `dist/` and `_build/` must not appear (they are git-ignored).
+Expected: clean, or only the fixes from Step 2. `node_modules/`, `dist/` and `_build/` must not appear (they are git-ignored).
 
 - [ ] **Step 4: Commit any fixes**
 

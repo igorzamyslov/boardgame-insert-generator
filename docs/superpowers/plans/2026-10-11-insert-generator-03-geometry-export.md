@@ -12,17 +12,17 @@
 
 ## Global Constraints
 
-- App lives in `apps/insert-generator/`. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
+- App lives in ``. Built app: `package.json`, `npm run build` outputs `dist/`, `vite.config.ts` sets `base: "./"`, `app.json` has `{ title, description }`.
 - Node 22 (`.nvmrc`). Dependency versions (exact ranges): `vite ^6.4.0`, `vitest ^5.0.3`, `typescript ^6.0.3`, `preact ^10.29.8`, `@preact/signals ^2.11.3`, `@preact/preset-vite ^2.10.6`, `manifold-3d ^3.5.4` (single-threaded build only), `three ^0.186.1`, `@types/three ^0.186.0`, `fflate ^0.8.3`, `fast-check ^4.10.2`, `jsdom ^30.1.2`, `@testing-library/preact ^3.2.4`, `rollup-plugin-license ^3.7.1`, `@types/node ^22.0.0` (type-only, for `tsconfig.node.json`). No copyleft dependencies.
 - TypeScript strictness from `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax` → use `import type`). App `tsconfig.json` (covers `src/`, no Node types): `"jsx": "react-jsx"`, `"jsxImportSource": "preact"`. `tsconfig.node.json` covers the Node-side config files (`vite.config.ts`, later `licenses.config.ts`) with `"types": ["node"]`.
 - Lint: root `eslint.config.mjs` (non-type-checked `strict` + `stylistic`, `curly: all`, `eqeqeq`, `prefer-template`, `no-param-reassign`, `no-console` except warn/error). Prettier: `printWidth` from `.prettierrc.json`. Stylelint for CSS. html-validate for `index.html`.
 - The app's `build` script: `vitest run && tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build` (plan 5 appends `&& node scripts/smoke-dist.mjs dist`); `npm run typecheck` runs both `tsc` checks. Tests run in CI via `npm run build:all`.
-- `Math.random` is banned in `apps/insert-generator/src/layout/**` (root ESLint rule, plan 1).
+- `Math.random` is banned in `src/layout/**` (root ESLint rule, plan 1).
 - All lengths are millimetres. Inside `layout/`, lengths are integer 0.01 mm units (`Units` helpers, plan 4); `TraySpec` stores mm rounded to 0.01.
 - Versions start at app `0.1.0`, `SCHEMA_VERSION = "0.1.0"`, `GEOMETRY_VERSION = "0.1.0"`. Pre-1.0 makes no compatibility promise (spec §9).
 - Never use `localStorage` without `try/catch`. No network calls at runtime.
 - Commits: plain imperative messages (e.g. `Add card sizing`). **No `Co-Authored-By` or any trailer.** Commit after every task.
-- Run tests from the app folder: `cd apps/insert-generator && npx vitest run <path>`. Run repo checks from the root: `npm run lint`, `npm run format:check`, `npm run verify`.
+- Run tests and repo checks from the repo root: `npx vitest run <path>`, `npm run lint`, `npm run format:check`, `npm run verify`.
 
 ## Review Focus
 
@@ -68,12 +68,12 @@
 
 **Files:**
 
-- Modify: `apps/insert-generator/package.json`, `apps/insert-generator/package-lock.json` (only through `npm install`; never rewrite `package.json` by hand)
-- Create: `apps/insert-generator/src/geometry/types.ts`
-- Create: `apps/insert-generator/src/geometry/version.ts`
-- Create: `apps/insert-generator/src/geometry/errors.ts`
-- Create: `apps/insert-generator/src/geometry/scope.ts`
-- Test: `apps/insert-generator/src/geometry/basics.test.ts`
+- Modify: `package.json`, `package-lock.json` (only through `npm install`; never rewrite `package.json` by hand)
+- Create: `src/geometry/types.ts`
+- Create: `src/geometry/version.ts`
+- Create: `src/geometry/errors.ts`
+- Create: `src/geometry/scope.ts`
+- Test: `src/geometry/basics.test.ts`
 
 **Interfaces:**
 
@@ -283,9 +283,9 @@ git commit -m "Add geometry types, version and WASM memory scope"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/geometry/load.ts`
-- Create: `apps/insert-generator/src/geometry/shapes.ts`
-- Test: `apps/insert-generator/src/geometry/shapes.test.ts`
+- Create: `src/geometry/load.ts`
+- Create: `src/geometry/shapes.ts`
+- Test: `src/geometry/shapes.test.ts`
 
 **Interfaces:**
 
@@ -584,12 +584,12 @@ git commit -m "Add manifold loader and convex solid helpers"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/geometry/plan-types.ts`
-- Create: `apps/insert-generator/src/geometry/plan-corners.ts`
-- Create: `apps/insert-generator/src/geometry/plan.ts`
-- Create: `apps/insert-generator/src/geometry/test-specs.ts` (fixtures shared by geometry and export tests)
-- Test: `apps/insert-generator/src/geometry/plan.test.ts`
-- Test: `apps/insert-generator/src/geometry/plan-corners.test.ts`
+- Create: `src/geometry/plan-types.ts`
+- Create: `src/geometry/plan-corners.ts`
+- Create: `src/geometry/plan.ts`
+- Create: `src/geometry/test-specs.ts` (fixtures shared by geometry and export tests)
+- Test: `src/geometry/plan.test.ts`
+- Test: `src/geometry/plan-corners.test.ts`
 
 **Interfaces:**
 
@@ -1632,11 +1632,11 @@ git commit -m "Add tray geometry planning and validation"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/geometry/triangles.ts`
-- Create: `apps/insert-generator/src/geometry/bvh.ts`
-- Create: `apps/insert-generator/src/geometry/printability.ts`
-- Create: `apps/insert-generator/src/geometry/test-mesh.ts` (test helpers: topology, bounds, signed volume, cube mesh)
-- Test: `apps/insert-generator/src/geometry/printability.test.ts`
+- Create: `src/geometry/triangles.ts`
+- Create: `src/geometry/bvh.ts`
+- Create: `src/geometry/printability.ts`
+- Create: `src/geometry/test-mesh.ts` (test helpers: topology, bounds, signed volume, cube mesh)
+- Test: `src/geometry/printability.test.ts`
 
 **Interfaces:**
 
@@ -2175,9 +2175,9 @@ git commit -m "Add mesh printability check"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/geometry/tray.ts`
-- Create: `apps/insert-generator/src/geometry/index.ts`
-- Test: `apps/insert-generator/src/geometry/tray.test.ts`
+- Create: `src/geometry/tray.ts`
+- Create: `src/geometry/index.ts`
+- Test: `src/geometry/tray.test.ts`
 
 **Interfaces:**
 
@@ -2650,13 +2650,13 @@ git commit -m "Build tray meshes with manifold"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/geometry/worker-core.ts`
-- Create: `apps/insert-generator/src/geometry/worker.ts`
-- Create: `apps/insert-generator/src/geometry/client.ts`
-- Modify: `apps/insert-generator/vite.config.ts` (add `worker` and `optimizeDeps`)
-- Check: `apps/insert-generator/tsconfig.json` (`"types"` includes `"vite/client"`)
-- Test: `apps/insert-generator/src/geometry/worker-core.test.ts`
-- Test: `apps/insert-generator/src/geometry/client.test.ts`
+- Create: `src/geometry/worker-core.ts`
+- Create: `src/geometry/worker.ts`
+- Create: `src/geometry/client.ts`
+- Modify: `vite.config.ts` (add `worker` and `optimizeDeps`)
+- Check: `tsconfig.json` (`"types"` includes `"vite/client"`)
+- Test: `src/geometry/worker-core.test.ts`
+- Test: `src/geometry/client.test.ts`
 
 **Interfaces:**
 
@@ -3091,14 +3091,14 @@ git commit -m "Add geometry worker and client"
 
 **Files:**
 
-- Create: `apps/insert-generator/src/export/stl.ts`
-- Create: `apps/insert-generator/src/export/names.ts`
-- Create: `apps/insert-generator/src/export/grid.ts`
-- Create: `apps/insert-generator/src/export/zip.ts`
-- Test: `apps/insert-generator/src/export/stl.test.ts`
-- Test: `apps/insert-generator/src/export/names.test.ts`
-- Test: `apps/insert-generator/src/export/grid.test.ts`
-- Test: `apps/insert-generator/src/export/zip.test.ts`
+- Create: `src/export/stl.ts`
+- Create: `src/export/names.ts`
+- Create: `src/export/grid.ts`
+- Create: `src/export/zip.ts`
+- Test: `src/export/stl.test.ts`
+- Test: `src/export/names.test.ts`
+- Test: `src/export/grid.test.ts`
+- Test: `src/export/zip.test.ts`
 
 **Interfaces:**
 
@@ -3464,11 +3464,11 @@ git commit -m "Add STL, file name, grid and zip export helpers"
 
 **Files:**
 
-- Modify: `apps/insert-generator/package.json`, `package-lock.json` (test dependencies, if missing)
-- Create: `apps/insert-generator/src/export/threemf.ts`
-- Create: `apps/insert-generator/src/export/index.ts`
-- Test: `apps/insert-generator/src/export/threemf.test.ts`
-- Test: `apps/insert-generator/src/export/roundtrip.test.ts`
+- Modify: `package.json`, `package-lock.json` (test dependencies, if missing)
+- Create: `src/export/threemf.ts`
+- Create: `src/export/index.ts`
+- Test: `src/export/threemf.test.ts`
+- Test: `src/export/roundtrip.test.ts`
 
 **Interfaces:**
 
