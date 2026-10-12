@@ -6467,7 +6467,7 @@ export function Summary(p: SummaryProps) {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/ui/Summary.test.tsx`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 5: Commit**
 
