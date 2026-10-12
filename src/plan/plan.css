@@ -1,0 +1,88 @@
+/* src/plan/plan.css */
+.plan-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  touch-action: none;
+  user-select: none;
+}
+
+.plan-box {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.plan-below {
+  fill: none;
+  stroke: color-mix(in srgb, currentcolor 35%, transparent);
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.plan-tray {
+  cursor: grab;
+}
+
+.plan-tray rect {
+  fill: color-mix(in srgb, #2563eb 22%, Canvas);
+  stroke: color-mix(in srgb, #2563eb 70%, CanvasText);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.plan-tray.is-leftover rect {
+  fill: color-mix(in srgb, CanvasText 8%, Canvas);
+  stroke-dasharray: 3 2;
+}
+
+.plan-tray.is-selected rect {
+  stroke-width: 3;
+}
+
+.plan-tray.is-source rect {
+  opacity: 0.6;
+}
+
+.plan-tray.is-drop rect {
+  fill: color-mix(in srgb, #f59e0b 40%, Canvas);
+}
+
+.plan-tray:focus {
+  outline: none;
+}
+
+.plan-tray:focus-visible rect {
+  stroke: #f59e0b;
+  stroke-width: 3;
+}
+
+.plan-label,
+.plan-front,
+.plan-lock {
+  fill: currentcolor;
+  pointer-events: none;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.plan-lock {
+  font-size: 5px;
+  text-anchor: start;
+}
+
+.plan-front {
+  font-size: 6px;
+  letter-spacing: 0.1em;
+}
+
+.layer-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  border: 0;
+  padding: 0;
+  margin: 0 0 0.5rem;
+}
