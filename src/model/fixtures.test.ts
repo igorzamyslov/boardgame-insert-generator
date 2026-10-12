@@ -67,10 +67,9 @@ describe("schema history", () => {
     expect(parseProject(raw).ok).toBe(true);
   });
 
-  it("reads the 0.1.1 component toggles", () => {
+  it("reads the 0.1.1 file, its component toggles included, without notices", () => {
     const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.1.json"]);
-    // Only its stored layout, whose trays still carry finger pockets, is dropped.
-    expect(notices.map((n) => n.code)).toEqual(["layout.dropped"]);
+    expect(notices).toEqual([]);
     const toggles = project.components.map((c) => [
       c.id,
       c.fingerCuts,

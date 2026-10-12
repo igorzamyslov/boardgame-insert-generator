@@ -316,6 +316,24 @@ describe("readProject: files of this schema line", () => {
     expect(result.notices[0]?.message).toContain("/floorNotch: missing");
   });
 
+  it("drops a stored layout whose trays carry the removed finger pocket", () => {
+    // Layouts saved before finger pockets became wall cutouts (geometry 0.1.x).
+    const input = sampleJson();
+    list(at(firstTray(input), "compartments", 0), "features").push({
+      type: "fingerPocket",
+      side: "front",
+      at: 50.4,
+      width: 22,
+      depth: 12,
+    });
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.project.layout).toBeUndefined();
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.layoutDropped]);
+    expect(result.notices[0]?.message).toBe(
+      'The saved layout couldn\'t be read (/layout/trays/0/compartments/0/features/2/type: unknown value "fingerPocket"). The insert will be optimized again.',
+    );
+  });
+
   it("drops an unreadable stored layout with a notice", () => {
     const input = sampleJson();
     (input.layout as Json).seed = "forty-two";
