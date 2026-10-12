@@ -35,10 +35,11 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
   const matched = bedPresetOf(printer);
   const [customChosen, setCustomChosen] = useState(matched === CUSTOM_BED);
   const key = bedKey(printer);
-  // The bed this form last wrote itself: when the printer's bed changes to anything else (another
-  // project was loaded), a "Custom size" choice made for the old bed no longer applies. A size
-  // the user types that happens to equal a preset must not collapse the fields mid-edit.
-  const written = useRef<string | null>(null);
+  // The bed this form last wrote itself (the initial one at first): when the printer's bed
+  // changes to anything else (another project was loaded), a "Custom size" choice made for the
+  // old bed no longer applies. A size the user types that happens to equal a preset must not
+  // collapse the fields mid-edit.
+  const written = useRef<string | null>(key);
   useEffect(() => {
     if (key !== written.current) {
       setCustomChosen(false);

@@ -107,4 +107,26 @@ describe("PrinterForm custom bed", () => {
     expect(screen.getByLabelText(/Bed X/)).toBeTruthy();
     expect((screen.getByLabelText("Printer bed") as HTMLSelectElement).value).toBe("custom");
   });
+
+  it("keeps the fields when a printer that starts on a custom bed is typed into a preset size", () => {
+    function Harness() {
+      const [printer, setPrinter] = useState({
+        ...DEFAULT_PRINTER,
+        bedX: 250,
+        bedY: 210,
+        bedZ: 200,
+      });
+      return (
+        <PrinterForm
+          printer={printer}
+          advanced={false}
+          onChange={(patch) => setPrinter((p) => ({ ...p, ...patch }))}
+        />
+      );
+    }
+    render(<Harness />);
+    fireEvent.input(screen.getByLabelText(/Bed Z/), { target: { value: "220" } });
+    expect(screen.getByLabelText(/Bed Z/)).toBeTruthy();
+    expect((screen.getByLabelText("Printer bed") as HTMLSelectElement).value).toBe("custom");
+  });
 });
