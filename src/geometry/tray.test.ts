@@ -5,7 +5,7 @@ import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { TraySpec } from "../model/types";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
-import { cards, partOf } from "../sizing/test-helpers";
+import { minis, partOf } from "../sizing/test-helpers";
 import type { RealizeOptions } from "../sizing/types";
 import { loadManifold } from "./load";
 import { buildTray } from "./tray";
@@ -15,11 +15,12 @@ import { bounds, heightAt, signedVolume, topology } from "./test-mesh";
 import { thinnestWedge } from "./test-wedge";
 import {
   GEO,
-  cardUpright,
+  slotStrip,
   compartment,
   customBlock,
-  flatCards,
+  sidePockets,
   flatCutouts,
+  floorHoles,
   hexTiles,
   lippedLower,
   loadFixture,
@@ -59,7 +60,7 @@ function expectWellFormed(spec: TraySpec, topZ = spec.h) {
   const { mesh, volumeMm3 } = buildTray(m, spec, GEO);
   const topo = topology(mesh);
   expect(topo.closed).toBe(true);
-  expect(topo.genus).toBe(0);
+  expect(topo.genus).toBe(floorHoles(spec, GEO));
   const b = bounds(mesh);
   expect(b.min[0]).toBeCloseTo(0, 4);
   expect(b.min[1]).toBeCloseTo(0, 4);
@@ -83,9 +84,9 @@ describe("buildTray per tray type", () => {
     expect(Math.abs(volumeMm3 - expected) / expected).toBeLessThan(0.002);
   });
 
-  it("upright cards: three decks, the two narrow ones sharing one finger channel", () => {
-    const { volumeMm3 } = expectWellFormed(cardUpright);
-    const solidBlock = blockVolume(cardUpright.w, cardUpright.d, cardUpright.h, 3, 0.4);
+  it("pocket strip: three wells, the two narrow ones' finger slots merged into one channel", () => {
+    const { volumeMm3 } = expectWellFormed(slotStrip);
+    const solidBlock = blockVolume(slotStrip.w, slotStrip.d, slotStrip.h, 3, 0.4);
     const wells = [24, 30, 15].reduce((sum, w) => sum + wellVolume(w, 92.5, 68), 0);
     // the reach bands are solid except for the slots, so the tray is heavier than block − wells·full
     expect(volumeMm3).toBeLessThan(solidBlock - wells);
@@ -134,8 +135,8 @@ describe("buildTray per tray type", () => {
     expect(heightAt(mesh, 0.8, at + 12)).toBeCloseTo(flatCutouts.h, 3);
   });
 
-  it("flat cards: full-depth slots on both short sides", () => {
-    expectWellFormed(flatCards);
+  it("side pockets: full-depth slots on the left and right", () => {
+    expectWellFormed(sidePockets);
   });
 
   it("scoop bulk: fillets add r²(1 − π/4) per mm of wall", () => {
@@ -253,7 +254,8 @@ describe("buildTray review focus", () => {
 
 describe("finger slot clearance regression (plan 3)", () => {
   // cards-heavy, part fxcrd003:p0:0: "Goals ×45" beside the slack of its row. Sizing used to put
-  // a spare compartment 0.03 mm inside the deck's 22 mm slot, leaving a 0.04 mm feather.
+  // a spare compartment 0.03 mm inside the deck's 22 mm slot, leaving a 0.04 mm feather. The decks
+  // have finger channels now; the pocket trays of that time stay as hand-written specs.
   const { components, settings } = loadFixture(cardsHeavy);
   const part = (variantId: string) => {
     const found = size(components, settings)
@@ -290,7 +292,7 @@ describe("finger slot clearance regression (plan 3)", () => {
     }
   });
 
-  it("sizing emits the hand-written tray, which builds printable", () => {
+  it("cuts one channel per row of that tray, and the pocket tray of the time still builds", () => {
     const opts: RealizeOptions = { lipped: true, level: 0 };
     const p = part("upright-long|rows2|split1");
     const min = minOuter(p, settings, opts);
@@ -302,17 +304,25 @@ describe("finger slot clearance regression (plan 3)", () => {
       settings,
       p.trayKey,
     );
-    expect(spec).toEqual(slotBesideSlack);
+    const decks = spec.compartments.filter((c) => c.kind === "well");
+    expect(decks.map((c) => c.features.map((f) => f.type))).toEqual([
+      ["wallCutout", "wallCutout"],
+      ["wallCutout", "wallCutout"],
+    ]);
+    expectWellFormed(spec, spec.h + GEO.lip.height);
     expectWellFormed(slotBesideSlack, slotBesideSlack.h + GEO.lip.height);
   });
 });
 
 describe("well face regression (review rounds 2 and 4)", () => {
-  // Decks, sleeve "none", in one strip: a 22 mm slot used to end just past another deck's well
-  // face, or a face to cut the ridge of two merged slots just past its peak, leaving a feather
-  // inside the 0.5 mm overlap. thinnestWedge measures it; checkPrintability does not see it.
+  // Pocket strips: a 22 mm slot used to end just past another well face, or a face to cut the
+  // ridge of two merged slots just past its peak, leaving a feather inside the 0.5 mm overlap.
+  // thinnestWedge measures it; checkPrintability does not see it. First found on unsleeved card
+  // decks (before they got finger channels): the minis pockets here are as wide as those decks.
   const settings = DEFAULT_SETTINGS;
   const ground: RealizeOptions = { lipped: false, level: 0 };
+  // Pocket widths of decks of 60, 120, 56 and 35 unsleeved cards.
+  const width: Record<number, number> = { 60: 20.78, 120: 40.56, 56: 19.46, 35: 12.54 };
   const cases: [string, number[], number][] = [
     ["60 then 120 cards at minOuter", [60, 120], 0],
     ["120 then 56 cards, 7 mm wider", [120, 56], 7],
@@ -320,16 +330,15 @@ describe("well face regression (review rounds 2 and 4)", () => {
     ["60, 35 and 60 cards, 3 mm wider", [60, 35, 60], 3],
   ];
 
-  it.each(cases)("%s builds printable", (_label, counts, slack) => {
-    const part = partOf(
-      [
-        cards({
-          sleeve: "none",
-          decks: counts.map((count, i) => ({ name: `D${i}`, count })),
-        }),
-      ],
-      "upright-long|strip|split1",
-    );
+  it.each(cases)("pockets as wide as decks of %s build printable", (_label, counts, slack) => {
+    const figures = counts.map((count, i) => ({
+      name: `D${i}`,
+      w: (width[count] ?? 0) - 1,
+      d: 88.5,
+      h: 64,
+      count: 1,
+    }));
+    const part = partOf([minis({ figures })], "standing|strip|split1");
     const min = minOuter(part, settings, ground);
     const outer = { ...min, w: min.w + slack };
     const spec = traySpecFrom(
@@ -343,6 +352,7 @@ describe("well face regression (review rounds 2 and 4)", () => {
     expect(report.problems).toEqual([]);
     const wedge = thinnestWedge(spec, settings);
     expect(wedge.width, wedge.where).toBeGreaterThanOrEqual(0.8 - 0.01);
+    expect(Number.isFinite(wedge.width)).toBe(true);
   });
 });
 
@@ -415,7 +425,7 @@ describe("WASM handles", () => {
   });
 
   it("deletes every handle of a build", () => {
-    for (const spec of [hexTiles, cardUpright, flatCutouts, scoopBulk, lippedLower, miniPockets]) {
+    for (const spec of [hexTiles, slotStrip, flatCutouts, scoopBulk, lippedLower, miniPockets]) {
       const handles = recordHandles(() => {
         buildTray(m, spec, GEO);
       });

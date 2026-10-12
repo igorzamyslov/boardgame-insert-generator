@@ -5,7 +5,7 @@ import { maxCornerRadius } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, TraySpec } from "../model/types";
 import {
   GEO,
-  cardUpright,
+  slotStrip,
   compartment,
   customBlock,
   lippedLower,
@@ -46,7 +46,7 @@ describe("planTray basics", () => {
 
 describe("finger pockets", () => {
   it("leaves the reach band solid and cuts a U-slot in it", () => {
-    const plan = planTray(cardUpright, GEO);
+    const plan = planTray(slotStrip, GEO);
     const deck = plan.compartments[0];
     expect(deck?.content).toEqual({ x0: 1.6, y0: 13.6, x1: 25.6, y1: 106.1 });
     expect(deck?.slots).toHaveLength(2);
@@ -155,8 +155,8 @@ describe("finger slot clearance", () => {
   });
 
   it("merges neighbouring slots on one band line into one channel", () => {
-    // cardUpright: decks 2 and 3 have slots 20 mm apart, within maxChannelSpacing(11) = 20.06.
-    expect(planTray(cardUpright, GEO).compartments[2]?.slots).toHaveLength(2);
+    // slotStrip: wells 2 and 3 have slots 20 mm apart, within maxChannelSpacing(11) = 20.06.
+    expect(planTray(slotStrip, GEO).compartments[2]?.slots).toHaveLength(2);
     // Deck B (30…) with a slot 20.06 mm (merges) or 20.1 mm (does not) right of A's; their ridge
     // peaks at 22.63, well clear of both decks' well faces.
     const merged = pair(12.6, 22, well(30, [pocket("front", 32.66, 10)]));
@@ -262,9 +262,9 @@ describe("finger slot clearance", () => {
     });
 
     it("judges a face by the nearest slot covering it", () => {
-      // cardUpright: deck 2's slot (centre 41.8) crosses deck 3's face at 58 16.2 mm from its
-      // centre, but deck 3's own slot (centre 61.8, on the contents' side) covers it too.
-      expect(planTray(cardUpright, GEO).compartments).toHaveLength(3);
+      // slotStrip: well 2's slot (centre 41.8) crosses well 3's face at 58 16.2 mm from its
+      // centre, but well 3's own slot (centre 61.8, on the contents' side) covers it too.
+      expect(planTray(slotStrip, GEO).compartments).toHaveLength(3);
     });
 
     it("checks the slot's own compartment too", () => {

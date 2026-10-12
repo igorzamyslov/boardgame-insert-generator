@@ -4,12 +4,12 @@ import type { CardsComponent, Notice, Settings } from "../model/types";
 import {
   compartment,
   displayName,
-  fingerPocket,
   label,
   mainClearance,
+  wallCutout,
   type OptionsResult,
 } from "./common";
-import { MIN_MEASURED_CARD_T } from "./constants";
+import { CHANNEL_DEPTH, MIN_MEASURED_CARD_T } from "./constants";
 import type { CompartmentReq } from "./types";
 
 type CardStorage = "upright-long" | "upright-short" | "flat";
@@ -88,6 +88,7 @@ function deckCompartment(
     contents: `${label(deck.name, displayName(c))} ×${deck.count}`,
     kind: "well" as const,
   };
+  // Flat: the long side along Y, half-round cutouts through both long walls, notching the floor.
   if (storage === "flat") {
     return compartment(
       {
@@ -95,7 +96,7 @@ function deckCompartment(
         w: dims.S + clearance,
         d: dims.L + clearance,
         h: stack,
-        features: [fingerPocket("front", 1, true), fingerPocket("back", 1, true)],
+        features: [wallCutout("left", 1, true), wallCutout("right", 1, true)],
       },
       s,
     );
@@ -109,7 +110,11 @@ function deckCompartment(
       h: (onLongEdge ? dims.S : dims.L) + clearance,
       elastic: { w: true },
       spacerAxis: "w",
-      features: [fingerPocket("front", 1 / 3, true), fingerPocket("back", 1 / 3, true)],
+      // One channel through the walls and dividers the card faces touch.
+      features: [
+        wallCutout("left", CHANNEL_DEPTH, false),
+        wallCutout("right", CHANNEL_DEPTH, false),
+      ],
     },
     s,
   );

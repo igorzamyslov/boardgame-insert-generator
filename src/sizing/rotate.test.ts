@@ -7,7 +7,7 @@ import { rotateRealized } from "./rotate";
 import { assertTrayInvariants, at, bulk, cards, partOf } from "./test-helpers";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
 
-const outer: OuterSize = { w: 56.7, d: 119.7, h: 69.2 };
+const outer: OuterSize = { w: 56.7, d: 95.7, h: 69.2 };
 const realized = realizeTray(
   partOf([cards()], "upright-long|strip|split1"),
   outer,
@@ -18,13 +18,13 @@ const realized = realizeTray(
 describe("rotateRealized", () => {
   it("turns compartments and spacers 90° counter-clockwise into the swapped outer", () => {
     const turned = rotateRealized(realized, outer);
-    expect(at(turned.compartments, 0)).toMatchObject({ x: 1.6, y: 1.6, w: 116.5, d: 53.5 });
+    expect(at(turned.compartments, 0)).toMatchObject({ x: 1.6, y: 1.6, w: 92.5, d: 53.5 });
     expect(at(turned.compartments, 0).features).toEqual([
-      { type: "fingerPocket", side: "right", at: 13.35, width: 22, reach: 12, depth: 22.67 },
-      { type: "fingerPocket", side: "left", at: 13.35, width: 22, reach: 12, depth: 22.67 },
+      { type: "wallCutout", side: "front", at: 47.85, width: 22, depth: 34, floorNotch: 0 },
+      { type: "wallCutout", side: "back", at: 47.85, width: 22, depth: 34, floorNotch: 0 },
     ]);
     expect(at(turned.spacers, 0)).toMatchObject({
-      x: 13.6,
+      x: 1.6,
       y: 25.1,
       w: 92.5,
       d: 30,
@@ -34,7 +34,7 @@ describe("rotateRealized", () => {
     });
   });
 
-  it("maps left/right pocket positions onto the new X axis", () => {
+  it("maps left/right pocket and cutout positions onto the new X axis", () => {
     const synthetic: RealizedTray = {
       wall: 1.6,
       spacers: [],
@@ -49,6 +49,8 @@ describe("rotateRealized", () => {
           contents: "x",
           features: [
             { type: "fingerPocket", side: "left", at: 30, width: 22, reach: 12, depth: 5 },
+            { type: "wallCutout", side: "right", at: 35, width: 16, depth: 5, floorNotch: 8 },
+            { type: "wallCutout", side: "front", at: 25, width: 16, depth: 5, floorNotch: 0 },
             { type: "scoop", side: "back", r: 5 },
             { type: "cornerRelief", d: 3 },
           ],
@@ -66,6 +68,8 @@ describe("rotateRealized", () => {
         contents: "x",
         features: [
           { type: "fingerPocket", side: "front", at: 50, width: 22, reach: 12, depth: 5 },
+          { type: "wallCutout", side: "back", at: 45, width: 16, depth: 5, floorNotch: 8 },
+          { type: "wallCutout", side: "right", at: 25, width: 16, depth: 5, floorNotch: 0 },
           { type: "scoop", side: "left", r: 5 },
           { type: "cornerRelief", d: 3 },
         ],
@@ -174,25 +178,23 @@ describe("rotateRealized", () => {
       },
     );
 
-    it("keeps odd-width finger slots inside the walls through four successive turns", () => {
+    it("keeps odd-width finger channels inside the walls through four successive turns", () => {
       const part = partOf([cards()], "upright-long|strip|split1", odd);
       const fitted = minOuter(part, odd, ground);
       const size: OuterSize = { ...fitted, w: fitted.w + 0.01, d: fitted.d + 0.01 };
       let turned = realizeTray(part, size, odd, ground);
       let turnedOuter = size;
       for (const sides of [
+        ["front", "back"],
         ["right", "left"],
         ["back", "front"],
         ["left", "right"],
-        ["front", "back"],
       ]) {
         turned = rotateRealized(turned, turnedOuter);
         turnedOuter = { w: turnedOuter.d, d: turnedOuter.w, h: turnedOuter.h };
         assertTrayInvariants(turned, turnedOuter, odd, ground);
-        const pockets = at(turned.compartments, 0).features.filter(
-          (f) => f.type === "fingerPocket",
-        );
-        expect(pockets.map((f) => f.side)).toEqual(sides);
+        const cuts = at(turned.compartments, 0).features.filter((f) => f.type === "wallCutout");
+        expect(cuts.map((f) => f.side)).toEqual(sides);
       }
     });
   });

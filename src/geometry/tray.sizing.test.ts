@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
-import { SPEC_TOLERANCE } from "../model/settings";
+import { SPEC_TOLERANCE, applyFingerRoom } from "../model/settings";
 import type { Settings, TraySpec } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
@@ -14,10 +14,12 @@ import {
   SWEEP_FIXTURES,
   SWEEP_OPTIONS,
   THINNEST,
+  floorHoles,
   loadFixture,
   traySpecFrom,
 } from "./test-specs";
 import type { Profile } from "./test-specs";
+import type { RealizeOptions } from "../sizing/types";
 import { buildTray } from "./tray";
 
 // Real sizing output built into meshes: every part of every variant of every
@@ -28,10 +30,28 @@ import { buildTray } from "./tray";
 // the part's index, so every combination is reached while the run stays well
 // under 15 s.
 
-const MESH_PROFILES: [string, Profile][] = [
+// A settings profile, and the lip and level options each part is built at (all by default).
+type MeshProfile = [string, Profile, (readonly RealizeOptions[])?];
+
+const MESH_PROFILES: MeshProfile[] = [
   ["fixture settings", FIXTURE_SETTINGS],
   ["thinnest wall, floor, lip and the largest chamfer", THINNEST],
 ];
+
+// Thicker outer walls where wall cutouts leave the tray, on a lipped and an upper tray (the other
+// profiles cover the plain ones): built for the fixtures that have cutouts (bits-heavy has none).
+const FINGER_ROOM: MeshProfile = [
+  "finger room in the cut walls",
+  (s) => applyFingerRoom(s, true),
+  [
+    { lipped: true, level: 0 },
+    { lipped: false, level: 1 },
+  ],
+];
+
+function meshProfiles(fixture: string): MeshProfile[] {
+  return fixture === "bits-heavy" ? MESH_PROFILES : [...MESH_PROFILES, FINGER_ROOM];
+}
 
 // Extra mm over minOuter on every axis (meshes are costly, so one axis value per build).
 const SLACKS = [0, 10, 30];
@@ -51,7 +71,11 @@ const selections = new Map<string, Selection>();
 // The specs one fixture and profile builds: each part at every lip and level option, with the
 // slack and the rotation picked by the part's and the option's index, then that tray's spacers.
 // Sized once per fixture and profile, then shared by the build and the coverage tests.
-function selection(fixture: string, raw: unknown, [label, profile]: [string, Profile]): Selection {
+function selection(
+  fixture: string,
+  raw: unknown,
+  [label, profile, options = SWEEP_OPTIONS]: MeshProfile,
+): Selection {
   const key = `${fixture}|${label}`;
   const cached = selections.get(key);
   if (cached !== undefined) {
@@ -64,7 +88,7 @@ function selection(fixture: string, raw: unknown, [label, profile]: [string, Pro
   for (const req of size(components, settings).requirements) {
     for (const variant of req.variants) {
       for (const part of variant.parts) {
-        SWEEP_OPTIONS.forEach((opts, k) => {
+        options.forEach((opts, k) => {
           const slack = SLACKS[(index + k) % SLACKS.length] ?? 0;
           const rotated = (index + k) % 2 === 1;
           const min = minOuter(part, settings, opts);
@@ -92,8 +116,11 @@ function problemsOf(m: ManifoldToplevel, spec: TraySpec, settings: Settings): st
   const { mesh, volumeMm3 } = buildTray(m, spec, settings);
   const problems: string[] = [];
   const topo = topology(mesh);
-  if (!topo.closed || topo.genus !== 0) {
-    problems.push(`not a closed genus-0 solid (closed ${topo.closed}, genus ${topo.genus})`);
+  const holes = floorHoles(spec, settings);
+  if (!topo.closed || topo.genus !== holes) {
+    problems.push(
+      `not a closed solid with ${holes} floor holes (closed ${topo.closed}, genus ${topo.genus})`,
+    );
   }
   if (!(volumeMm3 > 0) || Math.abs(signedVolume(mesh) - volumeMm3) > 1) {
     problems.push(`volume ${volumeMm3} (mesh ${signedVolume(mesh)})`);
@@ -123,8 +150,8 @@ beforeAll(async () => {
 });
 
 describe.each(SWEEP_FIXTURES)("buildTray builds the sizing output of %s", (name, raw) => {
-  it.each(MESH_PROFILES)("with %s", { timeout: 60_000 }, (label, profile) => {
-    const { settings, specs } = selection(name, raw, [label, profile]);
+  it.each(meshProfiles(name))("with %s", { timeout: 60_000 }, (...profile) => {
+    const { settings, specs } = selection(name, raw, profile);
     expect(settingsValid(settings), "profile settings are valid").toBe(true);
     let built = 0;
     let rotated = 0;
@@ -152,9 +179,15 @@ describe("the built sizing output covers", () => {
   let specs: TraySpec[] = [];
   let trays: TraySpec[] = [];
   let compartments: { tray: TraySpec; c: TraySpec["compartments"][number] }[] = [];
+  let holes = 0;
   beforeAll(() => {
-    specs = SWEEP_FIXTURES.flatMap(([name, raw]) =>
-      MESH_PROFILES.flatMap((profile) => selection(name, raw, profile).specs.map((s) => s.spec)),
+    const selections = SWEEP_FIXTURES.flatMap(([name, raw]) =>
+      meshProfiles(name).map((profile) => selection(name, raw, profile)),
+    );
+    specs = selections.flatMap((sel) => sel.specs.map((s) => s.spec));
+    holes = selections.reduce(
+      (sum, sel) => sum + sel.specs.reduce((n, s) => n + floorHoles(s.spec, sel.settings), 0),
+      0,
     );
     trays = specs.filter((s) => s.part === "tray");
     compartments = trays.flatMap((s) => s.compartments.map((c) => ({ tray: s, c })));
@@ -164,8 +197,19 @@ describe("the built sizing output covers", () => {
     expect(compartments.some(({ c }) => c.kind === kind)).toBe(true);
   });
 
-  it.each(["fingerPocket", "scoop", "cornerRelief"])("feature %s", (type) => {
+  it.each(["fingerPocket", "wallCutout", "scoop", "cornerRelief"])("feature %s", (type) => {
     expect(compartments.some(({ c }) => c.features.some((f) => f.type === type))).toBe(true);
+  });
+
+  it("wall cutouts with a floor notch, through outer walls and dividers, and into spares", () => {
+    const cuts = compartments.flatMap(({ tray, c }) =>
+      c.features.flatMap((f) => (f.type === "wallCutout" ? [{ tray, f }] : [])),
+    );
+    expect(cuts.some(({ f }) => f.floorNotch > 0)).toBe(true);
+    expect(cuts.some(({ f }) => f.floorNotch === 0)).toBe(true);
+    expect(holes).toBeGreaterThan(0);
+    const withSpare = trays.filter((t) => t.compartments.some((c) => c.kind === "spare"));
+    expect(withSpare.some((t) => cuts.some((x) => x.tray === t))).toBe(true);
   });
 
   it("raised floors, lipped, unlipped, upper and rotated trays, and spacers", () => {

@@ -1,8 +1,9 @@
 /**
  * realizeTray could not fit a finger slot of at least min(MIN_SLOT_WIDTH, fingerPocket.width) for
- * some compartments (roadmap §4.7). Not a programming error: layout treats the part as infeasible
- * at those options, and size() drops variants that fail at minOuter. A RangeError of its own name,
- * so callers tell it apart from an outer below minOuter or a broken invariant.
+ * some compartments (roadmap §4.7): the finger pockets of minis pockets and custom wells. The wall
+ * cutouts of cards and tiles always fit. Not a programming error: layout treats the part as
+ * infeasible at those options, and size() drops variants that fail at minOuter. A RangeError of
+ * its own name, so callers tell it apart from an outer below minOuter or a broken invariant.
  */
 export class SlotFitError extends RangeError {
   /** The narrowest slot allowed, mm: min(MIN_SLOT_WIDTH, fingerPocket.width). */

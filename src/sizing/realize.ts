@@ -8,7 +8,9 @@ import {
   SPACER_TOP_GAP,
   WALL_GROW_LIMIT,
 } from "./constants";
-import { pocketSides, reachU } from "./common";
+import { cutoutSides, pocketSides, reachU } from "./common";
+import { placeCutouts } from "./cutouts";
+import type { CutPlacement, CutRequest } from "./cutouts";
 import { chamferMinimumsU, minLayoutU, wallFor } from "./outer";
 import type { MinLayout } from "./outer";
 import { SlotFitError } from "./errors";
@@ -36,6 +38,7 @@ interface FeatureContext {
   reach: number;
   settings: Settings;
   slots: ReadonlyMap<Side, SlotPlacement>; // this compartment's finger slots (placeSlots)
+  cuts: ReadonlyMap<Side, CutPlacement>; // this compartment's wall cutouts (placeCutouts)
 }
 
 function lastIndex<T>(items: readonly T[], test: (item: T) => boolean): number {
@@ -77,27 +80,45 @@ function featureSpecs(
   depth: number,
   ctx: FeatureContext,
 ): FeatureSpec[] {
-  return req.features.map((f): FeatureSpec => {
+  return req.features.flatMap((f): FeatureSpec[] => {
     if (f.type === "cornerRelief") {
-      return { type: "cornerRelief", d: CORNER_RELIEF_D };
+      return [{ type: "cornerRelief", d: CORNER_RELIEF_D }];
     }
     const side = f.side ?? "front";
     if (f.type === "scoop") {
       const r = Math.min(floorU(ctx.settings.scoopRadius), depth, Math.floor(content.w / 2));
-      return { type: "scoop", side, r: fromU(r) };
+      return [{ type: "scoop", side, r: fromU(r) }];
+    }
+    if (f.type === "wallCutout") {
+      // No cut where the side faces bits, minis or a custom well (placeCutouts).
+      const cut = ctx.cuts.get(side);
+      return cut === undefined
+        ? []
+        : [
+            {
+              type: "wallCutout",
+              side,
+              at: fromU(cut.at),
+              width: fromU(cut.width),
+              depth: fromU(cut.depth),
+              floorNotch: fromU(cut.notch),
+            },
+          ];
     }
     const slot = ctx.slots.get(side);
     if (slot === undefined) {
       throw new Error(`internal: no finger slot placed on the ${side} side`);
     }
-    return {
-      type: "fingerPocket",
-      side,
-      at: fromU(slot.at),
-      width: fromU(slot.width),
-      reach: fromU(ctx.reach),
-      depth: fromU(slot.depth),
-    };
+    return [
+      {
+        type: "fingerPocket",
+        side,
+        at: fromU(slot.at),
+        width: fromU(slot.width),
+        reach: fromU(ctx.reach),
+        depth: fromU(slot.depth),
+      },
+    ];
   });
 }
 
@@ -253,7 +274,51 @@ function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
   );
 }
 
-/** The tray moved by dx, dy units: compartments, finger slot centres and spacers. */
+/**
+ * The wall cutouts of every placed compartment (placeCutouts), per compartment and side. They come
+ * after the finger slots and the spares: a cutout may run into a spare and keeps clear of slots.
+ */
+function wallCutouts(
+  items: readonly { req: CompartmentReq; alloc: Rect; depth: number }[],
+  spares: readonly Rect[],
+  slots: readonly Rect2[],
+  frame: { W: number; D: number; H: number; min: MinLayout; settings: Settings },
+): Map<Side, CutPlacement>[] {
+  const { W, D, H, min, settings } = frame;
+  const requests: CutRequest[] = items.flatMap(({ req }, owner) =>
+    cutoutSides(req.features).map((side): CutRequest => {
+      const asks = req.features.filter((f) => f.type === "wallCutout" && f.side === side);
+      return {
+        owner,
+        side,
+        fraction: Math.min(...asks.map((f) => f.depthFraction ?? 1)),
+        notch: asks.some((f) => f.floorNotch === true),
+      };
+    }),
+  );
+  const placed = placeCutouts(requests, {
+    rects: [...items.map((item) => item.alloc), ...spares],
+    spare: (index) => index >= items.length,
+    depths: items.map((item) => item.depth),
+    slots,
+    span: { x: W, y: D },
+    H,
+    wall: min.wall,
+    chamfer: min.chamfer,
+    width: ceilU(settings.fingerPocket.width),
+    notch: ceilU(settings.fingerPocket.floorNotch),
+  });
+  const byOwner = items.map(() => new Map<Side, CutPlacement>());
+  requests.forEach((q, k) => {
+    const cut = placed[k];
+    if (cut) {
+      byOwner[q.owner]?.set(q.side, cut);
+    }
+  });
+  return byOwner;
+}
+
+/** The tray moved by dx, dy units: compartments, finger slot and cutout centres and spacers. */
 function shifted(r: RealizedTray, dx: number, dy: number): RealizedTray {
   const move = <T extends { x: number; y: number }>(item: T): T => ({
     ...item,
@@ -261,7 +326,7 @@ function shifted(r: RealizedTray, dx: number, dy: number): RealizedTray {
     y: fromU(toU(item.y) + dy),
   });
   const moveFeature = (f: FeatureSpec): FeatureSpec =>
-    f.type === "fingerPocket"
+    f.type === "fingerPocket" || f.type === "wallCutout"
       ? { ...f, at: fromU(toU(f.at) + (f.side === "front" || f.side === "back" ? dx : dy)) }
       : f;
   return {
@@ -284,7 +349,7 @@ function layoutAt(
   [W, D, H]: readonly [number, number, number],
   settings: Settings,
 ): RealizedTray {
-  const { wall, divider, floor, rows } = min;
+  const { wall, divider, floor, rows, room } = min;
   // The band realize reserves is the reach each pocket reports, rounded up to whole units.
   const reach = reachU(settings);
   // Growth caps are maximums, so they round down; minimums (wall, divider, pocket) round up.
@@ -298,8 +363,9 @@ function layoutAt(
   const innerD = D - 2 * wall;
 
   // Y: elastic rows → thicker walls/dividers → a spare row at the back → the rest to the walls.
+  // The finger room of walls that wall cutouts leave through is taken first (minLayoutU).
   const rowDepths = min.rowDepths.slice();
-  let slackY = innerD - sum(rowDepths) - (rows.length - 1) * divider;
+  let slackY = innerD - room.front - room.back - sum(rowDepths) - (rows.length - 1) * divider;
   const elasticRows = rows.flatMap((row, i) => (row.some((c) => c.elastic.d) ? [i] : []));
   if (elasticRows.length > 0) {
     const shares = splitEven(slackY, elasticRows.length);
@@ -316,7 +382,7 @@ function layoutAt(
     slackY = 0;
   }
   const rowYs: number[] = [];
-  let y = wall + (yExtra[0] ?? 0) + Math.floor(slackY / 2);
+  let y = wall + room.front + (yExtra[0] ?? 0) + Math.floor(slackY / 2);
   rows.forEach((_, i) => {
     rowYs.push(y);
     y += rowDepths[i] ?? 0;
@@ -336,7 +402,9 @@ function layoutAt(
     const rowDepth = rowDepths[r] ?? 0;
     const widths = min.widths[r] ?? [];
     const growth = row.map(() => 0);
-    let slack = innerW - sum(widths) - (row.length - 1) * divider;
+    const roomLeft = room.left[r] ?? 0;
+    const roomRight = room.right[r] ?? 0;
+    let slack = innerW - roomLeft - roomRight - sum(widths) - (row.length - 1) * divider;
     let spacerAt = -1;
     const elastic = row.flatMap((c, i) => (c.elastic.w && c.spacerAxis !== "w" ? [i] : []));
     if (elastic.length > 0) {
@@ -362,7 +430,7 @@ function layoutAt(
       spareW = slack - divider;
       slack = 0;
     }
-    let x = wall + (xExtra[0] ?? 0) + Math.floor(slack / 2);
+    let x = wall + roomLeft + (xExtra[0] ?? 0) + Math.floor(slack / 2);
     row.forEach((req, i) => {
       const w = (widths[i] ?? 0) + (growth[i] ?? 0);
       const d = req.elastic.d ? rowDepth : ceilU(req.minD);
@@ -377,12 +445,14 @@ function layoutAt(
         x += divider + (xExtra[i + 1] ?? 0);
       }
     });
+    // A spare at the row end takes the finger room too: a cutout runs into it instead.
     if (spareW > 0) {
-      spares.push([{ x: x + divider, y: rowY, w: spareW, d: rowDepth }, "x"]);
+      spares.push([{ x: x + divider, y: rowY, w: spareW + roomRight, d: rowDepth }, "x"]);
     }
   });
   if (spareRowDepth > 0) {
-    spares.push([{ x: wall, y: rowsEnd + divider, w: innerW, d: spareRowDepth }, "y"]);
+    const d = spareRowDepth + room.back;
+    spares.push([{ x: wall, y: rowsEnd + divider, w: innerW, d }, "y"]);
   }
 
   const { items, requests, placements } = fingerSlots(placed, {
@@ -406,9 +476,15 @@ function layoutAt(
     footprints.push(slotFootprint(item.alloc, q.side, slot, reach));
   });
 
+  const spareRects = spares.flatMap(([rect, axis]) => {
+    const clear = clearOfSlots(rect, axis, footprints);
+    return clear === null ? [] : [clear];
+  });
+  const cuts = wallCutouts(items, spareRects, footprints, { W, D, H, min, settings });
+
   const spacers: TraySpec[] = [];
   const compartments: CompartmentSpec[] = items.map(
-    ({ req, alloc, spacer, well, depth, content, slots }) => {
+    ({ req, alloc, spacer, well, depth, content, slots }, i) => {
       const floorZ = H - depth;
       if (spacer > 0) {
         spacers.push(spacerSpec(part.trayKey, well, spacer, floorZ, depth));
@@ -418,17 +494,18 @@ function layoutAt(
         floorZ: fromU(floorZ),
         kind: req.kind,
         contents: req.contents,
-        features: featureSpecs(req, content, depth, { reach, settings, slots }),
+        features: featureSpecs(req, content, depth, {
+          reach,
+          settings,
+          slots,
+          cuts: cuts[i] ?? new Map(),
+        }),
       };
     },
   );
-  for (const [rect, axis] of spares) {
-    const clear = clearOfSlots(rect, axis, footprints);
-    if (clear === null) {
-      continue;
-    }
+  for (const rect of spareRects) {
     compartments.push({
-      ...rectSpec(clear),
+      ...rectSpec(rect),
       floorZ: fromU(floor),
       kind: "spare",
       contents: "spare",

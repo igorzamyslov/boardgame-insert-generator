@@ -1,14 +1,14 @@
-import type { Settings, TileShape, TilesComponent } from "../model/types";
+import type { Settings, Side, TileShape, TilesComponent } from "../model/types";
 import {
   compartment,
   cornerRelief,
   displayName,
-  fingerPocket,
   mainClearance,
+  wallCutout,
   type OptionsResult,
   type StorageOption,
 } from "./common";
-import { TILE_STACK_TARGETS } from "./constants";
+import { CHANNEL_DEPTH, TILE_STACK_TARGETS } from "./constants";
 import type { CompartmentReq } from "./types";
 import { ROUNDING_TOLERANCE, splitEven } from "./units";
 
@@ -53,8 +53,10 @@ export function columnCounts(count: number, thickness: number): number[] {
   return out;
 }
 
+/** Flat tiles: half-round cutouts through the two long walls (left and right for a square). */
 function flatColumn(c: TilesComponent, n: number, clearance: number, s: Settings): CompartmentReq {
   const foot = flatFootprint(c.shape);
+  const [a, b]: [Side, Side] = foot.x > foot.y ? ["front", "back"] : ["left", "right"];
   return compartment(
     {
       componentId: c.id,
@@ -63,7 +65,7 @@ function flatColumn(c: TilesComponent, n: number, clearance: number, s: Settings
       w: foot.x + clearance,
       d: foot.y + clearance,
       h: n * c.thickness + clearance,
-      features: [fingerPocket("front", 1, true), fingerPocket("back", 1, true), cornerRelief()],
+      features: [wallCutout(a, 1, true), wallCutout(b, 1, true), cornerRelief()],
     },
     s,
   );
@@ -87,8 +89,8 @@ function uprightStack(
       elastic: { w: true },
       spacerAxis: "w",
       features: [
-        fingerPocket("front", 1 / 3, true),
-        fingerPocket("back", 1 / 3, true),
+        wallCutout("left", CHANNEL_DEPTH, false),
+        wallCutout("right", CHANNEL_DEPTH, false),
         cornerRelief(),
       ],
     },

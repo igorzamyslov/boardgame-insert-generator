@@ -128,7 +128,9 @@ export function partOf(
  * chamfer, reach bands, finger slot placement and clearance, for the tray and its spacers) are
  * planTray's own: the tray must plan without a RangeError. On top of that, in whole 0.01 mm
  * units, what only sizing promises: compartments keep the divider setting apart, floors are at
- * least the floor setting, and finger slots are at least min(MIN_SLOT_WIDTH, the width setting).
+ * least the floor setting, finger slots are at least min(MIN_SLOT_WIDTH, the width setting), and
+ * wall cutouts at most the width setting, their floor notch at most the notch setting and half the
+ * cutout.
  */
 export function assertTrayInvariants(
   realized: RealizedTray,
@@ -139,6 +141,8 @@ export function assertTrayInvariants(
   const gap = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
   const minFloor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
   const minSlot = Math.min(toU(MIN_SLOT_WIDTH), ceilU(settings.fingerPocket.width));
+  // A cutout's half-width is a whole unit: the setting, rounded up to an even unit count.
+  const maxCut = 2 * Math.ceil(ceilU(settings.fingerPocket.width) / 2);
   const u = (mm: number): number => Math.round(mm * 100);
   const list = realized.compartments;
   list.forEach((c, i) => {
@@ -147,6 +151,12 @@ export function assertTrayInvariants(
     for (const f of c.features) {
       if (f.type === "fingerPocket") {
         expect(u(f.width), `${label} ${f.side} slot width`).toBeGreaterThanOrEqual(minSlot);
+      }
+      if (f.type === "wallCutout") {
+        expect(u(f.width), `${label} ${f.side} cutout width`).toBeLessThanOrEqual(maxCut);
+        expect(u(f.floorNotch), `${label} ${f.side} floor notch`).toBeLessThanOrEqual(
+          Math.min(ceilU(settings.fingerPocket.floorNotch), u(f.width) / 2),
+        );
       }
     }
     for (const other of list.slice(i + 1)) {

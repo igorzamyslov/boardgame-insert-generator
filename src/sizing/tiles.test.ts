@@ -42,20 +42,21 @@ describe("tile geometry", () => {
 });
 
 describe("tileOptions", () => {
-  it("lays hex tiles flat, a flat edge to the front, with full-depth pockets and corner reliefs", () => {
+  it("lays hex tiles flat, a flat edge to the front, cut through the long walls, with reliefs", () => {
     const { options, notices } = tileOptions(tiles(), s);
     expect(notices).toEqual([]);
     expect(options.map((o) => o.id)).toEqual(["flat-c1", "flat-c3", "flat-c5"]);
     const column = first(tiles());
     expect(column.minW).toBe(47.19);
-    expect(column.minD).toBeCloseTo(65, 9);
+    expect(column.minD).toBeCloseTo(41, 9);
     expect(column.minH).toBeCloseTo(121, 9);
     expect(column.kind).toBe("well");
     expect(column.contents).toBe("Hexes ×60");
     expect(column.elastic).toEqual({ w: false, d: false, h: false });
+    // Corner to corner (47.19) runs along X, so the long walls are the front and back.
     expect(column.features).toEqual([
-      { type: "fingerPocket", side: "front", depthFraction: 1, perItem: true },
-      { type: "fingerPocket", side: "back", depthFraction: 1, perItem: true },
+      { type: "wallCutout", side: "front", depthFraction: 1, floorNotch: true },
+      { type: "wallCutout", side: "back", depthFraction: 1, floorNotch: true },
       { type: "cornerRelief" },
     ]);
   });
@@ -63,7 +64,8 @@ describe("tileOptions", () => {
   it("swaps the footprint axes for pointy hexes", () => {
     const column = first(tiles({ shape: { type: "hex", flatToFlat: 40, orientation: "pointy" } }));
     expect(column.minW).toBeCloseTo(41, 9);
-    expect(column.minD).toBe(71.19);
+    expect(column.minD).toBe(47.19);
+    expect(column.features.map((f) => f.side)).toEqual(["left", "right", undefined]);
   });
 
   it("splits a tall stack into columns, one block each", () => {
@@ -93,16 +95,15 @@ describe("tileOptions", () => {
     ]);
     const stack = first(upright);
     expect(stack.minW).toBeCloseTo(121, 9);
-    expect(stack.minD).toBe(71.19);
+    expect(stack.minD).toBe(47.19);
     expect(stack.minH).toBeCloseTo(41, 9);
     expect(stack.elastic).toEqual({ w: true, d: false, h: false });
     expect(stack.spacerAxis).toBe("w");
-    expect(at(stack.features, 0)).toEqual({
-      type: "fingerPocket",
-      side: "front",
-      depthFraction: 1 / 3,
-      perItem: true,
-    });
+    expect(stack.features).toEqual([
+      { type: "wallCutout", side: "left", depthFraction: 1 / 2, floorNotch: false },
+      { type: "wallCutout", side: "right", depthFraction: 1 / 2, floorNotch: false },
+      { type: "cornerRelief" },
+    ]);
   });
 
   it("stands rect tiles on their longer edge", () => {
@@ -110,7 +111,7 @@ describe("tileOptions", () => {
       tiles({ shape: { type: "rect", w: 30, d: 20 }, count: 10, storage: "upright" }),
     );
     expect(stack.minW).toBeCloseTo(21, 9);
-    expect(stack.minD).toBeCloseTo(55, 9);
+    expect(stack.minD).toBeCloseTo(31, 9);
     expect(stack.minH).toBeCloseTo(21, 9);
   });
 
@@ -128,6 +129,6 @@ describe("tileOptions", () => {
   it("uses the clearance override", () => {
     const column = first(tiles({ shape: { type: "rect", w: 30, d: 20 }, clearance: 0 }));
     expect(column.minW).toBe(30);
-    expect(column.minD).toBe(44);
+    expect(column.minD).toBe(20);
   });
 });

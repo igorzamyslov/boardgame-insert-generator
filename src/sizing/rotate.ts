@@ -25,6 +25,7 @@ export function rotateRealized(r: RealizedTray, outer: OuterSize): RealizedTray 
     if (f.type === "scoop") {
       return { ...f, side: TURNED[f.side] };
     }
+    // Finger pockets and wall cutouts: `at` runs along the side, so it turns with it.
     const alongX = f.side === "front" || f.side === "back";
     return { ...f, side: TURNED[f.side], at: alongX ? f.at : round2(depth - f.at) };
   };

@@ -118,6 +118,30 @@ describe("assertTrayInvariants", () => {
     }).toThrow();
   });
 
+  it("rejects a wall cutout wider than the setting or with a notch over half its width", () => {
+    const cut = (width: number, floorNotch: number): RealizedTray => {
+      const tray = trayWithSlot(12.6);
+      const well = { ...at(tray.compartments, 0), y: 1.6, d: 92.5 };
+      const features = (["left", "right"] as const).map((side) => ({
+        type: "wallCutout" as const,
+        side,
+        at: 47.85,
+        width,
+        depth: 30,
+        floorNotch,
+      }));
+      return { ...tray, compartments: [{ ...well, features }] };
+    };
+    const short: OuterSize = { ...outer, d: 95.7 };
+    const check = (tray: RealizedTray) => () => {
+      assertTrayInvariants(tray, short, DEFAULT_SETTINGS, ground);
+    };
+    expect(check(cut(22, 8))).not.toThrow();
+    expect(check(cut(22.02, 8))).toThrow(/cutout width/);
+    expect(check(cut(22, 8.01))).toThrow(/floor notch/);
+    expect(check(cut(12, 6.5))).toThrow(/floor notch/);
+  });
+
   describe("finger slot clearance", () => {
     // Two 20 mm decks side by side with a 1.2 mm divider; their slots are 22 mm wide.
     const wide: OuterSize = { ...outer, w: 1.6 + 20 + 1.2 + 20 + 1.6 };

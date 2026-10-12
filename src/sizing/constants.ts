@@ -26,3 +26,5 @@ export const TILE_STACK_TARGETS: readonly number[] = [50, 25];
 export const UPPER_TRAY_MIN_ABOVE_LIP = 3;
 /** Walls and dividers thicken inward up to min(2 × setting, this) (spec §7.2 Fill). */
 export const WALL_GROW_LIMIT = 4;
+/** Upright cards and tiles: the finger channel is this fraction of the shallowest well deep. */
+export const CHANNEL_DEPTH = 1 / 2;

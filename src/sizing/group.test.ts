@@ -161,15 +161,87 @@ describe("size", () => {
         throw error;
       }
     };
-    const decks = (...counts: number[]) => counts.map((count, i) => ({ name: `D${i + 1}`, count }));
+    // Minis pockets and custom wells keep finger pockets, whose slots may not fit; the finger
+    // channels and cutouts of cards and tiles always do.
+    const figures = (...sizes: [string, number, number, number][]) =>
+      sizes.map(([name, w, d, h]) => ({ name, w, d, h, count: 1 }));
 
     it("keeps a variant whose slots fit only wider than its minimum layout", () => {
-      // A one-card deck beside a 120-card one: an upright strip fits 15 mm slots once minOuter
-      // widens it (slotFootprintU), so every variant stays.
-      const { requirements, notices } = size([cards({ storage: "auto", decks: decks(1, 120) })], s);
+      // A 1.5 mm pocket beside a 21 mm one: a standing strip fits 15 mm slots once minOuter widens
+      // it (slotFootprintU). Only the lying strip, whose pockets run on two band lines, is dropped.
+      const m = minis({ figures: figures(["A", 0.5, 1, 20], ["B", 20, 1, 10]) });
+      const { requirements, notices } = size([m], s);
       expect(notices).toEqual([]);
       const req = at(requirements, 0);
       expect(req.variants.map((v) => v.id)).toEqual([
+        "standing|strip|split1",
+        "standing|strip|split2",
+        "standing|rows2|split1",
+        "lying|strip|split2",
+        "lying|rows2|split1",
+      ]);
+      expect(req.variants.every((v) => v.parts.every(realizable))).toBe(true);
+      const strip = at(at(req.variants, 0).parts, 0);
+      expect(minOuter(strip, s, ground).w).toBeGreaterThan(fromU(minLayoutU(strip, s, ground).w));
+    });
+
+    it("keeps only the variants whose parts realize at minOuter, in rank order", () => {
+      // Two 1.5 mm pockets of different depths: no strip fits 15 mm slots, split or rows2 ones do.
+      const m = minis({ figures: figures(["A", 0.5, 1, 1], ["B", 0.5, 3, 1]) });
+      const { requirements, notices } = size([m], s);
+      expect(notices).toEqual([]);
+      const req = at(requirements, 0);
+      expect(req.variants.map((v) => v.id)).toEqual([
+        "standing|strip|split2",
+        "standing|rows2|split1",
+      ]);
+      expect(req.variants.every((v) => v.parts.every(realizable))).toBe(true);
+    });
+
+    it("warns and leaves the component out when no variant realizes", () => {
+      const m = minis({
+        id: "m2",
+        figures: [
+          ...figures(["F0", 3, 10, 1], ["F1", 2, 30, 5]),
+          { name: "F2", w: 1, d: 10, h: 20, count: 2 },
+          ...figures(["F3", 5, 3, 1]),
+        ],
+      });
+      const { requirements, notices } = size([bulk(), m], s);
+      expect(requirements.map((r) => r.key)).toEqual(["b1"]);
+      expect(notices).toEqual([
+        {
+          level: "warning",
+          code: "sizing.noFingerSlot",
+          path: "/components/1",
+          message:
+            "Minis: no tray arrangement leaves room for a finger slot of at least 15 mm by F0, even up to 22 mm wider, so it is left out. Try another storage or a narrower finger pocket.",
+        },
+      ]);
+    });
+
+    it("names the stuck member of a group whose variants all fail", () => {
+      const m = minis({
+        id: "m2",
+        groupId: "g",
+        figures: figures(["A", 0.5, 0.5, 1], ["B", 0.5, 3, 1], ["C", 0.5, 0.5, 1]),
+      });
+      const { requirements, notices } = size([bulk({ groupId: "g" }), m], s);
+      expect(requirements).toEqual([]);
+      expect(notices.map((n) => [n.code, n.path])).toEqual([
+        ["sizing.noFingerSlot", "/components/1"],
+      ]);
+      expect(at(notices, 0).message).toMatch(
+        /by A, even up to 22 mm wider, so the group "g" is left out/,
+      );
+    });
+
+    it("never drops a card or tile variant: their channels and cutouts always fit", () => {
+      // Five one-card decks once had no upright arrangement with room for a finger slot.
+      const decks = [1, 1, 1, 1, 1].map((count, i) => ({ name: `D${i + 1}`, count }));
+      const { requirements, notices } = size([cards({ storage: "auto", decks })], s);
+      expect(notices).toEqual([]);
+      expect(at(requirements, 0).variants.map((v) => v.id)).toEqual([
         "upright-long|strip|split1",
         "upright-short|strip|split1",
         "flat|strip|split1",
@@ -179,55 +251,6 @@ describe("size", () => {
         "upright-short|rows2|split1",
         "flat|strip|split2",
       ]);
-      expect(req.variants.every((v) => v.parts.every(realizable))).toBe(true);
-      const strip = at(at(req.variants, 0).parts, 0);
-      expect(minOuter(strip, s, ground).w).toBeGreaterThan(fromU(minLayoutU(strip, s, ground).w));
-    });
-
-    it("keeps only the variants whose parts realize at minOuter, in rank order", () => {
-      // Five one-card decks: no upright arrangement fits 15 mm slots, flat ones do.
-      const { requirements, notices } = size(
-        [cards({ storage: "auto", decks: decks(1, 1, 1, 1, 1) })],
-        s,
-      );
-      expect(notices).toEqual([]);
-      const req = at(requirements, 0);
-      expect(req.variants.map((v) => v.id)).toEqual(["flat|strip|split1", "flat|strip|split2"]);
-      expect(req.variants.every((v) => v.parts.every(realizable))).toBe(true);
-    });
-
-    it("warns and leaves the component out when no variant realizes", () => {
-      const { requirements, notices } = size(
-        [
-          bulk(),
-          cards({ id: "c2", name: "Cards", storage: "upright-long", decks: decks(1, 1, 1, 1, 1) }),
-        ],
-        s,
-      );
-      expect(requirements.map((r) => r.key)).toEqual(["b1"]);
-      expect(notices).toEqual([
-        {
-          level: "warning",
-          code: "sizing.noFingerSlot",
-          path: "/components/1",
-          message:
-            "Cards: no tray arrangement leaves room for a finger slot of at least 15 mm by D1 ×1, D2 ×1, D3 ×1, D4 ×1, D5 ×1, even up to 22 mm wider, so it is left out. Try another storage or a narrower finger pocket.",
-        },
-      ]);
-    });
-    it("names the stuck member of a group whose variants all fail", () => {
-      const { requirements, notices } = size(
-        [
-          bulk({ groupId: "g" }),
-          cards({ id: "c2", groupId: "g", storage: "upright-long", decks: decks(1, 1, 1, 1, 1) }),
-        ],
-        s,
-      );
-      expect(requirements).toEqual([]);
-      expect(notices.map((n) => [n.code, n.path])).toEqual([
-        ["sizing.noFingerSlot", "/components/1"],
-      ]);
-      expect(at(notices, 0).message).toMatch(/so the group "g" is left out/);
     });
   });
 

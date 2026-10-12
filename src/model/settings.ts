@@ -230,8 +230,9 @@ export function cutRidgeWidth(r: number, dContents: number, dSolid: number): num
 export const MIN_POCKET_CONTENT = 1;
 
 /**
- * Finger slots are never narrower than this (or the fingerPocket.width setting, if smaller):
- * sizing refuses a tray whose slots cannot keep it (roadmap §4.7).
+ * Finger slots (the finger pockets of minis pockets and custom wells) are never narrower than this
+ * (or the fingerPocket.width setting, if smaller): sizing refuses a tray whose slots cannot keep it
+ * (roadmap §4.7). Wall cutouts take what room their row has.
  */
 export const MIN_SLOT_WIDTH = 15;
 

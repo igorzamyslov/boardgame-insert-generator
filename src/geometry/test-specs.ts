@@ -17,10 +17,12 @@ import {
   MIN_FEATURE_MM,
   MIN_WALL_MM,
   UPPER_MIN_CHAMFER,
+  applyFingerRoom,
   effective,
   maxBottomChamfer,
 } from "../model/settings";
 import { parseProject } from "../model/schema";
+import { planTray } from "./plan";
 import type { OuterSize, RealizedTray, RealizeOptions } from "../sizing/types";
 import { ceilU, fromU } from "../sizing/units";
 
@@ -152,28 +154,28 @@ export const flatCutouts = traySpec({
   ],
 });
 
-// Three sleeved Standard decks standing on their long edge (well 68 high,
-// 92.5 long + 2 × 12 reach). The last deck is only 15 wide, so its 22 mm
+// Three wells with ⅓-depth finger pockets front and back (the pockets minis and custom wells
+// keep; well 68 high, 92.5 long + 2 × 12 reach). The last well is only 15 wide, so its 22 mm
 // slots sit 0.2 mm inside the outer wall (50.8…72.8) and cross the divider
-// into the middle deck's slots (30.8…52.8): centres 20 mm apart, within
+// into the middle well's slots (30.8…52.8): centres 20 mm apart, within
 // maxChannelSpacing(11) = 20.06 mm, so they merge into one channel.
-export const cardUpright = traySpec({
-  key: "cards:p0:0",
+export const slotStrip = traySpec({
+  key: "pockets:p0:0",
   w: 1.6 + 24 + 1.2 + 30 + 1.2 + 15 + 1.6,
   d: 1.6 + 116.5 + 1.6,
   h: 1.2 + 68,
   compartments: strip([24, 30, 15], 1.6, 116.5, 1.6, 1.2, (x, w, i) => {
     const at = i === 2 ? 74.6 - 1.6 - 11 - 0.2 : x + w / 2;
     return {
-      contents: `Deck ${i + 1}`,
+      contents: `Well ${i + 1}`,
       features: [pocket("front", at, 68 / 3), pocket("back", at, 68 / 3)],
     };
   }),
 });
 
-// Flat cards: one well, full-depth pockets on both short sides.
-export const flatCards = traySpec({
-  key: "flat:p0:0",
+// One well with full-depth finger pockets on its left and right sides.
+export const sidePockets = traySpec({
+  key: "side-pockets:p0:0",
   w: 1.6 + 116.5 + 1.6,
   d: 1.6 + 68 + 1.6,
   h: 1.2 + 20,
@@ -273,7 +275,9 @@ export const spacer = traySpec({
 });
 
 // cards-heavy fixture, part fxcrd003:p0:0, upright-long|rows2|split1, lipped,
-// minOuter + 10: two decks in two rows, the slack beside "Goals ×45".
+// minOuter + 10, as sizing emitted it while card decks had finger pockets (geometry 0.1.0): two
+// decks in two rows, the slack beside "Goals ×45". Kept as hand-built pocket trays: the pocket
+// rules they pin down still hold for minis and custom wells.
 const objectivesDecks: CompartmentSpec[] = [
   compartment({
     x: 2.9,
@@ -311,7 +315,7 @@ export const slotIntoSpare = traySpec({
   ],
 });
 
-// The same tray as sizing emits it now: a spare would have to start 0.8 mm past
+// The same tray as sizing emitted it after that fix: a spare would have to start 0.8 mm past
 // the slots (x 25.7) and be narrower than MIN_SPARE, so the slack stays solid.
 export const slotBesideSlack: TraySpec = { ...slotIntoSpare, compartments: objectivesDecks };
 
@@ -459,6 +463,14 @@ export const PROFILES: readonly [string, Profile][] = [
     "lip thickness 0.9",
     (s) => ({ ...s, lip: { ...s.lip, enabled: true, thickness: MIN_WALL_MM } }),
   ],
+  ["finger room in the cut walls (simple mode)", (s) => applyFingerRoom(s, true)],
+  [
+    "the widest finger room and floor notch, thinnest walls and largest chamfer",
+    (s) => {
+      const thin = THINNEST(s);
+      return { ...thin, fingerPocket: { ...thin.fingerPocket, floorNotch: 20, wallRoom: 20 } };
+    },
+  ],
   [
     "three decimals",
     (s) => ({
@@ -467,8 +479,25 @@ export const PROFILES: readonly [string, Profile][] = [
       floor: 1.001,
       divider: 0.999,
       bottomChamfer: 0.333,
-      fingerPocket: { ...s.fingerPocket, width: 22.001, reach: 12.003 },
+      fingerPocket: { width: 22.001, reach: 12.003, floorNotch: 7.999, wallRoom: 3.333 },
       lip: { ...s.lip, enabled: true, height: 2.001, thickness: 1.003, ledge: 1.707 },
     }),
   ],
 ];
+
+/**
+ * How many holes go through the floor of `spec` (the genus its mesh must have): one per floor
+ * notch under a divider, shared by the cutouts on both sides of it. A notch in an outer wall opens
+ * to the outside and makes no hole.
+ */
+export function floorHoles(spec: TraySpec, settings: Settings): number {
+  const holes = new Set<string>();
+  for (const c of planTray(spec, settings).compartments) {
+    for (const cut of c.cuts) {
+      if (cut.notch > 0 && cut.into !== null) {
+        holes.add([cut.x0, cut.y0, cut.x1, cut.y1].map((v) => v.toFixed(2)).join(","));
+      }
+    }
+  }
+  return holes.size;
+}

@@ -65,6 +65,26 @@ export function fingerPocket(side: Side, depthFraction: number, perItem: boolean
   return { type: "fingerPocket", side, depthFraction, perItem };
 }
 
+/**
+ * A finger cutout through the wall or divider on `side` (roadmap §4.6): `depthFraction` 1 runs down
+ * to the compartment's floor (flat cards and tiles, with a floor notch), less is that fraction of
+ * the shallowest well its channel crosses (upright cards and tiles: half).
+ */
+export function wallCutout(side: Side, depthFraction: number, floorNotch: boolean): FeatureReq {
+  return { type: "wallCutout", side, depthFraction, floorNotch };
+}
+
+/** The sides that ask for a wall cutout, each once, in feature order. */
+export function cutoutSides(features: readonly FeatureReq[]): Side[] {
+  const sides: Side[] = [];
+  for (const f of features) {
+    if (f.type === "wallCutout" && f.side !== undefined && !sides.includes(f.side)) {
+      sides.push(f.side);
+    }
+  }
+  return sides;
+}
+
 export function cornerRelief(): FeatureReq {
   return { type: "cornerRelief" };
 }

@@ -169,8 +169,8 @@ const componentsArb: Arbitrary<Component[]> = fc
   );
 
 /**
- * Wall, divider, floor, bottom chamfer, lip and finger pocket values on a 0.001 mm grid, inside
- * SETTING_RANGES and settingsValid.
+ * Wall, divider, floor, bottom chamfer, lip and finger pocket values (with the cutouts' floor
+ * notch and wall room) on a 0.001 mm grid, inside SETTING_RANGES and settingsValid.
  */
 const settingsArb: Arbitrary<Settings> = fc
   .record({
@@ -187,6 +187,8 @@ const settingsArb: Arbitrary<Settings> = fc
     }),
     pocketUnits: fc.integer({ min: 500, max: 4000 }),
     reach: setting(5, 20),
+    floorNotch: fc.oneof(fc.constant(0), setting(0, 20)),
+    wallRoom: fc.oneof(fc.constant(0), setting(0, 20)),
   })
   .map((r): Settings => {
     const walls = { ...DEFAULT_SETTINGS, wall: r.wall, floor: r.floor };
@@ -211,6 +213,8 @@ const settingsArb: Arbitrary<Settings> = fc
         ...DEFAULT_SETTINGS.fingerPocket,
         width: r.pocketUnits / 100 + (r.pocketUnits % 3) / 1000,
         reach: r.reach,
+        floorNotch: r.floorNotch,
+        wallRoom: r.wallRoom,
       },
     };
   });

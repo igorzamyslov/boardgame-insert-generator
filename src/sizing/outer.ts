@@ -1,7 +1,12 @@
-import { MIN_FEATURE_MM, MIN_WALL_MM, chamferMinimums } from "../model/settings";
+import {
+  MIN_FEATURE_MM,
+  MIN_WALL_MM,
+  chamferMinimums,
+  effectiveBottomChamfer,
+} from "../model/settings";
 import type { Settings, Side } from "../model/types";
 import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
-import { pocketSides } from "./common";
+import { cutoutSides, pocketSides } from "./common";
 import type { CompartmentReq, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, maxOf, sum } from "./units";
 
@@ -35,11 +40,26 @@ export function rowsOf<T>(arrangement: TrayPartReq["arrangement"], items: readon
   return [items.slice(0, half), items.slice(half)].filter((row) => row.length > 0);
 }
 
+/**
+ * The finger room (fingerPocket.wallRoom, units) the outer walls get where a wall cutout leaves
+ * through them (spec §6.1): per row on the left and right (the row's first and last compartment
+ * ask for a cutout there), and on the front (row 0) and the back (the last row). The walls grow
+ * inward, so the tray is that much longer on those axes.
+ */
+export interface CutRoom {
+  left: number[];
+  right: number[];
+  front: number;
+  back: number;
+}
+
 /** Minimum layout in integer 0.01 mm units. */
 export interface MinLayout {
   wall: number;
   divider: number;
   floor: number;
+  chamfer: number; // the tray's bottom chamfer (effectiveBottomChamfer), rounded up
+  room: CutRoom;
   rows: CompartmentReq[][]; // rowsOf(part.arrangement, part.compartments)
   widths: number[][]; // per row: each compartment's minW
   rowDepths: number[]; // per row: the deepest compartment's minD
@@ -52,6 +72,21 @@ export interface MinLayout {
 
 function hasPocketOn(part: TrayPartReq, sides: readonly Side[]): boolean {
   return part.compartments.some((c) => pocketSides(c.features).some((s) => sides.includes(s)));
+}
+
+function cutsOn(c: CompartmentReq | undefined, side: Side): boolean {
+  return c !== undefined && cutoutSides(c.features).includes(side);
+}
+
+function cutRoom(rows: readonly CompartmentReq[][], settings: Settings): CutRoom {
+  const room = ceilU(settings.fingerPocket.wallRoom);
+  const on = (yes: boolean): number => (yes ? room : 0);
+  return {
+    left: rows.map((row) => on(cutsOn(row[0], "left"))),
+    right: rows.map((row) => on(cutsOn(row[row.length - 1], "right"))),
+    front: on((rows[0] ?? []).some((c) => cutsOn(c, "front"))),
+    back: on((rows[rows.length - 1] ?? []).some((c) => cutsOn(c, "back"))),
+  };
 }
 
 export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeOptions): MinLayout {
@@ -67,12 +102,15 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
   const pocketU = ceilU(settings.fingerPocket.width);
   const pocketWidth = pocketU + (pocketU % 2);
   const rows = rowsOf(part.arrangement, part.compartments);
+  const room = cutRoom(rows, settings);
   const widths = rows.map((row) => row.map((c) => ceilU(c.minW)));
-  const rowWidths = widths.map((row) => sum(row) + (row.length - 1) * divider);
+  const rowWidths = widths.map(
+    (row, r) => sum(row) + (row.length - 1) * divider + (room.left[r] ?? 0) + (room.right[r] ?? 0),
+  );
   const rowDepths = rows.map((row) => maxOf(row.map((c) => ceilU(c.minD))));
   const innerW = Math.max(maxOf(rowWidths), hasPocketOn(part, ["front", "back"]) ? pocketWidth : 0);
   const innerD = Math.max(
-    sum(rowDepths) + (rows.length - 1) * divider,
+    sum(rowDepths) + (rows.length - 1) * divider + room.front + room.back,
     hasPocketOn(part, ["left", "right"]) ? pocketWidth : 0,
   );
   const content = floor + maxOf(part.compartments.map((c) => ceilU(c.minH)));
@@ -88,6 +126,8 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
     wall,
     divider,
     floor,
+    chamfer: ceilU(effectiveBottomChamfer(settings, opts.level)),
+    room,
     rows,
     widths,
     rowDepths,

@@ -6,11 +6,11 @@ import { at, cards } from "./test-helpers";
 import type { CompartmentReq } from "./types";
 
 const s: Settings = DEFAULT_SETTINGS;
-const pocket = (side: "front" | "back", depthFraction: number) => ({
-  type: "fingerPocket",
+const cutout = (side: "left" | "right", depthFraction: number, floorNotch: boolean) => ({
+  type: "wallCutout",
   side,
   depthFraction,
-  perItem: true,
+  floorNotch,
 });
 
 function deck(component: CardsComponent, settings: Settings = s, option = 0): CompartmentReq {
@@ -88,34 +88,35 @@ describe("stackWidth", () => {
 });
 
 describe("cardOptions", () => {
-  it("upright-long: stack along X, length + two reaches along Y, height from the short side", () => {
+  it("upright-long: stack along X, length along Y, height from the short side", () => {
     const c = deck(cards());
     expect(c.minW).toBe(23.5);
-    expect(c.minD).toBeCloseTo(116.5, 9);
+    expect(c.minD).toBeCloseTo(92.5, 9);
     expect(c.minH).toBeCloseTo(68, 9);
     expect(c.kind).toBe("well");
     expect(c.contents).toBe("Main ×52");
     expect(c.componentId).toBe("c1");
     expect(c.elastic).toEqual({ w: true, d: false, h: false });
     expect(c.spacerAxis).toBe("w");
-    expect(c.features).toEqual([pocket("front", 1 / 3), pocket("back", 1 / 3)]);
+    // One channel, half the shallowest well deep, through the walls the card faces touch.
+    expect(c.features).toEqual([cutout("left", 1 / 2, false), cutout("right", 1 / 2, false)]);
   });
 
   it("upright-short: height from the long side, length from the short side", () => {
     const c = deck(cards({ storage: "upright-short" }));
     expect(c.minW).toBe(23.5);
-    expect(c.minD).toBeCloseTo(92, 9);
+    expect(c.minD).toBeCloseTo(68, 9);
     expect(c.minH).toBeCloseTo(92.5, 9);
   });
 
-  it("flat: the stack is the height, full-depth pockets on both short sides", () => {
+  it("flat: the stack is the height, full-depth cutouts through both long walls", () => {
     const c = deck(cards({ storage: "flat" }));
     expect(c.minW).toBeCloseTo(68, 9);
-    expect(c.minD).toBeCloseTo(116.5, 9);
+    expect(c.minD).toBeCloseTo(92.5, 9);
     expect(c.minH).toBe(23.5); // 23.4952 rounded up
     expect(c.elastic).toEqual({ w: false, d: false, h: false });
     expect(c.spacerAxis).toBeUndefined();
-    expect(c.features).toEqual([pocket("front", 1), pocket("back", 1)]);
+    expect(c.features).toEqual([cutout("left", 1, true), cutout("right", 1, true)]);
   });
 
   it("auto offers upright-long, upright-short and flat, one block per deck", () => {
@@ -141,14 +142,14 @@ describe("cardOptions", () => {
 
   it("scales the clearances by fit", () => {
     const c = deck(cards(), { ...s, fit: 1.4 });
-    expect(c.minD).toBeCloseTo(117.1, 9);
+    expect(c.minD).toBeCloseTo(93.1, 9);
     expect(c.minH).toBeCloseTo(68.6, 9);
     expect(c.minW).toBe(24.16);
   });
 
   it("a clearance override replaces cardClearance only and is not scaled", () => {
     const c = deck(cards({ clearance: 2 }), { ...s, fit: 1.4 });
-    expect(c.minD).toBeCloseTo(117, 9);
+    expect(c.minD).toBeCloseTo(93, 9);
     expect(c.minH).toBeCloseTo(68.5, 9);
     expect(c.minW).toBe(24.16); // stack clearance still × fit
   });
@@ -161,7 +162,7 @@ describe("cardOptions", () => {
   it("a deck of one card is a 1.33 mm well", () => {
     const c = deck(cards({ sleeve: "none", decks: [{ name: "Solo", count: 1 }] }));
     expect(c.minW).toBe(1.33);
-    expect(c.minD).toBeCloseTo(113.5, 9);
+    expect(c.minD).toBeCloseTo(89.5, 9);
     expect(c.minH).toBeCloseTo(65, 9);
   });
 
@@ -181,7 +182,7 @@ describe("cardOptions", () => {
     expect(upright.minH).toBeCloseTo(74.5, 9);
     expect(flat.minH).toBe(35.61); // 35.608 rounded up
     expect(flat.minW).toBeCloseTo(74.5, 9);
-    expect(flat.minD).toBeCloseTo(148.5, 9);
+    expect(flat.minD).toBeCloseTo(124.5, 9);
   });
 
   it("passes the measuredTooThin notice through", () => {
@@ -223,11 +224,11 @@ describe("cardOptions", () => {
     const [long, short, flat] = options.map((o) => at(at(o.blocks, 0), 0));
     // S = 70, L = 95, t = 0.52, stack = 10 · 0.52 · 1.03 + 1 = 6.356
     expect(long?.minW).toBe(6.36);
-    expect([long?.minD, long?.minH]).toEqual([expect.closeTo(120.5, 9), expect.closeTo(71.5, 9)]);
-    expect([short?.minD, short?.minH]).toEqual([expect.closeTo(95.5, 9), expect.closeTo(96.5, 9)]);
+    expect([long?.minD, long?.minH]).toEqual([expect.closeTo(96.5, 9), expect.closeTo(71.5, 9)]);
+    expect([short?.minD, short?.minH]).toEqual([expect.closeTo(71.5, 9), expect.closeTo(96.5, 9)]);
     expect([flat?.minW, flat?.minD, flat?.minH]).toEqual([
       expect.closeTo(71.5, 9),
-      expect.closeTo(120.5, 9),
+      expect.closeTo(96.5, 9),
       expect.closeTo(6.36, 9),
     ]);
   });
@@ -238,17 +239,17 @@ describe("cardOptions", () => {
     // S = 63.5, L = 88, t = 0.32, stack = 52 · 0.32 · 1.03 + 1 = 18.1392 → 18.14 rounded up
     expect([long?.minW, long?.minD, long?.minH]).toEqual([
       expect.closeTo(18.14, 9),
-      expect.closeTo(113.5, 9),
+      expect.closeTo(89.5, 9),
       expect.closeTo(65, 9),
     ]);
     expect([short?.minW, short?.minD, short?.minH]).toEqual([
       expect.closeTo(18.14, 9),
-      expect.closeTo(89, 9),
+      expect.closeTo(65, 9),
       expect.closeTo(89.5, 9),
     ]);
     expect([flat?.minW, flat?.minD, flat?.minH]).toEqual([
       expect.closeTo(65, 9),
-      expect.closeTo(113.5, 9),
+      expect.closeTo(89.5, 9),
       expect.closeTo(18.14, 9),
     ]);
   });
