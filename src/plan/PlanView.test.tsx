@@ -168,6 +168,13 @@ describe("PlanView", () => {
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
   });
 
+  it("hints that the details of a stale layout may not match the inputs", () => {
+    const { view, p } = setup({ selectedKey: "a:p0:0" });
+    expect(screen.queryByText(/Inputs changed/)).toBeNull();
+    view.rerender(<PlanView {...p} stale />);
+    expect(screen.getByText(/Inputs changed — .*re-optimize/i)).toBeTruthy();
+  });
+
   it("pointercancel resets the drag", () => {
     const { p, svg } = setup();
     fireEvent.pointerDown(screen.getByRole("button", { name: /a:p0:0/ }), {

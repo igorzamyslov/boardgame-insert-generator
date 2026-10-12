@@ -295,6 +295,7 @@ export function Viewer(p: ViewerProps) {
           settings={p.settings}
           locked={p.lockedKeys.has(selected.spec.key)}
           sizeLocked={p.sizeLockedKeys?.has(selected.spec.key) ?? false}
+          stale={p.stale}
           onToggleSizeLock={
             p.onToggleSizeLock ? () => p.onToggleSizeLock?.(selected.spec.key) : undefined
           }

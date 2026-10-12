@@ -27,6 +27,34 @@ describe("AssemblyPage", () => {
     expect(screen.getAllByRole("row")).toHaveLength(3);
   });
 
+  it("for a stale layout says so and offers no PNG or print, but still goes back", () => {
+    const print = vi.fn();
+    const onBack = vi.fn();
+    render(
+      <AssemblyPage
+        project={fixtureProject()}
+        layout={layout}
+        onBack={onBack}
+        print={print}
+        stale
+      />,
+    );
+    expect(screen.getByText(/Inputs changed — re-optimize/)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Print / save as PDF" }).hasAttribute("disabled"),
+    ).toBe(true);
+    for (const b of screen.getAllByRole("button", { name: /^Download PNG/ })) {
+      expect(b.hasAttribute("disabled")).toBe(true);
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Back to the editor" }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it("shows no stale hint for a current layout", () => {
+    render(<AssemblyPage project={fixtureProject()} layout={layout} onBack={vi.fn()} />);
+    expect(screen.queryByText(/Inputs changed/)).toBeNull();
+  });
+
   it("prints and goes back", () => {
     const print = vi.fn();
     const onBack = vi.fn();

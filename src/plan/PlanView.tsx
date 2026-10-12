@@ -31,6 +31,8 @@ export interface PlanViewProps {
   /** trayKeys with a size lock (shown as "size locked" on the tray). */
   sizeLockedKeys: ReadonlySet<string>;
   onToggleSizeLock: (key: string) => void;
+  /** The inputs no longer match the layout (shown in the tray details). */
+  stale?: boolean;
 }
 
 interface Drag {
@@ -350,6 +352,7 @@ export function PlanView(props: PlanViewProps) {
               settings={settings}
               locked={selectedLocked}
               sizeLocked={sizeLockedKeys.has(selectedPart.spec.key)}
+              stale={props.stale}
               onToggleSizeLock={() => onToggleSizeLock(selectedPart.spec.key)}
             />
             <div class="button-row">

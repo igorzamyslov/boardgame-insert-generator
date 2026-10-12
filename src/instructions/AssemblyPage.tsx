@@ -9,6 +9,8 @@ import { packingSteps, render, whatGoesWhere } from "./render";
 export interface AssemblyPageProps {
   project: Project;
   layout: StoredLayout;
+  /** The inputs no longer match the layout: the page would show sizes of other settings. */
+  stale?: boolean;
   onBack: () => void;
   print?: () => void;
   toPng?: (svg: string, widthPx: number) => Promise<Blob>;
@@ -55,7 +57,11 @@ export function AssemblyPage(p: AssemblyPageProps) {
         <button type="button" onClick={p.onBack}>
           Back to the editor
         </button>
-        <button type="button" onClick={() => (p.print ?? (() => window.print()))()}>
+        <button
+          type="button"
+          disabled={p.stale}
+          onClick={() => (p.print ?? (() => window.print()))()}
+        >
           Print / save as PDF
         </button>
       </div>
@@ -63,6 +69,12 @@ export function AssemblyPage(p: AssemblyPageProps) {
       <p class="hint">
         {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Layers are drawn from above with the box front at the bottom; numbers match the exported files.`}
       </p>
+      {p.stale ? (
+        <p class="hint" role="status">
+          Inputs changed — re-optimize before printing or saving this page. Go back to the editor to
+          do that.
+        </p>
+      ) : null}
       {pngError !== null ? (
         <p class="run-error no-print" role="alert">
           {pngError}
@@ -97,7 +109,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
                 <button
                   type="button"
                   class="no-print"
-                  disabled={busy}
+                  disabled={busy || p.stale}
                   onClick={() => {
                     void savePng(svg, layer);
                   }}

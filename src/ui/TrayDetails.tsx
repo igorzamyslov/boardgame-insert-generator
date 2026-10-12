@@ -10,6 +10,8 @@ export interface TrayDetailsProps {
   locked: boolean;
   /** The tray has a size lock (spec §5 `Lock.kind "size"`). */
   sizeLocked?: boolean;
+  /** The inputs no longer match the layout: the sizes shown use the current settings. */
+  stale?: boolean;
   /** When given, lockable trays get a "Lock size" / "Unlock size" toggle. */
   onToggleSizeLock?: () => void;
 }
@@ -19,6 +21,7 @@ export function TrayDetails({
   settings,
   locked,
   sizeLocked = false,
+  stale = false,
   onToggleSizeLock,
 }: TrayDetailsProps) {
   const t = part.spec;
@@ -26,6 +29,11 @@ export function TrayDetails({
   return (
     <div class="tray-details" aria-live="polite">
       <h3>{`#${part.number} ${part.label}`}</h3>
+      {stale ? (
+        <p class="hint">
+          Inputs changed — the sizes shown may not match this layout. Re-optimize to update it.
+        </p>
+      ) : null}
       <dl>
         <div>
           <dt>Outer size</dt>

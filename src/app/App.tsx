@@ -123,6 +123,7 @@ export function App(props: AppProps) {
         <AssemblyPage
           project={project}
           layout={layout}
+          stale={s.stale.value}
           download={download}
           onBack={() => {
             restoreFocus.current = true;
@@ -272,6 +273,7 @@ export function App(props: AppProps) {
                     settings={project.settings}
                     lockedKeys={locked}
                     selectedKey={s.selection.value}
+                    stale={s.stale.value}
                     onSelect={(key) => {
                       s.selection.value = key;
                     }}
@@ -319,11 +321,17 @@ export function App(props: AppProps) {
                     <button
                       ref={openButtonRef}
                       type="button"
+                      disabled={s.stale.value}
                       onClick={() => setAssemblyFor(project.id)}
                     >
                       Open the assembly page
                     </button>
                   </p>
+                  {s.stale.value ? (
+                    <p class="hint">
+                      Inputs changed — re-optimize before opening the assembly page.
+                    </p>
+                  ) : null}
                 </Panel>
               </>
             ) : null}

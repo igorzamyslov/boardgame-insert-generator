@@ -136,6 +136,55 @@ describe("App", () => {
     expect(document.querySelectorAll(".tray-details")).toHaveLength(1);
   });
 
+  describe("a layout the inputs no longer match", () => {
+    const makeStale = (store: ReturnType<typeof renderApp>["store"]): void => {
+      store.edit((q) => ({ ...q, settings: { ...q.settings, wall: q.settings.wall + 0.4 } }));
+    };
+
+    it("can't be opened as the assembly page, and says why", async () => {
+      const { store } = renderApp(withLayoutHash());
+      const open = screen.getByRole("button", { name: "Open the assembly page" });
+      expect(open.hasAttribute("disabled")).toBe(false);
+      makeStale(store);
+      expect(
+        await screen.findByText("Inputs changed — re-optimize before opening the assembly page."),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "Open the assembly page" }).hasAttribute("disabled"),
+      ).toBe(true);
+    });
+
+    it("turns an open assembly page read-only when it goes stale", async () => {
+      const { store } = renderApp(withLayoutHash());
+      fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
+      expect(
+        screen.getByRole("button", { name: "Print / save as PDF" }).hasAttribute("disabled"),
+      ).toBe(false);
+      makeStale(store);
+      expect(await screen.findByText(/Inputs changed — re-optimize/)).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "Print / save as PDF" }).hasAttribute("disabled"),
+      ).toBe(true);
+      expect(
+        screen
+          .getAllByRole("button", { name: /^Download PNG/ })
+          .every((b) => b.hasAttribute("disabled")),
+      ).toBe(true);
+    });
+
+    it("hints in the tray details that they may not match", async () => {
+      const { store } = renderApp(withLayoutHash());
+      fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });
+      expect(document.querySelector(".tray-details .hint")?.textContent ?? "").not.toMatch(
+        /Inputs changed/,
+      );
+      makeStale(store);
+      await waitFor(() =>
+        expect(document.querySelector(".tray-details")?.textContent).toMatch(/Inputs changed/),
+      );
+    });
+  });
+
   it("locks and unlocks a tray's size from the tray details", () => {
     const { store } = renderApp(withLayoutHash());
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });
