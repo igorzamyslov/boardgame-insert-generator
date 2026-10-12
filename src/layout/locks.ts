@@ -50,7 +50,10 @@ export interface ResolvedLocks {
 export interface LockHints {
   variantOf?(req: number): number | undefined;
   rotatedOf?(trayKey: string): boolean | undefined;
-  /** The tray's level in the layout being re-run: orders trays locked to one path. */
+  /**
+   * The tray's level in the layout being re-run, counting only the trays below it that still
+   * exist: orders trays locked to one path, and 0 marks the lowest.
+   */
   levelOf?(trayKey: string): number | undefined;
   /** The layout being re-run is a single stack at the root path "": the only path a lock can name. */
   readonly singleLeaf?: boolean;

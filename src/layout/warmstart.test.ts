@@ -64,6 +64,17 @@ describe("warm start", () => {
     expect(h.prev.get("a:p0:0")).toEqual({ x: 0, y: 0, level: 0 });
   });
 
+  it("counts a tray's level over the trays below it that still exist", () => {
+    // a:p0:0 and b:p0:0 share a stack (levels 0, 1); a requirement removed from the input
+    // leaves no gap below its stack-mates
+    const h = warmHints(ctx, trays);
+    expect(h.levelOf("a:p0:0")).toBe(0);
+    expect(h.levelOf("b:p0:0")).toBe(1);
+    expect(h.levelOf("nope")).toBeUndefined();
+    const smaller = createCtx(makeInput(reqs.slice(1)), fakeMeasure);
+    expect(warmHints(smaller, trays).levelOf("b:p0:0")).toBe(0);
+  });
+
   it("rebuilds a tree that reproduces the stored placement exactly", () => {
     const rebuilt = warmTree(
       ctx,

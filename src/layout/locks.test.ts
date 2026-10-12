@@ -355,6 +355,43 @@ describe("position locks on stacked trays", () => {
       expect(at(r, lower.key)?.level).toBeLessThan(at(r, upper.key)?.level ?? -1);
     });
 
+    // The stack of the base layout, bottom first, and the input once one of its trays is gone.
+    const stackOfBase = trays
+      .filter((t) => t.path === upper.path)
+      .sort((x, y) => x.level - y.level);
+    const without = (key: string) =>
+      makeInput(
+        [a, b, c, d].filter((q) => !key.startsWith(`${q.key}:`)),
+        { box: { innerWidth: 270, innerDepth: 100, innerHeight: 90 } },
+      );
+
+    it("keeps the locks on the rest of a stack whose bottom tray was deleted", () => {
+      const [bottom, ...rest] = stackOfBase;
+      expect(rest.length).toBeGreaterThanOrEqual(2);
+      const locks = rest.map(lockOf);
+      const r = optimize({ ...without(bottom?.key ?? ""), locks }, 1, 5000, {
+        warmStart: layout,
+      });
+      expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+      const kept = rest.map((t) => at(r, t.key));
+      expect(new Set(kept.map((t) => t?.path)).size).toBe(1);
+      expect(kept.map((t) => t?.level)).toEqual(rest.map((_, i) => i));
+    });
+
+    it("keeps the order of the rest when a middle tray was deleted", () => {
+      const [bottom, middle, ...top] = stackOfBase;
+      expect(top.length).toBeGreaterThanOrEqual(1);
+      const rest = [bottom, ...top] as StoredLayout["trays"];
+      const r = optimize(
+        { ...without(middle?.key ?? ""), locks: [...rest].reverse().map((t) => lockOf(t)) },
+        1,
+        5000,
+        { warmStart: layout },
+      );
+      expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+      expect(rest.map((t) => at(r, t.key)?.level)).toEqual(rest.map((_, i) => i));
+    });
+
     it("says so when a lock on an upper tray alone can't be kept, instead of moving it silently", () => {
       const r = optimize({ ...input, locks: [lockOf(upper)] }, 1, 5000, { warmStart: layout });
       const dropped = r.notices.filter((n) => n.code === "lock.dropped");

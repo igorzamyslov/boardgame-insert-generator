@@ -134,7 +134,20 @@ export function warmHints(ctx: Ctx, trays: readonly TraySpec[]): WarmHints {
   return {
     variantOf: (req) => inferVariant(ctx, req, trays),
     rotatedOf: (key) => rotated.get(key),
-    levelOf: (key) => prev.get(key)?.level,
+    levelOf(key) {
+      const t = trays.find((x) => x.part === "tray" && x.key === key);
+      if (!t) {
+        return undefined;
+      }
+      // trays below it that still exist: a deleted tray leaves no gap to stand on
+      return trays.filter(
+        (o) =>
+          o.part === "tray" &&
+          o.path === t.path &&
+          o.level < t.level &&
+          ctx.refsOfKey(o.key).length > 0,
+      ).length;
+    },
     singleLeaf: rects.length > 0 && rects.every((r) => r.path === ""),
     axisOf(path) {
       const a = bbox(rects, `${path}0`);
