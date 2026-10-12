@@ -230,9 +230,11 @@ export function App(props: AppProps) {
                 onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
                 onRemove={(id) => {
                   const c = project.components.find((x) => x.id === id);
-                  if (confirm(`Remove “${c ? c.name : "this component"}”?`)) {
-                    store.edit((q) => removeComponent(q, id));
+                  if (!confirm(`Remove “${c ? c.name : "this component"}”?`)) {
+                    return false;
                   }
+                  store.edit((q) => removeComponent(q, id));
+                  return true;
                 }}
               />
             </Panel>

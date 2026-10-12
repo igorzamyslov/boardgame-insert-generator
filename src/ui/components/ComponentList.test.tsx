@@ -11,7 +11,7 @@ afterEach(cleanup);
 const KINDS = Object.keys(ADD_LABELS) as ComponentKind[];
 
 function handlers() {
-  return { onAdd: vi.fn(), onChange: vi.fn(), onRemove: vi.fn() };
+  return { onAdd: vi.fn(), onChange: vi.fn(), onRemove: vi.fn(() => true) };
 }
 
 describe("ComponentList", () => {
@@ -107,6 +107,18 @@ describe("ComponentList", () => {
       fireEvent.click(removeButton(1));
       rerender([]);
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add cards" }));
+    });
+
+    it("forgets a declined removal, so a later change of the list doesn't take the focus", () => {
+      const h = handlers();
+      h.onRemove.mockReturnValue(false);
+      const view = render(<ComponentList components={three} advanced={false} {...h} />);
+      removeButton(2).focus();
+      fireEvent.click(removeButton(2));
+      expect(h.onRemove).toHaveBeenCalledWith("b");
+      // another project is opened: the list loses "b" for a reason that has nothing to do with it
+      view.rerender(<ComponentList components={[three[0] as Component]} advanced={false} {...h} />);
+      expect(document.activeElement).not.toBe(screen.getByRole("heading", { name: /Item a/ }));
     });
 
     it("leaves the focus alone when the removal was declined", () => {

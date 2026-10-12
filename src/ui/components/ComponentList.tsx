@@ -18,7 +18,8 @@ export interface ComponentListProps {
   advanced: boolean;
   onAdd: (kind: ComponentKind) => void;
   onChange: (id: string, next: Component) => void;
-  onRemove: (id: string) => void;
+  /** Returns false when the user declined (nothing was removed). */
+  onRemove: (id: string) => boolean;
 }
 
 export function ComponentList({
@@ -68,7 +69,9 @@ export function ComponentList({
           onChange={(next) => onChange(c.id, next)}
           onRemove={() => {
             removing.current = { id: c.id, index: i };
-            onRemove(c.id);
+            if (!onRemove(c.id)) {
+              removing.current = null;
+            }
           }}
         />
       ))}
