@@ -95,6 +95,18 @@ describe("upright cards and tiles: one finger channel", () => {
     expect(at(r.compartments, 1).features.filter((f) => f.type === "wallCutout")).toEqual([]);
   });
 
+  it("notches a spacer standing in a channelled well to match the channel", () => {
+    const one = partOf([cards()], "upright-long|strip|split1");
+    const min = minOuter(one, s, ground);
+    const r = realize(one, s, ground, { ...min, w: min.w + 30 });
+    expect(r.spacers).toHaveLength(1);
+    // Spacer frame: the well's 92.5 mm along Y from y 1.6, its top 5 mm below the rim.
+    expect(at(r.spacers, 0)).toMatchObject({ y: 1.6, w: 30, d: 92.5, h: 63 });
+    expect(at(r.spacers, 0).features).toEqual([
+      { type: "spacerNotch", axis: "x", at: 46.25, width: 22, depth: 29 },
+    ]);
+  });
+
   it("keeps a lipped tray's channel out of the lipped wall", () => {
     const lipped: RealizeOptions = { lipped: true, level: 0 };
     const r = realize(strip, s, lipped);

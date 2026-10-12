@@ -222,5 +222,11 @@ describe("the built sizing output covers", () => {
     expect(trays.some((s) => s.level > 0)).toBe(true);
     expect(trays.some((s) => s.rotated)).toBe(true);
     expect(specs.some((s) => s.part === "spacer")).toBe(true);
+    const notched = specs.filter((s) => s.features?.some((f) => f.type === "spacerNotch"));
+    expect(notched.length, "spacers notched for a finger channel").toBeGreaterThan(0);
+    expect(
+      notched.some((s) => s.rotated),
+      "a turned notched spacer",
+    ).toBe(true);
   });
 });

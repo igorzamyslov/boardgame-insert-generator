@@ -68,6 +68,8 @@ describe("realizeTray", () => {
         lip: false,
         solid: true,
         compartments: [],
+        // The deck's finger channel runs on through the spacer.
+        features: [{ type: "spacerNotch", axis: "x", at: 46.25, width: 22, depth: 29 }],
       },
     ]);
   });

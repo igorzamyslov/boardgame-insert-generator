@@ -142,6 +142,57 @@ describe("assertTrayInvariants", () => {
     expect(check(cut(12, 6.5))).toThrow(/floor notch/);
   });
 
+  it("rejects a spacer in a channelled well that is not notched to match", () => {
+    const well: CompartmentSpec = {
+      x: 1.6,
+      y: 1.6,
+      w: 53.5,
+      d: 92.5,
+      floorZ: 1.2,
+      kind: "well",
+      contents: "Main ×52",
+      features: (["left", "right"] as const).map((side) => ({
+        type: "wallCutout" as const,
+        side,
+        at: 47.85,
+        width: 22,
+        depth: 34,
+        floorNotch: 0,
+      })),
+    };
+    const spacer: TraySpec = {
+      key: "c1:p0:0:spacer",
+      part: "spacer",
+      path: "",
+      stack: 0,
+      level: 0,
+      x: 25.1,
+      y: 1.6,
+      z: 1.2,
+      w: 30,
+      d: 92.5,
+      h: 63,
+      rotated: false,
+      wall: 0,
+      floor: 0,
+      lip: false,
+      solid: true,
+      compartments: [],
+    };
+    const notch = { type: "spacerNotch" as const, axis: "x" as const, at: 46.25, width: 22 };
+    const check = (sp: TraySpec) => () => {
+      assertTrayInvariants(
+        { wall: 1.6, compartments: [well], spacers: [sp] },
+        { w: 56.7, d: 95.7, h: 69.2 },
+        DEFAULT_SETTINGS,
+        ground,
+      );
+    };
+    expect(check({ ...spacer, features: [{ ...notch, depth: 29 }] })).not.toThrow();
+    expect(check(spacer)).toThrow(/spacer notch/);
+    expect(check({ ...spacer, features: [{ ...notch, depth: 28 }] })).toThrow(/spacer notch/);
+  });
+
   describe("finger slot clearance", () => {
     // Two 20 mm decks side by side with a 1.2 mm divider; their slots are 22 mm wide.
     const wide: OuterSize = { ...outer, w: 1.6 + 20 + 1.2 + 20 + 1.6 };

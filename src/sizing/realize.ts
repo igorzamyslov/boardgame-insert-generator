@@ -1,4 +1,4 @@
-import { MIN_FEATURE_MM, MIN_SLOT_WIDTH } from "../model/settings";
+import { MIN_FEATURE_MM, MIN_SLOT_WIDTH, effectiveBottomChamfer } from "../model/settings";
 import { keepsApart } from "../model/slot-rules";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
 import {
@@ -157,12 +157,43 @@ function clearOfSlots(spare: Rect, axis: "x" | "y", slots: readonly Rect2[]): Re
   }
 }
 
+/**
+ * The notch a spacer standing in `well` needs so the well's finger channel (its left or right wall
+ * cutout) runs on through it (spec §6.2): the same centre and bottom, at least the channel's width.
+ * In the spacer's frame: along x, centred on the channel's y less the well's, as deep below the
+ * spacer's top as the channel is below the rim less SPACER_TOP_GAP. Where its sides would leave
+ * less than max(MIN_FEATURE_MM, chamfer) of spacer beside it, the notch widens to cut the spacer
+ * across: a wider U with the same bottom still holds the channel's. None when the channel stays
+ * above the spacer. (Its bottom stands at least half the well deep, so above the spacer's chamfer.)
+ */
+function spacerNotch(
+  well: Rect,
+  cuts: ReadonlyMap<Side, CutPlacement>,
+  settings: Settings,
+): FeatureSpec[] {
+  const cut = cuts.get("right") ?? cuts.get("left");
+  const depth = cut === undefined ? 0 : cut.depth - toU(SPACER_TOP_GAP);
+  if (cut === undefined || depth < 1) {
+    return [];
+  }
+  const at = cut.at - well.y;
+  const half = cut.width / 2;
+  const keep = Math.max(ceilU(MIN_FEATURE_MM), ceilU(effectiveBottomChamfer(settings, 0)));
+  const thin = (beside: number): boolean => beside > 0 && beside < keep;
+  const width =
+    thin(at - half) || thin(well.d - at - half) ? 2 * Math.max(at, well.d - at) : cut.width;
+  return [
+    { type: "spacerNotch", axis: "x", at: fromU(at), width: fromU(width), depth: fromU(depth) },
+  ];
+}
+
 function spacerSpec(
   trayKey: string,
   well: Rect,
   length: number,
   floorZ: number,
   depth: number,
+  features: FeatureSpec[],
 ): TraySpec {
   return {
     key: `${trayKey}:spacer`,
@@ -182,6 +213,7 @@ function spacerSpec(
     lip: false,
     solid: true,
     compartments: [],
+    ...(features.length > 0 ? { features } : {}),
   };
 }
 
@@ -487,7 +519,8 @@ function layoutAt(
     ({ req, alloc, spacer, well, depth, content, slots }, i) => {
       const floorZ = H - depth;
       if (spacer > 0) {
-        spacers.push(spacerSpec(part.trayKey, well, spacer, floorZ, depth));
+        const notch = spacerNotch(well, cuts[i] ?? new Map(), settings);
+        spacers.push(spacerSpec(part.trayKey, well, spacer, floorZ, depth, notch));
       }
       return {
         ...rectSpec(alloc),

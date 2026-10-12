@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS, MIN_FEATURE_MM, MIN_SLOT_WIDTH } from "../model/setti
 import type {
   BulkComponent,
   CardsComponent,
+  CompartmentSpec,
   Component,
   CustomComponent,
   MinisComponent,
@@ -189,5 +190,38 @@ export function assertTrayInvariants(
   };
   for (const spec of [tray, ...realized.spacers]) {
     planTray(spec, settings);
+  }
+  for (const sp of realized.spacers) {
+    expectSpacerNotched(sp, list, u(tray.h));
+  }
+}
+
+/**
+ * A spacer standing in a well that a finger channel crosses is notched to match (spec §6.2): along
+ * the channel, on its centre line, at least as wide and at least as deep (whole 0.01 mm units).
+ */
+function expectSpacerNotched(sp: TraySpec, compartments: CompartmentSpec[], H: number): void {
+  const u = (mm: number): number => Math.round(mm * 100);
+  const well = compartments.find(
+    (c) =>
+      u(sp.x) >= u(c.x) &&
+      u(sp.x + sp.w) <= u(c.x + c.w) &&
+      u(sp.y) >= u(c.y) &&
+      u(sp.y + sp.d) <= u(c.y + c.d),
+  );
+  const top = u(sp.z + sp.h);
+  for (const f of well?.features ?? []) {
+    if (f.type !== "wallCutout" || H - u(f.depth) >= top) {
+      continue;
+    }
+    const axis = f.side === "left" || f.side === "right" ? "x" : "y";
+    const notch = (sp.features ?? []).find((n) => n.type === "spacerNotch");
+    const label = `${sp.key}: spacer notch for the ${f.side} channel`;
+    expect(notch?.type === "spacerNotch" && notch.axis, label).toBe(axis);
+    if (notch?.type === "spacerNotch") {
+      expect(u(notch.at), `${label} centre`).toBe(u(f.at) - u(axis === "x" ? sp.y : sp.x));
+      expect(u(notch.width), `${label} width`).toBeGreaterThanOrEqual(u(f.width));
+      expect(top - u(notch.depth), `${label} bottom`).toBeLessThanOrEqual(H - u(f.depth));
+    }
   }
 }

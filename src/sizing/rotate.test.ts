@@ -34,6 +34,38 @@ describe("rotateRealized", () => {
     });
   });
 
+  it("turns a spacer's notch with it", () => {
+    const sp: RealizedTray["spacers"][number] = {
+      key: "s",
+      part: "spacer",
+      path: "",
+      stack: 0,
+      level: 0,
+      x: 25.1,
+      y: 1.6,
+      z: 1.2,
+      w: 30,
+      d: 92.5,
+      h: 63,
+      rotated: false,
+      wall: 0,
+      floor: 0,
+      lip: false,
+      solid: true,
+      compartments: [],
+      features: [{ type: "spacerNotch", axis: "x", at: 40, width: 22, depth: 29 }],
+    };
+    const once = rotateRealized({ wall: 1.6, compartments: [], spacers: [sp] }, outer);
+    expect(at(once.spacers, 0)).toMatchObject({ w: 92.5, d: 30, rotated: true });
+    expect(at(once.spacers, 0).features).toEqual([
+      { type: "spacerNotch", axis: "y", at: 52.5, width: 22, depth: 29 },
+    ]);
+    const twice = rotateRealized(once, { w: outer.d, d: outer.w, h: outer.h });
+    expect(at(twice.spacers, 0).features).toEqual([
+      { type: "spacerNotch", axis: "x", at: 52.5, width: 22, depth: 29 },
+    ]);
+  });
+
   it("maps left/right pocket and cutout positions onto the new X axis", () => {
     const synthetic: RealizedTray = {
       wall: 1.6,
