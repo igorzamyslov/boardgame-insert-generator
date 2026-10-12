@@ -144,10 +144,10 @@ const settingRanges: SettingRange[] = [
   },
   {
     path: "fingerPocket/floorNotch",
-    label: "Finger cutout floor notch",
+    label: "Finger cutout floor notch reach",
     get: (s) => s.fingerPocket.floorNotch,
     min: 0,
-    max: 20,
+    max: 50,
   },
   {
     path: "fingerPocket/wallRoom",
@@ -185,7 +185,8 @@ const settingRanges: SettingRange[] = [
  * MIN_FEATURE_MM measures thinner than that (0.9·cos(22.5°) = 0.83 mm passes). topPressFit is
  * spec §3 rule 2. The finger pocket reach is at least 5 mm, so every pocket sizing emits
  * has a positive reach (the geometry rejects a zero one). The floor notch of flat cards' and tiles'
- * wall cutouts and the finger room added to the outer walls they cut are 0 (off) to 20 mm. The lip
+ * wall cutouts reaches 0 (off) to 50 mm into the floor (a half-disc at half the finger width), and
+ * the finger room added to the outer walls they cut is 0 (off) to 20 mm. The lip
  * is at least 1 mm high: the geometry chamfers its inner top edge by 0.6 mm and a lower lip is
  * useless. Frozen, entries included.
  */

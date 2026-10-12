@@ -130,8 +130,7 @@ export function partOf(
  * planTray's own: the tray must plan without a RangeError. On top of that, in whole 0.01 mm
  * units, what only sizing promises: compartments keep the divider setting apart, floors are at
  * least the floor setting, finger slots are at least min(MIN_SLOT_WIDTH, the width setting), and
- * wall cutouts at most the width setting, their floor notch at most the notch setting and half the
- * cutout.
+ * wall cutouts at most the width setting, their floor notch at most the notch setting.
  */
 export function assertTrayInvariants(
   realized: RealizedTray,
@@ -156,7 +155,7 @@ export function assertTrayInvariants(
       if (f.type === "wallCutout") {
         expect(u(f.width), `${label} ${f.side} cutout width`).toBeLessThanOrEqual(maxCut);
         expect(u(f.floorNotch), `${label} ${f.side} floor notch`).toBeLessThanOrEqual(
-          Math.min(ceilU(settings.fingerPocket.floorNotch), u(f.width) / 2),
+          ceilU(settings.fingerPocket.floorNotch),
         );
       }
     }

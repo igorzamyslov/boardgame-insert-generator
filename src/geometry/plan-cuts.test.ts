@@ -77,7 +77,7 @@ describe("wall cutouts", () => {
 
   it("takes a flat cutout down to the floor and keeps its floor notch", () => {
     const [left, right] = planTray(flatCutouts, GEO).compartments[0]?.cuts ?? [];
-    expect(rounded(left)).toMatchObject({ side: "left", x0: 0, x1: 1.6, into: null, notch: 8 });
+    expect(rounded(left)).toMatchObject({ side: "left", x0: 0, x1: 1.6, into: null, notch: 11 });
     expect(left?.bottomZ).toBeCloseTo(1.2, 9);
     expect(rounded(right)).toMatchObject({ side: "right", x0: 69.6, x1: 71.2, into: null });
   });
@@ -215,8 +215,11 @@ describe("wall cutouts", () => {
       );
     });
 
-    it("a floor notch wider than its cut, outside its compartment or meeting the opposite one", () => {
-      rejects(beside([cutout("left", 30, 10, 12)]), /floor notch/);
+    it("a floor notch outside its compartment or meeting the opposite one", () => {
+      // A notch is as wide as its cut and may reach past the half-disc into the floor…
+      expect(() => planTray(beside([cutout("left", 30, 10, 15)]), GEO)).not.toThrow();
+      // …but not past the floor, nor beside the compartment.
+      rejects(beside([cutout("left", 30, 10, 20.01)]), /floor notch/);
       const narrow = beside([cutout("left", 30, 10, 8)]);
       const short = { ...narrow.compartments[0], y: 22.2, d: 15 } as CompartmentSpec;
       rejects({ ...narrow, compartments: [short] }, /floor notch/);
@@ -230,8 +233,13 @@ describe("wall cutouts", () => {
       const steep = { ...GEO, bottomChamfer: 1 };
       // Down to the 1.2 mm floor at the face, under the 1 + 0.8 mm the chamfer needs.
       expect(() => planTray(beside([cutout("left", 30, 99)]), steep)).toThrow(/bottom chamfer/);
-      // An 8 mm notch removes the lowest part: the round bottom meets it 4.65 mm up.
+      // A notch takes the cut on down through the floor at its full width: no bottom is left.
       expect(() => planTray(beside([cutout("left", 30, 99, 8)]), steep)).not.toThrow();
+      // But down there the cut's sides keep the chamfer + 0.8 mm from the faces they run along.
+      expect(() => planTray(beside([cutout("left", 12.6, 99, 8)]), steep)).toThrow(
+        /bottom chamfer/,
+      );
+      expect(() => planTray(beside([cutout("left", 13, 99, 8)]), steep)).not.toThrow();
     });
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
 import { thinCorner } from "./plan-corners";
-import { notchDiscBox, notchRect } from "./plan-cuts";
+import { notchFloorBox } from "./plan-cuts";
 import { MIN_FEATURE_MM, MIN_WALL_MM, SPEC_TOLERANCE, maxCornerRadius } from "../model/settings";
 import type { Settings } from "../model/types";
 import { settingsValid } from "../model/validate";
@@ -227,13 +227,13 @@ function thinnestCut(plan: TrayPlan): { all: number; slots: number; slotCorners:
     for (const cut of c.cuts) {
       const alongX = cut.side === "front" || cut.side === "back";
       const span = alongX ? plan.w : plan.d;
-      const footprints: [Rect, number][] = [[cut, cut.bottomZ]];
+      // With a floor notch the cut goes down to the bed; the box of its part in the floor is
+      // judged by its corners away from the face (those at it are the cut's own).
+      const footprints: [Rect, number][] = [[cut, cut.notch > 0 ? 0 : cut.bottomZ]];
       if (cut.notch > 0) {
-        footprints.push([notchRect(cut), 0]);
-        // The half-disc box's corners away from the face (those at it are the notch's own).
-        const disc = notchDiscBox(cut);
-        const far = { front: disc.y1, back: disc.y0, left: disc.x1, right: disc.x0 }[cut.side];
-        cornersOf(disc)
+        const floor = notchFloorBox(cut);
+        const far = { front: floor.y1, back: floor.y0, left: floor.x1, right: floor.x0 }[cut.side];
+        cornersOf(floor)
           .filter(([x, y]) => (alongX ? y : x) === far)
           .forEach(([x, y]) => {
             record(materialAt(plan, x, y, 0), true);

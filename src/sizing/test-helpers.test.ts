@@ -118,28 +118,32 @@ describe("assertTrayInvariants", () => {
     }).toThrow();
   });
 
-  it("rejects a wall cutout wider than the setting or with a notch over half its width", () => {
+  it("rejects a wall cutout wider than the setting or with a notch over the setting", () => {
     const cut = (width: number, floorNotch: number): RealizedTray => {
       const tray = trayWithSlot(12.6);
       const well = { ...at(tray.compartments, 0), y: 1.6, d: 92.5 };
-      const features = (["left", "right"] as const).map((side) => ({
-        type: "wallCutout" as const,
-        side,
-        at: 47.85,
-        width,
-        depth: 30,
-        floorNotch,
-      }));
+      // One cutout: the 23.5 mm well has no room for two 12.5 mm notches.
+      const features = [
+        {
+          type: "wallCutout" as const,
+          side: "left" as const,
+          at: 47.85,
+          width,
+          depth: 30,
+          floorNotch,
+        },
+      ];
       return { ...tray, compartments: [{ ...well, features }] };
     };
     const short: OuterSize = { ...outer, d: 95.7 };
     const check = (tray: RealizedTray) => () => {
       assertTrayInvariants(tray, short, DEFAULT_SETTINGS, ground);
     };
-    expect(check(cut(25, 8))).not.toThrow();
-    expect(check(cut(25.02, 8))).toThrow(/cutout width/);
-    expect(check(cut(25, 8.01))).toThrow(/floor notch/);
-    expect(check(cut(12, 6.5))).toThrow(/floor notch/);
+    expect(check(cut(25, 12.5))).not.toThrow();
+    expect(check(cut(25.02, 12.5))).toThrow(/cutout width/);
+    expect(check(cut(25, 12.51))).toThrow(/floor notch/);
+    // A notch reaches past half a narrower cut's width.
+    expect(check(cut(12, 12.5))).not.toThrow();
   });
 
   it("rejects a spacer in a channelled well that is not notched to match", () => {

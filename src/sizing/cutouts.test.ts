@@ -119,7 +119,7 @@ describe("upright cards and tiles: one finger channel", () => {
 });
 
 describe("flat cards and tiles: cutouts through the long walls", () => {
-  it("cuts both long walls of a flat deck down to its floor and notches the floor", () => {
+  it("cuts both long walls of a flat deck down to its floor and notches the floor a half-disc", () => {
     const part = partOf([cards({ storage: "flat" })], "flat|strip|split1");
     expect(minOuter(part, s, ground)).toEqual({ w: 71.2, d: 95.7, h: 24.7 });
     const r = realize(part);
@@ -132,7 +132,7 @@ describe("flat cards and tiles: cutouts through the long walls", () => {
         floorZ: 1.2,
         kind: "well",
         contents: "Main ×52",
-        features: [cutout("left", 47.85, 23.5, 8), cutout("right", 47.85, 23.5, 8)],
+        features: [cutout("left", 47.85, 23.5, 12.5), cutout("right", 47.85, 23.5, 12.5)],
       },
     ]);
   });

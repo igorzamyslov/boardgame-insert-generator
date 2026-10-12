@@ -63,35 +63,29 @@ export function cutFace(cut: CutPlan): number {
   return { front: cut.y1, back: cut.y0, left: cut.x1, right: cut.x0 }[cut.side];
 }
 
-/** The part of a cut's footprint its floor notch takes through the bottom (the cut's middle). */
-export function notchRect(cut: CutPlan): Rect {
-  const at = cutCentre(cut);
-  return alongX(cut.side)
-    ? { ...cut, x0: at - cut.notch, x1: at + cut.notch }
-    : { ...cut, y0: at - cut.notch, y1: at + cut.notch };
-}
-
-/** The bounding box of a cut's floor notch half-disc in its compartment's floor. */
-export function notchDiscBox(cut: CutPlan): Rect {
-  const at = cutCentre(cut);
+/**
+ * The footprint of a cut's floor notch in its compartment's floor: the cut's full width, reaching
+ * `notch` in from the face (its far corners rounded, so a reach of half the width is a half-disc).
+ */
+export function notchFloorBox(cut: CutPlan): Rect {
   const face = cutFace(cut);
   const n = cut.notch;
   switch (cut.side) {
     case "front":
-      return { x0: at - n, x1: at + n, y0: face, y1: face + n };
+      return { x0: cut.x0, x1: cut.x1, y0: face, y1: face + n };
     case "back":
-      return { x0: at - n, x1: at + n, y0: face - n, y1: face };
+      return { x0: cut.x0, x1: cut.x1, y0: face - n, y1: face };
     case "left":
-      return { x0: face, x1: face + n, y0: at - n, y1: at + n };
+      return { x0: face, x1: face + n, y0: cut.y0, y1: cut.y1 };
     case "right":
-      return { x0: face - n, x1: face, y0: at - n, y1: at + n };
+      return { x0: face - n, x1: face, y0: cut.y0, y1: cut.y1 };
   }
 }
 
-/** Every footprint the cuts of `plans` take: their boxes, and the floor notch half-discs. */
+/** Every footprint the cuts of `plans` take: their boxes, and their floor notches. */
 export function cutFootprints(plans: readonly CompartmentPlan[]): Rect[] {
   return plans.flatMap((plan) =>
-    plan.cuts.flatMap((cut) => (cut.notch > 0 ? [cut, notchDiscBox(cut)] : [cut])),
+    plan.cuts.flatMap((cut) => (cut.notch > 0 ? [cut, notchFloorBox(cut)] : [cut])),
   );
 }
 
@@ -101,13 +95,14 @@ export function cutFootprints(plans: readonly CompartmentPlan[]): Rect[] {
 // - its footprint runs from the compartment's face across to the facing face of the nearest
 //   compartment whose range along the side overlaps the cut, or out through the outer face;
 // - its depth is measured down from the rim and never below the compartment floor;
-// - a floor notch is no wider than the cut, lies within the compartment's range along the side and
-//   within its floor;
+// - with a floor notch the cut goes on down through the bottom at its full width, and into the
+//   compartment's floor `notch` from its face (far corners rounded with half the width, at most
+//   `notch`): the cut lies within the compartment's range along the side and the notch within
+//   its floor;
 // - against the bottom chamfer it keeps MIN_FEATURE_MM like a compartment: where it leaves the
-//   tray, the lowest part of the outer face it leaves (the round bottom where the notch meets it)
-//   stands MIN_FEATURE_MM above the chamfer; its sides keep that from the faces they run along,
-//   at their lowest height (the round bottom 45° up, or the bed for a notch), and so does the notch
-//   from the outer face behind the compartment.
+//   tray without a notch, its bottom stands MIN_FEATURE_MM above the chamfer; its sides keep that
+//   from the faces they run along, at their lowest height (the round bottom 45° up, or the bed with
+//   a notch), and so does the notch from the outer face behind the compartment.
 export function planCut(
   q: CutRequest,
   index: number,
@@ -152,13 +147,12 @@ export function planCut(
   const n = q.floorNotch;
   if (n > 0) {
     const across = own.v1 - own.v0;
-    if (n > r + TOL || q.at - n < own.u0 - TOL || q.at + n > own.u1 + TOL || n > across + TOL) {
-      fail(`${where}: its ${n} mm floor notch is wider than the cut or leaves the compartment`);
+    if (a < own.u0 - TOL || b > own.u1 + TOL || n > across + TOL) {
+      fail(`${where}: its ${n} mm floor notch leaves the compartment`);
     }
   }
   const material = (distance: number, height: number): number => distance + height - frame.chamfer;
-  const low = n > 0 ? bottomZ + r - Math.sqrt(Math.max(0, r * r - n * n)) : bottomZ;
-  const sideHeight = bottomZ + (2 - Math.SQRT2) * r;
+  const sideHeight = n > 0 ? 0 : bottomZ + (2 - Math.SQRT2) * r;
   const behind = {
     front: frame.d - (face + n),
     back: face - n,
@@ -166,11 +160,9 @@ export function planCut(
     right: face - n,
   }[q.side];
   const thin =
-    (next === undefined && material(0, low) < MIN_FEATURE_MM - TOL) ||
+    (next === undefined && n === 0 && material(0, bottomZ) < MIN_FEATURE_MM - TOL) ||
     material(Math.min(a, span - b), sideHeight) < MIN_FEATURE_MM - TOL ||
-    (n > 0 &&
-      (material(Math.min(q.at - n, span - q.at - n), 0) < MIN_FEATURE_MM - TOL ||
-        material(behind, 0) < MIN_FEATURE_MM - TOL));
+    (n > 0 && material(behind, 0) < MIN_FEATURE_MM - TOL);
   if (thin) {
     fail(
       `${where} leaves less than ${MIN_FEATURE_MM} mm of wall and floor against the ${frame.chamfer} mm bottom chamfer`,

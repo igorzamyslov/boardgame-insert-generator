@@ -123,28 +123,48 @@ describe("buildTray per tray type", () => {
     expect(heightAt(mesh, 40, 0.3)).toBeCloseTo(spec.h + 2, 3);
   });
 
-  it("flat cards: half-round cutouts down to the floor that notch it", () => {
+  it("flat cards: half-round cutouts that go on down through the floor at their full width", () => {
     const { mesh } = expectWellFormed(flatCutouts);
     const at = 1.6 + 92.5 / 2;
-    // The notch goes through the wall and 8 mm into the floor, so the part has a hole there…
-    for (const x of [0.8, 1.6 + 4, 71.2 - 0.8, 71.2 - 1.6 - 4]) {
-      expect(heightAt(mesh, x, at), `x ${x}`).toBe(Number.NEGATIVE_INFINITY);
+    // Through the wall the whole 22 mm of the cut is open down to the bed…
+    for (const y of [at, at - 10.5, at + 10.5]) {
+      expect(heightAt(mesh, 0.8, y), `y ${y}`).toBe(Number.NEGATIVE_INFINITY);
+      expect(heightAt(mesh, 71.2 - 0.8, y), `y ${y}`).toBe(Number.NEGATIVE_INFINITY);
     }
-    // …a half-disc of 8 mm around the middle of each cut wall…
+    expect(heightAt(mesh, 0.8, at + 12)).toBeCloseTo(flatCutouts.h, 3);
+    // …and it notches the floor with a half-disc of its width, 11 mm into the floor.
     for (const [x, y] of [
-      [1.6 + 5, at - 5],
-      [1.6 + 5, at + 5],
-      [71.2 - 1.6 - 5, at - 5],
-      [71.2 - 1.6 - 5, at + 5],
+      [1.6 + 5, at - 9],
+      [1.6 + 5, at + 9],
+      [71.2 - 1.6 - 5, at - 9],
+      [71.2 - 1.6 - 5, at + 9],
+      [1.6 + 10.5, at],
     ] as const) {
       expect(heightAt(mesh, x, y), `${x}, ${y}`).toBe(Number.NEGATIVE_INFINITY);
     }
-    // …and the floor goes on past it…
-    expect(heightAt(mesh, 1.6 + 9, at)).toBeCloseTo(1.2, 3);
-    expect(heightAt(mesh, 1.6 + 6, at + 6)).toBeCloseTo(1.2, 3);
-    // …and between the notch and the cutout's side the wall follows the round bottom.
-    expect(heightAt(mesh, 0.8, at + 9.5)).toBeCloseTo(12.2 - Math.sqrt(121 - 9.5 * 9.5), 1);
-    expect(heightAt(mesh, 0.8, at + 12)).toBeCloseTo(flatCutouts.h, 3);
+    expect(heightAt(mesh, 1.6 + 6, at + 10)).toBeCloseTo(1.2, 3);
+    expect(heightAt(mesh, 1.6 + 11.5, at)).toBeCloseTo(1.2, 3);
+  });
+
+  it("a floor notch reaching past half the cut's width: straight sides, then the half-round", () => {
+    const at = 1.6 + 92.5 / 2;
+    const long = {
+      ...flatCutouts,
+      compartments: flatCutouts.compartments.map((c) => ({
+        ...c,
+        features: [cutout("left", at, 20, 15), cutout("right", at, 20, 15)],
+      })),
+    };
+    const { mesh } = expectWellFormed(long);
+    for (const [x, y] of [
+      [1.6 + 2, at + 10.5],
+      [1.6 + 14, at],
+      [1.6 + 4 + 7, at - 7],
+    ] as const) {
+      expect(heightAt(mesh, x, y), `${x}, ${y}`).toBe(Number.NEGATIVE_INFINITY);
+    }
+    expect(heightAt(mesh, 1.6 + 4 + 8, at + 8)).toBeCloseTo(1.2, 3);
+    expect(heightAt(mesh, 1.6 + 15.5, at)).toBeCloseTo(1.2, 3);
   });
 
   it("flat tiles cut through the front and back: the same notch, turned", () => {
@@ -159,21 +179,21 @@ describe("buildTray per tray type", () => {
           y: 1.6,
           w: 92.5,
           d: 68,
-          features: [cutout("front", 47.85, 20, 8), cutout("back", 47.85, 20, 8)],
+          features: [cutout("front", 47.85, 20, 11), cutout("back", 47.85, 20, 11)],
         }),
       ],
     });
     const { mesh } = expectWellFormed(turned);
     for (const [x, y] of [
-      [47.85, 0.8],
-      [47.85 - 5, 1.6 + 5],
-      [47.85 + 5, 1.6 + 5],
-      [47.85 - 5, 71.2 - 1.6 - 5],
-      [47.85 + 5, 71.2 - 1.6 - 5],
+      [47.85 + 10.5, 0.8],
+      [47.85 - 9, 1.6 + 5],
+      [47.85 + 9, 1.6 + 5],
+      [47.85 - 9, 71.2 - 1.6 - 5],
+      [47.85, 71.2 - 1.6 - 10.5],
     ] as const) {
       expect(heightAt(mesh, x, y), `${x}, ${y}`).toBe(Number.NEGATIVE_INFINITY);
     }
-    expect(heightAt(mesh, 47.85 + 6, 1.6 + 6)).toBeCloseTo(1.2, 3);
+    expect(heightAt(mesh, 47.85 + 10, 1.6 + 6)).toBeCloseTo(1.2, 3);
   });
 
   it("side pockets: full-depth slots on the left and right", () => {

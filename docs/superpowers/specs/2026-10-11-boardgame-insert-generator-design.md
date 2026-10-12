@@ -274,30 +274,30 @@ interface Settings {
 }
 ```
 
-| Setting                                            | Simple-mode control                     | Default                  |
-| -------------------------------------------------- | --------------------------------------- | ------------------------ |
-| `wall`                                             | thin / normal / sturdy                  | 1.2 / 1.6 / 2.0          |
-| `floor`                                            | —                                       | 1.2                      |
-| `divider`                                          | —                                       | 1.2                      |
-| `fit`                                              | tight / normal / loose                  | 0.7 / 1 / 1.4            |
-| `cardClearance` (×Fit)                             | via Fit                                 | 1.5                      |
-| `cardStackClearance` + `Pct` (×Fit)                | via Fit                                 | 1.0 + 3 % of the stack   |
-| `cardThickness`                                    | advanced                                | 0.32                     |
-| `pieceClearance` (×Fit)                            | via Fit                                 | 1.0                      |
-| `boxClearance` (×Fit)                              | via Fit                                 | 0.5 per side             |
-| `trayGap` (×Fit)                                   | via Fit                                 | 0.2                      |
-| `bottomChamfer`                                    | advanced                                | 0.4 (upper trays: ≥ 0.5) |
-| `cornerRadius`                                     | advanced                                | 3                        |
-| `scoopRadius`                                      | advanced                                | 12                       |
-| `fingerPocket` width / reach (reach: pockets only) | advanced                                | 25 / 12                  |
-| `fingerPocket.floorNotch`                          | advanced                                | 8 (0 = none, up to 20)   |
-| `fingerPocket.wallRoom`                            | "Extra finger room in the box": on = 10 | 0 (off; up to 20)        |
-| `lip` on / height / thickness / ledge              | advanced                                | on / 2 / 1.2 / 1.7       |
-| `lip.play` (×Fit)                                  | via Fit                                 | 0.25                     |
-| `topPressFit`                                      | advanced                                | 0 (−2…+1)                |
-| `packingFactor`                                    | advanced                                | 0.5                      |
-| `leftover`                                         | advanced: spare tray / solid            | spare tray               |
-| `printer.bedMargin` / `printer.layerHeight`        | advanced                                | 5 / 0.2                  |
+| Setting                                            | Simple-mode control                     | Default                   |
+| -------------------------------------------------- | --------------------------------------- | ------------------------- |
+| `wall`                                             | thin / normal / sturdy                  | 1.2 / 1.6 / 2.0           |
+| `floor`                                            | —                                       | 1.2                       |
+| `divider`                                          | —                                       | 1.2                       |
+| `fit`                                              | tight / normal / loose                  | 0.7 / 1 / 1.4             |
+| `cardClearance` (×Fit)                             | via Fit                                 | 1.5                       |
+| `cardStackClearance` + `Pct` (×Fit)                | via Fit                                 | 1.0 + 3 % of the stack    |
+| `cardThickness`                                    | advanced                                | 0.32                      |
+| `pieceClearance` (×Fit)                            | via Fit                                 | 1.0                       |
+| `boxClearance` (×Fit)                              | via Fit                                 | 0.5 per side              |
+| `trayGap` (×Fit)                                   | via Fit                                 | 0.2                       |
+| `bottomChamfer`                                    | advanced                                | 0.4 (upper trays: ≥ 0.5)  |
+| `cornerRadius`                                     | advanced                                | 3                         |
+| `scoopRadius`                                      | advanced                                | 12                        |
+| `fingerPocket` width / reach (reach: pockets only) | advanced                                | 25 / 12                   |
+| `fingerPocket.floorNotch`                          | advanced                                | 12.5 (0 = none, up to 50) |
+| `fingerPocket.wallRoom`                            | "Extra finger room in the box": on = 10 | 0 (off; up to 20)         |
+| `lip` on / height / thickness / ledge              | advanced                                | on / 2 / 1.2 / 1.7        |
+| `lip.play` (×Fit)                                  | via Fit                                 | 0.25                      |
+| `topPressFit`                                      | advanced                                | 0 (−2…+1)                 |
+| `packingFactor`                                    | advanced                                | 0.5                       |
+| `leftover`                                         | advanced: spare tray / solid            | spare tray                |
+| `printer.bedMargin` / `printer.layerHeight`        | advanced                                | 5 / 0.2                   |
 
 Simple-mode controls write resolved numbers into `settings`; the project
 never stores "use the default".
@@ -429,9 +429,12 @@ content + clearance.
   whole. The front and back walls stay whole.
 - **Flat cards and tiles:** a half-round cutout through each long wall (along
   the long side; left and right for a flat deck), centred on it, down to the
-  floor, plus a **floor notch**: the cut's middle (`fingerPocket.floorNotch`,
-  8 mm radius, 0 = none, at most half the cut) goes on down through the floor,
-  and a half-disc of that radius cuts the well's floor, so a fingertip gets
+  floor, plus a **floor notch**: the cut goes on down through the floor at its
+  full width (so a finger fits) and on into the well's floor
+  `fingerPocket.floorNotch` from the wall's inner face (default 12.5 mm, half
+  the default width: a half-disc whose diameter is the cut's width; 0 = none).
+  Its far end is rounded with half the cut's width (at most the reach), so a
+  longer reach is straight sides ending in that half-round. A fingertip gets
   under the stack. A notch under a divider leaves a hole in the floor.
 - **Finger room** (`fingerPocket.wallRoom`, simple mode "Extra finger room in
   the box": 10 mm): the outer walls a cutout leaves through are that much

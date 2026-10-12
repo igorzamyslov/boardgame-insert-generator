@@ -2,7 +2,7 @@ import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
 import type { Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
-import { cutCentre, cutFace, notchRect } from "./plan-cuts";
+import { cutFace } from "./plan-cuts";
 import { INNER_CORNER_RADIUS } from "./plan-types";
 import type {
   CompartmentPlan,
@@ -150,35 +150,35 @@ function cutReach(cut: CutPlan): Rect {
   }
 }
 
-// A wall cutout: the U through the wall or divider, and with a floor notch the cut's middle down
-// through the bottom plus a half-disc into the compartment's floor, both vertical prisms (spec
-// §6.1). All are open at the top, so nothing overhangs.
+// A wall cutout: the U through the wall or divider; with a floor notch the cut instead goes down
+// through the bottom at its full width, and on into the compartment's floor `notch` from its face,
+// the far corners rounded with half the width (at most the reach): a half-disc when the notch
+// reaches half the width. All are vertical prisms or open at the top, so nothing overhangs
+// (spec §6.1).
 function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number): Manifold[] {
   const reach = { ...cut, ...cutReach(cut) };
-  const parts = [buildSlot(m, scope, reach, top)];
-  if (cut.notch > 0) {
-    const n = cut.notch;
-    const slot = notchRect(reach);
-    parts.push(box(m, scope, [slot.x0, slot.y0, -OVERSHOOT], [slot.x1, slot.y1, top]));
-    // The half of a circle on the compartment's side of its face (the angles facing into the
-    // compartment), and its diameter moved EPS across the face into the notch's middle.
-    const face = cutFace(cut);
-    const at = cutCentre(cut);
-    const alongX = cut.side === "front" || cut.side === "back";
-    const [cx, cy] = alongX ? [at, face] : [face, at];
-    const start = { front: 0, back: 180, left: -90, right: 90 }[cut.side];
-    const into = { front: -EPS, back: EPS, left: -EPS, right: EPS }[cut.side];
-    const segments = 2 * quarterSegments(n);
-    const ring: Vec2[] = [];
-    for (let k = 0; k <= segments; k += 1) {
-      const a = ((start + (180 * k) / segments) * Math.PI) / 180;
-      ring.push([cx + n * Math.cos(a), cy + n * Math.sin(a)]);
-    }
-    ring.push(alongX ? [at - n, face + into] : [face + into, at - n]);
-    ring.push(alongX ? [at + n, face + into] : [face + into, at + n]);
-    parts.push(prism(m, scope, ring, -OVERSHOOT, top));
+  if (cut.notch <= 0) {
+    return [buildSlot(m, scope, reach, top)];
   }
-  return parts;
+  const through = box(m, scope, [reach.x0, reach.y0, -OVERSHOOT], [reach.x1, reach.y1, top]);
+  // In the floor, along the side (u) and into the compartment (v = face + inward·distance).
+  const face = cutFace(cut);
+  const alongX = cut.side === "front" || cut.side === "back";
+  const inward = { front: 1, back: -1, left: 1, right: -1 }[cut.side];
+  const [a, b] = alongX ? [cut.x0, cut.x1] : [cut.y0, cut.y1];
+  const rho = Math.min(cut.radius, cut.notch);
+  const point = (u: number, distance: number): Vec2 => {
+    const v = face + inward * distance;
+    return alongX ? [u, v] : [v, u];
+  };
+  const ring: Vec2[] = [point(a, -EPS), point(b, -EPS)];
+  const segments = quarterSegments(rho);
+  for (let k = 0; k <= segments; k += 1) {
+    const t = (Math.PI / 2) * (k / segments);
+    const far = cut.notch - rho + rho * Math.sin(t);
+    ring.push(point(a + rho - rho * Math.cos(t), far), point(b - rho + rho * Math.cos(t), far));
+  }
+  return [through, prism(m, scope, ring, -OVERSHOOT, top)];
 }
 
 function buildCutter(

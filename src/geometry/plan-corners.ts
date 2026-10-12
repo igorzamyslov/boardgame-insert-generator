@@ -7,7 +7,7 @@ import {
   maxCornerRadius,
 } from "../model/settings";
 import { keepsApart } from "../model/slot-rules";
-import { cutFootprints, notchDiscBox, notchRect } from "./plan-cuts";
+import { cutFootprints, notchFloorBox } from "./plan-cuts";
 import { MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
 import type { CompartmentPlan, Rect, ReliefPlan } from "./plan-types";
 
@@ -171,14 +171,15 @@ function cornerDiscs(
   for (const c of compartments) {
     const e = pullIn(chamfer, c.floorZ);
     corners(c.rect, e);
-    // A slot or cut is conservatively measured at its lowest line, a floor notch (its middle
-    // through the wall, and the box around its half-disc in the floor) at the bed.
+    // A slot or cut is conservatively measured at its lowest line; a cut with a floor notch (it
+    // goes down through the bottom, and into the floor) at the bed.
     c.slots.forEach((slot) => corners(slot, pullIn(chamfer, slot.bottomZ)));
     for (const cut of c.cuts) {
-      corners(cut, pullIn(chamfer, cut.bottomZ));
       if (cut.notch > 0) {
-        corners(notchRect(cut), chamfer);
-        corners(notchDiscBox(cut), chamfer);
+        corners(cut, chamfer);
+        corners(notchFloorBox(cut), chamfer);
+      } else {
+        corners(cut, pullIn(chamfer, cut.bottomZ));
       }
     }
     c.reliefs.forEach((r) => discs.push({ x: r.cx, y: r.cy, rho: r.r, e }));

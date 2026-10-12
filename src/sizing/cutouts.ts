@@ -35,7 +35,7 @@ export interface CutContext {
 }
 
 const MIN = ceilU(MIN_FEATURE_MM);
-/** A floor notch narrower than this radius after clamping is left out: no fingertip fits. */
+/** A floor notch reaching less than this into the floor after clamping is left out. */
 const MIN_NOTCH = 100;
 
 const OPPOSITE: Record<Side, Side> = { front: "back", back: "front", left: "right", right: "left" };
@@ -119,11 +119,13 @@ function nearestAcross(owner: number, side: Side, rects: readonly RectU[]): numb
  *   into the gap to any other compartment or finger slot within MIN_FEATURE_MM of the cuts (another
  *   row's wells, whose own channel takes the other half), less MIN_FEATURE_MM / 2.
  * - Depth: down to the compartment's own floor for a full-depth request (flat), else the fraction
- *   of the run's shallowest well (upright: half). A cut leaving through the outer wall keeps its
- *   lowest point at the outer face MIN_FEATURE_MM above the bottom chamfer.
- * - A floor notch is the setting, at most the cut's half-width, inside the compartment along the
- *   side, leaving MIN_FEATURE_MM of floor to an opposite notch, and MIN_FEATURE_MM plus the chamfer
- *   to the outer faces; below MIN_NOTCH it is left out.
+ *   of the run's shallowest well (upright: half). A cut leaving through the outer wall without a
+ *   floor notch keeps its bottom MIN_FEATURE_MM above the bottom chamfer.
+ * - A floor notch takes the cut on down through the bottom at its full width and reaches the
+ *   setting into the floor: only where the cut lies within the compartment along the side and its
+ *   sides keep MIN_FEATURE_MM plus the chamfer from the faces they run along; it leaves
+ *   MIN_FEATURE_MM of floor to an opposite notch and MIN_FEATURE_MM plus the chamfer to the outer
+ *   face behind; below MIN_NOTCH it is left out.
  * Returns each request's placement, or null where it gets no cut.
  */
 export function placeCutouts(
@@ -207,29 +209,25 @@ export function placeCutouts(
       const own = axes(rect(q.owner), q.side);
       const ownDepth = ctx.depths[q.owner] ?? 0;
       const face = faceOf(rect(q.owner), q.side);
-      // From the face to the outer face behind the compartment, which the notch's half-disc faces.
+      // From the face to the outer face behind the compartment, which the notch reaches toward.
       const behind =
         q.side === "back" || q.side === "right" ? face : spanAcross(ctx, q.side) - face;
+      const fits =
+        at - half >= own.u0 &&
+        at + half <= own.u1 &&
+        Math.min(at - half, span - at - half) >= ctx.chamfer + MIN;
       let notch = 0;
-      if (q.notch && ctx.notch > 0) {
+      if (q.notch && ctx.notch > 0 && fits) {
         notch = Math.min(
           ctx.notch,
-          half,
-          at - own.u0,
-          own.u1 - at,
           Math.floor((own.v1 - own.v0 - MIN) / 2),
-          at - ctx.chamfer - MIN,
-          span - at - ctx.chamfer - MIN,
           behind - ctx.chamfer - MIN,
         );
         notch = notch < MIN_NOTCH ? 0 : notch;
       }
       let depth = q.fraction >= 1 ? ownDepth : Math.max(1, Math.round(q.fraction * shallowest));
-      if (across[k]?.kind === "exit") {
-        // The lowest point the cut leaves at the outer face: the round bottom where the notch
-        // meets it, or its bottom.
-        const rise = half - Math.sqrt(half * half - notch * notch);
-        depth = Math.min(depth, Math.floor(ctx.H - ctx.chamfer - MIN + rise));
+      if (across[k]?.kind === "exit" && notch === 0) {
+        depth = Math.min(depth, ctx.H - ctx.chamfer - MIN);
       }
       depth = Math.min(depth, ownDepth);
       if (depth >= 1) {

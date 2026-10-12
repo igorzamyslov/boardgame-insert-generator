@@ -136,7 +136,8 @@ export const uprightChannelLipped = traySpec({
 });
 
 // One deck of sleeved Standard cards lying flat (68 × 92.5, 20 high): full-depth half-round
-// cutouts through both long walls, each notching the floor with an 8 mm half-round.
+// cutouts through both long walls; each goes on down through the floor at its full 22 mm and
+// notches it with a half-disc reaching 11 mm in.
 export const flatCutouts = traySpec({
   key: "flat:p0:0",
   w: 1.6 + 68 + 1.6,
@@ -149,7 +150,7 @@ export const flatCutouts = traySpec({
       w: 68,
       d: 92.5,
       contents: "Flat deck",
-      features: [cutout("left", 1.6 + 92.5 / 2, 20, 8), cutout("right", 1.6 + 92.5 / 2, 20, 8)],
+      features: [cutout("left", 1.6 + 92.5 / 2, 20, 11), cutout("right", 1.6 + 92.5 / 2, 20, 11)],
     }),
   ],
 });
