@@ -115,7 +115,7 @@ export interface Settings {
   bottomChamfer: number;
   cornerRadius: number;
   scoopRadius: number;
-  fingerPocket: { width: number; reach: number };
+  fingerPocket: { width: number; reach: number; floorNotch: number; wallRoom: number };
   lip: { enabled: boolean; height: number; thickness: number; ledge: number; play: number };
   topPressFit: number;
   packingFactor: number;
@@ -134,6 +134,14 @@ export interface StoredLayout {
 
 export type FeatureSpec =
   | { type: "fingerPocket"; side: Side; at: number; width: number; reach: number; depth: number }
+  | {
+      type: "wallCutout";
+      side: Side;
+      at: number;
+      width: number;
+      depth: number;
+      floorNotch: number;
+    }
   | { type: "scoop"; side: Side; r: number }
   | { type: "cornerRelief"; d: number };
 

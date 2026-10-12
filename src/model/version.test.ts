@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("starts the schema at 0.1.0", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.0");
+  it("is at schema 0.1.1: 0.1.0 plus the finger pocket's floor notch and wall room", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.1");
   });
 
   it("parses strict semver", () => {

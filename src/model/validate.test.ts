@@ -669,6 +669,18 @@ describe("setting ranges", () => {
     expect(codes(validateProject(p))).toEqual([[field.setting, "/settings/wall"]]);
   });
 
+  it("allows a floor notch and a wall room of 0 to 20 mm", () => {
+    for (const key of ["floorNotch", "wallRoom"] as const) {
+      const p = newProject();
+      for (const value of [0, 20]) {
+        p.settings = { ...p.settings, fingerPocket: { ...p.settings.fingerPocket, [key]: value } };
+        expect(validateProject(p), `${key} ${value}`).toEqual([]);
+      }
+      p.settings = { ...p.settings, fingerPocket: { ...p.settings.fingerPocket, [key]: 20.01 } };
+      expect(codes(validateProject(p))).toEqual([[field.setting, `/settings/fingerPocket/${key}`]]);
+    }
+  });
+
   it("needs a finger pocket reach of at least 5 mm", () => {
     const p = newProject();
     p.settings = { ...p.settings, fingerPocket: { ...p.settings.fingerPocket, reach: 4.99 } };

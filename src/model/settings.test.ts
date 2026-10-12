@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SETTINGS,
+  FINGER_ROOM_MM,
   FIT_CHOICES,
   WALL_CHOICES,
+  applyFingerRoom,
   applyFitChoice,
   applyWallChoice,
   chamferMinimums,
   effective,
   effectiveBottomChamfer,
+  fingerRoomOf,
   fitChoiceOf,
   MIN_FEATURE_MM,
   cutRidgeWidth,
@@ -37,7 +40,7 @@ describe("DEFAULT_SETTINGS", () => {
       bottomChamfer: 0.4,
       cornerRadius: 3,
       scoopRadius: 12,
-      fingerPocket: { width: 22, reach: 12 },
+      fingerPocket: { width: 22, reach: 12, floorNotch: 8, wallRoom: 0 },
       lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
       topPressFit: 0,
       packingFactor: 0.5,
@@ -102,6 +105,25 @@ describe("simple-mode choices", () => {
   it("treats float noise as the same choice, and a real difference as custom", () => {
     expect(wallChoiceOf({ ...DEFAULT_SETTINGS, wall: 1.6 + 1e-12 })).toBe("normal");
     expect(wallChoiceOf({ ...DEFAULT_SETTINGS, wall: 1.6 + 1e-6 })).toBe("custom");
+  });
+
+  it("maps the finger room toggle to a 10 mm or no wall room", () => {
+    expect(FINGER_ROOM_MM).toBe(10);
+    const on = applyFingerRoom(DEFAULT_SETTINGS, true);
+    expect(on.fingerPocket).toEqual({ ...DEFAULT_SETTINGS.fingerPocket, wallRoom: 10 });
+    expect(applyFingerRoom(on, false).fingerPocket).toEqual(DEFAULT_SETTINGS.fingerPocket);
+    expect(DEFAULT_SETTINGS.fingerPocket.wallRoom).toBe(0);
+  });
+
+  it("reads the finger room toggle back, or custom", () => {
+    expect(fingerRoomOf(DEFAULT_SETTINGS)).toBe(false);
+    expect(fingerRoomOf(applyFingerRoom(DEFAULT_SETTINGS, true))).toBe(true);
+    const room = (wallRoom: number) => ({
+      ...DEFAULT_SETTINGS,
+      fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, wallRoom },
+    });
+    expect(fingerRoomOf(room(10 + 1e-12))).toBe(true);
+    expect(fingerRoomOf(room(4))).toBe("custom");
   });
 });
 

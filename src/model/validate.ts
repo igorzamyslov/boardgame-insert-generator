@@ -142,6 +142,20 @@ const settingRanges: SettingRange[] = [
     min: 5,
     max: 100,
   },
+  {
+    path: "fingerPocket/floorNotch",
+    label: "Finger cutout floor notch",
+    get: (s) => s.fingerPocket.floorNotch,
+    min: 0,
+    max: 20,
+  },
+  {
+    path: "fingerPocket/wallRoom",
+    label: "Finger room in cut walls",
+    get: (s) => s.fingerPocket.wallRoom,
+    min: 0,
+    max: 20,
+  },
   { path: "lip/height", label: "Lip height", get: (s) => s.lip.height, min: 1, max: 10 },
   {
     path: "lip/thickness",
@@ -170,9 +184,10 @@ const settingRanges: SettingRange[] = [
  * between two concentric polygons, only t·cos(Δ/2) thick at a corner facet, so a lip of
  * MIN_FEATURE_MM measures thinner than that (0.9·cos(22.5°) = 0.83 mm passes). topPressFit is
  * spec §3 rule 2. The finger pocket reach is at least 5 mm, so every pocket sizing emits
- * has a positive reach (the geometry rejects a zero one). The lip is at least 1 mm high: the
- * geometry chamfers its inner top edge by 0.6 mm and a lower lip is useless. Frozen, entries
- * included.
+ * has a positive reach (the geometry rejects a zero one). The floor notch of flat cards' and tiles'
+ * wall cutouts and the finger room added to the outer walls they cut are 0 (off) to 20 mm. The lip
+ * is at least 1 mm high: the geometry chamfers its inner top edge by 0.6 mm and a lower lip is
+ * useless. Frozen, entries included.
  */
 export const SETTING_RANGES: readonly SettingRange[] = Object.freeze(
   settingRanges.map((r) => Object.freeze(r)),

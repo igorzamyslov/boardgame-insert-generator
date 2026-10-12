@@ -59,7 +59,11 @@ describe("minOuter", () => {
         cfg,
       );
     // A 5 mm finger pocket and 0.9 mm walls: 6.8 × 26.8 × 2.2 at the default 0.4 mm chamfer.
-    const narrow: Settings = { ...s, wall: 0.9, fingerPocket: { width: 5, reach: 12 } };
+    const narrow: Settings = {
+      ...s,
+      wall: 0.9,
+      fingerPocket: { ...s.fingerPocket, width: 5, reach: 12 },
+    };
     expect(minOuter(pip(1, narrow), narrow, ground)).toEqual({ w: 6.8, d: 26.8, h: 2.2 });
     // minOuter is plain arithmetic: a 3 mm chamfer on 0.9 mm walls is invalid for size() (settingsValid)
     // but still gives the chamfer minimums.
@@ -73,7 +77,7 @@ describe("minOuter", () => {
       wall: 0.9,
       floor: 0.8,
       bottomChamfer: 0.2,
-      fingerPocket: { width: 5, reach: 12 },
+      fingerPocket: { ...s.fingerPocket, width: 5, reach: 12 },
       lip: { ...s.lip, enabled: false },
     };
     const part = partOf(

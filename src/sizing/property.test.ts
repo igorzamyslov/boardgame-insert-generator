@@ -207,7 +207,11 @@ const settingsArb: Arbitrary<Settings> = fc
       fit: r.fit,
       lip: { ...DEFAULT_SETTINGS.lip, ...r.lip, ledge },
       // Odd and even unit counts of 0.01 mm alike, with a third decimal on top.
-      fingerPocket: { width: r.pocketUnits / 100 + (r.pocketUnits % 3) / 1000, reach: r.reach },
+      fingerPocket: {
+        ...DEFAULT_SETTINGS.fingerPocket,
+        width: r.pocketUnits / 100 + (r.pocketUnits % 3) / 1000,
+        reach: r.reach,
+      },
     };
   });
 

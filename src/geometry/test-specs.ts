@@ -32,7 +32,7 @@ export const GEO: Settings = {
   bottomChamfer: 0.4,
   cornerRadius: 3,
   scoopRadius: 12,
-  fingerPocket: { width: 22, reach: 12 },
+  fingerPocket: { width: 22, reach: 12, floorNotch: 8, wallRoom: 0 },
   lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
 };
 
@@ -408,7 +408,7 @@ export const PROFILES: readonly [string, Profile][] = [
       floor: 1.001,
       divider: 0.999,
       bottomChamfer: 0.333,
-      fingerPocket: { width: 22.001, reach: 12.003 },
+      fingerPocket: { ...s.fingerPocket, width: 22.001, reach: 12.003 },
       lip: { ...s.lip, enabled: true, height: 2.001, thickness: 1.003, ledge: 1.707 },
     }),
   ],

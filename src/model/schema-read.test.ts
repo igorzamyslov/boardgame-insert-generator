@@ -115,6 +115,18 @@ describe("readProject: files of this schema line", () => {
     });
   });
 
+  it("fills the finger pocket's floor notch and wall room of an older file", () => {
+    const { project } = expectOk(
+      readProject({ ...MINIMAL, settings: { fingerPocket: { width: 20, reach: 10 } } }, CURRENT),
+    );
+    expect(project.settings.fingerPocket).toEqual({
+      width: 20,
+      reach: 10,
+      floorNotch: DEFAULT_SETTINGS.fingerPocket.floorNotch,
+      wallRoom: 0,
+    });
+  });
+
   it("fills component defaults", () => {
     const input = {
       ...MINIMAL,
@@ -249,6 +261,36 @@ describe("readProject: files of this schema line", () => {
       'Couldn\'t read the "teleport" lock (lock 1 in the file), so it was dropped: /locks/0/kind: unknown value "teleport".',
       `Couldn't read the lock for tray "${"t".repeat(40)}…" (lock 2 in the file), so it was dropped: /locks/1/kind: missing.`,
     ]);
+  });
+
+  it("reads a stored wall cutout", () => {
+    const input = sampleJson();
+    const cutout = {
+      type: "wallCutout",
+      side: "left",
+      at: 37,
+      width: 22,
+      depth: 30.5,
+      floorNotch: 8,
+    };
+    list(at(firstTray(input), "compartments", 0), "features").push(cutout);
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.notices).toEqual([]);
+    expect(result.project.layout?.trays[0]?.compartments[0]?.features).toContainEqual(cutout);
+  });
+
+  it("drops a stored layout whose wall cutout lacks a field", () => {
+    const input = sampleJson();
+    list(at(firstTray(input), "compartments", 0), "features").push({
+      type: "wallCutout",
+      side: "left",
+      at: 37,
+      width: 22,
+      depth: 30.5,
+    });
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.project.layout).toBeUndefined();
+    expect(result.notices[0]?.message).toContain("/floorNotch: missing");
   });
 
   it("drops an unreadable stored layout with a notice", () => {

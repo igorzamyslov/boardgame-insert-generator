@@ -57,7 +57,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   bottomChamfer: 0.4,
   cornerRadius: 3,
   scoopRadius: 12,
-  fingerPocket: { width: 22, reach: 12 },
+  fingerPocket: { width: 22, reach: 12, floorNotch: 8, wallRoom: 0 },
   lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
   topPressFit: 0,
   packingFactor: 0.5,
@@ -98,6 +98,24 @@ function choiceOf<C extends string>(table: Record<C, number>, value: number): C 
     }
   }
   return "custom";
+}
+
+/**
+ * Simple-mode "Extra finger room in the box" toggle: on writes this wall room (mm), off writes 0.
+ * The outer walls a finger channel or cutout passes through become that much thicker, so the cut
+ * itself leaves room for a finger when the tray sits flush against its neighbours.
+ */
+export const FINGER_ROOM_MM = 10;
+
+/** Simple-mode finger room toggle: writes the resolved fingerPocket.wallRoom. */
+export function applyFingerRoom(s: Settings, on: boolean): Settings {
+  return { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: on ? FINGER_ROOM_MM : 0 } };
+}
+
+/** Whether the finger room toggle is on, off, or "custom" (another wall room, set in advanced mode). */
+export function fingerRoomOf(s: Settings): boolean | "custom" {
+  const choice = choiceOf({ on: FINGER_ROOM_MM, off: 0 }, s.fingerPocket.wallRoom);
+  return choice === "custom" ? "custom" : choice === "on";
 }
 
 /** Which simple-mode choice the current wall matches, or "custom" (set in advanced mode). */

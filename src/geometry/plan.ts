@@ -364,7 +364,7 @@ function planCompartment(
       pockets.push({ ...feature, side: sideOf(spec, feature.side) });
     } else if (feature.type === "scoop") {
       scoopRequests.push({ side: sideOf(spec, feature.side), r: feature.r });
-    } else {
+    } else if (feature.type === "cornerRelief") {
       reliefDiameter = Math.max(reliefDiameter, feature.d);
     }
   }

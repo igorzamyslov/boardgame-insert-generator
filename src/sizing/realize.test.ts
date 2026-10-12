@@ -536,7 +536,7 @@ describe("realizeTray", () => {
         wall: 1.234,
         divider: 1.007,
         floor: 1.111,
-        fingerPocket: { width: 21.337, reach: 11.987 },
+        fingerPocket: { ...s.fingerPocket, width: 21.337, reach: 11.987 },
         lip: { ...s.lip, thickness: 1.234 },
       };
       const parts: [TrayPartReq, RealizeOptions][] = [
