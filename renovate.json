@@ -1,0 +1,27 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard"],
+  "labels": ["dependencies"],
+  "platformAutomerge": true,
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "Auto-merge non-major updates once the quality check passes",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "Group non-major dev-dependency and GitHub Actions updates into one PR",
+      "matchDepTypes": ["devDependencies", "action"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "non-major dev updates"
+    },
+    {
+      "description": "manifold-3d (WASM geometry kernel) updates are reviewed by hand, never auto-merged",
+      "matchPackageNames": ["manifold-3d"],
+      "automerge": false
+    }
+  ]
+}

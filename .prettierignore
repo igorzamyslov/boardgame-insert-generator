@@ -1,0 +1,4 @@
+dist
+_build
+_site
+**/package-lock.json
