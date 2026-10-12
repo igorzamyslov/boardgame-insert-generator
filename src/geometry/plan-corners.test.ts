@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
 import { thinCorner } from "./plan-corners";
+import { notchDiscBox, notchRect } from "./plan-cuts";
 import { MIN_FEATURE_MM, MIN_WALL_MM, SPEC_TOLERANCE, maxCornerRadius } from "../model/settings";
 import type { Settings } from "../model/types";
 import { settingsValid } from "../model/validate";
@@ -39,6 +40,35 @@ describe("corner reliefs", () => {
     // left corners face the 1.6 wall; right corners face the divider:
     // budget (1.2 − 0.8) / 2 = 0.2 mm → r = 0.2 / (1 − 1/√2) = 0.683
     expect(radii).toEqual([1.5, 0.683, 0.683, 1.5]);
+  });
+
+  it("keeps a relief beside a rounded outer corner 0.8 mm from its polygon", () => {
+    // A well 2.04 mm from the left face and 1.2 mm from the front one. Budgeted to 0.8 mm from the
+    // straight front face, its front-left relief (r 1.37, centre 3.01 from the left face, just past
+    // the 3 mm corner's arc) came 0.78 mm close to the polygon of that arc; it keeps the outer
+    // wall's 0.9 mm (MIN_WALL_MM) to outer faces instead.
+    const spec = traySpec({
+      key: "relief-beside-arc",
+      wall: 1.2,
+      w: 60,
+      d: 60,
+      h: 20,
+      compartments: [
+        compartment({
+          x: 2.04,
+          y: 1.2,
+          w: 55,
+          d: 57.6,
+          features: [{ type: "cornerRelief", d: 3 }],
+        }),
+      ],
+    });
+    const plan = planTray(spec, GEO);
+    const reliefs = plan.compartments[0]?.reliefs ?? [];
+    expect(reliefs).toHaveLength(4);
+    for (const r of reliefs) {
+      expect(materialAt(plan, r.cx, r.cy, 1.2, r.r)).toBeGreaterThanOrEqual(MIN_FEATURE_MM - 1e-9);
+    }
   });
 
   it("drops reliefs when there is no material to spare", () => {
@@ -147,6 +177,16 @@ function materialAt(plan: TrayPlan, x: number, y: number, z: number, rho = 0): n
   return material - rho;
 }
 
+// Where a wall cutout leaves the tray, the material beside it is the wall between its side and
+// the outer face it runs along (pulled in by the chamfer at height z): its distance `along` to that
+// face, as long as the side meets the straight part of the exit face. Where it meets the rounded
+// corner instead, the arc cuts into that wall: -Infinity.
+function exitSide(plan: TrayPlan, along: number, z: number): number {
+  return along >= plan.cornerRadius - 1e-9
+    ? along - Math.max(0, plan.chamfer - z)
+    : Number.NEGATIVE_INFINITY;
+}
+
 function cornersOf(r: Rect): [number, number][] {
   return [
     [r.x0, r.y0],
@@ -158,24 +198,59 @@ function cornersOf(r: Rect): [number, number][] {
 
 // Thinnest outer material over every cut, each at its lowest height: the compartment corners at
 // the compartment floor (sharp, as planCornerRadius assumes; the wells' rounded inner corners only
-// add material), the sharp footprint corners of each finger slot at its bottomZ, and the relief
-// circles at the compartment floor. `slots` is the thinnest over slot corners alone.
+// add material), the sharp footprint corners of each finger slot at its bottomZ, wall cutouts at
+// their bottomZ and their floor notches at the bed, and the relief circles at the compartment
+// floor. A cutout that leaves the tray is judged by the wall beside its sides (exitSide); one
+// inside it, and the box around a notch's half-disc in the floor (its corners away from the face),
+// by their corners. `slots` is the thinnest over slot and cutout samples alone.
 function thinnestCut(plan: TrayPlan): { all: number; slots: number; slotCorners: number } {
   const result = { all: Number.POSITIVE_INFINITY, slots: Number.POSITIVE_INFINITY, slotCorners: 0 };
-  const sample = (x: number, y: number, z: number, rho = 0): number => {
-    const material = materialAt(plan, x, y, z, rho);
+  const record = (material: number, cut: boolean): void => {
     result.all = Math.min(result.all, material);
-    return material;
+    if (cut) {
+      result.slots = Math.min(result.slots, material);
+      result.slotCorners++;
+    }
+  };
+  const corners = (rect: Rect, z: number): void => {
+    cornersOf(rect).forEach(([x, y]) => {
+      record(materialAt(plan, x, y, z), true);
+    });
   };
   for (const c of plan.compartments) {
-    cornersOf(c.rect).forEach(([x, y]) => sample(x, y, c.floorZ));
-    for (const slot of c.slots) {
-      for (const [x, y] of cornersOf(slot)) {
-        result.slots = Math.min(result.slots, sample(x, y, slot.bottomZ));
-        result.slotCorners++;
+    cornersOf(c.rect).forEach(([x, y]) => {
+      record(materialAt(plan, x, y, c.floorZ), false);
+    });
+    c.slots.forEach((slot) => {
+      corners(slot, slot.bottomZ);
+    });
+    for (const cut of c.cuts) {
+      const alongX = cut.side === "front" || cut.side === "back";
+      const span = alongX ? plan.w : plan.d;
+      const footprints: [Rect, number][] = [[cut, cut.bottomZ]];
+      if (cut.notch > 0) {
+        footprints.push([notchRect(cut), 0]);
+        // The half-disc box's corners away from the face (those at it are the notch's own).
+        const disc = notchDiscBox(cut);
+        const far = { front: disc.y1, back: disc.y0, left: disc.x1, right: disc.x0 }[cut.side];
+        cornersOf(disc)
+          .filter(([x, y]) => (alongX ? y : x) === far)
+          .forEach(([x, y]) => {
+            record(materialAt(plan, x, y, 0), true);
+          });
+      }
+      for (const [rect, z] of footprints) {
+        if (cut.into === null) {
+          const [u0, u1] = alongX ? [rect.x0, rect.x1] : [rect.y0, rect.y1];
+          record(exitSide(plan, Math.min(u0, span - u1), z), true);
+        } else {
+          corners(rect, z);
+        }
       }
     }
-    c.reliefs.forEach((r) => sample(r.cx, r.cy, c.floorZ, r.r));
+    c.reliefs.forEach((r) => {
+      record(materialAt(plan, r.cx, r.cy, c.floorZ, r.r), false);
+    });
   }
   return result;
 }
@@ -247,9 +322,9 @@ describe("corner material under the bottom chamfer", () => {
 });
 
 describe("corner material of sizing output", () => {
-  // Every fixture but bits-heavy (bulk only) has trays with finger slots.
+  // Every fixture but bits-heavy (bulk only) has trays with finger slots or wall cutouts.
   it.each(SWEEP_FIXTURES)(
-    "keeps 0.8 mm at every well, slot and relief corner of %s",
+    "keeps 0.8 mm at every well, slot, cutout and relief corner of %s",
     { timeout: 60_000 },
     (name, raw) => {
       const hasSlots = name !== "bits-heavy";

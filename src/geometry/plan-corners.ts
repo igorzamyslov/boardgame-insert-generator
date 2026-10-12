@@ -1,7 +1,13 @@
 import type { Side } from "../model/types";
-import { CORNER_MARGIN, MIN_FEATURE_MM, SPEC_TOLERANCE, maxCornerRadius } from "../model/settings";
+import {
+  CORNER_MARGIN,
+  MIN_FEATURE_MM,
+  MIN_WALL_MM,
+  SPEC_TOLERANCE,
+  maxCornerRadius,
+} from "../model/settings";
 import { keepsApart } from "../model/slot-rules";
-import { cutCentre, cutFace, cutFootprints, notchRect } from "./plan-cuts";
+import { cutFootprints, notchDiscBox, notchRect } from "./plan-cuts";
 import { MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
 import type { CompartmentPlan, Rect, ReliefPlan } from "./plan-types";
 
@@ -16,10 +22,12 @@ function pullIn(chamfer: number, z: number): number {
 }
 
 // Material on one side of a content rectangle that a corner relief may cut
-// into: everything above MIN_FEATURE_MM toward an outer face (at the compartment
-// floor, where the chamfer pulls the face in by chamfer − floorZ), half of it
-// toward another compartment (which may have reliefs of its own) or its finger
-// slots (which may reach past that compartment toward this one).
+// into: everything above MIN_WALL_MM toward an outer face (at the compartment
+// floor, where the chamfer pulls the face in by chamfer − floorZ), half of what is above
+// MIN_FEATURE_MM toward another compartment (which may have reliefs of its own) or its finger
+// slots (which may reach past that compartment toward this one). Toward an outer face the relief
+// keeps the outer wall's CORNER_MARGIN like any cut there: near an outer corner the polygon of the
+// rounded corner comes up to 0.08 mm closer than the straight face (maxCornerRadius).
 function sideBudget(
   size: TraySize,
   plans: CompartmentPlan[],
@@ -29,7 +37,7 @@ function sideBudget(
 ): number {
   const c = self.content;
   const toFace = { front: c.y0, back: size.d - c.y1, left: c.x0, right: size.w - c.x1 }[side];
-  let budget = toFace - pullIn(chamfer, self.floorZ) - MIN_FEATURE_MM;
+  let budget = toFace - pullIn(chamfer, self.floorZ) - MIN_WALL_MM;
   const obstacles = plans.flatMap((other) => (other === self ? [] : [other.rect, ...other.slots]));
   for (const o of obstacles) {
     const overlapsX = o.x0 < c.x1 && o.x1 > c.x0;
@@ -152,15 +160,14 @@ function cornerDiscs(compartments: CompartmentPlan[], chamfer: number): CornerDi
   for (const c of compartments) {
     const e = pullIn(chamfer, c.floorZ);
     corners(c.rect, e);
-    // A slot or cut is conservatively measured at its lowest line, a floor notch at the bed.
+    // A slot or cut is conservatively measured at its lowest line, a floor notch (its middle
+    // through the wall, and the box around its half-disc in the floor) at the bed.
     c.slots.forEach((slot) => corners(slot, pullIn(chamfer, slot.bottomZ)));
     for (const cut of c.cuts) {
       corners(cut, pullIn(chamfer, cut.bottomZ));
       if (cut.notch > 0) {
         corners(notchRect(cut), chamfer);
-        const alongX = cut.side === "front" || cut.side === "back";
-        const [x, y] = alongX ? [cutCentre(cut), cutFace(cut)] : [cutFace(cut), cutCentre(cut)];
-        discs.push({ x, y, rho: cut.notch, e: chamfer });
+        corners(notchDiscBox(cut), chamfer);
       }
     }
     c.reliefs.forEach((r) => discs.push({ x: r.cx, y: r.cy, rho: r.r, e }));
