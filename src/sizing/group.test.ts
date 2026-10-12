@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { togglesOf } from "../model/defaults";
 import { DEFAULT_SETTINGS, MIN_FEATURE_MM, MIN_WALL_MM } from "../model/settings";
+import { compartment, wallCutout } from "./common";
 import * as componentModule from "./component";
 import { CutFitError } from "./errors";
 import { combineOptions, mostFrequentAccess, size } from "./group";
@@ -203,6 +204,41 @@ describe("size", () => {
           message:
             "Cards: no tray arrangement leaves room for a finger cutout of at least 10 mm by Main ×52 with 3 mm of wall beside it, so it is left out. Try another storage.",
         },
+      ]);
+    });
+
+    it("tells a bulk component left without its finger cuts to turn them off, not to store it another way", () => {
+      // Bulk has no other storage (review 3, M4). Its bins are elastic, so a stand-in that can't
+      // grow shows the case: an 8 mm well asking for a cut.
+      const bits = bulk({ fingerCuts: true });
+      vi.mocked(componentModule.componentOptions).mockReturnValueOnce({
+        options: [
+          {
+            id: "tiny",
+            blocks: [
+              [
+                compartment({
+                  componentId: bits.id,
+                  contents: "Cubes ×30",
+                  kind: "well",
+                  w: 8,
+                  d: 8,
+                  h: 10,
+                  features: [wallCutout("front", 0.5, false)],
+                }),
+              ],
+            ],
+          },
+        ],
+        notices: [],
+      });
+      const { requirements, notices } = size([bits], s);
+      expect(requirements).toEqual([]);
+      expect(notices.map((n) => [n.level, n.message])).toEqual([
+        [
+          "warning",
+          "Bits: no tray arrangement leaves room for a finger cutout of at least 10 mm by Cubes ×30 with 3 mm of wall beside it, so it is left out. Turn its finger cuts off.",
+        ],
       ]);
     });
 

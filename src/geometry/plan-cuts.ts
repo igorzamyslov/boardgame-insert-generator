@@ -62,25 +62,6 @@ export function notchFloorBox(cut: CutPlan): Rect {
   }
 }
 
-/**
- * A cut's footprint reaching `into` past the face of its compartment and of the one it runs into,
- * and `out` past the outer face it leaves through (buildTray cuts the U into the compartments past
- * their rounded inner corners, the floor notch only EPS).
- */
-export function cutReach(cut: CutPlan, into: number, out: number): Rect {
-  const far = cut.into === null ? out : into;
-  switch (cut.side) {
-    case "front":
-      return { ...cut, y0: cut.y0 - far, y1: cut.y1 + into };
-    case "back":
-      return { ...cut, y0: cut.y0 - into, y1: cut.y1 + far };
-    case "left":
-      return { ...cut, x0: cut.x0 - far, x1: cut.x1 + into };
-    case "right":
-      return { ...cut, x0: cut.x0 - into, x1: cut.x1 + far };
-  }
-}
-
 /** Every footprint the cuts of `plans` take: their boxes and floor notches. */
 export function cutFootprints(plans: readonly CompartmentPlan[]): Rect[] {
   return plans.flatMap((plan) =>

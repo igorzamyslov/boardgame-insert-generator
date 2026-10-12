@@ -24,13 +24,6 @@ export const SPEC_TOLERANCE = 0.005;
 export const FLOAT_EPSILON = 1e-9;
 
 /**
- * Radius of the wells' inner vertical corners (spec §6.1: at most 0.5). buildTray cuts a finger
- * cut's U this far on into the compartments at its ends, past their rounded corners, so sizing
- * keeps the cut's extent that much longer when it looks for room beside other wells.
- */
-export const INNER_CORNER_RADIUS_MM = 0.5;
-
-/**
  * A finger cut leaves a full-height post at least this long, along the wall or divider it crosses,
  * between its side and the inner face of every compartment it passes (spec §6.1): the wall still
  * holds the contents, and no cut side comes near a well's rounded corner.

@@ -44,7 +44,7 @@ export interface TrayRequirement {
   // Layout places exactly one variant per requirement, and every part of it.
   componentIds: string[];
   access: Access; // most frequent of its members
-  loose: boolean; // contains bulk, minis-bulk or tiles (coverage rule)
+  loose: boolean; // contains bulk, minis-bulk, tiles or a member in its bulk fallback (coverage rule)
   variants: TrayVariant[]; // 1..8, preferred first, fixed order
 }
 

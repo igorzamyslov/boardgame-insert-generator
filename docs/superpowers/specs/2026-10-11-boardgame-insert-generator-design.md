@@ -437,7 +437,8 @@ they are content + clearance.
 
 **Posts:** a cut never removes a whole wall. It leaves a full-height post of at
 least 3 mm (`POST_MM`) between each of its sides and the inner faces of every
-compartment it passes, so the wall or divider still holds the contents; the
+compartment it passes, so the wall or divider still holds the contents (at
+the rim its top fillet may round it into its wall, below); the
 cut is at most the well's side less 2 × 3 mm. Where that leaves less than
 10 mm (`MIN_CUT_MM`, a fingertip; or the width setting, if smaller), the well
 gets no cut on that axis: it is cut across instead, as above, or not offered.
@@ -480,11 +481,13 @@ keeps its upright ones, and one with none left goes in a scoop bin (§7.1).
   at the top. Through a lipped wall only the lip is rounded, on its top (at
   most the lip's height), so the ledge the upper tray rests on stays square.
   The radius shrinks where less than 0.8 mm of top would stay beside it (the
-  outer corner, another compartment or cut across the wall), to stay on the
+  outer corner, where the strip reaches it, or another compartment across the
+  wall), to stay on the
   faces of the compartments the cut runs between, and to the U's straight
   side; under 0.2 mm it is left out. The surface faces up and into the cut, so
   it needs no support. Sizing does not change for it. The cut's vertical edges
-  stay square.
+  stay square. Posts are full height; at the rim the top fillet may round a
+  post into its wall (a 3 mm fillet beside a 3 mm post takes its whole top).
 - **Outer corners beside a cut:** where a cutout (or the spacer notch) leaves
   through an outer face, the rounded outer corner ends at least 0.8 mm before
   its side, so the wall beside the cut stays 0.8 mm thick

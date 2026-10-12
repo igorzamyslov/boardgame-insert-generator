@@ -2,8 +2,8 @@ import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
 import type { Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
-import { cutFace, cutReach, filletStrip } from "./plan-cuts";
-import { INNER_CORNER_RADIUS_MM } from "../model/settings";
+import { cutFace, filletStrip } from "./plan-cuts";
+import { INNER_CORNER_RADIUS_MM } from "./plan-types";
 import type { CompartmentPlan, CutPlan, LipPlan, Rect, ScoopPlan, TrayPlan } from "./plan-types";
 import { withScope } from "./scope";
 import type { Scope } from "./scope";
@@ -127,20 +127,35 @@ function buildU(m: ManifoldToplevel, scope: Scope, cut: UPlan, topZ: number): Ma
   return hullPoints(m, scope, points);
 }
 
+// A cut's footprint reaching EPS into the compartments at both ends (its sides keep POST_MM posts
+// to their faces, clear of their rounded corners) and OVERSHOOT past an outer face it leaves
+// through.
+function cutReach(cut: CutPlan): Rect {
+  const far = cut.into === null ? OVERSHOOT : EPS;
+  switch (cut.side) {
+    case "front":
+      return { ...cut, y0: cut.y0 - far, y1: cut.y1 + EPS };
+    case "back":
+      return { ...cut, y0: cut.y0 - EPS, y1: cut.y1 + far };
+    case "left":
+      return { ...cut, x0: cut.x0 - far, x1: cut.x1 + EPS };
+    case "right":
+      return { ...cut, x0: cut.x0 - EPS, x1: cut.x1 + far };
+  }
+}
+
 // A wall cutout: the U through the wall or divider; with a floor notch the cut instead goes down
 // through the bottom at its full width, and on into the compartment's floor `notch` from its face,
 // the far corners rounded with half the width (at most the reach): a half-disc when the notch
 // reaches half the width. All are vertical prisms or open at the top, so nothing overhangs
 // (spec §6.1).
 function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number): Manifold[] {
-  // EPS into the compartments at both ends (its sides keep POST_MM posts to their faces, clear of
-  // their rounded corners), OVERSHOOT past an outer face it leaves through.
-  const reach = cutReach(cut, EPS, OVERSHOOT);
+  const reach = cutReach(cut);
   const u = buildU(m, scope, { ...cut, ...reach }, top);
   if (cut.notch <= 0) {
     return [u];
   }
-  // Through the floor only EPS into the compartments, whose floors it must not cut.
+  // Through the floor down to the bed, EPS into the compartments at its ends like the U.
   const through = box(m, scope, [reach.x0, reach.y0, -OVERSHOOT], [reach.x1, reach.y1, top]);
   // In the floor, along the side (u) and into the compartment (v = face + inward·distance).
   const face = cutFace(cut);

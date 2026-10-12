@@ -2,12 +2,16 @@ import type { Side } from "../model/types";
 
 // Constants and result types of tray planning (plan.ts). A TrayPlan holds
 // every number tray.ts needs to build the solid. The limits shared with sizing
-// (MIN_FEATURE_MM, UPPER_MIN_CHAMFER, SPEC_TOLERANCE, CORNER_MARGIN, INNER_CORNER_RADIUS_MM)
+// (MIN_FEATURE_MM, UPPER_MIN_CHAMFER, SPEC_TOLERANCE, CORNER_MARGIN)
 // live in ../model/settings (spec §6.1, roadmap §4.6) and are not defined here.
 
 export const LIP_CHAMFER = 0.6; // spec §6.1: 0.6 × 45° on the lip's inner top edge…
 export const LIP_FLAT = 0.6; // …less on a thin lip, so its flat top stays at least this wide
 export const MIN_RELIEF_RADIUS = 0.3; // smaller corner reliefs are dropped
+// Radius of the wells' inner vertical corners (spec §6.1: at most 0.5). buildTray cuts a top
+// fillet this far (and EPS) on into the compartments at its strip's ends: a 3 mm fillet beside a
+// 3 mm post reaches a well's rounded corner, and must leave no sliver of it.
+export const INNER_CORNER_RADIUS_MM = 0.5;
 export const MIN_SCOOP_RADIUS = 0.5; // smaller scoop fillets are dropped
 export const RELIEF_CUT = 1 - Math.SQRT1_2; // wall depth a relief through the corner cuts, per mm of radius
 // Finger cuts (wall cutouts, channels, spacer notches) round the two top corners of their U, where

@@ -74,10 +74,12 @@ function noRoom(name: string, error: CutFitError): string {
 function noFingerSlot(error: CutFitError, key: string, usable: readonly Usable[]): Notice {
   const stuck = usable.find((u) => error.componentIds.includes(u.c.id)) ?? usable[0];
   const what = usable.length > 1 ? `the group "${key}"` : "it";
+  // Bulk has no other storage: only its finger cuts (on by choice) can go.
+  const advice = stuck?.c.kind === "bulk" ? "Turn its finger cuts off." : "Try another storage.";
   return {
     level: "warning",
     code: "sizing.noFingerSlot",
-    message: `${noRoom(stuck ? displayName(stuck.c) : key, error)}, so ${what} is left out. Try another storage.`,
+    message: `${noRoom(stuck ? displayName(stuck.c) : key, error)}, so ${what} is left out. ${advice}`,
     path: `/components/${stuck?.index ?? 0}`,
   };
 }
