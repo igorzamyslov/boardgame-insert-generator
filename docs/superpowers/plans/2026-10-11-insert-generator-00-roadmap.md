@@ -579,7 +579,7 @@ export function createLayoutClient(): {
 
 ```ts
 // model/version.ts
-export const SCHEMA_VERSION: string; // "0.1.1": 0.1.0 plus fingerPocket.floorNotch, .wallRoom, .dividerRoom, less fingerPocket.reach
+export const SCHEMA_VERSION: string; // "0.1.1": 0.1.0 plus fingerPocket.floorNotch, .wallRoom, .dividerRoom and the component toggles, less fingerPocket.reach
 export const APP_VERSION: string; // from package.json via Vite define __APP_VERSION__
 export function parseSemver(v: string): { major: number; minor: number; patch: number } | null;
 // model/settings.ts
@@ -683,7 +683,7 @@ export function exportJsonFile(p: Project, foreign: ForeignData): Blob;
 export function importJsonText(text: string): ParseResult;
 ```
 
-Schema `0.1.1` added `settings.fingerPocket.floorNotch` (default 12.5: how far a flat cutout's notch reaches into the floor) `.wallRoom` and `.dividerRoom` (default 0) and the `wallCutout` feature of stored trays, and dropped `settings.fingerPocket.reach` and the `fingerPocket` feature. A `0.1.0` file loads with those defaults; a `reach` in it is dropped with the one info notice for unknown fields, not an error. Its `inputsHash` changes, so a stored layout shows as made for other inputs ("re-optimize?"). A stored layout whose trays carry a `fingerPocket` feature no longer reads (an unknown feature type in a file of this line) and is dropped with its warning; planTray, too, refuses the feature (`UnsupportedFeatureError`). Geometry `0.2.0` is a new line (minis and custom trays change size, spec §9), so any layout stored at `0.1.x` gets plan 5's "reprint the whole insert" warning (`isOlderGeometryLine`).
+Schema `0.1.1` added `settings.fingerPocket.floorNotch` (default 12.5: how far a flat cutout's notch reaches into the floor) `.wallRoom` and `.dividerRoom` (default 0), the components' optional `fingerCuts`, `curvedFloor` and `cornerReliefs` (absent: the kind's default, as before them) and the `wallCutout` feature of stored trays, and dropped `settings.fingerPocket.reach` and the `fingerPocket` feature. A `0.1.0` file loads with those defaults; a `reach` in it is dropped with the one info notice for unknown fields, not an error. Its `inputsHash` changes, so a stored layout shows as made for other inputs ("re-optimize?"). A stored layout whose trays carry a `fingerPocket` feature no longer reads (an unknown feature type in a file of this line) and is dropped with its warning; planTray, too, refuses the feature (`UnsupportedFeatureError`). Geometry `0.2.0` is a new line (minis and custom trays change size, spec §9), so any layout stored at `0.1.x` gets plan 5's "reprint the whole insert" warning (`isOlderGeometryLine`).
 
 ### 4.6 Geometry conventions (from plan 3; binding for plans 2, 4, 5)
 

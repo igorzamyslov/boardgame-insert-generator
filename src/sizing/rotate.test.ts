@@ -181,7 +181,7 @@ describe("rotateRealized", () => {
         { w: 59.9, d: 122.9, h: 75 },
       ],
       [
-        "odd finger width (half-unit slot centres)",
+        "odd finger width (half-unit cut centres)",
         partOf([cards()], "upright-long|strip|split1", odd),
         odd,
         ground,

@@ -98,8 +98,8 @@ export function custom(over: Partial<CustomComponent> = {}): CustomComponent {
 
 /**
  * The part `partIndex` of variant `variantId` of the first requirement size() would make from
- * `components` (the first component's group), before size() drops the variants whose finger
- * slots do not fit, so tests can realize those too. Built from size()'s own pieces.
+ * `components` (the first component's group), before size() drops the variants where a
+ * compartment gets no finger cut, so tests can realize those too. Built from size()'s own pieces.
  */
 export function partOf(
   components: Component[],

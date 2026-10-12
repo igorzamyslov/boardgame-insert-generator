@@ -17,9 +17,10 @@ Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts
 1. **Geometry client (roadmap §4.3).** `build(spec, settings, signal?)` takes an `AbortSignal`. Every failure rejects with `GeometryBuildError` (`geometry/client.ts`), whose `name` is the reason: `"TraySpecError"` (an invalid spec, message `Tray <key>: …`), `"UnsupportedFeatureError"` (with `feature`), `"AbortError"`, `"TimeoutError"` (after `BUILD_TIMEOUT_MS` = 30 s from the call, queue time included), `"WorkerError"` or `"WorkerRestartedError"` (the worker was replaced while the build waited). Detect an invalid spec by `name === "TraySpecError"`, never by `instanceof RangeError` (Task 16 `support.ts`: `buildErrorReason`, `isInvalidSpec`; the tests of Tasks 16 and 17).
 2. **`meshes.ts` retry and poison contract (roadmap §4.3).** A build that fails with `"WorkerRestartedError"` or `"WorkerError"` (the worker died under it) is retried once; a spec that fails twice in a row (aborts aside; a success clears the count) is marked failed and rejects at once until `reset()`, so a spec that kills the worker cannot keep restarting it; at most `MAX_IN_FLIGHT` (2) builds are in the worker at once, because the timeout counts queue time; `get(spec, settings, signal?)` passes the signal to `build`, and the 3D view aborts the builds of trays it no longer shows (Tasks 16, 18). Task 23 adds a bulk-build smoke test of every part of the optimized fixture layouts that checks `BUILD_TIMEOUT_MS` against real build times.
 3. **Geometry version lines (spec §9).** The "reprint the whole insert" notice uses plan 3's `isOlderGeometryLine(layout.geometryVersion)` (`geometry/version.ts`, pure): pre-1.0 each `0.MINOR` is a major line, so `0.0.x` is older than `0.1.0` and `0.1.x` is not (Task 2 `state.ts`).
-4. **Sizing notices.** `size()` drops variants whose finger slots cannot fit and, when none is left, emits a warning `sizing.noFingerSlot` at `/components/<i>` (roadmap §4.2); `sizingNotices` shows it like the other sizing warnings. `settingsValid` adds the cross-field settings errors `field.bottomChamfer` and `field.lipBearing` (both at `/settings/bottomChamfer`, shown next to the bottom chamfer field), and the wall and lip thickness minimum is `MIN_WALL_MM` = 0.9 mm (`SETTING_RANGES`).
+4. **Sizing notices.** `size()` drops variants where a compartment asking for a finger cut gets none and, when none is left, emits a warning `sizing.noFingerSlot` at `/components/<i>` (roadmap §4.2); `sizingNotices` shows it like the other sizing warnings. `settingsValid` adds the cross-field settings errors `field.bottomChamfer` and `field.lipBearing` (both at `/settings/bottomChamfer`, shown next to the bottom chamfer field), and the wall and lip thickness minimum is `MIN_WALL_MM` = 0.9 mm (`SETTING_RANGES`).
 5. **Test-only helpers.** Plan 4's checker and fixture loader are `layout/test-hard-rules.ts` and `layout/test-fixtures.ts`; production code never imports a `test-*` module (root ESLint rule), and outside `geometry/` it imports only `geometry/{types,version,client}`.
-6. **Finger channels (roadmap §4.5, §4.6, §4.7; implemented after plans 1–3).** Cards and tiles get wall cutouts (`FeatureSpec` `"wallCutout"`, in `KNOWN_FEATURE_TYPES`) instead of finger pockets. The default finger width (`fingerPocket.width`, one setting for cutouts and pockets) is 25 mm. `Settings.fingerPocket` gained `floorNotch` (advanced, how far a flat cutout's notch reaches into the floor: 0–50 mm, default 12.5, a half-disc as wide as the cut) `wallRoom` and `dividerRoom` (0–20 mm, default 0), all in `SETTING_RANGES` (paths `fingerPocket/floorNotch`, `fingerPocket/wallRoom`, `fingerPocket/dividerRoom`), so `SETTING_SETTERS` has a setter for each (Task 8). Simple mode adds a third control, the "Extra finger room in the box" switch, bound to `fingerRoomOf`/`applyFingerRoom`, `FINGER_ROOM_MM` and `FINGER_DIVIDER_ROOM_MM` (`model/settings`): on writes `wallRoom` = 10 mm and `dividerRoom` = 5 mm, off 0 and 0; a custom advanced pair shows as on, with a hint naming it (Task 8). `SCHEMA_VERSION` and `GEOMETRY_VERSION` are `0.1.1` (same line as `0.1.0`). A card spacer standing in a channelled well carries its own `features: [{ type: "spacerNotch", … }]` (`TraySpec.features`, roadmap §4.1): `unsupportedReason` checks those too (Task 16). The code blocks of Tasks 8 and 16 are patched.
+6. **Finger channels (roadmap §4.5, §4.6, §4.7; implemented after plans 1–3).** Every finger cut is a wall cutout (`FeatureSpec` `"wallCutout"`, in `KNOWN_FEATURE_TYPES`): cards, tiles, minis pockets and custom wells (and bulk with finger cuts on, amendment 7); finger pockets and `fingerPocket.reach` are gone (a file still carrying `reach` reads with the usual notice for an unknown field, and `SETTING_SETTERS` has no setter for it). The default finger width (`fingerPocket.width`) is 25 mm. `Settings.fingerPocket` gained `floorNotch` (advanced, how far a flat cutout's notch reaches into the floor: 0–50 mm, default 12.5, a half-disc as wide as the cut) `wallRoom` and `dividerRoom` (0–20 mm, default 0), all in `SETTING_RANGES` (paths `fingerPocket/floorNotch`, `fingerPocket/wallRoom`, `fingerPocket/dividerRoom`), so `SETTING_SETTERS` has a setter for each (Task 8). Simple mode adds a third control, the "Extra finger room in the box" switch, bound to `fingerRoomOf`/`applyFingerRoom`, `FINGER_ROOM_MM` and `FINGER_DIVIDER_ROOM_MM` (`model/settings`): on writes `wallRoom` = 10 mm and `dividerRoom` = 5 mm, off 0 and 0; a custom advanced pair shows as on, with a hint naming it (Task 8). `SCHEMA_VERSION` is `0.1.1` (same line as `0.1.0`); `GEOMETRY_VERSION` is `0.2.0`, a new line (minis and custom trays changed size), so layouts made before it get the reprint notice (amendment 3). A card spacer standing in a channelled well carries its own `features: [{ type: "spacerNotch", … }]` (`TraySpec.features`, roadmap §4.1): `unsupportedReason` checks those too (Task 16). The code blocks of Tasks 8 and 16 are patched.
+7. **Component toggles (spec §5, §6.1).** `ComponentBase` has three optional booleans; absent, each takes the kind's default from `model/defaults`: `fingerCuts` (`fingerCutsOn`: on for cards, tiles, minis pockets and custom, off for bulk and minis stored as bulk), `curvedFloor` (`curvedFloorOn`: the scoop ramp, on for bulk and minis stored as bulk, off for minis pockets and custom; never on cards or tiles, where `validateComponent` reports `field.curvedFloor` at `/components/<i>/curvedFloor`) and `cornerReliefs` (`cornerReliefsOn`: on for tiles and custom). Task 9 adds `ToggleOptions`, rendered by every editor just before More options: "Finger cuts" and "Curved floor" are visible in simple mode ("Curved floor" only for bulk, minis and custom, or where a file set it on another kind, so its error has a place and the user can turn it off), "Corner reliefs" only in advanced mode. Each shows the effective value and writes an explicit boolean. The code blocks of Tasks 9 and 10 are patched.
 
 ## Global Constraints
 
@@ -3632,7 +3633,6 @@ export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Setting
   cornerRadius: (s, v) => ({ ...s, cornerRadius: v }),
   scoopRadius: (s, v) => ({ ...s, scoopRadius: v }),
   "fingerPocket/width": (s, v) => ({ ...s, fingerPocket: { ...s.fingerPocket, width: v } }),
-  "fingerPocket/reach": (s, v) => ({ ...s, fingerPocket: { ...s.fingerPocket, reach: v } }),
   "fingerPocket/floorNotch": (s, v) => ({
     ...s,
     fingerPocket: { ...s.fingerPocket, floorNotch: v },
@@ -3831,16 +3831,18 @@ git commit -m "Add simple and advanced settings form"
 - Create: `src/ui/components/types.ts`
 - Create: `src/ui/components/MoreOptions.tsx`
 - Create: `src/ui/components/CommonOptions.tsx`
+- Create: `src/ui/components/ToggleOptions.tsx`
 - Create: `src/ui/components/CardsEditor.tsx`
 - Test: `src/ui/components/CardsEditor.test.tsx`
 
 **Interfaces:**
 
-- Consumes: `setCardSides`, `setGroup`, `setPerPlayer`, `setClearance` (Task 1); `NumberField`, `TextField`, `SelectField`, `CheckField`, `useFieldNotices` (Task 6); `CARD_PRESETS` (`model/presets`); `CardsComponent`, `Component`.
+- Consumes: `setCardSides`, `setGroup`, `setPerPlayer`, `setClearance` (Task 1); `NumberField`, `TextField`, `SelectField`, `CheckField`, `useFieldNotices` (Task 6); `CARD_PRESETS` (`model/presets`); `fingerCutsOn`, `curvedFloorOn`, `cornerReliefsOn` (`model/defaults`); `CardsComponent`, `Component`.
 - Produces:
   - `interface EditorProps<C extends Component> { component: C; index: number; advanced: boolean; onChange: (next: C) => void }`
   - `MoreOptions({ open, children }: { open: boolean; children: ComponentChildren })` — `<details>` "More options", open by default in advanced mode.
   - `CommonOptions<C extends Component>({ component, index, onChange }: Omit<EditorProps<C>, "advanced">)` — group (commit on blur), per player (disabled inside a group), own clearance.
+  - `ToggleOptions<C extends Component>(props: EditorProps<C>)` — "Finger cuts", "Curved floor" (bulk, minis, custom, or set on another kind) and, in advanced mode, "Corner reliefs" (amendment 7).
   - `CUSTOM_SIZE = "custom"`; `cardPresetOf(c: CardsComponent): string`
   - `CardsEditor(props: EditorProps<CardsComponent>)` — size preset/custom (sides commit on blur, then short/long are ordered), sleeve none/standard/premium/custom, decks list, more options: "measure N cards" thickness, storage, common options.
 
@@ -3974,6 +3976,30 @@ describe("CardsEditor", () => {
     setup(cards());
     expect(screen.getByText("More options").closest("details")?.hasAttribute("open")).toBe(false);
   });
+
+  it("shows finger cuts in simple mode, no curved floor, and corner reliefs in advanced mode", () => {
+    const { last, view, onChange } = setup(cards());
+    const cuts = screen.getByLabelText("Finger cuts");
+    expect(cuts.closest("details")).toBeNull();
+    expect((cuts as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByLabelText("Curved floor")).toBeNull();
+    expect(screen.queryByLabelText("Corner reliefs")).toBeNull();
+    fireEvent.click(cuts);
+    expect(last().fingerCuts).toBe(false);
+    view.rerender(<CardsEditor component={cards()} index={0} advanced onChange={onChange} />);
+    const reliefs = screen.getByLabelText("Corner reliefs") as HTMLInputElement;
+    expect(reliefs.checked).toBe(false);
+    fireEvent.click(reliefs);
+    expect(last().cornerReliefs).toBe(true);
+  });
+
+  it("shows a curved floor a file set on cards, so it can be turned off", () => {
+    const { last } = setup(cards({ curvedFloor: true }));
+    const floor = screen.getByLabelText("Curved floor") as HTMLInputElement;
+    expect(floor.checked).toBe(true);
+    fireEvent.click(floor);
+    expect(last().curvedFloor).toBe(false);
+  });
 });
 ```
 
@@ -4096,6 +4122,61 @@ export function CommonOptions<C extends Component>({
 ```
 
 ```tsx
+// src/ui/components/ToggleOptions.tsx
+import { cornerReliefsOn, curvedFloorOn, fingerCutsOn } from "../../model/defaults";
+import type { Component } from "../../model/types";
+import { CheckField } from "../fields";
+import { useFieldNotices } from "../validation";
+import type { EditorProps } from "./types";
+
+/** Kinds that may have a curved floor (spec §5): it would bend cards and tilt upright tiles. */
+const CURVED_KINDS: readonly Component["kind"][] = ["bulk", "minis", "custom"];
+
+export function ToggleOptions<C extends Component>({
+  component: c,
+  index,
+  advanced,
+  onChange,
+}: EditorProps<C>) {
+  const floorNotes = useFieldNotices(`/components/${index}/curvedFloor`);
+  return (
+    <>
+      <CheckField
+        id={`${c.id}-fingerCuts`}
+        label="Finger cuts"
+        checked={fingerCutsOn(c)}
+        hint="A cut through a wall of each compartment, to reach in."
+        onChange={(on) => onChange({ ...c, fingerCuts: on })}
+      />
+      {CURVED_KINDS.includes(c.kind) || c.curvedFloor === true ? (
+        <CheckField
+          id={`${c.id}-curvedFloor`}
+          label="Curved floor"
+          checked={c.curvedFloor === true || curvedFloorOn(c)}
+          hint="A ramp up one wall of each compartment, to scoop pieces out."
+          onChange={(on) => onChange({ ...c, curvedFloor: on })}
+        />
+      ) : null}
+      {floorNotes.length > 0 ? (
+        <p class="field-error" role="alert">
+          {floorNotes.map((n) => n.message).join(" ")}
+        </p>
+      ) : null}
+      {advanced ? (
+        <CheckField
+          id={`${c.id}-cornerReliefs`}
+          label="Corner reliefs"
+          checked={cornerReliefsOn(c)}
+          hint="Round holes in each compartment's corners, so square pieces sit flat."
+          onChange={(on) => onChange({ ...c, cornerReliefs: on })}
+        />
+      ) : null}
+    </>
+  );
+}
+```
+
+```tsx
 // src/ui/components/CardsEditor.tsx
 import { useState } from "preact/hooks";
 import { setCardSides } from "../../app/actions";
@@ -4106,6 +4187,7 @@ import type { SelectOption } from "../fields";
 import { NumberField } from "../NumberField";
 import { CommonOptions } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
+import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 export const CUSTOM_SIZE = "custom";
@@ -4291,6 +4373,7 @@ export function CardsEditor({
           Add deck
         </button>
       </fieldset>
+      <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
       <MoreOptions open={advanced}>
         <CheckField
           id={`${c.id}-measured`}
@@ -4344,13 +4427,13 @@ export function CardsEditor({
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/insert-generator && npx vitest run src/ui/components/CardsEditor.test.tsx`
-Expected: PASS (6 tests).
+Expected: PASS (8 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 cd apps/insert-generator
-git add src/ui/components/types.ts src/ui/components/MoreOptions.tsx src/ui/components/CommonOptions.tsx src/ui/components/CardsEditor.tsx src/ui/components/CardsEditor.test.tsx
+git add src/ui/components/types.ts src/ui/components/MoreOptions.tsx src/ui/components/CommonOptions.tsx src/ui/components/ToggleOptions.tsx src/ui/components/CardsEditor.tsx src/ui/components/CardsEditor.test.tsx
 git commit -m "Add cards editor with shared component options"
 ```
 
@@ -4368,7 +4451,7 @@ git commit -m "Add cards editor with shared component options"
 
 **Interfaces:**
 
-- Consumes: `EditorProps`, `MoreOptions`, `CommonOptions` (Task 9); `NumberField`, `TextField`, `SelectField` (Task 6); `BulkComponent`, `BulkItem`, `TilesComponent`, `TileShape`, `MinisComponent`, `CustomComponent`.
+- Consumes: `EditorProps`, `MoreOptions`, `CommonOptions`, `ToggleOptions` (Task 9); `NumberField`, `TextField`, `SelectField` (Task 6); `BulkComponent`, `BulkItem`, `TilesComponent`, `TileShape`, `MinisComponent`, `CustomComponent`.
 - Produces:
   - `BulkEditor(props: EditorProps<BulkComponent>)` — item rows, each either count × w × d × h or a pile volume in ml.
   - `TilesEditor(props: EditorProps<TilesComponent>)` — rect (w, d) or hex (flat-to-flat, orientation), thickness, count; more options: storage.
@@ -4490,6 +4573,24 @@ describe("MinisEditor", () => {
   });
 });
 
+describe("toggles", () => {
+  it("defaults bits to a curved floor without finger cuts, and turns cuts on", () => {
+    const onChange = vi.fn<(c: BulkComponent) => void>();
+    render(<BulkEditor component={of("bulk")} index={0} advanced={false} onChange={onChange} />);
+    expect((screen.getByLabelText("Curved floor") as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByLabelText("Finger cuts"));
+    expect(lastOf(onChange).fingerCuts).toBe(true);
+  });
+
+  it("offers no curved floor on tiles, and corner reliefs on by default in advanced mode", () => {
+    const onChange = vi.fn<(c: TilesComponent) => void>();
+    render(<TilesEditor component={of("tiles")} index={0} advanced onChange={onChange} />);
+    expect(screen.queryByLabelText("Curved floor")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Corner reliefs"));
+    expect(lastOf(onChange).cornerReliefs).toBe(false);
+  });
+});
+
 describe("CustomEditor", () => {
   it("edits sizes and rejects a fractional count", () => {
     const onChange = vi.fn<(c: CustomComponent) => void>();
@@ -4518,6 +4619,7 @@ import { SelectField, TextField } from "../fields";
 import { NumberField } from "../NumberField";
 import { CommonOptions } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
+import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 const LENGTH = { min: 0, minExclusive: true, max: 1000 };
@@ -4647,6 +4749,7 @@ export function BulkEditor({
           Add item
         </button>
       </fieldset>
+      <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
       <MoreOptions open={advanced}>
         <CommonOptions component={c} index={index} onChange={onChange} />
       </MoreOptions>
@@ -4662,6 +4765,7 @@ import { SelectField } from "../fields";
 import { NumberField } from "../NumberField";
 import { CommonOptions } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
+import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 const LENGTH = { min: 0, minExclusive: true, max: 1000 };
@@ -4760,6 +4864,7 @@ export function TilesEditor({
         path={`${at}/count`}
         onCommit={(count) => onChange({ ...c, count })}
       />
+      <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
       <MoreOptions open={advanced}>
         <SelectField
           id={`${c.id}-storage`}
@@ -4786,6 +4891,7 @@ import { SelectField, TextField } from "../fields";
 import { NumberField } from "../NumberField";
 import { CommonOptions } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
+import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 const LENGTH = { min: 0, minExclusive: true, max: 1000 };
@@ -4880,6 +4986,7 @@ export function MinisEditor({
           Add figure
         </button>
       </fieldset>
+      <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
       <MoreOptions open={advanced}>
         <SelectField
           id={`${c.id}-storage`}
@@ -4904,6 +5011,7 @@ import type { CustomComponent } from "../../model/types";
 import { NumberField } from "../NumberField";
 import { CommonOptions } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
+import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 const LENGTH = { min: 0, minExclusive: true, max: 1000 };
@@ -4954,6 +5062,7 @@ export function CustomEditor({
         path={`${at}/count`}
         onCommit={(count) => onChange({ ...c, count })}
       />
+      <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
       <MoreOptions open={advanced}>
         <CommonOptions component={c} index={index} onChange={onChange} />
       </MoreOptions>
@@ -4965,7 +5074,7 @@ export function CustomEditor({
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/insert-generator && npx vitest run src/ui/components/editors.test.tsx`
-Expected: PASS (6 tests).
+Expected: PASS (8 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -11463,7 +11572,7 @@ built on demand by the geometry worker and cached in `app/meshes.ts`.
    PATCH (MINOR is breaking and needs a migration); from 1.0 on it is the
    MINOR (MAJOR is breaking). Add a fixture under `test/fixtures/schema/`.
 2. **Sizing:** turn it into `TrayRequirement` variants in `src/sizing/`
-   (one compartment requirement per item, finger pockets, elastic axes).
+   (one compartment requirement per item, finger cuts, elastic axes).
 3. **Geometry:** only if it needs a new compartment kind or feature. Bump
    `GEOMETRY_VERSION` (`geometry/version.ts`): while MAJOR is 0 a new optional
    feature is a PATCH and a change that breaks fit (or makes `planTray` reject

@@ -27,7 +27,8 @@ export interface CompartmentReq {
 export interface TrayPartReq {
   trayKey: string; // "<groupId ?? componentId>:p<player>:<part>" ("p0" without perPlayer, "pall" for combined)
   arrangement: "strip" | "rows2";
-  compartments: CompartmentReq[]; // strip order; rows2: first half row 0, rest row 1
+  compartments: CompartmentReq[]; // strip order; rows2: first half row 0, rest row 1; in each row
+  // the compartments asking for a left or right cutout come first (cutsFirst)
   rotatable: boolean;
 }
 
