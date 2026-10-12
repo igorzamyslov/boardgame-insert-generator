@@ -1,0 +1,106 @@
+// src/ui/SettingsForm.test.tsx
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  DEFAULT_SETTINGS,
+  applyFingerRoom,
+  applyFitChoice,
+  applyWallChoice,
+} from "../model/settings";
+import { SETTING_RANGES } from "../model/validate";
+import { SettingsForm } from "./SettingsForm";
+import { SETTING_SETTERS, settingUnit } from "./settingsFields";
+
+afterEach(cleanup);
+
+describe("SETTING_SETTERS", () => {
+  it("has a setter for every validated setting that writes what get() reads", () => {
+    for (const r of SETTING_RANGES) {
+      const set = SETTING_SETTERS[r.path];
+      expect(set, r.path).toBeDefined();
+      if (set) {
+        expect(r.get(set(DEFAULT_SETTINGS, 0.77))).toBe(0.77);
+      }
+    }
+  });
+
+  it("names units", () => {
+    expect(settingUnit("wall")).toBe("mm");
+    expect(settingUnit("fit")).toBeUndefined();
+    expect(settingUnit("packingFactor")).toBeUndefined();
+  });
+});
+
+describe("SettingsForm", () => {
+  it("writes resolved values from the simple choices", () => {
+    const onChange = vi.fn();
+    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Walls"), { target: { value: "sturdy" } });
+    expect(onChange).toHaveBeenCalledWith(applyWallChoice(DEFAULT_SETTINGS, "sturdy"));
+    fireEvent.change(screen.getByLabelText("Fit"), { target: { value: "loose" } });
+    expect(onChange).toHaveBeenCalledWith(applyFitChoice(DEFAULT_SETTINGS, "loose"));
+    fireEvent.click(screen.getByLabelText("Extra finger room in the box"));
+    expect(onChange).toHaveBeenCalledWith(applyFingerRoom(DEFAULT_SETTINGS, true));
+    expect(screen.queryByLabelText(/Corner radius/)).toBeNull();
+  });
+
+  it("shows a custom finger room as on, names it, and switches it off", () => {
+    const onChange = vi.fn();
+    const four = {
+      ...DEFAULT_SETTINGS,
+      fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, wallRoom: 4 },
+    };
+    render(<SettingsForm settings={four} advanced={false} onChange={onChange} />);
+    const box = screen.getByLabelText("Extra finger room in the box");
+    if (!(box instanceof HTMLInputElement)) {
+      throw new Error("not a checkbox");
+    }
+    expect(box.checked).toBe(true);
+    expect(screen.getByText(/Custom: 4 mm walls, 0 mm dividers/)).toBeTruthy();
+    fireEvent.click(box);
+    expect(onChange).toHaveBeenCalledWith(applyFingerRoom(four, false));
+  });
+
+  it("shows a custom choice when advanced values match no preset", () => {
+    render(
+      <SettingsForm
+        settings={{ ...DEFAULT_SETTINGS, wall: 1.8 }}
+        advanced={false}
+        onChange={vi.fn()}
+      />,
+    );
+    const select = screen.getByLabelText("Walls");
+    if (!(select instanceof HTMLSelectElement)) {
+      throw new Error("not a select");
+    }
+    expect(select.value).toBe("custom");
+    expect(screen.getByRole("option", { name: "Custom (1.8 mm)" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+  });
+
+  it("edits every advanced number, the lip and the leftover", () => {
+    const onChange = vi.fn();
+    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    expect(screen.queryByLabelText("Walls")).toBeNull();
+    for (const r of SETTING_RANGES) {
+      const exact = new RegExp(`^${r.label.replace(/[()]/g, "\\$&")}( \\(mm\\))?$`);
+      expect(screen.getByLabelText(exact), r.path).toBeTruthy();
+    }
+    fireEvent.input(screen.getByLabelText(/^Corner radius/), { target: { value: "4,5" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, cornerRadius: 4.5 });
+    fireEvent.input(screen.getByLabelText(/^Lip play/), { target: { value: "0,3" } });
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_SETTINGS,
+      lip: { ...DEFAULT_SETTINGS.lip, play: 0.3 },
+    });
+    fireEvent.click(screen.getByLabelText(/Locating lip/));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_SETTINGS,
+      lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+    });
+    fireEvent.change(screen.getByLabelText("Unused space"), { target: { value: "solid" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });
+  });
+});
