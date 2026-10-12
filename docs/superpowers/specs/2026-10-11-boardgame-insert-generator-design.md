@@ -85,9 +85,11 @@ box.
 7. **Contents fit.** Each compartment meets its minimum inner size, clearances
    and finger pockets included.
 8. **Every tray has a grip.** Either a compartment whose smaller inner
-   dimension is ≥ 25 mm, or a finger pocket (§6.1). Finger features lie inside
-   the tray's own footprint; nothing is cut through an outer wall. Upper trays
-   are lifted the same way.
+   dimension is ≥ 25 mm, a finger pocket or a wall cutout (§6.1). Finger
+   pockets of minis and custom wells lie inside the tray's own footprint and
+   never cut an outer wall. The finger channels and cutouts of cards and tiles
+   do cut through outer walls (and the lip on them), only where a card or tile
+   stack touches the wall. Upper trays are lifted the same way.
 
 ## 4. Architecture
 
@@ -264,7 +266,7 @@ interface Settings {
   bottomChamfer: number; // outer bottom edge (elephant foot)
   cornerRadius: number; // outer vertical corners
   scoopRadius: number;
-  fingerPocket: { width: number; reach: number };
+  fingerPocket: { width: number; reach: number; floorNotch: number; wallRoom: number };
   lip: { enabled: boolean; height: number; thickness: number; ledge: number; play: number };
   topPressFit: number;
   packingFactor: number;
@@ -272,28 +274,30 @@ interface Settings {
 }
 ```
 
-| Setting                                     | Simple-mode control          | Default                  |
-| ------------------------------------------- | ---------------------------- | ------------------------ |
-| `wall`                                      | thin / normal / sturdy       | 1.2 / 1.6 / 2.0          |
-| `floor`                                     | —                            | 1.2                      |
-| `divider`                                   | —                            | 1.2                      |
-| `fit`                                       | tight / normal / loose       | 0.7 / 1 / 1.4            |
-| `cardClearance` (×Fit)                      | via Fit                      | 1.5                      |
-| `cardStackClearance` + `Pct` (×Fit)         | via Fit                      | 1.0 + 3 % of the stack   |
-| `cardThickness`                             | advanced                     | 0.32                     |
-| `pieceClearance` (×Fit)                     | via Fit                      | 1.0                      |
-| `boxClearance` (×Fit)                       | via Fit                      | 0.5 per side             |
-| `trayGap` (×Fit)                            | via Fit                      | 0.2                      |
-| `bottomChamfer`                             | advanced                     | 0.4 (upper trays: ≥ 0.5) |
-| `cornerRadius`                              | advanced                     | 3                        |
-| `scoopRadius`                               | advanced                     | 12                       |
-| `fingerPocket` width / reach                | advanced                     | 22 / 12                  |
-| `lip` on / height / thickness / ledge       | advanced                     | on / 2 / 1.2 / 1.7       |
-| `lip.play` (×Fit)                           | via Fit                      | 0.25                     |
-| `topPressFit`                               | advanced                     | 0 (−2…+1)                |
-| `packingFactor`                             | advanced                     | 0.5                      |
-| `leftover`                                  | advanced: spare tray / solid | spare tray               |
-| `printer.bedMargin` / `printer.layerHeight` | advanced                     | 5 / 0.2                  |
+| Setting                                            | Simple-mode control                     | Default                  |
+| -------------------------------------------------- | --------------------------------------- | ------------------------ |
+| `wall`                                             | thin / normal / sturdy                  | 1.2 / 1.6 / 2.0          |
+| `floor`                                            | —                                       | 1.2                      |
+| `divider`                                          | —                                       | 1.2                      |
+| `fit`                                              | tight / normal / loose                  | 0.7 / 1 / 1.4            |
+| `cardClearance` (×Fit)                             | via Fit                                 | 1.5                      |
+| `cardStackClearance` + `Pct` (×Fit)                | via Fit                                 | 1.0 + 3 % of the stack   |
+| `cardThickness`                                    | advanced                                | 0.32                     |
+| `pieceClearance` (×Fit)                            | via Fit                                 | 1.0                      |
+| `boxClearance` (×Fit)                              | via Fit                                 | 0.5 per side             |
+| `trayGap` (×Fit)                                   | via Fit                                 | 0.2                      |
+| `bottomChamfer`                                    | advanced                                | 0.4 (upper trays: ≥ 0.5) |
+| `cornerRadius`                                     | advanced                                | 3                        |
+| `scoopRadius`                                      | advanced                                | 12                       |
+| `fingerPocket` width / reach (reach: pockets only) | advanced                                | 22 / 12                  |
+| `fingerPocket.floorNotch`                          | advanced                                | 8 (0 = none, up to 20)   |
+| `fingerPocket.wallRoom`                            | "Extra finger room in the box": on = 10 | 0 (off; up to 20)        |
+| `lip` on / height / thickness / ledge              | advanced                                | on / 2 / 1.2 / 1.7       |
+| `lip.play` (×Fit)                                  | via Fit                                 | 0.25                     |
+| `topPressFit`                                      | advanced                                | 0 (−2…+1)                |
+| `packingFactor`                                    | advanced                                | 0.5                      |
+| `leftover`                                         | advanced: spare tray / solid            | spare tray               |
+| `printer.bedMargin` / `printer.layerHeight`        | advanced                                | 5 / 0.2                  |
 
 Simple-mode controls write resolved numbers into `settings`; the project
 never stores "use the default".
@@ -361,6 +365,14 @@ interface TraySpec {
           reach: number;
           depth: number;
         }
+      | {
+          type: "wallCutout";
+          side: "front" | "back" | "left" | "right";
+          at: number;
+          width: number;
+          depth: number;
+          floorNotch: number;
+        }
       | { type: "scoop"; side: "front" | "back" | "left" | "right"; r: number }
       | { type: "cornerRelief"; d: number }
     )[];
@@ -389,21 +401,53 @@ Coordinates are stored in mm and computed as integer 0.01 mm units.
   below the chamfer.
 - Meshes come out of manifold and are watertight by construction.
 
-**Finger pockets.** A U-slot `fingerPocket.width` wide, cut down from the
-top, extending `fingerPocket.reach` beyond the content into the tray body,
-inside the tray's own footprint. Sizing adds the reach to the compartment
-requirement. Pockets never cut through an outer wall. A cut through a divider
-is allowed only between compartments of the same tray. Adjacent pockets on
-one side may merge into one channel.
+**Finger pockets** (minis pockets and custom wells). A U-slot
+`fingerPocket.width` wide, cut down from the top, extending
+`fingerPocket.reach` beyond the content into the tray body, inside the tray's
+own footprint. Sizing adds the reach to the compartment requirement. Pockets
+never cut through an outer wall. A cut through a divider is allowed only
+between compartments of the same tray. Adjacent pockets on one side may merge
+into one channel.
 
-| Content                 | Pocket position                                                               | Depth       |
-| ----------------------- | ----------------------------------------------------------------------------- | ----------- |
-| Cards / tiles, upright  | Both sides touching the card edges (perpendicular to the faces), one per deck | ⅓ of well   |
-| Cards, flat             | Both short sides, half-round                                                  | Full        |
-| Tiles, flat             | Two opposite sides                                                            | Full        |
-| Minis, pockets          | One per pocket                                                                | ⅓ of pocket |
-| Custom                  | One side                                                                      | Full        |
-| Bulk, spare, minis bulk | None: compartments ≥ 25 mm are the grip (rule 8)                              | —           |
+**Wall cutouts** (cards and tiles). A U-cut `fingerPocket.width` wide (round
+bottom, radius half the width), from the rim down, through the wall or divider
+on one side of a well: out through the outer wall, or across a divider into
+the next well, which is cut on the facing side too, or into a spare
+compartment. Never into bits, minis or a custom well: a deck beside one is cut
+on its other side only. Wells need no extra room (no reach bands): they are
+content + clearance.
+
+- **Upright cards and tiles:** one centred channel per row, along the stack
+  (X): through both end walls (touching the first and last card faces) and
+  every divider between decks or stacks. It is centred on the card length,
+  half the shallowest well deep, and as wide as the setting or the room its row
+  has (rows of tiles shorter than the setting get a channel the length of the
+  tiles). With two rows each row has its own channel, which keeps at least
+  0.8 mm (half the gap) from the other row: the divider between the rows stays
+  whole. The front and back walls stay whole.
+- **Flat cards and tiles:** a half-round cutout through each long wall (along
+  the long side; left and right for a flat deck), centred on it, down to the
+  floor, plus a **floor notch**: the cut's middle (`fingerPocket.floorNotch`,
+  8 mm radius, 0 = none, at most half the cut) goes on down through the floor,
+  and a half-disc of that radius cuts the well's floor, so a fingertip gets
+  under the stack. A notch under a divider leaves a hole in the floor.
+- **Finger room** (`fingerPocket.wallRoom`, simple mode "Extra finger room in
+  the box": 10 mm): the outer walls a cutout leaves through are that much
+  thicker (inward; the tray is 2 × that longer on that axis), so the cut gives
+  a finger room even when the tray sits flush against its neighbours. Dividers
+  and other walls are unchanged; a spare at the end of a row takes the room
+  instead.
+- Where a cutout leaves through a lipped wall it interrupts the lip; the lip on
+  the other walls and beside the cut still locates the upper tray, which rests
+  on the ledge and dividers around the cut.
+
+| Content                 | Finger feature                                                 | Depth                    |
+| ----------------------- | -------------------------------------------------------------- | ------------------------ |
+| Cards / tiles, upright  | One channel per row through both end walls and every divider   | ½ of the shallowest well |
+| Cards / tiles, flat     | Half-round cutouts through both long walls, with a floor notch | To the floor             |
+| Minis, pockets          | One finger pocket per pocket                                   | ⅓ of pocket              |
+| Custom                  | One finger pocket                                              | Full                     |
+| Bulk, spare, minis bulk | None: compartments ≥ 25 mm are the grip (rule 8)               | —                        |
 
 **Locating lip** (on any tray with a tray stacked on it):
 
@@ -421,18 +465,18 @@ app warns (rule 4).
 
 ### 6.2 Per type
 
-| Type           | Shape                                                    | Notes                                                                                                                                                                                       |
-| -------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cards, upright | One well per deck in a strip, dividers between           | `upright-long`: stands on its long edge (well height from the short side); `upright-short`: the reverse (§7.1). Spare stack length goes to a removable card spacer, or to thicker dividers. |
-| Card spacer    | Separate solid block                                     | Well width × spare length × (well height − 5), printed standing.                                                                                                                            |
-| Cards, flat    | Rectangular well                                         | —                                                                                                                                                                                           |
-| Bulk           | Scoop tray, compartments in a strip (one per item line)  | Scoop fillet on the compartment's front wall (tray-local −Y), radius `min(scoopRadius, depth, width/2)`.                                                                                    |
-| Tiles, flat    | Rect/hex wells, one per column                           | Columns added when `count × thickness` exceeds the well height. Hex corner-to-corner = `flatToFlat · 2/√3`.                                                                                 |
-| Tiles, upright | As upright cards                                         | Hex stands on a flat edge: height `flatToFlat`, length corner-to-corner.                                                                                                                    |
-| Minis, pockets | One rounded pocket per figure (bounding box + clearance) | Each pocket's depth = its figure's `h` + clearance (solid raised pocket floor). The tallest figure sets the minimum tray height.                                                            |
-| Minis, bulk    | As bulk                                                  | Volume = Σ bounding boxes ÷ `packingFactor`.                                                                                                                                                |
-| Custom         | Plain well per item                                      | `pieceClearance`.                                                                                                                                                                           |
-| Leftover       | Open "spare" tray (default) or solid block               | Fills space that can't be used, so the box is always full.                                                                                                                                  |
+| Type           | Shape                                                    | Notes                                                                                                                                                                                                                                                 |
+| -------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cards, upright | One well per deck in a strip, dividers between           | `upright-long`: stands on its long edge (well height from the short side); `upright-short`: the reverse (§7.1). Spare stack length goes to a removable card spacer, or to thicker dividers. One finger channel through the walls and dividers (§6.1). |
+| Card spacer    | Separate solid block                                     | Well width × spare length × (well height − 5), printed standing.                                                                                                                                                                                      |
+| Cards, flat    | Rectangular well                                         | Long side along Y; half-round cutouts through both long walls with a floor notch (§6.1).                                                                                                                                                              |
+| Bulk           | Scoop tray, compartments in a strip (one per item line)  | Scoop fillet on the compartment's front wall (tray-local −Y), radius `min(scoopRadius, depth, width/2)`.                                                                                                                                              |
+| Tiles, flat    | Rect/hex wells, one per column                           | Columns added when `count × thickness` exceeds the well height. Hex corner-to-corner = `flatToFlat · 2/√3`. Cutouts through the two walls along the longer side (left and right for a square).                                                        |
+| Tiles, upright | As upright cards                                         | Hex stands on a flat edge: height `flatToFlat`, length corner-to-corner.                                                                                                                                                                              |
+| Minis, pockets | One rounded pocket per figure (bounding box + clearance) | Each pocket's depth = its figure's `h` + clearance (solid raised pocket floor). The tallest figure sets the minimum tray height.                                                                                                                      |
+| Minis, bulk    | As bulk                                                  | Volume = Σ bounding boxes ÷ `packingFactor`.                                                                                                                                                                                                          |
+| Custom         | Plain well per item                                      | `pieceClearance`.                                                                                                                                                                                                                                     |
+| Leftover       | Open "spare" tray (default) or solid block               | Fills space that can't be used, so the box is always full.                                                                                                                                                                                            |
 
 **Groups and multi-compartment trays.** Compartments are laid out as a 1-D
 strip, or 2 rows, along the tray's long axis. Every compartment uses the full
@@ -444,7 +488,9 @@ tray height: elastic kinds (bulk) grow deeper, others get a solid raised floor.
 
 `sizing` turns each component, or each group, into `TrayRequirement`s:
 
-- the minimum inner size of each compartment, finger pockets included;
+- the minimum inner size of each compartment, finger pockets included (wall
+  cutouts need no room of their own; cut outer walls may get extra finger
+  room, §6.1);
 - which axes can grow ("elastic") and by how much: for upright cards only stack
   length; for bulk any axis, as long as volume stays ≥ required and the
   per-axis minimums below hold;

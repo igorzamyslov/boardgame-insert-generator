@@ -39,6 +39,8 @@
 
 These are interpretations of the spec/roadmap that every task relies on. None changes a §4 type or signature.
 
+**Amendment (2026-10-12, implemented after this plan): finger channels.** Cards and tiles no longer get finger pockets. Upright cards and tiles ask for wall cutouts on their left and right (one centred channel per row through both end walls and every divider, half the shallowest well deep); flat cards on their left and right (long side along Y) and flat tiles on the walls along their longer side, down to the floor with a floor notch. Their compartments have no reach bands, `minOuter` never widens them for a slot, and they never throw `SlotFitError`. `fingerPocket.wallRoom` thickens the outer walls a cutout leaves through. `FeatureReq` gained `"wallCutout"` and `floorNotch`. See roadmap §4.2, §4.6 and §4.7 (`sizing/cutouts.ts`). The finger pocket decisions below (reach bands, `at`, slot widths, `SlotFitError`) now apply to minis pockets and custom wells only, and the card-pocket examples in the tasks are historical.
+
 **Tray-local frame.** A part's compartments run left → right along X (`w`) in a _strip_; `rows2` has row 0 at the front (low Y) and row 1 behind it. Row 0 holds the first `ceil(n/2)` compartments of `part.compartments`.
 
 **Card / tile orientation in a compartment.** Upright: the stack runs along X (`minW` = stack width, `spacerAxis: "w"`), the card/tile length along Y, height = vertical. Flat cards: short side along X, long side along Y. So card edges touch the front/back walls in every storage, and all card/tile finger pockets are on `front` and `back`.

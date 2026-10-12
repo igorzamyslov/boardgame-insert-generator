@@ -36,6 +36,8 @@
 
 ## Design notes (read before Task 3)
 
+**Amendment (2026-10-12, implemented after this plan): wall cutouts.** A new feature `{ type: "wallCutout", side, at, width, depth, floorNotch }` (`KNOWN_FEATURE_TYPES`, `geometry/plan-cuts.ts`) cuts the finger channels and cutouts of cards and tiles: a U through the wall or divider on one side of a compartment, from its face to the next compartment's face or out through the outer wall and the lip on it, with an optional floor notch through the bottom. Finger pockets stay as described below for minis pockets and custom wells, and still never cut an outer wall; spec §3 rule 8 now lets wall cutouts through. Corner reliefs keep `MIN_WALL_MM` to outer faces. `GEOMETRY_VERSION` is `0.1.1`. See roadmap §4.6.
+
 **Frames.** Mesh frame = tray-local: origin at the outer min corner, z = 0 at the bottom, `w` along X, `d` along Y (roadmap §4.3). Compartment rectangles are tray-local.
 
 **What the geometry reads from settings.** Only `bottomChamfer`, `cornerRadius` and `lip.{height, thickness, ledge}`. Scoop radii, finger-pocket sizes and relief diameters come from the `TraySpec` features; `spec.lip` (not `settings.lip.enabled`) decides whether a lip is built.

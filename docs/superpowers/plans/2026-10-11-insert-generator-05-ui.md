@@ -19,6 +19,7 @@ Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts
 3. **Geometry version lines (spec §9).** The "reprint the whole insert" notice uses plan 3's `isOlderGeometryLine(layout.geometryVersion)` (`geometry/version.ts`, pure): pre-1.0 each `0.MINOR` is a major line, so `0.0.x` is older than `0.1.0` and `0.1.x` is not (Task 2 `state.ts`).
 4. **Sizing notices.** `size()` drops variants whose finger slots cannot fit and, when none is left, emits a warning `sizing.noFingerSlot` at `/components/<i>` (roadmap §4.2); `sizingNotices` shows it like the other sizing warnings. `settingsValid` adds the cross-field settings errors `field.bottomChamfer` and `field.lipBearing` (both at `/settings/bottomChamfer`, shown next to the bottom chamfer field), and the wall and lip thickness minimum is `MIN_WALL_MM` = 0.9 mm (`SETTING_RANGES`).
 5. **Test-only helpers.** Plan 4's checker and fixture loader are `layout/test-hard-rules.ts` and `layout/test-fixtures.ts`; production code never imports a `test-*` module (root ESLint rule), and outside `geometry/` it imports only `geometry/{types,version,client}`.
+6. **Finger channels (roadmap §4.5, §4.6, §4.7; implemented after plans 1–3).** Cards and tiles get wall cutouts (`FeatureSpec` `"wallCutout"`, in `KNOWN_FEATURE_TYPES`) instead of finger pockets. `Settings.fingerPocket` gained `floorNotch` (advanced, 0–20 mm, default 8) and `wallRoom` (0–20 mm, default 0), both in `SETTING_RANGES` (paths `fingerPocket/floorNotch`, `fingerPocket/wallRoom`), so `SETTING_SETTERS` has a setter for each (Task 8). Simple mode adds a third control, the "Extra finger room in the box" switch, bound to `fingerRoomOf`/`applyFingerRoom` and `FINGER_ROOM_MM` (`model/settings`): on writes `wallRoom` = 10 mm, off 0; a custom advanced value shows as on, with a hint naming it (Task 8). `SCHEMA_VERSION` and `GEOMETRY_VERSION` are `0.1.1` (same line as `0.1.0`). The code blocks of Task 8 are patched.
 
 ## Global Constraints
 
@@ -865,7 +866,7 @@ describe("createState", () => {
         ...p,
         layout: makeLayout(inputsHash(p), undefined, { geometryVersion }),
       }).layoutNotices.value.map((n) => n.code);
-    // GEOMETRY_VERSION is 0.1.0: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
+    // GEOMETRY_VERSION is 0.1.1: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
     expect(codesFor("0.0.9")).toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.1.4")).not.toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.2.0")).not.toContain(GEOMETRY_MAJOR_CODE);
@@ -3486,11 +3487,11 @@ git commit -m "Add box and printer forms"
 
 **Interfaces:**
 
-- Consumes: `SETTING_RANGES` (`model/validate`: `{ path, label, get, min, max }[]`, paths like `"wall"`, `"fingerPocket/width"`, `"lip/play"`), `applyWallChoice`, `applyFitChoice`, `wallChoiceOf`, `fitChoiceOf`, `WALL_CHOICES`, `FIT_CHOICES`, `WallChoice`, `FitChoice` (`model/settings`); `NumberField`, `SelectField`, `CheckField` (Task 6).
+- Consumes: `SETTING_RANGES` (`model/validate`: `{ path, label, get, min, max }[]`, paths like `"wall"`, `"fingerPocket/width"`, `"lip/play"`), `applyWallChoice`, `applyFitChoice`, `wallChoiceOf`, `fitChoiceOf`, `WALL_CHOICES`, `FIT_CHOICES`, `WallChoice`, `FitChoice`, `applyFingerRoom`, `fingerRoomOf`, `FINGER_ROOM_MM` (`model/settings`); `NumberField`, `SelectField`, `CheckField` (Task 6).
 - Produces:
   - `SETTING_SETTERS: Record<string, (s: Settings, v: number) => Settings>` — one pure setter per `SETTING_RANGES` path.
   - `settingUnit(path: string): string | undefined` — `"mm"` except fit, fractions.
-  - `interface SettingsFormProps { settings: Settings; advanced: boolean; onChange: (s: Settings) => void }`; `SettingsForm(props)` — simple mode: "Walls" thin/normal/sturdy and "Fit" tight/normal/loose (a disabled "Custom" option appears when advanced values match neither); advanced mode replaces them with every `Settings` number, the lip switch and the leftover choice.
+  - `interface SettingsFormProps { settings: Settings; advanced: boolean; onChange: (s: Settings) => void }`; `SettingsForm(props)` — simple mode: "Walls" thin/normal/sturdy and "Fit" tight/normal/loose (a disabled "Custom" option appears when advanced values match neither) and the "Extra finger room in the box" switch; advanced mode replaces them with every `Settings` number, the lip switch and the leftover choice.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3499,7 +3500,12 @@ git commit -m "Add box and printer forms"
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_SETTINGS, applyFitChoice, applyWallChoice } from "../model/settings";
+import {
+  DEFAULT_SETTINGS,
+  applyFingerRoom,
+  applyFitChoice,
+  applyWallChoice,
+} from "../model/settings";
 import { SETTING_RANGES } from "../model/validate";
 import { SettingsForm } from "./SettingsForm";
 import { SETTING_SETTERS, settingUnit } from "./settingsFields";
@@ -3532,7 +3538,26 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenCalledWith(applyWallChoice(DEFAULT_SETTINGS, "sturdy"));
     fireEvent.change(screen.getByLabelText("Fit"), { target: { value: "loose" } });
     expect(onChange).toHaveBeenCalledWith(applyFitChoice(DEFAULT_SETTINGS, "loose"));
+    fireEvent.click(screen.getByLabelText("Extra finger room in the box"));
+    expect(onChange).toHaveBeenCalledWith(applyFingerRoom(DEFAULT_SETTINGS, true));
     expect(screen.queryByLabelText(/Corner radius/)).toBeNull();
+  });
+
+  it("shows a custom finger room as on, names it, and switches it off", () => {
+    const onChange = vi.fn();
+    const four = {
+      ...DEFAULT_SETTINGS,
+      fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, wallRoom: 4 },
+    };
+    render(<SettingsForm settings={four} advanced={false} onChange={onChange} />);
+    const box = screen.getByLabelText("Extra finger room in the box");
+    if (!(box instanceof HTMLInputElement)) {
+      throw new Error("not a checkbox");
+    }
+    expect(box.checked).toBe(true);
+    expect(screen.getByText(/Custom: 4 mm/)).toBeTruthy();
+    fireEvent.click(box);
+    expect(onChange).toHaveBeenCalledWith(applyFingerRoom(four, false));
   });
 
   it("shows a custom choice when advanced values match no preset", () => {
@@ -3608,6 +3633,11 @@ export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Setting
   scoopRadius: (s, v) => ({ ...s, scoopRadius: v }),
   "fingerPocket/width": (s, v) => ({ ...s, fingerPocket: { ...s.fingerPocket, width: v } }),
   "fingerPocket/reach": (s, v) => ({ ...s, fingerPocket: { ...s.fingerPocket, reach: v } }),
+  "fingerPocket/floorNotch": (s, v) => ({
+    ...s,
+    fingerPocket: { ...s.fingerPocket, floorNotch: v },
+  }),
+  "fingerPocket/wallRoom": (s, v) => ({ ...s, fingerPocket: { ...s.fingerPocket, wallRoom: v } }),
   "lip/height": (s, v) => ({ ...s, lip: { ...s.lip, height: v } }),
   "lip/thickness": (s, v) => ({ ...s, lip: { ...s.lip, thickness: v } }),
   "lip/ledge": (s, v) => ({ ...s, lip: { ...s.lip, ledge: v } }),
@@ -3626,10 +3656,13 @@ export function settingUnit(path: string): string | undefined {
 ```tsx
 // src/ui/SettingsForm.tsx
 import {
+  FINGER_ROOM_MM,
   FIT_CHOICES,
   WALL_CHOICES,
+  applyFingerRoom,
   applyFitChoice,
   applyWallChoice,
+  fingerRoomOf,
   fitChoiceOf,
   wallChoiceOf,
 } from "../model/settings";
@@ -3720,7 +3753,16 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
   );
 }
 
-/** Simple mode: two choices that write resolved numbers (spec §5). Advanced mode edits the numbers. */
+/** The finger room switch's hint: what it does, and a custom advanced value if there is one. */
+function fingerRoomHint(s: Settings): string {
+  const base = `Makes the outer walls the finger cutouts go through ${FINGER_ROOM_MM} mm thicker, so you can reach in when trays sit tight.`;
+  return fingerRoomOf(s) === "custom" ? `${base} Custom: ${s.fingerPocket.wallRoom} mm.` : base;
+}
+
+/**
+ * Simple mode: choices that write resolved numbers (spec §5): walls, fit and the finger room switch
+ * (on for any wall room, including a custom one). Advanced mode edits the numbers.
+ */
 function SimpleChoices({ settings, onChange }: Omit<SettingsFormProps, "advanced">) {
   return (
     <>
@@ -3747,6 +3789,13 @@ function SimpleChoices({ settings, onChange }: Omit<SettingsFormProps, "advanced
           }
         }}
       />
+      <CheckField
+        id="settings-fingerRoom"
+        label="Extra finger room in the box"
+        checked={fingerRoomOf(settings) !== false}
+        hint={fingerRoomHint(settings)}
+        onChange={(on) => onChange(applyFingerRoom(settings, on))}
+      />
     </>
   );
 }
@@ -3755,7 +3804,7 @@ function SimpleChoices({ settings, onChange }: Omit<SettingsFormProps, "advanced
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/insert-generator && npx vitest run src/ui/SettingsForm.test.tsx`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 5: Commit**
 
