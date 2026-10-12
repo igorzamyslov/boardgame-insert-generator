@@ -92,7 +92,8 @@ Notes for adding them later without reworking the layout engine:
    With the lip turned off this is not ensured, and the app warns when a
    layout has stacked trays.
 5. **Fits the bed.** Every printed part fits the usable bed
-   `(bedX − 2·bedMargin) × (bedY − 2·bedMargin) × bedZ`, in either XY rotation.
+   `(bedX − 2·bedMargin) × (bedY − 2·bedMargin) × bedZ`, in either XY rotation; a
+   lipped tray is printed `lip.height` taller than its own height.
 6. **Openings face up.** Box orientation = print orientation. No supports,
    no bridges, no ceilings: no downward-facing surface above z = 0 steeper
    than 45° from vertical. Raised floors are solid.
