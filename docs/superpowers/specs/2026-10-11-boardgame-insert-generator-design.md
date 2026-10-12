@@ -423,8 +423,11 @@ bottom, radius half the width), from the rim down, through the wall or divider
 on one side of a well: out through the outer wall, or across a divider into
 the next well, which is cut on the facing side too, or into a spare
 compartment. Never into bits, minis or a custom well: a deck beside one is cut
-on its other side only. Wells need no extra room (no reach bands): they are
-content + clearance.
+on its other side only. In a group, cards and tiles cut along the row come first
+in their row, so the first one's cut leaves through the outer wall; a well that
+still gets no cut along the row is cut across it (through the front and back
+walls) instead, and one with no cut either way is not offered (a warning names
+it). Wells need no extra room (no reach bands): they are content + clearance.
 
 - **Upright cards and tiles:** one centred channel per row, along the stack
   (X): through both end walls (touching the first and last card faces) and

@@ -339,13 +339,13 @@ function checkTray(
     }
     throw error;
   }
-  assertTrayInvariants(realized, outer, s, opts);
+  assertTrayInvariants(realized, outer, s, opts, part);
   checkAgainstPart(part, outer, realized);
   expect(realizeTray(part, outer, s, opts)).toEqual(realized);
 
   const turnedOuter = { w: outer.d, d: outer.w, h: outer.h };
   const turned = rotateRealized(realized, outer);
-  assertTrayInvariants(turned, turnedOuter, s, opts);
+  assertTrayInvariants(turned, turnedOuter, s, opts, part);
   spacersInsideCompartments(turned);
   expect(hasGrip(turned.compartments)).toBe(true);
   expect(turned.compartments).toHaveLength(realized.compartments.length);

@@ -1,3 +1,4 @@
+import { cutoutSides } from "./common";
 import { MAX_SPLITS } from "./constants";
 import type { CompartmentReq } from "./types";
 import { sum } from "./units";
@@ -31,6 +32,18 @@ export function rows2Order(compartments: readonly CompartmentReq[]): Compartment
   }
   const byIndex = (a: Indexed, b: Indexed): number => a.i - b.i;
   return [...row0.sort(byIndex), ...row1.sort(byIndex)].map((x) => x.c);
+}
+
+/**
+ * The row with the compartments that ask for a cutout on their left or right (cards and tiles
+ * whose channel runs along the row) moved to its start, each group in its order: the first one's
+ * cut leaves through the outer wall, and the ones after it can share its channel. Between bits,
+ * minis or custom wells such a compartment had no free wall along the row (review 1, I2).
+ */
+export function cutsFirst(row: readonly CompartmentReq[]): CompartmentReq[] {
+  const alongRow = (c: CompartmentReq): boolean =>
+    cutoutSides(c.features).some((side) => side === "left" || side === "right");
+  return [...row.filter(alongRow), ...row.filter((c) => !alongRow(c))];
 }
 
 export function blockWeight(block: readonly CompartmentReq[]): number {

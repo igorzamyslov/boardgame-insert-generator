@@ -15,7 +15,7 @@ describe("sizing public API", () => {
     ]) {
       expect(typeof fn).toBe("function");
     }
-    expect(new sizing.SlotFitError("m", 15, [], [])).toBeInstanceOf(RangeError);
+    expect(new sizing.SlotFitError("m", "slot", 15, [], [])).toBeInstanceOf(RangeError);
   });
 
   it("sizes, measures and realizes a mixed project, every tray with a grip", () => {

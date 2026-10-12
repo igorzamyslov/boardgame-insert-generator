@@ -54,7 +54,7 @@ function slotFitError(parts: readonly TrayPartReq[], settings: Settings): SlotFi
   return null;
 }
 
-/** The warning for a requirement none of whose variants fits its finger slots. */
+/** The warning for a requirement none of whose variants fits its finger slots or cutouts. */
 function noFingerSlot(
   error: SlotFitError,
   key: string,
@@ -63,10 +63,15 @@ function noFingerSlot(
 ): Notice {
   const stuck = usable.find((u) => error.componentIds.includes(u.c.id)) ?? usable[0];
   const what = usable.length > 1 ? `the group "${key}"` : "it";
+  const name = stuck ? displayName(stuck.c) : key;
+  const message =
+    error.what === "cutout"
+      ? `${name}: no tray arrangement leaves room for a finger cutout by ${error.contents.join(", ")} clear of the rounded outer corners, so ${what} is left out. Try another storage or a smaller bottom chamfer.`
+      : `${name}: no tray arrangement leaves room for a finger slot of at least ${error.minWidth} mm by ${error.contents.join(", ")}, even up to ${settings.fingerPocket.width} mm wider, so ${what} is left out. Try another storage or a narrower finger pocket.`;
   return {
     level: "warning",
     code: "sizing.noFingerSlot",
-    message: `${stuck ? displayName(stuck.c) : key}: no tray arrangement leaves room for a finger slot of at least ${error.minWidth} mm by ${error.contents.join(", ")}, even up to ${settings.fingerPocket.width} mm wider, so ${what} is left out. Try another storage or a narrower finger pocket.`,
+    message,
     path: `/components/${stuck?.index ?? 0}`,
   };
 }

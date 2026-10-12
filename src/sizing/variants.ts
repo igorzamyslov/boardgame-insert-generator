@@ -1,4 +1,5 @@
-import { rows2Order, splitBlocks } from "./arrange";
+import { cutsFirst, rows2Order, splitBlocks } from "./arrange";
+import { rowsOf } from "./outer";
 import type { StorageOption } from "./common";
 import { MAX_SPLITS, MAX_VARIANTS } from "./constants";
 import type { CompartmentReq, TrayPartReq, TrayVariant } from "./types";
@@ -29,12 +30,13 @@ function makePart(
     return null;
   }
   if (arrangement === "strip") {
-    return { trayKey, arrangement, compartments, rotatable: true };
+    return { trayKey, arrangement, compartments: cutsFirst(compartments), rotatable: true };
   }
   if (compartments.length < 2) {
     return null;
   }
-  return { trayKey, arrangement, compartments: rows2Order(compartments), rotatable: true };
+  const rows = rowsOf(arrangement, rows2Order(compartments));
+  return { trayKey, arrangement, compartments: rows.flatMap(cutsFirst), rotatable: true };
 }
 
 function allOrNull(parts: readonly (TrayPartReq | null)[]): TrayPartReq[] | null {

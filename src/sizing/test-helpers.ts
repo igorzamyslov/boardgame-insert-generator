@@ -130,13 +130,16 @@ export function partOf(
  * planTray's own: the tray must plan without a RangeError. On top of that, in whole 0.01 mm
  * units, what only sizing promises: compartments keep the divider setting apart, floors are at
  * least the floor setting, finger slots are at least min(MIN_SLOT_WIDTH, the width setting), and
- * wall cutouts at most the width setting, their floor notch at most the notch setting.
+ * wall cutouts at most the width setting, their floor notch at most the notch setting. Given the
+ * `part` it was realized from, every compartment that asks for wall cutouts (cards and tiles) has
+ * at least one: finger access is never left out silently (review 1, I2).
  */
 export function assertTrayInvariants(
   realized: RealizedTray,
   outer: OuterSize,
   settings: Settings,
   opts: RealizeOptions,
+  part?: TrayPartReq,
 ): void {
   const gap = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
   const minFloor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
@@ -145,6 +148,14 @@ export function assertTrayInvariants(
   const maxCut = 2 * Math.ceil(ceilU(settings.fingerPocket.width) / 2);
   const u = (mm: number): number => Math.round(mm * 100);
   const list = realized.compartments;
+  part?.compartments.forEach((req, i) => {
+    if (req.features.some((f) => f.type === "wallCutout")) {
+      const cuts = (list[i]?.features ?? []).filter((f) => f.type === "wallCutout");
+      expect(cuts.length, `compartment ${i} (${req.contents}) has a wall cutout`).toBeGreaterThan(
+        0,
+      );
+    }
+  });
   list.forEach((c, i) => {
     const label = `compartment ${i} (${c.contents})`;
     expect(u(c.floorZ), `${label} floorZ`).toBeGreaterThanOrEqual(minFloor);
@@ -215,6 +226,11 @@ function expectSpacerNotched(sp: TraySpec, compartments: CompartmentSpec[], H: n
       continue;
     }
     const axis = f.side === "left" || f.side === "right" ? "x" : "y";
+    // A cut across the row (along y) crosses the spacer only where its band overlaps it along x.
+    const [lo, hi] = [u(f.at - f.width / 2), u(f.at + f.width / 2)];
+    if (axis === "y" && (hi <= u(sp.x) || lo >= u(sp.x + sp.w))) {
+      continue;
+    }
     const notch = (sp.features ?? []).find((n) => n.type === "spacerNotch");
     const label = `${sp.key}: spacer notch for the ${f.side} channel`;
     expect(notch?.type === "spacerNotch" && notch.axis, label).toBe(axis);

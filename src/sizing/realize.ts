@@ -74,6 +74,8 @@ function contentDepth(req: CompartmentReq, well: Rect, H: number, floor: number)
   return Math.max(need, Math.min(H - floor, cap));
 }
 
+const SIDES: readonly Side[] = ["front", "back", "left", "right"];
+
 function featureSpecs(
   req: CompartmentReq,
   content: Rect,
@@ -90,20 +92,28 @@ function featureSpecs(
       return [{ type: "scoop", side, r: fromU(r) }];
     }
     if (f.type === "wallCutout") {
-      // No cut where the side faces bits, minis or a custom well (placeCutouts).
-      const cut = ctx.cuts.get(side);
-      return cut === undefined
-        ? []
-        : [
-            {
-              type: "wallCutout",
-              side,
-              at: fromU(cut.at),
-              width: fromU(cut.width),
-              depth: fromU(cut.depth),
-              floorNotch: fromU(cut.notch),
-            },
-          ];
+      // Every cut at the first request: no cut where a side faces bits, minis or a custom well,
+      // and the other axis's where none of the requested sides got one (placeCutouts).
+      if (f !== req.features.find((g) => g.type === "wallCutout")) {
+        return [];
+      }
+      const asked = cutoutSides(req.features);
+      const sides = [...asked, ...SIDES.filter((other) => !asked.includes(other))];
+      return sides.flatMap((s): FeatureSpec[] => {
+        const cut = ctx.cuts.get(s);
+        return cut === undefined
+          ? []
+          : [
+              {
+                type: "wallCutout",
+                side: s,
+                at: fromU(cut.at),
+                width: fromU(cut.width),
+                depth: fromU(cut.depth),
+                floorNotch: fromU(cut.notch),
+              },
+            ];
+      });
     }
     const slot = ctx.slots.get(side);
     if (slot === undefined) {
@@ -316,6 +326,7 @@ function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
   const least = fromU(Math.min(toU(MIN_SLOT_WIDTH), ceilU(settings.fingerPocket.width)));
   throw new SlotFitError(
     `Tray ${frame.trayKey}: cannot fit a finger slot of at least ${least} mm for ${contents.join(", ")}`,
+    "slot",
     least,
     [...new Set(stuck.map((req) => req.componentId))],
     contents,
@@ -327,10 +338,17 @@ function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
  * after the finger slots and the spares: a cutout may run into a spare and keeps clear of slots.
  */
 function wallCutouts(
-  items: readonly { req: CompartmentReq; alloc: Rect; depth: number }[],
+  items: readonly { req: CompartmentReq; alloc: Rect; well: Rect; spacer: number; depth: number }[],
   spares: readonly Rect[],
   slots: readonly Rect2[],
-  frame: { W: number; D: number; H: number; min: MinLayout; settings: Settings },
+  frame: {
+    trayKey: string;
+    W: number;
+    D: number;
+    H: number;
+    min: MinLayout;
+    settings: Settings;
+  },
 ): Map<Side, CutPlacement>[] {
   const { W, D, H, min, settings } = frame;
   const requests: CutRequest[] = items.flatMap(({ req }, owner) =>
@@ -347,6 +365,9 @@ function wallCutouts(
   const placed = placeCutouts(requests, {
     rects: [...items.map((item) => item.alloc), ...spares],
     spare: (index) => index >= items.length,
+    spacers: items.map(({ well, spacer }) =>
+      spacer > 0 ? { x: well.x + well.w - spacer, y: well.y, w: spacer, d: well.d } : null,
+    ),
     depths: items.map((item) => item.depth),
     slots,
     span: { x: W, y: D },
@@ -357,12 +378,24 @@ function wallCutouts(
     notch: ceilU(settings.fingerPocket.floorNotch),
   });
   const byOwner = items.map(() => new Map<Side, CutPlacement>());
-  requests.forEach((q, k) => {
-    const cut = placed[k];
-    if (cut) {
-      byOwner[q.owner]?.set(q.side, cut);
-    }
-  });
+  for (const { owner, side, ...cut } of placed) {
+    byOwner[owner]?.set(side, cut);
+  }
+  const uncut = items.filter(
+    (_, owner) => requests.some((q) => q.owner === owner) && byOwner[owner]?.size === 0,
+  );
+  if (uncut.length > 0) {
+    // Finger access is never left out silently (review 1, I2): a well too small for a cut clear of
+    // the rounded outer corners on either axis refuses the tray, as a slot that does not fit does.
+    const contents = [...new Set(uncut.map(({ req }) => req.contents))];
+    throw new SlotFitError(
+      `Tray ${frame.trayKey}: no wall cutout fits for ${contents.join(", ")}`,
+      "cutout",
+      0,
+      [...new Set(uncut.map(({ req }) => req.componentId))],
+      contents,
+    );
+  }
   return byOwner;
 }
 
@@ -532,7 +565,14 @@ function layoutAt(
     const clear = clearOfSlots(rect, axis, footprints);
     return clear === null ? [] : [clear];
   });
-  const cuts = wallCutouts(items, spareRects, footprints, { W, D, H, min, settings });
+  const cuts = wallCutouts(items, spareRects, footprints, {
+    trayKey: part.trayKey,
+    W,
+    D,
+    H,
+    min,
+    settings,
+  });
 
   const spacers: TraySpec[] = [];
   const compartments: CompartmentSpec[] = items.map(

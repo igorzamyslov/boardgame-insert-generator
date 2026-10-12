@@ -4,8 +4,9 @@ import { largestChamfer, traySpecFrom } from "../geometry/test-specs";
 import { DEFAULT_SETTINGS, MIN_WALL_MM, applyFingerRoom } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, Settings, TileShape } from "../model/types";
 import { hasGrip } from "./grip";
+import { size } from "./group";
 import { minOuter, realizeTray } from "./realize";
-import { assertTrayInvariants, at, bulk, cards, partOf, tiles } from "./test-helpers";
+import { assertTrayInvariants, at, bulk, cards, custom, partOf, tiles } from "./test-helpers";
 import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
 const s: Settings = DEFAULT_SETTINGS;
@@ -27,7 +28,7 @@ function realize(
   outer: OuterSize = minOuter(part, settings, opts),
 ) {
   const r = realizeTray(part, outer, settings, opts);
-  assertTrayInvariants(r, outer, settings, opts);
+  assertTrayInvariants(r, outer, settings, opts, part);
   return r;
 }
 
@@ -123,6 +124,66 @@ describe("upright cards and tiles: one finger channel", () => {
       ["wallCutout", "left"],
     ]);
     expect(at(r.compartments, 1).features.filter((f) => f.type === "wallCutout")).toEqual([]);
+  });
+
+  it("gives a deck grouped between two bulk compartments its channel at the row's end", () => {
+    const pile = (id: string) =>
+      bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
+    const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(30) });
+    const part = partOf(
+      [pile("b1"), deck, pile("b2")],
+      "shallow+upright-long+shallow|strip|split1",
+    );
+    // The deck moves to the start of the row, its channel out through the left wall (review 1, I2:
+    // between the two bulk compartments it got none).
+    expect(part.compartments.map((c) => c.componentId)).toEqual(["c1", "b1", "b2"]);
+    const r = realize(part);
+    expect(cutsOf(at(r.compartments, 0)).map((f) => f.type === "wallCutout" && f.side)).toEqual([
+      "left",
+    ]);
+  });
+
+  it("cuts a deck with no free wall along its row through the walls across it instead", () => {
+    const pile = (id: string) =>
+      bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
+    const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(30) });
+    const sorted = partOf(
+      [pile("b1"), deck, pile("b2")],
+      "shallow+upright-long+shallow|strip|split1",
+    );
+    // Kept between the bulk compartments (a part built by hand): centred on the deck's well, out
+    // through the front and back walls.
+    const part = { ...sorted, compartments: [1, 0, 2].map((i) => at(sorted.compartments, i)) };
+    const r = realize(part);
+    const well = at(r.compartments, 1);
+    const cuts = cutsOf(well);
+    expect(cuts.map((f) => f.type === "wallCutout" && [f.side, f.at])).toEqual([
+      ["front", well.x + well.w / 2],
+      ["back", well.x + well.w / 2],
+    ]);
+  });
+
+  it("keeps such a cut clear of the deck's spacer", () => {
+    const dial = (id: string) => custom({ id, groupId: "g", count: 1 });
+    const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(30) });
+    const sorted = partOf(
+      [dial("x1"), deck, dial("x2")],
+      "custom+upright-long+custom|strip|split1",
+    );
+    const part = { ...sorted, compartments: [1, 0, 2].map((i) => at(sorted.compartments, i)) };
+    const min = minOuter(part, s, ground);
+    // 30 mm of slack along the row become a spacer at the end of the deck's well.
+    const r = realize(part, s, ground, { ...min, w: min.w + 30 });
+    const spacer = at(r.spacers, 0);
+    expect(spacer.w).toBe(30);
+    const well = at(r.compartments, 1);
+    for (const f of cutsOf(well)) {
+      expect(f.type === "wallCutout" && f.side).toMatch(/front|back/);
+      if (f.type === "wallCutout") {
+        expect(f.at - f.width / 2).toBeGreaterThanOrEqual(well.x);
+        expect(f.at + f.width / 2).toBeLessThanOrEqual(spacer.x - 0.8 + 1e-9);
+      }
+    }
   });
 
   it("notches a spacer standing in a channelled well to match the channel", () => {
@@ -270,6 +331,32 @@ describe("cut sides beside a rounded outer corner", () => {
       }
     },
   );
+});
+
+describe("no wall left for a cutout", () => {
+  it("leaves out a well too small for a cut clear of the rounded outer corners, with a warning", () => {
+    // A 1 mm tile at a 0.9 mm wall and chamfer: its well, centred in the 3.4 mm the chamfer needs,
+    // has no cut 1.7 mm (chamfer + 0.8) from the faces on either axis.
+    const thin = largestChamfer({ ...s, wall: MIN_WALL_MM, floor: MIN_WALL_MM });
+    const pip = tiles({
+      name: "Pip",
+      shape: { type: "rect", w: 1, d: 1 },
+      thickness: 1,
+      count: 1,
+      storage: "flat",
+      clearance: 0,
+    });
+    const result = size([pip], thin);
+    expect(result.requirements).toEqual([]);
+    expect(result.notices).toEqual([
+      expect.objectContaining({
+        level: "warning",
+        code: "sizing.noFingerSlot",
+        message: expect.stringMatching(/^Pip: no tray arrangement leaves room for a finger cutout/),
+        path: "/components/0",
+      }),
+    ]);
+  });
 });
 
 describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {

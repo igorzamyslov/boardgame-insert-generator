@@ -21,9 +21,18 @@ export interface CutPlacement {
   notch: number; // 0 = none
 }
 
+/** A cut placed for compartment `owner` on `side`. */
+export interface PlacedCut extends CutPlacement {
+  owner: number;
+  side: Side;
+}
+
 export interface CutContext {
   rects: readonly RectU[]; // every compartment of the tray: the owners first, then the spares
   spare: (index: number) => boolean;
+  // per owner, the card spacer standing at the high-x end of its well, or null: the channel along
+  // the row runs on through it (notched), a cut across the row keeps clear of it
+  spacers: readonly (RectU | null)[];
   depths: readonly number[]; // content depth of each owner (from its floor to the rim)
   slots: readonly Rect2[]; // finger slot footprints (doubled units): cuts keep clear of them
   span: { x: number; y: number }; // outer size along x and y
@@ -119,11 +128,14 @@ function nearestAcross(owner: number, side: Side, rects: readonly RectU[]): numb
  *   centre (the first member's) and one width, at most the setting. The cut's sides keep out of the
  *   outer walls along it and MIN_FEATURE_MM past the outer corners' arcs (at least the chamfer),
  *   so the wall beside them keeps that much at the faces they leave through, and reach at most
- *   half way
- *   into the gap to any other compartment, finger slot or other run's channel within
+ *   half way into the gap to any other compartment, finger slot or other run's channel within
  *   MIN_FEATURE_MM of the cuts (another row's wells, whose own channel takes the other half, even
  *   through a shared end wall), less MIN_FEATURE_MM / 2. A cut's extent across its side counts
  *   INNER_CORNER_RADIUS_MM on past the faces at its ends, as far as buildTray cuts it.
+ * - A compartment none of whose requests gets a cut asks again on the two sides of the other axis
+ *   (the same depth and notch), placed the same way after every first cut, centred on the cards
+ *   beside a spacer and clear of it: a deck between bits along its row is cut through the front
+ *   and back walls instead (review 1, I2).
  * - Depth: down to the compartment's own floor for a full-depth request (flat), else the fraction
  *   of the run's shallowest well (upright: half). A cut leaving through the outer wall without a
  *   floor notch keeps its bottom MIN_FEATURE_MM above the bottom chamfer.
@@ -132,12 +144,51 @@ function nearestAcross(owner: number, side: Side, rects: readonly RectU[]): numb
  *   sides keep MIN_FEATURE_MM plus the chamfer from the faces they run along; it leaves
  *   MIN_FEATURE_MM of floor to an opposite notch and MIN_FEATURE_MM plus the chamfer to the outer
  *   face behind; below MIN_NOTCH it is left out.
- * Returns each request's placement, or null where it gets no cut.
+ * Returns every cut placed, by owner and side; an owner missing from it got none on either axis.
  */
-export function placeCutouts(
+export function placeCutouts(requests: readonly CutRequest[], ctx: CutContext): PlacedCut[] {
+  const first = placeRuns(requests, ctx, []);
+  const cut = new Set(first.cuts.map((c) => c.owner));
+  const again = [...new Set(requests.map((q) => q.owner))]
+    .filter((owner) => !cut.has(owner))
+    .flatMap((owner): CutRequest[] => {
+      const asks = requests.filter((q) => q.owner === owner);
+      const sides: Side[] = asks.some((q) => alongX(q.side))
+        ? ["left", "right"]
+        : ["front", "back"];
+      return sides.map((side) => ({
+        owner,
+        side,
+        fraction: Math.min(...asks.map((q) => q.fraction)),
+        notch: asks.some((q) => q.notch),
+      }));
+    });
+  return [...first.cuts, ...placeRuns(again, besideSpacers(ctx), first.runs).cuts];
+}
+
+/**
+ * `ctx` with each spacer standing as a compartment of its own (after every other) and its owner
+ * the rest of the well: a cut across the row is centred on the cards and keeps clear of it.
+ */
+function besideSpacers(ctx: CutContext): CutContext {
+  const n = ctx.rects.length;
+  const rects = ctx.rects.map((r, i) => {
+    const sp = ctx.spacers[i];
+    return sp ? { ...r, w: sp.x - r.x } : r;
+  });
+  const spacers = ctx.spacers.flatMap((sp) => (sp ? [sp] : []));
+  return { ...ctx, rects: [...rects, ...spacers], spare: (i) => i < n && ctx.spare(i) };
+}
+
+/**
+ * Places the runs of `requests` (placeCutouts), each keeping half the gap to the runs of
+ * `earlier` and to each other. Returns the cuts placed and the runs.
+ */
+function placeRuns(
   requests: readonly CutRequest[],
   ctx: CutContext,
-): (CutPlacement | null)[] {
+  earlier: readonly Run[],
+): { cuts: PlacedCut[]; runs: Run[] } {
   const rect = (i: number): RectU => rectAt(ctx, i);
   // Twice the centre along the side, so a half unit stays exact.
   const centre2 = (i: number, side: Side): number => {
@@ -197,10 +248,10 @@ export function placeCutouts(
     }
   });
 
-  const placed: (CutPlacement | null)[] = requests.map(() => null);
+  const cuts: PlacedCut[] = [];
   const all = [...runs.values()].map((members) => runOf(members, requests, across, ctx));
   for (const run of all) {
-    const band = bandOf(run, all, requests, across, ctx);
+    const band = bandOf(run, [...earlier, ...all], requests, across, ctx);
     if (band === null) {
       continue;
     }
@@ -238,11 +289,11 @@ export function placeCutouts(
       }
       depth = Math.min(depth, ownDepth);
       if (depth >= 1) {
-        placed[k] = { at, width: 2 * half, depth, notch };
+        cuts.push({ owner: q.owner, side: q.side, at, width: 2 * half, depth, notch });
       }
     }
   }
-  return placed;
+  return { cuts, runs: all };
 }
 
 /** A run of requests and the cuts' extent across its side: its strips (units). */
