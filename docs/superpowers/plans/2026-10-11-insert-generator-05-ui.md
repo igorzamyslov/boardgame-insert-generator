@@ -110,7 +110,7 @@ Import locations from the final plans 1–4: `../model/{types,version,settings,p
   - `renameProject(p: Project, name: string): Project`
   - `addComponent(p: Project, kind: ComponentKind): Project`
   - `updateComponent(p: Project, id: string, next: Component): Project`
-  - `removeComponent(p: Project, id: string): Project` — also drops locks keyed `"<id>:…"`.
+  - `removeComponent(p: Project, id: string): Project` — also drops the position and size locks keyed `"<id>:…"`; a stack lock naming one of its trays is rewritten without it, keeping the order of the rest, and dropped only when fewer than 2 trays remain.
   - `setWallChoice(p: Project, c: WallChoice): Project`, `setFitChoice(p: Project, c: FitChoice): Project`, `setSettings(p: Project, s: Settings): Project`
   - `setLock(p: Project, lock: Lock): Project` — replaces a lock of the same kind on the same tray (or the same stack-key list).
   - `removeLock(p: Project, trayKey: string, kind?: Lock["kind"]): Project`
@@ -229,6 +229,14 @@ describe("project actions", () => {
     expect(p3.components).toHaveLength(0);
     expect(p3.locks).toEqual([
       { kind: "position", trayKey: "other:p0:0", path: "1", rotated: false },
+    ]);
+    // a stack lock keeps the rest of its stack, in order, while two or more trays remain
+    const three: Lock[] = [
+      { kind: "stack", trayKeys: ["x:p0:0", `${c.id}:p0:0`, "y:p0:0"] },
+      { kind: "stack", trayKeys: [`${c.id}:p0:1`, "z:p0:0"] },
+    ];
+    expect(removeComponent({ ...p2, locks: three }, c.id).locks).toEqual([
+      { kind: "stack", trayKeys: ["x:p0:0", "y:p0:0"] },
     ]);
   });
 
@@ -416,11 +424,14 @@ export function updateComponent(p: Project, id: string, next: Component): Projec
 
 export function removeComponent(p: Project, id: string): Project {
   const prefix = `${id}:`;
-  const locks = p.locks.filter((l) =>
-    l.kind === "stack"
-      ? !l.trayKeys.some((k) => k.startsWith(prefix))
-      : !l.trayKey.startsWith(prefix),
-  );
+  const locks = p.locks.flatMap((l): Lock[] => {
+    if (l.kind !== "stack") {
+      return l.trayKey.startsWith(prefix) ? [] : [l];
+    }
+    // the rest of the stack stays locked, in order; one tray alone is no stack
+    const trayKeys = l.trayKeys.filter((k) => !k.startsWith(prefix));
+    return trayKeys.length >= 2 ? [{ ...l, trayKeys }] : [];
+  });
   return { ...p, components: p.components.filter((c) => c.id !== id), locks };
 }
 
