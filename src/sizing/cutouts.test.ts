@@ -137,6 +137,27 @@ describe("upright cards and tiles: one finger channel", () => {
     ]);
   });
 
+  it("ends a spacer narrower than the channel where the channel's U meets its faces", () => {
+    // Upright 15 mm square tiles in a 16 mm long well: the 18.22 mm channel passes both faces of
+    // the 16 mm spacer and takes its whole top, so the spacer ends where the U meets its faces,
+    // 10.895 mm up (it was 11 mm tall, its mesh 10.90: review 1 sweep).
+    const part = partOf(
+      [
+        tiles({
+          shape: { type: "rect", w: 15, d: 15 },
+          thickness: 2,
+          count: 40,
+          storage: "upright",
+        }),
+      ],
+      "upright-c2|strip|split1",
+    );
+    const min = minOuter(part, s, ground);
+    const r = realize(part, s, ground, { w: min.w + 10, d: min.d + 10, h: min.h + 10 });
+    expect(r.spacers).toHaveLength(1);
+    expect(at(r.spacers, 0)).toMatchObject({ w: 10, d: 16, h: 10.89 });
+  });
+
   it("keeps a lipped tray's channel out of the lipped wall", () => {
     const lipped: RealizeOptions = { lipped: true, level: 0 };
     const r = realize(strip, s, lipped);

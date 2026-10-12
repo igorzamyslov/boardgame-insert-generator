@@ -197,7 +197,8 @@ export function assertTrayInvariants(
 
 /**
  * A spacer standing in a well that a finger channel crosses is notched to match (spec §6.2): along
- * the channel, on its centre line, at least as wide and at least as deep (whole 0.01 mm units).
+ * the channel, on its centre line, at least as wide and at least as deep (whole 0.01 mm units), and
+ * no taller than where a notch past both its faces meets them.
  */
 function expectSpacerNotched(sp: TraySpec, compartments: CompartmentSpec[], H: number): void {
   const u = (mm: number): number => Math.round(mm * 100);
@@ -221,6 +222,17 @@ function expectSpacerNotched(sp: TraySpec, compartments: CompartmentSpec[], H: n
       expect(u(notch.at), `${label} centre`).toBe(u(f.at) - u(axis === "x" ? sp.y : sp.x));
       expect(u(notch.width), `${label} width`).toBeGreaterThanOrEqual(u(f.width));
       expect(top - u(notch.depth), `${label} bottom`).toBeLessThanOrEqual(H - u(f.depth));
+      // A notch past both faces takes the spacer's whole top: the spacer then ends where the U
+      // meets the face farther from its centre (its mesh is no taller than its spec).
+      const span = axis === "x" ? sp.d : sp.w;
+      const r = notch.width / 2;
+      if (notch.at - r <= 0 && notch.at + r >= span) {
+        const far = Math.max(notch.at, span - notch.at);
+        const meets = sp.h - notch.depth + r - Math.sqrt(r * r - far * far);
+        expect(sp.h, `${label}: spacer top where the U meets its face`).toBeLessThanOrEqual(
+          meets + 1e-9,
+        );
+      }
     }
   }
 }
