@@ -55,13 +55,14 @@ export interface RunOptions {
 /** An optimization in progress; step() runs one chunk and returns true when finished. */
 export interface Run {
   step(): boolean;
-  /**
-   * Progress, at most `total`: the iterations run so far, held at `total` while the extra
-   * chains of an infeasible run (derived seed, then unlocked) follow the first, so that
-   * done / total never goes backwards.
-   */
+  /** Iterations run so far, over every chain. Only grows. */
   readonly done: number;
-  /** The first chain's budget; fixed for the run. */
+  /**
+   * The iterations of every chain started, plus those of the chains that may still follow
+   * while none has found a layout (derived seed, then unlocked): announced up front, so it
+   * only ever shrinks, when a chain finds a layout and the rest are skipped. Together with
+   * `done` growing, done / total never goes backwards.
+   */
   readonly total: number;
   /** Best result so far (materialized; costs realizeTray calls). */
   snapshot(): LayoutResult;
@@ -263,10 +264,16 @@ export function createRun(
       return finished;
     },
     get done() {
-      const run = chains().reduce((sum, p) => sum + p.annealer.done, 0);
-      return Math.min(run, budget);
+      return chains().reduce((sum, p) => sum + p.annealer.done, 0);
     },
-    total: budget,
+    get total() {
+      const locked = main.resolved.kept.length > 0 ? 1 : 0;
+      let ahead = 0;
+      if (feasible() === undefined) {
+        ahead = derived === null ? 1 + locked : fallback === null ? locked : 0;
+      }
+      return budget * (chains().length + ahead);
+    },
     snapshot: build,
     result() {
       if (!finished) {

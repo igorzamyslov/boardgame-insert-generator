@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS, effective } from "../model/settings";
 import { minOuter } from "../sizing";
 import { createCtx } from "./context";
 import { evaluate } from "./fill";
-import { fixtureInput } from "./test-fixtures";
+import { bedLipInput, fixtureInput } from "./test-fixtures";
 import { checkHardRules } from "./test-hard-rules";
 import { materialize } from "./materialize";
 import { createRun, DEFAULT_ITERATIONS, optimize } from "./optimize";
@@ -260,25 +260,51 @@ describe("optimize", () => {
       expect(capped.layout?.iterations).toBe(0);
     });
 
-    it("keeps the progress fraction from going backwards when the extra chains start", () => {
-      const run = createRun(fallbackInput, 1, 3000);
-      const fractions: number[] = [];
-      const totals = new Set<number>();
-      let steps = 0;
-      do {
-        steps++;
+    /** done and total after every step of a run. */
+    const progress = (run: ReturnType<typeof createRun>) => {
+      const out: { done: number; total: number }[] = [];
+      for (let i = 0; i < 100; i++) {
         const finished = run.step();
-        fractions.push(run.done / run.total);
-        totals.add(run.total);
+        out.push({ done: run.done, total: run.total });
         if (finished) {
           break;
         }
-      } while (steps < 100);
-      // main chain, derived-seed chain, unlocked chain: 3 chunks each
-      expect(steps).toBe(9);
-      expect(totals.size).toBe(1);
-      expect(fractions.every((f, i) => i === 0 || f >= (fractions[i - 1] ?? 0))).toBe(true);
-      expect(fractions.every((f) => f <= 1)).toBe(true);
+      }
+      return out;
+    };
+    /** done only grows, total only shrinks, so the fraction never goes backwards. */
+    const monotone = (steps: { done: number; total: number }[]): boolean =>
+      steps.every((s, i) => {
+        const p = steps[i - 1];
+        return s.done <= s.total && (!p || (s.done >= p.done && s.total <= p.total));
+      });
+
+    it("shows progress over every chain that may still run, never going backwards", () => {
+      // main chain, derived-seed chain, unlocked chain: 3 chunks each, 9 announced up front
+      const steps = progress(createRun(fallbackInput, 1, 3000));
+      expect(steps).toHaveLength(9);
+      expect(steps.map((s) => s.total)).toEqual(Array<number>(9).fill(9000));
+      expect(steps.map((s) => s.done)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => n * 1000));
+      expect(monotone(steps)).toBe(true);
+      // without locks there is no unlocked chain: two chains announced, and the total shrinks
+      // to one chain when the start is feasible
+      const free = progress(createRun(bedLipInput("case0"), 1, 3000));
+      expect(free.map((s) => s.total)).toEqual(Array<number>(6).fill(6000));
+      expect(monotone(free)).toBe(true);
+      const easy = progress(createRun(input, 3, 3000));
+      expect(easy).toEqual([
+        { done: 1000, total: 3000 },
+        { done: 2000, total: 3000 },
+        { done: 3000, total: 3000 },
+      ]);
+    });
+
+    it("shrinks the total, never grows it, when a chain finds a layout", () => {
+      // case1 seed 5: the first chain dead-ends and the derived-seed chain finds a layout
+      const steps = progress(createRun(bedLipInput("case1"), 5, 50_000));
+      expect(steps[0]?.total).toBe(100_000);
+      expect(steps.at(-1)).toEqual({ done: 100_000, total: 100_000 });
+      expect(monotone(steps)).toBe(true);
     });
 
     it("runs the derived-seed chain before the lock fallback", () => {
