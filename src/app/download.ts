@@ -17,10 +17,18 @@ export function bytesToBlob(data: Uint8Array, type: string): Blob {
   return new Blob([data.slice()], { type });
 }
 
+const MAX_SLUG_LENGTH = 80;
+
+/** A file-name-safe version of a project name: accents dropped to their base letters
+ * ("Würfelkönig" → "Wurfelkonig"), anything else unsafe to "-", at most 80 characters. */
 export function fileSlug(name: string): string {
   const slug = name
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "")
     .trim()
     .replace(/[^A-Za-z0-9._-]+/g, "-")
-    .replace(/^[-.]+|[-.]+$/g, "");
+    .replace(/^[-.]+/, "")
+    .slice(0, MAX_SLUG_LENGTH)
+    .replace(/[-.]+$/, "");
   return slug === "" ? "insert" : slug;
 }

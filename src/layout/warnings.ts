@@ -31,7 +31,7 @@ function mm(v: number): string {
 }
 
 /** A shortfall (mm, on the 0.01 grid) shown rounded up to 0.1 mm: a positive one never reads 0.0. */
-function mmUp(v: number): string {
+export function mmUp(v: number): string {
   return (Math.ceil(Math.round(v * 100) / 10) / 10).toFixed(1);
 }
 

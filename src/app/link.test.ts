@@ -78,4 +78,21 @@ describe("fileSlug", () => {
     expect(fileSlug("  Ark Nova: Marine ")).toBe("Ark-Nova-Marine");
     expect(fileSlug("???")).toBe("insert");
   });
+
+  it("transliterates accents instead of dropping the letters", () => {
+    expect(fileSlug("Würfelkönig")).toBe("Wurfelkonig");
+    expect(fileSlug("Café Crème")).toBe("Cafe-Creme");
+    expect(fileSlug("Ark Nova\u0301")).toBe("Ark-Nova");
+  });
+
+  it("falls back for a name with no Latin letters", () => {
+    expect(fileSlug("日本語のゲーム")).toBe("insert");
+    expect(fileSlug("Игра 2")).toBe("2");
+  });
+
+  it("caps the length without leaving a trailing separator", () => {
+    expect(fileSlug("a".repeat(200))).toBe("a".repeat(80));
+    const cut = `${"a".repeat(79)} ${"b".repeat(50)}`;
+    expect(fileSlug(cut)).toBe("a".repeat(79));
+  });
 });

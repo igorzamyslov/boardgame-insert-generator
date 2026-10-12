@@ -3,7 +3,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { STALE_CODE } from "../app/state";
-import { NOTICE_CODES } from "../layout";
+import { NOTICE_CODES, mmUp } from "../layout";
+import { createCtx } from "../layout/context";
+import { boxReq, fakeMeasure, makeInput } from "../layout/test-utils";
+import { doesNotFitNotice } from "../layout/warnings";
 import { Summary } from "./Summary";
 import type { SummaryProps } from "./Summary";
 
@@ -42,14 +45,14 @@ describe("Summary", () => {
     expect(screen.getByText("4")).toBeTruthy();
     expect(screen.getByText(/≤ 413 g/)).toBeTruthy();
     expect(screen.getByText(/upper bound/)).toBeTruthy();
-    expect(screen.getByText("1.2 mm").className).not.toContain("play-warn");
-    expect(screen.getByText("1.8 mm").className).toContain("play-warn");
+    expect(screen.getByText("1.20 mm").className).not.toContain("play-warn");
+    expect(screen.getByText("1.80 mm").className).toContain("play-warn");
   });
 
   it("shows progress and cancels while running", () => {
     const p = props({ run: { status: "running", done: 250, total: 1000 } });
     render(<Summary {...p} />);
-    expect(screen.getByRole("status").textContent).toContain("25%");
+    expect(screen.getByText(/25%/)).toBeTruthy();
     expect(screen.getByRole("progressbar")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(p.onCancel).toHaveBeenCalled();
@@ -135,5 +138,108 @@ describe("Summary", () => {
     );
     expect(screen.queryByText(/short by/)).toBeNull();
     expect(screen.getByText(/Too large for the print bed/).textContent).toBe(message);
+  });
+
+  it("announces only the start and the end of a run, not every percent", () => {
+    const view = render(<Summary {...props({ run: { status: "idle" } })} />);
+    const live = screen.getByRole("status");
+    expect(live.textContent).toBe("");
+    view.rerender(<Summary {...props({ run: { status: "running", done: 250, total: 1000 } })} />);
+    expect(live.textContent).toBe("Optimizing the layout…");
+    // the bar, the percent and Cancel are outside the live region
+    expect(live.contains(screen.getByRole("progressbar"))).toBe(false);
+    expect(live.contains(screen.getByRole("button", { name: "Cancel" }))).toBe(false);
+    expect(live.textContent).not.toMatch(/%/);
+    view.rerender(<Summary {...props({ run: { status: "running", done: 500, total: 1000 } })} />);
+    expect(live.textContent).toBe("Optimizing the layout…");
+    view.rerender(<Summary {...props({ run: { status: "done" } })} />);
+    expect(live.textContent).toBe("Layout updated.");
+  });
+
+  it("clamps the percent to 100 and never renders a zero-sized bar", () => {
+    const view = render(
+      <Summary {...props({ run: { status: "running", done: 1200, total: 1000 } })} />,
+    );
+    expect(screen.getByText(/100%/)).toBeTruthy();
+    view.rerender(<Summary {...props({ run: { status: "running", done: 0, total: 0 } })} />);
+    expect(screen.getByText(/0%/)).toBeTruthy();
+    const bar = screen.getByRole("progressbar");
+    expect(Number(bar.getAttribute("max"))).toBeGreaterThan(0);
+  });
+
+  it("never shows a percent lower than one already shown during a run", () => {
+    const view = render(
+      <Summary {...props({ run: { status: "running", done: 400, total: 2000 } })} />,
+    );
+    expect(screen.getByText(/20%/)).toBeTruthy();
+    // the total shrinks (the run found it needs fewer steps): 400/1000 = 40%, which is higher
+    view.rerender(<Summary {...props({ run: { status: "running", done: 400, total: 1000 } })} />);
+    expect(screen.getByText(/40%/)).toBeTruthy();
+    // a total that grows again would read 20%, so the bar keeps 40%
+    view.rerender(<Summary {...props({ run: { status: "running", done: 400, total: 2000 } })} />);
+    expect(screen.queryByText(/20%/)).toBeNull();
+    expect(screen.getByText(/40%/)).toBeTruthy();
+    // a new run starts from zero again
+    view.rerender(<Summary {...props({ run: { status: "done" } })} />);
+    view.rerender(<Summary {...props({ run: { status: "running", done: 100, total: 2000 } })} />);
+    expect(screen.getByText(/5%/)).toBeTruthy();
+  });
+
+  it("shows the play with two decimals, like the play notice", () => {
+    render(
+      <Summary
+        {...props({
+          summary: {
+            fillPct: 50,
+            trayCount: 1,
+            stackCount: 1,
+            filamentG: 1,
+            playX: 1.504,
+            playY: 1.5,
+          },
+        })}
+      />,
+    );
+    // 1.504 mm is over the 1.5 mm limit, and shown as such (not as "1.5 mm")
+    const [x, y] = screen.getAllByText("1.50 mm");
+    expect(x?.className).toContain("play-warn");
+    expect(y?.className).not.toContain("play-warn");
+  });
+
+  it("does not double the period of an error message", () => {
+    const view = render(
+      <Summary {...props({ run: { status: "error", message: "Worker crashed." } })} />,
+    );
+    expect(screen.getByRole("alert").textContent).toContain(
+      "The optimizer failed: Worker crashed. ",
+    );
+    expect(screen.getByRole("alert").textContent).not.toContain("..");
+    view.rerender(<Summary {...props({ run: { status: "error", message: "Worker crashed" } })} />);
+    expect(screen.getByRole("alert").textContent).toContain("Worker crashed. ");
+    view.rerender(<Summary {...props({ run: { status: "error", message: "Out of memory?" } })} />);
+    expect(screen.getByRole("alert").textContent).not.toContain("?.");
+  });
+
+  it("states a shortfall the way the real doesNotFit notice does", () => {
+    const ctx = createCtx(makeInput([boxReq("bits", 40, 40, 10)]), fakeMeasure);
+    for (const x of [0.01, 0.04, 0.1, 12.345, 12.34, 99.99]) {
+      const notice = doesNotFitNotice(ctx, { x, y: 0.07, z: 3 });
+      const view = render(
+        <Summary
+          {...props({
+            summary: null,
+            hasLayout: false,
+            shortfall: { x, y: 0.07, z: 3 },
+            notices: [notice],
+          })}
+        />,
+      );
+      const line = screen.getByText(/Doesn't fit/).textContent ?? "";
+      expect(line).toContain(`${mmUp(x)} mm left–right`);
+      expect(line).toContain(`${mmUp(0.07)} mm front–back`);
+      expect(notice.message).toContain(`${mmUp(x)} mm in width (X)`);
+      expect(notice.message).toContain(`${mmUp(0.07)} mm in depth (Y)`);
+      view.unmount();
+    }
   });
 });

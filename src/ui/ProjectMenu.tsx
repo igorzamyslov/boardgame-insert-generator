@@ -1,8 +1,9 @@
 // src/ui/ProjectMenu.tsx
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { CopyLinkResult } from "../app/link";
 import { LINK_MAX_URL_CHARS } from "../share";
 import type { ProjectListEntry } from "../share";
+import { errorText } from "../util/errors";
 import { SelectField, TextField } from "./fields";
 
 export interface ProjectMenuProps {
@@ -62,7 +63,15 @@ function CopyStatus({
 
 export function ProjectMenu(props: ProjectMenuProps) {
   const { name, currentId, projects, storageAvailable } = props;
-  const [copy, setCopy] = useState<CopyLinkResult | null>(null);
+  // Tagged with the project it was made for, so it never shows against another one.
+  const [copy, setCopy] = useState<{ id: string; result: CopyLinkResult } | null>(null);
+  const [problem, setProblem] = useState<{ id: string; message: string } | null>(null);
+  // The tag already hides a result from another project; clearing also stops it coming back
+  // when the user returns to the first one.
+  useEffect(() => {
+    setCopy(null);
+    setProblem(null);
+  }, [currentId]);
   const fileRef = useRef<HTMLInputElement>(null);
   const listed = projects.some((p) => p.id === currentId)
     ? projects
@@ -73,9 +82,30 @@ export function ProjectMenu(props: ProjectMenuProps) {
     if (!file) {
       return;
     }
-    const text = await file.text();
-    input.value = "";
+    let text: string;
+    try {
+      text = await file.text();
+    } catch (e) {
+      setProblem({ id: currentId, message: `Couldn't read ${file.name}: ${errorText(e)}` });
+      return;
+    } finally {
+      input.value = "";
+    }
+    setProblem(null);
     props.onImport(text);
+  }
+
+  function copyCurrentLink(): void {
+    const id = currentId;
+    setProblem(null);
+    props.onCopyLink().then(
+      (result) => {
+        setCopy({ id, result });
+      },
+      (e: unknown) => {
+        setProblem({ id, message: `Couldn't make the link: ${errorText(e)}` });
+      },
+    );
   }
 
   return (
@@ -119,16 +149,18 @@ export function ProjectMenu(props: ProjectMenuProps) {
         <button type="button" onClick={props.onExportJson}>
           Export JSON
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            void props.onCopyLink().then(setCopy);
-          }}
-        >
+        <button type="button" onClick={copyCurrentLink}>
           Copy link
         </button>
       </div>
-      {copy ? <CopyStatus result={copy} onExportJson={props.onExportJson} /> : null}
+      {copy?.id === currentId ? (
+        <CopyStatus result={copy.result} onExportJson={props.onExportJson} />
+      ) : null}
+      {problem?.id === currentId ? (
+        <p class="link-status link-warning" role="alert">
+          {problem.message}
+        </p>
+      ) : null}
     </div>
   );
 }

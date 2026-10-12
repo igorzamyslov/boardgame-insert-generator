@@ -67,4 +67,35 @@ describe("numberParts", () => {
     ]);
     expect(partsByKey(parts).get("c:p0:0")?.number).toBe(4);
   });
+
+  it("orders by code unit, not by locale, so the numbers are the same everywhere", () => {
+    const upper = makeTray({ key: "B:p0:0", stack: 0, level: 0 });
+    const lower = makeTray({ key: "a:p0:0", stack: 0, level: 0 });
+    const accent = makeTray({ key: "ä:p0:0", stack: 0, level: 0 });
+    expect(numberParts([accent, lower, upper]).map((p) => p.spec.key)).toEqual([
+      "B:p0:0",
+      "a:p0:0",
+      "ä:p0:0",
+    ]);
+  });
+
+  it("sorts orphan spacers by key whatever order they came in", () => {
+    const orphan = (key: string) => makeTray({ key, part: "spacer", path: "", stack: 9, level: 0 });
+    const parts = numberParts([
+      orphan("zz:p0:0:spacer"),
+      orphan("mm:p0:0:spacer"),
+      orphan("aa:p0:0:spacer"),
+    ]);
+    expect(parts.map((p) => p.spec.key)).toEqual([
+      "aa:p0:0:spacer",
+      "mm:p0:0:spacer",
+      "zz:p0:0:spacer",
+    ]);
+    const shuffled = numberParts([
+      orphan("mm:p0:0:spacer"),
+      orphan("aa:p0:0:spacer"),
+      orphan("zz:p0:0:spacer"),
+    ]);
+    expect(shuffled.map((p) => p.spec.key)).toEqual(parts.map((p) => p.spec.key));
+  });
 });
