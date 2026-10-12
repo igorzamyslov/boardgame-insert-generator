@@ -1,7 +1,8 @@
 // src/app/App.tsx
 import type { ComponentChildren } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
+import type { Project, TraySpec } from "../model/types";
 import { APP_VERSION, isPreview } from "../model/version";
 import { PlanView } from "../plan/PlanView";
 import { encodeHash, exportJsonFile, jsonFileName } from "../share";
@@ -68,42 +69,66 @@ function Panel({
 export function App(props: AppProps) {
   const { store, meshes } = props;
   const s = store.state;
-  const [view, setView] = useState<"editor" | "assembly">("editor");
+  // The project the assembly page was opened for: another project, or one without a layout,
+  // never shows it (a later layout must not pop the page back open on its own).
+  const [assemblyFor, setAssemblyFor] = useState<string | null>(null);
   const project = s.project.value;
   const layout = project.layout;
+  const showAssembly = assemblyFor === project.id && layout !== undefined;
+  const mainRef = useRef<HTMLElement>(null);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
   const advanced = s.mode.value === "advanced";
   const run = s.run.value;
   const locked = lockedKeys(project);
   const sizeLocked = sizeLockedKeys(project);
-  const toggleSize = (key: string): void => {
+
+  useEffect(() => {
+    if (assemblyFor !== null && !showAssembly) {
+      setAssemblyFor(null);
+    }
+  }, [assemblyFor, showAssembly]);
+
+  // A page swap replaces everything on screen: put the reader at the top of the new page, and
+  // bring them back to the button they pressed when they return.
+  useEffect(() => {
+    if (showAssembly) {
+      window.scrollTo(0, 0);
+      mainRef.current?.querySelector("h1")?.focus();
+    } else if (restoreFocus.current) {
+      restoreFocus.current = false;
+      openButtonRef.current?.focus();
+    }
+  }, [showAssembly]);
+
+  const withTray = (key: string, fn: (tray: TraySpec) => (q: Project) => Project): void => {
     const tray = layout?.trays.find((t) => t.key === key);
     if (tray) {
-      store.edit((q) => toggleSizeLock(q, tray));
+      store.edit(fn(tray));
     }
   };
   const confirm = props.confirm ?? ((message: string) => window.confirm(message));
   const download = props.download ?? downloadBlob;
-  const last = s.lastResult.value;
-  // An infeasible run's shortfall stands only for the inputs it was computed for.
-  const shortfall =
-    last &&
-    last.layout === null &&
-    last.bestAttempt &&
-    s.lastResultHash.value === s.currentHash.value
-      ? last.bestAttempt.shortfall
-      : null;
 
-  function onCopyLink(): Promise<CopyLinkResult> {
+  async function onCopyLink(): Promise<CopyLinkResult> {
     const href = (props.currentHref ?? (() => window.location.href))();
     const link = shareLink(href, encodeHash(project, s.foreign.value));
     const write = props.clipboard ?? ((text: string) => navigator.clipboard.writeText(text));
     return copyLink(link, write);
   }
 
-  if (view === "assembly" && layout) {
+  if (showAssembly) {
     return (
-      <main>
-        <AssemblyPage project={project} layout={layout} onBack={() => setView("editor")} />
+      <main ref={mainRef}>
+        <AssemblyPage
+          project={project}
+          layout={layout}
+          download={download}
+          onBack={() => {
+            restoreFocus.current = true;
+            setAssemblyFor(null);
+          }}
+        />
       </main>
     );
   }
@@ -167,7 +192,7 @@ export function App(props: AppProps) {
             label="App messages"
             onDismiss={(code) => store.dismissNotice(code)}
             renderAction={(n) =>
-              n.code === CONFLICT_CODE ? (
+              n.code === CONFLICT_CODE && s.conflict.value ? (
                 <>
                   <button type="button" onClick={() => store.resolveConflict("keepMine")}>
                     Keep my version
@@ -225,7 +250,7 @@ export function App(props: AppProps) {
               hasLayout={layout !== undefined}
               canUndo={s.undoSlot.value !== null}
               canOptimize={canOptimize(project)}
-              shortfall={shortfall}
+              shortfall={s.shortfall.value}
               onReoptimize={() => store.reoptimize()}
               onImprove={() => store.improveMore()}
               onUndo={() => store.undo()}
@@ -246,13 +271,10 @@ export function App(props: AppProps) {
                     }}
                     onSwap={(a, b) => store.edit((q) => swapTrays(q, a, b))}
                     sizeLockedKeys={sizeLocked}
-                    onToggleSizeLock={toggleSize}
-                    onToggleLock={(key) => {
-                      const tray = layout.trays.find((t) => t.key === key);
-                      if (tray) {
-                        store.edit((q) => toggleLock(q, tray));
-                      }
-                    }}
+                    onToggleSizeLock={(key) =>
+                      withTray(key, (tray) => (q) => toggleSizeLock(q, tray))
+                    }
+                    onToggleLock={(key) => withTray(key, (tray) => (q) => toggleLock(q, tray))}
                   />
                 </Panel>
                 <Panel id="viewer" title="3D view">
@@ -264,7 +286,9 @@ export function App(props: AppProps) {
                     selectedKey={s.selection.value}
                     lockedKeys={locked}
                     sizeLockedKeys={sizeLocked}
-                    onToggleSizeLock={toggleSize}
+                    onToggleSizeLock={(key) =>
+                      withTray(key, (tray) => (q) => toggleSizeLock(q, tray))
+                    }
                     onSelect={(key) => {
                       s.selection.value = key;
                     }}
@@ -282,7 +306,11 @@ export function App(props: AppProps) {
                     download={download}
                   />
                   <p>
-                    <button type="button" onClick={() => setView("assembly")}>
+                    <button
+                      ref={openButtonRef}
+                      type="button"
+                      onClick={() => setAssemblyFor(project.id)}
+                    >
                       Open the assembly page
                     </button>
                   </p>

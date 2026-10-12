@@ -502,16 +502,13 @@ input[aria-invalid="true"] {
 .form-grid > fieldset,
 .form-grid > details,
 .form-grid > .check-field,
-.form-grid > .field-error {
+.form-grid > .field-error,
+.form-grid > .field-notes {
   grid-column: 1 / -1;
 }
 
 .project-menu > .button-row,
 .project-menu > .link-status {
-  grid-column: 1 / -1;
-}
-
-.form-grid > .field-notes {
   grid-column: 1 / -1;
 }
 
@@ -583,6 +580,11 @@ input[aria-invalid="true"] {
 }
 
 @media print {
+  /* Paper is white: no dark-scheme text colours on it. */
+  :root {
+    color-scheme: light;
+  }
+
   .no-print,
   .app-header,
   .app-footer {

@@ -5,11 +5,12 @@ import { vi } from "vitest";
 import { createProjectStore } from "../share";
 import { MemoryStorage } from "../test-support/memory-storage";
 import { App } from "./App";
+import type { AppProps } from "./App";
 import type { MeshSource } from "./meshes";
 import { createAppStore } from "./store";
 import { cubeMesh, stubLayoutClient } from "./test-helpers";
 
-export function renderApp(hash = "") {
+export function renderApp(hash = "", overrides: Partial<AppProps> = {}) {
   const stub = stubLayoutClient();
   const store = createAppStore({
     projectStore: createProjectStore(new MemoryStorage()),
@@ -25,6 +26,7 @@ export function renderApp(hash = "") {
     dispose: vi.fn(),
   };
   const clipboard = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+  const download = vi.fn<(blob: Blob, filename: string) => void>();
   render(
     <App
       store={store}
@@ -32,9 +34,10 @@ export function renderApp(hash = "") {
       clipboard={clipboard}
       currentHref={() => "https://example.test/insert-generator/"}
       confirm={() => true}
-      download={vi.fn()}
+      download={download}
       viewerProps={{ webgl: () => false }}
+      {...overrides}
     />,
   );
-  return { store, stub, clipboard };
+  return { store, stub, clipboard, download };
 }

@@ -94,7 +94,11 @@ describe("fileSlug", () => {
     for (const name of ["CON", "con", "Prn", "AUX", "nul", "COM1", "com9", "LPT1", "lpt9"]) {
       expect(fileSlug(name)).toBe(`${name}-insert`);
     }
-    expect(fileSlug("con.txt")).toBe("con.txt-insert");
+    // Callers append extensions, so the part before the first dot is what must not be a device.
+    expect(fileSlug("con.txt")).toBe("con-insert.txt");
+    expect(fileSlug("nul.v2")).toBe("nul-insert.v2");
+    expect(fileSlug("Aux.Game")).toBe("Aux-insert.Game");
+    expect(fileSlug("con.txt.v2")).toBe("con-insert.txt.v2");
     expect(fileSlug("CONSOLE")).toBe("CONSOLE");
     expect(fileSlug("COM10")).toBe("COM10");
     expect(fileSlug("Nul Game")).toBe("Nul-Game");

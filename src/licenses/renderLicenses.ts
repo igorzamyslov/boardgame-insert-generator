@@ -1,5 +1,6 @@
 // src/licenses/renderLicenses.ts
 // Pure text builder for dist/third-party-licenses.txt (used by licenses.config.ts at build time).
+import { compareCodeUnits } from "../util/compare";
 
 export interface DependencyInfo {
   name?: string | null;
@@ -56,7 +57,7 @@ export function renderLicenses(entries: readonly LicenseEntry[], appName: string
     seen.add(key);
     return true;
   });
-  unique.sort((a, b) => a.name.localeCompare(b.name));
+  unique.sort((a, b) => compareCodeUnits(a.name, b.name));
   const sections = unique.map((e) => {
     const title = `${e.name}${e.version === "" ? "" : ` ${e.version}`} — ${e.license}`;
     return `${RULE}\n${title}\n${RULE}\n\n${e.text.trim()}\n`;

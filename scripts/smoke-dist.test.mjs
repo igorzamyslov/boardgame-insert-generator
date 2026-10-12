@@ -83,6 +83,24 @@ describe("smoke-dist", () => {
     expect(run(makeDist(orphan)).stderr).toMatch(/worker-g2\.js is not referenced/);
   });
 
+  it("fails when a script imports a lazy chunk that is not in dist", () => {
+    const files = goodFiles();
+    files["assets/index-abc.js"] += ' import("./scene-gone.js");';
+    const result = run(makeDist(files));
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/scene-gone\.js/);
+    expect(result.stderr).toMatch(/imported by assets\/index-abc\.js/);
+  });
+
+  it("loads every script, lazy chunks included, with a JavaScript content type", () => {
+    const files = goodFiles();
+    files["assets/scene-lazy.js"] = "export const scene = 1;";
+    files["assets/index-abc.js"] += ' import("./scene-lazy.js");';
+    const result = run(makeDist(files));
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+  });
+
   it("fails when the licenses file misses a package", () => {
     const files = goodFiles();
     files["third-party-licenses.txt"] = "three preact";

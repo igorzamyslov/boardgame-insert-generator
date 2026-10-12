@@ -55,6 +55,8 @@ export interface State {
   sizingNotices: ReadonlySignal<Notice[]>;
   summary: ReadonlySignal<LayoutSummary | null>;
   layoutNotices: ReadonlySignal<Notice[]>;
+  /** The "short by" amounts of an infeasible run, while its inputs are the current ones. */
+  shortfall: ReadonlySignal<{ x: number; y: number; z: number } | null>;
 }
 
 function sizingNoticesOf(p: Project): Notice[] {
@@ -106,15 +108,17 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     }
     return summarize(layout.trays, { box: p.box, settings: p.settings });
   });
+  // An infeasible run has no layout to belong to: what it found stands only for its own inputs.
+  const infeasible = computed<LayoutResult | null>(() => {
+    const r = lastResult.value;
+    return r && r.layout === null && lastResultHash.value === currentHash.value ? r : null;
+  });
+  const shortfall = computed(() => infeasible.value?.bestAttempt?.shortfall ?? null);
   const layoutNotices = computed<Notice[]>(() => {
     const layout = project.value.layout;
     const r = lastResult.value;
     const out: Notice[] = [];
-    // An infeasible run has no layout to belong to: its notices stand only for its own inputs.
-    if (
-      r &&
-      (r.layout === null ? lastResultHash.value === currentHash.value : r.layout === layout)
-    ) {
+    if (r && (r.layout === null ? r === infeasible.value : r.layout === layout)) {
       out.push(...r.notices);
     }
     if (layout?.capped && !out.some((n) => n.code === CAPPED_CODE)) {
@@ -163,6 +167,7 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     sizingNotices,
     summary,
     layoutNotices,
+    shortfall,
   };
 }
 

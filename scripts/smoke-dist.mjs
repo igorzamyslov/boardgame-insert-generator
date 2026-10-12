@@ -6,7 +6,8 @@
 // Serves dist/ from the deploy subpath, the way GitHub Pages does
 // (/static-web-apps/insert-generator/), and checks that index.html only uses
 // relative asset URLs that load, that the layout and geometry workers and the
-// manifold WASM exist and are referenced by name, that no file points at an
+// manifold WASM exist and are referenced by name, that every script (lazy chunks included)
+// loads and every chunk a script imports exists, that no file points at an
 // absolute /assets/ path, and that the third-party licenses file is complete.
 //
 // Limits: no browser runs the page. This proves the files are there and wired
@@ -14,7 +15,7 @@
 // manual end-to-end check in the UI plan covers that.
 import { createServer } from "node:http";
 import { readFile, readdir } from "node:fs/promises";
-import { extname, join, relative, resolve, sep } from "node:path";
+import { extname, join, posix, relative, resolve, sep } from "node:path";
 import process from "node:process";
 
 const BASE = "/static-web-apps/insert-generator/";
@@ -28,6 +29,8 @@ const REQUIRED_LICENSES = [
   "@preact/signals",
   "fflate",
 ];
+// A relative static or dynamic import of a script: from"./x.js", import("./x.js"), import "./x.js".
+const IMPORT_PATH = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'](\.{1,2}\/[^"']+\.js)["']/g;
 const TYPES = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -147,6 +150,27 @@ async function check() {
         problems.push(`${f} returned ${res.status} under ${BASE}`);
       } else if (f.endsWith(".wasm") && res.headers.get("content-type") !== "application/wasm") {
         problems.push(`${f} is not served as application/wasm`);
+      }
+    }
+
+    // Lazy chunks (the 3D view's scene, the clients): every script must load as JavaScript,
+    // and every chunk one script imports by relative path must exist in dist.
+    for (const [name] of scripts) {
+      const res = await fetch(new URL(name, page));
+      const type = res.headers.get("content-type") ?? "";
+      if (res.status !== 200) {
+        problems.push(`${name} returned ${res.status} under ${BASE}`);
+      } else if (!/javascript/.test(type)) {
+        problems.push(`${name} is not served as JavaScript (${type})`);
+      }
+    }
+    for (const [name, text] of scripts) {
+      const dir = posix.dirname(name);
+      for (const m of text.matchAll(IMPORT_PATH)) {
+        const target = posix.normalize(posix.join(dir, m[1]));
+        if (!files.includes(target)) {
+          problems.push(`${target} is missing (imported by ${name})`);
+        }
       }
     }
 

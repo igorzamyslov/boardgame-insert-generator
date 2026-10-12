@@ -43,4 +43,14 @@ describe("licenses file", () => {
       "fflate",
     ]);
   });
+
+  it("orders sections by code unit, not by locale", () => {
+    const entry = (name: string) => ({ name, version: "1", license: "MIT", text: name });
+    const text = renderLicenses([entry("a"), entry("B"), entry("@x/y"), entry("Z")], "App");
+    const at = (name: string) => text.indexOf(`${name} 1 — MIT`);
+    // localeCompare would put "a" before "B"; code units put every capital before "a".
+    expect(at("@x/y")).toBeLessThan(at("B"));
+    expect(at("B")).toBeLessThan(at("Z"));
+    expect(at("Z")).toBeLessThan(at("a"));
+  });
 });

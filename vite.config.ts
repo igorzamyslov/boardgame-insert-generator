@@ -21,8 +21,8 @@ export default defineConfig({
     // `// @vitest-environment jsdom` comment on their first line.
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
-    // Vitest stubs CSS imports to ""; PlanView.test.tsx reads plan.css as `?raw` to check
-    // `touch-action: none`, so that file is passed through.
-    css: { include: [/plan\.css/] },
+    // Vitest stubs CSS imports to ""; PlanView.test.tsx reads plan.css and style.test.ts reads
+    // style.css as `?raw` to check their rules, so those files are passed through.
+    css: { include: [/plan\.css/, /style\.css/] },
   },
 });

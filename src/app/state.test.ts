@@ -90,6 +90,29 @@ describe("createState", () => {
     expect(s.layoutNotices.value).not.toContainEqual(notice);
   });
 
+  it("reports the shortfall of an infeasible run only for the inputs it was computed for", () => {
+    const p = fixtureProject();
+    const s = createState(p);
+    const shortfall = { x: 12.3, y: 0, z: 0 };
+    expect(s.shortfall.value).toBeNull();
+    s.lastResult.value = makeResult(null, { bestAttempt: { trays: [], shortfall } });
+    // A result no run has stamped for these inputs does not count.
+    expect(s.shortfall.value).toBeNull();
+    s.lastResultHash.value = s.currentHash.value;
+    expect(s.shortfall.value).toEqual(shortfall);
+    s.project.value = { ...p, box: { ...p.box, innerHeight: p.box.innerHeight + 1 } };
+    expect(s.shortfall.value).toBeNull();
+  });
+
+  it("has no shortfall for a feasible result", () => {
+    const p = fixtureProject();
+    const layout = makeLayout(inputsHash(p));
+    const s = createState({ ...p, layout });
+    s.lastResult.value = makeResult(layout);
+    s.lastResultHash.value = s.currentHash.value;
+    expect(s.shortfall.value).toBeNull();
+  });
+
   it("asks for a reprint for a layout from an older geometry line only", () => {
     const p = fixtureProject();
     const codesFor = (geometryVersion: string) =>

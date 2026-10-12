@@ -59,7 +59,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
           Print / save as PDF
         </button>
       </div>
-      <h1 id="assembly-title">{`${p.project.name} — assembly`}</h1>
+      <h1 id="assembly-title" tabIndex={-1}>{`${p.project.name} — assembly`}</h1>
       <p class="hint">
         {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Layers are drawn from above with the box front at the bottom; numbers match the exported files.`}
       </p>
