@@ -468,6 +468,13 @@ describe("validateProject", () => {
     expect(validateProject(withComponents(cards({ groupId: "g x" })))).toEqual([]);
   });
 
+  it("rejects a component id containing a colon, which would break tray key prefixes", () => {
+    const notices = validateProject(withComponents({ ...cards(), id: "a:b" }));
+    expect(codes(notices)).toEqual([[invalid.id, "/components/0/id"]]);
+    expect(notices[0]?.message).toBe("A component id can't contain ':'.");
+    expect(isBlocking(notices[0] as Notice)).toBe(true);
+  });
+
   it("does not flag a component whose group is its own id", () => {
     const solo = cards();
     expect(validateProject(withComponents({ ...solo, groupId: solo.id }))).toEqual([]);

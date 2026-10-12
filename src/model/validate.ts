@@ -569,6 +569,9 @@ export function validateProject(p: Project): Notice[] {
     const at = `/components/${i}`;
     if (c.id === "") {
       ck.error(VALIDATION_NOTICE_CODES.invalid.id, `${at}/id`, "Component id must not be empty.");
+    } else if (c.id.includes(":")) {
+      // Tray keys are `<component id>:p…`, matched by prefix, so a ":" in an id could make two collide.
+      ck.error(VALIDATION_NOTICE_CODES.invalid.id, `${at}/id`, "A component id can't contain ':'.");
     } else if (seen.has(c.id)) {
       ck.error(
         VALIDATION_NOTICE_CODES.invalid.duplicateId,
