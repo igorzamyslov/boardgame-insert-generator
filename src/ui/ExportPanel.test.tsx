@@ -18,7 +18,8 @@ function meshes() {
     Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }),
   );
   const reset = vi.fn();
-  return { get, reset, dispose: vi.fn() };
+  const forget = vi.fn<MeshSource["forget"]>();
+  return { get, reset, forget, dispose: vi.fn() };
 }
 
 /** A build that never finishes by itself and rejects like the geometry client when aborted. */
@@ -169,7 +170,12 @@ describe("ExportPanel", () => {
     await waitFor(() => expect(p.download).toHaveBeenCalledTimes(1));
     m.get.mockImplementation(() => Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }));
     fireEvent.click(screen.getByRole("button", { name: "Retry failed trays" }));
-    expect(m.reset).toHaveBeenCalled();
+    // Only the failed tray is forgotten: the cache the 3D view shares stays.
+    expect(m.reset).not.toHaveBeenCalled();
+    expect(m.forget).toHaveBeenCalledTimes(1);
+    const [forgotten, forSettings] = m.forget.mock.calls[0] ?? [];
+    expect(forgotten?.map((t) => t.key)).toEqual(["b:p0:0"]);
+    expect(forSettings).toBe(DEFAULT_SETTINGS);
     await waitFor(() => expect(p.download).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByText(/#2 .*took too long/)).toBeNull());
     expect(screen.queryByRole("button", { name: "Retry failed trays" })).toBeNull();
@@ -202,5 +208,39 @@ describe("ExportPanel", () => {
     view.rerender(<ExportPanel {...p} trays={[makeTray({ key: "a:p0:0", stack: 0 }), magnet]} />);
     expect(screen.queryByText(/compartments overlap/)).toBeNull();
     expect(screen.getByText(/Magnets/)).toBeTruthy();
+  });
+
+  it("puts the focus on the export buttons when Cancel goes away", async () => {
+    const m = meshes();
+    m.get.mockImplementation(waitsForAbort);
+    render(<ExportPanel {...props({ meshes: m })} />);
+    fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+    const cancel = await screen.findByRole("button", { name: "Cancel" });
+    cancel.focus();
+    fireEvent.click(cancel);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull());
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "3MF per part (.zip)" }),
+    );
+  });
+
+  it("drops a running export when the layout changes", async () => {
+    const m = meshes();
+    m.get.mockImplementation(waitsForAbort);
+    const p = props({ meshes: m });
+    const view = render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "STL files (.zip)" }));
+    await waitFor(() => expect(m.get).toHaveBeenCalled());
+    view.rerender(<ExportPanel {...p} trays={[makeTray({ key: "z:p0:0", stack: 0 }), magnet]} />);
+    expect(m.get.mock.calls[0]?.[2]?.aborted).toBe(true);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull());
+    expect(screen.getByRole("button", { name: "STL files (.zip)" }).hasAttribute("disabled")).toBe(
+      false,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(p.download).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+    // Only the unsupported tray is listed: no failure of the old plan came back.
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
 });

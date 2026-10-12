@@ -33,7 +33,7 @@ function stubScene() {
 
 function meshes() {
   const get = vi.fn<MeshSource["get"]>(() => Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1 }));
-  return { get, reset: vi.fn(), dispose: vi.fn() };
+  return { get, reset: vi.fn(), forget: vi.fn(), dispose: vi.fn() };
 }
 
 const trays = [

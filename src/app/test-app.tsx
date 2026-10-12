@@ -21,6 +21,7 @@ export function renderApp(hash = "") {
   const meshes: MeshSource = {
     get: vi.fn(() => Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1 })),
     reset: vi.fn(),
+    forget: vi.fn(),
     dispose: vi.fn(),
   };
   const clipboard = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());

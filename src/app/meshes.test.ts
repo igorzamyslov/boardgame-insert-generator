@@ -193,6 +193,27 @@ describe("createMeshSource", () => {
     expect(f.build).not.toHaveBeenCalled();
   });
 
+  it("forgets only the failed specs it is given, and keeps the cached meshes", async () => {
+    const f = fakeClient();
+    const source = createMeshSource(() => Promise.resolve(f.client));
+    const bad = makeTray({ key: "bad" });
+    const good = makeTray({ key: "good" });
+    await source.get(good, DEFAULT_SETTINGS);
+    for (let i = 0; i < 2; i += 1) {
+      f.build.mockRejectedValueOnce(new GeometryBuildError("Tray bad: no", "TraySpecError"));
+      await expect(source.get(bad, DEFAULT_SETTINGS)).rejects.toThrow("no");
+    }
+    // Marked failed: rejects at once, without a build.
+    await expect(source.get(bad, DEFAULT_SETTINGS)).rejects.toThrow("no");
+    expect(f.build).toHaveBeenCalledTimes(3);
+    source.forget([bad], DEFAULT_SETTINGS);
+    await expect(source.get(bad, DEFAULT_SETTINGS)).resolves.toBeDefined();
+    expect(f.build).toHaveBeenCalledTimes(4);
+    // The mesh of another spec stayed cached.
+    await source.get(good, DEFAULT_SETTINGS);
+    expect(f.build).toHaveBeenCalledTimes(4);
+  });
+
   it("caps the cache, resets and disposes", async () => {
     const f = fakeClient();
     const source = createMeshSource(() => Promise.resolve(f.client));

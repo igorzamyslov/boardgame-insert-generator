@@ -20,6 +20,11 @@ export interface MeshSource {
   get(spec: TraySpec, settings: Settings, signal?: AbortSignal): Promise<BuiltMesh>;
   /** Forget cached meshes and failed specs (Retry after a failure). */
   reset(): void;
+  /**
+   * Take the given specs off the failed list, so asking for them builds them again; the cached
+   * meshes of every other spec stay.
+   */
+  forget(specs: readonly TraySpec[], settings: Settings): void;
   dispose(): void;
 }
 
@@ -224,6 +229,13 @@ export function createMeshSource(load: () => Promise<GeometryClient>): MeshSourc
           : Promise.reject(error),
       );
       return rejectOnAbort(result, signal);
+    },
+    forget(specs, settings) {
+      for (const spec of specs) {
+        const key = JSON.stringify([spec, settings]);
+        failures.delete(key);
+        failed.delete(key);
+      }
     },
     reset() {
       cache.clear();

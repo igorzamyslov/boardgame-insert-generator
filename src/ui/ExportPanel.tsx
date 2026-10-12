@@ -46,13 +46,28 @@ export function ExportPanel(p: ExportPanelProps) {
   const [failed, setFailed] = useState<ExportOutput["failed"]>([]);
   const [lastKind, setLastKind] = useState<ExportKind>("parts");
   const running = useRef<AbortController | null>(null);
+  const buttonRow = useRef<HTMLDivElement>(null);
+  const refocus = useRef(false);
   const download = p.download ?? downloadBlob;
   const slug = fileSlug(p.projectName);
 
-  // A failed tray belongs to the layout it was built for.
+  // A running export and a failed tray belong to the layout they were built for.
   useEffect(() => {
+    if (running.current) {
+      running.current.abort();
+      running.current = null;
+      setBusy(null);
+    }
     setFailed((f) => (f.length > 0 ? [] : f));
   }, [p.trays]);
+
+  // Cancel unmounts with the progress bar: hand the focus to the first export button.
+  useEffect(() => {
+    if (busy === null && refocus.current) {
+      refocus.current = false;
+      buttonRow.current?.querySelector("button")?.focus();
+    }
+  }, [busy]);
 
   // Leaving the panel stops the export, so nothing downloads after the user has gone.
   useEffect(
@@ -109,6 +124,7 @@ export function ExportPanel(p: ExportPanelProps) {
   }
 
   function cancel(): void {
+    refocus.current = true;
     running.current?.abort();
     running.current = null;
     setBusy(null);
@@ -122,7 +138,7 @@ export function ExportPanel(p: ExportPanelProps) {
         Every part prints open side up, the way it sits in the box. Parts are numbered as in the
         plan view and on the assembly page.
       </p>
-      <div class="button-row">
+      <div class="button-row" ref={buttonRow}>
         {KINDS.map((k) => (
           <button
             type="button"
@@ -173,7 +189,10 @@ export function ExportPanel(p: ExportPanelProps) {
               type="button"
               disabled={p.disabled || busy !== null}
               onClick={() => {
-                p.meshes.reset();
+                p.meshes.forget(
+                  failed.map((f) => f.part.spec),
+                  p.settings,
+                );
                 void run(lastKind);
               }}
             >
