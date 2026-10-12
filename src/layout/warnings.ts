@@ -30,6 +30,11 @@ function mm(v: number): string {
   return v.toFixed(1);
 }
 
+/** A shortfall (mm, on the 0.01 grid) shown rounded up to 0.1 mm: a positive one never reads 0.0. */
+function mmUp(v: number): string {
+  return (Math.ceil(Math.round(v * 100) / 10) / 10).toFixed(1);
+}
+
 /** Warnings about a feasible layout: coverage, play, lip off. */
 export function layoutWarnings(
   ctx: Ctx,
@@ -269,13 +274,13 @@ export function doesNotFitNotice(
 ): Notice {
   const parts: string[] = [];
   if (shortfall.x > 0) {
-    parts.push(`${mm(shortfall.x)} mm in width (X)`);
+    parts.push(`${mmUp(shortfall.x)} mm in width (X)`);
   }
   if (shortfall.y > 0) {
-    parts.push(`${mm(shortfall.y)} mm in depth (Y)`);
+    parts.push(`${mmUp(shortfall.y)} mm in depth (Y)`);
   }
   if (shortfall.z > 0) {
-    parts.push(`${mm(shortfall.z)} mm in height`);
+    parts.push(`${mmUp(shortfall.z)} mm in height`);
   }
   const tips = [
     "use unsleeved cards or thinner sleeves",

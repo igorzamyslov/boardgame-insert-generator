@@ -85,7 +85,7 @@ describe("layout warnings", () => {
     const ctx = createCtx(makeInput(reqs, { box: { headroom: 6 } }), fakeMeasure);
     const n = doesNotFitNotice(ctx, { x: 12.34, y: 0, z: 3 });
     expect(n).toMatchObject({ level: "error", code: NOTICE_CODES.doesNotFit });
-    expect(n.message).toContain("12.3 mm in width (X)");
+    expect(n.message).toContain("12.4 mm in width (X)"); // 12.34 rounds up: the box needs that much
     expect(n.message).toContain("3.0 mm in height");
     expect(n.message).not.toContain("depth");
     for (const tip of [
@@ -99,6 +99,17 @@ describe("layout warnings", () => {
     }
     const noHeadroom = createCtx(makeInput(reqs), fakeMeasure);
     expect(doesNotFitNotice(noHeadroom, { x: 1, y: 0, z: 0 }).message).not.toContain("headroom");
+  });
+
+  it("rounds a shortfall up to 0.1 mm, never printing 0.0 for a positive one", () => {
+    const ctx = createCtx(makeInput(reqs), fakeMeasure);
+    const message = (x: number, y: number, z: number): string =>
+      doesNotFitNotice(ctx, { x, y, z }).message;
+    expect(message(0.01, 0, 0)).toContain("0.1 mm in width (X)");
+    expect(message(0, 0.04, 0)).toContain("0.1 mm in depth (Y)");
+    expect(message(0, 0, 0.1)).toContain("0.1 mm in height");
+    expect(message(0.3, 0.7, 12)).toContain("0.3 mm in width (X), 0.7 mm in depth (Y), 12.0 mm");
+    expect(message(0.01, 0, 0)).not.toContain("0.0 mm");
   });
 
   it("marks capped runs with an info notice", () => {
