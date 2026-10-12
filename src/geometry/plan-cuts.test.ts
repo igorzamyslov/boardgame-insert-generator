@@ -1,0 +1,236 @@
+import { describe, expect, it } from "vitest";
+import type { CompartmentSpec, FeatureSpec, TraySpec } from "../model/types";
+import { planTray } from "./plan";
+import { TraySpecError } from "./errors";
+import { KNOWN_FEATURE_TYPES } from "./types";
+import {
+  GEO,
+  compartment,
+  cutout,
+  flatCutouts,
+  pocket,
+  traySpec,
+  uprightChannel,
+  uprightChannelLipped,
+} from "./test-specs";
+import type { WallCutout } from "./test-specs";
+
+// A 60 × 60 × 30 tray with one 20 × 56.8 well at x 1.6…21.6 and `others` beside it; the well
+// carries `features`.
+function beside(
+  features: FeatureSpec[],
+  others: CompartmentSpec[] = [],
+  over: Partial<TraySpec> = {},
+) {
+  return traySpec({
+    key: "cut",
+    w: 60,
+    d: 60,
+    h: 30,
+    compartments: [compartment({ x: 1.6, y: 1.6, w: 20, d: 56.8, features }), ...others],
+    ...over,
+  });
+}
+
+/** A planned cut with its footprint rounded to the 0.01 mm grid (float noise aside). */
+function rounded<T extends { x0: number; x1: number; y0: number; y1: number }>(cut: T | undefined) {
+  const r = (v: number) => Math.round(v * 100) / 100;
+  return cut && { ...cut, x0: r(cut.x0), x1: r(cut.x1), y0: r(cut.y0), y1: r(cut.y1) };
+}
+
+function rejects(spec: TraySpec, message: RegExp): void {
+  expect(() => planTray(spec, GEO)).toThrow(TraySpecError);
+  expect(() => planTray(spec, GEO)).toThrow(message);
+}
+
+describe("wall cutouts", () => {
+  it("is a feature type this geometry version builds", () => {
+    expect(KNOWN_FEATURE_TYPES).toContain("wallCutout");
+  });
+
+  it("runs an upright channel out through both end walls and across every divider", () => {
+    const plan = planTray(uprightChannel, GEO);
+    const cuts = plan.compartments.map((c) => c.cuts);
+    const ends = cuts.map((list) => list.map(rounded).map((c) => [c?.side, c?.x0, c?.x1, c?.into]));
+    expect(ends).toEqual([
+      [
+        ["left", 0, 1.6, null],
+        ["right", 25.6, 26.8, 1],
+      ],
+      [
+        ["left", 25.6, 26.8, 0],
+        ["right", 56.8, 58, 2],
+      ],
+      [
+        ["left", 56.8, 58, 1],
+        ["right", 73, 74.6, null],
+      ],
+    ]);
+    const first = cuts[0]?.[0];
+    expect(first?.y0).toBeCloseTo(36.85, 9);
+    expect(first?.y1).toBeCloseTo(58.85, 9);
+    expect(first?.radius).toBe(11);
+    expect(first?.bottomZ).toBeCloseTo(69.2 - 34, 9);
+    expect(first?.notch).toBe(0);
+  });
+
+  it("takes a flat cutout down to the floor and keeps its floor notch", () => {
+    const [left, right] = planTray(flatCutouts, GEO).compartments[0]?.cuts ?? [];
+    expect(rounded(left)).toMatchObject({ side: "left", x0: 0, x1: 1.6, into: null, notch: 8 });
+    expect(left?.bottomZ).toBeCloseTo(1.2, 9);
+    expect(rounded(right)).toMatchObject({ side: "right", x0: 69.6, x1: 71.2, into: null });
+  });
+
+  it("keeps a cut's sides out of the lipped wall and runs it out through the lip", () => {
+    const plan = planTray(uprightChannelLipped, GEO);
+    expect(plan.outerWall).toBeCloseTo(2.9, 9);
+    expect(rounded(plan.compartments[0]?.cuts[0])).toMatchObject({ x0: 0, x1: 2.9, into: null });
+    expect(plan.cornerRadius).toBe(3);
+  });
+
+  it("clamps the cutout depth to the compartment floor", () => {
+    const spec = beside([cutout("left", 30, 99)]);
+    expect(planTray(spec, GEO).compartments[0]?.cuts[0]?.bottomZ).toBeCloseTo(1.2, 9);
+  });
+
+  it("runs a cutout into a spare compartment and stops at its face", () => {
+    const spare = compartment({ x: 22.8, y: 1.6, w: 35.6, d: 56.8, kind: "spare" });
+    const cut = planTray(beside([cutout("right", 30, 10)], [spare]), GEO).compartments[0]?.cuts[0];
+    expect(rounded(cut)).toMatchObject({ x0: 21.6, x1: 22.8, into: 1 });
+  });
+
+  it("works along x as well (front and back cutouts)", () => {
+    const spec = beside([cutout("front", 11.6, 10, 0, 16), cutout("back", 11.6, 10, 0, 16)]);
+    const [front, back] = planTray(spec, GEO).compartments[0]?.cuts ?? [];
+    expect(rounded(front)).toMatchObject({ x0: 3.6, x1: 19.6, y0: 0, y1: 1.6, into: null });
+    expect(rounded(back)).toMatchObject({ x0: 3.6, x1: 19.6, y0: 58.4, y1: 60, into: null });
+  });
+
+  it("shrinks the outer corner radius so a cut's side meets the flat end face", () => {
+    // The 54 mm cut runs 2.1 mm from the front and back faces.
+    const spec = beside([cutout("left", 30, 10, 0, 55.8)]);
+    expect(planTray(spec, GEO).cornerRadius).toBeCloseTo(2.1, 9);
+    expect(planTray(beside([cutout("left", 30, 10)]), GEO).cornerRadius).toBe(3);
+  });
+
+  it("shrinks corner reliefs that would come near a cut", () => {
+    const relief: FeatureSpec = { type: "cornerRelief", d: 3 };
+    const near = planTray(beside([relief, cutout("left", 30, 10, 0, 52)]), GEO);
+    const far = planTray(beside([relief, cutout("left", 30, 10)]), GEO);
+    const radii = (plan: typeof near) => plan.compartments[0]?.reliefs.map((r) => r.r);
+    expect(radii(far)).toEqual([1.5, 1.5, 1.5, 1.5]);
+    // The 52 mm cut ends 2.4 mm from the well's front and back corners: the left reliefs shrink.
+    const shrunk = radii(near) ?? [];
+    expect(shrunk[0]).toBeLessThan(1.5);
+    expect(shrunk[3]).toBeLessThan(1.5);
+    expect(shrunk[1]).toBe(1.5);
+  });
+
+  describe("rejects", () => {
+    it("invalid numbers", () => {
+      const bad: Partial<WallCutout>[] = [
+        { width: 0 },
+        { depth: 0 },
+        { floorNotch: -1 },
+        { at: Number.NaN },
+        { width: Number.POSITIVE_INFINITY },
+      ];
+      for (const over of bad) {
+        rejects(beside([{ ...cutout("left", 30, 10), ...over }]), /invalid wall cutout/);
+      }
+    });
+
+    it("a cut that reaches into an outer wall it runs along", () => {
+      rejects(beside([cutout("left", 12, 10)]), /reaches into the 1.6 mm outer wall/);
+      rejects(beside([cutout("left", 49, 10)]), /reaches into the 1.6 mm outer wall/);
+      // The lipped wall is 2.9 mm.
+      const lipped = beside([cutout("left", 13.5, 10)], [], { lip: true });
+      const inside = {
+        ...lipped.compartments[0],
+        x: 2.9,
+        y: 2.9,
+        w: 20,
+        d: 54.2,
+      } as CompartmentSpec;
+      rejects({ ...lipped, compartments: [inside] }, /reaches into the 2.9 mm outer wall/);
+    });
+
+    it("a cut not centred on its own compartment", () => {
+      const spec = beside([cutout("left", 30, 10)]);
+      const short = { ...spec.compartments[0], d: 20 } as CompartmentSpec;
+      rejects({ ...spec, compartments: [short] }, /not centred on compartment 0/);
+    });
+
+    it("a compartment within 0.8 mm of a cut", () => {
+      // The cut runs between the well and B; C, beside B, lies 0.4 mm past the cut's end.
+      const b = compartment({ x: 22.8, y: 1.6, w: 30, d: 28 });
+      const c = compartment({ x: 23.2, y: 30.4, w: 30, d: 28 });
+      rejects(
+        beside([cutout("right", 30, 10)], [b, c]),
+        /cut of compartment 0 comes within 0.8 mm of compartment 2/,
+      );
+      // A well across the room, 0.5 mm from the cut's side.
+      const row = compartment({ x: 22.8, y: 41.5, w: 30, d: 16.9 });
+      rejects(beside([cutout("right", 30, 10)], [row]), /comes within 0.8 mm of compartment 1/);
+    });
+
+    it("two cuts through one divider that do not share their centre and width", () => {
+      const next = (at: number, width = 22) =>
+        compartment({
+          x: 22.8,
+          y: 1.6,
+          w: 35.6,
+          d: 56.8,
+          features: [cutout("left", at, 10, 0, width)],
+        });
+      expect(() => planTray(beside([cutout("right", 30, 10)], [next(30)]), GEO)).not.toThrow();
+      expect(() => planTray(beside([cutout("right", 30, 20)], [next(30)]), GEO)).not.toThrow();
+      rejects(beside([cutout("right", 30, 10)], [next(31)]), /cuts of compartments 0 and 1 meet/);
+      rejects(
+        beside([cutout("right", 30, 10)], [next(30, 20)]),
+        /cuts of compartments 0 and 1 meet/,
+      );
+    });
+
+    it("a cut beside a finger slot", () => {
+      const slotted = compartment({
+        x: 22.8,
+        y: 1.6,
+        w: 35.6,
+        d: 56.8,
+        features: [pocket("front", 28.4, 10, 12, 6)],
+      });
+      const spec = beside([cutout("right", 13, 10, 0, 22)], [slotted]);
+      // The cut (21.6…22.8 × 2…24) meets the slot (22.4…34.4 × 1.6…8.1) of compartment 1.
+      rejects(spec, /cut of compartment 0 comes within 0.8 mm of a finger pocket of compartment 1/);
+    });
+
+    it("a cut on a side with a scoop or a finger pocket", () => {
+      const scoop: FeatureSpec = { type: "scoop", side: "left", r: 5 };
+      rejects(beside([scoop, cutout("left", 30, 10)]), /scoop or finger pocket on its left side/);
+      rejects(
+        beside([pocket("left", 30, 10, 12, 6), cutout("left", 30, 10)]),
+        /scoop or finger pocket on its left side/,
+      );
+    });
+
+    it("a floor notch wider than its cut, outside its compartment or meeting the opposite one", () => {
+      rejects(beside([cutout("left", 30, 10, 12)]), /floor notch/);
+      const narrow = beside([cutout("left", 30, 10, 8)]);
+      const short = { ...narrow.compartments[0], y: 22.2, d: 15 } as CompartmentSpec;
+      rejects({ ...narrow, compartments: [short] }, /floor notch/);
+      rejects(beside([cutout("left", 30, 10, 9.7), cutout("right", 30, 10, 9.7)]), /floor notch/);
+      expect(() =>
+        planTray(beside([cutout("left", 30, 10, 9.6), cutout("right", 30, 10, 9.6)]), GEO),
+      ).not.toThrow();
+    });
+
+    it("a cut that leaves the outer face lower than the bottom chamfer allows", () => {
+      const steep = { ...GEO, bottomChamfer: 1 };
+      // Down to the 1.2 mm floor at the face, under the 1 + 0.8 mm the chamfer needs.
+      expect(() => planTray(beside([cutout("left", 30, 99)]), steep)).toThrow(/bottom chamfer/);
+      // An 8 mm notch removes the lowest part: the round bottom meets it 4.65 mm up.
+      expect(() => planTray(beside([cutout("left", 30, 99, 8)]), steep)).not.toThrow();
+    });
+  });
+});

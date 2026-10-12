@@ -48,8 +48,8 @@ describe("UnsupportedFeatureError and GEOMETRY_VERSION", () => {
     expect(err.message).toMatch(/"magnet".*newer app version/);
   });
 
-  it("starts at 0.1.0", () => {
-    expect(GEOMETRY_VERSION).toBe("0.1.0");
+  it("is at 0.1.1: 0.1.0 plus the wall cutout, which leaves every older tray as it was", () => {
+    expect(GEOMETRY_VERSION).toBe("0.1.1");
   });
 });
 

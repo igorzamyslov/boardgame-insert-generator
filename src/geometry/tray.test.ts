@@ -11,7 +11,7 @@ import { loadManifold } from "./load";
 import { buildTray } from "./tray";
 import { checkPrintability } from "./printability";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
-import { bounds, signedVolume, topology } from "./test-mesh";
+import { bounds, heightAt, signedVolume, topology } from "./test-mesh";
 import { thinnestWedge } from "./test-wedge";
 import {
   GEO,
@@ -19,6 +19,7 @@ import {
   compartment,
   customBlock,
   flatCards,
+  flatCutouts,
   hexTiles,
   lippedLower,
   loadFixture,
@@ -32,6 +33,8 @@ import {
   traySpec,
   traySpecFrom,
   upperLevel1,
+  uprightChannel,
+  uprightChannelLipped,
 } from "./test-specs";
 
 let m: ManifoldToplevel;
@@ -87,6 +90,48 @@ describe("buildTray per tray type", () => {
     // the reach bands are solid except for the slots, so the tray is heavier than block − wells·full
     expect(volumeMm3).toBeLessThan(solidBlock - wells);
     expect(volumeMm3).toBeGreaterThan(solidBlock - wells - 6 * 22 * 12 * (68 / 3));
+  });
+
+  it("upright cards: one channel, half the wells deep, through both end walls and every divider", () => {
+    const { mesh, volumeMm3 } = expectWellFormed(uprightChannel);
+    const { w, d, h } = uprightChannel;
+    const wells = [24, 30, 15].reduce((sum, x) => sum + wellVolume(x, 92.5, 68), 0);
+    // The U (22 wide, its round bottom 34 below the rim) through 5.6 mm of walls and dividers.
+    const u = 22 * (34 - 11) + (Math.PI * 11 * 11) / 2;
+    const expected = blockVolume(w, d, h, 3, 0.4) - wells - 5.6 * u;
+    expect(Math.abs(volumeMm3 - expected) / expected).toBeLessThan(0.003);
+    // Centred on the card length (y 47.85), the channel's bottom is 35.2 mm up.
+    for (const x of [0.8, 26.2, 57.4, 73.8]) {
+      expect(heightAt(mesh, x, 47.85), `x ${x}`).toBeCloseTo(h - 34, 3);
+      expect(heightAt(mesh, x, 30), `x ${x}`).toBeCloseTo(h, 3);
+    }
+    // Front and back walls stay whole.
+    expect(heightAt(mesh, 40, 0.8)).toBeCloseTo(h, 3);
+  });
+
+  it("a channel through a lipped tray interrupts the lip where it leaves the tray", () => {
+    const spec = uprightChannelLipped;
+    const { mesh } = expectWellFormed(spec, spec.h + GEO.lip.height);
+    const at = 1.3 + 47.85;
+    expect(heightAt(mesh, 0.3, at)).toBeCloseTo(spec.h - 34, 3);
+    // The lip keeps its full height beside the channel, on the end walls and everywhere else.
+    expect(heightAt(mesh, 0.3, at - 11 - 0.5)).toBeCloseTo(spec.h + 2, 3);
+    expect(heightAt(mesh, 0.3, at + 11 + 0.5)).toBeCloseTo(spec.h + 2, 3);
+    expect(heightAt(mesh, 40, 0.3)).toBeCloseTo(spec.h + 2, 3);
+  });
+
+  it("flat cards: half-round cutouts down to the floor that notch it", () => {
+    const { mesh } = expectWellFormed(flatCutouts);
+    const at = 1.6 + 92.5 / 2;
+    // The notch goes through the wall and 8 mm into the floor, so the part has a hole there…
+    for (const x of [0.8, 1.6 + 4, 71.2 - 0.8, 71.2 - 1.6 - 4]) {
+      expect(heightAt(mesh, x, at), `x ${x}`).toBe(Number.NEGATIVE_INFINITY);
+    }
+    // …the floor goes on past it…
+    expect(heightAt(mesh, 1.6 + 9, at)).toBeCloseTo(1.2, 3);
+    // …and between the notch and the cutout's side the wall follows the round bottom.
+    expect(heightAt(mesh, 0.8, at + 9.5)).toBeCloseTo(12.2 - Math.sqrt(121 - 9.5 * 9.5), 1);
+    expect(heightAt(mesh, 0.8, at + 12)).toBeCloseTo(flatCutouts.h, 3);
   });
 
   it("flat cards: full-depth slots on both short sides", () => {
@@ -370,7 +415,7 @@ describe("WASM handles", () => {
   });
 
   it("deletes every handle of a build", () => {
-    for (const spec of [hexTiles, cardUpright, scoopBulk, lippedLower, miniPockets]) {
+    for (const spec of [hexTiles, cardUpright, flatCutouts, scoopBulk, lippedLower, miniPockets]) {
       const handles = recordHandles(() => {
         buildTray(m, spec, GEO);
       });

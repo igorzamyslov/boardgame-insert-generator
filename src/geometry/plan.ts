@@ -12,6 +12,8 @@ import {
 import { keepsApart, slotsApart, slotsMerge, wellFaceProblem } from "../model/slot-rules";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
+import { checkCutClearance, checkNotches, planCut } from "./plan-cuts";
+import type { CutRequest } from "./plan-cuts";
 import { LIP_CHAMFER, LIP_FLAT, MIN_SCOOP_RADIUS } from "./plan-types";
 import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, SlotPlan, TrayPlan } from "./plan-types";
 import { KNOWN_COMPARTMENT_KINDS, KNOWN_FEATURE_TYPES, KNOWN_PARTS } from "./types";
@@ -349,12 +351,24 @@ function planCompartment(
   c: CompartmentSpec,
   rect: Rect,
   outerWall: number,
-): { plan: CompartmentPlan; reliefDiameter: number } {
+): { plan: CompartmentPlan; reliefDiameter: number; cutRequests: CutRequest[] } {
   const pockets: Pocket[] = [];
   const scoopRequests: ScoopPlan[] = [];
+  const cutRequests: CutRequest[] = [];
   let reliefDiameter = 0;
   for (const feature of c.features) {
-    if (feature.type === "fingerPocket") {
+    if (feature.type === "wallCutout") {
+      const { at, width, depth, floorNotch } = feature;
+      if (
+        ![width, depth].every(isPositive) ||
+        !Number.isFinite(at) ||
+        !Number.isFinite(floorNotch) ||
+        !(floorNotch >= 0)
+      ) {
+        fail(spec, `compartment ${index} has an invalid wall cutout`);
+      }
+      cutRequests.push({ side: sideOf(spec, feature.side), at, width, depth, floorNotch });
+    } else if (feature.type === "fingerPocket") {
       if (
         ![feature.width, feature.reach, feature.depth].every(isPositive) ||
         !Number.isFinite(feature.at)
@@ -366,6 +380,16 @@ function planCompartment(
       scoopRequests.push({ side: sideOf(spec, feature.side), r: feature.r });
     } else if (feature.type === "cornerRelief") {
       reliefDiameter = Math.max(reliefDiameter, feature.d);
+    }
+  }
+
+  // A cut through a wall would leave a scoop's fillet or a reach band standing free.
+  for (const q of cutRequests) {
+    if ([...pockets, ...scoopRequests].some((f) => f.side === q.side)) {
+      fail(
+        spec,
+        `compartment ${index} has a wall cutout and a scoop or finger pocket on its ${q.side} side`,
+      );
     }
   }
 
@@ -396,8 +420,9 @@ function planCompartment(
     }
   }
   return {
-    plan: { index, rect, content, floorZ: c.floorZ, slots, scoops, reliefs: [] },
+    plan: { index, rect, content, floorZ: c.floorZ, slots, cuts: [], scoops, reliefs: [] },
     reliefDiameter,
+    cutRequests,
   };
 }
 
@@ -407,8 +432,9 @@ function planCompartment(
 // built safely (roadmap §4.6): non-positive sizes, a wall or lip under MIN_WALL_MM, a floor
 // outside the tray, compartments less than MIN_FEATURE_MM apart or closer to an outer face than
 // the (lipped) outer wall, reach bands that leave less than MIN_POCKET_CONTENT, finger pockets
-// that would cut through an outer wall or break the finger slot clearance rule, and a bottom
-// chamfer the tray, its walls, floors or corners cannot take.
+// that would cut through an outer wall or break the finger slot clearance rule, wall cutouts that
+// break their own rules (plan-cuts.ts), and a bottom chamfer the tray, its walls, floors or
+// corners cannot take.
 export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   checkKnown(spec);
   if (![spec.w, spec.d, spec.h].every(isPositive)) {
@@ -443,7 +469,16 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   const planned = specs.map((c, i) =>
     planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect"), outerWall),
   );
-  const plans = planned.map((p) => p.plan);
+  const frame = { w: spec.w, d: spec.d, h: spec.h, outerWall, chamfer };
+  const failWith = (message: string): never => fail(spec, message);
+  const uncut = planned.map((p) => p.plan);
+  const plans = planned.map(({ plan, cutRequests }) => ({
+    ...plan,
+    cuts: cutRequests.map((q) => planCut(q, plan.index, uncut, frame, failWith)),
+  }));
+  plans.forEach((plan) => {
+    checkNotches(plan, failWith);
+  });
   plans.forEach((plan) =>
     plan.slots.forEach((slot) =>
       checkSlotMaterial(
@@ -456,9 +491,10 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     ),
   );
   checkSlotClearance(spec, plans);
-  const compartments = planned.map(({ plan, reliefDiameter }) => ({
+  checkCutClearance(plans, failWith);
+  const compartments = plans.map((plan, i) => ({
     ...plan,
-    reliefs: planReliefs(spec, plans, plan, reliefDiameter, chamfer),
+    reliefs: planReliefs(spec, plans, plan, planned[i]?.reliefDiameter ?? 0, chamfer),
   }));
 
   const cornerRadius = planCornerRadius(spec, settings.cornerRadius, chamfer, compartments);

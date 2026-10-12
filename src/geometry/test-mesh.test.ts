@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bounds, cubeMesh, signedVolume, topology } from "./test-mesh";
+import { bounds, cubeMesh, heightAt, signedVolume, topology } from "./test-mesh";
 
 describe("test mesh helpers", () => {
   it("builds a closed, outward cube of genus 0", () => {
@@ -33,5 +33,12 @@ describe("test mesh helpers", () => {
       indices: new Uint32Array([0, 1, 2]),
     };
     expect(bounds(mesh)).toEqual({ min: [-1, -5, -7], max: [4, 2, 6] });
+  });
+
+  it("finds the top of the mesh above a point, or none outside it", () => {
+    const cube = cubeMesh();
+    expect(heightAt(cube, 5, 5)).toBeCloseTo(10, 6);
+    expect(heightAt(cube, 0, 3)).toBeCloseTo(10, 6);
+    expect(heightAt(cube, 11, 5)).toBe(Number.NEGATIVE_INFINITY);
   });
 });

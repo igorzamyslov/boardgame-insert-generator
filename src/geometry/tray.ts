@@ -1,9 +1,18 @@
-import type { Manifold, ManifoldToplevel, Vec3 } from "manifold-3d";
+import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
 import type { Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
+import { cutCentre, cutFace, notchRect } from "./plan-cuts";
 import { INNER_CORNER_RADIUS } from "./plan-types";
-import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, SlotPlan, TrayPlan } from "./plan-types";
+import type {
+  CompartmentPlan,
+  CutPlan,
+  LipPlan,
+  Rect,
+  ScoopPlan,
+  SlotPlan,
+  TrayPlan,
+} from "./plan-types";
 import { withScope } from "./scope";
 import type { Scope } from "./scope";
 import {
@@ -125,6 +134,52 @@ function buildSlot(m: ManifoldToplevel, scope: Scope, slot: SlotPlan, topZ: numb
   return hullPoints(m, scope, points);
 }
 
+// A wall cutout's footprint, reaching EPS into its own compartment and into the one it runs into
+// (so no face of it is coplanar with theirs), or OVERSHOOT past the outer face it leaves through.
+function cutReach(cut: CutPlan): Rect {
+  const out = cut.into === null ? OVERSHOOT : EPS;
+  switch (cut.side) {
+    case "front":
+      return { ...cut, y0: cut.y0 - out, y1: cut.y1 + EPS };
+    case "back":
+      return { ...cut, y0: cut.y0 - EPS, y1: cut.y1 + out };
+    case "left":
+      return { ...cut, x0: cut.x0 - out, x1: cut.x1 + EPS };
+    case "right":
+      return { ...cut, x0: cut.x0 - EPS, x1: cut.x1 + out };
+  }
+}
+
+// A wall cutout: the U through the wall or divider, and with a floor notch the cut's middle down
+// through the bottom plus a half-disc into the compartment's floor, both vertical prisms (spec
+// §6.1). All are open at the top, so nothing overhangs.
+function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number): Manifold[] {
+  const reach = { ...cut, ...cutReach(cut) };
+  const parts = [buildSlot(m, scope, reach, top)];
+  if (cut.notch > 0) {
+    const n = cut.notch;
+    const slot = notchRect(reach);
+    parts.push(box(m, scope, [slot.x0, slot.y0, -OVERSHOOT], [slot.x1, slot.y1, top]));
+    // The half of a circle on the compartment's side of its face, reaching EPS across it.
+    const face = cutFace(cut);
+    const at = cutCentre(cut);
+    const start = { front: 0, back: 180, left: -90, right: 90 }[cut.side];
+    const into = { front: -EPS, back: EPS, left: -EPS, right: EPS }[cut.side];
+    const segments = 2 * quarterSegments(n);
+    const ring: Vec2[] = [];
+    for (let k = 0; k <= segments; k += 1) {
+      const a = ((start + (180 * k) / segments) * Math.PI) / 180;
+      const [u, v] = [at + n * Math.cos(a), face + n * Math.sin(a)];
+      ring.push(cut.side === "front" || cut.side === "back" ? [u, v] : [v, u]);
+    }
+    const alongX = cut.side === "front" || cut.side === "back";
+    ring.push(alongX ? [at - n, face + into] : [face + into, at - n]);
+    ring.push(alongX ? [at + n, face + into] : [face + into, at + n]);
+    parts.push(prism(m, scope, ring, -OVERSHOOT, top));
+  }
+  return parts;
+}
+
 function buildCutter(
   m: ManifoldToplevel,
   scope: Scope,
@@ -152,6 +207,7 @@ function buildCutter(
   }
   const extras = [
     ...c.slots.map((slot) => buildSlot(m, scope, slot, top)),
+    ...c.cuts.flatMap((cut) => buildCut(m, scope, cut, top)),
     ...c.reliefs.map((rl) =>
       prism(m, scope, circleRing(rl.cx, rl.cy, rl.r, 4 * quarterSegments(rl.r)), c.floorZ, top),
     ),

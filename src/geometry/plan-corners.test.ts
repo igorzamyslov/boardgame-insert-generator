@@ -305,6 +305,7 @@ describe("thin outer corners", () => {
     content: rect,
     floorZ: 2,
     slots: [],
+    cuts: [],
     scoops: [],
     reliefs: [],
   };

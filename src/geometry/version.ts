@@ -11,8 +11,11 @@ import type { Semver } from "../model/version";
  * that stored specs it accepted before are rejected, is a breaking change
  * too. From 1.0 on, an additive change bumps MINOR and a breaking change
  * bumps MAJOR.
+ *
+ * 0.1.1 added the wall cutout (finger channels through walls and dividers): a new feature that
+ * leaves every tray 0.1.0 built, and every spec it accepted, exactly as it was.
  */
-export const GEOMETRY_VERSION = "0.1.0";
+export const GEOMETRY_VERSION = "0.1.1";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

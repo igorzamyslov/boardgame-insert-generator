@@ -1,4 +1,5 @@
-// Test helpers: mesh topology, bounds, signed volume and a cube mesh.
+// Test helpers: mesh topology, bounds, signed volume, the height of the top at a point and a cube
+// mesh.
 import type { Mesh } from "./types";
 
 export interface Topology {
@@ -101,4 +102,36 @@ export function cubeMesh(s = 10): Mesh {
     ].flat(),
   );
   return { positions, indices };
+}
+
+// The highest point of the mesh above (x, y): the largest z where a vertical line through (x, y)
+// crosses a triangle, or -Infinity where it crosses none (a hole through the part).
+export function heightAt(mesh: Mesh, x: number, y: number): number {
+  const p = mesh.positions;
+  const ix = mesh.indices;
+  let top = Number.NEGATIVE_INFINITY;
+  for (let t = 0; t < ix.length; t += 3) {
+    const [a, b, c] = [ix[t] ?? 0, ix[t + 1] ?? 0, ix[t + 2] ?? 0].map((v) => v * 3) as [
+      number,
+      number,
+      number,
+    ];
+    const ax = p[a] ?? 0;
+    const ay = p[a + 1] ?? 0;
+    const bx = p[b] ?? 0;
+    const by = p[b + 1] ?? 0;
+    const cx = p[c] ?? 0;
+    const cy = p[c + 1] ?? 0;
+    const det = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+    if (Math.abs(det) < 1e-12) {
+      continue;
+    }
+    const u = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / det;
+    const v = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / det;
+    const w = 1 - u - v;
+    if (u >= -1e-9 && v >= -1e-9 && w >= -1e-9) {
+      top = Math.max(top, u * (p[a + 2] ?? 0) + v * (p[b + 2] ?? 0) + w * (p[c + 2] ?? 0));
+    }
+  }
+  return top;
 }

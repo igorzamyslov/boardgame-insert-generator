@@ -93,6 +93,65 @@ export function pocket(side: Side, at: number, depth: number, width = 22, reach 
   return { type: "fingerPocket", side, at, width, reach, depth };
 }
 
+export type WallCutout = Extract<FeatureSpec, { type: "wallCutout" }>;
+
+export function cutout(
+  side: Side,
+  at: number,
+  depth: number,
+  floorNotch = 0,
+  width = 22,
+): WallCutout {
+  return { type: "wallCutout", side, at, width, depth, floorNotch };
+}
+
+// Three sleeved Standard decks standing on their long edge (wells 92.5 long, 68 high) with one
+// centred 22 mm channel, half the well deep, through both end walls and both dividers.
+export const uprightChannel = traySpec({
+  key: "upright:p0:0",
+  w: 1.6 + 24 + 1.2 + 30 + 1.2 + 15 + 1.6,
+  d: 1.6 + 92.5 + 1.6,
+  h: 1.2 + 68,
+  compartments: strip([24, 30, 15], 1.6, 92.5, 1.6, 1.2, (_x, _w, i) => ({
+    contents: `Deck ${i + 1}`,
+    features: [cutout("left", 1.6 + 92.5 / 2, 34), cutout("right", 1.6 + 92.5 / 2, 34)],
+  })),
+});
+
+// The same tray carrying a lip (lipped wall 2.9): the channel interrupts the lip on the end walls.
+export const uprightChannelLipped = traySpec({
+  ...uprightChannel,
+  key: "upright-lipped:p0:0",
+  w: uprightChannel.w + 2 * 1.3,
+  d: uprightChannel.d + 2 * 1.3,
+  lip: true,
+  compartments: uprightChannel.compartments.map((c) => ({
+    ...c,
+    x: c.x + 1.3,
+    y: c.y + 1.3,
+    features: c.features.map((f) => (f.type === "wallCutout" ? { ...f, at: f.at + 1.3 } : f)),
+  })),
+});
+
+// One deck of sleeved Standard cards lying flat (68 × 92.5, 20 high): full-depth half-round
+// cutouts through both long walls, each notching the floor with an 8 mm half-round.
+export const flatCutouts = traySpec({
+  key: "flat:p0:0",
+  w: 1.6 + 68 + 1.6,
+  d: 1.6 + 92.5 + 1.6,
+  h: 1.2 + 20,
+  compartments: [
+    compartment({
+      x: 1.6,
+      y: 1.6,
+      w: 68,
+      d: 92.5,
+      contents: "Flat deck",
+      features: [cutout("left", 1.6 + 92.5 / 2, 20, 8), cutout("right", 1.6 + 92.5 / 2, 20, 8)],
+    }),
+  ],
+});
+
 // Three sleeved Standard decks standing on their long edge (well 68 high,
 // 92.5 long + 2 × 12 reach). The last deck is only 15 wide, so its 22 mm
 // slots sit 0.2 mm inside the outer wall (50.8…72.8) and cross the divider

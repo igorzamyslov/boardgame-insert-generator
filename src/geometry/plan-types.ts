@@ -28,6 +28,17 @@ export interface SlotPlan extends Rect {
   radius: number;
 }
 
+// Wall cutout (spec §6.1): a U cut, from the rim down, through the wall or divider on `side` of
+// its compartment. The footprint x0..y1 runs from the compartment's face to the facing face of the
+// next compartment across (`into`, its index), or out through the outer face (`into` null); along
+// the side it is the cut's width. The round bottom (radius) is a half-cylinder along the cut, lowest at bottomZ. A floor
+// notch of radius `notch` (0 = none) cuts a half-disc centred on the cut into the compartment's
+// floor and the cut's middle 2·notch down through the bottom, so a fingertip gets under the stack.
+export interface CutPlan extends SlotPlan {
+  into: number | null;
+  notch: number;
+}
+
 export interface ScoopPlan {
   side: Side;
   r: number;
@@ -47,6 +58,7 @@ export interface CompartmentPlan {
   content: Rect; // rect minus finger-pocket reach bands; cut down to floorZ
   floorZ: number;
   slots: SlotPlan[];
+  cuts: CutPlan[];
   scoops: ScoopPlan[];
   reliefs: ReliefPlan[];
 }

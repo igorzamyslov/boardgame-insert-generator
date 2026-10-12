@@ -1,5 +1,7 @@
 import type { Side } from "../model/types";
 import { CORNER_MARGIN, MIN_FEATURE_MM, SPEC_TOLERANCE, maxCornerRadius } from "../model/settings";
+import { keepsApart } from "../model/slot-rules";
+import { cutCentre, cutFace, cutFootprints, notchRect } from "./plan-cuts";
 import { MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
 import type { CompartmentPlan, Rect, ReliefPlan } from "./plan-types";
 
@@ -47,9 +49,48 @@ function sideBudget(
   return budget;
 }
 
+// The bounding box of a relief of radius r at corner (x, y), centred on the diagonal toward
+// (sx, sy): it reaches r·(1 − 1/√2) past the corner and r·(1 + 1/√2) into the contents.
+function reliefBox(x: number, y: number, sx: number, sy: number, r: number): Rect {
+  const near = r * (Math.SQRT1_2 - 1);
+  const far = r * (Math.SQRT1_2 + 1);
+  const [x0, x1] = sx > 0 ? [x + near, x + far] : [x - far, x - near];
+  const [y0, y1] = sy > 0 ? [y + near, y + far] : [y - far, y - near];
+  return { x0, y0, x1, y1 };
+}
+
+// The largest radius up to `r` whose relief keeps MIN_FEATURE_MM from every wall cutout footprint
+// (bisection: the relief's box only grows with its radius).
+function clearOfCuts(
+  x: number,
+  y: number,
+  sx: number,
+  sy: number,
+  r: number,
+  cuts: Rect[],
+): number {
+  const clear = (radius: number): boolean =>
+    cuts.every((cut) => keepsApart(reliefBox(x, y, sx, sy, radius), cut, 0));
+  if (clear(r)) {
+    return r;
+  }
+  let lo = 0;
+  let hi = r;
+  for (let k = 0; k < 40; k += 1) {
+    const mid = (lo + hi) / 2;
+    if (clear(mid)) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+
 // Ø`diameter` reliefs at the four content corners. Each circle passes
 // through its corner and is centred on the corner's diagonal, so it cuts
 // r·(1 − 1/√2) into both adjoining walls; r shrinks to fit the side budgets
+// and to keep MIN_FEATURE_MM from every wall cutout and floor notch (its own compartment's too),
 // and reliefs below MIN_RELIEF_RADIUS are dropped.
 export function planReliefs(
   size: TraySize,
@@ -75,9 +116,11 @@ export function planReliefs(
     [c.x1, c.y1, -1, -1, "right", "back"],
     [c.x0, c.y1, 1, -1, "left", "back"],
   ];
+  const cuts = cutFootprints(plans);
   const reliefs: ReliefPlan[] = [];
   for (const [x, y, sx, sy, sideX, sideY] of corners) {
-    const r = Math.min(maxR, budget[sideX] / RELIEF_CUT, budget[sideY] / RELIEF_CUT);
+    const fit = Math.min(maxR, budget[sideX] / RELIEF_CUT, budget[sideY] / RELIEF_CUT);
+    const r = fit > 0 ? clearOfCuts(x, y, sx, sy, fit, cuts) : fit;
     if (r >= MIN_RELIEF_RADIUS) {
       const inset = r * Math.SQRT1_2;
       reliefs.push({ cx: x + sx * inset, cy: y + sy * inset, r });
@@ -109,8 +152,17 @@ function cornerDiscs(compartments: CompartmentPlan[], chamfer: number): CornerDi
   for (const c of compartments) {
     const e = pullIn(chamfer, c.floorZ);
     corners(c.rect, e);
-    // A slot is conservatively measured at its lowest line.
+    // A slot or cut is conservatively measured at its lowest line, a floor notch at the bed.
     c.slots.forEach((slot) => corners(slot, pullIn(chamfer, slot.bottomZ)));
+    for (const cut of c.cuts) {
+      corners(cut, pullIn(chamfer, cut.bottomZ));
+      if (cut.notch > 0) {
+        corners(notchRect(cut), chamfer);
+        const alongX = cut.side === "front" || cut.side === "back";
+        const [x, y] = alongX ? [cutCentre(cut), cutFace(cut)] : [cutFace(cut), cutCentre(cut)];
+        discs.push({ x, y, rho: cut.notch, e: chamfer });
+      }
+    }
     c.reliefs.forEach((r) => discs.push({ x: r.cx, y: r.cy, rho: r.r, e }));
   }
   return discs;
