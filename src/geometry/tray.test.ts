@@ -18,6 +18,7 @@ import {
   slotStrip,
   compartment,
   customBlock,
+  cutout,
   sidePockets,
   flatCutouts,
   floorHoles,
@@ -128,11 +129,50 @@ describe("buildTray per tray type", () => {
     for (const x of [0.8, 1.6 + 4, 71.2 - 0.8, 71.2 - 1.6 - 4]) {
       expect(heightAt(mesh, x, at), `x ${x}`).toBe(Number.NEGATIVE_INFINITY);
     }
-    // …the floor goes on past it…
+    // …a half-disc of 8 mm around the middle of each cut wall…
+    for (const [x, y] of [
+      [1.6 + 5, at - 5],
+      [1.6 + 5, at + 5],
+      [71.2 - 1.6 - 5, at - 5],
+      [71.2 - 1.6 - 5, at + 5],
+    ] as const) {
+      expect(heightAt(mesh, x, y), `${x}, ${y}`).toBe(Number.NEGATIVE_INFINITY);
+    }
+    // …and the floor goes on past it…
     expect(heightAt(mesh, 1.6 + 9, at)).toBeCloseTo(1.2, 3);
+    expect(heightAt(mesh, 1.6 + 6, at + 6)).toBeCloseTo(1.2, 3);
     // …and between the notch and the cutout's side the wall follows the round bottom.
     expect(heightAt(mesh, 0.8, at + 9.5)).toBeCloseTo(12.2 - Math.sqrt(121 - 9.5 * 9.5), 1);
     expect(heightAt(mesh, 0.8, at + 12)).toBeCloseTo(flatCutouts.h, 3);
+  });
+
+  it("flat tiles cut through the front and back: the same notch, turned", () => {
+    const turned = traySpec({
+      key: "flat-front-back:p0:0",
+      w: flatCutouts.d,
+      d: flatCutouts.w,
+      h: flatCutouts.h,
+      compartments: [
+        compartment({
+          x: 1.6,
+          y: 1.6,
+          w: 92.5,
+          d: 68,
+          features: [cutout("front", 47.85, 20, 8), cutout("back", 47.85, 20, 8)],
+        }),
+      ],
+    });
+    const { mesh } = expectWellFormed(turned);
+    for (const [x, y] of [
+      [47.85, 0.8],
+      [47.85 - 5, 1.6 + 5],
+      [47.85 + 5, 1.6 + 5],
+      [47.85 - 5, 71.2 - 1.6 - 5],
+      [47.85 + 5, 71.2 - 1.6 - 5],
+    ] as const) {
+      expect(heightAt(mesh, x, y), `${x}, ${y}`).toBe(Number.NEGATIVE_INFINITY);
+    }
+    expect(heightAt(mesh, 47.85 + 6, 1.6 + 6)).toBeCloseTo(1.2, 3);
   });
 
   it("side pockets: full-depth slots on the left and right", () => {

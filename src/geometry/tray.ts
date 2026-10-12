@@ -160,19 +160,20 @@ function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number):
     const n = cut.notch;
     const slot = notchRect(reach);
     parts.push(box(m, scope, [slot.x0, slot.y0, -OVERSHOOT], [slot.x1, slot.y1, top]));
-    // The half of a circle on the compartment's side of its face, reaching EPS across it.
+    // The half of a circle on the compartment's side of its face (the angles facing into the
+    // compartment), and its diameter moved EPS across the face into the notch's middle.
     const face = cutFace(cut);
     const at = cutCentre(cut);
+    const alongX = cut.side === "front" || cut.side === "back";
+    const [cx, cy] = alongX ? [at, face] : [face, at];
     const start = { front: 0, back: 180, left: -90, right: 90 }[cut.side];
     const into = { front: -EPS, back: EPS, left: -EPS, right: EPS }[cut.side];
     const segments = 2 * quarterSegments(n);
     const ring: Vec2[] = [];
     for (let k = 0; k <= segments; k += 1) {
       const a = ((start + (180 * k) / segments) * Math.PI) / 180;
-      const [u, v] = [at + n * Math.cos(a), face + n * Math.sin(a)];
-      ring.push(cut.side === "front" || cut.side === "back" ? [u, v] : [v, u]);
+      ring.push([cx + n * Math.cos(a), cy + n * Math.sin(a)]);
     }
-    const alongX = cut.side === "front" || cut.side === "back";
     ring.push(alongX ? [at - n, face + into] : [face + into, at - n]);
     ring.push(alongX ? [at + n, face + into] : [face + into, at + n]);
     parts.push(prism(m, scope, ring, -OVERSHOOT, top));
