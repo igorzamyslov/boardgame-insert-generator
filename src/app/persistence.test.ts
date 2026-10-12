@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
 import { SCHEMA_NOTICE_CODES } from "../model/schema";
-import { createProjectStore, encodeHash } from "../share";
+import { STORAGE_PREFIX, createProjectStore, encodeHash } from "../share";
 import type { ProjectStore } from "../share";
 import {
   CONFLICT_CODE,
@@ -255,5 +255,97 @@ describe("persistence", () => {
     const codes = t.state.appNotices.value.map((n) => n.code);
     expect(codes).toContain(SCHEMA_NOTICE_CODES.newerMinor);
     expect(codes).toContain(SCHEMA_NOTICE_CODES.foreignComponent);
+  });
+
+  it("opening the same project in a second tab or leaving without edits is no conflict", () => {
+    const shared = new MemoryStorage();
+    const tab1 = tab(createProjectStore(shared));
+    tab1.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    const tab2 = tab(createProjectStore(shared));
+    tab2.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    tab2.persistence.flush();
+    tab1.persistence.onExternalChange();
+    expect(tab1.state.conflict.value).toBe(false);
+    vi.advanceTimersByTime(1000);
+    tab2.persistence.flush();
+    tab1.persistence.flush();
+    tab1.persistence.onExternalChange();
+    expect(tab1.state.conflict.value).toBe(false);
+    expect(tab1.state.appNotices.value.map((n) => n.code)).not.toContain(CONFLICT_CODE);
+  });
+
+  it("a file with the id of an unreadable stored project opens as a copy", () => {
+    const storage = new MemoryStorage();
+    const store = createProjectStore(storage);
+    const p = fixtureProject();
+    const key = `${STORAGE_PREFIX}project:${p.id}`;
+    storage.setItem(key, "{ damaged, but the user may still want it");
+    const t = tab(store);
+    t.persistence.start("");
+    expect(t.persistence.importJson(JSON.stringify(p))).toBe(true);
+    expect(t.state.project.value.id).not.toBe(p.id);
+    expect(t.state.project.value.name).toBe(`${p.name} (copy)`);
+    expect(storage.getItem(key)).toBe("{ damaged, but the user may still want it");
+  });
+
+  it("a JSON file with an existing id and different content opens as a copy", () => {
+    const store = createProjectStore(new MemoryStorage());
+    const a = fixtureProject();
+    store.save(a, EMPTY_FOREIGN);
+    const t = tab(store);
+    t.persistence.start("");
+    const changed: Project = { ...a, name: "Imported" };
+    expect(t.persistence.importJson(JSON.stringify(changed))).toBe(true);
+    expect(t.state.project.value.id).not.toBe(a.id);
+    expect(t.state.project.value.name).toBe("Imported (copy)");
+    const original = store.load(a.id);
+    expect(original?.ok && original.project.name).toBe(a.name);
+  });
+
+  function conflicted() {
+    const shared = new MemoryStorage();
+    const tab1 = tab(createProjectStore(shared));
+    tab1.persistence.start("");
+    const id = tab1.state.project.value.id;
+    vi.advanceTimersByTime(1000);
+    const tab2 = tab(createProjectStore(shared));
+    tab2.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    rename(tab2.state, "From tab 2");
+    tab2.persistence.flush();
+    rename(tab1.state, "From tab 1");
+    tab1.persistence.onExternalChange();
+    expect(tab1.state.conflict.value).toBe(true);
+    return { shared, tab1, id, reader: createProjectStore(shared) };
+  }
+
+  it("leaving a project during a conflict keeps this tab's version as a copy", () => {
+    const { tab1, id, reader } = conflicted();
+    tab1.persistence.newProject();
+    const names = reader.list().map((e) => e.name);
+    expect(names).toContain("From tab 1 (copy)");
+    const theirs = reader.load(id);
+    expect(theirs?.ok && theirs.project.name).toBe("From tab 2");
+    expect(tab1.state.conflict.value).toBe(false);
+    expect(tab1.state.appNotices.value.map((n) => n.message).join("\n")).toMatch(
+      /From tab 1 \(copy\)/,
+    );
+  });
+
+  it("loading theirs when their version is gone keeps mine and the conflict", () => {
+    const { tab1, id, reader } = conflicted();
+    reader.remove(id);
+    tab1.persistence.resolveConflict("loadTheirs");
+    expect(tab1.state.project.value.name).toBe("From tab 1");
+    expect(tab1.state.conflict.value).toBe(true);
+    expect(tab1.state.appNotices.value.map((n) => n.code)).toContain(OPEN_FAILED_CODE);
+    tab1.persistence.scheduleSave();
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    expect(reader.load(id)).toBeNull();
+    tab1.persistence.resolveConflict("keepMine");
+    const kept = reader.load(id);
+    expect(kept?.ok && kept.project.name).toBe("From tab 1");
   });
 });

@@ -2,6 +2,7 @@
 import { batch } from "@preact/signals";
 import { newProject } from "../model/defaults";
 import type { Notice, Project } from "../model/types";
+import { STORAGE_PREFIX } from "../share";
 import type { ProjectStore } from "../share";
 import type { LayoutClient } from "./clients";
 import { createPersistence } from "./persistence";
@@ -128,7 +129,12 @@ export function createAppStore(deps: AppDeps): AppStore {
 }
 
 export function connectWindow(store: AppStore, win: Window): () => void {
-  const onStorage = (): void => store.onExternalChange();
+  const onStorage = (e: StorageEvent): void => {
+    // Other apps on the same origin share localStorage; null means it was cleared.
+    if (e.key === null || e.key.startsWith(STORAGE_PREFIX)) {
+      store.onExternalChange();
+    }
+  };
   const onHashChange = (): void => store.openFromHash(win.location.hash);
   const onPageHide = (): void => store.flushSave();
   win.addEventListener("storage", onStorage);

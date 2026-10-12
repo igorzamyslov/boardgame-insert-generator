@@ -56,7 +56,8 @@ export function createPersistence(
 ): Persistence {
   const store = deps.projectStore;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let knownUpdatedAt: number | null = null;
+  // What this tab last saw in storage for the current project (serialized), or null.
+  let lastSynced: string | null = null;
   let written = "";
   let active = false;
 
@@ -67,14 +68,8 @@ export function createPersistence(
     }
   }
 
-  function entryOf(id: string) {
-    return store.available ? store.list().find((e) => e.id === id) : undefined;
-  }
-
   function refreshList(): void {
-    state.projects.value = store.available
-      ? [...store.list()].sort((a, b) => b.updatedAt - a.updatedAt)
-      : [];
+    state.projects.value = store.available ? store.list() : [];
   }
 
   function writeHash(): void {
@@ -83,9 +78,22 @@ export function createPersistence(
     deps.replaceHash(hash);
   }
 
+  /** The stored project as it loads, serialized; null when absent, "" when unreadable. */
+  function storedSerialized(id: string): string | null {
+    const r = store.available ? store.load(id) : null;
+    if (!r) {
+      return null;
+    }
+    return r.ok ? serializeProject(r.project, r.foreign) : "";
+  }
+
+  /** True when the stored content differs from what this tab last saw (a deleted project is no conflict). */
   function changedElsewhere(id: string): boolean {
-    const entry = entryOf(id);
-    return entry !== undefined && knownUpdatedAt !== null && entry.updatedAt !== knownUpdatedAt;
+    if (lastSynced === null) {
+      return false;
+    }
+    const stored = storedSerialized(id);
+    return stored !== null && stored !== lastSynced;
   }
 
   function markConflict(): void {
@@ -108,6 +116,10 @@ export function createPersistence(
       return;
     }
     const p = state.project.value;
+    const current = serializeProject(p, state.foreign.value);
+    if (current === lastSynced) {
+      return;
+    }
     if (changedElsewhere(p.id)) {
       markConflict();
       return;
@@ -127,12 +139,36 @@ export function createPersistence(
       return;
     }
     dismissNotice(state, SAVE_FAILED_CODE);
-    knownUpdatedAt = entryOf(p.id)?.updatedAt ?? null;
+    lastSynced = storedSerialized(p.id) || current;
     refreshList();
   }
 
+  /** Keeps this tab's version of a conflicted project as its own copy before the tab leaves it. */
+  function saveConflictedCopy(): Notice {
+    clearTimer();
+    const p = state.project.value;
+    const copy: Project = { ...p, id: newId(), name: `${p.name} (copy)` };
+    try {
+      store.save(copy, state.foreign.value);
+    } catch {
+      return {
+        level: "warning",
+        code: CONFLICT_CODE,
+        message: `“${p.name}” was changed in another tab and this tab's version couldn't be kept (the browser refused to store it).`,
+      };
+    }
+    return {
+      level: "info",
+      code: CONFLICT_CODE,
+      message: `“${p.name}” was changed in another tab; this tab's version was kept as “${copy.name}”.`,
+    };
+  }
+
   function setCurrent(project: Project, foreign: ForeignData, notices: Notice[]): void {
-    flush();
+    const conflictNotice = active && state.conflict.value ? saveConflictedCopy() : null;
+    if (!conflictNotice) {
+      flush();
+    }
     hooks.onClosing();
     const kept = state.appNotices.value.filter((n) => n.code === STORAGE_UNAVAILABLE_CODE);
     batch(() => {
@@ -147,10 +183,10 @@ export function createPersistence(
         foreign.components.length > 0 ||
         notices.some((n) => n.code === SCHEMA_NOTICE_CODES.newerMinor);
       // Parse notices include one schema.foreignComponent warning per kept component.
-      state.appNotices.value = [...kept, ...notices];
+      state.appNotices.value = [...kept, ...notices, ...(conflictNotice ? [conflictNotice] : [])];
     });
     active = true;
-    knownUpdatedAt = entryOf(project.id)?.updatedAt ?? null;
+    lastSynced = storedSerialized(project.id) || null;
     flush();
     hooks.onOpened();
   }
@@ -166,13 +202,14 @@ export function createPersistence(
     }
     let project = result.project;
     const existing = store.available ? store.load(project.id) : null;
-    if (existing && existing.ok) {
-      const same =
-        serializeProject(existing.project, existing.foreign) ===
-        serializeProject(project, result.foreign);
-      if (!same) {
-        project = { ...project, id: newId(), name: `${project.name} (copy)` };
-      }
+    // Never replace a stored project that differs or can't be read (damaged, or made by a newer app).
+    if (
+      existing &&
+      (!existing.ok ||
+        serializeProject(existing.project, existing.foreign) !==
+          serializeProject(project, result.foreign))
+    ) {
+      project = { ...project, id: newId(), name: `${project.name} (copy)` };
     }
     setCurrent(project, result.foreign, result.notices);
     return true;
@@ -261,15 +298,7 @@ export function createPersistence(
         clearTimer();
         active = false;
       }
-      try {
-        store.remove(id);
-      } catch (e) {
-        pushNotice(state, {
-          level: "warning",
-          code: SAVE_FAILED_CODE,
-          message: `Couldn't delete the project (${errorText(e)}).`,
-        });
-      }
+      store.remove(id);
       refreshList();
       if (wasCurrent) {
         openStoredOrNew();
@@ -286,18 +315,29 @@ export function createPersistence(
     },
     resolveConflict(choice) {
       const id = state.project.value.id;
-      state.conflict.value = false;
-      dismissNotice(state, CONFLICT_CODE);
       if (choice === "keepMine") {
-        knownUpdatedAt = entryOf(id)?.updatedAt ?? null;
+        state.conflict.value = false;
+        dismissNotice(state, CONFLICT_CODE);
+        lastSynced = storedSerialized(id) || null;
         flush();
         return;
       }
       const r = store.available ? store.load(id) : null;
       if (r && r.ok) {
+        state.conflict.value = false;
+        dismissNotice(state, CONFLICT_CODE);
         active = false;
         setCurrent(r.project, r.foreign, r.notices);
+        return;
       }
+      // Their version is gone or unreadable: keep mine and the pending choice.
+      pushNotice(state, {
+        level: "error",
+        code: OPEN_FAILED_CODE,
+        message: r
+          ? `Couldn't load the other tab's version: ${r.error} This tab's version is unchanged.`
+          : "The other tab's version is no longer stored. This tab's version is unchanged; choose Keep mine to save it again.",
+      });
     },
     dispose() {
       clearTimer();

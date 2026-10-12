@@ -2,9 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renameProject, updateBox } from "./actions";
 import { inputsHash } from "../model/hash";
-import { createProjectStore, encodeHash } from "../share";
+import { STORAGE_PREFIX, createProjectStore, encodeHash } from "../share";
 import { DEBOUNCE_MS } from "./runner";
-import { SAVE_DEBOUNCE_MS } from "./persistence";
+import { CONFLICT_CODE, SAVE_DEBOUNCE_MS } from "./persistence";
 import { connectWindow, createAppStore } from "./store";
 import { MemoryStorage } from "../test-support/memory-storage";
 import {
@@ -98,6 +98,52 @@ describe("app store", () => {
     store.edit((q) => renameProject(q, "Before leaving"));
     win.dispatchEvent(new Event("pagehide"));
     expect(projectStore.list().find((e) => e.id === other.id)?.name).toBe("Before leaving");
+    disconnect();
+  });
+
+  it("disconnect removes the window listeners", () => {
+    const { store } = setup();
+    const onExternalChange = vi.spyOn(store, "onExternalChange");
+    const openFromHash = vi.spyOn(store, "openFromHash");
+    const flushSave = vi.spyOn(store, "flushSave");
+    const win = Object.assign(new EventTarget(), { location: { hash: "" } });
+    const disconnect = connectWindow(store, win as unknown as Window);
+    disconnect();
+    win.dispatchEvent(Object.assign(new Event("storage"), { key: `${STORAGE_PREFIX}index` }));
+    win.dispatchEvent(new Event("hashchange"));
+    win.dispatchEvent(new Event("pagehide"));
+    expect(onExternalChange).not.toHaveBeenCalled();
+    expect(openFromHash).not.toHaveBeenCalled();
+    expect(flushSave).not.toHaveBeenCalled();
+  });
+
+  it("reacts to storage events of this app only", () => {
+    const shared = new MemoryStorage();
+    const make = () =>
+      createAppStore({
+        projectStore: createProjectStore(shared),
+        loadLayoutClient: () => Promise.resolve(stubLayoutClient().client),
+        replaceHash: vi.fn(),
+        confirm: () => true,
+      });
+    const mine = make();
+    mine.start("");
+    const id = mine.state.project.value.id;
+    vi.advanceTimersByTime(1000);
+    const other = make();
+    other.start("");
+    vi.advanceTimersByTime(1000);
+    other.edit((q) => renameProject(q, "From the other tab"));
+    other.flushSave();
+    const win = Object.assign(new EventTarget(), { location: { hash: "" } });
+    const disconnect = connectWindow(mine, win as unknown as Window);
+    win.dispatchEvent(Object.assign(new Event("storage"), { key: "some-other-app:key" }));
+    expect(mine.state.conflict.value).toBe(false);
+    win.dispatchEvent(
+      Object.assign(new Event("storage"), { key: `${STORAGE_PREFIX}project:${id}` }),
+    );
+    expect(mine.state.conflict.value).toBe(true);
+    expect(mine.state.appNotices.value.map((n) => n.code)).toContain(CONFLICT_CODE);
     disconnect();
   });
 });
