@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { CHANNEL_DEPTH, MIN_GRIP } from "../sizing/constants";
-import type { Access, Box, Lock, Printer, Settings } from "../model/types";
+import type { Access, Box, Lock, Printer, Settings, TraySpec } from "../model/types";
 import type { CompartmentReq, TrayPartReq, TrayRequirement, TrayVariant } from "../sizing/types";
 import type { Measure } from "./context";
 import type { StackItem } from "./tree";
@@ -143,4 +143,28 @@ export const fakeMeasure: Measure = (p, _settings, opts) => {
 /** A stack item for part 0 of variant 0 of requirement `req`. */
 export function item(req: number, rotated = false): StackItem {
   return { req, variant: 0, part: 0, rotated };
+}
+
+/** A printed tray spec: a plain 100 × 50 × 20 tray at path "0", with `o` laid over it. */
+export function traySpec(o: Partial<TraySpec> = {}): TraySpec {
+  return {
+    key: "k",
+    part: "tray",
+    path: "0",
+    stack: 0,
+    level: 0,
+    x: 0,
+    y: 0,
+    z: 0,
+    w: 100,
+    d: 50,
+    h: 20,
+    rotated: false,
+    wall: 1.6,
+    floor: 1.2,
+    lip: false,
+    solid: false,
+    compartments: [],
+    ...o,
+  };
 }

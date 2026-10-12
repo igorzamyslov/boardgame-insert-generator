@@ -1,0 +1,559 @@
+import type { Lock, Notice, StoredLayout, TraySpec } from "../model/types";
+import { fitsBed } from "./bed";
+import {
+  MAX_DEPTH,
+  MAX_LEVELS,
+  withSizeLocks,
+  type Ctx,
+  type FixedSize,
+  type PartRef,
+} from "./context";
+import { insertItem, insertLeaf, removeItems, type MoveEnv } from "./moves";
+import type { Rng } from "./prng";
+import { stackHeights, stackLevels } from "./stack";
+import {
+  cut,
+  leaf,
+  leaves,
+  nodeAt,
+  replaceAt,
+  type Axis,
+  type StackItem,
+  type Tree,
+  type TreeNode,
+} from "./tree";
+import { toU } from "./units";
+
+export interface LockedLeaf {
+  readonly path: string;
+  /** Bottom → top. */
+  readonly items: readonly StackItem[];
+}
+
+export interface ResolvedLocks {
+  /** Leaves fixed by position locks (frozen, at their path). */
+  readonly leaves: readonly LockedLeaf[];
+  /** Stack-locked groups without a position: frozen leaves that may move. */
+  readonly groups: readonly (readonly StackItem[])[];
+  readonly lockedPaths: readonly string[];
+  /** Per requirement: the variant forced by locks, or null. */
+  readonly pinnedVariant: readonly (number | null)[];
+  /** Size locks keyed by partId. */
+  readonly sizes: ReadonlyMap<number, FixedSize>;
+  readonly rotationFixed: ReadonlySet<number>;
+  /** Locks that survived validation, in input order. */
+  readonly kept: readonly Lock[];
+}
+
+/** Hints from a warm-start layout, so locks keep the variant and rotation the user saw. */
+export interface LockHints {
+  variantOf?(req: number): number | undefined;
+  rotatedOf?(trayKey: string): boolean | undefined;
+}
+
+export function noLocks(ctx: Ctx): ResolvedLocks {
+  return {
+    leaves: [],
+    groups: [],
+    lockedPaths: [],
+    pinnedVariant: ctx.input.requirements.map(() => null),
+    sizes: new Map(),
+    rotationFixed: new Set(),
+    kept: [],
+  };
+}
+
+/** A guillotine path (a string of 0/1 digits) no longer than MAX_DEPTH: locks, stored layouts. */
+export function isValidPath(path: string): boolean {
+  return /^[01]*$/.test(path) && path.length <= MAX_DEPTH;
+}
+
+export function describeLock(lock: Lock): string {
+  if (lock.kind === "stack") {
+    return `Stack lock on ${lock.trayKeys.join(", ")}`;
+  }
+  return `${lock.kind === "position" ? "Position" : "Size"} lock on ${lock.trayKey}`;
+}
+
+/**
+ * `path` is `/locks/<index>` (the lock's index in `LayoutInput.locks`) so the UI can remove
+ * exactly that lock from the project; omitted when the index is unknown (< 0).
+ */
+export function lockDroppedNotice(lock: Lock, reason: string, index = -1): Notice {
+  const notice: Notice = {
+    level: "warning",
+    code: "lock.dropped",
+    message: `${describeLock(lock)} was dropped: ${reason}.`,
+  };
+  return index >= 0 ? { ...notice, path: `/locks/${index}` } : notice;
+}
+
+interface PosLock {
+  readonly lock: Lock & { kind: "position" };
+  readonly ref: PartRef;
+  readonly id: number;
+}
+
+/**
+ * Validates locks before optimizing (spec §7.2). Every lock that can't be kept — unknown
+ * trayKey, contents that no longer fit a size lock, box edits, conflicting paths or
+ * stacks — is dropped with a "lock.dropped" notice, never silently. A dropped lock
+ * constrains nothing: only the requirements a kept lock names stay pinned to a variant.
+ *
+ * Size locks are checked against the unlipped level-0 metrics. A size-locked tray that ends
+ * up lower in a stack (lipped) can need more; the search then sees lock overflow, and the
+ * fallback in `optimize` (Task 18) drops the lock with its generic reason.
+ */
+export function resolveLocks(
+  ctx: Ctx,
+  locks: readonly Lock[],
+  hints: LockHints = {},
+): { resolved: ResolvedLocks; notices: Notice[] } {
+  const notices: Notice[] = [];
+  const dropped = new Set<Lock>();
+  const drop = (lock: Lock, reason: string): void => {
+    dropped.add(lock);
+    notices.push(lockDroppedNotice(lock, reason, locks.indexOf(lock)));
+  };
+  const reqs = ctx.input.requirements;
+
+  // 1. Keys must exist; all locks on one requirement must agree on a variant.
+  const candidates: (Set<number> | null)[] = reqs.map(() => null);
+  const accepted: Lock[] = [];
+  for (const lock of locks) {
+    const keys = lock.kind === "stack" ? lock.trayKeys : [lock.trayKey];
+    if (keys.length === 0) {
+      drop(lock, "it lists no trays");
+      continue;
+    }
+    const missing = keys.find((k) => ctx.refsOfKey(k).length === 0);
+    if (missing !== undefined) {
+      drop(lock, `no tray "${missing}" exists any more`);
+      continue;
+    }
+    const next = new Map<number, Set<number>>();
+    let ok = true;
+    for (const k of keys) {
+      const refs = ctx.refsOfKey(k);
+      const r = refs[0]?.req ?? 0;
+      const withKey = new Set(refs.map((ref) => ref.variant));
+      const cur = next.get(r) ?? candidates[r] ?? null;
+      const inter = cur === null ? withKey : new Set([...cur].filter((v) => withKey.has(v)));
+      if (inter.size === 0) {
+        ok = false;
+        break;
+      }
+      next.set(r, inter);
+    }
+    if (!ok) {
+      drop(lock, "it conflicts with other locks on the same component");
+      continue;
+    }
+    for (const [r, set] of next) {
+      candidates[r] = set;
+    }
+    accepted.push(lock);
+  }
+  const pinnedVariant = candidates.map((set, r) => {
+    if (set === null) {
+      return null;
+    }
+    const preferred = hints.variantOf?.(r);
+    return preferred !== undefined && set.has(preferred) ? preferred : Math.min(...set);
+  });
+  const refOf = (key: string): PartRef => {
+    const refs = ctx.refsOfKey(key);
+    return refs.find((r) => r.variant === pinnedVariant[r.req]) ?? (refs[0] as PartRef);
+  };
+  const rotatable = (ref: PartRef): boolean => ctx.part(ref)?.rotatable ?? false;
+
+  // 2. Size locks.
+  const sizes = new Map<number, FixedSize>();
+  for (const lock of accepted) {
+    if (lock.kind !== "size") {
+      continue;
+    }
+    const ref = refOf(lock.trayKey);
+    const id = ctx.partId(ref);
+    if (sizes.has(id)) {
+      drop(lock, "another size lock already fixes this tray");
+      continue;
+    }
+    const m = ctx.metrics(ref, false, 0);
+    const w = toU(lock.w);
+    const d = toU(lock.d);
+    const h = toU(lock.h);
+    const asIs = w >= m.w && d >= m.d;
+    const turned = rotatable(ref) && w >= m.d && d >= m.w;
+    if ((!asIs && !turned) || h < m.h) {
+      drop(lock, "its contents no longer fit that size");
+      continue;
+    }
+    if (w > ctx.floorW || d > ctx.floorD || h > ctx.topPlane) {
+      drop(lock, "it no longer fits in the box");
+      continue;
+    }
+    if (!fitsBed(ctx.bed, w, d, h)) {
+      drop(lock, "it is larger than the print bed");
+      continue;
+    }
+    const rotated = asIs && turned ? (hints.rotatedOf?.(lock.trayKey) ?? false) : !asIs;
+    sizes.set(id, { w, d, h, rotated });
+  }
+
+  // 3. Position locks.
+  const singleTray =
+    reqs.length === 1 && (reqs[0]?.variants[pinnedVariant[0] ?? 0]?.parts.length ?? 0) === 1;
+  const pos = new Map<number, PosLock>();
+  for (const lock of accepted) {
+    if (lock.kind !== "position") {
+      continue;
+    }
+    const ref = refOf(lock.trayKey);
+    const id = ctx.partId(ref);
+    if (!isValidPath(lock.path)) {
+      drop(lock, "its position is not valid");
+      continue;
+    }
+    if (pos.has(id)) {
+      drop(lock, "another position lock already places this tray");
+      continue;
+    }
+    if (lock.rotated && !rotatable(ref)) {
+      drop(lock, "this tray can't be rotated");
+      continue;
+    }
+    const size = sizes.get(id);
+    if (size && size.rotated !== lock.rotated) {
+      drop(lock, "it conflicts with the size lock on the same tray");
+      continue;
+    }
+    const clash = [...pos.values()].find(
+      (p) =>
+        p.lock.path !== lock.path &&
+        (p.lock.path.startsWith(lock.path) || lock.path.startsWith(p.lock.path)),
+    );
+    if (clash) {
+      drop(lock, `it conflicts with the position lock on ${clash.lock.trayKey}`);
+      continue;
+    }
+    if (lock.path === "" && !singleTray) {
+      drop(lock, "it conflicts with the other trays");
+      continue;
+    }
+    pos.set(id, { lock, ref, id });
+  }
+
+  const sized = withSizeLocks(ctx, sizes);
+  const rotationOf = (ref: PartRef, key: string): boolean => {
+    const id = ctx.partId(ref);
+    const fixed = pos.get(id)?.lock.rotated ?? sizes.get(id)?.rotated;
+    if (fixed !== undefined) {
+      return fixed;
+    }
+    return rotatable(ref) && (hints.rotatedOf?.(key) ?? false);
+  };
+  const itemOf = (key: string): StackItem => {
+    const ref = refOf(key);
+    return { ...ref, rotated: rotationOf(ref, key) };
+  };
+  const fitsHeight = (items: readonly StackItem[]): boolean => {
+    const h = stackHeights(sized, stackLevels(sized, items));
+    return h.overflow === 0 && h.lockOverflow === 0;
+  };
+
+  // 4. Stack locks.
+  const inGroup = new Map<number, { lock: Lock; items: StackItem[] }>();
+  const groupsAll: { lock: Lock; items: StackItem[]; path: string | null }[] = [];
+  for (const lock of accepted) {
+    if (lock.kind !== "stack") {
+      continue;
+    }
+    const items = lock.trayKeys.map(itemOf);
+    const ids = items.map((i) => ctx.partId(i));
+    if (new Set(ids).size !== ids.length || ids.some((id) => inGroup.has(id))) {
+      drop(lock, "a tray appears in more than one stack lock");
+      continue;
+    }
+    if (items.length > MAX_LEVELS) {
+      drop(lock, `a stack holds at most ${MAX_LEVELS} trays`);
+      continue;
+    }
+    const paths = new Set(
+      ids.flatMap((id) => {
+        const p = pos.get(id);
+        return p ? [p.lock.path] : [];
+      }),
+    );
+    if (paths.size > 1) {
+      drop(lock, "its trays are locked to different positions");
+      continue;
+    }
+    if (!fitsHeight(items)) {
+      drop(lock, "the stack is taller than the space in the box");
+      continue;
+    }
+    const g = { lock, items, path: [...paths][0] ?? null };
+    groupsAll.push(g);
+    for (const id of ids) {
+      inGroup.set(id, g);
+    }
+  }
+
+  // 5. Locked leaves: position-locked trays (and their stack groups) per path.
+  const byPath = new Map<string, { items: StackItem[]; locks: PosLock[]; groups: Set<object> }>();
+  for (const lock of accepted) {
+    if (lock.kind !== "position" || dropped.has(lock)) {
+      continue;
+    }
+    const ref = refOf(lock.trayKey);
+    const id = ctx.partId(ref);
+    const entry = byPath.get(lock.path) ?? { items: [], locks: [], groups: new Set<object>() };
+    const g = inGroup.get(id);
+    if (g) {
+      if (!entry.groups.has(g)) {
+        entry.groups.add(g);
+        entry.items.push(...g.items);
+      }
+    } else {
+      entry.items.push(itemOf(lock.trayKey));
+    }
+    entry.locks.push({ lock, ref, id });
+    byPath.set(lock.path, entry);
+  }
+  const lockedLeaves: LockedLeaf[] = [];
+  for (const [path, entry] of byPath) {
+    if (entry.items.length > MAX_LEVELS || !fitsHeight(entry.items)) {
+      for (const p of entry.locks) {
+        drop(p.lock, "the trays locked to this position don't fit on top of each other");
+        pos.delete(p.id);
+      }
+      continue;
+    }
+    lockedLeaves.push({ path, items: entry.items });
+  }
+  const groups = groupsAll
+    .filter((g) => !g.items.some((i) => pos.has(ctx.partId(i))))
+    .map((g) => g.items);
+  const rotationFixed = new Set<number>([...pos.keys(), ...sizes.keys(), ...inGroup.keys()]);
+
+  // 6. Locks dropped above must not keep pinning their requirement's variant. A requirement a
+  // kept lock names keeps its pin: the kept locks were resolved under it, and it lies in
+  // their intersection.
+  const kept = locks.filter((l) => !dropped.has(l));
+  const named = new Set(
+    kept.flatMap((l) =>
+      (l.kind === "stack" ? l.trayKeys : [l.trayKey]).map((k) => ctx.refsOfKey(k)[0]?.req ?? 0),
+    ),
+  );
+  return {
+    resolved: {
+      leaves: lockedLeaves,
+      groups,
+      lockedPaths: lockedLeaves.map((l) => l.path),
+      pinnedVariant: pinnedVariant.map((v, r) => (named.has(r) ? v : null)),
+      sizes,
+      rotationFixed,
+      kept,
+    },
+    notices,
+  };
+}
+
+export function moveEnvOf(ctx: Ctx, resolved: ResolvedLocks): MoveEnv {
+  return {
+    ctx,
+    lockedPaths: resolved.lockedPaths,
+    variantPinned: resolved.pinnedVariant.map((v) => v !== null),
+    rotationFixed: resolved.rotationFixed,
+  };
+}
+
+function sameItems(a: readonly StackItem[], b: readonly StackItem[], ctx: Ctx): boolean {
+  return (
+    a.length === b.length &&
+    a.every((x, i) => {
+      const y = b[i];
+      return y !== undefined && ctx.partId(x) === ctx.partId(y);
+    })
+  );
+}
+
+/**
+ * Ensures every requirement has exactly the parts of its active variant in the tree:
+ * drops duplicates and parts of other variants, inserts missing parts.
+ */
+export function completeTree(tree: Tree, env: MoveEnv, rng: Rng): Tree | null {
+  const { ctx } = env;
+  const seen = new Set<number>();
+  let root: TreeNode | null = removeItems(
+    tree.root,
+    (item) => {
+      const id = ctx.partId(item);
+      const wrong = item.variant !== (tree.variants[item.req] ?? 0) || ctx.part(item) === undefined;
+      if (wrong || seen.has(id)) {
+        return true;
+      }
+      seen.add(id);
+      return false;
+    },
+    env,
+  );
+  ctx.input.requirements.forEach((r, i) => {
+    const v = tree.variants[i] ?? 0;
+    (r.variants[v]?.parts ?? []).forEach((p, k) => {
+      const item: StackItem = { req: i, variant: v, part: k, rotated: false };
+      if (root !== null && !seen.has(ctx.partId(item))) {
+        root = insertItem(
+          root,
+          { ...item, rotated: p.rotatable && rng.nextInt(2) === 1 },
+          env,
+          rng,
+        );
+      }
+    });
+  });
+  return root === null ? null : { ...tree, root };
+}
+
+/**
+ * Turns any start tree into one that satisfies the resolved locks: pinned variants,
+ * frozen locked leaves at their exact paths (route cuts get the warm-start axis when
+ * known), stack-locked groups as frozen leaves, then completeTree. Returns null only
+ * when no unlocked leaf is left to insert into.
+ */
+export function applyLocks(
+  tree: Tree,
+  resolved: ResolvedLocks,
+  env: MoveEnv,
+  rng: Rng,
+  axisOf: (path: string) => Axis | undefined = () => undefined,
+): Tree | null {
+  const { ctx } = env;
+  const free: MoveEnv = { ...env, lockedPaths: [] };
+  const variants = tree.variants.map((v, i) => resolved.pinnedVariant[i] ?? v);
+  const posIds = new Set(resolved.leaves.flatMap((l) => l.items.map((i) => ctx.partId(i))));
+  let root: TreeNode = tree.root;
+
+  // Groups already standing as a stack keep their place (frozen); others are re-inserted.
+  const intactGroups = new Set<number>();
+  for (const [gi, g] of resolved.groups.entries()) {
+    const at = leaves(root).find((l) => sameItems(l.leaf.stack, g, ctx));
+    if (at) {
+      root = replaceAt(root, at.path, leaf(at.leaf.stack, true));
+      intactGroups.add(gi);
+    }
+  }
+  const groupIds = new Set(
+    resolved.groups.flatMap((g, gi) => (intactGroups.has(gi) ? [] : g.map((i) => ctx.partId(i)))),
+  );
+  root = removeItems(
+    root,
+    (item) => {
+      const id = ctx.partId(item);
+      return posIds.has(id) || groupIds.has(id) || item.variant !== variants[item.req];
+    },
+    free,
+  );
+
+  const displaced: { items: StackItem[]; frozen: boolean }[] = [];
+  for (const locked of [...resolved.leaves].sort((a, b) => a.path.localeCompare(b.path))) {
+    for (let n = 0; n < locked.path.length; n++) {
+      const q = locked.path.slice(0, n);
+      const node = nodeAt(root, q);
+      const axis = axisOf(q) ?? (n % 2 === 0 ? "x" : "y");
+      if (!node) {
+        break;
+      }
+      if (node.kind === "leaf") {
+        const onA = locked.path.charAt(n) === "0";
+        root = replaceAt(root, q, onA ? cut(axis, leaf([]), node) : cut(axis, node, leaf([])));
+      } else if (axisOf(q) !== undefined && node.axis !== axis) {
+        root = replaceAt(root, q, { ...node, axis });
+      }
+    }
+    const existing = nodeAt(root, locked.path);
+    if (existing) {
+      for (const l of leaves(existing)) {
+        if (l.leaf.stack.length > 0) {
+          displaced.push({ items: [...l.leaf.stack], frozen: l.leaf.frozen });
+        }
+      }
+    }
+    root = replaceAt(root, locked.path, leaf(locked.items, true));
+  }
+
+  let out: TreeNode | null = root;
+  for (const d of displaced) {
+    if (out === null) {
+      break;
+    }
+    if (d.frozen) {
+      out = insertLeaf(out, leaf(d.items, true), env, rng);
+    } else {
+      for (const item of d.items) {
+        out = out === null ? null : insertItem(out, item, env, rng);
+      }
+    }
+  }
+  resolved.groups.forEach((g, gi) => {
+    if (out !== null && !intactGroups.has(gi)) {
+      out = insertLeaf(out, leaf(g, true), env, rng);
+    }
+  });
+  if (out === null) {
+    return null;
+  }
+  return completeTree({ root: out, variants }, env, rng);
+}
+
+/**
+ * Drag-to-swap in the plan view: swaps the two trays' leaves (whole stacks) and locks
+ * both. Trays in the same stack swap levels via a stack lock instead.
+ */
+export function swapLocks(
+  locks: readonly Lock[],
+  keyA: string,
+  keyB: string,
+  layout: StoredLayout,
+): Lock[] {
+  const trays = layout.trays.filter((t) => t.part === "tray");
+  const a = trays.find((t) => t.key === keyA);
+  const b = trays.find((t) => t.key === keyB);
+  if (!a || !b || keyA === keyB) {
+    return [...locks];
+  }
+  const stackAt = (path: string): TraySpec[] =>
+    trays.filter((t) => t.path === path).sort((p, q) => p.level - q.level);
+  if (a.path === b.path) {
+    const keys = stackAt(a.path).map((t) =>
+      t.key === keyA ? keyB : t.key === keyB ? keyA : t.key,
+    );
+    const rest = locks.filter(
+      (l) => !(l.kind === "stack" && l.trayKeys.some((k) => keys.includes(k))),
+    );
+    return [...rest, { kind: "stack", trayKeys: keys }];
+  }
+  const sa = stackAt(a.path);
+  const sb = stackAt(b.path);
+  const moved = new Set([...sa, ...sb].map((t) => t.key));
+  const rest = locks.filter((l) => {
+    if (l.kind === "stack") {
+      return !l.trayKeys.some((k) => moved.has(k));
+    }
+    return !(l.kind === "position" && moved.has(l.trayKey));
+  });
+  const out: Lock[] = [...rest];
+  for (const [stack, path] of [
+    [sa, b.path],
+    [sb, a.path],
+  ] as const) {
+    for (const t of stack) {
+      out.push({ kind: "position", trayKey: t.key, path, rotated: t.rotated });
+    }
+    if (stack.length > 1) {
+      out.push({ kind: "stack", trayKeys: stack.map((t) => t.key) });
+    }
+  }
+  return out;
+}
