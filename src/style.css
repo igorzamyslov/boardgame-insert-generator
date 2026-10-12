@@ -451,7 +451,15 @@ input[aria-invalid="true"] {
   height: min(60vh, 480px);
   border-radius: var(--radius);
   background: var(--surface);
-  touch-action: none;
+
+  /* one finger scrolls the page, two fingers turn and zoom (scene.ts); the mouse is unaffected */
+  touch-action: pan-y;
+}
+
+@media (width <= 600px) {
+  .viewer-canvas {
+    height: min(45vh, 320px);
+  }
 }
 
 .viewer-controls {

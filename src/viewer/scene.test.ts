@@ -8,6 +8,7 @@ const fake = vi.hoisted(() => ({
     dispose: ReturnType<typeof vi.fn>;
     forceContextLoss: ReturnType<typeof vi.fn>;
   }[],
+  controls: [] as { touches: { ONE: number | null; TWO: number | null } }[],
   failRenderer: false,
   failControls: false,
 }));
@@ -54,6 +55,7 @@ vi.mock("three", () => {
     MeshStandardMaterial: stand(),
     PerspectiveCamera: stand(),
     Scene: stand(),
+    TOUCH: { ROTATE: 0, PAN: 1, DOLLY_PAN: 2, DOLLY_ROTATE: 3 },
     Vector2: stand(),
     Raycaster,
     WebGLRenderer,
@@ -63,14 +65,18 @@ vi.mock("three", () => {
 vi.mock("three/addons/controls/OrbitControls.js", () => ({
   OrbitControls: class {
     target = { set: vi.fn() };
+    // the real controls start with these and switch the canvas to touch-action: none
+    touches: { ONE: number | null; TWO: number | null } = { ONE: 0, TWO: 2 };
     addEventListener = vi.fn();
     removeEventListener = vi.fn();
     update = vi.fn();
     dispose = vi.fn();
-    constructor() {
+    constructor(_camera: unknown, domElement: HTMLElement) {
       if (fake.failControls) {
         throw new Error("controls broke");
       }
+      domElement.style.touchAction = "none";
+      fake.controls.push(this);
     }
   },
 }));
@@ -80,6 +86,7 @@ import { WebGLUnavailableError } from "./webgl";
 
 afterEach(() => {
   fake.renderers.length = 0;
+  fake.controls.length = 0;
   fake.failRenderer = false;
   fake.failControls = false;
 });
@@ -99,6 +106,14 @@ describe("createScene", () => {
     const disposed = r?.dispose.mock.invocationCallOrder[0] ?? Infinity;
     const lost = r?.forceContextLoss.mock.invocationCallOrder[0] ?? 0;
     expect(disposed).toBeLessThan(lost);
+  });
+
+  it("lets one finger scroll the page and keeps orbit and zoom on two fingers", () => {
+    const canvas = document.createElement("canvas");
+    createScene(canvas);
+    expect(canvas.style.touchAction).toBe("pan-y");
+    // one finger does nothing in the controls (TOUCH.ROTATE is 0); two fingers zoom and turn
+    expect(fake.controls[0]?.touches).toEqual({ ONE: null, TWO: 3 });
   });
 
   it("reports a missing WebGL context as WebGLUnavailableError", () => {

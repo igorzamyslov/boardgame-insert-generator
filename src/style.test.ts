@@ -19,6 +19,14 @@ describe("style.css", () => {
     expect(body).toMatch(/height:\s*min\(/);
   });
 
+  it("lets one finger scroll the page past the 3D canvas and shortens it on phones", () => {
+    const body = ruleFor(".viewer-canvas");
+    expect(body).toMatch(/touch-action:\s*pan-y/);
+    expect(body).not.toMatch(/touch-action:\s*none/);
+    const narrow = /@media \(width <= 600px\)\s*\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+    expect(ruleFor(".viewer-canvas", narrow)).toMatch(/height:\s*min\(45vh,\s*320px\)/);
+  });
+
   it("puts the field notes in the full-width group of the form grid, not in a rule of their own", () => {
     expect(ruleFor(".form-grid > .field-notes")).toMatch(/grid-column:\s*1 \/ -1/);
     expect(css.split(".form-grid > .field-notes")).toHaveLength(2);

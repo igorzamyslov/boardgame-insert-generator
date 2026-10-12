@@ -15,6 +15,7 @@ import {
   PerspectiveCamera,
   Raycaster,
   Scene,
+  TOUCH,
   Vector2,
   WebGLRenderer,
 } from "three";
@@ -60,6 +61,11 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   camera.up.set(0, 0, 1);
   camera.position.set(150, -300, 300);
   const controls = new OrbitControls(camera, canvas);
+  // The controls switch the canvas to touch-action: none, which would trap a phone's page scroll
+  // on this full-width canvas. One finger scrolls the page (a tap still picks a tray); two
+  // fingers zoom and turn. The mouse keeps drag to turn, wheel to zoom.
+  canvas.style.touchAction = "pan-y";
+  controls.touches = { ONE: null, TWO: TOUCH.DOLLY_ROTATE };
   scene.add(new AmbientLight(0xffffff, 0.7));
   const sun = new DirectionalLight(0xffffff, 1.6);
   sun.position.set(-1, -2, 3);

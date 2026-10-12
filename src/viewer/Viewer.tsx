@@ -223,7 +223,7 @@ export function Viewer(p: ViewerProps) {
         key={canvasKey}
         ref={canvasRef}
         class="viewer-canvas"
-        aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details."
+        aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
       />
       {status === "loading" ? <p class="hint">Loading the 3D preview…</p> : null}
       {status === "error" || status === "lost" ? (
