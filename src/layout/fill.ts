@@ -1,5 +1,5 @@
 import { bedExcess, bedOrientations, splitForBed } from "./bed";
-import { GRIP_U, SLIVER_U, type Ctx } from "./context";
+import { GRIP_U, SLIVER_U, printedHeight, type Ctx } from "./context";
 import {
   stackAbsorb,
   stackHeights,
@@ -228,7 +228,7 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
     if (sp.trays.length > 0) {
       for (const t of sp.trays) {
         trays.push({ ...t, path: pl.path, stack });
-        bed += bedExcess(ctx.bed, t.w, t.d, t.h);
+        bed += bedExcess(ctx.bed, t.w, t.d, printedHeight(ctx, t.h, t.lipped));
       }
       stack++;
     }

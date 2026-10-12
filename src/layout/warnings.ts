@@ -2,7 +2,7 @@ import { FIT_CHOICES } from "../model/settings";
 import type { Notice, TraySpec } from "../model/types";
 import type { TrayRequirement } from "../sizing/types";
 import { fitsBed } from "./bed";
-import { PLAY_LIMIT_U, type Ctx, type PartRef } from "./context";
+import { PLAY_LIMIT_U, printedHeight, type Ctx, type PartRef } from "./context";
 import { coverageApplies } from "./score";
 import type { LayoutSummary } from "./types";
 import { toMm, toU, type U } from "./units";
@@ -92,24 +92,32 @@ export function layoutWarnings(
 /**
  * Where a part can sit in a stack as far as the print bed goes: as a lower tray its walls
  * thicken to the lipped wall; as an upper tray its bottom footprint grows by the lip inset on
- * every side. `bottom`/`top` are false when that size exceeds the bed (in either orientation),
- * and `bottomSize`/`topSize` give it, in units.
+ * every side. `bottom`/`top` are false when that size exceeds the bed (in either orientation;
+ * a lipped lower tray prints its lip tall as well), and `bottomSize`/`topSize` give the footprint,
+ * in units.
  */
+interface Size3 {
+  readonly w: U;
+  readonly d: U;
+  readonly h: U;
+}
+
 interface StackRoles {
   readonly bottom: boolean;
   readonly top: boolean;
-  readonly bottomSize: { readonly w: U; readonly d: U };
-  readonly topSize: { readonly w: U; readonly d: U };
+  readonly bottomSize: Size3;
+  readonly topSize: Size3;
 }
 
 function stackRoles(ctx: Ctx, ref: PartRef): StackRoles {
   const lower = ctx.metrics(ref, ctx.lipOn, 0);
   const upper = ctx.metrics(ref, false, 1);
-  const topSize = { w: upper.w + 2 * ctx.inset, d: upper.d + 2 * ctx.inset };
+  const topSize = { w: upper.w + 2 * ctx.inset, d: upper.d + 2 * ctx.inset, h: upper.h };
+  const bottomH = printedHeight(ctx, lower.h, ctx.lipOn);
   return {
-    bottom: fitsBed(ctx.bed, lower.w, lower.d, lower.h),
+    bottom: fitsBed(ctx.bed, lower.w, lower.d, bottomH),
     top: fitsBed(ctx.bed, topSize.w, topSize.d, upper.h),
-    bottomSize: { w: lower.w, d: lower.d },
+    bottomSize: { w: lower.w, d: lower.d, h: bottomH },
     topSize,
   };
 }
@@ -118,8 +126,9 @@ function usableBed(ctx: Ctx): string {
   return `${mm(toMm(ctx.bed.w))} × ${mm(toMm(ctx.bed.d))} mm`;
 }
 
-function size(s: { w: U; d: U }): string {
-  return `${mm(toMm(s.w))} × ${mm(toMm(s.d))} mm`;
+/** The size with its height, the print bed's Z limit being part of the story. */
+function size(s: Size3): string {
+  return `${mm(toMm(s.w))} × ${mm(toMm(s.d))} × ${mm(toMm(s.h))} mm`;
 }
 
 /** What a part's stack roles mean for the user, e.g. "only on its own". */
@@ -190,10 +199,10 @@ export function bedNotices(ctx: Ctx): Notice[] {
           )
         : "";
       const need = [
-        roles.bottom ? null : `${size(roles.bottomSize)} as a lower tray (lipped walls)`,
+        roles.bottom ? null : `${size(roles.bottomSize)} as a lower tray (lipped walls and lip)`,
         roles.top ? null : `${size(roles.topSize)} as an upper tray (lip inset)`,
       ].filter((x) => x !== null);
-      return `"${label}" fits the bed ${rolesPhrase(roles)}: it needs ${need.join(" and ")}, more than the usable bed ${usableBed(ctx)}`;
+      return `"${label}" fits the bed ${rolesPhrase(roles)}: it needs ${need.join(" and ")}, more than the usable bed ${mm(toMm(ctx.bed.w))} × ${mm(toMm(ctx.bed.d))} × ${mm(toMm(ctx.bed.z))} mm`;
     });
     out.push({
       level: "warning",
@@ -223,7 +232,7 @@ export interface OverBedPart {
 export function overBedParts(ctx: Ctx, trays: readonly TraySpec[]): OverBedPart[] {
   const real = trays.filter((t) => t.part === "tray");
   return real.flatMap((t) => {
-    if (fitsBed(ctx.bed, toU(t.w), toU(t.d), toU(t.h))) {
+    if (fitsBed(ctx.bed, toU(t.w), toU(t.d), printedHeight(ctx, toU(t.h), t.lip))) {
       return [];
     }
     const refs = ctx.refsOfKey(t.key);

@@ -66,6 +66,8 @@ export interface Ctx {
   readonly inset: U;
   readonly layer: U;
   readonly lipOn: boolean;
+  /** The lip's height; a lipped tray prints this much taller than its `h`. */
+  readonly lipHeight: U;
   /** Minimum h of a tray at level ≥ 1 when the lip is on: lip.height + UPPER_TRAY_MIN_ABOVE_LIP (3 mm). */
   readonly upperMinH: U;
   /** Base outer wall and floor as sizing writes them: wallFor, floor ≥ MIN_FEATURE_MM, rounded up. */
@@ -80,6 +82,14 @@ export interface Ctx {
   partId(ref: PartRef): number;
   metrics(ref: PartRef, lipped: boolean, level: number): PartMetrics;
   refsOfKey(trayKey: string): PartRef[];
+}
+
+/**
+ * How tall a tray prints: its height, plus the lip a lipped tray carries on top. The print
+ * bed's Z limit (hard rule 5) applies to this, not to `h`.
+ */
+export function printedHeight(ctx: Ctx, h: U, lipped: boolean): U {
+  return lipped ? h + ctx.lipHeight : h;
 }
 
 export function partId(ref: PartRef): number {
@@ -122,6 +132,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     inset: toU(settings.lip.thickness + eff.lipPlay),
     layer: Math.max(1, toU(printer.layerHeight)),
     lipOn: settings.lip.enabled,
+    lipHeight: toU(settings.lip.height),
     upperMinH: toU(settings.lip.height) + toU(UPPER_TRAY_MIN_ABOVE_LIP),
     wall,
     floor: toUCeil(Math.max(settings.floor, MIN_FEATURE_MM)),

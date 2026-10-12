@@ -15,7 +15,7 @@ import { effectiveBottomChamfer } from "../model/settings";
 import type { Notice, StoredLayout, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
 import { hasGrip, needsGrip, wallFor } from "../sizing";
-import { createCtx, type PartRef } from "./context";
+import { createCtx, printedHeight, type PartRef } from "./context";
 import { inferVariant, meetsMinimum } from "./warmstart";
 import type { LayoutInput } from "./types";
 import { toMm, toU, type Rect, type U } from "./units";
@@ -247,9 +247,9 @@ export function checkHardRules(
     v.push("layout.lipOff notice without a stack that needs it");
   }
 
-  // Rule 5: bed fit with margin, either rotation.
+  // Rule 5: bed fit with margin, either rotation; a lipped tray prints its lip tall as well.
   for (const t of trays) {
-    if (!fitsBed(ctx.bed, toU(t.w), toU(t.d), toU(t.h))) {
+    if (!fitsBed(ctx.bed, toU(t.w), toU(t.d), printedHeight(ctx, toU(t.h), t.lip))) {
       v.push(`${t.key}: does not fit the print bed`);
     }
   }
