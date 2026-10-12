@@ -20,10 +20,10 @@ export function Notices({ notices, onDismiss, renderAction, label = "Messages" }
     return null;
   }
   return (
-    <ul class="notices" aria-label={label} aria-live="polite">
+    <ul class="notices" aria-label={label}>
       {notices.map((n) => (
         <li
-          key={`${n.code}|${n.message}`}
+          key={`${n.code}|${n.path ?? ""}|${n.message}`}
           class={`notice notice-${n.level}`}
           role={n.level === "error" ? "alert" : undefined}
         >

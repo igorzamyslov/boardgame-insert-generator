@@ -1,5 +1,5 @@
 // src/ui/PrinterForm.tsx
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { BED_PRESETS } from "../model/presets";
 import type { Printer } from "../model/types";
 import { SelectField } from "./fields";
@@ -27,10 +27,28 @@ const OPTIONS: SelectOption<string>[] = [
   { value: CUSTOM_BED, label: "Custom size" },
 ];
 
+function bedKey(p: Pick<Printer, "bedX" | "bedY" | "bedZ">): string {
+  return `${p.bedX}x${p.bedY}x${p.bedZ}`;
+}
+
 export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
   const matched = bedPresetOf(printer);
   const [customChosen, setCustomChosen] = useState(matched === CUSTOM_BED);
-  const selected = customChosen ? CUSTOM_BED : matched;
+  const key = bedKey(printer);
+  // The bed this form last wrote itself: when the printer's bed changes to anything else (another
+  // project was loaded), a "Custom size" choice made for the old bed no longer applies. A size
+  // the user types that happens to equal a preset must not collapse the fields mid-edit.
+  const written = useRef<string | null>(null);
+  useEffect(() => {
+    if (key !== written.current) {
+      setCustomChosen(false);
+    }
+  }, [key]);
+  const selected = customChosen || matched === CUSTOM_BED ? CUSTOM_BED : matched;
+  function changeBed(patch: Partial<Printer>): void {
+    written.current = bedKey({ ...printer, ...patch });
+    onChange(patch);
+  }
   return (
     <div class="form-grid">
       <SelectField
@@ -57,7 +75,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             value={printer.bedX}
             path="/printer/bedX"
             {...LENGTH}
-            onCommit={(v) => onChange({ bedX: v })}
+            onCommit={(v) => changeBed({ bedX: v })}
           />
           <NumberField
             id="printer-bedY"
@@ -66,7 +84,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             value={printer.bedY}
             path="/printer/bedY"
             {...LENGTH}
-            onCommit={(v) => onChange({ bedY: v })}
+            onCommit={(v) => changeBed({ bedY: v })}
           />
           <NumberField
             id="printer-bedZ"
@@ -75,7 +93,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             value={printer.bedZ}
             path="/printer/bedZ"
             {...LENGTH}
-            onCommit={(v) => onChange({ bedZ: v })}
+            onCommit={(v) => changeBed({ bedZ: v })}
           />
         </>
       ) : null}

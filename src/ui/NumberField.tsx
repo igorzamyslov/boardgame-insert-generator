@@ -1,6 +1,7 @@
 // src/ui/NumberField.tsx
 import { useEffect, useState } from "preact/hooks";
 import { parseNumber } from "../model/numbers";
+import { FieldMessages, describedByIds, messagesOf } from "./FieldMessages";
 import { useFieldNotices } from "./validation";
 
 export interface NumberRules {
@@ -18,7 +19,8 @@ export function checkNumber(text: string, rules: NumberRules): NumberCheck {
   if (trimmed === "") {
     return { kind: "error", message: "Enter a number." };
   }
-  if (/^[+\-−]$/.test(trimmed) || /[.,]$/.test(trimmed)) {
+  // Still being typed: a lone sign, or one sign-and-digits prefix ending in one separator.
+  if (/^[+\-−]$/.test(trimmed) || /^[+\-−]?\d*[.,]$/.test(trimmed)) {
     return { kind: "incomplete" };
   }
   const value = parseNumber(trimmed);
@@ -79,7 +81,11 @@ export function NumberField(props: NumberFieldProps) {
   function evaluate(next: string, final: boolean): void {
     let result = checkNumber(next, props);
     if (result.kind === "incomplete" && final) {
+      // Leaving the field: "63," means 63, but a lone sign or separator is not a number.
       result = checkNumber(next.trim().replace(/[.,]$/, ""), props);
+      if (result.kind === "incomplete") {
+        result = { kind: "error", message: "Enter a number." };
+      }
     }
     if (result.kind === "error") {
       setError(result.message);
@@ -89,17 +95,18 @@ export function NumberField(props: NumberFieldProps) {
     if (result.kind === "incomplete") {
       return;
     }
+    if (final) {
+      // Tidy what the user left ("63," or " 63,50 "), keeping a decimal comma if they typed one.
+      const tidy = formatNumber(result.value);
+      setText(next.includes(",") ? tidy.replace(".", ",") : tidy);
+    }
     if ((final || commitOn === "input") && result.value !== value) {
       onCommit(result.value);
     }
   }
 
-  const messages = error !== null ? [error] : notices.map((n) => n.message);
-  const hintId = `${id}-hint`;
-  const errorId = `${id}-error`;
-  const describedBy = [hint !== undefined ? hintId : "", messages.length > 0 ? errorId : ""]
-    .filter((x) => x !== "")
-    .join(" ");
+  const { errors: noticeErrors, notes } = messagesOf(notices);
+  const errors = error !== null ? [error] : noticeErrors;
 
   return (
     <div class="field">
@@ -113,25 +120,21 @@ export function NumberField(props: NumberFieldProps) {
         inputMode="decimal"
         autoComplete="off"
         value={text}
-        aria-invalid={messages.length > 0}
-        aria-describedby={describedBy === "" ? undefined : describedBy}
+        aria-invalid={errors.length > 0}
+        aria-describedby={describedByIds(id, hint, errors, notes)}
         onInput={(e) => {
           const next = e.currentTarget.value;
           setText(next);
           evaluate(next, false);
         }}
         onBlur={() => evaluate(text, true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            evaluate(text, true);
+          }
+        }}
       />
-      {hint !== undefined ? (
-        <p class="hint" id={hintId}>
-          {hint}
-        </p>
-      ) : null}
-      {messages.length > 0 ? (
-        <p class="field-error" id={errorId} role="alert">
-          {messages.join(" ")}
-        </p>
-      ) : null}
+      <FieldMessages id={id} hint={hint} errors={errors} notes={notes} />
     </div>
   );
 }

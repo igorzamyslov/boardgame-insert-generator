@@ -1,5 +1,6 @@
 // src/ui/fields.tsx
 import { useEffect, useState } from "preact/hooks";
+import { FieldMessages, describedByIds, messagesOf } from "./FieldMessages";
 import { useFieldNotices } from "./validation";
 
 function describedBy(...ids: (string | null)[]): string | undefined {
@@ -33,8 +34,12 @@ export function TextField({
   useEffect(() => {
     setText(value);
   }, [value]);
-  const hintId = hint !== undefined ? `${id}-hint` : null;
-  const errorId = notices.length > 0 ? `${id}-error` : null;
+  const { errors, notes } = messagesOf(notices);
+  function commitPending(): void {
+    if (commitOn === "blur" && text !== value) {
+      onCommit(text);
+    }
+  }
   return (
     <div class="field">
       <label htmlFor={id}>{label}</label>
@@ -43,8 +48,8 @@ export function TextField({
         type="text"
         value={text}
         placeholder={placeholder}
-        aria-invalid={notices.length > 0}
-        aria-describedby={describedBy(hintId, errorId)}
+        aria-invalid={errors.length > 0}
+        aria-describedby={describedByIds(id, hint, errors, notes)}
         onInput={(e) => {
           const next = e.currentTarget.value;
           setText(next);
@@ -52,22 +57,14 @@ export function TextField({
             onCommit(next);
           }
         }}
-        onBlur={() => {
-          if (commitOn === "blur" && text !== value) {
-            onCommit(text);
+        onBlur={commitPending}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            commitPending();
           }
         }}
       />
-      {hintId !== null ? (
-        <p class="hint" id={hintId}>
-          {hint}
-        </p>
-      ) : null}
-      {errorId !== null ? (
-        <p class="field-error" id={errorId} role="alert">
-          {notices.map((n) => n.message).join(" ")}
-        </p>
-      ) : null}
+      <FieldMessages id={id} hint={hint} errors={errors} notes={notes} />
     </div>
   );
 }

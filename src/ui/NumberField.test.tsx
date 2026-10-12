@@ -24,6 +24,14 @@ describe("checkNumber", () => {
     expect(checkNumber("63,", {})).toEqual({ kind: "incomplete" });
     expect(checkNumber("63.", {})).toEqual({ kind: "incomplete" });
     expect(checkNumber("-", {})).toEqual({ kind: "incomplete" });
+    expect(checkNumber("−", {})).toEqual({ kind: "incomplete" });
+    expect(checkNumber("-6,", {})).toEqual({ kind: "incomplete" });
+  });
+
+  it("rejects text with a second separator or a stray sign", () => {
+    for (const junk of ["6,,", "1.2.", "63,5.", "6,5,", "--", "1,2,3"]) {
+      expect(checkNumber(junk, {}).kind, junk).toBe("error");
+    }
   });
 
   it("parses comma and point, and applies rules", () => {
@@ -41,7 +49,7 @@ describe("checkNumber", () => {
 });
 
 describe("NumberField", () => {
-  it("63, is incomplete and commits 63.5 once", () => {
+  it("commits 6, 63 and 63.5 while typing, but not the incomplete 63,", () => {
     const onCommit = vi.fn();
     render(<NumberField id="w" label="Inner width" unit="mm" value={290} onCommit={onCommit} />);
     const el = input();
@@ -52,6 +60,39 @@ describe("NumberField", () => {
     expect(el.getAttribute("aria-invalid")).toBe("false");
     type(el, "63,5");
     expect(onCommit.mock.calls.map((c) => c[0])).toEqual([6, 63, 63.5]);
+  });
+
+  it("flags junk separators as errors while typing and on blur", () => {
+    for (const junk of ["6,,", "1.2.", "63,5."]) {
+      const onCommit = vi.fn();
+      const view = render(
+        <NumberField id="w" label="Inner width" value={290} onCommit={onCommit} />,
+      );
+      const el = input();
+      type(el, junk);
+      expect(el.getAttribute("aria-invalid"), junk).toBe("true");
+      fireEvent.blur(el);
+      expect(screen.getByRole("alert").textContent, junk).toMatch(/Not a number/);
+      expect(onCommit, junk).not.toHaveBeenCalled();
+      view.unmount();
+    }
+  });
+
+  it("turns a lone sign or separator into an error on blur", () => {
+    for (const lone of ["-", ".", ","]) {
+      const onCommit = vi.fn();
+      const view = render(
+        <NumberField id="w" label="Inner width" value={290} onCommit={onCommit} />,
+      );
+      const el = input();
+      type(el, lone);
+      expect(screen.queryByRole("alert"), lone).toBeNull();
+      fireEvent.blur(el);
+      expect(screen.getByRole("alert").textContent, lone).toBe("Enter a number.");
+      expect(el.getAttribute("aria-invalid"), lone).toBe("true");
+      expect(onCommit, lone).not.toHaveBeenCalled();
+      view.unmount();
+    }
   });
 
   it("shows an inline error and does not commit invalid text", () => {
@@ -85,6 +126,38 @@ describe("NumberField", () => {
     type(el, "63,");
     fireEvent.blur(el);
     expect(onCommit).toHaveBeenCalledWith(63);
+  });
+
+  it("tidies a pending separator on blur even when the value is unchanged", () => {
+    const onCommit = vi.fn();
+    render(<NumberField id="w" label="Inner width" value={63} onCommit={onCommit} />);
+    const el = input();
+    type(el, "63,");
+    expect(el.value).toBe("63,");
+    fireEvent.blur(el);
+    expect(el.value).toBe("63");
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("keeps the comma style when tidying on blur", () => {
+    render(<NumberField id="w" label="Inner width" value={63.5} onCommit={vi.fn()} />);
+    const el = input();
+    type(el, " 63,50 ");
+    fireEvent.blur(el);
+    expect(el.value).toBe("63,5");
+  });
+
+  it("with commitOn blur, commits on Enter as well", () => {
+    const onCommit = vi.fn();
+    render(
+      <NumberField id="w" label="Inner width" value={63.5} onCommit={onCommit} commitOn="blur" />,
+    );
+    const el = input();
+    type(el, "88");
+    expect(onCommit).not.toHaveBeenCalled();
+    fireEvent.keyDown(el, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(88);
   });
 
   it("with commitOn blur, commits once when leaving the field", () => {
@@ -136,5 +209,52 @@ describe("NumberField", () => {
     );
     expect(screen.getByRole("alert").textContent).toBe("Box width must be greater than 0 mm.");
     expect(screen.queryByText("Other field")).toBeNull();
+  });
+
+  it("flags only error notices as invalid; warnings and info are plain notes", () => {
+    render(
+      <ValidationContext.Provider
+        value={[
+          { level: "warning", code: "w", path: "/box/innerWidth", message: "Quite large." },
+          { level: "info", code: "i", path: "/box/innerWidth", message: "For your info." },
+        ]}
+      >
+        <NumberField
+          id="w"
+          label="Inner width"
+          value={400}
+          onCommit={vi.fn()}
+          path="/box/innerWidth"
+        />
+      </ValidationContext.Provider>,
+    );
+    const el = input();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(el.getAttribute("aria-invalid")).toBe("false");
+    const note = screen.getByText(/Quite large\./);
+    expect(note.textContent).toBe("Quite large. For your info.");
+    expect(el.getAttribute("aria-describedby")).toContain(note.id);
+  });
+
+  it("shows an error and a warning at the same path separately", () => {
+    render(
+      <ValidationContext.Provider
+        value={[
+          { level: "error", code: "e", path: "/box/innerWidth", message: "Too small." },
+          { level: "warning", code: "w", path: "/box/innerWidth", message: "Also odd." },
+        ]}
+      >
+        <NumberField
+          id="w"
+          label="Inner width"
+          value={0}
+          onCommit={vi.fn()}
+          path="/box/innerWidth"
+        />
+      </ValidationContext.Provider>,
+    );
+    expect(screen.getByRole("alert").textContent).toBe("Too small.");
+    expect(input().getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByText("Also odd.")).toBeTruthy();
   });
 });

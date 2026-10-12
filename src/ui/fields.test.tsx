@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { STALE_CODE } from "../app/state";
 import { CheckField, SelectField, TextField } from "./fields";
 import { Notices } from "./Notices";
+import { ValidationContext } from "./validation";
 
 afterEach(cleanup);
 
@@ -26,6 +27,43 @@ describe("TextField", () => {
     fireEvent.input(el, { target: { value: "big tokens" } });
     fireEvent.blur(el);
     expect(onCommit).toHaveBeenCalledWith("big tokens");
+  });
+});
+
+describe("TextField commit keys and notices", () => {
+  it("with commitOn blur, commits on Enter as well", () => {
+    const onCommit = vi.fn();
+    render(<TextField id="g" label="Group" value="" onCommit={onCommit} commitOn="blur" />);
+    const el = screen.getByLabelText("Group");
+    fireEvent.input(el, { target: { value: "tokens" } });
+    expect(onCommit).not.toHaveBeenCalled();
+    fireEvent.keyDown(el, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith("tokens");
+  });
+
+  it("flags only error notices as invalid", () => {
+    render(
+      <ValidationContext.Provider
+        value={[{ level: "warning", code: "w", path: "/x", message: "Careful." }]}
+      >
+        <TextField id="g" label="Group" value="" onCommit={vi.fn()} path="/x" />
+      </ValidationContext.Provider>,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByLabelText("Group").getAttribute("aria-invalid")).toBe("false");
+    expect(screen.getByText("Careful.")).toBeTruthy();
+  });
+
+  it("flags an error notice as invalid with an alert", () => {
+    render(
+      <ValidationContext.Provider
+        value={[{ level: "error", code: "e", path: "/x", message: "Broken." }]}
+      >
+        <TextField id="g" label="Group" value="" onCommit={vi.fn()} path="/x" />
+      </ValidationContext.Provider>,
+    );
+    expect(screen.getByRole("alert").textContent).toBe("Broken.");
+    expect(screen.getByLabelText("Group").getAttribute("aria-invalid")).toBe("true");
   });
 });
 
@@ -87,6 +125,35 @@ describe("Notices", () => {
     expect(screen.getByRole("button", { name: "Re-optimize" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss: Broken link" }));
     expect(onDismiss).toHaveBeenCalledWith("open.failed");
+  });
+
+  it("lists notices with the same code and message at different paths separately", () => {
+    render(
+      <Notices
+        notices={[
+          { level: "warning", code: "c", path: "/components/0", message: "Same text" },
+          { level: "warning", code: "c", path: "/components/1", message: "Same text" },
+        ]}
+        renderAction={(n) => <span>{n.path}</span>}
+      />,
+    );
+    expect(screen.getAllByText("Same text")).toHaveLength(2);
+    expect(screen.getByText("/components/0")).toBeTruthy();
+    expect(screen.getByText("/components/1")).toBeTruthy();
+  });
+
+  it("announces errors through role alert only, not also through a live region", () => {
+    render(
+      <Notices
+        notices={[
+          { level: "error", code: "e", message: "Broken" },
+          { level: "info", code: "i", message: "Fyi" },
+        ]}
+      />,
+    );
+    const list = screen.getByRole("list", { name: "Messages" });
+    expect(list.hasAttribute("aria-live")).toBe(false);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
   it("renders nothing without notices", () => {

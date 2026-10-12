@@ -1,6 +1,7 @@
 // src/ui/BoxForm.test.tsx
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { useState } from "preact/hooks";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_BOX, DEFAULT_PRINTER } from "../model/defaults";
 import { BoxForm } from "./BoxForm";
@@ -66,5 +67,44 @@ describe("PrinterForm", () => {
     view.rerender(<PrinterForm printer={DEFAULT_PRINTER} advanced onChange={vi.fn()} />);
     expect(screen.getByLabelText(/Bed margin/)).toBeTruthy();
     expect(screen.getByLabelText(/Layer height/)).toBeTruthy();
+  });
+});
+
+describe("PrinterForm custom bed", () => {
+  it("drops a custom choice when another project's preset bed is loaded", () => {
+    const view = render(
+      <PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={vi.fn()} />,
+    );
+    fireEvent.change(screen.getByLabelText("Printer bed"), { target: { value: "custom" } });
+    expect(screen.getByLabelText(/Bed X/)).toBeTruthy();
+    view.rerender(
+      <PrinterForm
+        printer={{ ...DEFAULT_PRINTER, bedX: 250, bedY: 210, bedZ: 220 }}
+        advanced={false}
+        onChange={vi.fn()}
+      />,
+    );
+    expect((screen.getByLabelText("Printer bed") as HTMLSelectElement).value).toBe("prusa-mk4");
+    expect(screen.queryByLabelText(/Bed X/)).toBeNull();
+  });
+
+  it("keeps the fields while the user types a size that equals a preset", () => {
+    function Harness() {
+      const [printer, setPrinter] = useState(DEFAULT_PRINTER);
+      return (
+        <PrinterForm
+          printer={printer}
+          advanced={false}
+          onChange={(patch) => setPrinter((p) => ({ ...p, ...patch }))}
+        />
+      );
+    }
+    render(<Harness />);
+    fireEvent.change(screen.getByLabelText("Printer bed"), { target: { value: "custom" } });
+    fireEvent.input(screen.getByLabelText(/Bed X/), { target: { value: "250" } });
+    fireEvent.input(screen.getByLabelText(/Bed Y/), { target: { value: "210" } });
+    fireEvent.input(screen.getByLabelText(/Bed Z/), { target: { value: "220" } });
+    expect(screen.getByLabelText(/Bed X/)).toBeTruthy();
+    expect((screen.getByLabelText("Printer bed") as HTMLSelectElement).value).toBe("custom");
   });
 });

@@ -9,6 +9,7 @@ import {
   applyWallChoice,
 } from "../model/settings";
 import { SETTING_RANGES } from "../model/validate";
+import { ValidationContext } from "./validation";
 import { SettingsForm } from "./SettingsForm";
 import { SETTING_SETTERS, settingUnit } from "./settingsFields";
 
@@ -23,6 +24,10 @@ describe("SETTING_SETTERS", () => {
         expect(r.get(set(DEFAULT_SETTINGS, 0.77))).toBe(0.77);
       }
     }
+  });
+
+  it("has no setter beyond the validated settings", () => {
+    expect(Object.keys(SETTING_SETTERS).sort()).toEqual(SETTING_RANGES.map((r) => r.path).sort());
   });
 
   it("names units", () => {
@@ -102,5 +107,23 @@ describe("SettingsForm", () => {
     });
     fireEvent.change(screen.getByLabelText("Unused space"), { target: { value: "solid" } });
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });
+  });
+
+  it.each([
+    ["field.bottomChamfer", "Bottom chamfer is more than the walls allow."],
+    ["field.lipBearing", "The lip would not rest on the ledge."],
+  ])("shows %s beside the bottom chamfer field", (code, message) => {
+    render(
+      <ValidationContext.Provider
+        value={[{ level: "error", code, path: "/settings/bottomChamfer", message }]}
+      >
+        <SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={vi.fn()} />
+      </ValidationContext.Provider>,
+    );
+    const field = screen.getByLabelText(/^Bottom chamfer/);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toBe(message);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(field.getAttribute("aria-describedby")).toContain(alert.id);
   });
 });
