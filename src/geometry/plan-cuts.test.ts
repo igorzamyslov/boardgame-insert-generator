@@ -296,6 +296,12 @@ describe("spacer notches", () => {
       rejects(notch({ axis: "z" as "x" }), /invalid spacer notch/);
     });
 
+    it("a notch past both faces that takes the spacer's whole top below its height", () => {
+      // A 100 mm U centred on the 92.5 mm spacer meets its faces 31 mm above its bottom.
+      expect(() => planTray(notch({ width: 100, depth: 31 }), GEO)).not.toThrow();
+      rejects(notch({ width: 100, depth: 32 }), /takes the spacer's whole top/);
+    });
+
     it("a notch not centred on the spacer", () => {
       rejects(notch({ at: 93 }), /not centred on the spacer/);
     });

@@ -277,7 +277,8 @@ export function checkCutClearance(plans: readonly CompartmentPlan[], fail: Fail)
 // open at the top (the spacer prints standing), and like a wall cutout:
 // - its centre lies on the spacer, and each of its sides either cuts past the spacer's face (then
 //   the spacer is cut across, its top following the U) or keeps the chamfer plus MIN_FEATURE_MM of
-//   spacer beside it;
+//   spacer beside it; past both faces, the U meets the farther one no lower than the spacer's top
+//   (it takes the whole top, and the spacer ends there);
 // - its bottom stands at least the bottom chamfer plus MIN_FEATURE_MM above the bed, where it leaves
 //   through the end faces.
 // The outer corner radius then shrinks so it ends MIN_FEATURE_MM before its sides on the end faces.
@@ -320,6 +321,16 @@ export function planSpacerNotch(
     fail(
       `the spacer notch leaves less than ${MIN_FEATURE_MM} mm against the ${chamfer} mm bottom chamfer`,
     );
+  }
+  // Past both faces the U takes the whole top: the spacer must end where it meets the farther face
+  // (sizing lowers it so), or its mesh would come out lower than its height.
+  const far = Math.max(at, span - at);
+  if (
+    a <= TOL &&
+    b >= span - TOL &&
+    bottomZ + r - Math.sqrt(Math.max(0, r * r - far * far)) < spec.h - TOL
+  ) {
+    fail(`the spacer notch at ${at} mm takes the spacer's whole top below its ${spec.h} mm height`);
   }
   const length = axis === "x" ? spec.w : spec.d;
   const box =
