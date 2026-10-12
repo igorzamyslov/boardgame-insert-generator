@@ -2,7 +2,7 @@ import type { ManifoldToplevel } from "manifold-3d";
 import type { Settings, TraySpec } from "../model/types";
 import type { GeometryRequest, GeometryResponse } from "./types";
 import { UnsupportedFeatureError } from "./errors";
-import { nextMacrotask } from "./macrotask";
+import { nextMacrotask } from "../util/macrotask";
 import { buildTray } from "./tray";
 
 export type PostResponse = (message: GeometryResponse, transfer: Transferable[]) => void;

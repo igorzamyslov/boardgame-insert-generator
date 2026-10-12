@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { optimize } from "./optimize";
 import { boxReq, makeInput } from "./test-utils";
 import type { LayoutRequest, LayoutResponse } from "./types";
@@ -29,6 +29,18 @@ describe("layout worker handler", () => {
     expect(posts[0]).toMatchObject({ runId: 1, done: 1000, total: 2500 });
     const last = posts[2];
     expect(last?.type === "done" && last.result).toEqual(optimize(input, 4, 2500));
+  });
+
+  it("yields between chunks on a MessageChannel tick, not on a clamped setTimeout", async () => {
+    const timer = vi.spyOn(globalThis, "setTimeout");
+    try {
+      const posts: LayoutResponse[] = [];
+      await createWorkerHandler((m) => posts.push(m))(run(6));
+      expect(posts.map((p) => p.type)).toEqual(["progress", "progress", "done"]);
+      expect(timer).not.toHaveBeenCalled();
+    } finally {
+      timer.mockRestore();
+    }
   });
 
   it("stops a run when cancelled between chunks", async () => {

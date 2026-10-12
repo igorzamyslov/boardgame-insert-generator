@@ -1,3 +1,4 @@
+import { nextMacrotask } from "../util/macrotask";
 import { createRun } from "./optimize";
 import type { LayoutRequest, LayoutResponse } from "./types";
 
@@ -8,7 +9,7 @@ import type { LayoutRequest, LayoutResponse } from "./types";
  */
 export function createWorkerHandler(
   post: (msg: LayoutResponse) => void,
-  yieldToEvents: () => Promise<void> = () => new Promise((resolve) => setTimeout(resolve, 0)),
+  yieldToEvents: () => Promise<void> = nextMacrotask,
 ): (req: LayoutRequest) => Promise<void> {
   const cancelled = new Set<number>();
   let active = -1;
