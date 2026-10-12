@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Lock, StoredLayout } from "../model/types";
 import { createCtx, withSizeLocks } from "./context";
-import { applyLocks, moveEnvOf, noLocks, resolveLocks, swapLocks } from "./locks";
+import { applyLocks, completeTree, moveEnvOf, noLocks, resolveLocks, swapLocks } from "./locks";
 import { createRng } from "./prng";
 import { boxReq, comp, fakeMeasure, makeInput, part, req, traySpec, variant } from "./test-utils";
-import { cut, itemsOf, leaf, leaves, nodeAt, type Tree } from "./tree";
+import { cut, itemsOf, leaf, leaves, nodeAt, type StackItem, type Tree } from "./tree";
 
 const reqs = [
   boxReq("a", 60, 40, 10),
@@ -106,6 +106,67 @@ describe("resolveLocks", () => {
     const tall = resolve([{ kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] }], { innerHeight: 15 });
     expect(tall.resolved.groups).toEqual([]);
     expect(tall.notices[0]?.message).toContain("taller");
+  });
+});
+
+describe("resolveLocks order independence", () => {
+  const two = [
+    req("d", [
+      variant("one", [part("d:p0:0", [comp({ minW: 40, minD: 40, minH: 10 })])]),
+      variant("two", [part("d:p0:1", [comp({ minW: 40, minD: 40, minH: 10 })])]),
+    ]),
+  ];
+  const tooBig: Lock = { kind: "size", trayKey: "d:p0:1", w: 400, d: 50, h: 20 };
+  const placed: Lock = { kind: "position", trayKey: "d:p0:0", path: "0", rotated: false };
+
+  it("does not drop a lock as conflicting because of a lock that is itself dropped", () => {
+    for (const locks of [
+      [tooBig, placed],
+      [placed, tooBig],
+    ]) {
+      const ctx = createCtx(makeInput(two, { locks }), fakeMeasure);
+      const r = resolveLocks(ctx, locks);
+      expect(r.resolved.kept).toEqual([placed]);
+      expect(r.resolved.pinnedVariant).toEqual([0]);
+      expect(r.notices).toHaveLength(1);
+      expect(r.notices[0]?.message).toContain("d:p0:1");
+      expect(r.notices[0]?.path).toBe(`/locks/${locks.indexOf(tooBig)}`);
+    }
+  });
+});
+
+describe("completeTree", () => {
+  const ctx = createCtx(makeInput(reqs), fakeMeasure);
+  const env = moveEnvOf(ctx, noLocks(ctx));
+  const at = (r: number, v = 0, p = 0): StackItem => ({
+    req: r,
+    variant: v,
+    part: p,
+    rotated: false,
+  });
+  const keysOf = (t: Tree | null): string[] =>
+    t
+      ? itemsOf(t.root)
+          .map((i) => `${i.req}.${i.variant}.${i.part}`)
+          .sort()
+      : [];
+
+  it("keeps every valid item exactly once in a leaf that also holds a duplicate", () => {
+    const t = completeTree(
+      { root: leaf([at(0), at(1), at(0)]), variants: [0, 0, 0] },
+      env,
+      createRng(1),
+    );
+    expect(keysOf(t)).toEqual(["0.0.0", "1.0.0", "2.0.0"]);
+  });
+
+  it("keeps every valid item exactly once in a leaf that also holds a wrong-variant item", () => {
+    const t = completeTree(
+      { root: leaf([at(0), at(2, 1, 0), at(1)]), variants: [0, 0, 0] },
+      env,
+      createRng(2),
+    );
+    expect(keysOf(t)).toEqual(["0.0.0", "1.0.0", "2.0.0"]);
   });
 });
 

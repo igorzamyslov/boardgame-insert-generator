@@ -14,6 +14,7 @@ import { stackHeights, stackLevels } from "./stack";
 import {
   cut,
   leaf,
+  itemsOf,
   leaves,
   nodeAt,
   replaceAt,
@@ -109,11 +110,52 @@ export function resolveLocks(
   locks: readonly Lock[],
   hints: LockHints = {},
 ): { resolved: ResolvedLocks; notices: Notice[] } {
+  const indexOf = new Map<Lock, number>();
+  locks.forEach((lock, i) => {
+    if (!indexOf.has(lock)) {
+      indexOf.set(lock, i);
+    }
+  });
+  // A lock dropped after step 1 (size, position, stack or leaf checks) must not have narrowed
+  // the variants of the locks that follow it: resolve again without it, so a lock is never
+  // dropped as conflicting because of a lock that was itself dropped. The set only shrinks.
+  const late: Notice[] = [];
+  let live = locks;
+  for (;;) {
+    const pass = resolveOnce(ctx, live, hints, indexOf);
+    if (pass.lateDropped.size === 0) {
+      return { resolved: pass.resolved, notices: [...late, ...pass.notices] };
+    }
+    late.push(...pass.lateNotices);
+    live = live.filter((l) => !pass.lateDropped.has(l));
+  }
+}
+
+function resolveOnce(
+  ctx: Ctx,
+  locks: readonly Lock[],
+  hints: LockHints,
+  indexOf: ReadonlyMap<Lock, number>,
+): {
+  resolved: ResolvedLocks;
+  notices: Notice[];
+  lateDropped: ReadonlySet<Lock>;
+  lateNotices: Notice[];
+} {
   const notices: Notice[] = [];
+  const lateNotices: Notice[] = [];
   const dropped = new Set<Lock>();
+  const lateDropped = new Set<Lock>();
+  let early = true;
   const drop = (lock: Lock, reason: string): void => {
     dropped.add(lock);
-    notices.push(lockDroppedNotice(lock, reason, locks.indexOf(lock)));
+    const notice = lockDroppedNotice(lock, reason, indexOf.get(lock) ?? -1);
+    if (early) {
+      notices.push(notice);
+    } else {
+      lateDropped.add(lock);
+      lateNotices.push(notice);
+    }
   };
   const reqs = ctx.input.requirements;
 
@@ -154,6 +196,7 @@ export function resolveLocks(
     }
     accepted.push(lock);
   }
+  early = false;
   const pinnedVariant = candidates.map((set, r) => {
     if (set === null) {
       return null;
@@ -357,6 +400,8 @@ export function resolveLocks(
       kept,
     },
     notices,
+    lateDropped,
+    lateNotices,
   };
 }
 
@@ -385,20 +430,20 @@ function sameItems(a: readonly StackItem[], b: readonly StackItem[], ctx: Ctx): 
  */
 export function completeTree(tree: Tree, env: MoveEnv, rng: Rng): Tree | null {
   const { ctx } = env;
+  // The drop set is computed first, so removeItems' predicate stays pure: it evaluates the
+  // predicate more than once per item.
   const seen = new Set<number>();
-  let root: TreeNode | null = removeItems(
-    tree.root,
-    (item) => {
-      const id = ctx.partId(item);
-      const wrong = item.variant !== (tree.variants[item.req] ?? 0) || ctx.part(item) === undefined;
-      if (wrong || seen.has(id)) {
-        return true;
-      }
+  const drop = new Set<StackItem>();
+  for (const item of itemsOf(tree.root)) {
+    const id = ctx.partId(item);
+    const wrong = item.variant !== (tree.variants[item.req] ?? 0) || ctx.part(item) === undefined;
+    if (wrong || seen.has(id)) {
+      drop.add(item);
+    } else {
       seen.add(id);
-      return false;
-    },
-    env,
-  );
+    }
+  }
+  let root: TreeNode | null = removeItems(tree.root, (item) => drop.has(item), env);
   ctx.input.requirements.forEach((r, i) => {
     const v = tree.variants[i] ?? 0;
     (r.variants[v]?.parts ?? []).forEach((p, k) => {
