@@ -348,4 +348,50 @@ describe("persistence", () => {
     const kept = reader.load(id);
     expect(kept?.ok && kept.project.name).toBe("From tab 1");
   });
+
+  it("the project list shows the copy kept when leaving a conflicted project", () => {
+    const { tab1, reader } = conflicted();
+    const other: Project = { ...fixtureProject(), id: "other-project", name: "Other" };
+    reader.save(other, EMPTY_FOREIGN);
+    tab1.persistence.openProject(other.id);
+    expect(tab1.state.project.value.id).toBe(other.id);
+    expect(tab1.state.projects.value.map((e) => e.name)).toContain("From tab 1 (copy)");
+  });
+
+  it("a tab without edits leaves a conflict without saving a stray copy", () => {
+    const shared = new MemoryStorage();
+    const tab1 = tab(createProjectStore(shared));
+    tab1.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    const tab2 = tab(createProjectStore(shared));
+    tab2.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    rename(tab2.state, "From tab 2");
+    tab2.persistence.flush();
+    tab1.persistence.onExternalChange();
+    expect(tab1.state.conflict.value).toBe(true);
+    tab1.persistence.newProject();
+    const names = createProjectStore(shared)
+      .list()
+      .map((e) => e.name);
+    expect(names.filter((n) => n.endsWith("(copy)"))).toEqual([]);
+    expect(names).toContain("From tab 2");
+  });
+
+  it("keep mine never overwrites a stored version this app can't read", () => {
+    const { shared, tab1, id, reader } = conflicted();
+    const key = `${STORAGE_PREFIX}project:${id}`;
+    const newer = "{ saved by a newer app in another tab";
+    shared.setItem(key, newer);
+    tab1.persistence.resolveConflict("keepMine");
+    expect(shared.getItem(key)).toBe(newer);
+    expect(tab1.state.project.value.id).not.toBe(id);
+    expect(tab1.state.project.value.name).toBe("From tab 1 (copy)");
+    expect(tab1.state.conflict.value).toBe(false);
+    const saved = reader.load(tab1.state.project.value.id);
+    expect(saved?.ok && saved.project.name).toBe("From tab 1 (copy)");
+    const message = tab1.state.appNotices.value.map((n) => n.message).join("\n");
+    expect(message).toMatch(/newer|unknown/);
+    expect(message).toMatch(/untouched/);
+  });
 });

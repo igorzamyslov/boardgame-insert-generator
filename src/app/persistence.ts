@@ -143,10 +143,17 @@ export function createPersistence(
     refreshList();
   }
 
-  /** Keeps this tab's version of a conflicted project as its own copy before the tab leaves it. */
-  function saveConflictedCopy(): Notice {
+  /**
+   * Keeps this tab's version of a conflicted project as its own copy before the
+   * tab leaves it. Returns null when this tab has no changes of its own (it
+   * still shows what it last saw), so no stray copy is made.
+   */
+  function saveConflictedCopy(): Notice | null {
     clearTimer();
     const p = state.project.value;
+    if (serializeProject(p, state.foreign.value) === lastSynced) {
+      return null;
+    }
     const copy: Project = { ...p, id: newId(), name: `${p.name} (copy)` };
     try {
       store.save(copy, state.foreign.value);
@@ -157,6 +164,7 @@ export function createPersistence(
         message: `“${p.name}” was changed in another tab and this tab's version couldn't be kept (the browser refused to store it).`,
       };
     }
+    refreshList();
     return {
       level: "info",
       code: CONFLICT_CODE,
@@ -165,8 +173,9 @@ export function createPersistence(
   }
 
   function setCurrent(project: Project, foreign: ForeignData, notices: Notice[]): void {
-    const conflictNotice = active && state.conflict.value ? saveConflictedCopy() : null;
-    if (!conflictNotice) {
+    const leavingConflict = active && state.conflict.value;
+    const conflictNotice = leavingConflict ? saveConflictedCopy() : null;
+    if (!leavingConflict) {
       flush();
     }
     hooks.onClosing();
@@ -316,6 +325,22 @@ export function createPersistence(
     resolveConflict(choice) {
       const id = state.project.value.id;
       if (choice === "keepMine") {
+        if (storedSerialized(id) === "") {
+          // The stored version is from a newer or unknown format: never overwrite it.
+          const mine = state.project.value;
+          const copy: Project = { ...mine, id: newId(), name: `${mine.name} (copy)` };
+          state.conflict.value = false;
+          dismissNotice(state, CONFLICT_CODE);
+          active = false;
+          setCurrent(copy, state.foreign.value, [
+            {
+              level: "info",
+              code: CONFLICT_CODE,
+              message: `The other tab's version of “${mine.name}” is from a newer or unknown format and was left untouched. This tab's version is saved as “${copy.name}”.`,
+            },
+          ]);
+          return;
+        }
         state.conflict.value = false;
         dismissNotice(state, CONFLICT_CODE);
         lastSynced = storedSerialized(id) || null;
