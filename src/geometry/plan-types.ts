@@ -2,10 +2,9 @@ import type { Side } from "../model/types";
 
 // Constants and result types of tray planning (plan.ts). A TrayPlan holds
 // every number tray.ts needs to build the solid. The limits shared with sizing
-// (MIN_FEATURE_MM, UPPER_MIN_CHAMFER, SPEC_TOLERANCE, CORNER_MARGIN) live in
-// ../model/settings (spec §6.1, roadmap §4.6) and are not defined here.
+// (MIN_FEATURE_MM, UPPER_MIN_CHAMFER, SPEC_TOLERANCE, CORNER_MARGIN, INNER_CORNER_RADIUS_MM)
+// live in ../model/settings (spec §6.1, roadmap §4.6) and are not defined here.
 
-export const INNER_CORNER_RADIUS = 0.5; // spec §6.1: wells' inner vertical corners ≤ 0.5
 export const LIP_CHAMFER = 0.6; // spec §6.1: 0.6 × 45° on the lip's inner top edge…
 export const LIP_FLAT = 0.6; // …less on a thin lip, so its flat top stays at least this wide
 export const MIN_RELIEF_RADIUS = 0.3; // smaller corner reliefs are dropped

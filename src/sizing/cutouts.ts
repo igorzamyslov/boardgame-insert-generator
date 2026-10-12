@@ -1,4 +1,4 @@
-import { MIN_FEATURE_MM } from "../model/settings";
+import { INNER_CORNER_RADIUS_MM, MIN_FEATURE_MM } from "../model/settings";
 import type { Side } from "../model/types";
 import type { Rect2, RectU } from "./slots";
 import { ceilU } from "./units";
@@ -35,6 +35,8 @@ export interface CutContext {
 }
 
 const MIN = ceilU(MIN_FEATURE_MM);
+/** How far buildTray cuts a U past the faces of its wells: their rounded inner corners. */
+const CORNER_REACH = ceilU(INNER_CORNER_RADIUS_MM);
 /** A floor notch reaching less than this into the floor after clamping is left out. */
 const MIN_NOTCH = 100;
 
@@ -284,7 +286,8 @@ function bandOf(
             rectOf(to.kind === "spare" ? to.index : (requests[to.request]?.owner ?? -1)),
             OPPOSITE[q.side],
           );
-    return [Math.min(face, end), Math.max(face, end)] as const;
+    // buildTray cuts the U INNER_CORNER_RADIUS on into the compartments at both ends.
+    return [Math.min(face, end) - CORNER_REACH, Math.max(face, end) + CORNER_REACH] as const;
   });
   const span = alongX(side) ? ctx.span.x : ctx.span.y;
   const edge = Math.max(ctx.wall, ctx.chamfer);

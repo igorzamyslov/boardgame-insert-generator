@@ -276,6 +276,37 @@ describe("buildTray per tray type", () => {
   });
 });
 
+describe("finger cuts beside a well's rounded inner corners", () => {
+  // A 22 mm cut through both end walls of a well 22 + 2·offset mm long: its sides from 1 mm past
+  // the well's faces to 1 mm inside them, across the 0.5 mm rounded inner corners (review 1, C1).
+  it.each([-1, -0.3, 0, 0.1, 0.25, 0.45, 0.5, 0.6, 1])(
+    "offset %d mm leaves no sliver",
+    (offset) => {
+      const length = 22 + 2 * offset;
+      const at = 1.6 + length / 2;
+      const spec = traySpec({
+        key: "corner:p0:0",
+        w: 1.6 + 30 + 1.6,
+        d: 1.6 + length + 1.6 + (offset < 0 ? 2 : 0),
+        h: 1.2 + 20,
+        compartments: [
+          compartment({
+            x: 1.6,
+            y: offset < 0 ? 2.6 : 1.6,
+            w: 30,
+            d: length,
+            features: [
+              cutout("left", offset < 0 ? at + 1 : at, 10),
+              cutout("right", offset < 0 ? at + 1 : at, 10),
+            ],
+          }),
+        ],
+      });
+      expectWellFormed(spec);
+    },
+  );
+});
+
 describe("buildTray review focus", () => {
   it("thin walls (1.2 mm) still keep ≥ 0.8 mm at the rounded corners", () => {
     const thin = traySpec({

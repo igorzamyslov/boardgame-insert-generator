@@ -1,5 +1,5 @@
 import type { FeatureSpec, Side, TraySpec } from "../model/types";
-import { MIN_FEATURE_MM, SPEC_TOLERANCE as TOL } from "../model/settings";
+import { INNER_CORNER_RADIUS_MM, MIN_FEATURE_MM, SPEC_TOLERANCE as TOL } from "../model/settings";
 import { keepsApart, separation } from "../model/slot-rules";
 import { FINGER_FILLET_MM, MIN_FILLET } from "./plan-types";
 import type { CompartmentPlan, CutPlan, FilletPlan, Rect } from "./plan-types";
@@ -88,6 +88,25 @@ export function filletBox(f: FilletPlan): Rect {
   const [x0, x1] = f.sx > 0 ? [f.x, f.x + f.r] : [f.x - f.r, f.x];
   const [y0, y1] = f.sy > 0 ? [f.y, f.y + f.r] : [f.y - f.r, f.y];
   return { x0, y0, x1, y1 };
+}
+
+/**
+ * A cut's footprint reaching `into` past the face of its compartment and of the one it runs into,
+ * and `out` past the outer face it leaves through (buildTray cuts the U into the compartments past
+ * their rounded inner corners, the floor notch only EPS).
+ */
+export function cutReach(cut: CutPlan, into: number, out: number): Rect {
+  const far = cut.into === null ? out : into;
+  switch (cut.side) {
+    case "front":
+      return { ...cut, y0: cut.y0 - far, y1: cut.y1 + into };
+    case "back":
+      return { ...cut, y0: cut.y0 - into, y1: cut.y1 + far };
+    case "left":
+      return { ...cut, x0: cut.x0 - far, x1: cut.x1 + into };
+    case "right":
+      return { ...cut, x0: cut.x0 - into, x1: cut.x1 + far };
+  }
 }
 
 /** Every footprint the cuts of `plans` take: their boxes, floor notches and fillets. */
@@ -226,9 +245,11 @@ export function checkCutClearance(plans: readonly CompartmentPlan[], fail: Fail)
   const cuts = plans.flatMap((plan) => plan.cuts.map((cut) => ({ plan, cut })));
   for (const { plan, cut } of cuts) {
     const what = `the ${cut.side} cut of compartment ${plan.index} comes within ${MIN_FEATURE_MM} mm of`;
+    // The U reaches INNER_CORNER_RADIUS_MM into both compartments (buildTray, past their corners).
+    const reach = cutReach(cut, INNER_CORNER_RADIUS_MM, 0);
     for (const other of plans) {
       const exempt = other === plan || other.index === cut.into;
-      if (!exempt && !keepsApart(cut, other.rect, TOL)) {
+      if (!exempt && !keepsApart(reach, other.rect, TOL)) {
         fail(`${what} compartment ${other.index}`);
       }
       for (const slot of other.slots) {
@@ -382,8 +403,9 @@ function filletsAt(
       const beside = away < 0 ? u : span - u;
       r = Math.min(r, beside - Math.max(MIN_FEATURE_MM + pull, chamfer) - TOL);
     } else {
+      // On the compartment's flat face, past its rounded inner corner.
       const c = axes(comp.rect, side);
-      r = Math.min(r, away < 0 ? u - c.u0 : c.u1 - u);
+      r = Math.min(r, (away < 0 ? u - c.u0 : c.u1 - u) - INNER_CORNER_RADIUS_MM);
     }
     for (const { rect, share } of obstacles) {
       const o = axes(rect, side);

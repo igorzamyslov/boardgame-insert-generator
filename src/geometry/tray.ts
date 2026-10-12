@@ -2,8 +2,8 @@ import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
 import type { Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
-import { cutFace } from "./plan-cuts";
-import { INNER_CORNER_RADIUS } from "./plan-types";
+import { cutFace, cutReach } from "./plan-cuts";
+import { INNER_CORNER_RADIUS_MM } from "../model/settings";
 import type {
   CompartmentPlan,
   CutPlan,
@@ -135,32 +135,25 @@ function buildSlot(m: ManifoldToplevel, scope: Scope, slot: SlotPlan, topZ: numb
   return hullPoints(m, scope, points);
 }
 
-// A wall cutout's footprint, reaching EPS into its own compartment and into the one it runs into
-// (so no face of it is coplanar with theirs), or OVERSHOOT past the outer face it leaves through.
-function cutReach(cut: CutPlan): Rect {
-  const out = cut.into === null ? OVERSHOOT : EPS;
-  switch (cut.side) {
-    case "front":
-      return { ...cut, y0: cut.y0 - out, y1: cut.y1 + EPS };
-    case "back":
-      return { ...cut, y0: cut.y0 - EPS, y1: cut.y1 + out };
-    case "left":
-      return { ...cut, x0: cut.x0 - out, x1: cut.x1 + EPS };
-    case "right":
-      return { ...cut, x0: cut.x0 - EPS, x1: cut.x1 + out };
-  }
-}
-
 // A wall cutout: the U through the wall or divider; with a floor notch the cut instead goes down
 // through the bottom at its full width, and on into the compartment's floor `notch` from its face,
 // the far corners rounded with half the width (at most the reach): a half-disc when the notch
 // reaches half the width. All are vertical prisms or open at the top, so nothing overhangs
 // (spec §6.1).
 function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number): Manifold[] {
-  const reach = { ...cut, ...cutReach(cut) };
+  // The U reaches past the wells' rounded inner corners (INNER_CORNER_RADIUS_MM) on both ends, so no
+  // sliver of a corner stays beside it, and OVERSHOOT past an outer face it leaves through.
+  const u = buildSlot(
+    m,
+    scope,
+    { ...cut, ...cutReach(cut, INNER_CORNER_RADIUS_MM + EPS, OVERSHOOT) },
+    top,
+  );
   if (cut.notch <= 0) {
-    return [buildSlot(m, scope, reach, top)];
+    return [u];
   }
+  // Through the floor only EPS into the compartments, whose floors it must not cut.
+  const reach = cutReach(cut, EPS, OVERSHOOT);
   const through = box(m, scope, [reach.x0, reach.y0, -OVERSHOOT], [reach.x1, reach.y1, top]);
   // In the floor, along the side (u) and into the compartment (v = face + inward·distance).
   const face = cutFace(cut);
@@ -179,7 +172,7 @@ function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number):
     const far = cut.notch - rho + rho * Math.sin(t);
     ring.push(point(a + rho - rho * Math.cos(t), far), point(b - rho + rho * Math.cos(t), far));
   }
-  return [through, prism(m, scope, ring, -OVERSHOOT, top)];
+  return [u, through, prism(m, scope, ring, -OVERSHOOT, top)];
 }
 
 // A fillet on a finger cut's vertical edge: the square from the corner toward the material, EPS
@@ -203,7 +196,7 @@ function buildCutter(
   const top = plan.topZ + OVERSHOOT;
   const { content } = c;
   const r = Math.min(
-    INNER_CORNER_RADIUS,
+    INNER_CORNER_RADIUS_MM,
     (content.x1 - content.x0) / 2,
     (content.y1 - content.y0) / 2,
   );

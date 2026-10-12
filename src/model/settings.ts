@@ -23,6 +23,13 @@ export const SPEC_TOLERANCE = 0.005;
  */
 export const FLOAT_EPSILON = 1e-9;
 
+/**
+ * Radius of the wells' inner vertical corners (spec §6.1: at most 0.5). buildTray cuts a finger
+ * cut's U this far on into the compartments at its ends, past their rounded corners, so sizing
+ * keeps the cut's extent that much longer when it looks for room beside other wells.
+ */
+export const INNER_CORNER_RADIUS_MM = 0.5;
+
 /** The outer corner arc polygon lies up to 0.08 mm inside the true arc; plus a little margin. */
 export const CORNER_MARGIN = 0.1;
 
