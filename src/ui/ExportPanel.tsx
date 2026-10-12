@@ -1,5 +1,5 @@
 // src/ui/ExportPanel.tsx
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { bytesToBlob, downloadBlob, fileSlug } from "../app/download";
 import {
   buildCombined3mf,
@@ -48,10 +48,21 @@ export function ExportPanel(p: ExportPanelProps) {
   const running = useRef<AbortController | null>(null);
   const buttonRow = useRef<HTMLDivElement>(null);
   const refocus = useRef(false);
+  const cancelButton = useRef<HTMLButtonElement | null>(null);
   const download = p.download ?? downloadBlob;
   const slug = fileSlug(p.projectName);
 
-  // A running export and a failed tray belong to the layout they were built for.
+  // Preact calls a ref with null just before it removes the element, while it still has the
+  // focus: whatever makes Cancel go away (a finished or aborted export, not only a click on it)
+  // leaves the focus to be handed on. A stable callback, so it only runs on mount and unmount.
+  const watchCancel = useCallback((el: HTMLButtonElement | null) => {
+    if (el === null && cancelButton.current && document.activeElement === cancelButton.current) {
+      refocus.current = true;
+    }
+    cancelButton.current = el;
+  }, []);
+
+  // A running export, a failed tray and an export error belong to the layout they were built for.
   useEffect(() => {
     if (running.current) {
       running.current.abort();
@@ -59,9 +70,10 @@ export function ExportPanel(p: ExportPanelProps) {
       setBusy(null);
     }
     setFailed((f) => (f.length > 0 ? [] : f));
+    setError(null);
   }, [p.trays]);
 
-  // Cancel unmounts with the progress bar: hand the focus to the first export button.
+  // Cancel unmounted with the progress bar: hand the focus to the first export button.
   useEffect(() => {
     if (busy === null && refocus.current) {
       refocus.current = false;
@@ -156,7 +168,7 @@ export function ExportPanel(p: ExportPanelProps) {
         <div class="run-status" role="status">
           <progress value={busy.done} max={Math.max(1, busy.total)} aria-label="Building meshes" />
           <span>{`Building meshes ${busy.done}/${busy.total}…`}</span>
-          <button type="button" onClick={cancel}>
+          <button type="button" ref={watchCancel} onClick={cancel}>
             Cancel
           </button>
         </div>

@@ -243,4 +243,80 @@ describe("ExportPanel", () => {
     // Only the unsupported tray is listed: no failure of the old plan came back.
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
+
+  it("puts the focus on the export buttons when an export finishes under the focused Cancel", async () => {
+    const m = meshes();
+    let finish: () => void = () => undefined;
+    m.get.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({ mesh: cubeMesh(), volumeMm3: 1000 });
+        }),
+    );
+    const p = props({ meshes: m, trays: [makeTray({ key: "a:p0:0", stack: 0 })] });
+    render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+    (await screen.findByRole("button", { name: "Cancel" })).focus();
+    finish();
+    await waitFor(() => expect(p.download).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull());
+    // Effects run after the DOM update: wait for the hand-over.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "3MF per part (.zip)" }),
+      ),
+    );
+  });
+
+  it("puts the focus on the export buttons when a layout change drops the focused Cancel", async () => {
+    const m = meshes();
+    m.get.mockImplementation(waitsForAbort);
+    const p = props({ meshes: m });
+    const view = render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "STL files (.zip)" }));
+    (await screen.findByRole("button", { name: "Cancel" })).focus();
+    view.rerender(<ExportPanel {...p} trays={[makeTray({ key: "z:p0:0", stack: 0 }), magnet]} />);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull());
+    // Effects run after the DOM update: wait for the hand-over.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "3MF per part (.zip)" }),
+      ),
+    );
+  });
+
+  it("leaves the focus alone when Cancel did not have it", async () => {
+    const m = meshes();
+    m.get.mockImplementation(waitsForAbort);
+    const p = props({ meshes: m });
+    const view = render(
+      <>
+        <input aria-label="elsewhere" />
+        <ExportPanel {...p} />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "STL files (.zip)" }));
+    await screen.findByRole("button", { name: "Cancel" });
+    const elsewhere = screen.getByLabelText("elsewhere");
+    elsewhere.focus();
+    view.rerender(
+      <>
+        <input aria-label="elsewhere" />
+        <ExportPanel {...p} trays={[makeTray({ key: "z:p0:0", stack: 0 }), magnet]} />
+      </>,
+    );
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull());
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
+  it("clears an export error when the layout changes", async () => {
+    const m = meshes();
+    m.get.mockImplementation(() => Promise.reject(new Error("Geometry worker failed: oom")));
+    const p = props({ meshes: m });
+    const view = render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/oom/));
+    view.rerender(<ExportPanel {...p} trays={[makeTray({ key: "z:p0:0", stack: 0 }), magnet]} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

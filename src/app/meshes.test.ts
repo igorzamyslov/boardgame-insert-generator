@@ -214,6 +214,30 @@ describe("createMeshSource", () => {
     expect(f.build).toHaveBeenCalledTimes(4);
   });
 
+  it("starts the failure count over for a forgotten spec: it takes two failures to poison it again", async () => {
+    const f = fakeClient();
+    const source = createMeshSource(() => Promise.resolve(f.client));
+    const bad = makeTray({ key: "bad" });
+    const fail = (): void => {
+      f.build.mockRejectedValueOnce(new GeometryBuildError("Tray bad: no", "TraySpecError"));
+    };
+    for (let i = 0; i < 2; i += 1) {
+      fail();
+      await expect(source.get(bad, DEFAULT_SETTINGS)).rejects.toThrow("no");
+    }
+    source.forget([bad], DEFAULT_SETTINGS);
+    // First failure after the retry: still allowed to build again.
+    fail();
+    await expect(source.get(bad, DEFAULT_SETTINGS)).rejects.toThrow("no");
+    expect(f.build).toHaveBeenCalledTimes(3);
+    fail();
+    await expect(source.get(bad, DEFAULT_SETTINGS)).rejects.toThrow("no");
+    expect(f.build).toHaveBeenCalledTimes(4);
+    // The second failure poisons it: no build for the next get.
+    await expect(source.get(bad, DEFAULT_SETTINGS)).rejects.toThrow("no");
+    expect(f.build).toHaveBeenCalledTimes(4);
+  });
+
   it("caps the cache, resets and disposes", async () => {
     const f = fakeClient();
     const source = createMeshSource(() => Promise.resolve(f.client));
