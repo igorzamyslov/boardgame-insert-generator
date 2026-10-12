@@ -1,5 +1,5 @@
 // src/viewer/Viewer.tsx
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { MeshSource } from "../app/meshes";
 import { numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Settings, TraySpec } from "../model/types";
@@ -8,7 +8,7 @@ import { SelectField } from "../ui/fields";
 import { TrayDetails } from "../ui/TrayDetails";
 import { boxOutline } from "./transform";
 import type { SceneFactory, SceneHandle, SceneTray } from "./types";
-import { hasWebGL } from "./webgl";
+import { WebGLUnavailableError, hasWebGL } from "./webgl";
 
 export interface ViewerProps {
   trays: readonly TraySpec[];
@@ -25,7 +25,7 @@ export interface ViewerProps {
   loadScene?: () => Promise<SceneFactory>;
 }
 
-type Status = "loading" | "ready" | "nowebgl" | "error";
+type Status = "loading" | "ready" | "nowebgl" | "error" | "lost";
 
 async function defaultLoadScene(): Promise<SceneFactory> {
   const mod = await import("./scene");
@@ -44,8 +44,23 @@ export function Viewer(p: ViewerProps) {
   const [maxLevel, setMaxLevel] = useState<number | null>(null);
   const [build, setBuild] = useState({ done: 0, total: 0, failed: 0 });
   const [attempt, setAttempt] = useState(0);
-  const levels = levelsOf(p.trays);
-  const byKey = partsByKey(numberParts(p.trays));
+  // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
+  const [canvasKey, setCanvasKey] = useState(0);
+  const levels = useMemo(() => levelsOf(p.trays), [p.trays]);
+  const byKey = useMemo(() => partsByKey(numberParts(p.trays)), [p.trays]);
+  // The chosen layer may vanish when the layout changes: show everything then.
+  const shownLevel = maxLevel !== null && levels.includes(maxLevel) ? maxLevel : null;
+
+  function dropScene(): void {
+    handleRef.current?.dispose();
+    handleRef.current = null;
+  }
+
+  function retryScene(): void {
+    dropScene();
+    setCanvasKey((k) => k + 1);
+    setStatus("loading");
+  }
 
   useEffect(
     () => () => {
@@ -71,8 +86,8 @@ export function Viewer(p: ViewerProps) {
           handle.onPick((key) => onSelectRef.current(key));
           handleRef.current = handle;
           setStatus("ready");
-        } catch {
-          setStatus("nowebgl");
+        } catch (e) {
+          setStatus(e instanceof WebGLUnavailableError ? "nowebgl" : "error");
         }
       },
       () => {
@@ -86,12 +101,34 @@ export function Viewer(p: ViewerProps) {
     };
   }, [status]);
 
+  // The outline (and with it the camera fit) follows the box, not every settings change.
+  const outline = boxOutline(p.box, p.settings);
+  const outlineKey = [...outline.min, ...outline.size].join(",");
   useEffect(() => {
     const h = handleRef.current;
     if (status === "ready" && h) {
-      h.setBox(boxOutline(p.box, p.settings));
+      h.setBox(outline);
     }
-  }, [status, p.box, p.settings]);
+  }, [status, outlineKey]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (status !== "ready" || !canvas) {
+      return undefined;
+    }
+    const onLost = (): void => {
+      dropScene();
+      setStatus("lost");
+    };
+    canvas.addEventListener("webglcontextlost", onLost);
+    return () => canvas.removeEventListener("webglcontextlost", onLost);
+  }, [status]);
+
+  useEffect(() => {
+    if (maxLevel !== null && shownLevel === null) {
+      setMaxLevel(null);
+    }
+  }, [maxLevel, shownLevel]);
 
   useEffect(() => {
     const h = handleRef.current;
@@ -120,8 +157,14 @@ export function Viewer(p: ViewerProps) {
         }
       }),
     ).then(() => {
-      if (!cancelled) {
+      if (cancelled) {
+        return;
+      }
+      try {
         h.setTrays(results.filter((r): r is SceneTray => r !== null));
+      } catch {
+        dropScene();
+        setStatus("error");
       }
     });
     return () => {
@@ -135,8 +178,8 @@ export function Viewer(p: ViewerProps) {
   }, [status, explode]);
 
   useEffect(() => {
-    handleRef.current?.setMaxLevel(maxLevel);
-  }, [status, maxLevel]);
+    handleRef.current?.setMaxLevel(shownLevel);
+  }, [status, shownLevel]);
 
   useEffect(() => {
     handleRef.current?.setSelected(p.selectedKey);
@@ -171,15 +214,18 @@ export function Viewer(p: ViewerProps) {
   return (
     <div class="viewer">
       <canvas
+        key={canvasKey}
         ref={canvasRef}
         class="viewer-canvas"
         aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details."
       />
       {status === "loading" ? <p class="hint">Loading the 3D preview…</p> : null}
-      {status === "error" ? (
+      {status === "error" || status === "lost" ? (
         <p role="alert">
-          Couldn't load the 3D preview.{" "}
-          <button type="button" onClick={() => setStatus("loading")}>
+          {status === "lost"
+            ? "The 3D preview stopped because the graphics context was lost. "
+            : "Couldn't show the 3D preview. "}
+          <button type="button" onClick={retryScene}>
             Retry
           </button>
         </p>
@@ -220,7 +266,7 @@ export function Viewer(p: ViewerProps) {
           <SelectField
             id="viewer-layers"
             label="Show layers"
-            value={maxLevel === null ? "all" : String(maxLevel)}
+            value={shownLevel === null ? "all" : String(shownLevel)}
             options={[
               { value: "all", label: "All layers" },
               ...levels.map((l, i) => ({

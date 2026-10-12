@@ -22,6 +22,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { TraySpec } from "../model/types";
 import { isVisible, trayColor, trayPosition } from "./transform";
 import type { BoxOutline, SceneFactory, SceneHandle, SceneTray } from "./types";
+import { WebGLUnavailableError } from "./webgl";
 
 interface TrayObject {
   spec: TraySpec;
@@ -31,8 +32,28 @@ interface TrayObject {
 
 const CLICK_SLOP_PX = 5;
 
+/** Frees the renderer and, since browsers keep only a few, the WebGL context behind it. */
+function release(renderer: WebGLRenderer): void {
+  renderer.dispose();
+  renderer.forceContextLoss();
+}
+
 export const createScene: SceneFactory = (canvas) => {
-  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+  let renderer: WebGLRenderer;
+  try {
+    renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+  } catch (e) {
+    throw new WebGLUnavailableError(e instanceof Error ? e.message : String(e));
+  }
+  try {
+    return buildScene(canvas, renderer);
+  } catch (e) {
+    release(renderer);
+    throw e;
+  }
+};
+
+function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHandle {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   const scene = new Scene();
   const camera = new PerspectiveCamera(40, 1, 1, 10000);
@@ -94,7 +115,12 @@ export const createScene: SceneFactory = (canvas) => {
   }
 
   const onPointerDown = (e: PointerEvent): void => {
-    down = { x: e.clientX, y: e.clientY };
+    // Only a primary-button press by the primary pointer can become a click: a right-click or
+    // the second finger of a pinch must not pick a tray.
+    down = e.button === 0 && e.isPrimary ? { x: e.clientX, y: e.clientY } : null;
+  };
+  const onPointerCancel = (): void => {
+    down = null;
   };
   const onPointerUp = (e: PointerEvent): void => {
     const start = down;
@@ -115,6 +141,7 @@ export const createScene: SceneFactory = (canvas) => {
   };
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerCancel);
 
   const handle: SceneHandle = {
     setBox(o: BoxOutline) {
@@ -187,13 +214,14 @@ export const createScene: SceneFactory = (canvas) => {
       }
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerCancel);
       controls.removeEventListener("change", requestDraw);
       controls.dispose();
       clearTrays();
       clearOutline();
-      renderer.dispose();
+      release(renderer);
       pick = null;
     },
   };
   return handle;
-};
+}
