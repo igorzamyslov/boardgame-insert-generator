@@ -191,6 +191,8 @@ export function App(props: AppProps) {
             notices={s.appNotices.value}
             label="App messages"
             onDismiss={(code) => store.dismissNotice(code)}
+            // The choice stays on screen while autosave is paused for it.
+            canDismiss={(n) => !(n.code === CONFLICT_CODE && s.conflict.value)}
             renderAction={(n) =>
               n.code === CONFLICT_CODE && s.conflict.value ? (
                 <>

@@ -1,7 +1,7 @@
 // src/app/App.test.tsx
 // @vitest-environment jsdom
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import { APP_VERSION } from "../model/version";
 import { encodeHash } from "../share";
@@ -15,7 +15,15 @@ vi.mock("../instructions/png", async (orig) => ({
   svgToPng: vi.fn(() => Promise.resolve(new Blob(["png"], { type: "image/png" }))),
 }));
 
-afterEach(cleanup);
+// jsdom's window.scrollTo only prints "Not implemented"; the app calls it when the page swaps.
+beforeEach(() => {
+  vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function withLayoutHash(): string {
   const p = fixtureProject();
@@ -130,6 +138,18 @@ describe("App", () => {
       expect(screen.queryByRole("button", { name: /Load the other tab/ })).toBeNull();
     });
 
+    it("can't be dismissed during a real conflict, only after it is resolved", async () => {
+      const { store } = renderApp();
+      store.state.conflict.value = true;
+      store.pushNotice(notice("Another tab saved this project."));
+      expect(await screen.findByText(/Another tab saved/)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /^Dismiss: Another tab saved/ })).toBeNull();
+      store.state.conflict.value = false;
+      expect(
+        await screen.findByRole("button", { name: /^Dismiss: Another tab saved/ }),
+      ).toBeTruthy();
+    });
+
     it("offers both choices during a real conflict and passes them on", async () => {
       const { store } = renderApp();
       const resolve = vi.spyOn(store, "resolveConflict").mockImplementation(() => undefined);
@@ -144,16 +164,14 @@ describe("App", () => {
 
   describe("assembly page", () => {
     it("moves the focus to the page and back to its button, and scrolls to the top", () => {
-      const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
       renderApp(withLayoutHash());
       fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
-      expect(scrollTo).toHaveBeenCalledWith(0, 0);
+      expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
       expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
       fireEvent.click(screen.getByRole("button", { name: "Back to the editor" }));
       expect(document.activeElement).toBe(
         screen.getByRole("button", { name: "Open the assembly page" }),
       );
-      scrollTo.mockRestore();
     });
 
     it("hands its downloads to the app's download function", async () => {

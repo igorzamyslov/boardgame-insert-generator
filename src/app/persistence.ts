@@ -15,6 +15,7 @@ export const STORAGE_UNAVAILABLE_CODE = "storage.unavailable";
 export const CONFLICT_CODE = "storage.conflict";
 export const OPEN_FAILED_CODE = "open.failed";
 export const SAVE_FAILED_CODE = "storage.saveFailed";
+export const UNSAVED_LEFT_CODE = "storage.unsavedLeft";
 
 export type OpenSource = "link" | "file";
 export type ConflictChoice = "keepMine" | "loadTheirs";
@@ -32,7 +33,8 @@ export interface PersistenceHooks {
 
 export interface Persistence {
   scheduleSave(): void;
-  flush(): void;
+  /** Saves now; true when nothing is left unsaved here (saved, unchanged, or no storage to save to). */
+  flush(): boolean;
   start(hash: string): void;
   openFromHash(hash: string): boolean;
   openParsed(result: ParseResult, source: OpenSource): boolean;
@@ -106,23 +108,30 @@ export function createPersistence(
     });
   }
 
-  function flush(): void {
+  function flush(): boolean {
     clearTimer();
     if (!active) {
-      return;
+      return true;
     }
     writeHash();
-    if (!store.available || state.conflict.value) {
-      return;
+    if (!store.available) {
+      return true;
+    }
+    if (state.conflict.value) {
+      // Paused: an edit reaching this point means the notice with the choices must be on screen.
+      if (!state.appNotices.value.some((n) => n.code === CONFLICT_CODE)) {
+        markConflict();
+      }
+      return false;
     }
     const p = state.project.value;
     const current = serializeProject(p, state.foreign.value);
     if (current === lastSynced) {
-      return;
+      return true;
     }
     if (changedElsewhere(p.id)) {
       markConflict();
-      return;
+      return false;
     }
     try {
       store.save(p, state.foreign.value);
@@ -136,47 +145,88 @@ export function createPersistence(
         code: SAVE_FAILED_CODE,
         message: `Autosave failed: ${reason}. Your work is still open here; use Export JSON or Copy link to keep it.`,
       });
-      return;
+      return false;
     }
     dismissNotice(state, SAVE_FAILED_CODE);
     lastSynced = storedSerialized(p.id) || current;
     refreshList();
+    return true;
   }
 
   /**
    * Keeps this tab's version of a conflicted project as its own copy before the
-   * tab leaves it. Returns null when this tab has no changes of its own (it
-   * still shows what it last saw), so no stray copy is made.
+   * tab leaves it. `notice` is null when this tab has no changes of its own (it
+   * still shows what it last saw), so no stray copy is made; `failed` when the
+   * copy couldn't be stored.
    */
-  function saveConflictedCopy(): Notice | null {
+  function saveConflictedCopy(): { notice: Notice | null; failed: boolean } {
     clearTimer();
     const p = state.project.value;
     if (serializeProject(p, state.foreign.value) === lastSynced) {
-      return null;
+      return { notice: null, failed: false };
     }
     const copy: Project = { ...p, id: newId(), name: `${p.name} (copy)` };
     try {
       store.save(copy, state.foreign.value);
     } catch {
       return {
-        level: "warning",
-        code: CONFLICT_CODE,
-        message: `“${p.name}” was changed in another tab and this tab's version couldn't be kept (the browser refused to store it).`,
+        failed: true,
+        notice: {
+          level: "warning",
+          code: CONFLICT_CODE,
+          message: `“${p.name}” was changed in another tab and this tab's version couldn't be kept (the browser refused to store it).`,
+        },
       };
     }
     refreshList();
     return {
-      level: "info",
-      code: CONFLICT_CODE,
-      message: `“${p.name}” was changed in another tab; this tab's version was kept as “${copy.name}”.`,
+      failed: false,
+      notice: {
+        level: "info",
+        code: CONFLICT_CODE,
+        message: `“${p.name}” was changed in another tab; this tab's version was kept as “${copy.name}”.`,
+      },
     };
   }
 
-  function setCurrent(project: Project, foreign: ForeignData, notices: Notice[]): void {
-    const leavingConflict = active && state.conflict.value;
-    const conflictNotice = leavingConflict ? saveConflictedCopy() : null;
-    if (!leavingConflict) {
-      flush();
+  /**
+   * Replaces the open project. A project whose latest edits can't be stored is only left
+   * after the user agrees, and the notice then names it; returns false when the user declines
+   * (nothing changes). A project another tab changed is kept as a copy instead (conflict).
+   */
+  function setCurrent(project: Project, foreign: ForeignData, notices: Notice[]): boolean {
+    const leaving = state.project.value;
+    const unsaved = (): Notice[] => [
+      {
+        level: "warning",
+        code: UNSAVED_LEFT_CODE,
+        message: `“${leaving.name}” couldn't be saved: its latest changes were lost when you opened another project.`,
+      },
+    ];
+    let extra: Notice[] = [];
+    // flush() can discover a conflict nobody told this tab about yet; the check follows it.
+    const saved = active && !state.conflict.value ? flush() : true;
+    if (active && state.conflict.value) {
+      const copy = saveConflictedCopy();
+      if (
+        copy.failed &&
+        !deps.confirm(
+          `“${leaving.name}” was changed in another tab and this tab's version can't be kept. Open the other project anyway?`,
+        )
+      ) {
+        writeHash();
+        return false;
+      }
+      extra = copy.notice ? [copy.notice] : [];
+    } else if (!saved) {
+      if (
+        !deps.confirm(
+          `“${leaving.name}” couldn't be saved, so leaving it now loses its latest changes. Open the other project anyway?`,
+        )
+      ) {
+        return false;
+      }
+      extra = unsaved();
     }
     hooks.onClosing();
     const kept = state.appNotices.value.filter((n) => n.code === STORAGE_UNAVAILABLE_CODE);
@@ -192,12 +242,13 @@ export function createPersistence(
         foreign.components.length > 0 ||
         notices.some((n) => n.code === SCHEMA_NOTICE_CODES.newerMinor);
       // Parse notices include one schema.foreignComponent warning per kept component.
-      state.appNotices.value = [...kept, ...notices, ...(conflictNotice ? [conflictNotice] : [])];
+      state.appNotices.value = [...kept, ...notices, ...extra];
     });
     active = true;
     lastSynced = storedSerialized(project.id) || null;
     flush();
     hooks.onOpened();
+    return true;
   }
 
   function openParsed(result: ParseResult, source: OpenSource): boolean {
@@ -220,8 +271,7 @@ export function createPersistence(
     ) {
       project = { ...project, id: newId(), name: `${project.name} (copy)` };
     }
-    setCurrent(project, result.foreign, result.notices);
-    return true;
+    return setCurrent(project, result.foreign, result.notices);
   }
 
   function openStoredOrNew(): void {

@@ -11,6 +11,7 @@ import {
   SAVE_DEBOUNCE_MS,
   SAVE_FAILED_CODE,
   STORAGE_UNAVAILABLE_CODE,
+  UNSAVED_LEFT_CODE,
   createPersistence,
 } from "./persistence";
 import { createState } from "./state";
@@ -393,5 +394,116 @@ describe("persistence", () => {
     const message = tab1.state.appNotices.value.map((n) => n.message).join("\n");
     expect(message).toMatch(/newer|unknown/);
     expect(message).toMatch(/untouched/);
+  });
+
+  it("puts the conflict notice back when an edit reaches a paused autosave", () => {
+    const { tab1 } = conflicted();
+    tab1.state.appNotices.value = [];
+    rename(tab1.state, "Edited again");
+    tab1.persistence.scheduleSave();
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    expect(tab1.state.conflict.value).toBe(true);
+    expect(tab1.state.appNotices.value.map((n) => n.code)).toContain(CONFLICT_CODE);
+  });
+
+  describe("leaving a project whose last save failed", () => {
+    function unsaved(confirm = vi.fn(() => false)) {
+      const storage = new MemoryStorage();
+      const store = createProjectStore(storage);
+      const other: Project = { ...fixtureProject(), id: "other-project", name: "Other" };
+      store.save(other, EMPTY_FOREIGN);
+      const t = tab(store, confirm);
+      t.persistence.start(encodeHash({ ...fixtureProject(), id: "mine" }, EMPTY_FOREIGN));
+      vi.advanceTimersByTime(1000);
+      storage.failOn = () => true;
+      rename(t.state, "Unsaved edits");
+      return { t, storage, store, other, confirm };
+    }
+
+    const paths: [string, (x: ReturnType<typeof unsaved>) => unknown][] = [
+      ["opening another project", ({ t, other }) => t.persistence.openProject(other.id)],
+      ["starting a new project", ({ t }) => t.persistence.newProject()],
+      [
+        "importing a file",
+        ({ t }) => t.persistence.importJson(JSON.stringify({ ...fixtureProject(), id: "file" })),
+      ],
+      [
+        "following a link",
+        ({ t }) =>
+          t.persistence.openFromHash(
+            encodeHash({ ...fixtureProject(), id: "link" }, EMPTY_FOREIGN),
+          ),
+      ],
+    ];
+
+    for (const [name, leave] of paths) {
+      it(`asks before ${name} and stays on the project when declined`, () => {
+        const x = unsaved();
+        leave(x);
+        expect(x.confirm).toHaveBeenCalledTimes(1);
+        expect(x.confirm).toHaveBeenCalledWith(expect.stringContaining("Unsaved edits"));
+        expect(x.t.state.project.value.id).toBe("mine");
+        expect(x.t.state.project.value.name).toBe("Unsaved edits");
+        expect(x.t.state.appNotices.value.map((n) => n.code)).toContain(SAVE_FAILED_CODE);
+        expect(x.t.replaceHash).toHaveBeenLastCalledWith(
+          encodeHash(x.t.state.project.value, EMPTY_FOREIGN),
+        );
+      });
+
+      it(`leaves after ${name} when confirmed, and keeps a notice naming the project`, () => {
+        const x = unsaved(vi.fn(() => true));
+        leave(x);
+        expect(x.t.state.project.value.id).not.toBe("mine");
+        const left = x.t.state.appNotices.value.find((n) => n.code === UNSAVED_LEFT_CODE);
+        expect(left?.message).toContain("Unsaved edits");
+        expect(left?.level).toBe("warning");
+      });
+    }
+
+    it("doesn't ask when the last save worked", () => {
+      const x = unsaved();
+      x.storage.failOn = () => false;
+      x.t.persistence.newProject();
+      expect(x.confirm).not.toHaveBeenCalled();
+      expect(x.t.state.appNotices.value.map((n) => n.code)).not.toContain(UNSAVED_LEFT_CODE);
+    });
+
+    it("importJson reports a declined import as not opened", () => {
+      const x = unsaved();
+      expect(x.t.persistence.importJson(JSON.stringify({ ...fixtureProject(), id: "file" }))).toBe(
+        false,
+      );
+    });
+
+    it("asks too when the copy of a conflicted version can't be stored", () => {
+      const { shared, tab1 } = conflicted();
+      shared.failOn = () => true;
+      const confirm = vi.mocked(tab1.confirm);
+      confirm.mockReturnValue(false);
+      tab1.persistence.newProject();
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(tab1.state.project.value.name).toBe("From tab 1");
+      expect(tab1.state.conflict.value).toBe(true);
+    });
+
+    it("treats a change another tab made unnoticed as a conflict and keeps this tab's edits", () => {
+      const shared = new MemoryStorage();
+      const tab1 = tab(createProjectStore(shared));
+      tab1.persistence.start("");
+      vi.advanceTimersByTime(1000);
+      const tab2 = tab(createProjectStore(shared));
+      tab2.persistence.start("");
+      vi.advanceTimersByTime(1000);
+      rename(tab2.state, "From tab 2");
+      tab2.persistence.flush();
+      rename(tab1.state, "From tab 1");
+      // no storage event reached tab 1: leaving must still not drop its edits
+      tab1.persistence.newProject();
+      const names = createProjectStore(shared)
+        .list()
+        .map((e) => e.name);
+      expect(names).toContain("From tab 1 (copy)");
+      expect(names).toContain("From tab 2");
+    });
   });
 });
