@@ -1,5 +1,6 @@
 import type { FeatureSpec, Side, TraySpec } from "../model/types";
 import { INNER_CORNER_RADIUS_MM, MIN_FEATURE_MM, SPEC_TOLERANCE as TOL } from "../model/settings";
+import { OPPOSITE, alongX, axes, faceOf, nearestAcross } from "../model/cut-rules";
 import { keepsApart, separation } from "../model/slot-rules";
 import { FINGER_FILLET_MM, MIN_FILLET } from "./plan-types";
 import type { CompartmentPlan, CutPlan, FilletPlan, Rect } from "./plan-types";
@@ -24,35 +25,6 @@ interface Frame {
 }
 
 type Fail = (message: string) => never;
-
-const OPPOSITE: Record<Side, Side> = { front: "back", back: "front", left: "right", right: "left" };
-
-/** The cut runs across front and back walls along x; across left and right walls along y. */
-function alongX(side: Side): boolean {
-  return side === "front" || side === "back";
-}
-
-/** A rectangle's extent along the side (u) and across it (v). */
-function axes(r: Rect, side: Side): { u0: number; u1: number; v0: number; v1: number } {
-  return alongX(side)
-    ? { u0: r.x0, u1: r.x1, v0: r.y0, v1: r.y1 }
-    : { u0: r.y0, u1: r.y1, v0: r.x0, v1: r.x1 };
-}
-
-/** The compartment face a cut on `side` starts from, across the side. */
-function faceOf(r: Rect, side: Side): number {
-  return { front: r.y0, back: r.y1, left: r.x0, right: r.x1 }[side];
-}
-
-/** How far `other` lies beyond `face` on `side` (negative: not beyond it). */
-function beyond(other: Rect, face: number, side: Side): number {
-  return {
-    front: face - other.y1,
-    back: other.y0 - face,
-    left: face - other.x1,
-    right: other.x0 - face,
-  }[side];
-}
 
 /** The centre of a cut along its side. */
 export function cutCentre(cut: CutPlan): number {
@@ -124,7 +96,8 @@ export function cutFootprints(plans: readonly CompartmentPlan[]): Rect[] {
 // - it is centred on its own compartment (`at` within its range along the side) and its sides stay
 //   out of the outer walls it runs along (the parallel walls and their lip stay whole);
 // - its footprint runs from the compartment's face across to the facing face of the nearest
-//   compartment whose range along the side overlaps the cut, or out through the outer face;
+//   compartment whose range along the side contains its centre (nearestAcross, the rule sizing
+//   places it by), or out through the outer face;
 // - its depth is measured down from the rim and never below the compartment floor;
 // - with a floor notch the cut goes on down through the bottom at its full width, and into the
 //   compartment's floor `notch` from its face (far corners rounded with half the width, at most
@@ -160,16 +133,14 @@ export function planCut(
     fail(`${where} reaches into the ${wall} mm outer wall it runs along`);
   }
   const face = faceOf(rect, q.side);
-  let next: CompartmentPlan | undefined;
-  let gap = Number.POSITIVE_INFINITY;
-  for (const other of plans) {
-    const o = axes(other.rect, q.side);
-    const distance = beyond(other.rect, face, q.side);
-    if (other !== plan && o.u0 < b - TOL && o.u1 > a + TOL && distance > -TOL && distance < gap) {
-      next = other;
-      gap = distance;
-    }
-  }
+  const across = nearestAcross(
+    plans.map((p) => p.rect),
+    index,
+    q.side,
+    q.at,
+    TOL,
+  );
+  const next = plans[across];
   const outer = { front: 0, back: frame.d, left: 0, right: frame.w }[q.side];
   const end = next === undefined ? outer : faceOf(next.rect, OPPOSITE[q.side]);
   const [v0, v1] = face < end ? [face, end] : [end, face];

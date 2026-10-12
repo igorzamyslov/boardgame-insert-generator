@@ -10,7 +10,8 @@ import {
 } from "./constants";
 import { cutoutSides, pocketSides, reachU } from "./common";
 import { placeCutouts } from "./cutouts";
-import type { CutPlacement, CutRequest } from "./cutouts";
+import type { CutAsk, CutPlacement } from "./cutouts";
+import type { RectMm } from "../model/slot-rules";
 import { chamferMinimumsU, minLayoutU, wallFor } from "./outer";
 import type { MinLayout } from "./outer";
 import { SlotFitError } from "./errors";
@@ -325,6 +326,11 @@ function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
   );
 }
 
+/** A rectangle by its corners. */
+function corners(r: Rect): RectMm {
+  return { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.d };
+}
+
 /**
  * The wall cutouts of every placed compartment (placeCutouts), per compartment and side. They come
  * after the finger slots and the spares: a cutout may run into a spare and keeps clear of slots.
@@ -343,8 +349,8 @@ function wallCutouts(
   },
 ): Map<Side, CutPlacement>[] {
   const { W, D, H, min, settings } = frame;
-  const requests: CutRequest[] = items.flatMap(({ req }, owner) =>
-    cutoutSides(req.features).map((side): CutRequest => {
+  const requests: CutAsk[] = items.flatMap(({ req }, owner) =>
+    cutoutSides(req.features).map((side): CutAsk => {
       const asks = req.features.filter((f) => f.type === "wallCutout" && f.side === side);
       return {
         owner,
@@ -355,10 +361,12 @@ function wallCutouts(
     }),
   );
   const placed = placeCutouts(requests, {
-    rects: [...items.map((item) => item.alloc), ...spares],
+    rects: [...items.map((item) => item.alloc), ...spares].map(corners),
     spare: (index) => index >= items.length,
     spacers: items.map(({ well, spacer }) =>
-      spacer > 0 ? { x: well.x + well.w - spacer, y: well.y, w: spacer, d: well.d } : null,
+      spacer > 0
+        ? { x0: well.x + well.w - spacer, y0: well.y, x1: well.x + well.w, y1: well.y + well.d }
+        : null,
     ),
     depths: items.map((item) => item.depth),
     slots,

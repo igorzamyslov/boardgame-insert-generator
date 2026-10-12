@@ -167,11 +167,12 @@ describe("wall cutouts", () => {
     });
 
     it("a compartment within 0.8 mm of a cut", () => {
-      // The cut runs between the well and B; C, beside B, lies 0.4 mm past the cut's end.
+      // The cut runs between the well and B, which holds its centre; C, beside B, lies 0.4 mm
+      // past the cut's end.
       const b = compartment({ x: 22.8, y: 1.6, w: 30, d: 28 });
       const c = compartment({ x: 23.2, y: 30.4, w: 30, d: 28 });
       rejects(
-        beside([cutout("right", 30, 10)], [b, c]),
+        beside([cutout("right", 20, 10)], [b, c]),
         /cut of compartment 0 comes within 0.8 mm of compartment 2/,
       );
       // A well across the room, 0.5 mm from the cut's side.

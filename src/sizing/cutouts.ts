@@ -1,13 +1,15 @@
 import { INNER_CORNER_RADIUS_MM, MIN_FEATURE_MM } from "../model/settings";
 import type { Side } from "../model/types";
-import type { Rect2, RectU } from "./slots";
+import { OPPOSITE, alongX, axes, faceOf, nearestAcross } from "../model/cut-rules";
+import type { RectMm } from "../model/slot-rules";
+import type { Rect2 } from "./slots";
 import { ceilU } from "./units";
 
 // Wall cutout placement (roadmap §4.6, §4.7): the finger channels of upright cards and tiles and
 // the half-round cutouts of flat ones. Everything is in integer 0.01 mm units.
 
 /** One wall cutout a compartment asks for on one side. */
-export interface CutRequest {
+export interface CutAsk {
   owner: number; // index of the compartment in `rects`
   side: Side;
   fraction: number; // depth as a fraction: 1 = down to its own floor, else of the shallowest well
@@ -28,11 +30,11 @@ export interface PlacedCut extends CutPlacement {
 }
 
 export interface CutContext {
-  rects: readonly RectU[]; // every compartment of the tray: the owners first, then the spares
+  rects: readonly RectMm[]; // every compartment of the tray (units): the owners first, then the spares
   spare: (index: number) => boolean;
   // per owner, the card spacer standing at the high-x end of its well, or null: the channel along
   // the row runs on through it (notched), a cut across the row keeps clear of it
-  spacers: readonly (RectU | null)[];
+  spacers: readonly (RectMm | null)[];
   depths: readonly number[]; // content depth of each owner (from its floor to the rim)
   slots: readonly Rect2[]; // finger slot footprints (doubled units): cuts keep clear of them
   span: { x: number; y: number }; // outer size along x and y
@@ -49,22 +51,8 @@ const CORNER_REACH = ceilU(INNER_CORNER_RADIUS_MM);
 /** A floor notch reaching less than this into the floor after clamping is left out. */
 const MIN_NOTCH = 100;
 
-const OPPOSITE: Record<Side, Side> = { front: "back", back: "front", left: "right", right: "left" };
-
-/** A cut on front or back runs along x (its band spans x); on left or right along y. */
-function alongX(side: Side): boolean {
-  return side === "front" || side === "back";
-}
-
-/** The rectangle's extent along the side (u) and across it (v). */
-function axes(r: RectU, side: Side): { u0: number; u1: number; v0: number; v1: number } {
-  return alongX(side)
-    ? { u0: r.x, u1: r.x + r.w, v0: r.y, v1: r.y + r.d }
-    : { u0: r.y, u1: r.y + r.d, v0: r.x, v1: r.x + r.w };
-}
-
 /** Compartment `i` of the tray. */
-function rectAt(ctx: CutContext, i: number): RectU {
+function rectAt(ctx: CutContext, i: number): RectMm {
   const r = ctx.rects[i];
   if (r === undefined) {
     throw new Error("internal: wall cutout without a compartment");
@@ -73,10 +61,13 @@ function rectAt(ctx: CutContext, i: number): RectU {
 }
 
 /** A doubled-unit footprint (a finger slot's) as the smallest whole-unit rectangle around it. */
-function wholeUnits(r: Rect2): RectU {
-  const x = Math.floor(r.x0 / 2);
-  const y = Math.floor(r.y0 / 2);
-  return { x, y, w: Math.ceil(r.x1 / 2) - x, d: Math.ceil(r.y1 / 2) - y };
+function wholeUnits(r: Rect2): RectMm {
+  return {
+    x0: Math.floor(r.x0 / 2),
+    y0: Math.floor(r.y0 / 2),
+    x1: Math.ceil(r.x1 / 2),
+    y1: Math.ceil(r.y1 / 2),
+  };
 }
 
 /** The outer size across a side: how far its cut may run to the far outer face. */
@@ -84,39 +75,9 @@ function spanAcross(ctx: CutContext, side: Side): number {
   return alongX(side) ? ctx.span.y : ctx.span.x;
 }
 
-/** The face of `r` on `side`, across the side. */
-function faceOf(r: RectU, side: Side): number {
-  return { front: r.y, back: r.y + r.d, left: r.x, right: r.x + r.w }[side];
-}
-
 /** Where a request's cut runs: out through the outer face, into a spare, or into a twin request. */
 type Across =
   { kind: "exit" } | { kind: "spare"; index: number } | { kind: "twin"; request: number };
-
-/**
- * The nearest compartment across `side` of `owner` whose range along the side overlaps the owner's,
- * as an index into `rects`, or -1 when the cut runs out through the outer face.
- */
-function nearestAcross(owner: number, side: Side, rects: readonly RectU[]): number {
-  const own = rects[owner];
-  if (own === undefined) {
-    throw new Error("internal: wall cutout without a compartment");
-  }
-  const o = axes(own, side);
-  const face = faceOf(own, side);
-  const far = side === "back" || side === "right";
-  let best = -1;
-  let gap = Number.POSITIVE_INFINITY;
-  rects.forEach((r, j) => {
-    const a = axes(r, side);
-    const distance = far ? a.v0 - face : face - a.v1;
-    if (j !== owner && a.u0 < o.u1 && a.u1 > o.u0 && distance >= 0 && distance < gap) {
-      best = j;
-      gap = distance;
-    }
-  });
-  return best;
-}
 
 /**
  * Places every requested wall cutout (roadmap §4.7):
@@ -146,12 +107,12 @@ function nearestAcross(owner: number, side: Side, rects: readonly RectU[]): numb
  *   face behind; below MIN_NOTCH it is left out.
  * Returns every cut placed, by owner and side; an owner missing from it got none on either axis.
  */
-export function placeCutouts(requests: readonly CutRequest[], ctx: CutContext): PlacedCut[] {
+export function placeCutouts(requests: readonly CutAsk[], ctx: CutContext): PlacedCut[] {
   const first = placeRuns(requests, ctx, []);
   const cut = new Set(first.cuts.map((c) => c.owner));
   const again = [...new Set(requests.map((q) => q.owner))]
     .filter((owner) => !cut.has(owner))
-    .flatMap((owner): CutRequest[] => {
+    .flatMap((owner): CutAsk[] => {
       const asks = requests.filter((q) => q.owner === owner);
       const sides: Side[] = asks.some((q) => alongX(q.side))
         ? ["left", "right"]
@@ -174,7 +135,7 @@ function besideSpacers(ctx: CutContext): CutContext {
   const n = ctx.rects.length;
   const rects = ctx.rects.map((r, i) => {
     const sp = ctx.spacers[i];
-    return sp ? { ...r, w: sp.x - r.x } : r;
+    return sp ? { ...r, x1: sp.x0 } : r;
   });
   const spacers = ctx.spacers.flatMap((sp) => (sp ? [sp] : []));
   return { ...ctx, rects: [...rects, ...spacers], spare: (i) => i < n && ctx.spare(i) };
@@ -185,17 +146,21 @@ function besideSpacers(ctx: CutContext): CutContext {
  * `earlier` and to each other. Returns the cuts placed and the runs.
  */
 function placeRuns(
-  requests: readonly CutRequest[],
+  requests: readonly CutAsk[],
   ctx: CutContext,
   earlier: readonly Run[],
 ): { cuts: PlacedCut[]; runs: Run[] } {
-  const rect = (i: number): RectU => rectAt(ctx, i);
+  const rect = (i: number): RectMm => rectAt(ctx, i);
   // Twice the centre along the side, so a half unit stays exact.
   const centre2 = (i: number, side: Side): number => {
     const a = axes(rect(i), side);
     return a.u0 + a.u1;
   };
-  const nearest = requests.map((q) => nearestAcross(q.owner, q.side, ctx.rects));
+  // The cut's centre, as bandOf centres it (the run's first member's, the same within half a unit).
+  const nearest = requests.map((q) => {
+    const own = axes(rect(q.owner), q.side);
+    return nearestAcross(ctx.rects, q.owner, q.side, Math.round((own.u0 + own.u1) / 2), 0);
+  });
   const across: (Across | null)[] = requests.map((q, k) => {
     const j = nearest[k] ?? -1;
     if (j < 0) {
@@ -307,11 +272,11 @@ interface Run {
 /** The run's members, side, owners and strips: from each compartment face to where its cut ends. */
 function runOf(
   members: readonly number[],
-  requests: readonly CutRequest[],
+  requests: readonly CutAsk[],
   across: readonly (Across | null)[],
   ctx: CutContext,
 ): Run {
-  const rectOf = (i: number): RectU => rectAt(ctx, i);
+  const rectOf = (i: number): RectMm => rectAt(ctx, i);
   const first = requests[members[0] ?? -1];
   if (first === undefined) {
     throw new Error("internal: empty wall cutout run");
@@ -355,7 +320,7 @@ function rangeOf(run: Run, ctx: CutContext): { u0: number; u1: number } {
 function bandOf(
   run: Run,
   others: readonly Run[],
-  requests: readonly CutRequest[],
+  requests: readonly CutAsk[],
   across: readonly (Across | null)[],
   ctx: CutContext,
 ): { at: number; half: number; side: Side } | null {
