@@ -8,8 +8,10 @@ import { toMm } from "./units";
 import { bedNotices } from "./warnings";
 
 // Captured regressions (test/fixtures/layout-bed-lip.json): parts that fit the print bed plain
-// but not with the locating lip's thicker walls cannot carry a tray above them.
-describe("parts the lip makes too big for the bed", () => {
+// but not with the locating lip's thicker walls cannot carry a tray above them. Every case runs
+// full 50 000-iteration optimizations (infeasible ones run two or three chains), which take up to
+// about 6 s each on a slow CI runner, hence the suite-wide timeout.
+describe("parts the lip makes too big for the bed", { timeout: 30_000 }, () => {
   it("case1: a feasible box is found on the seeds that used to fail (1, 2)", () => {
     const input = bedLipInput("case1");
     for (const seed of [1, 2]) {
@@ -21,22 +23,18 @@ describe("parts the lip makes too big for the bed", () => {
 
   // The search is seed-dependent: on these seeds the main chain never found the packing that
   // another chain finds. One extra chain from a derived seed rescues them.
-  it(
-    "case1: seeds whose first chain dead-ends are rescued by the derived-seed chain",
-    { timeout: 30_000 }, // 2 s alone, 6 s under the full parallel run
-    () => {
-      const input = bedLipInput("case1");
-      for (const seed of [5, 9]) {
-        const r = optimize(input, seed, 50_000);
-        expect(r.layout).not.toBeNull();
-        expect(r.layout?.seed).toBe(seed);
-        // the rescuing chain ran the same budget
-        expect(r.layout?.iterations).toBe(50_000);
-        expect(checkHardRules(input, r.layout ?? emptyLayout(), r.notices)).toEqual([]);
-        expect(r).toEqual(optimize(input, seed, 50_000));
-      }
-    },
-  );
+  it("case1: seeds whose first chain dead-ends are rescued by the derived-seed chain", () => {
+    const input = bedLipInput("case1");
+    for (const seed of [5, 9]) {
+      const r = optimize(input, seed, 50_000);
+      expect(r.layout).not.toBeNull();
+      expect(r.layout?.seed).toBe(seed);
+      // the rescuing chain ran the same budget
+      expect(r.layout?.iterations).toBe(50_000);
+      expect(checkHardRules(input, r.layout ?? emptyLayout(), r.notices)).toEqual([]);
+      expect(r).toEqual(optimize(input, seed, 50_000));
+    }
+  });
 
   for (const [name, tray] of [
     ["case0", "r2c0"],
