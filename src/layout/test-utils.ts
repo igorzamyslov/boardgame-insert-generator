@@ -1,8 +1,17 @@
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { CHANNEL_DEPTH, MIN_GRIP } from "../sizing/constants";
-import type { Access, Box, Lock, Printer, Settings, TraySpec } from "../model/types";
+import type {
+  Access,
+  Box,
+  CompartmentSpec,
+  Lock,
+  Printer,
+  Settings,
+  TraySpec,
+} from "../model/types";
 import type { CompartmentReq, TrayPartReq, TrayRequirement, TrayVariant } from "../sizing/types";
 import type { Measure } from "./context";
+import type { Realize } from "./materialize";
 import type { StackItem } from "./tree";
 import type { LayoutInput } from "./types";
 
@@ -168,3 +177,48 @@ export function traySpec(o: Partial<TraySpec> = {}): TraySpec {
     ...o,
   };
 }
+
+/**
+ * Simple realize for unit tests: compartments side by side along X filling the inner
+ * area, a wall cutout on the left side of each, one 5 mm spacer in the first well with a
+ * notch (its own feature, which materialize must keep).
+ */
+export const fakeRealize: Realize = (p, outer, settings) => {
+  const wall = settings.wall;
+  const n = p.compartments.length;
+  const innerW = outer.w - 2 * wall - (n - 1) * settings.divider;
+  const each = innerW / n;
+  const compartments: CompartmentSpec[] = p.compartments.map((c, i) => ({
+    x: wall + i * (each + settings.divider),
+    y: wall,
+    w: each,
+    d: outer.d - 2 * wall,
+    floorZ: settings.floor,
+    kind: c.kind,
+    contents: c.contents,
+    features: [
+      { type: "wallCutout", side: "left", at: outer.d / 2, width: 22, depth: 5, floorNotch: 0 },
+    ],
+  }));
+  const spacer: TraySpec = {
+    key: "s",
+    part: "spacer",
+    path: "",
+    stack: 0,
+    level: 0,
+    x: wall,
+    y: wall,
+    z: settings.floor,
+    w: 5,
+    d: outer.d - 2 * wall,
+    h: Math.max(1, outer.h - 5),
+    rotated: false,
+    wall,
+    floor: settings.floor,
+    lip: false,
+    solid: true,
+    compartments: [],
+    features: [{ type: "spacerNotch", axis: "y", at: 2.5, width: 10, depth: 3 }],
+  };
+  return { wall, compartments, spacers: [spacer] };
+};
