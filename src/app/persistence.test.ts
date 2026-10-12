@@ -112,10 +112,10 @@ describe("persistence", () => {
     rename(tab2.state, "From tab 2");
     tab2.persistence.flush();
 
+    rename(tab1.state, "From tab 1");
     tab1.persistence.onExternalChange();
     expect(tab1.state.conflict.value).toBe(true);
     expect(tab1.state.appNotices.value.map((n) => n.code)).toContain(CONFLICT_CODE);
-    rename(tab1.state, "From tab 1");
     tab1.persistence.scheduleSave();
     vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
     const reader = createProjectStore(shared);
@@ -128,6 +128,47 @@ describe("persistence", () => {
     expect(tab1.state.conflict.value).toBe(false);
   });
 
+  it("a tab without edits silently shows what the other tab saved", () => {
+    const shared = new MemoryStorage();
+    const tab1 = tab(createProjectStore(shared));
+    tab1.persistence.start("");
+    const id = tab1.state.project.value.id;
+    vi.advanceTimersByTime(1000);
+    const tab2 = tab(createProjectStore(shared));
+    tab2.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    rename(tab2.state, "Theirs");
+    tab2.persistence.flush();
+    tab1.persistence.onExternalChange();
+    expect(tab1.state.conflict.value).toBe(false);
+    expect(tab1.state.appNotices.value.map((n) => n.code)).not.toContain(CONFLICT_CODE);
+    expect(tab1.state.project.value.name).toBe("Theirs");
+    // and keeps autosaving from there
+    rename(tab1.state, "Mine, later");
+    tab1.persistence.scheduleSave();
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    const saved = createProjectStore(shared).load(id);
+    expect(saved?.ok && saved.project.name).toBe("Mine, later");
+  });
+
+  it("a tab that edited and then undid its edit still shows the other tab's version silently", () => {
+    const shared = new MemoryStorage();
+    const tab1 = tab(createProjectStore(shared));
+    tab1.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    const original = tab1.state.project.value.name;
+    const tab2 = tab(createProjectStore(shared));
+    tab2.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    rename(tab2.state, "Theirs");
+    tab2.persistence.flush();
+    rename(tab1.state, "Edited");
+    rename(tab1.state, original);
+    tab1.persistence.onExternalChange();
+    expect(tab1.state.conflict.value).toBe(false);
+    expect(tab1.state.project.value.name).toBe("Theirs");
+  });
+
   it("loading the other tab's version replaces the in-memory project", () => {
     const shared = new MemoryStorage();
     const tab1 = tab(createProjectStore(shared));
@@ -138,6 +179,7 @@ describe("persistence", () => {
     vi.advanceTimersByTime(1000);
     rename(tab2.state, "Theirs");
     tab2.persistence.flush();
+    rename(tab1.state, "Mine");
     tab1.persistence.onExternalChange();
     tab1.persistence.resolveConflict("loadTheirs");
     expect(tab1.state.project.value.name).toBe("Theirs");
@@ -367,10 +409,13 @@ describe("persistence", () => {
     const tab2 = tab(createProjectStore(shared));
     tab2.persistence.start("");
     vi.advanceTimersByTime(1000);
+    const original = tab1.state.project.value.name;
     rename(tab2.state, "From tab 2");
     tab2.persistence.flush();
+    rename(tab1.state, "Edited here");
     tab1.persistence.onExternalChange();
     expect(tab1.state.conflict.value).toBe(true);
+    rename(tab1.state, original);
     tab1.persistence.newProject();
     const names = createProjectStore(shared)
       .list()

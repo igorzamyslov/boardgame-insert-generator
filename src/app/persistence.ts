@@ -368,7 +368,16 @@ export function createPersistence(
     },
     onExternalChange() {
       refreshList();
-      if (active && !state.conflict.value && changedElsewhere(state.project.value.id)) {
+      const id = state.project.value.id;
+      if (!active || state.conflict.value || !changedElsewhere(id)) {
+        return;
+      }
+      // Nothing of this tab's own is at stake: it just shows the newer version.
+      const theirs = serializeProject(state.project.value, state.foreign.value) === lastSynced;
+      const r = theirs && store.available ? store.load(id) : null;
+      if (r && r.ok) {
+        setCurrent(r.project, r.foreign, r.notices);
+      } else {
         markConflict();
       }
     },

@@ -165,6 +165,7 @@ describe("app store", () => {
     vi.advanceTimersByTime(1000);
     other.edit((q) => renameProject(q, "From the other tab"));
     other.flushSave();
+    mine.edit((q) => renameProject(q, "From this tab"));
     const win = Object.assign(new EventTarget(), { location: { hash: "" } });
     const disconnect = connectWindow(mine, win as unknown as Window);
     win.dispatchEvent(Object.assign(new Event("storage"), { key: "some-other-app:key" }));
