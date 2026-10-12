@@ -28,7 +28,8 @@ export interface PersistenceDeps {
 
 export interface PersistenceHooks {
   onClosing: () => void;
-  onOpened: () => void;
+  /** `run: false` after a silent load: show what is stored, don't start an optimizer run. */
+  onOpened: (opts: { run: boolean }) => void;
 }
 
 export interface Persistence {
@@ -194,7 +195,12 @@ export function createPersistence(
    * after the user agrees, and the notice then names it; returns false when the user declines
    * (nothing changes). A project another tab changed is kept as a copy instead (conflict).
    */
-  function setCurrent(project: Project, foreign: ForeignData, notices: Notice[]): boolean {
+  function setCurrent(
+    project: Project,
+    foreign: ForeignData,
+    notices: Notice[],
+    opts: { run: boolean } = { run: true },
+  ): boolean {
     const leaving = state.project.value;
     const unsaved = (): Notice[] => [
       {
@@ -247,7 +253,7 @@ export function createPersistence(
     active = true;
     lastSynced = storedSerialized(project.id) || null;
     flush();
-    hooks.onOpened();
+    hooks.onOpened(opts);
     return true;
   }
 
@@ -376,7 +382,9 @@ export function createPersistence(
       const theirs = serializeProject(state.project.value, state.foreign.value) === lastSynced;
       const r = theirs && store.available ? store.load(id) : null;
       if (r && r.ok) {
-        setCurrent(r.project, r.foreign, r.notices);
+        // An idle tab doesn't run the optimizer on what it was handed: the editing tab's result
+        // arrives with its next save, and a run here would save a second one and conflict again.
+        setCurrent(r.project, r.foreign, r.notices, { run: false });
       } else {
         markConflict();
       }

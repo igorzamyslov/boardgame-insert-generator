@@ -51,7 +51,7 @@ export function createAppStore(deps: AppDeps): AppStore {
   const persistence = createPersistence(
     state,
     { projectStore: deps.projectStore, replaceHash: deps.replaceHash, confirm: deps.confirm },
-    { onClosing: () => runner.cancel(), onOpened: () => runner.afterOpen() },
+    { onClosing: () => runner.cancel(), onOpened: (opts) => runner.afterOpen(opts) },
   );
 
   return {

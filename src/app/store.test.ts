@@ -177,4 +177,81 @@ describe("app store", () => {
     expect(mine.state.appNotices.value.map((n) => n.code)).toContain(CONFLICT_CODE);
     disconnect();
   });
+
+  describe("two tabs on one project, one of them idle", () => {
+    function tab(shared: MemoryStorage) {
+      const stub = stubLayoutClient();
+      const store = createAppStore({
+        projectStore: createProjectStore(shared),
+        loadLayoutClient: () => Promise.resolve(stub.client),
+        replaceHash: vi.fn(),
+        confirm: () => true,
+      });
+      const win = Object.assign(new EventTarget(), { location: { hash: "" } });
+      connectWindow(store, win as unknown as Window);
+      const storageEvent = (id: string): void => {
+        win.dispatchEvent(
+          Object.assign(new Event("storage"), { key: `${STORAGE_PREFIX}project:${id}` }),
+        );
+      };
+      return { store, stub, storageEvent };
+    }
+
+    const stored = (shared: MemoryStorage, id: string) => {
+      const r = createProjectStore(shared).load(id);
+      return r?.ok ? r.project : null;
+    };
+
+    it("never runs the optimizer or saves after silently loading what the other tab saved", async () => {
+      const shared = new MemoryStorage();
+      const start = encodeHash(fixtureProject(), EMPTY_FOREIGN);
+      const idle = tab(shared);
+      idle.store.start(start);
+      const editing = tab(shared);
+      editing.store.start(start);
+      await vi.advanceTimersByTimeAsync(1000);
+      await flush();
+      const id = idle.store.state.project.value.id;
+      const idleCalls = idle.stub.calls.length;
+
+      // Timing 1: the other tab saves an edit while its own run has no layout yet.
+      editing.store.edit((q) => renameProject(q, "From the editing tab"));
+      editing.store.flushSave();
+      idle.storageEvent(id);
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+      await flush();
+      expect(idle.store.state.project.value.name).toBe("From the editing tab");
+      expect(idle.store.state.conflict.value).toBe(false);
+      expect(idle.stub.calls).toHaveLength(idleCalls);
+      expect(idle.store.state.run.value.status).toBe("idle");
+
+      // A result of the idle tab's older run arriving late must not be accepted either.
+      for (const call of idle.stub.calls) {
+        call.resolve(makeResult(makeLayout(call.input.inputsHash)));
+      }
+      await flush();
+      await vi.advanceTimersByTimeAsync(SAVE_DEBOUNCE_MS * 2);
+      expect(idle.store.state.project.value.layout).toBeUndefined();
+      expect(stored(shared, id)?.layout).toBeUndefined();
+      editing.storageEvent(id);
+      expect(editing.store.state.conflict.value).toBe(false);
+
+      // Timing 2: the editing tab's run finishes and saves its layout.
+      const call = editing.stub.calls[0];
+      const layout = makeLayout(call?.input.inputsHash ?? "");
+      call?.resolve(makeResult(layout));
+      await flush();
+      await vi.advanceTimersByTimeAsync(SAVE_DEBOUNCE_MS * 2);
+      expect(stored(shared, id)?.layout?.inputsHash).toBe(layout.inputsHash);
+      idle.storageEvent(id);
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+      await flush();
+      expect(idle.store.state.project.value.layout?.inputsHash).toBe(layout.inputsHash);
+      expect(idle.store.state.conflict.value).toBe(false);
+      expect(idle.stub.calls).toHaveLength(idleCalls);
+      editing.storageEvent(id);
+      expect(editing.store.state.conflict.value).toBe(false);
+      expect(stored(shared, id)?.name).toBe("From the editing tab");
+    });
+  });
 });

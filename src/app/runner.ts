@@ -38,7 +38,8 @@ export interface Runner {
   runNow(kind: RunKind, trigger: RunTrigger): Promise<void>;
   cancel(): void;
   retry(): Promise<void>;
-  afterOpen(): void;
+  /** Cancels what ran for the old project; starts a run for one without a layout unless `run` is false. */
+  afterOpen(opts?: { run: boolean }): void;
   dispose(): void;
 }
 
@@ -216,13 +217,13 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
     retry() {
       return runNow(lastKind, "user");
     },
-    afterOpen() {
+    afterOpen(opts = { run: true }) {
       if (disposed) {
         return;
       }
       clearTimer();
       invalidate();
-      if (!state.project.value.layout) {
+      if (opts.run && !state.project.value.layout) {
         void runNow("edit", "auto");
       }
     },
