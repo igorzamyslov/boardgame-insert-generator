@@ -51,13 +51,17 @@ export function ComponentCard({
   onRemove,
 }: ComponentCardProps) {
   const headingId = `${c.id}-heading`;
+  const title = `${KIND_NAMES[c.kind]}: ${c.name === "" ? "(unnamed)" : c.name}`;
   return (
     <section class="component-card" aria-labelledby={headingId}>
       <div class="component-card-header">
-        <h3 id={headingId}>
-          {KIND_NAMES[c.kind]}: {c.name === "" ? "(unnamed)" : c.name}
-        </h3>
-        <button type="button" class="row-remove" aria-label={`Remove ${c.name}`} onClick={onRemove}>
+        <h3 id={headingId}>{title}</h3>
+        <button
+          type="button"
+          class="row-remove"
+          aria-label={`Remove component ${index + 1} (${title})`}
+          onClick={onRemove}
+        >
           Remove
         </button>
       </div>

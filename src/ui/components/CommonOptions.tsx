@@ -4,8 +4,13 @@ import type { Component } from "../../model/types";
 import { CheckField, TextField } from "../fields";
 import { OFFSET, PLAYERS } from "../limits";
 import { NumberField } from "../NumberField";
-import { useFieldNotices } from "../validation";
 import type { EditorProps } from "./types";
+
+/** Validation paths of the fields CommonOptions shows (they live under More options). */
+export function commonOptionPaths(index: number): string[] {
+  const at = `/components/${index}`;
+  return [`${at}/groupId`, `${at}/perPlayer`, `${at}/perPlayer/players`, `${at}/clearance`];
+}
 
 export function CommonOptions<C extends Component>({
   component: c,
@@ -14,7 +19,6 @@ export function CommonOptions<C extends Component>({
 }: Omit<EditorProps<C>, "advanced">) {
   const at = `/components/${index}`;
   const grouped = c.groupId !== undefined;
-  const perPlayerNotes = useFieldNotices(`${at}/perPlayer`);
   return (
     <>
       <TextField
@@ -22,6 +26,8 @@ export function CommonOptions<C extends Component>({
         label="Group (same group → same tray)"
         value={c.groupId ?? ""}
         commitOn="blur"
+        normalize={(v) => v.trim()}
+        path={`${at}/groupId`}
         placeholder="e.g. tokens"
         hint="Components with the same group name share one tray, each in its own compartment."
         onCommit={(v) => onChange(setGroup(c, v))}
@@ -31,6 +37,7 @@ export function CommonOptions<C extends Component>({
         label="Counts are per player"
         checked={c.perPlayer !== undefined}
         disabled={grouped}
+        path={`${at}/perPlayer`}
         hint={
           grouped
             ? "Not available for grouped components."
@@ -38,11 +45,6 @@ export function CommonOptions<C extends Component>({
         }
         onChange={(on) => onChange(setPerPlayer(c, on ? 4 : undefined))}
       />
-      {perPlayerNotes.length > 0 ? (
-        <p class="field-error" role="alert">
-          {perPlayerNotes.map((n) => n.message).join(" ")}
-        </p>
-      ) : null}
       {c.perPlayer !== undefined ? (
         <NumberField
           id={`${c.id}-players`}

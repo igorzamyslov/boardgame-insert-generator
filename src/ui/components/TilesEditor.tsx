@@ -3,7 +3,7 @@ import type { TileShape, TilesComponent } from "../../model/types";
 import { SelectField } from "../fields";
 import { COUNT, LENGTH } from "../limits";
 import { NumberField } from "../NumberField";
-import { CommonOptions } from "./CommonOptions";
+import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
 import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -101,7 +101,7 @@ export function TilesEditor({
         onCommit={(count) => onChange({ ...c, count })}
       />
       <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
-      <MoreOptions open={advanced}>
+      <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
         <SelectField
           id={`${c.id}-storage`}
           label="Storage"

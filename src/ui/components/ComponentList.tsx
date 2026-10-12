@@ -2,8 +2,6 @@
 import type { Component, ComponentKind } from "../../model/types";
 import { ComponentCard } from "./ComponentCard";
 
-const KINDS: ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
-
 export const ADD_LABELS: Record<ComponentKind, string> = {
   cards: "Add cards",
   bulk: "Add bits",
@@ -11,6 +9,8 @@ export const ADD_LABELS: Record<ComponentKind, string> = {
   minis: "Add miniatures",
   custom: "Add other item",
 };
+
+const KINDS = Object.keys(ADD_LABELS) as ComponentKind[];
 
 export interface ComponentListProps {
   components: readonly Component[];

@@ -4,11 +4,11 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newComponent } from "../../model/defaults";
 import type { Component, ComponentKind } from "../../model/types";
-import { ComponentList } from "./ComponentList";
+import { ADD_LABELS, ComponentList } from "./ComponentList";
 
 afterEach(cleanup);
 
-const KINDS: ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
+const KINDS = Object.keys(ADD_LABELS) as ComponentKind[];
 
 function handlers() {
   return { onAdd: vi.fn(), onChange: vi.fn(), onRemove: vi.fn() };
@@ -46,7 +46,23 @@ describe("ComponentList", () => {
     expect(h.onChange).toHaveBeenLastCalledWith(c.id, { ...c, name: "Market" });
     fireEvent.change(screen.getByLabelText("Needed during play"), { target: { value: "often" } });
     expect(h.onChange).toHaveBeenLastCalledWith(c.id, { ...c, access: "often" });
-    fireEvent.click(screen.getByRole("button", { name: "Remove Main deck" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove component 1 (Cards: Main deck)" }));
     expect(h.onRemove).toHaveBeenCalledWith(c.id);
+  });
+
+  it("gives each remove button a unique name, even for empty or duplicate names", () => {
+    const a = { ...newComponent("custom"), id: "a", name: "" };
+    const b = { ...newComponent("custom"), id: "b", name: "Dial" };
+    const d = { ...newComponent("custom"), id: "d", name: "Dial" };
+    const h = handlers();
+    render(<ComponentList components={[a, b, d]} advanced={false} {...h} />);
+    const names = screen.getAllByRole("button", { name: /^Remove / }).map((x) => x.ariaLabel);
+    expect(names).toEqual([
+      "Remove component 1 (Item: (unnamed))",
+      "Remove component 2 (Item: Dial)",
+      "Remove component 3 (Item: Dial)",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Remove component 3 (Item: Dial)" }));
+    expect(h.onRemove).toHaveBeenCalledWith("d");
   });
 });

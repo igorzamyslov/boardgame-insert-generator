@@ -2,7 +2,7 @@
 import { cornerReliefsOn, curvedFloorOn, fingerCutsOn } from "../../model/defaults";
 import type { Component } from "../../model/types";
 import { CheckField } from "../fields";
-import { useFieldNotices, useSizingNotices } from "../validation";
+import { useSizingNotices } from "../validation";
 import type { EditorProps } from "./types";
 
 /** Kinds that may have a curved floor (spec §5): it would bend cards and tilt upright tiles. */
@@ -14,7 +14,6 @@ export function ToggleOptions<C extends Component>({
   advanced,
   onChange,
 }: EditorProps<C>) {
-  const floorNotes = useFieldNotices(`/components/${index}/curvedFloor`);
   // The bulk fallback's note: the component is stored in a bin, and what the bin has.
   const binNotes = useSizingNotices(`/components/${index}`).filter(
     (n) => n.code === "sizing.noFingerSlot" && n.level === "info",
@@ -34,13 +33,16 @@ export function ToggleOptions<C extends Component>({
           label="Curved floor"
           checked={c.curvedFloor === true || curvedFloorOn(c)}
           hint="A ramp up one wall of each compartment, to scoop pieces out."
-          onChange={(on) => onChange({ ...c, curvedFloor: on })}
+          path={`/components/${index}/curvedFloor`}
+          onChange={(on) => {
+            if (!on && !CURVED_KINDS.includes(c.kind)) {
+              // The control only exists on this kind while a file set it, so turning it off
+              // removes it: keep the keyboard focus in the form.
+              document.getElementById(`${c.id}-fingerCuts`)?.focus();
+            }
+            onChange({ ...c, curvedFloor: on });
+          }}
         />
-      ) : null}
-      {floorNotes.length > 0 ? (
-        <p class="field-error" role="alert">
-          {floorNotes.map((n) => n.message).join(" ")}
-        </p>
       ) : null}
       {advanced ? (
         <CheckField

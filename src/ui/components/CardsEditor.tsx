@@ -7,7 +7,8 @@ import { CheckField, SelectField, TextField } from "../fields";
 import type { SelectOption } from "../fields";
 import { COUNT, LENGTH, OFFSET } from "../limits";
 import { NumberField } from "../NumberField";
-import { CommonOptions } from "./CommonOptions";
+import { CommonOptions, commonOptionPaths } from "./CommonOptions";
+import { ListNotices } from "./ListNotices";
 import { MoreOptions } from "./MoreOptions";
 import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -151,6 +152,7 @@ export function CardsEditor({
       ) : null}
       <fieldset class="list-rows">
         <legend>Decks</legend>
+        <ListNotices id={`${c.id}-decks`} path={`${at}/decks`} />
         {c.decks.map((deck, j) => (
           <div class="list-row" key={j}>
             <TextField
@@ -191,7 +193,14 @@ export function CardsEditor({
         </button>
       </fieldset>
       <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
-      <MoreOptions open={advanced}>
+      <MoreOptions
+        open={advanced}
+        errorPaths={[
+          ...commonOptionPaths(index),
+          `${at}/thickness/cards`,
+          `${at}/thickness/stackMm`,
+        ]}
+      >
         <CheckField
           id={`${c.id}-measured`}
           label="Measure a stack of cards (sleeves included)"

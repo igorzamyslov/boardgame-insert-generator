@@ -17,6 +17,8 @@ export interface TextFieldProps {
   path?: string;
   placeholder?: string;
   commitOn?: "input" | "blur";
+  /** Applied to the text when the field is left or Enter is pressed, before it is committed. */
+  normalize?: (text: string) => string;
 }
 
 export function TextField({
@@ -28,6 +30,7 @@ export function TextField({
   path,
   placeholder,
   commitOn = "input",
+  normalize,
 }: TextFieldProps) {
   const [text, setText] = useState(value);
   const notices = useFieldNotices(path);
@@ -36,8 +39,12 @@ export function TextField({
   }, [value]);
   const { errors, notes } = messagesOf(notices);
   function commitPending(): void {
-    if (commitOn === "blur" && text !== value) {
-      onCommit(text);
+    const next = normalize ? normalize(text) : text;
+    if (next !== text) {
+      setText(next);
+    }
+    if (commitOn === "blur" && next !== value) {
+      onCommit(next);
     }
   }
   return (
@@ -129,10 +136,20 @@ export interface CheckFieldProps {
   onChange: (checked: boolean) => void;
   disabled?: boolean;
   hint?: string;
+  /** Validation path whose notices are shown with the checkbox. */
+  path?: string;
 }
 
-export function CheckField({ id, label, checked, onChange, disabled, hint }: CheckFieldProps) {
-  const hintId = hint !== undefined ? `${id}-hint` : null;
+export function CheckField({
+  id,
+  label,
+  checked,
+  onChange,
+  disabled,
+  hint,
+  path,
+}: CheckFieldProps) {
+  const { errors, notes } = messagesOf(useFieldNotices(path));
   return (
     <div class="check-field">
       <input
@@ -140,15 +157,12 @@ export function CheckField({ id, label, checked, onChange, disabled, hint }: Che
         type="checkbox"
         checked={checked}
         disabled={disabled}
-        aria-describedby={describedBy(hintId)}
+        aria-invalid={errors.length > 0}
+        aria-describedby={describedByIds(id, hint, errors, notes)}
         onChange={(e) => onChange(e.currentTarget.checked)}
       />
       <label htmlFor={id}>{label}</label>
-      {hintId !== null ? (
-        <p class="hint" id={hintId}>
-          {hint}
-        </p>
-      ) : null}
+      <FieldMessages id={id} hint={hint} errors={errors} notes={notes} />
     </div>
   );
 }

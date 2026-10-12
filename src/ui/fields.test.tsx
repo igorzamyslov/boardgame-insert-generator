@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { STALE_CODE } from "../app/state";
+import type { Notice } from "../model/types";
 import { CheckField, SelectField, TextField } from "./fields";
 import { Notices } from "./Notices";
 import { ValidationContext } from "./validation";
@@ -27,6 +28,30 @@ describe("TextField", () => {
     fireEvent.input(el, { target: { value: "big tokens" } });
     fireEvent.blur(el);
     expect(onCommit).toHaveBeenCalledWith("big tokens");
+  });
+
+  it("normalises the text on blur and commits only a changed normalised value", () => {
+    const onCommit = vi.fn();
+    const trim = (s: string): string => s.trim();
+    render(
+      <TextField
+        id="g"
+        label="Group"
+        value="g"
+        onCommit={onCommit}
+        commitOn="blur"
+        normalize={trim}
+      />,
+    );
+    const el = screen.getByLabelText("Group") as HTMLInputElement;
+    fireEvent.input(el, { target: { value: "g " } });
+    fireEvent.blur(el);
+    expect(el.value).toBe("g");
+    expect(onCommit).not.toHaveBeenCalled();
+    fireEvent.input(el, { target: { value: " h " } });
+    fireEvent.blur(el);
+    expect(el.value).toBe("h");
+    expect(onCommit).toHaveBeenCalledWith("h");
   });
 });
 
@@ -103,6 +128,23 @@ describe("CheckField", () => {
     fireEvent.click(box);
     expect(onChange).toHaveBeenCalledWith(true);
     expect(box.getAttribute("aria-describedby")).toBe("side-hint");
+  });
+
+  it("shows only errors at its path as an alert tied to the checkbox, other levels as notes", () => {
+    const notices: Notice[] = [
+      { level: "error", code: "field.x", path: "/a", message: "Bad." },
+      { level: "warning", code: "field.y", path: "/a", message: "Careful." },
+    ];
+    render(
+      <ValidationContext.Provider value={notices}>
+        <CheckField id="c" label="Thing" checked onChange={vi.fn()} path="/a" />
+      </ValidationContext.Provider>,
+    );
+    const box = screen.getByLabelText("Thing");
+    expect(screen.getByRole("alert").textContent).toBe("Bad.");
+    expect(box.getAttribute("aria-invalid")).toBe("true");
+    expect(box.getAttribute("aria-describedby")).toBe("c-error c-notes");
+    expect(screen.getByText("Careful.").getAttribute("role")).toBeNull();
   });
 });
 

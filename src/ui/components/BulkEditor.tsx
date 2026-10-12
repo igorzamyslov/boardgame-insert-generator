@@ -3,7 +3,8 @@ import type { BulkComponent, BulkItem } from "../../model/types";
 import { SelectField, TextField } from "../fields";
 import { COUNT, LENGTH, VOLUME_ML } from "../limits";
 import { NumberField } from "../NumberField";
-import { CommonOptions } from "./CommonOptions";
+import { CommonOptions, commonOptionPaths } from "./CommonOptions";
+import { ListNotices } from "./ListNotices";
 import { MoreOptions } from "./MoreOptions";
 import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -22,6 +23,7 @@ export function BulkEditor({
     <>
       <fieldset class="list-rows">
         <legend>Items</legend>
+        <ListNotices id={`${c.id}-items`} path={`${at}/items`} />
         {c.items.map((item, j) => {
           const n = j + 1;
           const volume = "volumeMl" in item ? item : null;
@@ -130,7 +132,7 @@ export function BulkEditor({
         </button>
       </fieldset>
       <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
-      <MoreOptions open={advanced}>
+      <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
         <CommonOptions component={c} index={index} onChange={onChange} />
       </MoreOptions>
     </>

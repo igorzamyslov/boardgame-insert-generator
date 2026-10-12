@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newComponent } from "../../model/defaults";
 import type { CardsComponent } from "../../model/types";
+import { ValidationContext } from "../validation";
 import { CardsEditor, cardPresetOf } from "./CardsEditor";
 
 afterEach(cleanup);
@@ -146,5 +147,88 @@ describe("CardsEditor", () => {
     expect(floor.checked).toBe(true);
     fireEvent.click(floor);
     expect(last().curvedFloor).toBe(false);
+  });
+});
+
+describe("CardsEditor validation", () => {
+  it("shows the empty decks error under the Decks legend", () => {
+    render(
+      <ValidationContext.Provider
+        value={[
+          {
+            level: "error",
+            code: "field.empty",
+            path: "/components/0/decks",
+            message: "Add at least one deck.",
+          },
+        ]}
+      >
+        <CardsEditor
+          component={cards({ decks: [] })}
+          index={0}
+          advanced={false}
+          onChange={vi.fn()}
+        />
+      </ValidationContext.Provider>,
+    );
+    expect(screen.getByRole("alert").textContent).toBe("Add at least one deck.");
+  });
+
+  it("opens More options for a measured stack error in simple mode", () => {
+    render(
+      <ValidationContext.Provider
+        value={[
+          {
+            level: "error",
+            code: "field.length",
+            path: "/components/0/thickness/stackMm",
+            message: "Bad stack.",
+          },
+        ]}
+      >
+        <CardsEditor
+          component={cards({ thickness: { mode: "measured", cards: 50, stackMm: 0 } })}
+          index={0}
+          advanced={false}
+          onChange={vi.fn()}
+        />
+      </ValidationContext.Provider>,
+    );
+    expect(screen.getByText("More options").closest("details")?.hasAttribute("open")).toBe(true);
+  });
+
+  it("shows a curved floor error in place on cards", () => {
+    render(
+      <ValidationContext.Provider
+        value={[
+          {
+            level: "error",
+            code: "field.curvedFloor",
+            path: "/components/0/curvedFloor",
+            message: "Cards can't have a curved floor.",
+          },
+        ]}
+      >
+        <CardsEditor
+          component={cards({ curvedFloor: true })}
+          index={0}
+          advanced={false}
+          onChange={vi.fn()}
+        />
+      </ValidationContext.Provider>,
+    );
+    expect(screen.getByRole("alert").textContent).toBe("Cards can't have a curved floor.");
+  });
+
+  it("trims the group name on blur without committing an unchanged value", () => {
+    const onChange = vi.fn();
+    render(
+      <CardsEditor component={cards({ groupId: "g" })} index={0} advanced onChange={onChange} />,
+    );
+    const group = screen.getByLabelText(/^Group/) as HTMLInputElement;
+    fireEvent.input(group, { target: { value: "g " } });
+    fireEvent.blur(group);
+    expect(group.value).toBe("g");
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
