@@ -30,6 +30,16 @@ export const FLOAT_EPSILON = 1e-9;
  */
 export const INNER_CORNER_RADIUS_MM = 0.5;
 
+/**
+ * A finger cut leaves a full-height post at least this long, along the wall or divider it crosses,
+ * between its side and the inner face of every compartment it passes (spec §6.1): the wall still
+ * holds the contents, and no cut side comes near a well's rounded corner.
+ */
+export const POST_MM = 3;
+
+/** A finger cut narrower than this (or the fingerPocket.width setting, if smaller) is left out. */
+export const MIN_CUT_MM = 10;
+
 /** The outer corner arc polygon lies up to 0.08 mm inside the true arc; plus a little margin. */
 export const CORNER_MARGIN = 0.1;
 

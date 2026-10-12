@@ -137,7 +137,7 @@ export const uprightChannelLipped = traySpec({
 });
 
 // Upright 15 mm square tiles in a lipped tray with 10 mm of finger room in its 12.9 mm end walls
-// (sizing output, turned): the channel leaves through both, its sides on the well's side faces.
+// (sizing output, turned): the channel leaves through both, keeping 3 mm posts.
 export const lippedThickWall = traySpec({
   key: "lipped-thick:p0:0",
   w: 21.8,
@@ -150,7 +150,7 @@ export const lippedThickWall = traySpec({
       y: 12.9,
       w: 16,
       d: 81,
-      features: [cutout("front", 10.9, 8, 0, 16), cutout("back", 10.9, 8, 0, 16)],
+      features: [cutout("front", 10.9, 8, 0, 10), cutout("back", 10.9, 8, 0, 10)],
     }),
   ],
 });
@@ -459,6 +459,17 @@ export function largestChamfer(s: Settings): Settings {
 /** The fixture's own settings. */
 export const FIXTURE_SETTINGS: Profile = (s) => s;
 
+/** The thinnest wall, floor and divider, with the fixture's chamfer. */
+export const THIN_WALLS: Profile = (s) => ({
+  ...s,
+  wall: MIN_WALL_MM,
+  floor: MIN_FEATURE_MM,
+  divider: MIN_FEATURE_MM,
+});
+
+/** A 1 mm bottom chamfer on the fixture's walls. */
+export const CHAMFER_1: Profile = (s) => ({ ...s, bottomChamfer: 1 });
+
 /** The thinnest wall, floor, divider and lip, the lowest lip and the largest chamfer. */
 export const THINNEST: Profile = (s) =>
   largestChamfer({
@@ -473,10 +484,7 @@ export const THINNEST: Profile = (s) =>
 // sit exactly on maxBottomChamfer.
 export const PROFILES: readonly [string, Profile][] = [
   ["fixture settings", FIXTURE_SETTINGS],
-  [
-    "thinnest wall, floor and divider",
-    (s) => ({ ...s, wall: MIN_WALL_MM, floor: MIN_FEATURE_MM, divider: MIN_FEATURE_MM }),
-  ],
+  ["thinnest wall, floor and divider", THIN_WALLS],
   ["thinnest wall, floor, lip and the largest chamfer", THINNEST],
   ["no chamfer", (s) => ({ ...s, bottomChamfer: 0 })],
   ["largest chamfer", largestChamfer],

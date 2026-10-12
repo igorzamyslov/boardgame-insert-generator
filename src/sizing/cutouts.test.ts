@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "../geometry/plan";
-import { largestChamfer, traySpecFrom } from "../geometry/test-specs";
+import { largestChamfer, loadFixture, traySpecFrom } from "../geometry/test-specs";
+import smallTiles from "../../test/fixtures/small-tiles.json";
 import { DEFAULT_SETTINGS, MIN_WALL_MM, applyFingerRoom } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, Settings, TileShape } from "../model/types";
 import { hasGrip } from "./grip";
@@ -80,9 +81,9 @@ describe("upright cards and tiles: one finger channel", () => {
     const r = realize(part);
     const [row0, row1] = r.compartments;
     expect([row0?.y, row0?.d, row1?.y, row1?.d]).toEqual([1.6, 16, 18.8, 16]);
-    // Each channel spans its row's 16 mm and leaves the 1.2 mm divider between the rows whole.
-    expect(cutsOf(row0)).toEqual([cutout("left", 9.6, 8, 0, 16), cutout("right", 9.6, 8, 0, 16)]);
-    expect(cutsOf(row1)).toEqual([cutout("left", 26.8, 8, 0, 16), cutout("right", 26.8, 8, 0, 16)]);
+    // Each channel takes 10 mm of its row's 16 mm, leaving 3 mm posts to the wells' faces.
+    expect(cutsOf(row0)).toEqual([cutout("left", 9.6, 8, 0, 10), cutout("right", 9.6, 8, 0, 10)]);
+    expect(cutsOf(row1)).toEqual([cutout("left", 26.8, 8, 0, 10), cutout("right", 26.8, 8, 0, 10)]);
   });
 
   it("keeps the two rows' channels apart through a shared end wall when the rows have room to widen", () => {
@@ -102,15 +103,15 @@ describe("upright cards and tiles: one finger channel", () => {
     const r = realize(part, s, ground, { ...min, d: min.d + 3 });
     const [row0, row1] = r.compartments;
     expect([row0?.y, row0?.d, row1?.y, row1?.d]).toEqual([2.6, 16.82, 21.62, 16.82]);
-    // Row 0's channel spans y 1.9–20.12 and row 1's 20.92–39.14: each reaches half the 2.2 mm
-    // between the rows' wells, less 0.4 mm, so 0.8 mm of end wall stays between them.
+    // Row 0's channel spans y 5.6–16.42 and row 1's 24.62–35.44: each keeps 3 mm posts to its
+    // wells' faces (review 1, C2: both widened into the end wall they share, 0.5 mm apart).
     expect(cutsOf(row0)).toEqual([
-      cutout("left", 11.01, 7.35, 0, 18.22),
-      cutout("right", 11.01, 7.35, 0, 18.22),
+      cutout("left", 11.01, 7.35, 0, 10.82),
+      cutout("right", 11.01, 7.35, 0, 10.82),
     ]);
     expect(cutsOf(row1)).toEqual([
-      cutout("left", 30.03, 7.35, 0, 18.22),
-      cutout("right", 30.03, 7.35, 0, 18.22),
+      cutout("left", 30.03, 7.35, 0, 10.82),
+      cutout("right", 30.03, 7.35, 0, 10.82),
     ]);
   });
 
@@ -146,7 +147,7 @@ describe("upright cards and tiles: one finger channel", () => {
   it("cuts a deck with no free wall along its row through the walls across it instead", () => {
     const pile = (id: string) =>
       bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
-    const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(30) });
+    const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(80) });
     const sorted = partOf(
       [pile("b1"), deck, pile("b2")],
       "shallow+upright-long+shallow|strip|split1",
@@ -157,15 +158,16 @@ describe("upright cards and tiles: one finger channel", () => {
     const r = realize(part);
     const well = at(r.compartments, 1);
     const cuts = cutsOf(well);
+    const centre = Math.round((well.x + well.w / 2) * 100) / 100;
     expect(cuts.map((f) => f.type === "wallCutout" && [f.side, f.at])).toEqual([
-      ["front", well.x + well.w / 2],
-      ["back", well.x + well.w / 2],
+      ["front", centre],
+      ["back", centre],
     ]);
   });
 
   it("keeps such a cut clear of the deck's spacer", () => {
     const dial = (id: string) => custom({ id, groupId: "g", count: 1 });
-    const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(30) });
+    const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(80) });
     const sorted = partOf(
       [dial("x1"), deck, dial("x2")],
       "custom+upright-long+custom|strip|split1",
@@ -198,25 +200,19 @@ describe("upright cards and tiles: one finger channel", () => {
     ]);
   });
 
-  it("ends a spacer narrower than the channel where the channel's U meets its faces", () => {
-    // Upright 15 mm square tiles in a 16 mm long well: the 18.22 mm channel passes both faces of
-    // the 16 mm spacer and takes its whole top, so the spacer ends where the U meets its faces,
-    // 10.895 mm up (it was 11 mm tall, its mesh 10.90: review 1 sweep).
-    const part = partOf(
-      [
-        tiles({
-          shape: { type: "rect", w: 15, d: 15 },
-          thickness: 2,
-          count: 40,
-          storage: "upright",
-        }),
-      ],
-      "upright-c2|strip|split1",
-    );
-    const min = minOuter(part, s, ground);
-    const r = realize(part, s, ground, { w: min.w + 10, d: min.d + 10, h: min.h + 10 });
-    expect(r.spacers).toHaveLength(1);
-    expect(at(r.spacers, 0)).toMatchObject({ w: 10, d: 16, h: 10.89 });
+  it("ends a spacer whose widened notch takes its whole top where the U meets its faces", () => {
+    // At a 3 mm chamfer a notch side 3 mm from the spacer's face would leave less than the chamfer
+    // plus 0.8 mm beside it: the notch widens to the spacer's 26.5 mm and takes its whole top, so
+    // the 76.5 mm spacer ends where the U (bottom 40.75 mm up, radius 13.25) meets its faces.
+    const steep = largestChamfer({ ...s, wall: 3, floor: 3 });
+    const deck = cards({ shortSide: 25, longSide: 80, sleeve: "none", storage: "upright-short" });
+    const part = partOf([deck], "upright-short|strip|split1", steep);
+    const min = minOuter(part, steep, ground);
+    const r = realize(part, steep, ground, { ...min, w: min.w + 30 });
+    expect(at(r.spacers, 0)).toMatchObject({ w: 30, d: 26.5, h: 54 });
+    expect(at(r.spacers, 0).features).toEqual([
+      { type: "spacerNotch", axis: "x", at: 13.25, width: 26.5, depth: 13.25 },
+    ]);
   });
 
   it("keeps a lipped tray's channel out of the lipped wall", () => {
@@ -309,9 +305,9 @@ describe("cut sides beside a rounded outer corner", () => {
       const part = partOf(
         [
           tiles({
-            shape: { type: "hex", flatToFlat: 8.5, orientation: "flat" },
-            thickness: 1.5,
-            count: 19,
+            shape: { type: "rect", w: 15, d: 15 },
+            thickness: 2,
+            count: 40,
             storage: "auto",
           }),
         ],
@@ -337,7 +333,7 @@ describe("finger room where the cuts actually go", () => {
   // A deck kept between two bulk compartments (a hand-built part): no cut along its row, so it is
   // cut through the front and back walls instead (placeCutouts' second try).
   const pile = (id: string) => bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
-  const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(30) });
+  const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(80) });
   const sorted = partOf(
     [pile("b1"), deck, pile("b2")],
     "shallow+upright-long+shallow|strip|split1",
@@ -383,9 +379,8 @@ describe("finger room where the cuts actually go", () => {
 });
 
 describe("no wall left for a cutout", () => {
-  it("leaves out a well too small for a cut clear of the rounded outer corners, with a warning", () => {
-    // A 1 mm tile at a 0.9 mm wall and chamfer: its well, centred in the 3.4 mm the chamfer needs,
-    // has no cut 1.7 mm (chamfer + 0.8) from the faces on either axis.
+  it("leaves out a well too small for a 10 mm cut with 3 mm posts, with a warning", () => {
+    // A 1 mm tile at a 0.9 mm wall and chamfer (review 2, M-a: it got a 0.4–0.54 mm cut).
     const thin = largestChamfer({ ...s, wall: MIN_WALL_MM, floor: MIN_WALL_MM });
     const pip = tiles({
       name: "Pip",
@@ -401,10 +396,60 @@ describe("no wall left for a cutout", () => {
       expect.objectContaining({
         level: "warning",
         code: "sizing.noFingerSlot",
-        message: expect.stringMatching(/^Pip: no tray arrangement leaves room for a finger cutout/),
+        message: expect.stringMatching(
+          /^Pip: no tray arrangement leaves room for a finger cutout of at least 10 mm by Pip ×1 with 3 mm of wall beside it/,
+        ),
         path: "/components/0",
       }),
     ]);
+  });
+});
+
+describe("posts: a cut never removes a whole wall (spec §6.1)", () => {
+  it("cuts 15 mm square tiles laid flat 10 mm wide, leaving 3 mm posts in their 16 mm wells", () => {
+    // Sample 25 (flat-c4): the cut took the whole 16 mm, down through the floor, and the end walls
+    // and dividers were gone.
+    const squares = tiles({ shape: { type: "rect", w: 15, d: 15 }, thickness: 2, count: 40 });
+    const r = realize(partOf([squares], "flat-c4|strip|split1"));
+    for (const c of r.compartments) {
+      expect(cutsOf(c).map((f) => f.type === "wallCutout" && [f.width, f.floorNotch])).toEqual([
+        [10, 7.6],
+        [10, 7.6],
+      ]);
+    }
+  });
+
+  it("gives every small-tiles component a tray at default settings, all keeping their posts", () => {
+    const { components } = loadFixture(smallTiles);
+    const result = size(components, s);
+    expect(result.requirements.flatMap((req) => req.componentIds).sort()).toEqual(
+      components.map((c) => c.id).sort(),
+    );
+    for (const req of result.requirements) {
+      for (const v of req.variants) {
+        for (const part of v.parts) {
+          realize(part);
+        }
+      }
+    }
+  });
+
+  it("drops the flat variants of tiles too small for a cut, keeping the upright ones", () => {
+    const hexes = (storage: "flat" | "auto") =>
+      tiles({
+        shape: { type: "hex", flatToFlat: 8.5, orientation: "flat" },
+        thickness: 1.5,
+        count: 19,
+        storage,
+      });
+    const auto = size([hexes("auto")], s);
+    const ids = auto.requirements.flatMap((req) => req.variants.map((v) => v.id));
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids.every((id) => id.startsWith("upright"))).toBe(true);
+    // Flat only: no variant is left, and a warning says so.
+    const flat = size([hexes("flat")], s);
+    expect(flat.requirements).toEqual([]);
+    expect(flat.notices.map((n) => n.code)).toEqual(["sizing.noFingerSlot"]);
   });
 });
 

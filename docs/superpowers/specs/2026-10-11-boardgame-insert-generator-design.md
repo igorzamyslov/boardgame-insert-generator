@@ -429,18 +429,27 @@ still gets no cut along the row is cut across it (through the front and back
 walls) instead, and one with no cut either way is not offered (a warning names
 it). Wells need no extra room (no reach bands): they are content + clearance.
 
+**Posts:** a cut never removes a whole wall. It leaves a full-height post of at
+least 3 mm (`POST_MM`) between each of its sides and the inner faces of every
+compartment it passes, so the wall or divider still holds the contents; the
+cut is at most the well's side less 2 × 3 mm. Where that leaves less than
+10 mm (`MIN_CUT_MM`, a fingertip; or the width setting, if smaller), the well
+gets no cut on that axis: it is cut across instead, as above, or not offered.
+So tiles under about 16 mm laid flat get no flat variant; an auto component
+keeps its upright ones.
+
 - **Upright cards and tiles:** one centred channel per row, along the stack
   (X): through both end walls (touching the first and last card faces) and
   every divider between decks or stacks. It is centred on the card length,
-  half the shallowest well deep, and as wide as the setting or the room its row
-  has (rows of tiles shorter than the setting get a channel the length of the
-  tiles). With two rows each row has its own channel, which takes at most half
-  the gap to the other row less 0.4 mm: the divider between the rows stays
-  whole, and 0.8 mm of end wall stays between the two channels. The front and back walls stay whole.
+  half the shallowest well deep, and as wide as the setting or the room its
+  row has between the posts (rows of tiles shorter than the setting get a
+  channel 6 mm shorter than the tiles). With two rows each row has its own
+  channel: the divider between the rows stays whole, and the posts keep the
+  two channels apart in the end walls. The front and back walls stay whole.
 - **Flat cards and tiles:** a half-round cutout through each long wall (along
   the long side; left and right for a flat deck), centred on it, down to the
   floor, plus a **floor notch**: the cut goes on down through the floor at its
-  full width (so a finger fits) and on into the well's floor
+  full width (so a finger fits; never narrower) and on into the well's floor
   `fingerPocket.floorNotch` from the wall's inner face (default 12.5 mm, half
   the default width: a half-disc whose diameter is the cut's width; 0 = none).
   Its far end is rounded with half the cut's width (at most the reach), so a

@@ -1,5 +1,6 @@
 import type { CompartmentSpec, Settings, Side, TraySpec } from "../model/types";
 import {
+  MIN_CUT_MM,
   MIN_FEATURE_MM,
   MIN_POCKET_CONTENT,
   MIN_WALL_MM,
@@ -484,7 +485,8 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   const planned = specs.map((c, i) =>
     planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect"), outerWall),
   );
-  const frame = { w: spec.w, d: spec.d, h: spec.h, outerWall, chamfer };
+  const minCut = Math.min(MIN_CUT_MM, settings.fingerPocket.width);
+  const frame = { w: spec.w, d: spec.d, h: spec.h, chamfer, minCut };
   const failWith = (message: string): never => fail(spec, message);
   const uncut = planned.map((p) => p.plan);
   const plans = planned.map(({ plan, cutRequests }) => ({

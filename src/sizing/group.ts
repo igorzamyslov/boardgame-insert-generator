@@ -1,4 +1,5 @@
 import { groupOf } from "../model/defaults";
+import { POST_MM } from "../model/settings";
 import type { Access, Component, Notice, Settings } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { displayName, type StorageOption } from "./common";
@@ -66,7 +67,7 @@ function noFingerSlot(
   const name = stuck ? displayName(stuck.c) : key;
   const message =
     error.what === "cutout"
-      ? `${name}: no tray arrangement leaves room for a finger cutout by ${error.contents.join(", ")} clear of the rounded outer corners, so ${what} is left out. Try another storage or a smaller bottom chamfer.`
+      ? `${name}: no tray arrangement leaves room for a finger cutout of at least ${error.minWidth} mm by ${error.contents.join(", ")} with ${POST_MM} mm of wall beside it, so ${what} is left out. Try another storage.`
       : `${name}: no tray arrangement leaves room for a finger slot of at least ${error.minWidth} mm by ${error.contents.join(", ")}, even up to ${settings.fingerPocket.width} mm wider, so ${what} is left out. Try another storage or a narrower finger pocket.`;
   return {
     level: "warning",

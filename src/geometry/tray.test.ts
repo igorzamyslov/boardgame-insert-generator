@@ -8,6 +8,7 @@ import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
 import { minis, partOf } from "../sizing/test-helpers";
 import type { RealizeOptions } from "../sizing/types";
 import { loadManifold } from "./load";
+import { planTray } from "./plan";
 import { buildTray } from "./tray";
 import { checkPrintability } from "./printability";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
@@ -287,49 +288,55 @@ describe("buildTray per tray type", () => {
   });
 });
 
-describe("finger cuts beside a well's rounded inner corners", () => {
-  // A 22 mm cut through both end walls of a well 22 + 2·offset mm long: its sides from 1 mm past
-  // the well's faces to 1 mm inside them, across the 0.5 mm rounded inner corners (review 1, C1).
-  it.each([-1, -0.3, 0, 0.1, 0.25, 0.45, 0.5, 0.6, 1])(
-    "offset %d mm leaves no sliver",
-    (offset) => {
-      const length = 22 + 2 * offset;
-      const at = 1.6 + length / 2;
-      const spec = traySpec({
-        key: "corner:p0:0",
-        w: 1.6 + 30 + 1.6,
-        d: 1.6 + length + 1.6 + (offset < 0 ? 2 : 0),
-        h: 1.2 + 20,
-        compartments: [
-          compartment({
-            x: 1.6,
-            y: offset < 0 ? 2.6 : 1.6,
-            w: 30,
-            d: length,
-            features: [
-              cutout("left", offset < 0 ? at + 1 : at, 10),
-              cutout("right", offset < 0 ? at + 1 : at, 10),
-            ],
-          }),
-        ],
-      });
-      expectWellFormed(spec);
-    },
-  );
+describe("finger cuts keep their posts clear of a well's rounded inner corners", () => {
+  // A 22 mm cut through both end walls of a well 22 + 2·post mm long. With posts under 3 mm its
+  // sides came within the 0.5 mm rounded inner corners and left slivers of them (review 1, C1;
+  // review 2, C1′ with a floor notch): planTray refuses them, and from 3 mm on nothing is left.
+  const spec = (post: number, notch: number) => {
+    const length = 22 + 2 * post;
+    return traySpec({
+      key: "corner:p0:0",
+      w: 1.6 + 30 + 1.6,
+      d: 1.6 + length + 1.6,
+      h: 1.2 + 20,
+      compartments: [
+        compartment({
+          x: 1.6,
+          y: 1.6,
+          w: 30,
+          d: length,
+          features: [
+            cutout("left", 1.6 + length / 2, 20, notch),
+            cutout("right", 1.6 + length / 2, 20, notch),
+          ],
+        }),
+      ],
+    });
+  };
+  it.each([0, 0.25, 0.5, 2.9])("refuses a %d mm post", (post) => {
+    expect(() => planTray(spec(post, 0), GEO)).toThrow(/less than a 3 mm post/);
+  });
+  it.each([
+    [3, 0],
+    [3, 11],
+    [3.5, 11],
+  ])("builds a %d mm post cleanly (floor notch %d)", (post, notch) => {
+    expectWellFormed(spec(post, notch));
+  });
 });
 
 describe("a channel leaving a lipped tray through a thick wall", () => {
   it("rounds the lip's top corners beside the cut, keeping it printable", () => {
-    // Its sides lie on the well's side faces, 2.9 mm from the outer faces (sizing output).
+    // Its sides lie 5.9 mm from the outer faces, past the 3 mm posts.
     expectWellFormed(lippedThickWall, lippedThickWall.h + GEO.lip.height);
   });
 });
 
 describe("a floor-notched cut into a compartment with a lower floor", () => {
-  it("cuts past that compartment's rounded inner corners down to its floor", () => {
-    // A raised well (floor 30.8) cut on its right through the divider into a spare (floor 0.8),
-    // the cut as long as both: below the well's floor the notch's through cut reached only EPS into
-    // the spare and left its rounded corners' slivers (0.018 mm).
+  it("leaves no sliver of that compartment's rounded corners", () => {
+    // A raised well (floor 30.8) cut on its right through the divider into a spare (floor 0.8):
+    // when the cut was as long as both, slivers of the spare's corners stayed under the well's
+    // floor (0.018 mm); its 3 mm posts keep them whole.
     const spec = traySpec({
       key: "raised:p0:0",
       wall: 0.9,
@@ -344,7 +351,7 @@ describe("a floor-notched cut into a compartment with a lower floor", () => {
           w: 16,
           d: 16,
           floorZ: 30.8,
-          features: [cutout("right", 9.8, 29.2, 7.6, 16)],
+          features: [cutout("right", 9.8, 29.2, 7.6, 10)],
         }),
         compartment({ x: 18.6, y: 1.8, w: 27.4, d: 16, floorZ: 0.8, kind: "spare" }),
       ],

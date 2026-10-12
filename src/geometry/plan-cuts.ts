@@ -1,5 +1,5 @@
 import type { FeatureSpec, Side, TraySpec } from "../model/types";
-import { INNER_CORNER_RADIUS_MM, MIN_FEATURE_MM, SPEC_TOLERANCE as TOL } from "../model/settings";
+import { MIN_FEATURE_MM, POST_MM, SPEC_TOLERANCE as TOL } from "../model/settings";
 import { OPPOSITE, alongX, axes, faceOf, nearestAcross } from "../model/cut-rules";
 import { keepsApart, separation } from "../model/slot-rules";
 import { FINGER_FILLET_MM, MIN_FILLET } from "./plan-types";
@@ -20,8 +20,8 @@ interface Frame {
   w: number;
   d: number;
   h: number;
-  outerWall: number; // the (lipped) outer wall the cut's sides keep out of
   chamfer: number;
+  minCut: number; // the narrowest cut: MIN_CUT_MM, or fingerPocket.width if smaller
 }
 
 type Fail = (message: string) => never;
@@ -117,9 +117,8 @@ export function planCut(
   const a = q.at - r;
   const b = q.at + r;
   const span = alongX(q.side) ? frame.w : frame.d;
-  const wall = Number(frame.outerWall.toFixed(3));
-  if (a < frame.outerWall - TOL || b > span - frame.outerWall + TOL) {
-    fail(`${where} reaches into the ${wall} mm outer wall it runs along`);
+  if (q.width < frame.minCut - TOL) {
+    fail(`${where} is narrower than ${frame.minCut} mm`);
   }
   const face = faceOf(rect, q.side);
   const across = nearestAcross(
@@ -130,17 +129,21 @@ export function planCut(
     TOL,
   );
   const next = plans[across];
+  // A full-height post of POST_MM between each side and the faces of every compartment it passes.
+  for (const passed of next === undefined ? [plan] : [plan, next]) {
+    const p = axes(passed.rect, q.side);
+    if (a < p.u0 + POST_MM - TOL || b > p.u1 - POST_MM + TOL) {
+      fail(`${where} leaves less than a ${POST_MM} mm post in compartment ${passed.index}`);
+    }
+  }
   const outer = { front: 0, back: frame.d, left: 0, right: frame.w }[q.side];
   const end = next === undefined ? outer : faceOf(next.rect, OPPOSITE[q.side]);
   const [v0, v1] = face < end ? [face, end] : [end, face];
   const box = alongX(q.side) ? { x0: a, x1: b, y0: v0, y1: v1 } : { x0: v0, x1: v1, y0: a, y1: b };
   const bottomZ = frame.h - Math.min(q.depth, frame.h - floorZ);
   const n = q.floorNotch;
-  if (n > 0) {
-    const across = own.v1 - own.v0;
-    if (a < own.u0 - TOL || b > own.u1 + TOL || n > across + TOL) {
-      fail(`${where}: its ${n} mm floor notch leaves the compartment`);
-    }
+  if (n > own.v1 - own.v0 + TOL) {
+    fail(`${where}: its ${n} mm floor notch leaves the compartment`);
   }
   const material = (distance: number, height: number): number => distance + height - frame.chamfer;
   const sideHeight = n > 0 ? 0 : bottomZ + (2 - Math.SQRT2) * r;
@@ -205,11 +208,9 @@ export function checkCutClearance(plans: readonly CompartmentPlan[], fail: Fail)
   const cuts = plans.flatMap((plan) => plan.cuts.map((cut) => ({ plan, cut })));
   for (const { plan, cut } of cuts) {
     const what = `the ${cut.side} cut of compartment ${plan.index} comes within ${MIN_FEATURE_MM} mm of`;
-    // The U reaches INNER_CORNER_RADIUS_MM into both compartments (buildTray, past their corners).
-    const reach = cutReach(cut, INNER_CORNER_RADIUS_MM, 0);
     for (const other of plans) {
       const exempt = other === plan || other.index === cut.into;
-      if (!exempt && !keepsApart(reach, other.rect, TOL)) {
+      if (!exempt && !keepsApart(cut, other.rect, TOL)) {
         fail(`${what} compartment ${other.index}`);
       }
       for (const slot of other.slots) {
@@ -350,46 +351,39 @@ export function filletStrip(
 /**
  * The radii of a U's two top corners (spec §6.1): FINGER_FILLET_MM, less where that would leave
  * less than MIN_FEATURE_MM of top beside it, along the side up to the nearest void across the same
- * strip (`voids`: a gap and the share of it the fillet may take, half toward another cut), or to
- * the outer corner's arc of radius `radius` (from the faces at 0 and `span`); within the range
- * `faces` of the compartments whose faces the strip runs between (the fillet stays on their flat
- * faces, so its cutter may reach past their rounded corners); and no longer than the U's straight
- * side (`side`, from the round bottom's top to the top). Under MIN_FILLET: 0.
+ * strip (`voids`, other compartments), or to
+ * the outer corner's arc of radius `radius` (from the faces at 0 and `span`); and no longer than the
+ * U's straight side (`side`, from the round bottom's top to the top). Under MIN_FILLET: 0. (It
+ * stays on the faces of the compartments the strip runs between: their posts are POST_MM, at least
+ * FINGER_FILLET_MM.)
  */
 function topRadii(
   [a, b]: readonly [number, number],
   span: number,
   radius: number,
   side: number,
-  faces: { u0: number; u1: number },
-  voids: readonly { u0: number; u1: number; share: number }[],
+  voids: readonly { u0: number; u1: number }[],
 ): [number, number] {
-  const fit = (
-    room: number,
-    flat: number,
-    toward: (v: { u0: number; u1: number }) => number,
-  ): number => {
-    let r = Math.min(FINGER_FILLET_MM, side, room - MIN_FEATURE_MM, flat);
+  const fit = (room: number, toward: (v: { u0: number; u1: number }) => number): number => {
+    let r = Math.min(FINGER_FILLET_MM, side, room - MIN_FEATURE_MM);
     for (const v of voids) {
       const gap = toward(v);
       if (gap > -TOL) {
-        r = Math.min(r, (gap - MIN_FEATURE_MM) * v.share);
+        r = Math.min(r, gap - MIN_FEATURE_MM);
       }
     }
     return r >= MIN_FILLET - TOL ? r : 0;
   };
   return [
-    fit(a - radius, a - faces.u0, (v) => (v.u1 <= a + TOL ? a - v.u1 : Number.NEGATIVE_INFINITY)),
-    fit(span - radius - b, faces.u1 - b, (v) =>
-      v.u0 >= b - TOL ? v.u0 - b : Number.NEGATIVE_INFINITY,
-    ),
+    fit(a - radius, (v) => (v.u1 <= a + TOL ? a - v.u1 : Number.NEGATIVE_INFINITY)),
+    fit(span - radius - b, (v) => (v.u0 >= b - TOL ? v.u0 - b : Number.NEGATIVE_INFINITY)),
   ];
 }
 
 /**
  * Every cut's top fillets (topRadii): across its strip, at the rim (or, through a lipped wall, on
- * the lip ring's top), clear of every other compartment, finger slot and cut whose footprint lies
- * across the same strip, and of the outer corners of radius `cornerRadius`.
+ * the lip ring's top), clear of every other compartment lying across the same strip, and of the
+ * outer corners of radius `cornerRadius`.
  */
 export function planTopFillets(
   plans: readonly CompartmentPlan[],
@@ -397,8 +391,6 @@ export function planTopFillets(
   cornerRadius: number,
   lip: LipPlan | null,
 ): CompartmentPlan[] {
-  const cuts = plans.flatMap((p) => p.cuts);
-  const slots = plans.flatMap((p) => p.slots);
   return plans.map((plan) => ({
     ...plan,
     cuts: plan.cuts.map((cut) => {
@@ -407,28 +399,24 @@ export function planTopFillets(
         const o = axes(r, cut.side);
         return o.v0 < strip.v1 - TOL && o.v1 > strip.v0 + TOL;
       };
-      const voids = [
-        ...plans.flatMap((p) =>
-          p === plan || p.index === cut.into ? [] : [{ r: p.rect, share: 1 }],
-        ),
-        ...slots.map((slot) => ({ r: slot as Rect, share: 1 })),
-        ...cuts.flatMap((c) =>
-          c === cut || sameBand(c, cut) ? [] : [{ r: c as Rect, share: 0.5 }],
-        ),
-      ].flatMap(({ r, share }) => (across(r) ? [{ ...axes(r, cut.side), share }] : []));
+      // Another compartment across the strip (another cut or slot lies inside or beside its own
+      // compartment, which comes first along the side).
+      const voids = plans.flatMap((p) =>
+        p === plan || p.index === cut.into || !across(p.rect) ? [] : [axes(p.rect, cut.side)],
+      );
       const { u0, u1 } = axes(cut, cut.side);
       const span = alongX(cut.side) ? frame.w : frame.d;
+      // No longer than the U's straight side; above the floors of the compartments at the strip's
+      // ends (its cutter reaches into them, past their rounded corners); through a lipped wall,
+      // in the lip, above the ledge.
       const straight = cut.notch > 0 ? strip.top : strip.top - cut.bottomZ - cut.radius;
-      // Through a lipped wall the fillet stays in the lip, above the ledge.
-      const side = Math.min(straight, lip !== null && cut.into === null ? lip.height : straight);
-      const ends = [plan, ...plans.filter((p) => p.index === cut.into)].map((p) =>
-        axes(p.rect, cut.side),
+      const floors = plans.filter((p) => p === plan || p.index === cut.into).map((p) => p.floorZ);
+      const side = Math.min(
+        straight,
+        strip.top - Math.max(...floors),
+        lip !== null && cut.into === null ? lip.height : straight,
       );
-      const faces = {
-        u0: Math.max(...ends.map((e) => e.u0)),
-        u1: Math.min(...ends.map((e) => e.u1)),
-      };
-      return { ...cut, topFillets: topRadii([u0, u1], span, cornerRadius, side, faces, voids) };
+      return { ...cut, topFillets: topRadii([u0, u1], span, cornerRadius, side, voids) };
     }),
   }));
 }
@@ -446,6 +434,6 @@ export function planNotchFillets(
   const span = alongX(notch.side) ? size.w : size.d;
   const side = size.h - notch.bottomZ - notch.radius;
   // A side past the spacer's face takes the top beside it away: nothing to round there.
-  const [r0, r1] = topRadii([u0, u1], span, cornerRadius, side, { u0: 0, u1: span }, []);
+  const [r0, r1] = topRadii([u0, u1], span, cornerRadius, side, []);
   return { ...notch, topFillets: [u0 > TOL ? r0 : 0, u1 < span - TOL ? r1 : 0] };
 }

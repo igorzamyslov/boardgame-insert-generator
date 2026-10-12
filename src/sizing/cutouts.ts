@@ -1,4 +1,4 @@
-import { INNER_CORNER_RADIUS_MM, MIN_FEATURE_MM } from "../model/settings";
+import { MIN_CUT_MM, MIN_FEATURE_MM, POST_MM } from "../model/settings";
 import type { Side } from "../model/types";
 import { OPPOSITE, alongX, axes, faceOf, nearestAcross } from "../model/cut-rules";
 import type { RectMm } from "../model/slot-rules";
@@ -40,15 +40,14 @@ export interface CutContext {
   slots: readonly Rect2[]; // finger slot footprints (doubled units): cuts keep clear of them
   span: { x: number; y: number }; // outer size along x and y
   H: number; // outer height
-  wall: number; // the (lipped) outer wall: a cut's sides stay out of it
   chamfer: number; // the tray's bottom chamfer
   width: number; // fingerPocket.width
   notch: number; // fingerPocket.floorNotch, 0 = none
 }
 
 const MIN = ceilU(MIN_FEATURE_MM);
-/** How far buildTray cuts a U past the faces of its wells: their rounded inner corners. */
-const CORNER_REACH = ceilU(INNER_CORNER_RADIUS_MM);
+const POST = ceilU(POST_MM);
+const MIN_CUT = ceilU(MIN_CUT_MM);
 /** A floor notch reaching less than this into the floor after clamping is left out. */
 const MIN_NOTCH = 100;
 
@@ -87,13 +86,12 @@ type Across =
  *   side and is centred on the same line (its twin). Toward any other compartment there is no cut:
  *   a channel never opens into bits, minis or a custom well.
  * - Twins, and the cuts on the two sides of one compartment, form a run: one channel with one
- *   centre (the first member's) and one width, at most the setting. The cut's sides keep out of the
- *   outer walls along it and MIN_FEATURE_MM past the outer corners' arcs (at least the chamfer),
- *   so the wall beside them keeps that much at the faces they leave through, and reach at most
- *   half way into the gap to any other compartment, finger slot or other run's channel within
- *   MIN_FEATURE_MM of the cuts (another row's wells, whose own channel takes the other half, even
- *   through a shared end wall), less MIN_FEATURE_MM / 2. A cut's extent across its side counts
- *   INNER_CORNER_RADIUS_MM on past the faces at its ends, as far as buildTray cuts it.
+ *   centre (the first member's) and one width, at most the setting. It leaves a POST_MM post
+ *   between its sides and the faces of every compartment it passes (its members and the spares it
+ *   runs into), so the wall still holds the contents (spec §6.1), and reaches at most half way
+ *   into the gap to any other compartment or finger slot within MIN_FEATURE_MM of the cuts, less
+ *   MIN_FEATURE_MM / 2. A run with less room than MIN_CUT_MM (or the setting, if smaller) gets no
+ *   cut.
  * - A compartment none of whose requests gets a cut asks again on the two sides of the other axis
  *   (the same depth and notch), placed the same way after every first cut, centred on the cards
  *   beside a spacer and clear of it: a deck between bits along its row is cut through the front
@@ -102,15 +100,14 @@ type Across =
  *   of the run's shallowest well (upright: half). A cut leaving through the outer wall without a
  *   floor notch keeps its bottom MIN_FEATURE_MM above the bottom chamfer.
  * - A floor notch takes the cut on down through the bottom at its full width and reaches the
- *   setting into the floor: only where the cut lies within the compartment along the side and its
- *   sides keep MIN_FEATURE_MM plus the chamfer from the faces they run along; it leaves
+ *   setting into the floor; it leaves
  *   MIN_FEATURE_MM of floor to an opposite notch and MIN_FEATURE_MM plus the chamfer to the outer
  *   face behind; below MIN_NOTCH it is left out.
  * Returns every cut placed, by owner and side; an owner missing from it got none on either axis.
  */
 export function placeCutouts(requests: readonly CutAsk[], ctx: CutContext): PlacedCut[] {
-  const first = placeRuns(requests, ctx, []);
-  const cut = new Set(first.cuts.map((c) => c.owner));
+  const first = placeRuns(requests, ctx);
+  const cut = new Set(first.map((c) => c.owner));
   const again = [...new Set(requests.map((q) => q.owner))]
     .filter((owner) => !cut.has(owner))
     .flatMap((owner): CutAsk[] => {
@@ -125,32 +122,23 @@ export function placeCutouts(requests: readonly CutAsk[], ctx: CutContext): Plac
         notch: asks.some((q) => q.notch),
       }));
     });
-  return [...first.cuts, ...placeRuns(again, besideSpacers(ctx), first.runs).cuts];
+  return [...first, ...placeRuns(again, besideSpacers(ctx))];
 }
 
 /**
- * `ctx` with each spacer standing as a compartment of its own (after every other) and its owner
- * the rest of the well: a cut across the row is centred on the cards and keeps clear of it.
+ * `ctx` with each owner that has a spacer cut down to the rest of its well, the cards: a cut across
+ * the row is centred on them and keeps its post from the spacer.
  */
 function besideSpacers(ctx: CutContext): CutContext {
-  const n = ctx.rects.length;
   const rects = ctx.rects.map((r, i) => {
     const sp = ctx.spacers[i];
     return sp ? { ...r, x1: sp.x0 } : r;
   });
-  const spacers = ctx.spacers.flatMap((sp) => (sp ? [sp] : []));
-  return { ...ctx, rects: [...rects, ...spacers], spare: (i) => i < n && ctx.spare(i) };
+  return { ...ctx, rects };
 }
 
-/**
- * Places the runs of `requests` (placeCutouts), each keeping half the gap to the runs of
- * `earlier` and to each other. Returns the cuts placed and the runs.
- */
-function placeRuns(
-  requests: readonly CutAsk[],
-  ctx: CutContext,
-  earlier: readonly Run[],
-): { cuts: PlacedCut[]; runs: Run[] } {
+/** Places the runs of `requests` (placeCutouts). Returns the cuts placed. */
+function placeRuns(requests: readonly CutAsk[], ctx: CutContext): PlacedCut[] {
   const rect = (i: number): RectMm => rectAt(ctx, i);
   // Twice the centre along the side, so a half unit stays exact.
   const centre2 = (i: number, side: Side): number => {
@@ -215,16 +203,15 @@ function placeRuns(
   });
 
   const cuts: PlacedCut[] = [];
-  const all = [...runs.values()].map((members) => runOf(members, requests, across, ctx));
-  for (const run of all) {
-    const band = bandOf(run, [...earlier, ...all], requests, across, ctx);
+  for (const members of runs.values()) {
+    const run = runOf(members, requests, across, ctx);
+    const band = bandOf(run, requests, across, ctx);
     if (band === null) {
       continue;
     }
-    const { at, half, side } = band;
+    const { at, half } = band;
     const owners = [...run.owners];
     const shallowest = Math.min(...owners.map((o) => ctx.depths[o] ?? 0));
-    const span = alongX(side) ? ctx.span.x : ctx.span.y;
     for (const k of run.members) {
       const q = requests[k];
       if (q === undefined) {
@@ -236,12 +223,8 @@ function placeRuns(
       // From the face to the outer face behind the compartment, which the notch reaches toward.
       const behind =
         q.side === "back" || q.side === "right" ? face : spanAcross(ctx, q.side) - face;
-      const fits =
-        at - half >= own.u0 &&
-        at + half <= own.u1 &&
-        Math.min(at - half, span - at - half) >= ctx.chamfer + MIN;
       let notch = 0;
-      if (q.notch && ctx.notch > 0 && fits) {
+      if (q.notch && ctx.notch > 0) {
         notch = Math.min(
           ctx.notch,
           Math.floor((own.v1 - own.v0 - MIN) / 2),
@@ -260,7 +243,7 @@ function placeRuns(
       }
     }
   }
-  return { cuts, runs: all };
+  return cuts;
 }
 
 /** A run of requests and the cuts' extent across its side: its strips (units). */
@@ -298,8 +281,7 @@ function runOf(
             rectOf(to.kind === "spare" ? to.index : (requests[to.request]?.owner ?? -1)),
             OPPOSITE[q.side],
           );
-    // buildTray cuts the U INNER_CORNER_RADIUS on into the compartments at both ends.
-    return [Math.min(face, end) - CORNER_REACH, Math.max(face, end) + CORNER_REACH] as const;
+    return [Math.min(face, end), Math.max(face, end)] as const;
   });
   const owners = new Set(members.map((k) => requests[k]?.owner ?? -1));
   return { members, side: first.side, owners, strips };
@@ -312,20 +294,18 @@ function rangeOf(run: Run, ctx: CutContext): { u0: number; u1: number } {
 }
 
 /**
- * A run's centre and half-width (units), or null when it has no room: centred on its first
- * member, at most half the setting, keeping out of the outer walls and MIN past the outer
- * corners' arcs, and at most half way (less MIN / 2) toward any obstacle within MIN of its cuts:
- * a compartment or slot that is not a member nor a spare it runs into, or another run's channel
- * along the same axis (its compartments' range along the side, across its strips), which keeps
- * the other half of the gap.
+ * A run's centre and half-width (units), or null when it has no room for MIN_CUT_MM (or the
+ * setting, if smaller): centred on its first member, at most half the setting, keeping a POST_MM
+ * post to the faces of every compartment it passes (its members and the spares it runs into), and
+ * at most half way (less MIN / 2) toward any other compartment or slot that lies within MIN of its
+ * cuts.
  */
 function bandOf(
   run: Run,
-  others: readonly Run[],
   requests: readonly CutAsk[],
   across: readonly (Across | null)[],
   ctx: CutContext,
-): { at: number; half: number; side: Side } | null {
+): { at: number; half: number } | null {
   const { side, owners, strips } = run;
   const entered = new Set(
     run.members.flatMap((k) => {
@@ -336,18 +316,14 @@ function bandOf(
   const first = axes(rectAt(ctx, requests[run.members[0] ?? -1]?.owner ?? -1), side);
   const at = Math.round((first.u0 + first.u1) / 2);
   const { u0: lowU, u1: highU } = rangeOf(run, ctx);
-  const span = alongX(side) ? ctx.span.x : ctx.span.y;
-  // MIN past the outer corner's arc (at least the chamfer), so the wall beside a cut that leaves
-  // the tray keeps MIN at the exit face (planTray shrinks the arc to match).
-  const edge = Math.max(ctx.wall, ctx.chamfer + MIN);
-  let lo = edge;
-  let hi = span - edge;
+  // Its posts: POST from the faces of every compartment it passes. (They also keep its sides past
+  // the outer corners' arcs: a post starts at least a wall from the outer face.)
+  const passed = [...owners, ...entered].map((i) => axes(rectAt(ctx, i), side));
+  let lo = Math.max(...passed.map((p) => p.u0)) + POST;
+  let hi = Math.min(...passed.map((p) => p.u1)) - POST;
   const obstacles = [
     ...ctx.rects.flatMap((r, i) => (owners.has(i) || entered.has(i) ? [] : [axes(r, side)])),
     ...ctx.slots.map((slot) => axes(wholeUnits(slot), side)),
-    ...others
-      .filter((o) => o !== run && alongX(o.side) === alongX(side))
-      .flatMap((o) => o.strips.map(([v0, v1]) => ({ ...rangeOf(o, ctx), v0, v1 }))),
   ];
   for (const b of obstacles) {
     if (!strips.some(([v0, v1]) => b.v1 > v0 - MIN && b.v0 < v1 + MIN)) {
@@ -364,5 +340,5 @@ function bandOf(
     }
   }
   const half = Math.min(Math.ceil(ctx.width / 2), at - lo, hi - at);
-  return half >= 1 ? { at, half, side } : null;
+  return 2 * half >= Math.min(MIN_CUT, ctx.width) ? { at, half } : null;
 }

@@ -102,27 +102,36 @@ describe("wall cutouts", () => {
   });
 
   it("works along x as well (front and back cutouts)", () => {
-    const spec = beside([cutout("front", 11.6, 10, 0, 16), cutout("back", 11.6, 10, 0, 16)]);
+    const spec = beside([cutout("front", 11.6, 10, 0, 14), cutout("back", 11.6, 10, 0, 14)]);
     const [front, back] = planTray(spec, GEO).compartments[0]?.cuts ?? [];
-    expect(rounded(front)).toMatchObject({ x0: 3.6, x1: 19.6, y0: 0, y1: 1.6, into: null });
-    expect(rounded(back)).toMatchObject({ x0: 3.6, x1: 19.6, y0: 58.4, y1: 60, into: null });
+    expect(rounded(front)).toMatchObject({ x0: 4.6, x1: 18.6, y0: 0, y1: 1.6, into: null });
+    expect(rounded(back)).toMatchObject({ x0: 4.6, x1: 18.6, y0: 58.4, y1: 60, into: null });
   });
 
-  it("shrinks the outer corner radius so a cut's rounded side meets the flat end face", () => {
-    // The 55.8 mm cut runs 2.1 mm from the front and back faces: the arc ends 0.8 mm before it,
-    // so the wall beside the cut keeps 0.8 mm at the exit face.
-    const spec = beside([cutout("left", 30, 10, 0, 55.8)]);
-    expect(planTray(spec, GEO).cornerRadius).toBeCloseTo(1.3, 9);
-    expect(planTray(beside([cutout("left", 30, 10)]), GEO).cornerRadius).toBe(3);
+  it("shrinks the outer corner radius so it ends 0.8 mm before a cut's side on the exit face", () => {
+    // Behind 3 mm walls the 48 mm cut keeps 3 mm posts, 6 mm from the front and back faces: a 10 mm
+    // setting shrinks to 5.2 mm, so the wall beside the cut keeps 0.8 mm at the exit face.
+    const spec = traySpec({
+      key: "thick",
+      wall: 3,
+      w: 60,
+      d: 60,
+      h: 30,
+      compartments: [
+        compartment({ x: 3, y: 3, w: 20, d: 54, features: [cutout("left", 30, 10, 0, 48)] }),
+      ],
+    });
+    expect(planTray(spec, { ...GEO, cornerRadius: 10 }).cornerRadius).toBeCloseTo(5.2, 9);
+    expect(planTray(spec, GEO).cornerRadius).toBe(3);
   });
 
   it("shrinks corner reliefs that would come near a cut", () => {
     const relief: FeatureSpec = { type: "cornerRelief", d: 3 };
-    const near = planTray(beside([relief, cutout("left", 30, 10, 0, 52)]), GEO);
+    const near = planTray(beside([relief, cutout("left", 30, 10, 0, 50.8)]), GEO);
     const far = planTray(beside([relief, cutout("left", 30, 10)]), GEO);
     const radii = (plan: typeof near) => plan.compartments[0]?.reliefs.map((r) => r.r);
     expect(radii(far)).toEqual([1.5, 1.5, 1.5, 1.5]);
-    // The 52 mm cut ends 2.4 mm from the well's front and back corners: the left reliefs shrink.
+    // The 50.8 mm cut ends 3 mm from the well's front and back corners: the left reliefs shrink.
     const shrunk = radii(near) ?? [];
     expect(shrunk[0]).toBeLessThan(1.5);
     expect(shrunk[3]).toBeLessThan(1.5);
@@ -143,19 +152,20 @@ describe("wall cutouts", () => {
       }
     });
 
-    it("a cut that reaches into an outer wall it runs along", () => {
-      rejects(beside([cutout("left", 12, 10)]), /reaches into the 1.6 mm outer wall/);
-      rejects(beside([cutout("left", 49, 10)]), /reaches into the 1.6 mm outer wall/);
-      // The lipped wall is 2.9 mm.
-      const lipped = beside([cutout("left", 13.5, 10)], [], { lip: true });
-      const inside = {
-        ...lipped.compartments[0],
-        x: 2.9,
-        y: 2.9,
-        w: 20,
-        d: 54.2,
-      } as CompartmentSpec;
-      rejects({ ...lipped, compartments: [inside] }, /reaches into the 2.9 mm outer wall/);
+    it("a cut leaving less than a 3 mm post to a face of a compartment it passes", () => {
+      // The well runs 1.6…58.4 along the cut: 50.8 mm keeps 3 mm posts, 51 mm does not.
+      expect(() => planTray(beside([cutout("left", 30, 10, 0, 50.8)]), GEO)).not.toThrow();
+      rejects(beside([cutout("left", 30, 10, 0, 51)]), /less than a 3 mm post in compartment 0/);
+      rejects(beside([cutout("left", 12, 10)]), /less than a 3 mm post in compartment 0/);
+      // Through the divider into B, whose face lies 2 mm beside the cut.
+      const b = compartment({ x: 22.8, y: 17, w: 30, d: 40, features: [cutout("left", 30, 10)] });
+      rejects(beside([cutout("right", 30, 10)], [b]), /less than a 3 mm post in compartment 1/);
+    });
+
+    it("a cut narrower than 10 mm, or the finger width if smaller", () => {
+      rejects(beside([cutout("left", 30, 10, 0, 9.9)]), /narrower than 10 mm/);
+      const narrow = { ...GEO, fingerPocket: { ...GEO.fingerPocket, width: 8 } };
+      expect(() => planTray(beside([cutout("left", 30, 10, 0, 8)]), narrow)).not.toThrow();
     });
 
     it("a cut not centred on its own compartment", () => {
@@ -165,15 +175,8 @@ describe("wall cutouts", () => {
     });
 
     it("a compartment within 0.8 mm of a cut", () => {
-      // The cut runs between the well and B, which holds its centre; C, beside B, lies 0.4 mm
-      // past the cut's end.
-      const b = compartment({ x: 22.8, y: 1.6, w: 30, d: 28 });
-      const c = compartment({ x: 23.2, y: 30.4, w: 30, d: 28 });
-      rejects(
-        beside([cutout("right", 20, 10)], [b, c]),
-        /cut of compartment 0 comes within 0.8 mm of compartment 2/,
-      );
-      // A well across the room, 0.5 mm from the cut's side.
+      // A well across the room, not holding the cut's centre: the cut runs out past it, 0.5 mm from
+      // its side.
       const row = compartment({ x: 22.8, y: 41.5, w: 30, d: 16.9 });
       rejects(beside([cutout("right", 30, 10)], [row]), /comes within 0.8 mm of compartment 1/);
     });
@@ -204,8 +207,8 @@ describe("wall cutouts", () => {
         d: 56.8,
         features: [pocket("front", 28.4, 10, 12, 6)],
       });
-      const spec = beside([cutout("right", 13, 10, 0, 22)], [slotted]);
-      // The cut (21.6…22.8 × 2…24) meets the slot (22.4…34.4 × 1.6…8.1) of compartment 1.
+      const spec = beside([cutout("right", 13, 10, 0, 16)], [slotted]);
+      // The cut (21.6…22.8 × 5…21) meets the slot (22.4…34.4 × 1.6…8.1) of compartment 1.
       rejects(spec, /cut of compartment 0 comes within 0.8 mm of a finger pocket of compartment 1/);
     });
 
@@ -223,9 +226,6 @@ describe("wall cutouts", () => {
       expect(() => planTray(beside([cutout("left", 30, 10, 15)]), GEO)).not.toThrow();
       // …but not past the floor, nor beside the compartment.
       rejects(beside([cutout("left", 30, 10, 20.01)]), /floor notch/);
-      const narrow = beside([cutout("left", 30, 10, 8)]);
-      const short = { ...narrow.compartments[0], y: 22.2, d: 15 } as CompartmentSpec;
-      rejects({ ...narrow, compartments: [short] }, /floor notch/);
       rejects(beside([cutout("left", 30, 10, 9.7), cutout("right", 30, 10, 9.7)]), /floor notch/);
       expect(() =>
         planTray(beside([cutout("left", 30, 10, 9.6), cutout("right", 30, 10, 9.6)]), GEO),
@@ -238,11 +238,29 @@ describe("wall cutouts", () => {
       expect(() => planTray(beside([cutout("left", 30, 99)]), steep)).toThrow(/bottom chamfer/);
       // A notch takes the cut on down through the floor at its full width: no bottom is left.
       expect(() => planTray(beside([cutout("left", 30, 99, 8)]), steep)).not.toThrow();
-      // But down there the cut's sides keep the chamfer + 0.8 mm from the faces they run along.
-      expect(() => planTray(beside([cutout("left", 12.6, 99, 8)]), steep)).toThrow(
-        /bottom chamfer/,
-      );
-      expect(() => planTray(beside([cutout("left", 13, 99, 8)]), steep)).not.toThrow();
+      // But down there the cut's sides keep the chamfer + 0.8 mm from the faces they run along: a
+      // 5.5 mm chamfer under a well raised 5 mm behind 3 mm walls, its posts 6 mm from the faces.
+      const raised = { ...GEO, bottomChamfer: 5.5, cornerRadius: 6 };
+      const high = (width: number) =>
+        traySpec({
+          key: "raised",
+          wall: 3,
+          w: 60,
+          d: 60,
+          h: 30,
+          compartments: [
+            compartment({
+              x: 3,
+              y: 3,
+              w: 20,
+              d: 54,
+              floorZ: 5,
+              features: [cutout("left", 30, 99, 8, width)],
+            }),
+          ],
+        });
+      expect(() => planTray(high(48), raised)).toThrow(/bottom chamfer/);
+      expect(() => planTray(high(46), raised)).not.toThrow();
     });
   });
 });
@@ -347,30 +365,12 @@ describe("top fillets", () => {
     );
   });
 
-  it("stays on the faces the strip runs between, half the gap from another channel", () => {
-    // Two wells, one behind the other, each cut out through the left wall.
-    const spec = traySpec({
-      key: "rows",
-      w: 30,
-      d: 58.4,
-      h: 30,
-      compartments: [
-        compartment({
-          x: 1.6,
-          y: 1.6,
-          w: 26.8,
-          d: 27,
-          features: [cutout("left", 15.1, 20, 0, 25)],
-        }),
-        compartment({ x: 1.6, y: 29.8, w: 26.8, d: 27, features: [cutout("left", 42, 20, 0, 20)] }),
-      ],
-    });
-    const [first, second] = planTray(spec, GEO).compartments.map((c) => radii(c.cuts[0]));
-    // Cuts 2.6…27.6 and 32…52: the first ends 1 mm before its well's back face, so 1 mm; the
-    // second takes (4.4 − 0.8) / 2 = 1.8 mm of the gap. The outer corners end 0.8 mm before the
-    // 1.8 mm arc: none beside the first cut, 3 mm beside the second.
-    expect(first).toEqual([0, 1]);
-    expect(second).toEqual([1.8, 3]);
+  it("stays above the floor of the compartments at the strip's ends", () => {
+    // A well raised to 28 mm, 2 mm below the rim, cut through the floor: 2 mm fillets.
+    const spec = beside([cutout("left", 30, 2, 5)]);
+    const well = { ...spec.compartments[0], floorZ: 28 } as CompartmentSpec;
+    const plan = planTray({ ...spec, compartments: [well] }, GEO);
+    expect(radii(plan.compartments[0]?.cuts[0])).toEqual([2, 2]);
   });
 
   it("keeps 0.8 mm of top to a compartment lying across the strip", () => {
@@ -405,9 +405,22 @@ describe("top fillets", () => {
         [2, 2],
       ],
     ]);
-    // 2.1 mm from the faces: the 1.3 mm arc leaves no room for a fillet beside the sides.
-    const tight = planTray(beside([cutout("left", 30, 10, 0, 55.8)]), GEO);
-    expect(radii(tight.compartments[0]?.cuts[0])).toEqual([0, 0]);
+    // Sides 6 mm from the faces: a 5 mm arc leaves 0.2 mm for the fillets, a 5.05 mm one 0.15 mm,
+    // which is dropped.
+    const spec = traySpec({
+      key: "thick",
+      wall: 3,
+      w: 60,
+      d: 60,
+      h: 30,
+      compartments: [
+        compartment({ x: 3, y: 3, w: 20, d: 54, features: [cutout("left", 30, 27, 0, 48)] }),
+      ],
+    });
+    const fillets = (cornerRadius: number) =>
+      radii(planTray(spec, { ...GEO, cornerRadius }).compartments[0]?.cuts[0]);
+    expect(fillets(5)).toEqual([0.2, 0.2]);
+    expect(fillets(5.05)).toEqual([0, 0]);
   });
 
   it("rounds a spacer notch on the spacer's top, not where a side passes its face", () => {

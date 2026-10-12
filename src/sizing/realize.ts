@@ -1,4 +1,9 @@
-import { MIN_FEATURE_MM, MIN_SLOT_WIDTH, effectiveBottomChamfer } from "../model/settings";
+import {
+  MIN_CUT_MM,
+  MIN_FEATURE_MM,
+  MIN_SLOT_WIDTH,
+  effectiveBottomChamfer,
+} from "../model/settings";
 import { keepsApart } from "../model/slot-rules";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
 import {
@@ -372,7 +377,6 @@ function wallCutouts(
     slots,
     span: { x: W, y: D },
     H,
-    wall: min.wall,
     chamfer: min.chamfer,
     width: ceilU(settings.fingerPocket.width),
     notch: ceilU(settings.fingerPocket.floorNotch),
@@ -385,13 +389,15 @@ function wallCutouts(
     (_, owner) => requests.some((q) => q.owner === owner) && byOwner[owner]?.size === 0,
   );
   if (uncut.length > 0) {
-    // Finger access is never left out silently (review 1, I2): a well too small for a cut clear of
-    // the rounded outer corners on either axis refuses the tray, as a slot that does not fit does.
+    // Finger access is never left out silently (review 1, I2): a well too small for a cut of
+    // MIN_CUT_MM with POST_MM posts on either axis refuses the tray, as a slot that does not fit
+    // does.
     const contents = [...new Set(uncut.map(({ req }) => req.contents))];
+    const least = Math.min(MIN_CUT_MM, settings.fingerPocket.width);
     throw new SlotFitError(
-      `Tray ${frame.trayKey}: no wall cutout fits for ${contents.join(", ")}`,
+      `Tray ${frame.trayKey}: no wall cutout of at least ${least} mm fits for ${contents.join(", ")}`,
       "cutout",
-      0,
+      least,
       [...new Set(uncut.map(({ req }) => req.componentId))],
       contents,
     );

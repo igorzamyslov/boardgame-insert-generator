@@ -1,7 +1,7 @@
 // Test-only builders. Production code never imports this file.
 import { expect } from "vitest";
 import { planTray } from "../geometry/plan";
-import { DEFAULT_SETTINGS, MIN_FEATURE_MM, MIN_SLOT_WIDTH } from "../model/settings";
+import { DEFAULT_SETTINGS, MIN_FEATURE_MM, MIN_SLOT_WIDTH, POST_MM } from "../model/settings";
 import type {
   BulkComponent,
   CardsComponent,
@@ -130,7 +130,8 @@ export function partOf(
  * planTray's own: the tray must plan without a RangeError. On top of that, in whole 0.01 mm
  * units, what only sizing promises: compartments keep the divider setting apart, floors are at
  * least the floor setting, finger slots are at least min(MIN_SLOT_WIDTH, the width setting), and
- * wall cutouts at most the width setting, their floor notch at most the notch setting. Given the
+ * wall cutouts at most the width setting and POST_MM inside their compartment's faces, their floor
+ * notch at most the notch setting. Given the
  * `part` it was realized from, every compartment that asks for wall cutouts (cards and tiles) has
  * at least one: finger access is never left out silently (review 1, I2).
  */
@@ -165,6 +166,11 @@ export function assertTrayInvariants(
       }
       if (f.type === "wallCutout") {
         expect(u(f.width), `${label} ${f.side} cutout width`).toBeLessThanOrEqual(maxCut);
+        // Full-height posts of POST_MM between the cut and the compartment's faces (spec §6.1).
+        const [lo, hi] =
+          f.side === "left" || f.side === "right" ? [c.y, c.y + c.d] : [c.x, c.x + c.w];
+        const post = Math.min(u(f.at - f.width / 2) - u(lo), u(hi) - u(f.at + f.width / 2));
+        expect(post, `${label} ${f.side} cutout posts`).toBeGreaterThanOrEqual(toU(POST_MM));
         expect(u(f.floorNotch), `${label} ${f.side} floor notch`).toBeLessThanOrEqual(
           ceilU(settings.fingerPocket.floorNotch),
         );
@@ -226,9 +232,10 @@ function expectSpacerNotched(sp: TraySpec, compartments: CompartmentSpec[], H: n
       continue;
     }
     const axis = f.side === "left" || f.side === "right" ? "x" : "y";
-    // A cut across the row (along y) crosses the spacer only where its band overlaps it along x.
+    // The cut crosses the spacer only where its band overlaps it along the side.
     const [lo, hi] = [u(f.at - f.width / 2), u(f.at + f.width / 2)];
-    if (axis === "y" && (hi <= u(sp.x) || lo >= u(sp.x + sp.w))) {
+    const [s0, s1] = axis === "y" ? [u(sp.x), u(sp.x + sp.w)] : [u(sp.y), u(sp.y + sp.d)];
+    if (hi <= s0 || lo >= s1) {
       continue;
     }
     const notch = (sp.features ?? []).find((n) => n.type === "spacerNotch");
