@@ -1,0 +1,246 @@
+// src/app/runner.test.ts
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_ITERATIONS, NOTICE_CODES } from "../layout";
+import { inputsHash } from "../model/hash";
+import type { Lock, Notice, Project } from "../model/types";
+import { DEBOUNCE_MS, IMPROVE_FACTOR, canOptimize, createRunner } from "./runner";
+import { STALE_CODE, createState } from "./state";
+import type { State } from "./state";
+import { fixtureProject, flush, makeLayout, makeResult, stubLayoutClient } from "./test-helpers";
+
+function bumpHeight(state: State): void {
+  const p = state.project.value;
+  state.project.value = { ...p, box: { ...p.box, innerHeight: p.box.innerHeight + 1 } };
+}
+
+function setup(project: Project = fixtureProject(), confirm = vi.fn(() => true)) {
+  const state = createState(project);
+  const stub = stubLayoutClient();
+  const onAccepted = vi.fn();
+  const runner = createRunner(
+    state,
+    { loadLayoutClient: () => Promise.resolve(stub.client), confirm },
+    { onAccepted },
+  );
+  return { state, stub, runner, onAccepted, confirm };
+}
+
+describe("runner", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("five quick edits start exactly one run after the debounce", async () => {
+    const { state, stub, runner } = setup();
+    for (let i = 0; i < 5; i += 1) {
+      bumpHeight(state);
+      runner.schedule();
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    expect(stub.calls).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    expect(stub.calls).toHaveLength(1);
+    expect(stub.calls[0]?.input.inputsHash).toBe(inputsHash(state.project.value));
+  });
+
+  it("accepts a finished run and keeps the previous layout for undo", async () => {
+    const p = fixtureProject();
+    const old = makeLayout("old-hash");
+    const { state, stub, runner, onAccepted } = setup({ ...p, layout: old });
+    void runner.runNow("edit", "user");
+    await flush();
+    const call = stub.calls[0];
+    if (!call) {
+      throw new Error("no run");
+    }
+    expect(call.warmStart).toBe(old);
+    call.onProgress(500, 1000, makeResult(null));
+    expect(state.run.value).toEqual({ status: "running", done: 500, total: 1000 });
+    const next = makeLayout(call.input.inputsHash);
+    call.resolve(makeResult(next));
+    await flush();
+    expect(state.project.value.layout).toBe(next);
+    expect(state.undoSlot.value).toBe(old);
+    expect(state.run.value).toEqual({ status: "done" });
+    expect(onAccepted).toHaveBeenCalledTimes(1);
+  });
+
+  it("a result for stale inputs is discarded and the newer run is accepted", async () => {
+    const { state, stub, runner } = setup();
+    void runner.runNow("edit", "user");
+    await flush();
+    const first = stub.calls[0];
+    bumpHeight(state);
+    runner.schedule();
+    first?.resolve(makeResult(makeLayout(first.input.inputsHash)));
+    await flush();
+    expect(state.project.value.layout).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    const second = stub.calls[1];
+    expect(second).toBeDefined();
+    const fresh = makeLayout(second?.input.inputsHash ?? "");
+    second?.resolve(makeResult(fresh));
+    await flush();
+    expect(state.project.value.layout).toBe(fresh);
+  });
+
+  it("ignores progress and results of a cancelled run", async () => {
+    const { state, stub, runner } = setup();
+    void runner.runNow("edit", "user");
+    await flush();
+    runner.cancel();
+    expect(state.run.value).toEqual({ status: "idle" });
+    stub.calls[0]?.onProgress(10, 100, makeResult(null));
+    stub.calls[0]?.resolve(makeResult(makeLayout(stub.calls[0].input.inputsHash)));
+    await flush();
+    expect(state.run.value).toEqual({ status: "idle" });
+    expect(state.project.value.layout).toBeUndefined();
+    expect(stub.cancelCount()).toBeGreaterThan(0);
+  });
+
+  it("keeps the last good layout on failure and retries", async () => {
+    const p = fixtureProject();
+    const good = makeLayout(inputsHash(p));
+    const { state, stub, runner } = setup({ ...p, layout: good });
+    void runner.runNow("improve", "user");
+    await flush();
+    stub.calls[0]?.reject(new Error("worker crashed"));
+    await flush();
+    expect(state.run.value).toEqual({ status: "error", message: "worker crashed" });
+    expect(state.project.value.layout).toBe(good);
+    void runner.retry();
+    await flush();
+    expect(stub.calls).toHaveLength(2);
+    expect(stub.calls[1]?.iterations).toBe(IMPROVE_FACTOR * DEFAULT_ITERATIONS);
+    expect(stub.calls[1]?.warmStart).toBe(good);
+  });
+
+  it("improve more runs 3N more iterations from the stored seed and layout", async () => {
+    const p = fixtureProject();
+    const layout = makeLayout(inputsHash(p), undefined, { seed: 7, iterations: 1234 });
+    const { stub, runner } = setup({ ...p, layout });
+    void runner.runNow("improve", "user");
+    await flush();
+    expect(stub.calls[0]?.seed).toBe(7);
+    expect(stub.calls[0]?.iterations).toBe(IMPROVE_FACTOR * DEFAULT_ITERATIONS);
+    expect(stub.calls[0]?.warmStart).toBe(layout);
+  });
+
+  it("removes locks a run dropped in the same update, keeps the layout fresh and doesn't re-run", async () => {
+    const p = fixtureProject();
+    const locks: Lock[] = [
+      { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
+      { kind: "size", trayKey: "b:p0:0", w: 50, d: 40, h: 20 },
+    ];
+    const { state, stub, runner, onAccepted } = setup({ ...p, locks });
+    void runner.runNow("edit", "user");
+    await flush();
+    const call = stub.calls[0];
+    if (!call) {
+      throw new Error("no run");
+    }
+    const notice: Notice = {
+      level: "warning",
+      code: NOTICE_CODES.lockDropped,
+      message: "Size lock on b:p0:0 was dropped: its contents no longer fit.",
+      path: "/locks/1",
+    };
+    call.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
+    await flush();
+    expect(state.project.value.locks).toEqual([locks[0]]);
+    expect(state.project.value.layout?.inputsHash).toBe(inputsHash(state.project.value));
+    expect(state.stale.value).toBe(false);
+    expect(state.layoutNotices.value).toContainEqual(notice);
+    expect(state.layoutNotices.value.map((n) => n.code)).not.toContain(STALE_CODE);
+    expect(onAccepted).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+    await flush();
+    expect(stub.calls).toHaveLength(1);
+  });
+
+  it("does not run without components or with invalid inputs", async () => {
+    const p = fixtureProject();
+    const empty = setup({ ...p, components: [] });
+    expect(canOptimize(empty.state.project.value)).toBe(false);
+    void empty.runner.runNow("edit", "user");
+    await flush();
+    expect(empty.stub.calls).toHaveLength(0);
+    const invalid = setup({ ...p, box: { ...p.box, innerWidth: 0 } });
+    void invalid.runner.runNow("edit", "user");
+    await flush();
+    expect(invalid.stub.calls).toHaveLength(0);
+  });
+
+  it("afterOpen runs at once without a layout and never with one", async () => {
+    const fresh = setup();
+    fresh.runner.afterOpen();
+    await flush();
+    expect(fresh.stub.calls).toHaveLength(1);
+    const p = fixtureProject();
+    const stored = setup({ ...p, layout: makeLayout("anything") });
+    stored.runner.afterOpen();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+    await flush();
+    expect(stored.stub.calls).toHaveLength(0);
+  });
+
+  it("newer-minor projects skip automatic runs and ask before a user run", async () => {
+    const confirm = vi.fn(() => false);
+    const { state, stub, runner } = setup(fixtureProject(), confirm);
+    state.needsConfirm.value = true;
+    void runner.runNow("edit", "auto");
+    await flush();
+    expect(confirm).not.toHaveBeenCalled();
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(stub.calls).toHaveLength(0);
+    confirm.mockReturnValue(true);
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(stub.calls).toHaveLength(1);
+    expect(state.needsConfirm.value).toBe(false);
+  });
+
+  it("an infeasible result keeps the layout and is not undoable", async () => {
+    const p = fixtureProject();
+    const good = makeLayout(inputsHash(p));
+    const { state, stub, runner, onAccepted } = setup({ ...p, layout: good });
+    void runner.runNow("edit", "user");
+    await flush();
+    stub.calls[0]?.resolve(makeResult(null));
+    await flush();
+    expect(state.project.value.layout).toBe(good);
+    expect(state.undoSlot.value).toBeNull();
+    expect(onAccepted).not.toHaveBeenCalled();
+    expect(state.lastResult.value?.layout).toBeNull();
+  });
+
+  it("treats a LayoutCancelledError as a quiet cancel, not a failure", async () => {
+    const { state, stub, runner } = setup();
+    void runner.runNow("edit", "user");
+    await flush();
+    const cancelled = new Error("Layout run cancelled");
+    cancelled.name = "LayoutCancelledError";
+    stub.calls[0]?.reject(cancelled);
+    await flush();
+    expect(state.run.value).toEqual({ status: "idle" });
+  });
+
+  it("surfaces a failing client loader as a run error", async () => {
+    const state = createState(fixtureProject());
+    const runner = createRunner(
+      state,
+      { loadLayoutClient: () => Promise.reject(new Error("no worker")), confirm: () => true },
+      { onAccepted: vi.fn() },
+    );
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(state.run.value).toEqual({ status: "error", message: "no worker" });
+  });
+});
