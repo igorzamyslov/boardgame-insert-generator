@@ -185,6 +185,23 @@ describe("PlanView", () => {
     );
   });
 
+  it("a lost pointer capture ends the drag like a cancel", () => {
+    const { p, svg } = setup();
+    fireEvent.pointerDown(screen.getByRole("button", { name: /a:p0:0/ }), {
+      ...centerA,
+      pointerId: 2,
+      button: 0,
+    });
+    fireEvent.pointerMove(svg, { ...centerB, pointerId: 2 });
+    fireEvent.lostPointerCapture(svg, { pointerId: 2 });
+    fireEvent.pointerUp(svg, { ...centerB, pointerId: 2 });
+    expect(p.onSwap).not.toHaveBeenCalled();
+    expect(p.onSelect).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /b:p0:0/ }).getAttribute("class")).not.toContain(
+      "is-drop",
+    );
+  });
+
   it("does not drag leftovers or drop onto them", () => {
     const { p, svg } = setup({ trays: [A, B, L2] });
     fireEvent.pointerDown(screen.getByRole("button", { name: /a:p0:0/ }), {

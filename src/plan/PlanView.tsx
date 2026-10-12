@@ -249,6 +249,7 @@ export function PlanView(props: PlanViewProps) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        onLostPointerCapture={onPointerCancel}
       >
         <rect
           class="plan-box"
