@@ -398,8 +398,15 @@ describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {
   });
 
   it("reproduces the trays without finger room at 0", () => {
+    // The trays from before finger room: the room-10 tray's end walls 10 mm thinner.
     const zero = { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: 0, dividerRoom: 0 } };
-    expect(realize(strip, zero)).toEqual(realize(strip, s));
+    expect(minOuter(strip, zero, ground)).toEqual({ w: 64.85, d: 95.7, h: 69.2 });
+    const r = realize(strip, zero);
+    expect(r.compartments.map((c) => c.x)).toEqual([1.6, 21.11, 49.27]);
+    expect(cutsOf(at(r.compartments, 0))).toEqual([
+      cutout("left", 47.85, 34),
+      cutout("right", 47.85, 34),
+    ]);
   });
 });
 
@@ -444,7 +451,9 @@ describe("finger room in the cut dividers (fingerPocket.dividerRoom)", () => {
   });
 
   it("reproduces the trays without divider room at 0", () => {
-    const zero = { ...s, fingerPocket: { ...s.fingerPocket, dividerRoom: 0 } };
-    expect(realize(strip, zero)).toEqual(realize(strip, s));
+    // The trays from before divider room: the dividers at the 1.2 mm setting.
+    const zero = { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: 10, dividerRoom: 0 } };
+    expect(minOuter(strip, zero, ground)).toEqual({ w: 84.85, d: 95.7, h: 69.2 });
+    expect(gaps(realize(strip, zero))).toEqual([1.2, 1.2]);
   });
 });
