@@ -140,7 +140,14 @@ function buildSlot(m: ManifoldToplevel, scope: Scope, slot: SlotPlan, topZ: numb
 // the far corners rounded with half the width (at most the reach): a half-disc when the notch
 // reaches half the width. All are vertical prisms or open at the top, so nothing overhangs
 // (spec §6.1).
-function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number): Manifold[] {
+// `nextFloor`: the floor of the compartment the cut runs into, null where it leaves the tray.
+function buildCut(
+  m: ManifoldToplevel,
+  scope: Scope,
+  cut: CutPlan,
+  nextFloor: number | null,
+  top: number,
+): Manifold[] {
   // The U reaches past the wells' rounded inner corners (INNER_CORNER_RADIUS_MM) on both ends, so no
   // sliver of a corner stays beside it, and OVERSHOOT past an outer face it leaves through.
   const u = buildSlot(
@@ -155,6 +162,19 @@ function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number):
   // Through the floor only EPS into the compartments, whose floors it must not cut.
   const reach = cutReach(cut, EPS, OVERSHOOT);
   const through = box(m, scope, [reach.x0, reach.y0, -OVERSHOOT], [reach.x1, reach.y1, top]);
+  // Above the floor of the compartment it runs into, past that one's rounded inner corners too
+  // (below the U, where the U does not reach: that floor may lie lower than the cut's own).
+  const beside: Manifold[] = [];
+  if (nextFloor !== null) {
+    const past = cutReach(cut, INNER_CORNER_RADIUS_MM + EPS, OVERSHOOT);
+    const next = {
+      front: { ...past, y1: reach.y1 },
+      back: { ...past, y0: reach.y0 },
+      left: { ...past, x1: reach.x1 },
+      right: { ...past, x0: reach.x0 },
+    }[cut.side];
+    beside.push(box(m, scope, [next.x0, next.y0, nextFloor], [next.x1, next.y1, top]));
+  }
   // In the floor, along the side (u) and into the compartment (v = face + inward·distance).
   const face = cutFace(cut);
   const alongX = cut.side === "front" || cut.side === "back";
@@ -172,7 +192,7 @@ function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number):
     const far = cut.notch - rho + rho * Math.sin(t);
     ring.push(point(a + rho - rho * Math.cos(t), far), point(b - rho + rho * Math.cos(t), far));
   }
-  return [u, through, prism(m, scope, ring, -OVERSHOOT, top)];
+  return [u, through, ...beside, prism(m, scope, ring, -OVERSHOOT, top)];
 }
 
 // A fillet on a finger cut's vertical edge: the square from the corner toward the material, EPS
@@ -185,6 +205,11 @@ function buildFillet(m: ManifoldToplevel, scope: Scope, f: FilletPlan, top: numb
   const ring = circleRing(f.x + f.sx * f.r, f.y + f.sy * f.r, f.r, 4 * quarterSegments(f.r));
   const kept = prism(m, scope, ring, z0 - 1, top + 1);
   return scope.track(square.subtract(kept));
+}
+
+// The floor of compartment `index` of the plan, or null for none.
+function floorOf(plan: TrayPlan, index: number | null): number | null {
+  return plan.compartments.find((c) => c.index === index)?.floorZ ?? null;
 }
 
 function buildCutter(
@@ -215,7 +240,7 @@ function buildCutter(
   const extras = [
     ...c.slots.map((slot) => buildSlot(m, scope, slot, top)),
     ...c.cuts.flatMap((cut) => [
-      ...buildCut(m, scope, cut, top),
+      ...buildCut(m, scope, cut, floorOf(plan, cut.into), top),
       ...cut.fillets.map((f) => buildFillet(m, scope, f, top)),
     ]),
     ...c.reliefs.map((rl) =>

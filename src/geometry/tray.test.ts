@@ -307,6 +307,34 @@ describe("finger cuts beside a well's rounded inner corners", () => {
   );
 });
 
+describe("a floor-notched cut into a compartment with a lower floor", () => {
+  it("cuts past that compartment's rounded inner corners down to its floor", () => {
+    // A raised well (floor 30.8) cut on its right through the divider into a spare (floor 0.8),
+    // the cut as long as both: below the well's floor the notch's through cut reached only EPS into
+    // the spare and left its rounded corners' slivers (0.018 mm).
+    const spec = traySpec({
+      key: "raised:p0:0",
+      wall: 0.9,
+      floor: 0.8,
+      w: 47.8,
+      d: 19.6,
+      h: 60,
+      compartments: [
+        compartment({
+          x: 1.8,
+          y: 1.8,
+          w: 16,
+          d: 16,
+          floorZ: 30.8,
+          features: [cutout("right", 9.8, 29.2, 7.6, 16)],
+        }),
+        compartment({ x: 18.6, y: 1.8, w: 27.4, d: 16, floorZ: 0.8, kind: "spare" }),
+      ],
+    });
+    expectWellFormed(spec);
+  });
+});
+
 describe("buildTray review focus", () => {
   it("thin walls (1.2 mm) still keep ≥ 0.8 mm at the rounded corners", () => {
     const thin = traySpec({
