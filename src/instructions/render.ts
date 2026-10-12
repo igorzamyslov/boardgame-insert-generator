@@ -13,8 +13,18 @@ import type { PlanFrame, ViewBox } from "../plan/layers";
 import { numberParts, outerSizeText, partsByKey } from "./numbering";
 import type { NumberedPart } from "./numbering";
 
+/**
+ * Characters XML 1.0 can't carry: most C0 controls, U+FFFE and U+FFFF, and surrogates that don't
+ * form a pair. One of them in a label would make the whole SVG fail to parse.
+ */
+/* eslint-disable no-control-regex -- the control characters are the point */
+const XML_ILLEGAL =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+/* eslint-enable no-control-regex */
+
 export function escapeXml(s: string): string {
   return s
+    .replace(XML_ILLEGAL, "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -24,8 +34,17 @@ export function escapeXml(s: string): string {
 
 const n = (v: number): string => v.toFixed(2);
 
-function truncate(s: string, max: number): string {
-  return s.length <= max ? s : `${s.slice(0, Math.max(1, max - 1))}…`;
+/** Cuts to at most `max` UTF-16 units including the ellipsis, never between a surrogate pair. */
+export function truncate(s: string, max: number): string {
+  if (s.length <= max) {
+    return s;
+  }
+  let cut = Math.max(1, max - 1);
+  const last = s.charCodeAt(cut - 1);
+  if (cut > 1 && last >= 0xd800 && last <= 0xdbff) {
+    cut -= 1;
+  }
+  return `${s.slice(0, cut)}…`;
 }
 
 const SVG_PX_PER_MM = 3;
@@ -139,5 +158,11 @@ export function packingSteps(layout: StoredLayout): string[] {
       }
     }
   });
+  // A spacer whose tray isn't in the layout (an edited file) still has to be placed somewhere.
+  for (const s of parts) {
+    if (s.spec.part === "spacer" && s.parentNumber === null) {
+      steps.push(`Place card spacer #${s.number} (the tray it belongs in is not in this layout).`);
+    }
+  }
   return steps;
 }

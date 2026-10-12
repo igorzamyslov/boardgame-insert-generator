@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { pngSize, svgDataUrl } from "./png";
-import { escapeXml, packingSteps, render, whatGoesWhere } from "./render";
+import { escapeXml, packingSteps, render, truncate, whatGoesWhere } from "./render";
 
 const bottom = makeTray({
   key: "a:p0:0",
@@ -86,7 +86,64 @@ describe("render", () => {
   });
 });
 
+describe("text safety", () => {
+  it("drops characters XML 1.0 forbids and lone surrogates, keeps real pairs", () => {
+    expect(escapeXml("a\u0000b\u0001c\u000Bd\u001Fe\uFFFEf\uFFFFg")).toBe("abcdefg");
+    expect(escapeXml("x\uD800y\uDC00z")).toBe("xyz");
+    expect(escapeXml("tab\there\nline\r")).toBe("tab\there\nline\r");
+    expect(escapeXml("dice \u{1F3B2}")).toBe("dice \u{1F3B2}");
+  });
+
+  it("truncates without cutting a surrogate pair in half", () => {
+    expect(truncate("ab\u{1F3B2}cd", 4)).toBe("ab…");
+    expect(truncate("abc\u{1F3B2}d", 5)).toBe("abc…");
+    expect(truncate("abcdef", 4)).toBe("abc…");
+    expect(truncate("abc", 3)).toBe("abc");
+  });
+
+  it("draws a label with control characters as well-formed SVG", () => {
+    const messy = makeLayout("h", [
+      makeTray({
+        compartments: [
+          {
+            x: 2,
+            y: 2,
+            w: 90,
+            d: 70,
+            floorZ: 1,
+            kind: "well",
+            contents: "Co\u0001ins\uD83D",
+            features: [],
+          },
+        ],
+      }),
+    ]);
+    const [svg] = render(messy, fixtureProject());
+    expect(parse(svg ?? "").getElementsByTagName("parsererror")).toHaveLength(0);
+    expect(svg).toContain("Coins");
+  });
+});
+
 describe("packing order and parts list", () => {
+  it("still places a spacer whose tray is not in the layout", () => {
+    const orphan = makeLayout("h", [
+      makeTray({ key: "a:p0:0", stack: 0, level: 0 }),
+      makeTray({
+        key: "gone:p0:0:spacer",
+        part: "spacer",
+        path: "",
+        stack: 0,
+        level: 0,
+        solid: true,
+        compartments: [],
+      }),
+    ]);
+    expect(packingSteps(orphan)).toEqual([
+      "Layer 1: place #1 Deck A ×40.",
+      "Place card spacer #2 (the tray it belongs in is not in this layout).",
+    ]);
+  });
+
   it("packs bottom first, spacers after their tray", () => {
     expect(packingSteps(layout)).toEqual([
       "Layer 1: place #1 Deck A ×40.",

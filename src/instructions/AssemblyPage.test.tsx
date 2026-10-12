@@ -68,4 +68,43 @@ describe("AssemblyPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Download PNG of layer 1" }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/canvas blocked/));
   });
+
+  it("disables the PNG buttons while one is being made, so one click downloads once", async () => {
+    let finish: (b: Blob) => void = () => undefined;
+    const toPng = vi.fn(
+      () =>
+        new Promise<Blob>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const download = vi.fn();
+    render(
+      <AssemblyPage
+        project={fixtureProject()}
+        layout={layout}
+        onBack={vi.fn()}
+        toPng={toPng}
+        download={download}
+      />,
+    );
+    const first = screen.getByRole("button", { name: "Download PNG of layer 1" });
+    fireEvent.click(first);
+    fireEvent.click(first);
+    fireEvent.click(screen.getByRole("button", { name: "Download PNG of layer 2" }));
+    expect(toPng).toHaveBeenCalledTimes(1);
+    expect((first as HTMLButtonElement).disabled).toBe(true);
+    finish(new Blob(["png"]));
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect((first as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it("says so when the layout has no trays instead of showing empty sections", () => {
+    render(
+      <AssemblyPage project={fixtureProject()} layout={makeLayout("h", [])} onBack={vi.fn()} />,
+    );
+    expect(screen.getByRole("note").textContent).toMatch(/no trays/);
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryAllByRole("img")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Back to the editor" })).toBeTruthy();
+  });
 });
