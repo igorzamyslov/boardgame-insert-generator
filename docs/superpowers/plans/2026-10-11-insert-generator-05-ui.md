@@ -65,8 +65,10 @@ All paths are relative to ``.
 | `src/app/support.ts`                                                                                                            | `unsupportedReason()` for trays from newer files                                                                                                           |
 | `src/app/meshes.ts`                                                                                                             | Cached mesh source on top of the geometry client                                                                                                           |
 | `src/app/exportBuild.ts`                                                                                                        | Zip / combined 3MF / STL builders that yield to the UI                                                                                                     |
-| `src/app/App.tsx`, `src/app/App.test.tsx`                                                                                       | Page shell wiring store → components (replaces plan 1's placeholder)                                                                                       |
+| `src/app/App.tsx`, `src/app/App.test.tsx`, `src/app/App.release.test.tsx`, `src/app/test-app.tsx`                               | Page shell wiring store → components (replaces plan 1's placeholder); both test files render through the test-only `renderApp`                             |
 | `src/main.tsx`, `index.html`                                                                                                    | Entry: creates store and mesh source, starts from the URL hash, mounts `<App/>` (replace plan 1's)                                                         |
+| `src/util/errors.ts`                                                                                                            | `errorText()`: the one place a caught value becomes a message                                                                                              |
+| `src/ui/limits.ts`                                                                                                              | `NumberRules` of the bounded fields, built from the `model/validate` bounds                                                                                |
 | `src/ui/validation.ts`                                                                                                          | Field-level `Notice` context                                                                                                                               |
 | `src/ui/NumberField.tsx`                                                                                                        | Decimal comma/point number input with inline errors                                                                                                        |
 | `src/ui/fields.tsx`                                                                                                             | `TextField`, `SelectField`, `CheckField`                                                                                                                   |
@@ -89,7 +91,7 @@ All paths are relative to ``.
 | `scripts/smoke-dist.mjs`, `scripts/smoke-dist.test.mjs`, `package.json`                                                         | Build smoke test of `dist/` served from a subpath, run by `npm run build`                                                                                  |
 | `README.md`, `app.json`                                                                                                         | Developer docs and landing-page description                                                                                                                |
 
-Import locations from the final plans 1–4: `../model/{types,version,settings,presets,defaults,numbers,validate,schema,hash,ids}`, `../share` (index: link codec, `createProjectStore`, `ProjectStore`, `ProjectListEntry`, `StoreWriteError`, JSON files, `LINK_MAX_URL_CHARS`), `../sizing` (index: `size`), `../layout` (index: `summarize`, `swapLocks`, `DEFAULT_ITERATIONS`, `NOTICE_CODES`), `../layout/client` (lazy), `../layout/types`, `../geometry/client` (lazy), `../geometry/types`, `../geometry/version`, `../export` (index), `../test-support/memory-storage` (tests). Main-thread code never imports `../geometry` (index) or `geometry/tray`, so manifold stays inside the worker chunk (roadmap §4.6).
+Import locations from the final plans 1–4: `../model/{types,version,settings,presets,defaults,numbers,validate,schema,hash,ids}`, `../share` (index: link codec, `createProjectStore`, `ProjectStore`, `ProjectListEntry`, `StoreWriteError`, JSON files, `LINK_MAX_URL_CHARS`), `../sizing` (index: `size`), `../layout` (index: `summarize`, `swapLocks`, `DEFAULT_ITERATIONS`, `NOTICE_CODES`, `PLAY_LIMIT_MM`), `../layout/client` (lazy), `../layout/types`, `../geometry/client` (lazy), `../geometry/types`, `../geometry/version`, `../export` (index), `../util/macrotask` (`nextMacrotask`), `../test-support/memory-storage` (tests). Main-thread code never imports `../geometry` (index) or `geometry/tray`, so manifold stays inside the worker chunk (roadmap §4.6).
 
 ---
 
@@ -102,7 +104,7 @@ Import locations from the final plans 1–4: `../model/{types,version,settings,p
 
 **Interfaces:**
 
-- Consumes: `newComponent(kind)`, `newProject()` (`model/defaults`), `applyWallChoice`, `applyFitChoice`, `WallChoice`, `FitChoice` (`model/settings`), `swapLocks(locks: readonly Lock[], keyA: string, keyB: string, layout: StoredLayout): Lock[]` (`layout/index.ts`, plan 4 — the only swap implementation; swaps whole stacks, adds stack locks, ignores leftovers).
+- Consumes: `newComponent(kind)`, `newProject()` (`model/defaults`), `applyWallChoice`, `applyFitChoice`, `WallChoice`, `FitChoice` (`model/settings`), `swapLocks(locks: readonly Lock[], keyA: string, keyB: string, layout: StoredLayout): Lock[]` (`layout/index.ts`, plan 4 — the only swap implementation; swaps whole stacks, adds stack locks, ignores leftovers), `NOTICE_CODES` (`layout/index.ts`, the notice codes of plan 4; never repeat a code as a string literal).
 - Produces (all pure, never mutate inputs):
   - `isLockable(t: TraySpec): boolean` — only `part === "tray"` can carry locks.
   - `updateBox(p: Project, patch: Partial<Box>): Project`
@@ -132,6 +134,8 @@ Import locations from the final plans 1–4: `../model/{types,version,settings,p
 import { describe, expect, it } from "vitest";
 import { newComponent, newProject } from "../model/defaults";
 import { applyFitChoice, applyWallChoice } from "../model/settings";
+import { GEOMETRY_VERSION } from "../geometry/version";
+import { NOTICE_CODES } from "../layout";
 import type { CardsComponent, Lock, Notice, Project, TraySpec } from "../model/types";
 import {
   addComponent,
@@ -186,7 +190,7 @@ function withLayout(p: Project, trays: TraySpec[]): Project {
     ...p,
     layout: {
       createdWith: "0.1.0",
-      geometryVersion: "0.1.0",
+      geometryVersion: GEOMETRY_VERSION,
       inputsHash: "x",
       seed: 1,
       iterations: 1000,
@@ -352,7 +356,7 @@ describe("pruneDroppedLocks", () => {
   ];
   const dropped = (index: number): Notice => ({
     level: "warning",
-    code: "lock.dropped",
+    code: NOTICE_CODES.lockDropped,
     message: "Size lock on a:p0:0 was dropped: its contents no longer fit.",
     path: `/locks/${index}`,
   });
@@ -364,8 +368,13 @@ describe("pruneDroppedLocks", () => {
 
   it("returns the same project when nothing was dropped or the notice has no lock path", () => {
     const p: Project = { ...newProject(), locks };
-    const other: Notice = { level: "warning", code: "layout.play", message: "", path: "/locks/0" };
-    const noPath: Notice = { level: "warning", code: "lock.dropped", message: "" };
+    const other: Notice = {
+      level: "warning",
+      code: NOTICE_CODES.play,
+      message: "",
+      path: "/locks/0",
+    };
+    const noPath: Notice = { level: "warning", code: NOTICE_CODES.lockDropped, message: "" };
     expect(pruneDroppedLocks(p, [other, noPath])).toBe(p);
   });
 });
@@ -395,7 +404,7 @@ import type {
   Settings,
   TraySpec,
 } from "../model/types";
-import { swapLocks } from "../layout";
+import { NOTICE_CODES, swapLocks } from "../layout";
 
 /** Only real trays can be locked; leftovers are regenerated and spacers follow their tray. */
 export function isLockable(t: TraySpec): boolean {
@@ -543,7 +552,7 @@ const DROPPED_LOCK_PATH = /^\/locks\/(\d+)$/;
 export function pruneDroppedLocks(p: Project, notices: readonly Notice[]): Project {
   const dropped = new Set<number>();
   for (const n of notices) {
-    const m = n.code === "lock.dropped" ? DROPPED_LOCK_PATH.exec(n.path ?? "") : null;
+    const m = n.code === NOTICE_CODES.lockDropped ? DROPPED_LOCK_PATH.exec(n.path ?? "") : null;
     if (m) {
       dropped.add(Number(m[1]));
     }
@@ -601,7 +610,7 @@ export function setClearance<C extends Component>(c: C, clearance: number | unde
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/app/actions.test.ts`
-Expected: PASS (13 tests). Also run `npx tsc --noEmit`; if it reports "The operand of a 'delete' operator must be optional" in the three generic helpers, replace each `const next = { ...c };` with `const next: C & Partial<Pick<ComponentBase, "groupId" | "perPlayer" | "clearance">> = { ...c };` and add `ComponentBase` to the type import (every one of those fields is optional on `ComponentBase`, so `delete` then type-checks).
+Expected: PASS (14 tests). Also run `npx tsc --noEmit`; if it reports "The operand of a 'delete' operator must be optional" in the three generic helpers, replace each `const next = { ...c };` with `const next: C & Partial<Pick<ComponentBase, "groupId" | "perPlayer" | "clearance">> = { ...c };` and add `ComponentBase` to the type import (every one of those fields is optional on `ComponentBase`, so `delete` then type-checks).
 
 - [ ] **Step 5: Commit**
 
@@ -619,21 +628,23 @@ git commit -m "Add pure project edit actions"
 - Create: `src/app/clients.ts`
 - Create: `src/app/test-helpers.ts`
 - Create: `src/app/state.ts`
-- Test: `src/app/state.test.ts`
+- Create: `src/util/errors.ts`
+- Test: `src/app/state.test.ts`, `src/util/errors.test.ts`
 
 **Interfaces:**
 
-- Consumes: `createLayoutClient`, `LayoutClient` (`layout/client`), `createGeometryClient`, `GeometryClient` (`geometry/client`), `summarize` (`layout`), `size` (`sizing`), `validateProject`, `inputsHash`, `parseProject`, `isOlderGeometryLine` (`geometry/version`, plan 3: spec §9's line rule, pre-1.0 each `0.MINOR` is a major line), `ProjectListEntry` (`share`), `noForeign` (`model/schema`).
+- Consumes: `createLayoutClient`, `LayoutClient` (`layout/client`), `createGeometryClient`, `GeometryClient` (`geometry/client`), `summarize`, `NOTICE_CODES` (`layout`), `size` (`sizing`), `validateProject`, `inputsHash`, `parseProject`, `isOlderGeometryLine`, `GEOMETRY_VERSION` (`geometry/version`, plan 3: spec §9's line rule, pre-1.0 each `0.MINOR` is a major line), `ProjectListEntry` (`share`), `noForeign` (`model/schema`).
 - Produces:
   - re-exported types `LayoutClient` (plan 4 `layout/client.ts`) and `GeometryClient` (plan 3 `geometry/client.ts`)
   - `loadLayoutClient(): Promise<LayoutClient>`; `loadGeometryClient(): Promise<GeometryClient>` (dynamic imports → separate chunks)
   - `type Mode = "simple" | "advanced"`; `type RunKind = "edit" | "improve"`
   - `type RunState = { status: "idle" } | { status: "running"; done: number; total: number } | { status: "done" } | { status: "error"; message: string }`
-  - `STALE_CODE = "layout.stale"`, `CAPPED_CODE = "layout.capped"`, `GEOMETRY_MAJOR_CODE = "geometry.olderMajor"`
+  - `errorText(e: unknown): string` (`util/errors.ts`, the one place that turns a caught value into a message: the message of an `Error`, else `String(e)`; Tasks 2–4 use it)
+  - `STALE_CODE = "layout.stale"`, `CAPPED_CODE = NOTICE_CODES.capped` (plan 4's `"layout.capped"`), `GEOMETRY_MAJOR_CODE = "geometry.olderMajor"`
   - `interface State` (signals: `project`, `foreign`, `projects`, `mode`, `run`, `lastResult`, `undoSlot`, `selection`, `appNotices`, `needsConfirm`, `conflict`; computed: `validation`, `currentHash`, `stale`, `sizingNotices`, `summary`, `layoutNotices`)
-  - `createState(initial: Project, foreign?: ForeignData): State`
+  - `createState(initial: Project, foreign: ForeignData = noForeign()): State`
   - `pushNotice(state: State, n: Notice): void` (replaces a notice with the same code), `dismissNotice(state: State, code: string): void`
-  - Test helpers (imported only by tests): `EMPTY_FOREIGN`, `fixtureProject()`, `withoutLayout(p)`, `makeTray(over?)`, `makeLayout(inputsHash, trays?, over?)`, `makeResult(layout, over?)`, `cubeMesh(size?)`, `stubLayoutClient()`, `flush()`. Storage in tests uses plan 1's `MemoryStorage` (`src/test-support/memory-storage.ts`, with `failOn` for quota errors) and `createProjectStore(null)` for "no storage".
+  - Test helpers (imported only by tests): `EMPTY_FOREIGN` (= `noForeign()`), `fixtureProject()`, `withoutLayout(p)`, `makeTray(over?)`, `makeLayout(inputsHash, trays?, over?)`, `makeResult(layout, over?)`, `cubeMesh(size?)`, `stubLayoutClient()`, `flush()`. Storage in tests uses plan 1's `MemoryStorage` (`src/test-support/memory-storage.ts`, with `failOn` for quota errors) and `createProjectStore(null)` for "no storage".
 
 - [ ] **Step 1: Write the client loaders and the test helpers**
 
@@ -662,6 +673,7 @@ export async function loadGeometryClient(): Promise<GeometryClient> {
 // Shared test fixtures and stubs. Imported only from *.test.ts(x) files.
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import type { Mesh } from "../geometry/types";
+import { GEOMETRY_VERSION } from "../geometry/version";
 import type { LayoutInput, LayoutResult } from "../layout/types";
 import { noForeign, parseProject } from "../model/schema";
 import type { ForeignData, Project, StoredLayout, TraySpec } from "../model/types";
@@ -724,7 +736,7 @@ export function makeLayout(
 ): StoredLayout {
   return {
     createdWith: "0.1.0",
-    geometryVersion: "0.1.0",
+    geometryVersion: GEOMETRY_VERSION,
     inputsHash,
     seed: 1,
     iterations: 1000,
@@ -840,6 +852,7 @@ export async function flush(): Promise<void> {
 ```ts
 // src/app/state.test.ts
 import { describe, expect, it } from "vitest";
+import { NOTICE_CODES } from "../layout";
 import { inputsHash } from "../model/hash";
 import {
   CAPPED_CODE,
@@ -891,17 +904,25 @@ describe("createState", () => {
     const p = fixtureProject();
     const layout = makeLayout(inputsHash(p), undefined, { capped: true });
     const s = createState({ ...p, layout });
-    const notice = { level: "warning" as const, code: "play", message: "Play 1.8 mm on X" };
+    const notice = {
+      level: "warning" as const,
+      code: NOTICE_CODES.play,
+      message: "Play 1.8 mm on X",
+    };
     s.lastResult.value = makeResult(makeLayout("other"), { notices: [notice] });
-    expect(s.layoutNotices.value.map((n) => n.code)).not.toContain("play");
+    expect(s.layoutNotices.value.map((n) => n.code)).not.toContain(NOTICE_CODES.play);
     s.lastResult.value = makeResult(layout, { notices: [notice] });
-    expect(s.layoutNotices.value.map((n) => n.code)).toContain("play");
+    expect(s.layoutNotices.value.map((n) => n.code)).toContain(NOTICE_CODES.play);
     expect(s.layoutNotices.value.map((n) => n.code)).toContain(CAPPED_CODE);
   });
 
   it("shows notices of an infeasible run (no layout)", () => {
     const s = createState(fixtureProject());
-    const notice = { level: "error" as const, code: "doesNotFit", message: "Doesn't fit" };
+    const notice = {
+      level: "error" as const,
+      code: NOTICE_CODES.doesNotFit,
+      message: "Doesn't fit",
+    };
     s.lastResult.value = makeResult(null, { notices: [notice] });
     expect(s.layoutNotices.value).toContainEqual(notice);
   });
@@ -913,10 +934,10 @@ describe("createState", () => {
         ...p,
         layout: makeLayout(inputsHash(p), undefined, { geometryVersion }),
       }).layoutNotices.value.map((n) => n.code);
-    // GEOMETRY_VERSION is 0.1.1: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
-    expect(codesFor("0.0.9")).toContain(GEOMETRY_MAJOR_CODE);
-    expect(codesFor("0.1.4")).not.toContain(GEOMETRY_MAJOR_CODE);
-    expect(codesFor("0.2.0")).not.toContain(GEOMETRY_MAJOR_CODE);
+    // GEOMETRY_VERSION is 0.2.0: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
+    expect(codesFor("0.1.4")).toContain(GEOMETRY_MAJOR_CODE);
+    expect(codesFor("0.2.3")).not.toContain(GEOMETRY_MAJOR_CODE);
+    expect(codesFor("0.3.0")).not.toContain(GEOMETRY_MAJOR_CODE);
   });
 
   it("validates the project", () => {
@@ -941,25 +962,53 @@ describe("app notices", () => {
 });
 ```
 
+```ts
+// src/util/errors.test.ts
+import { describe, expect, it } from "vitest";
+import { errorText } from "./errors";
+
+describe("errorText", () => {
+  it("uses the message of an Error", () => {
+    expect(errorText(new RangeError("out of range"))).toBe("out of range");
+  });
+
+  it("turns anything else into a string", () => {
+    expect(errorText("plain")).toBe("plain");
+    expect(errorText(42)).toBe("42");
+    expect(errorText(undefined)).toBe("undefined");
+  });
+});
+```
+
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `npx vitest run src/app/state.test.ts`
-Expected: FAIL — `Failed to resolve import "./state"`.
+Run: `npx vitest run src/app/state.test.ts src/util/errors.test.ts`
+Expected: FAIL — `Failed to resolve import "./state"` and `"./errors"`.
 
 - [ ] **Step 4: Write the implementation**
+
+```ts
+// src/util/errors.ts
+/** A caught value as a message: the one place that does it, shared by the app's orchestrators. */
+export function errorText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+```
 
 ```ts
 // src/app/state.ts
 import { computed, signal } from "@preact/signals";
 import type { ReadonlySignal, Signal } from "@preact/signals";
 import { isOlderGeometryLine } from "../geometry/version";
-import { summarize } from "../layout";
+import { NOTICE_CODES, summarize } from "../layout";
 import type { LayoutResult, LayoutSummary } from "../layout/types";
 import { inputsHash } from "../model/hash";
+import { noForeign } from "../model/schema";
 import type { ForeignData, Notice, Project, StoredLayout } from "../model/types";
 import { validateProject } from "../model/validate";
 import type { ProjectListEntry } from "../share";
 import { size } from "../sizing";
+import { errorText } from "../util/errors";
 
 export type Mode = "simple" | "advanced";
 export type RunKind = "edit" | "improve";
@@ -970,7 +1019,7 @@ export type RunState =
   | { status: "error"; message: string };
 
 export const STALE_CODE = "layout.stale";
-export const CAPPED_CODE = "layout.capped";
+export const CAPPED_CODE = NOTICE_CODES.capped;
 export const GEOMETRY_MAJOR_CODE = "geometry.olderMajor";
 
 export interface State {
@@ -993,10 +1042,6 @@ export interface State {
   sizingNotices: ReadonlySignal<Notice[]>;
   summary: ReadonlySignal<LayoutSummary | null>;
   layoutNotices: ReadonlySignal<Notice[]>;
-}
-
-function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }
 
 function sizingNoticesOf(p: Project): Notice[] {
@@ -1025,7 +1070,7 @@ function dedupe(list: Notice[]): Notice[] {
   });
 }
 
-export function createState(initial: Project, foreign: ForeignData = { components: [] }): State {
+export function createState(initial: Project, foreign: ForeignData = noForeign()): State {
   const project = signal(initial);
   const lastResult = signal<LayoutResult | null>(null);
   const validation = computed(() => validateProject(project.value));
@@ -1054,12 +1099,12 @@ export function createState(initial: Project, foreign: ForeignData = { component
     if (r && (r.layout === null || r.layout === layout)) {
       out.push(...r.notices);
     }
-    if (layout?.capped && !out.some((n) => n.code.includes("capped"))) {
+    if (layout?.capped && !out.some((n) => n.code === CAPPED_CODE)) {
       out.push({
         level: "info",
         code: CAPPED_CODE,
         message:
-          "The optimizer hit its safety time limit, so this layout may not be reproducible. Try “Improve more”.",
+          "The optimizer stopped at its safety limit; this layout can't be reproduced from its seed. Try “Improve more”.",
       });
     }
     if (stale.value) {
@@ -1113,13 +1158,13 @@ export function dismissNotice(state: State, code: string): void {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `npx vitest run src/app/state.test.ts`
-Expected: PASS (9 tests).
+Run: `npx vitest run src/app/state.test.ts src/util/errors.test.ts`
+Expected: PASS (9 + 2 tests).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/app/clients.ts src/app/test-helpers.ts src/app/state.ts src/app/state.test.ts
+git add src/app/clients.ts src/app/test-helpers.ts src/app/state.ts src/app/state.test.ts src/util/errors.ts src/util/errors.test.ts
 git commit -m "Add app state signals and test helpers"
 ```
 
@@ -1134,7 +1179,7 @@ git commit -m "Add app state signals and test helpers"
 
 **Interfaces:**
 
-- Consumes: `State`, `RunKind` (Task 2), `LayoutClient` (Task 2), `pruneDroppedLocks` (Task 1), `size` (`sizing`), `inputsHash`, `validateProject`, `APP_VERSION`, `DEFAULT_ITERATIONS` (`layout`), `LayoutInput`, `LayoutResult` (`layout/types`).
+- Consumes: `State`, `RunKind` (Task 2), `LayoutClient` (Task 2), `pruneDroppedLocks` (Task 1), `errorText` (Task 2), `size` (`sizing`), `inputsHash`, `validateProject`, `APP_VERSION`, `DEFAULT_ITERATIONS` (`layout`), `LayoutInput`, `LayoutResult` (`layout/types`).
 - Produces:
   - `DEBOUNCE_MS = 400`, `DEFAULT_SEED = 1`, `IMPROVE_FACTOR = 3`, `NEWER_MINOR_CONFIRM: string`, `CANCELLED_ERROR_NAME = "LayoutCancelledError"` (a cancelled/superseded run is swallowed, never shown as an error)
   - `canOptimize(p: Project): boolean` — ≥ 1 component and no error-level validation notice.
@@ -1152,11 +1197,11 @@ Behaviour: `schedule()` cancels any in-flight run and (re)starts a 400 ms timer;
 ```ts
 // src/app/runner.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_ITERATIONS } from "../layout";
+import { DEFAULT_ITERATIONS, NOTICE_CODES } from "../layout";
 import { inputsHash } from "../model/hash";
 import type { Lock, Notice, Project } from "../model/types";
 import { DEBOUNCE_MS, IMPROVE_FACTOR, canOptimize, createRunner } from "./runner";
-import { createState } from "./state";
+import { STALE_CODE, createState } from "./state";
 import type { State } from "./state";
 import { fixtureProject, flush, makeLayout, makeResult, stubLayoutClient } from "./test-helpers";
 
@@ -1298,7 +1343,7 @@ describe("runner", () => {
     }
     const notice: Notice = {
       level: "warning",
-      code: "lock.dropped",
+      code: NOTICE_CODES.lockDropped,
       message: "Size lock on b:p0:0 was dropped: its contents no longer fit.",
       path: "/locks/1",
     };
@@ -1308,7 +1353,7 @@ describe("runner", () => {
     expect(state.project.value.layout?.inputsHash).toBe(inputsHash(state.project.value));
     expect(state.stale.value).toBe(false);
     expect(state.layoutNotices.value).toContainEqual(notice);
-    expect(state.layoutNotices.value.map((n) => n.code)).not.toContain("layout.stale");
+    expect(state.layoutNotices.value.map((n) => n.code)).not.toContain(STALE_CODE);
     expect(onAccepted).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
     await flush();
@@ -1415,6 +1460,7 @@ import type { Project } from "../model/types";
 import { validateProject } from "../model/validate";
 import { APP_VERSION } from "../model/version";
 import { size } from "../sizing";
+import { errorText } from "../util/errors";
 import { pruneDroppedLocks } from "./actions";
 import type { LayoutClient } from "./clients";
 import type { RunKind, State } from "./state";
@@ -1464,10 +1510,6 @@ export function buildLayoutInput(p: Project): LayoutInput {
     inputsHash: inputsHash(p),
     appVersion: APP_VERSION,
   };
-}
-
-function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }
 
 export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks): Runner {
@@ -1649,7 +1691,7 @@ git commit -m "Add debounced optimizer runner with stale-result guard"
 
 **Interfaces:**
 
-- Consumes: `State`, `pushNotice`, `dismissNotice` (Task 2); `newProject` (`model/defaults`), `newId` (`model/ids`), `serializeProject`, `noForeign`, `SCHEMA_NOTICE_CODES` (`model/schema`); `decodeHash`, `encodeHash`, `importJsonText`, `createProjectStore(storage?: Storage | null)`, `ProjectStore`, `StoreWriteError` (`share`); `MemoryStorage` (`test-support/memory-storage`, tests only).
+- Consumes: `State`, `pushNotice`, `dismissNotice` (Task 2); `errorText` (Task 2); `newProject` (`model/defaults`), `newId` (`model/ids`), `serializeProject`, `noForeign`, `SCHEMA_NOTICE_CODES` (`model/schema`); `decodeHash`, `encodeHash`, `importJsonText`, `createProjectStore(storage?: Storage | null)`, `ProjectStore`, `StoreWriteError` (`share`); `MemoryStorage` (`test-support/memory-storage`, tests only).
 - Produces:
   - `SAVE_DEBOUNCE_MS = 500`; notice codes `STORAGE_UNAVAILABLE_CODE = "storage.unavailable"`, `CONFLICT_CODE = "storage.conflict"`, `OPEN_FAILED_CODE = "open.failed"`, `SAVE_FAILED_CODE = "storage.saveFailed"` (parse notice codes such as `schema.newerMinor` come from plan 1's `SCHEMA_NOTICE_CODES`, never redeclared here)
   - `type OpenSource = "link" | "file"`; `type ConflictChoice = "keepMine" | "loadTheirs"`
@@ -1940,6 +1982,7 @@ import { SCHEMA_NOTICE_CODES, noForeign, serializeProject } from "../model/schem
 import type { ForeignData, Notice, ParseResult, Project } from "../model/types";
 import { StoreWriteError, decodeHash, encodeHash, importJsonText } from "../share";
 import type { ProjectStore } from "../share";
+import { errorText } from "../util/errors";
 import { dismissNotice, pushNotice } from "./state";
 import type { State } from "./state";
 
@@ -1976,10 +2019,6 @@ export interface Persistence {
   onExternalChange(): void;
   resolveConflict(choice: ConflictChoice): void;
   dispose(): void;
-}
-
-function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }
 
 function isEmptyHash(hash: string): boolean {
@@ -2727,6 +2766,7 @@ describe("NumberField", () => {
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { STALE_CODE } from "../app/state";
 import { CheckField, SelectField, TextField } from "./fields";
 import { Notices } from "./Notices";
 
@@ -2799,11 +2839,11 @@ describe("Notices", () => {
       <Notices
         notices={[
           { level: "error", code: "open.failed", message: "Broken link" },
-          { level: "info", code: "layout.stale", message: "Inputs changed" },
+          { level: "info", code: STALE_CODE, message: "Inputs changed" },
         ]}
         onDismiss={onDismiss}
         renderAction={(n) =>
-          n.code === "layout.stale" ? <button type="button">Re-optimize</button> : null
+          n.code === STALE_CODE ? <button type="button">Re-optimize</button> : null
         }
       />,
     );
@@ -3205,7 +3245,7 @@ export function Notices({ notices, onDismiss, renderAction, label = "Messages" }
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/ui/NumberField.test.tsx src/ui/fields.test.tsx`
-Expected: PASS (13 tests).
+Expected: PASS (14 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -3220,14 +3260,16 @@ git commit -m "Add form primitives with decimal-comma number input"
 
 **Files:**
 
+- Create: `src/ui/limits.ts`
 - Create: `src/ui/BoxForm.tsx`
 - Create: `src/ui/PrinterForm.tsx`
 - Test: `src/ui/BoxForm.test.tsx`
 
 **Interfaces:**
 
-- Consumes: `NumberField`, `SelectField`, `CheckField` (Task 6); `BED_PRESETS` (`model/presets`); `Box`, `Printer`.
+- Consumes: `NumberField`, `NumberRules`, `SelectField`, `CheckField` (Task 6); `BED_PRESETS` (`model/presets`); `BOUNDS`, `MAX_VOLUME_ML`, `LAYER_HEIGHT_MIN`, `LAYER_HEIGHT_MAX` (`model/validate`, the bounds that `validateProject` enforces); `Box`, `Printer`.
 - Produces:
+  - `src/ui/limits.ts`: the `NumberRules` of every bounded field, built from the `model/validate` constants so a form never repeats a number the model owns (Tasks 7–10 spread them into `NumberField`): `LENGTH` (above 0, at most `BOUNDS.maxLength`), `OFFSET` (0 allowed, same maximum), `COUNT` (integer, 1 to `BOUNDS.maxCount`), `PLAYERS` (integer, 1 to `BOUNDS.maxPlayers`), `VOLUME_ML` (above 0, at most `MAX_VOLUME_ML`) and `LAYER_HEIGHT` (`LAYER_HEIGHT_MIN` to `LAYER_HEIGHT_MAX`).
   - `interface BoxFormProps { box: Box; onChange: (patch: Partial<Box>) => void }`; `BoxForm(props)` — spec §8.2 hints; `headroomCoverage` only when `headroom > 0`.
   - `CUSTOM_BED = "custom"`; `bedPresetOf(p: Printer): string` (preset id or `"custom"`)
   - `interface PrinterFormProps { printer: Printer; advanced: boolean; onChange: (patch: Partial<Printer>) => void }`; `PrinterForm(props)` — preset select + custom X/Y/Z; advanced: bed margin, layer height.
@@ -3316,18 +3358,39 @@ Expected: FAIL — `Failed to resolve import "./BoxForm"`.
 
 - [ ] **Step 3: Write the implementation**
 
+```ts
+// src/ui/limits.ts
+import { BOUNDS, LAYER_HEIGHT_MAX, LAYER_HEIGHT_MIN, MAX_VOLUME_ML } from "../model/validate";
+import type { NumberRules } from "./NumberField";
+
+// The bounds are the model's (`validateProject` enforces the same ones, spec §5): the forms
+// import them instead of repeating the numbers.
+
+/** A length in mm: above 0, at most `BOUNDS.maxLength`. */
+export const LENGTH: NumberRules = { min: 0, minExclusive: true, max: BOUNDS.maxLength };
+/** A length in mm that may be 0 (headroom, bed margin, clearance, sleeve thickness). */
+export const OFFSET: NumberRules = { min: 0, max: BOUNDS.maxLength };
+/** A number of cards or pieces. */
+export const COUNT: NumberRules = { integer: true, min: 1, max: BOUNDS.maxCount };
+/** A number of players (a per-player count). */
+export const PLAYERS: NumberRules = { integer: true, min: 1, max: BOUNDS.maxPlayers };
+/** A volume in ml. */
+export const VOLUME_ML: NumberRules = { min: 0, minExclusive: true, max: MAX_VOLUME_ML };
+/** The printable layer height in mm. */
+export const LAYER_HEIGHT: NumberRules = { min: LAYER_HEIGHT_MIN, max: LAYER_HEIGHT_MAX };
+```
+
 ```tsx
 // src/ui/BoxForm.tsx
 import type { Box } from "../model/types";
 import { CheckField, SelectField } from "./fields";
+import { LENGTH, OFFSET } from "./limits";
 import { NumberField } from "./NumberField";
 
 export interface BoxFormProps {
   box: Box;
   onChange: (patch: Partial<Box>) => void;
 }
-
-const LENGTH = { min: 0, minExclusive: true, max: 1000 };
 
 export function BoxForm({ box, onChange }: BoxFormProps) {
   return (
@@ -3368,8 +3431,7 @@ export function BoxForm({ box, onChange }: BoxFormProps) {
         unit="mm"
         value={box.headroom}
         path="/box/headroom"
-        min={0}
-        max={1000}
+        {...OFFSET}
         hint="Boards and rulebooks stacked as they lie on top, plus 1 mm for warp. 0 if nothing lies on top."
         onCommit={(v) => onChange({ headroom: v })}
       />
@@ -3405,6 +3467,7 @@ import { BED_PRESETS } from "../model/presets";
 import type { Printer } from "../model/types";
 import { SelectField } from "./fields";
 import type { SelectOption } from "./fields";
+import { LAYER_HEIGHT, LENGTH, OFFSET } from "./limits";
 import { NumberField } from "./NumberField";
 
 export const CUSTOM_BED = "custom";
@@ -3421,8 +3484,6 @@ export interface PrinterFormProps {
   advanced: boolean;
   onChange: (patch: Partial<Printer>) => void;
 }
-
-const BED = { min: 0, minExclusive: true, max: 1000 };
 
 const OPTIONS: SelectOption<string>[] = [
   ...BED_PRESETS.map((b) => ({ value: b.id, label: b.label })),
@@ -3458,7 +3519,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             unit="mm"
             value={printer.bedX}
             path="/printer/bedX"
-            {...BED}
+            {...LENGTH}
             onCommit={(v) => onChange({ bedX: v })}
           />
           <NumberField
@@ -3467,7 +3528,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             unit="mm"
             value={printer.bedY}
             path="/printer/bedY"
-            {...BED}
+            {...LENGTH}
             onCommit={(v) => onChange({ bedY: v })}
           />
           <NumberField
@@ -3476,7 +3537,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             unit="mm"
             value={printer.bedZ}
             path="/printer/bedZ"
-            {...BED}
+            {...LENGTH}
             onCommit={(v) => onChange({ bedZ: v })}
           />
         </>
@@ -3489,8 +3550,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             unit="mm"
             value={printer.bedMargin}
             path="/printer/bedMargin"
-            min={0}
-            max={1000}
+            {...OFFSET}
             hint="Kept free on every side for the purge line or skirt."
             onCommit={(v) => onChange({ bedMargin: v })}
           />
@@ -3500,8 +3560,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             unit="mm"
             value={printer.layerHeight}
             path="/printer/layerHeight"
-            min={0.05}
-            max={1}
+            {...LAYER_HEIGHT}
             hint="Tray heights are rounded to multiples of this."
             onCommit={(v) => onChange({ layerHeight: v })}
           />
@@ -3520,7 +3579,7 @@ Expected: PASS (6 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/ui/BoxForm.tsx src/ui/PrinterForm.tsx src/ui/BoxForm.test.tsx
+git add src/ui/limits.ts src/ui/BoxForm.tsx src/ui/PrinterForm.tsx src/ui/BoxForm.test.tsx
 git commit -m "Add box and printer forms"
 ```
 
@@ -3884,7 +3943,7 @@ git commit -m "Add simple and advanced settings form"
 
 **Interfaces:**
 
-- Consumes: `setCardSides`, `setGroup`, `setPerPlayer`, `setClearance` (Task 1); `NumberField`, `TextField`, `SelectField`, `CheckField`, `useFieldNotices` (Task 6); `CARD_PRESETS` (`model/presets`); `fingerCutsOn`, `curvedFloorOn`, `cornerReliefsOn` (`model/defaults`); `CardsComponent`, `Component`.
+- Consumes: `setCardSides`, `setGroup`, `setPerPlayer`, `setClearance` (Task 1); `NumberField`, `TextField`, `SelectField`, `CheckField`, `useFieldNotices`, `useSizingNotices` (Task 6); `LENGTH`, `OFFSET`, `COUNT`, `PLAYERS` (`ui/limits`, Task 7); `CARD_PRESETS` (`model/presets`); `fingerCutsOn`, `curvedFloorOn`, `cornerReliefsOn` (`model/defaults`); `CardsComponent`, `Component`.
 - Produces:
   - `interface EditorProps<C extends Component> { component: C; index: number; advanced: boolean; onChange: (next: C) => void }`
   - `MoreOptions({ open, children }: { open: boolean; children: ComponentChildren })` — `<details>` "More options", open by default in advanced mode.
@@ -4093,6 +4152,7 @@ export function MoreOptions({ open, children }: MoreOptionsProps) {
 import { setClearance, setGroup, setPerPlayer } from "../../app/actions";
 import type { Component } from "../../model/types";
 import { CheckField, TextField } from "../fields";
+import { OFFSET, PLAYERS } from "../limits";
 import { NumberField } from "../NumberField";
 import { useFieldNotices } from "../validation";
 import type { EditorProps } from "./types";
@@ -4138,9 +4198,7 @@ export function CommonOptions<C extends Component>({
           id={`${c.id}-players`}
           label="Players"
           value={c.perPlayer.players}
-          integer
-          min={1}
-          max={10}
+          {...PLAYERS}
           path={`${at}/perPlayer/players`}
           onCommit={(v) => onChange(setPerPlayer(c, v))}
         />
@@ -4157,8 +4215,7 @@ export function CommonOptions<C extends Component>({
           label="Clearance (total, not scaled by Fit)"
           unit="mm"
           value={c.clearance}
-          min={0}
-          max={1000}
+          {...OFFSET}
           path={`${at}/clearance`}
           onCommit={(v) => onChange(setClearance(c, v))}
         />
@@ -4236,6 +4293,7 @@ import { CARD_PRESETS } from "../../model/presets";
 import type { CardsComponent } from "../../model/types";
 import { CheckField, SelectField, TextField } from "../fields";
 import type { SelectOption } from "../fields";
+import { COUNT, LENGTH, OFFSET } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
@@ -4272,8 +4330,6 @@ const STORAGE_OPTIONS: SelectOption<CardsComponent["storage"]>[] = [
   { value: "upright-short", label: "Upright, standing on the short edge" },
   { value: "flat", label: "Lying flat" },
 ];
-
-const LENGTH = { min: 0, minExclusive: true, max: 1000 };
 
 export function CardsEditor({
   component: c,
@@ -4376,8 +4432,7 @@ export function CardsEditor({
             unit="mm"
             value={customSleeve.thickness}
             path={`${at}/sleeve/thickness`}
-            min={0}
-            max={1000}
+            {...OFFSET}
             onCommit={(v) => onChange({ ...c, sleeve: { ...customSleeve, thickness: v } })}
           />
         </>
@@ -4396,9 +4451,7 @@ export function CardsEditor({
               id={`${c.id}-deck${j}-count`}
               label={`Cards in deck ${j + 1}`}
               value={deck.count}
-              integer
-              min={1}
-              max={2000}
+              {...COUNT}
               path={`${at}/decks/${j}/count`}
               onCommit={(count) => setDeck(j, { count })}
             />
@@ -4445,9 +4498,7 @@ export function CardsEditor({
               id={`${c.id}-measuredCards`}
               label="Cards in the measured stack"
               value={measured.cards}
-              integer
-              min={1}
-              max={2000}
+              {...COUNT}
               path={`${at}/thickness/cards`}
               onCommit={(cards) => onChange({ ...c, thickness: { ...measured, cards } })}
             />
@@ -4502,7 +4553,7 @@ git commit -m "Add cards editor with shared component options"
 
 **Interfaces:**
 
-- Consumes: `EditorProps`, `MoreOptions`, `CommonOptions`, `ToggleOptions` (Task 9); `NumberField`, `TextField`, `SelectField` (Task 6); `BulkComponent`, `BulkItem`, `TilesComponent`, `TileShape`, `MinisComponent`, `CustomComponent`.
+- Consumes: `EditorProps`, `MoreOptions`, `CommonOptions`, `ToggleOptions` (Task 9); `NumberField`, `TextField`, `SelectField` (Task 6); `LENGTH`, `COUNT`, `VOLUME_ML` (`ui/limits`, Task 7); `BulkComponent`, `BulkItem`, `TilesComponent`, `TileShape`, `MinisComponent`, `CustomComponent`.
 - Produces:
   - `BulkEditor(props: EditorProps<BulkComponent>)` — item rows, each either count × w × d × h or a pile volume in ml.
   - `TilesEditor(props: EditorProps<TilesComponent>)` — rect (w, d) or hex (flat-to-flat, orientation), thickness, count; more options: storage.
@@ -4685,13 +4736,12 @@ Expected: FAIL — `Failed to resolve import "./BulkEditor"`.
 // src/ui/components/BulkEditor.tsx
 import type { BulkComponent, BulkItem } from "../../model/types";
 import { SelectField, TextField } from "../fields";
+import { COUNT, LENGTH, VOLUME_ML } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
 import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
-
-const LENGTH = { min: 0, minExclusive: true, max: 1000 };
 
 export function BulkEditor({
   component: c,
@@ -4743,9 +4793,7 @@ export function BulkEditor({
                   label={`Volume of item ${n}`}
                   unit="ml"
                   value={volume.volumeMl}
-                  min={0}
-                  minExclusive
-                  max={1_000_000}
+                  {...VOLUME_ML}
                   path={`${at}/items/${j}/volumeMl`}
                   onCommit={(volumeMl) => setItem(j, { ...volume, volumeMl })}
                 />
@@ -4756,9 +4804,7 @@ export function BulkEditor({
                     id={`${c.id}-item${j}-count`}
                     label={`How many of item ${n}`}
                     value={pieces.count}
-                    integer
-                    min={1}
-                    max={2000}
+                    {...COUNT}
                     path={`${at}/items/${j}/count`}
                     onCommit={(count) => setItem(j, { ...pieces, count })}
                   />
@@ -4831,13 +4877,12 @@ export function BulkEditor({
 // src/ui/components/TilesEditor.tsx
 import type { TileShape, TilesComponent } from "../../model/types";
 import { SelectField } from "../fields";
+import { COUNT, LENGTH } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
 import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
-
-const LENGTH = { min: 0, minExclusive: true, max: 1000 };
 
 const DEFAULT_SHAPES: Record<TileShape["type"], TileShape> = {
   rect: { type: "rect", w: 50, d: 50 },
@@ -4927,9 +4972,7 @@ export function TilesEditor({
         id={`${c.id}-count`}
         label="Number of tiles"
         value={c.count}
-        integer
-        min={1}
-        max={2000}
+        {...COUNT}
         path={`${at}/count`}
         onCommit={(count) => onChange({ ...c, count })}
       />
@@ -4957,13 +5000,12 @@ export function TilesEditor({
 // src/ui/components/MinisEditor.tsx
 import type { MinisComponent } from "../../model/types";
 import { SelectField, TextField } from "../fields";
+import { COUNT, LENGTH } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
 import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
-
-const LENGTH = { min: 0, minExclusive: true, max: 1000 };
 
 type Figure = MinisComponent["figures"][number];
 
@@ -5022,9 +5064,7 @@ export function MinisEditor({
                 id={`${c.id}-fig${j}-count`}
                 label={`How many of figure ${n}`}
                 value={f.count}
-                integer
-                min={1}
-                max={2000}
+                {...COUNT}
                 path={`${at}/figures/${j}/count`}
                 onCommit={(count) => setFigure(j, { count })}
               />
@@ -5077,13 +5117,12 @@ export function MinisEditor({
 ```tsx
 // src/ui/components/CustomEditor.tsx
 import type { CustomComponent } from "../../model/types";
+import { COUNT, LENGTH } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
 import { ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
-
-const LENGTH = { min: 0, minExclusive: true, max: 1000 };
 
 export function CustomEditor({
   component: c,
@@ -5125,9 +5164,7 @@ export function CustomEditor({
         id={`${c.id}-count`}
         label="How many"
         value={c.count}
-        integer
-        min={1}
-        max={2000}
+        {...COUNT}
         path={`${at}/count`}
         onCommit={(count) => onChange({ ...c, count })}
       />
@@ -5164,7 +5201,7 @@ git commit -m "Add bits, tiles, minis and custom editors"
 
 **Interfaces:**
 
-- Consumes: the five editors (Tasks 9–10), `TextField`, `SelectField` (Task 6), `KIND_NAMES`, `newComponent` (`model/defaults`), `Component`, `ComponentKind`, `Access`.
+- Consumes: the five editors (Tasks 9–10), `TextField`, `SelectField` (Task 6), `KIND_NAMES` (`model/defaults`), `Component`, `ComponentKind`, `Access`; the test also uses `newComponent` (`model/defaults`).
 - Produces:
   - `ADD_LABELS: Record<ComponentKind, string>` — "Add cards", "Add bits", "Add tiles", "Add miniatures", "Add other item".
   - `interface ComponentCardProps { component: Component; index: number; advanced: boolean; onChange: (next: Component) => void; onRemove: () => void }`; `ComponentCard(props)` — heading, name, access ("needed during play"), kind editor.
@@ -5405,12 +5442,12 @@ git commit -m "Add component cards and the component list"
 
 **Interfaces:**
 
-- Consumes: `LINK_MAX_URL_CHARS` (2000, Discord's message limit on the whole URL; plan 1), `encodeHash`, `ProjectListEntry` (`share`); `optimize`, `DEFAULT_ITERATIONS` (`layout`), `FIXTURES`, `fixtureInput` (`layout/test-fixtures`, plan 4 test helper), `parseProject` (tests); `TextField`, `SelectField` (Task 6).
+- Consumes: `LINK_MAX_URL_CHARS` (2000, Discord's message limit on the whole URL; plan 1), `encodeHash`, `ProjectListEntry` (`share`); `errorText` (Task 2); `optimize`, `DEFAULT_ITERATIONS` (`layout`), `FIXTURES`, `fixtureInput` (`layout/test-fixtures`, plan 4 test helper), `parseProject` (tests); `TextField`, `SelectField` (Task 6).
 - Produces:
   - `downloadBlob(blob: Blob, filename: string): void`; `bytesToBlob(data: Uint8Array, type: string): Blob`; `fileSlug(name: string): string` (`[A-Za-z0-9._-]`, `"insert"` when empty)
   - `shareLink(href: string, hash: string): string` — replaces any existing fragment.
   - `type CopyLinkResult = { status: "copied"; length: number; tooLong: boolean } | { status: "failed"; length: number; tooLong: boolean; link: string; error: string }`
-  - `copyLink(link: string, write: (text: string) => Promise<void>): Promise<CopyLinkResult>` — `tooLong` when the whole `link.length > LINK_MAX_URL_CHARS`. A test builds each feasible fixture's link with a stored layout (`optimize(fixtureInput(name), 1, DEFAULT_ITERATIONS)`) on the GitHub Pages URL `https://igorzamyslov.github.io/static-web-` and checks it fits (measured: ≈ 1 650–1 980 characters).
+  - `copyLink(link: string, write: (text: string) => Promise<void>): Promise<CopyLinkResult>` — `tooLong` when the whole `link.length > LINK_MAX_URL_CHARS`. A test builds the link of each of the four feasible fixtures with a stored layout (`optimize(fixtureInput(name), 1, DEFAULT_ITERATIONS)`) on the real deploy URL `https://igorzamyslov.github.io/static-web-apps/insert-generator/` (measured: ≈ 1 690–2 015 characters). Three of them fit `LINK_MAX_URL_CHARS` (cards-heavy, bits-heavy, small-tiles); the largest, tiles-minis (≈ 2 014), is a few characters over it, so the test expects `copyLink` to flag it `tooLong`: spec §8.4 asks for typical projects to fit, and the limit is advisory (the link still works; the menu shows the warning and offers the JSON file, Task 12 `ProjectMenu`).
   - `interface ProjectMenuProps { name: string; currentId: string; projects: readonly ProjectListEntry[]; storageAvailable: boolean; onRename: (name: string) => void; onOpen: (id: string) => void; onNew: () => void; onDelete: (id: string) => void; onImport: (text: string) => void; onExportJson: () => void; onCopyLink: () => Promise<CopyLinkResult> }`; `ProjectMenu(props)`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -5420,6 +5457,7 @@ git commit -m "Add component cards and the component list"
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_ITERATIONS, optimize } from "../layout";
 import { FIXTURES, fixtureInput } from "../layout/test-fixtures";
+import type { FixtureName } from "../layout/test-fixtures";
 import { parseProject } from "../model/schema";
 import { LINK_MAX_URL_CHARS, encodeHash } from "../share";
 import { fileSlug } from "./download";
@@ -5457,25 +5495,37 @@ describe("copyLink", () => {
   });
 });
 
-// The real deployment: the whole URL must fit a Discord message (2 000 characters).
-const PAGES_URL = "https://igorzamyslov.github.io/static-web-";
+// The real deployment: the whole URL should fit a Discord message (2 000 characters).
+const PAGES_URL = "https://igorzamyslov.github.io/static-web-apps/insert-generator/";
+
+/** The share link of a fixture with its optimized layout stored, on the real deploy URL. */
+function fixtureLink(name: FixtureName): string {
+  const parsed = parseProject(FIXTURES[name]);
+  if (!parsed.ok) {
+    throw new Error(parsed.error);
+  }
+  const { layout } = optimize(fixtureInput(name), 1, DEFAULT_ITERATIONS);
+  expect(layout).not.toBeNull();
+  return shareLink(
+    PAGES_URL,
+    encodeHash({ ...parsed.project, layout: layout ?? undefined }, parsed.foreign),
+  );
+}
 
 describe("share links of the fixtures with a stored layout", () => {
-  for (const name of ["cards-heavy", "bits-heavy", "tiles-minis"] as const) {
+  for (const name of ["cards-heavy", "bits-heavy", "small-tiles"] as const) {
     it(`${name} fits in ${LINK_MAX_URL_CHARS} characters on GitHub Pages`, () => {
-      const parsed = parseProject(FIXTURES[name]);
-      if (!parsed.ok) {
-        throw new Error(parsed.error);
-      }
-      const { layout } = optimize(fixtureInput(name), 1, DEFAULT_ITERATIONS);
-      expect(layout).not.toBeNull();
-      const link = shareLink(
-        PAGES_URL,
-        encodeHash({ ...parsed.project, layout: layout ?? undefined }, parsed.foreign),
-      );
-      expect(link.length).toBeLessThanOrEqual(LINK_MAX_URL_CHARS);
+      expect(fixtureLink(name).length).toBeLessThanOrEqual(LINK_MAX_URL_CHARS);
     });
   }
+
+  // The largest fixture is a few characters over the advisory limit: the warning path.
+  it("tiles-minis is over the limit, so copyLink warns", async () => {
+    const link = fixtureLink("tiles-minis");
+    expect(link.length).toBeGreaterThan(LINK_MAX_URL_CHARS);
+    const result = await copyLink(link, () => Promise.resolve());
+    expect(result).toEqual({ status: "copied", length: link.length, tooLong: true });
+  });
 });
 
 describe("fileSlug", () => {
@@ -5628,6 +5678,7 @@ export function fileSlug(name: string): string {
 ```ts
 // src/app/link.ts
 import { LINK_MAX_URL_CHARS } from "../share";
+import { errorText } from "../util/errors";
 
 export function shareLink(href: string, hash: string): string {
   const cut = href.indexOf("#");
@@ -5653,7 +5704,7 @@ export async function copyLink(
       length,
       tooLong,
       link,
-      error: e instanceof Error ? e.message : String(e),
+      error: errorText(e),
     };
   }
 }
@@ -5799,7 +5850,7 @@ export function ProjectMenu(props: ProjectMenuProps) {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/app/link.test.ts src/ui/ProjectMenu.test.tsx`
-Expected: PASS (13 tests).
+Expected: PASS (14 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -5827,6 +5878,8 @@ git commit -m "Add project menu with copy-link length warning"
   - `partLabel(spec: TraySpec): string` — unique non-spare compartment contents joined with " + "; "Card spacer"; "Spare tray"; "Filler block".
   - `numberParts(trays: readonly TraySpec[]): NumberedPart[]` — stack, then level, then key; each spacer right after its tray. One numbering for plan view, export file names and the assembly page.
   - `partsByKey(parts: readonly NumberedPart[]): Map<string, NumberedPart>`
+  - `printedHeight(t: TraySpec, settings: Settings): number` — what the tray prints at: `t.h`, plus `settings.lip.height` when `t.lip` (the locating lip on a tray that carries another one). `TraySpec.h` excludes the lip; plan 4's over-bed and `layout.bed` notices report this height, so the tray details and the assembly table show it too (Tasks 15, 19).
+  - `outerSizeText(t: TraySpec, settings: Settings): string` — `"W × D × H mm"` with the printed height and one decimal, plus `" with its lip"` for a lipped tray; the one wording of a tray's outer size (tray details, parts table).
   - `interface PlanFrame { bc: number; usableW: number; usableD: number; innerW: number; innerD: number }`; `planFrame(box: Box, settings: Settings): PlanFrame`
   - `levelsOf(trays: readonly TraySpec[]): number[]`; `traysAt(trays: readonly TraySpec[], level: number): TraySpec[]` (no spacers); `spacersAt(trays: readonly TraySpec[], level: number): TraySpec[]`
   - `interface SvgRect { x: number; y: number; w: number; h: number }`; `toSvgRect(t: Pick<TraySpec, "x" | "y" | "w" | "d">, f: PlanFrame): SvgRect` (front of the box at the bottom)
@@ -5841,7 +5894,8 @@ git commit -m "Add project menu with copy-link length warning"
 // src/instructions/numbering.test.ts
 import { describe, expect, it } from "vitest";
 import { makeTray } from "../app/test-helpers";
-import { numberParts, partLabel, partsByKey } from "./numbering";
+import { DEFAULT_SETTINGS } from "../model/settings";
+import { numberParts, outerSizeText, partLabel, partsByKey, printedHeight } from "./numbering";
 
 describe("partLabel", () => {
   it("joins unique contents and names special parts", () => {
@@ -5862,6 +5916,24 @@ describe("partLabel", () => {
       "Spare tray",
     );
     expect(partLabel(makeTray({ key: "k:p0:0", compartments: [] }))).toBe("k:p0:0");
+  });
+});
+
+describe("printedHeight", () => {
+  it("adds the lip height to a lipped tray only", () => {
+    const lip = DEFAULT_SETTINGS.lip.height;
+    expect(printedHeight(makeTray({ h: 40, lip: false }), DEFAULT_SETTINGS)).toBe(40);
+    expect(printedHeight(makeTray({ h: 40, lip: true }), DEFAULT_SETTINGS)).toBe(40 + lip);
+    const thin = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, height: 1.5 } };
+    expect(printedHeight(makeTray({ h: 12.4, lip: true }), thin)).toBe(13.9);
+  });
+
+  it("words the outer size with the printed height", () => {
+    const t = makeTray({ w: 120, d: 90, h: 30 });
+    expect(outerSizeText(t, DEFAULT_SETTINGS)).toBe("120.0 × 90.0 × 30.0 mm");
+    expect(outerSizeText({ ...t, lip: true }, DEFAULT_SETTINGS)).toBe(
+      `120.0 × 90.0 × ${(30 + DEFAULT_SETTINGS.lip.height).toFixed(1)} mm with its lip`,
+    );
   });
 });
 
@@ -5977,7 +6049,7 @@ Expected: FAIL — `Failed to resolve import "./numbering"` / `"./layers"`.
 
 ```ts
 // src/instructions/numbering.ts
-import type { TraySpec } from "../model/types";
+import type { Settings, TraySpec } from "../model/types";
 
 export interface NumberedPart {
   number: number;
@@ -6046,6 +6118,20 @@ export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
 
 export function partsByKey(parts: readonly NumberedPart[]): Map<string, NumberedPart> {
   return new Map(parts.map((p) => [p.spec.key, p]));
+}
+
+/**
+ * The height a tray prints at: `spec.h` plus the lip a lipped tray carries on top (plan 4's
+ * over-bed and `layout.bed` notices report this height), on the 0.01 mm grid.
+ */
+export function printedHeight(spec: TraySpec, settings: Settings): number {
+  return Math.round((spec.h + (spec.lip ? settings.lip.height : 0)) * 100) / 100;
+}
+
+/** "W × D × H mm" with the printed height; a lipped tray says so (its H includes the lip). */
+export function outerSizeText(spec: TraySpec, settings: Settings): string {
+  const size = `${spec.w.toFixed(1)} × ${spec.d.toFixed(1)} × ${printedHeight(spec, settings).toFixed(1)} mm`;
+  return spec.lip ? `${size} with its lip` : size;
 }
 ```
 
@@ -6169,7 +6255,7 @@ export function labelFontSize(r: SvgRect): number {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/instructions/numbering.test.ts src/plan/layers.test.ts`
-Expected: PASS (9 tests).
+Expected: PASS (11 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -6189,11 +6275,10 @@ git commit -m "Add part numbering and plan geometry helpers"
 
 **Interfaces:**
 
-- Consumes: `RunState`, `STALE_CODE` (Task 2); `Notices` (Task 6); `LayoutSummary` (`layout/types`); `Notice`.
+- Consumes: `RunState`, `STALE_CODE` (Task 2); `Notices` (Task 6); `PLAY_LIMIT_MM` (`layout`, plan 4's lateral play limit in mm, spec §7.3, 1.5; the Summary never repeats the number), `NOTICE_CODES` (`layout`, tests); `LayoutSummary` (`layout/types`); `Notice`.
 - Produces:
-  - `PLAY_LIMIT_MM = 1.5`
   - `interface SummaryProps { summary: LayoutSummary | null; run: RunState; notices: readonly Notice[]; hasLayout: boolean; canUndo: boolean; canOptimize: boolean; shortfall: { x: number; y: number; z: number } | null; onReoptimize: () => void; onImprove: () => void; onUndo: () => void; onCancel: () => void; onRetry: () => void }`
-  - `Summary(props)` — fill %, trays, stacks, filament "≤ N g (upper bound…)", play per axis (warning style above 1.5 mm), progress + Cancel while running, error + Retry (last good result stays), "Re-optimize", "Improve more", "Undo layout", notices list with a "Re-optimize now" action on the stale notice, shortfall per axis for an infeasible run.
+  - `Summary(props)` — fill %, trays, stacks, filament "≤ N g (upper bound…)", play per axis (warning style above `PLAY_LIMIT_MM`, 1.5 mm), progress + Cancel while running, error + Retry (last good result stays), "Re-optimize", "Improve more", "Undo layout", notices list with a "Re-optimize now" action on the stale notice, shortfall per axis for an infeasible run, each axis rounded up to 0.1 mm like the `layout.doesNotFit` notice under it (roadmap §4.8, `mmUp`), so the line and the notice agree and a positive shortfall never reads 0.0 mm.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -6203,6 +6288,7 @@ git commit -m "Add part numbering and plan geometry helpers"
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { STALE_CODE } from "../app/state";
+import { NOTICE_CODES } from "../layout";
 import { Summary } from "./Summary";
 import type { SummaryProps } from "./Summary";
 
@@ -6305,8 +6391,17 @@ describe("Summary", () => {
         {...props({ summary: null, hasLayout: false, shortfall: { x: 12.345, y: 0, z: 3 } })}
       />,
     );
+    // rounded up to 0.1 mm like plan 4's notice, never to the nearest
     expect(screen.getByText(/Doesn't fit/).textContent).toBe(
-      "Doesn't fit: short by 12.3 mm left–right and 3.0 mm in height.",
+      "Doesn't fit: short by 12.4 mm left–right and 3.0 mm in height.",
+    );
+    view.rerender(
+      <Summary
+        {...props({ summary: null, hasLayout: false, shortfall: { x: 0.03, y: 0, z: 0 } })}
+      />,
+    );
+    expect(screen.getByText(/Doesn't fit/).textContent).toBe(
+      "Doesn't fit: short by 0.1 mm left–right.",
     );
   });
 
@@ -6319,7 +6414,7 @@ describe("Summary", () => {
           summary: null,
           hasLayout: false,
           shortfall: { x: 0, y: 0, z: 0 },
-          notices: [{ level: "error", code: "layout.doesNotFit", message }],
+          notices: [{ level: "error", code: NOTICE_CODES.doesNotFit, message }],
         })}
       />,
     );
@@ -6340,11 +6435,10 @@ Expected: FAIL — `Failed to resolve import "./Summary"`.
 // src/ui/Summary.tsx
 import { STALE_CODE } from "../app/state";
 import type { RunState } from "../app/state";
+import { PLAY_LIMIT_MM } from "../layout";
 import type { LayoutSummary } from "../layout/types";
 import type { Notice } from "../model/types";
 import { Notices } from "./Notices";
-
-export const PLAY_LIMIT_MM = 1.5;
 
 export interface SummaryProps {
   summary: LayoutSummary | null;
@@ -6361,18 +6455,25 @@ export interface SummaryProps {
   onRetry: () => void;
 }
 
+/** A shortfall in mm rounded up to 0.1 mm, the rule of plan 4's `layout.doesNotFit` notice
+ * (`mmUp`, roadmap §4.8): the line here and the notice below agree, and a positive shortfall
+ * never reads 0.0. */
+function mmUp(v: number): string {
+  return (Math.ceil(Math.round(v * 100) / 10) / 10).toFixed(1);
+}
+
 /** The "short by" line; null when no axis is short (a part over the bed or a locked size is the
  * reason: the doesNotFit notice in the list below says which, naming the tray). */
 function shortfallText(s: { x: number; y: number; z: number }): string | null {
   const parts: string[] = [];
   if (s.x > 0) {
-    parts.push(`${s.x.toFixed(1)} mm left–right`);
+    parts.push(`${mmUp(s.x)} mm left–right`);
   }
   if (s.y > 0) {
-    parts.push(`${s.y.toFixed(1)} mm front–back`);
+    parts.push(`${mmUp(s.y)} mm front–back`);
   }
   if (s.z > 0) {
-    parts.push(`${s.z.toFixed(1)} mm in height`);
+    parts.push(`${mmUp(s.z)} mm in height`);
   }
   return parts.length > 0 ? `Doesn't fit: short by ${parts.join(" and ")}.` : null;
 }
@@ -6501,9 +6602,9 @@ git commit -m "Add summary panel with optimizer controls"
 
 **Interfaces:**
 
-- Consumes: `planFrame`, `planViewBox`, `levelsOf`, `traysAt`, `toSvgRect`, `clientToSvg`, `hitTest`, `labelFontSize` (Task 13); `numberParts`, `partsByKey`, `NumberedPart` (Task 13); `isLockable` (Task 1); `Box`, `Settings`, `TraySpec`.
+- Consumes: `planFrame`, `planViewBox`, `levelsOf`, `traysAt`, `toSvgRect`, `clientToSvg`, `hitTest`, `labelFontSize` (Task 13); `numberParts`, `partsByKey`, `outerSizeText`, `NumberedPart` (Task 13); `isLockable` (Task 1); `Box`, `Settings`, `TraySpec`.
 - Produces:
-  - `interface TrayDetailsProps { part: NumberedPart; locked: boolean; sizeLocked?: boolean; onToggleSizeLock?: () => void }`; `TrayDetails(props)` — number, label, outer size, layer, position, spacer target, position and size lock state, contents; with `onToggleSizeLock`, lockable trays get a "Lock size" / "Unlock size" button.
+  - `interface TrayDetailsProps { part: NumberedPart; settings: Settings; locked: boolean; sizeLocked?: boolean; onToggleSizeLock?: () => void }`; `TrayDetails(props)` — number, label, outer size (`outerSizeText`: the printed height, so a lipped tray's includes its lip, "… with its lip", like the over-bed notice), layer, position, spacer target, position and size lock state, contents; with `onToggleSizeLock`, lockable trays get a "Lock size" / "Unlock size" button.
   - `DRAG_THRESHOLD_PX = 6`
   - `interface PlanViewProps { trays: readonly TraySpec[]; box: Box; settings: Settings; lockedKeys: ReadonlySet<string>; selectedKey: string | null; onSelect: (key: string | null) => void; onSwap: (keyA: string, keyB: string) => void; onToggleLock: (key: string) => void; sizeLockedKeys: ReadonlySet<string>; onToggleSizeLock: (key: string) => void }`; `PlanView(props)` — size-locked trays show "size locked" and get ", size locked" in their label.
 
@@ -6721,6 +6822,13 @@ describe("PlanView", () => {
     expect(screen.queryByRole("button", { name: "Lock size" })).toBeNull();
   });
 
+  it("shows a lipped tray's printed height, lip included", () => {
+    setup({ selectedKey: "a:p0:0", trays: [{ ...A, h: 40, lip: true }, B, C] });
+    expect(screen.getByText("Outer size").nextElementSibling?.textContent).toBe(
+      `90.0 × 99.0 × ${(40 + DEFAULT_SETTINGS.lip.height).toFixed(1)} mm with its lip`,
+    );
+  });
+
   it("switches layers", () => {
     setup();
     fireEvent.click(screen.getByLabelText("2"));
@@ -6740,10 +6848,13 @@ Expected: FAIL — `Failed to resolve import "./plan.css?raw"` (and `./PlanView`
 ```tsx
 // src/ui/TrayDetails.tsx
 import { isLockable } from "../app/actions";
+import { outerSizeText } from "../instructions/numbering";
 import type { NumberedPart } from "../instructions/numbering";
+import type { Settings } from "../model/types";
 
 export interface TrayDetailsProps {
   part: NumberedPart;
+  settings: Settings;
   locked: boolean;
   /** The tray has a size lock (spec §5 `Lock.kind "size"`). */
   sizeLocked?: boolean;
@@ -6753,6 +6864,7 @@ export interface TrayDetailsProps {
 
 export function TrayDetails({
   part,
+  settings,
   locked,
   sizeLocked = false,
   onToggleSizeLock,
@@ -6765,7 +6877,7 @@ export function TrayDetails({
       <dl>
         <div>
           <dt>Outer size</dt>
-          <dd>{`${t.w.toFixed(1)} × ${t.d.toFixed(1)} × ${t.h.toFixed(1)} mm`}</dd>
+          <dd>{outerSizeText(t, settings)}</dd>
         </div>
         <div>
           <dt>Layer</dt>
@@ -7199,6 +7311,7 @@ export function PlanView(props: PlanViewProps) {
           <>
             <TrayDetails
               part={selectedPart}
+              settings={settings}
               locked={selectedLocked}
               sizeLocked={sizeLockedKeys.has(selectedPart.spec.key)}
               onToggleSizeLock={() => onToggleSizeLock(selectedPart.spec.key)}
@@ -7266,7 +7379,7 @@ export default defineConfig({
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/plan/PlanView.test.tsx`
-Expected: PASS (8 tests).
+Expected: PASS (9 tests).
 
 - [ ] **Step 5: Manual check on a touch device emulation**
 
@@ -7294,20 +7407,20 @@ git commit -m "Add plan view with drag, keyboard swap and lock"
 
 **Interfaces:**
 
-- Consumes: `GeometryClient` (Task 2; plan 3, roadmap §4.3: `build(spec, settings, signal?): Promise<{ mesh; volumeMm3 }>`, lazy worker; every failure rejects with a `GeometryBuildError` whose `name` is the reason: `"TraySpecError"`, `"UnsupportedFeatureError"` (with `feature`), `"AbortError"`, `"TimeoutError"` after `BUILD_TIMEOUT_MS` counted from the call, queue time included, `"WorkerError"`, or `"WorkerRestartedError"` for builds that waited while the worker was replaced), `GeometryBuildError` (`geometry/client`, tests only), `Mesh`, `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` (`geometry/types`, plan 3 Task 1, roadmap §4.3); `to3mf`, `toStl`, `zipFiles`, `partFileName`, `gridLayout` (`export`, plan 3); `numberParts`, `NumberedPart` (Task 13); `cubeMesh`, `makeTray` (Task 2, tests).
+- Consumes: `GeometryClient` (Task 2; plan 3, roadmap §4.3: `build(spec, settings, signal?): Promise<{ mesh; volumeMm3 }>`, lazy worker; every failure rejects with a `GeometryBuildError` whose `name` is the reason: `"TraySpecError"`, `"UnsupportedFeatureError"` (with `feature`), `"AbortError"`, `"TimeoutError"` after `BUILD_TIMEOUT_MS` counted from the call, queue time included, `"WorkerError"`, or `"WorkerRestartedError"` for builds that waited while the worker was replaced), `GeometryBuildError` (`geometry/client`, tests only), `Mesh`, `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS`, `KNOWN_FEATURE_TYPES` (`geometry/types`, plan 3 Task 1, roadmap §4.3); `to3mf`, `toStl`, `zipFiles`, `partFileName`, `gridLayout` (`export`, plan 3); `numberParts`, `NumberedPart` (Task 13); `nextMacrotask` (`util/macrotask`, plan 3: resolves on a later event-loop task through a `MessageChannel`, where nested `setTimeout(0)` is clamped to 4 ms); `cubeMesh`, `makeTray` (Task 2, tests).
 - Produces:
   - `unsupportedReason(spec: TraySpec): string | null` — `part`, compartment `kind` or feature `type` (of a compartment or of the part itself, `spec.features`) outside plan 3's `KNOWN_*` lists (newer-minor files, spec §9).
   - `buildErrorReason(e: unknown): string` — by `GeometryBuildError.name` (never `instanceof RangeError`): `"UnsupportedFeatureError"` → `Uses feature "<feature>" from a newer app version.`; `"TimeoutError"` → `Building this tray took too long.`; `"AbortError"` → `Cancelled.`; `"TraySpecError"` ("Tray <key>: …", an invalid spec) and others → their message. `isInvalidSpec(e): boolean` — `e.name === "TraySpecError"`.
   - `interface BuiltMesh { mesh: Mesh; volumeMm3: number }`; `class UnsupportedTrayError extends Error`
   - `interface MeshSource { get(spec: TraySpec, settings: Settings, signal?: AbortSignal): Promise<BuiltMesh>; reset(): void; dispose(): void }`; `MESH_CACHE_LIMIT = 64`; `MAX_IN_FLIGHT = 2`; `createMeshSource(load: () => Promise<GeometryClient>): MeshSource` — cached by `(spec, settings)`, failures are not cached, LRU-capped. Roadmap §4.3 contract: a build that fails with `"WorkerRestartedError"` or `"WorkerError"` is retried once; a spec that fails twice in a row (aborts aside; a success clears the count) is marked failed and rejects at once with its last error until `reset()`; at most `MAX_IN_FLIGHT` builds are in the worker at a time (the timeout counts queue time); the signal is passed to `build`, and a build still waiting for its turn when the signal aborts rejects without being sent.
   - `interface ExportPlan { parts: NumberedPart[]; skipped: { part: NumberedPart; reason: string }[] }`; `planExport(trays: readonly TraySpec[]): ExportPlan`
-  - `interface ExportProgress { done: number; total: number }`; `interface ExportOptions { getMesh: (spec: TraySpec) => Promise<BuiltMesh>; onProgress: (p: ExportProgress) => void; yieldToUi?: () => Promise<void> }`; `interface ExportOutput { data: Uint8Array; failed: { part: NumberedPart; reason: string }[]; included: number }`
-  - `GRID_GAP_MM = 5`; `yieldToUi(): Promise<void>`; `objectName(part: NumberedPart): string`; `meshFootprint(mesh: Mesh): { w: number; d: number }`; `usableBed(p: Printer): { x: number; y: number }`; `class NothingToExportError extends Error`
+  - `interface ExportProgress { done: number; total: number }`; `interface ExportOptions { getMesh: (spec: TraySpec) => Promise<BuiltMesh>; onProgress: (p: ExportProgress) => void; yieldToUi?: () => Promise<void> /* default `nextMacrotask`; tests pass an instant one */ }`; `interface ExportOutput { data: Uint8Array; failed: { part: NumberedPart; reason: string }[]; included: number }`
+  - `GRID_GAP_MM = 5`; `objectName(part: NumberedPart): string`; `meshFootprint(mesh: Mesh): { w: number; d: number }`; `usableBed(p: Printer): { x: number; y: number }`; `class NothingToExportError extends Error`
   - `buildPartsZip(parts: readonly NumberedPart[], opts: ExportOptions): Promise<ExportOutput>` (zip of one 3MF per part, `NN-<contents>.3mf`)
   - `buildCombined3mf(parts: readonly NumberedPart[], bed: { x: number; y: number }, opts: ExportOptions): Promise<ExportOutput>` (all parts in a grid at z = 0)
   - `buildStlZip(parts: readonly NumberedPart[], opts: ExportOptions): Promise<ExportOutput>`
 
-A part whose mesh fails (e.g. a `GeometryBuildError` named `"TraySpecError"` for an invalid spec) is reported in `failed` and the export continues with the others. The builders await `yieldToUi()` after every mesh and every written file, so a 25-part export keeps the page responsive and the progress bar moving.
+A part whose mesh fails (e.g. a `GeometryBuildError` named `"TraySpecError"` for an invalid spec) is reported in `failed` and the export continues with the others. The builders await `opts.yieldToUi ?? nextMacrotask` after every mesh and every written file (no `setTimeout` of their own), so a 25-part export keeps the page responsive and the progress bar moving.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -7592,11 +7705,8 @@ describe("export builders", () => {
     const out = await buildCombined3mf(
       parts,
       { x: 200, y: 200 },
-      {
-        getMesh: ok,
-        onProgress: vi.fn(),
-        yieldToUi: () => Promise.resolve(),
-      },
+      // no yieldToUi: the default, a real macrotask yield, completes the export too
+      { getMesh: ok, onProgress: vi.fn() },
     );
     expect(String.fromCharCode(out.data[0] ?? 0, out.data[1] ?? 0)).toBe("PK");
     expect(out.included).toBe(4);
@@ -7918,6 +8028,7 @@ import type { Mesh } from "../geometry/types";
 import { numberParts } from "../instructions/numbering";
 import type { NumberedPart } from "../instructions/numbering";
 import type { Printer, TraySpec } from "../model/types";
+import { nextMacrotask } from "../util/macrotask";
 import type { BuiltMesh } from "./meshes";
 import { buildErrorReason, unsupportedReason } from "./support";
 
@@ -7952,12 +8063,6 @@ export class NothingToExportError extends Error {
   }
 }
 
-export function yieldToUi(): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, 0);
-  });
-}
-
 export function planExport(trays: readonly TraySpec[]): ExportPlan {
   const parts: NumberedPart[] = [];
   const skipped: ExportPlan["skipped"] = [];
@@ -7987,6 +8092,10 @@ export function meshFootprint(mesh: Mesh): { w: number; d: number } {
   return { w, d };
 }
 
+/**
+ * The printable XY area, spec §5: `bedX − 2·bedMargin` by `bedY − 2·bedMargin`, the same rule as
+ * the layout's bed (`layout/context.ts` works in 0.01 mm units and floors them).
+ */
 export function usableBed(p: Printer): { x: number; y: number } {
   return { x: p.bedX - 2 * p.bedMargin, y: p.bedY - 2 * p.bedMargin };
 }
@@ -8000,7 +8109,7 @@ async function collect(
   parts: readonly NumberedPart[],
   opts: ExportOptions,
 ): Promise<{ built: Built[]; failed: ExportOutput["failed"] }> {
-  const pause = opts.yieldToUi ?? yieldToUi;
+  const pause = opts.yieldToUi ?? nextMacrotask;
   const total = parts.length;
   const built: Built[] = [];
   const failed: ExportOutput["failed"] = [];
@@ -8025,7 +8134,7 @@ export async function buildPartsZip(
   parts: readonly NumberedPart[],
   opts: ExportOptions,
 ): Promise<ExportOutput> {
-  const pause = opts.yieldToUi ?? yieldToUi;
+  const pause = opts.yieldToUi ?? nextMacrotask;
   const { built, failed } = await collect(parts, opts);
   const files: { name: string; data: Uint8Array }[] = [];
   for (const b of built) {
@@ -8063,7 +8172,7 @@ export async function buildStlZip(
   parts: readonly NumberedPart[],
   opts: ExportOptions,
 ): Promise<ExportOutput> {
-  const pause = opts.yieldToUi ?? yieldToUi;
+  const pause = opts.yieldToUi ?? nextMacrotask;
   const { built, failed } = await collect(parts, opts);
   const files: { name: string; data: Uint8Array }[] = [];
   for (const b of built) {
@@ -8080,7 +8189,7 @@ export async function buildStlZip(
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/app/meshes.test.ts src/app/exportBuild.test.ts`
-Expected: PASS (15 tests).
+Expected: PASS (16 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -9085,6 +9194,7 @@ export function Viewer(p: ViewerProps) {
       {selected ? (
         <TrayDetails
           part={selected}
+          settings={p.settings}
           locked={p.lockedKeys.has(selected.spec.key)}
           sizeLocked={p.sizeLockedKeys?.has(selected.spec.key) ?? false}
           onToggleSizeLock={
@@ -9126,11 +9236,11 @@ git commit -m "Add lazy three.js viewer with explode, layers and picking"
 
 **Interfaces:**
 
-- Consumes: `planFrame`, `planViewBox`, `levelsOf`, `traysAt`, `spacersAt`, `toSvgRect`, `labelFontSize` (Task 13); `numberParts`, `partsByKey`, `NumberedPart` (Task 13); `Project`, `StoredLayout`.
+- Consumes: `planFrame`, `planViewBox`, `levelsOf`, `traysAt`, `spacersAt`, `toSvgRect`, `labelFontSize` (Task 13); `numberParts`, `partsByKey`, `outerSizeText`, `NumberedPart` (Task 13); `Project`, `Settings`, `StoredLayout`.
 - Produces:
   - `escapeXml(s: string): string`
   - `render(layout: StoredLayout, project: Project): string[]` — one standalone SVG document per layer (spec §4 `render(layout, project) → SVG[]`), bottom layer first, numbered parts, box outline, "FRONT" marker, the layer below as dashed outlines, spacers hatched.
-  - `interface PartRow { number: number; label: string; size: string; layer: number; contents: string[]; goesInto: number | null }`; `whatGoesWhere(layout: StoredLayout): PartRow[]`
+  - `interface PartRow { number: number; label: string; size: string; layer: number; contents: string[]; goesInto: number | null }`; `whatGoesWhere(layout: StoredLayout, settings: Settings): PartRow[]` (`size` is `outerSizeText`, the printed height with the lip, like the tray details and plan 4's notices)
   - `packingSteps(layout: StoredLayout): string[]` — bottom layer first, each spacer right after its tray.
   - `svgDataUrl(svg: string): string`; `pngSize(svg: string, widthPx: number): { width: number; height: number }`; `svgToPng(svg: string, widthPx?: number): Promise<Blob>` (canvas, white background).
 
@@ -9141,10 +9251,21 @@ git commit -m "Add lazy three.js viewer with explode, layers and picking"
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
+import { DEFAULT_SETTINGS } from "../model/settings";
 import { pngSize, svgDataUrl } from "./png";
 import { escapeXml, packingSteps, render, whatGoesWhere } from "./render";
 
-const bottom = makeTray({ key: "a:p0:0", stack: 0, level: 0, x: 0, y: 0, w: 120, d: 90, h: 30 });
+const bottom = makeTray({
+  key: "a:p0:0",
+  stack: 0,
+  level: 0,
+  x: 0,
+  y: 0,
+  w: 120,
+  d: 90,
+  h: 30,
+  lip: true, // the top tray stands on it
+});
 const spacer = makeTray({
   key: "a:p0:0:spacer",
   part: "spacer",
@@ -9225,14 +9346,18 @@ describe("packing order and parts list", () => {
   });
 
   it("lists what goes where", () => {
-    const rows = whatGoesWhere(layout);
+    const rows = whatGoesWhere(layout, DEFAULT_SETTINGS);
     expect(rows.map((r) => [r.number, r.layer, r.goesInto])).toEqual([
       [1, 1, null],
       [2, 1, 1],
       [3, 2, null],
       [4, 1, null],
     ]);
-    expect(rows[0]?.size).toBe("120.0 × 90.0 × 30.0 mm");
+    // the lipped bottom tray prints taller than its h: 30 + the lip height
+    expect(rows[0]?.size).toBe(
+      `120.0 × 90.0 × ${(30 + DEFAULT_SETTINGS.lip.height).toFixed(1)} mm with its lip`,
+    );
+    expect(rows[3]?.size).toBe("100.0 × 90.0 × 55.0 mm");
     expect(rows[2]?.contents).toEqual(["<Coins> & gems"]);
   });
 });
@@ -9257,7 +9382,7 @@ Expected: FAIL — `Failed to resolve import "./png"` / `"./render"`.
 
 ```ts
 // src/instructions/render.ts
-import type { Project, StoredLayout } from "../model/types";
+import type { Project, Settings, StoredLayout } from "../model/types";
 import {
   labelFontSize,
   levelsOf,
@@ -9268,7 +9393,7 @@ import {
   traysAt,
 } from "../plan/layers";
 import type { PlanFrame, ViewBox } from "../plan/layers";
-import { numberParts, partsByKey } from "./numbering";
+import { numberParts, outerSizeText, partsByKey } from "./numbering";
 import type { NumberedPart } from "./numbering";
 
 export function escapeXml(s: string): string {
@@ -9368,12 +9493,12 @@ function layerNumber(levels: number[], level: number): number {
   return levels.indexOf(level) + 1;
 }
 
-export function whatGoesWhere(layout: StoredLayout): PartRow[] {
+export function whatGoesWhere(layout: StoredLayout, settings: Settings): PartRow[] {
   const levels = levelsOf(layout.trays);
   return numberParts(layout.trays).map((p) => ({
     number: p.number,
     label: p.label,
-    size: `${p.spec.w.toFixed(1)} × ${p.spec.d.toFixed(1)} × ${p.spec.h.toFixed(1)} mm`,
+    size: outerSizeText(p.spec, settings),
     layer: layerNumber(levels, p.spec.level),
     contents: p.spec.compartments.filter((c) => c.contents !== "").map((c) => c.contents),
     goesInto: p.parentNumber,
@@ -9470,7 +9595,7 @@ git commit -m "Add assembly diagrams, packing order and PNG helpers"
 
 **Interfaces:**
 
-- Consumes: `render`, `packingSteps`, `whatGoesWhere` (Task 19); `svgDataUrl`, `svgToPng` (Task 19); `downloadBlob`, `fileSlug` (Task 12); `Project`, `StoredLayout`.
+- Consumes: `render`, `packingSteps`, `whatGoesWhere` (Task 19); `svgDataUrl`, `svgToPng` (Task 19); `downloadBlob`, `fileSlug` (Task 12); `errorText` (Task 2); `Project`, `StoredLayout`.
 - Produces:
   - `interface AssemblyPageProps { project: Project; layout: StoredLayout; onBack: () => void; print?: () => void; toPng?: (svg: string, widthPx: number) => Promise<Blob>; download?: (blob: Blob, filename: string) => void }`
   - `AssemblyPage(props)` — toolbar (Back, Print / save as PDF) marked `no-print`; packing order list; one figure per layer (`<img>` of the SVG with alt text) with a "Download PNG" button (`<project>-layer-<n>.png`); "What goes where" table.
@@ -9565,6 +9690,7 @@ Expected: FAIL — `Failed to resolve import "./AssemblyPage"`.
 import { useMemo, useState } from "preact/hooks";
 import { downloadBlob, fileSlug } from "../app/download";
 import type { Project, StoredLayout } from "../model/types";
+import { errorText } from "../util/errors";
 import { svgDataUrl, svgToPng } from "./png";
 import { packingSteps, render, whatGoesWhere } from "./render";
 
@@ -9582,7 +9708,10 @@ const PNG_WIDTH_PX = 1600;
 export function AssemblyPage(p: AssemblyPageProps) {
   const svgs = useMemo(() => render(p.layout, p.project), [p.layout, p.project]);
   const steps = useMemo(() => packingSteps(p.layout), [p.layout]);
-  const rows = useMemo(() => whatGoesWhere(p.layout), [p.layout]);
+  const rows = useMemo(
+    () => whatGoesWhere(p.layout, p.project.settings),
+    [p.layout, p.project.settings],
+  );
   const [pngError, setPngError] = useState<string | null>(null);
   const slug = fileSlug(p.project.name);
   const { box } = p.project;
@@ -9593,7 +9722,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
       const blob = await (p.toPng ?? svgToPng)(svg, PNG_WIDTH_PX);
       (p.download ?? downloadBlob)(blob, `${slug}-layer-${layer}.png`);
     } catch (e) {
-      setPngError(`Couldn't make the PNG: ${e instanceof Error ? e.message : String(e)}`);
+      setPngError(`Couldn't make the PNG: ${errorText(e)}`);
     }
   }
 
@@ -9702,12 +9831,15 @@ git commit -m "Add printable assembly page with PNG per layer"
 **Files:**
 
 - Modify (replace contents): `src/app/App.tsx`, `src/app/App.test.tsx`, `src/main.tsx`, `src/style.css`, `index.html` (all created as placeholders by plan 1 Task 1)
+- Modify (replace contents): `src/app/App.release.test.tsx` (added after plan 1, commit `8117313`: it renders `<App />` with no props, which no longer type-checks once `store` and `meshes` are required)
+- Create: `src/app/test-app.tsx` (test-only: renders the App on a real store with stubs, shared by the two App test files)
 
 **Interfaces:**
 
-- Consumes: everything above — `AppStore`, `connectWindow`, `createAppStore` (Task 5); `createMeshSource`, `MeshSource` (Task 16); `loadLayoutClient`, `loadGeometryClient` (Task 2); `canOptimize` (Task 3); `CONFLICT_CODE` (Task 4); actions (Task 1); `copyLink`, `shareLink`, `CopyLinkResult`, `downloadBlob` (Task 12); `ValidationContext` (Task 6); `BoxForm`, `PrinterForm` (Task 7); `SettingsForm` (Task 8); `ComponentList` (Task 11); `ProjectMenu` (Task 12); `Summary` (Task 14); `PlanView` (Task 15); `ExportPanel` (Task 17); `Viewer`, `ViewerProps` (Task 18); `AssemblyPage` (Task 20); `encodeHash`, `exportJsonFile`, `jsonFileName`, `createProjectStore` (`share`); `APP_VERSION`, `isPreview` (`model/version`).
+- Consumes: everything above — `AppStore`, `connectWindow`, `createAppStore` (Task 5); `createMeshSource`, `MeshSource` (Task 16); `loadLayoutClient`, `loadGeometryClient` (Task 2); `canOptimize` (Task 3); `CONFLICT_CODE` (Task 4); actions (Task 1); `copyLink`, `shareLink`, `CopyLinkResult`, `downloadBlob` (Task 12); `ValidationContext` (Task 6); `BoxForm`, `PrinterForm` (Task 7); `SettingsForm` (Task 8); `ComponentList` (Task 11); `ProjectMenu` (Task 12); `Summary` (Task 14); `PlanView` (Task 15); `ExportPanel` (Task 17); `Viewer`, `ViewerProps` (Task 18); `AssemblyPage` (Task 20); `encodeHash`, `exportJsonFile`, `jsonFileName`, `createProjectStore` (`share`); `APP_VERSION`, `isPreview` (`model/version`); `createProjectStore`, `MemoryStorage` and the stubs of Task 2 in `test-app.tsx`.
 - Produces:
   - `interface AppProps { store: AppStore; meshes: MeshSource; clipboard?: (text: string) => Promise<void>; currentHref?: () => string; confirm?: (message: string) => boolean; download?: (blob: Blob, filename: string) => void; viewerProps?: Pick<ViewerProps, "webgl" | "loadScene"> }`; `App(props)`.
+  - `renderApp(hash = ""): { store: AppStore; stub: ReturnType<typeof stubLayoutClient>; clipboard: Mock<(text: string) => Promise<void>> }` (`src/app/test-app.tsx`, tests only): `createAppStore` with a stub layout client (`stubLayoutClient`), `createProjectStore(new MemoryStorage())`, `store.start(hash)`, a fake `MeshSource`, a fake clipboard and `viewerProps={{ webgl: () => false }}`. `App.test.tsx` and `App.release.test.tsx` both render through it; `App` always needs its `store` and `meshes`.
   - `src/main.tsx` wires real dependencies: `createProjectStore()`, `loadLayoutClient`, `history.replaceState`, `window.confirm`, `createMeshSource(loadGeometryClient)`, `store.start(location.hash)`, `connectWindow(store, window)`.
 
 Page structure (spec §8.1): header (title, Simple ⇄ Advanced, preview banner, project menu, app notices with conflict actions); `main.workspace` with `.inputs` (Box → Printer → Components → Settings) and `.results` (Summary, Plan view, 3D view, Export + "Open the assembly page"); footer (version, third-party licenses link, all apps). Two columns above 960 px, one below; 16 px side gutter; nothing wider than the viewport.
@@ -9715,28 +9847,18 @@ Page structure (spec §8.1): header (title, Simple ⇄ Advanced, preview banner,
 - [ ] **Step 1: Write the failing test (replace plan 1's placeholder test)**
 
 ```tsx
-// src/app/App.test.tsx
-// @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { inputsHash } from "../model/hash";
-import { createProjectStore, encodeHash } from "../share";
+// src/app/test-app.tsx
+// Test-only: the App on a real store with stubbed clients. Imported only from *.test.tsx files.
+import { render } from "@testing-library/preact";
+import { vi } from "vitest";
+import { createProjectStore } from "../share";
 import { MemoryStorage } from "../test-support/memory-storage";
 import { App } from "./App";
 import type { MeshSource } from "./meshes";
 import { createAppStore } from "./store";
-import {
-  EMPTY_FOREIGN,
-  cubeMesh,
-  fixtureProject,
-  makeLayout,
-  makeTray,
-  stubLayoutClient,
-} from "./test-helpers";
+import { cubeMesh, stubLayoutClient } from "./test-helpers";
 
-afterEach(cleanup);
-
-function setup(hash = "") {
+export function renderApp(hash = "") {
   const stub = stubLayoutClient();
   const store = createAppStore({
     projectStore: createProjectStore(new MemoryStorage()),
@@ -9764,6 +9886,20 @@ function setup(hash = "") {
   );
   return { store, stub, clipboard };
 }
+```
+
+```tsx
+// src/app/App.test.tsx
+// @vitest-environment jsdom
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
+import { afterEach, describe, expect, it } from "vitest";
+import { inputsHash } from "../model/hash";
+import { APP_VERSION } from "../model/version";
+import { encodeHash } from "../share";
+import { EMPTY_FOREIGN, fixtureProject, makeLayout, makeTray } from "./test-helpers";
+import { renderApp } from "./test-app";
+
+afterEach(cleanup);
 
 function withLayoutHash(): string {
   const p = fixtureProject();
@@ -9776,7 +9912,7 @@ function withLayoutHash(): string {
 
 describe("App", () => {
   it("lays out inputs then results with the preview banner and footer", () => {
-    setup();
+    renderApp();
     const inputs = screen.getByRole("region", { name: "Inputs" });
     expect(
       within(inputs)
@@ -9787,28 +9923,28 @@ describe("App", () => {
     expect(within(results).getByRole("heading", { name: "Summary" })).toBeTruthy();
     expect(screen.getByText(/shared links may break/)).toBeTruthy();
     const footer = screen.getByRole("contentinfo");
-    expect(footer.textContent).toContain("v0.1.0");
+    expect(footer.textContent).toContain(`v${APP_VERSION}`);
     expect(
       within(footer).getByRole("link", { name: "Third-party licenses" }).getAttribute("href"),
     ).toBe("./third-party-licenses.txt");
   });
 
   it("switches to advanced inputs", () => {
-    setup();
+    renderApp();
     expect(screen.queryByLabelText(/Bed margin/)).toBeNull();
     fireEvent.click(screen.getByLabelText("Advanced"));
     expect(screen.getByLabelText(/Bed margin/)).toBeTruthy();
   });
 
   it("adds a component and starts an optimizer run after the pause", async () => {
-    const { stub } = setup();
+    const { stub } = renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Add cards" }));
     expect(screen.getByRole("heading", { name: "Cards: Cards" })).toBeTruthy();
     await waitFor(() => expect(stub.calls).toHaveLength(1));
   });
 
   it("shows plan, 3D fallback and export for a stored layout and swaps with the keyboard", () => {
-    const { store, stub } = setup(withLayoutHash());
+    const { store, stub } = renderApp(withLayoutHash());
     expect(stub.calls).toHaveLength(0);
     expect(screen.getByRole("heading", { name: "Plan view" })).toBeTruthy();
     expect(screen.getByText(/needs WebGL/)).toBeTruthy();
@@ -9823,7 +9959,7 @@ describe("App", () => {
   });
 
   it("locks and unlocks a tray's size from the tray details", () => {
-    const { store } = setup(withLayoutHash());
+    const { store } = renderApp(withLayoutHash());
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Lock size" }));
     expect(store.state.project.value.locks).toEqual([
@@ -9835,7 +9971,7 @@ describe("App", () => {
   });
 
   it("opens the assembly page and comes back", () => {
-    setup(withLayoutHash());
+    renderApp(withLayoutHash());
     fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/— assembly$/);
     fireEvent.click(screen.getByRole("button", { name: "Back to the editor" }));
@@ -9843,12 +9979,40 @@ describe("App", () => {
   });
 
   it("copies a share link built from the current page", async () => {
-    const { clipboard } = setup();
+    const { clipboard } = renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
     await waitFor(() => expect(clipboard).toHaveBeenCalled());
     expect(clipboard.mock.calls[0]?.[0]).toMatch(
       /^https:\/\/example\.test\/insert-generator\/#1\./,
     );
+  });
+});
+```
+
+```tsx
+// src/app/App.release.test.tsx
+// @vitest-environment jsdom
+import { cleanup, screen } from "@testing-library/preact";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { renderApp } from "./test-app";
+
+vi.mock("../model/version", async (orig) => ({
+  ...(await orig<typeof import("../model/version")>()),
+  APP_VERSION: "1.0.0",
+}));
+
+afterEach(cleanup);
+
+describe("App shell for a release version", () => {
+  it("hides the preview banner", () => {
+    renderApp();
+    // a text query: the 3D view's no-WebGL fallback is a role="note" too
+    expect(screen.queryByText(/shared links may break/)).toBeNull();
+  });
+
+  it("shows the release version in the footer", () => {
+    renderApp();
+    expect(screen.getByRole("contentinfo").textContent).toContain("v1.0.0");
   });
 });
 ```
@@ -10785,8 +10949,8 @@ input[aria-invalid="true"] {
 
 - [ ] **Step 5: Run the tests and the repo checks**
 
-Run: `npx vitest run src/app/App.test.tsx && npx tsc --noEmit`
-Expected: PASS (7 tests); no type errors.
+Run: `npx vitest run src/app/App.test.tsx src/app/App.release.test.tsx && npx tsc --noEmit`
+Expected: PASS (7 + 2 tests); no type errors (`App.release.test.tsx` renders through `renderApp`, so it no longer calls `<App />` without its required props).
 
 Run (repo root): `npx stylelint "**/*.css" && npx html-validate index.html`
 Expected: no output (both clean).
@@ -10804,7 +10968,7 @@ Expected: no output (both clean).
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/app/App.tsx src/app/App.test.tsx src/main.tsx src/style.css index.html
+git add src/app/App.tsx src/app/App.test.tsx src/app/App.release.test.tsx src/app/test-app.tsx src/main.tsx src/style.css index.html
 git commit -m "Wire the app shell, entry point and styles"
 ```
 
@@ -10828,7 +10992,7 @@ git commit -m "Wire the app shell, entry point and styles"
   - `interface DependencyInfo { name?: string | null; version?: string | null; license?: string | null; licenseText?: string | null; noticeText?: string | null }`; `interface LicenseEntry { name: string; version: string; license: string; text: string }`
   - `REQUIRED_PACKAGES = ["manifold-3d", "Clipper2", "three", "preact", "@preact/signals", "fflate"]`
   - `toEntries(deps: readonly DependencyInfo[]): LicenseEntry[]`; `renderLicenses(entries: readonly LicenseEntry[], appName: string): string`; `missingPackages(text: string, required: readonly string[]): string[]`
-  - `LICENSES_FILE = "third-party-licenses.txt"`; `licensePlugin(): Plugin` (build only) writing `dist/third-party-licenses.txt`, linked from the footer (Task 21). manifold-3d (Apache-2.0 + NOTICE) and Clipper2 (BSL-1.0) are added by hand because they live only in the geometry worker bundle, which the main-bundle plugin never sees. The build fails if any required package is missing.
+  - `LICENSES_FILE = "third-party-licenses.txt"`; `licensePlugin(): Plugin` (build only) writing `dist/third-party-licenses.txt`, linked from the footer (Task 21). manifold-3d (Apache-2.0, and its NOTICE if the package ships one) and Clipper2 (BSL-1.0) are added by hand because they live only in the geometry worker bundle, which the main-bundle plugin never sees. The build fails if any required package is missing.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -11088,11 +11252,11 @@ export function licensePlugin(): Plugin {
 }
 ```
 
-Edit `tsconfig.node.json` (plan 1): add `licenses.config.ts` to `include`. The whole file afterwards:
+Edit `tsconfig.node.json` (plan 1): add `licenses.config.ts` to `include` and keep `extends` as it is, `./tsconfig.base.json` (this repo is standalone: the base file sits next to it). The whole file afterwards:
 
 ```json
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
     "types": ["node"]
@@ -11162,7 +11326,7 @@ git commit -m "Ship a third-party licenses file with the build"
 
 - Consumes: the built `dist/` (Tasks 21–22), Node 22 built-ins only (`node:http`, `node:fs/promises`, `node:path`, `node:process`), global `fetch`.
 - Produces: `node scripts/smoke-dist.mjs [distDir]` — exits 0 and prints `smoke-dist: OK …`, or exits 1 listing every problem. Checks (spec §11 "Build"):
-  1. `index.html` exists; every `src`/`href` in it is relative (no leading `/`, `//` or scheme) and loads with HTTP 200 when the page is served from `/static-web-`.
+  1. `index.html` exists; every `src`/`href` in it is relative (no leading `/`, `//` or scheme) and loads with HTTP 200 when the page is served from the deploy subpath `/static-web-apps/insert-generator/` (the `BASE` constant).
   2. At least one `.wasm` and at least two worker scripts (`*worker*.js`: layout + geometry) exist in `dist/`, each is referenced by name from some `.js` file, and each loads with 200 (`.wasm` with `content-type: application/wasm`).
   3. No `.html`, `.js` or `.css` file references an absolute `/assets/…` path.
   4. `third-party-licenses.txt` exists and names manifold-3d, Clipper2, three, preact, @preact/signals and fflate.
@@ -11312,8 +11476,8 @@ Expected: FAIL — every case reports a non-zero status with `Cannot find module
 //
 //   node scripts/smoke-dist.mjs [distDir]
 //
-// Serves dist/ from a subpath, the way GitHub Pages does
-// (/static-web-), and checks that index.html only uses
+// Serves dist/ from the deploy subpath, the way GitHub Pages does
+// (/static-web-apps/insert-generator/), and checks that index.html only uses
 // relative asset URLs that load, that the layout and geometry workers and the
 // manifold WASM exist and are referenced by name, that no file points at an
 // absolute /assets/ path, and that the third-party licenses file is complete.
@@ -11326,7 +11490,9 @@ import { readFile, readdir } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 
-const BASE = "/static-web-";
+const BASE = "/static-web-apps/insert-generator/";
+// Keep in step with REQUIRED_PACKAGES in src/licenses/renderLicenses.ts, the source of truth
+// (this plain Node script cannot import that TypeScript module).
 const REQUIRED_LICENSES = [
   "manifold-3d",
   "Clipper2",
@@ -11495,7 +11661,7 @@ In `package.json`, change only the `build` script (plan 1's value plus the smoke
 ```
 
 Run: `npm run build`
-Expected: all tests pass, both `tsc` runs print nothing, Vite prints `✓ built`, and the last line is `smoke-dist: OK (…/dist served from /static-web-)`. Two Vite warnings are expected and harmless: `Module "node:module" has been externalized for browser compatibility` (manifold's Node-only branch, plan 3) and "Some chunks are larger than 500 kB" for the lazily loaded three.js chunk (`scene-<hash>.js`, ≈ 550 kB, loaded only when the 3D view opens). If it reports fewer than two worker scripts, list `dist/assets` and check the worker file names: Vite names worker chunks after their source file (`worker-<hash>.js` for both `layout/worker.ts` and `geometry/worker.ts`).
+Expected: all tests pass, both `tsc` runs print nothing, Vite prints `✓ built`, and the last line is `smoke-dist: OK (…/dist served from /static-web-apps/insert-generator/)`. Two Vite warnings are expected and harmless: `Module "node:module" has been externalized for browser compatibility` (manifold's Node-only branch, plan 3) and "Some chunks are larger than 500 kB" for the lazily loaded three.js chunk (`scene-<hash>.js`, ≈ 550 kB, loaded only when the 3D view opens). If it reports fewer than two worker scripts, list `dist/assets` and check the worker file names: Vite names worker chunks after their source file (`worker-<hash>.js` for both `layout/worker.ts` and `geometry/worker.ts`).
 
 - [ ] **Step 6: Bulk-build smoke test of the geometry timeout**
 
@@ -11559,7 +11725,7 @@ git commit -m "Add a build smoke test of dist served from a subpath"
 
 **Files:**
 
-- Modify (replace contents): `README.md` (app folder), `app.json`
+- Modify (replace contents): `README.md`, `app.json`
 
 **Interfaces:**
 
@@ -11582,13 +11748,15 @@ Expected: exit status 1 (plan 1's placeholder README and app.json don't contain 
 
 - [ ] **Step 3: Replace `README.md`**
 
+The new file keeps the current README's `npm run verify` line, its `tsconfig` / `typecheck` paragraph and its "Publishing" section (the git submodule at `apps/insert-generator` in `igorzamyslov/static-web-apps`) word for word; only the links are repo-relative (`docs/…`, `tsconfig.base.json`).
+
 ````markdown
 # insert-generator
 
 Built app: **Vite + TypeScript + Preact (signals)**. Turns a board game box and
 its components into a 3D-printable insert: trays that tile the box, stack with
 a locating lip, open upward and fit the print bed. Exports 3MF/STL and a
-printable assembly page. Design: [`docs/superpowers/specs/2026-10-11-boardgame-insert-generator-design.md`](../../docs/superpowers/specs/2026-10-11-boardgame-insert-generator-design.md).
+printable assembly page. Design: [`docs/superpowers/specs/2026-10-11-boardgame-insert-generator-design.md`](docs/superpowers/specs/2026-10-11-boardgame-insert-generator-design.md).
 
 Status: **preview (0.x)**: saved projects and shared links may break between
 versions.
@@ -11597,7 +11765,8 @@ versions.
 npm install
 npm run dev        # dev server
 npm test           # vitest run (unit + jsdom component tests + script tests)
-npm run build      # vitest run && tsc --noEmit && vite build && smoke test of dist/
+npm run verify     # lint + format check + build (what CI runs)
+npm run build      # vitest run && tsc (app + node configs) && vite build → dist/ && smoke test of dist/
 npm run preview    # serve the production build
 ```
 
@@ -11633,7 +11802,7 @@ inputs no longer match the project is discarded. `app/persistence.ts` autosaves
 opens links and files as separate projects (a different project with the same
 id becomes a copy) and pauses autosave if another tab saved the same project.
 A project with a stored layout is never re-optimized on load; if its inputs
-changed, an "Inputs changed — re-optimize?" notice appears instead. Meshes are
+changed, an "Inputs changed since this layout was made — re-optimize?" notice appears instead. Meshes are
 built on demand by the geometry worker and cached in `app/meshes.ts`.
 
 ## How to add a component kind
@@ -11665,8 +11834,8 @@ built on demand by the geometry worker and cached in `app/meshes.ts`.
 
 ## Build smoke test and its limits
 
-`scripts/smoke-dist.mjs` serves `dist/` from `/static-web-`
-with a tiny `node:http` server and checks that `index.html` only uses relative
+`scripts/smoke-dist.mjs` serves `dist/` from `/static-web-apps/insert-generator/`
+(the deploy subpath) with a tiny `node:http` server and checks that `index.html` only uses relative
 URLs that load, that the layout and geometry worker scripts and the manifold
 WASM exist and are referenced by name, that nothing points at `/assets/`
 absolutely, and that `third-party-licenses.txt` names every bundled library.
@@ -11675,8 +11844,17 @@ manual check in the UI plan (import a fixture, export, open the link) before a
 release.
 
 `vite.config.ts` sets `base: "./"` for subpath hosting and defines
-`__APP_VERSION__` from `package.json`. TypeScript strictness comes from the
-repo's [`tsconfig.base.json`](../../tsconfig.base.json).
+`__APP_VERSION__` from `package.json`. TypeScript strictness comes from
+[`tsconfig.base.json`](tsconfig.base.json). `tsconfig.json`
+checks the browser code in `src/` (no Node types); `tsconfig.node.json` checks
+the config files that run in Node. `npm run typecheck` runs both.
+
+## Publishing
+
+This app is published to GitHub Pages through
+[igorzamyslov/static-web-apps](https://github.com/igorzamyslov/static-web-apps),
+where it is a git submodule at `apps/insert-generator`. A new version goes live
+when that repo's submodule pointer is bumped to a commit of this one.
 ````
 
 - [ ] **Step 4: Run the check and the formatter**
@@ -11709,20 +11887,20 @@ git commit -m "Document the insert generator UI and architecture"
 Run (repo root): `npm run verify`
 Expected: ESLint, Stylelint and html-validate print no errors; Prettier prints `All matched files use Prettier code style!`; the build ends with `smoke-dist: OK …`.
 
-If Prettier fails, run `npx prettier --write .` and re-run. If ESLint reports `curly`, `eqeqeq`, `prefer-template` or `no-param-reassign`, fix the code the way the rule says (never disable the rule).
+`src/layout/bed-lip.test.ts` (plan 4) takes about 2 s alone and about 6 s under the full parallel run, so its "case1 … derived-seed chain" test carries an explicit 30 s timeout; any other test that times out under load gets the same fix, never a retry. If Prettier fails, run `npx prettier --write .` and re-run. If ESLint reports `curly`, `eqeqeq`, `prefer-template` or `no-param-reassign`, fix the code the way the rule says (never disable the rule).
 
 - [ ] **Step 2: Manual end-to-end check in a real browser**
 
-1. `npm run build && npx vite preview --base /static-web- --port 4173`, open `http://localhost:4173/static-web-` in Chrome (real subpath, real workers and WASM).
+1. `npm run build && npx vite preview --base /static-web-apps/insert-generator/ --port 4173`, open `http://localhost:4173/static-web-apps/insert-generator/` in Chrome (the real deploy subpath, real workers and WASM).
 2. **Import:** Project menu → "Import JSON…" → choose `test/fixtures/cards-heavy.json`. Expected: the project name changes, inputs fill in, the summary shows "Optimizing… N%" and then fill %, trays, stacks, "≤ N g (upper bound…)" and play per axis; the plan view and 3D view appear.
 3. **No re-optimize on reload:** reload the page. Expected: the same layout appears at once, no "Optimizing…".
-4. **Lock & swap:** in the plan view, drag tray 1 onto tray 2 (mouse). Expected: both show "locked", a re-optimize runs, the trays have traded places. Then select tray 3, click "Lock position": its label gets ", locked". Click "Undo layout": the previous layout returns and the "Inputs changed — re-optimize?" notice offers "Re-optimize now".
+4. **Lock & swap:** in the plan view, drag tray 1 onto tray 2 (mouse). Expected: both show "locked", a re-optimize runs, the trays have traded places. Then select tray 3, click "Lock position": its label gets ", locked". Click "Undo layout": the previous layout returns and the "Inputs changed since this layout was made — re-optimize?" notice offers "Re-optimize now".
 5. **Edit storm:** in Box → Inner width type `2`, `29`, `290,5` quickly. Expected: one "Optimizing…" after you stop typing, no error message while typing `290,`.
 6. **Export:** Export → "3MF per part (.zip)". Expected: a progress bar "Building meshes k/N…", then `<name>-3mf-parts.zip` downloads; unzip it: files `01-….3mf`, `02-….3mf`, …; open one in PrusaSlicer or Bambu Studio: a single upright tray in millimetres. Also try "One combined 3MF" (all parts in a grid at z = 0) and "STL files (.zip)".
 7. **Assembly page:** "Open the assembly page". Expected: packing order (bottom first), one numbered picture per layer, the "What goes where" table. Click "Download PNG of layer 1" (PNG downloads), then "Print / save as PDF": the print preview shows only the assembly content, each layer on one page. "Back to the editor".
-8. **Share link:** Project menu → "Copy link". Expected: "Link copied." (or the long-link warning with "Download JSON instead" if the whole link exceeds 2 000 characters). Open a new tab, paste the link. Expected: the same layout appears at once, without optimizing; the project list in both tabs now has the project once (same id, same content). Edit the name in the first tab, then edit the box width in the second tab and wait a second: the first tab shows "This project was changed in another tab…" with "Keep my version" / "Load the other tab's version".
+8. **Share link:** Project menu → "Copy link". Expected: "Link copied." (or the long-link warning with "Download JSON instead" if the whole link exceeds 2 000 characters; the largest fixture, `test/fixtures/tiles-minis.json`, is expected to give that warning: its link is ≈ 2 014 characters on the deploy URL). Open a new tab, paste the link. Expected: the same layout appears at once, without optimizing; the project list in both tabs now has the project once (same id, same content). Edit the name in the first tab, then edit the box width in the second tab and wait a second: the first tab shows "This project was changed in another tab…" with "Keep my version" / "Load the other tab's version".
 9. **Broken link:** change one character in the middle of the URL hash and press Enter. Expected: an error notice "Couldn't open this link: …" and the current project stays.
-10. **Licenses:** footer → "Third-party licenses": the text file lists manifold-3d (Apache-2.0 and its NOTICE), Clipper2 (BSL-1.0), three, preact, @preact/signals and fflate.
+10. **Licenses:** footer → "Third-party licenses": the text file lists manifold-3d (Apache-2.0, and its NOTICE if the package ships one), Clipper2 (BSL-1.0), three, preact, @preact/signals and fflate.
 11. **Mobile:** DevTools device toolbar (iPhone 12): one column, no horizontal scroll, dragging a tray in the plan swaps instead of scrolling.
 12. **No WebGL:** start Chrome with `--disable-webgl` (or `chrome://flags` → WebGL off), reload: the 3D panel says "The 3D preview needs WebGL…", everything else works.
 
@@ -11741,7 +11919,7 @@ git commit -m "Fix issues found in the end-to-end check"
 
 None to the names, types or signatures in roadmap §4. This plan relies on these additive exports and conventions from the final plans 1–4, and records two clarifications:
 
-1. **Imports used (all exist in plans 1–4):** `share/index.ts` (`encodeHash`, `decodeHash`, `createProjectStore(storage?: Storage | null)`, `ProjectStore`, `ProjectListEntry`, `StoreWriteError`, `exportJsonFile`, `importJsonText`, `jsonFileName`, `LINK_MAX_URL_CHARS`); `model/schema.ts` `noForeign()`; `model/validate.ts` `SETTING_RANGES`; `model/defaults.ts` `DEFAULT_BOX`, `DEFAULT_PRINTER`, `KIND_NAMES`; `model/settings.ts` `WALL_CHOICES`, `FIT_CHOICES`; `model/version.ts` `isPreview`; `layout/index.ts` `swapLocks(locks, keyA, keyB, layout)`, `summarize`, `DEFAULT_ITERATIONS`; `layout/client.ts` `LayoutClient` (and `LayoutCancelledError`, matched by `name` so the lazily loaded client isn't imported statically); `geometry/client.ts` `GeometryClient`, `GeometryBuildError` (tests; the app matches errors by `name`); `geometry/version.ts` `isOlderGeometryLine`; `test-support/memory-storage.ts` `MemoryStorage` (tests only). The page never imports `geometry/index`.
+1. **Imports used (all exist in plans 1–4):** `share/index.ts` (`encodeHash`, `decodeHash`, `createProjectStore(storage?: Storage | null)`, `ProjectStore`, `ProjectListEntry`, `StoreWriteError`, `exportJsonFile`, `importJsonText`, `jsonFileName`, `LINK_MAX_URL_CHARS`); `model/schema.ts` `noForeign()`; `model/validate.ts` `SETTING_RANGES`; `model/defaults.ts` `DEFAULT_BOX`, `DEFAULT_PRINTER`, `KIND_NAMES`; `model/settings.ts` `WALL_CHOICES`, `FIT_CHOICES`; `model/version.ts` `isPreview`; `layout/index.ts` `swapLocks(locks, keyA, keyB, layout)`, `summarize`, `DEFAULT_ITERATIONS`, `NOTICE_CODES`, `PLAY_LIMIT_MM` (plan 4's lateral play limit in mm, exported from the index for this plan's pre-flight so the Summary doesn't repeat the number; spec §7.3); `layout/client.ts` `LayoutClient` (and `LayoutCancelledError`, matched by `name` so the lazily loaded client isn't imported statically); `geometry/client.ts` `GeometryClient`, `GeometryBuildError` (tests; the app matches errors by `name`); `geometry/version.ts` `isOlderGeometryLine`, `GEOMETRY_VERSION`; `util/macrotask.ts` `nextMacrotask`; `test-support/memory-storage.ts` `MemoryStorage` (tests only). The page never imports `geometry/index`.
 2. **"Improve more" call shape (roadmap §4.8).** The UI calls `run(input, layout.seed, 3 × DEFAULT_ITERATIONS, layout, onProgress)`: `iterations` is this run's budget and `warmStart` is the stored layout, so plan 4 continues the search from it and stores `layout.iterations + 3 × DEFAULT_ITERATIONS` (spec §7.2 "improve more adds 3N, continuing from the stored (seed, iterations)").
 3. **Node types stay out of the app.** `licenses.config.ts` (Node-side, `node:fs` / `node:url`) is added to plan 1's `tsconfig.node.json`, which has `"types": ["node"]` (`@types/node ^22.0.0`, installed by plan 1). The app's `tsconfig.json` covers only `src/` without Node types, so browser code can't use `process` or `Buffer` by accident. `npm run build` and `npm run typecheck` check both projects.
 4. **Unsupported trays are detected on the UI side too.** `app/support.ts` imports plan 3's `KNOWN_PARTS`, `KNOWN_COMPARTMENT_KINDS` and `KNOWN_FEATURE_TYPES` from `geometry/types` (roadmap §4.3; no WASM) to disable those trays in the export panel before any worker call; failed builds reject with plan 3's `GeometryBuildError`, told apart by `name`, never `instanceof RangeError`: `"UnsupportedFeatureError"` (with `feature`) and `"TraySpecError"` (an invalid spec, `Tray <key>: …`) are shown per tray, like `"TimeoutError"` and worker failures (roadmap §4.3). New values are added in plan 3's lists only.
