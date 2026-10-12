@@ -297,6 +297,8 @@ export function App(props: AppProps) {
                     onSelect={(key) => {
                       s.selection.value = key;
                     }}
+                    // The plan view shows the selected tray's details, once for the page.
+                    details={false}
                     {...props.viewerProps}
                   />
                 </Panel>

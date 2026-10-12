@@ -65,4 +65,56 @@ describe("ComponentList", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove component 3 (Item: Dial)" }));
     expect(h.onRemove).toHaveBeenCalledWith("d");
   });
+
+  describe("focus after a removal", () => {
+    const three = ["a", "b", "c"].map((id) => ({
+      ...newComponent("custom"),
+      id,
+      name: `Item ${id}`,
+    }));
+
+    function setup(components: Component[]) {
+      const h = handlers();
+      const view = render(<ComponentList components={components} advanced={false} {...h} />);
+      const rerender = (next: Component[]) =>
+        view.rerender(<ComponentList components={next} advanced={false} {...h} />);
+      return { rerender };
+    }
+
+    const removeButton = (n: number) =>
+      screen.getByRole("button", { name: new RegExp(`^Remove component ${n} `) });
+
+    it("moves to the heading of the card that took the place of the removed one", () => {
+      const { rerender } = setup(three);
+      removeButton(2).focus();
+      fireEvent.click(removeButton(2));
+      rerender([three[0] as Component, three[2] as Component]);
+      expect(document.activeElement).toBe(screen.getByRole("heading", { name: /Item c/ }));
+    });
+
+    it("moves to the new last card when the last one was removed", () => {
+      const { rerender } = setup(three);
+      removeButton(3).focus();
+      fireEvent.click(removeButton(3));
+      rerender(three.slice(0, 2));
+      expect(document.activeElement).toBe(screen.getByRole("heading", { name: /Item b/ }));
+    });
+
+    it("moves to the Add buttons when the list is empty now", () => {
+      const only = three.slice(0, 1);
+      const { rerender } = setup(only);
+      removeButton(1).focus();
+      fireEvent.click(removeButton(1));
+      rerender([]);
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add cards" }));
+    });
+
+    it("leaves the focus alone when the removal was declined", () => {
+      const { rerender } = setup(three);
+      removeButton(2).focus();
+      fireEvent.click(removeButton(2));
+      rerender(three.map((c) => (c.id === "a" ? { ...c, name: "Renamed" } : c)));
+      expect(document.activeElement).toBe(removeButton(2));
+    });
+  });
 });

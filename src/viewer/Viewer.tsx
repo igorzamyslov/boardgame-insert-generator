@@ -23,6 +23,8 @@ export interface ViewerProps {
   sizeLockedKeys?: ReadonlySet<string>;
   onToggleSizeLock?: (key: string) => void;
   onSelect: (key: string | null) => void;
+  /** Show the selected tray's details under the view; off where another panel shows them. */
+  details?: boolean;
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -287,7 +289,7 @@ export function Viewer(p: ViewerProps) {
           />
         ) : null}
       </div>
-      {selected ? (
+      {selected && p.details !== false ? (
         <TrayDetails
           part={selected}
           settings={p.settings}

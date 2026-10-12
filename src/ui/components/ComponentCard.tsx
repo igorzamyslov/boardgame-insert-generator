@@ -55,7 +55,9 @@ export function ComponentCard({
   return (
     <section class="component-card" aria-labelledby={headingId}>
       <div class="component-card-header">
-        <h3 id={headingId}>{title}</h3>
+        <h3 id={headingId} tabIndex={-1}>
+          {title}
+        </h3>
         <button
           type="button"
           class="row-remove"

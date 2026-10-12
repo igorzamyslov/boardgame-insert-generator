@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import { APP_VERSION } from "../model/version";
 import { encodeHash } from "../share";
+import type { SceneFactory, SceneHandle } from "../viewer/types";
 import { CONFLICT_CODE } from "./persistence";
 import { EMPTY_FOREIGN, fixtureProject, makeLayout, makeResult, makeTray } from "./test-helpers";
 import { renderApp } from "./test-app";
@@ -24,6 +25,20 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+
+function stubSceneFactory(): SceneFactory {
+  const handle: SceneHandle = {
+    setBox: vi.fn(),
+    setTrays: vi.fn(),
+    setExplode: vi.fn(),
+    setMaxLevel: vi.fn(),
+    setSelected: vi.fn(),
+    onPick: vi.fn(),
+    resize: vi.fn(),
+    dispose: vi.fn(),
+  };
+  return () => handle;
+}
 
 function withLayoutHash(): string {
   const p = fixtureProject();
@@ -108,6 +123,17 @@ describe("App", () => {
     fireEvent.click(screen.getByLabelText("Advanced"));
     expect(within(results).queryByRole("list", { name: "Errors without a field" })).toBeNull();
     expect(within(results).getByText(/Fix the errors marked in the inputs/)).toBeTruthy();
+  });
+
+  it("shows the selected tray's details once, even with the 3D view running", async () => {
+    renderApp(withLayoutHash(), {
+      viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(stubSceneFactory()) },
+    });
+    await waitFor(() => expect(screen.getByLabelText("Explode")).toBeTruthy());
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });
+    expect(screen.getAllByRole("heading", { name: /^#1 / })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Lock size" })).toHaveLength(1);
+    expect(document.querySelectorAll(".tray-details")).toHaveLength(1);
   });
 
   it("locks and unlocks a tray's size from the tray details", () => {

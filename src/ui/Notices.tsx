@@ -8,6 +8,13 @@ const LEVEL_LABEL: Record<Notice["level"], string> = {
   info: "Note",
 };
 
+/** Errors interrupt a screen reader, warnings are read when it is idle, notes are not announced. */
+const ROLE: Record<Notice["level"], "alert" | "status" | undefined> = {
+  error: "alert",
+  warning: "status",
+  info: undefined,
+};
+
 export interface NoticesProps {
   notices: readonly Notice[];
   onDismiss?: (code: string) => void;
@@ -33,7 +40,7 @@ export function Notices({
         <li
           key={`${n.code}|${n.path ?? ""}|${n.message}`}
           class={`notice notice-${n.level}`}
-          role={n.level === "error" ? "alert" : undefined}
+          role={ROLE[n.level]}
         >
           <span class="notice-level">{LEVEL_LABEL[n.level]}:</span>{" "}
           <span class="notice-text">{n.message}</span>
