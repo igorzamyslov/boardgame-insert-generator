@@ -3,6 +3,7 @@ import { CHANNEL_DEPTH, MIN_GRIP } from "../sizing/constants";
 import type { Access, Box, Lock, Printer, Settings } from "../model/types";
 import type { CompartmentReq, TrayPartReq, TrayRequirement, TrayVariant } from "../sizing/types";
 import type { Measure } from "./context";
+import type { StackItem } from "./tree";
 import type { LayoutInput } from "./types";
 
 export const TEST_BOX: Box = {
@@ -138,3 +139,8 @@ export const fakeMeasure: Measure = (p, _settings, opts) => {
   const h = Math.max(...p.compartments.map((c) => c.minH)) + 1.2;
   return { w, d, h };
 };
+
+/** A stack item for part 0 of variant 0 of requirement `req`. */
+export function item(req: number, rotated = false): StackItem {
+  return { req, variant: 0, part: 0, rotated };
+}
