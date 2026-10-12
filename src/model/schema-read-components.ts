@@ -43,6 +43,14 @@ function readBase(r: Reader, kind: ComponentKind): ComponentBase {
   if (clearance !== undefined) {
     base.clearance = clearance;
   }
+  const fingerCuts = r.optBool("fingerCuts");
+  if (fingerCuts !== undefined) {
+    base.fingerCuts = fingerCuts;
+  }
+  const curvedFloor = r.optBool("curvedFloor");
+  if (curvedFloor !== undefined) {
+    base.curvedFloor = curvedFloor;
+  }
   return base;
 }
 

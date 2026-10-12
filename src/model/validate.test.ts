@@ -180,6 +180,27 @@ describe("validateProject", () => {
     ]);
   });
 
+  it("refuses a curved floor on cards and tiles, and allows it on the other kinds", () => {
+    const p = withComponents(
+      cards({ curvedFloor: true }),
+      { ...newComponent("tiles"), id: "t1", curvedFloor: true },
+      cards({ id: "c2", curvedFloor: false, fingerCuts: false }),
+      { ...newComponent("bulk"), id: "b1", curvedFloor: true, fingerCuts: true },
+      { ...newComponent("minis"), id: "m1", curvedFloor: true },
+      custom({ id: "x1", curvedFloor: true, fingerCuts: false }),
+    );
+    const notices = validateProject(p);
+    expect(codes(notices)).toEqual([
+      [field.curvedFloor, "/components/0/curvedFloor"],
+      [field.curvedFloor, "/components/1/curvedFloor"],
+    ]);
+    expect(notices.map((n) => n.message)).toEqual([
+      "Cards can't have a curved floor: they would bend. Turn it off.",
+      "Tiles can't have a curved floor: upright tiles would tilt. Turn it off.",
+    ]);
+    expect(notices.map((n) => n.level)).toEqual(["error", "error"]);
+  });
+
   it("treats an empty groupId as no group", () => {
     const p = withComponents(
       { ...newComponent("custom"), id: "x" },

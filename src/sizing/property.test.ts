@@ -12,7 +12,7 @@ import type {
 import { groupOf } from "../model/defaults";
 import { validateComponent } from "../model/validate";
 import { MIN_SPACER } from "./constants";
-import { hasGrip, minOuter, realizeTray, rotateRealized, size } from "./index";
+import { hasGrip, minOuter, needsGrip, realizeTray, rotateRealized, size } from "./index";
 import { assertTrayInvariants } from "./test-helpers";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
 
@@ -192,12 +192,26 @@ const customArb: Arbitrary<Component> = fc
   .map((r): Component => ({ id: "", name: "Thing", kind: "custom", ...r }));
 
 /** 1–3 components, all in one group or not; the first is per player only when ungrouped (plan 1 rule). */
+/** A component with its finger cut and curved floor toggles set or left to the kind's default. */
+const toggledArb: Arbitrary<Component> = fc
+  .record({
+    c: fc.oneof(cardsArb, bulkArb, tilesArb, minisArb, customArb),
+    fingerCuts: fc.option(fc.boolean(), { nil: undefined }),
+    curvedFloor: fc.option(fc.boolean(), { nil: undefined }),
+  })
+  .map(({ c, fingerCuts, curvedFloor }): Component => {
+    // A curved floor is not offered for cards and tiles (validation refuses it).
+    const curved = c.kind === "cards" || c.kind === "tiles" ? undefined : curvedFloor;
+    return {
+      ...c,
+      ...(fingerCuts === undefined ? {} : { fingerCuts }),
+      ...(curved === undefined ? {} : { curvedFloor: curved }),
+    };
+  });
+
 const componentsArb: Arbitrary<Component[]> = fc
   .record({
-    list: fc.array(fc.oneof(cardsArb, bulkArb, tilesArb, minisArb, customArb), {
-      minLength: 1,
-      maxLength: 3,
-    }),
+    list: fc.array(toggledArb, { minLength: 1, maxLength: 3 }),
     grouped: fc.boolean(),
     players: fc.option(fc.integer({ min: 1, max: 4 }), { nil: undefined }),
   })
@@ -315,7 +329,7 @@ function checkAgainstPart(part: TrayPartReq, outer: OuterSize, r: RealizedTray):
     expect(sp.h).toBeGreaterThanOrEqual(MIN_SPACER - EPS);
   }
   spacersInsideCompartments(r);
-  expect(hasGrip(r.compartments)).toBe(true);
+  expect(hasGrip(r.compartments) || !needsGrip(part)).toBe(true);
 }
 
 /** Realizes `part` in `outer`, checks it, then checks the same tray rotated by 90°. */
@@ -329,7 +343,7 @@ function checkTray(part: TrayPartReq, outer: OuterSize, s: Settings, opts: Reali
   const turned = rotateRealized(realized, outer);
   assertTrayInvariants(turned, turnedOuter, s, opts, part);
   spacersInsideCompartments(turned);
-  expect(hasGrip(turned.compartments)).toBe(true);
+  expect(hasGrip(turned.compartments) || !needsGrip(part)).toBe(true);
   expect(turned.compartments).toHaveLength(realized.compartments.length);
 }
 

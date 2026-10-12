@@ -241,6 +241,9 @@ function wallCutouts(
         : null,
     ),
     depths: items.map((item) => item.depth),
+    scooped: items.map(({ req }) =>
+      req.features.flatMap((f) => (f.type === "scoop" ? [f.side ?? "front"] : [])),
+    ),
     span: { x: W, y: D },
     H,
     chamfer: min.chamfer,
@@ -519,19 +522,37 @@ function minLayoutOf(part: TrayPartReq, settings: Settings, opts: RealizeOptions
   return min;
 }
 
-/** Rounds of settleRoom before it gives up: the cuts' walls settle in one or two. */
+/** Rounds settleRoom follows the placed cuts before it falls back to their union. */
 const ROOM_ROUNDS = 4;
+
+/** Every wall and divider either set names. */
+function unionOf(a: CutWalls, b: CutWalls): CutWalls {
+  const or = (p: readonly boolean[], q: readonly boolean[]): boolean[] =>
+    p.map((v, i) => v || q[i] === true);
+  return {
+    left: or(a.left, b.left),
+    right: or(a.right, b.right),
+    front: a.front || b.front,
+    back: a.back || b.back,
+    dividers: a.dividers.map((row, r) => or(row, b.dividers[r] ?? [])),
+    rows: or(a.rows, b.rows),
+  };
+}
 
 /**
  * The minimum layout whose finger room lies on the walls and dividers its cuts actually pass
  * through (spec §6.1): first where they are asked for (requestedWalls), then, while they differ,
  * where the layout at that minimum places them. A cut on another side (placeCutouts' later tries)
- * gets the room, a side asked for but left without a cut does not. A part without a cut somewhere
- * keeps the requested room: realizeTray refuses it anyway (CutFitError).
+ * gets the room, a side asked for but left without a cut does not. Where the room moves the cuts
+ * back and forth (it can shift a row so that a cut changes side), after ROOM_ROUNDS rounds every
+ * wall and divider any of those layouts cut gets it: then a wall may keep room it has no cut in.
+ * A part without a cut somewhere keeps the room it has: realizeTray refuses it anyway
+ * (CutFitError).
  */
 function settleRoom(part: TrayPartReq, settings: Settings, opts: RealizeOptions): MinLayout {
   const roomless = settings.fingerPocket.wallRoom <= 0 && settings.fingerPocket.dividerRoom <= 0;
   let walls = requestedWalls(part);
+  let seen: CutWalls | null = null;
   for (let round = 1; ; round += 1) {
     const min = minLayoutU(part, settings, opts, walls);
     if (roomless) {
@@ -549,8 +570,12 @@ function settleRoom(part: TrayPartReq, settings: Settings, opts: RealizeOptions)
     if (JSON.stringify(placed) === JSON.stringify(walls)) {
       return min;
     }
+    seen = seen === null ? placed : unionOf(seen, placed);
     if (round >= ROOM_ROUNDS) {
-      throw new Error(`internal: Tray ${part.trayKey}: the finger room does not settle`);
+      const all = unionOf(seen, walls);
+      return JSON.stringify(all) === JSON.stringify(walls)
+        ? min
+        : minLayoutU(part, settings, opts, all);
     }
     walls = placed;
   }

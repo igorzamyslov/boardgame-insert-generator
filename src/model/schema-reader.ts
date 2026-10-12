@@ -211,6 +211,14 @@ export class Reader {
     return this.str(key);
   }
 
+  optBool(key: string): boolean | undefined {
+    if (!this.has(key)) {
+      this.used.add(key);
+      return undefined;
+    }
+    return this.bool(key);
+  }
+
   bool(key: string, fallback?: boolean): boolean {
     const v = this.take(key);
     if (v === undefined && fallback !== undefined) {

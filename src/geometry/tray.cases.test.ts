@@ -6,6 +6,7 @@ import type { Component, Settings } from "../model/types";
 import { minOuter, realizeTray, size } from "../sizing";
 import { at, bulk, cards, partOf, tiles } from "../sizing/test-helpers";
 import { loadManifold } from "./load";
+import { heightAt } from "./test-mesh";
 import { problemsOf } from "./test-build";
 import {
   CHAMFER_1,
@@ -167,6 +168,52 @@ describe("posts: a cut never removes a whole wall", () => {
           expect(post, `${f.side} post of the well at ${c.x}, ${c.y}`).toBe(true);
         }
       }
+    }
+  });
+});
+
+describe("buildTray with the finger cut and curved floor toggles", () => {
+  const settings = DEFAULT_SETTINGS;
+  const built = (component: Component, opts: { lipped: boolean; level: number }) => {
+    const part = partOf([component], "shallow|strip|split1", settings);
+    const outer = minOuter(part, settings, opts);
+    const realized = realizeTray(part, outer, settings, opts);
+    const spec = traySpecFrom(realized, outer, opts, settings, part.trayKey);
+    return { spec, mesh: buildTray(m, spec, settings).mesh };
+  };
+
+  it("builds a plain box with a flat floor and whole walls when both are off", () => {
+    for (const opts of SWEEP_OPTIONS) {
+      const { spec, mesh } = built(bulk({ fingerCuts: false, curvedFloor: false }), opts);
+      const well = at(spec.compartments, 0);
+      expect([well.kind, well.features]).toEqual(["well", []]);
+      expect(problemsOf(m, spec, settings), JSON.stringify(opts)).toEqual([]);
+      for (const fx of [0.1, 0.5, 0.9]) {
+        for (const fy of [0.1, 0.5, 0.9]) {
+          const [x, y] = [well.x + fx * well.w, well.y + fy * well.d];
+          expect(heightAt(mesh, x, y)).toBeCloseTo(well.floorZ, 4);
+        }
+      }
+      const midX = well.x + well.w / 2;
+      expect(heightAt(mesh, midX, well.y / 2)).toBeCloseTo(spec.h, 4);
+      expect(heightAt(mesh, midX, (well.y + well.d + spec.d) / 2)).toBeCloseTo(spec.h, 4);
+    }
+  });
+
+  it("builds bulk with finger cuts: a front cut half the bits deep and the scoop at the back", () => {
+    for (const opts of SWEEP_OPTIONS) {
+      const { spec, mesh } = built(bulk({ fingerCuts: true }), opts);
+      const well = at(spec.compartments, 0);
+      expect(well.kind).toBe("scoop");
+      expect(well.features.map((f) => [f.type, "side" in f ? f.side : null])).toEqual([
+        ["wallCutout", "front"],
+        ["scoop", "back"],
+      ]);
+      expect(problemsOf(m, spec, settings), JSON.stringify(opts)).toEqual([]);
+      const midX = well.x + well.w / 2;
+      expect(heightAt(mesh, midX, well.y / 2)).toBeLessThan(spec.h - 1);
+      expect(heightAt(mesh, midX, well.y + well.d - 1)).toBeGreaterThan(well.floorZ + 1);
+      expect(heightAt(mesh, midX, well.y + 1)).toBeCloseTo(well.floorZ, 4);
     }
   });
 });

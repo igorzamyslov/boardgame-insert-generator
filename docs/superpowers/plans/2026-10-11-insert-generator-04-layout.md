@@ -20,7 +20,7 @@ Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts
 4. **Geometry rejects what it cannot build (roadmap §4.6).** planTray/buildTray throw `TraySpecError` for compartments less than 0.8 mm apart, walls or lips under 0.9 mm, a part too small for its chamfer, and the rest of §4.6. Layout emits sizing's realized trays plus leftovers; the hard-rule checker (Task 17) calls `planTray(spec, settings)` on every printed `TraySpec`, so a spec geometry would reject is a violation in every fixture and property test.
 5. **The checker uses the shared helpers.** `checkHardRules` takes the upper chamfer from `effectiveBottomChamfer(settings, 1)` and the lipped wall from `wallFor(settings, true)`, never hand derivations (Task 17). The checker and the fixture loader are test-only helpers, and the checker imports `geometry/plan`, so they are named `test-hard-rules.ts` and `test-fixtures.ts`: the root ESLint config exempts `test-*.ts` from the main-thread geometry rule, and forbids production code from importing any `test-*` module.
 6. **Settings.** `settingsValid` (plan 1, `model/validate`) adds the cross-field rules `field.bottomChamfer` and `field.lipBearing` (with the lip on, an upper tray's chamfer is less than `lip.ledge − 2·lipPlay`), so the checker's bearing test always has room for valid settings. Import `MIN_FEATURE_MM`, `MIN_WALL_MM`, `chamferMinimums` and `effectiveBottomChamfer` from `model/settings` and `wallFor`, `realizeTray` and `rotateRealized` from `../sizing`; never hard-code 0.8, 0.9 or 0.5.
-7. **Finger channels (roadmap §4.6, §4.7; implemented after plans 1–3).** Cards, tiles, minis pockets and custom wells get wall cutouts (`FeatureSpec` `"wallCutout"`; finger pockets are gone; the default finger width is 25 mm): no reach bands (their `CompartmentReq.minD`/`minW` and compartment rectangles are content + clearance, which `meetsMinimum` compares as before), cuts through outer walls and dividers that keep 3 mm full-height posts and are at least 10 mm wide (`MIN_CUT_MM`, or the width setting if smaller), and `hasGrip` counts them. With `settings.fingerPocket.wallRoom` or `.dividerRoom` > 0, `minOuter` and `realizeTray` thicken the outer walls and the dividers the placed cuts pass through (the room of the `minOuter` layout; a larger outer keeps it): layout needs nothing extra, because it only ever sees `minOuter` and realized trays (`TraySpec.wall` stays the base wall, and compartments still keep at least `wallFor` from every face, which the checker tests). The checker's `planTray` call covers the cutout rules. A spacer in a channelled well carries a notch (`TraySpec.features`, `"spacerNotch"`, in its own frame): materialize translates spacers' `x/y/z` only and keeps their `features` as sizing emitted them.
+7. **Finger channels (roadmap §4.6, §4.7; implemented after plans 1–3).** Compartments of components with finger cuts on (by default cards, tiles, minis pockets and custom wells; spec §5 `fingerCuts`, `curvedFloor`) get wall cutouts (`FeatureSpec` `"wallCutout"`; finger pockets are gone; the default finger width is 25 mm): no reach bands (their `CompartmentReq.minD`/`minW` and compartment rectangles are content + clearance, which `meetsMinimum` compares as before), cuts through outer walls and dividers that keep 3 mm full-height posts and are at least 10 mm wide (`MIN_CUT_MM`, or the width setting if smaller), and `hasGrip` counts them, and scoops; the checker skips rule 8 for a tray whose part does not `needsGrip` (every component has both toggles off). With `settings.fingerPocket.wallRoom` or `.dividerRoom` > 0, `minOuter` and `realizeTray` thicken the outer walls and the dividers the placed cuts pass through (the room of the `minOuter` layout; a larger outer keeps it): layout needs nothing extra, because it only ever sees `minOuter` and realized trays (`TraySpec.wall` stays the base wall, and compartments still keep at least `wallFor` from every face, which the checker tests). The checker's `planTray` call covers the cutout rules. A spacer in a channelled well carries a notch (`TraySpec.features`, `"spacerNotch"`, in its own frame): materialize translates spacers' `x/y/z` only and keeps their `features` as sizing emitted them.
 
 ## Global Constraints
 
@@ -5718,7 +5718,7 @@ git commit -m "Add layout warnings and doesNotFit suggestions"
 
 **Interfaces:**
 
-- Consumes: `hasGrip(compartments)`, `wallFor(settings, lipped)` (`../sizing`, plan 2); `planTray(spec, settings)` (`../geometry/plan`, plan 3); `effectiveBottomChamfer` (`../model/settings`); `size`, `parseProject`, `inputsHash` (plans 1–2); fixtures `test/fixtures/{cards-heavy,bits-heavy,tiles-minis,tiny-box}.json` (plan 1); `fitsBed` (Task 3); `createCtx`, `PartRef` (Task 4); `describeLock` (Task 10); `inferVariant`, `meetsMinimum` (Task 13); units (Task 1).
+- Consumes: `hasGrip(compartments)`, `needsGrip(part)`, `wallFor(settings, lipped)` (`../sizing`, plan 2); `planTray(spec, settings)` (`../geometry/plan`, plan 3); `effectiveBottomChamfer` (`../model/settings`); `size`, `parseProject`, `inputsHash` (plans 1–2); fixtures `test/fixtures/{cards-heavy,bits-heavy,tiles-minis,tiny-box}.json` (plan 1); `fitsBed` (Task 3); `createCtx`, `PartRef` (Task 4); `describeLock` (Task 10); `inferVariant`, `meetsMinimum` (Task 13); units (Task 1).
 - Produces: `isGuillotineTiling(rects, region, gap): boolean`; `isDropped(lock, notices): boolean`; `checkHardRules(input, layout, notices): string[]` (empty = all rules hold); `FIXTURES`, `type FixtureName`, `fixtureInput(name): LayoutInput`.
 
 - [ ] **Step 1: Write the failing test**
@@ -5781,7 +5781,7 @@ Expected: FAIL — `Failed to resolve import "./test-hard-rules" from "src/layou
 
 - [ ] **Step 3: Write the hard-rule checker**
 
-It checks every spec §3 rule on a `StoredLayout` plus the roadmap §4.6 conditions `buildTray` enforces (compartments inside the outer wall — the lipped wall when `lip` is set — not touching each other, `0 < floorZ < h`). Rule 8 uses sizing's `hasGrip`.
+It checks every spec §3 rule on a `StoredLayout` plus the roadmap §4.6 conditions `buildTray` enforces (compartments inside the outer wall — the lipped wall when `lip` is set — not touching each other, `0 < floorZ < h`). Rule 8 uses sizing's `hasGrip`, on the trays whose part `needsGrip` (a tray whose components all have finger cuts and curved floor off is exempt).
 
 `apps/insert-generator/src/layout/test-hard-rules.ts`:
 
@@ -5795,7 +5795,7 @@ import { planTray } from "../geometry/plan";
 import { effectiveBottomChamfer } from "../model/settings";
 import type { Lock, Notice, StoredLayout, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
-import { hasGrip, wallFor } from "../sizing";
+import { hasGrip, needsGrip, wallFor } from "../sizing";
 import { createCtx, type PartRef } from "./context";
 import { describeLock } from "./locks";
 import { inferVariant, meetsMinimum } from "./warmstart";
@@ -6006,7 +6006,7 @@ export function checkHardRules(
         v.push(`${t.key}: compartment ${i} below its minimum ${c.minW}×${c.minD}×${c.minH}`);
       }
     });
-    if (!hasGrip(t.compartments)) {
+    if ((!part || needsGrip(part)) && !hasGrip(t.compartments)) {
       v.push(`${t.key}: no grip`);
     }
   }
@@ -7532,7 +7532,7 @@ No §4 type or signature changes. Additions and clarifications for the roadmap:
 
 1. **Additional exports (additive).** `src/layout/index.ts` also exports `swapLocks(locks: readonly Lock[], keyA: string, keyB: string, layout: StoredLayout): Lock[]` and `NOTICE_CODES`. `src/layout/client.ts` also exports `LayoutCancelledError` (the rejection of a cancelled or superseded run), `LayoutClient`, `WorkerLike` and `createLayoutClientWith(factory)` (for tests).
 2. **`swapLocks` has one implementation.** This plan's `swapLocks(locks, keyA, keyB, layout)` (adds stack locks so whole stacks keep their order; trays in the same stack swap levels) is the only one; plan 5 imports it from `../layout` (roadmap §4.8).
-3. **Sizing exports used here** (from plan 2 / roadmap §4.7, not yet in the §4.2 export list): `rotateRealized(r: RealizedTray, outer: OuterSize): RealizedTray` and `hasGrip(compartments: readonly CompartmentSpec[]): boolean`. Please add them to §4.2.
+3. **Sizing exports used here** (from plan 2 / roadmap §4.7, not yet in the §4.2 export list): `rotateRealized(r: RealizedTray, outer: OuterSize): RealizedTray`, `hasGrip(compartments: readonly CompartmentSpec[]): boolean` and `needsGrip(part: TrayPartReq): boolean`. Please add them to §4.2.
 4. **Notice codes** emitted by layout (for plan 5): `layout.coverage`, `layout.play`, `layout.lipOff`, `layout.capped` (level `info`), `layout.bed` (error), `layout.doesNotFit` (error; its tips include "choose a tighter fit (Fit: tight)", spec §7.3), `lock.dropped` (warning; message starts with `"<Position|Size|Stack> lock on <keys> was dropped: "`; `path: "/locks/<index>"` names the lock's index in `LayoutInput.locks`, so plan 5 can remove exactly that lock).
 5. **`StoredLayout.iterations`** is cumulative: `warmStart.iterations` (when there is a warm start) + this run's budget, or + the iterations actually run when `capped` is true. The `iterations` argument of `optimize`/`createRun`/`run` is this run's budget only, so "improve more" passes 3 × `DEFAULT_ITERATIONS` with the stored layout as `warmStart`. **Leftover `TraySpec.path`** is the path of the leaf it lies in (shared with that leaf's trays); every leftover piece has its own `stack` number.
 6. **Variants share trayKeys.** Plan 2 gives every variant of a requirement the same trayKeys (`<key>:p0:0` for upright and flat cards alike, spec §5 key format), so `warmHints().variantOf` and `checkHardRules` infer the variant with `inferVariant` (Task 13): the variant whose part keys equal the stored keys and whose compartments meet their minimums, then key set only, then most shared keys.

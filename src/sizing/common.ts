@@ -1,5 +1,6 @@
 import { effective } from "../model/settings";
 import type { Component, Notice, Settings, Side } from "../model/types";
+import { curvedFloorOn, fingerCutsOn } from "../model/defaults";
 import { validateComponent } from "../model/validate";
 import type { CompartmentReq, FeatureReq } from "./types";
 import { ceilU, fromU } from "./units";
@@ -68,6 +69,27 @@ export function cutoutSides(features: readonly FeatureReq[]): Side[] {
 
 export function cornerRelief(): FeatureReq {
   return { type: "cornerRelief" };
+}
+
+/**
+ * The features of a compartment of `c` (spec §6.1): its `cuts` when the component's finger cuts are
+ * on; the scoop ramp when its curved floor is, on the front, or on the back when a cut takes the
+ * front; and corner reliefs when `relief`. A component with both off gets a plain box.
+ */
+export function featuresOf(
+  c: Component,
+  cuts: readonly FeatureReq[],
+  relief: boolean,
+): FeatureReq[] {
+  const kept = fingerCutsOn(c) ? cuts : [];
+  const front = kept.some((f) => f.side === "front");
+  return [
+    ...kept,
+    ...(curvedFloorOn(c)
+      ? [{ type: "scoop" as const, side: front ? "back" : "front" } as const]
+      : []),
+    ...(relief ? [cornerRelief()] : []),
+  ];
 }
 
 export interface CompartmentInput {

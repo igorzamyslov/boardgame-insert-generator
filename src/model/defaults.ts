@@ -77,6 +77,33 @@ export const COMPONENT_DEFAULTS: {
   minis: { storage: "pockets" },
 });
 
+/** Stored like bulk: bulk components and minis stored as bulk. */
+function bulkLike(c: Component): boolean {
+  return c.kind === "bulk" || (c.kind === "minis" && c.storage === "bulk");
+}
+
+/**
+ * Whether the component's compartments get finger cuts (spec §5, §6.1): its `fingerCuts`, else
+ * on for cards, tiles, minis pockets and custom wells and off for bulk (and minis stored as bulk),
+ * as before the toggle.
+ */
+export function fingerCutsOn(c: Component): boolean {
+  return c.fingerCuts ?? !bulkLike(c);
+}
+
+/**
+ * Whether the component's compartments get a curved floor, the scoop ramp (spec §5, §6.1): its
+ * `curvedFloor`, else on for bulk (and minis stored as bulk) and off otherwise, as before the
+ * toggle. Never for cards or tiles: cards would bend and upright items tilt (validation refuses
+ * it there).
+ */
+export function curvedFloorOn(c: Component): boolean {
+  if (c.kind === "cards" || c.kind === "tiles") {
+    return false;
+  }
+  return c.curvedFloor ?? bulkLike(c);
+}
+
 /** The component's group, or undefined when it has none. An empty groupId means no group. */
 export function groupOf(c: Component): string | undefined {
   return c.groupId === "" ? undefined : c.groupId;

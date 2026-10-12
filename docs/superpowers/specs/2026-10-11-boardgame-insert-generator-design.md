@@ -85,10 +85,11 @@ box.
 7. **Contents fit.** Each compartment meets its minimum inner size,
    clearances included.
 8. **Every tray has a grip.** Either a compartment whose smaller inner
-   dimension is ≥ 25 mm or a wall cutout (§6.1). The finger cuts of cards,
-   tiles, minis pockets and custom wells cut through outer walls (and the lip
-   on them) and dividers, keeping a post at each end. Upper trays are lifted
-   the same way.
+   dimension is ≥ 25 mm, a wall cutout or a curved floor (§6.1). Finger cuts
+   cut through outer walls (and the lip on them) and dividers, keeping a post
+   at each end. Upper trays are lifted the same way. A tray whose components
+   all have finger cuts and curved floor turned off (§5) is the user's choice
+   and is exempt.
 
 ## 4. Architecture
 
@@ -186,6 +187,8 @@ interface ComponentBase {
   groupId?: string; // same group → same tray, separate compartments
   perPlayer?: { players: number }; // counts are per player; not allowed with groupId
   clearance?: number; // advanced: absolute total, replaces the main clearance, not scaled by Fit
+  fingerCuts?: boolean; // a centred finger cut through a wall of each compartment (§6.1)
+  curvedFloor?: boolean; // the scoop ramp on the floor; bulk, minis and custom only (§6.1)
 }
 
 interface CardsComponent extends ComponentBase {
@@ -242,7 +245,12 @@ unrelated components. Leftover trays are keyed `leftover:<n>` and can't be
 locked. Card spacers are keyed `<trayKey>:spacer`.
 
 Component defaults: `access: "sometimes"`, `storage: "auto"`, minis
-`storage: "pockets"`.
+`storage: "pockets"`. `fingerCuts` is on for cards, tiles, minis and custom
+and off for bulk; `curvedFloor` is on for bulk and off for minis and custom.
+Minis stored as bulk default like bulk (cuts off, curved floor on), as they
+were before the toggles. `curvedFloor` on cards or tiles is a validation error
+(cards would bend, upright tiles tilt); the UI hides it there. Both are simple
+mode checkboxes ("Finger cuts", "Curved floor").
 
 Validation bounds (also applied to URL and file input): ≤ 100 components,
 every count 1…2000, every length 0 < x ≤ 1000 mm, `players` 1…10.
@@ -400,19 +408,22 @@ Coordinates are stored in mm and computed as integer 0.01 mm units.
   below the chamfer.
 - Meshes come out of manifold and are watertight by construction.
 
-**Wall cutouts** (cards, tiles, minis pockets and custom wells: one cut style
-for every tray). A U-cut `fingerPocket.width` wide (round
+**Wall cutouts** (every compartment of a component with `fingerCuts` on: one
+cut style for every tray). A U-cut `fingerPocket.width` wide (round
 bottom, radius half the width), from the rim down, through the wall or divider
 on one side of a well: out through the outer wall, or across a divider into
 the next well, which is cut on the facing side too, or into a spare
 compartment. Never into bits or into another well that is not cut on the
-facing side: a deck beside one is cut on its other side only. In a group,
+facing side, such as a well whose component has finger cuts off: a deck
+beside one is cut on its other side only. In a group,
 cards and tiles cut along the row come first in their row, so the first one's
 cut leaves through the outer wall. A well that still gets no cut tries the
 other side of the same axis (a minis pocket of the back row, whose front faces
 the front row, is cut through the back wall), then both sides of the other
-axis (a deck between bits is cut through the front and back walls); one with
-no cut at all is not offered (a warning names it). Cuts placed later keep
+axis (a deck between bits is cut through the front and back walls), never on
+the side its curved floor is on; one with no cut at all is not offered (a
+warning names it). A component with finger cuts off asks for none, so it
+never makes a variant drop. Cuts placed later keep
 0.8 mm from those placed before. Wells need no extra room (no reach bands):
 they are content + clearance.
 
@@ -476,13 +487,22 @@ keeps its upright ones.
   the other walls and beside the cut still locates the upper tray, which rests
   on the ledge and dividers around the cut.
 
-| Content                 | Finger feature                                                 | Depth                    |
-| ----------------------- | -------------------------------------------------------------- | ------------------------ |
-| Cards / tiles, upright  | One channel per row through both end walls and every divider   | ½ of the shallowest well |
-| Cards / tiles, flat     | Half-round cutouts through both long walls, with a floor notch | To the floor             |
-| Minis, pockets          | One centred cut through the front wall per pocket, no notch    | ½ of the pocket          |
-| Custom                  | One centred cut through the front wall, no notch               | ½ of the well            |
-| Bulk, spare, minis bulk | None: compartments ≥ 25 mm are the grip (rule 8)               | —                        |
+| Content                | Finger feature                                                 | Depth                    |
+| ---------------------- | -------------------------------------------------------------- | ------------------------ |
+| Cards / tiles, upright | One channel per row through both end walls and every divider   | ½ of the shallowest well |
+| Cards / tiles, flat    | Half-round cutouts through both long walls, with a floor notch | To the floor             |
+| Minis, pockets         | One centred cut through the front wall per pocket, no notch    | ½ of the pocket          |
+| Custom                 | One centred cut through the front wall, no notch               | ½ of the well            |
+| Bulk, minis bulk       | Off by default; with `fingerCuts` on, as custom                | ½ of the compartment     |
+| Spare                  | None                                                           | —                        |
+
+**Toggles** (§5): `fingerCuts` off leaves out a component's cuts (and their
+floor notches and finger room); `curvedFloor` adds the scoop ramp to each of
+its compartments (bulk, minis, custom), on the front wall, or on the back
+when a finger cut takes the front. With both off a compartment is a plain box
+with a flat floor and whole walls. Finger room goes only on the walls and
+dividers a cut actually passes. In a group mixing toggles, each component
+keeps its own: a cut never opens into a well with finger cuts off.
 
 **Locating lip** (on any tray with a tray stacked on it):
 
@@ -505,7 +525,7 @@ app warns (rule 4).
 | Cards, upright | One well per deck in a strip, dividers between           | `upright-long`: stands on its long edge (well height from the short side); `upright-short`: the reverse (§7.1). Spare stack length goes to a removable card spacer, or to thicker dividers. One finger channel through the walls and dividers (§6.1).                                                                                                                                                                                             |
 | Card spacer    | Separate solid block                                     | Well width × spare length × (well height − 5), printed standing. Where the deck's finger channel crosses its well, the spacer has the same U-notch (same centre and bottom, at least as wide; cut across the whole spacer when less than the bottom chamfer plus 0.8 mm would stay beside it), so the channel stays open end to end. A channel wider than the spacer takes its whole top: the spacer then ends where the channel meets its faces. |
 | Cards, flat    | Rectangular well                                         | Long side along Y; half-round cutouts through both long walls with a floor notch (§6.1).                                                                                                                                                                                                                                                                                                                                                          |
-| Bulk           | Scoop tray, compartments in a strip (one per item line)  | Scoop fillet on the compartment's front wall (tray-local −Y), radius `min(scoopRadius, depth, width/2)`.                                                                                                                                                                                                                                                                                                                                          |
+| Bulk           | Scoop tray, compartments in a strip (one per item line)  | Scoop fillet on the compartment's front wall (tray-local −Y), radius `min(scoopRadius, depth, width/2)`; on the back wall when finger cuts take the front.                                                                                                                                                                                                                                                                                        |
 | Tiles, flat    | Rect/hex wells, one per column                           | Columns added when `count × thickness` exceeds the well height. Hex corner-to-corner = `flatToFlat · 2/√3`. Cutouts through the two walls along the longer side (left and right for a square).                                                                                                                                                                                                                                                    |
 | Tiles, upright | As upright cards                                         | Hex stands on a flat edge: height `flatToFlat`, length corner-to-corner.                                                                                                                                                                                                                                                                                                                                                                          |
 | Minis, pockets | One rounded pocket per figure (bounding box + clearance) | Each pocket's depth = its figure's `h` + clearance (solid raised pocket floor). The tallest figure sets the minimum tray height.                                                                                                                                                                                                                                                                                                                  |

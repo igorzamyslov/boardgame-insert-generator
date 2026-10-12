@@ -45,6 +45,20 @@ describe("serializeProject / parseProject", () => {
     });
   });
 
+  it("round-trips the finger cut and curved floor toggles, set or absent", () => {
+    const p = newProject();
+    const bits = { ...newComponent("bulk"), id: "b1" };
+    const deck = { ...newComponent("cards"), id: "c1" };
+    p.components = [
+      { ...bits, fingerCuts: true, curvedFloor: false },
+      { ...deck, fingerCuts: false },
+      { ...newComponent("custom"), id: "x1" },
+    ];
+    const result = parseProject(raw(p));
+    expect(result.ok && result.project.components).toEqual(p.components);
+    expect(result.ok && result.project.components[2]).not.toHaveProperty("fingerCuts");
+  });
+
   it("round-trips a project with no components", () => {
     const p = newProject();
     const result = parseProject(raw(p));
@@ -220,6 +234,14 @@ describe("parseProject: not a project", () => {
     const input = raw(newProject());
     (input.box as Json).innerWidth = "wide";
     expect(expectError(input)).toMatch(/damaged: \/box\/innerWidth: expected a number/);
+  });
+
+  it("refuses a toggle that is not true or false", () => {
+    const input = raw(sampleProject());
+    firstCards(input).fingerCuts = "yes";
+    expect(expectError(input)).toMatch(
+      /damaged: \/components\/0\/fingerCuts: expected true or false/,
+    );
   });
 });
 

@@ -1,8 +1,8 @@
 import type { CustomComponent, Settings } from "../model/types";
 import {
   compartment,
-  cornerRelief,
   displayName,
+  featuresOf,
   mainClearance,
   type OptionsResult,
   wallCutout,
@@ -21,7 +21,7 @@ export function customOptions(c: CustomComponent, s: Settings): OptionsResult {
       d: c.d + clearance,
       h: c.h + clearance,
       // A centred cut through the front wall, half the well deep (spec §6.1).
-      features: [wallCutout("front", 0.5, false), cornerRelief()],
+      features: featuresOf(c, [wallCutout("front", 0.5, false)], true),
     }),
   ]);
   return { options: [{ id: "custom", blocks }], notices: [] };

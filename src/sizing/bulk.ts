@@ -1,5 +1,13 @@
-import type { BulkComponent, BulkItem, Settings } from "../model/types";
-import { compartment, displayName, label, mainClearance, type OptionsResult } from "./common";
+import type { BulkComponent, BulkItem, Component, Settings } from "../model/types";
+import {
+  compartment,
+  displayName,
+  featuresOf,
+  label,
+  mainClearance,
+  type OptionsResult,
+  wallCutout,
+} from "./common";
 import { BULK_MIN_SIDE, MAX_H_RATIO, SHALLOW_H } from "./constants";
 import type { CompartmentReq } from "./types";
 
@@ -35,24 +43,29 @@ export function shapeLine(line: BulkLine, shape: BulkShape): { side: number; h: 
   return { side, h: Math.max(line.hFloor, SHALLOW_H, line.volume / (side * side)) };
 }
 
+/**
+ * One bulk compartment of `c` (bulk, or minis stored as bulk): its curved floor makes it a scoop,
+ * its finger cuts a centred cut through its front wall, half its depth (featuresOf).
+ */
 export function bulkCompartment(
-  componentId: string,
+  c: Component,
   contents: string,
   line: BulkLine,
   shape: BulkShape,
 ): CompartmentReq {
   const { side, h } = shapeLine(line, shape);
+  const features = featuresOf(c, [wallCutout("front", 0.5, false)], false);
   return compartment({
-    componentId,
+    componentId: c.id,
     contents,
-    kind: "scoop",
+    kind: features.some((f) => f.type === "scoop") ? "scoop" : "well",
     w: side,
     d: side,
     h,
     elastic: { w: true, d: true, h: true },
     minVolume: line.volume,
     maxHRatio: MAX_H_RATIO,
-    features: [{ type: "scoop", side: "front" }],
+    features,
   });
 }
 
@@ -69,7 +82,7 @@ export function bulkOptions(c: BulkComponent, s: Settings): OptionsResult {
       id: shape,
       blocks: c.items.map((item) => [
         bulkCompartment(
-          c.id,
+          c,
           itemLabel(item, displayName(c)),
           bulkLine(item, clearance, s.packingFactor),
           shape,

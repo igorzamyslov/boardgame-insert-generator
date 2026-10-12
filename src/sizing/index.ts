@@ -12,4 +12,4 @@ export { size } from "./group";
 export { wallFor } from "./outer";
 export { minOuter, realizeTray } from "./realize";
 export { rotateRealized } from "./rotate";
-export { hasGrip } from "./grip";
+export { hasGrip, needsGrip } from "./grip";

@@ -4,6 +4,7 @@ import type { CardsComponent, Notice, Settings } from "../model/types";
 import {
   compartment,
   displayName,
+  featuresOf,
   label,
   mainClearance,
   wallCutout,
@@ -95,7 +96,7 @@ function deckCompartment(
       w: dims.S + clearance,
       d: dims.L + clearance,
       h: stack,
-      features: [wallCutout("left", 1, true), wallCutout("right", 1, true)],
+      features: featuresOf(c, [wallCutout("left", 1, true), wallCutout("right", 1, true)], false),
     });
   }
   const onLongEdge = storage === "upright-long";
@@ -107,7 +108,11 @@ function deckCompartment(
     elastic: { w: true },
     spacerAxis: "w",
     // One channel through the walls and dividers the card faces touch.
-    features: [wallCutout("left", CHANNEL_DEPTH, false), wallCutout("right", CHANNEL_DEPTH, false)],
+    features: featuresOf(
+      c,
+      [wallCutout("left", CHANNEL_DEPTH, false), wallCutout("right", CHANNEL_DEPTH, false)],
+      false,
+    ),
   });
 }
 

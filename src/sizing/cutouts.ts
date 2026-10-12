@@ -36,6 +36,8 @@ export interface CutContext {
   // per owner, the card spacer standing at the high-x end of its well, or null: the channel along
   // the row runs on through it (notched), a cut across the row keeps clear of it
   spacers: readonly (RectMm | null)[];
+  // per owner, the sides its scoop ramp is on: a later try never cuts there
+  scooped: readonly (readonly Side[])[];
   depths: readonly number[]; // content depth of each owner (from its floor to the rim)
   span: { x: number; y: number }; // outer size along x and y
   H: number; // outer height
@@ -73,7 +75,7 @@ type Across =
  * - A request's cut runs out through the outer wall when no compartment lies across its side, into
  *   a spare compartment, or through the divider into a compartment that asks for a cut on the facing
  *   side and is centred on the same line (its twin). Toward any other compartment there is no cut:
- *   a channel never opens into bits, minis or a custom well.
+ *   a channel never opens into bits or a well with its finger cuts off.
  * - Twins, and the cuts on the two sides of one compartment, form a run: one channel with one
  *   centre (the first member's) and one width, at most the setting. It leaves a POST_MM post
  *   between its sides and the faces of every compartment it passes (its members and the spares it
@@ -86,7 +88,8 @@ type Across =
  *   the same way after every first cut, centred on the cards beside a spacer and clear of it: on
  *   the other side of the same axis (a pocket of the back row, whose front faces the front row,
  *   cuts through the back wall), then on both sides of the other axis (a deck between bits along
- *   its row is cut through the front and back walls; review 1, I2).
+ *   its row is cut through the front and back walls; review 1, I2), never on the side its scoop
+ *   ramp is on.
  * - Depth: down to the compartment's own floor for a full-depth request (flat), else the fraction
  *   of the run's shallowest well (upright: half). A cut leaving through the outer wall without a
  *   floor notch keeps its bottom MIN_FEATURE_MM above the bottom chamfer.
@@ -108,7 +111,10 @@ export function placeCutouts(requests: readonly CutAsk[], ctx: CutContext): Plac
         const asks = requests.filter((q) => q.owner === owner);
         const fraction = Math.min(...asks.map((q) => q.fraction));
         const notch = asks.some((q) => q.notch);
-        return sides(asks.map((q) => q.side)).map((side) => ({ owner, side, fraction, notch }));
+        const scooped = ctx.scooped[owner] ?? [];
+        return sides(asks.map((q) => q.side))
+          .filter((side) => !scooped.includes(side))
+          .map((side) => ({ owner, side, fraction, notch }));
       });
   };
   const beside = besideSpacers(ctx);

@@ -22,6 +22,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     bedMargin: "field.bedMargin",
     bottomChamfer: "field.bottomChamfer",
     cardSides: "field.cardSides",
+    curvedFloor: "field.curvedFloor",
     count: "field.count",
     empty: "field.empty",
     groupId: "field.groupId",
@@ -296,6 +297,16 @@ function checkBase(ck: Checker, c: Component, at: string): void {
   }
   if (c.clearance !== undefined) {
     ck.nonNegativeLength(`${at}/clearance`, "Clearance", c.clearance);
+  }
+  // A curved floor bends cards and tilts upright tiles (spec §6.1).
+  if (c.curvedFloor === true && (c.kind === "cards" || c.kind === "tiles")) {
+    ck.error(
+      VALIDATION_NOTICE_CODES.field.curvedFloor,
+      `${at}/curvedFloor`,
+      c.kind === "cards"
+        ? "Cards can't have a curved floor: they would bend. Turn it off."
+        : "Tiles can't have a curved floor: upright tiles would tilt. Turn it off.",
+    );
   }
 }
 
