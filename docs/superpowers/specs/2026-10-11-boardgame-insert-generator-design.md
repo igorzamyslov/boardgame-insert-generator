@@ -431,9 +431,9 @@ content + clearance.
   every divider between decks or stacks. It is centred on the card length,
   half the shallowest well deep, and as wide as the setting or the room its row
   has (rows of tiles shorter than the setting get a channel the length of the
-  tiles). With two rows each row has its own channel, which keeps at least
-  0.8 mm (half the gap) from the other row: the divider between the rows stays
-  whole. The front and back walls stay whole.
+  tiles). With two rows each row has its own channel, which takes at most half
+  the gap to the other row less 0.4 mm: the divider between the rows stays
+  whole, and 0.8 mm of end wall stays between the two channels. The front and back walls stay whole.
 - **Flat cards and tiles:** a half-round cutout through each long wall (along
   the long side; left and right for a flat deck), centred on it, down to the
   floor, plus a **floor notch**: the cut goes on down through the floor at its

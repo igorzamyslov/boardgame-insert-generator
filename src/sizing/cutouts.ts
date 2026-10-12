@@ -118,8 +118,10 @@ function nearestAcross(owner: number, side: Side, rects: readonly RectU[]): numb
  * - Twins, and the cuts on the two sides of one compartment, form a run: one channel with one
  *   centre (the first member's) and one width, at most the setting. The cut's sides keep out of the
  *   outer walls along it and out of the bottom chamfer's corner zone, and reach at most half way
- *   into the gap to any other compartment or finger slot within MIN_FEATURE_MM of the cuts (another
- *   row's wells, whose own channel takes the other half), less MIN_FEATURE_MM / 2.
+ *   into the gap to any other compartment, finger slot or other run's channel within
+ *   MIN_FEATURE_MM of the cuts (another row's wells, whose own channel takes the other half, even
+ *   through a shared end wall), less MIN_FEATURE_MM / 2. A cut's extent across its side counts
+ *   INNER_CORNER_RADIUS_MM on past the faces at its ends, as far as buildTray cuts it.
  * - Depth: down to the compartment's own floor for a full-depth request (flat), else the fraction
  *   of the run's shallowest well (upright: half). A cut leaving through the outer wall without a
  *   floor notch keeps its bottom MIN_FEATURE_MM above the bottom chamfer.
@@ -194,16 +196,17 @@ export function placeCutouts(
   });
 
   const placed: (CutPlacement | null)[] = requests.map(() => null);
-  for (const run of runs.values()) {
-    const band = bandOf(run, requests, across, ctx);
+  const all = [...runs.values()].map((members) => runOf(members, requests, across, ctx));
+  for (const run of all) {
+    const band = bandOf(run, all, requests, across, ctx);
     if (band === null) {
       continue;
     }
     const { at, half, side } = band;
-    const owners = [...new Set(run.map((k) => requests[k]?.owner ?? -1))];
+    const owners = [...run.owners];
     const shallowest = Math.min(...owners.map((o) => ctx.depths[o] ?? 0));
     const span = alongX(side) ? ctx.span.x : ctx.span.y;
-    for (const k of run) {
+    for (const k of run.members) {
       const q = requests[k];
       if (q === undefined) {
         continue;
@@ -240,38 +243,27 @@ export function placeCutouts(
   return placed;
 }
 
-/**
- * A run's centre and half-width (units), or null when it has no room: centred on its first
- * member, at most half the setting, keeping out of the outer walls and the bottom chamfer's
- * corner zone, and at most half way (less MIN / 2) toward any compartment or slot that is not a
- * member nor a spare it runs into and that lies within MIN of its cuts.
- */
-function bandOf(
-  run: readonly number[],
+/** A run of requests and the cuts' extent across its side: its strips (units). */
+interface Run {
+  members: readonly number[];
+  side: Side;
+  owners: ReadonlySet<number>;
+  strips: readonly (readonly [number, number])[];
+}
+
+/** The run's members, side, owners and strips: from each compartment face to where its cut ends. */
+function runOf(
+  members: readonly number[],
   requests: readonly CutRequest[],
   across: readonly (Across | null)[],
   ctx: CutContext,
-): { at: number; half: number; side: Side } | null {
-  const first = requests[run[0] ?? -1];
-  if (first === undefined) {
-    return null;
-  }
-  const side = first.side;
+): Run {
   const rectOf = (i: number): RectU => rectAt(ctx, i);
-  const owners = new Set(run.map((k) => requests[k]?.owner ?? -1));
-  const entered = new Set(
-    run.flatMap((k) => {
-      const to = across[k];
-      return to?.kind === "spare" ? [to.index] : [];
-    }),
-  );
-  const first2 = axes(rectOf(first.owner), side);
-  const at = Math.round((first2.u0 + first2.u1) / 2);
-  const members = [...owners].map((o) => axes(rectOf(o), side));
-  const lowU = Math.min(...members.map((m) => m.u0));
-  const highU = Math.max(...members.map((m) => m.u1));
-  // The cuts' extent across the side: from each compartment face to where its cut ends.
-  const strips = run.map((k) => {
+  const first = requests[members[0] ?? -1];
+  if (first === undefined) {
+    throw new Error("internal: empty wall cutout run");
+  }
+  const strips = members.map((k) => {
     const q = requests[k];
     const to = across[k];
     if (q === undefined || to === null || to === undefined) {
@@ -289,6 +281,41 @@ function bandOf(
     // buildTray cuts the U INNER_CORNER_RADIUS on into the compartments at both ends.
     return [Math.min(face, end) - CORNER_REACH, Math.max(face, end) + CORNER_REACH] as const;
   });
+  const owners = new Set(members.map((k) => requests[k]?.owner ?? -1));
+  return { members, side: first.side, owners, strips };
+}
+
+/** The extent of a run's compartments along its side (units). */
+function rangeOf(run: Run, ctx: CutContext): { u0: number; u1: number } {
+  const members = [...run.owners].map((o) => axes(rectAt(ctx, o), run.side));
+  return { u0: Math.min(...members.map((m) => m.u0)), u1: Math.max(...members.map((m) => m.u1)) };
+}
+
+/**
+ * A run's centre and half-width (units), or null when it has no room: centred on its first
+ * member, at most half the setting, keeping out of the outer walls and the bottom chamfer's
+ * corner zone, and at most half way (less MIN / 2) toward any obstacle within MIN of its cuts:
+ * a compartment or slot that is not a member nor a spare it runs into, or another run's channel
+ * along the same axis (its compartments' range along the side, across its strips), which keeps
+ * the other half of the gap.
+ */
+function bandOf(
+  run: Run,
+  others: readonly Run[],
+  requests: readonly CutRequest[],
+  across: readonly (Across | null)[],
+  ctx: CutContext,
+): { at: number; half: number; side: Side } | null {
+  const { side, owners, strips } = run;
+  const entered = new Set(
+    run.members.flatMap((k) => {
+      const to = across[k];
+      return to?.kind === "spare" ? [to.index] : [];
+    }),
+  );
+  const first = axes(rectAt(ctx, requests[run.members[0] ?? -1]?.owner ?? -1), side);
+  const at = Math.round((first.u0 + first.u1) / 2);
+  const { u0: lowU, u1: highU } = rangeOf(run, ctx);
   const span = alongX(side) ? ctx.span.x : ctx.span.y;
   const edge = Math.max(ctx.wall, ctx.chamfer);
   let lo = edge;
@@ -296,6 +323,9 @@ function bandOf(
   const obstacles = [
     ...ctx.rects.flatMap((r, i) => (owners.has(i) || entered.has(i) ? [] : [axes(r, side)])),
     ...ctx.slots.map((slot) => axes(wholeUnits(slot), side)),
+    ...others
+      .filter((o) => o !== run && alongX(o.side) === alongX(side))
+      .flatMap((o) => o.strips.map(([v0, v1]) => ({ ...rangeOf(o, ctx), v0, v1 }))),
   ];
   for (const b of obstacles) {
     if (!strips.some(([v0, v1]) => b.v1 > v0 - MIN && b.v0 < v1 + MIN)) {

@@ -120,6 +120,49 @@ const tilesArb: Arbitrary<Component> = fc
     storage: r.storage,
   }));
 
+/** Small upright tiles and cards: wells of different lengths in two rows, with finger channels. */
+const channelledArb: Arbitrary<Component> = fc.oneof(
+  fc
+    .record({
+      shape: fc.oneof(
+        fc.record({ type: fc.constant("rect" as const), w: mm(8, 40), d: mm(8, 40) }),
+        fc.record({
+          type: fc.constant("hex" as const),
+          flatToFlat: mm(8, 40),
+          orientation: fc.constantFrom<"flat" | "pointy">("flat", "pointy"),
+        }),
+      ),
+      thickness: mm(1, 4),
+      count: count(60),
+    })
+    .map((r): Component => ({
+      id: "c0",
+      name: "Tiles",
+      access: "often",
+      kind: "tiles",
+      ...r,
+      storage: "upright",
+    })),
+  fc
+    .record({
+      short: mm(30, 70),
+      extra: mm(0, 30),
+      decks: fc.array(count(80), { minLength: 1, maxLength: 4 }),
+    })
+    .map((r): Component => ({
+      id: "c0",
+      name: "Cards",
+      access: "often",
+      kind: "cards",
+      shortSide: r.short,
+      longSide: r.short + r.extra,
+      decks: r.decks.map((n, i) => ({ name: `D${i}`, count: n })),
+      sleeve: "none",
+      thickness: { mode: "preset" },
+      storage: "upright-long",
+    })),
+);
+
 const minisArb: Arbitrary<Component> = fc
   .record({
     access,
@@ -170,7 +213,7 @@ const componentsArb: Arbitrary<Component[]> = fc
 
 /**
  * Wall, divider, floor, bottom chamfer, lip and finger pocket values (with the cutouts' floor
- * notch and wall room) on a 0.001 mm grid, inside SETTING_RANGES and settingsValid.
+ * notch, wall room and divider room) on a 0.001 mm grid, inside SETTING_RANGES and settingsValid.
  */
 const settingsArb: Arbitrary<Settings> = fc
   .record({
@@ -189,6 +232,7 @@ const settingsArb: Arbitrary<Settings> = fc
     reach: setting(5, 20),
     floorNotch: fc.oneof(fc.constant(0), setting(0, 20)),
     wallRoom: fc.oneof(fc.constant(0), setting(0, 20)),
+    dividerRoom: fc.oneof(fc.constant(0), setting(0, 20)),
   })
   .map((r): Settings => {
     const walls = { ...DEFAULT_SETTINGS, wall: r.wall, floor: r.floor };
@@ -215,6 +259,7 @@ const settingsArb: Arbitrary<Settings> = fc
         reach: r.reach,
         floorNotch: r.floorNotch,
         wallRoom: r.wallRoom,
+        dividerRoom: r.dividerRoom,
       },
     };
   });
@@ -422,6 +467,34 @@ describe("sizing properties", () => {
         { numRuns: 100, seed: SEED },
       );
       expect(larger).toBeGreaterThan(0);
+    },
+  );
+
+  it(
+    "plans every two-row variant of upright cards and tiles with slack (roadmap §4.2)",
+    { timeout: 60_000 },
+    () => {
+      let planned = 0;
+      fc.assert(
+        fc.property(
+          channelledArb,
+          settingsArb,
+          fc.record({ w: mm(0, 20), d: mm(0, 20) }),
+          fc.constantFrom(...OPTS),
+          (component, s, extra, opts) => {
+            const parts = sized([component], s).requirements.flatMap((req) =>
+              req.variants.filter((v) => v.id.includes("|rows2|")).flatMap((v) => v.parts),
+            );
+            for (const part of parts) {
+              const m = minOuter(part, s, opts);
+              const outer = { w: m.w + extra.w, d: m.d + extra.d, h: m.h };
+              planned += checkTray(part, outer, s, opts) ? 1 : 0;
+            }
+          },
+        ),
+        { numRuns: 150, seed: SEED },
+      );
+      expect(planned).toBeGreaterThan(0);
     },
   );
 

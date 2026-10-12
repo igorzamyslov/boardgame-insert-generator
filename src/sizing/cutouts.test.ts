@@ -84,6 +84,35 @@ describe("upright cards and tiles: one finger channel", () => {
     expect(cutsOf(row1)).toEqual([cutout("left", 26.8, 8, 0, 16), cutout("right", 26.8, 8, 0, 16)]);
   });
 
+  it("keeps the two rows' channels apart through a shared end wall when the rows have room to widen", () => {
+    // Upright 13.7 mm hexes: rows of different lengths, 3 mm slack across the rows.
+    const part = partOf(
+      [
+        tiles({
+          shape: { type: "hex", flatToFlat: 13.7, orientation: "flat" },
+          thickness: 2.8,
+          count: 19,
+          storage: "upright",
+        }),
+      ],
+      "upright-c2|rows2|split1",
+    );
+    const min = minOuter(part, s, ground);
+    const r = realize(part, s, ground, { ...min, d: min.d + 3 });
+    const [row0, row1] = r.compartments;
+    expect([row0?.y, row0?.d, row1?.y, row1?.d]).toEqual([2.6, 16.82, 21.62, 16.82]);
+    // Row 0's channel spans y 1.9–20.12 and row 1's 20.92–39.14: each reaches half the 2.2 mm
+    // between the rows' wells, less 0.4 mm, so 0.8 mm of end wall stays between them.
+    expect(cutsOf(row0)).toEqual([
+      cutout("left", 11.01, 7.35, 0, 18.22),
+      cutout("right", 11.01, 7.35, 0, 18.22),
+    ]);
+    expect(cutsOf(row1)).toEqual([
+      cutout("left", 30.03, 7.35, 0, 18.22),
+      cutout("right", 30.03, 7.35, 0, 18.22),
+    ]);
+  });
+
   it("opens no channel into bits: a deck beside a bulk compartment is cut on its other side only", () => {
     const part = partOf(
       [cards({ groupId: "g", decks: decks(30) }), bulk({ groupId: "g" })],
