@@ -267,6 +267,24 @@ describe("PlanView", () => {
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
   });
 
+  it("recovers when a pointerup never came: the same pointer pressing again starts afresh", () => {
+    const { p, svg } = setup();
+    fireEvent.pointerDown(screen.getByRole("button", { name: /a:p0:0/ }), {
+      ...centerA,
+      pointerId: 1,
+      button: 0,
+    });
+    // No pointerup or pointercancel (a lost capture): the next press is the same pointer.
+    fireEvent.pointerDown(screen.getByRole("button", { name: /b:p0:0/ }), {
+      ...centerB,
+      pointerId: 1,
+      button: 0,
+    });
+    fireEvent.pointerUp(svg, { ...centerB, pointerId: 1 });
+    expect(p.onSelect).toHaveBeenCalledWith("b:p0:0");
+    expect(p.onSwap).not.toHaveBeenCalled();
+  });
+
   it("swaps with the keyboard: select, Swap with…, Enter on the other tray", () => {
     const { p, view } = setup();
     fireEvent.keyDown(screen.getByRole("button", { name: /a:p0:0/ }), { key: "Enter" });

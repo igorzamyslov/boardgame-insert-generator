@@ -121,9 +121,16 @@ export function PlanView(props: PlanViewProps) {
   }
 
   const onPointerDown = (e: SvgPointer): void => {
-    // A second pointer (another finger) must not take over a drag that is under way.
-    if (e.button !== 0 || dragRef.current !== null) {
+    if (e.button !== 0) {
       return;
+    }
+    // A second pointer (another finger) must not take over a drag that is under way. The same
+    // pointer pressing again means its pointerup or pointercancel never arrived: start afresh.
+    if (dragRef.current !== null) {
+      if (dragRef.current.pointerId !== e.pointerId) {
+        return;
+      }
+      endDrag();
     }
     const target = e.target instanceof Element ? e.target.closest("[data-key]") : null;
     const key = target?.getAttribute("data-key") ?? null;
