@@ -1,28 +1,605 @@
+/* src/style.css */
 :root {
-  font-family: system-ui, sans-serif;
   color-scheme: light dark;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+
+  --gutter: 16px;
+  --radius: 8px;
+  --border: color-mix(in srgb, CanvasText 18%, transparent);
+  --muted: color-mix(in srgb, CanvasText 65%, Canvas);
+  --surface: color-mix(in srgb, Canvas 95%, CanvasText);
+  --focus: #f59e0b;
+  --warn-bg: color-mix(in srgb, #f59e0b 18%, Canvas);
+  --error-bg: color-mix(in srgb, #dc2626 15%, Canvas);
+  --info-bg: color-mix(in srgb, #2563eb 12%, Canvas);
+  --error-text: color-mix(in srgb, #dc2626 80%, CanvasText);
+  --note-border: color-mix(in srgb, #f59e0b 70%, Canvas);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background: Canvas;
+  color: CanvasText;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+a {
+  color: LinkText;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: CanvasText;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+input[type="text"],
+select {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: Field;
+  color: FieldText;
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--error-text);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.app-header {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem var(--gutter) 0;
+}
+
+.app-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-title h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.mode-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mode-toggle legend {
+  float: left;
+  margin-right: 0.5rem;
+  font-weight: 600;
 }
 
 .preview-banner {
-  padding: 0.5rem 1rem;
-  background: #fff3cd;
-  color: #664d03;
-  text-align: center;
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--warn-bg);
 }
 
-main {
-  max-width: 60rem;
+.project-menu {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 0.5rem 1rem;
+  align-items: end;
+  margin: 0.75rem 0;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 1.5rem;
+  align-items: start;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 1rem var(--gutter) 2rem;
 }
 
-footer {
+@media (width <= 960px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.inputs,
+.results {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.panel {
+  min-width: 0;
   padding: 1rem;
-  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: Canvas;
+}
+
+.panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.2rem;
+  align-content: start;
+}
+
+.field label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.unit {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.field-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--error-text);
+}
+
+/* Warnings and info under a field or a list (FieldMessages): a .hint with a mark at the side. */
+.field-notes {
+  padding-left: 0.5rem;
+  border-left: 3px solid var(--note-border);
+}
+
+.check-field {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.5rem;
+  align-items: center;
+}
+
+.check-field .hint,
+.check-field .field-error {
+  grid-column: 2;
+}
+
+.list-rows {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.list-rows legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+}
+
+/* ListNotices: the messages of a whole list, under its legend. */
+.list-rows > .hint,
+.list-rows > .field-error {
+  margin: 0;
+}
+
+.list-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: 0.5rem;
+  align-items: end;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+.list-row:last-of-type {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.row-remove {
+  justify-self: start;
+}
+
+.more-options {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.more-options summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.more-options > .form-grid {
+  margin-top: 0.75rem;
+}
+
+.component-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.component-card {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.component-card-header {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.component-card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.add-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.notices {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--info-bg);
+}
+
+.notice-warning {
+  background: var(--warn-bg);
+}
+
+.notice-error {
+  background: var(--error-bg);
+}
+
+.notice-level {
+  font-weight: 700;
+}
+
+.notice-text {
+  flex: 1 1 16rem;
+}
+
+.notice-action {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.notice-dismiss {
+  padding: 0 0.5rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.summary-grid dt {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.summary-grid dd {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.play-warn {
+  color: color-mix(in srgb, #d97706 85%, CanvasText);
+}
+
+/* The progress bar of a run or a build. Not a live region itself where the summary uses it:
+   the summary announces only the start and the end of a run, never the percent. */
+.run-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0 0 0.75rem;
+}
+
+.run-status progress {
+  flex: 1 1 10rem;
+}
+
+.run-error {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--error-bg);
+}
+
+.run-error p {
+  margin: 0 0 0.5rem;
+}
+
+.shortfall {
+  font-weight: 600;
+}
+
+.plan-toolbar {
+  margin-top: 0.75rem;
+}
+
+.tray-details {
+  margin-top: 0.75rem;
+}
+
+.tray-details h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.tray-details dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.tray-details dt {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.tray-details dd {
+  margin: 0;
+}
+
+.tray-contents {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.viewer-canvas {
+  display: block;
+  width: 100%;
+  height: min(60vh, 480px);
+  border-radius: var(--radius);
+  background: var(--surface);
+  touch-action: none;
+}
+
+.viewer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  align-items: end;
+  margin-top: 0.75rem;
+}
+
+.range-field {
+  display: grid;
+  gap: 0.2rem;
+  font-weight: 600;
+}
+
+.viewer-fallback {
+  margin: 0;
+  padding: 1rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.export-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.export-panel > * {
+  margin: 0;
+}
+
+.export-skipped h3 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 1rem;
+}
+
+.export-skipped ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.link-status {
+  margin: 0.5rem 0 0;
+}
+
+/* Full-width grid children; after the base rules (no-descending-specificity). */
+.form-grid > fieldset,
+.form-grid > details,
+.form-grid > .check-field,
+.form-grid > .field-error {
+  grid-column: 1 / -1;
+}
+
+.project-menu > .button-row,
+.project-menu > .link-status {
+  grid-column: 1 / -1;
+}
+
+.form-grid > .field-notes {
+  grid-column: 1 / -1;
+}
+
+.link-warning {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--warn-bg);
+}
+
+/* The menu's own failures (a file it couldn't read, a link it couldn't make, a copy that failed). */
+.link-status[role="alert"] {
+  background: var(--error-bg);
+}
+
+.link-status p {
+  margin: 0 0 0.5rem;
+}
+
+.copy-fallback {
+  margin-top: 0.5rem;
+  font-family: ui-monospace, monospace;
+}
+
+.assembly {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem var(--gutter) 2rem;
+}
+
+.assembly-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.assembly-layer {
+  margin: 1.5rem 0;
+}
+
+.assembly-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.parts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.parts-table th,
+.parts-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.app-footer {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem var(--gutter) 2rem;
   font-size: 0.875rem;
-  opacity: 0.8;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media print {
+  .no-print,
+  .app-header,
+  .app-footer {
+    display: none;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .assembly {
+    max-width: none;
+    padding: 0;
+  }
+
+  .assembly-layer {
+    break-inside: avoid;
+  }
 }

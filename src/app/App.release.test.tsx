@@ -1,7 +1,8 @@
+// src/app/App.release.test.tsx
 // @vitest-environment jsdom
+import { cleanup, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/preact";
-import { App } from "./App";
+import { renderApp } from "./test-app";
 
 vi.mock("../model/version", async (orig) => ({
   ...(await orig<typeof import("../model/version")>()),
@@ -12,12 +13,13 @@ afterEach(cleanup);
 
 describe("App shell for a release version", () => {
   it("hides the preview banner", () => {
-    render(<App />);
-    expect(screen.queryByRole("note")).toBeNull();
+    renderApp();
+    // a text query: the 3D view's no-WebGL fallback is a role="note" too
+    expect(screen.queryByText(/shared links may break/)).toBeNull();
   });
 
   it("shows the release version in the footer", () => {
-    render(<App />);
+    renderApp();
     expect(screen.getByRole("contentinfo").textContent).toContain("v1.0.0");
   });
 });
