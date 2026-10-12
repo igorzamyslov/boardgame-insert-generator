@@ -276,10 +276,11 @@ export function checkCutClearance(plans: readonly CompartmentPlan[], fail: Fail)
 // it, `width` wide, `depth` below the spacer's top, with a round bottom of radius width / 2. It is
 // open at the top (the spacer prints standing), and like a wall cutout:
 // - its centre lies on the spacer, and each of its sides either cuts past the spacer's face (then
-//   the spacer is cut across, its top following the U) or keeps MIN_FEATURE_MM of spacer beside it;
+//   the spacer is cut across, its top following the U) or keeps the chamfer plus MIN_FEATURE_MM of
+//   spacer beside it;
 // - its bottom stands at least the bottom chamfer plus MIN_FEATURE_MM above the bed, where it leaves
 //   through the end faces.
-// The outer corner radius then shrinks so its sides meet the straight part of the end faces.
+// The outer corner radius then shrinks so it ends MIN_FEATURE_MM before its sides on the end faces.
 export function planSpacerNotch(
   spec: TraySpec,
   features: readonly FeatureSpec[],
@@ -308,9 +309,11 @@ export function planSpacerNotch(
   }
   const r = width / 2;
   const [a, b] = [at - r, at + r];
-  const sliver = (beside: number): boolean => beside > TOL && beside < MIN_FEATURE_MM - TOL;
+  // The spacer's corner arc (at least the chamfer) ends MIN_FEATURE_MM before a side on it.
+  const keep = chamfer + MIN_FEATURE_MM;
+  const sliver = (beside: number): boolean => beside > TOL && beside < keep - TOL;
   if (sliver(a) || sliver(span - b)) {
-    fail(`it leaves less than ${MIN_FEATURE_MM} mm beside the spacer notch at ${at} mm`);
+    fail(`it leaves less than ${keep.toFixed(2)} mm beside the spacer notch at ${at} mm`);
   }
   const bottomZ = spec.h - Math.min(depth, spec.h);
   if (bottomZ - chamfer < MIN_FEATURE_MM - TOL) {
@@ -341,27 +344,48 @@ export function planSpacerNotch(
 /**
  * Where a spacer notch's sides meet its end faces, for the outer corner radius: only the sides
  * that lie on the spacer (a side past its face takes the corner away with the rest of its top),
- * where their fillet meets the face.
+ * at their fillet's box where they have one, else at the sharp corner.
  */
-export function notchEdges(notch: CutPlan | null): { x: number; y: number }[] {
-  return (notch?.fillets ?? []).flatMap((f) => {
-    const box = filletBox(f);
-    return [
-      { x: box.x0, y: box.y0 },
-      { x: box.x1, y: box.y0 },
-      { x: box.x1, y: box.y1 },
-      { x: box.x0, y: box.y1 },
-    ];
-  });
+export function notchEdges(
+  size: { w: number; d: number },
+  notch: CutPlan | null,
+): { x: number; y: number }[] {
+  if (notch === null) {
+    return [];
+  }
+  const along = alongX(notch.side);
+  const { u0, u1 } = axes(notch, notch.side);
+  const span = along ? size.w : size.d;
+  const length = along ? size.d : size.w;
+  return [u0, u1]
+    .filter((u) => u > TOL && u < span - TOL)
+    .flatMap((u) =>
+      [0, length].flatMap((face) => {
+        const [x, y] = along ? [u, face] : [face, u];
+        const fillet = notch.fillets.find(
+          (f) => Math.abs(f.x - x) <= TOL && Math.abs(f.y - y) <= TOL,
+        );
+        if (fillet === undefined) {
+          return [{ x, y }];
+        }
+        const box = filletBox(fillet);
+        return [
+          { x: box.x0, y: box.y0 },
+          { x: box.x1, y: box.y0 },
+          { x: box.x1, y: box.y1 },
+          { x: box.x0, y: box.y1 },
+        ];
+      }),
+    );
 }
 
 /**
  * The fillets of a cut where its sides meet the face at `face` (across the side): the corners
  * whose material lies beside the cut on that face's side of the strip. `comp` is the compartment
  * whose face it is (its range along the side must cover the fillet, and the fillet starts at its
- * floor with a floor notch), or null for an outer face the cut leaves through (the fillet keeps
- * MIN_FEATURE_MM, and at least the chamfer, to the face the cut runs along, pulled in by the chamfer
- * at the fillet's lowest height). A fillet is at most FINGER_FILLET_MM, leaves MIN_FEATURE_MM of the
+ * floor with a floor notch), or null for an outer face the cut leaves through (the fillet ends on
+ * it at least the chamfer plus MIN_FEATURE_MM from the face the cut runs along: the outer corner's
+ * arc, at least the chamfer, ends MIN_FEATURE_MM before it). A fillet is at most FINGER_FILLET_MM, leaves MIN_FEATURE_MM of the
  * wall or divider end flat between the fillets on its two faces, keeps
  * MIN_FEATURE_MM from every obstacle (half that gap toward another cut), and is left out below
  * MIN_FILLET.
@@ -387,7 +411,6 @@ function filletsAt(
       : cut.notch > 0
         ? comp.floorZ
         : Math.max(zc, comp.floorZ);
-  const pull = Math.max(0, chamfer - z0);
   // Where the cut leaves the tray its strip is the outer wall, pulled in by the chamfer near the
   // bed (from the lowest fillet on it: the bed with a floor notch, else the round bottom's top).
   const stripPull = cut.into === null ? Math.max(0, chamfer - (cut.notch > 0 ? 0 : zc)) : 0;
@@ -399,9 +422,10 @@ function filletsAt(
     // Fillets on both faces of the wall or divider leave MIN_FEATURE_MM flat between them.
     let r = Math.min(FINGER_FILLET_MM, (box.v1 - box.v0 - stripPull - MIN_FEATURE_MM) / 2);
     if (comp === null) {
-      // TOL: the side's fillet must end on the straight face, past the corner radius ≥ chamfer.
+      // The side's fillet ends on the outer face MIN_FEATURE_MM past the corner's arc, which is at
+      // least the chamfer (plan-corners.ts): the wall beside it keeps that much at the face.
       const beside = away < 0 ? u : span - u;
-      r = Math.min(r, beside - Math.max(MIN_FEATURE_MM + pull, chamfer) - TOL);
+      r = Math.min(r, beside - chamfer - MIN_FEATURE_MM - TOL);
     } else {
       // On the compartment's flat face, past its rounded inner corner.
       const c = axes(comp.rect, side);

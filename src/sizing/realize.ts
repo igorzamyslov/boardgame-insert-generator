@@ -162,7 +162,8 @@ function clearOfSlots(spare: Rect, axis: "x" | "y", slots: readonly Rect2[]): Re
  * cutout) runs on through it (spec §6.2): the same centre and bottom, at least the channel's width.
  * In the spacer's frame: along x, centred on the channel's y less the well's, as deep below the
  * spacer's top as the channel is below the rim less SPACER_TOP_GAP. Where its sides would leave
- * less than max(MIN_FEATURE_MM, chamfer) of spacer beside it, the notch widens to cut the spacer
+ * less than chamfer + MIN_FEATURE_MM of spacer beside it (the spacer's corner arc, at least the
+ * chamfer, ends MIN_FEATURE_MM before its sides), the notch widens to cut the spacer
  * across: a wider U with the same bottom still holds the channel's. None when the channel stays
  * above the spacer. (Its bottom stands at least half the well deep, so above the spacer's chamfer.)
  */
@@ -178,7 +179,7 @@ function spacerNotch(
   }
   const at = cut.at - well.y;
   const half = cut.width / 2;
-  const keep = Math.max(ceilU(MIN_FEATURE_MM), ceilU(effectiveBottomChamfer(settings, 0)));
+  const keep = ceilU(effectiveBottomChamfer(settings, 0) + MIN_FEATURE_MM);
   const thin = (beside: number): boolean => beside > 0 && beside < keep;
   const width =
     thin(at - half) || thin(well.d - at - half) ? 2 * Math.max(at, well.d - at) : cut.width;

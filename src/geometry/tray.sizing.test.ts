@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
-import { SPEC_TOLERANCE, applyFingerRoom } from "../model/settings";
+import { DEFAULT_SETTINGS, SPEC_TOLERANCE, applyFingerRoom } from "../model/settings";
 import type { Settings, TraySpec } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
+import { partOf, tiles } from "../sizing/test-helpers";
 import { loadManifold } from "./load";
 import { checkPrintability } from "./printability";
 import { bounds, signedVolume, topology } from "./test-mesh";
@@ -172,6 +173,21 @@ describe.each(SWEEP_FIXTURES)("buildTray builds the sizing output of %s", (name,
     expect(failures.slice(0, 3), `${failures.length} of ${specs.length} specs failed`).toEqual([]);
     expect(built).toBe(specs.length);
     expect(rotated).toBeGreaterThan(0);
+  });
+});
+
+describe("buildTray at the thinnest wall and largest chamfer", () => {
+  it("keeps 0.8 mm beside a flat-tile cutout that leaves the tray near an outer corner", () => {
+    // 15 mm square tiles laid flat: the cut is as long as the 16 mm well, its sides 0.9 mm from the
+    // faces they run along (review 1, I1: the arc ended where they met the exit face, 0.784 mm).
+    const settings = THINNEST(DEFAULT_SETTINGS);
+    const component = tiles({ shape: { type: "rect", w: 15, d: 15 }, thickness: 2, count: 40 });
+    const part = partOf([component], "flat-c1|strip|split1", settings);
+    const opts = { lipped: false, level: 0 };
+    const outer = minOuter(part, settings, opts);
+    const realized = realizeTray(part, outer, settings, opts);
+    const spec = traySpecFrom(realized, outer, opts, settings, part.trayKey);
+    expect(problemsOf(m, spec, settings)).toEqual([]);
   });
 });
 

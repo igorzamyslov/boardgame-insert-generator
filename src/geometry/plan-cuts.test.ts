@@ -110,9 +110,10 @@ describe("wall cutouts", () => {
 
   it("shrinks the outer corner radius so a cut's rounded side meets the flat end face", () => {
     // The 55.8 mm cut runs 2.1 mm from the front and back faces, its edges there rounded 0.4 mm
-    // (the 1.6 mm wall less its 0.8 mm flat, halved).
+    // (the 1.6 mm wall less its 0.8 mm flat, halved): the arc ends 0.8 mm before the fillet, so the
+    // wall beside the cut keeps 0.8 mm at the exit face.
     const spec = beside([cutout("left", 30, 10, 0, 55.8)]);
-    expect(planTray(spec, GEO).cornerRadius).toBeCloseTo(1.7, 9);
+    expect(planTray(spec, GEO).cornerRadius).toBeCloseTo(0.9, 9);
     expect(planTray(beside([cutout("left", 30, 10)]), GEO).cornerRadius).toBe(3);
   });
 
@@ -272,16 +273,18 @@ describe("spacer notches", () => {
     expect(planTray({ ...notchedSpacer, features: [] }, GEO).notch).toBeNull();
   });
 
-  it("may cut the whole spacer across, or keep 0.8 mm beside it", () => {
+  it("may cut the whole spacer across, or keep the chamfer plus 0.8 mm beside it", () => {
     expect(() => planTray(notch({ width: 92.5 }), GEO)).not.toThrow();
     expect(() => planTray(notch({ width: 100 }), GEO)).not.toThrow();
-    expect(() => planTray(notch({ width: 90.9 }), GEO)).not.toThrow();
-    rejects(notch({ width: 91.5 }), /leaves less than 0.8 mm beside the spacer notch/);
+    expect(() => planTray(notch({ width: 90.1 }), GEO)).not.toThrow();
+    rejects(notch({ width: 90.9 }), /leaves less than 1.20 mm beside the spacer notch/);
+    rejects(notch({ width: 91.5 }), /leaves less than 1.20 mm beside the spacer notch/);
   });
 
   it("shrinks the spacer's corner radius so the notch's rounded edges meet its flat end faces", () => {
-    // 2.25 mm beside the notch, its edges rounded 1.445 mm (0.8 mm and the 0.005 mm tolerance stay).
-    expect(planTray(notch({ width: 88 }), GEO).cornerRadius).toBeCloseTo(0.805, 9);
+    // 2.25 mm beside the notch, its edges rounded 1.045 mm (the 0.4 mm chamfer, 0.8 mm and the
+    // 0.005 mm tolerance stay): the arc ends 0.8 mm before the fillet.
+    expect(planTray(notch({ width: 88 }), GEO).cornerRadius).toBeCloseTo(0.405, 9);
   });
 
   describe("rejects", () => {

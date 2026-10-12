@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
-import { thinCorner } from "./plan-corners";
+import { planCornerRadius, thinCorner } from "./plan-corners";
 import { filletBox, notchFloorBox } from "./plan-cuts";
 import { MIN_FEATURE_MM, MIN_WALL_MM, SPEC_TOLERANCE, maxCornerRadius } from "../model/settings";
 import type { Settings } from "../model/types";
@@ -178,13 +178,11 @@ function materialAt(plan: TrayPlan, x: number, y: number, z: number, rho = 0): n
 }
 
 // Where a wall cutout leaves the tray, the material beside it is the wall between its side and
-// the outer face it runs along (pulled in by the chamfer at height z): its distance `along` to that
-// face, as long as the side meets the straight part of the exit face. Where it meets the rounded
-// corner instead, the arc cuts into that wall: -Infinity.
+// the outer face it runs along: `along` thick, pulled in by the chamfer at height z, and thinnest at
+// the exit face, where the outer corner's arc (at least the chamfer) ends: along − R there (review 1,
+// I1: with R = along the arc thinned it to a wedge, 0.784 mm on the mesh).
 function exitSide(plan: TrayPlan, along: number, z: number): number {
-  return along >= plan.cornerRadius - 1e-9
-    ? along - Math.max(0, plan.chamfer - z)
-    : Number.NEGATIVE_INFINITY;
+  return along - Math.max(plan.cornerRadius, plan.chamfer - z);
 }
 
 function cornersOf(r: Rect): [number, number][] {
@@ -411,6 +409,22 @@ describe("thin outer corners", () => {
   it("accepts a corner keeping 0.8 mm plus the corner margin on the true arc", () => {
     // maxCornerRadius(1.2, 1.2, 0) leaves exactly 0.8 + CORNER_MARGIN.
     expect(thinCorner(tray, maxCornerRadius(1.2, 1.2, 0), 0.4, [well])).toBeNull();
+  });
+
+  // An exit cut's side meets the outer face 1.6 mm from the corner (a point on the face).
+  const exit = [{ x: 0, y: 1.6 }];
+
+  it("ends the arc 0.8 mm before a cut side meets the outer face", () => {
+    expect(planCornerRadius(tray, 3, 0.4, [well], exit)).toBeCloseTo(0.8, 9);
+    expect(thinCorner(tray, 0.8, 0.4, [well], exit)).toBeNull();
+  });
+
+  it("rejects a cut side meeting the outer face less than 0.8 mm past the arc", () => {
+    // A 0.9 mm chamfer forces R = 0.9: 0.7 mm of wall beside the side at the exit face.
+    expect(planCornerRadius(tray, 3, 0.9, [well], exit)).toBe(0.9);
+    expect(thinCorner(tray, 0.9, 0.9, [well], exit)).toEqual(
+      expect.stringMatching(/1\.60 mm from an outer corner, leaving 0\.70 mm of wall/),
+    );
   });
 
   it("rejects a corner under 0.8 mm plus the corner margin, which the arc polygon thins", () => {

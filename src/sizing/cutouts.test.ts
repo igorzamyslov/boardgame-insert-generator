@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planTray } from "../geometry/plan";
-import { traySpecFrom } from "../geometry/test-specs";
-import { DEFAULT_SETTINGS, applyFingerRoom } from "../model/settings";
+import { largestChamfer, traySpecFrom } from "../geometry/test-specs";
+import { DEFAULT_SETTINGS, MIN_WALL_MM, applyFingerRoom } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, Settings, TileShape } from "../model/types";
 import { hasGrip } from "./grip";
 import { minOuter, realizeTray } from "./realize";
@@ -213,6 +213,42 @@ describe("flat cards and tiles: cutouts through the long walls", () => {
     const plan = planTray(traySpecFrom(r, { ...min, w: min.w + 30 }, ground, s, "t"), s);
     expect(plan.compartments[1]?.cuts.map((cut) => cut.into)).toEqual([0, 2]);
   });
+});
+
+describe("cut sides beside a rounded outer corner", () => {
+  it.each(["flat-c1|strip|split1", "flat-c2|rows2|split1", "upright-c1|strip|split1"])(
+    "keep 0.8 mm past the arc at a 0.9 mm wall and chamfer (%s)",
+    (variant) => {
+      // The 0.9 mm chamfer forces an outer corner radius of at least 0.9 mm; a cut side 0.9 mm from
+      // the face it runs along met the exit face where the arc ended (review 1, I1). Its sides keep
+      // 1.7 mm, so the wall beside them stays 0.8 mm thick past the arc.
+      const thin = largestChamfer({ ...s, wall: MIN_WALL_MM, floor: MIN_WALL_MM });
+      expect(thin.bottomChamfer).toBe(0.9);
+      const part = partOf(
+        [
+          tiles({
+            shape: { type: "hex", flatToFlat: 8.5, orientation: "flat" },
+            thickness: 1.5,
+            count: 19,
+            storage: "auto",
+          }),
+        ],
+        variant,
+      );
+      const r = realize(part, thin);
+      const outer = minOuter(part, thin, ground);
+      for (const c of r.compartments) {
+        for (const f of cutsOf(c)) {
+          if (f.type === "wallCutout") {
+            const span = f.side === "left" || f.side === "right" ? outer.d : outer.w;
+            expect(Math.min(f.at - f.width / 2, span - f.at - f.width / 2)).toBeGreaterThanOrEqual(
+              1,
+            );
+          }
+        }
+      }
+    },
+  );
 });
 
 describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {

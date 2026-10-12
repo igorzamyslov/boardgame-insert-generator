@@ -189,6 +189,19 @@ function cornerDiscs(
   return discs;
 }
 
+// A cut point on an outer face (where a cut that leaves the tray meets it, or its fillet there):
+// its distance q along the face from the corner, else null. The wall between the cut's side and the
+// face it runs along is thinnest at the exit face, where the corner's arc ends: q − R there, on the
+// true arc and on its polygon alike (the polygon's vertices lie on the arc, its chords further
+// out). So the arc ends MIN_FEATURE_MM before the side (review 1, I1: where it ran on to the side,
+// that wall thinned to a wedge, 0.78 mm on the mesh).
+function faceMargin(p: number, q: number): number | null {
+  if (p <= SPEC_TOLERANCE) {
+    return q;
+  }
+  return q <= SPEC_TOLERANCE ? p : null;
+}
+
 function nearestCorner(size: TraySize, disc: CornerDisc): { p: number; q: number } {
   return { p: Math.min(disc.x, size.w - disc.x), q: Math.min(disc.y, size.d - disc.y) };
 }
@@ -209,7 +222,10 @@ export function planCornerRadius(
   let r = Math.max(0, Math.min(setting, Math.min(size.w, size.d) / 2 - 0.01));
   for (const disc of cornerDiscs(compartments, chamfer, points)) {
     const { p, q } = nearestCorner(size, disc);
-    if (p < r && q < r) {
+    const onFace = faceMargin(p, q);
+    if (onFace !== null) {
+      r = Math.min(r, onFace - MIN_FEATURE_MM);
+    } else if (p < r && q < r) {
       r = Math.min(r, maxCornerRadius(p, q, disc.rho + disc.e));
     }
   }
@@ -229,7 +245,12 @@ export function thinCorner(
 ): string | null {
   for (const disc of cornerDiscs(compartments, chamfer, points)) {
     const { p, q } = nearestCorner(size, disc);
-    if (p < radius && q < radius) {
+    const onFace = faceMargin(p, q);
+    if (onFace !== null) {
+      if (onFace - radius < MIN_FEATURE_MM - SPEC_TOLERANCE) {
+        return `a cut side meets the outer face ${onFace.toFixed(2)} mm from an outer corner, leaving ${(onFace - radius).toFixed(2)} mm of wall beside it past the arc`;
+      }
+    } else if (p < radius && q < radius) {
       const material = radius - disc.e - disc.rho - Math.hypot(radius - p, radius - q);
       if (material < MIN_FEATURE_MM + CORNER_MARGIN - SPEC_TOLERANCE) {
         return `a cut at ${p.toFixed(2)} × ${q.toFixed(2)} mm from an outer corner keeps only ${material.toFixed(2)} mm`;

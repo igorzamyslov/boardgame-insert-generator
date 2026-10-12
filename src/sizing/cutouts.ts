@@ -117,7 +117,9 @@ function nearestAcross(owner: number, side: Side, rects: readonly RectU[]): numb
  *   a channel never opens into bits, minis or a custom well.
  * - Twins, and the cuts on the two sides of one compartment, form a run: one channel with one
  *   centre (the first member's) and one width, at most the setting. The cut's sides keep out of the
- *   outer walls along it and out of the bottom chamfer's corner zone, and reach at most half way
+ *   outer walls along it and MIN_FEATURE_MM past the outer corners' arcs (at least the chamfer),
+ *   so the wall beside them keeps that much at the faces they leave through, and reach at most
+ *   half way
  *   into the gap to any other compartment, finger slot or other run's channel within
  *   MIN_FEATURE_MM of the cuts (another row's wells, whose own channel takes the other half, even
  *   through a shared end wall), less MIN_FEATURE_MM / 2. A cut's extent across its side counts
@@ -293,8 +295,8 @@ function rangeOf(run: Run, ctx: CutContext): { u0: number; u1: number } {
 
 /**
  * A run's centre and half-width (units), or null when it has no room: centred on its first
- * member, at most half the setting, keeping out of the outer walls and the bottom chamfer's
- * corner zone, and at most half way (less MIN / 2) toward any obstacle within MIN of its cuts:
+ * member, at most half the setting, keeping out of the outer walls and MIN past the outer
+ * corners' arcs, and at most half way (less MIN / 2) toward any obstacle within MIN of its cuts:
  * a compartment or slot that is not a member nor a spare it runs into, or another run's channel
  * along the same axis (its compartments' range along the side, across its strips), which keeps
  * the other half of the gap.
@@ -317,7 +319,9 @@ function bandOf(
   const at = Math.round((first.u0 + first.u1) / 2);
   const { u0: lowU, u1: highU } = rangeOf(run, ctx);
   const span = alongX(side) ? ctx.span.x : ctx.span.y;
-  const edge = Math.max(ctx.wall, ctx.chamfer);
+  // MIN past the outer corner's arc (at least the chamfer), so the wall beside a cut that leaves
+  // the tray keeps MIN at the exit face (planTray shrinks the arc to match).
+  const edge = Math.max(ctx.wall, ctx.chamfer + MIN);
   let lo = edge;
   let hi = span - edge;
   const obstacles = [

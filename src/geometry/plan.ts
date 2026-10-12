@@ -513,7 +513,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   }));
 
   const notch = planSpacerNotch(spec, spec.features ?? [], chamfer, failWith);
-  const edges = notchEdges(notch);
+  const edges = notchEdges(spec, notch);
   const cornerRadius = planCornerRadius(spec, settings.cornerRadius, chamfer, compartments, edges);
   const thin = thinCorner(spec, cornerRadius, chamfer, compartments, edges);
   if (thin !== null) {
