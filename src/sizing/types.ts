@@ -7,7 +7,6 @@ export interface FeatureReq {
   type: "fingerPocket" | "wallCutout" | "scoop" | "cornerRelief";
   side?: Side; // fingerPocket, wallCutout, scoop
   depthFraction?: number; // fingerPocket: 1/3 or 1 (full); wallCutout: 1/2 (of the shallowest well) or 1 (to its floor)
-  perItem?: boolean; // fingerPocket: one per pocket along the side
   floorNotch?: boolean; // wallCutout: notch the floor (flat cards and tiles)
 }
 

@@ -61,8 +61,8 @@ export function reachU(s: Settings): number {
   return ceilU(s.fingerPocket.reach);
 }
 
-export function fingerPocket(side: Side, depthFraction: number, perItem: boolean): FeatureReq {
-  return { type: "fingerPocket", side, depthFraction, perItem };
+export function fingerPocket(side: Side, depthFraction: number): FeatureReq {
+  return { type: "fingerPocket", side, depthFraction };
 }
 
 /**

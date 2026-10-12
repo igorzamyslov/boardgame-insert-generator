@@ -49,7 +49,7 @@ function pockets(
         w: dims.w + clearance,
         d: dims.d + clearance,
         h: dims.h + clearance,
-        features: [fingerPocket("front", 1 / 3, true)],
+        features: [fingerPocket("front", 1 / 3)],
       },
       s,
     ),

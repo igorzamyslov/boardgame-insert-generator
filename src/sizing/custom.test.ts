@@ -21,7 +21,7 @@ describe("customOptions", () => {
       minH: 11,
       elastic: { w: false, d: false, h: false },
       features: [
-        { type: "fingerPocket", side: "front", depthFraction: 1, perItem: true },
+        { type: "fingerPocket", side: "front", depthFraction: 1 },
         { type: "cornerRelief" },
       ],
     });

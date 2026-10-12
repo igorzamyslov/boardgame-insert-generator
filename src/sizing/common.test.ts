@@ -25,7 +25,7 @@ describe("compartment", () => {
         w: 10,
         d: 20,
         h: 5,
-        features: [fingerPocket("front", 1, true), fingerPocket("left", 1, false), cornerRelief()],
+        features: [fingerPocket("front", 1), fingerPocket("left", 1), cornerRelief()],
       },
       s,
     );
@@ -63,7 +63,7 @@ describe("compartment", () => {
       d: 0.5,
       h: 0.5,
     };
-    const c = compartment({ ...input, features: [fingerPocket("front", 1 / 3, true)] }, s);
+    const c = compartment({ ...input, features: [fingerPocket("front", 1 / 3)] }, s);
     expect([c.minW, c.minD, c.minH]).toEqual([1, 13, 0.5]);
     const plain = compartment({ ...input, features: [cornerRelief()] }, s);
     expect([plain.minW, plain.minD]).toEqual([0.5, 0.5]);
@@ -104,10 +104,10 @@ describe("compartment pocket sides", () => {
         d: 20,
         h: 5,
         features: [
-          fingerPocket("front", 1 / 3, true),
-          fingerPocket("front", 1, false),
-          fingerPocket("left", 1, false),
-          fingerPocket("left", 1 / 3, true),
+          fingerPocket("front", 1 / 3),
+          fingerPocket("front", 1),
+          fingerPocket("left", 1),
+          fingerPocket("left", 1 / 3),
         ],
       },
       s,
@@ -119,11 +119,10 @@ describe("compartment pocket sides", () => {
 
 describe("features", () => {
   it("builds a finger pocket and a corner relief", () => {
-    expect(fingerPocket("back", 0.5, true)).toEqual({
+    expect(fingerPocket("back", 0.5)).toEqual({
       type: "fingerPocket",
       side: "back",
       depthFraction: 0.5,
-      perItem: true,
     });
     expect(cornerRelief()).toEqual({ type: "cornerRelief" });
   });
@@ -169,11 +168,11 @@ describe("pocketSides", () => {
   it("lists each finger-pocket side once, in feature order", () => {
     expect(
       pocketSides([
-        fingerPocket("back", 1, true),
+        fingerPocket("back", 1),
         cornerRelief(),
         { type: "scoop", side: "left" },
-        fingerPocket("front", 1, true),
-        fingerPocket("back", 1 / 3, true),
+        fingerPocket("front", 1),
+        fingerPocket("back", 1 / 3),
       ]),
     ).toEqual(["back", "front"]);
     expect(pocketSides([])).toEqual([]);

@@ -21,7 +21,7 @@ export function customOptions(c: CustomComponent, s: Settings): OptionsResult {
         w: c.w + clearance,
         d: c.d + clearance,
         h: c.h + clearance,
-        features: [fingerPocket("front", 1, true), cornerRelief()],
+        features: [fingerPocket("front", 1), cornerRelief()],
       },
       s,
     ),

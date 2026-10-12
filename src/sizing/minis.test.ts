@@ -31,7 +31,7 @@ describe("minisOptions", () => {
     expect(pocket).toMatchObject({ kind: "pocket", minW: 26, minD: 38, minH: 41 });
     expect(pocket.elastic).toEqual({ w: false, d: false, h: false });
     expect(pocket.features).toEqual([
-      { type: "fingerPocket", side: "front", depthFraction: 1 / 3, perItem: true },
+      { type: "fingerPocket", side: "front", depthFraction: 1 / 3 },
     ]);
     expect(at(at(at(options, 1).blocks, 0), 0)).toMatchObject({ minW: 41, minD: 38, minH: 26 });
   });

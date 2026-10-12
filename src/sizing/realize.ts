@@ -247,15 +247,9 @@ function spacerSpec(
  * Whether the spare stack length `length` of `req` becomes a spacer: at least MIN_SPACER long and
  * tall (content depth − SPACER_TOP_GAP), and big enough for the spacer's own bottom chamfer.
  */
-function spacerFits(
-  req: CompartmentReq,
-  length: number,
-  reach: number,
-  settings: Settings,
-): boolean {
+function spacerFits(req: CompartmentReq, length: number, settings: Settings): boolean {
   const chamfer = chamferMinimumsU(settings, 0);
-  const bands = pocketSides(req.features).filter((s) => s === "front" || s === "back").length;
-  const depth = ceilU(req.minD) - bands * reach; // the well's depth, which the spacer spans
+  const depth = ceilU(req.minD); // the well's depth, which the spacer spans
   const height = ceilU(req.minH) - toU(SPACER_TOP_GAP);
   return (
     length >= Math.max(toU(MIN_SPACER), chamfer.side) &&
@@ -289,11 +283,9 @@ function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
   const items = placed.map((p) => {
     const well = wellOf(p.alloc, p.req, reach);
     const depth = contentDepth(p.req, well, H, floor);
-    // The slot is centred on the contents, not on the spacer beside them.
-    const content: Rect = { ...well, w: well.w - p.spacer };
-    return { ...p, well, depth, content, slots: new Map<Side, SlotPlacement>() };
+    return { ...p, well, depth, slots: new Map<Side, SlotPlacement>() };
   });
-  const requests: SlotRequest[] = items.flatMap(({ req, depth, content }, owner) =>
+  const requests: SlotRequest[] = items.flatMap(({ req, depth, well }, owner) =>
     pocketSides(req.features).map((side): SlotRequest => {
       const alongX = side === "front" || side === "back";
       const depths = req.features.flatMap((f) =>
@@ -302,7 +294,7 @@ function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
       return {
         owner,
         side,
-        centre: Math.round(alongX ? content.x + content.w / 2 : content.y + content.d / 2),
+        centre: Math.round(alongX ? well.x + well.w / 2 : well.y + well.d / 2),
         depth: Math.min(...depths),
       };
     }),
@@ -501,7 +493,7 @@ function layoutAt(
     } else {
       const candidate = lastIndex(row, (c) => c.spacerAxis === "w");
       const req = row[candidate];
-      if (!spacerUsed && req !== undefined && spacerFits(req, slack, reach, settings)) {
+      if (!spacerUsed && req !== undefined && spacerFits(req, slack, settings)) {
         growth[candidate] = slack;
         spacerAt = candidate;
         spacerUsed = true;
@@ -576,7 +568,7 @@ function layoutAt(
 
   const spacers: TraySpec[] = [];
   const compartments: CompartmentSpec[] = items.map(
-    ({ req, alloc, spacer, well, depth, content, slots }, i) => {
+    ({ req, alloc, spacer, well, depth, slots }, i) => {
       const floorZ = H - depth;
       if (spacer > 0) {
         const height = depth - toU(SPACER_TOP_GAP);
@@ -588,7 +580,7 @@ function layoutAt(
         floorZ: fromU(floorZ),
         kind: req.kind,
         contents: req.contents,
-        features: featureSpecs(req, content, depth, {
+        features: featureSpecs(req, well, depth, {
           reach,
           settings,
           slots,
