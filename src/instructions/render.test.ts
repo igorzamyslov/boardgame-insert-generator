@@ -1,0 +1,124 @@
+// src/instructions/render.test.ts
+// @vitest-environment jsdom
+import { describe, expect, it } from "vitest";
+import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
+import { DEFAULT_SETTINGS } from "../model/settings";
+import { pngSize, svgDataUrl } from "./png";
+import { escapeXml, packingSteps, render, whatGoesWhere } from "./render";
+
+const bottom = makeTray({
+  key: "a:p0:0",
+  stack: 0,
+  level: 0,
+  x: 0,
+  y: 0,
+  w: 120,
+  d: 90,
+  h: 30,
+  lip: true, // the top tray stands on it
+});
+const spacer = makeTray({
+  key: "a:p0:0:spacer",
+  part: "spacer",
+  path: "",
+  stack: 0,
+  level: 0,
+  x: 5,
+  y: 5,
+  w: 10,
+  d: 60,
+  h: 20,
+  solid: true,
+  compartments: [],
+});
+const top = makeTray({
+  key: "b:p0:0",
+  stack: 0,
+  level: 1,
+  x: 1.45,
+  y: 1.45,
+  z: 30,
+  w: 117,
+  d: 87,
+  h: 25,
+  compartments: [
+    {
+      x: 2,
+      y: 2,
+      w: 100,
+      d: 70,
+      floorZ: 1.2,
+      kind: "scoop",
+      contents: "<Coins> & gems",
+      features: [],
+    },
+  ],
+});
+const side = makeTray({ key: "c:p0:0", stack: 1, level: 0, x: 130, y: 0, w: 100, d: 90, h: 55 });
+const layout = makeLayout("h", [bottom, spacer, top, side]);
+
+function parse(svg: string): Document {
+  return new DOMParser().parseFromString(svg, "image/svg+xml");
+}
+
+describe("render", () => {
+  it("draws one well-formed SVG per layer, bottom first", () => {
+    const svgs = render(layout, fixtureProject());
+    expect(svgs).toHaveLength(2);
+    for (const svg of svgs) {
+      expect(parse(svg).getElementsByTagName("parsererror")).toHaveLength(0);
+      expect(svg).toContain(">FRONT<");
+    }
+    const [first, second] = svgs;
+    expect(first).toContain("<title>Layer 1 of 2</title>");
+    expect(first).toMatch(/>1<\/text>/);
+    expect(first).toMatch(/>2<\/text>/);
+    expect(first).toMatch(/>4<\/text>/);
+    expect(second).toMatch(/>3<\/text>/);
+    expect(second).toContain("&lt;Coins&gt; &amp; gems");
+    expect(second).not.toMatch(/>4<\/text>/);
+  });
+
+  it("escapes XML", () => {
+    expect(escapeXml(`<a href="x">'&'</a>`)).toBe(
+      "&lt;a href=&quot;x&quot;&gt;&apos;&amp;&apos;&lt;/a&gt;",
+    );
+  });
+});
+
+describe("packing order and parts list", () => {
+  it("packs bottom first, spacers after their tray", () => {
+    expect(packingSteps(layout)).toEqual([
+      "Layer 1: place #1 Deck A ×40.",
+      "Slide card spacer #2 into tray #1.",
+      "Layer 1: place #4 Deck A ×40.",
+      "Layer 2: place #3 <Coins> & gems on top.",
+    ]);
+  });
+
+  it("lists what goes where", () => {
+    const rows = whatGoesWhere(layout, DEFAULT_SETTINGS);
+    expect(rows.map((r) => [r.number, r.layer, r.goesInto])).toEqual([
+      [1, 1, null],
+      [2, 1, 1],
+      [3, 2, null],
+      [4, 1, null],
+    ]);
+    // the lipped bottom tray prints taller than its h: 30 + the lip height
+    expect(rows[0]?.size).toBe(
+      `120.0 × 90.0 × ${(30 + DEFAULT_SETTINGS.lip.height).toFixed(1)} mm with its lip`,
+    );
+    expect(rows[3]?.size).toBe("100.0 × 90.0 × 55.0 mm");
+    expect(rows[2]?.contents).toEqual(["<Coins> & gems"]);
+  });
+});
+
+describe("png helpers", () => {
+  it("builds a data URL and keeps the aspect ratio", () => {
+    expect(svgDataUrl("<svg/>")).toBe("data:image/svg+xml;charset=utf-8,%3Csvg%2F%3E");
+    expect(pngSize('<svg viewBox="-4.5 -4.5 209 125">', 1000)).toEqual({
+      width: 1000,
+      height: 598,
+    });
+  });
+});
