@@ -350,7 +350,7 @@ function checkTray(part: TrayPartReq, outer: OuterSize, s: Settings, opts: Reali
 /**
  * size() of valid components: asserts the property is not vacuous. Every component is sized,
  * except a component or group size() leaves out with a sizing.noFingerSlot warning naming one of
- * its members; one stored in a scoop bin instead (an info sizing.noFingerSlot) is sized.
+ * its members; one stored in a bin instead (an info sizing.noFingerSlot) is sized.
  */
 function sized(components: Component[], s: Settings): ReturnType<typeof size> {
   components.forEach((c, i) => {

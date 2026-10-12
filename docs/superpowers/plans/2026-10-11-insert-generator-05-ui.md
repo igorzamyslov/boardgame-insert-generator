@@ -20,7 +20,7 @@ Plans 1–3 are implemented, and their reviews amended the roadmap §4 contracts
 4. **Sizing notices.** `size()` drops variants where a compartment asking for a finger cut gets none; when none is left it stores the stuck tiles, minis and custom members in scoop bins with an info `sizing.noFingerSlot` (roadmap §4.2, the bulk fallback) and, when still none is left, emits a warning `sizing.noFingerSlot` at `/components/<i>` (roadmap §4.2); `sizingNotices` shows it like the other sizing warnings. `settingsValid` adds the cross-field settings errors `field.bottomChamfer` and `field.lipBearing` (both at `/settings/bottomChamfer`, shown next to the bottom chamfer field), and the wall and lip thickness minimum is `MIN_WALL_MM` = 0.9 mm (`SETTING_RANGES`).
 5. **Test-only helpers.** Plan 4's checker and fixture loader are `layout/test-hard-rules.ts` and `layout/test-fixtures.ts`; production code never imports a `test-*` module (root ESLint rule), and outside `geometry/` it imports only `geometry/{types,version,client}`.
 6. **Finger channels (roadmap §4.5, §4.6, §4.7; implemented after plans 1–3).** Every finger cut is a wall cutout (`FeatureSpec` `"wallCutout"`, in `KNOWN_FEATURE_TYPES`): cards, tiles, minis pockets and custom wells (and bulk with finger cuts on, amendment 7); finger pockets and `fingerPocket.reach` are gone (a file still carrying `reach` reads with the usual notice for an unknown field, and `SETTING_SETTERS` has no setter for it). The default finger width (`fingerPocket.width`) is 25 mm. `Settings.fingerPocket` gained `floorNotch` (advanced, how far a flat cutout's notch reaches into the floor: 0–50 mm, default 12.5, a half-disc as wide as the cut) `wallRoom` and `dividerRoom` (0–20 mm, default 0), all in `SETTING_RANGES` (paths `fingerPocket/floorNotch`, `fingerPocket/wallRoom`, `fingerPocket/dividerRoom`), so `SETTING_SETTERS` has a setter for each (Task 8). Simple mode adds a third control, the "Extra finger room in the box" switch, bound to `fingerRoomOf`/`applyFingerRoom`, `FINGER_ROOM_MM` and `FINGER_DIVIDER_ROOM_MM` (`model/settings`): on writes `wallRoom` = 10 mm and `dividerRoom` = 5 mm, off 0 and 0; a custom advanced pair shows as on, with a hint naming it (Task 8). `SCHEMA_VERSION` is `0.1.1` (same line as `0.1.0`); `GEOMETRY_VERSION` is `0.2.0`, a new line (minis and custom trays changed size), so layouts made before it get the reprint notice (amendment 3). A card spacer standing in a channelled well carries its own `features: [{ type: "spacerNotch", … }]` (`TraySpec.features`, roadmap §4.1): `unsupportedReason` checks those too (Task 16). The code blocks of Tasks 8 and 16 are patched.
-7. **Component toggles (spec §5, §6.1).** `ComponentBase` has three optional booleans; absent, each takes the kind's default from `model/defaults`: `fingerCuts` (`fingerCutsOn`: on for cards, tiles, minis pockets and custom, off for bulk and minis stored as bulk), `curvedFloor` (`curvedFloorOn`: the scoop ramp, on for bulk and minis stored as bulk, off for minis pockets and custom; never on cards or tiles, where `validateComponent` reports `field.curvedFloor` at `/components/<i>/curvedFloor`) and `cornerReliefs` (`cornerReliefsOn`: on for tiles and custom). Task 9 adds `ToggleOptions`, rendered by every editor just before More options: "Finger cuts" and "Curved floor" are visible in simple mode ("Curved floor" only for bulk, minis and custom, or where a file set it on another kind, so its error has a place and the user can turn it off), "Corner reliefs" only in advanced mode. Each shows the effective value and writes an explicit boolean. The code blocks of Tasks 9 and 10 are patched.
+7. **Component toggles (spec §5, §6.1).** `ComponentBase` has three optional booleans; absent, each takes the kind's default from `model/defaults`: `fingerCuts` (`fingerCutsOn`: on for cards, tiles, minis pockets and custom, off for bulk and minis stored as bulk), `curvedFloor` (`curvedFloorOn`: the scoop ramp, on for bulk and minis stored as bulk, off for minis pockets and custom; never on cards or tiles, where `validateComponent` reports `field.curvedFloor` at `/components/<i>/curvedFloor`) and `cornerReliefs` (`cornerReliefsOn`: on for tiles and custom). Task 9 adds `ToggleOptions`, rendered by every editor just before More options: "Finger cuts" and "Curved floor" are visible in simple mode ("Curved floor" only for bulk, minis and custom, or where a file set it on another kind, so its error has a place and the user can turn it off), "Corner reliefs" only in advanced mode. Each shows the effective value and writes an explicit boolean; sizing treats a toggle set to its kind's default like an absent one (`binTogglesOf`, review 3, I1). A component in its bulk fallback (spec §7.1: stored loose in bins because no variant gives it a finger cut) keeps showing its own toggles, and under them ToggleOptions shows the info `sizing.noFingerSlot` at `/components/<i>`, which says it is stored in a bin and what the bin has ("…so it is stored loose in a bin with a curved floor instead."). Sizing notices reach it through `SizingContext` (`ui/validation.ts`, `useSizingNotices`), which the App provides from `state.sizingNotices`. The code blocks of Tasks 6, 9, 10 and the App are patched.
 
 ## Global Constraints
 
@@ -2522,6 +2522,7 @@ git commit -m "Compose the app store and wire window events"
 - Consumes: `parseNumber` (`model/numbers`; `"63,"` parses as 63, `"6x"` → `null`), `Notice`.
 - Produces:
   - `ValidationContext` (`preact` context of `Notice[]`), `useFieldNotices(path: string | undefined): Notice[]` — notices whose `path` equals `path`.
+  - `SizingContext` (`preact` context of `Notice[]`, the sizing notices), `useSizingNotices(path: string): Notice[]` — those whose `path` equals `path`.
   - `interface NumberRules { min?: number; max?: number; minExclusive?: boolean; integer?: boolean }`
   - `type NumberCheck = { kind: "ok"; value: number } | { kind: "incomplete" } | { kind: "error"; message: string }`
   - `checkNumber(text: string, rules: NumberRules): NumberCheck` — a trailing `,`/`.` or a lone sign is `incomplete` (never an error, never committed).
@@ -2799,6 +2800,13 @@ export function useFieldNotices(path: string | undefined): Notice[] {
     return [];
   }
   return all.filter((n) => n.path === path);
+}
+
+/** The `size()` notices of the current project (`state.sizingNotices`). */
+export const SizingContext = createContext<Notice[]>([]);
+
+export function useSizingNotices(path: string): Notice[] {
+  return useContext(SizingContext).filter((n) => n.path === path);
 }
 ```
 
@@ -4126,7 +4134,7 @@ export function CommonOptions<C extends Component>({
 import { cornerReliefsOn, curvedFloorOn, fingerCutsOn } from "../../model/defaults";
 import type { Component } from "../../model/types";
 import { CheckField } from "../fields";
-import { useFieldNotices } from "../validation";
+import { useFieldNotices, useSizingNotices } from "../validation";
 import type { EditorProps } from "./types";
 
 /** Kinds that may have a curved floor (spec §5): it would bend cards and tilt upright tiles. */
@@ -4139,6 +4147,10 @@ export function ToggleOptions<C extends Component>({
   onChange,
 }: EditorProps<C>) {
   const floorNotes = useFieldNotices(`/components/${index}/curvedFloor`);
+  // The bulk fallback's note: the component is stored in a bin, and what the bin has.
+  const binNotes = useSizingNotices(`/components/${index}`).filter(
+    (n) => n.code === "sizing.noFingerSlot" && n.level === "info",
+  );
   return (
     <>
       <CheckField
@@ -4171,6 +4183,7 @@ export function ToggleOptions<C extends Component>({
           onChange={(on) => onChange({ ...c, cornerReliefs: on })}
         />
       ) : null}
+      {binNotes.length > 0 ? <p class="hint">{binNotes.map((n) => n.message).join(" ")}</p> : null}
     </>
   );
 }
@@ -4471,8 +4484,10 @@ import type {
   Component,
   CustomComponent,
   MinisComponent,
+  Notice,
   TilesComponent,
 } from "../../model/types";
+import { SizingContext } from "../validation";
 import { BulkEditor } from "./BulkEditor";
 import { CustomEditor } from "./CustomEditor";
 import { MinisEditor } from "./MinisEditor";
@@ -4580,6 +4595,22 @@ describe("toggles", () => {
     expect((screen.getByLabelText("Curved floor") as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByLabelText("Finger cuts"));
     expect(lastOf(onChange).fingerCuts).toBe(true);
+  });
+
+  it("notes under the toggles that a binned component is stored in a bin", () => {
+    const binned: Notice = {
+      level: "info",
+      code: "sizing.noFingerSlot",
+      path: "/components/0",
+      message: "Dial: … so it is stored loose in a bin with a curved floor instead.",
+    };
+    render(
+      <SizingContext.Provider value={[binned]}>
+        <CustomEditor component={of("custom")} index={0} advanced={false} onChange={vi.fn()} />
+      </SizingContext.Provider>,
+    );
+    expect((screen.getByLabelText("Finger cuts") as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByText(/stored loose in a bin with a curved floor/)).toBeTruthy();
   });
 
   it("offers no curved floor on tiles, and corner reliefs on by default in advanced mode", () => {
@@ -5074,7 +5105,7 @@ export function CustomEditor({
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/insert-generator && npx vitest run src/ui/components/editors.test.tsx`
-Expected: PASS (8 tests).
+Expected: PASS (9 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -9798,7 +9829,7 @@ import { PrinterForm } from "../ui/PrinterForm";
 import { ProjectMenu } from "../ui/ProjectMenu";
 import { SettingsForm } from "../ui/SettingsForm";
 import { Summary } from "../ui/Summary";
-import { ValidationContext } from "../ui/validation";
+import { SizingContext, ValidationContext } from "../ui/validation";
 import { Viewer } from "../viewer/Viewer";
 import type { ViewerProps } from "../viewer/Viewer";
 import {
@@ -9889,192 +9920,194 @@ export function App(props: AppProps) {
 
   return (
     <ValidationContext.Provider value={s.validation.value}>
-      <header class="app-header">
-        <div class="app-title">
-          <h1>Board Game Insert Generator</h1>
-          <fieldset class="mode-toggle">
-            <legend>Input mode</legend>
-            <label>
-              <input
-                type="radio"
-                name="input-mode"
-                checked={!advanced}
-                onChange={() => {
-                  s.mode.value = "simple";
-                }}
-              />
-              Simple
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="input-mode"
-                checked={advanced}
-                onChange={() => {
-                  s.mode.value = "advanced";
-                }}
-              />
-              Advanced
-            </label>
-          </fieldset>
-        </div>
-        {isPreview(APP_VERSION) ? (
-          <p class="preview-banner" role="note">
-            Preview: saved projects and shared links may break between versions.
-          </p>
-        ) : null}
-        <ProjectMenu
-          name={project.name}
-          currentId={project.id}
-          projects={s.projects.value}
-          storageAvailable={store.storageAvailable}
-          onRename={(name) => store.edit((q) => renameProject(q, name))}
-          onOpen={(id) => store.openProject(id)}
-          onNew={() => store.newProject()}
-          onDelete={(id) => store.deleteProject(id)}
-          onImport={(text) => {
-            store.importJson(text);
-          }}
-          onExportJson={() =>
-            download(exportJsonFile(project, s.foreign.value), jsonFileName(project))
-          }
-          onCopyLink={onCopyLink}
-        />
-        <Notices
-          notices={s.appNotices.value}
-          label="App messages"
-          onDismiss={(code) => store.dismissNotice(code)}
-          renderAction={(n) =>
-            n.code === CONFLICT_CODE ? (
-              <>
-                <button type="button" onClick={() => store.resolveConflict("keepMine")}>
-                  Keep my version
-                </button>
-                <button type="button" onClick={() => store.resolveConflict("loadTheirs")}>
-                  Load the other tab's version
-                </button>
-              </>
-            ) : null
-          }
-        />
-      </header>
-      <main class="workspace">
-        <section class="inputs" aria-label="Inputs">
-          <Panel id="box" title="Box">
-            <BoxForm
-              box={project.box}
-              onChange={(patch) => store.edit((q) => updateBox(q, patch))}
-            />
-          </Panel>
-          <Panel id="printer" title="Printer">
-            <PrinterForm
-              printer={project.printer}
-              advanced={advanced}
-              onChange={(patch) => store.edit((q) => updatePrinter(q, patch))}
-            />
-          </Panel>
-          <Panel id="components" title="Components">
-            <ComponentList
-              components={project.components}
-              advanced={advanced}
-              onAdd={(kind) => store.edit((q) => addComponent(q, kind))}
-              onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
-              onRemove={(id) => {
-                const c = project.components.find((x) => x.id === id);
-                if (confirm(`Remove “${c ? c.name : "this component"}”?`)) {
-                  store.edit((q) => removeComponent(q, id));
-                }
-              }}
-            />
-          </Panel>
-          <Panel id="settings" title="Settings">
-            <SettingsForm
-              settings={project.settings}
-              advanced={advanced}
-              onChange={(next) => store.edit((q) => setSettings(q, next))}
-            />
-          </Panel>
-        </section>
-        <section class="results" aria-label="Results">
-          <Summary
-            summary={s.summary.value}
-            run={run}
-            notices={s.layoutNotices.value}
-            hasLayout={layout !== undefined}
-            canUndo={s.undoSlot.value !== null}
-            canOptimize={canOptimize(project)}
-            shortfall={shortfall}
-            onReoptimize={() => store.reoptimize()}
-            onImprove={() => store.improveMore()}
-            onUndo={() => store.undo()}
-            onCancel={() => store.cancelRun()}
-            onRetry={() => store.retry()}
-          />
-          {layout ? (
-            <>
-              <Panel id="plan" title="Plan view">
-                <PlanView
-                  trays={layout.trays}
-                  box={project.box}
-                  settings={project.settings}
-                  lockedKeys={locked}
-                  selectedKey={s.selection.value}
-                  onSelect={(key) => {
-                    s.selection.value = key;
-                  }}
-                  onSwap={(a, b) => store.edit((q) => swapTrays(q, a, b))}
-                  sizeLockedKeys={sizeLocked}
-                  onToggleSizeLock={toggleSize}
-                  onToggleLock={(key) => {
-                    const tray = layout.trays.find((t) => t.key === key);
-                    if (tray) {
-                      store.edit((q) => toggleLock(q, tray));
-                    }
+      <SizingContext.Provider value={s.sizingNotices.value}>
+        <header class="app-header">
+          <div class="app-title">
+            <h1>Board Game Insert Generator</h1>
+            <fieldset class="mode-toggle">
+              <legend>Input mode</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="input-mode"
+                  checked={!advanced}
+                  onChange={() => {
+                    s.mode.value = "simple";
                   }}
                 />
-              </Panel>
-              <Panel id="viewer" title="3D view">
-                <Viewer
-                  trays={layout.trays}
-                  box={project.box}
-                  settings={project.settings}
-                  meshes={meshes}
-                  selectedKey={s.selection.value}
-                  lockedKeys={locked}
-                  sizeLockedKeys={sizeLocked}
-                  onToggleSizeLock={toggleSize}
-                  onSelect={(key) => {
-                    s.selection.value = key;
+                Simple
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="input-mode"
+                  checked={advanced}
+                  onChange={() => {
+                    s.mode.value = "advanced";
                   }}
-                  {...props.viewerProps}
                 />
-              </Panel>
-              <Panel id="export" title="Export">
-                <ExportPanel
-                  trays={layout.trays}
-                  printer={project.printer}
-                  settings={project.settings}
-                  meshes={meshes}
-                  projectName={project.name}
-                  disabled={run.status === "running"}
-                  download={download}
-                />
-                <p>
-                  <button type="button" onClick={() => setView("assembly")}>
-                    Open the assembly page
-                  </button>
-                </p>
-              </Panel>
-            </>
+                Advanced
+              </label>
+            </fieldset>
+          </div>
+          {isPreview(APP_VERSION) ? (
+            <p class="preview-banner" role="note">
+              Preview: saved projects and shared links may break between versions.
+            </p>
           ) : null}
-        </section>
-      </main>
-      <footer class="app-footer">
-        {`Insert Generator v${APP_VERSION} · `}
-        <a href="./third-party-licenses.txt">Third-party licenses</a>
-        {" · "}
-        <a href="../">All apps</a>
-      </footer>
+          <ProjectMenu
+            name={project.name}
+            currentId={project.id}
+            projects={s.projects.value}
+            storageAvailable={store.storageAvailable}
+            onRename={(name) => store.edit((q) => renameProject(q, name))}
+            onOpen={(id) => store.openProject(id)}
+            onNew={() => store.newProject()}
+            onDelete={(id) => store.deleteProject(id)}
+            onImport={(text) => {
+              store.importJson(text);
+            }}
+            onExportJson={() =>
+              download(exportJsonFile(project, s.foreign.value), jsonFileName(project))
+            }
+            onCopyLink={onCopyLink}
+          />
+          <Notices
+            notices={s.appNotices.value}
+            label="App messages"
+            onDismiss={(code) => store.dismissNotice(code)}
+            renderAction={(n) =>
+              n.code === CONFLICT_CODE ? (
+                <>
+                  <button type="button" onClick={() => store.resolveConflict("keepMine")}>
+                    Keep my version
+                  </button>
+                  <button type="button" onClick={() => store.resolveConflict("loadTheirs")}>
+                    Load the other tab's version
+                  </button>
+                </>
+              ) : null
+            }
+          />
+        </header>
+        <main class="workspace">
+          <section class="inputs" aria-label="Inputs">
+            <Panel id="box" title="Box">
+              <BoxForm
+                box={project.box}
+                onChange={(patch) => store.edit((q) => updateBox(q, patch))}
+              />
+            </Panel>
+            <Panel id="printer" title="Printer">
+              <PrinterForm
+                printer={project.printer}
+                advanced={advanced}
+                onChange={(patch) => store.edit((q) => updatePrinter(q, patch))}
+              />
+            </Panel>
+            <Panel id="components" title="Components">
+              <ComponentList
+                components={project.components}
+                advanced={advanced}
+                onAdd={(kind) => store.edit((q) => addComponent(q, kind))}
+                onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
+                onRemove={(id) => {
+                  const c = project.components.find((x) => x.id === id);
+                  if (confirm(`Remove “${c ? c.name : "this component"}”?`)) {
+                    store.edit((q) => removeComponent(q, id));
+                  }
+                }}
+              />
+            </Panel>
+            <Panel id="settings" title="Settings">
+              <SettingsForm
+                settings={project.settings}
+                advanced={advanced}
+                onChange={(next) => store.edit((q) => setSettings(q, next))}
+              />
+            </Panel>
+          </section>
+          <section class="results" aria-label="Results">
+            <Summary
+              summary={s.summary.value}
+              run={run}
+              notices={s.layoutNotices.value}
+              hasLayout={layout !== undefined}
+              canUndo={s.undoSlot.value !== null}
+              canOptimize={canOptimize(project)}
+              shortfall={shortfall}
+              onReoptimize={() => store.reoptimize()}
+              onImprove={() => store.improveMore()}
+              onUndo={() => store.undo()}
+              onCancel={() => store.cancelRun()}
+              onRetry={() => store.retry()}
+            />
+            {layout ? (
+              <>
+                <Panel id="plan" title="Plan view">
+                  <PlanView
+                    trays={layout.trays}
+                    box={project.box}
+                    settings={project.settings}
+                    lockedKeys={locked}
+                    selectedKey={s.selection.value}
+                    onSelect={(key) => {
+                      s.selection.value = key;
+                    }}
+                    onSwap={(a, b) => store.edit((q) => swapTrays(q, a, b))}
+                    sizeLockedKeys={sizeLocked}
+                    onToggleSizeLock={toggleSize}
+                    onToggleLock={(key) => {
+                      const tray = layout.trays.find((t) => t.key === key);
+                      if (tray) {
+                        store.edit((q) => toggleLock(q, tray));
+                      }
+                    }}
+                  />
+                </Panel>
+                <Panel id="viewer" title="3D view">
+                  <Viewer
+                    trays={layout.trays}
+                    box={project.box}
+                    settings={project.settings}
+                    meshes={meshes}
+                    selectedKey={s.selection.value}
+                    lockedKeys={locked}
+                    sizeLockedKeys={sizeLocked}
+                    onToggleSizeLock={toggleSize}
+                    onSelect={(key) => {
+                      s.selection.value = key;
+                    }}
+                    {...props.viewerProps}
+                  />
+                </Panel>
+                <Panel id="export" title="Export">
+                  <ExportPanel
+                    trays={layout.trays}
+                    printer={project.printer}
+                    settings={project.settings}
+                    meshes={meshes}
+                    projectName={project.name}
+                    disabled={run.status === "running"}
+                    download={download}
+                  />
+                  <p>
+                    <button type="button" onClick={() => setView("assembly")}>
+                      Open the assembly page
+                    </button>
+                  </p>
+                </Panel>
+              </>
+            ) : null}
+          </section>
+        </main>
+        <footer class="app-footer">
+          {`Insert Generator v${APP_VERSION} · `}
+          <a href="./third-party-licenses.txt">Third-party licenses</a>
+          {" · "}
+          <a href="../">All apps</a>
+        </footer>
+      </SizingContext.Provider>
     </ValidationContext.Provider>
   );
 }

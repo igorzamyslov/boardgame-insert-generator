@@ -8,7 +8,7 @@ import { CutFitError } from "./errors";
 import { bulkFallback } from "./fallback";
 import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
-import type { RealizeOptions, TrayPartReq, TrayRequirement } from "./types";
+import type { FeatureReq, RealizeOptions, TrayPartReq, TrayRequirement } from "./types";
 import { buildVariants } from "./variants";
 
 const ACCESS_RANK: Record<Access, number> = { often: 0, sometimes: 1, setup: 2 };
@@ -82,12 +82,33 @@ function noFingerSlot(error: CutFitError, key: string, usable: readonly Usable[]
   };
 }
 
-/** The notice for a component stored in scoop bins instead (its bulk fallback). */
-function binnedInstead(u: Usable, error: CutFitError): Notice {
+/** What a bin has, from its features: "a bin with a curved floor", or "a plain bin". */
+function binWords(features: readonly FeatureReq[]): string {
+  const has = (type: FeatureReq["type"]) => features.some((f) => f.type === type);
+  const parts = [
+    ...(has("wallCutout") ? ["a finger cut"] : []),
+    ...(has("scoop") ? ["a curved floor"] : []),
+    ...(has("cornerRelief") ? ["corner reliefs"] : []),
+  ];
+  if (parts.length === 0) {
+    return "a plain bin";
+  }
+  const last = parts.pop();
+  return `a bin with ${parts.length > 0 ? `${parts.join(", ")} and ${last}` : last}`;
+}
+
+/**
+ * The notice for a component stored in bins instead (its bulk fallback), saying what its bins
+ * have (review 3, I1): the features of its first compartment in the preferred variant.
+ */
+function binnedInstead(u: Usable, error: CutFitError, requirement: TrayRequirement): Notice {
+  const bin = requirement.variants[0]?.parts
+    .flatMap((p) => p.compartments)
+    .find((c) => c.componentId === u.c.id);
   return {
     level: "info",
     code: "sizing.noFingerSlot",
-    message: `${noRoom(displayName(u.c), error)}, so it is stored loose in a scoop bin instead.`,
+    message: `${noRoom(displayName(u.c), error)}, so it is stored loose in ${binWords(bin?.features ?? [])} instead.`,
     path: `/components/${u.index}`,
   };
 }
@@ -215,7 +236,7 @@ export function size(
       for (const u of binned) {
         const error = stuck(u);
         if (error) {
-          notices.push(binnedInstead(u, error));
+          notices.push(binnedInstead(u, error, second.kept));
         }
       }
       continue;

@@ -592,9 +592,13 @@ are dropped. When that drops every variant of a requirement, its tiles, minis
 (pockets) and custom members left without a cut are stored loose in scoop
 bins instead, so small pieces never disappear: the shallow and deep bulk
 shapes of minis bulk storage, one bin per figure line (tiles: count × flat
-footprint × thickness; custom: count × w × d × h), with bulk's toggle defaults
-(no finger cuts, a curved floor, no corner reliefs) where the component set
-none. An info notice (`sizing.noFingerSlot`) names each such component.
+footprint × thickness; custom: count × w × d × h). Each toggle the component
+turned away from its kind's default carries over to its bins; the others take
+bulk's defaults (no finger cuts, a curved floor, no corner reliefs). A toggle
+set to its kind's default counts as not set, so the bin does not depend on
+whether the UI wrote the value. An info notice (`sizing.noFingerSlot`) names
+each such component and says what its bins have ("a bin with a curved
+floor"). The component's own toggles stay as they are.
 The other members of a group keep their storage, and nothing changes while some variant keeps every cut. Cards have no
 fallback: a requirement that still has no variant is left out with a
 `sizing.noFingerSlot` warning.

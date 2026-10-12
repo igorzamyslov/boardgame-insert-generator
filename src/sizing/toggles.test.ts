@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Component } from "../model/types";
+import { togglesOf } from "../model/defaults";
 import { componentOptions } from "./component";
+import { bulkFallback } from "./fallback";
 import { size } from "./group";
 import { minOuter, realizeTray } from "./realize";
 import {
@@ -186,5 +188,30 @@ describe("corner reliefs toggle", () => {
     ["custom, reliefs off", custom({ cornerReliefs: false }), ["wallCutout front"]],
   ])("%s", (_name, component, expected) => {
     expect(first(component)[1]).toEqual(expected);
+  });
+});
+
+describe("a toggle set to its kind's default is the same as an absent one (review 3, I1)", () => {
+  const kinds: [string, Component][] = [
+    ["cards", cards()],
+    ["bulk", bulk()],
+    ["tiles", flatTiles],
+    ["minis pockets", pockets],
+    ["minis as bulk", piled],
+    ["custom", custom()],
+  ];
+  const names = ["fingerCuts", "curvedFloor", "cornerReliefs"] as const;
+  const cases = kinds.flatMap(([kind, c]) => names.map((t) => [kind, t, c] as const));
+  const explicit = (c: Component, t: (typeof names)[number]): Component => ({
+    ...c,
+    [t]: togglesOf(c)[t],
+  });
+
+  it.each(cases)("%s, %s: the same storage options", (_kind, t, c) => {
+    expect(componentOptions(explicit(c, t), s, 0)).toEqual(componentOptions(c, s, 0));
+  });
+
+  it.each(cases)("%s, %s: the same bulk fallback", (_kind, t, c) => {
+    expect(bulkFallback(explicit(c, t), s)).toEqual(bulkFallback(c, s));
   });
 });

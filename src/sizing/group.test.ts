@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { togglesOf } from "../model/defaults";
 import { DEFAULT_SETTINGS, MIN_FEATURE_MM, MIN_WALL_MM } from "../model/settings";
 import * as componentModule from "./component";
 import { CutFitError } from "./errors";
@@ -244,7 +245,7 @@ describe("size", () => {
       level: "info",
       code: "sizing.noFingerSlot",
       path: `/components/${index}`,
-      message: `${name}: no tray arrangement leaves room for a finger cutout of at least 10 mm by ${contents} with 3 mm of wall beside it, so it is stored loose in a scoop bin instead.`,
+      message: `${name}: no tray arrangement leaves room for a finger cutout of at least 10 mm by ${contents} with 3 mm of wall beside it, so it is stored loose in a bin with a curved floor instead.`,
     });
     // The thinnest wall, floor and divider with a tight fit: a 15 mm tile's well is under 16 mm.
     const thinAndTight = {
@@ -287,10 +288,22 @@ describe("size", () => {
       expect(notices.map((n) => [n.level, n.code])).toEqual([["info", "sizing.noFingerSlot"]]);
     });
 
-    it("keeps the toggles a component set in its bin", () => {
-      const pieces = custom({ w: 8, d: 8, h: 8, count: 3, fingerCuts: true, curvedFloor: false });
-      const req = at(size([pieces], s).requirements, 0);
-      expect([first(req).kind, features(first(req))]).toEqual(["well", ["wallCutout front"]]);
+    it("bins a component the same whether its toggles are absent or set to their defaults", () => {
+      // Review 3, I1: explicit defaults (as the UI writes them) once gave a cut, relief-cornered well.
+      const pieces = custom({ w: 8, d: 8, h: 8, count: 6 });
+      const set = { ...pieces, ...togglesOf(pieces) };
+      expect(size([set], s)).toEqual(size([pieces], s));
+      expect(features(first(at(size([set], s).requirements, 0)))).toEqual(["scoop front"]);
+    });
+
+    it("keeps a toggle a component set away from its kind's default in its bin", () => {
+      // Corner reliefs are off for minis, so turning them on carries over to the bin.
+      const tiny = figures(["F0", 3, 10, 1], ["F1", 5, 3, 1]);
+      const reliefs = at(size([minis({ figures: tiny, cornerReliefs: true })], s).requirements, 0);
+      expect(features(first(reliefs))).toEqual(["scoop front", "cornerRelief"]);
+      expect(size([minis({ figures: tiny, cornerReliefs: true })], s).notices[0]?.message).toMatch(
+        /so it is stored loose in a bin with a curved floor and corner reliefs instead\.$/,
+      );
     });
 
     it("stores tiny minis pockets exactly as minis bulk storage would", () => {
