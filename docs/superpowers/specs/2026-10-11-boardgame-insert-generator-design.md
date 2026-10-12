@@ -46,6 +46,9 @@ box.
 - Flush stacking interlock (matching chamfered groove under the upper tray so
   stacked trays share the same outer footprint).
 - Trays larger than the print bed, split and joined.
+- Leftovers taller than the print bed, split in Z. A leftover is as tall as the
+  stacks beside it, so a box taller than the bed's Z range cannot have one: the
+  run fails with a message saying so (leftovers are not split in Z in v1).
 - Embossed labels.
 - Bundled game presets library.
 - Calibration test print.

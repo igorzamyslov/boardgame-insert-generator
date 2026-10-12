@@ -74,6 +74,45 @@ describe("parts the lip makes too big for the bed", () => {
 
 // A lipped tray prints h + lip.height tall (the lip is part of the printed part), so the bed's
 // Z limit applies to that, in the engine, the warnings and the checker alike.
+// Filler pieces (leftovers) are as tall as the stacks beside them, so a box taller than the
+// print bed cannot have any (future work: split them in Z).
+describe("a box taller than the print bed", () => {
+  it("says the filler pieces can't be printed in one piece, instead of a generic message", () => {
+    const r = optimize(
+      makeInput([boxReq("a", 50, 50, 20), boxReq("b", 50, 50, 20), boxReq("c", 50, 50, 20)], {
+        box: { innerWidth: 200, innerDepth: 150, innerHeight: 100 },
+        printer: { bedZ: 60 },
+      }),
+      1,
+      3000,
+    );
+    expect(r.layout).toBeNull();
+    const dnf = r.notices.find((n) => n.code === "layout.doesNotFit")?.message ?? "";
+    expect(dnf).not.toContain("Some trays don't fit");
+    expect(dnf).toContain("filler pieces");
+    expect(dnf).toContain("100.0 mm tall");
+    expect(dnf).toContain("60.0 mm high");
+    expect(dnf).toContain("taller bed");
+    expect(dnf).toContain("fills the gaps");
+    // none of the trays is named: they fit
+    expect(dnf).not.toContain("Too large for the print bed");
+  });
+
+  it("shows the bed's height when a tray is the part that is too tall", () => {
+    const r = optimize(
+      makeInput([boxReq("a", 50, 50, 20)], {
+        box: { innerWidth: 200, innerDepth: 150, innerHeight: 100 },
+        printer: { bedZ: 60 },
+      }),
+      1,
+      500,
+    );
+    const dnf = r.notices.find((n) => n.code === "layout.doesNotFit")?.message ?? "";
+    expect(dnf).toContain('"a" is 56.4 × 56.4 × 100.0 mm');
+    expect(dnf).toContain("usable bed is 246.0 × 246.0 × 60.0 mm");
+  });
+});
+
 describe("the lip counts toward the bed height", () => {
   const stacked = (innerHeight: number, bedZ = 60) =>
     makeInput(

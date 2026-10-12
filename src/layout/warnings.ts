@@ -127,8 +127,9 @@ function stackRoles(ctx: Ctx, ref: PartRef): StackRoles {
   };
 }
 
-function usableBed(ctx: Ctx): string {
-  return `${mm(toMm(ctx.bed.w))} × ${mm(toMm(ctx.bed.d))} mm`;
+function usableBed(ctx: Ctx, withHeight = false): string {
+  const xy = `${mm(toMm(ctx.bed.w))} × ${mm(toMm(ctx.bed.d))}`;
+  return withHeight ? `${xy} × ${mm(toMm(ctx.bed.z))} mm` : `${xy} mm`;
 }
 
 /** The size with its height, the print bed's Z limit being part of the story. */
@@ -207,7 +208,7 @@ export function bedNotices(ctx: Ctx): Notice[] {
         roles.bottom ? null : `${size(roles.bottomSize)} as a lower tray (lipped walls and lip)`,
         roles.top ? null : `${size(roles.topSize)} as an upper tray (lip inset)`,
       ].filter((x) => x !== null);
-      return `"${label}" fits the bed ${rolesPhrase(roles)}: it needs ${need.join(" and ")}, more than the usable bed ${mm(toMm(ctx.bed.w))} × ${mm(toMm(ctx.bed.d))} × ${mm(toMm(ctx.bed.z))} mm`;
+      return `"${label}" fits the bed ${rolesPhrase(roles)}: it needs ${need.join(" and ")}, more than the usable bed ${usableBed(ctx, true)}`;
     });
     out.push({
       level: "warning",
@@ -223,8 +224,10 @@ function partLabel(contents: readonly string[], key: string): string {
   return names.length > 0 ? names.join(", ") : key;
 }
 
-/** A printed tray the print bed cannot hold (mm), with what the bed allows it. */
+/** A printed tray or filler piece the print bed cannot hold (mm), with what the bed allows it. */
 export interface OverBedPart {
+  /** A leftover: it is as tall as the stacks beside it, so only the box's height can be the reason. */
+  readonly filler: boolean;
   readonly label: string;
   readonly w: number;
   readonly d: number;
@@ -233,11 +236,22 @@ export interface OverBedPart {
   readonly stackPhrase: string | null;
 }
 
-/** The parts among `trays` (a best attempt) that exceed the print bed in every orientation. */
+/**
+ * The parts among `trays` (a best attempt) that exceed the print bed in every orientation:
+ * trays and filler pieces (leftovers, as tall as the box's top plane).
+ */
 export function overBedParts(ctx: Ctx, trays: readonly TraySpec[]): OverBedPart[] {
   const real = trays.filter((t) => t.part === "tray");
-  return real.flatMap((t) => {
-    if (fitsBed(ctx.bed, toU(t.w), toU(t.d), printedHeight(ctx, toU(t.h), t.lip))) {
+  return trays.flatMap((t): OverBedPart[] => {
+    if (t.part === "leftover") {
+      return fitsBed(ctx.bed, toU(t.w), toU(t.d), toU(t.h))
+        ? []
+        : [{ filler: true, label: t.key, w: t.w, d: t.d, h: t.h, stackPhrase: null }];
+    }
+    if (
+      t.part !== "tray" ||
+      fitsBed(ctx.bed, toU(t.w), toU(t.d), printedHeight(ctx, toU(t.h), t.lip))
+    ) {
       return [];
     }
     const refs = ctx.refsOfKey(t.key);
@@ -249,6 +263,7 @@ export function overBedParts(ctx: Ctx, trays: readonly TraySpec[]): OverBedPart[
     const roles = ref && plainFits ? stackRoles(ctx, ref) : undefined;
     return [
       {
+        filler: false,
         label: partLabel(
           t.compartments.map((c) => c.contents),
           t.key,
@@ -265,7 +280,9 @@ export function overBedParts(ctx: Ctx, trays: readonly TraySpec[]): OverBedPart[
 /**
  * Spec §7.3: shortfall per axis plus concrete suggestions. Shortfall in mm. `overBed` names
  * the trays of the best attempt that exceed the print bed (the only reason there is when the
- * shortfall is 0 on every axis and nothing is size-locked).
+ * shortfall is 0 on every axis and nothing is size-locked), and says so when filler pieces are
+ * too tall for it: leftovers are as tall as the stacks beside them and are not split in Z, so
+ * a box taller than the bed can have none.
  */
 export function doesNotFitNotice(
   ctx: Ctx,
@@ -292,24 +309,40 @@ export function doesNotFitNotice(
   if (ctx.input.settings.fit > FIT_CHOICES.tight) {
     tips.push("choose a tighter fit (Fit: tight)");
   }
-  if (overBed.length > 0) {
-    if (ctx.lipOn && overBed.some((o) => o.stackPhrase !== null)) {
+  const trays = overBed.filter((o) => !o.filler);
+  const fillers = overBed.filter((o) => o.filler);
+  if (trays.length > 0) {
+    if (ctx.lipOn && trays.some((o) => o.stackPhrase !== null)) {
       tips.push("turn off the locating lip");
     }
     tips.push("use a printer with a larger bed");
+  }
+  if (fillers.length > 0) {
+    tips.push(
+      "use a printer with a taller bed",
+      "leave more headroom, so the stacks are lower",
+      "add a component that fills the gaps around the trays",
+    );
   }
   tips.push("split groups into separate components");
   const sentences: string[] = [];
   if (parts.length > 0) {
     sentences.push(`The box is too small by ${parts.join(", ")}.`);
   }
-  if (overBed.length > 0) {
-    const named = overBed.map(
+  if (trays.length > 0) {
+    const named = trays.map(
       (o) =>
         `"${o.label}" is ${mm(o.w)} × ${mm(o.d)} × ${mm(o.h)} mm${o.stackPhrase ? ` (it fits the bed ${o.stackPhrase})` : ""}`,
     );
+    const tooTall = trays.some((o) => toU(o.h) > ctx.bed.z);
     sentences.push(
-      `Too large for the print bed: ${named.join("; ")}; the usable bed is ${usableBed(ctx)}.`,
+      `Too large for the print bed: ${named.join("; ")}; the usable bed is ${usableBed(ctx, tooTall)}.`,
+    );
+  }
+  if (fillers.length > 0) {
+    const height = Math.max(...fillers.map((o) => o.h));
+    sentences.push(
+      `The box is ${mm(height)} mm tall inside but the print bed is only ${mm(toMm(ctx.bed.z))} mm high, so the filler pieces that fill the gaps around the trays can't be printed in one piece.`,
     );
   }
   if (sentences.length === 0) {
