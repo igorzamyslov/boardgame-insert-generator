@@ -399,10 +399,10 @@ Coordinates are stored in mm and computed as integer 0.01 mm units.
 - Outer block with rounded vertical corners (`cornerRadius`). Wells have inner
   vertical corners ≤ 0.5 mm; compartments of components with `cornerReliefs`
   on (§5) add Ø 3 mm corner reliefs. They shrink to keep 0.9 mm to the outer
-  faces and 0.8 mm from other compartments, every cut and the 3 mm beside a
-  cut that its top fillet may round (so a post beside a cut stays at least
-  0.8 mm and no feather is left between a relief and a fillet; at a 3 mm post
-  the relief is left out), and are left out under Ø 0.6 mm.
+  faces and 0.8 mm from other compartments and every cut (so a post beside a
+  cut stays at least 0.8 mm), and are left out under Ø 0.6 mm. A relief takes
+  precedence over a top fillet: tiles need it to sit flat, the fillet is
+  comfort, so the fillet beside it shrinks (below).
 - Walls are vertical and the top is open. Floor fillets are concave. No
   bridges or ceilings; raised floors are solid.
 - Outer bottom edge chamfer `bottomChamfer` × 45° against elephant foot
@@ -481,8 +481,9 @@ keeps its upright ones, and one with none left goes in a scoop bin (§7.1).
   at the top. Through a lipped wall only the lip is rounded, on its top (at
   most the lip's height), so the ledge the upper tray rests on stays square.
   The radius shrinks where less than 0.8 mm of top would stay beside it (the
-  outer corner, where the strip reaches it, or another compartment across the
-  wall), to stay on the
+  outer corner, where the strip reaches it, another compartment across the
+  wall, or a corner relief: a relief takes precedence over a top fillet, which
+  keeps 0.8 mm from it and may shrink to nothing), to stay on the
   faces of the compartments the cut runs between, and to the U's straight
   side; under 0.2 mm it is left out. The surface faces up and into the cut, so
   it needs no support. Sizing does not change for it. The cut's vertical edges
@@ -537,7 +538,7 @@ app warns (rule 4).
 | Card spacer    | Separate solid block                                     | Well width × spare length × (well height − 5), printed standing. Where the deck's finger channel crosses its well, the spacer has the same U-notch (same centre and bottom, at least as wide; cut across the whole spacer when less than the bottom chamfer plus 0.8 mm would stay beside it), so the channel stays open end to end. A channel wider than the spacer takes its whole top: the spacer then ends where the channel meets its faces. |
 | Cards, flat    | Rectangular well                                         | Long side along Y; half-round cutouts through both long walls with a floor notch (§6.1).                                                                                                                                                                                                                                                                                                                                                          |
 | Bulk           | Scoop tray, compartments in a strip (one per item line)  | Scoop fillet on the compartment's front wall (tray-local −Y), radius `min(scoopRadius, depth, width/2)`; on the back wall when finger cuts take the front.                                                                                                                                                                                                                                                                                        |
-| Tiles, flat    | Rect/hex wells, one per column                           | Columns added when `count × thickness` exceeds the well height. Hex corner-to-corner = `flatToFlat · 2/√3`. Cutouts through the two walls along the longer side (left and right for a square).                                                                                                                                                                                                                                                    |
+| Tiles, flat    | Rect/hex wells, one per column                           | Columns added when `count × thickness` exceeds the well height. Hex corner-to-corner = `flatToFlat · 2/√3`. Cutouts through the two walls along the longer side (left and right for a square). Corner reliefs take precedence over the cuts' top fillets (§6.1).                                                                                                                                                                                  |
 | Tiles, upright | As upright cards                                         | Hex stands on a flat edge: height `flatToFlat`, length corner-to-corner.                                                                                                                                                                                                                                                                                                                                                                          |
 | Minis, pockets | One rounded pocket per figure (bounding box + clearance) | Each pocket's depth = its figure's `h` + clearance (solid raised pocket floor). The tallest figure sets the minimum tray height.                                                                                                                                                                                                                                                                                                                  |
 | Minis, bulk    | As bulk                                                  | Volume = Σ bounding boxes ÷ `packingFactor`.                                                                                                                                                                                                                                                                                                                                                                                                      |

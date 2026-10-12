@@ -9,8 +9,8 @@ import {
   nearestAcross,
   separation,
 } from "../model/cut-rules";
-import { FINGER_FILLET_MM, MIN_FILLET } from "./plan-types";
-import type { CompartmentPlan, CutPlan, LipPlan, Rect } from "./plan-types";
+import { FINGER_FILLET_MM, INNER_CORNER_RADIUS_MM, MIN_FILLET } from "./plan-types";
+import type { CompartmentPlan, CutPlan, LipPlan, Rect, ReliefPlan } from "./plan-types";
 
 // Wall cutouts (FeatureSpec "wallCutout", spec §6.1, roadmap §4.6): planned and checked once every
 // compartment rectangle is known, because a cut runs from its compartment to the next one across.
@@ -332,32 +332,6 @@ export function filletStrip(
 }
 
 /**
- * Where the cuts' top fillets may reach: beside each side of each cut, FINGER_FILLET_MM along it,
- * across its fillet strip (filletStrip). Corner reliefs keep MIN_FEATURE_MM from these, so a relief
- * at a post's corner leaves no feather against the fillet that rounds the post (review 3, M1). The
- * reliefs are planned before the fillets' radii (those wait for the outer corner radius, which
- * waits for the reliefs), so the spans take the largest radius.
- */
-export function filletSpans(
-  plans: readonly CompartmentPlan[],
-  frame: { w: number; d: number; h: number },
-  lip: LipPlan | null,
-): Rect[] {
-  return plans.flatMap((plan) =>
-    plan.cuts.flatMap((cut) => {
-      const { v0, v1 } = filletStrip(cut, frame, lip);
-      const { u0, u1 } = axes(cut, cut.side);
-      return [
-        [u0 - FINGER_FILLET_MM, u0],
-        [u1, u1 + FINGER_FILLET_MM],
-      ].map(([a = 0, b = 0]) =>
-        alongX(cut.side) ? { x0: a, x1: b, y0: v0, y1: v1 } : { x0: v0, x1: v1, y0: a, y1: b },
-      );
-    }),
-  );
-}
-
-/**
  * The radii of a U's two top corners (spec §6.1): FINGER_FILLET_MM, less where that would leave
  * less than MIN_FEATURE_MM of top beside it, along the side up to the nearest void across the same
  * strip (`voids`, other compartments), or to the outer corner's arc of radius `radius` (from the
@@ -390,6 +364,29 @@ function topRadii(
 }
 
 /**
+ * Where a corner relief lies along `side` within the band a fillet's cutter takes across its strip
+ * (`v0`…`v1`, and INNER_CORNER_RADIUS_MM on into the compartments at its ends, as buildTray cuts
+ * it): the chord of its circle nearest the band, or none when the circle misses the band.
+ */
+function reliefAlong(
+  r: ReliefPlan,
+  side: Side,
+  strip: { v0: number; v1: number },
+): { u0: number; u1: number }[] {
+  const [u, v] = alongX(side) ? [r.cx, r.cy] : [r.cy, r.cx];
+  const off = Math.max(
+    0,
+    strip.v0 - INNER_CORNER_RADIUS_MM - v,
+    v - strip.v1 - INNER_CORNER_RADIUS_MM,
+  );
+  if (off >= r.r) {
+    return [];
+  }
+  const half = Math.sqrt(r.r * r.r - off * off);
+  return [{ u0: u - half, u1: u + half }];
+}
+
+/**
  * Every cut's top fillets (topRadii): across its strip, at the rim (or, through a lipped wall, on
  * the lip ring's top), clear of every other compartment lying across the same strip, and of the
  * outer corners of radius `cornerRadius`.
@@ -409,10 +406,14 @@ export function planTopFillets(
         return o.v0 < strip.v1 - TOL && o.v1 > strip.v0 + TOL;
       };
       // Another compartment across the strip (another cut lies inside or beside its own
-      // compartment, which comes first along the side).
-      const voids = plans.flatMap((p) =>
-        p === plan || p.index === cut.into || !across(p.rect) ? [] : [axes(p.rect, cut.side)],
-      );
+      // compartment, which comes first along the side), and every corner relief the fillet's
+      // cutter would come near: a relief takes precedence over a top fillet (review 3, M1).
+      const voids = [
+        ...plans.flatMap((p) =>
+          p === plan || p.index === cut.into || !across(p.rect) ? [] : [axes(p.rect, cut.side)],
+        ),
+        ...plans.flatMap((p) => p.reliefs.flatMap((r) => reliefAlong(r, cut.side, strip))),
+      ];
       const { u0, u1 } = axes(cut, cut.side);
       const span = alongX(cut.side) ? frame.w : frame.d;
       // The outer corners' arcs lie within cornerRadius of the faces across the strip too: a strip

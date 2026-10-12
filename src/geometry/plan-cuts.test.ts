@@ -124,25 +124,26 @@ describe("wall cutouts", () => {
     expect(planTray(spec, GEO).cornerRadius).toBe(3);
   });
 
-  it("drops corner reliefs at a 3 mm post, which its cut's top fillet rounds", () => {
-    // Review 3, M1: a relief there left a feather against the fillet, 0.04 mm wide.
+  it("keeps the corner reliefs at a 3 mm post and shrinks the cut's top fillets clear of them", () => {
+    // A relief takes precedence over a top fillet (review 3, M1, as ruled): it keeps its own
+    // rules, and the fillet keeps MIN_FEATURE_MM from its reach.
     const relief: FeatureSpec = { type: "cornerRelief", d: 3 };
-    const near = planTray(beside([relief, cutout("left", 30, 10, 0, 50.8)]), GEO);
-    const far = planTray(beside([relief, cutout("left", 30, 10)]), GEO);
-    const centres = (plan: typeof near) =>
-      plan.compartments[0]?.reliefs.map((r) => [r.cx > 11.6 ? "right" : "left", r.r]);
-    expect(centres(far)).toEqual([
-      ["left", 1.5],
-      ["right", 1.5],
-      ["right", 1.5],
-      ["left", 1.5],
-    ]);
-    // The 50.8 mm cut ends 3 mm from the well's front and back corners: the fillet spans reach
-    // them, so the left reliefs go.
-    expect(centres(near)).toEqual([
-      ["right", 1.5],
-      ["right", 1.5],
-    ]);
+    // 28 mm deep in the 30 mm tray, so the U has straight sides to round.
+    const near = planTray(beside([relief, cutout("left", 30, 28, 0, 50.8)]), GEO);
+    const far = planTray(beside([relief, cutout("left", 30, 28)]), GEO);
+    const radii = (plan: typeof near) => plan.compartments[0]?.reliefs.map((r) => r.r);
+    const fillets = (plan: typeof near) => plan.compartments[0]?.cuts[0]?.topFillets;
+    expect(radii(far)).toEqual([1.5, 1.5, 1.5, 1.5]);
+    expect(fillets(far)).toEqual([3, 3]);
+    // The 50.8 mm cut ends 3 mm from the well's front and back corners: the left reliefs shrink
+    // for the cut, as before, and stay; the fillets beside them give way instead.
+    const shrunk = radii(near) ?? [];
+    expect(shrunk).toHaveLength(4);
+    expect(shrunk[0]).toBeLessThan(1.5);
+    expect(shrunk[3]).toBeLessThan(1.5);
+    expect(shrunk[1]).toBe(1.5);
+    // These reliefs come right up to the 0.8 mm the cut keeps from them: no room for a fillet.
+    expect(fillets(near)).toEqual([0, 0]);
   });
 
   describe("rejects", () => {

@@ -13,7 +13,6 @@ import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
 import {
   checkCutClearance,
   checkNotches,
-  filletSpans,
   notchEdges,
   planCut,
   planNotchFillets,
@@ -243,10 +242,9 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     checkNotches(plan, failWith);
   });
   checkCutClearance(plans, failWith);
-  const fillets = filletSpans(plans, spec, lip);
   const compartments = plans.map((plan, i) => ({
     ...plan,
-    reliefs: planReliefs(spec, plans, plan, planned[i]?.reliefDiameter ?? 0, chamfer, fillets),
+    reliefs: planReliefs(spec, plans, plan, planned[i]?.reliefDiameter ?? 0, chamfer),
   }));
 
   const notch = planSpacerNotch(spec, spec.features ?? [], chamfer, failWith);
