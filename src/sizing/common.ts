@@ -1,6 +1,6 @@
 import { effective } from "../model/settings";
 import type { Component, Notice, Settings, Side } from "../model/types";
-import { cornerReliefsOn, curvedFloorOn, fingerCutsOn } from "../model/defaults";
+import type { Toggles } from "../model/defaults";
 import { validateComponent } from "../model/validate";
 import type { CompartmentReq, FeatureReq } from "./types";
 import { ceilU, fromU } from "./units";
@@ -72,19 +72,19 @@ export function cornerRelief(): FeatureReq {
 }
 
 /**
- * The features of a compartment of `c` (spec §5, §6.1): its `cuts` when the component's finger cuts
- * are on; the scoop ramp when its curved floor is, on the front, or on the back when a cut takes
- * the front; and corner reliefs when they are on. A component with all three off gets a plain box.
+ * The features of a compartment with the toggles `on` (spec §5, §6.1; togglesOf): its `cuts` when
+ * finger cuts are on; the scoop ramp when the curved floor is, on the front, or on the back when a
+ * cut takes the front; and corner reliefs when they are on. All three off give a plain box.
  */
-export function featuresOf(c: Component, cuts: readonly FeatureReq[]): FeatureReq[] {
-  const kept = fingerCutsOn(c) ? cuts : [];
+export function featuresOf(on: Toggles, cuts: readonly FeatureReq[]): FeatureReq[] {
+  const kept = on.fingerCuts ? cuts : [];
   const front = kept.some((f) => f.side === "front");
   return [
     ...kept,
-    ...(curvedFloorOn(c)
+    ...(on.curvedFloor
       ? [{ type: "scoop" as const, side: front ? "back" : "front" } as const]
       : []),
-    ...(cornerReliefsOn(c) ? [cornerRelief()] : []),
+    ...(on.cornerReliefs ? [cornerRelief()] : []),
   ];
 }
 

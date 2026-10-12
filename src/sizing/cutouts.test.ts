@@ -415,7 +415,7 @@ describe("minis pockets and custom wells: one centred cut through the front wall
 });
 
 describe("no wall left for a cutout", () => {
-  it("leaves out a well too small for a 10 mm cut with 3 mm posts, with a warning", () => {
+  it("cuts no well too small for a 10 mm cut with 3 mm posts: its tile goes in a scoop bin", () => {
     // A 1 mm tile at a 0.9 mm wall and chamfer (review 2, M-a: it got a 0.4–0.54 mm cut).
     const thin = largestChamfer({ ...s, wall: MIN_WALL_MM, floor: MIN_WALL_MM });
     const pip = tiles({
@@ -427,13 +427,14 @@ describe("no wall left for a cutout", () => {
       clearance: 0,
     });
     const result = size([pip], thin);
-    expect(result.requirements).toEqual([]);
+    const ids = result.requirements.flatMap((req) => req.variants.map((v) => v.id));
+    expect(ids).toEqual(["bulk-shallow|strip|split1"]);
     expect(result.notices).toEqual([
       expect.objectContaining({
-        level: "warning",
+        level: "info",
         code: "sizing.noFingerSlot",
         message: expect.stringMatching(
-          /^Pip: no tray arrangement leaves room for a finger cutout of at least 10 mm by Pip ×1 with 3 mm of wall beside it/,
+          /^Pip: no tray arrangement leaves room for a finger cutout of at least 10 mm by Pip ×1 with 3 mm of wall beside it, so it is stored loose in a scoop bin instead\.$/,
         ),
         path: "/components/0",
       }),
@@ -470,7 +471,7 @@ describe("posts: a cut never removes a whole wall (spec §6.1)", () => {
     }
   });
 
-  it("drops the flat variants of tiles too small for a cut, keeping the upright ones", () => {
+  it("drops the flat variants of tiles too small for a cut, keeping the upright ones or a bin", () => {
     const hexes = (storage: "flat" | "auto") =>
       tiles({
         shape: { type: "hex", flatToFlat: 8.5, orientation: "flat" },
@@ -482,10 +483,11 @@ describe("posts: a cut never removes a whole wall (spec §6.1)", () => {
     const ids = auto.requirements.flatMap((req) => req.variants.map((v) => v.id));
     expect(ids.length).toBeGreaterThan(0);
     expect(ids.every((id) => id.startsWith("upright"))).toBe(true);
-    // Flat only: no variant is left, and a warning says so.
+    // Flat only: no flat variant is left, so the tiles go in a scoop bin, and a notice says so.
     const flat = size([hexes("flat")], s);
-    expect(flat.requirements).toEqual([]);
-    expect(flat.notices.map((n) => n.code)).toEqual(["sizing.noFingerSlot"]);
+    const binIds = flat.requirements.flatMap((req) => req.variants.map((v) => v.id));
+    expect(binIds.every((id) => id.startsWith("bulk-"))).toBe(true);
+    expect(flat.notices.map((n) => [n.level, n.code])).toEqual([["info", "sizing.noFingerSlot"]]);
   });
 });
 

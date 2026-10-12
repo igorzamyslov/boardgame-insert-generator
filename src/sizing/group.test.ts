@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_SETTINGS } from "../model/settings";
+import { DEFAULT_SETTINGS, MIN_FEATURE_MM, MIN_WALL_MM } from "../model/settings";
 import * as componentModule from "./component";
 import { CutFitError } from "./errors";
 import { combineOptions, mostFrequentAccess, size } from "./group";
@@ -15,6 +15,9 @@ vi.mock("./component", async (importOriginal) => {
 });
 
 const s = DEFAULT_SETTINGS;
+
+const figures = (...sizes: [string, number, number, number][]) =>
+  sizes.map(([name, w, d, h]) => ({ name, w, d, h, count: 1 }));
 
 describe("size", () => {
   it("leaves out a requirement without variants, so every requirement has 1–8", () => {
@@ -171,8 +174,6 @@ describe("size", () => {
           throw error;
         }
       });
-    const figures = (...sizes: [string, number, number, number][]) =>
-      sizes.map(([name, w, d, h]) => ({ name, w, d, h, count: 1 }));
 
     it("keeps the variants whose every pocket gets a cut, in rank order", () => {
       // A 25 mm figure and a 4 × 30 mm one: too narrow for a cut through its front or back, the
@@ -189,9 +190,9 @@ describe("size", () => {
       expect(req.variants.every((v) => v.parts.every(realizable))).toBe(true);
     });
 
-    it("warns and leaves the component out when no variant gives every pocket a cut", () => {
-      const m = minis({ id: "m2", figures: figures(["F0", 3, 10, 1], ["F1", 5, 3, 1]) });
-      const { requirements, notices } = size([bulk(), m], s);
+    it("warns and leaves out a deck that no variant gives a cut: cards have no bulk fallback", () => {
+      const deck = cards({ id: "c2", shortSide: 8, longSide: 8, storage: "flat" });
+      const { requirements, notices } = size([bulk(), deck], s);
       expect(requirements.map((r) => r.key)).toEqual(["b1"]);
       expect(notices).toEqual([
         {
@@ -199,20 +200,21 @@ describe("size", () => {
           code: "sizing.noFingerSlot",
           path: "/components/1",
           message:
-            "Minis: no tray arrangement leaves room for a finger cutout of at least 10 mm by F0, F1 with 3 mm of wall beside it, so it is left out. Try another storage.",
+            "Cards: no tray arrangement leaves room for a finger cutout of at least 10 mm by Main ×52 with 3 mm of wall beside it, so it is left out. Try another storage.",
         },
       ]);
     });
 
-    it("names the stuck member of a group whose variants all fail", () => {
+    it("names the stuck member of a group whose variants all fail, even with its pockets in a bin", () => {
+      const deck = cards({ id: "c2", groupId: "g", shortSide: 8, longSide: 8, storage: "flat" });
       const m = minis({ id: "m2", groupId: "g", figures: figures(["A", 3, 3, 1], ["B", 3, 4, 1]) });
-      const { requirements, notices } = size([bulk({ groupId: "g" }), m], s);
+      const { requirements, notices } = size([bulk({ groupId: "g" }), m, deck], s);
       expect(requirements).toEqual([]);
-      expect(notices.map((n) => [n.code, n.path])).toEqual([
-        ["sizing.noFingerSlot", "/components/1"],
+      expect(notices.map((n) => [n.level, n.code, n.path])).toEqual([
+        ["warning", "sizing.noFingerSlot", "/components/2"],
       ]);
       expect(at(notices, 0).message).toMatch(
-        /by A, B with 3 mm of wall beside it, so the group "g"/,
+        /by Main ×52 with 3 mm of wall beside it, so the group "g"/,
       );
     });
 
@@ -232,6 +234,101 @@ describe("size", () => {
         "upright-short|rows2|split1",
         "flat|strip|split2",
       ]);
+    });
+  });
+
+  describe("bulk fallback", () => {
+    // A tiles, minis (pockets) or custom component that no variant gives a finger cut is stored
+    // loose in scoop bins instead, like minis bulk storage, with an info notice (spec §7.1).
+    const fallbackNotice = (index: number, name: string, contents: string) => ({
+      level: "info",
+      code: "sizing.noFingerSlot",
+      path: `/components/${index}`,
+      message: `${name}: no tray arrangement leaves room for a finger cutout of at least 10 mm by ${contents} with 3 mm of wall beside it, so it is stored loose in a scoop bin instead.`,
+    });
+    // The thinnest wall, floor and divider with a tight fit: a 15 mm tile's well is under 16 mm.
+    const thinAndTight = {
+      ...DEFAULT_SETTINGS,
+      wall: MIN_WALL_MM,
+      floor: MIN_FEATURE_MM,
+      divider: MIN_FEATURE_MM,
+      fit: 0.7,
+    };
+    const binIds = ["bulk-shallow|strip|split1", "bulk-deep|strip|split1"];
+    const first = (req: { variants: { parts: TrayPartReq[] }[] }) =>
+      at(at(at(req.variants, 0).parts, 0).compartments, 0);
+    const features = (c: { features: { type: string; side?: string }[] }) =>
+      c.features.map((f) => (f.side ? `${f.type} ${f.side}` : f.type));
+
+    it("puts 15 mm square tiles laid flat into a bin when tight fit and thin walls leave no cut", () => {
+      const squares = tiles({
+        shape: { type: "rect", w: 15, d: 15 },
+        thickness: 2,
+        count: 40,
+        storage: "flat",
+      });
+      const { requirements, notices } = size([squares], thinAndTight);
+      const req = at(requirements, 0);
+      expect(req.variants.map((v) => v.id)).toEqual(binIds);
+      expect(req.loose).toBe(true);
+      expect(first(req).contents).toBe("Hexes ×40");
+      expect([first(req).kind, features(first(req))]).toEqual(["scoop", ["scoop front"]]);
+      expect(notices).toEqual([fallbackNotice(0, "Hexes", "Hexes ×40")]);
+    });
+
+    it("puts 8 mm custom pieces into a bin", () => {
+      const pieces = custom({ w: 8, d: 8, h: 8, count: 3 });
+      const { requirements, notices } = size([pieces], s);
+      const req = at(requirements, 0);
+      // Three small pieces: the deep bin is the shallow one, so only one variant is left.
+      expect(req.variants.map((v) => v.id)).toEqual(["bulk-shallow|strip|split1"]);
+      expect(first(req).contents).toBe("Dial ×3");
+      expect(features(first(req))).toEqual(["scoop front"]);
+      expect(notices.map((n) => [n.level, n.code])).toEqual([["info", "sizing.noFingerSlot"]]);
+    });
+
+    it("keeps the toggles a component set in its bin", () => {
+      const pieces = custom({ w: 8, d: 8, h: 8, count: 3, fingerCuts: true, curvedFloor: false });
+      const req = at(size([pieces], s).requirements, 0);
+      expect([first(req).kind, features(first(req))]).toEqual(["well", ["wallCutout front"]]);
+    });
+
+    it("stores tiny minis pockets exactly as minis bulk storage would", () => {
+      const tiny = figures(["F0", 3, 10, 1], ["F1", 5, 3, 1]);
+      const { requirements, notices } = size([bulk(), minis({ id: "m2", figures: tiny })], s);
+      const piled = size([minis({ id: "m2", figures: tiny, storage: "bulk" })], s);
+      expect(requirements.map((r) => r.key)).toEqual(["b1", "m2"]);
+      expect(at(requirements, 1)).toEqual(at(piled.requirements, 0));
+      expect(notices).toEqual([fallbackNotice(1, "Minis", "F0, F1")]);
+    });
+
+    it("puts only the stuck members of a group into a bin", () => {
+      const tiny = figures(["A", 3, 3, 1], ["B", 3, 4, 1]);
+      const m = minis({ id: "m2", groupId: "g", figures: tiny });
+      const { requirements, notices } = size([cards({ groupId: "g" }), m], s);
+      const req = at(requirements, 0);
+      expect(req.variants.map((v) => v.id)).toEqual([
+        "upright-long+bulk-shallow|strip|split1",
+        "upright-long+bulk-shallow|strip|split2",
+        "upright-long+bulk-shallow|rows2|split1",
+        "upright-long+bulk-shallow|strip|split3",
+      ]);
+      expect(req.loose).toBe(true);
+      expect(notices.map((n) => [n.level, n.path])).toEqual([["info", "/components/1"]]);
+    });
+
+    it("adds no bin when a variant keeps every cut", () => {
+      const squares = tiles({
+        shape: { type: "rect", w: 15, d: 15 },
+        thickness: 2,
+        count: 40,
+        storage: "auto",
+      });
+      const { requirements, notices } = size([squares], thinAndTight);
+      expect(notices).toEqual([]);
+      const ids = at(requirements, 0).variants.map((v) => v.id);
+      expect(ids.length).toBeGreaterThan(0);
+      expect(ids.some((id) => id.includes("bulk"))).toBe(false);
     });
   });
 

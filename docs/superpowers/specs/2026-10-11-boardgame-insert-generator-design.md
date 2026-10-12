@@ -427,8 +427,8 @@ cut leaves through the outer wall. A well that still gets no cut tries the
 other side of the same axis (a minis pocket of the back row, whose front faces
 the front row, is cut through the back wall), then both sides of the other
 axis (a deck between bits is cut through the front and back walls), never on
-the side its curved floor is on; one with no cut at all is not offered (a
-warning names it). A component with finger cuts off asks for none, so it
+the side its curved floor is on; one with no cut at all is not offered (§7.1:
+its pieces go in a scoop bin instead, or a warning names it). A component with finger cuts off asks for none, so it
 never makes a variant drop. Cuts placed later keep
 0.8 mm from those placed before. Wells need no extra room (no reach bands):
 they are content + clearance.
@@ -440,7 +440,7 @@ cut is at most the well's side less 2 × 3 mm. Where that leaves less than
 10 mm (`MIN_CUT_MM`, a fingertip; or the width setting, if smaller), the well
 gets no cut on that axis: it is cut across instead, as above, or not offered.
 So tiles under about 16 mm laid flat get no flat variant; an auto component
-keeps its upright ones.
+keeps its upright ones, and one with none left goes in a scoop bin (§7.1).
 
 - **Upright cards and tiles:** one centred channel per row, along the stack
   (X): through both end walls (touching the first and last card faces) and
@@ -586,6 +586,18 @@ height ≤ 1.5 × its smaller horizontal size and ≥ 20 mm.
 
 A measured card thickness below 0.1 mm per card is treated as a typo: the
 sleeve-table thickness is used instead, with a notice.
+
+**Bulk fallback.** Variants with a compartment that gets no finger cut (§6.1)
+are dropped. When that drops every variant of a requirement, its tiles, minis
+(pockets) and custom members left without a cut are stored loose in scoop
+bins instead, so small pieces never disappear: the shallow and deep bulk
+shapes of minis bulk storage, one bin per figure line (tiles: count × flat
+footprint × thickness; custom: count × w × d × h), with bulk's toggle defaults
+(no finger cuts, a curved floor, no corner reliefs) where the component set
+none. An info notice (`sizing.noFingerSlot`) names each such component.
+The other members of a group keep their storage, and nothing changes while some variant keeps every cut. Cards have no
+fallback: a requirement that still has no variant is left out with a
+`sizing.noFingerSlot` warning.
 
 ### 7.2 Search
 

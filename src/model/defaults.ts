@@ -112,6 +112,34 @@ export function cornerReliefsOn(c: Component): boolean {
   return c.cornerReliefs ?? (c.kind === "tiles" || c.kind === "custom");
 }
 
+/** The three per-component toggles, resolved (spec §5). */
+export interface Toggles {
+  fingerCuts: boolean;
+  curvedFloor: boolean;
+  cornerReliefs: boolean;
+}
+
+/** The component's toggles: what it set, else its kind's defaults. */
+export function togglesOf(c: Component): Toggles {
+  return {
+    fingerCuts: fingerCutsOn(c),
+    curvedFloor: curvedFloorOn(c),
+    cornerReliefs: cornerReliefsOn(c),
+  };
+}
+
+/**
+ * The toggles of a component stored loose in a scoop bin, its bulk fallback (spec §7.1): what it
+ * set, else bulk's defaults (no finger cuts, a curved floor, no corner reliefs).
+ */
+export function binTogglesOf(c: Component): Toggles {
+  return {
+    fingerCuts: c.fingerCuts ?? false,
+    curvedFloor: c.curvedFloor ?? true,
+    cornerReliefs: c.cornerReliefs ?? false,
+  };
+}
+
 /** The component's group, or undefined when it has none. An empty groupId means no group. */
 export function groupOf(c: Component): string | undefined {
   return c.groupId === "" ? undefined : c.groupId;

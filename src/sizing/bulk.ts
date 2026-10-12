@@ -1,3 +1,4 @@
+import { togglesOf, type Toggles } from "../model/defaults";
 import type { BulkComponent, BulkItem, Component, Settings } from "../model/types";
 import {
   compartment,
@@ -6,6 +7,7 @@ import {
   label,
   mainClearance,
   type OptionsResult,
+  type StorageOption,
   wallCutout,
 } from "./common";
 import { BULK_MIN_SIDE, MAX_H_RATIO, SHALLOW_H } from "./constants";
@@ -44,19 +46,20 @@ export function shapeLine(line: BulkLine, shape: BulkShape): { side: number; h: 
 }
 
 /**
- * One bulk compartment of `c` (bulk, or minis stored as bulk): its curved floor makes it a scoop,
- * its finger cuts a centred cut through its front wall, half its depth (featuresOf).
+ * One bulk compartment with the toggles `on`: its curved floor makes it a scoop, its finger cuts a
+ * centred cut through its front wall, half its depth (featuresOf).
  */
 export function bulkCompartment(
-  c: Component,
+  componentId: string,
+  on: Toggles,
   contents: string,
   line: BulkLine,
   shape: BulkShape,
 ): CompartmentReq {
   const { side, h } = shapeLine(line, shape);
-  const features = featuresOf(c, [wallCutout("front", 0.5, false)]);
+  const features = featuresOf(on, [wallCutout("front", 0.5, false)]);
   return compartment({
-    componentId: c.id,
+    componentId,
     contents,
     kind: features.some((f) => f.type === "scoop") ? "scoop" : "well",
     w: side,
@@ -69,6 +72,40 @@ export function bulkCompartment(
   });
 }
 
+/** Pieces of one kind and size, piled loose. */
+export interface Pieces {
+  name: string;
+  count: number;
+  w: number;
+  d: number;
+  h: number;
+}
+
+/**
+ * Scoop bins for `pieces` of `c`, one per line, with the toggles `on`: the `bulk-shallow` and
+ * `bulk-deep` options of minis bulk storage and of the bulk fallback (spec §7.1).
+ */
+export function binOptions(
+  c: Component,
+  pieces: readonly Pieces[],
+  on: Toggles,
+  s: Settings,
+): StorageOption[] {
+  const clearance = mainClearance(c, s);
+  return BULK_SHAPES.map((shape) => ({
+    id: `bulk-${shape}`,
+    blocks: pieces.map((p) => [
+      bulkCompartment(
+        c.id,
+        on,
+        `${label(p.name, displayName(c))} ×${p.count}`,
+        bulkLine(p, clearance, s.packingFactor),
+        shape,
+      ),
+    ]),
+  }));
+}
+
 function itemLabel(item: BulkItem, fallback: string): string {
   const name = label(item.name, fallback);
   return "volumeMl" in item ? `${name} ${item.volumeMl} ml` : `${name} ×${item.count}`;
@@ -77,12 +114,14 @@ function itemLabel(item: BulkItem, fallback: string): string {
 /** Storage options for a bulk component. Precondition: it passes validateComponent. */
 export function bulkOptions(c: BulkComponent, s: Settings): OptionsResult {
   const clearance = mainClearance(c, s);
+  const on = togglesOf(c);
   return {
     options: BULK_SHAPES.map((shape) => ({
       id: shape,
       blocks: c.items.map((item) => [
         bulkCompartment(
-          c,
+          c.id,
+          on,
           itemLabel(item, displayName(c)),
           bulkLine(item, clearance, s.packingFactor),
           shape,

@@ -1,5 +1,6 @@
 import type { MinisComponent, Settings } from "../model/types";
-import { BULK_SHAPES, bulkCompartment, bulkLine } from "./bulk";
+import { togglesOf } from "../model/defaults";
+import { binOptions } from "./bulk";
 import {
   compartment,
   displayName,
@@ -44,7 +45,7 @@ function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): C
       d: dims.d + clearance,
       h: dims.h + clearance,
       // A centred cut through the front wall, half the pocket deep (spec §6.1).
-      features: featuresOf(c, [wallCutout("front", 0.5, false)]),
+      features: featuresOf(togglesOf(c), [wallCutout("front", 0.5, false)]),
     }),
   );
 }
@@ -53,20 +54,7 @@ function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): C
 export function minisOptions(c: MinisComponent, s: Settings): OptionsResult {
   const clearance = mainClearance(c, s);
   if (c.storage === "bulk") {
-    return {
-      options: BULK_SHAPES.map((shape): StorageOption => ({
-        id: `bulk-${shape}`,
-        blocks: c.figures.map((f) => [
-          bulkCompartment(
-            c,
-            `${label(f.name, displayName(c))} ×${f.count}`,
-            bulkLine(f, clearance, s.packingFactor),
-            shape,
-          ),
-        ]),
-      })),
-      notices: [],
-    };
+    return { options: binOptions(c, c.figures, togglesOf(c), s), notices: [] };
   }
   const options: StorageOption[] = [
     { id: "standing", blocks: c.figures.map((f) => pockets(c, f, f, clearance)) },

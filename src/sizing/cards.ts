@@ -1,3 +1,4 @@
+import { togglesOf } from "../model/defaults";
 import { SLEEVES } from "../model/presets";
 import { effective } from "../model/settings";
 import type { CardsComponent, Notice, Settings } from "../model/types";
@@ -96,7 +97,10 @@ function deckCompartment(
       w: dims.S + clearance,
       d: dims.L + clearance,
       h: stack,
-      features: featuresOf(c, [wallCutout("left", 1, true), wallCutout("right", 1, true)]),
+      features: featuresOf(togglesOf(c), [
+        wallCutout("left", 1, true),
+        wallCutout("right", 1, true),
+      ]),
     });
   }
   const onLongEdge = storage === "upright-long";
@@ -108,7 +112,7 @@ function deckCompartment(
     elastic: { w: true },
     spacerAxis: "w",
     // One channel through the walls and dividers the card faces touch.
-    features: featuresOf(c, [
+    features: featuresOf(togglesOf(c), [
       wallCutout("left", CHANNEL_DEPTH, false),
       wallCutout("right", CHANNEL_DEPTH, false),
     ]),
