@@ -1,0 +1,150 @@
+// src/ui/components/CardsEditor.test.tsx
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { newComponent } from "../../model/defaults";
+import type { CardsComponent } from "../../model/types";
+import { CardsEditor, cardPresetOf } from "./CardsEditor";
+
+afterEach(cleanup);
+
+function cards(over: Partial<CardsComponent> = {}): CardsComponent {
+  const c = newComponent("cards");
+  if (c.kind !== "cards") {
+    throw new Error("expected cards");
+  }
+  return { ...c, id: "c1", ...over };
+}
+
+function setup(c: CardsComponent, advanced = false) {
+  const onChange = vi.fn<(next: CardsComponent) => void>();
+  const view = render(
+    <CardsEditor component={c} index={0} advanced={advanced} onChange={onChange} />,
+  );
+  const last = (): CardsComponent => {
+    const call = onChange.mock.calls.at(-1);
+    if (!call) {
+      throw new Error("onChange not called");
+    }
+    return call[0];
+  };
+  return { onChange, last, view };
+}
+
+describe("CardsEditor", () => {
+  it("picks a size preset", () => {
+    expect(cardPresetOf(cards())).toBe("standard");
+    const { last } = setup(cards());
+    fireEvent.change(screen.getByLabelText("Card size"), { target: { value: "tarot" } });
+    expect(last()).toMatchObject({ shortSide: 70, longSide: 120 });
+  });
+
+  it("commits custom sides on blur and orders them short ≤ long", () => {
+    const { onChange, last } = setup(cards());
+    fireEvent.change(screen.getByLabelText("Card size"), { target: { value: "custom" } });
+    const long = screen.getByLabelText(/Long side/);
+    fireEvent.input(long, { target: { value: "1" } });
+    fireEvent.input(long, { target: { value: "10" } });
+    fireEvent.input(long, { target: { value: "100" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(long);
+    expect(last()).toMatchObject({ shortSide: 63.5, longSide: 100 });
+    const short = screen.getByLabelText(/Short side/);
+    fireEvent.input(short, { target: { value: "120" } });
+    fireEvent.blur(short);
+    expect(last()).toMatchObject({ shortSide: 88, longSide: 120 });
+  });
+
+  it("edits, adds and removes decks", () => {
+    const { last, view, onChange } = setup(cards());
+    expect(screen.getByRole("button", { name: /Remove deck/ }).hasAttribute("disabled")).toBe(true);
+    fireEvent.input(screen.getByLabelText("Cards in deck 1"), { target: { value: "52" } });
+    expect(last().decks).toEqual([{ name: "Deck", count: 52 }]);
+    fireEvent.click(screen.getByRole("button", { name: "Add deck" }));
+    expect(last().decks).toHaveLength(2);
+    view.rerender(
+      <CardsEditor
+        component={cards({
+          decks: [
+            { name: "A", count: 10 },
+            { name: "B", count: 20 },
+          ],
+        })}
+        index={0}
+        advanced={false}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove deck A" }));
+    expect(last().decks).toEqual([{ name: "B", count: 20 }]);
+  });
+
+  it("switches to custom sleeves and edits their size", () => {
+    const { last, view, onChange } = setup(cards());
+    fireEvent.change(screen.getByLabelText("Sleeves"), { target: { value: "premium" } });
+    expect(last().sleeve).toBe("premium");
+    fireEvent.change(screen.getByLabelText("Sleeves"), { target: { value: "custom" } });
+    expect(last().sleeve).toEqual({ w: 66.5, h: 91, thickness: 0.1 });
+    view.rerender(
+      <CardsEditor
+        component={cards({ sleeve: { w: 66.5, h: 91, thickness: 0.1 } })}
+        index={0}
+        advanced={false}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.input(screen.getByLabelText(/Added thickness per card/), {
+      target: { value: "0,2" },
+    });
+    expect(last().sleeve).toEqual({ w: 66.5, h: 91, thickness: 0.2 });
+  });
+
+  it("offers measure N cards, storage and common options under More options", () => {
+    const { last, view, onChange } = setup(cards(), true);
+    const details = screen.getByText("More options").closest("details");
+    expect(details?.hasAttribute("open")).toBe(true);
+    fireEvent.click(screen.getByLabelText(/Measure a stack/));
+    expect(last().thickness).toEqual({ mode: "measured", cards: 50, stackMm: 20 });
+    fireEvent.change(screen.getByLabelText("Storage"), { target: { value: "flat" } });
+    expect(last().storage).toBe("flat");
+    fireEvent.click(screen.getByLabelText(/per player/));
+    expect(last().perPlayer).toEqual({ players: 4 });
+    view.rerender(
+      <CardsEditor component={cards({ groupId: "g" })} index={0} advanced onChange={onChange} />,
+    );
+    expect(screen.getByLabelText(/per player/).hasAttribute("disabled")).toBe(true);
+    const group = screen.getByLabelText(/^Group/);
+    fireEvent.input(group, { target: { value: "" } });
+    fireEvent.blur(group);
+    expect("groupId" in last()).toBe(false);
+  });
+
+  it("collapses More options in simple mode", () => {
+    setup(cards());
+    expect(screen.getByText("More options").closest("details")?.hasAttribute("open")).toBe(false);
+  });
+
+  it("shows finger cuts in simple mode, no curved floor, and corner reliefs in advanced mode", () => {
+    const { last, view, onChange } = setup(cards());
+    const cuts = screen.getByLabelText("Finger cuts");
+    expect(cuts.closest("details")).toBeNull();
+    expect((cuts as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByLabelText("Curved floor")).toBeNull();
+    expect(screen.queryByLabelText("Corner reliefs")).toBeNull();
+    fireEvent.click(cuts);
+    expect(last().fingerCuts).toBe(false);
+    view.rerender(<CardsEditor component={cards()} index={0} advanced onChange={onChange} />);
+    const reliefs = screen.getByLabelText("Corner reliefs") as HTMLInputElement;
+    expect(reliefs.checked).toBe(false);
+    fireEvent.click(reliefs);
+    expect(last().cornerReliefs).toBe(true);
+  });
+
+  it("shows a curved floor a file set on cards, so it can be turned off", () => {
+    const { last } = setup(cards({ curvedFloor: true }));
+    const floor = screen.getByLabelText("Curved floor") as HTMLInputElement;
+    expect(floor.checked).toBe(true);
+    fireEvent.click(floor);
+    expect(last().curvedFloor).toBe(false);
+  });
+});
