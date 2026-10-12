@@ -23,24 +23,18 @@ export interface Rect {
   y1: number;
 }
 
-// U-slot cut down from the top. Footprint x0..x1 × y0..y1; its round bottom
-// (radius) is a half-cylinder whose axis runs across the side's wall (along
-// Y for front/back, along X for left/right); its lowest line is bottomZ.
-export interface SlotPlan extends Rect {
-  side: Side;
-  bottomZ: number;
-  radius: number;
-}
-
 // Wall cutout (spec §6.1): a U cut, from the rim down, through the wall or divider on `side` of
 // its compartment. The footprint x0..y1 runs from the compartment's face to the facing face of the
 // next compartment across (`into`, its index), or out through the outer face (`into` null); along
-// the side it is the cut's width. The round bottom (radius) is a half-cylinder along the cut,
-// lowest at bottomZ. With a floor notch (`notch` > 0, how far it reaches into the floor) the cut
+// the side it is the cut's width. The round bottom (`radius`) is a half-cylinder along the cut,
+// lowest at `bottomZ`. With a floor notch (`notch` > 0, how far it reaches into the floor) the cut
 // instead goes down through the bottom at its full width and on into the compartment's floor, its
 // far corners rounded, so a fingertip gets under the stack. `topFillets` are the radii of its two
 // top corners (at u0 and u1 along the side; 0 = square), rounded across the whole strip.
-export interface CutPlan extends SlotPlan {
+export interface CutPlan extends Rect {
+  side: Side;
+  bottomZ: number;
+  radius: number;
   into: number | null;
   notch: number;
   topFillets: readonly [number, number];
@@ -61,10 +55,8 @@ export interface ReliefPlan {
 
 export interface CompartmentPlan {
   index: number;
-  rect: Rect; // the CompartmentSpec rectangle
-  content: Rect; // rect minus finger-pocket reach bands; cut down to floorZ
+  rect: Rect; // the CompartmentSpec rectangle, cut down to floorZ
   floorZ: number;
-  slots: SlotPlan[];
   cuts: CutPlan[];
   scoops: ScoopPlan[];
   reliefs: ReliefPlan[];

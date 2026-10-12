@@ -6,7 +6,7 @@ import {
 } from "../model/settings";
 import type { Settings, Side } from "../model/types";
 import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
-import { cutoutSides, pocketSides } from "./common";
+import { cutoutSides } from "./common";
 import type { CompartmentReq, RealizeOptions, TrayPartReq } from "./types";
 import { ceilU, maxOf, sum } from "./units";
 
@@ -89,17 +89,13 @@ export interface MinLayout {
   h: number;
 }
 
-function hasPocketOn(part: TrayPartReq, sides: readonly Side[]): boolean {
-  return part.compartments.some((c) => pocketSides(c.features).some((s) => sides.includes(s)));
-}
-
 function cutsOn(c: CompartmentReq | undefined, side: Side): boolean {
   return c !== undefined && cutoutSides(c.features).includes(side);
 }
 
 /**
  * The walls and dividers the requested cuts would pass through: the first guess, which realize
- * corrects to the cuts it places (slotFootprintU). A row's end walls where its first and last
+ * corrects to the cuts it places (settleRoom). A row's end walls where its first and last
  * compartment ask for a cut there, the front and back where the first and last row do, a divider
  * where the compartments on both sides ask for a cut on it.
  */
@@ -139,9 +135,6 @@ export function minLayoutU(
   const wall = ceilU(wallFor(settings, opts.lipped));
   const divider = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
   const floor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
-  // An even unit count, so the centred pocket slot can sit on whole units inside the walls.
-  const pocketU = ceilU(settings.fingerPocket.width);
-  const pocketWidth = pocketU + (pocketU % 2);
   const rows = rowsOf(part.arrangement, part.compartments);
   const wallRoom = ceilU(settings.fingerPocket.wallRoom);
   const dividerRoom = ceilU(settings.fingerPocket.dividerRoom);
@@ -164,11 +157,8 @@ export function minLayoutU(
     (row, r) => sum(row) + between(r) + (room.left[r] ?? 0) + (room.right[r] ?? 0),
   );
   const rowDepths = rows.map((row) => maxOf(row.map((c) => ceilU(c.minD))));
-  const innerW = Math.max(maxOf(rowWidths), hasPocketOn(part, ["front", "back"]) ? pocketWidth : 0);
-  const innerD = Math.max(
-    sum(rowDepths) + sum(rowGaps.slice(0, -1)) + room.front + room.back,
-    hasPocketOn(part, ["left", "right"]) ? pocketWidth : 0,
-  );
+  const innerW = maxOf(rowWidths);
+  const innerD = sum(rowDepths) + sum(rowGaps.slice(0, -1)) + room.front + room.back;
   const content = floor + maxOf(part.compartments.map((c) => ceilU(c.minH)));
   const chamfer = chamferMinimumsU(settings, opts.level);
   const h = Math.max(

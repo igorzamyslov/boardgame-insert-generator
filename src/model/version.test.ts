@@ -7,7 +7,7 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.1: 0.1.0 plus the finger pocket's floor notch and wall room", () => {
+  it("is at schema 0.1.1: 0.1.0 plus the finger cuts' floor notch and room, less the reach", () => {
     expect(SCHEMA_VERSION).toBe("0.1.1");
   });
 

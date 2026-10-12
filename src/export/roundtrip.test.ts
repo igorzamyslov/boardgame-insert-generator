@@ -4,7 +4,7 @@ import { strFromU8, unzipSync } from "fflate";
 import type { ManifoldToplevel } from "manifold-3d";
 import { loadManifold } from "../geometry/load";
 import { buildTray } from "../geometry/tray";
-import { GEO, lippedLower, scoopBulk, slotStrip, uprightChannel } from "../geometry/test-specs";
+import { GEO, lippedLower, miniPockets, scoopBulk, uprightChannel } from "../geometry/test-specs";
 import { signedVolume, topology } from "../geometry/test-mesh";
 import type { Mesh } from "../geometry/types";
 import { gridLayout, partFileName, to3mf, toStl, zipFiles } from "./index";
@@ -33,7 +33,7 @@ function readModel(xml: string): { name: string; mesh: Mesh }[] {
 
 describe("export round trip with real trays", () => {
   it("keeps every tray closed, outward-wound and the same size in the combined 3MF", () => {
-    const specs = [uprightChannel, slotStrip, scoopBulk, lippedLower];
+    const specs = [uprightChannel, miniPockets, scoopBulk, lippedLower];
     const built = specs.map((s) => buildTray(m, s, GEO));
     const offsets = gridLayout(specs, { x: 246, y: 246 }, 5);
     const bytes = to3mf(

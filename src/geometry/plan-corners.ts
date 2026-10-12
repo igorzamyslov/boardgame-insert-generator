@@ -6,7 +6,7 @@ import {
   SPEC_TOLERANCE,
   maxCornerRadius,
 } from "../model/settings";
-import { keepsApart } from "../model/slot-rules";
+import { keepsApart } from "../model/cut-rules";
 import { cutFootprints, notchFloorBox } from "./plan-cuts";
 import { MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
 import type { CompartmentPlan, Rect, ReliefPlan } from "./plan-types";
@@ -21,11 +21,10 @@ function pullIn(chamfer: number, z: number): number {
   return Math.max(0, chamfer - z);
 }
 
-// Material on one side of a content rectangle that a corner relief may cut
-// into: everything above MIN_WALL_MM toward an outer face (at the compartment
-// floor, where the chamfer pulls the face in by chamfer − floorZ), half of what is above
-// MIN_FEATURE_MM toward another compartment (which may have reliefs of its own) or its finger
-// slots (which may reach past that compartment toward this one). Toward an outer face the relief
+// Material on one side of a compartment that a corner relief may cut into: everything above
+// MIN_WALL_MM toward an outer face (at the compartment floor, where the chamfer pulls the face in
+// by chamfer − floorZ), half of what is above MIN_FEATURE_MM toward another compartment (which may
+// have reliefs of its own). Toward an outer face the relief
 // keeps the outer wall's CORNER_MARGIN like any cut there: near an outer corner the polygon of the
 // rounded corner comes up to 0.08 mm closer than the straight face (maxCornerRadius).
 function sideBudget(
@@ -35,10 +34,10 @@ function sideBudget(
   side: Side,
   chamfer: number,
 ): number {
-  const c = self.content;
+  const c = self.rect;
   const toFace = { front: c.y0, back: size.d - c.y1, left: c.x0, right: size.w - c.x1 }[side];
   let budget = toFace - pullIn(chamfer, self.floorZ) - MIN_WALL_MM;
-  const obstacles = plans.flatMap((other) => (other === self ? [] : [other.rect, ...other.slots]));
+  const obstacles = plans.flatMap((other) => (other === self ? [] : [other.rect]));
   for (const o of obstacles) {
     const overlapsX = o.x0 < c.x1 && o.x1 > c.x0;
     const overlapsY = o.y0 < c.y1 && o.y1 > c.y0;
@@ -95,7 +94,7 @@ function clearOfCuts(
   return lo;
 }
 
-// Ø`diameter` reliefs at the four content corners. Each circle passes
+// Ø`diameter` reliefs at the four compartment corners. Each circle passes
 // through its corner and is centred on the corner's diagonal, so it cuts
 // r·(1 − 1/√2) into both adjoining walls; r shrinks to fit the side budgets
 // and to keep MIN_FEATURE_MM from every wall cutout and floor notch (its own compartment's too),
@@ -116,7 +115,7 @@ export function planReliefs(
     left: sideBudget(size, plans, self, "left", chamfer),
     right: sideBudget(size, plans, self, "right", chamfer),
   };
-  const c = self.content;
+  const c = self.rect;
   const maxR = Math.min(diameter / 2, (c.x1 - c.x0) / 2, (c.y1 - c.y0) / 2);
   const corners: [number, number, number, number, Side, Side][] = [
     [c.x0, c.y0, 1, 1, "left", "front"],
@@ -171,9 +170,8 @@ function cornerDiscs(
   for (const c of compartments) {
     const e = pullIn(chamfer, c.floorZ);
     corners(c.rect, e);
-    // A slot or cut is conservatively measured at its lowest line; a cut with a floor notch (it
-    // goes down through the bottom, and into the floor) at the bed.
-    c.slots.forEach((slot) => corners(slot, pullIn(chamfer, slot.bottomZ)));
+    // A cut is conservatively measured at its lowest line; one with a floor notch (it goes down
+    // through the bottom, and into the floor) at the bed.
     for (const cut of c.cuts) {
       if (cut.notch > 0) {
         corners(cut, chamfer);
@@ -205,7 +203,7 @@ function nearestCorner(size: TraySize, disc: CornerDisc): { p: number; q: number
 }
 
 // Effective outer corner radius: the setting, reduced so every compartment
-// corner, slot corner and relief keeps MIN_FEATURE_MM + CORNER_MARGIN to the
+// corner, cut corner and relief keeps MIN_FEATURE_MM + CORNER_MARGIN to the
 // rounded outer corner (maxCornerRadius; also below the chamfer top, where the
 // contour is pulled in by e), never below the bottom chamfer (a 45° chamfer
 // under a corner tighter than the chamfer would overhang; planTray rejects a

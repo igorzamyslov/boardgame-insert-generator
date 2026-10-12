@@ -8,7 +8,6 @@ export type {
   TrayRequirement,
   TrayVariant,
 } from "./types";
-export { SlotFitError } from "./errors";
 export { size } from "./group";
 export { wallFor } from "./outer";
 export { minOuter, realizeTray } from "./realize";

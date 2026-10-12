@@ -1,11 +1,10 @@
-// Test helper: everything wrong with a built tray's mesh (topology, volume, bounds, printability
-// and the thinnest wedge), shared by the mesh sweeps and cases.
+// Test helper: everything wrong with a built tray's mesh (topology, volume, bounds and
+// printability), shared by the mesh sweeps and cases.
 import type { ManifoldToplevel } from "manifold-3d";
 import type { Settings, TraySpec } from "../model/types";
 import { checkPrintability } from "./printability";
 import { bounds, signedVolume, topology } from "./test-mesh";
 import { floorHoles } from "./test-specs";
-import { thinnestWedge } from "./test-wedge";
 import { buildTray } from "./tray";
 
 // Everything wrong with the mesh of `spec`, or [] when it is a closed, printable solid of the
@@ -34,10 +33,6 @@ export function problemsOf(m: ManifoldToplevel, spec: TraySpec, settings: Settin
   const report = checkPrintability(mesh);
   if (!report.ok) {
     problems.push(...report.problems);
-  }
-  const wedge = thinnestWedge(spec, settings);
-  if (wedge.width < 0.8 - 0.01) {
-    problems.push(`${wedge.width.toFixed(3)} mm wedge at ${wedge.where}`);
   }
   return problems;
 }

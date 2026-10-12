@@ -2,10 +2,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
-import { DEFAULT_SETTINGS } from "../model/settings";
 import type { TraySpec } from "../model/types";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
-import { minis, partOf } from "../sizing/test-helpers";
 import type { RealizeOptions } from "../sizing/types";
 import { loadManifold } from "./load";
 import { planTray } from "./plan";
@@ -13,14 +11,11 @@ import { buildTray } from "./tray";
 import { checkPrintability } from "./printability";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { bounds, heightAt, signedVolume, topology } from "./test-mesh";
-import { thinnestWedge } from "./test-wedge";
 import {
   GEO,
-  slotStrip,
   compartment,
   customBlock,
   cutout,
-  sidePockets,
   flatCutouts,
   floorHoles,
   hexTiles,
@@ -30,7 +25,6 @@ import {
   notchedSpacer,
   plainBox,
   scoopBulk,
-  slotBesideSlack,
   solidLeftover,
   spacer,
   spareLeftover,
@@ -86,15 +80,6 @@ describe("buildTray per tray type", () => {
     const { volumeMm3 } = expectWellFormed(plainBox);
     const expected = blockVolume(100, 60, 30, 3, 0.4) - wellVolume(96.8, 56.8, 28.8);
     expect(Math.abs(volumeMm3 - expected) / expected).toBeLessThan(0.002);
-  });
-
-  it("pocket strip: three wells, the two narrow ones' finger slots merged into one channel", () => {
-    const { volumeMm3 } = expectWellFormed(slotStrip);
-    const solidBlock = blockVolume(slotStrip.w, slotStrip.d, slotStrip.h, 3, 0.4);
-    const wells = [24, 30, 15].reduce((sum, w) => sum + wellVolume(w, 92.5, 68), 0);
-    // the reach bands are solid except for the slots, so the tray is heavier than block − wells·full
-    expect(volumeMm3).toBeLessThan(solidBlock - wells);
-    expect(volumeMm3).toBeGreaterThan(solidBlock - wells - 6 * 22 * 12 * (68 / 3));
   });
 
   it("upright cards: one channel, half the wells deep, through both end walls and every divider", () => {
@@ -212,10 +197,6 @@ describe("buildTray per tray type", () => {
     expect(heightAt(mesh, 47.85 + 10, 1.6 + 6)).toBeCloseTo(1.2, 3);
   });
 
-  it("side pockets: full-depth slots on the left and right", () => {
-    expectWellFormed(sidePockets);
-  });
-
   it("scoop bulk: fillets add r²(1 − π/4) per mm of wall", () => {
     const { volumeMm3 } = expectWellFormed(scoopBulk);
     const fillets = 3 * 144 * (1 - Math.PI / 4) * 40;
@@ -231,15 +212,17 @@ describe("buildTray per tray type", () => {
     expect(volumeMm3).toBeLessThan(plain);
   });
 
-  it("minis pockets: raised floors stay solid", () => {
+  it("minis pockets: raised floors stay solid, each pocket cut through the front wall", () => {
     const { volumeMm3 } = expectWellFormed(miniPockets);
     const noRaise =
       blockVolume(miniPockets.w, miniPockets.d, miniPockets.h, 3, 0.4) - 3 * wellVolume(30, 30, 40);
-    // raised floors add 10 and 20 mm of solid under two pockets
-    expect(volumeMm3 - noRaise).toBeGreaterThan(30 * 30 * 30 * 0.95);
+    // Raised floors add 10 and 20 mm of solid under two pockets; the cuts take a little of the
+    // front wall.
+    expect(volumeMm3 - noRaise).toBeGreaterThan(30 * 30 * 30 * 0.9);
+    expect(volumeMm3 - noRaise).toBeLessThan(30 * 30 * 30);
   });
 
-  it("custom block: reliefs plus one full-depth pocket", () => {
+  it("custom block: reliefs plus a cut through the front wall", () => {
     expectWellFormed(customBlock);
   });
 
@@ -413,7 +396,7 @@ describe("buildTray review focus", () => {
 describe("finger slot clearance regression (plan 3)", () => {
   // cards-heavy, part fxcrd003:p0:0: "Goals ×45" beside the slack of its row. Sizing used to put
   // a spare compartment 0.03 mm inside the deck's 22 mm slot, leaving a 0.04 mm feather. The decks
-  // have finger channels now; the pocket trays of that time stay as hand-written specs.
+  // have finger channels now.
   const { components, settings } = loadFixture(cardsHeavy);
   const part = (variantId: string) => {
     const found = size(components, settings)
@@ -450,7 +433,7 @@ describe("finger slot clearance regression (plan 3)", () => {
     }
   });
 
-  it("cuts one channel per row of that tray, and the pocket tray of the time still builds", () => {
+  it("cuts one channel per row of that tray", () => {
     const opts: RealizeOptions = { lipped: true, level: 0 };
     const p = part("upright-long|rows2|split1");
     const min = minOuter(p, settings, opts);
@@ -468,49 +451,6 @@ describe("finger slot clearance regression (plan 3)", () => {
       ["wallCutout", "wallCutout"],
     ]);
     expectWellFormed(spec, spec.h + GEO.lip.height);
-    expectWellFormed(slotBesideSlack, slotBesideSlack.h + GEO.lip.height);
-  });
-});
-
-describe("well face regression (review rounds 2 and 4)", () => {
-  // Pocket strips: a 22 mm slot used to end just past another well face, or a face to cut the
-  // ridge of two merged slots just past its peak, leaving a feather inside the 0.5 mm overlap.
-  // thinnestWedge measures it; checkPrintability does not see it. First found on unsleeved card
-  // decks (before they got finger channels): the minis pockets here are as wide as those decks.
-  const settings = DEFAULT_SETTINGS;
-  const ground: RealizeOptions = { lipped: false, level: 0 };
-  // Pocket widths of decks of 60, 120, 56 and 35 unsleeved cards.
-  const width: Record<number, number> = { 60: 20.78, 120: 40.56, 56: 19.46, 35: 12.54 };
-  const cases: [string, number[], number][] = [
-    ["60 then 120 cards at minOuter", [60, 120], 0],
-    ["120 then 56 cards, 7 mm wider", [120, 56], 7],
-    // Review round 4: a well face just past the ridge peak of two merged slots.
-    ["60, 35 and 60 cards, 3 mm wider", [60, 35, 60], 3],
-  ];
-
-  it.each(cases)("pockets as wide as decks of %s build printable", (_label, counts, slack) => {
-    const figures = counts.map((count, i) => ({
-      name: `D${i}`,
-      w: (width[count] ?? 0) - 1,
-      d: 88.5,
-      h: 64,
-      count: 1,
-    }));
-    const part = partOf([minis({ figures })], "standing|strip|split1");
-    const min = minOuter(part, settings, ground);
-    const outer = { ...min, w: min.w + slack };
-    const spec = traySpecFrom(
-      realizeTray(part, outer, settings, ground),
-      outer,
-      ground,
-      settings,
-      part.trayKey,
-    );
-    const report = checkPrintability(buildTray(m, spec, settings).mesh);
-    expect(report.problems).toEqual([]);
-    const wedge = thinnestWedge(spec, settings);
-    expect(wedge.width, wedge.where).toBeGreaterThanOrEqual(0.8 - 0.01);
-    expect(Number.isFinite(wedge.width)).toBe(true);
   });
 });
 
@@ -583,7 +523,14 @@ describe("WASM handles", () => {
   });
 
   it("deletes every handle of a build", () => {
-    for (const spec of [hexTiles, slotStrip, flatCutouts, scoopBulk, lippedLower, miniPockets]) {
+    for (const spec of [
+      hexTiles,
+      uprightChannel,
+      flatCutouts,
+      scoopBulk,
+      lippedLower,
+      miniPockets,
+    ]) {
       const handles = recordHandles(() => {
         buildTray(m, spec, GEO);
       });

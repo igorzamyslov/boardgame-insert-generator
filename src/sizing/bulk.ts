@@ -40,24 +40,20 @@ export function bulkCompartment(
   contents: string,
   line: BulkLine,
   shape: BulkShape,
-  s: Settings,
 ): CompartmentReq {
   const { side, h } = shapeLine(line, shape);
-  return compartment(
-    {
-      componentId,
-      contents,
-      kind: "scoop",
-      w: side,
-      d: side,
-      h,
-      elastic: { w: true, d: true, h: true },
-      minVolume: line.volume,
-      maxHRatio: MAX_H_RATIO,
-      features: [{ type: "scoop", side: "front" }],
-    },
-    s,
-  );
+  return compartment({
+    componentId,
+    contents,
+    kind: "scoop",
+    w: side,
+    d: side,
+    h,
+    elastic: { w: true, d: true, h: true },
+    minVolume: line.volume,
+    maxHRatio: MAX_H_RATIO,
+    features: [{ type: "scoop", side: "front" }],
+  });
 }
 
 function itemLabel(item: BulkItem, fallback: string): string {
@@ -77,7 +73,6 @@ export function bulkOptions(c: BulkComponent, s: Settings): OptionsResult {
           itemLabel(item, displayName(c)),
           bulkLine(item, clearance, s.packingFactor),
           shape,
-          s,
         ),
       ]),
     })),

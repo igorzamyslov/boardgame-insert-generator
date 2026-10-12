@@ -35,7 +35,7 @@ export const GEO: Settings = {
   bottomChamfer: 0.4,
   cornerRadius: 3,
   scoopRadius: 12,
-  fingerPocket: { width: 22, reach: 12, floorNotch: 11, wallRoom: 0, dividerRoom: 0 },
+  fingerPocket: { width: 22, floorNotch: 11, wallRoom: 0, dividerRoom: 0 },
   lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
 };
 
@@ -91,10 +91,6 @@ export const plainBox = traySpec({
   h: 30,
   compartments: [compartment({ x: 1.6, y: 1.6, w: 96.8, d: 56.8 })],
 });
-
-export function pocket(side: Side, at: number, depth: number, width = 22, reach = 12): FeatureSpec {
-  return { type: "fingerPocket", side, at, width, reach, depth };
-}
 
 export type WallCutout = Extract<FeatureSpec, { type: "wallCutout" }>;
 
@@ -175,42 +171,6 @@ export const flatCutouts = traySpec({
   ],
 });
 
-// Three wells with ⅓-depth finger pockets front and back (the pockets minis and custom wells
-// keep; well 68 high, 92.5 long + 2 × 12 reach). The last well is only 15 wide, so its 22 mm
-// slots sit 0.2 mm inside the outer wall (50.8…72.8) and cross the divider
-// into the middle well's slots (30.8…52.8): centres 20 mm apart, within
-// maxChannelSpacing(11) = 20.06 mm, so they merge into one channel.
-export const slotStrip = traySpec({
-  key: "pockets:p0:0",
-  w: 1.6 + 24 + 1.2 + 30 + 1.2 + 15 + 1.6,
-  d: 1.6 + 116.5 + 1.6,
-  h: 1.2 + 68,
-  compartments: strip([24, 30, 15], 1.6, 116.5, 1.6, 1.2, (x, w, i) => {
-    const at = i === 2 ? 74.6 - 1.6 - 11 - 0.2 : x + w / 2;
-    return {
-      contents: `Well ${i + 1}`,
-      features: [pocket("front", at, 68 / 3), pocket("back", at, 68 / 3)],
-    };
-  }),
-});
-
-// One well with full-depth finger pockets on its left and right sides.
-export const sidePockets = traySpec({
-  key: "side-pockets:p0:0",
-  w: 1.6 + 116.5 + 1.6,
-  d: 1.6 + 68 + 1.6,
-  h: 1.2 + 20,
-  compartments: [
-    compartment({
-      x: 1.6,
-      y: 1.6,
-      w: 116.5,
-      d: 68,
-      features: [pocket("left", 1.6 + 34, 20), pocket("right", 1.6 + 34, 20)],
-    }),
-  ],
-});
-
 // Bulk: three scoop compartments with a front fillet r = 12.
 export const scoopBulk = traySpec({
   key: "bulk:p0:0",
@@ -235,7 +195,8 @@ export const hexTiles = traySpec({
   })),
 });
 
-// Minis pockets: figure depths differ, so two pockets have raised solid floors.
+// Minis pockets: figure depths differ, so two pockets have raised solid floors; each is cut
+// through the front wall, half its depth.
 export const miniPockets = traySpec({
   key: "minis:p0:0",
   w: 1.6 + 30 * 3 + 1.2 * 2 + 1.6,
@@ -244,23 +205,23 @@ export const miniPockets = traySpec({
   compartments: strip([30, 30, 30], 1.6, 30, 1.6, 1.2, (x, w, i) => ({
     kind: "pocket",
     floorZ: [1.2, 11.2, 21.2][i] ?? 1.2,
-    features: [pocket("front", x + w / 2, 40 / 3, 20, 6)],
+    features: [cutout("front", x + w / 2, [20, 15, 10][i] ?? 20)],
   })),
 });
 
-// Custom block: a plain well with corner reliefs and one full-depth pocket.
+// Custom block: a plain well with corner reliefs, cut through the front wall half its depth.
 export const customBlock = traySpec({
   key: "custom:p0:0",
   w: 1.6 + 50 + 1.6,
-  d: 1.6 + 40 + 12 + 1.6,
+  d: 1.6 + 40 + 1.6,
   h: 1.2 + 15,
   compartments: [
     compartment({
       x: 1.6,
       y: 1.6,
       w: 50,
-      d: 52,
-      features: [{ type: "cornerRelief", d: 3 }, pocket("back", 1.6 + 25, 15)],
+      d: 40,
+      features: [{ type: "cornerRelief", d: 3 }, cutout("front", 1.6 + 25, 7.5)],
     }),
   ],
 });
@@ -308,51 +269,6 @@ export const notchedSpacer = traySpec({
   h: 63,
   features: [{ type: "spacerNotch", axis: "x", at: 46.25, width: 22, depth: 29 }],
 });
-
-// cards-heavy fixture, part fxcrd003:p0:0, upright-long|rows2|split1, lipped,
-// minOuter + 10, as sizing emitted it while card decks had finger pockets (geometry 0.1.0): two
-// decks in two rows, the slack beside "Goals ×45". Kept as hand-built pocket trays: the pocket
-// rules they pin down still hold for minis and custom wells.
-const objectivesDecks: CompartmentSpec[] = [
-  compartment({
-    x: 2.9,
-    y: 7.3,
-    w: 32.63,
-    d: 116.5,
-    floorZ: 11.2,
-    contents: "Starting hands ×50",
-    features: [pocket("front", 14.22, 22.67), pocket("back", 14.22, 22.67)],
-  }),
-  compartment({
-    x: 3.2,
-    y: 126.2,
-    w: 20.47,
-    d: 116.5,
-    floorZ: 11.2,
-    contents: "Goals ×45",
-    features: [pocket("front", 13.9, 22.67), pocket("back", 13.9, 22.67)],
-  }),
-];
-
-// The plan 3 regression, as sizing emitted it before the finger slot clearance
-// rule: the slack became a spare compartment starting at x 24.87, but the
-// 22 mm slots of "Goals ×45" (centre 13.9) run to x 24.9. Their round bottoms
-// left a 0.04 mm feather of the divider. planTray rejects it now.
-export const slotIntoSpare = traySpec({
-  key: "fxcrd003:p0:0",
-  w: 38.43,
-  d: 250,
-  h: 79.2,
-  lip: true,
-  compartments: [
-    ...objectivesDecks,
-    compartment({ x: 24.87, y: 126.2, w: 10.36, d: 116.5, kind: "spare", contents: "spare" }),
-  ],
-});
-
-// The same tray as sizing emitted it after that fix: a spare would have to start 0.8 mm past
-// the slots (x 25.7) and be narrower than MIN_SPARE, so the slack stays solid.
-export const slotBesideSlack: TraySpec = { ...slotIntoSpare, compartments: objectivesDecks };
 
 // Bottom tray of a two-stack: lipped wall max(1.6, 1.2 + 1.7) = 2.9.
 export const lippedLower = traySpec({
@@ -526,7 +442,6 @@ export const PROFILES: readonly [string, Profile][] = [
       bottomChamfer: 0.333,
       fingerPocket: {
         width: 22.001,
-        reach: 12.003,
         floorNotch: 7.999,
         wallRoom: 3.333,
         dividerRoom: 1.111,

@@ -136,7 +136,7 @@ export function sampleProject(): Project {
               kind: "well",
               contents: "Score pad",
               features: [
-                { type: "fingerPocket", side: "front", at: 50.4, width: 22, reach: 12, depth: 12 },
+                { type: "wallCutout", side: "front", at: 52, width: 25, depth: 12, floorNotch: 0 },
                 { type: "cornerRelief", d: 3 },
               ],
             },

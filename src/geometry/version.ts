@@ -13,12 +13,14 @@ import type { Semver } from "../model/version";
  * bumps MAJOR.
  *
  * 0.1.1 added the wall cutout (finger channels through walls and dividers), a new feature, and
- * keeps corner reliefs MIN_WALL_MM from the outer faces (slightly smaller reliefs beside thin outer
- * walls: a mesh-only change inside the wells that doesn't affect fit); its cuts' top corners are
- * rounded (mesh only). Its rules for wall cutouts (posts, a minimum width) only concern the new
- * feature: every spec 0.1.0 accepted is still accepted, and trays still mate, so it is a PATCH.
+ * kept corner reliefs MIN_WALL_MM from the outer faces (a mesh-only change inside the wells).
+ *
+ * 0.2.0 gives minis pockets and custom wells the same wall cutout and drops the finger pocket
+ * (FeatureSpec "fingerPocket", its reach band and U-slot): a stored 0.1.x tray with one is refused
+ * (UnsupportedFeatureError), and their trays change size, so it is a breaking change. It also
+ * rounds the cuts' top corners (mesh only).
  */
-export const GEOMETRY_VERSION = "0.1.1";
+export const GEOMETRY_VERSION = "0.2.0";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

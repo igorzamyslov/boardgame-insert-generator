@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, maxChannelSpacing } from "../model/settings";
+import { DEFAULT_SETTINGS } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, Settings } from "../model/types";
-import { SlotFitError } from "./errors";
-import { minLayoutU } from "./outer";
+import { CutFitError } from "./errors";
 import { minOuter, realizeTray } from "./realize";
-import { fromU, round2 } from "./units";
 import { assertTrayInvariants, at, bulk, cards, custom, minis, partOf } from "./test-helpers";
 import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
@@ -164,16 +162,17 @@ describe("realizeTray", () => {
     expect(at(r.compartments, 0).floorZ).toBe(1.2);
     // The deck's channel leaves through the end wall but never opens into the custom well.
     expect(at(r.compartments, 0).features).toEqual([cutout("left", 47.85, 34)]);
+    // The dial's well is cut through the front wall, half its 11 mm deep.
     expect(at(r.compartments, 1)).toEqual({
       x: 26.3,
-      y: 26.35,
+      y: 32.35,
       w: 41,
-      d: 43,
+      d: 31,
       floorZ: 58.2,
       kind: "well",
       contents: "Dial",
       features: [
-        { type: "fingerPocket", side: "front", at: 46.8, width: 25, reach: 12, depth: 11 },
+        { type: "wallCutout", side: "front", at: 46.8, width: 25, depth: 5.5, floorNotch: 0 },
         { type: "cornerRelief", d: 3 },
       ],
     });
@@ -243,18 +242,18 @@ describe("realizeTray", () => {
     });
   });
 
-  it("puts one ⅓-depth finger pocket in front of each mini pocket", () => {
+  it("cuts each mini pocket through the front wall, half its depth, keeping 3 mm posts", () => {
     const part = partOf([minis()], "standing|strip|split1");
     const outer = minOuter(part, s, ground);
-    expect(outer).toEqual({ w: 56.4, d: 41.2, h: 42.2 });
+    expect(outer).toEqual({ w: 56.4, d: 29.2, h: 42.2 });
     const r = realizeTray(part, outer, s, ground);
     expect(r.compartments.map((c) => [c.contents, c.kind, c.x, c.y, c.w, c.d, c.floorZ])).toEqual([
-      ["Hero 1/2", "pocket", 1.6, 1.6, 26, 38, 1.2],
-      ["Hero 2/2", "pocket", 28.8, 1.6, 26, 38, 1.2],
+      ["Hero 1/2", "pocket", 1.6, 1.6, 26, 26, 1.2],
+      ["Hero 2/2", "pocket", 28.8, 1.6, 26, 26, 1.2],
     ]);
     expect(r.compartments.map((c) => c.features)).toEqual([
-      [{ type: "fingerPocket", side: "front", at: 14.6, width: 25, reach: 12, depth: 13.67 }],
-      [{ type: "fingerPocket", side: "front", at: 41.8, width: 25, reach: 12, depth: 13.67 }],
+      [{ type: "wallCutout", side: "front", at: 14.6, width: 20, depth: 20.5, floorNotch: 0 }],
+      [{ type: "wallCutout", side: "front", at: 41.8, width: 20, depth: 20.5, floorNotch: 0 }],
     ]);
   });
 
@@ -279,19 +278,12 @@ describe("realizeTray", () => {
     expect(at(at(r.compartments, 0).features, 0)).toMatchObject({ at: 49.15 });
   });
 
-  it("keeps 1 mm of content and a real finger pocket for a tiny figure", () => {
+  it("refuses a tray whose tiny pocket has no room for a cut", () => {
     const part = partOf(
       [minis({ clearance: 0, figures: [{ name: "Pip", w: 0.5, d: 0.5, h: 0.01, count: 1 }] })],
       "standing|strip|split1",
     );
-    const outer = minOuter(part, s, ground);
-    const r = realizeTray(part, outer, s, ground);
-    const c = at(r.compartments, 0);
-    expect(c.w).toBeGreaterThanOrEqual(1);
-    expect(c.d - 12).toBeGreaterThanOrEqual(1); // minus the front reach band
-    const slot = at(c.features, 0);
-    expect(slot.type === "fingerPocket" && slot.depth).toBe(0.01);
-    assertTrayInvariants(r, outer, s, ground);
+    expect(() => realizeTray(part, minOuter(part, s, ground), s, ground)).toThrow(CutFitError);
   });
 
   it("never undershoots a hand-built, off-grid compartment minimum", () => {
@@ -427,28 +419,11 @@ describe("realizeTray", () => {
     });
 
     it("never makes the well narrower than the content", () => {
-      const cfg: Settings = { ...s, fingerPocket: { ...s.fingerPocket, reach: 12.345 } };
-      const part = partOf([custom({ w: 29.001, d: 29.001, count: 1 })], "custom|strip|split1", cfg);
-      const outer = minOuter(part, cfg, ground);
-      const c = at(realizeTray(part, outer, cfg, ground).compartments, 0);
-      const band = 1235; // one front pocket, reach 12.345 rounded up to whole units
+      const part = partOf([custom({ w: 29.001, d: 29.001, count: 1 })], "custom|strip|split1");
+      const outer = minOuter(part, s, ground);
+      const c = at(realizeTray(part, outer, s, ground).compartments, 0);
       expect(c.w).toBeGreaterThanOrEqual(30.001);
-      expect((Math.round(c.d * 100) - band) / 100).toBeGreaterThanOrEqual(30.001);
-    });
-
-    it("never makes a finger pocket narrower than the setting", () => {
-      const cfg: Settings = { ...s, fingerPocket: { ...s.fingerPocket, width: 22.004 } };
-      const part = partOf(
-        [minis({ figures: [{ name: "Pip", w: 5, d: 5, h: 5, count: 1 }] })],
-        "standing|strip|split1",
-        cfg,
-      );
-      const outer = minOuter(part, cfg, ground);
-      expect(outer.w - 2 * 1.6).toBeGreaterThanOrEqual(22.01);
-      const r = realizeTray(part, outer, cfg, ground);
-      const slot = at(at(r.compartments, 0).features, 0);
-      expect(slot).toMatchObject({ type: "fingerPocket", width: 22.01 });
-      assertTrayInvariants(r, outer, cfg, ground);
+      expect(c.d).toBeGreaterThanOrEqual(30.001);
     });
 
     it("grows walls and dividers to at most 2 × the setting, rounded down", () => {
@@ -469,18 +444,6 @@ describe("realizeTray", () => {
       const part = partOf([bulk()], "shallow|strip|split1", cfg);
       const r = realizeTray(part, minOuter(part, cfg, ground), cfg, ground);
       expect(at(r.compartments, 0).features).toEqual([{ type: "scoop", side: "front", r: 10 }]);
-    });
-
-    it("reports the reach it reserves", () => {
-      const cfg: Settings = { ...s, fingerPocket: { ...s.fingerPocket, reach: 12.345 } };
-      const part = partOf([custom({ count: 1 })], "custom|strip|split1", cfg);
-      const outer = minOuter(part, cfg, ground);
-      const wide = { ...outer, w: outer.w + 30 };
-      const r = realizeTray(part, wide, cfg, ground);
-      const well = at(r.compartments, 0);
-      expect(at(well.features, 0)).toMatchObject({ type: "fingerPocket", reach: 12.35 });
-      expect(well.d).toBeCloseTo(31 + 12.35, 9);
-      assertTrayInvariants(r, wide, cfg, ground);
     });
   });
 
@@ -550,7 +513,7 @@ describe("realizeTray", () => {
         wall: 1.234,
         divider: 1.007,
         floor: 1.111,
-        fingerPocket: { ...s.fingerPocket, width: 21.337, reach: 11.987 },
+        fingerPocket: { ...s.fingerPocket, width: 21.337 },
         lip: { ...s.lip, thickness: 1.234 },
       };
       const parts: [TrayPartReq, RealizeOptions][] = [
@@ -580,193 +543,6 @@ describe("realizeTray", () => {
           assertTrayInvariants(realizeTray(part, outer, odd, opts), outer, odd, opts);
         }
       }
-    });
-  });
-
-  describe("finger slot clearance", () => {
-    // Minis pockets and custom wells keep their finger pockets (reach band and U-slot). These
-    // pockets are as wide as the card wells the rules were first worked out on (a stack of n
-    // cards, sleeve "none" or "standard"), each 65 mm deep, so their ⅓-depth slots match, with
-    // the 22 mm finger width of that time.
-    const s: Settings = {
-      ...DEFAULT_SETTINGS,
-      fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, width: 22 },
-    };
-    const lipped: RealizeOptions = { lipped: true, level: 0 };
-    const pockets = (widths: number[], names?: string[]) =>
-      minis({
-        figures: widths.map((w, i) => ({
-          name: names?.[i] ?? `D${i + 1}`,
-          w: round2(w - 1),
-          d: 88.5,
-          h: 64,
-          count: 1,
-        })),
-      });
-    // The well width of a stack of `count` cards: count · t · 1.03 + 1, rounded up to 0.01 mm.
-    const stack = (count: number, t = 0.32): number =>
-      Math.ceil((count * t * 1.03 + 1) * 100) / 100;
-    const objectives = partOf(
-      [pockets([stack(45, 0.42), stack(50, 0.42)], ["Goals", "Starting hands"])],
-      "standing|rows2|split1",
-    );
-
-    it("keeps a spare compartment clear of a pocket's slot (plan 3 regression)", () => {
-      const min = minOuter(objectives, s, lipped);
-      const outer = { w: min.w + 10, d: min.d + 10, h: min.h + 10 };
-      const r = realizeTray(objectives, outer, s, lipped);
-      assertTrayInvariants(r, outer, s, lipped);
-      // The slack beside "Goals" does not become a spare its slot would reach into.
-      expect(r.compartments.map((c) => c.contents)).toEqual(["Starting hands", "Goals"]);
-      expect(at(at(r.compartments, 1).features, 0)).toMatchObject({ at: 13.9, width: 22 });
-    });
-
-    it("keeps a spare when there is room beside the slot", () => {
-      const min = minOuter(objectives, s, lipped);
-      const outer = { w: min.w + 30, d: min.d, h: min.h };
-      const r = realizeTray(objectives, outer, s, lipped);
-      assertTrayInvariants(r, outer, s, lipped);
-      // The spare beside "Goals" (row 1) starts 0.8 mm past its slot, not right after the divider.
-      const goals = at(r.compartments, 1);
-      const spare = r.compartments.find((c) => c.kind === "spare" && c.y === goals.y);
-      if (spare === undefined) {
-        throw new Error("expected a spare beside Goals");
-      }
-      const slot = at(goals.features, 0);
-      if (slot.type !== "fingerPocket") {
-        throw new Error("expected a finger pocket");
-      }
-      expect(spare.x).toBeCloseTo(slot.at + slot.width / 2 + 0.8, 9);
-    });
-
-    const strip = (counts: number[]): TrayPartReq =>
-      partOf([pockets(counts.map((n) => stack(n)))], "standing|strip|split1");
-    const slotsOf = (part: TrayPartReq) => {
-      const outer = minOuter(part, s, ground);
-      const r = realizeTray(part, outer, s, ground);
-      assertTrayInvariants(r, outer, s, ground);
-      return r.compartments.map((c) => {
-        const f = at(c.features, 0);
-        if (f.type !== "fingerPocket") {
-          throw new Error("expected a finger pocket");
-        }
-        return f;
-      });
-    };
-
-    it("merges the slots of narrow neighbouring pockets into one channel", () => {
-      const slots = slotsOf(strip([45, 45, 45, 45]));
-      expect(slots.map((f) => [f.at, f.width])).toEqual([
-        [12.6, 22],
-        [26.56, 22],
-        [43.6, 22],
-        [57.56, 22],
-      ]);
-      // Each overlaps the next, centres at most maxChannelSpacing(11) = 20.06 mm apart.
-      slots.slice(1).forEach((f, i) => {
-        const spacing = f.at - at(slots, i).at;
-        expect(spacing).toBeLessThan(22);
-        expect(spacing).toBeLessThanOrEqual(maxChannelSpacing(11));
-      });
-    });
-
-    it("widens minOuter until the finger slots fit", () => {
-      // A 1.33 mm pocket against the wall: at the minimum layout (46.29 mm) a slot of at least
-      // 15 mm would cross its own well face too far from the slot's centre (roadmap §4.6); 1.45 mm
-      // more lets the walls and divider grow until it fits.
-      const part = strip([1, 120]);
-      expect(fromU(minLayoutU(part, s, ground).w)).toBe(46.29);
-      const min = minOuter(part, s, ground);
-      expect(min).toEqual({ w: 47.74, d: 104.7, h: 66.2 });
-      assertTrayInvariants(realizeTray(part, min, s, ground), min, s, ground);
-    });
-
-    it("refuses a tray whose finger slots fit at no footprint the search tries", () => {
-      // Two 1.5 mm pockets of different depths, so their slots run on two band lines: no
-      // footprint up to fingerPocket.width wider leaves room for 15 mm slots, and a part refused at
-      // minOuter is refused at every outer.
-      const part = partOf(
-        [
-          minis({
-            figures: [
-              { name: "A", w: 0.5, d: 1, h: 20, count: 1 },
-              { name: "B", w: 0.5, d: 3, h: 10, count: 1 },
-            ],
-          }),
-        ],
-        "standing|strip|split1",
-      );
-      const min = minOuter(part, s, ground);
-      expect(fromU(minLayoutU(part, s, ground).w)).toBe(min.w);
-      for (const extra of [0, 3, 30]) {
-        let error: unknown;
-        try {
-          realizeTray(part, { ...min, w: min.w + extra }, s, ground);
-        } catch (thrown) {
-          error = thrown;
-        }
-        expect(error).toBeInstanceOf(SlotFitError);
-        expect(error).toBeInstanceOf(RangeError);
-        const fit = error as SlotFitError;
-        expect(fit.name).toBe("SlotFitError");
-        expect(fit.message).toBe("Tray m1:p0:0: cannot fit a finger slot of at least 15 mm for A");
-        expect(fit.minWidth).toBe(15);
-        expect(fit.componentIds).toEqual(["m1"]);
-        expect(fit.contents).toEqual(["A"]);
-      }
-    });
-
-    it("throws a plain RangeError, not a SlotFitError, for an outer below minOuter", () => {
-      const part = strip([1, 120]);
-      const min = minOuter(part, s, ground);
-      let error: unknown;
-      try {
-        realizeTray(part, { ...min, w: min.w - 0.01 }, s, ground);
-      } catch (thrown) {
-        error = thrown;
-      }
-      expect(error).toBeInstanceOf(RangeError);
-      expect(error).not.toBeInstanceOf(SlotFitError);
-    });
-
-    it("is monotonic in slack: slots that fit at minOuter fit in any larger outer", () => {
-      // A 1.44 mm pocket beside a 52.92 mm one, on a lipped tray: the slots fit at minOuter, but
-      // the slack of a 20 mm larger outer (a wider row, a spare) leaves no room for them. The tray
-      // falls back to its minOuter arrangement, centred: the slack goes to the outer walls.
-      const part = partOf([pockets([stack(1, 0.42), stack(120, 0.42)])], "standing|strip|split1");
-      const min = minOuter(part, s, lipped);
-      const atMin = realizeTray(part, min, s, lipped);
-      for (const extra of [20.01, 37]) {
-        const outer = { w: min.w + extra, d: min.d + extra, h: min.h };
-        const r = realizeTray(part, outer, s, lipped);
-        assertTrayInvariants(r, outer, s, lipped);
-        expect(r.wall).toBe(atMin.wall);
-        const shift = Math.floor(extra * 50) / 100; // half the slack, rounded down to 0.01 mm
-        expect(r.spacers).toEqual([]);
-        expect(r.compartments).toEqual(
-          atMin.compartments.map((c) => ({
-            ...c,
-            x: round2(c.x + shift),
-            y: round2(c.y + shift),
-            features: c.features.map((f) =>
-              f.type === "fingerPocket" ? { ...f, at: round2(f.at + shift) } : f,
-            ),
-          })),
-        );
-      }
-    });
-
-    it("moves a slot so neighbours merge instead of narrowing them", () => {
-      // The narrow pockets' slots, pushed against the wall, start 21.6 mm from the wide pocket's
-      // centre: too far to merge, too close to keep apart. The middle pocket's slot moves 3.9 mm
-      // toward the wide one (still covering its own centre, 45.84) to within
-      // maxChannelSpacing(11).
-      const slots = slotsOf(strip([120, 12, 12]));
-      expect(slots.map((f) => [f.at, f.width])).toEqual([
-        [21.88, 22],
-        [41.94, 22],
-        [43.48, 22],
-      ]);
     });
   });
 });

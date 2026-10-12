@@ -1,7 +1,7 @@
 // Test-only builders. Production code never imports this file.
 import { expect } from "vitest";
 import { planTray } from "../geometry/plan";
-import { DEFAULT_SETTINGS, MIN_FEATURE_MM, MIN_SLOT_WIDTH, POST_MM } from "../model/settings";
+import { DEFAULT_SETTINGS, MIN_CUT_MM, MIN_FEATURE_MM, POST_MM } from "../model/settings";
 import type {
   BulkComponent,
   CardsComponent,
@@ -126,14 +126,13 @@ export function partOf(
 
 /**
  * Asserts the contract of a realized tray. The geometry rules (roadmap §4.6: walls, bottom
- * chamfer, reach bands, finger slot placement and clearance, for the tray and its spacers) are
- * planTray's own: the tray must plan without a RangeError. On top of that, in whole 0.01 mm
- * units, what only sizing promises: compartments keep the divider setting apart, floors are at
- * least the floor setting, finger slots are at least min(MIN_SLOT_WIDTH, the width setting), and
- * wall cutouts at most the width setting and POST_MM inside their compartment's faces, their floor
- * notch at most the notch setting. Given the
- * `part` it was realized from, every compartment that asks for wall cutouts (cards and tiles) has
- * at least one: finger access is never left out silently (review 1, I2).
+ * chamfer, wall cutouts, for the tray and its spacers) are planTray's own: the tray must plan
+ * without a RangeError. On top of that, in whole 0.01 mm units, what only sizing promises:
+ * compartments keep the divider setting apart, floors are at least the floor setting, and wall
+ * cutouts are min(MIN_CUT_MM, the width setting) to the width setting wide, POST_MM inside their
+ * compartment's faces, their floor notch at most the notch setting. Given the `part` it was
+ * realized from, every compartment that asks for wall cutouts (cards, tiles, minis pockets and
+ * custom wells) has at least one: finger access is never left out silently (review 1, I2).
  */
 export function assertTrayInvariants(
   realized: RealizedTray,
@@ -144,7 +143,7 @@ export function assertTrayInvariants(
 ): void {
   const gap = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
   const minFloor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
-  const minSlot = Math.min(toU(MIN_SLOT_WIDTH), ceilU(settings.fingerPocket.width));
+  const minCut = Math.min(toU(MIN_CUT_MM), ceilU(settings.fingerPocket.width));
   // A cutout's half-width is a whole unit: the setting, rounded up to an even unit count.
   const maxCut = 2 * Math.ceil(ceilU(settings.fingerPocket.width) / 2);
   const u = (mm: number): number => Math.round(mm * 100);
@@ -161,11 +160,9 @@ export function assertTrayInvariants(
     const label = `compartment ${i} (${c.contents})`;
     expect(u(c.floorZ), `${label} floorZ`).toBeGreaterThanOrEqual(minFloor);
     for (const f of c.features) {
-      if (f.type === "fingerPocket") {
-        expect(u(f.width), `${label} ${f.side} slot width`).toBeGreaterThanOrEqual(minSlot);
-      }
       if (f.type === "wallCutout") {
         expect(u(f.width), `${label} ${f.side} cutout width`).toBeLessThanOrEqual(maxCut);
+        expect(u(f.width), `${label} ${f.side} cutout width`).toBeGreaterThanOrEqual(minCut);
         // Full-height posts of POST_MM between the cut and the compartment's faces (spec §6.1).
         const [lo, hi] =
           f.side === "left" || f.side === "right" ? [c.y, c.y + c.d] : [c.x, c.x + c.w];
@@ -251,7 +248,7 @@ function expectSpacerNotched(sp: TraySpec, compartments: CompartmentSpec[], H: n
       const r = notch.width / 2;
       if (notch.at - r <= 0 && notch.at + r >= span) {
         const far = Math.max(notch.at, span - notch.at);
-        const meets = sp.h - notch.depth + r - Math.sqrt(r * r - far * far);
+        const meets = sp.h - notch.depth + r - Math.sqrt(Math.max(0, r * r - far * far));
         expect(sp.h, `${label}: spacer top where the U meets its face`).toBeLessThanOrEqual(
           meets + 1e-9,
         );

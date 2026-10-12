@@ -6,7 +6,7 @@ import { at, custom } from "./test-helpers";
 const s = DEFAULT_SETTINGS;
 
 describe("customOptions", () => {
-  it("makes one well per item with a full-depth front pocket and corner reliefs", () => {
+  it("makes one well per item with a half-deep cut through its front wall and corner reliefs", () => {
     const { options, notices } = customOptions(custom(), s);
     expect(notices).toEqual([]);
     expect(options.map((o) => o.id)).toEqual(["custom"]);
@@ -17,11 +17,11 @@ describe("customOptions", () => {
       contents: "Dial 1/2",
       kind: "well",
       minW: 41,
-      minD: 43,
+      minD: 31,
       minH: 11,
       elastic: { w: false, d: false, h: false },
       features: [
-        { type: "fingerPocket", side: "front", depthFraction: 1 },
+        { type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false },
         { type: "cornerRelief" },
       ],
     });

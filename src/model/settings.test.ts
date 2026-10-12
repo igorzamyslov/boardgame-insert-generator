@@ -13,11 +13,7 @@ import {
   effectiveBottomChamfer,
   fingerRoomOf,
   fitChoiceOf,
-  MIN_FEATURE_MM,
-  cutRidgeWidth,
   maxBottomChamfer,
-  maxChannelSpacing,
-  maxWellFaceOffset,
   topPlane,
   wallChoiceOf,
 } from "./settings";
@@ -41,7 +37,7 @@ describe("DEFAULT_SETTINGS", () => {
       bottomChamfer: 0.4,
       cornerRadius: 3,
       scoopRadius: 12,
-      fingerPocket: { width: 25, reach: 12, floorNotch: 12.5, wallRoom: 0, dividerRoom: 0 },
+      fingerPocket: { width: 25, floorNotch: 12.5, wallRoom: 0, dividerRoom: 0 },
       lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
       topPressFit: 0,
       packingFactor: 0.5,
@@ -221,92 +217,5 @@ describe("bottom chamfer rules", () => {
     expect(at(0.9, 0.8)).toBeCloseTo(0.9 - 0.1 / Math.SQRT2, 9);
     // The thinnest valid wall, 0.9 mm: the outer corner limit is the wall itself.
     expect(at(0.9, 3)).toBeCloseTo(0.9, 9);
-  });
-});
-
-describe("maxChannelSpacing", () => {
-  // Width of the ridge two round slot bottoms (radius r, centres spacing apart) leave, MIN_FEATURE_MM
-  // below its top.
-  function ridge(r: number, spacing: number): number {
-    const k = Math.sqrt(r * r - (spacing * spacing) / 4);
-    return spacing - 2 * Math.sqrt(r * r - (k + MIN_FEATURE_MM) ** 2);
-  }
-
-  it("is 20.06 mm for 22 mm slots", () => {
-    expect(maxChannelSpacing(11)).toBeCloseTo(20.06, 2);
-  });
-
-  it.each([2.5, 7.5, 11, 25, 50])("leaves a ridge exactly MIN_FEATURE_MM wide for r = %d", (r) => {
-    const spacing = maxChannelSpacing(r);
-    expect(ridge(r, spacing)).toBeCloseTo(MIN_FEATURE_MM, 9);
-    expect(ridge(r, spacing - 0.1)).toBeGreaterThan(MIN_FEATURE_MM);
-    expect(ridge(r, spacing + 0.1)).toBeLessThan(MIN_FEATURE_MM);
-  });
-});
-
-describe("maxWellFaceOffset", () => {
-  // Width, MIN_FEATURE_MM below its tip, of the wedge between a well face dx from the centre of a
-  // round slot bottom (radius r) and that bottom.
-  function wedge(r: number, dx: number): number {
-    const k = Math.sqrt(r * r - dx * dx);
-    return dx - Math.sqrt(r * r - (k + MIN_FEATURE_MM) ** 2);
-  }
-
-  it("is 8.17 mm for 22 mm slots", () => {
-    expect(maxWellFaceOffset(11)).toBeCloseTo(8.17, 2);
-  });
-
-  it.each([2.5, 7.5, 11, 25, 50])("leaves a wedge exactly MIN_FEATURE_MM wide for r = %d", (r) => {
-    const dx = maxWellFaceOffset(r);
-    expect(wedge(r, dx)).toBeCloseTo(MIN_FEATURE_MM, 9);
-    expect(wedge(r, dx - 0.1)).toBeGreaterThan(MIN_FEATURE_MM);
-    expect(wedge(r, dx + 0.1)).toBeLessThan(MIN_FEATURE_MM);
-  });
-});
-
-describe("cutRidgeWidth", () => {
-  // Measures the piece a well face at u = 0 leaves on its solid side (u < 0) under two round
-  // bottoms (radius r) centred at dContents (contents side) and −dSolid: its top is the lower
-  // envelope of the arcs, and its width is taken MIN_FEATURE_MM below its highest point.
-  function sampled(r: number, dContents: number, dSolid: number): number {
-    const depth = (u: number): number =>
-      Math.max(
-        ...[dContents, -dSolid].map((c) =>
-          Math.abs(u - c) < r ? Math.sqrt(r * r - (u - c) ** 2) : Number.NEGATIVE_INFINITY,
-        ),
-      );
-    const step = 1e-4;
-    let top = Number.POSITIVE_INFINITY; // smallest depth below the arc centres = highest material
-    for (let u = 0; u > -dSolid; u -= step) {
-      top = Math.min(top, depth(u));
-    }
-    // The face, or the near bottom if it lies beyond the face, to the far bottom.
-    let first = 0;
-    while (depth(first) > top + MIN_FEATURE_MM) {
-      first -= step;
-    }
-    let last = first;
-    while (depth(last - step) <= top + MIN_FEATURE_MM) {
-      last -= step;
-    }
-    return first - last;
-  }
-
-  it.each([
-    [11, 9.9, 10.1],
-    [11, 9.99, 10.01],
-    [11, 9.6, 10.4],
-    [11, 5, 12],
-    [7.5, 6, 7],
-  ])("matches the sampled half ridge for r = %d, %d and %d mm from the centres", (r, dc, ds) => {
-    expect(cutRidgeWidth(r, dc, ds)).toBeCloseTo(sampled(r, dc, ds), 3);
-  });
-
-  it("is 0.51 mm for 22 mm slots 20 mm apart, the face 0.1 mm from the peak", () => {
-    expect(cutRidgeWidth(11, 9.9, 10.1)).toBeCloseTo(0.507, 3);
-  });
-
-  it("is unbounded once MIN_FEATURE_MM below the peak lies below the bottoms", () => {
-    expect(cutRidgeWidth(11, 1, 2)).toBe(Number.POSITIVE_INFINITY);
   });
 });

@@ -1,8 +1,8 @@
-import { MIN_POCKET_CONTENT, effective } from "../model/settings";
+import { effective } from "../model/settings";
 import type { Component, Notice, Settings, Side } from "../model/types";
 import { validateComponent } from "../model/validate";
 import type { CompartmentReq, FeatureReq } from "./types";
-import { ceilU, fromU, toU } from "./units";
+import { ceilU, fromU } from "./units";
 
 /** One way to store a component. Blocks are compartment groups a split never separates. */
 export interface StorageOption {
@@ -45,30 +45,11 @@ export function mainClearance(c: Component, s: Settings): number {
   return c.kind === "cards" ? e.cardClearance : e.pieceClearance;
 }
 
-/** The sides that carry a finger pocket, each once, in feature order. */
-export function pocketSides(features: readonly FeatureReq[]): Side[] {
-  const sides: Side[] = [];
-  for (const f of features) {
-    if (f.type === "fingerPocket" && f.side !== undefined && !sides.includes(f.side)) {
-      sides.push(f.side);
-    }
-  }
-  return sides;
-}
-
-/** The finger-reach band in whole 0.01 mm units: the setting rounded up. */
-export function reachU(s: Settings): number {
-  return ceilU(s.fingerPocket.reach);
-}
-
-export function fingerPocket(side: Side, depthFraction: number): FeatureReq {
-  return { type: "fingerPocket", side, depthFraction };
-}
-
 /**
  * A finger cutout through the wall or divider on `side` (roadmap §4.6): `depthFraction` 1 runs down
  * to the compartment's floor (flat cards and tiles, with a floor notch), less is that fraction of
- * the shallowest well its channel crosses (upright cards and tiles: half).
+ * the shallowest well its channel crosses (upright cards and tiles, minis pockets and custom wells:
+ * half).
  */
 export function wallCutout(side: Side, depthFraction: number, floorNotch: boolean): FeatureReq {
   return { type: "wallCutout", side, depthFraction, floorNotch };
@@ -93,7 +74,7 @@ export interface CompartmentInput {
   componentId: string;
   contents: string;
   kind: CompartmentReq["kind"];
-  w: number; // content size including clearance, finger reach NOT included
+  w: number; // content size including clearance
   d: number;
   h: number;
   elastic?: Partial<CompartmentReq["elastic"]>;
@@ -104,26 +85,16 @@ export interface CompartmentInput {
 }
 
 /**
- * Builds a CompartmentReq; adds fingerPocket.reach to minW/minD once per pocket side, however many
- * pockets share it (spec §6.1). Content rounds up to whole 0.01 mm and the reach is added as the
- * whole-unit band realizeTray subtracts again, so the well is never narrower than the content.
- * minW, minD and minH are therefore whole 0.01 mm (layout still rounds them up, for hand-built
- * requirements). A compartment with a finger pocket keeps at least MIN_POCKET_CONTENT of content
- * on both axes, which is what the geometry checks (its content rectangle is the compartment minus
- * the reach bands).
+ * Builds a CompartmentReq: the content rounded up to whole 0.01 mm (layout still rounds the
+ * minimums up, for hand-built requirements).
  */
-export function compartment(input: CompartmentInput, s: Settings): CompartmentReq {
-  const reach = reachU(s);
-  const sides = pocketSides(input.features);
-  const xSides = Number(sides.includes("left")) + Number(sides.includes("right"));
-  const ySides = Number(sides.includes("front")) + Number(sides.includes("back"));
-  const least = sides.length > 0 ? toU(MIN_POCKET_CONTENT) : 0;
+export function compartment(input: CompartmentInput): CompartmentReq {
   const req: CompartmentReq = {
     componentId: input.componentId,
     contents: input.contents,
     kind: input.kind,
-    minW: fromU(Math.max(ceilU(input.w), least) + xSides * reach),
-    minD: fromU(Math.max(ceilU(input.d), least) + ySides * reach),
+    minW: fromU(ceilU(input.w)),
+    minD: fromU(ceilU(input.d)),
     minH: fromU(ceilU(input.h)),
     elastic: {
       w: input.elastic?.w ?? false,

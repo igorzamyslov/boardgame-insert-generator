@@ -1,10 +1,5 @@
-import {
-  MIN_CUT_MM,
-  MIN_FEATURE_MM,
-  MIN_SLOT_WIDTH,
-  effectiveBottomChamfer,
-} from "../model/settings";
-import { keepsApart } from "../model/slot-rules";
+import { MIN_CUT_MM, MIN_FEATURE_MM, effectiveBottomChamfer } from "../model/settings";
+import type { RectMm } from "../model/cut-rules";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
 import {
   CORNER_RELIEF_D,
@@ -13,15 +8,12 @@ import {
   SPACER_TOP_GAP,
   WALL_GROW_LIMIT,
 } from "./constants";
-import { cutoutSides, pocketSides, reachU } from "./common";
+import { cutoutSides } from "./common";
 import { placeCutouts } from "./cutouts";
 import type { CutAsk, CutPlacement, PlacedCut } from "./cutouts";
-import type { RectMm } from "../model/slot-rules";
 import { chamferMinimumsU, minLayoutU, requestedWalls, wallFor } from "./outer";
 import type { CutWalls, MinLayout } from "./outer";
-import { SlotFitError } from "./errors";
-import { doubled, placeSlots, rectMm, slotFootprint } from "./slots";
-import type { Rect2, SlotPlacement, SlotRequest } from "./slots";
+import { CutFitError } from "./errors";
 import type { CompartmentReq, OuterSize, RealizeOptions, RealizedTray, TrayPartReq } from "./types";
 import { ceilU, fillCapped, floorU, fromU, splitEven, sum, toU } from "./units";
 
@@ -36,14 +28,12 @@ interface Rect {
 
 interface Placed {
   req: CompartmentReq;
-  alloc: Rect; // the CompartmentSpec rectangle: well + solid finger-reach bands (roadmap §4.6)
+  alloc: Rect; // the CompartmentSpec rectangle, the well (content + clearance)
   spacer: number; // spacer length at the well's +X end, 0 = none
 }
 
 interface FeatureContext {
-  reach: number;
   settings: Settings;
-  slots: ReadonlyMap<Side, SlotPlacement>; // this compartment's finger slots (placeSlots)
   cuts: ReadonlyMap<Side, CutPlacement>; // this compartment's wall cutouts (placeCutouts)
 }
 
@@ -55,18 +45,6 @@ function lastIndex<T>(items: readonly T[], test: (item: T) => boolean): number {
     }
   }
   return -1;
-}
-
-/** The well proper (contents): the allocation minus the finger-reach band on each pocket side. */
-function wellOf(alloc: Rect, req: CompartmentReq, reach: number): Rect {
-  const sides = pocketSides(req.features);
-  const cut = (side: Side): number => (sides.includes(side) ? reach : 0);
-  return {
-    x: alloc.x + cut("left"),
-    y: alloc.y + cut("front"),
-    w: alloc.w - cut("left") - cut("right"),
-    d: alloc.d - cut("front") - cut("back"),
-  };
 }
 
 /** Content depth: fixed for non-elastic contents (raised floor); bulk grows up to maxHRatio. */
@@ -84,7 +62,7 @@ const SIDES: readonly Side[] = ["front", "back", "left", "right"];
 
 function featureSpecs(
   req: CompartmentReq,
-  content: Rect,
+  well: Rect,
   depth: number,
   ctx: FeatureContext,
 ): FeatureSpec[] {
@@ -92,85 +70,33 @@ function featureSpecs(
     if (f.type === "cornerRelief") {
       return [{ type: "cornerRelief", d: CORNER_RELIEF_D }];
     }
-    const side = f.side ?? "front";
     if (f.type === "scoop") {
-      const r = Math.min(floorU(ctx.settings.scoopRadius), depth, Math.floor(content.w / 2));
-      return [{ type: "scoop", side, r: fromU(r) }];
+      const r = Math.min(floorU(ctx.settings.scoopRadius), depth, Math.floor(well.w / 2));
+      return [{ type: "scoop", side: f.side ?? "front", r: fromU(r) }];
     }
-    if (f.type === "wallCutout") {
-      // Every cut at the first request: no cut where a side faces bits, minis or a custom well,
-      // and the other axis's where none of the requested sides got one (placeCutouts).
-      if (f !== req.features.find((g) => g.type === "wallCutout")) {
-        return [];
-      }
-      const asked = cutoutSides(req.features);
-      const sides = [...asked, ...SIDES.filter((other) => !asked.includes(other))];
-      return sides.flatMap((s): FeatureSpec[] => {
-        const cut = ctx.cuts.get(s);
-        return cut === undefined
-          ? []
-          : [
-              {
-                type: "wallCutout",
-                side: s,
-                at: fromU(cut.at),
-                width: fromU(cut.width),
-                depth: fromU(cut.depth),
-                floorNotch: fromU(cut.notch),
-              },
-            ];
-      });
+    // Every cut at the first request: no cut where a side faces bits, minis or a custom well, and
+    // the other sides' where none of the requested sides got one (placeCutouts).
+    if (f !== req.features.find((g) => g.type === "wallCutout")) {
+      return [];
     }
-    const slot = ctx.slots.get(side);
-    if (slot === undefined) {
-      throw new Error(`internal: no finger slot placed on the ${side} side`);
-    }
-    return [
-      {
-        type: "fingerPocket",
-        side,
-        at: fromU(slot.at),
-        width: fromU(slot.width),
-        reach: fromU(ctx.reach),
-        depth: fromU(slot.depth),
-      },
-    ];
+    const asked = cutoutSides(req.features);
+    const sides = [...asked, ...SIDES.filter((other) => !asked.includes(other))];
+    return sides.flatMap((s): FeatureSpec[] => {
+      const cut = ctx.cuts.get(s);
+      return cut === undefined
+        ? []
+        : [
+            {
+              type: "wallCutout",
+              side: s,
+              at: fromU(cut.at),
+              width: fromU(cut.width),
+              depth: fromU(cut.depth),
+              floorNotch: fromU(cut.notch),
+            },
+          ];
+    });
   });
-}
-
-/** The depth a finger pocket asks for: at least one unit (the geometry rejects zero). */
-function pocketDepth(depth: number, depthFraction: number | undefined): number {
-  return Math.max(1, Math.round(depth * (depthFraction ?? 1)));
-}
-
-/**
- * Moves the start of a spare compartment (along `axis`) until it keeps MIN_FEATURE_MM from every
- * finger slot: spares take only room no slot needs (roadmap §4.7). Null when less than MIN_SPARE
- * is left.
- */
-function clearOfSlots(spare: Rect, axis: "x" | "y", slots: readonly Rect2[]): Rect | null {
-  const min = 2 * ceilU(MIN_FEATURE_MM);
-  let r = spare;
-  for (;;) {
-    const at = rectMm(doubled(r));
-    const hit = slots.find((f) => !keepsApart(rectMm(f), at, 0));
-    if (hit === undefined) {
-      return r;
-    }
-    if (axis === "x") {
-      const x = Math.ceil((hit.x1 + min) / 2);
-      r = { ...r, x, w: r.x + r.w - x };
-      if (r.w < toU(MIN_SPARE)) {
-        return null;
-      }
-    } else {
-      const y = Math.ceil((hit.y1 + min) / 2);
-      r = { ...r, y, d: r.y + r.d - y };
-      if (r.d < toU(MIN_SPARE)) {
-        return null;
-      }
-    }
-  }
 }
 
 /**
@@ -268,69 +194,6 @@ function rectSpec(r: Rect): Pick<CompartmentSpec, "x" | "y" | "w" | "d"> {
   return { x: fromU(r.x), y: fromU(r.y), w: fromU(r.w), d: fromU(r.d) };
 }
 
-interface SlotFrame {
-  trayKey: string;
-  W: number;
-  D: number;
-  H: number;
-  floor: number;
-  wall: number;
-  reach: number;
-  settings: Settings;
-}
-
-/**
- * The finger slots of every placed compartment (placeSlots). A run of slots that cannot keep
- * min(MIN_SLOT_WIDTH, setting) means the tray cannot be realized in this frame (SlotFitError);
- * layout treats that part as infeasible at these options (roadmap §4.7).
- */
-function fingerSlots(placed: readonly Placed[], frame: SlotFrame) {
-  const { W, D, H, floor, wall, reach, settings } = frame;
-  const items = placed.map((p) => {
-    const well = wellOf(p.alloc, p.req, reach);
-    const depth = contentDepth(p.req, well, H, floor);
-    return { ...p, well, depth, slots: new Map<Side, SlotPlacement>() };
-  });
-  const requests: SlotRequest[] = items.flatMap(({ req, depth, well }, owner) =>
-    pocketSides(req.features).map((side): SlotRequest => {
-      const alongX = side === "front" || side === "back";
-      const depths = req.features.flatMap((f) =>
-        f.type === "fingerPocket" && f.side === side ? [pocketDepth(depth, f.depthFraction)] : [],
-      );
-      return {
-        owner,
-        side,
-        centre: Math.round(alongX ? well.x + well.w / 2 : well.y + well.d / 2),
-        depth: Math.min(...depths),
-      };
-    }),
-  );
-  const outcome = placeSlots(requests, {
-    rects: items.map((item) => item.alloc),
-    contents: items.map((item) => item.well),
-    span: { x: W, y: D },
-    wall,
-    reach,
-    width: ceilU(settings.fingerPocket.width),
-  });
-  if ("placements" in outcome) {
-    return { items, requests, placements: outcome.placements };
-  }
-  const stuck = outcome.stuck.flatMap((k) => {
-    const req = items[requests[k]?.owner ?? -1]?.req;
-    return req === undefined ? [] : [req];
-  });
-  const contents = [...new Set(stuck.map((req) => req.contents))];
-  const least = fromU(Math.min(toU(MIN_SLOT_WIDTH), ceilU(settings.fingerPocket.width)));
-  throw new SlotFitError(
-    `Tray ${frame.trayKey}: cannot fit a finger slot of at least ${least} mm for ${contents.join(", ")}`,
-    "slot",
-    least,
-    [...new Set(stuck.map((req) => req.componentId))],
-    contents,
-  );
-}
-
 /** A rectangle by its corners. */
 function corners(r: Rect): RectMm {
   return { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.d };
@@ -338,12 +201,11 @@ function corners(r: Rect): RectMm {
 
 /**
  * The wall cutouts of every placed compartment (placeCutouts), per compartment and side. They come
- * after the finger slots and the spares: a cutout may run into a spare and keeps clear of slots.
+ * after the spares: a cutout may run into a spare.
  */
 function wallCutouts(
-  items: readonly { req: CompartmentReq; alloc: Rect; well: Rect; spacer: number; depth: number }[],
+  items: readonly { req: CompartmentReq; alloc: Rect; spacer: number; depth: number }[],
   spares: readonly Rect[],
-  slots: readonly Rect2[],
   frame: {
     trayKey: string;
     W: number;
@@ -368,13 +230,17 @@ function wallCutouts(
   const placed = placeCutouts(requests, {
     rects: [...items.map((item) => item.alloc), ...spares].map(corners),
     spare: (index) => index >= items.length,
-    spacers: items.map(({ well, spacer }) =>
+    spacers: items.map(({ alloc, spacer }) =>
       spacer > 0
-        ? { x0: well.x + well.w - spacer, y0: well.y, x1: well.x + well.w, y1: well.y + well.d }
+        ? {
+            x0: alloc.x + alloc.w - spacer,
+            y0: alloc.y,
+            x1: alloc.x + alloc.w,
+            y1: alloc.y + alloc.d,
+          }
         : null,
     ),
     depths: items.map((item) => item.depth),
-    slots,
     span: { x: W, y: D },
     H,
     chamfer: min.chamfer,
@@ -390,13 +256,11 @@ function wallCutouts(
   );
   if (uncut.length > 0) {
     // Finger access is never left out silently (review 1, I2): a well too small for a cut of
-    // MIN_CUT_MM with POST_MM posts on either axis refuses the tray, as a slot that does not fit
-    // does.
+    // MIN_CUT_MM with POST_MM posts on every side refuses the tray.
     const contents = [...new Set(uncut.map(({ req }) => req.contents))];
     const least = Math.min(MIN_CUT_MM, settings.fingerPocket.width);
-    throw new SlotFitError(
+    throw new CutFitError(
       `Tray ${frame.trayKey}: no wall cutout of at least ${least} mm fits for ${contents.join(", ")}`,
-      "cutout",
       least,
       [...new Set(uncut.map(({ req }) => req.componentId))],
       contents,
@@ -467,30 +331,9 @@ function cutWallsOf(placed: readonly PlacedCut[], min: MinLayout): CutWalls {
   return walls;
 }
 
-/** The tray moved by dx, dy units: compartments, finger slot and cutout centres and spacers. */
-function shifted(r: RealizedTray, dx: number, dy: number): RealizedTray {
-  const move = <T extends { x: number; y: number }>(item: T): T => ({
-    ...item,
-    x: fromU(toU(item.x) + dx),
-    y: fromU(toU(item.y) + dy),
-  });
-  const moveFeature = (f: FeatureSpec): FeatureSpec =>
-    f.type === "fingerPocket" || f.type === "wallCutout"
-      ? { ...f, at: fromU(toU(f.at) + (f.side === "front" || f.side === "back" ? dx : dy)) }
-      : f;
-  return {
-    wall: r.wall,
-    compartments: r.compartments.map((c) => ({
-      ...move(c),
-      features: c.features.map(moveFeature),
-    })),
-    spacers: r.spacers.map(move),
-  };
-}
-
 /**
  * Realizes `part` in an outer of W × D × H units (at least `min`), with the walls and dividers its
- * cuts pass through. Throws SlotFitError when its finger slots or cutouts do not fit.
+ * cuts pass through. Throws CutFitError when a compartment gets no wall cutout.
  */
 function layoutAt(
   part: TrayPartReq,
@@ -499,8 +342,6 @@ function layoutAt(
   settings: Settings,
 ): { tray: RealizedTray; walls: CutWalls } {
   const { wall, divider, floor, rows, room } = min;
-  // The band realize reserves is the reach each pocket reports, rounded up to whole units.
-  const reach = reachU(settings);
   // How much slack a wall or divider may still take (thicker walls, not finger room). Growth caps
   // are maximums, so they round down; minimums (wall, divider, pocket) round up.
   const wallGrow = Math.max(0, floorU(Math.min(2 * settings.wall, WALL_GROW_LIMIT)) - wall);
@@ -547,7 +388,7 @@ function layoutAt(
   // X, per row: elastic bulk → else one card/tile spacer per tray → thicker walls/dividers →
   // a spare compartment at the row end → the rest to the side walls.
   const placed: Placed[] = [];
-  const spares: [Rect, "x" | "y"][] = []; // and the axis along which a slot may push its start
+  const spares: Rect[] = [];
   let spacerUsed = false;
   rows.forEach((row, r) => {
     const rowY = rowYs[r] ?? wall;
@@ -603,40 +444,16 @@ function layoutAt(
     });
     // A spare at the row end takes the finger room too: a cutout runs into it instead.
     if (spareW > 0) {
-      spares.push([{ x: x + spareGap, y: rowY, w: spareW + roomRight, d: rowDepth }, "x"]);
+      spares.push({ x: x + spareGap, y: rowY, w: spareW + roomRight, d: rowDepth });
     }
   });
   if (spareRowDepth > 0) {
     const d = spareRowDepth + room.back;
-    spares.push([{ x: wall, y: rowsEnd + spareRowGap, w: innerW, d }, "y"]);
+    spares.push({ x: wall, y: rowsEnd + spareRowGap, w: innerW, d });
   }
 
-  const { items, requests, placements } = fingerSlots(placed, {
-    trayKey: part.trayKey,
-    W,
-    D,
-    H,
-    floor,
-    wall,
-    reach,
-    settings,
-  });
-  const footprints: Rect2[] = [];
-  requests.forEach((q, k) => {
-    const slot = placements[k];
-    const item = items[q.owner];
-    if (slot === undefined || item === undefined) {
-      throw new Error("internal: finger slot without a compartment");
-    }
-    item.slots.set(q.side, slot);
-    footprints.push(slotFootprint(item.alloc, q.side, slot, reach));
-  });
-
-  const spareRects = spares.flatMap(([rect, axis]) => {
-    const clear = clearOfSlots(rect, axis, footprints);
-    return clear === null ? [] : [clear];
-  });
-  const { byOwner: cuts, placed: cutsPlaced } = wallCutouts(items, spareRects, footprints, {
+  const items = placed.map((p) => ({ ...p, depth: contentDepth(p.req, p.alloc, H, floor) }));
+  const { byOwner: cuts, placed: cutsPlaced } = wallCutouts(items, spares, {
     trayKey: part.trayKey,
     W,
     D,
@@ -646,29 +463,22 @@ function layoutAt(
   });
 
   const spacers: TraySpec[] = [];
-  const compartments: CompartmentSpec[] = items.map(
-    ({ req, alloc, spacer, well, depth, slots }, i) => {
-      const floorZ = H - depth;
-      if (spacer > 0) {
-        const height = depth - toU(SPACER_TOP_GAP);
-        const notch = spacerNotch(well, cuts[i] ?? new Map(), height, settings);
-        spacers.push(spacerSpec(part.trayKey, well, spacer, floorZ, notch));
-      }
-      return {
-        ...rectSpec(alloc),
-        floorZ: fromU(floorZ),
-        kind: req.kind,
-        contents: req.contents,
-        features: featureSpecs(req, well, depth, {
-          reach,
-          settings,
-          slots,
-          cuts: cuts[i] ?? new Map(),
-        }),
-      };
-    },
-  );
-  for (const rect of spareRects) {
+  const compartments: CompartmentSpec[] = items.map(({ req, alloc, spacer, depth }, i) => {
+    const floorZ = H - depth;
+    if (spacer > 0) {
+      const height = depth - toU(SPACER_TOP_GAP);
+      const notch = spacerNotch(alloc, cuts[i] ?? new Map(), height, settings);
+      spacers.push(spacerSpec(part.trayKey, alloc, spacer, floorZ, notch));
+    }
+    return {
+      ...rectSpec(alloc),
+      floorZ: fromU(floorZ),
+      kind: req.kind,
+      contents: req.contents,
+      features: featureSpecs(req, alloc, depth, { settings, cuts: cuts[i] ?? new Map() }),
+    };
+  });
+  for (const rect of spares) {
     compartments.push({
       ...rectSpec(rect),
       floorZ: fromU(floor),
@@ -682,56 +492,17 @@ function layoutAt(
   return { tray, walls: cutWallsOf(cutsPlaced, min) };
 }
 
-/** The footprint (units) at which a part's finger slots fit (slotFootprintU). */
-interface SlotFootprint {
-  min: MinLayout;
-  w: number;
-  d: number;
-  // Why the slots fit at no footprint up to the cap (then w, d are min's), or null.
-  error: SlotFitError | null;
-}
-
-const footprints = new WeakMap<TrayPartReq, WeakMap<Settings, Map<string, SlotFootprint>>>();
-
-/** The coarse step of the footprint search (2 mm); the first fit is bisected to 0.01 mm. */
-const SEARCH_STEP = 200;
-
-function slotFitAt(
-  part: TrayPartReq,
-  min: MinLayout,
-  [w, d]: readonly [number, number],
-  settings: Settings,
-): SlotFitError | null {
-  try {
-    layoutAt(part, min, [w, d, min.h], settings);
-    return null;
-  } catch (error) {
-    if (error instanceof SlotFitError) {
-      return error;
-    }
-    throw error;
-  }
-}
+const layouts = new WeakMap<TrayPartReq, WeakMap<Settings, Map<string, MinLayout>>>();
 
 /**
- * The footprint at which the part's finger slots fit (roadmap §4.2): the minimum layout (walls,
- * dividers, contents, chamfer) as is, or widened along the axes that carry slots (x for front and
- * back pockets, y for left and right) by up to fingerPocket.width. Widening by e tries x alone, y
- * alone, then both. e runs in SEARCH_STEP units up to the cap, and the first fit is bisected,
- * in whole 0.01 mm units, against the last widening that did not fit (on 5544 card strip parts
- * this found the same smallest footprint as trying every 0.01 mm). Slot placement depends on the
- * footprint only, never on the height. Memoized per part, settings and options object (they are
- * never mutated).
+ * The part's minimum layout (minLayoutU) with its finger room where its cuts go (settleRoom),
+ * memoized per part, settings and options (they are never mutated).
  */
-function slotFootprintU(
-  part: TrayPartReq,
-  settings: Settings,
-  opts: RealizeOptions,
-): SlotFootprint {
-  let bySettings = footprints.get(part);
+function minLayoutOf(part: TrayPartReq, settings: Settings, opts: RealizeOptions): MinLayout {
+  let bySettings = layouts.get(part);
   if (bySettings === undefined) {
     bySettings = new WeakMap();
-    footprints.set(part, bySettings);
+    layouts.set(part, bySettings);
   }
   let byOpts = bySettings.get(settings);
   if (byOpts === undefined) {
@@ -743,33 +514,40 @@ function slotFootprintU(
   if (cached !== undefined) {
     return cached;
   }
-  const found = settleRoom(part, settings, opts);
-  byOpts.set(key, found);
-  return found;
+  const min = settleRoom(part, settings, opts);
+  byOpts.set(key, min);
+  return min;
 }
 
 /** Rounds of settleRoom before it gives up: the cuts' walls settle in one or two. */
 const ROOM_ROUNDS = 4;
 
 /**
- * The footprint (searchFootprint) of the minimum layout whose finger room lies on the walls and
- * dividers its cuts actually pass through (spec §6.1): first where they are asked for
- * (requestedWalls), then, while they differ, where the layout at the footprint places them. A cut
- * on the other axis (placeCutouts' second try) gets the room, a side asked for but left without a
- * cut does not.
+ * The minimum layout whose finger room lies on the walls and dividers its cuts actually pass
+ * through (spec §6.1): first where they are asked for (requestedWalls), then, while they differ,
+ * where the layout at that minimum places them. A cut on another side (placeCutouts' later tries)
+ * gets the room, a side asked for but left without a cut does not. A part without a cut somewhere
+ * keeps the requested room: realizeTray refuses it anyway (CutFitError).
  */
-function settleRoom(part: TrayPartReq, settings: Settings, opts: RealizeOptions): SlotFootprint {
+function settleRoom(part: TrayPartReq, settings: Settings, opts: RealizeOptions): MinLayout {
   const roomless = settings.fingerPocket.wallRoom <= 0 && settings.fingerPocket.dividerRoom <= 0;
   let walls = requestedWalls(part);
   for (let round = 1; ; round += 1) {
     const min = minLayoutU(part, settings, opts, walls);
-    const found = searchFootprint(part, min, settings);
-    if (found.error !== null || roomless) {
-      return found;
+    if (roomless) {
+      return min;
     }
-    const placed = layoutAt(part, min, [found.w, found.d, min.h], settings).walls;
+    let placed: CutWalls;
+    try {
+      placed = layoutAt(part, min, [min.w, min.d, min.h], settings).walls;
+    } catch (error) {
+      if (error instanceof CutFitError) {
+        return min;
+      }
+      throw error;
+    }
     if (JSON.stringify(placed) === JSON.stringify(walls)) {
-      return found;
+      return min;
     }
     if (round >= ROOM_ROUNDS) {
       throw new Error(`internal: Tray ${part.trayKey}: the finger room does not settle`);
@@ -778,62 +556,17 @@ function settleRoom(part: TrayPartReq, settings: Settings, opts: RealizeOptions)
   }
 }
 
-function searchFootprint(part: TrayPartReq, min: MinLayout, settings: Settings): SlotFootprint {
-  const error = slotFitAt(part, min, [min.w, min.d], settings);
-  if (error === null) {
-    return { min, w: min.w, d: min.d, error: null };
-  }
-  const sides = new Set(part.compartments.flatMap((c) => pocketSides(c.features)));
-  const alongX = sides.has("front") || sides.has("back");
-  const alongY = sides.has("left") || sides.has("right");
-  const widened = (e: number): [number, number][] => [
-    ...(alongX ? [[min.w + e, min.d] as [number, number]] : []),
-    ...(alongY ? [[min.w, min.d + e] as [number, number]] : []),
-    ...(alongX && alongY ? [[min.w + e, min.d + e] as [number, number]] : []),
-  ];
-  const fits = (e: number): [number, number] | undefined =>
-    widened(e).find((size) => slotFitAt(part, min, size, settings) === null);
-  const cap = ceilU(settings.fingerPocket.width);
-  let failed = 0; // the largest widening known not to fit
-  for (let coarse = SEARCH_STEP; coarse < cap + SEARCH_STEP; coarse += SEARCH_STEP) {
-    const e = Math.min(coarse, cap);
-    let size = fits(e);
-    if (size !== undefined) {
-      // Bisect down to the smallest widening that fits between the last miss and this fit.
-      let hi = e;
-      while (hi - failed > 1) {
-        const mid = Math.floor((failed + hi) / 2);
-        const at = fits(mid);
-        if (at === undefined) {
-          failed = mid;
-        } else {
-          hi = mid;
-          size = at;
-        }
-      }
-      return { min, w: size[0], d: size[1], error: null };
-    }
-    failed = e;
-  }
-  return { min, w: min.w, d: min.d, error };
-}
-
-/**
- * Smallest outer box (tray's own frame, lip excluded) that holds the part with its finger slots
- * (roadmap §4.2): minLayoutU's minimum, wider where the slots need it (slotFootprintU).
- */
+/** Smallest outer box (tray's own frame, lip excluded) that holds the part (roadmap §4.2). */
 export function minOuter(part: TrayPartReq, settings: Settings, opts: RealizeOptions): OuterSize {
-  const fp = slotFootprintU(part, settings, opts);
-  return { w: fromU(fp.w), d: fromU(fp.d), h: fromU(fp.min.h) };
+  const min = minLayoutOf(part, settings, opts);
+  return { w: fromU(min.w), d: fromU(min.d), h: fromU(min.h) };
 }
 
 /**
  * Realizes `part` in `outer` (roadmap §4.2, §4.7). Throws RangeError when `outer` is smaller than
- * minOuter, and SlotFitError when the finger slots fit at no footprint the search tries
- * (slotFootprintU). Realizable at minOuter ⇔ realizable at all: minOuter is the footprint the
- * search found, and where the slack of a larger outer would leave the slots no room (a wider row
- * moving a slot against a well face, say), the tray keeps its minOuter arrangement, centred, and
- * the slack thickens the outer walls instead.
+ * minOuter, and CutFitError (sizing-internal) when a card, tile, minis or custom compartment gets
+ * no wall cutout: that depends on the part's compartments and their order only, so size() leaves
+ * such variants out, and every part it returns realizes at every outer and option.
  */
 export function realizeTray(
   part: TrayPartReq,
@@ -841,29 +574,15 @@ export function realizeTray(
   settings: Settings,
   opts: RealizeOptions,
 ): RealizedTray {
-  const fp = slotFootprintU(part, settings, opts);
-  const { min } = fp;
-  // Realizable at minOuter ⇔ realizable at all: a part whose slots fit nowhere is refused at
-  // every outer, also where a larger outer happens to fit them.
-  if (fp.error !== null) {
-    throw fp.error;
-  }
+  const min = minLayoutOf(part, settings, opts);
   // Round an off-grid outer down, so one a hair under minOuter is rejected, not accepted.
   const W = floorU(outer.w);
   const D = floorU(outer.d);
   const H = floorU(outer.h);
-  if (W < fp.w || D < fp.d || H < min.h) {
+  if (W < min.w || D < min.d || H < min.h) {
     throw new RangeError(
-      `Tray ${part.trayKey}: outer ${outer.w}×${outer.d}×${outer.h} mm is smaller than its minimum ${fromU(fp.w)}×${fromU(fp.d)}×${fromU(min.h)} mm`,
+      `Tray ${part.trayKey}: outer ${outer.w}×${outer.d}×${outer.h} mm is smaller than its minimum ${fromU(min.w)}×${fromU(min.d)}×${fromU(min.h)} mm`,
     );
   }
-  try {
-    return layoutAt(part, min, [W, D, H], settings).tray;
-  } catch (error) {
-    if (!(error instanceof SlotFitError) || (W === fp.w && D === fp.d)) {
-      throw error;
-    }
-  }
-  const centred = layoutAt(part, min, [fp.w, fp.d, H], settings).tray;
-  return shifted(centred, Math.floor((W - fp.w) / 2), Math.floor((D - fp.d) / 2));
+  return layoutAt(part, min, [W, D, H], settings).tray;
 }

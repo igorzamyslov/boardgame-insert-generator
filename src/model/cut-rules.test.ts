@@ -1,8 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { OPPOSITE, alongX, axes, faceOf, nearestAcross } from "./cut-rules";
-import type { RectMm } from "./slot-rules";
+import { OPPOSITE, alongX, axes, faceOf, keepsApart, nearestAcross, separation } from "./cut-rules";
+import type { RectMm } from "./cut-rules";
+import { SPEC_TOLERANCE as TOL } from "./settings";
 
 const rect = (x0: number, y0: number, x1: number, y1: number): RectMm => ({ x0, y0, x1, y1 });
+
+describe("separation and keepsApart", () => {
+  const span = (x0: number, x1: number) => rect(x0, 0, x1, 10);
+
+  it("measures along the axis that separates the rectangles most", () => {
+    expect(separation(span(0, 10), span(10.8, 20))).toBeCloseTo(0.8, 9);
+    expect(separation(span(0, 10), span(5, 20))).toBeCloseTo(-5, 9);
+  });
+
+  it("keeps MIN_FEATURE_MM, forgiving tol", () => {
+    expect(keepsApart(span(0, 10), span(10.8, 20), 0)).toBe(true);
+    expect(keepsApart(span(0, 10), span(10.797, 20), 0)).toBe(false);
+    expect(keepsApart(span(0, 10), span(10.797, 20), TOL)).toBe(true);
+    expect(keepsApart(span(0, 10), span(10.79, 20), TOL)).toBe(false);
+  });
+});
 
 describe("cut sides and axes", () => {
   it("runs a front or back cut along x, a left or right one along y", () => {

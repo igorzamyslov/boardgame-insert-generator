@@ -1,9 +1,33 @@
-import type { RectMm } from "./slot-rules";
+import { FLOAT_EPSILON, MIN_FEATURE_MM } from "./settings";
 import type { Side } from "./types";
 
 // Sides and axes of wall cutouts (roadmap §4.6, §4.7), shared by sizing (sizing/cutouts.ts, in
 // whole 0.01 mm units with tol 0) and planTray (geometry/plan-cuts.ts, in mm with tol
 // SPEC_TOLERANCE). A cut on a side runs along it (u) and across it (v), from its compartment's face.
+// `tol` is how far a length may miss a limit and still pass: planTray forgives the float noise of
+// TraySpec sums, sizing forgives nothing, so whatever sizing places planTray accepts.
+// FLOAT_EPSILON absorbs the float noise of the mm arithmetic in both.
+
+/** An axis-aligned rectangle. */
+export interface RectMm {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** How far apart two rectangles are along the axis that separates them most (< 0: they overlap). */
+export function separation(a: RectMm, b: RectMm): number {
+  return Math.max(b.x0 - a.x1, a.x0 - b.x1, b.y0 - a.y1, a.y0 - b.y1);
+}
+
+/**
+ * Whether two rectangles keep MIN_FEATURE_MM apart along x or y, which keeps it between them at
+ * any height.
+ */
+export function keepsApart(a: RectMm, b: RectMm, tol: number): boolean {
+  return separation(a, b) >= MIN_FEATURE_MM - tol - FLOAT_EPSILON;
+}
 
 export const OPPOSITE: Readonly<Record<Side, Side>> = {
   front: "back",

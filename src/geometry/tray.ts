@@ -4,15 +4,7 @@ import type { Mesh } from "./types";
 import { planTray } from "./plan";
 import { cutFace, cutReach, filletStrip } from "./plan-cuts";
 import { INNER_CORNER_RADIUS_MM } from "../model/settings";
-import type {
-  CompartmentPlan,
-  CutPlan,
-  LipPlan,
-  Rect,
-  ScoopPlan,
-  SlotPlan,
-  TrayPlan,
-} from "./plan-types";
+import type { CompartmentPlan, CutPlan, LipPlan, Rect, ScoopPlan, TrayPlan } from "./plan-types";
 import { withScope } from "./scope";
 import type { Scope } from "./scope";
 import {
@@ -108,8 +100,9 @@ function buildSpandrel(
   return scope.track(corner.subtract(cylinder));
 }
 
-// U-slot: vertical sides, round bottom; convex, so one hull.
-function buildSlot(m: ManifoldToplevel, scope: Scope, slot: SlotPlan, topZ: number): Manifold {
+// A cut's U: vertical sides, round bottom; convex, so one hull.
+type UPlan = Pick<CutPlan, "x0" | "x1" | "y0" | "y1" | "side" | "bottomZ" | "radius">;
+function buildU(m: ManifoldToplevel, scope: Scope, slot: UPlan, topZ: number): Manifold {
   const alongX = slot.side === "front" || slot.side === "back";
   const r = slot.radius;
   const centre = alongX ? (slot.x0 + slot.x1) / 2 : (slot.y0 + slot.y1) / 2;
@@ -143,7 +136,7 @@ function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number):
   // EPS into the compartments at both ends (its sides keep POST_MM posts to their faces, clear of
   // their rounded corners), OVERSHOOT past an outer face it leaves through.
   const reach = cutReach(cut, EPS, OVERSHOOT);
-  const u = buildSlot(m, scope, { ...cut, ...reach }, top);
+  const u = buildU(m, scope, { ...cut, ...reach }, top);
   if (cut.notch <= 0) {
     return [u];
   }
@@ -223,26 +216,14 @@ function buildCutter(
   c: CompartmentPlan,
 ): Manifold {
   const top = plan.topZ + OVERSHOOT;
-  const { content } = c;
-  const r = Math.min(
-    INNER_CORNER_RADIUS_MM,
-    (content.x1 - content.x0) / 2,
-    (content.y1 - content.y0) / 2,
-  );
-  const ring = roundedRectRing(
-    content.x0,
-    content.y0,
-    content.x1,
-    content.y1,
-    r,
-    quarterSegments(r),
-  );
+  const { rect } = c;
+  const r = Math.min(INNER_CORNER_RADIUS_MM, (rect.x1 - rect.x0) / 2, (rect.y1 - rect.y0) / 2);
+  const ring = roundedRectRing(rect.x0, rect.y0, rect.x1, rect.y1, r, quarterSegments(r));
   let cutter = prism(m, scope, ring, c.floorZ, top);
   for (const scoop of c.scoops) {
-    cutter = scope.track(cutter.subtract(buildSpandrel(m, scope, content, c.floorZ, scoop)));
+    cutter = scope.track(cutter.subtract(buildSpandrel(m, scope, rect, c.floorZ, scoop)));
   }
   const extras = [
-    ...c.slots.map((slot) => buildSlot(m, scope, slot, top)),
     ...c.cuts.flatMap((cut) => [
       ...buildCut(m, scope, cut, top),
       ...buildTopFillets(
@@ -302,7 +283,7 @@ export function buildTray(
       const ends = along
         ? { x0: n.x0 - OVERSHOOT, x1: n.x1 + OVERSHOOT }
         : { y0: n.y0 - OVERSHOOT, y1: n.y1 + OVERSHOOT };
-      cutters.push(buildSlot(m, scope, { ...n, ...ends }, plan.topZ + OVERSHOOT));
+      cutters.push(buildU(m, scope, { ...n, ...ends }, plan.topZ + OVERSHOOT));
       const strip = along
         ? { v0: -OVERSHOOT, v1: plan.w + OVERSHOOT }
         : { v0: -OVERSHOOT, v1: plan.d + OVERSHOOT };

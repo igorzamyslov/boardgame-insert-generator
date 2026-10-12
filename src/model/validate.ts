@@ -130,15 +130,8 @@ const settingRanges: SettingRange[] = [
   { path: "scoopRadius", label: "Scoop radius", get: (s) => s.scoopRadius, min: 0, max: 100 },
   {
     path: "fingerPocket/width",
-    label: "Finger pocket width",
+    label: "Finger cut width",
     get: (s) => s.fingerPocket.width,
-    min: 5,
-    max: 100,
-  },
-  {
-    path: "fingerPocket/reach",
-    label: "Finger pocket reach",
-    get: (s) => s.fingerPocket.reach,
     min: 5,
     max: 100,
   },
@@ -190,8 +183,7 @@ const settingRanges: SettingRange[] = [
  * outer corner only with that margin (maxCornerRadius in ./settings), and the lip is a ring
  * between two concentric polygons, only t·cos(Δ/2) thick at a corner facet, so a lip of
  * MIN_FEATURE_MM measures thinner than that (0.9·cos(22.5°) = 0.83 mm passes). topPressFit is
- * spec §3 rule 2. The finger pocket reach is at least 5 mm, so every pocket sizing emits
- * has a positive reach (the geometry rejects a zero one). The floor notch of flat cards' and tiles'
+ * spec §3 rule 2. The floor notch of flat cards' and tiles'
  * wall cutouts reaches 0 (off) to 50 mm into the floor (a half-disc at half the finger width), and
  * the finger room added to the outer walls and dividers they cut is 0 (off) to 20 mm. The lip
  * is at least 1 mm high: the geometry chamfers its inner top edge by 0.6 mm and a lower lip is

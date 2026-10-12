@@ -51,13 +51,6 @@ export const CORNER_MARGIN = 0.1;
  */
 export const MIN_WALL_MM = MIN_FEATURE_MM + CORNER_MARGIN;
 
-/**
- * A finger slot runs across its reach band and this far into its compartment's contents
- * (at most half the contents), so it opens into the well (roadmap §4.6). Shared by sizing and
- * geometry.
- */
-export const SLOT_CONTENT_OVERLAP = 0.5;
-
 /** Spec §5 defaults. Projects store resolved values, never "use the default". Deeply frozen. */
 export const DEFAULT_SETTINGS: Settings = deepFreeze({
   wall: 1.6,
@@ -74,7 +67,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   bottomChamfer: 0.4,
   cornerRadius: 3,
   scoopRadius: 12,
-  fingerPocket: { width: 25, reach: 12, floorNotch: 12.5, wallRoom: 0, dividerRoom: 0 },
+  fingerPocket: { width: 25, floorNotch: 12.5, wallRoom: 0, dividerRoom: 0 },
   lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
   topPressFit: 0,
   packingFactor: 0.5,
@@ -214,64 +207,6 @@ export function chamferMinimums(s: Settings, level: number): { side: number; h: 
   const c = effectiveBottomChamfer(s, level);
   return { side: 2 * (c + MIN_FEATURE_MM), h: c + MIN_FEATURE_MM };
 }
-
-/**
- * Two finger slots of radius r on one band line (same side, band, width and depth) merge into one
- * channel when their centres are at most this far apart (roadmap §4.6). Their round bottoms
- * cross at the midpoint, k = √(r² − Δ²/4) below the arc centres, and leave a ridge there; m below
- * its top the ridge is Δ − 2√(r² − (k + m)²) wide. Keeping that ≥ m = MIN_FEATURE_MM gives
- * k ≥ Δ/4 − 5m/8, i.e. Δ ≤ m/2 + √(3.2r² − m²): 20.06 mm for 22 mm slots.
- */
-export function maxChannelSpacing(r: number): number {
-  const m = MIN_FEATURE_MM;
-  return m / 2 + Math.sqrt(Math.max(0, 3.2 * r * r - m * m));
-}
-
-/**
- * A finger slot of radius r may cross a well face whose solid side lies toward the slot's centre
- * (contents the slot meets only within its SLOT_CONTENT_OVERLAP) only this far from the centre
- * (roadmap §4.6). The round bottom meets the face k = √(r² − dx²) below the arc centre; m below that
- * tip the wedge between face and bottom is dx − √(r² − (k + m)²) wide. Keeping that ≥ m =
- * MIN_FEATURE_MM gives k ≥ dx − m, i.e. dx ≤ m/2 + √(r²/2 − m²/4): 8.17 mm for 22 mm slots.
- */
-export function maxWellFaceOffset(r: number): number {
-  const m = MIN_FEATURE_MM;
-  return m / 2 + Math.sqrt(Math.max(0, (r * r) / 2 - (m * m) / 4));
-}
-
-/**
- * Two merged finger slots of radius r leave a ridge between their round bottoms, its peak at the
- * midpoint of their centres, k = √(r² − (Δ/2)²) below the arc centres. A well face that crosses
- * the nearer slot (dContents from its centre, on the face's contents side) with the peak on its
- * solid side, toward the other slot (dSolid away), leaves half that ridge, cut vertically.
- * MIN_FEATURE_MM below the peak the bottoms lie s = √(r² − (k + m)²) from their centres, so the
- * piece runs from the far slot's bottom (dSolid − s from the face) to the face, or to the near
- * slot's bottom if that is closer (the whole ridge, Δ − 2s): dSolid − s + min(0, dContents − s).
- * Infinite once that depth lies below the bottoms (k + m ≥ r). Roadmap §4.6.
- */
-export function cutRidgeWidth(r: number, dContents: number, dSolid: number): number {
-  const m = MIN_FEATURE_MM;
-  const half = (dContents + dSolid) / 2;
-  const k = Math.sqrt(Math.max(0, r * r - half * half));
-  if (k + m >= r) {
-    return Number.POSITIVE_INFINITY;
-  }
-  const s = Math.sqrt(r * r - (k + m) ** 2);
-  return dSolid - s + Math.min(0, dContents - s);
-}
-
-/**
- * A compartment with a finger pocket keeps at least this much content (mm) inside its reach bands
- * on both axes: sizing never emits less and planTray rejects less (roadmap §4.2, §4.6).
- */
-export const MIN_POCKET_CONTENT = 1;
-
-/**
- * Finger slots (the finger pockets of minis pockets and custom wells) are never narrower than this
- * (or the fingerPocket.width setting, if smaller): sizing refuses a tray whose slots cannot keep it
- * (roadmap §4.7). Wall cutouts take what room their row has.
- */
-export const MIN_SLOT_WIDTH = 15;
 
 /**
  * Largest outer corner radius that keeps MIN_FEATURE_MM + CORNER_MARGIN between the rounded

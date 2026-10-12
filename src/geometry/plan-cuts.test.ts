@@ -10,7 +10,6 @@ import {
   cutout,
   flatCutouts,
   notchedSpacer,
-  pocket,
   traySpec,
   uprightChannel,
   uprightChannelLipped,
@@ -199,25 +198,11 @@ describe("wall cutouts", () => {
       );
     });
 
-    it("a cut beside a finger slot", () => {
-      const slotted = compartment({
-        x: 22.8,
-        y: 1.6,
-        w: 35.6,
-        d: 56.8,
-        features: [pocket("front", 28.4, 10, 12, 6)],
-      });
-      const spec = beside([cutout("right", 13, 10, 0, 16)], [slotted]);
-      // The cut (21.6…22.8 × 5…21) meets the slot (22.4…34.4 × 1.6…8.1) of compartment 1.
-      rejects(spec, /cut of compartment 0 comes within 0.8 mm of a finger pocket of compartment 1/);
-    });
-
-    it("a cut on a side with a scoop or a finger pocket", () => {
+    it("a cut on a side with a scoop", () => {
       const scoop: FeatureSpec = { type: "scoop", side: "left", r: 5 };
-      rejects(beside([scoop, cutout("left", 30, 10)]), /scoop or finger pocket on its left side/);
       rejects(
-        beside([pocket("left", 30, 10, 12, 6), cutout("left", 30, 10)]),
-        /scoop or finger pocket on its left side/,
+        beside([scoop, cutout("left", 30, 10)]),
+        /a wall cutout and a scoop on its left side/,
       );
     });
 

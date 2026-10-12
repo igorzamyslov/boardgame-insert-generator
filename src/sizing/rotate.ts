@@ -41,7 +41,7 @@ export function rotateRealized(r: RealizedTray, outer: OuterSize): RealizedTray 
       // Sizing puts spacer notches on spacers only (turnNotch).
       throw new Error("internal: a spacer notch on a compartment");
     }
-    // Finger pockets and wall cutouts: `at` runs along the side, so it turns with it.
+    // Wall cutouts: `at` runs along the side, so it turns with it.
     const alongX = f.side === "front" || f.side === "back";
     return { ...f, side: TURNED[f.side], at: alongX ? f.at : round2(depth - f.at) };
   };

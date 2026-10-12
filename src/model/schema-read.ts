@@ -172,7 +172,6 @@ function readSettings(r: Reader | undefined): Settings {
     fingerPocket: fp
       ? fp.finish({
           width: fp.num("width", d.fingerPocket.width),
-          reach: fp.num("reach", d.fingerPocket.reach),
           floorNotch: fp.num("floorNotch", d.fingerPocket.floorNotch),
           wallRoom: fp.num("wallRoom", d.fingerPocket.wallRoom),
           dividerRoom: fp.num("dividerRoom", d.fingerPocket.dividerRoom),

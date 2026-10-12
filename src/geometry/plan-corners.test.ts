@@ -91,38 +91,6 @@ describe("corner reliefs", () => {
     const plan = planTray(spec, GEO);
     expect(plan.compartments[0]?.reliefs).toHaveLength(2);
   });
-
-  it("budgets against a neighbour's finger slot, not only its compartment", () => {
-    // A deck 1.6…21.6 whose 22 mm slot reaches 23.6, 0.8 mm before the tile well at 24.4: the
-    // well's left reliefs may not cut into the 0.8 mm between them.
-    const spec = traySpec({
-      key: "relief-slot",
-      w: 70,
-      d: 60,
-      h: 30,
-      compartments: [
-        compartment({
-          x: 1.6,
-          y: 1.6,
-          w: 20,
-          d: 56.8,
-          features: [
-            { type: "fingerPocket", side: "front", at: 12.6, width: 22, reach: 12, depth: 10 },
-          ],
-        }),
-        compartment({
-          x: 24.4,
-          y: 1.6,
-          w: 44,
-          d: 56.8,
-          features: [{ type: "cornerRelief", d: 3 }],
-        }),
-      ],
-    });
-    const reliefs = planTray(spec, GEO).compartments[1]?.reliefs ?? [];
-    // Only the corners on the right (toward the outer wall) keep a relief.
-    expect(reliefs.map((r) => r.cx > 40)).toEqual([true, true]);
-  });
 });
 
 describe("outer corner radius", () => {
@@ -196,18 +164,17 @@ function cornersOf(r: Rect): [number, number][] {
 
 // Thinnest outer material over every cut, each at its lowest height: the compartment corners at
 // the compartment floor (sharp, as planCornerRadius assumes; the wells' rounded inner corners only
-// add material), the sharp footprint corners of each finger slot at its bottomZ, wall cutouts at
-// their bottomZ and their floor notches at the bed, and the relief circles at the compartment
+// add material), wall cutouts at their bottomZ and their floor notches at the bed, and the relief circles at the compartment
 // floor. A cutout that leaves the tray is judged by the wall beside its sides (exitSide); one
 // inside it, and the box around a notch's half-disc in the floor (its corners away from the face),
-// by their corners. `slots` is the thinnest over slot and cutout samples alone.
-function thinnestCut(plan: TrayPlan): { all: number; slots: number; slotCorners: number } {
-  const result = { all: Number.POSITIVE_INFINITY, slots: Number.POSITIVE_INFINITY, slotCorners: 0 };
+// by their corners. `cuts` is the thinnest over cutout samples alone.
+function thinnestCut(plan: TrayPlan): { all: number; cuts: number; cutCorners: number } {
+  const result = { all: Number.POSITIVE_INFINITY, cuts: Number.POSITIVE_INFINITY, cutCorners: 0 };
   const record = (material: number, cut: boolean): void => {
     result.all = Math.min(result.all, material);
     if (cut) {
-      result.slots = Math.min(result.slots, material);
-      result.slotCorners++;
+      result.cuts = Math.min(result.cuts, material);
+      result.cutCorners++;
     }
   };
   const corners = (rect: Rect, z: number): void => {
@@ -218,9 +185,6 @@ function thinnestCut(plan: TrayPlan): { all: number; slots: number; slotCorners:
   for (const c of plan.compartments) {
     cornersOf(c.rect).forEach(([x, y]) => {
       record(materialAt(plan, x, y, c.floorZ), false);
-    });
-    c.slots.forEach((slot) => {
-      corners(slot, slot.bottomZ);
     });
     for (const cut of c.cuts) {
       const alongX = cut.side === "front" || cut.side === "back";
@@ -321,15 +285,15 @@ describe("corner material under the bottom chamfer", () => {
 });
 
 describe("corner material of sizing output", () => {
-  // Every fixture but bits-heavy (bulk only) has trays with finger slots or wall cutouts.
+  // Every fixture but bits-heavy (bulk only) has trays with wall cutouts.
   it.each(SWEEP_FIXTURES)(
-    "keeps 0.8 mm at every well, slot, cutout and relief corner of %s",
+    "keeps 0.8 mm at every well, cutout and relief corner of %s",
     { timeout: 60_000 },
     (name, raw) => {
-      const hasSlots = name !== "bits-heavy";
+      const hasCuts = name !== "bits-heavy";
       const { components, settings: base } = loadFixture(raw);
       const failures: string[] = [];
-      let slotCorners = 0;
+      let cutCorners = 0;
       for (const [wall, floor] of WALL_FLOOR) {
         for (const settings of [{ ...base, wall, floor }, withLargestChamfer(base, wall, floor)]) {
           expect(settingsValid(settings), `wall ${wall}, floor ${floor} is valid`).toBe(true);
@@ -348,10 +312,10 @@ describe("corner material of sizing output", () => {
                     traySpecFrom(turned, turnedOuter, opts, settings, part.trayKey),
                   ]) {
                     const thinnest = thinnestCut(planTray(spec, settings));
-                    slotCorners += thinnest.slotCorners;
+                    cutCorners += thinnest.cutCorners;
                     if (thinnest.all < LIMIT) {
                       failures.push(
-                        `wall ${wall}, floor ${floor}, chamfer ${settings.bottomChamfer}, ${part.trayKey} ${JSON.stringify(opts)}: ${thinnest.all.toFixed(3)} mm (slots ${thinnest.slots.toFixed(3)})`,
+                        `wall ${wall}, floor ${floor}, chamfer ${settings.bottomChamfer}, ${part.trayKey} ${JSON.stringify(opts)}: ${thinnest.all.toFixed(3)} mm (cuts ${thinnest.cuts.toFixed(3)})`,
                       );
                     }
                   }
@@ -362,8 +326,8 @@ describe("corner material of sizing output", () => {
         }
       }
       expect(failures.slice(0, 3)).toEqual([]);
-      if (hasSlots) {
-        expect(slotCorners).toBeGreaterThan(0);
+      if (hasCuts) {
+        expect(cutCorners).toBeGreaterThan(0);
       }
     },
   );
@@ -376,9 +340,7 @@ describe("thin outer corners", () => {
   const well: CompartmentPlan = {
     index: 0,
     rect,
-    content: rect,
     floorZ: 2,
-    slots: [],
     cuts: [],
     scoops: [],
     reliefs: [],

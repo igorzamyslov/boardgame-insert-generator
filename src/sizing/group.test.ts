@@ -1,14 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import * as componentModule from "./component";
-import { SlotFitError } from "./errors";
+import { CutFitError } from "./errors";
 import { combineOptions, mostFrequentAccess, size } from "./group";
-import { minLayoutU } from "./outer";
 import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
 import { at, bulk, cards, custom, minis, tiles } from "./test-helpers";
 import type { TrayPartReq } from "./types";
-import { fromU } from "./units";
 
 // The real componentOptions, wrapped so one test can return options without compartments.
 vi.mock("./component", async (importOriginal) => {
@@ -148,32 +146,38 @@ describe("size", () => {
     ).toHaveLength(1);
   });
 
-  describe("finger slot fit", () => {
-    // Minis pockets and custom wells keep finger pockets, whose slots may not fit; the finger
-    // channels and cutouts of cards and tiles always do. Pinned to 22 mm slots.
+  describe("finger cut fit", () => {
+    // Every card, tile, minis and custom compartment gets a wall cutout of at least 10 mm with
+    // 3 mm posts, or its variant is dropped (roadmap §4.7). Pinned to 22 mm cuts.
     const s = {
       ...DEFAULT_SETTINGS,
       fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, width: 22 },
     };
-    const ground = { lipped: false, level: 0 };
-    const realizable = (part: TrayPartReq): boolean => {
-      try {
-        realizeTray(part, minOuter(part, s, ground), s, ground);
-        return true;
-      } catch (error) {
-        if (error instanceof SlotFitError) {
-          return false;
+    const options = [
+      { lipped: false, level: 0 },
+      { lipped: true, level: 0 },
+      { lipped: false, level: 1 },
+      { lipped: true, level: 1 },
+    ];
+    const realizable = (part: TrayPartReq): boolean =>
+      options.every((opts) => {
+        try {
+          realizeTray(part, minOuter(part, s, opts), s, opts);
+          return true;
+        } catch (error) {
+          if (error instanceof CutFitError) {
+            return false;
+          }
+          throw error;
         }
-        throw error;
-      }
-    };
+      });
     const figures = (...sizes: [string, number, number, number][]) =>
       sizes.map(([name, w, d, h]) => ({ name, w, d, h, count: 1 }));
 
-    it("keeps a variant whose slots fit only wider than its minimum layout", () => {
-      // A 1.5 mm pocket beside a 21 mm one: a standing strip fits 15 mm slots once minOuter widens
-      // it (slotFootprintU). Only the lying strip, whose pockets run on two band lines, is dropped.
-      const m = minis({ figures: figures(["A", 0.5, 1, 20], ["B", 20, 1, 10]) });
+    it("keeps the variants whose every pocket gets a cut, in rank order", () => {
+      // A 25 mm figure and a 4 × 30 mm one: too narrow for a cut through its front or back, the
+      // second pocket is cut through its free side wall at the end of the row.
+      const m = minis({ figures: figures(["A", 25, 25, 20], ["B", 4, 30, 10]) });
       const { requirements, notices } = size([m], s);
       expect(notices).toEqual([]);
       const req = at(requirements, 0);
@@ -181,36 +185,12 @@ describe("size", () => {
         "standing|strip|split1",
         "standing|strip|split2",
         "standing|rows2|split1",
-        "lying|strip|split2",
-        "lying|rows2|split1",
-      ]);
-      expect(req.variants.every((v) => v.parts.every(realizable))).toBe(true);
-      const strip = at(at(req.variants, 0).parts, 0);
-      expect(minOuter(strip, s, ground).w).toBeGreaterThan(fromU(minLayoutU(strip, s, ground).w));
-    });
-
-    it("keeps only the variants whose parts realize at minOuter, in rank order", () => {
-      // Two 1.5 mm pockets of different depths: no strip fits 15 mm slots, split or rows2 ones do.
-      const m = minis({ figures: figures(["A", 0.5, 1, 1], ["B", 0.5, 3, 1]) });
-      const { requirements, notices } = size([m], s);
-      expect(notices).toEqual([]);
-      const req = at(requirements, 0);
-      expect(req.variants.map((v) => v.id)).toEqual([
-        "standing|strip|split2",
-        "standing|rows2|split1",
       ]);
       expect(req.variants.every((v) => v.parts.every(realizable))).toBe(true);
     });
 
-    it("warns and leaves the component out when no variant realizes", () => {
-      const m = minis({
-        id: "m2",
-        figures: [
-          ...figures(["F0", 3, 10, 1], ["F1", 2, 30, 5]),
-          { name: "F2", w: 1, d: 10, h: 20, count: 2 },
-          ...figures(["F3", 5, 3, 1]),
-        ],
-      });
+    it("warns and leaves the component out when no variant gives every pocket a cut", () => {
+      const m = minis({ id: "m2", figures: figures(["F0", 3, 10, 1], ["F1", 5, 3, 1]) });
       const { requirements, notices } = size([bulk(), m], s);
       expect(requirements.map((r) => r.key)).toEqual(["b1"]);
       expect(notices).toEqual([
@@ -219,24 +199,20 @@ describe("size", () => {
           code: "sizing.noFingerSlot",
           path: "/components/1",
           message:
-            "Minis: no tray arrangement leaves room for a finger slot of at least 15 mm by F0, even up to 22 mm wider, so it is left out. Try another storage or a narrower finger pocket.",
+            "Minis: no tray arrangement leaves room for a finger cutout of at least 10 mm by F0, F1 with 3 mm of wall beside it, so it is left out. Try another storage.",
         },
       ]);
     });
 
     it("names the stuck member of a group whose variants all fail", () => {
-      const m = minis({
-        id: "m2",
-        groupId: "g",
-        figures: figures(["A", 0.5, 0.5, 1], ["B", 0.5, 3, 1], ["C", 0.5, 0.5, 1]),
-      });
+      const m = minis({ id: "m2", groupId: "g", figures: figures(["A", 3, 3, 1], ["B", 3, 4, 1]) });
       const { requirements, notices } = size([bulk({ groupId: "g" }), m], s);
       expect(requirements).toEqual([]);
       expect(notices.map((n) => [n.code, n.path])).toEqual([
         ["sizing.noFingerSlot", "/components/1"],
       ]);
       expect(at(notices, 0).message).toMatch(
-        /by A, even up to 22 mm wider, so the group "g" is left out/,
+        /by A, B with 3 mm of wall beside it, so the group "g"/,
       );
     });
 

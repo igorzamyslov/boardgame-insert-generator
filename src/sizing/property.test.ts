@@ -12,7 +12,7 @@ import type {
 import { groupOf } from "../model/defaults";
 import { validateComponent } from "../model/validate";
 import { MIN_SPACER } from "./constants";
-import { SlotFitError, hasGrip, minOuter, realizeTray, rotateRealized, size } from "./index";
+import { hasGrip, minOuter, realizeTray, rotateRealized, size } from "./index";
 import { assertTrayInvariants } from "./test-helpers";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
 
@@ -212,7 +212,7 @@ const componentsArb: Arbitrary<Component[]> = fc
   );
 
 /**
- * Wall, divider, floor, bottom chamfer, lip and finger pocket values (with the cutouts' floor
+ * Wall, divider, floor, bottom chamfer, lip and finger cut values (with the cutouts' floor
  * notch, wall room and divider room) on a 0.001 mm grid, inside SETTING_RANGES and settingsValid.
  */
 const settingsArb: Arbitrary<Settings> = fc
@@ -229,7 +229,6 @@ const settingsArb: Arbitrary<Settings> = fc
       height: setting(1, 5),
     }),
     pocketUnits: fc.integer({ min: 500, max: 4000 }),
-    reach: setting(5, 20),
     floorNotch: fc.oneof(fc.constant(0), setting(0, 20)),
     wallRoom: fc.oneof(fc.constant(0), setting(0, 20)),
     dividerRoom: fc.oneof(fc.constant(0), setting(0, 20)),
@@ -256,7 +255,6 @@ const settingsArb: Arbitrary<Settings> = fc
       fingerPocket: {
         ...DEFAULT_SETTINGS.fingerPocket,
         width: r.pocketUnits / 100 + (r.pocketUnits % 3) / 1000,
-        reach: r.reach,
         floorNotch: r.floorNotch,
         wallRoom: r.wallRoom,
         dividerRoom: r.dividerRoom,
@@ -268,6 +266,7 @@ const OPTS: RealizeOptions[] = [
   { lipped: false, level: 0 },
   { lipped: true, level: 0 },
   { lipped: false, level: 1 },
+  { lipped: true, level: 1 },
 ];
 
 function spacersInsideCompartments(r: RealizedTray): void {
@@ -289,7 +288,7 @@ function checkAgainstPart(part: TrayPartReq, outer: OuterSize, r: RealizedTray):
   r.compartments.forEach((c, i) => {
     const depth = outer.h - c.floorZ;
     for (const f of c.features) {
-      if (f.type === "fingerPocket") {
+      if (f.type === "wallCutout") {
         expect(f.depth).toBeLessThanOrEqual(depth + EPS);
       }
     }
@@ -319,26 +318,9 @@ function checkAgainstPart(part: TrayPartReq, outer: OuterSize, r: RealizedTray):
   expect(hasGrip(r.compartments)).toBe(true);
 }
 
-/**
- * Realizes `part` in `outer`, checks it, then checks the same tray rotated by 90°. Returns false
- * (without checking anything) when realizeTray refuses the tray because its finger slots cannot
- * keep the minimum width, which layout treats as an infeasible variant (roadmap §4.7).
- */
-function checkTray(
-  part: TrayPartReq,
-  outer: OuterSize,
-  s: Settings,
-  opts: RealizeOptions,
-): boolean {
-  let realized: RealizedTray;
-  try {
-    realized = realizeTray(part, outer, s, opts);
-  } catch (error) {
-    if (error instanceof SlotFitError) {
-      return false;
-    }
-    throw error;
-  }
+/** Realizes `part` in `outer`, checks it, then checks the same tray rotated by 90°. */
+function checkTray(part: TrayPartReq, outer: OuterSize, s: Settings, opts: RealizeOptions): void {
+  const realized = realizeTray(part, outer, s, opts);
   assertTrayInvariants(realized, outer, s, opts, part);
   checkAgainstPart(part, outer, realized);
   expect(realizeTray(part, outer, s, opts)).toEqual(realized);
@@ -349,20 +331,6 @@ function checkTray(
   spacersInsideCompartments(turned);
   expect(hasGrip(turned.compartments)).toBe(true);
   expect(turned.compartments).toHaveLength(realized.compartments.length);
-  return true;
-}
-
-/** Whether realizeTray realizes `part` in `outer`, false when it throws SlotFitError. */
-function realizes(part: TrayPartReq, outer: OuterSize, s: Settings, opts: RealizeOptions): boolean {
-  try {
-    realizeTray(part, outer, s, opts);
-    return true;
-  } catch (error) {
-    if (error instanceof SlotFitError) {
-      return false;
-    }
-    throw error;
-  }
 }
 
 /**
@@ -415,20 +383,15 @@ describe("sizing properties", () => {
     );
   });
 
-  it("realizes every variant part at its minOuter", { timeout: 120_000 }, () => {
-    // size() keeps only variants whose parts realize unlipped at level 0; a lipped or upper
-    // tray's thicker wall or chamfer may still leave a slot no room (SlotFitError), which layout
-    // treats as infeasible (roadmap §4.7).
+  it("realizes every variant part at its minOuter, at every option", { timeout: 120_000 }, () => {
+    // size() keeps only variants whose every compartment gets its cut (roadmap §4.7).
     let realized = 0;
     fc.assert(
       fc.property(componentsArb, settingsArb, (components, s) => {
         for (const part of allParts(components, s)) {
           for (const opts of OPTS) {
-            const ok = checkTray(part, minOuter(part, s, opts), s, opts);
-            if (!opts.lipped && opts.level === 0) {
-              expect(ok, part.trayKey).toBe(true);
-            }
-            realized += ok ? 1 : 0;
+            checkTray(part, minOuter(part, s, opts), s, opts);
+            realized += 1;
           }
         }
       }),
@@ -437,38 +400,26 @@ describe("sizing properties", () => {
     expect(realized).toBeGreaterThan(0);
   });
 
-  it(
-    "realizes a part at a larger outer exactly when it realizes at minOuter",
-    { timeout: 120_000 },
-    () => {
-      let larger = 0;
-      fc.assert(
-        fc.property(
-          componentsArb,
-          settingsArb,
-          fc.record({ w: mm(0, 80), d: mm(0, 80), h: mm(0, 40) }),
-          fc.constantFrom(...OPTS),
-          (components, s, extra, opts) => {
-            for (const part of allParts(components, s)) {
-              const m = minOuter(part, s, opts);
-              const outer = { w: m.w + extra.w, d: m.d + extra.d, h: m.h + extra.h };
-              if (!realizes(part, m, s, opts)) {
-                expect(realizes(part, outer, s, opts), part.trayKey).toBe(false);
-                continue;
-              }
-              expect(
-                checkTray(part, outer, s, opts),
-                `${part.trayKey} at +${JSON.stringify(extra)}`,
-              ).toBe(true);
-              larger += 1;
-            }
-          },
-        ),
-        { numRuns: 100, seed: SEED },
-      );
-      expect(larger).toBeGreaterThan(0);
-    },
-  );
+  it("realizes every variant part at a larger outer", { timeout: 120_000 }, () => {
+    let larger = 0;
+    fc.assert(
+      fc.property(
+        componentsArb,
+        settingsArb,
+        fc.record({ w: mm(0, 80), d: mm(0, 80), h: mm(0, 40) }),
+        fc.constantFrom(...OPTS),
+        (components, s, extra, opts) => {
+          for (const part of allParts(components, s)) {
+            const m = minOuter(part, s, opts);
+            checkTray(part, { w: m.w + extra.w, d: m.d + extra.d, h: m.h + extra.h }, s, opts);
+            larger += 1;
+          }
+        },
+      ),
+      { numRuns: 100, seed: SEED },
+    );
+    expect(larger).toBeGreaterThan(0);
+  });
 
   it(
     "plans every two-row variant of upright cards and tiles with slack (roadmap §4.2)",
@@ -488,7 +439,8 @@ describe("sizing properties", () => {
             for (const part of parts) {
               const m = minOuter(part, s, opts);
               const outer = { w: m.w + extra.w, d: m.d + extra.d, h: m.h };
-              planned += checkTray(part, outer, s, opts) ? 1 : 0;
+              checkTray(part, outer, s, opts);
+              planned += 1;
             }
           },
         ),

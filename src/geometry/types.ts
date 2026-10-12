@@ -15,7 +15,6 @@ export const KNOWN_COMPARTMENT_KINDS: readonly CompartmentSpec["kind"][] = Objec
   "spare",
 ]);
 export const KNOWN_FEATURE_TYPES: readonly FeatureSpec["type"][] = Object.freeze([
-  "fingerPocket",
   "wallCutout",
   "spacerNotch",
   "scoop",

@@ -35,7 +35,6 @@
     "scoopRadius": 12,
     "fingerPocket": {
       "width": 22,
-      "reach": 12,
       "floorNotch": 8,
       "wallRoom": 0
     },
@@ -231,7 +230,6 @@
                 "side": "front",
                 "at": 50.4,
                 "width": 22,
-                "reach": 12,
                 "depth": 12
               },
               {

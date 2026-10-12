@@ -19,7 +19,7 @@ describe("lyingDims", () => {
 });
 
 describe("minisOptions", () => {
-  it("makes one pocket per figure with a ⅓-depth finger pocket in front", () => {
+  it("makes one pocket per figure, cut half its depth through the front wall", () => {
     const { options, notices } = minisOptions(minis(), s);
     expect(notices).toEqual([]);
     expect(options.map((o) => o.id)).toEqual(["standing", "lying"]);
@@ -28,12 +28,12 @@ describe("minisOptions", () => {
     const block = at(standing.blocks, 0);
     expect(block.map((c) => c.contents)).toEqual(["Hero 1/2", "Hero 2/2"]);
     const pocket = at(block, 0);
-    expect(pocket).toMatchObject({ kind: "pocket", minW: 26, minD: 38, minH: 41 });
+    expect(pocket).toMatchObject({ kind: "pocket", minW: 26, minD: 26, minH: 41 });
     expect(pocket.elastic).toEqual({ w: false, d: false, h: false });
     expect(pocket.features).toEqual([
-      { type: "fingerPocket", side: "front", depthFraction: 1 / 3 },
+      { type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false },
     ]);
-    expect(at(at(at(options, 1).blocks, 0), 0)).toMatchObject({ minW: 41, minD: 38, minH: 26 });
+    expect(at(at(at(options, 1).blocks, 0), 0)).toMatchObject({ minW: 41, minD: 26, minH: 26 });
   });
 
   it("offers no lying variant when nothing is taller than wide", () => {

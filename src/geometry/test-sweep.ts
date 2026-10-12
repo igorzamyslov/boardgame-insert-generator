@@ -172,7 +172,7 @@ export function sweepCoverage(): void {
       expect(compartments.some(({ c }) => c.kind === kind)).toBe(true);
     });
 
-    it.each(["fingerPocket", "wallCutout", "scoop", "cornerRelief"])("feature %s", (type) => {
+    it.each(["wallCutout", "scoop", "cornerRelief"])("feature %s", (type) => {
       expect(compartments.some(({ c }) => c.features.some((f) => f.type === type))).toBe(true);
     });
 

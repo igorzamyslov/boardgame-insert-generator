@@ -4,9 +4,9 @@
 import type { Access, CompartmentSpec, Side, TraySpec } from "../model/types";
 
 export interface FeatureReq {
-  type: "fingerPocket" | "wallCutout" | "scoop" | "cornerRelief";
-  side?: Side; // fingerPocket, wallCutout, scoop
-  depthFraction?: number; // fingerPocket: 1/3 or 1 (full); wallCutout: 1/2 (of the shallowest well) or 1 (to its floor)
+  type: "wallCutout" | "scoop" | "cornerRelief";
+  side?: Side; // wallCutout, scoop
+  depthFraction?: number; // wallCutout: 1/2 (of the shallowest well) or 1 (to its floor)
   floorNotch?: boolean; // wallCutout: notch the floor (flat cards and tiles)
 }
 
@@ -14,7 +14,7 @@ export interface CompartmentReq {
   componentId: string;
   contents: string; // label, e.g. "Main deck ×52"
   kind: "well" | "scoop" | "pocket";
-  minW: number; // inner, mm, finger-pocket reach included (wall cutouts need none)
+  minW: number; // inner, mm: content + clearance
   minD: number;
   minH: number; // content height (depth needed from the compartment floor)
   elastic: { w: boolean; d: boolean; h: boolean };

@@ -1,7 +1,14 @@
 import type { FeatureSpec, Side, TraySpec } from "../model/types";
 import { MIN_FEATURE_MM, POST_MM, SPEC_TOLERANCE as TOL } from "../model/settings";
-import { OPPOSITE, alongX, axes, faceOf, nearestAcross } from "../model/cut-rules";
-import { keepsApart, separation } from "../model/slot-rules";
+import {
+  OPPOSITE,
+  alongX,
+  axes,
+  faceOf,
+  keepsApart,
+  nearestAcross,
+  separation,
+} from "../model/cut-rules";
 import { FINGER_FILLET_MM, MIN_FILLET } from "./plan-types";
 import type { CompartmentPlan, CutPlan, LipPlan, Rect } from "./plan-types";
 
@@ -200,7 +207,7 @@ function sameBand(a: CutPlan, b: CutPlan): boolean {
 }
 
 // Wall cutout clearance (roadmap §4.6). A cut's footprint keeps MIN_FEATURE_MM (along x or y) from
-// every compartment but its own and the one it runs into, and from every finger slot. Two cuts
+// every compartment but its own and the one it runs into. Two cuts
 // either keep it too, or cut one channel: the same band (axis, centre and width) with overlapping
 // footprints (the two sides of one divider), whose union is the deeper U. The cuts on opposite
 // sides of one compartment have only its contents between them.
@@ -212,11 +219,6 @@ export function checkCutClearance(plans: readonly CompartmentPlan[], fail: Fail)
       const exempt = other === plan || other.index === cut.into;
       if (!exempt && !keepsApart(cut, other.rect, TOL)) {
         fail(`${what} compartment ${other.index}`);
-      }
-      for (const slot of other.slots) {
-        if (!keepsApart(cut, slot, TOL)) {
-          fail(`${what} a finger pocket of compartment ${other.index}`);
-        }
       }
     }
     for (const { plan: p2, cut: c2 } of cuts) {
@@ -399,7 +401,7 @@ export function planTopFillets(
         const o = axes(r, cut.side);
         return o.v0 < strip.v1 - TOL && o.v1 > strip.v0 + TOL;
       };
-      // Another compartment across the strip (another cut or slot lies inside or beside its own
+      // Another compartment across the strip (another cut lies inside or beside its own
       // compartment, which comes first along the side).
       const voids = plans.flatMap((p) =>
         p === plan || p.index === cut.into || !across(p.rect) ? [] : [axes(p.rect, cut.side)],

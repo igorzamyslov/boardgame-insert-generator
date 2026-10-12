@@ -3,11 +3,11 @@ import { BULK_SHAPES, bulkCompartment, bulkLine } from "./bulk";
 import {
   compartment,
   displayName,
-  fingerPocket,
   label,
   mainClearance,
   type OptionsResult,
   type StorageOption,
+  wallCutout,
 } from "./common";
 import type { CompartmentReq } from "./types";
 
@@ -32,27 +32,19 @@ export function lyingDims(f: Dims): Dims {
   return f.w >= f.d ? { w: f.h, d: f.d, h: f.w } : { w: f.w, d: f.h, h: f.d };
 }
 
-function pockets(
-  c: MinisComponent,
-  f: Figure,
-  dims: Dims,
-  clearance: number,
-  s: Settings,
-): CompartmentReq[] {
+function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): CompartmentReq[] {
   const name = label(f.name, displayName(c));
   return Array.from({ length: f.count }, (_, i) =>
-    compartment(
-      {
-        componentId: c.id,
-        contents: f.count > 1 ? `${name} ${i + 1}/${f.count}` : name,
-        kind: "pocket",
-        w: dims.w + clearance,
-        d: dims.d + clearance,
-        h: dims.h + clearance,
-        features: [fingerPocket("front", 1 / 3)],
-      },
-      s,
-    ),
+    compartment({
+      componentId: c.id,
+      contents: f.count > 1 ? `${name} ${i + 1}/${f.count}` : name,
+      kind: "pocket",
+      w: dims.w + clearance,
+      d: dims.d + clearance,
+      h: dims.h + clearance,
+      // A centred cut through the front wall, half the pocket deep (spec §6.1).
+      features: [wallCutout("front", 0.5, false)],
+    }),
   );
 }
 
@@ -69,7 +61,6 @@ export function minisOptions(c: MinisComponent, s: Settings): OptionsResult {
             `${label(f.name, displayName(c))} ×${f.count}`,
             bulkLine(f, clearance, s.packingFactor),
             shape,
-            s,
           ),
         ]),
       })),
@@ -77,12 +68,12 @@ export function minisOptions(c: MinisComponent, s: Settings): OptionsResult {
     };
   }
   const options: StorageOption[] = [
-    { id: "standing", blocks: c.figures.map((f) => pockets(c, f, f, clearance, s)) },
+    { id: "standing", blocks: c.figures.map((f) => pockets(c, f, f, clearance)) },
   ];
   if (c.figures.some(isTall)) {
     options.push({
       id: "lying",
-      blocks: c.figures.map((f) => pockets(c, f, lyingDims(f), clearance, s)),
+      blocks: c.figures.map((f) => pockets(c, f, lyingDims(f), clearance)),
     });
   }
   return { options, notices: [] };

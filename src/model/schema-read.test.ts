@@ -115,17 +115,22 @@ describe("readProject: files of this schema line", () => {
     });
   });
 
-  it("fills the finger pocket's floor notch and wall room of an older file", () => {
-    const { project } = expectOk(
+  it("fills the finger room and notch of an older file and drops its finger pocket reach", () => {
+    // The reach went with the finger pockets: like any field this app no longer has, it is
+    // dropped with the one info notice, not an error.
+    const { project, notices } = expectOk(
       readProject({ ...MINIMAL, settings: { fingerPocket: { width: 20, reach: 10 } } }, CURRENT),
     );
     expect(project.settings.fingerPocket).toEqual({
       width: 20,
-      reach: 10,
       floorNotch: DEFAULT_SETTINGS.fingerPocket.floorNotch,
       wallRoom: 0,
       dividerRoom: 0,
     });
+    expect(notices).toEqual([
+      expect.objectContaining({ level: "info", code: SCHEMA_NOTICE_CODES.unknownFields }),
+    ]);
+    expect(notices[0]?.message).toContain("/settings/fingerPocket/reach");
   });
 
   it("fills component defaults", () => {

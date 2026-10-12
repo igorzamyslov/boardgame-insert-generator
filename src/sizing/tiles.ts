@@ -54,48 +54,37 @@ export function columnCounts(count: number, thickness: number): number[] {
 }
 
 /** Flat tiles: half-round cutouts through the two long walls (left and right for a square). */
-function flatColumn(c: TilesComponent, n: number, clearance: number, s: Settings): CompartmentReq {
+function flatColumn(c: TilesComponent, n: number, clearance: number): CompartmentReq {
   const foot = flatFootprint(c.shape);
   const [a, b]: [Side, Side] = foot.x > foot.y ? ["front", "back"] : ["left", "right"];
-  return compartment(
-    {
-      componentId: c.id,
-      contents: `${displayName(c)} ×${n}`,
-      kind: "well",
-      w: foot.x + clearance,
-      d: foot.y + clearance,
-      h: n * c.thickness + clearance,
-      features: [wallCutout(a, 1, true), wallCutout(b, 1, true), cornerRelief()],
-    },
-    s,
-  );
+  return compartment({
+    componentId: c.id,
+    contents: `${displayName(c)} ×${n}`,
+    kind: "well",
+    w: foot.x + clearance,
+    d: foot.y + clearance,
+    h: n * c.thickness + clearance,
+    features: [wallCutout(a, 1, true), wallCutout(b, 1, true), cornerRelief()],
+  });
 }
 
-function uprightStack(
-  c: TilesComponent,
-  n: number,
-  clearance: number,
-  s: Settings,
-): CompartmentReq {
+function uprightStack(c: TilesComponent, n: number, clearance: number): CompartmentReq {
   const profile = uprightProfile(c.shape);
-  return compartment(
-    {
-      componentId: c.id,
-      contents: `${displayName(c)} ×${n}`,
-      kind: "well",
-      w: n * c.thickness + clearance,
-      d: profile.length + clearance,
-      h: profile.height + clearance,
-      elastic: { w: true },
-      spacerAxis: "w",
-      features: [
-        wallCutout("left", CHANNEL_DEPTH, false),
-        wallCutout("right", CHANNEL_DEPTH, false),
-        cornerRelief(),
-      ],
-    },
-    s,
-  );
+  return compartment({
+    componentId: c.id,
+    contents: `${displayName(c)} ×${n}`,
+    kind: "well",
+    w: n * c.thickness + clearance,
+    d: profile.length + clearance,
+    h: profile.height + clearance,
+    elastic: { w: true },
+    spacerAxis: "w",
+    features: [
+      wallCutout("left", CHANNEL_DEPTH, false),
+      wallCutout("right", CHANNEL_DEPTH, false),
+      cornerRelief(),
+    ],
+  });
 }
 
 /** Storage options for a tiles component. Precondition: it passes validateComponent. */
@@ -107,7 +96,7 @@ export function tileOptions(c: TilesComponent, s: Settings): OptionsResult {
     for (const columns of counts) {
       options.push({
         id: `flat-c${columns}`,
-        blocks: splitEven(c.count, columns).map((n) => [flatColumn(c, n, clearance, s)]),
+        blocks: splitEven(c.count, columns).map((n) => [flatColumn(c, n, clearance)]),
       });
     }
   }
@@ -115,7 +104,7 @@ export function tileOptions(c: TilesComponent, s: Settings): OptionsResult {
     for (const columns of counts) {
       options.push({
         id: `upright-c${columns}`,
-        blocks: splitEven(c.count, columns).map((n) => [uprightStack(c, n, clearance, s)]),
+        blocks: splitEven(c.count, columns).map((n) => [uprightStack(c, n, clearance)]),
       });
     }
   }

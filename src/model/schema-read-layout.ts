@@ -20,28 +20,13 @@ function verbatim<T>(raw: Json): T {
 }
 
 function readFeature(r: Reader): FeatureSpec {
-  const type = r.tag("type", [
-    "fingerPocket",
-    "wallCutout",
-    "spacerNotch",
-    "scoop",
-    "cornerRelief",
-  ]);
+  const type = r.tag("type", ["wallCutout", "spacerNotch", "scoop", "cornerRelief"]);
   if (type === null) {
     // Newer file, unknown feature type: keep it verbatim (its fields are unknown too).
     // In other files the recorded error makes the whole layout unreadable.
     return verbatim<FeatureSpec>(r.raw);
   }
   switch (type) {
-    case "fingerPocket":
-      return r.finish({
-        type,
-        side: r.oneOf("side", SIDES),
-        at: r.strictNum("at"),
-        width: r.strictNum("width"),
-        reach: r.strictNum("reach"),
-        depth: r.strictNum("depth"),
-      });
     case "wallCutout":
       return r.finish({
         type,

@@ -2,17 +2,15 @@ import { describe, expect, it } from "vitest";
 import { planTray } from "./plan";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { maxCornerRadius } from "../model/settings";
-import type { CompartmentSpec, FeatureSpec, TraySpec } from "../model/types";
+import type { FeatureSpec, TraySpec } from "../model/types";
 import {
   GEO,
-  slotStrip,
   compartment,
   customBlock,
+  cutout,
   lippedLower,
   plainBox,
-  pocket,
   scoopBulk,
-  slotIntoSpare,
   spacer,
   traySpec,
   upperLevel1,
@@ -44,93 +42,11 @@ describe("planTray basics", () => {
   });
 });
 
-describe("finger pockets", () => {
-  it("leaves the reach band solid and cuts a U-slot in it", () => {
-    const plan = planTray(slotStrip, GEO);
-    const deck = plan.compartments[0];
-    expect(deck?.content).toEqual({ x0: 1.6, y0: 13.6, x1: 25.6, y1: 106.1 });
-    expect(deck?.slots).toHaveLength(2);
-    const front = deck?.slots[0];
-    expect(front?.x0).toBeCloseTo(2.6, 9);
-    expect(front?.x1).toBeCloseTo(24.6, 9);
-    expect(front?.y0).toBe(1.6);
-    expect(front?.y1).toBeCloseTo(14.1, 9);
-    expect(front?.radius).toBe(11);
-    expect(front?.bottomZ).toBeCloseTo(69.2 - 68 / 3, 9);
-  });
-
-  it("clamps the pocket depth to the compartment floor", () => {
-    const spec = traySpec({
-      key: "deep",
-      w: 60,
-      d: 60,
-      h: 10,
-      compartments: [
-        compartment({ x: 1.6, y: 1.6, w: 56.8, d: 56.8, features: [pocket("front", 30, 50)] }),
-      ],
-    });
-    expect(planTray(spec, GEO).compartments[0]?.slots[0]?.bottomZ).toBeCloseTo(1.2, 9);
-  });
-
-  it("rejects a pocket that would cut through the outer wall", () => {
-    const spec = traySpec({
-      key: "edge",
-      w: 40,
-      d: 60,
-      h: 20,
-      compartments: [
-        compartment({ x: 1.6, y: 1.6, w: 36.8, d: 56.8, features: [pocket("front", 5, 5)] }),
-      ],
-    });
-    expect(() => planTray(spec, GEO)).toThrow(/cut through the outer wall/);
-  });
-
-  it("rejects a reach that leaves no room for the contents", () => {
-    const spec = traySpec({
-      key: "reach",
-      w: 60,
-      d: 30,
-      h: 20,
-      compartments: [
-        compartment({
-          x: 1.6,
-          y: 1.6,
-          w: 56.8,
-          d: 26.8,
-          features: [pocket("front", 30, 5, 22, 13), pocket("back", 30, 5, 22, 13)],
-        }),
-      ],
-    });
-    expect(() => planTray(spec, GEO)).toThrow(/no room/);
-  });
-});
-
-describe("finger slot clearance", () => {
-  // Deck A (1.6…21.6) with a slot centred on `slotAt`, and a neighbour starting at `next`.
-  const pair = (slotAt: number, width: number, next: CompartmentSpec): TraySpec =>
-    traySpec({
-      key: "slot-pair",
-      w: 70,
-      d: 60,
-      h: 30,
-      compartments: [
-        compartment({
-          x: 1.6,
-          y: 1.6,
-          w: 20,
-          d: 56.8,
-          features: [pocket("front", slotAt, 10, width)],
-        }),
-        next,
-      ],
-    });
-  const well = (x: number, features: FeatureSpec[] = []): CompartmentSpec =>
-    compartment({ x, y: 1.6, w: 68.4 - x, d: 56.8, features });
-
+describe("errors", () => {
   it("throws a TraySpecError, a RangeError of its own name, for a spec it rejects", () => {
     const error: unknown = (() => {
       try {
-        planTray(slotIntoSpare, GEO);
+        planTray({ ...plainBox, w: -1 }, GEO);
       } catch (e) {
         return e;
       }
@@ -140,224 +56,27 @@ describe("finger slot clearance", () => {
     expect(error).toBeInstanceOf(RangeError);
     expect(error).toMatchObject({ name: "TraySpecError" });
   });
-
-  it("rejects the slot that reached into a spare compartment (plan 3 regression)", () => {
-    expect(() => planTray(slotIntoSpare, GEO)).toThrow(RangeError);
-    expect(() => planTray(slotIntoSpare, GEO)).toThrow(
-      /Tray fxcrd003:p0:0: compartment 1: a finger pocket comes within 0\.8 mm of compartment 2/,
-    );
-  });
-
-  it("accepts a slot exactly 0.8 mm from another compartment and rejects 0.79 mm", () => {
-    // Slot 1.6…23.6: the neighbour may start at 24.4.
-    expect(planTray(pair(12.6, 22, well(24.4)), GEO).compartments).toHaveLength(2);
-    expect(() => planTray(pair(12.6, 22, well(24.39)), GEO)).toThrow(/within 0\.8 mm/);
-  });
-
-  it("merges neighbouring slots on one band line into one channel", () => {
-    // slotStrip: wells 2 and 3 have slots 20 mm apart, within maxChannelSpacing(11) = 20.06.
-    expect(planTray(slotStrip, GEO).compartments[2]?.slots).toHaveLength(2);
-    // Deck B (30…) with a slot 20.06 mm (merges) or 20.1 mm (does not) right of A's; their ridge
-    // peaks at 22.63, well clear of both decks' well faces.
-    const merged = pair(12.6, 22, well(30, [pocket("front", 32.66, 10)]));
-    expect(planTray(merged, GEO).compartments[1]?.slots).toHaveLength(1);
-    expect(() => planTray(pair(12.6, 22, well(30, [pocket("front", 32.7, 10)])), GEO)).toThrow(
-      /a finger pocket of compartment 1 without merging into one channel \(centres 20\.10 mm apart, at most 20\.06 mm\)/,
-    );
-    // The very same slot is one channel too.
-    const same = pair(22.2, 40, well(22.8, [pocket("front", 22.2, 10, 40)]));
-    expect(planTray(same, GEO).compartments[1]?.slots).toHaveLength(1);
-  });
-
-  it("merges only slots of one band line: same side, band, width and depth", () => {
-    const next = (feature: FeatureSpec, y = 1.6): CompartmentSpec =>
-      compartment({ x: 22.8, y, w: 45.6, d: 56.8 - (y - 1.6), features: [feature] });
-    for (const other of [
-      next(pocket("front", 31.6, 9)),
-      next(pocket("front", 31.6, 10, 21.8)),
-      next(pocket("front", 31.6, 10, 22, 11)),
-      next(pocket("front", 31.6, 10), 1.7),
-    ]) {
-      expect(() => planTray(pair(12.6, 22, other), GEO)).toThrow(
-        /compartment 0: a finger pocket comes within 0\.8 mm of (a finger pocket of )?compartment 1/,
-      );
-    }
-    expect(planTray(pair(12.6, 22, next(pocket("front", 31.6, 10))), GEO)).toBeTruthy();
-  });
-
-  describe("well faces a slot crosses within its overlap into the contents", () => {
-    // Deck A (1.6…aEnd) with a 22 mm slot centred on 12.6 (1.6…23.6), and deck B from bStart
-    // whose own slot is far away: B's contents start where A's do, so A's slot meets them only
-    // within its 0.5 mm overlap, and its round bottom crosses B's well face.
-    const decks = (aEnd: number, bStart: number): TraySpec =>
-      traySpec({
-        key: "neck",
-        w: 70,
-        d: 60,
-        h: 30,
-        compartments: [
-          compartment({
-            x: 1.6,
-            y: 1.6,
-            w: aEnd - 1.6,
-            d: 56.8,
-            features: [pocket("front", 12.6, 10)],
-          }),
-          well(bStart, [pocket("front", 57, 10)]),
-        ],
-      });
-
-    it("rejects a round bottom that ends just past the face (the feather of review round 2)", () => {
-      expect(() => planTray(decks(22.37, 23.57), GEO)).toThrow(
-        /compartment 0: a finger pocket crosses the well face of compartment 1 at 23\.57 mm 10\.97 mm from its centre \(at most 8\.17 mm\)/,
-      );
-      expect(() => planTray(decks(21.6, 22.8), GEO)).toThrow(/10\.20 mm from its centre/);
-    });
-
-    it("accepts a face at most maxWellFaceOffset(r) = 8.17 mm from the slot's centre", () => {
-      expect(planTray(decks(19.56, 20.76), GEO).compartments).toHaveLength(2);
-      expect(() => planTray(decks(19.59, 20.79), GEO)).toThrow(/8\.19 mm from its centre/);
-      expect(planTray(decks(15.6, 16.8), GEO).compartments).toHaveLength(2);
-    });
-
-    it("accepts a slot that ends 0.8 mm short of the face, and rejects less", () => {
-      expect(planTray(decks(20, 24.4), GEO).compartments).toHaveLength(2);
-      expect(() => planTray(decks(20, 24.39), GEO)).toThrow(
-        /compartment 0: a finger pocket ends less than 0\.8 mm short of the well face of compartment 1 at 24\.39 mm/,
-      );
-    });
-
-    it("rejects a face that cuts the ridge between two merged slots just past its peak", () => {
-      // Slots centred on 12.6 and 32.6 (20 mm apart, merged): their ridge peaks at 22.6. A's well
-      // face at 22.5 leaves half the ridge on its solid side, 0.51 mm wide 0.8 mm below the peak.
-      const straddle = (aEnd: number): TraySpec =>
-        traySpec({
-          key: "straddle",
-          w: 45.2,
-          d: 60,
-          h: 30,
-          compartments: [
-            compartment({
-              x: 1.6,
-              y: 1.6,
-              w: aEnd - 1.6,
-              d: 56.8,
-              features: [pocket("front", 12.6, 20)],
-            }),
-            compartment({
-              x: aEnd + 1.2,
-              y: 1.6,
-              w: 43.6 - aEnd - 1.2,
-              d: 56.8,
-              features: [pocket("front", 32.6, 20)],
-            }),
-          ],
-        });
-      expect(() => planTray(straddle(22.5), GEO)).toThrow(
-        /the well face of compartment 0 at 22\.50 mm leaves half the ridge between two finger pockets 0\.51 mm wide 0\.8 mm below its peak/,
-      );
-      expect(() => planTray(straddle(22.25), GEO)).toThrow(/0\.76 mm wide/);
-      // 0.4 mm from the peak the half ridge is 0.81 mm wide.
-      expect(planTray(straddle(22.2), GEO).compartments).toHaveLength(2);
-    });
-
-    it("judges a face by the nearest slot covering it", () => {
-      // slotStrip: well 2's slot (centre 41.8) crosses well 3's face at 58 16.2 mm from its
-      // centre, but well 3's own slot (centre 61.8, on the contents' side) covers it too.
-      expect(planTray(slotStrip, GEO).compartments).toHaveLength(3);
-    });
-
-    it("checks the slot's own compartment too", () => {
-      // A narrow deck at the end, its slot pushed inward by the outer wall: its own well face at
-      // 41.2 is 10 mm from the slot's centre (31.2).
-      const spec = traySpec({
-        key: "own-face",
-        w: 43.8,
-        d: 60,
-        h: 30,
-        compartments: [
-          compartment({ x: 1.6, y: 1.6, w: 38.4, d: 56.8, features: [pocket("front", 20.8, 10)] }),
-          compartment({ x: 41.2, y: 1.6, w: 1, d: 56.8, features: [pocket("front", 31.2, 10)] }),
-        ],
-      });
-      expect(() => planTray(spec, GEO)).toThrow(
-        /compartment 1: a finger pocket crosses the well face of compartment 1 at 41\.20 mm 10\.00 mm from its centre/,
-      );
-    });
-  });
-
-  it("checks the slots of one compartment against each other", () => {
-    const corner = (left: number): TraySpec =>
-      traySpec({
-        key: "corner",
-        w: 60,
-        d: 60,
-        h: 30,
-        compartments: [
-          compartment({
-            x: 1.6,
-            y: 1.6,
-            w: 56.8,
-            d: 56.8,
-            features: [pocket("front", 12.6, 10), pocket("left", left, 10)],
-          }),
-        ],
-      });
-    // The front slot (x 1.6…23.6, y 1.6…14.1) and the left one (x 1.6…14.1) meet in the corner
-    // when the left one reaches down to 14.6 − 11 = 3.6 mm.
-    expect(() => planTray(corner(14.6), GEO)).toThrow(
-      /compartment 0: a finger pocket comes within 0\.8 mm of a finger pocket of compartment 0/,
-    );
-    // Centred on 25.9 it starts at 14.9, 0.8 mm past the front slot.
-    expect(planTray(corner(25.9), GEO).compartments[0]?.slots).toHaveLength(2);
-    // Front and back slots face each other across the contents: nothing solid lies between them.
-    const across = traySpec({
-      key: "across",
-      w: 60,
-      d: 1.6 + 12 + 1 + 12 + 1.6,
-      h: 30,
-      compartments: [
-        compartment({
-          x: 1.6,
-          y: 1.6,
-          w: 56.8,
-          d: 25,
-          features: [pocket("front", 30, 10), pocket("back", 30, 10)],
-        }),
-      ],
-    });
-    expect(planTray(across, GEO).compartments[0]?.slots).toHaveLength(2);
-  });
-
-  it("rejects slots that overlap too little to merge", () => {
-    const next = well(22.8, [pocket("front", 34, 10)]);
-    expect(() => planTray(pair(12.6, 22, next), GEO)).toThrow(/without merging into one channel/);
-  });
-
-  it("rejects two slots that come within 0.8 mm across a wide divider", () => {
-    // Slots 1.6…23.6 and 24.39…: each keeps 0.8 mm from the other's compartment, not from the slot.
-    const near = well(26.6, [pocket("front", 35.39, 10)]);
-    expect(() => planTray(pair(12.6, 22, near), GEO)).toThrow(
-      /compartment 0: a finger pocket comes within 0\.8 mm of a finger pocket of compartment 1/,
-    );
-    const apart = well(26.6, [pocket("front", 35.4, 10)]);
-    expect(planTray(pair(12.6, 22, apart), GEO).compartments).toHaveLength(2);
-  });
 });
 
 describe("limits", () => {
   it("accepts specs exactly on a limit despite float noise (sizing output, 0.01 mm grid)", () => {
-    // Content 8.29 − 7.29 = 0.9999999999999991 mm: exactly the 1 mm minimum.
+    // A 10 mm cut keeping 3 mm posts in a well 7.29…23.29: 15.29 − 12.29 = 2.9999999999999982.
     const narrow = traySpec({
       key: "narrow",
-      w: 20,
+      w: 30,
       d: 30,
       h: 10,
       compartments: [
-        compartment({ x: 7.29, y: 1.6, w: 1, d: 26.8, features: [pocket("front", 7.79, 3, 1)] }),
+        compartment({
+          x: 7.29,
+          y: 1.6,
+          w: 16,
+          d: 26.8,
+          features: [cutout("front", 15.29, 3, 0, 10)],
+        }),
       ],
     });
-    expect(planTray(narrow, GEO).compartments[0]?.content.x0).toBe(7.29);
+    expect(planTray(narrow, GEO).compartments[0]?.cuts).toHaveLength(1);
     // Chamfer 2.27: h ≥ 2.27 + 0.8 = 3.0700000000000003 and min(w, d) ≥ 6.140000000000001.
     const steep = { ...GEO, bottomChamfer: 2.27 };
     const low = traySpec({
@@ -467,40 +186,13 @@ describe("validation", () => {
 });
 
 describe("rejections", () => {
-  const withPocket = (feature: Record<string, unknown>): TraySpec =>
-    traySpec({
-      key: "bad-pocket",
-      w: 60,
-      d: 60,
-      h: 20,
-      compartments: [
-        compartment({
-          x: 1.6,
-          y: 1.6,
-          w: 56.8,
-          d: 56.8,
-          features: [{ ...pocket("front", 30, 5), ...feature } as FeatureSpec],
-        }),
-      ],
-    });
-
-  it.each([
-    ["width", 0],
-    ["width", -1],
-    ["reach", 0],
-    ["reach", -1],
-    ["depth", 0],
-    ["depth", -1],
-  ])("rejects a finger pocket with %s %d", (field, value) => {
-    expect(() => planTray(withPocket({ [field]: value }), GEO)).toThrow(/invalid finger pocket/);
-  });
-
-  it("rejects a finger pocket with a NaN position", () => {
-    expect(() => planTray(withPocket({ at: Number.NaN }), GEO)).toThrow(/invalid finger pocket/);
-  });
-
   it("rejects an unknown side", () => {
-    expect(() => planTray(withPocket({ side: "top" }), GEO)).toThrow(/unknown side "top"/);
+    const cut = { ...cutout("front", 50, 5), side: "top" } as unknown as FeatureSpec;
+    const withCut = {
+      ...plainBox,
+      compartments: [compartment({ x: 1.6, y: 1.6, w: 96.8, d: 56.8, features: [cut] })],
+    };
+    expect(() => planTray(withCut, GEO)).toThrow(/unknown side "top"/);
     const scoop = { type: "scoop", side: "up", r: 5 } as unknown as FeatureSpec;
     const spec = {
       ...plainBox,
@@ -632,37 +324,6 @@ describe("bottom chamfer against walls and floor", () => {
     // 1.6 + 0.8 − 1.6 = 0.8 passes, 1.6 + 0.8 − 1.7 = 0.7 does not (spec.floor is 1.2).
     expect(planTray(spec, { ...GEO, bottomChamfer: 1.6 }).chamfer).toBe(1.6);
     expect(() => planTray(spec, { ...GEO, bottomChamfer: 1.7 })).toThrow(/chamfer/);
-  });
-
-  it("keeps the same material at the ends of a finger slot", () => {
-    const steep = { ...GEO, bottomChamfer: 3 };
-    // The compartment is far from the outer faces; its slot at the left end of a front band is not:
-    // the slot's side end is lo from the left face, its round bottom (radius r) rises over the floor.
-    const slotAt = (at: number): TraySpec =>
-      traySpec({
-        key: "slot-end",
-        w: 80,
-        d: 60,
-        h: 20,
-        compartments: [
-          compartment({
-            x: 12,
-            y: 6,
-            w: 60,
-            d: 50,
-            floorZ: 1.5,
-            features: [pocket("front", at, 20, 2, 5)],
-          }),
-        ],
-      });
-    // End 1.6 mm from the face: 1.6 + 1.5 + (2 − √2)·1 − 3 = 0.69 < 0.8.
-    expect(() => planTray(slotAt(2.6), steep)).toThrow(/finger pocket.*bottom chamfer/);
-    // 0.3 mm further in: 0.99.
-    expect(planTray(slotAt(2.9), steep).compartments[0]?.slots).toHaveLength(1);
-    // The far end is checked the same way.
-    expect(() => planTray(slotAt(80 - 2.6), steep)).toThrow(/finger pocket.*bottom chamfer/);
-    // And a pocket that is fine without a steep chamfer is accepted with the default.
-    expect(planTray(slotAt(2.6), GEO).compartments[0]?.slots).toHaveLength(1);
   });
 
   it("does not check solid parts", () => {

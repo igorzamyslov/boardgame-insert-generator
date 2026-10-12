@@ -90,34 +90,25 @@ function deckCompartment(
   };
   // Flat: the long side along Y, half-round cutouts through both long walls, notching the floor.
   if (storage === "flat") {
-    return compartment(
-      {
-        ...base,
-        w: dims.S + clearance,
-        d: dims.L + clearance,
-        h: stack,
-        features: [wallCutout("left", 1, true), wallCutout("right", 1, true)],
-      },
-      s,
-    );
+    return compartment({
+      ...base,
+      w: dims.S + clearance,
+      d: dims.L + clearance,
+      h: stack,
+      features: [wallCutout("left", 1, true), wallCutout("right", 1, true)],
+    });
   }
   const onLongEdge = storage === "upright-long";
-  return compartment(
-    {
-      ...base,
-      w: stack,
-      d: (onLongEdge ? dims.L : dims.S) + clearance,
-      h: (onLongEdge ? dims.S : dims.L) + clearance,
-      elastic: { w: true },
-      spacerAxis: "w",
-      // One channel through the walls and dividers the card faces touch.
-      features: [
-        wallCutout("left", CHANNEL_DEPTH, false),
-        wallCutout("right", CHANNEL_DEPTH, false),
-      ],
-    },
-    s,
-  );
+  return compartment({
+    ...base,
+    w: stack,
+    d: (onLongEdge ? dims.L : dims.S) + clearance,
+    h: (onLongEdge ? dims.S : dims.L) + clearance,
+    elastic: { w: true },
+    spacerAxis: "w",
+    // One channel through the walls and dividers the card faces touch.
+    features: [wallCutout("left", CHANNEL_DEPTH, false), wallCutout("right", CHANNEL_DEPTH, false)],
+  });
 }
 
 /** Storage options for a cards component. Precondition: it passes validateComponent. */

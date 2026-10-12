@@ -4,7 +4,7 @@ import type { Access, Component, Notice, Settings } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { displayName, type StorageOption } from "./common";
 import { componentOptions, isLoose } from "./component";
-import { SlotFitError } from "./errors";
+import { CutFitError } from "./errors";
 import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
 import type { RealizeOptions, TrayPartReq, TrayRequirement } from "./types";
@@ -33,46 +33,45 @@ export function mostFrequentAccess(members: readonly Component[]): Access {
   return best;
 }
 
-const GROUND: RealizeOptions = { lipped: false, level: 0 };
+/** Every option layout may build a part at: unlipped or lipped, on the ground or stacked. */
+const OPTIONS: readonly RealizeOptions[] = [
+  { lipped: false, level: 0 },
+  { lipped: true, level: 0 },
+  { lipped: false, level: 1 },
+  { lipped: true, level: 1 },
+];
 
 /**
- * The SlotFitError of the first part that realizeTray cannot realize at its minOuter (unlipped,
- * level 0), or null when every part realizes. minOuter is the footprint at which the part's
- * finger slots fit, searched up to fingerPocket.width wider than the layout needs; a part whose
- * slots fit at none of them is refused at every outer (roadmap §4.2, §4.7).
+ * The CutFitError of the first part that realizeTray refuses at its minOuter at some option, or
+ * null when every part realizes (roadmap §4.2, §4.7). Whether a part has its cuts depends on its
+ * compartments and their order, not on the outer, and every upper level has the same chamfer as
+ * level 1, so such a part is refused everywhere and one that passes realizes everywhere.
  */
-function slotFitError(parts: readonly TrayPartReq[], settings: Settings): SlotFitError | null {
+function cutFitError(parts: readonly TrayPartReq[], settings: Settings): CutFitError | null {
   for (const part of parts) {
-    try {
-      realizeTray(part, minOuter(part, settings, GROUND), settings, GROUND);
-    } catch (error) {
-      if (error instanceof SlotFitError) {
-        return error;
+    for (const opts of OPTIONS) {
+      try {
+        realizeTray(part, minOuter(part, settings, opts), settings, opts);
+      } catch (error) {
+        if (error instanceof CutFitError) {
+          return error;
+        }
+        throw error;
       }
-      throw error;
     }
   }
   return null;
 }
 
-/** The warning for a requirement none of whose variants fits its finger slots or cutouts. */
-function noFingerSlot(
-  error: SlotFitError,
-  key: string,
-  usable: readonly Usable[],
-  settings: Settings,
-): Notice {
+/** The warning for a requirement none of whose variants gives every compartment a cut. */
+function noFingerSlot(error: CutFitError, key: string, usable: readonly Usable[]): Notice {
   const stuck = usable.find((u) => error.componentIds.includes(u.c.id)) ?? usable[0];
   const what = usable.length > 1 ? `the group "${key}"` : "it";
   const name = stuck ? displayName(stuck.c) : key;
-  const message =
-    error.what === "cutout"
-      ? `${name}: no tray arrangement leaves room for a finger cutout of at least ${error.minWidth} mm by ${error.contents.join(", ")} with ${POST_MM} mm of wall beside it, so ${what} is left out. Try another storage.`
-      : `${name}: no tray arrangement leaves room for a finger slot of at least ${error.minWidth} mm by ${error.contents.join(", ")}, even up to ${settings.fingerPocket.width} mm wider, so ${what} is left out. Try another storage or a narrower finger pocket.`;
   return {
     level: "warning",
     code: "sizing.noFingerSlot",
-    message,
+    message: `${name}: no tray arrangement leaves room for a finger cutout of at least ${error.minWidth} mm by ${error.contents.join(", ")} with ${POST_MM} mm of wall beside it, so ${what} is left out. Try another storage.`,
     path: `/components/${stuck?.index ?? 0}`,
   };
 }
@@ -146,8 +145,8 @@ function sizeBuckets(components: Component[], settings: Settings, notices: Notic
  * Sizes components into tray requirements: one per group (or per ungrouped component), in the
  * order each key first appears. Sizing assumes a valid project: with out-of-range settings it
  * returns nothing, and invalid components (including perPlayer inside a group) have no options,
- * so they are left out without notices of their own. Variants whose finger slots do not fit at
- * minOuter (unlipped, level 0) are dropped, the rest keep their order; a requirement left without
+ * so they are left out without notices of their own. Variants with a compartment that gets no
+ * finger cut (cutFitError) are dropped, the rest keep their order; a requirement left without
  * variants is left out with a `sizing.noFingerSlot` warning (roadmap §4.2, §4.7).
  */
 export function size(
@@ -160,11 +159,11 @@ export function size(
   const notices: Notice[] = [];
   const requirements: TrayRequirement[] = [];
   for (const { requirement, usable } of sizeBuckets(components, settings, notices)) {
-    const errors = requirement.variants.map((v) => slotFitError(v.parts, settings));
+    const errors = requirement.variants.map((v) => cutFitError(v.parts, settings));
     const variants = requirement.variants.filter((_, i) => errors[i] === null);
     const preferred = errors[0];
     if (variants.length === 0 && preferred) {
-      notices.push(noFingerSlot(preferred, requirement.key, usable, settings));
+      notices.push(noFingerSlot(preferred, requirement.key, usable));
     } else {
       requirements.push({ ...requirement, variants });
     }

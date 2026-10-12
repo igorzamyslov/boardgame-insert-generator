@@ -2,15 +2,12 @@ import type { CompartmentSpec, Settings, Side, TraySpec } from "../model/types";
 import {
   MIN_CUT_MM,
   MIN_FEATURE_MM,
-  MIN_POCKET_CONTENT,
   MIN_WALL_MM,
-  SLOT_CONTENT_OVERLAP,
   SPEC_TOLERANCE as TOL,
   chamferMinimums,
   effectiveBottomChamfer,
-  maxChannelSpacing,
 } from "../model/settings";
-import { keepsApart, slotsApart, slotsMerge, wellFaceProblem } from "../model/slot-rules";
+import { keepsApart } from "../model/cut-rules";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
 import {
@@ -24,7 +21,7 @@ import {
 } from "./plan-cuts";
 import type { CutRequest } from "./plan-cuts";
 import { LIP_CHAMFER, LIP_FLAT, MIN_SCOOP_RADIUS } from "./plan-types";
-import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, SlotPlan, TrayPlan } from "./plan-types";
+import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, TrayPlan } from "./plan-types";
 import { KNOWN_COMPARTMENT_KINDS, KNOWN_FEATURE_TYPES, KNOWN_PARTS } from "./types";
 
 // Pure geometry planning: validates a TraySpec and turns it into exact
@@ -139,234 +136,12 @@ function checkSeparated(spec: TraySpec, rects: Rect[]): void {
   });
 }
 
-interface Pocket {
-  side: Side;
-  at: number;
-  width: number;
-  reach: number;
-  depth: number;
-}
-
-// Finger pocket (spec §6.1), as geometry reads FeatureSpec "fingerPocket":
-// - the compartment rectangle includes a band `reach` deep along `side`;
-//   the band stays solid up to the rim except for the slot;
-// - the slot is `width` wide, centred on `at` (tray-local x for front/back,
-//   y for left/right), runs across the band, and is cut down `depth` below
-//   the rim (never below the compartment floor) with a round bottom;
-// - along the side it may extend past the compartment through dividers,
-//   but never into the outer wall (TraySpecError), and only as far as the
-//   finger slot clearance rule allows (checkSlotClearance).
-function planSlot(
-  spec: TraySpec,
-  p: Pocket,
-  rect: Rect,
-  content: Rect,
-  floorZ: number,
-  outerWall: number,
-): SlotPlan {
-  const half = p.width / 2;
-  const lo = p.at - half;
-  const hi = p.at + half;
-  const alongX = p.side === "front" || p.side === "back";
-  const limit = alongX ? spec.w : spec.d;
-  if (lo < outerWall - TOL || hi > limit - outerWall + TOL) {
-    fail(spec, `a finger pocket at ${p.at} mm would cut through the outer wall`);
-  }
-  const overlap = Math.min(
-    SLOT_CONTENT_OVERLAP,
-    (alongX ? content.y1 - content.y0 : content.x1 - content.x0) / 2,
-  );
-  const bottomZ = spec.h - Math.min(p.depth, spec.h - floorZ);
-  const common = { side: p.side, bottomZ, radius: half };
-  switch (p.side) {
-    case "front":
-      return { ...common, x0: lo, x1: hi, y0: rect.y0, y1: content.y0 + overlap };
-    case "back":
-      return { ...common, x0: lo, x1: hi, y0: content.y1 - overlap, y1: rect.y1 };
-    case "left":
-      return { ...common, x0: rect.x0, x1: content.x0 + overlap, y0: lo, y1: hi };
-    case "right":
-      return { ...common, x0: content.x1 - overlap, x1: rect.x1, y0: lo, y1: hi };
-  }
-}
-
-// A finger slot must keep MIN_FEATURE_MM of material against the bottom chamfer, like a
-// compartment (checkRect). Measured as distance + height − chamfer, where height is the slot's
-// lowest line for the end facing the outer face it cuts through, and for a side end the height
-// where the round bottom (radius r) first reaches it: min over the profile is
-// bottomZ + (2 − √2)·r (the arc point 45° up from the bottom).
-function checkSlotMaterial(
-  spec: TraySpec,
-  index: number,
-  slot: SlotPlan,
-  outerLimit: number,
-  chamfer: number,
-): void {
-  const alongX = slot.side === "front" || slot.side === "back";
-  const [lo, hi] = alongX ? [slot.x0, slot.x1] : [slot.y0, slot.y1];
-  const through = {
-    front: slot.y0,
-    back: spec.d - slot.y1,
-    left: slot.x0,
-    right: spec.w - slot.x1,
-  }[slot.side];
-  const sideHeight = slot.bottomZ + (2 - Math.SQRT2) * slot.radius;
-  const material = Math.min(through + slot.bottomZ, lo + sideHeight, outerLimit - hi + sideHeight);
-  if (material - chamfer < MIN_FEATURE_MM - TOL) {
-    fail(
-      spec,
-      `compartment ${index}: a finger pocket leaves less than ${MIN_FEATURE_MM} mm of wall and floor against the ${chamfer} mm bottom chamfer`,
-    );
-  }
-}
-
-function slotCentre(slot: SlotPlan): number {
-  return slot.side === "front" || slot.side === "back"
-    ? (slot.x0 + slot.x1) / 2
-    : (slot.y0 + slot.y1) / 2;
-}
-
-// Slots on one band line: same side, band (the extent across it), width and bottom.
-function twins(a: SlotPlan, b: SlotPlan): boolean {
-  const same = (p: number, q: number): boolean => Math.abs(p - q) <= TOL;
-  const alongX = a.side === "front" || a.side === "back";
-  return (
-    a.side === b.side &&
-    same(a.radius, b.radius) &&
-    same(a.bottomZ, b.bottomZ) &&
-    (alongX ? same(a.y0, b.y0) && same(a.y1, b.y1) : same(a.x0, b.x0) && same(a.x1, b.x1))
-  );
-}
-
-// Whether `other` (another compartment's contents) reaches into `slot` only within the slot's
-// overlap into its own `content`: it lies on the contents side of the reach band and does not stop
-// short of the slot's end.
-function onlyInOverlap(slot: SlotPlan, content: Rect, other: Rect): boolean {
-  switch (slot.side) {
-    case "front":
-      return other.y0 >= content.y0 - TOL && other.y0 <= slot.y1 + TOL;
-    case "back":
-      return other.y1 <= content.y1 + TOL && other.y1 >= slot.y0 - TOL;
-    case "left":
-      return other.x0 >= content.x0 - TOL && other.x0 <= slot.x1 + TOL;
-    case "right":
-      return other.x1 <= content.x1 + TOL && other.x1 >= slot.x0 - TOL;
-  }
-}
-
-function opposite(a: Side, b: Side): boolean {
-  const pairs: Record<Side, Side> = { front: "back", back: "front", left: "right", right: "left" };
-  return pairs[a] === b;
-}
-
-interface PlacedSlot {
-  plan: CompartmentPlan;
-  slot: SlotPlan;
-}
-
-// Finger slot clearance (roadmap §4.6). A slot keeps MIN_FEATURE_MM (along x or y) from
-// - the contents of every other compartment, unless those reach into it only within its overlap
-//   into its own contents (checkWellFaces judges their faces);
-// - every other slot, except its twins (one band line: same side, band, width and bottom) and the
-//   slot on the opposite side of its own compartment (only the contents lie between them): taken
-//   in order along the side, neighbouring twins either keep apart or merge into one channel, their
-//   centres at most maxChannelSpacing apart, so the ridge left between their round bottoms is
-//   ≥ MIN_FEATURE_MM wide MIN_FEATURE_MM below its top. A twin further along is then either
-//   further apart or cut away by the slots between.
-function checkSlotClearance(spec: TraySpec, plans: CompartmentPlan[]): void {
-  const slots: PlacedSlot[] = plans.flatMap((plan) => plan.slots.map((slot) => ({ plan, slot })));
-  for (const { plan, slot } of slots) {
-    const where = `compartment ${plan.index}: a finger pocket comes within ${MIN_FEATURE_MM} mm of`;
-    for (const other of plans) {
-      if (
-        other !== plan &&
-        !onlyInOverlap(slot, plan.content, other.content) &&
-        !keepsApart(slot, other.content, TOL)
-      ) {
-        fail(spec, `${where} compartment ${other.index}`);
-      }
-    }
-    for (const t of slots) {
-      const across = t.plan === plan && opposite(slot.side, t.slot.side);
-      if (t.slot !== slot && !across && !twins(slot, t.slot) && !keepsApart(slot, t.slot, TOL)) {
-        fail(spec, `${where} a finger pocket of compartment ${t.plan.index}`);
-      }
-    }
-    const centre = slotCentre(slot);
-    const next = slots
-      .filter((t) => twins(slot, t.slot) && slotCentre(t.slot) > centre + TOL)
-      .sort((a, b) => slotCentre(a.slot) - slotCentre(b.slot))[0];
-    if (next !== undefined) {
-      const spacing = slotCentre(next.slot) - centre;
-      const most = maxChannelSpacing(slot.radius);
-      if (!slotsMerge(spacing, slot.radius, TOL) && !slotsApart(spacing, slot.radius, TOL)) {
-        fail(
-          spec,
-          `${where} a finger pocket of compartment ${next.plan.index} without merging into one channel (centres ${spacing.toFixed(2)} mm apart, at most ${most.toFixed(2)} mm)`,
-        );
-      }
-    }
-  }
-  checkWellFaces(spec, plans, slots);
-}
-
-// The well faces a slot meets within its overlap into the contents (its own compartment's and
-// those of compartments sharing its band line) must hold against the slot's twins
-// (wellFaceProblem, model/slot-rules: the rule sizing places slots by, here with SPEC_TOLERANCE).
-function checkWellFaces(spec: TraySpec, plans: CompartmentPlan[], slots: PlacedSlot[]): void {
-  for (const { plan, slot } of slots) {
-    const alongX = slot.side === "front" || slot.side === "back";
-    const line = slots.filter((t) => twins(slot, t.slot));
-    const centres = line.map((t) => slotCentre(t.slot));
-    const owner = (centre: number): number =>
-      line[centres.indexOf(centre)]?.plan.index ?? plan.index;
-    for (const other of plans) {
-      if (!onlyInOverlap(slot, plan.content, other.content)) {
-        continue;
-      }
-      const c = other.content;
-      // Each face, and the direction its solid side lies in.
-      for (const [at, solid] of [
-        [alongX ? c.x0 : c.y0, -1],
-        [alongX ? c.x1 : c.y1, 1],
-      ] as const) {
-        const problem = wellFaceProblem({ at, solid }, centres, slot.radius, TOL);
-        if (problem === null) {
-          continue;
-        }
-        const face = `the well face of compartment ${other.index} at ${at.toFixed(2)} mm`;
-        switch (problem.kind) {
-          case "short":
-            fail(
-              spec,
-              `compartment ${owner(problem.centre)}: a finger pocket ends less than ${MIN_FEATURE_MM} mm short of ${face}`,
-            );
-            break;
-          case "offset":
-            fail(
-              spec,
-              `compartment ${owner(problem.centre)}: a finger pocket crosses ${face} ${problem.offset.toFixed(2)} mm from its centre (at most ${problem.most.toFixed(2)} mm)`,
-            );
-            break;
-          case "ridge":
-            fail(
-              spec,
-              `${face} leaves half the ridge between two finger pockets ${problem.width.toFixed(2)} mm wide ${MIN_FEATURE_MM} mm below its peak (at least ${MIN_FEATURE_MM} mm)`,
-            );
-        }
-      }
-    }
-  }
-}
-
 function planCompartment(
   spec: TraySpec,
   index: number,
   c: CompartmentSpec,
   rect: Rect,
-  outerWall: number,
 ): { plan: CompartmentPlan; reliefDiameter: number; cutRequests: CutRequest[] } {
-  const pockets: Pocket[] = [];
   const scoopRequests: ScoopPlan[] = [];
   const cutRequests: CutRequest[] = [];
   let reliefDiameter = 0;
@@ -382,14 +157,6 @@ function planCompartment(
         fail(spec, `compartment ${index} has an invalid wall cutout`);
       }
       cutRequests.push({ side: sideOf(spec, feature.side), at, width, depth, floorNotch });
-    } else if (feature.type === "fingerPocket") {
-      if (
-        ![feature.width, feature.reach, feature.depth].every(isPositive) ||
-        !Number.isFinite(feature.at)
-      ) {
-        fail(spec, `compartment ${index} has an invalid finger pocket`);
-      }
-      pockets.push({ ...feature, side: sideOf(spec, feature.side) });
     } else if (feature.type === "scoop") {
       scoopRequests.push({ side: sideOf(spec, feature.side), r: feature.r });
     } else if (feature.type === "cornerRelief") {
@@ -399,44 +166,24 @@ function planCompartment(
     }
   }
 
-  // A cut through a wall would leave a scoop's fillet or a reach band standing free.
+  // A cut through a wall would leave a scoop's fillet standing free.
   for (const q of cutRequests) {
-    if ([...pockets, ...scoopRequests].some((f) => f.side === q.side)) {
-      fail(
-        spec,
-        `compartment ${index} has a wall cutout and a scoop or finger pocket on its ${q.side} side`,
-      );
+    if (scoopRequests.some((f) => f.side === q.side)) {
+      fail(spec, `compartment ${index} has a wall cutout and a scoop on its ${q.side} side`);
     }
   }
 
-  const band = (side: Side): number =>
-    Math.max(0, ...pockets.filter((p) => p.side === side).map((p) => p.reach));
-  const content: Rect = {
-    x0: rect.x0 + band("left"),
-    y0: rect.y0 + band("front"),
-    x1: rect.x1 - band("right"),
-    y1: rect.y1 - band("back"),
-  };
-  // TOL: TraySpec numbers are on the 0.01 mm grid, but their differences carry float noise
-  // (8.29 − 7.29 = 0.9999999999999991), so a value exactly on a limit must pass.
-  const least = MIN_POCKET_CONTENT - TOL;
-  if (content.x1 - content.x0 < least || content.y1 - content.y0 < least) {
-    fail(spec, `compartment ${index}: finger-pocket reach leaves no room for the contents`);
-  }
-
-  const slots = pockets.map((p) => planSlot(spec, p, rect, content, c.floorZ, outerWall));
   // Scoop radius: never deeper than the compartment or wider than it is across.
   const scoops: ScoopPlan[] = [];
   for (const s of scoopRequests) {
-    const across =
-      s.side === "front" || s.side === "back" ? content.y1 - content.y0 : content.x1 - content.x0;
+    const across = s.side === "front" || s.side === "back" ? rect.y1 - rect.y0 : rect.x1 - rect.x0;
     const r = Math.min(s.r, spec.h - c.floorZ, across);
     if (r >= MIN_SCOOP_RADIUS) {
       scoops.push({ side: s.side, r });
     }
   }
   return {
-    plan: { index, rect, content, floorZ: c.floorZ, slots, cuts: [], scoops, reliefs: [] },
+    plan: { index, rect, floorZ: c.floorZ, cuts: [], scoops, reliefs: [] },
     reliefDiameter,
     cutRequests,
   };
@@ -447,10 +194,8 @@ function planCompartment(
 // feature type (a newer-minor file) and TraySpecError (a RangeError) for a spec that can't be
 // built safely (roadmap §4.6): non-positive sizes, a wall or lip under MIN_WALL_MM, a floor
 // outside the tray, compartments less than MIN_FEATURE_MM apart or closer to an outer face than
-// the (lipped) outer wall, reach bands that leave less than MIN_POCKET_CONTENT, finger pockets
-// that would cut through an outer wall or break the finger slot clearance rule, wall cutouts that
-// break their own rules (plan-cuts.ts), and a bottom chamfer the tray, its walls, floors or
-// corners cannot take.
+// the (lipped) outer wall, wall cutouts that break their own rules (plan-cuts.ts), and a bottom
+// chamfer the tray, its walls, floors or corners cannot take.
 export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   checkKnown(spec);
   if (![spec.w, spec.d, spec.h].every(isPositive)) {
@@ -483,7 +228,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   const rects = specs.map((c, i) => checkRect(spec, i, c, outerWall, chamfer));
   checkSeparated(spec, rects);
   const planned = specs.map((c, i) =>
-    planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect"), outerWall),
+    planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect")),
   );
   const minCut = Math.min(MIN_CUT_MM, settings.fingerPocket.width);
   const frame = { w: spec.w, d: spec.d, h: spec.h, chamfer, minCut };
@@ -496,18 +241,6 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   plans.forEach((plan) => {
     checkNotches(plan, failWith);
   });
-  plans.forEach((plan) =>
-    plan.slots.forEach((slot) =>
-      checkSlotMaterial(
-        spec,
-        plan.index,
-        slot,
-        slot.side === "front" || slot.side === "back" ? spec.w : spec.d,
-        chamfer,
-      ),
-    ),
-  );
-  checkSlotClearance(spec, plans);
   checkCutClearance(plans, failWith);
   const compartments = plans.map((plan, i) => ({
     ...plan,

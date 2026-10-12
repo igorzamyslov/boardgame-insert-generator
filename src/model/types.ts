@@ -117,7 +117,6 @@ export interface Settings {
   scoopRadius: number;
   fingerPocket: {
     width: number;
-    reach: number;
     floorNotch: number;
     wallRoom: number;
     dividerRoom: number;
@@ -139,7 +138,6 @@ export interface StoredLayout {
 }
 
 export type FeatureSpec =
-  | { type: "fingerPocket"; side: Side; at: number; width: number; reach: number; depth: number }
   | {
       type: "wallCutout";
       side: Side;

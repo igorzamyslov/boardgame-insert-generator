@@ -7,7 +7,16 @@ import type { CompartmentSpec, FeatureSpec, Settings, TileShape } from "../model
 import { hasGrip } from "./grip";
 import { size } from "./group";
 import { minOuter, realizeTray } from "./realize";
-import { assertTrayInvariants, at, bulk, cards, custom, partOf, tiles } from "./test-helpers";
+import {
+  assertTrayInvariants,
+  at,
+  bulk,
+  cards,
+  custom,
+  minis,
+  partOf,
+  tiles,
+} from "./test-helpers";
 import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
 const s: Settings = DEFAULT_SETTINGS;
@@ -375,6 +384,33 @@ describe("finger room where the cuts actually go", () => {
     const row0 = at(r.compartments, 0);
     const row1 = at(r.compartments, 1);
     expect(Math.round((row1.y - row0.y - row0.d) * 100) / 100).toBe(6.2);
+  });
+});
+
+describe("minis pockets and custom wells: one centred cut through the front wall", () => {
+  const heroes = minis({ figures: [{ name: "Hero", w: 25, d: 25, h: 40, count: 4 }] });
+
+  it("cuts each pocket of a strip through the front wall, half its depth", () => {
+    const r = realize(partOf([heroes], "standing|strip|split1"));
+    expect(
+      r.compartments.map((c) => cutsOf(c).map((f) => f.type === "wallCutout" && f.side)),
+    ).toEqual([["front"], ["front"], ["front"], ["front"]]);
+  });
+
+  it("cuts the back row of rows2 through the back wall, which takes the finger room", () => {
+    const part = partOf([heroes], "standing|rows2|split1");
+    const r = realize(part);
+    // Row 0's pockets face the front wall; row 1's fronts face row 0, so they cut through the back.
+    expect(
+      r.compartments.map((c) => cutsOf(c).map((f) => f.type === "wallCutout" && f.side)),
+    ).toEqual([["front"], ["front"], ["back"], ["back"]]);
+    const plain = minOuter(part, s, ground);
+    expect(minOuter(part, wallOnly, ground)).toEqual({ ...plain, d: plain.d + 20 });
+  });
+
+  it("cuts a custom well through the front wall, half its depth", () => {
+    const r = realize(partOf([custom({ count: 1 })], "custom|strip|split1"));
+    expect(cutsOf(at(r.compartments, 0))).toEqual([cutout("front", 22.1, 5.5, 0, 25)]);
   });
 });
 

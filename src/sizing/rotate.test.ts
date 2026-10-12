@@ -66,7 +66,7 @@ describe("rotateRealized", () => {
     ]);
   });
 
-  it("maps left/right pocket and cutout positions onto the new X axis", () => {
+  it("maps left/right cutout positions onto the new X axis", () => {
     const synthetic: RealizedTray = {
       wall: 1.6,
       spacers: [],
@@ -80,7 +80,6 @@ describe("rotateRealized", () => {
           kind: "well",
           contents: "x",
           features: [
-            { type: "fingerPocket", side: "left", at: 30, width: 22, reach: 12, depth: 5 },
             { type: "wallCutout", side: "right", at: 35, width: 16, depth: 5, floorNotch: 8 },
             { type: "wallCutout", side: "front", at: 25, width: 16, depth: 5, floorNotch: 0 },
             { type: "scoop", side: "back", r: 5 },
@@ -99,7 +98,6 @@ describe("rotateRealized", () => {
         kind: "well",
         contents: "x",
         features: [
-          { type: "fingerPocket", side: "front", at: 50, width: 22, reach: 12, depth: 5 },
           { type: "wallCutout", side: "back", at: 45, width: 16, depth: 5, floorNotch: 8 },
           { type: "wallCutout", side: "right", at: 25, width: 16, depth: 5, floorNotch: 0 },
           { type: "scoop", side: "left", r: 5 },
