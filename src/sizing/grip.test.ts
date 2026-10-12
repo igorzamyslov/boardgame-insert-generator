@@ -31,7 +31,20 @@ describe("hasGrip", () => {
     ).toBe(true);
   });
 
-  it("rejects small compartments without a finger pocket", () => {
+  it("accepts a wall cutout (a finger channel or a flat deck's cutout)", () => {
+    expect(
+      hasGrip([
+        {
+          ...base,
+          features: [
+            { type: "wallCutout", side: "left", at: 15, width: 22, depth: 10, floorNotch: 0 },
+          ],
+        },
+      ]),
+    ).toBe(true);
+  });
+
+  it("rejects small compartments without a finger pocket or cutout", () => {
     expect(hasGrip([base, { ...base, w: 24.99, d: 80 }])).toBe(false);
     expect(hasGrip([{ ...base, features: [{ type: "cornerRelief", d: 3 }] }])).toBe(false);
     expect(hasGrip([])).toBe(false);
