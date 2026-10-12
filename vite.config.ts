@@ -1,12 +1,13 @@
 import { defineConfig } from "vitest/config";
 import preact from "@preact/preset-vite";
 import pkg from "./package.json";
+import { licensePlugin } from "./licenses.config";
 
 // `base: "./"` keeps every asset URL relative, so the built app works from any
 // subpath (e.g. /<repo>/insert-generator/).
 export default defineConfig({
   base: "./",
-  plugins: [preact()],
+  plugins: [preact(), licensePlugin()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
