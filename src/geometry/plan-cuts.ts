@@ -1,4 +1,4 @@
-import type { Side } from "../model/types";
+import type { FeatureSpec, Side, TraySpec } from "../model/types";
 import { MIN_FEATURE_MM, SPEC_TOLERANCE as TOL } from "../model/settings";
 import { keepsApart, separation } from "../model/slot-rules";
 import type { CompartmentPlan, CutPlan, Rect } from "./plan-types";
@@ -235,4 +235,83 @@ export function checkCutClearance(plans: readonly CompartmentPlan[], fail: Fail)
       }
     }
   }
+}
+
+// A card spacer's notch (FeatureSpec "spacerNotch", spec §6.2): where a finger channel crosses the
+// well a spacer stands in, the channel's U runs on through the spacer, so it stays open end to
+// end. In the spacer's own frame: along `axis`, out through both end faces, centred on `at` across
+// it, `width` wide, `depth` below the spacer's top, with a round bottom of radius width / 2. It is
+// open at the top (the spacer prints standing), and like a wall cutout:
+// - its centre lies on the spacer, and each of its sides either cuts past the spacer's face (then
+//   the spacer is cut across, its top following the U) or keeps MIN_FEATURE_MM of spacer beside it;
+// - its bottom stands at least the bottom chamfer plus MIN_FEATURE_MM above the bed, where it leaves
+//   through the end faces.
+// The outer corner radius then shrinks so its sides meet the straight part of the end faces.
+export function planSpacerNotch(
+  spec: TraySpec,
+  features: readonly FeatureSpec[],
+  chamfer: number,
+  fail: Fail,
+): CutPlan | null {
+  if (features.length === 0) {
+    return null;
+  }
+  const [f, ...rest] = features;
+  if (spec.part !== "spacer" || f?.type !== "spacerNotch" || rest.length > 0) {
+    return fail("only a spacer has a notch, and only one");
+  }
+  const { axis, at, width, depth } = f;
+  if (
+    (axis !== "x" && axis !== "y") ||
+    !Number.isFinite(at) ||
+    !(Number.isFinite(width) && width > 0) ||
+    !(Number.isFinite(depth) && depth > 0)
+  ) {
+    return fail("invalid spacer notch");
+  }
+  const span = axis === "x" ? spec.d : spec.w;
+  if (at < -TOL || at > span + TOL) {
+    fail(`the spacer notch at ${at} mm is not centred on the spacer`);
+  }
+  const r = width / 2;
+  const [a, b] = [at - r, at + r];
+  const sliver = (beside: number): boolean => beside > TOL && beside < MIN_FEATURE_MM - TOL;
+  if (sliver(a) || sliver(span - b)) {
+    fail(`it leaves less than ${MIN_FEATURE_MM} mm beside the spacer notch at ${at} mm`);
+  }
+  const bottomZ = spec.h - Math.min(depth, spec.h);
+  if (bottomZ - chamfer < MIN_FEATURE_MM - TOL) {
+    fail(
+      `the spacer notch leaves less than ${MIN_FEATURE_MM} mm against the ${chamfer} mm bottom chamfer`,
+    );
+  }
+  const length = axis === "x" ? spec.w : spec.d;
+  const box =
+    axis === "x" ? { x0: 0, x1: length, y0: a, y1: b } : { x0: a, x1: b, y0: 0, y1: length };
+  // The U's profile runs across the end faces it leaves through: "left" along x, "front" along y.
+  return {
+    ...box,
+    side: axis === "x" ? "left" : "front",
+    bottomZ,
+    radius: r,
+    into: null,
+    notch: 0,
+  };
+}
+
+/**
+ * Where a spacer notch's sides meet its end faces, for the outer corner radius: only the sides
+ * that lie on the spacer (a side past its face takes the corner away with the rest of its top).
+ */
+export function notchEdges(spec: TraySpec, notch: CutPlan | null): { x: number; y: number }[] {
+  if (notch === null) {
+    return [];
+  }
+  const alongX = notch.side === "left";
+  const span = alongX ? spec.d : spec.w;
+  const length = alongX ? spec.w : spec.d;
+  const sides = (alongX ? [notch.y0, notch.y1] : [notch.x0, notch.x1]).filter(
+    (v) => v > TOL && v < span - TOL,
+  );
+  return sides.flatMap((v) => [0, length].map((u) => (alongX ? { x: u, y: v } : { x: v, y: u })));
 }

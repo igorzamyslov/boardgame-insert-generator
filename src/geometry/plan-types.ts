@@ -79,4 +79,5 @@ export interface TrayPlan {
   outerWall: number; // compartments keep at least this distance to the outer faces
   lip: LipPlan | null;
   compartments: CompartmentPlan[];
+  notch: CutPlan | null; // a card spacer's notch: its channel running on through it (plan-cuts.ts)
 }

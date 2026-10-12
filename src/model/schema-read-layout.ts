@@ -20,7 +20,13 @@ function verbatim<T>(raw: Json): T {
 }
 
 function readFeature(r: Reader): FeatureSpec {
-  const type = r.tag("type", ["fingerPocket", "wallCutout", "scoop", "cornerRelief"]);
+  const type = r.tag("type", [
+    "fingerPocket",
+    "wallCutout",
+    "spacerNotch",
+    "scoop",
+    "cornerRelief",
+  ]);
   if (type === null) {
     // Newer file, unknown feature type: keep it verbatim (its fields are unknown too).
     // In other files the recorded error makes the whole layout unreadable.
@@ -44,6 +50,14 @@ function readFeature(r: Reader): FeatureSpec {
         width: r.strictNum("width"),
         depth: r.strictNum("depth"),
         floorNotch: r.strictNum("floorNotch"),
+      });
+    case "spacerNotch":
+      return r.finish({
+        type,
+        axis: r.oneOf("axis", ["x", "y"]),
+        at: r.strictNum("at"),
+        width: r.strictNum("width"),
+        depth: r.strictNum("depth"),
       });
     case "scoop":
       return r.finish({ type, side: r.oneOf("side", SIDES), r: r.strictNum("r") });
@@ -84,6 +98,7 @@ function readTray(r: Reader): TraySpec {
     lip: r.bool("lip"),
     solid: r.bool("solid", false),
     compartments: r.objects("compartments", []).map(readCompartment),
+    ...(r.has("features") ? { features: r.objects("features").map(readFeature) } : {}),
   });
 }
 

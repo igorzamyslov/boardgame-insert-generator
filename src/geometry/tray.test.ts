@@ -26,6 +26,7 @@ import {
   lippedLower,
   loadFixture,
   miniPockets,
+  notchedSpacer,
   plainBox,
   scoopBulk,
   slotBesideSlack,
@@ -221,6 +222,15 @@ describe("buildTray per tray type", () => {
     expect(Math.abs(sp.volumeMm3 - blockVolume(92.5, 8, 63, 3, 0.4)) / sp.volumeMm3).toBeLessThan(
       0.002,
     );
+  });
+
+  it("notched spacer: the channel runs on through it", () => {
+    const { mesh, volumeMm3 } = expectWellFormed(notchedSpacer);
+    const u = 22 * (29 - 11) + (Math.PI * 11 * 11) / 2;
+    const expected = blockVolume(30, 92.5, 63, 3, 0.4) - 30 * u;
+    expect(Math.abs(volumeMm3 - expected) / expected).toBeLessThan(0.003);
+    expect(heightAt(mesh, 15, 46.25)).toBeCloseTo(63 - 29, 3);
+    expect(heightAt(mesh, 15, 20)).toBeCloseTo(63, 3);
   });
 
   it("lipped lower tray: lip adds height and a chamfered ring", () => {

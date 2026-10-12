@@ -142,6 +142,7 @@ export type FeatureSpec =
       depth: number;
       floorNotch: number;
     }
+  | { type: "spacerNotch"; axis: "x" | "y"; at: number; width: number; depth: number }
   | { type: "scoop"; side: Side; r: number }
   | { type: "cornerRelief"; d: number };
 
@@ -174,6 +175,7 @@ export interface TraySpec {
   lip: boolean; // true when another tray is stacked on this one and settings.lip.enabled
   solid: boolean;
   compartments: CompartmentSpec[];
+  features?: FeatureSpec[]; // the part's own: a card spacer's notch (spacerNotch)
 }
 
 // Shared helpers

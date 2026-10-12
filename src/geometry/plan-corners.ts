@@ -147,8 +147,19 @@ interface CornerDisc {
   e: number;
 }
 
-function cornerDiscs(compartments: CompartmentPlan[], chamfer: number): CornerDisc[] {
-  const discs: CornerDisc[] = [];
+// Sharp cut points of the part itself (where a spacer notch's sides meet its end faces), well above
+// the chamfer.
+interface CutPoint {
+  x: number;
+  y: number;
+}
+
+function cornerDiscs(
+  compartments: CompartmentPlan[],
+  chamfer: number,
+  points: readonly CutPoint[],
+): CornerDisc[] {
+  const discs: CornerDisc[] = points.map((pt) => ({ ...pt, rho: 0, e: 0 }));
   const corners = (rect: Rect, e: number): void => {
     discs.push(
       { x: rect.x0, y: rect.y0, rho: 0, e },
@@ -190,9 +201,10 @@ export function planCornerRadius(
   setting: number,
   chamfer: number,
   compartments: CompartmentPlan[],
+  points: readonly CutPoint[] = [],
 ): number {
   let r = Math.max(0, Math.min(setting, Math.min(size.w, size.d) / 2 - 0.01));
-  for (const disc of cornerDiscs(compartments, chamfer)) {
+  for (const disc of cornerDiscs(compartments, chamfer, points)) {
     const { p, q } = nearestCorner(size, disc);
     if (p < r && q < r) {
       r = Math.min(r, maxCornerRadius(p, q, disc.rho + disc.e));
@@ -210,8 +222,9 @@ export function thinCorner(
   radius: number,
   chamfer: number,
   compartments: CompartmentPlan[],
+  points: readonly CutPoint[] = [],
 ): string | null {
-  for (const disc of cornerDiscs(compartments, chamfer)) {
+  for (const disc of cornerDiscs(compartments, chamfer, points)) {
     const { p, q } = nearestCorner(size, disc);
     if (p < radius && q < radius) {
       const material = radius - disc.e - disc.rho - Math.hypot(radius - p, radius - q);

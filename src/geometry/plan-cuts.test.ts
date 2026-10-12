@@ -8,6 +8,7 @@ import {
   compartment,
   cutout,
   flatCutouts,
+  notchedSpacer,
   pocket,
   traySpec,
   uprightChannel,
@@ -231,6 +232,69 @@ describe("wall cutouts", () => {
       expect(() => planTray(beside([cutout("left", 30, 99)]), steep)).toThrow(/bottom chamfer/);
       // An 8 mm notch removes the lowest part: the round bottom meets it 4.65 mm up.
       expect(() => planTray(beside([cutout("left", 30, 99, 8)]), steep)).not.toThrow();
+    });
+  });
+});
+
+describe("spacer notches", () => {
+  const notch = (over: Partial<Extract<FeatureSpec, { type: "spacerNotch" }>> = {}): TraySpec => ({
+    ...notchedSpacer,
+    features: [{ type: "spacerNotch", axis: "x", at: 46.25, width: 22, depth: 29, ...over }],
+  });
+
+  it("is a feature type this geometry version builds", () => {
+    expect(KNOWN_FEATURE_TYPES).toContain("spacerNotch");
+  });
+
+  it("runs the channel's U through the spacer along its axis", () => {
+    const plan = planTray(notchedSpacer, GEO);
+    expect(rounded(plan.notch ?? undefined)).toMatchObject({
+      x0: 0,
+      x1: 30,
+      y0: 35.25,
+      y1: 57.25,
+      radius: 11,
+      into: null,
+    });
+    expect(plan.notch?.bottomZ).toBeCloseTo(63 - 29, 9);
+    const across = planTray(notch({ axis: "y", at: 15, width: 10 }), GEO).notch;
+    expect(rounded(across ?? undefined)).toMatchObject({ x0: 10, x1: 20, y0: 0, y1: 92.5 });
+    expect(planTray({ ...notchedSpacer, features: [] }, GEO).notch).toBeNull();
+  });
+
+  it("may cut the whole spacer across, or keep 0.8 mm beside it", () => {
+    expect(() => planTray(notch({ width: 92.5 }), GEO)).not.toThrow();
+    expect(() => planTray(notch({ width: 100 }), GEO)).not.toThrow();
+    expect(() => planTray(notch({ width: 90.9 }), GEO)).not.toThrow();
+    rejects(notch({ width: 91.5 }), /leaves less than 0.8 mm beside the spacer notch/);
+  });
+
+  it("shrinks the spacer's corner radius so the notch meets its flat end faces", () => {
+    expect(planTray(notch({ width: 88 }), GEO).cornerRadius).toBeCloseTo(2.25, 9);
+  });
+
+  describe("rejects", () => {
+    it("invalid numbers or axis", () => {
+      for (const over of [{ width: 0 }, { depth: 0 }, { at: Number.NaN }]) {
+        rejects(notch(over), /invalid spacer notch/);
+      }
+      rejects(notch({ axis: "z" as "x" }), /invalid spacer notch/);
+    });
+
+    it("a notch not centred on the spacer", () => {
+      rejects(notch({ at: 93 }), /not centred on the spacer/);
+    });
+
+    it("a notch whose bottom comes within 0.8 mm of the bottom chamfer", () => {
+      rejects(notch({ depth: 62 }), /bottom chamfer/);
+      expect(() => planTray(notch({ depth: 61.8 }), GEO)).not.toThrow();
+    });
+
+    it("a notch on anything but a spacer, and spacer features in a compartment", () => {
+      const tray = traySpec({ ...notchedSpacer, part: "tray", solid: false, key: "t" });
+      rejects(tray, /only a spacer has a notch/);
+      const inWell = beside([{ type: "spacerNotch", axis: "x", at: 30, width: 10, depth: 5 }]);
+      rejects(inWell, /spacer notch in compartment 0/);
     });
   });
 });

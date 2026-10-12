@@ -12,7 +12,7 @@ import {
 import { keepsApart, slotsApart, slotsMerge, wellFaceProblem } from "../model/slot-rules";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
-import { checkCutClearance, checkNotches, planCut } from "./plan-cuts";
+import { checkCutClearance, checkNotches, notchEdges, planCut, planSpacerNotch } from "./plan-cuts";
 import type { CutRequest } from "./plan-cuts";
 import { LIP_CHAMFER, LIP_FLAT, MIN_SCOOP_RADIUS } from "./plan-types";
 import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, SlotPlan, TrayPlan } from "./plan-types";
@@ -61,6 +61,11 @@ function isKnown(known: readonly string[], value: unknown): boolean {
 function checkKnown(spec: TraySpec): void {
   if (!isKnown(KNOWN_PARTS, spec.part)) {
     throw new UnsupportedFeatureError(`part:${String(spec.part)}`);
+  }
+  for (const f of spec.features ?? []) {
+    if (!isKnown(KNOWN_FEATURE_TYPES, f.type)) {
+      throw new UnsupportedFeatureError(String((f as { type: unknown }).type));
+    }
   }
   for (const c of spec.compartments) {
     if (!isKnown(KNOWN_COMPARTMENT_KINDS, c.kind)) {
@@ -380,6 +385,8 @@ function planCompartment(
       scoopRequests.push({ side: sideOf(spec, feature.side), r: feature.r });
     } else if (feature.type === "cornerRelief") {
       reliefDiameter = Math.max(reliefDiameter, feature.d);
+    } else {
+      fail(spec, `a spacer notch in compartment ${index}: only a spacer has a notch`);
     }
   }
 
@@ -497,8 +504,10 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     reliefs: planReliefs(spec, plans, plan, planned[i]?.reliefDiameter ?? 0, chamfer),
   }));
 
-  const cornerRadius = planCornerRadius(spec, settings.cornerRadius, chamfer, compartments);
-  const thin = thinCorner(spec, cornerRadius, chamfer, compartments);
+  const notch = planSpacerNotch(spec, spec.features ?? [], chamfer, failWith);
+  const edges = notchEdges(spec, notch);
+  const cornerRadius = planCornerRadius(spec, settings.cornerRadius, chamfer, compartments, edges);
+  const thin = thinCorner(spec, cornerRadius, chamfer, compartments, edges);
   if (thin !== null) {
     fail(
       spec,
@@ -516,5 +525,6 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     outerWall,
     lip,
     compartments,
+    notch,
   };
 }

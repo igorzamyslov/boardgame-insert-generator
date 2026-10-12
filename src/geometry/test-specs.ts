@@ -274,6 +274,20 @@ export const spacer = traySpec({
   h: 63,
 });
 
+// A card spacer standing in a well that a finger channel crosses (spacer frame: 30 mm of spare
+// stack along X, the 92.5 mm well along Y, 63 high): the channel's U (22 wide, 34 below the
+// tray's rim, so 29 below the spacer's top) runs on through it along X.
+export const notchedSpacer = traySpec({
+  key: "cards:p0:0:spacer",
+  part: "spacer",
+  path: "",
+  solid: true,
+  w: 30,
+  d: 92.5,
+  h: 63,
+  features: [{ type: "spacerNotch", axis: "x", at: 46.25, width: 22, depth: 29 }],
+});
+
 // cards-heavy fixture, part fxcrd003:p0:0, upright-long|rows2|split1, lipped,
 // minOuter + 10, as sizing emitted it while card decks had finger pockets (geometry 0.1.0): two
 // decks in two rows, the slack beside "Goals ×45". Kept as hand-built pocket trays: the pocket

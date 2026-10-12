@@ -252,6 +252,15 @@ export function buildTray(
       solid = scope.track(solid.add(buildLip(m, scope, plan, plan.lip)));
     }
     const cutters = plan.compartments.map((c) => buildCutter(m, scope, plan, c));
+    if (plan.notch) {
+      // A spacer's notch leaves through both end faces: past them by OVERSHOOT.
+      const n = plan.notch;
+      const along = n.side === "left";
+      const ends = along
+        ? { x0: n.x0 - OVERSHOOT, x1: n.x1 + OVERSHOOT }
+        : { y0: n.y0 - OVERSHOOT, y1: n.y1 + OVERSHOOT };
+      cutters.push(buildSlot(m, scope, { ...n, ...ends }, plan.topZ + OVERSHOOT));
+    }
     if (cutters.length > 0) {
       solid = scope.track(solid.subtract(scope.track(m.Manifold.union(cutters))));
     }

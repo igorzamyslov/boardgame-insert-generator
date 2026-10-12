@@ -5,6 +5,18 @@ import { floorU, fromU, round2 } from "./units";
 const TURNED: Record<Side, Side> = { front: "right", right: "back", back: "left", left: "front" };
 
 /**
+ * A spacer's notch turned with the spacer (90° counter-clockwise, its frame's d becoming the new
+ * w): a notch along x (centred on local y) comes to run along y, centred on d − at; one along y
+ * comes to run along x at the same centre.
+ */
+function turnNotch(f: FeatureSpec, d: number): FeatureSpec {
+  if (f.type !== "spacerNotch") {
+    return f;
+  }
+  return f.axis === "x" ? { ...f, axis: "y", at: round2(d - f.at) } : { ...f, axis: "x" };
+}
+
+/**
  * Rotates a tray realized at `outer` (its own frame) by 90° counter-clockwise about +Z.
  * The result lives in the rotated outer { w: outer.d, d: outer.w, h: outer.h }.
  * realizeTray works in whole units of the floored outer, so the rotation does too.
@@ -25,6 +37,10 @@ export function rotateRealized(r: RealizedTray, outer: OuterSize): RealizedTray 
     if (f.type === "scoop") {
       return { ...f, side: TURNED[f.side] };
     }
+    if (f.type === "spacerNotch") {
+      // Sizing puts spacer notches on spacers only (turnNotch).
+      throw new Error("internal: a spacer notch on a compartment");
+    }
     // Finger pockets and wall cutouts: `at` runs along the side, so it turns with it.
     const alongX = f.side === "front" || f.side === "back";
     return { ...f, side: TURNED[f.side], at: alongX ? f.at : round2(depth - f.at) };
@@ -35,6 +51,11 @@ export function rotateRealized(r: RealizedTray, outer: OuterSize): RealizedTray 
       ...turnRect(c),
       features: c.features.map(turnFeature),
     })),
-    spacers: r.spacers.map((sp): TraySpec => ({ ...turnRect(sp), rotated: !sp.rotated })),
+    spacers: r.spacers.map((sp): TraySpec => {
+      const turned: TraySpec = { ...turnRect(sp), rotated: !sp.rotated };
+      return sp.features === undefined
+        ? turned
+        : { ...turned, features: sp.features.map((f) => turnNotch(f, sp.d)) };
+    }),
   };
 }

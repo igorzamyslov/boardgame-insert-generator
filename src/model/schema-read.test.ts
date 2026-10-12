@@ -279,6 +279,23 @@ describe("readProject: files of this schema line", () => {
     expect(result.project.layout?.trays[0]?.compartments[0]?.features).toContainEqual(cutout);
   });
 
+  it("reads a stored spacer's notch, and no features where a tray has none", () => {
+    const input = sampleJson();
+    const spacer = {
+      ...firstTray(input),
+      key: "cards001:p0:0:spacer",
+      part: "spacer",
+      solid: true,
+      compartments: [],
+      features: [{ type: "spacerNotch", axis: "x", at: 46.25, width: 22, depth: 29 }],
+    };
+    list(input.layout as Json, "trays").push(spacer);
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.notices).toEqual([]);
+    expect(result.project.layout?.trays[1]).toEqual(spacer);
+    expect(result.project.layout?.trays[0]).not.toHaveProperty("features");
+  });
+
   it("drops a stored layout whose wall cutout lacks a field", () => {
     const input = sampleJson();
     list(at(firstTray(input), "compartments", 0), "features").push({
