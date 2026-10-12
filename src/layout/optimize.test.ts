@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { GEOMETRY_VERSION } from "../geometry/version";
 import { DEFAULT_SETTINGS, effective } from "../model/settings";
 import { minOuter } from "../sizing";
@@ -8,7 +8,8 @@ import { fixtureInput } from "./test-fixtures";
 import { checkHardRules } from "./test-hard-rules";
 import { materialize } from "./materialize";
 import { createRun, DEFAULT_ITERATIONS, optimize } from "./optimize";
-import { boxReq, makeInput } from "./test-utils";
+import { boxReq, comp, makeInput, part, req, variant } from "./test-utils";
+import type { LayoutResult } from "./types";
 import { warmHints, warmTree } from "./warmstart";
 
 const reqs = [
@@ -214,12 +215,149 @@ describe("optimize", () => {
     const t0 = Date.now();
     const r = optimize(big, 1, 2000);
     expect(Date.now() - t0).toBeLessThan(10_000);
-    expect(r.layout ?? r.bestAttempt).not.toBeNull();
+    expect(r.layout).not.toBeNull();
+    expect(checkHardRules(big, r.layout ?? emptyLayout(), r.notices)).toEqual([]);
   });
 
   it("treats a non-finite or negative budget as zero iterations", () => {
     expect(optimize(input, 1, Number.NaN).layout?.iterations).toBe(0);
     expect(optimize(input, 1, -5).layout?.iterations).toBe(0);
+  });
+
+  describe("iterations, caps and locks in infeasible runs", () => {
+    const tall = [
+      boxReq("p", 140, 90, 20, { rotatable: false }),
+      boxReq("q", 140, 90, 20, { rotatable: false }),
+    ];
+    const fallbackLocks = [
+      { kind: "position" as const, trayKey: "p:p0:0", path: "0", rotated: false },
+      { kind: "position" as const, trayKey: "q:p0:0", path: "1", rotated: false },
+    ];
+    const fallbackInput = makeInput(tall, {
+      box: { innerWidth: 150, innerDepth: 190, innerHeight: 30 },
+      locks: fallbackLocks,
+    });
+
+    it("stores the iterations actually run, whatever the budget is a multiple of", () => {
+      expect(optimize(input, 1, 1500).layout?.iterations).toBe(1500);
+      expect(optimize(input, 1, 700).layout?.iterations).toBe(700);
+    });
+
+    it("stores the iterations of the phase that produced the layout (fallback phase)", () => {
+      const r = optimize(fallbackInput, 1, 1000);
+      expect(r.notices.some((n) => n.code === "lock.dropped")).toBe(true);
+      expect(r.layout?.iterations).toBe(1000);
+      // stopped as soon as the unlocked phase started: it ran nothing yet
+      const capped = optimize(fallbackInput, 1, 1000, { timeCapMs: 0 });
+      expect(capped.layout).not.toBeNull();
+      expect(capped.layout?.capped).toBe(true);
+      expect(capped.layout?.iterations).toBe(0);
+    });
+
+    it("adds a capped run's iterations to the warm start's cumulative count", () => {
+      const prev = optimize(input, 11, 1000).layout ?? undefined;
+      const r = optimize(input, 11, 5000, { warmStart: prev, timeCapMs: 0 });
+      expect(r.layout?.capped).toBe(true);
+      expect(r.layout?.iterations).toBe(1000 + 1000);
+    });
+
+    it("returns a best attempt that keeps the locks it did not drop", () => {
+      const first = optimize(
+        makeInput(
+          [
+            boxReq("a", 100, 80, 30),
+            boxReq("b", 90, 70, 30),
+            boxReq("c", 60, 50, 30),
+            boxReq("d", 70, 60, 30),
+          ],
+          { box: { innerWidth: 300, innerDepth: 200, innerHeight: 40 } },
+        ),
+        1,
+        1000,
+      );
+      const locks = (first.layout?.trays ?? [])
+        .filter((t) => t.part === "tray")
+        .map((t) => ({
+          kind: "position" as const,
+          trayKey: t.key,
+          path: t.path,
+          rotated: t.rotated,
+        }));
+      expect(locks).toHaveLength(4);
+      const small = makeInput(
+        [
+          boxReq("a", 100, 80, 30),
+          boxReq("b", 90, 70, 30),
+          boxReq("c", 60, 50, 30),
+          boxReq("d", 70, 60, 30),
+        ],
+        { box: { innerWidth: 180, innerDepth: 140, innerHeight: 40 }, locks },
+      );
+      for (const seed of [1, 2]) {
+        const r = optimize(small, seed, 1000);
+        expect(r.layout).toBeNull();
+        expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+        for (const l of locks) {
+          const t = r.bestAttempt?.trays.find((x) => x.key === l.trayKey);
+          expect({ path: t?.path, rotated: t?.rotated }).toEqual({
+            path: l.path,
+            rotated: l.rotated,
+          });
+        }
+      }
+    });
+
+    it("words the capped notice from the actual stop reason", () => {
+      const message = (r: LayoutResult): string =>
+        r.notices.find((n) => n.code === "layout.capped")?.message ?? "";
+      expect(message(optimize(input, 5, 5000, { timeCapMs: 0 }))).toContain("0 s safety limit");
+      expect(
+        message(optimize(input, 5, 5000, { timeCapMs: 12_000, shouldCancel: () => true })),
+      ).toBe(message(optimize(input, 5, 5000, { shouldCancel: () => true })));
+      const cancelled = message(optimize(input, 5, 5000, { shouldCancel: () => true }));
+      expect(cancelled).toContain("stopped");
+      expect(cancelled).not.toContain("safety limit");
+      let t = 0;
+      const run = createRun(input, 5, 5000, { timeCapMs: 12_000, now: () => (t += 13_000) });
+      run.step();
+      expect(message(run.result())).toContain("12 s safety limit");
+      let u = 0;
+      const dflt = createRun(input, 5, 5000, { now: () => (u += 31_000) });
+      dflt.step();
+      expect(message(dflt.result())).toContain("30 s safety limit");
+    });
+
+    it("treats a NaN or negative time cap like the default or zero, never as no cap", () => {
+      let t = 0;
+      const nan = createRun(input, 5, 5000, { timeCapMs: Number.NaN, now: () => (t += 40_000) });
+      expect(nan.step()).toBe(true);
+      expect(nan.result().layout?.capped).toBe(true);
+      let u = 0;
+      const neg = createRun(input, 5, 5000, { timeCapMs: -1, now: () => (u += 1) });
+      expect(neg.step()).toBe(true);
+    });
+  });
+
+  it("respects a lock on a part that exists only in the split variant", () => {
+    const c0 = comp({ minW: 60, minD: 50, minH: 20, contents: "k0" });
+    const c1 = comp({ minW: 50, minD: 40, minH: 20, contents: "k1" });
+    const one = variant("one", [part("k:p0:0", [c0, c1])]);
+    const split = variant("split", [part("k:p0:0", [c0]), part("k:p0:1", [c1])]);
+    const splitOnly = makeInput([req("k", [split])]);
+    const base = optimize(splitOnly, 1, 1000).layout;
+    const t = base?.trays.find((x) => x.key === "k:p0:1");
+    expect(t).toBeDefined();
+    if (!t) {
+      return;
+    }
+    const both = makeInput([req("k", [one, split])], {
+      locks: [{ kind: "position", trayKey: "k:p0:1", path: t.path, rotated: t.rotated }],
+    });
+    const r = optimize(both, 1, 1500);
+    expect(r.layout).not.toBeNull();
+    expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+    expect(r.layout?.trays.some((x) => x.key === "k:p0:1")).toBe(true);
+    expect(checkHardRules(both, r.layout ?? emptyLayout(), r.notices)).toEqual([]);
   });
 
   it("exports a sane default budget", () => {
@@ -242,7 +380,10 @@ function emptyLayout() {
 
 describe("checkHardRules on optimizer output", () => {
   const input = makeInput([boxReq("a", 120, 80, 20), boxReq("b", 90, 80, 20)]);
-  const r = optimize(input, 1, 1000);
+  let r: LayoutResult;
+  beforeAll(() => {
+    r = optimize(input, 1, 1000);
+  });
 
   it("passes a real layout", () => {
     expect(r.layout).not.toBeNull();

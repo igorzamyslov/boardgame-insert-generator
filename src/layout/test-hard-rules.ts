@@ -2,14 +2,20 @@
  * Test helper: checks a StoredLayout against the spec §3 hard rules, and that geometry builds
  * every printed part (planTray). Returns a list of violations (empty = all rules hold). Used by
  * the property and fixture tests.
+ *
+ * Known limits: a TraySpec does not record which variant produced it, and variants share
+ * trayKeys, so the variant is inferred from the trays (`inferVariant`) and rule 7 is judged
+ * against whichever same-key variant matches the stored trays. The bearing test of rule 4
+ * restates the inset check with the realized lower wall, so it is a consistency check, not an
+ * independent one. The coverage and lip-off rules are derived here from the box and settings
+ * (not by importing the engine's predicates).
  */
 import { planTray } from "../geometry/plan";
 import { effectiveBottomChamfer } from "../model/settings";
-import type { Lock, Notice, StoredLayout, TraySpec } from "../model/types";
+import type { Notice, StoredLayout, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
 import { hasGrip, needsGrip, wallFor } from "../sizing";
 import { createCtx, type PartRef } from "./context";
-import { describeLock } from "./locks";
 import { inferVariant, meetsMinimum } from "./warmstart";
 import type { LayoutInput } from "./types";
 import { toMm, toU, type Rect, type U } from "./units";
@@ -72,9 +78,9 @@ function overlap3d(a: TraySpec, b: TraySpec): boolean {
   return ov(p.x0, p.x1, q.x0, q.x1) && ov(p.y0, p.y1, q.y0, q.y1) && ov(p.z0, p.z1, q.z0, q.z1);
 }
 
-export function isDropped(lock: Lock, notices: readonly Notice[]): boolean {
-  const d = describeLock(lock);
-  return notices.some((n) => n.code === "lock.dropped" && n.message.startsWith(d));
+/** True when a `lock.dropped` notice carries the path of the lock at `index` in `input.locks`. */
+export function isDropped(index: number, notices: readonly Notice[]): boolean {
+  return notices.some((n) => n.code === "lock.dropped" && n.path === `/locks/${index}`);
 }
 
 export function checkHardRules(
@@ -96,6 +102,20 @@ export function checkHardRules(
       if (toU(n) / 100 !== n) {
         v.push(`${t.key}: ${n} is not a multiple of 0.01 mm`);
       }
+    }
+  }
+
+  // Every tray key appears once and belongs to a requirement.
+  const seenKeys = new Set<string>();
+  for (const t of trays) {
+    if (seenKeys.has(t.key)) {
+      v.push(`${t.key}: duplicate tray key`);
+    }
+    seenKeys.add(t.key);
+  }
+  for (const t of real) {
+    if (ctx.refsOfKey(t.key).length === 0) {
+      v.push(`${t.key}: owned by no requirement`);
     }
   }
 
@@ -128,7 +148,7 @@ export function checkHardRules(
 
   // Rules 2 and 4: stacks.
   const sizeLocked = new Set(
-    input.locks.flatMap((l) => (l.kind === "size" && !isDropped(l, notices) ? [l.trayKey] : [])),
+    input.locks.flatMap((l, i) => (l.kind === "size" && !isDropped(i, notices) ? [l.trayKey] : [])),
   );
   const byPath = new Map<string, TraySpec[]>();
   for (const t of real) {
@@ -194,6 +214,37 @@ export function checkHardRules(
     if (toU(l.h) !== Math.max(0, ctx.topPlane)) {
       v.push(`${l.key}: leftover not at full stack height`);
     }
+    if (toU(l.z) !== 0 || l.level !== 0) {
+      v.push(`${l.key}: leftover not on the floor (z ${l.z}, level ${l.level})`);
+    }
+  }
+  for (const t of printed) {
+    if (toU(t.z) + toU(t.h) > ctx.topPlane) {
+      v.push(`${t.key}: rises above the top plane`);
+    }
+  }
+
+  // Rule 3: loose bits left uncovered in the top layer need the coverage warning.
+  const coverageNeeded =
+    (input.box.headroom > 0 && input.box.headroomCoverage === "partial") || input.box.storedOnSide;
+  const exposedLoose = real.some((t) => {
+    const covered = real.some((o) => o.path === t.path && o.level > t.level);
+    const r = input.requirements[ctx.refsOfKey(t.key)[0]?.req ?? -1];
+    return !covered && r?.loose === true;
+  });
+  const has = (code: string): boolean => notices.some((n) => n.code === code);
+  if (coverageNeeded && exposedLoose && !has("layout.coverage")) {
+    v.push("loose bits are uncovered in the top layer but there is no layout.coverage notice");
+  }
+
+  // Rule 4 with the lip off: stacked trays are loose, so the lip-off warning is required
+  // exactly when something stacks.
+  const stacked = real.some((t) => t.level > 0);
+  if (!settings.lip.enabled && stacked && !has("layout.lipOff")) {
+    v.push("the lip is off and trays stack but there is no layout.lipOff notice");
+  }
+  if ((settings.lip.enabled || !stacked) && has("layout.lipOff")) {
+    v.push("layout.lipOff notice without a stack that needs it");
   }
 
   // Rule 5: bed fit with margin, either rotation.
@@ -292,8 +343,8 @@ export function checkHardRules(
   }
 
   // Locks: respected, or dropped with a notice.
-  for (const lock of input.locks) {
-    if (isDropped(lock, notices)) {
+  for (const [index, lock] of input.locks.entries()) {
+    if (isDropped(index, notices)) {
       continue;
     }
     if (lock.kind === "position") {

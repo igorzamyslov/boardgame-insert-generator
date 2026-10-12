@@ -20,7 +20,13 @@ import type { Tree } from "./tree";
 import type { LayoutInput, LayoutResult } from "./types";
 import { toMm } from "./units";
 import { warmHints, warmTree, type WarmHints } from "./warmstart";
-import { bedNotices, cappedNotice, doesNotFitNotice, layoutWarnings } from "./warnings";
+import {
+  bedNotices,
+  cappedNotice,
+  doesNotFitNotice,
+  layoutWarnings,
+  type StopReason,
+} from "./warnings";
 
 /** Iterations per chunk between progress events, cancel checks and time-cap checks. */
 export const CHUNK = 1000;
@@ -126,7 +132,11 @@ export function createRun(
 ): Run {
   const now = opts.now ?? Date.now;
   const started = now();
-  const cap = opts.timeCapMs ?? DEFAULT_TIME_CAP_MS;
+  // A NaN cap is no cap given (the default applies); a negative one stops after the first chunk.
+  const cap =
+    opts.timeCapMs === undefined || Number.isNaN(opts.timeCapMs)
+      ? DEFAULT_TIME_CAP_MS
+      : Math.max(0, opts.timeCapMs);
   const hints = opts.warmStart
     ? warmHints(createCtx(input, opts.measure), opts.warmStart.trays)
     : NO_HINTS;
@@ -138,7 +148,7 @@ export function createRun(
   const main = startPhase(input, seed, budget, opts, hints, true);
   let fallback: Phase | null = null;
   let finished = false;
-  let capped = false;
+  let stop: StopReason | null = null;
 
   const build = (): LayoutResult => {
     const fb = fallback;
@@ -158,13 +168,13 @@ export function createRun(
     }
     notices.push(...bedNotices(phase.ctx));
     const best = phase.annealer.bestFeasible;
-    const done = main.annealer.done + (fallback?.annealer.done ?? 0);
+    const capped = stop !== null;
     if (best) {
       const trays = materialize(phase.ctx, best.plan, opts.realize);
       const summary = summarize(trays, input);
       notices.push(...layoutWarnings(phase.ctx, trays, summary));
-      if (capped) {
-        notices.push(cappedNotice());
+      if (stop) {
+        notices.push(cappedNotice(stop));
       }
       return {
         layout: {
@@ -172,7 +182,8 @@ export function createRun(
           geometryVersion: GEOMETRY_VERSION,
           inputsHash: input.inputsHash,
           seed,
-          iterations: carried + (capped ? done : budget),
+          // the iterations the producing phase ran (all of its budget unless it was stopped)
+          iterations: carried + phase.annealer.done,
           capped,
           trays,
         },
@@ -181,20 +192,19 @@ export function createRun(
         notices,
       };
     }
-    const attempts = [main, ...(fallback ? [fallback] : [])].map((p) => ({
-      p,
-      c: p.annealer.leastOverflow,
-    }));
-    const least = attempts.reduce((a, b) => (b.c.score.overflow < a.c.score.overflow ? b : a));
-    const sf = least.c.plan.shortfall;
+    // Nothing fits: report the main phase's least-overflow attempt, the one that keeps the
+    // locks it did not drop (the unlocked fallback phase may overflow less, but its trays
+    // would silently ignore locks the notices still call kept).
+    const attempt = main.annealer.leastOverflow;
+    const sf = attempt.plan.shortfall;
     const shortfall = { x: toMm(sf.x), y: toMm(sf.y), z: toMm(sf.z) };
-    notices.push(doesNotFitNotice(least.p.ctx, shortfall));
-    if (capped) {
-      notices.push(cappedNotice());
+    notices.push(doesNotFitNotice(main.ctx, shortfall));
+    if (stop) {
+      notices.push(cappedNotice(stop));
     }
     return {
       layout: null,
-      bestAttempt: { trays: materialize(least.p.ctx, least.c.plan, opts.realize), shortfall },
+      bestAttempt: { trays: materialize(main.ctx, attempt.plan, opts.realize), shortfall },
       summary: null,
       notices,
     };
@@ -217,7 +227,7 @@ export function createRun(
         }
       }
       if (!finished && now() - started >= cap) {
-        capped = true;
+        stop = { reason: "time", limitMs: cap };
         finished = true;
       }
       return finished;
@@ -231,7 +241,7 @@ export function createRun(
     snapshot: build,
     result() {
       if (!finished) {
-        capped = true;
+        stop = { reason: "cancel" };
         finished = true;
       }
       return build();

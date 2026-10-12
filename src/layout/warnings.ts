@@ -149,11 +149,13 @@ export function doesNotFitNotice(ctx: Ctx, shortfall: { x: number; y: number; z:
   };
 }
 
-export function cappedNotice(): Notice {
-  return {
-    level: "info",
-    code: NOTICE_CODES.capped,
-    message:
-      "The optimizer stopped at its 30 s safety limit; this layout can't be reproduced from its seed.",
-  };
+/** Why a run stopped early: the time cap (with the cap in effect) or a cancel request. */
+export type StopReason = { reason: "time"; limitMs: number } | { reason: "cancel" };
+
+export function cappedNotice(stop: StopReason): Notice {
+  const message =
+    stop.reason === "time"
+      ? `The optimizer stopped at its ${Number((stop.limitMs / 1000).toFixed(1))} s safety limit; this layout can't be reproduced from its seed.`
+      : "The optimization was stopped before it finished; this layout can't be reproduced from its seed.";
+  return { level: "info", code: NOTICE_CODES.capped, message };
 }

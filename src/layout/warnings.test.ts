@@ -100,6 +100,12 @@ describe("layout warnings", () => {
   });
 
   it("marks capped runs with an info notice", () => {
-    expect(cappedNotice()).toMatchObject({ level: "info", code: "layout.capped" });
+    const time = cappedNotice({ reason: "time", limitMs: 30_000 });
+    expect(time).toMatchObject({ level: "info", code: "layout.capped" });
+    expect(time.message).toContain("30 s safety limit");
+    expect(cappedNotice({ reason: "time", limitMs: 1500 }).message).toContain("1.5 s safety limit");
+    const cancel = cappedNotice({ reason: "cancel" });
+    expect(cancel.code).toBe("layout.capped");
+    expect(cancel.message).not.toContain("safety limit");
   });
 });

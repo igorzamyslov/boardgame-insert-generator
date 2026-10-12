@@ -2,11 +2,14 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { Lock } from "../model/types";
 import type { TrayRequirement } from "../sizing/types";
+import { fitsBed } from "./bed";
+import { createCtx } from "./context";
 import { fixtureInput, type FixtureName } from "./test-fixtures";
 import { checkHardRules } from "./test-hard-rules";
 import { optimize } from "./optimize";
 import { comp, makeInput, part, req, variant } from "./test-utils";
 import type { LayoutInput, LayoutResult } from "./types";
+import { toU } from "./units";
 
 const compArb = fc.record({
   minW: fc.integer({ min: 20, max: 110 }),
@@ -27,11 +30,30 @@ const reqArb = fc.record({
   fingerCuts: fc.boolean(),
 });
 
+// Boxes: mostly roomy ones that usually fit (so most runs reach the checker), and tall, narrow
+// ones where trays stack (so lipped stacks are common).
+const boxArb = fc.oneof(
+  {
+    weight: 1,
+    arbitrary: fc.record({
+      w: fc.integer({ min: 180, max: 420 }),
+      d: fc.integer({ min: 180, max: 420 }),
+      h: fc.integer({ min: 55, max: 120 }),
+    }),
+  },
+  {
+    weight: 1,
+    arbitrary: fc.record({
+      w: fc.integer({ min: 130, max: 220 }),
+      d: fc.integer({ min: 130, max: 220 }),
+      h: fc.integer({ min: 100, max: 160 }),
+    }),
+  },
+);
+
 const inputArb = fc.record({
   reqs: fc.array(reqArb, { minLength: 1, maxLength: 6 }),
-  w: fc.integer({ min: 120, max: 420 }),
-  d: fc.integer({ min: 120, max: 420 }),
-  h: fc.integer({ min: 25, max: 120 }),
+  box: boxArb,
   headroom: fc.integer({ min: 0, max: 10 }),
   partial: fc.boolean(),
   side: fc.boolean(),
@@ -69,9 +91,9 @@ function build(spec: InputSpec): LayoutInput {
   });
   return makeInput(requirements, {
     box: {
-      innerWidth: spec.w,
-      innerDepth: spec.d,
-      innerHeight: spec.h,
+      innerWidth: spec.box.w,
+      innerDepth: spec.box.d,
+      innerHeight: spec.box.h,
       headroom: spec.headroom,
       headroomCoverage: spec.partial ? "partial" : "full",
       storedOnSide: spec.side,
@@ -85,13 +107,31 @@ function build(spec: InputSpec): LayoutInput {
   });
 }
 
+/** How many results reached the checker, and how many of those stack under a lip. */
+const seen = { total: 0, feasible: 0, lippedStacks: 0 };
+
 function expectValid(input: LayoutInput, r: LayoutResult): void {
+  seen.total++;
   if (r.layout) {
+    seen.feasible++;
+    if (input.settings.lip.enabled && r.layout.trays.some((t) => t.level > 0)) {
+      seen.lippedStacks++;
+    }
     expect(checkHardRules(input, r.layout, r.notices)).toEqual([]);
     expect(r.bestAttempt).toBeNull();
   } else {
     expect(r.bestAttempt).not.toBeNull();
     expect(r.notices.some((n) => n.code === "layout.doesNotFit")).toBe(true);
+    // the failure is explained: a shortfall on some axis, a requirement beyond the bed, or a
+    // best-attempt part that no printable orientation fits (the bed overflow the search could
+    // not remove: the shortfall is 0 then, e.g. a short run on a tight box)
+    const sf = r.bestAttempt?.shortfall;
+    const short = (sf?.x ?? 0) + (sf?.y ?? 0) + (sf?.z ?? 0) > 0;
+    const ctx = createCtx(input);
+    const overBed = (r.bestAttempt?.trays ?? []).some(
+      (t) => !fitsBed(ctx.bed, toU(t.w), toU(t.d), toU(t.h)),
+    );
+    expect(short || overBed || r.notices.some((n) => n.code === "layout.bed")).toBe(true);
   }
 }
 
@@ -102,8 +142,11 @@ describe("hard rules (spec §3) on random inputs", () => {
         const input = build(spec);
         expectValid(input, optimize(input, seed, 300));
       }),
-      { numRuns: 60 },
+      { numRuns: 200 },
     );
+    // the generator must keep reaching the checker with real layouts, stacks under a lip included
+    expect(seen.feasible / seen.total).toBeGreaterThanOrEqual(0.4);
+    expect(seen.lippedStacks).toBeGreaterThanOrEqual(5);
   });
 
   it("locks taken from a result are respected or dropped with a notice", () => {
@@ -128,7 +171,7 @@ describe("hard rules (spec §3) on random inputs", () => {
           r.notices.some((n) => n.code === "lock.dropped" && n.message.includes("ghost:p0:0")),
         ).toBe(true);
       }),
-      { numRuns: 30 },
+      { numRuns: 100 },
     );
   });
 
@@ -138,7 +181,7 @@ describe("hard rules (spec §3) on random inputs", () => {
         const input = build(spec);
         expect(optimize(input, seed, 200)).toEqual(optimize(input, seed, 200));
       }),
-      { numRuns: 15 },
+      { numRuns: 30 },
     );
   });
 });
@@ -153,11 +196,4 @@ describe("hard rules on the synthetic fixtures", () => {
       expectValid(input, r);
     });
   }
-
-  it("tiny-box: no layout, a best attempt with a shortfall", () => {
-    const input = fixtureInput("tiny-box");
-    const r = optimize(input, 1, 2000);
-    expect(r.layout).toBeNull();
-    expectValid(input, r);
-  });
 });
