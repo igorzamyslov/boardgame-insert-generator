@@ -10,10 +10,10 @@ import {
 } from "./constants";
 import { cutoutSides, pocketSides, reachU } from "./common";
 import { placeCutouts } from "./cutouts";
-import type { CutAsk, CutPlacement } from "./cutouts";
+import type { CutAsk, CutPlacement, PlacedCut } from "./cutouts";
 import type { RectMm } from "../model/slot-rules";
-import { chamferMinimumsU, minLayoutU, wallFor } from "./outer";
-import type { MinLayout } from "./outer";
+import { chamferMinimumsU, minLayoutU, requestedWalls, wallFor } from "./outer";
+import type { CutWalls, MinLayout } from "./outer";
 import { SlotFitError } from "./errors";
 import { doubled, placeSlots, rectMm, slotFootprint } from "./slots";
 import type { Rect2, SlotPlacement, SlotRequest } from "./slots";
@@ -347,7 +347,7 @@ function wallCutouts(
     min: MinLayout;
     settings: Settings;
   },
-): Map<Side, CutPlacement>[] {
+): { byOwner: Map<Side, CutPlacement>[]; placed: PlacedCut[] } {
   const { W, D, H, min, settings } = frame;
   const requests: CutAsk[] = items.flatMap(({ req }, owner) =>
     cutoutSides(req.features).map((side): CutAsk => {
@@ -378,8 +378,8 @@ function wallCutouts(
     notch: ceilU(settings.fingerPocket.floorNotch),
   });
   const byOwner = items.map(() => new Map<Side, CutPlacement>());
-  for (const { owner, side, ...cut } of placed) {
-    byOwner[owner]?.set(side, cut);
+  for (const { owner, side, at, width, depth, notch } of placed) {
+    byOwner[owner]?.set(side, { at, width, depth, notch });
   }
   const uncut = items.filter(
     (_, owner) => requests.some((q) => q.owner === owner) && byOwner[owner]?.size === 0,
@@ -396,7 +396,69 @@ function wallCutouts(
       contents,
     );
   }
-  return byOwner;
+  return { byOwner, placed };
+}
+
+/**
+ * The walls and dividers the placed cuts pass through (CutWalls), by the rows of `min` (the items
+ * are its rows, in order): the end wall or the front or back a cut leaves through or runs into a
+ * spare past (and the dividers between rows it crosses on the way), the divider between twins.
+ */
+function cutWallsOf(placed: readonly PlacedCut[], min: MinLayout): CutWalls {
+  const rows = min.rows;
+  const walls: CutWalls = {
+    left: rows.map(() => false),
+    right: rows.map(() => false),
+    front: false,
+    back: false,
+    dividers: rows.map((row) => row.map(() => false)),
+    rows: rows.slice(1).map(() => false),
+  };
+  const starts = rows.map((_, r) => sum(rows.slice(0, r).map((row) => row.length)));
+  const cross = (from: number, to: number): void => {
+    for (let r = from; r < to; r += 1) {
+      walls.rows[r] = true;
+    }
+  };
+  for (const cut of placed) {
+    const r = starts.filter((start) => start <= cut.owner).length - 1;
+    const i = cut.owner - (starts[r] ?? 0);
+    const row = walls.dividers[r] ?? [];
+    const through = cut.to !== "twin";
+    switch (cut.side) {
+      case "left":
+        if (through) {
+          walls.left[r] = true;
+        } else {
+          row[i - 1] = true;
+        }
+        break;
+      case "right":
+        if (through) {
+          walls.right[r] = true;
+        }
+        // Into its twin, or past the divider before a spare at the row end.
+        row[through ? row.length - 1 : i] = true;
+        break;
+      case "front":
+        if (through) {
+          walls.front = true;
+          cross(0, r);
+        } else {
+          cross(r - 1, r);
+        }
+        break;
+      case "back":
+        if (through) {
+          walls.back = true;
+          cross(r, rows.length - 1);
+        } else {
+          cross(r, r + 1);
+        }
+        break;
+    }
+  }
+  return walls;
 }
 
 /** The tray moved by dx, dy units: compartments, finger slot and cutout centres and spacers. */
@@ -421,15 +483,15 @@ function shifted(r: RealizedTray, dx: number, dy: number): RealizedTray {
 }
 
 /**
- * Realizes `part` in an outer of W × D × H units (at least `min`). Throws SlotFitError when its
- * finger slots do not fit.
+ * Realizes `part` in an outer of W × D × H units (at least `min`), with the walls and dividers its
+ * cuts pass through. Throws SlotFitError when its finger slots or cutouts do not fit.
  */
 function layoutAt(
   part: TrayPartReq,
   min: MinLayout,
   [W, D, H]: readonly [number, number, number],
   settings: Settings,
-): RealizedTray {
+): { tray: RealizedTray; walls: CutWalls } {
   const { wall, divider, floor, rows, room } = min;
   // The band realize reserves is the reach each pocket reports, rounded up to whole units.
   const reach = reachU(settings);
@@ -439,14 +501,16 @@ function layoutAt(
     0,
     floorU(Math.min(2 * settings.divider, WALL_GROW_LIMIT)) - divider,
   );
-  const spareMin = toU(MIN_SPARE) + divider;
   const innerW = W - 2 * wall;
   const innerD = D - 2 * wall;
 
   // Y: elastic rows → thicker walls/dividers → a spare row at the back → the rest to the walls.
   // The finger room of walls that wall cutouts leave through is taken first (minLayoutU).
   const rowDepths = min.rowDepths.slice();
-  let slackY = innerD - room.front - room.back - sum(rowDepths) - (rows.length - 1) * divider;
+  // Dividers between rows a finger cut passes through are thicker by the divider room too.
+  const rowGapAfter = (i: number): number => min.rowGaps[i] ?? divider;
+  const spareRowGap = rowGapAfter(rows.length - 1);
+  let slackY = innerD - room.front - room.back - sum(rowDepths) - sum(min.rowGaps.slice(0, -1));
   const elasticRows = rows.flatMap((row, i) => (row.some((c) => c.elastic.d) ? [i] : []));
   if (elasticRows.length > 0) {
     const shares = splitEven(slackY, elasticRows.length);
@@ -458,8 +522,8 @@ function layoutAt(
   const yExtra = fillCapped(slackY, [wallRoom, ...rows.slice(1).map(() => dividerRoom), wallRoom]);
   slackY -= sum(yExtra);
   let spareRowDepth = 0;
-  if (slackY >= spareMin) {
-    spareRowDepth = slackY - divider;
+  if (slackY >= toU(MIN_SPARE) + spareRowGap) {
+    spareRowDepth = slackY - spareRowGap;
     slackY = 0;
   }
   const rowYs: number[] = [];
@@ -468,7 +532,7 @@ function layoutAt(
     rowYs.push(y);
     y += rowDepths[i] ?? 0;
     if (i < rows.length - 1) {
-      y += divider + (yExtra[i + 1] ?? 0);
+      y += rowGapAfter(i) + (yExtra[i + 1] ?? 0);
     }
   });
   const rowsEnd = y;
@@ -537,7 +601,7 @@ function layoutAt(
   });
   if (spareRowDepth > 0) {
     const d = spareRowDepth + room.back;
-    spares.push([{ x: wall, y: rowsEnd + divider, w: innerW, d }, "y"]);
+    spares.push([{ x: wall, y: rowsEnd + spareRowGap, w: innerW, d }, "y"]);
   }
 
   const { items, requests, placements } = fingerSlots(placed, {
@@ -565,7 +629,7 @@ function layoutAt(
     const clear = clearOfSlots(rect, axis, footprints);
     return clear === null ? [] : [clear];
   });
-  const cuts = wallCutouts(items, spareRects, footprints, {
+  const { byOwner: cuts, placed: cutsPlaced } = wallCutouts(items, spareRects, footprints, {
     trayKey: part.trayKey,
     W,
     D,
@@ -607,7 +671,8 @@ function layoutAt(
     });
   }
   // The base (unlipped) wall, rounded up to 0.01 mm like every other TraySpec length.
-  return { wall: fromU(ceilU(wallFor(settings, false))), compartments, spacers };
+  const tray = { wall: fromU(ceilU(wallFor(settings, false))), compartments, spacers };
+  return { tray, walls: cutWallsOf(cutsPlaced, min) };
 }
 
 /** The footprint (units) at which a part's finger slots fit (slotFootprintU). */
@@ -671,10 +736,39 @@ function slotFootprintU(
   if (cached !== undefined) {
     return cached;
   }
-  const min = minLayoutU(part, settings, opts);
-  const found = searchFootprint(part, min, settings);
+  const found = settleRoom(part, settings, opts);
   byOpts.set(key, found);
   return found;
+}
+
+/** Rounds of settleRoom before it gives up: the cuts' walls settle in one or two. */
+const ROOM_ROUNDS = 4;
+
+/**
+ * The footprint (searchFootprint) of the minimum layout whose finger room lies on the walls and
+ * dividers its cuts actually pass through (spec §6.1): first where they are asked for
+ * (requestedWalls), then, while they differ, where the layout at the footprint places them. A cut
+ * on the other axis (placeCutouts' second try) gets the room, a side asked for but left without a
+ * cut does not.
+ */
+function settleRoom(part: TrayPartReq, settings: Settings, opts: RealizeOptions): SlotFootprint {
+  const roomless = settings.fingerPocket.wallRoom <= 0 && settings.fingerPocket.dividerRoom <= 0;
+  let walls = requestedWalls(part);
+  for (let round = 1; ; round += 1) {
+    const min = minLayoutU(part, settings, opts, walls);
+    const found = searchFootprint(part, min, settings);
+    if (found.error !== null || roomless) {
+      return found;
+    }
+    const placed = layoutAt(part, min, [found.w, found.d, min.h], settings).walls;
+    if (JSON.stringify(placed) === JSON.stringify(walls)) {
+      return found;
+    }
+    if (round >= ROOM_ROUNDS) {
+      throw new Error(`internal: Tray ${part.trayKey}: the finger room does not settle`);
+    }
+    walls = placed;
+  }
 }
 
 function searchFootprint(part: TrayPartReq, min: MinLayout, settings: Settings): SlotFootprint {
@@ -757,12 +851,12 @@ export function realizeTray(
     );
   }
   try {
-    return layoutAt(part, min, [W, D, H], settings);
+    return layoutAt(part, min, [W, D, H], settings).tray;
   } catch (error) {
     if (!(error instanceof SlotFitError) || (W === fp.w && D === fp.d)) {
       throw error;
     }
   }
-  const centred = layoutAt(part, min, [fp.w, fp.d, H], settings);
+  const centred = layoutAt(part, min, [fp.w, fp.d, H], settings).tray;
   return shifted(centred, Math.floor((W - fp.w) / 2), Math.floor((D - fp.d) / 2));
 }

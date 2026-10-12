@@ -27,6 +27,7 @@ export interface CutPlacement {
 export interface PlacedCut extends CutPlacement {
   owner: number;
   side: Side;
+  to: "exit" | "spare" | "twin"; // out through the outer wall, into a spare, or into its twin
 }
 
 export interface CutContext {
@@ -254,7 +255,8 @@ function placeRuns(
       }
       depth = Math.min(depth, ownDepth);
       if (depth >= 1) {
-        cuts.push({ owner: q.owner, side: q.side, at, width: 2 * half, depth, notch });
+        const to = across[k]?.kind ?? "exit";
+        cuts.push({ owner: q.owner, side: q.side, to, at, width: 2 * half, depth, notch });
       }
     }
   }

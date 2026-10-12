@@ -41,10 +41,24 @@ export function rowsOf<T>(arrangement: TrayPartReq["arrangement"], items: readon
 }
 
 /**
- * The finger room (fingerPocket.wallRoom, units) the outer walls get where a wall cutout leaves
- * through them (spec §6.1): per row on the left and right (the row's first and last compartment
- * ask for a cutout there), and on the front (row 0) and the back (the last row). The walls grow
- * inward, so the tray is that much longer on those axes.
+ * The walls and dividers the tray's wall cutouts pass through (placeCutouts), which get finger
+ * room: per row its left and right end walls, the front and back walls, per row the divider after
+ * each compartment (the last: before a spare at the row end, which the row's right cut runs into),
+ * and the dividers between rows.
+ */
+export interface CutWalls {
+  left: boolean[];
+  right: boolean[];
+  front: boolean;
+  back: boolean;
+  dividers: boolean[][];
+  rows: boolean[];
+}
+
+/**
+ * The finger room (fingerPocket.wallRoom, units) of the outer walls a wall cutout passes through
+ * (spec §6.1): per row on the left and right, and on the front and back. The walls grow inward, so
+ * the tray is that much longer on those axes.
  */
 export interface CutRoom {
   left: number[];
@@ -63,8 +77,10 @@ export interface MinLayout {
   rows: CompartmentReq[][]; // rowsOf(part.arrangement, part.compartments)
   widths: number[][]; // per row: each compartment's minW
   // per row: the divider after each compartment but the last, and before a spare at the row end;
-  // dividers a finger cut passes through get fingerPocket.dividerRoom more (cutDividers)
+  // dividers a finger cut passes through get fingerPocket.dividerRoom more (CutWalls)
   gaps: number[][];
+  // the dividers after each row but the last, and before a spare row at the back; likewise
+  rowGaps: number[];
   rowDepths: number[]; // per row: the deepest compartment's minD
   innerW: number;
   innerD: number;
@@ -82,37 +98,39 @@ function cutsOn(c: CompartmentReq | undefined, side: Side): boolean {
 }
 
 /**
- * The dividers of each row, in units: `divider`, plus fingerPocket.dividerRoom where a finger cut
- * passes through (the compartments on both sides ask for a cutout on that divider). The last entry
- * of a row is the divider before a spare at the row end, which the row's last cutout runs into.
+ * The walls and dividers the requested cuts would pass through: the first guess, which realize
+ * corrects to the cuts it places (slotFootprintU). A row's end walls where its first and last
+ * compartment ask for a cut there, the front and back where the first and last row do, a divider
+ * where the compartments on both sides ask for a cut on it.
  */
-function cutDividers(
-  rows: readonly CompartmentReq[][],
-  divider: number,
-  settings: Settings,
-): number[][] {
-  const room = ceilU(settings.fingerPocket.dividerRoom);
-  return rows.map((row) =>
-    row.map((c, i) => {
-      const next = row[i + 1];
-      const crossed = cutsOn(c, "right") && (next === undefined || cutsOn(next, "left"));
-      return divider + (crossed ? room : 0);
-    }),
-  );
-}
-
-function cutRoom(rows: readonly CompartmentReq[][], settings: Settings): CutRoom {
-  const room = ceilU(settings.fingerPocket.wallRoom);
-  const on = (yes: boolean): number => (yes ? room : 0);
+export function requestedWalls(part: TrayPartReq): CutWalls {
+  const rows = rowsOf(part.arrangement, part.compartments);
   return {
-    left: rows.map((row) => on(cutsOn(row[0], "left"))),
-    right: rows.map((row) => on(cutsOn(row[row.length - 1], "right"))),
-    front: on((rows[0] ?? []).some((c) => cutsOn(c, "front"))),
-    back: on((rows[rows.length - 1] ?? []).some((c) => cutsOn(c, "back"))),
+    left: rows.map((row) => cutsOn(row[0], "left")),
+    right: rows.map((row) => cutsOn(row[row.length - 1], "right")),
+    front: (rows[0] ?? []).some((c) => cutsOn(c, "front")),
+    back: (rows[rows.length - 1] ?? []).some((c) => cutsOn(c, "back")),
+    dividers: rows.map((row) =>
+      row.map((c, i) => {
+        const next = row[i + 1];
+        return cutsOn(c, "right") && (next === undefined || cutsOn(next, "left"));
+      }),
+    ),
+    rows: rows.slice(1).map(() => false),
   };
 }
 
-export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeOptions): MinLayout {
+/**
+ * The minimum layout with finger room on the walls and dividers `walls` names (the cuts realize
+ * places there; requestedWalls by default): fingerPocket.wallRoom on those outer walls,
+ * fingerPocket.dividerRoom on those dividers.
+ */
+export function minLayoutU(
+  part: TrayPartReq,
+  settings: Settings,
+  opts: RealizeOptions,
+  walls: CutWalls = requestedWalls(part),
+): MinLayout {
   if (part.compartments.length === 0) {
     throw new RangeError(`Tray part ${part.trayKey} has no compartments`);
   }
@@ -125,8 +143,21 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
   const pocketU = ceilU(settings.fingerPocket.width);
   const pocketWidth = pocketU + (pocketU % 2);
   const rows = rowsOf(part.arrangement, part.compartments);
-  const room = cutRoom(rows, settings);
-  const gaps = cutDividers(rows, divider, settings);
+  const wallRoom = ceilU(settings.fingerPocket.wallRoom);
+  const dividerRoom = ceilU(settings.fingerPocket.dividerRoom);
+  const on = (yes: boolean | undefined, room: number): number => (yes === true ? room : 0);
+  const room: CutRoom = {
+    left: rows.map((_, r) => on(walls.left[r], wallRoom)),
+    right: rows.map((_, r) => on(walls.right[r], wallRoom)),
+    front: on(walls.front, wallRoom),
+    back: on(walls.back, wallRoom),
+  };
+  const gaps = rows.map((row, r) =>
+    row.map((_, i) => divider + on(walls.dividers[r]?.[i], dividerRoom)),
+  );
+  const rowGaps = rows.map(
+    (_, r) => divider + on(r < rows.length - 1 ? walls.rows[r] : walls.back, dividerRoom),
+  );
   const widths = rows.map((row) => row.map((c) => ceilU(c.minW)));
   const between = (r: number): number => sum((gaps[r] ?? []).slice(0, -1));
   const rowWidths = widths.map(
@@ -135,7 +166,7 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
   const rowDepths = rows.map((row) => maxOf(row.map((c) => ceilU(c.minD))));
   const innerW = Math.max(maxOf(rowWidths), hasPocketOn(part, ["front", "back"]) ? pocketWidth : 0);
   const innerD = Math.max(
-    sum(rowDepths) + (rows.length - 1) * divider + room.front + room.back,
+    sum(rowDepths) + sum(rowGaps.slice(0, -1)) + room.front + room.back,
     hasPocketOn(part, ["left", "right"]) ? pocketWidth : 0,
   );
   const content = floor + maxOf(part.compartments.map((c) => ceilU(c.minH)));
@@ -156,6 +187,7 @@ export function minLayoutU(part: TrayPartReq, settings: Settings, opts: RealizeO
     rows,
     widths,
     gaps,
+    rowGaps,
     rowDepths,
     innerW,
     innerD,

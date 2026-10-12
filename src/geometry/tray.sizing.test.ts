@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, SPEC_TOLERANCE, applyFingerRoom } from "../model/sett
 import type { Settings, TraySpec } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
-import { partOf, tiles } from "../sizing/test-helpers";
+import { at, bulk, cards, partOf, tiles } from "../sizing/test-helpers";
 import { loadManifold } from "./load";
 import { checkPrintability } from "./printability";
 import { bounds, signedVolume, topology } from "./test-mesh";
@@ -188,6 +188,40 @@ describe("buildTray at the thinnest wall and largest chamfer", () => {
     const realized = realizeTray(part, outer, settings, opts);
     const spec = traySpecFrom(realized, outer, opts, settings, part.trayKey);
     expect(problemsOf(m, spec, settings)).toEqual([]);
+  });
+});
+
+describe("buildTray with finger room on a cut across the row", () => {
+  it("builds a deck kept between bulk compartments, cut through its thicker front and back", () => {
+    // A hand-built part: the deck gets no cut along its row, so it is cut through the front and
+    // back walls, which take the 10 mm of finger room.
+    const settings = applyFingerRoom(DEFAULT_SETTINGS, true);
+    const pile = (id: string) =>
+      bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
+    const deck = cards({
+      groupId: "g",
+      shortSide: 63,
+      longSide: 88,
+      decks: [{ name: "D", count: 30 }],
+    });
+    const sorted = partOf(
+      [pile("b1"), deck, pile("b2")],
+      "shallow+upright-long+shallow|strip|split1",
+      settings,
+    );
+    const part = { ...sorted, compartments: [1, 0, 2].map((i) => at(sorted.compartments, i)) };
+    for (const opts of SWEEP_OPTIONS) {
+      const outer = minOuter(part, settings, opts);
+      const realized = realizeTray(part, outer, settings, opts);
+      const spec = traySpecFrom(realized, outer, opts, settings, part.trayKey);
+      const well = at(spec.compartments, 1);
+      expect(
+        well.features
+          .filter((f) => f.type === "wallCutout")
+          .map((f) => f.type === "wallCutout" && f.side),
+      ).toEqual(["front", "back"]);
+      expect(problemsOf(m, spec, settings), JSON.stringify(opts)).toEqual([]);
+    }
   });
 });
 

@@ -333,6 +333,55 @@ describe("cut sides beside a rounded outer corner", () => {
   );
 });
 
+describe("finger room where the cuts actually go", () => {
+  // A deck kept between two bulk compartments (a hand-built part): no cut along its row, so it is
+  // cut through the front and back walls instead (placeCutouts' second try).
+  const pile = (id: string) => bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
+  const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(30) });
+  const sorted = partOf(
+    [pile("b1"), deck, pile("b2")],
+    "shallow+upright-long+shallow|strip|split1",
+  );
+  const between = { ...sorted, compartments: [1, 0, 2].map((i) => at(sorted.compartments, i)) };
+
+  it("thickens the front and back walls a cut on the other axis leaves through", () => {
+    const plain = minOuter(between, s, ground);
+    // 10 mm on each of the two walls: 20 mm deeper, no wider.
+    expect(minOuter(between, roomy, ground)).toEqual({ ...plain, d: plain.d + 20 });
+    const r = realize(between, roomy);
+    const well = at(r.compartments, 1);
+    expect(well.y).toBe(at(realize(between).compartments, 1).y + 10);
+    expect(cutsOf(well).map((f) => f.type === "wallCutout" && f.side)).toEqual(["front", "back"]);
+  });
+
+  it("leaves the sides it asked for but got no cut on thin", () => {
+    // The dividers beside the deck carry no cut: 1.2 mm, as without finger room.
+    const r = realize(between, roomy);
+    const b1 = at(r.compartments, 0);
+    const well = at(r.compartments, 1);
+    const b2 = at(r.compartments, 2);
+    expect(Math.round((well.x - b1.x - b1.w) * 100) / 100).toBe(1.2);
+    expect(Math.round((b2.x - well.x - well.w) * 100) / 100).toBe(1.2);
+    // Nor does the left wall, which no cut leaves through.
+    expect(b1.x).toBe(1.6);
+  });
+
+  it("thickens the divider between rows that twin cuts cross", () => {
+    // Two rows of 30 × 15 mm tiles laid flat, cut through the front and back: row 0's back cut and
+    // row 1's front cut are twins through the divider between the rows.
+    const part = partOf(
+      [tiles({ shape: { type: "rect", w: 30, d: 15 }, thickness: 2, count: 40, storage: "flat" })],
+      "flat-c2|rows2|split1",
+    );
+    const dividersOnly = { ...s, fingerPocket: { ...s.fingerPocket, dividerRoom: 5 } };
+    expect(minOuter(part, dividersOnly, ground).d).toBeCloseTo(minOuter(part, s, ground).d + 5, 9);
+    const r = realize(part, dividersOnly);
+    const row0 = at(r.compartments, 0);
+    const row1 = at(r.compartments, 1);
+    expect(Math.round((row1.y - row0.y - row0.d) * 100) / 100).toBe(6.2);
+  });
+});
+
 describe("no wall left for a cutout", () => {
   it("leaves out a well too small for a cut clear of the rounded outer corners, with a warning", () => {
     // A 1 mm tile at a 0.9 mm wall and chamfer: its well, centred in the 3.4 mm the chamfer needs,

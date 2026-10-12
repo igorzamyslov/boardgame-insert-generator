@@ -452,9 +452,11 @@ it). Wells need no extra room (no reach bands): they are content + clearance.
   that axis), so the cut gives a finger room even when the tray sits flush
   against its neighbours, and every divider a cut passes through (between
   upright decks or tile stacks on the channel, between flat decks or tiles with
-  long-wall cutouts, before a spare a cut runs into) is `dividerRoom` thicker.
-  Walls and dividers without a cut are unchanged; a spare at the end of a row
-  takes the wall room instead.
+  long-wall cutouts, between rows that aligned flat tiles are cut across, before
+  a spare a cut runs into) is `dividerRoom` thicker. That holds for wherever
+  the cuts actually go, a well cut across its row instead included; walls and
+  dividers without a cut, also where a cut was asked for but none fits, are
+  unchanged; a spare at the end of a row takes the wall room instead.
 - **Fillets:** the vertical edges where a cutout's sides meet a wall or
   divider face (inside the well and on the outer face, and the spacer notch's)
   are rounded with 1.5 mm (`FINGER_FILLET_MM`), less where the wall or divider
