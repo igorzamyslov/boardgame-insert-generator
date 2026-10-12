@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createCtx, INF_U, withSizeLocks, type Ctx } from "./context";
-import { stackAbsorb, stackHeights, stackLevels, stackLockCap, stackMinFootprint } from "./stack";
+import {
+  stackAbsorb,
+  stackAllowed,
+  stackHeights,
+  stackLevels,
+  stackLockCap,
+  stackMinFootprint,
+} from "./stack";
 import { boxReq, fakeMeasure, item, makeInput } from "./test-utils";
 
 function ctxFor(box: { innerHeight?: number; headroom?: number } = {}): Ctx {
@@ -93,5 +100,38 @@ describe("stack feasibility", () => {
     const h = stackHeights(ctx, levels);
     expect(h.h[0]).toBe(3000);
     expect(h.h[1]).toBe(ctx.topPlane - 3000);
+  });
+});
+
+describe("stackAllowed", () => {
+  // fakeMeasure: 119 mm plain, 121 mm lipped, on a 120 mm usable bed.
+  const reqs = [boxReq("wide", 115, 40, 10), boxReq("small", 40, 30, 10)];
+  const make = (lip: boolean) =>
+    createCtx(
+      makeInput(reqs, {
+        printer: { bedX: 130, bedY: 130 },
+        settings: { lip: { enabled: lip, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 } },
+      }),
+      fakeMeasure,
+    );
+
+  it("allows a single tray whatever its size and refuses a stack that outgrows the bed", () => {
+    const ctx = make(true);
+    expect(stackAllowed(ctx, [item(0)])).toBe(true);
+    expect(stackAllowed(ctx, [item(0), item(1)])).toBe(false); // lipped wall: 121 mm
+    expect(stackAllowed(ctx, [item(1), item(0)])).toBe(false); // inset footprint: 121.9 mm
+    expect(stackAllowed(ctx, [item(1), item(1)])).toBe(true);
+  });
+
+  it("judges the footprint in either bed orientation", () => {
+    // rotated: the 119 mm side runs along Y; the 120 x 120 bed is square, so still too big
+    expect(stackAllowed(make(true), [item(0, true), item(1)])).toBe(false);
+  });
+
+  it("lets a part stack under a thin lip-less stack that still fits", () => {
+    const off = make(false);
+    // lip off: no lipped wall, only the inset of the upper tray (small, 44 mm): fits
+    expect(stackAllowed(off, [item(0), item(1)])).toBe(true);
+    expect(stackAllowed(off, [item(1), item(0)])).toBe(false); // 119 + 2.9 mm as an upper tray
   });
 });

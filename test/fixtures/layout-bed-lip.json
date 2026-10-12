@@ -1,0 +1,1373 @@
+{
+  "case0": {
+    "requirements": [
+      {
+        "key": "r0",
+        "componentIds": ["r0"],
+        "access": "setup",
+        "loose": true,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r0:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r0c0",
+                    "kind": "well",
+                    "minW": 57,
+                    "minD": 66,
+                    "minH": 13,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r0c1",
+                    "kind": "well",
+                    "minW": 21,
+                    "minD": 38,
+                    "minH": 13,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r0c2",
+                    "kind": "well",
+                    "minW": 56,
+                    "minD": 99,
+                    "minH": 28,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          },
+          {
+            "id": "split",
+            "parts": [
+              {
+                "trayKey": "r0:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r0c0",
+                    "kind": "well",
+                    "minW": 57,
+                    "minD": 66,
+                    "minH": 13,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              },
+              {
+                "trayKey": "r0:p0:1",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r0c1",
+                    "kind": "well",
+                    "minW": 21,
+                    "minD": 38,
+                    "minH": 13,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              },
+              {
+                "trayKey": "r0:p0:2",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r0c2",
+                    "kind": "well",
+                    "minW": 56,
+                    "minD": 99,
+                    "minH": 28,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r1",
+        "componentIds": ["r1"],
+        "access": "setup",
+        "loose": false,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r1:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r1c0",
+                    "kind": "well",
+                    "minW": 87,
+                    "minD": 85,
+                    "minH": 26,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r1c1",
+                    "kind": "well",
+                    "minW": 67,
+                    "minD": 52,
+                    "minH": 29,
+                    "elastic": { "w": false, "d": false, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          },
+          {
+            "id": "split",
+            "parts": [
+              {
+                "trayKey": "r1:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r1c0",
+                    "kind": "well",
+                    "minW": 87,
+                    "minD": 85,
+                    "minH": 26,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              },
+              {
+                "trayKey": "r1:p0:1",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r1c1",
+                    "kind": "well",
+                    "minW": 67,
+                    "minD": 52,
+                    "minH": 29,
+                    "elastic": { "w": false, "d": false, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r2",
+        "componentIds": ["r2"],
+        "access": "often",
+        "loose": true,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r2:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r2c0",
+                    "kind": "well",
+                    "minW": 83,
+                    "minD": 77,
+                    "minH": 8,
+                    "elastic": { "w": true, "d": true, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r2c1",
+                    "kind": "well",
+                    "minW": 41,
+                    "minD": 77,
+                    "minH": 6,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r2c2",
+                    "kind": "well",
+                    "minW": 80,
+                    "minD": 109,
+                    "minH": 15,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r3",
+        "componentIds": ["r3"],
+        "access": "sometimes",
+        "loose": false,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r3:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r3c0",
+                    "kind": "well",
+                    "minW": 85,
+                    "minD": 21,
+                    "minH": 37,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r3c1",
+                    "kind": "well",
+                    "minW": 107,
+                    "minD": 26,
+                    "minH": 23,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": []
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r3c2",
+                    "kind": "well",
+                    "minW": 82,
+                    "minD": 75,
+                    "minH": 14,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": []
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          },
+          {
+            "id": "split",
+            "parts": [
+              {
+                "trayKey": "r3:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r3c0",
+                    "kind": "well",
+                    "minW": 85,
+                    "minD": 21,
+                    "minH": 37,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              },
+              {
+                "trayKey": "r3:p0:1",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r3c1",
+                    "kind": "well",
+                    "minW": 107,
+                    "minD": 26,
+                    "minH": 23,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": []
+                  }
+                ],
+                "rotatable": true
+              },
+              {
+                "trayKey": "r3:p0:2",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r3c2",
+                    "kind": "well",
+                    "minW": 82,
+                    "minD": 75,
+                    "minH": 14,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": []
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r4",
+        "componentIds": ["r4"],
+        "access": "often",
+        "loose": false,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r4:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r4c0",
+                    "kind": "well",
+                    "minW": 29,
+                    "minD": 44,
+                    "minH": 34,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": []
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r5",
+        "componentIds": ["r5"],
+        "access": "sometimes",
+        "loose": true,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r5:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r5c0",
+                    "kind": "well",
+                    "minW": 84,
+                    "minD": 30,
+                    "minH": 9,
+                    "elastic": { "w": true, "d": false, "h": false },
+                    "features": []
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r5c1",
+                    "kind": "well",
+                    "minW": 109,
+                    "minD": 64,
+                    "minH": 37,
+                    "elastic": { "w": true, "d": false, "h": false },
+                    "features": []
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "box": {
+      "innerWidth": 300,
+      "innerDepth": 206,
+      "innerHeight": 118,
+      "headroom": 5,
+      "headroomCoverage": "partial",
+      "storedOnSide": false
+    },
+    "printer": { "bedX": 220, "bedY": 220, "bedZ": 256, "bedMargin": 5, "layerHeight": 0.2 },
+    "settings": {
+      "wall": 1.6,
+      "floor": 1.2,
+      "divider": 1.2,
+      "fit": 1,
+      "cardClearance": 1.5,
+      "cardStackClearance": 1,
+      "cardStackClearancePct": 0.03,
+      "cardThickness": 0.32,
+      "pieceClearance": 1,
+      "boxClearance": 0.5,
+      "trayGap": 0.2,
+      "bottomChamfer": 0.4,
+      "cornerRadius": 3,
+      "scoopRadius": 12,
+      "fingerPocket": { "width": 25, "floorNotch": 12.5, "wallRoom": 0, "dividerRoom": 0 },
+      "lip": { "enabled": true, "height": 2, "thickness": 1.2, "ledge": 1.7, "play": 0.25 },
+      "topPressFit": 0,
+      "packingFactor": 0.5,
+      "leftover": "solid"
+    },
+    "locks": [],
+    "inputsHash": "test-hash",
+    "appVersion": "0.0.0-test"
+  },
+  "case1": {
+    "requirements": [
+      {
+        "key": "r0",
+        "componentIds": ["r0"],
+        "access": "often",
+        "loose": false,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r0:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r0c0",
+                    "kind": "well",
+                    "minW": 49,
+                    "minD": 50,
+                    "minH": 28,
+                    "elastic": { "w": false, "d": true, "h": false },
+                    "features": []
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r0c1",
+                    "kind": "well",
+                    "minW": 56,
+                    "minD": 74,
+                    "minH": 39,
+                    "elastic": { "w": false, "d": false, "h": true },
+                    "features": []
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r0c2",
+                    "kind": "well",
+                    "minW": 99,
+                    "minD": 38,
+                    "minH": 26,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": []
+                  }
+                ],
+                "rotatable": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r1",
+        "componentIds": ["r1"],
+        "access": "often",
+        "loose": true,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r1:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r1c0",
+                    "kind": "well",
+                    "minW": 38,
+                    "minD": 54,
+                    "minH": 34,
+                    "elastic": { "w": true, "d": true, "h": true },
+                    "features": []
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r1c1",
+                    "kind": "well",
+                    "minW": 72,
+                    "minD": 72,
+                    "minH": 41,
+                    "elastic": { "w": false, "d": false, "h": false },
+                    "features": []
+                  }
+                ],
+                "rotatable": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r2",
+        "componentIds": ["r2"],
+        "access": "setup",
+        "loose": false,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r2:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r2c0",
+                    "kind": "well",
+                    "minW": 21,
+                    "minD": 40,
+                    "minH": 26,
+                    "elastic": { "w": true, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r2c1",
+                    "kind": "well",
+                    "minW": 53,
+                    "minD": 48,
+                    "minH": 37,
+                    "elastic": { "w": true, "d": false, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": false
+              }
+            ]
+          },
+          {
+            "id": "split",
+            "parts": [
+              {
+                "trayKey": "r2:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r2c0",
+                    "kind": "well",
+                    "minW": 21,
+                    "minD": 40,
+                    "minH": 26,
+                    "elastic": { "w": true, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": false
+              },
+              {
+                "trayKey": "r2:p0:1",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r2c1",
+                    "kind": "well",
+                    "minW": 53,
+                    "minD": 48,
+                    "minH": 37,
+                    "elastic": { "w": true, "d": false, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r3",
+        "componentIds": ["r3"],
+        "access": "often",
+        "loose": false,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r3:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r3c0",
+                    "kind": "well",
+                    "minW": 103,
+                    "minD": 56,
+                    "minH": 14,
+                    "elastic": { "w": false, "d": false, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r3c1",
+                    "kind": "well",
+                    "minW": 37,
+                    "minD": 96,
+                    "minH": 27,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r3c2",
+                    "kind": "well",
+                    "minW": 55,
+                    "minD": 53,
+                    "minH": 7,
+                    "elastic": { "w": true, "d": true, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": false
+              }
+            ]
+          },
+          {
+            "id": "split",
+            "parts": [
+              {
+                "trayKey": "r3:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r3c0",
+                    "kind": "well",
+                    "minW": 103,
+                    "minD": 56,
+                    "minH": 14,
+                    "elastic": { "w": false, "d": false, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": false
+              },
+              {
+                "trayKey": "r3:p0:1",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r3c1",
+                    "kind": "well",
+                    "minW": 37,
+                    "minD": 96,
+                    "minH": 27,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": false
+              },
+              {
+                "trayKey": "r3:p0:2",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r3c2",
+                    "kind": "well",
+                    "minW": 55,
+                    "minD": 53,
+                    "minH": 7,
+                    "elastic": { "w": true, "d": true, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r4",
+        "componentIds": ["r4"],
+        "access": "sometimes",
+        "loose": false,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r4:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r4c0",
+                    "kind": "well",
+                    "minW": 101,
+                    "minD": 42,
+                    "minH": 23,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": []
+                  }
+                ],
+                "rotatable": false
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "box": {
+      "innerWidth": 216,
+      "innerDepth": 183,
+      "innerHeight": 119,
+      "headroom": 2,
+      "headroomCoverage": "full",
+      "storedOnSide": false
+    },
+    "printer": { "bedX": 220, "bedY": 220, "bedZ": 256, "bedMargin": 5, "layerHeight": 0.2 },
+    "settings": {
+      "wall": 1.6,
+      "floor": 1.2,
+      "divider": 1.2,
+      "fit": 1.4,
+      "cardClearance": 1.5,
+      "cardStackClearance": 1,
+      "cardStackClearancePct": 0.03,
+      "cardThickness": 0.32,
+      "pieceClearance": 1,
+      "boxClearance": 0.5,
+      "trayGap": 0.2,
+      "bottomChamfer": 0.4,
+      "cornerRadius": 3,
+      "scoopRadius": 12,
+      "fingerPocket": { "width": 25, "floorNotch": 12.5, "wallRoom": 0, "dividerRoom": 0 },
+      "lip": { "enabled": true, "height": 2, "thickness": 1.2, "ledge": 1.7, "play": 0.25 },
+      "topPressFit": 0,
+      "packingFactor": 0.5,
+      "leftover": "spare"
+    },
+    "locks": [],
+    "inputsHash": "test-hash",
+    "appVersion": "0.0.0-test"
+  },
+  "case3": {
+    "requirements": [
+      {
+        "key": "r0",
+        "componentIds": ["r0"],
+        "access": "often",
+        "loose": false,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r0:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r0c0",
+                    "kind": "well",
+                    "minW": 75,
+                    "minD": 81,
+                    "minH": 17,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r0c1",
+                    "kind": "well",
+                    "minW": 90,
+                    "minD": 90,
+                    "minH": 12,
+                    "elastic": { "w": false, "d": true, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r0c2",
+                    "kind": "well",
+                    "minW": 26,
+                    "minD": 102,
+                    "minH": 29,
+                    "elastic": { "w": true, "d": true, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r1",
+        "componentIds": ["r1"],
+        "access": "sometimes",
+        "loose": true,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r1:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r1c0",
+                    "kind": "well",
+                    "minW": 60,
+                    "minD": 108,
+                    "minH": 13,
+                    "elastic": { "w": false, "d": true, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r2",
+        "componentIds": ["r2"],
+        "access": "sometimes",
+        "loose": true,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r2:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r2c0",
+                    "kind": "well",
+                    "minW": 52,
+                    "minD": 79,
+                    "minH": 34,
+                    "elastic": { "w": false, "d": false, "h": false },
+                    "features": []
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r2c1",
+                    "kind": "well",
+                    "minW": 20,
+                    "minD": 40,
+                    "minH": 12,
+                    "elastic": { "w": false, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r2c2",
+                    "kind": "well",
+                    "minW": 67,
+                    "minD": 66,
+                    "minH": 30,
+                    "elastic": { "w": false, "d": true, "h": false },
+                    "features": []
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          },
+          {
+            "id": "split",
+            "parts": [
+              {
+                "trayKey": "r2:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r2c0",
+                    "kind": "well",
+                    "minW": 52,
+                    "minD": 79,
+                    "minH": 34,
+                    "elastic": { "w": false, "d": false, "h": false },
+                    "features": []
+                  }
+                ],
+                "rotatable": true
+              },
+              {
+                "trayKey": "r2:p0:1",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r2c1",
+                    "kind": "well",
+                    "minW": 20,
+                    "minD": 40,
+                    "minH": 12,
+                    "elastic": { "w": false, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              },
+              {
+                "trayKey": "r2:p0:2",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r2c2",
+                    "kind": "well",
+                    "minW": 67,
+                    "minD": 66,
+                    "minH": 30,
+                    "elastic": { "w": false, "d": true, "h": false },
+                    "features": []
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r3",
+        "componentIds": ["r3"],
+        "access": "sometimes",
+        "loose": true,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r3:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r3c0",
+                    "kind": "well",
+                    "minW": 68,
+                    "minD": 58,
+                    "minH": 43,
+                    "elastic": { "w": false, "d": false, "h": true },
+                    "features": []
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r3c1",
+                    "kind": "well",
+                    "minW": 70,
+                    "minD": 71,
+                    "minH": 19,
+                    "elastic": { "w": true, "d": true, "h": true },
+                    "features": []
+                  }
+                ],
+                "rotatable": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r4",
+        "componentIds": ["r4"],
+        "access": "often",
+        "loose": false,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r4:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r4c0",
+                    "kind": "well",
+                    "minW": 108,
+                    "minD": 60,
+                    "minH": 21,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r4c1",
+                    "kind": "well",
+                    "minW": 38,
+                    "minD": 92,
+                    "minH": 24,
+                    "elastic": { "w": true, "d": false, "h": true },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  },
+                  {
+                    "componentId": "c",
+                    "contents": "r4c2",
+                    "kind": "well",
+                    "minW": 94,
+                    "minD": 34,
+                    "minH": 25,
+                    "elastic": { "w": true, "d": true, "h": false },
+                    "features": [
+                      {
+                        "type": "wallCutout",
+                        "side": "front",
+                        "depthFraction": 0.5,
+                        "floorNotch": false
+                      }
+                    ]
+                  }
+                ],
+                "rotatable": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "r5",
+        "componentIds": ["r5"],
+        "access": "often",
+        "loose": true,
+        "variants": [
+          {
+            "id": "one",
+            "parts": [
+              {
+                "trayKey": "r5:p0:0",
+                "arrangement": "strip",
+                "compartments": [
+                  {
+                    "componentId": "c",
+                    "contents": "r5c0",
+                    "kind": "well",
+                    "minW": 62,
+                    "minD": 66,
+                    "minH": 17,
+                    "elastic": { "w": true, "d": true, "h": false },
+                    "features": []
+                  }
+                ],
+                "rotatable": false
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "box": {
+      "innerWidth": 413,
+      "innerDepth": 184,
+      "innerHeight": 60,
+      "headroom": 2,
+      "headroomCoverage": "full",
+      "storedOnSide": false
+    },
+    "printer": { "bedX": 256, "bedY": 256, "bedZ": 256, "bedMargin": 5, "layerHeight": 0.2 },
+    "settings": {
+      "wall": 1.6,
+      "floor": 1.2,
+      "divider": 1.2,
+      "fit": 0.7,
+      "cardClearance": 1.5,
+      "cardStackClearance": 1,
+      "cardStackClearancePct": 0.03,
+      "cardThickness": 0.32,
+      "pieceClearance": 1,
+      "boxClearance": 0.5,
+      "trayGap": 0.2,
+      "bottomChamfer": 0.4,
+      "cornerRadius": 3,
+      "scoopRadius": 12,
+      "fingerPocket": { "width": 25, "floorNotch": 12.5, "wallRoom": 0, "dividerRoom": 0 },
+      "lip": { "enabled": true, "height": 2, "thickness": 1.2, "ledge": 1.7, "play": 0.25 },
+      "topPressFit": 0,
+      "packingFactor": 0.5,
+      "leftover": "spare"
+    },
+    "locks": [],
+    "inputsHash": "test-hash",
+    "appVersion": "0.0.0-test"
+  }
+}

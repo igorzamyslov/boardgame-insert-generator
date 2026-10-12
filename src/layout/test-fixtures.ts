@@ -2,6 +2,7 @@
 import { inputsHash } from "../model/hash";
 import { parseProject } from "../model/schema";
 import { size } from "../sizing";
+import bedLip from "../../test/fixtures/layout-bed-lip.json";
 import bitsHeavy from "../../test/fixtures/bits-heavy.json";
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import smallTiles from "../../test/fixtures/small-tiles.json";
@@ -35,4 +36,15 @@ export function fixtureInput(name: FixtureName): LayoutInput {
     inputsHash: inputsHash(p),
     appVersion: "0.0.0-test",
   };
+}
+
+/**
+ * Captured random inputs where a part fits the print bed plain but not with the lip's thicker
+ * walls, so it cannot carry a tray above it (case0, case3: genuinely too small a box; case1: a
+ * feasible box the search used to miss on some seeds). Stored as plain LayoutInputs.
+ */
+export type BedLipCase = keyof typeof bedLip;
+
+export function bedLipInput(name: BedLipCase): LayoutInput {
+  return bedLip[name] as unknown as LayoutInput;
 }

@@ -310,7 +310,7 @@ describe("optimize", () => {
     it("words the capped notice from the actual stop reason", () => {
       const message = (r: LayoutResult): string =>
         r.notices.find((n) => n.code === "layout.capped")?.message ?? "";
-      expect(message(optimize(input, 5, 5000, { timeCapMs: 0 }))).toContain("0 s safety limit");
+      expect(message(optimize(input, 5, 5000, { timeCapMs: 0 }))).toContain("0 ms safety limit");
       expect(
         message(optimize(input, 5, 5000, { timeCapMs: 12_000, shouldCancel: () => true })),
       ).toBe(message(optimize(input, 5, 5000, { shouldCancel: () => true })));

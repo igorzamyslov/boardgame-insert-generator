@@ -25,6 +25,7 @@ import {
   cappedNotice,
   doesNotFitNotice,
   layoutWarnings,
+  overBedParts,
   type StopReason,
 } from "./warnings";
 
@@ -198,13 +199,15 @@ export function createRun(
     const attempt = main.annealer.leastOverflow;
     const sf = attempt.plan.shortfall;
     const shortfall = { x: toMm(sf.x), y: toMm(sf.y), z: toMm(sf.z) };
-    notices.push(doesNotFitNotice(main.ctx, shortfall));
+    const attemptTrays = materialize(main.ctx, attempt.plan, opts.realize);
+    const overBed = attempt.plan.overflow.bed > 0 ? overBedParts(main.ctx, attemptTrays) : [];
+    notices.push(doesNotFitNotice(main.ctx, shortfall, overBed));
     if (stop) {
       notices.push(cappedNotice(stop));
     }
     return {
       layout: null,
-      bestAttempt: { trays: materialize(main.ctx, attempt.plan, opts.realize), shortfall },
+      bestAttempt: { trays: attemptTrays, shortfall },
       summary: null,
       notices,
     };

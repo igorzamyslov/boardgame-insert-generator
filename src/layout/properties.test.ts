@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import type { Lock } from "../model/types";
+import type { Lock, TraySpec } from "../model/types";
 import type { TrayRequirement } from "../sizing/types";
 import { fitsBed } from "./bed";
 import { createCtx } from "./context";
@@ -122,16 +122,25 @@ function expectValid(input: LayoutInput, r: LayoutResult): void {
   } else {
     expect(r.bestAttempt).not.toBeNull();
     expect(r.notices.some((n) => n.code === "layout.doesNotFit")).toBe(true);
-    // the failure is explained: a shortfall on some axis, a requirement beyond the bed, or a
-    // best-attempt part that no printable orientation fits (the bed overflow the search could
-    // not remove: the shortfall is 0 then, e.g. a short run on a tight box)
+    // The failure is explained. A shortfall on some axis explains itself. With none, the
+    // message must name a best-attempt tray that no printable orientation fits, or (with no such
+    // tray) say it is a locked size, or a layout.bed error says a requirement is beyond the bed.
     const sf = r.bestAttempt?.shortfall;
     const short = (sf?.x ?? 0) + (sf?.y ?? 0) + (sf?.z ?? 0) > 0;
-    const ctx = createCtx(input);
-    const overBed = (r.bestAttempt?.trays ?? []).some(
-      (t) => !fitsBed(ctx.bed, toU(t.w), toU(t.d), toU(t.h)),
-    );
-    expect(short || overBed || r.notices.some((n) => n.code === "layout.bed")).toBe(true);
+    if (!short) {
+      const ctx = createCtx(input);
+      const over = (r.bestAttempt?.trays ?? []).filter(
+        (t) => t.part === "tray" && !fitsBed(ctx.bed, toU(t.w), toU(t.d), toU(t.h)),
+      );
+      const message = r.notices.find((n) => n.code === "layout.doesNotFit")?.message ?? "";
+      const names = (t: TraySpec): boolean =>
+        message.includes(t.key) ||
+        t.compartments.some((c) => c.contents !== "" && message.includes(c.contents));
+      const explained =
+        r.notices.some((n) => n.code === "layout.bed" && n.level === "error") ||
+        (over.length > 0 ? over.some(names) : message.includes("locked size"));
+      expect(explained).toBe(true);
+    }
   }
 }
 

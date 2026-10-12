@@ -1,7 +1,7 @@
 import { fitsBed } from "./bed";
 import { MAX_LEVELS, type Ctx } from "./context";
 import type { ResolvedLocks } from "./locks";
-import { stackHeights, stackLevels, stackMinFootprint } from "./stack";
+import { stackAllowed, stackHeights, stackLevels, stackMinFootprint } from "./stack";
 import {
   cut,
   leaf,
@@ -133,6 +133,9 @@ export function greedyTree(ctx: Ctx, resolved: ResolvedLocks, along: Axis): Tree
           continue;
         }
         const items = [...base.items, ...unit.items];
+        if (!stackAllowed(ctx, items)) {
+          continue;
+        }
         const levels = stackLevels(ctx, items);
         const f = stackMinFootprint(ctx, levels);
         const grow = Math.max(0, primary(f) - primary(base.ext));

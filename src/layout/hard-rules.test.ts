@@ -76,7 +76,7 @@ describe("checkHardRules catches broken layouts", () => {
     const a = layout.trays.find((t) => t.key === "a:p0:0") as TraySpec;
     const dup = mutate(bigLeftover, (l) => ({
       ...a,
-      path: "0101",
+      path: l.path,
       x: l.x,
       y: l.y,
       w: l.w,
@@ -92,7 +92,7 @@ describe("checkHardRules catches broken layouts", () => {
     const stray = mutate(bigLeftover, (l) => ({
       ...a,
       key: "zzz:p0:0",
-      path: "0101",
+      path: l.path,
       x: l.x,
       y: l.y,
       w: l.w,

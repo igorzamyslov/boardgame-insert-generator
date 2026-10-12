@@ -3,8 +3,17 @@ import { createCtx } from "./context";
 import { evaluate, overflowTotal } from "./fill";
 import { firstFittingVariant, greedyTree } from "./greedy";
 import { noLocks, resolveLocks } from "./locks";
+import { fitsBed } from "./bed";
+import type { Ctx } from "./context";
+import { stackLevels, stackMinFootprint } from "./stack";
 import { boxReq, comp, fakeMeasure, makeInput, part, req, variant } from "./test-utils";
 import { itemsOf, leaves } from "./tree";
+
+/** Independent oracle: a stack whose minimum bottom footprint fits the bed. */
+function printable(ctx: Ctx, stack: Parameters<typeof stackLevels>[1]): boolean {
+  const f = stackMinFootprint(ctx, stackLevels(ctx, stack));
+  return fitsBed(ctx.bed, f.w, f.d, 0);
+}
 
 describe("greedyTree", () => {
   const reqs = [
@@ -69,5 +78,24 @@ describe("greedyTree", () => {
     expect(greedyTree(ctx, noLocks(ctx), "x").variants).toEqual([1]);
     const none = createCtx(makeInput([upright], { box: { innerHeight: 20 } }), fakeMeasure);
     expect(firstFittingVariant(none, 0)).toBe(0);
+  });
+
+  it("never builds a stack the bed cannot print", () => {
+    // wide: 119 mm plain (fits the 120 mm bed), 121 mm under a lip. The floor leaves no room
+    // beside it, so the small tray is stacked somewhere; it must not go onto wide.
+    const two = [boxReq("wide", 115, 40, 10), boxReq("small", 30, 20, 10)];
+    const ctx = createCtx(
+      makeInput(two, {
+        printer: { bedX: 130, bedY: 130 },
+        box: { innerWidth: 125, innerDepth: 60, innerHeight: 80 },
+      }),
+      fakeMeasure,
+    );
+    for (const along of ["x", "y"] as const) {
+      const tree = greedyTree(ctx, noLocks(ctx), along);
+      for (const l of leaves(tree.root)) {
+        expect(printable(ctx, l.leaf.stack)).toBe(true);
+      }
+    }
   });
 });

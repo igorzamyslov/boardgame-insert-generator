@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { TraySpec } from "../model/types";
+import type { Measure } from "./context";
 import { createCtx } from "./context";
-import { boxReq, fakeMeasure, makeInput, traySpec } from "./test-utils";
+import { boxReq, comp, fakeMeasure, makeInput, part, req, traySpec, variant } from "./test-utils";
 import type { LayoutSummary } from "./types";
 import {
   bedNotices,
@@ -9,6 +10,7 @@ import {
   doesNotFitNotice,
   layoutWarnings,
   NOTICE_CODES,
+  overBedParts,
   requirementLabel,
 } from "./warnings";
 
@@ -104,8 +106,105 @@ describe("layout warnings", () => {
     expect(time).toMatchObject({ level: "info", code: "layout.capped" });
     expect(time.message).toContain("30 s safety limit");
     expect(cappedNotice({ reason: "time", limitMs: 1500 }).message).toContain("1.5 s safety limit");
+    // caps under a second are shown in ms, not rounded to "0 s"
+    expect(cappedNotice({ reason: "time", limitMs: 40 }).message).toContain("40 ms safety limit");
+    expect(cappedNotice({ reason: "time", limitMs: 0 }).message).toContain("0 ms safety limit");
     const cancel = cappedNotice({ reason: "cancel" });
     expect(cancel.code).toBe("layout.capped");
     expect(cancel.message).not.toContain("safety limit");
+  });
+
+  // fakeMeasure: outer = inner + 4 plain, + 6 lipped; the usable bed is 120 mm (130 − 2 × 5);
+  // a lip's inset costs 2.9 mm across.
+  const small = { printer: { bedX: 130, bedY: 130 } };
+  const wide = boxReq("wide", 115, 40, 10); // 119 plain, 121 lipped: only fits alone
+
+  it("warns about a part that fits the bed plain but not with a lip, in no variant", () => {
+    const ctx = createCtx(makeInput([wide, ...reqs], small), fakeMeasure);
+    const n = bedNotices(ctx);
+    expect(n).toHaveLength(1);
+    expect(n[0]).toMatchObject({ level: "warning", code: NOTICE_CODES.bed });
+    expect(n[0]?.message).toContain('"wide"');
+    expect(n[0]?.message).toContain("on its own");
+    expect(n[0]?.message).toContain("turn off the locating lip");
+    // nothing to say with the lip off, on a bigger bed, or when another variant stacks fine
+    const off = makeInput([wide], {
+      ...small,
+      settings: { lip: { enabled: false, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 } },
+    });
+    expect(bedNotices(createCtx(off, fakeMeasure))).toEqual([]);
+    expect(bedNotices(createCtx(makeInput([wide]), fakeMeasure))).toEqual([]);
+    const flexible = req("flex", [
+      variant("wide", [part("flex:p0:0", [comp({ minW: 115, minD: 40, minH: 10 })])]),
+      variant("narrow", [part("flex:p0:0", [comp({ minW: 60, minD: 40, minH: 10 })])]),
+    ]);
+    expect(bedNotices(createCtx(makeInput([flexible], small), fakeMeasure))).toEqual([]);
+  });
+
+  it("says a part fits only with nothing stacked on it when its lower-tray size is the one that exceeds", () => {
+    // lipped walls cost 6 mm here, so 116 mm plain fits as an upper tray (118.9) not as a lower
+    const heavyLip: Measure = (p, s, o) => {
+      const m = fakeMeasure(p, s, o);
+      return o.lipped ? { ...m, w: m.w + 4, d: m.d + 4 } : m;
+    };
+    const ctx = createCtx(makeInput([boxReq("top", 112, 40, 10)], small), heavyLip);
+    const n = bedNotices(ctx);
+    expect(n).toHaveLength(1);
+    expect(n[0]?.message).toContain("only with nothing stacked on it");
+    expect(n[0]?.message).not.toContain("on its own");
+  });
+
+  it("names the over-bed tray and the real remedies when nothing else is short", () => {
+    const ctx = createCtx(makeInput([wide, ...reqs], small), fakeMeasure);
+    const over = overBedParts(ctx, [
+      traySpec({
+        key: "wide:p0:0",
+        w: 121,
+        d: 44,
+        h: 14,
+        lip: true,
+        compartments: [
+          {
+            x: 2,
+            y: 2,
+            w: 117,
+            d: 40,
+            floorZ: 1.2,
+            kind: "scoop",
+            contents: "Boards",
+            features: [],
+          },
+        ],
+      }),
+      traySpec({ key: "cards:p0:0", w: 50, d: 50, h: 20 }),
+    ]);
+    expect(over).toHaveLength(1);
+    const n = doesNotFitNotice(ctx, { x: 0, y: 0, z: 0 }, over);
+    expect(n.message).not.toContain("too small by");
+    expect(n.message).toContain('"Boards"');
+    expect(n.message).toContain("121.0 × 44.0");
+    expect(n.message).toContain("usable bed is 120.0 × 120.0 mm");
+    expect(n.message).toContain("fits the bed only on its own");
+    expect(n.message).toContain("turn off the locating lip");
+    expect(n.message).toContain("larger bed");
+    // a tray the bed cannot print even plain gets no stacking hint
+    const huge = overBedParts(ctx, [traySpec({ key: "cards:p0:0", w: 150, d: 50, h: 20 })]);
+    const plain = doesNotFitNotice(ctx, { x: 0, y: 0, z: 0 }, huge).message;
+    expect(plain).toContain("cards:p0:0");
+    expect(plain).not.toContain("only on its own");
+  });
+
+  it("leaves the lip tip out when the lip is already off", () => {
+    const off = createCtx(
+      makeInput([wide], {
+        ...small,
+        settings: { lip: { enabled: false, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 } },
+      }),
+      fakeMeasure,
+    );
+    const over = overBedParts(off, [traySpec({ key: "wide:p0:0", w: 121, d: 44, h: 14 })]);
+    const m = doesNotFitNotice(off, { x: 0, y: 0, z: 0 }, over).message;
+    expect(m).not.toContain("locating lip");
+    expect(m).toContain("larger bed");
   });
 });

@@ -1,5 +1,6 @@
 import { MAX_LEVELS, type Ctx } from "./context";
 import type { Rng } from "./prng";
+import { stackAllowed } from "./stack";
 import {
   cut,
   cuts,
@@ -117,7 +118,8 @@ export function insertItem(
       !l.leaf.frozen &&
       !isLockedLeaf(env, l.path) &&
       l.leaf.stack.length > 0 &&
-      l.leaf.stack.length < MAX_LEVELS,
+      l.leaf.stack.length < MAX_LEVELS &&
+      stackAllowed(env.ctx, [...l.leaf.stack, item]),
   );
   if (stackable.length > 0 && rng.nextInt(4) === 0) {
     const s = rng.pick(stackable);
@@ -223,7 +225,7 @@ export const rotateItem: Move = (tree, env, rng) => {
   return { ...tree, root: replaceAt(tree.root, o.path, leaf(stack, o.leaf.frozen)) };
 };
 
-export const reorderStack: Move = (tree, _env, rng) => {
+export const reorderStack: Move = (tree, env, rng) => {
   const options = leaves(tree.root).filter((l) => !l.leaf.frozen && l.leaf.stack.length >= 2);
   if (options.length === 0) {
     return null;
@@ -238,6 +240,9 @@ export const reorderStack: Move = (tree, _env, rng) => {
   }
   stack[k] = upper;
   stack[k + 1] = lower;
+  if (!stackAllowed(env.ctx, stack)) {
+    return null;
+  }
   return { ...tree, root: replaceAt(tree.root, o.path, leaf(stack)) };
 };
 
@@ -261,6 +266,9 @@ export const mergeStacks: Move = (tree, env, rng) => {
     rng.nextInt(2) === 0
       ? [...into.leaf.stack, ...from.leaf.stack]
       : [...from.leaf.stack, ...into.leaf.stack];
+  if (!stackAllowed(env.ctx, stack)) {
+    return null;
+  }
   const merged = replaceAt(tree.root, into.path, leaf(stack));
   const root = removeLeafAt(merged, from.path);
   return root === null ? null : { ...tree, root };

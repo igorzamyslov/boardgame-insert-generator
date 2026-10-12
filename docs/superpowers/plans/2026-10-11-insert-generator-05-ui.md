@@ -6262,6 +6262,23 @@ describe("Summary", () => {
       "Doesn't fit: short by 12.3 mm left–right and 3.0 mm in height.",
     );
   });
+
+  it('shows no "short by" line when no axis is short and lets the notice name the tray', () => {
+    const message =
+      'The components don\'t fit in this box. Too large for the print bed: "Boards" is 121.0 × 44.0 × 14.0 mm; the usable bed is 120.0 × 120.0 mm.';
+    render(
+      <Summary
+        {...props({
+          summary: null,
+          hasLayout: false,
+          shortfall: { x: 0, y: 0, z: 0 },
+          notices: [{ level: "error", code: "layout.doesNotFit", message }],
+        })}
+      />,
+    );
+    expect(screen.queryByText(/short by/)).toBeNull();
+    expect(screen.getByText(/Too large for the print bed/).textContent).toBe(message);
+  });
 });
 ```
 
@@ -6297,7 +6314,9 @@ export interface SummaryProps {
   onRetry: () => void;
 }
 
-function shortfallText(s: { x: number; y: number; z: number }): string {
+/** The "short by" line; null when no axis is short (a part over the bed or a locked size is the
+ * reason: the doesNotFit notice in the list below says which, naming the tray). */
+function shortfallText(s: { x: number; y: number; z: number }): string | null {
   const parts: string[] = [];
   if (s.x > 0) {
     parts.push(`${s.x.toFixed(1)} mm left–right`);
@@ -6308,7 +6327,7 @@ function shortfallText(s: { x: number; y: number; z: number }): string {
   if (s.z > 0) {
     parts.push(`${s.z.toFixed(1)} mm in height`);
   }
-  return `Doesn't fit: short by ${parts.join(" and ")}.`;
+  return parts.length > 0 ? `Doesn't fit: short by ${parts.join(" and ")}.` : null;
 }
 
 function Play({ label, mm }: { label: string; mm: number }) {
@@ -6322,6 +6341,7 @@ function Play({ label, mm }: { label: string; mm: number }) {
 
 export function Summary(p: SummaryProps) {
   const running = p.run.status === "running";
+  const shortfall = p.shortfall ? shortfallText(p.shortfall) : null;
   return (
     <section class="panel summary" aria-labelledby="summary-heading">
       <h2 id="summary-heading">Summary</h2>
@@ -6376,7 +6396,7 @@ export function Summary(p: SummaryProps) {
             : "No layout yet. Enter the box size and add at least one component."}
         </p>
       )}
-      {p.shortfall ? <p class="shortfall">{shortfallText(p.shortfall)}</p> : null}
+      {shortfall ? <p class="shortfall">{shortfall}</p> : null}
       <div class="button-row">
         <button type="button" onClick={p.onReoptimize} disabled={running || !p.canOptimize}>
           Re-optimize

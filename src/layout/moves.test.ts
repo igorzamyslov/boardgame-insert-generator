@@ -17,8 +17,27 @@ import {
   type MoveEnv,
 } from "./moves";
 import { createRng } from "./prng";
+import { fitsBed } from "./bed";
+import type { Ctx } from "./context";
+import { stackLevels, stackMinFootprint } from "./stack";
 import { boxReq, comp, fakeMeasure, makeInput, part, req, variant } from "./test-utils";
-import { cut, cuts, itemsOf, leaf, leaves, nodeAt, type StackItem, type Tree } from "./tree";
+import {
+  cut,
+  cuts,
+  itemsOf,
+  leaf,
+  leaves,
+  nodeAt,
+  type StackItem,
+  type Tree,
+  type TreeNode,
+} from "./tree";
+
+/** Independent oracle: a stack whose minimum bottom footprint fits the bed. */
+function printable(ctx: Ctx, stack: Parameters<typeof stackLevels>[1]): boolean {
+  const f = stackMinFootprint(ctx, stackLevels(ctx, stack));
+  return fitsBed(ctx.bed, f.w, f.d, 0);
+}
 
 const reqs = [
   boxReq("a", 60, 40, 10),
@@ -177,5 +196,68 @@ describe("moves", () => {
       }),
       { numRuns: 30 },
     );
+  });
+});
+
+describe("stacks the bed cannot print", () => {
+  // fakeMeasure: outer = inner + 4 plain, + 6 lipped; usable bed 120 mm, lip inset 1.45 mm per
+  // side and level. "wide" fits the bed plain (119 mm) but neither under a lip (121) nor on
+  // top of a tray (119 + 2 × 1.45), so it can only stand alone.
+  const topReqs = [boxReq("wide", 115, 40, 10), boxReq("n1", 40, 30, 10), boxReq("n2", 40, 30, 10)];
+  const topCtx = createCtx(
+    makeInput(topReqs, { printer: { bedX: 130, bedY: 130 }, box: { innerHeight: 100 } }),
+    fakeMeasure,
+  );
+  const topEnv: MoveEnv = {
+    ctx: topCtx,
+    lockedPaths: [],
+    variantPinned: [false, false, false],
+    rotationFixed: new Set(),
+  };
+  const wide = at(0);
+  const badStack = (t: Tree): boolean =>
+    leaves(t.root).some((l) => !printable(topCtx, l.leaf.stack));
+  const tree: Tree = {
+    root: cut("x", leaf([wide]), cut("y", leaf([at(1)]), leaf([at(2)]))),
+    variants: [0, 0, 0],
+  };
+
+  it("never lets any move build one", () => {
+    expect(printable(topCtx, [at(1), wide])).toBe(false);
+    expect(printable(topCtx, [wide, at(1)])).toBe(false);
+    expect(printable(topCtx, [at(1), at(2)])).toBe(true);
+    let cur: Tree = tree;
+    let stacked = 0;
+    for (let s = 0; s < 3000; s++) {
+      const next = pickMove(createRng(s))(cur, topEnv, createRng(s * 7 + 1));
+      if (next) {
+        expect(badStack(next)).toBe(false);
+        cur = next;
+        stacked += leaves(cur.root).filter((l) => l.leaf.stack.length > 1).length;
+      }
+    }
+    // the other trays do still stack
+    expect(stacked).toBeGreaterThan(0);
+  });
+
+  it("reorder and merge refuse them", () => {
+    const stackTree: Tree = {
+      root: cut("x", leaf([at(1), at(2)]), leaf([wide])),
+      variants: [0, 0, 0],
+    };
+    for (let s = 0; s < 50; s++) {
+      const r = reorderStack(stackTree, topEnv, createRng(s));
+      expect(r === null || !badStack(r)).toBe(true);
+      const m = mergeStacks(stackTree, topEnv, createRng(s));
+      expect(m === null || !badStack(m)).toBe(true);
+    }
+  });
+
+  it("insertItem never puts an item on or under such a part", () => {
+    const base: TreeNode = leaf([wide]);
+    for (let s = 0; s < 100; s++) {
+      const root = insertItem(base, at(1), topEnv, createRng(s));
+      expect(root && badStack({ root, variants: [0, 0, 0] })).toBe(false);
+    }
   });
 });

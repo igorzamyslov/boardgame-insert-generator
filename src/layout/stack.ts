@@ -1,3 +1,4 @@
+import { fitsBed } from "./bed";
 import { INF_U, SLIVER_U, type Ctx, type FixedSize } from "./context";
 import type { StackItem } from "./tree";
 import { roundDownTo, roundUpTo, type Ext, type U } from "./units";
@@ -56,6 +57,20 @@ export function stackMinFootprint(ctx: Ctx, levels: readonly Level[]): Ext {
     d = Math.max(d, l.minD + 2 * l.level * ctx.inset);
   }
   return { w, d };
+}
+
+/**
+ * A stack the bed can print: its minimum bottom footprint fits the bed in some orientation.
+ * A part whose lipped walls (as a lower tray) or inset footprint (as an upper tray, k·inset
+ * per side) outgrow the bed while it fits plain can only stand alone, or only on top; the
+ * search never builds a stack that overflows the bed this way (spec §7.2).
+ */
+export function stackAllowed(ctx: Ctx, stack: readonly StackItem[]): boolean {
+  if (stack.length < 2) {
+    return true;
+  }
+  const f = stackMinFootprint(ctx, stackLevels(ctx, stack));
+  return fitsBed(ctx.bed, f.w, f.d, 0);
 }
 
 /** Largest bottom footprint allowed by size locks in the stack (INF_U when none). */
