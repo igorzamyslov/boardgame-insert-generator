@@ -21,7 +21,7 @@ export function customOptions(c: CustomComponent, s: Settings): OptionsResult {
       d: c.d + clearance,
       h: c.h + clearance,
       // A centred cut through the front wall, half the well deep (spec §6.1).
-      features: featuresOf(c, [wallCutout("front", 0.5, false)], true),
+      features: featuresOf(c, [wallCutout("front", 0.5, false)]),
     }),
   ]);
   return { options: [{ id: "custom", blocks }], notices: [] };

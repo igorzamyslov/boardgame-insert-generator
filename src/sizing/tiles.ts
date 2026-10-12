@@ -64,7 +64,7 @@ function flatColumn(c: TilesComponent, n: number, clearance: number): Compartmen
     w: foot.x + clearance,
     d: foot.y + clearance,
     h: n * c.thickness + clearance,
-    features: featuresOf(c, [wallCutout(a, 1, true), wallCutout(b, 1, true)], true),
+    features: featuresOf(c, [wallCutout(a, 1, true), wallCutout(b, 1, true)]),
   });
 }
 
@@ -79,11 +79,10 @@ function uprightStack(c: TilesComponent, n: number, clearance: number): Compartm
     h: profile.height + clearance,
     elastic: { w: true },
     spacerAxis: "w",
-    features: featuresOf(
-      c,
-      [wallCutout("left", CHANNEL_DEPTH, false), wallCutout("right", CHANNEL_DEPTH, false)],
-      true,
-    ),
+    features: featuresOf(c, [
+      wallCutout("left", CHANNEL_DEPTH, false),
+      wallCutout("right", CHANNEL_DEPTH, false),
+    ]),
   });
 }
 

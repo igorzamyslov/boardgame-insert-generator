@@ -147,3 +147,29 @@ describe("finger cuts and curved floor toggles", () => {
     }
   });
 });
+
+describe("corner reliefs toggle", () => {
+  // The advanced "Corner reliefs" toggle (spec §5, §6.1): absent, on for tiles and custom wells.
+  it.each<[string, Component, string[]]>([
+    ["cards", cards(), ["wallCutout left", "wallCutout right"]],
+    [
+      "cards, reliefs on",
+      cards({ cornerReliefs: true }),
+      ["wallCutout left", "wallCutout right", "cornerRelief"],
+    ],
+    ["tiles", flatTiles, ["wallCutout front", "wallCutout back", "cornerRelief"]],
+    [
+      "tiles, reliefs off",
+      { ...flatTiles, cornerReliefs: false },
+      ["wallCutout front", "wallCutout back"],
+    ],
+    ["bulk", bulk(), ["scoop front"]],
+    ["bulk, reliefs on", bulk({ cornerReliefs: true }), ["scoop front", "cornerRelief"]],
+    ["minis pockets", pockets, ["wallCutout front"]],
+    ["minis as bulk", piled, ["scoop front"]],
+    ["custom", custom(), ["wallCutout front", "cornerRelief"]],
+    ["custom, reliefs off", custom({ cornerReliefs: false }), ["wallCutout front"]],
+  ])("%s", (_name, component, expected) => {
+    expect(first(component)[1]).toEqual(expected);
+  });
+});

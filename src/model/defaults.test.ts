@@ -3,13 +3,16 @@ import {
   COMPONENT_DEFAULTS,
   DEFAULT_BOX,
   DEFAULT_PRINTER,
+  cornerReliefsOn,
+  curvedFloorOn,
+  fingerCutsOn,
   groupOf,
   newComponent,
   newProject,
 } from "./defaults";
 import { BAMBU_256_BED, STANDARD_CARD } from "./presets";
 import { DEFAULT_SETTINGS } from "./settings";
-import type { ComponentKind } from "./types";
+import type { Component, ComponentKind } from "./types";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
 
 const KINDS: ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
@@ -82,6 +85,35 @@ describe("groupOf", () => {
     expect(groupOf(c)).toBeUndefined();
     expect(groupOf({ ...c, groupId: "" })).toBeUndefined();
     expect(groupOf({ ...c, groupId: "g1" })).toBe("g1");
+  });
+});
+
+describe("finger cuts, curved floor and corner relief defaults", () => {
+  const piled: Component = { ...newComponent("minis"), storage: "bulk" } as Component;
+  it.each<[string, Component, [boolean, boolean, boolean]]>([
+    ["cards", newComponent("cards"), [true, false, false]],
+    ["bulk", newComponent("bulk"), [false, true, false]],
+    ["tiles", newComponent("tiles"), [true, false, true]],
+    ["minis pockets", newComponent("minis"), [true, false, false]],
+    ["minis as bulk", piled, [false, true, false]],
+    ["custom", newComponent("custom"), [true, false, true]],
+  ])("%s: finger cuts, curved floor and corner reliefs as before the toggles", (_n, c, on) => {
+    expect([fingerCutsOn(c), curvedFloorOn(c), cornerReliefsOn(c)]).toEqual(on);
+  });
+
+  it("takes a set toggle over the default, but never a curved floor on cards or tiles", () => {
+    const set = { fingerCuts: false, curvedFloor: true, cornerReliefs: true };
+    const flip = (kind: ComponentKind): boolean[] => {
+      const c = { ...newComponent(kind), ...set };
+      return [fingerCutsOn(c), curvedFloorOn(c), cornerReliefsOn(c)];
+    };
+    expect(KINDS.map(flip)).toEqual([
+      [false, false, true],
+      [false, true, true],
+      [false, false, true],
+      [false, true, true],
+      [false, true, true],
+    ]);
   });
 });
 

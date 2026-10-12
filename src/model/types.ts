@@ -46,9 +46,10 @@ export interface ComponentBase {
   groupId?: string;
   perPlayer?: { players: number };
   clearance?: number;
-  // Absent: the kind's default (fingerCutsOn, curvedFloorOn in ./defaults; spec §5).
+  // Absent: the kind's default (fingerCutsOn, curvedFloorOn, cornerReliefsOn in ./defaults; spec §5).
   fingerCuts?: boolean; // a centred finger cut through a wall of each compartment
   curvedFloor?: boolean; // a scoop ramp on the floor (bulk, minis, custom only)
+  cornerReliefs?: boolean; // advanced: Ø 3 mm reliefs in the corners of each compartment
 }
 
 export type Sleeve = "none" | "standard" | "premium" | { w: number; h: number; thickness: number };

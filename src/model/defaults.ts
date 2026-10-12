@@ -104,6 +104,14 @@ export function curvedFloorOn(c: Component): boolean {
   return c.curvedFloor ?? bulkLike(c);
 }
 
+/**
+ * Whether the component's compartments get Ø 3 mm corner reliefs (spec §5, §6.1): its
+ * `cornerReliefs`, else on for tiles and custom wells and off otherwise, as before the toggle.
+ */
+export function cornerReliefsOn(c: Component): boolean {
+  return c.cornerReliefs ?? (c.kind === "tiles" || c.kind === "custom");
+}
+
 /** The component's group, or undefined when it has none. An empty groupId means no group. */
 export function groupOf(c: Component): string | undefined {
   return c.groupId === "" ? undefined : c.groupId;

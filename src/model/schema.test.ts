@@ -45,13 +45,13 @@ describe("serializeProject / parseProject", () => {
     });
   });
 
-  it("round-trips the finger cut and curved floor toggles, set or absent", () => {
+  it("round-trips the finger cut, curved floor and corner relief toggles, set or absent", () => {
     const p = newProject();
     const bits = { ...newComponent("bulk"), id: "b1" };
     const deck = { ...newComponent("cards"), id: "c1" };
     p.components = [
-      { ...bits, fingerCuts: true, curvedFloor: false },
-      { ...deck, fingerCuts: false },
+      { ...bits, fingerCuts: true, curvedFloor: false, cornerReliefs: true },
+      { ...deck, fingerCuts: false, cornerReliefs: false },
       { ...newComponent("custom"), id: "x1" },
     ];
     const result = parseProject(raw(p));

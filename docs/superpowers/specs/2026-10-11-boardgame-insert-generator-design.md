@@ -189,6 +189,7 @@ interface ComponentBase {
   clearance?: number; // advanced: absolute total, replaces the main clearance, not scaled by Fit
   fingerCuts?: boolean; // a centred finger cut through a wall of each compartment (§6.1)
   curvedFloor?: boolean; // the scoop ramp on the floor; bulk, minis and custom only (§6.1)
+  cornerReliefs?: boolean; // advanced: Ø 3 mm reliefs in each compartment's corners (§6.1)
 }
 
 interface CardsComponent extends ComponentBase {
@@ -250,7 +251,9 @@ and off for bulk; `curvedFloor` is on for bulk and off for minis and custom.
 Minis stored as bulk default like bulk (cuts off, curved floor on), as they
 were before the toggles. `curvedFloor` on cards or tiles is a validation error
 (cards would bend, upright tiles tilt); the UI hides it there. Both are simple
-mode checkboxes ("Finger cuts", "Curved floor").
+mode checkboxes ("Finger cuts", "Curved floor"). `cornerReliefs` is on for
+tiles and custom and off for cards, bulk and minis; any kind may turn it on
+(advanced mode checkbox "Corner reliefs").
 
 Validation bounds (also applied to URL and file input): ≤ 100 components,
 every count 1…2000, every length 0 < x ≤ 1000 mm, `players` 1…10.
@@ -394,7 +397,10 @@ Coordinates are stored in mm and computed as integer 0.01 mm units.
 ### 6.1 Common to all trays
 
 - Outer block with rounded vertical corners (`cornerRadius`). Wells have inner
-  vertical corners ≤ 0.5 mm; tile and custom wells add Ø 3 mm corner reliefs.
+  vertical corners ≤ 0.5 mm; compartments of components with `cornerReliefs`
+  on (§5) add Ø 3 mm corner reliefs. They shrink to keep 0.9 mm to the outer
+  faces and 0.8 mm from other compartments and every cut (so a post beside a
+  cut stays at least 0.8 mm), and are left out under Ø 0.6 mm.
 - Walls are vertical and the top is open. Floor fillets are concave. No
   bridges or ceilings; raised floors are solid.
 - Outer bottom edge chamfer `bottomChamfer` × 45° against elephant foot
@@ -496,7 +502,7 @@ keeps its upright ones.
 | Bulk, minis bulk       | Off by default; with `fingerCuts` on, as custom                | ½ of the compartment     |
 | Spare                  | None                                                           | —                        |
 
-**Toggles** (§5): `fingerCuts` off leaves out a component's cuts (and their
+**Toggles** (§5; `cornerReliefs` above): `fingerCuts` off leaves out a component's cuts (and their
 floor notches and finger room); `curvedFloor` adds the scoop ramp to each of
 its compartments (bulk, minis, custom), on the front wall, or on the back
 when a finger cut takes the front. With both off a compartment is a plain box

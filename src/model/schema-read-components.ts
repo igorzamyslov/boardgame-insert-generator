@@ -51,6 +51,10 @@ function readBase(r: Reader, kind: ComponentKind): ComponentBase {
   if (curvedFloor !== undefined) {
     base.curvedFloor = curvedFloor;
   }
+  const cornerReliefs = r.optBool("cornerReliefs");
+  if (cornerReliefs !== undefined) {
+    base.cornerReliefs = cornerReliefs;
+  }
   return base;
 }
 

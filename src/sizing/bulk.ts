@@ -54,7 +54,7 @@ export function bulkCompartment(
   shape: BulkShape,
 ): CompartmentReq {
   const { side, h } = shapeLine(line, shape);
-  const features = featuresOf(c, [wallCutout("front", 0.5, false)], false);
+  const features = featuresOf(c, [wallCutout("front", 0.5, false)]);
   return compartment({
     componentId: c.id,
     contents,

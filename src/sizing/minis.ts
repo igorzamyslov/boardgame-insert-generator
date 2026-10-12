@@ -44,7 +44,7 @@ function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): C
       d: dims.d + clearance,
       h: dims.h + clearance,
       // A centred cut through the front wall, half the pocket deep (spec §6.1).
-      features: featuresOf(c, [wallCutout("front", 0.5, false)], false),
+      features: featuresOf(c, [wallCutout("front", 0.5, false)]),
     }),
   );
 }

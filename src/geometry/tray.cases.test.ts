@@ -1,11 +1,12 @@
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
-import { DEFAULT_SETTINGS, applyFingerRoom } from "../model/settings";
+import { DEFAULT_SETTINGS, MIN_FEATURE_MM, applyFingerRoom } from "../model/settings";
 import type { Component, Settings } from "../model/types";
 import { minOuter, realizeTray, size } from "../sizing";
 import { at, bulk, cards, partOf, tiles } from "../sizing/test-helpers";
 import { loadManifold } from "./load";
+import { planTray } from "./plan";
 import { heightAt } from "./test-mesh";
 import { problemsOf } from "./test-build";
 import {
@@ -214,6 +215,51 @@ describe("buildTray with the finger cut and curved floor toggles", () => {
       expect(heightAt(mesh, midX, well.y / 2)).toBeLessThan(spec.h - 1);
       expect(heightAt(mesh, midX, well.y + well.d - 1)).toBeGreaterThan(well.floorZ + 1);
       expect(heightAt(mesh, midX, well.y + 1)).toBeCloseTo(well.floorZ, 4);
+    }
+  });
+});
+
+describe("corner reliefs beside the posts of a cut", () => {
+  // A relief at a well corner next to a cut's 3 mm post shrinks so the post keeps MIN_FEATURE_MM
+  // between the relief and the cut (spec §6.1), and the tray builds: 15 mm squares laid flat
+  // (reliefs on by default, 3 mm posts exactly) and two upright decks of 20 × 25 mm cards with
+  // reliefs turned on, whose channel is as wide as its posts allow.
+  const squares = tiles({ shape: { type: "rect", w: 15, d: 15 }, thickness: 2, count: 40 });
+  const decks = cards({
+    cornerReliefs: true,
+    shortSide: 20,
+    longSide: 25,
+    decks: [
+      { name: "A", count: 30 },
+      { name: "B", count: 30 },
+    ],
+  });
+  it.each<[string, Component, string]>([
+    ["15 mm squares laid flat", squares, "flat-c4|strip|split1"],
+    ["upright mini decks with reliefs on", decks, "upright-long|strip|split1"],
+  ])("%s", (_name, component, variant) => {
+    const part = partOf([component], variant);
+    for (const opts of SWEEP_OPTIONS) {
+      const outer = minOuter(part, DEFAULT_SETTINGS, opts);
+      const realized = realizeTray(part, outer, DEFAULT_SETTINGS, opts);
+      const spec = traySpecFrom(realized, outer, opts, DEFAULT_SETTINGS, part.trayKey);
+      const plan = planTray(spec, DEFAULT_SETTINGS);
+      const cuts = plan.compartments.flatMap((c) => c.cuts);
+      let besidePosts = 0;
+      for (const c of plan.compartments) {
+        for (const r of c.reliefs) {
+          const gaps = cuts.map((cut) => {
+            const dx = Math.max(cut.x0 - r.cx, 0, r.cx - cut.x1);
+            const dy = Math.max(cut.y0 - r.cy, 0, r.cy - cut.y1);
+            return Math.hypot(dx, dy) - r.r;
+          });
+          expect(Math.min(...gaps)).toBeGreaterThanOrEqual(MIN_FEATURE_MM - 1e-6);
+          // Shrunk below its Ø 3 mm for a post (not vacuous).
+          besidePosts += Math.min(...gaps) < 3 && r.r < 1.5 - 1e-6 ? 1 : 0;
+        }
+      }
+      expect(besidePosts).toBeGreaterThan(0);
+      expect(problemsOf(m, spec, DEFAULT_SETTINGS), JSON.stringify(opts)).toEqual([]);
     }
   });
 });
