@@ -7,7 +7,7 @@ import {
   maxCornerRadius,
 } from "../model/settings";
 import { keepsApart } from "../model/slot-rules";
-import { cutFootprints, notchFloorBox } from "./plan-cuts";
+import { cutFootprints, filletBox, notchFloorBox } from "./plan-cuts";
 import { MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
 import type { CompartmentPlan, Rect, ReliefPlan } from "./plan-types";
 
@@ -181,6 +181,8 @@ function cornerDiscs(
       } else {
         corners(cut, pullIn(chamfer, cut.bottomZ));
       }
+      // A fillet takes its square from the corner, at most (the disc it keeps aside is solid).
+      cut.fillets.forEach((f) => corners(filletBox(f), pullIn(chamfer, f.z0)));
     }
     c.reliefs.forEach((r) => discs.push({ x: r.cx, y: r.cy, rho: r.r, e }));
   }

@@ -452,6 +452,12 @@ content + clearance.
   long-wall cutouts, before a spare a cut runs into) is `dividerRoom` thicker.
   Walls and dividers without a cut are unchanged; a spare at the end of a row
   takes the wall room instead.
+- **Fillets:** the vertical edges where a cutout's sides meet a wall or
+  divider face (inside the well and on the outer face, and the spacer notch's)
+  are rounded with 1.5 mm (`FINGER_FILLET_MM`), less where the wall or divider
+  is thinner: at least 0.8 mm of its end stays flat between the fillets on its
+  two faces, and 0.8 mm (and the chamfer) to the outer face beside the cut.
+  Fillets under 0.2 mm are left out. They are vertical, so support-free.
 - Where a cutout leaves through a lipped wall it interrupts the lip; the lip on
   the other walls and beside the cut still locates the upper tray, which rests
   on the ledge and dividers around the cut.

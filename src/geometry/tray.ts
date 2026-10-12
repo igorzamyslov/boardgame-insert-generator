@@ -7,6 +7,7 @@ import { INNER_CORNER_RADIUS } from "./plan-types";
 import type {
   CompartmentPlan,
   CutPlan,
+  FilletPlan,
   LipPlan,
   Rect,
   ScoopPlan,
@@ -181,6 +182,18 @@ function buildCut(m: ManifoldToplevel, scope: Scope, cut: CutPlan, top: number):
   return [through, prism(m, scope, ring, -OVERSHOOT, top)];
 }
 
+// A fillet on a finger cut's vertical edge: the square from the corner toward the material, EPS
+// into the cut and past the face so no face of it is coplanar, less the cylinder that stays.
+function buildFillet(m: ManifoldToplevel, scope: Scope, f: FilletPlan, top: number): Manifold {
+  const [x0, x1] = [f.x - f.sx * EPS, f.x + f.sx * f.r].sort((p, q) => p - q) as [number, number];
+  const [y0, y1] = [f.y - f.sy * EPS, f.y + f.sy * f.r].sort((p, q) => p - q) as [number, number];
+  const z0 = f.z0 <= 0 ? -OVERSHOOT : f.z0;
+  const square = box(m, scope, [x0, y0, z0], [x1, y1, top]);
+  const ring = circleRing(f.x + f.sx * f.r, f.y + f.sy * f.r, f.r, 4 * quarterSegments(f.r));
+  const kept = prism(m, scope, ring, z0 - 1, top + 1);
+  return scope.track(square.subtract(kept));
+}
+
 function buildCutter(
   m: ManifoldToplevel,
   scope: Scope,
@@ -208,7 +221,10 @@ function buildCutter(
   }
   const extras = [
     ...c.slots.map((slot) => buildSlot(m, scope, slot, top)),
-    ...c.cuts.flatMap((cut) => buildCut(m, scope, cut, top)),
+    ...c.cuts.flatMap((cut) => [
+      ...buildCut(m, scope, cut, top),
+      ...cut.fillets.map((f) => buildFillet(m, scope, f, top)),
+    ]),
     ...c.reliefs.map((rl) =>
       prism(m, scope, circleRing(rl.cx, rl.cy, rl.r, 4 * quarterSegments(rl.r)), c.floorZ, top),
     ),
@@ -260,6 +276,7 @@ export function buildTray(
         ? { x0: n.x0 - OVERSHOOT, x1: n.x1 + OVERSHOOT }
         : { y0: n.y0 - OVERSHOOT, y1: n.y1 + OVERSHOOT };
       cutters.push(buildSlot(m, scope, { ...n, ...ends }, plan.topZ + OVERSHOOT));
+      n.fillets.forEach((f) => cutters.push(buildFillet(m, scope, f, plan.topZ + OVERSHOOT)));
     }
     if (cutters.length > 0) {
       solid = scope.track(solid.subtract(scope.track(m.Manifold.union(cutters))));

@@ -12,7 +12,14 @@ import {
 import { keepsApart, slotsApart, slotsMerge, wellFaceProblem } from "../model/slot-rules";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
-import { checkCutClearance, checkNotches, notchEdges, planCut, planSpacerNotch } from "./plan-cuts";
+import {
+  checkCutClearance,
+  checkNotches,
+  notchEdges,
+  planCut,
+  planFillets,
+  planSpacerNotch,
+} from "./plan-cuts";
 import type { CutRequest } from "./plan-cuts";
 import { LIP_CHAMFER, LIP_FLAT, MIN_SCOOP_RADIUS } from "./plan-types";
 import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, SlotPlan, TrayPlan } from "./plan-types";
@@ -479,10 +486,11 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   const frame = { w: spec.w, d: spec.d, h: spec.h, outerWall, chamfer };
   const failWith = (message: string): never => fail(spec, message);
   const uncut = planned.map((p) => p.plan);
-  const plans = planned.map(({ plan, cutRequests }) => ({
+  const withCuts = planned.map(({ plan, cutRequests }) => ({
     ...plan,
     cuts: cutRequests.map((q) => planCut(q, plan.index, uncut, frame, failWith)),
   }));
+  const plans = planFillets(withCuts, spec, chamfer);
   plans.forEach((plan) => {
     checkNotches(plan, failWith);
   });
@@ -505,7 +513,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   }));
 
   const notch = planSpacerNotch(spec, spec.features ?? [], chamfer, failWith);
-  const edges = notchEdges(spec, notch);
+  const edges = notchEdges(notch);
   const cornerRadius = planCornerRadius(spec, settings.cornerRadius, chamfer, compartments, edges);
   const thin = thinCorner(spec, cornerRadius, chamfer, compartments, edges);
   if (thin !== null) {

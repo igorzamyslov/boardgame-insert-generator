@@ -1,7 +1,8 @@
 import type { FeatureSpec, Side, TraySpec } from "../model/types";
 import { MIN_FEATURE_MM, SPEC_TOLERANCE as TOL } from "../model/settings";
 import { keepsApart, separation } from "../model/slot-rules";
-import type { CompartmentPlan, CutPlan, Rect } from "./plan-types";
+import { FINGER_FILLET_MM, MIN_FILLET } from "./plan-types";
+import type { CompartmentPlan, CutPlan, FilletPlan, Rect } from "./plan-types";
 
 // Wall cutouts (FeatureSpec "wallCutout", spec §6.1, roadmap §4.6): planned and checked once every
 // compartment rectangle is known, because a cut runs from its compartment to the next one across.
@@ -82,10 +83,21 @@ export function notchFloorBox(cut: CutPlan): Rect {
   }
 }
 
-/** Every footprint the cuts of `plans` take: their boxes, and their floor notches. */
+/** The square a fillet takes from its corner toward the material (the disc it keeps aside). */
+export function filletBox(f: FilletPlan): Rect {
+  const [x0, x1] = f.sx > 0 ? [f.x, f.x + f.r] : [f.x - f.r, f.x];
+  const [y0, y1] = f.sy > 0 ? [f.y, f.y + f.r] : [f.y - f.r, f.y];
+  return { x0, y0, x1, y1 };
+}
+
+/** Every footprint the cuts of `plans` take: their boxes, floor notches and fillets. */
 export function cutFootprints(plans: readonly CompartmentPlan[]): Rect[] {
   return plans.flatMap((plan) =>
-    plan.cuts.flatMap((cut) => (cut.notch > 0 ? [cut, notchFloorBox(cut)] : [cut])),
+    plan.cuts.flatMap((cut) => [
+      cut,
+      ...(cut.notch > 0 ? [notchFloorBox(cut)] : []),
+      ...cut.fillets.map(filletBox),
+    ]),
   );
 }
 
@@ -168,7 +180,15 @@ export function planCut(
       `${where} leaves less than ${MIN_FEATURE_MM} mm of wall and floor against the ${frame.chamfer} mm bottom chamfer`,
     );
   }
-  return { ...box, side: q.side, bottomZ, radius: r, into: next?.index ?? null, notch: n };
+  return {
+    ...box,
+    side: q.side,
+    bottomZ,
+    radius: r,
+    into: next?.index ?? null,
+    notch: n,
+    fillets: [],
+  };
 }
 
 /** Two notches on opposite sides of one compartment keep MIN_FEATURE_MM of floor between them. */
@@ -281,29 +301,140 @@ export function planSpacerNotch(
   const box =
     axis === "x" ? { x0: 0, x1: length, y0: a, y1: b } : { x0: a, x1: b, y0: 0, y1: length };
   // The U's profile runs across the end faces it leaves through: "left" along x, "front" along y.
-  return {
+  const cut: CutPlan = {
     ...box,
     side: axis === "x" ? "left" : "front",
     bottomZ,
     radius: r,
     into: null,
     notch: 0,
+    fillets: [],
   };
+  // Its sides on the spacer are rounded where they leave through the end faces (above the
+  // chamfer: the bottom stands at least chamfer + MIN_FEATURE_MM up).
+  const across = { w: spec.w, d: spec.d };
+  const fillets = [0, length].flatMap((face) => filletsAt(cut, face, null, across, chamfer, []));
+  return { ...cut, fillets };
 }
 
 /**
  * Where a spacer notch's sides meet its end faces, for the outer corner radius: only the sides
- * that lie on the spacer (a side past its face takes the corner away with the rest of its top).
+ * that lie on the spacer (a side past its face takes the corner away with the rest of its top),
+ * where their fillet meets the face.
  */
-export function notchEdges(spec: TraySpec, notch: CutPlan | null): { x: number; y: number }[] {
-  if (notch === null) {
-    return [];
+export function notchEdges(notch: CutPlan | null): { x: number; y: number }[] {
+  return (notch?.fillets ?? []).flatMap((f) => {
+    const box = filletBox(f);
+    return [
+      { x: box.x0, y: box.y0 },
+      { x: box.x1, y: box.y0 },
+      { x: box.x1, y: box.y1 },
+      { x: box.x0, y: box.y1 },
+    ];
+  });
+}
+
+/**
+ * The fillets of a cut where its sides meet the face at `face` (across the side): the corners
+ * whose material lies beside the cut on that face's side of the strip. `comp` is the compartment
+ * whose face it is (its range along the side must cover the fillet, and the fillet starts at its
+ * floor with a floor notch), or null for an outer face the cut leaves through (the fillet keeps
+ * MIN_FEATURE_MM, and at least the chamfer, to the face the cut runs along, pulled in by the chamfer
+ * at the fillet's lowest height). A fillet is at most FINGER_FILLET_MM, leaves MIN_FEATURE_MM of the
+ * wall or divider end flat between the fillets on its two faces, keeps
+ * MIN_FEATURE_MM from every obstacle (half that gap toward another cut), and is left out below
+ * MIN_FILLET.
+ */
+function filletsAt(
+  cut: CutPlan,
+  face: number,
+  comp: CompartmentPlan | null,
+  size: { w: number; d: number },
+  chamfer: number,
+  obstacles: readonly { rect: Rect; share: number }[],
+): FilletPlan[] {
+  const side = cut.side;
+  const box = axes(cut, side);
+  const span = alongX(side) ? size.w : size.d;
+  const into: 1 | -1 = Math.abs(face - box.v0) <= TOL ? 1 : -1;
+  const zc = cut.bottomZ + cut.radius;
+  const z0 =
+    comp === null
+      ? cut.notch > 0
+        ? 0
+        : zc
+      : cut.notch > 0
+        ? comp.floorZ
+        : Math.max(zc, comp.floorZ);
+  const pull = Math.max(0, chamfer - z0);
+  // Where the cut leaves the tray its strip is the outer wall, pulled in by the chamfer near the
+  // bed (from the lowest fillet on it: the bed with a floor notch, else the round bottom's top).
+  const stripPull = cut.into === null ? Math.max(0, chamfer - (cut.notch > 0 ? 0 : zc)) : 0;
+  const fillets: FilletPlan[] = [];
+  for (const [u, away] of [
+    [box.u0, -1],
+    [box.u1, 1],
+  ] as const) {
+    // Fillets on both faces of the wall or divider leave MIN_FEATURE_MM flat between them.
+    let r = Math.min(FINGER_FILLET_MM, (box.v1 - box.v0 - stripPull - MIN_FEATURE_MM) / 2);
+    if (comp === null) {
+      // TOL: the side's fillet must end on the straight face, past the corner radius ≥ chamfer.
+      const beside = away < 0 ? u : span - u;
+      r = Math.min(r, beside - Math.max(MIN_FEATURE_MM + pull, chamfer) - TOL);
+    } else {
+      const c = axes(comp.rect, side);
+      r = Math.min(r, away < 0 ? u - c.u0 : c.u1 - u);
+    }
+    for (const { rect, share } of obstacles) {
+      const o = axes(rect, side);
+      if (o.v1 > box.v0 - MIN_FEATURE_MM && o.v0 < box.v1 + MIN_FEATURE_MM) {
+        const gap = away < 0 ? u - o.u1 : o.u0 - u;
+        if (gap > -TOL) {
+          r = Math.min(r, (gap - MIN_FEATURE_MM) * share);
+        }
+      }
+    }
+    if (r >= MIN_FILLET - TOL) {
+      const [x, y] = alongX(side) ? [u, face] : [face, u];
+      const [sx, sy] = alongX(side) ? [away, into] : [into, away];
+      fillets.push({ x, y, sx, sy, r, z0 });
+    }
   }
-  const alongX = notch.side === "left";
-  const span = alongX ? spec.d : spec.w;
-  const length = alongX ? spec.w : spec.d;
-  const sides = (alongX ? [notch.y0, notch.y1] : [notch.x0, notch.x1]).filter(
-    (v) => v > TOL && v < span - TOL,
-  );
-  return sides.flatMap((v) => [0, length].map((u) => (alongX ? { x: u, y: v } : { x: v, y: u })));
+  return fillets;
+}
+
+/**
+ * Every cut's fillets (FINGER_FILLET_MM, spec §6.1): where its sides meet its own compartment's
+ * face and the face at its other end (the compartment it runs into, or the outer face it leaves
+ * through), clear of every other compartment and finger slot and half way to other cuts.
+ */
+export function planFillets(
+  plans: readonly CompartmentPlan[],
+  size: { w: number; d: number },
+  chamfer: number,
+): CompartmentPlan[] {
+  return plans.map((plan) => ({
+    ...plan,
+    cuts: plan.cuts.map((cut) => {
+      const next = cut.into === null ? null : (plans.find((p) => p.index === cut.into) ?? null);
+      const obstacles = [
+        ...plans.flatMap((p) => (p === plan || p === next ? [] : [{ rect: p.rect, share: 1 }])),
+        ...plans.flatMap((p) => p.slots.map((slot) => ({ rect: slot as Rect, share: 1 }))),
+        ...plans.flatMap((p) =>
+          p.cuts.flatMap((c) =>
+            c === cut || sameBand(c, cut) ? [] : [{ rect: c as Rect, share: 0.5 }],
+          ),
+        ),
+      ];
+      const own = cutFace(cut);
+      const far = own === axes(cut, cut.side).v0 ? axes(cut, cut.side).v1 : axes(cut, cut.side).v0;
+      return {
+        ...cut,
+        fillets: [
+          ...filletsAt(cut, own, plan, size, chamfer, obstacles),
+          ...filletsAt(cut, far, next, size, chamfer, obstacles),
+        ],
+      };
+    }),
+  }));
 }

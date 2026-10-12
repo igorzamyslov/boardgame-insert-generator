@@ -110,6 +110,10 @@ describe("buildTray per tray type", () => {
     }
     // Front and back walls stay whole.
     expect(heightAt(mesh, 40, 0.8)).toBeCloseTo(h, 3);
+    // The channel's vertical edges are rounded (0.4 mm in the 1.6 mm end wall): the wall's corner
+    // is gone down to where the round bottom begins.
+    expect(heightAt(mesh, 0.1, 47.85 - 11 - 0.1)).toBeCloseTo(h - 34 + 11, 2);
+    expect(heightAt(mesh, 0.8, 47.85 - 11 - 0.8)).toBeCloseTo(h, 3);
   });
 
   it("a channel through a lipped tray interrupts the lip where it leaves the tray", () => {
