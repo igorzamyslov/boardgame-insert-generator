@@ -42,7 +42,7 @@ const MESH_PROFILES: MeshProfile[] = [
 // Thicker outer walls where wall cutouts leave the tray, on a lipped and an upper tray (the other
 // profiles cover the plain ones): built for the fixtures that have cutouts (bits-heavy has none).
 const FINGER_ROOM: MeshProfile = [
-  "finger room in the cut walls",
+  "finger room in the cut walls and dividers",
   (s) => applyFingerRoom(s, true),
   [
     { lipped: true, level: 0 },

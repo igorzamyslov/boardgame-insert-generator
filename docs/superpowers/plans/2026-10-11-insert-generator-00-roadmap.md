@@ -778,6 +778,7 @@ fixtures in `apps/insert-generator/test/fixtures/` (plan 1 creates them):
 - `cards-heavy.json` — 290 × 290 × 70 box, headroom 8, 6 decks of Standard cards (sleeved, 40–90 cards each).
 - `bits-heavy.json` — 300 × 220 × 60 box, headroom 4, 4 bulk components, one `perPlayer: 4`.
 - `tiles-minis.json` — 300 × 300 × 80 box, headroom 10, 60 hex tiles (flatToFlat 40, 2 mm), 12 minis.
+- `small-tiles.json` — 200 × 150 × 60 box, headroom 5: 40 square tiles 15 mm (2 mm, auto), 19 upright hexes 13.7 mm (2.8 mm) and 19 hexes 8.5 mm (1.5 mm, auto). Wells shorter than the finger width, two rows of different lengths, cuts near the outer corners and spacers narrower than their channel (review 1 of the finger channels).
 - `tiny-box.json` — 150 × 100 × 40 box with too many cards (infeasible case).
 
-All four are valid at `SCHEMA_VERSION`.
+All five are valid at `SCHEMA_VERSION`; plan 1 created the first four, the finger-channel review added `small-tiles.json`.

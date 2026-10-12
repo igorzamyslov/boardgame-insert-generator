@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "0.1.1",
+  "createdWith": "0.1.0",
+  "id": "fxsmal01",
+  "name": "Fixture: small tiles",
+  "box": {
+    "innerWidth": 200,
+    "innerDepth": 150,
+    "innerHeight": 60,
+    "headroom": 5,
+    "headroomCoverage": "full",
+    "storedOnSide": false
+  },
+  "printer": {
+    "bedX": 256,
+    "bedY": 256,
+    "bedZ": 256,
+    "bedMargin": 5,
+    "layerHeight": 0.2
+  },
+  "settings": {
+    "wall": 1.6,
+    "floor": 1.2,
+    "divider": 1.2,
+    "fit": 1,
+    "cardClearance": 1.5,
+    "cardStackClearance": 1,
+    "cardStackClearancePct": 0.03,
+    "cardThickness": 0.32,
+    "pieceClearance": 1,
+    "boxClearance": 0.5,
+    "trayGap": 0.2,
+    "bottomChamfer": 0.4,
+    "cornerRadius": 3,
+    "scoopRadius": 12,
+    "fingerPocket": {
+      "width": 25,
+      "reach": 12,
+      "floorNotch": 12.5,
+      "wallRoom": 0,
+      "dividerRoom": 0
+    },
+    "lip": {
+      "enabled": true,
+      "height": 2,
+      "thickness": 1.2,
+      "ledge": 1.7,
+      "play": 0.25
+    },
+    "topPressFit": 0,
+    "packingFactor": 0.5,
+    "leftover": "spare"
+  },
+  "components": [
+    {
+      "id": "fxsml001",
+      "name": "Square tokens",
+      "access": "often",
+      "kind": "tiles",
+      "shape": {
+        "type": "rect",
+        "w": 15,
+        "d": 15
+      },
+      "thickness": 2,
+      "count": 40,
+      "storage": "auto"
+    },
+    {
+      "id": "fxsml002",
+      "name": "Hex markers",
+      "access": "sometimes",
+      "kind": "tiles",
+      "shape": {
+        "type": "hex",
+        "flatToFlat": 13.7,
+        "orientation": "flat"
+      },
+      "thickness": 2.8,
+      "count": 19,
+      "storage": "upright"
+    },
+    {
+      "id": "fxsml003",
+      "name": "Small hexes",
+      "access": "setup",
+      "kind": "tiles",
+      "shape": {
+        "type": "hex",
+        "flatToFlat": 8.5,
+        "orientation": "flat"
+      },
+      "thickness": 1.5,
+      "count": 19,
+      "storage": "auto"
+    }
+  ],
+  "locks": []
+}

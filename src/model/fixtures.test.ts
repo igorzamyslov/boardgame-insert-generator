@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import bitsHeavy from "../../test/fixtures/bits-heavy.json";
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
+import smallTiles from "../../test/fixtures/small-tiles.json";
 import tilesMinis from "../../test/fixtures/tiles-minis.json";
 import tinyBox from "../../test/fixtures/tiny-box.json";
 import { LINK_TARGET_CHARS, decodeHash, encodeHash } from "../share/link";
@@ -13,6 +14,7 @@ const FIXTURES: Record<string, unknown> = {
   "cards-heavy": cardsHeavy,
   "bits-heavy": bitsHeavy,
   "tiles-minis": tilesMinis,
+  "small-tiles": smallTiles,
   "tiny-box": tinyBox,
 };
 
