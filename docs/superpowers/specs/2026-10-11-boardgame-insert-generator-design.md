@@ -53,6 +53,9 @@ box.
 - Bundled game presets library.
 - Calibration test print.
 - Print-time estimate.
+- Showing a component's name alongside its deck or item name in the plan and 3D
+  view, so several trays of one component read as a group ("Starter deck —
+  Deck 1" rather than "Deck 1").
 - Renaming the box dimension labels: "depth" reads as vertical to some users;
   width / length / height is clearer. UI labels only, not the schema fields.
 - An optional XYZ axis indicator in the 3D viewer.

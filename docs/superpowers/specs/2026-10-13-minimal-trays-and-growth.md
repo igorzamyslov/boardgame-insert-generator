@@ -337,13 +337,29 @@ Two preferences worth adding to the score, in this order:
    `rotated` value. In the example all three trays are square in plan
    (91.45 × 91.45), so this costs the packing nothing at all — it is a pure
    tiebreak, and the cheapest cohesion win available.
-2. **Same stack**, where it fits. This is a _preference_, never a constraint,
-   because it is frequently impossible. In the example it is: the box takes
-   exactly two stacks of that footprint, each capped at the 35 mm top plane, and
-   the only partition that fits is {Trade 28.4, Deck 3 6.6} and {Counter 8,
-   Deck 2 3.6, Deck 1 23.4}. Putting the three starter decks together forces
-   Trade + Counter into one stack at 36.4 mm, over the plane. The current
-   interleaving is forced, not arbitrary.
+2. **Same stack**, where it fits. A _preference_, never a constraint — but note
+   it is usually possible, and what prevents it is normally the score rather
+   than geometry.
+
+   In the Star Realms example the three starter decks _can_ all sit on the
+   Counter. Minimum heights (floor + well, before any padding) are Counter 8.0,
+   Deck 1 6.87, Deck 2 3.6, Deck 3 3.56 — 22.03 mm in one stack of four levels,
+   inside both the 35 mm top plane and `MAX_LEVELS`, with the remaining 13 mm
+   becoming a riser. Trade (28.4) then takes the other stack with a 6.6 mm
+   riser. Both fit. An earlier draft of this spec claimed otherwise; it had
+   summed the _padded_ heights of the current layout instead of the minimums.
+
+   What rules it out today is `WEIGHTS.access` (200 000 per "often" tray with
+   something stacked on it). "Starter deck" is marked _often_, and any ordering
+   of three such trays buries two of them, costing 400 000. The current
+   interleaving buries only one, at 200 000. So the optimizer is trading visual
+   cohesion for reachability, deliberately, by exactly one access penalty.
+
+   Two consequences for whoever implements this: a cohesion term must be weighed
+   against `access` explicitly rather than bolted on; and for a user who wants
+   cohesion more than reachability the honest answer may be to mark the
+   component _sometimes_ — which suggests the access setting needs a hint saying
+   what it costs.
 
 So implement 1 unconditionally and 2 as a weak term, and make sure neither can
 push a feasible layout into an infeasible one.
