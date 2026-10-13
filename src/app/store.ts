@@ -23,8 +23,9 @@ export interface AppStore {
   storageAvailable: boolean;
   edit(fn: (p: Project) => Project): void;
   undo(): void;
-  reoptimize(): void;
-  improveMore(): void;
+  /** Re-fits from the current layout: the normal budget when there is no layout or it is stale
+   * (an edit), the bigger "keep searching" budget when the layout is current. */
+  refit(): void;
   cancelRun(): void;
   retry(): void;
   start(hash: string): void;
@@ -80,11 +81,9 @@ export function createAppStore(deps: AppDeps): AppStore {
       });
       persistence.scheduleSave();
     },
-    reoptimize() {
-      void runner.runNow("edit", "user");
-    },
-    improveMore() {
-      void runner.runNow("improve", "user");
+    refit() {
+      const current = state.project.value.layout !== undefined && !state.stale.value;
+      void runner.runNow(current ? "improve" : "edit", "user");
     },
     cancelRun() {
       runner.cancel();

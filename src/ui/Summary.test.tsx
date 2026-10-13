@@ -38,8 +38,7 @@ function props(over: Partial<SummaryProps> = {}): SummaryProps {
     problemSections: [],
     onShowSection: vi.fn(),
     shortfall: null,
-    onReoptimize: vi.fn(),
-    onImprove: vi.fn(),
+    onRefit: vi.fn(),
     onUndo: vi.fn(),
     onCancel: vi.fn(),
     onRetry: vi.fn(),
@@ -123,7 +122,9 @@ describe("Summary", () => {
     expect(document.querySelector("div.pf-notice")?.textContent).toContain("Updating the plan…");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(p.onCancel).toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Update plan" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Keep searching" }).hasAttribute("disabled")).toBe(
+      true,
+    );
   });
 
   it("keeps the last good result visible on failure and retries", () => {
@@ -139,8 +140,9 @@ describe("Summary", () => {
     expect(p.onRetry).toHaveBeenCalled();
   });
 
-  it("offers updating the plan on the stale notice and wires the buttons", () => {
+  it("has no button inside the stale notice: the main button is the one way to update", () => {
     const p = props({
+      stale: true,
       notices: [
         {
           level: "info",
@@ -150,27 +152,64 @@ describe("Summary", () => {
       ],
     });
     render(<Summary {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Update plan now" }));
+    expect(screen.queryByRole("button", { name: "Update plan now" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Update plan" })).toHaveLength(1);
+  });
+
+  it("wires the one search button and Undo layout", () => {
+    const p = props();
+    render(<Summary {...p} />);
     fireEvent.click(screen.getByRole("button", { name: "Keep searching" }));
     fireEvent.click(screen.getByRole("button", { name: "Undo layout" }));
-    expect(p.onReoptimize).toHaveBeenCalledTimes(1);
-    expect(p.onImprove).toHaveBeenCalledTimes(1);
+    expect(p.onRefit).toHaveBeenCalledTimes(1);
     expect(p.onUndo).toHaveBeenCalledTimes(1);
   });
 
-  it("labels the two search buttons by what they do and says how they differ", () => {
-    render(<Summary {...props()} />);
-    expect(screen.queryByRole("button", { name: "Find a better layout" })).toBeNull();
-    const update = screen.getByRole("button", { name: "Update plan" });
-    const more = screen.getByRole("button", { name: "Keep searching" });
+  describe("the search button", () => {
     const hint = (b: HTMLElement): string =>
       (b.getAttribute("aria-describedby") ?? "")
         .split(" ")
         .map((id) => document.getElementById(id)?.textContent ?? "")
         .join(" ");
-    expect(hint(update)).toMatch(/re-fits the trays to your current inputs/);
-    expect(hint(more)).toMatch(/about three times longer/);
-    expect(hint(more)).toMatch(/neither throws it away|neither throws/i);
+
+    it('says "Keep searching" when the layout is current, and nothing else', () => {
+      render(<Summary {...props()} />);
+      const b = screen.getByRole("button", { name: "Keep searching" });
+      expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
+      expect(b.hasAttribute("disabled")).toBe(false);
+      expect(hint(b)).toMatch(/Searches on from this layout/);
+      expect(hint(b)).toMatch(/never throws the layout away/);
+    });
+
+    it('says "Update plan" when the layout is stale', () => {
+      const p = props({ stale: true });
+      render(<Summary {...p} />);
+      const b = screen.getByRole("button", { name: "Update plan" });
+      expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+      expect(b.hasAttribute("disabled")).toBe(false);
+      expect(hint(b)).toMatch(/Re-fits the trays to your current inputs/);
+      expect(hint(b)).toMatch(/never throws it away/);
+      fireEvent.click(b);
+      expect(p.onRefit).toHaveBeenCalledTimes(1);
+    });
+
+    it('says "Update plan" and is enabled when there is no layout yet', () => {
+      render(<Summary {...props({ summary: null, hasLayout: false, canUndo: false })} />);
+      const b = screen.getByRole("button", { name: "Update plan" });
+      expect(b.hasAttribute("disabled")).toBe(false);
+    });
+
+    it.each([
+      ["running", { run: { status: "running" as const, done: 1, total: 10 } }],
+      ["the optimizer is blocked", { canOptimize: false }],
+    ])("is disabled while %s, in every state", (_name, over) => {
+      for (const state of [{}, { stale: true }, { hasLayout: false, summary: null }]) {
+        const view = render(<Summary {...props({ ...state, ...over })} />);
+        const b = screen.getByRole("button", { name: /^(Update plan|Keep searching)$/ });
+        expect(b.hasAttribute("disabled")).toBe(true);
+        view.unmount();
+      }
+    });
   });
 
   describe("when the optimizer is blocked", () => {
@@ -181,7 +220,7 @@ describe("Summary", () => {
       render(<Summary {...blocked({ hasComponents: false })} />);
       expect(screen.queryByText(/Fix the errors/)).toBeNull();
       expect(screen.queryByText(/Enter the box size/)).toBeNull();
-      expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
+      expect(screen.queryByRole("button", { name: /^(Update plan|Keep searching)$/ })).toBeNull();
     });
 
     it("points at the marked inputs when components exist", () => {
@@ -220,7 +259,7 @@ describe("Summary", () => {
     it("explains the disabled buttons when a layout is shown", () => {
       render(<Summary {...props({ canOptimize: false })} />);
       expect(screen.getByText(/Fix the errors marked in the inputs/)).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Update plan" }).hasAttribute("disabled")).toBe(
+      expect(screen.getByRole("button", { name: "Keep searching" }).hasAttribute("disabled")).toBe(
         true,
       );
     });
@@ -245,7 +284,7 @@ describe("Summary", () => {
         })}
       />,
     );
-    expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^(Update plan|Keep searching)$/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Undo layout" })).toBeNull();
     view.rerender(
       <Summary
@@ -257,8 +296,9 @@ describe("Summary", () => {
         })}
       />,
     );
-    expect(screen.getByRole("button", { name: "Keep searching" }).hasAttribute("disabled")).toBe(
-      true,
+    // no layout, optimizer can run: "Update plan", enabled (it starts the first run)
+    expect(screen.getByRole("button", { name: "Update plan" }).hasAttribute("disabled")).toBe(
+      false,
     );
     expect(screen.getByRole("button", { name: "Undo layout" }).hasAttribute("disabled")).toBe(true);
     // rounded up to 0.1 mm like plan 4's notice, never to the nearest

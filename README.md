@@ -54,8 +54,10 @@ geometry clients, so they never start a worker or load WASM.
    with a curved floor instead. The editor says so, and what the bin has.
 4. **Layout.** The optimizer runs on its own 400 ms after you stop editing and
    says the result in one sentence; Advanced adds the slack per axis and an
-   upper bound for the filament. "Update plan", "Keep searching" (the same, searching about three times longer) and
-   "Undo layout" (one step) sit under it. Spare trays (plain, dashed, still
+   upper bound for the filament. One search button and "Undo layout" (one step) sit under it: the
+   button says "Update plan" while there is no layout or the inputs changed since it was made, and "Keep searching"
+   (a longer search, about three times the budget) once the layout is current; either way the search starts from the
+   current layout and never throws it away. Spare trays (plain, dashed, still
    numbered) fill gaps so the other trays cannot move; print them too. In the
    plan view, select a tray to see its details; in Advanced, drag a tray onto
    another (or use the keyboard) to swap them, and "Lock position" / "Lock
@@ -79,8 +81,8 @@ geometry clients, so they never start a worker or load WASM.
    keep.
 
 If you change the inputs after a layout was made, the layout stays and an
-"Inputs changed since this plan was made — update the plan?" notice offers
-"Update plan now"; the plan is greyed and badged "Out of date"; export and the assembly page are off, and the 3D view keeps
+"Inputs changed since this plan was made — update the plan?" notice points
+at the "Update plan" button; the plan is greyed and badged "Out of date"; export and the assembly page are off, and the 3D view keeps
 showing the last layout, until you do. A layout whose geometry version is on an older line than
 the app's gets a "reprint the whole insert" notice: its trays no longer mate
 with trays exported now.

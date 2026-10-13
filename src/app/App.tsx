@@ -405,8 +405,7 @@ export function App(props: AppProps) {
                 problemSections={problemSections}
                 onShowSection={showSection}
                 shortfall={s.shortfall.value}
-                onReoptimize={() => store.reoptimize()}
-                onImprove={() => store.improveMore()}
+                onRefit={() => store.refit()}
                 onUndo={() => store.undo()}
                 onCancel={() => store.cancelRun()}
                 onRetry={() => store.retry()}

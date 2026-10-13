@@ -5,7 +5,8 @@ import { NOTICE_CODES } from "../layout";
 import { inputsHash } from "../model/hash";
 import type { Lock, Notice } from "../model/types";
 import { STORAGE_PREFIX, createProjectStore, encodeHash } from "../share";
-import { DEBOUNCE_MS } from "./runner";
+import { DEBOUNCE_MS, IMPROVE_FACTOR } from "./runner";
+import { DEFAULT_ITERATIONS } from "../layout";
 import { CONFLICT_CODE, SAVE_DEBOUNCE_MS } from "./persistence";
 import { connectWindow, createAppStore } from "./store";
 import { MemoryStorage } from "../test-support/memory-storage";
@@ -88,6 +89,24 @@ describe("app store", () => {
     expect(store.state.stale.value).toBe(true);
   });
 
+  it("refit keeps searching (3x budget) on a current layout and runs the normal budget when stale or missing", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN));
+    expect(store.state.stale.value).toBe(false);
+    store.refit();
+    await flush();
+    expect(stub.calls[0]?.iterations).toBe(IMPROVE_FACTOR * DEFAULT_ITERATIONS);
+    stub.calls[0]?.resolve(makeResult(makeLayout(stub.calls[0].input.inputsHash)));
+    await flush();
+    // an edit makes the layout stale; refit before the debounced run uses the normal budget
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
+    expect(store.state.stale.value).toBe(true);
+    store.refit();
+    await flush();
+    expect(stub.calls[1]?.iterations).toBe(DEFAULT_ITERATIONS);
+  });
+
   it("undo restores the locks a run pruned, so the restored layout is fresh", async () => {
     const { store, stub } = setup();
     const p = fixtureProject();
@@ -98,7 +117,7 @@ describe("app store", () => {
     const withLocks = { ...p, locks };
     const first = makeLayout(inputsHash(withLocks));
     store.start(encodeHash({ ...withLocks, layout: first }, EMPTY_FOREIGN));
-    store.reoptimize();
+    store.refit();
     await flush();
     const call = stub.calls[0];
     const notice: Notice = {

@@ -1,6 +1,5 @@
 // src/ui/Summary.tsx
 import { useRef } from "preact/hooks";
-import { STALE_CODE } from "../app/state";
 import type { RunState } from "../app/state";
 import { PLAY_LIMIT_MM, mmUp } from "../layout";
 import type { LayoutSummary } from "../layout/types";
@@ -29,8 +28,8 @@ export interface SummaryProps {
   problemSections: readonly { id: string; title: string }[];
   onShowSection: (id: string) => void;
   shortfall: { x: number; y: number; z: number } | null;
-  onReoptimize: () => void;
-  onImprove: () => void;
+  /** Re-fit from the current layout (the label says which kind of run it is). */
+  onRefit: () => void;
   onUndo: () => void;
   onCancel: () => void;
   onRetry: () => void;
@@ -107,6 +106,8 @@ export function Summary(p: SummaryProps) {
     shown.current = 0;
     lastDone.current = 0;
   }
+  // A layout made for the current inputs: pressing the button searches on, rather than catching up.
+  const layoutCurrent = p.hasLayout && !p.stale;
   const shortfall = p.shortfall ? shortfallText(p.shortfall) : null;
   const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
   const verdict =
@@ -211,47 +212,26 @@ export function Summary(p: SummaryProps) {
           <div class="button-row stage-block">
             <button
               type="button"
-              onClick={p.onReoptimize}
+              onClick={p.onRefit}
               disabled={running || !p.canOptimize}
-              aria-describedby="hint-update-plan"
+              aria-describedby="hint-refit"
             >
-              Update plan
-            </button>
-            <button
-              type="button"
-              onClick={p.onImprove}
-              disabled={running || !p.hasLayout || !p.canOptimize}
-              aria-describedby="hint-keep-searching"
-            >
-              Keep searching
+              {layoutCurrent ? "Keep searching" : "Update plan"}
             </button>
             <button type="button" onClick={p.onUndo} disabled={running || !p.canUndo}>
               Undo layout
             </button>
           </div>
           <p class="hint stage-block">
-            <span id="hint-update-plan">
-              Update plan re-fits the trays to your current inputs, starting from this layout.
-            </span>{" "}
-            <span id="hint-keep-searching">
-              Keep searching does the same but looks about three times longer for a tighter
-              arrangement. Both start from the current layout, so neither throws it away.
+            <span id="hint-refit">
+              {layoutCurrent
+                ? "Searches on from this layout for a tighter arrangement; it never throws the layout away."
+                : "Re-fits the trays to your current inputs, starting from this layout; it never throws it away."}
             </span>
           </p>
         </>
       ) : null}
-      <Notices
-        notices={p.notices}
-        label="Layout messages"
-        class="stage-block"
-        renderAction={(n) =>
-          n.code === STALE_CODE ? (
-            <button type="button" onClick={p.onReoptimize} disabled={running || !p.canOptimize}>
-              Update plan now
-            </button>
-          ) : null
-        }
-      />
+      <Notices notices={p.notices} label="Layout messages" class="stage-block" />
     </>
   );
 }

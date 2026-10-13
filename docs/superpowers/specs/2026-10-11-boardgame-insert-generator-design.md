@@ -807,10 +807,15 @@ Numbers accept a decimal comma or point.
 
 - **Summary:** box fill %, tray count, stack count, filament in grams
   (PLA 1.24 g/cm³; upper bound at 100 % fill), lateral play per axis,
-  warnings. Under it: "Update plan" re-fits to the current inputs; "Keep
-  searching" is the same run with about three times the search budget (it
-  also starts from the current layout and never discards it), and each button
-  has a hint saying so.
+  warnings. Under it: one search button
+  whose label says what pressing it does. With no layout yet, or a stale one
+  (inputs changed since it was made), it reads "Update plan" and re-fits to the
+  current inputs with the normal budget N. When the layout is current it reads
+  "Keep searching" and runs 3N more, adding to the stored cumulative iteration
+  count. Both start from the current layout (same seed) and never discard it;
+  a one-line hint says so. It is disabled only while a run is in progress or
+  when the optimizer is blocked by errors or an empty project. "Undo layout" is
+  a separate button. The stale notice has no button of its own.
 - **Plan view:** per-layer top-down drawing; click to select, drag or
   keyboard to swap, lock toggle.
 - **3D view:** explode slider, layer toggle, click a tray for contents and
