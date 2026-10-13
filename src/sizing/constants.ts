@@ -6,6 +6,15 @@ export const BULK_MIN_SIDE = 25;
 export const MAX_H_RATIO = 1.5;
 /** Bulk "wide-and-shallow" content depth, and the lower bound of the "deep" shape. */
 export const SHALLOW_H = 20;
+/**
+ * The deepest a compartment you scoop from may be, floor to rim. A curved floor rounds the
+ * bottom corner out so a fingertip can get under the pieces; what it cannot do is get your
+ * hand down a pit. Past this the ramp sits at the bottom of a well you cannot reach, so a bin
+ * that wants one is spread wider rather than deeper, and the grip rule stops counting it.
+ */
+export const SCOOP_REACH = 35;
+/** Empty wall left above a loose pile, so pieces don't spill over the rim when the box moves. */
+export const BIN_FREEBOARD = 5;
 /** Smallest extra empty ("spare") compartment realizeTray adds, inner mm. */
 export const MIN_SPARE = 10;
 /** Card spacer: minimum spare stack length and minimum spacer height (spec §6.2). */

@@ -130,7 +130,14 @@ export function makeInput(
     requirements,
     box: { ...TEST_BOX, ...o.box },
     printer: { ...TEST_PRINTER, ...o.printer },
-    settings: { ...DEFAULT_SETTINGS, ...o.settings },
+    // The lip is off by default in the app, but most of these tests are about stacking with
+    // one (insets, bed height including the lip, bearing), so they ask for it outright rather
+    // than riding on the product default. A test of flush stacking passes `lip` itself.
+    settings: {
+      ...DEFAULT_SETTINGS,
+      lip: { ...DEFAULT_SETTINGS.lip, enabled: true },
+      ...o.settings,
+    },
     locks: o.locks ?? [],
     inputsHash: "test-hash",
     appVersion: "0.0.0-test",

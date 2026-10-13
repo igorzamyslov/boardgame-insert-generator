@@ -7,7 +7,9 @@ import { rotateRealized } from "./rotate";
 import { assertTrayInvariants, at, bulk, cards, partOf } from "./test-helpers";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
 
-const outer: OuterSize = { w: 56.7, d: 95.7, h: 69.2 };
+// 10 mm of spare stack length: short enough that it becomes a spacer rather than a wall
+// and a pocket, so there is a spacer here to turn.
+const outer: OuterSize = { w: 36.7, d: 95.7, h: 69.2 };
 const realized = realizeTray(
   partOf([cards()], "upright-long|strip|split1"),
   outer,
@@ -18,7 +20,7 @@ const realized = realizeTray(
 describe("rotateRealized", () => {
   it("turns compartments and spacers 90° counter-clockwise into the swapped outer", () => {
     const turned = rotateRealized(realized, outer);
-    expect(at(turned.compartments, 0)).toMatchObject({ x: 1.6, y: 1.6, w: 92.5, d: 53.5 });
+    expect(at(turned.compartments, 0)).toMatchObject({ x: 1.6, y: 1.6, w: 92.5, d: 33.5 });
     expect(at(turned.compartments, 0).features).toEqual([
       { type: "wallCutout", side: "front", at: 47.85, width: 25, depth: 34, floorNotch: 0 },
       { type: "wallCutout", side: "back", at: 47.85, width: 25, depth: 34, floorNotch: 0 },
@@ -27,7 +29,7 @@ describe("rotateRealized", () => {
       x: 1.6,
       y: 25.1,
       w: 92.5,
-      d: 30,
+      d: 10,
       z: 1.2,
       h: 63,
       rotated: true,

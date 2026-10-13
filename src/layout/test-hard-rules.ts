@@ -269,7 +269,7 @@ export function checkHardRules(
         v.push(`${t.key}: compartment ${i} below its minimum ${c.minW}×${c.minD}×${c.minH}`);
       }
     });
-    if ((!part || needsGrip(part)) && !hasGrip(t.compartments)) {
+    if ((!part || needsGrip(part)) && !hasGrip(t.compartments, t.h)) {
       v.push(`${t.key}: no grip`);
     }
   }
@@ -304,7 +304,7 @@ export function checkHardRules(
     });
   }
   for (const l of trays.filter((t) => t.part === "leftover" && !t.solid)) {
-    if (!hasGrip(l.compartments)) {
+    if (!hasGrip(l.compartments, l.h)) {
       v.push(`${l.key}: spare leftover without grip`);
     }
   }

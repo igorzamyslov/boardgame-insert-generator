@@ -6,7 +6,9 @@ import { minOuter } from "./realize";
 import { cards, custom, partOf, tiles } from "./test-helpers";
 import type { RealizeOptions, TrayPartReq } from "./types";
 
-const s: Settings = DEFAULT_SETTINGS;
+// These cover sizing with a locating lip available (the lipped wall, upper-tray
+// minimums), so they turn it on; the app's own default is off.
+const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
 const ground: RealizeOptions = { lipped: false, level: 0 };
 const single = partOf([cards()], "upright-long|strip|split1");
 const twoDecks = [

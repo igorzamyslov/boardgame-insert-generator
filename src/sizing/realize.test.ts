@@ -6,7 +6,9 @@ import { minOuter, realizeTray } from "./realize";
 import { assertTrayInvariants, at, bulk, cards, custom, minis, partOf } from "./test-helpers";
 import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
-const s: Settings = DEFAULT_SETTINGS;
+// These cover sizing with a locating lip available (the lipped wall, upper-tray
+// minimums), so they turn it on; the app's own default is off.
+const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
 const ground: RealizeOptions = { lipped: false, level: 0 };
 const single = partOf([cards()], "upright-long|strip|split1");
 const cutout = (side: "left" | "right", atMm: number, depth: number, width = 25) => ({
@@ -36,16 +38,33 @@ describe("realizeTray", () => {
         floorZ: 1.2,
         kind: "well",
         contents: "Main ×52",
+        componentId: "c1",
         features: [cutout("left", 47.85, 34), cutout("right", 47.85, 34)],
       },
     ]);
   });
 
-  it("turns spare stack length into one removable spacer", () => {
+  // Enough spare length for a divider and a pocket: the wall holds the deck by itself, so
+  // there is nothing left for a spacer to do and none is made — one part fewer to print.
+  it("walls the deck off from a long spare length instead of making a spacer", () => {
     const r = realizeTray(single, { w: 56.7, d: 95.7, h: 69.2 }, s, ground);
+    expect(r.spacers).toEqual([]);
+    expect(r.compartments).toHaveLength(2);
+    // The deck's well stays at its minimum, so the cards cannot slide along it. (Its x sits
+    // past the wall, which took some of the spare length as extra thickness.)
+    const deck = at(r.compartments, 0);
+    expect(deck).toMatchObject({ y: 1.6, w: 23.5, d: 92.5 });
+    const pocket = at(r.compartments, 1);
+    expect(pocket.kind).toBe("spare");
+    // A divider's worth of wall stands between the deck and the pocket.
+    expect(pocket.x).toBeGreaterThanOrEqual(deck.x + deck.w + s.divider);
+  });
+
+  it("turns a short spare stack length into one removable spacer", () => {
+    const r = realizeTray(single, { w: 36.7, d: 95.7, h: 69.2 }, s, ground);
     expect(r.compartments).toHaveLength(1);
     const well = at(r.compartments, 0);
-    expect(well).toMatchObject({ x: 1.6, y: 1.6, w: 53.5, d: 92.5, floorZ: 1.2 });
+    expect(well).toMatchObject({ x: 1.6, y: 1.6, w: 33.5, d: 92.5, floorZ: 1.2 });
     expect(at(well.features, 0)).toMatchObject({ at: 47.85, width: 25 });
     expect(r.spacers).toEqual([
       {
@@ -57,7 +76,7 @@ describe("realizeTray", () => {
         x: 25.1,
         y: 1.6,
         z: 1.2,
-        w: 30,
+        w: 10,
         d: 92.5,
         h: 63,
         rotated: false,
@@ -103,7 +122,7 @@ describe("realizeTray", () => {
     });
   });
 
-  it("keeps one spacer per tray; another row's slack becomes thicker walls and a spare", () => {
+  it("walls every row off from its own spare length", () => {
     const part = partOf(
       [
         cards({
@@ -118,18 +137,19 @@ describe("realizeTray", () => {
     expect(minOuter(part, s, ground)).toEqual({ w: 26.7, d: 189.4, h: 69.2 });
     const outer = { w: 46.7, d: 189.4, h: 69.2 };
     const r = realizeTray(part, outer, s, ground);
-    // The spare starts right after the divider: "B ×30"'s channel runs into it.
-    expect(r.compartments.map((c) => [c.contents, c.x, c.y, c.w, c.d])).toEqual([
-      ["A ×52", 1.6, 1.6, 43.5, 92.5],
-      ["B ×30", 3.2, 95.3, 13.98, 92.5],
-      ["spare", 18.38, 95.3, 25.12, 92.5],
+    // Each deck keeps its minimum width and a divider separates it from its own spare pocket,
+    // so neither deck can slide and neither needs a spacer printed.
+    expect(r.spacers).toEqual([]);
+    expect(r.compartments.map((c) => [c.contents, c.w])).toEqual([
+      ["A ×52", 23.5],
+      ["B ×30", 13.98],
+      ["spare", 15.6],
+      ["spare", 25.12],
     ]);
     expect(cutsOf(at(r.compartments, 1))).toEqual([
       cutout("left", 141.55, 34),
       cutout("right", 141.55, 34),
     ]);
-    expect(r.spacers).toHaveLength(1);
-    expect(at(r.spacers, 0)).toMatchObject({ x: 25.1, y: 1.6, w: 20, d: 92.5, h: 63 });
     assertTrayInvariants(r, outer, s, ground);
     // 15.2 mm narrower, the spare would be under MIN_SPARE: the slack stays solid.
     const narrow = realizeTray(part, { w: 31.5, d: 189.4, h: 69.2 }, s, ground);
@@ -171,6 +191,7 @@ describe("realizeTray", () => {
       floorZ: 58.2,
       kind: "well",
       contents: "Dial",
+      componentId: "x1",
       features: [
         { type: "wallCutout", side: "front", at: 46.8, width: 25, depth: 5.5, floorNotch: 0 },
         { type: "cornerRelief", d: 3 },
@@ -196,7 +217,7 @@ describe("realizeTray", () => {
       expect(minOuter(part, s, ground)).toEqual({ w: 109.18, d: 57.98, h: 21.2 });
     });
 
-    it("shares width slack between bulk compartments and grows them to full depth", () => {
+    it("shares width slack between bulk compartments and keeps them within reach", () => {
       const r = realizeTray(part, { w: 119.18, d: 57.98, h: 40 }, s, ground);
       expect(r.compartments).toEqual([
         {
@@ -204,9 +225,12 @@ describe("realizeTray", () => {
           y: 1.6,
           w: 59.78,
           d: 54.78,
-          floorZ: 1.2,
+          // 20 mm of pile plus 5 mm of freeboard, not the whole 38.8 mm the tray could give:
+          // a deeper bin would just be a pit with a ramp at the bottom.
+          floorZ: 15,
           kind: "scoop",
           contents: "Cubes ×30",
+          componentId: "b1",
           features: [{ type: "scoop", side: "front", r: 12 }],
         },
         {
@@ -214,17 +238,37 @@ describe("realizeTray", () => {
           y: 1.6,
           w: 55,
           d: 54.78,
-          floorZ: 1.2,
+          floorZ: 15,
           kind: "scoop",
           contents: "Coins 50 ml",
+          componentId: "b1",
           features: [{ type: "scoop", side: "front", r: 12 }],
         },
       ]);
     });
 
-    it("caps the depth at 1.5 × the smaller side by raising the floor", () => {
+    it("stops a scooped bin at the depth you can reach, however tall the tray", () => {
       const r = realizeTray(part, { w: 119.18, d: 57.98, h: 100 }, s, ground);
-      // depth = floor(1.5 × 54.78) = 82.17 → floorZ = 100 − 82.17
+      // 20 mm pile + 5 mm freeboard = 25 → floorZ = 100 − 25, the rest raised solid floor.
+      expect(r.compartments.map((c) => c.floorZ)).toEqual([75, 75]);
+    });
+
+    it("caps a bin without a curved floor at 1.5 × the smaller side instead", () => {
+      // Nothing to reach down to, so the old ratio cap is what binds: floor(1.5 × 54.78).
+      const open = partOf(
+        [
+          bulk({
+            fingerCuts: true,
+            curvedFloor: false,
+            items: [
+              { name: "Cubes", count: 30, w: 10, d: 10, h: 10 },
+              { name: "Coins", volumeMl: 50 },
+            ],
+          }),
+        ],
+        "shallow|strip|split1",
+      );
+      const r = realizeTray(open, { w: 119.18, d: 57.98, h: 100 }, s, ground);
       expect(r.compartments.map((c) => c.floorZ)).toEqual([17.83, 17.83]);
     });
 
@@ -235,9 +279,10 @@ describe("realizeTray", () => {
         { ...s, scoopRadius: 50 },
         ground,
       );
+      // Depth is now 25 (pile + freeboard), so it, not the 50 mm setting, caps the radius.
       expect(r.compartments.map((c) => c.features)).toEqual([
-        [{ type: "scoop", side: "front", r: 29.89 }],
-        [{ type: "scoop", side: "front", r: 27.5 }],
+        [{ type: "scoop", side: "front", r: 25 }],
+        [{ type: "scoop", side: "front", r: 25 }],
       ]);
     });
   });
@@ -262,7 +307,8 @@ describe("realizeTray", () => {
     const shallow = partOf(grains, "shallow|strip|split1");
     const deep = partOf(grains, "deep|strip|split1");
     expect(minOuter(shallow, s, ground)).toEqual({ w: 76.69, d: 76.69, h: 21.2 });
-    expect(minOuter(deep, s, ground)).toEqual({ w: 44.81, d: 44.81, h: 63.61 });
+    // The deep shape spreads wider rather than deeper, so the pile stays within reach.
+    expect(minOuter(deep, s, ground)).toEqual({ w: 63.2, d: 63.2, h: 31.2 });
     for (const part of [shallow, deep]) {
       const outer = minOuter(part, s, ground);
       const c = at(realizeTray(part, outer, s, ground).compartments, 0);
@@ -346,10 +392,19 @@ describe("realizeTray", () => {
       "shallow|strip|split1",
     );
     const r = realizeTray(part, { w: 119.19, d: 57.98, h: 40 }, { ...s, scoopRadius: 50 }, ground);
+    // These wells are wide, so the 25 mm the bin is allowed to be deep caps the radius first.
     expect(r.compartments.map((c) => [c.w, c.features])).toEqual([
-      [59.79, [{ type: "scoop", side: "front", r: 29.89 }]],
-      [55, [{ type: "scoop", side: "front", r: 27.5 }]],
+      [59.79, [{ type: "scoop", side: "front", r: 25 }]],
+      [55, [{ type: "scoop", side: "front", r: 25 }]],
     ]);
+
+    // A narrow bin instead runs out of width first: half of it is less than its depth.
+    const narrow = partOf(
+      [bulk({ items: [{ name: "Tiny", count: 5, w: 5, d: 5, h: 5 }] })],
+      "shallow|strip|split1",
+    );
+    const n = realizeTray(narrow, minOuter(narrow, s, ground), { ...s, scoopRadius: 50 }, ground);
+    expect(at(n.compartments, 0).features).toEqual([{ type: "scoop", side: "front", r: 12.5 }]);
   });
 
   describe("settings that are not whole multiples of 0.01 mm", () => {

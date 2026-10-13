@@ -2,9 +2,11 @@ import { MIN_CUT_MM, MIN_FEATURE_MM, effectiveBottomChamfer } from "../model/set
 import type { RectMm } from "../model/cut-rules";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
 import {
+  BIN_FREEBOARD,
   CORNER_RELIEF_D,
   MIN_SPACER,
   MIN_SPARE,
+  SCOOP_REACH,
   SPACER_TOP_GAP,
   WALL_GROW_LIMIT,
 } from "./constants";
@@ -55,7 +57,15 @@ function contentDepth(req: CompartmentReq, well: Rect, H: number, floor: number)
   }
   const cap =
     req.maxHRatio === undefined ? H - floor : Math.floor(req.maxHRatio * Math.min(well.w, well.d));
-  return Math.max(need, Math.min(H - floor, cap));
+  // A bin with a curved floor stops where a hand can still reach the ramp, and takes only a
+  // little empty wall above the pile rather than every millimetre going spare — a deeper well
+  // would just be a pit with a ramp at the bottom. The height it leaves goes to the tray above,
+  // or is reported as unused. Everything else still grows to fill the tray.
+  const scooped = req.features.some((f) => f.type === "scoop");
+  const reach = scooped
+    ? Math.min(toU(SCOOP_REACH), need + toU(BIN_FREEBOARD))
+    : Number.POSITIVE_INFINITY;
+  return Math.max(need, Math.min(H - floor, cap, reach));
 }
 
 const SIDES: readonly Side[] = ["front", "back", "left", "right"];
@@ -416,7 +426,13 @@ function layoutAt(
     } else {
       const candidate = lastIndex(row, (c) => c.spacerAxis === "w");
       const req = row[candidate];
-      if (!spacerUsed && req !== undefined && spacerFits(req, slack, settings)) {
+      // A divider and a spare pocket hold the deck in place by themselves, and are one part
+      // fewer to print than a loose spacer block, so they win whenever the spare length is
+      // long enough for both. The spacer only earns its place when it isn't: a short pocket
+      // would cost a wall and still leave the cards loose. The pocket has to sit at the row's
+      // end, next to the deck, or the wall wouldn't be between the two.
+      const walled = candidate === row.length - 1 && slack >= toU(MIN_SPARE) + spareGap;
+      if (!spacerUsed && req !== undefined && !walled && spacerFits(req, slack, settings)) {
         growth[candidate] = slack;
         spacerAt = candidate;
         spacerUsed = true;
@@ -478,6 +494,7 @@ function layoutAt(
       floorZ: fromU(floorZ),
       kind: req.kind,
       contents: req.contents,
+      componentId: req.componentId,
       features: featureSpecs(req, alloc, depth, { settings, cuts: cuts[i] ?? new Map() }),
     };
   });

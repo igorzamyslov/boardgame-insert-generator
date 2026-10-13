@@ -44,8 +44,10 @@ describe("sizing public API", () => {
           for (const part of variant.parts) {
             const outer = sizing.minOuter(part, DEFAULT_SETTINGS, opts);
             const tray = sizing.realizeTray(part, outer, DEFAULT_SETTINGS, opts);
-            expect(sizing.hasGrip(tray.compartments)).toBe(true);
-            expect(sizing.hasGrip(sizing.rotateRealized(tray, outer).compartments)).toBe(true);
+            expect(sizing.hasGrip(tray.compartments, outer.h)).toBe(true);
+            expect(sizing.hasGrip(sizing.rotateRealized(tray, outer).compartments, outer.h)).toBe(
+              true,
+            );
           }
         }
       }

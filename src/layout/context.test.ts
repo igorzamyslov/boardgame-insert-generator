@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_SETTINGS } from "../model/settings";
 import { createCtx, INF_U, MIN_PIECE_U, printedHeight, withSizeLocks } from "./context";
 import { boxReq, comp, fakeMeasure, makeInput, part, req, variant } from "./test-utils";
 
@@ -14,6 +15,14 @@ describe("createCtx", () => {
     expect(ctx.upperMinH).toBe(500);
     expect(ctx.lipHeight).toBe(200);
     expect(ctx.bed).toEqual({ w: 24600, d: 24600, z: 25600 });
+  });
+
+  // The inset exists only to clear the lip ring below. Left in place with the lip off it would
+  // hold the upper tray's floor off the rim it is meant to rest on, so it goes to zero and the
+  // trays stack flush.
+  it("drops the inset to zero when the lip is off, so trays stack flush", () => {
+    const off = makeInput([], { settings: { lip: { ...DEFAULT_SETTINGS.lip, enabled: false } } });
+    expect(createCtx(off, fakeMeasure).inset).toBe(0);
   });
 
   it("applies the fit multiplier to box clearance, gap and lip play", () => {

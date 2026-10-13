@@ -662,7 +662,8 @@ describe("setting ranges", () => {
     // Upper trays (chamfer ≥ 0.5 mm) rest on ledge − 2 × play × fit; defaults: 1.7 − 0.5 = 1.2 mm.
     const withLip = (over: Partial<Settings>, lip: Partial<Settings["lip"]> = {}): Project => {
       const p = newProject();
-      p.settings = { ...p.settings, ...over, lip: { ...p.settings.lip, ...lip } };
+      // The rule only bites on a tray that has a lip, and the lip is off by default.
+      p.settings = { ...p.settings, ...over, lip: { ...p.settings.lip, enabled: true, ...lip } };
       return p;
     };
     const bearing = [[field.lipBearing, "/settings/bottomChamfer"]];

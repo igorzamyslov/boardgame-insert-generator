@@ -64,9 +64,16 @@ describe("share links of the fixtures with a stored layout", () => {
     });
   }
 
-  // The largest fixture is a few characters over the advisory limit: the warning path.
-  it("tiles-minis is over the limit, so copyLink warns", async () => {
-    const link = fixtureLink("tiles-minis");
+  // tiles-minis is the largest fixture and sits near the advisory limit. Which side of it the
+  // link lands on moves with any change to what a layout stores, so the warning path is tested
+  // on a link that is unambiguously too long, rather than on a fixture happening to be a few
+  // characters over.
+  it("tiles-minis is the largest fixture, close to the limit", () => {
+    expect(fixtureLink("tiles-minis").length).toBeGreaterThan(LINK_MAX_URL_CHARS * 0.8);
+  });
+
+  it("copyLink warns about a link over the limit", async () => {
+    const link = fixtureLink("tiles-minis") + "x".repeat(LINK_MAX_URL_CHARS);
     expect(link.length).toBeGreaterThan(LINK_MAX_URL_CHARS);
     const result = await copyLink(link, () => Promise.resolve());
     expect(result).toEqual({ status: "copied", length: link.length, tooLong: true });

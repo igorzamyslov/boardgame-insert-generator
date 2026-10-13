@@ -100,7 +100,12 @@ Notes for adding them later without reworking the layout engine:
 7. **Contents fit.** Each compartment meets its minimum inner size,
    clearances included.
 8. **Every tray has a grip.** Either a compartment whose smaller inner
-   dimension is ≥ 25 mm, a wall cutout or a curved floor (§6.1). Finger cuts
+   dimension is ≥ 25 mm, a wall cutout or a curved floor (§6.1). A curved
+   floor counts only while you can reach it: in a bin, whose depth the
+   generator chooses, it grips within `SCOOP_REACH` (35 mm, floor to rim) and
+   not beyond, since past that the ramp is at the bottom of a pit. A well or
+   pocket keeps whatever depth its contents fix, and a wall cutout has no such
+   limit — you reach in from the side. Finger cuts
    cut through outer walls (and the lip on them) and dividers, keeping a post
    at each end. Upper trays are lifted the same way. A tray whose components
    all have finger cuts and curved floor turned off (§5) is the user's choice
@@ -325,7 +330,7 @@ interface Settings {
 | `fingerPocket.floorNotch`                   | advanced                                | 12.5 (0 = none, up to 50) |
 | `fingerPocket.wallRoom`                     | "Extra finger room in the box": on = 10 | 0 (off; up to 20)         |
 | `fingerPocket.dividerRoom`                  | "Extra finger room in the box": on = 5  | 0 (off; up to 20)         |
-| `lip` on / height / thickness / ledge       | advanced                                | on / 2 / 1.2 / 1.7        |
+| `lip` on / height / thickness / ledge       | advanced                                | off / 2 / 1.2 / 1.7       |
 | `lip.play` (×Fit)                           | via Fit                                 | 0.25                      |
 | `topPressFit`                               | advanced                                | 0 (−2…+1)                 |
 | `packingFactor`                             | advanced                                | 0.5                       |
@@ -544,8 +549,12 @@ keeps its own: a cut never opens into a well with finger cuts off.
 | Insets     | Add up: the tray at level k is inset `k·(thickness + play)` per side.                                                                                              |
 | Height     | The lip is not part of `tray.h`; it overlaps the upper tray. Upper trays need `h ≥ lip.height + 3`.                                                                |
 
-With the lip off, upper trays keep the same inset, rest on the rim, and the
-app warns (rule 4).
+The lip is **off by default**: only the lower tray carries it, so the upper one
+sits inside it with `play` on every side and can rattle. With the lip off the
+inset is zero too (it exists only to clear the lip ring), so upper trays are the
+same footprint as the tray below and bear on its whole rim; the app still warns
+that nothing keys them together (rule 4). Turn the lip on where the trays need
+keying.
 
 ### 6.2 Per type
 
@@ -606,6 +615,16 @@ from the sleeve table or `stackMm / cards`; clearances ×Fit unless overridden):
 lines are used as given). Each compartment has min width/depth =
 `max(largest item dim + pieceClearance, 25)` (25 for `volumeMl` lines) and
 height ≤ 1.5 × its smaller horizontal size and ≥ 20 mm.
+
+A bin with a curved floor is one you reach into, so its pile is capped at
+`SCOOP_REACH − BIN_FREEBOARD` (35 − 5 = 30 mm) and the volume is made up by
+spreading the footprint wider rather than going deeper; a single piece taller
+than that sets its own floor. Realized, such a bin takes the pile plus
+`BIN_FREEBOARD` of empty wall, so pieces don't spill over the rim, and stops
+there instead of growing into all the height the tray can spare — the rest
+becomes raised floor, goes to the tray above, or is reported as unused. A bin
+opened through its wall instead (finger cuts, curved floor off) has no reach
+limit and still grows to 1.5 × its smaller horizontal size.
 
 A measured card thickness below 0.1 mm per card is treated as a typo: the
 sleeve-table thickness is used instead, with a notice.

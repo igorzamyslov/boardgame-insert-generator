@@ -162,6 +162,11 @@ export interface CompartmentSpec {
   floorZ: number; // tray-local; = settings.floor unless raised
   kind: "well" | "scoop" | "pocket" | "spare";
   contents: string;
+  // Which component this compartment holds. Identity (its tint, glyph and "trays 1, 3" list)
+  // reads this, rather than matching the `contents` text against component names, so two
+  // components with the same name stay apart. Absent on spares, and on layouts stored before
+  // schema 0.1.2, which fall back to matching the text.
+  componentId?: string;
   features: FeatureSpec[];
 }
 

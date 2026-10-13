@@ -118,10 +118,11 @@ describe("SettingsForm", () => {
       ...DEFAULT_SETTINGS,
       lip: { ...DEFAULT_SETTINGS.lip, play: 0.3 },
     });
+    // The lip starts off, so ticking the box turns it on.
     fireEvent.click(screen.getByLabelText(/Locating lip/));
     expect(onChange).toHaveBeenLastCalledWith({
       ...DEFAULT_SETTINGS,
-      lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+      lip: { ...DEFAULT_SETTINGS.lip, enabled: true },
     });
     fireEvent.change(screen.getByLabelText("Unused space"), { target: { value: "solid" } });
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });

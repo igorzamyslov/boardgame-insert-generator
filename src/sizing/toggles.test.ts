@@ -124,7 +124,7 @@ describe("finger cuts and curved floor toggles", () => {
     ] as const) {
       const part = partOf([cards({ fingerCuts })], "upright-long|strip|split1");
       const min = minOuter(part, s, ground);
-      const outer = { ...min, w: min.w + 20 };
+      const outer = { ...min, w: min.w + 10 };
       const r = realizeTray(part, outer, s, ground);
       assertTrayInvariants(r, outer, s, ground, part);
       expect(r.spacers).toHaveLength(1);

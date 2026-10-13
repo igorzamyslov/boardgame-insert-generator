@@ -76,7 +76,9 @@ describe("minisOptions", () => {
     expect(shallow.minH).toBe(26);
     expect(shallow.minW).toBe(62.02); // √(100000/26) = 62.017…, rounded up
     const deep = at(at(at(options, 1).blocks, 0), 0);
-    expect(deep.minW).toBe(41);
-    expect(deep.minH).toBe(59.49); // 100000 / 41² = 59.488…, rounded up
+    // A bin you scoop from keeps its pile within reach (SCOOP_REACH − BIN_FREEBOARD = 30 mm),
+    // so the deep shape spreads wider instead of going deeper.
+    expect(deep.minW).toBe(57.74); // √(100000/30) = 57.735…, rounded up
+    expect(deep.minH).toBe(30);
   });
 });

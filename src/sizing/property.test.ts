@@ -329,7 +329,7 @@ function checkAgainstPart(part: TrayPartReq, outer: OuterSize, r: RealizedTray):
     expect(sp.h).toBeGreaterThanOrEqual(MIN_SPACER - EPS);
   }
   spacersInsideCompartments(r);
-  expect(hasGrip(r.compartments) || !needsGrip(part)).toBe(true);
+  expect(hasGrip(r.compartments, outer.h) || !needsGrip(part)).toBe(true);
 }
 
 /** Realizes `part` in `outer`, checks it, then checks the same tray rotated by 90°. */
@@ -343,7 +343,7 @@ function checkTray(part: TrayPartReq, outer: OuterSize, s: Settings, opts: Reali
   const turned = rotateRealized(realized, outer);
   assertTrayInvariants(turned, turnedOuter, s, opts, part);
   spacersInsideCompartments(turned);
-  expect(hasGrip(turned.compartments) || !needsGrip(part)).toBe(true);
+  expect(hasGrip(turned.compartments, turnedOuter.h) || !needsGrip(part)).toBe(true);
   expect(turned.compartments).toHaveLength(realized.compartments.length);
 }
 

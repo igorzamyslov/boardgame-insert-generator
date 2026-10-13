@@ -462,9 +462,14 @@ input[aria-invalid="true"] {
   overflow: auto;
 }
 
+/* The head takes what it needs and the body takes the rest. Without this the view's rows are
+   all content-sized, so the plan had to guess at the room left above it; the guess was wrong
+   whenever anything else appeared (a warning, say) and the view scrolled instead. */
 .pf-app__stage > .pf-view {
   flex: 1 1 auto;
   min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
 }
 
 .pf-view__body {

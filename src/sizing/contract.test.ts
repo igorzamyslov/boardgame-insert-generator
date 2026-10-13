@@ -16,7 +16,7 @@ describe("plan 1 values that sizing relies on", () => {
       pieceClearance: 1,
       scoopRadius: 12,
       fingerPocket: { width: 25 },
-      lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
+      lip: { enabled: false, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
       packingFactor: 0.5,
     });
   });

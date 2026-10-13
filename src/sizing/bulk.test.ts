@@ -28,8 +28,10 @@ describe("bulkOptions", () => {
     expect(shallow.maxHRatio).toBe(1.5);
     expect(shallow.features).toEqual([{ type: "scoop", side: "front" }]);
     const deep = line(bulk(), s, 1);
-    expect(deep.minW).toBe(34.2); // ∛40000 = 34.1995…, rounded up
-    expect(deep.minH).toBe(51.3); // 1.5 · ∛40000 = 51.299…, rounded up
+    // A bin you scoop from keeps its pile within reach (SCOOP_REACH − BIN_FREEBOARD = 30 mm),
+    // so the deep shape spreads wider instead of going deeper.
+    expect(deep.minW).toBe(44.73); // √(60000/30) = 44.721…, rounded up
+    expect(deep.minH).toBe(30);
   });
 
   it("uses volumeMl lines as given (1 ml = 1000 mm³)", () => {
@@ -40,8 +42,8 @@ describe("bulkOptions", () => {
     expect(shallow.minW).toBe(77.46); // √6000 = 77.459…, rounded up
     expect(shallow.minH).toBe(20);
     const deep = line(component, s, 1);
-    expect(deep.minW).toBe(43.09); // ∛80000 = 43.088…, rounded up
-    expect(deep.minH).toBe(64.64); // 1.5 · ∛80000 = 64.633…, rounded up
+    expect(deep.minW).toBe(63.25); // √(120000/30) = 63.245…, rounded up
+    expect(deep.minH).toBe(30);
   });
 
   it("keeps the per-axis minimum: largest item dimension + clearance, at least 25", () => {
@@ -100,7 +102,7 @@ describe("bulkOptions", () => {
       expect(c.minH).toBeLessThanOrEqual(1.5 * Math.min(c.minW, c.minD) + 1e-9);
     }
     expect(line(component).minW).toBe(73.49); // √5400 = 73.48…, rounded up
-    expect(line(component, s, 1).minW).toBe(41.61); // ∛72000 = 41.601…, rounded up
+    expect(line(component, s, 1).minW).toBe(60); // √(108000/30)
   });
 });
 

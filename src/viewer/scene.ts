@@ -20,13 +20,18 @@ import {
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { parentKey } from "../instructions/numbering";
 import type { TraySpec } from "../model/types";
-import { isVisible, trayColor, trayPosition } from "./transform";
+import { SPARE_COLOR } from "../ui/identity";
+import { isVisible, trayPosition } from "./transform";
 import type { BoxOutline, SceneFactory, SceneHandle, SceneTray } from "./types";
 import { WebGLUnavailableError } from "./webgl";
 
 interface TrayObject {
   spec: TraySpec;
+  // The part this one is spread apart with: a card spacer travels with its tray, everything
+  // else with itself.
+  anchor: TraySpec;
   object: ThreeMesh;
   material: MeshStandardMaterial;
 }
@@ -103,7 +108,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
 
   function apply(): void {
     for (const t of trays) {
-      const [x, y, z] = trayPosition(t.spec, explode, center);
+      const [x, y, z] = trayPosition(t.spec, explode, center, t.anchor);
       t.object.position.set(x, y, z);
       t.object.visible = isVisible(t.spec, maxLevel);
       t.material.emissive.setHex(t.spec.key === selected ? 0x444444 : 0x000000);
@@ -182,20 +187,23 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
     },
     setTrays(list: readonly SceneTray[]) {
       clearTrays();
-      list.forEach(({ spec, mesh, color }, i) => {
+      const byKey = new Map(list.map(({ spec }) => [spec.key, spec]));
+      list.forEach(({ spec, mesh, color }) => {
         const geometry = new BufferGeometry();
         geometry.setAttribute("position", new BufferAttribute(mesh.positions, 3));
         geometry.setIndex(new BufferAttribute(mesh.indices, 1));
         geometry.computeVertexNormals();
-        const c = trayColor(i);
+        // A part with no colour of its own takes the neutral, not a hue of its own: colour here
+        // means "this is that component", so an invented one would claim an identity it hasn't got.
         const material = new MeshStandardMaterial({
-          color: color !== undefined ? litColor(color) : new Color().setHSL(c.h, c.s, c.l),
+          color: litColor(color ?? SPARE_COLOR),
           flatShading: true,
           roughness: 0.8,
         });
         const object = new ThreeMesh(geometry, material);
         scene.add(object);
-        trays.push({ spec, object, material });
+        const anchor = spec.part === "spacer" ? (byKey.get(parentKey(spec)) ?? spec) : spec;
+        trays.push({ spec, anchor, object, material });
       });
       apply();
     },

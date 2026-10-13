@@ -1,6 +1,6 @@
 // src/instructions/render.ts
 import type { ComponentKind, Project, Settings, StoredLayout, TraySpec } from "../model/types";
-import { componentIndexOfTray } from "../ui/identity";
+import { SPACER_COLOR, componentIndexOfTray } from "../ui/identity";
 import {
   labelFontSize,
   levelsOf,
@@ -131,7 +131,7 @@ function layerSvg(
   for (const s of spacers) {
     const r = toSvgRect(s, frame);
     out.push(
-      `<rect x="${n(r.x)}" y="${n(r.y)}" width="${n(r.w)}" height="${n(r.h)}" fill="#f7e3c4" stroke="#8a5a00" stroke-width="0.4" stroke-dasharray="1.5 1"/>`,
+      `<rect x="${n(r.x)}" y="${n(r.y)}" width="${n(r.w)}" height="${n(r.h)}" fill="${SPACER_COLOR}" stroke="#8a5a00" stroke-width="0.4" stroke-dasharray="1.5 1"/>`,
     );
   }
   // The trays of the layer below, faintly, over the shapes: where this layer's trays stand.

@@ -60,6 +60,7 @@ function readCompartment(r: Reader): CompartmentSpec {
     floorZ: r.strictNum("floorZ"),
     kind: r.oneOf("kind", ["well", "scoop", "pocket", "spare"]),
     contents: r.str("contents", ""),
+    componentId: r.optStr("componentId"),
     features: r.objects("features", []).map(readFeature),
   });
 }

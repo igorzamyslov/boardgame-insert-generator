@@ -10,6 +10,16 @@ export function tintVar(index: number): string {
   return `var(--tint-${(index % TINT_COUNT) + 1})`;
 }
 
+/**
+ * Every card spacer is this one colour, in the 3D view and on the assembly page: a spacer
+ * belongs to no component, and they all do the same job, so telling them apart by colour
+ * would say something that isn't there.
+ */
+export const SPACER_COLOR = "#f7e3c4";
+
+/** A part with no component of its own: a spare tray or a filler block. */
+export const SPARE_COLOR = "#dfe2e7";
+
 /** The index of the component whose name appears in tray contents text such as "Deck ×50". */
 export function componentIndexOfContents(
   contents: string,
@@ -47,7 +57,19 @@ export function componentIndexOfTray(
   components: readonly Component[],
 ): number | null {
   const first = tray.compartments.find((c) => c.kind !== "spare" && c.contents !== "");
-  return first ? componentIndexOfContents(first.contents, components) : null;
+  if (first === undefined) {
+    return null;
+  }
+  // Layouts from schema 0.1.2 on name the component outright, so two components called the
+  // same thing (several unnamed "Cards", say) keep their own colour instead of collapsing
+  // onto whichever one the text happened to match first.
+  if (first.componentId !== undefined) {
+    const byId = components.findIndex((c) => c.id === first.componentId);
+    if (byId !== -1) {
+      return byId;
+    }
+  }
+  return componentIndexOfContents(first.contents, components);
 }
 
 /** The tint of a tray: its first compartment's component, else null (spare, leftover, spacer). */

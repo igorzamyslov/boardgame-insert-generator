@@ -10,7 +10,7 @@ import {
   type StorageOption,
   wallCutout,
 } from "./common";
-import { BULK_MIN_SIDE, MAX_H_RATIO, SHALLOW_H } from "./constants";
+import { BIN_FREEBOARD, BULK_MIN_SIDE, MAX_H_RATIO, SCOOP_REACH, SHALLOW_H } from "./constants";
 import type { CompartmentReq } from "./types";
 
 export type BulkShape = "shallow" | "deep";
@@ -35,14 +35,30 @@ export function bulkLine(item: BulkItem, clearance: number, packingFactor: numbe
   };
 }
 
-/** Square footprint `side` and content depth `h` with side²·h ≥ volume and h ≤ 1.5·side. */
-export function shapeLine(line: BulkLine, shape: BulkShape): { side: number; h: number } {
+/**
+ * Square footprint `side` and content depth `h` with side²·h ≥ volume and h ≤ 1.5·side.
+ *
+ * `maxFill` caps how deep the pile may be: a bin you have to reach into keeps its pieces within
+ * reach, and makes the volume up by spreading wider instead of deeper. A single piece taller
+ * than the cap sets its own floor, since nothing can be done about that one.
+ */
+export function shapeLine(
+  line: BulkLine,
+  shape: BulkShape,
+  maxFill = Number.POSITIVE_INFINITY,
+): { side: number; h: number } {
+  const cap = Math.max(line.hFloor, maxFill);
   if (shape === "shallow") {
-    const h = Math.max(SHALLOW_H, line.hFloor);
+    const h = Math.min(Math.max(SHALLOW_H, line.hFloor), cap);
     return { side: Math.max(line.side0, Math.sqrt(line.volume / h)), h };
   }
-  const side = Math.max(line.side0, Math.cbrt(line.volume / MAX_H_RATIO));
-  return { side, h: Math.max(line.hFloor, SHALLOW_H, line.volume / (side * side)) };
+  const deepSide = Math.max(line.side0, Math.cbrt(line.volume / MAX_H_RATIO));
+  const deepH = Math.max(line.hFloor, SHALLOW_H, line.volume / (deepSide * deepSide));
+  if (deepH <= cap) {
+    return { side: deepSide, h: deepH };
+  }
+  const side = Math.max(line.side0, Math.sqrt(line.volume / cap));
+  return { side, h: Math.max(line.hFloor, Math.min(cap, line.volume / (side * side))) };
 }
 
 /**
@@ -56,8 +72,12 @@ export function bulkCompartment(
   line: BulkLine,
   shape: BulkShape,
 ): CompartmentReq {
-  const { side, h } = shapeLine(line, shape);
   const features = featuresOf(on, [wallCutout("front", 0.5, false)]);
+  // A bin with a curved floor is one you reach into, so it stays within reach and keeps a
+  // little empty wall above the pile; the capacity comes back as a wider footprint. A bin you
+  // open through the wall instead has no such limit.
+  const scooped = features.some((f) => f.type === "scoop");
+  const { side, h } = shapeLine(line, shape, scooped ? SCOOP_REACH - BIN_FREEBOARD : undefined);
   return compartment({
     componentId,
     contents,

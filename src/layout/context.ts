@@ -143,7 +143,11 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     topPlane: toUFloor(topPlane(box, settings)),
     boxClearance,
     gap: toU(eff.trayGap),
-    inset: toU(settings.lip.thickness + eff.lipPlay),
+    // The inset exists only to clear the lip ring below. With no lip there is nothing to
+    // clear, and keeping it would leave the upper tray overhanging the rim: its bottom
+    // chamfer starts further in than the wall below is thick, so it would come to rest on
+    // the dividers instead of on the rim. Flush is both snugger and simpler.
+    inset: settings.lip.enabled ? toU(settings.lip.thickness + eff.lipPlay) : 0,
     layer: Math.max(1, toU(printer.layerHeight)),
     lipOn: settings.lip.enabled,
     lipHeight: toU(settings.lip.height),

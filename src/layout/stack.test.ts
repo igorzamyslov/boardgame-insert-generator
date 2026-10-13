@@ -130,8 +130,10 @@ describe("stackAllowed", () => {
 
   it("lets a part stack under a thin lip-less stack that still fits", () => {
     const off = make(false);
-    // lip off: no lipped wall, only the inset of the upper tray (small, 44 mm): fits
+    // Lip off: no lipped wall, and no inset either, since the inset exists only to clear a lip
+    // ring. An upper tray is then exactly its own footprint, so the 119 mm part fits either
+    // way up on the 120 mm bed.
     expect(stackAllowed(off, [item(0), item(1)])).toBe(true);
-    expect(stackAllowed(off, [item(1), item(0)])).toBe(false); // 119 + 2.9 mm as an upper tray
+    expect(stackAllowed(off, [item(1), item(0)])).toBe(true);
   });
 });

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { EXPLODE_MM, boxOutline, isVisible, trayColor, trayPosition } from "./transform";
+import { EXPLODE_MM, boxOutline, isVisible, trayPosition } from "./transform";
 
 describe("viewer transforms", () => {
   it("lifts upper levels when exploded", () => {
@@ -28,6 +28,32 @@ describe("viewer transforms", () => {
     expect(trayPosition(makeTray({ x: 80, y: 40, w: 40, d: 20 }), 1, c)).toEqual([80, 40, 0]);
   });
 
+  // A spacer sits inside its tray's well. Spread moves a part in proportion to its own
+  // distance from the centre, so measuring the spacer from itself slid it through the tray's
+  // wall; it has to travel with the tray and rise clear instead.
+  it("keeps a card spacer in station with its tray and lifts it clear", () => {
+    const tray = makeTray({ key: "a:p0:0", x: 160, y: 40, w: 40, d: 20 });
+    const spacer = makeTray({
+      key: "a:p0:0:spacer",
+      part: "spacer",
+      x: 190,
+      y: 42,
+      w: 8,
+      d: 16,
+    });
+    const c: [number, number] = [100, 50];
+
+    const t = trayPosition(tray, 1, c);
+    const s = trayPosition(spacer, 1, c, tray);
+    // Same sideways move as the tray, so it stays the same distance inside the well.
+    expect(s[0] - spacer.x).toBeCloseTo(t[0] - tray.x);
+    expect(s[1] - spacer.y).toBeCloseTo(t[1] - tray.y);
+    // And it rises out of the tray, so it still reads as a part of its own.
+    expect(s[2]).toBeGreaterThan(t[2]);
+    // Nothing moves when the trays are together.
+    expect(trayPosition(spacer, 0, c, tray)).toEqual([190, 42, 0]);
+  });
+
   it("filters layers", () => {
     expect(isVisible(makeTray({ level: 2 }), null)).toBe(true);
     expect(isVisible(makeTray({ level: 2 }), 1)).toBe(false);
@@ -43,10 +69,5 @@ describe("viewer transforms", () => {
       min: [-0.5, -0.5, 0],
       size: [200, 100, 50],
     });
-  });
-
-  it("spreads colours", () => {
-    expect(trayColor(0)).toEqual({ h: 0, s: 0.45, l: 0.62 });
-    expect(trayColor(1).h).not.toBe(trayColor(2).h);
   });
 });

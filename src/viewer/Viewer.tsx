@@ -5,7 +5,7 @@ import { numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { SelectField } from "../ui/fields";
-import { tintOfTray } from "../ui/identity";
+import { SPACER_COLOR, SPARE_COLOR, tintOfTray } from "../ui/identity";
 import { TrayDetails } from "../ui/TrayDetails";
 import { boxOutline } from "./transform";
 import type { SceneFactory, SceneHandle, SceneTray } from "./types";
@@ -36,18 +36,25 @@ export interface ViewerProps {
 
 type Status = "loading" | "ready" | "nowebgl" | "error" | "lost";
 
-/** The tray's component tint as a resolved colour (a custom property read off the page). */
+/**
+ * A part's colour in 3D, resolved to a real colour so the scene agrees with the list, the plan
+ * and the chips: its component's tint for a tray, one shared colour for every spacer, and a
+ * neutral for a part that holds nothing (a spare tray or a filler block).
+ */
 function tintColorOf(
   spec: TraySpec,
   components: readonly Component[] | undefined,
 ): string | undefined {
+  if (spec.part === "spacer") {
+    return SPACER_COLOR;
+  }
   const tint = tintOfTray(spec, components ?? []);
   const name = tint === null ? null : /var\((--[\w-]+)\)/.exec(tint)?.[1];
   if (!name || typeof document === "undefined") {
-    return undefined;
+    return tint === null ? SPARE_COLOR : undefined;
   }
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return value === "" ? undefined : value;
+  return value === "" ? SPARE_COLOR : value;
 }
 
 async function defaultLoadScene(): Promise<SceneFactory> {
@@ -197,7 +204,10 @@ export function Viewer(p: ViewerProps) {
       cancelled = true;
       controller.abort();
     };
-  }, [status, p.trays, p.settings, p.stale, p.meshes, attempt]);
+    // p.components is a dependency because it decides each tray's colour: without it, editing
+    // the components (which can leave the layout alone) left the scene on its old colours while
+    // the list, plan and chips moved on.
+  }, [status, p.trays, p.settings, p.stale, p.meshes, p.components, attempt]);
 
   useEffect(() => {
     handleRef.current?.setExplode(explode);

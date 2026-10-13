@@ -19,7 +19,9 @@ import {
 } from "./test-helpers";
 import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
-const s: Settings = DEFAULT_SETTINGS;
+// These cover sizing with a locating lip available (the lipped wall, upper-tray
+// minimums), so they turn it on; the app's own default is off.
+const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
 const ground: RealizeOptions = { lipped: false, level: 0 };
 const roomy = applyFingerRoom(s, true);
 const wallOnly: Settings = { ...s, fingerPocket: { ...s.fingerPocket, wallRoom: 10 } };
@@ -71,7 +73,13 @@ describe("upright cards and tiles: one finger channel", () => {
   });
 
   it("is a grip", () => {
-    expect(hasGrip(realize(strip).compartments.map((c) => ({ ...c, w: 10, d: 10 })))).toBe(true);
+    const r = realize(strip);
+    expect(
+      hasGrip(
+        r.compartments.map((c) => ({ ...c, w: 10, d: 10 })),
+        minOuter(strip, s, ground).h,
+      ),
+    ).toBe(true);
   });
 
   it("gives each row of rows2 its own channel, centred on its wells and clear of the other row", () => {
@@ -200,10 +208,10 @@ describe("upright cards and tiles: one finger channel", () => {
   it("notches a spacer standing in a channelled well to match the channel", () => {
     const one = partOf([cards()], "upright-long|strip|split1");
     const min = minOuter(one, s, ground);
-    const r = realize(one, s, ground, { ...min, w: min.w + 30 });
+    const r = realize(one, s, ground, { ...min, w: min.w + 10 });
     expect(r.spacers).toHaveLength(1);
     // Spacer frame: the well's 92.5 mm along Y from y 1.6, its top 5 mm below the rim.
-    expect(at(r.spacers, 0)).toMatchObject({ y: 1.6, w: 30, d: 92.5, h: 63 });
+    expect(at(r.spacers, 0)).toMatchObject({ y: 1.6, w: 10, d: 92.5, h: 63 });
     expect(at(r.spacers, 0).features).toEqual([
       { type: "spacerNotch", axis: "x", at: 46.25, width: 25, depth: 29 },
     ]);
@@ -217,8 +225,8 @@ describe("upright cards and tiles: one finger channel", () => {
     const deck = cards({ shortSide: 25, longSide: 80, sleeve: "none", storage: "upright-short" });
     const part = partOf([deck], "upright-short|strip|split1", steep);
     const min = minOuter(part, steep, ground);
-    const r = realize(part, steep, ground, { ...min, w: min.w + 30 });
-    expect(at(r.spacers, 0)).toMatchObject({ w: 30, d: 26.5, h: 54 });
+    const r = realize(part, steep, ground, { ...min, w: min.w + 10 });
+    expect(at(r.spacers, 0)).toMatchObject({ w: 10, d: 26.5, h: 54 });
     expect(at(r.spacers, 0).features).toEqual([
       { type: "spacerNotch", axis: "x", at: 13.25, width: 26.5, depth: 13.25 },
     ]);
@@ -249,6 +257,7 @@ describe("flat cards and tiles: cutouts through the long walls", () => {
         floorZ: 1.2,
         kind: "well",
         contents: "Main ×52",
+        componentId: "c1",
         features: [cutout("left", 47.85, 23.5, 12.5), cutout("right", 47.85, 23.5, 12.5)],
       },
     ]);
