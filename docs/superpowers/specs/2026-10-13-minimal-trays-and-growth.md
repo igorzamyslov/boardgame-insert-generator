@@ -275,6 +275,30 @@ are likely to pay off:
    than one wedged between trays, and it only has to be snug on the inner side.
    Reward leftover rects that touch the box boundary.
 
+#### Worked example (Star Realms, 101 × 195 × 37)
+
+A real layout that produces four fillers where two would do, and which the next
+session can use as a test case:
+
+| filler       | position                   | size          |
+| ------------ | -------------------------- | ------------- |
+| `leftover:0` | right edge, y 0–100.12     | 8.71 × 100.12 |
+| `leftover:2` | right edge, y 100.26–194.3 | 8.71 × 94.04  |
+| `leftover:1` | between the two stacks     | 91.45 × 8.53  |
+| `leftover:3` | far end                    | 91.45 × 2.45  |
+
+- **The two edge strips are the same strip.** Same x, same width, separated only
+  by the 0.14 mm tray gap. They are two parts solely because they belong to
+  different leaves of the guillotine tree (`path` "0" and "1"), and leftovers are
+  emitted per leaf with no merge pass. Lever 1 fixes exactly this; note it must
+  absorb the tray gap between them.
+- **The interior strip should have been at the edge.** 8.53 mm sits between the
+  two stacks and 2.45 mm at the far end. Pushing the stacks together would leave
+  one 10.98 mm strip at the end instead of two. This is lever 3 doing real work.
+
+Together the two levers take this layout from four fillers to two, which is what
+the user asked for. Treat it as the acceptance case.
+
 **Lever 3 is unproven and may fight lever 2** — pushing slack outward could
 fragment it into several edge strips where it would otherwise have pooled into
 one interior block. The user flagged their own uncertainty here. Measure count
@@ -298,6 +322,31 @@ faces the box wall or another tray's back, not one facing a finger cut.
 
 Note this is in tension with the whole spec, and that is fine — it is an
 explicit user choice to trade honest geometry for fewer parts, not a default.
+
+### Keeping one component's parts together
+
+When a component is split across several trays (variants with parts `p0:0`,
+`p0:1`, …), the optimizer treats each part independently. In the Star Realms
+layout the three "Starter deck" trays end up in two different stacks, and one of
+them is turned 90° while the other two are not. The user reads them as one
+thing, so this looks like a mistake.
+
+Two preferences worth adding to the score, in this order:
+
+1. **Same orientation.** Parts of one requirement should prefer a common
+   `rotated` value. In the example all three trays are square in plan
+   (91.45 × 91.45), so this costs the packing nothing at all — it is a pure
+   tiebreak, and the cheapest cohesion win available.
+2. **Same stack**, where it fits. This is a _preference_, never a constraint,
+   because it is frequently impossible. In the example it is: the box takes
+   exactly two stacks of that footprint, each capped at the 35 mm top plane, and
+   the only partition that fits is {Trade 28.4, Deck 3 6.6} and {Counter 8,
+   Deck 2 3.6, Deck 1 23.4}. Putting the three starter decks together forces
+   Trade + Counter into one stack at 36.4 mm, over the plane. The current
+   interleaving is forced, not arbitrary.
+
+So implement 1 unconditionally and 2 as a weak term, and make sure neither can
+push a feasible layout into an infeasible one.
 
 ## 7. Risks, and what to measure before shipping
 
