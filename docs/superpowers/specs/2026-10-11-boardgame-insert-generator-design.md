@@ -53,6 +53,19 @@ box.
 - Bundled game presets library.
 - Calibration test print.
 - Print-time estimate.
+- Renaming the box dimension labels: "depth" reads as vertical to some users;
+  width / length / height is clearer. UI labels only, not the schema fields.
+- An optional XYZ axis indicator in the 3D viewer.
+- An exploded 3D view in the assembly page and its print output.
+- Part numbers embossed on trays, matching the assembly instructions (an
+  extension of embossed labels above).
+- A donation link on the export screen.
+- Export as a modal, so leaving it does not mean switching back a view mode.
+- Reconsidering the "Preview: saved projects and shared links may break between
+  versions." banner: users do not know what it means and cannot dismiss it.
+- Keeping warnings from making the page scroll when several appear at once.
+- Closing the project menu on an outside click or on a selection, instead of
+  only when its own button is clicked again.
 - Showing the sizes derived from a component's presets (card format, count,
   sleeve) next to the editor, so the user can judge whether to trust them
   without measuring, plus a correction multiplier for when they do not match.
