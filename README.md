@@ -24,12 +24,23 @@ geometry clients, so they never start a worker or load WASM.
 
 ## What the app does
 
-1. **Describe the box and the printer** (inner size, bed size), then **add
-   components**: cards ("Add cards"), bits such as tokens, cubes and dice
-   ("Add bits"), tiles, miniatures and other items. The Simple / Advanced
-   switch changes how much you see: Advanced opens every editor's "More
-   options", shows the printer's bed margin and layer height, and replaces the
-   Settings choices (walls, fit, finger room) with the numbers they set.
+1. **Describe the box and the printer**, then **add components.** The inputs
+   are a short accordion in the left rail: "The box" (width, depth, height),
+   "What goes inside" (cards, bits such as tokens, cubes and dice, tiles,
+   miniatures and other items) and "Your printer" (the print bed, chosen by
+   size). Each component is one folded line with its kind's icon on a colour,
+   and the number of the tray it makes; the same colour and icon mark that
+   tray in the plan and the 3D view. Simple mode shows only what most games
+   need. **Advanced** (switch in the bar) adds, behind a dotted edge: the
+   box's headroom and side storage, the printer's bed margin and layer height,
+   a "Walls and fit" section (walls, fit, finger room, exact numbers, locating
+   lip, unused space), and per component "Needed during play", group,
+   per-player counts, extra room, finger cuts, curved floor, corner reliefs,
+   measured card stacks and storage. Switching back to Simple keeps every
+   value. The page is one screen: inputs on the left, the result on the right
+   (a plain sentence, "Everything fits. 6 trays (2 are spares) in 2 layers,
+   78% of the box used.", then the plan or the 3D view). Under 960px the
+   result and any problem come first, then the form.
 2. **Per component toggles.** Every editor has "Finger cuts" (a cut through a
    wall of each compartment, to reach in) and, for bits, miniatures and other
    items, "Curved floor" (a scoop ramp). "Corner reliefs" (round holes in the
@@ -37,18 +48,21 @@ geometry clients, so they never start a worker or load WASM.
    toggle starts at the default of its kind and writes an explicit value when
    changed. In Simple mode, the Settings switch "Extra finger room in the box"
    leaves extra room beside the walls and dividers for fingers; Advanced mode
-   edits the wall and divider room numbers it sets.
+   edits the wall and divider room numbers it sets (Advanced mode, "Walls and fit").
 3. **Bulk fallback.** When no tray variant can give a tiles, miniatures
    (pockets) or other item a finger cut, its pieces are stored loose in a bin
    with a curved floor instead. The editor says so, and what the bin has.
 4. **Layout.** The optimizer runs on its own 400 ms after you stop editing and
-   shows the fill, the trays, the stacks, an upper bound for the weight and the
-   play per axis. "Re-optimize", "Improve more" and "Undo layout" (one step)
-   are in the summary. In the plan view, drag a tray onto another (or use the
-   keyboard) to swap them, and "Lock position" / "Lock size" keep a tray where
-   or as big as it is; the optimizer works around locks.
+   says the result in one sentence; Advanced adds the slack per axis and an
+   upper bound for the filament. "Update plan", "Find a better layout" and
+   "Undo layout" (one step) sit under it. Spare trays (plain, dashed, still
+   numbered) fill gaps so the other trays cannot move; print them too. In the
+   plan view, select a tray to see its details; in Advanced, drag a tray onto
+   another (or use the keyboard) to swap them, and "Lock position" / "Lock
+   size" keep a tray where or as big as it is; the optimizer works around
+   locks.
 5. **3D view and export.** The 3D view shows the trays (it needs WebGL; the
-   rest works without). Export gives "3MF per part (.zip)", "One combined 3MF"
+   rest works without). "Export all N trays" opens the export panel, which gives "3MF per part (.zip)", "One combined 3MF"
    or "STL files (.zip)", with a progress bar and a Cancel button. A tray that
    fails to build is listed under "Not exported" with its reason, and "Retry
    failed trays" builds just those again.
@@ -65,28 +79,37 @@ geometry clients, so they never start a worker or load WASM.
    keep.
 
 If you change the inputs after a layout was made, the layout stays and an
-"Inputs changed since this layout was made — re-optimize?" notice offers
-"Re-optimize now"; export and the assembly page are off, and the 3D view keeps
+"Inputs changed since this plan was made — update the plan?" notice offers
+"Update plan now"; the plan is greyed and badged "Out of date"; export and the assembly page are off, and the 3D view keeps
 showing the last layout, until you do. A layout whose geometry version is on an older line than
 the app's gets a "reprint the whole insert" notice: its trays no longer mate
 with trays exported now.
 
+## Look
+
+The interface uses the Proof design system: `src/styles/proof-tokens.css` (tokens,
+compiled from its `tokens.json`) and `src/styles/proof.css` (its `pf-` components) are
+copied in as they are, and `src/style.css` holds only the app's own rules. One typeface
+(Hanken Grotesk, falling back to the system sans; the page loads no web fonts), sentence-case
+labels, solid selected states, shaped notices and a dotted edge for Advanced fields come from
+there. Update the two copied files together when the design system changes.
+
 ## Architecture
 
-| Folder          | What it does                                                                                     |
-| --------------- | ------------------------------------------------------------------------------------------------ |
-| `model/`        | Types, defaults, validation, schema versioning, `inputsHash`                                     |
-| `share/`        | `#1.` link codec, local project store, JSON files                                                |
-| `sizing/`       | Component (group) → tray requirements with variants                                              |
-| `layout/`       | Optimizer (Web Worker, deterministic), `summarize`, `swapLocks`                                  |
-| `geometry/`     | `TraySpec` → manifold mesh (Web Worker; only `geometry/client.ts` is imported by the page)       |
-| `export/`       | 3MF / STL writers, zip, grid layout                                                              |
-| `app/`          | State (`state.ts`), optimizer runner, persistence, store, export builders, mesh cache, `App.tsx` |
-| `ui/`           | Forms, component editors, project menu, summary, export panel                                    |
-| `plan/`         | Top-down plan view with select, drag/keyboard swap and lock                                      |
-| `viewer/`       | three.js 3D view (`scene.ts` is loaded lazily)                                                   |
-| `instructions/` | Part numbering, assembly SVGs, packing order, printable page, PNG                                |
-| `licenses/`     | Builds `dist/third-party-licenses.txt` (see `licenses.config.ts`)                                |
+| Folder          | What it does                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| `model/`        | Types, defaults, validation, schema versioning, `inputsHash`                                      |
+| `share/`        | `#1.` link codec, local project store, JSON files                                                 |
+| `sizing/`       | Component (group) → tray requirements with variants                                               |
+| `layout/`       | Optimizer (Web Worker, deterministic), `summarize`, `swapLocks`                                   |
+| `geometry/`     | `TraySpec` → manifold mesh (Web Worker; only `geometry/client.ts` is imported by the page)        |
+| `export/`       | 3MF / STL writers, zip, grid layout                                                               |
+| `app/`          | State (`state.ts`), optimizer runner, persistence, store, export builders, mesh cache, `App.tsx`  |
+| `ui/`           | Forms, component editors, rail sections, project menu, summary, export panel                      |
+| `plan/`         | Top-down plan view: tiles with number, name, size and kind icon; select, drag/keyboard swap, lock |
+| `viewer/`       | three.js 3D view (`scene.ts` is loaded lazily)                                                    |
+| `instructions/` | Part numbering, assembly SVGs, packing order, printable page, PNG                                 |
+| `licenses/`     | Builds `dist/third-party-licenses.txt` (see `licenses.config.ts`)                                 |
 
 **Data flow.** Every edit goes through `store.edit(fn)` with a pure function
 from `app/actions.ts`. If `inputsHash` changed, `app/runner.ts` waits 400 ms,
@@ -99,7 +122,7 @@ with `history.replaceState`), opens links and files as separate projects (a
 different project with the same id becomes a copy) and pauses autosave if
 another tab saved the same project.
 A project with a stored layout is never re-optimized on load; if its inputs
-changed, the "Inputs changed since this layout was made — re-optimize?" notice
+changed, the "Inputs changed since this plan was made — update the plan?" notice
 appears instead. Meshes are built on demand by the geometry worker and cached
 in `app/meshes.ts`.
 

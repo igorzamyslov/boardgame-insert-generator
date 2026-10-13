@@ -39,7 +39,7 @@ describe("AssemblyPage", () => {
         stale
       />,
     );
-    expect(screen.getByText(/Inputs changed — re-optimize/)).toBeTruthy();
+    expect(screen.getByText(/Inputs changed — update the plan before printing/)).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Print / save as PDF" }).hasAttribute("disabled"),
     ).toBe(true);

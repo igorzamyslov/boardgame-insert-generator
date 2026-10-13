@@ -49,23 +49,47 @@ function withLayoutHash(): string {
   return encodeHash({ ...p, layout: makeLayout(inputsHash(p), trays) }, EMPTY_FOREIGN);
 }
 
+/** Switches the view sheet to a tab; only the selected view's panel is mounted. */
+function openTab(name: "Plan" | "3D"): void {
+  fireEvent.click(screen.getByRole("tab", { name }));
+}
+
+/** The empty state and the rail both offer the Add buttons; either one adds. */
+function addCards(): void {
+  fireEvent.click(screen.getAllByRole("button", { name: "Add cards" })[0] as HTMLElement);
+}
+
+/** The export panel replaces the tab panel; its button shows it. */
+function openExport(): void {
+  fireEvent.click(screen.getByRole("button", { name: /^Export all \d+ trays$/ }));
+}
+
+/** The assembly page's button lives in the export panel. */
+function openAssemblyPage(): void {
+  openExport();
+  fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
+}
+
 describe("App", () => {
-  it("lays out inputs then results with the preview banner and footer", () => {
+  it("lays out the title, inputs then results with the preview banner and footer", () => {
     renderApp();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Insert Generator");
     const inputs = screen.getByRole("region", { name: "Inputs" });
-    expect(
-      within(inputs)
-        .getAllByRole("heading", { level: 2 })
-        .map((h) => h.textContent),
-    ).toEqual(["Box", "Printer", "Components", "Settings"]);
-    const results = screen.getByRole("region", { name: "Results" });
-    expect(within(results).getByRole("heading", { name: "Summary" })).toBeTruthy();
+    const titles = (): (string | undefined)[] =>
+      [...inputs.querySelectorAll("details.pf-acc > summary h2")].map((t) =>
+        t.textContent?.replace(/^\d+/, "").replace(/adv$/, ""),
+      );
+    expect(titles()).toEqual(["The box", "What goes inside", "Your printer"]);
+    const results = screen.getByRole("main");
+    expect(within(results).getByRole("heading", { level: 2, name: "Results" })).toBeTruthy();
     expect(screen.getByText(/shared links may break/)).toBeTruthy();
     const footer = screen.getByRole("contentinfo");
     expect(footer.textContent).toContain(`v${APP_VERSION}`);
     expect(
       within(footer).getByRole("link", { name: "Third-party licenses" }).getAttribute("href"),
     ).toBe("./third-party-licenses.txt");
+    fireEvent.click(screen.getByLabelText("Advanced"));
+    expect(titles()).toEqual(["The box", "What goes inside", "Your printer", "Walls and fit"]);
   });
 
   it("switches to advanced inputs", () => {
@@ -77,20 +101,32 @@ describe("App", () => {
 
   it("adds a component and starts an optimizer run after the pause", async () => {
     const { stub } = renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Add cards" }));
-    expect(screen.getByRole("heading", { name: "Cards: Cards" })).toBeTruthy();
+    addCards();
+    const card = document.querySelector("details.component-card") as HTMLDetailsElement;
+    expect(card.querySelector(".pf-item__title")?.textContent).toBe("Cards");
+    expect(card.open).toBe(true);
     await waitFor(() => expect(stub.calls).toHaveLength(1));
   });
 
-  it("shows plan, 3D fallback and export for a stored layout and swaps with the keyboard", () => {
+  it("shows plan and 3D fallback tabs and the export panel for a stored layout, and swaps with the keyboard in Advanced", () => {
     const { store, stub } = renderApp(withLayoutHash());
+    fireEvent.click(screen.getByLabelText("Advanced"));
     expect(stub.calls).toHaveLength(0);
-    expect(screen.getByRole("heading", { name: "Plan view" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Tray 1,/ })).toBeTruthy();
+    expect(screen.queryByText(/needs WebGL/)).toBeNull();
+    openTab("3D");
     expect(screen.getByText(/needs WebGL/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Tray 1,/ })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Export" })).toBeNull();
+    openExport();
+    expect(screen.getByRole("region", { name: "Export" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "3MF per part (.zip)" })).toBeTruthy();
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "← Back to the plan" }));
+    expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 2:/ }), { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 2,/ }), { key: "Enter" });
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "a:p0:0", path: "1", rotated: false },
       { kind: "position", trayKey: "b:p0:0", path: "0", rotated: false },
@@ -99,12 +135,15 @@ describe("App", () => {
 
   it("blocks exporting while the inputs differ from the layout, even before a run starts", async () => {
     const { store } = renderApp(withLayoutHash());
+    openExport();
     const stl = screen.getByRole("button", { name: "STL files (.zip)" });
     expect(stl.hasAttribute("disabled")).toBe(false);
     fireEvent.click(screen.getByLabelText("Advanced"));
     store.edit((q) => ({ ...q, settings: { ...q.settings, wall: q.settings.wall + 0.4 } }));
     expect(store.state.stale.value).toBe(true);
-    expect(await screen.findByText("Inputs changed — re-optimize before exporting.")).toBeTruthy();
+    expect(
+      await screen.findByText("Inputs changed — update the plan before exporting."),
+    ).toBeTruthy();
     for (const name of ["3MF per part (.zip)", "One combined 3MF", "STL files (.zip)"]) {
       expect(screen.getByRole("button", { name }).hasAttribute("disabled")).toBe(true);
     }
@@ -112,8 +151,8 @@ describe("App", () => {
 
   it("says why the optimizer is blocked by an error whose field is hidden in simple mode", async () => {
     const { store } = renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Add cards" }));
-    const results = screen.getByRole("region", { name: "Results" });
+    addCards();
+    const results = screen.getByRole("main");
     expect(within(results).queryByText(/Fix the errors/)).toBeNull();
     store.edit((q) => ({ ...q, settings: { ...q.settings, bottomChamfer: 3 } }));
     expect(await within(results).findByText(/Fix the errors marked in the inputs/)).toBeTruthy();
@@ -125,12 +164,13 @@ describe("App", () => {
     expect(within(results).getByText(/Fix the errors marked in the inputs/)).toBeTruthy();
   });
 
-  it("shows the selected tray's details once, even with the 3D view running", async () => {
+  it("shows the selected tray's details once in the 3D tab", async () => {
     renderApp(withLayoutHash(), {
       viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(stubSceneFactory()) },
     });
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
+    openTab("3D");
     await waitFor(() => expect(screen.getByLabelText("Explode")).toBeTruthy());
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });
     expect(screen.getAllByRole("heading", { name: /^#1 / })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Lock size" })).toHaveLength(1);
     expect(document.querySelectorAll(".tray-details")).toHaveLength(1);
@@ -143,11 +183,14 @@ describe("App", () => {
 
     it("can't be opened as the assembly page, and says why", async () => {
       const { store } = renderApp(withLayoutHash());
+      openExport();
       const open = screen.getByRole("button", { name: "Open the assembly page" });
       expect(open.hasAttribute("disabled")).toBe(false);
       makeStale(store);
       expect(
-        await screen.findByText("Inputs changed — re-optimize before opening the assembly page."),
+        await screen.findByText(
+          "Inputs changed — update the plan before opening the assembly page.",
+        ),
       ).toBeTruthy();
       expect(
         screen.getByRole("button", { name: "Open the assembly page" }).hasAttribute("disabled"),
@@ -156,12 +199,12 @@ describe("App", () => {
 
     it("turns an open assembly page read-only when it goes stale", async () => {
       const { store } = renderApp(withLayoutHash());
-      fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
+      openAssemblyPage();
       expect(
         screen.getByRole("button", { name: "Print / save as PDF" }).hasAttribute("disabled"),
       ).toBe(false);
       makeStale(store);
-      expect(await screen.findByText(/Inputs changed — re-optimize/)).toBeTruthy();
+      expect(await screen.findByText(/Inputs changed — update the plan/)).toBeTruthy();
       expect(
         screen.getByRole("button", { name: "Print / save as PDF" }).hasAttribute("disabled"),
       ).toBe(true);
@@ -174,7 +217,7 @@ describe("App", () => {
 
     it("hints in the tray details that they may not match", async () => {
       const { store } = renderApp(withLayoutHash());
-      fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });
+      fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
       expect(document.querySelector(".tray-details .hint")?.textContent ?? "").not.toMatch(
         /Inputs changed/,
       );
@@ -185,24 +228,33 @@ describe("App", () => {
     });
   });
 
-  it("locks and unlocks a tray's size from the tray details", () => {
+  it("offers no locks or swaps in the simple plan", () => {
+    renderApp(withLayoutHash());
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
+    for (const name of ["Lock size", "Lock position", "Swap with…"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+  });
+
+  it("locks and unlocks a tray's size from the tray details in Advanced", () => {
     const { store } = renderApp(withLayoutHash());
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });
+    fireEvent.click(screen.getByLabelText("Advanced"));
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Lock size" }));
     expect(store.state.project.value.locks).toEqual([
       { kind: "size", trayKey: "a:p0:0", w: 100, d: 80, h: 40 },
     ]);
-    expect(screen.getByRole("button", { name: /^Tray 1: .*, size locked$/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Tray 1, .*, size locked$/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Unlock size" }));
     expect(store.state.project.value.locks).toEqual([]);
   });
 
   it("opens the assembly page and comes back", () => {
     renderApp(withLayoutHash());
-    fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
+    openAssemblyPage();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/— assembly$/);
     fireEvent.click(screen.getByRole("button", { name: "Back to the editor" }));
-    expect(screen.getByRole("heading", { name: "Plan view" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Plan" })).toBeTruthy();
   });
 
   it("copies a share link built from the current page", async () => {
@@ -221,7 +273,7 @@ describe("App", () => {
     });
     store.state.lastResultHash.value = store.state.currentHash.value;
     expect(await screen.findByText(/Doesn't fit: short by 12\.3 mm left–right/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Add cards" }));
+    addCards();
     await waitFor(() => expect(screen.queryByText(/Doesn't fit/)).toBeNull());
   });
 
@@ -268,7 +320,7 @@ describe("App", () => {
   describe("assembly page", () => {
     it("moves the focus to the page and back to its button, and scrolls to the top", () => {
       renderApp(withLayoutHash());
-      fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
+      openAssemblyPage();
       expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
       expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
       fireEvent.click(screen.getByRole("button", { name: "Back to the editor" }));
@@ -279,7 +331,7 @@ describe("App", () => {
 
     it("hands its downloads to the app's download function", async () => {
       const { download } = renderApp(withLayoutHash());
-      fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
+      openAssemblyPage();
       fireEvent.click(screen.getByRole("button", { name: /^Download PNG of layer 1/ }));
       await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
       expect(download.mock.calls[0]?.[1]).toMatch(/-layer-1\.png$/);
@@ -287,17 +339,17 @@ describe("App", () => {
 
     it("returns to the editor when the layout goes away, and stays there when one comes back", async () => {
       const { store } = renderApp(withLayoutHash());
-      fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
+      openAssemblyPage();
       store.newProject();
       expect(await screen.findByRole("region", { name: "Inputs" })).toBeTruthy();
       store.openFromHash(withLayoutHash());
-      expect(await screen.findByRole("heading", { name: "Plan view" })).toBeTruthy();
+      expect(await screen.findByRole("tab", { name: "Plan" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Back to the editor" })).toBeNull();
     });
 
     it("returns to the editor when another project is opened", async () => {
       const { store } = renderApp(withLayoutHash());
-      fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
+      openAssemblyPage();
       const other = { ...fixtureProject(), id: "other-project", name: "Other" };
       store.openFromHash(
         encodeHash({ ...other, layout: makeLayout(inputsHash(other)) }, EMPTY_FOREIGN),
@@ -326,7 +378,8 @@ describe("App", () => {
     ];
     const hash = encodeHash({ ...p, layout: makeLayout(inputsHash(p), trays) }, EMPTY_FOREIGN);
     const { store } = renderApp(hash);
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1:/ }), { key: "Enter" });
+    fireEvent.click(screen.getByLabelText("Advanced"));
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Lock position" }));
     const locks = store.state.project.value.locks;
     expect(locks.filter((l) => l.kind === "position").map((l) => l.trayKey)).toEqual([

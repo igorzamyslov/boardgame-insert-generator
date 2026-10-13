@@ -10,30 +10,53 @@ import { PrinterForm, bedPresetOf } from "./PrinterForm";
 afterEach(cleanup);
 
 describe("BoxForm", () => {
-  it("labels every field and commits decimal-comma input", () => {
+  it("labels the size fields and commits decimal-comma input", () => {
     const onChange = vi.fn();
-    render(<BoxForm box={DEFAULT_BOX} onChange={onChange} />);
-    fireEvent.input(screen.getByLabelText(/Inner width/), { target: { value: "290,5" } });
+    render(<BoxForm box={DEFAULT_BOX} advanced={false} onChange={onChange} />);
+    fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "290,5" } });
     expect(onChange).toHaveBeenCalledWith({ innerWidth: 290.5 });
-    expect(screen.getByLabelText(/Inner depth/)).toBeTruthy();
-    expect(screen.getByLabelText(/Inner height/)).toBeTruthy();
-    expect(screen.getAllByText(/narrowest point/)).toHaveLength(2);
+    expect(screen.getByLabelText(/^Depth/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Height/)).toBeTruthy();
+    expect(screen.getAllByText(/narrowest point/)).toHaveLength(1);
+  });
+
+  it("shows only the three size fields in simple mode", () => {
+    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced={false} onChange={vi.fn()} />);
+    expect(document.querySelector(".pf-adv")).toBeNull();
+    expect(screen.queryByLabelText(/Headroom/)).toBeNull();
+    expect(screen.queryByLabelText(/Covered by boards/)).toBeNull();
+    expect(screen.queryByLabelText(/stored on its side/)).toBeNull();
+  });
+
+  it("adds an Advanced block with headroom and the side-storage switch in advanced mode", () => {
+    const onChange = vi.fn();
+    const view = render(
+      <BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced onChange={onChange} />,
+    );
+    expect(screen.getByLabelText("Headroom (mm)").closest(".pf-adv")).not.toBeNull();
+    expect(view.container.querySelector(".pf-adv")).toBeTruthy();
+    expect(screen.getByLabelText(/^Headroom/)).toBeTruthy();
+    expect(screen.getByLabelText(/stored on its side/)).toBeTruthy();
     expect(screen.getByText(/plus 1 mm for warp/)).toBeTruthy();
+    fireEvent.input(screen.getByLabelText(/^Headroom/), { target: { value: "5" } });
+    expect(onChange).toHaveBeenCalledWith({ headroom: 5 });
   });
 
   it("hides headroom coverage when headroom is 0", () => {
-    const view = render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 0 }} onChange={vi.fn()} />);
-    expect(screen.queryByLabelText(/cover every tray/)).toBeNull();
-    view.rerender(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/cover every tray/)).toBeTruthy();
+    const view = render(
+      <BoxForm box={{ ...DEFAULT_BOX, headroom: 0 }} advanced onChange={vi.fn()} />,
+    );
+    expect(screen.queryByLabelText("Covered by boards")).toBeNull();
+    view.rerender(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced onChange={vi.fn()} />);
+    expect(screen.getByLabelText("Covered by boards")).toBeTruthy();
   });
 
   it("toggles stored-on-side and coverage", () => {
     const onChange = vi.fn();
-    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={onChange} />);
+    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(/stored on its side/));
     expect(onChange).toHaveBeenCalledWith({ storedOnSide: true });
-    fireEvent.change(screen.getByLabelText(/cover every tray/), { target: { value: "partial" } });
+    fireEvent.change(screen.getByLabelText("Covered by boards"), { target: { value: "partial" } });
     expect(onChange).toHaveBeenCalledWith({ headroomCoverage: "partial" });
   });
 });
@@ -45,14 +68,14 @@ describe("PrinterForm", () => {
     const onChange = vi.fn();
     render(<PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={onChange} />);
     expect(screen.queryByLabelText(/Bed X/)).toBeNull();
-    fireEvent.change(screen.getByLabelText("Printer bed"), { target: { value: "prusa-mk4" } });
+    fireEvent.change(screen.getByLabelText("Print bed"), { target: { value: "prusa-mk4" } });
     expect(onChange).toHaveBeenCalledWith({ bedX: 250, bedY: 210, bedZ: 220 });
   });
 
   it("shows X/Y/Z for a custom bed", () => {
     const onChange = vi.fn();
     render(<PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText("Printer bed"), { target: { value: "custom" } });
+    fireEvent.change(screen.getByLabelText("Print bed"), { target: { value: "custom" } });
     fireEvent.input(screen.getByLabelText(/Bed X/), { target: { value: "300" } });
     expect(onChange).toHaveBeenCalledWith({ bedX: 300 });
     expect(screen.getByLabelText(/Bed Y/)).toBeTruthy();
@@ -75,7 +98,7 @@ describe("PrinterForm custom bed", () => {
     const view = render(
       <PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={vi.fn()} />,
     );
-    fireEvent.change(screen.getByLabelText("Printer bed"), { target: { value: "custom" } });
+    fireEvent.change(screen.getByLabelText("Print bed"), { target: { value: "custom" } });
     expect(screen.getByLabelText(/Bed X/)).toBeTruthy();
     view.rerender(
       <PrinterForm
@@ -84,7 +107,7 @@ describe("PrinterForm custom bed", () => {
         onChange={vi.fn()}
       />,
     );
-    expect((screen.getByLabelText("Printer bed") as HTMLSelectElement).value).toBe("prusa-mk4");
+    expect((screen.getByLabelText("Print bed") as HTMLSelectElement).value).toBe("prusa-mk4");
     expect(screen.queryByLabelText(/Bed X/)).toBeNull();
   });
 
@@ -100,12 +123,12 @@ describe("PrinterForm custom bed", () => {
       );
     }
     render(<Harness />);
-    fireEvent.change(screen.getByLabelText("Printer bed"), { target: { value: "custom" } });
+    fireEvent.change(screen.getByLabelText("Print bed"), { target: { value: "custom" } });
     fireEvent.input(screen.getByLabelText(/Bed X/), { target: { value: "250" } });
     fireEvent.input(screen.getByLabelText(/Bed Y/), { target: { value: "210" } });
     fireEvent.input(screen.getByLabelText(/Bed Z/), { target: { value: "220" } });
     expect(screen.getByLabelText(/Bed X/)).toBeTruthy();
-    expect((screen.getByLabelText("Printer bed") as HTMLSelectElement).value).toBe("custom");
+    expect((screen.getByLabelText("Print bed") as HTMLSelectElement).value).toBe("custom");
   });
 
   it("keeps the fields when a printer that starts on a custom bed is typed into a preset size", () => {
@@ -127,6 +150,6 @@ describe("PrinterForm custom bed", () => {
     render(<Harness />);
     fireEvent.input(screen.getByLabelText(/Bed Z/), { target: { value: "220" } });
     expect(screen.getByLabelText(/Bed Z/)).toBeTruthy();
-    expect((screen.getByLabelText("Printer bed") as HTMLSelectElement).value).toBe("custom");
+    expect((screen.getByLabelText("Print bed") as HTMLSelectElement).value).toBe("custom");
   });
 });

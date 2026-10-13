@@ -34,6 +34,14 @@ interface TrayObject {
 const CLICK_SLOP_PX = 5;
 
 /** Frees the renderer and, since browsers keep only a few, the WebGL context behind it. */
+/** A tint as a lit surface needs it: the dark-scheme tints are lifted so the shading shows. */
+function litColor(css: string): Color {
+  const c = new Color(css);
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  return hsl.l < 0.4 ? c.setHSL(hsl.h, Math.min(1, hsl.s + 0.1), hsl.l + 0.25) : c;
+}
+
 function release(renderer: WebGLRenderer): void {
   renderer.dispose();
   renderer.forceContextLoss();
@@ -74,6 +82,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   let trays: TrayObject[] = [];
   let outline: { line: LineSegments; material: LineBasicMaterial } | null = null;
   let explode = 0;
+  let center: [number, number] | undefined;
   let maxLevel: number | null = null;
   let selected: string | null = null;
   let pick: ((key: string | null) => void) | null = null;
@@ -94,7 +103,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
 
   function apply(): void {
     for (const t of trays) {
-      const [x, y, z] = trayPosition(t.spec, explode);
+      const [x, y, z] = trayPosition(t.spec, explode, center);
       t.object.position.set(x, y, z);
       t.object.visible = isVisible(t.spec, maxLevel);
       t.material.emissive.setHex(t.spec.key === selected ? 0x444444 : 0x000000);
@@ -154,6 +163,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       clearOutline();
       const [w, d, h] = o.size;
       const [x0, y0, z0] = o.min;
+      center = [x0 + w / 2, y0 + d / 2];
       const solid = new BoxGeometry(w, d, h);
       const edges = new EdgesGeometry(solid);
       solid.dispose();
@@ -168,18 +178,18 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       camera.far = dist * 10;
       camera.updateProjectionMatrix();
       controls.update();
-      requestDraw();
+      apply();
     },
     setTrays(list: readonly SceneTray[]) {
       clearTrays();
-      list.forEach(({ spec, mesh }, i) => {
+      list.forEach(({ spec, mesh, color }, i) => {
         const geometry = new BufferGeometry();
         geometry.setAttribute("position", new BufferAttribute(mesh.positions, 3));
         geometry.setIndex(new BufferAttribute(mesh.indices, 1));
         geometry.computeVertexNormals();
         const c = trayColor(i);
         const material = new MeshStandardMaterial({
-          color: new Color().setHSL(c.h, c.s, c.l),
+          color: color !== undefined ? litColor(color) : new Color().setHSL(c.h, c.s, c.l),
           flatShading: true,
           roughness: 0.8,
         });

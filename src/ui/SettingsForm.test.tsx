@@ -1,6 +1,6 @@
 // src/ui/SettingsForm.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_SETTINGS,
@@ -85,13 +85,31 @@ describe("SettingsForm", () => {
     );
   });
 
+  it("keeps the simple choices in advanced mode and tucks the exact numbers into a disclosure", () => {
+    const onChange = vi.fn();
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    expect(screen.getByLabelText("Walls")).toBeTruthy();
+    // the exact "Fit" number has the same label, so tell the choice apart by its role
+    expect(screen.getByRole("combobox", { name: "Fit" })).toBeTruthy();
+    expect(screen.getByLabelText("Extra finger room in the box")).toBeTruthy();
+    const disc = view.container.querySelector("details.pf-disc");
+    expect(disc?.querySelector("summary")?.textContent).toBe("Exact values");
+    expect(disc?.hasAttribute("open")).toBe(false);
+    // the numeric fields are inside the disclosure, the lip and leftover are not
+    expect(disc?.contains(screen.getByLabelText(/^Corner radius/))).toBe(true);
+    expect(disc?.contains(screen.getByLabelText(/Locating lip/))).toBe(false);
+    expect(disc?.contains(screen.getByLabelText("Unused space"))).toBe(false);
+    fireEvent.change(screen.getByLabelText("Walls"), { target: { value: "sturdy" } });
+    expect(onChange).toHaveBeenLastCalledWith(applyWallChoice(DEFAULT_SETTINGS, "sturdy"));
+  });
+
   it("edits every advanced number, the lip and the leftover", () => {
     const onChange = vi.fn();
-    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
-    expect(screen.queryByLabelText("Walls")).toBeNull();
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    const exactValues = within(view.container.querySelector("details.pf-disc") as HTMLElement);
     for (const r of SETTING_RANGES) {
       const exact = new RegExp(`^${r.label.replace(/[()]/g, "\\$&")}( \\(mm\\))?$`);
-      expect(screen.getByLabelText(exact), r.path).toBeTruthy();
+      expect(exactValues.getByLabelText(exact), r.path).toBeTruthy();
     }
     fireEvent.input(screen.getByLabelText(/^Corner radius/), { target: { value: "4,5" } });
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, cornerRadius: 4.5 });

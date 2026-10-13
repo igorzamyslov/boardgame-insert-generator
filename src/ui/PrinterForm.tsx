@@ -5,6 +5,7 @@ import type { Printer } from "../model/types";
 import { SelectField } from "./fields";
 import type { SelectOption } from "./fields";
 import { LAYER_HEIGHT, LENGTH, OFFSET } from "./limits";
+import { Advanced } from "./Advanced";
 import { NumberField } from "./NumberField";
 
 export const CUSTOM_BED = "custom";
@@ -50,13 +51,19 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
     written.current = bedKey({ ...printer, ...patch });
     onChange(patch);
   }
+  const examples = BED_PRESETS.find((b) => b.id === selected)?.examples;
   return (
     <div class="form-grid">
       <SelectField
         id="printer-preset"
-        label="Printer bed"
+        label="Print bed"
         value={selected}
         options={OPTIONS}
+        hint={
+          examples !== undefined
+            ? `Fits ${examples}. Not on the list? Choose “Custom size”. Not sure? Keep this and ask whoever will print it.`
+            : "Measure the flat area the printer can print on, and its maximum height."
+        }
         onChange={(id) => {
           const preset = BED_PRESETS.find((b) => b.id === id);
           if (preset) {
@@ -68,7 +75,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
         }}
       />
       {selected === CUSTOM_BED ? (
-        <>
+        <div class="form-grid form-grid-3">
           <NumberField
             id="printer-bedX"
             label="Bed X"
@@ -89,17 +96,17 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
           />
           <NumberField
             id="printer-bedZ"
-            label="Bed Z (max print height)"
+            label="Bed Z"
             unit="mm"
             value={printer.bedZ}
             path="/printer/bedZ"
             {...LENGTH}
             onCommit={(v) => changeBed({ bedZ: v })}
           />
-        </>
+        </div>
       ) : null}
       {advanced ? (
-        <>
+        <Advanced>
           <NumberField
             id="printer-bedMargin"
             label="Bed margin"
@@ -120,7 +127,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             hint="Tray heights are rounded to multiples of this."
             onCommit={(v) => onChange({ layerHeight: v })}
           />
-        </>
+        </Advanced>
       ) : null}
     </div>
   );

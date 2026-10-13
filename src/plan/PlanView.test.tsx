@@ -3,7 +3,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../app/test-helpers";
-import { DEFAULT_BOX } from "../model/defaults";
+import { DEFAULT_BOX, newComponent } from "../model/defaults";
+import type { CompartmentSpec } from "../model/types";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import planCss from "./plan.css?raw";
 import { planFrame, planViewBox } from "./layers";
@@ -89,7 +90,11 @@ const L2 = makeTray({
   d: 8,
   compartments: [],
 });
-const centerL2 = at(95, 4);
+const centerL2 = at(95, 95);
+
+function holding(contents: string): CompartmentSpec {
+  return { x: 1, y: 1, w: 10, d: 10, floorZ: 1, kind: "well", features: [], contents };
+}
 
 /** Client pixel of an SVG point: the SVG is laid out 1 px per mm at (0, 0). */
 function at(svgX: number, svgY: number) {
@@ -108,6 +113,7 @@ function setup(over: Partial<PlanViewProps> = {}) {
     onToggleLock: vi.fn(),
     sizeLockedKeys: new Set<string>(),
     onToggleSizeLock: vi.fn(),
+    advanced: true,
     ...over,
   };
   const view = render(<PlanView {...p} />);
@@ -135,8 +141,12 @@ const centerB = at(149.5, 49.5);
 describe("PlanView", () => {
   it("labels trays with their part numbers", () => {
     setup();
-    expect(screen.getByRole("button", { name: "Tray 1: a:p0:0" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Tray 3: b:p0:0" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Tray 1, a:p0:0, 90 by 99 millimetres" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Tray 3, b:p0:0, 99 by 99 millimetres" }),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /c:p0:0/ })).toBeNull();
   });
 
@@ -172,7 +182,7 @@ describe("PlanView", () => {
     const { view, p } = setup({ selectedKey: "a:p0:0" });
     expect(screen.queryByText(/Inputs changed/)).toBeNull();
     view.rerender(<PlanView {...p} stale />);
-    expect(screen.getByText(/Inputs changed — .*re-optimize/i)).toBeTruthy();
+    expect(screen.getByText(/Inputs changed — .*update the plan/i)).toBeTruthy();
   });
 
   it("pointercancel resets the drag", () => {
@@ -244,6 +254,37 @@ describe("PlanView", () => {
     });
     fireEvent.pointerUp(svg, { ...centerL2, pointerId: 5 });
     expect(p.onSelect).toHaveBeenCalledWith("leftover:1");
+  });
+
+  it("says next to the plan why a drag cannot swap", () => {
+    const { p, svg } = setup({ trays: [A, B, L2] });
+    const a = screen.getByRole("button", { name: /a:p0:0/ });
+    // Over a leftover: refused, with a visible message.
+    fireEvent.pointerDown(a, { ...centerA, pointerId: 1, button: 0 });
+    fireEvent.pointerMove(svg, { ...centerL2, pointerId: 1 });
+    expect(screen.getByRole("status").textContent).toMatch(/can't be swapped with/);
+    fireEvent.pointerUp(svg, { ...centerL2, pointerId: 1 });
+    expect(p.onSwap).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toMatch(/can't be swapped with/);
+    // Released over empty space: nothing happens, and it says so.
+    fireEvent.pointerDown(a, { ...centerA, pointerId: 2, button: 0 });
+    fireEvent.pointerMove(svg, { ...at(95, 50), pointerId: 2 });
+    fireEvent.pointerUp(svg, { ...at(95, 50), pointerId: 2 });
+    expect(screen.getByRole("status").textContent).toMatch(/Nothing was swapped/);
+    // Dragging a leftover is refused with a message; a valid swap clears it.
+    fireEvent.pointerDown(screen.getByRole("button", { name: /Spare tray/ }), {
+      ...centerL2,
+      pointerId: 3,
+      button: 0,
+    });
+    fireEvent.pointerMove(svg, { ...centerA, pointerId: 3 });
+    expect(screen.getByRole("status").textContent).toMatch(/can't be dragged/);
+    fireEvent.pointerUp(svg, { ...centerA, pointerId: 3 });
+    fireEvent.pointerDown(a, { ...centerA, pointerId: 4, button: 0 });
+    fireEvent.pointerMove(svg, { ...centerB, pointerId: 4 });
+    fireEvent.pointerUp(svg, { ...centerB, pointerId: 4 });
+    expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("refuses a leftover as the swap partner and cannot start a swap from one", () => {
@@ -325,7 +366,9 @@ describe("PlanView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Lock position" }));
     expect(p.onToggleLock).toHaveBeenCalledWith("a:p0:0");
     view.rerender(<PlanView {...p} lockedKeys={new Set(["a:p0:0"])} />);
-    expect(screen.getByRole("button", { name: "Tray 1: a:p0:0, locked" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Tray 1, a:p0:0, 90 by 99 millimetres, locked" }),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Unlock position" })).toBeTruthy();
     view.rerender(<PlanView {...p} trays={[A, B, L]} selectedKey="leftover:0" />);
     expect(screen.getByRole("button", { name: "Lock position" }).hasAttribute("disabled")).toBe(
@@ -339,7 +382,9 @@ describe("PlanView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Lock size" }));
     expect(p.onToggleSizeLock).toHaveBeenCalledWith("a:p0:0");
     view.rerender(<PlanView {...p} sizeLockedKeys={new Set(["a:p0:0"])} />);
-    expect(screen.getByRole("button", { name: "Tray 1: a:p0:0, size locked" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Tray 1, a:p0:0, 90 by 99 millimetres, size locked" }),
+    ).toBeTruthy();
     expect(screen.getByText("size locked")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Unlock size" })).toBeTruthy();
     view.rerender(<PlanView {...p} trays={[A, B, L]} selectedKey="leftover:0" />);
@@ -355,8 +400,105 @@ describe("PlanView", () => {
 
   it("switches layers", () => {
     setup();
-    fireEvent.click(screen.getByLabelText("2"));
+    fireEvent.click(screen.getByLabelText("Layer 2"));
     expect(screen.getByRole("button", { name: /c:p0:0/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /a:p0:0/ })).toBeNull();
+  });
+
+  it("shows the name and size on a tile, and keeps the unit out of it", () => {
+    const named = makeTray({
+      ...A,
+      compartments: [holding("Region tiles")],
+    });
+    const { svg } = setup({ trays: [named, B] });
+    const tile = svg.querySelector('[data-key="a:p0:0"]');
+    expect(tile?.querySelector(".plan-label")?.textContent).toBe("1");
+    expect(tile?.querySelector(".plan-name")?.textContent).toBe("Region tiles");
+    expect(tile?.querySelector(".plan-size")?.textContent).toBe("90 × 99");
+    expect(tile?.querySelector("[aria-hidden]")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Tray 1, Region tiles, 90 by 99 millimetres" }),
+    ).toBeTruthy();
+  });
+
+  it("truncates a long name and drops the lines on a tiny tile", () => {
+    const long = makeTray({
+      ...A,
+      w: 40,
+      compartments: [holding("A very long component name")],
+    });
+    const tiny = makeTray({ ...B, w: 8, d: 8 });
+    const { svg } = setup({ trays: [long, tiny] });
+    const name = svg.querySelector('[data-key="a:p0:0"] .plan-name')?.textContent ?? "";
+    expect(name.endsWith("…")).toBe(true);
+    expect(name.length).toBeLessThan("A very long component name".length);
+    expect(svg.querySelector('[data-key="b:p0:0"] .plan-label')).toBeTruthy();
+    expect(svg.querySelector('[data-key="b:p0:0"] .plan-name')).toBeNull();
+    expect(svg.querySelector('[data-key="b:p0:0"] .plan-size')).toBeNull();
+  });
+
+  it("draws a spare tray plain and dashed, with a legend, and no glyph", () => {
+    const { svg } = setup({ trays: [A, B, { ...L2, w: 60, d: 40 }] });
+    const spare = svg.querySelector('[data-key="leftover:1"]');
+    expect(spare?.getAttribute("class")).toContain("is-leftover");
+    expect(spare?.querySelector(".plan-glyph")).toBeNull();
+    expect(spare?.querySelector(".plan-name")?.textContent).toBe("Spare tray");
+    expect(planCss).toMatch(/\.plan-tray\.is-leftover rect\s*{[^}]*stroke-dasharray/);
+    expect(screen.getByText(/Plain trays are spares/).getAttribute("class")).toContain(
+      "plan-legend",
+    );
+  });
+
+  it("has no spare-tray legend without a spare tray", () => {
+    setup();
+    expect(screen.queryByText(/Plain trays are spares/)).toBeNull();
+  });
+
+  it("greys out a stale plan by class, not by opacity", () => {
+    const { svg, view, p } = setup();
+    expect(svg.getAttribute("class")).not.toContain("is-stale");
+    view.rerender(<PlanView {...p} stale />);
+    expect(view.container.querySelector("svg")?.getAttribute("class")).toContain("is-stale");
+    expect(planCss).toMatch(/\.plan-svg\.is-stale\s*{[^}]*grayscale\(0\.8\)/);
+  });
+
+  it("shows the lock and swap buttons only in advanced mode", () => {
+    const { p, view } = setup({ selectedKey: "a:p0:0", advanced: false });
+    expect(screen.getByRole("heading", { name: /#1/ })).toBeTruthy();
+    for (const name of ["Lock position", "Lock size", "Swap with…"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    view.rerender(<PlanView {...p} advanced />);
+    for (const name of ["Lock position", "Lock size", "Swap with…"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+  });
+
+  it("puts the kind glyph of a component on its tray", () => {
+    const cards = { ...newComponent("cards"), name: "Region deck" };
+    const held = makeTray({
+      ...A,
+      compartments: [holding("Region deck ×50")],
+    });
+    const { svg } = setup({ trays: [held, B], components: [cards] });
+    const glyph = svg.querySelector('[data-key="a:p0:0"] .plan-glyph');
+    expect(glyph?.getAttribute("aria-hidden")).toBe("true");
+    expect(glyph?.querySelector("rect, path")).toBeTruthy();
+    expect(svg.querySelector('[data-key="b:p0:0"] .plan-glyph')).toBeNull();
+  });
+
+  it("draws the selection ring after the tiles", () => {
+    const { svg } = setup({ selectedKey: "a:p0:0" });
+    const last = svg.querySelector(".plan-ring.is-selected");
+    expect(last).toBeTruthy();
+    expect(last?.compareDocumentPosition(svg.querySelector('[data-key="b:p0:0"]') as Element)).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING,
+    );
+  });
+
+  it("offers a segmented layer picker", () => {
+    const { view } = setup();
+    expect(view.container.querySelector("fieldset.layer-picker .pf-seg .pf-seg__opt")).toBeTruthy();
+    expect(screen.getByLabelText("Layer 1")).toBeTruthy();
   });
 });

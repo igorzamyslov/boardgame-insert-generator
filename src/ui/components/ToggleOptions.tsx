@@ -8,16 +8,23 @@ import type { EditorProps } from "./types";
 /** Kinds that may have a curved floor (spec §5): it would bend cards and tilt upright tiles. */
 const CURVED_KINDS: readonly Component["kind"][] = ["bulk", "minis", "custom"];
 
+/** The bulk fallback's note: the component is stored in a bin, and what the bin has. */
+export function BinNotes({ index }: Pick<EditorProps<Component>, "component" | "index">) {
+  const binNotes = useSizingNotices(`/components/${index}`).filter(
+    (n) => n.code === "sizing.noFingerSlot" && n.level === "info",
+  );
+  return binNotes.length > 0 ? (
+    <p class="hint">{binNotes.map((n) => n.message).join(" ")}</p>
+  ) : null;
+}
+
+/** The finger cuts, curved floor and corner reliefs switches (inside the advanced options). */
 export function ToggleOptions<C extends Component>({
   component: c,
   index,
   advanced,
   onChange,
 }: EditorProps<C>) {
-  // The bulk fallback's note: the component is stored in a bin, and what the bin has.
-  const binNotes = useSizingNotices(`/components/${index}`).filter(
-    (n) => n.code === "sizing.noFingerSlot" && n.level === "info",
-  );
   return (
     <>
       <CheckField
@@ -53,7 +60,6 @@ export function ToggleOptions<C extends Component>({
           onChange={(on) => onChange({ ...c, cornerReliefs: on })}
         />
       ) : null}
-      {binNotes.length > 0 ? <p class="hint">{binNotes.map((n) => n.message).join(" ")}</p> : null}
     </>
   );
 }

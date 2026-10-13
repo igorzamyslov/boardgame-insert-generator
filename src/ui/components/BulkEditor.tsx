@@ -6,7 +6,7 @@ import { NumberField } from "../NumberField";
 import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { ListNotices } from "./ListNotices";
 import { MoreOptions } from "./MoreOptions";
-import { ToggleOptions } from "./ToggleOptions";
+import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 export function BulkEditor({
@@ -131,9 +131,16 @@ export function BulkEditor({
           Add item
         </button>
       </fieldset>
-      <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+      <BinNotes component={c} index={index} />
       <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
-        <CommonOptions component={c} index={index} onChange={onChange} />
+        <CommonOptions
+          component={c}
+          index={index}
+          onChange={onChange}
+          tray={
+            <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+          }
+        />
       </MoreOptions>
     </>
   );

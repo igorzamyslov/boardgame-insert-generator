@@ -2,9 +2,10 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { MeshSource } from "../app/meshes";
 import { numberParts, partsByKey } from "../instructions/numbering";
-import type { Box, Settings, TraySpec } from "../model/types";
+import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { SelectField } from "../ui/fields";
+import { tintOfTray } from "../ui/identity";
 import { TrayDetails } from "../ui/TrayDetails";
 import { boxOutline } from "./transform";
 import type { SceneFactory, SceneHandle, SceneTray } from "./types";
@@ -14,6 +15,8 @@ export interface ViewerProps {
   trays: readonly TraySpec[];
   box: Box;
   settings: Settings;
+  /** The components the trays hold: each tray takes the tint of its component, as in the plan. */
+  components?: readonly Component[];
   /** The inputs no longer match the layout: keep what was built rather than build for new settings. */
   stale?: boolean;
   meshes: MeshSource;
@@ -30,6 +33,20 @@ export interface ViewerProps {
 }
 
 type Status = "loading" | "ready" | "nowebgl" | "error" | "lost";
+
+/** The tray's component tint as a resolved colour (a custom property read off the page). */
+function tintColorOf(
+  spec: TraySpec,
+  components: readonly Component[] | undefined,
+): string | undefined {
+  const tint = tintOfTray(spec, components ?? []);
+  const name = tint === null ? null : /var\((--[\w-]+)\)/.exec(tint)?.[1];
+  if (!name || typeof document === "undefined") {
+    return undefined;
+  }
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value === "" ? undefined : value;
+}
 
 async function defaultLoadScene(): Promise<SceneFactory> {
   const mod = await import("./scene");
@@ -153,7 +170,7 @@ export function Viewer(p: ViewerProps) {
       list.map(async (spec, i) => {
         try {
           const built = await p.meshes.get(spec, p.settings, controller.signal);
-          results[i] = { spec, mesh: built.mesh };
+          results[i] = { spec, mesh: built.mesh, color: tintColorOf(spec, p.components) };
         } catch {
           failed += 1;
         }
@@ -238,7 +255,7 @@ export function Viewer(p: ViewerProps) {
       ) : null}
       {p.stale ? (
         <p class="hint">
-          Inputs changed: the preview shows the last layout. Re-optimize to update it.
+          Inputs changed: the preview shows the last layout. Update the plan to fix it.
         </p>
       ) : null}
       {!p.stale && build.total > 0 && build.done < build.total ? (

@@ -71,8 +71,8 @@ export function AssemblyPage(p: AssemblyPageProps) {
       </p>
       {p.stale ? (
         <p class="hint" role="status">
-          Inputs changed — re-optimize before printing or saving this page. Go back to the editor to
-          do that.
+          Inputs changed — update the plan before printing or saving this page. Go back to the
+          editor to do that.
         </p>
       ) : null}
       {pngError !== null ? (

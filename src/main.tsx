@@ -5,6 +5,8 @@ import { loadGeometryClient, loadLayoutClient } from "./app/clients";
 import { createMeshSource } from "./app/meshes";
 import { connectWindow, createAppStore } from "./app/store";
 import { createProjectStore } from "./share";
+import "./styles/proof-tokens.css";
+import "./styles/proof.css";
 import "./style.css";
 
 const store = createAppStore({

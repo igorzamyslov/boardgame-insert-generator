@@ -79,6 +79,38 @@ describe("render", () => {
     expect(second).not.toMatch(/>4<\/text>/);
   });
 
+  it("draws every number after every shape, so no shape can cover one", () => {
+    // A spacer centred on its tray used to be painted over the tray's number.
+    const covered = makeLayout("h", [
+      makeTray({ key: "a:p0:0", x: 0, y: 0, w: 100, d: 80 }),
+      makeTray({
+        key: "a:p0:0:spacer",
+        part: "spacer",
+        path: "",
+        x: 40,
+        y: 30,
+        w: 20,
+        d: 20,
+        solid: true,
+        compartments: [],
+      }),
+      makeTray({ key: "tiny:p0:0", stack: 1, x: 110, y: 0, w: 4, d: 4, compartments: [] }),
+    ]);
+    const [svg] = render(covered, fixtureProject());
+    const doc = parse(svg ?? "");
+    const all = [...doc.documentElement.querySelectorAll("*")];
+    const lastShape = all.map((e) => e.tagName).lastIndexOf("rect");
+    const numbers = all.filter((e) => e.tagName === "text" && /^\d+$/.test(e.textContent ?? ""));
+    expect(numbers.map((e) => e.textContent).sort()).toEqual(["1", "2", "3"]);
+    for (const t of numbers) {
+      expect(all.indexOf(t)).toBeGreaterThan(lastShape);
+      // each number sits on its own white badge, drawn right before it
+      expect(all[all.indexOf(t) - 1]?.tagName).toBe("circle");
+    }
+    // a tray too small for its number gets a leader line
+    expect(doc.getElementsByTagName("line").length).toBeGreaterThan(0);
+  });
+
   it("escapes XML", () => {
     expect(escapeXml(`<a href="x">'&'</a>`)).toBe(
       "&lt;a href=&quot;x&quot;&gt;&apos;&amp;&apos;&lt;/a&gt;",

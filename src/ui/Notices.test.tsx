@@ -37,3 +37,44 @@ describe("Notices", () => {
     expect(screen.getByRole("button", { name: /^Dismiss: A info/ })).toBeTruthy();
   });
 });
+
+describe("Notices markup", () => {
+  it("renders each notice as a pf-notice with a level word, the message, and the level class", () => {
+    const { container } = render(
+      <Notices
+        notices={[notice("error"), notice("warning"), notice("info")]}
+        label="Layout messages"
+        class="stage-block"
+      />,
+    );
+    const list = screen.getByRole("list", { name: "Layout messages" });
+    expect(list.className).toContain("notices");
+    expect(list.className).toContain("stage-block");
+    const items = Array.from(container.querySelectorAll("li"));
+    expect(items.map((li) => li.className)).toEqual([
+      "pf-notice pf-notice--error",
+      "pf-notice pf-notice--warn",
+      "pf-notice",
+    ]);
+    expect(items.map((li) => li.querySelector("strong.notice-level")?.textContent)).toEqual([
+      "Error:",
+      "Warning:",
+      "Note:",
+    ]);
+  });
+
+  it("puts the action and a dismiss button named after the message in the notice", () => {
+    render(
+      <Notices
+        notices={[notice("info")]}
+        onDismiss={() => undefined}
+        renderAction={() => <button type="button">Do it</button>}
+      />,
+    );
+    const li = screen.getByText("A info message").closest("li");
+    expect(li?.querySelector(".notice-action")?.textContent).toBe("Do it");
+    expect(li?.querySelector("button.notice-dismiss")?.getAttribute("aria-label")).toBe(
+      "Dismiss: A info message",
+    );
+  });
+});

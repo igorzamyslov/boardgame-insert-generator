@@ -5,6 +5,8 @@ import type { TraySpec } from "../model/types";
 export interface SceneTray {
   spec: TraySpec;
   mesh: Mesh;
+  /** A CSS colour (the tint of the tray's component, as in the plan); absent: a generated one. */
+  color?: string;
 }
 
 export interface BoxOutline {

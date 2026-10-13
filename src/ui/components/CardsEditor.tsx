@@ -10,7 +10,7 @@ import { NumberField } from "../NumberField";
 import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { ListNotices } from "./ListNotices";
 import { MoreOptions } from "./MoreOptions";
-import { ToggleOptions } from "./ToggleOptions";
+import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 export const CUSTOM_SIZE = "custom";
@@ -20,12 +20,20 @@ export function cardPresetOf(c: CardsComponent): string {
   return preset ? preset.id : CUSTOM_SIZE;
 }
 
+const sizeLabel = (p: (typeof CARD_PRESETS)[number]): string =>
+  `${p.label} (${p.shortSide} × ${p.longSide} mm)`;
+
+/** The common sizes first, then the rest from the smallest card to the largest. */
 const SIZE_OPTIONS: SelectOption<string>[] = [
-  ...CARD_PRESETS.map((p) => ({
+  ...CARD_PRESETS.filter((p) => p.common === true).map((p) => ({
     value: p.id,
-    label: `${p.label} (${p.shortSide} × ${p.longSide} mm)`,
+    label: sizeLabel(p),
+    group: "Common sizes",
   })),
-  { value: CUSTOM_SIZE, label: "Custom size" },
+  ...CARD_PRESETS.filter((p) => p.common !== true)
+    .sort((a, b) => a.shortSide - b.shortSide || a.longSide - b.longSide)
+    .map((p) => ({ value: p.id, label: sizeLabel(p), group: "Other sizes, smallest first" })),
+  { value: CUSTOM_SIZE, label: "Custom size", group: "Other sizes, smallest first" },
 ];
 
 type SleeveChoice = "none" | "standard" | "premium" | "custom";
@@ -33,7 +41,7 @@ type SleeveChoice = "none" | "standard" | "premium" | "custom";
 const SLEEVE_OPTIONS: SelectOption<SleeveChoice>[] = [
   { value: "none", label: "No sleeves" },
   { value: "standard", label: "Standard sleeves" },
-  { value: "premium", label: "Premium (thick) sleeves" },
+  { value: "premium", label: "Premium sleeves (thick)" },
   { value: "custom", label: "Custom sleeves" },
 ];
 
@@ -192,7 +200,7 @@ export function CardsEditor({
           Add deck
         </button>
       </fieldset>
-      <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+      <BinNotes component={c} index={index} />
       <MoreOptions
         open={advanced}
         errorPaths={[
@@ -201,47 +209,62 @@ export function CardsEditor({
           `${at}/thickness/stackMm`,
         ]}
       >
-        <CheckField
-          id={`${c.id}-measured`}
-          label="Measure a stack of cards (sleeves included)"
-          checked={measured !== null}
-          hint="More exact than the sleeve table: count some cards, measure the stack."
-          onChange={(on) =>
-            onChange({
-              ...c,
-              thickness: on ? { mode: "measured", cards: 50, stackMm: 20 } : { mode: "preset" },
-            })
+        <CommonOptions
+          component={c}
+          index={index}
+          onChange={onChange}
+          pieces={
+            <>
+              <CheckField
+                id={`${c.id}-measured`}
+                label="Measure a stack of cards (sleeves included)"
+                checked={measured !== null}
+                hint="More exact than the sleeve table: count some cards, measure the stack."
+                onChange={(on) =>
+                  onChange({
+                    ...c,
+                    thickness: on
+                      ? { mode: "measured", cards: 50, stackMm: 20 }
+                      : { mode: "preset" },
+                  })
+                }
+              />
+              {measured ? (
+                <>
+                  <NumberField
+                    id={`${c.id}-measuredCards`}
+                    label="Cards in the measured stack"
+                    value={measured.cards}
+                    {...COUNT}
+                    path={`${at}/thickness/cards`}
+                    onCommit={(cards) => onChange({ ...c, thickness: { ...measured, cards } })}
+                  />
+                  <NumberField
+                    id={`${c.id}-measuredMm`}
+                    label="Height of that stack"
+                    unit="mm"
+                    value={measured.stackMm}
+                    path={`${at}/thickness/stackMm`}
+                    {...LENGTH}
+                    onCommit={(stackMm) => onChange({ ...c, thickness: { ...measured, stackMm } })}
+                  />
+                </>
+              ) : null}
+            </>
+          }
+          tray={
+            <>
+              <SelectField
+                id={`${c.id}-storage`}
+                label="Storage"
+                value={c.storage}
+                options={STORAGE_OPTIONS}
+                onChange={(storage) => onChange({ ...c, storage })}
+              />
+              <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+            </>
           }
         />
-        {measured ? (
-          <>
-            <NumberField
-              id={`${c.id}-measuredCards`}
-              label="Cards in the measured stack"
-              value={measured.cards}
-              {...COUNT}
-              path={`${at}/thickness/cards`}
-              onCommit={(cards) => onChange({ ...c, thickness: { ...measured, cards } })}
-            />
-            <NumberField
-              id={`${c.id}-measuredMm`}
-              label="Height of that stack"
-              unit="mm"
-              value={measured.stackMm}
-              path={`${at}/thickness/stackMm`}
-              {...LENGTH}
-              onCommit={(stackMm) => onChange({ ...c, thickness: { ...measured, stackMm } })}
-            />
-          </>
-        ) : null}
-        <SelectField
-          id={`${c.id}-storage`}
-          label="Storage"
-          value={c.storage}
-          options={STORAGE_OPTIONS}
-          onChange={(storage) => onChange({ ...c, storage })}
-        />
-        <CommonOptions component={c} index={index} onChange={onChange} />
       </MoreOptions>
     </>
   );

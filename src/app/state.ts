@@ -133,7 +133,7 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
       out.push({
         level: "info",
         code: STALE_CODE,
-        message: "Inputs changed since this layout was made — re-optimize?",
+        message: "Inputs changed since this plan was made — update the plan?",
       });
     }
     // An older compatibility line: an older MAJOR, or pre-1.0 an older 0.MINOR (spec §9).

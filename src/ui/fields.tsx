@@ -75,6 +75,8 @@ export interface SelectOption<T extends string> {
   value: T;
   label: string;
   disabled?: boolean;
+  /** Options with the same group are listed together under its heading. */
+  group?: string;
 }
 
 export interface SelectFieldProps<T extends string> {
@@ -84,6 +86,31 @@ export interface SelectFieldProps<T extends string> {
   options: readonly SelectOption<T>[];
   onChange: (value: T) => void;
   hint?: string;
+}
+
+function OptionItem<T extends string>({ option: o }: { option: SelectOption<T> }) {
+  return (
+    <option value={o.value} disabled={o.disabled}>
+      {o.label}
+    </option>
+  );
+}
+
+/** The options in order, with consecutive ones of a group gathered under it (null: no group). */
+function groupsOf<T extends string>(
+  options: readonly SelectOption<T>[],
+): [string | null, SelectOption<T>[]][] {
+  const out: [string | null, SelectOption<T>[]][] = [];
+  for (const o of options) {
+    const group = o.group ?? null;
+    const last = out[out.length - 1];
+    if (last && last[0] === group) {
+      last[1].push(o);
+    } else {
+      out.push([group, [o]]);
+    }
+  }
+  return out;
 }
 
 export function SelectField<T extends string>({
@@ -109,11 +136,17 @@ export function SelectField<T extends string>({
           }
         }}
       >
-        {options.map((o) => (
-          <option key={o.value} value={o.value} disabled={o.disabled}>
-            {o.label}
-          </option>
-        ))}
+        {groupsOf(options).map(([group, items]) =>
+          group === null ? (
+            items.map((o) => <OptionItem key={o.value} option={o} />)
+          ) : (
+            <optgroup key={group} label={group}>
+              {items.map((o) => (
+                <OptionItem key={o.value} option={o} />
+              ))}
+            </optgroup>
+          ),
+        )}
       </select>
       {hintId !== null ? (
         <p class="hint" id={hintId}>

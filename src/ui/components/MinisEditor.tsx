@@ -6,7 +6,7 @@ import { NumberField } from "../NumberField";
 import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { ListNotices } from "./ListNotices";
 import { MoreOptions } from "./MoreOptions";
-import { ToggleOptions } from "./ToggleOptions";
+import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 type Figure = MinisComponent["figures"][number];
@@ -98,19 +98,28 @@ export function MinisEditor({
           Add figure
         </button>
       </fieldset>
-      <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+      <BinNotes component={c} index={index} />
       <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
-        <SelectField
-          id={`${c.id}-storage`}
-          label="Storage"
-          value={c.storage}
-          options={[
-            { value: "pockets", label: "One pocket per figure" },
-            { value: "bulk", label: "Loose in a scoop tray" },
-          ]}
-          onChange={(storage) => onChange({ ...c, storage })}
+        <CommonOptions
+          component={c}
+          index={index}
+          onChange={onChange}
+          tray={
+            <>
+              <SelectField
+                id={`${c.id}-storage`}
+                label="Storage"
+                value={c.storage}
+                options={[
+                  { value: "pockets", label: "One pocket per figure" },
+                  { value: "bulk", label: "Loose in a scoop tray" },
+                ]}
+                onChange={(storage) => onChange({ ...c, storage })}
+              />
+              <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+            </>
+          }
         />
-        <CommonOptions component={c} index={index} onChange={onChange} />
       </MoreOptions>
     </>
   );

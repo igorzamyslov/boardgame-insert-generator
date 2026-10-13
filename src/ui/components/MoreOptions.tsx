@@ -1,9 +1,11 @@
 // src/ui/components/MoreOptions.tsx
 import type { ComponentChildren } from "preact";
 import { useContext, useRef } from "preact/hooks";
+import { Advanced } from "../Advanced";
 import { ValidationContext } from "../validation";
 
 export interface MoreOptionsProps {
+  /** Advanced mode: shown. Otherwise only an error in one of the fields shows them. */
   open: boolean;
   /** Validation paths of the fields inside; an error at one opens the section. */
   errorPaths?: readonly string[];
@@ -20,10 +22,8 @@ export function MoreOptions({ open, errorPaths = [], children }: MoreOptionsProp
   if (hasError) {
     forced.current = true;
   }
-  return (
-    <details class="more-options" open={open || forced.current}>
-      <summary>More options</summary>
-      <div class="form-grid">{children}</div>
-    </details>
-  );
+  if (!open && !forced.current) {
+    return null;
+  }
+  return <Advanced>{children}</Advanced>;
 }

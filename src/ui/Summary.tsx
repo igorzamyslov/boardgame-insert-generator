@@ -12,12 +12,22 @@ export interface SummaryProps {
   run: RunState;
   notices: readonly Notice[];
   hasLayout: boolean;
+  /** The inputs changed since the layout was made: the sentence about it would be out of date. */
+  stale: boolean;
+  /** The number of layers (levels) and of spare trays in the layout, for the sentence. */
+  layers: number;
+  spares: number;
   canUndo: boolean;
   canOptimize: boolean;
   /** Components exist: when the optimizer is blocked, errors are the reason, not an empty project. */
   hasComponents: boolean;
   /** The errors that have no field on screen (`errorsWithoutField`). */
   hiddenErrors: readonly Notice[];
+  /** Advanced mode is on: it adds the slack and the filament to the results. */
+  advanced: boolean;
+  /** The input sections that hold an error, so the summary can send the reader there. */
+  problemSections: readonly { id: string; title: string }[];
+  onShowSection: (id: string) => void;
   shortfall: { x: number; y: number; z: number } | null;
   onReoptimize: () => void;
   onImprove: () => void;
@@ -42,11 +52,24 @@ function shortfallText(s: { x: number; y: number; z: number }): string | null {
   return parts.length > 0 ? `Doesn't fit: short by ${parts.join(" and ")}.` : null;
 }
 
-function Play({ label, mm }: { label: string; mm: number }) {
+function Readout({
+  label,
+  value,
+  unit,
+  warn,
+}: {
+  label: string;
+  value: string | number;
+  unit?: string;
+  warn?: boolean;
+}) {
   return (
-    <div>
-      <dt>{label}</dt>
-      <dd class={mm > PLAY_LIMIT_MM ? "play-warn" : undefined}>{`${mm.toFixed(2)} mm`}</dd>
+    <div class="pf-readout">
+      <dt class="pf-eyebrow">{label}</dt>
+      <dd class={warn ? "pf-readout__value play-warn" : "pf-readout__value"}>
+        {value}
+        {unit ? <span class="pf-readout__unit">{` ${unit}`}</span> : null}
+      </dd>
     </div>
   );
 }
@@ -60,9 +83,9 @@ function sentence(message: string): string {
  * percent (it would be read out at every step). */
 function liveText(run: RunState): string {
   if (run.status === "running") {
-    return "Optimizing the layout…";
+    return "Updating the plan…";
   }
-  return run.status === "done" ? "Layout updated." : "";
+  return run.status === "done" ? "Plan updated." : "";
 }
 
 export function Summary(p: SummaryProps) {
@@ -85,65 +108,61 @@ export function Summary(p: SummaryProps) {
     lastDone.current = 0;
   }
   const shortfall = p.shortfall ? shortfallText(p.shortfall) : null;
+  const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+  const verdict =
+    p.summary && !p.stale && p.run.status !== "running"
+      ? `${plural(p.summary.trayCount, "tray", "trays")}${
+          p.spares > 0 ? ` (${p.spares === 1 ? "1 is a spare" : `${p.spares} are spares`})` : ""
+        } in ${plural(Math.max(1, p.layers), "layer", "layers")}, ${p.summary.fillPct.toFixed(0)}% of the box used.`
+      : null;
+  const playTooLoose =
+    p.summary !== null && (p.summary.playX > PLAY_LIMIT_MM || p.summary.playY > PLAY_LIMIT_MM);
   return (
-    <section class="panel summary" aria-labelledby="summary-heading">
-      <h2 id="summary-heading">Summary</h2>
+    <>
       <p class="visually-hidden" role="status">
         {liveText(p.run)}
       </p>
+      {verdict ? (
+        <p class="pf-verdict stage-block">
+          <strong>Everything fits.</strong> {verdict}
+        </p>
+      ) : null}
       {p.run.status === "running" ? (
-        <div class="run-status">
-          <progress value={percent} max={100} aria-label="Optimizing" />
-          <span>{`Optimizing… ${percent}%`}</span>
-          <button type="button" onClick={p.onCancel}>
-            Cancel
-          </button>
+        <div class="pf-notice stage-block">
+          <div class="run-status">
+            <strong>Updating the plan…</strong>
+            <progress value={percent} max={100} aria-label="Updating the plan" />
+            <span aria-hidden="true">{`${percent}%`}</span>
+            <button type="button" onClick={p.onCancel}>
+              Cancel
+            </button>
+          </div>
         </div>
       ) : null}
       {p.run.status === "error" ? (
-        <div class="run-error" role="alert">
-          <p>
-            {`The optimizer failed: ${sentence(p.run.message)}`}
-            {p.hasLayout ? " The last good layout is still shown." : ""}
-          </p>
-          <button type="button" onClick={p.onRetry}>
-            Retry
-          </button>
+        <div class="pf-notice pf-notice--error stage-block" role="alert">
+          <div>
+            <strong class="notice-level">Error:</strong>{" "}
+            {`The plan couldn't be updated: ${sentence(p.run.message)}`}
+            {p.hasLayout ? " The last good plan is still shown." : ""}{" "}
+            <button type="button" onClick={p.onRetry}>
+              Retry
+            </button>
+          </div>
         </div>
       ) : null}
-      {p.summary ? (
-        <dl class="summary-grid">
-          <div>
-            <dt>Box filled</dt>
-            <dd>{`${p.summary.fillPct.toFixed(0)} %`}</dd>
-          </div>
-          <div>
-            <dt>Trays</dt>
-            <dd>{p.summary.trayCount}</dd>
-          </div>
-          <div>
-            <dt>Stacks</dt>
-            <dd>{p.summary.stackCount}</dd>
-          </div>
-          <div>
-            <dt>Filament</dt>
-            <dd>
-              {`≤ ${Math.ceil(p.summary.filamentG)} g `}
-              <span class="hint">(upper bound: PLA at 100 % infill)</span>
-            </dd>
-          </div>
-          <Play label="Play left–right" mm={p.summary.playX} />
-          <Play label="Play front–back" mm={p.summary.playY} />
-        </dl>
-      ) : running ? null : (
-        <p class="hint">No layout yet.</p>
-      )}
-      {!p.canOptimize && !running ? (
-        <div class="hint optimizer-blocked">
+      {!p.canOptimize && !running && p.hasComponents ? (
+        <div class="optimizer-blocked stage-block">
           <p>
-            {p.hasComponents
-              ? "Fix the errors marked in the inputs."
-              : "Enter the box size and add at least one component."}
+            Fix the errors marked in the inputs.
+            {p.problemSections.map((sec) => (
+              <>
+                {" "}
+                <button type="button" class="quiet" onClick={() => p.onShowSection(sec.id)}>
+                  {`Show ${sec.title}`}
+                </button>
+              </>
+            ))}
           </p>
           {p.hiddenErrors.length > 0 ? (
             <ul aria-label="Errors without a field">
@@ -154,33 +173,59 @@ export function Summary(p: SummaryProps) {
           ) : null}
         </div>
       ) : null}
-      {shortfall ? <p class="shortfall">{shortfall}</p> : null}
-      <div class="button-row">
-        <button type="button" onClick={p.onReoptimize} disabled={running || !p.canOptimize}>
-          Re-optimize
-        </button>
-        <button
-          type="button"
-          onClick={p.onImprove}
-          disabled={running || !p.hasLayout || !p.canOptimize}
-        >
-          Improve more
-        </button>
-        <button type="button" onClick={p.onUndo} disabled={running || !p.canUndo}>
-          Undo layout
-        </button>
-      </div>
+      {shortfall ? <p class="shortfall stage-block">{shortfall}</p> : null}
+      {p.summary && (p.advanced || playTooLoose) ? (
+        <dl class="pf-readouts pf-readouts--strip stage-block">
+          <Readout
+            label="Slack left–right"
+            value={p.summary.playX.toFixed(2)}
+            unit="mm"
+            warn={p.summary.playX > PLAY_LIMIT_MM}
+          />
+          <Readout
+            label="Slack front–back"
+            value={p.summary.playY.toFixed(2)}
+            unit="mm"
+            warn={p.summary.playY > PLAY_LIMIT_MM}
+          />
+          {p.advanced ? (
+            <Readout
+              label="Filament (upper bound: PLA, 100 % infill)"
+              value={`≤ ${Math.ceil(p.summary.filamentG)}`}
+              unit="g"
+            />
+          ) : null}
+        </dl>
+      ) : null}
+      {p.hasComponents ? (
+        <div class="button-row stage-block">
+          <button type="button" onClick={p.onReoptimize} disabled={running || !p.canOptimize}>
+            Update plan
+          </button>
+          <button
+            type="button"
+            onClick={p.onImprove}
+            disabled={running || !p.hasLayout || !p.canOptimize}
+          >
+            Find a better layout
+          </button>
+          <button type="button" onClick={p.onUndo} disabled={running || !p.canUndo}>
+            Undo layout
+          </button>
+        </div>
+      ) : null}
       <Notices
         notices={p.notices}
         label="Layout messages"
+        class="stage-block"
         renderAction={(n) =>
           n.code === STALE_CODE ? (
             <button type="button" onClick={p.onReoptimize} disabled={running || !p.canOptimize}>
-              Re-optimize now
+              Update plan now
             </button>
           ) : null
         }
       />
-    </section>
+    </>
   );
 }

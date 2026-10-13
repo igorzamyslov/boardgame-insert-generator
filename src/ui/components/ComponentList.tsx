@@ -1,6 +1,8 @@
 // src/ui/components/ComponentList.tsx
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { Component, ComponentKind } from "../../model/types";
+import { tintVar } from "../identity";
+import { KindIcon } from "../KindIcon";
 import { ComponentCard } from "./ComponentCard";
 
 export const ADD_LABELS: Record<ComponentKind, string> = {
@@ -13,6 +15,57 @@ export const ADD_LABELS: Record<ComponentKind, string> = {
 
 const KINDS = Object.keys(ADD_LABELS) as ComponentKind[];
 
+/** What each kind is for, under its name on the Add button. */
+const KIND_NAMES: Record<ComponentKind, string> = {
+  cards: "Cards",
+  bulk: "Bits",
+  tiles: "Tiles",
+  minis: "Miniatures",
+  custom: "Other",
+};
+
+const KIND_HINTS: Record<ComponentKind, string> = {
+  cards: "decks",
+  bulk: "cubes, tokens",
+  tiles: "flat pieces",
+  minis: "figures",
+  custom: "any size",
+};
+
+/** The five Add buttons: the kind's swatch (in the tint its first item would get), a name and a hint. */
+export function AddKinds({
+  onAdd,
+  startIndex,
+  label = "Add a component",
+}: {
+  onAdd: (kind: ComponentKind) => void;
+  /** The group's accessible name (the empty state shows a second group next to the rail's). */
+  label?: string;
+  /** How many components exist: the swatches preview the tints the new items would take. */
+  startIndex: number;
+}) {
+  return (
+    <div class="pf-kinds" role="group" aria-label={label}>
+      {KINDS.map((k, i) => (
+        <button
+          type="button"
+          class="pf-kind"
+          key={k}
+          style={{ "--tint": tintVar(startIndex + i) }}
+          aria-label={ADD_LABELS[k]}
+          onClick={() => onAdd(k)}
+        >
+          <KindIcon kind={k} />
+          <span>
+            {KIND_NAMES[k]}
+            <small>{KIND_HINTS[k]}</small>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export interface ComponentListProps {
   components: readonly Component[];
   advanced: boolean;
@@ -20,6 +73,8 @@ export interface ComponentListProps {
   onChange: (id: string, next: Component) => void;
   /** Returns false when the user declined (nothing was removed). */
   onRemove: (id: string) => boolean;
+  /** Per component (by index): the numbers of the trays that hold it. Absent while the plan is out of date. */
+  trayNumbers?: ReadonlyMap<number, readonly number[]>;
 }
 
 export function ComponentList({
@@ -28,9 +83,21 @@ export function ComponentList({
   onAdd,
   onChange,
   onRemove,
+  trayNumbers,
 }: ComponentListProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const removing = useRef<{ id: string; index: number } | null>(null);
+  // The card being edited: one at a time, and a new one opens as soon as it is added.
+  const [openId, setOpenId] = useState<string | null>(null);
+  const knownIds = useRef(new Set(components.map((c) => c.id)));
+  useEffect(() => {
+    const added = components.filter((c) => !knownIds.current.has(c.id));
+    knownIds.current = new Set(components.map((c) => c.id));
+    const last = added[added.length - 1];
+    if (last && added.length === 1) {
+      setOpenId(last.id);
+    }
+  }, [components]);
 
   // The Remove button that had the focus is gone with its card: hand the focus to the card that
   // took its place (or the one before it), or to the Add buttons when the list is empty. A
@@ -45,8 +112,8 @@ export function ComponentList({
     const root = listRef.current;
     const target =
       components.length === 0
-        ? root?.querySelector<HTMLElement>(".add-buttons button")
-        : root?.querySelectorAll<HTMLElement>(".component-card h3")[
+        ? root?.querySelector<HTMLElement>(".pf-kinds button")
+        : root?.querySelectorAll<HTMLElement>(".component-card .pf-item__title")[
             Math.min(r.index, components.length - 1)
           ];
     target?.focus();
@@ -57,15 +124,23 @@ export function ComponentList({
       {components.length === 0 ? (
         <p class="hint">
           Add what goes in the box: cards, bits (tokens, cubes, dice), tiles, miniatures or anything
-          else.
+          else. Each one gets a colour you will see again in the plan.
         </p>
       ) : null}
+      <p class="pf-eyebrow add-label">
+        {components.length === 0 ? "Add to the box" : "Add another"}
+      </p>
+      <AddKinds onAdd={onAdd} startIndex={components.length} />
       {components.map((c, i) => (
         <ComponentCard
           key={c.id}
           component={c}
           index={i}
           advanced={advanced}
+          open={openId === c.id}
+          trays={trayNumbers?.get(i)}
+          sameName={components.some((o) => o.id !== c.id && o.name === c.name)}
+          onToggle={(open) => setOpenId(open ? c.id : openId === c.id ? null : openId)}
           onChange={(next) => onChange(c.id, next)}
           onRemove={() => {
             removing.current = { id: c.id, index: i };
@@ -75,13 +150,6 @@ export function ComponentList({
           }}
         />
       ))}
-      <div class="add-buttons" role="group" aria-label="Add a component">
-        {KINDS.map((k) => (
-          <button type="button" key={k} onClick={() => onAdd(k)}>
-            {ADD_LABELS[k]}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

@@ -153,7 +153,7 @@ export function ExportPanel(p: ExportPanelProps) {
         Every part prints open side up, the way it sits in the box. Parts are numbered as in the
         plan view and on the assembly page.
       </p>
-      {p.stale ? <p class="hint">Inputs changed — re-optimize before exporting.</p> : null}
+      {p.stale ? <p class="hint">Inputs changed — update the plan before exporting.</p> : null}
       <div class="button-row" ref={buttonRow}>
         {KINDS.map((k) => (
           <button

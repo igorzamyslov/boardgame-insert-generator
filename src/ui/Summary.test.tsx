@@ -25,10 +25,16 @@ function props(over: Partial<SummaryProps> = {}): SummaryProps {
     run: { status: "done" },
     notices: [],
     hasLayout: true,
+    stale: false,
+    layers: 2,
+    spares: 0,
     canUndo: true,
     canOptimize: true,
     hasComponents: true,
     hiddenErrors: [],
+    advanced: false,
+    problemSections: [],
+    onShowSection: vi.fn(),
     shortfall: null,
     onReoptimize: vi.fn(),
     onImprove: vi.fn(),
@@ -40,49 +46,108 @@ function props(over: Partial<SummaryProps> = {}): SummaryProps {
 }
 
 describe("Summary", () => {
-  it("shows the numbers with an upper-bound filament and play warnings", () => {
-    render(<Summary {...props()} />);
-    expect(screen.getByText("81 %")).toBeTruthy();
-    expect(screen.getByText("7")).toBeTruthy();
-    expect(screen.getByText("4")).toBeTruthy();
-    expect(screen.getByText(/≤ 413 g/)).toBeTruthy();
-    expect(screen.getByText(/upper bound/)).toBeTruthy();
-    expect(screen.getByText("1.20 mm").className).not.toContain("play-warn");
-    expect(screen.getByText("1.80 mm").className).toContain("play-warn");
+  it("says in a sentence that everything fits, with the trays, layers and fill", () => {
+    const view = render(<Summary {...props()} />);
+    const verdict = view.container.querySelector("p.pf-verdict");
+    expect(verdict?.textContent).toBe("Everything fits. 7 trays in 2 layers, 81% of the box used.");
+    // the old readouts are gone
+    expect(screen.queryByText("Box filled")).toBeNull();
+    expect(screen.queryByText("Trays")).toBeNull();
+    expect(screen.queryByText("Stacks")).toBeNull();
+    // slackY 1.8 is over the limit, so the slack shows even in simple mode; the filament does not
+    expect(screen.getByText("Slack front–back").nextElementSibling?.className).toContain(
+      "play-warn",
+    );
+    expect(screen.queryByText(/upper bound/)).toBeNull();
+  });
+
+  it("uses the singular forms and names the spare trays", () => {
+    const base = props().summary;
+    const summary = base ? { ...base, trayCount: 1 } : null;
+    const view = render(<Summary {...props({ summary, layers: 1, spares: 1 })} />);
+    expect(view.container.querySelector("p.pf-verdict")?.textContent).toBe(
+      "Everything fits. 1 tray (1 is a spare) in 1 layer, 81% of the box used.",
+    );
+    view.rerender(<Summary {...props({ layers: 3, spares: 2 })} />);
+    expect(view.container.querySelector("p.pf-verdict")?.textContent).toBe(
+      "Everything fits. 7 trays (2 are spares) in 3 layers, 81% of the box used.",
+    );
+  });
+
+  it("leaves the sentence out when stale, running, or without a summary", () => {
+    const view = render(<Summary {...props({ stale: true })} />);
+    expect(view.container.querySelector("p.pf-verdict")).toBeNull();
+    view.rerender(<Summary {...props({ run: { status: "running", done: 1, total: 10 } })} />);
+    expect(view.container.querySelector("p.pf-verdict")).toBeNull();
+    view.rerender(<Summary {...props({ summary: null })} />);
+    expect(view.container.querySelector("p.pf-verdict")).toBeNull();
+  });
+
+  it("hides the slack and the filament in simple mode while the slack is within the limit", () => {
+    const summary = {
+      fillPct: 81,
+      trayCount: 7,
+      stackCount: 4,
+      filamentG: 412,
+      playX: 1.2,
+      playY: 1.3,
+    };
+    const view = render(<Summary {...props({ summary })} />);
+    expect(view.container.querySelector("dl.pf-readouts")).toBeNull();
+    expect(screen.queryByText(/^Slack/)).toBeNull();
+    expect(screen.queryByText(/upper bound/)).toBeNull();
+  });
+
+  it("shows the slack, an upper-bound filament and slack warnings in advanced mode", () => {
+    render(<Summary {...props({ advanced: true })} />);
+    const filament = screen.getByText(/upper bound/).nextElementSibling;
+    expect(filament?.textContent).toMatch(/≤ 413\s*g/);
+    const x = screen.getByText("Slack left–right").nextElementSibling;
+    const y = screen.getByText("Slack front–back").nextElementSibling;
+    expect(x?.textContent).toMatch(/^1\.20\s*mm$/);
+    expect(x?.className).not.toContain("play-warn");
+    expect(y?.textContent).toMatch(/^1\.80\s*mm$/);
+    expect(y?.className).toContain("play-warn");
   });
 
   it("shows progress and cancels while running", () => {
     const p = props({ run: { status: "running", done: 250, total: 1000 } });
     render(<Summary {...p} />);
     expect(screen.getByText(/25%/)).toBeTruthy();
-    expect(screen.getByRole("progressbar")).toBeTruthy();
+    expect(screen.getByText(/25%/).getAttribute("aria-hidden")).toBe("true");
+    expect(screen.getByRole("progressbar", { name: "Updating the plan" })).toBeTruthy();
+    expect(document.querySelector("div.pf-notice")?.textContent).toContain("Updating the plan…");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(p.onCancel).toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Re-optimize" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Update plan" }).hasAttribute("disabled")).toBe(true);
   });
 
   it("keeps the last good result visible on failure and retries", () => {
     const p = props({ run: { status: "error", message: "Worker crashed" } });
     render(<Summary {...p} />);
-    expect(screen.getByRole("alert").textContent).toMatch(/Worker crashed.*last good layout/);
-    expect(screen.getByText("81 %")).toBeTruthy();
+    const alert = screen.getByRole("alert");
+    expect(alert.className).toContain("pf-notice--error");
+    expect(alert.textContent).toMatch(
+      /The plan couldn't be updated: Worker crashed\. The last good plan is still shown\./,
+    );
+    expect(document.querySelector("p.pf-verdict")?.textContent).toContain("Everything fits.");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(p.onRetry).toHaveBeenCalled();
   });
 
-  it("offers re-optimize on the stale notice and wires the buttons", () => {
+  it("offers updating the plan on the stale notice and wires the buttons", () => {
     const p = props({
       notices: [
         {
           level: "info",
           code: STALE_CODE,
-          message: "Inputs changed since this layout was made — re-optimize?",
+          message: "Inputs changed since this plan was made — update it?",
         },
       ],
     });
     render(<Summary {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Re-optimize now" }));
-    fireEvent.click(screen.getByRole("button", { name: "Improve more" }));
+    fireEvent.click(screen.getByRole("button", { name: "Update plan now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Find a better layout" }));
     fireEvent.click(screen.getByRole("button", { name: "Undo layout" }));
     expect(p.onReoptimize).toHaveBeenCalledTimes(1);
     expect(p.onImprove).toHaveBeenCalledTimes(1);
@@ -93,16 +158,31 @@ describe("Summary", () => {
     const blocked = (over: Partial<SummaryProps>) =>
       props({ summary: null, hasLayout: false, canUndo: false, canOptimize: false, ...over });
 
-    it("asks for the box size and a component when there are none", () => {
+    it("says nothing about errors when there are no components", () => {
       render(<Summary {...blocked({ hasComponents: false })} />);
-      expect(screen.getByText(/Enter the box size and add at least one component/)).toBeTruthy();
       expect(screen.queryByText(/Fix the errors/)).toBeNull();
+      expect(screen.queryByText(/Enter the box size/)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
     });
 
-    it("points at the marked inputs when components exist, instead of asking for them", () => {
-      render(<Summary {...blocked({})} />);
+    it("points at the marked inputs when components exist", () => {
+      const view = render(<Summary {...blocked({})} />);
       expect(screen.getByText(/Fix the errors marked in the inputs/)).toBeTruthy();
-      expect(screen.queryByText(/add at least one component/)).toBeNull();
+      expect(view.container.querySelector(".optimizer-blocked")).toBeTruthy();
+    });
+
+    it("offers a Show button per section with an error and reports the one clicked", () => {
+      const problemSections = [
+        { id: "box", title: "Box" },
+        { id: "settings", title: "Settings" },
+      ];
+      const p = blocked({ problemSections });
+      render(<Summary {...p} />);
+      fireEvent.click(screen.getByRole("button", { name: "Show Settings" }));
+      expect(p.onShowSection).toHaveBeenCalledTimes(1);
+      expect(p.onShowSection).toHaveBeenCalledWith("settings");
+      fireEvent.click(screen.getByRole("button", { name: "Show Box" }));
+      expect(p.onShowSection).toHaveBeenLastCalledWith("box");
     });
 
     it("lists the errors that have no field on screen", () => {
@@ -121,7 +201,7 @@ describe("Summary", () => {
     it("explains the disabled buttons when a layout is shown", () => {
       render(<Summary {...props({ canOptimize: false })} />);
       expect(screen.getByText(/Fix the errors marked in the inputs/)).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Re-optimize" }).hasAttribute("disabled")).toBe(
+      expect(screen.getByRole("button", { name: "Update plan" }).hasAttribute("disabled")).toBe(
         true,
       );
     });
@@ -129,11 +209,11 @@ describe("Summary", () => {
     it("says nothing while the optimizer can run", () => {
       render(<Summary {...props({ summary: null, hasLayout: false })} />);
       expect(screen.queryByText(/Fix the errors/)).toBeNull();
-      expect(screen.getByText("No layout yet.")).toBeTruthy();
+      expect(screen.queryByText("No layout yet.")).toBeNull();
     });
   });
 
-  it("explains an empty project and an infeasible run", () => {
+  it("shows the layout buttons only once there are components, and disables them as needed", () => {
     const view = render(
       <Summary
         {...props({
@@ -146,16 +226,22 @@ describe("Summary", () => {
         })}
       />,
     );
-    expect(screen.getByText(/add at least one component/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Improve more" }).hasAttribute("disabled")).toBe(
-      true,
-    );
-    expect(screen.getByRole("button", { name: "Undo layout" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.queryByRole("button", { name: "Find a better layout" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Undo layout" })).toBeNull();
     view.rerender(
       <Summary
-        {...props({ summary: null, hasLayout: false, shortfall: { x: 12.345, y: 0, z: 3 } })}
+        {...props({
+          summary: null,
+          hasLayout: false,
+          canUndo: false,
+          shortfall: { x: 12.345, y: 0, z: 3 },
+        })}
       />,
     );
+    expect(
+      screen.getByRole("button", { name: "Find a better layout" }).hasAttribute("disabled"),
+    ).toBe(true);
+    expect(screen.getByRole("button", { name: "Undo layout" }).hasAttribute("disabled")).toBe(true);
     // rounded up to 0.1 mm like plan 4's notice, never to the nearest
     expect(screen.getByText(/Doesn't fit/).textContent).toBe(
       "Doesn't fit: short by 12.4 mm left–right and 3.0 mm in height.",
@@ -192,15 +278,15 @@ describe("Summary", () => {
     const live = screen.getByRole("status");
     expect(live.textContent).toBe("");
     view.rerender(<Summary {...props({ run: { status: "running", done: 250, total: 1000 } })} />);
-    expect(live.textContent).toBe("Optimizing the layout…");
+    expect(live.textContent).toBe("Updating the plan…");
     // the bar, the percent and Cancel are outside the live region
     expect(live.contains(screen.getByRole("progressbar"))).toBe(false);
     expect(live.contains(screen.getByRole("button", { name: "Cancel" }))).toBe(false);
     expect(live.textContent).not.toMatch(/%/);
     view.rerender(<Summary {...props({ run: { status: "running", done: 500, total: 1000 } })} />);
-    expect(live.textContent).toBe("Optimizing the layout…");
+    expect(live.textContent).toBe("Updating the plan…");
     view.rerender(<Summary {...props({ run: { status: "done" } })} />);
-    expect(live.textContent).toBe("Layout updated.");
+    expect(live.textContent).toBe("Plan updated.");
   });
 
   it("clamps the percent to 100 and never renders a zero-sized bar", () => {
@@ -232,10 +318,11 @@ describe("Summary", () => {
     expect(screen.getByText(/5%/)).toBeTruthy();
   });
 
-  it("shows the play with two decimals, like the play notice", () => {
+  it("shows the slack with two decimals, like the play notice", () => {
     render(
       <Summary
         {...props({
+          advanced: true,
           summary: {
             fillPct: 50,
             trayCount: 1,
@@ -248,7 +335,10 @@ describe("Summary", () => {
       />,
     );
     // 1.504 mm is over the 1.5 mm limit, and shown as such (not as "1.5 mm")
-    const [x, y] = screen.getAllByText("1.50 mm");
+    const x = screen.getByText("Slack left–right").nextElementSibling;
+    const y = screen.getByText("Slack front–back").nextElementSibling;
+    expect(x?.textContent).toMatch(/^1\.50\s*mm$/);
+    expect(y?.textContent).toMatch(/^1\.50\s*mm$/);
     expect(x?.className).toContain("play-warn");
     expect(y?.className).not.toContain("play-warn");
   });
@@ -258,7 +348,7 @@ describe("Summary", () => {
       <Summary {...props({ run: { status: "error", message: "Worker crashed." } })} />,
     );
     expect(screen.getByRole("alert").textContent).toContain(
-      "The optimizer failed: Worker crashed. ",
+      "The plan couldn't be updated: Worker crashed. ",
     );
     expect(screen.getByRole("alert").textContent).not.toContain("..");
     view.rerender(<Summary {...props({ run: { status: "error", message: "Worker crashed" } })} />);
@@ -297,7 +387,7 @@ describe("Summary", () => {
     expect(screen.getByText(/60%/)).toBeTruthy();
     // a new run starts without an idle state in between (open or switch project)
     view.rerender(<Summary {...props({ run: { status: "running", done: 0, total: 1000 } })} />);
-    expect(screen.getByText(/Optimizing… 0%/)).toBeTruthy();
+    expect(screen.getByText(/^0%$/)).toBeTruthy();
     expect(screen.queryByText(/60%/)).toBeNull();
     view.rerender(<Summary {...props({ run: { status: "running", done: 100, total: 1000 } })} />);
     expect(screen.getByText(/10%/)).toBeTruthy();

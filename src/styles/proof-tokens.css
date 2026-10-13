@@ -1,0 +1,108 @@
+/* Proof tokens (compiled from tokens.json): paper is the default, night follows data-theme or the OS. */
+:root,
+:root[data-theme="paper"] {
+  color-scheme: light;
+  --focus: var(--ink);
+  --font-display: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --font-ui: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --rail-width: 440px;
+  --page-max: 1440px;
+  --control-h: 40px;
+  --paper: #eef0f3;
+  --sheet: #ffffff;
+  --sheet-sunken: #f3f4f7;
+  --rule: #d8dce2;
+  --rule-strong: #6e7480;
+  --ink: #171a20;
+  --ink-soft: #545d6c;
+  --indigo: #3a56b0;
+  --on-indigo: #ffffff;
+  --indigo-wash: #e2e8f8;
+  --madder: #b0432f;
+  --on-madder: #ffffff;
+  --madder-wash: #f8e1db;
+  --ochre: #d9a52e;
+  --ochre-wash: #f7edd0;
+  --on-ochre: #171a20;
+  --tint-1: #d3e0f5;
+  --tint-2: #f0d5cc;
+  --tint-3: #d6ead7;
+  --tint-4: #f2e6bd;
+  --tint-5: #e0d7f0;
+  --tint-6: #cde8e6;
+  --tint-7: #f2d3de;
+  --tint-8: #dfe2e7;
+  --shadow-sheet: 0 1px 0 rgba(23,26,32,0.08), 0 10px 24px -14px rgba(23,26,32,0.30);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="paper"]) {
+    color-scheme: dark;
+    --paper: #0f1115;
+    --sheet: #181b21;
+    --sheet-sunken: #0b0d10;
+    --rule: #2a2e37;
+    --rule-strong: #7b8290;
+    --ink: #e9ebf0;
+    --ink-soft: #a9b0bd;
+    --indigo: #9bb2f0;
+    --on-indigo: #0b0d10;
+    --indigo-wash: #1c2646;
+    --madder: #ee9884;
+    --on-madder: #0b0d10;
+    --madder-wash: #3a2320;
+    --ochre: #dcb760;
+    --ochre-wash: #332b15;
+    --on-ochre: #171a20;
+    --tint-1: #243650;
+    --tint-2: #4a2e28;
+    --tint-3: #27402b;
+    --tint-4: #473f20;
+    --tint-5: #382f52;
+    --tint-6: #214341;
+    --tint-7: #4a2a38;
+    --tint-8: #30343b;
+    --shadow-sheet: 0 1px 0 rgba(0,0,0,0.5), 0 10px 24px -14px rgba(0,0,0,0.8);
+  }
+}
+
+:root[data-theme="night"] {
+  color-scheme: dark;
+  --paper: #0f1115;
+  --sheet: #181b21;
+  --sheet-sunken: #0b0d10;
+  --rule: #2a2e37;
+  --rule-strong: #7b8290;
+  --ink: #e9ebf0;
+  --ink-soft: #a9b0bd;
+  --indigo: #9bb2f0;
+  --on-indigo: #0b0d10;
+  --indigo-wash: #1c2646;
+  --madder: #ee9884;
+  --on-madder: #0b0d10;
+  --madder-wash: #3a2320;
+  --ochre: #dcb760;
+  --ochre-wash: #332b15;
+  --on-ochre: #171a20;
+  --tint-1: #243650;
+  --tint-2: #4a2e28;
+  --tint-3: #27402b;
+  --tint-4: #473f20;
+  --tint-5: #382f52;
+  --tint-6: #214341;
+  --tint-7: #4a2a38;
+  --tint-8: #30343b;
+  --shadow-sheet: 0 1px 0 rgba(0,0,0,0.5), 0 10px 24px -14px rgba(0,0,0,0.8);
+}

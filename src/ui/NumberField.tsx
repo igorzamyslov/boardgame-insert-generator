@@ -108,32 +108,45 @@ export function NumberField(props: NumberFieldProps) {
   const { errors: noticeErrors, notes } = messagesOf(notices);
   const errors = error !== null ? [error] : noticeErrors;
 
+  const input = (
+    <input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      value={text}
+      aria-invalid={errors.length > 0}
+      aria-describedby={describedByIds(id, hint, errors, notes)}
+      onInput={(e) => {
+        const next = e.currentTarget.value;
+        setText(next);
+        evaluate(next, false);
+      }}
+      onBlur={() => evaluate(text, true)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          evaluate(text, true);
+        }
+      }}
+    />
+  );
+
   return (
     <div class="field">
       <label htmlFor={id}>
         {label}
-        {unit !== undefined ? <span class="unit"> ({unit})</span> : null}
+        {unit !== undefined ? <span class="visually-hidden">{` (${unit})`}</span> : null}
       </label>
-      <input
-        id={id}
-        type="text"
-        inputMode="decimal"
-        autoComplete="off"
-        value={text}
-        aria-invalid={errors.length > 0}
-        aria-describedby={describedByIds(id, hint, errors, notes)}
-        onInput={(e) => {
-          const next = e.currentTarget.value;
-          setText(next);
-          evaluate(next, false);
-        }}
-        onBlur={() => evaluate(text, true)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            evaluate(text, true);
-          }
-        }}
-      />
+      {unit !== undefined ? (
+        <span class="pf-unit">
+          {input}
+          <span class="pf-unit__sfx" aria-hidden="true">
+            {unit}
+          </span>
+        </span>
+      ) : (
+        input
+      )}
       <FieldMessages id={id} hint={hint} errors={errors} notes={notes} />
     </div>
   );

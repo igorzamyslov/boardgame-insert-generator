@@ -100,10 +100,9 @@ describe("CardsEditor", () => {
     expect(last().sleeve).toEqual({ w: 66.5, h: 91, thickness: 0.2 });
   });
 
-  it("offers measure N cards, storage and common options under More options", () => {
+  it("offers measure N cards, storage and common options in the Advanced block", () => {
     const { last, view, onChange } = setup(cards(), true);
-    const details = screen.getByText("More options").closest("details");
-    expect(details?.hasAttribute("open")).toBe(true);
+    expect(screen.getByLabelText("Needed during play").closest(".pf-adv")).not.toBeNull();
     fireEvent.click(screen.getByLabelText(/Measure a stack/));
     expect(last().thickness).toEqual({ mode: "measured", cards: 50, stackMm: 20 });
     fireEvent.change(screen.getByLabelText("Storage"), { target: { value: "flat" } });
@@ -120,29 +119,30 @@ describe("CardsEditor", () => {
     expect("groupId" in last()).toBe(false);
   });
 
-  it("collapses More options in simple mode", () => {
-    setup(cards());
-    expect(screen.getByText("More options").closest("details")?.hasAttribute("open")).toBe(false);
+  it("hides the Advanced block in simple mode, with every field in it", () => {
+    const { view } = setup(cards());
+    expect(view.container.querySelector(".pf-adv")).toBeNull();
+    for (const label of ["Finger cuts", "Storage", "Group", /Measure a stack/, /per player/]) {
+      expect(screen.queryByLabelText(label)).toBeNull();
+    }
   });
 
-  it("shows finger cuts in simple mode, no curved floor, and corner reliefs in advanced mode", () => {
-    const { last, view, onChange } = setup(cards());
-    const cuts = screen.getByLabelText("Finger cuts");
-    expect(cuts.closest("details")).toBeNull();
-    expect((cuts as HTMLInputElement).checked).toBe(true);
+  it("shows finger cuts, no curved floor, and corner reliefs in advanced mode", () => {
+    const { last } = setup(cards(), true);
+    const cuts = screen.getByLabelText("Finger cuts") as HTMLInputElement;
+    expect(cuts.closest(".pf-adv")).not.toBeNull();
+    expect(cuts.checked).toBe(true);
     expect(screen.queryByLabelText("Curved floor")).toBeNull();
-    expect(screen.queryByLabelText("Corner reliefs")).toBeNull();
-    fireEvent.click(cuts);
-    expect(last().fingerCuts).toBe(false);
-    view.rerender(<CardsEditor component={cards()} index={0} advanced onChange={onChange} />);
     const reliefs = screen.getByLabelText("Corner reliefs") as HTMLInputElement;
     expect(reliefs.checked).toBe(false);
+    fireEvent.click(cuts);
+    expect(last().fingerCuts).toBe(false);
     fireEvent.click(reliefs);
     expect(last().cornerReliefs).toBe(true);
   });
 
   it("shows a curved floor a file set on cards, so it can be turned off", () => {
-    const { last } = setup(cards({ curvedFloor: true }));
+    const { last } = setup(cards({ curvedFloor: true }), true);
     const floor = screen.getByLabelText("Curved floor") as HTMLInputElement;
     expect(floor.checked).toBe(true);
     fireEvent.click(floor);
@@ -174,8 +174,8 @@ describe("CardsEditor validation", () => {
     expect(screen.getByRole("alert").textContent).toBe("Add at least one deck.");
   });
 
-  it("opens More options for a measured stack error in simple mode", () => {
-    render(
+  it("shows the Advanced block for a measured stack error in simple mode", () => {
+    const { container } = render(
       <ValidationContext.Provider
         value={[
           {
@@ -194,7 +194,8 @@ describe("CardsEditor validation", () => {
         />
       </ValidationContext.Provider>,
     );
-    expect(screen.getByText("More options").closest("details")?.hasAttribute("open")).toBe(true);
+    expect(container.querySelector(".pf-adv")).not.toBeNull();
+    expect(screen.getByRole("alert").textContent).toBe("Bad stack.");
   });
 
   it("shows a curved floor error in place on cards", () => {
@@ -212,7 +213,7 @@ describe("CardsEditor validation", () => {
         <CardsEditor
           component={cards({ curvedFloor: true })}
           index={0}
-          advanced={false}
+          advanced
           onChange={vi.fn()}
         />
       </ValidationContext.Provider>,

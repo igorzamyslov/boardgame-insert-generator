@@ -92,7 +92,7 @@ describe("TilesEditor", () => {
     expect(lastOf(onChange).count).toBe(60);
   });
 
-  it("offers storage under More options", () => {
+  it("offers storage in the Advanced block", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
     render(<TilesEditor component={of("tiles")} index={0} advanced onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Storage"), { target: { value: "upright" } });
@@ -116,7 +116,7 @@ describe("MinisEditor", () => {
 describe("toggles", () => {
   it("defaults bits to a curved floor without finger cuts, and turns cuts on", () => {
     const onChange = vi.fn<(c: BulkComponent) => void>();
-    render(<BulkEditor component={of("bulk")} index={0} advanced={false} onChange={onChange} />);
+    render(<BulkEditor component={of("bulk")} index={0} advanced onChange={onChange} />);
     expect((screen.getByLabelText("Curved floor") as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByLabelText("Finger cuts"));
     expect(lastOf(onChange).fingerCuts).toBe(true);
@@ -131,10 +131,26 @@ describe("toggles", () => {
     };
     render(
       <SizingContext.Provider value={[binned]}>
-        <CustomEditor component={of("custom")} index={0} advanced={false} onChange={vi.fn()} />
+        <CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />
       </SizingContext.Provider>,
     );
     expect((screen.getByLabelText("Finger cuts") as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByText(/stored loose in a bin with a curved floor/)).toBeTruthy();
+  });
+
+  it("shows the bin note even in simple mode, outside the Advanced block", () => {
+    const binned: Notice = {
+      level: "info",
+      code: "sizing.noFingerSlot",
+      path: "/components/0",
+      message: "Dial: … so it is stored loose in a bin with a curved floor instead.",
+    };
+    const { container } = render(
+      <SizingContext.Provider value={[binned]}>
+        <CustomEditor component={of("custom")} index={0} advanced={false} onChange={vi.fn()} />
+      </SizingContext.Provider>,
+    );
+    expect(container.querySelector(".pf-adv")).toBeNull();
     expect(screen.getByText(/stored loose in a bin with a curved floor/)).toBeTruthy();
   });
 
@@ -189,7 +205,7 @@ describe("validation shown in place", () => {
           err("field.curvedFloor", "/components/0/curvedFloor", "Tiles can't have a curved floor."),
         ]}
       >
-        <TilesEditor component={tiles} index={0} advanced={false} onChange={vi.fn()} />
+        <TilesEditor component={tiles} index={0} advanced onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     const alert = screen.getByRole("alert");
@@ -208,33 +224,48 @@ describe("validation shown in place", () => {
     };
     render(
       <ValidationContext.Provider value={[warn]}>
-        <CustomEditor component={of("custom")} index={0} advanced={false} onChange={vi.fn()} />
+        <CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByText("Heads up.")).toBeTruthy();
   });
 
-  it("opens More options in simple mode when a field inside has an error", () => {
+  it("hides the Advanced block in simple mode and shows it in advanced mode", () => {
+    const view = render(
+      <CustomEditor component={of("custom")} index={0} advanced={false} onChange={vi.fn()} />,
+    );
+    expect(view.container.querySelector(".pf-adv")).toBeNull();
+    for (const label of ["Needed during play", "Finger cuts", /^Group/]) {
+      expect(screen.queryByLabelText(label)).toBeNull();
+    }
+    view.rerender(<CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />);
+    expect(view.container.querySelector(".pf-adv")).not.toBeNull();
+    expect(screen.getByLabelText("Needed during play")).toBeTruthy();
+    expect(screen.getByLabelText("Finger cuts")).toBeTruthy();
+  });
+
+  it("shows the Advanced block in simple mode when a field inside has an error", () => {
     const notice = err("field.count", "/components/0/perPlayer/players", "Bad players.");
     const c = { ...of("custom"), perPlayer: { players: 0 } };
     const view = render(
       <CustomEditor component={c} index={0} advanced={false} onChange={vi.fn()} />,
     );
-    expect(screen.getByText("More options").closest("details")?.hasAttribute("open")).toBe(false);
+    expect(view.container.querySelector(".pf-adv")).toBeNull();
     view.rerender(
       <ValidationContext.Provider value={[notice]}>
         <CustomEditor component={c} index={0} advanced={false} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
-    expect(screen.getByText("More options").closest("details")?.hasAttribute("open")).toBe(true);
+    expect(view.container.querySelector(".pf-adv")).not.toBeNull();
+    expect(screen.getByRole("alert").textContent).toBe("Bad players.");
     view.rerender(
       <ValidationContext.Provider value={[]}>
         <CustomEditor component={c} index={0} advanced={false} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
-    // stays open once an error opened it, so it does not collapse under the user fixing it
-    expect(screen.getByText("More options").closest("details")?.hasAttribute("open")).toBe(true);
+    // stays shown once an error brought it up, so it does not vanish under the user fixing it
+    expect(view.container.querySelector(".pf-adv")).not.toBeNull();
   });
 
   it("shows empty-list errors under the Items and Figures legends", () => {
@@ -266,7 +297,7 @@ describe("validation shown in place", () => {
   it("moves focus to Finger cuts when a file-set curved floor on tiles is turned off", () => {
     function Harness() {
       const [c, setC] = useState<TilesComponent>({ ...of("tiles"), curvedFloor: true });
-      return <TilesEditor component={c} index={0} advanced={false} onChange={setC} />;
+      return <TilesEditor component={c} index={0} advanced onChange={setC} />;
     }
     render(<Harness />);
     const floor = screen.getByLabelText("Curved floor");

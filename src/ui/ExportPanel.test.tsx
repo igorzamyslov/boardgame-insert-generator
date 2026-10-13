@@ -130,7 +130,7 @@ describe("ExportPanel", () => {
     for (const name of ["3MF per part (.zip)", "One combined 3MF", "STL files (.zip)"]) {
       expect(screen.getByRole("button", { name }).hasAttribute("disabled")).toBe(true);
     }
-    expect(screen.getByText("Inputs changed — re-optimize before exporting.")).toBeTruthy();
+    expect(screen.getByText("Inputs changed — update the plan before exporting.")).toBeTruthy();
   });
 
   it("offers the exports again once the layout is current", () => {
@@ -139,7 +139,7 @@ describe("ExportPanel", () => {
     expect(screen.getByRole("button", { name: "STL files (.zip)" }).hasAttribute("disabled")).toBe(
       false,
     );
-    expect(screen.queryByText(/re-optimize before exporting/)).toBeNull();
+    expect(screen.queryByText(/update the plan before exporting/)).toBeNull();
   });
 
   it("disables Retry and Retry failed trays for a stale layout", async () => {

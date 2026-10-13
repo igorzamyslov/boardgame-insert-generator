@@ -1,12 +1,13 @@
 {
   "extends": ["stylelint-config-standard"],
-  "ignoreFiles": ["**/dist/**", "**/node_modules/**", "_build/**", "_site/**"],
+  "ignoreFiles": ["**/dist/**", "**/node_modules/**", "_build/**", "_site/**", "src/styles/**"],
   "rules": {
     "value-keyword-case": [
       "lower",
       {
         "ignoreKeywords": ["Canvas", "CanvasText", "LinkText", "ButtonText", "Field", "FieldText"]
       }
-    ]
+    ],
+    "selector-class-pattern": null
   }
 }

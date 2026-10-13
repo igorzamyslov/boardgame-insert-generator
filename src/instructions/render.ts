@@ -10,6 +10,8 @@ import {
   traysAt,
 } from "../plan/layers";
 import type { PlanFrame, ViewBox } from "../plan/layers";
+import { placeBadges } from "./labels";
+import type { LabelRequest } from "./labels";
 import { numberParts, outerSizeText, partsByKey } from "./numbering";
 import type { NumberedPart } from "./numbering";
 
@@ -73,34 +75,78 @@ function layerSvg(
       );
     }
   }
-  for (const t of traysAt(layout.trays, level)) {
+  const trays = traysAt(layout.trays, level);
+  const spacers = spacersAt(layout.trays, level);
+  const requests: LabelRequest[] = [];
+  const captions: (string | null)[] = [];
+  // Shapes first, all of them: a number is only legible when nothing is painted after it.
+  for (const t of trays) {
     const r = toSvgRect(t, frame);
-    const part = byKey.get(t.key);
-    const fs = labelFontSize(r);
-    const cx = r.x + r.w / 2;
-    const cy = r.y + r.h / 2;
     const fill = t.part === "leftover" ? "#f0f0f0" : "#cfe3f7";
     out.push(
       `<rect x="${n(r.x)}" y="${n(r.y)}" width="${n(r.w)}" height="${n(r.h)}" rx="1.5" fill="${fill}" stroke="#1d4f80" stroke-width="0.5"/>`,
-      `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(fs * 0.75)}" fill="#ffffff" stroke="#1d4f80" stroke-width="0.4"/>`,
-      `<text x="${n(cx)}" y="${n(cy)}" font-size="${n(fs)}" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#111111">${part ? part.number : "?"}</text>`,
     );
-    if (part && r.w >= 30 && r.h >= 24) {
-      const labelSize = Math.min(5, fs * 0.45);
-      const maxChars = Math.floor(r.w / (labelSize * 0.6));
-      out.push(
-        `<text x="${n(cx)}" y="${n(cy + fs * 0.75 + labelSize * 1.2)}" font-size="${n(labelSize)}" text-anchor="middle" fill="#111111">${escapeXml(truncate(part.label, maxChars))}</text>`,
-      );
-    }
   }
-  for (const s of spacersAt(layout.trays, level)) {
+  for (const s of spacers) {
     const r = toSvgRect(s, frame);
-    const part = byKey.get(s.key);
     out.push(
       `<rect x="${n(r.x)}" y="${n(r.y)}" width="${n(r.w)}" height="${n(r.h)}" fill="#f7e3c4" stroke="#8a5a00" stroke-width="0.4" stroke-dasharray="1.5 1"/>`,
-      `<text x="${n(r.x + r.w / 2)}" y="${n(r.y + r.h / 2)}" font-size="4" text-anchor="middle" dominant-baseline="central" fill="#5a3a00">${part ? part.number : "?"}</text>`,
     );
   }
+  for (const t of trays) {
+    const r = toSvgRect(t, frame);
+    const part = byKey.get(t.key);
+    const labelSize = Math.min(5, labelFontSize(r) * 0.45);
+    const maxChars = Math.floor(r.w / (labelSize * 0.6));
+    const caption = part && r.w >= 30 && r.h >= 24 ? truncate(part.label, maxChars) : null;
+    captions.push(caption);
+    requests.push({
+      text: part ? String(part.number) : "?",
+      rect: r,
+      kind: "tray",
+      ...(caption !== null
+        ? { caption: { w: Math.min(r.w, caption.length * labelSize * 0.6), h: labelSize * 1.2 } }
+        : {}),
+    });
+  }
+  for (const s of spacers) {
+    const part = byKey.get(s.key);
+    captions.push(null);
+    requests.push({
+      text: part ? String(part.number) : "?",
+      rect: toSvgRect(s, frame),
+      kind: "spacer",
+    });
+  }
+  const front = { x: frame.usableW / 2 - 12, y: frame.usableD + frame.bc + 4, w: 24, h: 10 };
+  const placed = placeBadges(requests, vb, [front]);
+  // Leaders, then captions, then every badge on top.
+  placed.forEach((b) => {
+    if (b.leader) {
+      out.push(
+        `<line x1="${n(b.cx)}" y1="${n(b.cy)}" x2="${n(b.anchor.x)}" y2="${n(b.anchor.y)}" stroke="#1d4f80" stroke-width="0.4"/>`,
+        `<circle cx="${n(b.anchor.x)}" cy="${n(b.anchor.y)}" r="0.9" fill="#1d4f80"/>`,
+      );
+    }
+  });
+  placed.forEach((b, i) => {
+    const caption = captions[i];
+    const part = i < trays.length ? byKey.get(trays[i]?.key ?? "") : undefined;
+    if (b.caption && caption && part) {
+      const size = b.caption.h / 1.2;
+      out.push(
+        `<text x="${n(b.caption.x + b.caption.w / 2)}" y="${n(b.caption.y + b.caption.h / 2)}" font-size="${n(size)}" text-anchor="middle" dominant-baseline="central" fill="#111111" stroke="#ffffff" stroke-width="${n(size * 0.35)}" stroke-linejoin="round" paint-order="stroke">${escapeXml(caption)}</text>`,
+      );
+    }
+  });
+  placed.forEach((b, i) => {
+    const spacer = i >= trays.length;
+    const stroke = spacer ? "#8a5a00" : "#1d4f80";
+    out.push(
+      `<circle cx="${n(b.cx)}" cy="${n(b.cy)}" r="${n(b.r)}" fill="#ffffff" stroke="${stroke}" stroke-width="0.4"/>`,
+      `<text x="${n(b.cx)}" y="${n(b.cy)}" font-size="${n(b.fs)}" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#111111">${b.text}</text>`,
+    );
+  });
   out.push(
     `<text x="${n(frame.usableW / 2)}" y="${n(frame.usableD + frame.bc + 9)}" font-size="6" letter-spacing="0.6" text-anchor="middle" fill="#333333">FRONT</text>`,
     "</svg>",

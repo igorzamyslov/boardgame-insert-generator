@@ -8,6 +8,9 @@ import { ADD_LABELS, ComponentList } from "./ComponentList";
 
 afterEach(cleanup);
 
+/** The one-line name of a folded card (the title element, which also takes the focus). */
+const titleOf = (name: string | RegExp) => screen.getByText(name, { selector: ".pf-item__title" });
+
 const KINDS = Object.keys(ADD_LABELS) as ComponentKind[];
 
 function handlers() {
@@ -19,50 +22,84 @@ describe("ComponentList", () => {
     const h = handlers();
     render(<ComponentList components={[]} advanced={false} {...h} />);
     expect(screen.getByText(/Add what goes in the box/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Add bits" }));
+    // each Add button carries a small hint, so its name is only matched from the start
+    fireEvent.click(screen.getByRole("button", { name: /^Add bits/ }));
     expect(h.onAdd).toHaveBeenCalledWith("bulk");
-    for (const name of ["Add cards", "Add tiles", "Add miniatures", "Add other item"]) {
+    for (const name of [/^Add cards/, /^Add tiles/, /^Add miniatures/, /^Add other item/]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
   });
 
   it("renders the right editor for every kind", () => {
     const comps: Component[] = KINDS.map((k) => newComponent(k));
-    render(<ComponentList components={comps} advanced={false} {...handlers()} />);
+    const { container } = render(
+      <ComponentList components={comps} advanced={false} {...handlers()} />,
+    );
     expect(screen.getByLabelText("Card size")).toBeTruthy();
     expect(screen.getByLabelText("How to size item 1")).toBeTruthy();
     expect(screen.getByLabelText("Tile shape")).toBeTruthy();
     expect(screen.getByLabelText(/Figure 1 height/)).toBeTruthy();
     expect(screen.getByLabelText("How many")).toBeTruthy();
-    expect(screen.getAllByRole("region")).toHaveLength(5);
+    expect(container.querySelectorAll("details.component-card")).toHaveLength(5);
   });
 
   it("renames, sets access and removes", () => {
     const c = { ...newComponent("cards"), name: "Main deck" };
     const h = handlers();
-    render(<ComponentList components={[c]} advanced={false} {...h} />);
-    expect(screen.getByRole("heading", { name: "Cards: Main deck" })).toBeTruthy();
+    render(<ComponentList components={[c]} advanced {...h} />);
+    expect(titleOf("Main deck")).toBeTruthy();
+    expect(screen.getByText(/^50 cards/)).toBeTruthy();
     fireEvent.input(screen.getByLabelText("Name"), { target: { value: "Market" } });
     expect(h.onChange).toHaveBeenLastCalledWith(c.id, { ...c, name: "Market" });
     fireEvent.change(screen.getByLabelText("Needed during play"), { target: { value: "often" } });
     expect(h.onChange).toHaveBeenLastCalledWith(c.id, { ...c, access: "often" });
-    fireEvent.click(screen.getByRole("button", { name: "Remove component 1 (Cards: Main deck)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Main deck" }));
     expect(h.onRemove).toHaveBeenCalledWith(c.id);
   });
 
-  it("gives each remove button a unique name, even for empty or duplicate names", () => {
+  it("puts the Add buttons above the cards and shows the trays a card makes", () => {
+    const a = { ...newComponent("custom"), id: "a", name: "Dial" };
+    const b = { ...newComponent("custom"), id: "b", name: "Die" };
+    const trays = new Map([
+      [0, [3]],
+      [1, [1, 4]],
+    ]);
+    const { container } = render(
+      <ComponentList components={[a, b]} advanced={false} trayNumbers={trays} {...handlers()} />,
+    );
+    const kinds = container.querySelector(".pf-kinds") as HTMLElement;
+    const card = container.querySelector(".component-card") as HTMLElement;
+    expect(kinds.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText(/ · tray 3$/)).toBeTruthy();
+    expect(screen.getByText(/ · trays 1, 4$/)).toBeTruthy();
+  });
+
+  it("keeps one card open at a time and opens a newly added one", () => {
+    const a = { ...newComponent("custom"), id: "a", name: "Dial" };
+    const b = { ...newComponent("custom"), id: "b", name: "Die" };
+    const h = handlers();
+    const view = render(<ComponentList components={[a]} advanced={false} {...h} />);
+    const cardOf = (name: string) => titleOf(name).closest("details") as HTMLDetailsElement;
+    expect(cardOf("Dial").open).toBe(false);
+    view.rerender(<ComponentList components={[a, b]} advanced={false} {...h} />);
+    expect(cardOf("Die").open).toBe(true);
+    expect(cardOf("Dial").open).toBe(false);
+    cardOf("Dial").open = true;
+    fireEvent(cardOf("Dial"), new Event("toggle"));
+    expect(cardOf("Dial").open).toBe(true);
+    expect(cardOf("Die").open).toBe(false);
+  });
+
+  it("names each remove button after its card, with a stand-in for an empty name and the position for a repeated one", () => {
     const a = { ...newComponent("custom"), id: "a", name: "" };
     const b = { ...newComponent("custom"), id: "b", name: "Dial" };
     const d = { ...newComponent("custom"), id: "d", name: "Dial" };
     const h = handlers();
     render(<ComponentList components={[a, b, d]} advanced={false} {...h} />);
     const names = screen.getAllByRole("button", { name: /^Remove / }).map((x) => x.ariaLabel);
-    expect(names).toEqual([
-      "Remove component 1 (Item: (unnamed))",
-      "Remove component 2 (Item: Dial)",
-      "Remove component 3 (Item: Dial)",
-    ]);
-    fireEvent.click(screen.getByRole("button", { name: "Remove component 3 (Item: Dial)" }));
+    // Two cards share a name: their buttons say which one by position.
+    expect(names).toEqual(["Remove (unnamed)", "Remove Dial (item 2)", "Remove Dial (item 3)"]);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Dial (item 3)" }));
     expect(h.onRemove).toHaveBeenCalledWith("d");
   });
 
@@ -82,14 +119,14 @@ describe("ComponentList", () => {
     }
 
     const removeButton = (n: number) =>
-      screen.getByRole("button", { name: new RegExp(`^Remove component ${n} `) });
+      screen.getByRole("button", { name: `Remove Item ${"abc"[n - 1]}` });
 
-    it("moves to the heading of the card that took the place of the removed one", () => {
+    it("moves to the title of the card that took the place of the removed one", () => {
       const { rerender } = setup(three);
       removeButton(2).focus();
       fireEvent.click(removeButton(2));
       rerender([three[0] as Component, three[2] as Component]);
-      expect(document.activeElement).toBe(screen.getByRole("heading", { name: /Item c/ }));
+      expect(document.activeElement).toBe(titleOf(/Item c/));
     });
 
     it("moves to the new last card when the last one was removed", () => {
@@ -97,7 +134,7 @@ describe("ComponentList", () => {
       removeButton(3).focus();
       fireEvent.click(removeButton(3));
       rerender(three.slice(0, 2));
-      expect(document.activeElement).toBe(screen.getByRole("heading", { name: /Item b/ }));
+      expect(document.activeElement).toBe(titleOf(/Item b/));
     });
 
     it("moves to the Add buttons when the list is empty now", () => {
@@ -106,7 +143,8 @@ describe("ComponentList", () => {
       removeButton(1).focus();
       fireEvent.click(removeButton(1));
       rerender([]);
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add cards" }));
+      expect(document.activeElement).toBe(document.querySelector(".pf-kinds button"));
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Add cards/ }));
     });
 
     it("forgets a declined removal, so a later change of the list doesn't take the focus", () => {
@@ -118,7 +156,7 @@ describe("ComponentList", () => {
       expect(h.onRemove).toHaveBeenCalledWith("b");
       // another project is opened: the list loses "b" for a reason that has nothing to do with it
       view.rerender(<ComponentList components={[three[0] as Component]} advanced={false} {...h} />);
-      expect(document.activeElement).not.toBe(screen.getByRole("heading", { name: /Item a/ }));
+      expect(document.activeElement).not.toBe(titleOf(/Item a/));
     });
 
     it("leaves the focus alone when the removal was declined", () => {

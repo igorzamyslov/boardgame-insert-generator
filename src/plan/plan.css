@@ -3,7 +3,7 @@
   display: block;
   width: 100%;
   height: auto;
-  max-height: 70vh;
+  max-height: calc(100vh - 20rem);
   touch-action: none;
   user-select: none;
 }
@@ -22,24 +22,26 @@
   vector-effect: non-scaling-stroke;
 }
 
+.plan-svg.is-stale {
+  filter: grayscale(0.8);
+}
+
 .plan-tray {
   cursor: grab;
 }
 
 .plan-tray rect {
-  fill: color-mix(in srgb, #2563eb 22%, Canvas);
-  stroke: color-mix(in srgb, #2563eb 70%, CanvasText);
+  fill: var(--tint, var(--tint-8));
+  stroke: var(--rule-strong);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 
+/* Spare trays and filler blocks: plain, with a dashed edge, no tint and no glyph. */
 .plan-tray.is-leftover rect {
-  fill: color-mix(in srgb, CanvasText 8%, Canvas);
-  stroke-dasharray: 3 2;
-}
-
-.plan-tray.is-selected rect {
-  stroke-width: 3;
+  fill: var(--sheet);
+  stroke-dasharray: 4 3;
+  stroke-width: 1.5;
 }
 
 .plan-tray.is-source rect {
@@ -47,30 +49,61 @@
 }
 
 .plan-tray.is-drop rect {
-  fill: color-mix(in srgb, #f59e0b 40%, Canvas);
+  fill: var(--indigo-wash);
 }
 
 .plan-tray:focus {
   outline: none;
 }
 
-.plan-tray:focus-visible rect {
-  stroke: #f59e0b;
+/* SVG has no z-index: the selection and focus rings are separate rects drawn after every tile. */
+.plan-ring {
+  fill: none;
+  pointer-events: none;
   stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.plan-ring.is-selected {
+  stroke: var(--ink);
+}
+
+.plan-ring.is-focus {
+  stroke: var(--indigo);
+}
+
+.plan-glyph {
+  fill: none;
+  pointer-events: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  stroke-linecap: square;
+}
+
+.plan-glyph * {
+  vector-effect: non-scaling-stroke;
 }
 
 .plan-label,
-.plan-front,
-.plan-lock {
-  fill: currentcolor;
+.plan-name,
+.plan-size,
+.plan-lock,
+.plan-front {
+  fill: var(--ink);
+  font-family: var(--font-ui);
   pointer-events: none;
   text-anchor: middle;
   dominant-baseline: central;
 }
 
 .plan-lock {
-  font-size: 5px;
+  font-size: 4px;
   text-anchor: start;
+}
+
+.plan-lock--end,
+.plan-tray.is-locked .plan-lock:first-of-type {
+  text-anchor: end;
 }
 
 .plan-front {
@@ -78,11 +111,17 @@
   letter-spacing: 0.1em;
 }
 
+.plan-name,
+.plan-size {
+  font-family: var(--font-ui);
+}
+
 .layer-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
   border: 0;
   padding: 0;
   margin: 0 0 0.5rem;
+}
+
+.plan-legend {
+  margin: 0.5rem 0 0;
 }

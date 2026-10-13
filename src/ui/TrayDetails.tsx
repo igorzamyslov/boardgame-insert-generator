@@ -31,7 +31,7 @@ export function TrayDetails({
       <h3>{`#${part.number} ${part.label}`}</h3>
       {stale ? (
         <p class="hint">
-          Inputs changed — the sizes shown may not match this layout. Re-optimize to update it.
+          Inputs changed — the sizes shown may not match this layout. Update the plan to fix it.
         </p>
       ) : null}
       <dl>
@@ -67,9 +67,7 @@ export function TrayDetails({
           <button type="button" onClick={onToggleSizeLock}>
             {sizeLocked ? "Unlock size" : "Lock size"}
           </button>
-          <span class="hint">
-            A size lock keeps this outer size when the layout is re-optimized.
-          </span>
+          <span class="hint">A size lock keeps this outer size when the plan is updated.</span>
         </p>
       ) : null}
       {contents.length > 0 ? (

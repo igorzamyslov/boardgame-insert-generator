@@ -59,24 +59,32 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
   }
   return (
     <div class="form-grid">
-      {SETTING_RANGES.map((r) => (
-        <NumberField
-          key={r.path}
-          id={`settings-${r.path.replace("/", "-")}`}
-          label={r.label}
-          unit={settingUnit(r.path)}
-          value={r.get(settings)}
-          path={`/settings/${r.path}`}
-          min={r.min}
-          max={r.max}
-          onCommit={(v) => {
-            const set = SETTING_SETTERS[r.path];
-            if (set) {
-              onChange(set(settings, v));
-            }
-          }}
-        />
-      ))}
+      <SimpleChoices settings={settings} onChange={onChange} />
+      <details class="pf-disc">
+        <summary>Exact values</summary>
+        <div class="pf-disc__body">
+          <div class="form-grid">
+            {SETTING_RANGES.map((r) => (
+              <NumberField
+                key={r.path}
+                id={`settings-${r.path.replace("/", "-")}`}
+                label={r.label}
+                unit={settingUnit(r.path)}
+                value={r.get(settings)}
+                path={`/settings/${r.path}`}
+                min={r.min}
+                max={r.max}
+                onCommit={(v) => {
+                  const set = SETTING_SETTERS[r.path];
+                  if (set) {
+                    onChange(set(settings, v));
+                  }
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </details>
       <CheckField
         id="settings-lip-enabled"
         label="Locating lip on stacked trays"
@@ -108,8 +116,8 @@ function fingerRoomHint(s: Settings): string {
 }
 
 /**
- * Simple mode: choices that write resolved numbers (spec §5): walls, fit and the finger room switch
- * (on for any wall room, including a custom one). Advanced mode edits the numbers.
+ * Choices that write resolved numbers (spec §5): walls, fit and the finger room switch (on for
+ * any wall room, including a custom one). Advanced mode also edits the numbers themselves.
  */
 function SimpleChoices({ settings, onChange }: Omit<SettingsFormProps, "advanced">) {
   return (

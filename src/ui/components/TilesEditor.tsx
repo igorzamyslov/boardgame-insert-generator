@@ -5,7 +5,7 @@ import { COUNT, LENGTH } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { MoreOptions } from "./MoreOptions";
-import { ToggleOptions } from "./ToggleOptions";
+import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 const DEFAULT_SHAPES: Record<TileShape["type"], TileShape> = {
@@ -100,20 +100,29 @@ export function TilesEditor({
         path={`${at}/count`}
         onCommit={(count) => onChange({ ...c, count })}
       />
-      <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+      <BinNotes component={c} index={index} />
       <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
-        <SelectField
-          id={`${c.id}-storage`}
-          label="Storage"
-          value={c.storage}
-          options={[
-            { value: "auto", label: "Let the optimizer choose" },
-            { value: "flat", label: "Lying flat in stacks" },
-            { value: "upright", label: "Upright, like cards" },
-          ]}
-          onChange={(storage) => onChange({ ...c, storage })}
+        <CommonOptions
+          component={c}
+          index={index}
+          onChange={onChange}
+          tray={
+            <>
+              <SelectField
+                id={`${c.id}-storage`}
+                label="Storage"
+                value={c.storage}
+                options={[
+                  { value: "auto", label: "Let the optimizer choose" },
+                  { value: "flat", label: "Lying flat in stacks" },
+                  { value: "upright", label: "Upright, like cards" },
+                ]}
+                onChange={(storage) => onChange({ ...c, storage })}
+              />
+              <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+            </>
+          }
         />
-        <CommonOptions component={c} index={index} onChange={onChange} />
       </MoreOptions>
     </>
   );

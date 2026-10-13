@@ -31,18 +31,35 @@ describe("presets", () => {
     });
   });
 
-  it("names the standard card and the Bambu bed, first in their lists", () => {
+  it("names the standard card first in its list and the Bambu bed in the bed list", () => {
     expect(CARD_PRESETS[0]).toBe(STANDARD_CARD);
     expect(STANDARD_CARD).toMatchObject({ id: "standard", shortSide: 63.5, longSide: 88 });
-    expect(BED_PRESETS[0]).toBe(BAMBU_256_BED);
+    expect(BED_PRESETS).toContain(BAMBU_256_BED);
     expect(BAMBU_256_BED).toMatchObject({ id: "bambu-256", bedX: 256, bedY: 256, bedZ: 256 });
   });
 
-  it("has the three bed presets from the spec", () => {
+  it("lists the bed presets by size, smallest first, each with the printers it fits", () => {
     expect(BED_PRESETS.map((b) => [b.bedX, b.bedY, b.bedZ])).toEqual([
-      [256, 256, 256],
-      [250, 210, 220],
+      [180, 180, 180],
       [220, 220, 250],
+      [250, 210, 220],
+      [256, 256, 256],
+      [300, 300, 300],
+      [350, 350, 350],
+    ]);
+    for (const b of BED_PRESETS) {
+      expect(b.label).toBe(`${b.bedX} × ${b.bedY} × ${b.bedZ} mm`);
+      expect(b.examples).not.toBe("");
+    }
+  });
+
+  it("marks the common card sizes, standard first", () => {
+    expect(CARD_PRESETS.filter((p) => p.common).map((p) => p.id)).toEqual([
+      "standard",
+      "standard-american",
+      "euro",
+      "mini-euro",
+      "tarot",
     ]);
   });
 });

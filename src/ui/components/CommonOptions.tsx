@@ -1,36 +1,62 @@
 // src/ui/components/CommonOptions.tsx
 import { setClearance, setGroup, setPerPlayer } from "../../app/actions";
-import type { Component } from "../../model/types";
-import { CheckField, TextField } from "../fields";
+import type { ComponentChildren } from "preact";
+import type { Access, Component } from "../../model/types";
+import { CheckField, SelectField, TextField } from "../fields";
+import type { SelectOption } from "../fields";
 import { OFFSET, PLAYERS } from "../limits";
 import { NumberField } from "../NumberField";
 import type { EditorProps } from "./types";
 
+const ACCESS_OPTIONS: SelectOption<Access>[] = [
+  { value: "often", label: "Often" },
+  { value: "sometimes", label: "Sometimes" },
+  { value: "setup", label: "Only at setup" },
+];
+
 /** Validation paths of the fields CommonOptions shows (they live under More options). */
 export function commonOptionPaths(index: number): string[] {
   const at = `/components/${index}`;
-  return [`${at}/groupId`, `${at}/perPlayer`, `${at}/perPlayer/players`, `${at}/clearance`];
+  return [
+    `${at}/groupId`,
+    `${at}/perPlayer`,
+    `${at}/perPlayer/players`,
+    `${at}/clearance`,
+    `${at}/curvedFloor`,
+  ];
 }
 
+export interface CommonOptionsProps<C extends Component> extends Omit<EditorProps<C>, "advanced"> {
+  /** The editor's own advanced fields about the contents, listed first. */
+  pieces?: ComponentChildren;
+  /** The editor's own advanced fields about the tray, listed after how it is used in play. */
+  tray?: ComponentChildren;
+}
+
+/**
+ * The advanced fields every kind has, after the editor's own (`pieces`, then `tray`): how the
+ * component is used in play, then how its tray is made. One flat list: the dotted edge of the
+ * advanced block is the only marking.
+ */
 export function CommonOptions<C extends Component>({
   component: c,
   index,
   onChange,
-}: Omit<EditorProps<C>, "advanced">) {
+  pieces,
+  tray,
+}: CommonOptionsProps<C>) {
   const at = `/components/${index}`;
   const grouped = c.groupId !== undefined;
   return (
     <>
-      <TextField
-        id={`${c.id}-group`}
-        label="Group (same group → same tray)"
-        value={c.groupId ?? ""}
-        commitOn="blur"
-        normalize={(v) => v.trim()}
-        path={`${at}/groupId`}
-        placeholder="e.g. tokens"
-        hint="Components with the same group name share one tray, each in its own compartment."
-        onCommit={(v) => onChange(setGroup(c, v))}
+      {pieces}
+      <SelectField
+        id={`${c.id}-access`}
+        label="Needed during play"
+        value={c.access}
+        options={ACCESS_OPTIONS}
+        hint="Often-used parts are kept out from under other trays."
+        onChange={(access) => onChange({ ...c, access })}
       />
       <CheckField
         id={`${c.id}-perPlayer`}
@@ -55,16 +81,29 @@ export function CommonOptions<C extends Component>({
           onCommit={(v) => onChange(setPerPlayer(c, v))}
         />
       ) : null}
+      {tray}
+      <TextField
+        id={`${c.id}-group`}
+        label="Group"
+        value={c.groupId ?? ""}
+        commitOn="blur"
+        normalize={(v) => v.trim()}
+        path={`${at}/groupId`}
+        placeholder="e.g. tokens"
+        hint="Components with the same group name share one tray, each in its own compartment."
+        onCommit={(v) => onChange(setGroup(c, v))}
+      />
       <CheckField
         id={`${c.id}-ownClearance`}
-        label="Use its own clearance"
+        label="Use its own extra room"
         checked={c.clearance !== undefined}
         onChange={(on) => onChange(setClearance(c, on ? 1 : undefined))}
       />
       {c.clearance !== undefined ? (
         <NumberField
           id={`${c.id}-clearance`}
-          label="Clearance (total, not scaled by Fit)"
+          label="Extra room"
+          hint="Total room around each piece, not scaled by Fit."
           unit="mm"
           value={c.clearance}
           {...OFFSET}
