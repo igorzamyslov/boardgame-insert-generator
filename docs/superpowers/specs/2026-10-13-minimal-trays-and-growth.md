@@ -27,6 +27,14 @@ destinations: a **filler part** between trays, **more room for the contents**
 where that means more pieces fit, or — below the printable filler minimum, where
 there is no alternative — **wall thickness**.
 
+**Vertical slack is a riser's job, never a taller tray.** A tray is only as deep
+as its contents need. Height left over because the stack must reach the top
+plane goes under the tray as a riser, not into the tray's own walls as a deep
+empty well. This matters most for components lying flat, where a tray that is
+taller than the stack it holds looks clunky and prints a lot of wall for
+nothing. `splitRisers` already does this; the growth rules must not undo it by
+making trays tall in the first place.
+
 **Growth is bounded by retention.** More room is only useful while the contents
 stay held. A deck well grown too far lets the cards fall over, which is worse
 than the filler it replaced. So growth is never unbounded: it is either capped,
@@ -127,24 +135,27 @@ do not teach the wrong model. Additive rename: keep reading the old key.
 Growth should be allowed on the axis where extra room means **more pieces**, and
 refused where it only means a looser fit. Current behaviour and the proposal:
 
-| kind           | axis                        | extra room means                 | today                          | proposed default        |
-| -------------- | --------------------------- | -------------------------------- | ------------------------------ | ----------------------- |
-| bulk (bits)    | all three                   | more loose pieces                | elastic w/d/h with `minVolume` | unchanged — grow        |
-| cards, upright | stack axis (deck thickness) | more cards                       | `stretch`, off                 | off, opt-in (unchanged) |
-| cards, flat    | height                      | more cards                       | not elastic                    | opt-in, new             |
-| cards          | card width / length         | nothing — cards slide            | fixed                          | never grow              |
-| tiles, upright | stack axis                  | more tiles                       | `stretch`, off                 | off, opt-in (unchanged) |
-| tiles, flat    | height                      | more tiles stacked               | not elastic                    | opt-in, new             |
-| tiles          | tile footprint              | nothing                          | fixed                          | never grow              |
-| minis, pockets | pocket w/d                  | easier to grab, tolerance        | fixed                          | off; opt-in at most     |
-| minis, pockets | depth                       | nothing — figure height is fixed | fixed                          | never grow              |
-| minis, bulk    | all three                   | more figures                     | elastic                        | unchanged — grow        |
-| custom         | all three                   | tolerance only                   | fixed                          | off; opt-in at most     |
+| kind           | axis                        | extra room means                 | today                          | proposed default                                         |
+| -------------- | --------------------------- | -------------------------------- | ------------------------------ | -------------------------------------------------------- |
+| bulk (bits)    | all three                   | more loose pieces                | elastic w/d/h with `minVolume` | unchanged — grow                                         |
+| cards, upright | stack axis (deck thickness) | more cards                       | `stretch`, off                 | off, opt-in (unchanged)                                  |
+| cards, flat    | height                      | more cards                       | not elastic                    | never by default — riser; opt-in only for expansion room |
+| cards          | card width / length         | nothing — cards slide            | fixed                          | never grow                                               |
+| tiles, upright | stack axis                  | more tiles                       | `stretch`, off                 | off, opt-in (unchanged)                                  |
+| tiles, flat    | height                      | more tiles stacked               | not elastic                    | never by default — riser; opt-in only for expansion room |
+| tiles          | tile footprint              | nothing                          | fixed                          | never grow                                               |
+| minis, pockets | pocket w/d                  | easier to grab, tolerance        | fixed                          | off; opt-in at most                                      |
+| minis, pockets | depth                       | nothing — figure height is fixed | fixed                          | never grow                                               |
+| minis, bulk    | all three                   | more figures                     | elastic                        | unchanged — grow                                         |
+| custom         | all three                   | tolerance only                   | fixed                          | off; opt-in at most                                      |
 
-Two gaps worth filling: **flat cards and flat tiles cannot grow in height
-today**, although height is exactly where extra room holds more of them. That is
-the same capacity argument that justifies `stretch` for the upright case, and it
-is currently missing.
+A note on flat storage: height is where extra room would hold more flat cards or
+tiles, so the capacity argument that justifies `stretch` upright applies in
+principle. But it must not become the default. A flat tray taller than its stack
+is the clunky case this spec exists to remove, and the box's leftover height
+belongs to a riser under the tray. So treat height growth for flat storage as an
+explicit opt-in for someone who wants room for expansions, capped, and never
+something the packer reaches for to fill space.
 
 ### Shape of the setting
 
