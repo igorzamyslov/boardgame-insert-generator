@@ -299,10 +299,30 @@ are likely to pay off:
      numbering question, not a blocker.
 
    Risks worth weighing against the convenience: a large flat part warps more
-   and takes a long single print, a failed print loses everything at once
-   rather than one small strip, and friction over a long merged face can make
-   the insert harder to get back out. Consider whether this should be a setting
-   rather than always on, alongside "Unused space".
+   and takes a long single print, a failed print loses everything at once rather
+   than one small strip, and friction over a long merged face can make the
+   insert harder to get back out.
+
+   **This is a user setting, not a default behaviour.** Two switches, beside
+   "Unused space":
+
+   - `mergeFillers` (suggest default on) — merge connected fillers into the
+     largest part that fits the bed;
+   - `mergeRisers` (suggest default off) — also fold risers into them, which is
+     the step that produces the L-in-elevation parts and changes assembly order,
+     so it earns its own opt-in.
+
+   **Both are print-time decompositions, so neither belongs in `inputsHash`.**
+   The stored layout keeps its individual leftovers and raised floors; merging
+   happens where `splitRisers` and `splitSeparators` already run. Changing either
+   switch must not mark a plan stale, trigger a re-optimize, or lengthen the
+   stored layout and its share link. Same lesson as the riser work: derive the
+   printable decomposition, never store it.
+
+   Note the division of labour this creates. The _merge_ is print-time and free;
+   the _scoring preferences_ in levers 2 and 3 are layout-time and do change the
+   stored plan. Keep them separate — a layout should be arranged so that it
+   merges well, and then merged.
 
 2. **Count, not volume.** Give filler count its own score term, tuned against
    `WEIGHTS.trays`. One large filler should beat two small ones even when the
