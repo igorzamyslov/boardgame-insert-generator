@@ -210,6 +210,7 @@ interface ComponentBase {
   fingerCuts?: boolean; // a centred finger cut through a wall of each compartment (§6.1)
   curvedFloor?: boolean; // the scoop ramp on the floor; bulk, minis and custom only (§6.1)
   cornerReliefs?: boolean; // advanced: Ø 3 mm reliefs in each compartment's corners (§6.1)
+  stretch?: boolean; // upright cards and tiles only: the tray grows to fill its space (§5)
 }
 
 interface CardsComponent extends ComponentBase {
@@ -275,7 +276,16 @@ were before the toggles. `curvedFloor` on cards or tiles is a validation error
 (cards would bend, upright tiles tilt); the UI hides it there. Both are simple
 mode checkboxes ("Finger cuts", "Curved floor"). `cornerReliefs` is on for
 tiles and custom and off for cards, bulk and minis; any kind may turn it on
-(advanced mode checkbox "Corner reliefs").
+(advanced mode checkbox "Corner reliefs"). Upright tile stacks never get
+reliefs, whatever the toggle says: a tile on its edge doesn't need to sit flat,
+and "auto" storage offers flat and upright variants from one component, so the
+rule sits in the upright stack, not in the defaults. `stretch` is off for every
+kind; on, an upright card deck or tile stack is elastic along its width (the
+tray takes the whole leaf) and a card spacer or thicker walls and dividers take
+the slack; off, it is content-sized and a spare tray fills the gap. Only cards
+and tiles show the checkbox "Stretch to fill". New cards, bulk and minis
+components start with a blank inner line name (deck, item, figure): the plan
+then labels the compartment with the component's name.
 
 Validation bounds (also applied to URL and file input): ≤ 100 components,
 every count 1…2000, every length 0 < x ≤ 1000 mm, `players` 1…10.
@@ -423,7 +433,7 @@ Coordinates are stored in mm and computed as integer 0.01 mm units.
   on (§5) add Ø 3 mm corner reliefs. They shrink to keep 0.9 mm to the outer
   faces and 0.8 mm from other compartments and every cut (so a post beside a
   cut stays at least 0.8 mm), and are left out under Ø 0.6 mm. A relief takes
-  precedence over a top fillet: tiles need it to sit flat, the fillet is
+  precedence over a top fillet: flat tiles need it to sit flat, the fillet is
   comfort, so the fillet beside it shrinks (below).
 - Walls are vertical and the top is open. Floor fillets are concave. No
   bridges or ceilings; raised floors are solid.
@@ -583,7 +593,7 @@ tray height: elastic kinds (bulk) grow deeper, others get a solid raised floor.
 
 - the minimum inner size of each compartment (wall cutouts need no room of
   their own; cut walls and dividers may get extra finger room, §6.1);
-- which axes can grow ("elastic") and by how much: for upright cards only stack
+- which axes can grow ("elastic") and by how much: for upright cards and tiles with `stretch` on only stack
   length; for bulk any axis, as long as volume stays ≥ required and the
   per-axis minimums below hold;
 - whether the tray may be rotated in XY;

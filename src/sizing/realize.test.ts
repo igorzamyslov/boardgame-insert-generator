@@ -10,7 +10,7 @@ import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 // minimums), so they turn it on; the app's own default is off.
 const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
 const ground: RealizeOptions = { lipped: false, level: 0 };
-const single = partOf([cards()], "upright-long|strip|split1");
+const single = partOf([cards({ stretch: true })], "upright-long|strip|split1");
 const cutout = (side: "left" | "right", atMm: number, depth: number, width = 25) => ({
   type: "wallCutout",
   side,

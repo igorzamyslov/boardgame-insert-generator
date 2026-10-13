@@ -87,6 +87,7 @@ export interface Toggles {
   fingerCuts: boolean;
   curvedFloor: boolean;
   cornerReliefs: boolean;
+  stretch: boolean;
 }
 
 /**
@@ -99,6 +100,7 @@ function kindDefaults(c: Component): Toggles {
     fingerCuts: !bulkLike(c),
     curvedFloor: bulkLike(c),
     cornerReliefs: c.kind === "tiles" || c.kind === "custom",
+    stretch: false,
   };
 }
 
@@ -123,17 +125,31 @@ export function cornerReliefsOn(c: Component): boolean {
   return c.cornerReliefs ?? kindDefaults(c).cornerReliefs;
 }
 
+/**
+ * Whether an upright card deck or tile stack stretches to fill its space, taking a spacer or an
+ * end wall for the slack, instead of staying content-sized (spec §5). Off unless set.
+ */
+export function stretchOn(c: Component): boolean {
+  return c.stretch ?? kindDefaults(c).stretch;
+}
+
 /** The component's toggles: what it set, else its kind's defaults. */
 export function togglesOf(c: Component): Toggles {
   return {
     fingerCuts: fingerCutsOn(c),
     curvedFloor: curvedFloorOn(c),
     cornerReliefs: cornerReliefsOn(c),
+    stretch: stretchOn(c),
   };
 }
 
 /** The toggles of a scoop bin when its component changed none: bulk's defaults. */
-const BIN_DEFAULTS: Toggles = { fingerCuts: false, curvedFloor: true, cornerReliefs: false };
+const BIN_DEFAULTS: Toggles = {
+  fingerCuts: false,
+  curvedFloor: true,
+  cornerReliefs: false,
+  stretch: false,
+};
 
 /**
  * The toggles of a component stored loose in a bin, its bulk fallback (spec §7.1): each toggle
@@ -149,6 +165,7 @@ export function binTogglesOf(c: Component): Toggles {
     fingerCuts: pick("fingerCuts"),
     curvedFloor: pick("curvedFloor"),
     cornerReliefs: pick("cornerReliefs"),
+    stretch: pick("stretch"),
   };
 }
 
@@ -182,13 +199,13 @@ export function newComponent(kind: ComponentKind): Component {
         kind,
         shortSide: STANDARD_CARD.shortSide,
         longSide: STANDARD_CARD.longSide,
-        decks: [{ name: "Deck", count: 50 }],
+        decks: [{ name: "", count: 50 }],
         sleeve: d.cards.sleeve,
         thickness: { ...d.cards.thickness },
         storage: d.cards.storage,
       };
     case "bulk":
-      return { ...base, kind, items: [{ name: "Tokens", count: 20, w: 20, d: 20, h: 2 }] };
+      return { ...base, kind, items: [{ name: "", count: 20, w: 20, d: 20, h: 2 }] };
     case "tiles":
       return {
         ...base,
@@ -202,7 +219,7 @@ export function newComponent(kind: ComponentKind): Component {
       return {
         ...base,
         kind,
-        figures: [{ name: "Figure", w: 25, d: 25, h: 40, count: 4 }],
+        figures: [{ name: "", w: 25, d: 25, h: 40, count: 4 }],
         storage: d.minis.storage,
       };
     case "custom":

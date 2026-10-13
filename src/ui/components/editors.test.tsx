@@ -43,7 +43,7 @@ describe("BulkEditor", () => {
       <BulkEditor component={of("bulk")} index={0} advanced={false} onChange={onChange} />,
     );
     fireEvent.change(screen.getByLabelText("How to size item 1"), { target: { value: "volume" } });
-    expect(lastOf(onChange).items).toEqual([{ name: "Tokens", volumeMl: 50 }]);
+    expect(lastOf(onChange).items).toEqual([{ name: "", volumeMl: 50 }]);
     view.rerender(
       <BulkEditor
         component={{ ...of("bulk"), items: [{ name: "Coins", volumeMl: 50 }] }}
@@ -160,6 +160,23 @@ describe("toggles", () => {
     expect(screen.queryByLabelText("Curved floor")).toBeNull();
     fireEvent.click(screen.getByLabelText("Corner reliefs"));
     expect(lastOf(onChange).cornerReliefs).toBe(false);
+  });
+
+  it("offers stretch to fill on tiles only, not on bulk, minis or custom", () => {
+    const onChange = vi.fn<(c: TilesComponent) => void>();
+    render(<TilesEditor component={of("tiles")} index={0} advanced onChange={onChange} />);
+    expect((screen.getByLabelText("Stretch to fill") as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(screen.getByLabelText("Stretch to fill"));
+    expect(lastOf(onChange).stretch).toBe(true);
+    cleanup();
+    render(<BulkEditor component={of("bulk")} index={0} advanced onChange={vi.fn()} />);
+    expect(screen.queryByLabelText("Stretch to fill")).toBeNull();
+    cleanup();
+    render(<MinisEditor component={of("minis")} index={0} advanced onChange={vi.fn()} />);
+    expect(screen.queryByLabelText("Stretch to fill")).toBeNull();
+    cleanup();
+    render(<CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />);
+    expect(screen.queryByLabelText("Stretch to fill")).toBeNull();
   });
 });
 

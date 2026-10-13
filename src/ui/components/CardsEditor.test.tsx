@@ -60,7 +60,7 @@ describe("CardsEditor", () => {
     const { last, view, onChange } = setup(cards());
     expect(screen.getByRole("button", { name: /Remove deck/ }).hasAttribute("disabled")).toBe(true);
     fireEvent.input(screen.getByLabelText("Cards in deck 1"), { target: { value: "52" } });
-    expect(last().decks).toEqual([{ name: "Deck", count: 52 }]);
+    expect(last().decks).toEqual([{ name: "", count: 52 }]);
     fireEvent.click(screen.getByRole("button", { name: "Add deck" }));
     expect(last().decks).toHaveLength(2);
     view.rerender(
@@ -139,6 +139,14 @@ describe("CardsEditor", () => {
     expect(last().fingerCuts).toBe(false);
     fireEvent.click(reliefs);
     expect(last().cornerReliefs).toBe(true);
+  });
+
+  it("offers stretch to fill, off by default", () => {
+    const { last } = setup(cards(), true);
+    const stretch = screen.getByLabelText("Stretch to fill") as HTMLInputElement;
+    expect(stretch.checked).toBe(false);
+    fireEvent.click(stretch);
+    expect(last().stretch).toBe(true);
   });
 
   it("shows a curved floor a file set on cards, so it can be turned off", () => {

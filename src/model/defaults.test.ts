@@ -9,6 +9,8 @@ import {
   groupOf,
   newComponent,
   newProject,
+  stretchOn,
+  togglesOf,
 } from "./defaults";
 import { BAMBU_256_BED, STANDARD_CARD } from "./presets";
 import { DEFAULT_SETTINGS } from "./settings";
@@ -117,7 +119,34 @@ describe("finger cuts, curved floor and corner relief defaults", () => {
   });
 });
 
+describe("stretch", () => {
+  it.each(KINDS)("is off for a new %s component", (kind) => {
+    expect(stretchOn(newComponent(kind))).toBe(false);
+  });
+
+  it("takes a set value over the default", () => {
+    expect(stretchOn({ ...newComponent("cards"), stretch: true })).toBe(true);
+    expect(togglesOf({ ...newComponent("tiles"), stretch: true }).stretch).toBe(true);
+  });
+});
+
 describe("newComponent", () => {
+  it.each(["cards", "bulk", "minis"] as const)(
+    "seeds the inner line of a %s component with a blank name",
+    (kind) => {
+      const c = newComponent(kind);
+      const line =
+        c.kind === "cards"
+          ? c.decks
+          : c.kind === "bulk"
+            ? c.items
+            : c.kind === "minis"
+              ? c.figures
+              : [];
+      expect(line.map((l) => l.name)).toEqual([""]);
+    },
+  );
+
   it.each(KINDS)("creates a %s component with access 'sometimes'", (kind) => {
     const c = newComponent(kind);
     expect(c.kind).toBe(kind);

@@ -97,13 +97,28 @@ describe("tileOptions", () => {
     expect(stack.minW).toBeCloseTo(121, 9);
     expect(stack.minD).toBe(47.19);
     expect(stack.minH).toBeCloseTo(41, 9);
-    expect(stack.elastic).toEqual({ w: true, d: false, h: false });
-    expect(stack.spacerAxis).toBe("w");
+    // Stretch is off by default: content-tight, no spacer. And no corner reliefs: a tile on its
+    // edge doesn't need them.
+    expect(stack.elastic).toEqual({ w: false, d: false, h: false });
+    expect(stack.spacerAxis).toBeUndefined();
     expect(stack.features).toEqual([
       { type: "wallCutout", side: "left", depthFraction: 1 / 2, floorNotch: false },
       { type: "wallCutout", side: "right", depthFraction: 1 / 2, floorNotch: false },
-      { type: "cornerRelief" },
     ]);
+  });
+
+  it("stretch on makes an upright stack elastic along its width with a spacer axis", () => {
+    const stack = first(tiles({ storage: "upright", stretch: true }));
+    expect(stack.elastic).toEqual({ w: true, d: false, h: false });
+    expect(stack.spacerAxis).toBe("w");
+  });
+
+  it("gives upright tiles no corner relief even when asked, but flat tiles keep theirs", () => {
+    const asked = { cornerReliefs: true } as const;
+    const upright = first(tiles({ storage: "upright", ...asked }));
+    expect(upright.features.map((f) => f.type)).not.toContain("cornerRelief");
+    const flat = first(tiles({ storage: "flat" }));
+    expect(flat.features.map((f) => f.type)).toContain("cornerRelief");
   });
 
   it("stands rect tiles on their longer edge", () => {

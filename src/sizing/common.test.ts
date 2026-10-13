@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { newComponent } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import {
   componentIsValid,
@@ -10,7 +11,8 @@ import {
   mainClearance,
   wallCutout,
 } from "./common";
-import { cards, custom } from "./test-helpers";
+import { componentOptions } from "./component";
+import { at, cards, custom } from "./test-helpers";
 
 const s = DEFAULT_SETTINGS;
 
@@ -128,5 +130,17 @@ describe("cutoutSides", () => {
       ]),
     ).toEqual(["back", "front"]);
     expect(cutoutSides([])).toEqual([]);
+  });
+});
+
+describe("a new component's blank inner line name", () => {
+  it.each([
+    ["cards", "Cards ×50"],
+    ["bulk", "Bits ×20"],
+    ["minis", "Miniatures 1/4"],
+  ] as const)("labels a new %s compartment with the component's name", (kind, expected) => {
+    const options = componentOptions(newComponent(kind), DEFAULT_SETTINGS, 0).options;
+    const first = at(at(at(options, 0).blocks, 0), 0);
+    expect(first.contents).toBe(expected);
   });
 });

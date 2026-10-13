@@ -1,5 +1,5 @@
 // src/ui/components/ToggleOptions.tsx
-import { cornerReliefsOn, curvedFloorOn, fingerCutsOn } from "../../model/defaults";
+import { cornerReliefsOn, curvedFloorOn, fingerCutsOn, stretchOn } from "../../model/defaults";
 import type { Component } from "../../model/types";
 import { CheckField } from "../fields";
 import { useSizingNotices } from "../validation";
@@ -56,8 +56,17 @@ export function ToggleOptions<C extends Component>({
           id={`${c.id}-cornerReliefs`}
           label="Corner reliefs"
           checked={cornerReliefsOn(c)}
-          hint="Round holes in each compartment's corners, so square pieces sit flat."
+          hint="Round holes in each compartment's corners, so flat square pieces sit flat."
           onChange={(on) => onChange({ ...c, cornerReliefs: on })}
+        />
+      ) : null}
+      {c.kind === "cards" || c.kind === "tiles" ? (
+        <CheckField
+          id={`${c.id}-stretch`}
+          label="Stretch to fill"
+          checked={stretchOn(c)}
+          hint="Upright stacks only: the tray grows to fill the space instead of staying snug. Off, a spare tray fills the gap."
+          onChange={(on) => onChange({ ...c, stretch: on })}
         />
       ) : null}
     </>

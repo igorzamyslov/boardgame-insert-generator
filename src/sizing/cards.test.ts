@@ -96,10 +96,23 @@ describe("cardOptions", () => {
     expect(c.kind).toBe("well");
     expect(c.contents).toBe("Main ×52");
     expect(c.componentId).toBe("c1");
-    expect(c.elastic).toEqual({ w: true, d: false, h: false });
-    expect(c.spacerAxis).toBe("w");
+    // Stretch is off by default: content-tight, no spacer.
+    expect(c.elastic).toEqual({ w: false, d: false, h: false });
+    expect(c.spacerAxis).toBeUndefined();
     // One channel, half the shallowest well deep, through the walls the card faces touch.
     expect(c.features).toEqual([cutout("left", 1 / 2, false), cutout("right", 1 / 2, false)]);
+  });
+
+  it("stretch on makes the deck elastic along its width and gives it a spacer axis", () => {
+    const c = deck(cards({ stretch: true }));
+    expect(c.elastic).toEqual({ w: true, d: false, h: false });
+    expect(c.spacerAxis).toBe("w");
+  });
+
+  it("stretch changes nothing on a flat deck", () => {
+    const flat = deck(cards({ storage: "flat", stretch: true }));
+    expect(flat.elastic).toEqual({ w: false, d: false, h: false });
+    expect(flat.spacerAxis).toBeUndefined();
   });
 
   it("upright-short: height from the long side, length from the short side", () => {

@@ -5,6 +5,7 @@ import smallTiles from "../../test/fixtures/small-tiles.json";
 import tilesMinis from "../../test/fixtures/tiles-minis.json";
 import tinyBox from "../../test/fixtures/tiny-box.json";
 import { LINK_TARGET_CHARS, decodeHash, encodeHash } from "../share/link";
+import { stretchOn } from "./defaults";
 import { noForeign, parseProject } from "./schema";
 import { validateProject } from "./validate";
 import { SCHEMA_VERSION } from "./version";
@@ -83,6 +84,26 @@ describe("schema history", () => {
       ["tiles001", undefined, undefined, undefined],
       ["minis001", undefined, undefined, undefined],
       ["custom01", undefined, true, false],
+    ]);
+  });
+
+  it("reads the 0.1.2 file with no stretch set, so every component keeps it off", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.2.json"]);
+    expect(notices).toEqual([]);
+    expect(project.components.map((c) => [c.stretch, stretchOn(c)])).toEqual(
+      project.components.map(() => [undefined, false]),
+    );
+  });
+
+  it("reads the stretch toggle of the 0.1.3 file", () => {
+    const { project } = load(HISTORY["../../test/fixtures/schema/0.1.3.json"]);
+    expect(project.components.map((c) => c.stretch)).toEqual([
+      true,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
     ]);
   });
 });

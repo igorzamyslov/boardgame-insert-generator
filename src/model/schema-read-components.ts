@@ -55,6 +55,10 @@ function readBase(r: Reader, kind: ComponentKind): ComponentBase {
   if (cornerReliefs !== undefined) {
     base.cornerReliefs = cornerReliefs;
   }
+  const stretch = r.optBool("stretch");
+  if (stretch !== undefined) {
+    base.stretch = stretch;
+  }
   return base;
 }
 

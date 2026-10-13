@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.2: 0.1.1 plus the compartment's componentId", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.2");
+  it("is at schema 0.1.3: 0.1.2 plus the stretch toggle", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.3");
   });
 
   it("parses strict semver", () => {
