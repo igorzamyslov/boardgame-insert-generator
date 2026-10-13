@@ -74,6 +74,7 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
                 path={`/settings/${r.path}`}
                 min={r.min}
                 max={r.max}
+                hint={r.hint}
                 onCommit={(v) => {
                   const set = SETTING_SETTERS[r.path];
                   if (set) {
@@ -96,6 +97,7 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         id="settings-leftover"
         label="Unused space"
         value={settings.leftover}
+        hint="What fills the box area the trays do not need. A spare tray is an open tray you can use for extras. A solid block is printed solid, which holds nothing and uses more filament."
         options={[
           { value: "spare", label: "Spare tray (open)" },
           { value: "solid", label: "Solid filler block" },
@@ -134,6 +136,7 @@ function SimpleChoices({ settings, onChange }: Omit<SettingsFormProps, "advanced
         label="Walls"
         value={wallChoiceOf(settings)}
         options={wallOptions(settings)}
+        hint="Thickness of the outer walls. Thicker is stiffer but takes room from the contents."
         onChange={(c) => {
           if (c !== "custom") {
             onChange(applyWallChoice(settings, c));

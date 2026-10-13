@@ -103,6 +103,17 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenLastCalledWith(applyWallChoice(DEFAULT_SETTINGS, "sturdy"));
   });
 
+  it("describes every exact value and wires the hint to its input", () => {
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={vi.fn()} />);
+    const disc = view.container.querySelector("details.pf-disc");
+    for (const r of SETTING_RANGES) {
+      const input = disc?.querySelector(`#settings-${r.path.replace("/", "-")}`);
+      const hint = document.getElementById(`${input?.id}-hint`);
+      expect(hint?.textContent, r.path).toBe(r.hint);
+      expect(input?.getAttribute("aria-describedby"), r.path).toContain(`${input?.id}-hint`);
+    }
+  });
+
   it("edits every advanced number, the lip and the leftover", () => {
     const onChange = vi.fn();
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);

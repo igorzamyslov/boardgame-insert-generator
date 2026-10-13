@@ -551,6 +551,13 @@ describe("shared constants", () => {
       expect(Object.isFrozen(r)).toBe(true);
     }
   });
+
+  it("gives every SETTING_RANGES entry a hint that is more than its label", () => {
+    for (const r of SETTING_RANGES) {
+      expect(r.hint.trim().length, r.path).toBeGreaterThan(r.label.length);
+      expect(r.hint, r.path).toMatch(/\.$/);
+    }
+  });
 });
 
 describe("setting ranges", () => {

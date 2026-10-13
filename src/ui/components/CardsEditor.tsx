@@ -117,6 +117,7 @@ export function CardsEditor({
         label="Sleeves"
         value={sleeveChoice}
         options={SLEEVE_OPTIONS}
+        hint="Standard adds 3 mm to both card sides and 0.1 mm per card; premium adds 3 mm and 0.28 mm per card. Pick custom to enter your sleeve's outer size."
         onChange={(v) => {
           if (v === "custom") {
             if (!customSleeve) {
@@ -132,6 +133,7 @@ export function CardsEditor({
           <NumberField
             id={`${c.id}-sleeveW`}
             label="Sleeve outer width"
+            hint="Width of the sleeved card, measured over the sleeve."
             unit="mm"
             value={customSleeve.w}
             path={`${at}/sleeve/w`}
@@ -141,6 +143,7 @@ export function CardsEditor({
           <NumberField
             id={`${c.id}-sleeveH`}
             label="Sleeve outer length"
+            hint="Length of the sleeved card, measured over the sleeve."
             unit="mm"
             value={customSleeve.h}
             path={`${at}/sleeve/h`}
@@ -150,6 +153,7 @@ export function CardsEditor({
           <NumberField
             id={`${c.id}-sleeveT`}
             label="Added thickness per card"
+            hint="How much one sleeve adds to the card's own thickness."
             unit="mm"
             value={customSleeve.thickness}
             path={`${at}/sleeve/thickness`}
@@ -234,6 +238,7 @@ export function CardsEditor({
                   <NumberField
                     id={`${c.id}-measuredCards`}
                     label="Cards in the measured stack"
+                    hint="How many cards you counted into the stack you measured."
                     value={measured.cards}
                     {...COUNT}
                     path={`${at}/thickness/cards`}
@@ -242,6 +247,7 @@ export function CardsEditor({
                   <NumberField
                     id={`${c.id}-measuredMm`}
                     label="Height of that stack"
+                    hint="Measured with the sleeves on, pressed lightly. The thickness per card is this divided by the count."
                     unit="mm"
                     value={measured.stackMm}
                     path={`${at}/thickness/stackMm`}
@@ -259,6 +265,7 @@ export function CardsEditor({
                 label="Storage"
                 value={c.storage}
                 options={STORAGE_OPTIONS}
+                hint="How the decks stand in the tray. Upright decks stand on the long or the short edge; flat decks lie in stacks. The optimizer tries every orientation and keeps the one that packs best."
                 onChange={(storage) => onChange({ ...c, storage })}
               />
               <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />

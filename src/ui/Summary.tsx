@@ -199,6 +199,13 @@ export function Summary(p: SummaryProps) {
           ) : null}
         </dl>
       ) : null}
+      {p.summary && (p.advanced || playTooLoose) ? (
+        <p class="hint stage-block">
+          Slack is the sideways play the trays have in the box: twice the box clearance, plus one
+          tray gap for each extra tray in a row. Above {PLAY_LIMIT_MM} mm trays can shift when the
+          box is moved.
+        </p>
+      ) : null}
       {p.hasComponents ? (
         <>
           <div class="button-row stage-block">

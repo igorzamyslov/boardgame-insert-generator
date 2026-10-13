@@ -75,6 +75,7 @@ export function CommonOptions<C extends Component>({
         <NumberField
           id={`${c.id}-players`}
           label="Players"
+          hint="The counts above are for one player; this many sets are made."
           value={c.perPlayer.players}
           {...PLAYERS}
           path={`${at}/perPlayer/players`}
@@ -96,6 +97,7 @@ export function CommonOptions<C extends Component>({
       <CheckField
         id={`${c.id}-ownClearance`}
         label="Use its own extra room"
+        hint="Replaces the global clearance for this component only."
         checked={c.clearance !== undefined}
         onChange={(on) => onChange(setClearance(c, on ? 1 : undefined))}
       />

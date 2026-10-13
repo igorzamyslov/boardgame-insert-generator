@@ -109,6 +109,7 @@ export function MinisEditor({
               <SelectField
                 id={`${c.id}-storage`}
                 label="Storage"
+                hint="One pocket per figure gives each its own slot, sized to it. Loose in a scoop tray piles them in a bin you scoop from, sized by the Packing factor in the exact values."
                 value={c.storage}
                 options={[
                   { value: "pockets", label: "One pocket per figure" },
