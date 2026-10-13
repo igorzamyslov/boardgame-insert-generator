@@ -164,13 +164,54 @@ describe("App", () => {
     expect(within(results).getByText(/Fix the errors marked in the inputs/)).toBeTruthy();
   });
 
+  it("removes a component with an Undo toast that puts it back where it was", async () => {
+    const { store } = renderApp();
+    addCards();
+    fireEvent.click(screen.getAllByRole("button", { name: "Add bits" })[0] as HTMLElement);
+    const names = (): string[] => store.state.project.value.components.map((c) => c.name);
+    expect(names()).toEqual(["Cards", "Bits"]);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Cards" }));
+    expect(names()).toEqual(["Bits"]);
+    const toast = await screen.findByText(/Removed “Cards”/);
+    expect(toast.getAttribute("role")).toBe("status");
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(names()).toEqual(["Cards", "Bits"]);
+    expect(screen.queryByText(/Removed “Cards”/)).toBeNull();
+  });
+
+  it("dismisses the Undo toast", async () => {
+    const { store } = renderApp();
+    addCards();
+    fireEvent.click(screen.getByRole("button", { name: "Remove Cards" }));
+    await screen.findByText(/Removed “Cards”/);
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText(/Removed “Cards”/)).toBeNull();
+    expect(store.state.project.value.components).toHaveLength(0);
+  });
+
+  it("moves between the Plan and 3D tabs with the arrow keys, Home and End", () => {
+    renderApp(withLayoutHash());
+    const plan = screen.getByRole("tab", { name: "Plan" });
+    plan.focus();
+    fireEvent.keyDown(plan, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "3D" }).getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "3D" }));
+    fireEvent.keyDown(screen.getByRole("tab", { name: "3D" }), { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Plan" }), { key: "End" });
+    expect(screen.getByRole("tab", { name: "3D" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(screen.getByRole("tab", { name: "3D" }), { key: "Home" });
+    expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
+  });
+
   it("shows the selected tray's details once in the 3D tab", async () => {
     renderApp(withLayoutHash(), {
       viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(stubSceneFactory()) },
     });
+    fireEvent.click(screen.getByLabelText("Advanced"));
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     openTab("3D");
-    await waitFor(() => expect(screen.getByLabelText("Explode")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
     expect(screen.getAllByRole("heading", { name: /^#1 / })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Lock size" })).toHaveLength(1);
     expect(document.querySelectorAll(".tray-details")).toHaveLength(1);

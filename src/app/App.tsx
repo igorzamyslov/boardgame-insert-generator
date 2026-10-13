@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { numberParts } from "../instructions/numbering";
 import { DEFAULT_PRINTER } from "../model/defaults";
-import type { ComponentKind, Notice, Project, TraySpec } from "../model/types";
+import type { Component, ComponentKind, Notice, Project, TraySpec } from "../model/types";
 import { APP_VERSION, isPreview } from "../model/version";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
@@ -25,6 +25,7 @@ import {
   addComponent,
   lockedKeys,
   removeComponent,
+  restoreComponent,
   renameProject,
   setSettings,
   swapTrays,
@@ -48,7 +49,6 @@ export interface AppProps {
   meshes: MeshSource;
   clipboard?: (text: string) => Promise<void>;
   currentHref?: () => string;
-  confirm?: (message: string) => boolean;
   download?: (blob: Blob, filename: string) => void;
   viewerProps?: Pick<ViewerProps, "webgl" | "loadScene">;
 }
@@ -99,7 +99,12 @@ export function App(props: AppProps) {
     project.components.length === 0 ? "box" : "components",
   );
   const [view, setView] = useState<ViewId>("plan");
+  // The component just removed, for the Undo toast (cleared when another project opens).
+  const [removed, setRemoved] = useState<{ component: Component; index: number } | null>(null);
   const run = s.run.value;
+  useEffect(() => {
+    setRemoved(null);
+  }, [project.id]);
   const locked = lockedKeys(project);
   const sizeLocked = sizeLockedKeys(project);
 
@@ -127,7 +132,6 @@ export function App(props: AppProps) {
       store.edit(fn(tray));
     }
   };
-  const confirm = props.confirm ?? ((message: string) => window.confirm(message));
   const download = props.download ?? downloadBlob;
 
   async function onCopyLink(): Promise<CopyLinkResult> {
@@ -347,10 +351,12 @@ export function App(props: AppProps) {
                       onAdd={addComponentOfKind}
                       onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
                       onRemove={(id) => {
-                        const c = project.components.find((x) => x.id === id);
-                        if (!confirm(`Remove “${c ? c.name : "this component"}”?`)) {
+                        const index = project.components.findIndex((x) => x.id === id);
+                        const component = project.components[index];
+                        if (component === undefined) {
                           return false;
                         }
+                        setRemoved({ component, index });
                         store.edit((q) => removeComponent(q, id));
                         return true;
                       }}
@@ -393,7 +399,30 @@ export function App(props: AppProps) {
               {layout ? (
                 <section class="pf-frame pf-view" aria-label="Preview">
                   <div class="pf-view__head">
-                    <div class="pf-tabs" role="tablist" aria-label="Views">
+                    <div
+                      class="pf-tabs"
+                      role="tablist"
+                      aria-label="Views"
+                      onKeyDown={(e) => {
+                        const order: ViewId[] = ["plan", "3d"];
+                        const at = order.indexOf(view);
+                        const next =
+                          e.key === "ArrowRight"
+                            ? order[(Math.max(at, 0) + 1) % order.length]
+                            : e.key === "ArrowLeft"
+                              ? order[(Math.max(at, 0) + order.length - 1) % order.length]
+                              : e.key === "Home"
+                                ? order[0]
+                                : e.key === "End"
+                                  ? order[order.length - 1]
+                                  : undefined;
+                        if (next !== undefined) {
+                          e.preventDefault();
+                          setView(next);
+                          document.getElementById(`tab-${next}`)?.focus();
+                        }
+                      }}
+                    >
                       {(
                         [
                           ["plan", "Plan"],
@@ -407,7 +436,7 @@ export function App(props: AppProps) {
                           id={`tab-${id}`}
                           aria-selected={view === id}
                           aria-controls={`panel-${id}`}
-                          tabIndex={view === id ? 0 : -1}
+                          tabIndex={view === id || (view === "export" && id === "plan") ? 0 : -1}
                           onClick={() => setView(id)}
                         >
                           {label}
@@ -417,18 +446,15 @@ export function App(props: AppProps) {
                     <div class="pf-toolbar__group">
                       {s.stale.value ? <span class="pf-badge">Out of date</span> : null}
                       {run.status === "running" ? <span class="pf-badge">Updating…</span> : null}
-                      <button
-                        type="button"
-                        class="primary"
-                        aria-pressed={view === "export"}
-                        onClick={() => setView("export")}
-                      >
-                        {`Export all ${trayTotal} trays`}
-                      </button>
+                      {view !== "export" ? (
+                        <button type="button" class="primary" onClick={() => setView("export")}>
+                          {`Export all ${trayTotal} trays`}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                   <div
-                    class="pf-view__body"
+                    class={view === "export" ? "pf-view__body stretch" : "pf-view__body"}
                     role={view === "export" ? "region" : "tabpanel"}
                     id={`panel-${view}`}
                     aria-labelledby={view === "export" ? undefined : `tab-${view}`}
@@ -461,6 +487,7 @@ export function App(props: AppProps) {
                         box={project.box}
                         settings={project.settings}
                         components={project.components}
+                        advanced={advanced}
                         stale={s.stale.value}
                         meshes={meshes}
                         selectedKey={s.selection.value}
@@ -492,7 +519,19 @@ export function App(props: AppProps) {
                           stale={s.stale.value}
                           download={download}
                         />
-                        <p>
+                        <div class="export-option export-assembly">
+                          <div>
+                            <strong>Assembly page</strong>
+                            <p class="hint">
+                              Numbered pictures of each layer and a parts list, to print or save as
+                              PDF. Print this one yourself.
+                            </p>
+                            {s.stale.value ? (
+                              <p class="hint">
+                                Inputs changed — update the plan before opening the assembly page.
+                              </p>
+                            ) : null}
+                          </div>
                           <button
                             ref={openButtonRef}
                             type="button"
@@ -501,12 +540,7 @@ export function App(props: AppProps) {
                           >
                             Open the assembly page
                           </button>
-                        </p>
-                        {s.stale.value ? (
-                          <p class="hint">
-                            Inputs changed — update the plan before opening the assembly page.
-                          </p>
-                        ) : null}
+                        </div>
                       </>
                     ) : null}
                   </div>
@@ -543,6 +577,26 @@ export function App(props: AppProps) {
                   </div>
                 </section>
               )}
+              {removed !== null ? (
+                <div class="pf-toast stage-block" role="status">
+                  {`Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. `}
+                  <button
+                    type="button"
+                    class="pf-link"
+                    onClick={() => {
+                      const back = removed;
+                      setRemoved(null);
+                      store.edit((q) => restoreComponent(q, back.component, back.index));
+                      setOpenSection("components");
+                    }}
+                  >
+                    Undo
+                  </button>
+                  <button type="button" class="pf-link" onClick={() => setRemoved(null)}>
+                    Dismiss
+                  </button>
+                </div>
+              ) : null}
             </main>
           </div>
           <footer class="app-footer">

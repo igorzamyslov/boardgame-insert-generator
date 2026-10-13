@@ -4,7 +4,8 @@ import { downloadBlob, fileSlug } from "../app/download";
 import type { Project, StoredLayout } from "../model/types";
 import { errorText } from "../util/errors";
 import { svgDataUrl, svgToPng } from "./png";
-import { packingSteps, render, whatGoesWhere } from "./render";
+import "./assembly.css";
+import { layerInfo, packingSteps, render, whatGoesWhere } from "./render";
 
 export interface AssemblyPageProps {
   project: Project;
@@ -22,6 +23,7 @@ const PNG_WIDTH_PX = 1600;
 export function AssemblyPage(p: AssemblyPageProps) {
   const svgs = useMemo(() => render(p.layout, p.project), [p.layout, p.project]);
   const steps = useMemo(() => packingSteps(p.layout), [p.layout]);
+  const layers = useMemo(() => layerInfo(p.layout), [p.layout]);
   const rows = useMemo(
     () => whatGoesWhere(p.layout, p.project.settings),
     [p.layout, p.project.settings],
@@ -95,38 +97,44 @@ export function AssemblyPage(p: AssemblyPageProps) {
               ))}
             </ol>
           </section>
-          {svgs.map((svg, i) => {
-            const layer = i + 1;
-            const title = `Layer ${layer}${i === 0 ? " (bottom)" : ""}`;
-            return (
-              <section class="assembly-layer" key={i} aria-labelledby={`layer-title-${layer}`}>
-                <h2 id={`layer-title-${layer}`}>{title}</h2>
-                <img
-                  class="assembly-svg"
-                  src={svgDataUrl(svg)}
-                  alt={`${title}: numbered trays seen from above`}
-                />
-                <button
-                  type="button"
-                  class="no-print"
-                  disabled={busy || p.stale}
-                  onClick={() => {
-                    void savePng(svg, layer);
-                  }}
-                >
-                  {`Download PNG of layer ${layer}`}
-                </button>
-              </section>
-            );
-          })}
+          <div class="assembly-layers">
+            {svgs.map((svg, i) => {
+              const layer = i + 1;
+              const info = layers[i];
+              const title = info?.title ?? `Layer ${layer}`;
+              const trays = info?.trays ?? [];
+              const alt =
+                trays.length > 0
+                  ? `${title}: ${trays.length === 1 ? "tray" : "trays"} ${trays.join(", ")}`
+                  : `${title}: numbered trays seen from above`;
+              return (
+                <section class="assembly-layer" key={i} aria-labelledby={`layer-title-${layer}`}>
+                  <h2 id={`layer-title-${layer}`}>{title}</h2>
+                  <img class="assembly-svg" src={svgDataUrl(svg)} alt={alt} />
+                  <button
+                    type="button"
+                    class="no-print"
+                    disabled={busy || p.stale}
+                    onClick={() => {
+                      void savePng(svg, layer);
+                    }}
+                  >
+                    {`Download PNG of layer ${layer}`}
+                  </button>
+                </section>
+              );
+            })}
+          </div>
           <section aria-labelledby="parts-title">
             <h2 id="parts-title">What goes where</h2>
             <table class="parts-table">
+              <caption class="visually-hidden">Which part goes where</caption>
               <thead>
                 <tr>
                   <th scope="col">#</th>
                   <th scope="col">Part</th>
                   <th scope="col">Size</th>
+                  <th scope="col">Position</th>
                   <th scope="col">Layer</th>
                   <th scope="col">Holds</th>
                 </tr>
@@ -134,9 +142,10 @@ export function AssemblyPage(p: AssemblyPageProps) {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.number}>
-                    <td>{r.number}</td>
+                    <th scope="row">{r.number}</th>
                     <td>{r.label}</td>
                     <td>{r.size}</td>
+                    <td>{r.position}</td>
                     <td>{r.layer}</td>
                     <td>
                       {r.goesInto !== null
@@ -149,6 +158,11 @@ export function AssemblyPage(p: AssemblyPageProps) {
                 ))}
               </tbody>
             </table>
+            {rows.some((r) => r.size.includes("lip")) ? (
+              <p class="hint">
+                A lip is the raised edge on top of a tray that locates the tray stacked on it.
+              </p>
+            ) : null}
           </section>
         </>
       )}

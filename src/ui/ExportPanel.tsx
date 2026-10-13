@@ -1,5 +1,5 @@
 // src/ui/ExportPanel.tsx
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "preact/hooks";
 import { bytesToBlob, downloadBlob, fileSlug } from "../app/download";
 import {
   buildCombined3mf,
@@ -22,6 +22,16 @@ export const EXPORT_LABELS: Record<ExportKind, string> = {
   combined: "One combined 3MF",
   stl: "STL files (.zip)",
 };
+
+const EXPORT_HINTS: Record<ExportKind, string> = {
+  parts: "Recommended: one file per tray, each ready to slice. Send these to whoever prints.",
+  combined:
+    "All trays laid out on print beds in one file, for a slicer that opens a whole project.",
+  stl: "One plain mesh per tray, for older slicers.",
+};
+
+/** Trays that only fill a gap in the box: failing to export one costs nothing. */
+const SPARE_LABELS = ["Spare tray", "Filler block"];
 
 export interface ExportPanelProps {
   trays: readonly TraySpec[];
@@ -47,6 +57,13 @@ export function ExportPanel(p: ExportPanelProps) {
   const [error, setError] = useState<{ kind: ExportKind; message: string } | null>(null);
   const [failed, setFailed] = useState<ExportOutput["failed"]>([]);
   const [lastKind, setLastKind] = useState<ExportKind>("parts");
+  const [downloaded, setDownloaded] = useState<{
+    kind: ExportKind;
+    filename: string;
+    built: number;
+  } | null>(null);
+  const busyHintId = useId();
+  const title = useRef<HTMLHeadingElement>(null);
   const running = useRef<AbortController | null>(null);
   const buttonRow = useRef<HTMLDivElement>(null);
   const refocus = useRef(false);
@@ -65,6 +82,11 @@ export function ExportPanel(p: ExportPanelProps) {
     cancelButton.current = el;
   }, []);
 
+  // The panel sits in a region the App opens on demand: start at its heading.
+  useEffect(() => {
+    title.current?.focus();
+  }, []);
+
   // A running export, a failed tray and an export error belong to the layout they were built for.
   useEffect(() => {
     if (running.current) {
@@ -74,6 +96,7 @@ export function ExportPanel(p: ExportPanelProps) {
     }
     setFailed((f) => (f.length > 0 ? [] : f));
     setError(null);
+    setDownloaded(null);
   }, [p.trays]);
 
   // Cancel unmounted with the progress bar: hand the focus to the first export button.
@@ -98,6 +121,7 @@ export function ExportPanel(p: ExportPanelProps) {
     setLastKind(kind);
     setError(null);
     setFailed([]);
+    setDownloaded(null);
     setBusy({ kind, done: 0, total: plan.parts.length });
     const opts: ExportOptions = {
       getMesh: (spec) => p.meshes.get(spec, p.settings, controller.signal),
@@ -112,6 +136,7 @@ export function ExportPanel(p: ExportPanelProps) {
       if (!controller.signal.aborted) {
         download(bytesToBlob(out.data, type), filename);
         setFailed(out.failed);
+        setDownloaded({ kind, filename, built: out.included });
       }
     };
     try {
@@ -147,39 +172,71 @@ export function ExportPanel(p: ExportPanelProps) {
 
   const notExported = [...plan.skipped, ...failed];
 
+  const total = plan.parts.length + plan.skipped.length;
+
   return (
     <div class="export-panel">
+      <h3 class="export-title" tabIndex={-1} ref={title}>
+        {`Export all ${plan.parts.length} trays`}
+      </h3>
       <p class="hint">
-        Every part prints open side up, the way it sits in the box. Parts are numbered as in the
-        plan view and on the assembly page.
+        Every part prints open side up, the way it sits in the box. Trays are numbered as in the
+        plan and on the assembly page.
       </p>
       {p.stale ? <p class="hint">Inputs changed — update the plan before exporting.</p> : null}
-      <div class="button-row" ref={buttonRow}>
-        {KINDS.map((k) => (
-          <button
-            type="button"
-            key={k}
-            disabled={blocked || busy !== null || plan.parts.length === 0}
-            onClick={() => {
-              void run(k);
-            }}
-          >
-            {EXPORT_LABELS[k]}
-          </button>
+      <div class="export-options" ref={buttonRow}>
+        {KINDS.map((k, i) => (
+          <div class="export-option" key={k}>
+            <div>
+              <strong>{EXPORT_LABELS[k]}</strong>
+              <p class="hint">{EXPORT_HINTS[k]}</p>
+              {downloaded?.kind === k ? (
+                <p class="hint" role="status">
+                  {`Downloaded ${downloaded.filename} (${downloaded.built} of ${plan.parts.length} trays).`}
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              class={i === 0 ? "primary" : undefined}
+              aria-label={EXPORT_LABELS[k]}
+              disabled={blocked || plan.parts.length === 0}
+              aria-disabled={busy !== null ? "true" : undefined}
+              aria-describedby={busy !== null ? busyHintId : undefined}
+              onClick={() => {
+                if (busy === null) {
+                  void run(k);
+                }
+              }}
+            >
+              Download
+            </button>
+          </div>
         ))}
       </div>
       {busy ? (
+        <span id={busyHintId} class="visually-hidden">
+          Available when the build finishes.
+        </span>
+      ) : null}
+      {busy ? (
         <div class="run-status" role="status">
-          <progress value={busy.done} max={Math.max(1, busy.total)} aria-label="Building meshes" />
-          <span>{`Building meshes ${busy.done}/${busy.total}…`}</span>
+          <progress
+            value={busy.done}
+            max={Math.max(1, busy.total)}
+            aria-label="Building the trays"
+          />
+          <span>{`Building the trays… ${busy.done} of ${busy.total}`}</span>
           <button type="button" ref={watchCancel} onClick={cancel}>
             Cancel
           </button>
         </div>
       ) : null}
       {error ? (
-        <div class="run-error" role="alert">
-          <p>{`Export failed: ${error.message}`}</p>
+        <div class="pf-notice pf-notice--error">
+          <div role="alert">
+            <strong class="notice-level">Error:</strong> {`Export failed: ${error.message}`}
+          </div>
           <button
             type="button"
             disabled={blocked}
@@ -193,11 +250,19 @@ export function ExportPanel(p: ExportPanelProps) {
         </div>
       ) : null}
       {notExported.length > 0 ? (
-        <div class="export-skipped">
-          <h3>Not exported</h3>
+        <div class="pf-notice pf-notice--warn">
+          <div>
+            <strong class="notice-level">Warning:</strong>{" "}
+            {`${notExported.length} of ${total} trays weren't exported.`}
+          </div>
           <ul>
             {notExported.map((s) => (
-              <li key={s.part.spec.key}>{`#${s.part.number} ${s.part.label}: ${s.reason}`}</li>
+              <li key={s.part.spec.key}>
+                {`#${s.part.number} ${s.part.label}: ${s.reason}`}
+                {SPARE_LABELS.includes(s.part.label)
+                  ? " It only fills a gap, so you can skip it."
+                  : ""}
+              </li>
             ))}
           </ul>
           {failed.length > 0 ? (

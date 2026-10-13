@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MeshSource } from "../app/meshes";
-import { cubeMesh, flush, makeTray } from "../app/test-helpers";
+import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { SceneFactory, SceneHandle } from "./types";
@@ -101,7 +101,7 @@ describe("Viewer", () => {
     await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
     expect(vi.mocked(scene.handle.setTrays).mock.calls.at(-1)?.[0]).toHaveLength(2);
     expect(scene.handle.setBox).toHaveBeenCalled();
-    fireEvent.input(screen.getByLabelText("Explode"), { target: { value: "0.5" } });
+    fireEvent.input(screen.getByLabelText("Spread apart"), { target: { value: "0.5" } });
     expect(scene.handle.setExplode).toHaveBeenLastCalledWith(0.5);
     fireEvent.change(screen.getByLabelText("Show layers"), { target: { value: "0" } });
     expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(0);
@@ -260,5 +260,109 @@ describe("Viewer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(scene.factory).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("labels the spread slider and describes its value", async () => {
+    const scene = stubScene();
+    render(<Viewer {...props({}, scene)} />);
+    await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+    const slider = screen.getByLabelText("Spread apart") as HTMLInputElement;
+    expect(screen.queryByLabelText("Explode")).toBeNull();
+    expect(slider.getAttribute("aria-valuetext")).toBe("Together");
+    fireEvent.input(slider, { target: { value: "0.5" } });
+    expect(slider.getAttribute("aria-valuetext")).toBe("50% apart");
+    expect([slider.min, slider.max, slider.step]).toEqual(["0", "1", "0.05"]);
+  });
+
+  it("names the layer options by the layers they show", async () => {
+    const scene = stubScene();
+    const three = [
+      makeTray({ key: "a:p0:0", level: 0 }),
+      makeTray({ key: "b:p0:0", level: 1, z: 40 }),
+      makeTray({ key: "c:p0:0", level: 2, z: 80 }),
+    ];
+    render(<Viewer {...props({ trays: three }, scene)} />);
+    const select = screen.getByLabelText("Show layers") as HTMLSelectElement;
+    expect([...select.options].map((o) => [o.value, o.textContent])).toEqual([
+      ["all", "All layers"],
+      ["0", "Layer 1 only"],
+      ["1", "Layers 1 to 2"],
+      ["2", "Layers 1 to 3"],
+    ]);
+  });
+
+  describe("tray picker", () => {
+    const named = [
+      makeTray({ key: "a:p0:0", level: 0 }),
+      makeTray({
+        key: "b:p0:0",
+        level: 1,
+        z: 40,
+        compartments: [
+          {
+            x: 1.6,
+            y: 1.6,
+            w: 10,
+            d: 10,
+            floorZ: 1.2,
+            kind: "well",
+            contents: "Market ×20",
+            features: [],
+          },
+        ],
+      }),
+      makeTray({ key: "a:p0:0:spacer", part: "spacer", level: 0, compartments: [] }),
+    ];
+
+    it("lists the trays except spacers as toggle buttons and selects on click", () => {
+      const scene = stubScene();
+      const p = props({ trays: named, selectedKey: "b:p0:0" }, scene);
+      render(<Viewer {...p} />);
+      const list = screen.getByRole("list", { name: "Trays" });
+      const buttons = [...list.querySelectorAll("button")];
+      expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
+        "Tray 1, Deck A ×40",
+        "Tray 3, Market ×20",
+      ]);
+      expect(buttons.map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "true"]);
+      fireEvent.click(buttons[0] as HTMLButtonElement);
+      expect(p.onSelect).toHaveBeenLastCalledWith("a:p0:0");
+      fireEvent.click(buttons[1] as HTMLButtonElement);
+      expect(p.onSelect).toHaveBeenLastCalledWith(null);
+    });
+
+    it("tints a tray by its component and marks the others as spare", () => {
+      const scene = stubScene();
+      const components = fixtureProject().components;
+      const { container } = render(<Viewer {...props({ trays: named, components }, scene)} />);
+      const chips = [...container.querySelectorAll<HTMLElement>(".tray-picker .tray-chip")];
+      expect(chips).toHaveLength(2);
+      expect(chips[0]?.classList.contains("tray-chip--spare")).toBe(true);
+      expect(chips[0]?.style.getPropertyValue("--tint")).toBe("");
+      expect(chips[1]?.classList.contains("tray-chip--spare")).toBe(false);
+      expect(chips[1]?.style.getPropertyValue("--tint")).toMatch(/^var\(--tint-\d\)$/);
+    });
+
+    it("lists only the trays on the layers shown", async () => {
+      const scene = stubScene();
+      render(<Viewer {...props({ trays: named }, scene)} />);
+      fireEvent.change(screen.getByLabelText("Show layers"), { target: { value: "0" } });
+      const list = screen.getByRole("list", { name: "Trays" });
+      expect([...list.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"))).toEqual(
+        ["Tray 1, Deck A ×40"],
+      );
+    });
+  });
+
+  it("shows the simple details by default and the positions and locks when advanced", () => {
+    const scene = stubScene();
+    const p = props({ selectedKey: "b:p0:0" }, scene);
+    const view = render(<Viewer {...p} />);
+    const details = screen.getByRole("group", { name: "Selected tray" });
+    expect(details.getAttribute("aria-live")).toBe("polite");
+    expect(details.textContent).toMatch(/Outer size/);
+    expect(details.textContent).not.toMatch(/Position/);
+    view.rerender(<Viewer {...p} advanced />);
+    expect(screen.getByRole("group", { name: "Selected tray" }).textContent).toMatch(/Position/);
   });
 });

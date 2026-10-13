@@ -71,8 +71,8 @@ geometry clients, so they never start a worker or load WASM.
    download per layer and "Print / save as PDF".
 7. **Save and share.** Projects autosave in the browser. "Copy link" puts the
    whole project in the `#1.` link (the project menu offers JSON download
-   when the link is too long), "Export JSON" saves the project as a file, and
-   "Import JSON…" opens a file as a separate project (a file whose id and
+   when the link is too long), "Save to file" saves the project as a file, and
+   "Open from file…" opens a file as a separate project (a file whose id and
    content match a stored project just opens that project; one whose id
    matches a different project opens as a copy). When another tab changes the
    project you are editing, autosave pauses until you choose which version to

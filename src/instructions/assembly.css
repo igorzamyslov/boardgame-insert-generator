@@ -1,0 +1,128 @@
+/* src/instructions/assembly.css: the assembly page, a document. On screen it follows the theme
+   tokens; on paper it is always black on white. */
+.assembly {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-6);
+  font-family: var(--font-ui);
+  color: var(--ink);
+}
+
+.assembly h1 {
+  margin: 0 0 var(--space-2);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 38px;
+}
+
+.assembly h2 {
+  margin: 0 0 var(--space-2);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 26px;
+}
+
+.assembly > section {
+  margin: var(--space-5) 0;
+}
+
+.assembly-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.assembly-layers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  margin: var(--space-5) 0;
+}
+
+@media (width >= 640px) {
+  .assembly-layers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.assembly-layer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.assembly-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.parts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.parts-table th,
+.parts-table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+.parts-table thead th {
+  border-bottom-color: var(--rule-strong);
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+@media print {
+  /* Paper is white: no dark-scheme colours on it. */
+  :root {
+    color-scheme: light;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .no-print,
+  .pf-app__bar,
+  .app-footer {
+    display: none;
+  }
+
+  .assembly {
+    max-width: none;
+    padding: 0;
+    color: #000;
+  }
+
+  .assembly-layer,
+  .parts-table tr {
+    break-inside: avoid;
+  }
+
+  .assembly-svg {
+    border-color: #000;
+    print-color-adjust: exact;
+  }
+
+  .parts-table th,
+  .parts-table td {
+    border-bottom-color: #767676;
+    color: #000;
+  }
+}

@@ -33,7 +33,7 @@ function CopyStatus({
       It is {result.length} characters long; some chats (e.g. Discord) cut messages over{" "}
       {LINK_MAX_URL_CHARS} characters.{" "}
       <button type="button" onClick={onExportJson}>
-        Download JSON instead
+        Save to a file instead
       </button>
     </>
   ) : null;
@@ -135,17 +135,17 @@ export function ProjectMenu(props: ProjectMenuProps) {
           onChange={props.onOpen}
         />
       ) : null}
-      <div class="button-row">
+      <p class="hint">
+        {storageAvailable
+          ? "Saved in this browser as you work."
+          : "This browser blocks saving: use Save to file to keep your work."}
+      </p>
+      <div class="menu-actions">
         <button type="button" onClick={props.onNew}>
           New project
         </button>
-        {storageAvailable ? (
-          <button type="button" onClick={() => props.onDelete(currentId)}>
-            Delete project
-          </button>
-        ) : null}
         <button type="button" onClick={() => fileRef.current?.click()}>
-          Import JSON…
+          Open from file…
         </button>
         <input
           ref={fileRef}
@@ -153,18 +153,27 @@ export function ProjectMenu(props: ProjectMenuProps) {
           accept="application/json,.json"
           class="visually-hidden"
           tabIndex={-1}
-          aria-label="Import a project JSON file"
+          aria-label="Open a project file"
           onChange={(e) => {
             void readFile(e.currentTarget);
           }}
         />
         <button type="button" onClick={props.onExportJson}>
-          Export JSON
+          Save to file
         </button>
         <button type="button" onClick={copyCurrentLink}>
           Copy link
         </button>
       </div>
+      <p class="hint">The link holds the whole project, so you can send it to someone.</p>
+      {storageAvailable ? (
+        <>
+          <button type="button" class="menu-delete" onClick={() => props.onDelete(currentId)}>
+            Delete project
+          </button>
+          <p class="hint">{`Deletes “${name === "" ? "(unnamed)" : name}” from this browser.`}</p>
+        </>
+      ) : null}
       {copy?.id === currentId ? (
         <CopyStatus result={copy.result} onExportJson={props.onExportJson} />
       ) : null}

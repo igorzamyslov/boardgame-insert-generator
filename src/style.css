@@ -618,6 +618,11 @@ input[aria-invalid="true"] {
   grid-column: 1 / -1;
 }
 
+.pf-app__stage > .pf-toast {
+  align-self: center;
+  flex: none;
+}
+
 .app-footer {
   padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--rule);
@@ -651,68 +656,81 @@ input[aria-invalid="true"] {
   }
 }
 
-/* ---- Assembly page: a document, so it scrolls ---- */
-.assembly {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: var(--space-4) var(--space-4) var(--space-6);
-}
-
-.assembly-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
-.assembly-layer {
-  margin: var(--space-5) 0;
-}
-
-.assembly-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  border: 1px solid var(--rule);
-  background: #fff;
-}
-
-.parts-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.parts-table th,
-.parts-table td {
-  padding: var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--rule);
-  text-align: left;
-  vertical-align: top;
-}
-
 @media print {
   /* Paper is white: no dark-scheme text colours on it. */
   :root {
     color-scheme: light;
   }
+}
 
-  .no-print,
-  .pf-app__bar,
-  .app-footer {
-    display: none;
-  }
+/* The export view: a heading, the three file choices as rows, and the assembly page as a fourth row. */
+.stretch {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
 
-  body {
-    background: #fff;
-    color: #000;
-  }
+.export-title {
+  margin: 0;
+  font-size: 20px;
+  line-height: 26px;
+}
 
-  .assembly {
-    max-width: none;
-    padding: 0;
-  }
+.export-options {
+  display: grid;
+  gap: var(--space-2);
+}
 
-  .assembly-layer {
-    break-inside: avoid;
-  }
+.export-option {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--sheet);
+}
+
+.export-option > div:first-child {
+  flex: 1;
+}
+
+.export-option p {
+  margin: 2px 0 0;
+}
+
+/* The tray picker under the 3D view: a text route to every tray, with its colour and number. */
+.tray-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* stylelint-disable-next-line no-descending-specificity */
+.tray-picker button {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-weight: 500;
+}
+
+.tray-picker button[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 3px var(--ink);
+}
+
+.tray-chip {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-sm);
+  background: var(--tint, var(--sheet-sunken));
+}
+
+.tray-chip--spare {
+  border-style: dashed;
+  background: var(--sheet);
 }

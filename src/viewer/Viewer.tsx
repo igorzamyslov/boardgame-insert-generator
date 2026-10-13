@@ -28,6 +28,8 @@ export interface ViewerProps {
   onSelect: (key: string | null) => void;
   /** Show the selected tray's details under the view; off where another panel shows them. */
   details?: boolean;
+  /** Show positions and locks in the details too; off by default. */
+  advanced?: boolean;
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -68,7 +70,8 @@ export function Viewer(p: ViewerProps) {
   // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
   const [canvasKey, setCanvasKey] = useState(0);
   const levels = useMemo(() => levelsOf(p.trays), [p.trays]);
-  const byKey = useMemo(() => partsByKey(numberParts(p.trays)), [p.trays]);
+  const parts = useMemo(() => numberParts(p.trays), [p.trays]);
+  const byKey = useMemo(() => partsByKey(parts), [parts]);
   // The chosen layer may vanish when the layout changes: show everything then.
   const shownLevel = maxLevel !== null && levels.includes(maxLevel) ? maxLevel : null;
 
@@ -233,6 +236,9 @@ export function Viewer(p: ViewerProps) {
     );
   }
 
+  const pickable = parts.filter(
+    (part) => part.spec.part !== "spacer" && (shownLevel === null || part.spec.level <= shownLevel),
+  );
   const selected = p.selectedKey === null ? undefined : byKey.get(p.selectedKey);
   return (
     <div class="viewer">
@@ -280,12 +286,13 @@ export function Viewer(p: ViewerProps) {
       ) : null}
       <div class="viewer-controls">
         <label class="range-field">
-          Explode
+          Spread apart
           <input
             type="range"
             min="0"
             max="1"
             step="0.05"
+            aria-valuetext={explode === 0 ? "Together" : `${Math.round(explode * 100)}% apart`}
             value={explode}
             onInput={(e) => setExplode(Number(e.currentTarget.value))}
           />
@@ -299,13 +306,39 @@ export function Viewer(p: ViewerProps) {
               { value: "all", label: "All layers" },
               ...levels.map((l, i) => ({
                 value: String(l),
-                label: i === 0 ? "Bottom layer only" : `Up to layer ${i + 1}`,
+                label: i === 0 ? "Layer 1 only" : `Layers 1 to ${i + 1}`,
               })),
             ]}
             onChange={(v) => setMaxLevel(v === "all" ? null : Number(v))}
           />
         ) : null}
       </div>
+      {pickable.length > 0 ? (
+        <ul class="tray-picker" aria-label="Trays">
+          {pickable.map((part) => {
+            const key = part.spec.key;
+            const isSelected = key === p.selectedKey;
+            const tint = tintOfTray(part.spec, p.components ?? []);
+            return (
+              <li key={key}>
+                <button
+                  type="button"
+                  aria-pressed={isSelected}
+                  aria-label={`Tray ${part.number}, ${part.label}`}
+                  onClick={() => p.onSelect(isSelected ? null : key)}
+                >
+                  <span
+                    class={tint === null ? "tray-chip tray-chip--spare" : "tray-chip"}
+                    style={tint === null ? undefined : { "--tint": tint }}
+                    aria-hidden="true"
+                  />
+                  {`${part.number} ${part.label}`}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
       {selected && p.details !== false ? (
         <TrayDetails
           part={selected}
@@ -313,6 +346,7 @@ export function Viewer(p: ViewerProps) {
           locked={p.lockedKeys.has(selected.spec.key)}
           sizeLocked={p.sizeLockedKeys?.has(selected.spec.key) ?? false}
           stale={p.stale}
+          advanced={p.advanced ?? false}
           onToggleSizeLock={
             p.onToggleSizeLock ? () => p.onToggleSizeLock?.(selected.spec.key) : undefined
           }

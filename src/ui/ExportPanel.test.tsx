@@ -66,9 +66,10 @@ describe("ExportPanel", () => {
     render(<ExportPanel {...p} />);
     expect(screen.getByText(/#3 Magnets: Uses feature "magnet"/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
-    expect(screen.getByRole("button", { name: "STL files (.zip)" }).hasAttribute("disabled")).toBe(
-      true,
-    );
+    const stl = screen.getByRole("button", { name: "STL files (.zip)" });
+    expect(stl.getAttribute("aria-disabled")).toBe("true");
+    const hint = document.getElementById(stl.getAttribute("aria-describedby") ?? "");
+    expect(hint?.textContent).toBe("Available when the build finishes.");
     await waitFor(() => expect(p.download).toHaveBeenCalled());
     const [blob, name] = vi.mocked(p.download ?? vi.fn()).mock.calls[0] ?? [];
     expect(name).toBe("Wing-span-3mf-parts.zip");
@@ -350,5 +351,111 @@ describe("ExportPanel", () => {
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/oom/));
     view.rerender(<ExportPanel {...p} trays={[makeTray({ key: "z:p0:0", stack: 0 }), magnet]} />);
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("lists the three downloads as rows with a hint and a Download button", () => {
+    const { container } = render(<ExportPanel {...props()} />);
+    const rows = container.querySelectorAll(".export-options > .export-option");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]?.querySelector("strong")?.textContent).toBe("3MF per part (.zip)");
+    expect(rows[0]?.textContent).toMatch(/Recommended: one file per tray/);
+    expect(rows[1]?.textContent).toMatch(/for a slicer that opens a whole project/);
+    expect(rows[2]?.textContent).toMatch(/for older slicers/);
+    const buttons = [...rows].map((r) => r.querySelector("button"));
+    expect(buttons.map((b) => b?.textContent)).toEqual(["Download", "Download", "Download"]);
+    expect(buttons.map((b) => b?.classList.contains("primary"))).toEqual([true, false, false]);
+  });
+
+  it("titles the panel with the tray count and focuses the title on mount", () => {
+    render(<ExportPanel {...props()} />);
+    const heading = screen.getByRole("heading", { name: "Export all 2 trays" });
+    expect(heading.getAttribute("tabindex")).toBe("-1");
+    expect(document.activeElement).toBe(heading);
+  });
+
+  it("says what was downloaded in the row of the last download only", async () => {
+    const p = props();
+    const { container } = render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+    await screen.findByText(/^Downloaded Wing-span-3mf-parts\.zip/);
+    const rows = container.querySelectorAll(".export-option");
+    expect(rows[0]?.querySelector('[role="status"]')?.textContent).toBe(
+      "Downloaded Wing-span-3mf-parts.zip (2 of 2 trays).",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "STL files (.zip)" }));
+    await waitFor(() => expect(p.download).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(container.querySelectorAll(".export-option")[2]?.textContent).toMatch(
+        /Downloaded Wing-span-stl\.zip/,
+      ),
+    );
+    expect(
+      container.querySelectorAll(".export-option")[0]?.querySelector("[role=status]"),
+    ).toBeNull();
+  });
+
+  it("shows the build progress in trays and ignores clicks on the busy buttons", async () => {
+    const m = meshes();
+    m.get.mockImplementation(waitsForAbort);
+    const p = props({ meshes: m });
+    render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+    await screen.findByRole("button", { name: "Cancel" });
+    expect(screen.getByText("Building the trays… 0 of 2")).toBeTruthy();
+    expect(screen.getByLabelText("Building the trays").tagName).toBe("PROGRESS");
+    const callsBefore = m.get.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "One combined 3MF" }));
+    fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+    expect(m.get.mock.calls.length).toBe(callsBefore);
+    for (const name of ["3MF per part (.zip)", "One combined 3MF", "STL files (.zip)"]) {
+      const b = screen.getByRole("button", { name });
+      expect(b.getAttribute("aria-disabled")).toBe("true");
+      expect(b.hasAttribute("disabled")).toBe(false);
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "STL files (.zip)" }).hasAttribute("aria-disabled"),
+      ).toBe(false),
+    );
+  });
+
+  it("puts a failure in an error notice with Retry outside the alert", async () => {
+    const m = meshes();
+    m.get.mockImplementation(() => Promise.reject(new Error("Geometry worker failed: oom")));
+    render(<ExportPanel {...props({ meshes: m })} />);
+    fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("Error: Export failed: Geometry worker failed: oom");
+    expect(alert.querySelector(".notice-level")?.textContent).toBe("Error:");
+    const notice = alert.parentElement;
+    expect(notice?.classList.contains("pf-notice--error")).toBe(true);
+    const retry = screen.getByRole("button", { name: "Retry" });
+    expect(notice?.contains(retry)).toBe(true);
+    expect(alert.contains(retry)).toBe(false);
+  });
+
+  it("warns how many trays were not exported and says a spare tray can be skipped", async () => {
+    const spare = makeTray({ key: "s:p0:0", stack: 2, part: "leftover" });
+    const m = meshes();
+    m.get.mockImplementation((spec) =>
+      spec.key === "s:p0:0"
+        ? Promise.reject(new GeometryBuildError("too slow", "TimeoutError"))
+        : Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }),
+    );
+    const p = props({ meshes: m, trays: [makeTray({ key: "a:p0:0", stack: 0 }), spare, magnet] });
+    const { container } = render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+    await waitFor(() => expect(p.download).toHaveBeenCalled());
+    const notice = container.querySelector(".pf-notice--warn");
+    expect(notice?.querySelector(".notice-level")?.textContent).toBe("Warning:");
+    expect(notice?.textContent).toMatch(/2 of 3 trays weren't exported\./);
+    expect(
+      screen.getByText(/#2 Spare tray: .*It only fills a gap, so you can skip it\./),
+    ).toBeTruthy();
+    expect(screen.getByText(/#3 Magnets: Uses feature/).textContent).not.toMatch(
+      /only fills a gap/,
+    );
+    expect(notice?.contains(screen.getByRole("button", { name: "Retry failed trays" }))).toBe(true);
   });
 });

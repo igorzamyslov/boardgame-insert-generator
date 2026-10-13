@@ -33,7 +33,6 @@ export function renderApp(hash = "", overrides: Partial<AppProps> = {}) {
       meshes={meshes}
       clipboard={clipboard}
       currentHref={() => "https://example.test/insert-generator/"}
-      confirm={() => true}
       download={download}
       viewerProps={{ webgl: () => false }}
       {...overrides}

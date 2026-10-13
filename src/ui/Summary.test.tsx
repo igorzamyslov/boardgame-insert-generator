@@ -128,7 +128,7 @@ describe("Summary", () => {
     const alert = screen.getByRole("alert");
     expect(alert.className).toContain("pf-notice--error");
     expect(alert.textContent).toMatch(
-      /The plan couldn't be updated: Worker crashed\. The last good plan is still shown\./,
+      /The plan couldn't be updated\. Worker crashed\. The plan shown is the last good one, from before your latest change\./,
     );
     expect(document.querySelector("p.pf-verdict")?.textContent).toContain("Everything fits.");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -348,7 +348,7 @@ describe("Summary", () => {
       <Summary {...props({ run: { status: "error", message: "Worker crashed." } })} />,
     );
     expect(screen.getByRole("alert").textContent).toContain(
-      "The plan couldn't be updated: Worker crashed. ",
+      "The plan couldn't be updated. Worker crashed. ",
     );
     expect(screen.getByRole("alert").textContent).not.toContain("..");
     view.rerender(<Summary {...props({ run: { status: "error", message: "Worker crashed" } })} />);

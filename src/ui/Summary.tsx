@@ -143,8 +143,10 @@ export function Summary(p: SummaryProps) {
         <div class="pf-notice pf-notice--error stage-block" role="alert">
           <div>
             <strong class="notice-level">Error:</strong>{" "}
-            {`The plan couldn't be updated: ${sentence(p.run.message)}`}
-            {p.hasLayout ? " The last good plan is still shown." : ""}{" "}
+            {`The plan couldn't be updated. ${sentence(p.run.message)}`}
+            {p.hasLayout
+              ? " The plan shown is the last good one, from before your latest change."
+              : ""}{" "}
             <button type="button" onClick={p.onRetry}>
               Retry
             </button>

@@ -42,14 +42,14 @@ describe("ProjectMenu", () => {
     expect(p.onNew).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Delete project" }));
     expect(p.onDelete).toHaveBeenCalledWith("a");
-    fireEvent.click(screen.getByRole("button", { name: "Export JSON" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to file" }));
     expect(p.onExportJson).toHaveBeenCalled();
   });
 
   it("imports a chosen JSON file", async () => {
     const p = props();
     render(<ProjectMenu {...p} />);
-    const input = screen.getByLabelText("Import a project JSON file");
+    const input = screen.getByLabelText("Open a project file");
     const file = new File(['{"hello":1}'], "game.insert.json", { type: "application/json" });
     fireEvent.change(input, { target: { files: [file] } });
     await waitFor(() => expect(p.onImport).toHaveBeenCalledWith('{"hello":1}'));
@@ -68,7 +68,7 @@ describe("ProjectMenu", () => {
     render(<ProjectMenu {...p} />);
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
     await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/2400 characters/));
-    fireEvent.click(screen.getByRole("button", { name: "Download JSON instead" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to a file instead" }));
     expect(p.onExportJson).toHaveBeenCalled();
   });
 
@@ -101,7 +101,7 @@ describe("ProjectMenu", () => {
   it("shows a message when the chosen file cannot be read, and resets the input", async () => {
     const p = props();
     render(<ProjectMenu {...p} />);
-    const input = screen.getByLabelText("Import a project JSON file") as HTMLInputElement;
+    const input = screen.getByLabelText("Open a project file") as HTMLInputElement;
     const file = new File(["x"], "broken.json", { type: "application/json" });
     Object.defineProperty(file, "text", { value: () => Promise.reject(new Error("unreadable")) });
     fireEvent.change(input, { target: { files: [file] } });
@@ -183,7 +183,7 @@ describe("ProjectMenu", () => {
     const alert = screen.getByRole("alert").textContent ?? "";
     expect(alert).toMatch(/denied/);
     expect(alert).toMatch(/2400 characters/);
-    fireEvent.click(screen.getByRole("button", { name: "Download JSON instead" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to a file instead" }));
     expect(p.onExportJson).toHaveBeenCalled();
   });
 

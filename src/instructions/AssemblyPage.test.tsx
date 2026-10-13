@@ -27,6 +27,49 @@ describe("AssemblyPage", () => {
     expect(screen.getAllByRole("row")).toHaveLength(3);
   });
 
+  it("names the layers, marking the top one, and lists the trays in each picture's alt text", () => {
+    render(<AssemblyPage project={fixtureProject()} layout={layout} onBack={vi.fn()} />);
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings).toEqual([
+      "Packing order (bottom first)",
+      "Layer 1 (bottom)",
+      "Layer 2 (top)",
+      "What goes where",
+    ]);
+    const images = screen.getAllByRole("img");
+    expect(images[0]?.getAttribute("alt")).toBe("Layer 1 (bottom): tray 1 Deck A ×40");
+    expect(images[1]?.getAttribute("alt")).toBe("Layer 2 (top): tray 2 Deck A ×40");
+    expect(document.querySelector(".assembly-layers")?.children).toHaveLength(2);
+  });
+
+  it("has no (top) when there is one layer", () => {
+    render(
+      <AssemblyPage
+        project={fixtureProject()}
+        layout={makeLayout("h", [makeTray()])}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Layer 1 (bottom)" })).toBeTruthy();
+    expect(screen.queryByText(/\(top\)/)).toBeNull();
+  });
+
+  it("makes the parts table readable: caption, row headers and a position column", () => {
+    render(<AssemblyPage project={fixtureProject()} layout={layout} onBack={vi.fn()} />);
+    const table = screen.getByRole("table", { name: "Which part goes where" });
+    expect(table.querySelector("caption")?.className).toBe("visually-hidden");
+    const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent);
+    expect(heads).toEqual(["#", "Part", "Size", "Position", "Layer", "Holds"]);
+    const rowHeads = [...table.querySelectorAll("tbody th")];
+    expect(rowHeads.map((th) => [th.textContent, th.getAttribute("scope")])).toEqual([
+      ["1", "row"],
+      ["2", "row"],
+    ]);
+    expect(table.querySelector("tbody tr")?.textContent).toContain(
+      "0 mm from the left, 0 mm from the front",
+    );
+  });
+
   it("for a stale layout says so and offers no PNG or print, but still goes back", () => {
     const print = vi.fn();
     const onBack = vi.fn();

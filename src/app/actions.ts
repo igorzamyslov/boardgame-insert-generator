@@ -81,6 +81,15 @@ export function removeComponent(p: Project, id: string): Project {
   );
 }
 
+/** Puts a removed component back where it was (Undo); nothing happens if it is already there. */
+export function restoreComponent(p: Project, component: Component, index: number): Project {
+  if (p.components.some((c) => c.id === component.id)) {
+    return p;
+  }
+  const at = Math.min(Math.max(0, index), p.components.length);
+  return withComponents(p, [...p.components.slice(0, at), component, ...p.components.slice(at)]);
+}
+
 export function setSettings(p: Project, s: Settings): Project {
   return { ...p, settings: s };
 }

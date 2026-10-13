@@ -10,6 +10,7 @@ import {
   lockedKeys,
   pruneDroppedLocks,
   removeComponent,
+  restoreComponent,
   removeLock,
   renameProject,
   setCardSides,
@@ -267,5 +268,24 @@ describe("pruneDroppedLocks", () => {
     };
     const noPath: Notice = { level: "warning", code: NOTICE_CODES.lockDropped, message: "" };
     expect(pruneDroppedLocks(p, [other, noPath])).toBe(p);
+  });
+});
+
+describe("restoreComponent", () => {
+  it("puts a removed component back at its index, and does nothing if it is already there", () => {
+    const p0 = addComponent(addComponent(newProject(), "cards"), "bulk");
+    const [first, second] = p0.components;
+    if (first === undefined || second === undefined) {
+      throw new Error("expected two components");
+    }
+    const p1 = removeComponent(p0, first.id);
+    expect(p1.components.map((c) => c.id)).toEqual([second.id]);
+    const p2 = restoreComponent(p1, first, 0);
+    expect(p2.components.map((c) => c.id)).toEqual([first.id, second.id]);
+    expect(restoreComponent(p2, first, 1)).toBe(p2);
+    expect(restoreComponent(p1, first, 99).components.map((c) => c.id)).toEqual([
+      second.id,
+      first.id,
+    ]);
   });
 });

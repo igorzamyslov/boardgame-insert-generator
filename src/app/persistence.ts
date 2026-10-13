@@ -144,7 +144,7 @@ export function createPersistence(
       pushNotice(state, {
         level: "warning",
         code: SAVE_FAILED_CODE,
-        message: `Autosave failed: ${reason}. Your work is still open here; use Export JSON or Copy link to keep it.`,
+        message: `Autosave failed: ${reason}. Your work is still open here; use Save to file or Copy link to keep it.`,
       });
       return false;
     }
@@ -305,7 +305,7 @@ export function createPersistence(
           level: "info",
           code: STORAGE_UNAVAILABLE_CODE,
           message:
-            "Local storage is unavailable, so autosave and the project list are off. Use Copy link or Export JSON to keep your work.",
+            "Local storage is unavailable, so autosave and the project list are off. Use Copy link or Save to file to keep your work.",
         });
       }
       refreshList();
