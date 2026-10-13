@@ -135,19 +135,35 @@ do not teach the wrong model. Additive rename: keep reading the old key.
 Growth should be allowed on the axis where extra room means **more pieces**, and
 refused where it only means a looser fit. Current behaviour and the proposal:
 
-| kind           | axis                        | extra room means                 | today                          | proposed default                                         |
-| -------------- | --------------------------- | -------------------------------- | ------------------------------ | -------------------------------------------------------- |
-| bulk (bits)    | all three                   | more loose pieces                | elastic w/d/h with `minVolume` | unchanged — grow                                         |
-| cards, upright | stack axis (deck thickness) | more cards                       | `stretch`, off                 | off, opt-in (unchanged)                                  |
-| cards, flat    | height                      | more cards                       | not elastic                    | never by default — riser; opt-in only for expansion room |
-| cards          | card width / length         | nothing — cards slide            | fixed                          | never grow                                               |
-| tiles, upright | stack axis                  | more tiles                       | `stretch`, off                 | off, opt-in (unchanged)                                  |
-| tiles, flat    | height                      | more tiles stacked               | not elastic                    | never by default — riser; opt-in only for expansion room |
-| tiles          | tile footprint              | nothing                          | fixed                          | never grow                                               |
-| minis, pockets | pocket w/d                  | easier to grab, tolerance        | fixed                          | off; opt-in at most                                      |
-| minis, pockets | depth                       | nothing — figure height is fixed | fixed                          | never grow                                               |
-| minis, bulk    | all three                   | more figures                     | elastic                        | unchanged — grow                                         |
-| custom         | all three                   | tolerance only                   | fixed                          | off; opt-in at most                                      |
+| kind           | axis                        | extra room means                 | today                          | proposed default                                                       |
+| -------------- | --------------------------- | -------------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
+| bulk (bits)    | all three                   | more loose pieces                | elastic w/d/h with `minVolume` | **off by default** — size to the declared volume; opt-in capped growth |
+| cards, upright | stack axis (deck thickness) | more cards                       | `stretch`, off                 | off, opt-in (unchanged)                                                |
+| cards, flat    | height                      | more cards                       | not elastic                    | never by default — riser; opt-in only for expansion room               |
+| cards          | card width / length         | nothing — cards slide            | fixed                          | never grow                                                             |
+| tiles, upright | stack axis                  | more tiles                       | `stretch`, off                 | off, opt-in (unchanged)                                                |
+| tiles, flat    | height                      | more tiles stacked               | not elastic                    | never by default — riser; opt-in only for expansion room               |
+| tiles          | tile footprint              | nothing                          | fixed                          | never grow                                                             |
+| minis, pockets | pocket w/d                  | easier to grab, tolerance        | fixed                          | off; opt-in at most                                                    |
+| minis, pockets | depth                       | nothing — figure height is fixed | fixed                          | never grow                                                             |
+| minis, bulk    | all three                   | more figures                     | elastic                        | **off by default**, as bulk above                                      |
+| custom         | all three                   | tolerance only                   | fixed                          | off; opt-in at most                                                    |
+
+**Nothing grows by default.** Every row above is off unless the user turns it
+on, and every opt-in is capped. Bulk is the one that changes most: a bits bin is
+elastic in all three axes today, which is why a box with spare room produces one
+enormous scoop tray. That is the same clunkiness as a tall flat tray or a fat
+wall, and the answer is the same — size the bin to the volume the user declared,
+and let fillers and risers take the rest.
+
+Two consequences of making bulk minimal, both worth stating plainly:
+
+- **`packingFactor` becomes load-bearing.** Once a bin no longer absorbs spare
+  space, that setting alone decides how big a bin is, so a poor value shows up
+  directly as a bin that will not hold the pieces. Its hint should say so.
+- **The packer loses its most flexible axis.** Bulk elasticity is what currently
+  lets the optimizer fill awkward space. Removing it is the single biggest risk
+  in this spec, and `bits-heavy` is the fixture to watch in §7.
 
 A note on flat storage: height is where extra room would hold more flat cards or
 tiles, so the capacity argument that justifies `stretch` upright applies in
