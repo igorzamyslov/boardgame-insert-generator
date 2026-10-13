@@ -55,7 +55,8 @@ export interface ComponentBase {
   stretch?: boolean;
   // cards and tiles with `stretch` on only: how many thin loose plates the stretch spacer is
   // printed as, so one can be pulled out as the collection grows (absent: 1, a single spacer).
-  // Derived for printing (splitSeparators), never part of the stored layout nor its hash.
+  // The plates are derived for printing (splitSeparators); but a count above 1 also makes the
+  // layout build a spacer where it would build a spare pocket, so it is part of the inputs hash.
   separators?: number;
 }
 

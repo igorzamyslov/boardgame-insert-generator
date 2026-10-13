@@ -22,6 +22,7 @@ export interface CompartmentReq {
   maxHRatio?: number; // bulk: h ≤ maxHRatio × min(w, d)
   features: FeatureReq[];
   spacerAxis?: "w" | "d"; // upright cards/tiles: spare length on this axis → spacer (≥ 5 mm) or thicker dividers
+  separators?: number; // with spacerAxis: plates the user wants the spacer printed as; above 1 the spare length becomes that spacer, never a walled spare pocket
 }
 
 export interface TrayPartReq {

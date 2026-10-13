@@ -187,34 +187,43 @@ describe("splitSeparators", () => {
 
 describe("separators and the stored layout", () => {
   // One stretched deck in a box just wider than it: the optimizer stores a spacer of 10.99 mm.
-  // (A longer slack becomes a spare pocket instead, a shorter than 5 mm one thicker walls.)
+  // (With one plate a longer slack becomes a spare pocket instead, a shorter than 5 mm one
+  // thicker walls; with several plates it stays a spacer, see "a roomy box" below.)
   const raw = FIXTURES["cards-heavy"] as unknown as Record<string, unknown> & {
     box: Record<string, unknown>;
     components: Record<string, unknown>[];
   };
-  const tight = parseProject({
-    ...raw,
-    box: { ...raw.box, innerWidth: 33.5, innerDepth: 100, innerHeight: 120 },
-    components: [
-      {
-        ...(raw.components[0] as Record<string, unknown>),
-        decks: [{ name: "Action", count: 40 }],
-        storage: "upright-long",
-      },
-    ],
-  });
-  if (!tight.ok) {
-    throw new Error(tight.error);
-  }
-  const project = tight.project;
+  const inBox = (innerWidth: number) =>
+    parseProject({
+      ...raw,
+      box: { ...raw.box, innerWidth, innerDepth: 100, innerHeight: 120 },
+      components: [
+        {
+          ...(raw.components[0] as Record<string, unknown>),
+          decks: [{ name: "Action", count: 40 }],
+          storage: "upright-long",
+        },
+      ],
+    });
+  const projectIn = (innerWidth: number): Project => {
+    const parsed = inBox(innerWidth);
+    if (!parsed.ok) {
+      throw new Error(parsed.error);
+    }
+    return parsed.project;
+  };
+  const project = projectIn(33.5);
   const withSeparators = (n: number): Project => ({
     ...project,
     components: project.components.map((c) => ({ ...c, separators: n })),
   });
 
-  it("does not change the inputs hash, so editing it never stales the layout", () => {
-    expect(inputsHash(withSeparators(6))).toBe(inputsHash(project));
-    expect(inputsHash(withSeparators(6))).toBe(inputsHash(withSeparators(2)));
+  // A count above 1 decides between a spacer and a spare pocket (realizeTray), which is the stored
+  // layout, so editing it must make the plan stale.
+  it("is part of the inputs hash, so editing it stales the layout", () => {
+    expect(inputsHash(withSeparators(6))).not.toBe(inputsHash(project));
+    expect(inputsHash(withSeparators(6))).not.toBe(inputsHash(withSeparators(2)));
+    expect(inputsHash(withSeparators(6))).toBe(inputsHash(withSeparators(6)));
   });
 
   const stored = (p: Project): StoredLayout => {
@@ -245,6 +254,7 @@ describe("separators and the stored layout", () => {
     );
 
   it("stores one spacer however many plates are asked for, and prints what fits", () => {
+    // Nothing but the hash differs: the tight box has a spacer, not a spare, either way.
     const base = stored(project);
     const [one] = spacers(base.trays) as [TraySpec];
     expect(spacers(base.trays)).toHaveLength(1);
@@ -258,8 +268,9 @@ describe("separators and the stored layout", () => {
     ] as const) {
       const p = withSeparators(asked);
       const layout = stored(p);
-      expect(layout).toEqual(base);
-      expect(JSON.stringify(layout)).toBe(JSON.stringify(base));
+      expect(layout.inputsHash).toBe(inputsHash(p));
+      expect({ ...layout, inputsHash: base.inputsHash }).toEqual(base);
+      expect(JSON.stringify({ ...layout, inputsHash: base.inputsHash })).toBe(JSON.stringify(base));
       const out = printed(p, layout);
       const plates = spacers(out.trays);
       expect(plates).toHaveLength(got);
@@ -278,5 +289,33 @@ describe("separators and the stored layout", () => {
     expect(printed(back.project, back.project.layout)).toEqual(direct);
     expect(spacers(direct.trays)).toHaveLength(3);
     expect(spacers(p.layout.trays)).toHaveLength(1);
+  });
+
+  describe("a roomy box", () => {
+    // 63 mm for a 40-card deck: with one plate the slack becomes a spare pocket, with several the
+    // same slack is a spacer, which is then split into plates.
+    const roomy = projectIn(63);
+    const roomyWith = (n: number): Project => ({
+      ...roomy,
+      components: roomy.components.map((c) => ({ ...c, separators: n })),
+    });
+    const kinds = (layout: StoredLayout) =>
+      layout.trays.flatMap((t) => (t.part === "tray" ? t.compartments.map((c) => c.kind) : []));
+
+    it("keeps a spare pocket with one plate and no spacer", () => {
+      const layout = stored(roomyWith(1));
+      expect(kinds(layout)).toContain("spare");
+      expect(spacers(layout.trays)).toHaveLength(0);
+    });
+
+    it("turns the slack into plates with several, and no spare pocket", () => {
+      const p = roomyWith(5);
+      const layout = stored(p);
+      expect(kinds(layout)).not.toContain("spare");
+      expect(spacers(layout.trays)).toHaveLength(1);
+      const out = printed(p, layout);
+      expect(spacers(out.trays)).toHaveLength(5);
+      expect(out.notices).toHaveLength(0);
+    });
   });
 });

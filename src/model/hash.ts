@@ -42,16 +42,6 @@ function withoutNames(value: unknown): unknown {
   return value;
 }
 
-/**
- * Components as they affect the layout: no names, and no `separators`, which only changes how a
- * stretch spacer is printed (splitSeparators), so editing it never asks for a new plan.
- */
-function layoutComponents(components: Project["components"]): unknown {
-  return (withoutNames(components) as Record<string, unknown>[]).map((c) =>
-    Object.fromEntries(Object.entries(c).filter(([key]) => key !== "separators")),
-  );
-}
-
 /** cyrb53 (public domain, bryc): fast 53-bit string hash. Not cryptographic. */
 export function cyrb53(str: string, seed = 0): number {
   let h1 = 0xdeadbeef ^ seed;
@@ -70,8 +60,9 @@ export function cyrb53(str: string, seed = 0): number {
 
 /**
  * Hash of everything that affects the layout (spec §5 StoredLayout.inputsHash):
- * box, printer, settings, components and locks. Names (and spacer plate counts) are left
- * out, so renaming never triggers a re-optimize. Project id, name, schemaVersion,
+ * box, printer, settings, components and locks. Names are left out, so renaming never
+ * triggers a re-optimize. `separators` is in: above 1 it makes a stretched deck's slack a spacer
+ * instead of a spare pocket, so it changes the stored layout. Project id, name, schemaVersion,
  * createdWith and the stored layout itself are left out too. Unknown fields
  * preserved from a newer-minor file are included as-is. 14 hex characters.
  */
@@ -80,7 +71,7 @@ export function inputsHash(p: Project): string {
     box: p.box,
     printer: p.printer,
     settings: p.settings,
-    components: layoutComponents(p.components),
+    components: withoutNames(p.components),
     locks: p.locks,
   });
   return cyrb53(canonical).toString(16).padStart(14, "0");

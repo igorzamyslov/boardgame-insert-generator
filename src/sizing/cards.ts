@@ -1,4 +1,4 @@
-import { stretchOn, togglesOf } from "../model/defaults";
+import { separatorsOf, stretchOn, togglesOf } from "../model/defaults";
 import { SLEEVES } from "../model/presets";
 import { effective } from "../model/settings";
 import type { CardsComponent, Notice, Settings } from "../model/types";
@@ -110,7 +110,9 @@ function deckCompartment(
     d: (onLongEdge ? dims.L : dims.S) + clearance,
     h: (onLongEdge ? dims.S : dims.L) + clearance,
     // Stretched: the tray takes the whole leaf and a spacer fills it. Off: content-tight.
-    ...(stretchOn(c) ? { elastic: { w: true }, spacerAxis: "w" as const } : {}),
+    ...(stretchOn(c)
+      ? { elastic: { w: true }, spacerAxis: "w" as const, separators: separatorsOf(c) }
+      : {}),
     // One channel through the walls and dividers the card faces touch.
     features: featuresOf(togglesOf(c), [
       wallCutout("left", CHANNEL_DEPTH, false),

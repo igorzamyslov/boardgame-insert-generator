@@ -1,4 +1,4 @@
-import { stretchOn, togglesOf } from "../model/defaults";
+import { separatorsOf, stretchOn, togglesOf } from "../model/defaults";
 import type { Settings, Side, TileShape, TilesComponent } from "../model/types";
 import {
   compartment,
@@ -78,7 +78,9 @@ function uprightStack(c: TilesComponent, n: number, clearance: number): Compartm
     w: n * c.thickness + clearance,
     d: profile.length + clearance,
     h: profile.height + clearance,
-    ...(stretchOn(c) ? { elastic: { w: true }, spacerAxis: "w" as const } : {}),
+    ...(stretchOn(c)
+      ? { elastic: { w: true }, spacerAxis: "w" as const, separators: separatorsOf(c) }
+      : {}),
     // No corner reliefs: they let a tile sit flat, and one on its edge doesn't need them. Toggles
     // are per component and "auto" storage offers flat and upright from one, so the rule lives
     // here, not in kindDefaults; an explicit cornerReliefs: true applies to the flat variant only.

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { StoredLayout, TraySpec } from "../model/types";
 import { MIN_RISER } from "../sizing/constants";
+import { realizeTray } from "../sizing/realize";
+import { cards, partOf } from "../sizing/test-helpers";
 import { createCtx, type Ctx } from "./context";
 import { optimize } from "./optimize";
 import { splitRisers, type RiserInputs } from "./risers";
@@ -52,6 +54,49 @@ describe("splitRisers: a riser under a stack (spec §3 rule 2)", () => {
     expect(tray).toMatchObject({ z: 38.8, h: 21.2 });
     expect(tray?.compartments.map((c) => c.floorZ)).toEqual([1.2]);
     expect(toU((riser?.h ?? 0) + (tray?.h ?? 0))).toBe(6000);
+  });
+
+  describe("a tray with a spare compartment", () => {
+    const spare = (floorZ: number) => ({
+      ...compartment(floorZ),
+      x: 60,
+      w: 38,
+      kind: "spare" as const,
+      contents: "spare",
+    });
+    const trayWith = (floorZ: number): TraySpec => {
+      const well = { ...compartment(60 - 20), w: 50 };
+      return traySpec({ key: "a:p0:0", w: 100, d: 60, h: 60, compartments: [well, spare(floorZ)] });
+    };
+
+    it("still sheds its riser when the spare stands on its deck's floor", () => {
+      const parts = splitRisers([trayWith(40)], base());
+      expect(parts.find((t) => t.part === "riser")?.h).toBe(38.8);
+      const tray = parts.find((t) => t.part === "tray");
+      expect(tray?.h).toBe(21.2);
+      expect(tray?.compartments.map((c) => c.floorZ)).toEqual([1.2, 1.2]);
+    });
+
+    it("sheds it from a tray the sizing layer realized with a walled spare", () => {
+      const part = partOf([cards({ stretch: true })], "upright-long|strip|split1");
+      const r = realizeTray(part, { w: 82.8, d: 95.9, h: 90 }, DEFAULT_SETTINGS, {
+        lipped: false,
+        level: 0,
+      });
+      expect(r.compartments.map((c) => c.kind)).toEqual(["well", "spare"]);
+      const tray = traySpec({
+        key: "a:p0:0",
+        w: 82.8,
+        d: 95.9,
+        h: 90,
+        wall: r.wall,
+        compartments: r.compartments,
+      });
+      const parts = splitRisers([tray], base());
+      const shed = parts.find((t) => t.part === "riser");
+      expect(shed?.h).toBe(20.8);
+      expect(parts.find((t) => t.part === "tray")?.h).toBe(69.2);
+    });
   });
 
   it("does not touch the stored tray", () => {

@@ -96,6 +96,7 @@ export interface CompartmentInput {
   elastic?: Partial<CompartmentReq["elastic"]>;
   features: FeatureReq[];
   spacerAxis?: "w" | "d";
+  separators?: number;
   minVolume?: number;
   maxHRatio?: number;
 }
@@ -127,6 +128,9 @@ export function compartment(input: CompartmentInput): CompartmentReq {
   }
   if (input.spacerAxis !== undefined) {
     req.spacerAxis = input.spacerAxis;
+  }
+  if (input.separators !== undefined && input.separators > 1) {
+    req.separators = input.separators;
   }
   return req;
 }

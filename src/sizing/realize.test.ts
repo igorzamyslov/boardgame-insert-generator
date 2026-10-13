@@ -5,7 +5,7 @@ import { CutFitError } from "./errors";
 import { size } from "./group";
 import { minOuter, realizeTray } from "./realize";
 import { assertTrayInvariants, at, bulk, cards, custom, minis, partOf } from "./test-helpers";
-import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
+import type { CompartmentReq, OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
 // These cover sizing with a locating lip available (the lipped wall, upper-tray
 // minimums), so they turn it on; the app's own default is off.
@@ -59,6 +59,81 @@ describe("realizeTray", () => {
     expect(pocket.kind).toBe("spare");
     // A divider's worth of wall stands between the deck and the pocket.
     expect(pocket.x).toBeGreaterThanOrEqual(deck.x + deck.w + s.divider);
+  });
+
+  describe("a stretched deck whose component asks for spacer plates", () => {
+    const plates = partOf([cards({ stretch: true, separators: 3 })], "upright-long|strip|split1");
+    const outer = { w: 56.7, d: 95.7, h: 69.2 };
+
+    it("gets one spacer for the long slack instead of a walled spare pocket", () => {
+      const r = realizeTray(plates, outer, s, ground);
+      expect(r.compartments).toHaveLength(1);
+      expect(r.spacers).toHaveLength(1);
+      // The well takes the whole leaf (23.5 mm of deck, the spacer standing in the rest) where a
+      // spare pocket would have had that length.
+      const spacer = at(r.spacers, 0);
+      expect(spacer.w).toBe(30);
+      expect(at(r.compartments, 0).w).toBe(53.5);
+      assertTrayInvariants(r, outer, s, ground);
+    });
+
+    it("keeps the walled spare for the same deck with one plate (the default)", () => {
+      for (const one of [cards({ stretch: true }), cards({ stretch: true, separators: 1 })]) {
+        const r = realizeTray(partOf([one], "upright-long|strip|split1"), outer, s, ground);
+        expect(r.spacers).toEqual([]);
+        expect(r.compartments.map((c) => c.kind)).toEqual(["well", "spare"]);
+      }
+    });
+  });
+
+  describe("the floor of a spare", () => {
+    const tall = { w: 56.7, d: 95.7, h: 90 };
+
+    it("is the floor of the deck beside it, not the tray floor", () => {
+      const r = realizeTray(single, tall, s, ground);
+      const deck = at(r.compartments, 0);
+      const spare = at(r.compartments, 1);
+      expect(spare.kind).toBe("spare");
+      expect(deck.floorZ).toBeGreaterThan(20);
+      expect(spare.floorZ).toBe(deck.floorZ);
+      assertTrayInvariants(r, tall, s, ground);
+    });
+
+    it("is that of the spare row's neighbours too, the shallowest when they differ", () => {
+      const r = realizeTray(single, { w: 26.7, d: 115.7, h: 90 }, s, ground);
+      const spare = at(r.compartments, 1);
+      expect(spare.kind).toBe("spare");
+      expect(spare.floorZ).toBe(at(r.compartments, 0).floorZ);
+    });
+
+    it("follows the last well of its row where the wells have different floors", () => {
+      const [deck] = single.compartments;
+      if (deck === undefined) {
+        throw new Error("no deck");
+      }
+      const plain: CompartmentReq = { ...deck, elastic: { w: false, d: false, h: false } };
+      delete plain.spacerAxis;
+      const part = (second: number): TrayPartReq => ({
+        ...single,
+        compartments: [plain, { ...plain, minH: second, contents: "Low" }],
+      });
+      const outer = { w: 120, d: 95.7, h: 90 };
+      for (const second of [30, plain.minH]) {
+        const r = realizeTray(part(second), outer, s, ground);
+        const [a, b, spare] = r.compartments;
+        expect(spare?.kind).toBe("spare");
+        expect(spare?.floorZ).toBe(b?.floorZ);
+        expect(a?.floorZ).toBe(90 - plain.minH);
+        assertTrayInvariants(r, outer, s, ground);
+      }
+      // The spare row at the back stands beside both wells: on the highest of their floors.
+      const wide = minOuter(part(30), s, ground);
+      const back = realizeTray(part(30), { ...wide, d: wide.d + 40, h: 90 }, s, ground);
+      const [front, low, row] = back.compartments;
+      expect(row?.kind).toBe("spare");
+      expect(row?.floorZ).toBe(Math.max(front?.floorZ ?? 0, low?.floorZ ?? 0));
+      expect(front?.floorZ).not.toBe(low?.floorZ);
+    });
   });
 
   it("turns a short spare stack length into one removable spacer", () => {

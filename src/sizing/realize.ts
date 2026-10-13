@@ -437,6 +437,10 @@ function layoutAt(
   // a spare compartment at the row end → the rest to the side walls.
   const placed: Placed[] = [];
   const spares: Rect[] = [];
+  // The wells (indexes into `placed`) each spare borders: its row-end neighbour, or, for the spare
+  // row at the back, every well of the last row. They give the spare its floor.
+  const spareBorders: number[][] = [];
+  let lastRowStart = 0;
   let spacerUsed = false;
   rows.forEach((row, r) => {
     const rowY = rowYs[r] ?? wall;
@@ -466,7 +470,10 @@ function layoutAt(
       // long enough for both. The spacer only earns its place when it isn't: a short pocket
       // would cost a wall and still leave the cards loose. The pocket has to sit at the row's
       // end, next to the deck, or the wall wouldn't be between the two.
-      const walled = candidate === row.length - 1 && slack >= toU(MIN_SPARE) + spareGap;
+      // A deck whose component asks for several spacer plates (`separators` > 1) is the exception:
+      // the plates are the point, so a long slack becomes plates, not a pocket.
+      const plates = (req?.separators ?? 1) > 1;
+      const walled = !plates && candidate === row.length - 1 && slack >= toU(MIN_SPARE) + spareGap;
       if (!spacerUsed && req !== undefined && !walled && spacerFits(req, slack, settings)) {
         growth[candidate] = slack;
         spacerAt = candidate;
@@ -482,6 +489,7 @@ function layoutAt(
       slack = 0;
     }
     let x = wall + roomLeft + (xExtra[0] ?? 0) + Math.floor(slack / 2);
+    lastRowStart = placed.length;
     row.forEach((req, i) => {
       const w = (widths[i] ?? 0) + (growth[i] ?? 0);
       const d = req.elastic.d ? rowDepth : ceilU(req.minD);
@@ -499,11 +507,13 @@ function layoutAt(
     // A spare at the row end takes the finger room too: a cutout runs into it instead.
     if (spareW > 0) {
       spares.push({ x: x + spareGap, y: rowY, w: spareW + roomRight, d: rowDepth });
+      spareBorders.push([placed.length - 1]);
     }
   });
   if (spareRowDepth > 0) {
     const d = spareRowDepth + room.back;
     spares.push({ x: wall, y: rowsEnd + spareRowGap, w: innerW, d });
+    spareBorders.push(placed.slice(lastRowStart).map((_, i) => lastRowStart + i));
   }
 
   const items = placed.map((p) => ({ ...p, depth: contentDepth(p.req, p.alloc, H, floor) }));
@@ -533,15 +543,20 @@ function layoutAt(
       features: featureSpecs(req, alloc, depth, { settings, cuts: cuts[i] ?? new Map() }),
     };
   });
-  for (const rect of spares) {
+  spares.forEach((rect, k) => {
+    // A spare stands on the floor of the well it borders, not on the tray floor: an empty shaft
+    // as deep as the tray is no storage, and it would also keep the raised floor of every well
+    // from becoming a riser (splitRisers takes the least floor of any compartment). Beside
+    // several wells (the back row) it takes the highest of their floors, the shallowest pocket.
+    const beside = (spareBorders[k] ?? []).map((i) => H - (items[i]?.depth ?? H - floor));
     compartments.push({
       ...rectSpec(rect),
-      floorZ: fromU(floor),
+      floorZ: fromU(beside.length > 0 ? Math.max(...beside) : floor),
       kind: "spare",
       contents: "spare",
       features: [],
     });
-  }
+  });
   // The base (unlipped) wall, rounded up to 0.01 mm like every other TraySpec length.
   const tray = { wall: fromU(ceilU(wallFor(settings, false))), compartments, spacers };
   return { tray, walls: cutWallsOf(cutsPlaced, min) };
