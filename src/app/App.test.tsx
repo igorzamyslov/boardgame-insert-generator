@@ -61,7 +61,7 @@ function addCards(): void {
 
 /** The export panel replaces the tab panel; its button shows it. */
 function openExport(): void {
-  fireEvent.click(screen.getByRole("button", { name: /^Export all \d+ trays$/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Export all \d+ parts?$/ }));
 }
 
 /** The assembly page's button lives in the export panel. */

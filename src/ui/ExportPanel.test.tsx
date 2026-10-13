@@ -368,7 +368,7 @@ describe("ExportPanel", () => {
 
   it("titles the panel with the tray count and focuses the title on mount", () => {
     render(<ExportPanel {...props()} />);
-    const heading = screen.getByRole("heading", { name: "Export all 2 trays" });
+    const heading = screen.getByRole("heading", { name: "Export all 2 parts" });
     expect(heading.getAttribute("tabindex")).toBe("-1");
     expect(document.activeElement).toBe(heading);
   });

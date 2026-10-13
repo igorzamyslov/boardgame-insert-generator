@@ -177,7 +177,7 @@ export function ExportPanel(p: ExportPanelProps) {
   return (
     <div class="export-panel">
       <h3 class="export-title" tabIndex={-1} ref={title}>
-        {`Export all ${plan.parts.length} trays`}
+        {`Export all ${plan.parts.length} ${plan.parts.length === 1 ? "part" : "parts"}`}
       </h3>
       <p class="hint">
         Every part prints open side up, the way it sits in the box. Trays are numbered as in the

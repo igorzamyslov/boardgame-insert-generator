@@ -62,7 +62,7 @@ geometry clients, so they never start a worker or load WASM.
    size" keep a tray where or as big as it is; the optimizer works around
    locks.
 5. **3D view and export.** The 3D view shows the trays (it needs WebGL; the
-   rest works without). "Export all N trays" opens the export panel, which gives "3MF per part (.zip)", "One combined 3MF"
+   rest works without). "Export all N parts" opens the export panel, which gives "3MF per part (.zip)", "One combined 3MF"
    or "STL files (.zip)", with a progress bar and a Cancel button. A tray that
    fails to build is listed under "Not exported" with its reason, and "Retry
    failed trays" builds just those again.

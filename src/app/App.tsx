@@ -215,7 +215,7 @@ export function App(props: AppProps) {
   const trayNumbers = planCurrent ? trayNumbersByComponent(parts, project.components) : undefined;
   const layers = layout ? levelsOf(layout.trays).length : 0;
   const spares = layout ? layout.trays.filter((t) => t.part === "leftover").length : 0;
-  const trayTotal = layout ? layout.trays.filter((t) => t.part !== "spacer").length : 0;
+  const partTotal = layout ? layout.trays.length : 0;
 
   return (
     <ValidationContext.Provider value={validation}>
@@ -448,7 +448,7 @@ export function App(props: AppProps) {
                       {run.status === "running" ? <span class="pf-badge">Updating…</span> : null}
                       {view !== "export" ? (
                         <button type="button" class="primary" onClick={() => setView("export")}>
-                          {`Export all ${trayTotal} trays`}
+                          {`Export all ${partTotal} ${partTotal === 1 ? "part" : "parts"}`}
                         </button>
                       ) : null}
                     </div>
