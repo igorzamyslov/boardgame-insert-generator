@@ -1,6 +1,7 @@
 import { effective, topPlane } from "../model/settings";
 import type { TraySpec } from "../model/types";
 import { maxCrossing } from "./fill";
+import { splitRisers } from "./risers";
 import { nominalPlayU } from "./score";
 import type { LayoutInput, LayoutSummary } from "./types";
 import { toMm, toU, type Rect } from "./units";
@@ -82,7 +83,7 @@ function partVolumes(
 /** Results summary for a layout (spec §8.3). */
 export function summarize(
   trays: TraySpec[],
-  input: Pick<LayoutInput, "box" | "printer" | "settings">,
+  input: Pick<LayoutInput, "box" | "printer" | "settings" | "locks">,
 ): LayoutSummary {
   const { box, settings } = input;
   const eff = effective(settings);
@@ -96,7 +97,16 @@ export function summarize(
   const infill = Math.min(100, Math.max(0, settings.infill)) / 100;
   let filament = 0;
   let filamentAtInfill = 0;
-  for (const t of trays) {
+  // Filament follows what is printed: each stack's raised floor comes out as a riser part, open
+  // (mostly air) or solid per `leftover`. Counts and fill stay on the stored trays: the split moves
+  // height between a tray and its riser without changing the space filled. Separator plates fill
+  // the same block as the stored spacer, which counts solid either way, so they need no split.
+  const parts = splitRisers(trays, {
+    settings,
+    printer: input.printer,
+    locks: input.locks,
+  });
+  for (const t of parts) {
     const v = partVolumes(t, settings.lip, shell, infill);
     filament += v.solid;
     filamentAtInfill += v.atInfill;

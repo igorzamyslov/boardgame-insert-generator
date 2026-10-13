@@ -852,7 +852,11 @@ Numbers accept a decimal comma or point.
 
 ### 8.3 Results
 
-- **Filament estimate at infill.** Material within a shell of any surface
+- **Filament estimate at infill.** Both filament figures are taken over the
+  parts that print, not the stored trays: each stack's raised floor first comes
+  out as its riser (`splitRisers`), open or solid per `leftover`, so an open
+  riser is mostly air. Tray, stack and fill figures stay on the stored trays
+  (the split moves height, not volume). Material within a shell of any surface
   prints solid whatever the infill; only the interior beyond it is printed at
   `infill`, so a region under two shells thick is wholly solid and a thin-walled
   tray barely changes. The shell is derived from what prints, not set: 3

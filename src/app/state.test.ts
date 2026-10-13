@@ -48,6 +48,31 @@ describe("createState", () => {
     expect(typeof s.summary.value?.trayCount).toBe("number");
   });
 
+  it("drops the run summary once a setting that moves the riser split changes", () => {
+    const p = fixtureProject();
+    const layout = makeLayout(inputsHash(p));
+    const s = createState({ ...p, layout });
+    const result = makeResult(layout);
+    s.lastResult.value = result;
+    expect(s.summary.value).toBe(result.summary);
+    s.project.value = {
+      ...s.project.value,
+      settings: { ...s.project.value.settings, leftover: "solid" },
+    };
+    expect(s.summary.value).not.toBe(result.summary);
+    // infill alone is not in the hash but still refreshes the estimate
+    s.project.value = {
+      ...s.project.value,
+      settings: { ...s.project.value.settings, leftover: p.settings.leftover },
+    };
+    expect(s.summary.value).toBe(result.summary);
+    s.project.value = {
+      ...s.project.value,
+      settings: { ...s.project.value.settings, infill: 40 },
+    };
+    expect(s.summary.value?.infillPct).toBe(40);
+  });
+
   it("shows run notices only for the layout they belong to, plus capped", () => {
     const p = fixtureProject();
     const layout = makeLayout(inputsHash(p), undefined, { capped: true });

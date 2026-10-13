@@ -103,12 +103,23 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
       return null;
     }
     const r = lastResult.value;
-    // `infill` is not in the inputs hash, so an edit leaves the run's summary current in all but
-    // its filament estimate: reuse it only while that estimate is still at the configured infill.
-    if (r && r.layout === layout && r.summary && r.summary.infillPct === p.settings.infill) {
+    // The run's summary stands only for the inputs it ran on (anything that moves the riser split,
+    // such as `leftover` or `fillToTop`, is in the hash) and for the infill, which is not.
+    if (
+      r &&
+      r.layout === layout &&
+      r.summary &&
+      layout.inputsHash === currentHash.value &&
+      r.summary.infillPct === p.settings.infill
+    ) {
       return r.summary;
     }
-    return summarize(layout.trays, { box: p.box, printer: p.printer, settings: p.settings });
+    return summarize(layout.trays, {
+      box: p.box,
+      printer: p.printer,
+      settings: p.settings,
+      locks: p.locks,
+    });
   });
   // An infeasible run has no layout to belong to: what it found stands only for its own inputs.
   const infeasible = computed<LayoutResult | null>(() => {

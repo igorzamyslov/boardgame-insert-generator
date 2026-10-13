@@ -45,7 +45,8 @@ describe("summarize", () => {
   });
 
   describe("filament at infill", () => {
-    const at = (infill: number) => makeInput([], { settings: { infill } });
+    // fillToTop off: nothing is split into a riser, so these test the stored geometry as it is
+    const at = (infill: number) => makeInput([], { settings: { infill, fillToTop: false } });
     const g = (trays: ReturnType<typeof traySpec>[], infill: number) =>
       summarize(trays, at(infill)).filamentAtInfillG;
     const thinTray = traySpec({
@@ -107,6 +108,48 @@ describe("summarize", () => {
     it("counts a spacer solid, since it prints as thin plates", () => {
       const spacer = traySpec({ part: "spacer", solid: true, w: 60, d: 60, h: 40 });
       expect(g([spacer], 15)).toBe(g([spacer], 100));
+    });
+  });
+
+  describe("raised floors print as risers", () => {
+    const raised = traySpec({
+      h: 40,
+      compartments: [
+        {
+          x: 1.6,
+          y: 1.6,
+          w: 96.8,
+          d: 46.8,
+          floorZ: 21.2,
+          kind: "well",
+          contents: "",
+          features: [],
+        },
+      ],
+    });
+    const withLeftover = (leftover: "spare" | "solid", fillToTop = true) =>
+      makeInput([], { settings: { leftover, fillToTop } });
+
+    it("estimates far less plastic when the riser is open than when it is solid", () => {
+      const open = summarize([raised], withLeftover("spare"));
+      const solid = summarize([raised], withLeftover("solid"));
+      expect(open.filamentG).toBeLessThan(solid.filamentG * 0.4);
+      // a solid block is already light at 15 %, so the gap there is smaller than at 100 %
+      expect(open.filamentAtInfillG).toBeLessThan(solid.filamentAtInfillG * 0.8);
+    });
+
+    it("keeps the raised floor solid when nothing is split (fillToTop off)", () => {
+      const off = summarize([raised], withLeftover("spare", false));
+      const solid = summarize([raised], withLeftover("solid"));
+      expect(off.filamentG).toBeGreaterThan(solid.filamentG * 0.9);
+    });
+
+    it("leaves the fill, tray count and stack count as they are", () => {
+      const a = summarize([raised], withLeftover("spare"));
+      const b = summarize([raised], withLeftover("spare", false));
+      expect(a.fillPct).toBe(b.fillPct);
+      expect(a.trayCount).toBe(1);
+      expect(a.stackCount).toBe(1);
     });
   });
 
