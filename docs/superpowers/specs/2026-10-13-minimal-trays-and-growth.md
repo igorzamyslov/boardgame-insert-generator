@@ -132,64 +132,117 @@ do not teach the wrong model. Additive rename: keep reading the old key.
 
 ## 5. Growth policy per component kind
 
-Growth should be allowed on the axis where extra room means **more pieces**, and
-refused where it only means a looser fit. Current behaviour and the proposal:
+Growth is allowed by default, but **bounded**. A tray may take a reasonable
+amount of extra room where that room means more pieces fit, and no more; past
+that bound the slack is a filler. The user can then raise or remove the bound,
+per axis, where they want it.
 
-| kind           | axis                        | extra room means                 | today                          | proposed default                                                       |
-| -------------- | --------------------------- | -------------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
-| bulk (bits)    | all three                   | more loose pieces                | elastic w/d/h with `minVolume` | **off by default** — size to the declared volume; opt-in capped growth |
-| cards, upright | stack axis (deck thickness) | more cards                       | `stretch`, off                 | off, opt-in (unchanged)                                                |
-| cards, flat    | height                      | more cards                       | not elastic                    | never by default — riser; opt-in only for expansion room               |
-| cards          | card width / length         | nothing — cards slide            | fixed                          | never grow                                                             |
-| tiles, upright | stack axis                  | more tiles                       | `stretch`, off                 | off, opt-in (unchanged)                                                |
-| tiles, flat    | height                      | more tiles stacked               | not elastic                    | never by default — riser; opt-in only for expansion room               |
-| tiles          | tile footprint              | nothing                          | fixed                          | never grow                                                             |
-| minis, pockets | pocket w/d                  | easier to grab, tolerance        | fixed                          | off; opt-in at most                                                    |
-| minis, pockets | depth                       | nothing — figure height is fixed | fixed                          | never grow                                                             |
-| minis, bulk    | all three                   | more figures                     | elastic                        | **off by default**, as bulk above                                      |
-| custom         | all three                   | tolerance only                   | fixed                          | off; opt-in at most                                                    |
+This is the correction to an earlier draft of this spec, which said nothing
+grows by default. That went too far: a little growth is useful and invisible,
+and only _unbounded_ growth produces the clunky trays in §3.
 
-**Nothing grows by default.** Every row above is off unless the user turns it
-on, and every opt-in is capped. Bulk is the one that changes most: a bits bin is
-elastic in all three axes today, which is why a box with spare room produces one
-enormous scoop tray. That is the same clunkiness as a tall flat tray or a fat
-wall, and the answer is the same — size the bin to the volume the user declared,
-and let fillers and risers take the rest.
+### The growth setting
 
-Two consequences of making bulk minimal, both worth stating plainly:
+Per component and per axis, growth is one of:
 
-- **`packingFactor` becomes load-bearing.** Once a bin no longer absorbs spare
-  space, that setting alone decides how big a bin is, so a poor value shows up
-  directly as a bin that will not hold the pieces. Its hint should say so.
-- **The packer loses its most flexible axis.** Bulk elasticity is what currently
-  lets the optimizer fill awkward space. Removing it is the single biggest risk
-  in this spec, and `bits-heavy` is the fixture to watch in §7.
+- `off` — never grow (the axis where extra room is only slop)
+- `auto` — grow up to a conservative cap; the default wherever growth adds capacity
+- a number — grow up to that many mm beyond the minimum
+- `max` — take whatever is going
 
-A note on flat storage: height is where extra room would hold more flat cards or
-tiles, so the capacity argument that justifies `stretch` upright applies in
-principle. But it must not become the default. A flat tray taller than its stack
-is the clunky case this spec exists to remove, and the box's leftover height
-belongs to a riser under the tray. So treat height growth for flat storage as an
-explicit opt-in for someone who wants room for expansions, capped, and never
-something the packer reaches for to fill space.
+Expose it as three options in the user's own terms — roughly "more room for
+width / length / height" — and map each to a physical axis from the component's
+storage orientation. The user thinks in contents, not in the tray's frame: for
+an upright deck, "more cards" is the stack axis, and which of w/d that is
+depends on how the tray was packed and turned.
 
-### Shape of the setting
+`stretch` is subsumed by this and should migrate to `auto` (not `max`).
 
-`stretch` is a boolean, which cannot express "grow, but not without limit" —
-and unbounded growth is exactly what drops a deck on its side. Replace it with a
-per-component growth option carrying a cap, e.g. `grow: { limit?: number }`,
-defaulting off, where `limit` is the most the contents' room may exceed their
-minimum. Migrate `stretch: true` to a capped grow, not an uncapped one.
+### Defaults per kind
 
-Where no cap is given, derive a safe one from what keeps the contents retained
-rather than letting it run: for an upright deck or tile stack, growth beyond
-roughly the stack's own thickness is where it starts to topple, and anything
-past that should need `separators` plates to fill it. Treat "grow without
-plates" and "grow with plates" as the two real cases, and let the second go
-further than the first.
+Whether extra room on an axis holds more pieces, or only adds slop:
 
-Keep the axis implicit (derived per kind from the table above) rather than
-asking the user to name an axis — they think in "fits more cards", not in w/d/h.
+| kind           | axis                        | extra room means                | default                  |
+| -------------- | --------------------------- | ------------------------------- | ------------------------ |
+| bulk (bits)    | all three                   | more loose pieces               | `auto`                   |
+| minis, bulk    | all three                   | more figures                    | `auto`                   |
+| cards, upright | stack axis (deck thickness) | more cards                      | `auto`                   |
+| cards, flat    | height                      | more cards                      | `off` — see risers below |
+| cards          | card width / length         | nothing; cards slide            | `off`, not offerable     |
+| tiles, upright | stack axis                  | more tiles                      | `auto`                   |
+| tiles, flat    | height                      | more tiles stacked              | `off` — see risers below |
+| tiles          | tile footprint              | nothing                         | `off`, not offerable     |
+| minis, pockets | pocket w/d                  | easier to grab, tolerance       | `off`, offerable         |
+| minis, pockets | depth                       | nothing; figure height is fixed | `off`, not offerable     |
+| custom         | all three                   | tolerance only                  | `off`, offerable         |
+
+Axes marked "not offerable" should not appear in the UI at all — growing them
+cannot help, and offering the choice teaches the wrong model.
+
+### What `auto` means, concretely
+
+The cap must be a defined quantity, not a feeling. Suggested starting point: the
+lesser of half the content's own size on that axis and a fixed ceiling (25 mm is
+a reasonable first guess), with the retention rule below overriding it for
+upright stacks. Whatever is chosen, make it a named constant, state it in the
+setting's hint, and sanity-check it against the fixtures — the point of `auto`
+is that a user never has to think about it.
+
+Note the asymmetry worth preserving: `auto` on a bits bin is what stops the
+enormous scoop trays in §3 while still letting a bin absorb a few millimetres
+rather than printing a 4 mm filler beside it. Setting bulk to `off` outright, as
+an earlier draft did, would remove the optimizer's most flexible axis and is the
+single biggest packing risk here — `auto` is the middle path, and `bits-heavy`
+is still the fixture to watch in §7.
+
+Once bins stop absorbing arbitrary space, **`packingFactor` becomes
+load-bearing**: it largely decides how big a bin is, so a poor value shows up
+directly as a bin that will not hold the pieces. Its hint should say so.
+
+### Vertical growth and risers
+
+Height is a legitimate axis to grow — more height holds more flat cards or tiles
+— but it must not become the way the box's leftover height gets used. A flat
+tray taller than the stack it holds is the clunky case this spec exists to
+remove, and that height belongs to a riser under the tray.
+
+So height defaults to `off` for flat storage, and the user can turn it on
+explicitly when they want room for expansions. `splitRisers` keeps the rest.
+
+### Retention bounds growth
+
+More room is only useful while the contents stay held. A deck well grown too far
+lets the cards fall over, which is worse than the filler it replaced. So:
+
+- growth without anything holding the contents is capped at roughly the stack's
+  own thickness, past which an upright stack starts to topple;
+- growth beyond that requires something in the gained space — the `separators`
+  plates, or dividers below — and may then go considerably further.
+
+Treat "grow without plates" and "grow with plates" as two different limits. This
+is what makes `separators` structural rather than a nicety.
+
+### Dividers
+
+Offer printing **dividers**: parts that subdivide a grown compartment into
+sections. These are distinct from `separators` plates, and the distinction
+matters:
+
+- a **separator plate** takes up slack behind a deck so it stays snug, and is
+  pulled out as the collection grows;
+- a **divider** partitions space the user has deliberately grown into, so one
+  well holds several groups (per player, by card type).
+
+Dividers also raise the retention cap above, since a divided well holds its
+contents upright in each section.
+
+**How a divider is held is a secondary problem** and should be settled during
+implementation, not now. The options worth weighing: friction alone (simplest,
+but loosens as the tray flexes), a notch in the floor (prints without supports
+if the notch is a chamfered slot, and the floor is already notched for finger
+cuts, so there is precedent), or slots in the facing walls (most positive, but
+constrains where a divider may sit and interacts with wall cutouts). The floor
+notch is the likeliest fit given what `planTray` already builds.
 
 ## 6. The objective
 
