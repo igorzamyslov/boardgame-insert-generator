@@ -257,6 +257,48 @@ tray (where allowed) removes a filler entirely, so growth and the filler penalty
 interact: with a growth option enabled, the scorer should prefer growing a tray
 that gains capacity over printing a filler beside it.
 
+### Fewer fillers, and where they sit
+
+The user's stated preference, in their words: _the less fillers I have to put
+manually, the better_. So the objective is not filler volume but **how many
+loose pieces a person has to place by hand**. Three levers, in the order they
+are likely to pay off:
+
+1. **Merge adjacent fillers.** Two leftover regions that are co-planar,
+   level-aligned and share a full edge can be one part. This cuts the count with
+   no downside to packing, and should be done before tuning any weight — it is
+   the cheapest win here and may remove much of the complaint on its own.
+2. **Count, not volume.** Give filler count its own score term, tuned against
+   `WEIGHTS.trays`. One large filler should beat two small ones even when the
+   volume is identical.
+3. **Prefer the perimeter.** A filler against the box wall is easier to drop in
+   than one wedged between trays, and it only has to be snug on the inner side.
+   Reward leftover rects that touch the box boundary.
+
+**Lever 3 is unproven and may fight lever 2** — pushing slack outward could
+fragment it into several edge strips where it would otherwise have pooled into
+one interior block. The user flagged their own uncertainty here. Measure count
+and placement together before adopting it, and drop it if it raises the count.
+
+### An escape hatch: let one wall take it
+
+Some people would rather have a slightly odd tray than loose pieces to fit.
+Offer a mode where, instead of a filler, the slack goes entirely into **one**
+wall of the neighbouring tray.
+
+This differs from `wallGrowth` today in two ways: it is one-sided (the current
+code splits growth between both side walls with `Math.floor(slack / 2)`, so the
+tray stays centred), and it would be uncapped or near-uncapped, since the point
+is to eliminate the filler rather than to absorb a sliver.
+
+The tray stays flush on its other side, which is what keeps this from looking
+like the §3 defect: one thick wall against the box edge reads as deliberate,
+where two symmetric fat walls read as a mistake. Prefer growing the wall that
+faces the box wall or another tray's back, not one facing a finger cut.
+
+Note this is in tension with the whole spec, and that is fine — it is an
+explicit user choice to trade honest geometry for fewer parts, not a default.
+
 ## 7. Risks, and what to measure before shipping
 
 - **Part count will rise**, more sharply than it did for leaf slack: every
