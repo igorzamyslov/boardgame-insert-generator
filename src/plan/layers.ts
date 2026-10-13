@@ -21,13 +21,21 @@ export function planFrame(box: Box, settings: Settings): PlanFrame {
   };
 }
 
+/**
+ * A part that goes into or under a tray rather than standing in the plan on its own: a card
+ * spacer, or the riser under a stack. It is numbered and listed, but not drawn as a tray.
+ */
+export function isAddOn(t: Pick<TraySpec, "part">): boolean {
+  return t.part === "spacer" || t.part === "riser";
+}
+
 export function levelsOf(trays: readonly TraySpec[]): number[] {
-  const levels = new Set(trays.filter((t) => t.part !== "spacer").map((t) => t.level));
+  const levels = new Set(trays.filter((t) => !isAddOn(t)).map((t) => t.level));
   return [...levels].sort((a, b) => a - b);
 }
 
 export function traysAt(trays: readonly TraySpec[], level: number): TraySpec[] {
-  return trays.filter((t) => t.part !== "spacer" && t.level === level);
+  return trays.filter((t) => !isAddOn(t) && t.level === level);
 }
 
 export function spacersAt(trays: readonly TraySpec[], level: number): TraySpec[] {

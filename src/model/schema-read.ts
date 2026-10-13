@@ -189,6 +189,7 @@ function readSettings(r: Reader | undefined): Settings {
     topPressFit: r.num("topPressFit", d.topPressFit),
     packingFactor: r.num("packingFactor", d.packingFactor),
     leftover: r.oneOf("leftover", ["spare", "solid"], d.leftover),
+    fillToTop: r.bool("fillToTop", d.fillToTop),
   });
 }
 

@@ -158,12 +158,14 @@ export function checkHardRules(
   const play = toMm(ctx.inset) - settings.lip.thickness;
   for (const [path, list] of byPath) {
     const stack = [...list].sort((a, b) => a.level - b.level);
+    const base = stack[0];
+    // Rule 2: the trays add up to the top plane exactly (fillToTop), or to no more than it
+    // (fillToTop off). Risers are derived for printing and never stored.
     const sum = stack.reduce((s, t) => s + toU(t.h), 0);
-    if (sum !== ctx.topPlane) {
+    if (settings.fillToTop ? sum !== ctx.topPlane : sum > ctx.topPlane) {
       v.push(`stack ${path}: Σh = ${sum} ≠ topPlane ${ctx.topPlane}`);
     }
     let z = 0;
-    const base = stack[0];
     stack.forEach((t, k) => {
       if (t.level !== k) {
         v.push(`stack ${path}: levels not consecutive`);
@@ -245,6 +247,19 @@ export function checkHardRules(
   }
   if ((settings.lip.enabled || !stacked) && has("layout.lipOff")) {
     v.push("layout.lipOff notice without a stack that needs it");
+  }
+
+  // Rule 2 opt-out: the note says some stack stops short, exactly when one does.
+  const heights = new Map<number, number>();
+  for (const t of real) {
+    heights.set(t.stack, (heights.get(t.stack) ?? 0) + toU(t.h));
+  }
+  const stopsShort = [...heights.values()].some((h) => h < ctx.topPlane);
+  if (!settings.fillToTop && stopsShort && !has("layout.stopsShort")) {
+    v.push("a stack stops short of the top plane but there is no layout.stopsShort notice");
+  }
+  if ((settings.fillToTop || !stopsShort) && has("layout.stopsShort")) {
+    v.push("layout.stopsShort notice without a stack that stops short");
   }
 
   // Rule 5: bed fit with margin, either rotation; a lipped tray prints its lip tall as well.

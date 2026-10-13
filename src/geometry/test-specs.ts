@@ -246,6 +246,27 @@ export const solidLeftover = traySpec({
   h: 30,
 });
 
+// The riser under a stack (spec §3 rule 2): an open walled box or a solid block, on the floor.
+export const openRiser = traySpec({
+  key: "cards:p0:0:riser",
+  part: "riser",
+  path: "",
+  w: 100,
+  d: 80,
+  h: 20,
+  compartments: [compartment({ x: 1.6, y: 1.6, w: 96.8, d: 76.8, kind: "spare", contents: "" })],
+});
+
+export const solidRiser = traySpec({
+  key: "cards:p0:0:riser",
+  part: "riser",
+  path: "",
+  solid: true,
+  w: 100,
+  d: 80,
+  h: 20,
+});
+
 export const spacer = traySpec({
   key: "cards:p0:0:spacer",
   part: "spacer",

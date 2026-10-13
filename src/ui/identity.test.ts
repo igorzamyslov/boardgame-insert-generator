@@ -71,5 +71,9 @@ describe("tray identity", () => {
     const spacer = makeTray({ part: "spacer", compartments: [] });
     expect(componentIndexOfTray(spacer, components)).toBeNull();
     expect(tintOfTray(spacer, components)).toBeNull();
+    // A riser is the neutral filler too: SPARE_COLOR in the 3D view, which is what null means.
+    const riser = makeTray({ part: "riser", compartments: [] });
+    expect(componentIndexOfTray(riser, components)).toBeNull();
+    expect(tintOfTray(riser, components)).toBeNull();
   });
 });

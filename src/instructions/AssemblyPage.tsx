@@ -150,9 +150,11 @@ export function AssemblyPage(p: AssemblyPageProps) {
                     <td>
                       {r.goesInto !== null
                         ? `Goes into tray #${r.goesInto}`
-                        : r.contents.length > 0
-                          ? r.contents.join(", ")
-                          : "—"}
+                        : r.carries !== null
+                          ? `Carries tray #${r.carries}`
+                          : r.contents.length > 0
+                            ? r.contents.join(", ")
+                            : "—"}
                     </td>
                   </tr>
                 ))}

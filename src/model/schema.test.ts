@@ -65,6 +65,34 @@ describe("serializeProject / parseProject", () => {
     expect(result.ok && result.project).toEqual(p);
   });
 
+  it("round-trips fillToTop off", () => {
+    const p = sampleProject();
+    p.settings.fillToTop = false;
+    const result = parseProject(raw(p));
+    expect(result.ok && result.project.settings.fillToTop).toBe(false);
+  });
+
+  it("does not store risers: a stored riser part is not in the schema", () => {
+    const input = raw(sampleProject());
+    const trays = (input.layout as Json).trays as Json[];
+    trays.push({ ...trays[0], key: "x:riser", part: "riser" });
+    const result = parseProject(input);
+    expect(result.ok && result.project.layout).toBeUndefined();
+  });
+
+  it("reads a file with no fillToTop as on", () => {
+    const input = raw(sampleProject());
+    delete (input.settings as Json).fillToTop;
+    const result = parseProject(input);
+    expect(result.ok && result.project.settings.fillToTop).toBe(true);
+  });
+
+  it("refuses a fillToTop that is not a boolean", () => {
+    const input = raw(sampleProject());
+    (input.settings as Json).fillToTop = "yes";
+    expect(parseProject(input).ok).toBe(false);
+  });
+
   it("writes createdWith as this app's version", () => {
     expect(raw({ ...sampleProject(), createdWith: "0.0.1" }).createdWith).toBe(APP_VERSION);
   });

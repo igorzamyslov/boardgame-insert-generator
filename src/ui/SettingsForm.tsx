@@ -102,6 +102,13 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         ]}
         onChange={(leftover) => onChange({ ...settings, leftover })}
       />
+      <CheckField
+        id="settings-fillToTop"
+        label="Fill the box to the top"
+        checked={settings.fillToTop}
+        hint="Trays are padded so every stack reaches the lid and nothing shifts when the box is carried. Turn it off for shorter trays and some empty space above them."
+        onChange={(fillToTop) => onChange({ ...settings, fillToTop })}
+      />
     </div>
   );
 }

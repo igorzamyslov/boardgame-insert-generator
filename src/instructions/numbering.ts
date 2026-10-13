@@ -1,26 +1,31 @@
 // src/instructions/numbering.ts
 import type { Settings, TraySpec } from "../model/types";
+import { isAddOn } from "../plan/layers";
+import { RISER_SUFFIX } from "../sizing/constants";
 import { compareCodeUnits } from "../util/compare";
 
 export interface NumberedPart {
   number: number;
   spec: TraySpec;
   label: string;
-  /** For spacers: the number of the tray they go into. */
+  /** For addOns: the number of the tray they go into. For a riser: the tray that stands on it. */
   parentNumber: number | null;
 }
 
 export const SPACER_SUFFIX = ":spacer";
 
-export function parentKey(spacer: TraySpec): string {
-  return spacer.key.endsWith(SPACER_SUFFIX)
-    ? spacer.key.slice(0, -SPACER_SUFFIX.length)
-    : spacer.key;
+/** The tray a spacer goes into, or a riser carries, by key. */
+export function parentKey(addOn: TraySpec): string {
+  const suffix = addOn.part === "riser" ? RISER_SUFFIX : SPACER_SUFFIX;
+  return addOn.key.endsWith(suffix) ? addOn.key.slice(0, -suffix.length) : addOn.key;
 }
 
 export function partLabel(spec: TraySpec): string {
   if (spec.part === "spacer") {
     return "Card spacer";
+  }
+  if (spec.part === "riser") {
+    return "Riser";
   }
   if (spec.part === "leftover") {
     return spec.solid ? "Filler block" : "Spare tray";
@@ -36,23 +41,26 @@ export function partLabel(spec: TraySpec): string {
 
 export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
   const main = trays
-    .filter((t) => t.part !== "spacer")
+    .filter((t) => !isAddOn(t))
     .sort((a, b) => a.stack - b.stack || a.level - b.level || compareCodeUnits(a.key, b.key));
-  const spacers = trays.filter((t) => t.part === "spacer");
+  const addOns = trays.filter(isAddOn);
   const used = new Set<TraySpec>();
   const ordered: TraySpec[] = [];
+  const take = (kind: TraySpec["part"], t: TraySpec): TraySpec[] =>
+    addOns.filter((s) => s.part === kind && !used.has(s) && parentKey(s) === t.key);
   for (const t of main) {
+    // A riser is placed first, then the tray on it, then the addOns that go into the tray.
+    for (const r of take("riser", t)) {
+      used.add(r);
+      ordered.push(r);
+    }
     ordered.push(t);
-    for (const s of spacers) {
-      if (!used.has(s) && parentKey(s) === t.key) {
-        ordered.push(s);
-        used.add(s);
-      }
+    for (const sp of take("spacer", t)) {
+      used.add(sp);
+      ordered.push(sp);
     }
   }
-  const orphans = spacers
-    .filter((s) => !used.has(s))
-    .sort((a, b) => compareCodeUnits(a.key, b.key));
+  const orphans = addOns.filter((s) => !used.has(s)).sort((a, b) => compareCodeUnits(a.key, b.key));
   ordered.push(...orphans);
   const numberOf = new Map<string, number>();
   ordered.forEach((t, i) => {
@@ -62,7 +70,7 @@ export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
     number: i + 1,
     spec,
     label: partLabel(spec),
-    parentNumber: spec.part === "spacer" ? (numberOf.get(parentKey(spec)) ?? null) : null,
+    parentNumber: isAddOn(spec) ? (numberOf.get(parentKey(spec)) ?? null) : null,
   }));
 }
 

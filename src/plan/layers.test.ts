@@ -67,6 +67,16 @@ describe("plan geometry", () => {
     expect(spacersAt(trays, 0).map((t) => t.key)).toEqual(["a:spacer"]);
   });
 
+  it("leaves a riser out of the plan: it lies under its tray", () => {
+    const trays = [
+      makeTray({ key: "a", level: 0 }),
+      makeTray({ key: "a:riser", part: "riser", level: 0 }),
+    ];
+    expect(levelsOf(trays)).toEqual([0]);
+    expect(traysAt(trays, 0).map((t) => t.key)).toEqual(["a"]);
+    expect(spacersAt(trays, 0)).toEqual([]);
+  });
+
   it("clamps label sizes", () => {
     expect(labelFontSize({ x: 0, y: 0, w: 10, h: 10 })).toBe(6);
     expect(labelFontSize({ x: 0, y: 0, w: 300, h: 300 })).toBe(20);

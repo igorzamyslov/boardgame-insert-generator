@@ -255,6 +255,43 @@ describe("packing order and parts list", () => {
     ]);
   });
 
+  it("places a riser first and stands its tray on it, leaving it out of the layers", () => {
+    const withRiser = makeLayout("h", [
+      makeTray({ key: "a:p0:0", stack: 0, level: 0, z: 12 }),
+      makeTray({
+        key: "a:p0:0:riser",
+        part: "riser",
+        path: "",
+        stack: 0,
+        level: 0,
+        z: 0,
+        h: 12,
+        solid: true,
+        compartments: [],
+      }),
+    ]);
+    expect(packingSteps(withRiser)).toEqual(["Layer 1: place riser #1, then #2 Deck A ×40 on it."]);
+    expect(layerInfo(withRiser)).toEqual([
+      { layer: 1, title: "Layer 1 (bottom)", trays: ["2 Deck A ×40"] },
+    ]);
+    expect(render(withRiser, fixtureProject())).toHaveLength(1);
+    const rows = whatGoesWhere(withRiser, DEFAULT_SETTINGS);
+    expect(rows.map((r) => [r.number, r.label, r.goesInto, r.carries])).toEqual([
+      [1, "Riser", null, 2],
+      [2, "Deck A ×40", null, null],
+    ]);
+  });
+
+  it("still places a riser whose tray is not in the layout", () => {
+    const orphan = makeLayout("h", [
+      makeTray({ key: "a:p0:0", stack: 0, level: 0 }),
+      makeTray({ key: "gone:p0:0:riser", part: "riser", path: "", stack: 5, level: 0 }),
+    ]);
+    expect(packingSteps(orphan).at(-1)).toBe(
+      "Place riser #2 (the tray that stands on it is not in this layout).",
+    );
+  });
+
   it("packs bottom first, spacers after their tray", () => {
     expect(packingSteps(layout)).toEqual([
       "Layer 1: place #1 Deck A ×40.",

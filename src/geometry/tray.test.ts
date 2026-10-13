@@ -25,7 +25,9 @@ import {
   notchedSpacer,
   plainBox,
   scoopBulk,
+  openRiser,
   solidLeftover,
+  solidRiser,
   spacer,
   spareLeftover,
   traySpec,
@@ -241,6 +243,16 @@ describe("buildTray per tray type", () => {
     expect(Math.abs(sp.volumeMm3 - blockVolume(92.5, 8, 63, 3, 0.4)) / sp.volumeMm3).toBeLessThan(
       0.002,
     );
+  });
+
+  it("risers: an open walled box and a solid block, both with the level 0 chamfer", () => {
+    const open = expectWellFormed(openRiser);
+    const expected = blockVolume(100, 80, 20, 3, 0.4) - wellVolume(96.8, 76.8, 18.8);
+    expect(Math.abs(open.volumeMm3 - expected) / expected).toBeLessThan(0.002);
+    const solid = expectWellFormed(solidRiser);
+    expect(
+      Math.abs(solid.volumeMm3 - blockVolume(100, 80, 20, 3, 0.4)) / solid.volumeMm3,
+    ).toBeLessThan(0.002);
   });
 
   it("notched spacer: the channel runs on through it", () => {

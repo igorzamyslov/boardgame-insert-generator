@@ -8,6 +8,7 @@ import { APP_VERSION } from "../model/version";
 import { MemoryStorage } from "../test-support/memory-storage";
 import { sampleProject } from "../test-support/sample";
 import { importJsonText } from "./file";
+import { splitRisers } from "../layout/risers";
 import { decodeHash, encodeHash } from "./link";
 import { STORAGE_PREFIX, StoreWriteError, createProjectStore } from "./store";
 
@@ -33,6 +34,25 @@ describe("createProjectStore", () => {
     expect(store.list()).toEqual([{ id: p.id, name: p.name, updatedAt: 1_000 }]);
     const loaded = store.load(p.id);
     expect(loaded?.ok && loaded.project).toEqual({ ...p, createdWith: APP_VERSION });
+  });
+
+  it("keeps fillToTop across a save and a reload, and derives the same risers from it", () => {
+    const store = createProjectStore(new MemoryStorage());
+    const base = sampleProject();
+    const p: Project = { ...base, settings: { ...base.settings, fillToTop: false } };
+    store.save(p, noForeign());
+    const loaded = store.load(p.id);
+    expect(loaded?.ok && loaded.project.settings.fillToTop).toBe(false);
+    // Risers are derived from the stored trays, so the reloaded layout prints the same parts.
+    const same = createProjectStore(new MemoryStorage());
+    same.save(base, noForeign());
+    const again = same.load(base.id);
+    if (!again?.ok || !base.layout) {
+      throw new Error("expected the sample to load");
+    }
+    expect(splitRisers(again.project.layout?.trays ?? [], again.project)).toEqual(
+      splitRisers(base.layout.trays, base),
+    );
   });
 
   it("lists the most recently saved first", () => {

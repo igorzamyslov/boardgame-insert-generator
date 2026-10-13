@@ -2,6 +2,7 @@
 import type { ComponentKind, Project, Settings, StoredLayout, TraySpec } from "../model/types";
 import { SPACER_COLOR, componentIndexOfTray } from "../ui/identity";
 import {
+  isAddOn,
   labelFontSize,
   levelsOf,
   planFrame,
@@ -223,6 +224,8 @@ export interface PartRow {
   layer: number;
   contents: string[];
   goesInto: number | null;
+  /** For a riser: the tray it carries (it is placed first, and the tray goes on it). */
+  carries: number | null;
 }
 
 const mm1 = (v: number): string => String(Math.round(v * 10) / 10);
@@ -244,7 +247,8 @@ export function whatGoesWhere(layout: StoredLayout, settings: Settings): PartRow
     position: positionText(p.spec),
     layer: layerNumber(levels, p.spec.level),
     contents: p.spec.compartments.filter((c) => c.contents !== "").map((c) => c.contents),
-    goesInto: p.parentNumber,
+    goesInto: p.spec.part === "riser" ? null : p.parentNumber,
+    carries: p.spec.part === "riser" ? p.parentNumber : null,
   }));
 }
 
@@ -252,7 +256,7 @@ export interface LayerInfo {
   layer: number;
   /** "Layer 1 (bottom)", "Layer 2", "Layer 3 (top)". */
   title: string;
-  /** The trays on the layer, "1 Cards", in numbering order (spacers go into trays and are left out). */
+  /** The trays on the layer, "1 Cards", in numbering order (spacers and risers go with trays and are left out). */
   trays: string[];
 }
 
@@ -263,7 +267,7 @@ export function layerInfo(layout: StoredLayout): LayerInfo[] {
     layer: i + 1,
     title: `Layer ${i + 1}${i === 0 ? " (bottom)" : i === levels.length - 1 ? " (top)" : ""}`,
     trays: parts
-      .filter((p) => p.spec.part !== "spacer" && p.spec.level === level)
+      .filter((p) => !isAddOn(p.spec) && p.spec.level === level)
       .map((p) => `${p.number} ${p.label}`),
   }));
 }
@@ -274,10 +278,18 @@ export function packingSteps(layout: StoredLayout): string[] {
   const steps: string[] = [];
   levels.forEach((level, i) => {
     for (const p of parts) {
-      if (p.spec.part === "spacer" || p.spec.level !== level) {
+      if (isAddOn(p.spec) || p.spec.level !== level) {
         continue;
       }
-      steps.push(`Layer ${i + 1}: place #${p.number} ${p.label}${i > 0 ? " on top" : ""}.`);
+      // A riser goes down first and its tray stands on it.
+      const riser = parts.find((r) => r.spec.part === "riser" && r.parentNumber === p.number);
+      if (riser) {
+        steps.push(
+          `Layer ${i + 1}: place riser #${riser.number}, then #${p.number} ${p.label} on it.`,
+        );
+      } else {
+        steps.push(`Layer ${i + 1}: place #${p.number} ${p.label}${i > 0 ? " on top" : ""}.`);
+      }
       for (const s of parts) {
         if (s.spec.part === "spacer" && s.parentNumber === p.number) {
           steps.push(`Slide card spacer #${s.number} into tray #${p.number}.`);
@@ -287,8 +299,12 @@ export function packingSteps(layout: StoredLayout): string[] {
   });
   // A spacer whose tray isn't in the layout (an edited file) still has to be placed somewhere.
   for (const s of parts) {
-    if (s.spec.part === "spacer" && s.parentNumber === null) {
-      steps.push(`Place card spacer #${s.number} (the tray it belongs in is not in this layout).`);
+    if (isAddOn(s.spec) && s.parentNumber === null) {
+      steps.push(
+        s.spec.part === "riser"
+          ? `Place riser #${s.number} (the tray that stands on it is not in this layout).`
+          : `Place card spacer #${s.number} (the tray it belongs in is not in this layout).`,
+      );
     }
   }
   return steps;

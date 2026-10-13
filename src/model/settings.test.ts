@@ -42,6 +42,7 @@ describe("DEFAULT_SETTINGS", () => {
       topPressFit: 0,
       packingFactor: 0.5,
       leftover: "spare",
+      fillToTop: true,
     });
   });
 

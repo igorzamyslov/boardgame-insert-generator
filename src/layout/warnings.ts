@@ -13,6 +13,7 @@ export const NOTICE_CODES = {
   coverage: "layout.coverage",
   play: "layout.play",
   lipOff: "layout.lipOff",
+  stopsShort: "layout.stopsShort",
   capped: "layout.capped",
   bed: "layout.bed",
   doesNotFit: "layout.doesNotFit",
@@ -35,7 +36,7 @@ export function mmUp(v: number): string {
   return (Math.ceil(Math.round(v * 100) / 10) / 10).toFixed(1);
 }
 
-/** Warnings about a feasible layout: coverage, play, lip off. */
+/** Warnings about a feasible layout: coverage, play, lip off; and a note when stacks stop short of the top. */
 export function layoutWarnings(
   ctx: Ctx,
   trays: readonly TraySpec[],
@@ -90,6 +91,24 @@ export function layoutWarnings(
       code: NOTICE_CODES.lipOff,
       message: "The locating lip is off, so stacked trays are not held in place.",
     });
+  }
+  if (!settings.fillToTop) {
+    // Each stack's height, from its stored trays.
+    const heights = new Map<number, number>();
+    for (const t of trays) {
+      if (t.part === "tray") {
+        heights.set(t.stack, (heights.get(t.stack) ?? 0) + toU(t.h));
+      }
+    }
+    const short = [...heights.values()].filter((h) => h < ctx.topPlane);
+    if (short.length > 0) {
+      const most = Math.max(...short.map((h) => ctx.topPlane - h));
+      out.push({
+        level: "info",
+        code: NOTICE_CODES.stopsShort,
+        message: `"Fill the box to the top" is off, so ${short.length === 1 ? "1 stack stops" : `${short.length} stacks stop`} short of the lid (by up to ${mmUp(toMm(most))} mm). Boards and the lid won't rest on ${short.length === 1 ? "it" : "them"}, so trays can shift a little when the box is carried.`,
+      });
+    }
   }
   return out;
 }

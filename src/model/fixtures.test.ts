@@ -106,4 +106,11 @@ describe("schema history", () => {
       undefined,
     ]);
   });
+
+  it("reads the fillToTop setting of the 0.1.4 file, and defaults it on for older files", () => {
+    const { project } = load(HISTORY["../../test/fixtures/schema/0.1.4.json"]);
+    expect(project.settings.fillToTop).toBe(false);
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.3.json"]);
+    expect(older.project.settings.fillToTop).toBe(true);
+  });
 });

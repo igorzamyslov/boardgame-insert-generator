@@ -17,7 +17,7 @@ export function tintVar(index: number): string {
  */
 export const SPACER_COLOR = "#f7e3c4";
 
-/** A part with no component of its own: a spare tray or a filler block. */
+/** A part with no component of its own: a spare tray, a filler block or a riser. */
 export const SPARE_COLOR = "#dfe2e7";
 
 /** The index of the component whose name appears in tray contents text such as "Deck ×50". */

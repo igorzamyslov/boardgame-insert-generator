@@ -114,7 +114,10 @@ export interface StackHeights {
  * Heights so that Σ h = topPlane exactly. Every tray except the top one is rounded up to a
  * multiple of the layer height; the top takes the remainder. Height slack goes to the
  * lowest tray with a deeper-growing compartment (scoop), in whole layers, else to the top
- * tray (realizeTray turns it into a solid raised floor). Size-locked heights are kept.
+ * tray (realizeTray turns it into a raised floor, which materialize splits off as a riser
+ * under the stack once it is tall enough, spec §3 rule 2). Size-locked heights are kept. With
+ * `settings.fillToTop` off nothing is padded: every tray stays at its content height and the
+ * stack may stop short of the top plane.
  */
 export function stackHeights(ctx: Ctx, levels: readonly Level[]): StackHeights {
   const n = levels.length;
@@ -132,6 +135,9 @@ export function stackHeights(ctx: Ctx, levels: readonly Level[]): StackHeights {
   const sum = h.reduce((s, v) => s + v, 0);
   if (sum > ctx.topPlane) {
     return { h, overflow: sum - ctx.topPlane, lockOverflow };
+  }
+  if (!ctx.input.settings.fillToTop) {
+    return { h, overflow: 0, lockOverflow };
   }
   let extra = ctx.topPlane - sum;
   let r = -1;

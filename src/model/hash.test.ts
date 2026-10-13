@@ -38,6 +38,12 @@ describe("inputsHash", () => {
     expect(inputsHash(sample())).toMatch(/^[0-9a-f]{14}$/);
   });
 
+  it("changes with fillToTop, so a stored layout made the other way is stale", () => {
+    const on = sample();
+    const off: Project = { ...on, settings: { ...on.settings, fillToTop: false } };
+    expect(inputsHash(off)).not.toBe(inputsHash(on));
+  });
+
   it("includes an own __proto__ field of a component", () => {
     const base = sample();
     const withProtoField = (value: number): Project => {

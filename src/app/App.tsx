@@ -1,7 +1,8 @@
 // src/app/App.tsx
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { numberParts } from "../instructions/numbering";
+import { splitRisers } from "../layout";
 import { DEFAULT_PRINTER } from "../model/defaults";
 import type { Component, ComponentKind, Notice, Project, TraySpec } from "../model/types";
 import { APP_VERSION, isPreview } from "../model/version";
@@ -90,6 +91,20 @@ export function App(props: AppProps) {
   const [assemblyFor, setAssemblyFor] = useState<string | null>(null);
   const project = s.project.value;
   const layout = project.layout;
+  // The parts to print: the stored trays, with the height a stack doesn't need split off as a
+  // riser under it (spec §3 rule 2). The plan, 3D view, export and instructions all list these.
+  const { settings: projSettings, printer: projPrinter, locks: projLocks } = project;
+  const printable = useMemo(
+    () =>
+      layout
+        ? splitRisers(layout.trays, {
+            settings: projSettings,
+            printer: projPrinter,
+            locks: projLocks,
+          })
+        : [],
+    [layout, projSettings, projPrinter, projLocks],
+  );
   const showAssembly = assemblyFor === project.id && layout !== undefined;
   const mainRef = useRef<HTMLElement>(null);
   const openButtonRef = useRef<HTMLButtonElement>(null);
@@ -146,7 +161,7 @@ export function App(props: AppProps) {
       <main ref={mainRef}>
         <AssemblyPage
           project={project}
-          layout={layout}
+          layout={{ ...layout, trays: printable }}
           stale={s.stale.value}
           download={download}
           onBack={() => {
@@ -210,12 +225,12 @@ export function App(props: AppProps) {
   };
   const notices: readonly Notice[] = s.appNotices.value;
   // What the plan holds, for the sentence, the Export button and the tray numbers of the list.
-  const parts = layout ? numberParts(layout.trays) : [];
+  const parts = layout ? numberParts(printable) : [];
   const planCurrent = layout !== undefined && !s.stale.value && run.status !== "running";
   const trayNumbers = planCurrent ? trayNumbersByComponent(parts, project.components) : undefined;
   const layers = layout ? levelsOf(layout.trays).length : 0;
   const spares = layout ? layout.trays.filter((t) => t.part === "leftover").length : 0;
-  const partTotal = layout ? layout.trays.length : 0;
+  const partTotal = printable.length;
 
   return (
     <ValidationContext.Provider value={validation}>
@@ -462,7 +477,7 @@ export function App(props: AppProps) {
                   >
                     {view === "plan" ? (
                       <PlanView
-                        trays={layout.trays}
+                        trays={printable}
                         box={project.box}
                         settings={project.settings}
                         components={project.components}
@@ -483,7 +498,7 @@ export function App(props: AppProps) {
                     ) : null}
                     {view === "3d" ? (
                       <Viewer
-                        trays={layout.trays}
+                        trays={printable}
                         box={project.box}
                         settings={project.settings}
                         components={project.components}
@@ -510,7 +525,7 @@ export function App(props: AppProps) {
                           </button>
                         </p>
                         <ExportPanel
-                          trays={layout.trays}
+                          trays={printable}
                           printer={project.printer}
                           settings={project.settings}
                           meshes={meshes}

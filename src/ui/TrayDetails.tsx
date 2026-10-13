@@ -54,7 +54,7 @@ export function TrayDetails({
         ) : null}
         {part.parentNumber !== null ? (
           <div>
-            <dt>Sits on</dt>
+            <dt>{t.part === "riser" ? "Carries" : "Sits on"}</dt>
             <dd>{`Tray #${part.parentNumber}`}</dd>
           </div>
         ) : null}

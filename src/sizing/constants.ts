@@ -27,6 +27,14 @@ export const MIN_SPARE = 10;
 export const MIN_SPACER = 5;
 /** Card spacer: this much lower than the well (spec §6.2: well height − 5). */
 export const SPACER_TOP_GAP = 5;
+/**
+ * Smallest height of padding worth printing as a riser of its own under a stack (spec §3 rule 2).
+ * 10 mm is 50 layers at 0.2 mm: below it the raised floor it would replace costs less plastic
+ * than a second part (a bed slot, a print job, a step in the instructions) and is not what makes
+ * a tray look bulky. A riser's key is its bottom tray's key plus this suffix.
+ */
+export const MIN_RISER = 10;
+export const RISER_SUFFIX = ":riser";
 /** Corner relief diameter in tile and custom wells (spec §6.1). */
 export const CORNER_RELIEF_D = 3;
 /** At most this many variants per requirement (spec §7.1). */

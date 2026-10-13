@@ -7,6 +7,7 @@ export const KNOWN_PARTS: readonly TraySpec["part"][] = Object.freeze([
   "tray",
   "leftover",
   "spacer",
+  "riser",
 ]);
 export const KNOWN_COMPARTMENT_KINDS: readonly CompartmentSpec["kind"][] = Object.freeze([
   "well",

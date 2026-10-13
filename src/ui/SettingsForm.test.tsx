@@ -128,6 +128,19 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });
   });
 
+  it("offers Fill the box to the top in advanced mode only, on by default", () => {
+    const onChange = vi.fn();
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    const box = screen.getByLabelText("Fill the box to the top") as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(view.container.textContent).toContain("so every stack reaches the lid");
+    fireEvent.click(box);
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, fillToTop: false });
+    view.unmount();
+    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
+    expect(screen.queryByLabelText("Fill the box to the top")).toBeNull();
+  });
+
   it.each([
     ["field.bottomChamfer", "Bottom chamfer is more than the walls allow."],
     ["field.lipBearing", "The lip would not rest on the ledge."],

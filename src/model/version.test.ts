@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.3: 0.1.2 plus the stretch toggle", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.3");
+  it("is at schema 0.1.4: 0.1.3 plus the fillToTop setting", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.4");
   });
 
   it("parses strict semver", () => {

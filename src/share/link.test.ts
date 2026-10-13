@@ -47,6 +47,15 @@ describe("encodeHash / decodeHash", () => {
     expect(expectOk(decodeHash(encodeHash(p, noForeign()))).project).toEqual(p);
   });
 
+  it("carries fillToTop through a share link", () => {
+    const p = sampleProject();
+    const off = { ...p, settings: { ...p.settings, fillToTop: false } };
+    expect(expectOk(decodeHash(encodeHash(off, noForeign()))).project.settings.fillToTop).toBe(
+      false,
+    );
+    expect(expectOk(decodeHash(encodeHash(p, noForeign()))).project.settings.fillToTop).toBe(true);
+  });
+
   it("keeps foreign components, unknown values and unknown fields of a newer-minor project", () => {
     const raw = JSON.parse(serializeProject(newProject(), noForeign())) as Record<string, unknown>;
     raw.schemaVersion = "0.1.9";

@@ -16,6 +16,7 @@ describe("partLabel", () => {
     });
     expect(partLabel(t)).toBe("A ×10 + B ×5");
     expect(partLabel(makeTray({ part: "spacer", key: "a:p0:0:spacer" }))).toBe("Card spacer");
+    expect(partLabel(makeTray({ part: "riser", key: "a:p0:0:riser", path: "" }))).toBe("Riser");
     expect(partLabel(makeTray({ part: "leftover", key: "leftover:0", solid: true }))).toBe(
       "Filler block",
     );
@@ -66,6 +67,18 @@ describe("numberParts", () => {
       [5, "zz:p0:0:spacer", null],
     ]);
     expect(partsByKey(parts).get("c:p0:0")?.number).toBe(4);
+  });
+
+  it("puts a riser before the tray it carries, then that tray's spacers", () => {
+    const tray = makeTray({ key: "a:p0:0", stack: 0, level: 0, z: 12 });
+    const riser = makeTray({ key: "a:p0:0:riser", part: "riser", path: "", stack: 0, level: 0 });
+    const spacer = makeTray({ key: "a:p0:0:spacer", part: "spacer", path: "", stack: 0, level: 0 });
+    const parts = numberParts([spacer, tray, riser]);
+    expect(parts.map((p) => [p.number, p.spec.key, p.parentNumber])).toEqual([
+      [1, "a:p0:0:riser", 2],
+      [2, "a:p0:0", null],
+      [3, "a:p0:0:spacer", 2],
+    ]);
   });
 
   it("orders by code unit, not by locale, so the numbers are the same everywhere", () => {

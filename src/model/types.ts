@@ -132,6 +132,8 @@ export interface Settings {
   topPressFit: number;
   packingFactor: number;
   leftover: "spare" | "solid";
+  /** Pad every stack to the top plane, so nothing shifts (spec §3 rule 2); off = trays stay at content height. */
+  fillToTop: boolean;
 }
 
 export interface StoredLayout {
@@ -175,7 +177,7 @@ export interface CompartmentSpec {
 
 export interface TraySpec {
   key: string;
-  part: "tray" | "leftover" | "spacer";
+  part: "tray" | "leftover" | "spacer" | "riser"; // "riser" is derived for printing (splitRisers), never stored
   path: string;
   stack: number;
   level: number;
