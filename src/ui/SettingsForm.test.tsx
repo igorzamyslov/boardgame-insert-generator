@@ -135,7 +135,7 @@ describe("SettingsForm", () => {
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
     const exactValues = within(view.container.querySelector("details.pf-disc") as HTMLElement);
     for (const r of SETTING_RANGES.filter((x) => x.path !== "wallGrowth")) {
-      const exact = new RegExp(`^${r.label.replace(/[()]/g, "\\$&")}( \\(mm\\))?$`);
+      const exact = new RegExp(`^${r.label.replace(/[()]/g, "\\$&")}( \\((mm|%)\\))?$`);
       expect(exactValues.getByLabelText(exact), r.path).toBeTruthy();
     }
     fireEvent.input(screen.getByLabelText(/^Corner radius/), { target: { value: "4,5" } });

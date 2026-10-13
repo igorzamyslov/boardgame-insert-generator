@@ -144,6 +144,11 @@ export interface Settings {
    * the slack becoming a filler part (spec §7.2). 0 = never thicken: slack is printed as a filler.
    */
   wallGrowth: number;
+  /**
+   * Infill (percent) the filament estimate assumes for the sparse interior of thick parts (spec
+   * §8.3). Display only: it changes no geometry, so it is not part of the inputs hash.
+   */
+  infill: number;
 }
 
 export interface StoredLayout {

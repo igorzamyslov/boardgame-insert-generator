@@ -16,6 +16,8 @@ export interface LayoutSummary {
   trayCount: number; // printed parts excluding spacers
   stackCount: number;
   filamentG: number; // upper bound: solid volume × 1.24 g/cm³
+  filamentAtInfillG: number; // shell-and-core estimate at settings.infill (see summarize.ts)
+  infillPct: number; // the settings.infill the estimate used
   playX: number; // nominal lateral play, mm
   playY: number;
   crossX: number; // most trays side by side in a row across X: what playX is made of

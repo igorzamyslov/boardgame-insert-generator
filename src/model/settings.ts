@@ -70,6 +70,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   leftover: "spare",
   fillToTop: true,
   wallGrowth: 0,
+  infill: 15,
 });
 
 export type WallChoice = "thin" | "normal" | "sturdy";

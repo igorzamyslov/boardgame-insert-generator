@@ -191,6 +191,7 @@ function readSettings(r: Reader | undefined): Settings {
     leftover: r.oneOf("leftover", ["spare", "solid"], d.leftover),
     fillToTop: r.bool("fillToTop", d.fillToTop),
     wallGrowth: r.num("wallGrowth", d.wallGrowth),
+    infill: r.num("infill", d.infill),
   });
 }
 

@@ -57,6 +57,8 @@ box.
   setting (or all settings) to default.
 - Option descriptions as tooltips instead of always-visible hints, with
   screenshots showing what each option does.
+- Changing a tray's orientation by hand, in 90° steps.
+- Changing which layer a tray is on by hand, including forcing an extra layer.
 - Inch input.
 - Cross-engine bit-identical layouts (see §7.2 Determinism).
 - Frozen versioned builds (e.g. `…/insert-generator/v1/`).
@@ -330,6 +332,7 @@ interface Settings {
   leftover: "spare" | "solid";
   fillToTop: boolean; // rule 2: pad every stack to the top plane (a riser); off = content height
   wallGrowth: number; // mm each wall or divider may thicken to absorb leaf slack instead of a filler part (§7.2); 0 = never
+  infill: number; // % infill the filament estimate assumes for sparse interiors (§8.3); display only, not in inputsHash
 }
 ```
 
@@ -359,6 +362,7 @@ interface Settings {
 | `leftover` (also the riser's style)         | advanced: spare tray / solid                                       | spare tray                |
 | `fillToTop`                                 | advanced: "Fill the box to the top"                                | on                        |
 | `wallGrowth`                                | advanced: "Wall growth instead of a filler", beside "Unused space" | 0 (up to 3 mm per wall)   |
+| `infill`                                    | advanced: "Infill for the filament estimate" (Exact values)        | 15 (0–100 %)              |
 | `printer.bedMargin` / `printer.layerHeight` | advanced                                                           | 5 / 0.2                   |
 
 Simple-mode controls write resolved numbers into `settings`; the project
@@ -848,8 +852,21 @@ Numbers accept a decimal comma or point.
 
 ### 8.3 Results
 
+- **Filament estimate at infill.** Material within a shell of any surface
+  prints solid whatever the infill; only the interior beyond it is printed at
+  `infill`, so a region under two shells thick is wholly solid and a thin-walled
+  tray barely changes. The shell is derived from what prints, not set: 3
+  perimeters × 0.45 mm (a constant, not a setting) sideways and 5 solid layers ×
+  `printer.layerHeight` vertically (1.35 mm and 1.0 mm by default). An
+  approximation on the plastic-heavy side: a solid part (filler, riser) is one
+  box eroded by the shell; in a hollow tray, walls, dividers, floor and lip
+  count solid and only the slab under each compartment (footprint × `floorZ`) is
+  eroded; a spacer counts solid (it prints as thin plates). `infill` is display
+  only and is not in `inputsHash`.
 - **Summary:** box fill %, tray count, stack count, filament in grams
-  (PLA 1.24 g/cm³; upper bound at 100 % fill), lateral play per axis,
+  (PLA 1.24 g/cm³; two figures in advanced mode: an estimate at `infill`, and
+  the upper bound at 100 % fill, which needs no assumptions; the estimate is a
+  shell-and-core model, below), lateral play per axis,
   warnings. Under it: one search button
   whose label says what pressing it does. With no layout yet, or a stale one
   (inputs changed since it was made), it reads "Update plan" and re-fits to the

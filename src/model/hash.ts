@@ -62,15 +62,18 @@ export function cyrb53(str: string, seed = 0): number {
  * Hash of everything that affects the layout (spec §5 StoredLayout.inputsHash):
  * box, printer, settings, components and locks. Names are left out, so renaming never
  * triggers a re-optimize. `separators` is in: above 1 it makes a stretched deck's slack a spacer
- * instead of a spare pocket, so it changes the stored layout. Project id, name, schemaVersion,
+ * instead of a spare pocket, so it changes the stored layout. `settings.infill` is out: it only
+ * changes the displayed filament estimate, so editing it never marks the plan stale. Project id, name, schemaVersion,
  * createdWith and the stored layout itself are left out too. Unknown fields
  * preserved from a newer-minor file are included as-is. 14 hex characters.
  */
 export function inputsHash(p: Project): string {
+  // infill only scales the filament estimate; no part depends on it, so it must not stale the plan.
+  const settings = { ...p.settings, infill: undefined }; // canonicalJson skips undefined
   const canonical = canonicalJson({
     box: p.box,
     printer: p.printer,
-    settings: p.settings,
+    settings,
     components: withoutNames(p.components),
     locks: p.locks,
   });

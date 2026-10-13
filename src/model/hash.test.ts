@@ -50,6 +50,12 @@ describe("inputsHash", () => {
     expect(inputsHash(grown)).not.toBe(inputsHash(base));
   });
 
+  it("ignores infill: it only changes the filament estimate, never a part", () => {
+    const base = sample();
+    const denser: Project = { ...base, settings: { ...base.settings, infill: 80 } };
+    expect(inputsHash(denser)).toBe(inputsHash(base));
+  });
+
   it("includes an own __proto__ field of a component", () => {
     const base = sample();
     const withProtoField = (value: number): Project => {

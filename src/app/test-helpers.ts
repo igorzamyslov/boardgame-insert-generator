@@ -88,6 +88,8 @@ export function makeResult(
           trayCount: layout.trays.length,
           stackCount: 1,
           filamentG: 123,
+          filamentAtInfillG: 123,
+          infillPct: 15,
           playX: 1.2,
           playY: 1.6,
           crossX: 3,

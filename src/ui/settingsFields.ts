@@ -34,10 +34,14 @@ export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Setting
   topPressFit: (s, v) => ({ ...s, topPressFit: v }),
   packingFactor: (s, v) => ({ ...s, packingFactor: v }),
   wallGrowth: (s, v) => ({ ...s, wallGrowth: v }),
+  infill: (s, v) => ({ ...s, infill: v }),
 };
 
 const UNITLESS = new Set(["fit", "cardStackClearancePct", "packingFactor"]);
 
 export function settingUnit(path: string): string | undefined {
+  if (path === "infill") {
+    return "%";
+  }
   return UNITLESS.has(path) ? undefined : "mm";
 }

@@ -192,11 +192,18 @@ export function Summary(p: SummaryProps) {
             warn={p.summary.playY > PLAY_LIMIT_MM}
           />
           {p.advanced ? (
-            <Readout
-              label="Filament (upper bound: PLA, 100 % infill)"
-              value={`≤ ${Math.ceil(p.summary.filamentG)}`}
-              unit="g"
-            />
+            <>
+              <Readout
+                label={`Filament (estimate: PLA, ${p.summary.infillPct} % infill)`}
+                value={`≈ ${Math.round(p.summary.filamentAtInfillG)}`}
+                unit="g"
+              />
+              <Readout
+                label="Filament (upper bound: PLA, 100 % infill)"
+                value={`≤ ${Math.ceil(p.summary.filamentG)}`}
+                unit="g"
+              />
+            </>
           ) : null}
         </dl>
       ) : null}
@@ -205,6 +212,9 @@ export function Summary(p: SummaryProps) {
           Slack is the sideways play the trays have in the box: twice the box clearance, plus one
           tray gap for each extra tray in a row. Above {PLAY_LIMIT_MM} mm trays can shift when the
           box is moved.
+          {p.advanced
+            ? ` The filament estimate prints the first 3 perimeters and the top and bottom 5 layers of every part solid, whatever the infill, and only the interior beyond that at ${p.summary.infillPct} %. Walls, floors and thin parts are therefore counted solid, so it falls well below the 100 % figure only for thick blocks and raised floors. The estimate is rounded to the nearest gram, the 100 % figure up.`
+            : ""}
         </p>
       ) : null}
       {p.hasComponents ? (

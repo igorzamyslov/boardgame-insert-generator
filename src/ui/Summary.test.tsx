@@ -19,6 +19,8 @@ function props(over: Partial<SummaryProps> = {}): SummaryProps {
       trayCount: 7,
       stackCount: 4,
       filamentG: 412.2,
+      filamentAtInfillG: 187.4,
+      infillPct: 15,
       playX: 1.2,
       playY: 1.8,
       crossX: 3,
@@ -90,6 +92,8 @@ describe("Summary", () => {
       trayCount: 7,
       stackCount: 4,
       filamentG: 412,
+      filamentAtInfillG: 190,
+      infillPct: 15,
       playX: 1.2,
       playY: 1.3,
       crossX: 3,
@@ -99,6 +103,14 @@ describe("Summary", () => {
     expect(view.container.querySelector("dl.pf-readouts")).toBeNull();
     expect(screen.queryByText(/^Slack/)).toBeNull();
     expect(screen.queryByText(/upper bound/)).toBeNull();
+  });
+
+  it("shows the filament estimate at the infill beside the upper bound, and states the assumptions", () => {
+    render(<Summary {...props({ advanced: true })} />);
+    const estimate = screen.getByText(/estimate: PLA, 15 % infill/).nextElementSibling;
+    expect(estimate?.textContent).toMatch(/≈ 187\s*g/);
+    expect(screen.getByText(/upper bound/).nextElementSibling?.textContent).toMatch(/≤ 413\s*g/);
+    expect(document.body.textContent).toMatch(/3 perimeters and the top and bottom 5 layers/);
   });
 
   it("shows the slack, an upper-bound filament and slack warnings in advanced mode", () => {
@@ -387,6 +399,8 @@ describe("Summary", () => {
             trayCount: 1,
             stackCount: 1,
             filamentG: 1,
+            filamentAtInfillG: 1,
+            infillPct: 15,
             playX: 1.504,
             playY: 1.5,
             crossX: 3,

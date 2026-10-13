@@ -114,6 +114,14 @@ describe("schema history", () => {
     expect(older.project.settings.fillToTop).toBe(true);
   });
 
+  it("reads the infill setting of the 0.1.7 file, and defaults it to 15 for older files", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.7.json"]);
+    expect(notices).toEqual([]);
+    expect(project.settings.infill).toBe(30);
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.6.json"]);
+    expect(older.project.settings.infill).toBe(15);
+  });
+
   it("reads the wallGrowth setting of the 0.1.6 file, and defaults it to 0 for older files", () => {
     const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.6.json"]);
     expect(notices).toEqual([]);

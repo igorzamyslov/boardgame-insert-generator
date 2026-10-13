@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.6: 0.1.5 plus the wallGrowth setting", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.6");
+  it("is at schema 0.1.7: 0.1.6 plus the infill setting", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.7");
   });
 
   it("parses strict semver", () => {

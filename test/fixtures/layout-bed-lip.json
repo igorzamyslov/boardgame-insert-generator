@@ -547,7 +547,8 @@
       "topPressFit": 0,
       "packingFactor": 0.5,
       "leftover": "solid",
-      "wallGrowth": 0
+      "wallGrowth": 0,
+      "infill": 15
     },
     "locks": [],
     "inputsHash": "test-hash",
@@ -960,7 +961,8 @@
       "topPressFit": 0,
       "packingFactor": 0.5,
       "leftover": "spare",
-      "wallGrowth": 0
+      "wallGrowth": 0,
+      "infill": 15
     },
     "locks": [],
     "inputsHash": "test-hash",
@@ -1367,7 +1369,8 @@
       "topPressFit": 0,
       "packingFactor": 0.5,
       "leftover": "spare",
-      "wallGrowth": 0
+      "wallGrowth": 0,
+      "infill": 15
     },
     "locks": [],
     "inputsHash": "test-hash",

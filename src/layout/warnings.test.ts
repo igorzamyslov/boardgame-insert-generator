@@ -32,6 +32,8 @@ const okSummary: LayoutSummary = {
   trayCount: 2,
   stackCount: 2,
   filamentG: 10,
+  filamentAtInfillG: 10,
+  infillPct: 15,
   playX: 1.2,
   playY: 1.4,
   crossX: 3,

@@ -290,6 +290,14 @@ const settingRanges: SettingRange[] = [
     max: 3,
     hint: "How much thicker each wall or divider may get to soak up spare room instead of printing a separate filler part. 0 keeps every wall as set and prints the filler. Above 3 mm a wall is more than double a normal one, so a filler is the better choice.",
   },
+  {
+    path: "infill",
+    label: "Infill for the filament estimate",
+    get: (s) => s.infill,
+    min: 0,
+    max: 100,
+    hint: "The infill (percent) you print at. Only the filament estimate reads it: walls, floors and thin parts print solid whatever it is, so it lowers the figure only for thick blocks and raised floors. It changes no part.",
+  },
 ];
 
 /**
