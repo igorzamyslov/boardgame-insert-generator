@@ -268,6 +268,42 @@ are likely to pay off:
    level-aligned and share a full edge can be one part. This cuts the count with
    no downside to packing, and should be done before tuning any weight — it is
    the cheapest win here and may remove much of the complaint on its own.
+   1b. **Merge further: fillers with each other, and with risers.** Lever 1 joins
+   two strips that share an edge, but the idea generalises. All dead space in
+   the box — every filler, and every riser under a stack — is one connected
+   solid in many layouts, and could print as **one part per bed-full** instead
+   of five small ones. In the worked example below, the right-hand edge strip
+   and the two cross strips meet, forming a comb; the risers under each stack
+   sit at the foot of it.
+
+   The user's framing: they would rather fit one large piece than five small
+   ones.
+
+   Constraints that decide how far this can go:
+
+   - **The print bed.** The merged part must fit, and a box larger than the bed
+     in plan simply cannot have one piece. Merge greedily into the largest
+     connected part that fits, then start another.
+   - **Connectivity.** Only a single connected solid can be one part. Two
+     strips meeting at a corner qualify; two separated by a tray do not.
+   - **The tray gap.** Strips in different tree leaves are separated by
+     `trayGap`; a merged part absorbs it, so the result is slightly larger than
+     the sum.
+   - **Risers are not co-planar with fillers.** A riser sits under a tray while
+     a filler stands full height beside it, so merging them makes an L in
+     elevation: a low shelf the tray drops onto, with a full-height wall
+     alongside. That is printable and self-supporting, but it means a riser is
+     no longer per-stack, which is a change to how `splitRisers` works.
+   - **Assembly order.** A merged part must go in before every tray that rests
+     on or against it. The instructions already order parts, so this is a
+     numbering question, not a blocker.
+
+   Risks worth weighing against the convenience: a large flat part warps more
+   and takes a long single print, a failed print loses everything at once
+   rather than one small strip, and friction over a long merged face can make
+   the insert harder to get back out. Consider whether this should be a setting
+   rather than always on, alongside "Unused space".
+
 2. **Count, not volume.** Give filler count its own score term, tuned against
    `WEIGHTS.trays`. One large filler should beat two small ones even when the
    volume is identical.
