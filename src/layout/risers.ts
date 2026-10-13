@@ -75,9 +75,12 @@ export function splitRisers(trays: readonly TraySpec[], o: RiserInputs): TraySpe
         const upper =
           t.level > 0 && settings.lip.enabled ? settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP : 0;
         const least = Math.max(chamferMinimums(settings, t.level).h, upper);
-        const free = Math.min(...t.compartments.map((c) => c.floorZ - t.floor), t.h - least);
-        const u =
-          locked.has(t.key) || t.compartments.length === 0 ? 0 : toUFloor(Math.max(0, free));
+        // A spare is filler, not content: it may sit at the tray floor (older layouts) and must not
+        // veto the split. It is clamped to the shortened tray's floor below. A tray of nothing but
+        // spares has no content to size against, so it is left as it is.
+        const content = t.compartments.filter((c) => c.kind !== "spare");
+        const free = Math.min(...content.map((c) => c.floorZ - t.floor), t.h - least);
+        const u = locked.has(t.key) || content.length === 0 ? 0 : toUFloor(Math.max(0, free));
         return [t, roundDownTo(u, layer)];
       }),
     );
@@ -104,7 +107,9 @@ export function splitRisers(trays: readonly TraySpec[], o: RiserInputs): TraySpe
           h: roundMm(t.h - toMm(cut)),
           compartments: t.compartments.map((c) => ({
             ...c,
-            floorZ: roundMm(c.floorZ - toMm(cut)),
+            floorZ: roundMm(
+              c.kind === "spare" ? Math.max(t.floor, c.floorZ - toMm(cut)) : c.floorZ - toMm(cut),
+            ),
           })),
         },
       ];

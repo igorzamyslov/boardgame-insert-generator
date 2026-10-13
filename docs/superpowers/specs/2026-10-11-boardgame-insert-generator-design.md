@@ -53,6 +53,10 @@ box.
 - Bundled game presets library.
 - Calibration test print.
 - Print-time estimate.
+- Showing which settings differ from their defaults, with a button to restore a
+  setting (or all settings) to default.
+- Option descriptions as tooltips instead of always-visible hints, with
+  screenshots showing what each option does.
 - Inch input.
 - Cross-engine bit-identical layouts (see §7.2 Determinism).
 - Frozen versioned builds (e.g. `…/insert-generator/v1/`).

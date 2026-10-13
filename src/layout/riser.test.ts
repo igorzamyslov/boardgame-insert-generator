@@ -133,10 +133,29 @@ describe("splitRisers: a riser under a stack (spec §3 rule 2)", () => {
     expect(at.find((t) => t.part === "riser")?.h).toBe(MIN_RISER);
   });
 
-  it("is not emitted where a compartment is full depth, as a spare one is", () => {
+  it("is not blocked by a full-depth spare: the spare is clamped to the shortened tray's floor", () => {
     const tray = padded(60);
     tray.compartments.push({ ...compartment(1.2), kind: "spare", contents: "" });
-    expect(splitRisers([tray], base()).some((t) => t.part === "riser")).toBe(false);
+    const parts = splitRisers([tray], base());
+    const out = parts.find((t) => t.part === "tray");
+    // The well is 20 mm deep above a 1.2 mm floor: 60 - 21.2 = 38.8 mm moves to the riser.
+    expect(parts.find((t) => t.part === "riser")?.h).toBe(38.8);
+    expect(out?.h).toBe(21.2);
+    expect(out?.z).toBe(38.8);
+    expect(out?.compartments).toMatchObject([
+      { kind: "well", floorZ: 1.2 },
+      { kind: "spare", floorZ: 1.2 },
+    ]);
+    for (const c of out?.compartments ?? []) {
+      expect(c.floorZ).toBeGreaterThanOrEqual(out?.floor ?? Infinity);
+    }
+  });
+
+  it("leaves a tray of nothing but spares alone", () => {
+    const tray = padded(60, {
+      compartments: [{ ...compartment(1.2), kind: "spare", contents: "" }],
+    });
+    expect(splitRisers([tray], base())).toEqual([tray]);
   });
 
   it("leaves a size-locked tray at its height", () => {
