@@ -485,6 +485,20 @@ input[aria-invalid="true"] {
   display: grid;
   gap: var(--space-2);
   margin-top: var(--space-3);
+  align-content: start;
+}
+
+/*
+ * The drawing above keeps one size whether or not a tray is selected. This area is the same
+ * height either way, so picking a tray fills it instead of squeezing the plan, and details
+ * longer than it scroll inside. Below 960px the page scrolls as a whole and it simply grows.
+ */
+@media (width > 960px) {
+  .plan-toolbar {
+    flex: 0 0 auto;
+    height: 10rem;
+    overflow: auto;
+  }
 }
 
 .tray-details {
