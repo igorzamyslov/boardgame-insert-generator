@@ -326,6 +326,27 @@ describe("validateProject", () => {
     },
   );
 
+  const separatorCases: [number, string | null][] = [
+    [1, null],
+    [10, null],
+    [11, limit.separators],
+    [Number.POSITIVE_INFINITY, limit.separators],
+    [10.5, limit.separators],
+    [0, field.separators],
+    [-2, field.separators],
+    [2.5, field.separators],
+    [Number.NaN, field.separators],
+  ];
+  it.each(separatorCases)("checks %s spacer plates (%s)", (separators, code) => {
+    expect(codes(validateProject(withComponents(cards({ stretch: true, separators }))))).toEqual(
+      code === null ? [] : [[code, "/components/0/separators"]],
+    );
+  });
+
+  it("accepts a component with no separators set", () => {
+    expect(codes(validateProject(withComponents(cards({ stretch: true }))))).toEqual([]);
+  });
+
   const playerCases: [number, string][] = [
     [10.5, limit.players],
     [Number.POSITIVE_INFINITY, limit.players],
@@ -542,7 +563,13 @@ describe("validateComponent", () => {
 describe("shared constants", () => {
   it("freezes BOUNDS with the spec values", () => {
     expect(Object.isFrozen(BOUNDS)).toBe(true);
-    expect(BOUNDS).toEqual({ maxComponents: 100, maxCount: 2000, maxLength: 1000, maxPlayers: 10 });
+    expect(BOUNDS).toEqual({
+      maxComponents: 100,
+      maxCount: 2000,
+      maxLength: 1000,
+      maxPlayers: 10,
+      maxSeparators: 10,
+    });
   });
 
   it("freezes SETTING_RANGES and every entry", () => {

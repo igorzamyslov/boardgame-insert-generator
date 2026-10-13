@@ -149,6 +149,30 @@ describe("CardsEditor", () => {
     expect(last().stretch).toBe(true);
   });
 
+  it("offers spacer plates only while stretch is on, with a hint", () => {
+    const { view } = setup(cards(), true);
+    expect(screen.queryByLabelText("Spacer plates")).toBeNull();
+    view.unmount();
+    const { last } = setup(cards({ stretch: true }), true);
+    const field = screen.getByLabelText("Spacer plates") as HTMLInputElement;
+    expect(field.value).toBe("1");
+    expect(document.getElementById(`${field.id}-hint`)?.textContent).toMatch(/pull one out/i);
+    fireEvent.input(field, { target: { value: "3" } });
+    expect(last().separators).toBe(3);
+  });
+
+  it("stores nothing when the count goes back to 1", () => {
+    const { last } = setup(cards({ stretch: true, separators: 3 }), true);
+    fireEvent.input(screen.getByLabelText("Spacer plates"), { target: { value: "1" } });
+    expect("separators" in last()).toBe(false);
+    expect(last().stretch).toBe(true);
+  });
+
+  it("shows a stored count of spacer plates", () => {
+    setup(cards({ stretch: true, separators: 4 }), true);
+    expect((screen.getByLabelText("Spacer plates") as HTMLInputElement).value).toBe("4");
+  });
+
   it("shows a curved floor a file set on cards, so it can be turned off", () => {
     const { last } = setup(cards({ curvedFloor: true }), true);
     const floor = screen.getByLabelText("Curved floor") as HTMLInputElement;

@@ -14,15 +14,21 @@ export interface NumberedPart {
 
 export const SPACER_SUFFIX = ":spacer";
 
+/** A spacer's key ends `:spacer`, or `:spacer:<n>` for plate n of several (splitSeparators). */
+const SPACER_KEY = /:spacer(?::(\d+))?$/;
+
 /** The tray a spacer goes into, or a riser carries, by key. */
 export function parentKey(addOn: TraySpec): string {
-  const suffix = addOn.part === "riser" ? RISER_SUFFIX : SPACER_SUFFIX;
-  return addOn.key.endsWith(suffix) ? addOn.key.slice(0, -suffix.length) : addOn.key;
+  if (addOn.part === "riser") {
+    return addOn.key.endsWith(RISER_SUFFIX) ? addOn.key.slice(0, -RISER_SUFFIX.length) : addOn.key;
+  }
+  return addOn.key.replace(SPACER_KEY, "");
 }
 
 export function partLabel(spec: TraySpec): string {
   if (spec.part === "spacer") {
-    return "Card spacer";
+    const plate = SPACER_KEY.exec(spec.key)?.[1];
+    return plate === undefined ? "Card spacer" : `Spacer plate ${plate}`;
   }
   if (spec.part === "riser") {
     return "Riser";
@@ -46,8 +52,12 @@ export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
   const addOns = trays.filter(isAddOn);
   const used = new Set<TraySpec>();
   const ordered: TraySpec[] = [];
+  // The plates of a split spacer go in plate order, whatever order they came in.
+  const plateOf = (s: TraySpec): number => Number(SPACER_KEY.exec(s.key)?.[1] ?? 0);
   const take = (kind: TraySpec["part"], t: TraySpec): TraySpec[] =>
-    addOns.filter((s) => s.part === kind && !used.has(s) && parentKey(s) === t.key);
+    addOns
+      .filter((s) => s.part === kind && !used.has(s) && parentKey(s) === t.key)
+      .sort((a, b) => plateOf(a) - plateOf(b));
   for (const t of main) {
     // A riser is placed first, then the tray on it, then the addOns that go into the tray.
     for (const r of take("riser", t)) {

@@ -133,6 +133,22 @@ export function stretchOn(c: Component): boolean {
   return c.stretch ?? kindDefaults(c).stretch;
 }
 
+/**
+ * How many loose plates the component's stretch spacer is printed as, before the plates that
+ * would come out too thin are dropped (spec §6.2). 1, the single spacer block, unless set.
+ */
+export function separatorsOf(c: Component): number {
+  return c.separators ?? 1;
+}
+
+/** The component with `separators` set to `n`; 1 is the default, so it is stored as nothing. */
+export function withSeparators<C extends Component>(c: C, n: number): C {
+  if (n !== 1) {
+    return { ...c, separators: n };
+  }
+  return Object.fromEntries(Object.entries(c).filter(([key]) => key !== "separators")) as C;
+}
+
 /** The component's toggles: what it set, else its kind's defaults. */
 export function togglesOf(c: Component): Toggles {
   return {

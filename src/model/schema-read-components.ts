@@ -59,6 +59,10 @@ function readBase(r: Reader, kind: ComponentKind): ComponentBase {
   if (stretch !== undefined) {
     base.stretch = stretch;
   }
+  const separators = r.optNum("separators");
+  if (separators !== undefined) {
+    base.separators = separators;
+  }
   return base;
 }
 

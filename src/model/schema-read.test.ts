@@ -483,6 +483,18 @@ describe("readProject: files from a newer minor", () => {
     expect(loaded?.kind === "custom" && loaded.w).toBeNaN();
   });
 
+  it("reads a component's separators, and leaves it absent when the file has none", () => {
+    const input = sampleJson();
+    const cards = at(input, "components", 0);
+    delete cards.separators;
+    const plain = expectOk(readProject(input, CURRENT)).project.components[0];
+    expect(plain && "separators" in plain).toBe(false);
+    cards.separators = 3;
+    expect(expectOk(readProject(input, CURRENT)).project.components[0]?.separators).toBe(3);
+    cards.separators = null;
+    expect(expectOk(readProject(input, CURRENT)).project.components[0]?.separators).toBeNaN();
+  });
+
   it("drops a stored layout that holds a null number (computed data is never NaN)", () => {
     const input = sampleJson();
     at(input.layout as Json, "trays", 0).x = null;

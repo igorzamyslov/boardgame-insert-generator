@@ -162,6 +162,55 @@ describe("toggles", () => {
     expect(lastOf(onChange).cornerReliefs).toBe(false);
   });
 
+  it("offers spacer plates on tiles with stretch on, never on bulk, minis or custom", () => {
+    render(<TilesEditor component={of("tiles")} index={0} advanced onChange={vi.fn()} />);
+    expect(screen.queryByLabelText("Spacer plates")).toBeNull();
+    cleanup();
+    const onChange = vi.fn<(c: TilesComponent) => void>();
+    render(
+      <TilesEditor
+        component={{ ...of("tiles"), stretch: true }}
+        index={0}
+        advanced
+        onChange={onChange}
+      />,
+    );
+    fireEvent.input(screen.getByLabelText("Spacer plates"), { target: { value: "2" } });
+    expect(lastOf(onChange).separators).toBe(2);
+    cleanup();
+    // a file may set stretch on any kind; only cards and tiles have the option
+    for (const [kind, Editor] of [
+      ["bulk", BulkEditor],
+      ["minis", MinisEditor],
+      ["custom", CustomEditor],
+    ] as const) {
+      const c = { ...of(kind), stretch: true, separators: 3 };
+      render(<Editor component={c as never} index={0} advanced onChange={vi.fn()} />);
+      expect(screen.queryByLabelText("Spacer plates")).toBeNull();
+      cleanup();
+    }
+  });
+
+  it("says why a plate count was cut back, next to the field", () => {
+    const notice: Notice = {
+      level: "info",
+      code: "separators.reduced",
+      message: "Spacer plates for this component: you asked for 5, but 2 fit.",
+      path: "/components/0/separators",
+    };
+    render(
+      <SizingContext.Provider value={[notice]}>
+        <TilesEditor
+          component={{ ...of("tiles"), stretch: true, separators: 5 }}
+          index={0}
+          advanced
+          onChange={vi.fn()}
+        />
+      </SizingContext.Provider>,
+    );
+    expect(screen.getByText(/you asked for 5, but 2 fit/)).toBeTruthy();
+  });
+
   it("offers stretch to fill on tiles only, not on bulk, minis or custom", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
     render(<TilesEditor component={of("tiles")} index={0} advanced onChange={onChange} />);

@@ -2,7 +2,14 @@
 import { describe, expect, it } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { numberParts, outerSizeText, partLabel, partsByKey, printedHeight } from "./numbering";
+import {
+  numberParts,
+  outerSizeText,
+  parentKey,
+  partLabel,
+  partsByKey,
+  printedHeight,
+} from "./numbering";
 
 describe("partLabel", () => {
   it("joins unique contents and names special parts", () => {
@@ -79,6 +86,21 @@ describe("numberParts", () => {
       [2, "a:p0:0", null],
       [3, "a:p0:0:spacer", 2],
     ]);
+  });
+
+  it("numbers the plates of a split spacer after their tray, and names them", () => {
+    const tray = makeTray({ key: "a:p0:0", stack: 0, level: 0 });
+    const plate = (n: number) =>
+      makeTray({ key: `a:p0:0:spacer:${n}`, part: "spacer", path: "", stack: 0, level: 0 });
+    const parts = numberParts([plate(2), tray, plate(1), plate(3)]);
+    expect(parts.map((p) => [p.number, p.spec.key, p.parentNumber, p.label])).toEqual([
+      [1, "a:p0:0", null, partLabel(tray)],
+      [2, "a:p0:0:spacer:1", 1, "Spacer plate 1"],
+      [3, "a:p0:0:spacer:2", 1, "Spacer plate 2"],
+      [4, "a:p0:0:spacer:3", 1, "Spacer plate 3"],
+    ]);
+    expect(partLabel(plate(1))).toBe("Spacer plate 1");
+    expect(parentKey(plate(12))).toBe("a:p0:0");
   });
 
   it("orders by code unit, not by locale, so the numbers are the same everywhere", () => {

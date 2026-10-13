@@ -34,6 +34,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     lockStack: "field.lockStack",
     perPlayerInGroup: "field.perPlayerInGroup",
     players: "field.players",
+    separators: "field.separators",
     setting: "field.setting",
     topPlane: "field.topPlane",
     volume: "field.volume",
@@ -43,6 +44,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     count: "limit.count",
     length: "limit.length",
     players: "limit.players",
+    separators: "limit.separators",
     volume: "limit.volume",
   },
   invalid: {
@@ -57,6 +59,7 @@ export const BOUNDS = Object.freeze({
   maxCount: 2000,
   maxLength: 1000,
   maxPlayers: 10,
+  maxSeparators: 10,
 } as const);
 
 /** 1000 mm × 1000 mm × 1000 mm, in ml. */
@@ -401,6 +404,22 @@ function checkBase(ck: Checker, c: Component, at: string): void {
   }
   if (c.clearance !== undefined) {
     ck.nonNegativeLength(`${at}/clearance`, "Clearance", c.clearance);
+  }
+  if (c.separators !== undefined) {
+    const n = c.separators;
+    if (n > BOUNDS.maxSeparators) {
+      ck.error(
+        VALIDATION_NOTICE_CODES.limit.separators,
+        `${at}/separators`,
+        `Spacer plates must be at most ${BOUNDS.maxSeparators}.`,
+      );
+    } else if (!Number.isInteger(n) || n < 1) {
+      ck.error(
+        VALIDATION_NOTICE_CODES.field.separators,
+        `${at}/separators`,
+        "Spacer plates must be a whole number of at least 1.",
+      );
+    }
   }
   // A curved floor bends cards and tilts upright tiles (spec §6.1).
   if (c.curvedFloor === true && (c.kind === "cards" || c.kind === "tiles")) {

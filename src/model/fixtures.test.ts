@@ -113,4 +113,19 @@ describe("schema history", () => {
     const older = load(HISTORY["../../test/fixtures/schema/0.1.3.json"]);
     expect(older.project.settings.fillToTop).toBe(true);
   });
+
+  it("reads the separators option of the 0.1.5 file, and leaves it unset for older files", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.5.json"]);
+    expect(notices).toEqual([]);
+    expect(project.components.map((c) => c.separators)).toEqual([
+      3,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.4.json"]);
+    expect(older.project.components.every((c) => c.separators === undefined)).toBe(true);
+  });
 });

@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import type { TraySpec } from "../model/types";
+import { MIN_SEPARATOR } from "../sizing/constants";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
 import type { RealizeOptions } from "../sizing/types";
 import { loadManifold } from "./load";
@@ -262,6 +263,18 @@ describe("buildTray per tray type", () => {
     expect(Math.abs(volumeMm3 - expected) / expected).toBeLessThan(0.003);
     expect(heightAt(mesh, 15, 46.25)).toBeCloseTo(63 - 29, 3);
     expect(heightAt(mesh, 15, 20)).toBeCloseTo(63, 3);
+  });
+
+  it("a spacer plate as thin as MIN_SEPARATOR builds, notch and all", () => {
+    const plate: TraySpec = { ...notchedSpacer, key: "cards:p0:0:spacer:1", w: MIN_SEPARATOR };
+    const { mesh, volumeMm3 } = expectWellFormed(plate);
+    const u = 22 * (29 - 11) + (Math.PI * 11 * 11) / 2;
+    const expected = blockVolume(MIN_SEPARATOR, 92.5, 63, 3, 0.4) - MIN_SEPARATOR * u;
+    // The plate is thinner than the plain 3 mm corner radius, which sizing shrinks to fit, so it
+    // holds a little more than the ideal block: a couple of percent, never less.
+    expect(volumeMm3 / expected).toBeGreaterThan(0.999);
+    expect(volumeMm3 / expected).toBeLessThan(1.03);
+    expect(heightAt(mesh, MIN_SEPARATOR / 2, 46.25)).toBeCloseTo(63 - 29, 3);
   });
 
   it("lipped lower tray: lip adds height and a chamfered ring", () => {

@@ -292,7 +292,7 @@ export function packingSteps(layout: StoredLayout): string[] {
       }
       for (const s of parts) {
         if (s.spec.part === "spacer" && s.parentNumber === p.number) {
-          steps.push(`Slide card spacer #${s.number} into tray #${p.number}.`);
+          steps.push(`Slide ${s.label.toLowerCase()} #${s.number} into tray #${p.number}.`);
         }
       }
     }
@@ -303,7 +303,7 @@ export function packingSteps(layout: StoredLayout): string[] {
       steps.push(
         s.spec.part === "riser"
           ? `Place riser #${s.number} (the tray that stands on it is not in this layout).`
-          : `Place card spacer #${s.number} (the tray it belongs in is not in this layout).`,
+          : `Place ${s.label.toLowerCase()} #${s.number} (the tray it belongs in is not in this layout).`,
       );
     }
   }

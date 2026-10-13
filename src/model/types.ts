@@ -46,13 +46,17 @@ export interface ComponentBase {
   groupId?: string;
   perPlayer?: { players: number };
   clearance?: number;
-  // Absent: the kind's default (fingerCutsOn, curvedFloorOn, cornerReliefsOn, stretchOn in ./defaults; spec §5).
+  // Absent: the kind's default (fingerCutsOn, curvedFloorOn, cornerReliefsOn, stretchOn, separatorsOf in ./defaults; spec §5).
   fingerCuts?: boolean; // a centred finger cut through a wall of each compartment
   curvedFloor?: boolean; // a scoop ramp on the floor (bulk, minis, custom only)
   cornerReliefs?: boolean; // advanced: Ø 3 mm reliefs in the corners of each compartment
   // cards and tiles stored upright only: the tray grows to fill its space instead of staying
   // content-sized, a spacer or an end wall taking up the slack
   stretch?: boolean;
+  // cards and tiles with `stretch` on only: how many thin loose plates the stretch spacer is
+  // printed as, so one can be pulled out as the collection grows (absent: 1, a single spacer).
+  // Derived for printing (splitSeparators), never part of the stored layout nor its hash.
+  separators?: number;
 }
 
 export type Sleeve = "none" | "standard" | "premium" | { w: number; h: number; thickness: number };
@@ -177,7 +181,7 @@ export interface CompartmentSpec {
 
 export interface TraySpec {
   key: string;
-  part: "tray" | "leftover" | "spacer" | "riser"; // "riser" is derived for printing (splitRisers), never stored
+  part: "tray" | "leftover" | "spacer" | "riser"; // "riser" is derived for printing (splitRisers), never stored; a spacer stored is always one block, split into plates for printing (splitSeparators)
   path: string;
   stack: number;
   level: number;

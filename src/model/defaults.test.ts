@@ -9,6 +9,8 @@ import {
   groupOf,
   newComponent,
   newProject,
+  separatorsOf,
+  withSeparators,
   stretchOn,
   togglesOf,
 } from "./defaults";
@@ -127,6 +129,23 @@ describe("stretch", () => {
   it("takes a set value over the default", () => {
     expect(stretchOn({ ...newComponent("cards"), stretch: true })).toBe(true);
     expect(togglesOf({ ...newComponent("tiles"), stretch: true }).stretch).toBe(true);
+  });
+});
+
+describe("separators", () => {
+  it.each(KINDS)("is a single spacer for a new %s component", (kind) => {
+    expect(separatorsOf(newComponent(kind))).toBe(1);
+  });
+
+  it("takes a set value over the default", () => {
+    expect(separatorsOf({ ...newComponent("cards"), separators: 4 })).toBe(4);
+  });
+
+  it("stores nothing for 1, and removes a stored count", () => {
+    const c = newComponent("cards");
+    expect(withSeparators(c, 3).separators).toBe(3);
+    expect("separators" in withSeparators(withSeparators(c, 3), 1)).toBe(false);
+    expect(withSeparators(c, 1)).toEqual(c);
   });
 });
 

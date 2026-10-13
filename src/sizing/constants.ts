@@ -25,6 +25,14 @@ export const BIN_FREEBOARD = 5;
 export const MIN_SPARE = 10;
 /** Card spacer: minimum spare stack length and minimum spacer height (spec §6.2). */
 export const MIN_SPACER = 5;
+/**
+ * Thinnest loose spacer plate worth printing when a stretch spacer is split into several
+ * (a component's `separators`, spec §6.2). Thinner than MIN_SPACER because a plate carries no
+ * load: it only takes up slack between decks, in the same well as the others, and the stack is
+ * pressed together from both sides. 3 mm is about seven perimeter lines, solid, so it prints
+ * rigid standing on its edge; the bottom chamfer's own minimum applies on top (planTray).
+ */
+export const MIN_SEPARATOR = 3;
 /** Card spacer: this much lower than the well (spec §6.2: well height − 5). */
 export const SPACER_TOP_GAP = 5;
 /**

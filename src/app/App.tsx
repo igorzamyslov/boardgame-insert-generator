@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { numberParts } from "../instructions/numbering";
-import { splitRisers } from "../layout";
+import { splitRisers, splitSeparators } from "../layout";
 import { DEFAULT_PRINTER } from "../model/defaults";
 import type { Component, ComponentKind, Notice, Project, TraySpec } from "../model/types";
 import { APP_VERSION, isPreview } from "../model/version";
@@ -92,18 +92,30 @@ export function App(props: AppProps) {
   const project = s.project.value;
   const layout = project.layout;
   // The parts to print: the stored trays, with the height a stack doesn't need split off as a
-  // riser under it (spec §3 rule 2). The plan, 3D view, export and instructions all list these.
+  // riser under it (spec §3 rule 2) and each stretch spacer split into its component's plates
+  // (spec §6.2). The plan, 3D view, export and instructions all list these.
   const { settings: projSettings, printer: projPrinter, locks: projLocks } = project;
-  const printable = useMemo(
-    () =>
-      layout
-        ? splitRisers(layout.trays, {
-            settings: projSettings,
-            printer: projPrinter,
-            locks: projLocks,
-          })
-        : [],
-    [layout, projSettings, projPrinter, projLocks],
+  const projComponents = project.components;
+  const { printable, separatorNotices } = useMemo(() => {
+    if (!layout) {
+      return { printable: [], separatorNotices: [] };
+    }
+    const risered = splitRisers(layout.trays, {
+      settings: projSettings,
+      printer: projPrinter,
+      locks: projLocks,
+    });
+    const split = splitSeparators(risered, { components: projComponents, settings: projSettings });
+    return { printable: split.trays, separatorNotices: split.notices };
+  }, [layout, projSettings, projPrinter, projLocks, projComponents]);
+  // The plate counts cut back at print time are told with the other sizing notes.
+  const sizingNotices = useMemo(
+    () => [...s.sizingNotices.value, ...separatorNotices],
+    [s.sizingNotices.value, separatorNotices],
+  );
+  const layoutNotices = useMemo(
+    () => [...s.layoutNotices.value, ...separatorNotices],
+    [s.layoutNotices.value, separatorNotices],
   );
   const showAssembly = assemblyFor === project.id && layout !== undefined;
   const mainRef = useRef<HTMLElement>(null);
@@ -234,7 +246,7 @@ export function App(props: AppProps) {
 
   return (
     <ValidationContext.Provider value={validation}>
-      <SizingContext.Provider value={s.sizingNotices.value}>
+      <SizingContext.Provider value={sizingNotices}>
         <div class="pf-app" data-level={advanced ? "advanced" : "simple"}>
           <div class="app-top">
             <header class="pf-app__bar">
@@ -392,7 +404,7 @@ export function App(props: AppProps) {
               <Summary
                 summary={s.summary.value}
                 run={run}
-                notices={s.layoutNotices.value}
+                notices={layoutNotices}
                 hasLayout={layout !== undefined}
                 stale={s.stale.value}
                 layers={layers}

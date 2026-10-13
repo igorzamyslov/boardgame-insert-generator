@@ -1,7 +1,16 @@
 // src/ui/components/ToggleOptions.tsx
-import { cornerReliefsOn, curvedFloorOn, fingerCutsOn, stretchOn } from "../../model/defaults";
+import {
+  cornerReliefsOn,
+  curvedFloorOn,
+  fingerCutsOn,
+  separatorsOf,
+  stretchOn,
+  withSeparators,
+} from "../../model/defaults";
 import type { Component } from "../../model/types";
 import { CheckField } from "../fields";
+import { SEPARATORS } from "../limits";
+import { NumberField } from "../NumberField";
 import { useSizingNotices } from "../validation";
 import type { EditorProps } from "./types";
 
@@ -15,6 +24,14 @@ export function BinNotes({ index }: Pick<EditorProps<Component>, "component" | "
   );
   return binNotes.length > 0 ? (
     <p class="hint">{binNotes.map((n) => n.message).join(" ")}</p>
+  ) : null;
+}
+
+/** The note that a spacer-plate count was cut back to what fits (a print-time sizing notice). */
+function SeparatorNotes({ index }: Pick<EditorProps<Component>, "index">) {
+  const notes = useSizingNotices(`/components/${index}/separators`);
+  return notes.length > 0 ? (
+    <p class="hint field-notes">{notes.map((n) => n.message).join(" ")}</p>
   ) : null;
 }
 
@@ -68,6 +85,20 @@ export function ToggleOptions<C extends Component>({
           hint="Upright stacks only: the tray grows to fill the space instead of staying snug. Off, a spare tray fills the gap."
           onChange={(on) => onChange({ ...c, stretch: on })}
         />
+      ) : null}
+      {(c.kind === "cards" || c.kind === "tiles") && stretchOn(c) ? (
+        <>
+          <NumberField
+            id={`${c.id}-separators`}
+            label="Spacer plates"
+            hint="The spare length is printed as this many thin loose plates instead of one block. Pull one out as the collection grows and the stack still fits snug."
+            value={separatorsOf(c)}
+            {...SEPARATORS}
+            path={`/components/${index}/separators`}
+            onCommit={(v) => onChange(withSeparators(c, v))}
+          />
+          <SeparatorNotes index={index} />
+        </>
       ) : null}
     </>
   );
