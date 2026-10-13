@@ -53,6 +53,9 @@ box.
 - Bundled game presets library.
 - Calibration test print.
 - Print-time estimate.
+- Showing the sizes derived from a component's presets (card format, count,
+  sleeve) next to the editor, so the user can judge whether to trust them
+  without measuring, plus a correction multiplier for when they do not match.
 - Showing which settings differ from their defaults, with a button to restore a
   setting (or all settings) to default.
 - Option descriptions as tooltips instead of always-visible hints, with
