@@ -20,6 +20,43 @@ const reqs = [
 ];
 const input = makeInput(reqs, { box: { innerWidth: 280, innerDepth: 200, innerHeight: 60 } });
 
+// A 103.2 × 63.2 mm tray in a 106.2 × 63.25 mm floor: 3 mm of slack along X, a 0.05 mm sliver along Y.
+describe("leaf slack: a filler part, or thicker walls only when the user allows them", () => {
+  const run = (wallGrowth: number) => {
+    const inp = makeInput([boxReq("a", 100, 60, 20)], {
+      box: { innerWidth: 107.2, innerDepth: 64.25, innerHeight: 60 },
+      settings: { wallGrowth },
+    });
+    const r = optimize(inp, 1, 500);
+    const trays = r.layout?.trays ?? [];
+    expect(r.layout).not.toBeNull();
+    return {
+      tray: trays.find((t) => t.part === "tray"),
+      leftovers: trays.filter((t) => t.part === "leftover"),
+    };
+  };
+
+  it("prints a filler by default instead of thickening the walls", () => {
+    const { tray, leftovers } = run(0);
+    expect(tray).toMatchObject({ w: 103.2, wall: 1.6 });
+    expect(leftovers.map((l) => l.w)).toEqual([2.8]);
+  });
+
+  it("absorbs the slack into thicker walls once wallGrowth covers it, and not before", () => {
+    // Two walls each take wallGrowth: 2 × 1.4 = 2.8 mm is under the 3 mm, 2 × 1.6 = 3.2 is over.
+    expect(run(1.4).leftovers).toHaveLength(1);
+    const absorbed = run(1.6);
+    expect(absorbed.leftovers).toEqual([]);
+    expect(absorbed.tray?.w).toBe(106.2);
+  });
+
+  it("absorbs a gap too small to be a part even with wallGrowth 0", () => {
+    // The 0.05 mm of depth slack never becomes a leftover.
+    expect(run(0).tray?.d).toBe(63.25);
+    expect(run(0).leftovers.every((l) => l.d > 60)).toBe(true);
+  });
+});
+
 describe("optimize", () => {
   it("returns a feasible StoredLayout that satisfies every hard rule", () => {
     const r = optimize(input, 1, 3000);

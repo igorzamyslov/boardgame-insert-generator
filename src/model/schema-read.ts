@@ -190,6 +190,7 @@ function readSettings(r: Reader | undefined): Settings {
     packingFactor: r.num("packingFactor", d.packingFactor),
     leftover: r.oneOf("leftover", ["spare", "solid"], d.leftover),
     fillToTop: r.bool("fillToTop", d.fillToTop),
+    wallGrowth: r.num("wallGrowth", d.wallGrowth),
   });
 }
 

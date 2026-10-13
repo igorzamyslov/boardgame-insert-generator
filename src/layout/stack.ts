@@ -1,5 +1,5 @@
 import { fitsBed } from "./bed";
-import { INF_U, SLIVER_U, type Ctx, type FixedSize } from "./context";
+import { INF_U, type Ctx, type FixedSize } from "./context";
 import type { StackItem } from "./tree";
 import { roundDownTo, roundUpTo, type Ext, type U } from "./units";
 
@@ -44,11 +44,11 @@ export function stackLevels(ctx: Ctx, stack: readonly StackItem[]): Level[] {
 /**
  * Smallest bottom footprint that holds every level: level k is inset k·inset per side,
  * so leaf ≥ req_k + 2·k·inset on both axes (spec §7.2). An empty stack (leftover leaf)
- * needs SLIVER_U on both axes.
+ * needs `ctx.minFiller` on both axes.
  */
 export function stackMinFootprint(ctx: Ctx, levels: readonly Level[]): Ext {
   if (levels.length === 0) {
-    return { w: SLIVER_U, d: SLIVER_U };
+    return { w: ctx.minFiller, d: ctx.minFiller };
   }
   let w = 0;
   let d = 0;

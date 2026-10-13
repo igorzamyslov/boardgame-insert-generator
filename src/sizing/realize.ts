@@ -10,7 +10,6 @@ import {
   MIN_FLAT_FLOOR,
   SCOOP_REACH,
   SPACER_TOP_GAP,
-  WALL_GROW_LIMIT,
 } from "./constants";
 import { cutoutSides } from "./common";
 import { placeCutouts } from "./cutouts";
@@ -392,11 +391,8 @@ function layoutAt(
   const { wall, divider, floor, rows, room } = min;
   // How much slack a wall or divider may still take (thicker walls, not finger room). Growth caps
   // are maximums, so they round down; minimums (wall, divider, pocket) round up.
-  const wallGrow = Math.max(0, floorU(Math.min(2 * settings.wall, WALL_GROW_LIMIT)) - wall);
-  const dividerGrow = Math.max(
-    0,
-    floorU(Math.min(2 * settings.divider, WALL_GROW_LIMIT)) - divider,
-  );
+  const wallGrow = Math.max(0, floorU(settings.wallGrowth));
+  const dividerGrow = wallGrow;
   const innerW = W - 2 * wall;
   const innerD = D - 2 * wall;
 

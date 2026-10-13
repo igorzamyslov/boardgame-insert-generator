@@ -49,6 +49,9 @@ function fitOptions(s: Settings): SelectOption<FitChoice | "custom">[] {
   return options;
 }
 
+const WALL_GROWTH_PATH = "wallGrowth";
+const wallGrowthRange = SETTING_RANGES.find((r) => r.path === WALL_GROWTH_PATH);
+
 export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps) {
   if (!advanced) {
     return (
@@ -64,7 +67,7 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         <summary>Exact values</summary>
         <div class="pf-disc__body">
           <div class="form-grid">
-            {SETTING_RANGES.map((r) => (
+            {SETTING_RANGES.filter((r) => r.path !== WALL_GROWTH_PATH).map((r) => (
               <NumberField
                 key={r.path}
                 id={`settings-${r.path.replace("/", "-")}`}
@@ -104,6 +107,19 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         ]}
         onChange={(leftover) => onChange({ ...settings, leftover })}
       />
+      {wallGrowthRange ? (
+        <NumberField
+          id="settings-wallGrowth"
+          label={wallGrowthRange.label}
+          unit="mm"
+          value={settings.wallGrowth}
+          path="/settings/wallGrowth"
+          min={wallGrowthRange.min}
+          max={wallGrowthRange.max}
+          hint={wallGrowthRange.hint}
+          onCommit={(wallGrowth) => onChange({ ...settings, wallGrowth })}
+        />
+      ) : null}
       <CheckField
         id="settings-fillToTop"
         label="Fill the box to the top"

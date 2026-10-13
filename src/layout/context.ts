@@ -1,7 +1,7 @@
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
 import type { Settings } from "../model/types";
 import { minOuter, wallFor } from "../sizing";
-import { MIN_GRIP, UPPER_TRAY_MIN_ABOVE_LIP, WALL_GROW_LIMIT } from "../sizing/constants";
+import { MIN_GRIP, UPPER_TRAY_MIN_ABOVE_LIP } from "../sizing/constants";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import type { Bed } from "./bed";
 import type { LayoutInput } from "./types";
@@ -16,13 +16,6 @@ export const INF_U: U = 1_000_000_000;
 export const MAX_LEVELS = 4;
 /** Longest guillotine path accepted from locks or stored layouts. */
 export const MAX_DEPTH = 32;
-/** Leftover regions narrower than this are absorbed into the neighbouring tray (spec §7.2). */
-export const SLIVER_U: U = 1200;
-/**
- * Thinnest leftover piece that is ever printed (forced by a bed or size-lock cap); Ctx.minPiece
- * raises it to what the bottom chamfer needs.
- */
-export const MIN_PIECE_U: U = 300;
 /** Smallest inner dimension that counts as a grip (hard rule 8): sizing's MIN_GRIP. */
 export const GRIP_U: U = toU(MIN_GRIP);
 /** Nominal lateral play above this is penalized and warned about (hard rule 1). */
@@ -75,8 +68,12 @@ export interface Ctx {
   /** Base outer wall and floor as sizing writes them: wallFor, floor ≥ MIN_FEATURE_MM, rounded up. */
   readonly wall: U;
   readonly floor: U;
-  /** Thinnest leftover piece: MIN_PIECE_U, or more for the level-0 bottom chamfer. */
-  readonly minPiece: U;
+  /**
+   * Thinnest leftover (filler) part there is: what planTray accepts, i.e. what the level-0 bottom
+   * chamfer needs (2 × (chamfer + 0.8 mm)), and never under one wall. A gap narrower than this
+   * cannot be a part, so the neighbouring tray absorbs it (spec §7.2).
+   */
+  readonly minFiller: U;
   readonly bed: Bed;
   /** Size locks keyed by partId. */
   readonly sizeLocks: ReadonlyMap<number, FixedSize>;
@@ -112,8 +109,9 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
   const boxClearance = toU(eff.boxClearance);
   // Rounded up like sizing (roadmap §4.7): never below MIN_WALL_MM.
   const wall = toUCeil(wallFor(settings, false));
-  // Walls may thicken inward up to min(2 × wall, WALL_GROW_LIMIT = 4 mm) on both sides (spec §7.2).
-  const wallCap = Math.max(0, 2 * (Math.min(2 * wall, toU(WALL_GROW_LIMIT)) - wall));
+  // Walls thicken inward by at most `wallGrowth` each, so both sides of an axis absorb twice that
+  // (spec §7.2). Rounded down like realize's cap: it is a maximum.
+  const wallCap = 2 * toUFloor(settings.wallGrowth);
   const cache = new Map<number, PartMetrics>();
   const byKey = new Map<string, PartRef[]>();
   input.requirements.forEach((r: TrayRequirement, req) => {
@@ -154,7 +152,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     upperMinH: toU(settings.lip.height) + toU(UPPER_TRAY_MIN_ABOVE_LIP),
     wall,
     floor: toUCeil(Math.max(settings.floor, MIN_FEATURE_MM)),
-    minPiece: Math.max(MIN_PIECE_U, toUCeil(chamferMinimums(settings, 0).side)),
+    minFiller: Math.max(wall, toUCeil(chamferMinimums(settings, 0).side)),
     bed: {
       w: toUFloor(printer.bedX - 2 * printer.bedMargin),
       d: toUFloor(printer.bedY - 2 * printer.bedMargin),

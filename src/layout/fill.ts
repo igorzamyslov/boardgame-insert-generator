@@ -1,5 +1,5 @@
 import { bedExcess, bedOrientations, splitForBed } from "./bed";
-import { GRIP_U, SLIVER_U, printedHeight, type Ctx } from "./context";
+import { GRIP_U, INF_U, printedHeight, type Ctx } from "./context";
 import {
   stackAbsorb,
   stackHeights,
@@ -72,18 +72,27 @@ interface Bottom {
   over: U;
 }
 
-/** Bottom tray extent on one axis: leaf extent L, minimum F, absorbable a, cap c. */
+/**
+ * Bottom tray extent on one axis: leaf extent L, minimum F, absorbable a, cap c (spec §7.2).
+ * The excess over F is absorbed into the tray, with no filler part, only when the tray can take
+ * it without anyone asking for a filler: an elastic axis (a is unbounded), or walls the user let
+ * grow (`wallGrowth`, a), or when the excess minus the tray gap is too small to be a part at all
+ * (under `ctx.minFiller`) so there is nowhere else for it to go. Anything else becomes a
+ * leftover (filler) leaf beside a tray of exactly its minimum size.
+ */
 function axisExtent(ctx: Ctx, L: U, F: U, a: U, c: U): { b: U; over: U } {
   if (L <= F) {
     return { b: F, over: 0 };
   }
-  const tight = F + a;
+  const elastic = a >= INF_U / 2;
+  // A filler would be at least this wide beside a tray of the minimum size.
+  const fillerFits = L - F - ctx.gap >= ctx.minFiller;
   if (L <= c) {
-    return { b: L - tight - ctx.gap >= SLIVER_U ? tight : L, over: 0 };
+    return { b: L - F <= a || !fillerFits ? L : F, over: 0 };
   }
-  let b = Math.min(c, L - ctx.gap - ctx.minPiece);
-  if (tight < b && L - tight - ctx.gap >= SLIVER_U) {
-    b = tight;
+  let b = Math.min(c, L - ctx.gap - ctx.minFiller);
+  if (!elastic && F < b && fillerFits) {
+    b = F;
   }
   if (b < F) {
     return { b: L, over: F - b };
@@ -120,8 +129,9 @@ export interface StackPlacement {
 
 /**
  * Fills one leaf: the bottom tray takes the leaf footprint minus any leftover; slack the
- * stack can't absorb becomes a leftover strip (≥ 12 mm, else absorbed by the tray);
- * bed and size-lock caps force a leftover of at least ctx.minPiece. Level k is inset
+ * stack can't absorb (elastic axes, `wallGrowth`) becomes a leftover strip of any width from
+ * ctx.minFiller up, and a gap narrower than that is absorbed by the tray; bed and size-lock caps
+ * force a leftover of at least ctx.minFiller. Level k is inset
  * k·inset per side; heights come from stackHeights.
  */
 export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): StackPlacement {

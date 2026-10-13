@@ -116,8 +116,10 @@ describe("upright cards and tiles: one finger channel", () => {
       ],
       "upright-c2|rows2|split1",
     );
-    const min = minOuter(part, s, ground);
-    const r = realize(part, s, ground, { ...min, d: min.d + 3 });
+    // The walls may take the slack (wallGrowth), which widens both rows into the shared end wall.
+    const grow: Settings = { ...s, wallGrowth: 1.6 };
+    const min = minOuter(part, grow, ground);
+    const r = realize(part, grow, ground, { ...min, d: min.d + 3 });
     const [row0, row1] = r.compartments;
     expect([row0?.y, row0?.d, row1?.y, row1?.d]).toEqual([2.6, 16.82, 21.62, 16.82]);
     // Row 0's channel spans y 5.6–16.42 and row 1's 24.62–35.44: each keeps 3 mm posts to its
@@ -543,7 +545,8 @@ describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {
   it("gives the room to a spare at the row end, which the cutout runs into", () => {
     const part = partOf([cards({ storage: "flat", decks: decks(30, 30) })], "flat|strip|split1");
     const min = minOuter(part, wallOnly, ground);
-    const r = realize(part, wallOnly, ground, { ...min, w: min.w + 30 });
+    const grow: Settings = { ...wallOnly, wallGrowth: 1.6 };
+    const r = realize(part, grow, ground, { ...min, w: min.w + 30 });
     const spare = at(r.compartments, 2);
     expect(spare.kind).toBe("spare");
     // The spare reaches the grown wall: it took the 10 mm of finger room.

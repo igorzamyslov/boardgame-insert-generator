@@ -23,8 +23,11 @@ import type { Semver } from "../model/version";
  * 0.3.0 cuts a minis pocket through its back wall as well as its front (and so asks for finger room
  * on both outer walls), and picks a compartment's scoop walls after its cuts: trays change size
  * and shape, so it is a breaking change.
+ *
+ * 0.4.0 stops absorbing leaf slack into thicker walls by default (new `wallGrowth` setting, 0) and
+ * prints it as a filler part instead: outer tray sizes change, so it is a breaking change.
  */
-export const GEOMETRY_VERSION = "0.3.0";
+export const GEOMETRY_VERSION = "0.4.0";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

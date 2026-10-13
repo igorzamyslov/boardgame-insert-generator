@@ -120,10 +120,10 @@ describe("createState", () => {
         ...p,
         layout: makeLayout(inputsHash(p), undefined, { geometryVersion }),
       }).layoutNotices.value.map((n) => n.code);
-    // GEOMETRY_VERSION is 0.3.0: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
-    expect(codesFor("0.2.3")).toContain(GEOMETRY_MAJOR_CODE);
-    expect(codesFor("0.3.2")).not.toContain(GEOMETRY_MAJOR_CODE);
-    expect(codesFor("0.4.0")).not.toContain(GEOMETRY_MAJOR_CODE);
+    // GEOMETRY_VERSION is 0.4.0: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
+    expect(codesFor("0.3.2")).toContain(GEOMETRY_MAJOR_CODE);
+    expect(codesFor("0.4.2")).not.toContain(GEOMETRY_MAJOR_CODE);
+    expect(codesFor("0.5.0")).not.toContain(GEOMETRY_MAJOR_CODE);
   });
 
   it("validates the project", () => {

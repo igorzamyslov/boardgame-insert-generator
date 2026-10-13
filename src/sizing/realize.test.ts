@@ -182,8 +182,16 @@ describe("realizeTray", () => {
     expect(realizeTray(single, longer, steep, ground).spacers.map((sp) => sp.w)).toEqual([7.6]);
   });
 
-  it("thickens walls first, then adds a spare row for depth slack", () => {
+  it("keeps walls as set by default: the depth slack becomes a spare row", () => {
     const r = realizeTray(single, { w: 26.7, d: 115.7, h: 69.2 }, s, ground);
+    expect(at(r.compartments, 0)).toMatchObject({ x: 1.6, y: 1.6, w: 23.5, d: 92.5 });
+    expect(at(r.compartments, 1)).toMatchObject({ x: 1.6, y: 95.3, w: 23.5, kind: "spare" });
+    assertTrayInvariants(r, { w: 26.7, d: 115.7, h: 69.2 }, s, ground);
+  });
+
+  it("thickens walls only as far as wallGrowth allows, then adds a spare row for depth slack", () => {
+    const grow: Settings = { ...s, wallGrowth: 1.6 };
+    const r = realizeTray(single, { w: 26.7, d: 115.7, h: 69.2 }, grow, ground);
     expect(r.compartments).toHaveLength(2);
     expect(at(r.compartments, 0)).toMatchObject({ x: 1.6, y: 3.2, w: 23.5, d: 92.5 });
     expect(at(r.compartments, 1)).toEqual({
@@ -219,16 +227,16 @@ describe("realizeTray", () => {
     expect(r.compartments.map((c) => [c.contents, c.w])).toEqual([
       ["A ×52", 23.5],
       ["B ×30", 13.98],
-      ["spare", 15.6],
-      ["spare", 25.12],
+      ["spare", 18.8],
+      ["spare", 28.32],
     ]);
     expect(cutsOf(at(r.compartments, 1))).toEqual([
       cutout("left", 141.55, 34),
       cutout("right", 141.55, 34),
     ]);
     assertTrayInvariants(r, outer, s, ground);
-    // 15.2 mm narrower, the spare would be under MIN_SPARE: the slack stays solid.
-    const narrow = realizeTray(part, { w: 31.5, d: 189.4, h: 69.2 }, s, ground);
+    // 18.4 mm narrower, the spare would be under MIN_SPARE: the slack stays solid.
+    const narrow = realizeTray(part, { w: 28.3, d: 189.4, h: 69.2 }, s, ground);
     expect(narrow.compartments.map((c) => c.kind)).toEqual(["well", "well"]);
   });
 
@@ -670,8 +678,8 @@ describe("realizeTray", () => {
       expect(c.d).toBeGreaterThanOrEqual(30.001);
     });
 
-    it("grows walls and dividers to at most 2 × the setting, rounded down", () => {
-      const cfg: Settings = { ...s, wall: 1.7976, divider: 1.7976 };
+    it("grows walls and dividers by at most wallGrowth each, rounded down", () => {
+      const cfg: Settings = { ...s, wall: 1.7976, divider: 1.7976, wallGrowth: 1.7976 };
       const part = partOf([custom({ count: 2 })], "custom|strip|split1", cfg);
       const outer = minOuter(part, cfg, ground);
       const wide = { ...outer, w: outer.w + 40 };

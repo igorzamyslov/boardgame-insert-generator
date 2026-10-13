@@ -546,7 +546,8 @@
       "lip": { "enabled": true, "height": 2, "thickness": 1.2, "ledge": 1.7, "play": 0.25 },
       "topPressFit": 0,
       "packingFactor": 0.5,
-      "leftover": "solid"
+      "leftover": "solid",
+      "wallGrowth": 0
     },
     "locks": [],
     "inputsHash": "test-hash",
@@ -958,7 +959,8 @@
       "lip": { "enabled": true, "height": 2, "thickness": 1.2, "ledge": 1.7, "play": 0.25 },
       "topPressFit": 0,
       "packingFactor": 0.5,
-      "leftover": "spare"
+      "leftover": "spare",
+      "wallGrowth": 0
     },
     "locks": [],
     "inputsHash": "test-hash",
@@ -1364,7 +1366,8 @@
       "lip": { "enabled": true, "height": 2, "thickness": 1.2, "ledge": 1.7, "play": 0.25 },
       "topPressFit": 0,
       "packingFactor": 0.5,
-      "leftover": "spare"
+      "leftover": "spare",
+      "wallGrowth": 0
     },
     "locks": [],
     "inputsHash": "test-hash",

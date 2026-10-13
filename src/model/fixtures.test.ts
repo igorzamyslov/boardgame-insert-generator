@@ -114,6 +114,14 @@ describe("schema history", () => {
     expect(older.project.settings.fillToTop).toBe(true);
   });
 
+  it("reads the wallGrowth setting of the 0.1.6 file, and defaults it to 0 for older files", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.6.json"]);
+    expect(notices).toEqual([]);
+    expect(project.settings.wallGrowth).toBe(1.2);
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.5.json"]);
+    expect(older.project.settings.wallGrowth).toBe(0);
+  });
+
   it("reads the separators option of the 0.1.5 file, and leaves it unset for older files", () => {
     const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.5.json"]);
     expect(notices).toEqual([]);

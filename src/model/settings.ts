@@ -69,6 +69,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   packingFactor: 0.5,
   leftover: "spare",
   fillToTop: true,
+  wallGrowth: 0,
 });
 
 export type WallChoice = "thin" | "normal" | "sturdy";

@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.5: 0.1.4 plus the per-component separators option", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.5");
+  it("is at schema 0.1.6: 0.1.5 plus the wallGrowth setting", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.6");
   });
 
   it("parses strict semver", () => {

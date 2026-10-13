@@ -11,23 +11,57 @@ function ctxOf(reqs: TrayRequirement[], o: Parameters<typeof makeInput>[1] = {})
 }
 
 describe("fill", () => {
-  it("absorbs slivers narrower than 12 mm into the tray", () => {
+  // fakeMeasure: a 100 × 60 box part is 10400 × 6400 units; the tray gap is 20; with the default
+  // 0.4 mm bottom chamfer the thinnest filler is 240 (2 × (0.4 + 0.8) mm).
+  it("makes any slack that can be a part a filler, and the tray keeps its minimum size", () => {
     const ctx = ctxOf([boxReq("a", 100, 60, 20)]);
-    const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), {
-      x: 0,
-      y: 0,
-      w: 10400 + 1000,
-      d: 6400,
-    });
-    expect(sp.leftovers).toEqual([]);
-    expect(sp.trays[0]?.w).toBe(11400);
+    expect(ctx.minFiller).toBe(240);
+    for (const extra of [270, 1000, 1500]) {
+      const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), {
+        x: 0,
+        y: 0,
+        w: 10400 + extra,
+        d: 6400,
+      });
+      expect(sp.trays[0]?.w).toBe(10400);
+      expect(sp.leftovers).toEqual([{ x: 10420, y: 0, w: extra - 20, d: 6400 }]);
+    }
   });
 
-  it("turns larger unabsorbable slack into a leftover strip with a gap", () => {
+  it("absorbs a gap too narrow to be a part, even with wallGrowth 0", () => {
     const ctx = ctxOf([boxReq("a", 100, 60, 20)]);
-    const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), { x: 0, y: 0, w: 20000, d: 6400 });
-    expect(sp.trays[0]?.w).toBe(10400 + 320);
-    expect(sp.leftovers).toEqual([{ x: 10720 + 20, y: 0, w: 20000 - 10720 - 20, d: 6400 }]);
+    for (const extra of [100, 250, 259]) {
+      const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), {
+        x: 0,
+        y: 0,
+        w: 10400 + extra,
+        d: 6400,
+      });
+      expect(sp.leftovers).toEqual([]);
+      expect(sp.trays[0]?.w).toBe(10400 + extra);
+    }
+  });
+
+  it("absorbs up to wallGrowth per wall, and prints a filler for more", () => {
+    const ctx = ctxOf([boxReq("a", 100, 60, 20)], { settings: { wallGrowth: 1.6 } });
+    // Two walls take 2 × 1.6 mm = 320 units.
+    const fits = placeStack(ctx, stackLevels(ctx, [item(0)]), {
+      x: 0,
+      y: 0,
+      w: 10400 + 320,
+      d: 6400,
+    });
+    expect(fits.leftovers).toEqual([]);
+    expect(fits.trays[0]?.w).toBe(10720);
+    // One unit more than the walls may take: a filler, and the walls stay as set.
+    const over = placeStack(ctx, stackLevels(ctx, [item(0)]), {
+      x: 0,
+      y: 0,
+      w: 10400 + 321,
+      d: 6400,
+    });
+    expect(over.trays[0]?.w).toBe(10400);
+    expect(over.leftovers).toEqual([{ x: 10420, y: 0, w: 301, d: 6400 }]);
   });
 
   it("gives all slack to an elastic tray", () => {
@@ -55,18 +89,21 @@ describe("fill", () => {
     expect(up?.lipped).toBe(false);
   });
 
-  it("caps the bottom tray to the bed and leaves at least MIN_PIECE_U as leftover", () => {
-    const ctx = ctxOf([boxReq("a", 100, 60, 20)], { printer: { bedX: 120, bedY: 120 } });
+  it("caps an elastic bottom tray to the bed and leaves at least minFiller as leftover", () => {
+    const ctx = ctxOf([boxReq("a", 100, 60, 20, { elastic: { w: true } })], {
+      printer: { bedX: 120, bedY: 120 },
+    });
     const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), { x: 0, y: 0, w: 11500, d: 6400 });
     expect(sp.trays[0]?.w).toBe(11000);
     expect(sp.leftovers[0]?.w).toBe(11500 - 11000 - 20);
     const sp2 = placeStack(ctx, stackLevels(ctx, [item(0)]), { x: 0, y: 0, w: 11050, d: 6400 });
-    expect(sp2.trays[0]?.w).toBe(11050 - 20 - 300);
+    expect(sp2.trays[0]?.w).toBe(11050 - 20 - ctx.minFiller);
+    expect(sp2.leftovers[0]?.w).toBe(ctx.minFiller);
   });
 
   it("never forces a leftover thinner than its own bottom chamfer allows", () => {
-    // bottomChamfer 3: planTray needs min(w, d) ≥ 2 × (3 + 0.8) = 7.6 mm (ctx.minPiece).
-    const ctx = ctxOf([boxReq("a", 100, 60, 20)], {
+    // bottomChamfer 3: planTray needs min(w, d) ≥ 2 × (3 + 0.8) = 7.6 mm (ctx.minFiller).
+    const ctx = ctxOf([boxReq("a", 100, 60, 20, { elastic: { w: true } })], {
       printer: { bedX: 120, bedY: 120 },
       settings: { bottomChamfer: 3, wall: 3, floor: 3 },
     });

@@ -10,7 +10,7 @@ import {
 } from "./stack";
 import { boxReq, fakeMeasure, item, makeInput } from "./test-utils";
 
-function ctxFor(box: { innerHeight?: number; headroom?: number } = {}): Ctx {
+function ctxFor(box: { innerHeight?: number; headroom?: number } = {}, wallGrowth = 0): Ctx {
   return createCtx(
     makeInput(
       [
@@ -20,7 +20,7 @@ function ctxFor(box: { innerHeight?: number; headroom?: number } = {}): Ctx {
         boxReq("tall", 50, 40, 45),
         boxReq("flat", 50, 40, 2),
       ],
-      { box },
+      { box, settings: { wallGrowth } },
     ),
     fakeMeasure,
   );
@@ -46,13 +46,17 @@ describe("stack feasibility", () => {
     const f = stackMinFootprint(ctx, levels);
     expect(f.w).toBe(Math.max(5600, 10400 + 2 * ctx.inset));
     expect(f.d).toBe(Math.max(4600, 6400 + 2 * ctx.inset));
-    expect(stackMinFootprint(ctx, [])).toEqual({ w: 1200, d: 1200 });
+    expect(stackMinFootprint(ctx, [])).toEqual({ w: ctx.minFiller, d: ctx.minFiller });
   });
 
-  it("reports absorbable slack: elastic axes unlimited, else wall growth", () => {
-    const ctx = ctxFor();
+  it("reports absorbable slack: elastic axes unlimited, else the wall growth the user allows", () => {
+    const ctx = ctxFor({}, 1.6);
     const solo = stackLevels(ctx, [item(1)]);
     expect(stackAbsorb(ctx, solo, stackMinFootprint(ctx, solo))).toEqual({ w: 320, d: 320 });
+    // The default allows no growth: nothing but an elastic axis absorbs slack.
+    const none = ctxFor();
+    const soloNone = stackLevels(none, [item(1)]);
+    expect(stackAbsorb(none, soloNone, stackMinFootprint(none, soloNone))).toEqual({ w: 0, d: 0 });
     const scoop = stackLevels(ctx, [item(2)]);
     expect(stackAbsorb(ctx, scoop, stackMinFootprint(ctx, scoop))).toEqual({ w: INF_U, d: INF_U });
     expect(stackLockCap(ctx, solo)).toEqual({ w: INF_U, d: INF_U });

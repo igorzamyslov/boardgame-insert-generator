@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { createCtx, INF_U, MIN_PIECE_U, printedHeight, withSizeLocks } from "./context";
+import { createCtx, INF_U, printedHeight, withSizeLocks } from "./context";
 import { boxReq, comp, fakeMeasure, makeInput, part, req, variant } from "./test-utils";
 
 describe("createCtx", () => {
@@ -42,12 +42,17 @@ describe("createCtx", () => {
     expect(a.w).toBe(5401);
     expect(a.d).toBe(4400);
     expect(a.h).toBe(2120);
-    expect(a.capW).toBe(320);
+    expect(a.capW).toBe(0); // wallGrowth defaults to 0: walls never take slack
+    const grown = createCtx(
+      makeInput([boxReq("a", 50.001, 40, 20)], { settings: { wallGrowth: 1.6 } }),
+      fakeMeasure,
+    );
+    expect(grown.metrics({ req: 0, variant: 0, part: 0 }, false, 0).capW).toBe(320);
     expect(a.elasticH).toBe(false);
     const b = ctx.metrics({ req: 1, variant: 0, part: 0 }, true, 1);
     expect(b.w).toBe(5600);
     expect(b.capW).toBe(INF_U);
-    expect(b.capD).toBe(320);
+    expect(b.capD).toBe(0);
     expect(b.elasticH).toBe(true);
   });
 
@@ -70,8 +75,9 @@ describe("createCtx", () => {
     const ctx = createCtx(makeInput([], { settings }), fakeMeasure);
     expect(ctx.wall).toBe(90); // MIN_WALL_MM
     expect(ctx.floor).toBe(124);
-    expect(ctx.minPiece).toBe(760); // 2 × (3 + 0.8)
-    expect(createCtx(makeInput([]), fakeMeasure).minPiece).toBe(MIN_PIECE_U);
+    expect(ctx.minFiller).toBe(760); // 2 × (3 + 0.8)
+    // Default: the 0.4 mm bottom chamfer needs 2 × (0.4 + 0.8) = 2.4 mm, more than one 1.6 mm wall.
+    expect(createCtx(makeInput([]), fakeMeasure).minFiller).toBe(240);
   });
 
   it("adds the lip's height to a lipped tray's printed height only", () => {

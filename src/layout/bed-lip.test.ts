@@ -111,7 +111,7 @@ describe("a box taller than the print bed", () => {
       500,
     );
     const dnf = r.notices.find((n) => n.code === "layout.doesNotFit")?.message ?? "";
-    expect(dnf).toContain('"a" is 56.4 × 56.4 × 100.0 mm');
+    expect(dnf).toContain('"a" is 53.2 × 53.2 × 100.0 mm');
     expect(dnf).toContain("usable bed is 246.0 × 246.0 × 60.0 mm");
   });
 });

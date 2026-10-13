@@ -43,6 +43,7 @@ describe("DEFAULT_SETTINGS", () => {
       packingFactor: 0.5,
       leftover: "spare",
       fillToTop: true,
+      wallGrowth: 0,
     });
   });
 

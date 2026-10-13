@@ -44,6 +44,12 @@ describe("inputsHash", () => {
     expect(inputsHash(off)).not.toBe(inputsHash(on));
   });
 
+  it("changes with wallGrowth, since it moves where leaf slack goes", () => {
+    const base = sample();
+    const grown: Project = { ...base, settings: { ...base.settings, wallGrowth: 1 } };
+    expect(inputsHash(grown)).not.toBe(inputsHash(base));
+  });
+
   it("includes an own __proto__ field of a component", () => {
     const base = sample();
     const withProtoField = (value: number): Project => {

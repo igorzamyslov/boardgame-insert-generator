@@ -139,6 +139,11 @@ export interface Settings {
   leftover: "spare" | "solid";
   /** Pad every stack to the top plane, so nothing shifts (spec §3 rule 2); off = trays stay at content height. */
   fillToTop: boolean;
+  /**
+   * Most extra thickness (mm) each wall or divider may take on to soak up leaf slack instead of
+   * the slack becoming a filler part (spec §7.2). 0 = never thicken: slack is printed as a filler.
+   */
+  wallGrowth: number;
 }
 
 export interface StoredLayout {

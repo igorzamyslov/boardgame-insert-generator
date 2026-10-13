@@ -291,8 +291,8 @@ reliefs, whatever the toggle says: a tile on its edge doesn't need to sit flat,
 and "auto" storage offers flat and upright variants from one component, so the
 rule sits in the upright stack, not in the defaults. `stretch` is off for every
 kind; on, an upright card deck or tile stack is elastic along its width (the
-tray takes the whole leaf) and a card spacer or thicker walls and dividers take
-the slack; off, it is content-sized and a spare tray fills the gap. Only cards
+tray takes the whole leaf) and a card spacer or, if `wallGrowth` allows, thicker
+walls and dividers take the slack; off, it is content-sized and a spare tray fills the gap. Only cards
 and tiles show the checkbox "Stretch to fill", and, while it is on, the number field "Spacer plates" (`separators`, §6.2; whole number 1…10, `BOUNDS.maxSeparators`, validated like the other counts: `field.separators` / `limit.separators`; ignored on other kinds or with stretch off). New cards, bulk and minis
 components start with a blank inner line name (deck, item, figure): the plan
 then labels the compartment with the component's name.
@@ -329,35 +329,37 @@ interface Settings {
   packingFactor: number;
   leftover: "spare" | "solid";
   fillToTop: boolean; // rule 2: pad every stack to the top plane (a riser); off = content height
+  wallGrowth: number; // mm each wall or divider may thicken to absorb leaf slack instead of a filler part (§7.2); 0 = never
 }
 ```
 
-| Setting                                     | Simple-mode control                     | Default                   |
-| ------------------------------------------- | --------------------------------------- | ------------------------- |
-| `wall`                                      | thin / normal / sturdy                  | 1.2 / 1.6 / 2.0           |
-| `floor`                                     | —                                       | 1.2                       |
-| `divider`                                   | —                                       | 1.2                       |
-| `fit`                                       | tight / normal / loose                  | 0.7 / 1 / 1.4             |
-| `cardClearance` (×Fit)                      | via Fit                                 | 1.5                       |
-| `cardStackClearance` + `Pct` (×Fit)         | via Fit                                 | 1.0 + 3 % of the stack    |
-| `cardThickness`                             | advanced                                | 0.32                      |
-| `pieceClearance` (×Fit)                     | via Fit                                 | 1.0                       |
-| `boxClearance` (×Fit)                       | via Fit                                 | 0.5 per side              |
-| `trayGap` (×Fit)                            | via Fit                                 | 0.2                       |
-| `bottomChamfer`                             | advanced                                | 0.4 (upper trays: ≥ 0.5)  |
-| `cornerRadius`                              | advanced                                | 3                         |
-| `scoopRadius`                               | advanced                                | 12                        |
-| `fingerPocket.width`                        | advanced                                | 25                        |
-| `fingerPocket.floorNotch`                   | advanced                                | 12.5 (0 = none, up to 50) |
-| `fingerPocket.wallRoom`                     | "Extra finger room in the box": on = 10 | 0 (off; up to 20)         |
-| `fingerPocket.dividerRoom`                  | "Extra finger room in the box": on = 5  | 0 (off; up to 20)         |
-| `lip` on / height / thickness / ledge       | advanced                                | off / 2 / 1.2 / 1.7       |
-| `lip.play` (×Fit)                           | via Fit                                 | 0.25                      |
-| `topPressFit`                               | advanced                                | 0 (−2…+1)                 |
-| `packingFactor`                             | advanced                                | 0.5                       |
-| `leftover` (also the riser's style)         | advanced: spare tray / solid            | spare tray                |
-| `fillToTop`                                 | advanced: "Fill the box to the top"     | on                        |
-| `printer.bedMargin` / `printer.layerHeight` | advanced                                | 5 / 0.2                   |
+| Setting                                     | Simple-mode control                                                | Default                   |
+| ------------------------------------------- | ------------------------------------------------------------------ | ------------------------- |
+| `wall`                                      | thin / normal / sturdy                                             | 1.2 / 1.6 / 2.0           |
+| `floor`                                     | —                                                                  | 1.2                       |
+| `divider`                                   | —                                                                  | 1.2                       |
+| `fit`                                       | tight / normal / loose                                             | 0.7 / 1 / 1.4             |
+| `cardClearance` (×Fit)                      | via Fit                                                            | 1.5                       |
+| `cardStackClearance` + `Pct` (×Fit)         | via Fit                                                            | 1.0 + 3 % of the stack    |
+| `cardThickness`                             | advanced                                                           | 0.32                      |
+| `pieceClearance` (×Fit)                     | via Fit                                                            | 1.0                       |
+| `boxClearance` (×Fit)                       | via Fit                                                            | 0.5 per side              |
+| `trayGap` (×Fit)                            | via Fit                                                            | 0.2                       |
+| `bottomChamfer`                             | advanced                                                           | 0.4 (upper trays: ≥ 0.5)  |
+| `cornerRadius`                              | advanced                                                           | 3                         |
+| `scoopRadius`                               | advanced                                                           | 12                        |
+| `fingerPocket.width`                        | advanced                                                           | 25                        |
+| `fingerPocket.floorNotch`                   | advanced                                                           | 12.5 (0 = none, up to 50) |
+| `fingerPocket.wallRoom`                     | "Extra finger room in the box": on = 10                            | 0 (off; up to 20)         |
+| `fingerPocket.dividerRoom`                  | "Extra finger room in the box": on = 5                             | 0 (off; up to 20)         |
+| `lip` on / height / thickness / ledge       | advanced                                                           | off / 2 / 1.2 / 1.7       |
+| `lip.play` (×Fit)                           | via Fit                                                            | 0.25                      |
+| `topPressFit`                               | advanced                                                           | 0 (−2…+1)                 |
+| `packingFactor`                             | advanced                                                           | 0.5                       |
+| `leftover` (also the riser's style)         | advanced: spare tray / solid                                       | spare tray                |
+| `fillToTop`                                 | advanced: "Fill the box to the top"                                | on                        |
+| `wallGrowth`                                | advanced: "Wall growth instead of a filler", beside "Unused space" | 0 (up to 3 mm per wall)   |
+| `printer.bedMargin` / `printer.layerHeight` | advanced                                                           | 5 / 0.2                   |
 
 Simple-mode controls write resolved numbers into `settings`; the project
 never stores "use the default".
@@ -703,15 +705,37 @@ fallback: a requirement that still has no variant is left out with a
     divider thickness (inward, up to the cap below), then to an extra empty
     compartment in that tray (stacked trays can't have a leftover tray beside
     them).
-  - Leaf slack goes to elastic axes, then to wall and divider thickness (inward
-    only) up to `min(2 × setting, 4 mm)`, then to a leftover leaf at full
-    stack height.
+  - Leaf slack, in this order (`axisExtent` in `layout/fill.ts`, `realizeTray`):
+    1. Elastic axes take all of it (the tray grows; no filler).
+    2. Otherwise a **filler part** (a leftover leaf at full stack height, beside a
+       tray of exactly its minimum size) of any width from `minFiller` up. This is
+       the default: walls are never thickened silently, so identical trays look
+       identical, the plan shows what is printed, and no filament goes into walls
+       nobody asked for. `minFiller` is the thinnest part planTray accepts: what the
+       bottom chamfer needs (`2·(chamfer + 0.8 mm)`, 2.4 mm at the default 0.4 mm
+       chamfer), and never under one wall. A filler of a few millimetres is just a
+       flat plate, which prints standing in a tray, so there is no larger minimum.
+    3. Opt-in: with `wallGrowth` above 0 the user accepts that each wall and
+       divider thickens inward by up to `wallGrowth` mm (rounded down to 0.01 mm)
+       rather than printing a filler. A leaf whose slack on an axis is at most twice
+       `wallGrowth` (the two outer walls) is absorbed whole. Beyond that the walls
+       stay as set and a filler is printed: walls only thicken to avoid a filler,
+       never beside one. `wallGrowth` is limited to 3 mm: from there a wall is at
+       least double a normal one and a filler is the better choice.
+    4. A gap narrower than `minFiller` (after the tray gap) cannot be a part, so
+       the tray absorbs it whatever `wallGrowth` is. What the walls and dividers
+       may not take (nothing by default) is split between the two side walls,
+       because a tray left loose in its leaf would rattle (hard rule 1). Such gaps
+       do arise: rows and stacks with different minimum sizes meet at arbitrary
+       offsets on the 0.01 mm grid.
+       Footprint slack inside a stack follows the same cap (`wallGrowth`, then an extra
+       empty compartment, else the side walls).
   - A stretched deck that is last in its row takes slack of at least `MIN_SPARE`
     plus a divider as a walled spare pocket beside it, except when its component asks
     for several spacer plates (`separators` above 1): then the slack is its spacer
-    (§6.2). Slack too short for a pocket goes to the spacer, or else to thicker walls.
-  - Leftover regions narrower than 12 mm are absorbed into the neighbouring
-    outer wall regardless of the cap. Leftovers narrower than 25 mm + 2 walls
+    (§6.2). Slack too short for a pocket goes to the spacer, or else to the walls (up to
+    `wallGrowth`; the rest is split between the side walls).
+  - Leftovers narrower than 25 mm + 2 walls
     are made solid (no grip possible). Leftovers larger than the bed are split
     with further cuts.
   - A stack holds at most 4 trays.
@@ -903,7 +927,8 @@ Older apps reading newer files is best effort, as below.
     kinds. A new field's default reproduces the previous behaviour exactly, unless
     the change is a deliberate, documented one: the version bump signals it, and
     projects saved earlier size differently once re-optimized. `stretch`
-    (default off) is the precedent. A field that only changes how stored trays are
+    (default off) and `wallGrowth` (default 0: trays that used to thicken their walls now sit
+    beside a filler part; schema 0.1.6, geometry 0.4.0) are the precedents. A field that only changes how stored trays are
     printed (`separators`, default 1) bumps the schema but not the geometry version.
     It is in the inputs hash all the same: above 1 it decides whether a stretched deck
     gets a spacer or a spare pocket (§6.2), which is the stored layout.
