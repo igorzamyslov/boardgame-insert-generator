@@ -86,8 +86,8 @@ describe("finger cuts and curved floor toggles", () => {
   });
 
   it("puts the scoop on the sides the cuts leave: pockets cut front and back are scooped left and right", () => {
-    // Two rows of curved-floor pockets: the facing cuts twin across the divider, so the ramps take
-    // the free side walls, one on each, since 2 × 12 mm fits the 26 mm pocket.
+    // Two rows of curved-floor pockets: the facing cuts twin across the divider, so the ramp takes
+    // a free side wall; a second one would not leave 15 mm of flat floor in the 26 mm pocket.
     const scooped = minis({
       curvedFloor: true,
       figures: [{ name: "Hero", w: 25, d: 25, h: 40, count: 2 }],
@@ -100,8 +100,8 @@ describe("finger cuts and curved floor toggles", () => {
       c.features.map((f) => `${f.type} ${"side" in f ? f.side : ""}`),
     );
     expect(sides).toEqual([
-      ["wallCutout front", "wallCutout back", "scoop left", "scoop right"],
-      ["wallCutout front", "wallCutout back", "scoop left", "scoop right"],
+      ["wallCutout front", "wallCutout back", "scoop left"],
+      ["wallCutout front", "wallCutout back", "scoop left"],
     ]);
   });
 

@@ -13,6 +13,12 @@ export const SHALLOW_H = 20;
  * that wants one is spread wider rather than deeper, and the grip rule stops counting it.
  */
 export const SCOOP_REACH = 35;
+/**
+ * Flat floor a second, opposite scoop ramp must leave between the two (spec §6.1): two ramps of
+ * half the width each would otherwise meet in the middle, and nothing would sit flat. About a
+ * fingertip and a half, enough for a piece to rest on.
+ */
+export const MIN_FLAT_FLOOR = 15;
 /** Empty wall left above a loose pile, so pieces don't spill over the rim when the box moves. */
 export const BIN_FREEBOARD = 5;
 /** Smallest extra empty ("spare") compartment realizeTray adds, inner mm. */

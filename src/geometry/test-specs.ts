@@ -333,11 +333,25 @@ export function traySpecFrom(
 // sizing output of the fixture projects, under fixture and edge-of-range settings, at every lip
 // and level option and a few outer sizes.
 
+// The fixtures set stretch on so the sweeps still have spacers; the "default" variants drop it, so
+// the default (off) path is swept too.
+const unstretched = (raw: unknown): unknown => {
+  const { components, ...rest } = raw as { components: Record<string, unknown>[] };
+  return {
+    ...rest,
+    components: components.map((component) =>
+      Object.fromEntries(Object.entries(component).filter(([key]) => key !== "stretch")),
+    ),
+  };
+};
+
 export const SWEEP_FIXTURES: readonly [string, unknown][] = [
   ["cards-heavy", cardsHeavy],
+  ["cards-heavy, default stretch", unstretched(cardsHeavy)],
   ["bits-heavy", bitsHeavy],
   ["tiles-minis", tilesMinis],
   ["small-tiles", smallTiles],
+  ["small-tiles, default stretch", unstretched(smallTiles)],
   ["tiny-box", tinyBox],
 ];
 

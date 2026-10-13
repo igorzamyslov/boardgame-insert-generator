@@ -7,6 +7,7 @@ import {
   CORNER_RELIEF_D,
   MIN_SPACER,
   MIN_SPARE,
+  MIN_FLAT_FLOOR,
   SCOOP_REACH,
   SPACER_TOP_GAP,
   WALL_GROW_LIMIT,
@@ -75,7 +76,8 @@ const SIDES: readonly Side[] = ["front", "back", "left", "right"];
  * The scoop ramps of a compartment (spec §6.1). A side is chosen once the cuts are placed: a side
  * with a cut is never scooped, and the ramp goes on the longer wall, so it runs across the shorter
  * dimension (front, back, left, right break a tie). The opposite wall gets a second ramp when it
- * is free and both fit at full radius without meeting. A request with a `side` is kept as it is.
+ * is free and the two leave MIN_FLAT_FLOOR of flat floor between them. A radius is never shrunk
+ * for it. A request with a `side` is kept as it is.
  */
 function scoopSpecs(
   asked: Side | undefined,
@@ -86,10 +88,11 @@ function scoopSpecs(
   // The dimension a ramp on `side` runs across (plan.ts clamps its radius by the same).
   const across = (side: Side): number => (side === "front" || side === "back" ? well.d : well.w);
   const full = Math.min(floorU(ctx.settings.scoopRadius), depth);
+  // Never more than half the way across, so a ramp leaves a flat floor beside it.
   const spec = (side: Side): FeatureSpec => ({
     type: "scoop",
     side,
-    r: fromU(Math.min(full, across(side))),
+    r: fromU(Math.min(full, Math.floor(across(side) / 2))),
   });
   if (asked !== undefined) {
     return [spec(asked)];
@@ -100,7 +103,8 @@ function scoopSpecs(
     return [];
   }
   const opposite = OPPOSITE[side];
-  return free.includes(opposite) && 2 * full <= across(side)
+  const r = Math.min(full, Math.floor(across(side) / 2));
+  return free.includes(opposite) && 2 * r + toU(MIN_FLAT_FLOOR) <= across(side)
     ? [spec(side), spec(opposite)]
     : [spec(side)];
 }
