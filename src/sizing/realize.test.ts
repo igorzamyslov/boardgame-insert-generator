@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { CompartmentSpec, FeatureSpec, Settings } from "../model/types";
 import { CutFitError } from "./errors";
+import { size } from "./group";
 import { minOuter, realizeTray } from "./realize";
 import { assertTrayInvariants, at, bulk, cards, custom, minis, partOf } from "./test-helpers";
 import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
@@ -475,6 +476,48 @@ describe("realizeTray", () => {
       const well = at(r.compartments, 0);
       expect(cutsOf(well).map((f) => f.type === "wallCutout" && f.side)).toEqual(["front"]);
       expect(sides(well)).toEqual([["back", 11]]);
+    });
+
+    // A pocket cut on every wall would lose its ramp (scoopSpecs emits none). That cannot
+    // happen: no kind asks for cuts on more than two sides (one axis), and the retries in
+    // placeCutouts only run for a compartment with no cut at all, and add at most two. So
+    // two minis trays that differ only in figure count both keep a ramp on every pocket,
+    // whichever arrangement and slack they get.
+    it("leaves every minis pocket a free wall for its ramp, whatever the count and arrangement", () => {
+      for (const count of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+        const comp = minis({
+          figures: [{ name: "Hero", w: 25, d: 25, h: 40, count }],
+          curvedFloor: true,
+        });
+        const { requirements } = size([comp], s);
+        const variants = requirements.flatMap((r) => r.variants);
+        expect(variants.length, `count ${count}`).toBeGreaterThan(0);
+        for (const v of variants) {
+          for (const part of v.parts) {
+            const base = minOuter(part, s, ground);
+            for (const [dw, dd] of [
+              [0, 0],
+              [7, 9],
+              [20, 25],
+            ] as const) {
+              const outer = { ...base, w: base.w + dw, d: base.d + dd };
+              const label = `count ${count} ${v.id} +${dw},${dd}`;
+              for (const c of realizeTray(part, outer, s, ground).compartments) {
+                if (c.kind !== "pocket") {
+                  continue;
+                }
+                const cuts = cutsOf(c).flatMap((f) => (f.type === "wallCutout" ? [f.side] : []));
+                const ramps = sides(c).map(([side]) => side);
+                expect(cuts.length, label).toBeLessThanOrEqual(2);
+                expect(ramps.length, label).toBeGreaterThan(0);
+                for (const side of ramps) {
+                  expect(cuts, label).not.toContain(side);
+                }
+              }
+            }
+          }
+        }
+      }
     });
   });
 

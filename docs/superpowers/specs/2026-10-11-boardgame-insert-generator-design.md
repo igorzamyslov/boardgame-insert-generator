@@ -555,7 +555,7 @@ longer wall, so the ramp runs across the shorter dimension (front, back, left,
 right break a tie). A ramp's radius is `min(scoopRadius, depth, across / 2)`, so a flat floor
 always stays beside it. The opposite wall gets a second ramp when it has no cut and the two
 leave a flat band (`2 × r + MIN_FLAT_FLOOR ≤ across`, 15 mm); a radius is never shrunk to
-fit one, so only compartments wide enough for the full radius get two. With every wall cut, there is no ramp. With both off a compartment is a plain box
+fit one, so only compartments wide enough for the full radius get two. No compartment is cut on every wall (a kind asks for cuts on one axis, at most two sides, and the retries add cuts only to a compartment with none, at most two), so a ramp always has a free wall. With both off a compartment is a plain box
 with a flat floor and whole walls. Finger room goes only on the walls and
 dividers a cut actually passes. In a group mixing toggles, each component
 keeps its own: a cut never opens into a well with finger cuts off.
