@@ -754,16 +754,29 @@ fallback: a requirement that still has no variant is left out with a
   `partial`. The score keeps loose bits out of the top layer. Any that remain
   are warned about, with a suggestion to move them below other trays. With
   `storedOnSide`, any loose bits in the top layer trigger a warning, whatever
-  the coverage.
+  the coverage. The warning names the contents of each exposed tray; spare
+  compartments are empty filler and are left out of that list. (Only a
+  requirement's components make it "loose", so spares never add to the score
+  penalty either.)
 - **Bed:** a requirement too large for the bed in every variant, splits
   included → error naming the component.
-- **Play:** lateral play above 1.5 mm on an axis → warning.
+- **Play:** lateral play above 1.5 mm on an axis → warning. Play is
+  `2 × box clearance + (trays in the row − 1) × tray gap`, times Fit. The
+  message names the axis the way the Summary readouts do (left–right,
+  front–back), says how many trays sit in that row (`LayoutSummary.crossX` /
+  `crossY`), and names the controls: a tighter Fit, Box clearance (counts
+  twice) and Tray gap (counts once per extra tray) under "Exact values", and
+  fewer trays in the row. The 1.5 mm limit is fixed and the warning cannot be
+  dismissed: the controls above clear it.
 - **Lip off:** warning when the layout has stacked trays (rule 4).
 - **Stops short:** info notice (`layout.stopsShort`) when `fillToTop` is off and
   a stack ends below the top plane: boards and the lid won't rest on it, so
   its trays can shift a little when the box is carried.
-- **Dropped locks**, **capped runs** and a **stale stored layout** (§8.4) are
-  shown as notices.
+- **Dropped locks** are named by what their trays hold, e.g. `Position lock on
+"Deck ×50" was dropped: …`, never by tray key. The layout engine resolves the
+  name where it builds the notice (the UI only shows `message`). A lock whose
+  tray no longer exists reads "a tray that no longer exists".
+- **Capped runs** and a **stale stored layout** (§8.4) are shown as notices.
 
 ## 8. UI
 
@@ -794,7 +807,10 @@ Numbers accept a decimal comma or point.
 
 - **Summary:** box fill %, tray count, stack count, filament in grams
   (PLA 1.24 g/cm³; upper bound at 100 % fill), lateral play per axis,
-  warnings.
+  warnings. Under it: "Update plan" re-fits to the current inputs; "Keep
+  searching" is the same run with about three times the search budget (it
+  also starts from the current layout and never discards it), and each button
+  has a hint saying so.
 - **Plan view:** per-layer top-down drawing; click to select, drag or
   keyboard to swap, lock toggle.
 - **3D view:** explode slider, layer toggle, click a tray for contents and

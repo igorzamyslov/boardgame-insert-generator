@@ -90,6 +90,8 @@ export function makeResult(
           filamentG: 123,
           playX: 1.2,
           playY: 1.6,
+          crossX: 3,
+          crossY: 2,
         }
       : null,
     notices: [],

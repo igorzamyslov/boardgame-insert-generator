@@ -181,9 +181,9 @@ describe("hard rules (spec §3) on random inputs", () => {
         const locked = { ...input, locks };
         const r = optimize(locked, seed, 200, { warmStart: first.layout });
         expectValid(locked, r);
-        expect(
-          r.notices.some((n) => n.code === "lock.dropped" && n.message.includes("ghost:p0:0")),
-        ).toBe(true);
+        expect(r.notices.some((n) => n.code === "lock.dropped" && n.path === "/locks/2")).toBe(
+          true,
+        );
       }),
       { numRuns: 100 },
     );

@@ -10,6 +10,7 @@ import {
   moveEnvOf,
   noLocks,
   resolveLocks,
+  trayNamer,
   type ResolvedLocks,
 } from "./locks";
 import { materialize, type Realize } from "./materialize";
@@ -185,6 +186,7 @@ export function createRun(
           lockDroppedNotice(
             lock,
             "no layout that keeps it fits in the box",
+            trayNamer(phase.ctx),
             input.locks.indexOf(lock),
           ),
         );

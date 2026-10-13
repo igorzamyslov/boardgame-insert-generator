@@ -18,6 +18,8 @@ export interface LayoutSummary {
   filamentG: number; // upper bound: solid volume × 1.24 g/cm³
   playX: number; // nominal lateral play, mm
   playY: number;
+  crossX: number; // most trays side by side in a row across X: what playX is made of
+  crossY: number; // most trays one behind the other along Y, for playY
 }
 
 export interface LayoutResult {

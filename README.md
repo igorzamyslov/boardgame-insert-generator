@@ -54,7 +54,7 @@ geometry clients, so they never start a worker or load WASM.
    with a curved floor instead. The editor says so, and what the bin has.
 4. **Layout.** The optimizer runs on its own 400 ms after you stop editing and
    says the result in one sentence; Advanced adds the slack per axis and an
-   upper bound for the filament. "Update plan", "Find a better layout" and
+   upper bound for the filament. "Update plan", "Keep searching" (the same, searching about three times longer) and
    "Undo layout" (one step) sit under it. Spare trays (plain, dashed, still
    numbered) fill gaps so the other trays cannot move; print them too. In the
    plan view, select a tray to see its details; in Advanced, drag a tray onto

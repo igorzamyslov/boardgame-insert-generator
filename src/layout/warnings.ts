@@ -1,8 +1,8 @@
 import { FIT_CHOICES } from "../model/settings";
 import type { Notice, TraySpec } from "../model/types";
-import type { TrayRequirement } from "../sizing/types";
 import { fitsBed } from "./bed";
 import { PLAY_LIMIT_MM, printedHeight, type Ctx, type PartRef } from "./context";
+import { partLabel, requirementLabel } from "./labels";
 import { coverageApplies } from "./score";
 import type { LayoutSummary } from "./types";
 import { toMm, toU, type U } from "./units";
@@ -20,13 +20,6 @@ export const NOTICE_CODES = {
   lockDropped: "lock.dropped",
 } as const;
 
-export function requirementLabel(r: TrayRequirement): string {
-  const names = new Set(
-    (r.variants[0]?.parts ?? []).flatMap((p) => p.compartments.map((c) => c.contents)),
-  );
-  return names.size > 0 ? [...names].join(", ") : r.key;
-}
-
 function mm(v: number): string {
   return v.toFixed(1);
 }
@@ -34,6 +27,34 @@ function mm(v: number): string {
 /** A shortfall (mm, on the 0.01 grid) shown rounded up to 0.1 mm: a positive one never reads 0.0. */
 export function mmUp(v: number): string {
   return (Math.ceil(Math.round(v * 100) / 10) / 10).toFixed(1);
+}
+
+/**
+ * The play warning, naming the row of trays behind the number and the controls that change it.
+ * Play is 2 × box clearance + (trays in the row − 1) × tray gap, all times Fit; the axes are named
+ * as the Summary's "Slack" readouts name them.
+ */
+function playMessage(axis: "x" | "y", play: number, crossed: number, canTighten: boolean): string {
+  const where = axis === "x" ? "left–right" : "front–back";
+  const row =
+    axis === "x"
+      ? `${crossed} trays sit side by side in one row`
+      : `${crossed} trays sit one behind the other in one row`;
+  const tips: string[] = [];
+  if (canTighten) {
+    tips.push("choose a tighter Fit");
+  }
+  tips.push(
+    crossed > 1
+      ? "lower Box clearance (it counts twice) or Tray gap (it counts once for each extra tray in the row) under Exact values in Advanced mode"
+      : "lower Box clearance (it counts twice) under Exact values in Advanced mode",
+  );
+  if (crossed > 1) {
+    tips.push("put fewer trays in that row");
+  }
+  const last = tips.length - 1;
+  const steps = tips.map((t, i) => (i > 0 && i === last ? `or ${t}` : t));
+  return `Trays can shift ${play.toFixed(2)} mm ${where} (more than ${PLAY_LIMIT_MM} mm): ${row}. To reduce it: ${steps.join("; ")}.`;
 }
 
 /** Warnings about a feasible layout: coverage, play, lip off; and a note when stacks stop short of the top. */
@@ -54,12 +75,12 @@ export function layoutWarnings(
     if (exposed.length > 0) {
       const labels = [
         ...new Set(
-          exposed.map(
-            (t) =>
-              t.compartments
-                .map((c) => c.contents)
-                .filter((c) => c !== "")
-                .join(", ") || t.key,
+          exposed.map((t) =>
+            // spare compartments are empty filler: they hold nothing that could spill
+            partLabel(
+              t.compartments.filter((c) => c.kind !== "spare").map((c) => c.contents),
+              t.key,
+            ),
           ),
         ),
       ].join("; ");
@@ -72,16 +93,15 @@ export function layoutWarnings(
       });
     }
   }
-  const limit = PLAY_LIMIT_MM;
-  for (const [axis, play] of [
-    ["X", summary.playX],
-    ["Y", summary.playY],
+  for (const [axis, play, crossed] of [
+    ["x", summary.playX, summary.crossX],
+    ["y", summary.playY, summary.crossY],
   ] as const) {
-    if (play > limit) {
+    if (play > PLAY_LIMIT_MM) {
       out.push({
         level: "warning",
         code: NOTICE_CODES.play,
-        message: `Trays can shift ${play.toFixed(2)} mm along ${axis} (more than ${limit} mm). Fewer trays side by side or a tighter Fit reduce it.`,
+        message: playMessage(axis, play, crossed, settings.fit > FIT_CHOICES.tight),
       });
     }
   }
@@ -236,11 +256,6 @@ export function bedNotices(ctx: Ctx): Notice[] {
     });
   });
   return out;
-}
-
-function partLabel(contents: readonly string[], key: string): string {
-  const names = [...new Set(contents.filter((c) => c !== ""))];
-  return names.length > 0 ? names.join(", ") : key;
 }
 
 /**

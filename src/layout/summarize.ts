@@ -46,12 +46,16 @@ export function summarize(
     .map((t) => ({ x: toU(t.x), y: toU(t.y), w: toU(t.w), d: toU(t.d) }));
   const play = (crossed: number): number =>
     toMm(nominalPlayU(toU(eff.boxClearance), toU(eff.trayGap), crossed));
+  const crossX = maxCrossing(bottoms, true);
+  const crossY = maxCrossing(bottoms, false);
   return {
     fillPct: usable > 0 ? round((outerVolume / usable) * 100, 1) : 0,
     trayCount: printed.length,
     stackCount: new Set(printed.map((t) => t.stack)).size,
     filamentG: round(filament * PLA_G_PER_MM3, 1),
-    playX: play(maxCrossing(bottoms, true)),
-    playY: play(maxCrossing(bottoms, false)),
+    playX: play(crossX),
+    playY: play(crossY),
+    crossX,
+    crossY,
   };
 }

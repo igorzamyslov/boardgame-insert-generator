@@ -11,8 +11,8 @@ import {
   layoutWarnings,
   NOTICE_CODES,
   overBedParts,
-  requirementLabel,
 } from "./warnings";
+import { requirementLabel } from "./labels";
 
 function tray(key: string, path: string, level: number, contents: string): TraySpec {
   return traySpec({
@@ -34,6 +34,8 @@ const okSummary: LayoutSummary = {
   filamentG: 10,
   playX: 1.2,
   playY: 1.4,
+  crossX: 3,
+  crossY: 2,
 };
 const reqs = [boxReq("bits", 40, 40, 10, { loose: true }), boxReq("cards", 40, 40, 10)];
 const trays = [tray("bits:p0:0", "0", 0, "Cubes"), tray("cards:p0:0", "1", 0, "Deck")];
@@ -66,7 +68,62 @@ describe("layout warnings", () => {
     const stacked = [tray("bits:p0:0", "0", 0, "Cubes"), tray("cards:p0:0", "0", 1, "Deck")];
     const w = layoutWarnings(ctx, stacked, { ...okSummary, playX: 1.6 });
     expect(w.map((n) => n.code)).toEqual([NOTICE_CODES.play, NOTICE_CODES.lipOff]);
-    expect(w[0]?.message).toContain("along X");
+    expect(w[0]?.message).toContain("left–right");
+  });
+
+  it("says how many trays sit in the row and which controls to change", () => {
+    const ctx = createCtx(makeInput(reqs), fakeMeasure);
+    const x = layoutWarnings(ctx, trays, { ...okSummary, playX: 1.6, crossX: 4 })[0]?.message;
+    expect(x).toBe(
+      "Trays can shift 1.60 mm left–right (more than 1.5 mm): 4 trays sit side by side in one row. To reduce it: choose a tighter Fit; lower Box clearance (it counts twice) or Tray gap (it counts once for each extra tray in the row) under Exact values in Advanced mode; or put fewer trays in that row.",
+    );
+    const y = layoutWarnings(ctx, trays, { ...okSummary, playY: 1.6, crossY: 4 })[0]?.message;
+    expect(y).toContain("front–back");
+    expect(y).toContain("4 trays sit one behind the other in one row");
+    // a tighter Fit is only suggested while there is one
+    const tight = createCtx(makeInput(reqs, { settings: { fit: 0.7 } }), fakeMeasure);
+    expect(
+      layoutWarnings(tight, trays, { ...okSummary, playX: 1.6, crossX: 4 })[0]?.message,
+    ).not.toContain("Fit");
+    const loose = createCtx(makeInput(reqs, { settings: { fit: 1.4 } }), fakeMeasure);
+    expect(
+      layoutWarnings(loose, trays, { ...okSummary, playX: 1.6, crossX: 4 })[0]?.message,
+    ).toContain("choose a tighter Fit");
+    // one tray in the row: only the box clearance counts
+    const one = layoutWarnings(ctx, trays, { ...okSummary, playX: 1.6, crossX: 1 })[0]?.message;
+    expect(one).not.toContain("Tray gap");
+    expect(one).not.toContain("fewer trays");
+  });
+
+  it("leaves spare compartments out of the coverage warning", () => {
+    const partial = createCtx(
+      makeInput(reqs, { box: { headroom: 5, headroomCoverage: "partial" } }),
+      fakeMeasure,
+    );
+    const withSpares = traySpec({
+      key: "bits:p0:0",
+      path: "0",
+      level: 0,
+      w: 50,
+      d: 50,
+      compartments: [
+        {
+          x: 2,
+          y: 2,
+          w: 20,
+          d: 46,
+          floorZ: 1.2,
+          kind: "scoop",
+          contents: "Cubes ×20",
+          features: [],
+        },
+        { x: 24, y: 2, w: 20, d: 46, floorZ: 1.2, kind: "spare", contents: "spare", features: [] },
+        { x: 44, y: 2, w: 4, d: 46, floorZ: 1.2, kind: "spare", contents: "spare", features: [] },
+      ],
+    });
+    const msg = layoutWarnings(partial, [withSpares], okSummary)[0]?.message;
+    expect(msg).toContain("Cubes ×20.");
+    expect(msg).not.toContain("spare");
   });
 
   it("names requirements that fit the bed in no variant", () => {

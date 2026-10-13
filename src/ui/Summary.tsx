@@ -200,21 +200,38 @@ export function Summary(p: SummaryProps) {
         </dl>
       ) : null}
       {p.hasComponents ? (
-        <div class="button-row stage-block">
-          <button type="button" onClick={p.onReoptimize} disabled={running || !p.canOptimize}>
-            Update plan
-          </button>
-          <button
-            type="button"
-            onClick={p.onImprove}
-            disabled={running || !p.hasLayout || !p.canOptimize}
-          >
-            Find a better layout
-          </button>
-          <button type="button" onClick={p.onUndo} disabled={running || !p.canUndo}>
-            Undo layout
-          </button>
-        </div>
+        <>
+          <div class="button-row stage-block">
+            <button
+              type="button"
+              onClick={p.onReoptimize}
+              disabled={running || !p.canOptimize}
+              aria-describedby="hint-update-plan"
+            >
+              Update plan
+            </button>
+            <button
+              type="button"
+              onClick={p.onImprove}
+              disabled={running || !p.hasLayout || !p.canOptimize}
+              aria-describedby="hint-keep-searching"
+            >
+              Keep searching
+            </button>
+            <button type="button" onClick={p.onUndo} disabled={running || !p.canUndo}>
+              Undo layout
+            </button>
+          </div>
+          <p class="hint stage-block">
+            <span id="hint-update-plan">
+              Update plan re-fits the trays to your current inputs, starting from this layout.
+            </span>{" "}
+            <span id="hint-keep-searching">
+              Keep searching does the same but looks about three times longer for a tighter
+              arrangement. Both start from the current layout, so neither throws it away.
+            </span>
+          </p>
+        </>
       ) : null}
       <Notices
         notices={p.notices}

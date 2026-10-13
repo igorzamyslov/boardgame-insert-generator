@@ -9,6 +9,7 @@ import {
   type FixedSize,
   type PartRef,
 } from "./context";
+import { REMOVED_TRAY, trayLabel } from "./labels";
 import { insertItem, insertLeaf, removeItems, type MoveEnv } from "./moves";
 import type { Rng } from "./prng";
 import { stackHeights, stackLevels } from "./stack";
@@ -60,6 +61,11 @@ export interface LockHints {
   readonly singleLeaf?: boolean;
 }
 
+/** Names trays for notices from the layout's contents. */
+export function trayNamer(ctx: Ctx): TrayNamer {
+  return (key) => trayLabel(ctx, key);
+}
+
 export function noLocks(ctx: Ctx): ResolvedLocks {
   return {
     leaves: [],
@@ -77,22 +83,31 @@ export function isValidPath(path: string): boolean {
   return /^[01]*$/.test(path) && path.length <= MAX_DEPTH;
 }
 
-export function describeLock(lock: Lock): string {
+/** Names a tray by its key for a notice (`trayLabel` with the layout's context). */
+export type TrayNamer = (trayKey: string) => string;
+
+/** The lock in words a user knows: the contents of its trays, quoted, never their keys. */
+export function describeLock(lock: Lock, name: TrayNamer): string {
+  const quote = (key: string): string => {
+    const label = name(key);
+    return label === REMOVED_TRAY ? label : `"${label}"`;
+  };
   if (lock.kind === "stack") {
-    return `Stack lock on ${lock.trayKeys.join(", ")}`;
+    return `Stack lock on ${lock.trayKeys.map(quote).join(", ")}`;
   }
-  return `${lock.kind === "position" ? "Position" : "Size"} lock on ${lock.trayKey}`;
+  return `${lock.kind === "position" ? "Position" : "Size"} lock on ${quote(lock.trayKey)}`;
 }
 
 /**
  * `path` is `/locks/<index>` (the lock's index in `LayoutInput.locks`) so the UI can remove
- * exactly that lock from the project; omitted when the index is unknown (< 0).
+ * exactly that lock from the project; omitted when the index is unknown (< 0). The message is
+ * resolved here, where the layout's contents are known, so it names components, not tray keys.
  */
-export function lockDroppedNotice(lock: Lock, reason: string, index = -1): Notice {
+export function lockDroppedNotice(lock: Lock, reason: string, name: TrayNamer, index = -1): Notice {
   const notice: Notice = {
     level: "warning",
     code: "lock.dropped",
-    message: `${describeLock(lock)} was dropped: ${reason}.`,
+    message: `${describeLock(lock, name)} was dropped: ${reason}.`,
   };
   return index >= 0 ? { ...notice, path: `/locks/${index}` } : notice;
 }
@@ -162,11 +177,12 @@ function resolveOnce(
   const notices: Notice[] = [];
   const lateNotices: Notice[] = [];
   const dropped = new Set<Lock>();
+  const name = trayNamer(ctx);
   const lateDropped = new Set<Lock>();
   let early = true;
   const drop = (lock: Lock, reason: string): void => {
     dropped.add(lock);
-    const notice = lockDroppedNotice(lock, reason, indexOf.get(lock) ?? -1);
+    const notice = lockDroppedNotice(lock, reason, name, indexOf.get(lock) ?? -1);
     if (early) {
       notices.push(notice);
     } else {
@@ -187,7 +203,7 @@ function resolveOnce(
     }
     const missing = keys.find((k) => ctx.refsOfKey(k).length === 0);
     if (missing !== undefined) {
-      drop(lock, `no tray "${missing}" exists any more`);
+      drop(lock, "the component it was on was removed or changed");
       continue;
     }
     const next = new Map<number, Set<number>>();
@@ -294,7 +310,7 @@ function resolveOnce(
         (p.lock.path.startsWith(lock.path) || lock.path.startsWith(p.lock.path)),
     );
     if (clash) {
-      drop(lock, `it conflicts with the position lock on ${clash.lock.trayKey}`);
+      drop(lock, `it conflicts with the position lock on "${name(clash.lock.trayKey)}"`);
       continue;
     }
     if (lock.path === "" && !singleTray && hints.singleLeaf !== true) {

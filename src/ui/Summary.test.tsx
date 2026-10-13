@@ -21,6 +21,8 @@ function props(over: Partial<SummaryProps> = {}): SummaryProps {
       filamentG: 412.2,
       playX: 1.2,
       playY: 1.8,
+      crossX: 3,
+      crossY: 2,
     },
     run: { status: "done" },
     notices: [],
@@ -91,6 +93,8 @@ describe("Summary", () => {
       filamentG: 412,
       playX: 1.2,
       playY: 1.3,
+      crossX: 3,
+      crossY: 2,
     };
     const view = render(<Summary {...props({ summary })} />);
     expect(view.container.querySelector("dl.pf-readouts")).toBeNull();
@@ -147,11 +151,26 @@ describe("Summary", () => {
     });
     render(<Summary {...p} />);
     fireEvent.click(screen.getByRole("button", { name: "Update plan now" }));
-    fireEvent.click(screen.getByRole("button", { name: "Find a better layout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep searching" }));
     fireEvent.click(screen.getByRole("button", { name: "Undo layout" }));
     expect(p.onReoptimize).toHaveBeenCalledTimes(1);
     expect(p.onImprove).toHaveBeenCalledTimes(1);
     expect(p.onUndo).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels the two search buttons by what they do and says how they differ", () => {
+    render(<Summary {...props()} />);
+    expect(screen.queryByRole("button", { name: "Find a better layout" })).toBeNull();
+    const update = screen.getByRole("button", { name: "Update plan" });
+    const more = screen.getByRole("button", { name: "Keep searching" });
+    const hint = (b: HTMLElement): string =>
+      (b.getAttribute("aria-describedby") ?? "")
+        .split(" ")
+        .map((id) => document.getElementById(id)?.textContent ?? "")
+        .join(" ");
+    expect(hint(update)).toMatch(/re-fits the trays to your current inputs/);
+    expect(hint(more)).toMatch(/about three times longer/);
+    expect(hint(more)).toMatch(/neither throws it away|neither throws/i);
   });
 
   describe("when the optimizer is blocked", () => {
@@ -226,7 +245,7 @@ describe("Summary", () => {
         })}
       />,
     );
-    expect(screen.queryByRole("button", { name: "Find a better layout" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Undo layout" })).toBeNull();
     view.rerender(
       <Summary
@@ -238,9 +257,9 @@ describe("Summary", () => {
         })}
       />,
     );
-    expect(
-      screen.getByRole("button", { name: "Find a better layout" }).hasAttribute("disabled"),
-    ).toBe(true);
+    expect(screen.getByRole("button", { name: "Keep searching" }).hasAttribute("disabled")).toBe(
+      true,
+    );
     expect(screen.getByRole("button", { name: "Undo layout" }).hasAttribute("disabled")).toBe(true);
     // rounded up to 0.1 mm like plan 4's notice, never to the nearest
     expect(screen.getByText(/Doesn't fit/).textContent).toBe(
@@ -330,6 +349,8 @@ describe("Summary", () => {
             filamentG: 1,
             playX: 1.504,
             playY: 1.5,
+            crossX: 3,
+            crossY: 2,
           },
         })}
       />,

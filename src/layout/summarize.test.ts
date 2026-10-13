@@ -26,6 +26,9 @@ describe("summarize", () => {
     expect(s.filamentG).toBe(round1(g));
     expect(s.playX).toBe(1.2);
     expect(s.playY).toBe(1);
+    // two trays side by side: the 1.2 mm is 2 × 0.5 + 1 × 0.2
+    expect(s.crossX).toBe(2);
+    expect(s.crossY).toBe(1);
   });
 
   it("adds the lip ring to the filament estimate", () => {
