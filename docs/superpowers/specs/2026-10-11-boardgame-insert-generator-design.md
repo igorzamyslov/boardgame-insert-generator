@@ -53,6 +53,11 @@ box.
 - Bundled game presets library.
 - Calibration test print.
 - Print-time estimate.
+- Making "Needed during play" mean three different things. Today only `often`
+  scores (200 000 when such a tray is buried), so `sometimes` and `setup` are
+  identical. `setup` should actively prefer sitting UNDER other trays, since a
+  setup-only tray is the right thing to bury. Explain all three in the hint,
+  and say it is a preference the optimizer weighs, not a rule.
 - Showing a component's name alongside its deck or item name in the plan and 3D
   view, so several trays of one component read as a group ("Starter deck —
   Deck 1" rather than "Deck 1").
