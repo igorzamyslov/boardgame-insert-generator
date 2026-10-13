@@ -309,7 +309,7 @@ describe("size", () => {
       expect(req.variants.map((v) => v.id)).toEqual(binIds);
       expect(req.loose).toBe(true);
       expect(first(req).contents).toBe("Hexes ×40");
-      expect([first(req).kind, features(first(req))]).toEqual(["scoop", ["scoop front"]]);
+      expect([first(req).kind, features(first(req))]).toEqual(["scoop", ["scoop"]]);
       expect(notices).toEqual([fallbackNotice(0, "Hexes", "Hexes ×40")]);
     });
 
@@ -320,7 +320,7 @@ describe("size", () => {
       // Three small pieces: the deep bin is the shallow one, so only one variant is left.
       expect(req.variants.map((v) => v.id)).toEqual(["bulk-shallow|strip|split1"]);
       expect(first(req).contents).toBe("Dial ×3");
-      expect(features(first(req))).toEqual(["scoop front"]);
+      expect(features(first(req))).toEqual(["scoop"]);
       expect(notices.map((n) => [n.level, n.code])).toEqual([["info", "sizing.noFingerSlot"]]);
     });
 
@@ -329,14 +329,14 @@ describe("size", () => {
       const pieces = custom({ w: 8, d: 8, h: 8, count: 6 });
       const set = { ...pieces, ...togglesOf(pieces) };
       expect(size([set], s)).toEqual(size([pieces], s));
-      expect(features(first(at(size([set], s).requirements, 0)))).toEqual(["scoop front"]);
+      expect(features(first(at(size([set], s).requirements, 0)))).toEqual(["scoop"]);
     });
 
     it("keeps a toggle a component set away from its kind's default in its bin", () => {
       // Corner reliefs are off for minis, so turning them on carries over to the bin.
       const tiny = figures(["F0", 3, 10, 1], ["F1", 5, 3, 1]);
       const reliefs = at(size([minis({ figures: tiny, cornerReliefs: true })], s).requirements, 0);
-      expect(features(first(reliefs))).toEqual(["scoop front", "cornerRelief"]);
+      expect(features(first(reliefs))).toEqual(["scoop", "cornerRelief"]);
       expect(size([minis({ figures: tiny, cornerReliefs: true })], s).notices[0]?.message).toMatch(
         /so it is stored loose in a bin with a curved floor and corner reliefs instead\.$/,
       );

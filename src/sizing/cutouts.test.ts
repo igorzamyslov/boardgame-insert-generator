@@ -408,23 +408,23 @@ describe("finger room where the cuts actually go", () => {
   });
 });
 
-describe("minis pockets and custom wells: one centred cut through the front wall", () => {
+describe("minis pockets and custom wells: a centred cut through the front and back walls", () => {
   const heroes = minis({ figures: [{ name: "Hero", w: 25, d: 25, h: 40, count: 4 }] });
 
-  it("cuts each pocket of a strip through the front wall, half its depth", () => {
+  it("cuts each pocket of a strip through the front and back walls, half its depth", () => {
     const r = realize(partOf([heroes], "standing|strip|split1"));
     expect(
       r.compartments.map((c) => cutsOf(c).map((f) => f.type === "wallCutout" && f.side)),
-    ).toEqual([["front"], ["front"], ["front"], ["front"]]);
+    ).toEqual(Array(4).fill(["front", "back"]));
   });
 
-  it("cuts the back row of rows2 through the back wall, which takes the finger room", () => {
+  it("cuts both rows of rows2 front and back: the facing cuts meet across the divider", () => {
     const part = partOf([heroes], "standing|rows2|split1");
     const r = realize(part);
-    // Row 0's pockets face the front wall; row 1's fronts face row 0, so they cut through the back.
+    // Every pocket asks for both walls, so row 0's back and row 1's front twin through the divider.
     expect(
       r.compartments.map((c) => cutsOf(c).map((f) => f.type === "wallCutout" && f.side)),
-    ).toEqual([["front"], ["front"], ["back"], ["back"]]);
+    ).toEqual(Array(4).fill(["front", "back"]));
     const plain = minOuter(part, s, ground);
     expect(minOuter(part, wallOnly, ground)).toEqual({ ...plain, d: plain.d + 20 });
   });

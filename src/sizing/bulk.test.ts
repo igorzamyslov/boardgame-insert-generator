@@ -26,7 +26,7 @@ describe("bulkOptions", () => {
     expect(shallow.contents).toBe("Cubes ×30");
     expect(shallow.elastic).toEqual({ w: true, d: true, h: true });
     expect(shallow.maxHRatio).toBe(1.5);
-    expect(shallow.features).toEqual([{ type: "scoop", side: "front" }]);
+    expect(shallow.features).toEqual([{ type: "scoop" }]);
     const deep = line(bulk(), s, 1);
     // A bin you scoop from keeps its pile within reach (SCOOP_REACH − BIN_FREEBOARD = 30 mm),
     // so the deep shape spreads wider instead of going deeper.

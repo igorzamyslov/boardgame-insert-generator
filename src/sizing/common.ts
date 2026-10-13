@@ -73,17 +73,15 @@ export function cornerRelief(): FeatureReq {
 
 /**
  * The features of a compartment with the toggles `on` (spec §5, §6.1; togglesOf): its `cuts` when
- * finger cuts are on; the scoop ramp when the curved floor is, on the front, or on the back when a
- * cut takes the front; and corner reliefs when they are on. All three off give a plain box.
+ * finger cuts are on; the scoop ramp when the curved floor is, with no side yet (realize picks
+ * the walls once the size and the cuts are final); and corner reliefs when they are on. All
+ * three off give a plain box.
  */
 export function featuresOf(on: Toggles, cuts: readonly FeatureReq[]): FeatureReq[] {
   const kept = on.fingerCuts ? cuts : [];
-  const front = kept.some((f) => f.side === "front");
   return [
     ...kept,
-    ...(on.curvedFloor
-      ? [{ type: "scoop" as const, side: front ? "back" : "front" } as const]
-      : []),
+    ...(on.curvedFloor ? [{ type: "scoop" as const }] : []),
     ...(on.cornerReliefs ? [cornerRelief()] : []),
   ];
 }

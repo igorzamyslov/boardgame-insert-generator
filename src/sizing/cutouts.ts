@@ -36,8 +36,6 @@ export interface CutContext {
   // per owner, the card spacer standing at the high-x end of its well, or null: the channel along
   // the row runs on through it (notched), a cut across the row keeps clear of it
   spacers: readonly (RectMm | null)[];
-  // per owner, the sides its scoop ramp is on: a later try never cuts there
-  scooped: readonly (readonly Side[])[];
   depths: readonly number[]; // content depth of each owner (from its floor to the rim)
   span: { x: number; y: number }; // outer size along x and y
   H: number; // outer height
@@ -111,10 +109,7 @@ export function placeCutouts(requests: readonly CutAsk[], ctx: CutContext): Plac
         const asks = requests.filter((q) => q.owner === owner);
         const fraction = Math.min(...asks.map((q) => q.fraction));
         const notch = asks.some((q) => q.notch);
-        const scooped = ctx.scooped[owner] ?? [];
-        return sides(asks.map((q) => q.side))
-          .filter((side) => !scooped.includes(side))
-          .map((side) => ({ owner, side, fraction, notch }));
+        return sides(asks.map((q) => q.side)).map((side) => ({ owner, side, fraction, notch }));
       });
   };
   const beside = besideSpacers(ctx);

@@ -19,8 +19,12 @@ import type { Semver } from "../model/version";
  * (FeatureSpec "fingerPocket", its reach band and U-slot): a stored 0.1.x tray with one is refused
  * (UnsupportedFeatureError), and their trays change size, so it is a breaking change. It also
  * rounds the cuts' top corners (mesh only).
+ *
+ * 0.3.0 cuts a minis pocket through its back wall as well as its front (and so asks for finger room
+ * on both outer walls), and picks a compartment's scoop walls after its cuts: trays change size
+ * and shape, so it is a breaking change.
  */
-export const GEOMETRY_VERSION = "0.2.0";
+export const GEOMETRY_VERSION = "0.3.0";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

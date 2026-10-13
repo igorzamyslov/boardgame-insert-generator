@@ -48,8 +48,8 @@ describe("UnsupportedFeatureError and GEOMETRY_VERSION", () => {
     expect(err.message).toMatch(/"magnet".*newer app version/);
   });
 
-  it("is at 0.2.0: the finger pocket gave way to the wall cutout, a new line", () => {
-    expect(GEOMETRY_VERSION).toBe("0.2.0");
+  it("is at 0.3.0: minis pockets cut both sides and scoop walls follow the cuts, a new line", () => {
+    expect(GEOMETRY_VERSION).toBe("0.3.0");
   });
 });
 

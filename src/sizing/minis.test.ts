@@ -19,7 +19,7 @@ describe("lyingDims", () => {
 });
 
 describe("minisOptions", () => {
-  it("makes one pocket per figure, cut half its depth through the front wall", () => {
+  it("makes one pocket per figure, cut half its depth through the front and back walls", () => {
     const { options, notices } = minisOptions(minis(), s);
     expect(notices).toEqual([]);
     expect(options.map((o) => o.id)).toEqual(["standing", "lying"]);
@@ -32,6 +32,7 @@ describe("minisOptions", () => {
     expect(pocket.elastic).toEqual({ w: false, d: false, h: false });
     expect(pocket.features).toEqual([
       { type: "wallCutout", side: "front", depthFraction: 0.5, floorNotch: false },
+      { type: "wallCutout", side: "back", depthFraction: 0.5, floorNotch: false },
     ]);
     expect(at(at(at(options, 1).blocks, 0), 0)).toMatchObject({ minW: 41, minD: 26, minH: 26 });
   });

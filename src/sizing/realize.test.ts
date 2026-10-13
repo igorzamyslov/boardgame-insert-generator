@@ -231,7 +231,10 @@ describe("realizeTray", () => {
           kind: "scoop",
           contents: "Cubes ×30",
           componentId: "b1",
-          features: [{ type: "scoop", side: "front", r: 12 }],
+          features: [
+            { type: "scoop", side: "front", r: 12 },
+            { type: "scoop", side: "back", r: 12 },
+          ],
         },
         {
           x: 62.58,
@@ -242,7 +245,10 @@ describe("realizeTray", () => {
           kind: "scoop",
           contents: "Coins 50 ml",
           componentId: "b1",
-          features: [{ type: "scoop", side: "front", r: 12 }],
+          features: [
+            { type: "scoop", side: "front", r: 12 },
+            { type: "scoop", side: "back", r: 12 },
+          ],
         },
       ]);
     });
@@ -272,7 +278,7 @@ describe("realizeTray", () => {
       expect(r.compartments.map((c) => c.floorZ)).toEqual([17.83, 17.83]);
     });
 
-    it("sizes the scoop as min(scoopRadius, depth, width / 2)", () => {
+    it("sizes the scoop as min(scoopRadius, depth), a second ramp opposite when 2 r fits across", () => {
       const r = realizeTray(
         part,
         { w: 119.18, d: 57.98, h: 40 },
@@ -281,13 +287,19 @@ describe("realizeTray", () => {
       );
       // Depth is now 25 (pile + freeboard), so it, not the 50 mm setting, caps the radius.
       expect(r.compartments.map((c) => c.features)).toEqual([
-        [{ type: "scoop", side: "front", r: 25 }],
-        [{ type: "scoop", side: "front", r: 25 }],
+        [
+          { type: "scoop", side: "front", r: 25 },
+          { type: "scoop", side: "back", r: 25 },
+        ],
+        [
+          { type: "scoop", side: "front", r: 25 },
+          { type: "scoop", side: "back", r: 25 },
+        ],
       ]);
     });
   });
 
-  it("cuts each mini pocket through the front wall, half its depth, keeping 3 mm posts", () => {
+  it("cuts each mini pocket through the front and back walls, half its depth, keeping 3 mm posts", () => {
     const part = partOf([minis()], "standing|strip|split1");
     const outer = minOuter(part, s, ground);
     expect(outer).toEqual({ w: 56.4, d: 29.2, h: 42.2 });
@@ -297,8 +309,14 @@ describe("realizeTray", () => {
       ["Hero 2/2", "pocket", 28.8, 1.6, 26, 26, 1.2],
     ]);
     expect(r.compartments.map((c) => c.features)).toEqual([
-      [{ type: "wallCutout", side: "front", at: 14.6, width: 20, depth: 20.5, floorNotch: 0 }],
-      [{ type: "wallCutout", side: "front", at: 41.8, width: 20, depth: 20.5, floorNotch: 0 }],
+      [
+        { type: "wallCutout", side: "front", at: 14.6, width: 20, depth: 20.5, floorNotch: 0 },
+        { type: "wallCutout", side: "back", at: 14.6, width: 20, depth: 20.5, floorNotch: 0 },
+      ],
+      [
+        { type: "wallCutout", side: "front", at: 41.8, width: 20, depth: 20.5, floorNotch: 0 },
+        { type: "wallCutout", side: "back", at: 41.8, width: 20, depth: 20.5, floorNotch: 0 },
+      ],
     ]);
   });
 
@@ -379,7 +397,7 @@ describe("realizeTray", () => {
     );
   });
 
-  it("keeps the scoop radius within half the content width at any unit", () => {
+  it("keeps the scoop radius within the width across it at any unit", () => {
     const part = partOf(
       [
         bulk({
@@ -394,17 +412,76 @@ describe("realizeTray", () => {
     const r = realizeTray(part, { w: 119.19, d: 57.98, h: 40 }, { ...s, scoopRadius: 50 }, ground);
     // These wells are wide, so the 25 mm the bin is allowed to be deep caps the radius first.
     expect(r.compartments.map((c) => [c.w, c.features])).toEqual([
-      [59.79, [{ type: "scoop", side: "front", r: 25 }]],
-      [55, [{ type: "scoop", side: "front", r: 25 }]],
+      [
+        59.79,
+        [
+          { type: "scoop", side: "front", r: 25 },
+          { type: "scoop", side: "back", r: 25 },
+        ],
+      ],
+      [
+        55,
+        [
+          { type: "scoop", side: "front", r: 25 },
+          { type: "scoop", side: "back", r: 25 },
+        ],
+      ],
     ]);
 
-    // A narrow bin instead runs out of width first: half of it is less than its depth.
+    // A narrow bin has the depth of its pile (20 mm at this tray height) before it runs out of
+    // width: the ramp is clamped by the dimension across it, which is not halved.
     const narrow = partOf(
       [bulk({ items: [{ name: "Tiny", count: 5, w: 5, d: 5, h: 5 }] })],
       "shallow|strip|split1",
     );
     const n = realizeTray(narrow, minOuter(narrow, s, ground), { ...s, scoopRadius: 50 }, ground);
-    expect(at(n.compartments, 0).features).toEqual([{ type: "scoop", side: "front", r: 12.5 }]);
+    expect(at(n.compartments, 0).features).toEqual([{ type: "scoop", side: "front", r: 20 }]);
+  });
+
+  describe("scoop walls", () => {
+    const tiny = partOf(
+      [bulk({ items: [{ name: "Tiny", count: 5, w: 5, d: 5, h: 5 }] })],
+      "shallow|strip|split1",
+    );
+    const sides = (c: CompartmentSpec) =>
+      c.features.flatMap((f) => (f.type === "scoop" ? [[f.side, f.r]] : []));
+
+    it("goes on the longer walls, so the ramp runs across the shorter dimension", () => {
+      const base = minOuter(tiny, s, ground);
+      const wide = realizeTray(tiny, { ...base, w: base.w + 40 }, s, ground);
+      expect(sides(at(wide.compartments, 0))).toEqual([
+        ["front", 12],
+        ["back", 12],
+      ]);
+      const deep = realizeTray(tiny, { ...base, d: base.d + 40 }, s, ground);
+      expect(sides(at(deep.compartments, 0))).toEqual([
+        ["left", 12],
+        ["right", 12],
+      ]);
+    });
+
+    it("puts one full-size ramp where two would meet, front before back on a square well", () => {
+      const cfg: Settings = { ...s, scoopRadius: 15 };
+      const r = realizeTray(tiny, minOuter(tiny, cfg, ground), cfg, ground);
+      // 25 × 25 mm: 2 × 15 > 25, and the radius is not shrunk to fit a second one.
+      expect(sides(at(r.compartments, 0))).toEqual([["front", 15]]);
+    });
+
+    it("clamps the radius of a left or right ramp by the width, not the depth", () => {
+      const base = minOuter(tiny, s, ground);
+      const cfg: Settings = { ...s, scoopRadius: 50 };
+      const r = realizeTray(tiny, { ...base, d: base.d + 40, h: 40 }, cfg, ground);
+      // The well is 25 wide and 65 deep: the bin's 25 mm depth and its width both allow 25.
+      expect(sides(at(r.compartments, 0))).toEqual([["left", 25]]);
+    });
+
+    it("yields to a cut: a ramp never shares a wall with one, and its opposite stays single", () => {
+      const part = partOf([custom({ count: 1, curvedFloor: true })], "custom|strip|split1");
+      const r = realizeTray(part, minOuter(part, s, ground), s, ground);
+      const well = at(r.compartments, 0);
+      expect(cutsOf(well).map((f) => f.type === "wallCutout" && f.side)).toEqual(["front"]);
+      expect(sides(well)).toEqual([["back", 11]]);
+    });
   });
 
   describe("settings that are not whole multiples of 0.01 mm", () => {
@@ -498,7 +575,10 @@ describe("realizeTray", () => {
       const cfg: Settings = { ...s, scoopRadius: 10.006 };
       const part = partOf([bulk()], "shallow|strip|split1", cfg);
       const r = realizeTray(part, minOuter(part, cfg, ground), cfg, ground);
-      expect(at(r.compartments, 0).features).toEqual([{ type: "scoop", side: "front", r: 10 }]);
+      expect(at(r.compartments, 0).features).toEqual([
+        { type: "scoop", side: "front", r: 10 },
+        { type: "scoop", side: "back", r: 10 },
+      ]);
     });
   });
 

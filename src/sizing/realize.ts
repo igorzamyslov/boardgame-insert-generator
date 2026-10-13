@@ -1,3 +1,4 @@
+import { OPPOSITE } from "../model/cut-rules";
 import { MIN_CUT_MM, MIN_FEATURE_MM, effectiveBottomChamfer } from "../model/settings";
 import type { RectMm } from "../model/cut-rules";
 import type { CompartmentSpec, FeatureSpec, Settings, Side, TraySpec } from "../model/types";
@@ -70,6 +71,40 @@ function contentDepth(req: CompartmentReq, well: Rect, H: number, floor: number)
 
 const SIDES: readonly Side[] = ["front", "back", "left", "right"];
 
+/**
+ * The scoop ramps of a compartment (spec §6.1). A side is chosen once the cuts are placed: a side
+ * with a cut is never scooped, and the ramp goes on the longer wall, so it runs across the shorter
+ * dimension (front, back, left, right break a tie). The opposite wall gets a second ramp when it
+ * is free and both fit at full radius without meeting. A request with a `side` is kept as it is.
+ */
+function scoopSpecs(
+  asked: Side | undefined,
+  well: Rect,
+  depth: number,
+  ctx: FeatureContext,
+): FeatureSpec[] {
+  // The dimension a ramp on `side` runs across (plan.ts clamps its radius by the same).
+  const across = (side: Side): number => (side === "front" || side === "back" ? well.d : well.w);
+  const full = Math.min(floorU(ctx.settings.scoopRadius), depth);
+  const spec = (side: Side): FeatureSpec => ({
+    type: "scoop",
+    side,
+    r: fromU(Math.min(full, across(side))),
+  });
+  if (asked !== undefined) {
+    return [spec(asked)];
+  }
+  const free = SIDES.filter((s) => !ctx.cuts.has(s)).sort((a, b) => across(a) - across(b));
+  const side = free[0];
+  if (side === undefined) {
+    return [];
+  }
+  const opposite = OPPOSITE[side];
+  return free.includes(opposite) && 2 * full <= across(side)
+    ? [spec(side), spec(opposite)]
+    : [spec(side)];
+}
+
 function featureSpecs(
   req: CompartmentReq,
   well: Rect,
@@ -81,8 +116,7 @@ function featureSpecs(
       return [{ type: "cornerRelief", d: CORNER_RELIEF_D }];
     }
     if (f.type === "scoop") {
-      const r = Math.min(floorU(ctx.settings.scoopRadius), depth, Math.floor(well.w / 2));
-      return [{ type: "scoop", side: f.side ?? "front", r: fromU(r) }];
+      return scoopSpecs(f.side, well, depth, ctx);
     }
     // Every cut at the first request: no cut where a side faces bits, minis or a custom well, and
     // the other sides' where none of the requested sides got one (placeCutouts).
@@ -251,9 +285,6 @@ function wallCutouts(
         : null,
     ),
     depths: items.map((item) => item.depth),
-    scooped: items.map(({ req }) =>
-      req.features.flatMap((f) => (f.type === "scoop" ? [f.side ?? "front"] : [])),
-    ),
     span: { x: W, y: D },
     H,
     chamfer: min.chamfer,

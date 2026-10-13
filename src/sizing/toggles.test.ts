@@ -38,34 +38,34 @@ describe("finger cuts and curved floor toggles", () => {
     ["cards, cuts off", cards({ fingerCuts: false }), ["well", []]],
     ["tiles", flatTiles, ["well", ["wallCutout front", "wallCutout back", "cornerRelief"]]],
     ["tiles, cuts off", { ...flatTiles, fingerCuts: false }, ["well", ["cornerRelief"]]],
-    ["minis pockets", pockets, ["pocket", ["wallCutout front"]]],
+    ["minis pockets", pockets, ["pocket", ["wallCutout front", "wallCutout back"]]],
     ["minis pockets, cuts off", { ...pockets, fingerCuts: false }, ["pocket", []]],
     [
       "minis pockets, curved floor on",
       { ...pockets, curvedFloor: true },
-      ["pocket", ["wallCutout front", "scoop back"]],
+      ["pocket", ["wallCutout front", "wallCutout back", "scoop"]],
     ],
     [
       "minis pockets, only the curved floor",
       { ...pockets, fingerCuts: false, curvedFloor: true },
-      ["pocket", ["scoop front"]],
+      ["pocket", ["scoop"]],
     ],
-    ["minis as bulk", piled, ["scoop", ["scoop front"]]],
+    ["minis as bulk", piled, ["scoop", ["scoop"]]],
     [
       "minis as bulk, cuts on",
       { ...piled, fingerCuts: true },
-      ["scoop", ["wallCutout front", "scoop back"]],
+      ["scoop", ["wallCutout front", "scoop"]],
     ],
     ["minis as bulk, curved floor off", { ...piled, curvedFloor: false }, ["well", []]],
     ["custom", custom(), ["well", ["wallCutout front", "cornerRelief"]]],
     [
       "custom, curved floor on",
       custom({ curvedFloor: true }),
-      ["well", ["wallCutout front", "scoop back", "cornerRelief"]],
+      ["well", ["wallCutout front", "scoop", "cornerRelief"]],
     ],
     ["custom, cuts off", custom({ fingerCuts: false }), ["well", ["cornerRelief"]]],
-    ["bulk", bulk(), ["scoop", ["scoop front"]]],
-    ["bulk, cuts on", bulk({ fingerCuts: true }), ["scoop", ["wallCutout front", "scoop back"]]],
+    ["bulk", bulk(), ["scoop", ["scoop"]]],
+    ["bulk, cuts on", bulk({ fingerCuts: true }), ["scoop", ["wallCutout front", "scoop"]]],
     ["bulk, both off", bulk({ curvedFloor: false }), ["well", []]],
   ])("%s", (_name, component, expected) => {
     expect(first(component)).toEqual(expected);
@@ -85,9 +85,9 @@ describe("finger cuts and curved floor toggles", () => {
     expect(cut.type === "wallCutout" && cut.depth).toBeCloseTo((outer.h - c.floorZ) / 2, 2);
   });
 
-  it("never cuts on the scoop's side: a pocket that faces another is cut across it instead", () => {
-    // Two rows of curved-floor pockets: the back row's fronts face the front row and their backs
-    // carry the scoop, so they are cut through their sides at the row's ends, or dropped.
+  it("puts the scoop on the sides the cuts leave: pockets cut front and back are scooped left and right", () => {
+    // Two rows of curved-floor pockets: the facing cuts twin across the divider, so the ramps take
+    // the free side walls, one on each, since 2 × 12 mm fits the 26 mm pocket.
     const scooped = minis({
       curvedFloor: true,
       figures: [{ name: "Hero", w: 25, d: 25, h: 40, count: 2 }],
@@ -100,8 +100,8 @@ describe("finger cuts and curved floor toggles", () => {
       c.features.map((f) => `${f.type} ${"side" in f ? f.side : ""}`),
     );
     expect(sides).toEqual([
-      ["wallCutout front", "scoop back"],
-      ["wallCutout left", "wallCutout right", "scoop back"],
+      ["wallCutout front", "wallCutout back", "scoop left", "scoop right"],
+      ["wallCutout front", "wallCutout back", "scoop left", "scoop right"],
     ]);
   });
 
@@ -180,10 +180,10 @@ describe("corner reliefs toggle", () => {
       { ...flatTiles, cornerReliefs: false },
       ["wallCutout front", "wallCutout back"],
     ],
-    ["bulk", bulk(), ["scoop front"]],
-    ["bulk, reliefs on", bulk({ cornerReliefs: true }), ["scoop front", "cornerRelief"]],
-    ["minis pockets", pockets, ["wallCutout front"]],
-    ["minis as bulk", piled, ["scoop front"]],
+    ["bulk", bulk(), ["scoop"]],
+    ["bulk, reliefs on", bulk({ cornerReliefs: true }), ["scoop", "cornerRelief"]],
+    ["minis pockets", pockets, ["wallCutout front", "wallCutout back"]],
+    ["minis as bulk", piled, ["scoop"]],
     ["custom", custom(), ["wallCutout front", "cornerRelief"]],
     ["custom, reliefs off", custom({ cornerReliefs: false }), ["wallCutout front"]],
   ])("%s", (_name, component, expected) => {
