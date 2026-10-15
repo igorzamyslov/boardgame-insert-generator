@@ -274,6 +274,16 @@ input[aria-invalid="true"] {
   border-left: 3px solid var(--ochre);
 }
 
+/* A field that differs from its default (SettingsForm): a hint with a neutral mark, not a warning's ochre. */
+.field-changed {
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--rule-strong);
+}
+
+.restore-all {
+  align-items: center;
+}
+
 .check-field {
   display: grid;
   grid-template-columns: auto 1fr;

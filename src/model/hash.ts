@@ -1,3 +1,4 @@
+import { DEFAULT_SETTINGS } from "./settings";
 import type { Project } from "./types";
 
 /**
@@ -62,7 +63,7 @@ export function cyrb53(str: string, seed = 0): number {
  * Hash of everything that affects the layout (spec §5 StoredLayout.inputsHash):
  * box, printer, settings, components and locks. Names are left out, so renaming never
  * triggers a re-optimize. `separators` is in: above 1 it makes a stretched deck's slack a spacer
- * instead of a spare pocket, so it changes the stored layout. (Since 0.5.1 there is no spare pocket and the count only changes how a spacer is printed, but it stays in the hash: leaving it out would mark every plan that uses it stale once.) `settings.infill` is out: it only
+ * instead of a spare pocket, so it changes the stored layout. (Since 0.5.1 there is no spare pocket and the count only changes how a spacer is printed, but it stays in the hash: leaving it out would mark every plan that uses it stale once.) `settings.playLimit` is in, but only when it is not the default 1.5 mm (so older plans stay current). `settings.infill` is out: it only
  * changes the displayed filament estimate, so editing it never marks the plan stale. So are `mergeFillers` and `mergeRisers`: they only change how the stored parts are grouped for printing (mergeParts). Project id, name, schemaVersion,
  * createdWith and the stored layout itself are left out too. Unknown fields
  * preserved from a newer-minor file are included as-is. 14 hex characters.
@@ -71,7 +72,7 @@ export function inputsHash(p: Project): string {
   // infill only scales the filament estimate; no part depends on it, so it must not stale the plan.
   // wallAbsorb is hashed under its old name, wallGrowth: renaming the setting must not change the
   // hash of every saved project and so mark all of their plans stale.
-  const { wallAbsorb, ...rest } = p.settings;
+  const { wallAbsorb, playLimit, ...rest } = p.settings;
   // mergeFillers and mergeRisers are print-time decompositions (mergeParts), so they are out too.
   const settings = {
     ...rest,
@@ -79,6 +80,9 @@ export function inputsHash(p: Project): string {
     infill: undefined,
     mergeFillers: undefined,
     mergeRisers: undefined,
+    // The default limit is left out, so plans made before the setting existed (all at 1.5 mm) are
+    // still current; any other value is hashed, as it moves the score and the warning.
+    playLimit: playLimit === DEFAULT_SETTINGS.playLimit ? undefined : playLimit,
   }; // canonicalJson skips undefined
   const canonical = canonicalJson({
     box: p.box,

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   EXTRUSION_WIDTH_MM,
   PERIMETERS,
+  PRINT_FLOW_MM3_PER_S,
+  printMinutes,
   SOLID_LAYERS,
   shellThickness,
   summarize,
@@ -164,6 +166,59 @@ describe("summarize", () => {
       const spacer = traySpec({ part: "spacer", solid: true, w: 60, d: 60, h: 40 });
       expect(g([spacer], 15)).toBe(g([spacer], 100));
     });
+  });
+
+  describe("print time", () => {
+    const at = (infill: number) => makeInput([], { settings: { infill, fillToTop: false } });
+
+    it("is the plastic volume divided by the nominal flow", () => {
+      const block = traySpec({ part: "leftover", solid: true, w: 60, d: 60, h: 40 });
+      const s = summarize([block], at(100));
+      // 144 000 mm³ at 4 mm³/s = 36 000 s = 600 min
+      expect(PRINT_FLOW_MM3_PER_S).toBe(4);
+      expect(s.printMinutes).toBe(600);
+      expect(s.printMinutes).toBe(printMinutes(60 * 60 * 40));
+    });
+
+    it("follows the estimate at the infill, not the upper bound", () => {
+      const block = traySpec({ part: "leftover", solid: true, w: 60, d: 60, h: 40 });
+      const core = (60 - 2.7) ** 2 * (40 - 2);
+      const mm3 = 60 * 60 * 40 - core * 0.85;
+      expect(summarize([block], at(15)).printMinutes).toBeCloseTo(mm3 / 4 / 60, 1);
+      expect(summarize([block], at(15)).printMinutes).toBeLessThan(
+        summarize([block], at(100)).printMinutes,
+      );
+    });
+
+    it("adds the parts up and reports the longest one", () => {
+      const big = traySpec({ key: "a", part: "leftover", solid: true, w: 60, d: 60, h: 40 });
+      const small = traySpec({
+        key: "b",
+        part: "leftover",
+        solid: true,
+        w: 20,
+        d: 20,
+        h: 10,
+        stack: 1,
+        x: 70,
+      });
+      const both = summarize([big, small], {
+        ...at(100),
+        settings: { ...at(100).settings, mergeFillers: false },
+      });
+      expect(both.printMinutes).toBe(printMinutes(144_000 + 4_000));
+      expect(both.longestPartMinutes).toBe(600);
+    });
+
+    it("is 0 for no parts", () => {
+      const s = summarize([], at(15));
+      expect([s.printMinutes, s.longestPartMinutes]).toEqual([0, 0]);
+    });
+  });
+
+  it("records the play limit it was made under", () => {
+    const s = summarize([traySpec({})], makeInput([], { settings: { playLimit: 2.25 } }));
+    expect(s.playLimit).toBe(2.25);
   });
 
   describe("raised floors print as risers", () => {

@@ -1,7 +1,7 @@
 import { FIT_CHOICES } from "../model/settings";
 import type { Notice, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
-import { PLAY_LIMIT_MM, printedHeight, type Ctx, type PartRef } from "./context";
+import { printedHeight, type Ctx, type PartRef } from "./context";
 import { partLabel, requirementLabel } from "./labels";
 import { coverageApplies } from "./score";
 import type { LayoutSummary } from "./types";
@@ -33,11 +33,19 @@ export function mmUp(v: number): string {
 }
 
 /**
- * The play warning, naming the row of trays behind the number and the controls that change it.
- * Play is 2 × box clearance + (trays in the row − 1) × tray gap, all times Fit; the axes are named
- * as the Summary's "Slack" readouts name them.
+ * The play warning, naming the row of trays behind the number, the controls that change it and the
+ * limit itself, which is a setting (Play limit). Play is 2 × box clearance + (trays in the row − 1)
+ * × tray gap, all times Fit; the axes are named as the Summary's "Slack" readouts name them. Kept
+ * no longer than it was before the limit became adjustable: the controls are named once, with where
+ * they live.
  */
-function playMessage(axis: "x" | "y", play: number, crossed: number, canTighten: boolean): string {
+function playMessage(
+  axis: "x" | "y",
+  play: number,
+  limit: number,
+  crossed: number,
+  canTighten: boolean,
+): string {
   const where = axis === "x" ? "left–right" : "front–back";
   const row =
     axis === "x"
@@ -49,15 +57,15 @@ function playMessage(axis: "x" | "y", play: number, crossed: number, canTighten:
   }
   tips.push(
     crossed > 1
-      ? "lower Box clearance (it counts twice) or Tray gap (it counts once for each extra tray in the row) under Exact values in Advanced mode"
-      : "lower Box clearance (it counts twice) under Exact values in Advanced mode",
+      ? "lower Box clearance (counts twice) or Tray gap (once per extra tray) under Exact values in Advanced mode"
+      : "lower Box clearance (counts twice) under Exact values in Advanced mode",
   );
   if (crossed > 1) {
     tips.push("put fewer trays in that row");
   }
   const last = tips.length - 1;
   const steps = tips.map((t, i) => (i > 0 && i === last ? `or ${t}` : t));
-  return `Trays can shift ${play.toFixed(2)} mm ${where} (more than ${PLAY_LIMIT_MM} mm): ${row}. To reduce it: ${steps.join("; ")}.`;
+  return `Trays can shift ${play.toFixed(2)} mm ${where} (Play limit: ${limit} mm): ${row}. To reduce it: ${steps.join("; ")}. Or raise Play limit there.`;
 }
 
 /** Warnings about a feasible layout: coverage, play, lip off; and a note when stacks stop short of the top. */
@@ -100,11 +108,17 @@ export function layoutWarnings(
     ["x", summary.playX, summary.crossX],
     ["y", summary.playY, summary.crossY],
   ] as const) {
-    if (play > PLAY_LIMIT_MM) {
+    if (play > settings.playLimit) {
       out.push({
         level: "warning",
         code: NOTICE_CODES.play,
-        message: playMessage(axis, play, crossed, settings.fit > FIT_CHOICES.tight),
+        message: playMessage(
+          axis,
+          play,
+          settings.playLimit,
+          crossed,
+          settings.fit > FIT_CHOICES.tight,
+        ),
       });
     }
   }

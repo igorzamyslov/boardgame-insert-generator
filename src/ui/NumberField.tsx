@@ -1,4 +1,5 @@
 // src/ui/NumberField.tsx
+import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { parseNumber } from "../model/numbers";
 import { FieldMessages, describedByIds, messagesOf } from "./FieldMessages";
@@ -62,6 +63,8 @@ export interface NumberFieldProps extends NumberRules {
   unit?: string;
   hint?: string;
   path?: string;
+  /** Extra content under the field's messages, such as "differs from the default" with a restore button. */
+  footer?: ComponentChildren;
   /** "input" (default) commits every valid keystroke; "blur" only when leaving the field. */
   commitOn?: "input" | "blur";
 }
@@ -148,6 +151,7 @@ export function NumberField(props: NumberFieldProps) {
         input
       )}
       <FieldMessages id={id} hint={hint} errors={errors} notes={notes} />
+      {props.footer}
     </div>
   );
 }

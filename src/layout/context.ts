@@ -5,7 +5,7 @@ import { MIN_GRIP, UPPER_TRAY_MIN_ABOVE_LIP } from "../sizing/constants";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import type { Bed } from "./bed";
 import type { LayoutInput } from "./types";
-import { toMm, toU, toUCeil, toUFloor, type U } from "./units";
+import { toU, toUCeil, toUFloor, type U } from "./units";
 
 /** Same signature as sizing's minOuter; injectable so unit tests can use fixed sizes. */
 export type Measure = (part: TrayPartReq, settings: Settings, opts: RealizeOptions) => OuterSize;
@@ -18,10 +18,6 @@ export const MAX_LEVELS = 4;
 export const MAX_DEPTH = 32;
 /** Smallest inner dimension that counts as a grip (hard rule 8): sizing's MIN_GRIP. */
 export const GRIP_U: U = toU(MIN_GRIP);
-/** Nominal lateral play above this is penalized and warned about (hard rule 1). */
-export const PLAY_LIMIT_U: U = 150;
-/** The same limit in millimetres, for messages and for the UI (spec §7.3). */
-export const PLAY_LIMIT_MM: number = toMm(PLAY_LIMIT_U);
 
 export interface PartRef {
   readonly req: number;
@@ -57,6 +53,8 @@ export interface Ctx {
   readonly topPlane: U;
   readonly boxClearance: U;
   readonly gap: U;
+  /** Nominal lateral play above this is penalized and warned about (hard rule 1): settings.playLimit. */
+  readonly playLimit: U;
   /** Per-level inset per side: lip.thickness + effective lip play. */
   readonly inset: U;
   readonly layer: U;
@@ -146,6 +144,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     topPlane: toUFloor(topPlane(box, settings)),
     boxClearance,
     gap: toU(eff.trayGap),
+    playLimit: toU(settings.playLimit),
     // The inset exists only to clear the lip ring below. With no lip there is nothing to
     // clear, and keeping it would leave the upper tray overhanging the rim: its bottom
     // chamfer starts further in than the wall below is thick, so it would come to rest on

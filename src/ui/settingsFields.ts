@@ -35,6 +35,7 @@ export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Setting
   packingFactor: (s, v) => ({ ...s, packingFactor: v }),
   wallAbsorb: (s, v) => ({ ...s, wallAbsorb: v }),
   infill: (s, v) => ({ ...s, infill: v }),
+  playLimit: (s, v) => ({ ...s, playLimit: v }),
 };
 
 const UNITLESS = new Set(["fit", "cardStackClearancePct", "packingFactor"]);

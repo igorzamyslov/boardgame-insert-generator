@@ -148,6 +148,15 @@ describe("schema history", () => {
     expect(older.project.settings.mergeRisers).toBe(false);
   });
 
+  it("reads the play limit from the 0.1.11 file, and defaults it for older files", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.11.json"]);
+    expect(notices).toEqual([]);
+    expect(project.settings.playLimit).toBe(2.5);
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.10.json"]);
+    expect(older.notices).toEqual([]);
+    expect(older.project.settings.playLimit).toBe(1.5);
+  });
+
   it("reads the preset thickness correction from the 0.1.10 file, and none from older files", () => {
     const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.10.json"]);
     expect(notices).toEqual([]);

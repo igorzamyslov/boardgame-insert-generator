@@ -170,6 +170,11 @@ export interface Settings {
    * §8.3). Display only: it changes no geometry, so it is not part of the inputs hash.
    */
   infill: number;
+  /**
+   * Most nominal sideways play (mm) a tray may have in the box before it is penalized and warned
+   * about (spec §7.3, hard rule 1). In the inputs hash: it moves the score, so it can move the layout.
+   */
+  playLimit: number;
 }
 
 export interface StoredLayout {

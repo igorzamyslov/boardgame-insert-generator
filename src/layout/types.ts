@@ -21,6 +21,9 @@ export interface LayoutSummary {
   filamentG: number; // upper bound over the printed parts (risers split out): solid volume × 1.24 g/cm³
   filamentAtInfillG: number; // shell-and-core estimate at settings.infill (see summarize.ts)
   infillPct: number; // the settings.infill the estimate used
+  printMinutes: number; // rough print time for the whole set, from the filament estimate's volume (see summarize.ts)
+  longestPartMinutes: number; // the same for the one part that takes longest, for planning a batch
+  playLimit: number; // the settings.playLimit (mm) the summary and its warnings were made under
   playX: number; // nominal lateral play, mm
   playY: number;
   crossX: number; // most trays side by side in a row across X: what playX is made of

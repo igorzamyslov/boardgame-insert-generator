@@ -1,4 +1,4 @@
-import { PLAY_LIMIT_U, type Ctx } from "./context";
+import type { Ctx } from "./context";
 import { overflowTotal, type Plan } from "./fill";
 import { volMm3, type U } from "./units";
 
@@ -18,7 +18,7 @@ export interface ScoreTerms {
   readonly access: number;
   /** "setup" trays with nothing on top: setup-only trays are the ones to bury. */
   readonly setup: number;
-  /** Units of nominal lateral play above 1.5 mm, summed over both axes. */
+  /** Units of nominal lateral play above the play limit (settings.playLimit, 1.5 mm by default), summed over both axes. */
   readonly play: number;
   /** Trays above level 0. */
   readonly stacked: number;
@@ -180,7 +180,7 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     filamentMm3 += l.solid ? volMm3(l.w, l.d, l.h) : shell(ctx, l.w, l.d, l.h);
   }
   const playExcess = (crossed: number): number =>
-    Math.max(0, nominalPlayU(ctx.boxClearance, ctx.gap, crossed) - PLAY_LIMIT_U);
+    Math.max(0, nominalPlayU(ctx.boxClearance, ctx.gap, crossed) - ctx.playLimit);
   const terms: ScoreTerms = {
     leftover: share(leftoverMm3, boxMm3),
     coverage,

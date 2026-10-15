@@ -36,6 +36,7 @@ const BASE = {
   fillToTop: true,
   wallAbsorb: 0,
   infill: 15,
+  playLimit: 1.5,
 } as const;
 
 const settings = (over: Partial<Settings> & { width: number }): Settings => {

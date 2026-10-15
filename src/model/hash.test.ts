@@ -91,6 +91,18 @@ describe("inputsHash", () => {
     expect(inputsHash(denser)).toBe(inputsHash(base));
   });
 
+  it("hashes the play limit when it is changed, and leaves the 1.5 mm default out of the hash", () => {
+    // It moves the score and the warning, so a plan made under another limit is stale. At the
+    // default the key is left out, so every plan saved before the setting existed stays current.
+    const base = sample();
+    expect(base.settings.playLimit).toBe(1.5);
+    const looser: Project = { ...base, settings: { ...base.settings, playLimit: 2 } };
+    const tighter: Project = { ...base, settings: { ...base.settings, playLimit: 1 } };
+    expect(inputsHash(looser)).not.toBe(inputsHash(base));
+    expect(inputsHash(tighter)).not.toBe(inputsHash(base));
+    expect(inputsHash(looser)).not.toBe(inputsHash(tighter));
+  });
+
   it("ignores mergeFillers and mergeRisers: they only group the stored parts for printing", () => {
     // Print-time decompositions like the riser split (spec minimal-trays §6, lever 1): turning
     // either switch must neither stale a plan nor re-run the optimizer.

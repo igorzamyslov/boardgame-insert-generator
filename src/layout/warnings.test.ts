@@ -34,6 +34,9 @@ const okSummary: LayoutSummary = {
   filamentG: 10,
   filamentAtInfillG: 10,
   infillPct: 15,
+  printMinutes: 90,
+  longestPartMinutes: 30,
+  playLimit: 1.5,
   fillerCount: 0,
   mergeFillers: true,
   mergeRisers: false,
@@ -80,7 +83,7 @@ describe("layout warnings", () => {
     const ctx = createCtx(makeInput(reqs), fakeMeasure);
     const x = layoutWarnings(ctx, trays, { ...okSummary, playX: 1.6, crossX: 4 })[0]?.message;
     expect(x).toBe(
-      "Trays can shift 1.60 mm left–right (more than 1.5 mm): 4 trays sit side by side in one row. To reduce it: choose a tighter Fit; lower Box clearance (it counts twice) or Tray gap (it counts once for each extra tray in the row) under Exact values in Advanced mode; or put fewer trays in that row.",
+      "Trays can shift 1.60 mm left–right (Play limit: 1.5 mm): 4 trays sit side by side in one row. To reduce it: choose a tighter Fit; lower Box clearance (counts twice) or Tray gap (once per extra tray) under Exact values in Advanced mode; or put fewer trays in that row. Or raise Play limit there.",
     );
     const y = layoutWarnings(ctx, trays, { ...okSummary, playY: 1.6, crossY: 4 })[0]?.message;
     expect(y).toContain("front–back");
@@ -98,6 +101,28 @@ describe("layout warnings", () => {
     const one = layoutWarnings(ctx, trays, { ...okSummary, playX: 1.6, crossX: 1 })[0]?.message;
     expect(one).not.toContain("Tray gap");
     expect(one).not.toContain("fewer trays");
+  });
+
+  it("measures play against the Play limit setting, in the warning and its text", () => {
+    const at = (playLimit: number) =>
+      createCtx(makeInput(reqs, { settings: { playLimit } }), fakeMeasure);
+    // 1.6 mm is over the default limit, and under a raised one
+    expect(layoutWarnings(at(1.5), trays, { ...okSummary, playX: 1.6 }).map((n) => n.code)).toEqual(
+      [NOTICE_CODES.play],
+    );
+    expect(layoutWarnings(at(2), trays, { ...okSummary, playX: 1.6 })).toEqual([]);
+    // and a lowered one warns where the default does not
+    const low = layoutWarnings(at(1), trays, { ...okSummary, playX: 1.2 });
+    expect(low[0]?.message).toContain("Play limit: 1 mm");
+  });
+
+  it("keeps the play warning no longer than it was before the limit was a setting", () => {
+    // the longest variant: a tighter Fit is on offer and more than one tray is in the row
+    const ctx = createCtx(makeInput(reqs), fakeMeasure);
+    const msg = layoutWarnings(ctx, trays, { ...okSummary, playY: 1.6, crossY: 4 })[0]?.message;
+    const before =
+      "Trays can shift 1.60 mm front–back (more than 1.5 mm): 4 trays sit one behind the other in one row. To reduce it: choose a tighter Fit; lower Box clearance (it counts twice) or Tray gap (it counts once for each extra tray in the row) under Exact values in Advanced mode; or put fewer trays in that row.";
+    expect(msg?.length).toBeLessThanOrEqual(before.length);
   });
 
   it("leaves spare compartments out of the coverage warning", () => {

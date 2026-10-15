@@ -9,8 +9,4 @@ describe("layout public API", () => {
     expect(layout.DEFAULT_ITERATIONS).toBeGreaterThan(0);
     expect(layout.NOTICE_CODES.doesNotFit).toBe("layout.doesNotFit");
   });
-
-  it("exports the lateral play limit in millimetres", () => {
-    expect(layout.PLAY_LIMIT_MM).toBe(1.5);
-  });
 });

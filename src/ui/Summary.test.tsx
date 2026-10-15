@@ -8,7 +8,7 @@ import { createCtx } from "../layout/context";
 import { boxReq, fakeMeasure, makeInput } from "../layout/test-utils";
 import { doesNotFitNotice } from "../layout/warnings";
 import type { Notice } from "../model/types";
-import { LAYOUT_NOTICES_SHOWN, Summary } from "./Summary";
+import { LAYOUT_NOTICES_SHOWN, Summary, formatPrintTime } from "./Summary";
 import type { SummaryProps } from "./Summary";
 
 afterEach(cleanup);
@@ -22,6 +22,9 @@ function props(over: Partial<SummaryProps> = {}): SummaryProps {
       filamentG: 412.2,
       filamentAtInfillG: 187.4,
       infillPct: 15,
+      printMinutes: 90,
+      longestPartMinutes: 30,
+      playLimit: 1.5,
       fillerCount: 0,
       mergeFillers: true,
       mergeRisers: false,
@@ -98,6 +101,9 @@ describe("Summary", () => {
       filamentG: 412,
       filamentAtInfillG: 190,
       infillPct: 15,
+      printMinutes: 90,
+      longestPartMinutes: 30,
+      playLimit: 1.5,
       fillerCount: 0,
       mergeFillers: true,
       mergeRisers: false,
@@ -130,6 +136,66 @@ describe("Summary", () => {
     expect(x?.className).not.toContain("play-warn");
     expect(y?.textContent).toMatch(/^1\.80\s*mm$/);
     expect(y?.className).toContain("play-warn");
+  });
+
+  it("judges the slack against the play limit the summary was made under, and quotes it", () => {
+    const base = props({ advanced: true }).summary;
+    if (!base) {
+      throw new Error("no summary");
+    }
+    // playY 1.8 is over the default 1.5 mm but under a raised 2 mm limit
+    const { container, unmount } = render(
+      <Summary {...props({ advanced: true, summary: { ...base, playLimit: 2 } })} />,
+    );
+    expect(screen.getByText("Slack front–back").nextElementSibling?.className).not.toContain(
+      "play-warn",
+    );
+    expect(container.textContent).toContain("Above 2 mm");
+    expect(container.textContent).not.toContain("Above 1.5 mm");
+    unmount();
+    // and a lowered 1 mm limit warns on both axes
+    render(<Summary {...props({ advanced: true, summary: { ...base, playLimit: 1 } })} />);
+    expect(screen.getByText("Slack left–right").nextElementSibling?.className).toContain(
+      "play-warn",
+    );
+    expect(document.body.textContent).toContain("Above 1 mm");
+  });
+
+  it("shows the slack in simple mode only while it is over the limit in force", () => {
+    const base = props().summary;
+    if (!base) {
+      throw new Error("no summary");
+    }
+    const { container, unmount } = render(
+      <Summary {...props({ summary: { ...base, playLimit: 2 } })} />,
+    );
+    expect(container.querySelector("dl.pf-readouts")).toBeNull();
+    unmount();
+    const again = render(<Summary {...props({ summary: { ...base, playLimit: 1.5 } })} />);
+    expect(again.container.querySelector("dl.pf-readouts")).not.toBeNull();
+  });
+
+  it("shows a rough print time and the longest part in advanced mode, and states the assumptions", () => {
+    const { container } = render(<Summary {...props({ advanced: true })} />);
+    // fixture: 90 min in all, 30 min for the longest part
+    expect(screen.getByText(/^Print time/).nextElementSibling?.textContent).toBe("≈ 1.5 h");
+    expect(screen.getByText("Longest single part").nextElementSibling?.textContent).toBe(
+      "≈ 30 min",
+    );
+    expect(container.textContent).toMatch(/steady 4 mm³\/s, and nothing else/);
+    expect(container.textContent).toMatch(/real print usually takes longer/);
+    cleanup();
+    render(<Summary {...props({ advanced: false })} />);
+    expect(screen.queryByText(/^Print time/)).toBeNull();
+  });
+
+  it("formats a print time to the nearest 5 minutes, then the nearest half hour", () => {
+    expect(formatPrintTime(0.4)).toBe("5 min");
+    expect(formatPrintTime(32)).toBe("30 min");
+    expect(formatPrintTime(59)).toBe("1 h");
+    expect(formatPrintTime(60)).toBe("1 h");
+    expect(formatPrintTime(614)).toBe("10 h");
+    expect(formatPrintTime(640)).toBe("10.5 h");
   });
 
   it("shows progress and cancels while running", () => {
@@ -433,6 +499,9 @@ describe("Summary", () => {
             filamentG: 1,
             filamentAtInfillG: 1,
             infillPct: 15,
+            printMinutes: 90,
+            longestPartMinutes: 30,
+            playLimit: 1.5,
             fillerCount: 0,
             mergeFillers: true,
             mergeRisers: false,

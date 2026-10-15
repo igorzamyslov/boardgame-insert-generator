@@ -88,6 +88,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   mergeFillers: true,
   mergeRisers: false,
   infill: 15,
+  playLimit: 1.5,
 });
 
 export type WallChoice = "thin" | "normal" | "sturdy";

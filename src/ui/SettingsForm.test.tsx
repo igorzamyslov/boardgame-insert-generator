@@ -10,7 +10,7 @@ import {
 } from "../model/settings";
 import { SETTING_RANGES } from "../model/validate";
 import { ValidationContext } from "./validation";
-import { SettingsForm } from "./SettingsForm";
+import { SettingsForm, changedRanges, restoreAllExact } from "./SettingsForm";
 import { SETTING_SETTERS, settingUnit } from "./settingsFields";
 
 afterEach(cleanup);
@@ -128,6 +128,143 @@ describe("SettingsForm", () => {
     cleanup();
     render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
     expect(screen.queryByLabelText(/^Thicker walls instead of a filler/)).toBeNull();
+  });
+
+  describe("settings that differ from their defaults", () => {
+    const changedFrom = (over: Partial<typeof DEFAULT_SETTINGS>) => ({
+      ...DEFAULT_SETTINGS,
+      ...over,
+    });
+    const field = (label: RegExp) => screen.getByLabelText(label).closest(".field") as HTMLElement;
+
+    it("marks nothing, and offers no restore, when every value is the default", () => {
+      const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={vi.fn()} />);
+      expect(view.container.querySelector(".field-changed")).toBeNull();
+      expect(screen.queryByRole("button", { name: /Restore/ })).toBeNull();
+      expect(view.container.querySelector(".pf-disc .pf-count")).toBeNull();
+      expect(changedRanges(DEFAULT_SETTINGS)).toEqual([]);
+    });
+
+    it("marks only the changed field, says its default, and restores just that one", () => {
+      const onChange = vi.fn();
+      const s = changedFrom({ cornerRadius: 4.5, trayGap: 0.4 });
+      const view = render(<SettingsForm settings={s} advanced onChange={onChange} />);
+      const marked = [...view.container.querySelectorAll(".field-changed")];
+      expect(marked).toHaveLength(2);
+      const corner = field(/^Corner radius/);
+      expect(corner.querySelector(".field-changed")?.textContent).toContain(
+        "Changed from the default, 3 mm.",
+      );
+      // an untouched field carries no mark
+      expect(field(/^Box clearance/).querySelector(".field-changed")).toBeNull();
+      fireEvent.click(
+        within(corner).getByRole("button", { name: "Restore the default for Corner radius" }),
+      );
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenLastCalledWith({
+        ...s,
+        cornerRadius: DEFAULT_SETTINGS.cornerRadius,
+      });
+    });
+
+    it("restores a nested value (the lip's play) and a unitless one (Fit)", () => {
+      const onChange = vi.fn();
+      const s = changedFrom({ fit: 1.4, lip: { ...DEFAULT_SETTINGS.lip, play: 0.4 } });
+      render(<SettingsForm settings={s} advanced onChange={onChange} />);
+      expect(field(/^Lip play/).textContent).toContain("Changed from the default, 0.25 mm.");
+      fireEvent.click(screen.getByRole("button", { name: "Restore the default for Lip play" }));
+      expect(onChange).toHaveBeenLastCalledWith({ ...s, lip: { ...s.lip, play: 0.25 } });
+      const fit = screen
+        .getAllByLabelText(/^Fit/)
+        .map((el) => el.closest(".field"))
+        .find((el) => el?.querySelector(".field-changed"));
+      expect(fit?.textContent).toContain("Changed from the default, 1.");
+    });
+
+    it("counts the changed values on the collapsed panel", () => {
+      const view = render(
+        <SettingsForm
+          settings={changedFrom({ cornerRadius: 4.5, trayGap: 0.4, wall: 2 })}
+          advanced
+          onChange={vi.fn()}
+        />,
+      );
+      const summary = view.container.querySelector("details.pf-disc > summary");
+      expect(summary?.textContent).toBe("Exact values3 changed");
+      expect(view.container.querySelector("details.pf-disc")?.hasAttribute("open")).toBe(false);
+    });
+
+    it("counts a choice made in the simple controls, which write the same numbers", () => {
+      const view = render(
+        <SettingsForm
+          settings={applyWallChoice(DEFAULT_SETTINGS, "sturdy")}
+          advanced
+          onChange={vi.fn()}
+        />,
+      );
+      expect(view.container.querySelector("details.pf-disc .pf-count")?.textContent).toBe(
+        "1 changed",
+      );
+    });
+
+    it("asks before restoring everything, and keeps the values when you decline", () => {
+      const onChange = vi.fn();
+      const s = changedFrom({ cornerRadius: 4.5, trayGap: 0.4 });
+      render(<SettingsForm settings={s} advanced onChange={onChange} />);
+      fireEvent.click(screen.getByRole("button", { name: "Restore all exact values" }));
+      // the first press discards nothing
+      expect(onChange).not.toHaveBeenCalled();
+      expect(screen.getByText(/Put 2 values back to their defaults\?/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Keep my values" }));
+      expect(onChange).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Restore all exact values" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Restore all exact values" }));
+      fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenLastCalledWith(DEFAULT_SETTINGS);
+    });
+
+    it("restores every exact value but leaves the choices outside the panel alone", () => {
+      const s = changedFrom({
+        wall: 2,
+        fit: 1.4,
+        lip: { ...DEFAULT_SETTINGS.lip, enabled: true, height: 3 },
+        fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, width: 30 },
+        leftover: "solid",
+        mergeFillers: false,
+        fillToTop: false,
+        wallAbsorb: 1,
+        playLimit: 2,
+      });
+      expect(restoreAllExact(s)).toEqual({
+        ...DEFAULT_SETTINGS,
+        lip: { ...DEFAULT_SETTINGS.lip, enabled: true },
+        leftover: "solid",
+        mergeFillers: false,
+        fillToTop: false,
+        wallAbsorb: 1,
+      });
+      expect(restoreAllExact(DEFAULT_SETTINGS)).toEqual(DEFAULT_SETTINGS);
+    });
+
+    it("does not mark the wall absorption control, which sits outside the panel", () => {
+      const view = render(
+        <SettingsForm settings={changedFrom({ wallAbsorb: 1 })} advanced onChange={vi.fn()} />,
+      );
+      expect(view.container.querySelector(".field-changed")).toBeNull();
+      expect(view.container.querySelector(".pf-count")).toBeNull();
+    });
+
+    it("offers the play limit among the exact values, with its hint", () => {
+      const onChange = vi.fn();
+      const view = render(
+        <SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />,
+      );
+      const input = screen.getByLabelText(/^Play limit/);
+      expect(view.container.querySelector("details.pf-disc")?.contains(input)).toBe(true);
+      fireEvent.input(input, { target: { value: "2,5" } });
+      expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, playLimit: 2.5 });
+    });
   });
 
   it("edits every advanced number, the lip and the leftover", () => {

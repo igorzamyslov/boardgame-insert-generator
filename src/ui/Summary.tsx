@@ -1,7 +1,7 @@
 // src/ui/Summary.tsx
 import { useRef } from "preact/hooks";
 import type { RunState } from "../app/state";
-import { NOTICE_CODES, PLAY_LIMIT_MM, REPEAT_FACTOR, mmUp } from "../layout";
+import { NOTICE_CODES, PRINT_FLOW_MM3_PER_S, REPEAT_FACTOR, mmUp } from "../layout";
 import type { LayoutSummary } from "../layout/types";
 import type { Notice } from "../model/types";
 import { Notices } from "./Notices";
@@ -38,6 +38,18 @@ export interface SummaryProps {
   onUndo: () => void;
   onCancel: () => void;
   onRetry: () => void;
+}
+
+/**
+ * A rough duration for the print-time readout: minutes (to 5) under an hour, else hours to the
+ * half hour. The estimate is too loose for finer figures.
+ */
+export function formatPrintTime(minutes: number): string {
+  const nearest5 = Math.max(5, Math.round(minutes / 5) * 5);
+  if (nearest5 < 60) {
+    return `${nearest5} min`;
+  }
+  return `${Math.round((minutes / 60) * 2) / 2} h`;
 }
 
 /** The "short by" line; null when no axis is short (a part over the bed or a locked size is the
@@ -122,7 +134,8 @@ export function Summary(p: SummaryProps) {
         } in ${plural(Math.max(1, p.layers), "layer", "layers")}, ${p.summary.fillPct.toFixed(0)}% of the box used.`
       : null;
   const playTooLoose =
-    p.summary !== null && (p.summary.playX > PLAY_LIMIT_MM || p.summary.playY > PLAY_LIMIT_MM);
+    p.summary !== null &&
+    (p.summary.playX > p.summary.playLimit || p.summary.playY > p.summary.playLimit);
   return (
     <>
       <p class="visually-hidden" role="status">
@@ -188,13 +201,13 @@ export function Summary(p: SummaryProps) {
             label="Slack left–right"
             value={p.summary.playX.toFixed(2)}
             unit="mm"
-            warn={p.summary.playX > PLAY_LIMIT_MM}
+            warn={p.summary.playX > p.summary.playLimit}
           />
           <Readout
             label="Slack front–back"
             value={p.summary.playY.toFixed(2)}
             unit="mm"
-            warn={p.summary.playY > PLAY_LIMIT_MM}
+            warn={p.summary.playY > p.summary.playLimit}
           />
           {p.advanced ? (
             <>
@@ -208,6 +221,14 @@ export function Summary(p: SummaryProps) {
                 value={`≤ ${Math.ceil(p.summary.filamentG)}`}
                 unit="g"
               />
+              <Readout
+                label="Print time (rough: nominal flow only)"
+                value={`≈ ${formatPrintTime(p.summary.printMinutes)}`}
+              />
+              <Readout
+                label="Longest single part"
+                value={`≈ ${formatPrintTime(p.summary.longestPartMinutes)}`}
+              />
             </>
           ) : null}
         </dl>
@@ -215,10 +236,10 @@ export function Summary(p: SummaryProps) {
       {p.summary && (p.advanced || playTooLoose) ? (
         <p class="hint stage-block">
           Slack is the sideways play the trays have in the box: twice the box clearance, plus one
-          tray gap for each extra tray in a row. Above {PLAY_LIMIT_MM} mm trays can shift when the
-          box is moved.
+          tray gap for each extra tray in a row. Above {p.summary.playLimit} mm (your Play limit, in
+          Exact values) trays can shift when the box is moved.
           {p.advanced
-            ? ` The filament estimate prints the first 3 perimeters and the top and bottom 5 layers of every part solid, whatever the infill, and only the interior beyond that at ${p.summary.infillPct} %. Walls, floors and thin parts are therefore counted solid, so it falls well below the 100 % figure only for thick blocks and raised floors. The estimate is rounded to the nearest gram, the 100 % figure up.`
+            ? ` The filament estimate prints the first 3 perimeters and the top and bottom 5 layers of every part solid, whatever the infill, and only the interior beyond that at ${p.summary.infillPct} %. Walls, floors and thin parts are therefore counted solid, so it falls well below the 100 % figure only for thick blocks and raised floors. The estimate is rounded to the nearest gram, the 100 % figure up. The print time is that same plastic volume at a steady ${PRINT_FLOW_MM3_PER_S} mm³/s, and nothing else: travel, acceleration, cooling and slower outer walls are not modelled, so a real print usually takes longer, small parts much longer. Use it to compare, or to plan which parts go on one overnight plate.`
             : ""}
         </p>
       ) : null}

@@ -47,6 +47,7 @@ describe("DEFAULT_SETTINGS", () => {
       mergeFillers: true,
       mergeRisers: false,
       infill: 15,
+      playLimit: 1.5,
     });
   });
 

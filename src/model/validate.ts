@@ -302,6 +302,14 @@ const settingRanges: SettingRange[] = [
     max: 100,
     hint: "The infill (percent) you print at. Only the filament estimate reads it: walls, floors and thin parts print solid whatever it is, so it lowers the figure only for thick blocks and raised floors. It changes no part.",
   },
+  {
+    path: "playLimit",
+    label: "Play limit",
+    get: (s) => s.playLimit,
+    min: 0.5,
+    max: 5,
+    hint: "How much sideways play the trays may have in the box before the plan counts it against a layout and warns. Raise it if the warning is more caution than you need; lower it for a tighter box. It changes no part, but the optimizer then re-fits.",
+  },
 ];
 
 /**

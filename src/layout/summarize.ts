@@ -27,6 +27,15 @@ export const EXTRUSION_WIDTH_MM = 0.45;
 /** Solid layers above and below any sparse interior: 5, as in common 0.2 mm slicer profiles. */
 export const SOLID_LAYERS = 5;
 
+/**
+ * Mean volumetric flow (mm³/s) the print-time estimate assumes. Not a setting: the estimate is too
+ * rough for a knob to mean anything. A 0.45 mm line 0.2 mm high at 60 mm/s is 5.4 mm³/s while it
+ * extrudes; 4 mm³/s allows for the slower perimeters and top layers, and nothing else: travel,
+ * acceleration, cooling and layer-time slowdowns are not modelled, so a real print usually takes
+ * longer (small parts a good deal longer). It is a nominal figure, not a prediction.
+ */
+export const PRINT_FLOW_MM3_PER_S = 4;
+
 /** Where a slicer prints solid whatever the infill: how deep from a surface, sideways and vertically (mm). */
 export function shellThickness(layerHeight: number): { side: number; vertical: number } {
   return { side: PERIMETERS * EXTRUSION_WIDTH_MM, vertical: SOLID_LAYERS * layerHeight };
@@ -115,6 +124,11 @@ function partVolumes(
   return { solid, atInfill: solid - core * (1 - infill) };
 }
 
+/** Print time (minutes) for `mm3` of extruded plastic at the nominal flow, to a tenth of a minute. */
+export function printMinutes(mm3: number): number {
+  return round(mm3 / PRINT_FLOW_MM3_PER_S / 60, 1);
+}
+
 /** Results summary for a layout (spec §8.3). */
 export function summarize(
   trays: TraySpec[],
@@ -132,6 +146,7 @@ export function summarize(
   const infill = Math.min(100, Math.max(0, settings.infill)) / 100;
   let filament = 0;
   let filamentAtInfill = 0;
+  let longestPart = 0;
   // Filament follows what is printed: each stack's raised floor comes out as a riser part, open
   // (mostly air) or solid per `leftover`. Counts and fill stay on the stored trays: the split moves
   // height between a tray and its riser without changing the space filled. A spacer is
@@ -146,6 +161,7 @@ export function summarize(
     const v = partVolumes(t, settings.lip, shell, infill);
     filament += v.solid;
     filamentAtInfill += v.atInfill;
+    longestPart = Math.max(longestPart, v.atInfill);
   }
   const bottoms: Rect[] = printed
     .filter((t) => t.level === 0)
@@ -164,6 +180,9 @@ export function summarize(
     filamentG: round(filament * PLA_G_PER_MM3, 1),
     filamentAtInfillG: round(filamentAtInfill * PLA_G_PER_MM3, 1),
     infillPct: settings.infill,
+    printMinutes: printMinutes(filamentAtInfill),
+    longestPartMinutes: printMinutes(longestPart),
+    playLimit: settings.playLimit,
     playX: play(crossX),
     playY: play(crossY),
     crossX,

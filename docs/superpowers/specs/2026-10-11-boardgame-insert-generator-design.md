@@ -68,8 +68,10 @@ box.
   sleeve) next to the editor, so the user can judge whether to trust them
   without measuring, plus a correction multiplier for when they do not match.~~
   Done (schema 0.1.10): §5 "Thickness correction", "Derived sizes" and "Labels".
-- Showing which settings differ from their defaults, with a button to restore a
-  setting (or all settings) to default.
+- ~~Showing which settings differ from their defaults, with a button to restore a
+  setting (or all settings) to default.~~ Done: §8.2 "Changed settings".
+- ~~Making the 1.5 mm play limit a setting.~~ Done (schema 0.1.11): `playLimit`, §5, §7.3.
+- ~~A print-time estimate.~~ Done: §8.3.
 - Option descriptions as tooltips instead of always-visible hints, with
   screenshots showing what each option does.
 - Changing a tray's orientation by hand, in 90° steps.
@@ -97,7 +99,7 @@ Notes for adding them later without reworking the layout engine:
    absorbs printed oversize. Nominal play per axis =
    `2·boxClearance + (n − 1)·trayGap`, where `n` is the most trays crossed
    along that axis: about 1–1.5 mm at Fit "normal". It is shown per axis in
-   the summary; above 1.5 mm it is penalized (§7.2) and warned about.
+   the summary; above `settings.playLimit` (1.5 mm by default) it is penalized (§7.2) and warned about.
 2. **No vertical movement.** Every stack reaches the same top plane:
    `topPlane = box.innerHeight − box.headroom + settings.topPressFit`
    (`topPressFit` default 0, range −2…+1 mm). Stack height = Σ `tray.h`
@@ -351,6 +353,7 @@ interface Settings {
   mergeFillers: boolean; // print connected fillers as one part, up to what fits the bed (§6.2); print-time, not in inputsHash
   mergeRisers: boolean; // with mergeFillers, fold the risers into those parts (the L in elevation, §6.2); print-time, not in inputsHash
   infill: number; // % infill the filament estimate assumes for sparse interiors (§8.3); display only, not in inputsHash
+  playLimit: number; // mm of nominal sideways play above which a layout is penalized and warned about (rule 1, §7.2, §7.3); in inputsHash unless 1.5
 }
 ```
 
@@ -383,6 +386,7 @@ interface Settings {
 | `mergeFillers`                                       | advanced: "Merge fillers into one part", beside "Unused space"       | on                        |
 | `mergeRisers`                                        | advanced: "Fold risers into the merged fillers" (needs the above)    | off                       |
 | `infill`                                             | advanced: "Infill for the filament estimate" (Exact values)          | 15 (0–100 %)              |
+| `playLimit`                                          | advanced: "Play limit" (Exact values)                                | 1.5 (0.5–5 mm)            |
 | `printer.bedMargin` / `printer.layerHeight`          | advanced                                                             | 5 / 0.2                   |
 
 Not a setting, but the third thing that is easily mistaken for `fit` and
@@ -455,7 +459,7 @@ matches the longest name found in the text, so both forms resolve to the same co
 interface StoredLayout {
   createdWith: string; // app version
   geometryVersion: string; // semver of the tray geometry generator, §9
-  inputsHash: string; // hash of canonical box, printer, settings, components (names excluded; `separators` is included; `infill`, `mergeFillers` and `mergeRisers` are not), locks
+  inputsHash: string; // hash of canonical box, printer, settings, components (names excluded; `separators` is included; `infill`, `mergeFillers` and `mergeRisers` are not; `playLimit` is, but left out at its default 1.5 so older plans stay current), locks
   seed: number;
   iterations: number;
   capped: boolean; // stopped by the safety time cap → not reproducible
@@ -881,7 +885,7 @@ fallback: a requirement that still has no variant is left out with a
   2. coverage penalty: bulk, minis-bulk and tiles in the top layer when
      `headroomCoverage` is `partial` or `storedOnSide` is set;
   3. access penalty: `often` items under other trays (200 000 each);
-  4. lateral play above 1.5 mm per axis (rule 1);
+  4. lateral play above `playLimit` (1.5 mm by default) per axis (rule 1);
   5. number of stacked trays (beyond one per stack);
   6. tray count;
   7. setup penalty: `setup` items with nothing on top (15 000 each). Below
@@ -954,14 +958,19 @@ fallback: a requirement that still has no variant is left out with a
   penalty either.)
 - **Bed:** a requirement too large for the bed in every variant, splits
   included → error naming the component.
-- **Play:** lateral play above 1.5 mm on an axis → warning. Play is
+- **Play:** lateral play above `playLimit` (1.5 mm by default) on an axis → warning. Play is
   `2 × box clearance + (trays in the row − 1) × tray gap`, times Fit. The
   message names the axis the way the Summary readouts do (left–right,
   front–back), says how many trays sit in that row (`LayoutSummary.crossX` /
   `crossY`), and names the controls: a tighter Fit, Box clearance (counts
   twice) and Tray gap (counts once per extra tray) under "Exact values", and
-  fewer trays in the row. The 1.5 mm limit is fixed and the warning cannot be
-  dismissed: the controls above clear it.
+  fewer trays in the row. The limit is itself a setting, "Play limit" in the same
+  place: the message names it as `(Play limit: 1.5 mm)` and ends "Or raise Play
+  limit there." It is kept no longer than the message was while the limit was fixed
+  (about 300 characters; a test holds it). The Summary's slack readouts turn to
+  their warn state, and its hint quotes the limit, from `LayoutSummary.playLimit`,
+  the value the layout was made under. There is still no way to dismiss the warning
+  other than clearing it or raising the limit.
 - **Lip off:** warning when the layout has stacked trays (rule 4).
 - **Stops short:** info notice (`layout.stopsShort`) when `fillToTop` is off and
   a stack ends below the top plane: boards and the lid won't rest on it, so
@@ -998,6 +1007,18 @@ Numbers accept a decimal comma or point.
   type, size preset, count, access. Advanced: overrides from §5. Each of cards, tiles, minis
   and bulk lists the sizes derived from its presets under the fields (§5 "Derived sizes");
   cards also have "Correct the estimated thickness", beside "Measure a stack of cards".
+- **Changed settings** (advanced "Exact values" panel). A field whose value differs
+  from `DEFAULT_SETTINGS` carries a quiet note under its hint, in the `.hint` style with a
+  neutral (not the warning's ochre) mark at the side: "Changed from the default, 3 mm."
+  and a "Restore" button that puts back that one value and keeps the keyboard on the
+  field. The collapsed panel shows "N changed" (the `.pf-count` chip) so a user knows to
+  look. Inside, "Restore all exact values" appears only while something differs, and
+  asks first ("Put N values back to their defaults? Your own numbers are lost." with
+  Restore and Keep my values), so one stray click discards nothing. It covers the panel's
+  numbers only (they include Walls and Fit, which the simple choices write); the checkboxes
+  and "Unused space" outside the panel, and the "Thicker walls instead of a filler" field
+  beside them, are not marked or restored. Presentation over `DEFAULT_SETTINGS`: no
+  schema change.
 
 ### 8.3 Results
 
@@ -1016,6 +1037,19 @@ Numbers accept a decimal comma or point.
   count solid and only the slab under each compartment (footprint × `floorZ`) is
   eroded; a spacer counts solid (it prints as thin plates); a merged part is its members as they print alone plus the plastic of its bridges outside them. `infill` is display
   only and is not in `inputsHash`.
+- **Print-time estimate** (advanced mode, beside the filament figures: "Print time"
+  for the whole set, and "Longest single part", for planning an overnight plate; no
+  per-part list). It is the estimate's plastic volume (at `infill`, over the parts
+  that print) divided by one nominal flow, `PRINT_FLOW_MM3_PER_S` = 4 mm³/s, kept with
+  the other printing constants in `summarize.ts` and not a setting: the estimate is
+  too rough for a knob to mean anything. 4 mm³/s is a 0.45 × 0.2 mm line at 60 mm/s
+  (5.4 mm³/s) slowed for perimeters and top layers; about 18 g of PLA an hour. Travel,
+  acceleration, cooling and layer-time slowdowns are not modelled, so a real print
+  usually takes longer, small parts a good deal longer. The hint says so beside the
+  number, as it does for the filament. Shown to the half hour (to 5 minutes under an
+  hour). `LayoutSummary.printMinutes` and `longestPartMinutes`. On the fixtures at
+  15 % infill: cards-heavy about 35 h in all (longest part 6 h), bits-heavy about 24.5 h
+  (4 h).
 - **Summary:** box fill %, tray count, stack count, filament in grams
   (PLA 1.24 g/cm³; two figures in advanced mode: an estimate at `infill`, and
   the upper bound at 100 % fill, which needs no assumptions; the estimate is a
@@ -1115,6 +1149,10 @@ Older apps reading newer files is best effort, as below.
     geometry stays 0.5.2: no outer size, lip, inset or well changes, and every part, merged or not,
     is built from the same member parts. The filler count term of §7.2 changes which layouts a run
     finds, not what a stored one means, so it needs no version either.
+    Schema 0.1.11 adds the setting `playLimit` (default 1.5, the old constant). It is in the
+    inputs hash, since it moves the score, but left out of it at 1.5: a plan made before the
+    setting existed was made at 1.5, so it stays current. Geometry stays 0.5.2: no stored spec
+    builds differently, though a layout optimized under another limit may differ.
     Schema 0.1.10 adds `thickness.scale` to a preset card thickness (§5), left out at 1, so
     nothing written before it changes. It is in the inputs hash with its component. Geometry
     stays 0.5.2: every stored spec builds as before. The new compartment text (§5 "Labels")

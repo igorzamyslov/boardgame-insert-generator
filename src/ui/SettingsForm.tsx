@@ -1,5 +1,7 @@
 // src/ui/SettingsForm.tsx
+import { useState } from "preact/hooks";
 import {
+  DEFAULT_SETTINGS,
   FINGER_DIVIDER_ROOM_MM,
   FINGER_ROOM_MM,
   FIT_CHOICES,
@@ -16,7 +18,7 @@ import type { Settings } from "../model/types";
 import { SETTING_RANGES } from "../model/validate";
 import { CheckField, SelectField } from "./fields";
 import type { SelectOption } from "./fields";
-import { NumberField } from "./NumberField";
+import { NumberField, formatNumber } from "./NumberField";
 import { SETTING_SETTERS, settingUnit } from "./settingsFields";
 
 export interface SettingsFormProps {
@@ -50,6 +52,95 @@ function fitOptions(s: Settings): SelectOption<FitChoice | "custom">[] {
 }
 
 const WALL_ABSORB_PATH = "wallAbsorb";
+
+/** The fields of the Exact values panel (wallAbsorb sits beside Unused space, outside it). */
+const PANEL_RANGES = SETTING_RANGES.filter((r) => r.path !== WALL_ABSORB_PATH);
+
+/** The panel's fields whose value differs from DEFAULT_SETTINGS. */
+export function changedRanges(s: Settings): typeof PANEL_RANGES {
+  return PANEL_RANGES.filter((r) => r.get(s) !== r.get(DEFAULT_SETTINGS));
+}
+
+/** Puts every panel field back to its default, leaving the choices outside the panel as they are. */
+export function restoreAllExact(s: Settings): Settings {
+  return changedRanges(s).reduce((acc, r) => {
+    const set = SETTING_SETTERS[r.path];
+    return set ? set(acc, r.get(DEFAULT_SETTINGS)) : acc;
+  }, s);
+}
+
+function defaultText(path: string, value: number): string {
+  const unit = settingUnit(path);
+  return `${formatNumber(value)}${unit === undefined ? "" : ` ${unit}`}`;
+}
+
+/** Under a field that differs from its default: says so, quietly, and offers to put it back. */
+function ChangedNote(p: {
+  fieldId: string;
+  label: string;
+  defaultText: string;
+  onRestore: () => void;
+}) {
+  return (
+    <p class="hint field-changed" id={`${p.fieldId}-changed`}>
+      {`Changed from the default, ${p.defaultText}. `}
+      <button
+        type="button"
+        class="quiet"
+        aria-label={`Restore the default for ${p.label}`}
+        onClick={() => {
+          p.onRestore();
+          // The note goes away with the difference: keep the keyboard where it was.
+          document.getElementById(p.fieldId)?.focus();
+        }}
+      >
+        Restore
+      </button>
+    </p>
+  );
+}
+
+function plural(n: number): string {
+  return n === 1 ? "1 value" : `${n} values`;
+}
+
+/**
+ * "Restore all", shown only while something differs from the default and asked twice: the first
+ * press only offers the choice, so a stray click discards nothing.
+ */
+function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void }) {
+  const [asking, setAsking] = useState(false);
+  if (!asking) {
+    return (
+      <div class="button-row">
+        <button type="button" class="quiet" onClick={() => setAsking(true)}>
+          Restore all exact values
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div
+      class="button-row restore-all"
+      role="group"
+      aria-label="Confirm restoring all exact values"
+    >
+      <span class="hint">{`Put ${plural(count)} back to their defaults? Your own numbers are lost.`}</span>
+      <button
+        type="button"
+        onClick={() => {
+          setAsking(false);
+          onRestore();
+        }}
+      >
+        Restore
+      </button>
+      <button type="button" class="quiet" onClick={() => setAsking(false)}>
+        Keep my values
+      </button>
+    </div>
+  );
+}
 const wallAbsorbRange = SETTING_RANGES.find((r) => r.path === WALL_ABSORB_PATH);
 
 export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps) {
@@ -60,14 +151,24 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
       </div>
     );
   }
+  const changed = changedRanges(settings);
   return (
     <div class="form-grid">
       <SimpleChoices settings={settings} onChange={onChange} />
       <details class="pf-disc">
-        <summary>Exact values</summary>
+        <summary>
+          Exact values
+          {changed.length > 0 ? <span class="pf-count">{`${changed.length} changed`}</span> : null}
+        </summary>
         <div class="pf-disc__body">
+          {changed.length > 0 ? (
+            <RestoreAll
+              count={changed.length}
+              onRestore={() => onChange(restoreAllExact(settings))}
+            />
+          ) : null}
           <div class="form-grid">
-            {SETTING_RANGES.filter((r) => r.path !== WALL_ABSORB_PATH).map((r) => (
+            {PANEL_RANGES.map((r) => (
               <NumberField
                 key={r.path}
                 id={`settings-${r.path.replace("/", "-")}`}
@@ -78,6 +179,21 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
                 min={r.min}
                 max={r.max}
                 hint={r.hint}
+                footer={
+                  changed.includes(r) ? (
+                    <ChangedNote
+                      fieldId={`settings-${r.path.replace("/", "-")}`}
+                      label={r.label}
+                      defaultText={defaultText(r.path, r.get(DEFAULT_SETTINGS))}
+                      onRestore={() => {
+                        const set = SETTING_SETTERS[r.path];
+                        if (set) {
+                          onChange(set(settings, r.get(DEFAULT_SETTINGS)));
+                        }
+                      }}
+                    />
+                  ) : undefined
+                }
                 onCommit={(v) => {
                   const set = SETTING_SETTERS[r.path];
                   if (set) {

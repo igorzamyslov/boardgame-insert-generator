@@ -310,6 +310,23 @@ describe("score", () => {
     expect(scorePlan(ctx, plan, prev).terms.moved).toBe(1);
   });
 
+  it("measures play against the Play limit setting", () => {
+    const many = Array.from({ length: 8 }, (_, i) => boxReq(`r${i}`, 20, 20, 10));
+    const termsAt = (playLimit: number) => {
+      const ctx = createCtx(makeInput(many, { settings: { playLimit } }), fakeMeasure);
+      let root = leaf([item(7)]) as Tree["root"];
+      for (let i = 6; i >= 0; i--) {
+        root = cut("x", leaf([item(i)]), root);
+      }
+      return scorePlan(ctx, evaluate(ctx, { root, variants: many.map(() => 0) })).terms.play;
+    };
+    // eight trays in one row: a lot of play, which a raised limit forgives
+    expect(termsAt(1.5)).toBeGreaterThan(0);
+    expect(termsAt(1.5)).toBeGreaterThan(termsAt(2));
+    expect(termsAt(3)).toBeLessThan(termsAt(2));
+    expect(termsAt(5)).toBe(0);
+  });
+
   it("penalizes nominal play above 1.5 mm", () => {
     const many = Array.from({ length: 8 }, (_, i) => boxReq(`r${i}`, 20, 20, 10));
     const ctx = createCtx(makeInput(many), fakeMeasure);

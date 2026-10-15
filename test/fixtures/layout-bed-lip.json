@@ -548,7 +548,8 @@
       "packingFactor": 0.5,
       "leftover": "solid",
       "wallAbsorb": 0,
-      "infill": 15
+      "infill": 15,
+      "playLimit": 1.5
     },
     "locks": [],
     "inputsHash": "test-hash",
@@ -962,7 +963,8 @@
       "packingFactor": 0.5,
       "leftover": "spare",
       "wallAbsorb": 0,
-      "infill": 15
+      "infill": 15,
+      "playLimit": 1.5
     },
     "locks": [],
     "inputsHash": "test-hash",
@@ -1370,7 +1372,8 @@
       "packingFactor": 0.5,
       "leftover": "spare",
       "wallAbsorb": 0,
-      "infill": 15
+      "infill": 15,
+      "playLimit": 1.5
     },
     "locks": [],
     "inputsHash": "test-hash",
