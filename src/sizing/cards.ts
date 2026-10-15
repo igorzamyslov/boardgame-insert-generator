@@ -1,4 +1,4 @@
-import { separatorsOf, stretchOn, togglesOf } from "../model/defaults";
+import { growthOf, separatorsOf, togglesOf } from "../model/defaults";
 import { SLEEVES } from "../model/presets";
 import { effective } from "../model/settings";
 import type { CardsComponent, Notice, Settings } from "../model/types";
@@ -12,7 +12,9 @@ import {
   type OptionsResult,
 } from "./common";
 import { CHANNEL_DEPTH, MIN_MEASURED_CARD_T } from "./constants";
+import { growthMm, stackGrowthMm } from "./growth";
 import type { CompartmentReq } from "./types";
+import { ceilU, fromU } from "./units";
 
 type CardStorage = "upright-long" | "upright-short" | "flat";
 const CARD_STORAGES: readonly CardStorage[] = ["upright-long", "upright-short", "flat"];
@@ -86,7 +88,8 @@ function deckCompartment(
   s: Settings,
 ): CompartmentReq {
   const clearance = mainClearance(c, s);
-  const stack = stackWidth(deck.count, dims.t, s);
+  // As built (compartment rounds it up the same way), so growth is measured on the real stack.
+  const stack = fromU(ceilU(stackWidth(deck.count, dims.t, s)));
   const base = {
     componentId: c.id,
     contents: `${itemLabel(c, deck.name)} ×${deck.count}`,
@@ -99,6 +102,8 @@ function deckCompartment(
       w: dims.S + clearance,
       d: dims.L + clearance,
       h: stack,
+      // More room means more cards in the stack: only when asked, the spare height is a riser's.
+      grow: { h: growthMm(growthOf(c, "stack", true), stack) },
       features: featuresOf(togglesOf(c), [
         wallCutout("left", 1, true),
         wallCutout("right", 1, true),
@@ -106,14 +111,16 @@ function deckCompartment(
     });
   }
   const onLongEdge = storage === "upright-long";
+  // Along the stack: a spacer (or the `separators` plates) fills what the deck is given, and
+  // retention bounds it (stackGrowthMm).
+  const grow = stackGrowthMm(growthOf(c, "stack"), stack, separatorsOf(c) > 1);
   return compartment({
     ...base,
     w: stack,
     d: (onLongEdge ? dims.L : dims.S) + clearance,
     h: (onLongEdge ? dims.S : dims.L) + clearance,
-    // Stretched: the tray takes the whole leaf and a spacer fills it. Off: content-tight.
-    ...(stretchOn(c)
-      ? { elastic: { w: true }, spacerAxis: "w" as const, separators: separatorsOf(c) }
+    ...(grow > 0
+      ? { grow: { w: grow }, spacerAxis: "w" as const, separators: separatorsOf(c) }
       : {}),
     // One channel through the walls and dividers the card faces touch.
     features: featuresOf(togglesOf(c), [

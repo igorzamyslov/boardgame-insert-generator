@@ -122,7 +122,7 @@ describe("finger cuts and curved floor toggles", () => {
       [true, 1],
       [false, 0],
     ] as const) {
-      const part = partOf([cards({ fingerCuts, stretch: true })], "upright-long|strip|split1");
+      const part = partOf([cards({ fingerCuts })], "upright-long|strip|split1");
       const min = minOuter(part, s, ground);
       const outer = { ...min, w: min.w + 10 };
       const r = realizeTray(part, outer, s, ground);

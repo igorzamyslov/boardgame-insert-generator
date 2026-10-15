@@ -11,7 +11,7 @@ import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./typ
 // and a pocket, so there is a spacer here to turn.
 const outer: OuterSize = { w: 36.7, d: 95.7, h: 69.2 };
 const realized = realizeTray(
-  partOf([cards({ stretch: true })], "upright-long|strip|split1"),
+  partOf([cards()], "upright-long|strip|split1"),
   outer,
   DEFAULT_SETTINGS,
   { lipped: false, level: 0 },

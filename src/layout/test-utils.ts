@@ -37,6 +37,8 @@ export interface CompOpts {
   minD: number;
   minH: number;
   elastic?: Partial<CompartmentReq["elastic"]>;
+  /** How much more room (mm) an elastic axis may take; absent: as much as there is. */
+  growth?: CompartmentReq["growth"];
   kind?: CompartmentReq["kind"];
   contents?: string;
   /** Forces (true) or suppresses (false) the front wall cutout. */
@@ -57,6 +59,7 @@ export function comp(o: CompOpts): CompartmentReq {
     minD: o.minD,
     minH: o.minH,
     elastic: { w: false, d: false, h: false, ...o.elastic },
+    ...(o.growth ? { growth: o.growth } : {}),
     features: needsCut
       ? [{ type: "wallCutout", side: "front", depthFraction: CHANNEL_DEPTH, floorNotch: false }]
       : [],
@@ -100,6 +103,7 @@ export function boxReq(
     loose?: boolean;
     rotatable?: boolean;
     elastic?: Partial<CompartmentReq["elastic"]>;
+    growth?: CompartmentReq["growth"];
   } = {},
 ): TrayRequirement {
   return req(
@@ -108,7 +112,7 @@ export function boxReq(
       variant("only", [
         part(
           `${key}:p0:0`,
-          [comp({ minW, minD, minH, elastic: o.elastic, contents: key })],
+          [comp({ minW, minD, minH, elastic: o.elastic, growth: o.growth, contents: key })],
           o.rotatable ?? true,
         ),
       ]),

@@ -89,7 +89,15 @@ export function spareCompartment(
   };
 }
 
-function readTray(r: Reader): TraySpec {
+/** What a tray's neighbours give the fields a stored layout leaves out (compactLayout). */
+interface Neighbours {
+  /** The tray the spacer being read stands in: the last tray before it. */
+  tray: TraySpec | undefined;
+  /** How many leftovers were read before this one. */
+  leftovers: number;
+}
+
+function readTray(r: Reader, near: Neighbours): TraySpec {
   const part = r.oneOf("part", ["tray", "leftover", "spacer"]);
   // A spacer is written without the fields it always has the same value for (compactSpacers), so
   // they default here; a file that spells them out reads the same.
@@ -100,23 +108,33 @@ function readTray(r: Reader): TraySpec {
   const floor = r.strictNum("floor", spacer ? 0 : undefined);
   const solid = r.bool("solid", spacer);
   // An open leftover written without its compartment has the default one (spareCompartment).
+  const own = near.tray;
   const openLeftover = part === "leftover" && !solid && !r.has("compartments");
   return r.finish({
-    key: r.str("key"),
+    // A leftover left out its key (the n-th is `leftover:n`), a spacer its key, stack and level
+    // (its tray's), and every part a `level` or `z` of 0 and a `lip` of false.
+    key: r.str(
+      "key",
+      part === "leftover"
+        ? `leftover:${near.leftovers}`
+        : spacer && own
+          ? `${own.key}:spacer`
+          : undefined,
+    ),
     part,
     path: r.str("path", ""),
-    stack: r.strictNum("stack"),
-    level: r.strictNum("level"),
+    stack: r.strictNum("stack", spacer ? own?.stack : undefined),
+    level: r.strictNum("level", spacer ? (own?.level ?? 0) : 0),
     x: r.strictNum("x"),
     y: r.strictNum("y"),
-    z: r.strictNum("z"),
+    z: spacer ? r.strictNum("z") : r.strictNum("z", 0),
     w,
     d,
     h: r.strictNum("h"),
     rotated: r.bool("rotated", false),
     wall,
     floor,
-    lip: spacer ? r.bool("lip", false) : r.bool("lip"),
+    lip: r.bool("lip", false),
     solid,
     compartments: openLeftover
       ? [spareCompartment(w, d, wall, floor)]
@@ -150,9 +168,15 @@ export function readLayout(raw: unknown, ctx: Ctx): StoredLayout | undefined {
   const sub = childCtx(ctx);
   const r = new Reader(raw, "/layout", sub);
   const unsupported: string[] = [];
+  const near: Neighbours = { tray: undefined, leftovers: 0 };
   const trays = r.objects("trays").map((t) => {
     const traySub = childCtx(sub);
-    const tray = readTray(new Reader(t.raw, t.path, traySub));
+    const tray = readTray(new Reader(t.raw, t.path, traySub), near);
+    if (tray.part === "tray") {
+      near.tray = tray;
+    } else if (tray.part === "leftover") {
+      near.leftovers += 1;
+    }
     if (traySub.unknownValues.length > 0) {
       // Kept as is even if it also lacks fields: its shape is a newer one.
       unsupported.push(tray.key || t.path);

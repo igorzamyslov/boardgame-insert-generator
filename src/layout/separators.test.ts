@@ -22,7 +22,8 @@ const cards = (separators?: number, name = "Action"): CardsComponent => {
     ...c,
     id: "c1",
     name,
-    stretch: true,
+    // room for the stack to grow into, up to retention (the plates lift it from 1 to 6 stacks)
+    growth: { stack: "max" },
     ...(separators === undefined ? {} : { separators }),
   };
 };
@@ -186,9 +187,9 @@ describe("splitSeparators", () => {
 });
 
 describe("separators and the stored layout", () => {
-  // One stretched deck in a box just wider than it: the optimizer stores a spacer of 10.99 mm.
-  // (With one plate a longer slack becomes a spare pocket instead, a shorter than 5 mm one
-  // thicker walls; with several plates it stays a spacer, see "a roomy box" below.)
+  // One deck that may grow, in a box just wider than it: the optimizer stores a spacer of 10.99 mm.
+  // (A slack past what the deck may take without plates, its own thickness, becomes a filler
+  // beside it; with several plates it stays a spacer up to six thicknesses, see "a roomy box" below.)
   const raw = FIXTURES["cards-heavy"] as unknown as Record<string, unknown> & {
     box: Record<string, unknown>;
     components: Record<string, unknown>[];
@@ -202,6 +203,7 @@ describe("separators and the stored layout", () => {
           ...(raw.components[0] as Record<string, unknown>),
           decks: [{ name: "Action", count: 40 }],
           storage: "upright-long",
+          growth: { stack: "max" },
         },
       ],
     });

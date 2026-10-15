@@ -1,6 +1,8 @@
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
 import type { Settings } from "../model/types";
 import { minOuter, wallFor } from "../sizing";
+import { growthCapU, partGrowthCapU } from "../sizing/growth";
+import { rowsOf } from "../sizing/outer";
 import { MIN_GRIP, UPPER_TRAY_MIN_ABOVE_LIP } from "../sizing/constants";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import type { Bed } from "./bed";
@@ -30,11 +32,16 @@ export interface PartMetrics {
   readonly w: U;
   readonly d: U;
   readonly h: U;
-  /** Footprint slack absorbable without a filler part (elastic axis → INF_U). */
+  /** Footprint slack absorbable without a filler part: what the contents may grow plus what the walls take (unbounded → INF_U). */
   readonly capW: U;
   readonly capD: U;
-  /** Some compartment can grow deeper (scoop): height slack goes here first. */
+  /** The part of capW / capD that is room for the contents (growth, spec §5), without the walls. */
+  readonly growW: U;
+  readonly growD: U;
+  /** Some compartment can grow deeper (scoop): height slack goes here first, up to `growH`. */
   readonly elasticH: boolean;
+  /** Most height slack the compartments that grow deeper can take, in the part's own frame (unbounded → INF_U). */
+  readonly growH: U;
 }
 
 /** A size lock in units, in the box frame (after rotation). */
@@ -101,9 +108,22 @@ export function partId(ref: PartRef): number {
   return (ref.req * PART_ID_RADIX + ref.variant) * PART_ID_RADIX + ref.part;
 }
 
-function capacity(part: TrayPartReq, axis: "w" | "d", wallCap: U): U {
-  const elastic = part.compartments.some((c) => c.elastic[axis] || c.spacerAxis === axis);
-  return elastic ? INF_U : wallCap;
+/**
+ * How much room the part's contents can take along an axis (its growth settings, spec §5; INF_U
+ * when unbounded). The sizing layer owns the arithmetic, so what the layout assumes a tray can
+ * absorb is what realizeTray then does.
+ */
+function growth(part: TrayPartReq, axis: "w" | "d"): U {
+  return Math.min(INF_U, partGrowthCapU(rowsOf(part.arrangement, part.compartments), axis));
+}
+
+/** The most height slack the part's compartments that grow deeper can take: the largest of their caps. */
+function growthH(part: TrayPartReq): U {
+  let best = 0;
+  for (const c of part.compartments) {
+    best = Math.max(best, growthCapU(c, "h"));
+  }
+  return Math.min(INF_U, best);
 }
 
 export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx {
@@ -177,13 +197,18 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
         throw new RangeError(`unknown part ${ref.req}/${ref.variant}/${ref.part}`);
       }
       const o = measure(p, settings, { lipped, level });
+      const growW = growth(p, "w");
+      const growD = growth(p, "d");
       const m: PartMetrics = {
         w: toUCeil(o.w),
         d: toUCeil(o.d),
         h: toUCeil(o.h),
-        capW: capacity(p, "w", wallCap),
-        capD: capacity(p, "d", wallCap),
+        capW: Math.min(INF_U, growW + wallCap),
+        capD: Math.min(INF_U, growD + wallCap),
+        growW,
+        growD,
         elasticH: p.compartments.some((c) => c.elastic.h),
+        growH: growthH(p),
       };
       cache.set(key, m);
       return m;

@@ -106,6 +106,11 @@ export interface CompartmentInput {
   d: number;
   h: number;
   elastic?: Partial<CompartmentReq["elastic"]>;
+  /**
+   * How much more room (mm, Infinity: no limit) the contents get on an axis (growthMm). It decides
+   * `elastic` for the axes it names (more than 0 grows); the axes it leaves out follow `elastic`.
+   */
+  grow?: { w?: number; d?: number; h?: number };
   features: FeatureReq[];
   spacerAxis?: "w" | "d";
   separators?: number;
@@ -126,12 +131,22 @@ export function compartment(input: CompartmentInput): CompartmentReq {
     minD: fromU(ceilU(input.d)),
     minH: fromU(ceilU(input.h)),
     elastic: {
-      w: input.elastic?.w ?? false,
-      d: input.elastic?.d ?? false,
-      h: input.elastic?.h ?? false,
+      w: input.grow?.w !== undefined ? input.grow.w > 0 : (input.elastic?.w ?? false),
+      d: input.grow?.d !== undefined ? input.grow.d > 0 : (input.elastic?.d ?? false),
+      h: input.grow?.h !== undefined ? input.grow.h > 0 : (input.elastic?.h ?? false),
     },
     features: input.features,
   };
+  const caps: NonNullable<CompartmentReq["growth"]> = {};
+  for (const axis of ["w", "d", "h"] as const) {
+    const cap = input.grow?.[axis];
+    if (cap !== undefined && cap > 0 && Number.isFinite(cap)) {
+      caps[axis] = cap;
+    }
+  }
+  if (Object.keys(caps).length > 0) {
+    req.growth = caps;
+  }
   if (input.minVolume !== undefined) {
     req.minVolume = input.minVolume;
   }

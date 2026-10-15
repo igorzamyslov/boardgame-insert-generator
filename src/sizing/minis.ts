@@ -1,5 +1,5 @@
 import type { MinisComponent, Settings } from "../model/types";
-import { togglesOf } from "../model/defaults";
+import { growthOf, togglesOf } from "../model/defaults";
 import { binOptions } from "./bulk";
 import {
   compartment,
@@ -10,6 +10,7 @@ import {
   type StorageOption,
   wallCutout,
 } from "./common";
+import { growthMm } from "./growth";
 import type { CompartmentReq } from "./types";
 
 type Figure = MinisComponent["figures"][number];
@@ -43,6 +44,11 @@ function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): C
       w: dims.w + clearance,
       d: dims.d + clearance,
       h: dims.h + clearance,
+      // A looser pocket, only when asked: a figure's own height is fixed, so no growth in depth.
+      grow: {
+        w: growthMm(growthOf(c, "w"), dims.w),
+        d: growthMm(growthOf(c, "d"), dims.d),
+      },
       // A centred cut through the front and back walls, half the pocket deep (spec §6.1).
       features: featuresOf(togglesOf(c), [
         wallCutout("front", 0.5, false),
@@ -56,7 +62,8 @@ function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): C
 export function minisOptions(c: MinisComponent, s: Settings): OptionsResult {
   const clearance = mainClearance(c, s);
   if (c.storage === "bulk") {
-    return { options: binOptions(c, c.figures, togglesOf(c), s), notices: [] };
+    const modes = { w: growthOf(c, "w"), d: growthOf(c, "d"), h: growthOf(c, "h") };
+    return { options: binOptions(c, c.figures, togglesOf(c), modes, s), notices: [] };
   }
   const options: StorageOption[] = [
     { id: "standing", blocks: c.figures.map((f) => pockets(c, f, f, clearance)) },

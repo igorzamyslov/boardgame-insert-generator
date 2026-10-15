@@ -1,4 +1,4 @@
-import { binTogglesOf } from "../model/defaults";
+import { binGrowthOf, binTogglesOf } from "../model/defaults";
 import type { Component, Settings } from "../model/types";
 import { binOptions, type Pieces } from "./bulk";
 import type { StorageOption } from "./common";
@@ -33,5 +33,6 @@ function binPieces(c: Component): readonly Pieces[] | null {
  */
 export function bulkFallback(c: Component, s: Settings): StorageOption[] | null {
   const pieces = binPieces(c);
-  return pieces === null ? null : binOptions(c, pieces, binTogglesOf(c), s);
+  const modes = { w: binGrowthOf(c, "w"), d: binGrowthOf(c, "d"), h: binGrowthOf(c, "h") };
+  return pieces === null ? null : binOptions(c, pieces, binTogglesOf(c), modes, s);
 }

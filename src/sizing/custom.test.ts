@@ -39,3 +39,19 @@ describe("customOptions", () => {
     expect(at(at(at(options, 0).blocks, 0), 0).contents).toBe("x1");
   });
 });
+
+describe("custom growth (minimal-trays spec §5)", () => {
+  const well = (c = custom()) => at(at(at(customOptions(c, s).options, 0).blocks, 0), 0);
+
+  it("is off on every axis by default: tolerance only", () => {
+    expect(well().elastic).toEqual({ w: false, d: false, h: false });
+    expect(well().growth).toBeUndefined();
+  });
+
+  it("grows the axes it is asked to, by number, auto or max", () => {
+    const c = well(custom({ growth: { w: 3, d: "auto", h: "max" } }));
+    expect(c.elastic).toEqual({ w: true, d: true, h: true });
+    // auto: the item's 30 mm depth, under the 50 mm ceiling
+    expect(c.growth).toEqual({ w: 3, d: 30 });
+  });
+});

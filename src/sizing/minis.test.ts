@@ -100,3 +100,27 @@ describe("minisOptions", () => {
     expect(deep.minH).toBe(30);
   });
 });
+
+describe("minis growth (minimal-trays spec §5)", () => {
+  const pocket = (c = minis(), option = 0) =>
+    at(at(at(minisOptions(c, s).options, option).blocks, 0), 0);
+
+  it("keeps pockets tight by default: more room only makes a loose fit", () => {
+    expect(pocket().elastic).toEqual({ w: false, d: false, h: false });
+    expect(pocket().growth).toBeUndefined();
+  });
+
+  it("makes pockets looser in width and length when asked, never in depth", () => {
+    const c = pocket(minis({ growth: { w: 4, d: "auto", h: "max" } }));
+    expect(c.elastic).toEqual({ w: true, d: true, h: false });
+    // auto: the figure's own 25 mm
+    expect(c.growth).toEqual({ w: 4, d: 25 });
+  });
+
+  it("stored as bulk, grows like loose pieces: auto on every axis", () => {
+    const c = pocket(minis({ storage: "bulk" }));
+    expect(c.elastic).toEqual({ w: true, d: true, h: true });
+    expect(minis({ storage: "bulk", growth: { h: "off" } }).growth).toEqual({ h: "off" });
+    expect(pocket(minis({ storage: "bulk", growth: { h: "off" } })).elastic.h).toBe(false);
+  });
+});

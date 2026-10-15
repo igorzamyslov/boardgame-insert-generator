@@ -162,14 +162,21 @@ describe("toggles", () => {
     expect(lastOf(onChange).cornerReliefs).toBe(false);
   });
 
-  it("offers spacer plates on tiles with stretch on, never on bulk, minis or custom", () => {
-    render(<TilesEditor component={of("tiles")} index={0} advanced onChange={vi.fn()} />);
+  it("offers spacer plates on tiles while the stack may grow, never on bulk, minis or custom", () => {
+    render(
+      <TilesEditor
+        component={{ ...of("tiles"), growth: { stack: "off" } }}
+        index={0}
+        advanced
+        onChange={vi.fn()}
+      />,
+    );
     expect(screen.queryByLabelText("Spacer plates")).toBeNull();
     cleanup();
     const onChange = vi.fn<(c: TilesComponent) => void>();
     render(
       <TilesEditor
-        component={{ ...of("tiles"), stretch: true }}
+        component={{ ...of("tiles"), storage: "upright" }}
         index={0}
         advanced
         onChange={onChange}
@@ -178,13 +185,13 @@ describe("toggles", () => {
     fireEvent.input(screen.getByLabelText("Spacer plates"), { target: { value: "2" } });
     expect(lastOf(onChange).separators).toBe(2);
     cleanup();
-    // a file may set stretch on any kind; only cards and tiles have the option
+    // a file may set separators on any kind; only cards and tiles have the option
     for (const [kind, Editor] of [
       ["bulk", BulkEditor],
       ["minis", MinisEditor],
       ["custom", CustomEditor],
     ] as const) {
-      const c = { ...of(kind), stretch: true, separators: 3 };
+      const c = { ...of(kind), separators: 3 };
       render(<Editor component={c as never} index={0} advanced onChange={vi.fn()} />);
       expect(screen.queryByLabelText("Spacer plates")).toBeNull();
       cleanup();
@@ -201,7 +208,7 @@ describe("toggles", () => {
     render(
       <SizingContext.Provider value={[notice]}>
         <TilesEditor
-          component={{ ...of("tiles"), stretch: true, separators: 5 }}
+          component={{ ...of("tiles"), storage: "upright", separators: 5 }}
           index={0}
           advanced
           onChange={vi.fn()}
@@ -211,21 +218,91 @@ describe("toggles", () => {
     expect(screen.getByText(/you asked for 5, but 2 fit/)).toBeTruthy();
   });
 
-  it("offers stretch to fill on tiles only, not on bulk, minis or custom", () => {
-    const onChange = vi.fn<(c: TilesComponent) => void>();
-    render(<TilesEditor component={of("tiles")} index={0} advanced onChange={onChange} />);
-    expect((screen.getByLabelText("Stretch to fill") as HTMLInputElement).checked).toBe(false);
-    fireEvent.click(screen.getByLabelText("Stretch to fill"));
-    expect(lastOf(onChange).stretch).toBe(true);
-    cleanup();
-    render(<BulkEditor component={of("bulk")} index={0} advanced onChange={vi.fn()} />);
-    expect(screen.queryByLabelText("Stretch to fill")).toBeNull();
-    cleanup();
-    render(<MinisEditor component={of("minis")} index={0} advanced onChange={vi.fn()} />);
-    expect(screen.queryByLabelText("Stretch to fill")).toBeNull();
-    cleanup();
-    render(<CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />);
-    expect(screen.queryByLabelText("Stretch to fill")).toBeNull();
+  describe("room to grow, by kind (minimal-trays spec §5)", () => {
+    const growthIds = () =>
+      Array.from(document.querySelectorAll("select[id*='-growth-']")).map((e) => e.id);
+    const labels = () =>
+      growthIds().map((id) => document.querySelector(`label[for='${id}']`)?.textContent);
+
+    it("offers tiles one control, along the stack, auto when they stand up and off when they lie", () => {
+      const onChange = vi.fn<(c: TilesComponent) => void>();
+      render(
+        <TilesEditor
+          component={{ ...of("tiles"), storage: "upright" }}
+          index={0}
+          advanced
+          onChange={onChange}
+        />,
+      );
+      expect(labels()).toEqual(["Room for more tiles"]);
+      expect((screen.getByLabelText("Room for more tiles") as HTMLSelectElement).value).toBe(
+        "auto",
+      );
+      fireEvent.change(screen.getByLabelText("Room for more tiles"), { target: { value: "max" } });
+      expect(lastOf(onChange).growth).toEqual({ stack: "max" });
+      cleanup();
+      render(
+        <TilesEditor
+          component={{ ...of("tiles"), storage: "flat" }}
+          index={0}
+          advanced
+          onChange={vi.fn()}
+        />,
+      );
+      expect((screen.getByLabelText("Room for more tiles") as HTMLSelectElement).value).toBe("off");
+    });
+
+    it("offers bulk all three axes, auto by default, each stored on its own", () => {
+      const onChange = vi.fn<(c: BulkComponent) => void>();
+      render(<BulkEditor component={of("bulk")} index={0} advanced onChange={onChange} />);
+      expect(labels()).toEqual(["Extra width", "Extra length", "Extra height"]);
+      for (const label of labels()) {
+        expect((screen.getByLabelText(label ?? "") as HTMLSelectElement).value).toBe("auto");
+      }
+      fireEvent.change(screen.getByLabelText("Extra length"), { target: { value: "off" } });
+      expect(lastOf(onChange).growth).toEqual({ d: "off" });
+    });
+
+    it("offers minis in pockets only width and length, off by default: a pocket's depth is a figure's height", () => {
+      render(<MinisEditor component={of("minis")} index={0} advanced onChange={vi.fn()} />);
+      expect(labels()).toEqual(["Looser pockets: width", "Looser pockets: length"]);
+      expect((screen.getByLabelText("Looser pockets: width") as HTMLSelectElement).value).toBe(
+        "off",
+      );
+      expect(screen.queryByLabelText(/Looser pockets: (height|depth)/)).toBeNull();
+    });
+
+    it("offers minis stored as bulk all three, auto", () => {
+      render(
+        <MinisEditor
+          component={{ ...of("minis"), storage: "bulk" }}
+          index={0}
+          advanced
+          onChange={vi.fn()}
+        />,
+      );
+      expect(labels()).toEqual(["Extra width", "Extra length", "Extra height"]);
+      expect((screen.getByLabelText("Extra height") as HTMLSelectElement).value).toBe("auto");
+    });
+
+    it("offers a custom well all three, off by default", () => {
+      render(<CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />);
+      expect(labels()).toEqual(["Extra width", "Extra length", "Extra height"]);
+      expect((screen.getByLabelText("Extra width") as HTMLSelectElement).value).toBe("off");
+    });
+
+    it("offers nothing in simple mode: it lives under the advanced options", () => {
+      render(<BulkEditor component={of("bulk")} index={0} advanced={false} onChange={vi.fn()} />);
+      expect(growthIds()).toEqual([]);
+    });
+
+    it("states the auto cap beside each control", () => {
+      render(<BulkEditor component={of("bulk")} index={0} advanced onChange={vi.fn()} />);
+      const select = screen.getByLabelText("Extra width");
+      expect(document.getElementById(`${select.id}-hint`)?.textContent).toMatch(
+        /Auto: up to the bin's width, at most 50 mm/,
+      );
+    });
   });
 });
 

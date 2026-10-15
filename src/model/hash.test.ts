@@ -64,6 +64,22 @@ describe("inputsHash", () => {
     expect(inputsHash(other)).not.toBe(inputsHash(corrected));
   });
 
+  it("changes with a component's growth: it decides how much room contents take, so the layout", () => {
+    const base = sample();
+    const grown: Project = {
+      ...base,
+      components: base.components.map((c) =>
+        c.kind === "bulk" ? { ...c, growth: { w: "max" as const } } : c,
+      ),
+    };
+    expect(inputsHash(grown)).not.toBe(inputsHash(base));
+    const other: Project = {
+      ...base,
+      components: base.components.map((c) => (c.kind === "bulk" ? { ...c, growth: { w: 12 } } : c)),
+    };
+    expect(inputsHash(other)).not.toBe(inputsHash(grown));
+  });
+
   it("changes with wallAbsorb, since it moves where leaf slack goes", () => {
     const base = sample();
     const grown: Project = { ...base, settings: { ...base.settings, wallAbsorb: 1 } };
@@ -72,11 +88,13 @@ describe("inputsHash", () => {
 
   it("hashes the fixtures as before wallGrowth became wallAbsorb, so no saved plan goes stale", () => {
     // Pinned from the code before the rename: the hash still names the setting wallGrowth.
+    // cards-heavy and small-tiles used to set `stretch: true`, which `growth` replaced (schema
+    // 0.1.12): their files no longer carry it, so those two were pinned again, once.
     const pinned: Record<string, string> = {
-      "cards-heavy": "12814b27c4de66",
+      "cards-heavy": "01768a82dd047a",
       "bits-heavy": "1f7b3a193165a8",
       "tiles-minis": "13bb56259e7343",
-      "small-tiles": "18eb0ff1c6707c",
+      "small-tiles": "09791dc6f15922",
       "tiny-box": "15096435ce0ebb",
     };
     for (const [name, hash] of Object.entries(pinned)) {

@@ -187,7 +187,7 @@ describe("upright cards and tiles: one finger channel", () => {
   it("keeps such a cut clear of the deck's spacer", () => {
     const dial = (id: string) => custom({ id, groupId: "g", count: 1 });
     const deck = cards({
-      stretch: true,
+      growth: { stack: "max" },
       groupId: "g",
       shortSide: 63,
       longSide: 88,
@@ -214,7 +214,7 @@ describe("upright cards and tiles: one finger channel", () => {
   });
 
   it("notches a spacer standing in a channelled well to match the channel", () => {
-    const one = partOf([cards({ stretch: true })], "upright-long|strip|split1");
+    const one = partOf([cards({ growth: { stack: "max" } })], "upright-long|strip|split1");
     const min = minOuter(one, s, ground);
     const r = realize(one, s, ground, { ...min, w: min.w + 10 });
     expect(r.spacers).toHaveLength(1);
@@ -231,7 +231,7 @@ describe("upright cards and tiles: one finger channel", () => {
     // the 76.5 mm spacer ends where the U (bottom 40.75 mm up, radius 13.25) meets its faces.
     const steep = largestChamfer({ ...s, wall: 3, floor: 3 });
     const deck = cards({
-      stretch: true,
+      growth: { stack: "max" },
       shortSide: 25,
       longSide: 80,
       sleeve: "none",

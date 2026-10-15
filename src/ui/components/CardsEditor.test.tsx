@@ -141,19 +141,67 @@ describe("CardsEditor", () => {
     expect(last().cornerReliefs).toBe(true);
   });
 
-  it("offers stretch to fill, off by default", () => {
-    const { last } = setup(cards(), true);
-    const stretch = screen.getByLabelText("Stretch to fill") as HTMLInputElement;
-    expect(stretch.checked).toBe(false);
-    fireEvent.click(stretch);
-    expect(last().stretch).toBe(true);
+  describe("room to grow (minimal-trays spec §5)", () => {
+    const control = () => screen.getByLabelText("Room for more cards") as HTMLSelectElement;
+
+    it("offers one control, along the stack, set to auto by default for an upright deck", () => {
+      const { last } = setup(cards({ storage: "upright-long" }), true);
+      expect(control().closest(".pf-adv")).not.toBeNull();
+      expect(control().value).toBe("auto");
+      const labels = Array.from(control().options).map((o) => o.textContent);
+      expect(labels).toEqual(["Off", "Auto (default)", "A set amount", "As much as there is"]);
+      fireEvent.change(control(), { target: { value: "off" } });
+      expect(last().growth).toEqual({ stack: "off" });
+      expect("stretch" in last()).toBe(false);
+    });
+
+    it("never offers the card's own width or length, or a second axis", () => {
+      setup(cards({ storage: "upright-long" }), true);
+      expect(document.querySelectorAll("select[id*='-growth-']")).toHaveLength(1);
+      expect(screen.queryByLabelText(/Extra (width|length|height)/)).toBeNull();
+    });
+
+    it("is off by default for a deck lying flat, and says so", () => {
+      const { last } = setup(cards({ storage: "flat" }), true);
+      expect(control().value).toBe("off");
+      expect(Array.from(control().options).map((o) => o.textContent)).toContain("Off (default)");
+      fireEvent.change(control(), { target: { value: "auto" } });
+      expect(last().growth).toEqual({ stack: "auto" });
+    });
+
+    it("stores nothing when the choice is the default, and removes a stored one", () => {
+      const { last } = setup(cards({ storage: "upright-long", growth: { stack: "max" } }), true);
+      fireEvent.change(control(), { target: { value: "auto" } });
+      expect("growth" in last()).toBe(false);
+    });
+
+    it("takes a number of mm, starting at 10, and keeps it as typed", () => {
+      const { last, view } = setup(cards({ storage: "upright-long" }), true);
+      fireEvent.change(control(), { target: { value: "amount" } });
+      expect(last().growth).toEqual({ stack: 10 });
+      view.unmount();
+      const next = setup(cards({ storage: "upright-long", growth: { stack: 10 } }), true);
+      expect(control().value).toBe("amount");
+      fireEvent.input(screen.getByLabelText(/Room for more cards, amount/), {
+        target: { value: "7,5" },
+      });
+      expect(next.last().growth).toEqual({ stack: 7.5 });
+    });
+
+    it("states what auto is and the retention limit in the hint", () => {
+      setup(cards({ storage: "upright-long" }), true);
+      const hint = document.getElementById(`${control().id}-hint`)?.textContent ?? "";
+      expect(hint).toMatch(/Auto: up to the deck's thickness, at most 50 mm/);
+      expect(hint).toMatch(/at most 1× its own thickness/);
+      expect(hint).toMatch(/with plates, 6×/);
+    });
   });
 
-  it("offers spacer plates only while stretch is on, with a hint", () => {
-    const { view } = setup(cards(), true);
+  it("offers spacer plates only while the stack may grow, with a hint", () => {
+    const { view } = setup(cards({ growth: { stack: "off" } }), true);
     expect(screen.queryByLabelText("Spacer plates")).toBeNull();
     view.unmount();
-    const { last } = setup(cards({ stretch: true }), true);
+    const { last } = setup(cards(), true);
     const field = screen.getByLabelText("Spacer plates") as HTMLInputElement;
     expect(field.value).toBe("1");
     expect(document.getElementById(`${field.id}-hint`)?.textContent).toMatch(/pull one out/i);
@@ -162,14 +210,13 @@ describe("CardsEditor", () => {
   });
 
   it("stores nothing when the count goes back to 1", () => {
-    const { last } = setup(cards({ stretch: true, separators: 3 }), true);
+    const { last } = setup(cards({ separators: 3 }), true);
     fireEvent.input(screen.getByLabelText("Spacer plates"), { target: { value: "1" } });
     expect("separators" in last()).toBe(false);
-    expect(last().stretch).toBe(true);
   });
 
   it("shows a stored count of spacer plates", () => {
-    setup(cards({ stretch: true, separators: 4 }), true);
+    setup(cards({ separators: 4 }), true);
     expect((screen.getByLabelText("Spacer plates") as HTMLInputElement).value).toBe("4");
   });
 

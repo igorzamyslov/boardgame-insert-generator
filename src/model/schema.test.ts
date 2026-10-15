@@ -322,11 +322,9 @@ describe("a stored layout leaves out what reading puts back", () => {
 
   it("writes a spacer without its constant fields and an open leftover without its pocket", () => {
     const [t, sp, lo, so] = written(withLayout([tray({}), spacer, spare, solid]));
+    // its key, stack and level are its tray's, so reading restores them
     expect(sp).toEqual({
-      key: "k:spacer",
       part: "spacer",
-      stack: 0,
-      level: 0,
       x: 0,
       y: 0,
       z: 0,
@@ -339,6 +337,33 @@ describe("a stored layout leaves out what reading puts back", () => {
     // a tray, and a solid leftover, are written whole
     expect(t).toMatchObject({ path: "0", wall: 1.2, rotated: false, compartments: [] });
     expect(so).toMatchObject({ solid: true, compartments: [] });
+  });
+
+  it("leaves out a leftover's key (the n-th is leftover:n) and a level, z and lip of 0 or false", () => {
+    const first = tray({ key: "leftover:0", part: "leftover", solid: true, compartments: [] });
+    const second = tray({ key: "leftover:1", part: "leftover", solid: true, compartments: [] });
+    const [t, a, b] = written(withLayout([tray({}), first, second]));
+    expect(a).not.toHaveProperty("key");
+    expect(b).not.toHaveProperty("key");
+    for (const x of [t, a, b]) {
+      expect(x).not.toHaveProperty("level");
+      expect(x).not.toHaveProperty("z");
+      expect(x).not.toHaveProperty("lip");
+    }
+    expect(t).toHaveProperty("key", "k");
+  });
+
+  it("keeps what is not the default: a leftover out of order, a level above 0, a lip, a spacer elsewhere", () => {
+    const odd = tray({ key: "leftover:5", part: "leftover", solid: true, compartments: [] });
+    const upper = tray({ key: "u", level: 1, z: 12.4, lip: true });
+    const away = { ...spacer, stack: 3, key: "other:spacer" };
+    const out = written(withLayout([tray({}), upper, away, odd]));
+    expect(out[3]).toHaveProperty("key", "leftover:5");
+    expect(out[1]).toMatchObject({ level: 1, z: 12.4, lip: true });
+    expect(out[2]).toMatchObject({ key: "other:spacer", stack: 3 });
+    const p = withLayout([tray({}), upper, away, odd]);
+    const back = parseProject(raw(p));
+    expect(back.ok && back.project.layout).toEqual(p.layout);
   });
 
   it("reads them back to the same layout", () => {
@@ -530,7 +555,7 @@ describe("parseProject: hostile input", () => {
 
   it("rejects deeply nested data without throwing, in newer and current files", () => {
     const deep = nested(5000);
-    const newer = (input: Json): Json => ({ ...input, schemaVersion: "0.1.11" });
+    const newer = (input: Json): Json => ({ ...input, schemaVersion: "0.1.12" });
 
     const field = raw(sampleProject());
     field.extra = deep;
@@ -547,7 +572,7 @@ describe("parseProject: hostile input", () => {
   });
 
   it("accepts data nested exactly as deep as the limit", () => {
-    const input: Json = { ...raw(sampleProject()), schemaVersion: "0.1.11" };
+    const input: Json = { ...raw(sampleProject()), schemaVersion: "0.1.12" };
     // The project object is one level, so the field may hold MAX_JSON_DEPTH - 1 more.
     input.extra = nested(MAX_JSON_DEPTH - 1);
     expect(parseProject(input).ok).toBe(true);

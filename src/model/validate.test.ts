@@ -8,6 +8,7 @@ import type {
   Component,
   ComponentKind,
   CustomComponent,
+  GrowthMode,
   MinisComponent,
   Notice,
   Project,
@@ -355,13 +356,31 @@ describe("validateProject", () => {
     [Number.NaN, field.separators],
   ];
   it.each(separatorCases)("checks %s spacer plates (%s)", (separators, code) => {
-    expect(codes(validateProject(withComponents(cards({ stretch: true, separators }))))).toEqual(
+    expect(codes(validateProject(withComponents(cards({ separators }))))).toEqual(
       code === null ? [] : [[code, "/components/0/separators"]],
     );
   });
 
   it("accepts a component with no separators set", () => {
-    expect(codes(validateProject(withComponents(cards({ stretch: true }))))).toEqual([]);
+    expect(codes(validateProject(withComponents(cards())))).toEqual([]);
+  });
+
+  const growthCases: [GrowthMode, string | null][] = [
+    ["off", null],
+    ["auto", null],
+    ["max", null],
+    [0, null],
+    [12.5, null],
+    [1000, null],
+    [1000.5, limit.length],
+    [Number.POSITIVE_INFINITY, limit.length],
+    [-1, field.length],
+    [Number.NaN, field.length],
+  ];
+  it.each(growthCases)("checks a growth of %s (%s)", (mode, code) => {
+    expect(codes(validateProject(withComponents(cards({ growth: { stack: mode } }))))).toEqual(
+      code === null ? [] : [[code, "/components/0/growth/stack"]],
+    );
   });
 
   const playerCases: [number, string][] = [

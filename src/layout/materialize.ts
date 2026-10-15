@@ -39,7 +39,11 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
     const w = toMm(Math.max(t.w, minW));
     const d = toMm(Math.max(t.d, minD));
     const h = toMm(Math.max(t.h, m.h));
-    const opts = { lipped: t.lipped, level: t.level };
+    const need = {
+      w: toMm(t.item.rotated ? t.needD : t.needW),
+      d: toMm(t.item.rotated ? t.needW : t.needD),
+    };
+    const opts = { lipped: t.lipped, level: t.level, stackMin: need };
     // realizeTray works in the part's own frame; a rotated placement is realized at the
     // swapped size and turned 90° counter-clockwise by sizing's rotateRealized.
     const own = t.item.rotated ? { w: d, d: w, h } : { w, d, h };

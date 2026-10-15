@@ -1,5 +1,6 @@
-import { togglesOf } from "../model/defaults";
+import { growthOf, togglesOf } from "../model/defaults";
 import type { CustomComponent, Settings } from "../model/types";
+import { growthMm } from "./growth";
 import {
   compartment,
   displayName,
@@ -21,6 +22,12 @@ export function customOptions(c: CustomComponent, s: Settings): OptionsResult {
       w: c.w + clearance,
       d: c.d + clearance,
       h: c.h + clearance,
+      // Tolerance only, so only when asked.
+      grow: {
+        w: growthMm(growthOf(c, "w"), c.w),
+        d: growthMm(growthOf(c, "d"), c.d),
+        h: growthMm(growthOf(c, "h"), c.h),
+      },
       // A centred cut through the front wall, half the well deep (spec §6.1).
       features: featuresOf(togglesOf(c), [wallCutout("front", 0.5, false)]),
     }),

@@ -8,6 +8,8 @@ import type {
   CardsComponent,
   Component,
   ComponentKind,
+  GrowthAxis,
+  GrowthMode,
   MinisComponent,
   Printer,
   Project,
@@ -87,7 +89,6 @@ export interface Toggles {
   fingerCuts: boolean;
   curvedFloor: boolean;
   cornerReliefs: boolean;
-  stretch: boolean;
 }
 
 /**
@@ -100,7 +101,6 @@ function kindDefaults(c: Component): Toggles {
     fingerCuts: !bulkLike(c),
     curvedFloor: bulkLike(c),
     cornerReliefs: c.kind === "tiles" || c.kind === "custom",
-    stretch: false,
   };
 }
 
@@ -126,15 +126,92 @@ export function cornerReliefsOn(c: Component): boolean {
 }
 
 /**
- * Whether an upright card deck or tile stack stretches to fill its space, taking a spacer or an
- * end wall for the slack, instead of staying content-sized (spec §5). Off unless set.
+ * The growth axes a component offers, in the user's terms (minimal-trays spec §5, the table of
+ * defaults): the ones where more room holds more of its contents, or at least a looser fit.
+ * Everything else cannot grow at all, and is not offered: a card well's width and length (cards
+ * slide), a tile's footprint, a minis pocket's depth (a figure's height is fixed).
  */
-export function stretchOn(c: Component): boolean {
-  return c.stretch ?? kindDefaults(c).stretch;
+export function growthAxesOf(c: Component): readonly GrowthAxis[] {
+  switch (c.kind) {
+    case "cards":
+    case "tiles":
+      return ["stack"];
+    case "bulk":
+    case "custom":
+      return ["w", "d", "h"];
+    case "minis":
+      return c.storage === "bulk" ? ["w", "d", "h"] : ["w", "d"];
+    default: {
+      const unreachable: never = c;
+      return unreachable;
+    }
+  }
 }
 
 /**
- * How many loose plates the component's stretch spacer is printed as, before the plates that
+ * The growth of `axis` for a component that sets none (spec §5): `auto` wherever extra room means
+ * more pieces (loose pieces on every axis, a deck or stack of tiles standing up along its stack),
+ * `off` where it only adds slop (a deck or stack lying flat grows taller only when asked: the
+ * box's spare height belongs to a riser under the tray; pockets and custom wells). `lying` says a
+ * card deck or tile stack lies flat, which is what the stack axis is then (its height).
+ */
+export function defaultGrowth(c: Component, axis: GrowthAxis, lying = false): GrowthMode {
+  if (!growthAxesOf(c).includes(axis)) {
+    return "off";
+  }
+  switch (c.kind) {
+    case "bulk":
+      return "auto";
+    case "minis":
+      return bulkLike(c) ? "auto" : "off";
+    case "cards":
+    case "tiles":
+      return lying ? "off" : "auto";
+    case "custom":
+      return "off";
+    default: {
+      const unreachable: never = c;
+      return unreachable;
+    }
+  }
+}
+
+/**
+ * How far the component's contents may be given more room along `axis` (spec §5): what it set,
+ * else the kind's default. An axis the kind does not offer (`growthAxesOf`) is always `off`.
+ */
+export function growthOf(c: Component, axis: GrowthAxis, lying = false): GrowthMode {
+  if (!growthAxesOf(c).includes(axis)) {
+    return "off";
+  }
+  return c.growth?.[axis] ?? defaultGrowth(c, axis, lying);
+}
+
+/**
+ * The growth of a component stored loose in a scoop bin, its bulk fallback (spec §7.1): what it
+ * set on that axis (width, length and height are the bin's), else bulk's `auto`.
+ */
+export function binGrowthOf(c: Component, axis: "w" | "d" | "h"): GrowthMode {
+  return c.growth?.[axis] ?? "auto";
+}
+
+/**
+ * The component with `axis` set to `mode`, or with it cleared (undefined: the kind's default).
+ * An emptied `growth` is dropped, so a component that sets nothing stays as it was.
+ */
+export function withGrowth<C extends Component>(
+  c: C,
+  axis: GrowthAxis,
+  mode: GrowthMode | undefined,
+): C {
+  const rest = Object.fromEntries(Object.entries(c.growth ?? {}).filter(([key]) => key !== axis));
+  const growth = mode === undefined ? rest : { ...rest, [axis]: mode };
+  const others = Object.fromEntries(Object.entries(c).filter(([key]) => key !== "growth"));
+  return (Object.keys(growth).length === 0 ? others : { ...others, growth }) as C;
+}
+
+/**
+ * How many loose plates the component's spacer (the room it grows into) is printed as, before the plates that
  * would come out too thin are dropped (spec §6.2). 1, the single spacer block, unless set.
  */
 export function separatorsOf(c: Component): number {
@@ -155,7 +232,6 @@ export function togglesOf(c: Component): Toggles {
     fingerCuts: fingerCutsOn(c),
     curvedFloor: curvedFloorOn(c),
     cornerReliefs: cornerReliefsOn(c),
-    stretch: stretchOn(c),
   };
 }
 
@@ -164,7 +240,6 @@ const BIN_DEFAULTS: Toggles = {
   fingerCuts: false,
   curvedFloor: true,
   cornerReliefs: false,
-  stretch: false,
 };
 
 /**
@@ -181,7 +256,6 @@ export function binTogglesOf(c: Component): Toggles {
     fingerCuts: pick("fingerCuts"),
     curvedFloor: pick("curvedFloor"),
     cornerReliefs: pick("cornerReliefs"),
-    stretch: pick("stretch"),
   };
 }
 

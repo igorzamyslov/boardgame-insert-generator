@@ -1,5 +1,5 @@
-import { togglesOf, type Toggles } from "../model/defaults";
-import type { BulkComponent, BulkItem, Component, Settings } from "../model/types";
+import { growthOf, togglesOf, type Toggles } from "../model/defaults";
+import type { BulkComponent, BulkItem, Component, GrowthMode, Settings } from "../model/types";
 import {
   compartment,
   featuresOf,
@@ -10,6 +10,7 @@ import {
   wallCutout,
 } from "./common";
 import { BIN_FREEBOARD, BULK_MIN_SIDE, MAX_H_RATIO, SCOOP_REACH, SHALLOW_H } from "./constants";
+import { growthMm } from "./growth";
 import type { CompartmentReq } from "./types";
 
 export type BulkShape = "shallow" | "deep";
@@ -60,6 +61,9 @@ export function shapeLine(
   return { side, h: Math.max(line.hFloor, Math.min(cap, line.volume / (side * side))) };
 }
 
+/** How much more room a bin's contents may have on each axis (spec §5). */
+export type BulkGrowth = Record<"w" | "d" | "h", GrowthMode>;
+
 /**
  * One bulk compartment with the toggles `on`: its curved floor makes it a scoop, its finger cuts a
  * centred cut through its front wall, half its depth (featuresOf).
@@ -67,6 +71,7 @@ export function shapeLine(
 export function bulkCompartment(
   componentId: string,
   on: Toggles,
+  modes: BulkGrowth,
   contents: string,
   line: BulkLine,
   shape: BulkShape,
@@ -84,7 +89,12 @@ export function bulkCompartment(
     w: side,
     d: side,
     h,
-    elastic: { w: true, d: true, h: true },
+    // More room is more loose pieces: each axis by its own setting, on the bin's own size.
+    grow: {
+      w: growthMm(modes.w, side),
+      d: growthMm(modes.d, side),
+      h: growthMm(modes.h, h),
+    },
     minVolume: line.volume,
     maxHRatio: MAX_H_RATIO,
     features,
@@ -108,6 +118,7 @@ export function binOptions(
   c: Component,
   pieces: readonly Pieces[],
   on: Toggles,
+  modes: BulkGrowth,
   s: Settings,
 ): StorageOption[] {
   const clearance = mainClearance(c, s);
@@ -117,6 +128,7 @@ export function binOptions(
       bulkCompartment(
         c.id,
         on,
+        modes,
         `${itemLabel(c, p.name)} ×${p.count}`,
         bulkLine(p, clearance, s.packingFactor),
         shape,
@@ -134,6 +146,7 @@ function itemContents(c: BulkComponent, item: BulkItem): string {
 export function bulkOptions(c: BulkComponent, s: Settings): OptionsResult {
   const clearance = mainClearance(c, s);
   const on = togglesOf(c);
+  const modes = { w: growthOf(c, "w"), d: growthOf(c, "d"), h: growthOf(c, "h") };
   return {
     options: BULK_SHAPES.map((shape) => ({
       id: shape,
@@ -141,6 +154,7 @@ export function bulkOptions(c: BulkComponent, s: Settings): OptionsResult {
         bulkCompartment(
           c.id,
           on,
+          modes,
           itemContents(c, item),
           bulkLine(item, clearance, s.packingFactor),
           shape,

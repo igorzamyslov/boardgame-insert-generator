@@ -14,7 +14,12 @@ export interface Level {
   readonly minH: U;
   readonly capW: U;
   readonly capD: U;
+  /** The part of capW / capD that is room for the contents, without the walls (spec §5). */
+  readonly growW: U;
+  readonly growD: U;
   readonly elasticH: boolean;
+  /** Most height slack the tray's deeper-growing compartments take. */
+  readonly growH: U;
   readonly fixed: FixedSize | undefined;
 }
 
@@ -35,7 +40,10 @@ export function stackLevels(ctx: Ctx, stack: readonly StackItem[]): Level[] {
       minH: baseH,
       capW: rot ? m.capD : m.capW,
       capD: rot ? m.capW : m.capD,
+      growW: rot ? m.growD : m.growW,
+      growD: rot ? m.growW : m.growD,
       elasticH: m.elasticH,
+      growH: m.growH,
       fixed,
     };
   });
@@ -97,14 +105,26 @@ export function levelLockCap(level: Level): Ext {
 
 /**
  * Extra size (beyond `foot`, the size the level's tray is built at) the level's own tray can
- * absorb without a filler: an elastic axis (INF_U) or the inward wall growth the user allows
- * (spec §7.2 "Fill").
+ * absorb without a filler: room for its contents (growth: INF_U when unbounded) or the inward wall
+ * growth the user allows (spec §7.2 "Fill"). Contents that may grow count the room a stack asks of
+ * the tray (`foot` above the tray's own minimum) as free: it is not a choice, and the growth
+ * setting bounds what is given beyond it. A tray whose contents cannot grow gets its walls
+ * thickened by that room, which comes off the wall growth.
  */
 export function levelAbsorb(level: Level, foot: Ext): Ext {
   return {
-    w: Math.max(0, level.capW - (foot.w - level.minW)),
-    d: Math.max(0, level.capD - (foot.d - level.minD)),
+    w: Math.max(0, level.capW - (level.growW > 0 ? 0 : foot.w - level.minW)),
+    d: Math.max(0, level.capD - (level.growD > 0 ? 0 : foot.d - level.minD)),
   };
+}
+
+/**
+ * Extra size (beyond the size the stack asks of it) the level's tray can give to its own contents
+ * alone, without thicker walls: the growth settings (spec §5). A bound on what becomes capacity rather than slop, so a
+ * gap past it is a filler even where the walls could still have taken it.
+ */
+export function levelGrowth(level: Level): Ext {
+  return { w: level.growW, d: level.growD };
 }
 
 export interface StackHeights {
@@ -157,7 +177,11 @@ export function stackHeights(ctx: Ctx, levels: readonly Level[]): StackHeights {
   }
   const b = levels.findIndex((l) => !l.fixed && l.elasticH);
   if (b >= 0 && b !== r) {
-    const add = roundDownTo(extra, ctx.layer);
+    // up to what the compartments that grow deeper may take (spec §5), the rest on to the top tray
+    const add = Math.min(
+      roundDownTo(extra, ctx.layer),
+      roundDownTo(levels[b]?.growH ?? 0, ctx.layer),
+    );
     h[b] = (h[b] ?? 0) + add;
     extra -= add;
   }

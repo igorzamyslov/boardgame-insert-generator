@@ -354,25 +354,30 @@ export function traySpecFrom(
 // sizing output of the fixture projects, under fixture and edge-of-range settings, at every lip
 // and level option and a few outer sizes.
 
-// The fixtures set stretch on so the sweeps still have spacers; the "default" variants drop it, so
-// the default (off) path is swept too.
-const unstretched = (raw: unknown): unknown => {
+// The fixtures take every kind's default growth (spec minimal-trays §5: auto on bulk and upright
+// stacks); the "growth off" and "growth max" variants set every axis of every component to one
+// extreme, so the sweeps cover content-tight trays and ones that take all the slack too.
+const withGrowth = (raw: unknown, mode: "off" | "max"): unknown => {
   const { components, ...rest } = raw as { components: Record<string, unknown>[] };
   return {
     ...rest,
-    components: components.map((component) =>
-      Object.fromEntries(Object.entries(component).filter(([key]) => key !== "stretch")),
-    ),
+    components: components.map((component) => ({
+      ...component,
+      growth: { w: mode, d: mode, h: mode, stack: mode },
+    })),
   };
 };
 
 export const SWEEP_FIXTURES: readonly [string, unknown][] = [
   ["cards-heavy", cardsHeavy],
-  ["cards-heavy, default stretch", unstretched(cardsHeavy)],
+  ["cards-heavy, growth off", withGrowth(cardsHeavy, "off")],
+  ["cards-heavy, growth max", withGrowth(cardsHeavy, "max")],
   ["bits-heavy", bitsHeavy],
+  ["bits-heavy, growth off", withGrowth(bitsHeavy, "off")],
   ["tiles-minis", tilesMinis],
   ["small-tiles", smallTiles],
-  ["small-tiles, default stretch", unstretched(smallTiles)],
+  ["small-tiles, growth off", withGrowth(smallTiles, "off")],
+  ["small-tiles, growth max", withGrowth(smallTiles, "max")],
   ["tiny-box", tinyBox],
 ];
 

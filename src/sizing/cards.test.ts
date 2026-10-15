@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { CardsComponent, Settings } from "../model/types";
+import type { CardsComponent, GrowthMode, Settings } from "../model/types";
 import { cardDims, cardOptions, stackWidth } from "./cards";
+import { AUTO_GROWTH_CEILING, PLATED_RETENTION } from "./constants";
 import { at, cards } from "./test-helpers";
 import type { CompartmentReq } from "./types";
 
@@ -96,23 +97,76 @@ describe("cardOptions", () => {
     expect(c.kind).toBe("well");
     expect(c.contents).toBe("Cards — Main ×52");
     expect(c.componentId).toBe("c1");
-    // Stretch is off by default: content-tight, no spacer.
-    expect(c.elastic).toEqual({ w: false, d: false, h: false });
-    expect(c.spacerAxis).toBeUndefined();
+    // An upright deck grows along its stack by default (auto: half its thickness): a spacer axis.
+    expect(c.elastic).toEqual({ w: true, d: false, h: false });
+    expect(c.growth).toEqual({ w: 23.5 });
+    expect(c.spacerAxis).toBe("w");
     // One channel, half the shallowest well deep, through the walls the card faces touch.
     expect(c.features).toEqual([cutout("left", 1 / 2, false), cutout("right", 1 / 2, false)]);
   });
 
-  it("stretch on makes the deck elastic along its width and gives it a spacer axis", () => {
-    const c = deck(cards({ stretch: true }));
-    expect(c.elastic).toEqual({ w: true, d: false, h: false });
-    expect(c.spacerAxis).toBe("w");
-  });
+  describe("growth (minimal-trays spec §5)", () => {
+    // 52 cards at 0.42 mm each, 3 % and 1 mm stack clearance: a 23.5 mm stack.
+    const stack = 23.5;
 
-  it("stretch changes nothing on a flat deck", () => {
-    const flat = deck(cards({ storage: "flat", stretch: true }));
-    expect(flat.elastic).toEqual({ w: false, d: false, h: false });
-    expect(flat.spacerAxis).toBeUndefined();
+    it("is auto along the stack of an upright deck: the stack, never more than 50 mm", () => {
+      expect(deck(cards()).growth).toEqual({ w: stack });
+      // 200 cards: a 100 mm stack, so the ceiling is what binds
+      const thick = deck(cards({ decks: [{ name: "Main", count: 200 }] }));
+      expect(thick.growth).toEqual({ w: AUTO_GROWTH_CEILING });
+    });
+
+    it("is off along the stack with `off`: content-tight, no spacer", () => {
+      const c = deck(cards({ growth: { stack: "off" } }));
+      expect(c.elastic).toEqual({ w: false, d: false, h: false });
+      expect(c.growth).toBeUndefined();
+      expect(c.spacerAxis).toBeUndefined();
+    });
+
+    it("takes a number of mm exactly, up to the stack's own thickness", () => {
+      expect(deck(cards({ growth: { stack: 7.5 } })).growth).toEqual({ w: 7.5 });
+      expect(deck(cards({ growth: { stack: 0 } })).elastic.w).toBe(false);
+    });
+
+    it("never grows across the cards: width and length are not growth axes", () => {
+      const c = deck(cards({ growth: { w: "max", d: "max", h: "max" } }));
+      expect(c.elastic.d).toBe(false);
+      expect(c.elastic.h).toBe(false);
+      expect(c.growth).toEqual({ w: stack });
+    });
+
+    it("holds growth to the stack's own thickness when nothing fills the room", () => {
+      // retention: a number or `max` past the stack's thickness would let the deck topple
+      expect(deck(cards({ growth: { stack: 100 } })).growth).toEqual({ w: stack });
+      expect(deck(cards({ growth: { stack: "max" } })).growth).toEqual({ w: stack });
+    });
+
+    it("lets the spacer plates take it considerably further", () => {
+      const plated = cards({ growth: { stack: 100 }, separators: 3 });
+      expect(deck(plated).growth).toEqual({ w: 100 });
+      expect(deck({ ...plated, growth: { stack: "max" } }).growth).toEqual({
+        w: stack * PLATED_RETENTION,
+      });
+      // one plate is just the spacer block: nothing holds the stack any better
+      expect(deck(cards({ growth: { stack: 100 }, separators: 1 })).growth).toEqual({ w: stack });
+    });
+
+    it("does not grow a flat deck taller by default: the spare height is a riser's", () => {
+      const flat = deck(cards({ storage: "flat" }));
+      expect(flat.elastic).toEqual({ w: false, d: false, h: false });
+      expect(flat.spacerAxis).toBeUndefined();
+    });
+
+    it("grows a flat deck taller only when asked, by the number or `auto`", () => {
+      const flat = (stack: GrowthMode) => deck(cards({ storage: "flat", growth: { stack } }));
+      expect(flat(12).elastic).toEqual({ w: false, d: false, h: true });
+      expect(flat(12).growth).toEqual({ h: 12 });
+      // auto: the stack's height, at most 50 mm
+      expect(flat("auto").growth).toEqual({ h: stack });
+      // a flat stack cannot topple, so retention does not bound it; `max` has no cap
+      expect(flat("max").growth).toBeUndefined();
+      expect(flat("max").elastic.h).toBe(true);
+    });
   });
 
   it("upright-short: height from the long side, length from the short side", () => {

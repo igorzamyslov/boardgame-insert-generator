@@ -1,4 +1,4 @@
-import { separatorsOf, stretchOn, togglesOf } from "../model/defaults";
+import { growthOf, separatorsOf, togglesOf } from "../model/defaults";
 import type { Settings, Side, TileShape, TilesComponent } from "../model/types";
 import {
   compartment,
@@ -10,8 +10,9 @@ import {
   type StorageOption,
 } from "./common";
 import { CHANNEL_DEPTH, TILE_STACK_TARGETS } from "./constants";
+import { growthMm, stackGrowthMm } from "./growth";
 import type { CompartmentReq } from "./types";
-import { ROUNDING_TOLERANCE, splitEven } from "./units";
+import { ROUNDING_TOLERANCE, ceilU, fromU, splitEven } from "./units";
 
 export function hexCornerToCorner(flatToFlat: number): number {
   return (flatToFlat * 2) / Math.sqrt(3);
@@ -65,12 +66,18 @@ function flatColumn(c: TilesComponent, n: number, clearance: number): Compartmen
     w: foot.x + clearance,
     d: foot.y + clearance,
     h: n * c.thickness + clearance,
+    grow: { h: growthMm(growthOf(c, "stack", true), n * c.thickness) },
     features: featuresOf(togglesOf(c), [wallCutout(a, 1, true), wallCutout(b, 1, true)]),
   });
 }
 
 function uprightStack(c: TilesComponent, n: number, clearance: number): CompartmentReq {
   const profile = uprightProfile(c.shape);
+  const grow = stackGrowthMm(
+    growthOf(c, "stack"),
+    fromU(ceilU(n * c.thickness)),
+    separatorsOf(c) > 1,
+  );
   return compartment({
     componentId: c.id,
     contents: `${displayName(c)} ×${n}`,
@@ -78,8 +85,8 @@ function uprightStack(c: TilesComponent, n: number, clearance: number): Compartm
     w: n * c.thickness + clearance,
     d: profile.length + clearance,
     h: profile.height + clearance,
-    ...(stretchOn(c)
-      ? { elastic: { w: true }, spacerAxis: "w" as const, separators: separatorsOf(c) }
+    ...(grow > 0
+      ? { grow: { w: grow }, spacerAxis: "w" as const, separators: separatorsOf(c) }
       : {}),
     // No corner reliefs: they let a tile sit flat, and one on its edge doesn't need them. Toggles
     // are per component and "auto" storage offers flat and upright from one, so the rule lives

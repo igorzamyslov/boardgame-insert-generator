@@ -16,8 +16,9 @@ import type { CutAsk, CutPlacement, PlacedCut } from "./cutouts";
 import { chamferMinimumsU, minLayoutU, requestedWalls, wallFor } from "./outer";
 import type { CutWalls, MinLayout } from "./outer";
 import { CutFitError } from "./errors";
+import { UNBOUNDED_U, growthCapU, rowDepthCapU } from "./growth";
 import type { CompartmentReq, OuterSize, RealizeOptions, RealizedTray, TrayPartReq } from "./types";
-import { ceilU, fillCapped, floorU, fromU, splitEven, sum, toU } from "./units";
+import { ceilU, fillCapped, floorU, fromU, sum, toU } from "./units";
 
 // Everything below is in integer 0.01 mm units until converted with fromU.
 
@@ -49,12 +50,17 @@ function lastIndex<T>(items: readonly T[], test: (item: T) => boolean): number {
   return -1;
 }
 
-/** Content depth: fixed for non-elastic contents (raised floor); bulk grows up to maxHRatio. */
+/**
+ * Content depth: fixed for contents that may not grow in height (the rest is a raised floor, which
+ * a riser takes at print time); otherwise as much deeper as its growth setting allows (spec
+ * §5), and for bulk up to maxHRatio.
+ */
 function contentDepth(req: CompartmentReq, well: Rect, H: number, floor: number): number {
   const need = ceilU(req.minH);
   if (!req.elastic.h) {
     return need;
   }
+  const grown = need + growthCapU(req, "h");
   const cap =
     req.maxHRatio === undefined ? H - floor : Math.floor(req.maxHRatio * Math.min(well.w, well.d));
   // A bin with a curved floor stops where a hand can still reach the ramp, and takes only a
@@ -65,7 +71,7 @@ function contentDepth(req: CompartmentReq, well: Rect, H: number, floor: number)
   const reach = scooped
     ? Math.min(toU(SCOOP_REACH), need + toU(BIN_FREEBOARD))
     : Number.POSITIVE_INFINITY;
-  return Math.max(need, Math.min(H - floor, cap, reach));
+  return Math.max(need, Math.min(H - floor, cap, reach, grown));
 }
 
 const SIDES: readonly Side[] = ["front", "back", "left", "right"];
@@ -374,6 +380,15 @@ function cutWallsOf(placed: readonly PlacedCut[], min: MinLayout): CutWalls {
 }
 
 /**
+ * The room `caps` (units; 0: cannot grow) take in all when the stack asks `forced` of the tray on
+ * top of them: their sum and the forced room, and nothing at all when none of them can grow.
+ */
+function withForced(caps: readonly number[], forced: number): { total: number } {
+  const total = sum(caps);
+  return { total: total > 0 ? Math.min(UNBOUNDED_U, total + forced) : 0 };
+}
+
+/**
  * Realizes `part` in an outer of W × D × H units (at least `min`), with the walls and dividers its
  * cuts pass through. Throws CutFitError when a compartment gets no wall cutout.
  */
@@ -382,6 +397,8 @@ function layoutAt(
   min: MinLayout,
   [W, D, H]: readonly [number, number, number],
   settings: Settings,
+  // How much of the room the stack asks for (opts.stackMin) the contents take beyond their cap.
+  forced: { w: number; d: number } = { w: 0, d: 0 },
 ): { tray: RealizedTray; walls: CutWalls } {
   const { wall, divider, floor, rows, room } = min;
   // How much slack a wall or divider may still take (thicker walls, not finger room). Growth caps
@@ -398,14 +415,17 @@ function layoutAt(
   // Dividers between rows a finger cut passes through are thicker by the divider room too.
   const rowGapAfter = (i: number): number => min.rowGaps[i] ?? divider;
   let slackY = innerD - room.front - room.back - sum(rowDepths) - sum(min.rowGaps.slice(0, -1));
-  const elasticRows = rows.flatMap((row, i) => (row.some((c) => c.elastic.d) ? [i] : []));
-  if (elasticRows.length > 0) {
-    const shares = splitEven(slackY, elasticRows.length);
-    elasticRows.forEach((r, i) => {
-      rowDepths[r] = (rowDepths[r] ?? 0) + (shares[i] ?? 0);
-    });
-    slackY = 0;
-  }
+  // Elastic rows take it as far as their contents may grow (growth) beyond what the stack asks of
+  // the tray, the rest goes on.
+  const rowCaps = rows.map((row) => rowDepthCapU(row));
+  const shares = fillCapped(
+    Math.min(slackY, withForced(rowCaps, forced.d).total),
+    rowCaps.map((cap) => (cap > 0 ? cap + forced.d : 0)),
+  );
+  rowDepths.forEach((_, r) => {
+    rowDepths[r] = (rowDepths[r] ?? 0) + (shares[r] ?? 0);
+  });
+  slackY -= sum(shares);
   const yExtra = fillCapped(slackY, [
     wallAbsorb,
     ...rows.slice(1).map(() => dividerAbsorb),
@@ -440,22 +460,29 @@ function layoutAt(
     let spacerAt = -1;
     const elastic = row.flatMap((c, i) => (c.elastic.w && c.spacerAxis !== "w" ? [i] : []));
     if (elastic.length > 0) {
-      const shares = splitEven(slack, elastic.length);
+      const caps = elastic.map((i) => growthCapU(row[i] as CompartmentReq, "w"));
+      const shares = fillCapped(
+        Math.min(slack, withForced(caps, forced.w).total),
+        caps.map((cap) => (cap > 0 ? cap + forced.w : 0)),
+      );
       elastic.forEach((i, k) => {
         growth[i] = shares[k] ?? 0;
       });
-      slack = 0;
+      slack -= sum(shares);
     } else {
       const candidate = lastIndex(row, (c) => c.spacerAxis === "w");
       const req = row[candidate];
       // The spare length of a deck or stack of tiles is the one slack that can be put to use: a
       // spacer (or the `separators` plates) keeps the deck snug and is taken out as the
       // collection grows. However long it is, it never becomes an empty pocket (spec §4).
-      if (!spacerUsed && req !== undefined && spacerFits(req, slack, settings)) {
-        growth[candidate] = slack;
+      // It takes no more than the deck may grow (growth: retention bounds it), the rest going on.
+      const cap = req === undefined ? 0 : growthCapU(req, "w");
+      const take = Math.min(slack, cap > 0 ? cap + forced.w : 0);
+      if (!spacerUsed && req !== undefined && spacerFits(req, take, settings)) {
+        growth[candidate] = take;
         spacerAt = candidate;
         spacerUsed = true;
-        slack = 0;
+        slack -= take;
       }
     }
     const xExtra = fillCapped(slack, [
@@ -627,5 +654,9 @@ export function realizeTray(
       `Tray ${part.trayKey}: outer ${outer.w}×${outer.d}×${outer.h} mm is smaller than its minimum ${fromU(min.w)}×${fromU(min.d)}×${fromU(min.h)} mm`,
     );
   }
-  return layoutAt(part, min, [W, D, H], settings).tray;
+  const forced = {
+    w: Math.max(0, ceilU(opts.stackMin?.w ?? 0) - min.w),
+    d: Math.max(0, ceilU(opts.stackMin?.d ?? 0) - min.d),
+  };
+  return layoutAt(part, min, [W, D, H], settings, forced).tray;
 }

@@ -63,3 +63,22 @@ export const TILE_STACK_TARGETS: readonly number[] = [50, 25];
 export const UPPER_TRAY_MIN_ABOVE_LIP = 3;
 /** Upright cards and tiles: the finger channel is this fraction of the shallowest well deep. */
 export const CHANNEL_DEPTH = 1 / 2;
+/**
+ * What `auto` growth is (minimal-trays spec §5), per axis: the lesser of this fraction of the
+ * content's own size on that axis and AUTO_GROWTH_CEILING. The content's own size is the most a bin,
+ * a pocket or a stack can take before it is no longer "that bin with a little give" but a bigger
+ * one; the ceiling is what stops a large bin or a thick deck from taking a hand's breadth.
+ */
+export const AUTO_GROWTH_FRACTION = 1;
+/** The most `auto` growth ever gives an axis, mm: past it the slack is a filler (spec §5). */
+export const AUTO_GROWTH_CEILING = 50;
+/**
+ * Retention (spec §5): an upright stack with nothing in the room it gained starts to topple once
+ * that room is about its own thickness, so growth along a stack is capped at this many stack
+ * thicknesses unless the room is filled by the `separators` plates (a spacer plate holds the
+ * stack). With plates the room is solid, nothing can fall over, and the cap rises to
+ * PLATED_RETENTION stack thicknesses: considerably further, but still a limit, because a
+ * deck that has grown six times over wants dividers and its own tray, not a longer well.
+ */
+export const UNPLATED_RETENTION = 1;
+export const PLATED_RETENTION = 6;

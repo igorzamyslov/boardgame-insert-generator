@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Settings, TilesComponent } from "../model/types";
+import { AUTO_GROWTH_CEILING, PLATED_RETENTION } from "./constants";
 import { at, tiles } from "./test-helpers";
 import { columnCounts, flatFootprint, hexCornerToCorner, tileOptions } from "./tiles";
 import type { CompartmentReq } from "./types";
@@ -97,20 +98,52 @@ describe("tileOptions", () => {
     expect(stack.minW).toBeCloseTo(121, 9);
     expect(stack.minD).toBe(47.19);
     expect(stack.minH).toBeCloseTo(41, 9);
-    // Stretch is off by default: content-tight, no spacer. And no corner reliefs: a tile on its
-    // edge doesn't need them.
-    expect(stack.elastic).toEqual({ w: false, d: false, h: false });
-    expect(stack.spacerAxis).toBeUndefined();
+    // The stack grows along its width by default (auto, at most 25 mm), with a spacer axis. And
+    // no corner reliefs: a tile on its edge doesn't need them.
+    expect(stack.elastic).toEqual({ w: true, d: false, h: false });
+    expect(stack.growth).toEqual({ w: AUTO_GROWTH_CEILING });
+    expect(stack.spacerAxis).toBe("w");
     expect(stack.features).toEqual([
       { type: "wallCutout", side: "left", depthFraction: 1 / 2, floorNotch: false },
       { type: "wallCutout", side: "right", depthFraction: 1 / 2, floorNotch: false },
     ]);
   });
 
-  it("stretch on makes an upright stack elastic along its width with a spacer axis", () => {
-    const stack = first(tiles({ storage: "upright", stretch: true }));
-    expect(stack.elastic).toEqual({ w: true, d: false, h: false });
-    expect(stack.spacerAxis).toBe("w");
+  describe("growth (minimal-trays spec §5)", () => {
+    const stack = (over: Partial<TilesComponent>) => first(tiles({ storage: "upright", ...over }));
+
+    it("is `auto` for an upright stack: its thickness, at most 50 mm", () => {
+      expect(stack({}).growth).toEqual({ w: AUTO_GROWTH_CEILING });
+      // 10 tiles of 2 mm: a 20 mm stack, so it binds
+      expect(stack({ count: 10 }).growth).toEqual({ w: 20 });
+    });
+
+    it("is off when set off: content-tight, no spacer, the footprint never grows", () => {
+      const c = stack({ growth: { stack: "off" } });
+      expect(c.elastic).toEqual({ w: false, d: false, h: false });
+      expect(c.spacerAxis).toBeUndefined();
+    });
+
+    it("never grows the tile's footprint, whatever a file sets", () => {
+      const c = stack({ growth: { w: "max", d: "max", h: "max" } });
+      expect(c.elastic).toEqual({ w: true, d: false, h: false });
+    });
+
+    it("holds the stack to its own thickness without plates, and to 6× with them", () => {
+      // 60 tiles of 2 mm: a 120 mm stack
+      expect(stack({ growth: { stack: "max" } }).growth).toEqual({ w: 120 });
+      expect(stack({ growth: { stack: "max" }, separators: 2 }).growth).toEqual({
+        w: 120 * PLATED_RETENTION,
+      });
+    });
+
+    it("keeps a flat stack from growing taller by default, and grows it when asked", () => {
+      expect(first(tiles({ storage: "flat" })).elastic).toEqual({ w: false, d: false, h: false });
+      const asked = first(tiles({ storage: "flat", growth: { stack: 8 } }));
+      expect(asked.elastic).toEqual({ w: false, d: false, h: true });
+      expect(asked.growth).toEqual({ h: 8 });
+      expect(asked.spacerAxis).toBeUndefined();
+    });
   });
 
   it("gives upright tiles no corner relief even when asked, but flat tiles keep theirs", () => {

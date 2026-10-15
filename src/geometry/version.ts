@@ -50,8 +50,18 @@ import type { Semver } from "../model/version";
  * built by joining the members and the bridges between them): every part is built exactly as
  * before, so nothing printed earlier stops mating, and a merged part is derived from the stored
  * layout and never stored.
+ *
+ * 0.6.0 bounds what a tray gives its contents (per-component `growth`, minimal-trays spec §5): a
+ * bin, a deck or stack of tiles that stood up, and the rest no longer take whatever room a leaf
+ * has (bins took all of it on every axis, an upright deck took all of it only when `stretch` was
+ * on); each takes up to its growth cap (`auto`: half its size, at most 25 mm, and an upright
+ * stack no more than its own thickness without spacer plates) and the rest of the room is a
+ * filler beside it. The same project laid out again has other outer tray sizes, so trays printed
+ * before and after would not mate: a breaking change, as 0.4.0 (slack becoming a filler) was.
+ * planTray is unchanged, and so is every well, lip and inset of a tray that is realized at the
+ * same size, so a stored 0.5.x layout still builds and is only flagged as an older line.
  */
-export const GEOMETRY_VERSION = "0.5.2";
+export const GEOMETRY_VERSION = "0.6.0";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

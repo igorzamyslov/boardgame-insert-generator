@@ -17,7 +17,11 @@ export interface CompartmentReq {
   minW: number; // inner, mm: content + clearance
   minD: number;
   minH: number; // content height (depth needed from the compartment floor)
+  // Axes the contents may be given more room on (minimal-trays spec §5)
   elastic: { w: boolean; d: boolean; h: boolean };
+  // How much more (mm) on each elastic axis: absent means as much as there is. Never Infinity, so a
+  // requirement survives JSON; `max` is the absence of a cap.
+  growth?: { w?: number; d?: number; h?: number };
   minVolume?: number; // mm³; bulk: w·d·h must stay ≥ this
   maxHRatio?: number; // bulk: h ≤ maxHRatio × min(w, d)
   features: FeatureReq[];
@@ -58,6 +62,13 @@ export interface OuterSize {
 export interface RealizeOptions {
   lipped: boolean; // this tray carries a lip (has a tray stacked on it)
   level: number;
+  /**
+   * The smallest outer size (mm, the tray's own frame) its place in a stack asks of it: a tray
+   * under others is at least as big as what stands on it. Contents that may grow take that much
+   * more room without it counting against their growth setting (spec §5), which bounds the room
+   * given beyond it. Absent: the part's own minimum.
+   */
+  stackMin?: { w: number; d: number };
 }
 
 export interface RealizedTray {

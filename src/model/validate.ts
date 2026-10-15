@@ -449,6 +449,11 @@ function checkBase(ck: Checker, c: Component, at: string): void {
       );
     }
   }
+  for (const [axis, mode] of Object.entries(c.growth ?? {})) {
+    if (typeof mode === "number") {
+      ck.nonNegativeLength(`${at}/growth/${axis}`, "Growth", mode);
+    }
+  }
   // A curved floor bends cards and tilts upright tiles (spec §6.1).
   if (c.curvedFloor === true && (c.kind === "cards" || c.kind === "tiles")) {
     ck.error(

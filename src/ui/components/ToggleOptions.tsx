@@ -3,8 +3,8 @@ import {
   cornerReliefsOn,
   curvedFloorOn,
   fingerCutsOn,
+  growthOf,
   separatorsOf,
-  stretchOn,
   withSeparators,
 } from "../../model/defaults";
 import type { Component } from "../../model/types";
@@ -12,6 +12,7 @@ import { CheckField } from "../fields";
 import { SEPARATORS } from "../limits";
 import { NumberField } from "../NumberField";
 import { useSizingNotices } from "../validation";
+import { GrowthOptions } from "./GrowthOptions";
 import type { EditorProps } from "./types";
 
 /** Kinds that may have a curved floor (spec §5): it would bend cards and tilt upright tiles. */
@@ -77,21 +78,14 @@ export function ToggleOptions<C extends Component>({
           onChange={(on) => onChange({ ...c, cornerReliefs: on })}
         />
       ) : null}
-      {c.kind === "cards" || c.kind === "tiles" ? (
-        <CheckField
-          id={`${c.id}-stretch`}
-          label="Stretch to fill"
-          checked={stretchOn(c)}
-          hint="Upright stacks only: the tray grows to fill the space instead of staying snug, and a loose spacer takes up the extra length so the stack stays snug. Off, a spare tray fills the gap."
-          onChange={(on) => onChange({ ...c, stretch: on })}
-        />
-      ) : null}
-      {(c.kind === "cards" || c.kind === "tiles") && stretchOn(c) ? (
+      <GrowthOptions component={c} index={index} onChange={onChange} />
+      {(c.kind === "cards" || c.kind === "tiles") &&
+      growthOf(c, "stack", c.storage === "flat") !== "off" ? (
         <>
           <NumberField
             id={`${c.id}-separators`}
             label="Spacer plates"
-            hint="The spare length is printed as this many thin loose plates instead of one block. Pull one out as the collection grows and the stack still fits snug."
+            hint="The room the stack grows into is printed as this many thin loose plates instead of one block. Pull one out as the collection grows and the stack still fits snug. Plates also let it grow further: they hold the stack upright, so the room is not limited to its own thickness."
             value={separatorsOf(c)}
             {...SEPARATORS}
             path={`/components/${index}/separators`}

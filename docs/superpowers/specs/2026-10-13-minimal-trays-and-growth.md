@@ -4,7 +4,7 @@ Status: §4 implemented (geometry 0.5.0, see §4.1), with its two cleanups (the 
 removed and `wallGrowth` renamed `wallAbsorb`: geometry 0.5.1, schema 0.1.8, see §4.2), the
 "keeping one component's parts together" part of §6 (see §6.1) and "fewer fillers" (§6.2: merging,
 the filler count term, and the perimeter lever, measured and dropped; schema 0.1.9, geometry stays
-0.5.2); §5 is still proposed. Written 2026-10-13 for a later session.
+0.5.2); §5 is implemented (geometry 0.6.0, schema 0.1.12, see §5.1), dividers excepted, which are still proposed. Written 2026-10-13 for a later session.
 Companion to `2026-10-11-boardgame-insert-generator-design.md`; that document is
 authoritative for everything this one does not change.
 
@@ -367,6 +367,95 @@ if the notch is a chamfered slot, and the floor is already notched for finger
 cuts, so there is precedent), or slots in the facing walls (most positive, but
 constrains where a divider may sit and interacts with wall cutouts). The floor
 notch is the likeliest fit given what `planTray` already builds.
+
+### 5.1 As implemented (geometry 0.6.0, schema 0.1.12), and what it measured
+
+The first measurement, at half the content and 25 mm, made `bits-heavy` materially worse (below), so
+the constants were retuned to 1.0 and 50 mm and measured again; that is what is built.
+
+**The setting.** `Component.growth`: `{ w?, d?, h?, stack? }`, each `"off" | "auto" | "max" | <mm>`.
+`w`, `d`, `h` are the user's width, length and height of what is stored (bulk, minis, custom);
+`stack` is a deck or a stack of tiles, whichever way it lies. Sizing maps the axes onto the tray's
+own frame (`growthOf`, `defaultGrowth`, `growthAxesOf` in `model/defaults.ts`; the arithmetic in
+`sizing/growth.ts`): an upright stack's `stack` is the compartment's width, a flat one's its height;
+bulk and custom `w`, `d`, `h` are the compartment's own; minis pockets offer `w`, `d` only. The
+layout turns the tray, and with it the caps (`stackLevels`). An axis a kind does not offer is not
+shown and reads as `off` whatever a file says. `CompartmentReq` carries it as the existing `elastic`
+flags plus `growth` (a cap in mm per axis; absent = no cap, which is `max`, so a requirement stays
+JSON). **Defaults** are the table above, unchanged.
+
+**What `auto` is.** `min(AUTO_GROWTH_FRACTION × content, AUTO_GROWTH_CEILING)`, with 1.0 and 50 mm
+(constants in `sizing/constants.ts`, named in every hint), the content being the compartment's size on
+that axis, rounded down to 0.01 mm: "up to its own size, never by more than 50 mm". It is still a
+bound: it cannot produce the 168 × 219 mm bin that swallowed a roomy box. The spec's first guess,
+half and 25 mm, left `bits-heavy` with two fillers and eight more parts (see below).
+
+**Retention.** Along an upright stack a number or `max` is held to `UNPLATED_RETENTION` (1) stack
+thickness, and to `PLATED_RETENTION` (6) when `separators` is above 1, where the plates fill the
+gained room solid. `auto` is already below both. A flat stack cannot topple, so retention does not
+apply to its height. The six is a judgement call: plates leave nothing to fall over, so the limit is
+there for what a well that long is for, not for stability.
+
+**Where the cap acts.** Layout (`axisExtent`, `fill.ts`): a gap up to cap plus `wallAbsorb` is
+absorbed with no filler; past that the tray grows by its growth only and the rest is a filler, never
+a tray with thicker walls and a filler as well. Realize (`layoutAt`): elastic compartments take slack
+by water-filling up to their own caps (`fillCapped`), rows in depth by the least tolerant of their
+compartments; a deck's spacer takes `min(slack, cap)`; whatever is left goes to the walls as before.
+Height: `contentDepth` stops at the minimum plus the cap and the rest of the tray is a raised floor,
+which a riser takes (`stackHeights` caps what a deeper-growing tray is given by the same rule).
+
+**One addition the spec did not ask for: room a stack asks of a tray does not count against its
+cap.** A tray under another is built at least as big as it (`levelMinFootprints`); a bin there simply
+becomes that much bigger, which is not a choice, and the cap bounds the room given beyond it
+(`RealizeOptions.stackMin`, `PlacedTray.needW/needD`). Without it a bin stacked under a wider tray got
+thicker walls (its cap was spent) and the optimizer stopped stacking bins: `bits-heavy` 14.8 printed
+parts instead of 13.0. A tray whose contents cannot grow still gets thicker walls for it, as before.
+
+**Migration.** `stretch: true` reads as nothing set (an upright stack grows by `auto` by default,
+which is what it now does; a flat deck, which never stretched, stays `off`); `stretch: false`
+reads as `growth.stack: "off"`. Never `max`. The key is read, never written, and `growth` wins when a
+file has both. A project that set `stretch: true` hashes differently, so its plan is stale once.
+
+**Measured** on the four fixtures, seeds 1 to 6, 50 000 iterations; before is the commit this work
+started from (fixtures with `stretch: true` as they were), after has every kind at its default and
+`auto` at 1.0 and 50 mm. Printed parts after `mergeFillers`; filament is `filamentG`; link is the
+whole share link on the real deploy URL.
+
+| fixture       | printed parts | filler parts | fill %       | filament g   | link length            |
+| ------------- | ------------- | ------------ | ------------ | ------------ | ---------------------- |
+| `cards-heavy` | 13.7 to 13.7  | 1.7 to 1.7   | 99.7, same   | 608 to 608   | 1821-1891 to 1761-1823 |
+| `bits-heavy`  | 8.0 to 9.0    | 0 to 0       | 99.9 to 99.8 | 427 to 450   | 1799-1822 to 1769-1905 |
+| `tiles-minis` | 6.0 to 6.0    | 3.0 to 3.0   | 99.8, same   | 1220 to 1219 | 1958-2017 to 1941-1958 |
+| `small-tiles` | 14.2 to 15.2  | 1.2 to 1.2   | 99.4 to 99.5 | 379 to 413   | 1874-1949 to 1877-1961 |
+
+Nothing became infeasible. `bits-heavy` is 8 printed parts and no filler on five seeds in six,
+and 14 on one (the optimizer splits a component across more trays); `small-tiles` is one part
+more, from upright tiles no longer stretching without bound. Links include the compaction below.
+
+At the first constants (0.5, 25 mm) it was: `bits-heavy` 13.0 printed parts, 2.0 fillers, 910 g,
+2010-2222 characters (10, 12, 12, 16, 16, 12 per seed); `small-tiles` 15.0, 310 g, 1998-2075.
+Without the room-a-stack-asks exception: `bits-heavy` 14.8 parts, 946 g.
+
+**Why the first constants were worse, and what it was not.** The fixture's box is 300 × 220 and its
+contents need well under half of it. Before, the bins took every millimetre and there was never a
+filler; at half and 25 mm each bin took its cap and a large filler took the rest, which is the
+policy doing what it is for in a box the contents do not fill. Packing as such was not worse: with a
+tighter box (240 × 180) `auto` matched growth `max` (the old behaviour) at 8 parts and no filler;
+at 200 × 150 and 170 × 140 it was a part or two worse at the first constants, with large variance
+across seeds (6 to 14 parts).
+
+**Share links.** The retune alone left `small-tiles` at 1974-2065 characters, over the 2 000 guard.
+The guard and the fixture were left alone, and the stored layout was made smaller, losslessly, the
+way schema 0.1.8 did: a part's `lip` of false, `level` and `z` of 0 are not written (reading puts
+them back), a leftover's key is not written when it is `leftover:<n>` for its place among the
+leftovers, and a spacer's key, stack and level are not written when they are its tray's (the tray
+before it). Only values equal to what reading restores are dropped, and a file that spells them out
+reads the same. That took 40 to 60 characters off every fixture; the longest links are now 1961
+(`small-tiles`), 1958 (`tiles-minis`), 1905 and 1823. What is left in a layout is mostly the
+coordinates and the finger-cut features, which are not derivable without re-running sizing;
+`wall`, `floor` and a leftover's `h` and `solid` are derivable from settings but save only about 25
+characters in total after deflate, and reading them back would need the project's settings inside
+the layout reader.
 
 ## 6. The objective
 

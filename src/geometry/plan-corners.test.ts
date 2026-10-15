@@ -290,7 +290,7 @@ describe("corner material of sizing output", () => {
     "keeps 0.8 mm at every well, cutout and relief corner of %s",
     { timeout: 60_000 },
     (name, raw) => {
-      const hasCuts = name !== "bits-heavy";
+      const hasCuts = !name.startsWith("bits-heavy");
       const { components, settings: base } = loadFixture(raw);
       const failures: string[] = [];
       let cutCorners = 0;

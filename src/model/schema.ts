@@ -328,9 +328,42 @@ function compactLayout(out: Json): void {
   if (!Array.isArray(trays)) {
     return;
   }
+  // Fields a reader restores from their neighbours: a leftover's key from its place among the
+  // leftovers, a spacer's key, stack and level from the tray before it.
+  let before: { key: unknown; stack: unknown; level: unknown } | undefined;
+  let leftovers = 0;
   for (const tray of trays) {
     if (!isRecord(tray)) {
       continue;
+    }
+    // what the next spacer reads from this tray, as it is before anything is left out
+    const here = { key: tray.key, stack: tray.stack, level: tray.level };
+    for (const [field, same] of [
+      ["lip", false],
+      ["level", 0],
+      ["z", 0],
+    ] as const) {
+      if (tray[field] === same && !(tray.part === "spacer" && field !== "lip")) {
+        Reflect.deleteProperty(tray, field);
+      }
+    }
+    if (tray.part === "leftover") {
+      if (tray.key === `leftover:${leftovers}`) {
+        delete tray.key;
+      }
+      leftovers += 1;
+    } else if (tray.part === "spacer" && before !== undefined) {
+      if (tray.key === `${String(before.key)}:spacer`) {
+        delete tray.key;
+      }
+      for (const field of ["stack", "level"] as const) {
+        if (tray[field] === before[field]) {
+          Reflect.deleteProperty(tray, field);
+        }
+      }
+    }
+    if (tray.part === "tray") {
+      before = here;
     }
     if (tray.part === "spacer") {
       // every spacer is a plain solid block: no path, turn, wall, floor, lip or compartments

@@ -1,7 +1,8 @@
 import { bedExcess, bedOrientations, splitForBed } from "./bed";
-import { GRIP_U, INF_U, printedHeight, type Ctx } from "./context";
+import { GRIP_U, printedHeight, type Ctx } from "./context";
 import {
   levelAbsorb,
+  levelGrowth,
   levelLockCap,
   levelMinFootprints,
   stackHeights,
@@ -28,6 +29,9 @@ export interface PlacedTray {
   readonly top: boolean;
   readonly minW: U;
   readonly minD: U;
+  /** The smallest footprint the stack asks of the tray (box frame): its own minimum, or more under others. */
+  readonly needW: U;
+  readonly needD: U;
   readonly capW: U;
   readonly capD: U;
 }
@@ -77,27 +81,34 @@ export function overflowTotal(o: Overflow): U {
 }
 
 /**
- * A tray's extent on one axis: region extent L, minimum F, absorbable a, cap c (spec §7.2).
+ * A tray's extent on one axis: region extent L, minimum F, absorbable a, room for its contents g
+ * (a minus what the walls take), cap c (spec §7.2).
  * The excess over F is absorbed into the tray, with no filler part, only when the tray can take
- * it without anyone asking for a filler: an elastic axis (a is unbounded), or walls the user let
- * grow (`wallAbsorb`, a), or when the excess minus the tray gap is too small to be a part at all
- * (under `minFiller`) so there is nowhere else for it to go. Anything else becomes a
- * leftover (filler) beside a tray of exactly its minimum size. The same rules apply in every
- * level of a stack, each against the room its own level has.
+ * it without anyone asking for a filler: room its contents may grow into (an unbounded axis has
+ * all of it, a bounded one up to its cap: spec §5), or walls the user let grow (`wallAbsorb`),
+ * together a; or when the excess minus the tray gap is too small to be a part at all (under
+ * `minFiller`) so there is nowhere else for it to go. Past that the tray grows by g, the room its
+ * contents may have, and the rest becomes a leftover (filler) beside it, so with nothing to grow
+ * into it is a tray of exactly its minimum size. The same rules apply in every level of a stack,
+ * each against the room its own level has.
  */
-function axisExtent(ctx: Ctx, minFiller: U, L: U, F: U, a: U, c: U): { b: U; over: U } {
+function axisExtent(ctx: Ctx, minFiller: U, L: U, F: U, a: U, g: U, c: U): { b: U; over: U } {
   if (L <= F) {
     return { b: F, over: 0 };
   }
-  const elastic = a >= INF_U / 2;
   // A filler would be at least this wide beside a tray of the minimum size.
   const fillerFits = L - F - ctx.gap >= minFiller;
   if (L <= c) {
-    return { b: L - F <= a || !fillerFits ? L : F, over: 0 };
+    if (L - F <= a || !fillerFits) {
+      return { b: L, over: 0 };
+    }
+    // More than the tray may absorb: it grows as far as its contents may (g), and the rest of the
+    // room is a filler beside it (spec §5: past the bound the slack is a filler).
+    return { b: Math.min(F + g, L - ctx.gap - minFiller), over: 0 };
   }
   let b = Math.min(c, L - ctx.gap - minFiller);
-  if (!elastic && F < b && fillerFits) {
-    b = F;
+  if (F < b && fillerFits) {
+    b = Math.min(b, F + g);
   }
   if (b < F) {
     return { b: L, over: F - b };
@@ -114,11 +125,12 @@ function chooseTray(
   minFiller: U,
 ): { foot: Ext; over: U } {
   const a = levelAbsorb(level, F);
+  const g = levelGrowth(level);
   const lock = levelLockCap(level);
   let best: { foot: Ext; over: U } | null = null;
   for (const o of bedOrientations(ctx.bed)) {
-    const ew = axisExtent(ctx, minFiller, rect.w, F.w, a.w, Math.min(o.w, lock.w));
-    const ed = axisExtent(ctx, minFiller, rect.d, F.d, a.d, Math.min(o.d, lock.d));
+    const ew = axisExtent(ctx, minFiller, rect.w, F.w, a.w, g.w, Math.min(o.w, lock.w));
+    const ed = axisExtent(ctx, minFiller, rect.d, F.d, a.d, g.d, Math.min(o.d, lock.d));
     const cand = { foot: { w: ew.b, d: ed.b }, over: ew.over + ed.over };
     if (
       best === null ||
@@ -212,8 +224,11 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
       top: k === levels.length - 1,
       minW: l.minW,
       minD: l.minD,
-      capW: l.capW,
-      capD: l.capD,
+      needW: F.w,
+      needD: F.d,
+      // From its own minimum: what the stack asks of it is room its growing contents take free
+      capW: l.capW + (l.growW > 0 ? Math.max(0, F.w - l.minW) : 0),
+      capD: l.capD + (l.growD > 0 ? Math.max(0, F.d - l.minD) : 0),
     };
     if (l.fixed) {
       lockOver += Math.max(0, foot.w - l.fixed.w) + Math.max(0, foot.d - l.fixed.d);

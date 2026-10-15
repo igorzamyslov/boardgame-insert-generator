@@ -46,20 +46,36 @@ export interface ComponentBase {
   groupId?: string;
   perPlayer?: { players: number };
   clearance?: number;
-  // Absent: the kind's default (fingerCutsOn, curvedFloorOn, cornerReliefsOn, stretchOn, separatorsOf in ./defaults; spec §5).
+  // Absent: the kind's default (fingerCutsOn, curvedFloorOn, cornerReliefsOn, growthOf, separatorsOf in ./defaults; spec §5).
   fingerCuts?: boolean; // a centred finger cut through a wall of each compartment
   curvedFloor?: boolean; // a scoop ramp on the floor (bulk, minis, custom only)
   cornerReliefs?: boolean; // advanced: Ø 3 mm reliefs in the corners of each compartment
-  // cards and tiles stored upright only: the tray grows to fill its space instead of staying
-  // content-sized, a spacer or an end wall taking up the slack
-  stretch?: boolean;
-  // cards and tiles with `stretch` on only: how many thin loose plates the stretch spacer is
+  // How much more room the component's own contents may have beyond what they need, per axis
+  // (minimal-trays spec §5). Absent, or an axis absent: the kind's default (growthOf in ./defaults).
+  // Replaces `stretch`, which the reader still accepts (readBase).
+  growth?: Growth;
+  // cards and tiles that grow along the stack only: how many thin loose plates the spacer is
   // printed as, so one can be pulled out as the collection grows (absent: 1, a single spacer).
   // The plates are derived for printing (splitSeparators). Before geometry 0.5.1 a count above 1
   // also made the layout build a spacer where it would build a spare pocket, which is why it is
   // still part of the inputs hash.
   separators?: number;
 }
+
+/**
+ * One axis of growth: `off` (never), `auto` (up to a conservative cap, `autoGrowthMm` in sizing),
+ * a number (that many mm beyond the minimum) or `max` (whatever the layout has to give).
+ */
+export type GrowthMode = "off" | "auto" | "max" | number;
+
+/**
+ * The axes a component's growth is set on, in the user's terms: the width, length (front to back)
+ * and height of what is stored, or `stack` for the stack of cards or tiles, whichever way it lies
+ * (a deck on its edge grows sideways, a flat one grows taller). Sizing maps each to the physical
+ * axis of the tray (growthOf in ./defaults).
+ */
+export type GrowthAxis = "w" | "d" | "h" | "stack";
+export type Growth = Partial<Record<GrowthAxis, GrowthMode>>;
 
 export type Sleeve = "none" | "standard" | "premium" | { w: number; h: number; thickness: number };
 

@@ -135,3 +135,35 @@ describe("bulk shapes", () => {
     }
   });
 });
+
+describe("bulk growth (minimal-trays spec §5)", () => {
+  it("is `auto` on all three axes: the bin's own size, at most 50 mm", () => {
+    const small = line(bulk({ items: [{ name: "Peas", count: 5, w: 5, d: 5, h: 5 }] }));
+    // a 25 mm minimum side, so it binds on width and length
+    expect(small.elastic).toEqual({ w: true, d: true, h: true });
+    expect(small.growth?.w).toBe(25);
+    expect(small.growth?.d).toBe(25);
+    const big = line(bulk({ items: [{ name: "Beans", volumeMl: 600 }] }));
+    expect(big.growth?.w).toBe(50);
+    expect(big.growth?.d).toBe(50);
+    expect(big.growth?.h).toBeLessThanOrEqual(50);
+  });
+
+  it("takes each axis from its own setting", () => {
+    const c = line(bulk({ growth: { w: "off", d: 7, h: "max" } }));
+    expect(c.elastic).toEqual({ w: false, d: true, h: true });
+    expect(c.growth).toEqual({ d: 7 });
+  });
+
+  it("is off on every axis when set off, giving a content-tight bin", () => {
+    const c = line(bulk({ growth: { w: "off", d: "off", h: "off" } }));
+    expect(c.elastic).toEqual({ w: false, d: false, h: false });
+    expect(c.growth).toBeUndefined();
+  });
+
+  it("has no cap on `max`, which is the absence of one", () => {
+    const c = line(bulk({ growth: { w: "max", d: "max", h: "max" } }));
+    expect(c.elastic).toEqual({ w: true, d: true, h: true });
+    expect(c.growth).toBeUndefined();
+  });
+});

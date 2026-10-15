@@ -5,8 +5,8 @@ import smallTiles from "../../test/fixtures/small-tiles.json";
 import tilesMinis from "../../test/fixtures/tiles-minis.json";
 import tinyBox from "../../test/fixtures/tiny-box.json";
 import { LINK_TARGET_CHARS, decodeHash, encodeHash } from "../share/link";
-import { stretchOn } from "./defaults";
-import { noForeign, parseProject } from "./schema";
+import { growthOf } from "./defaults";
+import { noForeign, parseProject, serializeProject } from "./schema";
 import { validateProject } from "./validate";
 import { SCHEMA_VERSION } from "./version";
 
@@ -87,24 +87,114 @@ describe("schema history", () => {
     ]);
   });
 
-  it("reads the 0.1.2 file with no stretch set, so every component keeps it off", () => {
+  it("reads the 0.1.2 file, which has no stretch, so every component takes its kind's growth defaults", () => {
     const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.2.json"]);
     expect(notices).toEqual([]);
-    expect(project.components.map((c) => [c.stretch, stretchOn(c)])).toEqual(
-      project.components.map(() => [undefined, false]),
+    expect(project.components.map((c) => c.growth)).toEqual(
+      project.components.map(() => undefined),
     );
   });
 
-  it("reads the stretch toggle of the 0.1.3 file", () => {
-    const { project } = load(HISTORY["../../test/fixtures/schema/0.1.3.json"]);
-    expect(project.components.map((c) => c.stretch)).toEqual([
-      true,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
+  describe("the stretch toggle, which growth replaced (schema 0.1.12)", () => {
+    const withStretch = (index: number, stretch: boolean, storage?: string): unknown => {
+      const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.1.3.json"]) as {
+        components: Record<string, unknown>[];
+      };
+      const c = raw.components[index];
+      if (c === undefined) {
+        throw new Error("no component");
+      }
+      c.stretch = stretch;
+      if (storage !== undefined) {
+        c.storage = storage;
+      }
+      return raw;
+    };
+
+    it("reads `stretch: true` of the 0.1.3 file as `auto`, without notices and without the old key", () => {
+      const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.3.json"]);
+      expect(notices).toEqual([]);
+      const first = project.components[0];
+      if (first?.kind !== "cards") {
+        throw new Error("expected a deck first");
+      }
+      // an upright deck grows by `auto` by default, which is what a stretched one now does
+      expect(growthOf(first, "stack")).toBe("auto");
+      expect(growthOf(first, "stack")).not.toBe("max");
+      expect("stretch" in first).toBe(false);
+      expect(first.growth).toBeUndefined();
+      expect(serializeProject(project, noForeign())).not.toContain("stretch");
+    });
+
+    it("keeps a flat deck that was stretched flat: it never stretched, so it does not grow taller", () => {
+      const { project } = load(withStretch(0, true, "flat"));
+      const first = project.components[0];
+      expect(first && growthOf(first, "stack", true)).toBe("off");
+    });
+
+    it("reads `stretch: false` as growth off along the stack, as it was", () => {
+      const { project, notices } = load(withStretch(0, false));
+      expect(notices).toEqual([]);
+      const first = project.components[0];
+      expect(first?.growth).toEqual({ stack: "off" });
+      expect(first && growthOf(first, "stack")).toBe("off");
+    });
+
+    it("lets `growth` win over `stretch` when a file has both", () => {
+      const raw = withStretch(0, false) as { components: Record<string, unknown>[] };
+      const c = raw.components[0];
+      if (c === undefined) {
+        throw new Error("no component");
+      }
+      c.growth = { stack: 9 };
+      const { project } = load(raw);
+      expect(project.components[0]?.growth).toEqual({ stack: 9 });
+    });
+
+    it("ignores `stretch` on a kind that has no stack", () => {
+      const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.1.3.json"]) as {
+        components: { kind: string; stretch?: boolean }[];
+      };
+      for (const c of raw.components) {
+        c.stretch = false;
+      }
+      const { project, notices } = load(raw);
+      expect(notices).toEqual([]);
+      expect(project.components.map((c) => [c.kind, c.growth])).toEqual(
+        project.components.map((c) => [
+          c.kind,
+          c.kind === "cards" || c.kind === "tiles" ? { stack: "off" } : undefined,
+        ]),
+      );
+    });
+  });
+
+  it("reads the growth settings of the 0.1.12 file, a word or a number per axis", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.12.json"]);
+    expect(notices).toEqual([]);
+    expect(project.components.map((c) => c.growth)).toEqual([
+      { stack: 12 },
+      { stack: "max" },
+      { w: "off", d: 8, h: "max" },
+      { stack: "auto" },
+      { w: 3, d: "auto" },
+      { h: 2 },
     ]);
+    expect(validateProject(project).filter((n) => n.level === "error")).toEqual([]);
+    const again = load(JSON.parse(serializeProject(project, noForeign())));
+    expect(again.project).toEqual(project);
+  });
+
+  it("refuses a growth that is neither a word nor a number", () => {
+    const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.1.12.json"]) as {
+      components: { growth: Record<string, unknown> }[];
+    };
+    const c = raw.components[0];
+    if (c === undefined) {
+      throw new Error("no component");
+    }
+    c.growth = { stack: "lots" };
+    expect(parseProject(raw).ok).toBe(false);
   });
 
   it("reads the fillToTop setting of the 0.1.4 file, and defaults it on for older files", () => {

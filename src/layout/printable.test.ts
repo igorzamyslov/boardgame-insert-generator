@@ -90,7 +90,8 @@ describe("merging is a print-time decomposition", () => {
   it("changes nothing without fillers to merge", () => {
     const p = project("bits-heavy");
     const { layout } = optimize(fixtureInput("bits-heavy"), 1, 3000);
-    const trays = layout?.trays ?? [];
+    // bits-heavy has fillers beside its bins (growth is bounded): leave them out, so none merge
+    const trays = (layout?.trays ?? []).filter((t) => t.part !== "leftover");
     const inputs = (s: Partial<Settings>) => ({
       components: p.components,
       settings: { ...p.settings, ...s },
