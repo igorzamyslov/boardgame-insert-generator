@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { numberParts } from "../instructions/numbering";
-import { splitRisers, splitSeparators } from "../layout";
+import { openSpacers, splitRisers, splitSeparators } from "../layout";
 import { DEFAULT_PRINTER } from "../model/defaults";
 import type { Component, ComponentKind, Notice, Project, TraySpec } from "../model/types";
 import { APP_VERSION } from "../model/version";
@@ -93,7 +93,8 @@ export function App(props: AppProps) {
   const layout = project.layout;
   // The parts to print: the stored trays, with the height a stack doesn't need split off as a
   // riser under it (spec §3 rule 2) and each stretch spacer split into its component's plates
-  // (spec §6.2). The plan, 3D view, export and instructions all list these.
+  // (spec §6.2), then each spacer or plate opened into a walled box where the `leftover` style and
+  // its size allow. The plan, 3D view, export and instructions all list these.
   const { settings: projSettings, printer: projPrinter, locks: projLocks } = project;
   const projComponents = project.components;
   const { printable, separatorNotices } = useMemo(() => {
@@ -106,7 +107,8 @@ export function App(props: AppProps) {
       locks: projLocks,
     });
     const split = splitSeparators(risered, { components: projComponents, settings: projSettings });
-    return { printable: split.trays, separatorNotices: split.notices };
+    const opened = openSpacers(split.trays, { settings: projSettings });
+    return { printable: opened, separatorNotices: split.notices };
   }, [layout, projSettings, projPrinter, projLocks, projComponents]);
   // The plate counts cut back at print time are told with the other sizing notes.
   const sizingNotices = useMemo(

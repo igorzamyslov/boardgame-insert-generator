@@ -33,6 +33,21 @@ export const POST_MM = 3;
 /** A finger cut narrower than this (or the fingerPocket.width setting, if smaller) is left out. */
 export const MIN_CUT_MM = 10;
 
+/**
+ * The narrowest finger cut a well must be able to take, mm: MIN_CUT_MM, or the `width` setting if
+ * smaller, in whole hundredths rounded up (as sizing reads the setting) and then down to an even
+ * count. A cut is a whole-hundredth half-width either side of a whole-hundredth centre, so its
+ * width is even: a setting of an odd number of hundredths (5.01 mm) can only be met from above, by
+ * a cut one hundredth wider that needs one more hundredth of room than the well may have, and the
+ * centre's own rounding then costs a well exactly as wide as the setting plus its posts a unit. A
+ * cut 0.01 mm under an odd setting is the cut that setting asks for; no printer resolves it.
+ * Sizing (cutouts.ts) places cuts by this and planTray (plan.ts) accepts them by it.
+ */
+export function narrowestCutMm(width: number): number {
+  const units = Math.ceil(Math.min(MIN_CUT_MM, width) * 100 - 1e-6);
+  return (2 * Math.floor(units / 2)) / 100;
+}
+
 /** The outer corner arc polygon lies up to 0.08 mm inside the true arc; plus a little margin. */
 export const CORNER_MARGIN = 0.1;
 

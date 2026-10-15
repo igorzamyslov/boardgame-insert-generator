@@ -2,6 +2,7 @@ import { effective, topPlane } from "../model/settings";
 import type { TraySpec } from "../model/types";
 import { maxCrossing } from "./fill";
 import { splitRisers } from "./risers";
+import { openSpacers } from "./spacers";
 import { nominalPlayU } from "./score";
 import type { LayoutInput, LayoutSummary } from "./types";
 import { toMm, toU, type Rect } from "./units";
@@ -57,7 +58,10 @@ function coreVolume(
  * - the only sparse region of a hollow tray is the slab under each compartment (its raised floor
  *   plus the floor): a box of the compartment's footprint and `floorZ` height, eroded by the
  *   shell on all faces, though the walls beside it would let the core run wider;
- * - a spacer is counted solid (it is printed as thin plates, not as the block it is stored as).
+ * - a spacer follows the `leftover` style like a riser (openSpacers): an open box, or solid where
+ *   the style says so or it is too small to open. It is judged as the one block it is stored as;
+ *   with `separators` above 1 it is printed as plates, each judged on its own size (thin ones are
+ *   solid), so the estimate can be light by the walls of the extra plates.
  */
 function partVolumes(
   t: TraySpec,
@@ -99,13 +103,12 @@ export function summarize(
   let filamentAtInfill = 0;
   // Filament follows what is printed: each stack's raised floor comes out as a riser part, open
   // (mostly air) or solid per `leftover`. Counts and fill stay on the stored trays: the split moves
-  // height between a tray and its riser without changing the space filled. Separator plates fill
-  // the same block as the stored spacer, which counts solid either way, so they need no split.
-  const parts = splitRisers(trays, {
-    settings,
-    printer: input.printer,
-    locks: input.locks,
-  });
+  // height between a tray and its riser without changing the space filled. A spacer is
+  // an open box like a riser; its separator plates are not split out here (see partVolumes).
+  const parts = openSpacers(
+    splitRisers(trays, { settings, printer: input.printer, locks: input.locks }),
+    { settings },
+  );
   for (const t of parts) {
     const v = partVolumes(t, settings.lip, shell, infill);
     filament += v.solid;

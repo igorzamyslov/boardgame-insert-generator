@@ -49,6 +49,14 @@ const MIN_CUT = ceilU(MIN_CUT_MM);
 /** A floor notch reaching less than this into the floor after clamping is left out. */
 const MIN_NOTCH = 100;
 
+/**
+ * The narrowest cut a run gets (units): narrowestCutMm, which says why it is an even count, one
+ * unit under an odd setting.
+ */
+function narrowest(width: number): number {
+  return 2 * Math.floor(Math.min(MIN_CUT, width) / 2);
+}
+
 /** Compartment `i` of the tray. */
 function rectAt(ctx: CutContext, i: number): RectMm {
   const r = ctx.rects[i];
@@ -78,7 +86,10 @@ type Across = { kind: "exit" } | { kind: "twin"; request: number };
  *   into the gap to any other compartment within MIN_FEATURE_MM of the cuts, less
  *   MIN_FEATURE_MM / 2. Runs are placed one after the other, each keeping MIN_FEATURE_MM from the
  *   cuts already placed (a pocket's cut out past a deck keeps clear of the deck's channel). A run
- *   with less room than MIN_CUT_MM (or the setting, if smaller) gets no cut.
+ *   with less room than MIN_CUT_MM (or the setting, if smaller) gets no cut, except that a member
+ *   leaving through the outer wall that has no room of its own is dropped first, so it does not
+ *   take the run's other members with it (a minis pocket whose front has no room still gets its
+ *   back cut).
  * - A compartment none of whose requests gets a cut asks again (the same depth and notch), placed
  *   the same way after every first cut, centred on the cards beside a spacer and clear of it: on
  *   the other side of the same axis (a pocket of the back row, whose front faces the front row,
@@ -201,8 +212,45 @@ function placeRuns(requests: readonly CutAsk[], ctx: CutContext, placed: PlacedC
   });
 
   for (const members of runs.values()) {
-    const run = runOf(members, requests, across, ctx);
-    const band = bandOf(run, requests, ctx, placed);
+    let run = runOf(members, requests, across, ctx);
+    let band = bandOf(run, requests, ctx, placed);
+    if (band === null && members.length > 1) {
+      // The run is one channel with one centre, but it may be one that cannot all be cut: a
+      // member leaving outward whose own side has no room (a compartment across begins or ends at
+      // the centre, or the centre falls in the divider between two of them), or a twin whose
+      // partner is too narrow for the cut. Such a member must not take the others down with it:
+      // keep the parts of the run that can be cut together, in order. A twin pair (or chain) is
+      // one part, since a channel into a well that gets no cut is never cut.
+      const part = new Map(members.map((k) => [k, k]));
+      const find = (k: number): number => {
+        let r = k;
+        while (part.get(r) !== r) {
+          r = part.get(r) ?? r;
+        }
+        return r;
+      };
+      for (const k of members) {
+        const to = across[k];
+        if (to?.kind === "twin" && part.has(to.request)) {
+          part.set(find(to.request), find(k));
+        }
+      }
+      const atoms = new Map<number, number[]>();
+      for (const k of members) {
+        atoms.set(find(k), [...(atoms.get(find(k)) ?? []), k]);
+      }
+      let kept: number[] = [];
+      for (const atom of atoms.values()) {
+        const tried = [...kept, ...atom];
+        if (bandOf(runOf(tried, requests, across, ctx), requests, ctx, placed) !== null) {
+          kept = tried;
+        }
+      }
+      if (kept.length > 0) {
+        run = runOf(kept, requests, across, ctx);
+        band = bandOf(run, requests, ctx, placed);
+      }
+    }
     if (band === null) {
       continue;
     }
@@ -297,6 +345,12 @@ function rangeOf(run: Run, ctx: CutContext): { u0: number; u1: number } {
  * post to the faces of every compartment it passes (its members), and
  * at most half way (less MIN / 2) toward any other compartment, and MIN from any cut in `placed`,
  * that lies within MIN of its cuts.
+ *
+ * The centre is the first member's, rounded to a whole unit. The members of a run need not share
+ * that centre to the unit (twins are one line within a unit, and a half-unit centre rounds
+ * either way), and a well exactly as wide as the narrowest cut plus its two posts has no unit to
+ * spare, so where the first member's centre leaves too little room, any whole-unit centre between
+ * the members' own centres may be taken instead: the one with the most room.
  */
 function bandOf(
   run: Run,
@@ -304,9 +358,40 @@ function bandOf(
   ctx: CutContext,
   placed: readonly PlacedCut[],
 ): { at: number; half: number } | null {
-  const { side, owners, strips } = run;
+  const { side, owners } = run;
   const first = axes(rectAt(ctx, requests[run.members[0] ?? -1]?.owner ?? -1), side);
-  const at = Math.round((first.u0 + first.u1) / 2);
+  const preferred = Math.round((first.u0 + first.u1) / 2);
+  const centres = [...owners].map((i) => {
+    const a = axes(rectAt(ctx, i), side);
+    return (a.u0 + a.u1) / 2;
+  });
+  const tries = [preferred];
+  for (let at = Math.floor(Math.min(...centres)); at <= Math.ceil(Math.max(...centres)); at += 1) {
+    if (at !== preferred) {
+      tries.push(at);
+    }
+  }
+  let best: { at: number; half: number } | null = null;
+  for (const at of tries) {
+    const band = bandAt(run, at, ctx, placed);
+    if (band !== null && (best === null || band.half > best.half)) {
+      best = band;
+    }
+    if (best !== null && 2 * best.half >= narrowest(ctx.width) && at === preferred) {
+      break;
+    }
+  }
+  return best;
+}
+
+/** The run's band centred on `at`: bandOf's room rules, or null when it has none. */
+function bandAt(
+  run: Run,
+  at: number,
+  ctx: CutContext,
+  placed: readonly PlacedCut[],
+): { at: number; half: number } | null {
+  const { side, owners, strips } = run;
   const { u0: lowU, u1: highU } = rangeOf(run, ctx);
   // Its posts: POST from the faces of every compartment it passes. (They also keep its sides past
   // the outer corners' arcs: a post starts at least a wall from the outer face.)
@@ -335,5 +420,5 @@ function bandOf(
     }
   }
   const half = Math.min(Math.ceil(ctx.width / 2), at - lo, hi - at);
-  return 2 * half >= Math.min(MIN_CUT, ctx.width) ? { at, half } : null;
+  return 2 * half >= narrowest(ctx.width) ? { at, half } : null;
 }

@@ -100,7 +100,7 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         id="settings-leftover"
         label="Unused space"
         value={settings.leftover}
-        hint="What fills the box area the trays do not need. A spare tray is an open tray you can use for extras. A solid block is printed solid, which holds nothing and uses more filament."
+        hint="What fills the box area the trays do not need. A spare tray is an open tray you can use for extras. A solid block is printed solid, which holds nothing and uses more filament. The same choice applies to risers and card spacers."
         options={[
           { value: "spare", label: "Spare tray (open)" },
           { value: "solid", label: "Solid filler block" },

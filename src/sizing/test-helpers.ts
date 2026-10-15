@@ -145,7 +145,9 @@ export function assertTrayInvariants(
 ): void {
   const gap = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
   const minFloor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
-  const minCut = Math.min(toU(MIN_CUT_MM), ceilU(settings.fingerPocket.width));
+  // Even, rounded down: a cut is a whole-unit half-width either side of a whole-unit centre, so an
+  // odd setting is met one unit short (cutouts.ts, narrowest).
+  const minCut = 2 * Math.floor(Math.min(toU(MIN_CUT_MM), ceilU(settings.fingerPocket.width)) / 2);
   // A cutout's half-width is a whole unit: the setting, rounded up to an even unit count.
   const maxCut = 2 * Math.ceil(ceilU(settings.fingerPocket.width) / 2);
   const u = (mm: number): number => Math.round(mm * 100);

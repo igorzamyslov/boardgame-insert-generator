@@ -183,9 +183,9 @@ still hold one.
   stack axis, and it now becomes a spacer (`spacerFits` has no upper limit: 30, 60 and 150 mm
   were tested) or `separators` plates. Two limits worth knowing. A tray prints one spacer, so in
   a two-row tray the second row's slack stays in its walls once the first row has the spacer.
-  And a spacer is a solid block where the pocket was hollow: the `small-tiles` fixture, which
-  stretches three 199 mm trays, goes from about 330 g to about 430 g of filament. That is what
-  `stretch` asks for until §5 bounds it, and bounding it is the real fix.
+  A spacer was first a solid block where the pocket had been hollow: the `small-tiles` fixture,
+  which stretches three 199 mm trays, went from about 330 g to about 430 g of filament. Geometry
+  0.5.2 (§4.3) prints it open instead.
 - **Versioning.** `GEOMETRY_VERSION` 0.5.0 to 0.5.1, a PATCH: no outer size, lip, inset or well
   changes, so trays printed before and after still mate and stack, and layouts stored at 0.5.0 are
   not stale; only the inside of a tray that had slack to spare differs. (A MINOR would have told
@@ -202,6 +202,46 @@ the word this spec already used for it. A file that only has `wallGrowth` keeps 
 reader accepts either key, `wallAbsorb` winning, and never reports the old one as unknown), the
 hash still names it `wallGrowth` so that no saved plan goes stale, and SCHEMA_VERSION goes 0.1.7
 to 0.1.8, a PATCH since nothing that read before stops reading.
+
+### 4.3 The spacer is an open box, and the latent CutFitError (geometry 0.5.2, schema 0.1.8)
+
+**A spacer follows `leftover`.** `openSpacers` (src/layout/spacers.ts), the last pass after
+`splitRisers` and `splitSeparators`, turns a stored (solid) spacer into an open walled box with a
+floor, as `riserSpec` does for a riser, unless `leftover` is `solid`. It is derived, so the stored
+layout, the schema (stays 0.1.8) and the share link are unchanged; `summarize` applies it too, so
+the filament figure matches what prints. Wall: the tray's `wall`, at least `SPACER_MIN_WALL`
+(2 mm). Solid when the inside is under `MIN_SPARE` (10 mm) in either direction, the pocket is
+under `MIN_SPACER` (5 mm) deep, or its finger notch would cut into the floor. Each separator
+plate is judged on its own size, so thin plates are solid and thick ones open, whatever the style.
+`planTray` used to build every spacer solid regardless of `solid`; it now honours it.
+GEOMETRY_VERSION 0.5.1 to 0.5.2, a PATCH: outer size, lip, inset and wells are unchanged, so a
+spacer printed before still fits the same well and trays still mate.
+
+**Measured** (50 000 iterations, seeds 1 to 3, filament = solid upper bound `filamentG`):
+`small-tiles` 449.2 / 446.5 / 384.0 g before, 379.0 / 376.3 / 334.1 g after, three 178 mm spacers
+of 16.8 × 9.7 mm each going from 36 g to 12.5 g. About 70 g, not the 100 g that was hoped: a
+spacer has its own floor and walls inside a well that has its own, where the old spare pocket was
+one compartment of the tray. The rest is `stretch` itself (§5). The other fixtures have no spacer
+and do not change. Link lengths are unchanged (nothing stored differs).
+
+**CutFitError at a larger outer.** The property "realizes every variant part at a larger outer"
+fails at 8 times its run count: `size()` keeps a part whose pockets all get a cut at `minOuter`, but
+slack shifts the compartments a few hundredths of a millimetre and a pocket can lose its cut.
+Three causes found and fixed, each with its exact input in `cutfit.regression.test.ts`:
+(1) a run (the cuts of one compartment along one axis, plus twins) was dropped whole when one
+member had no room, for example a front cut whose centre falls on the edge of the wells across or
+in the 0.8 mm divider between two, so the pocket lost its back cut too; now the members that
+cannot be cut are left out and the rest are placed (`placeRuns`). (2) A setting of an odd number
+of hundredths (5.002 mm) is not a width a whole-unit cut can have, so a pocket exactly as wide as
+the cut plus its posts was refused one unit short; the narrowest cut is now rounded down to an even
+count (`narrowestCutMm`, shared with `planTray`, which accepts what sizing places). (3) A run
+takes the first member's centre rounded to a unit, which can leave a twin's narrow pocket a unit
+short; where that centre has too little room any whole-unit centre between the members' own is
+tried. **Not fixed:** a fourth cause remains, found at 2 of 12 seeds at 1 000 runs. Sequential
+channel placement can seal off the only way out of a pocket exactly as wide as the cut plus its
+posts: a row-1 pocket's cut leaves through the gap between two row-2 pockets, and those pockets,
+too narrow for a front or back cut, are left with no side to cut. It needs the placement to back
+off or search, which is a larger change to sizing; see the backlog.
 
 ## 5. Growth policy per component kind
 

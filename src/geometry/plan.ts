@@ -1,9 +1,9 @@
 import type { CompartmentSpec, Settings, Side, TraySpec } from "../model/types";
 import {
-  MIN_CUT_MM,
   MIN_FEATURE_MM,
   MIN_WALL_MM,
   SPEC_TOLERANCE as TOL,
+  narrowestCutMm,
   chamferMinimums,
   effectiveBottomChamfer,
 } from "../model/settings";
@@ -218,7 +218,9 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     fail(spec, `outer size ${spec.w} × ${spec.d} × ${spec.h} mm is too small`);
   }
   const lip = planLip(spec, settings);
-  const solid = spec.solid || spec.part === "spacer";
+  // A spacer is solid unless its spec says otherwise: a stored spacer is always one solid block, and
+  // the printed one may be an open walled box (openSpacers, geometry 0.5.2).
+  const solid = spec.solid;
   if (!solid && !(spec.wall >= MIN_WALL_MM - TOL)) {
     fail(spec, `wall ${spec.wall} mm is below ${MIN_WALL_MM} mm`);
   }
@@ -230,7 +232,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   const planned = specs.map((c, i) =>
     planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect")),
   );
-  const minCut = Math.min(MIN_CUT_MM, settings.fingerPocket.width);
+  const minCut = narrowestCutMm(settings.fingerPocket.width);
   const frame = { w: spec.w, d: spec.d, h: spec.h, chamfer, minCut };
   const failWith = (message: string): never => fail(spec, message);
   const uncut = planned.map((p) => p.plan);

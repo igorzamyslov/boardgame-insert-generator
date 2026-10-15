@@ -37,8 +37,16 @@ import type { Semver } from "../model/version";
  * `separators` plates, or the walls, and `wallGrowth` was renamed `wallAbsorb`). It is a PATCH, not a
  * new line: no outer size, lip, inset or well changes, so trays printed before and after still mate
  * and stack; only the inside of a tray that had slack to spare differs.
+ *
+ * 0.5.2 lets a spacer be an open walled box with a floor, as a riser may (planTray used to build
+ * every spacer solid, whatever its `solid`; it now honours it, and the app prints a spacer open
+ * under the `leftover` style: openSpacers), and accepts a wall cutout one hundredth of a
+ * millimetre narrower than an odd-hundredths `fingerPocket.width` (narrowestCutMm). A PATCH: the
+ * outer size, lip, inset and every well are unchanged, so spacers printed before and after still
+ * fit the same wells and trays still mate; only a spacer's inside differs, and planTray accepts
+ * everything it accepted before.
  */
-export const GEOMETRY_VERSION = "0.5.1";
+export const GEOMETRY_VERSION = "0.5.2";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

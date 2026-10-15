@@ -33,6 +33,12 @@ export const MIN_SPACER = 5;
  * rigid standing on its edge; the bottom chamfer's own minimum applies on top (planTray).
  */
 export const MIN_SEPARATOR = 3;
+/**
+ * Thinnest wall of a hollow spacer, mm (spec §6.2): five perimeter lines at a 0.4 mm nozzle. A
+ * spacer carries the deck's squeeze, so its walls are never thinner than this even where the
+ * tray's own `wall` setting is (`openSpacers` takes the larger of the two).
+ */
+export const SPACER_MIN_WALL = 2;
 /** Card spacer: this much lower than the well (spec §6.2: well height − 5). */
 export const SPACER_TOP_GAP = 5;
 /**

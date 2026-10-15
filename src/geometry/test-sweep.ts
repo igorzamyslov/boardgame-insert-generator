@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
 import { SPEC_TOLERANCE, applyFingerRoom } from "../model/settings";
 import type { Settings, TraySpec } from "../model/types";
+import { openSpacers } from "../layout/spacers";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
 import { loadManifold } from "./load";
@@ -101,7 +102,15 @@ function selection(
           const placed = rotated ? { w: outer.d, d: outer.w, h: outer.h } : outer;
           const tray = traySpecFrom(realized, placed, opts, settings, part.trayKey);
           specs.push({ spec: { ...tray, rotated }, where });
-          realized.spacers.forEach((sp) => specs.push({ spec: sp, where: `${where} spacer` }));
+          realized.spacers.forEach((sp) => {
+            specs.push({ spec: sp, where: `${where} spacer` });
+            // the same spacer as printed: an open box wherever the leftover style and size allow
+            for (const open of openSpacers([sp], { settings })) {
+              if (!open.solid) {
+                specs.push({ spec: open, where: `${where} open spacer` });
+              }
+            }
+          });
         });
         index += 1;
       }
@@ -197,6 +206,10 @@ export function sweepCoverage(): void {
       expect(trays.some((s) => s.level > 0)).toBe(true);
       expect(trays.some((s) => s.rotated)).toBe(true);
       expect(specs.some((s) => s.part === "spacer")).toBe(true);
+      expect(
+        specs.some((s) => s.part === "spacer" && !s.solid),
+        "an open spacer",
+      ).toBe(true);
       const notched = specs.filter((s) => s.features?.some((f) => f.type === "spacerNotch"));
       expect(notched.length, "spacers notched for a finger channel").toBeGreaterThan(0);
       expect(

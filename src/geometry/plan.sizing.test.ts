@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Component, Settings, TraySpec } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
+import { openSpacers } from "../layout/spacers";
 import { planTray } from "./plan";
 import {
   PROFILES,
@@ -20,21 +21,28 @@ interface Tally {
   planned: number;
   lipped: number;
   spacers: number;
+  open: number;
   rotated: number;
   failures: string[];
 }
 
 function exercise(components: Component[], settings: Settings, label: string): Tally {
-  const tally: Tally = { planned: 0, lipped: 0, spacers: 0, rotated: 0, failures: [] };
+  const tally: Tally = { planned: 0, lipped: 0, spacers: 0, open: 0, rotated: 0, failures: [] };
   const check = (spec: TraySpec, where: string): void => {
     try {
       planTray(spec, settings);
       tally.planned++;
       tally.lipped += spec.lip ? 1 : 0;
       tally.spacers += spec.part === "spacer" ? 1 : 0;
+      tally.open += spec.part === "spacer" && !spec.solid ? 1 : 0;
     } catch (error) {
       tally.failures.push(`${where}: ${String(error)}`);
     }
+  };
+  // A spacer is checked as stored (solid) and as printed (open where it can be).
+  const checkSpacer = (sp: TraySpec, where: string): void => {
+    check(sp, where);
+    openSpacers([sp], { settings }).forEach((open) => check(open, `${where} (open)`));
   };
   const { requirements } = size(components, settings);
   for (const req of requirements) {
@@ -47,7 +55,7 @@ function exercise(components: Component[], settings: Settings, label: string): T
             const where = `${label} ${variant.id} ${part.trayKey} ${JSON.stringify(opts)} +${dw}/${dd}/${dh}`;
             const realized = realizeTray(part, outer, settings, opts);
             check(traySpecFrom(realized, outer, opts, settings, part.trayKey), `${where} plain`);
-            realized.spacers.forEach((sp) => check(sp, `${where} plain spacer`));
+            realized.spacers.forEach((sp) => checkSpacer(sp, `${where} plain spacer`));
             const turned = rotateRealized(realized, outer);
             const turnedOuter = { w: outer.d, d: outer.w, h: outer.h };
             check(
@@ -55,7 +63,7 @@ function exercise(components: Component[], settings: Settings, label: string): T
               `${where} rotated`,
             );
             tally.rotated++;
-            turned.spacers.forEach((sp) => check(sp, `${where} rotated spacer`));
+            turned.spacers.forEach((sp) => checkSpacer(sp, `${where} rotated spacer`));
           }
         }
       }
@@ -80,10 +88,14 @@ describe.each(SWEEP_FIXTURES)("planTray accepts sizing output of %s", (_name, ra
 
 describe("the sizing fixtures cover spacers", () => {
   it("plans spacers from at least one fixture", () => {
-    const spacers = SWEEP_FIXTURES.map(([name, raw]) => {
+    const tallies = SWEEP_FIXTURES.map(([name, raw]) => {
       const { components, settings } = loadFixture(raw);
-      return exercise(components, settings, name).spacers;
+      return exercise(components, settings, name);
     });
-    expect(spacers.reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
+    expect(tallies.reduce((a, t) => a + t.spacers, 0)).toBeGreaterThan(0);
+    expect(
+      tallies.reduce((a, t) => a + t.open, 0),
+      "open spacers",
+    ).toBeGreaterThan(0);
   });
 });
