@@ -48,8 +48,12 @@ export function stackGrowthMm(
   plated: boolean,
   dividers = 0,
 ): number {
-  // Each section of a divided well is held at both ends, so each may gain what a lone stack may:
-  // UNPLATED_RETENTION stack thicknesses, for the `dividers` + 1 sections together.
+  // UNPLATED_RETENTION is an allowance of slack beyond the stack (growth ≤ stack × allowance), not a
+  // multiplier on the width. Undivided, the cards lean across the whole slack W − T. Divided into
+  // N + 1 equal sections of W / (N + 1), each holds T / (N + 1) of cards and has slack
+  // (W − T) / (N + 1), so the lean per section is the undivided lean over N + 1. Keeping each
+  // section within the undivided allowance A therefore gives W − T ≤ (N + 1) × A: the slack term
+  // scales, the stack T does not. (The slots' own width is in the well's minimum, not in this.)
   const retention = plated ? PLATED_RETENTION : UNPLATED_RETENTION * (dividers + 1);
   return Math.min(growthMm(mode, stack), stack * retention);
 }

@@ -503,13 +503,16 @@ in the stored layout or the share link as a part**. Each slot costs roughly one 
 link, which deflates to a few characters (the tiles case below: eighteen slots, no measurable
 change).
 
-**Retention.** Along a divided stack, `stackGrowthMm(mode, stack, plated, dividers)` allows
-`UNPLATED_RETENTION × (dividers + 1)` stack thicknesses: each section is held at both ends, so each
-may gain what a lone stack may. This is a judgement call, and a generous one: a section holds only
-its share of the cards, so on strict physics the cap per section would be its own contents, and the
-total would not rise. It is read as "the user has chosen to hold a group in each section, and the
-groups are the size of the stack they came from". The plated limit (`PLATED_RETENTION`) is untouched
-and does not apply to a divided well.
+**Retention.** `UNPLATED_RETENTION` is an allowance of slack beyond the stack (growth up to
+`stack × 1`), not a multiplier on the width. Undivided, cards lean across the whole slack
+`W − T`. Divided into `N + 1` equal sections of `W / (N + 1)`, each holds `T / (N + 1)` of cards and
+has slack `(W − T) / (N + 1)`, so the lean per section is the undivided lean over `N + 1`. Keeping each
+section within the undivided allowance `A` gives **`W − T ≤ (N + 1) × A`**: the slack scales, the stack
+`T` does not. `stackGrowthMm(mode, stack, plated, dividers)` implements exactly that (growth up to
+`stack × UNPLATED_RETENTION × (dividers + 1)`; the slots' own width is in the well's minimum). The
+plated limit is untouched and does not apply to a divided well. Pinned for N = 1 and 3 in
+`sizing/dividers.test.ts`. (An earlier note here called this generous and doubted the total would
+rise; the derivation above shows it does, by this factor.)
 
 **Separators.** Mutually exclusive: with dividers the well has **no spacer**, so `separators` has
 nothing to print and the form shows "Spacer plates are off while the well has dividers". Both answer

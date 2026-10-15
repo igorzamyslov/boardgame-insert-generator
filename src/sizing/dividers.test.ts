@@ -228,6 +228,22 @@ describe("realizing a divided well", () => {
     assertTrayInvariants(divided, wide, s, ground, p);
   });
 
+  it("permits width T + slots + (N + 1) × the undivided slack allowance: only the slack scales", () => {
+    const stack = at(
+      partOf([cards({ growth: { stack: "max" } })], "upright-long|strip|split1").compartments,
+      0,
+    ).minW;
+    for (const n of [1, 3]) {
+      const p = part(n);
+      const base = minOuter(p, s, ground);
+      const wide = { w: base.w + 400, d: base.d, h: base.h };
+      const well = at(realizeTray(p, wide, s, ground).compartments, 0);
+      // per-section slack equals the undivided allowance (one stack thickness), never more
+      expect(well.w).toBeCloseTo(stack + n * SLOT + (n + 1) * stack * UNPLATED_RETENTION, 2);
+      expect((well.w - n * SLOT - stack) / (n + 1)).toBeCloseTo(stack * UNPLATED_RETENTION, 2);
+    }
+  });
+
   it("keeps the floor under the slots thick enough, at the least height", () => {
     const p = part(2);
     const min = minOuter(p, s, ground);
