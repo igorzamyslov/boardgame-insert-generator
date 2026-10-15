@@ -3,3 +3,4 @@ _build
 _site
 **/package-lock.json
 src/styles
+.claude
