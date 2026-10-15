@@ -16,6 +16,8 @@ export interface ScoreTerms {
   readonly coverage: number;
   /** "often" trays with another tray on top. */
   readonly access: number;
+  /** "setup" trays with nothing on top: setup-only trays are the ones to bury. */
+  readonly setup: number;
   /** Units of nominal lateral play above 1.5 mm, summed over both axes. */
   readonly play: number;
   /** Trays above level 0. */
@@ -43,6 +45,7 @@ export interface Score {
  *   one extra tray gap of play   = 20 units × 5 000 = 100 000
  *   one stacked tray             =                    50 000
  *   one extra printed part       =                    20 000
+ *   one unburied "setup" tray    =                    15 000
  *   1 % of the box in filament   = 1 000 × 10 =       10 000
  *   one moved tray (warm start)  =                     5 000
  * Overflow (any hard-rule violation) costs OVERFLOW_WEIGHT per 0.01 mm, more than any
@@ -53,6 +56,9 @@ export const WEIGHTS: Readonly<ScoreTerms> = {
   leftover: 1_000,
   coverage: 500_000,
   access: 200_000,
+  // Below `trays` and `stacked`, so burying a setup tray never pays for an extra stack or
+  // printed part; above `moved`, so a warm start can still be rearranged to bury one.
+  setup: 15_000,
   play: 5_000,
   stacked: 50_000,
   trays: 20_000,
@@ -87,6 +93,7 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
   let filamentMm3 = 0;
   let coverage = 0;
   let access = 0;
+  let setup = 0;
   let stacked = 0;
   let moved = 0;
   for (const t of plan.trays) {
@@ -100,6 +107,11 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     }
     if (!t.top && r?.access === "often") {
       access++;
+    }
+    // Constant for a tray that cannot be buried (alone in its stack in every candidate),
+    // so it never changes which candidate wins; the annealer only sees score deltas.
+    if (t.top && r?.access === "setup") {
+      setup++;
     }
     if (t.level > 0) {
       stacked++;
@@ -122,6 +134,7 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     leftover: share(leftoverMm3, boxMm3),
     coverage,
     access,
+    setup,
     play: playExcess(plan.crossX) + playExcess(plan.crossY),
     stacked,
     trays: plan.trays.length + plan.leftovers.length,
@@ -134,6 +147,7 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     terms.leftover * WEIGHTS.leftover +
     terms.coverage * WEIGHTS.coverage +
     terms.access * WEIGHTS.access +
+    terms.setup * WEIGHTS.setup +
     terms.play * WEIGHTS.play +
     terms.stacked * WEIGHTS.stacked +
     terms.trays * WEIGHTS.trays +

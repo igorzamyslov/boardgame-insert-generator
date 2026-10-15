@@ -55,7 +55,7 @@ export function CommonOptions<C extends Component>({
         label="Needed during play"
         value={c.access}
         options={ACCESS_OPTIONS}
-        hint="Often-used parts are kept out from under other trays."
+        hint="Often: kept out from under other trays. Setup only: buried under them. Sometimes: no preference. These are preferences, not rules, so a tight box can override them."
         onChange={(access) => onChange({ ...c, access })}
       />
       <CheckField

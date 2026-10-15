@@ -53,11 +53,6 @@ box.
 - Bundled game presets library.
 - Calibration test print.
 - Print-time estimate.
-- Making "Needed during play" mean three different things. Today only `often`
-  scores (200 000 when such a tray is buried), so `sometimes` and `setup` are
-  identical. `setup` should actively prefer sitting UNDER other trays, since a
-  setup-only tray is the right thing to bury. Explain all three in the hint,
-  and say it is a preference the optimizer weighs, not a rule.
 - Showing a component's name alongside its deck or item name in the plan and 3D
   view, so several trays of one component read as a group ("Starter deck —
   Deck 1" rather than "Deck 1").
@@ -796,12 +791,18 @@ fallback: a requirement that still has no variant is left out with a
   1. leftover volume;
   2. coverage penalty: bulk, minis-bulk and tiles in the top layer when
      `headroomCoverage` is `partial` or `storedOnSide` is set;
-  3. access penalty: `often` items under other trays;
+  3. access penalty: `often` items under other trays (200 000 each);
   4. lateral play above 1.5 mm per axis (rule 1);
   5. number of stacked trays (beyond one per stack);
   6. tray count;
-  7. filament volume;
-  8. on warm starts, moving trays whose requirements didn't change.
+  7. setup penalty: `setup` items with nothing on top (15 000 each). Below
+     stacked and tray count, so burying a setup tray never buys an extra stack
+     or part. A tray that cannot be buried (alone in its stack) pays it in
+     every candidate, so it does not steer the search. `sometimes` has no
+     term: the three "Needed during play" values mean keep clear / neutral /
+     prefer underneath, and all three are preferences, not rules;
+  8. filament volume;
+  9. on warm starts, moving trays whose requirements didn't change.
 - **Locks:**
   - Locked paths, sizes and stacks are fixed in the tree; moves never change
     them. A position lock fixes the tree topology along its path; cut

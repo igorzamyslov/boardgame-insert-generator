@@ -14,6 +14,7 @@ describe("score", () => {
       20 * WEIGHTS.play,
       WEIGHTS.stacked,
       WEIGHTS.trays,
+      WEIGHTS.setup,
       1000 * WEIGHTS.filament,
       WEIGHTS.moved,
     ];
@@ -28,7 +29,13 @@ describe("score", () => {
   it("makes 0.01 mm of overflow cost more than any feasible score", () => {
     const maxFeasible =
       100_000 * WEIGHTS.leftover +
-      200 * (WEIGHTS.coverage + WEIGHTS.access + WEIGHTS.stacked + WEIGHTS.trays + WEIGHTS.moved) +
+      200 *
+        (WEIGHTS.coverage +
+          WEIGHTS.access +
+          WEIGHTS.setup +
+          WEIGHTS.stacked +
+          WEIGHTS.trays +
+          WEIGHTS.moved) +
       20_000 * WEIGHTS.play +
       100_000 * WEIGHTS.filament;
     expect(OVERFLOW_WEIGHT).toBeGreaterThan(maxFeasible);
@@ -72,6 +79,70 @@ describe("score", () => {
     expect(s.terms.stacked).toBe(1);
     const onTop: Tree = { root: leaf([item(0), item(1)]), variants: [0, 0] };
     expect(scorePlan(ctx, evaluate(ctx, onTop)).terms.access).toBe(0);
+  });
+
+  describe("access values", () => {
+    const three = [
+      boxReq("o", 140, 90, 20, { access: "often" }),
+      boxReq("m", 140, 90, 20, { access: "sometimes" }),
+      boxReq("s", 140, 90, 20, { access: "setup" }),
+    ];
+    const ctx = createCtx(makeInput(three), fakeMeasure);
+    const score = (order: number[]) =>
+      scorePlan(ctx, evaluate(ctx, { root: leaf(order.map((i) => item(i))), variants: [0, 0, 0] }));
+    const [O, M, S] = [0, 1, 2];
+
+    it("prefers a setup tray buried, and charges one left on top", () => {
+      // leaf order is bottom to top
+      const buried = score([S, M]);
+      const exposed = score([M, S]);
+      expect(buried.terms.setup).toBe(0);
+      expect(exposed.terms.setup).toBe(1);
+      expect(exposed.total - buried.total).toBe(WEIGHTS.setup);
+    });
+
+    it("scores nothing for sometimes, buried or not", () => {
+      const twin = [
+        boxReq("m1", 140, 90, 20, { access: "sometimes" }),
+        boxReq("m2", 140, 90, 20, { access: "sometimes" }),
+      ];
+      const c = createCtx(makeInput(twin), fakeMeasure);
+      for (const order of [
+        [0, 1],
+        [1, 0],
+      ]) {
+        const s = scorePlan(
+          c,
+          evaluate(c, { root: leaf(order.map((i) => item(i))), variants: [0, 0] }),
+        );
+        expect(s.terms.access).toBe(0);
+        expect(s.terms.setup).toBe(0);
+      }
+    });
+
+    it("leaves often as before: only a buried often tray scores", () => {
+      expect(score([O, M]).terms.access).toBe(1);
+      expect(score([M, O]).terms.access).toBe(0);
+      expect(score([O, M]).terms.setup).toBe(0);
+    });
+
+    it("gives the three values three distinct scores on the same layout", () => {
+      // identical geometry, only the access value differs; each sits at the bottom of a pair
+      const totals = (["often", "sometimes", "setup"] as const).map((a) => {
+        const reqs2 = [
+          boxReq("x", 140, 90, 20, { access: a }),
+          boxReq("y", 140, 90, 20, { access: "sometimes" }),
+        ];
+        const c = createCtx(makeInput(reqs2), fakeMeasure);
+        const bottom = scorePlan(
+          c,
+          evaluate(c, { root: leaf([item(0), item(1)]), variants: [0, 0] }),
+        );
+        const top = scorePlan(c, evaluate(c, { root: leaf([item(1), item(0)]), variants: [0, 0] }));
+        return `${bottom.total}/${top.total}`;
+      });
+      expect(new Set(totals).size).toBe(3);
+    });
   });
 
   it("counts trays moved relative to a warm start", () => {
