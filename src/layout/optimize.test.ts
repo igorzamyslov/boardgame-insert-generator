@@ -240,7 +240,10 @@ describe("optimize", () => {
     expect((sf?.x ?? 0) + (sf?.y ?? 0) + (sf?.z ?? 0)).toBeGreaterThan(0);
     const n = r.notices.find((x) => x.code === "layout.doesNotFit");
     expect(n?.level).toBe("error");
-    expect(n?.message).toContain("Try:");
+    expect(n?.message).toContain("try:");
+    // Not found yet is not a verdict: it names the search it ran (two chains of 2000 here).
+    expect(n?.message).toContain("No fit found yet");
+    expect(n?.message).toContain("4,000 iterations");
   });
 
   // Review focus: 30+ requirements must not make the search unusably slow.

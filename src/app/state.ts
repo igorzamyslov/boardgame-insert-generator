@@ -1,7 +1,7 @@
 // src/app/state.ts
 import { computed, signal } from "@preact/signals";
 import type { ReadonlySignal, Signal } from "@preact/signals";
-import { isOlderGeometryLine } from "../geometry/version";
+import { GEOMETRY_VERSION, isOlderGeometryLine } from "../geometry/version";
 import { NOTICE_CODES, summarize } from "../layout";
 import type { LayoutResult, LayoutSummary } from "../layout/types";
 import { inputsHash } from "../model/hash";
@@ -52,6 +52,8 @@ export interface State {
   validation: ReadonlySignal<Notice[]>;
   currentHash: ReadonlySignal<string>;
   stale: ReadonlySignal<boolean>;
+  /** The stored layout was made under an older compatibility line of the tray geometry: it needs re-running. */
+  geometryOld: ReadonlySignal<boolean>;
   sizingNotices: ReadonlySignal<Notice[]>;
   summary: ReadonlySignal<LayoutSummary | null>;
   layoutNotices: ReadonlySignal<Notice[]>;
@@ -94,6 +96,10 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
   const stale = computed(() => {
     const layout = project.value.layout;
     return layout !== undefined && layout.inputsHash !== currentHash.value;
+  });
+  const geometryOld = computed(() => {
+    const layout = project.value.layout;
+    return layout !== undefined && isOlderGeometryLine(layout.geometryVersion);
   });
   const sizingNotices = computed(() => sizingNoticesOf(project.value));
   const summary = computed<LayoutSummary | null>(() => {
@@ -150,11 +156,11 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
       });
     }
     // An older compatibility line: an older MAJOR, or pre-1.0 an older 0.MINOR (spec §9).
-    if (layout && isOlderGeometryLine(layout.geometryVersion)) {
+    if (layout && geometryOld.value) {
       out.push({
         level: "warning",
         code: GEOMETRY_MAJOR_CODE,
-        message: `This layout was made with tray geometry ${layout.geometryVersion}. Trays exported now won't mate with ones printed from it: reprint the whole insert.`,
+        message: `This plan is out of date: it was made with tray geometry ${layout.geometryVersion}, and the app now uses ${GEOMETRY_VERSION}. Press “Update plan” to rebuild the trays with the current geometry. Trays exported from the old plan won't mate with the new ones, so reprint the whole insert.`,
       });
     }
     out.push(...sizingNotices.value);
@@ -177,6 +183,7 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     validation,
     currentHash,
     stale,
+    geometryOld,
     sizingNotices,
     summary,
     layoutNotices,

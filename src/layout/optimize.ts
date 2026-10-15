@@ -229,7 +229,8 @@ export function createRun(
     const attemptTrays = materialize(closest.ctx, attempt.plan, opts.realize);
     const overBed = attempt.plan.overflow.bed > 0 ? overBedParts(closest.ctx, attemptTrays) : [];
     notices.push(...bedNotices(closest.ctx));
-    notices.push(doesNotFitNotice(closest.ctx, shortfall, overBed));
+    const tried = chains().reduce((sum, c) => sum + c.annealer.done, 0);
+    notices.push(doesNotFitNotice(closest.ctx, shortfall, overBed, tried));
     if (stop) {
       notices.push(cappedNotice(stop));
     }

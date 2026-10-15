@@ -167,14 +167,6 @@ input[aria-invalid="true"] {
   clip-path: inset(50%);
 }
 
-.preview-banner {
-  margin: 0;
-  padding: var(--space-2) var(--space-5);
-  background: var(--ochre-wash);
-  font-size: 14px;
-  line-height: 20px;
-}
-
 .app-notices {
   padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--rule);

@@ -1,5 +1,6 @@
 // src/app/state.test.ts
 import { describe, expect, it } from "vitest";
+import { GEOMETRY_VERSION } from "../geometry/version";
 import { NOTICE_CODES } from "../layout";
 import { inputsHash } from "../model/hash";
 import {
@@ -149,6 +150,25 @@ describe("createState", () => {
     expect(codesFor("0.3.2")).toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.4.2")).not.toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.5.0")).not.toContain(GEOMETRY_MAJOR_CODE);
+  });
+
+  it("says the plan is out of date, and that re-running it rebuilds the trays", () => {
+    const p = fixtureProject();
+    const s = createState({
+      ...p,
+      layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
+    });
+    expect(s.geometryOld.value).toBe(true);
+    const n = s.layoutNotices.value.find((x) => x.code === GEOMETRY_MAJOR_CODE);
+    expect(n?.level).toBe("warning");
+    expect(n?.message).toContain("out of date");
+    expect(n?.message).toContain("0.1.0");
+    expect(n?.message).toContain(`the app now uses ${GEOMETRY_VERSION}`);
+    expect(n?.message).toContain("Update plan");
+    expect(n?.message).toContain("current geometry");
+    expect(n?.message).toContain("reprint the whole insert");
+    const current = createState({ ...p, layout: makeLayout(inputsHash(p)) });
+    expect(current.geometryOld.value).toBe(false);
   });
 
   it("validates the project", () => {

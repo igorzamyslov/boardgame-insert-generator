@@ -46,7 +46,7 @@ describe("parts the lip makes too big for the bed", { timeout: 30_000 }, () => {
       const sf = r.bestAttempt?.shortfall;
       expect((sf?.x ?? 0) + (sf?.y ?? 0) + (sf?.z ?? 0)).toBeGreaterThan(0);
       const dnf = r.notices.find((n) => n.code === "layout.doesNotFit")?.message ?? "";
-      expect(dnf).toContain("too small by");
+      expect(dnf).toContain("short by");
       expect(dnf).not.toContain("Some trays don't fit");
       const bed = r.notices.find((n) => n.code === "layout.bed");
       expect(bed?.level).toBe("warning");

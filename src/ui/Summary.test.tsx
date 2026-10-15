@@ -7,7 +7,8 @@ import { NOTICE_CODES, mmUp } from "../layout";
 import { createCtx } from "../layout/context";
 import { boxReq, fakeMeasure, makeInput } from "../layout/test-utils";
 import { doesNotFitNotice } from "../layout/warnings";
-import { Summary } from "./Summary";
+import type { Notice } from "../model/types";
+import { LAYOUT_NOTICES_SHOWN, Summary } from "./Summary";
 import type { SummaryProps } from "./Summary";
 
 afterEach(cleanup);
@@ -205,6 +206,31 @@ describe("Summary", () => {
       expect(p.onRefit).toHaveBeenCalledTimes(1);
     });
 
+    it('says "Update plan" when the layout is current but made under older geometry', () => {
+      const p = props({ geometryOld: true });
+      render(<Summary {...p} />);
+      const b = screen.getByRole("button", { name: "Update plan" });
+      expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+      expect(hint(b)).toMatch(/Rebuilds the trays with the current geometry/);
+      fireEvent.click(b);
+      expect(p.onRefit).toHaveBeenCalledTimes(1);
+    });
+
+    it("hints that a repeat searches longer after a search that found no fit", () => {
+      const ctx = createCtx(makeInput([boxReq("bits", 40, 40, 10)]), fakeMeasure);
+      render(
+        <Summary
+          {...props({
+            summary: null,
+            hasLayout: false,
+            notices: [doesNotFitNotice(ctx, { x: 1, y: 0, z: 0 }, [], 50_000)],
+          })}
+        />,
+      );
+      const b = screen.getByRole("button", { name: "Update plan" });
+      expect(hint(b)).toMatch(/Searches again for a fit, about 3 times longer/);
+    });
+
     it('says "Update plan" and is enabled when there is no layout yet', () => {
       render(<Summary {...props({ summary: null, hasLayout: false, canUndo: false })} />);
       const b = screen.getByRole("button", { name: "Update plan" });
@@ -314,16 +340,16 @@ describe("Summary", () => {
     );
     expect(screen.getByRole("button", { name: "Undo layout" }).hasAttribute("disabled")).toBe(true);
     // rounded up to 0.1 mm like plan 4's notice, never to the nearest
-    expect(screen.getByText(/Doesn't fit/).textContent).toBe(
-      "Doesn't fit: short by 12.4 mm left–right and 3.0 mm in height.",
+    expect(screen.getByText(/Closest attempt/).textContent).toBe(
+      "Closest attempt so far is short by 12.4 mm left–right and 3.0 mm in height.",
     );
     view.rerender(
       <Summary
         {...props({ summary: null, hasLayout: false, shortfall: { x: 0.03, y: 0, z: 0 } })}
       />,
     );
-    expect(screen.getByText(/Doesn't fit/).textContent).toBe(
-      "Doesn't fit: short by 0.1 mm left–right.",
+    expect(screen.getByText(/Closest attempt/).textContent).toBe(
+      "Closest attempt so far is short by 0.1 mm left–right.",
     );
   });
 
@@ -432,6 +458,19 @@ describe("Summary", () => {
     expect(screen.getByRole("alert").textContent).not.toContain("?.");
   });
 
+  it("keeps the results in view: folds all but the first few messages behind Show all", () => {
+    const many: Notice[] = Array.from({ length: 12 }, (_, i) => ({
+      level: "warning",
+      code: `w.${i}`,
+      message: `Warning number ${i}`,
+    }));
+    render(<Summary {...props({ notices: many })} />);
+    const list = screen.getByRole("list", { name: "Layout messages" });
+    expect(list.querySelectorAll("li")).toHaveLength(LAYOUT_NOTICES_SHOWN);
+    fireEvent.click(screen.getByRole("button", { name: "Show all 12 messages" }));
+    expect(list.querySelectorAll("li")).toHaveLength(12);
+  });
+
   it("states a shortfall the way the real doesNotFit notice does", () => {
     const ctx = createCtx(makeInput([boxReq("bits", 40, 40, 10)]), fakeMeasure);
     for (const x of [0.01, 0.04, 0.1, 12.345, 12.34, 99.99]) {
@@ -446,7 +485,7 @@ describe("Summary", () => {
           })}
         />,
       );
-      const line = screen.getByText(/Doesn't fit/).textContent ?? "";
+      const line = screen.getByText(/Closest attempt/).textContent ?? "";
       expect(line).toContain(`${mmUp(x)} mm left–right`);
       expect(line).toContain(`${mmUp(0.07)} mm front–back`);
       expect(notice.message).toContain(`${mmUp(x)} mm in width (X)`);

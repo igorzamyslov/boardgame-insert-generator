@@ -1,10 +1,13 @@
 // src/ui/Summary.tsx
 import { useRef } from "preact/hooks";
 import type { RunState } from "../app/state";
-import { PLAY_LIMIT_MM, mmUp } from "../layout";
+import { NOTICE_CODES, PLAY_LIMIT_MM, REPEAT_FACTOR, mmUp } from "../layout";
 import type { LayoutSummary } from "../layout/types";
 import type { Notice } from "../model/types";
 import { Notices } from "./Notices";
+
+/** Layout messages shown before the rest fold behind "Show all", so the results stay in view. */
+export const LAYOUT_NOTICES_SHOWN = 3;
 
 export interface SummaryProps {
   summary: LayoutSummary | null;
@@ -13,6 +16,8 @@ export interface SummaryProps {
   hasLayout: boolean;
   /** The inputs changed since the layout was made: the sentence about it would be out of date. */
   stale: boolean;
+  /** The layout was made under older tray geometry: it needs re-running even though the inputs match. */
+  geometryOld?: boolean;
   /** The number of layers (levels) and of spare trays in the layout, for the sentence. */
   layers: number;
   spares: number;
@@ -48,7 +53,7 @@ function shortfallText(s: { x: number; y: number; z: number }): string | null {
   if (s.z > 0) {
     parts.push(`${mmUp(s.z)} mm in height`);
   }
-  return parts.length > 0 ? `Doesn't fit: short by ${parts.join(" and ")}.` : null;
+  return parts.length > 0 ? `Closest attempt so far is short by ${parts.join(" and ")}.` : null;
 }
 
 function Readout({
@@ -107,7 +112,7 @@ export function Summary(p: SummaryProps) {
     lastDone.current = 0;
   }
   // A layout made for the current inputs: pressing the button searches on, rather than catching up.
-  const layoutCurrent = p.hasLayout && !p.stale;
+  const layoutCurrent = p.hasLayout && !p.stale && !p.geometryOld;
   const shortfall = p.shortfall ? shortfallText(p.shortfall) : null;
   const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
   const verdict =
@@ -234,14 +239,23 @@ export function Summary(p: SummaryProps) {
           </div>
           <p class="hint stage-block">
             <span id="hint-refit">
-              {layoutCurrent
-                ? "Searches on from this layout for a tighter arrangement; it never throws the layout away."
-                : "Re-fits the trays to your current inputs, starting from this layout; it never throws it away."}
+              {p.notices.some((n) => n.code === NOTICE_CODES.doesNotFit)
+                ? `Searches again for a fit, about ${REPEAT_FACTOR} times longer than the last search.`
+                : layoutCurrent
+                  ? "Searches on from this layout for a tighter arrangement; it never throws the layout away."
+                  : p.geometryOld && !p.stale
+                    ? "Rebuilds the trays with the current geometry, starting from this layout; it never throws it away."
+                    : "Re-fits the trays to your current inputs, starting from this layout; it never throws it away."}
             </span>
           </p>
         </>
       ) : null}
-      <Notices notices={p.notices} label="Layout messages" class="stage-block" />
+      <Notices
+        notices={p.notices}
+        label="Layout messages"
+        class="stage-block"
+        limit={LAYOUT_NOTICES_SHOWN}
+      />
     </>
   );
 }

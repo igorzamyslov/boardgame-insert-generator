@@ -64,11 +64,6 @@ box.
   extension of embossed labels above).
 - A donation link on the export screen.
 - Export as a modal, so leaving it does not mean switching back a view mode.
-- Reconsidering the "Preview: saved projects and shared links may break between
-  versions." banner: users do not know what it means and cannot dismiss it.
-- Keeping warnings from making the page scroll when several appear at once.
-- Closing the project menu on an outside click or on a selection, instead of
-  only when its own button is clicked again.
 - Showing the sizes derived from a component's presets (card format, count,
   sleeve) next to the editor, so the user can judge whether to trust them
   without measuring, plus a correction multiplier for when they do not match.
@@ -819,9 +814,27 @@ fallback: a requirement that still has no variant is left out with a
 
 ### 7.3 Infeasibility and warnings
 
-- **Doesn't fit:** report the least-overflow attempt and the shortfall per
-  axis, plus concrete suggestions: unsleeve, store flat or upright, move the
-  rulebook or boards elsewhere (less headroom), choose a tighter fit, split groups.
+- **No fit found (`layout.doesNotFit`):** this means the search found no fit,
+  not that none exists. It is a heuristic, and a very tight box can have a layout it
+  cannot find from scratch (a real 101 × 195 × 37 mm box needed millions of
+  iterations, while the stored result was valid all along). The message therefore
+  opens "No fit found yet", names the iterations the run made, says that is not
+  proof the components cannot fit, reports the least-overflow attempt and its
+  shortfall per axis as "the closest attempt so far", and says that pressing
+  "Update plan" again searches about 3 times longer. Then the concrete
+  suggestions: unsleeve, store flat or upright, move the rulebook or boards
+  elsewhere (less headroom), choose a tighter fit, split groups. A failed run
+  stores nothing, so a repeat would redo the same deterministic search; the
+  runner instead multiplies the budget by 3 on each user-pressed repeat for the
+  same inputs (an automatic run, an edit or a found fit starts over at N). There is
+  no automatic retry. The Summary's "short by" line says "Closest attempt so far is
+  short by …" in the same spirit.
+- **Out-of-date plan (`geometry.olderMajor`):** a layout made under an older
+  geometry line (an older MAJOR, or pre-1.0 an older 0.MINOR) keeps its old
+  geometry until the plan is re-run. The warning says the plan is out of date,
+  names both versions, says "Update plan" rebuilds the trays with the current
+  geometry, and that trays exported from the old plan won't mate with new ones,
+  so the whole insert must be reprinted.
 - **Coverage:** applies when `headroom > 0` and `headroomCoverage` is
   `partial`. The score keeps loose bits out of the top layer. Any that remain
   are warned about, with a suggestion to move them below other trays. With
@@ -859,8 +872,8 @@ on the right (summary, plan view, 3D view, export). A global Simple ⇄ Advanced
 toggle plus a per-component "more options" section. On narrow screens the
 panels stack. Plan-view edits use pointer events (mouse and touch) and have a
 keyboard alternative (select A, then "swap with" B). Without WebGL, the 3D
-view shows a message and the rest works. Before 1.0 a "preview — links may
-break" banner is shown.
+view shows a message and the rest works. There is no preview banner. The
+Project menu closes on an outside click, on Escape and on choosing a project.
 
 ### 8.2 Inputs
 
@@ -896,9 +909,11 @@ Numbers accept a decimal comma or point.
   (PLA 1.24 g/cm³; two figures in advanced mode: an estimate at `infill`, and
   the upper bound at 100 % fill, which needs no assumptions; the estimate is a
   shell-and-core model, below), lateral play per axis,
-  warnings. Under it: one search button
+  warnings (the first 3 are shown, errors always; the rest fold behind "Show all
+  N messages" so the results stay in view). Under it: one search button
   whose label says what pressing it does. With no layout yet, or a stale one
-  (inputs changed since it was made), it reads "Update plan" and re-fits to the
+  (inputs changed since it was made, or the layout was made under an older
+  geometry line), it reads "Update plan" and re-fits to the
   current inputs with the normal budget N. When the layout is current it reads
   "Keep searching" and runs 3N more, adding to the stored cumulative iteration
   count. Both start from the current layout (same seed) and never discard it;
@@ -995,8 +1010,8 @@ Older apps reading newer files is best effort, as below.
     interfaces.
   - MAJOR: changes to outer dimensions, the lip/inset/stacking interface, or
     minimum compartment sizes for the same `TraySpec`. Trays exported before
-    and after won't mate. Loading a layout with an older geometry MAJOR warns:
-    reprint the whole insert.
+    and after won't mate. Loading a layout with an older geometry MAJOR warns that
+    the plan is out of date: re-run it ("Update plan") and reprint the whole insert (§7.3).
 - **Resolved settings:** projects store resolved `settings` values (§5), so
   changing a default never changes an existing project.
 - **App version** (`package.json`, shown in the footer, written to
@@ -1006,7 +1021,7 @@ Older apps reading newer files is best effort, as below.
     shared links stable.
   - PATCH for fixes.
 - Before the first release the app is `0.x` and makes no compatibility
-  promise; a preview banner says so (§8.1). Pre-1.0, each `0.MINOR` is treated
+  promise (the app shows no banner for it). Pre-1.0, each `0.MINOR` is treated
   as a major line (PATCH acts as minor), so a newer `0.MINOR` file is refused.
   The first release is app `1.0.0`
   / schema `1.0.0`. It rejects `0.x` files with an explicit error, and the

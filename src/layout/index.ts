@@ -3,5 +3,5 @@ export { summarize } from "./summarize";
 export { splitRisers } from "./risers";
 export { SEPARATORS_REDUCED_CODE, splitSeparators } from "./separators";
 export { swapLocks } from "./locks";
-export { NOTICE_CODES, mmUp } from "./warnings";
+export { NOTICE_CODES, REPEAT_FACTOR, mmUp } from "./warnings";
 export { PLAY_LIMIT_MM } from "./context";

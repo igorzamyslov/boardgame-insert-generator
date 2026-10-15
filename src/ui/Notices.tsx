@@ -1,5 +1,6 @@
 // src/ui/Notices.tsx
 import type { ComponentChildren } from "preact";
+import { useState } from "preact/hooks";
 import type { Notice } from "../model/types";
 
 const LEVEL_LABEL: Record<Notice["level"], string> = {
@@ -30,6 +31,24 @@ export interface NoticesProps {
   label?: string;
   /** Extra classes of the list (the stage uses `stage-block` to order it on narrow screens). */
   class?: string;
+  /**
+   * How many notices to show before the rest fold behind a "Show all" button. Errors always
+   * show, then the most severe of the others fill the limit; the original order is kept.
+   */
+  limit?: number;
+}
+
+const SEVERITY: Record<Notice["level"], number> = { error: 0, warning: 1, info: 2 };
+
+/** The notices to show for a limit: every error, then the most severe others up to the limit. */
+function visibleNotices(notices: readonly Notice[], limit: number): readonly Notice[] {
+  const ranked = notices
+    .map((n, i) => ({ n, i }))
+    .sort((a, b) => SEVERITY[a.n.level] - SEVERITY[b.n.level] || a.i - b.i);
+  const keep = new Set(
+    ranked.filter((r, rank) => r.n.level === "error" || rank < limit).map((r) => r.i),
+  );
+  return notices.filter((_, i) => keep.has(i));
 }
 
 /** Messages with a sign that differs in shape (circle, triangle, octagon), a lead word, and an action. */
@@ -40,35 +59,56 @@ export function Notices({
   renderAction,
   label = "Messages",
   class: extra,
+  limit,
 }: NoticesProps) {
+  const [all, setAll] = useState(false);
   if (notices.length === 0) {
     return null;
   }
+  const shown = limit !== undefined && !all ? visibleNotices(notices, limit) : notices;
+  const hidden = notices.length - shown.length;
   return (
-    <ul class={extra ? `notices ${extra}` : "notices"} aria-label={label}>
-      {notices.map((n) => (
-        <li
-          key={`${n.code}|${n.path ?? ""}|${n.message}`}
-          class={LEVEL_CLASS[n.level]}
-          role={ROLE[n.level]}
-        >
-          <div>
-            <strong class="notice-level">{LEVEL_LABEL[n.level]}:</strong>{" "}
-            <span class="notice-text">{n.message}</span>
-            {renderAction ? <span class="notice-action">{renderAction(n)}</span> : null}
-            {onDismiss && (canDismiss ? canDismiss(n) : true) ? (
-              <button
-                type="button"
-                class="notice-dismiss"
-                aria-label={`Dismiss: ${n.message}`}
-                onClick={() => onDismiss(n.code)}
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul class={extra ? `notices ${extra}` : "notices"} aria-label={label}>
+        {shown.map((n) => (
+          <li
+            key={`${n.code}|${n.path ?? ""}|${n.message}`}
+            class={LEVEL_CLASS[n.level]}
+            role={ROLE[n.level]}
+          >
+            <div>
+              <strong class="notice-level">{LEVEL_LABEL[n.level]}:</strong>{" "}
+              <span class="notice-text">{n.message}</span>
+              {renderAction ? <span class="notice-action">{renderAction(n)}</span> : null}
+              {onDismiss && (canDismiss ? canDismiss(n) : true) ? (
+                <button
+                  type="button"
+                  class="notice-dismiss"
+                  aria-label={`Dismiss: ${n.message}`}
+                  onClick={() => onDismiss(n.code)}
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {hidden > 0 ? (
+        <p class="notices-more stage-block">
+          <button type="button" class="quiet" onClick={() => setAll(true)}>
+            {`Show all ${notices.length} messages`}
+          </button>
+          <span class="hint">{` ${hidden} more ${hidden === 1 ? "is" : "are"} hidden.`}</span>
+        </p>
+      ) : null}
+      {limit !== undefined && all && notices.length > limit ? (
+        <p class="notices-more stage-block">
+          <button type="button" class="quiet" onClick={() => setAll(false)}>
+            Show fewer messages
+          </button>
+        </p>
+      ) : null}
+    </>
   );
 }

@@ -1,6 +1,6 @@
 // src/ui/Notices.test.tsx
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Notice } from "../model/types";
 import { Notices } from "./Notices";
@@ -76,5 +76,46 @@ describe("Notices markup", () => {
     expect(li?.querySelector("button.notice-dismiss")?.getAttribute("aria-label")).toBe(
       "Dismiss: A info message",
     );
+  });
+
+  describe("limit", () => {
+    const many = (count: number, level: Notice["level"], prefix = level): Notice[] =>
+      Array.from({ length: count }, (_, i) => ({
+        level,
+        code: `${prefix}.${i}`,
+        message: `${prefix} ${i}`,
+      }));
+
+    it("shows everything when there is no limit, or the notices fit it", () => {
+      const { container } = render(<Notices notices={many(8, "info")} />);
+      expect(container.querySelectorAll("li")).toHaveLength(8);
+      expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
+      cleanup();
+      render(<Notices notices={many(3, "info")} limit={3} />);
+      expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
+    });
+
+    it("folds the rest behind Show all, and back", () => {
+      const { container } = render(<Notices notices={many(10, "warning")} limit={3} />);
+      expect(container.querySelectorAll("li")).toHaveLength(3);
+      fireEvent.click(screen.getByRole("button", { name: "Show all 10 messages" }));
+      expect(container.querySelectorAll("li")).toHaveLength(10);
+      fireEvent.click(screen.getByRole("button", { name: "Show fewer messages" }));
+      expect(container.querySelectorAll("li")).toHaveLength(3);
+    });
+
+    it("keeps every error and fills the rest with the most severe, in the original order", () => {
+      const list = [...many(5, "info"), ...many(2, "error"), ...many(3, "warning")];
+      const { container } = render(<Notices notices={list} limit={3} />);
+      const shown = [...container.querySelectorAll(".notice-text")].map((e) => e.textContent);
+      expect(shown).toEqual(["error 0", "error 1", "warning 0"]);
+      expect(screen.getByRole("button", { name: "Show all 10 messages" })).toBeTruthy();
+    });
+
+    it("never hides an error, even past the limit", () => {
+      const { container } = render(<Notices notices={many(6, "error")} limit={2} />);
+      expect(container.querySelectorAll("li")).toHaveLength(6);
+      expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
+    });
   });
 });

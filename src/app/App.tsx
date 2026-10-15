@@ -5,7 +5,7 @@ import { numberParts } from "../instructions/numbering";
 import { splitRisers, splitSeparators } from "../layout";
 import { DEFAULT_PRINTER } from "../model/defaults";
 import type { Component, ComponentKind, Notice, Project, TraySpec } from "../model/types";
-import { APP_VERSION, isPreview } from "../model/version";
+import { APP_VERSION } from "../model/version";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { encodeHash, exportJsonFile, jsonFileName } from "../share";
@@ -121,6 +121,35 @@ export function App(props: AppProps) {
   const mainRef = useRef<HTMLElement>(null);
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const restoreFocus = useRef(false);
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  const closeMenu = () => {
+    if (menuRef.current) {
+      menuRef.current.open = false;
+    }
+  };
+  // The Project menu is a <details>: it closes on a click outside it, on Escape (focus goes back
+  // to its button), and on choosing a project.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const menu = menuRef.current;
+      if (menu?.open && e.target instanceof Node && !menu.contains(e.target)) {
+        menu.open = false;
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const menu = menuRef.current;
+      if (e.key === "Escape" && menu?.open) {
+        menu.open = false;
+        menu.querySelector("summary")?.focus();
+      }
+    };
+    document.addEventListener("click", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("click", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
   const advanced = s.mode.value === "advanced";
   const [openSection, setOpenSection] = useState<SectionId | null>(
     project.components.length === 0 ? "box" : "components",
@@ -289,7 +318,7 @@ export function App(props: AppProps) {
                     </label>
                   </div>
                 </fieldset>
-                <details class="app-menu">
+                <details class="app-menu" ref={menuRef}>
                   <summary>Project</summary>
                   <div class="app-menu-panel">
                     <ProjectMenu
@@ -298,8 +327,14 @@ export function App(props: AppProps) {
                       projects={s.projects.value}
                       storageAvailable={store.storageAvailable}
                       onRename={(name) => store.edit((q) => renameProject(q, name))}
-                      onOpen={(id) => store.openProject(id)}
-                      onNew={() => store.newProject()}
+                      onOpen={(id) => {
+                        closeMenu();
+                        store.openProject(id);
+                      }}
+                      onNew={() => {
+                        closeMenu();
+                        store.newProject();
+                      }}
                       onDelete={(id) => store.deleteProject(id)}
                       onImport={(text) => {
                         store.importJson(text);
@@ -313,11 +348,6 @@ export function App(props: AppProps) {
                 </details>
               </div>
             </header>
-            {isPreview(APP_VERSION) ? (
-              <p class="preview-banner" role="note">
-                Preview: saved projects and shared links may break between versions.
-              </p>
-            ) : null}
             {notices.length > 0 ? (
               <div class="app-notices">
                 <Notices
@@ -407,6 +437,7 @@ export function App(props: AppProps) {
                 notices={layoutNotices}
                 hasLayout={layout !== undefined}
                 stale={s.stale.value}
+                geometryOld={s.geometryOld.value}
                 layers={layers}
                 spares={spares}
                 canUndo={s.undoSlot.value !== null}

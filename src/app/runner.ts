@@ -1,6 +1,6 @@
 // src/app/runner.ts
 import { batch } from "@preact/signals";
-import { DEFAULT_ITERATIONS } from "../layout";
+import { DEFAULT_ITERATIONS, REPEAT_FACTOR } from "../layout";
 import type { LayoutInput, LayoutResult } from "../layout/types";
 import { inputsHash } from "../model/hash";
 import type { Notice, Project } from "../model/types";
@@ -71,6 +71,9 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
   let clientPromise: Promise<LayoutClient> | null = null;
   let client: LayoutClient | null = null;
   let disposed = false;
+  // The last run that found no fit: nothing is stored for it, so a repeat would redo the same
+  // deterministic search. Pressing the button again grows the budget instead (the notice says so).
+  let failedRun: { hash: string; iterations: number } | null = null;
 
   function getClient(): Promise<LayoutClient> {
     if (!clientPromise) {
@@ -159,8 +162,13 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
     const seed = previous?.seed ?? DEFAULT_SEED;
     // This run's budget. With the stored layout as warm start the layout engine continues
     // from it and stores previous.iterations + this budget (spec §7.2 "improve more adds 3N").
-    const iterations =
+    const base =
       kind === "improve" && previous ? IMPROVE_FACTOR * DEFAULT_ITERATIONS : DEFAULT_ITERATIONS;
+    const hash = inputsHash(p);
+    const iterations =
+      trigger === "user" && failedRun?.hash === hash
+        ? Math.max(base, failedRun.iterations * REPEAT_FACTOR)
+        : base;
     state.run.value = { status: "running", done: 0, total: iterations };
     try {
       const input = buildLayoutInput(p);
@@ -180,6 +188,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
         state.run.value = { status: "idle" };
         return;
       }
+      failedRun = result.layout === null ? { hash: input.inputsHash, iterations } : null;
       accept(result);
     } catch (e) {
       if (my !== token) {

@@ -71,7 +71,7 @@ function openAssemblyPage(): void {
 }
 
 describe("App", () => {
-  it("lays out the title, inputs then results with the preview banner and footer", () => {
+  it("lays out the title, inputs then results and footer", () => {
     renderApp();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Insert Generator");
     const inputs = screen.getByRole("region", { name: "Inputs" });
@@ -82,7 +82,7 @@ describe("App", () => {
     expect(titles()).toEqual(["The box", "What goes inside", "Your printer"]);
     const results = screen.getByRole("main");
     expect(within(results).getByRole("heading", { level: 2, name: "Results" })).toBeTruthy();
-    expect(screen.getByText(/shared links may break/)).toBeTruthy();
+    expect(screen.queryByText(/shared links may break/)).toBeNull();
     const footer = screen.getByRole("contentinfo");
     expect(footer.textContent).toContain(`v${APP_VERSION}`);
     expect(
@@ -313,9 +313,76 @@ describe("App", () => {
       bestAttempt: { trays: [], shortfall: { x: 12.3, y: 0, z: 0 } },
     });
     store.state.lastResultHash.value = store.state.currentHash.value;
-    expect(await screen.findByText(/Doesn't fit: short by 12\.3 mm left–right/)).toBeTruthy();
+    expect(
+      await screen.findByText(/Closest attempt so far is short by 12\.3 mm left–right/),
+    ).toBeTruthy();
     addCards();
-    await waitFor(() => expect(screen.queryByText(/Doesn't fit/)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/Closest attempt so far/)).toBeNull());
+  });
+
+  describe("project menu", () => {
+    const menu = (): HTMLDetailsElement =>
+      document.querySelector("details.app-menu") as HTMLDetailsElement;
+    const open = (): void => {
+      menu().open = true;
+    };
+
+    it("closes on a click outside it, but not on a click inside", () => {
+      renderApp();
+      open();
+      fireEvent.click(screen.getByLabelText("Project name"));
+      expect(menu().open).toBe(true);
+      fireEvent.click(screen.getByRole("heading", { level: 2, name: "Results" }));
+      expect(menu().open).toBe(false);
+    });
+
+    it("closes on Escape and returns focus to its button", () => {
+      renderApp();
+      open();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(menu().open).toBe(false);
+      expect(document.activeElement).toBe(menu().querySelector("summary"));
+    });
+
+    it("closes when a project is chosen, and when a new one is made", () => {
+      const { store } = renderApp();
+      store.newProject();
+      open();
+      const other = (screen.getByLabelText("Saved projects") as HTMLSelectElement).options[0];
+      fireEvent.change(screen.getByLabelText("Saved projects"), {
+        target: { value: other?.value },
+      });
+      expect(menu().open).toBe(false);
+      open();
+      fireEvent.click(screen.getByRole("button", { name: "New project" }));
+      expect(menu().open).toBe(false);
+    });
+
+    it("ignores Escape and outside clicks while it is closed", () => {
+      renderApp();
+      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.click(document.body);
+      expect(menu().open).toBe(false);
+    });
+  });
+
+  it("has no preview banner, whatever the version", () => {
+    renderApp();
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(document.querySelector(".preview-banner")).toBeNull();
+    expect(screen.queryByText(/Preview:/)).toBeNull();
+  });
+
+  it("offers Update plan for a layout made under older geometry", async () => {
+    const p = fixtureProject();
+    const hash = encodeHash(
+      { ...p, layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }) },
+      EMPTY_FOREIGN,
+    );
+    renderApp(hash);
+    expect(await screen.findByRole("button", { name: "Update plan" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+    expect(screen.getByText(/This plan is out of date/)).toBeTruthy();
   });
 
   describe("conflict notices", () => {

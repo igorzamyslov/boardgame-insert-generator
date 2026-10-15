@@ -160,6 +160,21 @@ describe("layout warnings", () => {
     expect(doesNotFitNotice(noHeadroom, { x: 1, y: 0, z: 0 }).message).not.toContain("headroom");
   });
 
+  it("reports no fit as not found yet, naming the iterations, never as a proven fact", () => {
+    const ctx = createCtx(makeInput(reqs), fakeMeasure);
+    const n = doesNotFitNotice(ctx, { x: 12.34, y: 0, z: 0 }, [], 300_000);
+    expect(n.message).toMatch(/^No fit found yet\./);
+    expect(n.message).toContain("300,000 iterations");
+    expect(n.message).toContain("not proof");
+    expect(n.message).toContain("closest attempt so far is short by 12.4 mm in width (X)");
+    expect(n.message).toContain("Press “Update plan” again to search about 3 times longer");
+    for (const verdict of ["too small by", "don't fit in this box"]) {
+      expect(n.message).not.toContain(verdict);
+    }
+    // Without a count it still says the search was limited, and does not invent a number.
+    expect(doesNotFitNotice(ctx, { x: 1, y: 0, z: 0 }).message).not.toMatch(/\d iterations/);
+  });
+
   it("rounds a shortfall up to 0.1 mm, never printing 0.0 for a positive one", () => {
     const ctx = createCtx(makeInput(reqs), fakeMeasure);
     const message = (x: number, y: number, z: number): string =>

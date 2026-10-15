@@ -24,7 +24,7 @@ export interface AppStore {
   edit(fn: (p: Project) => Project): void;
   undo(): void;
   /** Re-fits from the current layout: the normal budget when there is no layout or it is stale
-   * (an edit), the bigger "keep searching" budget when the layout is current. */
+   * (an edit) or made under older geometry, the bigger "keep searching" budget when the layout is current. */
   refit(): void;
   cancelRun(): void;
   retry(): void;
@@ -82,7 +82,8 @@ export function createAppStore(deps: AppDeps): AppStore {
       persistence.scheduleSave();
     },
     refit() {
-      const current = state.project.value.layout !== undefined && !state.stale.value;
+      const current =
+        state.project.value.layout !== undefined && !state.stale.value && !state.geometryOld.value;
       void runner.runNow(current ? "improve" : "edit", "user");
     },
     cancelRun() {

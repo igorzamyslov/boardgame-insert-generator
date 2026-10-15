@@ -1,6 +1,6 @@
 // src/app/runner.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_ITERATIONS, NOTICE_CODES } from "../layout";
+import { DEFAULT_ITERATIONS, NOTICE_CODES, REPEAT_FACTOR } from "../layout";
 import { inputsHash } from "../model/hash";
 import type { Lock, Notice, Project } from "../model/types";
 import { DEBOUNCE_MS, IMPROVE_FACTOR, canOptimize, createRunner } from "./runner";
@@ -220,6 +220,43 @@ describe("runner", () => {
     expect(state.undoSlot.value).toBeNull();
     expect(onAccepted).not.toHaveBeenCalled();
     expect(state.lastResult.value?.layout).toBeNull();
+  });
+
+  it("a repeated user run after a search that found no fit searches longer; edits and auto runs do not", async () => {
+    const { stub, runner, state } = setup();
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(stub.calls[0]?.iterations).toBe(DEFAULT_ITERATIONS);
+    stub.calls[0]?.resolve(makeResult(null));
+    await flush();
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(stub.calls[1]?.iterations).toBe(REPEAT_FACTOR * DEFAULT_ITERATIONS);
+    stub.calls[1]?.resolve(makeResult(null));
+    await flush();
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(stub.calls[2]?.iterations).toBe(REPEAT_FACTOR * REPEAT_FACTOR * DEFAULT_ITERATIONS);
+    stub.calls[2]?.resolve(makeResult(null));
+    await flush();
+    void runner.runNow("edit", "auto");
+    await flush();
+    expect(stub.calls[3]?.iterations).toBe(DEFAULT_ITERATIONS);
+    stub.calls[3]?.resolve(makeResult(null));
+    await flush();
+    bumpHeight(state);
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(stub.calls[4]?.iterations).toBe(DEFAULT_ITERATIONS);
+    stub.calls[4]?.resolve(makeResult(makeLayout(inputsHash(state.project.value))));
+    await flush();
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(stub.calls[5]?.iterations).toBe(DEFAULT_ITERATIONS);
+  });
+
+  it("the growth of a repeat is the same factor as the improve budget", () => {
+    expect(REPEAT_FACTOR).toBe(IMPROVE_FACTOR);
   });
 
   it("treats a LayoutCancelledError as a quiet cancel, not a failure", async () => {

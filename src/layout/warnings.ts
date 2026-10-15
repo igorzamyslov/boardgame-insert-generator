@@ -20,6 +20,9 @@ export const NOTICE_CODES = {
   lockDropped: "lock.dropped",
 } as const;
 
+/** How much longer a repeated search runs than the one that found nothing (the runner uses it too). */
+export const REPEAT_FACTOR = 3;
+
 function mm(v: number): string {
   return v.toFixed(1);
 }
@@ -320,11 +323,17 @@ export function overBedParts(ctx: Ctx, trays: readonly TraySpec[]): OverBedPart[
  * shortfall is 0 on every axis and nothing is size-locked), and says so when filler pieces are
  * too tall for it: leftovers are as tall as the stacks beside them and are not split in Z, so
  * a box taller than the bed can have none.
+ *
+ * This is "not found yet", never a verdict: the search is heuristic, and a very tight box can
+ * have a fit it cannot find cold (a real one needed millions of iterations). So the message
+ * names the iterations the run made, frames the figures as the closest attempt, and says that
+ * pressing the button again searches longer (the runner grows the budget of a repeat).
  */
 export function doesNotFitNotice(
   ctx: Ctx,
   shortfall: { x: number; y: number; z: number },
   overBed: readonly OverBedPart[] = [],
+  iterations = 0,
 ): Notice {
   const parts: string[] = [];
   if (shortfall.x > 0) {
@@ -364,7 +373,7 @@ export function doesNotFitNotice(
   tips.push("split groups into separate components");
   const sentences: string[] = [];
   if (parts.length > 0) {
-    sentences.push(`The box is too small by ${parts.join(", ")}.`);
+    sentences.push(`The closest attempt so far is short by ${parts.join(", ")}.`);
   }
   if (trays.length > 0) {
     const named = trays.map(
@@ -385,10 +394,12 @@ export function doesNotFitNotice(
   if (sentences.length === 0) {
     sentences.push("Some trays don't fit the print bed or a locked size.");
   }
+  const searched =
+    iterations > 0 ? `ran ${iterations.toLocaleString("en-US")} iterations` : "ran for a while";
   return {
     level: "error",
     code: NOTICE_CODES.doesNotFit,
-    message: `The components don't fit in this box. ${sentences.join(" ")} Try: ${tips.join("; ")}.`,
+    message: `No fit found yet. The search ${searched} without finding a layout that fits. This is not proof that the components can't fit: a very tight box can need a much longer search. ${sentences.join(" ")} Press “Update plan” again to search about ${REPEAT_FACTOR} times longer. If it still doesn't fit, try: ${tips.join("; ")}.`,
   };
 }
 
