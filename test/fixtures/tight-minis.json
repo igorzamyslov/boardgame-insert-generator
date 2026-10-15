@@ -1,0 +1,192 @@
+{
+  "schemaVersion": "0.1.7",
+  "createdWith": "0.1.0",
+  "id": "tightmn1",
+  "name": "Mini cards (tight)",
+  "box": {
+    "innerWidth": 101,
+    "innerDepth": 195,
+    "innerHeight": 35.6,
+    "headroom": 2,
+    "headroomCoverage": "partial",
+    "storedOnSide": false
+  },
+  "printer": {
+    "bedX": 180,
+    "bedY": 180,
+    "bedZ": 180,
+    "bedMargin": 5,
+    "layerHeight": 0.2
+  },
+  "settings": {
+    "wall": 1.2,
+    "floor": 1.2,
+    "divider": 1.2,
+    "fit": 0.7,
+    "cardClearance": 1.5,
+    "cardStackClearance": 1,
+    "cardStackClearancePct": 0.05,
+    "cardThickness": 0.32,
+    "pieceClearance": 1,
+    "boxClearance": 0.5,
+    "trayGap": 0.2,
+    "bottomChamfer": 0.4,
+    "cornerRadius": 3,
+    "scoopRadius": 12,
+    "fingerPocket": {
+      "width": 25,
+      "floorNotch": 12.5,
+      "wallRoom": 10,
+      "dividerRoom": 5
+    },
+    "lip": {
+      "enabled": false,
+      "height": 2,
+      "thickness": 5,
+      "ledge": 1.7,
+      "play": 0.25
+    },
+    "topPressFit": 0,
+    "packingFactor": 0.5,
+    "leftover": "spare",
+    "fillToTop": true,
+    "wallGrowth": 0,
+    "infill": 15
+  },
+  "components": [
+    {
+      "id": "c0xxxxxx",
+      "name": "C0",
+      "access": "sometimes",
+      "kind": "cards",
+      "shortSide": 41,
+      "longSide": 59,
+      "decks": [
+        {
+          "name": "",
+          "count": 40
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "flat"
+    },
+    {
+      "id": "c1xxxxxx",
+      "name": "C1",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 41,
+      "longSide": 59,
+      "decks": [
+        {
+          "name": "",
+          "count": 14
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "flat"
+    },
+    {
+      "id": "c2xxxxxx",
+      "name": "C2",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 41,
+      "longSide": 59,
+      "decks": [
+        {
+          "name": "",
+          "count": 57
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "flat"
+    },
+    {
+      "id": "c3xxxxxx",
+      "name": "C3",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 41,
+      "longSide": 59,
+      "decks": [
+        {
+          "name": "",
+          "count": 48
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "flat"
+    },
+    {
+      "id": "c4xxxxxx",
+      "name": "C4",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 41,
+      "longSide": 59,
+      "decks": [
+        {
+          "name": "",
+          "count": 31
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "flat"
+    },
+    {
+      "id": "c5xxxxxx",
+      "name": "C5",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 41,
+      "longSide": 59,
+      "decks": [
+        {
+          "name": "",
+          "count": 45
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "flat"
+    },
+    {
+      "id": "c6xxxxxx",
+      "name": "C6",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 41,
+      "longSide": 59,
+      "decks": [
+        {
+          "name": "",
+          "count": 24
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "flat"
+    }
+  ],
+  "locks": []
+}

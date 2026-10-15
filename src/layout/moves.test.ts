@@ -7,12 +7,14 @@ import {
   insertItem,
   mergeStacks,
   moveCut,
+  moveItem,
   MOVES,
   pickMove,
   removeItems,
   reorderStack,
   rotateItem,
   splitStack,
+  swapItems,
   swapLeaves,
   type MoveEnv,
 } from "./moves";
@@ -139,6 +141,56 @@ describe("moves", () => {
     expect(m && leaves(m.root).length).toBe(2);
     const s = splitStack(start, env(), createRng(7));
     expect(s && leaves(s.root).length).toBe(4);
+  });
+
+  it("moves one tray from a stack to another, where the other moves cannot", () => {
+    // [a, b] | [c] | [d]: a tray changes stacks one at a time, and a stack left empty collapses
+    const t = moveItem(start, env(), createRng(1));
+    expect(t).not.toBeNull();
+    if (t) {
+      expectComplete(t);
+      const sizes = leaves(t.root)
+        .map((l) => l.leaf.stack.length)
+        .sort();
+      expect(sizes.reduce((a, b) => a + b, 0)).toBe(4);
+      expect(sizes).not.toEqual([1, 1, 2]);
+    }
+    let collapsed = false;
+    for (let s = 0; s < 60 && !collapsed; s++) {
+      const m = moveItem(start, env(), createRng(s));
+      collapsed = m !== null && leaves(m.root).length === 2;
+    }
+    expect(collapsed).toBe(true);
+  });
+
+  it("swaps one tray of a stack with one of another, keeping both stack sizes", () => {
+    for (let s = 0; s < 30; s++) {
+      const t = swapItems(start, env(), createRng(s));
+      expect(t).not.toBeNull();
+      if (t) {
+        expectComplete(t);
+        expect(leaves(t.root).map((l) => l.leaf.stack.length)).toEqual([2, 1, 1]);
+        expect(JSON.stringify(t.root)).not.toBe(JSON.stringify(start.root));
+      }
+    }
+  });
+
+  it("moveItem and swapItems leave locked and frozen leaves alone", () => {
+    const frozen = leaf([at(1)], true);
+    const tree: Tree = {
+      root: cut("x", leaf([at(0)]), cut("y", frozen, cut("y", leaf([at(2)]), leaf([at(3)])))),
+      variants: [0, 0, 0, 0],
+    };
+    for (let s = 0; s < 80; s++) {
+      for (const move of [moveItem, swapItems]) {
+        const t = move(tree, env(["0"]), createRng(s));
+        if (t) {
+          expectComplete(t);
+          expect(nodeAt(t.root, "0")).toEqual(leaf([at(0)]));
+          expect(nodeAt(t.root, "10")).toBe(frozen);
+        }
+      }
+    }
   });
 
   it("removes items and collapses emptied leaves", () => {

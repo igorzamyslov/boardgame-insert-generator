@@ -376,7 +376,13 @@ describe("position locks on stacked trays", () => {
     const input = makeInput([a, b, c, d], {
       box: { innerWidth: 270, innerDepth: 100, innerHeight: 90 },
     });
-    const base = optimize(input, 1, 5000);
+    // The tests below need a stack of three trays to take apart. The search is free to stack a
+    // and d, and b and c, instead (two stacks of two), so the base layout asks for a / b / c.
+    const base = optimize(
+      { ...input, locks: [{ kind: "stack", trayKeys: ["a:p0:0", "b:p0:0", "c:p0:0"] }] },
+      1,
+      5000,
+    );
     const layout = base.layout as StoredLayout;
     const trays = layout.trays.filter((t) => t.part === "tray");
     const upper = trays.find((t) => t.level > 0) as StoredLayout["trays"][number];

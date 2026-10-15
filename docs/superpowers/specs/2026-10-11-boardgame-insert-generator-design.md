@@ -931,8 +931,18 @@ fallback: a requirement that still has no variant is left out with a
     multiple of `printer.layerHeight`; the top tray takes the remainder.
 - **Search:** greedy starting layouts (first-fit decreasing along X and along
   Y), then simulated annealing. Moves: swap leaves, flip a cut axis, move a
-  cut, change a variant, rotate, reorder a stack, merge or split a stack.
-  Re-runs after an edit start from the current layout (warm start).
+  cut, change a variant, rotate, reorder a stack, merge or split a stack, move
+  one tray to another stack, swap one tray with one of another stack (the last
+  two trade heights between stacks; no other move changes one tray's stack
+  without a floor overflow on the way). Re-runs after an edit start from the
+  current layout (warm start).
+  **Partition starts:** when no greedy start is feasible, trays are also dealt over
+  2 to 8 stacks side by side (tallest first onto the shortest stack, both ways
+  round, along X and along Y) and the best-scoring start of all wins. A box whose
+  heights fill the top plane with no slack is a partition problem the first-fit
+  packer cannot be steered to solve. Stack-locked groups keep a leaf of their own
+  and position locks are applied as for any start. A feasible greedy start skips
+  this, so ordinary runs begin as before.
 - **Feasibility:** constraint violations count as an overflow penalty during
   the search; the best _feasible_ layout is tracked separately and is the
   result. If none is found, the least-overflow layout is reported (§7.3).

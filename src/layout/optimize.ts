@@ -3,7 +3,7 @@ import type { Notice, StoredLayout } from "../model/types";
 import { createAnnealer, type Annealer, type Candidate } from "./anneal";
 import { createCtx, withSizeLocks, type Ctx, type Measure } from "./context";
 import { evaluate } from "./fill";
-import { greedyTree } from "./greedy";
+import { greedyTree, partitionTrees } from "./greedy";
 import {
   applyLocks,
   lockDroppedNotice,
@@ -133,6 +133,20 @@ function startPhase(
     const c = evalTree(t);
     if (best === null || c.score.total < best.score.total) {
       best = c;
+    }
+  }
+  // Greedy packing that still overflows may be a box with no slack in its heights: try trays dealt
+  // over a few stacks to the same heights (the common case, a greedy start that fits, skips this).
+  if (best === null || best.score.overflow > 0) {
+    for (const s of partitionTrees(ctx, resolved)) {
+      const t = applyLocks(s, resolved, env, rng, hints.axisOf);
+      if (t === null) {
+        continue;
+      }
+      const c = evalTree(t);
+      if (best === null || c.score.total < best.score.total) {
+        best = c;
+      }
     }
   }
   const start = best ?? evalTree(greedyTree(ctx, noLocks(ctx), "x"));

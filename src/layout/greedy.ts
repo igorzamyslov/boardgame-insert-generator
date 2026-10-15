@@ -14,6 +14,9 @@ import {
 } from "./tree";
 import type { Ext, U } from "./units";
 
+/** Most stacks a partition start deals the trays over. */
+const MAX_PARTITION_STACKS = 8;
+
 interface Unit {
   items: StackItem[];
   readonly frozen: boolean;
@@ -57,15 +60,11 @@ export function firstFittingVariant(ctx: Ctx, req: number): number {
   return Math.max(0, i);
 }
 
-/**
- * First-fit decreasing shelf packing (spec §7.2 starting layouts). With `along` = "x",
- * shelves run along X and are stacked along Y; "y" is the transpose. Units that fit in no
- * shelf and no new shelf are stacked onto an existing stack when the grown footprint
- * (lipped wall, insets) still fits the shelf and the floor and the heights fit; otherwise
- * they open a shelf anyway (overflow, which the annealer then removes).
- * Position-locked trays are left out (applyLocks adds them).
- */
-export function greedyTree(ctx: Ctx, resolved: ResolvedLocks, along: Axis): Tree {
+function startingUnits(
+  ctx: Ctx,
+  resolved: ResolvedLocks,
+  along: Axis,
+): { variants: number[]; units: Unit[] } {
   const reqs = ctx.input.requirements;
   const variants = reqs.map((_, i) => resolved.pinnedVariant[i] ?? firstFittingVariant(ctx, i));
   const skip = new Set<number>([
@@ -94,6 +93,19 @@ export function greedyTree(ctx: Ctx, resolved: ResolvedLocks, along: Axis): Tree
       units.push({ items, frozen: false, ext: extOf(items) });
     });
   });
+  return { variants, units };
+}
+
+/**
+ * First-fit decreasing shelf packing (spec §7.2 starting layouts). With `along` = "x",
+ * shelves run along X and are stacked along Y; "y" is the transpose. Units that fit in no
+ * shelf and no new shelf are stacked onto an existing stack when the grown footprint
+ * (lipped wall, insets) still fits the shelf and the floor and the heights fit; otherwise
+ * they open a shelf anyway (overflow, which the annealer then removes).
+ * Position-locked trays are left out (applyLocks adds them).
+ */
+export function greedyTree(ctx: Ctx, resolved: ResolvedLocks, along: Axis): Tree {
+  const { variants, units } = startingUnits(ctx, resolved, along);
   const primary = (e: Ext): U => (along === "x" ? e.w : e.d);
   const secondary = (e: Ext): U => (along === "x" ? e.d : e.w);
   const order = units
@@ -164,4 +176,58 @@ export function greedyTree(ctx: Ctx, resolved: ResolvedLocks, along: Axis): Tree
     ),
   );
   return { root: chain(shelfNodes, otherAxis(along)), variants };
+}
+
+/**
+ * Starting trees aimed at exact height partitions. A box whose parts' heights fill the stacks to
+ * the top plane with no slack is a number-partitioning problem: the shelf packer above stacks by
+ * first fit and cannot be steered to the one split that works, and moves that change one tray
+ * at a time cross a floor overflow. Here the free trays are dealt over `n` stacks side by side
+ * along one axis, tallest first onto the shortest stack (longest-processing-time), for every
+ * `n` from 2 up to as many as there are trays, with trays turned either way. The annealer starts
+ * from whichever scores best, and repairs what is left of the heights (`moveItem`, `swapItems`).
+ * Stack-locked groups keep their own leaf; position-locked trays are left out (applyLocks).
+ */
+export function partitionTrees(ctx: Ctx, resolved: ResolvedLocks): Tree[] {
+  const out: Tree[] = [];
+  for (const turn of ["x", "y"] as const) {
+    const { variants, units } = startingUnits(ctx, resolved, turn);
+    const frozen = units.filter((u) => u.frozen);
+    const free = units
+      .filter((u) => !u.frozen)
+      .map((u, i) => ({
+        u,
+        i,
+        h: stackLevels(ctx, u.items).reduce((s, l) => s + l.minH, 0),
+      }))
+      .sort((a, b) => b.h - a.h || a.i - b.i);
+    for (let n = 2; n <= Math.min(free.length, MAX_PARTITION_STACKS); n++) {
+      const bins: StackItem[][] = Array.from({ length: n }, () => []);
+      const heights: U[] = new Array<U>(n).fill(0);
+      for (const f of free) {
+        let k = 0;
+        for (let b = 1; b < n; b++) {
+          if ((heights[b] ?? 0) < (heights[k] ?? 0)) {
+            k = b;
+          }
+        }
+        const bin = bins[k];
+        if (bin && bin.length < MAX_LEVELS && stackAllowed(ctx, [...bin, ...f.u.items])) {
+          bin.push(...f.u.items);
+          heights[k] = (heights[k] ?? 0) + f.h;
+        } else {
+          bins.push([...f.u.items]);
+          heights.push(f.h);
+        }
+      }
+      const nodes: TreeNode[] = [
+        ...bins.filter((b) => b.length > 0).map((b) => leaf(b)),
+        ...frozen.map((u) => leaf(u.items, true)),
+      ];
+      for (const axis of ["x", "y"] as const) {
+        out.push({ root: chain(nodes, axis), variants });
+      }
+    }
+  }
+  return out;
 }

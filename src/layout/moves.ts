@@ -294,6 +294,83 @@ export const splitStack: Move = (tree, env, rng) => {
   return { ...tree, root: replaceAt(tree.root, o.path, node) };
 };
 
+/**
+ * Takes one tray out of a stack and puts it into another, at a random level. Stacks are only ever
+ * rebuilt whole by the other moves (split + merge passes through a floor overflow of a whole extra
+ * stack), so when the heights must come out exactly, one tray at a time has no cheap way to trade
+ * places; this is that step. An emptied stack leaves the tree where no lock runs through it.
+ */
+export const moveItem: Move = (tree, env, rng) => {
+  const free = leaves(tree.root).filter((l) => !l.leaf.frozen && !isLockedLeaf(env, l.path));
+  const sources = free.filter((l) => l.leaf.stack.length > 0);
+  if (sources.length === 0 || free.length < 2) {
+    return null;
+  }
+  const from = rng.pick(sources);
+  const targets = free.filter(
+    (l) => l.path !== from.path && l.leaf.stack.length < MAX_LEVELS && l.leaf.stack.length > 0,
+  );
+  if (targets.length === 0) {
+    return null;
+  }
+  const k = rng.nextInt(from.leaf.stack.length);
+  const item = from.leaf.stack[k];
+  if (!item) {
+    return null;
+  }
+  const into = rng.pick(targets);
+  const at = rng.nextInt(into.leaf.stack.length + 1);
+  const grown = [...into.leaf.stack.slice(0, at), item, ...into.leaf.stack.slice(at)];
+  if (!stackAllowed(env.ctx, grown)) {
+    return null;
+  }
+  const rest = from.leaf.stack.filter((_, i) => i !== k);
+  let root = replaceAt(tree.root, into.path, leaf(grown));
+  if (rest.length > 0) {
+    root = replaceAt(root, from.path, leaf(rest));
+  } else if (canRemoveLeaf(env, from.path)) {
+    const removed = removeLeafAt(root, from.path);
+    if (removed === null) {
+      return null;
+    }
+    root = removed;
+  } else {
+    root = replaceAt(root, from.path, leaf([]));
+  }
+  return { ...tree, root };
+};
+
+/** Exchanges one tray of a stack with one tray of another: trades heights between stacks. */
+export const swapItems: Move = (tree, env, rng) => {
+  const free = leaves(tree.root).filter(
+    (l) => !l.leaf.frozen && !isLockedLeaf(env, l.path) && l.leaf.stack.length > 0,
+  );
+  if (free.length < 2) {
+    return null;
+  }
+  const i = rng.nextInt(free.length);
+  const j = (i + 1 + rng.nextInt(free.length - 1)) % free.length;
+  const a = free[i];
+  const b = free[j];
+  if (!a || !b) {
+    return null;
+  }
+  const ka = rng.nextInt(a.leaf.stack.length);
+  const kb = rng.nextInt(b.leaf.stack.length);
+  const ia = a.leaf.stack[ka];
+  const ib = b.leaf.stack[kb];
+  if (!ia || !ib) {
+    return null;
+  }
+  const sa = a.leaf.stack.map((it, k) => (k === ka ? ib : it));
+  const sb = b.leaf.stack.map((it, k) => (k === kb ? ia : it));
+  if (!stackAllowed(env.ctx, sa) || !stackAllowed(env.ctx, sb)) {
+    return null;
+  }
+  const root = replaceAt(replaceAt(tree.root, a.path, leaf(sa)), b.path, leaf(sb));
+  return { ...tree, root };
+};
+
 /** Move mix: integer weights, picked with rng.nextInt(total). */
 export const MOVES: readonly {
   readonly name: string;
@@ -308,6 +385,8 @@ export const MOVES: readonly {
   { name: "reorderStack", move: reorderStack, weight: 5 },
   { name: "mergeStacks", move: mergeStacks, weight: 7 },
   { name: "splitStack", move: splitStack, weight: 8 },
+  { name: "moveItem", move: moveItem, weight: 4 },
+  { name: "swapItems", move: swapItems, weight: 4 },
 ];
 
 const TOTAL_WEIGHT = MOVES.reduce((s, m) => s + m.weight, 0);

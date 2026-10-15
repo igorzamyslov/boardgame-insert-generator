@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createCtx } from "./context";
 import { evaluate, overflowTotal } from "./fill";
-import { firstFittingVariant, greedyTree } from "./greedy";
+import { firstFittingVariant, greedyTree, partitionTrees } from "./greedy";
 import { noLocks, resolveLocks } from "./locks";
 import { fitsBed } from "./bed";
 import type { Ctx } from "./context";
 import { stackLevels, stackMinFootprint } from "./stack";
+import { fixtureInput } from "./test-fixtures";
+import { scorePlan } from "./score";
 import { boxReq, comp, fakeMeasure, makeInput, part, req, variant } from "./test-utils";
 import { itemsOf, leaves } from "./tree";
 
@@ -96,6 +98,62 @@ describe("greedyTree", () => {
       for (const l of leaves(tree.root)) {
         expect(printable(ctx, l.leaf.stack)).toBe(true);
       }
+    }
+  });
+});
+
+describe("partitionTrees", () => {
+  it("holds every part once, in stacks side by side, and none for a single tray", () => {
+    const four = [
+      boxReq("a", 80, 80, 30),
+      boxReq("b", 80, 80, 20),
+      boxReq("c", 80, 80, 20),
+      boxReq("d", 80, 80, 10),
+    ];
+    const ctx = createCtx(
+      makeInput(four, { box: { innerWidth: 90, innerDepth: 170, innerHeight: 100 } }),
+      fakeMeasure,
+    );
+    const trees = partitionTrees(ctx, noLocks(ctx));
+    expect(trees.length).toBeGreaterThan(0);
+    for (const t of trees) {
+      expect(
+        itemsOf(t.root)
+          .map((i) => i.req)
+          .sort(),
+      ).toEqual([0, 1, 2, 3]);
+    }
+    const one = createCtx(makeInput([boxReq("a", 80, 80, 30)]), fakeMeasure);
+    expect(partitionTrees(one, noLocks(one))).toEqual([]);
+  });
+
+  it("starts a tight box closer to a fit than first-fit packing does", () => {
+    const ctx = createCtx(fixtureInput("tight-minis"));
+    const overflow = (t: Parameters<typeof evaluate>[1]): number =>
+      scorePlan(ctx, evaluate(ctx, t)).overflow;
+    const greedy = Math.min(
+      ...(["x", "y"] as const).map((a) => overflow(greedyTree(ctx, noLocks(ctx), a))),
+    );
+    const partition = Math.min(...partitionTrees(ctx, noLocks(ctx)).map(overflow));
+    expect(greedy).toBeGreaterThan(0);
+    expect(partition).toBeLessThan(greedy);
+  });
+
+  it("keeps stack-locked groups in a leaf of their own", () => {
+    const four = [
+      boxReq("a", 80, 80, 30),
+      boxReq("b", 80, 80, 20),
+      boxReq("c", 80, 80, 20),
+      boxReq("d", 80, 80, 10),
+    ];
+    const ctx = createCtx(
+      makeInput(four, { box: { innerWidth: 90, innerDepth: 170, innerHeight: 100 } }),
+      fakeMeasure,
+    );
+    const { resolved } = resolveLocks(ctx, [{ kind: "stack", trayKeys: ["b:p0:0", "c:p0:0"] }]);
+    for (const t of partitionTrees(ctx, resolved)) {
+      const group = leaves(t.root).filter((l) => l.leaf.frozen);
+      expect(group.map((l) => l.leaf.stack.map((i) => i.req))).toEqual([[1, 2]]);
     }
   });
 });

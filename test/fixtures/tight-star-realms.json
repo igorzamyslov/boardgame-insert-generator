@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "0.1.7",
+  "createdWith": "0.1.0",
+  "id": "tightsr1",
+  "name": "Star Realms (tight)",
+  "box": {
+    "innerWidth": 101,
+    "innerDepth": 195,
+    "innerHeight": 37,
+    "headroom": 2,
+    "headroomCoverage": "partial",
+    "storedOnSide": false
+  },
+  "printer": {
+    "bedX": 180,
+    "bedY": 180,
+    "bedZ": 180,
+    "bedMargin": 5,
+    "layerHeight": 0.2
+  },
+  "settings": {
+    "wall": 1.2,
+    "floor": 1.2,
+    "divider": 1.2,
+    "fit": 0.7,
+    "cardClearance": 1.5,
+    "cardStackClearance": 1,
+    "cardStackClearancePct": 0.05,
+    "cardThickness": 0.32,
+    "pieceClearance": 1,
+    "boxClearance": 0.5,
+    "trayGap": 0.2,
+    "bottomChamfer": 0.4,
+    "cornerRadius": 3,
+    "scoopRadius": 12,
+    "fingerPocket": {
+      "width": 25,
+      "floorNotch": 12.5,
+      "wallRoom": 10,
+      "dividerRoom": 5
+    },
+    "lip": {
+      "enabled": false,
+      "height": 2,
+      "thickness": 5,
+      "ledge": 1.7,
+      "play": 0.25
+    },
+    "topPressFit": 0,
+    "packingFactor": 0.5,
+    "leftover": "spare",
+    "fillToTop": true,
+    "wallGrowth": 0,
+    "infill": 15
+  },
+  "components": [
+    {
+      "id": "ctzfqraw",
+      "name": "Trade deck",
+      "access": "sometimes",
+      "kind": "cards",
+      "shortSide": 63.5,
+      "longSide": 88,
+      "decks": [
+        {
+          "name": "",
+          "count": 80
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "auto"
+    },
+    {
+      "id": "70kgton0",
+      "name": "Starter deck",
+      "access": "often",
+      "stretch": false,
+      "kind": "cards",
+      "shortSide": 63.5,
+      "longSide": 88,
+      "decks": [
+        {
+          "name": "Deck 1",
+          "count": 15
+        },
+        {
+          "name": "Deck 2",
+          "count": 5
+        },
+        {
+          "name": "Deck 3",
+          "count": 5
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "flat"
+    },
+    {
+      "id": "epeanzhc",
+      "name": "Counter",
+      "access": "setup",
+      "kind": "cards",
+      "shortSide": 63.5,
+      "longSide": 88,
+      "decks": [
+        {
+          "name": "",
+          "count": 18
+        }
+      ],
+      "sleeve": "none",
+      "thickness": {
+        "mode": "preset"
+      },
+      "storage": "auto"
+    }
+  ],
+  "locks": []
+}

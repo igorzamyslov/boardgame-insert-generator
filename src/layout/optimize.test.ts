@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS, effective } from "../model/settings";
 import { minOuter } from "../sizing";
 import { createCtx } from "./context";
 import { evaluate } from "./fill";
-import { bedLipInput, fixtureInput } from "./test-fixtures";
+import { bedLipInput, fixtureInput, TIGHT_FIXTURES, type TightFixtureName } from "./test-fixtures";
 import { checkHardRules } from "./test-hard-rules";
 import { materialize } from "./materialize";
 import { createRun, DEFAULT_ITERATIONS, optimize } from "./optimize";
@@ -341,10 +341,11 @@ describe("optimize", () => {
     });
 
     it("shrinks the total, never grows it, when a chain finds a layout", () => {
-      // case1 seed 5: the first chain dead-ends and the derived-seed chain finds a layout
-      const steps = progress(createRun(bedLipInput("case1"), 5, 50_000));
-      expect(steps[0]?.total).toBe(100_000);
-      expect(steps.at(-1)).toEqual({ done: 100_000, total: 100_000 });
+      // case1 seed 39 with a small budget: the first chain dead-ends and the derived-seed chain
+      // finds a layout (at the default budget the first chain finds one on every seed measured)
+      const steps = progress(createRun(bedLipInput("case1"), 39, 1000));
+      expect(steps[0]?.total).toBe(2000);
+      expect(steps.at(-1)).toEqual({ done: 2000, total: 2000 });
       expect(monotone(steps)).toBe(true);
     });
 
@@ -613,4 +614,19 @@ describe("one requirement's parts look alike (spec §6)", () => {
     expect(trays).toHaveLength(3);
     expect(new Set(trays.map((t) => t.rotated)).size).toBe(1);
   });
+});
+
+describe("a tight box with one exact partition of the heights is solved cold", () => {
+  // Before `moveItem`, `swapItems` and the partition starts, the first took about 4 000 000
+  // iterations to solve (0 of 10 seeds at the default budget, 0 of 10 at 300 000), the second
+  // 0 of 10 at the default budget: a part had to change stacks through a floor overflow, and the
+  // greedy start deals the heights out by first fit, nowhere near the one split that works.
+  const names = Object.keys(TIGHT_FIXTURES) as TightFixtureName[];
+  for (const name of names) {
+    it.each([1, 2, 3, 4, 5])(`${name} gets a layout at the default budget (seed %i)`, (seed) => {
+      const r = optimize(fixtureInput(name), seed, DEFAULT_ITERATIONS);
+      expect(r.layout).not.toBeNull();
+      expect(r.notices.map((n) => n.code)).not.toContain("layout.doesNotFit");
+    });
+  }
 });
