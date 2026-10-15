@@ -31,8 +31,14 @@ import type { Semver } from "../model/version";
  * stretched to the stack's footprint (its walls used to take the excess), it keeps the size its own
  * contents need and the rest of its level is filler parts. Outer tray sizes change, so it is a
  * breaking change.
+ *
+ * 0.5.1 removes the empty spare compartment realizeTray used to add where a tray had row slack
+ * (a pocket that held none of the component's pieces; the slack now goes to a spacer, the
+ * `separators` plates, or the walls, and `wallGrowth` was renamed `wallAbsorb`). It is a PATCH, not a
+ * new line: no outer size, lip, inset or well changes, so trays printed before and after still mate
+ * and stack; only the inside of a tray that had slack to spare differs.
  */
-export const GEOMETRY_VERSION = "0.5.0";
+export const GEOMETRY_VERSION = "0.5.1";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

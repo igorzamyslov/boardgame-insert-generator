@@ -168,7 +168,9 @@ export function sweepCoverage(): void {
       compartments = trays.flatMap((s) => s.compartments.map((c) => ({ tray: s, c })));
     });
 
-    it.each(["well", "pocket", "spare", "scoop"])("compartment kind %s", (kind) => {
+    // "spare" is not here: sizing no longer makes a spare compartment (geometry 0.5.1). The kind is
+    // still built, as an open leftover, by `spareLeftover` in test-specs (tray.test.ts).
+    it.each(["well", "pocket", "scoop"])("compartment kind %s", (kind) => {
       expect(compartments.some(({ c }) => c.kind === kind)).toBe(true);
     });
 
@@ -176,15 +178,13 @@ export function sweepCoverage(): void {
       expect(compartments.some(({ c }) => c.features.some((f) => f.type === type))).toBe(true);
     });
 
-    it("wall cutouts with a floor notch, through outer walls and dividers, and into spares", () => {
+    it("wall cutouts with a floor notch, through outer walls and dividers", () => {
       const cuts = compartments.flatMap(({ tray, c }) =>
         c.features.flatMap((f) => (f.type === "wallCutout" ? [{ tray, f }] : [])),
       );
       expect(cuts.some(({ f }) => f.floorNotch > 0)).toBe(true);
       expect(cuts.some(({ f }) => f.floorNotch === 0)).toBe(true);
       expect(holes).toBeGreaterThan(0);
-      const withSpare = trays.filter((t) => t.compartments.some((c) => c.kind === "spare"));
-      expect(withSpare.some((t) => cuts.some((x) => x.tray === t))).toBe(true);
     });
 
     it("raised floors, lipped, unlipped, upper and rotated trays, and spacers", () => {

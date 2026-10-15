@@ -547,7 +547,7 @@
       "topPressFit": 0,
       "packingFactor": 0.5,
       "leftover": "solid",
-      "wallGrowth": 0,
+      "wallAbsorb": 0,
       "infill": 15
     },
     "locks": [],
@@ -961,7 +961,7 @@
       "topPressFit": 0,
       "packingFactor": 0.5,
       "leftover": "spare",
-      "wallGrowth": 0,
+      "wallAbsorb": 0,
       "infill": 15
     },
     "locks": [],
@@ -1369,7 +1369,7 @@
       "topPressFit": 0,
       "packingFactor": 0.5,
       "leftover": "spare",
-      "wallGrowth": 0,
+      "wallAbsorb": 0,
       "infill": 15
     },
     "locks": [],

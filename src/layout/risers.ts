@@ -79,8 +79,8 @@ export function splitRisers(trays: readonly TraySpec[], o: RiserInputs): TraySpe
         const upper =
           t.level > 0 && settings.lip.enabled ? settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP : 0;
         const least = Math.max(chamferMinimums(settings, t.level).h, upper);
-        // A spare is filler, not content: it may sit at the tray floor (older layouts) and must not
-        // veto the split. It is clamped to the shortened tray's floor below. A tray of nothing but
+        // A spare is filler, not content: a layout stored before geometry 0.5.1 can hold one in a
+        // tray, standing at the tray floor, and it must not veto the split. It is clamped to the shortened tray's floor below. A tray of nothing but
         // spares has no content to size against, so it is left as it is.
         const content = t.compartments.filter((c) => c.kind !== "spare");
         const free = Math.min(...content.map((c) => c.floorZ - t.floor), t.h - least);

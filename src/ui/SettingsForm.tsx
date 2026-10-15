@@ -49,8 +49,8 @@ function fitOptions(s: Settings): SelectOption<FitChoice | "custom">[] {
   return options;
 }
 
-const WALL_GROWTH_PATH = "wallGrowth";
-const wallGrowthRange = SETTING_RANGES.find((r) => r.path === WALL_GROWTH_PATH);
+const WALL_ABSORB_PATH = "wallAbsorb";
+const wallAbsorbRange = SETTING_RANGES.find((r) => r.path === WALL_ABSORB_PATH);
 
 export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps) {
   if (!advanced) {
@@ -67,7 +67,7 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         <summary>Exact values</summary>
         <div class="pf-disc__body">
           <div class="form-grid">
-            {SETTING_RANGES.filter((r) => r.path !== WALL_GROWTH_PATH).map((r) => (
+            {SETTING_RANGES.filter((r) => r.path !== WALL_ABSORB_PATH).map((r) => (
               <NumberField
                 key={r.path}
                 id={`settings-${r.path.replace("/", "-")}`}
@@ -107,17 +107,17 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         ]}
         onChange={(leftover) => onChange({ ...settings, leftover })}
       />
-      {wallGrowthRange ? (
+      {wallAbsorbRange ? (
         <NumberField
-          id="settings-wallGrowth"
-          label={wallGrowthRange.label}
+          id="settings-wallAbsorb"
+          label={wallAbsorbRange.label}
           unit="mm"
-          value={settings.wallGrowth}
-          path="/settings/wallGrowth"
-          min={wallGrowthRange.min}
-          max={wallGrowthRange.max}
-          hint={wallGrowthRange.hint}
-          onCommit={(wallGrowth) => onChange({ ...settings, wallGrowth })}
+          value={settings.wallAbsorb}
+          path="/settings/wallAbsorb"
+          min={wallAbsorbRange.min}
+          max={wallAbsorbRange.max}
+          hint={wallAbsorbRange.hint}
+          onCommit={(wallAbsorb) => onChange({ ...settings, wallAbsorb })}
         />
       ) : null}
       <CheckField

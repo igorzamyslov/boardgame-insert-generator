@@ -6,7 +6,6 @@ import {
   BIN_FREEBOARD,
   CORNER_RELIEF_D,
   MIN_SPACER,
-  MIN_SPARE,
   MIN_FLAT_FLOOR,
   SCOOP_REACH,
   SPACER_TOP_GAP,
@@ -246,13 +245,9 @@ function corners(r: Rect): RectMm {
   return { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.d };
 }
 
-/**
- * The wall cutouts of every placed compartment (placeCutouts), per compartment and side. They come
- * after the spares: a cutout may run into a spare.
- */
+/** The wall cutouts of every placed compartment (placeCutouts), per compartment and side. */
 function wallCutouts(
   items: readonly { req: CompartmentReq; alloc: Rect; spacer: number; depth: number }[],
-  spares: readonly Rect[],
   frame: {
     trayKey: string;
     W: number;
@@ -275,8 +270,7 @@ function wallCutouts(
     }),
   );
   const placed = placeCutouts(requests, {
-    rects: [...items.map((item) => item.alloc), ...spares].map(corners),
-    spare: (index) => index >= items.length,
+    rects: items.map((item) => item.alloc).map(corners),
     spacers: items.map(({ alloc, spacer }) =>
       spacer > 0
         ? {
@@ -318,8 +312,8 @@ function wallCutouts(
 
 /**
  * The walls and dividers the placed cuts pass through (CutWalls), by the rows of `min` (the items
- * are its rows, in order): the end wall or the front or back a cut leaves through or runs into a
- * spare past (and the dividers between rows it crosses on the way), the divider between twins.
+ * are its rows, in order): the end wall or the front or back a cut leaves through (and the dividers
+ * between rows it crosses on the way), the divider between twins.
  */
 function cutWallsOf(placed: readonly PlacedCut[], min: MinLayout): CutWalls {
   const rows = min.rows;
@@ -354,7 +348,8 @@ function cutWallsOf(placed: readonly PlacedCut[], min: MinLayout): CutWalls {
         if (through) {
           walls.right[r] = true;
         }
-        // Into its twin, or past the divider before a spare at the row end.
+        // Into its twin, or out through the row's end wall (the last entry has no divider to widen,
+        // but requestedWalls sets it the same way, so settleRoom's comparison stays exact).
         row[through ? row.length - 1 : i] = true;
         break;
       case "front":
@@ -391,17 +386,17 @@ function layoutAt(
   const { wall, divider, floor, rows, room } = min;
   // How much slack a wall or divider may still take (thicker walls, not finger room). Growth caps
   // are maximums, so they round down; minimums (wall, divider, pocket) round up.
-  const wallGrow = Math.max(0, floorU(settings.wallGrowth));
-  const dividerGrow = wallGrow;
+  const wallAbsorb = Math.max(0, floorU(settings.wallAbsorb));
+  const dividerAbsorb = wallAbsorb;
   const innerW = W - 2 * wall;
   const innerD = D - 2 * wall;
 
-  // Y: elastic rows → thicker walls/dividers → a spare row at the back → the rest to the walls.
+  // Y: elastic rows → thicker walls/dividers (wallAbsorb) → the rest to the walls. Never an empty
+  // pocket: slack that reaches no component's contents is not growth (spec §4).
   // The finger room of walls that wall cutouts leave through is taken first (minLayoutU).
   const rowDepths = min.rowDepths.slice();
   // Dividers between rows a finger cut passes through are thicker by the divider room too.
   const rowGapAfter = (i: number): number => min.rowGaps[i] ?? divider;
-  const spareRowGap = rowGapAfter(rows.length - 1);
   let slackY = innerD - room.front - room.back - sum(rowDepths) - sum(min.rowGaps.slice(0, -1));
   const elasticRows = rows.flatMap((row, i) => (row.some((c) => c.elastic.d) ? [i] : []));
   if (elasticRows.length > 0) {
@@ -411,13 +406,12 @@ function layoutAt(
     });
     slackY = 0;
   }
-  const yExtra = fillCapped(slackY, [wallGrow, ...rows.slice(1).map(() => dividerGrow), wallGrow]);
+  const yExtra = fillCapped(slackY, [
+    wallAbsorb,
+    ...rows.slice(1).map(() => dividerAbsorb),
+    wallAbsorb,
+  ]);
   slackY -= sum(yExtra);
-  let spareRowDepth = 0;
-  if (slackY >= toU(MIN_SPARE) + spareRowGap) {
-    spareRowDepth = slackY - spareRowGap;
-    slackY = 0;
-  }
   const rowYs: number[] = [];
   let y = wall + room.front + (yExtra[0] ?? 0) + Math.floor(slackY / 2);
   rows.forEach((_, i) => {
@@ -427,16 +421,10 @@ function layoutAt(
       y += rowGapAfter(i) + (yExtra[i + 1] ?? 0);
     }
   });
-  const rowsEnd = y;
 
-  // X, per row: elastic bulk → else one card/tile spacer per tray → thicker walls/dividers →
-  // a spare compartment at the row end → the rest to the side walls.
+  // X, per row: elastic bulk → else one card/tile spacer per tray → thicker walls/dividers
+  // (wallAbsorb) → the rest to the side walls.
   const placed: Placed[] = [];
-  const spares: Rect[] = [];
-  // The wells (indexes into `placed`) each spare borders: its row-end neighbour, or, for the spare
-  // row at the back, every well of the last row. They give the spare its floor.
-  const spareBorders: number[][] = [];
-  let lastRowStart = 0;
   let spacerUsed = false;
   rows.forEach((row, r) => {
     const rowY = rowYs[r] ?? wall;
@@ -448,7 +436,6 @@ function layoutAt(
     // Dividers a finger cut passes through are thicker by the divider room (minLayoutU).
     const gaps = min.gaps[r] ?? [];
     const gapAfter = (i: number): number => gaps[i] ?? divider;
-    const spareGap = gapAfter(row.length - 1);
     let slack = innerW - roomLeft - roomRight - sum(widths) - sum(gaps.slice(0, -1));
     let spacerAt = -1;
     const elastic = row.flatMap((c, i) => (c.elastic.w && c.spacerAxis !== "w" ? [i] : []));
@@ -461,31 +448,23 @@ function layoutAt(
     } else {
       const candidate = lastIndex(row, (c) => c.spacerAxis === "w");
       const req = row[candidate];
-      // A divider and a spare pocket hold the deck in place by themselves, and are one part
-      // fewer to print than a loose spacer block, so they win whenever the spare length is
-      // long enough for both. The spacer only earns its place when it isn't: a short pocket
-      // would cost a wall and still leave the cards loose. The pocket has to sit at the row's
-      // end, next to the deck, or the wall wouldn't be between the two.
-      // A deck whose component asks for several spacer plates (`separators` > 1) is the exception:
-      // the plates are the point, so a long slack becomes plates, not a pocket.
-      const plates = (req?.separators ?? 1) > 1;
-      const walled = !plates && candidate === row.length - 1 && slack >= toU(MIN_SPARE) + spareGap;
-      if (!spacerUsed && req !== undefined && !walled && spacerFits(req, slack, settings)) {
+      // The spare length of a deck or stack of tiles is the one slack that can be put to use: a
+      // spacer (or the `separators` plates) keeps the deck snug and is taken out as the
+      // collection grows. However long it is, it never becomes an empty pocket (spec §4).
+      if (!spacerUsed && req !== undefined && spacerFits(req, slack, settings)) {
         growth[candidate] = slack;
         spacerAt = candidate;
         spacerUsed = true;
         slack = 0;
       }
     }
-    const xExtra = fillCapped(slack, [wallGrow, ...row.slice(1).map(() => dividerGrow), wallGrow]);
+    const xExtra = fillCapped(slack, [
+      wallAbsorb,
+      ...row.slice(1).map(() => dividerAbsorb),
+      wallAbsorb,
+    ]);
     slack -= sum(xExtra);
-    let spareW = 0;
-    if (slack >= toU(MIN_SPARE) + spareGap) {
-      spareW = slack - spareGap;
-      slack = 0;
-    }
     let x = wall + roomLeft + (xExtra[0] ?? 0) + Math.floor(slack / 2);
-    lastRowStart = placed.length;
     row.forEach((req, i) => {
       const w = (widths[i] ?? 0) + (growth[i] ?? 0);
       const d = req.elastic.d ? rowDepth : ceilU(req.minD);
@@ -500,20 +479,10 @@ function layoutAt(
         x += gapAfter(i) + (xExtra[i + 1] ?? 0);
       }
     });
-    // A spare at the row end takes the finger room too: a cutout runs into it instead.
-    if (spareW > 0) {
-      spares.push({ x: x + spareGap, y: rowY, w: spareW + roomRight, d: rowDepth });
-      spareBorders.push([placed.length - 1]);
-    }
   });
-  if (spareRowDepth > 0) {
-    const d = spareRowDepth + room.back;
-    spares.push({ x: wall, y: rowsEnd + spareRowGap, w: innerW, d });
-    spareBorders.push(placed.slice(lastRowStart).map((_, i) => lastRowStart + i));
-  }
 
   const items = placed.map((p) => ({ ...p, depth: contentDepth(p.req, p.alloc, H, floor) }));
-  const { byOwner: cuts, placed: cutsPlaced } = wallCutouts(items, spares, {
+  const { byOwner: cuts, placed: cutsPlaced } = wallCutouts(items, {
     trayKey: part.trayKey,
     W,
     D,
@@ -538,20 +507,6 @@ function layoutAt(
       componentId: req.componentId,
       features: featureSpecs(req, alloc, depth, { settings, cuts: cuts[i] ?? new Map() }),
     };
-  });
-  spares.forEach((rect, k) => {
-    // A spare stands on the floor of the well it borders, not on the tray floor: an empty shaft
-    // as deep as the tray is no storage, and it would also keep the raised floor of every well
-    // from becoming a riser (splitRisers takes the least floor of any compartment). Beside
-    // several wells (the back row) it takes the highest of their floors, the shallowest pocket.
-    const beside = (spareBorders[k] ?? []).map((i) => H - (items[i]?.depth ?? H - floor));
-    compartments.push({
-      ...rectSpec(rect),
-      floorZ: fromU(beside.length > 0 ? Math.max(...beside) : floor),
-      kind: "spare",
-      contents: "spare",
-      features: [],
-    });
   });
   // The base (unlipped) wall, rounded up to 0.01 mm like every other TraySpec length.
   const tray = { wall: fromU(ceilU(wallFor(settings, false))), compartments, spacers };

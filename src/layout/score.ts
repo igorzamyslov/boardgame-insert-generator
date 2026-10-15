@@ -28,6 +28,16 @@ export interface ScoreTerms {
   readonly filament: number;
   /** Trays whose position or level differs from the warm-start layout. */
   readonly moved: number;
+  /**
+   * Parts of one requirement turned differently: per requirement, the parts in the less common
+   * orientation. They are one component to the user, so they should look alike (spec §6).
+   */
+  readonly unturned: number;
+  /**
+   * Parts of one requirement spread over several stacks: per requirement, its stacks beyond the
+   * first. Only a preference; a tray reachable on top comes first (spec §6).
+   */
+  readonly apart: number;
 }
 
 export interface Score {
@@ -48,6 +58,9 @@ export interface Score {
  *   one unburied "setup" tray    =                    15 000
  *   1 % of the box in filament   = 1 000 × 10 =       10 000
  *   one moved tray (warm start)  =                     5 000
+ * and two cohesion terms for the parts of one requirement (spec §6), both preferences only:
+ *   one part turned unlike its siblings =             15 000
+ *   one extra stack for a requirement   =             10 000
  * Overflow (any hard-rule violation) costs OVERFLOW_WEIGHT per 0.01 mm, more than any
  * feasible score can reach, so the search always prefers reducing violations.
  * Totals stay far below 2^53, so score deltas are exact integers.
@@ -64,6 +77,16 @@ export const WEIGHTS: Readonly<ScoreTerms> = {
   trays: 20_000,
   filament: 10,
   moved: 5_000,
+  // The parts of one requirement are one thing to the user, so they should look alike. Orientation
+  // is the cheap win (turning a tray rarely costs the packing anything: when it does, it costs a
+  // leftover, a play step or a part, each worth more), so it weighs more than keeping them in one
+  // stack. Both stay under `trays` (20 000, one filler to place by hand) and `stacked` (50 000), so
+  // neither ever buys a filler or a stacked tray, far under `access` (200 000, a buried "often"
+  // tray) and above `moved` (5 000) so a warm start can still be regrouped. The whole of them is a
+  // few hundred thousand at most, nowhere near OVERFLOW_WEIGHT, so they can never make an
+  // infeasible layout beat a feasible one.
+  unturned: 15_000,
+  apart: 10_000,
 };
 
 export const OVERFLOW_WEIGHT = 1_000_000_000;
@@ -96,7 +119,13 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
   let setup = 0;
   let stacked = 0;
   let moved = 0;
+  // Per requirement: the parts turned each way, and the stacks they stand in.
+  const siblings = new Map<number, { turned: number; straight: number; stacks: Set<number> }>();
   for (const t of plan.trays) {
+    const kin = siblings.get(t.item.req) ?? { turned: 0, straight: 0, stacks: new Set<number>() };
+    siblings.set(t.item.req, kin);
+    kin[t.item.rotated ? "turned" : "straight"]++;
+    kin.stacks.add(t.stack);
     const usableW = Math.min(t.w, t.minW + t.capW);
     const usableD = Math.min(t.d, t.minD + t.capD);
     leftoverMm3 += volMm3(t.w, t.d, t.h) - volMm3(usableW, usableD, t.h);
@@ -124,6 +153,12 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
       }
     }
   }
+  let unturned = 0;
+  let apart = 0;
+  for (const kin of siblings.values()) {
+    unturned += Math.min(kin.turned, kin.straight);
+    apart += kin.stacks.size - 1;
+  }
   for (const l of plan.leftovers) {
     leftoverMm3 += volMm3(l.w, l.d, l.h);
     filamentMm3 += l.solid ? volMm3(l.w, l.d, l.h) : shell(ctx, l.w, l.d, l.h);
@@ -140,6 +175,8 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     trays: plan.trays.length + plan.leftovers.length,
     filament: share(filamentMm3, boxMm3),
     moved,
+    unturned,
+    apart,
   };
   const overflow = overflowTotal(plan.overflow);
   const total =
@@ -152,6 +189,8 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     terms.stacked * WEIGHTS.stacked +
     terms.trays * WEIGHTS.trays +
     terms.filament * WEIGHTS.filament +
-    terms.moved * WEIGHTS.moved;
+    terms.moved * WEIGHTS.moved +
+    terms.unturned * WEIGHTS.unturned +
+    terms.apart * WEIGHTS.apart;
   return { total, overflow, terms };
 }

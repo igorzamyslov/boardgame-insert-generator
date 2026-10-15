@@ -122,12 +122,29 @@ describe("schema history", () => {
     expect(older.project.settings.infill).toBe(15);
   });
 
-  it("reads the wallGrowth setting of the 0.1.6 file, and defaults it to 0 for older files", () => {
-    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.6.json"]);
+  it("reads wallAbsorb from the 0.1.8 file, and wallGrowth, its old name, from the 0.1.6 and 0.1.7 files", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.8.json"]);
     expect(notices).toEqual([]);
-    expect(project.settings.wallGrowth).toBe(1.2);
+    expect(project.settings.wallAbsorb).toBe(0.8);
+    for (const old of ["0.1.6", "0.1.7"]) {
+      const file = load(HISTORY[`../../test/fixtures/schema/${old}.json`]);
+      // the old key is read, not reported as an unknown field, and not written back
+      expect(file.notices).toEqual([]);
+      expect(file.project.settings.wallAbsorb).toBe(1.2);
+      expect("wallGrowth" in file.project.settings).toBe(false);
+    }
     const older = load(HISTORY["../../test/fixtures/schema/0.1.5.json"]);
-    expect(older.project.settings.wallGrowth).toBe(0);
+    expect(older.project.settings.wallAbsorb).toBe(0);
+  });
+
+  it("prefers wallAbsorb when a file has both keys", () => {
+    const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.1.8.json"]) as {
+      settings: Record<string, number>;
+    };
+    raw.settings.wallGrowth = 2.5;
+    const { project, notices } = load(raw);
+    expect(notices).toEqual([]);
+    expect(project.settings.wallAbsorb).toBe(0.8);
   });
 
   it("reads the separators option of the 0.1.5 file, and leaves it unset for older files", () => {

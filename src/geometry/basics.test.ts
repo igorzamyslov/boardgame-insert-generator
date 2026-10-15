@@ -48,8 +48,8 @@ describe("UnsupportedFeatureError and GEOMETRY_VERSION", () => {
     expect(err.message).toMatch(/"magnet".*newer app version/);
   });
 
-  it("is at 0.5.0: a stack level is a tray plus fillers, so stacked trays keep their own size, a new line", () => {
-    expect(GEOMETRY_VERSION).toBe("0.5.0");
+  it("is at 0.5.1: 0.5.0 (a stack level is a tray plus fillers) without the in-tray spare compartment, a PATCH", () => {
+    expect(GEOMETRY_VERSION).toBe("0.5.1");
   });
 });
 

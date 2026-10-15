@@ -33,7 +33,7 @@ export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Setting
   "lip/play": (s, v) => ({ ...s, lip: { ...s.lip, play: v } }),
   topPressFit: (s, v) => ({ ...s, topPressFit: v }),
   packingFactor: (s, v) => ({ ...s, packingFactor: v }),
-  wallGrowth: (s, v) => ({ ...s, wallGrowth: v }),
+  wallAbsorb: (s, v) => ({ ...s, wallAbsorb: v }),
   infill: (s, v) => ({ ...s, infill: v }),
 };
 

@@ -23,10 +23,10 @@ const input = makeInput(reqs, { box: { innerWidth: 280, innerDepth: 200, innerHe
 
 // A 103.2 × 63.2 mm tray in a 106.2 × 63.25 mm floor: 3 mm of slack along X, a 0.05 mm sliver along Y.
 describe("leaf slack: a filler part, or thicker walls only when the user allows them", () => {
-  const run = (wallGrowth: number) => {
+  const run = (wallAbsorb: number) => {
     const inp = makeInput([boxReq("a", 100, 60, 20)], {
       box: { innerWidth: 107.2, innerDepth: 64.25, innerHeight: 60 },
-      settings: { wallGrowth },
+      settings: { wallAbsorb },
     });
     const r = optimize(inp, 1, 500);
     const trays = r.layout?.trays ?? [];
@@ -43,15 +43,15 @@ describe("leaf slack: a filler part, or thicker walls only when the user allows 
     expect(leftovers.map((l) => l.w)).toEqual([2.8]);
   });
 
-  it("absorbs the slack into thicker walls once wallGrowth covers it, and not before", () => {
-    // Two walls each take wallGrowth: 2 × 1.4 = 2.8 mm is under the 3 mm, 2 × 1.6 = 3.2 is over.
+  it("absorbs the slack into thicker walls once wallAbsorb covers it, and not before", () => {
+    // Two walls each take wallAbsorb: 2 × 1.4 = 2.8 mm is under the 3 mm, 2 × 1.6 = 3.2 is over.
     expect(run(1.4).leftovers).toHaveLength(1);
     const absorbed = run(1.6);
     expect(absorbed.leftovers).toEqual([]);
     expect(absorbed.tray?.w).toBe(106.2);
   });
 
-  it("absorbs a gap too small to be a part even with wallGrowth 0", () => {
+  it("absorbs a gap too small to be a part even with wallAbsorb 0", () => {
     // The 0.05 mm of depth slack never becomes a leftover.
     expect(run(0).tray?.d).toBe(63.25);
     expect(run(0).leftovers.every((l) => l.d > 60)).toBe(true);
@@ -585,5 +585,27 @@ describe("a stack level holds a tray plus fillers (spec: minimal trays)", () => 
     const sig = (r: LayoutResult) =>
       (r.layout?.trays ?? []).map((t) => [t.key, t.part, t.level, t.x, t.y, t.w, t.d]);
     expect(sig(again)).toEqual(sig(first));
+  });
+});
+
+describe("one requirement's parts look alike (spec §6)", () => {
+  // Three near-square parts of one component, and two more trays: turning one costs the packing
+  // next to nothing, so the weak orientation term decides and every seed leaves them turned alike.
+  const parts = [0, 1, 2].map((i) =>
+    part(`s:p0:${i}`, [comp({ minW: 40, minD: 40, minH: 10, contents: `part ${i}` })]),
+  );
+  const family = [
+    req("s", [variant("three", parts)], { access: "sometimes" }),
+    boxReq("k", 90, 60, 20),
+    boxReq("m", 70, 50, 15),
+  ];
+  const inp = makeInput(family, { box: { innerWidth: 200, innerDepth: 150, innerHeight: 60 } });
+
+  it.each([1, 2, 3, 4, 5, 6, 7, 8])("turns them all the same way (seed %i)", (seed) => {
+    const r = optimize(inp, seed, 5000);
+    expect(r.layout).not.toBeNull();
+    const trays = (r.layout?.trays ?? []).filter((t) => t.key.startsWith("s:"));
+    expect(trays).toHaveLength(3);
+    expect(new Set(trays.map((t) => t.rotated)).size).toBe(1);
   });
 });

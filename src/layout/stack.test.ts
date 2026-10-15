@@ -12,7 +12,7 @@ import {
 } from "./stack";
 import { boxReq, fakeMeasure, item, makeInput } from "./test-utils";
 
-function ctxFor(box: { innerHeight?: number; headroom?: number } = {}, wallGrowth = 0): Ctx {
+function ctxFor(box: { innerHeight?: number; headroom?: number } = {}, wallAbsorb = 0): Ctx {
   return createCtx(
     makeInput(
       [
@@ -22,7 +22,7 @@ function ctxFor(box: { innerHeight?: number; headroom?: number } = {}, wallGrowt
         boxReq("tall", 50, 40, 45),
         boxReq("flat", 50, 40, 2),
       ],
-      { box, settings: { wallGrowth } },
+      { box, settings: { wallAbsorb } },
     ),
     fakeMeasure,
   );

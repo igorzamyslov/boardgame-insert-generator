@@ -298,7 +298,8 @@ function spacersInsideCompartments(r: RealizedTray): void {
 
 /** Everything assertTrayInvariants does not cover: the contract with the requested part. */
 function checkAgainstPart(part: TrayPartReq, outer: OuterSize, r: RealizedTray): void {
-  expect(r.compartments.length).toBeGreaterThanOrEqual(part.compartments.length);
+  // No empty pocket: a tray holds exactly the compartments its part asked for (spec §4).
+  expect(r.compartments).toHaveLength(part.compartments.length);
   r.compartments.forEach((c, i) => {
     const depth = outer.h - c.floorZ;
     for (const f of c.features) {
@@ -308,8 +309,7 @@ function checkAgainstPart(part: TrayPartReq, outer: OuterSize, r: RealizedTray):
     }
     const req = part.compartments[i];
     if (req === undefined) {
-      expect(c.kind).toBe("spare");
-      return;
+      throw new Error(`compartment ${i} was not asked for`);
     }
     expect(c.contents).toBe(req.contents);
     expect(c.w).toBeGreaterThanOrEqual(req.minW - EPS);

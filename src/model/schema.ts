@@ -12,6 +12,7 @@ import {
 } from "./json";
 import type { ForeignValue } from "./schema-read";
 import { readProject, TOO_DEEP_ERROR } from "./schema-read";
+import { spareCompartment } from "./schema-read-layout";
 import { SCHEMA_NOTICE_CODES } from "./schema-reader";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ForeignData, Notice, ParseResult, Project } from "./types";
@@ -290,7 +291,65 @@ export function toSerializable(p: Project, foreign: ForeignData): Json {
   // Always a deep copy: the result shares nothing with `p` or `foreign`.
   const out = structuredClone({ ...p, createdWith: APP_VERSION, components }) as Json;
   restoreValues(out, foreign.values ?? []);
+  compactLayout(out);
   return out;
+}
+
+/**
+ * What a stored layout leaves out because reading puts it back, so a share link (which has to fit
+ * a chat message, 2 000 characters) does not pay for it:
+ * - a card spacer's fields that are the same on every spacer (a plain solid block: no compartments,
+ *   wall or lip);
+ * - the one compartment of an open leftover or in-level filler, which is always the spare pocket
+ *   spareCompartment describes.
+ * Only values equal to what reading restores are dropped, so nothing is lost.
+ */
+function compactLayout(out: Json): void {
+  const layout = out.layout;
+  const trays = isRecord(layout) ? layout.trays : undefined;
+  if (!Array.isArray(trays)) {
+    return;
+  }
+  for (const tray of trays) {
+    if (!isRecord(tray)) {
+      continue;
+    }
+    if (tray.part === "spacer") {
+      // every spacer is a plain solid block: no path, turn, wall, floor, lip or compartments
+      if (tray.path === "") {
+        delete tray.path;
+      }
+      if (tray.rotated === false) {
+        delete tray.rotated;
+      }
+      if (tray.wall === 0) {
+        delete tray.wall;
+      }
+      if (tray.floor === 0) {
+        delete tray.floor;
+      }
+      if (tray.lip === false) {
+        delete tray.lip;
+      }
+      if (tray.solid === true) {
+        delete tray.solid;
+      }
+      if (Array.isArray(tray.compartments) && tray.compartments.length === 0) {
+        delete tray.compartments;
+      }
+    } else if (tray.part === "leftover" && tray.solid === false) {
+      const { w, d, wall, floor } = tray;
+      if (
+        typeof w === "number" &&
+        typeof d === "number" &&
+        typeof wall === "number" &&
+        typeof floor === "number" &&
+        JSON.stringify(tray.compartments) === JSON.stringify([spareCompartment(w, d, wall, floor)])
+      ) {
+        delete tray.compartments;
+      }
+    }
+  }
 }
 
 /** Compact JSON for links and storage. */

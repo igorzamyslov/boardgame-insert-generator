@@ -82,7 +82,7 @@ export function ToggleOptions<C extends Component>({
           id={`${c.id}-stretch`}
           label="Stretch to fill"
           checked={stretchOn(c)}
-          hint="Upright stacks only: the tray grows to fill the space instead of staying snug. Off, a spare tray fills the gap."
+          hint="Upright stacks only: the tray grows to fill the space instead of staying snug, and a loose spacer takes up the extra length so the stack stays snug. Off, a spare tray fills the gap."
           onChange={(on) => onChange({ ...c, stretch: on })}
         />
       ) : null}

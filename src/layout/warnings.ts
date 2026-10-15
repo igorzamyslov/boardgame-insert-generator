@@ -79,7 +79,7 @@ export function layoutWarnings(
       const labels = [
         ...new Set(
           exposed.map((t) =>
-            // spare compartments are empty filler: they hold nothing that could spill
+            // spare compartments (in layouts stored before geometry 0.5.1) are empty filler: nothing to spill
             partLabel(
               t.compartments.filter((c) => c.kind !== "spare").map((c) => c.contents),
               t.key,

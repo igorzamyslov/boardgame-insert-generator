@@ -26,13 +26,12 @@ export interface CutPlacement {
 export interface PlacedCut extends CutPlacement {
   owner: number;
   side: Side;
-  to: "exit" | "spare" | "twin"; // out through the outer wall, into a spare, or into its twin
+  to: "exit" | "twin"; // out through the outer wall, or into its twin
   foot: RectMm; // its footprint: the band along the side, its strip across it
 }
 
 export interface CutContext {
-  rects: readonly RectMm[]; // every compartment of the tray (units): the owners first, then the spares
-  spare: (index: number) => boolean;
+  rects: readonly RectMm[]; // every compartment of the tray (units), in order
   // per owner, the card spacer standing at the high-x end of its well, or null: the channel along
   // the row runs on through it (notched), a cut across the row keeps clear of it
   spacers: readonly (RectMm | null)[];
@@ -64,20 +63,18 @@ function spanAcross(ctx: CutContext, side: Side): number {
   return alongX(side) ? ctx.span.y : ctx.span.x;
 }
 
-/** Where a request's cut runs: out through the outer face, into a spare, or into a twin request. */
-type Across =
-  { kind: "exit" } | { kind: "spare"; index: number } | { kind: "twin"; request: number };
+/** Where a request's cut runs: out through the outer face, or into a twin request. */
+type Across = { kind: "exit" } | { kind: "twin"; request: number };
 
 /**
  * Places every requested wall cutout (roadmap §4.7):
- * - A request's cut runs out through the outer wall when no compartment lies across its side, into
- *   a spare compartment, or through the divider into a compartment that asks for a cut on the facing
+ * - A request's cut runs out through the outer wall when no compartment lies across its side, or
+ *   through the divider into a compartment that asks for a cut on the facing
  *   side and is centred on the same line (its twin). Toward any other compartment there is no cut:
  *   a channel never opens into bits or a well with its finger cuts off.
  * - Twins, and the cuts on the two sides of one compartment, form a run: one channel with one
  *   centre (the first member's) and one width, at most the setting. It leaves a POST_MM post
- *   between its sides and the faces of every compartment it passes (its members and the spares it
- *   runs into), so the wall still holds the contents (spec §6.1), and reaches at most half way
+ *   between its sides and the faces of every compartment it passes (its members), so the wall still holds the contents (spec §6.1), and reaches at most half way
  *   into the gap to any other compartment within MIN_FEATURE_MM of the cuts, less
  *   MIN_FEATURE_MM / 2. Runs are placed one after the other, each keeping MIN_FEATURE_MM from the
  *   cuts already placed (a pocket's cut out past a deck keeps clear of the deck's channel). A run
@@ -159,9 +156,6 @@ function placeRuns(requests: readonly CutAsk[], ctx: CutContext, placed: PlacedC
     if (j < 0) {
       return { kind: "exit" };
     }
-    if (ctx.spare(j)) {
-      return { kind: "spare", index: j };
-    }
     // Twins face each other: each is the other's nearest compartment across.
     const twin = requests.findIndex(
       (t, m) =>
@@ -208,7 +202,7 @@ function placeRuns(requests: readonly CutAsk[], ctx: CutContext, placed: PlacedC
 
   for (const members of runs.values()) {
     const run = runOf(members, requests, across, ctx);
-    const band = bandOf(run, requests, across, ctx, placed);
+    const band = bandOf(run, requests, ctx, placed);
     if (band === null) {
       continue;
     }
@@ -284,10 +278,7 @@ function runOf(
     const end =
       to.kind === "exit"
         ? outer
-        : faceOf(
-            rectOf(to.kind === "spare" ? to.index : (requests[to.request]?.owner ?? -1)),
-            OPPOSITE[q.side],
-          );
+        : faceOf(rectOf(requests[to.request]?.owner ?? -1), OPPOSITE[q.side]);
     return [Math.min(face, end), Math.max(face, end)] as const;
   });
   const owners = new Set(members.map((k) => requests[k]?.owner ?? -1));
@@ -303,37 +294,28 @@ function rangeOf(run: Run, ctx: CutContext): { u0: number; u1: number } {
 /**
  * A run's centre and half-width (units), or null when it has no room for MIN_CUT_MM (or the
  * setting, if smaller): centred on its first member, at most half the setting, keeping a POST_MM
- * post to the faces of every compartment it passes (its members and the spares it runs into), and
+ * post to the faces of every compartment it passes (its members), and
  * at most half way (less MIN / 2) toward any other compartment, and MIN from any cut in `placed`,
  * that lies within MIN of its cuts.
  */
 function bandOf(
   run: Run,
   requests: readonly CutAsk[],
-  across: readonly (Across | null)[],
   ctx: CutContext,
   placed: readonly PlacedCut[],
 ): { at: number; half: number } | null {
   const { side, owners, strips } = run;
-  const entered = new Set(
-    run.members.flatMap((k) => {
-      const to = across[k];
-      return to?.kind === "spare" ? [to.index] : [];
-    }),
-  );
   const first = axes(rectAt(ctx, requests[run.members[0] ?? -1]?.owner ?? -1), side);
   const at = Math.round((first.u0 + first.u1) / 2);
   const { u0: lowU, u1: highU } = rangeOf(run, ctx);
   // Its posts: POST from the faces of every compartment it passes. (They also keep its sides past
   // the outer corners' arcs: a post starts at least a wall from the outer face.)
-  const passed = [...owners, ...entered].map((i) => axes(rectAt(ctx, i), side));
+  const passed = [...owners].map((i) => axes(rectAt(ctx, i), side));
   let lo = Math.max(...passed.map((p) => p.u0)) + POST;
   let hi = Math.min(...passed.map((p) => p.u1)) - POST;
   // Other compartments, of whose gap it takes half; cuts already placed, which it keeps MIN from.
   const obstacles = [
-    ...ctx.rects.flatMap((r, i) =>
-      owners.has(i) || entered.has(i) ? [] : [{ ...axes(r, side), share: true }],
-    ),
+    ...ctx.rects.flatMap((r, i) => (owners.has(i) ? [] : [{ ...axes(r, side), share: true }])),
     ...placed.map((c) => ({ ...axes(c.foot, side), share: false })),
   ];
   for (const b of obstacles) {

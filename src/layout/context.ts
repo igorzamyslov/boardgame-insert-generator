@@ -34,7 +34,7 @@ export interface PartMetrics {
   readonly w: U;
   readonly d: U;
   readonly h: U;
-  /** Footprint slack absorbable without a spare compartment (elastic axis → INF_U). */
+  /** Footprint slack absorbable without a filler part (elastic axis → INF_U). */
   readonly capW: U;
   readonly capD: U;
   /** Some compartment can grow deeper (scoop): height slack goes here first. */
@@ -114,9 +114,9 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
   const boxClearance = toU(eff.boxClearance);
   // Rounded up like sizing (roadmap §4.7): never below MIN_WALL_MM.
   const wall = toUCeil(wallFor(settings, false));
-  // Walls thicken inward by at most `wallGrowth` each, so both sides of an axis absorb twice that
+  // Walls thicken inward by at most `wallAbsorb` each, so both sides of an axis absorb twice that
   // (spec §7.2). Rounded down like realize's cap: it is a maximum.
-  const wallCap = 2 * toUFloor(settings.wallGrowth);
+  const wallCap = 2 * toUFloor(settings.wallAbsorb);
   const cache = new Map<number, PartMetrics>();
   const byKey = new Map<string, PartRef[]>();
   input.requirements.forEach((r: TrayRequirement, req) => {

@@ -69,7 +69,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   packingFactor: 0.5,
   leftover: "spare",
   fillToTop: true,
-  wallGrowth: 0,
+  wallAbsorb: 0,
   infill: 15,
 });
 

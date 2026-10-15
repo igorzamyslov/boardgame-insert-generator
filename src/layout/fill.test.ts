@@ -214,7 +214,7 @@ describe("fill", () => {
     }
   });
 
-  it("absorbs a gap too narrow to be a part, even with wallGrowth 0", () => {
+  it("absorbs a gap too narrow to be a part, even with wallAbsorb 0", () => {
     const ctx = ctxOf([boxReq("a", 100, 60, 20)]);
     for (const extra of [100, 250, 259]) {
       const sp = placeStack(ctx, stackLevels(ctx, [item(0)]), {
@@ -228,8 +228,8 @@ describe("fill", () => {
     }
   });
 
-  it("absorbs up to wallGrowth per wall, and prints a filler for more", () => {
-    const ctx = ctxOf([boxReq("a", 100, 60, 20)], { settings: { wallGrowth: 1.6 } });
+  it("absorbs up to wallAbsorb per wall, and prints a filler for more", () => {
+    const ctx = ctxOf([boxReq("a", 100, 60, 20)], { settings: { wallAbsorb: 1.6 } });
     // Two walls take 2 × 1.6 mm = 320 units.
     const fits = placeStack(ctx, stackLevels(ctx, [item(0)]), {
       x: 0,

@@ -42,9 +42,9 @@ describe("createCtx", () => {
     expect(a.w).toBe(5401);
     expect(a.d).toBe(4400);
     expect(a.h).toBe(2120);
-    expect(a.capW).toBe(0); // wallGrowth defaults to 0: walls never take slack
+    expect(a.capW).toBe(0); // wallAbsorb defaults to 0: walls never take slack
     const grown = createCtx(
-      makeInput([boxReq("a", 50.001, 40, 20)], { settings: { wallGrowth: 1.6 } }),
+      makeInput([boxReq("a", 50.001, 40, 20)], { settings: { wallAbsorb: 1.6 } }),
       fakeMeasure,
     );
     expect(grown.metrics({ req: 0, variant: 0, part: 0 }, false, 0).capW).toBe(320);

@@ -106,8 +106,8 @@ describe("SettingsForm", () => {
   it("describes every exact value and wires the hint to its input", () => {
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={vi.fn()} />);
     const disc = view.container.querySelector("details.pf-disc");
-    // wallGrowth sits beside "Unused space", not under Exact values (tested below).
-    for (const r of SETTING_RANGES.filter((x) => x.path !== "wallGrowth")) {
+    // wallAbsorb sits beside "Unused space", not under Exact values (tested below).
+    for (const r of SETTING_RANGES.filter((x) => x.path !== "wallAbsorb")) {
       const input = disc?.querySelector(`#settings-${r.path.replace("/", "-")}`);
       const hint = document.getElementById(`${input?.id}-hint`);
       expect(hint?.textContent, r.path).toBe(r.hint);
@@ -115,26 +115,26 @@ describe("SettingsForm", () => {
     }
   });
 
-  it("puts the wall growth control beside Unused space in advanced mode only, with its hint", () => {
+  it("puts the wall absorption control beside Unused space in advanced mode only, with its hint", () => {
     const onChange = vi.fn();
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
     const disc = view.container.querySelector("details.pf-disc");
-    const input = screen.getByLabelText(/^Wall growth instead of a filler/);
+    const input = screen.getByLabelText(/^Thicker walls instead of a filler/);
     expect(disc?.contains(input)).toBe(false);
-    const range = SETTING_RANGES.find((r) => r.path === "wallGrowth");
-    expect(document.getElementById("settings-wallGrowth-hint")?.textContent).toBe(range?.hint);
+    const range = SETTING_RANGES.find((r) => r.path === "wallAbsorb");
+    expect(document.getElementById("settings-wallAbsorb-hint")?.textContent).toBe(range?.hint);
     fireEvent.input(input, { target: { value: "1,5" } });
-    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, wallGrowth: 1.5 });
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, wallAbsorb: 1.5 });
     cleanup();
     render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
-    expect(screen.queryByLabelText(/^Wall growth instead of a filler/)).toBeNull();
+    expect(screen.queryByLabelText(/^Thicker walls instead of a filler/)).toBeNull();
   });
 
   it("edits every advanced number, the lip and the leftover", () => {
     const onChange = vi.fn();
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
     const exactValues = within(view.container.querySelector("details.pf-disc") as HTMLElement);
-    for (const r of SETTING_RANGES.filter((x) => x.path !== "wallGrowth")) {
+    for (const r of SETTING_RANGES.filter((x) => x.path !== "wallAbsorb")) {
       const exact = new RegExp(`^${r.label.replace(/[()]/g, "\\$&")}( \\((mm|%)\\))?$`);
       expect(exactValues.getByLabelText(exact), r.path).toBeTruthy();
     }

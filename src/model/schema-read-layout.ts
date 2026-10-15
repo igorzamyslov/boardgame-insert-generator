@@ -65,25 +65,62 @@ function readCompartment(r: Reader): CompartmentSpec {
   });
 }
 
+/**
+ * The one compartment of an open (non-solid) leftover: a spare pocket as wide and deep as the
+ * part's inside, on its floor. materialize writes exactly this, and a stored layout leaves it out
+ * (compactLayout), so reading puts it back. Lengths are on the 0.01 mm grid, like every TraySpec.
+ */
+export function spareCompartment(
+  w: number,
+  d: number,
+  wall: number,
+  floor: number,
+): CompartmentSpec {
+  const round = (v: number): number => Math.round(v * 100) / 100;
+  return {
+    x: wall,
+    y: wall,
+    w: round(w - 2 * wall),
+    d: round(d - 2 * wall),
+    floorZ: floor,
+    kind: "spare",
+    contents: "",
+    features: [],
+  };
+}
+
 function readTray(r: Reader): TraySpec {
+  const part = r.oneOf("part", ["tray", "leftover", "spacer"]);
+  // A spacer is written without the fields it always has the same value for (compactSpacers), so
+  // they default here; a file that spells them out reads the same.
+  const spacer = part === "spacer";
+  const w = r.strictNum("w");
+  const d = r.strictNum("d");
+  const wall = r.strictNum("wall", spacer ? 0 : undefined);
+  const floor = r.strictNum("floor", spacer ? 0 : undefined);
+  const solid = r.bool("solid", spacer);
+  // An open leftover written without its compartment has the default one (spareCompartment).
+  const openLeftover = part === "leftover" && !solid && !r.has("compartments");
   return r.finish({
     key: r.str("key"),
-    part: r.oneOf("part", ["tray", "leftover", "spacer"]),
+    part,
     path: r.str("path", ""),
     stack: r.strictNum("stack"),
     level: r.strictNum("level"),
     x: r.strictNum("x"),
     y: r.strictNum("y"),
     z: r.strictNum("z"),
-    w: r.strictNum("w"),
-    d: r.strictNum("d"),
+    w,
+    d,
     h: r.strictNum("h"),
     rotated: r.bool("rotated", false),
-    wall: r.strictNum("wall"),
-    floor: r.strictNum("floor"),
-    lip: r.bool("lip"),
-    solid: r.bool("solid", false),
-    compartments: r.objects("compartments", []).map(readCompartment),
+    wall,
+    floor,
+    lip: spacer ? r.bool("lip", false) : r.bool("lip"),
+    solid,
+    compartments: openLeftover
+      ? [spareCompartment(w, d, wall, floor)]
+      : r.objects("compartments", []).map(readCompartment),
     ...(r.has("features") ? { features: r.objects("features").map(readFeature) } : {}),
   });
 }

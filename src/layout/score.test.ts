@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createCtx } from "./context";
 import { evaluate } from "./fill";
 import { OVERFLOW_WEIGHT, scorePlan, WEIGHTS, type PrevPos } from "./score";
-import { boxReq, fakeMeasure, item, makeInput } from "./test-utils";
+import { boxReq, comp, fakeMeasure, item, makeInput, part, req, variant } from "./test-utils";
 import { cut, leaf, type Tree } from "./tree";
 
 describe("score", () => {
@@ -35,7 +35,9 @@ describe("score", () => {
           WEIGHTS.setup +
           WEIGHTS.stacked +
           WEIGHTS.trays +
-          WEIGHTS.moved) +
+          WEIGHTS.moved +
+          WEIGHTS.unturned +
+          WEIGHTS.apart) +
       20_000 * WEIGHTS.play +
       100_000 * WEIGHTS.filament;
     expect(OVERFLOW_WEIGHT).toBeGreaterThan(maxFeasible);
@@ -142,6 +144,91 @@ describe("score", () => {
         return `${bottom.total}/${top.total}`;
       });
       expect(new Set(totals).size).toBe(3);
+    });
+  });
+
+  describe("keeping one requirement's parts together (spec §6)", () => {
+    // One requirement of three square parts, "often" used, and one more tray to stack with.
+    const parts = [0, 1, 2].map((i) =>
+      part(`s:p0:${i}`, [comp({ minW: 40, minD: 40, minH: 10, contents: `part ${i}` })]),
+    );
+    const family = [
+      req("s", [variant("v", parts)], { access: "often" }),
+      boxReq("k", 40, 40, 10, { access: "sometimes" }),
+    ];
+    const ctx = createCtx(makeInput(family), fakeMeasure);
+    const piece = (p: number, rotated = false) => ({ req: 0, variant: 0, part: p, rotated });
+    const k = { req: 1, variant: 0, part: 0, rotated: false };
+    const side = (...stacks: (typeof k)[][]): Tree["root"] => {
+      let root: Tree["root"] = leaf(stacks[stacks.length - 1] ?? []);
+      for (let i = stacks.length - 2; i >= 0; i--) {
+        root = cut("x", leaf(stacks[i] ?? []), root);
+      }
+      return root;
+    };
+    const score = (root: Tree["root"]) => scorePlan(ctx, evaluate(ctx, { root, variants: [0, 0] }));
+
+    it("counts the parts turned unlike most of their siblings, per requirement", () => {
+      const turned = (...flags: boolean[]) =>
+        score(side(...flags.map((r, i) => [piece(i, r)]), [k])).terms.unturned;
+      expect(turned(false, false, false)).toBe(0);
+      expect(turned(true, true, true)).toBe(0);
+      expect(turned(false, false, true)).toBe(1);
+      expect(turned(true, false, true)).toBe(1);
+      // a requirement of one part has nothing to agree with
+      expect(score(side([item(1, true)])).terms.unturned).toBe(0);
+    });
+
+    it("prefers one orientation by exactly its weight when the parts are square in plan", () => {
+      const same = score(side([piece(0)], [piece(1)], [piece(2)], [k]));
+      const mixed = score(side([piece(0)], [piece(1, true)], [piece(2)], [k]));
+      expect(mixed.overflow).toBe(0);
+      expect(mixed.terms.leftover).toBe(same.terms.leftover);
+      expect(mixed.total - same.total).toBe(WEIGHTS.unturned);
+    });
+
+    it("counts the extra stacks a requirement's parts stand in", () => {
+      expect(score(side([piece(0), piece(1), piece(2)], [k])).terms.apart).toBe(0);
+      expect(score(side([piece(0), piece(1)], [piece(2)], [k])).terms.apart).toBe(1);
+      expect(score(side([piece(0)], [piece(1)], [piece(2)], [k])).terms.apart).toBe(2);
+    });
+
+    it("never outweighs keeping an often-used tray on top", () => {
+      // The Star Realms case: grouping all three parts buries two of them, the interleaved layout
+      // only one. The weak term must not decide it, however it is arranged around them.
+      const grouped = score(side([piece(0), piece(1), piece(2)], [k]));
+      const split = score(side([piece(0), piece(1)], [k, piece(2)]));
+      expect(grouped.terms.access).toBe(2);
+      expect(split.terms.access).toBe(1);
+      expect(grouped.terms.apart).toBe(0);
+      expect(split.terms.apart).toBe(1);
+      expect(split.total).toBeLessThan(grouped.total);
+      // and by construction, for any number of parts: one buried tray costs more than every stack
+      // it could save, and than every orientation
+      expect(WEIGHTS.apart).toBeLessThan(WEIGHTS.access);
+      expect(WEIGHTS.unturned).toBeLessThan(WEIGHTS.access);
+    });
+
+    it("stays below an extra printed part and a stacked tray, and above a moved one", () => {
+      for (const w of [WEIGHTS.unturned, WEIGHTS.apart]) {
+        expect(w).toBeLessThan(WEIGHTS.trays);
+        expect(w).toBeLessThan(WEIGHTS.stacked);
+        expect(w).toBeGreaterThan(WEIGHTS.moved);
+      }
+    });
+
+    it("cannot make an infeasible layout beat a feasible one", () => {
+      // The worst case a requirement can add: 100 parts, each turned unlike the other half and in
+      // a stack of its own.
+      const most = 100 * WEIGHTS.apart + 50 * WEIGHTS.unturned;
+      expect(most).toBeLessThan(OVERFLOW_WEIGHT);
+      const flat = createCtx(makeInput(family, { box: { innerWidth: 60 } }), fakeMeasure);
+      const over = scorePlan(
+        flat,
+        evaluate(flat, { root: side([piece(0)], [piece(1)], [k]), variants: [0, 0] }),
+      );
+      expect(over.overflow).toBeGreaterThan(0);
+      expect(over.total).toBeGreaterThan(score(side([piece(0), piece(1), piece(2)], [k])).total);
     });
   });
 

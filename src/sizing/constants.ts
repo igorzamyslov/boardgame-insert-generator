@@ -21,7 +21,7 @@ export const SCOOP_REACH = 35;
 export const MIN_FLAT_FLOOR = 15;
 /** Empty wall left above a loose pile, so pieces don't spill over the rim when the box moves. */
 export const BIN_FREEBOARD = 5;
-/** Smallest extra empty ("spare") compartment realizeTray adds, inner mm. */
+/** Smallest inner size at which a riser opens into a walled box rather than staying solid, mm. */
 export const MIN_SPARE = 10;
 /** Card spacer: minimum spare stack length and minimum spacer height (spec §6.2). */
 export const MIN_SPACER = 5;

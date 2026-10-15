@@ -1,7 +1,9 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { FIXTURES } from "../layout/test-fixtures";
 import { newComponent, newProject } from "./defaults";
 import { canonicalJson, cyrb53, inputsHash } from "./hash";
+import { parseProject } from "./schema";
 import type { BulkComponent, CardsComponent, MinisComponent, Project } from "./types";
 
 function sample(): Project {
@@ -44,10 +46,25 @@ describe("inputsHash", () => {
     expect(inputsHash(off)).not.toBe(inputsHash(on));
   });
 
-  it("changes with wallGrowth, since it moves where leaf slack goes", () => {
+  it("changes with wallAbsorb, since it moves where leaf slack goes", () => {
     const base = sample();
-    const grown: Project = { ...base, settings: { ...base.settings, wallGrowth: 1 } };
+    const grown: Project = { ...base, settings: { ...base.settings, wallAbsorb: 1 } };
     expect(inputsHash(grown)).not.toBe(inputsHash(base));
+  });
+
+  it("hashes the fixtures as before wallGrowth became wallAbsorb, so no saved plan goes stale", () => {
+    // Pinned from the code before the rename: the hash still names the setting wallGrowth.
+    const pinned: Record<string, string> = {
+      "cards-heavy": "12814b27c4de66",
+      "bits-heavy": "1f7b3a193165a8",
+      "tiles-minis": "13bb56259e7343",
+      "small-tiles": "18eb0ff1c6707c",
+      "tiny-box": "15096435ce0ebb",
+    };
+    for (const [name, hash] of Object.entries(pinned)) {
+      const parsed = parseProject(FIXTURES[name as keyof typeof FIXTURES]);
+      expect(parsed.ok && inputsHash(parsed.project), name).toBe(hash);
+    }
   });
 
   it("ignores infill: it only changes the filament estimate, never a part", () => {

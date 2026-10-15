@@ -43,7 +43,8 @@ export function rowsOf<T>(arrangement: TrayPartReq["arrangement"], items: readon
 /**
  * The walls and dividers the tray's wall cutouts pass through (placeCutouts), which get finger
  * room: per row its left and right end walls, the front and back walls, per row the divider after
- * each compartment (the last: before a spare at the row end, which the row's right cut runs into),
+ * each compartment (the last has no divider to widen: it is where the divider before a spare at the
+ * row end used to be, and is kept only so requestedWalls and the placed cuts compare equal),
  * and the dividers between rows.
  */
 export interface CutWalls {
@@ -76,10 +77,10 @@ export interface MinLayout {
   room: CutRoom;
   rows: CompartmentReq[][]; // rowsOf(part.arrangement, part.compartments)
   widths: number[][]; // per row: each compartment's minW
-  // per row: the divider after each compartment but the last, and before a spare at the row end;
+  // per row: the divider after each compartment but the last (the last entry is unused);
   // dividers a finger cut passes through get fingerPocket.dividerRoom more (CutWalls)
   gaps: number[][];
-  // the dividers after each row but the last, and before a spare row at the back; likewise
+  // the dividers after each row but the last (the last entry is unused); likewise
   rowGaps: number[];
   rowDepths: number[]; // per row: the deepest compartment's minD
   innerW: number;

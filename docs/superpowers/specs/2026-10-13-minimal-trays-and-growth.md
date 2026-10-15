@@ -1,7 +1,9 @@
 # Minimal trays, fillers between them, per-component growth
 
-Status: §4 implemented (geometry 0.5.0, see §4.1); §5, §6 and the two cleanups at the end of §4
-are still proposed. Written 2026-10-13 for a later session.
+Status: §4 implemented (geometry 0.5.0, see §4.1), with its two cleanups (the in-tray spare
+removed and `wallGrowth` renamed `wallAbsorb`: geometry 0.5.1, schema 0.1.8, see §4.2) and the
+"keeping one component's parts together" part of §6 (see §6.1); §5 and the rest of §6 are still
+proposed. Written 2026-10-13 for a later session.
 Companion to `2026-10-11-boardgame-insert-generator-design.md`; that document is
 authoritative for everything this one does not change.
 
@@ -52,7 +54,7 @@ Implemented as of GEOMETRY_VERSION 0.4.0 / SCHEMA_VERSION 0.1.7:
   `minFiller` (the narrowest part `planTray` will build, 2.4 mm at the default
   chamfer). Below that it is absorbed, because the slack must go somewhere or
   the trays shift laterally (rule 1).
-- **Wall thickening is opt-in.** `settings.wallGrowth` (mm per wall, default 0)
+- **Wall thickening is opt-in.** `settings.wallGrowth` (now `wallAbsorb`, §4.2; mm per wall, default 0)
   is the only thing that absorbs slack into walls.
 - **Risers.** `splitRisers` takes each stack's raised floor out as its own part
   at print time. The stored layout is unchanged, which keeps share links small.
@@ -159,21 +161,47 @@ real project of §3 shows the effect (below).
 On the §3 project the two minis trays now both come out 110 × 28.4 with 1.2 mm walls (the stacked
 one was 110 × 37.65 with 5.82 mm walls), with a 110 × 10.76 filler beside it in its level.
 
-### Also remove: the in-tray spare compartment
+### 4.2 The two cleanups, as implemented (geometry 0.5.1, schema 0.1.8)
 
-`realizeTray` turns leftover row slack into a `kind: "spare"` compartment when
-it is at least `MIN_SPARE` + a divider. That is an empty pocket holding none of
-the component's pieces — absorption, not growth, and reported as a defect ("a
-decks' holder with a pocket"). With a minimal tray there is no row slack to
-begin with, so the mechanism becomes vestigial; delete it rather than leave it
-to fire on the cases that slip through. Note `splitRisers` currently has to
-ignore spares when sizing a riser; that workaround can go with it.
+**The in-tray spare compartment is gone.** `realizeTray` no longer turns row slack into a
+`kind: "spare"` compartment, neither at the end of a row nor as a spare row at the back: a tray
+holds exactly the compartments its part asks for, and `placeCutouts` lost the "run into a spare"
+case that only existed for it. Row and depth slack goes, in this order, to elastic bulk, to the one
+spacer a deck or tile stack may have (however long, or as `separators` plates), to
+`wallAbsorb`, and then evenly to the walls, because slack must go somewhere or the trays shift
+laterally (hard rule 1). The `spare` compartment kind itself stays for open leftovers and fillers.
+`splitRisers` keeps clamping a spare to the tray floor, because a layout stored before 0.5.1 can
+still hold one.
 
-### Also rename: `wallGrowth`
+- **Grip.** Checked, and the spare was never what gave a tray its grip. `hasGrip` is only a test
+  oracle (the sizing layer does not choose variants by it), and a tray needs a grip only when a
+  compartment asks for a wall cutout or a scoop, which then supplies it itself. Differentially, on
+  the old code, over 169 000 realized trays (55 900 of them with a spare, across the property
+  suite's arbitraries, with and without extra slack): none relied on its spare for a grip, and
+  none lacked one. So rule 8 holds and no variant stops surviving.
+- **Stretched decks.** A stretched card or tile tray keeps whatever slack it is given along its
+  stack axis, and it now becomes a spacer (`spacerFits` has no upper limit: 30, 60 and 150 mm
+  were tested) or `separators` plates. Two limits worth knowing. A tray prints one spacer, so in
+  a two-row tray the second row's slack stays in its walls once the first row has the spacer.
+  And a spacer is a solid block where the pocket was hollow: the `small-tiles` fixture, which
+  stretches three 199 mm trays, goes from about 330 g to about 430 g of filament. That is what
+  `stretch` asks for until §5 bounds it, and bounding it is the real fix.
+- **Versioning.** `GEOMETRY_VERSION` 0.5.0 to 0.5.1, a PATCH: no outer size, lip, inset or well
+  changes, so trays printed before and after still mate and stack, and layouts stored at 0.5.0 are
+  not stale; only the inside of a tray that had slack to spare differs. (A MINOR would have told
+  every user to reprint the whole insert for nothing.)
+- **Share links.** A spacer is a stored part, so replacing a spare pocket by a spacer lengthened
+  the link of `small-tiles` by 130 to 165 characters and pushed it past the 2 000 limit. The stored
+  layout now leaves out what reading puts back (schema 0.1.8): the fields every spacer has the same
+  value for, and the one default pocket of an open leftover. That took 35 and 70 characters off
+  the small-tiles link, and about 60 off `tiles-minis`, whose links were over the limit before.
 
-The name says growth, but thickening a wall gives the contents nothing. Rename
-it to something that says absorption (`wallAbsorb`, or similar) so the settings
-do not teach the wrong model. Additive rename: keep reading the old key.
+**`wallGrowth` is now `wallAbsorb`** (label "Thicker walls instead of a filler"; the hint says it
+absorbs and gives the contents no room). The name says what happens to the slack, and `absorb` is
+the word this spec already used for it. A file that only has `wallGrowth` keeps its value (the
+reader accepts either key, `wallAbsorb` winning, and never reports the old one as unknown), the
+hash still names it `wallGrowth` so that no saved plan goes stale, and SCHEMA_VERSION goes 0.1.7
+to 0.1.8, a PATCH since nothing that read before stops reading.
 
 ## 5. Growth policy per component kind
 
@@ -424,7 +452,7 @@ faces the box wall or another tray's back, not one facing a finger cut.
 Note this is in tension with the whole spec, and that is fine — it is an
 explicit user choice to trade honest geometry for fewer parts, not a default.
 
-### Keeping one component's parts together
+### Keeping one component's parts together (done: see §6.1)
 
 When a component is split across several trays (variants with parts `p0:0`,
 `p0:1`, …), the optimizer treats each part independently. In the Star Realms
@@ -464,6 +492,37 @@ Two preferences worth adding to the score, in this order:
 
 So implement 1 unconditionally and 2 as a weak term, and make sure neither can
 push a feasible layout into an infeasible one.
+
+### 6.1 Keeping one component's parts together, as implemented
+
+Two score terms, `WEIGHTS.unturned` and `WEIGHTS.apart` (`layout/score.ts`), both per requirement
+and both over the parts of its active variant:
+
+- **Same orientation** (`unturned`, 15 000): the parts turned unlike the majority, so
+  `min(turned, not turned)`. Unconditional (it does not look at the footprint), but weak, so a tray
+  that really packs better turned still wins: the parts of the trays are only near-square once
+  slack has been absorbed into one of them, and a sliver of leftover is worth more than this.
+- **Same stack** (`apart`, 10 000): the stacks a requirement's parts stand in beyond the first.
+
+How the weights were set, against the neighbours (trays 20 000, stacked 50 000, access 200 000,
+setup 15 000, moved 5 000): both are below `trays`, so neither ever buys a filler to be placed by
+hand, and below `stacked`, so neither buys a stacked tray; far below `access`, so reachability
+always wins, and they cannot override feasibility, because a requirement's whole contribution is
+orders of magnitude under `OVERFLOW_WEIGHT` and a violation costs that per 0.01 mm. Both are above
+`moved`, so a warm start can still regroup. Orientation weighs more than the stack because it is
+the cheap win. There is a test for each of these relations, and one that grouping three "often"
+trays (400 000 of access) loses to the interleaved layout (200 000), as §6 predicted.
+
+One bias to know about: `apart` is 0 for a variant of one part, so it nudges the optimizer, by at
+most 10 000 per extra part, towards variants with fewer parts. `trays` already charges 20 000 for
+each part, so it points the same way.
+
+**Result on the Star Realms project** (warm start from its stored layout, which is how the app
+re-runs it; a cold run still does not find a layout, before or after, see the backlog): the three
+Starter-deck trays now share an orientation on every seed (they did not before: one turned, two
+not), and still stand in two stacks (the interleaving the spec predicted: one stack would bury two
+"often" trays, 400 000, against one, 200 000, for a gain of 10 000). Marking the component
+"sometimes" is still the way to get one stack.
 
 ## 7. Risks, and what to measure before shipping
 

@@ -302,10 +302,12 @@ describe("separators and the stored layout", () => {
     const kinds = (layout: StoredLayout) =>
       layout.trays.flatMap((t) => (t.part === "tray" ? t.compartments.map((c) => c.kind) : []));
 
-    it("keeps a spare pocket with one plate and no spacer", () => {
-      const layout = stored(roomyWith(1));
-      expect(kinds(layout)).toContain("spare");
-      expect(spacers(layout.trays)).toHaveLength(0);
+    it("makes one spacer block with one plate, and no spare pocket", () => {
+      const p = roomyWith(1);
+      const layout = stored(p);
+      expect(kinds(layout)).not.toContain("spare");
+      expect(spacers(layout.trays)).toHaveLength(1);
+      expect(spacers(printed(p, layout).trays)).toHaveLength(1);
     });
 
     it("turns the slack into plates with several, and no spare pocket", () => {

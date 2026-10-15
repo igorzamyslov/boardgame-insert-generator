@@ -55,8 +55,9 @@ export interface ComponentBase {
   stretch?: boolean;
   // cards and tiles with `stretch` on only: how many thin loose plates the stretch spacer is
   // printed as, so one can be pulled out as the collection grows (absent: 1, a single spacer).
-  // The plates are derived for printing (splitSeparators); but a count above 1 also makes the
-  // layout build a spacer where it would build a spare pocket, so it is part of the inputs hash.
+  // The plates are derived for printing (splitSeparators). Before geometry 0.5.1 a count above 1
+  // also made the layout build a spacer where it would build a spare pocket, which is why it is
+  // still part of the inputs hash.
   separators?: number;
 }
 
@@ -142,8 +143,10 @@ export interface Settings {
   /**
    * Most extra thickness (mm) each wall or divider may take on to soak up leaf slack instead of
    * the slack becoming a filler part (spec §7.2). 0 = never thicken: slack is printed as a filler.
+   * This is absorption, not growth: a thicker wall gives the contents no more room (spec §4).
+   * Called `wallGrowth` up to schema 0.1.7; the reader still accepts that key.
    */
-  wallGrowth: number;
+  wallAbsorb: number;
   /**
    * Infill (percent) the filament estimate assumes for the sparse interior of thick parts (spec
    * §8.3). Display only: it changes no geometry, so it is not part of the inputs hash.

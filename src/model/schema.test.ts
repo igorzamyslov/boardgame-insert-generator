@@ -11,7 +11,7 @@ import {
   serializeProject,
   toSerializable,
 } from "./schema";
-import type { Project } from "./types";
+import type { Project, StoredLayout, TraySpec } from "./types";
 import { VALIDATION_NOTICE_CODES, validateProject } from "./validate";
 import { APP_VERSION, SCHEMA_VERSION } from "./version";
 
@@ -241,6 +241,119 @@ describe("toSerializable", () => {
     });
     expect((out.settings as Json).leftover).toBe("hollow");
     expect(newProject().settings.leftover).toBe("spare");
+  });
+});
+
+describe("a stored layout leaves out what reading puts back", () => {
+  const tray = (over: Partial<TraySpec>): TraySpec => ({
+    key: "k",
+    part: "tray",
+    path: "0",
+    stack: 0,
+    level: 0,
+    x: 0,
+    y: 0,
+    z: 0,
+    w: 50,
+    d: 40,
+    h: 20,
+    rotated: false,
+    wall: 1.2,
+    floor: 1.2,
+    lip: false,
+    solid: false,
+    compartments: [],
+    ...over,
+  });
+  const spacer = tray({
+    key: "k:spacer",
+    part: "spacer",
+    path: "",
+    wall: 0,
+    floor: 0,
+    solid: true,
+    h: 9.7,
+    features: [{ type: "spacerNotch", axis: "x", at: 8.41, width: 10.82, depth: 2.35 }],
+  });
+  const spare = tray({
+    key: "leftover:0",
+    part: "leftover",
+    w: 31.45,
+    d: 20.1,
+    compartments: [
+      { x: 1.2, y: 1.2, w: 29.05, d: 17.7, floorZ: 1.2, kind: "spare", contents: "", features: [] },
+    ],
+  });
+  const solid = tray({ key: "leftover:1", part: "leftover", solid: true });
+  const withLayout = (trays: TraySpec[]): Project => ({
+    ...sampleProject(),
+    layout: { ...(sampleProject().layout as StoredLayout), trays },
+  });
+  const written = (p: Project): Json[] =>
+    ((raw(p).layout as Json).trays as Json[]).filter((t) => typeof t === "object");
+
+  it("writes a spacer without its constant fields and an open leftover without its pocket", () => {
+    const [t, sp, lo, so] = written(withLayout([tray({}), spacer, spare, solid]));
+    expect(sp).toEqual({
+      key: "k:spacer",
+      part: "spacer",
+      stack: 0,
+      level: 0,
+      x: 0,
+      y: 0,
+      z: 0,
+      w: 50,
+      d: 40,
+      h: 9.7,
+      features: spacer.features,
+    });
+    expect(lo?.compartments).toBeUndefined();
+    // a tray, and a solid leftover, are written whole
+    expect(t).toMatchObject({ path: "0", wall: 1.2, rotated: false, compartments: [] });
+    expect(so).toMatchObject({ solid: true, compartments: [] });
+  });
+
+  it("reads them back to the same layout", () => {
+    const p = withLayout([tray({}), spacer, spare, solid]);
+    const back = parseProject(raw(p));
+    expect(back.ok && back.project.layout).toEqual(p.layout);
+    expect(back.ok && back.notices).toEqual([]);
+  });
+
+  it("reads a layout that spells them out the same as one that does not", () => {
+    const p = withLayout([spacer, spare]);
+    const full = structuredClone(p) as unknown as Json;
+    const spelled = parseProject(JSON.parse(JSON.stringify(full)));
+    const compact = parseProject(raw(p));
+    expect(spelled.ok && compact.ok && spelled.project.layout).toEqual(
+      compact.ok ? compact.project.layout : null,
+    );
+  });
+
+  it("keeps a pocket that is not the default one, and an open leftover with none", () => {
+    const odd = tray({
+      key: "leftover:2",
+      part: "leftover",
+      w: 31.45,
+      d: 20.1,
+      compartments: [
+        { x: 1.2, y: 1.2, w: 20, d: 17.7, floorZ: 1.2, kind: "spare", contents: "", features: [] },
+      ],
+    });
+    const none = tray({ key: "leftover:3", part: "leftover", compartments: [] });
+    const p = withLayout([odd, none]);
+    const out = written(p);
+    expect(out[0]?.compartments).toHaveLength(1);
+    expect(out[1]?.compartments).toEqual([]);
+    const back = parseProject(raw(p));
+    expect(back.ok && back.project.layout).toEqual(p.layout);
+  });
+
+  it("does not change the project it writes", () => {
+    const p = withLayout([spacer, spare]);
+    const before = structuredClone(p);
+    raw(p);
+    expect(p).toEqual(before);
   });
 });
 

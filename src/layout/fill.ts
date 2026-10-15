@@ -80,7 +80,7 @@ export function overflowTotal(o: Overflow): U {
  * A tray's extent on one axis: region extent L, minimum F, absorbable a, cap c (spec §7.2).
  * The excess over F is absorbed into the tray, with no filler part, only when the tray can take
  * it without anyone asking for a filler: an elastic axis (a is unbounded), or walls the user let
- * grow (`wallGrowth`, a), or when the excess minus the tray gap is too small to be a part at all
+ * grow (`wallAbsorb`, a), or when the excess minus the tray gap is too small to be a part at all
  * (under `minFiller`) so there is nowhere else for it to go. Anything else becomes a
  * leftover (filler) beside a tray of exactly its minimum size. The same rules apply in every
  * level of a stack, each against the room its own level has.
@@ -174,7 +174,7 @@ function beside(ctx: Ctx, region: Rect, foot: Ext): Rect[] {
 /**
  * Fills one leaf. A stack level is one tray plus whatever leftover its room has:
  * - the bottom tray takes the leaf footprint minus any leftover; slack the tray can't absorb
- *   (elastic axes, `wallGrowth`) becomes a leftover strip of any width from ctx.minFiller up
+ *   (elastic axes, `wallAbsorb`) becomes a leftover strip of any width from ctx.minFiller up
  *   that stands beside the whole stack, and a gap narrower than that is absorbed by the tray;
  *   bed and size-lock caps force a leftover of at least ctx.minFiller;
  * - tray k ≥ 1 sits inset k·inset per side in the tray below it, is built at the smallest size

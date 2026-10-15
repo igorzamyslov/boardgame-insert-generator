@@ -154,6 +154,9 @@ function readSettings(r: Reader | undefined): Settings {
   }
   const fp = r.optChild("fingerPocket");
   const lip = r.optChild("lip");
+  // `wallAbsorb` was called `wallGrowth` up to schema 0.1.7: a file that only has the old key keeps
+  // its value (read either way, so the old key is never reported as an unknown field).
+  const legacyWallAbsorb = r.num("wallGrowth", d.wallAbsorb);
   return r.finish({
     wall: r.num("wall", d.wall),
     floor: r.num("floor", d.floor),
@@ -190,7 +193,7 @@ function readSettings(r: Reader | undefined): Settings {
     packingFactor: r.num("packingFactor", d.packingFactor),
     leftover: r.oneOf("leftover", ["spare", "solid"], d.leftover),
     fillToTop: r.bool("fillToTop", d.fillToTop),
-    wallGrowth: r.num("wallGrowth", d.wallGrowth),
+    wallAbsorb: r.num("wallAbsorb", legacyWallAbsorb),
     infill: r.num("infill", d.infill),
   });
 }

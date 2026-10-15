@@ -116,8 +116,8 @@ describe("upright cards and tiles: one finger channel", () => {
       ],
       "upright-c2|rows2|split1",
     );
-    // The walls may take the slack (wallGrowth), which widens both rows into the shared end wall.
-    const grow: Settings = { ...s, wallGrowth: 1.6 };
+    // The walls may take the slack (wallAbsorb), which widens both rows into the shared end wall.
+    const grow: Settings = { ...s, wallAbsorb: 1.6 };
     const min = minOuter(part, grow, ground);
     const r = realize(part, grow, ground, { ...min, d: min.d + 3 });
     const [row0, row1] = r.compartments;
@@ -311,17 +311,18 @@ describe("flat cards and tiles: cutouts through the long walls", () => {
     ]);
   });
 
-  it("runs a cutout into a spare compartment at the row end", () => {
+  it("runs the last cutout out through the end wall of a wider tray, not into a pocket", () => {
     const part = partOf([cards({ storage: "flat", decks: decks(30, 30) })], "flat|strip|split1");
     const min = minOuter(part, s, ground);
     const r = realize(part, s, ground, { ...min, w: min.w + 30 });
-    expect(r.compartments.map((c) => c.kind)).toEqual(["well", "well", "spare"]);
+    expect(r.compartments.map((c) => c.kind)).toEqual(["well", "well"]);
     expect(cutsOf(at(r.compartments, 1)).map((f) => ("side" in f ? f.side : ""))).toEqual([
       "left",
       "right",
     ]);
     const plan = planTray(traySpecFrom(r, { ...min, w: min.w + 30 }, ground, s, "t"), s);
-    expect(plan.compartments[1]?.cuts.map((cut) => cut.into)).toEqual([0, 2]);
+    // The left cut runs into the first well (its twin); the right one leaves through the end wall.
+    expect(plan.compartments[1]?.cuts.map((cut) => cut.into)).toEqual([0, null]);
   });
 });
 
@@ -542,15 +543,14 @@ describe("finger room in the cut walls (fingerPocket.wallRoom)", () => {
     expect(minOuter(part, roomy, ground)).toEqual(minOuter(part, s, ground));
   });
 
-  it("gives the room to a spare at the row end, which the cutout runs into", () => {
+  it("keeps the finger room of the end wall in a wider tray, with no pocket beside it", () => {
     const part = partOf([cards({ storage: "flat", decks: decks(30, 30) })], "flat|strip|split1");
     const min = minOuter(part, wallOnly, ground);
-    const grow: Settings = { ...wallOnly, wallGrowth: 1.6 };
-    const r = realize(part, grow, ground, { ...min, w: min.w + 30 });
-    const spare = at(r.compartments, 2);
-    expect(spare.kind).toBe("spare");
-    // The spare reaches the grown wall: it took the 10 mm of finger room.
-    expect(Math.round((min.w + 30 - spare.x - spare.w) * 100) / 100).toBe(3.2);
+    const r = realize(part, wallOnly, ground, { ...min, w: min.w + 30 });
+    expect(r.compartments.map((c) => c.kind)).toEqual(["well", "well"]);
+    // The last well still stands 10 mm of finger room (and a wall) in from the end it cuts through.
+    const last = at(r.compartments, 1);
+    expect(min.w + 30 - (last.x + last.w)).toBeGreaterThanOrEqual(10 + 1.6);
   });
 
   it("reproduces the trays without finger room at 0", () => {

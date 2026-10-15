@@ -283,12 +283,12 @@ const settingRanges: SettingRange[] = [
     hint: "Share of a loose-pieces scoop tray that the pieces actually fill. Their own volume divided by this sizes the tray, so 0.5 gives twice the room and lower is roomier.",
   },
   {
-    path: "wallGrowth",
-    label: "Wall growth instead of a filler",
-    get: (s) => s.wallGrowth,
+    path: "wallAbsorb",
+    label: "Thicker walls instead of a filler",
+    get: (s) => s.wallAbsorb,
     min: 0,
     max: 3,
-    hint: "How much thicker each wall or divider may get to soak up spare room instead of printing a separate filler part. 0 keeps every wall as set and prints the filler. Above 3 mm a wall is more than double a normal one, so a filler is the better choice.",
+    hint: "How much thicker each wall or divider may get to absorb spare room instead of printing a separate filler part. A thicker wall holds nothing and gives the contents no more room: it only hides the gap. 0 keeps every wall as set and prints the filler. Above 3 mm a wall is more than double a normal one, so a filler is the better choice.",
   },
   {
     path: "infill",
