@@ -39,6 +39,21 @@ describe("unsupportedReason / buildErrorReason", () => {
     expect(unsupportedReason(magnet)).toBe('Uses feature "magnet" from a newer app version.');
   });
 
+  it("holds a merged part to what its members can be built with", () => {
+    const filler = makeTray({ key: "leftover:0", part: "leftover", compartments: [] });
+    const merged = (...members: ReturnType<typeof makeTray>[]) =>
+      makeTray({
+        key: "merged:0",
+        part: "leftover",
+        compartments: [],
+        merged: { members, bridges: [], flipped: false },
+      });
+    expect(unsupportedReason(merged(filler, filler))).toBeNull();
+    expect(unsupportedReason(merged(filler, magnet))).toBe(
+      'Uses feature "magnet" from a newer app version.',
+    );
+  });
+
   it("turns build errors into readable reasons by their name", () => {
     const unsupported = new GeometryBuildError(
       'Unsupported tray feature "lid": this tray was made with a newer app version',

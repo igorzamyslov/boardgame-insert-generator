@@ -73,6 +73,31 @@ describe("inputsHash", () => {
     expect(inputsHash(denser)).toBe(inputsHash(base));
   });
 
+  it("ignores mergeFillers and mergeRisers: they only group the stored parts for printing", () => {
+    // Print-time decompositions like the riser split (spec minimal-trays §6, lever 1): turning
+    // either switch must neither stale a plan nor re-run the optimizer.
+    const base = sample();
+    const hash = inputsHash(base);
+    for (const mergeFillers of [true, false]) {
+      for (const mergeRisers of [true, false]) {
+        const p: Project = { ...base, settings: { ...base.settings, mergeFillers, mergeRisers } };
+        expect(inputsHash(p), `${mergeFillers} ${mergeRisers}`).toBe(hash);
+      }
+    }
+    for (const name of Object.keys(FIXTURES)) {
+      const parsed = parseProject(FIXTURES[name as keyof typeof FIXTURES]);
+      if (!parsed.ok) {
+        throw new Error(parsed.error);
+      }
+      const p = parsed.project;
+      const flipped: Project = {
+        ...p,
+        settings: { ...p.settings, mergeFillers: !p.settings.mergeFillers, mergeRisers: true },
+      };
+      expect(inputsHash(flipped), name).toBe(inputsHash(p));
+    }
+  });
+
   it("includes an own __proto__ field of a component", () => {
     const base = sample();
     const withProtoField = (value: number): Project => {

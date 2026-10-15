@@ -155,6 +155,35 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });
   });
 
+  it("offers the two merge switches in advanced mode only: fillers on, risers off by default", () => {
+    const onChange = vi.fn();
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    const fillers = screen.getByLabelText("Merge fillers into one part") as HTMLInputElement;
+    const risers = screen.getByLabelText("Fold risers into the merged fillers") as HTMLInputElement;
+    expect(fillers.checked).toBe(true);
+    expect(risers.checked).toBe(false);
+    fireEvent.click(fillers);
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, mergeFillers: false });
+    fireEvent.click(risers);
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, mergeRisers: true });
+    view.unmount();
+    // the riser switch does nothing while fillers are not merged, so it cannot be ticked
+    render(
+      <SettingsForm
+        settings={{ ...DEFAULT_SETTINGS, mergeFillers: false }}
+        advanced
+        onChange={onChange}
+      />,
+    );
+    expect(
+      (screen.getByLabelText("Fold risers into the merged fillers") as HTMLInputElement).disabled,
+    ).toBe(true);
+    cleanup();
+    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
+    expect(screen.queryByLabelText("Merge fillers into one part")).toBeNull();
+    expect(screen.queryByLabelText("Fold risers into the merged fillers")).toBeNull();
+  });
+
   it("offers Fill the box to the top in advanced mode only, on by default", () => {
     const onChange = vi.fn();
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);

@@ -1,5 +1,5 @@
 import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
-import type { Settings, TraySpec } from "../model/types";
+import type { MergedPart, Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
 import { cutFace, filletStrip } from "./plan-cuts";
@@ -273,10 +273,76 @@ function toMesh(solid: Manifold): Mesh {
   return { positions, indices: new Uint32Array(raw.triVerts) };
 }
 
+// The solid of one tray part from its TraySpec alone, tracked in `scope`; its frame is tray-local
+// (origin at the outer min corner, z = 0 at the bottom). Throws like buildTray.
+function buildSolid(
+  m: ManifoldToplevel,
+  scope: Scope,
+  spec: TraySpec,
+  settings: Settings,
+): Manifold {
+  const plan = planTray(spec, settings);
+  let solid = buildOuter(m, scope, plan);
+  if (plan.lip) {
+    solid = scope.track(solid.add(buildLip(m, scope, plan, plan.lip)));
+  }
+  const cutters = plan.compartments.map((c) => buildCutter(m, scope, plan, c));
+  if (plan.notch) {
+    // A spacer's notch leaves through both end faces: past them by OVERSHOOT.
+    const n = plan.notch;
+    const along = n.side === "left";
+    const ends = along
+      ? { x0: n.x0 - OVERSHOOT, x1: n.x1 + OVERSHOOT }
+      : { y0: n.y0 - OVERSHOOT, y1: n.y1 + OVERSHOOT };
+    cutters.push(buildU(m, scope, { ...n, ...ends }, plan.topZ + OVERSHOOT));
+    const strip = along
+      ? { v0: -OVERSHOOT, v1: plan.w + OVERSHOOT }
+      : { v0: -OVERSHOOT, v1: plan.d + OVERSHOOT };
+    cutters.push(...buildTopFillets(m, scope, n, { top: plan.h, ...strip }));
+  }
+  if (cutters.length > 0) {
+    solid = scope.track(solid.subtract(scope.track(m.Manifold.union(cutters))));
+  }
+  return solid;
+}
+
+// A merged part (several fillers and risers printed as one, mergeParts): each member built as it
+// would be alone and moved to its place, joined by the solid bridges that fill the tray gaps
+// between them. Everything is in the merged part's frame: its bounding box's min corner is the
+// origin.
+function buildMerged(
+  m: ManifoldToplevel,
+  scope: Scope,
+  spec: TraySpec,
+  merged: MergedPart,
+  settings: Settings,
+): Manifold {
+  const pieces: Manifold[] = merged.members.map((member) =>
+    scope.track(
+      buildSolid(m, scope, member, settings).translate([
+        member.x - spec.x,
+        member.y - spec.y,
+        member.z - spec.z,
+      ]),
+    ),
+  );
+  for (const b of merged.bridges) {
+    pieces.push(
+      box(
+        m,
+        scope,
+        [b.x - spec.x, b.y - spec.y, b.z - spec.z],
+        [b.x + b.w - spec.x, b.y + b.d - spec.y, b.z + b.h - spec.z],
+      ),
+    );
+  }
+  return scope.track(m.Manifold.union(pieces));
+}
+
 // Builds one printed part from its TraySpec alone, plus the settings that define
 // the lip and the bottom chamfer and cap the outer corner radius (scoop radii
-// and every other size come from the spec). Mesh frame: tray-local, origin at
-// the outer min corner, z = 0 at the bottom.
+// and every other size come from the spec). A merged part (`spec.merged`) is built from its
+// members. Mesh frame: tray-local, origin at the outer min corner, z = 0 at the bottom.
 // Throws TraySpecError (a RangeError) for a spec planTray rejects, UnsupportedFeatureError for
 // parts or features from a newer app version, Error if the kernel fails.
 export function buildTray(
@@ -284,29 +350,10 @@ export function buildTray(
   spec: TraySpec,
   settings: Settings,
 ): { mesh: Mesh; volumeMm3: number } {
-  const plan = planTray(spec, settings);
   return withScope((scope) => {
-    let solid = buildOuter(m, scope, plan);
-    if (plan.lip) {
-      solid = scope.track(solid.add(buildLip(m, scope, plan, plan.lip)));
-    }
-    const cutters = plan.compartments.map((c) => buildCutter(m, scope, plan, c));
-    if (plan.notch) {
-      // A spacer's notch leaves through both end faces: past them by OVERSHOOT.
-      const n = plan.notch;
-      const along = n.side === "left";
-      const ends = along
-        ? { x0: n.x0 - OVERSHOOT, x1: n.x1 + OVERSHOOT }
-        : { y0: n.y0 - OVERSHOOT, y1: n.y1 + OVERSHOOT };
-      cutters.push(buildU(m, scope, { ...n, ...ends }, plan.topZ + OVERSHOOT));
-      const strip = along
-        ? { v0: -OVERSHOOT, v1: plan.w + OVERSHOOT }
-        : { v0: -OVERSHOOT, v1: plan.d + OVERSHOOT };
-      cutters.push(...buildTopFillets(m, scope, n, { top: plan.h, ...strip }));
-    }
-    if (cutters.length > 0) {
-      solid = scope.track(solid.subtract(scope.track(m.Manifold.union(cutters))));
-    }
+    const solid = spec.merged
+      ? buildMerged(m, scope, spec, spec.merged, settings)
+      : buildSolid(m, scope, spec, settings);
     const status = solid.status();
     if (status !== "NoError") {
       throw new Error(`Tray ${spec.key}: geometry kernel failed (${status})`);

@@ -72,3 +72,44 @@ describe("TrayDetails", () => {
     expect(toggle).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("TrayDetails of a merged part", () => {
+  const filler = makeTray({ key: "leftover:0", part: "leftover", solid: true, compartments: [] });
+  const riser = makeTray({ key: "a:p0:0:riser", part: "riser", compartments: [] });
+  const mergedSpec = (members: ReturnType<typeof makeTray>[], flipped: boolean) =>
+    makeTray({
+      key: "merged:0",
+      part: "leftover",
+      solid: true,
+      compartments: [],
+      merged: { members, bridges: [], flipped },
+    });
+  const show = (spec: ReturnType<typeof makeTray>) => {
+    const p = numberParts([spec]).find((x) => x.spec.key === spec.key);
+    if (!p) {
+      throw new Error("part not found");
+    }
+    return render(<TrayDetails part={p} settings={DEFAULT_SETTINGS} locked={false} />);
+  };
+
+  it("says what it joins", () => {
+    show(mergedSpec([filler, { ...filler, key: "leftover:1" }], false));
+    expect(screen.getByText("Joins")).toBeTruthy();
+    expect(screen.getByText("2 fillers, printed as one part.")).toBeTruthy();
+  });
+
+  it("counts a riser folded in", () => {
+    show(mergedSpec([riser, filler], false));
+    expect(screen.getByText("1 filler and a riser, printed as one part.")).toBeTruthy();
+  });
+
+  it("tells you to print one with members on different floors upside down", () => {
+    show(mergedSpec([filler, { ...filler, key: "leftover:1", z: 28 }], true));
+    expect(screen.getByText(/Print it upside down, the flat top on the bed/)).toBeTruthy();
+  });
+
+  it("has no Joins row for any other part", () => {
+    view();
+    expect(screen.queryByText("Joins")).toBeNull();
+  });
+});

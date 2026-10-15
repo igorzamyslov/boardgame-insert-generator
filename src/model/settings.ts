@@ -85,6 +85,8 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   leftover: "spare",
   fillToTop: true,
   wallAbsorb: 0,
+  mergeFillers: true,
+  mergeRisers: false,
   infill: 15,
 });
 

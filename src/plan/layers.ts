@@ -35,7 +35,33 @@ export function levelsOf(trays: readonly TraySpec[]): number[] {
 }
 
 export function traysAt(trays: readonly TraySpec[], level: number): TraySpec[] {
-  return trays.filter((t) => !isAddOn(t) && t.level === level);
+  return trays.filter(
+    (t) =>
+      !isAddOn(t) &&
+      (t.merged ? t.merged.members.some((m) => m.level === level) : t.level === level),
+  );
+}
+
+type Footprint = Pick<TraySpec, "x" | "y" | "w" | "d">;
+
+/**
+ * The boxes a part shows on the plan of `level`. A part is its own box; a merged part is the
+ * union of its members, so it is drawn as the members that stand on this layer (a folded-in riser
+ * is under a tray and not seen from above).
+ */
+export function footprintsAt(t: TraySpec, level: number): Footprint[] {
+  if (!t.merged) {
+    return [t];
+  }
+  return t.merged.members.filter((m) => m.level === level && m.part !== "riser");
+}
+
+/** The largest of several boxes (the first on a tie): where a part's number and size are written. */
+export function largestOf<T extends { w: number; h: number }>(rects: readonly T[]): T | undefined {
+  return rects.reduce<T | undefined>(
+    (best, r) => (best === undefined || r.w * r.h > best.w * best.h ? r : best),
+    undefined,
+  );
 }
 
 export function spacersAt(trays: readonly TraySpec[], level: number): TraySpec[] {

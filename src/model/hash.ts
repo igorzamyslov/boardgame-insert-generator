@@ -63,7 +63,7 @@ export function cyrb53(str: string, seed = 0): number {
  * box, printer, settings, components and locks. Names are left out, so renaming never
  * triggers a re-optimize. `separators` is in: above 1 it makes a stretched deck's slack a spacer
  * instead of a spare pocket, so it changes the stored layout. (Since 0.5.1 there is no spare pocket and the count only changes how a spacer is printed, but it stays in the hash: leaving it out would mark every plan that uses it stale once.) `settings.infill` is out: it only
- * changes the displayed filament estimate, so editing it never marks the plan stale. Project id, name, schemaVersion,
+ * changes the displayed filament estimate, so editing it never marks the plan stale. So are `mergeFillers` and `mergeRisers`: they only change how the stored parts are grouped for printing (mergeParts). Project id, name, schemaVersion,
  * createdWith and the stored layout itself are left out too. Unknown fields
  * preserved from a newer-minor file are included as-is. 14 hex characters.
  */
@@ -72,7 +72,14 @@ export function inputsHash(p: Project): string {
   // wallAbsorb is hashed under its old name, wallGrowth: renaming the setting must not change the
   // hash of every saved project and so mark all of their plans stale.
   const { wallAbsorb, ...rest } = p.settings;
-  const settings = { ...rest, wallGrowth: wallAbsorb, infill: undefined }; // canonicalJson skips undefined
+  // mergeFillers and mergeRisers are print-time decompositions (mergeParts), so they are out too.
+  const settings = {
+    ...rest,
+    wallGrowth: wallAbsorb,
+    infill: undefined,
+    mergeFillers: undefined,
+    mergeRisers: undefined,
+  }; // canonicalJson skips undefined
   const canonical = canonicalJson({
     box: p.box,
     printer: p.printer,

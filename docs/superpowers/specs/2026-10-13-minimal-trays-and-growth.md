@@ -1,9 +1,10 @@
 # Minimal trays, fillers between them, per-component growth
 
 Status: §4 implemented (geometry 0.5.0, see §4.1), with its two cleanups (the in-tray spare
-removed and `wallGrowth` renamed `wallAbsorb`: geometry 0.5.1, schema 0.1.8, see §4.2) and the
-"keeping one component's parts together" part of §6 (see §6.1); §5 and the rest of §6 are still
-proposed. Written 2026-10-13 for a later session.
+removed and `wallGrowth` renamed `wallAbsorb`: geometry 0.5.1, schema 0.1.8, see §4.2), the
+"keeping one component's parts together" part of §6 (see §6.1) and "fewer fillers" (§6.2: merging,
+the filler count term, and the perimeter lever, measured and dropped; schema 0.1.9, geometry stays
+0.5.2); §5 is still proposed. Written 2026-10-13 for a later session.
 Companion to `2026-10-11-boardgame-insert-generator-design.md`; that document is
 authoritative for everything this one does not change.
 
@@ -380,7 +381,7 @@ tray (where allowed) removes a filler entirely, so growth and the filler penalty
 interact: with a growth option enabled, the scorer should prefer growing a tray
 that gains capacity over printing a filler beside it.
 
-### Fewer fillers, and where they sit
+### Fewer fillers, and where they sit (done: see §6.2)
 
 The user's stated preference, in their words: _the less fillers I have to put
 manually, the better_. So the objective is not filler volume but **how many
@@ -573,6 +574,140 @@ Starter-deck trays now share an orientation on every seed (they did not before: 
 not), and still stand in two stacks (the interleaving the spec predicted: one stack would bury two
 "often" trays, 400 000, against one, 200 000, for a gain of 10 000). Marking the component
 "sometimes" is still the way to get one stack.
+
+### 6.2 Fewer fillers, as implemented (schema 0.1.9, geometry stays 0.5.2)
+
+**Levers 1 and 1b: merging, at print time.** `mergeParts` (`src/layout/merge.ts`), the last step of
+`printableParts` (`src/layout/printable.ts`: `splitRisers`, `splitSeparators`, `openSpacers`, then
+the merge; the app, `summarize` and the exports all list these), joins connected fillers into the
+fewest parts that fit the print bed. Two settings beside "Unused space", advanced mode:
+`mergeFillers` (default on) and `mergeRisers` (default off; the form disables it while fillers are
+not merged, and it does nothing without them). **Neither is in `inputsHash`, and the stored layout
+is untouched**: the stored layout keeps its individual leftovers and raised floors, and the
+share link is the same. (A setting is a field, so a switch set to a non-default value adds that
+field to the link; at the defaults the writer leaves both out and reading puts them back, so a link
+is byte for byte what it was.) Tests pin it: the hash is the same for all four combinations on every
+fixture, and `optimize` returns a deep-equal layout and the same hash for all four.
+
+- **A merged part** is a `leftover` with `merged` set (`TraySpec.merged`, never stored): its box is
+  the bounding box of the union, `members` are the parts it joins, each built exactly as it would be
+  alone, and `bridges` are solid boxes across the gaps between them. Key `merged:<n>`, ordered
+  left to right. Geometry (`buildMerged`, `tray.ts`) unions the members and bridges.
+- **Connected** means standing side by side across a gap of at most `trayGap` (between leaves, or
+  between a tray and its filler) over at least `MIN_JOIN_MM` (2 mm) of edge and of height. A corner
+  touch does not join; two strips with a tray between them do not. A merged part absorbs the tray
+  gap, so it is slightly larger than the sum of its members. The in-level fillers of 10e2158, which
+  stand from their level's floor to the top of the stack, take part like any other, by their own box.
+- **The bridge reaches into both members** by as much as their rounded corner cuts away (the
+  corner radius; at most the wall of an open member, at most half a solid one). A bridge only a gap
+  thick (0.14 to 0.2 mm) would stand in the notch between two rounded corners, and at the foot
+  beside the bottom chamfers, as a free-standing fin that cannot print: that was seen in
+  `checkPrintability` on the first version, which failed with overhangs and a sub-0.8 mm feature,
+  and the reaching bridge passes it (`tray.merged.test.ts`).
+- **The bed.** The part's bounding box must fit the bed in plan, either way round, and in height.
+  The box, not the exact shape, so a comb that would fit on a diagonal stays two parts. Growth is
+  greedy, largest first, and every part is tried as the first seed with two ways of choosing what a
+  group takes; the grouping with the fewest parts wins, then the smaller footprint, then the first
+  found, so the result is deterministic. Star Realms' two right-hand strips, 100.12 and 94.04 mm,
+  are one 194.3 mm strip that does not fit the 170 mm bed, so the best it can be is two parts.
+- **The L (`mergeRisers`).** A riser, under a tray, joined to a full-height filler beside it, is a
+  low shelf with a wall alongside, an L in elevation. It stands on the floor like both of its members,
+  so it prints as it stands, and the assembled part self-supports (no overhang in
+  `checkPrintability`, and its height is 16.4 mm over the riser and 35 mm over the wall in the
+  test). The part goes in before the tray that stands on it.
+- **Different floors: upside down.** A filler in a stack level (floor at the tray below's top)
+  can sit against a ground filler. Printed as it stands its ledge would hang, but every filler runs
+  to the same top plane, so printed upside down, top face on the bed, nothing does. That holds only
+  when every member is solid (an open member's pocket would face the bed) and every top is level, so
+  the merge refuses otherwise. `merged.flipped` says so; the export turns the mesh half a turn about
+  X (a rotation, not a mirror, and back on the bed: `printMesh`), the viewer keeps it as it stands,
+  and the details panel says "Print it upside down".
+- **Assembly order.** A merged part goes in before every tray that rests on or stands against it:
+  first, among the numbered parts. The exception is a part with a member that rests on a tray (a
+  ledge on the tray below): it goes in after that tray, since nothing can slide under it, and
+  before the trays above (`numbering.ts`, `mergedPosition`). Several merged parts keep key order.
+  In the plan, the instructions and the details a merged part is drawn as the members of the layer
+  shown (a riser folded in lies under a tray and is not drawn), with one number on the largest.
+- **Filament** counts the members as they print alone plus the part of each bridge outside them.
+  `LayoutSummary` gained `fillerCount` (filler parts to place by hand, after merging) and the two
+  switches it was made under, so a cached run summary is dropped when either changes; the stored
+  tray count and fill % stay on the stored trays.
+
+**Lever 2: the count is a term** (`WEIGHTS.fillers`, 20 000, `score.ts`). Each leftover, in a
+stack level too, costs it on top of the 20 000 every part costs: a filler is twice a tray. Measured
+over 40 seeds (100 to 139) at 50 000 iterations the filler count after merging on `cards-heavy`
+fell from 1.98 to 1.62 per layout (3.30 to 3.02 stored); on the other fixtures it did not move
+(`bits-heavy` has none, `tiles-minis` stays at 3, `small-tiles` 1.10 to 1.18, inside the noise,
+stored 3.35 to 3.12). Flat between 10 000 and 29 000 on `cards-heavy` and `small-tiles`, so the
+value is set by its neighbours, not by the search: under `stacked` (50 000) with its part
+(40 000), so avoiding a filler never buys a stacked tray, and above every cohesion preference
+(15 000, 10 000), `setup` and `moved`, so none of them buys a filler. It counts stored leftovers,
+not merged parts: the merge is a setting outside the hash, so the layout cannot depend on it. A
+variant that counted connected groups instead did no better (below).
+
+**Lever 3: prefer the perimeter, measured and dropped.** A term of 5 000 per ground filler that
+does not touch the box wall (small against the 40 000 of a filler, so a tie-break that can never buy
+a part), on top of lever 2 (then set at 25 000: the weight was settled at 20 000 afterwards, the
+value being flat), over seeds 100 to 139, filler count after merging:
+
+| fixture       | lever 2 only | lever 2 + 3 |
+| ------------- | -----------: | ----------: |
+| `cards-heavy` |         1.70 |        1.57 |
+| `tiles-minis` |         3.00 |        3.00 |
+| `small-tiles` |         1.15 |    **1.40** |
+
+It raised the count on `small-tiles` by 0.25 (three standard errors), while saving 0.13 on
+`cards-heavy` (one), and the three fixtures together went from 5.85 to 5.97: the fragmentation
+this section warned of. Slack pushed outwards stops pooling into one block and becomes several edge
+strips on different sides that cannot join. The brief said to drop it if it raised the count, and
+it did, so it is gone from the code. Counting connected groups instead of leftovers in lever 2
+(12 seeds: 1.83 on `cards-heavy`, 1.00 on `small-tiles`, with or without lever 3 2.00 and 1.00) was
+no better than the plain count and would tie the layout to rules that live in the merge, so it was
+not kept.
+
+**The Star Realms project** (warm start from its stored layout, geometry 0.4.0, as the app
+re-runs it). The stored layout has four fillers; after the warm start there are six, because of the
+fillers within stack levels of §4.1 (91.45 × 4.36 on the tray below, 6.6 and 10.6 mm high). Printed:
+
+| before                                              | after (`mergeFillers`)                                                      |
+| --------------------------------------------------- | --------------------------------------------------------------------------- |
+| `leftover:0` right edge, 8.71 × 100.12 × 35         | `merged:0` 100.3 × 100.12 × 35 = `leftover:0` + `leftover:1` + `leftover:4` |
+| `leftover:1` between the stacks, 91.45 × 8.53       |                                                                             |
+| `leftover:2` right edge, 8.71 × 94.04 × 35          | `merged:1` 100.3 × 94.04 × 35 = `leftover:2` + `leftover:3` + `leftover:5`  |
+| `leftover:3` far end, 91.45 × 2.45                  |                                                                             |
+| `leftover:4` on the first stack, 91.45 × 4.36 × 6.6 |                                                                             |
+| `leftover:5` on the second, 91.45 × 4.36 × 10.6     |                                                                             |
+
+Six filler parts become two, both printed upside down (the ledge members stand on different
+floors, all solid with level tops). Printed parts 12 to 8; fill 99.6 % and filament 378 g are
+unchanged; the link 1815 to 1785 characters (lever 2 takes the stored fillers from six to five).
+With `mergeRisers` the one riser folds into the part beside it and one ledge no longer merges (the
+riser is open, the ledge needs an all-solid part), so it is three filler parts and no riser: the
+same total. The two strips cannot be one part: the bed is 170 mm and the strip 194.3 mm. The interior
+strip (8.53 mm) is not pushed to the edge, as §6 predicted: it merges into the part with the edge
+strip instead, which is all that was wanted of it, and the layout is not changed by it.
+
+**Measured** on the four fixtures, seeds 1 to 6, 50 000 iterations, plus Star Realms from its
+warm start (seeds 1 to 4; all give the same result). Before is the commit this work started from;
+`filament` is the solid upper bound `filamentG`; link length is the whole share link on the real
+deploy URL. Nothing became infeasible on any of 160 further runs (seeds 100 to 139 on all four),
+and no guarded fixture crossed 2 000 characters on any of them (`cards-heavy` 1 893 at most,
+`bits-heavy` 1 803, `small-tiles` 1 955; without the term `small-tiles` reached 2 002 once, and
+`tiles-minis`, which is not guarded and the largest, is within 14 characters of the limit, at 1 986).
+
+| fixture       | printed parts (before to after) | filler parts (before to after) | fill %     | filament g (mean, before to after) | link length            |
+| ------------- | ------------------------------- | ------------------------------ | ---------- | ---------------------------------- | ---------------------- |
+| `cards-heavy` | 15.5 to 13.7                    | 3.50 to 1.67                   | 99.7, same | 631 to 608                         | 1817-1907 to 1767-1841 |
+| `bits-heavy`  | 8 to 8                          | 0 to 0                         | 99.9, same | 425 to 427                         | 1749-1778 to 1749-1774 |
+| `tiles-minis` | 6.2 to 6.0                      | 3.17 to 3.00                   | 99.8, same | 1223 to 1220                       | 1930-1985 to 1923-1986 |
+| `small-tiles` | 16.3 to 14.2                    | 3.33 to 1.17                   | 99.3-99.5  | 364 to 379                         | 1861-1951 to 1865-1939 |
+| Star Realms   | 12 to 8                         | 6 to 2                         | 99.6, same | 378 to 378                         | 1815-1817 to 1785-1786 |
+
+With `mergeRisers` on as well, printed parts fall to 10, 6, 5, 9 and 8 (risers fold into the part
+beside them; the filler column then counts the merged parts that hold a riser, 3, 1, 3, 1, 3).
+`small-tiles` filament is up by 15 g on average because one seed's layout (seed 5) is a heavier
+one (441 g, against 334 g) that has two stored fillers instead of three: the term chose it, which
+is the trade it is for, and over 40 seeds the mean is unchanged (375 g to 374 g).
 
 ## 7. Risks, and what to measure before shipping
 

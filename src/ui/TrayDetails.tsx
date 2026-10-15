@@ -2,7 +2,7 @@
 import { isLockable } from "../app/actions";
 import { outerSizeText } from "../instructions/numbering";
 import type { NumberedPart } from "../instructions/numbering";
-import type { Settings } from "../model/types";
+import type { Settings, TraySpec } from "../model/types";
 
 export interface TrayDetailsProps {
   part: NumberedPart;
@@ -16,6 +16,18 @@ export interface TrayDetailsProps {
   onToggleSizeLock?: () => void;
   /** Show positions and locks too; off, only what the tray is and what it holds. Default on. */
   advanced?: boolean;
+}
+
+/** What a merged part is made of, and how it prints. */
+function mergedText(t: TraySpec): string {
+  const members = t.merged?.members ?? [];
+  const risers = members.filter((m) => m.part === "riser").length;
+  const fillers = members.length - risers;
+  const noun = `${fillers} ${fillers === 1 ? "filler" : "fillers"}`;
+  const joined = risers > 0 ? `${noun} and ${risers === 1 ? "a riser" : `${risers} risers`}` : noun;
+  return t.merged?.flipped
+    ? `${joined}. Print it upside down, the flat top on the bed, so nothing hangs.`
+    : `${joined}, printed as one part.`;
 }
 
 export function TrayDetails({
@@ -42,6 +54,12 @@ export function TrayDetails({
           <dt>Outer size</dt>
           <dd>{outerSizeText(t, settings)}</dd>
         </div>
+        {t.merged ? (
+          <div>
+            <dt>Joins</dt>
+            <dd>{mergedText(t)}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Layer</dt>
           <dd>{t.level === 0 ? "1 (bottom)" : String(t.level + 1)}</dd>

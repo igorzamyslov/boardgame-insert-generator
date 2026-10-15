@@ -37,7 +37,8 @@ describe("score", () => {
           WEIGHTS.trays +
           WEIGHTS.moved +
           WEIGHTS.unturned +
-          WEIGHTS.apart) +
+          WEIGHTS.apart +
+          WEIGHTS.fillers) +
       20_000 * WEIGHTS.play +
       100_000 * WEIGHTS.filament;
     expect(OVERFLOW_WEIGHT).toBeGreaterThan(maxFeasible);
@@ -229,6 +230,68 @@ describe("score", () => {
       );
       expect(over.overflow).toBeGreaterThan(0);
       expect(over.total).toBeGreaterThan(score(side([piece(0), piece(1), piece(2)], [k])).total);
+    });
+  });
+
+  describe("filler count (spec §6, lever 2)", () => {
+    // One 100 × 60 tray in a box with room beside it. The leftovers of the plan are replaced by
+    // hand, so that the volume left over is exactly the same and only their number differs.
+    const one = [boxReq("a", 100, 60, 20)];
+    const ctx = createCtx(
+      makeInput(one, { box: { innerWidth: 250, innerDepth: 100 } }),
+      fakeMeasure,
+    );
+    const base = evaluate(ctx, { root: leaf([item(0)]), variants: [0] });
+    const block = (x: number, w: number): (typeof base.leftovers)[number] => ({
+      path: "0",
+      stack: 1,
+      level: 0,
+      x,
+      y: 0,
+      z: 0,
+      w,
+      d: 5000,
+      h: 3000,
+      solid: true,
+    });
+    const withFillers = (...ws: number[]) => {
+      let x = 11000;
+      const leftovers = ws.map((w) => {
+        const b = block(x, w);
+        x += w + 20;
+        return b;
+      });
+      return scorePlan(ctx, { ...base, leftovers });
+    };
+
+    it("counts the filler parts, those in a stack level too", () => {
+      expect(withFillers().terms.fillers).toBe(0);
+      expect(withFillers(4000).terms.fillers).toBe(1);
+      expect(withFillers(2000, 2000).terms.fillers).toBe(2);
+      const inLevel = { ...block(0, 1000), level: 1, z: 2000, h: 1000 };
+      expect(scorePlan(ctx, { ...base, leftovers: [inLevel] }).terms.fillers).toBe(1);
+    });
+
+    it("prefers one large filler to two small ones of the same volume, by a part and a filler", () => {
+      const large = withFillers(4000);
+      const small = withFillers(2000, 2000);
+      expect(small.terms.leftover).toBe(large.terms.leftover);
+      expect(small.terms.filament).toBe(large.terms.filament);
+      expect(small.total - large.total).toBe(WEIGHTS.trays + WEIGHTS.fillers);
+      expect(large.total).toBeLessThan(small.total);
+    });
+
+    it("costs more than any cohesion preference, so none of them buys a filler", () => {
+      expect(WEIGHTS.fillers).toBeGreaterThan(WEIGHTS.unturned);
+      expect(WEIGHTS.fillers).toBeGreaterThan(WEIGHTS.apart);
+      expect(WEIGHTS.fillers).toBeGreaterThan(WEIGHTS.setup);
+      expect(WEIGHTS.fillers).toBeGreaterThan(WEIGHTS.moved);
+    });
+
+    it("stays under a stacked tray with its part, and far under a buried often tray", () => {
+      // so avoiding a filler never costs a stacked tray, nor a tray buried under another
+      expect(WEIGHTS.trays + WEIGHTS.fillers).toBeLessThan(WEIGHTS.stacked);
+      expect(WEIGHTS.fillers).toBeLessThan(WEIGHTS.access);
     });
   });
 

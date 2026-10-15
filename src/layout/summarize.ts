@@ -1,6 +1,7 @@
 import { effective, topPlane } from "../model/settings";
-import type { TraySpec } from "../model/types";
+import type { BoxMm, TraySpec } from "../model/types";
 import { maxCrossing } from "./fill";
+import { mergeParts } from "./merge";
 import { splitRisers } from "./risers";
 import { openSpacers } from "./spacers";
 import { nominalPlayU } from "./score";
@@ -45,6 +46,17 @@ function coreVolume(
   );
 }
 
+/** Volume (mm³) two boxes share. */
+function overlapMm3(a: BoxMm, b: BoxMm): number {
+  const ov = (a0: number, a1: number, b0: number, b1: number): number =>
+    Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+  return (
+    ov(a.x, a.x + a.w, b.x, b.x + b.w) *
+    ov(a.y, a.y + a.d, b.y, b.y + b.d) *
+    ov(a.z, a.z + a.h, b.z, b.z + b.h)
+  );
+}
+
 /**
  * A part's plastic volume (mm³), as the solid upper bound and as the estimate at `infill`
  * (0..1). The bound is 100 % infill, with chamfers and radii ignored.
@@ -58,6 +70,7 @@ function coreVolume(
  * - the only sparse region of a hollow tray is the slab under each compartment (its raised floor
  *   plus the floor): a box of the compartment's footprint and `floorZ` height, eroded by the
  *   shell on all faces, though the walls beside it would let the core run wider;
+ * - a merged part (mergeParts) is its members as they print alone, plus its solid bridges;
  * - a spacer follows the `leftover` style like a riser (openSpacers): an open box, or solid where
  *   the style says so or it is too small to open. It is judged as the one block it is stored as;
  *   with `separators` above 1 it is printed as plates, each judged on its own size (thin ones are
@@ -69,6 +82,24 @@ function partVolumes(
   shell: { side: number; vertical: number },
   infill: number,
 ): { solid: number; atInfill: number } {
+  if (t.merged) {
+    // The members as they print on their own, and the solid bridges between them.
+    let solid = 0;
+    let atInfill = 0;
+    for (const m of t.merged.members) {
+      const v = partVolumes(m, lip, shell, infill);
+      solid += v.solid;
+      atInfill += v.atInfill;
+    }
+    // A bridge reaches into the members it joins: only the part of it outside them is new plastic.
+    for (const b of t.merged.bridges) {
+      const inside = t.merged.members.reduce((sum, m) => sum + overlapMm3(b, m), 0);
+      const added = Math.max(0, b.w * b.d * b.h - inside);
+      solid += added;
+      atInfill += added;
+    }
+    return { solid, atInfill };
+  }
   const outer = t.w * t.d * t.h;
   if (t.solid) {
     const core = t.part === "spacer" ? 0 : coreVolume(t.w, t.d, t.h, shell);
@@ -105,9 +136,11 @@ export function summarize(
   // (mostly air) or solid per `leftover`. Counts and fill stay on the stored trays: the split moves
   // height between a tray and its riser without changing the space filled. A spacer is
   // an open box like a riser; its separator plates are not split out here (see partVolumes).
-  const parts = openSpacers(
-    splitRisers(trays, { settings, printer: input.printer, locks: input.locks }),
-    { settings },
+  const parts = mergeParts(
+    openSpacers(splitRisers(trays, { settings, printer: input.printer, locks: input.locks }), {
+      settings,
+    }),
+    { settings, printer: input.printer },
   );
   for (const t of parts) {
     const v = partVolumes(t, settings.lip, shell, infill);
@@ -125,6 +158,9 @@ export function summarize(
     fillPct: usable > 0 ? round((outerVolume / usable) * 100, 1) : 0,
     trayCount: printed.length,
     stackCount: new Set(printed.map((t) => t.stack)).size,
+    fillerCount: parts.filter((t) => t.part === "leftover").length,
+    mergeFillers: settings.mergeFillers,
+    mergeRisers: settings.mergeRisers,
     filamentG: round(filament * PLA_G_PER_MM3, 1),
     filamentAtInfillG: round(filamentAtInfill * PLA_G_PER_MM3, 1),
     infillPct: settings.infill,

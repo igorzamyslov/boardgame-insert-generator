@@ -601,8 +601,13 @@ describe("one requirement's parts look alike (spec §6)", () => {
   ];
   const inp = makeInput(family, { box: { innerWidth: 200, innerDepth: 150, innerHeight: 60 } });
 
+  // The orientation term is weak (15 000, under a part's 20 000), so what the search finds is a
+  // matter of how far it gets: over seeds 1 to 30 the parts end up turned alike from 10 000
+  // iterations on (20 000 here, for margin), but at 5 000 two seeds (3 and 8) were still mixed
+  // once fillers got a term of their own, and the code before that was no better (one seed at
+  // 5 000, two at 10 000, one at 20 000 and one at 50 000 were mixed).
   it.each([1, 2, 3, 4, 5, 6, 7, 8])("turns them all the same way (seed %i)", (seed) => {
-    const r = optimize(inp, seed, 5000);
+    const r = optimize(inp, seed, 20_000);
     expect(r.layout).not.toBeNull();
     const trays = (r.layout?.trays ?? []).filter((t) => t.key.startsWith("s:"));
     expect(trays).toHaveLength(3);

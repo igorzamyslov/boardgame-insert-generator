@@ -196,8 +196,36 @@ describe("toSerializable", () => {
       ],
     });
     expect(out.box).toEqual({ ...p.box, headroomCoverage: "none" });
-    expect(out.settings).toEqual({ ...p.settings, leftover: "hollow" });
+    // the two merge switches at their defaults are left out of what is written
+    const { mergeFillers, mergeRisers, ...written } = p.settings;
+    expect([mergeFillers, mergeRisers]).toEqual([true, false]);
+    expect(out.settings).toEqual({ ...written, leftover: "hollow" });
     expect(p).toEqual(before);
+  });
+
+  it("leaves the merge switches out at their defaults and writes them when changed", () => {
+    // A share link has 2 000 characters: two settings nearly every project leaves alone are not
+    // written, and reading puts the defaults back.
+    const p = sampleProject();
+    const same = serializeProject(p, noForeign());
+    expect(same).not.toContain("mergeFillers");
+    expect(same).not.toContain("mergeRisers");
+    const read = parseProject(JSON.parse(same));
+    expect(read.ok && read.project.settings).toMatchObject({
+      mergeFillers: true,
+      mergeRisers: false,
+    });
+    const changed = { ...p, settings: { ...p.settings, mergeFillers: false, mergeRisers: true } };
+    const text = serializeProject(changed, noForeign());
+    expect(text).toContain('"mergeFillers":false');
+    expect(text).toContain('"mergeRisers":true');
+    const back = parseProject(JSON.parse(text));
+    expect(back.ok && back.project.settings).toMatchObject({
+      mergeFillers: false,
+      mergeRisers: true,
+    });
+    // writing leaves the project itself alone
+    expect(p.settings.mergeFillers).toBe(true);
   });
 
   it("keeps the user's value when the field was changed after loading", () => {

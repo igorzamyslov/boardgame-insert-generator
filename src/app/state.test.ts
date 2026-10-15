@@ -74,6 +74,25 @@ describe("createState", () => {
     expect(s.summary.value?.infillPct).toBe(40);
   });
 
+  it("does not go stale when a merge switch changes, but recomputes the summary for it", () => {
+    const p = fixtureProject();
+    const layout = makeLayout(inputsHash(p));
+    const s = createState({ ...p, layout });
+    const result = makeResult(layout);
+    s.lastResult.value = result;
+    expect(s.summary.value).toBe(result.summary);
+    for (const merge of [{ mergeFillers: false }, { mergeRisers: true }]) {
+      s.project.value = { ...s.project.value, settings: { ...s.project.value.settings, ...merge } };
+      // not stale: the stored layout is the same, only how it is grouped for printing differs
+      expect(s.stale.value).toBe(false);
+      expect(s.layoutNotices.value.map((n) => n.code)).not.toContain(STALE_CODE);
+      // but the run's summary stood for the switches it ran under
+      expect(s.summary.value).not.toBe(result.summary);
+      s.project.value = { ...s.project.value, settings: { ...p.settings } };
+      expect(s.summary.value).toBe(result.summary);
+    }
+  });
+
   it("shows run notices only for the layout they belong to, plus capped", () => {
     const p = fixtureProject();
     const layout = makeLayout(inputsHash(p), undefined, { capped: true });

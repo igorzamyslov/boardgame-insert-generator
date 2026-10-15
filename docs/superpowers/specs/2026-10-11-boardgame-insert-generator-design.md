@@ -292,7 +292,7 @@ type Lock =
 unrelated components. Keys are matched by prefix, so a group name or a
 component id can't contain `:`; validation reports a group name with one at
 the field, and a file with such a component id is refused (`invalid.id`). Leftover trays are keyed `leftover:<n>` and can't be
-locked. Card spacers are keyed `<trayKey>:spacer`, risers `<trayKey>:riser` (the key of the stack's bottom tray). When a spacer is printed as several plates (§6.2) they are keyed `<trayKey>:spacer:1` … `<trayKey>:spacer:<n>`; only the single stored `<trayKey>:spacer` is ever stored.
+locked. Card spacers are keyed `<trayKey>:spacer`, risers `<trayKey>:riser` (the key of the stack's bottom tray). Several fillers (and risers) printed as one part are keyed `merged:<n>` (§6.2); like a riser, one is derived for printing and never stored. When a spacer is printed as several plates (§6.2) they are keyed `<trayKey>:spacer:1` … `<trayKey>:spacer:<n>`; only the single stored `<trayKey>:spacer` is ever stored.
 
 Component defaults: `access: "sometimes"`, `storage: "auto"`, minis
 `storage: "pockets"`. `fingerCuts` is on for cards, tiles, minis and custom
@@ -346,6 +346,8 @@ interface Settings {
   leftover: "spare" | "solid";
   fillToTop: boolean; // rule 2: pad every stack to the top plane (a riser); off = content height
   wallAbsorb: number; // mm each wall or divider may thicken to absorb leaf slack instead of a filler part (§7.2); 0 = never. Called wallGrowth up to schema 0.1.7; still read
+  mergeFillers: boolean; // print connected fillers as one part, up to what fits the bed (§6.2); print-time, not in inputsHash
+  mergeRisers: boolean; // with mergeFillers, fold the risers into those parts (the L in elevation, §6.2); print-time, not in inputsHash
   infill: number; // % infill the filament estimate assumes for sparse interiors (§8.3); display only, not in inputsHash
 }
 ```
@@ -376,6 +378,8 @@ interface Settings {
 | `leftover` (also the riser's and the spacer's style) | advanced: spare tray / solid                                         | spare tray                |
 | `fillToTop`                                          | advanced: "Fill the box to the top"                                  | on                        |
 | `wallAbsorb`                                         | advanced: "Thicker walls instead of a filler", beside "Unused space" | 0 (up to 3 mm per wall)   |
+| `mergeFillers`                                       | advanced: "Merge fillers into one part", beside "Unused space"       | on                        |
+| `mergeRisers`                                        | advanced: "Fold risers into the merged fillers" (needs the above)    | off                       |
 | `infill`                                             | advanced: "Infill for the filament estimate" (Exact values)          | 15 (0–100 %)              |
 | `printer.bedMargin` / `printer.layerHeight`          | advanced                                                             | 5 / 0.2                   |
 
@@ -404,7 +408,7 @@ A measured stack replaces the thickness, not the sleeve size.
 interface StoredLayout {
   createdWith: string; // app version
   geometryVersion: string; // semver of the tray geometry generator, §9
-  inputsHash: string; // hash of canonical box, printer, settings, components (names excluded; `separators` is included), locks
+  inputsHash: string; // hash of canonical box, printer, settings, components (names excluded; `separators` is included; `infill`, `mergeFillers` and `mergeRisers` are not), locks
   seed: number;
   iterations: number;
   capped: boolean; // stopped by the safety time cap → not reproducible
@@ -461,7 +465,9 @@ chat message: a `spacer` without `path`, `rotated`, `wall`, `floor`, `lip`, `sol
 `compartments` when they have the values every spacer has (`""`, false, 0, 0, false, true, none),
 and an open `leftover` without its `compartments` when it is the one default spare pocket
 (`spareCompartment`: the part's inside, on its floor). Any layout that spells them out reads the
-same.
+same. The same goes for the two merge switches at their defaults (schema 0.1.9: `mergeFillers` on,
+`mergeRisers` off): a project leaves them out, and reading puts them back, so a link that does not
+use them is as long as it was.
 
 ## 6. Geometry
 
@@ -643,6 +649,25 @@ to `wallAbsorb`, or, where neither can take it, evenly to the walls. The `spare`
 still exists: an open leftover or filler is one spare pocket (`spareCompartment`), and a layout
 stored before 0.5.1 can hold one in a tray, where `splitRisers` keeps clamping it to the tray
 floor so that it never vetoes a riser.
+
+**Merged fillers (schema 0.1.9, geometry 0.5.2).** The fillers of a layout (and, with `mergeRisers`,
+its risers) that touch print as one part, up to the largest that fits the bed, so there are fewer
+loose pieces to place by hand. It is a printing decomposition like the riser and the separator
+plates: `mergeParts` runs last, after `splitRisers`, `splitSeparators` and `openSpacers`
+(`printableParts`), the stored layout keeps its individual leftovers and raised floors, and neither
+switch is in `inputsHash`, so toggling one never stales a plan, re-runs the optimizer or lengthens
+the stored layout. A merged part is a `leftover` with `merged` set, `members` (each built as it would
+be alone) and `bridges` (solid boxes that fill the gap of at most `trayGap` between two members over
+at least 2 mm of edge and height, and reach into both as far as their rounded corners cut away, so no
+fin a gap thick stands in the notch between them), its box the bounding box of the union, which must
+fit the bed either way round. Growth is greedy, largest first, from every part as the first seed;
+the grouping with the fewest parts wins. A riser joined to the filler beside it is an L in
+elevation and prints as it stands. A filler in a stack level (floor at the tray below's top, top at
+the top plane) joins a ground filler only when every member is solid with level tops, and the part
+then prints upside down (`merged.flipped`), top face on the bed, so that nothing hangs; the export
+turns the mesh half a turn about X, the 3D view keeps it as it stands. A merged part is numbered
+before the trays that rest on or stand against it, and after any tray one of its members rests on.
+See the minimal-trays spec §6.2 for the measurements.
 
 ## 7. Layout engine
 
@@ -826,7 +851,13 @@ fallback: a requirement that still has no variant is left out with a
       project share an orientation, but stay in two stacks, because one stack would bury two
       "often" trays under the 200 000 each costs), and their total is orders of magnitude
       under the overflow weight, so they cannot make a feasible layout lose to an infeasible
-      one.
+      one;
+  11. the number of filler parts (a leftover, in a stack level too): 20 000 each, on top of the
+      20 000 every part costs (§6.2 of the minimal-trays spec). Under a stacked tray's 50 000 with
+      its part, so avoiding a filler never buys a stacked tray, and over every cohesion preference.
+      Counts stored leftovers, not merged parts: the merge is a print-time setting outside the
+      hash. A reward for fillers against the box wall was measured and dropped: it raised the
+      filler count.
 - **Locks:**
   - Locked paths, sizes and stacks are fixed in the tree; moves never change
     them. A position lock fixes the tree topology along its path; cut
@@ -922,7 +953,7 @@ Numbers accept a decimal comma or point.
 - **Filament estimate at infill.** Both filament figures are taken over the
   parts that print, not the stored trays: each stack's raised floor first comes
   out as its riser (`splitRisers`), open or solid per `leftover`, so an open
-  riser is mostly air. Tray, stack and fill figures stay on the stored trays
+  riser is mostly air, and connected fillers are merged (`mergeParts`, §6.2). Tray, stack and fill figures stay on the stored trays
   (the split moves height, not volume). Material within a shell of any surface
   prints solid whatever the infill; only the interior beyond it is printed at
   `infill`, so a region under two shells thick is wholly solid and a thin-walled
@@ -932,7 +963,7 @@ Numbers accept a decimal comma or point.
   approximation on the plastic-heavy side: a solid part (filler, riser) is one
   box eroded by the shell; in a hollow tray, walls, dividers, floor and lip
   count solid and only the slab under each compartment (footprint × `floorZ`) is
-  eroded; a spacer counts solid (it prints as thin plates). `infill` is display
+  eroded; a spacer counts solid (it prints as thin plates); a merged part is its members as they print alone plus the plastic of its bridges outside them. `infill` is display
   only and is not in `inputsHash`.
 - **Summary:** box fill %, tray count, stack count, filament in grams
   (PLA 1.24 g/cm³; two figures in advanced mode: an estimate at `infill`, and
@@ -950,11 +981,12 @@ Numbers accept a decimal comma or point.
   when the optimizer is blocked by errors or an empty project. "Undo layout" is
   a separate button. The stale notice has no button of its own.
 - **Plan view:** per-layer top-down drawing; click to select, drag or
-  keyboard to swap, lock toggle.
+  keyboard to swap, lock toggle. A merged filler is drawn as the members of it that stand on the
+  layer shown, with one number.
 - **3D view:** explode slider, layer toggle, click a tray for contents and
   dimensions.
 - **Export:**
-  - zip of one 3MF per printed part: trays, plus any card spacers (one per plate when split) and risers (named
+  - zip of one 3MF per printed part: trays, plus any card spacers (one per plate when split), risers and merged fillers (a merged part that only prints without supports upside down is exported turned over) (named
     `NN-<contents>.3mf`, sanitized to `[A-Za-z0-9._-]`);
   - one combined 3MF with all parts as separate objects, laid out in a grid
     at z = 0 (not in box position);
@@ -1026,6 +1058,12 @@ Older apps reading newer files is best effort, as below.
     the fields every spacer has the same value for, and an open leftover without its one pocket
     (both put back on reading), which takes about 35 and 70 characters off a share link. A field that only changes how stored trays are
     printed (`separators`, default 1) bumps the schema but not the geometry version.
+    Schema 0.1.9 is another of those: `mergeFillers` (default on) and `mergeRisers` (default off)
+    only change how stored parts are grouped for printing (§6.2). The defaults are left out of what
+    is written, and neither is in the inputs hash, so no file, link or stored plan is affected, and
+    geometry stays 0.5.2: no outer size, lip, inset or well changes, and every part, merged or not,
+    is built from the same member parts. The filler count term of §7.2 changes which layouts a run
+    finds, not what a stored one means, so it needs no version either.
     It is in the inputs hash all the same, from the time when above 1 it decided whether a
     stretched deck got a spacer or a spare pocket (§6.2); since geometry 0.5.1 it no longer
     shapes the layout, and is left in the hash only so that no plan using it goes stale.

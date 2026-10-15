@@ -9,7 +9,9 @@ import { tintOfTray } from "../ui/identity";
 import { TrayDetails } from "../ui/TrayDetails";
 import {
   clientToSvg,
+  footprintsAt,
   hitTest,
+  largestOf,
   levelsOf,
   planFrame,
   planViewBox,
@@ -109,7 +111,9 @@ export function PlanView(props: PlanViewProps) {
   const below = belowLevel === undefined ? [] : traysAt(trays, belowLevel);
   const components = props.components ?? [];
   const hasLeftover = trays.some((t) => t.part === "leftover");
-  const rects = shown.map((t) => ({ key: t.key, rect: toSvgRect(t, frame) }));
+  const rects = shown.flatMap((t) =>
+    footprintsAt(t, level).map((f) => ({ key: t.key, rect: toSvgRect(f, frame) })),
+  );
   const selectedPart = selectedKey === null ? null : (byKey.get(selectedKey) ?? null);
 
   function swappable(key: string | null): boolean {
@@ -271,17 +275,24 @@ export function PlanView(props: PlanViewProps) {
     if (!t) {
       return null;
     }
-    const r = toSvgRect(t, frame);
     return (
-      <rect
-        class={`plan-ring ${cls}`}
-        aria-hidden="true"
-        x={r.x}
-        y={r.y}
-        width={r.w}
-        height={r.h}
-        rx={Math.max(0, Math.min(settings.cornerRadius, r.w / 4, r.h / 4))}
-      />
+      <>
+        {footprintsAt(t, level).map((f, i) => {
+          const r = toSvgRect(f, frame);
+          return (
+            <rect
+              key={i}
+              class={`plan-ring ${cls}`}
+              aria-hidden="true"
+              x={r.x}
+              y={r.y}
+              width={r.w}
+              height={r.h}
+              rx={Math.max(0, Math.min(settings.cornerRadius, r.w / 4, r.h / 4))}
+            />
+          );
+        })}
+      </>
     );
   }
   const selectedLocked = selectedPart !== null && lockedKeys.has(selectedPart.spec.key);
@@ -327,21 +338,24 @@ export function PlanView(props: PlanViewProps) {
           width={frame.innerW}
           height={frame.innerD}
         />
-        {below.map((t) => {
-          const r = toSvgRect(t, frame);
-          return (
-            <rect
-              key={`below-${t.key}`}
-              class="plan-below"
-              x={r.x}
-              y={r.y}
-              width={r.w}
-              height={r.h}
-            />
-          );
-        })}
+        {below.flatMap((t) =>
+          footprintsAt(t, belowLevel ?? 0).map((f, i) => {
+            const r = toSvgRect(f, frame);
+            return (
+              <rect
+                key={`below-${t.key}-${i}`}
+                class="plan-below"
+                x={r.x}
+                y={r.y}
+                width={r.w}
+                height={r.h}
+              />
+            );
+          }),
+        )}
         {shown.map((t) => {
-          const r = toSvgRect(t, frame);
+          const all = footprintsAt(t, level).map((f) => toSvgRect(f, frame));
+          const r = largestOf(all) ?? toSvgRect(t, frame);
           const part = byKey.get(t.key);
           const n = part ? part.number : 0;
           const name = part ? part.label : t.key;
@@ -381,13 +395,16 @@ export function PlanView(props: PlanViewProps) {
               }}
               onBlur={() => setFocusKey((k) => (k === t.key ? null : k))}
             >
-              <rect
-                x={r.x}
-                y={r.y}
-                width={r.w}
-                height={r.h}
-                rx={Math.max(0, Math.min(settings.cornerRadius, r.w / 4, r.h / 4))}
-              />
+              {all.map((a, i) => (
+                <rect
+                  key={i}
+                  x={a.x}
+                  y={a.y}
+                  width={a.w}
+                  height={a.h}
+                  rx={Math.max(0, Math.min(settings.cornerRadius, a.w / 4, a.h / 4))}
+                />
+              ))}
               <text
                 class="plan-label"
                 aria-hidden="true"

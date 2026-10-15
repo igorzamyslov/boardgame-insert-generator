@@ -11,9 +11,11 @@ import {
   meshFootprint,
   objectName,
   planExport,
+  printMesh,
 } from "./exportBuild";
 import type { BuiltMesh } from "./meshes";
 import { cubeMesh, makeTray } from "./test-helpers";
+import type { Mesh } from "../geometry/types";
 
 const ok = (): Promise<BuiltMesh> =>
   Promise.resolve({ mesh: cubeMesh([20, 30, 10]), volumeMm3: 6000 });
@@ -150,5 +152,67 @@ describe("export builders", () => {
     }
     expect(objectName(part)).toBe("01 Deck A ×40");
     expect(meshFootprint(cubeMesh([20, 30, 10]))).toEqual({ w: 20, d: 30 });
+  });
+});
+
+describe("a merged part that prints upside down (merged.flipped)", () => {
+  const merged = (flipped: boolean) =>
+    makeTray({
+      key: "merged:0",
+      part: "leftover",
+      solid: true,
+      compartments: [],
+      w: 20,
+      d: 30,
+      h: 10,
+      merged: { members: [], bridges: [], flipped },
+    });
+  /** A wedge, so that turning it over shows: tall at the back (y = d), low at the front. */
+  const wedge: Mesh = {
+    positions: new Float32Array([0, 0, 0, 20, 0, 0, 20, 30, 0, 0, 30, 0, 0, 30, 10, 20, 30, 10]),
+    indices: new Uint32Array([0, 1, 2, 0, 2, 3, 3, 2, 5, 3, 5, 4]),
+  };
+
+  it("prints every other part, and a merged part that stands, as it was built", () => {
+    expect(printMesh(makeTray(), wedge)).toBe(wedge);
+    expect(printMesh(merged(false), wedge)).toBe(wedge);
+  });
+
+  it("turns a flipped one half a turn about X, back on the bed, without mirroring it", () => {
+    const out = printMesh(merged(true), wedge);
+    expect(out).not.toBe(wedge);
+    expect(Array.from(out.indices)).toEqual(Array.from(wedge.indices));
+    // (x, y, z) -> (x, d - y, h - z)
+    expect(Array.from(out.positions.slice(0, 6))).toEqual([0, 30, 10, 20, 30, 10]);
+    expect(Array.from(out.positions.slice(12, 15))).toEqual([0, 0, 0]);
+    // the same footprint and height, so it lays out on the bed as before
+    expect(meshFootprint(out)).toEqual(meshFootprint(wedge));
+    // a rotation keeps the winding: the cube's volume is positive before and after
+    const cube = cubeMesh([20, 30, 10]);
+    const turned = printMesh(merged(true), cube);
+    expect(Array.from(turned.indices)).toEqual(Array.from(cube.indices));
+    expect(turned.positions[2]).toBe(10); // the old bottom corner (0, 0, 0) is now (0, 30, 10)
+    expect(turned.positions[1]).toBe(30);
+  });
+
+  it("is what the export writes: the STL holds the turned mesh", async () => {
+    const parts = planExport([merged(true)]).parts;
+    const seen: Mesh[] = [];
+    const out = await buildStlZip(parts, {
+      getMesh: () => {
+        seen.push(wedge);
+        return Promise.resolve({ mesh: wedge, volumeMm3: 1 });
+      },
+      onProgress: vi.fn(),
+      yieldToUi: () => Promise.resolve(),
+    });
+    expect(out.included).toBe(1);
+    expect(seen).toHaveLength(1);
+    const stl = Object.values(unzipSync(out.data))[0] as Uint8Array;
+    // binary STL: 80-byte header, a count, then 50 bytes a triangle (normal, three vertices)
+    const view = new DataView(stl.buffer, stl.byteOffset, stl.byteLength);
+    // first triangle (0,0,0) (20,0,0) (20,30,0) turned: (0,30,10) (20,30,10) (20,0,10)
+    expect(view.getFloat32(84 + 12 + 4, true)).toBe(30);
+    expect(view.getFloat32(84 + 12 + 8, true)).toBe(10);
   });
 });

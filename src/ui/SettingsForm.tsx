@@ -107,6 +107,21 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         ]}
         onChange={(leftover) => onChange({ ...settings, leftover })}
       />
+      <CheckField
+        id="settings-mergeFillers"
+        label="Merge fillers into one part"
+        checked={settings.mergeFillers}
+        hint="Fillers that touch (across the gap between trays) print as one part, the largest that fits your print bed, so there are fewer loose pieces to place by hand. Only the printed parts change: your layout and share link stay the same. A bigger part warps a little more and a failed print loses more at once."
+        onChange={(mergeFillers) => onChange({ ...settings, mergeFillers })}
+      />
+      <CheckField
+        id="settings-mergeRisers"
+        label="Fold risers into the merged fillers"
+        checked={settings.mergeRisers}
+        disabled={!settings.mergeFillers}
+        hint="Also prints the riser under a stack as part of the filler beside it: a low shelf the tray rests on with a full-height wall alongside. Fewer parts again, and the merged part goes in before the trays that rest on it. Needs merged fillers."
+        onChange={(mergeRisers) => onChange({ ...settings, mergeRisers })}
+      />
       {wallAbsorbRange ? (
         <NumberField
           id="settings-wallAbsorb"

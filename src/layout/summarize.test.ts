@@ -44,6 +44,61 @@ describe("summarize", () => {
     expect(lipped).toBeCloseTo(plain + ring, 1);
   });
 
+  describe("merged fillers (mergeParts)", () => {
+    // Two solid strips of one strip, in two leaves, 0.2 mm apart (the tray gap): one part.
+    const strips = [
+      traySpec({
+        key: "leftover:0",
+        part: "leftover",
+        x: 0,
+        y: 0,
+        w: 10,
+        d: 100,
+        h: 20,
+        solid: true,
+      }),
+      traySpec({
+        key: "leftover:1",
+        part: "leftover",
+        x: 0,
+        y: 100.2,
+        w: 10,
+        d: 80,
+        h: 20,
+        solid: true,
+        stack: 1,
+      }),
+    ];
+    const at = (s: Record<string, unknown>) =>
+      makeInput([], { settings: { fillToTop: false, ...s } });
+
+    it("counts the filler parts to place by hand, merged ones as one", () => {
+      expect(summarize(strips, at({ mergeFillers: true })).fillerCount).toBe(1);
+      expect(summarize(strips, at({ mergeFillers: false })).fillerCount).toBe(2);
+      const none = [traySpec({ key: "a" })];
+      expect(summarize(none, at({})).fillerCount).toBe(0);
+      // the stored count does not change: fill and the tray count stay on the stored parts
+      const merged = summarize(strips, at({ mergeFillers: true }));
+      const alone = summarize(strips, at({ mergeFillers: false }));
+      expect(merged.trayCount).toBe(alone.trayCount);
+      expect(merged.fillPct).toBe(alone.fillPct);
+    });
+
+    it("records the switches the summary was made under", () => {
+      const s = summarize(strips, at({ mergeFillers: false, mergeRisers: true }));
+      expect([s.mergeFillers, s.mergeRisers]).toEqual([false, true]);
+    });
+
+    it("weighs the plastic of the strips plus the gap the part takes in, no more", () => {
+      const merged = summarize(strips, at({ mergeFillers: true })).filamentG;
+      const alone = summarize(strips, at({ mergeFillers: false })).filamentG;
+      const gap = 0.2 * 80 * 20 * 0.00124; // the bridge outside the strips: the 0.2 mm between them
+      expect(merged).toBeGreaterThanOrEqual(alone);
+      expect(merged - alone).toBeLessThan(gap + 0.1);
+      expect(merged - alone).toBeLessThan(1);
+    });
+  });
+
   describe("filament at infill", () => {
     // fillToTop off: nothing is split into a riser, so these test the stored geometry as it is
     const at = (infill: number) => makeInput([], { settings: { infill, fillToTop: false } });

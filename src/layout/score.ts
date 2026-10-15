@@ -38,6 +38,11 @@ export interface ScoreTerms {
    * first. Only a preference; a tray reachable on top comes first (spec §6).
    */
   readonly apart: number;
+  /**
+   * Filler parts (leftovers, in a stack level too): one is a loose piece a person places by hand,
+   * so each costs its own term on top of `trays` (spec §6, lever 2).
+   */
+  readonly fillers: number;
 }
 
 export interface Score {
@@ -61,6 +66,8 @@ export interface Score {
  * and two cohesion terms for the parts of one requirement (spec §6), both preferences only:
  *   one part turned unlike its siblings =             15 000
  *   one extra stack for a requirement   =             10 000
+ * and one for the loose pieces a person places by hand (spec §6, lever 2):
+ *   one filler part (on top of `trays`)  =             20 000
  * Overflow (any hard-rule violation) costs OVERFLOW_WEIGHT per 0.01 mm, more than any
  * feasible score can reach, so the search always prefers reducing violations.
  * Totals stay far below 2^53, so score deltas are exact integers.
@@ -87,6 +94,15 @@ export const WEIGHTS: Readonly<ScoreTerms> = {
   // infeasible layout beat a feasible one.
   unturned: 15_000,
   apart: 10_000,
+  // A filler is a loose piece to place by hand ("the less fillers I have to put manually, the
+  // better"), so on top of the 20 000 every part costs it costs 20 000 of its own: twice a tray,
+  // 40 000 in all. That is under `stacked` (50 000), so avoiding a filler never buys a stacked
+  // tray's reach, and over every cohesion preference (15 000, 10 000) and `setup`, so none of
+  // them buys a filler. Count, not volume: one large filler beats two small ones of the same
+  // volume by the whole of it. Measured flat between 10 000 and 29 000 (spec §6.2), so the value
+  // is set by those neighbours, not by the search. Spec §6 lever 3, a reward for fillers against
+  // the box wall, was measured and dropped: it raised the filler count (spec §6.2).
+  fillers: 20_000,
 };
 
 export const OVERFLOW_WEIGHT = 1_000_000_000;
@@ -177,6 +193,7 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     moved,
     unturned,
     apart,
+    fillers: plan.leftovers.length,
   };
   const overflow = overflowTotal(plan.overflow);
   const total =
@@ -191,6 +208,7 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     terms.filament * WEIGHTS.filament +
     terms.moved * WEIGHTS.moved +
     terms.unturned * WEIGHTS.unturned +
-    terms.apart * WEIGHTS.apart;
+    terms.apart * WEIGHTS.apart +
+    terms.fillers * WEIGHTS.fillers;
   return { total, overflow, terms };
 }

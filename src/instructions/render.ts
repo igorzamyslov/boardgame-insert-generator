@@ -2,8 +2,10 @@
 import type { ComponentKind, Project, Settings, StoredLayout, TraySpec } from "../model/types";
 import { SPACER_COLOR, componentIndexOfTray } from "../ui/identity";
 import {
+  footprintsAt,
   isAddOn,
   labelFontSize,
+  largestOf,
   levelsOf,
   planFrame,
   planViewBox,
@@ -113,7 +115,7 @@ function layerSvg(
   const captions: (string | null)[] = [];
   // Shapes first, all of them: a number is only legible when nothing is painted after it.
   for (const t of trays) {
-    const r = toSvgRect(t, frame);
+    const shapes = footprintsAt(t, level).map((f) => toSvgRect(f, frame));
     const index = t.part === "leftover" ? null : componentIndexOfTray(t, project.components);
     const tint = index === null ? null : PAPER_TINTS[index % PAPER_TINTS.length];
     // Spare and leftover trays hold no component: plain white, dashed, so they read as "the rest".
@@ -121,9 +123,12 @@ function layerSvg(
       tint === null || tint === undefined
         ? `fill="#ffffff" stroke="${INK}" stroke-width="0.5" stroke-dasharray="2 1.5"`
         : `fill="${tint}" stroke="${INK}" stroke-width="0.5"`;
-    out.push(
-      `<rect x="${n(r.x)}" y="${n(r.y)}" width="${n(r.w)}" height="${n(r.h)}" rx="1.5" ${look}/>`,
-    );
+    for (const r of shapes) {
+      out.push(
+        `<rect x="${n(r.x)}" y="${n(r.y)}" width="${n(r.w)}" height="${n(r.h)}" rx="1.5" ${look}/>`,
+      );
+    }
+    const r = largestOf(shapes) ?? toSvgRect(t, frame);
     const kind = index === null ? undefined : project.components[index]?.kind;
     if (kind !== undefined && Math.min(r.w, r.h) >= GLYPH_MIN_SIZE) {
       out.push(glyphSvg(kind, r));
@@ -138,16 +143,22 @@ function layerSvg(
   // The trays of the layer below, faintly, over the shapes: where this layer's trays stand.
   if (belowLevel !== undefined) {
     for (const t of traysAt(layout.trays, belowLevel)) {
-      const r = toSvgRect(t, frame);
+      const shapes = footprintsAt(t, belowLevel).map((f) => toSvgRect(f, frame));
+      const r = largestOf(shapes) ?? toSvgRect(t, frame);
       const num = byKey.get(t.key)?.number;
+      for (const g of shapes) {
+        out.push(
+          `<rect x="${n(g.x)}" y="${n(g.y)}" width="${n(g.w)}" height="${n(g.h)}" fill="none" stroke="${GHOST}" stroke-width="0.35" stroke-dasharray="2 1.5"/>`,
+        );
+      }
       out.push(
-        `<rect x="${n(r.x)}" y="${n(r.y)}" width="${n(r.w)}" height="${n(r.h)}" fill="none" stroke="${GHOST}" stroke-width="0.35" stroke-dasharray="2 1.5"/>`,
         `<text x="${n(r.x + 1.2)}" y="${n(r.y + 3.4)}" font-size="3" fill="${GHOST}">${num ?? "?"}</text>`,
       );
     }
   }
   for (const t of trays) {
-    const r = toSvgRect(t, frame);
+    const r =
+      largestOf(footprintsAt(t, level).map((f) => toSvgRect(f, frame))) ?? toSvgRect(t, frame);
     const part = byKey.get(t.key);
     const labelSize = Math.min(5, labelFontSize(r) * 0.45);
     const maxChars = Math.floor(r.w / (labelSize * 0.6));

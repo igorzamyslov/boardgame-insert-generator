@@ -46,6 +46,10 @@ import type { Semver } from "../model/version";
  * fit the same wells and trays still mate; only a spacer's inside differs, and planTray accepts
  * everything it accepted before. Later in 0.5.2, placeCutouts backs off a channel that strands a
  * pocket: a tray that was cut before is unchanged, one that used to throw now gets its cuts.
+ * Also in 0.5.2, and not a new version, the app prints connected fillers as one part (`mergeParts`,
+ * built by joining the members and the bridges between them): every part is built exactly as
+ * before, so nothing printed earlier stops mating, and a merged part is derived from the stored
+ * layout and never stored.
  */
 export const GEOMETRY_VERSION = "0.5.2";
 

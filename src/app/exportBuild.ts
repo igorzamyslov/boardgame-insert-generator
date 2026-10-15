@@ -69,6 +69,25 @@ export function meshFootprint(mesh: Mesh): { w: number; d: number } {
 }
 
 /**
+ * The mesh of a part as it prints. A merged part whose members stand on different floors
+ * (`merged.flipped`) only prints without supports upside down, so it is turned half a turn about
+ * the X axis (a rotation, not a mirror) and put back on the bed; every other part prints as it is
+ * built. The mesh frame is the part's own box: its depth `d` and height `h` are the spec's.
+ */
+export function printMesh(spec: TraySpec, mesh: Mesh): Mesh {
+  if (!spec.merged?.flipped) {
+    return mesh;
+  }
+  const positions = new Float32Array(mesh.positions.length);
+  for (let i = 0; i + 2 < positions.length; i += 3) {
+    positions[i] = mesh.positions[i] ?? 0;
+    positions[i + 1] = spec.d - (mesh.positions[i + 1] ?? 0);
+    positions[i + 2] = spec.h - (mesh.positions[i + 2] ?? 0);
+  }
+  return { positions, indices: mesh.indices };
+}
+
+/**
  * The printable XY area, spec §5: `bedX − 2·bedMargin` by `bedY − 2·bedMargin`, the same rule as
  * the layout's bed (`layout/context.ts` works in 0.01 mm units and floors them).
  */
@@ -93,7 +112,7 @@ async function collect(
   for (const [i, part] of parts.entries()) {
     try {
       const { mesh } = await opts.getMesh(part.spec);
-      built.push({ part, mesh });
+      built.push({ part, mesh: printMesh(part.spec, mesh) });
     } catch (e) {
       // A cancelled export is not a part's failure: stop and let the caller see the abort.
       if (e instanceof Error && e.name === "AbortError") {

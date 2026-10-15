@@ -5,7 +5,9 @@ import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import {
   clientToSvg,
+  footprintsAt,
   hitTest,
+  largestOf,
   labelFontSize,
   levelsOf,
   planFrame,
@@ -75,6 +77,68 @@ describe("plan geometry", () => {
     expect(levelsOf(trays)).toEqual([0]);
     expect(traysAt(trays, 0).map((t) => t.key)).toEqual(["a"]);
     expect(spacersAt(trays, 0)).toEqual([]);
+  });
+
+  describe("a merged filler (mergeParts)", () => {
+    // A ground strip and a filler on the tray below it (level 1), printed as one part.
+    const ground = makeTray({
+      key: "leftover:0",
+      part: "leftover",
+      x: 0,
+      y: 50,
+      w: 90,
+      d: 8,
+      level: 0,
+      compartments: [],
+    });
+    const ledge = makeTray({
+      key: "leftover:1",
+      part: "leftover",
+      x: 0,
+      y: 40,
+      w: 90,
+      d: 10,
+      z: 28,
+      level: 1,
+      compartments: [],
+    });
+    const riser = makeTray({ key: "a:riser", part: "riser", x: 0, y: 0, w: 90, d: 40, level: 0 });
+    const merged = makeTray({
+      key: "merged:0",
+      part: "leftover",
+      x: 0,
+      y: 0,
+      w: 90,
+      d: 58,
+      level: 0,
+      compartments: [],
+      merged: { members: [riser, ground, ledge], bridges: [], flipped: true },
+    });
+
+    it("stands on every layer its members stand on", () => {
+      const trays = [makeTray({ key: "t", level: 0 }), makeTray({ key: "u", level: 1 }), merged];
+      expect(traysAt(trays, 0).map((t) => t.key)).toEqual(["t", "merged:0"]);
+      expect(traysAt(trays, 1).map((t) => t.key)).toEqual(["u", "merged:0"]);
+      expect(levelsOf(trays)).toEqual([0, 1]);
+    });
+
+    it("is drawn as its members of the layer, not its bounding box, and not the riser under a tray", () => {
+      expect(footprintsAt(merged, 0).map((f) => f.y)).toEqual([50]);
+      expect(footprintsAt(merged, 1).map((f) => f.y)).toEqual([40]);
+      expect(footprintsAt(makeTray({ x: 3, y: 4, w: 5, d: 6 }), 0)).toEqual([
+        expect.objectContaining({ x: 3, y: 4, w: 5, d: 6 }),
+      ]);
+    });
+
+    it("writes its number on the largest box, the first on a tie", () => {
+      const rects = [
+        { x: 0, y: 0, w: 10, h: 10 },
+        { x: 20, y: 0, w: 20, h: 10 },
+        { x: 50, y: 0, w: 10, h: 20 },
+      ];
+      expect(largestOf(rects)).toBe(rects[1]);
+      expect(largestOf([])).toBeUndefined();
+    });
   });
 
   it("clamps label sizes", () => {

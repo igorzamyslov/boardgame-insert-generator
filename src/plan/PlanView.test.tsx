@@ -92,6 +92,28 @@ const L2 = makeTray({
 });
 const centerL2 = at(95, 95);
 
+/** Two fillers, one beside the stack and one on top of it, printed as one part. */
+const M = makeTray({
+  key: "merged:0",
+  part: "leftover",
+  path: "",
+  stack: 2,
+  level: 0,
+  x: 91,
+  y: 0,
+  w: 8,
+  d: 99,
+  compartments: [],
+  merged: {
+    members: [
+      { ...L2, x: 91, y: 0, w: 8, d: 60 },
+      { ...L2, key: "leftover:2", x: 91, y: 60.2, w: 8, d: 39, level: 1 },
+    ],
+    bridges: [],
+    flipped: true,
+  },
+});
+
 function holding(contents: string): CompartmentSpec {
   return { x: 1, y: 1, w: 10, d: 10, floorZ: 1, kind: "well", features: [], contents };
 }
@@ -500,5 +522,32 @@ describe("PlanView", () => {
     const { view } = setup();
     expect(view.container.querySelector("fieldset.layer-picker .pf-seg .pf-seg__opt")).toBeTruthy();
     expect(screen.getByLabelText("Layer 1")).toBeTruthy();
+  });
+});
+
+describe("a merged filler on the plan", () => {
+  it("is one tile per member on the layer it stands on, all with one number and one key", () => {
+    const { view } = setup({ trays: [A, B, C, M] });
+    const merged = view.container.querySelectorAll('[data-key="merged:0"]');
+    // one group, drawn as the members of the layer (layer 1: the ground filler)
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.querySelectorAll("rect")).toHaveLength(1);
+    expect(merged[0]?.textContent).toMatch(/^\d/);
+    expect(merged[0]?.classList.contains("is-leftover")).toBe(true);
+  });
+
+  it("shows its other member on the next layer, and is selected from either", () => {
+    const onSelect = vi.fn();
+    const { view } = setup({ trays: [A, B, C, M], onSelect });
+    fireEvent.click(screen.getByRole("radio", { name: /Layer 2/ }));
+    const merged = view.container.querySelector('[data-key="merged:0"]');
+    expect(merged?.querySelectorAll("rect")).toHaveLength(1);
+    fireEvent.keyDown(merged as Element, { key: "Enter" });
+    expect(onSelect).toHaveBeenCalledWith("merged:0");
+  });
+
+  it("draws the ring round every member of a selected merged part", () => {
+    const { view } = setup({ trays: [A, B, C, M], selectedKey: "merged:0" });
+    expect(view.container.querySelectorAll("rect.plan-ring.is-selected")).toHaveLength(1);
   });
 });

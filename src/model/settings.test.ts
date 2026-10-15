@@ -44,6 +44,8 @@ describe("DEFAULT_SETTINGS", () => {
       leftover: "spare",
       fillToTop: true,
       wallAbsorb: 0,
+      mergeFillers: true,
+      mergeRisers: false,
       infill: 15,
     });
   });

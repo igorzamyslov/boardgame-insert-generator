@@ -137,6 +137,17 @@ describe("schema history", () => {
     expect(older.project.settings.wallAbsorb).toBe(0);
   });
 
+  it("reads the merge switches from the 0.1.9 file, and defaults them for older files", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.9.json"]);
+    expect(notices).toEqual([]);
+    expect(project.settings.mergeFillers).toBe(false);
+    expect(project.settings.mergeRisers).toBe(true);
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.8.json"]);
+    expect(older.notices).toEqual([]);
+    expect(older.project.settings.mergeFillers).toBe(true);
+    expect(older.project.settings.mergeRisers).toBe(false);
+  });
+
   it("prefers wallAbsorb when a file has both keys", () => {
     const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.1.8.json"]) as {
       settings: Record<string, number>;

@@ -292,7 +292,25 @@ export function toSerializable(p: Project, foreign: ForeignData): Json {
   const out = structuredClone({ ...p, createdWith: APP_VERSION, components }) as Json;
   restoreValues(out, foreign.values ?? []);
   compactLayout(out);
+  compactSettings(out);
   return out;
+}
+
+/**
+ * The two print-time merge switches at their defaults are left out: reading puts them back, so a
+ * share link (2 000 characters) does not pay for two settings nearly every project leaves alone.
+ */
+function compactSettings(out: Json): void {
+  const settings = out.settings;
+  if (!isRecord(settings)) {
+    return;
+  }
+  if (settings.mergeFillers === DEFAULT_SETTINGS.mergeFillers) {
+    delete settings.mergeFillers;
+  }
+  if (settings.mergeRisers === DEFAULT_SETTINGS.mergeRisers) {
+    delete settings.mergeRisers;
+  }
 }
 
 /**

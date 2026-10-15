@@ -28,6 +28,13 @@ export function unsupportedReason(spec: TraySpec): string | null {
       }
     }
   }
+  // A merged part is as buildable as its members.
+  for (const member of spec.merged?.members ?? []) {
+    const reason = unsupportedReason(member);
+    if (reason !== null) {
+      return reason;
+    }
+  }
   return null;
 }
 

@@ -34,6 +34,9 @@ export function partLabel(spec: TraySpec): string {
     return "Riser";
   }
   if (spec.part === "leftover") {
+    if (spec.merged) {
+      return spec.solid ? "Merged filler block" : "Merged spare tray";
+    }
     return spec.solid ? "Filler block" : "Spare tray";
   }
   const names: string[] = [];
@@ -45,9 +48,51 @@ export function partLabel(spec: TraySpec): string {
   return names.length > 0 ? names.join(" + ") : spec.key;
 }
 
+/** Tolerance when two heights count as meeting, mm (the grid is 0.01). */
+const MEET = 0.05;
+
+/** Whether the footprints of two boxes overlap by more than an edge. */
+function overlapsInPlan(a: TraySpec, b: TraySpec): boolean {
+  return (
+    a.x < b.x + b.w - MEET &&
+    b.x < a.x + a.w - MEET &&
+    a.y < b.y + b.d - MEET &&
+    b.y < a.y + a.d - MEET
+  );
+}
+
+/**
+ * Where a merged part goes among the numbered parts: after every tray it rests on, and otherwise
+ * first, so it goes in before every tray that rests on it or stands against it (a riser folded
+ * into it carries its tray; a filler beside a tray is dropped in before the tray goes in beside
+ * it). A member that rests on a tray (a filler in a stack level, whose floor is the top of the
+ * tray below) can only be placed once that tray is, so the part follows the last such tray and
+ * the parts that go into it.
+ */
+function mergedPosition(merged: TraySpec, ordered: readonly TraySpec[]): number {
+  let after = -1;
+  ordered.forEach((t, i) => {
+    if (t.part !== "tray") {
+      return;
+    }
+    const carries = (merged.merged?.members ?? []).some(
+      (m) => m.z > MEET && Math.abs(t.z + t.h - m.z) <= MEET && overlapsInPlan(t, m),
+    );
+    if (carries) {
+      // The tray's own spacers come right after it.
+      let last = i;
+      while (ordered[last + 1] !== undefined && ordered[last + 1]?.part === "spacer") {
+        last += 1;
+      }
+      after = Math.max(after, last);
+    }
+  });
+  return after + 1;
+}
+
 export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
   const main = trays
-    .filter((t) => !isAddOn(t))
+    .filter((t) => !isAddOn(t) && t.merged === undefined)
     .sort((a, b) => a.stack - b.stack || a.level - b.level || compareCodeUnits(a.key, b.key));
   const addOns = trays.filter(isAddOn);
   const used = new Set<TraySpec>();
@@ -72,6 +117,18 @@ export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
   }
   const orphans = addOns.filter((s) => !used.has(s)).sort((a, b) => compareCodeUnits(a.key, b.key));
   ordered.push(...orphans);
+  // Merged fillers, in key order, each at the first place that has what it rests on in.
+  const joined = trays
+    .filter((t) => t.merged !== undefined)
+    .sort((a, b) => compareCodeUnits(a.key, b.key));
+  for (const m of joined) {
+    // After the merged parts already in place there, so equal places keep key order.
+    let at = mergedPosition(m, ordered);
+    while (ordered[at]?.merged !== undefined) {
+      at += 1;
+    }
+    ordered.splice(at, 0, m);
+  }
   const numberOf = new Map<string, number>();
   ordered.forEach((t, i) => {
     numberOf.set(t.key, i + 1);

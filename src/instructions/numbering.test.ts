@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_SETTINGS } from "../model/settings";
+import type { TraySpec } from "../model/types";
 import {
   numberParts,
   outerSizeText,
@@ -86,6 +87,88 @@ describe("numberParts", () => {
       [2, "a:p0:0", null],
       [3, "a:p0:0:spacer", 2],
     ]);
+  });
+
+  describe("a merged filler (mergeParts)", () => {
+    const member = (key: string, o: Partial<TraySpec> = {}): TraySpec =>
+      makeTray({ key, part: "leftover", path: "0", solid: true, compartments: [], ...o });
+    /** A merged part of `members`, its box the bounding box of the members. */
+    const mergedOf = (key: string, members: TraySpec[], flipped = false): TraySpec => {
+      const x0 = Math.min(...members.map((m) => m.x));
+      const y0 = Math.min(...members.map((m) => m.y));
+      const z0 = Math.min(...members.map((m) => m.z));
+      return makeTray({
+        key,
+        part: "leftover",
+        solid: true,
+        compartments: [],
+        x: x0,
+        y: y0,
+        z: z0,
+        w: Math.max(...members.map((m) => m.x + m.w)) - x0,
+        d: Math.max(...members.map((m) => m.y + m.d)) - y0,
+        h: Math.max(...members.map((m) => m.z + m.h)) - z0,
+        merged: { members, bridges: [], flipped },
+      });
+    };
+
+    it("is named as one, and goes in before the trays that stand beside or on it", () => {
+      const a = makeTray({ key: "a:p0:0", stack: 0, x: 0, y: 0, w: 90, d: 60 });
+      const b = makeTray({ key: "b:p0:0", stack: 1, x: 0, y: 60.2, w: 90, d: 60 });
+      const strip = mergedOf("merged:0", [
+        member("leftover:0", { x: 90.2, y: 0, w: 10, d: 60, h: 35 }),
+        member("leftover:1", { x: 90.2, y: 60.2, w: 10, d: 60, h: 35 }),
+      ]);
+      const parts = numberParts([a, b, strip]);
+      expect(parts.map((p) => [p.number, p.spec.key])).toEqual([
+        [1, "merged:0"],
+        [2, "a:p0:0"],
+        [3, "b:p0:0"],
+      ]);
+      expect(parts[0]?.label).toBe("Merged filler block");
+      expect(parts[0]?.parentNumber).toBeNull();
+      expect(partLabel({ ...strip, solid: false })).toBe("Merged spare tray");
+    });
+
+    it("carries a folded-in riser's tray, so it goes in before that tray", () => {
+      const tray = makeTray({ key: "a:p0:0", stack: 0, z: 16.4, w: 90, d: 60, h: 8 });
+      const riser = makeTray({
+        key: "a:p0:0:riser",
+        part: "riser",
+        path: "",
+        stack: 0,
+        w: 90,
+        d: 60,
+        h: 16.4,
+      });
+      const wall = member("leftover:0", { x: 90.2, y: 0, w: 10, d: 60, h: 35 });
+      const parts = numberParts([tray, mergedOf("merged:0", [riser, wall])]);
+      expect(parts.map((p) => p.spec.key)).toEqual(["merged:0", "a:p0:0"]);
+    });
+
+    it("follows the tray it rests on: a filler in a stack level stands on the tray below", () => {
+      // tray 0 is 28.4 high; the ledge filler stands on it from 28.4 to the top plane, and a
+      // ground filler beside the stack joins it upside down
+      const t0 = makeTray({ key: "a:p0:0", stack: 0, level: 0, w: 90, d: 90, h: 28.4 });
+      const t1 = makeTray({ key: "b:p0:0", stack: 0, level: 1, z: 28.4, w: 90, d: 80, h: 6.6 });
+      const other = makeTray({ key: "c:p0:0", stack: 1, x: 0, y: 100, w: 90, d: 90 });
+      const ledge = member("leftover:1", { x: 0, y: 80, w: 90, d: 10, z: 28.4, h: 6.6, level: 1 });
+      const ground = member("leftover:0", { x: 0, y: 90.2, w: 90, d: 8, h: 35 });
+      const parts = numberParts([other, t1, mergedOf("merged:0", [ground, ledge], true), t0]);
+      // not first: it cannot go in before the tray its ledge rests on
+      expect(parts.map((p) => p.spec.key)).toEqual(["a:p0:0", "merged:0", "b:p0:0", "c:p0:0"]);
+    });
+
+    it("keeps several merged parts in key order, whatever order they came in", () => {
+      const m0 = mergedOf("merged:0", [member("leftover:0", { x: 90 })]);
+      const m1 = mergedOf("merged:1", [member("leftover:1", { x: 190 })]);
+      const t = makeTray({ key: "a:p0:0" });
+      expect(numberParts([m1, t, m0]).map((p) => p.spec.key)).toEqual([
+        "merged:0",
+        "merged:1",
+        "a:p0:0",
+      ]);
+    });
   });
 
   it("numbers the plates of a split spacer after their tray, and names them", () => {

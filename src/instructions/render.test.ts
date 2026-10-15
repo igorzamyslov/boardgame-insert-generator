@@ -358,3 +358,44 @@ describe("png helpers", () => {
     });
   });
 });
+
+describe("a merged filler in the instructions", () => {
+  const strip = (key: string, o: Parameters<typeof makeTray>[0]) =>
+    makeTray({ key, part: "leftover", solid: true, compartments: [], stack: 5, ...o });
+  const a = strip("leftover:0", { x: 130, y: 0, w: 10, d: 40 });
+  const b = strip("leftover:1", { x: 130, y: 40.2, w: 10, d: 50 });
+  const merged = makeTray({
+    key: "merged:0",
+    part: "leftover",
+    solid: true,
+    compartments: [],
+    stack: 5,
+    x: 130,
+    y: 0,
+    w: 10,
+    d: 90.2,
+    h: 35,
+    merged: { members: [a, b], bridges: [], flipped: false },
+  });
+  const withMerged = makeLayout("h", [bottom, merged]);
+
+  it("draws a shape per member and one number, on the larger", () => {
+    const [svg] = render(withMerged, fixtureProject());
+    const doc = parse(svg ?? "");
+    // the bottom tray and one rect per member (plus the box outline and the white page)
+    const shapes = [...doc.querySelectorAll("rect")].filter((r) => r.getAttribute("rx") === "1.5");
+    expect(shapes).toHaveLength(3);
+    const numbers = [...doc.querySelectorAll("text")].filter((t) =>
+      /^\d+$/.test(t.textContent ?? ""),
+    );
+    expect(numbers.map((t) => t.textContent).sort()).toEqual(["1", "2"]);
+  });
+
+  it("lists and places it as one part", () => {
+    const rows = whatGoesWhere(withMerged, DEFAULT_SETTINGS);
+    const row = rows.find((r) => r.label === "Merged filler block");
+    expect(row).toMatchObject({ layer: 1, goesInto: null, carries: null });
+    expect(rows).toHaveLength(2);
+    expect(packingSteps(withMerged).join("\n")).toContain("Merged filler block");
+  });
+});

@@ -148,6 +148,18 @@ export interface Settings {
    */
   wallAbsorb: number;
   /**
+   * Print connected filler parts as one part, up to the largest that fits the print bed (spec
+   * minimal-trays §6.1, lever 1). A print-time decomposition like the riser split: no part of the
+   * inputs hash, so toggling it never stales a plan or changes the stored layout.
+   */
+  mergeFillers: boolean;
+  /**
+   * With `mergeFillers`, fold the risers into the merged fillers too (lever 1b): a riser stands
+   * under a tray and a filler beside it, so a part with both is an L in elevation. Also
+   * print-time, and no part of the inputs hash. Does nothing while `mergeFillers` is off.
+   */
+  mergeRisers: boolean;
+  /**
    * Infill (percent) the filament estimate assumes for the sparse interior of thick parts (spec
    * §8.3). Display only: it changes no geometry, so it is not part of the inputs hash.
    */
@@ -212,6 +224,34 @@ export interface TraySpec {
   solid: boolean;
   compartments: CompartmentSpec[];
   features?: FeatureSpec[]; // the part's own: a card spacer's notch (spacerNotch)
+  /**
+   * Set on a printed part that is several connected fillers (and risers) printed as one, never
+   * stored (mergeParts derives it). The part's own x, y, z, w, d, h are the bounding box of the
+   * union; `members` (absolute coordinates, each one built as it would be alone) and `bridges`
+   * (solid boxes across the tray gaps between members) are the union itself.
+   */
+  merged?: MergedPart;
+}
+
+/** An axis-aligned box in box coordinates, mm. */
+export interface BoxMm {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+  d: number;
+  h: number;
+}
+
+export interface MergedPart {
+  members: TraySpec[];
+  bridges: BoxMm[];
+  /**
+   * The members stand on different floors (an in-level filler beside a ground one), so the part
+   * only prints without supports upside down, its top face on the bed: every member runs from the
+   * top plane downwards. Only solid members merge this way.
+   */
+  flipped: boolean;
 }
 
 // Shared helpers

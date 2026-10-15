@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.8: 0.1.7 with wallGrowth renamed wallAbsorb", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.8");
+  it("is at schema 0.1.9: 0.1.8 with the print-time merge switches mergeFillers and mergeRisers", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.9");
   });
 
   it("parses strict semver", () => {

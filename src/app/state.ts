@@ -110,13 +110,16 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     }
     const r = lastResult.value;
     // The run's summary stands only for the inputs it ran on (anything that moves the riser split,
-    // such as `leftover` or `fillToTop`, is in the hash) and for the infill, which is not.
+    // such as `leftover` or `fillToTop`, is in the hash) and for the infill and the two merge
+    // switches, which are not.
     if (
       r &&
       r.layout === layout &&
       r.summary &&
       layout.inputsHash === currentHash.value &&
-      r.summary.infillPct === p.settings.infill
+      r.summary.infillPct === p.settings.infill &&
+      r.summary.mergeFillers === p.settings.mergeFillers &&
+      r.summary.mergeRisers === p.settings.mergeRisers
     ) {
       return r.summary;
     }
