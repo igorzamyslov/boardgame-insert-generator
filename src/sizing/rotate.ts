@@ -41,6 +41,11 @@ export function rotateRealized(r: RealizedTray, outer: OuterSize): RealizedTray 
       // Sizing puts spacer notches on spacers only (turnNotch).
       throw new Error("internal: a spacer notch on a compartment");
     }
+    if (f.type === "dividerSlot") {
+      // A slot along y at x = at comes to run along x at the same centre; one along x comes to run
+      // along y at depth − at.
+      return f.axis === "y" ? { ...f, axis: "x" } : { ...f, axis: "y", at: round2(depth - f.at) };
+    }
     // Wall cutouts: `at` runs along the side, so it turns with it.
     const alongX = f.side === "front" || f.side === "back";
     return { ...f, side: TURNED[f.side], at: alongX ? f.at : round2(depth - f.at) };

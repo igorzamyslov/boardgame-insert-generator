@@ -45,7 +45,7 @@ function tintColorOf(
   spec: TraySpec,
   components: readonly Component[] | undefined,
 ): string | undefined {
-  if (spec.part === "spacer") {
+  if (spec.part === "spacer" || spec.part === "divider") {
     return SPACER_COLOR;
   }
   const tint = tintOfTray(spec, components ?? []);
@@ -247,7 +247,10 @@ export function Viewer(p: ViewerProps) {
   }
 
   const pickable = parts.filter(
-    (part) => part.spec.part !== "spacer" && (shownLevel === null || part.spec.level <= shownLevel),
+    (part) =>
+      part.spec.part !== "spacer" &&
+      part.spec.part !== "divider" &&
+      (shownLevel === null || part.spec.level <= shownLevel),
   );
   const selected = p.selectedKey === null ? undefined : byKey.get(p.selectedKey);
   return (

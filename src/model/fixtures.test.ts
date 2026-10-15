@@ -185,6 +185,24 @@ describe("schema history", () => {
     expect(again.project).toEqual(project);
   });
 
+  it("reads the dividers of the 0.1.13 file, and keeps them through a save and a link", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.13.json"]);
+    expect(notices).toEqual([]);
+    expect(project.components.map((c) => c.dividers)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      2,
+      undefined,
+      undefined,
+    ]);
+    expect(validateProject(project).filter((n) => n.level === "error")).toEqual([]);
+    const again = load(JSON.parse(serializeProject(project, noForeign())));
+    expect(again.project).toEqual(project);
+    const decoded = decodeHash(encodeHash(project, noForeign()));
+    expect(decoded.ok && decoded.project).toEqual(project);
+  });
+
   it("refuses a growth that is neither a word nor a number", () => {
     const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.1.12.json"]) as {
       components: { growth: Record<string, unknown> }[];

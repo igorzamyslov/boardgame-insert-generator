@@ -82,3 +82,24 @@ export const AUTO_GROWTH_CEILING = 50;
  */
 export const UNPLATED_RETENTION = 1;
 export const PLATED_RETENTION = 6;
+
+/**
+ * Dividers (a component's `dividers`, minimal-trays spec §5): thin loose plates that split a grown
+ * deck well into sections, each standing in a slot cut into the tray's floor. The plate is at
+ * least DIVIDER_THICKNESS thick (3 mm, as thin as a separator plate and for the same reason: it
+ * prints rigid standing on its edge) and at least what its bottom chamfer needs; its slot is
+ * DIVIDER_PLAY wider, so it goes in by hand and is not wedged.
+ */
+export const DIVIDER_THICKNESS = 3;
+export const DIVIDER_PLAY = 0.4;
+/**
+ * How deep the slot is cut into the floor, mm. A floor is only settings.floor thick, so the floor
+ * under a divided well is that much thicker still (the tray is that much taller where it is not
+ * raised anyway): a slot over the floor's own thickness plus MIN_FEATURE_MM would cut through, and
+ * a plate standing in a slot shallower than this tips under the stack's lean.
+ */
+export const DIVIDER_GROOVE = 2;
+/** Clear space at each end of a divider, between it and the well's walls, mm. */
+export const DIVIDER_END_PLAY = 0.2;
+/** Narrowest section a divided well is made, mm: a divider must have room on both sides. */
+export const MIN_SECTION = 5;

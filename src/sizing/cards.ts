@@ -1,4 +1,4 @@
-import { growthOf, separatorsOf, togglesOf } from "../model/defaults";
+import { dividersOf, growthOf, separatorsOf, togglesOf } from "../model/defaults";
 import { SLEEVES } from "../model/presets";
 import { effective } from "../model/settings";
 import type { CardsComponent, Notice, Settings } from "../model/types";
@@ -11,7 +11,8 @@ import {
   wallCutout,
   type OptionsResult,
 } from "./common";
-import { CHANNEL_DEPTH, MIN_MEASURED_CARD_T } from "./constants";
+import { CHANNEL_DEPTH, DIVIDER_GROOVE, MIN_MEASURED_CARD_T } from "./constants";
+import { dividedWidth } from "./dividers";
 import { growthMm, stackGrowthMm } from "./growth";
 import type { CompartmentReq } from "./types";
 import { ceilU, fromU } from "./units";
@@ -112,16 +113,25 @@ function deckCompartment(
   }
   const onLongEdge = storage === "upright-long";
   // Along the stack: a spacer (or the `separators` plates) fills what the deck is given, and
-  // retention bounds it (stackGrowthMm).
-  const grow = stackGrowthMm(growthOf(c, "stack"), stack, separatorsOf(c) > 1);
+  // retention bounds it (stackGrowthMm). With dividers the well itself grows instead, and its
+  // sections hold the room; the two do not combine (a spacer would sit behind the last section only).
+  const dividers = dividersOf(c);
+  const grow = stackGrowthMm(
+    growthOf(c, "stack"),
+    stack,
+    dividers === 0 && separatorsOf(c) > 1,
+    dividers,
+  );
   return compartment({
     ...base,
-    w: stack,
+    w: dividers > 0 ? dividedWidth(stack, dividers, s) : stack,
     d: (onLongEdge ? dims.L : dims.S) + clearance,
     h: (onLongEdge ? dims.S : dims.L) + clearance,
-    ...(grow > 0
-      ? { grow: { w: grow }, spacerAxis: "w" as const, separators: separatorsOf(c) }
-      : {}),
+    ...(dividers > 0
+      ? { grow: { w: grow }, dividers, floorExtra: DIVIDER_GROOVE }
+      : grow > 0
+        ? { grow: { w: grow }, spacerAxis: "w" as const, separators: separatorsOf(c) }
+        : {}),
     // One channel through the walls and dividers the card faces touch.
     features: featuresOf(togglesOf(c), [
       wallCutout("left", CHANNEL_DEPTH, false),

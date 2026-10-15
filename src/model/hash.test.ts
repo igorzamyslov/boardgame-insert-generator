@@ -80,6 +80,17 @@ describe("inputsHash", () => {
     expect(inputsHash(other)).not.toBe(inputsHash(grown));
   });
 
+  it("changes with a component's dividers: they cut slots into the tray, so the layout", () => {
+    const base = sample();
+    const divided = (n: number): Project => ({
+      ...base,
+      components: base.components.map((c) => (c.kind === "cards" ? { ...c, dividers: n } : c)),
+    });
+    expect(inputsHash(divided(2))).not.toBe(inputsHash(base));
+    expect(inputsHash(divided(3))).not.toBe(inputsHash(divided(2)));
+    expect(inputsHash(divided(2))).toBe(inputsHash(divided(2)));
+  });
+
   it("changes with wallAbsorb, since it moves where leaf slack goes", () => {
     const base = sample();
     const grown: Project = { ...base, settings: { ...base.settings, wallAbsorb: 1 } };

@@ -54,6 +54,25 @@ describe("viewer transforms", () => {
     expect(trayPosition(spacer, 0, c, tray)).toEqual([190, 42, 0]);
   });
 
+  it("keeps a divider in station with its tray and lifts it clear, like a spacer", () => {
+    const tray = makeTray({ key: "a:p0:0", x: 160, y: 40, w: 40, d: 20 });
+    const divider = makeTray({
+      key: "a:p0:0:divider:1",
+      part: "divider",
+      x: 180,
+      y: 42,
+      w: 3,
+      d: 16,
+    });
+    const c: [number, number] = [100, 50];
+    const t = trayPosition(tray, 1, c);
+    const d = trayPosition(divider, 1, c, tray);
+    expect(d[0] - divider.x).toBeCloseTo(t[0] - tray.x);
+    expect(d[1] - divider.y).toBeCloseTo(t[1] - tray.y);
+    expect(d[2]).toBeGreaterThan(t[2]);
+    expect(trayPosition(divider, 0, c, tray)).toEqual([180, 42, 0]);
+  });
+
   it("filters layers", () => {
     expect(isVisible(makeTray({ level: 2 }), null)).toBe(true);
     expect(isVisible(makeTray({ level: 2 }), 1)).toBe(false);

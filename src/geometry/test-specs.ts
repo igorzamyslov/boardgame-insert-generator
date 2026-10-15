@@ -368,16 +368,37 @@ const withGrowth = (raw: unknown, mode: "off" | "max"): unknown => {
   };
 };
 
+// Every deck and stack of tiles stands up, may grow as far as retention lets it, and has two
+// dividers: wells with slots in their floors, in trays of every size the sweeps build.
+const withDividers = (raw: unknown): unknown => {
+  const { components, ...rest } = raw as { components: Record<string, unknown>[] };
+  return {
+    ...rest,
+    components: components.map((component) =>
+      component.kind === "cards" || component.kind === "tiles"
+        ? {
+            ...component,
+            storage: component.kind === "cards" ? "upright-long" : "upright",
+            growth: { stack: "max" },
+            dividers: 2,
+          }
+        : component,
+    ),
+  };
+};
+
 export const SWEEP_FIXTURES: readonly [string, unknown][] = [
   ["cards-heavy", cardsHeavy],
   ["cards-heavy, growth off", withGrowth(cardsHeavy, "off")],
   ["cards-heavy, growth max", withGrowth(cardsHeavy, "max")],
+  ["cards-heavy, dividers", withDividers(cardsHeavy)],
   ["bits-heavy", bitsHeavy],
   ["bits-heavy, growth off", withGrowth(bitsHeavy, "off")],
   ["tiles-minis", tilesMinis],
   ["small-tiles", smallTiles],
   ["small-tiles, growth off", withGrowth(smallTiles, "off")],
   ["small-tiles, growth max", withGrowth(smallTiles, "max")],
+  ["small-tiles, dividers", withDividers(smallTiles)],
   ["tiny-box", tinyBox],
 ];
 

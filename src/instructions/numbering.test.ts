@@ -186,6 +186,20 @@ describe("numberParts", () => {
     expect(parentKey(plate(12))).toBe("a:p0:0");
   });
 
+  it("numbers the dividers of a tray after its spacer plates, in order, and names them", () => {
+    const tray = makeTray({ key: "a:p0:0", stack: 0, level: 0 });
+    const divider = (n: number) =>
+      makeTray({ key: `a:p0:0:divider:${n}`, part: "divider", path: "", stack: 0, level: 0 });
+    const parts = numberParts([divider(2), tray, divider(10), divider(1)]);
+    expect(parts.map((p) => [p.number, p.spec.key, p.parentNumber, p.label])).toEqual([
+      [1, "a:p0:0", null, partLabel(tray)],
+      [2, "a:p0:0:divider:1", 1, "Divider 1"],
+      [3, "a:p0:0:divider:2", 1, "Divider 2"],
+      [4, "a:p0:0:divider:10", 1, "Divider 10"],
+    ]);
+    expect(parentKey(divider(12))).toBe("a:p0:0");
+  });
+
   it("orders by code unit, not by locale, so the numbers are the same everywhere", () => {
     const upper = makeTray({ key: "B:p0:0", stack: 0, level: 0 });
     const lower = makeTray({ key: "a:p0:0", stack: 0, level: 0 });

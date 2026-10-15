@@ -60,6 +60,13 @@ export interface ComponentBase {
   // also made the layout build a spacer where it would build a spare pocket, which is why it is
   // still part of the inputs hash.
   separators?: number;
+  // Upright cards and tiles that may grow along the stack: how many thin loose dividers split the
+  // grown well into that many plus one sections, each held in a slot in the tray's floor (absent:
+  // 0, none; dividersOf in ./defaults). Unlike `separators` this changes the tray itself (the
+  // slots), so it is part of the inputs hash and the geometry version; the dividers are derived
+  // from the stored slots (splitDividers). With dividers the well has no spacer, whatever
+  // `separators` says.
+  dividers?: number;
 }
 
 /**
@@ -213,6 +220,10 @@ export type FeatureSpec =
       floorNotch: number;
     }
   | { type: "spacerNotch"; axis: "x" | "y"; at: number; width: number; depth: number }
+  // A slot in the floor of a well that a divider stands in (minimal-trays spec §5): `width` wide,
+  // `depth` into the floor, running along `axis` across the whole well and centred on `at` across
+  // it (tray-local, like a wall cutout's `at`). The divider itself is derived (splitDividers).
+  | { type: "dividerSlot"; axis: "x" | "y"; at: number; width: number; depth: number }
   | { type: "scoop"; side: Side; r: number }
   | { type: "cornerRelief"; d: number };
 
@@ -234,7 +245,9 @@ export interface CompartmentSpec {
 
 export interface TraySpec {
   key: string;
-  part: "tray" | "leftover" | "spacer" | "riser"; // "riser" is derived for printing (splitRisers), never stored; a spacer stored is always one block, split into plates for printing (splitSeparators)
+  // "riser" and "divider" are derived for printing (splitRisers, splitDividers), never stored; a
+  // spacer stored is always one block, split into plates for printing (splitSeparators)
+  part: "tray" | "leftover" | "spacer" | "riser" | "divider";
   path: string;
   stack: number;
   level: number;

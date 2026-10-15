@@ -344,6 +344,7 @@ describe("thin outer corners", () => {
     cuts: [],
     scoops: [],
     reliefs: [],
+    slots: [],
   };
   const tray = { w: 50, d: 50 };
 

@@ -495,6 +495,33 @@ describe("readProject: files from a newer minor", () => {
     expect(expectOk(readProject(input, CURRENT)).project.components[0]?.separators).toBeNaN();
   });
 
+  it("reads a component's dividers, and leaves it absent when the file has none", () => {
+    const input = sampleJson();
+    const cards = at(input, "components", 0);
+    delete cards.dividers;
+    const plain = expectOk(readProject(input, CURRENT)).project.components[0];
+    expect(plain && "dividers" in plain).toBe(false);
+    cards.dividers = 3;
+    expect(expectOk(readProject(input, CURRENT)).project.components[0]?.dividers).toBe(3);
+    cards.dividers = null;
+    expect(expectOk(readProject(input, CURRENT)).project.components[0]?.dividers).toBeNaN();
+  });
+
+  it("reads a stored divider slot, and drops a layout whose slot lacks a field", () => {
+    const input = sampleJson();
+    const slot = { type: "dividerSlot", axis: "y", at: 30.5, width: 3.4, depth: 2 };
+    list(at(firstTray(input), "compartments", 0), "features").push(slot);
+    const result = expectOk(readProject(input, CURRENT));
+    expect(result.notices).toEqual([]);
+    expect(result.project.layout?.trays[0]?.compartments[0]?.features).toContainEqual(slot);
+    for (const field of ["axis", "at", "width", "depth"]) {
+      const broken = sampleJson();
+      list(at(firstTray(broken), "compartments", 0), "features").push({ ...slot, [field]: null });
+      const read = expectOk(readProject(broken, CURRENT));
+      expect(read.project.layout, field).toBeUndefined();
+    }
+  });
+
   it("drops a stored layout that holds a null number (computed data is never NaN)", () => {
     const input = sampleJson();
     at(input.layout as Json, "trays", 0).x = null;

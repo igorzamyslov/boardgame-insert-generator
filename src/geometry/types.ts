@@ -8,6 +8,7 @@ export const KNOWN_PARTS: readonly TraySpec["part"][] = Object.freeze([
   "leftover",
   "spacer",
   "riser",
+  "divider",
 ]);
 export const KNOWN_COMPARTMENT_KINDS: readonly CompartmentSpec["kind"][] = Object.freeze([
   "well",
@@ -18,6 +19,7 @@ export const KNOWN_COMPARTMENT_KINDS: readonly CompartmentSpec["kind"][] = Objec
 export const KNOWN_FEATURE_TYPES: readonly FeatureSpec["type"][] = Object.freeze([
   "wallCutout",
   "spacerNotch",
+  "dividerSlot",
   "scoop",
   "cornerRelief",
 ]);

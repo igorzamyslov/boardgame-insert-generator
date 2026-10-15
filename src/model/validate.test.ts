@@ -361,6 +361,23 @@ describe("validateProject", () => {
     );
   });
 
+  const dividerCases: [number, string | null][] = [
+    [0, null],
+    [1, null],
+    [6, null],
+    [7, limit.dividers],
+    [Number.POSITIVE_INFINITY, limit.dividers],
+    [6.5, limit.dividers],
+    [-1, field.dividers],
+    [2.5, field.dividers],
+    [Number.NaN, field.dividers],
+  ];
+  it.each(dividerCases)("checks %s dividers (%s)", (dividers, code) => {
+    expect(codes(validateProject(withComponents(cards({ dividers }))))).toEqual(
+      code === null ? [] : [[code, "/components/0/dividers"]],
+    );
+  });
+
   it("accepts a component with no separators set", () => {
     expect(codes(validateProject(withComponents(cards())))).toEqual([]);
   });
@@ -602,6 +619,7 @@ describe("shared constants", () => {
     expect(BOUNDS).toEqual({
       maxComponents: 100,
       maxCount: 2000,
+      maxDividers: 6,
       maxLength: 1000,
       maxPlayers: 10,
       maxSeparators: 10,

@@ -114,6 +114,8 @@ export interface CompartmentInput {
   features: FeatureReq[];
   spacerAxis?: "w" | "d";
   separators?: number;
+  dividers?: number;
+  floorExtra?: number;
   minVolume?: number;
   maxHRatio?: number;
 }
@@ -155,6 +157,12 @@ export function compartment(input: CompartmentInput): CompartmentReq {
   }
   if (input.spacerAxis !== undefined) {
     req.spacerAxis = input.spacerAxis;
+  }
+  if (input.dividers !== undefined && input.dividers > 0) {
+    req.dividers = input.dividers;
+  }
+  if (input.floorExtra !== undefined && input.floorExtra > 0) {
+    req.floorExtra = input.floorExtra;
   }
   if (input.separators !== undefined && input.separators > 1) {
     req.separators = input.separators;

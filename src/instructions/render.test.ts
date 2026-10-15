@@ -255,6 +255,42 @@ describe("packing order and parts list", () => {
     ]);
   });
 
+  it("stands each divider in its tray, after the tray is placed, and keeps it out of the layers", () => {
+    const withDividers = makeLayout("h", [
+      makeTray({ key: "a:p0:0", stack: 0, level: 0 }),
+      ...[1, 2].map((n) =>
+        makeTray({
+          key: `a:p0:0:divider:${n}`,
+          part: "divider",
+          path: "",
+          stack: 0,
+          level: 0,
+          solid: true,
+          compartments: [],
+        }),
+      ),
+    ]);
+    expect(packingSteps(withDividers)).toEqual([
+      "Layer 1: place #1 Deck A ×40.",
+      "Stand divider 1 #2 in its floor slot in tray #1.",
+      "Stand divider 2 #3 in its floor slot in tray #1.",
+    ]);
+    expect(layerInfo(withDividers)).toEqual([
+      { layer: 1, title: "Layer 1 (bottom)", trays: ["1 Deck A ×40"] },
+    ]);
+    expect(
+      whatGoesWhere(withDividers, DEFAULT_SETTINGS).map((r) => [r.number, r.goesInto]),
+    ).toEqual([
+      [1, null],
+      [2, 1],
+      [3, 1],
+    ]);
+    // every divider has a numbered badge on the plan
+    const [svg] = render(withDividers, fixtureProject());
+    expect(svg).toContain(">2</text>");
+    expect(svg).toContain(">3</text>");
+  });
+
   it("places a riser first and stands its tray on it, leaving it out of the layers", () => {
     const withRiser = makeLayout("h", [
       makeTray({ key: "a:p0:0", stack: 0, level: 0, z: 12 }),

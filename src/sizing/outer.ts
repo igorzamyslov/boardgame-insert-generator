@@ -160,7 +160,9 @@ export function minLayoutU(
   const rowDepths = rows.map((row) => maxOf(row.map((c) => ceilU(c.minD))));
   const innerW = maxOf(rowWidths);
   const innerD = sum(rowDepths) + sum(rowGaps.slice(0, -1)) + room.front + room.back;
-  const content = floor + maxOf(part.compartments.map((c) => ceilU(c.minH)));
+  // A divided well's floor is thicker by the depth of its slots (floorExtra).
+  const content =
+    floor + maxOf(part.compartments.map((c) => ceilU(c.minH) + ceilU(c.floorExtra ?? 0)));
   const chamfer = chamferMinimumsU(settings, opts.level);
   const h = Math.max(
     content,

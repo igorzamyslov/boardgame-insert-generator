@@ -193,7 +193,7 @@ describe("CardsEditor", () => {
       const hint = document.getElementById(`${control().id}-hint`)?.textContent ?? "";
       expect(hint).toMatch(/Auto: up to the deck's thickness, at most 50 mm/);
       expect(hint).toMatch(/at most 1× its own thickness/);
-      expect(hint).toMatch(/with plates, 6×/);
+      expect(hint).toMatch(/with plates, 6×; with dividers, 1× per section/);
     });
   });
 
@@ -207,6 +207,51 @@ describe("CardsEditor", () => {
     expect(document.getElementById(`${field.id}-hint`)?.textContent).toMatch(/pull one out/i);
     fireEvent.input(field, { target: { value: "3" } });
     expect(last().separators).toBe(3);
+  });
+
+  describe("dividers", () => {
+    it("are offered to a deck that stands up and may grow, with a hint", () => {
+      const { last } = setup(cards({ storage: "upright-long" }), true);
+      const field = screen.getByLabelText("Dividers") as HTMLInputElement;
+      expect(field.value).toBe("0");
+      expect(document.getElementById(`${field.id}-hint`)?.textContent).toMatch(
+        /slot in the tray's floor/,
+      );
+      fireEvent.input(field, { target: { value: "2" } });
+      expect(last().dividers).toBe(2);
+    });
+
+    it("are offered to a deck of auto storage, which may stand", () => {
+      setup(cards({ storage: "auto" }), true);
+      expect(screen.queryByLabelText("Dividers")).not.toBeNull();
+    });
+
+    it("are not offered to a flat deck, or to one that may not grow", () => {
+      const { view } = setup(cards({ storage: "flat" }), true);
+      expect(screen.queryByLabelText("Dividers")).toBeNull();
+      view.unmount();
+      const { view: off } = setup(cards({ growth: { stack: "off" } }), true);
+      expect(screen.queryByLabelText("Dividers")).toBeNull();
+      off.unmount();
+    });
+
+    it("stores nothing when the count goes back to 0", () => {
+      const { last } = setup(cards({ storage: "upright-long", dividers: 3 }), true);
+      fireEvent.input(screen.getByLabelText("Dividers"), { target: { value: "0" } });
+      expect("dividers" in last()).toBe(false);
+    });
+
+    it("replace the spacer plates, which are not offered while the well has dividers", () => {
+      setup(cards({ storage: "upright-long", dividers: 2, separators: 4 }), true);
+      expect(screen.queryByLabelText("Spacer plates")).toBeNull();
+      expect(screen.getByText(/Spacer plates are off while the well has dividers/)).toBeTruthy();
+    });
+
+    it("are held to the bound", () => {
+      const { onChange } = setup(cards({ storage: "upright-long" }), true);
+      fireEvent.input(screen.getByLabelText("Dividers"), { target: { value: "99" } });
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 
   it("stores nothing when the count goes back to 1", () => {

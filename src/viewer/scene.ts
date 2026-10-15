@@ -202,7 +202,10 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         });
         const object = new ThreeMesh(geometry, material);
         scene.add(object);
-        const anchor = spec.part === "spacer" ? (byKey.get(parentKey(spec)) ?? spec) : spec;
+        const anchor =
+          spec.part === "spacer" || spec.part === "divider"
+            ? (byKey.get(parentKey(spec)) ?? spec)
+            : spec;
         trays.push({ spec, anchor, object, material });
       });
       apply();

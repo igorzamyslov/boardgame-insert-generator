@@ -555,7 +555,7 @@ describe("parseProject: hostile input", () => {
 
   it("rejects deeply nested data without throwing, in newer and current files", () => {
     const deep = nested(5000);
-    const newer = (input: Json): Json => ({ ...input, schemaVersion: "0.1.12" });
+    const newer = (input: Json): Json => ({ ...input, schemaVersion: "0.1.13" });
 
     const field = raw(sampleProject());
     field.extra = deep;
@@ -572,7 +572,7 @@ describe("parseProject: hostile input", () => {
   });
 
   it("accepts data nested exactly as deep as the limit", () => {
-    const input: Json = { ...raw(sampleProject()), schemaVersion: "0.1.12" };
+    const input: Json = { ...raw(sampleProject()), schemaVersion: "0.1.13" };
     // The project object is one level, so the field may hold MAX_JSON_DEPTH - 1 more.
     input.extra = nested(MAX_JSON_DEPTH - 1);
     expect(parseProject(input).ok).toBe(true);

@@ -60,8 +60,15 @@ import type { Semver } from "../model/version";
  * before and after would not mate: a breaking change, as 0.4.0 (slack becoming a filler) was.
  * planTray is unchanged, and so is every well, lip and inset of a tray that is realized at the
  * same size, so a stored 0.5.x layout still builds and is only flagged as an older line.
+ *
+ * 0.7.0 adds dividers (a component's `dividers`, minimal-trays spec §5): a well that has them is
+ * wider by the room of their slots, its floor is thicker by the depth of the slots (so the tray
+ * is taller where its floor is not raised anyway), and the slots themselves are cut into it
+ * (FeatureSpec "dividerSlot"). A tray printed with dividers does not match one printed without,
+ * and a stored 0.6.x tray with none is unchanged, but the line moves: a breaking change, as the
+ * slots change the tray itself (unlike the `separators` plates, which are only derived).
  */
-export const GEOMETRY_VERSION = "0.6.0";
+export const GEOMETRY_VERSION = "0.7.0";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

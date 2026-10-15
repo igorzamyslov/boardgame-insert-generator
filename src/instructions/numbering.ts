@@ -17,15 +17,21 @@ export const SPACER_SUFFIX = ":spacer";
 /** A spacer's key ends `:spacer`, or `:spacer:<n>` for plate n of several (splitSeparators). */
 const SPACER_KEY = /:spacer(?::(\d+))?$/;
 
+/** A divider's key ends `:divider:<n>` (splitDividers). */
+const DIVIDER_KEY = /:divider:(\d+)$/;
+
 /** The tray a spacer goes into, or a riser carries, by key. */
 export function parentKey(addOn: TraySpec): string {
   if (addOn.part === "riser") {
     return addOn.key.endsWith(RISER_SUFFIX) ? addOn.key.slice(0, -RISER_SUFFIX.length) : addOn.key;
   }
-  return addOn.key.replace(SPACER_KEY, "");
+  return addOn.key.replace(addOn.part === "divider" ? DIVIDER_KEY : SPACER_KEY, "");
 }
 
 export function partLabel(spec: TraySpec): string {
+  if (spec.part === "divider") {
+    return `Divider ${DIVIDER_KEY.exec(spec.key)?.[1] ?? ""}`.trim();
+  }
   if (spec.part === "spacer") {
     const plate = SPACER_KEY.exec(spec.key)?.[1];
     return plate === undefined ? "Card spacer" : `Spacer plate ${plate}`;
@@ -81,7 +87,10 @@ function mergedPosition(merged: TraySpec, ordered: readonly TraySpec[]): number 
     if (carries) {
       // The tray's own spacers come right after it.
       let last = i;
-      while (ordered[last + 1] !== undefined && ordered[last + 1]?.part === "spacer") {
+      while (
+        ordered[last + 1] !== undefined &&
+        (ordered[last + 1]?.part === "spacer" || ordered[last + 1]?.part === "divider")
+      ) {
         last += 1;
       }
       after = Math.max(after, last);
@@ -98,7 +107,8 @@ export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
   const used = new Set<TraySpec>();
   const ordered: TraySpec[] = [];
   // The plates of a split spacer go in plate order, whatever order they came in.
-  const plateOf = (s: TraySpec): number => Number(SPACER_KEY.exec(s.key)?.[1] ?? 0);
+  const plateOf = (s: TraySpec): number =>
+    Number((s.part === "divider" ? DIVIDER_KEY : SPACER_KEY).exec(s.key)?.[1] ?? 0);
   const take = (kind: TraySpec["part"], t: TraySpec): TraySpec[] =>
     addOns
       .filter((s) => s.part === kind && !used.has(s) && parentKey(s) === t.key)
@@ -113,6 +123,10 @@ export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
     for (const sp of take("spacer", t)) {
       used.add(sp);
       ordered.push(sp);
+    }
+    for (const dv of take("divider", t)) {
+      used.add(dv);
+      ordered.push(dv);
     }
   }
   const orphans = addOns.filter((s) => !used.has(s)).sort((a, b) => compareCodeUnits(a.key, b.key));

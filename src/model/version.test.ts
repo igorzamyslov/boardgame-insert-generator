@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.12: 0.1.11 with the per-component `growth` setting, which replaces `stretch`", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.12");
+  it("is at schema 0.1.13: 0.1.12 with the per-component `dividers` count and the `dividerSlot` feature", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.13");
   });
 
   it("parses strict semver", () => {

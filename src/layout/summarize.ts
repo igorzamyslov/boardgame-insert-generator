@@ -1,5 +1,6 @@
 import { effective, topPlane } from "../model/settings";
 import type { BoxMm, TraySpec } from "../model/types";
+import { splitDividers } from "./dividers";
 import { maxCrossing } from "./fill";
 import { mergeParts } from "./merge";
 import { splitRisers } from "./risers";
@@ -111,7 +112,7 @@ function partVolumes(
   }
   const outer = t.w * t.d * t.h;
   if (t.solid) {
-    const core = t.part === "spacer" ? 0 : coreVolume(t.w, t.d, t.h, shell);
+    const core = t.part === "spacer" || t.part === "divider" ? 0 : coreVolume(t.w, t.d, t.h, shell);
     return { solid: outer, atInfill: outer - core * (1 - infill) };
   }
   const hollow = t.compartments.reduce((s, c) => s + c.w * c.d * Math.max(0, t.h - c.floorZ), 0);
@@ -152,9 +153,10 @@ export function summarize(
   // height between a tray and its riser without changing the space filled. A spacer is
   // an open box like a riser; its separator plates are not split out here (see partVolumes).
   const parts = mergeParts(
-    openSpacers(splitRisers(trays, { settings, printer: input.printer, locks: input.locks }), {
-      settings,
-    }),
+    openSpacers(
+      splitDividers(splitRisers(trays, { settings, printer: input.printer, locks: input.locks })),
+      { settings },
+    ),
     { settings, printer: input.printer },
   );
   for (const t of parts) {

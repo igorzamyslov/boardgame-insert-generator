@@ -1,4 +1,4 @@
-import { growthOf, separatorsOf, togglesOf } from "../model/defaults";
+import { dividersOf, growthOf, separatorsOf, togglesOf } from "../model/defaults";
 import type { Settings, Side, TileShape, TilesComponent } from "../model/types";
 import {
   compartment,
@@ -9,7 +9,8 @@ import {
   type OptionsResult,
   type StorageOption,
 } from "./common";
-import { CHANNEL_DEPTH, TILE_STACK_TARGETS } from "./constants";
+import { CHANNEL_DEPTH, DIVIDER_GROOVE, TILE_STACK_TARGETS } from "./constants";
+import { dividedWidth } from "./dividers";
 import { growthMm, stackGrowthMm } from "./growth";
 import type { CompartmentReq } from "./types";
 import { ROUNDING_TOLERANCE, ceilU, fromU, splitEven } from "./units";
@@ -71,23 +72,33 @@ function flatColumn(c: TilesComponent, n: number, clearance: number): Compartmen
   });
 }
 
-function uprightStack(c: TilesComponent, n: number, clearance: number): CompartmentReq {
+function uprightStack(
+  c: TilesComponent,
+  n: number,
+  clearance: number,
+  s: Settings,
+): CompartmentReq {
   const profile = uprightProfile(c.shape);
+  const dividers = dividersOf(c);
   const grow = stackGrowthMm(
     growthOf(c, "stack"),
     fromU(ceilU(n * c.thickness)),
-    separatorsOf(c) > 1,
+    dividers === 0 && separatorsOf(c) > 1,
+    dividers,
   );
+  const stack = n * c.thickness + clearance;
   return compartment({
     componentId: c.id,
     contents: `${displayName(c)} ×${n}`,
     kind: "well",
-    w: n * c.thickness + clearance,
+    w: dividers > 0 ? dividedWidth(stack, dividers, s) : stack,
     d: profile.length + clearance,
     h: profile.height + clearance,
-    ...(grow > 0
-      ? { grow: { w: grow }, spacerAxis: "w" as const, separators: separatorsOf(c) }
-      : {}),
+    ...(dividers > 0
+      ? { grow: { w: grow }, dividers, floorExtra: DIVIDER_GROOVE }
+      : grow > 0
+        ? { grow: { w: grow }, spacerAxis: "w" as const, separators: separatorsOf(c) }
+        : {}),
     // No corner reliefs: they let a tile sit flat, and one on its edge doesn't need them. Toggles
     // are per component and "auto" storage offers flat and upright from one, so the rule lives
     // here, not in kindDefaults; an explicit cornerReliefs: true applies to the flat variant only.
@@ -115,7 +126,7 @@ export function tileOptions(c: TilesComponent, s: Settings): OptionsResult {
     for (const columns of counts) {
       options.push({
         id: `upright-c${columns}`,
-        blocks: splitEven(c.count, columns).map((n) => [uprightStack(c, n, clearance)]),
+        blocks: splitEven(c.count, columns).map((n) => [uprightStack(c, n, clearance, s)]),
       });
     }
   }

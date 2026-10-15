@@ -305,6 +305,11 @@ export function packingSteps(layout: StoredLayout): string[] {
         if (s.spec.part === "spacer" && s.parentNumber === p.number) {
           steps.push(`Slide ${s.label.toLowerCase()} #${s.number} into tray #${p.number}.`);
         }
+        if (s.spec.part === "divider" && s.parentNumber === p.number) {
+          steps.push(
+            `Stand ${s.label.toLowerCase()} #${s.number} in its floor slot in tray #${p.number}.`,
+          );
+        }
       }
     }
   });

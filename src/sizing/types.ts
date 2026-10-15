@@ -26,6 +26,8 @@ export interface CompartmentReq {
   maxHRatio?: number; // bulk: h ≤ maxHRatio × min(w, d)
   features: FeatureReq[];
   spacerAxis?: "w" | "d"; // upright cards/tiles: spare length on this axis → spacer (≥ 5 mm) or thicker dividers
+  dividers?: number; // upright cards/tiles: dividers in the well's floor slots (splitDividers); no spacer then
+  floorExtra?: number; // mm the floor under this compartment is thicker than the tray's, for the slots
   separators?: number; // with spacerAxis: plates the user wants the spacer printed as (splitSeparators); the layout is the same for any count
 }
 

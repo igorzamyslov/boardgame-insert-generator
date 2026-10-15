@@ -248,6 +248,10 @@ function buildCutter(
         filletReach(cut, filletStrip(cut, plan, plan.lip), plan.lip !== null),
       ),
     ]),
+    // A divider's slot: from the bottom of the slot up into the well, EPS over its floor.
+    ...c.slots.map((sl) =>
+      box(m, scope, [sl.x0, sl.y0, sl.bottomZ], [sl.x1, sl.y1, c.floorZ + EPS]),
+    ),
     ...c.reliefs.map((rl) =>
       prism(m, scope, circleRing(rl.cx, rl.cy, rl.r, 4 * quarterSegments(rl.r)), c.floorZ, top),
     ),

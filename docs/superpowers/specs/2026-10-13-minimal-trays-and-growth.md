@@ -360,13 +360,8 @@ matters:
 Dividers also raise the retention cap above, since a divided well holds its
 contents upright in each section.
 
-**How a divider is held is a secondary problem** and should be settled during
-implementation, not now. The options worth weighing: friction alone (simplest,
-but loosens as the tray flexes), a notch in the floor (prints without supports
-if the notch is a chamfered slot, and the floor is already notched for finger
-cuts, so there is precedent), or slots in the facing walls (most positive, but
-constrains where a divider may sit and interacts with wall cutouts). The floor
-notch is the likeliest fit given what `planTray` already builds.
+**How a divider is held** was left for implementation. It is a slot in the floor; see §5.2, which
+also records what the "precedent" in the existing floor notch turned out to be.
 
 ### 5.1 As implemented (geometry 0.6.0, schema 0.1.12), and what it measured
 
@@ -456,6 +451,103 @@ coordinates and the finger-cut features, which are not derivable without re-runn
 `wall`, `floor` and a leftover's `h` and `solid` are derivable from settings but save only about 25
 characters in total after deflate, and reading them back would need the project's settings inside
 the layout reader.
+
+### 5.2 Dividers, as implemented (geometry 0.7.0, schema 0.1.13)
+
+**The option.** `Component.dividers`: a whole number 0 to 6 (`BOUNDS.maxDividers`; `field.dividers` and
+`limit.dividers` at `/components/<i>/dividers`), absent for 0. It means **N dividers, giving N + 1
+sections**: the number of parts a user will have in their hand is what they can predict, and "per
+player" is then "players − 1". Where it is offered (`dividersOffered` in `model/defaults.ts`): a deck
+or a stack of tiles that **stands up** (storage upright, or `auto`, whose flat variant simply gets
+none) and whose `stack` growth is **not `off`**. Everything else reads as 0 whatever a file says, and
+the form does not show it. Not offered, with reasons: flat stacks (they grow taller, not wider; a
+partition is a riser's business), minis pockets and custom wells (one item each), and **bins**.
+Bins were in the brief's list of places a partition might make sense; they are left out because they
+are the one kind whose floor is not flat (a curved floor puts the scoop ramp under the slot) and
+whose depth is itself elastic, so the floor under a slot is not a known thickness. If bins are
+wanted, that is the place to start, and it needs the slot to follow the ramp or the ramp to leave
+the slot's strip alone. No change to how compartments are modelled was needed.
+
+**What is held, and how.** A divided well has `dividers` slots cut into its floor, across the
+whole well (wall to wall, along y in the tray's own frame, turned with the tray), evenly spaced so
+the `N + 1` sections between them are equal (`slotCentres`; the few hundredths over go to the last
+section). The slot is `DIVIDER_THICKNESS` (3 mm, or what the bottom chamfer needs, `2 × (chamfer +
+0.8)`, where that is more) plus `DIVIDER_PLAY` (0.4 mm) wide and `DIVIDER_GROOVE` (2 mm) deep. The
+divider is a solid plate as wide as the slot less its play, `DIVIDER_END_PLAY` (0.2 mm) short of the
+well's walls at each end, standing from the bottom of the slot to `SPACER_TOP_GAP` (5 mm) under the
+rim. Built as a level 0 solid like a spacer (`planTray`), printed standing, no supports.
+
+**The floor notch was a weaker precedent than the brief assumed, and this is the one place the
+design departs from it.** `floorNotch` in `plan-cuts.ts` is a finger notch cut **through** the floor
+(down to the bed), in a flat deck's well, beside a wall cutout; it is not a groove, and a plate
+standing in a hole through a 1.2 mm floor would be held by 1.2 mm of it. What carried over is the
+machinery and the rule: a feature of a compartment, planned in `planTray` against the bottom chamfer
+(`MIN_FEATURE_MM` of material between it and the chamfer's slope), built as an open-topped prism in
+`buildCutter`, so it prints with nothing overhanging. The slot is a **blind** groove, so the floor
+under a divided well has to be thicker: **`floorExtra`** (`CompartmentReq`) adds `DIVIDER_GROOVE` to
+the well's floor in `minLayoutU`, so the tray is up to 2 mm taller than it would have been, and **no
+taller where its floor was raised anyway** (a stack padded to the top plane has floor to spare).
+`splitRisers` reserves the slots' depth too (a riser may not take the floor under a slot).
+Friction alone was not chosen (it loosens as the tray flexes, and a lean of a stack against a loose
+plate is exactly the case dividers are for); slots in the walls were not (they pin a divider to
+positions fixed by the wall cutouts, and wall cutouts are exactly where the fingers go).
+
+**Derived, not stored: the slots are stored, the dividers are not.** The slots are a
+`dividerSlot` feature (`axis`, `at`, `width`, `depth`) of the tray's compartment, in the stored
+layout, because they are the tray. `splitDividers` (`layout/dividers.ts`, run after `splitRisers`,
+wherever printable parts are listed) derives one `divider` part for each, keyed
+`<trayKey>:divider:<n>`: the plate that fits a slot is fully determined by it and by the tray's own
+height and floor. A divider is therefore **in the hash** (`dividers` is part of the component, which
+hashes whole), **in the geometry version** (0.7.0, a MINOR: the tray itself changes) and **not
+in the stored layout or the share link as a part**. Each slot costs roughly one feature in the
+link, which deflates to a few characters (the tiles case below: eighteen slots, no measurable
+change).
+
+**Retention.** Along a divided stack, `stackGrowthMm(mode, stack, plated, dividers)` allows
+`UNPLATED_RETENTION × (dividers + 1)` stack thicknesses: each section is held at both ends, so each
+may gain what a lone stack may. This is a judgement call, and a generous one: a section holds only
+its share of the cards, so on strict physics the cap per section would be its own contents, and the
+total would not rise. It is read as "the user has chosen to hold a group in each section, and the
+groups are the size of the stack they came from". The plated limit (`PLATED_RETENTION`) is untouched
+and does not apply to a divided well.
+
+**Separators.** Mutually exclusive: with dividers the well has **no spacer**, so `separators` has
+nothing to print and the form shows "Spacer plates are off while the well has dividers". Both answer
+the same question, what holds the deck upright in room it was given; a spacer sits behind the last
+deck, and dividers spaced through the same well would leave the slack in one section only. The
+divided well grows itself (an elastic well, like a bin along its width), taking the room the layout
+gives it up to its cap into the sections. A well is never narrower than the stack and its slots, and
+never has a section under `MIN_SECTION` (5 mm), so a thin deck with many dividers is wider than its
+cards need, not unbuildable.
+
+**Assembly.** Dividers are `isAddOn` parts: numbered straight after their tray (and its spacers),
+"Divider n" in the parts list, one step each ("Stand divider 2 #5 in its floor slot in tray #3"),
+a badge on the instructions' plan, lifted clear of their tray in the 3D explode view, one 3MF or STL
+each in the export, and their plastic in the filament estimate. Like spacers, they are not drawn as
+rectangles on the main plan view (it shows trays), which is a gap shared with spacers and plates.
+
+**Measured** on the four fixtures, seeds 1 to 6, 50 000 iterations, before (e5b4599) and after, at
+the defaults (no dividers set). Nothing about a project without dividers changes: parts, fillers,
+fill and filament are identical to the digit on every seed, the inputs hashes of all five fixtures
+are the same as pinned, and only the link moves, by version-string noise (±6 characters).
+
+| fixture       | printed parts | filler parts | fill %      | filament g | link length, before to after |
+| ------------- | ------------- | ------------ | ----------- | ---------- | ---------------------------- |
+| `cards-heavy` | 13.7, same    | 1.67, same   | 99.7, same  | 608, same  | 1761-1823 to 1758-1823       |
+| `bits-heavy`  | 9.0, same     | 0, same      | 99.78, same | 450, same  | 1769-1905 to 1769-1905       |
+| `tiles-minis` | 6.0, same     | 3.0, same    | 99.8, same  | 1219, same | 1941-1958 to 1935-1958       |
+| `small-tiles` | 15.2, same    | 1.17, same   | 99.47, same | 413, same  | 1877-1961 to 1877-1958       |
+
+The longest guarded links are 1958 (`small-tiles`, was 1961) and 1958 (`tiles-minis`): 42 characters
+of margin on both. Nothing became infeasible. With dividers on, `small-tiles` forced upright (its
+own baseline is 1986 to 2081 characters in that configuration) with two dividers a stack, 18 slots:
+18 dividers printed (31 parts against 18), link 1991 to 2069 against 1986 to 2081 without, filament
+404 to 475 g against 349 to 455, fill unchanged (99.4 %). `cards-heavy` cannot stand every deck up
+in its box at all, with or without dividers.
+
+**Not done.** Dividers in bins (above). A finger notch in the divider's top, as the spacer has for
+the deck's finger channel (the channel is in the end walls; the divider sits clear of it).
+Unequal sections.
 
 ## 6. The objective
 
@@ -820,4 +912,5 @@ become infeasible, and no guarded fixture may cross 2000 characters.
   and should be built after, not before.
 - Changing `minFiller`, which is derived from what `planTray` will build.
 - Changing how `separators` plates work; they are the retention mechanism a
-  grown deck already has, and this spec only makes them matter more often.
+  grown deck already has, and this spec only makes them matter more often. (Dividers, §5.2, do
+  not combine with them.)

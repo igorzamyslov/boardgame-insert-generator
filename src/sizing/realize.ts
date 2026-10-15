@@ -8,8 +8,10 @@ import {
   MIN_SPACER,
   MIN_FLAT_FLOOR,
   SCOOP_REACH,
+  DIVIDER_GROOVE,
   SPACER_TOP_GAP,
 } from "./constants";
+import { slotCentres, slotWidthU } from "./dividers";
 import { cutoutSides } from "./common";
 import { placeCutouts } from "./cutouts";
 import type { CutAsk, CutPlacement, PlacedCut } from "./cutouts";
@@ -195,6 +197,27 @@ function spacerNotch(
     depth: fromU(top - bottom),
   };
   return { features: [notch], height: top };
+}
+
+/**
+ * The slots in the floor of a divided well (spec §5): one per divider, as wide as a divider's slot
+ * and DIVIDER_GROOVE deep, running along y (the well's depth) across the whole well, evenly
+ * spaced along its width (slotCentres). In the tray's own frame, like everything here: a turned
+ * tray has them turned with it (rotateRealized).
+ */
+function dividerSlots(req: CompartmentReq, well: Rect, settings: Settings): FeatureSpec[] {
+  const count = req.dividers ?? 0;
+  if (count <= 0) {
+    return [];
+  }
+  const slot = slotWidthU(settings);
+  return slotCentres(well.x, well.w, count, slot).map((at): FeatureSpec => ({
+    type: "dividerSlot",
+    axis: "y",
+    at: fromU(at),
+    width: fromU(slot),
+    depth: DIVIDER_GROOVE,
+  }));
 }
 
 function spacerSpec(
@@ -532,7 +555,10 @@ function layoutAt(
       kind: req.kind,
       contents: req.contents,
       componentId: req.componentId,
-      features: featureSpecs(req, alloc, depth, { settings, cuts: cuts[i] ?? new Map() }),
+      features: [
+        ...featureSpecs(req, alloc, depth, { settings, cuts: cuts[i] ?? new Map() }),
+        ...dividerSlots(req, alloc, settings),
+      ],
     };
   });
   // The base (unlipped) wall, rounded up to 0.01 mm like every other TraySpec length.

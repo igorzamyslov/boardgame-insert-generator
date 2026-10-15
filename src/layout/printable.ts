@@ -1,4 +1,5 @@
 import type { Component, Lock, Notice, Printer, Settings, TraySpec } from "../model/types";
+import { splitDividers } from "./dividers";
 import { mergeParts } from "./merge";
 import { splitRisers } from "./risers";
 import { splitSeparators } from "./separators";
@@ -15,7 +16,7 @@ export interface PrintableInputs {
 /**
  * The parts to print for a stored layout: the stored trays with the height a stack doesn't need
  * split off as a riser under it (spec §3 rule 2), each stretch spacer split into its component's
- * plates (spec §6.2), each spacer or plate opened into a walled box where the `leftover` style and
+ * plates (spec §6.2), a divider for each slot in a tray's floor (minimal-trays spec §5), each spacer or plate opened into a walled box where the `leftover` style and
  * its size allow, and last the connected fillers (and, with `mergeRisers`, the risers) merged into
  * the largest parts that fit the bed. All of it derived: none of it is stored, so the stored layout
  * and a share link are the same however it is split.
@@ -26,6 +27,6 @@ export function printableParts(
 ): { trays: TraySpec[]; notices: Notice[] } {
   const risered = splitRisers(trays, o);
   const split = splitSeparators(risered, o);
-  const opened = openSpacers(split.trays, o);
+  const opened = openSpacers(splitDividers(split.trays), o);
   return { trays: mergeParts(opened, o), notices: split.notices };
 }

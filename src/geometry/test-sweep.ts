@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
 import { SPEC_TOLERANCE, applyFingerRoom } from "../model/settings";
 import type { Settings, TraySpec } from "../model/types";
+import { splitDividers } from "../layout/dividers";
 import { openSpacers } from "../layout/spacers";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
@@ -102,6 +103,10 @@ function selection(
           const placed = rotated ? { w: outer.d, d: outer.w, h: outer.h } : outer;
           const tray = traySpecFrom(realized, placed, opts, settings, part.trayKey);
           specs.push({ spec: { ...tray, rotated }, where });
+          // the dividers that stand in the tray's slots, as printed
+          for (const plate of splitDividers([{ ...tray, rotated }]).slice(1)) {
+            specs.push({ spec: plate, where: `${where} divider` });
+          }
           realized.spacers.forEach((sp) => {
             specs.push({ spec: sp, where: `${where} spacer` });
             // the same spacer as printed: an open box wherever the leftover style and size allow
@@ -183,7 +188,7 @@ export function sweepCoverage(): void {
       expect(compartments.some(({ c }) => c.kind === kind)).toBe(true);
     });
 
-    it.each(["wallCutout", "scoop", "cornerRelief"])("feature %s", (type) => {
+    it.each(["wallCutout", "scoop", "cornerRelief", "dividerSlot"])("feature %s", (type) => {
       expect(compartments.some(({ c }) => c.features.some((f) => f.type === type))).toBe(true);
     });
 
@@ -194,6 +199,15 @@ export function sweepCoverage(): void {
       expect(cuts.some(({ f }) => f.floorNotch > 0)).toBe(true);
       expect(cuts.some(({ f }) => f.floorNotch === 0)).toBe(true);
       expect(holes).toBeGreaterThan(0);
+    });
+
+    it("divider slots, along y and (in a turned tray) along x, and the dividers that stand in them", () => {
+      const slots = compartments.flatMap(({ c }) =>
+        c.features.flatMap((f) => (f.type === "dividerSlot" ? [f] : [])),
+      );
+      expect(slots.some((f) => f.axis === "y")).toBe(true);
+      expect(slots.some((f) => f.axis === "x")).toBe(true);
+      expect(specs.some((s) => s.part === "divider")).toBe(true);
     });
 
     it("raised floors, lipped, unlipped, upper and rotated trays, and spacers", () => {

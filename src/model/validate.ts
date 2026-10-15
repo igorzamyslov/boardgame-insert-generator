@@ -24,6 +24,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     cardSides: "field.cardSides",
     curvedFloor: "field.curvedFloor",
     count: "field.count",
+    dividers: "field.dividers",
     empty: "field.empty",
     groupId: "field.groupId",
     headroom: "field.headroom",
@@ -43,6 +44,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
   limit: {
     components: "limit.components",
     count: "limit.count",
+    dividers: "limit.dividers",
     length: "limit.length",
     players: "limit.players",
     separators: "limit.separators",
@@ -61,6 +63,7 @@ export const BOUNDS = Object.freeze({
   maxLength: 1000,
   maxPlayers: 10,
   maxSeparators: 10,
+  maxDividers: 6,
 } as const);
 
 /** The preset-thickness correction (`thickness.scale`) as a multiplier: half to double. */
@@ -446,6 +449,22 @@ function checkBase(ck: Checker, c: Component, at: string): void {
         VALIDATION_NOTICE_CODES.field.separators,
         `${at}/separators`,
         "Spacer plates must be a whole number of at least 1.",
+      );
+    }
+  }
+  if (c.dividers !== undefined) {
+    const n = c.dividers;
+    if (n > BOUNDS.maxDividers) {
+      ck.error(
+        VALIDATION_NOTICE_CODES.limit.dividers,
+        `${at}/dividers`,
+        `Dividers must be at most ${BOUNDS.maxDividers}.`,
+      );
+    } else if (!Number.isInteger(n) || n < 0) {
+      ck.error(
+        VALIDATION_NOTICE_CODES.field.dividers,
+        `${at}/dividers`,
+        "Dividers must be a whole number, 0 or more.",
       );
     }
   }

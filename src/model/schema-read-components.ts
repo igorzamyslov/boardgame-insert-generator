@@ -111,6 +111,10 @@ function readBase(r: Reader, kind: ComponentKind): ComponentBase {
   if (separators !== undefined) {
     base.separators = separators;
   }
+  const dividers = r.optNum("dividers");
+  if (dividers !== undefined) {
+    base.dividers = dividers;
+  }
   return base;
 }
 

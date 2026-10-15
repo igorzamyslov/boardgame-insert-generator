@@ -20,6 +20,8 @@ import {
   planSpacerNotch,
 } from "./plan-cuts";
 import type { CutRequest } from "./plan-cuts";
+import { checkSlots, planSlot } from "./plan-slots";
+import type { SlotRequest } from "./plan-slots";
 import { LIP_CHAMFER, LIP_FLAT, MIN_SCOOP_RADIUS } from "./plan-types";
 import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, TrayPlan } from "./plan-types";
 import { KNOWN_COMPARTMENT_KINDS, KNOWN_FEATURE_TYPES, KNOWN_PARTS } from "./types";
@@ -141,9 +143,12 @@ function planCompartment(
   index: number,
   c: CompartmentSpec,
   rect: Rect,
+  frame: { w: number; d: number },
+  chamfer: number,
 ): { plan: CompartmentPlan; reliefDiameter: number; cutRequests: CutRequest[] } {
   const scoopRequests: ScoopPlan[] = [];
   const cutRequests: CutRequest[] = [];
+  const slotRequests: SlotRequest[] = [];
   let reliefDiameter = 0;
   for (const feature of c.features) {
     if (feature.type === "wallCutout") {
@@ -157,6 +162,13 @@ function planCompartment(
         fail(spec, `compartment ${index} has an invalid wall cutout`);
       }
       cutRequests.push({ side: sideOf(spec, feature.side), at, width, depth, floorNotch });
+    } else if (feature.type === "dividerSlot") {
+      slotRequests.push({
+        axis: feature.axis,
+        at: feature.at,
+        width: feature.width,
+        depth: feature.depth,
+      });
     } else if (feature.type === "scoop") {
       scoopRequests.push({ side: sideOf(spec, feature.side), r: feature.r });
     } else if (feature.type === "cornerRelief") {
@@ -182,8 +194,13 @@ function planCompartment(
       scoops.push({ side: s.side, r });
     }
   }
+  const failWith = (message: string): never => fail(spec, message);
+  const slots = slotRequests.map((q) =>
+    planSlot(q, index, rect, c.floorZ, frame, chamfer, failWith),
+  );
+  checkSlots(slots, index, failWith);
   return {
-    plan: { index, rect, floorZ: c.floorZ, cuts: [], scoops, reliefs: [] },
+    plan: { index, rect, floorZ: c.floorZ, cuts: [], slots, scoops, reliefs: [] },
     reliefDiameter,
     cutRequests,
   };
@@ -209,8 +226,8 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
       fail(spec, `${name} ${value} mm is not a number`);
     }
   }
-  // Spacers are always built with the level 0 chamfer.
-  const level = spec.part === "spacer" ? 0 : spec.level;
+  // Spacers and dividers are always built with the level 0 chamfer.
+  const level = spec.part === "spacer" || spec.part === "divider" ? 0 : spec.level;
   const chamfer = effectiveBottomChamfer(settings, level);
   const min = chamferMinimums(settings, level);
   // With TOL, like every limit here: 2.27 + 0.8 = 3.0700000000000003 must accept h = 3.07.
@@ -230,7 +247,7 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   const rects = specs.map((c, i) => checkRect(spec, i, c, outerWall, chamfer));
   checkSeparated(spec, rects);
   const planned = specs.map((c, i) =>
-    planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect")),
+    planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect"), spec, chamfer),
   );
   const minCut = narrowestCutMm(settings.fingerPocket.width);
   const frame = { w: spec.w, d: spec.d, h: spec.h, chamfer, minCut };

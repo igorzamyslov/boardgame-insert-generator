@@ -226,6 +226,36 @@ export function withSeparators<C extends Component>(c: C, n: number): C {
   return Object.fromEntries(Object.entries(c).filter(([key]) => key !== "separators")) as C;
 }
 
+/**
+ * Whether the component can have dividers (minimal-trays spec §5): a deck or a stack of tiles
+ * standing up, that may grow along its stack. A divider partitions room the user has grown into,
+ * so without growth there is nothing to partition; a flat stack grows taller, not wider, and a
+ * bin has no stack to split (and a curved floor under the slot). `auto` storage counts: a layout
+ * that stands it up gets the dividers, one that lays it flat has none.
+ */
+export function dividersOffered(c: Component): boolean {
+  if (c.kind === "cards") {
+    return c.storage !== "flat" && growthOf(c, "stack") !== "off";
+  }
+  if (c.kind === "tiles") {
+    return c.storage !== "flat" && growthOf(c, "stack") !== "off";
+  }
+  return false;
+}
+
+/** How many dividers the component's grown well gets: what it set where they are offered, else 0. */
+export function dividersOf(c: Component): number {
+  return dividersOffered(c) ? (c.dividers ?? 0) : 0;
+}
+
+/** The component with `dividers` set to `n`; 0 is the default, so it is stored as nothing. */
+export function withDividers<C extends Component>(c: C, n: number): C {
+  if (n !== 0) {
+    return { ...c, dividers: n };
+  }
+  return Object.fromEntries(Object.entries(c).filter(([key]) => key !== "dividers")) as C;
+}
+
 /** The component's toggles: what it set, else its kind's defaults. */
 export function togglesOf(c: Component): Toggles {
   return {

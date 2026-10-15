@@ -37,11 +37,21 @@ function floorMm(mm: number): number {
 /**
  * The same along the stack of an upright deck or stack of tiles, `stack` mm thick, bounded by
  * retention (spec §5): with nothing in the gained room (`plated` false) at most UNPLATED_RETENTION
- * stack thicknesses, with the `separators` plates PLATED_RETENTION. A number or `max` is cut back
- * to that; `auto` is already below it.
+ * stack thicknesses, with the `separators` plates PLATED_RETENTION, and with `dividers` that many
+ * more times UNPLATED_RETENTION (a divided well is held upright in each of its sections, and the
+ * room is no spacer's: plates and dividers do not combine). A number or `max` is cut back to that;
+ * `auto` is already below it.
  */
-export function stackGrowthMm(mode: GrowthMode, stack: number, plated: boolean): number {
-  return Math.min(growthMm(mode, stack), stack * (plated ? PLATED_RETENTION : UNPLATED_RETENTION));
+export function stackGrowthMm(
+  mode: GrowthMode,
+  stack: number,
+  plated: boolean,
+  dividers = 0,
+): number {
+  // Each section of a divided well is held at both ends, so each may gain what a lone stack may:
+  // UNPLATED_RETENTION stack thicknesses, for the `dividers` + 1 sections together.
+  const retention = plated ? PLATED_RETENTION : UNPLATED_RETENTION * (dividers + 1);
+  return Math.min(growthMm(mode, stack), stack * retention);
 }
 
 type Axis = "w" | "d" | "h";

@@ -44,6 +44,13 @@ export interface CutPlan extends Rect {
   topFillets: readonly [number, number];
 }
 
+// A divider's slot (FeatureSpec "dividerSlot"): a box cut `bottomZ`…floorZ into the compartment's
+// floor, across the whole compartment along its length (the footprint x0..y1 is within the
+// compartment's rectangle). Open at the top, so it prints without support.
+export interface SlotPlan extends Rect {
+  bottomZ: number;
+}
+
 export interface ScoopPlan {
   side: Side;
   r: number;
@@ -62,6 +69,7 @@ export interface CompartmentPlan {
   rect: Rect; // the CompartmentSpec rectangle, cut down to floorZ
   floorZ: number;
   cuts: CutPlan[];
+  slots: SlotPlan[];
   scoops: ScoopPlan[];
   reliefs: ReliefPlan[];
 }

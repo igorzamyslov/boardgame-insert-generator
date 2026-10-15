@@ -6,7 +6,7 @@
  * change that needs a migration (MIGRATIONS in schema.ts). From 1.0 on, an
  * additive change bumps MINOR and a breaking change bumps MAJOR.
  */
-export const SCHEMA_VERSION = "0.1.12";
+export const SCHEMA_VERSION = "0.1.13";
 
 /** App version from package.json, injected by Vite `define`. */
 export const APP_VERSION = __APP_VERSION__;

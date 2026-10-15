@@ -83,7 +83,10 @@ export function splitRisers(trays: readonly TraySpec[], o: RiserInputs): TraySpe
         // tray, standing at the tray floor, and it must not veto the split. It is clamped to the shortened tray's floor below. A tray of nothing but
         // spares has no content to size against, so it is left as it is.
         const content = t.compartments.filter((c) => c.kind !== "spare");
-        const free = Math.min(...content.map((c) => c.floorZ - t.floor), t.h - least);
+        // A divided well's floor keeps the depth of its slots, which no riser may take.
+        const slotted = (c: TraySpec["compartments"][number]): number =>
+          Math.max(0, ...c.features.map((f) => (f.type === "dividerSlot" ? f.depth : 0)));
+        const free = Math.min(...content.map((c) => c.floorZ - t.floor - slotted(c)), t.h - least);
         const u = locked.has(t.key) || content.length === 0 ? 0 : toUFloor(Math.max(0, free));
         return [t, roundDownTo(u, layer)];
       }),

@@ -31,7 +31,7 @@ export function trayPosition(
   const from = anchor ?? spec;
   const dx = center ? from.x + from.w / 2 - center[0] : 0;
   const dy = center ? from.y + from.d / 2 - center[1] : 0;
-  const lift = spec.part === "spacer" ? SPACER_LIFT_MM * explode : 0;
+  const lift = spec.part === "spacer" || spec.part === "divider" ? SPACER_LIFT_MM * explode : 0;
   return [
     spec.x + dx * explode * EXPLODE_SPREAD,
     spec.y + dy * explode * EXPLODE_SPREAD,

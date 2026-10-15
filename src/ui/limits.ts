@@ -21,6 +21,8 @@ export const COUNT: NumberRules = { integer: true, min: 1, max: BOUNDS.maxCount 
 export const PLAYERS: NumberRules = { integer: true, min: 1, max: BOUNDS.maxPlayers };
 /** A number of spacer plates (a stretched deck's separators). */
 export const SEPARATORS: NumberRules = { integer: true, min: 1, max: BOUNDS.maxSeparators };
+/** A number of dividers in a grown deck well (0: none). */
+export const DIVIDERS: NumberRules = { integer: true, min: 0, max: BOUNDS.maxDividers };
 /** A volume in ml. */
 export const VOLUME_ML: NumberRules = { min: 0, minExclusive: true, max: MAX_VOLUME_ML };
 /** The printable layer height in mm. */

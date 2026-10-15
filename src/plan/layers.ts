@@ -23,10 +23,10 @@ export function planFrame(box: Box, settings: Settings): PlanFrame {
 
 /**
  * A part that goes into or under a tray rather than standing in the plan on its own: a card
- * spacer, or the riser under a stack. It is numbered and listed, but not drawn as a tray.
+ * spacer or divider, or the riser under a stack. It is numbered and listed, but not drawn as a tray.
  */
 export function isAddOn(t: Pick<TraySpec, "part">): boolean {
-  return t.part === "spacer" || t.part === "riser";
+  return t.part === "spacer" || t.part === "riser" || t.part === "divider";
 }
 
 export function levelsOf(trays: readonly TraySpec[]): number[] {
@@ -64,8 +64,9 @@ export function largestOf<T extends { w: number; h: number }>(rects: readonly T[
   );
 }
 
+/** The loose parts that stand in the trays of `level`: spacers, spacer plates and dividers. */
 export function spacersAt(trays: readonly TraySpec[], level: number): TraySpec[] {
-  return trays.filter((t) => t.part === "spacer" && t.level === level);
+  return trays.filter((t) => (t.part === "spacer" || t.part === "divider") && t.level === level);
 }
 
 export interface SvgRect {

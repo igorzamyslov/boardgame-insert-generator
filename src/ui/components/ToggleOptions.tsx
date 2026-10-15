@@ -2,14 +2,18 @@
 import {
   cornerReliefsOn,
   curvedFloorOn,
+  dividersOf,
+  dividersOffered,
   fingerCutsOn,
   growthOf,
   separatorsOf,
+  withDividers,
   withSeparators,
 } from "../../model/defaults";
 import type { Component } from "../../model/types";
 import { CheckField } from "../fields";
-import { SEPARATORS } from "../limits";
+import { DIVIDER_GROOVE, DIVIDER_PLAY, DIVIDER_THICKNESS } from "../../sizing/constants";
+import { DIVIDERS, SEPARATORS } from "../limits";
 import { NumberField } from "../NumberField";
 import { useSizingNotices } from "../validation";
 import { GrowthOptions } from "./GrowthOptions";
@@ -82,16 +86,35 @@ export function ToggleOptions<C extends Component>({
       {(c.kind === "cards" || c.kind === "tiles") &&
       growthOf(c, "stack", c.storage === "flat") !== "off" ? (
         <>
-          <NumberField
-            id={`${c.id}-separators`}
-            label="Spacer plates"
-            hint="The room the stack grows into is printed as this many thin loose plates instead of one block. Pull one out as the collection grows and the stack still fits snug. Plates also let it grow further: they hold the stack upright, so the room is not limited to its own thickness."
-            value={separatorsOf(c)}
-            {...SEPARATORS}
-            path={`/components/${index}/separators`}
-            onCommit={(v) => onChange(withSeparators(c, v))}
-          />
-          <SeparatorNotes index={index} />
+          {dividersOf(c) === 0 ? (
+            <>
+              <NumberField
+                id={`${c.id}-separators`}
+                label="Spacer plates"
+                hint="The room the stack grows into is printed as this many thin loose plates instead of one block. Pull one out as the collection grows and the stack still fits snug. Plates also let it grow further: they hold the stack upright, so the room is not limited to its own thickness."
+                value={separatorsOf(c)}
+                {...SEPARATORS}
+                path={`/components/${index}/separators`}
+                onCommit={(v) => onChange(withSeparators(c, v))}
+              />
+              <SeparatorNotes index={index} />
+            </>
+          ) : (
+            <p class="hint">
+              Spacer plates are off while the well has dividers: the dividers hold the room instead.
+            </p>
+          )}
+          {dividersOffered(c) ? (
+            <NumberField
+              id={`${c.id}-dividers`}
+              label="Dividers"
+              hint={`Loose plates that split the grown well into this many plus one sections (per player, by card type), each standing in a slot in the tray's floor. Evenly spaced. Each section is held upright at both ends, so the room may be that many times larger. Every divider takes about ${DIVIDER_THICKNESS + DIVIDER_PLAY} mm of the well, and the tray is up to ${DIVIDER_GROOVE} mm taller for the slots. Not combined with spacer plates. 0: none.`}
+              value={dividersOf(c)}
+              {...DIVIDERS}
+              path={`/components/${index}/dividers`}
+              onCommit={(v) => onChange(withDividers(c, v))}
+            />
+          ) : null}
         </>
       ) : null}
     </>
