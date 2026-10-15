@@ -70,8 +70,14 @@ const PAPER_TINTS = [
   "#dfe2e7",
 ] as const;
 
-const INK = "#333333";
+export const INK = "#333333";
 const GHOST = "#767676";
+
+/** A tray's fill on paper: its component's tint, or null for a part that holds nothing (spare, filler). */
+export function paperTintOf(t: TraySpec, project: Project): string | null {
+  const index = t.part === "leftover" ? null : componentIndexOfTray(t, project.components);
+  return index === null ? null : (PAPER_TINTS[index % PAPER_TINTS.length] ?? null);
+}
 
 /** The kind glyphs of src/ui/kindGlyphs.tsx as plain SVG markup, on the same 24 unit grid. */
 const GLYPH_MARKUP: Record<ComponentKind, string> = {

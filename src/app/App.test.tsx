@@ -6,8 +6,16 @@ import { inputsHash } from "../model/hash";
 import { APP_VERSION } from "../model/version";
 import { encodeHash } from "../share";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
+import type { MeshSource } from "./meshes";
 import { CONFLICT_CODE } from "./persistence";
-import { EMPTY_FOREIGN, fixtureProject, makeLayout, makeResult, makeTray } from "./test-helpers";
+import {
+  EMPTY_FOREIGN,
+  fixtureProject,
+  flush,
+  makeLayout,
+  makeResult,
+  makeTray,
+} from "./test-helpers";
 import { renderApp } from "./test-app";
 
 // The assembly page's PNG needs a canvas, which jsdom lacks.
@@ -34,6 +42,7 @@ function stubSceneFactory(): SceneFactory {
     setMaxLevel: vi.fn(),
     setSelected: vi.fn(),
     onPick: vi.fn(),
+    onView: vi.fn(),
     resize: vi.fn(),
     dispose: vi.fn(),
   };
@@ -59,7 +68,7 @@ function addCards(): void {
   fireEvent.click(screen.getAllByRole("button", { name: "Add cards" })[0] as HTMLElement);
 }
 
-/** The export panel replaces the tab panel; its button shows it. */
+/** The export panel is a dialog over the view; its button opens it. */
 function openExport(): void {
   fireEvent.click(screen.getByRole("button", { name: /^Export all \d+ parts?$/ }));
 }
@@ -120,9 +129,13 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: /^Tray 1,/ })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Export" })).toBeNull();
     openExport();
-    expect(screen.getByRole("region", { name: "Export" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Export all 2 parts" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "3MF per part (.zip)" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "← Back to the plan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // The export was a dialog over the 3D view, not a view of its own: closing it leaves that view.
+    expect(screen.getByRole("tab", { name: "3D" }).getAttribute("aria-selected")).toBe("true");
+    openTab("Plan");
     expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
@@ -425,6 +438,83 @@ describe("App", () => {
     });
   });
 
+  describe("export dialog", () => {
+    const exportButton = (): HTMLElement =>
+      screen.getByRole("button", { name: /^Export all \d+ parts?$/ });
+
+    afterEach(() => {
+      Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
+      Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
+    });
+
+    it("opens as a modal dialog (so the page behind is inert) and starts at its heading", () => {
+      const showModal = vi.fn(function (this: HTMLDialogElement) {
+        this.setAttribute("open", "");
+      });
+      HTMLDialogElement.prototype.showModal = showModal;
+      renderApp(withLayoutHash());
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(exportButton().getAttribute("aria-haspopup")).toBe("dialog");
+      fireEvent.click(exportButton());
+      expect(showModal).toHaveBeenCalledTimes(1);
+      const dialog = screen.getByRole("dialog", { name: "Export all 2 parts" });
+      expect(dialog.tagName).toBe("DIALOG");
+      expect(document.activeElement).toBe(
+        screen.getByRole("heading", { name: "Export all 2 parts" }),
+      );
+    });
+
+    it("closes on Escape, on Close, and puts the focus back on its button", () => {
+      renderApp(withLayoutHash());
+      exportButton().focus();
+      fireEvent.click(exportButton());
+      // Escape reaches a modal <dialog> as a cancel event.
+      fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(document.activeElement).toBe(exportButton());
+      fireEvent.click(exportButton());
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(document.activeElement).toBe(exportButton());
+    });
+
+    it("leaves the view, the selection and the tab exactly as they were", () => {
+      const { store } = renderApp(withLayoutHash());
+      openTab("3D");
+      store.state.selection.value = "a:p0:0";
+      openExport();
+      fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
+      expect(screen.getByRole("tab", { name: "3D" }).getAttribute("aria-selected")).toBe("true");
+      expect(store.state.selection.value).toBe("a:p0:0");
+      expect(screen.getByText(/needs WebGL/)).toBeTruthy();
+    });
+
+    it("closes itself when another project is opened", async () => {
+      const { store } = renderApp(withLayoutHash());
+      openExport();
+      store.newProject();
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    });
+
+    it("cancels a running export when it is closed, as leaving the old export view did", async () => {
+      const waits: MeshSource["get"] = (_spec, _settings, signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(new Error("cancelled")));
+        });
+      const { download } = renderApp(withLayoutHash(), {
+        meshes: { get: waits, reset: vi.fn(), forget: vi.fn(), dispose: vi.fn() },
+      });
+      openExport();
+      fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+      expect(await screen.findByText(/Closing this window also cancels the export/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      await flush();
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(download).not.toHaveBeenCalled();
+    });
+  });
+
   describe("assembly page", () => {
     it("moves the focus to the page and back to its button, and scrolls to the top", () => {
       renderApp(withLayoutHash());
@@ -432,9 +522,11 @@ describe("App", () => {
       expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
       expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
       fireEvent.click(screen.getByRole("button", { name: "Back to the editor" }));
+      // Back where the export was opened from: its button.
       expect(document.activeElement).toBe(
-        screen.getByRole("button", { name: "Open the assembly page" }),
+        screen.getByRole("button", { name: /^Export all \d+ parts?$/ }),
       );
+      expect(screen.queryByRole("dialog")).toBeNull();
     });
 
     it("hands its downloads to the app's download function", async () => {

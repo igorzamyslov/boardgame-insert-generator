@@ -26,8 +26,9 @@ export default defineConfig({
     // `// @vitest-environment jsdom` comment in the header comment at the top of the file.
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
-    // Vitest stubs CSS imports to ""; PlanView.test.tsx reads plan.css and style.test.ts reads
-    // style.css as `?raw` to check their rules, so those files are passed through.
-    css: { include: [/plan\.css/, /style\.css/] },
+    // Vitest stubs CSS imports to ""; PlanView.test.tsx reads plan.css, AssemblyPage.test.tsx
+    // assembly.css and style.test.ts style.css as `?raw` to check their rules, so those files are
+    // passed through.
+    css: { include: [/plan\.css/, /assembly\.css/, /style\.css/] },
   },
 });

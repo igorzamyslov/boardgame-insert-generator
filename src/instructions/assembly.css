@@ -46,6 +46,17 @@
   }
 }
 
+.assembly-exploded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.assembly-exploded .hint {
+  margin: 0;
+}
+
 .assembly-layer {
   display: flex;
   flex-direction: column;
@@ -110,6 +121,7 @@
     color: #000;
   }
 
+  .assembly-exploded,
   .assembly-layer,
   .parts-table tr {
     break-inside: avoid;

@@ -537,6 +537,58 @@ input[aria-invalid="true"] {
   padding-left: var(--space-5);
 }
 
+/* The axis indicator sits over the canvas' corner and lets every pointer event through. */
+.viewer-stage {
+  position: relative;
+}
+
+.axis-gizmo {
+  position: absolute;
+  bottom: var(--space-2);
+  left: var(--space-2);
+  width: 84px;
+  height: 84px;
+  pointer-events: none;
+  overflow: visible;
+  font: 700 12px/1 var(--font-ui);
+
+  --axis-x: #d03a3a;
+  --axis-y: #2a8a3e;
+  --axis-z: #3466d1;
+}
+
+.axis-gizmo [data-axis="x"] {
+  --axis: var(--axis-x);
+}
+
+.axis-gizmo [data-axis="y"] {
+  --axis: var(--axis-y);
+}
+
+.axis-gizmo [data-axis="z"] {
+  --axis: var(--axis-z);
+}
+
+.axis-gizmo line {
+  stroke: var(--axis);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.axis-gizmo circle {
+  fill: var(--axis);
+}
+
+/* A halo in the page colour keeps each letter readable over a tray of any tint. */
+.axis-gizmo text {
+  fill: var(--axis);
+  stroke: var(--sheet-sunken);
+  stroke-width: 3;
+  paint-order: stroke;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
 .viewer-canvas {
   display: block;
   width: 100%;
@@ -560,6 +612,10 @@ input[aria-invalid="true"] {
   gap: var(--space-3) var(--space-5);
   align-items: end;
   margin-top: var(--space-3);
+}
+
+.viewer-controls .check-field {
+  max-width: 26rem;
 }
 
 .range-field {
@@ -684,11 +740,40 @@ input[aria-invalid="true"] {
   }
 }
 
-/* The export view: a heading, the three file choices as rows, and the assembly page as a fourth row. */
-.stretch {
+/* A modal dialog (ui/Modal.tsx): the page behind it is inert and stays where it was. */
+.modal {
+  width: min(640px, calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100vh - 2 * var(--space-4));
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-lg);
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet);
+  color: var(--ink);
+  overflow: auto;
+}
+
+.modal::backdrop {
+  background: rgb(23 26 32 / 55%);
+}
+
+html:has(dialog.modal[open]) {
+  overflow: hidden;
+}
+
+/* The export dialog: a heading, the three file choices as rows, and the assembly page as a fourth row. */
+.modal-body {
   display: grid;
   gap: var(--space-3);
   align-content: start;
+  padding: var(--space-4);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--rule);
 }
 
 .export-title {

@@ -19,6 +19,11 @@ describe("style.css", () => {
     expect(body).toMatch(/height:\s*min\(/);
   });
 
+  it("lets every pointer event through the axis indicator, so trays under it can still be picked", () => {
+    expect(ruleFor(".axis-gizmo")).toMatch(/pointer-events:\s*none/);
+    expect(ruleFor(".viewer-stage")).toMatch(/position:\s*relative/);
+  });
+
   it("lets one finger scroll the page past the 3D canvas and shortens it on phones", () => {
     const body = ruleFor(".viewer-canvas");
     expect(body).toMatch(/touch-action:\s*pan-y/);

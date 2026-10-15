@@ -20,10 +20,10 @@ import {
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { parentKey } from "../instructions/numbering";
 import type { TraySpec } from "../model/types";
 import { SPARE_COLOR } from "../ui/identity";
-import { isVisible, trayPosition } from "./transform";
+import type { ViewBasis } from "./axes";
+import { anchorOf, isVisible, outlineCenter, trayPosition } from "./transform";
 import type { BoxOutline, SceneFactory, SceneHandle, SceneTray } from "./types";
 import { WebGLUnavailableError } from "./webgl";
 
@@ -91,6 +91,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   let maxLevel: number | null = null;
   let selected: string | null = null;
   let pick: ((key: string | null) => void) | null = null;
+  let viewCb: ((view: ViewBasis) => void) | null = null;
   let frameId = 0;
   let down: { x: number; y: number } | null = null;
   const raycaster = new Raycaster();
@@ -104,7 +105,24 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       frameId = requestAnimationFrame(draw);
     }
   };
-  controls.addEventListener("change", requestDraw);
+  // The camera's own axes are the columns of its world matrix (right, up, back).
+  function emitView(): void {
+    if (!viewCb) {
+      return;
+    }
+    camera.updateMatrixWorld();
+    const e = camera.matrixWorld.elements;
+    viewCb({
+      right: [e[0] ?? 0, e[1] ?? 0, e[2] ?? 0],
+      up: [e[4] ?? 0, e[5] ?? 0, e[6] ?? 0],
+      back: [e[8] ?? 0, e[9] ?? 0, e[10] ?? 0],
+    });
+  }
+  const onControlsChange = (): void => {
+    requestDraw();
+    emitView();
+  };
+  controls.addEventListener("change", onControlsChange);
 
   function apply(): void {
     for (const t of trays) {
@@ -168,7 +186,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       clearOutline();
       const [w, d, h] = o.size;
       const [x0, y0, z0] = o.min;
-      center = [x0 + w / 2, y0 + d / 2];
+      center = outlineCenter(o);
       const solid = new BoxGeometry(w, d, h);
       const edges = new EdgesGeometry(solid);
       solid.dispose();
@@ -183,6 +201,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       camera.far = dist * 10;
       camera.updateProjectionMatrix();
       controls.update();
+      emitView();
       apply();
     },
     setTrays(list: readonly SceneTray[]) {
@@ -202,10 +221,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         });
         const object = new ThreeMesh(geometry, material);
         scene.add(object);
-        const anchor =
-          spec.part === "spacer" || spec.part === "divider"
-            ? (byKey.get(parentKey(spec)) ?? spec)
-            : spec;
+        const anchor = anchorOf(spec, byKey);
         trays.push({ spec, anchor, object, material });
       });
       apply();
@@ -225,6 +241,10 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
     onPick(cb) {
       pick = cb;
     },
+    onView(cb) {
+      viewCb = cb;
+      emitView();
+    },
     resize(width, height) {
       if (width <= 0 || height <= 0) {
         return;
@@ -242,12 +262,13 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerCancel);
-      controls.removeEventListener("change", requestDraw);
+      controls.removeEventListener("change", onControlsChange);
       controls.dispose();
       clearTrays();
       clearOutline();
       release(renderer);
       pick = null;
+      viewCb = null;
     },
   };
   return handle;

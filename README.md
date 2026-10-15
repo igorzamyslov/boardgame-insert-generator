@@ -64,12 +64,15 @@ geometry clients, so they never start a worker or load WASM.
    size" keep a tray where or as big as it is; the optimizer works around
    locks.
 5. **3D view and export.** The 3D view shows the trays (it needs WebGL; the
-   rest works without). "Export all N parts" opens the export panel, which gives "3MF per part (.zip)", "One combined 3MF"
-   or "STL files (.zip)", with a progress bar and a Cancel button. A tray that
+   rest works without). "Show axes" adds a small X, Y, Z indicator that turns with the model.
+   "Export all N parts" opens the export dialog over the view you are in (close it
+   with Close or Escape and you are right where you were), which gives "3MF per
+   part (.zip)", "One combined 3MF" or "STL files (.zip)", with a progress bar
+   and a Cancel button (closing the dialog cancels a running export). A tray that
    fails to build is listed under "Not exported" with its reason, and "Retry
    failed trays" builds just those again.
 6. **Assembly page.** "Open the assembly page" shows the packing order (bottom
-   layer first), a numbered picture per layer, a "What goes where" table, PNG
+   layer first), an exploded picture of all the parts, a numbered picture per layer, a "What goes where" table, PNG
    download per layer and "Print / save as PDF".
 7. **Save and share.** Projects autosave in the browser. "Copy link" puts the
    whole project in the `#1.` link (the project menu offers JSON download

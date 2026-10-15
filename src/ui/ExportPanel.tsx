@@ -43,6 +43,8 @@ export interface ExportPanelProps {
   /** The inputs no longer match the layout: exporting would build trays for other settings. */
   stale?: boolean;
   download?: (blob: Blob, filename: string) => void;
+  /** The id of the title, for a dialog that is named by it. */
+  titleId?: string;
 }
 
 interface Busy {
@@ -82,7 +84,7 @@ export function ExportPanel(p: ExportPanelProps) {
     cancelButton.current = el;
   }, []);
 
-  // The panel sits in a region the App opens on demand: start at its heading.
+  // The panel opens on demand (in a dialog): start at its heading.
   useEffect(() => {
     title.current?.focus();
   }, []);
@@ -107,7 +109,8 @@ export function ExportPanel(p: ExportPanelProps) {
     }
   }, [busy]);
 
-  // Leaving the panel stops the export, so nothing downloads after the user has gone.
+  // Leaving the panel (closing its dialog) stops the export, so nothing downloads after the user
+  // has gone.
   useEffect(
     () => () => {
       running.current?.abort();
@@ -176,9 +179,9 @@ export function ExportPanel(p: ExportPanelProps) {
 
   return (
     <div class="export-panel">
-      <h3 class="export-title" tabIndex={-1} ref={title}>
+      <h2 class="export-title" id={p.titleId} tabIndex={-1} ref={title}>
         {`Export all ${plan.parts.length} ${plan.parts.length === 1 ? "part" : "parts"}`}
-      </h3>
+      </h2>
       <p class="hint">
         Every part prints open side up, the way it sits in the box. Trays are numbered as in the
         plan and on the assembly page.
@@ -231,6 +234,9 @@ export function ExportPanel(p: ExportPanelProps) {
             Cancel
           </button>
         </div>
+      ) : null}
+      {busy ? (
+        <p class="hint">Closing this window also cancels the export. Nothing is downloaded.</p>
       ) : null}
       {error ? (
         <div class="pf-notice pf-notice--error">

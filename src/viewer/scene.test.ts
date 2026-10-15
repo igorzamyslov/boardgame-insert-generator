@@ -116,6 +116,19 @@ describe("createScene", () => {
     expect(fake.controls[0]?.touches).toEqual({ ONE: null, TWO: 3 });
   });
 
+  it("reports the camera's orientation to the axis indicator only while one listens", () => {
+    const handle = createScene(document.createElement("canvas"));
+    const cb = vi.fn();
+    handle.onView(cb);
+    expect(cb).toHaveBeenCalledTimes(1); // at once, so the indicator is right when it appears
+    expect(cb.mock.calls[0]?.[0]).toHaveProperty("right");
+    expect(cb.mock.calls[0]?.[0]).toHaveProperty("up");
+    expect(cb.mock.calls[0]?.[0]).toHaveProperty("back");
+    handle.onView(null);
+    handle.setBox({ min: [0, 0, 0], size: [10, 10, 10] });
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
   it("reports a missing WebGL context as WebGLUnavailableError", () => {
     fake.failRenderer = true;
     expect(() => createScene(document.createElement("canvas"))).toThrow(WebGLUnavailableError);

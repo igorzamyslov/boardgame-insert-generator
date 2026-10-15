@@ -58,12 +58,12 @@ box.
   Deck 1" rather than "Deck 1").
 - Renaming the box dimension labels: "depth" reads as vertical to some users;
   width / length / height is clearer. UI labels only, not the schema fields.
-- An optional XYZ axis indicator in the 3D viewer.
-- An exploded 3D view in the assembly page and its print output.
+- ~~An optional XYZ axis indicator in the 3D viewer.~~ Done: §8.3 "3D view".
+- ~~An exploded 3D view in the assembly page and its print output.~~ Done: §8.3 "Assembly page".
 - Part numbers embossed on trays, matching the assembly instructions (an
   extension of embossed labels above).
 - A donation link on the export screen.
-- Export as a modal, so leaving it does not mean switching back a view mode.
+- ~~Export as a modal, so leaving it does not mean switching back a view mode.~~ Done: §8.3 "Export".
 - ~~Showing the sizes derived from a component's presets (card format, count,
   sleeve) next to the editor, so the user can judge whether to trust them
   without measuring, plus a correction multiplier for when they do not match.~~
@@ -1013,6 +1013,7 @@ toggle plus a per-component "more options" section. On narrow screens the
 panels stack. Plan-view edits use pointer events (mouse and touch) and have a
 keyboard alternative (select A, then "swap with" B). Without WebGL, the 3D
 view shows a message and the rest works. There is no preview banner. The
+export opens as a modal dialog over the view that is showing (§8.3), never as a view of its own. The
 Project menu closes on an outside click, on Escape and on choosing a project.
 
 ### 8.2 Inputs
@@ -1091,8 +1092,22 @@ Numbers accept a decimal comma or point.
   keyboard to swap, lock toggle. A merged filler is drawn as the members of it that stand on the
   layer shown, with one number.
 - **3D view:** explode slider, layer toggle, click a tray for contents and
-  dimensions.
-- **Export:**
+  dimensions. An optional axis indicator ("Show axes", off by default, beside the explode slider)
+  draws labelled X (red), Y (green) and Z (blue) arrows in the canvas' bottom-left corner. It turns
+  with the camera, so it says which way is up and which side is the front of the box (X runs
+  across the box, Y from its front to its back, Z up) at any angle. It is an SVG laid over the
+  canvas, not part of the WebGL scene, with `pointer-events: none`: its text takes the page's
+  colours, and clicks and drags through it still pick trays and turn the camera. The scene reports the
+  camera's orientation (`SceneHandle.onView`) only while the indicator is on.
+- **Export:** "Export all N parts" opens a modal dialog over the current view (Plan or 3D), not a
+  view of its own, so closing it (the Close button or Escape) leaves the view, its tab, the
+  selection and the scroll exactly as they were. It is a native `<dialog>` opened with
+  `showModal()` (`ui/Modal.tsx`), so the browser keeps the focus inside it, makes the page behind it
+  inert to the mouse, the keyboard and assistive technology, and puts it above everything. The focus
+  starts on its heading and goes back to the "Export all N parts" button on close. Closing the
+  dialog stops a running export, as leaving the old export view did, and says so in a hint while one
+  runs; a layout change or another project closes it too. "Open the assembly page" is inside it and
+  closes it; coming back from the assembly page puts the focus on the Export button.
   - zip of one 3MF per printed part: trays, plus any card spacers (one per plate when split), risers and merged fillers (a merged part that only prints without supports upside down is exported turned over) (named
     `NN-<contents>.3mf`, sanitized to `[A-Za-z0-9._-]`);
   - one combined 3MF with all parts as separate objects, laid out in a grid
@@ -1103,9 +1118,20 @@ Numbers accept a decimal comma or point.
     → `/3D/3dmodel.model`, `unit="millimeter"`, counter-clockwise outward
     winding, object `name`s, numbers written with `toFixed` (never
     locale-formatted).
-- **Assembly page:** per-layer numbered SVG, "what goes where" list, packing
-  order (bottom first). Printable via the browser (PDF), PNG download per
-  layer.
+- **Assembly page:** the packing order (bottom first), an exploded picture of all the parts, a
+  numbered SVG per layer and a "what goes where" list. Printable via the browser (PDF), PNG
+  download per layer and for the exploded picture.
+  - **Exploded picture** (`instructions/exploded.ts`): every part as a block, arranged by the 3D
+    view's own `trayPosition` at full explode (a spacer or divider travels with its tray, a merged
+    part moves as one), seen from the front, 35° to the right and 30° above. It is projected to SVG
+    rather than rendered: the page is made to be printed, and an SVG is vector at any print size,
+    a few kilobytes, prints (a WebGL canvas may not) and needs no renderer, so it works without
+    WebGL. A part is therefore a block, not its mesh: the pockets of the real, open trays are not
+    drawn, which the page says. Blocks are painted back to front (apart blocks by which is nearer,
+    a spacer after the tray it goes into). Each part carries its number from `numberParts` on the
+    first face nothing later covers, so the picture, the packing steps and the table agree, and the
+    image's text alternative lists the parts in that assembly order. The box floor is dashed and the
+    front is labelled.
 
 ### 8.4 Persistence and sharing
 

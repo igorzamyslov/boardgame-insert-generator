@@ -1,12 +1,14 @@
 // src/viewer/Viewer.tsx
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { MeshSource } from "../app/meshes";
 import { numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
-import { SelectField } from "../ui/fields";
+import { CheckField, SelectField } from "../ui/fields";
 import { SPACER_COLOR, SPARE_COLOR, tintOfTray } from "../ui/identity";
 import { TrayDetails } from "../ui/TrayDetails";
+import { AxisGizmo } from "./AxisGizmo";
+import type { ViewBasis } from "./axes";
 import { boxOutline } from "./transform";
 import type { SceneFactory, SceneHandle, SceneTray } from "./types";
 import { WebGLUnavailableError, hasWebGL } from "./webgl";
@@ -71,6 +73,8 @@ export function Viewer(p: ViewerProps) {
     (p.webgl ?? hasWebGL)() ? "loading" : "nowebgl",
   );
   const [explode, setExplode] = useState(0);
+  // The axis indicator is off until asked for: most people never need it.
+  const [showAxes, setShowAxes] = useState(false);
   const [maxLevel, setMaxLevel] = useState<number | null>(null);
   const [build, setBuild] = useState({ done: 0, total: 0, failed: 0 });
   const [attempt, setAttempt] = useState(0);
@@ -81,6 +85,11 @@ export function Viewer(p: ViewerProps) {
   const byKey = useMemo(() => partsByKey(parts), [parts]);
   // The chosen layer may vanish when the layout changes: show everything then.
   const shownLevel = maxLevel !== null && levels.includes(maxLevel) ? maxLevel : null;
+
+  const watchView = useCallback((cb: (view: ViewBasis) => void) => {
+    handleRef.current?.onView(cb);
+    return () => handleRef.current?.onView(null);
+  }, []);
 
   function dropScene(): void {
     handleRef.current?.dispose();
@@ -255,12 +264,15 @@ export function Viewer(p: ViewerProps) {
   const selected = p.selectedKey === null ? undefined : byKey.get(p.selectedKey);
   return (
     <div class="viewer">
-      <canvas
-        key={canvasKey}
-        ref={canvasRef}
-        class="viewer-canvas"
-        aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
-      />
+      <div class="viewer-stage">
+        <canvas
+          key={canvasKey}
+          ref={canvasRef}
+          class="viewer-canvas"
+          aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
+        />
+        {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
+      </div>
       {status === "loading" ? <p class="hint">Loading the 3D preview…</p> : null}
       {status === "error" || status === "lost" ? (
         <p role="alert">
@@ -310,6 +322,13 @@ export function Viewer(p: ViewerProps) {
             onInput={(e) => setExplode(Number(e.currentTarget.value))}
           />
         </label>
+        <CheckField
+          id="viewer-axes"
+          label="Show axes"
+          checked={showAxes}
+          onChange={setShowAxes}
+          hint="A small X, Y, Z indicator in the corner that turns with the model: X runs across the box, Y from its front to its back, Z up."
+        />
         {levels.length > 1 ? (
           <SelectField
             id="viewer-layers"

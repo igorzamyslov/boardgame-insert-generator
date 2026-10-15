@@ -1,11 +1,12 @@
 // src/viewer/Viewer.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MeshSource } from "../app/meshes";
 import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
+import type { ViewBasis } from "./axes";
 import type { SceneFactory, SceneHandle } from "./types";
 import { Viewer } from "./Viewer";
 import type { ViewerProps } from "./Viewer";
@@ -15,6 +16,7 @@ afterEach(cleanup);
 
 function stubScene() {
   let picked: ((key: string | null) => void) | null = null;
+  let viewing: ((view: ViewBasis) => void) | null = null;
   const handle: SceneHandle = {
     setBox: vi.fn(),
     setTrays: vi.fn(),
@@ -24,11 +26,21 @@ function stubScene() {
     onPick: vi.fn((cb: (key: string | null) => void) => {
       picked = cb;
     }),
+    onView: vi.fn((cb: ((view: ViewBasis) => void) | null) => {
+      viewing = cb;
+    }),
     resize: vi.fn(),
     dispose: vi.fn(),
   };
   const factory = vi.fn<SceneFactory>(() => handle);
-  return { handle, factory, pick: (key: string | null) => picked?.(key) };
+  return {
+    handle,
+    factory,
+    pick: (key: string | null) => picked?.(key),
+    /** The camera turning: what the scene reports to whoever is listening. */
+    look: (view: ViewBasis) => viewing?.(view),
+    listening: () => viewing !== null,
+  };
 }
 
 function meshes() {
@@ -112,6 +124,80 @@ describe("Viewer", () => {
     expect(screen.getByRole("heading", { name: /^#2 / })).toBeTruthy();
     view.unmount();
     expect(scene.handle.dispose).toHaveBeenCalled();
+  });
+
+  describe("axis indicator", () => {
+    /** The camera in front of the box, level: X to the right, Z up, Y away from the viewer. */
+    const FRONT: ViewBasis = { right: [1, 0, 0], up: [0, 0, 1], back: [0, -1, 0] };
+
+    it("is off by default: an unchecked toggle with a hint, no indicator, no camera reports", async () => {
+      const scene = stubScene();
+      render(<Viewer {...props({}, scene)} />);
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+      const toggle = screen.getByRole("checkbox", { name: "Show axes" }) as HTMLInputElement;
+      expect(toggle.checked).toBe(false);
+      const hint = document.getElementById(toggle.getAttribute("aria-describedby") ?? "");
+      expect(hint?.textContent).toMatch(
+        /X runs across the box, Y from its front to its back, Z up/,
+      );
+      expect(screen.queryByTestId("axis-gizmo")).toBeNull();
+      expect(scene.listening()).toBe(false);
+    });
+
+    it("sits beside the Spread apart slider", async () => {
+      const scene = stubScene();
+      render(<Viewer {...props({}, scene)} />);
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+      const controls = screen.getByLabelText("Spread apart").closest(".viewer-controls");
+      expect(controls?.contains(screen.getByRole("checkbox", { name: "Show axes" }))).toBe(true);
+    });
+
+    it("shows labelled X, Y and Z axes that follow the camera, and stops listening when turned off", async () => {
+      const scene = stubScene();
+      render(<Viewer {...props({}, scene)} />);
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+      fireEvent.click(screen.getByRole("checkbox", { name: "Show axes" }));
+      expect(scene.listening()).toBe(true);
+      // Nothing is drawn before the camera has said which way it looks.
+      expect(screen.queryByTestId("axis-gizmo")).toBeNull();
+      act(() => scene.look(FRONT));
+      const gizmo = screen.getByTestId("axis-gizmo");
+      expect(gizmo.getAttribute("aria-label")).toMatch(/^Axis indicator: X \(red\)/);
+      const labels = [...gizmo.querySelectorAll("text")].map((t) => t.textContent);
+      expect(labels.sort()).toEqual(["X", "Y", "Z"]);
+      const tip = (axis: string): { x: number; y: number } => {
+        const c = gizmo.querySelector(`g[data-axis="${axis}"] circle`);
+        return { x: Number(c?.getAttribute("cx")), y: Number(c?.getAttribute("cy")) };
+      };
+      // Seen from the front: X goes right, Z goes up (smaller SVG y), Y points into the screen.
+      expect(tip("x").x).toBeGreaterThan(42);
+      expect(tip("z").y).toBeLessThan(42);
+      expect(tip("y")).toEqual({ x: 42, y: 42 });
+      // Turned a quarter: X now points at the viewer and Y goes right.
+      act(() => scene.look({ right: [0, 1, 0], up: [0, 0, 1], back: [1, 0, 0] }));
+      expect(tip("y").x).toBeGreaterThan(42);
+      expect(tip("x")).toEqual({ x: 42, y: 42 });
+      fireEvent.click(screen.getByRole("checkbox", { name: "Show axes" }));
+      expect(scene.listening()).toBe(false);
+      expect(screen.queryByTestId("axis-gizmo")).toBeNull();
+    });
+
+    it("does not get in the way of picking trays", async () => {
+      const scene = stubScene();
+      const p = props({}, scene);
+      render(<Viewer {...p} />);
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+      fireEvent.click(screen.getByRole("checkbox", { name: "Show axes" }));
+      act(() => scene.look(FRONT));
+      // The picking is the scene's, on the canvas: the indicator is not inside it, takes no
+      // pointer events (see style.test.ts) and the scene is never told about it.
+      const canvas = document.querySelector("canvas");
+      expect(canvas?.contains(screen.getByTestId("axis-gizmo"))).toBe(false);
+      scene.pick("b:p0:0");
+      expect(p.onSelect).toHaveBeenCalledWith("b:p0:0");
+      expect(scene.handle.setTrays).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("button", { name: /^Tray 2,/ })).toBeTruthy();
+    });
   });
 
   it("reports parts that could not be built and retries", async () => {

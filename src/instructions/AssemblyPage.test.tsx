@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/pr
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { AssemblyPage } from "./AssemblyPage";
+import printCss from "./assembly.css?raw";
 
 afterEach(cleanup);
 
@@ -21,9 +22,10 @@ describe("AssemblyPage", () => {
       "Layer 1: place #1 Deck A ×40.",
     );
     const images = screen.getAllByRole("img");
-    expect(images).toHaveLength(2);
-    expect(images[0]?.getAttribute("alt")).toMatch(/Layer 1 \(bottom\)/);
-    expect(images[0]?.getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
+    // The exploded view, then one picture per layer.
+    expect(images).toHaveLength(3);
+    expect(images[1]?.getAttribute("alt")).toMatch(/Layer 1 \(bottom\)/);
+    expect(images[1]?.getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
     expect(screen.getAllByRole("row")).toHaveLength(3);
   });
 
@@ -32,14 +34,60 @@ describe("AssemblyPage", () => {
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(headings).toEqual([
       "Packing order (bottom first)",
+      "How it goes together",
       "Layer 1 (bottom)",
       "Layer 2 (top)",
       "What goes where",
     ]);
     const images = screen.getAllByRole("img");
-    expect(images[0]?.getAttribute("alt")).toBe("Layer 1 (bottom): tray 1 Deck A ×40");
-    expect(images[1]?.getAttribute("alt")).toBe("Layer 2 (top): tray 2 Deck A ×40");
+    expect(images[1]?.getAttribute("alt")).toBe("Layer 1 (bottom): tray 1 Deck A ×40");
+    expect(images[2]?.getAttribute("alt")).toBe("Layer 2 (top): tray 2 Deck A ×40");
     expect(document.querySelector(".assembly-layers")?.children).toHaveLength(2);
+  });
+
+  it("shows the exploded view with the parts in assembly order, between the packing order and the layers", () => {
+    render(<AssemblyPage project={fixtureProject()} layout={layout} onBack={vi.fn()} />);
+    const exploded = screen.getByRole("img", { name: /^Exploded view/ });
+    expect(exploded.getAttribute("alt")).toBe(
+      "Exploded view of the parts in assembly order: 1 Deck A ×40, 2 Deck A ×40",
+    );
+    expect(exploded.getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
+    expect(exploded.closest("section")?.getAttribute("aria-labelledby")).toBe("exploded-title");
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.id)).toEqual([
+      "packing-title",
+      "exploded-title",
+      "layer-title-1",
+      "layer-title-2",
+      "parts-title",
+    ]);
+  });
+
+  it("prints the exploded view: a vector image the print rules keep whole, its button left off", () => {
+    render(<AssemblyPage project={fixtureProject()} layout={layout} onBack={vi.fn()} />);
+    const section = document.querySelector(".assembly-exploded") as HTMLElement;
+    const img = section.querySelector("img.assembly-svg") as HTMLImageElement;
+    // An <img> of an SVG data URL, not a canvas: it is in the print output and stays sharp.
+    expect(decodeURIComponent(img.src)).toContain("<svg");
+    expect(section.querySelector("canvas")).toBeNull();
+    expect(section.querySelector("button")?.className).toContain("no-print");
+    expect(printCss).toMatch(/@media print[\s\S]*\.assembly-exploded,/);
+  });
+
+  it("downloads the exploded view as a PNG", async () => {
+    const toPng = vi.fn(() => Promise.resolve(new Blob(["png"], { type: "image/png" })));
+    const download = vi.fn();
+    render(
+      <AssemblyPage
+        project={{ ...fixtureProject(), name: "Wing span" }}
+        layout={layout}
+        onBack={vi.fn()}
+        toPng={toPng}
+        download={download}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Download PNG of the exploded view" }));
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
+    expect(download.mock.calls[0]?.[1]).toBe("Wing-span-exploded.png");
   });
 
   it("has no (top) when there is one layer", () => {

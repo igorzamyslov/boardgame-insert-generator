@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "preact/hooks";
 import { downloadBlob, fileSlug } from "../app/download";
 import type { Project, StoredLayout } from "../model/types";
 import { errorText } from "../util/errors";
+import { explodedView } from "./exploded";
 import { svgDataUrl, svgToPng } from "./png";
 import "./assembly.css";
 import { layerInfo, packingSteps, render, whatGoesWhere } from "./render";
@@ -22,6 +23,7 @@ const PNG_WIDTH_PX = 1600;
 
 export function AssemblyPage(p: AssemblyPageProps) {
   const svgs = useMemo(() => render(p.layout, p.project), [p.layout, p.project]);
+  const exploded = useMemo(() => explodedView(p.layout, p.project), [p.layout, p.project]);
   const steps = useMemo(() => packingSteps(p.layout), [p.layout]);
   const layers = useMemo(() => layerInfo(p.layout), [p.layout]);
   const rows = useMemo(
@@ -35,7 +37,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
   const slug = fileSlug(p.project.name);
   const { box } = p.project;
 
-  async function savePng(svg: string, layer: number): Promise<void> {
+  async function savePng(svg: string, name: string): Promise<void> {
     if (making.current) {
       return;
     }
@@ -44,7 +46,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
     setPngError(null);
     try {
       const blob = await (p.toPng ?? svgToPng)(svg, PNG_WIDTH_PX);
-      (p.download ?? downloadBlob)(blob, `${slug}-layer-${layer}.png`);
+      (p.download ?? downloadBlob)(blob, `${slug}-${name}.png`);
     } catch (e) {
       setPngError(`Couldn't make the PNG: ${errorText(e)}`);
     } finally {
@@ -97,6 +99,32 @@ export function AssemblyPage(p: AssemblyPageProps) {
               ))}
             </ol>
           </section>
+          {exploded !== null ? (
+            <section class="assembly-exploded" aria-labelledby="exploded-title">
+              <h2 id="exploded-title">How it goes together</h2>
+              <p class="hint">
+                Every part pulled apart, bottom first, with the numbers of the list above and the
+                table below. Parts are drawn as plain blocks: the real trays are open on top.
+              </p>
+              <img
+                class="assembly-svg"
+                src={svgDataUrl(exploded.svg)}
+                alt={`Exploded view of the parts in assembly order: ${exploded.parts
+                  .map((x) => `${x.number} ${x.label}`)
+                  .join(", ")}`}
+              />
+              <button
+                type="button"
+                class="no-print"
+                disabled={busy || p.stale}
+                onClick={() => {
+                  void savePng(exploded.svg, "exploded");
+                }}
+              >
+                Download PNG of the exploded view
+              </button>
+            </section>
+          ) : null}
           <div class="assembly-layers">
             {svgs.map((svg, i) => {
               const layer = i + 1;
@@ -116,7 +144,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
                     class="no-print"
                     disabled={busy || p.stale}
                     onClick={() => {
-                      void savePng(svg, layer);
+                      void savePng(svg, `layer-${layer}`);
                     }}
                   >
                     {`Download PNG of layer ${layer}`}

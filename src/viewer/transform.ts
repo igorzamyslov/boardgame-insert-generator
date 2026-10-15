@@ -1,4 +1,5 @@
 // src/viewer/transform.ts
+import { parentKey } from "../instructions/numbering";
 import { effective } from "../model/settings";
 import type { Box, Settings, TraySpec } from "../model/types";
 import type { BoxOutline } from "./types";
@@ -47,4 +48,20 @@ export function isVisible(spec: TraySpec, maxLevel: number | null): boolean {
 export function boxOutline(box: Box, settings: Settings): BoxOutline {
   const bc = effective(settings).boxClearance;
   return { min: [-bc, -bc, 0], size: [box.innerWidth, box.innerDepth, box.innerHeight] };
+}
+
+/** The middle of the box in x, y: the point trays move away from when they spread apart. */
+export function outlineCenter(o: BoxOutline): [number, number] {
+  return [o.min[0] + o.size[0] / 2, o.min[1] + o.size[1] / 2];
+}
+
+/**
+ * The part `spec` is spread apart with (the `anchor` of trayPosition): a card spacer or divider
+ * travels with the tray it stands in, everything else with itself. Needed wherever trays are
+ * arranged, so the 3D view and the assembly page's exploded picture agree.
+ */
+export function anchorOf(spec: TraySpec, byKey: ReadonlyMap<string, TraySpec>): TraySpec {
+  return spec.part === "spacer" || spec.part === "divider"
+    ? (byKey.get(parentKey(spec)) ?? spec)
+    : spec;
 }

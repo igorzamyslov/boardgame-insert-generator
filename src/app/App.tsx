@@ -13,6 +13,7 @@ import { BoxForm } from "../ui/BoxForm";
 import { AddKinds, ComponentList } from "../ui/components/ComponentList";
 import { trayNumbersByComponent } from "../ui/identity";
 import { ExportPanel } from "../ui/ExportPanel";
+import { Modal } from "../ui/Modal";
 import { Notices } from "../ui/Notices";
 import { PrinterForm } from "../ui/PrinterForm";
 import { ProjectMenu } from "../ui/ProjectMenu";
@@ -60,7 +61,7 @@ export interface AppProps {
 }
 
 type SectionId = "box" | "printer" | "components" | "settings";
-type ViewId = "plan" | "3d" | "export";
+type ViewId = "plan" | "3d";
 
 const SECTION_TITLES: Record<SectionId, string> = {
   box: "The box",
@@ -126,7 +127,7 @@ export function App(props: AppProps) {
   );
   const showAssembly = assemblyFor === project.id && layout !== undefined;
   const mainRef = useRef<HTMLElement>(null);
-  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const exportButtonRef = useRef<HTMLButtonElement>(null);
   const restoreFocus = useRef(false);
   const menuRef = useRef<HTMLDetailsElement>(null);
   const closeMenu = () => {
@@ -162,11 +163,14 @@ export function App(props: AppProps) {
     project.components.length === 0 ? "box" : "components",
   );
   const [view, setView] = useState<ViewId>("plan");
+  // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
+  const [exportOpen, setExportOpen] = useState(false);
   // The component just removed, for the Undo toast (cleared when another project opens).
   const [removed, setRemoved] = useState<{ component: Component; index: number } | null>(null);
   const run = s.run.value;
   useEffect(() => {
     setRemoved(null);
+    setExportOpen(false);
   }, [project.id]);
   const locked = lockedKeys(project);
   const sizeLocked = sizeLockedKeys(project);
@@ -185,7 +189,7 @@ export function App(props: AppProps) {
       mainRef.current?.querySelector("h1")?.focus();
     } else if (restoreFocus.current) {
       restoreFocus.current = false;
-      openButtonRef.current?.focus();
+      exportButtonRef.current?.focus();
     }
   }, [showAssembly]);
 
@@ -501,7 +505,7 @@ export function App(props: AppProps) {
                             id={`tab-${id}`}
                             aria-selected={view === id}
                             aria-controls={`panel-${id}`}
-                            tabIndex={view === id || (view === "export" && id === "plan") ? 0 : -1}
+                            tabIndex={view === id ? 0 : -1}
                             onClick={() => setView(id)}
                           >
                             {label}
@@ -511,19 +515,22 @@ export function App(props: AppProps) {
                       <div class="pf-toolbar__group">
                         {s.stale.value ? <span class="pf-badge">Out of date</span> : null}
                         {run.status === "running" ? <span class="pf-badge">Updating…</span> : null}
-                        {view !== "export" ? (
-                          <button type="button" class="primary" onClick={() => setView("export")}>
-                            {`Export all ${partTotal} ${partTotal === 1 ? "part" : "parts"}`}
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          class="primary"
+                          ref={exportButtonRef}
+                          aria-haspopup="dialog"
+                          onClick={() => setExportOpen(true)}
+                        >
+                          {`Export all ${partTotal} ${partTotal === 1 ? "part" : "parts"}`}
+                        </button>
                       </div>
                     </div>
                     <div
-                      class={view === "export" ? "pf-view__body stretch" : "pf-view__body"}
-                      role={view === "export" ? "region" : "tabpanel"}
+                      class="pf-view__body"
+                      role="tabpanel"
                       id={`panel-${view}`}
-                      aria-labelledby={view === "export" ? undefined : `tab-${view}`}
-                      aria-label={view === "export" ? "Export" : undefined}
+                      aria-labelledby={`tab-${view}`}
                     >
                       {view === "plan" ? (
                         <PlanView
@@ -569,48 +576,47 @@ export function App(props: AppProps) {
                           {...props.viewerProps}
                         />
                       ) : null}
-                      {view === "export" ? (
-                        <>
-                          <p>
-                            <button type="button" class="quiet" onClick={() => setView("plan")}>
-                              ← Back to the plan
-                            </button>
-                          </p>
-                          <ExportPanel
-                            trays={printable}
-                            printer={project.printer}
-                            settings={project.settings}
-                            meshes={meshes}
-                            projectName={project.name}
-                            disabled={run.status === "running"}
-                            stale={s.stale.value}
-                            download={download}
-                          />
-                          <div class="export-option export-assembly">
-                            <div>
-                              <strong>Assembly page</strong>
-                              <p class="hint">
-                                Numbered pictures of each layer and a parts list, to print or save
-                                as PDF. Print this one yourself.
-                              </p>
-                              {s.stale.value ? (
-                                <p class="hint">
-                                  Inputs changed — update the plan before opening the assembly page.
-                                </p>
-                              ) : null}
-                            </div>
-                            <button
-                              ref={openButtonRef}
-                              type="button"
-                              disabled={s.stale.value}
-                              onClick={() => setAssemblyFor(project.id)}
-                            >
-                              Open the assembly page
-                            </button>
-                          </div>
-                        </>
-                      ) : null}
                     </div>
+                    {exportOpen ? (
+                      <Modal labelledBy="export-title" onClose={() => setExportOpen(false)}>
+                        <ExportPanel
+                          titleId="export-title"
+                          trays={printable}
+                          printer={project.printer}
+                          settings={project.settings}
+                          meshes={meshes}
+                          projectName={project.name}
+                          disabled={run.status === "running"}
+                          stale={s.stale.value}
+                          download={download}
+                        />
+                        <div class="export-option export-assembly">
+                          <div>
+                            <strong>Assembly page</strong>
+                            <p class="hint">
+                              An exploded picture of the build order, numbered pictures of each
+                              layer and a parts list, to print or save as PDF. Print this one
+                              yourself.
+                            </p>
+                            {s.stale.value ? (
+                              <p class="hint">
+                                Inputs changed — update the plan before opening the assembly page.
+                              </p>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            disabled={s.stale.value}
+                            onClick={() => {
+                              setExportOpen(false);
+                              setAssemblyFor(project.id);
+                            }}
+                          >
+                            Open the assembly page
+                          </button>
+                        </div>
+                      </Modal>
+                    ) : null}
                   </section>
                 ) : (
                   <section class="pf-frame pf-view" aria-label="Preview">
