@@ -5,6 +5,7 @@ import { COUNT, LENGTH, VOLUME_ML } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { ListNotices } from "./ListNotices";
+import { DerivedSizes } from "./DerivedSizes";
 import { MoreOptions } from "./MoreOptions";
 import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -132,6 +133,7 @@ export function BulkEditor({
         </button>
       </fieldset>
       <BinNotes component={c} index={index} />
+      <DerivedSizes component={c} index={index} />
       <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
         <CommonOptions
           component={c}

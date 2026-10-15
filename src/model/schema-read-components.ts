@@ -75,6 +75,11 @@ function readSleeve(r: Reader): Sleeve {
   return readEnum(v, SLEEVE_NAMES, r.at("sleeve"), r.ctx, COMPONENT_DEFAULTS.cards.sleeve);
 }
 
+/** `{ scale }` for a stored correction, nothing for none (a preset without one stays `{ mode }`). */
+function optionalScale(scale: number | undefined): { scale?: number } {
+  return scale === undefined ? {} : { scale };
+}
+
 function readCards(r: Reader, base: ComponentBase): Component {
   let shortSide = r.num("shortSide");
   let longSide = r.num("longSide");
@@ -98,7 +103,7 @@ function readCards(r: Reader, base: ComponentBase): Component {
     thickness = t.finish(
       mode === "measured"
         ? { mode, cards: t.num("cards"), stackMm: t.num("stackMm") }
-        : { mode: "preset" as const },
+        : { mode: "preset" as const, ...optionalScale(t.optNum("scale")) },
     );
   }
   const storage = r.oneOf(

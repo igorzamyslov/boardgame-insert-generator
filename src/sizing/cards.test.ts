@@ -94,7 +94,7 @@ describe("cardOptions", () => {
     expect(c.minD).toBeCloseTo(92.5, 9);
     expect(c.minH).toBeCloseTo(68, 9);
     expect(c.kind).toBe("well");
-    expect(c.contents).toBe("Main ×52");
+    expect(c.contents).toBe("Cards — Main ×52");
     expect(c.componentId).toBe("c1");
     // Stretch is off by default: content-tight, no spacer.
     expect(c.elastic).toEqual({ w: false, d: false, h: false });
@@ -147,7 +147,7 @@ describe("cardOptions", () => {
     expect(options.map((o) => o.id)).toEqual(["upright-long", "upright-short", "flat"]);
     for (const option of options) {
       expect(option.blocks.map((b) => b.map((c) => c.contents))).toEqual([
-        ["A ×40"],
+        ["Cards — A ×40"],
         ["Cards ×12"],
       ]);
     }
@@ -221,6 +221,71 @@ describe("cardOptions", () => {
     expect(named.contents).toBe("Cards ×5");
     const unnamed = deck(cards({ name: "", decks: [{ name: "", count: 5 }] }));
     expect(unnamed.contents).toBe("c1 ×5");
+  });
+
+  it("shows the component name beside a deck's own name, and never twice", () => {
+    expect(
+      deck(cards({ name: "Starter deck", decks: [{ name: "Deck 1", count: 15 }] })).contents,
+    ).toBe("Starter deck — Deck 1 ×15");
+    // an unnamed deck already falls back to the component's name
+    expect(deck(cards({ name: "Starter deck", decks: [{ name: "", count: 15 }] })).contents).toBe(
+      "Starter deck ×15",
+    );
+    // a deck called the same as its component
+    expect(deck(cards({ name: "Main", decks: [{ name: "Main", count: 15 }] })).contents).toBe(
+      "Main ×15",
+    );
+    // an unnamed component has no name to show, only its id as a fallback
+    expect(deck(cards({ name: "", decks: [{ name: "Deck 1", count: 15 }] })).contents).toBe(
+      "Deck 1 ×15",
+    );
+  });
+
+  it("gives every tray of a split component the component name, so they read as a group", () => {
+    const { options } = cardOptions(
+      cards({
+        name: "Starter deck",
+        decks: [
+          { name: "Deck 1", count: 15 },
+          { name: "Deck 2", count: 20 },
+          { name: "", count: 5 },
+        ],
+      }),
+      s,
+      0,
+    );
+    expect(at(options, 0).blocks.map((b) => b.map((c) => c.contents))).toEqual([
+      ["Starter deck — Deck 1 ×15"],
+      ["Starter deck — Deck 2 ×20"],
+      ["Starter deck ×5"],
+    ]);
+  });
+
+  describe("thickness correction", () => {
+    it("scales the per-card thickness of a preset, sleeve included", () => {
+      const base = cardDims(cards(), s, 0).dims;
+      const scaled = cardDims(cards({ thickness: { mode: "preset", scale: 1.1 } }), s, 0).dims;
+      expect(scaled.t).toBeCloseTo(base.t * 1.1, 9);
+      expect(scaled.S).toBe(base.S);
+      expect(scaled.L).toBe(base.L);
+    });
+
+    it("changes the stack, but adds no clearance of its own", () => {
+      const plain = deck(cards({ decks: [{ name: "A", count: 100 }] }));
+      const scaled = deck(
+        cards({ decks: [{ name: "A", count: 100 }], thickness: { mode: "preset", scale: 1.1 } }),
+      );
+      // stack = n·t·(1 + pct·fit) + clearance: only the n·t·(1 + pct) part moves with the scale
+      expect(scaled.minW - plain.minW).toBeCloseTo(100 * 0.42 * 0.1 * (1 + 0.03), 1);
+      // the card's face is untouched
+      expect(scaled.minD).toBe(plain.minD);
+      expect(scaled.minH).toBe(plain.minH);
+    });
+
+    it("leaves a measured stack alone", () => {
+      const measured = cards({ thickness: { mode: "measured", cards: 100, stackMm: 45 } });
+      expect(cardDims(measured, s, 0).dims.t).toBeCloseTo(0.45, 9);
+    });
   });
 
   it("auto with a custom sleeve offers all three storages", () => {

@@ -1,7 +1,8 @@
 // src/ui/validation.ts
 import { createContext } from "preact";
 import { useContext } from "preact/hooks";
-import type { Notice } from "../model/types";
+import { DEFAULT_SETTINGS } from "../model/settings";
+import type { Notice, Settings } from "../model/types";
 
 /** All `validateProject()` notices of the current project; fields pick theirs by path. */
 export const ValidationContext = createContext<Notice[]>([]);
@@ -20,6 +21,9 @@ export const SizingContext = createContext<Notice[]>([]);
 export function useSizingNotices(path: string): Notice[] {
   return useContext(SizingContext).filter((n) => n.path === path);
 }
+
+/** The project's settings, for the derived sizes an editor shows (`derivedSizes`). */
+export const SettingsContext = createContext<Settings>(DEFAULT_SETTINGS);
 
 const PRINTER_ADVANCED_ONLY = new Set(["/printer/bedMargin", "/printer/layerHeight"]);
 

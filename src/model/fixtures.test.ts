@@ -148,6 +148,20 @@ describe("schema history", () => {
     expect(older.project.settings.mergeRisers).toBe(false);
   });
 
+  it("reads the preset thickness correction from the 0.1.10 file, and none from older files", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.10.json"]);
+    expect(notices).toEqual([]);
+    const cards = project.components.filter((c) => c.kind === "cards");
+    expect(cards.map((c) => c.thickness)).toEqual([
+      { mode: "preset", scale: 1.15 },
+      { mode: "measured", cards: 12, stackMm: 5.4 },
+    ]);
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.9.json"]);
+    expect(older.notices).toEqual([]);
+    const first = older.project.components.find((c) => c.kind === "cards");
+    expect(first?.kind === "cards" && first.thickness).toEqual({ mode: "preset" });
+  });
+
   it("prefers wallAbsorb when a file has both keys", () => {
     const raw = structuredClone(HISTORY["../../test/fixtures/schema/0.1.8.json"]) as {
       settings: Record<string, number>;

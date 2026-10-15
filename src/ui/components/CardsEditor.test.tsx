@@ -265,3 +265,57 @@ describe("CardsEditor validation", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 });
+
+describe("derived sizes and the thickness correction", () => {
+  it("shows what the presets add up to, beside the editor, even in simple mode", () => {
+    setup(cards({ name: "Starter", decks: [{ name: "Deck 1", count: 50 }] }));
+    expect(
+      screen.getByText(
+        "Starter — Deck 1: 50 cards ≈ 16 mm thick (0.32 mm per card), in a 65 × 89.5 mm well.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("shows the correction in the numbers", () => {
+    setup(
+      cards({
+        decks: [{ name: "Deck 1", count: 100 }],
+        thickness: { mode: "preset", scale: 1.1 },
+      }),
+      true,
+    );
+    expect(screen.getByText(/100 cards ≈ 35.2 mm thick/)).toBeTruthy();
+    expect(
+      (screen.getByLabelText(/Correct the estimated thickness/) as HTMLInputElement).value,
+    ).toBe("10");
+  });
+
+  it("commits a correction as a multiplier", () => {
+    const { last } = setup(cards(), true);
+    fireEvent.input(screen.getByLabelText(/Correct the estimated thickness/), {
+      target: { value: "-12.5" },
+    });
+    expect(last().thickness).toEqual({ mode: "preset", scale: 0.875 });
+  });
+
+  it("stores no correction at all for 0 %", () => {
+    const { last } = setup(cards({ thickness: { mode: "preset", scale: 1.1 } }), true);
+    fireEvent.input(screen.getByLabelText(/Correct the estimated thickness/), {
+      target: { value: "0" },
+    });
+    expect(last().thickness).toEqual({ mode: "preset" });
+  });
+
+  it("says how it differs from Fit and the stack clearance, and what to do instead", () => {
+    setup(cards(), true);
+    const hint = screen.getByText(/corrects the estimate itself/);
+    expect(hint.textContent).toMatch(/Fit/);
+    expect(hint.textContent).toMatch(/card stack clearance/);
+  });
+
+  it("hides the correction while a measured stack stands in for it", () => {
+    setup(cards({ thickness: { mode: "measured", cards: 50, stackMm: 20 } }), true);
+    expect(screen.queryByLabelText(/Correct the estimated thickness/)).toBeNull();
+    expect(screen.getByText(/50 cards ≈ 20 mm thick \(0.4 mm per card\)/)).toBeTruthy();
+  });
+});

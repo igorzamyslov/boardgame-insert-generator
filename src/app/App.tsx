@@ -19,7 +19,12 @@ import { ProjectMenu } from "../ui/ProjectMenu";
 import { SettingsForm } from "../ui/SettingsForm";
 import { Summary } from "../ui/Summary";
 import { Section } from "../ui/Section";
-import { SizingContext, ValidationContext, errorsWithoutField } from "../ui/validation";
+import {
+  SettingsContext,
+  SizingContext,
+  ValidationContext,
+  errorsWithoutField,
+} from "../ui/validation";
 import { Viewer } from "../viewer/Viewer";
 import type { ViewerProps } from "../viewer/Viewer";
 import {
@@ -278,393 +283,397 @@ export function App(props: AppProps) {
   return (
     <ValidationContext.Provider value={validation}>
       <SizingContext.Provider value={sizingNotices}>
-        <div class="pf-app" data-level={advanced ? "advanced" : "simple"}>
-          <div class="app-top">
-            <header class="pf-app__bar">
-              <div class="app-title-block">
-                <h1 class="pf-app__title">Insert Generator</h1>
-                <span class="app-project-name">
-                  {project.name === "" ? "(unnamed)" : project.name}
-                </span>
-              </div>
-              <div class="pf-toolbar__group">
-                {advanced ? (
-                  <span class="pf-mode-note" aria-hidden="true">
-                    Dotted edge = advanced
+        <SettingsContext.Provider value={projSettings}>
+          <div class="pf-app" data-level={advanced ? "advanced" : "simple"}>
+            <div class="app-top">
+              <header class="pf-app__bar">
+                <div class="app-title-block">
+                  <h1 class="pf-app__title">Insert Generator</h1>
+                  <span class="app-project-name">
+                    {project.name === "" ? "(unnamed)" : project.name}
                   </span>
-                ) : null}
-                <fieldset class="mode-toggle">
-                  <legend>Input mode</legend>
-                  <div class="pf-seg">
-                    <label class="pf-seg__opt">
-                      <input
-                        type="radio"
-                        name="input-mode"
-                        checked={!advanced}
-                        onChange={() => {
-                          s.mode.value = "simple";
-                        }}
-                      />
-                      Simple
-                    </label>
-                    <label class="pf-seg__opt">
-                      <input
-                        type="radio"
-                        name="input-mode"
-                        checked={advanced}
-                        onChange={() => {
-                          s.mode.value = "advanced";
-                        }}
-                      />
-                      Advanced
-                    </label>
-                  </div>
-                </fieldset>
-                <details class="app-menu" ref={menuRef}>
-                  <summary>Project</summary>
-                  <div class="app-menu-panel">
-                    <ProjectMenu
-                      name={project.name}
-                      currentId={project.id}
-                      projects={s.projects.value}
-                      storageAvailable={store.storageAvailable}
-                      onRename={(name) => store.edit((q) => renameProject(q, name))}
-                      onOpen={(id) => {
-                        closeMenu();
-                        store.openProject(id);
-                      }}
-                      onNew={() => {
-                        closeMenu();
-                        store.newProject();
-                      }}
-                      onDelete={(id) => store.deleteProject(id)}
-                      onImport={(text) => {
-                        store.importJson(text);
-                      }}
-                      onExportJson={() =>
-                        download(exportJsonFile(project, s.foreign.value), jsonFileName(project))
-                      }
-                      onCopyLink={onCopyLink}
-                    />
-                  </div>
-                </details>
-              </div>
-            </header>
-            {notices.length > 0 ? (
-              <div class="app-notices">
-                <Notices
-                  notices={notices}
-                  label="App messages"
-                  onDismiss={(code) => store.dismissNotice(code)}
-                  // The choice stays on screen while autosave is paused for it.
-                  canDismiss={(n) => !(n.code === CONFLICT_CODE && s.conflict.value)}
-                  renderAction={(n) =>
-                    n.code === CONFLICT_CODE && s.conflict.value ? (
-                      <>
-                        <button type="button" onClick={() => store.resolveConflict("keepMine")}>
-                          Keep my version
-                        </button>
-                        <button type="button" onClick={() => store.resolveConflict("loadTheirs")}>
-                          Load the other tab's version
-                        </button>
-                      </>
-                    ) : null
-                  }
-                />
-              </div>
-            ) : null}
-          </div>
-          <div class="pf-app__body">
-            <section class="pf-app__rail" aria-label="Inputs">
-              {shownSections.map((x) => (
-                <Section
-                  key={x.id}
-                  id={x.id}
-                  step={x.step}
-                  title={SECTION_TITLES[x.id]}
-                  summary={summaries[x.id]}
-                  problem={problems.has(x.id)}
-                  advanced={x.advanced}
-                  open={openSection === x.id}
-                  onToggle={(open) => setOpenSection(open ? x.id : null)}
-                >
-                  {x.id === "box" ? (
-                    <BoxForm
-                      box={project.box}
-                      advanced={advanced}
-                      onChange={(patch) => store.edit((q) => updateBox(q, patch))}
-                    />
+                </div>
+                <div class="pf-toolbar__group">
+                  {advanced ? (
+                    <span class="pf-mode-note" aria-hidden="true">
+                      Dotted edge = advanced
+                    </span>
                   ) : null}
-                  {x.id === "printer" ? (
-                    <PrinterForm
-                      printer={project.printer}
-                      advanced={advanced}
-                      onChange={(patch) => store.edit((q) => updatePrinter(q, patch))}
-                    />
-                  ) : null}
-                  {x.id === "components" ? (
-                    <ComponentList
-                      components={project.components}
-                      advanced={advanced}
-                      trayNumbers={trayNumbers}
-                      onAdd={addComponentOfKind}
-                      onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
-                      onRemove={(id) => {
-                        const index = project.components.findIndex((x) => x.id === id);
-                        const component = project.components[index];
-                        if (component === undefined) {
-                          return false;
-                        }
-                        setRemoved({ component, index });
-                        store.edit((q) => removeComponent(q, id));
-                        return true;
-                      }}
-                    />
-                  ) : null}
-                  {x.id === "settings" ? (
-                    <SettingsForm
-                      settings={project.settings}
-                      advanced={advanced}
-                      onChange={(next) => store.edit((q) => setSettings(q, next))}
-                    />
-                  ) : null}
-                </Section>
-              ))}
-            </section>
-            <main class="pf-app__stage" ref={mainRef}>
-              <h2 class="visually-hidden">Results</h2>
-              <Summary
-                summary={s.summary.value}
-                run={run}
-                notices={layoutNotices}
-                hasLayout={layout !== undefined}
-                stale={s.stale.value}
-                geometryOld={s.geometryOld.value}
-                layers={layers}
-                spares={spares}
-                canUndo={s.undoSlot.value !== null}
-                canOptimize={canOptimize(project, validation)}
-                hasComponents={project.components.length > 0}
-                hiddenErrors={errorsWithoutField(validation, advanced)}
-                advanced={advanced}
-                problemSections={problemSections}
-                onShowSection={showSection}
-                shortfall={s.shortfall.value}
-                onRefit={() => store.refit()}
-                onUndo={() => store.undo()}
-                onCancel={() => store.cancelRun()}
-                onRetry={() => store.retry()}
-              />
-              {layout ? (
-                <section class="pf-frame pf-view" aria-label="Preview">
-                  <div class="pf-view__head">
-                    <div
-                      class="pf-tabs"
-                      role="tablist"
-                      aria-label="Views"
-                      onKeyDown={(e) => {
-                        const order: ViewId[] = ["plan", "3d"];
-                        const at = order.indexOf(view);
-                        const next =
-                          e.key === "ArrowRight"
-                            ? order[(Math.max(at, 0) + 1) % order.length]
-                            : e.key === "ArrowLeft"
-                              ? order[(Math.max(at, 0) + order.length - 1) % order.length]
-                              : e.key === "Home"
-                                ? order[0]
-                                : e.key === "End"
-                                  ? order[order.length - 1]
-                                  : undefined;
-                        if (next !== undefined) {
-                          e.preventDefault();
-                          setView(next);
-                          document.getElementById(`tab-${next}`)?.focus();
-                        }
-                      }}
-                    >
-                      {(
-                        [
-                          ["plan", "Plan"],
-                          ["3d", "3D"],
-                        ] as const
-                      ).map(([id, label]) => (
-                        <button
-                          type="button"
-                          role="tab"
-                          key={id}
-                          id={`tab-${id}`}
-                          aria-selected={view === id}
-                          aria-controls={`panel-${id}`}
-                          tabIndex={view === id || (view === "export" && id === "plan") ? 0 : -1}
-                          onClick={() => setView(id)}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <div class="pf-toolbar__group">
-                      {s.stale.value ? <span class="pf-badge">Out of date</span> : null}
-                      {run.status === "running" ? <span class="pf-badge">Updating…</span> : null}
-                      {view !== "export" ? (
-                        <button type="button" class="primary" onClick={() => setView("export")}>
-                          {`Export all ${partTotal} ${partTotal === 1 ? "part" : "parts"}`}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div
-                    class={view === "export" ? "pf-view__body stretch" : "pf-view__body"}
-                    role={view === "export" ? "region" : "tabpanel"}
-                    id={`panel-${view}`}
-                    aria-labelledby={view === "export" ? undefined : `tab-${view}`}
-                    aria-label={view === "export" ? "Export" : undefined}
-                  >
-                    {view === "plan" ? (
-                      <PlanView
-                        trays={printable}
-                        box={project.box}
-                        settings={project.settings}
-                        components={project.components}
-                        advanced={advanced}
-                        lockedKeys={locked}
-                        selectedKey={s.selection.value}
-                        stale={s.stale.value}
-                        onSelect={(key) => {
-                          s.selection.value = key;
-                        }}
-                        onSwap={(a, b) => store.edit((q) => swapTrays(q, a, b))}
-                        sizeLockedKeys={sizeLocked}
-                        onToggleSizeLock={(key) =>
-                          withTray(key, (tray) => (q) => toggleSizeLock(q, tray))
-                        }
-                        onToggleLock={(key) => withTray(key, (tray) => (q) => toggleLock(q, tray))}
-                      />
-                    ) : null}
-                    {view === "3d" ? (
-                      <Viewer
-                        trays={printable}
-                        box={project.box}
-                        settings={project.settings}
-                        components={project.components}
-                        advanced={advanced}
-                        stale={s.stale.value}
-                        meshes={meshes}
-                        selectedKey={s.selection.value}
-                        lockedKeys={locked}
-                        sizeLockedKeys={sizeLocked}
-                        onToggleSizeLock={(key) =>
-                          withTray(key, (tray) => (q) => toggleSizeLock(q, tray))
-                        }
-                        onSelect={(key) => {
-                          s.selection.value = key;
-                        }}
-                        {...props.viewerProps}
-                      />
-                    ) : null}
-                    {view === "export" ? (
-                      <>
-                        <p>
-                          <button type="button" class="quiet" onClick={() => setView("plan")}>
-                            ← Back to the plan
-                          </button>
-                        </p>
-                        <ExportPanel
-                          trays={printable}
-                          printer={project.printer}
-                          settings={project.settings}
-                          meshes={meshes}
-                          projectName={project.name}
-                          disabled={run.status === "running"}
-                          stale={s.stale.value}
-                          download={download}
+                  <fieldset class="mode-toggle">
+                    <legend>Input mode</legend>
+                    <div class="pf-seg">
+                      <label class="pf-seg__opt">
+                        <input
+                          type="radio"
+                          name="input-mode"
+                          checked={!advanced}
+                          onChange={() => {
+                            s.mode.value = "simple";
+                          }}
                         />
-                        <div class="export-option export-assembly">
-                          <div>
-                            <strong>Assembly page</strong>
-                            <p class="hint">
-                              Numbered pictures of each layer and a parts list, to print or save as
-                              PDF. Print this one yourself.
-                            </p>
-                            {s.stale.value ? (
-                              <p class="hint">
-                                Inputs changed — update the plan before opening the assembly page.
-                              </p>
-                            ) : null}
-                          </div>
-                          <button
-                            ref={openButtonRef}
-                            type="button"
-                            disabled={s.stale.value}
-                            onClick={() => setAssemblyFor(project.id)}
-                          >
-                            Open the assembly page
-                          </button>
-                        </div>
-                      </>
-                    ) : null}
-                  </div>
-                </section>
-              ) : (
-                <section class="pf-frame pf-view" aria-label="Preview">
-                  <div class="stage-empty">
-                    <div class="stage-empty-box">
-                      <span class="pf-measure">{`Your box, ${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} mm`}</span>
-                    </div>
-                    <h2>
-                      {project.components.length === 0
-                        ? "Fit your game into its box."
-                        : "Working out the trays…"}
-                    </h2>
-                    <p>
-                      {project.components.length === 0
-                        ? "Check the box size on the left, then pick what goes inside. The plan draws itself as you go."
-                        : "The plan appears here as soon as every field is valid."}
-                    </p>
-                    {project.components.length === 0 ? (
-                      <>
-                        <AddKinds
-                          onAdd={addComponentOfKind}
-                          startIndex={0}
-                          label="Pick what goes inside"
+                        Simple
+                      </label>
+                      <label class="pf-seg__opt">
+                        <input
+                          type="radio"
+                          name="input-mode"
+                          checked={advanced}
+                          onChange={() => {
+                            s.mode.value = "advanced";
+                          }}
                         />
-                        <button type="button" onClick={addExample}>
-                          Not sure? Try an example
-                        </button>
-                      </>
-                    ) : null}
-                    <p class="hint">Everything stays in your browser.</p>
-                  </div>
-                </section>
-              )}
-              {removed !== null ? (
-                <div class="pf-toast stage-block" role="status">
-                  {`Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. `}
-                  <button
-                    type="button"
-                    class="pf-link"
-                    onClick={() => {
-                      const back = removed;
-                      setRemoved(null);
-                      store.edit((q) => restoreComponent(q, back.component, back.index));
-                      setOpenSection("components");
-                    }}
-                  >
-                    Undo
-                  </button>
-                  <button type="button" class="pf-link" onClick={() => setRemoved(null)}>
-                    Dismiss
-                  </button>
+                        Advanced
+                      </label>
+                    </div>
+                  </fieldset>
+                  <details class="app-menu" ref={menuRef}>
+                    <summary>Project</summary>
+                    <div class="app-menu-panel">
+                      <ProjectMenu
+                        name={project.name}
+                        currentId={project.id}
+                        projects={s.projects.value}
+                        storageAvailable={store.storageAvailable}
+                        onRename={(name) => store.edit((q) => renameProject(q, name))}
+                        onOpen={(id) => {
+                          closeMenu();
+                          store.openProject(id);
+                        }}
+                        onNew={() => {
+                          closeMenu();
+                          store.newProject();
+                        }}
+                        onDelete={(id) => store.deleteProject(id)}
+                        onImport={(text) => {
+                          store.importJson(text);
+                        }}
+                        onExportJson={() =>
+                          download(exportJsonFile(project, s.foreign.value), jsonFileName(project))
+                        }
+                        onCopyLink={onCopyLink}
+                      />
+                    </div>
+                  </details>
+                </div>
+              </header>
+              {notices.length > 0 ? (
+                <div class="app-notices">
+                  <Notices
+                    notices={notices}
+                    label="App messages"
+                    onDismiss={(code) => store.dismissNotice(code)}
+                    // The choice stays on screen while autosave is paused for it.
+                    canDismiss={(n) => !(n.code === CONFLICT_CODE && s.conflict.value)}
+                    renderAction={(n) =>
+                      n.code === CONFLICT_CODE && s.conflict.value ? (
+                        <>
+                          <button type="button" onClick={() => store.resolveConflict("keepMine")}>
+                            Keep my version
+                          </button>
+                          <button type="button" onClick={() => store.resolveConflict("loadTheirs")}>
+                            Load the other tab's version
+                          </button>
+                        </>
+                      ) : null
+                    }
+                  />
                 </div>
               ) : null}
-            </main>
+            </div>
+            <div class="pf-app__body">
+              <section class="pf-app__rail" aria-label="Inputs">
+                {shownSections.map((x) => (
+                  <Section
+                    key={x.id}
+                    id={x.id}
+                    step={x.step}
+                    title={SECTION_TITLES[x.id]}
+                    summary={summaries[x.id]}
+                    problem={problems.has(x.id)}
+                    advanced={x.advanced}
+                    open={openSection === x.id}
+                    onToggle={(open) => setOpenSection(open ? x.id : null)}
+                  >
+                    {x.id === "box" ? (
+                      <BoxForm
+                        box={project.box}
+                        advanced={advanced}
+                        onChange={(patch) => store.edit((q) => updateBox(q, patch))}
+                      />
+                    ) : null}
+                    {x.id === "printer" ? (
+                      <PrinterForm
+                        printer={project.printer}
+                        advanced={advanced}
+                        onChange={(patch) => store.edit((q) => updatePrinter(q, patch))}
+                      />
+                    ) : null}
+                    {x.id === "components" ? (
+                      <ComponentList
+                        components={project.components}
+                        advanced={advanced}
+                        trayNumbers={trayNumbers}
+                        onAdd={addComponentOfKind}
+                        onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
+                        onRemove={(id) => {
+                          const index = project.components.findIndex((x) => x.id === id);
+                          const component = project.components[index];
+                          if (component === undefined) {
+                            return false;
+                          }
+                          setRemoved({ component, index });
+                          store.edit((q) => removeComponent(q, id));
+                          return true;
+                        }}
+                      />
+                    ) : null}
+                    {x.id === "settings" ? (
+                      <SettingsForm
+                        settings={project.settings}
+                        advanced={advanced}
+                        onChange={(next) => store.edit((q) => setSettings(q, next))}
+                      />
+                    ) : null}
+                  </Section>
+                ))}
+              </section>
+              <main class="pf-app__stage" ref={mainRef}>
+                <h2 class="visually-hidden">Results</h2>
+                <Summary
+                  summary={s.summary.value}
+                  run={run}
+                  notices={layoutNotices}
+                  hasLayout={layout !== undefined}
+                  stale={s.stale.value}
+                  geometryOld={s.geometryOld.value}
+                  layers={layers}
+                  spares={spares}
+                  canUndo={s.undoSlot.value !== null}
+                  canOptimize={canOptimize(project, validation)}
+                  hasComponents={project.components.length > 0}
+                  hiddenErrors={errorsWithoutField(validation, advanced)}
+                  advanced={advanced}
+                  problemSections={problemSections}
+                  onShowSection={showSection}
+                  shortfall={s.shortfall.value}
+                  onRefit={() => store.refit()}
+                  onUndo={() => store.undo()}
+                  onCancel={() => store.cancelRun()}
+                  onRetry={() => store.retry()}
+                />
+                {layout ? (
+                  <section class="pf-frame pf-view" aria-label="Preview">
+                    <div class="pf-view__head">
+                      <div
+                        class="pf-tabs"
+                        role="tablist"
+                        aria-label="Views"
+                        onKeyDown={(e) => {
+                          const order: ViewId[] = ["plan", "3d"];
+                          const at = order.indexOf(view);
+                          const next =
+                            e.key === "ArrowRight"
+                              ? order[(Math.max(at, 0) + 1) % order.length]
+                              : e.key === "ArrowLeft"
+                                ? order[(Math.max(at, 0) + order.length - 1) % order.length]
+                                : e.key === "Home"
+                                  ? order[0]
+                                  : e.key === "End"
+                                    ? order[order.length - 1]
+                                    : undefined;
+                          if (next !== undefined) {
+                            e.preventDefault();
+                            setView(next);
+                            document.getElementById(`tab-${next}`)?.focus();
+                          }
+                        }}
+                      >
+                        {(
+                          [
+                            ["plan", "Plan"],
+                            ["3d", "3D"],
+                          ] as const
+                        ).map(([id, label]) => (
+                          <button
+                            type="button"
+                            role="tab"
+                            key={id}
+                            id={`tab-${id}`}
+                            aria-selected={view === id}
+                            aria-controls={`panel-${id}`}
+                            tabIndex={view === id || (view === "export" && id === "plan") ? 0 : -1}
+                            onClick={() => setView(id)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <div class="pf-toolbar__group">
+                        {s.stale.value ? <span class="pf-badge">Out of date</span> : null}
+                        {run.status === "running" ? <span class="pf-badge">Updating…</span> : null}
+                        {view !== "export" ? (
+                          <button type="button" class="primary" onClick={() => setView("export")}>
+                            {`Export all ${partTotal} ${partTotal === 1 ? "part" : "parts"}`}
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div
+                      class={view === "export" ? "pf-view__body stretch" : "pf-view__body"}
+                      role={view === "export" ? "region" : "tabpanel"}
+                      id={`panel-${view}`}
+                      aria-labelledby={view === "export" ? undefined : `tab-${view}`}
+                      aria-label={view === "export" ? "Export" : undefined}
+                    >
+                      {view === "plan" ? (
+                        <PlanView
+                          trays={printable}
+                          box={project.box}
+                          settings={project.settings}
+                          components={project.components}
+                          advanced={advanced}
+                          lockedKeys={locked}
+                          selectedKey={s.selection.value}
+                          stale={s.stale.value}
+                          onSelect={(key) => {
+                            s.selection.value = key;
+                          }}
+                          onSwap={(a, b) => store.edit((q) => swapTrays(q, a, b))}
+                          sizeLockedKeys={sizeLocked}
+                          onToggleSizeLock={(key) =>
+                            withTray(key, (tray) => (q) => toggleSizeLock(q, tray))
+                          }
+                          onToggleLock={(key) =>
+                            withTray(key, (tray) => (q) => toggleLock(q, tray))
+                          }
+                        />
+                      ) : null}
+                      {view === "3d" ? (
+                        <Viewer
+                          trays={printable}
+                          box={project.box}
+                          settings={project.settings}
+                          components={project.components}
+                          advanced={advanced}
+                          stale={s.stale.value}
+                          meshes={meshes}
+                          selectedKey={s.selection.value}
+                          lockedKeys={locked}
+                          sizeLockedKeys={sizeLocked}
+                          onToggleSizeLock={(key) =>
+                            withTray(key, (tray) => (q) => toggleSizeLock(q, tray))
+                          }
+                          onSelect={(key) => {
+                            s.selection.value = key;
+                          }}
+                          {...props.viewerProps}
+                        />
+                      ) : null}
+                      {view === "export" ? (
+                        <>
+                          <p>
+                            <button type="button" class="quiet" onClick={() => setView("plan")}>
+                              ← Back to the plan
+                            </button>
+                          </p>
+                          <ExportPanel
+                            trays={printable}
+                            printer={project.printer}
+                            settings={project.settings}
+                            meshes={meshes}
+                            projectName={project.name}
+                            disabled={run.status === "running"}
+                            stale={s.stale.value}
+                            download={download}
+                          />
+                          <div class="export-option export-assembly">
+                            <div>
+                              <strong>Assembly page</strong>
+                              <p class="hint">
+                                Numbered pictures of each layer and a parts list, to print or save
+                                as PDF. Print this one yourself.
+                              </p>
+                              {s.stale.value ? (
+                                <p class="hint">
+                                  Inputs changed — update the plan before opening the assembly page.
+                                </p>
+                              ) : null}
+                            </div>
+                            <button
+                              ref={openButtonRef}
+                              type="button"
+                              disabled={s.stale.value}
+                              onClick={() => setAssemblyFor(project.id)}
+                            >
+                              Open the assembly page
+                            </button>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  </section>
+                ) : (
+                  <section class="pf-frame pf-view" aria-label="Preview">
+                    <div class="stage-empty">
+                      <div class="stage-empty-box">
+                        <span class="pf-measure">{`Your box, ${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} mm`}</span>
+                      </div>
+                      <h2>
+                        {project.components.length === 0
+                          ? "Fit your game into its box."
+                          : "Working out the trays…"}
+                      </h2>
+                      <p>
+                        {project.components.length === 0
+                          ? "Check the box size on the left, then pick what goes inside. The plan draws itself as you go."
+                          : "The plan appears here as soon as every field is valid."}
+                      </p>
+                      {project.components.length === 0 ? (
+                        <>
+                          <AddKinds
+                            onAdd={addComponentOfKind}
+                            startIndex={0}
+                            label="Pick what goes inside"
+                          />
+                          <button type="button" onClick={addExample}>
+                            Not sure? Try an example
+                          </button>
+                        </>
+                      ) : null}
+                      <p class="hint">Everything stays in your browser.</p>
+                    </div>
+                  </section>
+                )}
+                {removed !== null ? (
+                  <div class="pf-toast stage-block" role="status">
+                    {`Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. `}
+                    <button
+                      type="button"
+                      class="pf-link"
+                      onClick={() => {
+                        const back = removed;
+                        setRemoved(null);
+                        store.edit((q) => restoreComponent(q, back.component, back.index));
+                        setOpenSection("components");
+                      }}
+                    >
+                      Undo
+                    </button>
+                    <button type="button" class="pf-link" onClick={() => setRemoved(null)}>
+                      Dismiss
+                    </button>
+                  </div>
+                ) : null}
+              </main>
+            </div>
+            <footer class="app-footer">
+              {`Insert Generator v${APP_VERSION} · `}
+              <a href="./third-party-licenses.txt">Third-party licenses</a>
+              {" · "}
+              <a href="../">All apps</a>
+            </footer>
           </div>
-          <footer class="app-footer">
-            {`Insert Generator v${APP_VERSION} · `}
-            <a href="./third-party-licenses.txt">Third-party licenses</a>
-            {" · "}
-            <a href="../">All apps</a>
-          </footer>
-        </div>
+        </SettingsContext.Provider>
       </SizingContext.Provider>
     </ValidationContext.Provider>
   );

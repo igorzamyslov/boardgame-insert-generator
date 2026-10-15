@@ -46,6 +46,24 @@ describe("inputsHash", () => {
     expect(inputsHash(off)).not.toBe(inputsHash(on));
   });
 
+  it("changes with a card thickness correction, since it moves the sizes", () => {
+    const base = sample();
+    const corrected: Project = {
+      ...base,
+      components: base.components.map((c) =>
+        c.kind === "cards" ? { ...c, thickness: { mode: "preset" as const, scale: 1.2 } } : c,
+      ),
+    };
+    expect(inputsHash(corrected)).not.toBe(inputsHash(base));
+    const other: Project = {
+      ...base,
+      components: base.components.map((c) =>
+        c.kind === "cards" ? { ...c, thickness: { mode: "preset" as const, scale: 1.3 } } : c,
+      ),
+    };
+    expect(inputsHash(other)).not.toBe(inputsHash(corrected));
+  });
+
   it("changes with wallAbsorb, since it moves where leaf slack goes", () => {
     const base = sample();
     const grown: Project = { ...base, settings: { ...base.settings, wallAbsorb: 1 } };

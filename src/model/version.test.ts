@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.9: 0.1.8 with the print-time merge switches mergeFillers and mergeRisers", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.9");
+  it("is at schema 0.1.10: 0.1.9 with the optional preset-thickness correction `thickness.scale`", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.10");
   });
 
   it("parses strict semver", () => {

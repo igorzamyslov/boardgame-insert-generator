@@ -24,6 +24,12 @@ function well(over: Partial<CompartmentSpec> = {}): CompartmentSpec {
 }
 
 describe("tray identity", () => {
+  it("still finds the component of a layout whose text carries its name before the deck's", () => {
+    const components = [cards("c1", "Other"), cards("c2", "Starter deck")];
+    const tray = makeTray({ compartments: [well({ contents: "Starter deck — Deck 1 ×15" })] });
+    expect(componentIndexOfTray(tray, components)).toBe(1);
+  });
+
   // Several unnamed components of one kind all carry the same name, so matching the contents
   // text put every one of their trays on the first component: the list showed eight colours
   // and the plan and the 3D view showed one.

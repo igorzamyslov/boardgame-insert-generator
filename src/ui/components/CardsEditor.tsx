@@ -5,9 +5,10 @@ import { CARD_PRESETS } from "../../model/presets";
 import type { CardsComponent } from "../../model/types";
 import { CheckField, SelectField, TextField } from "../fields";
 import type { SelectOption } from "../fields";
-import { COUNT, LENGTH, OFFSET } from "../limits";
+import { COUNT, LENGTH, OFFSET, THICKNESS_CORRECTION } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions, commonOptionPaths } from "./CommonOptions";
+import { DerivedSizes } from "./DerivedSizes";
 import { ListNotices } from "./ListNotices";
 import { MoreOptions } from "./MoreOptions";
 import { BinNotes, ToggleOptions } from "./ToggleOptions";
@@ -65,6 +66,7 @@ export function CardsEditor({
   const customSleeve = typeof c.sleeve === "object" ? c.sleeve : null;
   const sleeveChoice: SleeveChoice = typeof c.sleeve === "object" ? "custom" : c.sleeve;
   const measured = c.thickness.mode === "measured" ? c.thickness : null;
+  const scale = c.thickness.mode === "preset" ? (c.thickness.scale ?? 1) : 1;
 
   const setDeck = (j: number, patch: Partial<CardsComponent["decks"][number]>): void => {
     onChange({ ...c, decks: c.decks.map((d, k) => (k === j ? { ...d, ...patch } : d)) });
@@ -205,10 +207,12 @@ export function CardsEditor({
         </button>
       </fieldset>
       <BinNotes component={c} index={index} />
+      <DerivedSizes component={c} index={index} />
       <MoreOptions
         open={advanced}
         errorPaths={[
           ...commonOptionPaths(index),
+          `${at}/thickness/scale`,
           `${at}/thickness/cards`,
           `${at}/thickness/stackMm`,
         ]}
@@ -219,11 +223,31 @@ export function CardsEditor({
           onChange={onChange}
           pieces={
             <>
+              {measured ? null : (
+                <NumberField
+                  id={`${c.id}-thicknessCorrection`}
+                  label="Correct the estimated thickness"
+                  hint="Is a deck thicker or thinner than the sizes above say? Enter how far off the thickness per card is: 10 if the real deck is 10 % thicker, -10 if 10 % thinner. This corrects the estimate itself; Fit and the card stack clearance only add room around it. To measure instead, tick the box below."
+                  unit="%"
+                  value={Math.round((scale - 1) * 10000) / 100}
+                  path={`${at}/thickness/scale`}
+                  {...THICKNESS_CORRECTION}
+                  onCommit={(pct) =>
+                    onChange({
+                      ...c,
+                      thickness:
+                        pct === 0
+                          ? { mode: "preset" }
+                          : { mode: "preset", scale: Math.round((1 + pct / 100) * 10000) / 10000 },
+                    })
+                  }
+                />
+              )}
               <CheckField
                 id={`${c.id}-measured`}
                 label="Measure a stack of cards (sleeves included)"
                 checked={measured !== null}
-                hint="More exact than the sleeve table: count some cards, measure the stack."
+                hint="More exact than the sleeve table or a correction: count some cards, measure the stack. It replaces the correction above."
                 onChange={(on) =>
                   onChange({
                     ...c,

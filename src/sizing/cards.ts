@@ -6,7 +6,7 @@ import {
   compartment,
   displayName,
   featuresOf,
-  label,
+  itemLabel,
   mainClearance,
   wallCutout,
   type OptionsResult,
@@ -55,7 +55,9 @@ export function cardDims(
 ): { dims: CardDims; notices: Notice[] } {
   const { S, L, tPreset } = sleeved(c, s);
   if (c.thickness.mode === "preset") {
-    return { dims: { S, L, t: tPreset }, notices: [] };
+    // The correction scales the whole tabulated thickness (card plus sleeve), so the deck's
+    // stack is n·t·scale; it never touches the clearances, which Fit and the stack fraction own.
+    return { dims: { S, L, t: tPreset * (c.thickness.scale ?? 1) }, notices: [] };
   }
   const measured = c.thickness.stackMm / c.thickness.cards;
   if (measured >= MIN_MEASURED_CARD_T) {
@@ -87,7 +89,7 @@ function deckCompartment(
   const stack = stackWidth(deck.count, dims.t, s);
   const base = {
     componentId: c.id,
-    contents: `${label(deck.name, displayName(c))} ×${deck.count}`,
+    contents: `${itemLabel(c, deck.name)} ×${deck.count}`,
     kind: "well" as const,
   };
   // Flat: the long side along Y, half-round cutouts through both long walls, notching the floor.

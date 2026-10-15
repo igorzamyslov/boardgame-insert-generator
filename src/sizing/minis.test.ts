@@ -18,6 +18,23 @@ describe("lyingDims", () => {
   });
 });
 
+describe("minisOptions labels", () => {
+  it("shows the component name beside a figure's, and not twice", () => {
+    const component = minis({
+      name: "Heroes",
+      figures: [
+        { name: "Knight", w: 25, d: 25, h: 40, count: 2 },
+        { name: "", w: 25, d: 25, h: 40, count: 1 },
+      ],
+    });
+    const { options } = minisOptions(component, DEFAULT_SETTINGS);
+    expect(at(options, 0).blocks.map((b) => b.map((c) => c.contents))).toEqual([
+      ["Heroes — Knight 1/2", "Heroes — Knight 2/2"],
+      ["Heroes"],
+    ]);
+  });
+});
+
 describe("minisOptions", () => {
   it("makes one pocket per figure, cut half its depth through the front and back walls", () => {
     const { options, notices } = minisOptions(minis(), s);
@@ -26,7 +43,7 @@ describe("minisOptions", () => {
     const standing = at(options, 0);
     expect(standing.blocks).toHaveLength(1);
     const block = at(standing.blocks, 0);
-    expect(block.map((c) => c.contents)).toEqual(["Hero 1/2", "Hero 2/2"]);
+    expect(block.map((c) => c.contents)).toEqual(["Minis — Hero 1/2", "Minis — Hero 2/2"]);
     const pocket = at(block, 0);
     expect(pocket).toMatchObject({ kind: "pocket", minW: 26, minD: 26, minH: 41 });
     expect(pocket.elastic).toEqual({ w: false, d: false, h: false });
@@ -43,7 +60,7 @@ describe("minisOptions", () => {
       s,
     );
     expect(options.map((o) => o.id)).toEqual(["standing"]);
-    expect(at(at(at(options, 0).blocks, 0), 0).contents).toBe("Cart");
+    expect(at(at(at(options, 0).blocks, 0), 0).contents).toBe("Minis — Cart");
   });
 
   it("keeps one block per figure line so splits happen by figure", () => {
@@ -72,7 +89,7 @@ describe("minisOptions", () => {
     expect(options.map((o) => o.id)).toEqual(["bulk-shallow", "bulk-deep"]);
     const shallow = at(at(at(options, 0).blocks, 0), 0);
     expect(shallow.kind).toBe("scoop");
-    expect(shallow.contents).toBe("Hero ×2");
+    expect(shallow.contents).toBe("Minis — Hero ×2");
     expect(shallow.minVolume).toBe(100000);
     expect(shallow.minH).toBe(26);
     expect(shallow.minW).toBe(62.02); // √(100000/26) = 62.017…, rounded up

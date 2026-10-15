@@ -37,6 +37,7 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     separators: "field.separators",
     setting: "field.setting",
     topPlane: "field.topPlane",
+    thicknessScale: "field.thicknessScale",
     volume: "field.volume",
   },
   limit: {
@@ -61,6 +62,9 @@ export const BOUNDS = Object.freeze({
   maxPlayers: 10,
   maxSeparators: 10,
 } as const);
+
+/** The preset-thickness correction (`thickness.scale`) as a multiplier: half to double. */
+export const THICKNESS_SCALE = Object.freeze({ min: 0.5, max: 2 } as const);
 
 /** 1000 mm × 1000 mm × 1000 mm, in ml. */
 export const MAX_VOLUME_ML = 1_000_000;
@@ -470,6 +474,16 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
         ck.length(`${at}/sleeve/w`, "Sleeve width", c.sleeve.w);
         ck.length(`${at}/sleeve/h`, "Sleeve height", c.sleeve.h);
         ck.nonNegativeLength(`${at}/sleeve/thickness`, "Sleeve thickness", c.sleeve.thickness);
+      }
+      if (c.thickness.mode === "preset" && c.thickness.scale !== undefined) {
+        const { scale } = c.thickness;
+        if (!(scale >= THICKNESS_SCALE.min && scale <= THICKNESS_SCALE.max)) {
+          ck.error(
+            VALIDATION_NOTICE_CODES.field.thicknessScale,
+            `${at}/thickness/scale`,
+            `Thickness correction must be between ${(THICKNESS_SCALE.min - 1) * 100}% and +${(THICKNESS_SCALE.max - 1) * 100}%.`,
+          );
+        }
       }
       if (c.thickness.mode === "measured") {
         ck.count(`${at}/thickness/cards`, "Measured card count", c.thickness.cards);

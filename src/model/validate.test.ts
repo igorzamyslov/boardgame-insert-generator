@@ -326,6 +326,23 @@ describe("validateProject", () => {
     },
   );
 
+  const scaleCases: [number, string | null][] = [
+    [1, null],
+    [0.5, null],
+    [2, null],
+    [0.49, field.thicknessScale],
+    [2.01, field.thicknessScale],
+    [0, field.thicknessScale],
+    [-1, field.thicknessScale],
+    [Number.NaN, field.thicknessScale],
+  ];
+  it.each(scaleCases)("checks the preset thickness correction (%s gives %s)", (scale, code) => {
+    const project = withComponents(cards({ thickness: { mode: "preset", scale } }));
+    expect(codes(validateProject(project))).toEqual(
+      code === null ? [] : [[code, "/components/0/thickness/scale"]],
+    );
+  });
+
   const separatorCases: [number, string | null][] = [
     [1, null],
     [10, null],

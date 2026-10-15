@@ -25,6 +25,18 @@ export function displayName(c: Component): string {
 }
 
 /**
+ * What a compartment holding `itemName` of component `c` is called: "Starter deck — Deck 1", so
+ * several trays of one component read as a group. No prefix when the item has no name of its own
+ * (it already falls back to the component's), when it is called the same as the component, or when
+ * the component has no name (its id is a fallback, not something to show).
+ */
+export function itemLabel(c: Component, itemName: string): string {
+  const own = displayName(c);
+  const item = label(itemName, own);
+  return item === own || c.name.trim() === "" ? item : `${own} — ${item}`;
+}
+
+/**
  * Sizing precondition: size() is only meaningful for a project without error-level notices
  * (plans 4 and 5 never optimize otherwise), and the UI already shows validateProject's notices.
  * componentOptions calls this once, defensively, and when it is false returns no options and no

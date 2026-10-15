@@ -11,6 +11,25 @@ function line(component = bulk(), settings: Settings = s, option = 0, item = 0):
   return at(at(at(bulkOptions(component, settings).options, option).blocks, item), 0);
 }
 
+describe("bulkOptions labels", () => {
+  it("shows the component name beside an item's, and not twice", () => {
+    const component = bulk({
+      name: "Tokens",
+      items: [
+        { name: "Cubes", count: 30, w: 10, d: 10, h: 10 },
+        { name: "", count: 5, w: 10, d: 10, h: 10 },
+        { name: "Coins", volumeMl: 50 },
+      ],
+    });
+    const { options } = bulkOptions(component, DEFAULT_SETTINGS);
+    expect(at(options, 0).blocks.map((b) => b.map((c) => c.contents))).toEqual([
+      ["Tokens — Cubes ×30"],
+      ["Tokens ×5"],
+      ["Tokens — Coins 50 ml"],
+    ]);
+  });
+});
+
 describe("bulkOptions", () => {
   it("divides the item volume by the packing factor; shallow first, then deep", () => {
     const { options, notices } = bulkOptions(bulk(), s);
@@ -23,7 +42,7 @@ describe("bulkOptions", () => {
     expect(shallow.minW).toBe(54.78); // √3000 = 54.772…, rounded up
     expect(shallow.minD).toBe(54.78);
     expect(shallow.kind).toBe("scoop");
-    expect(shallow.contents).toBe("Cubes ×30");
+    expect(shallow.contents).toBe("Bits — Cubes ×30");
     expect(shallow.elastic).toEqual({ w: true, d: true, h: true });
     expect(shallow.maxHRatio).toBe(1.5);
     expect(shallow.features).toEqual([{ type: "scoop" }]);
@@ -38,7 +57,7 @@ describe("bulkOptions", () => {
     const component = bulk({ items: [{ name: "Coins", volumeMl: 120 }] });
     const shallow = line(component);
     expect(shallow.minVolume).toBe(120000);
-    expect(shallow.contents).toBe("Coins 120 ml");
+    expect(shallow.contents).toBe("Bits — Coins 120 ml");
     expect(shallow.minW).toBe(77.46); // √6000 = 77.459…, rounded up
     expect(shallow.minH).toBe(20);
     const deep = line(component, s, 1);
@@ -85,8 +104,8 @@ describe("bulkOptions", () => {
       s,
     );
     expect(at(options, 0).blocks.map((b) => b.map((c) => c.contents))).toEqual([
-      ["Cubes ×30"],
-      ["Coins 50 ml"],
+      ["Bits — Cubes ×30"],
+      ["Bits — Coins 50 ml"],
     ]);
   });
 

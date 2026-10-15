@@ -2,9 +2,8 @@ import { togglesOf, type Toggles } from "../model/defaults";
 import type { BulkComponent, BulkItem, Component, Settings } from "../model/types";
 import {
   compartment,
-  displayName,
   featuresOf,
-  label,
+  itemLabel,
   mainClearance,
   type OptionsResult,
   type StorageOption,
@@ -118,7 +117,7 @@ export function binOptions(
       bulkCompartment(
         c.id,
         on,
-        `${label(p.name, displayName(c))} ×${p.count}`,
+        `${itemLabel(c, p.name)} ×${p.count}`,
         bulkLine(p, clearance, s.packingFactor),
         shape,
       ),
@@ -126,8 +125,8 @@ export function binOptions(
   }));
 }
 
-function itemLabel(item: BulkItem, fallback: string): string {
-  const name = label(item.name, fallback);
+function itemContents(c: BulkComponent, item: BulkItem): string {
+  const name = itemLabel(c, item.name);
   return "volumeMl" in item ? `${name} ${item.volumeMl} ml` : `${name} ×${item.count}`;
 }
 
@@ -142,7 +141,7 @@ export function bulkOptions(c: BulkComponent, s: Settings): OptionsResult {
         bulkCompartment(
           c.id,
           on,
-          itemLabel(item, displayName(c)),
+          itemContents(c, item),
           bulkLine(item, clearance, s.packingFactor),
           shape,
         ),

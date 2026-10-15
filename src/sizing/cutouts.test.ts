@@ -270,7 +270,7 @@ describe("flat cards and tiles: cutouts through the long walls", () => {
         d: 92.5,
         floorZ: 1.2,
         kind: "well",
-        contents: "Main ×52",
+        contents: "Cards — Main ×52",
         componentId: "c1",
         features: [cutout("left", 47.85, 23.5, 12.5), cutout("right", 47.85, 23.5, 12.5)],
       },

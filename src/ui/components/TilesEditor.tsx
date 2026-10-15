@@ -4,6 +4,7 @@ import { SelectField } from "../fields";
 import { COUNT, LENGTH } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions, commonOptionPaths } from "./CommonOptions";
+import { DerivedSizes } from "./DerivedSizes";
 import { MoreOptions } from "./MoreOptions";
 import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -101,6 +102,7 @@ export function TilesEditor({
         onCommit={(count) => onChange({ ...c, count })}
       />
       <BinNotes component={c} index={index} />
+      <DerivedSizes component={c} index={index} />
       <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
         <CommonOptions
           component={c}

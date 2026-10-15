@@ -69,7 +69,13 @@ export interface CardsComponent extends ComponentBase {
   longSide: number;
   decks: { name: string; count: number }[];
   sleeve: Sleeve;
-  thickness: { mode: "preset" } | { mode: "measured"; cards: number; stackMm: number };
+  /**
+   * Preset: the sleeve table's thickness per card, times `scale` when set (1 = as tabulated; a
+   * correction for cards the table gets wrong). Measured: as stored, sleeves included, and `scale`
+   * has no place: a measurement already is the correction.
+   */
+  thickness:
+    { mode: "preset"; scale?: number } | { mode: "measured"; cards: number; stackMm: number };
   storage: "upright-long" | "upright-short" | "flat" | "auto";
 }
 

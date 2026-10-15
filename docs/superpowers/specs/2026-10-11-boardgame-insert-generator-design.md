@@ -64,9 +64,10 @@ box.
   extension of embossed labels above).
 - A donation link on the export screen.
 - Export as a modal, so leaving it does not mean switching back a view mode.
-- Showing the sizes derived from a component's presets (card format, count,
+- ~~Showing the sizes derived from a component's presets (card format, count,
   sleeve) next to the editor, so the user can judge whether to trust them
-  without measuring, plus a correction multiplier for when they do not match.
+  without measuring, plus a correction multiplier for when they do not match.~~
+  Done (schema 0.1.10): §5 "Thickness correction", "Derived sizes" and "Labels".
 - Showing which settings differ from their defaults, with a button to restore a
   setting (or all settings) to default.
 - Option descriptions as tooltips instead of always-visible hints, with
@@ -245,7 +246,8 @@ interface CardsComponent extends ComponentBase {
   longSide: number;
   decks: { name: string; count: number }[];
   sleeve: "none" | "standard" | "premium" | { w: number; h: number; thickness: number }; // custom: sleeve outer size, added thickness per card
-  thickness: { mode: "preset" } | { mode: "measured"; cards: number; stackMm: number }; // measured: as stored, sleeves included
+  thickness:
+    { mode: "preset"; scale?: number } | { mode: "measured"; cards: number; stackMm: number }; // preset: scale multiplies the per-card thickness (0.5–2, left out at 1); measured: as stored, sleeves included, and no scale
   storage: "upright-long" | "upright-short" | "flat" | "auto";
 }
 
@@ -383,6 +385,11 @@ interface Settings {
 | `infill`                                             | advanced: "Infill for the filament estimate" (Exact values)          | 15 (0–100 %)              |
 | `printer.bedMargin` / `printer.layerHeight`          | advanced                                                             | 5 / 0.2                   |
 
+Not a setting, but the third thing that is easily mistaken for `fit` and
+`cardStackClearance`: a cards component's `thickness.scale` (§5), a correction to the
+estimated per-card thickness. `fit` scales every clearance; `cardStackClearance` and its `Pct`
+add room around the stack; `scale` corrects the stack itself.
+
 Simple-mode controls write resolved numbers into `settings`; the project
 never stores "use the default".
 
@@ -398,6 +405,46 @@ never stores "use the default".
 | custom   | given                    | outer size given             |
 
 A measured stack replaces the thickness, not the sleeve size.
+
+**Thickness correction (schema 0.1.10).** A preset thickness may carry `scale`, a
+multiplier on the whole tabulated per-card thickness (card plus sleeve): the deck's
+stack becomes `n·t·scale·(1 + pct) + cardStackClearance`. It is per cards component,
+inside the preset thickness, because a correction is about one set of cards and sleeves
+(and the measured mode it stands beside is per component too); a project-wide setting
+would silently change every deck, including the ones the table already gets right. A
+measured stack has no `scale`: a measurement is the correction, and the editor hides the
+field (and the file drops it) while "Measure a stack" is on. It is stored as a multiplier,
+shown in the editor as a percentage off ("Correct the estimated thickness", `-50` to `+100`,
+0 stores nothing), and checked to 0.5–2 (`field.thicknessScale` at
+`/components/<i>/thickness/scale`). It is in the inputs hash with the rest of the component.
+It is not `fit`, which scales every clearance, nor `cardStackClearancePct`, which adds room
+as a fraction of the stack: both leave the estimate of the cards themselves alone, and the
+hint says so.
+
+**Derived sizes.** Beside each cards, tiles, minis and bulk editor (never custom, whose
+size is the input; nor a component with a validation error) the app lists what the presets
+add up to, one line per deck, item or figure, read from `componentOptions` (the
+`CompartmentReq` minimums the optimizer packs) with the correction already applied, so a
+user can check it against a real deck with a ruler:
+
+- cards: "50 cards ≈ 17.5 mm thick (0.35 mm per card), in a 65 × 89.5 mm well". The thickness
+  is `n·t` (without the stack clearance); the well is the card's face plus card clearance,
+  read from the flat option, which exists for every storage and is the same however a deck
+  stands, so it does not depend on the optimizer's pick;
+- tiles: the stack height `count × thickness` and the first option's well (one column, flat
+  or upright as set; a taller stack may be split into columns);
+- minis: the pocket of each figure (standing), or the bins as for bulk when stored as bulk;
+- bulk: for each item the volume the pile needs (packing included) and the bin of each
+  shape, shallow and deep, since neither is the plain answer.
+
+**Labels.** A compartment's `contents` is `<component name> — <name> ×n`, e.g. "Starter deck —
+Deck 1 ×15", so the several trays of one component read as a group in the plan, the 3D view,
+the details panel, the instructions and notices. The component name is left out when the
+deck, item or figure has no name (it falls back to the component's), when it is called the
+same as the component, and when the component itself is unnamed (the id it would fall back
+to means nothing to a reader). Tiles and custom components have only their own name. Layouts
+stored before this keep their old text until the plan is re-run; identity (tint, glyph)
+matches the longest name found in the text, so both forms resolve to the same component.
 
 **Bed presets:** 256³ (Bambu), 250×210×220 (Prusa MK4), 220×220×250
 (Ender 3), custom.
@@ -439,7 +486,7 @@ interface TraySpec {
     d: number;
     floorZ: number; // > floor when the floor is raised
     kind: "well" | "scoop" | "pocket" | "spare";
-    contents: string;
+    contents: string; // what the compartment holds: "<component> — <deck, item or figure> ×n", see §5 "Labels"
     features: (
       | {
           type: "wallCutout";
@@ -720,6 +767,8 @@ becomes raised floor, goes to the tray above, or is reported as unused. A bin
 opened through its wall instead (finger cuts, curved floor off) has no reach
 limit and still grows to 1.5 × its smaller horizontal size.
 
+`t` is the preset thickness times `thickness.scale` (default 1) when the thickness is a preset.
+
 A measured card thickness below 0.1 mm per card is treated as a typo: the
 sleeve-table thickness is used instead, with a notice.
 
@@ -946,7 +995,9 @@ Numbers accept a decimal comma or point.
 - **Printer:** bed preset or custom X × Y × Z; advanced: bed margin, layer
   height.
 - **Components:** add cards / bits / tiles / minis / custom. Simple fields:
-  type, size preset, count, access. Advanced: overrides from §5.
+  type, size preset, count, access. Advanced: overrides from §5. Each of cards, tiles, minis
+  and bulk lists the sizes derived from its presets under the fields (§5 "Derived sizes");
+  cards also have "Correct the estimated thickness", beside "Measure a stack of cards".
 
 ### 8.3 Results
 
@@ -1064,6 +1115,10 @@ Older apps reading newer files is best effort, as below.
     geometry stays 0.5.2: no outer size, lip, inset or well changes, and every part, merged or not,
     is built from the same member parts. The filler count term of §7.2 changes which layouts a run
     finds, not what a stored one means, so it needs no version either.
+    Schema 0.1.10 adds `thickness.scale` to a preset card thickness (§5), left out at 1, so
+    nothing written before it changes. It is in the inputs hash with its component. Geometry
+    stays 0.5.2: every stored spec builds as before. The new compartment text (§5 "Labels")
+    only changes the words of newly sized layouts.
     It is in the inputs hash all the same, from the time when above 1 it decided whether a
     stretched deck got a spacer or a spare pocket (§6.2); since geometry 0.5.1 it no longer
     shapes the layout, and is left in the hash only so that no plan using it goes stale.

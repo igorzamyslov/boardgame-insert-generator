@@ -3,9 +3,8 @@ import { togglesOf } from "../model/defaults";
 import { binOptions } from "./bulk";
 import {
   compartment,
-  displayName,
   featuresOf,
-  label,
+  itemLabel,
   mainClearance,
   type OptionsResult,
   type StorageOption,
@@ -35,7 +34,7 @@ export function lyingDims(f: Dims): Dims {
 }
 
 function pockets(c: MinisComponent, f: Figure, dims: Dims, clearance: number): CompartmentReq[] {
-  const name = label(f.name, displayName(c));
+  const name = itemLabel(c, f.name);
   return Array.from({ length: f.count }, (_, i) =>
     compartment({
       componentId: c.id,

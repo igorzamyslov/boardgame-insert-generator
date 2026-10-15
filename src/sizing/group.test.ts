@@ -65,7 +65,10 @@ describe("size", () => {
     ]);
     const first = at(at(req.variants, 0).parts, 0);
     expect(first.trayKey).toBe("g:p0:0");
-    expect(first.compartments.map((c) => c.contents)).toEqual(["Main ×52", "Cubes ×30"]);
+    expect(first.compartments.map((c) => c.contents)).toEqual([
+      "Cards — Main ×52",
+      "Bits — Cubes ×30",
+    ]);
     expect(at(req.variants, 2).parts.map((p) => p.trayKey)).toEqual(["g:p0:0", "g:p0:1"]);
   });
 
@@ -82,12 +85,12 @@ describe("size", () => {
     ]);
     const separate = at(req.variants, 0);
     expect(separate.parts.map((p) => p.trayKey)).toEqual(["b1:p0:0", "b1:p1:0"]);
-    expect(at(at(separate.parts, 0).compartments, 0).contents).toBe("Cubes ×30 (P1)");
+    expect(at(at(separate.parts, 0).compartments, 0).contents).toBe("Bits — Cubes ×30 (P1)");
     const combined = at(req.variants, 2);
     expect(combined.parts.map((p) => p.trayKey)).toEqual(["b1:pall:0"]);
     expect(at(combined.parts, 0).compartments.map((c) => c.contents)).toEqual([
-      "Cubes ×30 (P1)",
-      "Cubes ×30 (P2)",
+      "Bits — Cubes ×30 (P1)",
+      "Bits — Cubes ×30 (P2)",
     ]);
   });
 
@@ -202,7 +205,7 @@ describe("size", () => {
           code: "sizing.noFingerSlot",
           path: "/components/1",
           message:
-            "Cards: no tray arrangement leaves room for a finger cutout of at least 10 mm by Main ×52 with 3 mm of wall beside it, so it is left out. Try another storage.",
+            "Cards: no tray arrangement leaves room for a finger cutout of at least 10 mm by Cards — Main ×52 with 3 mm of wall beside it, so it is left out. Try another storage.",
         },
       ]);
     });
@@ -251,7 +254,7 @@ describe("size", () => {
         ["warning", "sizing.noFingerSlot", "/components/2"],
       ]);
       expect(at(notices, 0).message).toMatch(
-        /by Main ×52 with 3 mm of wall beside it, so the group "g"/,
+        /by Cards — Main ×52 with 3 mm of wall beside it, so the group "g"/,
       );
     });
 
@@ -348,7 +351,7 @@ describe("size", () => {
       const piled = size([minis({ id: "m2", figures: tiny, storage: "bulk" })], s);
       expect(requirements.map((r) => r.key)).toEqual(["b1", "m2"]);
       expect(at(requirements, 1)).toEqual(at(piled.requirements, 0));
-      expect(notices).toEqual([fallbackNotice(1, "Minis", "F0, F1")]);
+      expect(notices).toEqual([fallbackNotice(1, "Minis", "Minis — F0, Minis — F1")]);
     });
 
     it("puts only the stuck members of a group into a bin", () => {

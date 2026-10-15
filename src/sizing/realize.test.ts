@@ -38,7 +38,7 @@ describe("realizeTray", () => {
         d: 92.5,
         floorZ: 1.2,
         kind: "well",
-        contents: "Main ×52",
+        contents: "Cards — Main ×52",
         componentId: "c1",
         features: [cutout("left", 47.85, 34), cutout("right", 47.85, 34)],
       },
@@ -215,8 +215,8 @@ describe("realizeTray", () => {
     // (its key is the tray's), which goes to the first row with slack to give; the other row's
     // slack stays in its walls. Before 0.5.1 each row's slack was a pocket of its own.
     expect(r.compartments.map((c) => [c.kind, c.contents])).toEqual([
-      ["well", "A ×52"],
-      ["well", "B ×30"],
+      ["well", "Cards — A ×52"],
+      ["well", "Cards — B ×30"],
     ]);
     expect(r.spacers).toHaveLength(1);
     assertTrayInvariants(r, outer, s, ground);
@@ -295,7 +295,7 @@ describe("realizeTray", () => {
           // a deeper bin would just be a pit with a ramp at the bottom.
           floorZ: 15,
           kind: "scoop",
-          contents: "Cubes ×30",
+          contents: "Bits — Cubes ×30",
           componentId: "b1",
           features: [
             { type: "scoop", side: "front", r: 12 },
@@ -309,7 +309,7 @@ describe("realizeTray", () => {
           d: 54.78,
           floorZ: 15,
           kind: "scoop",
-          contents: "Coins 50 ml",
+          contents: "Bits — Coins 50 ml",
           componentId: "b1",
           features: [
             { type: "scoop", side: "front", r: 12 },
@@ -366,8 +366,8 @@ describe("realizeTray", () => {
     expect(outer).toEqual({ w: 56.4, d: 29.2, h: 42.2 });
     const r = realizeTray(part, outer, s, ground);
     expect(r.compartments.map((c) => [c.contents, c.kind, c.x, c.y, c.w, c.d, c.floorZ])).toEqual([
-      ["Hero 1/2", "pocket", 1.6, 1.6, 26, 26, 1.2],
-      ["Hero 2/2", "pocket", 28.8, 1.6, 26, 26, 1.2],
+      ["Minis — Hero 1/2", "pocket", 1.6, 1.6, 26, 26, 1.2],
+      ["Minis — Hero 2/2", "pocket", 28.8, 1.6, 26, 26, 1.2],
     ]);
     expect(r.compartments.map((c) => c.features)).toEqual([
       [

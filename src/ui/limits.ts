@@ -1,5 +1,11 @@
 // src/ui/limits.ts
-import { BOUNDS, LAYER_HEIGHT_MAX, LAYER_HEIGHT_MIN, MAX_VOLUME_ML } from "../model/validate";
+import {
+  BOUNDS,
+  THICKNESS_SCALE,
+  LAYER_HEIGHT_MAX,
+  LAYER_HEIGHT_MIN,
+  MAX_VOLUME_ML,
+} from "../model/validate";
 import type { NumberRules } from "./NumberField";
 
 // The bounds are the model's (`validateProject` enforces the same ones, spec §5): the forms
@@ -19,3 +25,8 @@ export const SEPARATORS: NumberRules = { integer: true, min: 1, max: BOUNDS.maxS
 export const VOLUME_ML: NumberRules = { min: 0, minExclusive: true, max: MAX_VOLUME_ML };
 /** The printable layer height in mm. */
 export const LAYER_HEIGHT: NumberRules = { min: LAYER_HEIGHT_MIN, max: LAYER_HEIGHT_MAX };
+/** The correction to a card's tabulated thickness, in % off (not the stored multiplier). */
+export const THICKNESS_CORRECTION: NumberRules = {
+  min: Math.round((THICKNESS_SCALE.min - 1) * 100),
+  max: Math.round((THICKNESS_SCALE.max - 1) * 100),
+};
