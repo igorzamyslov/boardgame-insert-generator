@@ -354,7 +354,7 @@ export function doesNotFitNotice(
     parts.push(`${mmUp(shortfall.x)} mm in width (X)`);
   }
   if (shortfall.y > 0) {
-    parts.push(`${mmUp(shortfall.y)} mm in depth (Y)`);
+    parts.push(`${mmUp(shortfall.y)} mm in length (Y)`);
   }
   if (shortfall.z > 0) {
     parts.push(`${mmUp(shortfall.z)} mm in height`);

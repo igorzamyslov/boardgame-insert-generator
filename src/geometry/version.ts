@@ -67,8 +67,15 @@ import type { Semver } from "../model/version";
  * (FeatureSpec "dividerSlot"). A tray printed with dividers does not match one printed without,
  * and a stored 0.6.x tray with none is unchanged, but the line moves: a breaking change, as the
  * slots change the tray itself (unlike the `separators` plates, which are only derived).
+ *
+ * 0.7.1 engraves the part's number into one of its outer walls (`TraySpec.partNumber`, set by the
+ * app when `settings.engraveNumbers` is on; engrave.ts): shallow recessed digits whose roof slopes
+ * at more than 45°. A PATCH, as a mesh-only change is: the engraving only removes material
+ * from a face's interior (outer size, lip, inset, wells and cuts are untouched, and it keeps 0.8
+ * mm behind it), so parts printed before and after still mate and stack, and a spec without a
+ * number builds exactly as before. A merged part carries it on one member.
  */
-export const GEOMETRY_VERSION = "0.7.0";
+export const GEOMETRY_VERSION = "0.7.1";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

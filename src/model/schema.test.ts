@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { sampleProject } from "../test-support/sample";
 import { newComponent, newProject } from "./defaults";
+import { inputsHash } from "./hash";
 import { MAX_JSON_DEPTH } from "./json";
 import {
   MIGRATIONS,
@@ -196,9 +197,9 @@ describe("toSerializable", () => {
       ],
     });
     expect(out.box).toEqual({ ...p.box, headroomCoverage: "none" });
-    // the two merge switches at their defaults are left out of what is written
-    const { mergeFillers, mergeRisers, ...written } = p.settings;
-    expect([mergeFillers, mergeRisers]).toEqual([true, false]);
+    // the two merge switches and the engraving switch at their defaults are left out of what is written
+    const { mergeFillers, mergeRisers, engraveNumbers, ...written } = p.settings;
+    expect([mergeFillers, mergeRisers, engraveNumbers]).toEqual([true, false, true]);
     expect(out.settings).toEqual({ ...written, leftover: "hollow" });
     expect(p).toEqual(before);
   });
@@ -226,6 +227,19 @@ describe("toSerializable", () => {
     });
     // writing leaves the project itself alone
     expect(p.settings.mergeFillers).toBe(true);
+  });
+
+  it("round-trips the engraving switch: left out while on, written when off", () => {
+    const p = sampleProject();
+    expect(p.settings.engraveNumbers).toBe(true);
+    expect(serializeProject(p, noForeign())).not.toContain("engraveNumbers");
+    const off = { ...p, settings: { ...p.settings, engraveNumbers: false } };
+    const text = serializeProject(off, noForeign());
+    expect(text).toContain('"engraveNumbers":false');
+    const back = parseProject(JSON.parse(text));
+    expect(back.ok && back.project.settings.engraveNumbers).toBe(false);
+    // and it is no part of the inputs hash: switching it never stales a plan
+    expect(inputsHash(off)).toBe(inputsHash(p));
   });
 
   it("keeps the user's value when the field was changed after loading", () => {
@@ -454,7 +468,7 @@ describe("parseProject: spec §5 bounds", () => {
     input.components = [{ ...newComponent("custom"), count: 2001 }];
     expect(expectError(input)).toBe(
       "This project can't be opened: /box/innerWidth: Box width must be at most 1000 mm; " +
-        "/box/innerDepth: Box depth must be at most 1000 mm; " +
+        "/box/innerDepth: Box length must be at most 1000 mm; " +
         "/components/0/count: Count must be at most 2000.",
     );
   });
@@ -555,7 +569,7 @@ describe("parseProject: hostile input", () => {
 
   it("rejects deeply nested data without throwing, in newer and current files", () => {
     const deep = nested(5000);
-    const newer = (input: Json): Json => ({ ...input, schemaVersion: "0.1.13" });
+    const newer = (input: Json): Json => ({ ...input, schemaVersion: "0.1.14" });
 
     const field = raw(sampleProject());
     field.extra = deep;
@@ -572,7 +586,7 @@ describe("parseProject: hostile input", () => {
   });
 
   it("accepts data nested exactly as deep as the limit", () => {
-    const input: Json = { ...raw(sampleProject()), schemaVersion: "0.1.13" };
+    const input: Json = { ...raw(sampleProject()), schemaVersion: "0.1.14" };
     // The project object is one level, so the field may hold MAX_JSON_DEPTH - 1 more.
     input.extra = nested(MAX_JSON_DEPTH - 1);
     expect(parseProject(input).ok).toBe(true);

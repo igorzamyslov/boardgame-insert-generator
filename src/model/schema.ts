@@ -297,8 +297,9 @@ export function toSerializable(p: Project, foreign: ForeignData): Json {
 }
 
 /**
- * The two print-time merge switches at their defaults are left out: reading puts them back, so a
- * share link (2 000 characters) does not pay for two settings nearly every project leaves alone.
+ * The two print-time merge switches and the engraving switch at their defaults are left out:
+ * reading puts them back, so a share link (2 000 characters) does not pay for three settings
+ * nearly every project leaves alone.
  */
 function compactSettings(out: Json): void {
   const settings = out.settings;
@@ -310,6 +311,9 @@ function compactSettings(out: Json): void {
   }
   if (settings.mergeRisers === DEFAULT_SETTINGS.mergeRisers) {
     delete settings.mergeRisers;
+  }
+  if (settings.engraveNumbers === DEFAULT_SETTINGS.engraveNumbers) {
+    delete settings.engraveNumbers;
   }
 }
 

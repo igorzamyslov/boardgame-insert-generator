@@ -26,7 +26,7 @@ export function BoxForm({ box, advanced, onChange }: BoxFormProps) {
         />
         <NumberField
           id="box-innerDepth"
-          label="Depth"
+          label="Length"
           unit="mm"
           value={box.innerDepth}
           path="/box/innerDepth"
@@ -44,7 +44,7 @@ export function BoxForm({ box, advanced, onChange }: BoxFormProps) {
         />
       </div>
       <p class="hint">
-        Measure the inside of the box at its narrowest point. Width runs left to right, depth front
+        Measure the inside of the box at its narrowest point. Width runs left to right, length front
         to back, seen from the front. Height runs from the floor to the underside of the lid.
       </p>
       {advanced ? (

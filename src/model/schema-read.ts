@@ -198,6 +198,7 @@ function readSettings(r: Reader | undefined): Settings {
     mergeRisers: r.bool("mergeRisers", d.mergeRisers),
     infill: r.num("infill", d.infill),
     playLimit: r.num("playLimit", d.playLimit),
+    engraveNumbers: r.bool("engraveNumbers", d.engraveNumbers),
   });
 }
 

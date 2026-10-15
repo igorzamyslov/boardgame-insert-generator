@@ -1,7 +1,7 @@
 // src/app/exportBuild.ts
 import { gridLayout, partFileName, to3mf, toStl, zipFiles } from "../export";
 import type { Mesh } from "../geometry/types";
-import { numberParts } from "../instructions/numbering";
+import { buildSpecOf, numberParts } from "../instructions/numbering";
 import type { NumberedPart } from "../instructions/numbering";
 import type { Printer, TraySpec } from "../model/types";
 import { nextMacrotask } from "../util/macrotask";
@@ -20,6 +20,8 @@ export interface ExportProgress {
 
 export interface ExportOptions {
   getMesh: (spec: TraySpec) => Promise<BuiltMesh>;
+  /** Ask for each part with its number to engrave (settings.engraveNumbers). Default: off. */
+  engrave?: boolean;
   onProgress: (p: ExportProgress) => void;
   yieldToUi?: () => Promise<void>;
 }
@@ -111,7 +113,7 @@ async function collect(
   opts.onProgress({ done: 0, total });
   for (const [i, part] of parts.entries()) {
     try {
-      const { mesh } = await opts.getMesh(part.spec);
+      const { mesh } = await opts.getMesh(buildSpecOf(part, opts.engrave === true));
       built.push({ part, mesh: printMesh(part.spec, mesh) });
     } catch (e) {
       // A cancelled export is not a part's failure: stop and let the caller see the abort.

@@ -2,8 +2,10 @@
 import { describe, expect, it } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { TraySpec } from "../model/types";
+import type { StoredLayout, TraySpec } from "../model/types";
+import { whatGoesWhere } from "./render";
 import {
+  buildSpecOf,
   numberParts,
   outerSizeText,
   parentKey,
@@ -50,6 +52,39 @@ describe("printedHeight", () => {
     expect(outerSizeText({ ...t, lip: true }, DEFAULT_SETTINGS)).toBe(
       `120.0 × 90.0 × ${(30 + DEFAULT_SETTINGS.lip.height).toFixed(1)} mm with its lip`,
     );
+  });
+});
+
+describe("buildSpecOf", () => {
+  it("carries the part's number to engrave on trays, fillers and risers, not on plates", () => {
+    const list = [
+      makeTray({ key: "a:p0:0:riser", part: "riser", path: "", stack: 0 }),
+      makeTray({ key: "a:p0:0", stack: 0 }),
+      makeTray({ key: "a:p0:0:spacer", part: "spacer", path: "", solid: true }),
+      makeTray({ key: "a:p0:0:divider:1", part: "divider", path: "", solid: true }),
+      makeTray({ key: "leftover:0", part: "leftover", solid: true, stack: 9 }),
+    ];
+    const parts = numberParts(list);
+    const numbered = parts.map((p) => [p.spec.part, buildSpecOf(p, true).partNumber]);
+    expect(numbered).toEqual([
+      ["riser", 1],
+      ["tray", 2],
+      ["spacer", undefined],
+      ["divider", undefined],
+      ["leftover", 5],
+    ]);
+    // switched off, or on a part that has none: the very same spec
+    for (const p of parts) {
+      expect(buildSpecOf(p, false)).toBe(p.spec);
+    }
+    // the engraved number is the number the instructions give the part
+    const rows = whatGoesWhere({ trays: list } as StoredLayout, DEFAULT_SETTINGS);
+    for (const p of parts) {
+      const n = buildSpecOf(p, true).partNumber;
+      if (n !== undefined) {
+        expect(rows.find((r) => r.number === n)?.label).toBe(p.label);
+      }
+    }
   });
 });
 

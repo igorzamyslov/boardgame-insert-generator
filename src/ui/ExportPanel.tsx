@@ -128,6 +128,7 @@ export function ExportPanel(p: ExportPanelProps) {
     setBusy({ kind, done: 0, total: plan.parts.length });
     const opts: ExportOptions = {
       getMesh: (spec) => p.meshes.get(spec, p.settings, controller.signal),
+      engrave: p.settings.engraveNumbers,
       onProgress: (progress) => {
         if (!controller.signal.aborted) {
           setBusy({ kind, ...progress });

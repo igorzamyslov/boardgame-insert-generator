@@ -48,6 +48,7 @@ describe("DEFAULT_SETTINGS", () => {
       mergeRisers: false,
       infill: 15,
       playLimit: 1.5,
+      engraveNumbers: true,
     });
   });
 

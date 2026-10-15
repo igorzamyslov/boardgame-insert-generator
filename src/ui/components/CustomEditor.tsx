@@ -27,7 +27,7 @@ export function CustomEditor({
       />
       <NumberField
         id={`${c.id}-d`}
-        label="Depth"
+        label="Length"
         unit="mm"
         value={c.d}
         path={`${at}/d`}

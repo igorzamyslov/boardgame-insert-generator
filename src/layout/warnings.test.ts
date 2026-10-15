@@ -208,9 +208,9 @@ describe("layout warnings", () => {
     const message = (x: number, y: number, z: number): string =>
       doesNotFitNotice(ctx, { x, y, z }).message;
     expect(message(0.01, 0, 0)).toContain("0.1 mm in width (X)");
-    expect(message(0, 0.04, 0)).toContain("0.1 mm in depth (Y)");
+    expect(message(0, 0.04, 0)).toContain("0.1 mm in length (Y)");
     expect(message(0, 0, 0.1)).toContain("0.1 mm in height");
-    expect(message(0.3, 0.7, 12)).toContain("0.3 mm in width (X), 0.7 mm in depth (Y), 12.0 mm");
+    expect(message(0.3, 0.7, 12)).toContain("0.3 mm in width (X), 0.7 mm in length (Y), 12.0 mm");
     expect(message(0.01, 0, 0)).not.toContain("0.0 mm");
   });
 

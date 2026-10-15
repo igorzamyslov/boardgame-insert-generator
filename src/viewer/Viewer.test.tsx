@@ -200,6 +200,23 @@ describe("Viewer", () => {
     });
   });
 
+  it("asks for each part with its number to engrave, as the instructions number it, unless that is off", async () => {
+    const scene = stubScene();
+    const m = meshes();
+    render(<Viewer {...props({ meshes: m }, scene)} />);
+    await waitFor(() => expect(m.get).toHaveBeenCalledTimes(2));
+    expect(m.get.mock.calls.map(([spec]) => [spec.key, spec.partNumber])).toEqual([
+      ["a:p0:0", 1],
+      ["b:p0:0", 2],
+    ]);
+    cleanup();
+    const off = meshes();
+    const settings = { ...DEFAULT_SETTINGS, engraveNumbers: false };
+    render(<Viewer {...props({ meshes: off, settings }, scene)} />);
+    await waitFor(() => expect(off.get).toHaveBeenCalledTimes(2));
+    expect(off.get.mock.calls.every(([spec]) => spec.partNumber === undefined)).toBe(true);
+  });
+
   it("reports parts that could not be built and retries", async () => {
     const scene = stubScene();
     const m = meshes();

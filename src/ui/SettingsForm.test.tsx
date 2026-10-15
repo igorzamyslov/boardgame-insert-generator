@@ -292,6 +292,18 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });
   });
 
+  it("offers the part number engraving in advanced mode, on by default", () => {
+    const onChange = vi.fn();
+    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    const box = screen.getByLabelText("Engrave part numbers") as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    fireEvent.click(box);
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, engraveNumbers: false });
+    cleanup();
+    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
+    expect(screen.queryByLabelText("Engrave part numbers")).toBeNull();
+  });
+
   it("offers the two merge switches in advanced mode only: fillers on, risers off by default", () => {
     const onChange = vi.fn();
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);

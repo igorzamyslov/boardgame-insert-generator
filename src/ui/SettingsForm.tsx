@@ -238,6 +238,13 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         hint="Also prints the riser under a stack as part of the filler beside it: a low shelf the tray rests on with a full-height wall alongside. Fewer parts again, and the merged part goes in before the trays that rest on it. Needs merged fillers."
         onChange={(mergeRisers) => onChange({ ...settings, mergeRisers })}
       />
+      <CheckField
+        id="settings-engraveNumbers"
+        label="Engrave part numbers"
+        checked={settings.engraveNumbers}
+        hint="Cuts each part's number from the assembly instructions into one of its outer walls, a shallow 0.4 mm recess you can read once the part is out of the box. Plates that go inside another part (card spacers, dividers) carry none, and a part with no room or too thin a wall is left plain. Only the printed parts change: your layout and share link stay the same."
+        onChange={(engraveNumbers) => onChange({ ...settings, engraveNumbers })}
+      />
       {wallAbsorbRange ? (
         <NumberField
           id="settings-wallAbsorb"

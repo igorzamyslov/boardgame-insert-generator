@@ -2,7 +2,7 @@
 import { unzipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 import { GeometryBuildError } from "../geometry/client";
-import type { FeatureSpec } from "../model/types";
+import type { FeatureSpec, TraySpec } from "../model/types";
 import {
   NothingToExportError,
   buildCombined3mf,
@@ -82,6 +82,30 @@ describe("export builders", () => {
     expect(files).toHaveLength(25);
     expect(files.every((f) => /^\d\d-[A-Za-z0-9._-]+\.3mf$/.test(f))).toBe(true);
     expect(out.included).toBe(25);
+  });
+
+  it("asks for each part with the number the plan gives it, plates excepted, only when engraving", async () => {
+    const list = [
+      makeTray({ key: "a:p0:0", stack: 0 }),
+      makeTray({ key: "a:p0:0:spacer", part: "spacer", path: "", solid: true }),
+      makeTray({ key: "b:p0:0", stack: 1 }),
+    ];
+    const asked = async (engrave: boolean) => {
+      const getMesh = vi.fn<(spec: TraySpec) => Promise<BuiltMesh>>(() => ok());
+      await buildStlZip(planExport(list).parts, {
+        getMesh,
+        engrave,
+        onProgress: vi.fn(),
+        yieldToUi: () => Promise.resolve(),
+      });
+      return getMesh.mock.calls.map(([spec]) => [spec.key, spec.partNumber]);
+    };
+    expect(await asked(true)).toEqual([
+      ["a:p0:0", 1],
+      ["a:p0:0:spacer", undefined],
+      ["b:p0:0", 3],
+    ]);
+    expect((await asked(false)).every(([, n]) => n === undefined)).toBe(true);
   });
 
   it("rethrows an abort instead of reporting it as a failed part", async () => {

@@ -1,7 +1,10 @@
 import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
-import type { MergedPart, Settings, TraySpec } from "../model/types";
+import type { MergedPart, Settings, Side, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
+import { carriesNumber } from "../model/part-number";
+import { buildEngraving, planEngraving } from "./engrave";
+import type { EngravePlan } from "./engrave";
 import { cutFace, filletStrip } from "./plan-cuts";
 import { INNER_CORNER_RADIUS_MM } from "./plan-types";
 import type { CompartmentPlan, CutPlan, LipPlan, Rect, ScoopPlan, TrayPlan } from "./plan-types";
@@ -284,8 +287,9 @@ function buildSolid(
   scope: Scope,
   spec: TraySpec,
   settings: Settings,
+  plan: TrayPlan = planTray(spec, settings),
+  engraving: EngravePlan | null = null,
 ): Manifold {
-  const plan = planTray(spec, settings);
   let solid = buildOuter(m, scope, plan);
   if (plan.lip) {
     solid = scope.track(solid.add(buildLip(m, scope, plan, plan.lip)));
@@ -304,10 +308,31 @@ function buildSolid(
       : { v0: -OVERSHOOT, v1: plan.d + OVERSHOOT };
     cutters.push(...buildTopFillets(m, scope, n, { top: plan.h, ...strip }));
   }
+  if (engraving) {
+    cutters.push(buildEngraving(m, scope, engraving, spec));
+  }
   if (cutters.length > 0) {
     solid = scope.track(solid.subtract(scope.track(m.Manifold.union(cutters))));
   }
   return solid;
+}
+
+// The number engraved on a part (spec.partNumber, set by the app on the copy it asks to build when
+// the engraving setting is on) and where; null for a part that carries none (a plate: a spacer or
+// divider), or that has no face with room (planEngraving).
+function engravingOf(plan: TrayPlan, spec: TraySpec): EngravePlan | null {
+  const n = spec.partNumber;
+  return n === undefined || !carriesNumber(spec.part) ? null : planEngraving(plan, n);
+}
+
+function buildPart(
+  m: ManifoldToplevel,
+  scope: Scope,
+  spec: TraySpec,
+  settings: Settings,
+): Manifold {
+  const plan = planTray(spec, settings);
+  return buildSolid(m, scope, spec, settings, plan, engravingOf(plan, spec));
 }
 
 // A merged part (several fillers and risers printed as one, mergeParts): each member built as it
@@ -321,13 +346,44 @@ function buildMerged(
   merged: MergedPart,
   settings: Settings,
 ): Manifold {
-  const pieces: Manifold[] = merged.members.map((member) =>
+  // The number goes on one member, on a face on the merged part's own outside (as it prints: a
+  // flipped part is turned over, front and back change places): the member where it is largest.
+  const plans = merged.members.map((member) => planTray(member, settings));
+  let onMember = -1;
+  let engraving: EngravePlan | null = null;
+  if (spec.partNumber !== undefined && carriesNumber(spec.part)) {
+    const flipped = merged.flipped === true;
+    merged.members.forEach((member, i) => {
+      const plan = plans[i];
+      const near = (a: number, b: number): boolean => Math.abs(a - b) < EPS;
+      const faces: Side[] = [];
+      const buildFront = near(member.y, spec.y);
+      const buildBack = near(member.y + member.d, spec.y + spec.d);
+      if (flipped ? buildBack : buildFront) {
+        faces.push("front");
+      }
+      if (flipped ? buildFront : buildBack) {
+        faces.push("back");
+      }
+      if (near(member.x, spec.x)) {
+        faces.push("left");
+      }
+      if (near(member.x + member.w, spec.x + spec.w)) {
+        faces.push("right");
+      }
+      const found =
+        plan === undefined ? null : planEngraving(plan, spec.partNumber ?? 0, faces, flipped);
+      if (found !== null && (engraving === null || found.stroke > engraving.stroke)) {
+        engraving = found;
+        onMember = i;
+      }
+    });
+  }
+  const pieces: Manifold[] = merged.members.map((member, i) =>
     scope.track(
-      buildSolid(m, scope, member, settings).translate([
-        member.x - spec.x,
-        member.y - spec.y,
-        member.z - spec.z,
-      ]),
+      buildSolid(m, scope, member, settings, plans[i], i === onMember ? engraving : null).translate(
+        [member.x - spec.x, member.y - spec.y, member.z - spec.z],
+      ),
     ),
   );
   for (const b of merged.bridges) {
@@ -357,7 +413,7 @@ export function buildTray(
   return withScope((scope) => {
     const solid = spec.merged
       ? buildMerged(m, scope, spec, spec.merged, settings)
-      : buildSolid(m, scope, spec, settings);
+      : buildPart(m, scope, spec, settings);
     const status = solid.status();
     if (status !== "NoError") {
       throw new Error(`Tray ${spec.key}: geometry kernel failed (${status})`);

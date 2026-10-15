@@ -1,7 +1,7 @@
 // src/viewer/Viewer.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { MeshSource } from "../app/meshes";
-import { numberParts, partsByKey } from "../instructions/numbering";
+import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { CheckField, SelectField } from "../ui/fields";
@@ -188,7 +188,9 @@ export function Viewer(p: ViewerProps) {
     void Promise.all(
       list.map(async (spec, i) => {
         try {
-          const built = await p.meshes.get(spec, p.settings, controller.signal);
+          const part = byKey.get(spec.key);
+          const asked = part ? buildSpecOf(part, p.settings.engraveNumbers) : spec;
+          const built = await p.meshes.get(asked, p.settings, controller.signal);
           results[i] = { spec, mesh: built.mesh, color: tintColorOf(spec, p.components) };
         } catch {
           failed += 1;
@@ -216,7 +218,7 @@ export function Viewer(p: ViewerProps) {
     // p.components is a dependency because it decides each tray's colour: without it, editing
     // the components (which can leave the layout alone) left the scene on its old colours while
     // the list, plan and chips moved on.
-  }, [status, p.trays, p.settings, p.stale, p.meshes, p.components, attempt]);
+  }, [status, p.trays, p.settings, p.stale, p.meshes, p.components, byKey, attempt]);
 
   useEffect(() => {
     handleRef.current?.setExplode(explode);

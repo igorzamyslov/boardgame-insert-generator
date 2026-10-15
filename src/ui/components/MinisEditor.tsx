@@ -48,7 +48,7 @@ export function MinisEditor({
               />
               <NumberField
                 id={`${c.id}-fig${j}-d`}
-                label={`Figure ${n} depth`}
+                label={`Figure ${n} length`}
                 unit="mm"
                 value={f.d}
                 path={`${at}/figures/${j}/d`}

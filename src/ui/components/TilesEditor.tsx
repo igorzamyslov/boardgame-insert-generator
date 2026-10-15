@@ -52,7 +52,7 @@ export function TilesEditor({
           />
           <NumberField
             id={`${c.id}-tileD`}
-            label="Tile depth"
+            label="Tile length"
             unit="mm"
             value={rect.d}
             path={`${at}/shape/d`}

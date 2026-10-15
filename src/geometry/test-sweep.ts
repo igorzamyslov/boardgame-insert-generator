@@ -8,7 +8,10 @@ import { splitDividers } from "../layout/dividers";
 import { openSpacers } from "../layout/spacers";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
+import { carriesNumber } from "../model/part-number";
+import { planEngraving } from "./engrave";
 import { loadManifold } from "./load";
+import { planTray } from "./plan";
 import { problemsOf } from "./test-build";
 import {
   CHAMFER_1,
@@ -139,9 +142,19 @@ export function sweepMeshes(fixtures: readonly [string, unknown][]): void {
       expect(settingsValid(settings), "profile settings are valid").toBe(true);
       let built = 0;
       let rotated = 0;
+      let engraved = 0;
       const failures: string[] = [];
-      for (const { spec, where } of specs) {
+      for (const [i, { spec: plain, where }] of specs.entries()) {
+        // Every part carries a number (one to three digits), as the app asks for them: the
+        // engraving must leave a closed, printable solid of the spec's size wherever it lands.
+        const spec = { ...plain, partNumber: 1 + ((i * 37) % 240) };
         try {
+          if (
+            carriesNumber(spec.part) &&
+            planEngraving(planTray(spec, settings), spec.partNumber)
+          ) {
+            engraved += 1;
+          }
           const problems = problemsOf(m, spec, settings);
           if (problems.length > 0) {
             failures.push(`${where}: ${problems.join("; ")}`);
@@ -158,6 +171,8 @@ export function sweepMeshes(fixtures: readonly [string, unknown][]): void {
       );
       expect(built).toBe(specs.length);
       expect(rotated).toBeGreaterThan(0);
+      // plates (spacers, dividers) carry none, and a tray with no room is left plain
+      expect(engraved).toBeGreaterThan(0);
     });
   });
 }

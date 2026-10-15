@@ -15,7 +15,10 @@ describe("BoxForm", () => {
     render(<BoxForm box={DEFAULT_BOX} advanced={false} onChange={onChange} />);
     fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "290,5" } });
     expect(onChange).toHaveBeenCalledWith({ innerWidth: 290.5 });
-    expect(screen.getByLabelText(/^Depth/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Length/)).toBeTruthy();
+    // front to back is "length", not "depth", which reads as vertical
+    expect(screen.queryByLabelText(/^Depth/)).toBeNull();
+    expect(screen.getByText(/length front to back/)).toBeTruthy();
     expect(screen.getByLabelText(/^Height/)).toBeTruthy();
     expect(screen.getAllByText(/narrowest point/)).toHaveLength(1);
   });

@@ -544,7 +544,7 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
         } else {
           ck.count(`${p}/count`, "Count", item.count);
           ck.length(`${p}/w`, "Width", item.w);
-          ck.length(`${p}/d`, "Depth", item.d);
+          ck.length(`${p}/d`, "Length", item.d);
           ck.length(`${p}/h`, "Height", item.h);
         }
       });
@@ -552,7 +552,7 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
     case "tiles":
       if (c.shape.type === "rect") {
         ck.length(`${at}/shape/w`, "Tile width", c.shape.w);
-        ck.length(`${at}/shape/d`, "Tile depth", c.shape.d);
+        ck.length(`${at}/shape/d`, "Tile length", c.shape.d);
       } else {
         ck.length(`${at}/shape/flatToFlat`, "Hex size (flat to flat)", c.shape.flatToFlat);
       }
@@ -564,14 +564,14 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
       c.figures.forEach((f, i) => {
         const p = `${at}/figures/${i}`;
         ck.length(`${p}/w`, "Width", f.w);
-        ck.length(`${p}/d`, "Depth", f.d);
+        ck.length(`${p}/d`, "Length", f.d);
         ck.length(`${p}/h`, "Height", f.h);
         ck.count(`${p}/count`, "Count", f.count);
       });
       return;
     case "custom":
       ck.length(`${at}/w`, "Width", c.w);
-      ck.length(`${at}/d`, "Depth", c.d);
+      ck.length(`${at}/d`, "Length", c.d);
       ck.length(`${at}/h`, "Height", c.h);
       ck.count(`${at}/count`, "Count", c.count);
       return;
@@ -663,7 +663,7 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
       return;
     case "size":
       ck.length(`${at}/w`, "Locked width", lock.w);
-      ck.length(`${at}/d`, "Locked depth", lock.d);
+      ck.length(`${at}/d`, "Locked length", lock.d);
       ck.length(`${at}/h`, "Locked height", lock.h);
       return;
     case "stack":
@@ -697,7 +697,7 @@ export function validateProject(p: Project): Notice[] {
   }
 
   ck.length("/box/innerWidth", "Box width", box.innerWidth);
-  ck.length("/box/innerDepth", "Box depth", box.innerDepth);
+  ck.length("/box/innerDepth", "Box length", box.innerDepth);
   const heightOk = ck.length("/box/innerHeight", "Box height", box.innerHeight);
   const headroomOk = ck.nonNegativeLength("/box/headroom", "Headroom", box.headroom);
   if (heightOk && headroomOk) {

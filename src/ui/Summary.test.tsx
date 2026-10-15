@@ -567,7 +567,7 @@ describe("Summary", () => {
       expect(line).toContain(`${mmUp(x)} mm left–right`);
       expect(line).toContain(`${mmUp(0.07)} mm front–back`);
       expect(notice.message).toContain(`${mmUp(x)} mm in width (X)`);
-      expect(notice.message).toContain(`${mmUp(0.07)} mm in depth (Y)`);
+      expect(notice.message).toContain(`${mmUp(0.07)} mm in length (Y)`);
       view.unmount();
     }
   });

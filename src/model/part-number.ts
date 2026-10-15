@@ -1,0 +1,10 @@
+import type { TraySpec } from "./types";
+
+/**
+ * Whether a part of this kind carries an engraved number (spec §6.1 "Part numbers"): the trays,
+ * fillers and risers, whose outer walls stand in view. The plates (a card spacer or a divider) are
+ * only a few millimetres thick and go inside another part, so they carry none.
+ */
+export function carriesNumber(part: TraySpec["part"]): boolean {
+  return part === "tray" || part === "leftover" || part === "riser";
+}

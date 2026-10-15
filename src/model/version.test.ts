@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.13: 0.1.12 with the per-component `dividers` count and the `dividerSlot` feature", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.13");
+  it("is at schema 0.1.14: 0.1.13 with the `engraveNumbers` setting", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.14");
   });
 
   it("parses strict semver", () => {

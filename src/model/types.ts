@@ -198,6 +198,12 @@ export interface Settings {
    * about (spec §7.3, hard rule 1). In the inputs hash: it moves the score, so it can move the layout.
    */
   playLimit: number;
+  /**
+   * Engrave each part's number from the assembly instructions into one of its outer walls (spec
+   * §6.1 "Part numbers"), so a printed part matches its step. Changes the mesh and nothing else,
+   * so, like `infill` and the merge switches, it is no part of the inputs hash.
+   */
+  engraveNumbers: boolean;
 }
 
 export interface StoredLayout {
@@ -271,6 +277,12 @@ export interface TraySpec {
    * (solid boxes across the tray gaps between members) are the union itself.
    */
   merged?: MergedPart;
+  /**
+   * The part's number in the assembly instructions, to engrave on it (settings.engraveNumbers,
+   * spec §6.1 "Part numbers"). Never stored: the app sets it on the copy of a spec it sends to the
+   * geometry layer, as the number depends on the whole part list. Absent: no engraving.
+   */
+  partNumber?: number;
 }
 
 /** An axis-aligned box in box coordinates, mm. */

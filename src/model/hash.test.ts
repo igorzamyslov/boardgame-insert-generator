@@ -157,6 +157,14 @@ describe("inputsHash", () => {
     }
   });
 
+  it("ignores engraveNumbers: it only engraves the printed meshes", () => {
+    const base = sample();
+    for (const engraveNumbers of [true, false]) {
+      const p: Project = { ...base, settings: { ...base.settings, engraveNumbers } };
+      expect(inputsHash(p)).toBe(inputsHash(base));
+    }
+  });
+
   it("includes an own __proto__ field of a component", () => {
     const base = sample();
     const withProtoField = (value: number): Project => {

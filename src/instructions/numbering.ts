@@ -1,4 +1,5 @@
 // src/instructions/numbering.ts
+import { carriesNumber } from "../model/part-number";
 import type { Settings, TraySpec } from "../model/types";
 import { isAddOn } from "../plan/layers";
 import { RISER_SUFFIX } from "../sizing/constants";
@@ -153,6 +154,18 @@ export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
     label: partLabel(spec),
     parentNumber: isAddOn(spec) ? (numberOf.get(parentKey(spec)) ?? null) : null,
   }));
+}
+
+/**
+ * The spec to build a printed part from: with its number to engrave (`partNumber`) when `engrave`
+ * (settings.engraveNumbers) is on and the part is of a kind that carries one. The number is the
+ * one the assembly instructions and the plan give the part (numberParts), so the printed part
+ * matches its step.
+ */
+export function buildSpecOf(part: NumberedPart, engrave: boolean): TraySpec {
+  return engrave && carriesNumber(part.spec.part)
+    ? { ...part.spec, partNumber: part.number }
+    : part.spec;
 }
 
 export function partsByKey(parts: readonly NumberedPart[]): Map<string, NumberedPart> {

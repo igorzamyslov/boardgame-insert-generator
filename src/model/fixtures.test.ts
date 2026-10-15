@@ -256,6 +256,15 @@ describe("schema history", () => {
     expect(older.project.settings.mergeRisers).toBe(false);
   });
 
+  it("reads the engraving switch from the 0.1.14 file, and defaults it on for older files", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.14.json"]);
+    expect(notices).toEqual([]);
+    expect(project.settings.engraveNumbers).toBe(false);
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.13.json"]);
+    expect(older.notices).toEqual([]);
+    expect(older.project.settings.engraveNumbers).toBe(true);
+  });
+
   it("reads the play limit from the 0.1.11 file, and defaults it for older files", () => {
     const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.11.json"]);
     expect(notices).toEqual([]);

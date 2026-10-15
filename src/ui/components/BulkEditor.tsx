@@ -87,7 +87,7 @@ export function BulkEditor({
                   />
                   <NumberField
                     id={`${c.id}-item${j}-d`}
-                    label={`Item ${n} depth`}
+                    label={`Item ${n} length`}
                     unit="mm"
                     value={pieces.d}
                     path={`${at}/items/${j}/d`}
