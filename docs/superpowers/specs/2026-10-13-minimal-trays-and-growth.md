@@ -1,6 +1,7 @@
 # Minimal trays, fillers between them, per-component growth
 
-Status: proposed, not implemented. Written 2026-10-13 for a later session.
+Status: §4 implemented (geometry 0.5.0, see §4.1); §5, §6 and the two cleanups at the end of §4
+are still proposed. Written 2026-10-13 for a later session.
 Companion to `2026-10-11-boardgame-insert-generator-design.md`; that document is
 authoritative for everything this one does not change.
 
@@ -113,6 +114,50 @@ Touches, in rough dependency order:
    SCHEMA_VERSION and re-check the share-link guards in `src/app/link.test.ts`.
 
 `GEOMETRY_VERSION` needs a MINOR bump: outer tray sizes change.
+
+### 4.1 As implemented
+
+A stack level holds one tray plus zero or more filler parts. The stack model in the tree did not
+change: a leaf is still an ordered list of `StackItem`s, one per level. A level's fillers are
+derived, not searched, so the annealer's moves, the stack and position locks and the warm start
+needed no change, and the stored layout needed none either: a filler within a level is a `TraySpec`
+with `part: "leftover"`, and the `stack`, `level` and `z` that the schema already stored (so no
+SCHEMA_VERSION bump). `GEOMETRY_VERSION` is 0.5.0.
+
+- **Stack minimum** (`levelMinFootprints`, `stack.ts`): tray k must hold its own requirement and the
+  inset footprint of every tray above it, `max over j ≥ k of req_j + 2·(j − k)·inset`. Level 0's
+  value is the old `stackMinFootprint`, so `stackAllowed` and the tree's minimum extents are
+  unchanged: fillers only ever take slack, they never add to a minimum.
+- **Per level** (`placeStack`, `fill.ts`): each tray chooses its size with `axisExtent` against the
+  room of its own level (level 0: the leaf; level k: the tray below, inset), with its own
+  absorbable slack (`levelAbsorb`), its own size lock (`levelLockCap`) and the bed. Slack it cannot
+  or may not absorb becomes fillers beside it, and a gap too narrow to be a part
+  (`minFillerUpper` for level 1 and up, which is wider than `minFiller` because an upper tray carries
+  the larger upper chamfer) is absorbed by the tray. Trays are placed in the corner of the tray
+  below, one inset in.
+- **Filler height.** A filler beside the bottom tray stands the full box height, as before. A filler
+  in level k stands from that level's floor to the top of the stack: the trays above are smaller and
+  stand inside tray k, so nothing else would fill the space over it, and a stack must reach the top
+  plane everywhere (hard rule 2). Its `z` is its level's `z`.
+- **Risers** (`splitRisers`): an in-level filler (a leftover sharing a tray's stack, level above 0)
+  follows its tray, moving up with it and giving up the height of every level from its own up, so
+  its top stays on the plane. It does not take part in the split, as spares do not.
+- **Hard-rule checker** (`test-hard-rules.ts`): level k must stand in the corner of level k − 1, one
+  inset in and no larger than its inset footprint, not exactly its footprint; an in-level filler
+  must be inside the tray below, apart from its level's tray, and run from its level's floor to the
+  top of the stack.
+- **Score.** No filler-count term was added: `WEIGHTS.trays` already charges 20 000 per printed
+  part, fillers included, and the measurements showed no packing loss (§7 result below).
+
+**Measured** on `cards-heavy`, `bits-heavy`, `tiles-minis`, `small-tiles`, seeds 1 to 6, 50 000
+iterations: part counts, filler counts, fill %, filament and share-link length are unchanged on
+every seed except `small-tiles` (filament up to 3.6 % higher on one seed and under 1 % on two others, link 1837 to 1913
+characters, none of the three guarded fixtures over 1914), and nothing became infeasible. The
+fixtures rarely stack onto a different footprint, so they mostly show that nothing regressed; the
+real project of §3 shows the effect (below).
+
+On the §3 project the two minis trays now both come out 110 × 28.4 with 1.2 mm walls (the stacked
+one was 110 × 37.65 with 5.82 mm walls), with a 110 × 10.76 filler beside it in its level.
 
 ### Also remove: the in-tray spare compartment
 

@@ -54,7 +54,11 @@ function riserSpec(bottom: TraySpec, h: number, leftover: Settings["leftover"]):
  * Only whole layers move, a tray never goes below the height it needs as a lipped, chamfered
  * upper tray, a size-locked tray keeps its height, and the riser is never taller than the print
  * bed (the layout checks each tray's height, not the sum of their raises). Nothing is split with
- * `fillToTop` off. Spacers follow their tray. Other parts are returned as they are.
+ * `fillToTop` off. Spacers follow their tray, and so does a filler standing beside it in the same
+ * stack level (part "leftover" with its tray's stack and a level above 0): it stands from that
+ * level's floor to the top of the stack, so it moves up with the tray and gives up the height of
+ * every level from its own up, keeping its top on the plane; it neither blocks nor changes the
+ * split, whatever its own compartments hold. Other parts are returned as they are.
  */
 export function splitRisers(trays: readonly TraySpec[], o: RiserInputs): TraySpec[] {
   const { settings, printer } = o;
@@ -115,6 +119,21 @@ export function splitRisers(trays: readonly TraySpec[], o: RiserInputs): TraySpe
       ];
       for (const s of trays.filter((x) => x.part === "spacer" && x.key === `${t.key}:spacer`)) {
         out.set(s, [{ ...s, z: roundMm(s.z + shift - toMm(cut)) }]);
+      }
+      for (const f of trays.filter(
+        (x) => x.part === "leftover" && x.stack === stack && x.level === t.level,
+      )) {
+        out.set(f, [
+          {
+            ...f,
+            z: roundMm(f.z + shift),
+            h: roundMm(f.h - shift),
+            compartments: f.compartments.map((c) => ({
+              ...c,
+              floorZ: roundMm(Math.max(f.floor, c.floorZ - shift)),
+            })),
+          },
+        ]);
       }
       if (t === bottom) {
         parts.push(riserSpec(t, toMm(total), settings.leftover));

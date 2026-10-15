@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createCtx, INF_U, withSizeLocks, type Ctx } from "./context";
 import {
-  stackAbsorb,
+  levelAbsorb,
+  levelLockCap,
+  levelMinFootprints,
   stackAllowed,
   stackHeights,
   stackLevels,
-  stackLockCap,
   stackMinFootprint,
+  type Level,
 } from "./stack";
 import { boxReq, fakeMeasure, item, makeInput } from "./test-utils";
 
@@ -24,6 +26,15 @@ function ctxFor(box: { innerHeight?: number; headroom?: number } = {}, wallGrowt
     ),
     fakeMeasure,
   );
+}
+
+/** Level `k` of a stack the test built. */
+function lvl(levels: readonly Level[], k: number): Level {
+  const l = levels[k];
+  if (!l) {
+    throw new Error(`no level ${k}`);
+  }
+  return l;
 }
 
 describe("stack feasibility", () => {
@@ -49,17 +60,37 @@ describe("stack feasibility", () => {
     expect(stackMinFootprint(ctx, [])).toEqual({ w: ctx.minFiller, d: ctx.minFiller });
   });
 
+  it("gives each level the smallest tray that holds itself and the trays above it", () => {
+    const ctx = ctxFor();
+    const levels = stackLevels(ctx, [item(1), item(0)]);
+    const [lower, upper] = levelMinFootprints(ctx, levels);
+    // the upper tray needs only its own size; the lower one its own, or the upper's plus two insets
+    expect(upper).toEqual({ w: lvl(levels, 1).minW, d: lvl(levels, 1).minD });
+    expect(lower).toEqual({
+      w: Math.max(lvl(levels, 0).minW, lvl(levels, 1).minW + 2 * ctx.inset),
+      d: Math.max(lvl(levels, 0).minD, lvl(levels, 1).minD + 2 * ctx.inset),
+    });
+    expect(lower).toEqual(stackMinFootprint(ctx, levels));
+    expect(levelMinFootprints(ctx, [])).toEqual([]);
+  });
+
   it("reports absorbable slack: elastic axes unlimited, else the wall growth the user allows", () => {
     const ctx = ctxFor({}, 1.6);
     const solo = stackLevels(ctx, [item(1)]);
-    expect(stackAbsorb(ctx, solo, stackMinFootprint(ctx, solo))).toEqual({ w: 320, d: 320 });
+    expect(levelAbsorb(lvl(solo, 0), stackMinFootprint(ctx, solo))).toEqual({ w: 320, d: 320 });
     // The default allows no growth: nothing but an elastic axis absorbs slack.
     const none = ctxFor();
     const soloNone = stackLevels(none, [item(1)]);
-    expect(stackAbsorb(none, soloNone, stackMinFootprint(none, soloNone))).toEqual({ w: 0, d: 0 });
+    expect(levelAbsorb(lvl(soloNone, 0), stackMinFootprint(none, soloNone))).toEqual({
+      w: 0,
+      d: 0,
+    });
     const scoop = stackLevels(ctx, [item(2)]);
-    expect(stackAbsorb(ctx, scoop, stackMinFootprint(ctx, scoop))).toEqual({ w: INF_U, d: INF_U });
-    expect(stackLockCap(ctx, solo)).toEqual({ w: INF_U, d: INF_U });
+    expect(levelAbsorb(lvl(scoop, 0), stackMinFootprint(ctx, scoop))).toEqual({
+      w: INF_U,
+      d: INF_U,
+    });
+    expect(levelLockCap(lvl(solo, 0))).toEqual({ w: INF_U, d: INF_U });
   });
 
   it("makes stack heights sum to topPlane, rounding all but the top tray", () => {
@@ -100,7 +131,8 @@ describe("stack feasibility", () => {
     );
     const levels = stackLevels(ctx, [item(0), item(1)]);
     expect(levels[0]?.minW).toBe(12000);
-    expect(stackLockCap(ctx, levels)).toEqual({ w: 12000, d: 7000 });
+    expect(levelLockCap(lvl(levels, 0))).toEqual({ w: 12000, d: 7000 });
+    expect(levelLockCap(lvl(levels, 1))).toEqual({ w: INF_U, d: INF_U });
     const h = stackHeights(ctx, levels);
     expect(h.h[0]).toBe(3000);
     expect(h.h[1]).toBe(ctx.topPlane - 3000);

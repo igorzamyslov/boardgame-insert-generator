@@ -60,4 +60,32 @@ describe("materialize", () => {
       expect(c.y + c.d).toBeLessThanOrEqual((a?.d ?? 0) + 1e-9);
     }
   });
+
+  it("emits a filler within a stack level in its stack and level, standing on its level's floor", () => {
+    const stackCtx = createCtx(
+      makeInput(reqs, { box: { innerWidth: 107, innerDepth: 67 } }),
+      fakeMeasure,
+    );
+    const tree: Tree = {
+      root: leaf([
+        { req: 0, variant: 0, part: 0, rotated: false },
+        { req: 1, variant: 0, part: 0, rotated: false },
+      ]),
+      variants: [0, 0],
+    };
+    const plan = evaluate(stackCtx, tree);
+    const specs = materialize(stackCtx, plan, fakeRealize);
+    const lower = specs.find((t) => t.key === "a:p0:0");
+    const upper = specs.find((t) => t.key === "b:p0:0");
+    const fillers = specs.filter((t) => t.part === "leftover");
+    expect(fillers.length).toBeGreaterThan(0);
+    for (const f of fillers) {
+      expect(f).toMatchObject({ path: "", stack: lower?.stack, level: 1, z: upper?.z });
+      expect(toU(f.z + f.h)).toBe(stackCtx.topPlane);
+    }
+    expect(fillers.map((t) => t.key)).toEqual(plan.leftovers.map((_, i) => `leftover:${i}`));
+    // the upper tray is at its own size, not stretched over the lower tray
+    expect(upper?.w).toBe(54);
+    expect(upper?.w).toBeLessThan((lower?.w ?? 0) - 2 * (lower?.wall ?? 0));
+  });
 });

@@ -20,7 +20,12 @@ export interface StackItem {
 
 export interface Leaf {
   readonly kind: "leaf";
-  /** Bottom → top. Empty = a leftover region. */
+  /**
+   * Bottom → top, one tray per level. Empty = a leftover region. A level's fillers are not stored
+   * here: `placeStack` derives them from the room the level has beside its tray, so a level is a
+   * tray plus whatever filler that room leaves, and the tree, its moves and its locks stay one
+   * tray per level.
+   */
   readonly stack: readonly StackItem[];
   /** Membership and order are locked (stack or position lock); the leaf itself may move. */
   readonly frozen: boolean;

@@ -182,12 +182,15 @@ export function checkHardRules(
         v.push(`${t.key}: lip flag wrong`);
       }
       if (base && k > 0) {
-        const inset = k * ctx.inset;
+        // A level is its own tray plus fillers: it stands in the corner of the tray below, one
+        // inset in, and is no larger than that tray's inset footprint.
+        const below = stack[k - 1];
         if (
-          toU(t.x) - toU(base.x) !== inset ||
-          toU(t.y) - toU(base.y) !== inset ||
-          toU(t.w) !== toU(base.w) - 2 * inset ||
-          toU(t.d) !== toU(base.d) - 2 * inset
+          !below ||
+          toU(t.x) - toU(below.x) !== ctx.inset ||
+          toU(t.y) - toU(below.y) !== ctx.inset ||
+          toU(t.w) > toU(below.w) - 2 * ctx.inset ||
+          toU(t.d) > toU(below.d) - 2 * ctx.inset
         ) {
           v.push(`${t.key}: level ${k} not inset k·(lip.thickness + play)`);
         }
@@ -213,11 +216,43 @@ export function checkHardRules(
     });
   }
   for (const l of trays.filter((t) => t.part === "leftover")) {
-    if (toU(l.h) !== Math.max(0, ctx.topPlane)) {
-      v.push(`${l.key}: leftover not at full stack height`);
+    if (l.level === 0) {
+      // beside a whole stack (or alone): as tall as the box, on the floor
+      if (toU(l.h) !== Math.max(0, ctx.topPlane)) {
+        v.push(`${l.key}: leftover not at full stack height`);
+      }
+      if (toU(l.z) !== 0) {
+        v.push(`${l.key}: leftover not on the floor (z ${l.z}, level ${l.level})`);
+      }
+      continue;
     }
-    if (toU(l.z) !== 0 || l.level !== 0) {
-      v.push(`${l.key}: leftover not on the floor (z ${l.z}, level ${l.level})`);
+    // A filler within a stack level: it stands beside that level's tray, from the tray's floor to
+    // the top of the stack, inside the tray below it, and apart from the level's tray.
+    const stack = (byPath.get(l.path) ?? []).sort((a, b) => a.level - b.level);
+    const own = stack.find((t) => t.level === l.level);
+    const below = stack.find((t) => t.level === l.level - 1);
+    if (!own || !below || own.stack !== l.stack) {
+      v.push(`${l.key}: in-level filler (level ${l.level}) without a tray in that level`);
+      continue;
+    }
+    const top = stack.reduce((s, t) => s + toU(t.h), 0);
+    if (toU(l.z) !== toU(own.z) || toU(l.z) + toU(l.h) !== top) {
+      v.push(`${l.key}: filler does not run from its level's floor to the top of the stack`);
+    }
+    const inside =
+      toU(l.x) >= toU(below.x) + ctx.inset &&
+      toU(l.y) >= toU(below.y) + ctx.inset &&
+      toU(l.x) + toU(l.w) <= toU(below.x) + toU(below.w) - ctx.inset &&
+      toU(l.y) + toU(l.d) <= toU(below.y) + toU(below.d) - ctx.inset;
+    if (!inside) {
+      v.push(`${l.key}: filler not inside the inset footprint of the tray below`);
+    }
+    const apartX =
+      toU(l.x) >= toU(own.x) + toU(own.w) + ctx.gap || toU(own.x) >= toU(l.x) + toU(l.w) + ctx.gap;
+    const apartY =
+      toU(l.y) >= toU(own.y) + toU(own.d) + ctx.gap || toU(own.y) >= toU(l.y) + toU(l.d) + ctx.gap;
+    if (!apartX && !apartY) {
+      v.push(`${l.key}: filler overlaps or touches its level's tray`);
     }
   }
   for (const t of printed) {

@@ -17,7 +17,7 @@ export type Realize = (
  * Turns an integer plan into TraySpecs in mm (spec §8.4): realizeTray fills each tray's
  * compartments (slack, raised floors, spacers) with the same `lipped` flag the TraySpec
  * carries (roadmap §4.6); spacers are translated into box coordinates and follow their
- * tray; leftovers become a spare tray or a solid block. Clamping to the minimum outer size
+ * tray; leftovers become a spare tray or a solid block (one beside a stack is as tall as the box; one within a stack level stands beside that level's tray, as tall as it, with the stack and level it belongs to). Clamping to the minimum outer size
  * only matters for infeasible attempts (feasible plans are never below it); at or above it
  * sizing guarantees the tray realizes, so any error from realize is a bug and propagates
  * (amendment 1). Walls and floors are written as sizing writes them (ctx.wall, ctx.floor:
@@ -92,10 +92,10 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
       part: "leftover",
       path: l.path,
       stack: l.stack,
-      level: 0,
+      level: l.level,
       x: toMm(l.x),
       y: toMm(l.y),
-      z: 0,
+      z: toMm(l.z),
       w,
       d,
       h: toMm(l.h),

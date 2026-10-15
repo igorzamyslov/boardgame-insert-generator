@@ -42,21 +42,38 @@ export function stackLevels(ctx: Ctx, stack: readonly StackItem[]): Level[] {
 }
 
 /**
- * Smallest bottom footprint that holds every level: level k is inset k·inset per side,
- * so leaf ≥ req_k + 2·k·inset on both axes (spec §7.2). An empty stack (leftover leaf)
- * needs `ctx.minFiller` on both axes.
+ * The smallest tray each level needs, bottom → top (spec: minimal trays). Level k is inset
+ * `inset` per side inside the tray below it, so tray k must hold its own requirement and the
+ * inset footprint of every tray above it: `max over j ≥ k of req_j + 2·(j − k)·inset`. Nothing
+ * else is asked of a level: whatever room it has beyond that is the level's own slack, which
+ * `placeStack` turns into growth the tray's settings allow or into filler parts beside the
+ * tray in the same level, so a tray never gets thicker walls for what it happens to sit on.
  */
-export function stackMinFootprint(ctx: Ctx, levels: readonly Level[]): Ext {
-  if (levels.length === 0) {
-    return { w: ctx.minFiller, d: ctx.minFiller };
-  }
+export function levelMinFootprints(ctx: Ctx, levels: readonly Level[]): Ext[] {
+  const out: Ext[] = new Array<Ext>(levels.length);
   let w = 0;
   let d = 0;
-  for (const l of levels) {
-    w = Math.max(w, l.minW + 2 * l.level * ctx.inset);
-    d = Math.max(d, l.minD + 2 * l.level * ctx.inset);
+  for (let k = levels.length - 1; k >= 0; k--) {
+    const l = levels[k];
+    if (!l) {
+      continue;
+    }
+    // everything above is one inset smaller per side, so the tray under it is 2·inset larger
+    w = Math.max(l.minW, w + (k < levels.length - 1 ? 2 * ctx.inset : 0));
+    d = Math.max(l.minD, d + (k < levels.length - 1 ? 2 * ctx.inset : 0));
+    out[k] = { w, d };
   }
-  return { w, d };
+  return out;
+}
+
+/**
+ * Smallest bottom footprint that holds every level: level k is inset k·inset per side,
+ * so leaf ≥ req_k + 2·k·inset on both axes (spec §7.2). It is the minimum of the bottom tray
+ * (`levelMinFootprints`), which a level's own filler never changes. An empty stack (leftover
+ * leaf) needs `ctx.minFiller` on both axes.
+ */
+export function stackMinFootprint(ctx: Ctx, levels: readonly Level[]): Ext {
+  return levelMinFootprints(ctx, levels)[0] ?? { w: ctx.minFiller, d: ctx.minFiller };
 }
 
 /**
@@ -73,33 +90,21 @@ export function stackAllowed(ctx: Ctx, stack: readonly StackItem[]): boolean {
   return fitsBed(ctx.bed, f.w, f.d, 0);
 }
 
-/** Largest bottom footprint allowed by size locks in the stack (INF_U when none). */
-export function stackLockCap(ctx: Ctx, levels: readonly Level[]): Ext {
-  let w = INF_U;
-  let d = INF_U;
-  for (const l of levels) {
-    if (l.fixed) {
-      w = Math.min(w, l.fixed.w + 2 * l.level * ctx.inset);
-      d = Math.min(d, l.fixed.d + 2 * l.level * ctx.inset);
-    }
-  }
-  return { w, d };
+/** Largest tray a level may be, from its own size lock (INF_U when it has none). */
+export function levelLockCap(level: Level): Ext {
+  return level.fixed ? { w: level.fixed.w, d: level.fixed.d } : { w: INF_U, d: INF_U };
 }
 
 /**
- * Extra bottom footprint (beyond `foot`) every level can absorb without a spare compartment:
- * elastic axes and inward wall growth (spec §7.2 "Fill").
+ * Extra size (beyond `foot`, the size the level's tray is built at) the level's own tray can
+ * absorb without a filler: an elastic axis (INF_U) or the inward wall growth the user allows
+ * (spec §7.2 "Fill").
  */
-export function stackAbsorb(ctx: Ctx, levels: readonly Level[], foot: Ext): Ext {
-  let w = INF_U;
-  let d = INF_U;
-  for (const l of levels) {
-    const usedW = foot.w - 2 * l.level * ctx.inset - l.minW;
-    const usedD = foot.d - 2 * l.level * ctx.inset - l.minD;
-    w = Math.min(w, Math.max(0, l.capW - usedW));
-    d = Math.min(d, Math.max(0, l.capD - usedD));
-  }
-  return levels.length === 0 ? { w: 0, d: 0 } : { w, d };
+export function levelAbsorb(level: Level, foot: Ext): Ext {
+  return {
+    w: Math.max(0, level.capW - (foot.w - level.minW)),
+    d: Math.max(0, level.capD - (foot.d - level.minD)),
+  };
 }
 
 export interface StackHeights {

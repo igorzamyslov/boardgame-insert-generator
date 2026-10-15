@@ -26,8 +26,13 @@ import type { Semver } from "../model/version";
  *
  * 0.4.0 stops absorbing leaf slack into thicker walls by default (new `wallGrowth` setting, 0) and
  * prints it as a filler part instead: outer tray sizes change, so it is a breaking change.
+ *
+ * 0.5.0 makes a stack level a tray plus fillers: a tray stacked on a wider tray is no longer
+ * stretched to the stack's footprint (its walls used to take the excess), it keeps the size its own
+ * contents need and the rest of its level is filler parts. Outer tray sizes change, so it is a
+ * breaking change.
  */
-export const GEOMETRY_VERSION = "0.4.0";
+export const GEOMETRY_VERSION = "0.5.0";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

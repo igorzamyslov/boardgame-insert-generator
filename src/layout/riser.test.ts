@@ -189,6 +189,84 @@ describe("splitRisers: a riser under a stack (spec §3 rule 2)", () => {
     expect(u?.h).toBeGreaterThanOrEqual(DEFAULT_SETTINGS.lip.height + 3);
   });
 
+  describe("a filler standing in a stack level (spec: minimal trays)", () => {
+    // 100 × 60 lipped tray padded to 30 (10 mm raised floor), a smaller tray on it padded to 50
+    // (30 mm raised floor), and a filler beside the upper tray, from its floor to the stack top.
+    const lower = () =>
+      padded(30, { stack: 1, level: 0, compartments: [compartment(10)], lip: true });
+    const upper = () =>
+      padded(50, {
+        key: "b:p0:0",
+        stack: 1,
+        level: 1,
+        z: 30,
+        x: 2,
+        y: 2,
+        w: 60,
+        d: 56,
+        compartments: [{ ...compartment(30), w: 56 }],
+      });
+    const filler = (o: Partial<TraySpec> = {}) =>
+      traySpec({
+        key: "leftover:0",
+        part: "leftover",
+        path: "0",
+        stack: 1,
+        level: 1,
+        x: 62.2,
+        y: 2,
+        z: 30,
+        w: 35.8,
+        d: 56,
+        h: 50,
+        solid: true,
+        compartments: [],
+        ...o,
+      });
+
+    it("moves up with its tray and keeps its top on the stack's top plane", () => {
+      const parts = splitRisers([lower(), upper(), filler()], base());
+      const u = parts.find((t) => t.key === "b:p0:0");
+      const f = parts.find((t) => t.part === "leftover");
+      expect(f).toBeDefined();
+      expect(f?.z).toBe(u?.z);
+      expect(toU((f?.z ?? 0) + (f?.h ?? 0))).toBe(toU(30 + 50));
+      expect(toU((u?.z ?? 0) + (u?.h ?? 0))).toBe(toU(30 + 50));
+      // x, y, footprint, level and stack are untouched
+      expect(f).toMatchObject({ x: 62.2, y: 2, w: 35.8, d: 56, level: 1, stack: 1 });
+    });
+
+    it("neither blocks the split nor changes the riser", () => {
+      const without = splitRisers([lower(), upper()], base());
+      const withFiller = splitRisers([lower(), upper(), filler()], base());
+      expect(withFiller.filter((t) => t.part !== "leftover")).toEqual(without);
+      expect(withFiller.find((t) => t.part === "riser")?.h).toBe(37.6);
+    });
+
+    it("is left alone when nothing is shed, and a walled one keeps its floor", () => {
+      const f = filler();
+      expect(splitRisers([padded(28.8, { stack: 1 }), f], base())).toEqual([
+        padded(28.8, { stack: 1 }),
+        f,
+      ]);
+      const walled = filler({
+        solid: false,
+        compartments: [{ ...compartment(1.2), kind: "spare", contents: "" }],
+      });
+      const out = splitRisers([lower(), upper(), walled], base()).find(
+        (t) => t.part === "leftover",
+      );
+      expect(out?.compartments[0]?.floorZ).toBe(1.2);
+      expect(out?.h).toBe(21.2);
+    });
+
+    it("is a bottom-level leftover's neighbour, not a member: a leftover of its own stack stays put", () => {
+      const beside = filler({ stack: 9, level: 0, z: 0, h: 80, path: "1" });
+      const parts = splitRisers([lower(), upper(), beside], base());
+      expect(parts.find((t) => t.stack === 9)).toEqual(beside);
+    });
+  });
+
   it("is never taller than the print bed", () => {
     const printer = { ...TEST_PRINTER, bedZ: 25 };
     const riser = splitRisers([padded(60)], base({ printer })).find((t) => t.part === "riser");

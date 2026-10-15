@@ -48,8 +48,8 @@ describe("UnsupportedFeatureError and GEOMETRY_VERSION", () => {
     expect(err.message).toMatch(/"magnet".*newer app version/);
   });
 
-  it("is at 0.4.0: leaf slack becomes a filler part rather than thicker walls, a new line", () => {
-    expect(GEOMETRY_VERSION).toBe("0.4.0");
+  it("is at 0.5.0: a stack level is a tray plus fillers, so stacked trays keep their own size, a new line", () => {
+    expect(GEOMETRY_VERSION).toBe("0.5.0");
   });
 });
 

@@ -415,8 +415,8 @@ interface TraySpec {
   key: string; // trayKey, "leftover:<n>", or "<trayKey>:spacer"
   part: "tray" | "leftover" | "spacer"; // a riser is derived for printing (§6.2), never stored
   path: string; // guillotine path of its leaf ("" for spacers)
-  stack: number;
-  level: number; // 0 = bottom
+  stack: number; // a leftover beside a whole stack has a stack of its own; one inside a stack level shares its tray's
+  level: number; // 0 = bottom; a leftover inside a stack level has that level (§7.2)
   x: number; // min corner of the outer footprint, box coordinates after boxClearance
   y: number;
   z: number;
@@ -714,15 +714,27 @@ fallback: a requirement that still has no variant is left out with a
   (`innerWidth − 2·boxClearance` × `innerDepth − 2·boxClearance`). Internal
   nodes are X or Y cuts; neighbouring leaves are separated by `trayGap`. Each
   leaf is a **stack**: an ordered list of trays. The bottom tray has the
-  leaf's footprint; the tray at level k is inset `k·(lip.thickness + lip.play)`
-  per side. A leaf is feasible when, for every level k,
-  `leaf ≥ req_k + 2·k·(lip.thickness + lip.play)`. The stack's total height
-  (Σ `tray.h`) equals `topPlane`.
+  leaf's footprint (less any filler beside it); the tray at level k stands in the
+  corner of the tray below it, one `lip.thickness + lip.play` inset in per side,
+  and is no larger than that tray's inset footprint. A leaf is feasible when, for
+  every level k, `leaf ≥ req_k + 2·k·(lip.thickness + lip.play)`. The stack's
+  total height (Σ `tray.h`) equals `topPlane`. **A level is one tray plus its
+  fillers:** a tray is built at the smallest size that holds its own contents and
+  the inset footprint of the trays above it, so what a tray is stacked on never
+  changes its size or its walls. The room its level has beyond that becomes filler
+  parts (below); the tree stores one tray per level and the fillers are derived.
 - **Fill:** after placement, slack is shared out.
-  - Footprint slack inside a stack goes to elastic axes, then to wall and
-    divider thickness (inward, up to the cap below), then to an extra empty
-    compartment in that tray (stacked trays can't have a leftover tray beside
-    them).
+  - Slack inside a stack level (the room of a tray above level 0, which is the
+    inset footprint of the tray below it) is treated like leaf slack, per level,
+    against that tray's own settings: elastic axes take it, then wall growth
+    (`wallGrowth`) if the user allowed it, otherwise a **filler part in that
+    level** beside the tray, of any width from `minFiller` for an upper tray
+    (the upper chamfer is larger, so a little more than at level 0) up. A gap
+    narrower than that is absorbed by the tray, as at level 0. A filler beside an
+    upper tray stands from that level's floor to the top of the stack, since the
+    trays above it stand inside the tray and nothing else fills the space over
+    the filler (rule 2). It is stored as a `leftover` with its stack and level,
+    keeps its tray's path, and `splitRisers` moves it up with its tray.
   - Leaf slack, in this order (`axisExtent` in `layout/fill.ts`, `realizeTray`):
     1. Elastic axes take all of it (the tray grows; no filler).
     2. Otherwise a **filler part** (a leftover leaf at full stack height, beside a
@@ -746,8 +758,8 @@ fallback: a requirement that still has no variant is left out with a
        because a tray left loose in its leaf would rattle (hard rule 1). Such gaps
        do arise: rows and stacks with different minimum sizes meet at arbitrary
        offsets on the 0.01 mm grid.
-       Footprint slack inside a stack follows the same cap (`wallGrowth`, then an extra
-       empty compartment, else the side walls).
+       Slack inside a stack level follows the same rules, level by level
+       (`wallGrowth`, else a filler in the level, else the side walls).
   - A stretched deck that is last in its row takes slack of at least `MIN_SPARE`
     plus a divider as a walled spare pocket beside it, except when its component asks
     for several spacer plates (`separators` above 1): then the slack is its spacer

@@ -32,10 +32,13 @@ interface Box2 {
   y1: number;
 }
 
-/** Bottom-level footprints (level-0 trays and leftovers) of a stored layout, in units. */
+/**
+ * Bottom-level footprints (level-0 trays and leftovers) of a stored layout, in units. A filler
+ * within a stack level (level 1 and up) lies inside its tray's footprint and is not one.
+ */
 function bottomRects(trays: readonly TraySpec[]): { path: string; r: Box2 }[] {
   return trays
-    .filter((t) => (t.part === "tray" && t.level === 0) || t.part === "leftover")
+    .filter((t) => (t.part === "tray" || t.part === "leftover") && t.level === 0)
     .filter((t) => isValidPath(t.path))
     .map((t) => {
       const x0 = toU(t.x);

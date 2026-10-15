@@ -9,6 +9,7 @@ import { checkHardRules } from "./test-hard-rules";
 import { materialize } from "./materialize";
 import { createRun, DEFAULT_ITERATIONS, optimize } from "./optimize";
 import { boxReq, comp, makeInput, part, req, variant } from "./test-utils";
+import type { StoredLayout } from "../model/types";
 import type { LayoutResult } from "./types";
 import { warmHints, warmTree } from "./warmstart";
 
@@ -520,5 +521,69 @@ describe("checkHardRules on optimizer output", () => {
     expect(v.some((s) => s.includes("tile"))).toBe(true);
     expect(v.some((s) => s.includes("topPlane"))).toBe(true);
     expect(v.some((s) => s.includes("position lock"))).toBe(true);
+  });
+});
+
+/** The layout of a result the test expects to be feasible. */
+function stored(r: LayoutResult): StoredLayout {
+  if (!r.layout) {
+    throw new Error("expected a feasible layout");
+  }
+  return r.layout;
+}
+
+describe("a stack level holds a tray plus fillers (spec: minimal trays)", () => {
+  // The floor is exactly one 100 × 60 tray, so the 50 × 40 tray can only share it by stacking.
+  const stacked = [boxReq("a", 100, 60, 20), boxReq("b", 50, 40, 10)];
+  const box = { innerWidth: 107.5, innerDepth: 67.5, innerHeight: 60 };
+  const big = { kind: "stack" as const, trayKeys: ["a:p0:0", "b:p0:0"] };
+  const small = { kind: "stack" as const, trayKeys: ["b:p0:0", "a:p0:0"] };
+
+  it("keeps the upper tray at its own size and fills its level with fillers", () => {
+    const inp = makeInput(stacked, { box, locks: [big] });
+    const r = optimize(inp, 1, 2000);
+    const trays = r.layout?.trays ?? [];
+    expect(r.layout).not.toBeNull();
+    const b = trays.find((t) => t.key === "b:p0:0");
+    const a = trays.find((t) => t.key === "a:p0:0");
+    expect(b?.level).toBe(1);
+    // minimal: as small as its content needs, whatever it stands on
+    const alone = createCtx(makeInput([stacked[1] ?? boxReq("b", 50, 40, 10)])).metrics(
+      { req: 0, variant: 0, part: 0 },
+      false,
+      1,
+    );
+    expect(b?.w).toBe(alone.w / 100);
+    expect(b?.d).toBe(alone.d / 100);
+    expect(b?.w).toBeLessThan((a?.w ?? 0) - 10);
+    const inLevel = trays.filter((t) => t.part === "leftover" && t.level === 1);
+    expect(inLevel.length).toBeGreaterThan(0);
+    for (const f of inLevel) {
+      expect(f.stack).toBe(b?.stack);
+    }
+    expect(checkHardRules(inp, stored(r), r.notices)).toEqual([]);
+  });
+
+  it.each([
+    ["the wider tray under", big, ["a:p0:0", "b:p0:0"]],
+    ["the smaller tray under", small, ["b:p0:0", "a:p0:0"]],
+  ])("honours a stack lock with %s", (_name, lock, order) => {
+    const inp = makeInput(stacked, { box, locks: [lock] });
+    const r = optimize(inp, 1, 2000);
+    const trays = r.layout?.trays ?? [];
+    expect(r.notices.some((n) => n.code === "lock.dropped")).toBe(false);
+    expect(trays.filter((t) => t.part === "tray").map((t) => [t.key, t.level])).toEqual(
+      order.map((k, i) => [k, i]),
+    );
+    expect(checkHardRules(inp, stored(r), r.notices)).toEqual([]);
+  });
+
+  it("plans the same trays again from its own stored layout (warm start)", () => {
+    const inp = makeInput(stacked, { box, locks: [big] });
+    const first = optimize(inp, 1, 2000);
+    const again = optimize(inp, 1, 500, { warmStart: stored(first) });
+    const sig = (r: LayoutResult) =>
+      (r.layout?.trays ?? []).map((t) => [t.key, t.part, t.level, t.x, t.y, t.w, t.d]);
+    expect(sig(again)).toEqual(sig(first));
   });
 });

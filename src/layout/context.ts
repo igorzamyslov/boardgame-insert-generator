@@ -74,6 +74,11 @@ export interface Ctx {
    * cannot be a part, so the neighbouring tray absorbs it (spec §7.2).
    */
   readonly minFiller: U;
+  /**
+   * The same for a filler beside an upper tray (level 1 and up): trays above level 0 carry at
+   * least UPPER_MIN_CHAMFER, so planTray needs a little more of them.
+   */
+  readonly minFillerUpper: U;
   readonly bed: Bed;
   /** Size locks keyed by partId. */
   readonly sizeLocks: ReadonlyMap<number, FixedSize>;
@@ -153,6 +158,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     wall,
     floor: toUCeil(Math.max(settings.floor, MIN_FEATURE_MM)),
     minFiller: Math.max(wall, toUCeil(chamferMinimums(settings, 0).side)),
+    minFillerUpper: Math.max(wall, toUCeil(chamferMinimums(settings, 1).side)),
     bed: {
       w: toUFloor(printer.bedX - 2 * printer.bedMargin),
       d: toUFloor(printer.bedY - 2 * printer.bedMargin),
