@@ -103,6 +103,51 @@ const CASES: [string, Component[], Settings, number][] = [
     settings({ width: 5.002, fit: 1 }),
     13.42,
   ],
+  [
+    // The seed-1 counterexample of the property at 1 000 runs. A row-1 pocket's channel leaves
+    // through the 11 mm gap between two row-2 pockets, which are too narrow for a front or back
+    // cut: placed first, it took the only route sideways they had.
+    "a channel placed first that strands two narrow pockets",
+    [
+      minis("c0", [fig(10, 10.01, 10.02, 3), fig(24, 10, 10, 2)], "pockets"),
+      minis("c1", [fig(10, 10, 10, 1)], "bulk"),
+    ] as Component[],
+    settings({
+      width: 5.021,
+      fit: 1,
+      fingerPocket: { width: 5.021, floorNotch: 0, wallRoom: 0, dividerRoom: 6.361 },
+    }),
+    11.25,
+  ],
+  [
+    // The property's next counterexample once the first was fixed (seed 1, 1 000 runs).
+    "a custom well and three figure sizes in pockets, a wide divider room",
+    [
+      {
+        id: "c0",
+        name: "Thing",
+        kind: "custom",
+        access: "often",
+        w: 13.95,
+        d: 5,
+        h: 1,
+        count: 1,
+        groupId: "g",
+      } as unknown,
+      minis(
+        "c1",
+        [fig(13.94, 10, 10, 2), fig(10, 10.01, 10.02, 4), fig(30.2, 10, 10, 3)],
+        "pockets",
+      ),
+      minis("c2", [fig(16.55, 29.51, 29.86, 1)], "bulk"),
+    ] as Component[],
+    settings({
+      width: 5.021,
+      fit: 1,
+      fingerPocket: { width: 5.021, floorNotch: 0, wallRoom: 0, dividerRoom: 13.941 },
+    }),
+    29.96,
+  ],
 ];
 
 const ground: RealizeOptions = { lipped: false, level: 0 };

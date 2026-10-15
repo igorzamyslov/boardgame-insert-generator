@@ -237,11 +237,21 @@ the cut plus its posts was refused one unit short; the narrowest cut is now roun
 count (`narrowestCutMm`, shared with `planTray`, which accepts what sizing places). (3) A run
 takes the first member's centre rounded to a unit, which can leave a twin's narrow pocket a unit
 short; where that centre has too little room any whole-unit centre between the members' own is
-tried. **Not fixed:** a fourth cause remains, found at 2 of 12 seeds at 1 000 runs. Sequential
-channel placement can seal off the only way out of a pocket exactly as wide as the cut plus its
-posts: a row-1 pocket's cut leaves through the gap between two row-2 pockets, and those pockets,
-too narrow for a front or back cut, are left with no side to cut. It needs the placement to back
-off or search, which is a larger change to sizing; see the backlog.
+tried. (4) Sequential channel placement could seal off the only way out of a pocket exactly as
+wide as the cut plus its posts: a row-1 pocket's back channel leaves through the gap between two
+row-2 pockets, which are too narrow for a front or back cut and could only be cut together, as
+twins through that gap, and ended with no cut. `placeCutouts` now backs off: while an owner has
+no cut, it gives up one cut of an owner that has another (the first in placement order that leaves
+fewer owners uncut), and places everything again, repeating until none is uncut. A placement that
+left every owner cut is never touched, so every tray that was cut before keeps exactly its cuts;
+only a tray that used to throw (or whose variant was dropped) changes. The second counterexample
+the property found once the first was fixed (seed 1: a custom well and three figure sizes, where
+two channels each sealed a twin pair) needs two give-ups, hence the loop rather than one retry.
+Inputs in `cutfit.regression.test.ts` (cases 4 and 5). **Measured:** the property at 1 000 runs
+over seeds 1 to 12 passed 10 of 12 before (seeds 1 and 10 failed) and 12 of 12 after; the four
+fixtures at seeds 1 to 4 (50 000 iterations) are identical before and after in parts, fillers,
+fill, filament and link length. GEOMETRY_VERSION stays 0.5.2: no tray that was realized before
+changes.
 
 ## 5. Growth policy per component kind
 

@@ -106,6 +106,44 @@ type Across = { kind: "exit" } | { kind: "twin"; request: number };
  * Returns every cut placed, by owner and side; an owner missing from it got none on either axis.
  */
 export function placeCutouts(requests: readonly CutAsk[], ctx: CutContext): PlacedCut[] {
+  const owners = [...new Set(requests.map((q) => q.owner))];
+  const uncut = (cuts: readonly PlacedCut[]): number =>
+    owners.filter((o) => !cuts.some((c) => c.owner === o)).length;
+  let asks = requests;
+  const first = placeAll(asks, ctx);
+  let best = first;
+  // Placement is greedy: a channel placed early may take the only route a later compartment had
+  // (a row-1 pocket's back channel through the gap between two narrow row-2 pockets, which then
+  // cannot be cut together through their sides). A compartment needs one cut, not all it asked for,
+  // so while some owner has none, give up one cut of an owner that has another (the first in
+  // placement order that leaves fewer owners uncut), and place everything again. A placement that
+  // leaves no owner uncut is never changed, so every tray that was cut before keeps its cuts.
+  while (uncut(best) > 0) {
+    let next: { asks: CutAsk[]; placed: PlacedCut[] } | null = null;
+    for (const [i, cut] of best.entries()) {
+      const spare = best.some((c, j) => j !== i && c.owner === cut.owner);
+      const without = asks.filter((q) => !(q.owner === cut.owner && q.side === cut.side));
+      if (!spare || without.length === asks.length) {
+        continue;
+      }
+      const placed = placeAll(without, ctx);
+      if (uncut(placed) < uncut(best)) {
+        next = { asks: without, placed };
+        break;
+      }
+    }
+    if (next === null) {
+      break;
+    }
+    asks = next.asks;
+    best = next.placed;
+  }
+  // Hopeless anyway: report the plain placement, whose uncut owners the caller refuses.
+  return uncut(best) > 0 ? first : best;
+}
+
+/** One greedy placement of `requests` (placeCutouts): runs, then the retries of uncut owners. */
+function placeAll(requests: readonly CutAsk[], ctx: CutContext): PlacedCut[] {
   const placed: PlacedCut[] = [];
   placeRuns(requests, ctx, placed);
   // Asks again for the owners still without a cut, on the sides `sides` picks from their asks.
