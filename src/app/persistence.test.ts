@@ -1,4 +1,5 @@
 // src/app/persistence.test.ts
+import { effect } from "@preact/signals";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
@@ -250,6 +251,22 @@ describe("persistence", () => {
     expect(tab1.state.saveState.value).toBe("paused");
     tab1.persistence.resolveConflict("keepMine");
     expect(tab1.state.saveState.value).toBe("saved");
+  });
+
+  it("saveState does not flicker when an edit reschedules a pending save", () => {
+    const t = tab(createProjectStore(new MemoryStorage()));
+    t.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    const seen: string[] = [];
+    const stop = effect(() => {
+      seen.push(t.state.saveState.value);
+    });
+    rename(t.state, "One");
+    t.persistence.scheduleSave();
+    rename(t.state, "Two");
+    t.persistence.scheduleSave();
+    stop();
+    expect(seen).toEqual(["saved", "saving"]);
   });
 
   it("saveState is unavailable without storage and saved after a project is opened", () => {

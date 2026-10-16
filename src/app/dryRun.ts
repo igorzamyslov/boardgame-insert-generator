@@ -3,10 +3,11 @@
 // through `resolveLocks`, the check every run starts with, so the reason a run would later give for
 // refusing them is known now.
 import { createCtx } from "../layout/context";
+import type { Ctx } from "../layout/context";
 import { resolveLocks } from "../layout/locks";
 import { warmHints } from "../layout/warmstart";
 import type { Lock, Project, StoredLayout, TraySpec } from "../model/types";
-import { buildLayoutInput } from "./runner";
+import { buildLayoutInput, canOptimize } from "./runner";
 
 export interface TurnCheck {
   ok: boolean;
@@ -71,32 +72,54 @@ export function turnLocks(p: Project, trayKey: string): Lock[] | null {
   return [...rest, ...turned];
 }
 
+/** One layout context per project: the lock check reads it, locks aside, for every tray. */
+const contexts = new WeakMap<Project, Ctx>();
+
+function ctxOf(p: Project): Ctx {
+  let ctx = contexts.get(p);
+  if (!ctx) {
+    ctx = createCtx(buildLayoutInput(p));
+    contexts.set(p, ctx);
+  }
+  return ctx;
+}
+
 /**
- * Whether turning this tray (and so its stack) would do anything and be kept by the next run, with
- * the reason when not. Reads the stored plan; synchronous, main thread, no optimizer. The reason of
- * a refused lock is the one `resolveLocks` gives (a phrase that continues "Turning is blocked
- * because ..."), taken from the conflicts about the stack's own trays only.
+ * Whether turning this tray (and so its stack) is worth offering, with a sentence the screen can
+ * show as is when not. Reads the stored plan; synchronous, main thread, no optimizer. It checks
+ * what `resolveLocks` checks: that the pins a turn writes don't clash with each other or with the
+ * trays' sizes and rotations. Whether the turned stack then fits the box is only known to the
+ * optimizer, which the next run reports. Never throws.
  */
 export function canTurn(p: Project, trayKey: string): TurnCheck {
-  const layout = p.layout;
-  if (!layout) {
-    return { ok: false, reason: "Make a plan first." };
+  try {
+    const layout = p.layout;
+    if (!layout) {
+      return { ok: false, reason: "Make a plan first." };
+    }
+    if (!canOptimize(p)) {
+      return { ok: false, reason: "Fix the errors first." };
+    }
+    const found = stackOf(layout, trayKey);
+    if (!found) {
+      return { ok: false, reason: "That tray isn't in the plan." };
+    }
+    if (found.stack.every((t) => Math.abs(t.w - t.d) < SQUARE_MM)) {
+      return { ok: false, reason: "This tray is square, so turning changes nothing." };
+    }
+    const locks = turnLocks(p, trayKey);
+    if (!locks) {
+      return { ok: true };
+    }
+    // The hints a run would give the lock check: the stored plan stands in for the warm start.
+    const ctx = ctxOf(p);
+    const { conflicts } = resolveLocks(ctx, locks, warmHints(ctx, layout.trays));
+    const keys = new Set(found.stack.map((t) => t.key));
+    const own = conflicts.find((c) => keys.has(c.trayKey));
+    return own
+      ? { ok: false, reason: `Turning doesn't work for ${own.name}: ${own.reason}.` }
+      : { ok: true };
+  } catch {
+    return { ok: false, reason: "Turning isn't possible right now." };
   }
-  const found = stackOf(layout, trayKey);
-  if (!found) {
-    return { ok: false, reason: "That tray isn't in the plan." };
-  }
-  if (Math.abs(found.tray.w - found.tray.d) < SQUARE_MM) {
-    return { ok: false, reason: "This tray is square, so turning changes nothing." };
-  }
-  const locks = turnLocks(p, trayKey);
-  if (!locks) {
-    return { ok: true };
-  }
-  // The inputs and hints a run would give the lock check: the stored plan stands in for the warm start.
-  const ctx = createCtx(buildLayoutInput({ ...p, locks }));
-  const { conflicts } = resolveLocks(ctx, locks, warmHints(ctx, layout.trays));
-  const keys = new Set(found.stack.map((t) => t.key));
-  const own = conflicts.find((c) => keys.has(c.trayKey));
-  return own ? { ok: false, reason: own.reason } : { ok: true };
 }

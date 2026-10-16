@@ -1,9 +1,15 @@
 // src/app/dryRun.test.ts
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
-import type { Lock, Project, TraySpec } from "../model/types";
+import type { Lock, Project, StoredLayout, TraySpec } from "../model/types";
 import { canTurn, turnLocks } from "./dryRun";
+import { buildLayoutInput } from "./runner";
 import { fixtureProject, makeLayout, makeTray } from "./test-helpers";
+
+vi.mock("./runner", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./runner")>();
+  return { ...actual, buildLayoutInput: vi.fn(actual.buildLayoutInput) };
+});
 
 // Trays of the cards-heavy fixture: standing apart, and two of them stacked at one path.
 const ALONE = "fxcrd003:p0:0";
@@ -58,11 +64,58 @@ describe("canTurn", () => {
     const p = planned([{ kind: "size", trayKey: HIGH, w: 150, d: 150, h: 90 }]);
     const r = canTurn(p, LOW);
     expect(r.ok).toBe(false);
-    expect(r.reason).toBe("it conflicts with the size lock on the same tray");
+    // a whole sentence, naming the tray at fault by its label (the contents it holds)
+    expect(r.reason).toMatch(
+      /^Turning doesn't work for .+: it conflicts with the size lock on the same tray\.$/,
+    );
+    expect(r.reason).not.toContain(HIGH);
     // the same stack seen from its other tray
     expect(canTurn(p, HIGH)).toEqual(r);
     // a tray alone is not in that stack
     expect(canTurn(p, ALONE)).toEqual({ ok: true });
+  });
+
+  it("a stack is square only when every tray in it is", () => {
+    const stack = [
+      tray(LOW, { path: "10", level: 0, w: 80, d: 80 }),
+      tray(HIGH, { path: "10", level: 1, w: 70, d: 90 }),
+    ];
+    expect(canTurn(planned([], stack), LOW)).toEqual({ ok: true });
+    const squares = [stack[0] as TraySpec, tray(HIGH, { path: "10", level: 1, w: 78, d: 78.2 })];
+    expect(canTurn(planned([], squares), LOW).reason).toBe(
+      "This tray is square, so turning changes nothing.",
+    );
+  });
+
+  it("builds the layout input once for several trays of one project", () => {
+    const p = planned();
+    const build = vi.mocked(buildLayoutInput);
+    build.mockClear();
+    canTurn(p, ALONE);
+    canTurn(p, LOW);
+    canTurn(p, HIGH);
+    expect(build).toHaveBeenCalledTimes(1);
+    // an edit is a new project: its own context
+    canTurn({ ...p, name: "Renamed" }, ALONE);
+    expect(build).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks to fix the errors before anything else when the project has some", () => {
+    const p = planned();
+    const broken = { ...p, box: { ...p.box, innerWidth: -1 } };
+    expect(canTurn(broken, ALONE)).toEqual({ ok: false, reason: "Fix the errors first." });
+  });
+
+  it("never throws", () => {
+    const p = planned();
+    const bad = {
+      ...p,
+      layout: { ...(p.layout as StoredLayout), trays: [null as unknown as TraySpec] },
+    };
+    expect(canTurn(bad, ALONE)).toEqual({
+      ok: false,
+      reason: "Turning isn't possible right now.",
+    });
   });
 
   it("is not blocked by a conflict that has nothing to do with the stack", () => {

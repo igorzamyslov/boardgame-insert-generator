@@ -306,8 +306,10 @@ export function createPersistence(
       if (!active) {
         return;
       }
-      clearTimer();
-      state.savePending.value = true;
+      batch(() => {
+        clearTimer();
+        state.savePending.value = true;
+      });
       timer = setTimeout(flush, SAVE_DEBOUNCE_MS);
     },
     flush,
