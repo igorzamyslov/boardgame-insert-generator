@@ -4,6 +4,9 @@ import { useEffect, useState } from "preact/hooks";
 /** The phone layout: the list becomes a sheet at the foot of the screen (style.css has the same line). */
 export const PHONE_QUERY = "(width < 760px)";
 
+/** Below this the open sheet, with the editor or the box in it, fills the screen (style.css has the same line). */
+export const NARROW_QUERY = "(width < 600px)";
+
 const read = (query: string): boolean =>
   typeof matchMedia === "function" && matchMedia(query).matches;
 

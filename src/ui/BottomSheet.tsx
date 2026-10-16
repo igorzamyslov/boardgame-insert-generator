@@ -1,5 +1,5 @@
 // src/ui/BottomSheet.tsx
-import type { ComponentChildren } from "preact";
+import type { ComponentChildren, RefObject } from "preact";
 import { useEffect, useId, useRef } from "preact/hooks";
 
 export interface BottomSheetProps {
@@ -13,6 +13,10 @@ export interface BottomSheetProps {
   onExpandedChange: (expanded: boolean) => void;
   /** The content wants the whole screen (a phone's editor or box): the styles decide below 600 px. */
   full?: boolean;
+  /** The editor is showing in the sheet: the styles drop the section titles around it. */
+  editing?: boolean;
+  /** The handle, for an owner that hands the focus to it. */
+  handleRef?: RefObject<HTMLButtonElement | null>;
   /** A button beside the handle, in reach while the sheet is folded. */
   action?: ComponentChildren;
   children: ComponentChildren;
@@ -30,7 +34,8 @@ const FOCUSABLE =
 export function BottomSheet(p: BottomSheetProps) {
   const bodyId = useId();
   const root = useRef<HTMLElement>(null);
-  const handle = useRef<HTMLButtonElement>(null);
+  const ownHandle = useRef<HTMLButtonElement>(null);
+  const handle = p.handleRef ?? ownHandle;
   const body = useRef<HTMLDivElement>(null);
   const first = useRef(true);
   useEffect(() => {
@@ -59,6 +64,7 @@ export function BottomSheet(p: BottomSheetProps) {
       aria-label={p.label}
       data-expanded={p.expanded ? "true" : "false"}
       data-full={p.full ? "true" : undefined}
+      data-editing={p.editing ? "true" : undefined}
       onKeyDown={(e) => {
         if (e.key === "Escape" && p.expanded && !e.defaultPrevented) {
           e.preventDefault();

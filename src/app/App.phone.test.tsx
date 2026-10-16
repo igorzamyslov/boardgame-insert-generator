@@ -17,10 +17,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** A phone: the one width query the app asks (below 760 px) answers yes. */
-function phone(on = true): void {
+/** A phone: the width query the app asks (below 760 px) answers yes; `narrow` adds below 600 px. */
+function phone(on = true, narrow = false): void {
   vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: on && query === "(width < 760px)",
+    matches: on && (query === "(width < 760px)" || (narrow && query === "(width < 600px)")),
     media: query,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
@@ -84,6 +84,57 @@ describe("the phone layout", () => {
     expect(handle().getAttribute("aria-expanded")).toBe("true");
     expect(sheet().getAttribute("data-full")).toBe("true");
     expect(await within(sheet()).findByRole("heading", { level: 3, name: "Market" })).toBeTruthy();
+  });
+
+  describe("what is behind a sheet that fills the screen", () => {
+    const behind = (): Element[] => [
+      document.querySelector(".app-top") as Element,
+      screen.getByRole("main"),
+    ];
+
+    function openEditor(): void {
+      fireEvent.keyDown(document.querySelector('.plan-tray[data-key="m:p0:0"]') as Element, {
+        key: "Enter",
+      });
+      fireEvent.click(
+        within(screen.getByRole("group", { name: "Selected tray" })).getByRole("button", {
+          name: "Edit",
+        }),
+      );
+    }
+
+    it("is out of reach of Tab and screen readers (inert) below 600 px, and the sheet is not", () => {
+      phone(true, true);
+      renderApp({ project: project() });
+      expect(behind().some((el) => el.hasAttribute("inert"))).toBe(false);
+      openEditor();
+      expect(behind().every((el) => el.hasAttribute("inert"))).toBe(true);
+      expect(sheet().closest("[inert]")).toBeNull();
+      expect(sheet().getAttribute("data-editing")).toBe("true");
+      // folding the sheet gives the page back
+      fireEvent.click(handle());
+      expect(behind().some((el) => el.hasAttribute("inert"))).toBe(false);
+    });
+
+    it("stays within reach while the sheet is a part of the screen (600 to 760 px)", () => {
+      phone(true, false);
+      renderApp({ project: project() });
+      openEditor();
+      expect(sheet().getAttribute("data-full")).toBe("true");
+      expect(behind().some((el) => el.hasAttribute("inert"))).toBe(false);
+    });
+
+    it("also holds for the box section", () => {
+      phone(true, true);
+      renderApp({ project: project() });
+      fireEvent.click(handle());
+      expect(behind().some((el) => el.hasAttribute("inert"))).toBe(false);
+      const box = sheet().querySelector("#section-box") as HTMLDetailsElement;
+      box.open = true;
+      fireEvent(box, new Event("toggle"));
+      expect(behind().every((el) => el.hasAttribute("inert"))).toBe(true);
+      expect(sheet().getAttribute("data-editing")).toBeNull();
+    });
   });
 
   it("fills the screen for the box, and folds back to the list when closed", () => {

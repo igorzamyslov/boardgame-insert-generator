@@ -1809,8 +1809,8 @@ html:has(dialog.modal[open]) {
   }
 
   /* The editor has the whole screen, its own bar and way back: the section titles step aside. */
-  .pf-sheet[data-full="true"]:has(.editor-panel) .pf-acc:not(:has(.editor-panel)),
-  .pf-sheet[data-full="true"]:has(.editor-panel) .pf-acc > summary {
+  .pf-sheet[data-editing="true"] .pf-acc:not([open]),
+  .pf-sheet[data-editing="true"] .pf-acc > summary {
     display: none;
   }
 }

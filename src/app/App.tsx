@@ -23,7 +23,7 @@ import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
 import { misfitOf } from "../ui/noFit";
 import { StatusLine } from "../ui/StatusLine";
-import { PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
+import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { Summary } from "../ui/Summary";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
 import { Section } from "../ui/Section";
@@ -143,7 +143,9 @@ export function App(props: AppProps) {
   const firstVisit = project.components.length === 0;
   // Below 760 px the rail is a sheet at the foot of the screen: folded, with its handle showing.
   const phone = useMediaQuery(PHONE_QUERY);
+  const narrow = useMediaQuery(NARROW_QUERY);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetHandle = useRef<HTMLButtonElement>(null);
   // A tray picked on a phone: its bar comes up over the sheet's handle, not under it.
   const selection = s.selection.value;
   useEffect(() => {
@@ -445,12 +447,20 @@ export function App(props: AppProps) {
     run.status !== "running" &&
     canOptimize(project, validation);
 
+  // The editor is showing in the sheet, or the box has it: the sheet is "full"; below 600 px that
+  // fills the screen, and what is behind it is out of reach of Tab and screen readers (inert).
+  const editing = editingId !== null && openSection === "components";
+  const sheetFull = editingId !== null || openSection === "box";
+  const sheetCoversScreen = phone && narrow && !firstVisit && sheetOpen && sheetFull;
+  // `inert` is not in Preact's typings yet.
+  const behindSheet = { inert: sheetCoversScreen } as Record<string, unknown>;
+
   return (
     <ValidationContext.Provider value={validation}>
       <SizingContext.Provider value={sizingNotices}>
         <SettingsContext.Provider value={projSettings}>
           <div class="pf-app">
-            <div class="app-top">
+            <div class="app-top" {...behindSheet}>
               <AppHeader
                 name={project.name}
                 onRename={(name) => store.edit((q) => renameProject(q, name))}
@@ -536,7 +546,9 @@ export function App(props: AppProps) {
                   title="What's inside"
                   meta={summaries.components}
                   expanded={sheetOpen}
-                  full={editingId !== null || openSection === "box"}
+                  full={sheetFull}
+                  editing={editing}
+                  handleRef={sheetHandle}
                   onExpandedChange={(open) => {
                     setSheetOpen(open);
                     // The box has the sheet to itself: folding it comes back to the list.
@@ -551,7 +563,7 @@ export function App(props: AppProps) {
                         onClick={() => {
                           store.refit();
                           // The button goes with the search: the handle keeps the place.
-                          document.querySelector<HTMLElement>(".pf-sheet__handle")?.focus();
+                          sheetHandle.current?.focus();
                         }}
                       >
                         Keep searching
@@ -567,7 +579,7 @@ export function App(props: AppProps) {
                   {railSections}
                 </section>
               )}
-              <main class="pf-app__stage" ref={mainRef}>
+              <main class="pf-app__stage" ref={mainRef} {...behindSheet}>
                 <h2 class="visually-hidden">Results</h2>
                 <StatusLine
                   run={run}

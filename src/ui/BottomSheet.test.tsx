@@ -144,6 +144,24 @@ describe("BottomSheet", () => {
     expect(action.parentElement).toBe(screen.getByRole("button", { name: "List" }).parentElement);
   });
 
+  it("marks the editor, and hands its handle to the owner", () => {
+    const handleRef = { current: null as HTMLButtonElement | null };
+    render(
+      <BottomSheet
+        label="Sheet"
+        title="List"
+        expanded
+        editing
+        handleRef={handleRef}
+        onExpandedChange={() => undefined}
+      >
+        <p>Inside</p>
+      </BottomSheet>,
+    );
+    expect(screen.getByRole("region").getAttribute("data-editing")).toBe("true");
+    expect(handleRef.current).toBe(screen.getByRole("button", { name: "List" }));
+  });
+
   it("marks a sheet that fills the screen", () => {
     render(<Harness start full />);
     expect(screen.getByRole("region").getAttribute("data-full")).toBe("true");
@@ -151,20 +169,53 @@ describe("BottomSheet", () => {
 });
 
 describe("the sheet's styles", () => {
-  const rule = (selector: string): string => {
-    const rules = css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g);
-    return [...rules]
-      .filter(([, sel = ""]) => sel.split(",").some((s) => s.trim() === selector))
-      .map(([, , body = ""]) => body)
-      .join("\n");
-  };
+  const stripped = css.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  /** The text between the braces that open at `open`, braces inside included. */
+  function blockAt(open: number): string {
+    let depth = 0;
+    for (let i = open; i < stripped.length; i++) {
+      depth += stripped[i] === "{" ? 1 : stripped[i] === "}" ? -1 : 0;
+      if (depth === 0) {
+        return stripped.slice(open + 1, i);
+      }
+    }
+    return "";
+  }
+
+  /** Every rule as [selector list, body], whatever block it sits in. */
+  function rulesIn(source: string): [string[], string][] {
+    return [...source.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel = "", body = ""]) => [
+      sel
+        .replace(/@media[^{]*\{/, "")
+        .split(",")
+        .map((x) => x.trim()),
+      body,
+    ]);
+  }
 
   it("gives the handle a 44 px target", () => {
-    expect(rule(".pf-sheet__handle")).toMatch(/min-height:\s*var\(--control-h\)/);
+    const body = rulesIn(stripped).find(([sel]) => sel.includes(".pf-sheet__handle"))?.[1];
+    expect(body).toMatch(/min-height:\s*var\(--control-h\)/);
   });
 
-  it("stops moving when the person asks for less motion", () => {
-    const reduced = /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\}/.exec(css)?.[1];
-    expect(reduced).toMatch(/\.pf-sheet\b[^{]*\{[^}]*transition:\s*none/);
+  it("turns off every transition the sheet has when the person asks for less motion", () => {
+    const at = stripped.indexOf("@media (prefers-reduced-motion: reduce)");
+    expect(at).toBeGreaterThan(-1);
+    const reducedBody = blockAt(stripped.indexOf("{", at));
+    const reduced = new Set(
+      rulesIn(reducedBody)
+        .filter(([, body]) => /transition:\s*none/.test(body))
+        .flatMap(([sel]) => sel),
+    );
+    const outside = stripped.slice(0, at) + stripped.slice(at + reducedBody.length);
+    const animated = rulesIn(outside)
+      .filter(([, body]) => /transition:\s*(?!none)/.test(body))
+      .flatMap(([sel]) => sel)
+      .filter((sel) => sel.includes(".pf-sheet"));
+    expect(animated.length).toBeGreaterThanOrEqual(3);
+    for (const sel of animated) {
+      expect(reduced.has(sel), sel).toBe(true);
+    }
   });
 });

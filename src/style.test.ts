@@ -3,6 +3,7 @@ import css from "./style.css?raw";
 import proof from "./styles/proof.css?raw";
 import tokens from "./styles/tokens.css?raw";
 import { contrast } from "./ui/color";
+import { PHONE_QUERY } from "./ui/useMediaQuery";
 
 /** The declarations block of the first rule whose selector list contains `selector`. */
 function ruleFor(selector: string, source = css): string {
@@ -168,6 +169,34 @@ describe("the phone layout", () => {
     expect(ruleFor(".settings-sheet .modal-body")).toMatch(/position:\s*relative/);
     expect(ruleFor(".settings-sheet[open]")).toMatch(/overflow:\s*hidden/);
     expect(ruleFor(".settings-sheet")).toMatch(/dvh/);
+  });
+
+  it("breaks at the width the app asks about", () => {
+    const px = /\(width < (\d+)px\)/.exec(PHONE_QUERY)?.[1];
+    expect(px).toBe("760");
+    expect(css).toContain(`@media (width < ${px}px)`);
+  });
+
+  it("puts the status pill first and the figures after the box", () => {
+    expect(ruleFor(".pf-app__stage > .pf-status", phoneLayout)).toMatch(/order:\s*-1/);
+    expect(ruleFor(".pf-app__stage > .stage-block", phoneLayout)).toMatch(/order:\s*2/);
+  });
+
+  it("fills the screen with an open sheet that holds the editor or the box, below 600 px", () => {
+    const at = css.indexOf("@media (width < 600px) {\n  .pf-sheet");
+    expect(at).toBeGreaterThan(-1);
+    const body = ruleFor('.pf-sheet[data-full="true"][data-expanded="true"]', css.slice(at));
+    expect(body).toMatch(/inset:\s*0/);
+    expect(body).toMatch(/height:\s*100dvh/);
+  });
+
+  it("makes every button 44 px by default", () => {
+    // the rule for `button` alone, not the shared `button, input, select` one
+    expect(/\nbutton \{([^}]*)\}/.exec(css)?.[1]).toMatch(/min-height:\s*var\(--control-h\)/);
+  });
+
+  it("keeps the plan at least 24 rem tall, so the stage scrolls rather than shrink it", () => {
+    expect(ruleFor(".pf-app__stage > .pf-view")).toMatch(/min-height:\s*24rem/);
   });
 
   it("gives the view's tabs a 44 px target", () => {
