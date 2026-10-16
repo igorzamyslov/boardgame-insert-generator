@@ -141,6 +141,39 @@ describe("render", () => {
     expect(doc.getElementsByTagName("line").length).toBeGreaterThan(0);
   });
 
+  // light-dark() and var() are CSS-only: a standalone SVG, and so the PNG made from it, shows
+  // nothing for them. Paper colours must be plain hex (shadeHex(kind, i, "light") when they move
+  // to the per-component shades).
+  it("keeps CSS-only colour functions out of the SVG and its data URL", () => {
+    const comp = (key: string, contents: string, x: number) =>
+      makeTray({
+        key,
+        x,
+        y: 0,
+        w: 40,
+        d: 30,
+        compartments: [
+          { x: 1, y: 1, w: 30, d: 20, floorZ: 1, kind: "well", contents, features: [] },
+        ],
+      });
+    const two = makeLayout("h", [
+      comp("a:p0:0", "Action ×10", 0),
+      comp("b:p0:0", "Market ×10", 50),
+    ]);
+    const svgs = render(two, fixtureProject());
+    expect(svgs.length).toBeGreaterThan(0);
+    for (const svg of svgs) {
+      for (const text of [svg, decodeURIComponent(svgDataUrl(svg))]) {
+        expect(text).not.toContain("light-dark(");
+        expect(text).not.toContain("var(");
+      }
+      const colours = [...svg.matchAll(/(?:fill|stroke)="([^"]+)"/g)].map((m) => m[1]);
+      for (const c of colours) {
+        expect(c, `colour ${c}`).toMatch(/^(none|#[0-9a-f]{3,8})$/i);
+      }
+    }
+  });
+
   it("fills each tray with the tint of its component and adds the kind glyph", () => {
     const comp = (key: string, contents: string, x: number) =>
       makeTray({

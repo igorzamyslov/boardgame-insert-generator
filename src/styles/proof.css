@@ -23,11 +23,6 @@
   color: var(--ink-soft);
 }
 
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
 /* Frame: a sheet, with crop marks standing off its corners. */
 .pf-frame {
   position: relative;
@@ -1091,7 +1086,7 @@
 }
 
 .pf-seg__opt:has(input:focus-visible) {
-  outline: 2px solid var(--focus);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 

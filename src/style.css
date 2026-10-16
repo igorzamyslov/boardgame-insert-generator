@@ -1,4 +1,4 @@
-/* src/style.css: the app's own rules, on the Proof tokens and components (styles/proof*.css). */
+/* src/style.css: the app's own rules, on the tokens (styles/tokens.css) and the base components (styles/proof.css). */
 
 *,
 *::before,
@@ -18,8 +18,8 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--font-ui);
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 a {

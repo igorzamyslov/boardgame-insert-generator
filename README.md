@@ -94,12 +94,28 @@ with trays exported now.
 
 ## Look
 
-The interface uses the Proof design system: `src/styles/proof-tokens.css` (tokens,
-compiled from its `tokens.json`) and `src/styles/proof.css` (its `pf-` components) are
-copied in as they are, and `src/style.css` holds only the app's own rules. One typeface
-(Hanken Grotesk, falling back to the system sans; the page loads no web fonts), sentence-case
-labels, solid selected states, shaped notices and a dotted edge for Advanced fields come from
-there. Update the two copied files together when the design system changes.
+The redesign's tokens live in `src/styles/tokens.css`: page, sheet, ink, muted, rule, edge, box
+and focus colours, one fill/line/ink triple per component kind (cards blue, bits amber, tiles
+green, miniatures rose, custom violet), the hatched spacer, spacing, radii and the two typefaces.
+Light is the default; a warm dark set redefines the same names under
+`prefers-color-scheme: dark` (screen only, so printing stays on white). Text keeps 4.5:1 and
+edges 3:1 against their ground in both, and `src/style.test.ts` checks it. Every focusable
+element gets a 3 px `--focus` outline (`:focus-visible` in `tokens.css`).
+
+`shadeOf(kind, index)` in `src/ui/identity.ts` gives each component of a kind its own shade of
+the kind's hue (`light-dark(…)` colours, so one inline style follows the scheme; `shadeHex`
+gives plain hex per scheme). `light-dark()` only works in the page's own CSS: the 3D view,
+the PNG and SVG export and anything printed must use `shadeHex(kind, i, "light")` (paper is
+always light); a test keeps `light-dark(` out of the exported SVG. `src/ui/identity.test.ts` checks the base
+shades against the tokens and the contrast of every shade.
+
+Headings use Bricolage Grotesque (500, 700) and everything else Figtree (400, 600, 700),
+both self-hosted from `@fontsource` packages (`src/styles/fonts.css` declares only those
+weights, woff2, latin and latin-ext subsets; Vite emits the files as relative assets, so `base: "./"` keeps working and the page
+requests nothing from another host). Their SIL OFL licences are added to
+`third-party-licenses.txt` by `licenses.config.ts`. `src/styles/proof.css` (the older `pf-`
+components) stays until the new screens replace it; it reads the new tokens through a short
+block of legacy names at the end of `tokens.css`. `src/style.css` holds the app's own rules.
 
 ## Architecture
 

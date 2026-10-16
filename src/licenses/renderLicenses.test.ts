@@ -41,6 +41,8 @@ describe("licenses file", () => {
       "Clipper2",
       "@preact/signals",
       "fflate",
+      "@fontsource/bricolage-grotesque",
+      "@fontsource/figtree",
     ]);
   });
 

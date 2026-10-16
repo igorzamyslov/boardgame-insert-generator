@@ -24,6 +24,8 @@ export const REQUIRED_PACKAGES = [
   "preact",
   "@preact/signals",
   "fflate",
+  "@fontsource/bricolage-grotesque",
+  "@fontsource/figtree",
 ];
 
 const RULE = "=".repeat(72);
