@@ -260,7 +260,7 @@ export function ComponentList({
                           aria-label={
                             chip.kind === "pin"
                               ? `Unpin ${who}${inStack(chip.trayKeys, locks) ? " and its stack" : ""}`
-                              : `Remove the size lock on ${who}`
+                              : `Unlock size of ${who}`
                           }
                           onClick={(e) => {
                             pressed.current = {

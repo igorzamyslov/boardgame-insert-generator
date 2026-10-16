@@ -125,9 +125,13 @@ export function StatusLine(p: StatusLineProps) {
   } else if (p.conflicts.length > 0) {
     pills = p.conflicts.map((c) => (
       <Pill kind="problem" key={`${c.trayKey}|${c.kind ?? ""}`}>
-        <span class="pf-status__text">{`${c.name} doesn't fit with your pins`}</span>
+        <span class="pf-status__text">
+          {c.kind === "size"
+            ? `${c.name} doesn't fit with its size locked`
+            : `${c.name} doesn't fit with your pins`}
+        </span>
         <button type="button" class="pf-status__btn" onClick={() => p.onUnpin(c)}>
-          {c.kind === "size" ? `Unpin size of ${c.name}` : `Unpin ${c.name}`}
+          {c.kind === "size" ? `Unlock size of ${c.name}` : `Unpin ${c.name}`}
         </button>
       </Pill>
     ));

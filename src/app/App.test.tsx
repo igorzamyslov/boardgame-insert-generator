@@ -922,7 +922,8 @@ describe("App", () => {
         ];
       });
       expect(status().textContent).toContain("Action cards doesn't fit with your pins");
-      expect(status().textContent).toContain("Market doesn't fit with your pins");
+      expect(status().textContent).toContain("Market doesn't fit with its size locked");
+      expect(screen.getByRole("button", { name: "Unlock size of Market" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Fix the fit to download" })).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Unpin Action cards" }));
       // only that pin goes, and the plan updates; the other conflict waits for the run's verdict

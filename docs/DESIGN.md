@@ -335,7 +335,8 @@ the tray at fault, shown as is. Each rule shows as a chip on the component's row
 - updating: a run is pending, Download waits;
 - no fit: names the tray (`misfitOf` in `src/ui/noFit.ts`) and offers "Edit <name>"; on a phone
   Keep searching moves to the bottom sheet's bar;
-- pin conflict: "<name> doesn't fit with your pins" with one "Unpin <name>" per conflicting pin.
+- pin conflict: "<name> doesn't fit with your pins" with one "Unpin <name>" per conflicting pin; for
+  a size lock it reads "<name> doesn't fit with its size locked" and "Unlock size of <name>".
   The "H of B mm high" figure uses the height below the reserved headroom.
 
 **Plan banners and notices.** `src/ui/Notices.tsx` renders them; `src/ui/noticePlacement.ts`

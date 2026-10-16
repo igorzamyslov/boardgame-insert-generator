@@ -172,7 +172,7 @@ describe("ComponentList", () => {
       fireEvent.click(unpin);
       view.rerender(<ComponentList components={comps} locks={[locks[1] as Lock]} {...h} />);
       expect(document.activeElement).toBe(
-        screen.getByRole("button", { name: "Remove the size lock on Main deck" }),
+        screen.getByRole("button", { name: "Unlock size of Main deck" }),
       );
       fireEvent.click(document.activeElement as HTMLElement);
       view.rerender(<ComponentList components={comps} locks={[]} {...h} />);
@@ -196,7 +196,7 @@ describe("ComponentList", () => {
       const locks: Lock[] = [{ kind: "size", trayKey: "b:p0:0", w: 1, d: 1, h: 1 }];
       const h = handlers();
       render(<ComponentList components={comps} locks={locks} {...h} />);
-      fireEvent.click(screen.getByRole("button", { name: "Remove the size lock on Gems" }));
+      fireEvent.click(screen.getByRole("button", { name: "Unlock size of Gems" }));
       expect(h.onUnlockSize).toHaveBeenCalledWith(["b:p0:0"]);
     });
 

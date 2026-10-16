@@ -228,7 +228,11 @@ describe("StatusLine", () => {
         />,
       );
       expect(screen.getByRole("button", { name: "Unpin Boards" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Unpin size of Boards" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Unlock size of Boards" })).toBeTruthy();
+      // only a position lock is a pin: the size lock keeps its own words
+      expect(screen.queryByRole("button", { name: /^Unpin size/ })).toBeNull();
+      expect(screen.getByText("Boards doesn't fit with its size locked")).toBeTruthy();
+      expect(screen.getByText("Boards doesn't fit with your pins")).toBeTruthy();
     });
 
     it("speaks before a no-fit, and has no Keep searching of its own", () => {

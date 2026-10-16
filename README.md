@@ -56,7 +56,7 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    turns it (which pins its stack), "Swap with…" swaps two trays (drag one onto another, or
    use the keyboard; both stacks are pinned), "Lock size" holds it at the size it is, and "Edit"
    opens its item. A line says why an action is blocked. Pins and size locks also show
-   as chips on the item's row, each with an x ("Unpin", "Remove the size lock").
+   as chips on the item's row, each with an x ("Unpin", "Unlock size").
    The optimizer works around them and never drops one silently.
 6. **3D view.** The "3D" tab shows the trays (it needs WebGL; the rest works without), with
    an explode slider, "Show layers", a tray picker and "Show axes", a small X, Y, Z indicator
