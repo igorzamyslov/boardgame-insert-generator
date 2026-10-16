@@ -71,18 +71,6 @@ const C = makeTray({
   d: 96,
   compartments: [],
 });
-const L = makeTray({
-  key: "leftover:0",
-  part: "leftover",
-  path: "11",
-  stack: 2,
-  x: 0,
-  y: 0,
-  w: 5,
-  d: 5,
-  compartments: [],
-});
-
 const L2 = makeTray({
   key: "leftover:1",
   part: "leftover",
@@ -158,9 +146,7 @@ function setup(over: Partial<PlanViewProps> = {}) {
     selectedKey: null,
     onSelect: vi.fn(),
     onSwap: vi.fn(),
-    onToggleLock: vi.fn(),
     sizeLockedKeys: new Set<string>(),
-    onToggleSizeLock: vi.fn(),
     level: 0,
     onLevelChange: vi.fn(),
     swapFrom: null,
@@ -311,13 +297,6 @@ describe("PlanView", () => {
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
   });
 
-  it("hints that the details of a stale layout may not match the inputs", () => {
-    const { view, p } = setup({ selectedKey: "a:p0:0" });
-    expect(screen.queryByText(/Inputs changed/)).toBeNull();
-    view.rerender(<Host {...p} stale />);
-    expect(screen.getByText(/Inputs changed — .*update the plan/i)).toBeTruthy();
-  });
-
   it("pointercancel resets the drag", () => {
     const { p, svg } = setup();
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Region deck/ }), {
@@ -421,22 +400,18 @@ describe("PlanView", () => {
   });
 
   it("refuses a leftover as the swap partner and cannot start a swap from one", () => {
-    const { p, view } = setup({ trays: [A, B, L2], selectedKey: "a:p0:0" });
-    fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
+    const { p } = setup({ trays: [A, B, L2], selectedKey: "a:p0:0", swapFrom: "a:p0:0" });
     fireEvent.keyDown(screen.getByRole("button", { name: /^Spare/ }), { key: "Enter" });
     expect(p.onSwap).not.toHaveBeenCalled();
     expect(screen.getByRole("status").textContent).toMatch(/can't be swapped/);
     fireEvent.keyDown(screen.getByRole("button", { name: /^Dice/ }), { key: "Enter" });
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
-    view.rerender(<Host {...p} selectedKey="leftover:1" />);
-    expect(screen.getByRole("button", { name: "Swap with…" }).hasAttribute("disabled")).toBe(true);
   });
 
   it("clears the selection and swap mode on Escape wherever the focus is", () => {
-    const { p, view } = setup({ selectedKey: "a:p0:0" });
-    fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
+    const { p, view } = setup({ selectedKey: "a:p0:0", swapFrom: "a:p0:0" });
     expect(screen.getByRole("status")).toBeTruthy();
-    fireEvent.keyDown(screen.getByRole("button", { name: "Swap with…" }), { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Region deck/ }), { key: "Escape" });
     expect(p.onSelect).toHaveBeenCalledWith(null);
     expect(screen.queryByRole("status")).toBeNull();
     expect(view.container.querySelectorAll("[data-key]").length).toBeGreaterThan(0);
@@ -483,48 +458,21 @@ describe("PlanView", () => {
     expect(p.onSwap).not.toHaveBeenCalled();
   });
 
-  it("swaps with the keyboard: select, Swap with…, Enter on the other tray", () => {
-    const { p, view } = setup();
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Region deck/ }), { key: "Enter" });
-    expect(p.onSelect).toHaveBeenCalledWith("a:p0:0");
-    view.rerender(<Host {...p} selectedKey="a:p0:0" />);
-    fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
+  it("swaps with the keyboard: select, start a swap from the tray bar, Enter on the other tray", () => {
+    const { p } = setup({ selectedKey: "a:p0:0", swapFrom: "a:p0:0" });
     expect(screen.getByRole("status").textContent).toMatch(/Choose the tray to swap with/);
     fireEvent.keyDown(screen.getByRole("button", { name: /^Dice/ }), { key: "Enter" });
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
   });
 
-  it("toggles the lock of the selected tray and refuses leftovers", () => {
-    const { p, view } = setup({ selectedKey: "a:p0:0" });
-    fireEvent.click(screen.getByRole("button", { name: "Lock position" }));
-    expect(p.onToggleLock).toHaveBeenCalledWith("a:p0:0");
-    view.rerender(<Host {...p} lockedKeys={new Set(["a:p0:0"])} />);
-    expect(screen.getByRole("button", { name: "Region deck, layer 1, pinned" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Unlock position" })).toBeTruthy();
-    view.rerender(<Host {...p} trays={[A, B, L]} selectedKey="leftover:0" />);
-    expect(screen.getByRole("button", { name: "Lock position" }).hasAttribute("disabled")).toBe(
-      true,
-    );
-  });
-
-  it("toggles the size lock of the selected tray and marks size-locked trays", () => {
-    const { p, view } = setup({ selectedKey: "a:p0:0" });
-    expect(screen.getByText("Size locked").nextElementSibling?.textContent).toBe("No");
-    fireEvent.click(screen.getByRole("button", { name: "Lock size" }));
-    expect(p.onToggleSizeLock).toHaveBeenCalledWith("a:p0:0");
+  it("marks pinned and size-locked trays on the tile and in the name", () => {
+    const { p, view } = setup();
     view.rerender(<Host {...p} sizeLockedKeys={new Set(["a:p0:0"])} />);
     expect(screen.getByRole("button", { name: "Region deck, layer 1, size locked" })).toBeTruthy();
     expect(screen.getByText("size locked")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Unlock size" })).toBeTruthy();
-    view.rerender(<Host {...p} trays={[A, B, L]} selectedKey="leftover:0" />);
-    expect(screen.queryByRole("button", { name: "Lock size" })).toBeNull();
-  });
-
-  it("shows a lipped tray's printed height, lip included", () => {
-    setup({ selectedKey: "a:p0:0", trays: [{ ...A, h: 40, lip: true }, B, C] });
-    expect(screen.getByText("Outer size").nextElementSibling?.textContent).toBe(
-      `90.0 × 99.0 × ${(40 + DEFAULT_SETTINGS.lip.height).toFixed(1)} mm with its lip`,
-    );
+    view.rerender(<Host {...p} lockedKeys={new Set(["a:p0:0"])} />);
+    expect(screen.getByRole("button", { name: "Region deck, layer 1, pinned" })).toBeTruthy();
+    expect(screen.getByText("pinned")).toBeTruthy();
   });
 
   it("switches layers", () => {
@@ -573,9 +521,7 @@ describe("PlanView", () => {
   });
 
   it("keeps the swap under way in the app, and ends it when the selection is cleared", () => {
-    const { p, view } = setup({ selectedKey: "a:p0:0" });
-    fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
-    expect(p.onSwapFromChange).toHaveBeenLastCalledWith("a:p0:0");
+    const { p, view } = setup({ selectedKey: "a:p0:0", swapFrom: "a:p0:0" });
     expect(screen.getByRole("status").textContent).toMatch(/Choose the tray to swap with/);
     view.rerender(<Host {...p} selectedKey={null} />);
     expect(p.onSwapFromChange).toHaveBeenLastCalledWith(null);
@@ -653,12 +599,10 @@ describe("PlanView", () => {
     expect(planCss).toMatch(/\.plan-svg\.is-stale\s*{[^}]*grayscale\(0\.8\)/);
   });
 
-  it("shows the lock and swap buttons for the selected tray", () => {
-    setup({ selectedKey: "a:p0:0" });
-    expect(screen.getByRole("heading", { name: /#1/ })).toBeTruthy();
-    for (const name of ["Lock position", "Lock size", "Swap with…"]) {
-      expect(screen.getByRole("button", { name })).toBeTruthy();
-    }
+  it("shows the tray bar it is given under the drawing", () => {
+    const { svg } = setup({ selectedKey: "a:p0:0", bar: <p>The tray bar</p> });
+    const bar = screen.getByText("The tray bar");
+    expect(svg.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("draws the selection ring after the tiles", () => {

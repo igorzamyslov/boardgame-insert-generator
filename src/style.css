@@ -858,50 +858,121 @@ span.inserts-name {
 }
 
 /*
- * The drawing above keeps one size whether or not a tray is selected. This area is the same
- * height either way, so picking a tray fills it instead of squeezing the plan, and details
- * longer than it scroll inside. Below 960px the page scrolls as a whole and it simply grows.
+ * The drawing above keeps most of the height whether or not a tray is selected: this area grows
+ * with the tray bar up to a ceiling, and what is longer than that scrolls inside, behind the bar's
+ * own buttons, which stay in view. Below 960px the page scrolls as a whole and it simply grows.
  */
 @media (width > 960px) {
   .plan-toolbar {
     flex: 0 0 auto;
-    height: 10rem;
+    min-height: 5rem;
+    max-height: 15rem;
     overflow: auto;
   }
 }
 
-.tray-details {
-  display: grid;
-  gap: var(--space-1);
+/* The 3D view's tray bar sits under the picker. */
+.view-bar {
+  margin-top: var(--space-3);
 }
 
-.tray-details h3 {
+/* The tray bar: what the selected tray is and what can be done with it. */
+.tray-bar {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.tray-bar__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.tray-bar h3 {
+  flex: 1 1 auto;
   margin: 0;
   font-size: 20px;
   line-height: 26px;
 }
 
-.tray-details dl {
+.tray-bar__chip {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--sheet-sunken);
+  font: 600 14px/22px var(--font-ui);
+}
+
+.tray-bar dl {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
   gap: var(--space-1) var(--space-4);
   margin: 0;
 }
 
-.tray-details dt {
+.tray-bar dt {
   color: var(--ink-soft);
   font: 500 14px/20px var(--font-ui);
 }
 
-.tray-details dd {
+.tray-bar dd {
   margin: 0;
   font: 500 14px/20px var(--font-ui);
   font-variant-numeric: tabular-nums;
 }
 
-.tray-contents {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-5);
+/* What it holds is one line, whatever there is of it: the title has the rest. */
+.tray-bar__contents dd {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tray-bar__chips {
+  display: contents;
+}
+
+/* The buttons and the reason stay in view while the rest of the bar scrolls. */
+.tray-bar__foot {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-1);
+  background: var(--sheet);
+}
+
+.tray-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Every control is a full-size target; the icon-only Close is as wide as it is tall. */
+/* stylelint-disable-next-line no-descending-specificity */
+.tray-bar button {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+}
+
+.tray-bar button[aria-pressed="true"],
+.tray-bar button[data-on="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.tray-bar__close {
+  border-color: transparent;
+  background: transparent;
+}
+
+.tray-bar p {
+  margin: 0;
 }
 
 /* The axis indicator sits over the canvas' corner and lets every pointer event through. */

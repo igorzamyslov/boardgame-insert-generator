@@ -38,6 +38,22 @@ describe("WhatsInside", () => {
     expect(document.activeElement).toBe(row("Item b"));
   });
 
+  it("opens the editor the caller names, and reports a row opened or a way back", () => {
+    const h = { onAdd: vi.fn(), onChange: vi.fn(), onRemove: vi.fn(() => true) };
+    const onOpenChange = vi.fn();
+    const view = render(
+      <WhatsInside components={three} {...h} openId={null} onOpenChange={onOpenChange} />,
+    );
+    fireEvent.click(row("Item b"));
+    expect(onOpenChange).toHaveBeenLastCalledWith("b");
+    // Still the list until the caller says otherwise.
+    expect(screen.queryByRole("heading", { name: "Item b" })).toBeNull();
+    view.rerender(<WhatsInside components={three} {...h} openId="c" onOpenChange={onOpenChange} />);
+    expect(screen.getByRole("heading", { name: "Item c" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(onOpenChange).toHaveBeenLastCalledWith(null);
+  });
+
   it("passes edits on with the component's id", () => {
     const { onChange } = setup(three);
     fireEvent.click(row("Item c"));
