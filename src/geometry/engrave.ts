@@ -163,8 +163,10 @@ function engraveIn(
   belowRim: number,
 ): EngravePlan | null {
   const strokesWide = textWidth(text);
-  // the band of the part's height the text sits in, in the printed frame.
-  const lo = plan.chamfer + belowChamfer;
+  // The band of the part's height the text sits in, in the printed frame. It starts above the
+  // chamfer, or above the groove (roof included), which leaves the outer face standing only from
+  // `zTop`; the tighter band keeps its margin above that too, so a name never touches the groove.
+  const lo = (plan.groove ? plan.groove.zTop : plan.chamfer) + belowChamfer;
   const hi = plan.h - belowRim;
   const band = flipped ? { lo: plan.h - hi, hi: plan.h - lo } : { lo, hi };
   const byHeight = (band.hi - band.lo) / GLYPH_ROWS;

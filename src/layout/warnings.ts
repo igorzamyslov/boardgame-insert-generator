@@ -152,8 +152,7 @@ export function layoutWarnings(
 
 /**
  * Where a part can sit in a stack as far as the print bed goes: as a lower tray its walls
- * thicken to the lipped wall; as an upper tray its bottom footprint grows by the lip inset on
- * every side. `bottom`/`top` are false when that size exceeds the bed (in either orientation;
+ * thicken to the lipped wall; as an upper tray its walls thicken to what its groove leaves. `bottom`/`top` are false when that size exceeds the bed (in either orientation;
  * a lipped lower tray prints its lip tall as well), and `bottomSize`/`topSize` give the footprint,
  * in units.
  */
@@ -173,7 +172,7 @@ interface StackRoles {
 function stackRoles(ctx: Ctx, ref: PartRef): StackRoles {
   const lower = ctx.metrics(ref, ctx.lipOn, 0);
   const upper = ctx.metrics(ref, false, 1);
-  const topSize = { w: upper.w + 2 * ctx.inset, d: upper.d + 2 * ctx.inset, h: upper.h };
+  const topSize = { w: upper.w, d: upper.d, h: upper.h };
   const bottomH = printedHeight(ctx, lower.h, ctx.lipOn);
   return {
     bottom: fitsBed(ctx.bed, lower.w, lower.d, bottomH),
@@ -204,7 +203,7 @@ function rolesPhrase(r: StackRoles): string {
 /**
  * Notices about the print bed: an error for requirements that fit it in no variant, splits
  * included, and a warning for requirements whose every variant fits plain but needs a part
- * that cannot be stacked (the locating lip's thicker walls or inset footprint outgrow the
+ * that cannot be stacked (the locating lip's thicker walls, or the groove's, outgrow the
  * bed), which the layout therefore prints with nothing stacked on it or under it.
  */
 export function bedNotices(ctx: Ctx): Notice[] {
@@ -262,7 +261,7 @@ export function bedNotices(ctx: Ctx): Notice[] {
         : "";
       const need = [
         roles.bottom ? null : `${size(roles.bottomSize)} as a lower tray (lipped walls and lip)`,
-        roles.top ? null : `${size(roles.topSize)} as an upper tray (lip inset)`,
+        roles.top ? null : `${size(roles.topSize)} as an upper tray (lip groove)`,
       ].filter((x) => x !== null);
       return `"${label}" fits the bed ${rolesPhrase(roles)}: it needs ${need.join(" and ")}, more than the usable bed ${usableBed(ctx, true)}`;
     });

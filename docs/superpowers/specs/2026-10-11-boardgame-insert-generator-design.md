@@ -43,8 +43,9 @@ box.
 
 - Lids of any kind (sliding, cap, magnetic).
 - Cover sheet (thin plate over the top layer).
-- Flush stacking interlock (matching chamfered groove under the upper tray so
-  stacked trays share the same outer footprint).
+- ~~Flush stacking interlock (matching chamfered groove under the upper tray so
+  stacked trays share the same outer footprint).~~ Done (geometry 0.8.0): §6.1
+  "Locating lip". It replaced the lip's inset rather than being an option.
 - Trays larger than the print bed, split and joined.
 - Leftovers taller than the print bed, split in Z. A leftover is as tall as the
   stacks beside it, so a box taller than the bed's Z range cannot have one: the
@@ -115,10 +116,10 @@ Notes for adding them later without reworking the layout engine:
    Where that can't be ensured (partial headroom coverage, box stored on its
    side), the optimizer avoids it via the score and the layout carries an
    explicit warning (§7.3).
-4. **Clean stacking.** A stacked tray sits inside the lower tray's chamfered
-   locating lip (§6.1) and cannot shift more than `lip.play` per side.
-   With the lip turned off this is not ensured, and the app warns when a
-   layout has stacked trays.
+4. **Clean stacking.** A stacked tray sits flush on the lower tray, with the
+   lower tray's locating lip (§6.1) in a groove under its own outer edge, and
+   cannot shift more than `lip.play` per side. With the lip turned off this is
+   not ensured, and the app warns when a layout has stacked trays.
 5. **Fits the bed.** Every printed part fits the usable bed
    `(bedX − 2·bedMargin) × (bedY − 2·bedMargin) × bedZ`, in either XY rotation; a
    lipped tray is printed `lip.height` taller than its own height.
@@ -563,14 +564,16 @@ reading puts them back, so a link that does not use them is as long as it was.
 - Walls are vertical and the top is open. Floor fillets are concave. No
   bridges or ceilings; raised floors are solid.
 - Outer bottom edge chamfer `bottomChamfer` × 45° against elephant foot
-  (upper trays ≥ 0.5 mm, so they slide into the lip).
+  (upper trays ≥ 0.5 mm). With the lip on, a tray above level 0 has no outer
+  bottom edge: the groove for the lip runs along it (§6.1), and the chamfer is
+  on the groove's foot edge instead, where the elephant foot would press
+  against the lip.
 - Fill (§7.2) thickens walls and dividers toward the compartment only; outer
   faces, lip and insets never move.
 - Minimum feature width 0.8 mm (2 lines of a fixed internal 0.4 mm line-width
-  assumption); no wall, divider or lip is thinner. Exception: the lip's
-  chamfered top tapers to a flat of at least 0.6 mm (the chamfer is
-  `min(0.6, lip.thickness − 0.6)`); the lip is `lip.thickness` (1.2 mm) thick
-  below the chamfer.
+  assumption); no wall, divider or lip is thinner. Exception: the lip's top
+  slopes down, so the lip is `lip.thickness` (1.2 mm) thick at its foot and
+  tapers to a flat of at least 0.6 mm at its outer face.
 - Meshes come out of manifold and are watertight by construction.
 
 **Wall cutouts** (every compartment of a component with `fingerCuts` on: one
@@ -677,23 +680,72 @@ with a flat floor and whole walls. Finger room goes only on the walls and
 dividers a cut actually passes. In a group mixing toggles, each component
 keeps its own: a cut never opens into a well with finger cuts off.
 
-**Locating lip** (on any tray with a tray stacked on it):
+**Locating lip and flush stacking** (geometry 0.8.0; the lip is on any tray with a tray stacked on
+it, the groove is on every tray stacked on a lipped one):
 
-| Part       | Geometry                                                                                                                                                           |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Lip        | The outer `lip.thickness` (1.2) of the wall rises `lip.height` (2) above the rim. `min(0.6, thickness − 0.6)` × 45° chamfer on its inner top edge, flat top ≥ 0.6. |
-| Ledge      | The next `lip.ledge` (1.7) stays at rim height. A lipped outer wall is `max(wall, thickness + ledge)` (2.9).                                                       |
-| Upper tray | Outer face inset `thickness + play` (1.45) per side from the lower tray's outer face.                                                                              |
-| Bearing    | ≥ `ledge − 2·play − upper bottom chamfer` (0.7) in any shifted position; the upper tray also rests on the lower tray's dividers.                                   |
-| Insets     | Add up: the tray at level k is inset `k·(thickness + play)` per side.                                                                                              |
-| Height     | The lip is not part of `tray.h`; it overlaps the upper tray. Upper trays need `h ≥ lip.height + 3`.                                                                |
+A stack is as wide at the top as at the bottom. The lip stands in the outer wall, flush with the
+outer face; the tray above has the same outer footprint and a **groove** along the whole outer
+edge of its underside that takes the lip. Both are shaped so that the groove prints without support.
+Cross-section, `u` in from the outer face, `z` up:
 
-The lip is **off by default**: only the lower tray carries it, so the upper one
-sits inside it with `play` on every side and can rattle. With the lip off the
-inset is zero too (it exists only to clear the lip ring), so upper trays are the
-same footprint as the tray below and bear on its whole rim; the app still warns
-that nothing keys them together (rule 4). Turn the lip on where the trays need
-keying.
+| Part       | Geometry                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lip        | The outer `lip.thickness` (1.2) of the wall rises `lip.height` (2) above the rim at the outer face, flat for 0.6 mm, then a 45° ramp down to `zIn` = height − (thickness − 0.6) = 1.4 at its inner face, which is vertical. A low or thick lip gets a longer flat, not a lower inner face: `zIn` is at least 0.6. The outer face is the tray's own, so the stack's footprint does not change.                              |
+| Groove     | The lip's shape, `play` further out and up, open to the outside: the vertical inner wall at `u = thickness + play` (1.45) up to `zIn`, a 45° roof from there out to the outer face at `zTop` = flat + height + play (2.85), where the tray's own outer face starts. A 0.5 mm foot chamfer (the bottom chamfer, at least 0.5, at most `zIn`) on the edge where the inner wall meets the bottom face, against elephant foot. |
+| Ledge      | The next `lip.ledge` (1.7) stays at rim height. A lipped outer wall is `max(wall, thickness + ledge)` (2.9).                                                                                                                                                                                                                                                                                                               |
+| Upper tray | The same outer footprint as the tray below. Its outer wall is at least `grooveWall` (2.56 at the defaults), see below, so the groove stays under the wall and not under a well.                                                                                                                                                                                                                                            |
+| Bearing    | ≥ `ledge − 2·play − foot chamfer` (0.7) in any shifted position, as before; the upper tray also rests on the lower tray's dividers.                                                                                                                                                                                                                                                                                        |
+| Height     | The lip is not part of `tray.h`; it overlaps the upper tray. Upper trays need `h ≥ lip.height + 3`, which also leaves the outer face standing 2 mm above the groove.                                                                                                                                                                                                                                                       |
+
+- **It replaces the inset, it is not a second setting.** The four `lip` settings keep their
+  meaning (height at the outer face, thickness at the foot, ledge, play) and their defaults; there is
+  no "flush" switch next to them, because a lip that makes a stack narrower at every level is only
+  a worse lip (`wallGrowth` is the precedent for the mistake of a second setting that does almost
+  what an existing one does). The layout has no inset any more: a level stands flush in the one
+  below, a stack's footprint is the footprint of its widest tray, and the room an upper tray gained
+  is room for its contents or its fillers. With the lip off nothing differs from before.
+- **Supported without supports.** The groove's roof falls 45° from its inner wall to the outer
+  face, the angle of the bottom chamfer, so each layer lies over the one below it (the printability
+  check, normal.z ≥ −0.71, passes with margin; the part-number engraving's 51° roof is the other
+  precedent). The inner wall is vertical, the foot chamfer slopes the other way. The lip's own
+  ramp faces up. Both are built as convex lofts of the outer ring offset inward (`buildGroovedOuter`,
+  `buildLip`), so every slope is exact, also at the rounded corners.
+- **The floor is not cut.** The groove runs under the outer wall, not under the wells: it reaches
+  `inset + foot` = 1.95 mm in at the bed, 1.45 up to 1.4 mm high, and the well starts further in.
+  A tray above level 0 keeps `grooveWall` of wall around its wells, the most of three limits: at
+  least MIN_FEATURE_MM (0.8) between the well's bottom edge and the groove (at the lowest floor,
+  so a higher floor only helps; 2.25 at the defaults); at least the groove's reach; and enough that
+  no well corner shrinks the outer corner radius (up to 4 mm), because the groove fits the lip
+  below to within `play` only where the two trays have the same corner radius (the play shrinks by
+  0.41 mm for each mm the upper radius is smaller than the lower one): 2.56 at the defaults. The
+  floor under the wells keeps its whole thickness; the existing wall-and-floor-against-the-chamfer
+  rule (`wall + floor − chamfer ≥ 0.8`) is that rule for the groove too (`BottomEdge.at`). Cuts,
+  floor notches, divider slots, corner reliefs and the outer corner radius use the same edge. The
+  part number sits above the groove (1 mm above `zTop`). A tray's smallest outer size is
+  `2 × (reach + 0.8)` across and `zTop + 0.8` high.
+- **Which trays.** Every part above level 0 when the lip is on: trays, and the fillers standing
+  beside them in a stack level (which stand on a lipped tray too). Not trays on the box floor or a
+  riser, not spacers or dividers (always built at level 0). `TraySpec.lip` records the lip; the
+  groove needs no field, it is `level > 0` with the lip on, as the tray below is lipped exactly
+  then. A stored layout from before has trays inset inside the lip ring: it is an older line (§9).
+  A tray can have both, the lip on top and the groove under it; its wall is the thicker.
+- **Cost.** An upper tray's wall is 2.56 against 1.6, and the stack's tray below that carries a lip
+  has 2.9 as before; against the old inset (1.45 per side per level) the inner room of a level 1 tray
+  of a 100 × 60 stack goes from 93.9 × 53.9 to 94.9 × 54.9 mm, of a level 2 tray from 91.0 × 51.0 to
+  94.9 × 54.9, of a tray with a tray above it as well (lip and groove) from 91.3 × 51.3 to
+  94.2 × 54.2. A filler in a stack level is no longer merged with the part beside it while the lip is
+  on (its bridge would reach over the lip). Unmeasured on a printer, see §12.
+- **Limits.** The lip is at the outer edge of every wall: where a finger cut leaves through an outer
+  wall it interrupts the lip, and the groove above is open there anyway. Keying is by the ramp as
+  well as the inner wall: a shift beyond `play` pushes the upper tray up
+  the lip's 45° ramp, which takes a lift, so trays are held in place by their own weight and not by
+  force. A groove runs along the whole outer edge of a filler too, also where nothing is under it
+  (the side facing another part of its level): the wall costs a little there, nothing else.
+
+The lip is **off by default**: only the lower tray carries it, and without it the upper tray has
+no groove and sits on the whole rim below, flush as the lip-off case always was, so it can
+rattle by `trayGap` and the box clearance; the app still warns that nothing keys the trays together
+(rule 4). Turn the lip on where the trays need keying.
 
 **Part numbers** (`engraveNumbers`, schema 0.1.14, geometry 0.7.1). Nine similar trays are hard to
 tell apart, so each printed part carries the number the assembly instructions and the plan give it
@@ -709,7 +761,7 @@ list, and on `engraveNumbers`), so a spec without one builds exactly as before.
   below 1.0 mm a stroke (5 mm tall). Centred on the widest free stretch of the face, centred in
   height. Kept 1.5 mm from the corner arcs (outer corner radius plus 1.5 mm), 3 + 1.5 mm from a
   wall cutout leaving through that face (its fillets and a margin), 1 mm above the bottom chamfer
-  and 1.5 mm below the rim, so the lip, the chamfers, the corner radii and the cutouts stay clear.
+  and 1.5 mm below the rim (above the groove's top, 1 mm above `zTop`, on a tray with one), so the lip, the chamfers, the corner radii and the cutouts stay clear.
   When no face has room, or a wall is too thin, the part is left plain, not forced.
 - **Size and depth.** Digits 3 strokes wide and 5 tall, strokes and gaps the same width: at most
   1.6 mm (8 mm tall, 4.8 mm wide), less on a low part (`(h − chamfer − 2.5) / 5`) or a narrow face.
@@ -873,19 +925,20 @@ fallback: a requirement that still has no variant is left out with a
   (`innerWidth − 2·boxClearance` × `innerDepth − 2·boxClearance`). Internal
   nodes are X or Y cuts; neighbouring leaves are separated by `trayGap`. Each
   leaf is a **stack**: an ordered list of trays. The bottom tray has the
-  leaf's footprint (less any filler beside it); the tray at level k stands in the
+  leaf's footprint (less any filler beside it); the tray at level k stands flush in the
   corner of the tray below it (or at the far end of an axis, where that keeps a filler off a
-  finger cut), one `lip.thickness + lip.play` inset in per side, and is no larger than that
-  tray's inset footprint. A leaf is feasible when, for
-  every level k, `leaf ≥ req_k + 2·k·(lip.thickness + lip.play)`. The stack's
+  finger cut), and is no larger than that tray (§6.1: its groove takes the tray's lip, so there is
+  no inset). A leaf is feasible when, for
+  every level k, `leaf ≥ req_k`. The stack's
   total height (Σ `tray.h`) equals `topPlane`. **A level is one tray plus its
   fillers:** a tray is built at the smallest size that holds its own contents and
-  the inset footprint of the trays above it, so what a tray is stacked on never
-  changes its size or its walls. The room its level has beyond that becomes filler
+  the footprint of the trays above it, so what a tray is stacked on never
+  changes its size or its walls (but its level does: above level 0 with the lip on a tray has the
+  groove's wall). The room its level has beyond that becomes filler
   parts (below); the tree stores one tray per level and the fillers are derived.
 - **Fill:** after placement, slack is shared out.
   - Slack inside a stack level (the room of a tray above level 0, which is the
-    inset footprint of the tray below it) is treated like leaf slack, per level,
+    footprint of the tray below it) is treated like leaf slack, per level,
     against that tray's own settings: elastic axes take it, then wall absorption
     (`wallAbsorb`) if the user allowed it, otherwise a **filler part in that
     level** beside the tray, of any width from `minFiller` for an upper tray
@@ -1336,6 +1389,16 @@ Older apps reading newer files is best effort, as below.
     (§6.4 of the minimal-trays spec): no field is new, `planTray` and every size of a tray realized
     at the same size are unchanged, and only the order and sizes the layout chooses, and the
     position of an upper tray within its level, differ.
+    Geometry 0.8.0 (schema stays 0.1.15) stacks trays flush (§6.1 "Locating lip"): the groove under
+    a tray above level 0, the lip's sloped top, the groove's wall, and no inset in the layout. A
+    MINOR, a breaking change on the pre-1.0 rule: the outer size and wall of every upper tray, and
+    the lip's shape, change, so trays printed before (inset, inside the lip ring) and after (flush,
+    in the groove) do not mate and must not be mixed; with the lip off nothing differs. No field is
+    new or read differently, and the inputs hash is the same, so a stored 0.7.x layout still loads and
+    shows, flagged as an older line (§7.3). With the lip off it builds as before. With the lip on,
+    the upper trays of its stacks are inset inside the lip ring and have a 1.6 mm wall, which
+    `planTray` now refuses (the groove needs more wall, a stricter planTray being a breaking change
+    too): those trays do not build until the plan is run again, which the older-line warning asks for.
   - MAJOR: anything that removes, renames or changes the meaning of a field.
 - **Loading rules** (app schema `A.b.c`, file `X.y.z`):
 
@@ -1400,7 +1463,7 @@ updates run them.
   `export`, `instructions`).
 - **Layout properties**, on randomized inputs plus fixture games: every result
   satisfies all §3 hard rules (tiling with only `boxClearance`/`trayGap`
-  gaps, equal stack heights, lip insets and bearing, bed fit with margin,
+  gaps, equal stack heights, flush stacks and bearing, bed fit with margin,
   minimum sizes, grip on every tray, locks respected or dropped with a
   notice). Same seed + iterations gives the same result (same engine).
 - **Sizing:** card math table, bulk per-axis minimums, packing factor
@@ -1427,4 +1490,7 @@ updates run them.
   covering one card-heavy, one bits-heavy, one with tiles and one with minis.
   Box, headroom and every component measured per §5.
 - **Physical lip test print** before 1.0: a 2-stack with default settings, to
-  confirm the lip fit, bearing and grip.
+  confirm the lip fit, bearing and grip. Since geometry 0.8.0 that means the groove too: that the
+  upper tray drops on with `lip.play` of 0.25 mm, that its roof prints clean on the printer's
+  overhang performance, and that the corner clearance holds (the meshes are checked for
+  interference, not printed).

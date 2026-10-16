@@ -1,3 +1,4 @@
+import type { Groove } from "../model/lip";
 import type { Side } from "../model/types";
 
 // Constants and result types of tray planning (plan.ts). A TrayPlan holds
@@ -5,8 +6,6 @@ import type { Side } from "../model/types";
 // (MIN_FEATURE_MM, UPPER_MIN_CHAMFER, SPEC_TOLERANCE, CORNER_MARGIN)
 // live in ../model/settings (spec §6.1, roadmap §4.6) and are not defined here.
 
-export const LIP_CHAMFER = 0.6; // spec §6.1: 0.6 × 45° on the lip's inner top edge…
-export const LIP_FLAT = 0.6; // …less on a thin lip, so its flat top stays at least this wide
 export const MIN_RELIEF_RADIUS = 0.3; // smaller corner reliefs are dropped
 // Radius of the wells' inner vertical corners (spec §6.1: at most 0.5). buildTray cuts a top
 // fillet this far (and EPS) on into the compartments at its strip's ends: a 3 mm fillet beside a
@@ -74,10 +73,13 @@ export interface CompartmentPlan {
   reliefs: ReliefPlan[];
 }
 
+// The lip ring (model/lip.ts lipShape): `thickness` wide at its foot, `height` high at the outer
+// face with a `flat` top, then a 45° ramp down to `zIn` at the inner face.
 export interface LipPlan {
   height: number;
   thickness: number;
-  chamfer: number;
+  flat: number;
+  zIn: number;
 }
 
 export interface TrayPlan {
@@ -85,10 +87,13 @@ export interface TrayPlan {
   d: number;
   h: number;
   topZ: number; // h + lip height
-  chamfer: number; // outer bottom edge, 45°
+  chamfer: number; // outer bottom edge, 45°; with a groove, the chamfer on the groove's foot edge
   cornerRadius: number; // effective outer vertical corner radius
   outerWall: number; // compartments keep at least this distance to the outer faces
   lip: LipPlan | null;
+  // The groove under a tray that stands on a lipped tray (model/lip.ts grooveOf): replaces the
+  // outer bottom chamfer, which the groove runs along the whole outer edge instead of.
+  groove: Groove | null;
   compartments: CompartmentPlan[];
   notch: CutPlan | null; // a card spacer's notch: its channel running on through it (plan-cuts.ts)
 }

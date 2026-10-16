@@ -2,7 +2,17 @@ import { describe, expect, it } from "vitest";
 import type { TraySpec } from "../model/types";
 import type { Measure } from "./context";
 import { createCtx } from "./context";
-import { boxReq, comp, fakeMeasure, makeInput, part, req, traySpec, variant } from "./test-utils";
+import {
+  boxReq,
+  comp,
+  fakeMeasure,
+  groovedMeasure,
+  makeInput,
+  part,
+  req,
+  traySpec,
+  variant,
+} from "./test-utils";
 import type { LayoutSummary } from "./types";
 import {
   bedNotices,
@@ -228,12 +238,12 @@ describe("layout warnings", () => {
   });
 
   // fakeMeasure: outer = inner + 4 plain, + 6 lipped; the usable bed is 120 mm (130 − 2 × 5);
-  // a lip's inset costs 2.9 mm across.
+  // groovedMeasure: + 5.2 on top of a lipped tray, where the groove thickens the wall.
   const small = { printer: { bedX: 130, bedY: 130 } };
   const wide = boxReq("wide", 115, 40, 10); // 119 plain, 121 lipped: only fits alone
 
   it("warns about a part that fits the bed plain but not with a lip, in no variant", () => {
-    const ctx = createCtx(makeInput([wide, ...reqs], small), fakeMeasure);
+    const ctx = createCtx(makeInput([wide, ...reqs], small), groovedMeasure);
     const n = bedNotices(ctx);
     expect(n).toHaveLength(1);
     expect(n[0]).toMatchObject({ level: "warning", code: NOTICE_CODES.bed });
@@ -268,7 +278,7 @@ describe("layout warnings", () => {
   });
 
   it("names the over-bed tray and the real remedies when nothing else is short", () => {
-    const ctx = createCtx(makeInput([wide, ...reqs], small), fakeMeasure);
+    const ctx = createCtx(makeInput([wide, ...reqs], small), groovedMeasure);
     const over = overBedParts(ctx, [
       traySpec({
         key: "wide:p0:0",

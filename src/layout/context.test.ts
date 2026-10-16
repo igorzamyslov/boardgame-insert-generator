@@ -10,26 +10,30 @@ describe("createCtx", () => {
     expect(ctx.floorD).toBe(20000 - 2 * 50);
     expect(ctx.topPlane).toBe(6000);
     expect(ctx.gap).toBe(20);
-    expect(ctx.inset).toBe(145);
+    expect(ctx).not.toHaveProperty("inset"); // a stack is flush: the groove takes the lip's place
+    expect(ctx.upperWall).toBe(256); // 2.55 mm, the groove's wall, rounded up
     expect(ctx.layer).toBe(20);
     expect(ctx.upperMinH).toBe(500);
     expect(ctx.lipHeight).toBe(200);
     expect(ctx.bed).toEqual({ w: 24600, d: 24600, z: 25600 });
   });
 
-  // The inset exists only to clear the lip ring below. Left in place with the lip off it would
-  // hold the upper tray's floor off the rim it is meant to rest on, so it goes to zero and the
-  // trays stack flush.
-  it("drops the inset to zero when the lip is off, so trays stack flush", () => {
+  // With the lip on a tray above level 0 has a groove along its outer edge for the lip below, and
+  // so a thicker wall; with the lip off it has neither, and is as the tray under it.
+  it("gives upper levels the groove's wall with the lip on, and the plain wall with it off", () => {
     const off = makeInput([], { settings: { lip: { ...DEFAULT_SETTINGS.lip, enabled: false } } });
-    expect(createCtx(off, fakeMeasure).inset).toBe(0);
+    const ctx = createCtx(off, fakeMeasure);
+    expect(ctx.upperWall).toBe(ctx.wall);
+    expect(ctx.minFillerUpper).toBe(Math.max(ctx.wall, 2 * Math.round(100 * (0.5 + 0.8))));
+    expect(createCtx(makeInput([]), fakeMeasure).upperWall).toBeGreaterThan(ctx.wall);
   });
 
   it("applies the fit multiplier to box clearance, gap and lip play", () => {
     const ctx = createCtx(makeInput([], { settings: { fit: 1.4 } }), fakeMeasure);
     expect(ctx.boxClearance).toBe(70);
     expect(ctx.gap).toBe(28);
-    expect(ctx.inset).toBe(155);
+    // the groove is a little wider with more lip play, and so is its wall
+    expect(ctx.upperWall).toBeGreaterThan(256);
   });
 
   it("measures parts in ceil units with slack capacities", () => {

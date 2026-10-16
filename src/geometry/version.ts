@@ -83,6 +83,7 @@ import type { Semver } from "../model/version";
  * trays printed before and after still mate and stack; what differs is the inside of a deck's
  * well (wider, no spacer to fill it). A stored 0.7.1 layout builds as before, with the spacers it
  * stored, until its plan is run again.
+ *
  * 0.7.3 engraves the part's short name (`TraySpec.partName`, `settings.engraveNames`; capitals of a 3
  * by 5 block font) where 0.7.1 engraved its number. A PATCH, as 0.7.1 was: the same mesh-only
  * recess on the same walls, so no outer size, lip, inset, well or cut moves and parts printed
@@ -90,8 +91,20 @@ import type { Semver } from "../model/version";
  * long for any face at the least stroke is left off. A part with no room in the usual band (a low
  * one) is tried again in a tighter band before it is left plain; a part that was engraved before is
  * engraved just as before.
+ *
+ * 0.8.0 stacks trays flush (spec §6.1 "Locating lip"). With the lip on, a tray above level 0 gets a
+ * groove along its outer bottom edge that takes the lip of the tray below, so a stack no longer
+ * narrows by the lip's thickness and play at every level: the lip is now flush with the outer face
+ * and has a sloped top, the upper tray has the same outer footprint and a thicker outer wall (2.25
+ * mm at the defaults), and the groove's roof is a 45° face, so it prints without support. The inset
+ * is gone from the layout. A breaking change on every count: a tray's outer size, wall and lip
+ * shape differ, and a tray printed before (inset, inside the lip ring) would not mate with one
+ * printed after (flush, in the groove), so trays printed before and after must not be mixed. With
+ * the lip off nothing changes: a tray builds exactly as before. planTray is stricter too: a tray
+ * above level 0 with the lip on needs the groove's wall, so a stored 0.7.x upper tray (inset, 1.6
+ * mm wall) is refused until the plan is run again. Engraving carries over unchanged: a name on an upper tray with the lip on is cut in a band that starts above the groove's roof, so it never touches the groove.
  */
-export const GEOMETRY_VERSION = "0.7.3";
+export const GEOMETRY_VERSION = "0.8.0";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

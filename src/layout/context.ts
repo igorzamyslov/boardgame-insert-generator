@@ -1,4 +1,5 @@
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
+import { bottomMinimums } from "../model/lip";
 import type { Settings } from "../model/types";
 import { minOuter, outerCutSides, wallFor, type OuterCutSides } from "../sizing";
 import { growthCapU, partGrowthCapU } from "../sizing/growth";
@@ -68,8 +69,6 @@ export interface Ctx {
   readonly gap: U;
   /** Nominal lateral play above this is penalized and warned about (hard rule 1): settings.playLimit. */
   readonly playLimit: U;
-  /** Per-level inset per side: lip.thickness + effective lip play. */
-  readonly inset: U;
   readonly layer: U;
   readonly lipOn: boolean;
   /** The lip's height; a lipped tray prints this much taller than its `h`. */
@@ -78,6 +77,11 @@ export interface Ctx {
   readonly upperMinH: U;
   /** Base outer wall and floor as sizing writes them: wallFor, floor ≥ MIN_FEATURE_MM, rounded up. */
   readonly wall: U;
+  /**
+   * The outer wall of a filler in a stack level (level ≥ 1), which has the groove a tray above
+   * level 0 has when the lip is on: `wall`, or what the groove leaves around the wells.
+   */
+  readonly upperWall: U;
   readonly floor: U;
   /**
    * Thinnest leftover (filler) part there is: what planTray accepts, i.e. what the level-0 bottom
@@ -87,7 +91,8 @@ export interface Ctx {
   readonly minFiller: U;
   /**
    * The same for a filler beside an upper tray (level 1 and up): trays above level 0 carry at
-   * least UPPER_MIN_CHAMFER, so planTray needs a little more of them.
+   * least UPPER_MIN_CHAMFER, and with the lip on a groove along their outer edge, so planTray
+   * needs more of them.
    */
   readonly minFillerUpper: U;
   readonly bed: Bed;
@@ -143,6 +148,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
   const boxClearance = toU(eff.boxClearance);
   // Rounded up like sizing (roadmap §4.7): never below MIN_WALL_MM.
   const wall = toUCeil(wallFor(settings, false));
+  const upperWall = toUCeil(wallFor(settings, false, 1));
   // Walls thicken inward by at most `wallAbsorb` each, so both sides of an axis absorb twice that
   // (spec §7.2). Rounded down like realize's cap: it is a maximum.
   // With `oneWall` one wall on each axis takes up to ONE_WALL_MAX_MM instead (it subsumes wallAbsorb).
@@ -179,19 +185,15 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     oneWallCap: settings.oneWall ? toUFloor(ONE_WALL_MAX_MM) : 0,
     gap: toU(eff.trayGap),
     playLimit: toU(settings.playLimit),
-    // The inset exists only to clear the lip ring below. With no lip there is nothing to
-    // clear, and keeping it would leave the upper tray overhanging the rim: its bottom
-    // chamfer starts further in than the wall below is thick, so it would come to rest on
-    // the dividers instead of on the rim. Flush is both snugger and simpler.
-    inset: settings.lip.enabled ? toU(settings.lip.thickness + eff.lipPlay) : 0,
     layer: Math.max(1, toU(printer.layerHeight)),
     lipOn: settings.lip.enabled,
     lipHeight: toU(settings.lip.height),
     upperMinH: toU(settings.lip.height) + toU(UPPER_TRAY_MIN_ABOVE_LIP),
     wall,
+    upperWall,
     floor: toUCeil(Math.max(settings.floor, MIN_FEATURE_MM)),
     minFiller: Math.max(wall, toUCeil(chamferMinimums(settings, 0).side)),
-    minFillerUpper: Math.max(wall, toUCeil(chamferMinimums(settings, 1).side)),
+    minFillerUpper: Math.max(upperWall, toUCeil(bottomMinimums(settings, 1).side)),
     bed: {
       w: toUFloor(printer.bedX - 2 * printer.bedMargin),
       d: toUFloor(printer.bedY - 2 * printer.bedMargin),

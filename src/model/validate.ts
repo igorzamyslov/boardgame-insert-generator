@@ -247,7 +247,7 @@ const settingRanges: SettingRange[] = [
     get: (s) => s.lip.height,
     min: 1,
     max: 10,
-    hint: "How far the locating lip rises above a tray's rim. Only used when the lip is on.",
+    hint: "How far the locating lip rises above a tray's rim, at its outer face; its top slopes down toward the compartments. Only used when the lip is on.",
   },
   {
     path: "lip/thickness",
@@ -255,7 +255,7 @@ const settingRanges: SettingRange[] = [
     get: (s) => s.lip.thickness,
     min: MIN_WALL_MM,
     max: 5,
-    hint: "Wall thickness of the lip ring. The tray above sits inside it. Only used when the lip is on.",
+    hint: "Wall thickness of the lip ring, at its foot. The tray above has a matching groove under its outer edge and sits flush on it. Only used when the lip is on.",
   },
   {
     path: "lip/ledge",
@@ -263,7 +263,7 @@ const settingRanges: SettingRange[] = [
     get: (s) => s.lip.ledge,
     min: 0.5,
     max: 10,
-    hint: "Width of the flat band between the lip and the compartments, which the tray above rests on. Lipped trays keep their compartments at least lip thickness plus ledge from the outer faces.",
+    hint: "Width of the flat band between the lip and the compartments, which the tray above rests on. Lipped trays keep their compartments at least lip thickness plus ledge from the outer faces. Trays above the first keep theirs a little further out still, for their groove (about 2.6 mm at the defaults).",
   },
   {
     path: "lip/play",
@@ -271,7 +271,7 @@ const settingRanges: SettingRange[] = [
     get: (s) => s.lip.play,
     min: 0,
     max: 2,
-    hint: "Sideways room between the lip and the tray sitting inside it, per side. Scaled by Fit. Too little and trays will not drop in; too much and they rattle.",
+    hint: "Sideways room between the lip and the groove of the tray above it, per side. Scaled by Fit. Too little and trays will not drop in; too much and they rattle.",
   },
   {
     path: "topPressFit",
@@ -325,7 +325,7 @@ const settingRanges: SettingRange[] = [
  * spec §3 rule 2. The floor notch of flat cards' and tiles'
  * wall cutouts reaches 0 (off) to 50 mm into the floor (a half-disc at half the finger width), and
  * the finger room added to the outer walls and dividers they cut is 0 (off) to 20 mm. The lip
- * is at least 1 mm high: the geometry chamfers its inner top edge by 0.6 mm and a lower lip is
+ * is at least 1 mm high: its top slopes down 45° from a flat 0.6 mm wide, and a lower lip is
  * useless. Frozen, entries included.
  */
 export const SETTING_RANGES: readonly SettingRange[] = Object.freeze(

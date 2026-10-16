@@ -261,7 +261,7 @@ export function InsertSettings({ settings, onChange }: SettingsFormProps) {
         id="settings-lip-enabled"
         label="Rim between layers"
         checked={settings.lip.enabled}
-        hint="A low rim on each tray that locates the tray stacked on it. Without it, stacked trays can shift; the app then warns."
+        hint="A rim on each tray that fits a groove under the tray above, so stacks stay flush and do not shift. Without it, stacked trays can shift; the app then warns."
         onChange={(enabled) => onChange({ ...settings, lip: { ...settings.lip, enabled } })}
       />
       <CheckField

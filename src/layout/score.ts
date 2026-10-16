@@ -46,8 +46,8 @@ export interface ScoreTerms {
   readonly fillers: number;
   /**
    * Walls a stack swells beyond what it asks of them: per tray and axis, the square of the extra
-   * thickness (mm per side) its footprint is forced to by the trays above it, over what an equal
-   * tray above would force and over what the tray absorbs as room for its contents. A small tray
+   * thickness (mm per side) its footprint is forced to by the trays above it, over what
+   * the tray absorbs as room for its contents. A small tray
    * under a large one carries the large one's footprint in its walls (spec: stack order).
    */
   readonly swollen: number;
@@ -170,16 +170,15 @@ const SEAL_REACH_U: U = toU(SEAL_REACH_MM);
 
 /**
  * The extra thickness (units per side) a tray's walls are forced to by the trays above it, per
- * axis, beyond what avoids no one: an equal tray above costs two insets of footprint per level
- * (the lip ring it stands inside), which no order of trays avoids, and room the tray takes as
- * space for its contents or as walls the user allowed is not forced waste (`usable`).
+ * axis: room the tray takes as space for its contents or as walls the user allowed is not forced
+ * waste (`usable`). Flush stacking costs an equal tray above nothing (it stands in the tray's own
+ * footprint, whatever the lip).
  */
-function swollenOf(ctx: Ctx, t: PlacedTray, above: number): [U, U] {
-  const allowance = 2 * ctx.inset * above;
+function swollenOf(ctx: Ctx, t: PlacedTray): [U, U] {
   const usableW = Math.min(t.w, t.minW + Math.max(0, t.capW - ctx.oneWallCap));
   const usableD = Math.min(t.d, t.minD + Math.max(0, t.capD - ctx.oneWallCap));
   const axis = (own: U, need: U, size: U, usable: U): U =>
-    Math.max(0, Math.min(size - usable, need - own) - allowance) / 2;
+    Math.max(0, Math.min(size - usable, need - own)) / 2;
   return [axis(t.minW, t.needW, t.w, usableW), axis(t.minD, t.needD, t.d, usableD)];
 }
 
@@ -189,10 +188,8 @@ function swollenOf(ctx: Ctx, t: PlacedTray, above: number): [U, U] {
  * top, so the tray under it carries its footprint, and reachability is not traded for walls.
  */
 function swollenTotal(ctx: Ctx, trays: readonly PlacedTray[]): number {
-  const top = new Map<number, number>();
   const oftenAbove = new Map<number, number>();
   for (const t of trays) {
-    top.set(t.stack, Math.max(top.get(t.stack) ?? 0, t.level));
     if (ctx.input.requirements[t.item.req]?.access === "often") {
       oftenAbove.set(t.stack, Math.max(oftenAbove.get(t.stack) ?? -1, t.level));
     }
@@ -202,7 +199,7 @@ function swollenTotal(ctx: Ctx, trays: readonly PlacedTray[]): number {
     if ((oftenAbove.get(t.stack) ?? -1) > t.level) {
       continue;
     }
-    const [w, d] = swollenOf(ctx, t, (top.get(t.stack) ?? 0) - t.level);
+    const [w, d] = swollenOf(ctx, t);
     total += Math.min(SWOLLEN_CAP_MM, w / 100) ** 2 + Math.min(SWOLLEN_CAP_MM, d / 100) ** 2;
   }
   return Math.round(total);

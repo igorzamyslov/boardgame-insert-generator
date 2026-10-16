@@ -36,16 +36,16 @@ const top = makeTray({
   key: "b:p0:0",
   stack: 0,
   level: 1,
-  x: 1.45,
-  y: 1.45,
+  x: 0, // flush on the tray below: a stored 0.8 upper tray has the same footprint and a groove's wall
+  y: 0,
   z: 30,
-  w: 117,
-  d: 87,
+  w: 120,
+  d: 90,
   h: 25,
   compartments: [
     {
-      x: 2,
-      y: 2,
+      x: 3,
+      y: 3,
       w: 100,
       d: 70,
       floorZ: 1.2,

@@ -11,9 +11,17 @@ const TEST_HELPER_IMPORTS = {
 };
 
 export default tseslint.config(
-  // Never lint build output or dependencies.
+  // Never lint build output or dependencies, nor the agent worktrees under .claude (each is a
+  // whole checkout of the repo; prettier skips them too, see .prettierignore).
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "_build/**", "_site/**", "**/*.min.js"],
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "_build/**",
+      "_site/**",
+      "**/*.min.js",
+      ".claude/**",
+    ],
   },
 
   // Baseline: recommended JS + strict TypeScript (non-type-checked).

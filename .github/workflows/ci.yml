@@ -3,12 +3,19 @@ name: CI
 on:
   pull_request:
   push:
+    branches: [main]
 
 permissions:
   contents: read
 
+# A newer push to the same PR/branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  verify:
+  lint:
+    name: Lint (eslint, stylelint, html-validate)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -17,6 +24,101 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - run: npm run format:check
-      - run: npm run build
+      - name: npm run lint
+        run: npm run lint
+
+  format:
+    name: Format (prettier)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: npm run format:check
+        run: npm run format:check
+
+  typecheck:
+    name: Typecheck (app and node tsconfigs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: npm run typecheck
+        run: npm run typecheck
+
+  test:
+    name: Tests (vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: npm test
+        run: npm test
+
+  build:
+    name: Build, third-party licences, dist smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Production build (also writes dist/third-party-licenses.txt via licenses.config.ts)
+        run: npx vite build
+      - name: Dist smoke test (relative URLs, workers, WASM, licence text names every bundled library)
+        run: node scripts/smoke-dist.mjs dist
+
+  audit:
+    name: Audit (npm audit, shipped dependencies)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Blocking - high+ advisories in production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Informational - full tree incl. dev tooling
+        run: npm audit --audit-level=high || echo "::warning::npm audit reports high advisories in dev tooling"
+
+  # Single gate: require just this check in branch protection (it keeps the old
+  # name, so an existing "verify" required check keeps working).
+  verify:
+    name: verify
+    if: ${{ always() }}
+    needs: [lint, format, typecheck, test, build, audit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All checks passed
+        run: |
+          [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "false" ]
+
+  # Every merge to main is a release, so a pull request must raise package.json's version
+  # (the one the footer shows) above main's.
+  version-bump:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: git show "origin/${{ github.base_ref }}:package.json" > "$RUNNER_TEMP/base-package.json"
+      - run: node scripts/check-version-bump.mjs "$RUNNER_TEMP/base-package.json" package.json

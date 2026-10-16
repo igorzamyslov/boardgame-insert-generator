@@ -48,8 +48,8 @@ describe("UnsupportedFeatureError and GEOMETRY_VERSION", () => {
     expect(err.message).toMatch(/"magnet".*newer app version/);
   });
 
-  it("is at 0.7.3: 0.7.2 engraving the part name, a patch that changes no outer size", () => {
-    expect(GEOMETRY_VERSION).toBe("0.7.3");
+  it("is at 0.8.0: flush stacking, a new line because upper trays change size and wall (0.7.3 name engraving carries over)", () => {
+    expect(GEOMETRY_VERSION).toBe("0.8.0");
   });
 });
 

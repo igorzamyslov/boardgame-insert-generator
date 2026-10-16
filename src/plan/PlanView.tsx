@@ -1,5 +1,5 @@
 // src/plan/PlanView.tsx
-import type { JSX } from "preact";
+import type { JSX, TargetedPointerEvent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isLockable } from "../app/actions";
 import { trayNames } from "../instructions/naming";
@@ -86,7 +86,7 @@ function isFocusVisible(el: Element): boolean {
   }
 }
 
-type SvgPointer = JSX.TargetedPointerEvent<SVGSVGElement>;
+type SvgPointer = TargetedPointerEvent<SVGSVGElement>;
 
 export function PlanView(props: PlanViewProps) {
   const {

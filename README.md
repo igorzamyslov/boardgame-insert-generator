@@ -17,8 +17,9 @@ npm run build      # vitest run && tsc (app + node configs) && vite build → di
 npm run preview    # serve the production build
 ```
 
-Tests run inside `npm run build`, because the repo's quality gate only runs
-lint, format and build. Component tests opt in to jsdom with
+Tests run inside `npm run build` (and `npm run verify`); CI also runs them as their
+own job (`npm test`) next to lint, format, typecheck, build + smoke test and audit, so a
+failure names what broke. Component tests opt in to jsdom with
 `// @vitest-environment jsdom` in their header comment and stub the layout and
 geometry clients, so they never start a worker or load WASM.
 
@@ -188,7 +189,7 @@ in `app/meshes.ts`.
 
 ## Build smoke test and its limits
 
-`scripts/smoke-dist.mjs` serves `dist/` from `/static-web-apps/insert-generator/`
+`scripts/smoke-dist.mjs` serves `dist/` from `/boardgame-insert-generator/`
 (the deploy subpath) with a tiny `node:http` server and checks that
 `index.html` only uses relative URLs that load, that the layout and geometry
 worker scripts and the manifold WASM exist and are referenced by name, that
@@ -209,15 +210,27 @@ the config files that run in Node. `npm run typecheck` runs both.
 
 ## Publishing
 
-This app is published to GitHub Pages through
-[igorzamyslov/static-web-apps](https://github.com/igorzamyslov/static-web-apps),
-where it is a git submodule at `apps/insert-generator`. A new version goes live
-when that repo's submodule pointer is bumped to a commit of this one.
+The app is deployed to this repository's own GitHub Pages,
+<https://igorzamyslov.github.io/boardgame-insert-generator/>, by
+`.github/workflows/deploy.yml`. Every push to `main` runs `npm ci` and `npm run build` (tests,
+type checks, Vite build, dist smoke test) and, if that passes, publishes `dist/`. The build
+uses the relative base `./`, so it works under that subpath without configuration.
+
+Pull requests to `main` also run the `version-bump` job in `.github/workflows/ci.yml`
+(`scripts/check-version-bump.mjs`), which fails unless `version` in `package.json` is a higher
+semver than on `main`.
+
+### One-time setup
+
+1. In this repo's GitHub settings, Pages: set Source to "GitHub Actions".
+2. In [igorzamyslov/static-web-apps](https://github.com/igorzamyslov/static-web-apps), remove the
+   `apps/insert-generator` submodule (or replace its page with a redirect to the URL above), so the
+   old `/static-web-apps/insert-generator/` address does not keep serving a stale copy.
 
 ### Releasing
 
-Before bumping the submodule pointer, bump `version` in `package.json` (the footer and every saved
-project's `createdWith` read it). The footer's build id shows the commit even if you forget, but
+Every pull request to `main` must bump `version` in `package.json` (the footer and every saved
+project's `createdWith` read it; CI enforces it). The footer's build id shows the commit even if you forget, but
 `createdWith` does not, so do not skip it. This is separate from `SCHEMA_VERSION` and
 `GEOMETRY_VERSION`, which change when the file format or the printed geometry does, not on a
 release; a release that changed either also bumps the app version (see spec §9). While 0.x, bump

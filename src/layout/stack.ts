@@ -50,14 +50,15 @@ export function stackLevels(ctx: Ctx, stack: readonly StackItem[]): Level[] {
 }
 
 /**
- * The smallest tray each level needs, bottom → top (spec: minimal trays). Level k is inset
- * `inset` per side inside the tray below it, so tray k must hold its own requirement and the
- * inset footprint of every tray above it: `max over j ≥ k of req_j + 2·(j − k)·inset`. Nothing
- * else is asked of a level: whatever room it has beyond that is the level's own slack, which
- * `placeStack` turns into growth the tray's settings allow or into filler parts beside the
- * tray in the same level, so a tray never gets thicker walls for what it happens to sit on.
+ * The smallest tray each level needs, bottom → top (spec: minimal trays). Every level stands in
+ * the footprint of the tray below it (the lip is flush with the outer face and the tray above has
+ * a groove for it, so a stack does not narrow as it rises), so tray k must hold its own
+ * requirement and that of every tray above it: `max over j ≥ k of req_j`. Nothing else is asked of
+ * a level: whatever room it has beyond that is the level's own slack, which `placeStack` turns
+ * into growth the tray's settings allow or into filler parts beside the tray in the same level,
+ * so a tray never gets thicker walls for what it happens to sit on.
  */
-export function levelMinFootprints(ctx: Ctx, levels: readonly Level[]): Ext[] {
+export function levelMinFootprints(levels: readonly Level[]): Ext[] {
   const out: Ext[] = new Array<Ext>(levels.length);
   let w = 0;
   let d = 0;
@@ -66,28 +67,27 @@ export function levelMinFootprints(ctx: Ctx, levels: readonly Level[]): Ext[] {
     if (!l) {
       continue;
     }
-    // everything above is one inset smaller per side, so the tray under it is 2·inset larger
-    w = Math.max(l.minW, w + (k < levels.length - 1 ? 2 * ctx.inset : 0));
-    d = Math.max(l.minD, d + (k < levels.length - 1 ? 2 * ctx.inset : 0));
+    w = Math.max(l.minW, w);
+    d = Math.max(l.minD, d);
     out[k] = { w, d };
   }
   return out;
 }
 
 /**
- * Smallest bottom footprint that holds every level: level k is inset k·inset per side,
- * so leaf ≥ req_k + 2·k·inset on both axes (spec §7.2). It is the minimum of the bottom tray
+ * Smallest bottom footprint that holds every level: every level stands in the one below, flush,
+ * so leaf ≥ req_k on both axes (spec §7.2). It is the minimum of the bottom tray
  * (`levelMinFootprints`), which a level's own filler never changes. An empty stack (leftover
  * leaf) needs `ctx.minFiller` on both axes.
  */
 export function stackMinFootprint(ctx: Ctx, levels: readonly Level[]): Ext {
-  return levelMinFootprints(ctx, levels)[0] ?? { w: ctx.minFiller, d: ctx.minFiller };
+  return levelMinFootprints(levels)[0] ?? { w: ctx.minFiller, d: ctx.minFiller };
 }
 
 /**
  * A stack the bed can print: its minimum bottom footprint fits the bed in some orientation.
- * A part whose lipped walls (as a lower tray) or inset footprint (as an upper tray, k·inset
- * per side) outgrow the bed while it fits plain can only stand alone, or only on top; the
+ * A part whose lipped walls (as a lower tray) or grooved walls (as an upper tray)
+ * outgrow the bed while it fits plain can only stand alone, or only on top; the
  * search never builds a stack that overflows the bed this way (spec §7.2).
  */
 export function stackAllowed(ctx: Ctx, stack: readonly StackItem[]): boolean {

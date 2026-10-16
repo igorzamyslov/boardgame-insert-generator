@@ -51,27 +51,27 @@ describe("stack feasibility", () => {
     expect(thin[1]?.minH).toBe(ctx.upperMinH);
   });
 
-  it("requires leaf ≥ req_k + 2·k·inset", () => {
+  it("requires leaf ≥ req_k: every level stands flush in the one below, so a stack does not narrow", () => {
     const ctx = ctxFor();
     const levels = stackLevels(ctx, [item(1), item(0)]);
     const f = stackMinFootprint(ctx, levels);
-    expect(f.w).toBe(Math.max(5600, 10400 + 2 * ctx.inset));
-    expect(f.d).toBe(Math.max(4600, 6400 + 2 * ctx.inset));
+    expect(f.w).toBe(Math.max(5600, 10400));
+    expect(f.d).toBe(Math.max(4600, 6400));
     expect(stackMinFootprint(ctx, [])).toEqual({ w: ctx.minFiller, d: ctx.minFiller });
   });
 
   it("gives each level the smallest tray that holds itself and the trays above it", () => {
     const ctx = ctxFor();
     const levels = stackLevels(ctx, [item(1), item(0)]);
-    const [lower, upper] = levelMinFootprints(ctx, levels);
-    // the upper tray needs only its own size; the lower one its own, or the upper's plus two insets
+    const [lower, upper] = levelMinFootprints(levels);
+    // the upper tray needs only its own size; the lower one its own, or the upper's (flush)
     expect(upper).toEqual({ w: lvl(levels, 1).minW, d: lvl(levels, 1).minD });
     expect(lower).toEqual({
-      w: Math.max(lvl(levels, 0).minW, lvl(levels, 1).minW + 2 * ctx.inset),
-      d: Math.max(lvl(levels, 0).minD, lvl(levels, 1).minD + 2 * ctx.inset),
+      w: Math.max(lvl(levels, 0).minW, lvl(levels, 1).minW),
+      d: Math.max(lvl(levels, 0).minD, lvl(levels, 1).minD),
     });
     expect(lower).toEqual(stackMinFootprint(ctx, levels));
-    expect(levelMinFootprints(ctx, [])).toEqual([]);
+    expect(levelMinFootprints([])).toEqual([]);
   });
 
   it("reports absorbable slack: elastic axes unlimited, else the wall growth the user allows", () => {
@@ -151,11 +151,12 @@ describe("stackAllowed", () => {
       fakeMeasure,
     );
 
-  it("allows a single tray whatever its size and refuses a stack that outgrows the bed", () => {
+  it("allows a single tray whatever its size and refuses a stack whose lipped wall outgrows the bed", () => {
     const ctx = make(true);
     expect(stackAllowed(ctx, [item(0)])).toBe(true);
     expect(stackAllowed(ctx, [item(0), item(1)])).toBe(false); // lipped wall: 121 mm
-    expect(stackAllowed(ctx, [item(1), item(0)])).toBe(false); // inset footprint: 121.9 mm
+    // flush: the upper tray is its own 119 mm, with no inset to add (it was 121.9 mm inset)
+    expect(stackAllowed(ctx, [item(1), item(0)])).toBe(true);
     expect(stackAllowed(ctx, [item(1), item(1)])).toBe(true);
   });
 
@@ -166,9 +167,8 @@ describe("stackAllowed", () => {
 
   it("lets a part stack under a thin lip-less stack that still fits", () => {
     const off = make(false);
-    // Lip off: no lipped wall, and no inset either, since the inset exists only to clear a lip
-    // ring. An upper tray is then exactly its own footprint, so the 119 mm part fits either
-    // way up on the 120 mm bed.
+    // Lip off: no lipped wall, and an upper tray is exactly its own footprint, so the 119 mm part
+    // fits either way up on the 120 mm bed.
     expect(stackAllowed(off, [item(0), item(1)])).toBe(true);
     expect(stackAllowed(off, [item(1), item(0)])).toBe(true);
   });

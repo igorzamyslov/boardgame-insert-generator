@@ -160,6 +160,18 @@ export const fakeMeasure: Measure = (p, _settings, opts) => {
   return { w, d, h };
 };
 
+/**
+ * fakeMeasure for a stack that models the groove: a tray above level 0 with the lip on (and so
+ * not itself carrying one) has a wall 0.6 mm thicker per side, 2.6 mm against the plain 2 (the real
+ * one is 2.56 mm against 1.6). For the tests about what an upper tray costs on the print bed.
+ */
+export const groovedMeasure: Measure = (p, settings, opts) => {
+  const m = fakeMeasure(p, settings, opts);
+  return opts.level > 0 && settings.lip.enabled && !opts.lipped
+    ? { ...m, w: m.w + 1.2, d: m.d + 1.2 }
+    : m;
+};
+
 /** A stack item for part 0 of variant 0 of requirement `req`. */
 export function item(req: number, rotated = false): StackItem {
   return { req, variant: 0, part: 0, rotated };

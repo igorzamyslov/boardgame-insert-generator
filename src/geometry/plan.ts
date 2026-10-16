@@ -4,9 +4,18 @@ import {
   MIN_WALL_MM,
   SPEC_TOLERANCE as TOL,
   narrowestCutMm,
-  chamferMinimums,
   effectiveBottomChamfer,
 } from "../model/settings";
+import {
+  LIP_INNER_MIN,
+  bottomMinimums,
+  grooveEdge,
+  grooveOf,
+  grooveWall,
+  lipShape,
+  plainEdge,
+} from "../model/lip";
+import type { BottomEdge } from "../model/lip";
 import { keepsApart } from "../model/cut-rules";
 import { TraySpecError, UnsupportedFeatureError } from "./errors";
 import { planCornerRadius, planReliefs, thinCorner } from "./plan-corners";
@@ -22,7 +31,7 @@ import {
 import type { CutRequest } from "./plan-cuts";
 import { checkSlots, planSlot } from "./plan-slots";
 import type { SlotRequest } from "./plan-slots";
-import { LIP_CHAMFER, LIP_FLAT, MIN_SCOOP_RADIUS } from "./plan-types";
+import { MIN_SCOOP_RADIUS } from "./plan-types";
 import type { CompartmentPlan, LipPlan, Rect, ScoopPlan, TrayPlan } from "./plan-types";
 import { KNOWN_COMPARTMENT_KINDS, KNOWN_FEATURE_TYPES, KNOWN_PARTS } from "./types";
 
@@ -54,11 +63,11 @@ function planLip(spec: TraySpec, settings: Settings): LipPlan | null {
   if (!Number.isFinite(thickness) || !(thickness >= MIN_WALL_MM - TOL)) {
     fail(spec, `lip thickness ${thickness} mm is below ${MIN_WALL_MM} mm`);
   }
-  const chamfer = Math.min(LIP_CHAMFER, thickness - LIP_FLAT);
-  if (!Number.isFinite(height) || !(height > chamfer)) {
-    fail(spec, `lip height ${height} mm must exceed its ${chamfer} mm chamfer`);
+  if (!Number.isFinite(height) || !(height >= LIP_INNER_MIN)) {
+    fail(spec, `lip height ${height} mm is below ${LIP_INNER_MIN} mm`);
   }
-  return { height, thickness, chamfer };
+  const { flat, zIn } = lipShape(height, thickness);
+  return { height, thickness, flat, zIn };
 }
 
 function isKnown(known: readonly string[], value: unknown): boolean {
@@ -99,7 +108,7 @@ function checkRect(
   index: number,
   c: CompartmentSpec,
   outerWall: number,
-  chamfer: number,
+  edge: BottomEdge,
 ): Rect {
   if (![c.x, c.y].every(Number.isFinite) || !isPositive(c.w) || !isPositive(c.d)) {
     fail(spec, `compartment ${index} has an invalid size or position`);
@@ -116,12 +125,16 @@ function checkRect(
   ) {
     fail(spec, `compartment ${index} cuts into the ${outerWall} mm outer wall`);
   }
-  // The 45° chamfer cuts into the wall and floor under the well's bottom corner.
+  // The 45° chamfer (or the groove) cuts into the wall and floor under the well's bottom corner.
   const wall = Math.min(rect.x0, rect.y0, spec.w - rect.x1, spec.d - rect.y1);
-  if (wall + c.floorZ - chamfer < MIN_FEATURE_MM - TOL) {
+  if (wall + c.floorZ - edge.at(c.floorZ) < MIN_FEATURE_MM - TOL) {
     fail(
       spec,
-      `compartment ${index}: a ${chamfer} mm bottom chamfer leaves less than ${MIN_FEATURE_MM} mm of wall and floor`,
+      `compartment ${index}: ${
+        edge.top === edge.reach
+          ? `a ${edge.top} mm bottom chamfer`
+          : `the bottom groove, ${edge.reach} mm deep at the bed,`
+      } leaves less than ${MIN_FEATURE_MM} mm of wall and floor`,
     );
   }
   return rect;
@@ -144,7 +157,7 @@ function planCompartment(
   c: CompartmentSpec,
   rect: Rect,
   frame: { w: number; d: number },
-  chamfer: number,
+  edge: BottomEdge,
 ): { plan: CompartmentPlan; reliefDiameter: number; cutRequests: CutRequest[] } {
   const scoopRequests: ScoopPlan[] = [];
   const cutRequests: CutRequest[] = [];
@@ -195,9 +208,7 @@ function planCompartment(
     }
   }
   const failWith = (message: string): never => fail(spec, message);
-  const slots = slotRequests.map((q) =>
-    planSlot(q, index, rect, c.floorZ, frame, chamfer, failWith),
-  );
+  const slots = slotRequests.map((q) => planSlot(q, index, rect, c.floorZ, frame, edge, failWith));
   checkSlots(slots, index, failWith);
   return {
     plan: { index, rect, floorZ: c.floorZ, cuts: [], slots, scoops, reliefs: [] },
@@ -229,7 +240,11 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   // Spacers and dividers are always built with the level 0 chamfer.
   const level = spec.part === "spacer" || spec.part === "divider" ? 0 : spec.level;
   const chamfer = effectiveBottomChamfer(settings, level);
-  const min = chamferMinimums(settings, level);
+  // With the lip on, a tray above level 0 has a groove along its outer bottom edge instead of the
+  // plain chamfer (its foot edge keeps the chamfer, at most as high as the groove's inner wall).
+  const groove = grooveOf(settings, level);
+  const edge = groove ? grooveEdge(groove) : plainEdge(chamfer);
+  const min = bottomMinimums(settings, level);
   // With TOL, like every limit here: 2.27 + 0.8 = 3.0700000000000003 must accept h = 3.07.
   if (Math.min(spec.w, spec.d) < min.side - TOL || spec.h < min.h - TOL) {
     fail(spec, `outer size ${spec.w} × ${spec.d} × ${spec.h} mm is too small`);
@@ -241,16 +256,19 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   if (!solid && !(spec.wall >= MIN_WALL_MM - TOL)) {
     fail(spec, `wall ${spec.wall} mm is below ${MIN_WALL_MM} mm`);
   }
-  const outerWall = lip ? Math.max(spec.wall, lip.thickness + settings.lip.ledge) : spec.wall;
+  const outerWall = Math.max(
+    lip ? Math.max(spec.wall, lip.thickness + settings.lip.ledge) : spec.wall,
+    grooveWall(settings, level),
+  );
 
   const specs = solid ? [] : spec.compartments;
-  const rects = specs.map((c, i) => checkRect(spec, i, c, outerWall, chamfer));
+  const rects = specs.map((c, i) => checkRect(spec, i, c, outerWall, edge));
   checkSeparated(spec, rects);
   const planned = specs.map((c, i) =>
-    planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect"), spec, chamfer),
+    planCompartment(spec, i, c, rects[i] ?? fail(spec, "internal: missing rect"), spec, edge),
   );
   const minCut = narrowestCutMm(settings.fingerPocket.width);
-  const frame = { w: spec.w, d: spec.d, h: spec.h, chamfer, minCut };
+  const frame = { w: spec.w, d: spec.d, h: spec.h, chamfer, edge, minCut };
   const failWith = (message: string): never => fail(spec, message);
   const uncut = planned.map((p) => p.plan);
   const plans = planned.map(({ plan, cutRequests }) => ({
@@ -263,17 +281,17 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
   checkCutClearance(plans, failWith);
   const compartments = plans.map((plan, i) => ({
     ...plan,
-    reliefs: planReliefs(spec, plans, plan, planned[i]?.reliefDiameter ?? 0, chamfer),
+    reliefs: planReliefs(spec, plans, plan, planned[i]?.reliefDiameter ?? 0, edge),
   }));
 
   const notch = planSpacerNotch(spec, spec.features ?? [], chamfer, failWith);
   const edges = notchEdges(spec, notch);
-  const cornerRadius = planCornerRadius(spec, settings.cornerRadius, chamfer, compartments, edges);
-  const thin = thinCorner(spec, cornerRadius, chamfer, compartments, edges);
+  const cornerRadius = planCornerRadius(spec, settings.cornerRadius, edge, compartments, edges);
+  const thin = thinCorner(spec, cornerRadius, edge, compartments, edges);
   if (thin !== null) {
     fail(
       spec,
-      `the ${chamfer} mm bottom chamfer forces an outer corner radius of ${cornerRadius} mm, and ${thin}`,
+      `the ${edge.reach} mm bottom ${groove ? "groove" : "chamfer"} forces an outer corner radius of ${cornerRadius} mm, and ${thin}`,
     );
   }
 
@@ -282,10 +300,11 @@ export function planTray(spec: TraySpec, settings: Settings): TrayPlan {
     d: spec.d,
     h: spec.h,
     topZ: spec.h + (lip ? lip.height : 0),
-    chamfer,
+    chamfer: groove ? groove.foot : chamfer,
     cornerRadius,
     outerWall,
     lip,
+    groove,
     compartments: planTopFillets(compartments, spec, cornerRadius, lip),
     notch: planNotchFillets(notch, spec, cornerRadius),
   };

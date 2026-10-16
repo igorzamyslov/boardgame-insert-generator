@@ -251,6 +251,77 @@ describe("an engraved tray name", () => {
     expect(e?.stroke).toBeCloseTo((9 - 0.4 - 1 - 1.5) / 5, 6);
   });
 
+  describe("on an upper tray with the lip on (the groove under its outer bottom edge)", () => {
+    // The mesh vertices of `named` that `plain` does not have: the engraving's own corners.
+    const added = (named: { positions: Float32Array }, plain: { positions: Float32Array }) => {
+      const key = (a: Float32Array, i: number) =>
+        [0, 1, 2].map((k) => (a[i + k] ?? 0).toFixed(3)).join(",");
+      const had = new Set<string>();
+      for (let i = 0; i < plain.positions.length; i += 3) {
+        had.add(key(plain.positions, i));
+      }
+      const out: [number, number, number][] = [];
+      for (let i = 0; i < named.positions.length; i += 3) {
+        if (!had.has(key(named.positions, i))) {
+          out.push([
+            named.positions[i] ?? 0,
+            named.positions[i + 1] ?? 0,
+            named.positions[i + 2] ?? 0,
+          ]);
+        }
+      }
+      return out;
+    };
+
+    it("starts above the groove's roof: the recess's lowest point is not under the groove's top", () => {
+      // 13 mm high: the usual band (1 mm above the groove, 1.5 below the rim) is just what the letters fill
+      const tray = { ...upperLevel1, h: 13 };
+      const named = { ...tray, partName: "Cards" };
+      const plan = planTray(tray, GEO);
+      const zTop = plan.groove?.zTop ?? NaN;
+      expect(zTop).toBeCloseTo(2.85, 6);
+      const e = planEngraving(plan, "Cards");
+      expect(e).not.toBeNull();
+      // the usual band: 1 mm above the groove (not above the plain chamfer)
+      expect(e?.z ?? 0).toBeGreaterThanOrEqual(zTop + 1 - 1e-9);
+      // the thicker wall (2.56 mm) behind it takes the usual depth, with the features kept behind
+      expect(e?.depth).toBe(ENGRAVE_DEPTH_MM);
+      expect(2.56 - (e?.depth ?? 0)).toBeGreaterThanOrEqual(MIN_FEATURE_MM);
+
+      const plain = buildTray(m, tray, GEO);
+      const cut = buildTray(m, named, GEO);
+      expect(cut.volumeMm3).toBeLessThan(plain.volumeMm3);
+      // every vertex the engraving adds, its floor and its roof, lies on or above the groove's top
+      const fresh = added(cut.mesh, plain.mesh);
+      expect(fresh.length).toBeGreaterThan(0);
+      expect(Math.min(...fresh.map((p) => p[2]))).toBeGreaterThanOrEqual(zTop);
+      // and it is still one closed, printable solid
+      expect(problemsOf(m, named, GEO)).toEqual([]);
+    });
+
+    it("tries the tighter band on a low upper tray, still clear of the groove", () => {
+      const low = (h: number) => ({ ...upperLevel1, key: `u${h}:p0:0`, h });
+      const plan = planTray(low(10), GEO);
+      const zTop = plan.groove?.zTop ?? NaN;
+      // 10 mm: no room in the usual band (1 mm above the groove, 1.5 below the rim), room in the tight one
+      const e = planEngraving(plan, "Dice");
+      expect(e).not.toBeNull();
+      expect(e?.z ?? 0).toBeGreaterThanOrEqual(zTop + 0.5 - 1e-9);
+      expect(e?.z ?? 0).toBeLessThan(zTop + 1);
+      expect(e?.stroke).toBeGreaterThanOrEqual(ENGRAVE_STROKE_MIN_MM);
+      const named = { ...low(10), partName: "Dice" };
+      const plain = buildTray(m, low(10), GEO);
+      const cut = buildTray(m, named, GEO);
+      expect(cut.volumeMm3).toBeLessThan(plain.volumeMm3);
+      expect(Math.min(...added(cut.mesh, plain.mesh).map((p) => p[2]))).toBeGreaterThanOrEqual(
+        zTop,
+      );
+      expect(problemsOf(m, named, GEO)).toEqual([]);
+      // too low even for that: plain
+      expect(planEngraving(planTray(low(9), GEO), "Dice")).toBeNull();
+    });
+  });
+
   it("says without building whether a name fits (engravesName), as the build does", () => {
     expect(engravesName(plainBox, GEO, "Cards")).toBe(true);
     expect(buildTray(m, { ...plainBox, partName: "Cards" }, GEO).volumeMm3).toBeLessThan(

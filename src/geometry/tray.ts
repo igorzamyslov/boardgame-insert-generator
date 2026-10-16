@@ -1,4 +1,5 @@
 import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
+import type { Groove } from "../model/lip";
 import type { MergedPart, Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
@@ -28,6 +29,9 @@ const LIP_OVERLAP = 0.5; // the lip ring reaches this far down into the solid ou
 function buildOuter(m: ManifoldToplevel, scope: Scope, plan: TrayPlan): Manifold {
   const { w, d, h, chamfer: c, cornerRadius: r } = plan;
   const n = quarterSegments(r);
+  if (plan.groove) {
+    return buildGroovedOuter(m, scope, plan, plan.groove);
+  }
   const outer = roundedRectRing(0, 0, w, d, r, n);
   if (c <= 0) {
     return prism(m, scope, outer, 0, h);
@@ -41,30 +45,48 @@ function buildOuter(m: ManifoldToplevel, scope: Scope, plan: TrayPlan): Manifold
   ]);
 }
 
-// Locating lip (spec §6.1): the outer `thickness` of the wall rises `height`
-// above the rim; its inner top edge has a `chamfer` × 45° chamfer.
+// The outer body of a tray with a groove under its outer edge (model/lip.ts), as two convex lofts
+// of rings inset by u from the outer face (radius r − u, the same vertex angles, so every slope
+// is an exact 45°; plan ensures r ≥ the groove's reach): the foot, whose bottom ring is the bed
+// face, a 45° foot chamfer in to the inner wall; and the roof, from the top of the inner wall out
+// at 45° to the outer face at `zTop`, then straight up. Each layer of the roof lies over the one
+// below it, out to the layer's edge, so it prints without support, like a chamfer turned over.
+function buildGroovedOuter(m: ManifoldToplevel, scope: Scope, plan: TrayPlan, g: Groove): Manifold {
+  const { w, d, h, cornerRadius: r } = plan;
+  const n = quarterSegments(r);
+  const ring = (u: number): Vec2[] => roundedRectRing(u, u, w - u, d - u, Math.max(r - u, 0), n);
+  const foot = loft(m, scope, [
+    { ring: ring(g.reach), z: 0 },
+    { ring: ring(g.inset), z: g.foot },
+    { ring: ring(g.inset), z: g.zIn + EPS },
+  ]);
+  const roof = loft(m, scope, [
+    { ring: ring(g.inset), z: g.zIn },
+    { ring: ring(0), z: g.zTop },
+    { ring: ring(0), z: h },
+  ]);
+  return scope.track(m.Manifold.union([foot, roof]));
+}
+
+// Locating lip (spec §6.1): the outer `thickness` of the wall rises `height` above the rim at the
+// outer face, with a flat top, then a 45° ramp down to the inner face at `zIn`. The groove of the
+// tray above is this shape, one play further out and up.
 function buildLip(m: ManifoldToplevel, scope: Scope, plan: TrayPlan, lip: LipPlan): Manifold {
   const { w, d, h, cornerRadius: r } = plan;
-  const { thickness: t, chamfer: ch } = lip;
+  const { thickness: t, flat: f } = lip;
   const top = h + lip.height;
   const n = quarterSegments(r);
-  const innerRing = roundedRectRing(t, t, w - t, d - t, Math.max(r - t, 0), n);
-  const chamferRing = roundedRectRing(
-    t - ch,
-    t - ch,
-    w - t + ch,
-    d - t + ch,
-    Math.max(r - t + ch, 0),
-    n,
-  );
-  const outer = prism(m, scope, roundedRectRing(0, 0, w, d, r, n), h - LIP_OVERLAP, top);
-  const inner = prism(m, scope, innerRing, h - LIP_OVERLAP - OVERSHOOT, top + OVERSHOOT);
-  const chamferCut = loft(m, scope, [
-    { ring: innerRing, z: top - ch },
-    { ring: chamferRing, z: top },
-    { ring: chamferRing, z: top + OVERSHOOT },
+  const ring = (u: number): Vec2[] => roundedRectRing(u, u, w - u, d - u, Math.max(r - u, 0), n);
+  const outer = prism(m, scope, ring(0), h - LIP_OVERLAP, top);
+  // What the lip ring leaves out: the straight inner face up to `zIn`, then the ramp out to the
+  // flat's width, then straight up (two convex pieces: the profile turns outward at the ramp).
+  const inner = prism(m, scope, ring(t), h - LIP_OVERLAP - OVERSHOOT, h + lip.zIn + EPS);
+  const ramp = loft(m, scope, [
+    { ring: ring(t), z: h + lip.zIn },
+    { ring: ring(f), z: top },
+    { ring: ring(f), z: top + OVERSHOOT },
   ]);
-  return scope.track(m.Manifold.difference([outer, inner, chamferCut]));
+  return scope.track(m.Manifold.difference([outer, inner, ramp]));
 }
 
 // Concave quarter-round fillet between the floor and the wall on `side`:
