@@ -849,6 +849,13 @@ span.inserts-name {
   accent-color: var(--indigo);
 }
 
+/* Below 760 px the no-fit pill drops Keep searching, so the name has room. */
+@media (width < 760px) {
+  .pf-status__btn--phone-off {
+    display: none;
+  }
+}
+
 .pf-status__percent {
   flex: none;
   min-width: 3ch;
@@ -856,7 +863,6 @@ span.inserts-name {
   font-variant-numeric: tabular-nums;
 }
 
-.shortfall,
 .optimizer-blocked,
 .run-error {
   margin: 0;

@@ -68,6 +68,45 @@ describe("StatusLine", () => {
     expect(p.onKeepSearching).not.toHaveBeenCalled();
   });
 
+  it("hands the focus from Keep searching to Stop and back", () => {
+    const p = props();
+    const view = render(<StatusLine {...p} />);
+    const keep = screen.getByRole("button", { name: "Keep searching" });
+    keep.focus();
+    fireEvent.click(keep);
+    view.rerender(
+      <StatusLine
+        {...props({ ...p, pending: true, run: { status: "running", done: 1, total: 10 } })}
+      />,
+    );
+    const stop = screen.getByRole("button", { name: "Stop" });
+    expect(document.activeElement).toBe(stop);
+    fireEvent.click(stop);
+    view.rerender(<StatusLine {...props(p)} />);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep searching" }));
+  });
+
+  it("does not take the focus when the person moved it elsewhere", () => {
+    const p = props();
+    const view = render(
+      <>
+        <input aria-label="elsewhere" />
+        <StatusLine {...p} />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Keep searching" }));
+    screen.getByLabelText("elsewhere").focus();
+    view.rerender(
+      <>
+        <input aria-label="elsewhere" />
+        <StatusLine
+          {...props({ ...p, pending: true, run: { status: "running", done: 1, total: 10 } })}
+        />
+      </>,
+    );
+    expect(document.activeElement).toBe(screen.getByLabelText("elsewhere"));
+  });
+
   it("clamps the percent to 100 and never shows a zero-sized bar", () => {
     const run = (done: number, total: number): StatusLineProps =>
       props({ pending: true, run: { status: "running", done, total } });
@@ -114,17 +153,35 @@ describe("StatusLine", () => {
   });
 
   describe("when the search found no fit", () => {
-    const misfit = { componentId: "c1", name: "Boards" };
+    const misfit = { componentId: "c1", name: "Boards", reason: "box" as const };
 
     it("names the component that does not fit", () => {
       const p = props({ fits: null, noFit: { misfit } });
       const view = render(<StatusLine {...p} />);
-      expect(text(view.container)).toContain("Boards doesn't fit");
+      expect(text(view.container)).toContain("Boards doesn't fit the box yet");
       expect(text(view.container)).not.toContain("Everything fits");
       fireEvent.click(screen.getByRole("button", { name: "Edit Boards" }));
       expect(p.onEdit).toHaveBeenCalledWith("c1");
       fireEvent.click(screen.getByRole("button", { name: "Keep searching" }));
       expect(p.onKeepSearching).toHaveBeenCalledTimes(1);
+    });
+
+    it("says a tray is too big for the printer's bed when that is the reason", () => {
+      const view = render(
+        <StatusLine {...props({ fits: null, noFit: { misfit: { ...misfit, reason: "bed" } } })} />,
+      );
+      expect(text(view.container)).toContain("Boards is too big for your printer's bed");
+      expect(screen.getByRole("button", { name: "Edit Boards" })).toBeTruthy();
+    });
+
+    it("keeps Keep searching out of sight on a phone, so the name has room", () => {
+      render(<StatusLine {...props({ fits: null, noFit: { misfit } })} />);
+      expect(screen.getByRole("button", { name: "Keep searching" }).className).toContain(
+        "pf-status__btn--phone-off",
+      );
+      expect(screen.getByRole("button", { name: "Edit Boards" }).className).not.toContain(
+        "phone-off",
+      );
     });
 
     it("still says so when no component stands out, and offers no edit", () => {
@@ -192,11 +249,11 @@ describe("StatusLine", () => {
       expect(view.container.firstChild).toBeNull();
     });
 
-    it("offers Update plan when there is no plan and none is on its way", () => {
+    it("offers Make a plan when there is no plan and none is on its way", () => {
       const p = props({ hasLayout: false, fits: null });
       const view = render(<StatusLine {...p} />);
       expect(text(view.container)).toContain("No plan yet");
-      fireEvent.click(screen.getByRole("button", { name: "Update plan" }));
+      fireEvent.click(screen.getByRole("button", { name: "Make a plan" }));
       expect(p.onKeepSearching).toHaveBeenCalledTimes(1);
     });
   });

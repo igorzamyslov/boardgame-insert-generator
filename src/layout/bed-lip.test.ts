@@ -71,6 +71,8 @@ describe("parts the lip makes too big for the bed", { timeout: 30_000 }, () => {
     expect(dnf).toContain('"board"');
     expect(dnf).toContain("usable bed is 190.0 × 190.0 mm");
     expect(dnf).toContain("larger bed");
+    // the same trays, by key, for the app to name
+    expect(r.bestAttempt?.overBedKeys).toEqual(["board:p0:0"]);
   });
 });
 

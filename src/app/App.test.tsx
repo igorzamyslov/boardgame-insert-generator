@@ -495,17 +495,19 @@ describe("App", () => {
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
   });
 
-  it("shows the shortfall of an infeasible run only while its inputs are current", async () => {
-    const { store } = renderApp();
-    store.state.lastResult.value = makeResult(null, {
-      bestAttempt: { trays: [], shortfall: { x: 12.3, y: 0, z: 0 } },
+  it("shows a no-fit run only while its inputs are current", async () => {
+    const { store } = renderApp({ project: withLayoutProject() });
+    act(() => {
+      store.state.lastResult.value = makeResult(null, {
+        bestAttempt: { trays: [], shortfall: { x: 12.3, y: 0, z: 0 } },
+      });
+      store.state.lastResultHash.value = store.state.currentHash.value;
     });
-    store.state.lastResultHash.value = store.state.currentHash.value;
-    expect(
-      await screen.findByText(/Closest attempt so far is short by 12\.3 mm left–right/),
-    ).toBeTruthy();
-    addCards();
-    await waitFor(() => expect(screen.queryByText(/Closest attempt so far/)).toBeNull());
+    expect(await screen.findByText("The trays don't fit the box yet")).toBeTruthy();
+    act(() => {
+      store.edit((q) => updateBox(q, { innerWidth: q.box.innerWidth + 5 }));
+    });
+    await waitFor(() => expect(screen.queryByText(/don't fit the box yet/)).toBeNull());
   });
 
   describe("header and project menu", () => {
@@ -793,9 +795,9 @@ describe("App", () => {
 
     it("says everything fits, with the trays, the layers and the height", () => {
       renderApp({ project: withLayoutProject() });
-      // two stored trays 40 mm high in a box 70 mm high
+      // two stored trays 40 mm high; the box is 70 mm inside and keeps 8 mm free on top
       expect(status().textContent).toContain("Everything fits.");
-      expect(status().textContent).toContain("2 trays in 1 layer, 40 of 70 mm high.");
+      expect(status().textContent).toContain("2 trays in 1 layer, 40 of 62 mm high.");
       expect(screen.getByRole("button", { name: "Download" }).getAttribute("aria-disabled")).toBe(
         "false",
       );
@@ -812,6 +814,18 @@ describe("App", () => {
       expect(stub.cancelCount()).toBeGreaterThan(0);
       await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
       expect(screen.getByRole("button", { name: "Keep searching" })).toBeTruthy();
+    });
+
+    it("keeps the focus on the button across Keep searching and Stop", async () => {
+      renderApp({ project: withLayoutProject() });
+      const keep = screen.getByRole("button", { name: "Keep searching" });
+      keep.focus();
+      fireEvent.click(keep);
+      const stop = await screen.findByRole("button", { name: "Stop" });
+      expect(document.activeElement).toBe(stop);
+      fireEvent.click(stop);
+      const again = await screen.findByRole("button", { name: "Keep searching" });
+      expect(document.activeElement).toBe(again);
     });
 
     it("names the component that does not fit, opens its editor, and keeps Download off", async () => {
@@ -841,7 +855,7 @@ describe("App", () => {
         });
         store.state.lastResultHash.value = store.state.currentHash.value;
       });
-      expect(status().textContent).toContain("Market doesn't fit");
+      expect(status().textContent).toContain("Market doesn't fit the box yet");
       expect(status().textContent).not.toContain("Everything fits");
       const download = screen.getByRole("button", { name: "Fix the fit to download" });
       expect(download.getAttribute("aria-disabled")).toBe("true");
@@ -852,6 +866,38 @@ describe("App", () => {
       // leaving the editor does not bring it back
       fireEvent.click(screen.getByRole("button", { name: "Done" }));
       expect(screen.queryByRole("heading", { name: "Market" })).toBeNull();
+    });
+
+    it("says a tray is too big for the bed when the run reports it", () => {
+      const { store } = renderApp({ project: withLayoutProject() });
+      const market = store.state.project.value.components[1];
+      const tray = makeTray({
+        key: "m:p0:0",
+        compartments: [
+          {
+            x: 1.6,
+            y: 1.6,
+            w: 100,
+            d: 70,
+            floorZ: 1.2,
+            kind: "well",
+            contents: "Market",
+            componentId: market?.id,
+            features: [],
+          },
+        ],
+      });
+      act(() => {
+        store.state.lastResult.value = makeResult(null, {
+          bestAttempt: {
+            trays: [tray],
+            shortfall: { x: 0, y: 0, z: 0 },
+            overBedKeys: ["m:p0:0"],
+          },
+        });
+        store.state.lastResultHash.value = store.state.currentHash.value;
+      });
+      expect(status().textContent).toContain("Market is too big for your printer's bed");
     });
 
     it("offers to unpin each pin the last run could not keep", async () => {
@@ -879,6 +925,22 @@ describe("App", () => {
       expect(store.state.project.value.locks.map((l) => l.kind)).toEqual(["size"]);
       expect(store.state.lockConflicts.value.map((c) => c.name)).toEqual(["Market"]);
       expect(status().textContent).toBe("Updating the plan…");
+    });
+
+    it("unpins a stack the last run could not keep", () => {
+      const p = withLayoutProject();
+      const { store } = renderApp({
+        project: { ...p, locks: [{ kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] }] },
+      });
+      act(() => {
+        store.state.lockConflicts.value = [
+          { trayKey: "a:p0:0", kind: "stack", name: "Action cards, Market", reason: "no room" },
+        ];
+      });
+      expect(status().textContent).toContain("Action cards, Market doesn't fit with your pins");
+      fireEvent.click(screen.getByRole("button", { name: "Unpin Action cards, Market" }));
+      expect(store.state.project.value.locks).toEqual([]);
+      expect(store.state.lockConflicts.value).toEqual([]);
     });
 
     it("says the plan is updating while a run is pending, with Download waiting", () => {

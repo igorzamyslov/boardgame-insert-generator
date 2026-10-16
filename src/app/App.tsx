@@ -4,6 +4,7 @@ import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Component, ComponentKind, Project, TraySpec } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
+import { topPlane } from "../model/settings";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
@@ -349,7 +350,8 @@ export function App(props: AppProps) {
           trays: summary.trayCount,
           layers: Math.max(1, layers),
           height: Math.max(0, ...layout.trays.map((t) => t.z + t.h)),
-          boxHeight: project.box.innerHeight,
+          // the height below the space the box keeps free on top (where every stack reaches)
+          boxHeight: topPlane(project.box, projSettings),
         }
       : null;
   const conflicts = s.lockConflicts.value;
@@ -507,7 +509,6 @@ export function App(props: AppProps) {
                             s.noFitAttempt.value,
                             project.box,
                             projSettings,
-                            projPrinter,
                             project.components,
                           ),
                         }
@@ -532,7 +533,6 @@ export function App(props: AppProps) {
                   hiddenErrors={errorsWithoutField(validation)}
                   problemSections={problemSections}
                   onShowSection={showSection}
-                  shortfall={s.shortfall.value}
                   onRetry={() => store.retry()}
                 />
                 {firstVisit ? (

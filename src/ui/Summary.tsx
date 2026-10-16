@@ -1,6 +1,6 @@
 // src/ui/Summary.tsx
 import type { RunState } from "../app/state";
-import { PRINT_FLOW_MM3_PER_S, mmUp } from "../layout";
+import { PRINT_FLOW_MM3_PER_S } from "../layout";
 import type { LayoutSummary } from "../layout/types";
 import type { Notice } from "../model/types";
 import { Notices } from "./Notices";
@@ -21,7 +21,6 @@ export interface SummaryProps {
   /** The input sections that hold an error, so the summary can send the reader there. */
   problemSections: readonly { id: string; title: string }[];
   onShowSection: (id: string) => void;
-  shortfall: { x: number; y: number; z: number } | null;
   onRetry: () => void;
 }
 
@@ -35,22 +34,6 @@ export function formatPrintTime(minutes: number): string {
     return `${nearest5} min`;
   }
   return `${Math.round((minutes / 60) * 2) / 2} h`;
-}
-
-/** The "short by" line; null when no axis is short (a part over the bed or a locked size is the
- * reason: the doesNotFit notice in the list below says which, naming the tray). */
-function shortfallText(s: { x: number; y: number; z: number }): string | null {
-  const parts: string[] = [];
-  if (s.x > 0) {
-    parts.push(`${mmUp(s.x)} mm left–right`);
-  }
-  if (s.y > 0) {
-    parts.push(`${mmUp(s.y)} mm front–back`);
-  }
-  if (s.z > 0) {
-    parts.push(`${mmUp(s.z)} mm in height`);
-  }
-  return parts.length > 0 ? `Closest attempt so far is short by ${parts.join(" and ")}.` : null;
 }
 
 function Readout({
@@ -91,7 +74,6 @@ function liveText(run: RunState): string {
 
 export function Summary(p: SummaryProps) {
   const running = p.run.status === "running";
-  const shortfall = p.shortfall ? shortfallText(p.shortfall) : null;
   return (
     <>
       <p class="visually-hidden" role="status">
@@ -133,7 +115,6 @@ export function Summary(p: SummaryProps) {
           ) : null}
         </div>
       ) : null}
-      {shortfall ? <p class="shortfall stage-block">{shortfall}</p> : null}
       {p.summary ? (
         <dl class="pf-readouts pf-readouts--strip stage-block">
           <Readout

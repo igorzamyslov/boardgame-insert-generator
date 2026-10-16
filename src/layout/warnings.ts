@@ -279,6 +279,8 @@ export function bedNotices(ctx: Ctx): Notice[] {
  * are in mm and `h` is the printed height, the lip included.
  */
 export interface OverBedPart {
+  /** The part's key in the plan. */
+  readonly key: string;
   /** A leftover: it is as tall as the stacks beside it, so only the box's height can be the reason. */
   readonly filler: boolean;
   readonly label: string;
@@ -299,7 +301,7 @@ export function overBedParts(ctx: Ctx, trays: readonly TraySpec[]): OverBedPart[
     if (t.part === "leftover") {
       return fitsBed(ctx.bed, toU(t.w), toU(t.d), toU(t.h))
         ? []
-        : [{ filler: true, label: t.key, w: t.w, d: t.d, h: t.h, stackPhrase: null }];
+        : [{ key: t.key, filler: true, label: t.key, w: t.w, d: t.d, h: t.h, stackPhrase: null }];
     }
     if (
       t.part !== "tray" ||
@@ -316,6 +318,7 @@ export function overBedParts(ctx: Ctx, trays: readonly TraySpec[]): OverBedPart[
     const roles = ref && plainFits ? stackRoles(ctx, ref) : undefined;
     return [
       {
+        key: t.key,
         filler: false,
         label: partLabel(
           t.compartments.map((c) => c.contents),

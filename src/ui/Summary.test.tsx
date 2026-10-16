@@ -2,10 +2,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NOTICE_CODES, mmUp } from "../layout";
-import { createCtx } from "../layout/context";
-import { boxReq, fakeMeasure, makeInput } from "../layout/test-utils";
-import { doesNotFitNotice } from "../layout/warnings";
+import { NOTICE_CODES } from "../layout";
 import type { Notice } from "../model/types";
 import { LAYOUT_NOTICES_SHOWN, Summary, formatPrintTime } from "./Summary";
 import type { SummaryProps } from "./Summary";
@@ -40,7 +37,6 @@ function props(over: Partial<SummaryProps> = {}): SummaryProps {
     hiddenErrors: [],
     problemSections: [],
     onShowSection: vi.fn(),
-    shortfall: null,
     onRetry: vi.fn(),
     ...over,
   };
@@ -198,26 +194,7 @@ describe("Summary", () => {
     });
   });
 
-  it("states the shortfall, rounded up to 0.1 mm like the notice, never to the nearest", () => {
-    const view = render(
-      <Summary
-        {...props({ summary: null, hasLayout: false, shortfall: { x: 12.345, y: 0, z: 3 } })}
-      />,
-    );
-    expect(screen.getByText(/Closest attempt/).textContent).toBe(
-      "Closest attempt so far is short by 12.4 mm left–right and 3.0 mm in height.",
-    );
-    view.rerender(
-      <Summary
-        {...props({ summary: null, hasLayout: false, shortfall: { x: 0.03, y: 0, z: 0 } })}
-      />,
-    );
-    expect(screen.getByText(/Closest attempt/).textContent).toBe(
-      "Closest attempt so far is short by 0.1 mm left–right.",
-    );
-  });
-
-  it('shows no "short by" line when no axis is short and lets the notice name the tray', () => {
+  it('shows the doesNotFit notice, and no second "short by" line of its own', () => {
     const message =
       'The components don\'t fit in this box. Too large for the print bed: "Boards" is 121.0 × 44.0 × 14.0 mm; the usable bed is 120.0 × 120.0 mm.';
     render(
@@ -225,7 +202,6 @@ describe("Summary", () => {
         {...props({
           summary: null,
           hasLayout: false,
-          shortfall: { x: 0, y: 0, z: 0 },
           notices: [{ level: "error", code: NOTICE_CODES.doesNotFit, message }],
         })}
       />,
@@ -306,28 +282,5 @@ describe("Summary", () => {
     expect(list.querySelectorAll("li")).toHaveLength(LAYOUT_NOTICES_SHOWN);
     fireEvent.click(screen.getByRole("button", { name: "Show all 12 messages" }));
     expect(list.querySelectorAll("li")).toHaveLength(12);
-  });
-
-  it("states a shortfall the way the real doesNotFit notice does", () => {
-    const ctx = createCtx(makeInput([boxReq("bits", 40, 40, 10)]), fakeMeasure);
-    for (const x of [0.01, 0.04, 0.1, 12.345, 12.34, 99.99]) {
-      const notice = doesNotFitNotice(ctx, { x, y: 0.07, z: 3 });
-      const view = render(
-        <Summary
-          {...props({
-            summary: null,
-            hasLayout: false,
-            shortfall: { x, y: 0.07, z: 3 },
-            notices: [notice],
-          })}
-        />,
-      );
-      const line = screen.getByText(/Closest attempt/).textContent ?? "";
-      expect(line).toContain(`${mmUp(x)} mm left–right`);
-      expect(line).toContain(`${mmUp(0.07)} mm front–back`);
-      expect(notice.message).toContain(`${mmUp(x)} mm in width (X)`);
-      expect(notice.message).toContain(`${mmUp(0.07)} mm in length (Y)`);
-      view.unmount();
-    }
   });
 });
