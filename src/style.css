@@ -916,7 +916,9 @@ span.inserts-name {
    whenever anything else appeared (a warning, say) and the view scrolled instead. */
 .pf-app__stage > .pf-view {
   flex: 1 1 auto;
-  min-height: 0;
+
+  /* The plan never shrinks to a thumbnail: on a short screen the stage scrolls instead. */
+  min-height: 24rem;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
 }
