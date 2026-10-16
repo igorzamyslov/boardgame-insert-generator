@@ -74,7 +74,6 @@ function props(over: Partial<ViewerProps>, scene: ReturnType<typeof stubScene>):
     settings: DEFAULT_SETTINGS,
     meshes: meshes(),
     selectedKey: null,
-    lockedKeys: new Set(),
     onSelect: vi.fn(),
     webgl: () => true,
     loadScene: () => Promise.resolve(scene.factory),
@@ -135,7 +134,6 @@ describe("Viewer", () => {
     expect(p.onSelect).toHaveBeenCalledWith("b:p0:0");
     view.rerender(<Viewer {...p} selectedKey="b:p0:0" />);
     expect(scene.handle.setSelected).toHaveBeenLastCalledWith("b:p0:0");
-    expect(screen.getByRole("heading", { name: /^#2 / })).toBeTruthy();
     view.unmount();
     expect(scene.handle.dispose).toHaveBeenCalled();
   });
@@ -481,15 +479,5 @@ describe("Viewer", () => {
         ["Spare by Market"],
       );
     });
-  });
-
-  it("shows the selected tray's details with its position and locks", () => {
-    const scene = stubScene();
-    const p = props({ selectedKey: "b:p0:0" }, scene);
-    render(<Viewer {...p} />);
-    const details = screen.getByRole("group", { name: "Selected tray" });
-    expect(details.getAttribute("aria-live")).toBe("polite");
-    expect(details.textContent).toMatch(/Outer size/);
-    expect(details.textContent).toMatch(/Position/);
   });
 });

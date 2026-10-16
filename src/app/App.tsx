@@ -1,18 +1,19 @@
 // src/app/App.tsx
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
-import { numberParts } from "../instructions/numbering";
+import { trayNames } from "../instructions/naming";
+import { numberParts, parentKey } from "../instructions/numbering";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Component, ComponentKind, Project, TraySpec } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
-import { levelsOf } from "../plan/layers";
-import { PlanView } from "../plan/PlanView";
+import { isAddOn, levelsOf } from "../plan/layers";
+import { PlanView, layerLabel } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
 import { AppHeader } from "../ui/AppHeader";
 import { BoxForm } from "../ui/BoxForm";
 import { AddKinds, ComponentList } from "../ui/components/ComponentList";
-import { trayNumbersByComponent } from "../ui/identity";
+import { componentIndexOfTray, trayNumbersByComponent } from "../ui/identity";
 import { ExportPanel } from "../ui/ExportPanel";
 import { Modal } from "../ui/Modal";
 import { Notices, PlanBanners } from "../ui/Notices";
@@ -21,6 +22,7 @@ import { ProjectMenu } from "../ui/ProjectMenu";
 import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
 import { Summary } from "../ui/Summary";
+import { TrayBar } from "../ui/TrayBar";
 import { Section } from "../ui/Section";
 import {
   SettingsContext,
@@ -40,6 +42,7 @@ import {
   sizeLockedKeys,
   toggleLock,
   toggleSizeLock,
+  turnTray,
   applyPrinter,
   updateBox,
   updateComponent,
@@ -133,6 +136,8 @@ export function App(props: AppProps) {
     project.components.length === 0 ? "box" : "components",
   );
   const [view, setView] = useState<ViewId>("plan");
+  // The component whose editor the tray bar's Edit asked for, until it is open and in view.
+  const [editRequest, setEditRequest] = useState<string | null>(null);
   // A swap belongs to the plan: it ends when the view moves away from it.
   function showView(next: ViewId): void {
     if (next !== "plan") {
@@ -154,6 +159,23 @@ export function App(props: AppProps) {
     setExportOpen(false);
     setSettingsOpen(null);
   }, [project.id]);
+  // The list keeps to itself which card is open, so the card is opened the way a click would,
+  // once the rail section holding it is (the section opens on this same render).
+  useEffect(() => {
+    if (editRequest === null) {
+      return;
+    }
+    setEditRequest(null);
+    const card = [...document.querySelectorAll<HTMLDetailsElement>("details.component-card")].find(
+      (d) => d.getAttribute("aria-labelledby") === `${editRequest}-heading`,
+    );
+    if (card === undefined) {
+      return;
+    }
+    card.open = true;
+    card.scrollIntoView?.({ block: "nearest" });
+    card.querySelector<HTMLElement>(".pf-item__title")?.focus();
+  }, [editRequest]);
   const locked = lockedKeys(project);
   const sizeLocked = sizeLockedKeys(project);
 
@@ -304,11 +326,66 @@ export function App(props: AppProps) {
   };
   // What the plan holds, for the sentence, the Export button and the tray numbers of the list.
   const parts = layout ? numberParts(printable) : [];
+  const names = layout ? trayNames(parts, project.components) : new Map();
   const planCurrent = layout !== undefined && !s.stale.value && run.status !== "running";
   const trayNumbers = planCurrent ? trayNumbersByComponent(parts, project.components) : undefined;
   const layers = layout ? levelsOf(layout.trays).length : 0;
   const spares = layout ? layout.trays.filter((t) => t.part === "leftover").length : 0;
   const partTotal = printable.length;
+  // The tray bar: what the selected tray is, and what can be done with it. The plan shows it under
+  // the drawing, the 3D view under the picker; a swap is made on the plan only.
+  const selectedTray = layout ? printable.find((t) => t.key === s.selection.value) : undefined;
+  const trayBar = (inPlan: boolean) => {
+    if (selectedTray === undefined) {
+      return null;
+    }
+    const key = selectedTray.key;
+    const levels = levelsOf(printable);
+    const at = levels.indexOf(selectedTray.level);
+    const owner = isAddOn(selectedTray) ? names.get(parentKey(selectedTray)) : undefined;
+    const componentIndex = componentIndexOfTray(selectedTray, project.components);
+    const component = componentIndex === null ? undefined : project.components[componentIndex];
+    return (
+      <TrayBar
+        project={project}
+        tray={selectedTray}
+        name={names.get(key)?.full ?? key}
+        layer={at >= 0 ? layerLabel(at, levels.length) : `Layer ${selectedTray.level + 1}`}
+        relation={
+          owner === undefined
+            ? null
+            : { label: selectedTray.part === "riser" ? "Carries" : "Sits on", name: owner.full }
+        }
+        stale={s.stale.value}
+        swapping={s.swapFrom.value === key}
+        onPin={() => withTray(key, (tray) => (q) => toggleLock(q, tray))}
+        onTurn={() => withTray(key, (tray) => (q) => turnTray(q, tray))}
+        onSwap={
+          inPlan ? () => (s.swapFrom.value = s.swapFrom.value === key ? null : key) : undefined
+        }
+        onToggleSizeLock={() => withTray(key, (tray) => (q) => toggleSizeLock(q, tray))}
+        onEdit={
+          component === undefined
+            ? undefined
+            : () => {
+                setOpenSection("components");
+                setEditRequest(component.id);
+              }
+        }
+        onClose={() => {
+          s.selection.value = null;
+          // The bar leaves with the selection: hand the focus back to the tray it was for.
+          if (inPlan) {
+            requestAnimationFrame(() =>
+              [...document.querySelectorAll<HTMLElement>(".plan-tray")]
+                .find((el) => el.getAttribute("data-key") === key)
+                ?.focus(),
+            );
+          }
+        }}
+      />
+    );
+  };
 
   return (
     <ValidationContext.Provider value={validation}>
@@ -538,33 +615,28 @@ export function App(props: AppProps) {
                           }}
                           onSwap={(a, b) => store.edit((q) => swapTrays(q, a, b))}
                           sizeLockedKeys={sizeLocked}
-                          onToggleSizeLock={(key) =>
-                            withTray(key, (tray) => (q) => toggleSizeLock(q, tray))
-                          }
-                          onToggleLock={(key) =>
-                            withTray(key, (tray) => (q) => toggleLock(q, tray))
-                          }
+                          bar={trayBar(true)}
                         />
                       ) : null}
                       {view === "3d" ? (
-                        <Viewer
-                          trays={printable}
-                          box={project.box}
-                          settings={project.settings}
-                          components={project.components}
-                          stale={s.stale.value}
-                          meshes={meshes}
-                          selectedKey={s.selection.value}
-                          lockedKeys={locked}
-                          sizeLockedKeys={sizeLocked}
-                          onToggleSizeLock={(key) =>
-                            withTray(key, (tray) => (q) => toggleSizeLock(q, tray))
-                          }
-                          onSelect={(key) => {
-                            s.selection.value = key;
-                          }}
-                          {...props.viewerProps}
-                        />
+                        <>
+                          <Viewer
+                            trays={printable}
+                            box={project.box}
+                            settings={project.settings}
+                            components={project.components}
+                            stale={s.stale.value}
+                            meshes={meshes}
+                            selectedKey={s.selection.value}
+                            onSelect={(key) => {
+                              s.selection.value = key;
+                            }}
+                            {...props.viewerProps}
+                          />
+                          {selectedTray !== undefined ? (
+                            <div class="view-bar">{trayBar(false)}</div>
+                          ) : null}
+                        </>
                       ) : null}
                     </div>
                     {exportOpen ? (

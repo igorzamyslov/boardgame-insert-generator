@@ -59,10 +59,10 @@ geometry clients, so they never start a worker or load WASM.
    (a longer search, about three times the budget) once the layout is current; either way the search starts from the
    current layout and never throws it away. Spare trays (plain, dashed, still
    numbered) fill gaps so the other trays cannot move; print them too. In the
-   plan view, select a tray to see its details; in Advanced, drag a tray onto
-   another (or use the keyboard) to swap them, and "Lock position" / "Lock
-   size" keep a tray where or as big as it is; the optimizer works around
-   locks.
+   plan view, select a tray to see its tray bar; drag a tray onto another (or
+   use "Swap with…" and the keyboard) to swap them, and "Pin", "Turn 90°" and
+   "Lock size" keep a tray where, turned the way, or as big as it is; the
+   optimizer works around them.
 5. **3D view and export.** The 3D view shows the trays (it needs WebGL; the
    rest works without). "Show axes" adds a small X, Y, Z indicator that turns with the model.
    "Export all N parts" opens the export dialog over the view you are in (close it

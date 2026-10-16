@@ -7,7 +7,6 @@ import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { CheckField, SelectField } from "../ui/fields";
 import { SPACER_COLOR, SPARE_COLOR, tintOfTray } from "../ui/identity";
-import { TrayDetails } from "../ui/TrayDetails";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
 import { boxOutline } from "./transform";
@@ -24,13 +23,7 @@ export interface ViewerProps {
   stale?: boolean;
   meshes: MeshSource;
   selectedKey: string | null;
-  lockedKeys: ReadonlySet<string>;
-  /** trayKeys with a size lock; with `onToggleSizeLock` the details offer "Lock size". */
-  sizeLockedKeys?: ReadonlySet<string>;
-  onToggleSizeLock?: (key: string) => void;
   onSelect: (key: string | null) => void;
-  /** Show the selected tray's details under the view; off where another panel shows them. */
-  details?: boolean;
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -265,7 +258,6 @@ export function Viewer(p: ViewerProps) {
       part.spec.part !== "divider" &&
       (shownLevel === null || part.spec.level <= shownLevel),
   );
-  const selected = p.selectedKey === null ? undefined : byKey.get(p.selectedKey);
   return (
     <div class="viewer">
       <div class="viewer-stage">
@@ -374,18 +366,6 @@ export function Viewer(p: ViewerProps) {
             );
           })}
         </ul>
-      ) : null}
-      {selected && p.details !== false ? (
-        <TrayDetails
-          part={selected}
-          settings={p.settings}
-          locked={p.lockedKeys.has(selected.spec.key)}
-          sizeLocked={p.sizeLockedKeys?.has(selected.spec.key) ?? false}
-          stale={p.stale}
-          onToggleSizeLock={
-            p.onToggleSizeLock ? () => p.onToggleSizeLock?.(selected.spec.key) : undefined
-          }
-        />
       ) : null}
     </div>
   );
