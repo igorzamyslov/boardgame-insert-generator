@@ -120,6 +120,7 @@ describe("explodedView", () => {
       merged: {
         members: [makeTray({ key: "m:p0:0", x: cx - w / 2, y: cy - d / 2, w, d: 10, h })],
         bridges: [{ x: cx - w / 2, y: cy - d / 2, z: 0, w: 10, d, h }],
+        flipped: false,
       },
     });
     const small = makeTray({ key: "s:p0:0", stack: 1, level: 0, x: 0, y: 0, w: 40, d: 40, h });
