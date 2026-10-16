@@ -137,6 +137,13 @@ describe("the phone layout", () => {
     Reflect.deleteProperty(Element.prototype, "scrollIntoView");
   });
 
+  it("ends the first visit with the licenses link, once", () => {
+    phone();
+    renderApp();
+    expect(screen.queryByRole("region", { name: "The box and what's inside" })).toBeNull();
+    expect(screen.getAllByRole("link", { name: "Third-party licenses" })).toHaveLength(1);
+  });
+
   it("keeps the project's licenses link in the sheet, out of the way of the handle", () => {
     phone();
     renderApp({ project: project() });

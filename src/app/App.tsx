@@ -429,7 +429,7 @@ export function App(props: AppProps) {
       ))}
     </>
   );
-  // The line at the foot of the page; on a phone the sheet holds it, so the handle stays clear.
+  // The line at the foot of the page; on a phone it ends the first visit or the sheet, so the handle stays clear.
   const footer = (
     <footer class="app-footer">
       {`Insert Generator v${APP_VERSION} (${BUILD_ID}) · `}
@@ -624,6 +624,7 @@ export function App(props: AppProps) {
                       </button>
                     </div>
                     <p class="hint">Your inserts are saved in this browser.</p>
+                    {phone ? footer : null}
                   </section>
                 ) : layout ? (
                   <section class="pf-frame pf-view" aria-label="Preview">
@@ -789,7 +790,7 @@ export function App(props: AppProps) {
                 ) : null}
               </main>
             </div>
-            {phone && !firstVisit ? null : footer}
+            {phone ? null : footer}
             {settingsOpen !== null ? (
               <SettingsSheet
                 initialTab={settingsOpen.tab}

@@ -164,6 +164,8 @@ describe("the phone layout", () => {
 
   it("leaves the scrolling to the settings sheet's panel, whatever the screen's width", () => {
     expect(ruleFor(".settings-sheet .modal-body")).toMatch(/overflow:\s*auto/);
+    // so the visually hidden text inside is clipped by the panel, not stretching the dialog
+    expect(ruleFor(".settings-sheet .modal-body")).toMatch(/position:\s*relative/);
     expect(ruleFor(".settings-sheet[open]")).toMatch(/overflow:\s*hidden/);
     expect(ruleFor(".settings-sheet")).toMatch(/dvh/);
   });

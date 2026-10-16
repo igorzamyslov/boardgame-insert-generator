@@ -34,7 +34,7 @@ select {
 
 /* ---- Buttons: one quiet default, indigo for the one thing to do next, madder for removing ---- */
 button {
-  min-height: 36px;
+  min-height: var(--control-h);
   padding: 0 var(--space-3);
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-md);
@@ -478,17 +478,24 @@ span.inserts-name {
   align-items: center;
 }
 
+/* A checkbox is a 44 px cell with the box in it, beside a label at least as tall. */
 .check-field {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0 var(--space-2);
-  align-items: start;
+  grid-template-columns: var(--control-h) 1fr;
+  gap: 0;
+  align-items: center;
 }
 
 .check-field input {
-  width: 18px;
-  height: 18px;
-  margin: 3px 0 0;
+  width: 24px;
+  height: 24px;
+  margin: 10px;
+}
+
+.check-field > label {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-h);
 }
 
 .check-field .hint,
@@ -744,7 +751,8 @@ span.inserts-name {
 }
 
 .notice-dismiss {
-  min-height: 24px;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
   margin-left: var(--space-2);
   padding: 0 var(--space-2);
 }
@@ -1176,6 +1184,8 @@ span.inserts-name {
 }
 
 .range-field input {
+  min-height: var(--control-h);
+  margin: 0;
   accent-color: var(--indigo);
 }
 
@@ -1240,6 +1250,9 @@ span.inserts-name {
 }
 
 .app-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
   color: inherit;
 }
 
@@ -1354,7 +1367,9 @@ html:has(dialog.modal[open]) {
   overflow: hidden;
 }
 
+/* Positioned, so the visually hidden text inside is clipped with the panel and cannot stretch the dialog. */
 .settings-sheet .modal-body {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -1547,23 +1562,6 @@ html:has(dialog.modal[open]) {
 .box-panel .field-label {
   color: var(--ink);
   font: 500 14px/20px var(--font-ui);
-}
-
-.box-panel .check-field {
-  grid-template-columns: 44px 1fr;
-  align-items: center;
-}
-
-.box-panel .check-field input {
-  width: 24px;
-  height: 24px;
-  margin: 10px;
-}
-
-.box-panel .check-field > label {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
 }
 
 /* Two or three choices side by side; the pressed one is filled. */
