@@ -399,6 +399,12 @@ span.inserts-name {
   background: var(--sheet);
 }
 
+/* Nothing to show: the box stays (its live regions must stay mounted) but takes no room. */
+.app-notices[data-empty="true"] {
+  padding: 0;
+  border: 0;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;

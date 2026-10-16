@@ -268,6 +268,15 @@ describe("AssemblyPage", () => {
     expect(screen.queryByText(/out of date/)).toBeNull();
   });
 
+  it("tells a reader the plan went out of date while the guide was open, in a region that was already there", () => {
+    const view = render(<AssemblyPage project={deckProject()} layout={layout} onBack={vi.fn()} />);
+    const live = screen.getByRole("status");
+    expect(live.textContent).toBe("");
+    view.rerender(<AssemblyPage project={deckProject()} layout={layout} onBack={vi.fn()} stale />);
+    expect(screen.getByRole("status")).toBe(live);
+    expect(live.textContent).toMatch(/The plan is out of date/);
+  });
+
   it("prints and goes back", () => {
     const print = vi.fn();
     const onBack = vi.fn();

@@ -555,17 +555,18 @@ export function PlanView(props: PlanViewProps) {
             Select a tray to see its details. Drag a tray onto another to swap them.
           </p>
         )}
-        {swapFrom !== null ? (
-          <p role="status">
-            {swapRefused
-              ? "Leftover trays and spacers can't be swapped. Choose another tray, or press Escape."
-              : "Choose the tray to swap with, or press Escape."}
-          </p>
-        ) : dragNote !== null ? (
-          <p role="status" class="plan-note">
-            {dragNote}
-          </p>
-        ) : null}
+        {/* always mounted, so a reader hears a note arrive */}
+        <div role="status">
+          {swapFrom !== null ? (
+            <p>
+              {swapRefused
+                ? "Spare trays and spacers can't be swapped. Choose another tray, or press Escape."
+                : "Choose the tray to swap with, or press Escape."}
+            </p>
+          ) : dragNote !== null ? (
+            <p class="plan-note">{dragNote}</p>
+          ) : null}
+        </div>
         {props.bar}
       </div>
     </div>

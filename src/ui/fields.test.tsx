@@ -198,8 +198,9 @@ describe("Notices", () => {
     expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
-  it("renders nothing without notices", () => {
+  it("shows no list without notices, only its empty live region", () => {
     const { container } = render(<Notices notices={[]} />);
-    expect(container.innerHTML).toBe("");
+    expect(container.querySelector("ul")).toBeNull();
+    expect(container.querySelector("[role=status]")?.textContent).toBe("");
   });
 });

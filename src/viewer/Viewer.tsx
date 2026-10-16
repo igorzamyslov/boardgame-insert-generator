@@ -333,8 +333,12 @@ export function Viewer(p: ViewerProps) {
           Inputs changed: the preview shows the last layout. Make a new plan to fix it.
         </p>
       ) : null}
+      {/* always mounted, so the progress is spoken when it starts; the count stays on screen only */}
+      <div class="visually-hidden" role="status">
+        {!p.stale && build.total > 0 && build.done < build.total ? "Building 3D models." : ""}
+      </div>
       {!p.stale && build.total > 0 && build.done < build.total ? (
-        <div class="run-status" role="status">
+        <div class="run-status">
           <progress value={build.done} max={build.total} aria-label="Building 3D models" />
           <span>{`Building 3D models ${build.done}/${build.total}…`}</span>
         </div>

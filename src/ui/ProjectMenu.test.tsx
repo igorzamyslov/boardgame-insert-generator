@@ -120,9 +120,11 @@ describe("ProjectMenu", () => {
       notices: [{ level: "warning", code: "storage.conflict", message: "Another tab saved." }],
     });
     render(<ProjectMenu {...p} />);
-    const first = document.querySelector(".project-menu")?.firstElementChild;
-    expect(first?.getAttribute("aria-label")).toBe("Project messages");
-    expect(screen.getByText("Another tab saved.")).toBeTruthy();
+    // the messages come first: after their (hidden) live region, before any button
+    const [live, list] = [...(document.querySelector(".project-menu")?.children ?? [])];
+    expect(live?.getAttribute("role")).toBe("status");
+    expect(list?.getAttribute("aria-label")).toBe("Project messages");
+    expect(screen.getAllByText("Another tab saved.")).toHaveLength(2); // on screen, and spoken
     fireEvent.click(button("Use the other tab's version"));
     expect(p.onResolveConflict).toHaveBeenCalledWith("loadTheirs");
     expect(p.onClose).toHaveBeenCalled();

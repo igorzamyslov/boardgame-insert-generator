@@ -82,11 +82,14 @@ export function AssemblyPage(p: AssemblyPageProps) {
       <p class="assembly-meta">
         {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Layers are drawn from above, with the front of the box at the bottom.`}
       </p>
-      {p.stale ? (
-        <p class="assembly-stale no-print" role="status">
-          The plan is out of date. Go back to your insert to update it.
-        </p>
-      ) : null}
+      {/* always mounted, so the reader is told when the plan goes out of date while the guide is open */}
+      <div role="status" class="no-print">
+        {p.stale ? (
+          <p class="assembly-stale">
+            The plan is out of date. Go back to your insert to update it.
+          </p>
+        ) : null}
+      </div>
       {pngError !== null ? (
         <p class="run-error no-print" role="alert">
           {pngError}

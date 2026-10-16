@@ -209,10 +209,12 @@ it only with a written reason in the code or the PR.
   region always and swap only its content (`ui/Toast.tsx`, the `viewer-selection-live` region in
   `viewer/Viewer.tsx`). Keep `aria-live` narrow: the changing words only, never a whole toolbar
   (`ui/TrayBar.tsx` has exactly two live regions, the chips and the reason line, and a test
-  checks that). Some older regions still mount with their text: `ui/SavedStatus.tsx` toggles
-  `role`, and so do the swap and drag notes in `plan/PlanView.tsx`, `PlanBanners` in
-  `ui/Notices.tsx` and the remove toast in `App.tsx`. Fix them when you touch them; don't copy
-  them.
+  checks that). Every region in the app is mounted before it speaks. Where the thing to say is a
+  visible notice or banner that comes and goes, keep a visually hidden region beside it that
+  always exists (`Announcer` in `ui/Notices.tsx`, `SavedStatus`, the remove toast's
+  `data-live="removed"` region in `App.tsx`) and keep the notice itself free of `role`. Keep a
+  button out of a region (the Download dialog's Stop sits beside its region, not in it) and keep
+  the words steady while a count changes, so it speaks once.
 - MUST move focus on purpose when the focused element unmounts, and only if focus fell to
   `document.body`, so you never steal it from where the person moved it. Examples:
   - `ui/components/ComponentList.tsx`: a chip's × moves focus to the next chip, else to the

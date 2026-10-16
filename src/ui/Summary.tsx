@@ -105,7 +105,7 @@ export function Summary(p: SummaryProps) {
   }, [running, improving]);
   return (
     <>
-      <p class="visually-hidden" role="status">
+      <p class="visually-hidden" role="status" data-live="run">
         {liveText(p.run, spoken)}
       </p>
       {p.run.status === "error" ? (

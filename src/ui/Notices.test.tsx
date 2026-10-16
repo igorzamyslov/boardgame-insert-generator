@@ -3,7 +3,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Notice } from "../model/types";
-import { Notices } from "./Notices";
+import { GEOMETRY_OLD_MESSAGE } from "../app/state";
+import { Notices, PlanBanners } from "./Notices";
 
 afterEach(cleanup);
 
@@ -76,6 +77,49 @@ describe("Notices markup", () => {
     expect(li?.querySelector("button.notice-dismiss")?.getAttribute("aria-label")).toBe(
       "Dismiss: A info message",
     );
+  });
+
+  it("speaks warnings from a polite region that is there before they are, not from the notice", () => {
+    const view = render(<Notices notices={[notice("info")]} />);
+    const live = screen.getByRole("status");
+    expect(live.textContent).toBe("");
+    view.rerender(<Notices notices={[notice("info"), notice("warning")]} />);
+    expect(screen.getByRole("status")).toBe(live);
+    expect(live.textContent).toBe("A warning message");
+    // the warning on screen carries no role of its own, and an error is still an alert
+    expect(
+      screen.getByText("A warning message", { selector: ".notice-text" }).closest("li"),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByText("A warning message", { selector: ".notice-text" })
+        .closest("li")
+        ?.getAttribute("role"),
+    ).toBeNull();
+    view.rerender(<Notices notices={[notice("error")]} />);
+    expect(screen.getByRole("alert").textContent).toContain("A error message");
+    expect(live.textContent).toBe("");
+  });
+
+  it("PlanBanners: the older-geometry words come from a region that was already there", () => {
+    const noop = () => undefined;
+    const view = render(
+      <PlanBanners
+        stale={false}
+        geometryOld={false}
+        onUpdate={noop}
+        onReprint={noop}
+        onKeepOld={noop}
+      />,
+    );
+    const live = screen.getByRole("status");
+    expect(live.textContent).toBe("");
+    view.rerender(
+      <PlanBanners stale={false} geometryOld onUpdate={noop} onReprint={noop} onKeepOld={noop} />,
+    );
+    expect(screen.getByRole("status")).toBe(live);
+    expect(live.textContent).toBe(GEOMETRY_OLD_MESSAGE);
+    expect(document.querySelector(".pf-notice--warn")?.getAttribute("role")).toBeNull();
   });
 
   it("draws the dismiss button's cross as an SVG, not as a character", () => {

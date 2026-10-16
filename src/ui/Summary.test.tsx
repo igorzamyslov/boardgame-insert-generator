@@ -223,17 +223,26 @@ describe("Summary", () => {
       vi.useRealTimers();
     });
 
+    /** The run's own region (the notices have an empty one of their own). */
+    const liveRegion = (): HTMLElement => {
+      const el = document.querySelector<HTMLElement>("[data-live='run']");
+      if (el === null) {
+        throw new Error("the run's live region is not on the page");
+      }
+      return el;
+    };
+
     it("is there from the start, empty, so a reader hears the words arrive", () => {
       const view = render(<Summary {...props({ run: { status: "idle" } })} />);
-      const live = screen.getByRole("status");
+      const live = liveRegion();
       expect(live.textContent).toBe("");
       view.rerender(<Summary {...props({ run: running("improve") })} />);
-      expect(screen.getByRole("status")).toBe(live);
+      expect(liveRegion()).toBe(live);
     });
 
     it("announces Keep searching at the start and at the end, never the percent", () => {
       const view = render(<Summary {...props({ run: { status: "idle" } })} />);
-      const live = screen.getByRole("status");
+      const live = liveRegion();
       view.rerender(<Summary {...props({ run: running("improve") })} />);
       expect(live.textContent).toBe("Searching…");
       expect(live.textContent).not.toMatch(/%/);
@@ -246,7 +255,7 @@ describe("Summary", () => {
     it("keeps quiet about a new plan that takes under a second, like saving", () => {
       vi.useFakeTimers();
       const view = render(<Summary {...props({ run: { status: "idle" } })} />);
-      const live = screen.getByRole("status");
+      const live = liveRegion();
       view.rerender(<Summary {...props({ run: running("edit") })} />);
       act(() => {
         vi.advanceTimersByTime(SLOW_RUN_MS - 100);
@@ -262,7 +271,7 @@ describe("Summary", () => {
     it("announces a new plan that is slow, and when it is ready", () => {
       vi.useFakeTimers();
       const view = render(<Summary {...props({ run: { status: "idle" } })} />);
-      const live = screen.getByRole("status");
+      const live = liveRegion();
       view.rerender(<Summary {...props({ run: running("edit") })} />);
       act(() => {
         vi.advanceTimersByTime(SLOW_RUN_MS + 10);

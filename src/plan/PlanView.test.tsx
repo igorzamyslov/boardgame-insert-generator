@@ -396,7 +396,7 @@ describe("PlanView", () => {
     fireEvent.pointerMove(svg, { ...centerB, pointerId: 4 });
     fireEvent.pointerUp(svg, { ...centerB, pointerId: 4 });
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(""); // still there, saying nothing
   });
 
   it("refuses a leftover as the swap partner and cannot start a swap from one", () => {
@@ -413,7 +413,7 @@ describe("PlanView", () => {
     expect(screen.getByRole("status")).toBeTruthy();
     fireEvent.keyDown(screen.getByRole("button", { name: /^Region deck/ }), { key: "Escape" });
     expect(p.onSelect).toHaveBeenCalledWith(null);
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(""); // still there, saying nothing
     expect(view.container.querySelectorAll("[data-key]").length).toBeGreaterThan(0);
   });
 
@@ -522,10 +522,16 @@ describe("PlanView", () => {
 
   it("keeps the swap under way in the app, and ends it when the selection is cleared", () => {
     const { p, view } = setup({ selectedKey: "a:p0:0", swapFrom: "a:p0:0" });
-    expect(screen.getByRole("status").textContent).toMatch(/Choose the tray to swap with/);
+    const note = screen.getByRole("status");
+    expect(note.textContent).toMatch(/Choose the tray to swap with/);
+    // the note's region is the same element before and after: a reader hears the change
+    view.rerender(<Host {...p} selectedKey={null} />);
+    expect(screen.getByRole("status")).toBe(note);
+    view.rerender(<Host {...p} selectedKey="a:p0:0" swapFrom="a:p0:0" />);
+    expect(screen.getByRole("status")).toBe(note);
     view.rerender(<Host {...p} selectedKey={null} />);
     expect(p.onSwapFromChange).toHaveBeenLastCalledWith(null);
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(""); // still there, saying nothing
   });
 
   it("ends a swap when the selection moves to another tray", () => {
@@ -533,7 +539,7 @@ describe("PlanView", () => {
     expect(screen.getByRole("status").textContent).toMatch(/Choose the tray to swap with/);
     view.rerender(<Host {...p} selectedKey="b:p0:0" />);
     expect(p.onSwapFromChange).toHaveBeenLastCalledWith(null);
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(""); // still there, saying nothing
   });
 
   it("shows the name and size on a tile, and keeps the unit out of it", () => {

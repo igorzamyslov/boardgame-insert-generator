@@ -86,6 +86,15 @@ function removeFromEditor(name: string): void {
   fireEvent.click(screen.getByRole("button", { name: `Remove ${name}` }));
 }
 
+/** The live region that speaks a removal: on the page before there is anything to say. */
+function removedLive(): HTMLElement {
+  const el = document.querySelector<HTMLElement>("[data-live='removed']");
+  if (el === null) {
+    throw new Error("the removal's live region is not on the page");
+  }
+  return el;
+}
+
 /** The export panel is a dialog over the view; its button opens it. */
 function openExport(): void {
   fireEvent.click(screen.getByRole("button", { name: "Download" }));
@@ -310,11 +319,16 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Cards,/ }));
     removeFromEditor("Cards");
     expect(names()).toEqual(["Tokens and dice"]);
-    const toast = await screen.findByText(/Removed “Cards”/);
-    expect(toast.getAttribute("role")).toBe("status");
+    const toast = await screen.findByText(/^Removed “Cards”\.$/);
+    expect(toast.closest(".pf-toast")).not.toBeNull();
+    // the live region was on the page before it spoke, and it says the same
+    const live = removedLive();
+    expect(live.textContent).toMatch(/^Removed “Cards”\. Undo removal is available\.$/);
     fireEvent.click(screen.getByRole("button", { name: "Undo removal" }));
     expect(names()).toEqual(["Cards", "Tokens and dice"]);
     expect(screen.queryByText(/Removed “Cards”/)).toBeNull();
+    expect(removedLive()).toBe(live);
+    expect(live.textContent).toBe("");
   });
 
   it("opens a row's editor in the aside and returns to the list from Done", () => {
@@ -356,7 +370,7 @@ describe("App", () => {
     const { store } = renderApp();
     addCards();
     removeFromEditor("Cards");
-    await screen.findByText(/Removed “Cards”/);
+    await screen.findByText(/^Removed “Cards”\.$/);
     act(() => store.edit((q) => renameProject(q, "Something else")));
     await waitFor(() => expect(screen.queryByText(/Removed “Cards”/)).toBeNull());
     expect(screen.queryByRole("button", { name: "Undo removal" })).toBeNull();
@@ -366,7 +380,7 @@ describe("App", () => {
     const { store } = renderApp();
     addCards();
     removeFromEditor("Cards");
-    await screen.findByText(/Removed “Cards”/);
+    await screen.findByText(/^Removed “Cards”\.$/);
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText(/Removed “Cards”/)).toBeNull();
     expect(store.state.project.value.components).toHaveLength(0);
@@ -562,7 +576,11 @@ describe("App", () => {
       const { store } = renderApp();
       store.state.conflict.value = true;
       store.pushNotice({ level: "warning", code: CONFLICT_CODE, message: "Another tab saved." });
-      expect(await screen.findByText("Saving paused")).toBeTruthy();
+      await waitFor(() =>
+        expect(document.querySelector(".saved-status")?.textContent).toBe(
+          "Saving pausedSaving paused",
+        ),
+      );
       expect(screen.getByRole("button", { name: "Project menu, 1 notice" })).toBeTruthy();
     });
 
@@ -769,11 +787,17 @@ describe("App", () => {
     expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+    const banner = document.querySelector(".pf-notice--warn");
+    expect(banner?.textContent).toContain(
+      "Made with an older version of the app. Trays printed from it won't stack with trays you print now.",
+    );
+    // the banner itself is not live: the region that was there before it speaks for it
+    expect(banner?.getAttribute("role")).toBeNull();
     expect(
-      screen.getByText(
-        "Made with an older version of the app. Trays printed from it won't stack with trays you print now.",
-      ),
-    ).toBeTruthy();
+      screen
+        .getAllByRole("status")
+        .some((r) => r.textContent?.startsWith("Made with an older version of the app.")),
+    ).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Use the old plan" }));
     expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
   });
@@ -1022,7 +1046,9 @@ describe("App", () => {
       store.edit((q) => renameProject(q, "From this tab"));
       store.onExternalChange();
       expect(store.state.conflict.value).toBe(true);
-      expect(document.querySelector(".app-notices")).toBeNull();
+      // nothing on the page: the notice is in the menu; the box stays, empty, for its live regions
+      expect(document.querySelector(".app-notices")?.getAttribute("data-empty")).toBe("true");
+      expect(document.querySelectorAll(".app-notices li")).toHaveLength(0);
       const menu = await screen.findByRole("button", { name: "Project menu, 1 notice" });
       expect(document.querySelector(".app-menu-dot")).not.toBeNull();
       fireEvent.click(menu);

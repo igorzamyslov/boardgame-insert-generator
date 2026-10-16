@@ -16,12 +16,28 @@ const LEVEL_CLASS: Record<Notice["level"], string> = {
   info: "pf-notice",
 };
 
-/** Errors interrupt a screen reader, warnings are read when it is idle, notes are not announced. */
-const ROLE: Record<Notice["level"], "alert" | "status" | undefined> = {
+/**
+ * Errors interrupt a screen reader (an alert is announced as it appears), warnings are read when
+ * it is idle (the polite region `Announcer` keeps mounted), notes are not announced.
+ */
+const ROLE: Record<Notice["level"], "alert" | undefined> = {
   error: "alert",
-  warning: "status",
+  warning: undefined,
   info: undefined,
 };
+
+/**
+ * The polite live region of a set of notices. It is always on the page, empty until there is
+ * something to say, so a reader hears the words arrive; a region that appears together with its
+ * text is often not announced. Visually hidden: the notice itself is on screen as well.
+ */
+export function Announcer({ text }: { text: string }) {
+  return (
+    <div class="visually-hidden" role="status">
+      {text}
+    </div>
+  );
+}
 
 export interface NoticesProps {
   notices: readonly Notice[];
@@ -63,13 +79,18 @@ export function Notices({
   limit,
 }: NoticesProps) {
   const [all, setAll] = useState(false);
-  if (notices.length === 0) {
-    return null;
-  }
   const shown = limit !== undefined && !all ? visibleNotices(notices, limit) : notices;
+  const announce = shown
+    .filter((n) => n.level === "warning")
+    .map((n) => n.message)
+    .join(" ");
+  if (notices.length === 0) {
+    return <Announcer text="" />;
+  }
   const hidden = notices.length - shown.length;
   return (
     <>
+      <Announcer text={announce} />
       <ul class={extra ? `notices ${extra}` : "notices"} aria-label={label}>
         {shown.map((n) => (
           <li
@@ -128,13 +149,11 @@ export interface PlanBannersProps {
 
 /** The one banner under the header: it asks for a decision about the plan itself. */
 export function PlanBanners(p: PlanBannersProps) {
-  if (!p.stale && !p.geometryOld) {
-    return null;
-  }
   return (
     <>
+      <Announcer text={p.geometryOld ? GEOMETRY_OLD_MESSAGE : ""} />
       {p.geometryOld ? (
-        <div class="pf-notice pf-notice--warn" role="status">
+        <div class="pf-notice pf-notice--warn">
           <div>
             <span class="notice-text">{GEOMETRY_OLD_MESSAGE}</span>
             <span class="notice-action">

@@ -356,7 +356,7 @@ Another-tab conflicts and storage problems go into the project menu with a dot o
 **Editor flow.** What's inside lists components; "Add" picks a kind; a first item opens its
 editor at once. Editing replaces the list with `EditorPanel`
 (`src/ui/components/EditorPanel.tsx`): the basics, then "More options" opening in the same panel.
-Each option change shows a short note over the box via `Toast` (`src/ui/Toast.tsx`), worded by
+Each option change shows a short note at the foot of the page via `Toast` (`src/ui/Toast.tsx`), worded by
 `describeOptionChange` (`src/ui/components/optionNotes.ts`). "Done" or the back link returns to the
 list. The tray bar's and status line's Edit open the same panel. Kind editors are
 `CardsEditor`, `BulkEditor` (tokens and dice), `TilesEditor`, `MinisEditor`, `CustomEditor`.

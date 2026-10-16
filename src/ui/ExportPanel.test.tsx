@@ -601,9 +601,14 @@ describe("ExportPanel", () => {
     const p = props({ meshes: m });
     render(<ExportPanel {...p} />);
     openOtherFormats();
+    // the live region is on the page before the build starts, and the Stop button is not in it
+    const live = document.querySelector<HTMLElement>("[data-live='build']") as HTMLElement;
+    expect(live.textContent).toBe("");
     fireEvent.click(screen.getByRole("button", { name: PER_PART }));
     await screen.findByRole("button", { name: "Stop" });
-    expect(screen.getByText("Building 0 of 2")).toBeTruthy();
+    expect(live.textContent).toBe("Building the files.");
+    expect(live.contains(screen.getByRole("button", { name: "Stop" }))).toBe(false);
+    expect(screen.getByText("Building 0 of 2").closest("[role=status]")).toBeNull();
     expect(screen.getByLabelText("Building the files").tagName).toBe("PROGRESS");
     const callsBefore = m.get.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));

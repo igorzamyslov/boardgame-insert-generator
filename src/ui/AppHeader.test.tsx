@@ -40,19 +40,19 @@ describe("AppHeader", () => {
     expect(p.onRename).toHaveBeenCalledWith("Wingspan 2");
   });
 
-  it("shows Saved in this browser", () => {
+  it("shows Saved in this browser, and says nothing for routine saving", () => {
     render(<AppHeader {...props({ saveState: "saved" })} />);
     expect(screen.getByText("Saved in this browser")).toBeTruthy();
-    // routine saving is not announced
-    expect(screen.queryByRole("status")).toBeNull();
+    // the live region is there, empty: routine saving is not announced
+    expect(screen.getByRole("status").textContent).toBe("");
   });
 
-  it("shows Saving paused", () => {
+  it("shows Saving paused, and announces it", () => {
     render(<AppHeader {...props({ saveState: "paused" })} />);
     expect(screen.getByRole("status").textContent).toBe("Saving paused");
   });
 
-  it("says what each other save state means", () => {
+  it("says what each other save state means, in a live region that stays mounted", () => {
     const text: Record<SaveState, string> = {
       saved: "Saved in this browser",
       saving: "Saving…",
@@ -60,13 +60,15 @@ describe("AppHeader", () => {
       failed: "Couldn't save",
       unavailable: "Not saved: this browser blocks storage",
     };
-    const { rerender } = render(<AppHeader {...props()} />);
+    const { rerender, container } = render(<AppHeader {...props()} />);
+    const region = screen.getByRole("status");
     const announced = ["paused", "failed", "unavailable"];
     for (const [state, expected] of Object.entries(text)) {
       rerender(<AppHeader {...props({ saveState: state as SaveState })} />);
-      expect(screen.getByText(expected)).toBeTruthy();
-      // only the states that need attention are live
-      expect(screen.queryByRole("status") !== null).toBe(announced.includes(state));
+      expect(container.querySelector(".saved-status")?.textContent).toContain(expected);
+      // only the states that need attention are spoken, and the region is the same element
+      expect(screen.getByRole("status")).toBe(region);
+      expect(region.textContent).toBe(announced.includes(state) ? expected : "");
     }
   });
 

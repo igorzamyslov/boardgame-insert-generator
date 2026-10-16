@@ -26,7 +26,7 @@ export function Toast({ message, nonce, onDone, ms = TOAST_MS }: ToastProps) {
     const timer = setTimeout(onDone, ms);
     return () => clearTimeout(timer);
   }, [message, nonce, ms, onDone]);
-  // TODO: the note belongs over the box, in the stage area, once the new workspace has one.
+  // Fixed at the foot of the page (`.pf-toasts`). The region is always mounted, so a note is spoken.
   return (
     <div class="pf-toasts" role="status">
       {message === null ? null : <p class="pf-toast pf-toast--note">{message}</p>}

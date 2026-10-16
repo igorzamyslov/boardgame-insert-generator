@@ -528,23 +528,27 @@ export function App(props: AppProps) {
                   void readFile(e.currentTarget);
                 }}
               />
-              {showStale || showGeometry || placed.inline.length > 0 ? (
-                <div class="app-notices">
-                  <PlanBanners
-                    stale={showStale}
-                    geometryOld={showGeometry}
-                    onUpdate={() => store.refit()}
-                    onReprint={() => store.refit()}
-                    onKeepOld={() => setGeometryKept(geometryKey)}
-                  />
-                  <Notices
-                    notices={placed.inline}
-                    label="App messages"
-                    limit={3}
-                    onDismiss={(code) => store.dismissNotice(code)}
-                  />
-                </div>
-              ) : null}
+              {/* Always mounted, so its live regions are there before they have anything to say. */}
+              <div
+                class="app-notices"
+                data-empty={
+                  showStale || showGeometry || placed.inline.length > 0 ? undefined : "true"
+                }
+              >
+                <PlanBanners
+                  stale={showStale}
+                  geometryOld={showGeometry}
+                  onUpdate={() => store.refit()}
+                  onReprint={() => store.refit()}
+                  onKeepOld={() => setGeometryKept(geometryKey)}
+                />
+                <Notices
+                  notices={placed.inline}
+                  label="App messages"
+                  limit={3}
+                  onDismiss={(code) => store.dismissNotice(code)}
+                />
+              </div>
             </div>
             <div class="pf-app__body" data-first-visit={firstVisit ? "true" : undefined}>
               {firstVisit ? null : phone ? (
@@ -788,8 +792,14 @@ export function App(props: AppProps) {
                     </div>
                   </section>
                 )}
+                {/* always mounted: the removal is spoken, and Undo is in the header as well */}
+                <div class="visually-hidden" role="status" data-live="removed">
+                  {removed !== null && removed.version === s.history.version.value
+                    ? `Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. Undo removal is available.`
+                    : ""}
+                </div>
                 {removed !== null && removed.version === s.history.version.value ? (
-                  <div class="pf-toast stage-block" role="status">
+                  <div class="pf-toast stage-block">
                     {`Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. `}
                     <button
                       type="button"

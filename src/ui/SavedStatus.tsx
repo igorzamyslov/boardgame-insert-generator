@@ -14,14 +14,16 @@ const ANNOUNCED: readonly SaveState[] = ["paused", "failed", "unavailable"];
 
 /** Where the open insert is kept, in words: the colour of the dot only repeats what the text says. */
 export function SavedStatus({ state }: { state: SaveState }) {
+  const announced = ANNOUNCED.includes(state);
   return (
-    <span
-      class="saved-status"
-      role={ANNOUNCED.includes(state) ? "status" : undefined}
-      data-state={state}
-    >
+    <span class="saved-status" data-state={state}>
       <span class="saved-dot" aria-hidden="true" />
-      {TEXT[state]}
+      {/* what is on screen; a reader gets it from the live region below when it is worth saying */}
+      <span aria-hidden={announced ? "true" : undefined}>{TEXT[state]}</span>
+      {/* always mounted, empty for routine saving: the words arrive in a region that was there */}
+      <span class="visually-hidden" role="status">
+        {announced ? TEXT[state] : ""}
+      </span>
     </span>
   );
 }

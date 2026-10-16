@@ -279,6 +279,38 @@ describe("Viewer", () => {
     );
   });
 
+  it("speaks the 3D build once, from a region that was already there, and the count is not in it", async () => {
+    const scene = stubScene();
+    const m = meshes();
+    const release: (() => void)[] = [];
+    m.get.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release.push(() => resolve({ mesh: cubeMesh(), volumeMm3: 1 }));
+        }),
+    );
+    const view = render(<Viewer {...props({ meshes: m }, scene)} />);
+    const live = view.container.querySelector<HTMLElement>(".visually-hidden[role=status]");
+    expect(live).not.toBeNull();
+    const progress = await waitFor(() => {
+      const el = view.container.querySelector(".run-status");
+      if (el === null) {
+        throw new Error("no progress yet");
+      }
+      return el;
+    });
+    expect(live?.textContent).toBe("Building 3D models.");
+    expect(progress.getAttribute("role")).toBeNull();
+    expect(live?.contains(progress)).toBe(false);
+    act(() => {
+      for (const r of release) {
+        r();
+      }
+    });
+    await waitFor(() => expect(live?.textContent).toBe(""));
+    expect(view.container.querySelector(".visually-hidden[role=status]")).toBe(live);
+  });
+
   it("passes an abort signal to every build and aborts it on a trays change and on unmount", async () => {
     const scene = stubScene();
     const signals: (AbortSignal | undefined)[] = [];

@@ -293,8 +293,12 @@ export function ExportPanel(p: ExportPanelProps) {
           Available when the build finishes.
         </span>
       ) : null}
+      {/* always mounted; the words stay the same while it builds, so it speaks once, not per part */}
+      <div class="visually-hidden" role="status" data-live="build">
+        {busy ? "Building the files." : ""}
+      </div>
       {busy ? (
-        <div class="run-status" role="status">
+        <div class="run-status">
           <progress
             value={busy.done}
             max={Math.max(1, busy.total)}
