@@ -122,7 +122,9 @@ describe("Viewer", () => {
     view.rerender(<Viewer {...p} selectedKey="b:p0:0" />);
     expect(scene.handle.setSelected).toHaveBeenLastCalledWith("b:p0:0");
     expect(screen.getByRole("heading", { name: /^#2 / })).toBeTruthy();
-    view.unmount();
+    act(() => {
+      view.unmount();
+    });
     expect(scene.handle.dispose).toHaveBeenCalled();
   });
 
@@ -257,7 +259,9 @@ describe("Viewer", () => {
     expect(signals[0]?.aborted).toBe(true);
     expect(signals[1]?.aborted).toBe(true);
     expect(signals[2]?.aborted).toBe(false);
-    view.unmount();
+    act(() => {
+      view.unmount();
+    });
     expect(signals[2]?.aborted).toBe(true);
   });
 
