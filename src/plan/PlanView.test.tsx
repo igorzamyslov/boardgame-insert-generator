@@ -1,6 +1,7 @@
 // src/plan/PlanView.test.tsx
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { useState } from "preact/hooks";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX, newComponent } from "../model/defaults";
@@ -123,6 +124,27 @@ function at(svgX: number, svgY: number) {
   return { clientX: svgX - vb.x, clientY: svgY - vb.y };
 }
 
+/** The app's part: keeps the layer and the swap under way (the props give their start), and reports changes. */
+function Host(props: PlanViewProps) {
+  const [level, setLevel] = useState(props.level);
+  const [swapFrom, setSwapFrom] = useState(props.swapFrom);
+  return (
+    <PlanView
+      {...props}
+      level={level}
+      onLevelChange={(l) => {
+        props.onLevelChange(l);
+        setLevel(l);
+      }}
+      swapFrom={swapFrom}
+      onSwapFromChange={(key) => {
+        props.onSwapFromChange(key);
+        setSwapFrom(key);
+      }}
+    />
+  );
+}
+
 function setup(over: Partial<PlanViewProps> = {}) {
   const p: PlanViewProps = {
     trays: [A, B, C],
@@ -135,9 +157,13 @@ function setup(over: Partial<PlanViewProps> = {}) {
     onToggleLock: vi.fn(),
     sizeLockedKeys: new Set<string>(),
     onToggleSizeLock: vi.fn(),
+    level: 0,
+    onLevelChange: vi.fn(),
+    swapFrom: null,
+    onSwapFromChange: vi.fn(),
     ...over,
   };
-  const view = render(<PlanView {...p} />);
+  const view = render(<Host {...p} />);
   const svg = view.container.querySelector("svg");
   if (!svg) {
     throw new Error("no svg");
@@ -202,7 +228,7 @@ describe("PlanView", () => {
   it("hints that the details of a stale layout may not match the inputs", () => {
     const { view, p } = setup({ selectedKey: "a:p0:0" });
     expect(screen.queryByText(/Inputs changed/)).toBeNull();
-    view.rerender(<PlanView {...p} stale />);
+    view.rerender(<Host {...p} stale />);
     expect(screen.getByText(/Inputs changed — .*update the plan/i)).toBeTruthy();
   });
 
@@ -316,7 +342,7 @@ describe("PlanView", () => {
     expect(screen.getByRole("status").textContent).toMatch(/can't be swapped/);
     fireEvent.keyDown(screen.getByRole("button", { name: /b:p0:0/ }), { key: "Enter" });
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
-    view.rerender(<PlanView {...p} selectedKey="leftover:1" />);
+    view.rerender(<Host {...p} selectedKey="leftover:1" />);
     expect(screen.getByRole("button", { name: "Swap with…" }).hasAttribute("disabled")).toBe(true);
   });
 
@@ -375,7 +401,7 @@ describe("PlanView", () => {
     const { p, view } = setup();
     fireEvent.keyDown(screen.getByRole("button", { name: /a:p0:0/ }), { key: "Enter" });
     expect(p.onSelect).toHaveBeenCalledWith("a:p0:0");
-    view.rerender(<PlanView {...p} selectedKey="a:p0:0" />);
+    view.rerender(<Host {...p} selectedKey="a:p0:0" />);
     fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
     expect(screen.getByRole("status").textContent).toMatch(/Choose the tray to swap with/);
     fireEvent.keyDown(screen.getByRole("button", { name: /b:p0:0/ }), { key: "Enter" });
@@ -386,12 +412,12 @@ describe("PlanView", () => {
     const { p, view } = setup({ selectedKey: "a:p0:0" });
     fireEvent.click(screen.getByRole("button", { name: "Lock position" }));
     expect(p.onToggleLock).toHaveBeenCalledWith("a:p0:0");
-    view.rerender(<PlanView {...p} lockedKeys={new Set(["a:p0:0"])} />);
+    view.rerender(<Host {...p} lockedKeys={new Set(["a:p0:0"])} />);
     expect(
       screen.getByRole("button", { name: "Tray 1, a:p0:0, 90 by 99 millimetres, locked" }),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Unlock position" })).toBeTruthy();
-    view.rerender(<PlanView {...p} trays={[A, B, L]} selectedKey="leftover:0" />);
+    view.rerender(<Host {...p} trays={[A, B, L]} selectedKey="leftover:0" />);
     expect(screen.getByRole("button", { name: "Lock position" }).hasAttribute("disabled")).toBe(
       true,
     );
@@ -402,13 +428,13 @@ describe("PlanView", () => {
     expect(screen.getByText("Size locked").nextElementSibling?.textContent).toBe("No");
     fireEvent.click(screen.getByRole("button", { name: "Lock size" }));
     expect(p.onToggleSizeLock).toHaveBeenCalledWith("a:p0:0");
-    view.rerender(<PlanView {...p} sizeLockedKeys={new Set(["a:p0:0"])} />);
+    view.rerender(<Host {...p} sizeLockedKeys={new Set(["a:p0:0"])} />);
     expect(
       screen.getByRole("button", { name: "Tray 1, a:p0:0, 90 by 99 millimetres, size locked" }),
     ).toBeTruthy();
     expect(screen.getByText("size locked")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Unlock size" })).toBeTruthy();
-    view.rerender(<PlanView {...p} trays={[A, B, L]} selectedKey="leftover:0" />);
+    view.rerender(<Host {...p} trays={[A, B, L]} selectedKey="leftover:0" />);
     expect(screen.queryByRole("button", { name: "Lock size" })).toBeNull();
   });
 
@@ -424,6 +450,42 @@ describe("PlanView", () => {
     fireEvent.click(screen.getByLabelText("Layer 2"));
     expect(screen.getByRole("button", { name: /c:p0:0/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /a:p0:0/ })).toBeNull();
+  });
+
+  it("the layer switch is controlled by the app", () => {
+    const { p, view } = setup({ level: 1 });
+    // the layer comes from the prop: layer 2 is shown and its radio is checked
+    expect((screen.getByLabelText("Layer 2") as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("button", { name: /c:p0:0/ })).toBeTruthy();
+    // choosing a layer reports it
+    fireEvent.click(screen.getByLabelText("Layer 1"));
+    expect(p.onLevelChange).toHaveBeenCalledWith(0);
+    expect(screen.getByRole("button", { name: /a:p0:0/ })).toBeTruthy();
+    view.unmount();
+    // without a parent that follows, the shown layer does not change on its own
+    const onLevelChange = vi.fn();
+    render(<PlanView {...p} level={1} onLevelChange={onLevelChange} />);
+    fireEvent.click(screen.getByLabelText("Layer 1"));
+    expect(onLevelChange).toHaveBeenCalledWith(0);
+    expect(screen.getByRole("button", { name: /c:p0:0/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /a:p0:0/ })).toBeNull();
+  });
+
+  it("brings a layer past the last one back in range", () => {
+    const onLevelChange = vi.fn();
+    const { p } = setup({ level: 5, onLevelChange });
+    expect(p.onLevelChange).toHaveBeenCalledWith(1);
+    expect(screen.getByRole("button", { name: /c:p0:0/ })).toBeTruthy();
+  });
+
+  it("keeps the swap under way in the app, and ends it when the selection is cleared", () => {
+    const { p, view } = setup({ selectedKey: "a:p0:0" });
+    fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
+    expect(p.onSwapFromChange).toHaveBeenLastCalledWith("a:p0:0");
+    expect(screen.getByRole("status").textContent).toMatch(/Choose the tray to swap with/);
+    view.rerender(<Host {...p} selectedKey={null} />);
+    expect(p.onSwapFromChange).toHaveBeenLastCalledWith(null);
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("shows the name and size on a tile, and keeps the unit out of it", () => {
@@ -478,7 +540,7 @@ describe("PlanView", () => {
   it("greys out a stale plan by class, not by opacity", () => {
     const { svg, view, p } = setup();
     expect(svg.getAttribute("class")).not.toContain("is-stale");
-    view.rerender(<PlanView {...p} stale />);
+    view.rerender(<Host {...p} stale />);
     expect(view.container.querySelector("svg")?.getAttribute("class")).toContain("is-stale");
     expect(planCss).toMatch(/\.plan-svg\.is-stale\s*{[^}]*grayscale\(0\.8\)/);
   });

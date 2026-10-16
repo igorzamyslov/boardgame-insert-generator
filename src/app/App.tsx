@@ -501,6 +501,14 @@ export function App(props: AppProps) {
                           lockedKeys={locked}
                           selectedKey={s.selection.value}
                           stale={s.stale.value}
+                          level={s.viewLevel.value}
+                          onLevelChange={(l) => {
+                            s.viewLevel.value = l;
+                          }}
+                          swapFrom={s.swapFrom.value}
+                          onSwapFromChange={(key) => {
+                            s.swapFrom.value = key;
+                          }}
                           onSelect={(key) => {
                             s.selection.value = key;
                           }}

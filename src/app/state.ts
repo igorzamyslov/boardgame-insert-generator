@@ -44,6 +44,10 @@ export interface State {
   /** Undo and redo steps of the open project (whole projects). */
   history: History;
   selection: Signal<string | null>;
+  /** Index of the layer the plan shows (0 = the bottom layer); the plan clamps it to the layers there are. */
+  viewLevel: Signal<number>;
+  /** The tray a "Swap with…" is under way from, or null; reset on Escape, after a swap, on clearing the selection and on a new project. */
+  swapFrom: Signal<string | null>;
   appNotices: Signal<Notice[]>;
   /** Newer-minor file: automatic runs are skipped, a user run asks first (spec §9). */
   needsConfirm: Signal<boolean>;
@@ -221,6 +225,8 @@ export function createState(
     lockConflicts: signal<LockConflict[]>([]),
     history: createHistory(undefined, now),
     selection: signal<string | null>(null),
+    viewLevel: signal(0),
+    swapFrom: signal<string | null>(null),
     appNotices: signal<Notice[]>([]),
     needsConfirm: signal(false),
     conflict,

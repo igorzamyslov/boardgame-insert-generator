@@ -420,6 +420,16 @@ describe("persistence", () => {
     expect(t.state.project.value.id).toBe(a.id);
   });
 
+  it("ends a swap under way when another project is opened", () => {
+    const t = tab(createProjectStore(new MemoryStorage()));
+    t.persistence.start("");
+    t.state.selection.value = "a:p0:0";
+    t.state.swapFrom.value = "a:p0:0";
+    t.persistence.newProject();
+    expect(t.state.selection.value).toBeNull();
+    expect(t.state.swapFrom.value).toBeNull();
+  });
+
   it("imports JSON as a project and keeps the current one on bad input", () => {
     const store = createProjectStore(new MemoryStorage());
     const t = tab(store);
