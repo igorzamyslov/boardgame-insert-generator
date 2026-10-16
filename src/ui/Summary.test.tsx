@@ -43,7 +43,6 @@ function props(over: Partial<SummaryProps> = {}): SummaryProps {
     canOptimize: true,
     hasComponents: true,
     hiddenErrors: [],
-    advanced: false,
     problemSections: [],
     onShowSection: vi.fn(),
     shortfall: null,
@@ -64,11 +63,10 @@ describe("Summary", () => {
     expect(screen.queryByText("Box filled")).toBeNull();
     expect(screen.queryByText("Trays")).toBeNull();
     expect(screen.queryByText("Stacks")).toBeNull();
-    // slackY 1.8 is over the limit, so the slack shows even in simple mode; the filament does not
+    // slackY 1.8 is over the limit
     expect(screen.getByText("Slack front–back").nextElementSibling?.className).toContain(
       "play-warn",
     );
-    expect(screen.queryByText(/upper bound/)).toBeNull();
   });
 
   it("uses the singular forms and names the spare trays", () => {
@@ -93,41 +91,16 @@ describe("Summary", () => {
     expect(view.container.querySelector("p.pf-verdict")).toBeNull();
   });
 
-  it("hides the slack and the filament in simple mode while the slack is within the limit", () => {
-    const summary = {
-      fillPct: 81,
-      trayCount: 7,
-      stackCount: 4,
-      filamentG: 412,
-      filamentAtInfillG: 190,
-      infillPct: 15,
-      printMinutes: 90,
-      longestPartMinutes: 30,
-      playLimit: 1.5,
-      fillerCount: 0,
-      mergeFillers: true,
-      mergeRisers: false,
-      playX: 1.2,
-      playY: 1.3,
-      crossX: 3,
-      crossY: 2,
-    };
-    const view = render(<Summary {...props({ summary })} />);
-    expect(view.container.querySelector("dl.pf-readouts")).toBeNull();
-    expect(screen.queryByText(/^Slack/)).toBeNull();
-    expect(screen.queryByText(/upper bound/)).toBeNull();
-  });
-
   it("shows the filament estimate at the infill beside the upper bound, and states the assumptions", () => {
-    render(<Summary {...props({ advanced: true })} />);
+    render(<Summary {...props()} />);
     const estimate = screen.getByText(/estimate: PLA, 15 % infill/).nextElementSibling;
     expect(estimate?.textContent).toMatch(/≈ 187\s*g/);
     expect(screen.getByText(/upper bound/).nextElementSibling?.textContent).toMatch(/≤ 413\s*g/);
     expect(document.body.textContent).toMatch(/3 perimeters and the top and bottom 5 layers/);
   });
 
-  it("shows the slack, an upper-bound filament and slack warnings in advanced mode", () => {
-    render(<Summary {...props({ advanced: true })} />);
+  it("shows the slack, an upper-bound filament and slack warnings", () => {
+    render(<Summary {...props()} />);
     const filament = screen.getByText(/upper bound/).nextElementSibling;
     expect(filament?.textContent).toMatch(/≤ 413\s*g/);
     const x = screen.getByText("Slack left–right").nextElementSibling;
@@ -139,13 +112,13 @@ describe("Summary", () => {
   });
 
   it("judges the slack against the play limit the summary was made under, and quotes it", () => {
-    const base = props({ advanced: true }).summary;
+    const base = props().summary;
     if (!base) {
       throw new Error("no summary");
     }
     // playY 1.8 is over the default 1.5 mm but under a raised 2 mm limit
     const { container, unmount } = render(
-      <Summary {...props({ advanced: true, summary: { ...base, playLimit: 2 } })} />,
+      <Summary {...props({ summary: { ...base, playLimit: 2 } })} />,
     );
     expect(screen.getByText("Slack front–back").nextElementSibling?.className).not.toContain(
       "play-warn",
@@ -154,29 +127,15 @@ describe("Summary", () => {
     expect(container.textContent).not.toContain("Above 1.5 mm");
     unmount();
     // and a lowered 1 mm limit warns on both axes
-    render(<Summary {...props({ advanced: true, summary: { ...base, playLimit: 1 } })} />);
+    render(<Summary {...props({ summary: { ...base, playLimit: 1 } })} />);
     expect(screen.getByText("Slack left–right").nextElementSibling?.className).toContain(
       "play-warn",
     );
     expect(document.body.textContent).toContain("Above 1 mm");
   });
 
-  it("shows the slack in simple mode only while it is over the limit in force", () => {
-    const base = props().summary;
-    if (!base) {
-      throw new Error("no summary");
-    }
-    const { container, unmount } = render(
-      <Summary {...props({ summary: { ...base, playLimit: 2 } })} />,
-    );
-    expect(container.querySelector("dl.pf-readouts")).toBeNull();
-    unmount();
-    const again = render(<Summary {...props({ summary: { ...base, playLimit: 1.5 } })} />);
-    expect(again.container.querySelector("dl.pf-readouts")).not.toBeNull();
-  });
-
-  it("shows a rough print time and the longest part in advanced mode, and states the assumptions", () => {
-    const { container } = render(<Summary {...props({ advanced: true })} />);
+  it("shows a rough print time and the longest part, and states the assumptions", () => {
+    const { container } = render(<Summary {...props()} />);
     // fixture: 90 min in all, 30 min for the longest part
     expect(screen.getByText(/^Print time/).nextElementSibling?.textContent).toBe("≈ 1.5 h");
     expect(screen.getByText("Longest single part").nextElementSibling?.textContent).toBe(
@@ -184,9 +143,6 @@ describe("Summary", () => {
     );
     expect(container.textContent).toMatch(/steady 4 mm³\/s, and nothing else/);
     expect(container.textContent).toMatch(/real print usually takes longer/);
-    cleanup();
-    render(<Summary {...props({ advanced: false })} />);
-    expect(screen.queryByText(/^Print time/)).toBeNull();
   });
 
   it("formats a print time to the nearest 5 minutes, then the nearest half hour", () => {
@@ -491,7 +447,6 @@ describe("Summary", () => {
     render(
       <Summary
         {...props({
-          advanced: true,
           summary: {
             fillPct: 50,
             trayCount: 1,

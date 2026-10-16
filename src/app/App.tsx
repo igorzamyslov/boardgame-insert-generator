@@ -401,7 +401,6 @@ export function App(props: AppProps) {
                   canOptimize={canOptimize(project, validation)}
                   hasComponents={project.components.length > 0}
                   hiddenErrors={errorsWithoutField(validation)}
-                  advanced
                   problemSections={problemSections}
                   onShowSection={showSection}
                   shortfall={s.shortfall.value}

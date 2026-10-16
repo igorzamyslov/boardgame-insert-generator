@@ -27,8 +27,6 @@ export interface SummaryProps {
   hasComponents: boolean;
   /** The errors that have no field on screen (`errorsWithoutField`). */
   hiddenErrors: readonly Notice[];
-  /** Advanced mode is on: it adds the slack and the filament to the results. */
-  advanced: boolean;
   /** The input sections that hold an error, so the summary can send the reader there. */
   problemSections: readonly { id: string; title: string }[];
   onShowSection: (id: string) => void;
@@ -133,9 +131,6 @@ export function Summary(p: SummaryProps) {
           p.spares > 0 ? ` (${p.spares === 1 ? "1 is a spare" : `${p.spares} are spares`})` : ""
         } in ${plural(Math.max(1, p.layers), "layer", "layers")}, ${p.summary.fillPct.toFixed(0)}% of the box used.`
       : null;
-  const playTooLoose =
-    p.summary !== null &&
-    (p.summary.playX > p.summary.playLimit || p.summary.playY > p.summary.playLimit);
   return (
     <>
       <p class="visually-hidden" role="status">
@@ -195,7 +190,7 @@ export function Summary(p: SummaryProps) {
         </div>
       ) : null}
       {shortfall ? <p class="shortfall stage-block">{shortfall}</p> : null}
-      {p.summary && (p.advanced || playTooLoose) ? (
+      {p.summary ? (
         <dl class="pf-readouts pf-readouts--strip stage-block">
           <Readout
             label="Slack left–right"
@@ -209,38 +204,32 @@ export function Summary(p: SummaryProps) {
             unit="mm"
             warn={p.summary.playY > p.summary.playLimit}
           />
-          {p.advanced ? (
-            <>
-              <Readout
-                label={`Filament (estimate: PLA, ${p.summary.infillPct} % infill)`}
-                value={`≈ ${Math.round(p.summary.filamentAtInfillG)}`}
-                unit="g"
-              />
-              <Readout
-                label="Filament (upper bound: PLA, 100 % infill)"
-                value={`≤ ${Math.ceil(p.summary.filamentG)}`}
-                unit="g"
-              />
-              <Readout
-                label="Print time (rough: nominal flow only)"
-                value={`≈ ${formatPrintTime(p.summary.printMinutes)}`}
-              />
-              <Readout
-                label="Longest single part"
-                value={`≈ ${formatPrintTime(p.summary.longestPartMinutes)}`}
-              />
-            </>
-          ) : null}
+          <Readout
+            label={`Filament (estimate: PLA, ${p.summary.infillPct} % infill)`}
+            value={`≈ ${Math.round(p.summary.filamentAtInfillG)}`}
+            unit="g"
+          />
+          <Readout
+            label="Filament (upper bound: PLA, 100 % infill)"
+            value={`≤ ${Math.ceil(p.summary.filamentG)}`}
+            unit="g"
+          />
+          <Readout
+            label="Print time (rough: nominal flow only)"
+            value={`≈ ${formatPrintTime(p.summary.printMinutes)}`}
+          />
+          <Readout
+            label="Longest single part"
+            value={`≈ ${formatPrintTime(p.summary.longestPartMinutes)}`}
+          />
         </dl>
       ) : null}
-      {p.summary && (p.advanced || playTooLoose) ? (
+      {p.summary ? (
         <p class="hint stage-block">
           Slack is the sideways play the trays have in the box: twice the box clearance, plus one
           tray gap for each extra tray in a row. Above {p.summary.playLimit} mm (your Play limit, in
           Exact values) trays can shift when the box is moved.
-          {p.advanced
-            ? ` The filament estimate prints the first 3 perimeters and the top and bottom 5 layers of every part solid, whatever the infill, and only the interior beyond that at ${p.summary.infillPct} %. Walls, floors and thin parts are therefore counted solid, so it falls well below the 100 % figure only for thick blocks and raised floors. The estimate is rounded to the nearest gram, the 100 % figure up. The print time is that same plastic volume at a steady ${PRINT_FLOW_MM3_PER_S} mm³/s, and nothing else: travel, acceleration, cooling and slower outer walls are not modelled, so a real print usually takes longer, small parts much longer. Use it to compare, or to plan which parts go on one overnight plate.`
-            : ""}
+          {` The filament estimate prints the first 3 perimeters and the top and bottom 5 layers of every part solid, whatever the infill, and only the interior beyond that at ${p.summary.infillPct} %. Walls, floors and thin parts are therefore counted solid, so it falls well below the 100 % figure only for thick blocks and raised floors. The estimate is rounded to the nearest gram, the 100 % figure up. The print time is that same plastic volume at a steady ${PRINT_FLOW_MM3_PER_S} mm³/s, and nothing else: travel, acceleration, cooling and slower outer walls are not modelled, so a real print usually takes longer, small parts much longer. Use it to compare, or to plan which parts go on one overnight plate.`}
         </p>
       ) : null}
       {p.hasComponents ? (
