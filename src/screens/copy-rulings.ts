@@ -69,7 +69,9 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: CLEAR,
   },
   { text: "Clear all my choices", states: ["m-workspace-rules"], ruling: CLEAR },
-  { text: "Layer {n}", states: RAIL, ruling: SUMMARY },
+  { text: "bottom layer", states: RAIL, ruling: SUMMARY },
+  { text: "top layer", states: RAIL, ruling: SUMMARY },
+  { text: "layer {n}", states: RAIL, ruling: SUMMARY },
   { text: "{n} pieces", states: [...RAIL, ...SHEET], ruling: SUMMARY },
   // the sheet's rows say what the rail's do: MobileWorkspace draws them shorter ("80 cards")
   { text: "{n} cards, sleeved", states: SHEET, ruling: SUMMARY },

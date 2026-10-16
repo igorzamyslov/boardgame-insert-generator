@@ -45,6 +45,7 @@ export function ListRow({
   return (
     <div class="k-rowwrap" data-kind={kind} style={shade as CSSProperties | undefined}>
       <button
+        aria-label={meta === undefined ? name : `${name}, ${meta}`}
         {...rest}
         type={type}
         class={cx("k-row", compact && "k-row--compact", extra as string | undefined)}
@@ -64,12 +65,9 @@ export function ListRow({
               {name}
             </span>
             {meta !== undefined ? (
-              <>
-                <span class="visually-hidden">, </span>
-                <span class="k-row__meta ellipsis" title={meta}>
-                  {meta}
-                </span>
-              </>
+              <span class="k-row__meta ellipsis" title={meta}>
+                {meta}
+              </span>
             ) : null}
           </>
         ) : (
@@ -78,12 +76,9 @@ export function ListRow({
               {name}
             </span>
             {meta !== undefined ? (
-              <>
-                <span class="visually-hidden">, </span>
-                <span class="k-row__meta ellipsis" title={meta}>
-                  {meta}
-                </span>
-              </>
+              <span class="k-row__meta ellipsis" title={meta}>
+                {meta}
+              </span>
             ) : null}
           </span>
         )}

@@ -120,7 +120,7 @@
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: var(--s-4);
+  gap: var(--s-12); /* 32 px chips and a 44 px target each: they must not overlap */
   margin: 0;
   padding: 0;
   list-style: none;
@@ -129,6 +129,13 @@
 .rail-chips > li {
   margin: 0;
   padding: 0;
+}
+
+/* A row with a chip beside it has less room: its line wraps, as Main's does; the name keeps its ellipsis. */
+.rail-row--wrap .k-row__meta {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 /* A row that has an error inside its editor says so in the error's colour. */

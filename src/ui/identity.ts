@@ -250,3 +250,14 @@ export function layerLabel(level: number, count: number): string {
   const end = count < 2 ? "" : level === 0 ? " (bottom)" : level === count - 1 ? " (top)" : "";
   return `Layer ${level + 1}${end}`;
 }
+
+/**
+ * The rail's words for a layer, as Main writes them: "bottom layer", "top layer", and "layer 2"
+ * between. A single layer has no name. (`layerLabel` is the layer switch's and the tray bar's.)
+ */
+export function layerWords(level: number, count: number): string {
+  if (count < 2) {
+    return "";
+  }
+  return level === 0 ? "bottom layer" : level === count - 1 ? "top layer" : `layer ${level + 1}`;
+}

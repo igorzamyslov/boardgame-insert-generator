@@ -54,7 +54,7 @@ describe("WhatsInside", () => {
     const rows = within(screen.getByRole("list", { name: "What's inside" })).getAllByRole(
       "listitem",
     );
-    expect(rows[0]?.textContent).toMatch(/^The box,/);
+    expect(within(rows[0] as HTMLElement).getByRole("button", { name: /^The box, / })).toBeTruthy();
     expect(rows).toHaveLength(4);
     expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
     fireEvent.click(row("The box"));

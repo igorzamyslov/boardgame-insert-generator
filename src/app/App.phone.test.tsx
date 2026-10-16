@@ -100,7 +100,7 @@ describe("the phone layout", () => {
     const rows = within(within(sheet()).getByRole("list", { name: "What's inside" })).getAllByRole(
       "listitem",
     );
-    expect(rows[0]?.textContent).toMatch(/^The box,/);
+    expect(within(rows[0] as HTMLElement).getByRole("button", { name: /^The box, / })).toBeTruthy();
     expect(rows).toHaveLength(project().components.length + 1);
   });
 

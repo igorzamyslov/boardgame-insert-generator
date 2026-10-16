@@ -111,6 +111,14 @@ describe("Rail", () => {
     expect(h.onClearChoices).toHaveBeenCalledTimes(1);
   });
 
+  it("puts the focus on the Add pill when the note goes with its button", () => {
+    render(<Rail {...props({ locks: [pin] })} />);
+    const clear = screen.getByRole("button", { name: "Clear all my choices" });
+    clear.focus();
+    fireEvent.click(clear);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add" }));
+  });
+
   it("clears every choice in one undo step", () => {
     const project = { ...fixtureProject(), locks: [pin] };
     const { store } = renderApp({ project });
@@ -149,7 +157,9 @@ describe("SheetList", () => {
       "listitem",
     );
     expect(rows).toHaveLength(3);
-    expect(rows[0]?.textContent).toBe("The box, 285 × 285 × 70 mm");
+    expect(
+      within(rows[0] as HTMLElement).getByRole("button", { name: "The box, 285 × 285 × 70 mm" }),
+    ).toBeTruthy();
     expect(container.querySelectorAll(".k-row--compact")).toHaveLength(3);
     fireEvent.click(screen.getByRole("button", { name: /^The box,/ }));
     expect(h.onOpenBox).toHaveBeenCalledTimes(1);

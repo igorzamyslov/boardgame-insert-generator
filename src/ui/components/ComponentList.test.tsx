@@ -132,7 +132,7 @@ describe("ComponentList", () => {
       makeTray({ key: "b:p0:0", level: 0, compartments: [{ ...well("b") }] }),
     ];
     render(<ComponentList components={comps} trays={trays} {...handlers()} />);
-    expect(screen.getByRole("button", { name: /^Main,.*Layer 2 \(top\)$/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Main,.*top layer$/ })).toBeTruthy();
   });
 
   describe("on the phone's sheet", () => {
@@ -168,7 +168,7 @@ describe("ComponentList", () => {
         makeTray({ key: "b:p0:0", level: 1, compartments: [{ ...well("b") }] }),
       ];
       render(<ComponentList compact components={comps} trays={trays} {...handlers()} />);
-      expect(screen.queryByText(/Layer/)).toBeNull();
+      expect(screen.queryByText(/layer/)).toBeNull();
     });
   });
 
@@ -179,17 +179,17 @@ describe("ComponentList", () => {
       makeTray({ key: "b:p0:0", level: 1, compartments: [{ ...well("b") }] }),
     ];
     render(<ComponentList components={comps} trays={trays} {...handlers()} />);
-    expect(screen.getByRole("button", { name: /^Main,.*Layer 1 \(bottom\)$/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^Gems,.*Layer 2 \(top\)$/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Main,.*bottom layer$/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Gems,.*top layer$/ })).toBeTruthy();
   });
 
   it("names no layer without a plan, or with a single layer", () => {
     const comps = [named("cards", "a", "Main")];
     const trays = [makeTray({ key: "a:p0:0", compartments: [{ ...well("a") }] })];
     const view = render(<ComponentList components={comps} trays={trays} {...handlers()} />);
-    expect(screen.queryByText(/^Layer/)).toBeNull();
+    expect(screen.queryByText(/layer$/)).toBeNull();
     view.rerender(<ComponentList components={comps} {...handlers()} />);
-    expect(screen.queryByText(/^Layer/)).toBeNull();
+    expect(screen.queryByText(/layer$/)).toBeNull();
   });
 
   describe("chips", () => {

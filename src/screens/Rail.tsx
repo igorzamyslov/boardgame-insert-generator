@@ -34,6 +34,14 @@ export interface RailProps extends ListProps {
   onSettings: () => void;
 }
 
+/** Lifts every rule, and keeps the focus: the note and its button go, so the Add pill takes it. */
+function clearChoices(onClear: () => void): () => void {
+  return () => {
+    onClear();
+    document.querySelector<HTMLElement>("[data-rail-add]")?.focus();
+  };
+}
+
 /** Main's note under the list while any rule is set, and the way to lift them all. */
 function RulesNote({ onClear }: { onClear: () => void }) {
   return (
@@ -79,7 +87,7 @@ export function Rail(p: RailProps) {
         onUnpin={p.onUnpin}
         onUnlockSize={p.onUnlockSize}
       />
-      {locks.length > 0 ? <RulesNote onClear={p.onClearChoices} /> : null}
+      {locks.length > 0 ? <RulesNote onClear={clearChoices(p.onClearChoices)} /> : null}
       <div class="rail-foot">
         <Icon name="printer" size={18} />
         <span class="rail-foot__text">{`Printer bed ${mm(p.printer.bedX)} × ${mm(p.printer.bedY)} mm`}</span>
@@ -120,7 +128,7 @@ export function SheetList(p: ListProps) {
           </li>
         }
       />
-      {locks.length > 0 ? <RulesNote onClear={p.onClearChoices} /> : null}
+      {locks.length > 0 ? <RulesNote onClear={clearChoices(p.onClearChoices)} /> : null}
     </>
   );
 }

@@ -9,7 +9,7 @@ import {
   componentIndexOfTray,
   componentSummary,
   kindIndexOf,
-  layerLabel,
+  layerWords,
   shadeVars,
 } from "../identity";
 import { ValidationContext } from "../validation";
@@ -76,7 +76,7 @@ function inStack(trayKeys: readonly string[], locks: readonly Lock[]): boolean {
 }
 
 /**
- * The layer of a component's first tray, named ("Layer 1 (bottom)"); nothing while there is no
+ * The layer of a component's first tray, named as Main does ("bottom layer", "layer 2"); nothing while there is no
  * current plan or it has a single layer.
  */
 export function layerOfComponent(
@@ -95,7 +95,7 @@ export function layerOfComponent(
     (t) => t.part === "tray" && componentIndexOfTray(t, components) === index,
   );
   const at = first === undefined ? -1 : levels.indexOf(first.level);
-  return at === -1 ? "" : layerLabel(at, levels.length);
+  return at === -1 ? "" : layerWords(at, levels.length);
 }
 
 /**
@@ -187,6 +187,7 @@ export function ComponentList({
               name={name}
               meta={meta}
               compact={compact}
+              class={chips.length > 0 ? "rail-row--wrap" : undefined}
               selected={selectedId === c.id}
               shade={shadeVars(c.kind, kindIndexOf(components, i))}
               data-row-id={c.id}

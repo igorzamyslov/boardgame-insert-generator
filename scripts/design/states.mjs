@@ -123,7 +123,7 @@ export const STATES = {
       { click: { role: "button", name: /^Market deck/, in: '[data-region="stage"]' } },
       { click: { role: "button", name: "Pin" } },
       // the pin makes the plan stale and the rail loses its layers; they are back with the new plan
-      { waitFor: { role: "button", name: /^Market deck\s*,.*Layer 1/ } },
+      { waitFor: { role: "button", name: /^Market deck, .*bottom layer/ } },
     ],
   },
   "workspace-long": {
@@ -138,7 +138,7 @@ export const STATES = {
     boardOpts: { props: { moreOpen: false } },
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: /^Market deck\s*,/, in: '[data-region="rail"]' } }],
+    steps: [{ click: { role: "button", name: /^Market deck, /, in: '[data-region="rail"]' } }],
   },
   box: {
     board: "Box",
@@ -215,7 +215,7 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [
       { click: { role: "button", name: /What's inside/ } },
-      { click: { role: "button", name: /^Heroes\s*,/, in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^Heroes, /, in: '[data-region="sheet"]' } },
     ],
   },
   "m-download": {

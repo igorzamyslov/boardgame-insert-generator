@@ -20,6 +20,7 @@ import {
   componentSummary,
   kindIndexOf,
   layerLabel,
+  layerWords,
   shadeHex,
   shadeOf,
 } from "./identity";
@@ -209,6 +210,18 @@ describe("kindIndexOf", () => {
   it("counts the components of the same kind before it", () => {
     const list = [newComponent("cards"), newComponent("bulk"), newComponent("cards")];
     expect([0, 1, 2].map((i) => kindIndexOf(list, i))).toEqual([0, 0, 1]);
+  });
+});
+
+describe("layerWords", () => {
+  it("writes the layers as Main does", () => {
+    expect([0, 1, 2].map((l) => layerWords(l, 3))).toEqual([
+      "bottom layer",
+      "layer 2",
+      "top layer",
+    ]);
+    expect([0, 1].map((l) => layerWords(l, 2))).toEqual(["bottom layer", "top layer"]);
+    expect(layerWords(0, 1)).toBe("");
   });
 });
 
