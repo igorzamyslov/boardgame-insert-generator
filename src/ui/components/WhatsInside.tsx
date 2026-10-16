@@ -12,6 +12,8 @@ export interface WhatsInsideProps {
    * no list yet): that item's editor opens at once, as any item added later does.
    */
   openFirst?: boolean;
+  /** Asks for a component's editor from outside the list (the status line's Edit); each new object is a new request. */
+  openRequest?: { id: string } | null;
   /** The plan's trays; absent while the plan is out of date. */
   trays?: readonly TraySpec[];
   locks?: readonly Lock[];
@@ -32,6 +34,7 @@ export interface WhatsInsideProps {
 export function WhatsInside({
   components,
   openFirst = false,
+  openRequest = null,
   trays,
   locks,
   onAdd,
@@ -55,6 +58,13 @@ export function WhatsInside({
       setOpenId(last.id);
     }
   }, [components]);
+
+  useEffect(() => {
+    if (openRequest !== null && components.some((c) => c.id === openRequest.id)) {
+      setOpenId(openRequest.id);
+    }
+    // only a new request opens an editor; the list changing under it does not
+  }, [openRequest]);
 
   const index = components.findIndex((c) => c.id === openId);
   const open = index === -1 ? undefined : components[index];

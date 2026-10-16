@@ -94,6 +94,19 @@ describe("StatusLine", () => {
     expect(screen.getByText("5%")).toBeTruthy();
   });
 
+  it("starts the bar again when a new run replaces a running one", () => {
+    const run = (done: number, total: number): StatusLineProps =>
+      props({ pending: true, run: { status: "running", done, total } });
+    const view = render(<StatusLine {...run(600, 1000)} />);
+    expect(screen.getByText("60%")).toBeTruthy();
+    // a new run starts without an idle state in between (open or switch project)
+    view.rerender(<StatusLine {...run(0, 1000)} />);
+    expect(screen.getByText("0%")).toBeTruthy();
+    expect(screen.queryByText("60%")).toBeNull();
+    view.rerender(<StatusLine {...run(100, 1000)} />);
+    expect(screen.getByText("10%")).toBeTruthy();
+  });
+
   it("says the plan is updating while a run waits to start, with nothing to press", () => {
     const view = render(<StatusLine {...props({ pending: true, fits: null })} />);
     expect(text(view.container)).toBe("Updating the plan…");

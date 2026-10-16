@@ -412,7 +412,7 @@ export function doesNotFitNotice(
   return {
     level: "error",
     code: NOTICE_CODES.doesNotFit,
-    message: `No fit found yet. The search ${searched} without finding a layout that fits. This is not proof that the components can't fit: a very tight box can need a much longer search. ${sentences.join(" ")} Press “Update plan” again to search about ${REPEAT_FACTOR} times longer. If it still doesn't fit, try: ${tips.join("; ")}.`,
+    message: `No fit found yet. The search ${searched} without finding a layout that fits. This is not proof that the components can't fit: a very tight box can need a much longer search. ${sentences.join(" ")} Press “Keep searching” to search about ${REPEAT_FACTOR} times longer. If it still doesn't fit, try: ${tips.join("; ")}.`,
   };
 }
 

@@ -19,6 +19,8 @@ export interface AppHeaderProps {
   downloadDisabled: boolean;
   /** Why Download is off (the button's title and description), e.g. "Update the plan first". */
   downloadReason?: string;
+  /** What the button says (default "Download"); "Fix the fit to download" while the plan doesn't fit. */
+  downloadLabel?: string;
   /** Something inside the project menu needs a look: the button wears a dot. */
   menuDot: boolean;
   /** How many notices wait in the menu: the button's name says it (1 when only `menuDot` is set). */
@@ -236,7 +238,7 @@ export function AppHeader(p: AppHeaderProps) {
             }
           }}
         >
-          Download
+          {p.downloadLabel ?? "Download"}
         </button>
         {p.downloadDisabled && p.downloadReason ? (
           <span class="visually-hidden" id="download-reason">

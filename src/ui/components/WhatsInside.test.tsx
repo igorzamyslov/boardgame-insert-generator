@@ -54,6 +54,22 @@ describe("WhatsInside", () => {
     expect(screen.queryByRole("heading", { name: /^Item [de]$/ })).toBeNull();
   });
 
+  it("opens the editor of a component asked for from outside, each time it is asked", () => {
+    const h = { onAdd: vi.fn(), onChange: vi.fn(), onRemove: vi.fn(() => true) };
+    const view = render(<WhatsInside components={three} {...h} openRequest={null} />);
+    expect(screen.queryByRole("heading", { name: "Item b" })).toBeNull();
+    view.rerender(<WhatsInside components={three} {...h} openRequest={{ id: "b" }} />);
+    expect(screen.getByRole("heading", { name: "Item b" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("heading", { name: "Item b" })).toBeNull();
+    // the same component asked for again is a new request
+    view.rerender(<WhatsInside components={three} {...h} openRequest={{ id: "b" }} />);
+    expect(screen.getByRole("heading", { name: "Item b" })).toBeTruthy();
+    // one for a component that is not there changes nothing
+    view.rerender(<WhatsInside components={three} {...h} openRequest={{ id: "zzz" }} />);
+    expect(screen.getByRole("heading", { name: "Item b" })).toBeTruthy();
+  });
+
   it("goes back to the list when the open component goes away", () => {
     const { rerender } = setup(three);
     fireEvent.click(row("Item b"));

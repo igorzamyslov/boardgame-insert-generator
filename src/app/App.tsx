@@ -19,6 +19,8 @@ import { placeNotices } from "../ui/noticePlacement";
 import { ProjectMenu } from "../ui/ProjectMenu";
 import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
+import { misfitOf } from "../ui/noFit";
+import { StatusLine } from "../ui/StatusLine";
 import { Summary } from "../ui/Summary";
 import { Section } from "../ui/Section";
 import {
@@ -163,6 +165,15 @@ export function App(props: AppProps) {
   const [settingsOpen, setSettingsOpen] = useState<{ tab: SettingsTab } | null>(null);
   // The component just removed, for the Undo toast (cleared when another project opens).
   const [removed, setRemoved] = useState<{ component: Component; version: number } | null>(null);
+  // The component whose editor the status line's Edit asked for (each press is a new request).
+  const [editRequest, setEditRequest] = useState<{ id: string } | null>(null);
+  // The list takes the request when it renders (this effect runs after its own): clear it, so a
+  // list that mounts later (the section was closed) doesn't reopen an editor that was left.
+  useEffect(() => {
+    if (editRequest !== null) {
+      setEditRequest(null);
+    }
+  }, [editRequest]);
   // The older plan the person chose to keep (project and geometry line), so its banner stays away.
   const [geometryKept, setGeometryKept] = useState<string | null>(null);
   const run = s.run.value;
@@ -330,7 +341,20 @@ export function App(props: AppProps) {
   const planCurrent = layout !== undefined && !s.stale.value && run.status !== "running";
   const listTrays = planCurrent ? printable : undefined;
   const layers = layout ? levelsOf(layout.trays).length : 0;
-  const spares = layout ? layout.trays.filter((t) => t.part === "leftover").length : 0;
+  // What the status line says of a plan that matches the inputs: how many trays, how high.
+  const summary = s.summary.value;
+  const fits =
+    layout !== undefined && summary !== null && !s.stale.value
+      ? {
+          trays: summary.trayCount,
+          layers: Math.max(1, layers),
+          height: Math.max(0, ...layout.trays.map((t) => t.z + t.h)),
+          boxHeight: project.box.innerHeight,
+        }
+      : null;
+  const conflicts = s.lockConflicts.value;
+  // Download waits while the plan changes by itself; otherwise a plan that doesn't fit says so.
+  const fitProblem = !s.runPending.value && (noFit || conflicts.length > 0);
 
   return (
     <ValidationContext.Provider value={validation}>
@@ -348,7 +372,10 @@ export function App(props: AppProps) {
                 onRedo={() => store.redo()}
                 downloadRef={downloadButtonRef}
                 onDownload={() => setExportOpen(true)}
-                downloadDisabled={layout === undefined || s.stale.value || s.runPending.value}
+                downloadDisabled={
+                  layout === undefined || s.stale.value || s.runPending.value || fitProblem
+                }
+                downloadLabel={fitProblem ? "Fix the fit to download" : undefined}
                 downloadReason={
                   layout === undefined
                     ? undefined
@@ -437,6 +464,7 @@ export function App(props: AppProps) {
                         <WhatsInside
                           components={project.components}
                           openFirst={openFirst}
+                          openRequest={editRequest}
                           trays={listTrays}
                           locks={project.locks}
                           onAdd={addComponentOfKind}
@@ -465,25 +493,46 @@ export function App(props: AppProps) {
               )}
               <main class="pf-app__stage" ref={mainRef}>
                 <h2 class="visually-hidden">Results</h2>
+                <StatusLine
+                  run={run}
+                  pending={s.runPending.value}
+                  canOptimize={canOptimize(project, validation)}
+                  hasLayout={layout !== undefined}
+                  fits={fits}
+                  canSearchMore={!s.geometryOld.value}
+                  noFit={
+                    noFit
+                      ? {
+                          misfit: misfitOf(
+                            s.noFitAttempt.value,
+                            project.box,
+                            projSettings,
+                            projPrinter,
+                            project.components,
+                          ),
+                        }
+                      : null
+                  }
+                  conflicts={conflicts}
+                  onKeepSearching={() => store.refit()}
+                  onStop={() => store.cancelRun()}
+                  onEdit={(id) => {
+                    setOpenSection("components");
+                    setEditRequest({ id });
+                  }}
+                  onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
+                />
                 <Summary
-                  summary={s.summary.value}
+                  summary={summary}
                   run={run}
                   notices={summaryNotices}
                   hasLayout={layout !== undefined}
-                  stale={s.stale.value}
-                  geometryOld={s.geometryOld.value}
-                  layers={layers}
-                  spares={spares}
-                  canUndo={store.canUndo.value}
                   canOptimize={canOptimize(project, validation)}
                   hasComponents={project.components.length > 0}
                   hiddenErrors={errorsWithoutField(validation)}
                   problemSections={problemSections}
                   onShowSection={showSection}
                   shortfall={s.shortfall.value}
-                  onRefit={() => store.refit()}
-                  onUndo={() => store.undo()}
-                  onCancel={() => store.cancelRun()}
                   onRetry={() => store.retry()}
                 />
                 {firstVisit ? (

@@ -744,7 +744,7 @@ describe("App", () => {
     expect(screen.queryByText(/Preview:/)).toBeNull();
   });
 
-  it("offers Update plan for a layout made under older geometry", async () => {
+  it("offers Reprint everything, not Keep searching, for a layout made under older geometry", async () => {
     const p = fixtureProject();
     renderApp({
       project: {
@@ -752,7 +752,8 @@ describe("App", () => {
         layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
       },
     });
-    expect(await screen.findByRole("button", { name: "Update plan" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
     expect(
       screen.getByText(
@@ -785,6 +786,111 @@ describe("App", () => {
     expect(screen.getByText("This plan is from before your last changes.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Update the plan" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
+  });
+
+  describe("status line", () => {
+    const status = (): HTMLElement => screen.getByRole("group", { name: "Plan status" });
+
+    it("says everything fits, with the trays, the layers and the height", () => {
+      renderApp({ project: withLayoutProject() });
+      // two stored trays 40 mm high in a box 70 mm high
+      expect(status().textContent).toContain("Everything fits.");
+      expect(status().textContent).toContain("2 trays in 1 layer, 40 of 70 mm high.");
+      expect(screen.getByRole("button", { name: "Download" }).getAttribute("aria-disabled")).toBe(
+        "false",
+      );
+    });
+
+    it("Keep searching starts a longer search and becomes Stop while it runs", async () => {
+      const { stub } = renderApp({ project: withLayoutProject() });
+      fireEvent.click(screen.getByRole("button", { name: "Keep searching" }));
+      expect(await screen.findByRole("button", { name: "Stop" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+      expect(stub.calls).toHaveLength(1);
+      expect(screen.getByRole("progressbar", { name: "Updating the plan" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+      expect(stub.cancelCount()).toBeGreaterThan(0);
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
+      expect(screen.getByRole("button", { name: "Keep searching" })).toBeTruthy();
+    });
+
+    it("names the component that does not fit, opens its editor, and keeps Download off", async () => {
+      const { store } = renderApp({ project: withLayoutProject() });
+      const market = store.state.project.value.components[1];
+      const tray = makeTray({
+        key: "m:p0:0",
+        x: 200,
+        w: 120,
+        compartments: [
+          {
+            x: 1.6,
+            y: 1.6,
+            w: 100,
+            d: 70,
+            floorZ: 1.2,
+            kind: "well",
+            contents: "Market",
+            componentId: market?.id,
+            features: [],
+          },
+        ],
+      });
+      act(() => {
+        store.state.lastResult.value = makeResult(null, {
+          bestAttempt: { trays: [tray], shortfall: { x: 30, y: 0, z: 0 } },
+        });
+        store.state.lastResultHash.value = store.state.currentHash.value;
+      });
+      expect(status().textContent).toContain("Market doesn't fit");
+      expect(status().textContent).not.toContain("Everything fits");
+      const download = screen.getByRole("button", { name: "Fix the fit to download" });
+      expect(download.getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(download);
+      expect(screen.queryByRole("dialog", { name: "Download" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Market" }));
+      expect(await screen.findByRole("heading", { name: "Market" })).toBeTruthy();
+      // leaving the editor does not bring it back
+      fireEvent.click(screen.getByRole("button", { name: "Done" }));
+      expect(screen.queryByRole("heading", { name: "Market" })).toBeNull();
+    });
+
+    it("offers to unpin each pin the last run could not keep", async () => {
+      const p = withLayoutProject();
+      const { store } = renderApp({
+        project: {
+          ...p,
+          locks: [
+            { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
+            { kind: "size", trayKey: "b:p0:0", w: 100, d: 80, h: 40 },
+          ],
+        },
+      });
+      act(() => {
+        store.state.lockConflicts.value = [
+          { trayKey: "a:p0:0", kind: "position", name: "Action cards", reason: "it is too big" },
+          { trayKey: "b:p0:0", kind: "size", name: "Market", reason: "no room" },
+        ];
+      });
+      expect(status().textContent).toContain("Action cards doesn't fit with your pins");
+      expect(status().textContent).toContain("Market doesn't fit with your pins");
+      expect(screen.getByRole("button", { name: "Fix the fit to download" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Unpin Action cards" }));
+      // only that pin goes, and the plan updates; the other conflict waits for the run's verdict
+      expect(store.state.project.value.locks.map((l) => l.kind)).toEqual(["size"]);
+      expect(store.state.lockConflicts.value.map((c) => c.name)).toEqual(["Market"]);
+      expect(status().textContent).toBe("Updating the plan…");
+    });
+
+    it("says the plan is updating while a run is pending, with Download waiting", () => {
+      const { store } = renderApp({ project: withLayoutProject() });
+      act(() => {
+        store.state.runScheduled.value = true;
+      });
+      expect(status().textContent).toBe("Updating the plan…");
+      expect(screen.getByRole("button", { name: "Download" }).getAttribute("title")).toBe(
+        "Wait for the plan to finish",
+      );
+    });
   });
 
   describe("conflict notices", () => {
@@ -1106,12 +1212,14 @@ describe("App", () => {
     expect(store.state.appNotices.value).toEqual([]);
   });
 
-  it("undoes the last layout from the summary", async () => {
+  it("undoes the last layout from the header, and the summary has no Undo of its own", async () => {
     const p = fixtureProject();
     const before = makeLayout(inputsHash(p), [makeTray({ key: "old:p0:0" })]);
     const { store } = renderApp({ project: { ...p, layout: before } });
     store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
-    fireEvent.click(await screen.findByRole("button", { name: "Undo layout" }));
+    await waitFor(() => expect(store.canUndo.value).toBe(true));
+    expect(screen.getAllByRole("button", { name: /undo/i })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     expect(store.state.project.value.layout).toEqual(before);
     expect(store.state.project.value.box.innerHeight).toBe(p.box.innerHeight);
     expect(store.canUndo.value).toBe(false);

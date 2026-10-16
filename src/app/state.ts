@@ -200,7 +200,7 @@ export function createState(
         level: "info",
         code: CAPPED_CODE,
         message:
-          "The optimizer stopped at its safety limit; this layout can't be reproduced from its seed. Try “Improve more”.",
+          "The optimizer stopped at its safety limit; this layout can't be reproduced from its seed. Try “Keep searching”.",
       });
     }
     if (stale.value) {

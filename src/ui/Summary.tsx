@@ -1,7 +1,6 @@
 // src/ui/Summary.tsx
-import { useRef } from "preact/hooks";
 import type { RunState } from "../app/state";
-import { NOTICE_CODES, PRINT_FLOW_MM3_PER_S, REPEAT_FACTOR, mmUp } from "../layout";
+import { PRINT_FLOW_MM3_PER_S, mmUp } from "../layout";
 import type { LayoutSummary } from "../layout/types";
 import type { Notice } from "../model/types";
 import { Notices } from "./Notices";
@@ -14,14 +13,6 @@ export interface SummaryProps {
   run: RunState;
   notices: readonly Notice[];
   hasLayout: boolean;
-  /** The inputs changed since the layout was made: the sentence about it would be out of date. */
-  stale: boolean;
-  /** The layout was made under older tray geometry: it needs re-running even though the inputs match. */
-  geometryOld?: boolean;
-  /** The number of layers (levels) and of spare trays in the layout, for the sentence. */
-  layers: number;
-  spares: number;
-  canUndo: boolean;
   canOptimize: boolean;
   /** Components exist: when the optimizer is blocked, errors are the reason, not an empty project. */
   hasComponents: boolean;
@@ -31,10 +22,6 @@ export interface SummaryProps {
   problemSections: readonly { id: string; title: string }[];
   onShowSection: (id: string) => void;
   shortfall: { x: number; y: number; z: number } | null;
-  /** Re-fit from the current layout (the label says which kind of run it is). */
-  onRefit: () => void;
-  onUndo: () => void;
-  onCancel: () => void;
   onRetry: () => void;
 }
 
@@ -104,55 +91,12 @@ function liveText(run: RunState): string {
 
 export function Summary(p: SummaryProps) {
   const running = p.run.status === "running";
-  // The percent only ever goes up during a run (the total can change under it) and stops at 100.
-  const shown = useRef(0);
-  const lastDone = useRef(0);
-  let percent = 0;
-  if (p.run.status === "running") {
-    const raw = Math.floor((100 * p.run.done) / Math.max(1, p.run.total));
-    // `done` never goes down within a run, so a lower one is a new run replacing this one.
-    if (p.run.done < lastDone.current) {
-      shown.current = 0;
-    }
-    lastDone.current = p.run.done;
-    percent = Math.max(shown.current, Math.min(100, Math.max(0, raw)));
-    shown.current = percent;
-  } else {
-    shown.current = 0;
-    lastDone.current = 0;
-  }
-  // A layout made for the current inputs: pressing the button searches on, rather than catching up.
-  const layoutCurrent = p.hasLayout && !p.stale && !p.geometryOld;
   const shortfall = p.shortfall ? shortfallText(p.shortfall) : null;
-  const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
-  const verdict =
-    p.summary && !p.stale && p.run.status !== "running"
-      ? `${plural(p.summary.trayCount, "tray", "trays")}${
-          p.spares > 0 ? ` (${p.spares === 1 ? "1 is a spare" : `${p.spares} are spares`})` : ""
-        } in ${plural(Math.max(1, p.layers), "layer", "layers")}, ${p.summary.fillPct.toFixed(0)}% of the box used.`
-      : null;
   return (
     <>
       <p class="visually-hidden" role="status">
         {liveText(p.run)}
       </p>
-      {verdict ? (
-        <p class="pf-verdict stage-block">
-          <strong>Everything fits.</strong> {verdict}
-        </p>
-      ) : null}
-      {p.run.status === "running" ? (
-        <div class="pf-notice stage-block">
-          <div class="run-status">
-            <strong>Updating the plan…</strong>
-            <progress value={percent} max={100} aria-label="Updating the plan" />
-            <span aria-hidden="true">{`${percent}%`}</span>
-            <button type="button" onClick={p.onCancel}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : null}
       {p.run.status === "error" ? (
         <div class="pf-notice pf-notice--error stage-block" role="alert">
           <div>
@@ -231,34 +175,6 @@ export function Summary(p: SummaryProps) {
           Exact values) trays can shift when the box is moved.
           {` The filament estimate prints the first 3 perimeters and the top and bottom 5 layers of every part solid, whatever the infill, and only the interior beyond that at ${p.summary.infillPct} %. Walls, floors and thin parts are therefore counted solid, so it falls well below the 100 % figure only for thick blocks and raised floors. The estimate is rounded to the nearest gram, the 100 % figure up. The print time is that same plastic volume at a steady ${PRINT_FLOW_MM3_PER_S} mm³/s, and nothing else: travel, acceleration, cooling and slower outer walls are not modelled, so a real print usually takes longer, small parts much longer. Use it to compare, or to plan which parts go on one overnight plate.`}
         </p>
-      ) : null}
-      {p.hasComponents ? (
-        <>
-          <div class="button-row stage-block">
-            <button
-              type="button"
-              onClick={p.onRefit}
-              disabled={running || !p.canOptimize}
-              aria-describedby="hint-refit"
-            >
-              {layoutCurrent ? "Keep searching" : "Update plan"}
-            </button>
-            <button type="button" onClick={p.onUndo} disabled={running || !p.canUndo}>
-              Undo layout
-            </button>
-          </div>
-          <p class="hint stage-block">
-            <span id="hint-refit">
-              {p.notices.some((n) => n.code === NOTICE_CODES.doesNotFit)
-                ? `Searches again for a fit, about ${REPEAT_FACTOR} times longer than the last search.`
-                : layoutCurrent
-                  ? "Searches on from this layout for a tighter arrangement; it never throws the layout away."
-                  : p.geometryOld && !p.stale
-                    ? "Rebuilds the trays with the current geometry, starting from this layout; it never throws it away."
-                    : "Re-fits the trays to your current inputs, starting from this layout; it never throws it away."}
-            </span>
-          </p>
-        </>
       ) : null}
       <Notices
         notices={p.notices}
