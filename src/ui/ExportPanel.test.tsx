@@ -247,28 +247,12 @@ describe("ExportPanel", () => {
     ).toBe(true);
   });
 
-  it("says once how many parts are too small to carry their name, only while engraving is on", () => {
-    const tiny = (key: string, stack: number) =>
-      makeTray({ key, stack, w: 4, d: 4, h: 30, compartments: [] });
-    const trays = [makeTray({ key: "a:p0:0", stack: 0 }), tiny("s1:p0:0", 1), tiny("s2:p0:0", 2)];
-    const { container } = render(<ExportPanel {...props({ trays })} />);
-    expect(container.textContent).toContain(
-      "2 parts are too small to carry their name; the packing guide lists them.",
+  it("says nothing about parts too small to carry their name", () => {
+    const tiny = makeTray({ key: "s1:p0:0", stack: 1, w: 4, d: 4, h: 30, compartments: [] });
+    const { container } = render(
+      <ExportPanel {...props({ trays: [makeTray({ key: "a:p0:0", stack: 0 }), tiny] })} />,
     );
-    cleanup();
-    const one = render(<ExportPanel {...props({ trays: trays.slice(0, 2) })} />);
-    expect(one.container.textContent).toContain(
-      "1 part is too small to carry its name; the packing guide lists it.",
-    );
-    cleanup();
-    // nothing to say when every part has room, or when nothing is engraved
-    const roomy = render(<ExportPanel {...props()} />);
-    expect(roomy.container.textContent).not.toMatch(/too small to carry/);
-    cleanup();
-    const off = render(
-      <ExportPanel {...props({ trays, settings: { ...DEFAULT_SETTINGS, engraveNames: false } })} />,
-    );
-    expect(off.container.textContent).not.toMatch(/too small to carry/);
+    expect(container.textContent).not.toMatch(/too small/);
   });
 
   it("exports the STL zip from Other formats", async () => {

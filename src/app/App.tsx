@@ -129,7 +129,7 @@ export function App(props: AppProps) {
   );
   const showAssembly = assemblyFor === project.id && layout !== undefined;
   const mainRef = useRef<HTMLElement>(null);
-  const exportButtonRef = useRef<HTMLButtonElement>(null);
+  const downloadButtonRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const restoreFocus = useRef(false);
   const [openSection, setOpenSection] = useState<SectionId | null>(
@@ -171,7 +171,7 @@ export function App(props: AppProps) {
       mainRef.current?.querySelector("h1")?.focus();
     } else if (restoreFocus.current) {
       restoreFocus.current = false;
-      exportButtonRef.current?.focus();
+      downloadButtonRef.current?.focus();
     }
   }, [showAssembly]);
 
@@ -304,7 +304,6 @@ export function App(props: AppProps) {
   const trayNumbers = planCurrent ? trayNumbersByComponent(parts, project.components) : undefined;
   const layers = layout ? levelsOf(layout.trays).length : 0;
   const spares = layout ? layout.trays.filter((t) => t.part === "leftover").length : 0;
-  const partTotal = printable.length;
 
   return (
     <ValidationContext.Provider value={validation}>
@@ -320,6 +319,7 @@ export function App(props: AppProps) {
                 canRedo={store.canRedo.value}
                 onUndo={() => store.undo()}
                 onRedo={() => store.redo()}
+                downloadRef={downloadButtonRef}
                 onDownload={() => setExportOpen(true)}
                 downloadDisabled={layout === undefined || s.stale.value || s.runPending.value}
                 downloadReason={
@@ -507,15 +507,6 @@ export function App(props: AppProps) {
                       <div class="pf-toolbar__group">
                         {s.stale.value ? <span class="pf-badge">Out of date</span> : null}
                         {run.status === "running" ? <span class="pf-badge">Updating…</span> : null}
-                        <button
-                          type="button"
-                          class="primary"
-                          ref={exportButtonRef}
-                          aria-haspopup="dialog"
-                          onClick={() => setExportOpen(true)}
-                        >
-                          {`Export all ${partTotal} ${partTotal === 1 ? "part" : "parts"}`}
-                        </button>
                       </div>
                     </div>
                     <div

@@ -11,11 +11,9 @@ import {
 import type { ExportOptions, ExportOutput } from "../app/exportBuild";
 import type { MeshSource } from "../app/meshes";
 import { buildErrorReason } from "../app/support";
-import { engravesName } from "../geometry/engraves";
 import { trayNames } from "../instructions/naming";
 import { numberParts } from "../instructions/numbering";
 import type { LayoutSummary } from "../layout/types";
-import { carriesName } from "../model/part-name";
 import type { Component, Printer, Settings, TraySpec } from "../model/types";
 import { formatPrintTime } from "./Summary";
 import "./export.css";
@@ -69,18 +67,6 @@ export function ExportPanel(p: ExportPanelProps) {
   const names = useMemo(
     () => trayNames(numberParts(p.trays), p.components ?? []),
     [p.trays, p.components],
-  );
-  // Parts that carry a name but have no room for it stay plain; the packing guide lists them.
-  const tooSmall = useMemo(
-    () =>
-      p.settings.engraveNames
-        ? plan.parts.filter(
-            (part) =>
-              engravesName(part.spec, p.settings, names.get(part.spec.key)?.short ?? "") ===
-                false && carriesName(part.spec.part),
-          ).length
-        : 0,
-    [plan, names, p.settings],
   );
   const [busy, setBusy] = useState<Busy | null>(null);
   const [error, setError] = useState<{ kind: ExportKind; message: string } | null>(null);
@@ -239,11 +225,6 @@ export function ExportPanel(p: ExportPanelProps) {
           </>
         ) : null}
       </dl>
-      {tooSmall > 0 ? (
-        <p class="hint">
-          {`${tooSmall} ${tooSmall === 1 ? "part is" : "parts are"} too small to carry ${tooSmall === 1 ? "its" : "their"} name; the packing guide lists ${tooSmall === 1 ? "it" : "them"}.`}
-        </p>
-      ) : null}
       {blockedReason !== null ? (
         <p class="hint" id={reasonId}>
           {blockedReason}

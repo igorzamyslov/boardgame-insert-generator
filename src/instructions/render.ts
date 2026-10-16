@@ -360,7 +360,7 @@ export function packingSteps(layout: StoredLayout, components: readonly Componen
       }
       for (const s of parts) {
         if (s.spec.part === "spacer" && s.parentNumber === p.number) {
-          steps.push(`Slide ${nameOf(s)} into ${nameOf(p)}.`);
+          steps.push(`Slide the spacer into ${nameOf(p)} (${nameOf(s)}).`);
         }
         if (s.spec.part === "divider" && s.parentNumber === p.number) {
           steps.push(`Stand ${nameOf(s)} in its floor slot.`);

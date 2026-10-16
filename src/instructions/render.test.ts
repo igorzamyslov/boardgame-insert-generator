@@ -425,7 +425,7 @@ describe("packing order and parts list", () => {
   it("packs bottom first, spacers after their tray", () => {
     expect(packingSteps(layout, named.components)).toEqual([
       "Layer 1: place Deck A 1.",
-      "Slide Spacer by Deck A 2 into Deck A 1.",
+      "Slide the spacer into Deck A 1 (Spacer by Deck A 2).",
       "Layer 1: place Deck A 2.",
       "Layer 2: place <Coins> & gems on top.",
     ]);

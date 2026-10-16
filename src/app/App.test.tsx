@@ -75,7 +75,7 @@ function addCards(): void {
 
 /** The export panel is a dialog over the view; its button opens it. */
 function openExport(): void {
-  fireEvent.click(screen.getByRole("button", { name: /^Export all \d+ parts?$/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Download" }));
 }
 
 /** The packing guide's button lives in the download dialog. */
@@ -750,8 +750,7 @@ describe("App", () => {
   });
 
   describe("export dialog", () => {
-    const exportButton = (): HTMLElement =>
-      screen.getByRole("button", { name: /^Export all \d+ parts?$/ });
+    const exportButton = (): HTMLElement => screen.getByRole("button", { name: "Download" });
 
     afterEach(() => {
       Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
@@ -771,6 +770,12 @@ describe("App", () => {
       const dialog = screen.getByRole("dialog", { name: "Download" });
       expect(dialog.tagName).toBe("DIALOG");
       expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Download" }));
+    });
+
+    it("has the header Download as its only way in", () => {
+      renderApp({ project: withLayoutProject() });
+      expect(screen.queryByRole("button", { name: /^Export all/ })).toBeNull();
+      expect(screen.getAllByRole("button", { name: "Download" })).toHaveLength(1);
     });
 
     it("closes on Escape, on Close, and puts the focus back on its button", () => {
@@ -835,9 +840,7 @@ describe("App", () => {
       expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
       fireEvent.click(screen.getByRole("button", { name: "Back to your insert" }));
       // Back where the export was opened from: its button.
-      expect(document.activeElement).toBe(
-        screen.getByRole("button", { name: /^Export all \d+ parts?$/ }),
-      );
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Download" }));
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 

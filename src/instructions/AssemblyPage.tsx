@@ -109,10 +109,6 @@ export function AssemblyPage(p: AssemblyPageProps) {
           {exploded !== null ? (
             <section class="assembly-exploded" aria-labelledby="exploded-title">
               <h2 id="exploded-title">How it goes together</h2>
-              <p class="hint">
-                Trays pulled apart, bottom first. They are drawn as plain blocks; the real ones are
-                open on top.
-              </p>
               <img
                 class="assembly-svg"
                 src={svgDataUrl(exploded.svg)}
@@ -166,31 +162,53 @@ export function AssemblyPage(p: AssemblyPageProps) {
           </div>
           <section aria-labelledby="parts-title">
             <h2 id="parts-title">What goes where</h2>
-            <table class="parts-table">
+            <table class="parts-table" role="table">
               <caption class="visually-hidden">Which tray goes where</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Tray</th>
-                  {engraving ? <th scope="col">Engraved as</th> : null}
-                  <th scope="col">Size</th>
-                  <th scope="col">Position</th>
-                  <th scope="col">Layer</th>
-                  <th scope="col">Holds</th>
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th role="columnheader" scope="col">
+                    Name
+                  </th>
+                  {engraving ? (
+                    <th role="columnheader" scope="col">
+                      Engraved as
+                    </th>
+                  ) : null}
+                  <th role="columnheader" scope="col">
+                    Size
+                  </th>
+                  <th role="columnheader" scope="col">
+                    Position
+                  </th>
+                  <th role="columnheader" scope="col">
+                    Layer
+                  </th>
+                  <th role="columnheader" scope="col">
+                    Holds
+                  </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {rows.map((r) => (
-                  <tr key={r.key}>
-                    <th scope="row">{r.name}</th>
+                  <tr key={r.key} role="row">
+                    <th role="rowheader" scope="row">
+                      {r.name}
+                    </th>
                     {engraving ? (
-                      <td data-label="Engraved as">
+                      <td role="cell" data-label="Engraved as">
                         {r.engraved ?? (r.tooSmall ? "Too small for its name" : "—")}
                       </td>
                     ) : null}
-                    <td data-label="Size">{r.size}</td>
-                    <td data-label="Position">{r.position}</td>
-                    <td data-label="Layer">{layers[r.layer - 1]?.title ?? `Layer ${r.layer}`}</td>
-                    <td data-label="Holds">
+                    <td role="cell" data-label="Size">
+                      {r.size}
+                    </td>
+                    <td role="cell" data-label="Position">
+                      {r.position}
+                    </td>
+                    <td role="cell" data-label="Layer">
+                      {layers[r.layer - 1]?.title ?? `Layer ${r.layer}`}
+                    </td>
+                    <td role="cell" data-label="Holds">
                       {r.goesInto !== null
                         ? `Goes into ${r.goesInto}`
                         : r.carries !== null

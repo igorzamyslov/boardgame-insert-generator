@@ -86,10 +86,6 @@
   align-items: flex-start;
 }
 
-.assembly-exploded .hint {
-  margin: 0;
-}
-
 .assembly-layer {
   display: flex;
   flex-direction: column;
@@ -192,11 +188,7 @@
 }
 
 @media print {
-  /* Paper is white: no dark-scheme colours on it. */
-  :root {
-    color-scheme: light;
-  }
-
+  /* Paper is white: style.css puts the page on a light scheme for print. */
   @page {
     margin: 12mm;
   }

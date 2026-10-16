@@ -9,6 +9,9 @@ import printCss from "./assembly.css?raw";
 
 afterEach(cleanup);
 
+/** The print rules: the last block of the file. */
+const printBlock = printCss.slice(printCss.indexOf("@media print"));
+
 /** The cards-heavy project with the one component the trays below hold: "Deck A". */
 function deckProject() {
   const project = fixtureProject();
@@ -81,7 +84,7 @@ describe("AssemblyPage", () => {
     expect(decodeURIComponent(img.src)).toContain("<svg");
     expect(section.querySelector("canvas")).toBeNull();
     expect(section.querySelector("button")?.className).toContain("no-print");
-    expect(printCss).toMatch(/@media print[\s\S]*\.assembly-exploded,/);
+    expect(printBlock).toMatch(/\.assembly-exploded,[^{]*\{[^}]*break-inside:\s*avoid/);
   });
 
   it("downloads the exploded view as a PNG", async () => {
@@ -118,7 +121,7 @@ describe("AssemblyPage", () => {
     const table = screen.getByRole("table", { name: "Which tray goes where" });
     expect(table.querySelector("caption")?.className).toBe("visually-hidden");
     const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent);
-    expect(heads).toEqual(["Tray", "Engraved as", "Size", "Position", "Layer", "Holds"]);
+    expect(heads).toEqual(["Name", "Engraved as", "Size", "Position", "Layer", "Holds"]);
     const rowHeads = [...table.querySelectorAll("tbody th")];
     expect(rowHeads.map((th) => [th.textContent, th.getAttribute("scope")])).toEqual([
       ["Deck A 1", "row"],
@@ -137,7 +140,7 @@ describe("AssemblyPage", () => {
     render(<AssemblyPage project={deckProject()} layout={withSpacer} onBack={vi.fn()} />);
     expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
       "Layer 1: place Deck A.",
-      "Slide Spacer by Deck A into Deck A.",
+      "Slide the spacer into Deck A (Spacer by Deck A).",
     ]);
     const rows = [...document.querySelectorAll("tbody tr")].map((tr) => tr.textContent ?? "");
     expect(rows[1]).toContain("Spacer by Deck A");
@@ -159,7 +162,7 @@ describe("AssemblyPage", () => {
     );
     const table = screen.getByRole("table", { name: "Which tray goes where" });
     const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent);
-    expect(heads).toEqual(["Tray", "Engraved as", "Size", "Position", "Layer", "Holds"]);
+    expect(heads).toEqual(["Name", "Engraved as", "Size", "Position", "Layer", "Holds"]);
     const cells = [...table.querySelectorAll("tbody tr")].map((tr) => tr.children[1]?.textContent);
     // the tray's short name in capitals, a dash for a plate, and a note for a part with no room
     expect(cells).toEqual(["DECK", "—", "Too small for its name"]);
@@ -179,7 +182,7 @@ describe("AssemblyPage", () => {
     // The steps name each tray and spacer.
     expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
       "Layer 1: place Deck A 1.",
-      "Slide Spacer by Deck A 2 into Deck A 1.",
+      "Slide the spacer into Deck A 1 (Spacer by Deck A 2).",
       "Layer 2: place Deck A 2 on top.",
     ]);
     // The table calls its first column "Tray", its rows by name, and its layers by their labels.
@@ -189,8 +192,8 @@ describe("AssemblyPage", () => {
       "Spacer by Deck A 2",
       "Deck A 2",
     ]);
-    expect(screen.getByRole("columnheader", { name: "Tray" })).toBeTruthy();
-    expect(screen.queryByRole("columnheader", { name: "Part" })).toBeNull();
+    expect(screen.getByRole("columnheader", { name: "Name" })).toBeTruthy();
+    expect(screen.queryByRole("columnheader", { name: "Tray" })).toBeNull();
     const layerCells = [...table.querySelectorAll("tbody tr")].map(
       (tr) => tr.children[4]?.textContent,
     );
@@ -209,9 +212,29 @@ describe("AssemblyPage", () => {
     expect(layerOne).toContain(">DECK 1<");
   });
 
+  it("keeps the table's roles explicit, so the phone cards still read as a table", () => {
+    render(<AssemblyPage project={deckProject()} layout={layout} onBack={vi.fn()} />);
+    const table = screen.getByRole("table", { name: "Which tray goes where" });
+    expect(table.getAttribute("role")).toBe("table");
+    expect(table.querySelectorAll("thead[role=rowgroup], tbody[role=rowgroup]")).toHaveLength(2);
+    expect([...table.querySelectorAll("tr")].every((tr) => tr.getAttribute("role") === "row")).toBe(
+      true,
+    );
+    expect(table.querySelectorAll("th[role=columnheader]")).toHaveLength(6);
+    expect(table.querySelectorAll("tbody th[role=rowheader]")).toHaveLength(2);
+    expect(
+      [...table.querySelectorAll("td")].every((td) => td.getAttribute("role") === "cell"),
+    ).toBe(true);
+  });
+
   it("keeps the toolbar and the buttons at 44 px and drops the toolbar from print", () => {
     expect(printCss).toMatch(/\.assembly button\s*\{[^}]*min-height:\s*var\(--control-h\)/);
-    expect(printCss).toMatch(/@media print[\s\S]*\.no-print/);
+    expect(printBlock).toMatch(/\.no-print[^{]*\{[^}]*display:\s*none/);
+    // No sheets on paper, and the table's rows stay whole.
+    expect(printBlock).toMatch(
+      /\.assembly > section,\s*\.assembly-layer\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*none/,
+    );
+    expect(printBlock).toMatch(/\.parts-table tr\s*\{[^}]*break-inside:\s*avoid/);
   });
 
   it("stacks the layers and the table rows on a phone, below 760 px", () => {
