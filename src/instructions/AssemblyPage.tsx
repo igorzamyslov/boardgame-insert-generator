@@ -39,6 +39,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
   const [busy, setBusy] = useState(false);
   const slug = fileSlug(p.project.name);
   const { box } = p.project;
+  const engraving = p.project.settings.engraveNames;
 
   async function savePng(svg: string, name: string): Promise<void> {
     if (making.current) {
@@ -163,6 +164,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
               <thead>
                 <tr>
                   <th scope="col">Part</th>
+                  {engraving ? <th scope="col">Engraved as</th> : null}
                   <th scope="col">Size</th>
                   <th scope="col">Position</th>
                   <th scope="col">Layer</th>
@@ -173,6 +175,9 @@ export function AssemblyPage(p: AssemblyPageProps) {
                 {rows.map((r) => (
                   <tr key={r.key}>
                     <th scope="row">{r.name}</th>
+                    {engraving ? (
+                      <td>{r.engraved ?? (r.tooSmall ? "Too small for its name" : "—")}</td>
+                    ) : null}
                     <td>{r.size}</td>
                     <td>{r.position}</td>
                     <td>{r.layer}</td>

@@ -15,6 +15,7 @@ import {
   planEngraving,
 } from "./engrave";
 import { GLYPH_ROWS, textWidth } from "./glyphs";
+import { engravesName } from "./engraves";
 import { loadManifold } from "./load";
 import { planTray } from "./plan";
 import { checkPrintability } from "./printability";
@@ -220,6 +221,49 @@ describe("an engraved tray name", () => {
     expect(e?.stroke).toBeGreaterThanOrEqual(ENGRAVE_STROKE_MIN_MM);
     const flat = { ...low, h: 6, key: "f:p0:0" };
     expect(planEngraving(planTray(flat, GEO), "Dice")).toBeNull();
+  });
+
+  it("tries a tighter band on a low part before leaving it plain, and never the underside", () => {
+    const low = (h: number) => traySpec({ key: `l${h}:p0:0`, w: 80, d: 50, h, solid: true });
+    // 7 mm tall: no room between the usual margins (1 mm above the chamfer, 1.5 mm below the rim)
+    const seven = planTray(low(7), GEO);
+    const e = planEngraving(seven, "Dice");
+    expect(e).not.toBeNull();
+    expect(e?.stroke).toBeGreaterThanOrEqual(ENGRAVE_STROKE_MIN_MM);
+    // the text stays on the wall, within the tight band: 0.5 mm above the chamfer, 0.8 below the rim
+    expect(e?.z ?? 0).toBeGreaterThanOrEqual(seven.chamfer + 0.5 - 1e-9);
+    expect((e?.z ?? 0) + GLYPH_ROWS * (e?.stroke ?? 0)).toBeLessThanOrEqual(7 - 0.8 + 1e-9);
+    expect(["front", "back", "left", "right"]).toContain(e?.face);
+    const plain = buildTray(m, low(7), GEO);
+    const named = buildTray(m, { ...low(7), partName: "Dice" }, GEO);
+    expect(named.volumeMm3).toBeLessThan(plain.volumeMm3);
+    expect(problemsOf(m, { ...low(7), partName: "Dice" }, GEO)).toEqual([]);
+    // too low even for the tight band: plain, as before
+    expect(planEngraving(planTray(low(6.5), GEO), "Dice")).toBeNull();
+  });
+
+  it("engraves a part the usual band fits exactly as before the tighter band existed", () => {
+    // 9 mm tall: the usual band gives (9 - 0.4 - 1 - 1.5) / 5 = 1.22 mm strokes, not the tight band's
+    const e = planEngraving(
+      planTray(traySpec({ key: "n:p0:0", w: 80, d: 50, h: 9, solid: true }), GEO),
+      "Dice",
+    );
+    expect(e?.stroke).toBeCloseTo((9 - 0.4 - 1 - 1.5) / 5, 6);
+  });
+
+  it("says without building whether a name fits (engravesName), as the build does", () => {
+    expect(engravesName(plainBox, GEO, "Cards")).toBe(true);
+    expect(buildTray(m, { ...plainBox, partName: "Cards" }, GEO).volumeMm3).toBeLessThan(
+      buildTray(m, plainBox, GEO).volumeMm3,
+    );
+    const tiny = traySpec({ key: "t:p0:0", w: 12, d: 12, h: 20, solid: true });
+    expect(engravesName(tiny, GEO, "Cards")).toBe(false);
+    expect(buildTray(m, { ...tiny, partName: "Cards" }, GEO).volumeMm3).toBe(
+      buildTray(m, tiny, GEO).volumeMm3,
+    );
+    // a plate carries no name; a spec that cannot be planned says nothing
+    expect(engravesName(spacer, GEO, "Cards")).toBe(false);
+    expect(engravesName({ ...plainBox, w: -1 }, GEO, "Cards")).toBeNull();
   });
 
   it("builds a closed printable solid of the same size on every kind of part", () => {

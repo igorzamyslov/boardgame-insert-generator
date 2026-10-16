@@ -82,12 +82,14 @@ import type { Semver } from "../model/version";
  * every outer size, lip, inset and cut of a tray realized from the same part at the same size, so
  * trays printed before and after still mate and stack; what differs is the inside of a deck's
  * well (wider, no spacer to fill it). A stored 0.7.1 layout builds as before, with the spacers it
- * stored, until its plan is run again. *
+ * stored, until its plan is run again.
  * 0.7.3 engraves the part's short name (`TraySpec.partName`, `settings.engraveNames`; capitals of a 3
  * by 5 block font) where 0.7.1 engraved its number. A PATCH, as 0.7.1 was: the same mesh-only
  * recess on the same walls, so no outer size, lip, inset, well or cut moves and parts printed
  * before and after still mate and stack; a spec without a name builds exactly as before. A name too
- * long for any face at the least stroke is left off.
+ * long for any face at the least stroke is left off. A part with no room in the usual band (a low
+ * one) is tried again in a tighter band before it is left plain; a part that was engraved before is
+ * engraved just as before.
  */
 export const GEOMETRY_VERSION = "0.7.3";
 

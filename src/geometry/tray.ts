@@ -1,9 +1,9 @@
 import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
-import type { MergedPart, Settings, Side, TraySpec } from "../model/types";
+import type { MergedPart, Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
 import { carriesName } from "../model/part-name";
-import { buildEngraving, planEngraving } from "./engrave";
+import { buildEngraving, planEngraving, planMergedEngraving } from "./engrave";
 import type { EngravePlan } from "./engrave";
 import { cutFace, filletStrip } from "./plan-cuts";
 import { INNER_CORNER_RADIUS_MM } from "./plan-types";
@@ -349,36 +349,12 @@ function buildMerged(
   // The name goes on one member, on a face on the merged part's own outside (as it prints: a
   // flipped part is turned over, front and back change places): the member where it is largest.
   const plans = merged.members.map((member) => planTray(member, settings));
-  let onMember = -1;
-  let engraving: EngravePlan | null = null;
-  if (spec.partName !== undefined && carriesName(spec.part)) {
-    const flipped = merged.flipped === true;
-    merged.members.forEach((member, i) => {
-      const plan = plans[i];
-      const near = (a: number, b: number): boolean => Math.abs(a - b) < EPS;
-      const faces: Side[] = [];
-      const buildFront = near(member.y, spec.y);
-      const buildBack = near(member.y + member.d, spec.y + spec.d);
-      if (flipped ? buildBack : buildFront) {
-        faces.push("front");
-      }
-      if (flipped ? buildFront : buildBack) {
-        faces.push("back");
-      }
-      if (near(member.x, spec.x)) {
-        faces.push("left");
-      }
-      if (near(member.x + member.w, spec.x + spec.w)) {
-        faces.push("right");
-      }
-      const found =
-        plan === undefined ? null : planEngraving(plan, spec.partName ?? "", faces, flipped);
-      if (found !== null && (engraving === null || found.stroke > engraving.stroke)) {
-        engraving = found;
-        onMember = i;
-      }
-    });
-  }
+  const found =
+    spec.partName !== undefined && carriesName(spec.part)
+      ? planMergedEngraving(spec, merged, plans, spec.partName)
+      : null;
+  const onMember = found?.member ?? -1;
+  const engraving = found?.engraving ?? null;
   const pieces: Manifold[] = merged.members.map((member, i) =>
     scope.track(
       buildSolid(m, scope, member, settings, plans[i], i === onMember ? engraving : null).translate(

@@ -1,6 +1,6 @@
 import type { Manifold, ManifoldToplevel, Vec3 } from "manifold-3d";
 import { MIN_FEATURE_MM } from "../model/settings";
-import type { Side } from "../model/types";
+import type { MergedPart, Side } from "../model/types";
 import { GLYPH_ROWS, isEngravable, textRects, textWidth } from "./glyphs";
 import { FINGER_FILLET_MM } from "./plan-types";
 import type { TrayPlan } from "./plan-types";
@@ -28,6 +28,9 @@ const GOOD_STROKE_MM = 1.3;
 const EDGE_MM = 1.5;
 const BELOW_CHAMFER_MM = 1;
 const BELOW_RIM_MM = 1.5;
+/** The tighter band tried when the usual one leaves no room (a low part): never the underside. */
+const TIGHT_BELOW_CHAMFER_MM = 0.5;
+const TIGHT_BELOW_RIM_MM = 0.8;
 /** A roof falls this many mm per mm of depth: 1.25 is steeper than 45°, so nothing overhangs. */
 const ROOF_SLOPE = 1.25;
 const OVERSHOOT = 1;
@@ -143,10 +146,26 @@ export function planEngraving(
   if ((flipped && plan.compartments.length > 0) || text === "" || !isEngravable(text)) {
     return null;
   }
+  // The usual band first; a part with no room in it (a low one) gets a second try in a tighter band,
+  // and a part the first try engraves is engraved exactly as before.
+  return (
+    engraveIn(plan, text, faces, flipped, BELOW_CHAMFER_MM, BELOW_RIM_MM) ??
+    engraveIn(plan, text, faces, flipped, TIGHT_BELOW_CHAMFER_MM, TIGHT_BELOW_RIM_MM)
+  );
+}
+
+function engraveIn(
+  plan: TrayPlan,
+  text: string,
+  faces: readonly Side[],
+  flipped: boolean,
+  belowChamfer: number,
+  belowRim: number,
+): EngravePlan | null {
   const strokesWide = textWidth(text);
   // the band of the part's height the text sits in, in the printed frame.
-  const lo = plan.chamfer + BELOW_CHAMFER_MM;
-  const hi = plan.h - BELOW_RIM_MM;
+  const lo = plan.chamfer + belowChamfer;
+  const hi = plan.h - belowRim;
   const band = flipped ? { lo: plan.h - hi, hi: plan.h - lo } : { lo, hi };
   const byHeight = (band.hi - band.lo) / GLYPH_ROWS;
   let best: EngravePlan | null = null;
@@ -179,6 +198,48 @@ export function planEngraving(
       break;
     }
   }
+  return best;
+}
+
+const SAME_MM = 0.01;
+
+/**
+ * Where the text goes on a merged part (several fillers and risers printed as one): on a face of
+ * one member that lies on the merged part's own outside (as it prints: a flipped part is turned
+ * over, so front and back change places), on the member where the strokes come out largest.
+ * `plans` are the members' plans, in the order of `merged.members`. Null when no member has room.
+ */
+export function planMergedEngraving(
+  spec: { x: number; y: number; w: number; d: number },
+  merged: MergedPart,
+  plans: readonly (TrayPlan | undefined)[],
+  text: string,
+): { engraving: EngravePlan; member: number } | null {
+  const flipped = merged.flipped === true;
+  let best: { engraving: EngravePlan; member: number } | null = null;
+  merged.members.forEach((member, i) => {
+    const plan = plans[i];
+    const near = (a: number, b: number): boolean => Math.abs(a - b) < SAME_MM;
+    const faces: Side[] = [];
+    const buildFront = near(member.y, spec.y);
+    const buildBack = near(member.y + member.d, spec.y + spec.d);
+    if (flipped ? buildBack : buildFront) {
+      faces.push("front");
+    }
+    if (flipped ? buildFront : buildBack) {
+      faces.push("back");
+    }
+    if (near(member.x, spec.x)) {
+      faces.push("left");
+    }
+    if (near(member.x + member.w, spec.x + spec.w)) {
+      faces.push("right");
+    }
+    const found = plan === undefined ? null : planEngraving(plan, text, faces, flipped);
+    if (found !== null && (best === null || found.stroke > best.engraving.stroke)) {
+      best = { engraving: found, member: i };
+    }
+  });
   return best;
 }
 

@@ -389,6 +389,36 @@ describe("packing order and parts list", () => {
     ]);
   });
 
+  it("says what each part is engraved as: its short name in capitals, nothing for a plate or a tiny part", () => {
+    // the same trays as above, with the lip left off the one that could not be planned with it
+    const valid = makeLayout("h", [{ ...bottom, lip: false, w: 120, d: 90 }, spacer, top, side]);
+    const rows = whatGoesWhere(valid, named);
+    // trays carry the short name drawn on the diagrams; the spacer is a plate and carries none
+    expect(rows.map((r) => [r.name, r.engraved, r.tooSmall])).toEqual([
+      ["Deck A 1", "DECK 1", false],
+      ["Spacer by Deck A 2", null, false],
+      ["<Coins> & gems", "COINS", false],
+      ["Deck A 2", "DECK 2", false],
+    ]);
+    // a tray 4 mm across has no room for any name, and the guide says so
+    const tiny = makeLayout("h", [
+      makeTray({ key: "a:p0:0", w: 4, d: 4, h: 30, compartments: [] }),
+      makeTray({ key: "b:p0:0", stack: 1, x: 10 }),
+    ]);
+    const [small, roomy] = whatGoesWhere(tiny, named);
+    expect(small).toMatchObject({ engraved: null, tooSmall: true });
+    expect(roomy?.engraved).not.toBeNull();
+    // a part that cannot be planned at all (the fixture's lipped tray) is neither engraved nor
+    // "too small": nothing can be said of its name
+    expect(whatGoesWhere(layout, named)[0]).toMatchObject({ engraved: null, tooSmall: false });
+    // with the engraving off nothing is engraved and nothing is too small to carry a name
+    const off = { ...named, settings: { ...named.settings, engraveNames: false } };
+    expect(whatGoesWhere(tiny, off).map((r) => [r.engraved, r.tooSmall])).toEqual([
+      [null, false],
+      [null, false],
+    ]);
+  });
+
   it("says where each part stands, to 0.1 mm", () => {
     const rows = whatGoesWhere(
       makeLayout("h", [makeTray({ x: 12, y: 30.04 }), makeTray({ key: "b:p0:0", x: 0.26, y: 0 })]),

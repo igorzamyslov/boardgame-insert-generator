@@ -118,7 +118,7 @@ describe("AssemblyPage", () => {
     const table = screen.getByRole("table", { name: "Which part goes where" });
     expect(table.querySelector("caption")?.className).toBe("visually-hidden");
     const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent);
-    expect(heads).toEqual(["Part", "Size", "Position", "Layer", "Holds"]);
+    expect(heads).toEqual(["Part", "Engraved as", "Size", "Position", "Layer", "Holds"]);
     const rowHeads = [...table.querySelectorAll("tbody th")];
     expect(rowHeads.map((th) => [th.textContent, th.getAttribute("scope")])).toEqual([
       ["Deck A 1", "row"],
@@ -146,6 +146,26 @@ describe("AssemblyPage", () => {
     for (const img of screen.getAllByRole("img")) {
       expect(img.getAttribute("alt")).not.toMatch(/#\d|\b\d \w/);
     }
+  });
+
+  it("shows what each part is engraved as, while the engraving is on", () => {
+    const withSpacer = makeLayout("h", [
+      makeTray({ key: "a:p0:0", stack: 0, level: 0 }),
+      makeTray({ key: "a:p0:0:spacer", part: "spacer", path: "", solid: true, compartments: [] }),
+      makeTray({ key: "t:p0:0", stack: 1, x: 120, w: 4, d: 4, compartments: [] }),
+    ]);
+    const { rerender } = render(
+      <AssemblyPage project={deckProject()} layout={withSpacer} onBack={vi.fn()} />,
+    );
+    const table = screen.getByRole("table", { name: "Which part goes where" });
+    const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent);
+    expect(heads).toEqual(["Part", "Engraved as", "Size", "Position", "Layer", "Holds"]);
+    const cells = [...table.querySelectorAll("tbody tr")].map((tr) => tr.children[1]?.textContent);
+    // the tray's short name in capitals, a dash for a plate, and a note for a part with no room
+    expect(cells).toEqual(["DECK", "—", "Too small for its name"]);
+    const off = { ...deckProject(), settings: { ...deckProject().settings, engraveNames: false } };
+    rerender(<AssemblyPage project={off} layout={withSpacer} onBack={vi.fn()} />);
+    expect(screen.queryByText("Engraved as")).toBeNull();
   });
 
   it("for a stale layout says so and offers no PNG or print, but still goes back", () => {

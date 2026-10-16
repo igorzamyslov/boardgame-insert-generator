@@ -16,6 +16,8 @@ import {
 import type { PlanFrame, ViewBox } from "../plan/layers";
 import { placeBadges } from "./labels";
 import type { LabelRequest } from "./labels";
+import { engravesName } from "../geometry/engraves";
+import { carriesName } from "../model/part-name";
 import { trayNames } from "./naming";
 import type { TrayName } from "./naming";
 import { numberParts, outerSizeText } from "./numbering";
@@ -239,6 +241,13 @@ export interface PartRow {
   key: string;
   /** What the part is called on screens and the page (trayNames' `full`). */
   name: string;
+  /**
+   * The short name cut into the part, in capitals as engraved (settings.engraveNames on and the
+   * part has room for it); null otherwise.
+   */
+  engraved: string | null;
+  /** The part carries a name (engraving on) but is too small or too thin to hold it. */
+  tooSmall: boolean;
   /** "W × D × H mm". */
   size: string;
   /** Where it stands in the box: "12 mm from the left, 30 mm from the front". */
@@ -277,9 +286,15 @@ export function whatGoesWhere(layout: StoredLayout, project: Project): PartRow[]
   const names = trayNames(parts, project.components);
   return parts.map((p) => {
     const parent = fullNameOf(parts, names, p.parentNumber);
+    const short = names.get(p.spec.key)?.short ?? "";
+    const carries = project.settings.engraveNames && carriesName(p.spec.part) && short !== "";
+    // null: a part that cannot be planned is not built, and says nothing of its name
+    const fits = carries ? engravesName(p.spec, project.settings, short) : false;
     return {
       key: p.spec.key,
       name: names.get(p.spec.key)?.full ?? p.label,
+      engraved: fits === true ? short.toUpperCase() : null,
+      tooSmall: fits === false && carries,
       size: outerSizeText(p.spec, project.settings),
       position: positionText(p.spec),
       layer: layerNumber(levels, p.spec.level),
