@@ -1,5 +1,5 @@
 // src/instructions/render.ts
-import type { ComponentKind, Project, Settings, StoredLayout, TraySpec } from "../model/types";
+import type { Component, ComponentKind, Project, StoredLayout, TraySpec } from "../model/types";
 import { SPACER_COLOR, componentIndexOfTray } from "../ui/identity";
 import {
   footprintsAt,
@@ -16,7 +16,11 @@ import {
 import type { PlanFrame, ViewBox } from "../plan/layers";
 import { placeBadges } from "./labels";
 import type { LabelRequest } from "./labels";
-import { numberParts, outerSizeText, partsByKey } from "./numbering";
+import { engravesName } from "../geometry/engraves";
+import { carriesName } from "../model/part-name";
+import { trayNames } from "./naming";
+import type { TrayName } from "./naming";
+import { numberParts, outerSizeText } from "./numbering";
 import type { NumberedPart } from "./numbering";
 
 /**
@@ -103,7 +107,7 @@ function layerSvg(
   project: Project,
   frame: PlanFrame,
   vb: ViewBox,
-  byKey: Map<string, NumberedPart>,
+  names: Map<string, TrayName>,
   levels: number[],
   index: number,
 ): string {
@@ -119,7 +123,7 @@ function layerSvg(
   const spacers = spacersAt(layout.trays, level);
   const requests: LabelRequest[] = [];
   const captions: (string | null)[] = [];
-  // Shapes first, all of them: a number is only legible when nothing is painted after it.
+  // Shapes first, all of them: a name is only legible when nothing is painted after it.
   for (const t of trays) {
     const shapes = footprintsAt(t, level).map((f) => toSvgRect(f, frame));
     const index = t.part === "leftover" ? null : componentIndexOfTray(t, project.components);
@@ -151,27 +155,27 @@ function layerSvg(
     for (const t of traysAt(layout.trays, belowLevel)) {
       const shapes = footprintsAt(t, belowLevel).map((f) => toSvgRect(f, frame));
       const r = largestOf(shapes) ?? toSvgRect(t, frame);
-      const num = byKey.get(t.key)?.number;
+      const ghost = names.get(t.key)?.short.toUpperCase();
       for (const g of shapes) {
         out.push(
           `<rect x="${n(g.x)}" y="${n(g.y)}" width="${n(g.w)}" height="${n(g.h)}" fill="none" stroke="${GHOST}" stroke-width="0.35" stroke-dasharray="2 1.5"/>`,
         );
       }
       out.push(
-        `<text x="${n(r.x + 1.2)}" y="${n(r.y + 3.4)}" font-size="3" fill="${GHOST}">${num ?? "?"}</text>`,
+        `<text x="${n(r.x + 1.2)}" y="${n(r.y + 3.4)}" font-size="3" fill="${GHOST}">${escapeXml(ghost ?? "?")}</text>`,
       );
     }
   }
   for (const t of trays) {
     const r =
       largestOf(footprintsAt(t, level).map((f) => toSvgRect(f, frame))) ?? toSvgRect(t, frame);
-    const part = byKey.get(t.key);
+    const name = names.get(t.key);
     const labelSize = Math.min(5, labelFontSize(r) * 0.45);
     const maxChars = Math.floor(r.w / (labelSize * 0.6));
-    const caption = part && r.w >= 30 && r.h >= 24 ? truncate(part.label, maxChars) : null;
+    const caption = name && r.w >= 30 && r.h >= 24 ? truncate(name.full, maxChars) : null;
     captions.push(caption);
     requests.push({
-      text: part ? String(part.number) : "?",
+      text: name ? name.short.toUpperCase() : "?",
       rect: r,
       kind: "tray",
       ...(caption !== null
@@ -180,10 +184,10 @@ function layerSvg(
     });
   }
   for (const s of spacers) {
-    const part = byKey.get(s.key);
+    const name = names.get(s.key);
     captions.push(null);
     requests.push({
-      text: part ? String(part.number) : "?",
+      text: name ? name.short.toUpperCase() : "?",
       rect: toSvgRect(s, frame),
       kind: "spacer",
     });
@@ -201,8 +205,8 @@ function layerSvg(
   });
   placed.forEach((b, i) => {
     const caption = captions[i];
-    const part = i < trays.length ? byKey.get(trays[i]?.key ?? "") : undefined;
-    if (b.caption && caption && part) {
+    const named = i < trays.length && names.has(trays[i]?.key ?? "");
+    if (b.caption && caption && named) {
       const size = b.caption.h / 1.2;
       out.push(
         `<text x="${n(b.caption.x + b.caption.w / 2)}" y="${n(b.caption.y + b.caption.h / 2)}" font-size="${n(size)}" text-anchor="middle" dominant-baseline="central" fill="#111111" stroke="#ffffff" stroke-width="${n(size * 0.35)}" stroke-linejoin="round" paint-order="stroke">${escapeXml(caption)}</text>`,
@@ -213,8 +217,8 @@ function layerSvg(
     const spacer = i >= trays.length;
     const stroke = spacer ? "#8a5a00" : INK;
     out.push(
-      `<circle cx="${n(b.cx)}" cy="${n(b.cy)}" r="${n(b.r)}" fill="#ffffff" stroke="${stroke}" stroke-width="0.4"/>`,
-      `<text x="${n(b.cx)}" y="${n(b.cy)}" font-size="${n(b.fs)}" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#111111">${b.text}</text>`,
+      `<rect x="${n(b.cx - b.w / 2)}" y="${n(b.cy - b.h / 2)}" width="${n(b.w)}" height="${n(b.h)}" rx="${n(b.h / 2)}" fill="#ffffff" stroke="${stroke}" stroke-width="0.4"/>`,
+      `<text x="${n(b.cx)}" y="${n(b.cy)}" font-size="${n(b.fs)}" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#111111">${escapeXml(b.text)}</text>`,
     );
   });
   out.push(
@@ -227,22 +231,33 @@ function layerSvg(
 export function render(layout: StoredLayout, project: Project): string[] {
   const frame = planFrame(project.box, project.settings);
   const vb = planViewBox(frame);
-  const byKey = partsByKey(numberParts(layout.trays));
+  const names = trayNames(numberParts(layout.trays), project.components);
   const levels = levelsOf(layout.trays);
-  return levels.map((_level, i) => layerSvg(layout, project, frame, vb, byKey, levels, i));
+  return levels.map((_level, i) => layerSvg(layout, project, frame, vb, names, levels, i));
 }
 
 export interface PartRow {
-  number: number;
-  label: string;
+  /** The part's key in the layout, for lists. */
+  key: string;
+  /** What the part is called on screens and the page (trayNames' `full`). */
+  name: string;
+  /**
+   * The short name cut into the part, in capitals as engraved (settings.engraveNames on and the
+   * part has room for it); null otherwise.
+   */
+  engraved: string | null;
+  /** The part carries a name (engraving on) but is too small or too thin to hold it. */
+  tooSmall: boolean;
+  /** "W × D × H mm". */
   size: string;
   /** Where it stands in the box: "12 mm from the left, 30 mm from the front". */
   position: string;
   layer: number;
   contents: string[];
-  goesInto: number | null;
-  /** For a riser: the tray it carries (it is placed first, and the tray goes on it). */
-  carries: number | null;
+  /** The name of the tray a spacer or divider goes into. */
+  goesInto: string | null;
+  /** For a riser: the name of the tray it carries (it is placed first, and the tray goes on it). */
+  carries: string | null;
 }
 
 const mm1 = (v: number): string => String(Math.round(v * 10) / 10);
@@ -255,42 +270,66 @@ function layerNumber(levels: number[], level: number): number {
   return levels.indexOf(level) + 1;
 }
 
-export function whatGoesWhere(layout: StoredLayout, settings: Settings): PartRow[] {
+/** A part's full name, by its number in the list, for a part that is in the list. */
+function fullNameOf(
+  parts: readonly NumberedPart[],
+  names: Map<string, TrayName>,
+  number: number | null,
+): string | null {
+  const part = parts.find((p) => p.number === number);
+  return part === undefined ? null : (names.get(part.spec.key)?.full ?? part.label);
+}
+
+export function whatGoesWhere(layout: StoredLayout, project: Project): PartRow[] {
   const levels = levelsOf(layout.trays);
-  return numberParts(layout.trays).map((p) => ({
-    number: p.number,
-    label: p.label,
-    size: outerSizeText(p.spec, settings),
-    position: positionText(p.spec),
-    layer: layerNumber(levels, p.spec.level),
-    contents: p.spec.compartments.filter((c) => c.contents !== "").map((c) => c.contents),
-    goesInto: p.spec.part === "riser" ? null : p.parentNumber,
-    carries: p.spec.part === "riser" ? p.parentNumber : null,
-  }));
+  const parts = numberParts(layout.trays);
+  const names = trayNames(parts, project.components);
+  return parts.map((p) => {
+    const parent = fullNameOf(parts, names, p.parentNumber);
+    const short = names.get(p.spec.key)?.short ?? "";
+    const carries = project.settings.engraveNames && carriesName(p.spec.part) && short !== "";
+    // null: a part that cannot be planned is not built, and says nothing of its name
+    const fits = carries ? engravesName(p.spec, project.settings, short) : false;
+    return {
+      key: p.spec.key,
+      name: names.get(p.spec.key)?.full ?? p.label,
+      engraved: fits === true ? short.toUpperCase() : null,
+      tooSmall: fits === false && carries,
+      size: outerSizeText(p.spec, project.settings),
+      position: positionText(p.spec),
+      layer: layerNumber(levels, p.spec.level),
+      contents: p.spec.compartments.filter((c) => c.contents !== "").map((c) => c.contents),
+      goesInto: p.spec.part === "riser" ? null : parent,
+      carries: p.spec.part === "riser" ? parent : null,
+    };
+  });
 }
 
 export interface LayerInfo {
   layer: number;
   /** "Layer 1 (bottom)", "Layer 2", "Layer 3 (top)". */
   title: string;
-  /** The trays on the layer, "1 Cards", in numbering order (spacers and risers go with trays and are left out). */
+  /** The names of the trays on the layer, in assembly order (spacers and risers go with trays and are left out). */
   trays: string[];
 }
 
-export function layerInfo(layout: StoredLayout): LayerInfo[] {
+export function layerInfo(layout: StoredLayout, components: readonly Component[]): LayerInfo[] {
   const levels = levelsOf(layout.trays);
   const parts = numberParts(layout.trays);
+  const names = trayNames(parts, components);
   return levels.map((level, i) => ({
     layer: i + 1,
     title: `Layer ${i + 1}${i === 0 ? " (bottom)" : i === levels.length - 1 ? " (top)" : ""}`,
     trays: parts
       .filter((p) => !isAddOn(p.spec) && p.spec.level === level)
-      .map((p) => `${p.number} ${p.label}`),
+      .map((p) => names.get(p.spec.key)?.full ?? p.label),
   }));
 }
 
-export function packingSteps(layout: StoredLayout): string[] {
+export function packingSteps(layout: StoredLayout, components: readonly Component[]): string[] {
   const parts = numberParts(layout.trays);
+  const names = trayNames(parts, components);
+  const nameOf = (p: NumberedPart): string => names.get(p.spec.key)?.full ?? p.label;
   const levels = levelsOf(layout.trays);
   const steps: string[] = [];
   levels.forEach((level, i) => {
@@ -301,20 +340,16 @@ export function packingSteps(layout: StoredLayout): string[] {
       // A riser goes down first and its tray stands on it.
       const riser = parts.find((r) => r.spec.part === "riser" && r.parentNumber === p.number);
       if (riser) {
-        steps.push(
-          `Layer ${i + 1}: place riser #${riser.number}, then #${p.number} ${p.label} on it.`,
-        );
+        steps.push(`Layer ${i + 1}: place ${nameOf(riser)}, then ${nameOf(p)} on it.`);
       } else {
-        steps.push(`Layer ${i + 1}: place #${p.number} ${p.label}${i > 0 ? " on top" : ""}.`);
+        steps.push(`Layer ${i + 1}: place ${nameOf(p)}${i > 0 ? " on top" : ""}.`);
       }
       for (const s of parts) {
         if (s.spec.part === "spacer" && s.parentNumber === p.number) {
-          steps.push(`Slide ${s.label.toLowerCase()} #${s.number} into tray #${p.number}.`);
+          steps.push(`Slide ${nameOf(s)} into ${nameOf(p)}.`);
         }
         if (s.spec.part === "divider" && s.parentNumber === p.number) {
-          steps.push(
-            `Stand ${s.label.toLowerCase()} #${s.number} in its floor slot in tray #${p.number}.`,
-          );
+          steps.push(`Stand ${nameOf(s)} in its floor slot.`);
         }
       }
     }
@@ -324,8 +359,8 @@ export function packingSteps(layout: StoredLayout): string[] {
     if (isAddOn(s.spec) && s.parentNumber === null) {
       steps.push(
         s.spec.part === "riser"
-          ? `Place riser #${s.number} (the tray that stands on it is not in this layout).`
-          : `Place ${s.label.toLowerCase()} #${s.number} (the tray it belongs in is not in this layout).`,
+          ? `Place ${nameOf(s)} (the tray that stands on it is not in this layout).`
+          : `Place ${nameOf(s)} (the tray it belongs in is not in this layout).`,
       );
     }
   }

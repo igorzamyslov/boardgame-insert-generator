@@ -48,8 +48,8 @@ describe("UnsupportedFeatureError and GEOMETRY_VERSION", () => {
     expect(err.message).toMatch(/"magnet".*newer app version/);
   });
 
-  it("is at 0.7.2: 0.7.1 with no spacer unless asked for, a patch that changes no outer size", () => {
-    expect(GEOMETRY_VERSION).toBe("0.7.2");
+  it("is at 0.7.3: 0.7.2 engraving the part name, a patch that changes no outer size", () => {
+    expect(GEOMETRY_VERSION).toBe("0.7.3");
   });
 });
 

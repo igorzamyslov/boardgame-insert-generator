@@ -259,10 +259,20 @@ describe("schema history", () => {
   it("reads the engraving switch from the 0.1.14 file, and defaults it on for older files", () => {
     const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.14.json"]);
     expect(notices).toEqual([]);
-    expect(project.settings.engraveNumbers).toBe(false);
+    expect(project.settings.engraveNames).toBe(false);
     const older = load(HISTORY["../../test/fixtures/schema/0.1.13.json"]);
     expect(older.notices).toEqual([]);
-    expect(older.project.settings.engraveNumbers).toBe(true);
+    expect(older.project.settings.engraveNames).toBe(true);
+  });
+
+  it("reads the engraving switch from the 0.1.16 file under its new name", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.16.json"]);
+    expect(notices).toEqual([]);
+    expect(project.settings.engraveNames).toBe(false);
+    // the 0.1.15 file calls it engraveNumbers
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.15.json"]);
+    expect(older.notices).toEqual([]);
+    expect(older.project.settings.engraveNames).toBe(false);
   });
 
   it("reads the one-wall switch from the 0.1.15 file, and defaults it off for older files", () => {

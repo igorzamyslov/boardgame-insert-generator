@@ -1,8 +1,9 @@
 // src/app/exportBuild.ts
-import { gridLayout, partFileName, to3mf, toStl, zipFiles } from "../export";
+import { gridLayout, partFileName, to3mf, toStl, uniqueFileNames, zipFiles } from "../export";
 import type { Mesh } from "../geometry/types";
 import { buildSpecOf, numberParts } from "../instructions/numbering";
 import type { NumberedPart } from "../instructions/numbering";
+import type { TrayName } from "../instructions/naming";
 import type { Printer, TraySpec } from "../model/types";
 import { nextMacrotask } from "../util/macrotask";
 import type { BuiltMesh } from "./meshes";
@@ -20,7 +21,12 @@ export interface ExportProgress {
 
 export interface ExportOptions {
   getMesh: (spec: TraySpec) => Promise<BuiltMesh>;
-  /** Ask for each part with its number to engrave (settings.engraveNumbers). Default: off. */
+  /**
+   * What every part is called (trayNames), by key: the name in the files and the objects, and,
+   * with `engrave`, the short name cut into the part. Without it a part is called by its label.
+   */
+  names?: ReadonlyMap<string, TrayName>;
+  /** Ask for each part with its short name to engrave (settings.engraveNames). Default: off. */
   engrave?: boolean;
   onProgress: (p: ExportProgress) => void;
   yieldToUi?: () => Promise<void>;
@@ -55,8 +61,9 @@ export function planExport(trays: readonly TraySpec[]): ExportPlan {
   return { parts, skipped };
 }
 
-export function objectName(part: NumberedPart): string {
-  return `${String(part.number).padStart(2, "0")} ${part.label}`;
+/** What a part is called in an export: its full name, else its label. */
+export function objectName(part: NumberedPart, names?: ReadonlyMap<string, TrayName>): string {
+  return names?.get(part.spec.key)?.full ?? part.label;
 }
 
 /** Mesh frame: origin at the outer min corner (plan 3), so the footprint is max x / max y. */
@@ -113,7 +120,9 @@ async function collect(
   opts.onProgress({ done: 0, total });
   for (const [i, part] of parts.entries()) {
     try {
-      const { mesh } = await opts.getMesh(buildSpecOf(part, opts.engrave === true));
+      const { mesh } = await opts.getMesh(
+        buildSpecOf(part, opts.engrave === true, opts.names?.get(part.spec.key)?.short),
+      );
       built.push({ part, mesh: printMesh(part.spec, mesh) });
     } catch (e) {
       // A cancelled export is not a part's failure: stop and let the caller see the abort.
@@ -138,10 +147,13 @@ export async function buildPartsZip(
   const pause = opts.yieldToUi ?? nextMacrotask;
   const { built, failed } = await collect(parts, opts);
   const files: { name: string; data: Uint8Array }[] = [];
-  for (const b of built) {
+  const fileNames = uniqueFileNames(
+    built.map((b) => partFileName(objectName(b.part, opts.names), "3mf")),
+  );
+  for (const [i, b] of built.entries()) {
     files.push({
-      name: partFileName(b.part.number, b.part.label, "3mf"),
-      data: to3mf([{ name: objectName(b.part), mesh: b.mesh }]),
+      name: fileNames[i] ?? "part.3mf",
+      data: to3mf([{ name: objectName(b.part, opts.names), mesh: b.mesh }]),
     });
     await pause();
   }
@@ -161,7 +173,7 @@ export async function buildCombined3mf(
   );
   const data = to3mf(
     built.map((b, i) => ({
-      name: objectName(b.part),
+      name: objectName(b.part, opts.names),
       mesh: b.mesh,
       transform: offsets[i] ?? [0, 0, 0],
     })),
@@ -176,10 +188,13 @@ export async function buildStlZip(
   const pause = opts.yieldToUi ?? nextMacrotask;
   const { built, failed } = await collect(parts, opts);
   const files: { name: string; data: Uint8Array }[] = [];
-  for (const b of built) {
+  const fileNames = uniqueFileNames(
+    built.map((b) => partFileName(objectName(b.part, opts.names), "stl")),
+  );
+  for (const [i, b] of built.entries()) {
     files.push({
-      name: partFileName(b.part.number, b.part.label, "stl"),
-      data: toStl(b.mesh, objectName(b.part)),
+      name: fileNames[i] ?? "part.stl",
+      data: toStl(b.mesh, objectName(b.part, opts.names)),
     });
     await pause();
   }

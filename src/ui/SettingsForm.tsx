@@ -240,11 +240,11 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         onChange={(mergeRisers) => onChange({ ...settings, mergeRisers })}
       />
       <CheckField
-        id="settings-engraveNumbers"
-        label="Engrave part numbers"
-        checked={settings.engraveNumbers}
-        hint="Cuts each part's number from the assembly instructions into one of its outer walls, a shallow 0.4 mm recess you can read once the part is out of the box. Plates that go inside another part (card spacers, dividers) carry none, and a part with no room or too thin a wall is left plain. Only the printed parts change: your layout and share link stay the same."
-        onChange={(engraveNumbers) => onChange({ ...settings, engraveNumbers })}
+        id="settings-engraveNames"
+        label="Engrave tray names"
+        checked={settings.engraveNames}
+        hint="Cuts each tray's name, shortened to fit, into one of its outer walls, a shallow 0.4 mm recess you can read once the tray is out of the box. Plates that go inside another part (card spacers, dividers) carry none, and a tray with no room or too thin a wall is left plain. Only the printed parts change: your layout and share link stay the same."
+        onChange={(engraveNames) => onChange({ ...settings, engraveNames })}
       />
       {wallAbsorbRange ? (
         <NumberField

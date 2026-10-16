@@ -1,11 +1,15 @@
 // src/instructions/numbering.ts
-import { carriesNumber } from "../model/part-number";
+import { carriesName } from "../model/part-name";
 import type { Settings, TraySpec } from "../model/types";
 import { isAddOn } from "../plan/layers";
 import { RISER_SUFFIX } from "../sizing/constants";
 import { compareCodeUnits } from "../util/compare";
 
 export interface NumberedPart {
+  /**
+   * The place of the part in assembly order, 1 up. An ordering key in code (sorting, linking a
+   * part to the tray it goes into); never shown or engraved: parts are known by `trayNames`.
+   */
   number: number;
   spec: TraySpec;
   label: string;
@@ -157,14 +161,18 @@ export function numberParts(trays: readonly TraySpec[]): NumberedPart[] {
 }
 
 /**
- * The spec to build a printed part from: with its number to engrave (`partNumber`) when `engrave`
- * (settings.engraveNumbers) is on and the part is of a kind that carries one. The number is the
- * one the assembly instructions and the plan give the part (numberParts), so the printed part
- * matches its step.
+ * The spec to build a printed part from: with its short name to engrave (`partName`; `name` is
+ * the part's `short` from trayNames) when `engrave` (settings.engraveNames) is on and the part is
+ * of a kind that carries one. The name is the one every screen and the assembly page give the
+ * part, so the printed part can be found in its step.
  */
-export function buildSpecOf(part: NumberedPart, engrave: boolean): TraySpec {
-  return engrave && carriesNumber(part.spec.part)
-    ? { ...part.spec, partNumber: part.number }
+export function buildSpecOf(
+  part: NumberedPart,
+  engrave: boolean,
+  name: string | undefined,
+): TraySpec {
+  return engrave && name !== undefined && name !== "" && carriesName(part.spec.part)
+    ? { ...part.spec, partName: name }
     : part.spec;
 }
 

@@ -304,16 +304,16 @@ describe("SettingsForm", () => {
     expect(screen.queryByLabelText("One thick wall instead of a filler")).toBeNull();
   });
 
-  it("offers the part number engraving in advanced mode, on by default", () => {
+  it("offers the tray name engraving in advanced mode, on by default", () => {
     const onChange = vi.fn();
     render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
-    const box = screen.getByLabelText("Engrave part numbers") as HTMLInputElement;
+    const box = screen.getByLabelText("Engrave tray names") as HTMLInputElement;
     expect(box.checked).toBe(true);
     fireEvent.click(box);
-    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, engraveNumbers: false });
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, engraveNames: false });
     cleanup();
     render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
-    expect(screen.queryByLabelText("Engrave part numbers")).toBeNull();
+    expect(screen.queryByLabelText("Engrave tray names")).toBeNull();
   });
 
   it("offers the two merge switches in advanced mode only: fillers on, risers off by default", () => {

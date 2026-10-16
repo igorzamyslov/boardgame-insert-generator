@@ -312,8 +312,8 @@ function compactSettings(out: Json): void {
   if (settings.mergeRisers === DEFAULT_SETTINGS.mergeRisers) {
     delete settings.mergeRisers;
   }
-  if (settings.engraveNumbers === DEFAULT_SETTINGS.engraveNumbers) {
-    delete settings.engraveNumbers;
+  if (settings.engraveNames === DEFAULT_SETTINGS.engraveNames) {
+    delete settings.engraveNames;
   }
   if (settings.oneWall === DEFAULT_SETTINGS.oneWall) {
     delete settings.oneWall;

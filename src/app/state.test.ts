@@ -165,7 +165,7 @@ describe("createState", () => {
         ...p,
         layout: makeLayout(inputsHash(p), undefined, { geometryVersion }),
       }).layoutNotices.value.map((n) => n.code);
-    // GEOMETRY_VERSION is 0.7.2: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
+    // GEOMETRY_VERSION is 0.7.3: pre-1.0 an older 0.MINOR is an older line, a PATCH is not.
     expect(codesFor("0.3.2")).toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.5.2")).toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.6.0")).toContain(GEOMETRY_MAJOR_CODE);

@@ -217,6 +217,8 @@ export function createMeshSource(load: () => Promise<GeometryClient>): MeshSourc
       if (reason !== null) {
         return Promise.reject(new UnsupportedTrayError(reason));
       }
+      // The whole spec is in the key, `partName` (the engraved text) with it: a part built under
+      // another name is another mesh.
       const key = JSON.stringify([spec, settings]);
       if (failed.has(key)) {
         return Promise.reject(failed.get(key));

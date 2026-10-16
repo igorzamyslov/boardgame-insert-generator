@@ -1,10 +1,11 @@
-// Digit outlines for engraved part numbers (spec §6.1 "Part numbers"). There is no font here: each
-// digit is a seven-segment figure, a union of axis-aligned rectangles on a grid of three columns
-// by five rows of one stroke each, so every stroke is `u` wide and every gap between strokes is
-// `u` too. The geometry layer cuts each rectangle as a recess (engrave.ts); only digits exist, as
-// part numbers are whole numbers.
+// The block font of engraved tray names (spec §6.1 "Part names"). There is no font file here: each
+// character is a 3 by 5 bitmap, and each lit cell is one stroke wide, so every stroke is `u` wide
+// and every gap between strokes is `u` too. The geometry layer cuts each rectangle as a recess
+// (engrave.ts). Letters are drawn as capitals only; a diagonal is a step of cells, so M, N, V, W,
+// X, K, S and Z read as the block letters of a small display, and 0 and O differ only by their
+// corners.
 
-/** A rectangle in stroke units: x along the line of text, z up, from the digit's lower left. */
+/** A rectangle in stroke units: x along the line of text, z up, from the text's lower left. */
 export interface GlyphRect {
   x0: number;
   x1: number;
@@ -12,70 +13,144 @@ export interface GlyphRect {
   z1: number;
 }
 
-/** A digit is this many strokes wide and tall; strokes and the gaps between them are one each. */
-export const DIGIT_COLS = 3;
-export const DIGIT_ROWS = 5;
-/** The space between two digits of a number, in strokes. */
-export const DIGIT_GAP = 1.5;
+/** A character is this many strokes wide and tall; strokes and the gaps between them are one each. */
+export const GLYPH_COLS = 3;
+export const GLYPH_ROWS = 5;
+/** The space between two characters of a text, in strokes. */
+export const GLYPH_GAP = 1.5;
+/** A space is this wide, in strokes (the gaps on both sides come on top of it). */
+const SPACE_WIDTH = 1;
 
-// The seven segments as [x0, z0, x1, z1] in strokes.
-const SEGMENTS = {
-  a: [0, 4, 3, 5], // top
-  b: [2, 2, 3, 5], // upper right
-  c: [2, 0, 3, 3], // lower right
-  d: [0, 0, 3, 1], // bottom
-  e: [0, 0, 1, 3], // lower left
-  f: [0, 2, 1, 5], // upper left
-  g: [0, 2, 3, 3], // middle
-} as const;
+// Each glyph is five rows of three cells, top row first; "#" is a stroke.
+const BITMAPS: Readonly<Record<string, readonly string[]>> = {
+  "0": ["###", "#.#", "#.#", "#.#", "###"],
+  "1": ["..#", "..#", "..#", "..#", "..#"],
+  "2": ["###", "..#", "###", "#..", "###"],
+  "3": ["###", "..#", "###", "..#", "###"],
+  "4": ["#.#", "#.#", "###", "..#", "..#"],
+  "5": ["###", "#..", "###", "..#", "###"],
+  "6": ["###", "#..", "###", "#.#", "###"],
+  "7": ["###", "..#", "..#", "..#", "..#"],
+  "8": ["###", "#.#", "###", "#.#", "###"],
+  "9": ["###", "#.#", "###", "..#", "###"],
+  A: [".#.", "#.#", "###", "#.#", "#.#"],
+  B: ["##.", "#.#", "##.", "#.#", "##."],
+  C: [".##", "#..", "#..", "#..", ".##"],
+  D: ["##.", "#.#", "#.#", "#.#", "##."],
+  E: ["###", "#..", "##.", "#..", "###"],
+  F: ["###", "#..", "##.", "#..", "#.."],
+  G: [".##", "#..", "#.#", "#.#", ".##"],
+  H: ["#.#", "#.#", "###", "#.#", "#.#"],
+  I: ["###", ".#.", ".#.", ".#.", "###"],
+  J: ["..#", "..#", "..#", "#.#", ".#."],
+  K: ["#.#", "#.#", "##.", "#.#", "#.#"],
+  L: ["#..", "#..", "#..", "#..", "###"],
+  M: ["#.#", "###", "###", "#.#", "#.#"],
+  N: ["##.", "#.#", "#.#", "#.#", "#.#"],
+  O: [".#.", "#.#", "#.#", "#.#", ".#."],
+  P: ["###", "#.#", "###", "#..", "#.."],
+  Q: ["###", "#.#", "#.#", "###", "..#"],
+  R: ["##.", "#.#", "##.", "#.#", "#.#"],
+  S: [".##", "#..", ".#.", "..#", "##."],
+  T: ["###", ".#.", ".#.", ".#.", ".#."],
+  U: ["#.#", "#.#", "#.#", "#.#", "###"],
+  V: ["#.#", "#.#", "#.#", ".#.", ".#."],
+  W: ["#.#", "#.#", "###", "###", "#.#"],
+  X: ["#.#", "#.#", ".#.", "#.#", "#.#"],
+  Y: ["#.#", "#.#", ".#.", ".#.", ".#."],
+  Z: ["###", "..#", ".#.", "#..", "###"],
+  "-": ["...", "...", "###", "...", "..."],
+  " ": [".", ".", ".", ".", "."],
+};
 
-type Segment = keyof typeof SEGMENTS;
-
-const DIGITS: readonly (readonly Segment[])[] = [
-  ["a", "b", "c", "d", "e", "f"], // 0
-  ["b", "c"], // 1
-  ["a", "b", "g", "e", "d"], // 2
-  ["a", "b", "g", "c", "d"], // 3
-  ["f", "g", "b", "c"], // 4
-  ["a", "f", "g", "c", "d"], // 5
-  ["a", "f", "g", "e", "d", "c"], // 6
-  ["a", "b", "c"], // 7
-  ["a", "b", "c", "d", "e", "f", "g"], // 8
-  ["a", "b", "c", "d", "f", "g"], // 9
-];
-
-/** The strokes of one digit (0 to 9), in strokes from its lower left corner. */
-export function digitRects(digit: number): GlyphRect[] {
-  const segments = DIGITS[digit];
-  if (!Number.isInteger(digit) || segments === undefined) {
-    throw new RangeError(`${digit} is not a digit`);
-  }
-  return segments.map((s) => {
-    const [x0, z0, x1, z1] = SEGMENTS[s];
-    return { x0, z0, x1, z1 };
-  });
+/** Whether the font has a glyph for every character of the text (case is folded: capitals only). */
+export function isEngravable(text: string): boolean {
+  return [...text.toUpperCase()].every((ch) => BITMAPS[ch] !== undefined);
 }
 
-/** Width in strokes of the text of a whole number n >= 0. */
-export function numberWidth(n: number): number {
-  const count = digitsOf(n).length;
-  return count * DIGIT_COLS + (count - 1) * DIGIT_GAP;
-}
-
-function digitsOf(n: number): number[] {
-  if (!Number.isInteger(n) || n < 0) {
-    throw new RangeError(`${n} is not a whole number`);
+function bitmapOf(ch: string): readonly string[] {
+  const bitmap = BITMAPS[ch.toUpperCase()];
+  if (bitmap === undefined) {
+    throw new RangeError(`"${ch}" has no glyph`);
   }
-  return [...String(n)].map(Number);
+  return bitmap;
 }
 
 /**
- * The strokes of a whole number n >= 0 in strokes, from the lower left corner of its first digit;
- * a rectangle never overlaps another except where two strokes of one digit meet.
+ * The strokes of one character, from its lower left corner: every maximal horizontal run of lit
+ * cells, and every maximal vertical run of two or more (a cell that is only part of one of those
+ * has no stroke of its own). Two lit cells that share an edge always lie
+ * in one run, so no two strokes meet along a bare face (the cutter of such a pair would leave a
+ * sliver of wall standing between them); strokes overlap where runs cross.
  */
-export function numberRects(n: number): GlyphRect[] {
-  return digitsOf(n).flatMap((digit, i) => {
-    const shift = i * (DIGIT_COLS + DIGIT_GAP);
-    return digitRects(digit).map((r) => ({ ...r, x0: r.x0 + shift, x1: r.x1 + shift }));
-  });
+export function glyphRects(ch: string): GlyphRect[] {
+  const bitmap = bitmapOf(ch);
+  const rects: GlyphRect[] = [];
+  const lit = (col: number, row: number): boolean => bitmap[row]?.[col] === "#";
+  // `row` counts down from the top; z counts up from the bottom.
+  const zOf = (row: number): number => GLYPH_ROWS - 1 - row;
+  for (let row = 0; row < GLYPH_ROWS; row += 1) {
+    for (let col = 0; col < GLYPH_COLS; col += 1) {
+      if (!lit(col, row) || lit(col - 1, row)) {
+        continue;
+      }
+      let end = col;
+      while (lit(end + 1, row)) {
+        end += 1;
+      }
+      // A lone cell that a vertical run of two or more covers is that run's.
+      if (end === col && (lit(col, row - 1) || lit(col, row + 1))) {
+        continue;
+      }
+      rects.push({ x0: col, x1: end + 1, z0: zOf(row), z1: zOf(row) + 1 });
+    }
+  }
+  for (let col = 0; col < GLYPH_COLS; col += 1) {
+    for (let row = 0; row < GLYPH_ROWS; row += 1) {
+      if (!lit(col, row) || lit(col, row - 1)) {
+        continue;
+      }
+      let end = row;
+      while (lit(col, end + 1)) {
+        end += 1;
+      }
+      if (end > row) {
+        rects.push({ x0: col, x1: col + 1, z0: zOf(end), z1: zOf(row) + 1 });
+      }
+    }
+  }
+  return rects;
+}
+
+function widthOf(ch: string): number {
+  bitmapOf(ch);
+  return ch === " " ? SPACE_WIDTH : GLYPH_COLS;
+}
+
+/**
+ * Width in strokes of a text; 0 for the empty text. Throws a RangeError for a character the font
+ * lacks (check with `isEngravable`).
+ */
+export function textWidth(text: string): number {
+  const chars = [...text];
+  if (chars.length === 0) {
+    return 0;
+  }
+  return chars.reduce((sum, ch) => sum + widthOf(ch), 0) + (chars.length - 1) * GLYPH_GAP;
+}
+
+/**
+ * The strokes of a text, in strokes from the lower left corner of its first character. Throws a
+ * RangeError for a character the font lacks (check with `isEngravable`).
+ */
+export function textRects(text: string): GlyphRect[] {
+  let at = 0;
+  const out: GlyphRect[] = [];
+  for (const ch of text) {
+    for (const r of glyphRects(ch)) {
+      out.push({ ...r, x0: r.x0 + at, x1: r.x1 + at });
+    }
+    at += widthOf(ch) + GLYPH_GAP;
+  }
+  return out;
 }

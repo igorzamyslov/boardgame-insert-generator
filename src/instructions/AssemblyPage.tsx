@@ -24,18 +24,22 @@ const PNG_WIDTH_PX = 1600;
 export function AssemblyPage(p: AssemblyPageProps) {
   const svgs = useMemo(() => render(p.layout, p.project), [p.layout, p.project]);
   const exploded = useMemo(() => explodedView(p.layout, p.project), [p.layout, p.project]);
-  const steps = useMemo(() => packingSteps(p.layout), [p.layout]);
-  const layers = useMemo(() => layerInfo(p.layout), [p.layout]);
-  const rows = useMemo(
-    () => whatGoesWhere(p.layout, p.project.settings),
-    [p.layout, p.project.settings],
+  const steps = useMemo(
+    () => packingSteps(p.layout, p.project.components),
+    [p.layout, p.project.components],
   );
+  const layers = useMemo(
+    () => layerInfo(p.layout, p.project.components),
+    [p.layout, p.project.components],
+  );
+  const rows = useMemo(() => whatGoesWhere(p.layout, p.project), [p.layout, p.project]);
   const [pngError, setPngError] = useState<string | null>(null);
   // One PNG at a time: the ref stops a double click before the state has re-rendered.
   const making = useRef(false);
   const [busy, setBusy] = useState(false);
   const slug = fileSlug(p.project.name);
   const { box } = p.project;
+  const engraving = p.project.settings.engraveNames;
 
   async function savePng(svg: string, name: string): Promise<void> {
     if (making.current) {
@@ -71,7 +75,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
       </div>
       <h1 id="assembly-title" tabIndex={-1}>{`${p.project.name} — assembly`}</h1>
       <p class="hint">
-        {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Layers are drawn from above with the box front at the bottom; numbers match the exported files.`}
+        {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Layers are drawn from above with the box front at the bottom; names match the ones engraved on the trays and in the exported files.`}
       </p>
       {p.stale ? (
         <p class="hint" role="status">
@@ -103,14 +107,14 @@ export function AssemblyPage(p: AssemblyPageProps) {
             <section class="assembly-exploded" aria-labelledby="exploded-title">
               <h2 id="exploded-title">How it goes together</h2>
               <p class="hint">
-                Every part pulled apart, bottom first, with the numbers of the list above and the
+                Every part pulled apart, bottom first, with the names of the list above and the
                 table below. Parts are drawn as plain blocks: the real trays are open on top.
               </p>
               <img
                 class="assembly-svg"
                 src={svgDataUrl(exploded.svg)}
                 alt={`Exploded view of the parts in assembly order: ${exploded.parts
-                  .map((x) => `${x.number} ${x.label}`)
+                  .map((x) => x.name)
                   .join(", ")}`}
               />
               <button
@@ -134,7 +138,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
               const alt =
                 trays.length > 0
                   ? `${title}: ${trays.length === 1 ? "tray" : "trays"} ${trays.join(", ")}`
-                  : `${title}: numbered trays seen from above`;
+                  : `${title}: named trays seen from above`;
               return (
                 <section class="assembly-layer" key={i} aria-labelledby={`layer-title-${layer}`}>
                   <h2 id={`layer-title-${layer}`}>{title}</h2>
@@ -159,8 +163,8 @@ export function AssemblyPage(p: AssemblyPageProps) {
               <caption class="visually-hidden">Which part goes where</caption>
               <thead>
                 <tr>
-                  <th scope="col">#</th>
                   <th scope="col">Part</th>
+                  {engraving ? <th scope="col">Engraved as</th> : null}
                   <th scope="col">Size</th>
                   <th scope="col">Position</th>
                   <th scope="col">Layer</th>
@@ -169,17 +173,19 @@ export function AssemblyPage(p: AssemblyPageProps) {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.number}>
-                    <th scope="row">{r.number}</th>
-                    <td>{r.label}</td>
+                  <tr key={r.key}>
+                    <th scope="row">{r.name}</th>
+                    {engraving ? (
+                      <td>{r.engraved ?? (r.tooSmall ? "Too small for its name" : "—")}</td>
+                    ) : null}
                     <td>{r.size}</td>
                     <td>{r.position}</td>
                     <td>{r.layer}</td>
                     <td>
                       {r.goesInto !== null
-                        ? `Goes into tray #${r.goesInto}`
+                        ? `Goes into ${r.goesInto}`
                         : r.carries !== null
-                          ? `Carries tray #${r.carries}`
+                          ? `Carries ${r.carries}`
                           : r.contents.length > 0
                             ? r.contents.join(", ")
                             : "—"}

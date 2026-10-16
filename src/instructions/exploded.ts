@@ -1,6 +1,6 @@
 // src/instructions/exploded.ts
 // The assembly page's exploded picture: every part drawn as a block, spread apart the way the 3D
-// view spreads them, seen from the front right above, with the part numbers of the instructions.
+// view spreads them, seen from the front right above, with the tray names of the instructions.
 //
 // It is projected to SVG rather than rendered: the page is made to be printed, and an SVG is
 // vector on paper at any size, a few kilobytes, and needs no WebGL (a canvas may not print, and an
@@ -10,6 +10,8 @@
 import type { BoxMm, Project, StoredLayout, TraySpec } from "../model/types";
 import { SPACER_COLOR } from "../ui/identity";
 import { anchorOf, boxOutline, outlineCenter, trayPosition } from "../viewer/transform";
+import { badgeSize } from "./labels";
+import { trayNames } from "./naming";
 import { numberParts, parentKey } from "./numbering";
 import type { NumberedPart } from "./numbering";
 import { escapeXml, INK, paperTintOf } from "./render";
@@ -51,8 +53,8 @@ const n = (v: number): string => v.toFixed(2);
 
 export interface ExplodedView {
   svg: string;
-  /** The parts in assembly order, as numbered in the instructions. */
-  parts: { number: number; label: string }[];
+  /** The parts in assembly order, by the names the instructions give them. */
+  parts: { name: string }[];
 }
 
 interface Block {
@@ -227,18 +229,24 @@ function inConvex(p: Pt, poly: readonly Pt[]): boolean {
 
 const points = (poly: readonly Pt[]): string => poly.map((p) => `${n(p.x)},${n(p.y)}`).join(" ");
 
-const BADGE_R = 4.2;
+/** The font of the name badges, mm. */
+const BADGE_FONT = 3.6;
 
 /**
  * The exploded picture of a layout, or null when it has no parts. Parts are painted back to front
- * and numbered as in `numberParts` (the packing steps and the parts table use the same numbers);
- * the numbers go on last, so none is hidden, each on a face nothing painted later covers.
+ * and named as in `trayNames` (the packing steps and the parts table use the same names); the
+ * badges go on last, so none is hidden, each on a face nothing painted later covers.
  */
 export function explodedView(layout: StoredLayout, project: Project): ExplodedView | null {
   const parts = numberParts(layout.trays);
   if (parts.length === 0) {
     return null;
   }
+  const names = trayNames(parts, project.components);
+  const shortOf = (part: NumberedPart): string =>
+    (names.get(part.spec.key)?.short ?? "?").toUpperCase();
+  const fullOf = (part: NumberedPart): string => names.get(part.spec.key)?.full ?? part.label;
+  const widest = Math.max(...parts.map((p) => badgeSize(BADGE_FONT, shortOf(p)).w));
   const byKey = new Map(layout.trays.map((t) => [t.key, t]));
   const outline = boxOutline(project.box, project.settings);
   const center = outlineCenter(outline);
@@ -277,7 +285,7 @@ export function explodedView(layout: StoredLayout, project: Project): ExplodedVi
     ...labelEnds,
     ...polys.flatMap((p) => [...p.top, ...p.front, ...p.right]),
   ];
-  const pad = BADGE_R + 4;
+  const pad = widest / 2 + 4;
   const minX = Math.min(...all.map((p) => p.x)) - pad;
   const maxX = Math.max(...all.map((p) => p.x)) + pad;
   const minY = Math.min(...all.map((p) => p.y)) - pad;
@@ -316,7 +324,7 @@ export function explodedView(layout: StoredLayout, project: Project): ExplodedVi
     `<text x="${n(frontLabel.x)}" y="${n(frontLabel.y)}" font-size="5" letter-spacing="0.5" text-anchor="middle" dominant-baseline="central" fill="#333333" stroke="#ffffff" stroke-width="1.5" paint-order="stroke">FRONT</text>`,
   );
 
-  // One number per part, on its largest block, on the first face that nothing later covers.
+  // One name per part, on its largest block, on the first face that nothing later covers.
   const badges = parts.map((part) => {
     const mine = sorted
       .map((b, i) => ({ b, i }))
@@ -338,7 +346,9 @@ export function explodedView(layout: StoredLayout, project: Project): ExplodedVi
     const spots = faces.map(mid);
     return { part, at: spots.find((p) => !covered(p)) ?? spots[0] ?? { x: 0, y: 0 } };
   });
-  // Badges that landed on top of each other are pushed apart, deterministically.
+  // Badges that landed on top of each other are pushed apart, deterministically: along the axis
+  // they overlap least on, which is up and down for the usual wide pills.
+  const pill = (i: number) => badgeSize(BADGE_FONT, shortOf(badges[i]?.part as NumberedPart));
   for (let pass = 0; pass < 40; pass++) {
     for (let i = 0; i < badges.length; i++) {
       for (let j = i + 1; j < badges.length; j++) {
@@ -347,32 +357,41 @@ export function explodedView(layout: StoredLayout, project: Project): ExplodedVi
         if (!a || !b) {
           continue;
         }
+        const pa = pill(i);
+        const pb = pill(j);
         const dx = b.x - a.x;
         const dy = b.y - a.y;
-        const dist = Math.hypot(dx, dy);
-        const gap = 2 * BADGE_R + 0.8;
-        if (dist < gap) {
-          const [ux, uy] = dist < 0.001 ? [0, 1] : [dx / dist, dy / dist];
-          const push = (gap - dist) / 2;
-          a.x -= ux * push;
-          a.y -= uy * push;
-          b.x += ux * push;
-          b.y += uy * push;
+        const overlapX = (pa.w + pb.w) / 2 + 0.8 - Math.abs(dx);
+        const overlapY = (pa.h + pb.h) / 2 + 0.8 - Math.abs(dy);
+        if (overlapX <= 0 || overlapY <= 0) {
+          continue;
+        }
+        if (overlapY <= overlapX) {
+          const push = overlapY / 2;
+          const sign = dy < 0 ? -1 : 1;
+          a.y -= sign * push;
+          b.y += sign * push;
+        } else {
+          const push = overlapX / 2;
+          const sign = dx < 0 ? -1 : 1;
+          a.x -= sign * push;
+          b.x += sign * push;
         }
       }
     }
   }
   for (const { part, at } of badges) {
     const loose = part.spec.part === "spacer" || part.spec.part === "divider";
+    const size = badgeSize(BADGE_FONT, shortOf(part));
     out.push(
       `<g data-badge="${part.number}">`,
-      `<circle cx="${n(at.x)}" cy="${n(at.y)}" r="${BADGE_R}" fill="#ffffff" stroke="${loose ? "#8a5a00" : INK}" stroke-width="0.4"/>`,
-      `<text x="${n(at.x)}" y="${n(at.y)}" font-size="${part.number > 99 ? 3.4 : part.number > 9 ? 4.4 : 5.2}" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#111111">${part.number}</text>`,
+      `<rect x="${n(at.x - size.w / 2)}" y="${n(at.y - size.h / 2)}" width="${n(size.w)}" height="${n(size.h)}" rx="${n(size.h / 2)}" fill="#ffffff" stroke="${loose ? "#8a5a00" : INK}" stroke-width="0.4"/>`,
+      `<text x="${n(at.x)}" y="${n(at.y)}" font-size="${BADGE_FONT}" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#111111">${escapeXml(shortOf(part))}</text>`,
       "</g>",
     );
   }
   out.push("</svg>");
-  return { svg: out.join(""), parts: parts.map((p) => ({ number: p.number, label: p.label })) };
+  return { svg: out.join(""), parts: parts.map((p) => ({ name: fullOf(p) })) };
 }
 
 function hits(q: { top: Pt[]; front: Pt[]; right: Pt[] }, p: Pt): boolean {

@@ -157,6 +157,9 @@ function readSettings(r: Reader | undefined): Settings {
   // `wallAbsorb` was called `wallGrowth` up to schema 0.1.7: a file that only has the old key keeps
   // its value (read either way, so the old key is never reported as an unknown field).
   const legacyWallAbsorb = r.num("wallGrowth", d.wallAbsorb);
+  // `engraveNames` was called `engraveNumbers` up to schema 0.1.15 (it engraved the part's number):
+  // a file that only has the old key keeps its value.
+  const legacyEngrave = r.bool("engraveNumbers", d.engraveNames);
   return r.finish({
     wall: r.num("wall", d.wall),
     floor: r.num("floor", d.floor),
@@ -199,7 +202,7 @@ function readSettings(r: Reader | undefined): Settings {
     mergeRisers: r.bool("mergeRisers", d.mergeRisers),
     infill: r.num("infill", d.infill),
     playLimit: r.num("playLimit", d.playLimit),
-    engraveNumbers: r.bool("engraveNumbers", d.engraveNumbers),
+    engraveNames: r.bool("engraveNames", legacyEngrave),
   });
 }
 
