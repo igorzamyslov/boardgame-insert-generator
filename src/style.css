@@ -794,6 +794,67 @@ span.inserts-name {
   accent-color: var(--indigo);
 }
 
+/* The status line above the plan: one single-line pill per matter, every control 44 px. */
+.pf-status {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+}
+
+.pf-status__pill {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  min-height: var(--control-h);
+  padding: 0 var(--space-2) 0 var(--space-4);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--sheet);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.pf-status__pill[data-kind="fits"] {
+  border-color: var(--tiles-line);
+  background: var(--tiles-fill);
+  color: var(--tiles-ink);
+}
+
+.pf-status__pill[data-kind="problem"] {
+  border-color: var(--danger);
+  background: var(--danger-wash);
+}
+
+.pf-status__text {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-status__btn {
+  flex: none;
+  min-height: var(--control-h);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.pf-status__pill progress {
+  flex: 0 1 10rem;
+  min-width: 3rem;
+  accent-color: var(--indigo);
+}
+
+.pf-status__percent {
+  flex: none;
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .shortfall,
 .optimizer-blocked,
 .run-error {

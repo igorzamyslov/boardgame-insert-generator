@@ -139,13 +139,14 @@ function neighbourOf(
   return nearest?.part ?? null;
 }
 
-function componentName(c: Component): string {
+/** A component's name, or its kind's name when it has none. */
+export function componentName(c: Component): string {
   const name = c.name.trim();
   return name === "" ? KIND_NAMES[c.kind] : name;
 }
 
 /** The components a tray holds, first compartment first, each once. */
-function holdsOf(spec: TraySpec, components: readonly Component[]): Component[] {
+export function holdsOf(spec: TraySpec, components: readonly Component[]): Component[] {
   const indices: number[] = [];
   for (const c of spec.compartments) {
     if (c.kind === "spare" || c.contents === "") {

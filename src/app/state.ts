@@ -85,6 +85,8 @@ export interface State {
   layoutNotices: ReadonlySignal<Notice[]>;
   /** The "short by" amounts of an infeasible run, while its inputs are the current ones. */
   shortfall: ReadonlySignal<{ x: number; y: number; z: number } | null>;
+  /** The closest attempt of that run (its trays and shortfall), on the same terms. */
+  noFitAttempt: ReadonlySignal<LayoutResult["bestAttempt"]>;
 }
 
 function sizingNoticesOf(p: Project): Notice[] {
@@ -184,7 +186,8 @@ export function createState(
     const r = lastResult.value;
     return r && r.layout === null && lastResultHash.value === currentHash.value ? r : null;
   });
-  const shortfall = computed(() => infeasible.value?.bestAttempt?.shortfall ?? null);
+  const noFitAttempt = computed(() => infeasible.value?.bestAttempt ?? null);
+  const shortfall = computed(() => noFitAttempt.value?.shortfall ?? null);
   const layoutNotices = computed<Notice[]>(() => {
     const layout = project.value.layout;
     const r = lastResult.value;
@@ -248,6 +251,7 @@ export function createState(
     summary,
     layoutNotices,
     shortfall,
+    noFitAttempt,
   };
 }
 
