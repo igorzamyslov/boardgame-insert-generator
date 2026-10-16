@@ -104,9 +104,10 @@ export function PlanView(props: PlanViewProps) {
       onLevelChange(idx);
     }
   }, [props.level, idx]);
-  // A swap needs a selected tray: clearing the selection (from anywhere) ends it.
+  // A swap is from the selected tray: the selection moving away from it (or clearing), from
+  // anywhere, ends it.
   useEffect(() => {
-    if (selectedKey === null && swapFrom !== null) {
+    if (swapFrom !== null && selectedKey !== swapFrom) {
       setSwapFrom(null);
     }
   }, [selectedKey, swapFrom]);

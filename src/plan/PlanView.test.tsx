@@ -488,6 +488,14 @@ describe("PlanView", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
+  it("ends a swap when the selection moves to another tray", () => {
+    const { p, view } = setup({ selectedKey: "a:p0:0", swapFrom: "a:p0:0" });
+    expect(screen.getByRole("status").textContent).toMatch(/Choose the tray to swap with/);
+    view.rerender(<Host {...p} selectedKey="b:p0:0" />);
+    expect(p.onSwapFromChange).toHaveBeenLastCalledWith(null);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("shows the name and size on a tile, and keeps the unit out of it", () => {
     const named = makeTray({
       ...A,
