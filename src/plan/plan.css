@@ -41,6 +41,9 @@
   filter: grayscale(0.8);
 }
 
+/* Ruling (owner, P2 Task 15): a plan tile smaller than 44 px is exempt from the 44 px rule on the
+   "essential" ground: its size is the tray's physical geometry, drawn to scale, and cannot change
+   to suit a finger. Every other control stays at 44 px. */
 .plan-tray {
   cursor: grab;
 }

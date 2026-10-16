@@ -49,6 +49,21 @@ describe("checkNumber", () => {
 });
 
 describe("NumberField", () => {
+  it("uses a decimal keyboard for mm", () => {
+    render(<NumberField id="w" label="Inner width" unit="mm" value={290} onCommit={vi.fn()} />);
+    expect(input().getAttribute("inputmode")).toBe("decimal");
+  });
+
+  it("uses a numeric keyboard for counts", () => {
+    render(<NumberField id="w" label="Inner width" value={3} integer onCommit={vi.fn()} />);
+    expect(input().getAttribute("inputmode")).toBe("numeric");
+  });
+
+  it("makes the keyboard's Return key say Next", () => {
+    render(<NumberField id="w" label="Inner width" value={3} onCommit={vi.fn()} />);
+    expect(input().getAttribute("enterkeyhint")).toBe("next");
+  });
+
   it("commits 6, 63 and 63.5 while typing, but not the incomplete 63,", () => {
     const onCommit = vi.fn();
     render(<NumberField id="w" label="Inner width" unit="mm" value={290} onCommit={onCommit} />);
