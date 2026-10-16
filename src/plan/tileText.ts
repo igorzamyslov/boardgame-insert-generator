@@ -1,70 +1,87 @@
 // src/plan/tileText.ts
-import { labelFontSize } from "./layers";
 import type { SvgRect } from "./layers";
 
+/** The name pill of a tile, and the size line under it, all in SVG units. */
 export interface TileText {
-  /** Font size of the tray number, in SVG units. */
-  numberSize: number;
-  /** Centre line of the number. */
-  numberY: number;
-  /** Font size of the name and size lines. */
-  smallSize: number;
+  /** Font size of the name and the size line. */
+  fontSize: number;
+  /** Font size of the size line. */
+  sizeFontSize: number;
+  /** The pill behind the name, centred on the tile; null when the name does not fit. */
+  pill: { x: number; y: number; w: number; h: number } | null;
+  /** The name as shown (cut with an ellipsis when it does not fit) and its centre line. */
   name: { text: string; y: number } | null;
+  /** The size under the pill, dropped when the tile is too small for it. */
   size: { text: string; y: number } | null;
 }
 
 const CHAR_WIDTH = 0.55;
-const MARGIN = 4;
+const MARGIN = 2;
+const MIN_FONT = 3.5;
+const MAX_FONT = 7;
+/** Room inside the pill, each side of the text, as a share of the font size. */
+const PAD_X = 0.7;
+const PILL_HEIGHT = 1.7;
 
 const mm = (v: number): string => String(Math.round(v * 10) / 10);
 
-/** "W × D" in mm, without the unit (the accessible name carries it). */
+/** "W × D" in mm, without the unit (the details carry it). */
 export function sizeText(w: number, d: number): string {
   return `${mm(w)} × ${mm(d)}`;
 }
 
-/** "W by D millimetres" for the accessible name of a tray. */
-export function sizeWords(w: number, d: number): string {
-  return `${mm(w)} by ${mm(d)} millimetres`;
-}
-
 /**
- * Lay the number, the name and the size out in a tile, all in SVG units. The name is cut to what
- * fits the width; the size line, then the name, are dropped when the tile is too small. The
- * number is always kept.
+ * Lay the name pill and the size out in a tile. The name is cut with an ellipsis to what fits
+ * the width, and left out (with its pill) when not even four characters fit; the size line is
+ * dropped first when the tile is too short for both. The full name stays in the tile's accessible
+ * name and its title, so nothing is lost when it is cut here.
  */
 export function layoutTileText(r: SvgRect, name: string, size: string): TileText {
-  const numberSize = labelFontSize(r);
-  const smallSize = Math.max(3, Math.min(5.5, numberSize * 0.4));
-  const lineH = smallSize * 1.3;
-  const fit = (text: string): string | null => {
-    const room = Math.floor((r.w - MARGIN) / (smallSize * CHAR_WIDTH));
-    if (text.length <= room) {
-      return text;
+  const fontSize = Math.max(MIN_FONT, Math.min(MAX_FONT, Math.min(r.w, r.h) * 0.12));
+  const sizeFont = fontSize * 0.85;
+  const pillH = fontSize * PILL_HEIGHT;
+  const room = Math.floor((r.w - 2 * MARGIN - 2 * PAD_X * fontSize) / (fontSize * CHAR_WIDTH));
+  let shown: string | null = null;
+  if (name !== "") {
+    if (name.length <= room) {
+      shown = name;
+    } else if (room >= 4) {
+      shown = `${name.slice(0, room - 1).trimEnd()}…`;
     }
-    return room >= 4 ? `${text.slice(0, room - 1)}…` : null;
-  };
-  let nameText = name === "" ? null : fit(name);
-  let sizeLine = fit(size);
-  const height = (lines: number): number => numberSize + (lines > 0 ? 1 + lines * lineH : 0);
-  const room = r.h - MARGIN;
-  if (nameText !== null && sizeLine !== null && height(2) > room) {
+  }
+  const sizeRoom = Math.floor((r.w - 2 * MARGIN) / (sizeFont * CHAR_WIDTH));
+  let sizeLine: string | null = size.length <= sizeRoom ? size : null;
+  const sizeH = sizeFont * 1.3;
+  const height = (pill: boolean, line: boolean): number =>
+    (pill ? pillH : 0) + (pill && line ? 2 : 0) + (line ? sizeH : 0);
+  const space = r.h - 2 * MARGIN;
+  if (shown !== null && sizeLine !== null && height(true, true) > space) {
     sizeLine = null;
   }
-  if (nameText !== null && height(1) > room) {
-    nameText = null;
+  if (shown !== null && height(true, false) > space) {
+    shown = null;
   }
-  if (nameText === null && sizeLine !== null && height(1) > room) {
+  if (shown === null && sizeLine !== null && height(false, true) > space) {
     sizeLine = null;
   }
-  const lines = (nameText === null ? 0 : 1) + (sizeLine === null ? 0 : 1);
-  const top = r.y + (r.h - height(lines)) / 2;
-  const first = top + numberSize + 1 + lineH / 2;
+  const total = height(shown !== null, sizeLine !== null);
+  const top = r.y + (r.h - total) / 2;
+  const pill =
+    shown === null
+      ? null
+      : (() => {
+          const w = Math.min(
+            r.w - 2 * MARGIN,
+            shown.length * fontSize * CHAR_WIDTH + 2 * PAD_X * fontSize,
+          );
+          return { x: r.x + (r.w - w) / 2, y: top, w, h: pillH };
+        })();
+  const sizeY = top + (pill ? pillH + 2 : 0) + sizeH / 2;
   return {
-    numberSize,
-    numberY: top + numberSize / 2,
-    smallSize,
-    name: nameText === null ? null : { text: nameText, y: first },
-    size: sizeLine === null ? null : { text: sizeLine, y: first + (nameText === null ? 0 : lineH) },
+    fontSize,
+    sizeFontSize: sizeFont,
+    pill,
+    name: shown === null ? null : { text: shown, y: top + pillH / 2 },
+    size: sizeLine === null ? null : { text: sizeLine, y: sizeY },
   };
 }

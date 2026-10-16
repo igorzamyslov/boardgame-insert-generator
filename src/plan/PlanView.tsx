@@ -2,10 +2,10 @@
 import type { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isLockable } from "../app/actions";
+import { trayNames } from "../instructions/naming";
 import { numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { KIND_GLYPHS } from "../ui/kindGlyphs";
-import { tintOfTray } from "../ui/identity";
 import { TrayDetails } from "../ui/TrayDetails";
 import {
   clientToSvg,
@@ -18,8 +18,8 @@ import {
   toSvgRect,
   traysAt,
 } from "./layers";
-import { kindOfTray } from "./glyph";
-import { layoutTileText, sizeText, sizeWords } from "./tileText";
+import { lookOfTray } from "./glyph";
+import { layoutTileText, sizeText } from "./tileText";
 import "./plan.css";
 
 export const DRAG_THRESHOLD_PX = 6;
@@ -46,6 +46,16 @@ export interface PlanViewProps {
   /** The tray a "Swap with…" is under way from, or null; the app owns it. */
   swapFrom: string | null;
   onSwapFromChange: (key: string | null) => void;
+}
+
+/** What the layer switch calls layer `i` (0 = bottom) of `n`: no height, only the order. */
+export function layerLabel(i: number, n: number): string {
+  return `Layer ${i + 1}${i === 0 && n > 1 ? " (bottom)" : i === n - 1 && n > 1 ? " (top)" : ""}`;
+}
+
+/** What a tray is called to a screen reader: its name, its layer, and what is locked on it. */
+function trayLabel(name: string, layer: number, pinned: boolean, sizeLocked: boolean): string {
+  return `${name}, layer ${layer}${pinned ? ", pinned" : ""}${sizeLocked ? ", size locked" : ""}`;
 }
 
 /** Side of a tile's kind glyph, in SVG units, and the room it needs. */
@@ -123,7 +133,9 @@ export function PlanView(props: PlanViewProps) {
 
   const frame = planFrame(box, settings);
   const vb = planViewBox(frame);
-  const byKey = partsByKey(numberParts(trays));
+  const numbered = numberParts(trays);
+  const byKey = partsByKey(numbered);
+  const names = trayNames(numbered, props.components ?? []);
   const shown = traysAt(trays, level);
   const below = belowLevel === undefined ? [] : traysAt(trays, belowLevel);
   const components = props.components ?? [];
@@ -326,11 +338,10 @@ export function PlanView(props: PlanViewProps) {
                   type="radio"
                   class="pf-visually-hidden"
                   name="plan-layer"
-                  aria-label={i === 0 ? "Layer 1, the bottom layer" : undefined}
                   checked={i === idx}
                   onChange={() => onLevelChange(i)}
                 />
-                {`Layer ${i + 1}`}
+                {layerLabel(i, levels.length)}
               </label>
             ))}
           </div>
@@ -348,6 +359,18 @@ export function PlanView(props: PlanViewProps) {
         onPointerCancel={onPointerCancel}
         onLostPointerCapture={onPointerCancel}
       >
+        <defs>
+          <pattern
+            id="plan-hatch"
+            width="3"
+            height="3"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <rect class="plan-hatch-ground" width="3" height="3" />
+            <line class="plan-hatch-line" x1="0" y1="0" x2="0" y2="3" />
+          </pattern>
+        </defs>
         <rect
           class="plan-box"
           x={-frame.bc}
@@ -373,13 +396,10 @@ export function PlanView(props: PlanViewProps) {
         {shown.map((t) => {
           const all = footprintsAt(t, level).map((f) => toSvgRect(f, frame));
           const r = largestOf(all) ?? toSvgRect(t, frame);
-          const part = byKey.get(t.key);
-          const n = part ? part.number : 0;
-          const name = part ? part.label : t.key;
+          const name = names.get(t.key)?.full ?? t.key;
           const locked = lockedKeys.has(t.key);
           const sizeLocked = sizeLockedKeys.has(t.key);
-          const kind = kindOfTray(t, components);
-          const tint = tintOfTray(t, components);
+          const look = lookOfTray(t, components);
           const text = layoutTileText(r, name, sizeText(t.w, t.d));
           const cls = [
             "plan-tray",
@@ -392,29 +412,44 @@ export function PlanView(props: PlanViewProps) {
           ]
             .filter((c) => c !== "")
             .join(" ");
+          // The kind icon says what a tray holds when you point at it: the selected tray and the
+          // one with the keyboard focus. Every tray carrying one all the time is noise.
           const glyph =
-            kind !== null && r.w >= GLYPH_MIN_TILE && r.h >= GLYPH_MIN_TILE
-              ? KIND_GLYPHS[kind]
+            look !== null &&
+            (t.key === selectedKey || t.key === focusKey) &&
+            r.w >= GLYPH_MIN_TILE &&
+            r.h >= GLYPH_MIN_TILE
+              ? KIND_GLYPHS[look.kind]
               : null;
           return (
             <g
               key={t.key}
               data-key={t.key}
               class={cls}
-              style={tint === null || t.part === "leftover" ? undefined : { "--tint": tint }}
+              style={
+                look === null
+                  ? undefined
+                  : {
+                      "--tile-fill": look.shade.fill,
+                      "--tile-line": look.shade.line,
+                      "--tile-ink": look.shade.ink,
+                    }
+              }
               role="button"
               tabIndex={0}
               aria-pressed={t.key === selectedKey}
-              aria-label={`Tray ${n}, ${name}, ${sizeWords(t.w, t.d)}${locked ? ", locked" : ""}${sizeLocked ? ", size locked" : ""}`}
+              aria-label={trayLabel(name, idx + 1, locked, sizeLocked)}
               onKeyDown={(e) => onKeyDown(e, t.key)}
               onFocus={(e) => {
                 setFocusKey(isFocusVisible(e.currentTarget) ? t.key : null);
               }}
               onBlur={() => setFocusKey((k) => (k === t.key ? null : k))}
             >
+              <title>{name}</title>
               {all.map((a, i) => (
                 <rect
                   key={i}
+                  class="plan-face"
                   x={a.x}
                   y={a.y}
                   width={a.w}
@@ -422,22 +457,24 @@ export function PlanView(props: PlanViewProps) {
                   rx={Math.max(0, Math.min(settings.cornerRadius, a.w / 4, a.h / 4))}
                 />
               ))}
-              <text
-                class="plan-label"
-                aria-hidden="true"
-                x={r.x + r.w / 2}
-                y={text.numberY}
-                style={{ fontSize: `${text.numberSize}px` }}
-              >
-                {n}
-              </text>
+              {text.pill ? (
+                <rect
+                  class="plan-pill"
+                  aria-hidden="true"
+                  x={text.pill.x}
+                  y={text.pill.y}
+                  width={text.pill.w}
+                  height={text.pill.h}
+                  rx={text.pill.h / 2}
+                />
+              ) : null}
               {text.name ? (
                 <text
                   class="plan-name"
                   aria-hidden="true"
                   x={r.x + r.w / 2}
                   y={text.name.y}
-                  style={{ fontSize: `${text.smallSize}px` }}
+                  style={{ fontSize: `${text.fontSize}px` }}
                 >
                   {text.name.text}
                 </text>
@@ -448,7 +485,7 @@ export function PlanView(props: PlanViewProps) {
                   aria-hidden="true"
                   x={r.x + r.w / 2}
                   y={text.size.y}
-                  style={{ fontSize: `${text.smallSize}px` }}
+                  style={{ fontSize: `${text.sizeFontSize}px` }}
                 >
                   {text.size.text}
                 </text>
@@ -469,7 +506,7 @@ export function PlanView(props: PlanViewProps) {
                   x={r.x + r.w - 2}
                   y={r.y + 5}
                 >
-                  locked
+                  pinned
                 </text>
               ) : null}
               {sizeLocked ? (
@@ -486,9 +523,16 @@ export function PlanView(props: PlanViewProps) {
           FRONT
         </text>
       </svg>
+      <ul class="pf-visually-hidden" aria-label={`Trays on layer ${idx + 1}`}>
+        {shown.map((t) => (
+          <li key={t.key}>
+            {`${names.get(t.key)?.full ?? t.key}${lockedKeys.has(t.key) ? ", pinned" : ""}${sizeLockedKeys.has(t.key) ? ", size locked" : ""}`}
+          </li>
+        ))}
+      </ul>
       {hasLeftover ? (
         <p class="hint plan-legend">
-          Plain trays are spares: they fill the gap so the other trays stay put. Print them too.
+          Hatched trays are spares: they fill the gap so the other trays stay put. Print them too.
         </p>
       ) : null}
       <div class="plan-toolbar">
