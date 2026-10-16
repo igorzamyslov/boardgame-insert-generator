@@ -1,4 +1,5 @@
 // src/ui/SettingsForm.tsx
+// The fields of the settings sheet: "This insert" (how trays sit) and the printing options.
 import { useContext, useRef, useState } from "preact/hooks";
 import {
   DEFAULT_SETTINGS,
@@ -87,7 +88,7 @@ function ChangedNote(p: {
       {`Changed from the default, ${p.defaultText}. `}
       <button
         type="button"
-        class="quiet"
+        class="quiet tap"
         aria-label={`Restore the default for ${p.label}`}
         onClick={() => {
           p.onRestore();
@@ -114,7 +115,7 @@ function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void
   if (!asking) {
     return (
       <div class="button-row">
-        <button type="button" class="quiet" onClick={() => setAsking(true)}>
+        <button type="button" class="quiet tap" onClick={() => setAsking(true)}>
           Restore all exact values
         </button>
       </div>
@@ -129,6 +130,7 @@ function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void
       <span class="hint">{`Put ${plural(count)} back to their defaults? Your own numbers are lost.`}</span>
       <button
         type="button"
+        class="tap"
         onClick={() => {
           setAsking(false);
           onRestore();
@@ -136,7 +138,7 @@ function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void
       >
         Restore
       </button>
-      <button type="button" class="quiet" onClick={() => setAsking(false)}>
+      <button type="button" class="quiet tap" onClick={() => setAsking(false)}>
         Keep my values
       </button>
     </div>
@@ -146,7 +148,19 @@ const wallAbsorbRange = SETTING_RANGES.find((r) => r.path === WALL_ABSORB_PATH);
 
 const PANEL_PATHS: ReadonlySet<string> = new Set(PANEL_RANGES.map((r) => `/settings/${r.path}`));
 
-export function SettingsForm({ settings, onChange }: SettingsFormProps) {
+type PanelRange = (typeof PANEL_RANGES)[number];
+
+/** True when every word of the query is in the field's name or its hint (case does not matter). */
+function matchesQuery(r: PanelRange, query: string): boolean {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const text = `${r.label} ${r.hint}`.toLowerCase();
+  return words.every((w) => text.includes(w));
+}
+
+const exactId = (r: PanelRange): string => `settings-${r.path.replace("/", "-")}`;
+
+/** The numbers behind the choices: a search, every field, and per-value and all-at-once restore. */
+function ExactValues({ settings, onChange }: SettingsFormProps) {
   const notices = useContext(ValidationContext);
   const hasError = notices.some(
     (n) => n.level === "error" && n.path !== undefined && PANEL_PATHS.has(n.path),
@@ -157,66 +171,105 @@ export function SettingsForm({ settings, onChange }: SettingsFormProps) {
   if (hasError) {
     forced.current = true;
   }
+  const [query, setQuery] = useState("");
   const changed = changedRanges(settings);
+  const searching = query.trim() !== "";
+  const withError = (r: PanelRange): boolean =>
+    notices.some((n) => n.level === "error" && n.path === `/settings/${r.path}`);
+  // A field with an error stays on screen whatever the search says.
+  const shown = searching
+    ? PANEL_RANGES.filter((r) => matchesQuery(r, query) || withError(r))
+    : PANEL_RANGES;
+  return (
+    <details class="pf-disc" open={forced.current || undefined}>
+      <summary>
+        Exact values
+        {changed.length > 0 ? <span class="pf-count">{`${changed.length} changed`}</span> : null}
+      </summary>
+      <div class="pf-disc__body">
+        <div class="field">
+          <label htmlFor="settings-exact-search">Search exact values</label>
+          <input
+            id="settings-exact-search"
+            type="search"
+            autoComplete="off"
+            value={query}
+            placeholder="clearance, corner, lip…"
+            onInput={(e) => setQuery(e.currentTarget.value)}
+          />
+          <p class="hint" role="status">
+            {searching
+              ? shown.length === 0
+                ? "No exact value matches."
+                : `${shown.length} of ${PANEL_RANGES.length} shown.`
+              : ""}
+          </p>
+        </div>
+        {changed.length > 0 ? (
+          <RestoreAll
+            count={changed.length}
+            onRestore={() => onChange(restoreAllExact(settings))}
+          />
+        ) : null}
+        <div class="form-grid">
+          {shown.map((r) => (
+            <NumberField
+              key={r.path}
+              id={exactId(r)}
+              label={r.label}
+              unit={settingUnit(r.path)}
+              value={r.get(settings)}
+              path={`/settings/${r.path}`}
+              min={r.min}
+              max={r.max}
+              hint={r.hint}
+              footer={
+                changed.includes(r) ? (
+                  <ChangedNote
+                    fieldId={exactId(r)}
+                    label={r.label}
+                    defaultText={defaultText(r.path, r.get(DEFAULT_SETTINGS))}
+                    onRestore={() => {
+                      const set = SETTING_SETTERS[r.path];
+                      if (set) {
+                        onChange(set(settings, r.get(DEFAULT_SETTINGS)));
+                      }
+                    }}
+                  />
+                ) : undefined
+              }
+              onCommit={(v) => {
+                const set = SETTING_SETTERS[r.path];
+                if (set) {
+                  onChange(set(settings, v));
+                }
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
+/** The sheet's "This insert" tab: how the trays sit in the box. */
+export function InsertSettings({ settings, onChange }: SettingsFormProps) {
   return (
     <div class="form-grid">
       <SimpleChoices settings={settings} onChange={onChange} />
-      <details class="pf-disc" open={forced.current || undefined}>
-        <summary>
-          Exact values
-          {changed.length > 0 ? <span class="pf-count">{`${changed.length} changed`}</span> : null}
-        </summary>
-        <div class="pf-disc__body">
-          {changed.length > 0 ? (
-            <RestoreAll
-              count={changed.length}
-              onRestore={() => onChange(restoreAllExact(settings))}
-            />
-          ) : null}
-          <div class="form-grid">
-            {PANEL_RANGES.map((r) => (
-              <NumberField
-                key={r.path}
-                id={`settings-${r.path.replace("/", "-")}`}
-                label={r.label}
-                unit={settingUnit(r.path)}
-                value={r.get(settings)}
-                path={`/settings/${r.path}`}
-                min={r.min}
-                max={r.max}
-                hint={r.hint}
-                footer={
-                  changed.includes(r) ? (
-                    <ChangedNote
-                      fieldId={`settings-${r.path.replace("/", "-")}`}
-                      label={r.label}
-                      defaultText={defaultText(r.path, r.get(DEFAULT_SETTINGS))}
-                      onRestore={() => {
-                        const set = SETTING_SETTERS[r.path];
-                        if (set) {
-                          onChange(set(settings, r.get(DEFAULT_SETTINGS)));
-                        }
-                      }}
-                    />
-                  ) : undefined
-                }
-                onCommit={(v) => {
-                  const set = SETTING_SETTERS[r.path];
-                  if (set) {
-                    onChange(set(settings, v));
-                  }
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      </details>
       <CheckField
         id="settings-lip-enabled"
-        label="Locating lip on stacked trays"
+        label="Rim between layers"
         checked={settings.lip.enabled}
-        hint="Without the lip, stacked trays can shift; the app then warns."
+        hint="A low rim on each tray that locates the tray stacked on it. Without it, stacked trays can shift; the app then warns."
         onChange={(enabled) => onChange({ ...settings, lip: { ...settings.lip, enabled } })}
+      />
+      <CheckField
+        id="settings-fillToTop"
+        label="Fill to the lid"
+        checked={settings.fillToTop}
+        hint="Trays are padded so every stack reaches the lid and nothing shifts when the box is carried. Turn it off for shorter trays and some empty space above them."
+        onChange={(fillToTop) => onChange({ ...settings, fillToTop })}
       />
       <SelectField
         id="settings-leftover"
@@ -225,31 +278,16 @@ export function SettingsForm({ settings, onChange }: SettingsFormProps) {
         hint="What fills the box area the trays do not need. A spare tray is an open tray you can use for extras. A solid block is printed solid, which holds nothing and uses more filament. The same choice applies to risers and card spacers."
         options={[
           { value: "spare", label: "Spare tray (open)" },
-          { value: "solid", label: "Solid filler block" },
+          { value: "solid", label: "Solid block" },
         ]}
         onChange={(leftover) => onChange({ ...settings, leftover })}
       />
       <CheckField
-        id="settings-mergeFillers"
-        label="Merge fillers into one part"
-        checked={settings.mergeFillers}
-        hint="Fillers that touch (across the gap between trays) print as one part, the largest that fits your print bed, so there are fewer loose pieces to place by hand. Only the printed parts change: your layout and share link stay the same. A bigger part warps a little more and a failed print loses more at once."
-        onChange={(mergeFillers) => onChange({ ...settings, mergeFillers })}
-      />
-      <CheckField
-        id="settings-mergeRisers"
-        label="Fold risers into the merged fillers"
-        checked={settings.mergeRisers}
-        disabled={!settings.mergeFillers}
-        hint="Also prints the riser under a stack as part of the filler beside it: a low shelf the tray rests on with a full-height wall alongside. Fewer parts again, and the merged part goes in before the trays that rest on it. Needs merged fillers."
-        onChange={(mergeRisers) => onChange({ ...settings, mergeRisers })}
-      />
-      <CheckField
-        id="settings-engraveNames"
-        label="Engrave tray names"
-        checked={settings.engraveNames}
-        hint="Cuts each tray's name, shortened to fit, into one of its outer walls, a shallow 0.4 mm recess you can read once the tray is out of the box. Plates that go inside another part (card spacers, dividers) carry none, and a tray with no room or too thin a wall is left plain. Only the printed parts change: your layout and share link stay the same."
-        onChange={(engraveNames) => onChange({ ...settings, engraveNames })}
+        id="settings-oneWall"
+        label="One thick wall instead of a spacer"
+        checked={settings.oneWall}
+        hint={`Where a gap would be a spacer, one wall of the neighbouring tray takes it instead, up to ${ONE_WALL_MAX_MM} mm per direction: fewer loose parts to place, but a fat wall that holds nothing and more filament. It is never a wall with a finger cut, and a bigger gap is still a spacer. Replaces "Thicker walls instead of a spacer" while on. Changes the layout.`}
+        onChange={(oneWall) => onChange({ ...settings, oneWall })}
       />
       {wallAbsorbRange ? (
         <NumberField
@@ -264,19 +302,36 @@ export function SettingsForm({ settings, onChange }: SettingsFormProps) {
           onCommit={(wallAbsorb) => onChange({ ...settings, wallAbsorb })}
         />
       ) : null}
+      <ExactValues settings={settings} onChange={onChange} />
+    </div>
+  );
+}
+
+/** The sheet's printing options: they change the printed parts, never where the trays sit. */
+export function PrintingOptions({ settings, onChange }: SettingsFormProps) {
+  return (
+    <div class="form-grid">
       <CheckField
-        id="settings-oneWall"
-        label="One thick wall instead of a filler"
-        checked={settings.oneWall}
-        hint={`Where a gap would be a filler, one wall of the neighbouring tray takes it instead, up to ${ONE_WALL_MAX_MM} mm per direction: fewer loose parts to place, but a fat wall that holds nothing and more filament. It is never a wall with a finger cut, and a bigger gap is still a filler. Replaces "Thicker walls instead of a filler" while on. Changes the layout.`}
-        onChange={(oneWall) => onChange({ ...settings, oneWall })}
+        id="settings-engraveNames"
+        label="Engrave tray names"
+        checked={settings.engraveNames}
+        hint="Cuts each tray's name, shortened to fit, into one of its outer walls, a shallow 0.4 mm recess you can read once the tray is out of the box. Plates that go inside another part (card spacers, dividers) carry none, and a tray with no room or too thin a wall is left plain. Only the printed parts change: your layout and share link stay the same."
+        onChange={(engraveNames) => onChange({ ...settings, engraveNames })}
       />
       <CheckField
-        id="settings-fillToTop"
-        label="Fill the box to the top"
-        checked={settings.fillToTop}
-        hint="Trays are padded so every stack reaches the lid and nothing shifts when the box is carried. Turn it off for shorter trays and some empty space above them."
-        onChange={(fillToTop) => onChange({ ...settings, fillToTop })}
+        id="settings-mergeFillers"
+        label="Join spacers into fewer parts"
+        checked={settings.mergeFillers}
+        hint="Spacers that touch (across the gap between trays) print as one part, the largest that fits your print bed, so there are fewer loose pieces to place by hand. Only the printed parts change: your layout and share link stay the same. A bigger part warps a little more and a failed print loses more at once."
+        onChange={(mergeFillers) => onChange({ ...settings, mergeFillers })}
+      />
+      <CheckField
+        id="settings-mergeRisers"
+        label="Fold risers into the joined spacers"
+        checked={settings.mergeRisers}
+        disabled={!settings.mergeFillers}
+        hint="Also prints the riser under a stack as part of the spacer beside it: a low shelf the tray rests on with a full-height wall alongside. Fewer parts again, and the joined part goes in before the trays that rest on it. Needs joined spacers."
+        onChange={(mergeRisers) => onChange({ ...settings, mergeRisers })}
       />
     </div>
   );
@@ -292,24 +347,12 @@ function fingerRoomHint(s: Settings): string {
 }
 
 /**
- * Choices that write resolved numbers (spec §5): walls, fit and the finger room switch (on for
+ * Choices that write resolved numbers (spec §5): fit, walls and the finger room switch (on for
  * any wall room, including a custom one). The numbers themselves are under Exact values.
  */
 function SimpleChoices({ settings, onChange }: SettingsFormProps) {
   return (
     <>
-      <SelectField
-        id="settings-wallChoice"
-        label="Walls"
-        value={wallChoiceOf(settings)}
-        options={wallOptions(settings)}
-        hint="Thickness of the outer walls. Thicker is stiffer but takes room from the contents."
-        onChange={(c) => {
-          if (c !== "custom") {
-            onChange(applyWallChoice(settings, c));
-          }
-        }}
-      />
       <SelectField
         id="settings-fitChoice"
         label="Fit"
@@ -322,9 +365,21 @@ function SimpleChoices({ settings, onChange }: SettingsFormProps) {
           }
         }}
       />
+      <SelectField
+        id="settings-wallChoice"
+        label="Walls"
+        value={wallChoiceOf(settings)}
+        options={wallOptions(settings)}
+        hint="Thickness of the outer walls. Thicker is stiffer but takes room from the contents."
+        onChange={(c) => {
+          if (c !== "custom") {
+            onChange(applyWallChoice(settings, c));
+          }
+        }}
+      />
       <CheckField
         id="settings-fingerRoom"
-        label="Extra finger room in the box"
+        label="Room for fingers"
         checked={fingerRoomOf(settings) !== false}
         hint={fingerRoomHint(settings)}
         onChange={(on) => onChange(applyFingerRoom(settings, on))}

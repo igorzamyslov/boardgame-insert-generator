@@ -10,10 +10,21 @@ import {
 } from "../model/settings";
 import { SETTING_RANGES } from "../model/validate";
 import { ValidationContext } from "./validation";
-import { SettingsForm, changedRanges, restoreAllExact } from "./SettingsForm";
+import type { SettingsFormProps } from "./SettingsForm";
+import { InsertSettings, PrintingOptions, changedRanges, restoreAllExact } from "./SettingsForm";
 import { SETTING_SETTERS, settingUnit } from "./settingsFields";
 
 afterEach(cleanup);
+
+/** Both tabs' fields at once: the sheet shows them on two tabs, these tests only need them on screen. */
+function SettingsForm(p: SettingsFormProps) {
+  return (
+    <>
+      <InsertSettings {...p} />
+      <PrintingOptions {...p} />
+    </>
+  );
+}
 
 describe("SETTING_SETTERS", () => {
   it("has a setter for every validated setting that writes what get() reads", () => {
@@ -68,7 +79,7 @@ describe("SettingsForm", () => {
     // the exact "Fit" number has the same label, so tell the choice apart by its role
     fireEvent.change(screen.getByRole("combobox", { name: "Fit" }), { target: { value: "loose" } });
     expect(onChange).toHaveBeenCalledWith(applyFitChoice(DEFAULT_SETTINGS, "loose"));
-    fireEvent.click(screen.getByLabelText("Extra finger room in the box"));
+    fireEvent.click(screen.getByLabelText("Room for fingers"));
     expect(onChange).toHaveBeenCalledWith(applyFingerRoom(DEFAULT_SETTINGS, true));
   });
 
@@ -79,7 +90,7 @@ describe("SettingsForm", () => {
       fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, wallRoom: 4 },
     };
     render(<SettingsForm settings={four} onChange={onChange} />);
-    const box = screen.getByLabelText("Extra finger room in the box");
+    const box = screen.getByLabelText("Room for fingers");
     if (!(box instanceof HTMLInputElement)) {
       throw new Error("not a checkbox");
     }
@@ -107,13 +118,13 @@ describe("SettingsForm", () => {
     expect(screen.getByLabelText("Walls")).toBeTruthy();
     // the exact "Fit" number has the same label, so tell the choice apart by its role
     expect(screen.getByRole("combobox", { name: "Fit" })).toBeTruthy();
-    expect(screen.getByLabelText("Extra finger room in the box")).toBeTruthy();
+    expect(screen.getByLabelText("Room for fingers")).toBeTruthy();
     const disc = view.container.querySelector("details.pf-disc");
     expect(disc?.querySelector("summary")?.textContent).toBe("Exact values");
     expect(disc?.hasAttribute("open")).toBe(false);
     // the numeric fields are inside the disclosure, the lip and leftover are not
     expect(disc?.contains(screen.getByLabelText(/^Corner radius/))).toBe(true);
-    expect(disc?.contains(screen.getByLabelText(/Locating lip/))).toBe(false);
+    expect(disc?.contains(screen.getByLabelText(/Rim between layers/))).toBe(false);
     expect(disc?.contains(screen.getByLabelText("Unused space"))).toBe(false);
     fireEvent.change(screen.getByLabelText("Walls"), { target: { value: "sturdy" } });
     expect(onChange).toHaveBeenLastCalledWith(applyWallChoice(DEFAULT_SETTINGS, "sturdy"));
@@ -135,7 +146,7 @@ describe("SettingsForm", () => {
     const onChange = vi.fn();
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const disc = view.container.querySelector("details.pf-disc");
-    const input = screen.getByLabelText(/^Thicker walls instead of a filler/);
+    const input = screen.getByLabelText(/^Thicker walls instead of a spacer/);
     expect(disc?.contains(input)).toBe(false);
     const range = SETTING_RANGES.find((r) => r.path === "wallAbsorb");
     expect(document.getElementById("settings-wallAbsorb-hint")?.textContent).toBe(range?.hint);
@@ -289,7 +300,7 @@ describe("SettingsForm", () => {
       lip: { ...DEFAULT_SETTINGS.lip, play: 0.3 },
     });
     // The lip starts off, so ticking the box turns it on.
-    fireEvent.click(screen.getByLabelText(/Locating lip/));
+    fireEvent.click(screen.getByLabelText(/Rim between layers/));
     expect(onChange).toHaveBeenLastCalledWith({
       ...DEFAULT_SETTINGS,
       lip: { ...DEFAULT_SETTINGS.lip, enabled: true },
@@ -298,10 +309,63 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });
   });
 
+  describe("search among the exact values", () => {
+    const search = (text: string): void => {
+      fireEvent.input(screen.getByRole("searchbox", { name: "Search exact values" }), {
+        target: { value: text },
+      });
+    };
+    const shownLabels = (container: Element): string[] =>
+      [...container.querySelectorAll("details.pf-disc .field label")]
+        .map((l) => l.textContent ?? "")
+        .filter((t) => !t.startsWith("Search"));
+
+    it("shows every value until something is typed", () => {
+      const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
+      expect(shownLabels(view.container)).toHaveLength(
+        SETTING_RANGES.filter((r) => r.path !== "wallAbsorb").length,
+      );
+      expect(screen.getByRole("status").textContent).toBe("");
+    });
+
+    it("narrows to the values whose name or hint has every word, whatever the case", () => {
+      const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
+      search("LIP play");
+      // the hint counts too: Fit mentions the lip and play
+      expect(shownLabels(view.container)).toEqual(["Fit", "Lip play (mm)"]);
+      expect(screen.getByRole("status").textContent).toMatch(/^2 of \d+ shown\.$/);
+      search("");
+      expect(shownLabels(view.container).length).toBeGreaterThan(10);
+    });
+
+    it("says when nothing matches, and keeps a field with an error on screen", () => {
+      const error = {
+        level: "error" as const,
+        code: "field.setting",
+        message: "Bottom chamfer is too big",
+        path: "/settings/bottomChamfer",
+      };
+      const view = render(
+        <ValidationContext.Provider value={[error]}>
+          <SettingsForm settings={DEFAULT_SETTINGS} onChange={vi.fn()} />
+        </ValidationContext.Provider>,
+      );
+      search("zzzz");
+      expect(shownLabels(view.container)).toEqual(["Bottom chamfer (mm)"]);
+      expect(screen.getByRole("status").textContent).toBe("1 of 26 shown.");
+    });
+
+    it("reports no match", () => {
+      render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
+      search("zzzz");
+      expect(screen.getByRole("status").textContent).toBe("No exact value matches.");
+    });
+  });
+
   it("offers the one-wall switch, off by default", () => {
     const onChange = vi.fn();
     render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
-    const box = screen.getByLabelText("One thick wall instead of a filler") as HTMLInputElement;
+    const box = screen.getByLabelText("One thick wall instead of a spacer") as HTMLInputElement;
     expect(box.checked).toBe(false);
     fireEvent.click(box);
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, oneWall: true });
@@ -316,11 +380,11 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, engraveNames: false });
   });
 
-  it("offers the two merge switches: fillers on, risers off by default", () => {
+  it("offers the two merge switches: spacers on, risers off by default", () => {
     const onChange = vi.fn();
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
-    const fillers = screen.getByLabelText("Merge fillers into one part") as HTMLInputElement;
-    const risers = screen.getByLabelText("Fold risers into the merged fillers") as HTMLInputElement;
+    const fillers = screen.getByLabelText("Join spacers into fewer parts") as HTMLInputElement;
+    const risers = screen.getByLabelText("Fold risers into the joined spacers") as HTMLInputElement;
     expect(fillers.checked).toBe(true);
     expect(risers.checked).toBe(false);
     fireEvent.click(fillers);
@@ -333,14 +397,14 @@ describe("SettingsForm", () => {
       <SettingsForm settings={{ ...DEFAULT_SETTINGS, mergeFillers: false }} onChange={onChange} />,
     );
     expect(
-      (screen.getByLabelText("Fold risers into the merged fillers") as HTMLInputElement).disabled,
+      (screen.getByLabelText("Fold risers into the joined spacers") as HTMLInputElement).disabled,
     ).toBe(true);
   });
 
-  it("offers Fill the box to the top, on by default", () => {
+  it("offers Fill to the lid, on by default", () => {
     const onChange = vi.fn();
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
-    const box = screen.getByLabelText("Fill the box to the top") as HTMLInputElement;
+    const box = screen.getByLabelText("Fill to the lid") as HTMLInputElement;
     expect(box.checked).toBe(true);
     expect(view.container.textContent).toContain("so every stack reaches the lid");
     fireEvent.click(box);
