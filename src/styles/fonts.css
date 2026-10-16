@@ -1,0 +1,11 @@
+/*
+ * Self-hosted faces (@fontsource, OFL; their licences ship in third-party-licenses.txt).
+ * Only the weights the interface uses: Bricolage Grotesque for headings, Figtree for the rest.
+ * Vite emits the files as relative assets, so base "./" keeps working and nothing is
+ * requested from another host.
+ */
+@import "@fontsource/bricolage-grotesque/500.css";
+@import "@fontsource/bricolage-grotesque/700.css";
+@import "@fontsource/figtree/400.css";
+@import "@fontsource/figtree/600.css";
+@import "@fontsource/figtree/700.css";

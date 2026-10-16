@@ -5,7 +5,8 @@ import { loadGeometryClient, loadLayoutClient } from "./app/clients";
 import { createMeshSource } from "./app/meshes";
 import { connectWindow, createAppStore } from "./app/store";
 import { createPrefsStore, createProjectStore } from "./share";
-import "./styles/proof-tokens.css";
+import "./styles/fonts.css";
+import "./styles/tokens.css";
 import "./styles/proof.css";
 import "./style.css";
 

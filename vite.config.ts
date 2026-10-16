@@ -30,8 +30,8 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     // Vitest stubs CSS imports to ""; PlanView.test.tsx reads plan.css, AssemblyPage.test.tsx
-    // assembly.css and style.test.ts style.css as `?raw` to check their rules, so those files are
+    // assembly.css, style.test.ts style.css and tokens.css (also read by identity.test.ts) as `?raw` to check their rules, so those files are
     // passed through.
-    css: { include: [/plan\.css/, /assembly\.css/, /style\.css/] },
+    css: { include: [/plan\.css/, /assembly\.css/, /style\.css/, /tokens\.css/] },
   },
 });

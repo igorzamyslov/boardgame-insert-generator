@@ -39,6 +39,27 @@ function manifoldEntry(): LicenseEntry {
   };
 }
 
+/**
+ * The self-hosted fonts. Their CSS is bundled but the font files are plain assets, so the plugin
+ * never sees the packages: read their licence (SIL OFL 1.1) from node_modules here.
+ */
+const FONT_PACKAGES = ["@fontsource/bricolage-grotesque", "@fontsource/figtree"];
+
+function fontEntries(): LicenseEntry[] {
+  return FONT_PACKAGES.map((name) => {
+    const dir = here(`./node_modules/${name}/`);
+    const pkg = JSON.parse(readIfExists(`${dir}package.json`) || "{}") as {
+      version?: string;
+      license?: string;
+    };
+    const text = readIfExists(`${dir}LICENSE`);
+    if (text.trim() === "") {
+      throw new Error(`${name} license text not found in node_modules/${name}`);
+    }
+    return { name, version: pkg.version ?? "", license: pkg.license ?? "OFL-1.1", text };
+  });
+}
+
 function clipperEntry(): LicenseEntry {
   return {
     name: "Clipper2 (inside manifold-3d's WASM)",
@@ -58,9 +79,12 @@ export function licensePlugin(): Plugin {
         file: here(`./dist/${LICENSES_FILE}`),
         template: (dependencies: DependencyInfo[]) => {
           const entries = [
-            ...toEntries(dependencies).filter((e) => e.name !== "manifold-3d"),
+            ...toEntries(dependencies).filter(
+              (e) => e.name !== "manifold-3d" && !FONT_PACKAGES.includes(e.name),
+            ),
             manifoldEntry(),
             clipperEntry(),
+            ...fontEntries(),
           ];
           const text = renderLicenses(entries, "Board Game Insert Generator");
           const missing = missingPackages(text, REQUIRED_PACKAGES);
