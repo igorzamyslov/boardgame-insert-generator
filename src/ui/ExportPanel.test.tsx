@@ -1,6 +1,6 @@
 // src/ui/ExportPanel.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MeshSource } from "../app/meshes";
 import { cubeMesh, makeTray } from "../app/test-helpers";
@@ -184,7 +184,7 @@ describe("ExportPanel", () => {
     const view = render(<ExportPanel {...p} />);
     fireEvent.click(screen.getByRole("button", { name: "STL files (.zip)" }));
     await waitFor(() => expect(m.get).toHaveBeenCalled());
-    view.unmount();
+    act(() => view.unmount());
     expect(m.get.mock.calls[0]?.[2]?.aborted).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(p.download).not.toHaveBeenCalled();
