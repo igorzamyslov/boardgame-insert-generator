@@ -115,7 +115,9 @@ export function NumberField(props: NumberFieldProps) {
     <input
       id={id}
       type="text"
-      inputMode="decimal"
+      // mm get the decimal keyboard, counts the plain digits; Return moves on to the next field.
+      inputMode={props.integer ? "numeric" : "decimal"}
+      enterKeyHint="next"
       autoComplete="off"
       value={text}
       aria-invalid={errors.length > 0}

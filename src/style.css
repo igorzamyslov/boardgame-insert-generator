@@ -107,7 +107,8 @@ select {
   color: var(--ink);
 }
 
-input[inputmode="decimal"] {
+input[inputmode="decimal"],
+input[inputmode="numeric"] {
   font: 500 14px/22px var(--font-ui);
   font-variant-numeric: tabular-nums;
   text-align: right;
