@@ -211,16 +211,17 @@ export function withGrowth<C extends Component>(
 }
 
 /**
- * How many loose plates the component's spacer (the room it grows into) is printed as, before the plates that
- * would come out too thin are dropped (spec §6.2). 1, the single spacer block, unless set.
+ * How many loose plates the component's spacer (the room it grows into) is printed as (spec §6.2);
+ * 0, no spacer at all, unless set: a spacer is only ever printed when the user asks for one
+ * (minimal-trays spec §5.3). 1 is the single spacer block, above that thin plates.
  */
 export function separatorsOf(c: Component): number {
-  return c.separators ?? 1;
+  return c.separators ?? 0;
 }
 
-/** The component with `separators` set to `n`; 1 is the default, so it is stored as nothing. */
+/** The component with `separators` set to `n`; 0 is the default, so it is stored as nothing. */
 export function withSeparators<C extends Component>(c: C, n: number): C {
-  if (n !== 1) {
+  if (n !== 0) {
     return { ...c, separators: n };
   }
   return Object.fromEntries(Object.entries(c).filter(([key]) => key !== "separators")) as C;

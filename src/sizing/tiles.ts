@@ -80,11 +80,14 @@ function uprightStack(
 ): CompartmentReq {
   const profile = uprightProfile(c.shape);
   const dividers = dividersOf(c);
+  const plates = separatorsOf(c);
+  // Retention and reachability bound it (stackGrowthMm); no spacer unless `separators` is set.
   const grow = stackGrowthMm(
     growthOf(c, "stack"),
     fromU(ceilU(n * c.thickness)),
-    dividers === 0 && separatorsOf(c) > 1,
+    dividers === 0 && plates > 0,
     dividers,
+    togglesOf(c).fingerCuts ? s.fingerPocket.width : undefined,
   );
   const stack = n * c.thickness + clearance;
   return compartment({
@@ -97,7 +100,9 @@ function uprightStack(
     ...(dividers > 0
       ? { grow: { w: grow }, dividers, floorExtra: DIVIDER_GROOVE }
       : grow > 0
-        ? { grow: { w: grow }, spacerAxis: "w" as const, separators: separatorsOf(c) }
+        ? plates > 0
+          ? { grow: { w: grow }, spacerAxis: "w" as const, separators: plates }
+          : { grow: { w: grow } }
         : {}),
     // No corner reliefs: they let a tile sit flat, and one on its edge doesn't need them. Toggles
     // are per component and "auto" storage offers flat and upright from one, so the rule lives

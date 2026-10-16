@@ -84,6 +84,17 @@ export const UNPLATED_RETENTION = 1;
 export const PLATED_RETENTION = 6;
 
 /**
+ * Reachability (minimal-trays spec §5.3): with nothing in the room it gained an upright stack is
+ * not pinned, it slides within the well, and the finger cut that reaches it across the row is
+ * centred on the well. At worst the stack stands against one end, and the cut must still lie over
+ * at least this much of its thickness for a fingertip to get onto the cards. 10 mm is a
+ * fingertip's width, the figure MIN_CUT_MM already takes as the narrowest cut a finger fits
+ * (model/settings.ts; a test holds them equal). A stack thinner than that, or thinner than that
+ * plus POST_MM (the post a cut leaves at the well's end), is asked for what it can have.
+ */
+export const MIN_REACH_OVERLAP = 10;
+
+/**
  * Dividers (a component's `dividers`, minimal-trays spec §5): thin loose plates that split a grown
  * deck well into sections, each standing in a slot cut into the tray's floor. The plate is at
  * least DIVIDER_THICKNESS thick (3 mm, as thin as a separator plate and for the same reason: it

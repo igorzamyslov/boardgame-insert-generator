@@ -1,7 +1,9 @@
+import { POST_MM } from "../model/settings";
 import type { GrowthMode } from "../model/types";
 import {
   AUTO_GROWTH_CEILING,
   AUTO_GROWTH_FRACTION,
+  MIN_REACH_OVERLAP,
   PLATED_RETENTION,
   UNPLATED_RETENTION,
 } from "./constants";
@@ -35,18 +37,37 @@ function floorMm(mm: number): number {
 }
 
 /**
+ * How much room a well of an upright stack `stack` mm thick may gain with nothing in it and still
+ * leave the stack under its finger cut (minimal-trays spec §5.3). The cut is `cutWidth` wide and
+ * centred on the well, width W = stack + room; the stack may stand anywhere in [0, W − stack], so
+ * against an end it overlaps the cut by stack − (W − cutWidth) / 2. Asking that to be at least
+ * MIN_REACH_OVERLAP gives room ≤ cutWidth + stack − 2 × MIN_REACH_OVERLAP. A stack that cannot
+ * overlap by that much even in a well just wide enough for it (a cut leaves POST_MM of the well's
+ * end, so it overlaps a stack by at most stack − POST_MM) is asked for that instead, which is the
+ * room its cut stays as wide as the setting. Never negative.
+ */
+export function reachGrowthMm(stack: number, cutWidth: number): number {
+  const overlap = Math.min(MIN_REACH_OVERLAP, Math.max(0, stack - POST_MM));
+  return Math.max(0, cutWidth + stack - 2 * overlap);
+}
+
+/**
  * The same along the stack of an upright deck or stack of tiles, `stack` mm thick, bounded by
- * retention (spec §5): with nothing in the gained room (`plated` false) at most UNPLATED_RETENTION
- * stack thicknesses, with the `separators` plates PLATED_RETENTION, and with `dividers` that many
- * more times UNPLATED_RETENTION (a divided well is held upright in each of its sections, and the
- * room is no spacer's: plates and dividers do not combine). A number or `max` is cut back to that;
- * `auto` is already below it.
+ * retention and reachability (spec §5, §5.3). With nothing in the gained room (`plated` false):
+ * at most UNPLATED_RETENTION stack thicknesses, so it does not topple, and at most what leaves the
+ * stack under its finger cut when it stands against an end (reachGrowthMm; `cutWidth`, the cut's
+ * width setting, absent when the component has no cut), whichever is less. With the `separators`
+ * plates (any count: a spacer fills the room solid and the cut is placed beside it) PLATED_RETENTION,
+ * and with `dividers` that many more times UNPLATED_RETENTION (a divided well is held upright in
+ * each of its sections, and the room is no spacer's: plates and dividers do not combine). A number
+ * or `max` is cut back to that; `auto` is already below the retention.
  */
 export function stackGrowthMm(
   mode: GrowthMode,
   stack: number,
   plated: boolean,
   dividers = 0,
+  cutWidth?: number,
 ): number {
   // UNPLATED_RETENTION is an allowance of slack beyond the stack (growth ≤ stack × allowance), not a
   // multiplier on the width. Undivided, the cards lean across the whole slack W − T. Divided into
@@ -55,7 +76,12 @@ export function stackGrowthMm(
   // section within the undivided allowance A therefore gives W − T ≤ (N + 1) × A: the slack term
   // scales, the stack T does not. (The slots' own width is in the well's minimum, not in this.)
   const retention = plated ? PLATED_RETENTION : UNPLATED_RETENTION * (dividers + 1);
-  return Math.min(growthMm(mode, stack), stack * retention);
+  const held = Math.min(growthMm(mode, stack), stack * retention);
+  // Reachability needs the stack free to slide: not with plates (it is pinned) and not with
+  // dividers, which this does not model (each section would need the same bound on its own).
+  return plated || dividers > 0 || cutWidth === undefined
+    ? held
+    : Math.min(held, reachGrowthMm(stack, cutWidth));
 }
 
 type Axis = "w" | "d" | "h";

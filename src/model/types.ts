@@ -54,8 +54,10 @@ export interface ComponentBase {
   // (minimal-trays spec §5). Absent, or an axis absent: the kind's default (growthOf in ./defaults).
   // Replaces `stretch`, which the reader still accepts (readBase).
   growth?: Growth;
-  // cards and tiles that grow along the stack only: how many thin loose plates the spacer is
-  // printed as, so one can be pulled out as the collection grows (absent: 1, a single spacer).
+  // cards and tiles that grow along the stack only: whether the room it grows into is filled by a
+  // spacer, and how many thin loose plates that is printed as, so one can be pulled out as the
+  // collection grows (absent, or 0: no spacer at all, never unless asked for; 1: a single block;
+  // more: that many plates). Before geometry 0.7.2 absent meant a single spacer.
   // The plates are derived for printing (splitSeparators). Before geometry 0.5.1 a count above 1
   // also made the layout build a spacer where it would build a spare pocket, which is why it is
   // still part of the inputs hash.

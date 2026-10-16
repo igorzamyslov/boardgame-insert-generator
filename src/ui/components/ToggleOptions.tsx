@@ -91,7 +91,7 @@ export function ToggleOptions<C extends Component>({
               <NumberField
                 id={`${c.id}-separators`}
                 label="Spacer plates"
-                hint="The room the stack grows into is printed as this many thin loose plates instead of one block. Pull one out as the collection grows and the stack still fits snug. Plates also let it grow further: they hold the stack upright, so the room is not limited to its own thickness."
+                hint="Print the room the stack grows into as this many thin loose plates (1: one block), so the stack stays snug and one can be pulled out as the collection grows. 0 (the default): nothing is printed, the stack simply stands in a wider well. Plates also let it grow further: they hold the stack upright, so the room is not limited to its own thickness or to what keeps it under its finger cut."
                 value={separatorsOf(c)}
                 {...SEPARATORS}
                 path={`/components/${index}/separators`}

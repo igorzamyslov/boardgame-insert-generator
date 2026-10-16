@@ -203,8 +203,8 @@ describe("CardsEditor", () => {
     view.unmount();
     const { last } = setup(cards(), true);
     const field = screen.getByLabelText("Spacer plates") as HTMLInputElement;
-    expect(field.value).toBe("1");
-    expect(document.getElementById(`${field.id}-hint`)?.textContent).toMatch(/pull one out/i);
+    expect(field.value).toBe("0");
+    expect(document.getElementById(`${field.id}-hint`)?.textContent).toMatch(/pulled out/i);
     fireEvent.input(field, { target: { value: "3" } });
     expect(last().separators).toBe(3);
   });
@@ -254,9 +254,11 @@ describe("CardsEditor", () => {
     });
   });
 
-  it("stores nothing when the count goes back to 1", () => {
+  it("stores nothing when the count goes back to 0, and one block when it is 1", () => {
     const { last } = setup(cards({ separators: 3 }), true);
     fireEvent.input(screen.getByLabelText("Spacer plates"), { target: { value: "1" } });
+    expect(last().separators).toBe(1);
+    fireEvent.input(screen.getByLabelText("Spacer plates"), { target: { value: "0" } });
     expect("separators" in last()).toBe(false);
   });
 

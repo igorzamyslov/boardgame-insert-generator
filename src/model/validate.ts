@@ -444,11 +444,11 @@ function checkBase(ck: Checker, c: Component, at: string): void {
         `${at}/separators`,
         `Spacer plates must be at most ${BOUNDS.maxSeparators}.`,
       );
-    } else if (!Number.isInteger(n) || n < 1) {
+    } else if (!Number.isInteger(n) || n < 0) {
       ck.error(
         VALIDATION_NOTICE_CODES.field.separators,
         `${at}/separators`,
-        "Spacer plates must be a whole number of at least 1.",
+        "Spacer plates must be a whole number, 0 or more.",
       );
     }
   }

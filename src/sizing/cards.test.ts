@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { CardsComponent, GrowthMode, Settings } from "../model/types";
 import { cardDims, cardOptions, stackWidth } from "./cards";
-import { AUTO_GROWTH_CEILING, PLATED_RETENTION } from "./constants";
+import { AUTO_GROWTH_CEILING, MIN_REACH_OVERLAP, PLATED_RETENTION } from "./constants";
 import { at, cards } from "./test-helpers";
 import type { CompartmentReq } from "./types";
 
@@ -97,10 +97,11 @@ describe("cardOptions", () => {
     expect(c.kind).toBe("well");
     expect(c.contents).toBe("Cards — Main ×52");
     expect(c.componentId).toBe("c1");
-    // An upright deck grows along its stack by default (auto: half its thickness): a spacer axis.
+    // An upright deck grows along its stack by default (auto: its thickness), and nothing is
+    // printed to fill the room: a spacer axis only when `separators` is set.
     expect(c.elastic).toEqual({ w: true, d: false, h: false });
     expect(c.growth).toEqual({ w: 23.5 });
-    expect(c.spacerAxis).toBe("w");
+    expect(c.spacerAxis).toBeUndefined();
     // One channel, half the shallowest well deep, through the walls the card faces touch.
     expect(c.features).toEqual([cutout("left", 1 / 2, false), cutout("right", 1 / 2, false)]);
   });
@@ -147,8 +148,51 @@ describe("cardOptions", () => {
       expect(deck({ ...plated, growth: { stack: "max" } }).growth).toEqual({
         w: stack * PLATED_RETENTION,
       });
-      // one plate is just the spacer block: nothing holds the stack any better
-      expect(deck(cards({ growth: { stack: 100 }, separators: 1 })).growth).toEqual({ w: stack });
+      // one plate is the spacer block, which fills the room solid just as well
+      const one = deck(cards({ growth: { stack: 100 }, separators: 1 }));
+      expect(one.growth).toEqual({ w: 100 });
+      expect(one.spacerAxis).toBe("w");
+    });
+
+    it("has no spacer axis unless `separators` is set, at any growth", () => {
+      for (const stackGrowth of ["auto", "max", 5, 100] as const) {
+        const c = deck(cards({ growth: { stack: stackGrowth } }));
+        expect(c.spacerAxis, `${stackGrowth}`).toBeUndefined();
+        expect(c.separators).toBeUndefined();
+        expect(c.elastic.w).toBe(true);
+      }
+      expect(deck(cards({ separators: 0 })).spacerAxis).toBeUndefined();
+      expect(deck(cards({ separators: 2 })).spacerAxis).toBe("w");
+    });
+
+    it("holds an upright deck to what keeps it under its finger cut, when that is tighter", () => {
+      const narrow = (width: number): Settings => ({
+        ...s,
+        fingerPocket: { ...s.fingerPocket, width },
+      });
+      const grown = (width: number, growth: GrowthMode = "max") =>
+        deck(cards({ growth: { stack: growth } }), narrow(width)).growth;
+      // 23.5 mm stack: a 14 mm cut leaves 14 + 23.5 - 20 = 17.5 mm of room, the default 25 mm cut
+      // the retention's 23.5
+      expect(grown(14)).toEqual({ w: 17.5 });
+      expect(grown(14, "auto")).toEqual({ w: 17.5 });
+      expect(grown(25)).toEqual({ w: stack });
+      expect(grown(10)).toEqual({ w: 10 + stack - 2 * MIN_REACH_OVERLAP });
+      // not once something holds the stack: the plates' limit applies as before
+      expect(deck(cards({ growth: { stack: "max" }, separators: 2 }), narrow(14)).growth).toEqual({
+        w: stack * PLATED_RETENTION,
+      });
+      // and not when the deck has no cut to reach it by
+      expect(
+        deck(cards({ growth: { stack: "max" }, fingerCuts: false }), narrow(14)).growth,
+      ).toEqual({ w: stack });
+    });
+
+    it("leaves a flat deck's height alone: nothing slides and no cut crosses its stack", () => {
+      const narrow: Settings = { ...s, fingerPocket: { ...s.fingerPocket, width: 10 } };
+      expect(deck(cards({ storage: "flat", growth: { stack: 30 } }), narrow).growth).toEqual({
+        h: 30,
+      });
     });
 
     it("does not grow a flat deck taller by default: the spare height is a riser's", () => {

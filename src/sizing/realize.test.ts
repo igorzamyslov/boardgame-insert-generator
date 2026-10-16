@@ -4,14 +4,29 @@ import type { CompartmentSpec, Component, FeatureSpec, Settings } from "../model
 import { CutFitError } from "./errors";
 import { size } from "./group";
 import { minOuter, realizeTray } from "./realize";
-import { assertTrayInvariants, at, bulk, cards, custom, minis, partOf } from "./test-helpers";
+import {
+  assertTrayInvariants,
+  at,
+  bulk,
+  cards,
+  custom,
+  minis,
+  partOf,
+  tiles,
+} from "./test-helpers";
 import type { CompartmentReq, OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
 // These cover sizing with a locating lip available (the lipped wall, upper-tray
 // minimums), so they turn it on; the app's own default is off.
 const s: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
 const ground: RealizeOptions = { lipped: false, level: 0 };
-const single = partOf([cards({ growth: { stack: "max" } })], "upright-long|strip|split1");
+// Spacers appear only when the component asks for them (`separators`), so the tests of a spacer
+// ask; `bare` is the same deck asking for none.
+const single = partOf(
+  [cards({ growth: { stack: "max" }, separators: 1 })],
+  "upright-long|strip|split1",
+);
+const bare = partOf([cards({ growth: { stack: "max" } })], "upright-long|strip|split1");
 const cutout = (side: "left" | "right", atMm: number, depth: number, width = 25) => ({
   type: "wallCutout",
   side,
@@ -59,7 +74,7 @@ describe("realizeTray", () => {
     expect(at(r.compartments, 0).w).toBe(43.5);
   });
 
-  it("makes a spacer of any length up to the deck's own thickness, plates or not", () => {
+  it("makes a spacer of any length up to the deck's own thickness", () => {
     for (const extra of [5, 10, 23.5]) {
       const outer = { w: 26.7 + extra, d: 95.7, h: 69.2 };
       const r = realizeTray(single, outer, s, ground);
@@ -72,7 +87,10 @@ describe("realizeTray", () => {
 
   it("takes a spacer as long as the growth setting says, and the walls take what is left", () => {
     // 30 mm beyond the deck, a 12 mm growth setting: 12 mm of spacer, the rest in the walls
-    const capped = partOf([cards({ growth: { stack: 12 } })], "upright-long|strip|split1");
+    const capped = partOf(
+      [cards({ growth: { stack: 12 }, separators: 1 })],
+      "upright-long|strip|split1",
+    );
     const outer = { w: 26.7 + 30, d: 95.7, h: 69.2 };
     const r = realizeTray(capped, outer, s, ground);
     expect(r.spacers.map((sp) => sp.w)).toEqual([12]);
@@ -80,11 +98,49 @@ describe("realizeTray", () => {
     assertTrayInvariants(r, outer, s, ground);
   });
 
-  it("holds a deck's spacer to its own thickness without plates (retention), however much it is asked for", () => {
+  it("prints no spacer unless the component asks for one, however much room there is", () => {
+    for (const extra of [5, 20, 60, 300]) {
+      const outer = { w: 26.7 + extra, d: 95.7, h: 69.2 };
+      const r = realizeTray(bare, outer, s, ground);
+      expect(r.spacers, `${extra}`).toEqual([]);
+      expect(r.compartments.map((c) => c.kind)).toEqual(["well"]);
+      assertTrayInvariants(r, outer, s, ground);
+    }
+  });
+
+  it("prints no spacer for a deck or a stack of tiles at any growth setting, unless asked", () => {
+    const growths = ["auto", "max", 3, 30, 300] as const;
+    for (const growth of growths) {
+      for (const component of [
+        cards({ growth: { stack: growth } }),
+        tiles({ storage: "upright", growth: { stack: growth } }),
+      ]) {
+        const id =
+          component.kind === "cards" ? "upright-long|strip|split1" : "upright-c1|strip|split1";
+        const part = partOf([component], id);
+        const min = minOuter(part, s, ground);
+        for (const extra of [4, 12, 40, 200]) {
+          const outer = { ...min, w: min.w + extra };
+          const r = realizeTray(part, outer, s, ground);
+          expect(r.spacers, `${component.kind} ${growth} +${extra}`).toEqual([]);
+          assertTrayInvariants(r, outer, s, ground);
+        }
+        // and with it asked for, the same room is a spacer
+        const asked = partOf([{ ...component, separators: 1 }], id);
+        const outer = { ...min, w: min.w + 12 };
+        if (growth !== 3) {
+          expect(realizeTray(asked, outer, s, ground).spacers).toHaveLength(1);
+        }
+      }
+    }
+  });
+
+  it("widens a deck's well by what it may grow, with nothing printed in it (retention)", () => {
     const outer = { w: 26.7 + 60, d: 95.7, h: 69.2 };
-    const r = realizeTray(single, outer, s, ground);
-    // `max`, 60 mm of slack, 23.5 mm of deck: more room than that and it would topple
-    expect(r.spacers.map((sp) => sp.w)).toEqual([23.5]);
+    const r = realizeTray(bare, outer, s, ground);
+    // `max`, 60 mm of slack, 23.5 mm of deck: more room than that and it would topple, so the
+    // well takes 23.5 mm more and the walls the rest
+    expect(r.spacers).toEqual([]);
     expect(at(r.compartments, 0).w).toBe(47);
   });
 
@@ -136,12 +192,12 @@ describe("realizeTray", () => {
       }
     });
 
-    it("holds the same 30 mm to the deck's thickness with one plate", () => {
+    it("fills the same 30 mm with one block (1 asks for a spacer too)", () => {
       const one = partOf(
         [cards({ growth: { stack: "max" }, separators: 1 })],
         "upright-long|strip|split1",
       );
-      expect(realizeTray(one, outer, s, ground).spacers.map((sp) => sp.w)).toEqual([23.5]);
+      expect(realizeTray(one, outer, s, ground).spacers.map((sp) => sp.w)).toEqual([30]);
     });
   });
 
@@ -251,6 +307,7 @@ describe("realizeTray", () => {
       [
         cards({
           growth: { stack: "max" },
+          separators: 1,
           decks: [
             { name: "A", count: 52 },
             { name: "B", count: 30 },

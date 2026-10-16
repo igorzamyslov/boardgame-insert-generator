@@ -39,7 +39,7 @@ function textOf(c: Component, axis: GrowthAxis): AxisText {
     const stack = c.kind === "tiles" ? "stack of tiles" : "deck";
     return {
       label: `Room for more ${things}`,
-      hint: `How much more room the ${stack} gets, so the collection can grow: along its stack when it stands up, taller when it lies flat (off by default: a riser takes the spare height). ${autoHint(`the ${stack}'s thickness`)} Without spacer plates a ${stack} is held at most ${UNPLATED_RETENTION}× its own thickness, past which it would topple; with plates, ${PLATED_RETENTION}×; with dividers, ${UNPLATED_RETENTION}× per section. ${EXPLAIN}`,
+      hint: `How much more room the ${stack} gets, so the collection can grow: along its stack when it stands up, taller when it lies flat (off by default: a riser takes the spare height). ${autoHint(`the ${stack}'s thickness`)} Standing up with no spacer plates, a ${stack} is held to at most ${UNPLATED_RETENTION}× its own thickness, past which it would topple, and to what keeps it under its finger cut when it stands against one end of the well; with plates, ${PLATED_RETENTION}×; with dividers, ${UNPLATED_RETENTION}× per section. ${EXPLAIN}`,
     };
   }
   if (c.kind === "minis" && c.storage === "pockets") {

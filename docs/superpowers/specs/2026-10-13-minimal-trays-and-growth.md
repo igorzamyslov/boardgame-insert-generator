@@ -42,9 +42,11 @@ making trays tall in the first place.
 **Growth is bounded by retention.** More room is only useful while the contents
 stay held. A deck well grown too far lets the cards fall over, which is worse
 than the filler it replaced. So growth is never unbounded: it is either capped,
-or the gained space is taken up by something removable (a spacer, or the
-`separators` plates) that keeps the contents standing while still letting the
-collection grow into it.
+or the gained space is taken up by something removable (the `separators`
+spacer or plates) that keeps the contents standing while still letting the
+collection grow into it. Since §5.3 that something is only ever printed when the
+user asks for it; without it, growth is capped at what the contents hold by
+themselves.
 
 ## 2. What already behaves this way
 
@@ -346,6 +348,9 @@ lets the cards fall over, which is worse than the filler it replaced. So:
 Treat "grow without plates" and "grow with plates" as two different limits. This
 is what makes `separators` structural rather than a nicety.
 
+(As built, §5.1 and §5.3: a second bound, reachability, applies beside retention to growth
+without plates, and plates exist only when the user sets `separators`.)
+
 ### Dividers
 
 Offer printing **dividers**: parts that subdivide a grown compartment into
@@ -551,6 +556,131 @@ in its box at all, with or without dividers.
 **Not done.** Dividers in bins (above). A finger notch in the divider's top, as the spacer has for
 the deck's finger channel (the channel is in the end walls; the divider sits clear of it).
 Unequal sections.
+
+### 5.3 No spacer unless asked for, and the deck stays reachable (geometry 0.7.2, schema 0.1.14)
+
+**The rule.** A spacer, or the `separators` plates, is built only when the component sets
+`separators`. Absent or 0 is none (`separatorsOf` in `model/defaults.ts` now defaults to 0, not 1);
+1 is a single spacer block; more is that many plates. It was not a default anyone chose to want: the
+spacer filled room that `auto` growth had only just made, and `auto` is already bounded by retention,
+so the well widens by about as much as the stack can lean and the cards stand up unaided. What the
+spacer cost was a printed part and its filament.
+
+**What `separators` did before, checked.** `separators` defaulted to 1 and 1 meant a spacer block.
+`cards.ts` and `tiles.ts` gave every upright stack that could grow `spacerAxis: "w"`; `realize.ts`
+then turned the gained room into a stored `spacer` part when the row had no loose elastic
+compartment, the spacer fitted (5 mm and over) and the tray had not yet printed one. So the default
+path did print spacers: `small-tiles` printed 4 on every seed. Now the default path gives the deck
+no `spacerAxis` and `elastic.w` only, so it is an ordinary compartment that takes its share of the
+row's slack by water-filling like a bin (`realize.ts` unchanged); a requirement has a spacer axis
+exactly when the component has `separators` of 1 or more. Test: no spacer for cards or tiles at any
+growth setting and any amount of room (`realize.test.ts`), none stored by an optimized layout
+(`layout/separators.test.ts`), and the same room is a spacer once `separators` is 1.
+
+**Two side effects.**
+
+- A deck in a row with bins now grows. The spacer branch ran only when the row had no loose
+  elastic compartment, so beside a bin or a growing pocket the bins took all the slack and the deck
+  never grew; now the deck is one of the elastic compartments and takes its capped share. That is
+  what §5.1 says should happen (water-filling up to each one's own cap); the spacer path was the
+  exception.
+- A deck that has to be widened for its cut now can be. A 30-card deck between two bins at its
+  minimum width is 14 mm wide, too narrow for a cut across the row (it needs 10 mm and two 3 mm
+  posts), and the tray threw a `CutFitError`; grown by `auto` the same tray builds.
+
+**Caps.** Along an upright stack, without plates (`stackGrowthMm`): the least of the growth setting,
+`UNPLATED_RETENTION` stack thicknesses, and the reachability bound below. With `separators` set, to
+any count (a single block fills the room solid as well as plates do; before, only counts above 1 did,
+because 1 was the default): `PLATED_RETENTION`, as before. With dividers, as before (§5.2).
+Growth is therefore never above what the contents hold, unless the user asked for plates. A number or
+`max` past the cap is cut to it, not given a spacer: there is no fallback part.
+
+**Reachability.** Without a spacer the stack is not pinned, it slides within the grown well, and one
+finger cut is centred on the well. Which cut matters: an upright deck is reached by the channel
+through its end walls (the walls the end cards' faces touch). That channel is centred on the card
+length across the stack and its width runs across the stack, so it does not care where along the
+well the stack stands; a stack away from an end wall leaves a gap the same channel opens into. It
+is a different cut that moves: a deck with no free end wall (between bins that are not its twin, or
+in a row of pockets) is cut across the row instead (`placeCutouts`, "the other axis"), through
+the front and back walls, centred on the well along the stack, `fingerPocket.width` wide
+(not scaled by `fit`; at most the well less two `POST_MM` posts). For that cut, with the stack T
+thick in a well W wide, a cut of width C and the stack against one end, the stack lies over
+`T − (W − C) / 2` of the cut. Requiring at least `MIN_REACH_OVERLAP` (M) of it:
+
+    W ≤ C + 2 × (T − M),   i.e. room W − T ≤ C + T − 2M     (`reachGrowthMm`)
+
+checked against the real placement (`cutouts.test.ts`): realized, with the stack standing against
+the left and then the right end of a grown well, the cut overlaps it by M at the cap and by less one
+millimetre more; its centre is the well's and its width the setting. Two refinements: a stack
+under M + `POST_MM` thick is asked only for what a post-limited cut gives it (T − 3), else a thin
+deck could not grow at all; and the bound is never negative.
+
+**M is `MIN_REACH_OVERLAP` = 10 mm.** The least of the stack that has to lie under the cut for
+fingertips to get onto the cards, taken as the fingertip width the cut rules already use
+(`MIN_CUT_MM`, the narrowest cut a finger fits, 10 mm; a test holds the two equal). It is the
+setting's own definition of "a fingertip", not a new number. At the default 25 mm cut the bound is
+`T + 5 mm`, so retention (T) is already the tighter and nothing changes; reachability only binds
+when the user narrows the cut, from 20 mm down (a 14 mm cut and a 23.5 mm stack: 17.5 mm of room,
+not 23.5).
+
+**Pre-change finding (geometry 0.7.1, the default `auto`, 25 mm cut), asked for in the brief.**
+At the `auto` cap the stack is given room equal to its own thickness (T up to 50), so W = 2T, and the
+worst overlap is `T − (2T − C) / 2 = C / 2` = 12.5 mm of the 25 mm cut, independent of T (for stacks
+over 50 mm thick, T/2 − 12.5 or more). Measured on the fixtures before the change (seeds 1 to 6): wells
+reached by the end-wall channel (all of `cards-heavy`, 24 of 30 of `small-tiles`) are not affected by
+where the stack stands; `tiles-minis` had 30 wells cut across the row, each a 25 mm stack in a well
+22.2 mm wider with no spacer, overlapping its 25 mm cut by 13.9 mm at worst; 6 `small-tiles` wells
+cut across were not grown. So no default-grown deck was out of reach, and none was close: the margin
+over M was 3.9 mm. It is not a live bug at defaults. It was one waiting for a narrower cut, which
+the spacer had hidden: a deck beside a spacer is cut through the part of the well left of the spacer
+(`besideSpacers`: centred on the cards), so the cut followed the stack. Without the spacer that
+guard is gone, which is why the bound is added now.
+
+**Limits.** The bound is on policy growth; room a tray is forced to give a stack (`levelMinFootprints`,
+spec §5.1) is not counted against it, as it is not against retention, so a well in a tray under a
+wider one can end up wider than the bound allows. After the change, on the fixtures, every
+across-cut well still overlaps its cut by at least 13.0 mm at either end. Divided wells are not
+bounded by it (each section would need its own); a divided well's cut is the end channel in
+practice. Plated wells are not, the plates pin the stack and the cut is placed beside them.
+
+**Flat storage.** Unaffected. A flat deck grows in height, where it is already held: its cards fill
+the well's footprint (clearance only), so nothing slides and nothing leans; the cut is a half-round
+through each long wall, centred on the long side and down to the floor, so it reaches the stack at
+any height. Neither bound applies (retention was never applied to flat either); a test pins the
+height growth unchanged under a narrow cut. Bulk and minis are untouched.
+
+**Versions.** Geometry 0.7.1 to 0.7.2, a PATCH, on the 0.5.1 precedent: `planTray` is unchanged, a
+tray realized from the same part at the same outer size has the same outer size, lip, inset and cuts
+(only the well's inside differs: wider, nothing standing in it), so trays printed before and after
+still mate and stack. The other candidate was a MINOR, but that line means "reprint the whole
+insert", which is false here, and 0.6.0's reason (the same project lays out to other outer tray
+sizes) does not hold: sizes follow the layout, not the spacer. Consequence: a stored 0.7.1 layout is
+current and still has its spacers until its plan is run again; they print as before. Schema stays
+0.1.14: no file this app writes changes, `separators` of 0 is accepted on reading but never written,
+and an explicit 1 or more means what it did. The only difference is that an absent `separators` now
+means none, which a default may do; and the inputs hash is unchanged for every project, so no plan
+goes stale. The field's hint says so, and the growth hint names the finger cut.
+
+**Measured** on the four fixtures, seeds 1 to 6, 50 000 iterations, before is commit a421b26.
+Printed parts as `printedParts` counts them (a spacer is a part); link is the whole share link.
+
+| fixture       | printed parts | spacers  | filler parts | fill %      | filament g   | link length            |
+| ------------- | ------------- | -------- | ------------ | ----------- | ------------ | ---------------------- |
+| `cards-heavy` | 14.0, same    | 0, same  | 2.0, same    | 99.70, same | 614, same    | 1791-1851 to 1790-1850 |
+| `bits-heavy`  | 9.0, same     | 0, same  | 0, same      | 99.78, same | 450, same    | 1766-1903 to 1767-1903 |
+| `tiles-minis` | 6.0, same     | 0, same  | 3.0, same    | 99.80, same | 1213 to 1219 | 1917-1966 to 1835-1889 |
+| `small-tiles` | 15.0 to 10.0  | 4.0 to 0 | 1.0 to 1.3   | 99.47, same | 414 to 400   | 1871-1969 to 1738-1865 |
+
+Nothing infeasible, and no fixture over 2 000 characters: the longest link is 1903 (`bits-heavy`, not
+changed); `small-tiles`, which was 31 characters under, is now 135 under, because four spacers
+fewer are stored. `small-tiles` drops 4 spacers on every seed (its 15 parts were 11 trays and
+fillers plus those 4) and its fill is unchanged; `tiles-minis` is 6 g heavier (1219 against 1213),
+its wells having grown with nothing to hold back.
+
+**Not done.** A reachability bound for dividers' sections. Making the across cut follow the stack
+in a grown well (an off-centre cut would remove the bound; it changes cut placement for every tray
+with an across cut, so it was left). Stripping the spacers out of a stored 0.7.1 layout at print
+time, which would hide them without re-running the plan.
 
 ## 6. The objective
 
@@ -917,3 +1047,4 @@ become infeasible, and no guarded fixture may cross 2000 characters.
 - Changing how `separators` plates work; they are the retention mechanism a
   grown deck already has, and this spec only makes them matter more often. (Dividers, §5.2, do
   not combine with them.)
+  (§5.3 later made them opt-in instead of the default, without changing how a plate is made.)

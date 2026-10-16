@@ -17,6 +17,7 @@ import {
   partOf,
   tiles,
 } from "./test-helpers";
+import { MIN_REACH_OVERLAP } from "./constants";
 import type { OuterSize, RealizeOptions, TrayPartReq } from "./types";
 
 // These cover sizing with a locating lip available (the lipped wall, upper-tray
@@ -184,10 +185,61 @@ describe("upright cards and tiles: one finger channel", () => {
     ]);
   });
 
+  // Reachability (minimal-trays spec §5.3): a deck with no free end wall is reached by a cut across
+  // the row, centred on its well. With nothing pinning the deck it may stand at either end of a
+  // grown well, so growth stops where the cut still covers MIN_REACH_OVERLAP of it there.
+  it("keeps a deck at either end of its grown well under the cut across the row", () => {
+    const narrow: Settings = { ...s, fingerPocket: { ...s.fingerPocket, width: 14 } };
+    const pile = (id: string) =>
+      bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
+    const deck = cards({
+      growth: { stack: "max" },
+      groupId: "g",
+      shortSide: 63,
+      longSide: 88,
+      decks: decks(80),
+    });
+    const sorted = partOf(
+      [pile("b1"), deck, pile("b2")],
+      "shallow+upright-long+shallow|strip|split1",
+      narrow,
+    );
+    const part = { ...sorted, compartments: [1, 0, 2].map((i) => at(sorted.compartments, i)) };
+    const stack = at(part.compartments, 1).minW; // the deck's own thickness in its well
+    // a lot of room along the row: the deck takes what it may, the bins what they may
+    const min = minOuter(part, narrow, ground);
+    const r = realize(part, narrow, ground, { ...min, w: min.w + 200 });
+    const well = at(r.compartments, 1);
+    const cuts = cutsOf(well).flatMap((f) => (f.type === "wallCutout" ? [f] : []));
+    expect(cuts.map((f) => f.side).sort()).toEqual(["back", "front"]);
+    for (const f of cuts) {
+      expect(f.width).toBe(14);
+      // centred on the well, as the cut is placed
+      expect(f.at).toBeCloseTo(well.x + well.w / 2, 2);
+      const cutFrom = f.at - f.width / 2;
+      const cutTo = f.at + f.width / 2;
+      // the stack against the left end, then against the right
+      const ends: [number, number][] = [
+        [well.x, well.x + stack],
+        [well.x + well.w - stack, well.x + well.w],
+      ];
+      for (const [from, to] of ends) {
+        const overlap = Math.min(to, cutTo) - Math.max(from, cutFrom);
+        expect(overlap).toBeGreaterThanOrEqual(MIN_REACH_OVERLAP - 0.011);
+      }
+    }
+    // it is the bound that stopped the growth, not the retention: the room is less than a stack
+    expect(well.w - stack).toBeLessThan(stack);
+    expect(well.w - stack).toBeCloseTo(14 + stack - 2 * MIN_REACH_OVERLAP, 1);
+    // with the retention's whole stack of room the deck at an end would not reach the cut by M
+    expect(stack - (2 * stack - 14) / 2).toBeLessThan(MIN_REACH_OVERLAP);
+  });
+
   it("keeps such a cut clear of the deck's spacer", () => {
     const dial = (id: string) => custom({ id, groupId: "g", count: 1 });
     const deck = cards({
       growth: { stack: "max" },
+      separators: 1,
       groupId: "g",
       shortSide: 63,
       longSide: 88,
@@ -214,7 +266,10 @@ describe("upright cards and tiles: one finger channel", () => {
   });
 
   it("notches a spacer standing in a channelled well to match the channel", () => {
-    const one = partOf([cards({ growth: { stack: "max" } })], "upright-long|strip|split1");
+    const one = partOf(
+      [cards({ growth: { stack: "max" }, separators: 1 })],
+      "upright-long|strip|split1",
+    );
     const min = minOuter(one, s, ground);
     const r = realize(one, s, ground, { ...min, w: min.w + 10 });
     expect(r.spacers).toHaveLength(1);
@@ -232,6 +287,7 @@ describe("upright cards and tiles: one finger channel", () => {
     const steep = largestChamfer({ ...s, wall: 3, floor: 3 });
     const deck = cards({
       growth: { stack: "max" },
+      separators: 1,
       shortSide: 25,
       longSide: 80,
       sleeve: "none",
