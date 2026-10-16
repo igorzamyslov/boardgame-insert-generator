@@ -48,11 +48,12 @@ export interface Persistence {
   start(hash: string): void;
   /** The open project went into a file, so leaving it loses nothing. */
   markSavedToFile(): void;
-  /** Nothing can be stored here and the open project has changes no file holds. */
+  /** Nothing can be stored here (no storage, or the last write failed) and the open project has changes no file holds. */
   hasUnsavedWork(): boolean;
   openParsed(result: ParseResult, source: OpenSource): boolean;
   openProject(id: string): void;
   newProject(): void;
+  /** Removes a stored project (the screen asks first); opens the next one when it was the open one. */
   deleteProject(id: string): void;
   importJson(text: string): boolean;
   onExternalChange(): void;
@@ -101,7 +102,7 @@ export function createPersistence(
   deps.guardLeaving?.(() => hasUnsavedWork());
 
   function hasUnsavedWork(): boolean {
-    return active && !store.available && contentKey() !== fileKey;
+    return active && (!store.available || state.saveFailed.value) && contentKey() !== fileKey;
   }
 
   /** The stored project as it loads, serialized; null when absent, "" when unreadable. */
@@ -388,10 +389,6 @@ export function createPersistence(
       setCurrent(createProject(), noForeign(), []);
     },
     deleteProject(id) {
-      const name = state.projects.value.find((e) => e.id === id)?.name ?? "this project";
-      if (!deps.confirm(`Delete “${name}” from this browser? This can't be undone.`)) {
-        return;
-      }
       const wasCurrent = id === state.project.value.id;
       if (wasCurrent) {
         clearTimer();

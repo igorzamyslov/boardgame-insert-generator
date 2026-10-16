@@ -8,6 +8,8 @@ import { APP_VERSION, BUILD_ID } from "../model/version";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
+import { errorText } from "../util/errors";
+import { AppHeader } from "../ui/AppHeader";
 import { BoxForm } from "../ui/BoxForm";
 import { AddKinds, ComponentList } from "../ui/components/ComponentList";
 import { trayNumbersByComponent } from "../ui/identity";
@@ -43,14 +45,18 @@ import {
 } from "./actions";
 import { downloadBlob } from "./download";
 import type { MeshSource } from "./meshes";
-import { CONFLICT_CODE } from "./persistence";
+import { CONFLICT_CODE, OPEN_FAILED_CODE } from "./persistence";
 import { canOptimize } from "./runner";
+import { shareFile } from "./sendFile";
+import type { ShareFile } from "./sendFile";
 import type { AppStore } from "./store";
 
 export interface AppProps {
   store: AppStore;
   meshes: MeshSource;
   download?: (blob: Blob, filename: string) => void;
+  /** Puts a file into the phone's share sheet (default: `navigator.share`); tests inject it. */
+  share?: ShareFile;
   viewerProps?: Pick<ViewerProps, "webgl" | "loadScene">;
 }
 
@@ -122,36 +128,8 @@ export function App(props: AppProps) {
   const showAssembly = assemblyFor === project.id && layout !== undefined;
   const mainRef = useRef<HTMLElement>(null);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const restoreFocus = useRef(false);
-  const menuRef = useRef<HTMLDetailsElement>(null);
-  const closeMenu = () => {
-    if (menuRef.current) {
-      menuRef.current.open = false;
-    }
-  };
-  // The Project menu is a <details>: it closes on a click outside it, on Escape (focus goes back
-  // to its button), and on choosing a project.
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      const menu = menuRef.current;
-      if (menu?.open && e.target instanceof Node && !menu.contains(e.target)) {
-        menu.open = false;
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      const menu = menuRef.current;
-      if (e.key === "Escape" && menu?.open) {
-        menu.open = false;
-        menu.querySelector("summary")?.focus();
-      }
-    };
-    document.addEventListener("click", onClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("click", onClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
   const [openSection, setOpenSection] = useState<SectionId | null>(
     project.components.length === 0 ? "box" : "components",
   );
@@ -254,6 +232,44 @@ export function App(props: AppProps) {
     setOpenSection("components");
   };
   const notices: readonly Notice[] = s.appNotices.value;
+  // The file chooser lives here, not in the menu: the menu may close while the system dialog is up.
+  async function readFile(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+    let text: string;
+    try {
+      text = await file.text();
+    } catch (e) {
+      store.pushNotice({
+        level: "error",
+        code: OPEN_FAILED_CODE,
+        message: `Couldn't read ${file.name}: ${errorText(e)}`,
+      });
+      return;
+    } finally {
+      input.value = "";
+    }
+    store.importJson(text);
+  }
+  const saveFile = (): void => {
+    download(exportJsonFile(project, s.foreign.value), jsonFileName(project));
+    store.markSavedToFile();
+  };
+  // Phone: the share sheet takes the file; where it can't, Send file is Save file.
+  const sendFile = async (): Promise<void> => {
+    const name = jsonFileName(project);
+    const file = new File([exportJsonFile(project, s.foreign.value)], name, {
+      type: "application/json",
+    });
+    const result = await (props.share ?? shareFile)(file);
+    if (result === "shared") {
+      store.markSavedToFile();
+    } else if (result === "unsupported") {
+      saveFile();
+    }
+  };
   // What the plan holds, for the sentence, the Export button and the tray numbers of the list.
   const parts = layout ? numberParts(printable) : [];
   const planCurrent = layout !== undefined && !s.stale.value && run.status !== "running";
@@ -268,44 +284,48 @@ export function App(props: AppProps) {
         <SettingsContext.Provider value={projSettings}>
           <div class="pf-app">
             <div class="app-top">
-              <header class="pf-app__bar">
-                <div class="app-title-block">
-                  <h1 class="pf-app__title">Insert Generator</h1>
-                  <span class="app-project-name">
-                    {project.name === "" ? "(unnamed)" : project.name}
-                  </span>
-                </div>
-                <div class="pf-toolbar__group">
-                  <details class="app-menu" ref={menuRef}>
-                    <summary>Project</summary>
-                    <div class="app-menu-panel">
-                      <ProjectMenu
-                        name={project.name}
-                        currentId={project.id}
-                        projects={s.projects.value}
-                        storageAvailable={store.storageAvailable}
-                        onRename={(name) => store.edit((q) => renameProject(q, name))}
-                        onOpen={(id) => {
-                          closeMenu();
-                          store.openProject(id);
-                        }}
-                        onNew={() => {
-                          closeMenu();
-                          store.newProject();
-                        }}
-                        onDelete={(id) => store.deleteProject(id)}
-                        onImport={(text) => {
-                          store.importJson(text);
-                        }}
-                        onExportJson={() => {
-                          download(exportJsonFile(project, s.foreign.value), jsonFileName(project));
-                          store.markSavedToFile();
-                        }}
-                      />
-                    </div>
-                  </details>
-                </div>
-              </header>
+              <AppHeader
+                name={project.name}
+                onRename={(name) => store.edit((q) => renameProject(q, name))}
+                saveState={s.saveState.value}
+                canUndo={store.canUndo.value}
+                canRedo={store.canRedo.value}
+                onUndo={() => store.undo()}
+                onRedo={() => store.redo()}
+                onDownload={() => setExportOpen(true)}
+                downloadDisabled={layout === undefined}
+                menuDot={notices.length > 0}
+                menu={(close) => (
+                  <ProjectMenu
+                    name={project.name}
+                    currentId={project.id}
+                    projects={s.projects.value}
+                    storageAvailable={store.storageAvailable}
+                    onClose={close}
+                    onOpen={(id) => store.openProject(id)}
+                    onNew={() => store.newProject()}
+                    onDelete={(id) => store.deleteProject(id)}
+                    onOpenFile={() => fileRef.current?.click()}
+                    onSaveFile={saveFile}
+                    onSendFile={() => {
+                      void sendFile();
+                    }}
+                    onSettings={() => showSection("settings")}
+                  />
+                )}
+              />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                class="visually-hidden"
+                tabIndex={-1}
+                aria-hidden="true"
+                aria-label="Open an insert file"
+                onChange={(e) => {
+                  void readFile(e.currentTarget);
+                }}
+              />
               {notices.length > 0 ? (
                 <div class="app-notices">
                   <Notices
@@ -607,7 +627,7 @@ export function App(props: AppProps) {
                         setOpenSection("components");
                       }}
                     >
-                      Undo
+                      Undo removal
                     </button>
                     <button type="button" class="pf-link" onClick={() => setRemoved(null)}>
                       Dismiss
