@@ -495,7 +495,6 @@ export function PlanView(props: PlanViewProps) {
               locked={selectedLocked}
               sizeLocked={sizeLockedKeys.has(selectedPart.spec.key)}
               stale={props.stale}
-              advanced={advanced}
               onToggleSizeLock={
                 advanced ? () => onToggleSizeLock(selectedPart.spec.key) : undefined
               }

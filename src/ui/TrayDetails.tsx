@@ -14,8 +14,6 @@ export interface TrayDetailsProps {
   stale?: boolean;
   /** When given, lockable trays get a "Lock size" / "Unlock size" toggle. */
   onToggleSizeLock?: () => void;
-  /** Show positions and locks too; off, only what the tray is and what it holds. Default on. */
-  advanced?: boolean;
 }
 
 /** What a merged part is made of, and how it prints. */
@@ -37,7 +35,6 @@ export function TrayDetails({
   sizeLocked = false,
   stale = false,
   onToggleSizeLock,
-  advanced = true,
 }: TrayDetailsProps) {
   const t = part.spec;
   const contents = t.compartments.filter((c) => c.contents !== "").map((c) => c.contents);
@@ -64,32 +61,26 @@ export function TrayDetails({
           <dt>Layer</dt>
           <dd>{t.level === 0 ? "1 (bottom)" : String(t.level + 1)}</dd>
         </div>
-        {advanced ? (
-          <div>
-            <dt>Position</dt>
-            <dd>{`${t.x.toFixed(1)} mm from the left, ${t.y.toFixed(1)} mm from the front`}</dd>
-          </div>
-        ) : null}
+        <div>
+          <dt>Position</dt>
+          <dd>{`${t.x.toFixed(1)} mm from the left, ${t.y.toFixed(1)} mm from the front`}</dd>
+        </div>
         {part.parentNumber !== null ? (
           <div>
             <dt>{t.part === "riser" ? "Carries" : "Sits on"}</dt>
             <dd>{`Tray #${part.parentNumber}`}</dd>
           </div>
         ) : null}
-        {advanced ? (
-          <>
-            <div>
-              <dt>Position locked</dt>
-              <dd>{locked ? "Yes" : "No"}</dd>
-            </div>
-            <div>
-              <dt>Size locked</dt>
-              <dd>{sizeLocked ? "Yes" : "No"}</dd>
-            </div>
-          </>
-        ) : null}
+        <div>
+          <dt>Position locked</dt>
+          <dd>{locked ? "Yes" : "No"}</dd>
+        </div>
+        <div>
+          <dt>Size locked</dt>
+          <dd>{sizeLocked ? "Yes" : "No"}</dd>
+        </div>
       </dl>
-      {advanced && onToggleSizeLock && isLockable(t) ? (
+      {onToggleSizeLock && isLockable(t) ? (
         <p class="button-row">
           <button type="button" onClick={onToggleSizeLock}>
             {sizeLocked ? "Unlock size" : "Lock size"}
