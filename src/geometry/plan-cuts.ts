@@ -1,5 +1,7 @@
 import type { FeatureSpec, Side, TraySpec } from "../model/types";
 import { MIN_FEATURE_MM, POST_MM, SPEC_TOLERANCE as TOL } from "../model/settings";
+import { plainEdge } from "../model/lip";
+import type { BottomEdge } from "../model/lip";
 import {
   OPPOSITE,
   alongX,
@@ -28,6 +30,8 @@ interface Frame {
   d: number;
   h: number;
   chamfer: number;
+  // The bottom edge with a groove; a plain chamfer when absent.
+  edge?: BottomEdge;
   minCut: number; // the narrowest cut: MIN_CUT_MM, or fingerPocket.width if smaller
 }
 
@@ -133,7 +137,9 @@ export function planCut(
   if (n > own.v1 - own.v0 + TOL) {
     fail(`${where}: its ${n} mm floor notch leaves the compartment`);
   }
-  const material = (distance: number, height: number): number => distance + height - frame.chamfer;
+  const edge = frame.edge ?? plainEdge(frame.chamfer);
+  const material = (distance: number, height: number): number =>
+    distance + height - edge.at(height);
   const sideHeight = n > 0 ? 0 : bottomZ + (2 - Math.SQRT2) * r;
   const behind = {
     front: frame.d - (face + n),
@@ -147,7 +153,7 @@ export function planCut(
     (n > 0 && material(behind, 0) < MIN_FEATURE_MM - TOL);
   if (thin) {
     fail(
-      `${where} leaves less than ${MIN_FEATURE_MM} mm of wall and floor against the ${frame.chamfer} mm bottom chamfer`,
+      `${where} leaves less than ${MIN_FEATURE_MM} mm of wall and floor against the ${edge.reach} mm bottom ${edge.top === edge.reach ? "chamfer" : "groove"}`,
     );
   }
   return {

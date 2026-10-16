@@ -7,6 +7,8 @@ import {
   maxCornerRadius,
 } from "../model/settings";
 import { keepsApart } from "../model/cut-rules";
+import { asEdge } from "../model/lip";
+import type { BottomEdge } from "../model/lip";
 import { cutFootprints, notchFloorBox } from "./plan-cuts";
 import { MIN_RELIEF_RADIUS, RELIEF_CUT } from "./plan-types";
 import type { CompartmentPlan, Rect, ReliefPlan } from "./plan-types";
@@ -16,9 +18,9 @@ interface TraySize {
   d: number;
 }
 
-// How far the bottom chamfer pulls the outer faces in at height z (0 above the chamfer).
-function pullIn(chamfer: number, z: number): number {
-  return Math.max(0, chamfer - z);
+// How far the bottom chamfer (or the groove) pulls the outer faces in at height z (0 above it).
+function pullIn(edge: BottomEdge, z: number): number {
+  return Math.max(0, edge.at(z) - z);
 }
 
 // Material on one side of a compartment that a corner relief may cut into: everything above
@@ -32,11 +34,11 @@ function sideBudget(
   plans: CompartmentPlan[],
   self: CompartmentPlan,
   side: Side,
-  chamfer: number,
+  edge: BottomEdge,
 ): number {
   const c = self.rect;
   const toFace = { front: c.y0, back: size.d - c.y1, left: c.x0, right: size.w - c.x1 }[side];
-  let budget = toFace - pullIn(chamfer, self.floorZ) - MIN_WALL_MM;
+  let budget = toFace - pullIn(edge, self.floorZ) - MIN_WALL_MM;
   const obstacles = plans.flatMap((other) => (other === self ? [] : [other.rect]));
   for (const o of obstacles) {
     const overlapsX = o.x0 < c.x1 && o.x1 > c.x0;
@@ -105,16 +107,17 @@ export function planReliefs(
   plans: CompartmentPlan[],
   self: CompartmentPlan,
   diameter: number,
-  chamfer: number,
+  chamferOrEdge: number | BottomEdge,
 ): ReliefPlan[] {
   if (!(diameter > 0)) {
     return [];
   }
+  const edge = asEdge(chamferOrEdge);
   const budget: Record<Side, number> = {
-    front: sideBudget(size, plans, self, "front", chamfer),
-    back: sideBudget(size, plans, self, "back", chamfer),
-    left: sideBudget(size, plans, self, "left", chamfer),
-    right: sideBudget(size, plans, self, "right", chamfer),
+    front: sideBudget(size, plans, self, "front", edge),
+    back: sideBudget(size, plans, self, "back", edge),
+    left: sideBudget(size, plans, self, "left", edge),
+    right: sideBudget(size, plans, self, "right", edge),
   };
   const c = self.rect;
   const maxR = Math.min(diameter / 2, (c.x1 - c.x0) / 2, (c.y1 - c.y0) / 2);
@@ -156,7 +159,7 @@ interface CutPoint {
 
 function cornerDiscs(
   compartments: CompartmentPlan[],
-  chamfer: number,
+  edge: BottomEdge,
   points: readonly CutPoint[],
 ): CornerDisc[] {
   const discs: CornerDisc[] = points.map((pt) => ({ ...pt, rho: 0, e: 0 }));
@@ -169,16 +172,16 @@ function cornerDiscs(
     );
   };
   for (const c of compartments) {
-    const e = pullIn(chamfer, c.floorZ);
+    const e = pullIn(edge, c.floorZ);
     corners(c.rect, e);
     // A cut is conservatively measured at its lowest line; one with a floor notch (it goes down
     // through the bottom, and into the floor) at the bed.
     for (const cut of c.cuts) {
       if (cut.notch > 0) {
-        corners(cut, chamfer);
-        corners(notchFloorBox(cut), chamfer);
+        corners(cut, edge.reach);
+        corners(notchFloorBox(cut), edge.reach);
       } else {
-        corners(cut, pullIn(chamfer, cut.bottomZ));
+        corners(cut, pullIn(edge, cut.bottomZ));
       }
     }
     c.reliefs.forEach((r) => discs.push({ x: r.cx, y: r.cy, rho: r.r, e }));
@@ -212,12 +215,13 @@ function nearestCorner(size: TraySize, disc: CornerDisc): { p: number; q: number
 export function planCornerRadius(
   size: TraySize,
   setting: number,
-  chamfer: number,
+  chamferOrEdge: number | BottomEdge,
   compartments: CompartmentPlan[],
   points: readonly CutPoint[] = [],
 ): number {
+  const edge = asEdge(chamferOrEdge);
   let r = Math.max(0, Math.min(setting, Math.min(size.w, size.d) / 2 - 0.01));
-  for (const disc of cornerDiscs(compartments, chamfer, points)) {
+  for (const disc of cornerDiscs(compartments, edge, points)) {
     const { p, q } = nearestCorner(size, disc);
     const onFace = faceMargin(p, q);
     if (onFace !== null) {
@@ -226,7 +230,7 @@ export function planCornerRadius(
       r = Math.min(r, maxCornerRadius(p, q, disc.rho + disc.e));
     }
   }
-  return Math.max(r, chamfer);
+  return Math.max(r, edge.reach);
 }
 
 // The thinnest outer material left at a cut corner or relief when the outer corner radius is
@@ -236,11 +240,11 @@ export function planCornerRadius(
 export function thinCorner(
   size: TraySize,
   radius: number,
-  chamfer: number,
+  chamferOrEdge: number | BottomEdge,
   compartments: CompartmentPlan[],
   points: readonly CutPoint[] = [],
 ): string | null {
-  for (const disc of cornerDiscs(compartments, chamfer, points)) {
+  for (const disc of cornerDiscs(compartments, asEdge(chamferOrEdge), points)) {
     const { p, q } = nearestCorner(size, disc);
     const onFace = faceMargin(p, q);
     if (onFace !== null) {

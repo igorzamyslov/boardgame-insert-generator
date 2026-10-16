@@ -301,14 +301,16 @@ export const lippedLower = traySpec({
   compartments: [compartment({ x: 2.9, y: 2.9, w: 94.2, d: 54.2 })],
 });
 
-// Upper tray on it: inset 1.45 per side, h ≥ lip height + 3, chamfer ≥ 0.5.
+// Upper tray on it, flush: the same outer footprint, with a groove under its outer edge for the
+// lip (1.45 in, 0.5 foot chamfer, 2.85 high at the outer face), so a wall of 2.56 around the wells
+// (grooveWall: enough that no well corner shrinks the 3 mm outer corner radius); h ≥ lip height + 3.
 export const upperLevel1 = traySpec({
   key: "upper:p0:0",
   level: 1,
-  w: 100 - 2 * 1.45,
-  d: 60 - 2 * 1.45,
+  w: 100,
+  d: 60,
   h: 20,
-  compartments: [compartment({ x: 1.6, y: 1.6, w: 100 - 2.9 - 3.2, d: 60 - 2.9 - 3.2 })],
+  compartments: [compartment({ x: 2.56, y: 2.56, w: 100 - 5.12, d: 60 - 5.12 })],
 });
 
 // The components and settings of a test/fixtures project.

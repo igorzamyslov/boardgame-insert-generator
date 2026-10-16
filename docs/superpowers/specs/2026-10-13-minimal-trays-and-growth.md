@@ -130,17 +130,18 @@ with `part: "leftover"`, and the `stack`, `level` and `z` that the schema alread
 SCHEMA_VERSION bump). `GEOMETRY_VERSION` is 0.5.0.
 
 - **Stack minimum** (`levelMinFootprints`, `stack.ts`): tray k must hold its own requirement and the
-  inset footprint of every tray above it, `max over j ≥ k of req_j + 2·(j − k)·inset`. Level 0's
+  footprint of every tray above it, `max over j ≥ k of req_j` (until geometry 0.8.0, with the lip on,
+  the inset footprint: `req_j + 2·(j − k)·inset`; stacks are flush now, design spec §6.1). Level 0's
   value is the old `stackMinFootprint`, so `stackAllowed` and the tree's minimum extents are
   unchanged: fillers only ever take slack, they never add to a minimum.
 - **Per level** (`placeStack`, `fill.ts`): each tray chooses its size with `axisExtent` against the
-  room of its own level (level 0: the leaf; level k: the tray below, inset), with its own
+  room of its own level (level 0: the leaf; level k: the tray below, flush; inset before 0.8.0), with its own
   absorbable slack (`levelAbsorb`), its own size lock (`levelLockCap`) and the bed. Slack it cannot
   or may not absorb becomes fillers beside it, and a gap too narrow to be a part
   (`minFillerUpper` for level 1 and up, which is wider than `minFiller` because an upper tray carries
   the larger upper chamfer) is absorbed by the tray. Trays are placed in the corner of the tray
-  below, one inset in (since §6.4, at the far end of an axis when that keeps the filler off a finger
-  cut).
+  below, flush (one inset in before geometry 0.8.0; since §6.4, at the far end of an axis when that
+  keeps the filler off a finger cut).
 - **Filler height.** A filler beside the bottom tray stands the full box height, as before. A filler
   in level k stands from that level's floor to the top of the stack: the trays above are smaller and
   stand inside tray k, so nothing else would fill the space over it, and a stack must reach the top
@@ -149,7 +150,8 @@ SCHEMA_VERSION bump). `GEOMETRY_VERSION` is 0.5.0.
   follows its tray, moving up with it and giving up the height of every level from its own up, so
   its top stays on the plane. It does not take part in the split, as spares do not.
 - **Hard-rule checker** (`test-hard-rules.ts`): level k must stand in a corner of level k − 1, one
-  inset in and no larger than its inset footprint, not exactly its footprint; an in-level filler
+  inset in and no larger than its inset footprint, not exactly its footprint (since 0.8.0: flush at
+  one end of each axis, no larger than the tray below); an in-level filler
   must be inside the tray below, apart from its level's tray, and run from its level's floor to the
   top of the stack.
 - **Score.** No filler-count term was added: `WEIGHTS.trays` already charges 20 000 per printed
@@ -1145,7 +1147,8 @@ for ordering has to be of that size to move it.
 80 000 per mm². For each tray and axis: the extra thickness per side that the stack forces on it
 (its footprint minus its own minimum, taken from `needW` / `needD`), less what the tray absorbs as
 room for its contents or walls the user allowed (`capW`, the same `usable` size `leftover` uses),
-less `2·inset` for each level above it (an equal tray above costs that, in any order). The square
+less `2·inset` for each level above it (an equal tray above costs that, in any order; nothing since
+geometry 0.8.0, which has no inset). The square
 makes a few millimetres cheap and a wall that carries a whole footprint dear: 1 mm per side is
 80 000 (two fillers), 2.5 mm is `coverage`, 10 mm is 8 % of the box. It is capped at
 `SWOLLEN_CAP_MM` (10) per axis, so a tray costs at most 16 million and thirty swollen trays still

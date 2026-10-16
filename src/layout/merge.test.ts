@@ -316,6 +316,29 @@ describe("mergeParts: a filler in a stack level (it stands from the level's floo
     expect(merged(mergeParts([ground, short], inputs()))).toHaveLength(0);
   });
 
+  it("with the lip on, a filler in a stack level stays a part of its own: it has a groove for the lip", () => {
+    // Its groove runs along its outer edge, over the lip of the tray below, so a bridge to a part
+    // beside it would reach over the lip. The same two fillers merge with the lip off (above).
+    const lipOn = { lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
+    expect(mergeParts([ground, ledge], inputs(lipOn))).toHaveLength(2);
+    const a = filler({ key: "leftover:1", x: 0, y: 0, w: 5, d: 40, z: 28.4, h: 6.6, level: 1 });
+    const b = filler({
+      key: "leftover:2",
+      x: 5 + GAP,
+      y: 0,
+      w: 40,
+      d: 10,
+      z: 28.4,
+      h: 6.6,
+      level: 1,
+    });
+    expect(merged(mergeParts([a, b], inputs(lipOn)))).toHaveLength(0);
+    // fillers on the floor are not affected: nothing under them has a lip
+    const g1 = filler({ key: "leftover:3", x: 0, y: 0, w: 10, d: 40 });
+    const g2 = filler({ key: "leftover:4", x: 10 + GAP, y: 0, w: 40, d: 10 });
+    expect(merged(mergeParts([g1, g2], inputs(lipOn)))).toHaveLength(1);
+  });
+
   it("two fillers of one level, on the same floor, merge as any two (and stand as they are)", () => {
     const a = filler({ key: "leftover:1", x: 0, y: 0, w: 5, d: 40, z: 28.4, h: 6.6, level: 1 });
     const b = filler({

@@ -13,8 +13,9 @@ function ctxOf(reqs: TrayRequirement[], o: Parameters<typeof makeInput>[1] = {})
 
 describe("fill: a stack level holds a tray plus fillers", () => {
   // fakeMeasure: a 100 × 60 part is 10600 × 6600 units lipped (it carries a tray), a 50 × 40 part
-  // 5400 × 4400 unlipped, a 52 × 42 part 5800 × 4800 lipped. Inset 145, gap 20, and the thinnest
-  // filler beside an upper tray is 260 (the upper chamfer is 0.5 mm: 2 × (0.5 + 0.8) mm).
+  // 5400 × 4400 unlipped, a 52 × 42 part 5800 × 4800 lipped. A stack is flush (no inset), the gap
+  // is 20, and the thinnest filler beside an upper tray is 550 (2 × (the groove's reach, 1.95 mm,
+  // + 0.8 mm)).
   const wide = boxReq("wide", 100, 60, 20);
   const small = boxReq("small", 50, 40, 10);
   const mid = boxReq("mid", 52, 42, 20);
@@ -32,13 +33,8 @@ describe("fill: a stack level holds a tray plus fillers", () => {
     expect(upper?.w).toBe(5400);
     expect(upper?.d).toBe(4400);
     expect(sp.leftovers).toEqual([]);
-    // along X beside the upper tray, then below it along Y, both inside the lower tray's lip ring
-    const region = {
-      x: ctx.inset,
-      y: ctx.inset,
-      w: 10600 - 2 * ctx.inset,
-      d: 6600 - 2 * ctx.inset,
-    };
+    // along X beside the upper tray, then below it along Y, both flush on the lower tray
+    const region = { x: 0, y: 0, w: 10600, d: 6600 };
     expect(sp.fillers).toEqual([
       {
         level: 1,
@@ -75,27 +71,28 @@ describe("fill: a stack level holds a tray plus fillers", () => {
 
   it("absorbs a level's slack too narrow to be a part, as the bottom tray does", () => {
     const ctx = ctxOf([mid, small]);
-    // the upper level's room is 5510 wide, 110 more than the tray: under minFillerUpper + gap
+    // the upper level's room is 5800 wide, 400 more than the tray: under minFillerUpper + gap
     const sp = placeStack(ctx, stackLevels(ctx, [item(0), item(1)]), {
       x: 0,
       y: 0,
       w: 5800,
       d: 4800,
     });
-    expect(sp.trays[1]?.w).toBe(5800 - 2 * ctx.inset);
-    expect(sp.trays[1]?.d).toBe(4800 - 2 * ctx.inset);
+    expect(sp.trays[1]?.w).toBe(5800);
+    expect(sp.trays[1]?.d).toBe(4800);
     expect(sp.fillers).toEqual([]);
   });
 
-  it("makes a filler no thinner than the upper chamfer needs", () => {
+  it("makes a filler no thinner than the upper groove needs", () => {
     const ctx = ctxOf([mid, small]);
-    expect(ctx.minFillerUpper).toBe(260);
-    // a leaf 170 wider than the bottom tray's minimum is absorbed by it: the upper level then has
-    // room for a filler exactly minFillerUpper wide
+    // 2 × (reach 1.95 + 0.8) = 5.5 mm: the groove's foot takes 1.95 mm of the bottom face each side
+    expect(ctx.minFillerUpper).toBe(550);
+    // the upper tray (5400) and a filler exactly minFillerUpper wide, a gap between them: the level
+    // is 5400 + 20 + 550 wide, and the bottom tray, which is 5800 at least, takes the rest
     const exact = placeStack(ctx, stackLevels(ctx, [item(0), item(1)]), {
       x: 0,
       y: 0,
-      w: 5800 + 170,
+      w: 5400 + ctx.gap + ctx.minFillerUpper,
       d: 4800,
     });
     expect(exact.trays[0]?.w).toBe(5970);
@@ -105,11 +102,11 @@ describe("fill: a stack level holds a tray plus fillers", () => {
     const less = placeStack(ctx, stackLevels(ctx, [item(0), item(1)]), {
       x: 0,
       y: 0,
-      w: 5800 + 169,
+      w: 5400 + ctx.gap + ctx.minFillerUpper - 1,
       d: 4800,
     });
     expect(less.fillers).toEqual([]);
-    expect(less.trays[1]?.w).toBe(5800 + 169 - 2 * ctx.inset);
+    expect(less.trays[1]?.w).toBe(5400 + ctx.gap + ctx.minFillerUpper - 1);
   });
 
   it("lets an elastic upper tray grow into its level instead of printing a filler", () => {
@@ -122,8 +119,8 @@ describe("fill: a stack level holds a tray plus fillers", () => {
       d: 6600,
     });
     expect(sp.fillers).toEqual([]);
-    expect(sp.trays[1]?.w).toBe(10600 - 2 * ctx.inset);
-    expect(sp.trays[1]?.d).toBe(6600 - 2 * ctx.inset);
+    expect(sp.trays[1]?.w).toBe(10600);
+    expect(sp.trays[1]?.d).toBe(6600);
   });
 
   it("emits in-level fillers from evaluate, in their stack and level, off the bottom crossing", () => {
@@ -156,9 +153,9 @@ describe("fill: a stack level holds a tray plus fillers", () => {
       d: 6600,
     });
     const [t0, t1, t2] = sp.trays;
-    // each tray stands inside the one below it, in its corner
-    expect(t1?.x).toBe(ctx.inset);
-    expect(t2?.x).toBe(2 * ctx.inset);
+    // each tray stands flush on the one below it, in its corner
+    expect(t1?.x).toBe(0);
+    expect(t2?.x).toBe(0);
     const levels = new Set(sp.fillers.map((f) => f.level));
     expect([...levels].sort()).toEqual([1, 2]);
     const top = (t0?.h ?? 0) + (t1?.h ?? 0) + (t2?.h ?? 0);
@@ -229,7 +226,7 @@ describe("fill: which end of its level an upper tray stands at (spec §6.4)", ()
       w: 10600,
       d: 6600,
     });
-    const ring = { x: ctx.inset, y: ctx.inset, w: 10600 - 2 * ctx.inset, d: 6600 - 2 * ctx.inset };
+    const ring = { x: 0, y: 0, w: 10600, d: 6600 };
     return { ctx, sp, ring, tray: sp.trays[1] };
   };
 
@@ -291,11 +288,11 @@ describe("fill: which end of its level an upper tray stands at (spec §6.4)", ()
     });
     const [, mid, top] = sp.trays;
     expect(mid).toBeDefined();
-    expect((mid?.x ?? 0) + (mid?.w ?? 0)).toBe(10600 - ctx.inset);
+    expect((mid?.x ?? 0) + (mid?.w ?? 0)).toBe(10600);
     expect(top).toBeDefined();
   });
 
-  it("puts the next level in the ring of the tray at the far end", () => {
+  it("puts the next level on the tray at the far end, flush with its far wall", () => {
     const ctx = ctxOf([wide, cutOn("right"), boxReq("tiny", 30, 20, 8)]);
     const sp = placeStack(ctx, stackLevels(ctx, [item(0), item(1), item(2)]), {
       x: 0,
@@ -304,8 +301,8 @@ describe("fill: which end of its level an upper tray stands at (spec §6.4)", ()
       d: 6600,
     });
     const [, mid, top] = sp.trays;
-    expect(mid && top && top.x - mid.x).toBe(ctx.inset);
-    expect(mid && top && top.x + top.w <= mid.x + mid.w - ctx.inset).toBe(true);
+    expect(mid && top && top.x - mid.x).toBe(0);
+    expect(mid && top && top.x + top.w <= mid.x + mid.w).toBe(true);
   });
 });
 
@@ -422,7 +419,7 @@ describe("fill", () => {
     expect(sp.trays[0]?.w).toBe(20000);
   });
 
-  it("insets upper levels by k·inset per side and stacks z", () => {
+  it("stands upper levels flush on the one below, and stacks z", () => {
     const ctx = ctxOf([boxReq("a", 100, 60, 20), boxReq("b", 50, 40, 10)]);
     const sp = placeStack(ctx, stackLevels(ctx, [item(0), item(1)]), {
       x: 100,
@@ -431,12 +428,12 @@ describe("fill", () => {
       d: 6600,
     });
     const [lo, up] = sp.trays;
-    expect(up?.x).toBe(100 + ctx.inset);
-    expect(up?.y).toBe(200 + ctx.inset);
-    // the upper tray is its own minimum, inside the lower tray's inset footprint
+    expect(up?.x).toBe(100);
+    expect(up?.y).toBe(200);
+    // the upper tray is its own minimum, inside the lower tray's footprint
     expect(up?.w).toBe(5400);
     expect(up?.d).toBe(4400);
-    expect((up?.w ?? 0) + 2 * ctx.inset).toBeLessThanOrEqual(lo?.w ?? 0);
+    expect(up?.w ?? 0).toBeLessThanOrEqual(lo?.w ?? 0);
     expect(up?.z).toBe(lo?.h);
     expect((lo?.h ?? 0) + (up?.h ?? 0)).toBe(ctx.topPlane);
     expect(lo?.lipped).toBe(true);

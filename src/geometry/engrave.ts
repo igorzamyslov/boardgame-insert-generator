@@ -137,7 +137,8 @@ export function planEngraving(
   }
   const strokesWide = numberWidth(number);
   // The band of the part's height the digits sit in, in the printed frame.
-  const lo = plan.chamfer + BELOW_CHAMFER_MM;
+  // Above the chamfer, or above the groove, which leaves the outer face standing only from `zTop`.
+  const lo = (plan.groove ? plan.groove.zTop : plan.chamfer) + BELOW_CHAMFER_MM;
   const hi = plan.h - BELOW_RIM_MM;
   const band = flipped ? { lo: plan.h - hi, hi: plan.h - lo } : { lo, hi };
   const byHeight = (band.hi - band.lo) / DIGIT_ROWS;
