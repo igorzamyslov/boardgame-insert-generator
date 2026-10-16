@@ -1348,6 +1348,13 @@ Older apps reading newer files is best effort, as below.
   - MINOR for features, including optimizer improvements. Stored layouts keep
     shared links stable.
   - PATCH for fixes.
+  - **A release bumps it.** Each deployment bumps `package.json`'s `version`, as nothing else
+    does it: the schema and geometry versions above change for their own reasons (a file format
+    or geometry change) and not on a release, so they say nothing about which build is deployed. A
+    schema or geometry change that ships also calls for an app bump (e.g. a geometry MINOR on the
+    0.x line is a MINOR of the app). The footer also shows the short git commit SHA of the build
+    (`__BUILD_ID__`, `unknown` without git) so a deployment can be identified even if the bump was
+    missed; it is for display and is never written to `createdWith` or hashed.
 - Before the first release the app is `0.x` and makes no compatibility
   promise (the app shows no banner for it). Pre-1.0, each `0.MINOR` is treated
   as a major line (PATCH acts as minor), so a newer `0.MINOR` file is refused.

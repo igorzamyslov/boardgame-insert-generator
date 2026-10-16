@@ -7,6 +7,7 @@ import { renderApp } from "./test-app";
 vi.mock("../model/version", async (orig) => ({
   ...(await orig<typeof import("../model/version")>()),
   APP_VERSION: "1.0.0",
+  BUILD_ID: "abc1234",
 }));
 
 afterEach(cleanup);
@@ -18,8 +19,8 @@ describe("App shell for a release version", () => {
     expect(screen.queryByText(/shared links may break/)).toBeNull();
   });
 
-  it("shows the release version in the footer", () => {
+  it("shows the release version and the build id in the footer", () => {
     renderApp();
-    expect(screen.getByRole("contentinfo").textContent).toContain("v1.0.0");
+    expect(screen.getByRole("contentinfo").textContent).toContain("v1.0.0 (abc1234)");
   });
 });

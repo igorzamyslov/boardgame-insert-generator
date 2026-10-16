@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
-import { APP_VERSION } from "../model/version";
+import { APP_VERSION, BUILD_ID } from "../model/version";
 import { encodeHash } from "../share";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
@@ -93,7 +93,7 @@ describe("App", () => {
     expect(within(results).getByRole("heading", { level: 2, name: "Results" })).toBeTruthy();
     expect(screen.queryByText(/shared links may break/)).toBeNull();
     const footer = screen.getByRole("contentinfo");
-    expect(footer.textContent).toContain(`v${APP_VERSION}`);
+    expect(footer.textContent).toContain(`v${APP_VERSION} (${BUILD_ID})`);
     expect(
       within(footer).getByRole("link", { name: "Third-party licenses" }).getAttribute("href"),
     ).toBe("./third-party-licenses.txt");

@@ -11,6 +11,13 @@ export const SCHEMA_VERSION = "0.1.15";
 /** App version from package.json, injected by Vite `define`. */
 export const APP_VERSION = __APP_VERSION__;
 
+/**
+ * Short git commit SHA of this build (or "unknown"), injected by Vite `define`. Shown in the
+ * footer so a deployment can be told from the last one even when the version was not bumped.
+ * Display and diagnostics only: never write it into a project, a stored layout or the inputs hash.
+ */
+export const BUILD_ID = __BUILD_ID__;
+
 /** createdWith of a file or stored layout that doesn't say which app version made it. */
 export const UNKNOWN_APP_VERSION = "unknown";
 
@@ -29,9 +36,4 @@ export function parseSemver(v: string): Semver | null {
     return null;
   }
   return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) };
-}
-
-/** True while the app is a preview release (0.x): show the "links may break" banner. */
-export function isPreview(version: string): boolean {
-  return parseSemver(version)?.major === 0;
 }
