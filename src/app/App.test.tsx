@@ -460,11 +460,13 @@ describe("App", () => {
       const { store } = renderApp({ project: withLayoutProject() });
       fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
       expect(document.querySelector(".tray-bar .hint")?.textContent ?? "").not.toMatch(
-        /Inputs changed/,
+        /from before your last changes/,
       );
       makeStale(store);
       await waitFor(() =>
-        expect(document.querySelector(".tray-bar")?.textContent).toMatch(/Inputs changed/),
+        expect(document.querySelector(".tray-bar")?.textContent).toMatch(
+          /The sizes shown may not match/,
+        ),
       );
     });
   });
@@ -663,6 +665,28 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "Settings" }));
       store.newProject();
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    });
+
+    it("has exactly one Download button, in every state of the workspace", async () => {
+      const entry = (): HTMLElement[] =>
+        screen.queryAllByRole("button", { name: /^(?:Download|Fix the fit to download)$/ });
+      // no plan yet
+      renderApp();
+      expect(entry()).toHaveLength(1);
+      cleanup();
+      // a plan, a stale plan, a pin conflict, no fit
+      const current = renderApp({ project: withLayoutProject() });
+      expect(entry()).toHaveLength(1);
+      act(() => {
+        current.store.state.lockConflicts.value = [
+          { trayKey: "a:p0:0", kind: "position", name: "Action cards", reason: "too big" },
+        ];
+      });
+      expect(entry()).toHaveLength(1);
+      expect(entry()[0]?.textContent).toBe("Fix the fit to download");
+      cleanup();
+      renderApp({ project: { ...fixtureProject(), layout: makeLayout("older") } });
+      expect(entry()).toHaveLength(1);
     });
 
     it("keeps Download off until there is a plan, and says what to do", () => {
@@ -978,6 +1002,16 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "Unpin Action cards, Market" }));
       expect(store.state.project.value.locks).toEqual([]);
       expect(store.state.lockConflicts.value).toEqual([]);
+    });
+
+    it("says a run is going once, in the status pill, not again in a badge over the view", () => {
+      const { store } = renderApp({ project: withLayoutProject() });
+      act(() => {
+        store.state.run.value = { status: "running", done: 5, total: 100, kind: "edit" };
+      });
+      expect(status().textContent).toContain("Making a new plan…");
+      expect(screen.queryByText("Updating…")).toBeNull();
+      expect(document.querySelector(".pf-badge")).toBeNull();
     });
 
     it("says the plan is updating while a run is pending, with Download waiting", () => {

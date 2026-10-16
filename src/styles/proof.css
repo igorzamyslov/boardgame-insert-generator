@@ -517,8 +517,7 @@
   outline-offset: 2px;
 }
 
-.pf-seg__opt input,
-.pf-visually-hidden {
+.pf-seg__opt input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -527,12 +526,12 @@
   white-space: nowrap;
 }
 
-/* A short label that says what state something is in: "Out of date", "Updating…". */
+/* A short label that says what state something is in: "Out of date", "Open now". */
 .pf-badge {
   padding: 2px 8px;
-  border: 1px solid var(--ochre);
+  border: 1px solid var(--warn);
   border-radius: var(--radius-sm);
-  background: var(--ochre-wash);
+  background: var(--warn-wash);
   font: 600 13px/18px var(--font-ui);
 }
 

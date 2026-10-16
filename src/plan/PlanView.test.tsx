@@ -253,7 +253,7 @@ describe("PlanView", () => {
   it("lists the trays of the shown layer for screen readers", () => {
     const { view } = setup();
     const list = screen.getByRole("list", { name: "Trays on layer 1" });
-    expect(list.getAttribute("class")).toContain("pf-visually-hidden");
+    expect(list.getAttribute("class")).toContain("visually-hidden");
     expect(
       within(list)
         .getAllByRole("listitem")

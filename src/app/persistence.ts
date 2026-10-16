@@ -170,7 +170,7 @@ export function createPersistence(
       pushNotice(state, {
         level: "warning",
         code: SAVE_FAILED_CODE,
-        message: `Autosave failed: ${reason}. Your work is still open here; use Save file to save it.`,
+        message: `Autosave failed: ${reason}. Your work is still open here; use Save file so nothing is lost.`,
       });
       return false;
     }
@@ -461,7 +461,7 @@ export function createPersistence(
         code: OPEN_FAILED_CODE,
         message: r
           ? `Couldn't load the other tab's version: ${r.error} This tab's version is unchanged.`
-          : "The other tab's version is no longer stored. This tab's version is unchanged; choose Use this tab's version to save it again.",
+          : "The other tab's version is no longer stored. This tab's version is unchanged; choose “Use this tab's version” to save it again.",
       });
     },
     dispose() {

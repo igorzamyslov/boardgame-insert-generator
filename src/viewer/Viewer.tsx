@@ -1,6 +1,7 @@
 // src/viewer/Viewer.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { MeshSource } from "../app/meshes";
+import { STALE_MESSAGE } from "../app/state";
 import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
@@ -328,11 +329,7 @@ export function Viewer(p: ViewerProps) {
           </button>
         </p>
       ) : null}
-      {p.stale ? (
-        <p class="hint">
-          Inputs changed: the preview shows the last layout. Make a new plan to fix it.
-        </p>
-      ) : null}
+      {p.stale ? <p class="hint">{`${STALE_MESSAGE} The preview shows the last plan.`}</p> : null}
       {/* always mounted, so the progress is spoken when it starts; the count stays on screen only */}
       <div class="visually-hidden" role="status">
         {!p.stale && build.total > 0 && build.done < build.total ? "Building 3D models." : ""}
@@ -345,7 +342,7 @@ export function Viewer(p: ViewerProps) {
       ) : null}
       {build.failed > 0 && build.done === build.total ? (
         <p role="alert">
-          {`${build.failed} tray(s) couldn't be shown. `}
+          {`${build.failed === 1 ? "1 tray" : `${build.failed} trays`} couldn't be shown. `}
           <button
             type="button"
             onClick={() => {

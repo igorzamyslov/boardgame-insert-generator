@@ -698,7 +698,6 @@ export function App(props: AppProps) {
                       </div>
                       <div class="pf-toolbar__group">
                         {s.stale.value ? <span class="pf-badge">Out of date</span> : null}
-                        {run.status === "running" ? <span class="pf-badge">Updating…</span> : null}
                       </div>
                     </div>
                     <div

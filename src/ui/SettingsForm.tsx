@@ -358,7 +358,7 @@ function PlainChoices({ settings, onChange }: SettingsFormProps) {
         label="Fit"
         value={fitChoiceOf(settings)}
         options={fitOptions(settings)}
-        hint="Scales every clearance. Pick loose if your printer's prints usually come out snug."
+        hint="Scales every clearance. Pick loose if your prints usually come out snug."
         onChange={(c) => {
           if (c !== "custom") {
             onChange(applyFitChoice(settings, c));

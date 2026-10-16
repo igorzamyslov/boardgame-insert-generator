@@ -60,6 +60,14 @@ describe("the phone layout", () => {
     expect(screen.getByRole("region", { name: "Inputs" })).toBeTruthy();
   });
 
+  it("still has exactly one Download button on a phone", () => {
+    phone();
+    renderApp({ project: project() });
+    expect(
+      screen.queryAllByRole("button", { name: /^(?:Download|Fix the fit to download)$/ }),
+    ).toHaveLength(1);
+  });
+
   it("puts the list in a folded sheet whose handle opens it", () => {
     phone();
     renderApp({ project: project() });

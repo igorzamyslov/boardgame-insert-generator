@@ -3,6 +3,7 @@ import type { ComponentChildren } from "preact";
 import { useId, useMemo } from "preact/hooks";
 import { isLockable, lockedKeys, sizeLockedKeys } from "../app/actions";
 import { canTurn } from "../app/dryRun";
+import { STALE_MESSAGE } from "../app/state";
 import { outerSizeText } from "../instructions/numbering";
 import { summarize } from "../layout";
 import type { Project, TraySpec } from "../model/types";
@@ -194,11 +195,7 @@ export function TrayBar(p: TrayBarProps) {
           <Icon name="close" />
         </button>
       </div>
-      {p.stale ? (
-        <p class="hint">
-          Inputs changed — the sizes shown may not match this layout. Make a new plan to fix it.
-        </p>
-      ) : null}
+      {p.stale ? <p class="hint">{`${STALE_MESSAGE} The sizes shown may not match.`}</p> : null}
       <dl>
         <div>
           <dt>Layer</dt>

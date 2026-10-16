@@ -203,8 +203,7 @@ export function createState(
       out.push({
         level: "info",
         code: CAPPED_CODE,
-        message:
-          "The optimizer stopped at its safety limit; this layout can't be reproduced from its seed. Try “Keep searching”.",
+        message: "The search stopped at its limit. Try “Keep searching”.",
       });
     }
     if (stale.value) {

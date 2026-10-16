@@ -221,9 +221,13 @@ it only with a written reason in the code or the PR.
     row's button.
   - `ui/StatusLine.tsx`: Keep searching and Stop sit in different pills, so the one that appears
     takes focus.
-  - `ui/components/EditorPanel.tsx`: the Remove and Keep confirmation pair.
-- MUST focus an editor's or sheet's heading when it opens (`tabIndex={-1}` on the heading,
-  `.focus()` in an effect), and return focus to what opened it on close:
+  - `ui/components/EditorPanel.tsx`: the Remove… and Cancel confirmation pair. It moves the focus
+    unconditionally: the button that went was the one just pressed, so nothing is stolen.
+- MUST focus an editor's, dialog's or panel's heading when it opens (`tabIndex={-1}` on the
+  heading, `.focus()` in an effect), and return focus to what opened it on close. Exemption: the
+  phone's list sheet (`BottomSheet`) is an in-page disclosure, not a dialog; its 44 px handle
+  carries the name and opening it focuses the first control, not a heading. The sheet holding an
+  editor or the box still lands on that editor's heading:
   - `WhatsInside.tsx` returns it to the row.
   - `Modal.tsx` returns it to the opener.
   - `SelectedTrayBar.tsx` returns it to the tile, or in 3D to the picker item (`data-key`).

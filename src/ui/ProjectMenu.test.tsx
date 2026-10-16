@@ -87,7 +87,7 @@ describe("ProjectMenu", () => {
     render(<ProjectMenu {...props({ storageAvailable: false })} />);
     expect(screen.queryByRole("button", { name: "Your inserts" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete…" })).toBeNull();
-    expect(screen.getByText(/use Save file to save your work/)).toBeTruthy();
+    expect(screen.getByText(/use Save file so nothing is lost/)).toBeTruthy();
   });
 
   it("moves the focus into Your inserts and back to the button that opened it", () => {

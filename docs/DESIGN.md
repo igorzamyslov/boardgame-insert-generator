@@ -43,7 +43,9 @@ technical palette. The owner called it unusable. Everything below exists so it d
   | (nothing: there is one mode)                             | Simple, Advanced, simple mode, advanced mode    |
 
 - MUST keep "Lock size", "Unlock size" and "size locked" for the size lock. Only a position lock is
-  a pin. The allow-list in `copy.test.ts` covers these and "Keep searching", "Keep space free".
+  a pin. The allow-list in `copy.test.ts` covers these and "Keep searching", "Keep space free",
+  "Part of it" (the box's headroom choice) and `data-part` (an attribute name inside an SVG
+  string, not text).
 - MUST say "part" only in the download list, export failure reasons and part names. The files are
   listed in `PART_FILES` in `copy.test.ts`.
 - MUST NOT add a word to the allow-list without a row in the decision log.
@@ -112,9 +114,11 @@ technical palette. The owner called it unusable. Everything below exists so it d
 ### Hosting and network
 
 - MUST NOT make runtime requests to any other host. Fonts, scripts, WASM and workers are bundled.
-  Ko-fi and PayPal are plain links a person clicks, not requests. Partly enforced by
-  `scripts/smoke-dist.mjs` (relative URLs only); no test blocks a `fetch` to another host, so
-  reviewers check it.
+  Ko-fi and PayPal are plain links a person clicks, not requests. Enforced by
+  `src/rules.test.ts` ("makes no runtime request to another host": no `fetch`, `XMLHttpRequest`,
+  `WebSocket` or the like in the source; no absolute URL in it but the support links and the XML
+  namespaces; none in `index.html`) and, for the built files, `scripts/smoke-dist.mjs` (relative
+  URLs only).
 - MUST keep `base: "./"` in `vite.config.ts`. The app is served from a subpath. Checked by
   `scripts/smoke-dist.mjs` (no absolute `/assets/` paths).
 - MUST NOT add URL sharing or write state to the address bar. Projects live in browser storage and
@@ -145,25 +149,29 @@ technical palette. The owner called it unusable. Everything below exists so it d
 
 ### Claims and copy limits
 
-- MUST NOT claim slicer compatibility ("opens in any slicer", "works with Cura"). No test enforces
-  this; reviewers check it.
+- MUST NOT claim slicer compatibility ("opens in any slicer", "works with Cura"). Enforced by the "a slicer
+  claim" entry of `src/ui/copy.test.ts` (UI strings and the README) and by `ExportPanel.test.tsx`
+  ("says nothing about slicers or what the files open in").
 - MUST keep pills to a single line. Text inside a pill truncates with an ellipsis; it never wraps.
-  See `.pf-status__pill` / `.pf-status__text` in `src/style.css` and the plan's name pills cut by
-  `src/plan/tileText.ts` (tested in `src/plan/tileText.test.ts`).
+  See `.pf-status__pill`, `.pf-status__text` and `.pf-status__btn` in `src/style.css`
+  (pinned by `src/style.test.ts`, "pills") and the plan's name pills cut by `src/plan/tileText.ts`
+  (tested in `src/plan/tileText.test.ts`).
 - MUST NOT add glosses to estimates. "≈ 42 g · ≈ 3 h 10 min" stands on its own.
 
 ### Flow
 
 - MUST have one Download entry point: the header's "Download" in `src/ui/AppHeader.tsx`, which
   opens `ExportPanel` in a `Modal`. No second Download button in a toolbar, a pill or the list.
+  Enforced by `src/rules.test.ts` ("opens the Download dialog from one place only") and
+  `src/app/App.test.tsx` ("has exactly one Download button, in every state of the workspace").
 - MUST make one combined 3MF the default download. Per-part zip and STL stay under "Other formats".
   Tested in `src/ui/ExportPanel.test.tsx` ("downloads one combined 3MF by default").
 - MUST show at most one plan banner. "This plan is from before your last changes." (stale) and the
   older-geometry banner never show together; the older-geometry one wins. Implemented in
   `placeNotices` (`src/ui/noticePlacement.ts`), tested in `src/ui/noticePlacement.test.ts` and
   `src/app/App.test.tsx`. Other notices go inline or into the project menu with a dot.
-- MUST keep Download off, with its reason, while the plan is stale, a run is pending or nothing
-  fits (`src/app/App.test.tsx`).
+- MUST keep Download off, with its reason, while there is no plan yet, the plan is stale, a run is
+  pending, nothing fits or pins conflict (`src/app/App.test.tsx`).
 - MUST NOT drop a pin silently. When the worker reports `lockConflicts`, the runner keeps the
   previous plan and every pin, and the status line offers "Unpin <name>". Tested in
   `src/app/runner.test.ts` ("keeps every pin and the previous plan when pins conflict", "never
@@ -178,7 +186,7 @@ technical palette. The owner called it unusable. Everything below exists so it d
 ### Data and versions
 
 - MUST follow the versioning rules in the README:
-  [How to add a component kind](../README.md#how-to-add-a-component-kind) (`SCHEMA_VERSION`,
+  [How to add a kind of item](../README.md#how-to-add-a-kind-of-item) (`SCHEMA_VERSION`,
   `GEOMETRY_VERSION`) and [Releasing](../README.md#releasing) (`package.json` version on every PR
   to main, checked by `scripts/check-version-bump.mjs`).
 - MUST put into `inputsHash` (`src/model/hash.ts`) everything that changes the layout, and nothing
@@ -382,7 +390,8 @@ one undo step.
 parts, filament and print time, one primary "Download 3MF", "Other formats" folded, "Open the
 packing guide" and the "Support it" line. While building: a progress bar and Stop (closing stops
 it). A failed part is listed by name under "Not exported" with "Try again"; the rest still
-download. It says how many parts carry no engraved name. The packing guide is
+download. It does not count the parts that carry no engraved name; the packing guide lists them
+("Too small for its name"). The packing guide is
 `src/instructions/AssemblyPage.tsx` with its own print stylesheet.
 
 **Project menu.** `src/ui/ProjectMenu.tsx` is a disclosure (a button and a panel of buttons), not
@@ -429,7 +438,8 @@ control can be built on it now.
 
 Known limits worth stating where they matter:
 
-- Very shallow parts carry no engraved name; the download dialog counts them. Upper trays of
+- Very shallow parts carry no engraved name; the packing guide says "Too small for its name"
+  (the download dialog does not count them: "Say less late in the flow"). Upper trays of
   about 9 mm or less may lose their name since geometry 0.8.0 (owner ruling pending).
 - The combined 3MF lays parts in a grid that can spill past one bed for large inserts. No warning
   yet.
@@ -489,6 +499,7 @@ rule in this document.
 | The bottom sheet is tap-only, no swipe                                                                                                                                                     | Ruled in the phone build; a tap target is simpler to make accessible                          | Add swipe later                                   |
 | The 760 to 960 px tablet rail is a ruled breakpoint; the 3D canvas height uses the 600 px line (below, not at) and the 520 px padding rule was dropped (the phone rule always overrode it) | Three stray widths had no ruling; one line of each kind is easier to keep in step with the JS | A third breakpoint to test                        |
 | Raw hex is allowed only in `tokens.css` and the packing guide's print rules (paper is black on white); the axis colours and `--paper-white` are tokens                                     | The print rules need fixed paper colours; the axis colours had no dark values                 | A paper token set                                 |
+| The download dialog does not count parts without an engraved name; the packing guide lists them                                                                                            | Say less late in the flow: the person already knows at download time                          | Bring back "N parts are too small for their name" |
 | Footer is version, build id and licences; no "All apps"                                                                                                                                    | Owner removed it                                                                              | Re-add the link                                   |
 | Default name "Tokens and dice"                                                                                                                                                             | Display and engraving only; not in `inputsHash`                                               | A copy change                                     |
 | Size lock keeps "Lock size"; position locks are "pins"                                                                                                                                     | The plan names the control; pins are a different thing                                        | Rename the size lock                              |

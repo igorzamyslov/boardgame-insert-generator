@@ -67,8 +67,8 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    and layer height, then "Printing options" that change the printed trays, not where trays
    sit (such as "Engrave tray names"). **The printer is a preference in this browser** and
    every new insert starts with it; "Apply to this insert" copies it to the open one.
-8. **Download.** The header's "Download" opens one panel with the number of parts, the filament
-   and the print time, and one primary button, "Download 3MF": a single combined file. "Other
+8. **Download.** The header's "Download" opens one panel with how many parts are in the download
+   list, the filament and the print time, and one primary button, "Download 3MF": a single combined file. "Other
    formats" holds "3MF per part (.zip)" and "STL files (.zip)". A progress bar and "Stop" show
    while it builds (closing the panel stops it); a tray that fails to build is listed under
    "Not exported" with its reason and "Try again". Download says "Fix the fit to download"

@@ -165,7 +165,7 @@ export function ProjectMenu(props: ProjectMenuProps) {
       <p class="hint">
         {storageAvailable
           ? "A saved file holds the whole insert: save it, send it, or open it elsewhere."
-          : "This browser blocks saving: use Save file to save your work."}
+          : "This browser blocks saving: use Save file so nothing is lost."}
       </p>
     </div>
   );

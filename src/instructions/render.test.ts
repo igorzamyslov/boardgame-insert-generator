@@ -86,7 +86,7 @@ describe("render", () => {
     expect(svgs).toHaveLength(2);
     for (const svg of svgs) {
       expect(parse(svg).getElementsByTagName("parsererror")).toHaveLength(0);
-      expect(svg).toContain(">FRONT<");
+      expect(svg).toContain(">Front<");
     }
     const [first, second] = svgs;
     expect(first).toContain("<title>Layer 1 of 2</title>");

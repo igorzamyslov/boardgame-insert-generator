@@ -269,7 +269,7 @@ describe("Viewer", () => {
     );
     render(<Viewer {...props({ meshes: m }, scene)} />);
     await waitFor(() =>
-      expect(screen.getByRole("alert").textContent).toMatch(/1 tray\(s\) couldn't be shown/),
+      expect(screen.getByRole("alert").textContent).toMatch(/^1 tray couldn't be shown/),
     );
     m.get.mockImplementation(() => Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1 }));
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -277,6 +277,17 @@ describe("Viewer", () => {
     await waitFor(() =>
       expect(vi.mocked(scene.handle.setTrays).mock.calls.at(-1)?.[0]).toHaveLength(2),
     );
+  });
+
+  it("counts the trays that could not be built in words, one or several", async () => {
+    const scene = stubScene();
+    const m = meshes();
+    m.get.mockImplementation(() => Promise.reject(new Error("bad")));
+    render(<Viewer {...props({ meshes: m }, scene)} />);
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toMatch(/^2 trays couldn't be shown/),
+    );
+    expect(screen.getByRole("alert").textContent).not.toContain("(s)");
   });
 
   it("speaks the 3D build once, from a region that was already there, and the count is not in it", async () => {
@@ -379,12 +390,12 @@ describe("Viewer", () => {
     await flush();
     expect(m.get).toHaveBeenCalledTimes(2);
     expect(scene.handle.setTrays).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/shows the last layout/)).toBeTruthy();
+    expect(screen.getByText(/The preview shows the last plan/)).toBeTruthy();
     view.rerender(<Viewer {...p} settings={changed} />);
     await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalledTimes(2));
     expect(m.get).toHaveBeenCalledTimes(4);
     expect(m.get.mock.calls.at(-1)?.[1]).toBe(changed);
-    expect(screen.queryByText(/shows the last layout/)).toBeNull();
+    expect(screen.queryByText(/The preview shows the last plan/)).toBeNull();
   });
 
   it("re-fits the camera only when the box outline changes, not on other settings", async () => {

@@ -29,7 +29,8 @@ import readme from "../../README.md?raw";
  *
  * - "Lock size", "Unlock size", "size locked", "size lock(s)": the size lock is a real control
  *   and its name (spec: only the position lock is a "pin").
- * - "Keep searching", "Keep space free", "Part of it": real labels (the box's headroom choice).
+ * - "Keep searching", "Keep space free", "Part of it": real labels (the box's headroom choice;
+ *   named in DESIGN §2 Words).
  * - "data-part": an attribute name inside an SVG string, not text.
  * - "part"/"parts" is the download list's word, so it is allowed (PART_FILES) only in the three
  *   files that write the download list (ExportPanel.tsx), the reason it can be empty
@@ -146,6 +147,12 @@ function isNotCopy(text: string): boolean {
 /** The words and phrases the redesign retired (spec "Words"), as the scan looks for them. */
 const RETIRED: readonly { name: string; test: (text: string) => boolean }[] = [
   { name: "Copy link", test: (t) => /\bCopy link\b/i.test(t) },
+  { name: "share link", test: (t) => /\bshare link\b/i.test(t) },
+  // DESIGN §2 Claims: no slicer is named, and no compatibility is promised.
+  {
+    name: "a slicer claim",
+    test: (t) => /\b(?:slicers?|works with|compatible with|opens in any)\b/i.test(t),
+  },
   { name: "Simple", test: (t) => /\bSimple\b/.test(t) },
   { name: "Advanced", test: (t) => /\bAdvanced\b/.test(t) },
   { name: "advanced mode", test: (t) => /\badvanced mode\b/i.test(t) },
@@ -277,6 +284,8 @@ describe("copy", () => {
       /\bFind a better fit\b/i,
       /\bExact values\b/,
       /\bUpdate the plan\b/,
+      /\bshare link\b/i,
+      /\b(?:slicers?|works with|compatible with|opens in any)\b/i,
     ]) {
       expect(readme).not.toMatch(old);
     }
@@ -289,8 +298,8 @@ describe("copy", () => {
       .replace(/`[^`]*`/g, " ")
       .replace(ALLOWED, " ")
       .replace(/\bpart(?:s)?\b/gi, (m, at: number, all: string) =>
-        /download list|per part|Download|print|merged part|part names?|part ids?/i.test(
-          all.slice(Math.max(0, at - 60), at + 60),
+        /download list|per part|part names?|part ids?/i.test(
+          all.slice(Math.max(0, at - 60), at + 60).replace(/\s+/g, " "),
         )
           ? " "
           : m,

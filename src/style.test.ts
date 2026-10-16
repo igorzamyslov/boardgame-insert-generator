@@ -241,6 +241,25 @@ describe("the phone layout", () => {
   });
 });
 
+describe("pills", () => {
+  // DESIGN §2 Claims: a pill is one line; what does not fit ends in an ellipsis, never wraps.
+  it("keep to one line: the pill does not wrap, its text and its button are cut with an ellipsis", () => {
+    const pill = ruleFor(".pf-status__pill");
+    expect(pill).toMatch(/display:\s*flex/);
+    expect(pill).toMatch(/flex-wrap:\s*nowrap/);
+    for (const part of [".pf-status__text", ".pf-status__btn"]) {
+      const body = ruleFor(part);
+      expect(body, part).toMatch(/white-space:\s*nowrap/);
+      expect(body, part).toMatch(/text-overflow:\s*ellipsis/);
+      expect(body, part).toMatch(/overflow:\s*hidden/);
+    }
+    // the text gives way first, and the button can shrink instead of overflowing the pill
+    expect(ruleFor(".pf-status__text")).toMatch(/min-width:\s*0/);
+    expect(ruleFor(".pf-status__btn")).toMatch(/flex:\s*0 1 auto/);
+    expect(ruleFor(".pf-status__btn")).toMatch(/max-width:\s*\d+%/);
+  });
+});
+
 describe("breakpoints", () => {
   const sheets = import.meta.glob<string>("./**/*.css", {
     query: "?raw",

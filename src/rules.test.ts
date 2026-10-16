@@ -1,6 +1,8 @@
 // src/rules.test.ts
 import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
+import indexHtml from "../index.html?raw";
+import { SUPPORT_LINKS } from "./ui/ExportPanel";
 
 const styles = import.meta.glob<string>("./**/*.css", {
   query: "?raw",
@@ -90,6 +92,18 @@ describe("rules", () => {
     expect(found).toEqual([]);
   });
 
+  // DESIGN §2 Flow: one Download entry point, the header's. Nothing else opens the dialog.
+  it("opens the Download dialog from one place only", () => {
+    const at = (pattern: RegExp): string[] =>
+      appFiles.flatMap((path) =>
+        Array.from((sources.get(path) ?? "").matchAll(pattern), () => path),
+      );
+    const opens = at(/\bsetExportOpen\(\s*true\s*\)/g);
+    const panels = at(/<ExportPanel\b/g);
+    expect(opens).toEqual(["/src/app/App.tsx"]);
+    expect(panels).toEqual(["/src/app/App.tsx"]);
+  });
+
   // DESIGN §2 Colour: new code uses the primary token names. The legacy aliases at the end of
   // tokens.css still have old users; this ratchet only lets their number go down.
   it("does not add uses of the legacy alias tokens", () => {
@@ -131,5 +145,82 @@ describe("rules", () => {
       }
     }
     expect(found).toEqual([]);
+  });
+
+  // DESIGN §2 Hosting: the app makes no request to another host. Fonts, scripts, WASM and workers
+  // are bundled; Ko-fi and PayPal are links a person clicks, not requests; the XML namespaces of
+  // exported files are names, not addresses to fetch.
+  describe("makes no runtime request to another host", () => {
+    const NETWORK_CALLS =
+      /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b/;
+    const NAMESPACE_HOSTS = ["www.w3.org", "schemas.openxmlformats.org", "schemas.microsoft.com"];
+
+    /** Every string, template and JSX text in a file: what can end up as an address. */
+    function literals(path: string): string[] {
+      const file = parse(path);
+      const out: string[] = [];
+      const visit = (node: ts.Node): void => {
+        if (
+          ts.isStringLiteral(node) ||
+          ts.isNoSubstitutionTemplateLiteral(node) ||
+          ts.isTemplateHead(node) ||
+          ts.isTemplateMiddle(node) ||
+          ts.isTemplateTail(node) ||
+          ts.isJsxText(node)
+        ) {
+          out.push(node.text);
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(file);
+      return out;
+    }
+
+    it("calls no network API", () => {
+      const found: string[] = [];
+      for (const path of appFiles) {
+        const file = parse(path);
+        const visit = (node: ts.Node): void => {
+          // a call or a `new`, by name: `fetch(…)`, `new WebSocket(…)`, `navigator.sendBeacon(…)`
+          if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
+            if (NETWORK_CALLS.test(node.expression.getText(file))) {
+              const { line } = file.getLineAndCharacterOfPosition(node.getStart(file));
+              found.push(`${path}:${line + 1} ${node.expression.getText(file)}`);
+            }
+          }
+          ts.forEachChild(node, visit);
+        };
+        visit(file);
+      }
+      expect(found).toEqual([]);
+    });
+
+    it("writes an absolute URL only for the support links and XML namespaces", () => {
+      const allowed = new Set([
+        ...NAMESPACE_HOSTS,
+        ...SUPPORT_LINKS.map((l) => new URL(l.href).host),
+      ]);
+      expect(allowed).toContain("ko-fi.com");
+      expect(allowed).toContain("paypal.me");
+      const found: string[] = [];
+      for (const path of appFiles) {
+        for (const text of literals(path)) {
+          for (const m of text.matchAll(/\bhttps?:\/\/([^/\s"'<>)]+)/gi)) {
+            if (!allowed.has((m[1] ?? "").toLowerCase())) {
+              found.push(`${path}: ${m[0]}`);
+            }
+          }
+        }
+      }
+      expect(found).toEqual([]);
+    });
+
+    it("loads nothing from another host in the page itself", () => {
+      const refs = [...indexHtml.matchAll(/\s(?:src|href|action)="([^"]*)"/g)].map(
+        (m) => m[1] ?? "",
+      );
+      expect(refs.length).toBeGreaterThan(0);
+      expect(refs.filter((r) => /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(r))).toEqual([]);
+    });
   });
 });

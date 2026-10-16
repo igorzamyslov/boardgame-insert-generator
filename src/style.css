@@ -850,9 +850,15 @@ span.inserts-name {
   white-space: nowrap;
 }
 
+/* A long name on the button (Unpin Spacer 1 by Tokens and dice) shrinks with an ellipsis rather than
+   push the pill past the edge or squeeze the sentence to a few words. */
 .pf-status__btn {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: var(--control-h);
+  max-width: 60%;
   min-height: var(--control-h);
+  overflow: hidden;
+  text-overflow: ellipsis;
   border-radius: 999px;
   white-space: nowrap;
 }

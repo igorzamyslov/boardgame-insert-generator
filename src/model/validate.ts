@@ -303,7 +303,7 @@ const settingRanges: SettingRange[] = [
     get: (s) => s.infill,
     min: 0,
     max: 100,
-    hint: "The infill (percent) you print at. Only the filament estimate reads it: walls, floors and thin walls print solid whatever it is, so it lowers the figure only for thick blocks and raised floors. It changes no tray.",
+    hint: "The infill (percent) you print at. Only the filament estimate reads it: walls, floors and thin pieces print solid whatever it is, so it lowers the figure only for thick blocks and raised floors. It changes no tray.",
   },
   {
     path: "playLimit",

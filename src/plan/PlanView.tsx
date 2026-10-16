@@ -331,13 +331,13 @@ export function PlanView(props: PlanViewProps) {
     <div class="plan" onKeyDown={onPlanKeyDown}>
       {levels.length > 1 ? (
         <fieldset class="layer-picker">
-          <legend class="pf-visually-hidden">Layer</legend>
+          <legend class="visually-hidden">Layer</legend>
           <div class="pf-seg">
             {levels.map((l, i) => (
               <label key={l} class="pf-seg__opt">
                 <input
                   type="radio"
-                  class="pf-visually-hidden"
+                  class="visually-hidden"
                   name="plan-layer"
                   checked={i === idx}
                   onChange={() => onLevelChange(i)}
@@ -537,7 +537,7 @@ export function PlanView(props: PlanViewProps) {
           FRONT
         </text>
       </svg>
-      <ul class="pf-visually-hidden" aria-label={`Trays on layer ${idx + 1}`}>
+      <ul class="visually-hidden" aria-label={`Trays on layer ${idx + 1}`}>
         {shown.map((t) => (
           <li key={t.key}>
             {`${names.get(t.key)?.full ?? t.key}${lockedKeys.has(t.key) ? ", pinned" : ""}${sizeLockedKeys.has(t.key) ? ", size locked" : ""}`}

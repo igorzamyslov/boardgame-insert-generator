@@ -173,7 +173,11 @@ describe("TrayBar", () => {
 
   it("warns that the sizes may not match a plan the inputs have outgrown", () => {
     bar({ stale: true });
-    expect(screen.getByText(/Inputs changed — the sizes shown may not match/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        /This plan is from before your last changes\. The sizes shown may not match\./,
+      ),
+    ).toBeTruthy();
   });
 
   it("keeps what it holds to one line, with the whole of it in the title", () => {
