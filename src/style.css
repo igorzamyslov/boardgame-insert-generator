@@ -688,7 +688,7 @@ span.inserts-name {
 @media (width > 960px) {
   .plan-toolbar {
     flex: 0 0 auto;
-    height: 10rem;
+    height: 13rem;
     overflow: auto;
   }
 }
