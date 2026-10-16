@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MeshSource } from "../app/meshes";
 import { cubeMesh, fixtureProject, makeTray } from "../app/test-helpers";
 import { GeometryBuildError } from "../geometry/client";
+import type { TraySpec } from "../model/types";
 import { DEFAULT_PRINTER } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { LayoutSummary } from "../layout/types";
@@ -401,6 +402,26 @@ describe("ExportPanel", () => {
     await waitFor(() => expect(screen.queryByText(/^Deck A 2: /)).toBeNull());
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
     expect(screen.getByText(/^Magnets: /)).toBeTruthy();
+  });
+
+  it("forgets the spec it built, with the engraved name, so Try again builds once more", async () => {
+    const m = meshes();
+    const built: TraySpec[] = [];
+    m.get.mockImplementation((spec) => {
+      built.push(spec);
+      return spec.key === "b:p0:0"
+        ? Promise.reject(new GeometryBuildError("Tray b:p0:0: too slow", "TimeoutError"))
+        : Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 });
+    });
+    const settings = { ...DEFAULT_SETTINGS, engraveNames: true };
+    render(<ExportPanel {...props({ meshes: m, settings })} />);
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    const tried = built.find((s) => s.key === "b:p0:0");
+    // With engraving on, the cache key is made from the spec with its name.
+    expect(tried?.partName).toBeTruthy();
+    const [forgotten] = m.forget.mock.calls[0] ?? [];
+    expect(forgotten).toEqual([tried]);
   });
 
   it("tries again with the format that failed", async () => {

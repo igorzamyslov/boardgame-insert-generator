@@ -12,7 +12,7 @@ import type { ExportOptions, ExportOutput } from "../app/exportBuild";
 import type { MeshSource } from "../app/meshes";
 import { buildErrorReason } from "../app/support";
 import { trayNames } from "../instructions/naming";
-import { numberParts } from "../instructions/numbering";
+import { buildSpecOf, numberParts } from "../instructions/numbering";
 import type { LayoutSummary } from "../layout/types";
 import type { Component, Printer, Settings, TraySpec } from "../model/types";
 import { formatPrintTime } from "./Summary";
@@ -343,8 +343,12 @@ export function ExportPanel(p: ExportPanelProps) {
                 if (retryOff) {
                   return;
                 }
+                // The specs that were built (with their engraved name), not the plain ones: the
+                // mesh cache keys on the whole spec.
                 p.meshes.forget(
-                  failed.map((f) => f.part.spec),
+                  failed.map((f) =>
+                    buildSpecOf(f.part, p.settings.engraveNames, names.get(f.part.spec.key)?.short),
+                  ),
                   p.settings,
                 );
                 void run(lastKind);
