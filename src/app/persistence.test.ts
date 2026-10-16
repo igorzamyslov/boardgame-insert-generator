@@ -342,6 +342,29 @@ describe("persistence", () => {
     expect(t.warnsOnLeave()).toBe(false);
   });
 
+  it("warns before leaving when storage exists but the last write failed", () => {
+    const storage = new MemoryStorage();
+    const t = tab(createProjectStore(storage));
+    t.persistence.start("");
+    expect(t.warnsOnLeave()).toBe(false);
+    storage.failOn = () => true;
+    rename(t.state, "Too big");
+    t.persistence.flush();
+    expect(t.state.saveFailed.value).toBe(true);
+    expect(t.warnsOnLeave()).toBe(true);
+    // a file is a copy of the work
+    t.persistence.markSavedToFile();
+    expect(t.warnsOnLeave()).toBe(false);
+    rename(t.state, "Still too big");
+    t.persistence.flush();
+    expect(t.warnsOnLeave()).toBe(true);
+    // the write works again: the browser keeps it
+    storage.failOn = () => false;
+    t.persistence.flush();
+    expect(t.state.saveFailed.value).toBe(false);
+    expect(t.warnsOnLeave()).toBe(false);
+  });
+
   it("never warns before leaving when the browser keeps the work", () => {
     const t = tab(createProjectStore(new MemoryStorage()));
     t.persistence.start("");
@@ -382,7 +405,7 @@ describe("persistence", () => {
     expect(store.list()[0]?.name).toBe("Typing");
   });
 
-  it("deletes the current project after confirmation and opens the next", () => {
+  it("deletes the current project (the screen asks first) and opens the next", () => {
     const store = createProjectStore(new MemoryStorage());
     const a = fixtureProject();
     store.save(a, EMPTY_FOREIGN);
@@ -391,10 +414,8 @@ describe("persistence", () => {
     t.persistence.start("");
     t.persistence.newProject();
     const fresh = t.state.project.value.id;
-    t.confirm.mockReturnValueOnce(false);
     t.persistence.deleteProject(fresh);
-    expect(store.list()).toHaveLength(2);
-    t.persistence.deleteProject(fresh);
+    expect(t.confirm).not.toHaveBeenCalled();
     expect(store.list().map((e) => e.id)).toEqual([a.id]);
     expect(t.state.project.value.id).toBe(a.id);
   });

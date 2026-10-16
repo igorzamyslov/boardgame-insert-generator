@@ -18,7 +18,7 @@ const store = createAppStore({
     history.replaceState(null, "", window.location.pathname + window.location.search);
   },
   guardLeaving: (shouldWarn) => {
-    // Only reached without browser storage, when the open project has changes no file holds.
+    // Only when the open project has changes that neither the browser nor a file holds.
     window.addEventListener("beforeunload", (e) => {
       if (shouldWarn()) {
         e.preventDefault();
