@@ -21,6 +21,8 @@
 }
 
 .ws-header {
+  position: relative; /* the project menu opens over the body, and over the phone's sheet */
+  z-index: 25;
   flex: none;
   min-height: var(--header-h);
 }
@@ -97,6 +99,17 @@
   min-height: 24rem;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
+}
+
+/*
+ * A tablet (760 to 960 px) keeps the rail beside the stage: the stage's basis drops so that the
+ * two fit in 760 px (300 + 440), where 640 would wrap the rail under it. Task 15 does the final
+ * tablet pass.
+ */
+@media (width >= 760px) and (width <= 960px) {
+  .ws-stage {
+    flex-basis: 440px;
+  }
 }
 
 @media (width < 760px) {

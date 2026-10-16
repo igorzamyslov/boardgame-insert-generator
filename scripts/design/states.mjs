@@ -43,6 +43,13 @@ export const SEEDS = {
 export const STATES = {
   "first-visit": { board: "Empty", viewport: DESKTOP, seed: null },
   workspace: { board: "Main", viewport: DESKTOP, seed: "harbour-kings" },
+  // The tablet band: the rail stays beside the stage (Task 3 checks it; Task 15 does the pass).
+  "workspace-820": {
+    board: "Main",
+    viewport: { width: 820, height: 1180 },
+    seed: "harbour-kings",
+    noPageScroll: true,
+  },
   "workspace-searching": {
     board: "Main",
     boardOpts: { state: { searching: true } },

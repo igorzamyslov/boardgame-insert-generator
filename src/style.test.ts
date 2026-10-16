@@ -553,11 +553,12 @@ describe("breakpoints", () => {
     eager: true,
   });
 
-  it("are 760 (phone) and 600 (full-screen dialogs), and nothing else", () => {
+  it("are 760 (phone), 600 (full-screen dialogs) and the 760 to 960 tablet band, and nothing else", () => {
     const RULED = new Set([
       "(width < 760px)",
       "screen and (width < 760px)",
       "(width >= 760px)",
+      "(width >= 760px) and (width <= 960px)",
       "(width < 600px)",
       "(prefers-reduced-motion: reduce)",
       "print",
@@ -621,6 +622,15 @@ describe("workspace.css", () => {
     const phone = mediaBlock("(width < 760px)", stripped);
     expect(ruleFor(".ws--sheet .ws-stage", phone)).toMatch(/calc\(var\(--sheet-foot\)/);
     expect(ruleFor(".ws-stage", phone)).not.toMatch(/--sheet-foot/);
+  });
+
+  it("keeps the rail beside the stage between 760 and 960 px: the stage's basis leaves room for the rail", () => {
+    const tablet = mediaBlock("(width >= 760px) and (width <= 960px)", stripped);
+    const basis = Number(/flex-basis:\s*(\d+)px/.exec(ruleFor(".ws-stage", tablet))?.[1]);
+    const rail = Number(/--rail-basis:\s*(\d+)px/.exec(tokens)?.[1]);
+    expect(basis).toBeGreaterThan(0);
+    // the two fit side by side at 760 px, so the line does not wrap
+    expect(rail + basis).toBeLessThanOrEqual(760);
   });
 
   it("writes no raw colours", () => {

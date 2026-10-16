@@ -2155,12 +2155,6 @@ html:has(dialog.modal[open]) {
     margin: var(--space-2) 0 0;
   }
 
-  /* The menu opens over the sheet, not under it. */
-  .ws-header {
-    position: relative;
-    z-index: 25;
-  }
-
   /* The name of the app is a heading for the page; the logo says it, so the words are for readers. */
   .app-wordmark {
     position: absolute;
