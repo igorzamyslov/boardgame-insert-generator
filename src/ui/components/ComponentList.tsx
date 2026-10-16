@@ -79,7 +79,6 @@ export interface ComponentListProps {
 
 export function ComponentList({
   components,
-  advanced,
   onAdd,
   onChange,
   onRemove,
@@ -136,7 +135,6 @@ export function ComponentList({
           key={c.id}
           component={c}
           index={i}
-          advanced={advanced}
           open={openId === c.id}
           trays={trayNumbers?.get(i)}
           sameName={components.some((o) => o.id !== c.id && o.name === c.name)}
