@@ -97,7 +97,7 @@ describe("TilesEditor", () => {
 describe("MinisEditor", () => {
   it("edits figures and storage", () => {
     const onChange = vi.fn<(c: MinisComponent) => void>();
-    render(<MinisEditor component={of("minis")} index={0} advanced onChange={onChange} />);
+    render(<MinisEditor component={of("minis")} index={0} onChange={onChange} />);
     fireEvent.input(screen.getByLabelText(/Figure 1 height/), { target: { value: "55" } });
     expect(lastOf(onChange).figures[0]).toMatchObject({ h: 55 });
     fireEvent.click(screen.getByRole("button", { name: "Add figure" }));
@@ -253,7 +253,7 @@ describe("toggles", () => {
     });
 
     it("offers minis in pockets only width and length, off by default: a pocket's depth is a figure's height", () => {
-      render(<MinisEditor component={of("minis")} index={0} advanced onChange={vi.fn()} />);
+      render(<MinisEditor component={of("minis")} index={0} onChange={vi.fn()} />);
       expect(labels()).toEqual(["Looser pockets: width", "Looser pockets: length"]);
       expect((screen.getByLabelText("Looser pockets: width") as HTMLSelectElement).value).toBe(
         "off",
@@ -266,7 +266,6 @@ describe("toggles", () => {
         <MinisEditor
           component={{ ...of("minis"), storage: "bulk" }}
           index={0}
-          advanced
           onChange={vi.fn()}
         />,
       );
@@ -414,7 +413,6 @@ describe("validation shown in place", () => {
         <MinisEditor
           component={{ ...of("minis"), id: "x2", figures: [] }}
           index={1}
-          advanced={false}
           onChange={vi.fn()}
         />
       </ValidationContext.Provider>,
