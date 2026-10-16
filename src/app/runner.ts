@@ -120,16 +120,32 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       pruned !== current && result.layout
         ? { ...result, layout: { ...result.layout, inputsHash: inputsHash(pruned) } }
         : result;
+    const next: Project = accepted.layout ? { ...pruned, layout: accepted.layout } : pruned;
+    // A plan for inputs that changed completes the edit's own history entry; a better plan for
+    // inputs that already had a current one is a step of its own, so undo brings the old one back.
+    const hadCurrentPlan = current.layout?.inputsHash === inputsHash(current);
     batch(() => {
       state.lastResult.value = accepted;
       state.lastResultHash.value = inputsHash(pruned);
-      if (accepted.layout) {
-        state.undoSlot.value = current.layout
-          ? { layout: current.layout, ...(pruned !== current && { locks: current.locks }) }
-          : null;
-        state.project.value = { ...pruned, layout: accepted.layout };
-      } else if (pruned !== current) {
-        state.project.value = pruned;
+      if (next !== current) {
+        if (accepted.layout && hadCurrentPlan) {
+          state.history.ensureBase(current);
+          state.history.push(next);
+        } else {
+          state.history.amend(next);
+          if (accepted.layout) {
+            // Steps taken after the edit while its run was pending (renames) share its inputs: they
+            // get the plan too, so undoing back to them doesn't show it stale.
+            const hash = inputsHash(current);
+            const plan = accepted.layout;
+            state.history.amendBefore((e) =>
+              inputsHash(e) === hash && e.layout?.inputsHash !== hash
+                ? { ...e, locks: pruned.locks, layout: plan }
+                : null,
+            );
+          }
+        }
+        state.project.value = next;
       }
       state.run.value = { status: "done" };
     });

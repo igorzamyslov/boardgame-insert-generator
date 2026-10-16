@@ -50,7 +50,7 @@ describe("runner", () => {
 
   it("accepts a finished run and keeps the previous layout for undo", async () => {
     const p = fixtureProject();
-    const old = makeLayout("old-hash");
+    const old = makeLayout(inputsHash(p));
     const { state, stub, runner, onAccepted } = setup({ ...p, layout: old });
     void runner.runNow("edit", "user");
     await flush();
@@ -65,7 +65,7 @@ describe("runner", () => {
     call.resolve(makeResult(next));
     await flush();
     expect(state.project.value.layout).toBe(next);
-    expect(state.undoSlot.value).toEqual({ layout: old });
+    expect(state.history.undo()?.layout).toBe(old);
     expect(state.run.value).toEqual({ status: "done" });
     expect(onAccepted).toHaveBeenCalledTimes(1);
   });
@@ -217,7 +217,7 @@ describe("runner", () => {
     stub.calls[0]?.resolve(makeResult(null));
     await flush();
     expect(state.project.value.layout).toBe(good);
-    expect(state.undoSlot.value).toBeNull();
+    expect(state.history.canUndo.value).toBe(false);
     expect(onAccepted).not.toHaveBeenCalled();
     expect(state.lastResult.value?.layout).toBeNull();
   });
@@ -365,13 +365,13 @@ describe("runner guards", () => {
     expect(state.run.value).toEqual({ status: "idle" });
   });
 
-  it("undo slot keeps the locks a run pruned, so undo can restore both", async () => {
+  it("undo keeps the locks a run pruned, so it can restore both", async () => {
     const p = fixtureProject();
-    const old = makeLayout("old-hash");
     const locks: Lock[] = [
       { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
       { kind: "size", trayKey: "b:p0:0", w: 50, d: 40, h: 20 },
     ];
+    const old = makeLayout(inputsHash({ ...p, locks }));
     const { state, stub, runner } = setup({ ...p, locks, layout: old });
     void runner.runNow("edit", "user");
     await flush();
@@ -388,6 +388,8 @@ describe("runner guards", () => {
     call.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
     await flush();
     expect(state.project.value.locks).toEqual([locks[0]]);
-    expect(state.undoSlot.value).toEqual({ layout: old, locks });
+    const restored = state.history.undo();
+    expect(restored?.layout).toBe(old);
+    expect(restored?.locks).toEqual(locks);
   });
 });

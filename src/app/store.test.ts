@@ -68,7 +68,7 @@ describe("app store", () => {
     expect(projectStore.list().find((e) => e.id === p.id)?.name).toBe("Renamed");
   });
 
-  it("re-optimizes after an input edit and undo restores the previous layout", async () => {
+  it("re-optimizes after an input edit with the stored layout as warm start", async () => {
     const { store, stub } = setup();
     const p = fixtureProject();
     const first = makeLayout(inputsHash(p));
@@ -77,16 +77,169 @@ describe("app store", () => {
     store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
     await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
     await flush();
+    expect(stub.calls[0]?.warmStart).toEqual(loaded);
+  });
+
+  it("undo after an edit restores the inputs and the plan, not stale", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    const first = makeLayout(inputsHash(p));
+    store.start(encodeHash({ ...p, layout: first }, EMPTY_FOREIGN));
+    const before = store.state.project.value;
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
     const call = stub.calls[0];
-    expect(call?.warmStart).toEqual(loaded);
+    const next = makeLayout(call?.input.inputsHash ?? "");
+    call?.resolve(makeResult(next));
+    await flush();
+    expect(store.state.project.value.layout).toBe(next);
+    expect(store.canUndo.value).toBe(true);
+    store.undo();
+    expect(store.state.project.value.components).toEqual(before.components);
+    expect(store.state.project.value.box).toEqual(before.box);
+    expect(store.state.project.value.layout).toEqual(before.layout);
+    expect(store.state.stale.value).toBe(false);
+    expect(store.canUndo.value).toBe(false);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+    await flush();
+    expect(stub.calls).toHaveLength(1);
+  });
+
+  it("redo reapplies the edit and its plan", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN));
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
+    const edited = store.state.project.value.box;
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    const call = stub.calls[0];
+    const next = makeLayout(call?.input.inputsHash ?? "");
+    call?.resolve(makeResult(next));
+    await flush();
+    expect(store.canRedo.value).toBe(false);
+    store.undo();
+    expect(store.canRedo.value).toBe(true);
+    store.redo();
+    expect(store.state.project.value.box).toEqual(edited);
+    expect(store.state.project.value.layout).toBe(next);
+    expect(store.state.stale.value).toBe(false);
+    expect(store.canRedo.value).toBe(false);
+    expect(store.canUndo.value).toBe(true);
+  });
+
+  it("a new edit after undo drops what could be redone", () => {
+    const { store } = setup();
+    store.start(encodeHash(fixtureProject(), EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "One"));
+    store.undo();
+    expect(store.canRedo.value).toBe(true);
+    store.edit((q) => renameProject(q, "Two"));
+    expect(store.canRedo.value).toBe(false);
+    store.redo();
+    expect(store.state.project.value.name).toBe("Two");
+  });
+
+  it("a Keep searching result is one undo step", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    const first = makeLayout(inputsHash(p));
+    store.start(encodeHash({ ...p, layout: first }, EMPTY_FOREIGN));
+    expect(store.canUndo.value).toBe(false);
+    store.refit();
+    await flush();
+    const call = stub.calls[0];
+    const better = makeLayout(call?.input.inputsHash ?? "");
+    call?.resolve(makeResult(better));
+    await flush();
+    expect(store.state.project.value.layout).toBe(better);
+    store.undo();
+    expect(store.state.project.value.layout).toEqual(first);
+    expect(store.canUndo.value).toBe(false);
+    store.redo();
+    expect(store.state.project.value.layout).toBe(better);
+  });
+
+  it("edits made in quick succession are one undo step", async () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash(p, EMPTY_FOREIGN));
+    for (const name of ["A", "AB", "ABC"]) {
+      store.edit((q) => renameProject(q, name));
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    expect(store.state.project.value.name).toBe("ABC");
+    store.undo();
+    expect(store.state.project.value.name).toBe(p.name);
+    expect(store.canUndo.value).toBe(false);
+    store.redo();
+    expect(store.state.project.value.name).toBe("ABC");
+  });
+
+  it("removing a component right after another edit is its own undo step", async () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    const first = p.components[0];
+    store.start(encodeHash(p, EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "Renamed"));
+    await vi.advanceTimersByTimeAsync(100);
+    store.edit((q) => ({ ...q, components: q.components.slice(1) }));
+    expect(store.state.project.value.components).toHaveLength(p.components.length - 1);
+    store.undo();
+    expect(store.state.project.value.components[0]?.id).toBe(first?.id);
+    expect(store.state.project.value.name).toBe("Renamed");
+  });
+
+  it("edits more than a second apart are separate undo steps", async () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash(p, EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "First"));
+    await vi.advanceTimersByTimeAsync(1500);
+    store.edit((q) => renameProject(q, "Second"));
+    store.undo();
+    expect(store.state.project.value.name).toBe("First");
+    store.undo();
+    expect(store.state.project.value.name).toBe(p.name);
+  });
+
+  it("a step taken while an edit's run was pending gets the plan too, so undoing to it is not stale", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN));
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + 1500);
+    await flush();
+    const call = stub.calls[0];
+    store.edit((q) => renameProject(q, "Renamed while running"));
     const next = makeLayout(call?.input.inputsHash ?? "");
     call?.resolve(makeResult(next));
     await flush();
     expect(store.state.project.value.layout).toBe(next);
     store.undo();
-    expect(store.state.project.value.layout).toEqual(first);
-    expect(store.state.undoSlot.value).toBeNull();
-    expect(store.state.stale.value).toBe(true);
+    expect(store.state.project.value.name).toBe(p.name);
+    expect(store.state.project.value.box.innerHeight).toBe(p.box.innerHeight + 2);
+    expect(store.state.project.value.layout).toBe(next);
+    expect(store.state.stale.value).toBe(false);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 3);
+    await flush();
+    expect(stub.calls).toHaveLength(1);
+  });
+
+  it("history clears when another project opens", () => {
+    const { store } = setup();
+    store.start(encodeHash(fixtureProject(), EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "Edited"));
+    store.undo();
+    expect(store.canUndo.value || store.canRedo.value).toBe(true);
+    store.newProject();
+    expect(store.canUndo.value).toBe(false);
+    expect(store.canRedo.value).toBe(false);
+    const name = store.state.project.value.name;
+    store.undo();
+    store.redo();
+    expect(store.state.project.value.name).toBe(name);
   });
 
   it("refit keeps searching (3x budget) on a current layout and runs the normal budget when stale or missing", async () => {

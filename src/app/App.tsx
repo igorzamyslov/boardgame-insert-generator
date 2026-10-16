@@ -32,7 +32,6 @@ import {
   addComponent,
   lockedKeys,
   removeComponent,
-  restoreComponent,
   renameProject,
   setSettings,
   swapTrays,
@@ -166,7 +165,7 @@ export function App(props: AppProps) {
   // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
   const [exportOpen, setExportOpen] = useState(false);
   // The component just removed, for the Undo toast (cleared when another project opens).
-  const [removed, setRemoved] = useState<{ component: Component; index: number } | null>(null);
+  const [removed, setRemoved] = useState<{ component: Component; version: number } | null>(null);
   const run = s.run.value;
   useEffect(() => {
     setRemoved(null);
@@ -420,13 +419,13 @@ export function App(props: AppProps) {
                         onAdd={addComponentOfKind}
                         onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
                         onRemove={(id) => {
-                          const index = project.components.findIndex((x) => x.id === id);
-                          const component = project.components[index];
+                          const component = project.components.find((x) => x.id === id);
                           if (component === undefined) {
                             return false;
                           }
-                          setRemoved({ component, index });
                           store.edit((q) => removeComponent(q, id));
+                          // Undo on the toast is only right while the removal is still the latest step.
+                          setRemoved({ component, version: s.history.version.peek() });
                           return true;
                         }}
                       />
@@ -452,7 +451,7 @@ export function App(props: AppProps) {
                   geometryOld={s.geometryOld.value}
                   layers={layers}
                   spares={spares}
-                  canUndo={s.undoSlot.value !== null}
+                  canUndo={store.canUndo.value}
                   canOptimize={canOptimize(project, validation)}
                   hasComponents={project.components.length > 0}
                   hiddenErrors={errorsWithoutField(validation, advanced)}
@@ -650,16 +649,15 @@ export function App(props: AppProps) {
                     </div>
                   </section>
                 )}
-                {removed !== null ? (
+                {removed !== null && removed.version === s.history.version.value ? (
                   <div class="pf-toast stage-block" role="status">
                     {`Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. `}
                     <button
                       type="button"
                       class="pf-link"
                       onClick={() => {
-                        const back = removed;
                         setRemoved(null);
-                        store.edit((q) => restoreComponent(q, back.component, back.index));
+                        store.undo();
                         setOpenSection("components");
                       }}
                     >

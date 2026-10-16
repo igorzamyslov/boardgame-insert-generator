@@ -239,7 +239,7 @@ export function createPersistence(
     batch(() => {
       state.project.value = project;
       state.foreign.value = foreign;
-      state.undoSlot.value = null;
+      state.history.clear();
       state.lastResult.value = null;
       state.selection.value = null;
       state.run.value = { status: "idle" };

@@ -1,5 +1,6 @@
 // src/app/store.ts
 import { batch } from "@preact/signals";
+import type { ReadonlySignal } from "@preact/signals";
 import { newProject } from "../model/defaults";
 import type { Notice, Project } from "../model/types";
 import { STORAGE_PREFIX } from "../share";
@@ -16,13 +17,28 @@ export interface AppDeps {
   loadLayoutClient: () => Promise<LayoutClient>;
   replaceHash: (hash: string) => void;
   confirm: (message: string) => boolean;
+  /** The clock edits are grouped by (default `Date.now`). */
+  now?: () => number;
+}
+
+export const COALESCE_MS = 1000;
+
+function sameComponents(a: Project, b: Project): boolean {
+  return (
+    a.components.length === b.components.length &&
+    a.components.every((c, i) => c.id === b.components[i]?.id)
+  );
 }
 
 export interface AppStore {
   state: State;
   storageAvailable: boolean;
   edit(fn: (p: Project) => Project): void;
+  /** Steps back through the edits of the open project, restoring the whole project (inputs, plan, locks). */
   undo(): void;
+  redo(): void;
+  canUndo: ReadonlySignal<boolean>;
+  canRedo: ReadonlySignal<boolean>;
   /** Re-fits from the current layout: the normal budget when there is no layout or it is stale
    * (an edit) or made under older geometry, the bigger "keep searching" budget when the layout is current. */
   refit(): void;
@@ -43,7 +59,7 @@ export interface AppStore {
 }
 
 export function createAppStore(deps: AppDeps): AppStore {
-  const state = createState(newProject());
+  const state = createState(newProject(), undefined, deps.now);
   const runner = createRunner(
     state,
     { loadLayoutClient: deps.loadLayoutClient, confirm: deps.confirm },
@@ -55,31 +71,48 @@ export function createAppStore(deps: AppDeps): AppStore {
     { onClosing: () => runner.cancel(), onOpened: (opts) => runner.afterOpen(opts) },
   );
 
+  /** Shows a project from the history. One without a current plan is re-planned, as after an edit. */
+  function restore(project: Project | null): void {
+    if (!project) {
+      return;
+    }
+    state.project.value = project;
+    persistence.scheduleSave();
+    if (project.layout === undefined || state.stale.value) {
+      runner.schedule();
+    } else {
+      runner.cancel();
+    }
+  }
+
   return {
     state,
     storageAvailable: deps.projectStore.available,
+    canUndo: state.history.canUndo,
+    canRedo: state.history.canRedo,
     edit(fn) {
-      const before = state.currentHash.value;
-      state.project.value = fn(state.project.value);
+      const before = state.project.value;
+      const beforeHash = state.currentHash.value;
+      const next = fn(before);
+      if (next === before) {
+        return;
+      }
+      batch(() => {
+        state.history.ensureBase(before);
+        // Typing in a field is one step; adding or removing a component never merges into its neighbours.
+        state.history.push(next, sameComponents(before, next) ? { coalesceMs: COALESCE_MS } : {});
+        state.project.value = next;
+      });
       persistence.scheduleSave();
-      if (state.currentHash.value !== before) {
+      if (state.currentHash.value !== beforeHash) {
         runner.schedule();
       }
     },
     undo() {
-      const previous = state.undoSlot.value;
-      if (!previous) {
-        return;
-      }
-      batch(() => {
-        state.project.value = {
-          ...state.project.value,
-          layout: previous.layout,
-          ...(previous.locks && { locks: previous.locks }),
-        };
-        state.undoSlot.value = null;
-      });
-      persistence.scheduleSave();
+      restore(state.history.undo());
+    },
+    redo() {
+      restore(state.history.redo());
     },
     refit() {
       const current =
