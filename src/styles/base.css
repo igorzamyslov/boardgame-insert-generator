@@ -1,0 +1,60 @@
+/*
+ * Base: the page, its type, the focus ring, and the two helper classes. On the tokens
+ * (styles/tokens.css); loaded after it and before style.css.
+ */
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 400 15px/1.45 var(--font-ui);
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+
+/* A phone reads at 16 px (and iOS does not zoom into a 16 px field). */
+@media (width < 760px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+/* Every control shows where the keyboard is. */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/*
+ * A field with focus: a 1.5 px ink border and a glow. The board's field is a box that holds the
+ * input (`.field-box`); a bare input or select takes the same look itself.
+ */
+.field-box:focus-within,
+input[type="text"]:focus-visible,
+input[type="search"]:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border: 1.5px solid var(--ink);
+  box-shadow: 0 0 0 3px var(--field-glow);
+}
+
+/* A target of the control height, where a container rule would otherwise set the height. */
+.tap {
+  min-height: var(--control-h);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

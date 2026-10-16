@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import css from "./style.css?raw";
-import proof from "./styles/proof.css?raw";
+import base from "./styles/base.css?raw";
+import fonts from "./styles/fonts.css?raw";
 import tokens from "./styles/tokens.css?raw";
 import { contrast } from "./ui/color";
 import { NARROW_QUERY, PHONE_QUERY } from "./ui/useMediaQuery";
@@ -55,14 +56,32 @@ function declarations(block: string): Map<string, string> {
   return out;
 }
 
+/** A value as the tests compare it: lower case, one space, none around commas, `.25` as `0.25`. */
+const normal = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/\s*,\s*/g, ",")
+    .replace(/(^|[^\d])\.(\d)/g, "$10.$2")
+    .trim();
+
 describe("tokens.css", () => {
   const stripped = tokens.replace(/\/\*[\s\S]*?\*\//g, "");
-  const darkAt = stripped.indexOf("@media screen and (prefers-color-scheme: dark)");
-  const light = declarations(stripped.slice(0, darkAt));
-  const dark = declarations(stripped.slice(darkAt));
+  const light = declarations(stripped);
+  /** A token's value with `var(--other)` followed through to the hex it ends in. */
+  const resolve = (name: string): string => {
+    let value = light.get(name) ?? "";
+    for (let depth = 0; depth < 5; depth += 1) {
+      const next = /^var\((--[\w-]+)\)$/.exec(value)?.[1];
+      if (!next) {
+        break;
+      }
+      value = light.get(next) ?? "";
+    }
+    return value;
+  };
 
   it("defines the redesign tokens", () => {
-    expect(darkAt).toBeGreaterThan(0);
     const expected: Record<string, string> = {
       "--page": "#F4F3EF",
       "--sheet": "#FFFFFF",
@@ -93,41 +112,291 @@ describe("tokens.css", () => {
     for (const [name, value] of Object.entries(expected)) {
       expect(light.get(name)?.toUpperCase(), name).toBe(value);
     }
-    expect(stripped).toMatch(/:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--focus\)/);
-    expect(stripped).toMatch(/:focus-visible\s*\{[^}]*outline-offset:\s*2px/);
   });
 
-  it("redefines every colour under the same name in the dark scheme", () => {
-    const colours = [...light].filter(([, v]) => /^#[0-9a-f]{6}$/i.test(v)).map(([n]) => n);
-    expect(colours.length).toBeGreaterThan(20);
-    expect(colours.filter((n) => !dark.has(n))).toEqual([]);
-    // Dark is its own warm palette, not the light one repeated.
-    expect(dark.get("--page")).not.toBe(light.get("--page"));
+  it("defines the board tokens", () => {
+    // Every value of "Values from the boards" in the UI rebuild plan, as the boards draw it.
+    const board: Record<string, string> = {
+      // surfaces, lines, ink
+      "--row": "#FAF9F6",
+      "--fill-quiet": "#EFEDE7",
+      "--chip": "#E9E5DB",
+      "--track": "#E9E7E0",
+      "--icon-ground": "#EDEAE2",
+      "--scrim": "#8E8B83",
+      "--rule-soft": "#EEEBE4",
+      "--field-line": "#DAD6CC",
+      "--line-strong": "#BDB7A9",
+      "--handle": "#D6D2C8",
+      "--muted-strong": "#3E413C",
+      "--ink-dim": "#4A4D47",
+      "--ink-off": "#6B6E68",
+      "--box-edge": "#BFB8A8",
+      "--box-dash": "#8C8778",
+      "--field-glow": "#CFDCF6",
+      // meaning
+      "--info-bg": "#E6EEFC",
+      "--info-ink": "#1B3D7A",
+      "--fit-bg": "#DDF0E3",
+      "--ok": "#2B7247",
+      "--danger": "#B4321F",
+      "--danger-bg": "#FBE4E0",
+      "--danger-ink": "#8A2414",
+      "--destructive": "#A13A2C",
+      "--warn": "#C2620F",
+      "--warn-bg": "#FCE6CF",
+      "--warn-ink": "#7A3A08",
+      "--warn-ink-strong": "#5A2A06",
+      "--warn-icon": "#9A4A0B",
+      "--changed": "#3F6FD1",
+      "--changed-bg": "#EEF3FC",
+      "--changed-ink": "#22457E",
+      "--logo-cards": "#8FB0EE",
+      "--logo-bits": "#EDC175",
+      "--logo-tiles": "#86C79A",
+      "--logo-minis": "#E89BBE",
+      // shadows and rings
+      "--shadow-menu": "0 16px 40px rgba(29, 31, 28, 0.18)",
+      "--shadow-dialog": "0 30px 80px rgba(29, 31, 28, 0.35)",
+      "--shadow-drawer": "-20px 0 60px rgba(29, 31, 28, 0.25)",
+      "--shadow-bar": "0 6px 18px rgba(29, 31, 28, 0.08)",
+      "--shadow-thumb": "0 1px 2px rgba(29, 31, 28, 0.12)",
+      "--shadow-toast": "0 10px 24px rgba(29, 31, 28, 0.18)",
+      "--shadow-peek": "0 -8px 30px rgba(29, 31, 28, 0.14)",
+      "--shadow-sheet-modal": "0 -8px 30px rgba(29, 31, 28, 0.18)",
+      "--shadow-lift-drop": "0 14px 28px rgba(29, 31, 28, 0.2)",
+      "--ring-selected": "0 0 0 3px var(--sheet), 0 0 0 5px var(--ink)",
+      "--ring-dot": "0 0 0 2px var(--sheet)",
+      "--box-inset-plan": "inset 0 0 0 1px var(--box-edge)",
+      "--box-inset-side": "inset 0 0 0 2px var(--box-dash)",
+      // spacing
+      "--s-2": "2px",
+      "--s-3": "3px",
+      "--s-4": "4px",
+      "--s-5": "5px",
+      "--s-6": "6px",
+      "--s-8": "8px",
+      "--s-10": "10px",
+      "--s-12": "12px",
+      "--s-14": "14px",
+      "--s-16": "16px",
+      "--s-18": "18px",
+      "--s-20": "20px",
+      "--s-22": "22px",
+      "--s-24": "24px",
+      "--s-28": "28px",
+      "--s-32": "32px",
+      "--s-40": "40px",
+      // radii
+      "--r-pill": "999px",
+      "--r-dialog": "22px",
+      "--r-bar": "18px",
+      "--r-panel": "16px",
+      "--r-card": "14px",
+      "--r-field": "12px",
+      "--r-tile": "10px",
+      "--r-icon": "9px",
+      "--r-logo": "8px",
+      "--r-cell": "6px",
+      // sizes
+      "--control-h": "44px",
+      "--field-h": "48px",
+      "--field-h-compact": "44px",
+      "--cta-h": "54px",
+      "--dialog-btn-h": "48px",
+      "--header-h": "60px",
+      "--header-h-phone": "56px",
+      "--rail-basis": "300px",
+      "--rail-max": "350px",
+      "--rail-pad": "20px",
+      "--stage-pad": "22px 36px 28px",
+      "--stage-pad-focus": "28px 40px",
+      "--row-min": "52px",
+      "--kind-tile-h": "56px",
+      "--stage-slot": "52px",
+      "--status-icon": "40px",
+      "--status-icon-phone": "32px",
+      "--menu-w": "260px",
+      "--dialog-max": "560px",
+      "--dialog-pad": "32px",
+      "--sheet-peek": "196px",
+      // type
+      "--text-sm": "14px",
+      "--text-xs": "13px",
+      "--text-2xs": "12px",
+      "--text-field": "17px",
+      "--text-count": "18px",
+      "--text-wordmark": "18px",
+      "--text-stat": "24px",
+      "--h1": "28px",
+      "--h1-first": "40px",
+      "--h1-dialog": "30px",
+      "--h1-drawer": "26px",
+      "--h1-phone": "21px",
+      "--h2": "20px",
+      "--h2-panel": "22px",
+      "--h2-section": "17px",
+      "--h3": "19px",
+    };
+    const wrong: string[] = [];
+    for (const [name, value] of Object.entries(board)) {
+      if (normal(light.get(name) ?? "") !== normal(value)) {
+        wrong.push(`${name}: ${light.get(name) ?? "(missing)"} is not ${value}`);
+      }
+    }
+    expect(wrong).toEqual([]);
+    expect(Object.keys(board).length).toBeGreaterThan(110);
+    expect(light.get("--font-display")).toContain('"Bricolage Grotesque"');
+    expect(light.get("--font-ui")).toContain('"Figtree"');
   });
 
-  it.each([
-    ["light", light],
-    ["dark", dark],
-  ] as const)("keeps text at 4.5:1 and edges at 3:1 in the %s scheme", (_, set) => {
-    const get = (name: string): string => set.get(name) ?? light.get(name) ?? "#000000";
+  it("keeps dark opt-in", () => {
+    // Task 16 brings dark back behind [data-theme="dark"] and restores a per-token check.
+    expect(stripped).not.toContain("prefers-color-scheme");
+    expect(stripped).toMatch(/:root\s*\{[^}]*color-scheme:\s*light\s*;/);
+    expect(stripped).not.toMatch(/color-scheme:[^;]*dark/);
+  });
+
+  it("keeps the legacy names", () => {
+    const legacy = [
+      "--edge",
+      "--space-1",
+      "--space-2",
+      "--space-3",
+      "--space-4",
+      "--space-5",
+      "--space-6",
+      "--space-7",
+      "--space-8",
+      "--radius-sm",
+      "--radius-md",
+      "--radius-lg",
+      "--rail-width",
+      "--page-max",
+      "--shadow-sheet",
+      "--on-focus",
+      "--focus-wash",
+      "--on-danger",
+      "--danger-wash",
+      "--on-warn",
+      "--warn-wash",
+      "--font-mono",
+      "--paper",
+      "--sheet-sunken",
+      "--rule-strong",
+      "--ink-soft",
+      "--indigo",
+      "--on-indigo",
+      "--indigo-wash",
+      "--madder",
+      "--on-madder",
+      "--madder-wash",
+      "--ochre",
+      "--on-ochre",
+      "--ochre-wash",
+      "--tint-8",
+      "--axis-x",
+      "--axis-y",
+      "--axis-z",
+      "--paper-white",
+    ];
+    expect(legacy.filter((name) => !light.has(name))).toEqual([]);
+    // each one lands on a board value (or, for the three that have none, a plain literal)
+    expect(light.get("--rail-width")).toBe("var(--rail-max)");
+    expect(light.get("--space-3")).toBe("var(--s-12)");
+    expect(light.get("--madder")).toBe("var(--danger)");
+  });
+
+  it("keeps text at 4.5:1 and edges at 3:1", () => {
     for (const ground of ["--page", "--sheet"]) {
-      expect(contrast(get("--ink"), get(ground)), `ink on ${ground}`).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(get("--muted"), get(ground)), `muted on ${ground}`).toBeGreaterThanOrEqual(
-        4.5,
-      );
-      expect(contrast(get("--focus"), get(ground)), `focus on ${ground}`).toBeGreaterThanOrEqual(3);
-      expect(contrast(get("--edge"), get(ground)), `edge on ${ground}`).toBeGreaterThanOrEqual(3);
+      expect(
+        contrast(resolve("--ink"), resolve(ground)),
+        `ink on ${ground}`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(resolve("--muted"), resolve(ground)),
+        `muted on ${ground}`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(resolve("--focus"), resolve(ground)),
+        `focus on ${ground}`,
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        contrast(resolve("--edge"), resolve(ground)),
+        `edge on ${ground}`,
+      ).toBeGreaterThanOrEqual(3);
     }
     for (const kind of ["cards", "bits", "tiles", "minis", "custom"]) {
       expect(
-        contrast(get(`--${kind}-ink`), get(`--${kind}-fill`)),
+        contrast(resolve(`--${kind}-ink`), resolve(`--${kind}-fill`)),
         `${kind} ink on its fill`,
       ).toBeGreaterThanOrEqual(4.5);
       expect(
-        contrast(get(`--${kind}-line`), get("--box")),
+        contrast(resolve(`--${kind}-line`), resolve("--box")),
         `${kind} line on the box`,
       ).toBeGreaterThanOrEqual(3);
     }
+  });
+
+  it("keeps the board's message colours readable on their grounds", () => {
+    const text: [string, string][] = [
+      ["--danger-ink", "--danger-bg"],
+      ["--warn-ink", "--warn-bg"],
+      ["--warn-ink-strong", "--warn-bg"],
+      ["--info-ink", "--info-bg"],
+      ["--changed-ink", "--changed-bg"],
+      ["--ok", "--fit-bg"],
+      ["--on-danger", "--danger"],
+      ["--on-focus", "--focus"],
+    ];
+    for (const [ink, ground] of text) {
+      expect(contrast(resolve(ink), resolve(ground)), `${ink} on ${ground}`).toBeGreaterThanOrEqual(
+        4.5,
+      );
+    }
+    // the mark inside the warning triangle is a shape, not text: 3:1
+    expect(contrast(resolve("--on-warn"), resolve("--warn"))).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe("base.css", () => {
+  const stripped = base.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("sets the page, its ink and 15 px Figtree, 16 px on a phone", () => {
+    const body = ruleFor("body", base);
+    expect(body).toMatch(/background:\s*var\(--page\)/);
+    expect(body).toMatch(/color:\s*var\(--ink\)/);
+    expect(body).toMatch(/font:[^;]*15px[^;]*var\(--font-ui\)/);
+    expect(ruleFor("body", mediaBlock("(width < 760px)", base))).toMatch(/font-size:\s*16px/);
+  });
+
+  it("sets headings in the display face at 700", () => {
+    const body = ruleFor("h1", base);
+    expect(body).toMatch(/font-family:\s*var\(--font-display\)/);
+    expect(body).toMatch(/font-weight:\s*700/);
+  });
+
+  it("shows where the keyboard is: a 3 px ring, and the glow on a field with focus", () => {
+    expect(stripped).toMatch(/:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--focus\)/);
+    expect(stripped).toMatch(/:focus-visible\s*\{[^}]*outline-offset:\s*2px/);
+    const field = ruleFor(".field-box:focus-within", base);
+    expect(field).toMatch(/border:\s*1\.5px solid var\(--ink\)/);
+    expect(field).toMatch(/box-shadow:\s*0 0 0 3px var\(--field-glow\)/);
+  });
+
+  it("keeps .tap at the control height and .visually-hidden out of sight", () => {
+    expect(ruleFor(".tap", base)).toMatch(/min-height:\s*var\(--control-h\)/);
+    expect(ruleFor(".visually-hidden", base)).toMatch(/clip-path:\s*inset\(50%\)/);
+  });
+});
+
+describe("fonts.css", () => {
+  it("ships Figtree 500", () => {
+    const faces = [...fonts.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((m) => m[1] ?? "");
+    const files = faces
+      .filter((f) => /font-family:\s*"Figtree"/.test(f) && /font-weight:\s*500/.test(f))
+      .map((f) => /figtree-(latin(?:-ext)?)-500-normal\.woff2/.exec(f)?.[1]);
+    expect(files.sort()).toEqual(["latin", "latin-ext"]);
   });
 });
 
@@ -176,7 +445,7 @@ describe("touch targets", () => {
   it("gives fields at least 44 px, and the .tap buttons the control height", () => {
     expect(ruleFor('input[type="search"]')).toMatch(/min-height:\s*44px/);
     expect(ruleFor('input[type="text"]')).toMatch(/min-height:\s*44px/);
-    expect(ruleFor(".tap")).toMatch(/min-height:\s*var\(--control-h\)/);
+    expect(ruleFor(".tap", base)).toMatch(/min-height:\s*var\(--control-h\)/);
   });
 });
 
@@ -191,7 +460,7 @@ describe("the phone layout", () => {
   });
 
   it("makes the screen one dvh tall, so a browser's own bars do not cover the sheet", () => {
-    expect(ruleFor(".pf-app", proof)).toMatch(/height:\s*100dvh/);
+    expect(ruleFor(".pf-app")).toMatch(/height:\s*100dvh/);
   });
 
   it("leaves the scrolling to the settings sheet's panel, whatever the screen's width", () => {
@@ -238,7 +507,7 @@ describe("the phone layout", () => {
   });
 
   it("gives the view's tabs a 44 px target", () => {
-    expect(ruleFor(".pf-tabs button", proof)).toMatch(/min-height:\s*var\(--control-h\)/);
+    expect(ruleFor(".pf-tabs button")).toMatch(/min-height:\s*var\(--control-h\)/);
   });
 });
 
@@ -276,8 +545,6 @@ describe("breakpoints", () => {
       "(width >= 760px) and (width <= 960px)",
       "(width < 600px)",
       "(prefers-reduced-motion: reduce)",
-      "(prefers-color-scheme: dark)",
-      "screen and (prefers-color-scheme: dark)",
       "print",
     ]);
     const found = new Set<string>();

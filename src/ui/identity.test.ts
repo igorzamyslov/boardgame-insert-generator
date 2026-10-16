@@ -111,12 +111,11 @@ describe("component shades", () => {
     }
   });
 
-  it("starts every kind on its own hue from the tokens, in both schemes", () => {
-    const at = tokens.indexOf("@media");
-    const blocks = { light: tokens.slice(0, at), dark: tokens.slice(at) };
-    for (const scheme of SCHEMES) {
+  it("starts every kind on its own hue from the tokens", () => {
+    // tokens.css is light only until the opt-in dark theme (UI rebuild Task 16) restores its set
+    for (const scheme of ["light"] as const) {
       const found = new Map(
-        [...blocks[scheme].matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
+        [...tokens.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
       );
       for (const kind of KINDS) {
         const base = shadeHex(kind, 0, scheme);
@@ -130,12 +129,11 @@ describe("component shades", () => {
     expect(new Set(KINDS.map((k) => shadeHex(k, 0, "light").fill)).size).toBe(KINDS.length);
   });
 
-  it("mirrors the spacer tokens, in both schemes", () => {
-    const at = tokens.indexOf("@media");
-    const blocks = { light: tokens.slice(0, at), dark: tokens.slice(at) };
-    for (const scheme of SCHEMES) {
+  it("mirrors the spacer tokens", () => {
+    // tokens.css is light only until the opt-in dark theme (UI rebuild Task 16) restores its set
+    for (const scheme of ["light"] as const) {
       const found = new Map(
-        [...blocks[scheme].matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
+        [...tokens.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
       );
       expect(SPACER_SHADE[scheme].fill, `${scheme} fill`).toBe(found.get("--spacer-fill"));
       expect(SPACER_SHADE[scheme].hatch, `${scheme} hatch`).toBe(found.get("--spacer-hatch"));

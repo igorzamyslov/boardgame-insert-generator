@@ -253,9 +253,9 @@ it only with a written reason in the code or the PR.
 
 ### CSS and tokens
 
-- MUST take colours, spacing, radii, fonts and `--control-h` from `src/styles/tokens.css`. Dark
-  mode redefines the same names under `@media screen and (prefers-color-scheme: dark)`, so print
-  stays light.
+- MUST take colours, spacing, radii, fonts, sizes and `--control-h` from `src/styles/tokens.css`.
+  Light is the only theme for now; dark is opt-in and not built (DESIGN §4 Dark mode). The page,
+  type, focus ring, `.tap` and `.visually-hidden` live in `src/styles/base.css`.
 - MUST decide a component's shade in one place only: `shadeIndexOf(components, index)` in
   `src/ui/identity.ts`. Then pick the format by consumer:
   - DOM: `shadeOf(kind, i)` or `shadeVars`. These are CSS `light-dark()` strings, so one inline
@@ -275,7 +275,7 @@ scheme)`, with `"light"` for paper. `viewer/shades.ts` and `plan/glyph.ts` go th
 - SHOULD prefer attributes over `:has()` and DOM queries for state-driven styling. For example,
   `BottomSheet` sets `data-editing`, `data-full` and `data-expanded`, and App passes a
   `handleRef` instead of `querySelector(".pf-sheet__handle")`.
-- Note: stylelint ignores `src/styles/**` (`.stylelintrc.json`), so `tokens.css`, `proof.css`
+- Note: stylelint ignores `src/styles/**` (`.stylelintrc.json`), so `tokens.css`, `base.css`
   and `fonts.css` are only checked by `style.test.ts` and `identity.test.ts`. Run those tests
   after touching them.
 

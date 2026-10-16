@@ -7,7 +7,7 @@ import { connectWindow, createAppStore } from "./app/store";
 import { createPrefsStore, createProjectStore } from "./share";
 import "./styles/fonts.css";
 import "./styles/tokens.css";
-import "./styles/proof.css";
+import "./styles/base.css";
 import "./style.css";
 
 const store = createAppStore({

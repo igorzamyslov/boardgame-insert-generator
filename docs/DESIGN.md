@@ -145,8 +145,8 @@ technical palette. The owner called it unusable. Everything below exists so it d
   whatever the screen theme; the on-screen pictures use `--paper-white`. `src/rules.test.ts` fails
   on a raw hex anywhere else outside `tokens.css`. New code uses the primary names (`--page`, `--ink`, `--focus`,
   `--danger` …), not the legacy aliases at the end of `tokens.css` (`--indigo`, `--madder`,
-  `--paper`, `--tint-8` …). About 70 old uses of the aliases remain in `src/style.css`,
-  `src/styles/proof.css` and `src/plan/plan.css`; move one to the primary name when you touch it.
+  `--paper`, `--tint-8` …). Old uses of the aliases remain in `src/style.css` and
+  `src/plan/plan.css`; move one to the primary name when you touch it.
   `src/rules.test.ts` fails if the count grows.
 - MUST colour a component and its trays with its kind's hue in its own shade:
   `shadeIndexOf(components, i)` picks the shade, `shadeOf(kind, i)` gives page CSS colours
@@ -157,8 +157,8 @@ technical palette. The owner called it unusable. Everything below exists so it d
 - MUST NOT use `light-dark()` outside the page's own CSS. three.js, PNG and SVG export and print
   use `shadeHex(kind, i, "light")` (paper is always light). A test keeps `light-dark(` out of the
   exported SVG.
-- MUST redefine every new colour token in the dark block of `tokens.css`. Enforced by
-  `src/style.test.ts` ("redefines every colour under the same name in the dark scheme").
+- Light is the default and only theme; MUST NOT follow the system's dark setting. Dark is opt-in
+  (§4 Dark mode). Enforced by `src/style.test.ts` ("keeps dark opt-in").
 
 ### Claims and copy limits
 
@@ -274,19 +274,26 @@ technical palette. The owner called it unusable. Everything below exists so it d
 
 ### Palette roles
 
-Light and warm by default. Tokens in `src/styles/tokens.css`:
+Light and warm. Every value comes from the boards (`docs/design/boards`). Tokens in
+`src/styles/tokens.css`:
 
-| Role                      | Token                                              |
-| ------------------------- | -------------------------------------------------- |
-| Page background           | `--page`                                           |
-| Cards, panels, sheets     | `--sheet`, with `--shadow-sheet`                   |
-| Text                      | `--ink`; secondary text `--muted`                  |
-| Hairlines, dividers       | `--rule`                                           |
-| Control and tray edges    | `--edge`                                           |
-| The box floor in the plan | `--box`                                            |
-| Focus, links, selection   | `--focus`, `--focus-wash`, text on it `--on-focus` |
-| Errors, no-fit            | `--danger`, `--danger-wash`, `--on-danger`         |
-| Warnings, the menu dot    | `--warn`, `--warn-wash`, `--on-warn`               |
+| Role                                        | Token                                                                             |
+| ------------------------------------------- | --------------------------------------------------------------------------------- |
+| Page background                             | `--page`                                                                          |
+| Cards, panels, sheets                       | `--sheet`, with `--shadow-sheet`                                                  |
+| List rows, the box card, kind tiles         | `--row`                                                                           |
+| Segment tracks, progress tracks, small tags | `--fill-quiet`; Main's Layer and View segments `--track`                          |
+| Text                                        | `--ink`; secondary text `--muted`, `--muted-strong`; blocked `--ink-off`          |
+| Hairlines, dividers                         | `--rule`, `--rule-soft`; field edges `--field-line`                               |
+| Control and tray edges                      | `--edge`                                                                          |
+| The box floor in the plan                   | `--box`, `--box-edge`, `--box-dash`                                               |
+| Focus, links, selection                     | `--focus`, `--focus-wash`, text on it `--on-focus`; a field's glow `--field-glow` |
+| Info (banner, searching)                    | `--info-bg`, `--info-ink`                                                         |
+| Everything fits, saved                      | `--fit-bg`, `--ok`                                                                |
+| Errors, no-fit                              | `--danger`, `--danger-bg`, `--danger-ink`, `--on-danger`                          |
+| Warnings, the menu dot                      | `--warn`, `--warn-bg`, `--warn-ink`, `--warn-ink-strong`                          |
+| Changed from the default (Settings)         | `--changed`, `--changed-bg`, `--changed-ink`                                      |
+| Behind a dialog or the drawer               | `--scrim`                                                                         |
 
 Never lay `--muted` text on `--box`: it falls below 4.5:1 in light mode.
 
@@ -311,7 +318,7 @@ Each component takes its own shade of its kind's hue, by its place among compone
 ### Typography
 
 - Headings: Bricolage Grotesque 500 and 700 (`--font-display`).
-- Everything else: Figtree 400, 600 and 700 (`--font-ui`).
+- Everything else: Figtree 400, 500, 600 and 700 (`--font-ui`). 15 px on the page, 16 px on a phone.
 - Both self-hosted from `@fontsource` packages, declared in `src/styles/fonts.css`: woff2, latin
   and latin-ext subsets only. Adding a weight or subset is a decision-log row.
 - Numbers that line up (percentages, sizes in columns) use `font-variant-numeric: tabular-nums`.
@@ -319,23 +326,23 @@ Each component takes its own shade of its kind's hue, by its place among compone
 
 ### Shapes
 
-- Radii: `--radius-sm` 2 px, `--radius-md` 4 px (most controls and cards), `--radius-lg` 8 px
-  (sheets, the bottom sheet's top corners).
-- Pills: `border-radius: 999px`, one line, at least 44 px tall. The status line is a stack of
-  pills, one per matter.
-- Spacing on the `--space-1` … `--space-8` scale (4 to 64 px). The rail is `--rail-width`, the page
-  caps at `--page-max`.
-- The design canvas used rounder corners (14 px panels). The code's tokens are the reference.
+- Radii are the boards': `--r-cell` 6, `--r-logo` 8, `--r-icon` 9, `--r-tile` 10, `--r-field` 12,
+  `--r-card` 14 (cards, menu panel, toast, banner), `--r-panel` 16, `--r-bar` 18, `--r-dialog` 22
+  (dialogs, the phone sheet's top corners), `--r-pill` 999 px.
+- Pills: `border-radius: var(--r-pill)`, one line, at least 44 px tall. The status line is a stack
+  of pills, one per matter.
+- Spacing is the boards' scale: `--s-2` … `--s-40` (2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 18, 20, 22,
+  24, 28, 32, 40 px). A one-off board value (1, 7 or 9 px) stays literal, with a comment naming
+  the board. The old `--space-*`, `--radius-*`, `--rail-width` and `--page-max` stay as aliases
+  until the old layout is gone.
+- Shadows, sizes and type sizes are tokens too (`--shadow-*`, `--field-h`, `--header-h`, `--h1` …).
 
 ### Dark mode
 
-- A warm dark set redefines the same token names under
-  `@media screen and (prefers-color-scheme: dark)`. It follows the system; there is no in-app
-  switch. The 3D view reads only the system's setting (`pageScheme` in `src/viewer/shades.ts`). A
-  switch would have to set `data-theme` on the root, make `pageScheme` read it and make
-  `usePageScheme` in `src/viewer/Viewer.tsx` watch it: that code was removed with the rule.
+- Not built; the old dark values are in git history (`68733a9`, `src/styles/tokens.css`). Dark is
+  opt-in from the project menu and defaults to light; it sets `data-theme="dark"` on the root, with
+  `color-scheme: dark`.
 - Print is always light (`src/style.css` sets `color-scheme: light` for print).
-- The 3D view reads the current scheme and asks for `shadeHex(…, scheme)` (`src/viewer/shades.ts`).
 
 ### Icons
 
@@ -522,6 +529,9 @@ rule in this document.
 | The bottom sheet is tap-only, no swipe                                                                                                                                                                                                                                                          | Ruled in the phone build; a tap target is simpler to make accessible                                                                                                                                                                                                                                                     | Add swipe later                                                                                                     |
 | The 760 to 960 px tablet rail is a ruled breakpoint; the 3D canvas height uses the 600 px line (below, not at) and the 520 px padding rule was dropped (the phone rule always overrode it)                                                                                                      | Three stray widths had no ruling; one line of each kind is easier to keep in step with the JS                                                                                                                                                                                                                            | A third breakpoint to test                                                                                          |
 | Raw hex is allowed only in `tokens.css` and the packing guide's print rules (paper is black on white); the axis colours and `--paper-white` are tokens                                                                                                                                          | The print rules need fixed paper colours; the axis colours had no dark values                                                                                                                                                                                                                                            | A paper token set                                                                                                   |
+| Tokens come from the boards, including shadows, spacing and radii                                                                                                                                                                                                                               | The boards are the design; the old tokens were a guess at it                                                                                                                                                                                                                                                             | The old 2, 4 and 8 px radii and 4 to 64 px spacing, until the old layout is gone                                    |
+| Figtree 500 added for the boards' segment labels                                                                                                                                                                                                                                                | The boards' "off" segment labels are 500; a weight is a decision-log row (§4)                                                                                                                                                                                                                                            | Figtree 400 or 600 for them                                                                                         |
+| Dark set removed until it is opt-in                                                                                                                                                                                                                                                             | Light is the only theme; the old set followed the system and had no screen to be checked on                                                                                                                                                                                                                              | The system-following dark set                                                                                       |
 | The download dialog does not count parts without an engraved name; the packing guide lists them                                                                                                                                                                                                 | Say less late in the flow: the person already knows at download time                                                                                                                                                                                                                                                     | Bring back "N parts are too small for their name"                                                                   |
 | Download stays off while an older-geometry plan is kept ("Use the old plan"), reason "Reprint everything to download"; pressing it then brings the banner back                                                                                                                                  | Owner ruling: trays from an older line do not mate with new ones, so they must not be exported; the person must not hit a dead end                                                                                                                                                                                       | Allow download of a kept old plan again                                                                             |
 | Undo and Redo have keyboard shortcuts through one document-level listener in App; skipped in text fields and behind any modal dialog, Settings included                                                                                                                                         | Owner ruling. A modal's own controls are the whole screen; Settings has a tab (My printer) whose changes are not undo steps, so a shortcut there could undo something the person cannot see                                                                                                                              | Allow it in Settings' "This insert" tab                                                                             |
