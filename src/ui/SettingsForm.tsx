@@ -25,7 +25,6 @@ import { ValidationContext } from "./validation";
 
 export interface SettingsFormProps {
   settings: Settings;
-  advanced: boolean;
   onChange: (s: Settings) => void;
 }
 
@@ -147,7 +146,7 @@ const wallAbsorbRange = SETTING_RANGES.find((r) => r.path === WALL_ABSORB_PATH);
 
 const PANEL_PATHS: ReadonlySet<string> = new Set(PANEL_RANGES.map((r) => `/settings/${r.path}`));
 
-export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps) {
+export function SettingsForm({ settings, onChange }: SettingsFormProps) {
   const notices = useContext(ValidationContext);
   const hasError = notices.some(
     (n) => n.level === "error" && n.path !== undefined && PANEL_PATHS.has(n.path),
@@ -157,13 +156,6 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
   const forced = useRef(false);
   if (hasError) {
     forced.current = true;
-  }
-  if (!advanced) {
-    return (
-      <div class="form-grid">
-        <SimpleChoices settings={settings} onChange={onChange} />
-      </div>
-    );
   }
   const changed = changedRanges(settings);
   return (
@@ -301,9 +293,9 @@ function fingerRoomHint(s: Settings): string {
 
 /**
  * Choices that write resolved numbers (spec §5): walls, fit and the finger room switch (on for
- * any wall room, including a custom one). Advanced mode also edits the numbers themselves.
+ * any wall room, including a custom one). The numbers themselves are under Exact values.
  */
-function SimpleChoices({ settings, onChange }: Omit<SettingsFormProps, "advanced">) {
+function SimpleChoices({ settings, onChange }: SettingsFormProps) {
   return (
     <>
       <SelectField

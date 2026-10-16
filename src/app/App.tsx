@@ -379,7 +379,6 @@ export function App(props: AppProps) {
                     {x.id === "settings" ? (
                       <SettingsForm
                         settings={project.settings}
-                        advanced
                         onChange={(next) => store.edit((q) => setSettings(q, next))}
                       />
                     ) : null}
