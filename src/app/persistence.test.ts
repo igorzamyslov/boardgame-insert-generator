@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
 import { SCHEMA_NOTICE_CODES } from "../model/schema";
-import { STORAGE_PREFIX, createProjectStore, encodeHash } from "../share";
+import { STORAGE_PREFIX, createProjectStore } from "../share";
+import { encodeHash } from "../test-support/link";
 import type { ProjectStore } from "../share";
 import {
   CONFLICT_CODE,
@@ -21,10 +22,19 @@ import { EMPTY_FOREIGN, fixtureProject, makeLayout } from "./test-helpers";
 
 function tab(projectStore: ProjectStore, confirm = vi.fn(() => true)) {
   const state = createState(fixtureProject());
-  const replaceHash = vi.fn<(hash: string) => void>();
+  const clearHash = vi.fn<() => void>();
+  // the predicate a window's beforeunload handler would ask
+  let warn: () => boolean = () => false;
+  const guardLeaving = (shouldWarn: () => boolean): void => {
+    warn = shouldWarn;
+  };
   const hooks = { onClosing: vi.fn(), onOpened: vi.fn() };
-  const persistence = createPersistence(state, { projectStore, replaceHash, confirm }, hooks);
-  return { state, persistence, replaceHash, hooks, confirm };
+  const persistence = createPersistence(
+    state,
+    { projectStore, clearHash, guardLeaving, confirm },
+    hooks,
+  );
+  return { state, persistence, clearHash, warnsOnLeave: () => warn(), hooks, confirm };
 }
 
 function rename(state: ReturnType<typeof createState>, name: string): void {
@@ -46,7 +56,7 @@ describe("persistence", () => {
     t.persistence.start("");
     expect(t.state.project.value.components).toEqual([]);
     expect(store.list().map((e) => e.id)).toEqual([t.state.project.value.id]);
-    expect(t.replaceHash).toHaveBeenLastCalledWith(expect.stringMatching(/^#1\./));
+    expect(t.clearHash).not.toHaveBeenCalled();
     expect(t.hooks.onOpened).toHaveBeenCalledTimes(1);
   });
 
@@ -299,23 +309,76 @@ describe("persistence", () => {
     rename(t.state, "Offline");
     t.persistence.scheduleSave();
     vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
-    expect(t.replaceHash).toHaveBeenCalledTimes(2);
     expect(t.state.projects.value).toEqual([]);
   });
 
-  it("debounces autosave and updates the URL hash", () => {
+  it("says a file keeps the work when nothing can be stored", () => {
+    const t = tab(createProjectStore(null));
+    t.persistence.start("");
+    const notice = t.state.appNotices.value.find((n) => n.code === STORAGE_UNAVAILABLE_CODE);
+    expect(notice?.message).toContain("Save a file to keep your work");
+    expect(notice?.message).not.toMatch(/link/i);
+  });
+
+  it("warns before leaving when nothing can be saved", () => {
+    const t = tab(createProjectStore(null));
+    t.persistence.start("");
+    // nothing has been changed yet: a plan arriving on its own is no reason to hold the tab
+    expect(t.warnsOnLeave()).toBe(false);
+    t.state.project.value = { ...t.state.project.value, layout: makeLayout("some-run") };
+    t.persistence.scheduleSave();
+    expect(t.warnsOnLeave()).toBe(false);
+    rename(t.state, "Offline");
+    t.persistence.scheduleSave();
+    expect(t.warnsOnLeave()).toBe(true);
+    // a saved file is a copy of the work
+    t.persistence.markSavedToFile();
+    expect(t.warnsOnLeave()).toBe(false);
+    rename(t.state, "Offline again");
+    t.persistence.scheduleSave();
+    expect(t.warnsOnLeave()).toBe(true);
+    // a different project starts clean
+    t.persistence.newProject();
+    expect(t.warnsOnLeave()).toBe(false);
+  });
+
+  it("never warns before leaving when the browser keeps the work", () => {
+    const t = tab(createProjectStore(new MemoryStorage()));
+    t.persistence.start("");
+    rename(t.state, "Stored");
+    t.persistence.scheduleSave();
+    expect(t.warnsOnLeave()).toBe(false);
+  });
+
+  it("clears the address bar once after reading an old link", () => {
+    const t = tab(createProjectStore(new MemoryStorage()));
+    t.persistence.start(encodeHash(fixtureProject(), EMPTY_FOREIGN));
+    expect(t.clearHash).toHaveBeenCalledTimes(1);
+    rename(t.state, "Edited");
+    t.persistence.flush();
+    expect(t.clearHash).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the address bar after a link that can't be read, and not when there is none", () => {
+    const damaged = tab(createProjectStore(new MemoryStorage()));
+    damaged.persistence.start("#1.this-is-not-a-valid-payload");
+    expect(damaged.clearHash).toHaveBeenCalledTimes(1);
+    const none = tab(createProjectStore(new MemoryStorage()));
+    none.persistence.start("#");
+    expect(none.clearHash).not.toHaveBeenCalled();
+  });
+
+  it("debounces autosave", () => {
     const store = createProjectStore(new MemoryStorage());
     const t = tab(store);
     t.persistence.start("");
-    const before = t.replaceHash.mock.calls.length;
     rename(t.state, "Typing");
     t.persistence.scheduleSave();
     t.persistence.scheduleSave();
     t.persistence.scheduleSave();
     vi.advanceTimersByTime(SAVE_DEBOUNCE_MS - 1);
-    expect(t.replaceHash.mock.calls.length).toBe(before);
+    expect(store.list()[0]?.name).not.toBe("Typing");
     vi.advanceTimersByTime(1);
-    expect(t.replaceHash.mock.calls.length).toBe(before + 1);
     expect(store.list()[0]?.name).toBe("Typing");
   });
 
@@ -553,13 +616,6 @@ describe("persistence", () => {
         "importing a file",
         ({ t }) => t.persistence.importJson(JSON.stringify({ ...fixtureProject(), id: "file" })),
       ],
-      [
-        "following a link",
-        ({ t }) =>
-          t.persistence.openFromHash(
-            encodeHash({ ...fixtureProject(), id: "link" }, EMPTY_FOREIGN),
-          ),
-      ],
     ];
 
     for (const [name, leave] of paths) {
@@ -571,9 +627,6 @@ describe("persistence", () => {
         expect(x.t.state.project.value.id).toBe("mine");
         expect(x.t.state.project.value.name).toBe("Unsaved edits");
         expect(x.t.state.appNotices.value.map((n) => n.code)).toContain(SAVE_FAILED_CODE);
-        expect(x.t.replaceHash).toHaveBeenLastCalledWith(
-          encodeHash(x.t.state.project.value, EMPTY_FOREIGN),
-        );
       });
 
       it(`leaves after ${name} when confirmed, and keeps a notice naming the project`, () => {

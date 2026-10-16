@@ -4,7 +4,7 @@ import { newProject as makeNewProject } from "../model/defaults";
 import { newId } from "../model/ids";
 import { SCHEMA_NOTICE_CODES, noForeign, serializeProject } from "../model/schema";
 import type { ForeignData, Notice, ParseResult, Project } from "../model/types";
-import { StoreWriteError, decodeHash, encodeHash, importJsonText } from "../share";
+import { StoreWriteError, decodeHash, importJsonText } from "../share";
 import type { ProjectStore } from "../share";
 import { errorText } from "../util/errors";
 import { dismissNotice, pushNotice } from "./state";
@@ -22,7 +22,13 @@ export type ConflictChoice = "keepMine" | "loadTheirs";
 
 export interface PersistenceDeps {
   projectStore: ProjectStore;
-  replaceHash: (hash: string) => void;
+  /** Removes the `#…` from the address bar once an old link has been read. */
+  clearHash: () => void;
+  /**
+   * Hands over the question "should leaving the page warn?" (asked when the page is closing), so
+   * the window's beforeunload hook lives outside. Default: never warns.
+   */
+  guardLeaving?: (shouldWarn: () => boolean) => void;
   confirm: (message: string) => boolean;
   /** Makes a new, empty project (default: the built-in defaults). */
   createProject?: () => Project;
@@ -38,8 +44,12 @@ export interface Persistence {
   scheduleSave(): void;
   /** Saves now; true when nothing is left unsaved here (saved, unchanged, or no storage to save to). */
   flush(): boolean;
+  /** Opens what is stored, or an old `#1.` link (read-only; the address bar is cleared after). */
   start(hash: string): void;
-  openFromHash(hash: string): boolean;
+  /** The open project went into a file, so leaving it loses nothing. */
+  markSavedToFile(): void;
+  /** Nothing can be stored here and the open project has changes no file holds. */
+  hasUnsavedWork(): boolean;
   openParsed(result: ParseResult, source: OpenSource): boolean;
   openProject(id: string): void;
   newProject(): void;
@@ -64,8 +74,9 @@ export function createPersistence(
   let timer: ReturnType<typeof setTimeout> | undefined;
   // What this tab last saw in storage for the current project (serialized), or null.
   let lastSynced: string | null = null;
-  let written = "";
   let active = false;
+  // The project's own content (not the plan the optimizer makes) when it was opened or last saved to a file.
+  let fileKey = "";
 
   // The store never changes under us: whether projects can be kept is known up front.
   state.storageAvailable.value = store.available;
@@ -82,10 +93,15 @@ export function createPersistence(
     state.projects.value = store.available ? store.list() : [];
   }
 
-  function writeHash(): void {
-    const hash = encodeHash(state.project.value, state.foreign.value);
-    written = hash;
-    deps.replaceHash(hash);
+  /** What the user made: the project without the layout, which the optimizer fills in. */
+  function contentKey(): string {
+    return serializeProject({ ...state.project.value, layout: undefined }, state.foreign.value);
+  }
+
+  deps.guardLeaving?.(() => hasUnsavedWork());
+
+  function hasUnsavedWork(): boolean {
+    return active && !store.available && contentKey() !== fileKey;
   }
 
   /** The stored project as it loads, serialized; null when absent, "" when unreadable. */
@@ -121,7 +137,6 @@ export function createPersistence(
     if (!active) {
       return true;
     }
-    writeHash();
     if (!store.available) {
       return true;
     }
@@ -154,7 +169,7 @@ export function createPersistence(
       pushNotice(state, {
         level: "warning",
         code: SAVE_FAILED_CODE,
-        message: `Autosave failed: ${reason}. Your work is still open here; use Save to file or Copy link to keep it.`,
+        message: `Autosave failed: ${reason}. Your work is still open here; use Save to file to keep it.`,
       });
       return false;
     }
@@ -231,7 +246,6 @@ export function createPersistence(
           `“${leaving.name}” was changed in another tab and this tab's version can't be kept. Open the other project anyway?`,
         )
       ) {
-        writeHash();
         return false;
       }
       extra = copy.notice ? [copy.notice] : [];
@@ -265,6 +279,7 @@ export function createPersistence(
       state.appNotices.value = [...kept, ...notices, ...extra];
     });
     active = true;
+    fileKey = contentKey();
     lastSynced = storedSerialized(project.id) || null;
     flush();
     hooks.onOpened(opts);
@@ -322,11 +337,15 @@ export function createPersistence(
           level: "info",
           code: STORAGE_UNAVAILABLE_CODE,
           message:
-            "Local storage is unavailable, so autosave and the project list are off. Use Copy link or Save to file to keep your work.",
+            "Local storage is unavailable, so autosave and the project list are off. Save a file to keep your work.",
         });
       }
       refreshList();
       const parsed = isEmptyHash(hash) ? null : decodeHash(hash);
+      if (parsed) {
+        // The link is read once; it is not a live channel, and the address bar stops carrying it.
+        deps.clearHash();
+      }
       if (parsed && parsed.ok) {
         openParsed(parsed, "link");
         return;
@@ -336,12 +355,10 @@ export function createPersistence(
         openParsed(parsed, "link");
       }
     },
-    openFromHash(hash) {
-      if (isEmptyHash(hash) || hash === written) {
-        return false;
-      }
-      return openParsed(decodeHash(hash), "link");
+    markSavedToFile() {
+      fileKey = contentKey();
     },
+    hasUnsavedWork,
     openParsed,
     openProject(id) {
       if (id === state.project.value.id) {

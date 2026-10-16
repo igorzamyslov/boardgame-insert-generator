@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { inputsHash } from "../model/hash";
 import { noForeign, parseProject, serializeProject } from "../model/schema";
 import type { Project, Settings } from "../model/types";
-import { encodeHash } from "../share";
+import { encodeHash } from "../test-support/link";
 import { optimize } from "./optimize";
 import { printableParts } from "./printable";
 import { FIXTURES, fixtureInput, type FixtureName } from "./test-fixtures";

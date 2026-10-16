@@ -6,7 +6,8 @@ import { optimize, printableParts } from "../layout";
 import { FIXTURES } from "../layout/test-fixtures";
 import { inputsHash } from "../model/hash";
 import { noForeign, parseProject } from "../model/schema";
-import { encodeHash, decodeHash } from "../share/link";
+import { decodeHash } from "../share/link";
+import { encodeHash } from "../test-support/link";
 import { size } from "../sizing";
 import { buildCombined3mf, buildPartsZip, buildStlZip, planExport } from "./exportBuild";
 

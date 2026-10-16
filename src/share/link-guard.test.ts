@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { decodeHash, encodeHash } from "./link";
+import { encodeHash } from "../test-support/link";
+import { decodeHash } from "./link";
 import { noForeign } from "../model/schema";
 import { sampleProject } from "../test-support/sample";
 

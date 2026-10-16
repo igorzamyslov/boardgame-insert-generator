@@ -5,15 +5,10 @@ import { newProject } from "../model/defaults";
 import { noForeign, parseProject, serializeProject } from "../model/schema";
 import type { CardsComponent, ParseResult } from "../model/types";
 import { APP_VERSION } from "../model/version";
+import { encodeHash } from "../test-support/link";
 import { sampleProject } from "../test-support/sample";
 import { toBase64Url } from "./base64url";
-import {
-  InflateLimitError,
-  MAX_INFLATED_BYTES,
-  decodeHash,
-  encodeHash,
-  inflateCapped,
-} from "./link";
+import { InflateLimitError, MAX_INFLATED_BYTES, decodeHash, inflateCapped } from "./link";
 
 function expectOk(result: ParseResult) {
   if (!result.ok) {
@@ -34,7 +29,7 @@ function linkOf(text: string): string {
   return `#1.${toBase64Url(deflateSync(strToU8(text)))}`;
 }
 
-describe("encodeHash / decodeHash", () => {
+describe("decodeHash", () => {
   it("round-trips a full project, including its stored layout", () => {
     const p = sampleProject();
     const hash = encodeHash(p, noForeign());

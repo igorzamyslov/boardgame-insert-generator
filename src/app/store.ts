@@ -17,7 +17,10 @@ import type { State } from "./state";
 export interface AppDeps {
   projectStore: ProjectStore;
   loadLayoutClient: () => Promise<LayoutClient>;
-  replaceHash: (hash: string) => void;
+  /** Removes the `#…` from the address bar after an old link was read at start. */
+  clearHash: () => void;
+  /** Registers the question "does leaving the page lose work?" (main.tsx hooks it to beforeunload). */
+  guardLeaving?: (shouldWarn: () => boolean) => void;
   confirm: (message: string) => boolean;
   /** The preferences new inserts start from (default: kept in memory only; main.tsx passes the browser's). */
   prefs?: PrefsStore;
@@ -63,8 +66,8 @@ export interface AppStore {
   refit(): void;
   cancelRun(): void;
   retry(): void;
+  /** Opens the latest stored project, or the old `#1.` link given (read once; see `clearHash`). */
   start(hash: string): void;
-  openFromHash(hash: string): void;
   openProject(id: string): void;
   newProject(): void;
   deleteProject(id: string): void;
@@ -74,6 +77,8 @@ export interface AppStore {
   resolveConflict(choice: ConflictChoice): void;
   onExternalChange(): void;
   flushSave(): void;
+  /** Call after the project was saved to a file: with no browser storage, that is what keeps it. */
+  markSavedToFile(): void;
   dispose(): void;
 }
 
@@ -91,7 +96,8 @@ export function createAppStore(deps: AppDeps): AppStore {
     state,
     {
       projectStore: deps.projectStore,
-      replaceHash: deps.replaceHash,
+      clearHash: deps.clearHash,
+      guardLeaving: deps.guardLeaving,
       confirm: deps.confirm,
       createProject,
     },
@@ -170,9 +176,6 @@ export function createAppStore(deps: AppDeps): AppStore {
     start(hash) {
       persistence.start(hash);
     },
-    openFromHash(hash) {
-      persistence.openFromHash(hash);
-    },
     openProject(id) {
       persistence.openProject(id);
     },
@@ -200,6 +203,9 @@ export function createAppStore(deps: AppDeps): AppStore {
     flushSave() {
       persistence.flush();
     },
+    markSavedToFile() {
+      persistence.markSavedToFile();
+    },
     dispose() {
       runner.dispose();
       persistence.dispose();
@@ -214,14 +220,11 @@ export function connectWindow(store: AppStore, win: Window): () => void {
       store.onExternalChange();
     }
   };
-  const onHashChange = (): void => store.openFromHash(win.location.hash);
   const onPageHide = (): void => store.flushSave();
   win.addEventListener("storage", onStorage);
-  win.addEventListener("hashchange", onHashChange);
   win.addEventListener("pagehide", onPageHide);
   return () => {
     win.removeEventListener("storage", onStorage);
-    win.removeEventListener("hashchange", onHashChange);
     win.removeEventListener("pagehide", onPageHide);
   };
 }

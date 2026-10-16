@@ -9,7 +9,8 @@ import { MemoryStorage } from "../test-support/memory-storage";
 import { sampleProject } from "../test-support/sample";
 import { importJsonText } from "./file";
 import { splitRisers } from "../layout/risers";
-import { decodeHash, encodeHash } from "./link";
+import { encodeHash } from "../test-support/link";
+import { decodeHash } from "./link";
 import { STORAGE_PREFIX, StoreWriteError, createProjectStore } from "./store";
 
 function named(name: string): Project {
