@@ -113,7 +113,7 @@ describe("rules", () => {
     for (const css of Object.values(styles)) {
       uses += css.match(LEGACY)?.length ?? 0;
     }
-    expect(uses).toBeLessThanOrEqual(70);
+    expect(uses).toBeLessThanOrEqual(32);
   });
 
   // DESIGN §2 Colour: every colour comes from a token. Hex lives in tokens.css; the print rules of

@@ -384,6 +384,20 @@ describe("base.css", () => {
     expect(field).toMatch(/box-shadow:\s*0 0 0 3px var\(--field-glow\)/);
   });
 
+  it("marks a text field's focus once: border and glow, no outline on top", () => {
+    for (const selector of [
+      'input[type="text"]:focus-visible',
+      'input[type="search"]:focus-visible',
+      "select:focus-visible",
+      "textarea:focus-visible",
+      ".field-box input:focus-visible",
+    ]) {
+      expect(ruleFor(selector, base), selector).toMatch(/outline:\s*none/);
+    }
+    // a button and a link keep the ring
+    expect(ruleFor(":focus-visible", base, true)).toMatch(/outline:\s*3px solid var\(--focus\)/);
+  });
+
   it("keeps .tap at the control height and .visually-hidden out of sight", () => {
     expect(ruleFor(".tap", base)).toMatch(/min-height:\s*var\(--control-h\)/);
     expect(ruleFor(".visually-hidden", base)).toMatch(/clip-path:\s*inset\(50%\)/);

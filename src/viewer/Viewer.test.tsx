@@ -531,72 +531,28 @@ describe("Viewer", () => {
       expect(got["b:p0:0"]).toBe(shadeHex("cards", 1, "light").fill);
     });
 
-    it("takes the dark shades on a dark page", async () => {
+    it("stays light on a dark system, until dark is opt-in (Task 16)", async () => {
+      const listeners: (() => void)[] = [];
       vi.stubGlobal("matchMedia", (q: string) => ({
         matches: q.includes("dark"),
         media: q,
-        addEventListener: vi.fn(),
+        addEventListener: (_: string, cb: () => void) => listeners.push(cb),
         removeEventListener: vi.fn(),
       }));
       const got = await colours({
         trays: [market, spacer, spare],
         components: fixtureProject().components,
       });
-      expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "dark").fill);
-      // the spacer neutral follows the scheme too
-      expect(got["a:p0:0:spacer"]).toBe(SPACER_SHADE.dark.fill);
-      expect(got["c:p0:0"]).toBe(SPACER_SHADE.dark.fill);
+      expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "light").fill);
+      expect(got["a:p0:0:spacer"]).toBe(SPACER_SHADE.light.fill);
+      expect(got["c:p0:0"]).toBe(SPACER_SHADE.light.fill);
+      // nothing watches the system's setting
+      expect(listeners).toEqual([]);
     });
 
-    it("repaints in the dark shade when the system theme changes while the view is open", async () => {
-      let dark = false;
-      const listeners: (() => void)[] = [];
-      vi.stubGlobal("matchMedia", (q: string) => ({
-        get matches() {
-          return dark && q.includes("dark");
-        },
-        media: q,
-        addEventListener: (_: string, cb: () => void) => listeners.push(cb),
-        removeEventListener: vi.fn(),
-      }));
-      const scene = stubScene();
-      render(
-        <Viewer {...props({ trays: [market], components: fixtureProject().components }, scene)} />,
-      );
-      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalledTimes(1));
-      expect(vi.mocked(scene.handle.setTrays).mock.calls[0]?.[0][0]?.color).toBe(
-        shadeHex("cards", 1, "light").fill,
-      );
-      dark = true;
-      act(() => {
-        for (const cb of listeners) {
-          cb();
-        }
-      });
-      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalledTimes(2));
-      expect(vi.mocked(scene.handle.setTrays).mock.calls.at(-1)?.[0][0]?.color).toBe(
-        shadeHex("cards", 1, "dark").fill,
-      );
-    });
-
-    it("still follows the system theme on a browser with only addListener", async () => {
-      const listeners: (() => void)[] = [];
-      vi.stubGlobal("matchMedia", (q: string) => ({
-        matches: false,
-        media: q,
-        addListener: (cb: () => void) => listeners.push(cb),
-        removeListener: vi.fn(),
-      }));
-      const scene = stubScene();
-      render(<Viewer {...props({ trays: [market] }, scene)} />);
-      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-      expect(listeners).toHaveLength(1);
-    });
-
-    it("follows the system theme only: the page has no switch, so data-theme is not read", async () => {
+    it("does not read data-theme yet: the page is light only", async () => {
       document.documentElement.setAttribute("data-theme", "dark");
       const got = await colours({ trays: [market], components: fixtureProject().components });
-      // jsdom has no matchMedia: the system reads light
       expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "light").fill);
     });
 

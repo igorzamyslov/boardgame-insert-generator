@@ -8,7 +8,6 @@ import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { SelectField } from "../ui/fields";
 import { lookOfTray } from "../plan/glyph";
-import type { ColorScheme } from "../ui/identity";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
 import { pageScheme, shadeColorOf } from "./shades";
@@ -33,35 +32,6 @@ export interface ViewerProps {
 
 type Status = "loading" | "ready" | "nowebgl" | "error" | "lost";
 
-/**
- * The page's colour scheme, kept current: the scene is repainted when it changes. The scheme is
- * the system's; the page has no switch (DESIGN §4). A switch would have to set an attribute on
- * the root and this hook would have to watch it: see `pageScheme` in shades.ts.
- */
-function usePageScheme(): ColorScheme {
-  const [scheme, setScheme] = useState<ColorScheme>(pageScheme);
-  useEffect(() => {
-    const update = (): void => setScheme(pageScheme());
-    const query =
-      typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
-    // Older browsers only have the deprecated addListener on a MediaQueryList.
-    if (query?.addEventListener) {
-      query.addEventListener("change", update);
-    } else {
-      query?.addListener?.(update);
-    }
-    update();
-    return () => {
-      if (query?.removeEventListener) {
-        query.removeEventListener("change", update);
-      } else {
-        query?.removeListener?.(update);
-      }
-    };
-  }, []);
-  return scheme;
-}
-
 async function defaultLoadScene(): Promise<SceneFactory> {
   const mod = await import("./scene");
   return mod.createScene;
@@ -83,7 +53,7 @@ export function Viewer(p: ViewerProps) {
   const [attempt, setAttempt] = useState(0);
   // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
   const [canvasKey, setCanvasKey] = useState(0);
-  const scheme = usePageScheme();
+  const scheme = pageScheme();
   const levels = useMemo(() => levelsOf(p.trays), [p.trays]);
   const parts = useMemo(() => numberParts(p.trays), [p.trays]);
   const byKey = useMemo(() => partsByKey(parts), [parts]);

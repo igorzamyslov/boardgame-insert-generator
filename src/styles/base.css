@@ -33,8 +33,9 @@ h3 {
 }
 
 /*
- * A field with focus: a 1.5 px ink border and a glow. The board's field is a box that holds the
- * input (`.field-box`); a bare input or select takes the same look itself.
+ * A field with focus: a 1.5 px ink border and a glow, and no outline on top (that would be two
+ * rings). The board's field is a box that holds the input (`.field-box`); a bare input or select
+ * takes the same look itself.
  */
 .field-box:focus-within,
 input[type="text"]:focus-visible,
@@ -42,7 +43,13 @@ input[type="search"]:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   border: 1.5px solid var(--ink);
+  outline: none;
   box-shadow: 0 0 0 3px var(--field-glow);
+}
+
+/* The input inside a field box has no border of its own: the box shows the focus. */
+.field-box input:focus-visible {
+  outline: none;
 }
 
 /* A target of the control height, where a container rule would otherwise set the height. */

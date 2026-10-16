@@ -349,7 +349,6 @@ select {
 .pf-app__stage {
   display: flex;
   gap: var(--space-4);
-  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   padding: var(--space-4) var(--space-5);
   flex-direction: column;
