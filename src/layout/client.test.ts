@@ -22,7 +22,13 @@ class FakeWorker implements WorkerLike {
   }
 }
 
-const result: LayoutResult = { layout: null, bestAttempt: null, summary: null, notices: [] };
+const result: LayoutResult = {
+  layout: null,
+  bestAttempt: null,
+  summary: null,
+  notices: [],
+  lockConflicts: [],
+};
 const input = makeInput([]);
 
 function setup() {

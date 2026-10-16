@@ -30,19 +30,20 @@ function resolve(locks: Lock[], box = {}) {
 }
 
 describe("resolveLocks", () => {
-  it("drops a lock whose trayKey no longer exists, with a notice", () => {
+  it("reports a lock whose trayKey no longer exists as a conflict", () => {
     const r = resolve([{ kind: "position", trayKey: "c:p0:2", path: "0", rotated: false }]);
     expect(r.resolved.kept).toEqual([]);
-    expect(r.notices).toEqual([
-      expect.objectContaining({ level: "warning", code: "lock.dropped", path: "/locks/0" }),
+    // the key means nothing to a user, and the tray is gone, so the name says that instead
+    expect(r.conflicts).toEqual([
+      {
+        trayKey: "c:p0:2",
+        name: "a tray that no longer exists",
+        reason: "the component it was on was removed or changed",
+      },
     ]);
-    // the key means nothing to a user, and the tray is gone, so the message says that instead
-    expect(r.notices[0]?.message).toBe(
-      "Position lock on a tray that no longer exists was dropped: the component it was on was removed or changed.",
-    );
   });
 
-  it("names the component a dropped lock was on, not its tray key", () => {
+  it("names the component a conflicting lock was on, not its tray key", () => {
     const named = [
       req("cowsarwz", [
         variant("only", [
@@ -66,19 +67,26 @@ describe("resolveLocks", () => {
       { kind: "stack", trayKeys: ["cowsarwz:p0:0", "gone:p0:0"] },
     ];
     const ctx = createCtx(makeInput(named, { locks }), fakeMeasure);
-    const messages = resolveLocks(ctx, locks).notices.map((n) => n.message);
-    expect(messages).toContain(
-      'Position lock on "Deck ×50" was dropped: this tray can\'t be rotated.',
-    );
-    expect(messages).toContain(
-      'Position lock on "Tokens ×20" was dropped: it conflicts with the position lock on "Deck ×50".',
-    );
-    expect(messages).toContain(
-      'Stack lock on "Deck ×50", a tray that no longer exists was dropped: the component it was on was removed or changed.',
-    );
-
-    for (const m of messages) {
-      expect(m).not.toMatch(/:p0:/);
+    const { conflicts } = resolveLocks(ctx, locks);
+    expect(conflicts).toContainEqual({
+      trayKey: "cowsarwz:p0:0",
+      name: "Deck ×50",
+      reason: "this tray can't be rotated",
+    });
+    expect(conflicts).toContainEqual({
+      trayKey: "other:p0:0",
+      name: "Tokens ×20",
+      reason: 'it conflicts with the position lock on "Deck ×50"',
+    });
+    // a stack lock is named by its trays; the key to unpin is its first tray
+    expect(conflicts).toContainEqual({
+      trayKey: "cowsarwz:p0:0",
+      name: "Deck ×50, a tray that no longer exists",
+      reason: "the component it was on was removed or changed",
+    });
+    for (const c of conflicts) {
+      expect(c.name).not.toMatch(/:p0:/);
+      expect(c.reason).not.toMatch(/:p0:/);
     }
   });
 
@@ -88,14 +96,14 @@ describe("resolveLocks", () => {
     expect(r.resolved.leaves).toEqual([
       { path: "1", items: [{ req: 2, variant: 1, part: 1, rotated: false }] },
     ]);
-    expect(r.notices).toEqual([]);
+    expect(r.conflicts).toEqual([]);
   });
 
-  it("does not let a dropped lock pin the variant of its component", () => {
-    // The path is invalid, so the lock is dropped; it must not keep forcing variant 1.
+  it("does not let a conflicting lock pin the variant of its component", () => {
+    // The path is invalid, so the lock is in conflict; it must not keep forcing variant 1.
     const dropped = resolve([{ kind: "position", trayKey: "c:p0:1", path: "2", rotated: false }]);
     expect(dropped.resolved.kept).toEqual([]);
-    expect(dropped.notices).toHaveLength(1);
+    expect(dropped.conflicts).toHaveLength(1);
     expect(dropped.resolved.pinnedVariant).toEqual([null, null, null]);
     // A kept lock on the same component still pins it.
     const mixed = resolve([
@@ -106,7 +114,7 @@ describe("resolveLocks", () => {
     expect(mixed.resolved.pinnedVariant).toEqual([null, null, 1]);
   });
 
-  it("drops position locks with invalid, conflicting or impossible values", () => {
+  it("reports position locks with invalid, conflicting or impossible values", () => {
     const r = resolve([
       { kind: "position", trayKey: "a:p0:0", path: "01", rotated: false },
       { kind: "position", trayKey: "c:p0:0", path: "0", rotated: false },
@@ -116,20 +124,18 @@ describe("resolveLocks", () => {
     expect(r.resolved.kept.map((l) => (l.kind === "position" ? l.trayKey : ""))).toEqual([
       "a:p0:0",
     ]);
-    expect(r.notices.map((n) => n.code)).toEqual(["lock.dropped", "lock.dropped", "lock.dropped"]);
-    // path names the dropped lock's index in the input, for the UI to remove exactly it
-    expect(r.notices.map((n) => n.path).sort()).toEqual(["/locks/1", "/locks/2", "/locks/3"]);
+    expect(r.conflicts.map((c) => c.trayKey).sort()).toEqual(["b:p0:0", "b:p0:0", "c:p0:0"]);
     expect(r.resolved.lockedPaths).toEqual(["01"]);
   });
 
-  it("keeps a valid size lock (detecting rotation) and drops ones that no longer fit", () => {
+  it("keeps a valid size lock (detecting rotation) and reports ones that no longer fit", () => {
     const r = resolve([
       { kind: "size", trayKey: "a:p0:0", w: 44, d: 64, h: 30 },
       { kind: "size", trayKey: "b:p0:0", w: 10, d: 10, h: 10 },
       { kind: "size", trayKey: "c:p0:0", w: 400, d: 50, h: 20 },
     ]);
     expect([...r.resolved.sizes.values()]).toEqual([{ w: 4400, d: 6400, h: 3000, rotated: true }]);
-    expect(r.notices.map((n) => n.message)).toEqual([
+    expect(r.conflicts.map((c) => c.reason)).toEqual([
       expect.stringContaining("contents no longer fit"),
       expect.stringContaining("no longer fits in the box"),
     ]);
@@ -146,10 +152,10 @@ describe("resolveLocks", () => {
         { req: 1, variant: 0, part: 0, rotated: false },
       ],
     ]);
-    expect(r.notices).toHaveLength(1);
+    expect(r.conflicts).toHaveLength(1);
     const tall = resolve([{ kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] }], { innerHeight: 15 });
     expect(tall.resolved.groups).toEqual([]);
-    expect(tall.notices[0]?.message).toContain("taller");
+    expect(tall.conflicts[0]?.reason).toContain("taller");
   });
 });
 
@@ -163,7 +169,7 @@ describe("resolveLocks order independence", () => {
   const tooBig: Lock = { kind: "size", trayKey: "d:p0:1", w: 400, d: 50, h: 20 };
   const placed: Lock = { kind: "position", trayKey: "d:p0:0", path: "0", rotated: false };
 
-  it("does not drop a lock as conflicting because of a lock that is itself dropped", () => {
+  it("does not report a lock as conflicting because of a lock that is itself in conflict", () => {
     for (const locks of [
       [tooBig, placed],
       [placed, tooBig],
@@ -172,11 +178,11 @@ describe("resolveLocks order independence", () => {
       const r = resolveLocks(ctx, locks);
       expect(r.resolved.kept).toEqual([placed]);
       expect(r.resolved.pinnedVariant).toEqual([0]);
-      expect(r.notices).toHaveLength(1);
-      // which reason depends on the order, the name does not
-      expect(r.notices[0]?.message).toContain('Size lock on "40x40x10" was dropped: ');
-
-      expect(r.notices[0]?.path).toBe(`/locks/${locks.indexOf(tooBig)}`);
+      expect(r.conflicts).toHaveLength(1);
+      // which reason depends on the order, the name and key do not
+      expect(r.conflicts[0]).toEqual(
+        expect.objectContaining({ trayKey: "d:p0:1", name: "40x40x10" }),
+      );
     }
   });
 });
@@ -332,37 +338,33 @@ describe("position locks on stacked trays", () => {
       { kind: "stack", trayKeys: ["b:p0:0", "a:p0:0"] },
     ];
     const r = resolveLocks(ctxOf(locks), locks, { levelOf: level });
-    expect(r.notices).toEqual([]);
+    expect(r.conflicts).toEqual([]);
     expect(r.resolved.leaves[0]?.items.map((i) => reqs[i.req]?.key)).toEqual(["b", "a"]);
   });
 
-  it("drops a position lock on a tray that sits on top of others in the layout, with a notice", () => {
+  it("reports a position lock on a tray that sits on top of others in the layout as a conflict", () => {
     const lone = [pos("b:p0:0", "0")];
     const r = resolveLocks(ctxOf(lone), lone, { levelOf: level });
     expect(r.resolved.kept).toEqual([]);
     expect(r.resolved.leaves).toEqual([]);
-    expect(r.notices).toEqual([
-      expect.objectContaining({ level: "warning", code: "lock.dropped", path: "/locks/0" }),
-    ]);
-    expect(r.notices[0]?.message).toContain('Position lock on "b" was dropped');
-    expect(r.notices[0]?.message).not.toContain("b:p0:0");
-    expect(r.notices[0]?.message).toContain("on top of other trays");
+    expect(r.conflicts).toEqual([expect.objectContaining({ trayKey: "b:p0:0", name: "b" })]);
+    expect(r.conflicts[0]?.reason).toContain("on top of other trays");
     // locked together with the tray under it, or as a stack, it stays
     const both = [pos("a:p0:0", "0"), pos("b:p0:0", "0")];
-    expect(resolveLocks(ctxOf(both), both, { levelOf: level }).notices).toEqual([]);
+    expect(resolveLocks(ctxOf(both), both, { levelOf: level }).conflicts).toEqual([]);
     const stack: Lock[] = [pos("b:p0:0", "0"), { kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] }];
-    expect(resolveLocks(ctxOf(stack), stack, { levelOf: level }).notices).toEqual([]);
+    expect(resolveLocks(ctxOf(stack), stack, { levelOf: level }).conflicts).toEqual([]);
     // the bottom tray alone is fine too
     const bottom = [pos("a:p0:0", "0")];
-    expect(resolveLocks(ctxOf(bottom), bottom, { levelOf: level }).notices).toEqual([]);
+    expect(resolveLocks(ctxOf(bottom), bottom, { levelOf: level }).conflicts).toEqual([]);
   });
 
   it("allows the root path when the layout being re-run is one single stack", () => {
     const locks = [pos("a:p0:0", ""), pos("b:p0:0", "")];
     const without = resolveLocks(ctxOf(locks), locks, { levelOf: level });
-    expect(without.notices).toHaveLength(2);
+    expect(without.conflicts).toHaveLength(2);
     const r = resolveLocks(ctxOf(locks), locks, { levelOf: level, singleLeaf: true });
-    expect(r.notices).toEqual([]);
+    expect(r.conflicts).toEqual([]);
     expect(r.resolved.leaves.map((l) => l.path)).toEqual([""]);
     expect(r.resolved.leaves[0]?.items.map((i) => reqs[i.req]?.key)).toEqual(["a", "b"]);
   });
@@ -402,7 +404,7 @@ describe("position locks on stacked trays", () => {
       const r = optimize({ ...input, locks: [lockOf(upper), lockOf(lower)] }, 1, 5000, {
         warmStart: layout,
       });
-      expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+      expect(r.lockConflicts).toEqual([]);
       expect(at(r, lower.key)?.path).toBe(at(r, upper.key)?.path);
       expect(at(r, lower.key)?.level).toBeLessThan(at(r, upper.key)?.level ?? -1);
     });
@@ -424,7 +426,7 @@ describe("position locks on stacked trays", () => {
       const r = optimize({ ...without(bottom?.key ?? ""), locks }, 1, 5000, {
         warmStart: layout,
       });
-      expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+      expect(r.lockConflicts).toEqual([]);
       const kept = rest.map((t) => at(r, t.key));
       expect(new Set(kept.map((t) => t?.path)).size).toBe(1);
       expect(kept.map((t) => t?.level)).toEqual(rest.map((_, i) => i));
@@ -440,17 +442,16 @@ describe("position locks on stacked trays", () => {
         5000,
         { warmStart: layout },
       );
-      expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+      expect(r.lockConflicts).toEqual([]);
       expect(rest.map((t) => at(r, t.key)?.level)).toEqual(rest.map((_, i) => i));
     });
 
-    it("says so when a lock on an upper tray alone can't be kept, instead of moving it silently", () => {
+    it("reports a lock on an upper tray alone that can't be kept, instead of moving it silently", () => {
       const r = optimize({ ...input, locks: [lockOf(upper)] }, 1, 5000, { warmStart: layout });
-      const dropped = r.notices.filter((n) => n.code === "lock.dropped");
-      expect(dropped).toHaveLength(1);
-      // names what the tray holds, not its key
-      expect(dropped[0]?.message).toContain(`lock on "${upper.compartments[0]?.contents}"`);
-      expect(dropped[0]?.message).not.toContain(upper.key);
+      expect(r.lockConflicts).toHaveLength(1);
+      // names what the tray holds, and the key is the one to unpin
+      expect(r.lockConflicts[0]?.name).toBe(upper.compartments[0]?.contents);
+      expect(r.lockConflicts[0]?.trayKey).toBe(upper.key);
     });
   });
 
@@ -469,7 +470,7 @@ describe("position locks on stacked trays", () => {
       rotated: t.rotated,
     }));
     const r = optimize({ ...input, locks }, 1, 3000, { warmStart: layout });
-    expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+    expect(r.lockConflicts).toEqual([]);
     expect(r.layout?.trays.map((t) => [t.key, t.level])).toEqual(
       layout.trays.map((t) => [t.key, t.level]),
     );

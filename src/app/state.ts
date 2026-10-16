@@ -3,7 +3,7 @@ import { computed, signal } from "@preact/signals";
 import type { ReadonlySignal, Signal } from "@preact/signals";
 import { GEOMETRY_VERSION, isOlderGeometryLine } from "../geometry/version";
 import { NOTICE_CODES, summarize } from "../layout";
-import type { LayoutResult, LayoutSummary } from "../layout/types";
+import type { LayoutResult, LayoutSummary, LockConflict } from "../layout/types";
 import { inputsHash } from "../model/hash";
 import { noForeign } from "../model/schema";
 import type { ForeignData, Notice, Project } from "../model/types";
@@ -35,6 +35,11 @@ export interface State {
   lastResult: Signal<LayoutResult | null>;
   /** The inputs hash `lastResult` was computed for; its notices show only while it is current. */
   lastResultHash: Signal<string | null>;
+  /**
+   * The pins the last run could not keep, while no run has accepted a plan since. The run's plan
+   * was not accepted (the previous one stays); `store.unpin` removes a pin and re-runs.
+   */
+  lockConflicts: Signal<LockConflict[]>;
   /** Undo and redo steps of the open project (whole projects). */
   history: History;
   selection: Signal<string | null>;
@@ -176,6 +181,7 @@ export function createState(
     run: signal<RunState>({ status: "idle" }),
     lastResult,
     lastResultHash,
+    lockConflicts: signal<LockConflict[]>([]),
     history: createHistory(undefined, now),
     selection: signal<string | null>(null),
     appNotices: signal<Notice[]>([]),

@@ -8,7 +8,6 @@ import { validateProject } from "../model/validate";
 import { APP_VERSION } from "../model/version";
 import { size } from "../sizing";
 import { errorText } from "../util/errors";
-import { pruneDroppedLocks } from "./actions";
 import type { LayoutClient } from "./clients";
 import type { RunKind, State } from "./state";
 
@@ -111,36 +110,38 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
 
   function accept(result: LayoutResult): void {
     const current = state.project.value;
-    // Locks the run dropped leave the project in the same update, so the plan view and the
-    // inputs hash match what was laid out. The layout ignored them, so it is valid for the
-    // pruned inputs: it is stored under the post-prune hash, so it doesn't look stale and
-    // nothing re-runs. lastResult keeps pointing at the stored layout (its notices stay shown).
-    const pruned = pruneDroppedLocks(current, result.notices);
-    const accepted: LayoutResult =
-      pruned !== current && result.layout
-        ? { ...result, layout: { ...result.layout, inputsHash: inputsHash(pruned) } }
-        : result;
-    const next: Project = accepted.layout ? { ...pruned, layout: accepted.layout } : pruned;
+    // Pins are never dropped silently: a run that had to ignore some did not lay out the project
+    // the user asked for, so its plan is not accepted. The previous plan, the history and the pins
+    // stay as they were; the conflicts are listed for the user to unpin (which runs again).
+    if (result.lockConflicts.length > 0) {
+      batch(() => {
+        state.lockConflicts.value = result.lockConflicts;
+        state.run.value = { status: "done" };
+      });
+      return;
+    }
+    const next: Project = result.layout ? { ...current, layout: result.layout } : current;
     // A plan for inputs that changed completes the edit's own history entry; a better plan for
     // inputs that already had a current one is a step of its own, so undo brings the old one back.
     const hadCurrentPlan = current.layout?.inputsHash === inputsHash(current);
     batch(() => {
-      state.lastResult.value = accepted;
-      state.lastResultHash.value = inputsHash(pruned);
+      state.lastResult.value = result;
+      state.lastResultHash.value = inputsHash(current);
+      state.lockConflicts.value = [];
       if (next !== current) {
-        if (accepted.layout && hadCurrentPlan) {
+        if (result.layout && hadCurrentPlan) {
           state.history.ensureBase(current);
           state.history.push(next);
         } else {
           state.history.amend(next);
-          if (accepted.layout) {
+          if (result.layout) {
             // Steps taken after the edit while its run was pending (renames) share its inputs: they
             // get the plan too, so undoing back to them doesn't show it stale.
             const hash = inputsHash(current);
-            const plan = accepted.layout;
+            const plan = result.layout;
             state.history.amendBefore((e) =>
               inputsHash(e) === hash && e.layout?.inputsHash !== hash
-                ? { ...e, locks: pruned.locks, layout: plan }
+                ? { ...e, layout: plan }
                 : null,
             );
           }
@@ -149,7 +150,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       }
       state.run.value = { status: "done" };
     });
-    if (accepted.layout || pruned !== current) {
+    if (result.layout) {
       hooks.onAccepted();
     }
   }
@@ -162,6 +163,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
     const p = state.project.value;
     if (!canOptimize(p)) {
       invalidate();
+      state.lockConflicts.value = [];
       state.run.value = { status: "idle" };
       return;
     }

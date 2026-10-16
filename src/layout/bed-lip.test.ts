@@ -130,12 +130,12 @@ describe("the lip counts toward the bed height", () => {
       },
     );
 
-  it("a stack whose lipped bottom tray would print above the bed is not kept", () => {
+  it("a stack whose lipped bottom tray would print above the bed is a conflict", () => {
     const fits = optimize(stacked(78), 1, 2000);
-    expect(fits.notices.some((n) => n.code === "lock.dropped")).toBe(false);
-    // 58.8 mm of tray plus the 2 mm lip is 60.8 mm: the lock gives way (the flipped stack fits)
+    expect(fits.lockConflicts).toEqual([]);
+    // 58.8 mm of tray plus the 2 mm lip is 60.8 mm: the lock conflicts (the flipped stack fits)
     const tooTall = optimize(stacked(80), 1, 2000);
-    expect(tooTall.notices.some((n) => n.code === "lock.dropped")).toBe(true);
+    expect(tooTall.lockConflicts.length).toBeGreaterThan(0);
     // nothing fits at all
     const hopeless = optimize(stacked(83), 1, 2000);
     expect(hopeless.layout).toBeNull();

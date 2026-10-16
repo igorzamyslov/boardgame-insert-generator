@@ -4,7 +4,7 @@ import { DEFAULT_ITERATIONS, NOTICE_CODES, REPEAT_FACTOR } from "../layout";
 import { inputsHash } from "../model/hash";
 import type { Lock, Notice, Project } from "../model/types";
 import { DEBOUNCE_MS, IMPROVE_FACTOR, canOptimize, createRunner } from "./runner";
-import { STALE_CODE, createState } from "./state";
+import { createState } from "./state";
 import type { State } from "./state";
 import type { LayoutClient } from "./clients";
 import { fixtureProject, flush, makeLayout, makeResult, stubLayoutClient } from "./test-helpers";
@@ -132,36 +132,88 @@ describe("runner", () => {
     expect(stub.calls[0]?.warmStart).toBe(layout);
   });
 
-  it("removes locks a run dropped in the same update, keeps the layout fresh and doesn't re-run", async () => {
-    const p = fixtureProject();
+  describe("pins that conflict", () => {
     const locks: Lock[] = [
       { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
       { kind: "size", trayKey: "b:p0:0", w: 50, d: 40, h: 20 },
     ];
-    const { state, stub, runner, onAccepted } = setup({ ...p, locks });
-    void runner.runNow("edit", "user");
-    await flush();
-    const call = stub.calls[0];
-    if (!call) {
-      throw new Error("no run");
-    }
-    const notice: Notice = {
-      level: "warning",
-      code: NOTICE_CODES.lockDropped,
-      message: "Size lock on b:p0:0 was dropped: its contents no longer fit.",
-      path: "/locks/1",
+    const conflict = {
+      trayKey: "b:p0:0",
+      name: "Deck B ×40",
+      reason: "its contents no longer fit that size",
     };
-    call.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
-    await flush();
-    expect(state.project.value.locks).toEqual([locks[0]]);
-    expect(state.project.value.layout?.inputsHash).toBe(inputsHash(state.project.value));
-    expect(state.stale.value).toBe(false);
-    expect(state.layoutNotices.value).toContainEqual(notice);
-    expect(state.layoutNotices.value.map((n) => n.code)).not.toContain(STALE_CODE);
-    expect(onAccepted).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
-    await flush();
-    expect(stub.calls).toHaveLength(1);
+
+    async function conflicted() {
+      const p = fixtureProject();
+      const old = makeLayout(inputsHash({ ...p, locks }));
+      const s = setup({ ...p, locks, layout: old });
+      void s.runner.runNow("edit", "user");
+      await flush();
+      const call = s.stub.calls[0];
+      if (!call) {
+        throw new Error("no run");
+      }
+      call.resolve(makeResult(makeLayout(call.input.inputsHash), { lockConflicts: [conflict] }));
+      await flush();
+      return { ...s, old, call };
+    }
+
+    it("keeps every pin and the previous plan when pins conflict", async () => {
+      const { state, stub, old, onAccepted } = await conflicted();
+      expect(state.project.value.locks).toEqual(locks);
+      expect(state.project.value.layout).toBe(old);
+      // nothing was accepted: no history step, no save, no new run
+      expect(state.history.canUndo.value).toBe(false);
+      expect(onAccepted).not.toHaveBeenCalled();
+      expect(state.run.value).toEqual({ status: "done" });
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+      await flush();
+      expect(stub.calls).toHaveLength(1);
+    });
+
+    it("reports which pins conflict and why", async () => {
+      const { state } = await conflicted();
+      expect(state.lockConflicts.value).toEqual([conflict]);
+    });
+
+    it("clears the conflicts when a later run has none, and accepts that plan", async () => {
+      const { state, stub, runner } = await conflicted();
+      state.project.value = {
+        ...state.project.value,
+        locks: [locks[0] as Lock],
+      };
+      void runner.runNow("edit", "user");
+      await flush();
+      const call = stub.calls[1];
+      if (!call) {
+        throw new Error("no second run");
+      }
+      const next = makeLayout(call.input.inputsHash);
+      call.resolve(makeResult(next));
+      await flush();
+      expect(state.lockConflicts.value).toEqual([]);
+      expect(state.project.value.layout).toBe(next);
+    });
+
+    it("never prunes pins on its own, even for lock.dropped notices", async () => {
+      const p = fixtureProject();
+      const { state, stub, runner } = setup({ ...p, locks });
+      void runner.runNow("edit", "user");
+      await flush();
+      const call = stub.calls[0];
+      if (!call) {
+        throw new Error("no run");
+      }
+      const notice: Notice = {
+        level: "warning",
+        code: NOTICE_CODES.lockDropped,
+        message: "dropped",
+        path: "/locks/1",
+      };
+      call.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
+      await flush();
+      expect(state.project.value.locks).toEqual(locks);
+    });
   });
 
   it("does not run without components or with invalid inputs", async () => {
@@ -363,33 +415,5 @@ describe("runner guards", () => {
     expect(load).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
     expect(state.run.value).toEqual({ status: "idle" });
-  });
-
-  it("undo keeps the locks a run pruned, so it can restore both", async () => {
-    const p = fixtureProject();
-    const locks: Lock[] = [
-      { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
-      { kind: "size", trayKey: "b:p0:0", w: 50, d: 40, h: 20 },
-    ];
-    const old = makeLayout(inputsHash({ ...p, locks }));
-    const { state, stub, runner } = setup({ ...p, locks, layout: old });
-    void runner.runNow("edit", "user");
-    await flush();
-    const call = stub.calls[0];
-    if (!call) {
-      throw new Error("no run");
-    }
-    const notice: Notice = {
-      level: "warning",
-      code: NOTICE_CODES.lockDropped,
-      message: "dropped",
-      path: "/locks/1",
-    };
-    call.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
-    await flush();
-    expect(state.project.value.locks).toEqual([locks[0]]);
-    const restored = state.history.undo();
-    expect(restored?.layout).toBe(old);
-    expect(restored?.locks).toEqual(locks);
   });
 });

@@ -123,7 +123,11 @@ seed, warm start from the current layout) and auto-accepts the result into
 `project.layout`. Every edit is an Undo/Redo step of the whole project (`app/history.ts`, up to
 100, cleared when another project opens); the plan joins the history entry of the edit that
 caused it, and a "Keep searching" result is a step of its own. A result whose
-inputs no longer match the project is discarded. `app/persistence.ts` autosaves
+inputs no longer match the project is discarded. Pins are never dropped silently:
+when the worker had to ignore pins (`LayoutResult.lockConflicts`), the runner does
+not accept that plan. The previous plan and every pin stay, the conflicts are in
+`state.lockConflicts`, and `store.unpin(trayKey)` removes a tray's locks and
+re-runs. `app/persistence.ts` autosaves
 (500 ms) to localStorage, tells `main.tsx` the new `#1.` link (which writes it
 with `history.replaceState`), opens links and files as separate projects (a
 different project with the same id becomes a copy) and pauses autosave if

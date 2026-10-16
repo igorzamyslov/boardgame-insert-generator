@@ -117,7 +117,7 @@ function expectValid(input: LayoutInput, r: LayoutResult): void {
     if (input.settings.lip.enabled && r.layout.trays.some((t) => t.level > 0)) {
       seen.lippedStacks++;
     }
-    expect(checkHardRules(input, r.layout, r.notices)).toEqual([]);
+    expect(checkHardRules(input, r.layout, r.notices, r.lockConflicts)).toEqual([]);
     expect(r.bestAttempt).toBeNull();
   } else {
     expect(r.bestAttempt).not.toBeNull();
@@ -163,7 +163,7 @@ describe("hard rules (spec §3) on random inputs", () => {
     expect(seen.lippedStacks).toBeGreaterThanOrEqual(5);
   });
 
-  it("locks taken from a result are respected or dropped with a notice", () => {
+  it("locks taken from a result are respected or reported as conflicts", () => {
     fc.assert(
       fc.property(inputArb, fc.nat(), fc.nat(), (spec, pick, seed) => {
         const input = build(spec);
@@ -181,9 +181,7 @@ describe("hard rules (spec §3) on random inputs", () => {
         const locked = { ...input, locks };
         const r = optimize(locked, seed, 200, { warmStart: first.layout });
         expectValid(locked, r);
-        expect(r.notices.some((n) => n.code === "lock.dropped" && n.path === "/locks/2")).toBe(
-          true,
-        );
+        expect(r.lockConflicts.some((c) => c.trayKey === "ghost:p0:0")).toBe(true);
       }),
       { numRuns: 100 },
     );

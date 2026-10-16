@@ -5,6 +5,7 @@ import { newProject } from "../model/defaults";
 import type { Notice, Project } from "../model/types";
 import { STORAGE_PREFIX } from "../share";
 import type { ProjectStore } from "../share";
+import { removeLock } from "./actions";
 import type { LayoutClient } from "./clients";
 import { createPersistence } from "./persistence";
 import type { ConflictChoice } from "./persistence";
@@ -39,6 +40,11 @@ export interface AppStore {
   redo(): void;
   canUndo: ReadonlySignal<boolean>;
   canRedo: ReadonlySignal<boolean>;
+  /**
+   * Removes every lock on this tray (its pin, a stack lock it is in, a size lock) and re-runs. For
+   * the pins a run reported in `state.lockConflicts`, which it did not keep.
+   */
+  unpin(trayKey: string): void;
   /** Re-fits from the current layout: the normal budget when there is no layout or it is stale
    * (an edit) or made under older geometry, the bigger "keep searching" budget when the layout is current. */
   refit(): void;
@@ -76,7 +82,11 @@ export function createAppStore(deps: AppDeps): AppStore {
     if (!project) {
       return;
     }
-    state.project.value = project;
+    batch(() => {
+      state.project.value = project;
+      // a run for the restored project reports its own conflicts
+      state.lockConflicts.value = [];
+    });
     persistence.scheduleSave();
     if (project.layout === undefined || state.stale.value) {
       runner.schedule();
@@ -85,34 +95,39 @@ export function createAppStore(deps: AppDeps): AppStore {
     }
   }
 
+  function edit(fn: (p: Project) => Project): void {
+    const before = state.project.value;
+    const beforeHash = state.currentHash.value;
+    const next = fn(before);
+    if (next === before) {
+      return;
+    }
+    batch(() => {
+      state.history.ensureBase(before);
+      // Typing in a field is one step; adding or removing a component never merges into its neighbours.
+      state.history.push(next, sameComponents(before, next) ? { coalesceMs: COALESCE_MS } : {});
+      state.project.value = next;
+    });
+    persistence.scheduleSave();
+    if (state.currentHash.value !== beforeHash) {
+      runner.schedule();
+    }
+  }
+
   return {
     state,
     storageAvailable: deps.projectStore.available,
     canUndo: state.history.canUndo,
     canRedo: state.history.canRedo,
-    edit(fn) {
-      const before = state.project.value;
-      const beforeHash = state.currentHash.value;
-      const next = fn(before);
-      if (next === before) {
-        return;
-      }
-      batch(() => {
-        state.history.ensureBase(before);
-        // Typing in a field is one step; adding or removing a component never merges into its neighbours.
-        state.history.push(next, sameComponents(before, next) ? { coalesceMs: COALESCE_MS } : {});
-        state.project.value = next;
-      });
-      persistence.scheduleSave();
-      if (state.currentHash.value !== beforeHash) {
-        runner.schedule();
-      }
-    },
+    edit,
     undo() {
       restore(state.history.undo());
     },
     redo() {
       restore(state.history.redo());
+    },
+    unpin(trayKey) {
+      edit((p) => removeLock(p, trayKey));
     },
     refit() {
       const current =

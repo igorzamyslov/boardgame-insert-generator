@@ -6,7 +6,7 @@ import { evaluate } from "./fill";
 import { greedyTree, partitionTrees } from "./greedy";
 import {
   applyLocks,
-  lockDroppedNotice,
+  conflictOf,
   moveEnvOf,
   noLocks,
   resolveLocks,
@@ -18,7 +18,7 @@ import { createRng } from "./prng";
 import { scorePlan, type PrevPos } from "./score";
 import { summarize } from "./summarize";
 import type { Tree } from "./tree";
-import type { LayoutInput, LayoutResult } from "./types";
+import type { LayoutInput, LayoutResult, LockConflict } from "./types";
 import { toMm } from "./units";
 import { warmHints, warmTree, type WarmHints } from "./warmstart";
 import {
@@ -74,7 +74,7 @@ export interface Run {
 interface Phase {
   readonly ctx: Ctx;
   readonly resolved: ResolvedLocks;
-  readonly notices: Notice[];
+  readonly conflicts: LockConflict[];
   readonly annealer: Annealer;
 }
 
@@ -105,9 +105,9 @@ function startPhase(
   useLocks: boolean,
 ): Phase {
   const base = createCtx(input, opts.measure);
-  const { resolved, notices } = useLocks
+  const { resolved, conflicts } = useLocks
     ? resolveLocks(base, input.locks, hints)
-    : { resolved: noLocks(base), notices: [] };
+    : { resolved: noLocks(base), conflicts: [] };
   const ctx = withSizeLocks(base, resolved.sizes);
   const env = moveEnvOf(ctx, resolved);
   const rng = createRng(seed);
@@ -153,7 +153,7 @@ function startPhase(
   return {
     ctx,
     resolved,
-    notices,
+    conflicts,
     annealer: createAnnealer(env, evalTree, start, rng, iterations),
   };
 }
@@ -193,16 +193,13 @@ export function createRun(
 
   const build = (): LayoutResult => {
     const phase = feasible();
-    const notices: Notice[] = [...main.notices];
+    const notices: Notice[] = [];
+    // Pins the layout had to ignore: never dropped, reported for the caller to refuse the layout.
+    const lockConflicts: LockConflict[] = [...main.conflicts];
     if (phase !== undefined && phase === fallback) {
       for (const lock of main.resolved.kept) {
-        notices.push(
-          lockDroppedNotice(
-            lock,
-            "no layout that keeps it fits in the box",
-            trayNamer(phase.ctx),
-            input.locks.indexOf(lock),
-          ),
+        lockConflicts.push(
+          conflictOf(lock, "no layout that keeps it fits in the box", trayNamer(phase.ctx)),
         );
       }
     }
@@ -230,6 +227,7 @@ export function createRun(
         bestAttempt: null,
         summary,
         notices,
+        lockConflicts,
       };
     }
     // Nothing fits: report the least-overflow attempt of the chains that keep the locks (the
@@ -253,6 +251,7 @@ export function createRun(
       bestAttempt: { trays: attemptTrays, shortfall },
       summary: null,
       notices,
+      lockConflicts,
     };
   };
 

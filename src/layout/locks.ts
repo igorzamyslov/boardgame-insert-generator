@@ -1,4 +1,4 @@
-import type { Lock, Notice, StoredLayout, TraySpec } from "../model/types";
+import type { Lock, StoredLayout, TraySpec } from "../model/types";
 import { compareCodeUnits } from "../util/compare";
 import { fitsBed } from "./bed";
 import {
@@ -9,7 +9,7 @@ import {
   type FixedSize,
   type PartRef,
 } from "./context";
-import { REMOVED_TRAY, trayLabel } from "./labels";
+import { trayLabel } from "./labels";
 import { insertItem, insertLeaf, removeItems, type MoveEnv } from "./moves";
 import type { Rng } from "./prng";
 import { stackHeights, stackLevels } from "./stack";
@@ -25,6 +25,7 @@ import {
   type Tree,
   type TreeNode,
 } from "./tree";
+import type { LockConflict } from "./types";
 import { toU } from "./units";
 
 export interface LockedLeaf {
@@ -86,32 +87,6 @@ export function isValidPath(path: string): boolean {
 /** Names a tray by its key for a notice (`trayLabel` with the layout's context). */
 export type TrayNamer = (trayKey: string) => string;
 
-/** The lock in words a user knows: the contents of its trays, quoted, never their keys. */
-export function describeLock(lock: Lock, name: TrayNamer): string {
-  const quote = (key: string): string => {
-    const label = name(key);
-    return label === REMOVED_TRAY ? label : `"${label}"`;
-  };
-  if (lock.kind === "stack") {
-    return `Stack lock on ${lock.trayKeys.map(quote).join(", ")}`;
-  }
-  return `${lock.kind === "position" ? "Position" : "Size"} lock on ${quote(lock.trayKey)}`;
-}
-
-/**
- * `path` is `/locks/<index>` (the lock's index in `LayoutInput.locks`) so the UI can remove
- * exactly that lock from the project; omitted when the index is unknown (< 0). The message is
- * resolved here, where the layout's contents are known, so it names components, not tray keys.
- */
-export function lockDroppedNotice(lock: Lock, reason: string, name: TrayNamer, index = -1): Notice {
-  const notice: Notice = {
-    level: "warning",
-    code: "lock.dropped",
-    message: `${describeLock(lock, name)} was dropped: ${reason}.`,
-  };
-  return index >= 0 ? { ...notice, path: `/locks/${index}` } : notice;
-}
-
 interface PosLock {
   readonly lock: Lock & { kind: "position" };
   readonly ref: PartRef;
@@ -119,46 +94,57 @@ interface PosLock {
 }
 
 /**
+ * What a conflict calls the lock's tray: its name, or the names of a stack lock's trays.
+ * The key to unpin is the lock's own (first) tray key.
+ */
+export function conflictOf(lock: Lock, reason: string, name: TrayNamer): LockConflict {
+  if (lock.kind === "stack") {
+    return {
+      trayKey: lock.trayKeys[0] ?? "",
+      name: lock.trayKeys.map(name).join(", "),
+      reason,
+    };
+  }
+  return { trayKey: lock.trayKey, name: name(lock.trayKey), reason };
+}
+
+/**
  * Validates locks before optimizing (spec §7.2). Every lock that can't be kept — unknown
  * trayKey, contents that no longer fit a size lock, box edits, conflicting paths or
- * stacks — is dropped with a "lock.dropped" notice, never silently. A dropped lock
- * constrains nothing: only the requirements a kept lock names stay pinned to a variant.
+ * stacks — is reported in `conflicts` (the caller doesn't accept such a layout and asks the
+ * user which pins to remove), never dropped silently. The layout is still built as if a
+ * conflicting lock were not there, so the rest of the search runs: only the requirements a
+ * kept lock names stay pinned to a variant.
  *
  * Position locks: trays locked to one path stack in the order of their level in the layout
  * being re-run (`hints.levelOf`; input order without one), except that a stack lock keeps the
  * order it gives. A position lock on a tray that sits above other trays in that layout, with
  * none of the trays under it locked to the same path and no stack lock around it, would drop
- * it to the floor and evict its stack-mates, so it is dropped with a notice (the UI locks a
+ * it to the floor and evict its stack-mates, so it is a conflict (the UI locks a
  * whole stack with a position lock per tray plus a stack lock). The root path "" is a valid
  * position only when the layout is a single tray, or the layout being re-run is one single
  * stack (`hints.singleLeaf`).
  *
  * Size locks are checked against the unlipped level-0 metrics. A size-locked tray that ends
  * up lower in a stack (lipped) can need more; the search then sees lock overflow, and the
- * fallback in `optimize` (Task 18) drops the lock with its generic reason.
+ * fallback in `optimize` (Task 18) reports the lock as a conflict with its generic reason.
  */
 export function resolveLocks(
   ctx: Ctx,
   locks: readonly Lock[],
   hints: LockHints = {},
-): { resolved: ResolvedLocks; notices: Notice[] } {
-  const indexOf = new Map<Lock, number>();
-  locks.forEach((lock, i) => {
-    if (!indexOf.has(lock)) {
-      indexOf.set(lock, i);
-    }
-  });
-  // A lock dropped after step 1 (size, position, stack or leaf checks) must not have narrowed
+): { resolved: ResolvedLocks; conflicts: LockConflict[] } {
+  // A lock in conflict after step 1 (size, position, stack or leaf checks) must not have narrowed
   // the variants of the locks that follow it: resolve again without it, so a lock is never
-  // dropped as conflicting because of a lock that was itself dropped. The set only shrinks.
-  const late: Notice[] = [];
+  // reported as conflicting because of a lock that is itself in conflict. The set only shrinks.
+  const late: LockConflict[] = [];
   let live = locks;
   for (;;) {
-    const pass = resolveOnce(ctx, live, hints, indexOf);
+    const pass = resolveOnce(ctx, live, hints);
     if (pass.lateDropped.size === 0) {
-      return { resolved: pass.resolved, notices: [...late, ...pass.notices] };
+      return { resolved: pass.resolved, conflicts: [...late, ...pass.conflicts] };
     }
-    late.push(...pass.lateNotices);
+    late.push(...pass.lateConflicts);
     live = live.filter((l) => !pass.lateDropped.has(l));
   }
 }
@@ -167,27 +153,26 @@ function resolveOnce(
   ctx: Ctx,
   locks: readonly Lock[],
   hints: LockHints,
-  indexOf: ReadonlyMap<Lock, number>,
 ): {
   resolved: ResolvedLocks;
-  notices: Notice[];
+  conflicts: LockConflict[];
   lateDropped: ReadonlySet<Lock>;
-  lateNotices: Notice[];
+  lateConflicts: LockConflict[];
 } {
-  const notices: Notice[] = [];
-  const lateNotices: Notice[] = [];
+  const conflicts: LockConflict[] = [];
+  const lateConflicts: LockConflict[] = [];
   const dropped = new Set<Lock>();
   const name = trayNamer(ctx);
   const lateDropped = new Set<Lock>();
   let early = true;
   const drop = (lock: Lock, reason: string): void => {
     dropped.add(lock);
-    const notice = lockDroppedNotice(lock, reason, name, indexOf.get(lock) ?? -1);
+    const conflict = conflictOf(lock, reason, name);
     if (early) {
-      notices.push(notice);
+      conflicts.push(conflict);
     } else {
       lateDropped.add(lock);
-      lateNotices.push(notice);
+      lateConflicts.push(conflict);
     }
   };
   const reqs = ctx.input.requirements;
@@ -380,7 +365,7 @@ function resolveOnce(
   // one path stack in the order of their level in the layout being re-run (input order without
   // one); a stack lock keeps the order it gives. A tray that sat above others there and now
   // would be the lowest locked one at its path would silently drop to the floor, so its lock
-  // is dropped with a notice instead.
+  // is reported as a conflict instead.
   interface Unit {
     readonly items: StackItem[];
     readonly pos: PosLock | null;
@@ -444,7 +429,7 @@ function resolveOnce(
     .map((g) => g.items);
   const rotationFixed = new Set<number>([...pos.keys(), ...sizes.keys(), ...inGroup.keys()]);
 
-  // 6. Locks dropped above must not keep pinning their requirement's variant. A requirement a
+  // 6. Locks in conflict above must not keep pinning their requirement's variant. A requirement a
   // kept lock names keeps its pin: the kept locks were resolved under it, and it lies in
   // their intersection.
   const kept = locks.filter((l) => !dropped.has(l));
@@ -463,9 +448,9 @@ function resolveOnce(
       rotationFixed,
       kept,
     },
-    notices,
+    conflicts,
     lateDropped,
-    lateNotices,
+    lateConflicts,
   };
 }
 
