@@ -57,7 +57,7 @@ export function CommonOptions<C extends Component>({
       {pieces}
       <SelectField
         id={`${c.id}-access`}
-        label="Needed during play"
+        label="How often you reach for it"
         value={c.access}
         options={ACCESS_OPTIONS}
         hint="Often: kept out from under other trays. Setup only: buried under them. Sometimes: no preference. These are preferences, not rules, so a tight box can override them."

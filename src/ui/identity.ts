@@ -125,6 +125,12 @@ export function shadeOf(kind: ComponentKind, index: number): Shade {
   };
 }
 
+/** The shade of the nth component of a kind as CSS custom properties, for a row or a panel to take. */
+export function shadeVars(kind: ComponentKind, index: number): Record<string, string> {
+  const shade = shadeOf(kind, index);
+  return { "--shade-fill": shade.fill, "--shade-line": shade.line, "--shade-ink": shade.ink };
+}
+
 /**
  * Every card spacer is this one colour, in the 3D view and on the assembly page: a spacer
  * belongs to no component, and they all do the same job, so telling them apart by colour
@@ -241,4 +247,16 @@ export function componentSummary(c: Component): string {
     case "custom":
       return `${c.count} × ${mm(c.w)} × ${mm(c.d)} × ${mm(c.h)} mm`;
   }
+}
+
+/** Which shade of its kind's hue the component at `index` takes: how many of its kind come before it. */
+export function kindIndexOf(components: readonly Component[], index: number): number {
+  const kind = components[index]?.kind;
+  return components.slice(0, index).filter((c) => c.kind === kind).length;
+}
+
+/** "Layer 1 (bottom)", "Layer 2", … "Layer n (top)"; a single layer is just "Layer 1". */
+export function layerLabel(level: number, count: number): string {
+  const end = count < 2 ? "" : level === 0 ? " (bottom)" : level === count - 1 ? " (top)" : "";
+  return `Layer ${level + 1}${end}`;
 }

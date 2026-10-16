@@ -41,7 +41,7 @@ export function addComponent(p: Project, kind: ComponentKind): Project {
 }
 
 /** The key a component's requirement and its trays carry: its group, else its own id. */
-function requirementKey(c: Component): string {
+export function requirementKey(c: Component): string {
   return groupOf(c) ?? c.id;
 }
 
@@ -171,6 +171,26 @@ export function toggleLock(p: Project, tray: TraySpec): Project {
     });
   }
   return { ...p, locks: [...rest, ...locks] };
+}
+
+/**
+ * Takes the pins off these trays, and off the whole stack each is in: a pinned stack is pinned as
+ * one, so what stays pinned would be a half of it. Size locks stay.
+ */
+export function unpinTrays(p: Project, trayKeys: readonly string[]): Project {
+  const keys = new Set(trayKeys);
+  for (const l of p.locks) {
+    if (l.kind === "stack" && l.trayKeys.some((k) => keys.has(k))) {
+      l.trayKeys.forEach((k) => keys.add(k));
+    }
+  }
+  const locks = p.locks.filter((l) => {
+    if (l.kind === "stack") {
+      return !l.trayKeys.some((k) => keys.has(k));
+    }
+    return l.kind !== "position" || !keys.has(l.trayKey);
+  });
+  return locks.length === p.locks.length ? p : { ...p, locks };
 }
 
 /** trayKeys with a size lock. */

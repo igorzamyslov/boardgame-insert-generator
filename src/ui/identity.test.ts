@@ -9,6 +9,8 @@ import {
   BOX_COLOR,
   SHADE_COUNT,
   componentIndexOfTray,
+  kindIndexOf,
+  layerLabel,
   shadeHex,
   shadeOf,
   tintOfTray,
@@ -198,5 +200,24 @@ describe("component shades", () => {
   it("copes with indices below zero and past the end", () => {
     expect(shadeOf("cards", -1)).toEqual(shadeOf("cards", SHADE_COUNT - 1));
     expect(shadeOf("custom", 3 * SHADE_COUNT + 2)).toEqual(shadeOf("custom", 2));
+  });
+});
+
+describe("kindIndexOf", () => {
+  it("counts the components of the same kind before it", () => {
+    const list = [newComponent("cards"), newComponent("bulk"), newComponent("cards")];
+    expect([0, 1, 2].map((i) => kindIndexOf(list, i))).toEqual([0, 0, 1]);
+  });
+});
+
+describe("layerLabel", () => {
+  it("names the bottom and top layer, and the ones between", () => {
+    expect([0, 1, 2].map((l) => layerLabel(l, 3))).toEqual([
+      "Layer 1 (bottom)",
+      "Layer 2",
+      "Layer 3 (top)",
+    ]);
+    expect([0, 1].map((l) => layerLabel(l, 2))).toEqual(["Layer 1 (bottom)", "Layer 2 (top)"]);
+    expect(layerLabel(0, 1)).toBe("Layer 1");
   });
 });

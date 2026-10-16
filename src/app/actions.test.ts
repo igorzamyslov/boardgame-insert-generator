@@ -23,6 +23,7 @@ import {
   swapTrays,
   toggleLock,
   toggleSizeLock,
+  unpinTrays,
   updateBox,
   updateComponent,
   updatePrinter,
@@ -300,5 +301,35 @@ describe("restoreComponent", () => {
       second.id,
       first.id,
     ]);
+  });
+});
+
+describe("unpinTrays", () => {
+  const stacked = (): Project => {
+    const lower = tray({ key: "a:p0:0", path: "0", level: 0 });
+    const upper = tray({ key: "b:p0:0", path: "0", level: 1 });
+    const alone = tray({ key: "c:p0:0", path: "1" });
+    const p = withLayout(newProject(), [lower, upper, alone]);
+    return toggleSizeLock(toggleLock(toggleLock(p, lower), alone), alone);
+  };
+
+  it("unpins the whole stack a tray is in, and leaves other pins and the size locks", () => {
+    const p = stacked();
+    expect(p.locks.map((l) => l.kind).sort()).toEqual([
+      "position",
+      "position",
+      "position",
+      "size",
+      "stack",
+    ]);
+    const q = unpinTrays(p, ["b:p0:0"]);
+    expect(lockedKeys(q)).toEqual(new Set(["c:p0:0"]));
+    expect(q.locks.some((l) => l.kind === "stack")).toBe(false);
+    expect(sizeLockedKeys(q)).toEqual(new Set(["c:p0:0"]));
+  });
+
+  it("returns the same project when nothing was pinned there", () => {
+    const p = stacked();
+    expect(unpinTrays(p, ["zzz:p0:0"])).toBe(p);
   });
 });

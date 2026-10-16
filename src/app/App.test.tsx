@@ -73,6 +73,12 @@ function addCards(): void {
   fireEvent.click(screen.getAllByRole("button", { name: "Add cards" })[0] as HTMLElement);
 }
 
+/** The editor in the aside asks before it removes: the Remove… button, then the answer. */
+function removeFromEditor(name: string): void {
+  fireEvent.click(screen.getByRole("button", { name: `Remove ${name}…` }));
+  fireEvent.click(screen.getByRole("button", { name: `Remove ${name}` }));
+}
+
 /** The export panel is a dialog over the view; its button opens it. */
 function openExport(): void {
   fireEvent.click(screen.getByRole("button", { name: /^Export all \d+ parts?$/ }));
@@ -93,7 +99,7 @@ describe("App", () => {
       [...inputs.querySelectorAll("details.pf-acc > summary h2")].map((t) =>
         t.textContent?.replace(/^\d+/, ""),
       );
-    expect(titles()).toEqual(["The box", "What goes inside", "Your printer", "Walls and fit"]);
+    expect(titles()).toEqual(["The box", "What's inside", "Your printer", "Walls and fit"]);
     const results = screen.getByRole("main");
     expect(within(results).getByRole("heading", { level: 2, name: "Results" })).toBeTruthy();
     expect(screen.queryByText(/shared links may break/)).toBeNull();
@@ -118,9 +124,9 @@ describe("App", () => {
   it("adds a component and starts an optimizer run after the pause", async () => {
     const { stub } = renderApp();
     addCards();
-    const card = document.querySelector("details.component-card") as HTMLDetailsElement;
-    expect(card.querySelector(".pf-item__title")?.textContent).toBe("Cards");
-    expect(card.open).toBe(true);
+    // a component just added opens in the aside, in the place of the list
+    expect(screen.getByRole("heading", { level: 3, name: "Cards" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "What's inside" })).toBeTruthy();
     await waitFor(() => expect(stub.calls).toHaveLength(1));
   });
 
@@ -192,10 +198,13 @@ describe("App", () => {
   it("removes a component with an Undo toast that puts it back where it was", async () => {
     const { store } = renderApp();
     addCards();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Add bits" })[0] as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
     const names = (): string[] => store.state.project.value.components.map((c) => c.name);
     expect(names()).toEqual(["Cards", "Bits"]);
-    fireEvent.click(screen.getByRole("button", { name: "Remove Cards" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Cards,/ }));
+    removeFromEditor("Cards");
     expect(names()).toEqual(["Bits"]);
     const toast = await screen.findByText(/Removed “Cards”/);
     expect(toast.getAttribute("role")).toBe("status");
@@ -204,10 +213,45 @@ describe("App", () => {
     expect(screen.queryByText(/Removed “Cards”/)).toBeNull();
   });
 
+  it("opens a row's editor in the aside and returns to the list from Done", () => {
+    renderApp({ project: fixtureProject() });
+    const first = within(screen.getByRole("list", { name: "What's inside" })).getAllByRole(
+      "button",
+      {
+        name: /,/,
+      },
+    )[0] as HTMLElement;
+    fireEvent.click(first);
+    expect(screen.queryByRole("list", { name: "What's inside" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getByRole("list", { name: "What's inside" })).toBeTruthy();
+  });
+
+  it("lifts a pin from its chip, the whole stack with it", () => {
+    const base = fixtureProject();
+    const [first] = base.components;
+    if (first === undefined) {
+      throw new Error("the fixture has no component");
+    }
+    const project: Project = {
+      ...base,
+      locks: [
+        { kind: "position", trayKey: `${first.id}:p0:0`, path: "0", rotated: false },
+        { kind: "position", trayKey: `${first.id}:p1:0`, path: "0", rotated: true },
+        { kind: "stack", trayKeys: [`${first.id}:p0:0`, `${first.id}:p1:0`] },
+      ],
+    };
+    const { store } = renderApp({ project });
+    expect(screen.getByText("Pinned, turned")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: /^Unpin / })[0] as HTMLElement);
+    expect(store.state.project.value.locks).toEqual([]);
+    expect(screen.queryByText("Pinned, turned")).toBeNull();
+  });
+
   it("hides the Undo toast once another edit comes after the removal", async () => {
     const { store } = renderApp();
     addCards();
-    fireEvent.click(screen.getByRole("button", { name: "Remove Cards" }));
+    removeFromEditor("Cards");
     await screen.findByText(/Removed “Cards”/);
     act(() => store.edit((q) => renameProject(q, "Something else")));
     await waitFor(() => expect(screen.queryByText(/Removed “Cards”/)).toBeNull());
@@ -217,7 +261,7 @@ describe("App", () => {
   it("dismisses the Undo toast", async () => {
     const { store } = renderApp();
     addCards();
-    fireEvent.click(screen.getByRole("button", { name: "Remove Cards" }));
+    removeFromEditor("Cards");
     await screen.findByText(/Removed “Cards”/);
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText(/Removed “Cards”/)).toBeNull();

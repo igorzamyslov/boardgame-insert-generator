@@ -35,10 +35,9 @@ interface AxisText {
 /** The label and hint of a growth control, in terms of what the component stores. */
 function textOf(c: Component, axis: GrowthAxis): AxisText {
   if (axis === "stack") {
-    const things = c.kind === "tiles" ? "tiles" : "cards";
     const stack = c.kind === "tiles" ? "stack of tiles" : "deck";
     return {
-      label: `Room for more ${things}`,
+      label: "Room for expansions",
       hint: `How much more room the ${stack} gets, so the collection can grow: along its stack when it stands up, taller when it lies flat (off by default: a riser takes the spare height). ${autoHint(`the ${stack}'s thickness`)} Standing up with no spacer plates, a ${stack} is held to at most ${UNPLATED_RETENTION}× its own thickness, past which it would topple, and to what keeps it under its finger cut when it stands against one end of the well; with plates, ${PLATED_RETENTION}×; with dividers, ${UNPLATED_RETENTION}× per section. ${EXPLAIN}`,
     };
   }

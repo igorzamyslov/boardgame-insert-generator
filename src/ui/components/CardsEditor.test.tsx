@@ -98,7 +98,9 @@ describe("CardsEditor", () => {
 
   it("offers measure N cards, storage and common options under More options", () => {
     const { last, view, onChange } = setup(cards());
-    expect(screen.getByLabelText("Needed during play").closest("details.pf-disc")).not.toBeNull();
+    expect(
+      screen.getByLabelText("How often you reach for it").closest("details.pf-disc"),
+    ).not.toBeNull();
     fireEvent.click(screen.getByLabelText(/Measure a stack/));
     expect(last().thickness).toEqual({ mode: "measured", cards: 50, stackMm: 20 });
     fireEvent.change(screen.getByLabelText("Storage"), { target: { value: "flat" } });
@@ -120,7 +122,14 @@ describe("CardsEditor", () => {
     const disc = view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
     expect(disc.querySelector("summary")?.textContent).toBe("More options");
     expect(disc.open).toBe(false);
-    for (const label of ["Finger cuts", "Storage", "Group", /Measure a stack/, /per player/]) {
+    for (const label of [
+      "Finger cuts",
+      "Storage",
+      "Group",
+      "Sleeves",
+      /Measure a stack/,
+      /per player/,
+    ]) {
       expect(disc.contains(screen.getByLabelText(label))).toBe(true);
     }
     expect(disc.contains(screen.getByLabelText("Name of deck 1"))).toBe(false);
@@ -132,7 +141,7 @@ describe("CardsEditor", () => {
     expect(cuts.closest("details.pf-disc")).not.toBeNull();
     expect(cuts.checked).toBe(true);
     expect(screen.queryByLabelText("Curved floor")).toBeNull();
-    const reliefs = screen.getByLabelText("Corner reliefs") as HTMLInputElement;
+    const reliefs = screen.getByLabelText("Corner holes") as HTMLInputElement;
     expect(reliefs.checked).toBe(false);
     fireEvent.click(cuts);
     expect(last().fingerCuts).toBe(false);
@@ -141,7 +150,7 @@ describe("CardsEditor", () => {
   });
 
   describe("room to grow (minimal-trays spec §5)", () => {
-    const control = () => screen.getByLabelText("Room for more cards") as HTMLSelectElement;
+    const control = () => screen.getByLabelText("Room for expansions") as HTMLSelectElement;
 
     it("offers one control, along the stack, set to auto by default for an upright deck", () => {
       const { last } = setup(cards({ storage: "upright-long" }));
@@ -181,7 +190,7 @@ describe("CardsEditor", () => {
       view.unmount();
       const next = setup(cards({ storage: "upright-long", growth: { stack: 10 } }));
       expect(control().value).toBe("amount");
-      fireEvent.input(screen.getByLabelText(/Room for more cards, amount/), {
+      fireEvent.input(screen.getByLabelText(/Room for expansions, amount/), {
         target: { value: "7,5" },
       });
       expect(next.last().growth).toEqual({ stack: 7.5 });
@@ -211,7 +220,7 @@ describe("CardsEditor", () => {
   describe("dividers", () => {
     it("are offered to a deck that stands up and may grow, with a hint", () => {
       const { last } = setup(cards({ storage: "upright-long" }));
-      const field = screen.getByLabelText("Dividers") as HTMLInputElement;
+      const field = screen.getByLabelText("Removable dividers") as HTMLInputElement;
       expect(field.value).toBe("0");
       expect(document.getElementById(`${field.id}-hint`)?.textContent).toMatch(
         /slot in the tray's floor/,
@@ -222,21 +231,21 @@ describe("CardsEditor", () => {
 
     it("are offered to a deck of auto storage, which may stand", () => {
       setup(cards({ storage: "auto" }));
-      expect(screen.queryByLabelText("Dividers")).not.toBeNull();
+      expect(screen.queryByLabelText("Removable dividers")).not.toBeNull();
     });
 
     it("are not offered to a flat deck, or to one that may not grow", () => {
       const { view } = setup(cards({ storage: "flat" }));
-      expect(screen.queryByLabelText("Dividers")).toBeNull();
+      expect(screen.queryByLabelText("Removable dividers")).toBeNull();
       view.unmount();
       const { view: off } = setup(cards({ growth: { stack: "off" } }));
-      expect(screen.queryByLabelText("Dividers")).toBeNull();
+      expect(screen.queryByLabelText("Removable dividers")).toBeNull();
       off.unmount();
     });
 
     it("stores nothing when the count goes back to 0", () => {
       const { last } = setup(cards({ storage: "upright-long", dividers: 3 }));
-      fireEvent.input(screen.getByLabelText("Dividers"), { target: { value: "0" } });
+      fireEvent.input(screen.getByLabelText("Removable dividers"), { target: { value: "0" } });
       expect("dividers" in last()).toBe(false);
     });
 
@@ -248,7 +257,7 @@ describe("CardsEditor", () => {
 
     it("are held to the bound", () => {
       const { onChange } = setup(cards({ storage: "upright-long" }));
-      fireEvent.input(screen.getByLabelText("Dividers"), { target: { value: "99" } });
+      fireEvent.input(screen.getByLabelText("Removable dividers"), { target: { value: "99" } });
       expect(onChange).not.toHaveBeenCalled();
     });
   });
