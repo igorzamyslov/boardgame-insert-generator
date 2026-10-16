@@ -20,8 +20,9 @@ const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
 
 const MENU = { click: { role: "button", name: /^Project menu/ } };
-// The no-fit heading: the board's "...fit yet", and the old UI's "<name> is too big for ...".
-const FIT_YET = /fit yet|too big for/;
+// The no-fit heading: the board's "...fit yet", and the old UI's "<name> doesn't fit the box yet"
+// (a figure too tall) or "<name> is too big for your printer's bed".
+const FIT_YET = /fit (the box )?yet|too big for/;
 const MAKE_NEW_PLAN = { click: { role: "button", name: "Make a new plan" } };
 
 /** Seeds: a current plan each, and the ones that are stale on purpose (make-seeds.mjs). */
@@ -31,6 +32,7 @@ export const SEEDS = {
     "harbour-kings-stale",
     "harbour-kings-notes",
     "harbour-kings-nofit",
+    "harbour-kings-nofit-bed",
     "harbour-kings-pins",
   ],
 };

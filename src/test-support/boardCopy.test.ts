@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // src/test-support/boardCopy.test.ts
 import { describe, expect, it } from "vitest";
-import { boardLiterals, unruled, visibleStrings } from "./boardCopy";
+import { boardLiterals, containsDenied, unruled, visibleStrings } from "./boardCopy";
 import type { Allowed } from "./boardCopy";
 
 const empty: Allowed = { literals: new Set(), rulings: [], data: new Set(), engine: new Set() };
@@ -65,6 +65,15 @@ describe("boardCopy", () => {
     expect(unruled(["Lay the figures down"], { ...empty, literals: noFit })).toEqual([
       "Lay the figures down",
     ]);
+  });
+
+  it("matches denied strings as whole words", () => {
+    expect(containsDenied("Best")).toBe(true);
+    expect(containsDenied("The Best fit")).toBe(true);
+    expect(containsDenied("Bestow a gift")).toBe(false);
+    expect(containsDenied("Not the Best")).toBe(true);
+    expect(containsDenied("+ Add")).toBe(true);
+    expect(containsDenied("Please Choose… one")).toBe(true);
   });
 
   it("reports what is left", () => {

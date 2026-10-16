@@ -18,10 +18,20 @@ export interface Allowed {
 
 const collapse = (text: string): string => text.replace(/\s+/g, " ").trim();
 
+const deniedPatterns = COPY_DENIED.map(
+  (denied) =>
+    new RegExp(`(?<!\\p{L})${denied.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?!\\p{L})`, "u"),
+);
+
+/** The text holds a string the app must never print, as whole words ("Best" is not "Bestow"). */
+export function containsDenied(text: string): boolean {
+  return deniedPatterns.some((pattern) => pattern.test(text));
+}
+
 /**
  * The fixed text of a board: its template's text nodes with no `{{`, and the string literals of
  * its script that contain a letter, trimmed and with whitespace collapsed; minus every string the
- * app does not print (COPY_DENIED) and every literal that contains one. `opts` is the same as
+ * app does not print (COPY_DENIED) and every literal that contains one as whole words. `opts` is the same as
  * `renderBoard`'s and does not change the answer: every variant draws from the same source.
  */
 export function boardLiterals(file: string, opts: BoardOptions = {}): Promise<Set<string>> {
@@ -30,7 +40,7 @@ export function boardLiterals(file: string, opts: BoardOptions = {}): Promise<Se
   const out = new Set<string>();
   for (const raw of [...markup, ...strings.filter((s) => /\p{L}/u.test(s))]) {
     const text = collapse(raw);
-    if (text !== "" && !COPY_DENIED.some((denied) => text.includes(denied))) {
+    if (text !== "" && !containsDenied(text)) {
       out.add(text);
     }
   }

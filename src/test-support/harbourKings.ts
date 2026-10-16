@@ -4,7 +4,7 @@
 // screenshot harness and the board copy tests. Test-only: nothing in the app imports it.
 import { toggleLock } from "../app/actions";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { Component, Project, TraySpec } from "../model/types";
+import type { Component, Project, Settings, TraySpec } from "../model/types";
 import { APP_VERSION, SCHEMA_VERSION } from "../model/version";
 import type { LayoutResult } from "../layout/types";
 import { createProjectStore } from "../share";
@@ -45,8 +45,55 @@ function bulk(
   return { id, name, access, kind: "bulk", items, ...extra } as Component;
 }
 
-/** The base game: eight components, as the boards' list shows them. */
-export function harbourKings(): Project {
+/**
+ * Values the rail never shows, set so the optimizer plans the game in two layers, as Main draws it
+ * (a bottom layer with the Heroes pockets under a top layer of cards). Found by the tune pass of
+ * `npm run seeds`, which prints a new one when the engine's plans move; paste it in here.
+ */
+export interface Tuning {
+  settings: Partial<Settings>;
+  /** Component fields by component id: a clearance, a sleeve, a figure's size. */
+  components: Record<string, Record<string, unknown>>;
+}
+
+export const NO_TUNING: Tuning = { settings: {}, components: {} };
+
+/**
+ * What `npm run seeds` found (see Tuning): 6 mm of clearance around every component, the first
+ * value the tune pass reached that puts the Heroes in a short bottom layer (Settings values and
+ * deck sleeves came first in its order and did not). Counts and names the rail shows are never in it.
+ */
+export const LAYER_TUNING: Tuning = {
+  settings: {},
+  components: Object.fromEntries(
+    [
+      "market01",
+      "starter1",
+      "events01",
+      "coins001",
+      "resourc1",
+      "dice0001",
+      "hextiles",
+      "heroes01",
+    ].map((id) => [id, { clearance: 6 }]),
+  ),
+};
+
+/** The project with the tuning applied: settings merged, component fields overlaid by id. */
+export function applyTuning(p: Project, tuning: Tuning): Project {
+  return {
+    ...p,
+    settings: { ...p.settings, ...tuning.settings },
+    components: p.components.map((c) => ({ ...c, ...tuning.components[c.id] }) as Component),
+  };
+}
+
+/** The base game: eight components, as the boards' list shows them (and the tuning, see Tuning). */
+export function harbourKings(tuning: Tuning = LAYER_TUNING): Project {
+  return applyTuning(untuned(), tuning);
+}
+
+function untuned(): Project {
   return {
     schemaVersion: SCHEMA_VERSION,
     createdWith: APP_VERSION,
@@ -145,8 +192,19 @@ function withComponent(p: Project, id: string, change: (c: Component) => Compone
   return { ...p, components: p.components.map((c) => (c.id === id ? change(c) : c)) };
 }
 
-/** `base` with Heroes at `count` figures, and the plan of `base` kept: it is now stale. */
-export function harbourKingsNoFit(base: Project, count = 40): Project {
+/**
+ * `base` with the Heroes figures `height` mm tall, and the plan of `base` kept: it is now stale.
+ * Taller than the box has room for, the search finds no fit and the closest attempt overhangs the
+ * box: the height story NoFit tells. `npm run seeds` checks the outcome.
+ */
+export function harbourKingsNoFit(base: Project, height = 80): Project {
+  return withComponent(base, "heroes01", (c) =>
+    c.kind === "minis" ? { ...c, figures: c.figures.map((f) => ({ ...f, h: height })) } : c,
+  );
+}
+
+/** An extra no-fit: `count` Heroes figures, more pockets than the print bed holds in one tray. */
+export function harbourKingsNoFitBed(base: Project, count = 40): Project {
   return withComponent(base, "heroes01", (c) =>
     c.kind === "minis" ? { ...c, figures: c.figures.map((f) => ({ ...f, count })) } : c,
   );
@@ -162,10 +220,11 @@ function trayOf(layout: readonly TraySpec[] | undefined, componentId: string): T
 
 /**
  * `base` with Market deck and Heroes pinned where `base`'s plan has them, and Hex tiles raised to
- * `count`. The engine only reports a pin conflict at some counts (155 and 175 do, 60 to 150 still
- * fit around the pins, 185 and up fit nowhere): `npm run seeds` checks the outcome.
+ * `count`. The engine only reports a pin conflict at some counts (with the tuned base: 100 does;
+ * 30 to 80 and 120 still fit around the pins, 90, 110 and 130 and up fit nowhere), so
+ * `npm run seeds` checks the outcome.
  */
-export function harbourKingsPinConflict(base: Project, count = 155): Project {
+export function harbourKingsPinConflict(base: Project, count = 100): Project {
   let p = base;
   for (const id of ["market01", "heroes01"]) {
     p = toggleLock(p, trayOf(base.layout?.trays, id));

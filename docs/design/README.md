@@ -43,6 +43,9 @@ The default out folder is `.superpowers/sdd/2026-10-16-ui-rebuild/shots/` (not c
 
 Board PNGs and seeds are committed; app shots are not, until the final pairs (Task 17) are.
 
+The board renderer adds `a{color:inherit}` ahead of a board's own styles: some boards have links
+with no colour set (MobileWorkspace's sheet rows), which a browser draws blue, and no board means that.
+
 ## Shots mode
 
 `vite --mode shots` sets `import.meta.env.MODE` to `"shots"`. Two places in the app then wait on a
