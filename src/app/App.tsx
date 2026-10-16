@@ -585,34 +585,15 @@ export function App(props: AppProps) {
                           settings={project.settings}
                           meshes={meshes}
                           projectName={project.name}
+                          summary={s.summary.value}
                           disabled={run.status === "running"}
                           stale={s.stale.value}
                           download={download}
+                          onOpenGuide={() => {
+                            setExportOpen(false);
+                            setAssemblyFor(project.id);
+                          }}
                         />
-                        <div class="export-option export-assembly">
-                          <div>
-                            <strong>Assembly page</strong>
-                            <p class="hint">
-                              An exploded picture of the build order, named pictures of each layer
-                              and a parts list, to print or save as PDF. Print this one yourself.
-                            </p>
-                            {s.stale.value ? (
-                              <p class="hint">
-                                Inputs changed — update the plan before opening the assembly page.
-                              </p>
-                            ) : null}
-                          </div>
-                          <button
-                            type="button"
-                            disabled={s.stale.value}
-                            onClick={() => {
-                              setExportOpen(false);
-                              setAssemblyFor(project.id);
-                            }}
-                          >
-                            Open the assembly page
-                          </button>
-                        </div>
                       </Modal>
                     ) : null}
                   </section>

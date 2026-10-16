@@ -63,24 +63,28 @@ export function AssemblyPage(p: AssemblyPageProps) {
     <article class="assembly" aria-labelledby="assembly-title">
       <div class="assembly-toolbar no-print">
         <button type="button" onClick={p.onBack}>
-          Back to the editor
+          Back to your insert
         </button>
         <button
           type="button"
-          disabled={p.stale}
-          onClick={() => (p.print ?? (() => window.print()))()}
+          class="primary"
+          aria-disabled={p.stale ? "true" : undefined}
+          onClick={() => {
+            if (!p.stale) {
+              (p.print ?? (() => window.print()))();
+            }
+          }}
         >
-          Print / save as PDF
+          Print or save as PDF
         </button>
       </div>
-      <h1 id="assembly-title" tabIndex={-1}>{`${p.project.name} — assembly`}</h1>
-      <p class="hint">
-        {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Layers are drawn from above with the box front at the bottom; names match the ones engraved on the trays and in the exported files.`}
+      <h1 id="assembly-title" tabIndex={-1}>{`${p.project.name} — packing guide`}</h1>
+      <p class="assembly-meta">
+        {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Layers are drawn from above, with the front of the box at the bottom.`}
       </p>
       {p.stale ? (
-        <p class="hint" role="status">
-          Inputs changed — update the plan before printing or saving this page. Go back to the
-          editor to do that.
+        <p class="assembly-stale no-print" role="status">
+          The plan is out of date. Go back to your insert to update it.
         </p>
       ) : null}
       {pngError !== null ? (
@@ -90,8 +94,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
       ) : null}
       {svgs.length === 0 ? (
         <p class="hint" role="note">
-          This layout has no trays yet, so there is nothing to assemble. Go back and add components,
-          then let the layout run.
+          There are no trays yet, so nothing to pack. Go back and add what goes inside.
         </p>
       ) : (
         <>
@@ -107,8 +110,8 @@ export function AssemblyPage(p: AssemblyPageProps) {
             <section class="assembly-exploded" aria-labelledby="exploded-title">
               <h2 id="exploded-title">How it goes together</h2>
               <p class="hint">
-                Every part pulled apart, bottom first, with the names of the list above and the
-                table below. Parts are drawn as plain blocks: the real trays are open on top.
+                Trays pulled apart, bottom first. They are drawn as plain blocks; the real ones are
+                open on top.
               </p>
               <img
                 class="assembly-svg"
@@ -120,9 +123,11 @@ export function AssemblyPage(p: AssemblyPageProps) {
               <button
                 type="button"
                 class="no-print"
-                disabled={busy || p.stale}
+                aria-disabled={busy || p.stale ? "true" : undefined}
                 onClick={() => {
-                  void savePng(exploded.svg, "exploded");
+                  if (!busy && !p.stale) {
+                    void savePng(exploded.svg, "exploded");
+                  }
                 }}
               >
                 Download PNG of the exploded view
@@ -146,9 +151,11 @@ export function AssemblyPage(p: AssemblyPageProps) {
                   <button
                     type="button"
                     class="no-print"
-                    disabled={busy || p.stale}
+                    aria-disabled={busy || p.stale ? "true" : undefined}
                     onClick={() => {
-                      void savePng(svg, `layer-${layer}`);
+                      if (!busy && !p.stale) {
+                        void savePng(svg, `layer-${layer}`);
+                      }
                     }}
                   >
                     {`Download PNG of layer ${layer}`}
@@ -160,10 +167,10 @@ export function AssemblyPage(p: AssemblyPageProps) {
           <section aria-labelledby="parts-title">
             <h2 id="parts-title">What goes where</h2>
             <table class="parts-table">
-              <caption class="visually-hidden">Which part goes where</caption>
+              <caption class="visually-hidden">Which tray goes where</caption>
               <thead>
                 <tr>
-                  <th scope="col">Part</th>
+                  <th scope="col">Tray</th>
                   {engraving ? <th scope="col">Engraved as</th> : null}
                   <th scope="col">Size</th>
                   <th scope="col">Position</th>
@@ -176,12 +183,14 @@ export function AssemblyPage(p: AssemblyPageProps) {
                   <tr key={r.key}>
                     <th scope="row">{r.name}</th>
                     {engraving ? (
-                      <td>{r.engraved ?? (r.tooSmall ? "Too small for its name" : "—")}</td>
+                      <td data-label="Engraved as">
+                        {r.engraved ?? (r.tooSmall ? "Too small for its name" : "—")}
+                      </td>
                     ) : null}
-                    <td>{r.size}</td>
-                    <td>{r.position}</td>
-                    <td>{r.layer}</td>
-                    <td>
+                    <td data-label="Size">{r.size}</td>
+                    <td data-label="Position">{r.position}</td>
+                    <td data-label="Layer">{layers[r.layer - 1]?.title ?? `Layer ${r.layer}`}</td>
+                    <td data-label="Holds">
                       {r.goesInto !== null
                         ? `Goes into ${r.goesInto}`
                         : r.carries !== null

@@ -1,0 +1,124 @@
+/* src/ui/export.css: the download dialog. One primary button, the rest quiet. */
+.export-panel {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+}
+
+.export-panel > * {
+  margin: 0;
+}
+
+/* Every control in the panel is at least 44 px tall and wide. */
+.export-panel button,
+.export-panel a {
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+}
+
+.export-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 30px;
+}
+
+/* What is about to be printed, as plain numbers. */
+.export-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+}
+
+.export-facts dt {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.export-facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.export-primary {
+  display: grid;
+  gap: 0;
+  justify-items: start;
+}
+
+.export-done {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.export-done:not(:empty) {
+  margin-top: var(--space-2);
+}
+
+.export-more {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  width: 100%;
+}
+
+.export-toggle {
+  color: var(--muted);
+}
+
+.export-options {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.export-option {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--sheet);
+}
+
+.export-panel .run-status,
+.export-panel .pf-notice,
+.export-failed {
+  width: 100%;
+}
+
+.export-failed h3 {
+  margin: 0 0 var(--space-1);
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.export-failed ul {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-5);
+}
+
+/* Quiet: the same small type as a hint, links in the muted ink. */
+.export-support {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+  align-items: center;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.export-support a {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+}

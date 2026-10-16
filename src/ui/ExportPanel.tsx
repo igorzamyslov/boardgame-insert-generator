@@ -14,28 +14,27 @@ import { buildErrorReason } from "../app/support";
 import { engravesName } from "../geometry/engraves";
 import { trayNames } from "../instructions/naming";
 import { numberParts } from "../instructions/numbering";
+import type { LayoutSummary } from "../layout/types";
 import { carriesName } from "../model/part-name";
 import type { Component, Printer, Settings, TraySpec } from "../model/types";
+import { formatPrintTime } from "./Summary";
+import "./export.css";
 
 export type ExportKind = "parts" | "combined" | "stl";
 
-const KINDS: ExportKind[] = ["parts", "combined", "stl"];
+/** The two files kept behind "Other formats": the default is the one combined 3MF. */
+const OTHER_KINDS: ExportKind[] = ["parts", "stl"];
 
 export const EXPORT_LABELS: Record<ExportKind, string> = {
   parts: "3MF per part (.zip)",
-  combined: "One combined 3MF",
+  combined: "3MF",
   stl: "STL files (.zip)",
 };
 
-const EXPORT_HINTS: Record<ExportKind, string> = {
-  parts: "Recommended: one file per tray, each ready to slice. Send these to whoever prints.",
-  combined:
-    "All trays laid out on print beds in one file, for a slicer that opens a whole project.",
-  stl: "One plain mesh per tray, for older slicers.",
-};
-
-/** Trays that only fill a gap in the box: failing to export one costs nothing. */
-const fillsGap = (spec: TraySpec): boolean => spec.part === "leftover" && spec.merged === undefined;
+export const SUPPORT_LINKS = [
+  { name: "Ko-fi", href: "https://ko-fi.com/igorzamyslov" },
+  { name: "PayPal", href: "https://paypal.me/igorzamyslov" },
+] as const;
 
 export interface ExportPanelProps {
   trays: readonly TraySpec[];
@@ -45,6 +44,11 @@ export interface ExportPanelProps {
   settings: Settings;
   meshes: MeshSource;
   projectName: string;
+  /** The plan's totals, for the filament and the print time; without them only the parts show. */
+  summary?: LayoutSummary | null;
+  /** Opens the packing guide; without it the panel offers none. */
+  onOpenGuide?: () => void;
+  /** The layout is still being made: nothing can be built yet. */
   disabled: boolean;
   /** The inputs no longer match the layout: exporting would build trays for other settings. */
   stale?: boolean;
@@ -61,7 +65,7 @@ interface Busy {
 
 export function ExportPanel(p: ExportPanelProps) {
   const plan = useMemo(() => planExport(p.trays), [p.trays]);
-  // Every part is called as on the screens and the assembly page, in files and the list below.
+  // Every part is called as on the screens and the packing guide, in files and the list below.
   const names = useMemo(
     () => trayNames(numberParts(p.trays), p.components ?? []),
     [p.trays, p.components],
@@ -81,30 +85,34 @@ export function ExportPanel(p: ExportPanelProps) {
   const [busy, setBusy] = useState<Busy | null>(null);
   const [error, setError] = useState<{ kind: ExportKind; message: string } | null>(null);
   const [failed, setFailed] = useState<ExportOutput["failed"]>([]);
-  const [lastKind, setLastKind] = useState<ExportKind>("parts");
-  const [downloaded, setDownloaded] = useState<{
-    kind: ExportKind;
-    filename: string;
-    built: number;
-  } | null>(null);
+  const [lastKind, setLastKind] = useState<ExportKind>("combined");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [downloaded, setDownloaded] = useState<{ kind: ExportKind; filename: string } | null>(null);
   const busyHintId = useId();
+  const reasonId = useId();
+  const moreId = useId();
   const title = useRef<HTMLHeadingElement>(null);
   const running = useRef<AbortController | null>(null);
-  const buttonRow = useRef<HTMLDivElement>(null);
+  const primary = useRef<HTMLButtonElement>(null);
   const refocus = useRef(false);
-  const cancelButton = useRef<HTMLButtonElement | null>(null);
+  const stopButton = useRef<HTMLButtonElement | null>(null);
   const download = p.download ?? downloadBlob;
   const slug = fileSlug(p.projectName);
-  const blocked = p.disabled || p.stale === true;
+  const blockedReason = p.stale
+    ? "Update the plan first."
+    : p.disabled
+      ? "The plan is updating."
+      : null;
+  const off = blockedReason !== null || plan.parts.length === 0 || busy !== null;
 
   // Preact calls a ref with null just before it removes the element, while it still has the
-  // focus: whatever makes Cancel go away (a finished or aborted export, not only a click on it)
+  // focus: whatever makes Stop go away (a finished or aborted export, not only a click on it)
   // leaves the focus to be handed on. A stable callback, so it only runs on mount and unmount.
-  const watchCancel = useCallback((el: HTMLButtonElement | null) => {
-    if (el === null && cancelButton.current && document.activeElement === cancelButton.current) {
+  const watchStop = useCallback((el: HTMLButtonElement | null) => {
+    if (el === null && stopButton.current && document.activeElement === stopButton.current) {
       refocus.current = true;
     }
-    cancelButton.current = el;
+    stopButton.current = el;
   }, []);
 
   // The panel opens on demand (in a dialog): start at its heading.
@@ -124,11 +132,11 @@ export function ExportPanel(p: ExportPanelProps) {
     setDownloaded(null);
   }, [p.trays]);
 
-  // Cancel unmounted with the progress bar: hand the focus to the first export button.
+  // Stop unmounted with the progress bar: hand the focus to Download.
   useEffect(() => {
     if (busy === null && refocus.current) {
       refocus.current = false;
-      buttonRow.current?.querySelector("button")?.focus();
+      primary.current?.focus();
     }
   }, [busy]);
 
@@ -159,12 +167,12 @@ export function ExportPanel(p: ExportPanelProps) {
         }
       },
     };
-    // A cancelled export (or one whose panel has gone) downloads nothing.
+    // A stopped export (or one whose panel has gone) downloads nothing.
     const finish = (out: ExportOutput, type: string, filename: string): void => {
       if (!controller.signal.aborted) {
         download(bytesToBlob(out.data, type), filename);
         setFailed(out.failed);
-        setDownloaded({ kind, filename, built: out.included });
+        setDownloaded({ kind, filename });
       }
     };
     try {
@@ -191,61 +199,113 @@ export function ExportPanel(p: ExportPanelProps) {
     }
   }
 
-  function cancel(): void {
+  function start(kind: ExportKind): void {
+    if (!off) {
+      void run(kind);
+    }
+  }
+
+  function stop(): void {
     refocus.current = true;
     running.current?.abort();
     running.current = null;
     setBusy(null);
   }
 
+  const retryOff = blockedReason !== null || busy !== null;
+  const describedBy = busy !== null ? busyHintId : blockedReason !== null ? reasonId : undefined;
   const notExported = [...plan.skipped, ...failed];
-
-  const total = plan.parts.length + plan.skipped.length;
 
   return (
     <div class="export-panel">
       <h2 class="export-title" id={p.titleId} tabIndex={-1} ref={title}>
-        {`Export all ${plan.parts.length} ${plan.parts.length === 1 ? "part" : "parts"}`}
+        Download
       </h2>
-      <p class="hint">
-        Every part prints open side up, the way it sits in the box. Trays are named as in the plan
-        and on the assembly page, and each file is called by its tray.
-      </p>
+      <dl class="export-facts">
+        <div>
+          <dt>Parts</dt>
+          <dd>{plan.parts.length}</dd>
+        </div>
+        {p.summary ? (
+          <>
+            <div>
+              <dt>Filament</dt>
+              <dd>{`≈ ${Math.round(p.summary.filamentAtInfillG)} g`}</dd>
+            </div>
+            <div>
+              <dt>Print time</dt>
+              <dd>{`≈ ${formatPrintTime(p.summary.printMinutes)}`}</dd>
+            </div>
+          </>
+        ) : null}
+      </dl>
       {tooSmall > 0 ? (
         <p class="hint">
           {`${tooSmall} ${tooSmall === 1 ? "part is" : "parts are"} too small to carry ${tooSmall === 1 ? "its" : "their"} name; the packing guide lists ${tooSmall === 1 ? "it" : "them"}.`}
         </p>
       ) : null}
-      {p.stale ? <p class="hint">Inputs changed — update the plan before exporting.</p> : null}
-      <div class="export-options" ref={buttonRow}>
-        {KINDS.map((k, i) => (
-          <div class="export-option" key={k}>
-            <div>
-              <strong>{EXPORT_LABELS[k]}</strong>
-              <p class="hint">{EXPORT_HINTS[k]}</p>
-              {downloaded?.kind === k ? (
-                <p class="hint" role="status">
-                  {`Downloaded ${downloaded.filename} (${downloaded.built} of ${plan.parts.length} trays).`}
-                </p>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              class={i === 0 ? "primary" : undefined}
-              aria-label={EXPORT_LABELS[k]}
-              disabled={blocked || plan.parts.length === 0}
-              aria-disabled={busy !== null ? "true" : undefined}
-              aria-describedby={busy !== null ? busyHintId : undefined}
-              onClick={() => {
-                if (busy === null) {
-                  void run(k);
-                }
-              }}
-            >
-              Download
-            </button>
+      {blockedReason !== null ? (
+        <p class="hint" id={reasonId}>
+          {blockedReason}
+        </p>
+      ) : null}
+      <div class="export-primary">
+        <button
+          type="button"
+          class="primary"
+          ref={primary}
+          aria-disabled={off ? "true" : undefined}
+          aria-describedby={describedBy}
+          onClick={() => start("combined")}
+        >
+          Download 3MF
+        </button>
+        <p class="export-done" role="status">
+          {downloaded ? `Downloaded ${downloaded.filename}.` : ""}
+        </p>
+      </div>
+      {p.onOpenGuide ? (
+        <button
+          type="button"
+          aria-disabled={p.stale ? "true" : undefined}
+          aria-describedby={p.stale ? reasonId : undefined}
+          onClick={() => {
+            if (!p.stale) {
+              p.onOpenGuide?.();
+            }
+          }}
+        >
+          Open the packing guide
+        </button>
+      ) : null}
+      <div class="export-more">
+        <button
+          type="button"
+          class="quiet export-toggle"
+          aria-expanded={moreOpen}
+          aria-controls={moreOpen ? moreId : undefined}
+          onClick={() => setMoreOpen(!moreOpen)}
+        >
+          Other formats
+        </button>
+        {moreOpen ? (
+          <div class="export-options" id={moreId}>
+            {OTHER_KINDS.map((k) => (
+              <div class="export-option" key={k}>
+                <strong>{EXPORT_LABELS[k]}</strong>
+                <button
+                  type="button"
+                  aria-label={`Download ${EXPORT_LABELS[k]}`}
+                  aria-disabled={off ? "true" : undefined}
+                  aria-describedby={describedBy}
+                  onClick={() => start(k)}
+                >
+                  Download
+                </button>
+              </div>
+            ))}
           </div>
-        ))}
+        ) : null}
       </div>
       {busy ? (
         <span id={busyHintId} class="visually-hidden">
@@ -257,53 +317,51 @@ export function ExportPanel(p: ExportPanelProps) {
           <progress
             value={busy.done}
             max={Math.max(1, busy.total)}
-            aria-label="Building the trays"
+            aria-label="Building the files"
           />
-          <span>{`Building the trays… ${busy.done} of ${busy.total}`}</span>
-          <button type="button" ref={watchCancel} onClick={cancel}>
-            Cancel
+          <span>{`Building ${busy.done} of ${busy.total}`}</span>
+          <button type="button" ref={watchStop} onClick={stop}>
+            Stop
           </button>
         </div>
-      ) : null}
-      {busy ? (
-        <p class="hint">Closing this window also cancels the export. Nothing is downloaded.</p>
       ) : null}
       {error ? (
         <div class="pf-notice pf-notice--error">
           <div role="alert">
-            <strong class="notice-level">Error:</strong> {`Export failed: ${error.message}`}
+            <strong class="notice-level">Error:</strong> {`Download failed: ${error.message}`}
           </div>
           <button
             type="button"
-            disabled={blocked}
+            aria-disabled={retryOff ? "true" : undefined}
             onClick={() => {
-              p.meshes.reset();
-              void run(error.kind);
+              if (!retryOff) {
+                p.meshes.reset();
+                void run(error.kind);
+              }
             }}
           >
-            Retry
+            Try again
           </button>
         </div>
       ) : null}
       {notExported.length > 0 ? (
-        <div class="pf-notice pf-notice--warn">
-          <div>
-            <strong class="notice-level">Warning:</strong>{" "}
-            {`${notExported.length} of ${total} trays weren't exported.`}
-          </div>
+        <div class="export-failed">
+          <h3>Not exported</h3>
           <ul>
             {notExported.map((s) => (
               <li key={s.part.spec.key}>
                 {`${names.get(s.part.spec.key)?.full ?? s.part.label}: ${s.reason}`}
-                {fillsGap(s.part.spec) ? " It only fills a gap, so you can skip it." : ""}
               </li>
             ))}
           </ul>
           {failed.length > 0 ? (
             <button
               type="button"
-              disabled={blocked || busy !== null}
+              aria-disabled={retryOff ? "true" : undefined}
               onClick={() => {
+                if (retryOff) {
+                  return;
+                }
                 p.meshes.forget(
                   failed.map((f) => f.part.spec),
                   p.settings,
@@ -311,11 +369,20 @@ export function ExportPanel(p: ExportPanelProps) {
                 void run(lastKind);
               }}
             >
-              Retry failed trays
+              Try again
             </button>
           ) : null}
         </div>
       ) : null}
+      <p class="export-support">
+        <span>Support it</span>
+        {SUPPORT_LINKS.map((l) => (
+          <a key={l.name} href={l.href} target="_blank" rel="noopener noreferrer">
+            {l.name}
+            <span class="visually-hidden"> (opens in a new tab)</span>
+          </a>
+        ))}
+      </p>
     </div>
   );
 }

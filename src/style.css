@@ -824,25 +824,6 @@ span.inserts-name {
   background: var(--sheet-sunken);
 }
 
-.export-panel {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.export-panel > * {
-  margin: 0;
-}
-
-.export-skipped h3 {
-  margin: var(--space-3) 0 var(--space-1);
-  font-size: 18px;
-}
-
-.export-skipped ul {
-  margin: 0;
-  padding-left: var(--space-5);
-}
-
 .link-status {
   margin: 0;
 }
@@ -979,7 +960,7 @@ html:has(dialog.modal[open]) {
   overflow: hidden;
 }
 
-/* The export dialog: a heading, the three file choices as rows, and the assembly page as a fourth row. */
+/* The body of a dialog and its Close row. The download dialog's own rules are in ui/export.css. */
 .modal-body {
   display: grid;
   gap: var(--space-3);
@@ -994,34 +975,32 @@ html:has(dialog.modal[open]) {
   border-top: 1px solid var(--rule);
 }
 
-.export-title {
-  margin: 0;
-  font-size: 20px;
-  line-height: 26px;
+/* stylelint-disable-next-line no-descending-specificity */
+.modal-actions button {
+  min-width: var(--control-h);
+  min-height: var(--control-h);
 }
 
-.export-options {
-  display: grid;
-  gap: var(--space-2);
-}
+/* A dialog fills a phone's screen. */
+@media (width < 600px) {
+  .modal {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
 
-.export-option {
-  display: flex;
-  gap: var(--space-4);
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-md);
-  background: var(--sheet);
-}
+  /* Close stays at the bottom of the screen, whatever the content's height. */
+  .modal[open] {
+    display: flex;
+    flex-direction: column;
+  }
 
-.export-option > div:first-child {
-  flex: 1;
-}
-
-.export-option p {
-  margin: 2px 0 0;
+  .modal-body {
+    flex: 1;
+  }
 }
 
 /* The tray picker under the 3D view: a text route to every tray, with its colour and number. */

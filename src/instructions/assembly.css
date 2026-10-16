@@ -1,5 +1,5 @@
-/* src/instructions/assembly.css: the assembly page, a document. On screen it follows the theme
-   tokens; on paper it is always black on white. */
+/* src/instructions/assembly.css: the packing guide, a document. On screen it is a stack of sheets
+   in the theme's tokens; on paper it is always black on white, without the sheets. */
 .assembly {
   max-width: 1000px;
   margin: 0 auto;
@@ -8,22 +8,61 @@
   color: var(--ink);
 }
 
+/* Every control is at least 44 px. */
+.assembly button {
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+}
+
 .assembly h1 {
   margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
   font-size: 32px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 38px;
 }
 
 .assembly h2 {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 26px;
 }
 
+.assembly-meta {
+  margin: 0 0 var(--space-4);
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+/* The plan changed since the picture was drawn: said once, plainly. */
+.assembly-stale {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-left: 4px solid var(--warn);
+  border-radius: var(--radius-md);
+  background: var(--sheet);
+}
+
+/* The sheets: what is inside the guide, one thing at a time. */
+.assembly > section,
+.assembly-layer {
+  padding: var(--space-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--sheet);
+}
+
 .assembly > section {
-  margin: var(--space-5) 0;
+  margin: var(--space-4) 0;
+}
+
+.assembly ol {
+  margin: 0;
+  padding-left: var(--space-5);
+  line-height: 28px;
 }
 
 .assembly-toolbar {
@@ -35,15 +74,9 @@
 
 .assembly-layers {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-5);
-  margin: var(--space-5) 0;
-}
-
-@media (width >= 640px) {
-  .assembly-layers {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
 }
 
 .assembly-exploded {
@@ -64,6 +97,10 @@
   align-items: flex-start;
 }
 
+.assembly-layer h2 {
+  margin: 0;
+}
+
 .assembly-svg {
   display: block;
   width: 100%;
@@ -82,16 +119,76 @@
 
 .parts-table th,
 .parts-table td {
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-2);
   border-bottom: 1px solid var(--rule);
   text-align: left;
   vertical-align: top;
 }
 
 .parts-table thead th {
-  border-bottom-color: var(--rule-strong);
-  color: var(--ink-soft);
+  border-bottom-color: var(--edge);
+  color: var(--muted);
   font-weight: 600;
+}
+
+/* A phone: one column of pictures, and a card for each tray instead of a wide table. */
+@media screen and (width < 760px) {
+  .assembly {
+    padding: var(--space-3) var(--space-4) var(--space-5);
+  }
+
+  .assembly h1 {
+    font-size: 26px;
+    line-height: 32px;
+  }
+
+  .assembly-layers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .parts-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .parts-table,
+  .parts-table tbody {
+    display: block;
+  }
+
+  .parts-table tr {
+    display: grid;
+    gap: var(--space-1);
+    margin-bottom: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-md);
+  }
+
+  .parts-table th,
+  .parts-table td {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .parts-table th[scope="row"] {
+    font-size: 16px;
+    line-height: 22px;
+  }
+
+  .parts-table td {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 30%) minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .parts-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+  }
 }
 
 @media print {
@@ -119,6 +216,23 @@
     max-width: none;
     padding: 0;
     color: #000;
+  }
+
+  .assembly h1,
+  .assembly h2 {
+    font-family: var(--font-display);
+  }
+
+  .assembly-meta {
+    color: #000;
+  }
+
+  /* No sheets on paper: the page itself is the sheet. */
+  .assembly > section,
+  .assembly-layer {
+    padding: 0;
+    border: 0;
+    background: none;
   }
 
   .assembly-exploded,
