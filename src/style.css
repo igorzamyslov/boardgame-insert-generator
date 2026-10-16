@@ -1358,3 +1358,107 @@ html:has(dialog.modal[open]) {
   border-style: dashed;
   background: var(--sheet);
 }
+
+/* First visit: one column with the box, the kinds and the example, in the order a person goes. */
+.pf-app__body[data-first-visit="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.pf-first {
+  display: grid;
+  gap: var(--space-5);
+  align-content: start;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-4) 0;
+}
+
+.pf-first h2 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 38px;
+}
+
+.pf-first h3 {
+  margin: 0 0 var(--space-3);
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.pf-first__step {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--sheet);
+}
+
+.pf-first__step > * {
+  width: 100%;
+}
+
+/* stylelint-disable-next-line no-descending-specificity */
+.pf-first__step > button {
+  width: auto;
+  min-height: 44px;
+}
+
+/* Below the two-column layout the stage has no padding of its own. */
+@media (width <= 960px) {
+  .pf-first {
+    padding: var(--space-4) var(--space-3);
+  }
+}
+
+.pf-first__step > h3 {
+  margin: 0;
+}
+
+/* The box panel: every control at least 44 px, the checkbox included. */
+.box-panel {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.box-panel .field-label {
+  color: var(--ink);
+  font: 500 14px/20px var(--font-ui);
+}
+
+.box-panel .check-field {
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+}
+
+.box-panel .check-field input {
+  width: 24px;
+  height: 24px;
+  margin: 10px;
+}
+
+.box-panel .check-field > label {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* Two or three choices side by side; the pressed one is filled. */
+.pf-toggle {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* stylelint-disable-next-line no-descending-specificity */
+.pf-toggle button {
+  flex: 1 1 0;
+  min-height: 44px;
+}
+
+.pf-toggle button[aria-pressed="true"],
+.pf-toggle button[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--indigo);
+  background: var(--indigo);
+  color: var(--on-indigo);
+}

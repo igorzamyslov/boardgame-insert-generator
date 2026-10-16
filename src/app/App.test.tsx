@@ -98,7 +98,7 @@ function openAssemblyPage(): void {
 
 describe("App", () => {
   it("lays out the title, inputs then results and footer", () => {
-    renderApp();
+    renderApp({ project: withLayoutProject() });
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Insert Generator");
     const inputs = screen.getByRole("region", { name: "Inputs" });
     const titles = (): (string | undefined)[] =>
@@ -114,6 +114,69 @@ describe("App", () => {
     expect(
       within(footer).getByRole("link", { name: "Third-party licenses" }).getAttribute("href"),
     ).toBe("./third-party-licenses.txt");
+  });
+
+  describe("first visit", () => {
+    it("offers the box, the kinds, an example and where it is saved, under one h1", () => {
+      renderApp();
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      // the box fields are on the page itself, not behind a fold
+      expect(screen.getByLabelText(/^Width/)).toBeTruthy();
+      expect(screen.getByLabelText(/^Keep space free on top/)).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Whole top" })).toBeTruthy();
+      expect(screen.getByLabelText(/stored on its side/)).toBeTruthy();
+      expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(5);
+      expect(screen.getByRole("button", { name: "Add tokens and dice" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Start from an example game" })).toBeTruthy();
+      expect(screen.getByText("Your inserts are saved in this browser.")).toBeTruthy();
+      // each field once: no second copy in a rail
+      expect(document.querySelectorAll("#box-innerWidth")).toHaveLength(1);
+      expect(screen.queryByRole("region", { name: "Inputs" })).toBeNull();
+      expect(document.body.textContent).not.toMatch(/\bbits?\b/i);
+    });
+
+    it("adding the first item opens its editor", async () => {
+      const { stub } = renderApp();
+      fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "250" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add cards" }));
+      // the editor is open in the rail, over the list, and the box kept what was typed
+      const heading = screen.getByRole("heading", { level: 3, name: "Cards" });
+      expect(document.activeElement).toBe(heading);
+      expect(screen.getByRole("button", { name: "What's inside" })).toBeTruthy();
+      expect(screen.getByRole("region", { name: "Inputs" })).toBeTruthy();
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      expect(screen.queryByRole("button", { name: "Start from an example game" })).toBeNull();
+      await waitFor(() => expect(stub.calls).toHaveLength(1));
+      // back to the list, and the box section shows the size
+      fireEvent.click(screen.getByRole("button", { name: "What's inside" }));
+      expect(screen.getByText(/^250 × 285 × 70 mm$/)).toBeTruthy();
+    });
+
+    it("an item added later does not open its editor when the rail was already there", () => {
+      renderApp({ project: withLayoutProject() });
+      expect(screen.queryByRole("heading", { level: 3, name: "Cards" })).toBeNull();
+    });
+
+    it("starts from the example game: three items, no editor open", () => {
+      const { store } = renderApp();
+      fireEvent.click(screen.getByRole("button", { name: "Start from an example game" }));
+      expect(store.state.project.value.components.map((c) => c.kind)).toEqual([
+        "cards",
+        "bulk",
+        "tiles",
+      ]);
+      const list = screen.getByRole("list", { name: "What's inside" });
+      expect(within(list).getAllByRole("listitem").length).toBeGreaterThanOrEqual(3);
+      expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
+    });
+
+    it("returns to the first visit when the last item goes, with the focus on a kind", () => {
+      renderApp();
+      addCards();
+      removeFromEditor("Cards");
+      expect(screen.getByRole("button", { name: "Start from an example game" })).toBeTruthy();
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add cards" }));
+    });
   });
 
   it("has no Simple/Advanced switch", () => {
@@ -964,7 +1027,10 @@ describe("App", () => {
       const { store } = renderApp({ project });
       openAssemblyPage();
       store.newProject();
-      expect(await screen.findByRole("region", { name: "Inputs" })).toBeTruthy();
+      // the new insert is empty: the first visit, not the inputs rail
+      expect(
+        await screen.findByRole("button", { name: "Start from an example game" }),
+      ).toBeTruthy();
       store.openProject(project.id);
       expect(await screen.findByRole("tab", { name: "Plan" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Back to the editor" })).toBeNull();

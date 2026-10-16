@@ -9,7 +9,7 @@ import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
 import { AppHeader } from "../ui/AppHeader";
-import { BoxForm } from "../ui/BoxForm";
+import { BoxPanel } from "../ui/BoxPanel";
 import { AddKinds } from "../ui/components/ComponentList";
 import { WhatsInside } from "../ui/components/WhatsInside";
 import { ExportPanel } from "../ui/ExportPanel";
@@ -133,6 +133,22 @@ export function App(props: AppProps) {
   const [openSection, setOpenSection] = useState<SectionId | null>(
     project.components.length === 0 ? "box" : "components",
   );
+  // The first item was just added from the first visit: its editor opens when the rail appears.
+  const [openFirst, setOpenFirst] = useState(false);
+  const firstVisit = project.components.length === 0;
+  useEffect(() => {
+    if (openFirst && !firstVisit) {
+      setOpenFirst(false);
+    }
+  }, [openFirst, firstVisit]);
+  // Removing the last item swaps the rail for the first visit: the focus goes to the kinds there.
+  const wasFirstVisit = useRef(firstVisit);
+  useEffect(() => {
+    if (firstVisit && !wasFirstVisit.current && document.activeElement === document.body) {
+      mainRef.current?.querySelector<HTMLElement>(".pf-kinds button")?.focus();
+    }
+    wasFirstVisit.current = firstVisit;
+  }, [firstVisit]);
   const [view, setView] = useState<ViewId>("plan");
   // A swap belongs to the plan: it ends when the view moves away from it.
   function showView(next: ViewId): void {
@@ -240,6 +256,9 @@ export function App(props: AppProps) {
     document.getElementById(`section-${id}`)?.scrollIntoView({ block: "nearest" });
   };
   const addComponentOfKind = (kind: ComponentKind): void => {
+    if (firstVisit) {
+      setOpenFirst(true);
+    }
     store.edit((q) => addComponent(q, kind));
     setOpenSection("components");
   };
@@ -386,51 +405,56 @@ export function App(props: AppProps) {
                 </div>
               ) : null}
             </div>
-            <div class="pf-app__body">
-              <section class="pf-app__rail" aria-label="Inputs">
-                {sections.map((x) => (
-                  <Section
-                    key={x.id}
-                    id={x.id}
-                    step={x.step}
-                    title={SECTION_TITLES[x.id]}
-                    summary={summaries[x.id]}
-                    problem={problems.has(x.id)}
-                    open={openSection === x.id}
-                    onToggle={(open) => setOpenSection(open ? x.id : null)}
-                  >
-                    {x.id === "box" ? (
-                      <BoxForm
-                        box={project.box}
-                        onChange={(patch) => store.edit((q) => updateBox(q, patch))}
-                      />
-                    ) : null}
-                    {x.id === "components" ? (
-                      <WhatsInside
-                        components={project.components}
-                        trays={listTrays}
-                        locks={project.locks}
-                        onAdd={addComponentOfKind}
-                        onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
-                        onUnlockSize={(keys) =>
-                          store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
-                        }
-                        onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
-                        onRemove={(id) => {
-                          const component = project.components.find((x) => x.id === id);
-                          if (component === undefined) {
-                            return false;
+            <div class="pf-app__body" data-first-visit={firstVisit ? "true" : undefined}>
+              {firstVisit ? null : (
+                <section class="pf-app__rail" aria-label="Inputs">
+                  {sections.map((x) => (
+                    <Section
+                      key={x.id}
+                      id={x.id}
+                      step={x.step}
+                      title={SECTION_TITLES[x.id]}
+                      summary={summaries[x.id]}
+                      problem={problems.has(x.id)}
+                      open={openSection === x.id}
+                      onToggle={(open) => setOpenSection(open ? x.id : null)}
+                    >
+                      {x.id === "box" ? (
+                        <BoxPanel
+                          box={project.box}
+                          onChange={(patch) => store.edit((q) => updateBox(q, patch))}
+                        />
+                      ) : null}
+                      {x.id === "components" ? (
+                        <WhatsInside
+                          components={project.components}
+                          openFirst={openFirst}
+                          trays={listTrays}
+                          locks={project.locks}
+                          onAdd={addComponentOfKind}
+                          onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
+                          onUnlockSize={(keys) =>
+                            store.edit((q) =>
+                              keys.reduce((p, key) => removeLock(p, key, "size"), q),
+                            )
                           }
-                          store.edit((q) => removeComponent(q, id));
-                          // Undo on the toast is only right while the removal is still the latest step.
-                          setRemoved({ component, version: s.history.version.peek() });
-                          return true;
-                        }}
-                      />
-                    ) : null}
-                  </Section>
-                ))}
-              </section>
+                          onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
+                          onRemove={(id) => {
+                            const component = project.components.find((x) => x.id === id);
+                            if (component === undefined) {
+                              return false;
+                            }
+                            store.edit((q) => removeComponent(q, id));
+                            // Undo on the toast is only right while the removal is still the latest step.
+                            setRemoved({ component, version: s.history.version.peek() });
+                            return true;
+                          }}
+                        />
+                      ) : null}
+                    </Section>
+                  ))}
+                </section>
+              )}
               <main class="pf-app__stage" ref={mainRef}>
                 <h2 class="visually-hidden">Results</h2>
                 <Summary
@@ -454,7 +478,26 @@ export function App(props: AppProps) {
                   onCancel={() => store.cancelRun()}
                   onRetry={() => store.retry()}
                 />
-                {layout ? (
+                {firstVisit ? (
+                  <section class="pf-first" aria-label="Start">
+                    <h2>Fit your game into its box.</h2>
+                    <div class="pf-first__step">
+                      <h3>Measure the box</h3>
+                      <BoxPanel
+                        box={project.box}
+                        onChange={(patch) => store.edit((q) => updateBox(q, patch))}
+                      />
+                    </div>
+                    <div class="pf-first__step">
+                      <h3>Pick what goes inside</h3>
+                      <AddKinds onAdd={addComponentOfKind} label="Pick what goes inside" />
+                      <button type="button" onClick={addExample}>
+                        Start from an example game
+                      </button>
+                    </div>
+                    <p class="hint">Your inserts are saved in this browser.</p>
+                  </section>
+                ) : layout ? (
                   <section class="pf-frame pf-view" aria-label="Preview">
                     <div class="pf-view__head">
                       <div
@@ -619,25 +662,8 @@ export function App(props: AppProps) {
                       <div class="stage-empty-box">
                         <span class="pf-measure">{`Your box, ${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} mm`}</span>
                       </div>
-                      <h2>
-                        {project.components.length === 0
-                          ? "Fit your game into its box."
-                          : "Working out the trays…"}
-                      </h2>
-                      <p>
-                        {project.components.length === 0
-                          ? "Check the box size on the left, then pick what goes inside. The plan draws itself as you go."
-                          : "The plan appears here as soon as every field is valid."}
-                      </p>
-                      {project.components.length === 0 ? (
-                        <>
-                          <AddKinds onAdd={addComponentOfKind} label="Pick what goes inside" />
-                          <button type="button" onClick={addExample}>
-                            Not sure? Try an example
-                          </button>
-                        </>
-                      ) : null}
-                      <p class="hint">Everything stays in your browser.</p>
+                      <h2>Working out the trays…</h2>
+                      <p>The plan appears here as soon as every field is valid.</p>
                     </div>
                   </section>
                 )}

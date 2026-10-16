@@ -1,17 +1,26 @@
-// src/ui/BoxForm.tsx
+// src/ui/BoxPanel.tsx
 import type { Box } from "../model/types";
-import { CheckField, SelectField } from "./fields";
+import { CheckField } from "./fields";
 import { LENGTH, OFFSET } from "./limits";
 import { NumberField } from "./NumberField";
 
-export interface BoxFormProps {
+export interface BoxPanelProps {
   box: Box;
   onChange: (patch: Partial<Box>) => void;
 }
 
-export function BoxForm({ box, onChange }: BoxFormProps) {
+const COVERAGE: { value: Box["headroomCoverage"]; label: string }[] = [
+  { value: "full", label: "Whole top" },
+  { value: "partial", label: "Part of it" },
+];
+
+/**
+ * The box: its inside size, the space kept free on top and whether it is stored on its side. Every
+ * field is always in view (nothing folds away), so an error in any of them is in sight.
+ */
+export function BoxPanel({ box, onChange }: BoxPanelProps) {
   return (
-    <div class="form-grid">
+    <div class="form-grid box-panel">
       <div class="form-grid form-grid-3">
         <NumberField
           id="box-innerWidth"
@@ -47,32 +56,43 @@ export function BoxForm({ box, onChange }: BoxFormProps) {
       </p>
       <NumberField
         id="box-headroom"
-        label="Headroom"
+        label="Keep space free on top"
         unit="mm"
         value={box.headroom}
         path="/box/headroom"
         {...OFFSET}
-        hint="Boards and rulebooks stacked as they lie on top, plus 1 mm for warp. 0 if nothing lies on top."
+        hint="For boards and rulebooks that lie on top, plus 1 mm for warp. 0 if nothing does."
         onCommit={(v) => onChange({ headroom: v })}
       />
-      {box.headroom > 0 ? (
-        <SelectField
-          id="box-headroomCoverage"
-          label="Covered by boards"
-          value={box.headroomCoverage}
-          options={[
-            { value: "full", label: "Yes, the whole box" },
-            { value: "partial", label: "No, only part of it" },
-          ]}
-          hint="Do the boards and books cover every tray? Loose bits are kept out of top trays that nothing covers."
-          onChange={(v) => onChange({ headroomCoverage: v })}
-        />
-      ) : null}
+      <div class="field">
+        <span class="field-label" id="box-headroomCoverage-label">
+          Covers
+        </span>
+        <div class="pf-toggle" role="group" aria-labelledby="box-headroomCoverage-label">
+          {COVERAGE.map((o) => (
+            <button
+              type="button"
+              key={o.value}
+              aria-pressed={box.headroomCoverage === o.value}
+              aria-disabled={box.headroom === 0 ? true : undefined}
+              onClick={() => {
+                // Nothing lies on top at 0 mm: the choice stays visible but does nothing.
+                if (box.headroom > 0) {
+                  onChange({ headroomCoverage: o.value });
+                }
+              }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <p class="hint">Loose pieces stay out of top trays that nothing covers.</p>
+      </div>
       <CheckField
         id="box-storedOnSide"
         label="The box is stored on its side"
         checked={box.storedOnSide}
-        hint="Loose bits in the top layer then get a warning."
+        hint="Loose pieces in the top layer then get a warning."
         onChange={(v) => onChange({ storedOnSide: v })}
       />
     </div>

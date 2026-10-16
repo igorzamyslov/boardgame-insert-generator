@@ -59,7 +59,7 @@ const reqs = [boxReq("bits", 40, 40, 10, { loose: true }), boxReq("cards", 40, 4
 const trays = [tray("bits:p0:0", "0", 0, "Cubes"), tray("cards:p0:0", "1", 0, "Deck")];
 
 describe("layout warnings", () => {
-  it("warns about loose bits on top only when coverage is partial or the box stands on its side", () => {
+  it("warns about loose pieces on top only when coverage is partial or the box stands on its side", () => {
     const full = createCtx(makeInput(reqs, { box: { headroom: 5 } }), fakeMeasure);
     expect(layoutWarnings(full, trays, okSummary)).toEqual([]);
     const partial = createCtx(

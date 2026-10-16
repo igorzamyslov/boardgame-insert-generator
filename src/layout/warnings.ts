@@ -99,8 +99,8 @@ export function layoutWarnings(
         level: "warning",
         code: NOTICE_CODES.coverage,
         message: box.storedOnSide
-          ? `The box is stored on its side, so loose bits in the top layer can spill: ${labels}. Lock them below other trays.`
-          : `The boards don't cover the whole top layer, so these loose bits may not stay in place: ${labels}. Lock them below other trays.`,
+          ? `The box is stored on its side, so loose pieces in the top layer can spill: ${labels}. Pin them below other trays.`
+          : `The boards don't cover the whole top layer, so these loose pieces may not stay in place: ${labels}. Pin them below other trays.`,
       });
     }
   }
