@@ -1,9 +1,10 @@
 // src/app/store.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { renameProject, updateBox } from "./actions";
+import { applyPrinter, renameProject, updateBox } from "./actions";
 import { inputsHash } from "../model/hash";
 import type { Lock } from "../model/types";
-import { STORAGE_PREFIX, createProjectStore, encodeHash } from "../share";
+import { STORAGE_PREFIX, createPrefsStore, createProjectStore, encodeHash } from "../share";
+import type { Printer } from "../model/types";
 import { DEBOUNCE_MS, IMPROVE_FACTOR } from "./runner";
 import { DEFAULT_ITERATIONS } from "../layout";
 import { CONFLICT_CODE, SAVE_DEBOUNCE_MS } from "./persistence";
@@ -22,14 +23,18 @@ import {
 function setup() {
   const stub = stubLayoutClient();
   const projectStore = createProjectStore(new MemoryStorage());
+  const prefs = createPrefsStore(new MemoryStorage());
   const store = createAppStore({
     projectStore,
+    prefs,
     loadLayoutClient: () => Promise.resolve(stub.client),
     replaceHash: vi.fn(),
     confirm: () => true,
   });
-  return { store, stub, projectStore };
+  return { store, stub, projectStore, prefs };
 }
+
+const MY_PRINTER: Printer = { bedX: 180, bedY: 180, bedZ: 180, bedMargin: 3, layerHeight: 0.16 };
 
 describe("app store", () => {
   beforeEach(() => {
@@ -489,6 +494,50 @@ describe("app store", () => {
       editing.storageEvent(id);
       expect(editing.store.state.conflict.value).toBe(false);
       expect(stored(shared, id)?.name).toBe("From the editing tab");
+    });
+  });
+
+  describe("printer preference", () => {
+    it("a new insert uses my printer", () => {
+      const { store, prefs } = setup();
+      prefs.setPrinter(MY_PRINTER);
+      store.newProject();
+      expect(store.state.project.value.printer).toEqual(MY_PRINTER);
+    });
+
+    it("an app that starts without a stored project uses my printer", () => {
+      const { store, prefs } = setup();
+      prefs.setPrinter(MY_PRINTER);
+      store.start("");
+      expect(store.state.project.value.printer).toEqual(MY_PRINTER);
+    });
+
+    it("changing my printer leaves existing inserts alone until applied", async () => {
+      const { store, stub, prefs } = setup();
+      const p = fixtureProject();
+      store.start(encodeHash(withoutLayout(p), EMPTY_FOREIGN));
+      await flush();
+      const before = store.state.project.value.printer;
+      prefs.setPrinter(MY_PRINTER);
+      expect(store.state.project.value.printer).toEqual(before);
+      expect(before).not.toEqual(MY_PRINTER);
+
+      const calls = stub.calls.length;
+      store.edit((q) => applyPrinter(q, prefs.printer.value));
+      expect(store.state.project.value.printer).toEqual(MY_PRINTER);
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 3);
+      await flush();
+      expect(stub.calls.length).toBeGreaterThan(calls);
+      store.undo();
+      expect(store.state.project.value.printer).toEqual(before);
+    });
+
+    it("an opened file keeps its own printer", () => {
+      const { store, prefs } = setup();
+      prefs.setPrinter(MY_PRINTER);
+      const p = fixtureProject();
+      store.start(encodeHash(p, EMPTY_FOREIGN));
+      expect(store.state.project.value.printer).toEqual(p.printer);
     });
   });
 });

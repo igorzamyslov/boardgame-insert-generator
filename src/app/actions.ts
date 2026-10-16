@@ -27,6 +27,11 @@ export function updatePrinter(p: Project, patch: Partial<Printer>): Project {
   return { ...p, printer: { ...p.printer, ...patch } };
 }
 
+/** Replaces the whole printer, e.g. with the one in the preferences. */
+export function applyPrinter(p: Project, printer: Printer): Project {
+  return { ...p, printer: { ...printer } };
+}
+
 export function renameProject(p: Project, name: string): Project {
   return { ...p, name };
 }

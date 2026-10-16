@@ -9,3 +9,5 @@ export {
 export { createProjectStore, StoreWriteError, STORAGE_PREFIX } from "./store";
 export type { ProjectListEntry, ProjectStore } from "./store";
 export { exportJsonFile, importJsonText, jsonFileName } from "./file";
+export { createPrefsStore } from "./prefs";
+export type { PrefsStore } from "./prefs";

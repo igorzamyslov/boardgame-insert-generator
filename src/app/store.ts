@@ -3,8 +3,8 @@ import { batch } from "@preact/signals";
 import type { ReadonlySignal } from "@preact/signals";
 import { newProject } from "../model/defaults";
 import type { Lock, Notice, Project } from "../model/types";
-import { STORAGE_PREFIX } from "../share";
-import type { ProjectStore } from "../share";
+import { STORAGE_PREFIX, createPrefsStore } from "../share";
+import type { PrefsStore, ProjectStore } from "../share";
 import { removeLock } from "./actions";
 import type { LockConflict } from "../layout/types";
 import type { LayoutClient } from "./clients";
@@ -19,6 +19,8 @@ export interface AppDeps {
   loadLayoutClient: () => Promise<LayoutClient>;
   replaceHash: (hash: string) => void;
   confirm: (message: string) => boolean;
+  /** The preferences new inserts start from (default: kept in memory only; main.tsx passes the browser's). */
+  prefs?: PrefsStore;
   /** The clock edits are grouped by (default `Date.now`). */
   now?: () => number;
 }
@@ -76,7 +78,10 @@ export interface AppStore {
 }
 
 export function createAppStore(deps: AppDeps): AppStore {
-  const state = createState(newProject(), undefined, deps.now);
+  const prefs = deps.prefs ?? createPrefsStore(null);
+  /** A new insert starts on the printer from the preferences. */
+  const createProject = (): Project => ({ ...newProject(), printer: { ...prefs.printer.value } });
+  const state = createState(createProject(), undefined, deps.now);
   const runner = createRunner(
     state,
     { loadLayoutClient: deps.loadLayoutClient, confirm: deps.confirm },
@@ -84,7 +89,12 @@ export function createAppStore(deps: AppDeps): AppStore {
   );
   const persistence = createPersistence(
     state,
-    { projectStore: deps.projectStore, replaceHash: deps.replaceHash, confirm: deps.confirm },
+    {
+      projectStore: deps.projectStore,
+      replaceHash: deps.replaceHash,
+      confirm: deps.confirm,
+      createProject,
+    },
     { onClosing: () => runner.cancel(), onOpened: (opts) => runner.afterOpen(opts) },
   );
 
