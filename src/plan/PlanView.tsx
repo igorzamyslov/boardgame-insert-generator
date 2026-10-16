@@ -393,7 +393,7 @@ export function PlanView(props: PlanViewProps) {
             );
           }),
         )}
-        {shown.map((t) => {
+        {shown.map((t, tileIndex) => {
           const all = footprintsAt(t, level).map((f) => toSvgRect(f, frame));
           const r = largestOf(all) ?? toSvgRect(t, frame);
           const name = names.get(t.key)?.full ?? t.key;
@@ -468,10 +468,22 @@ export function PlanView(props: PlanViewProps) {
                   rx={text.pill.h / 2}
                 />
               ) : null}
+              {text.pill ? (
+                <clipPath id={`plan-clip-${tileIndex}`}>
+                  <rect
+                    x={text.pill.x}
+                    y={text.pill.y}
+                    width={text.pill.w}
+                    height={text.pill.h}
+                    rx={text.pill.h / 2}
+                  />
+                </clipPath>
+              ) : null}
               {text.name ? (
                 <text
                   class="plan-name"
                   aria-hidden="true"
+                  clip-path={`url(#plan-clip-${tileIndex})`}
                   x={r.x + r.w / 2}
                   y={text.name.y}
                   style={{ fontSize: `${text.fontSize}px` }}

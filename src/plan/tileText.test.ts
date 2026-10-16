@@ -29,4 +29,23 @@ describe("layoutTileText", () => {
     expect(tiny.name).toBeNull();
     expect(tiny.pill).toBeNull();
   });
+
+  it("cuts a long all-caps name, which is wider than lower case", () => {
+    const t = layoutTileText(rect(60, 60), "MARKET DISTRICT TOKENS", "60 × 60");
+    expect(t.name?.text.endsWith("…")).toBe(true);
+    // what is shown fits the pill at the width of a capital (about 0.7 of the font size)
+    const shownWidth = (t.name?.text.length ?? 0) * t.fontSize * 0.7;
+    expect(shownWidth).toBeLessThanOrEqual((t.pill?.w ?? 0) + t.fontSize);
+  });
+
+  it("never splits an emoji or a letter with its accent when cutting", () => {
+    const t = layoutTileText(rect(48, 60), "😀😀😀😀😀😀😀😀😀😀😀😀", "48 × 60");
+    const text = t.name?.text ?? "";
+    expect(text.endsWith("…")).toBe(true);
+    expect(Array.from(text.slice(0, -1)).every((c) => c === "😀")).toBe(true);
+    // "é" written as e + combining acute stays whole: every accent follows its letter
+    const accented = layoutTileText(rect(48, 60), "Caf\u0065\u0301 ".repeat(5), "x");
+    const kept = (accented.name?.text ?? "").replace("…", "");
+    expect(kept).not.toMatch(/(^|[^e])\u0301/u);
+  });
 });

@@ -15,13 +15,25 @@ export interface TileText {
   size: { text: string; y: number } | null;
 }
 
-const CHAR_WIDTH = 0.55;
+/** Average character width as a share of the font size: wide enough for capitals and the fallback font. */
+const CHAR_WIDTH = 0.6;
 const MARGIN = 2;
 const MIN_FONT = 3.5;
 const MAX_FONT = 7;
 /** Room inside the pill, each side of the text, as a share of the font size. */
 const PAD_X = 0.7;
 const PILL_HEIGHT = 1.7;
+
+/** The characters a person sees: an emoji or an accented letter is one, never cut in two. */
+function graphemes(text: string): string[] {
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    return Array.from(
+      new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text),
+      (g) => g.segment,
+    );
+  }
+  return Array.from(text);
+}
 
 const mm = (v: number): string => String(Math.round(v * 10) / 10);
 
@@ -42,11 +54,15 @@ export function layoutTileText(r: SvgRect, name: string, size: string): TileText
   const pillH = fontSize * PILL_HEIGHT;
   const room = Math.floor((r.w - 2 * MARGIN - 2 * PAD_X * fontSize) / (fontSize * CHAR_WIDTH));
   let shown: string | null = null;
+  const chars = graphemes(name);
   if (name !== "") {
-    if (name.length <= room) {
+    if (chars.length <= room) {
       shown = name;
     } else if (room >= 4) {
-      shown = `${name.slice(0, room - 1).trimEnd()}…`;
+      shown = `${chars
+        .slice(0, room - 1)
+        .join("")
+        .trimEnd()}…`;
     }
   }
   const sizeRoom = Math.floor((r.w - 2 * MARGIN) / (sizeFont * CHAR_WIDTH));
@@ -72,7 +88,7 @@ export function layoutTileText(r: SvgRect, name: string, size: string): TileText
       : (() => {
           const w = Math.min(
             r.w - 2 * MARGIN,
-            shown.length * fontSize * CHAR_WIDTH + 2 * PAD_X * fontSize,
+            graphemes(shown).length * fontSize * CHAR_WIDTH + 2 * PAD_X * fontSize,
           );
           return { x: r.x + (r.w - w) / 2, y: top, w, h: pillH };
         })();
