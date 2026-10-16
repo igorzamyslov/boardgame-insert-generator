@@ -49,6 +49,13 @@ export const SPACER_TOP_GAP = 5;
  */
 export const MIN_RISER = 10;
 export const RISER_SUFFIX = ":riser";
+/**
+ * The most slack (mm, per axis) the `oneWall` setting lets a tray's one thick wall take beyond what
+ * its contents may grow into (minimal-trays spec §6). A wall this thick (about ten normal walls)
+ * still reads as a deliberate block against the box edge; a larger gap is printed as a filler
+ * beside the tray as usual, so a 60 mm gap never becomes a 60 mm wall.
+ */
+export const ONE_WALL_MAX_MM = 20;
 /** Corner relief diameter in tile and custom wells (spec §6.1). */
 export const CORNER_RELIEF_D = 3;
 /** At most this many variants per requirement (spec §7.1). */
@@ -82,6 +89,17 @@ export const AUTO_GROWTH_CEILING = 50;
  */
 export const UNPLATED_RETENTION = 1;
 export const PLATED_RETENTION = 6;
+
+/**
+ * Reachability (minimal-trays spec §5.3): with nothing in the room it gained an upright stack is
+ * not pinned, it slides within the well, and the finger cut that reaches it across the row is
+ * centred on the well. At worst the stack stands against one end, and the cut must still lie over
+ * at least this much of its thickness for a fingertip to get onto the cards. 10 mm is a
+ * fingertip's width, the figure MIN_CUT_MM already takes as the narrowest cut a finger fits
+ * (model/settings.ts; a test holds them equal). A stack thinner than that, or thinner than that
+ * plus POST_MM (the post a cut leaves at the well's end), is asked for what it can have.
+ */
+export const MIN_REACH_OVERLAP = 10;
 
 /**
  * Dividers (a component's `dividers`, minimal-trays spec §5): thin loose plates that split a grown

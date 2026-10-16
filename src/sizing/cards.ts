@@ -112,15 +112,20 @@ function deckCompartment(
     });
   }
   const onLongEdge = storage === "upright-long";
-  // Along the stack: a spacer (or the `separators` plates) fills what the deck is given, and
-  // retention bounds it (stackGrowthMm). With dividers the well itself grows instead, and its
-  // sections hold the room; the two do not combine (a spacer would sit behind the last section only).
+  // Along the stack, bounded by retention and reachability (stackGrowthMm). Nothing is printed to
+  // fill the room unless `separators` is set (then a spacer, or those plates, fills it and pins the
+  // deck); otherwise the well simply grows and the deck stands in it, so growth stops where it
+  // would topple or slide out from under its finger cut. With dividers the well itself grows
+  // instead, and its sections hold the room; the two do not combine (a spacer would sit behind the
+  // last section only).
   const dividers = dividersOf(c);
+  const plates = separatorsOf(c);
   const grow = stackGrowthMm(
     growthOf(c, "stack"),
     stack,
-    dividers === 0 && separatorsOf(c) > 1,
+    dividers === 0 && plates > 0,
     dividers,
+    togglesOf(c).fingerCuts ? s.fingerPocket.width : undefined,
   );
   return compartment({
     ...base,
@@ -130,7 +135,9 @@ function deckCompartment(
     ...(dividers > 0
       ? { grow: { w: grow }, dividers, floorExtra: DIVIDER_GROOVE }
       : grow > 0
-        ? { grow: { w: grow }, spacerAxis: "w" as const, separators: separatorsOf(c) }
+        ? plates > 0
+          ? { grow: { w: grow }, spacerAxis: "w" as const, separators: plates }
+          : { grow: { w: grow } }
         : {}),
     // One channel through the walls and dividers the card faces touch.
     features: featuresOf(togglesOf(c), [

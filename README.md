@@ -174,7 +174,10 @@ manual check in a real browser (import a fixture from `test/fixtures/`, export,
 open the link) before a release.
 
 `vite.config.ts` sets `base: "./"` for subpath hosting and defines
-`__APP_VERSION__` from `package.json`. TypeScript strictness comes from
+`__APP_VERSION__` from `package.json` and `__BUILD_ID__` (the short git SHA, `-dirty` for
+uncommitted changes, `unknown` when git is unavailable; `build-id.config.ts`). The footer shows both
+as `v0.2.0 (2a2ec02)`. The build id is display-only and is never written to a project or hashed.
+TypeScript strictness comes from
 [`tsconfig.base.json`](tsconfig.base.json). `tsconfig.json`
 checks the browser code in `src/` (no Node types); `tsconfig.node.json` checks
 the config files that run in Node. `npm run typecheck` runs both.
@@ -185,3 +188,12 @@ This app is published to GitHub Pages through
 [igorzamyslov/static-web-apps](https://github.com/igorzamyslov/static-web-apps),
 where it is a git submodule at `apps/insert-generator`. A new version goes live
 when that repo's submodule pointer is bumped to a commit of this one.
+
+### Releasing
+
+Before bumping the submodule pointer, bump `version` in `package.json` (the footer and every saved
+project's `createdWith` read it). The footer's build id shows the commit even if you forget, but
+`createdWith` does not, so do not skip it. This is separate from `SCHEMA_VERSION` and
+`GEOMETRY_VERSION`, which change when the file format or the printed geometry does, not on a
+release; a release that changed either also bumps the app version (see spec §9). While 0.x, bump
+MINOR for features and breaking changes, PATCH for fixes.

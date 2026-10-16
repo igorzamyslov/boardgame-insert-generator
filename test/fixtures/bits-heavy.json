@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "0.1.14",
-  "createdWith": "0.1.0",
+  "schemaVersion": "0.1.15",
+  "createdWith": "0.2.0",
   "id": "fxbits01",
   "name": "Fixture: bits heavy",
   "box": {

@@ -257,7 +257,7 @@ describe("separators and the stored layout", () => {
 
   it("stores one spacer however many plates are asked for, and prints what fits", () => {
     // Nothing but the hash differs: the tight box has a spacer, not a spare, either way.
-    const base = stored(project);
+    const base = stored(withSeparators(1));
     const [one] = spacers(base.trays) as [TraySpec];
     expect(spacers(base.trays)).toHaveLength(1);
     expect(along(one)).toBe(10.99);
@@ -279,6 +279,14 @@ describe("separators and the stored layout", () => {
       expect(sum(plates.map(along))).toBe(along(one));
       expect(out.notices).toHaveLength(asked > got ? 1 : 0);
     }
+  });
+
+  it("stores no spacer at all unless the component sets `separators`", () => {
+    // The same tight box and a deck that may grow into it: nothing is printed to fill the room.
+    const layout = stored(project);
+    expect(spacers(layout.trays)).toHaveLength(0);
+    expect(spacers(printed(project, layout).trays)).toHaveLength(0);
+    expect(spacers(stored(withSeparators(0)).trays)).toHaveLength(0);
   });
 
   it("derives the same plates after a store and reload through a share link", () => {

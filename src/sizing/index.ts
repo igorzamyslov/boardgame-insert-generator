@@ -10,6 +10,7 @@ export type {
 } from "./types";
 export { size } from "./group";
 export { wallFor } from "./outer";
-export { minOuter, realizeTray } from "./realize";
+export { minOuter, outerCutSides, realizeTray } from "./realize";
+export type { OuterCutSides } from "./realize";
 export { rotateRealized } from "./rotate";
 export { hasGrip, needsGrip } from "./grip";

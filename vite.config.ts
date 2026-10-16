@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 import preact from "@preact/preset-vite";
 import pkg from "./package.json";
 import { licensePlugin } from "./licenses.config";
+import { resolveBuildId } from "./build-id.config";
 
 // `base: "./"` keeps every asset URL relative, so the built app works from any
 // subpath (e.g. /<repo>/insert-generator/).
@@ -10,6 +11,8 @@ export default defineConfig({
   plugins: [preact(), licensePlugin()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    // Display only (footer): never part of createdWith or the inputs hash.
+    __BUILD_ID__: JSON.stringify(resolveBuildId()),
   },
   // Geometry worker: an ES module worker (spec §4). manifold-3d ships its own
   // WASM loader, so keep it out of dependency pre-bundling; the worker passes

@@ -295,7 +295,7 @@ const settingRanges: SettingRange[] = [
     get: (s) => s.wallAbsorb,
     min: 0,
     max: 3,
-    hint: "How much thicker each wall or divider may get to absorb spare room instead of printing a separate filler part. A thicker wall holds nothing and gives the contents no more room: it only hides the gap. 0 keeps every wall as set and prints the filler. Above 3 mm a wall is more than double a normal one, so a filler is the better choice.",
+    hint: "How much thicker each wall or divider may get to absorb spare room instead of printing a separate filler part. A thicker wall holds nothing and gives the contents no more room: it only hides the gap. 0 keeps every wall as set and prints the filler. Ignored while One thick wall instead of a filler is on. Above 3 mm a wall is more than double a normal one, so a filler is the better choice.",
   },
   {
     path: "infill",
@@ -444,11 +444,11 @@ function checkBase(ck: Checker, c: Component, at: string): void {
         `${at}/separators`,
         `Spacer plates must be at most ${BOUNDS.maxSeparators}.`,
       );
-    } else if (!Number.isInteger(n) || n < 1) {
+    } else if (!Number.isInteger(n) || n < 0) {
       ck.error(
         VALIDATION_NOTICE_CODES.field.separators,
         `${at}/separators`,
-        "Spacer plates must be a whole number of at least 1.",
+        "Spacer plates must be a whole number, 0 or more.",
       );
     }
   }

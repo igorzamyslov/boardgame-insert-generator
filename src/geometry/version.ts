@@ -74,8 +74,17 @@ import type { Semver } from "../model/version";
  * from a face's interior (outer size, lip, inset, wells and cuts are untouched, and it keeps 0.8
  * mm behind it), so parts printed before and after still mate and stack, and a spec without a
  * number builds exactly as before. A merged part carries it on one member.
+ *
+ * 0.7.2 stops printing a spacer nobody asked for (minimal-trays spec §5.3): a deck or stack of tiles
+ * that grows now simply stands in a wider well, and a spacer (or the plates) is only built when its
+ * component sets `separators`; without one, growth is also held to what leaves the stack under its
+ * finger cut (`reachGrowthMm`). A PATCH, by the 0.5.1 precedent: planTray is unchanged and so is
+ * every outer size, lip, inset and cut of a tray realized from the same part at the same size, so
+ * trays printed before and after still mate and stack; what differs is the inside of a deck's
+ * well (wider, no spacer to fill it). A stored 0.7.1 layout builds as before, with the spacers it
+ * stored, until its plan is run again.
  */
-export const GEOMETRY_VERSION = "0.7.1";
+export const GEOMETRY_VERSION = "0.7.2";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

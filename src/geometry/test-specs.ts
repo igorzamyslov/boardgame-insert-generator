@@ -387,11 +387,32 @@ const withDividers = (raw: unknown): unknown => {
   };
 };
 
+// Every deck and stack of tiles stands up, may grow as far as the plates let it, and asks for a
+// spacer (`separators`): a spacer is only ever built when asked for, and the sweeps must still
+// cover spacers, plain and open, notched for a finger channel, in trays of every size.
+const withSpacers = (raw: unknown): unknown => {
+  const { components, ...rest } = raw as { components: Record<string, unknown>[] };
+  return {
+    ...rest,
+    components: components.map((component) =>
+      component.kind === "cards" || component.kind === "tiles"
+        ? {
+            ...component,
+            storage: component.kind === "cards" ? "upright-long" : "upright",
+            growth: { stack: "max" },
+            separators: 1,
+          }
+        : component,
+    ),
+  };
+};
+
 export const SWEEP_FIXTURES: readonly [string, unknown][] = [
   ["cards-heavy", cardsHeavy],
   ["cards-heavy, growth off", withGrowth(cardsHeavy, "off")],
   ["cards-heavy, growth max", withGrowth(cardsHeavy, "max")],
   ["cards-heavy, dividers", withDividers(cardsHeavy)],
+  ["cards-heavy, spacers", withSpacers(cardsHeavy)],
   ["bits-heavy", bitsHeavy],
   ["bits-heavy, growth off", withGrowth(bitsHeavy, "off")],
   ["tiles-minis", tilesMinis],
@@ -399,6 +420,7 @@ export const SWEEP_FIXTURES: readonly [string, unknown][] = [
   ["small-tiles, growth off", withGrowth(smallTiles, "off")],
   ["small-tiles, growth max", withGrowth(smallTiles, "max")],
   ["small-tiles, dividers", withDividers(smallTiles)],
+  ["small-tiles, spacers", withSpacers(smallTiles)],
   ["tiny-box", tinyBox],
 ];
 

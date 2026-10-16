@@ -126,7 +126,7 @@ describe("a divided well, sized", () => {
     expect(divided.spacerAxis).toBeUndefined();
     expect(divided.elastic.w).toBe(true);
     expect(divided.floorExtra).toBe(DIVIDER_GROOVE);
-    expect(plain.spacerAxis).toBe("w");
+    expect(plain.spacerAxis).toBeUndefined();
   });
 
   it("ignores spacer plates: dividers and plates are exclusive", () => {

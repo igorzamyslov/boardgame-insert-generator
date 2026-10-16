@@ -210,19 +210,20 @@ describe("growth defaults (minimal-trays spec §5)", () => {
 });
 
 describe("separators", () => {
-  it.each(KINDS)("is a single spacer for a new %s component", (kind) => {
-    expect(separatorsOf(newComponent(kind))).toBe(1);
+  it.each(KINDS)("is no spacer at all for a new %s component", (kind) => {
+    expect(separatorsOf(newComponent(kind))).toBe(0);
   });
 
   it("takes a set value over the default", () => {
     expect(separatorsOf({ ...newComponent("cards"), separators: 4 })).toBe(4);
   });
 
-  it("stores nothing for 1, and removes a stored count", () => {
+  it("stores nothing for 0, keeps 1 (one block) as asked, and removes a stored count", () => {
     const c = newComponent("cards");
     expect(withSeparators(c, 3).separators).toBe(3);
-    expect("separators" in withSeparators(withSeparators(c, 3), 1)).toBe(false);
-    expect(withSeparators(c, 1)).toEqual(c);
+    expect(withSeparators(c, 1).separators).toBe(1);
+    expect("separators" in withSeparators(withSeparators(c, 3), 0)).toBe(false);
+    expect(withSeparators(c, 0)).toEqual(c);
   });
 });
 

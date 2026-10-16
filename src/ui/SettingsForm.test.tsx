@@ -292,6 +292,18 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });
   });
 
+  it("offers the one-wall switch in advanced mode only, off by default", () => {
+    const onChange = vi.fn();
+    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    const box = screen.getByLabelText("One thick wall instead of a filler") as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    fireEvent.click(box);
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, oneWall: true });
+    cleanup();
+    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
+    expect(screen.queryByLabelText("One thick wall instead of a filler")).toBeNull();
+  });
+
   it("offers the part number engraving in advanced mode, on by default", () => {
     const onChange = vi.fn();
     render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);

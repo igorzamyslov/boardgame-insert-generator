@@ -5,7 +5,7 @@ import { numberParts } from "../instructions/numbering";
 import { printableParts } from "../layout";
 import { DEFAULT_PRINTER } from "../model/defaults";
 import type { Component, ComponentKind, Notice, Project, TraySpec } from "../model/types";
-import { APP_VERSION } from "../model/version";
+import { APP_VERSION, BUILD_ID } from "../model/version";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { encodeHash, exportJsonFile, jsonFileName } from "../share";
@@ -673,7 +673,7 @@ export function App(props: AppProps) {
               </main>
             </div>
             <footer class="app-footer">
-              {`Insert Generator v${APP_VERSION} · `}
+              {`Insert Generator v${APP_VERSION} (${BUILD_ID}) · `}
               <a href="./third-party-licenses.txt">Third-party licenses</a>
               {" · "}
               <a href="../">All apps</a>

@@ -412,6 +412,19 @@ function withForced(caps: readonly number[], forced: number): { total: number } 
 }
 
 /**
+ * Which of an axis's two walls takes the slack under `oneWall` (spec §6, "An escape hatch"):
+ * "back" is the far wall (back, right), "front" the near one (front, left). The far wall unless a
+ * finger cut goes through it; where only the near wall is free it takes it; where both have a cut
+ * there is no wall to deepen, and the slack is split as without `oneWall` (null).
+ */
+export function oneWallOf(farCut: boolean, nearCut: boolean): "back" | "front" | null {
+  if (!farCut) {
+    return "back";
+  }
+  return nearCut ? null : "front";
+}
+
+/**
  * Realizes `part` in an outer of W × D × H units (at least `min`), with the walls and dividers its
  * cuts pass through. Throws CutFitError when a compartment gets no wall cutout.
  */
@@ -422,11 +435,14 @@ function layoutAt(
   settings: Settings,
   // How much of the room the stack asks for (opts.stackMin) the contents take beyond their cap.
   forced: { w: number; d: number } = { w: 0, d: 0 },
+  // `oneWall` only: the walls a finger cut passes through (or may), which must not take the slack.
+  cut: CutWalls | null = null,
 ): { tray: RealizedTray; walls: CutWalls } {
   const { wall, divider, floor, rows, room } = min;
   // How much slack a wall or divider may still take (thicker walls, not finger room). Growth caps
   // are maximums, so they round down; minimums (wall, divider, pocket) round up.
-  const wallAbsorb = Math.max(0, floorU(settings.wallAbsorb));
+  // With `oneWall` the slack goes to one outer wall instead (below), so nothing thickens twice.
+  const wallAbsorb = settings.oneWall ? 0 : Math.max(0, floorU(settings.wallAbsorb));
   const dividerAbsorb = wallAbsorb;
   const innerW = W - 2 * wall;
   const innerD = D - 2 * wall;
@@ -455,8 +471,11 @@ function layoutAt(
     wallAbsorb,
   ]);
   slackY -= sum(yExtra);
+  // One wall takes all of it: the back one unless a cut goes through it, else the front.
+  const oneY = settings.oneWall ? oneWallOf(cut?.back === true, cut?.front === true) : null;
+  const frontY = oneY === "back" ? 0 : oneY === "front" ? slackY : Math.floor(slackY / 2);
   const rowYs: number[] = [];
-  let y = wall + room.front + (yExtra[0] ?? 0) + Math.floor(slackY / 2);
+  let y = wall + room.front + (yExtra[0] ?? 0) + frontY;
   rows.forEach((_, i) => {
     rowYs.push(y);
     y += rowDepths[i] ?? 0;
@@ -514,7 +533,10 @@ function layoutAt(
       wallAbsorb,
     ]);
     slack -= sum(xExtra);
-    let x = wall + roomLeft + (xExtra[0] ?? 0) + Math.floor(slack / 2);
+    // One wall takes all of it: the right one unless a cut goes through it, else the left.
+    const oneX = settings.oneWall ? oneWallOf(cut?.right[r] === true, cut?.left[r] === true) : null;
+    const leftX = oneX === "back" ? 0 : oneX === "front" ? slack : Math.floor(slack / 2);
+    let x = wall + roomLeft + (xExtra[0] ?? 0) + leftX;
     row.forEach((req, i) => {
       const w = (widths[i] ?? 0) + (growth[i] ?? 0);
       const d = req.elastic.d ? rowDepth : ceilU(req.minD);
@@ -658,6 +680,41 @@ export function minOuter(part: TrayPartReq, settings: Settings, opts: RealizeOpt
   return { w: fromU(min.w), d: fromU(min.d), h: fromU(min.h) };
 }
 
+/** The outer walls of a part, in its own frame, that a finger cut passes through. */
+export interface OuterCutSides {
+  readonly left: boolean;
+  readonly right: boolean;
+  readonly front: boolean;
+  readonly back: boolean;
+}
+
+/**
+ * Which outer walls the part's wall cutouts pass through, where realizeTray places them at its
+ * minimum size (the first row's left wall counts as left, and so on: any row). Cuts are placed
+ * from the compartments alone, so this is the same at a larger outer in all but contrived cases;
+ * where the cuts cannot be placed (a hand-built part) it falls back to the cuts asked for.
+ * The layout uses it to keep fillers off the walls a person reaches through (spec: stack order).
+ */
+export function outerCutSides(
+  part: TrayPartReq,
+  settings: Settings,
+  opts: RealizeOptions,
+): OuterCutSides {
+  let walls: CutWalls;
+  try {
+    const min = minLayoutOf(part, settings, opts);
+    walls = layoutAt(part, min, [min.w, min.d, min.h], settings).walls;
+  } catch {
+    walls = requestedWalls(part);
+  }
+  return {
+    left: walls.left.some(Boolean),
+    right: walls.right.some(Boolean),
+    front: walls.front,
+    back: walls.back,
+  };
+}
+
 /**
  * Realizes `part` in `outer` (roadmap §4.2, §4.7). Throws RangeError when `outer` is smaller than
  * minOuter, and CutFitError (sizing-internal) when a card, tile, minis or custom compartment gets
@@ -684,5 +741,21 @@ export function realizeTray(
     w: Math.max(0, ceilU(opts.stackMin?.w ?? 0) - min.w),
     d: Math.max(0, ceilU(opts.stackMin?.d ?? 0) - min.d),
   };
-  return layoutAt(part, min, [W, D, H], settings, forced).tray;
+  const first = layoutAt(part, min, [W, D, H], settings, forced);
+  if (!settings.oneWall) {
+    return first.tray;
+  }
+  // The walls the cuts go through are only known once they are placed: where the first layout put
+  // the slack against one of them, lay it out again with those walls kept clear.
+  let avoid = unionOf(requestedWalls(part), first.walls);
+  let result = layoutAt(part, min, [W, D, H], settings, forced, avoid);
+  for (let round = 0; round < ROOM_ROUNDS; round += 1) {
+    const next = unionOf(avoid, result.walls);
+    if (JSON.stringify(next) === JSON.stringify(avoid)) {
+      break;
+    }
+    avoid = next;
+    result = layoutAt(part, min, [W, D, H], settings, forced, avoid);
+  }
+  return result.tray;
 }

@@ -42,9 +42,11 @@ making trays tall in the first place.
 **Growth is bounded by retention.** More room is only useful while the contents
 stay held. A deck well grown too far lets the cards fall over, which is worse
 than the filler it replaced. So growth is never unbounded: it is either capped,
-or the gained space is taken up by something removable (a spacer, or the
-`separators` plates) that keeps the contents standing while still letting the
-collection grow into it.
+or the gained space is taken up by something removable (the `separators`
+spacer or plates) that keeps the contents standing while still letting the
+collection grow into it. Since §5.3 that something is only ever printed when the
+user asks for it; without it, growth is capped at what the contents hold by
+themselves.
 
 ## 2. What already behaves this way
 
@@ -137,7 +139,8 @@ SCHEMA_VERSION bump). `GEOMETRY_VERSION` is 0.5.0.
   or may not absorb becomes fillers beside it, and a gap too narrow to be a part
   (`minFillerUpper` for level 1 and up, which is wider than `minFiller` because an upper tray carries
   the larger upper chamfer) is absorbed by the tray. Trays are placed in the corner of the tray
-  below, one inset in.
+  below, one inset in (since §6.4, at the far end of an axis when that keeps the filler off a finger
+  cut).
 - **Filler height.** A filler beside the bottom tray stands the full box height, as before. A filler
   in level k stands from that level's floor to the top of the stack: the trays above are smaller and
   stand inside tray k, so nothing else would fill the space over it, and a stack must reach the top
@@ -145,7 +148,7 @@ SCHEMA_VERSION bump). `GEOMETRY_VERSION` is 0.5.0.
 - **Risers** (`splitRisers`): an in-level filler (a leftover sharing a tray's stack, level above 0)
   follows its tray, moving up with it and giving up the height of every level from its own up, so
   its top stays on the plane. It does not take part in the split, as spares do not.
-- **Hard-rule checker** (`test-hard-rules.ts`): level k must stand in the corner of level k − 1, one
+- **Hard-rule checker** (`test-hard-rules.ts`): level k must stand in a corner of level k − 1, one
   inset in and no larger than its inset footprint, not exactly its footprint; an in-level filler
   must be inside the tray below, apart from its level's tray, and run from its level's floor to the
   top of the stack.
@@ -345,6 +348,9 @@ lets the cards fall over, which is worse than the filler it replaced. So:
 
 Treat "grow without plates" and "grow with plates" as two different limits. This
 is what makes `separators` structural rather than a nicety.
+
+(As built, §5.1 and §5.3: a second bound, reachability, applies beside retention to growth
+without plates, and plates exist only when the user sets `separators`.)
 
 ### Dividers
 
@@ -552,6 +558,131 @@ in its box at all, with or without dividers.
 the deck's finger channel (the channel is in the end walls; the divider sits clear of it).
 Unequal sections.
 
+### 5.3 No spacer unless asked for, and the deck stays reachable (geometry 0.7.2, schema 0.1.14)
+
+**The rule.** A spacer, or the `separators` plates, is built only when the component sets
+`separators`. Absent or 0 is none (`separatorsOf` in `model/defaults.ts` now defaults to 0, not 1);
+1 is a single spacer block; more is that many plates. It was not a default anyone chose to want: the
+spacer filled room that `auto` growth had only just made, and `auto` is already bounded by retention,
+so the well widens by about as much as the stack can lean and the cards stand up unaided. What the
+spacer cost was a printed part and its filament.
+
+**What `separators` did before, checked.** `separators` defaulted to 1 and 1 meant a spacer block.
+`cards.ts` and `tiles.ts` gave every upright stack that could grow `spacerAxis: "w"`; `realize.ts`
+then turned the gained room into a stored `spacer` part when the row had no loose elastic
+compartment, the spacer fitted (5 mm and over) and the tray had not yet printed one. So the default
+path did print spacers: `small-tiles` printed 4 on every seed. Now the default path gives the deck
+no `spacerAxis` and `elastic.w` only, so it is an ordinary compartment that takes its share of the
+row's slack by water-filling like a bin (`realize.ts` unchanged); a requirement has a spacer axis
+exactly when the component has `separators` of 1 or more. Test: no spacer for cards or tiles at any
+growth setting and any amount of room (`realize.test.ts`), none stored by an optimized layout
+(`layout/separators.test.ts`), and the same room is a spacer once `separators` is 1.
+
+**Two side effects.**
+
+- A deck in a row with bins now grows. The spacer branch ran only when the row had no loose
+  elastic compartment, so beside a bin or a growing pocket the bins took all the slack and the deck
+  never grew; now the deck is one of the elastic compartments and takes its capped share. That is
+  what §5.1 says should happen (water-filling up to each one's own cap); the spacer path was the
+  exception.
+- A deck that has to be widened for its cut now can be. A 30-card deck between two bins at its
+  minimum width is 14 mm wide, too narrow for a cut across the row (it needs 10 mm and two 3 mm
+  posts), and the tray threw a `CutFitError`; grown by `auto` the same tray builds.
+
+**Caps.** Along an upright stack, without plates (`stackGrowthMm`): the least of the growth setting,
+`UNPLATED_RETENTION` stack thicknesses, and the reachability bound below. With `separators` set, to
+any count (a single block fills the room solid as well as plates do; before, only counts above 1 did,
+because 1 was the default): `PLATED_RETENTION`, as before. With dividers, as before (§5.2).
+Growth is therefore never above what the contents hold, unless the user asked for plates. A number or
+`max` past the cap is cut to it, not given a spacer: there is no fallback part.
+
+**Reachability.** Without a spacer the stack is not pinned, it slides within the grown well, and one
+finger cut is centred on the well. Which cut matters: an upright deck is reached by the channel
+through its end walls (the walls the end cards' faces touch). That channel is centred on the card
+length across the stack and its width runs across the stack, so it does not care where along the
+well the stack stands; a stack away from an end wall leaves a gap the same channel opens into. It
+is a different cut that moves: a deck with no free end wall (between bins that are not its twin, or
+in a row of pockets) is cut across the row instead (`placeCutouts`, "the other axis"), through
+the front and back walls, centred on the well along the stack, `fingerPocket.width` wide
+(not scaled by `fit`; at most the well less two `POST_MM` posts). For that cut, with the stack T
+thick in a well W wide, a cut of width C and the stack against one end, the stack lies over
+`T − (W − C) / 2` of the cut. Requiring at least `MIN_REACH_OVERLAP` (M) of it:
+
+    W ≤ C + 2 × (T − M),   i.e. room W − T ≤ C + T − 2M     (`reachGrowthMm`)
+
+checked against the real placement (`cutouts.test.ts`): realized, with the stack standing against
+the left and then the right end of a grown well, the cut overlaps it by M at the cap and by less one
+millimetre more; its centre is the well's and its width the setting. Two refinements: a stack
+under M + `POST_MM` thick is asked only for what a post-limited cut gives it (T − 3), else a thin
+deck could not grow at all; and the bound is never negative.
+
+**M is `MIN_REACH_OVERLAP` = 10 mm.** The least of the stack that has to lie under the cut for
+fingertips to get onto the cards, taken as the fingertip width the cut rules already use
+(`MIN_CUT_MM`, the narrowest cut a finger fits, 10 mm; a test holds the two equal). It is the
+setting's own definition of "a fingertip", not a new number. At the default 25 mm cut the bound is
+`T + 5 mm`, so retention (T) is already the tighter and nothing changes; reachability only binds
+when the user narrows the cut, from 20 mm down (a 14 mm cut and a 23.5 mm stack: 17.5 mm of room,
+not 23.5).
+
+**Pre-change finding (geometry 0.7.1, the default `auto`, 25 mm cut), asked for in the brief.**
+At the `auto` cap the stack is given room equal to its own thickness (T up to 50), so W = 2T, and the
+worst overlap is `T − (2T − C) / 2 = C / 2` = 12.5 mm of the 25 mm cut, independent of T (for stacks
+over 50 mm thick, T/2 − 12.5 or more). Measured on the fixtures before the change (seeds 1 to 6): wells
+reached by the end-wall channel (all of `cards-heavy`, 24 of 30 of `small-tiles`) are not affected by
+where the stack stands; `tiles-minis` had 30 wells cut across the row, each a 25 mm stack in a well
+22.2 mm wider with no spacer, overlapping its 25 mm cut by 13.9 mm at worst; 6 `small-tiles` wells
+cut across were not grown. So no default-grown deck was out of reach, and none was close: the margin
+over M was 3.9 mm. It is not a live bug at defaults. It was one waiting for a narrower cut, which
+the spacer had hidden: a deck beside a spacer is cut through the part of the well left of the spacer
+(`besideSpacers`: centred on the cards), so the cut followed the stack. Without the spacer that
+guard is gone, which is why the bound is added now.
+
+**Limits.** The bound is on policy growth; room a tray is forced to give a stack (`levelMinFootprints`,
+spec §5.1) is not counted against it, as it is not against retention, so a well in a tray under a
+wider one can end up wider than the bound allows. After the change, on the fixtures, every
+across-cut well still overlaps its cut by at least 13.0 mm at either end. Divided wells are not
+bounded by it (each section would need its own); a divided well's cut is the end channel in
+practice. Plated wells are not, the plates pin the stack and the cut is placed beside them.
+
+**Flat storage.** Unaffected. A flat deck grows in height, where it is already held: its cards fill
+the well's footprint (clearance only), so nothing slides and nothing leans; the cut is a half-round
+through each long wall, centred on the long side and down to the floor, so it reaches the stack at
+any height. Neither bound applies (retention was never applied to flat either); a test pins the
+height growth unchanged under a narrow cut. Bulk and minis are untouched.
+
+**Versions.** Geometry 0.7.1 to 0.7.2, a PATCH, on the 0.5.1 precedent: `planTray` is unchanged, a
+tray realized from the same part at the same outer size has the same outer size, lip, inset and cuts
+(only the well's inside differs: wider, nothing standing in it), so trays printed before and after
+still mate and stack. The other candidate was a MINOR, but that line means "reprint the whole
+insert", which is false here, and 0.6.0's reason (the same project lays out to other outer tray
+sizes) does not hold: sizes follow the layout, not the spacer. Consequence: a stored 0.7.1 layout is
+current and still has its spacers until its plan is run again; they print as before. Schema stays
+0.1.14: no file this app writes changes, `separators` of 0 is accepted on reading but never written,
+and an explicit 1 or more means what it did. The only difference is that an absent `separators` now
+means none, which a default may do; and the inputs hash is unchanged for every project, so no plan
+goes stale. The field's hint says so, and the growth hint names the finger cut.
+
+**Measured** on the four fixtures, seeds 1 to 6, 50 000 iterations, before is commit a421b26.
+Printed parts as `printedParts` counts them (a spacer is a part); link is the whole share link.
+
+| fixture       | printed parts | spacers  | filler parts | fill %      | filament g   | link length            |
+| ------------- | ------------- | -------- | ------------ | ----------- | ------------ | ---------------------- |
+| `cards-heavy` | 14.0, same    | 0, same  | 2.0, same    | 99.70, same | 614, same    | 1791-1851 to 1790-1850 |
+| `bits-heavy`  | 9.0, same     | 0, same  | 0, same      | 99.78, same | 450, same    | 1766-1903 to 1767-1903 |
+| `tiles-minis` | 6.0, same     | 0, same  | 3.0, same    | 99.80, same | 1213 to 1219 | 1917-1966 to 1835-1889 |
+| `small-tiles` | 15.0 to 10.0  | 4.0 to 0 | 1.0 to 1.3   | 99.47, same | 414 to 400   | 1871-1969 to 1738-1865 |
+
+Nothing infeasible, and no fixture over 2 000 characters: the longest link is 1903 (`bits-heavy`, not
+changed); `small-tiles`, which was 31 characters under, is now 135 under, because four spacers
+fewer are stored. `small-tiles` drops 4 spacers on every seed (its 15 parts were 11 trays and
+fillers plus those 4) and its fill is unchanged; `tiles-minis` is 6 g heavier (1219 against 1213),
+its wells having grown with nothing to hold back.
+
+**Not done.** A reachability bound for dividers' sections. Making the across cut follow the stack
+in a grown well (an off-centre cut would remove the bound; it changes cut placement for every tray
+with an across cut, so it was left). Stripping the spacers out of a stored 0.7.1 layout at print
+time, which would hide them without re-running the plan.
+
 ## 6. The objective
 
 The intent says _minimise the number of fillers_. Today `score.ts` charges
@@ -668,7 +799,7 @@ fragment it into several edge strips where it would otherwise have pooled into
 one interior block. The user flagged their own uncertainty here. Measure count
 and placement together before adopting it, and drop it if it raises the count.
 
-### An escape hatch: let one wall take it
+### An escape hatch: let one wall take it (done: see §6.3)
 
 Some people would rather have a slightly odd tray than loose pieces to fit.
 Offer a mode where, instead of a filler, the slack goes entirely into **one**
@@ -737,7 +868,8 @@ and both over the parts of its active variant:
   `min(turned, not turned)`. Unconditional (it does not look at the footprint), but weak, so a tray
   that really packs better turned still wins: the parts of the trays are only near-square once
   slack has been absorbed into one of them, and a sliver of leftover is worth more than this.
-- **Same stack** (`apart`, 10 000): the stacks a requirement's parts stand in beyond the first.
+- **Same stack** (`apart`, 10 000): the stacks a requirement's parts stand in beyond the first. Since §6.4 it also counts the trays
+  of other requirements standing between its parts within a stack, so the parts end up adjacent.
 
 How the weights were set, against the neighbours (trays 20 000, stacked 50 000, access 200 000,
 setup 15 000, moved 5 000): both are below `trays`, so neither ever buys a filler to be placed by
@@ -893,6 +1025,258 @@ beside them; the filler column then counts the merged parts that hold a riser, 3
 one (441 g, against 334 g) that has two stored fillers instead of three: the term chose it, which
 is the trade it is for, and over 40 seeds the mean is unchanged (375 g to 374 g).
 
+### 6.3 One thick wall instead of a filler, as implemented (schema 0.1.15, geometry stays 0.7.2)
+
+**The setting.** `oneWall` (boolean, default off), advanced mode, beside "Thicker walls instead of
+a filler": "One thick wall instead of a filler". It is project-wide, like `wallAbsorb` and the other
+switches around it, not per component: it answers "do I want loose pieces at all", which a person
+decides once for the whole insert, and it acts on leaf slack, which belongs to no single component.
+
+**What it does.** The room a tray cannot give its contents (growth, §5) and would have left as a
+filler goes into **one** outer wall on each axis instead, up to `ONE_WALL_MAX_MM` (20 mm, in
+`sizing/constants.ts`) per axis. Layout (`levelAbsorb`, through `PartMetrics.capW`/`capD`): the
+walls' share of what a tray may absorb is 20 mm in place of the two thin walls of `wallAbsorb`, so
+a gap of up to growth plus 20 mm is taken with no filler, and past that the tray keeps only its
+growth and the rest is a filler as before. Realize (`layoutAt`): after the contents have taken
+theirs, all remaining slack on an axis goes to one wall, and nothing is split.
+
+**The ceiling, and why 20 mm.** There must be one, or a 60 mm gap becomes a 60 mm wall. The gap is
+not clipped: past the ceiling the tray does not take any of it, it prints the filler it would have
+printed (a tray with a 20 mm wall _and_ a filler beside it is exactly what §5 forbids). 20 mm is
+about ten normal walls: generous enough to swallow most of the gaps that make a filler, and a block
+that still reads as a deliberate shoulder against the box edge. Filament is what it costs: on
+`cards-heavy` the mode adds about 220 g (617 g to 836 g), which is the price of the parts it
+saves, and why it is not a default. The number is a constant, not a setting: a ceiling the user must
+choose is a second knob for the one decision "fewer parts or less plastic". It is a judgement
+call and was not tuned: only 20 mm was measured, so a lower ceiling (less plastic, fewer gaps
+taken) is the first thing to try if the filament cost bites.
+
+**Which wall.** The far wall of the axis (back, right) unless a finger cut goes through it, then the
+near one (front, left); when both carry a cut, the slack is split between them as without the
+setting, since there is no wall that can deepen safely (deepening a cut wall lengthens the reach and
+can break the cut's geometry). Which walls carry a cut is known only once the cuts are placed, so
+`realizeTray` lays the tray out, reads where the cuts landed (`CutWalls`), and lays it out again with
+those walls kept clear, up to `ROOM_ROUNDS` times. The spec preferred the wall that faces the box
+wall or another tray's back; `realizeTray` knows nothing of its neighbours (a tray is realized from
+its own part and outer size), so the choice is made from the tray's own frame, and the far wall is a
+fixed convention, not a placement. Leaving the choice to the layout would mean storing it, which the
+share link (about 135 characters of headroom on `small-tiles`) could not take. The setting does not
+look at which wall ends up against the box: the tray is flush on its other side either way, which is
+what keeps it reading as one deliberate wall.
+
+**It replaces `wallAbsorb`.** The two do the same job (soak gaps into walls instead of a filler);
+`oneWall` does it with one wall and a ceiling nearly seven times higher. Two settings that nearly
+agree is the confusion the `wallGrowth` rename fixed, so while `oneWall` is on `wallAbsorb` is
+ignored (its field stays in the form, and its hint says so) rather than the two adding up. Dividers
+do not thicken either: one wall takes the slack, nothing else does.
+
+**The score counts the wall as wasted room.** The plain `wallAbsorb` walls count as usable room
+(the tray absorbed them, so no leftover). A 20 mm shoulder is not capacity, so with `oneWall` the
+room above what the contents can use (`Ctx.oneWallCap`) counts as leftover in `scorePlan`,
+exactly as the filler's room would have. The setting then saves what it is for, the filler's own
+two terms (`trays` and `fillers`, 40 000 a part), and without this the optimizer found the wall
+free and sprawled: in a first run with it counted as usable, `cards-heavy` weighed 955 to 1 168 g
+(against 787 to 895 g once it counts) and its parts did not fall on two of three seeds.
+
+**Hash and share link.** It moves layouts, so it is in `inputsHash`, but only when on (off is left
+out of the hashed settings, so every saved project keeps its hash: the pinned fixture hashes in
+`hash.test.ts` still hold). A share link leaves it out while off, as `engraveNumbers` is left out
+while on, and reading puts it back; on, it costs the field (`"oneWall":true`, 15 characters).
+
+**Versions.** Schema 0.1.14 to 0.1.15: a new optional field with a default, a PATCH by the 0.1.x
+rule (an older file reads as off). Geometry stays **0.7.2**: `planTray` is unchanged, and so is
+every outer size, lip, inset, well and cut of a tray realized from the same part at the same size;
+the setting changes which sizes the layout chooses, as `wallAbsorb` always did, and with it off
+nothing is built differently. A tray printed with the setting on mates with the same tray printed
+without it.
+
+**Measured** (five seeds, `DEFAULT_ITERATIONS`, cold; printed parts = trays + fillers after
+merging; filament is the solid upper bound `filamentG`; link is the whole share link on the real
+deploy URL). **With it off, every layout, count, fill and filament is identical to the commit this
+started from, and every link is byte for byte the same once the schema version string is the same
+(the 0.1.15 string alone moves a link by one to three characters).**
+
+| fixture       | off: parts (mean)    | on: parts (mean)    | off: fillers | on: fillers | fill %          | filament g, off to on | links, off | links, on |
+| ------------- | -------------------- | ------------------- | ------------ | ----------- | --------------- | --------------------- | ---------- | --------- |
+| `cards-heavy` | 11,9,11,11,12 (10.8) | 9,10,9,9,9 (9.2)    | 1.8          | 1.2         | 99.7, same      | 617 to 836            | 1790-1847  | 1831-1866 |
+| `bits-heavy`  | 4,4,4,4,7 (4.6)      | 4,4,7,7,7 (5.8)     | 0            | 0           | 99.8, same      | 452 to 473            | 1766-1903  | 1783-1913 |
+| `tiles-minis` | 8 on every seed      | 8 on every seed     | 3.0          | 3.0         | 99.8, same      | 1218 to 1333          | 1831-1875  | 1850-1881 |
+| `small-tiles` | 12,9,10,14,11 (11.2) | 10,10,9,10,10 (9.8) | 1.4          | 1.6         | 99.4-99.5, same | 407 to 351            | 1737-1862  | 1735-1802 |
+
+Nothing was infeasible in either mode, and no guarded fixture crossed 2 000 characters on those
+seeds (the longest with the mode on is `bits-heavy` at 1 913). The result is a real saving only
+where the filler's gap is under the ceiling: `cards-heavy` loses about 1.6 parts for about 220 g
+more plastic, and `small-tiles` loses 1.4 parts and, because the search lands on lighter layouts,
+gets lighter. `tiles-minis` is unchanged in parts, and costs 115 g of wall for nothing: its three
+fillers are ones this does not remove (why was not investigated). **`bits-heavy` is worse**: the mode lands on its 7-tray layout
+more often (12 of 20 seeds against 6 of 20 off, over the five above and 15 further seeds, 4
+trays and 0 fillers being the best layout in both modes). That is search noise on a rugged landscape that the setting makes
+rougher, not a geometry cost, and it is the one place to watch. On the further seeds with the mode
+on, `bits-heavy` crossed 2 000 characters once (2 042), as it does with the mode off (2 066): the
+longer links belong to the 7 to 9-tray layouts of either mode.
+
+### 6.4 Stack order by footprint, and fillers off the cuts, as implemented (schema 0.1.15 and geometry 0.7.2, both unchanged)
+
+Two preferences, both in `scorePlan`, one derived choice in `placeStack`, and no new field, setting
+or stored shape.
+
+**Why the bottom tray swells.** An upper tray stands inside the lip ring of the tray below, so the
+tray at level k must be at least as large as everything above it (`levelMinFootprints`). Whichever
+tray is put at the bottom is made that large: if it is a small one, its contents cannot use the room
+and the slack goes into its walls. The earlier note under B5, that "the widest tray must be at the
+bottom, so ordering is not available", had the cause the wrong way round: the widest tray is at the
+bottom only because the tray there is made as wide as the widest, which is a result of the order,
+not a rule. **Nothing ordered a stack by footprint**: `reorderStack` swaps neighbours at random and
+the score never saw the walls, so a stack came out in whatever order the search met first. Checked
+before building: on `Test.insert.json` re-optimized with the code as it was, the tray at level 0 is
+the 95 × 70 card tray swollen to 98.5 × 140.2 with 37.6 mm walls (34.7 mm of it forced by the
+stack) on three of six seeds, and the worst wall is 28.1, 22.3 and 10.1 mm on the others. The
+real project's numbers are the brief's, except that the tiles tray comes out at 71 × 109 in the
+layouts the search now finds, not at 95.6 × 137.3 (the stored layout was from an older build).
+
+**Why the existing terms did not do it.** `leftover` charges the swollen walls, but it charges a
+filler by volume too, and an upper tray has its filler stand from its own floor to the top of the
+stack: for the small card tray moved to level 2 that is 92.7 × 66 × 39 mm, 238 000 mm³ of filler
+against 133 000 mm³ of swollen wall (7.3 % of the box against 4.1 %). By volume the thick wall is
+the better layout, and on this project `leftover` alone prefers it by about 4 million. Any weight
+for ordering has to be of that size to move it.
+
+**`WEIGHTS.swollen`: the square of the avoidable wall thickness** (`swollenTotal`, `score.ts`),
+80 000 per mm². For each tray and axis: the extra thickness per side that the stack forces on it
+(its footprint minus its own minimum, taken from `needW` / `needD`), less what the tray absorbs as
+room for its contents or walls the user allowed (`capW`, the same `usable` size `leftover` uses),
+less `2·inset` for each level above it (an equal tray above costs that, in any order). The square
+makes a few millimetres cheap and a wall that carries a whole footprint dear: 1 mm per side is
+80 000 (two fillers), 2.5 mm is `coverage`, 10 mm is 8 % of the box. It is capped at
+`SWOLLEN_CAP_MM` (10) per axis, so a tray costs at most 16 million and thirty swollen trays still
+cost less than one unit of overflow (`OVERFLOW_WEIGHT`, tested): it cannot make a feasible layout
+lose to an infeasible one. It is an integer count, rounded per layout, so score deltas stay exact.
+
+_Weight, measured._ Mean forced wall (the extra thickness over what the tray has standing alone),
+`Test.insert.json`, six cold seeds, 50 000 iterations, while the terms below were being added (so
+each column has the others as they were at the time, which moves them by a few tenths):
+
+| weight          | 0    | 5 000 | 20 000 | 40 000 | 80 000 | 160 000 |
+| --------------- | ---- | ----: | -----: | -----: | -----: | ------: |
+| forced wall, mm | 26.0 |  10.7 |    5.5 |    4.4 |    4.3 |     1.9 |
+
+On the four fixtures nothing moves at any of these (their stacks force 1.3 mm at most), except
+`small-tiles`, whose mean parts moved by under one. 80 000 is where the curve has flattened and
+where one millimetre of avoidable swell is still worth about two fillers; 160 000 buys another
+2 mm on one project and puts 1.8 mm of swell above a `coverage` miss, so it was left.
+
+**How it combines with the access rules.** A wide tray marked "often" wants the top, ordering wants
+it at the bottom. Two decisions, both measured:
+
+1. A tray with an "often" tray anywhere above it is left out of `swollen` (`swollenTotal`). The
+   tray under a wide "often" tray carries its footprint uncharged, so ordering never pays by
+   burying an "often" tray: reachability comes first by construction. The cost is that a project
+   whose wide trays are all "often" keeps its thick walls (below).
+2. Without it, the weight would beat `access` (200 000) as soon as a swell exceeded
+   √(200 000 / 80 000) = 1.6 mm per side, so a footprint difference of a few millimetres would have
+   been enough to bury an "often" tray. It was measured both ways before choosing, on the real
+   project with its components marked differently, and the number of buried "often" trays did not
+   rise either way (table below), so the exemption is a guarantee rather than a repair. The
+   `setup` term (15 000, a setup tray prefers to be buried) is not exempted: a small setup tray at
+   the bottom costs 15 000 where a wide tray above it costs 80 000 per mm², so footprint wins
+   there, and the setup tray ends up on top, which is the one thing it prefers not to be.
+
+**The cohesion term.** The user asked why two trays of one card component are not adjacent; the
+pair of the real project stands in one stack, with the tiles tray between them. Footprint order
+does **not** make `apart` redundant: on the real project the two card trays differ by 27 mm in
+width and 45 in depth (95 × 138 and 68 × 93), the tiles tray lies between them in size, and the
+largest-first order puts it there (with footprint order alone the card trays were adjacent in 0 of 6
+layouts, 1 before; Star Realms, 0 of 6 before and after). So `apart` was extended rather than a term added (eleven terms were enough): per
+requirement it still counts the stacks beyond the first, and now also the trays of other
+requirements standing between its parts within a stack, 10 000 each. On Star Realms the parts are
+adjacent in 8 of 8 layouts (0 of 8 before), at no cost in parts, fill or filament. On the real
+project it changes nothing: the card trays are too unlike in size for adjacency to beat their
+walls (`swollen` is the larger term), which is the right way round.
+
+**`WEIGHTS.sealed`: a filler against a finger cut** (`sealedTotal`), 10 000 per cut wall. A filler
+is slack the packer may put anywhere and it can end up flush against a wall a finger cut goes
+through, which seals it. Counted per tray wall, once however many fillers stand there: the wall has
+a cut (`ctx.cutSides`, from `outerCutSides` in sizing, the sides `realizeTray` actually places the
+cuts on at the minimum size, turned with the tray), a filler is within `SEAL_REACH_MM` (8 mm, less
+than a fingertip) of it at the same height, and overlaps the wall by a finger pocket's width or the
+whole wall when shorter (the cut's place along the wall is only known once it is realized). It does
+not look at `fingerPocket.wallRoom`, which reserves room _inside_ the tray: sealing is free to avoid
+at `wallRoom: 0` too. 10 000 is under a printed part (20 000), so it never buys a part or a filler,
+above `moved` (5 000), so a warm start can still be rearranged to clear one, and a preference only:
+a layout that must seal a cut is scored, feasible and returned (tested: one tray cut on both walls
+of the only axis with slack). It cannot make a feasible layout lose to an infeasible one for the
+same reason as the others, a few hundred thousand at most.
+
+**A derived choice for the fillers in a stack level.** The packer decides where the slack of a level
+goes, so it can also keep it off a cut. An upper tray with slack beside it stands at the far end of
+that axis when the cuts of its own and of every tray above it (they stand inside it, against the same
+filler) are on one end only: the filler goes to the other. When both ends or neither have one, it
+stays in the corner as before. Derived, not searched or stored: only `x` and `y` of a tray in a
+stack change, never its size, so no feasibility changes, and the stored layout, the share link and
+a tray's geometry are as they were. The bottom tray stays in its corner: its cut then faces a
+neighbouring leaf or the box wall either way. The hard-rule checker (`test-hard-rules.ts`) accepts a
+level flush at either end of an axis and measures the bearing on the end it stands on.
+
+**Versions.** Schema stays 0.1.15 (nothing stored or read is new) and geometry stays 0.7.2: `planTray`
+is unchanged, and so is every outer size, lip, inset, well and cut of a tray realized at the same
+size, so a tray printed before and after mate and stack. What changes is which sizes and order the
+layout chooses, as with `oneWall` (§6.3) and every score change before it. A stored layout stays
+current and valid; it is simply not re-optimized until the plan is run again.
+
+**Measured**, `DEFAULT_ITERATIONS` (50 000), cold, seeds 1 to 8 (before is the commit this started
+from; printed parts are the parts after merging, filament the solid upper bound, link the whole
+share link; "worst wall" is the thickest outer wall on any tray, "forced" the part of it the stack is
+to blame for, "sealed" the finger-cut walls with a filler within 8 mm per layout). Nothing was
+infeasible in either.
+
+| fixture       | printed parts                 | fillers      | fill %     | filament g   | link length            | worst wall mm (max / mean) | sealed       |
+| ------------- | ----------------------------- | ------------ | ---------- | ------------ | ---------------------- | -------------------------- | ------------ |
+| `cards-heavy` | 13.9 to 13.6 (13-15 to 13-14) | 1.88 to 1.62 | 99.7, same | 617 to 623   | 1791-1853 to 1771-1837 | 2.9 / 2.5 to 2.8 / 2.3     | 3.88 to 2.50 |
+| `bits-heavy`  | 8.8, same                     | 0, same      | 99.8, same | 447, same    | 1759-1905, same        | 1.6, same                  | 0, same      |
+| `tiles-minis` | 6.0, same                     | 3.00, same   | 99.8, same | 1220 to 1216 | 1833-1886 to 1835-1855 | 2.7 / 2.0 to 2.2 / 1.7     | 1.88 to 1.00 |
+| `small-tiles` | 10.1 to 9.4 (9-12 to 9-12)    | 1.38 to 1.12 | 99.5, same | 397 to 428   | 1738-1863 to 1733-1866 | 2.7 / 1.7 to 2.9 / 1.8     | 4.50 to 3.25 |
+
+Hard gates: nothing infeasible on any of 32 runs and none of the three guarded fixtures over 2 000
+characters (longest 1 905, `bits-heavy`, the same layout before and after). Seeds 9 to 24 as well
+(64 more runs): nothing infeasible, and `bits-heavy` reaches 2 067 characters on some seeds, with an
+identical layout before and after (its 14-18-tray layouts, which §6.3 already records as crossing the
+limit); `cards-heavy` and `small-tiles` stay under (1 857 and 1 814 at most). The fixtures barely
+stack on different footprints, so they mostly show that nothing regressed: the effect is on the real
+projects.
+
+Real projects (`Test.insert.json` and `Star-Realms.insert(2).json`; the 59.31 × 89.3 tray with 19.15
+mm walls the brief put in the Star Realms file is in the first of them, as the custom-item tray under
+the minis tray):
+
+| project (8 seeds, cold)       | printed parts | fillers      | fill %       | filament g     | worst wall max / mean      | forced max / mean          | sealed       | buried "often" | multi-part components in one stack (adjacent) |
+| ----------------------------- | ------------- | ------------ | ------------ | -------------- | -------------------------- | -------------------------- | ------------ | -------------- | --------------------------------------------- |
+| Test                          | 20.1 to 21.5  | 3.62 to 5.38 | 95.0 to 95.1 | 1 204 to 1 126 | 37.8 / 30.9 to 10.1 / 8.5  | 34.9 / 28.0 to 7.2 / 5.6   | 4.50 to 4.75 | n/a            | 7 of 9 (2) to 6 of 10 (0)                     |
+| Test, cards and tiles "often" | 18.9 to 19.8  | 3.00 to 3.75 | 95.0 to 94.6 | 1 236 to 1 148 | 37.8 / 32.0 to 37.8 / 30.5 | 34.9 / 29.1 to 34.9 / 27.6 | 3.00 to 3.38 | 1.75 to 1.50   | 7 of 8 (0) to 6 of 9 (0)                      |
+| Test, everything "often"      | 19.8 to 19.0  | 3.50 to 2.75 | 95.0, same   | 1 169 to 1 139 | 37.8 / 30.8 to 37.8 / 35.4 | 34.9 / 27.9 to 34.9 / 32.5 | 4.38 to 1.38 | 5.00 to 4.88   | 7 of 8 (3) to 9 of 9 (4)                      |
+| Star Realms (2)               | 7.0, same     | 1.00, same   | 99.5 to 99.7 | 378 to 417     | 13.4 / 13.4 to 12.5 / 12.4 | 2.2 / 2.2 to 1.3 / 1.2     | 9.38 to 1.00 | n/a            | 0 of 8 (0) to 8 of 8 (8)                      |
+
+Re-run as the app does (warm start from the stored layout, seed 1): `Test`: worst wall **37.6 to
+10.05 mm** (the cards tray at 98.5 × 140.2 with 34.7 mm forced is gone; 10.05 is the tiles-group
+tray under a smaller card tray, 7.15 mm of it forced by the stack), 20 parts, 3 fillers, fill 95.4 to
+95.0 %, filament 1 154 to 1 203 g, link 2 733 to 2 746 (not a guarded project), 3 to 4 sealed cut
+walls. Star Realms (2): 7 parts, 1 filler, worst wall 13.45 to 12.1 mm, sealed 9 to 1, filament 378 to
+417 g (+10 %, the same re-pack as the perched-filler trade of backlog B5, which this makes without
+asking for it: the Counter, the Starter and Trade trays all come out 91.45 × 88.8, one stack of four,
+where the old layout had a 4.4 mm filler on two stacks), link 1 809 to 1 671.
+
+**What it costs, and what it does not do.**
+
+- _Fillers go up on the real project_: 3.6 to 5.4 per layout (the in-level filler beside the small
+  tray at the top, instead of its walls), on the project where the walls were 31 mm. That is the
+  trade asked for. The mean of the 16 seeds after (9 to 24) is the same: 5.4 fillers, and mean worst
+  wall 26.2 to 9.4 mm, with one seed of 16 still at 36 mm (the search did not find the reordering).
+- _A project whose wide trays are "often" keeps its walls_: exempt by design (above).
+- _Sealed cuts are not gone_: 4.5 to 4.75 per layout on `Test`, 1 to 4 on the fixtures. A tile tray
+  has a cut on both walls of an axis, and any filler beside it seals one, wherever it stands; the
+  remaining seals are of that kind and of fillers between two stacks, which only the search can move.
+  Before the choice of end it was 7.0 per layout on `Test`.
+- _Star Realms stores 40 g more plastic_: the same layout is more compact (fill 99.5 to 99.7 %).
+
 ## 7. Risks, and what to measure before shipping
 
 - **Part count will rise**, more sharply than it did for leaf slack: every
@@ -917,3 +1301,4 @@ become infeasible, and no guarded fixture may cross 2000 characters.
 - Changing how `separators` plates work; they are the retention mechanism a
   grown deck already has, and this spec only makes them matter more often. (Dividers, §5.2, do
   not combine with them.)
+  (§5.3 later made them opt-in instead of the default, without changing how a plate is made.)

@@ -4,5 +4,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "licenses.config.ts"]
+  "include": ["vite.config.ts", "licenses.config.ts", "build-id.config.ts"]
 }

@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import pkg from "../../package.json";
-import { APP_VERSION, SCHEMA_VERSION, isPreview, parseSemver } from "./version";
+import { APP_VERSION, BUILD_ID, SCHEMA_VERSION, parseSemver } from "./version";
 
 describe("version", () => {
   it("takes APP_VERSION from package.json", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.14: 0.1.13 with the `engraveNumbers` setting", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.14");
+  it("is at schema 0.1.15: 0.1.14 with the `oneWall` setting", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.15");
   });
 
   it("parses strict semver", () => {
@@ -23,8 +23,11 @@ describe("version", () => {
     },
   );
 
-  it("treats 0.x as preview", () => {
-    expect(isPreview("0.1.0")).toBe(true);
-    expect(isPreview("1.0.0")).toBe(false);
+  it("is app 0.2.0", () => {
+    expect(APP_VERSION).toBe("0.2.0");
+  });
+
+  it("has a build id: a short SHA (optionally -dirty), or unknown without git", () => {
+    expect(BUILD_ID).toMatch(/^([0-9a-f]{7}(-dirty)?|unknown)$/);
   });
 });

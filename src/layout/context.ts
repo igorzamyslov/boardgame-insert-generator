@@ -1,9 +1,9 @@
 import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/settings";
 import type { Settings } from "../model/types";
-import { minOuter, wallFor } from "../sizing";
+import { minOuter, outerCutSides, wallFor, type OuterCutSides } from "../sizing";
 import { growthCapU, partGrowthCapU } from "../sizing/growth";
 import { rowsOf } from "../sizing/outer";
-import { MIN_GRIP, UPPER_TRAY_MIN_ABOVE_LIP } from "../sizing/constants";
+import { MIN_GRIP, ONE_WALL_MAX_MM, UPPER_TRAY_MIN_ABOVE_LIP } from "../sizing/constants";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import type { Bed } from "./bed";
 import type { LayoutInput } from "./types";
@@ -59,6 +59,12 @@ export interface Ctx {
   readonly floorD: U;
   readonly topPlane: U;
   readonly boxClearance: U;
+  /**
+   * What `oneWall` lets one wall take per axis (0 when off), already part of every part's capW /
+   * capD. It is room the contents cannot use, so the score counts it as wasted, unlike
+   * wallAbsorb's thin walls: the setting trades filament for parts, not for free space.
+   */
+  readonly oneWallCap: U;
   readonly gap: U;
   /** Nominal lateral play above this is penalized and warned about (hard rule 1): settings.playLimit. */
   readonly playLimit: U;
@@ -90,6 +96,11 @@ export interface Ctx {
   part(ref: PartRef): TrayPartReq | undefined;
   partId(ref: PartRef): number;
   metrics(ref: PartRef, lipped: boolean, level: number): PartMetrics;
+  /**
+   * The outer walls a finger cut passes through, in the box frame (a part turned 90° counter-
+   * clockwise has its front wall on the right, its right on the back, and so on).
+   */
+  cutSides(ref: PartRef, rotated: boolean): OuterCutSides;
   refsOfKey(trayKey: string): PartRef[];
 }
 
@@ -134,8 +145,10 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
   const wall = toUCeil(wallFor(settings, false));
   // Walls thicken inward by at most `wallAbsorb` each, so both sides of an axis absorb twice that
   // (spec §7.2). Rounded down like realize's cap: it is a maximum.
-  const wallCap = 2 * toUFloor(settings.wallAbsorb);
+  // With `oneWall` one wall on each axis takes up to ONE_WALL_MAX_MM instead (it subsumes wallAbsorb).
+  const wallCap = settings.oneWall ? toUFloor(ONE_WALL_MAX_MM) : 2 * toUFloor(settings.wallAbsorb);
   const cache = new Map<number, PartMetrics>();
+  const cutCache = new Map<number, OuterCutSides>();
   const byKey = new Map<string, PartRef[]>();
   input.requirements.forEach((r: TrayRequirement, req) => {
     // partId packs variant and part into one byte each
@@ -163,6 +176,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
     floorD: toUFloor(box.innerDepth) - 2 * boxClearance,
     topPlane: toUFloor(topPlane(box, settings)),
     boxClearance,
+    oneWallCap: settings.oneWall ? toUFloor(ONE_WALL_MAX_MM) : 0,
     gap: toU(eff.trayGap),
     playLimit: toU(settings.playLimit),
     // The inset exists only to clear the lip ring below. With no lip there is nothing to
@@ -212,6 +226,19 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
       };
       cache.set(key, m);
       return m;
+    },
+    cutSides(ref, rotated) {
+      const id = partId(ref);
+      let own = cutCache.get(id);
+      if (own === undefined) {
+        const p = part(ref);
+        own = p
+          ? outerCutSides(p, settings, { lipped: false, level: 0 })
+          : { left: false, right: false, front: false, back: false };
+        cutCache.set(id, own);
+      }
+      // turned 90° counter-clockwise (sizing's rotateRealized): front → right → back → left → front
+      return rotated ? { right: own.front, back: own.right, left: own.back, front: own.left } : own;
     },
     refsOfKey: (trayKey) => byKey.get(trayKey) ?? [],
   };

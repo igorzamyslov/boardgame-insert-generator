@@ -182,13 +182,16 @@ export function checkHardRules(
         v.push(`${t.key}: lip flag wrong`);
       }
       if (base && k > 0) {
-        // A level is its own tray plus fillers: it stands in the corner of the tray below, one
+        // A level is its own tray plus fillers: it stands in a corner of the tray below, one
         // inset in, and is no larger than that tray's inset footprint.
         const below = stack[k - 1];
+        // (at either end of an axis: the filler goes to the end a finger cut does not face)
+        const flush = (at: number, size: number, from: number, room: number): boolean =>
+          at - from === ctx.inset || at + size === from + room - ctx.inset;
         if (
           !below ||
-          toU(t.x) - toU(below.x) !== ctx.inset ||
-          toU(t.y) - toU(below.y) !== ctx.inset ||
+          !flush(toU(t.x), toU(t.w), toU(below.x), toU(below.w)) ||
+          !flush(toU(t.y), toU(t.d), toU(below.y), toU(below.d)) ||
           toU(t.w) > toU(below.w) - 2 * ctx.inset ||
           toU(t.d) > toU(below.d) - 2 * ctx.inset
         ) {
@@ -201,7 +204,11 @@ export function checkHardRules(
         if (lower && settings.lip.enabled) {
           // The lower tray's outer wall as planTray builds it: its base wall or the lipped wall.
           const lipped = Math.max(lower.wall, wallFor(settings, true));
-          const bearing = lipped - (t.x - lower.x) - play - chamfer;
+          // the end of x the tray stands flush on (a tray with a filler beside it hangs over the
+          // tray's cavity at the other end, where the filler holds the space)
+          const onLow = t.x - lower.x;
+          const onHigh = lower.x + lower.w - (t.x + t.w);
+          const bearing = lipped - Math.min(onLow, onHigh) - play - chamfer;
           if (bearing < settings.lip.ledge - 2 * play - chamfer - eps || bearing <= 0) {
             v.push(`${t.key}: bearing ${bearing} too small`);
           }

@@ -15,6 +15,7 @@ import {
 } from "../model/settings";
 import type { FitChoice, WallChoice } from "../model/settings";
 import type { Settings } from "../model/types";
+import { ONE_WALL_MAX_MM } from "../sizing/constants";
 import { SETTING_RANGES } from "../model/validate";
 import { CheckField, SelectField } from "./fields";
 import type { SelectOption } from "./fields";
@@ -258,6 +259,13 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
           onCommit={(wallAbsorb) => onChange({ ...settings, wallAbsorb })}
         />
       ) : null}
+      <CheckField
+        id="settings-oneWall"
+        label="One thick wall instead of a filler"
+        checked={settings.oneWall}
+        hint={`Where a gap would be a filler, one wall of the neighbouring tray takes it instead, up to ${ONE_WALL_MAX_MM} mm per direction: fewer loose parts to place, but a fat wall that holds nothing and more filament. It is never a wall with a finger cut, and a bigger gap is still a filler. Replaces "Thicker walls instead of a filler" while on. Changes the layout.`}
+        onChange={(oneWall) => onChange({ ...settings, oneWall })}
+      />
       <CheckField
         id="settings-fillToTop"
         label="Fill the box to the top"

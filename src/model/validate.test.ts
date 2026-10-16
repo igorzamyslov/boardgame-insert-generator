@@ -345,12 +345,12 @@ describe("validateProject", () => {
   });
 
   const separatorCases: [number, string | null][] = [
+    [0, null],
     [1, null],
     [10, null],
     [11, limit.separators],
     [Number.POSITIVE_INFINITY, limit.separators],
     [10.5, limit.separators],
-    [0, field.separators],
     [-2, field.separators],
     [2.5, field.separators],
     [Number.NaN, field.separators],
