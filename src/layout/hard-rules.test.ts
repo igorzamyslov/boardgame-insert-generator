@@ -175,12 +175,18 @@ describe("checkHardRules catches broken layouts", () => {
 });
 
 describe("isDropped", () => {
-  it("matches the notice path of the lock's index, not its message", () => {
-    const n = { level: "warning" as const, code: "lock.dropped", message: "x", path: "/locks/1" };
-    expect(isDropped(1, [n])).toBe(true);
-    expect(isDropped(0, [n])).toBe(false);
-    // the same wording at another index does not make this lock dropped
-    const same = { ...n, message: "Position lock on k was dropped: r.", path: "/locks/2" };
-    expect(isDropped(0, [same])).toBe(false);
+  it("matches the conflict's tray key, not its name", () => {
+    const c = { trayKey: "k:p0:0", name: "Deck", reason: "x" };
+    const position = { kind: "position" as const, trayKey: "k:p0:0", path: "0", rotated: false };
+    expect(isDropped(position, [c])).toBe(true);
+    expect(isDropped({ ...position, trayKey: "other:p0:0" }, [c])).toBe(false);
+    // a stack lock is named by its first tray
+    expect(isDropped({ kind: "stack", trayKeys: ["k:p0:0", "z:p0:0"] }, [c])).toBe(true);
+    expect(isDropped({ kind: "stack", trayKeys: ["z:p0:0", "k:p0:0"] }, [c])).toBe(false);
+    // a conflict of one kind leaves the tray's other locks alone
+    expect(isDropped(position, [{ ...c, kind: "size" }])).toBe(false);
+    expect(isDropped(position, [{ ...c, kind: "position" }])).toBe(true);
+    // the same wording under another key does not make this lock dropped
+    expect(isDropped(position, [{ ...c, trayKey: "z:p0:0", name: "k:p0:0" }])).toBe(false);
   });
 });

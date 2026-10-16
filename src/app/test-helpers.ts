@@ -103,6 +103,7 @@ export function makeResult(
         }
       : null,
     notices: [],
+    lockConflicts: [],
     ...over,
   };
 }

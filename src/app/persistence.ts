@@ -241,6 +241,7 @@ export function createPersistence(
       state.foreign.value = foreign;
       state.history.clear();
       state.lastResult.value = null;
+      state.lockConflicts.value = [];
       state.selection.value = null;
       state.run.value = { status: "idle" };
       state.conflict.value = false;

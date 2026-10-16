@@ -30,11 +30,28 @@ export interface LayoutSummary {
   crossY: number; // most trays one behind the other along Y, for playY
 }
 
+/**
+ * A pin (position, size or stack lock) the layout could not keep. The layout ignored it, so the
+ * app does not accept that layout: the user decides, by unpinning `trayKey`, which pins go.
+ */
+export interface LockConflict {
+  /** The pinned tray; for a stack lock, its first tray. */
+  trayKey: string;
+  /** Which of the tray's locks conflicts (a tray can have a pin and a size lock). */
+  kind?: Lock["kind"];
+  /** What the user calls the tray (a stack lock: its trays, comma separated). */
+  name: string;
+  /** Why the pin can't be kept, as a phrase continuing "…because": no trailing period. */
+  reason: string;
+}
+
 export interface LayoutResult {
   layout: StoredLayout | null; // best feasible; null if none
   bestAttempt: { trays: TraySpec[]; shortfall: { x: number; y: number; z: number } } | null;
   summary: LayoutSummary | null;
-  notices: Notice[]; // warnings (coverage, play, lip off, capped, bed, doesNotFit) + dropped locks
+  notices: Notice[]; // warnings (coverage, play, lip off, capped, bed, doesNotFit)
+  /** Pins the layout ignored. Not empty: the layout is not to be accepted (pins are never dropped silently). */
+  lockConflicts: LockConflict[];
 }
 
 export type LayoutRequest =

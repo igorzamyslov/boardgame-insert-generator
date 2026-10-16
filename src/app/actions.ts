@@ -132,7 +132,7 @@ export function toggleLock(p: Project, tray: TraySpec): Project {
     return p;
   }
   // The whole stack: locking one tray of a stack alone would put it on the floor and evict
-  // the trays under and over it (plan 4 drops such a lock with a notice).
+  // the trays under and over it (a run reports such a lock as a pin conflict).
   const stack = (p.layout?.trays ?? [])
     .filter((t) => t.part === "tray" && t.path === tray.path)
     .sort((a, b) => a.level - b.level);
@@ -193,8 +193,9 @@ export function toggleSizeLock(p: Project, tray: TraySpec): Project {
 const DROPPED_LOCK_PATH = /^\/locks\/(\d+)$/;
 
 /**
- * Removes the locks a run gave up (spec §7.2): plan 4's `lock.dropped` notices carry
- * `path: "/locks/<index>"` into the run's `LayoutInput.locks`, which are `p.locks`.
+ * Removes the locks named by `lock.dropped` notices, which carry `path: "/locks/<index>"` into
+ * `p.locks`. For explicit use only: the runner no longer calls it, because a run's pins are never
+ * dropped silently (it reports `LayoutResult.lockConflicts` and the user unpins).
  * Returns `p` itself when nothing was dropped.
  */
 export function pruneDroppedLocks(p: Project, notices: readonly Notice[]): Project {

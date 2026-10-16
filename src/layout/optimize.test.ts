@@ -155,7 +155,7 @@ describe("optimize", () => {
     expect(r.layout?.trays.find((x) => x.key === "a:p0:0")?.path).toBe(t.path);
   });
 
-  it("drops locks that make the box infeasible and lays out without them", () => {
+  it("reports locks that make the box infeasible and lays out without them", () => {
     const tall = [
       boxReq("p", 140, 90, 20, { rotatable: false }),
       boxReq("q", 140, 90, 20, { rotatable: false }),
@@ -167,9 +167,22 @@ describe("optimize", () => {
     ];
     const r = optimize(makeInput(tall, { box, locks }), 1, 1000);
     expect(r.layout).not.toBeNull();
-    expect(r.notices.filter((n) => n.code === "lock.dropped").map((n) => n.path)).toEqual([
-      "/locks/0",
-      "/locks/1",
+    expect(r.lockConflicts.map((c) => c.trayKey)).toEqual(["p:p0:0", "q:p0:0"]);
+    expect(r.lockConflicts[0]?.reason).toBe("the pins together leave no layout that fits");
+  });
+
+  it("reports pins that conflict up front without searching", () => {
+    const locks = [{ kind: "position" as const, trayKey: "ghost:p0:0", path: "0", rotated: false }];
+    const input = makeInput([boxReq("a", 50, 50, 20)], { locks });
+    const run = createRun(input, 1, 5000);
+    expect(run.step()).toBe(true);
+    expect(run.done).toBe(0);
+    const r = run.result();
+    expect(r.layout).toBeNull();
+    expect(r.bestAttempt).toBeNull();
+    expect(r.notices).toEqual([]);
+    expect(r.lockConflicts).toEqual([
+      expect.objectContaining({ trayKey: "ghost:p0:0", kind: "position" }),
     ]);
   });
 
@@ -286,7 +299,7 @@ describe("optimize", () => {
 
     it("stores the iterations of the phase that produced the layout (fallback phase)", () => {
       const r = optimize(fallbackInput, 1, 1000);
-      expect(r.notices.some((n) => n.code === "lock.dropped")).toBe(true);
+      expect(r.lockConflicts.length).toBeGreaterThan(0);
       expect(r.layout?.iterations).toBe(1000);
       // stopped as soon as the unlocked phase started (after the main and derived-seed chains):
       // it ran nothing yet
@@ -362,11 +375,11 @@ describe("optimize", () => {
       };
       const early = capAfter(1);
       expect(early.layout).toBeNull();
-      expect(early.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+      expect(early.lockConflicts).toEqual([]);
       // one step later the unlocked chain has started (it ran nothing yet) and gives the layout
       const late = capAfter(2);
       expect(late.layout?.capped).toBe(true);
-      expect(late.notices.some((n) => n.code === "lock.dropped")).toBe(true);
+      expect(late.lockConflicts.length).toBeGreaterThan(0);
     });
 
     it("adds a capped run's iterations to the warm start's cumulative count", () => {
@@ -411,7 +424,7 @@ describe("optimize", () => {
       for (const seed of [1, 2]) {
         const r = optimize(small, seed, 1000);
         expect(r.layout).toBeNull();
-        expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+        expect(r.lockConflicts).toEqual([]);
         for (const l of locks) {
           const t = r.bestAttempt?.trays.find((x) => x.key === l.trayKey);
           expect({ path: t?.path, rotated: t?.rotated }).toEqual({
@@ -470,7 +483,7 @@ describe("optimize", () => {
     });
     const r = optimize(both, 1, 1500);
     expect(r.layout).not.toBeNull();
-    expect(r.notices.filter((n) => n.code === "lock.dropped")).toEqual([]);
+    expect(r.lockConflicts).toEqual([]);
     expect(r.layout?.trays.some((x) => x.key === "k:p0:1")).toBe(true);
     expect(checkHardRules(both, r.layout ?? emptyLayout(), r.notices)).toEqual([]);
   });
@@ -572,7 +585,7 @@ describe("a stack level holds a tray plus fillers (spec: minimal trays)", () => 
     const inp = makeInput(stacked, { box, locks: [lock] });
     const r = optimize(inp, 1, 2000);
     const trays = r.layout?.trays ?? [];
-    expect(r.notices.some((n) => n.code === "lock.dropped")).toBe(false);
+    expect(r.lockConflicts).toEqual([]);
     expect(trays.filter((t) => t.part === "tray").map((t) => [t.key, t.level])).toEqual(
       order.map((k, i) => [k, i]),
     );
