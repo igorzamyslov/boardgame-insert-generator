@@ -1,7 +1,6 @@
 // src/app/App.tsx
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
-import { numberParts } from "../instructions/numbering";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Component, ComponentKind, Project, TraySpec } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
@@ -11,8 +10,8 @@ import { exportJsonFile, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
 import { AppHeader } from "../ui/AppHeader";
 import { BoxForm } from "../ui/BoxForm";
-import { AddKinds, ComponentList } from "../ui/components/ComponentList";
-import { trayNumbersByComponent } from "../ui/identity";
+import { AddKinds } from "../ui/components/ComponentList";
+import { WhatsInside } from "../ui/components/WhatsInside";
 import { ExportPanel } from "../ui/ExportPanel";
 import { Modal } from "../ui/Modal";
 import { Notices, PlanBanners } from "../ui/Notices";
@@ -34,6 +33,7 @@ import {
   addComponent,
   lockedKeys,
   removeComponent,
+  removeLock,
   renameProject,
   setSettings,
   swapTrays,
@@ -41,6 +41,7 @@ import {
   toggleLock,
   toggleSizeLock,
   applyPrinter,
+  unpinTrays,
   updateBox,
   updateComponent,
 } from "./actions";
@@ -69,7 +70,7 @@ type ViewId = "plan" | "3d";
 
 const SECTION_TITLES: Record<SectionId, string> = {
   box: "The box",
-  components: "What goes inside",
+  components: "What's inside",
 };
 
 /** Where the fields a validation path belongs to are: a rail section, or the settings sheet. */
@@ -302,10 +303,9 @@ export function App(props: AppProps) {
       saveFile();
     }
   };
-  // What the plan holds, for the sentence, the Export button and the tray numbers of the list.
-  const parts = layout ? numberParts(printable) : [];
+  // What the plan holds, for the sentence, the Export button and the layers named in the list.
   const planCurrent = layout !== undefined && !s.stale.value && run.status !== "running";
-  const trayNumbers = planCurrent ? trayNumbersByComponent(parts, project.components) : undefined;
+  const listTrays = planCurrent ? printable : undefined;
   const layers = layout ? levelsOf(layout.trays).length : 0;
   const spares = layout ? layout.trays.filter((t) => t.part === "leftover").length : 0;
   const partTotal = printable.length;
@@ -406,10 +406,15 @@ export function App(props: AppProps) {
                       />
                     ) : null}
                     {x.id === "components" ? (
-                      <ComponentList
+                      <WhatsInside
                         components={project.components}
-                        trayNumbers={trayNumbers}
+                        trays={listTrays}
+                        locks={project.locks}
                         onAdd={addComponentOfKind}
+                        onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
+                        onUnlockSize={(keys) =>
+                          store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
+                        }
                         onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
                         onRemove={(id) => {
                           const component = project.components.find((x) => x.id === id);
@@ -626,11 +631,7 @@ export function App(props: AppProps) {
                       </p>
                       {project.components.length === 0 ? (
                         <>
-                          <AddKinds
-                            onAdd={addComponentOfKind}
-                            startIndex={0}
-                            label="Pick what goes inside"
-                          />
+                          <AddKinds onAdd={addComponentOfKind} label="Pick what goes inside" />
                           <button type="button" onClick={addExample}>
                             Not sure? Try an example
                           </button>

@@ -531,6 +531,183 @@ span.inserts-name {
   gap: var(--space-3);
 }
 
+/* ---- What's inside: a row per component in its kind's shade, with a chip for each rule ---- */
+.pf-rows {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-row {
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--shade-line);
+  border-radius: var(--radius-md);
+  background: var(--sheet);
+}
+
+.pf-row__open {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  min-height: var(--control-h);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: transparent;
+  font-weight: 400;
+  text-align: left;
+}
+
+.pf-row .pf-swatch,
+.editor-panel .pf-swatch {
+  border-color: var(--shade-line);
+  background: var(--shade-fill);
+  color: var(--shade-ink);
+}
+
+.pf-row__layer {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.pf-item__meta[data-problem="true"] {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.pf-item__meta[data-problem="true"]::before {
+  content: "! ";
+}
+
+.pf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) * 2 + 28px);
+  list-style: none;
+}
+
+.pf-chip {
+  display: inline-flex;
+  align-items: center;
+  padding-left: var(--space-2);
+  border: 1px solid var(--shade-line);
+  border-radius: var(--radius-lg);
+  background: var(--shade-fill);
+  color: var(--shade-ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+/* The × is 44 px to touch, drawn small: it reaches past the chip's edge. */
+.pf-chip__x {
+  display: grid;
+  place-items: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  margin: -10px 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.pf-chip svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+}
+
+/* ---- The component editor, in the place of the list ---- */
+.editor-panel {
+  display: grid;
+  gap: var(--space-4);
+  border-left: 4px solid var(--shade-line);
+  padding-left: var(--space-3);
+}
+
+.editor-panel__bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  background: var(--sheet);
+}
+
+.pf-back,
+.editor-panel__btn {
+  min-height: var(--control-h);
+}
+
+.pf-back {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink);
+}
+
+.pf-back svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+}
+
+.editor-panel__title {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin: 0;
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.editor-panel__title:focus {
+  outline: none;
+}
+
+.editor-panel__title:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.editor-panel__ask {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+}
+
+/* A note about the change just made: it sits at the foot of the page for a few seconds. */
+.pf-toasts {
+  position: fixed;
+  inset: auto var(--space-4) var(--space-4);
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.pf-toast--note {
+  max-width: 480px;
+  margin: 0;
+}
+
 .component-card-foot {
   display: flex;
   justify-content: flex-end;

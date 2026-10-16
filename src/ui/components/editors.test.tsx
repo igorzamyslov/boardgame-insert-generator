@@ -153,7 +153,7 @@ describe("toggles", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
     render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
     expect(screen.queryByLabelText("Curved floor")).toBeNull();
-    fireEvent.click(screen.getByLabelText("Corner reliefs"));
+    fireEvent.click(screen.getByLabelText("Corner holes"));
     expect(lastOf(onChange).cornerReliefs).toBe(false);
   });
 
@@ -225,11 +225,11 @@ describe("toggles", () => {
           onChange={onChange}
         />,
       );
-      expect(labels()).toEqual(["Room for more tiles"]);
-      expect((screen.getByLabelText("Room for more tiles") as HTMLSelectElement).value).toBe(
+      expect(labels()).toEqual(["Room for expansions"]);
+      expect((screen.getByLabelText("Room for expansions") as HTMLSelectElement).value).toBe(
         "auto",
       );
-      fireEvent.change(screen.getByLabelText("Room for more tiles"), { target: { value: "max" } });
+      fireEvent.change(screen.getByLabelText("Room for expansions"), { target: { value: "max" } });
       expect(lastOf(onChange).growth).toEqual({ stack: "max" });
       cleanup();
       render(
@@ -239,7 +239,7 @@ describe("toggles", () => {
           onChange={vi.fn()}
         />,
       );
-      expect((screen.getByLabelText("Room for more tiles") as HTMLSelectElement).value).toBe("off");
+      expect((screen.getByLabelText("Room for expansions") as HTMLSelectElement).value).toBe("off");
     });
 
     it("offers bulk all three axes, auto by default, each stored on its own", () => {
@@ -370,7 +370,7 @@ describe("validation shown in place", () => {
     const disc = view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
     expect(disc.querySelector("summary")?.textContent).toBe("More options");
     expect(disc.open).toBe(false);
-    for (const label of ["Needed during play", "Finger cuts", /^Group/]) {
+    for (const label of ["How often you reach for it", "Finger cuts", /^Group/]) {
       expect(disc.contains(screen.getByLabelText(label))).toBe(true);
     }
   });

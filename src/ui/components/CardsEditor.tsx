@@ -109,56 +109,6 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
           />
         </>
       ) : null}
-      <SelectField
-        id={`${c.id}-sleeve`}
-        label="Sleeves"
-        value={sleeveChoice}
-        options={SLEEVE_OPTIONS}
-        hint="Standard adds 3 mm to both card sides and 0.1 mm per card; premium adds 3 mm and 0.28 mm per card. Pick custom to enter your sleeve's outer size."
-        onChange={(v) => {
-          if (v === "custom") {
-            if (!customSleeve) {
-              onChange({ ...c, sleeve: { w: c.shortSide + 3, h: c.longSide + 3, thickness: 0.1 } });
-            }
-          } else {
-            onChange({ ...c, sleeve: v });
-          }
-        }}
-      />
-      {customSleeve ? (
-        <>
-          <NumberField
-            id={`${c.id}-sleeveW`}
-            label="Sleeve outer width"
-            hint="Width of the sleeved card, measured over the sleeve."
-            unit="mm"
-            value={customSleeve.w}
-            path={`${at}/sleeve/w`}
-            {...LENGTH}
-            onCommit={(v) => onChange({ ...c, sleeve: { ...customSleeve, w: v } })}
-          />
-          <NumberField
-            id={`${c.id}-sleeveH`}
-            label="Sleeve outer length"
-            hint="Length of the sleeved card, measured over the sleeve."
-            unit="mm"
-            value={customSleeve.h}
-            path={`${at}/sleeve/h`}
-            {...LENGTH}
-            onCommit={(v) => onChange({ ...c, sleeve: { ...customSleeve, h: v } })}
-          />
-          <NumberField
-            id={`${c.id}-sleeveT`}
-            label="Added thickness per card"
-            hint="How much one sleeve adds to the card's own thickness."
-            unit="mm"
-            value={customSleeve.thickness}
-            path={`${at}/sleeve/thickness`}
-            {...OFFSET}
-            onCommit={(v) => onChange({ ...c, sleeve: { ...customSleeve, thickness: v } })}
-          />
-        </>
-      ) : null}
       <fieldset class="list-rows">
         <legend>Decks</legend>
         <ListNotices id={`${c.id}-decks`} path={`${at}/decks`} />
@@ -206,6 +156,7 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
       <MoreOptions
         errorPaths={[
           ...commonOptionPaths(index),
+          `${at}/sleeve`,
           `${at}/thickness/scale`,
           `${at}/thickness/cards`,
           `${at}/thickness/stackMm`,
@@ -217,6 +168,59 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
           onChange={onChange}
           pieces={
             <>
+              <SelectField
+                id={`${c.id}-sleeve`}
+                label="Sleeves"
+                value={sleeveChoice}
+                options={SLEEVE_OPTIONS}
+                hint="Standard adds 3 mm to both card sides and 0.1 mm per card; premium adds 3 mm and 0.28 mm per card. Pick custom to enter your sleeve's outer size."
+                onChange={(v) => {
+                  if (v === "custom") {
+                    if (!customSleeve) {
+                      onChange({
+                        ...c,
+                        sleeve: { w: c.shortSide + 3, h: c.longSide + 3, thickness: 0.1 },
+                      });
+                    }
+                  } else {
+                    onChange({ ...c, sleeve: v });
+                  }
+                }}
+              />
+              {customSleeve ? (
+                <>
+                  <NumberField
+                    id={`${c.id}-sleeveW`}
+                    label="Sleeve outer width"
+                    hint="Width of the sleeved card, measured over the sleeve."
+                    unit="mm"
+                    value={customSleeve.w}
+                    path={`${at}/sleeve/w`}
+                    {...LENGTH}
+                    onCommit={(v) => onChange({ ...c, sleeve: { ...customSleeve, w: v } })}
+                  />
+                  <NumberField
+                    id={`${c.id}-sleeveH`}
+                    label="Sleeve outer length"
+                    hint="Length of the sleeved card, measured over the sleeve."
+                    unit="mm"
+                    value={customSleeve.h}
+                    path={`${at}/sleeve/h`}
+                    {...LENGTH}
+                    onCommit={(v) => onChange({ ...c, sleeve: { ...customSleeve, h: v } })}
+                  />
+                  <NumberField
+                    id={`${c.id}-sleeveT`}
+                    label="Added thickness per card"
+                    hint="How much one sleeve adds to the card's own thickness."
+                    unit="mm"
+                    value={customSleeve.thickness}
+                    path={`${at}/sleeve/thickness`}
+                    {...OFFSET}
+                    onCommit={(v) => onChange({ ...c, sleeve: { ...customSleeve, thickness: v } })}
+                  />
+                </>
+              ) : null}
               {measured ? null : (
                 <NumberField
                   id={`${c.id}-thicknessCorrection`}

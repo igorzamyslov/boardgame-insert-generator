@@ -1,13 +1,21 @@
 // src/ui/components/ComponentList.tsx
-import { useEffect, useRef, useState } from "preact/hooks";
-import type { Component, ComponentKind } from "../../model/types";
-import { tintVar } from "../identity";
+import { useContext, useEffect, useRef } from "preact/hooks";
+import { requirementKey } from "../../app/actions";
+import type { Component, ComponentKind, Lock, TraySpec } from "../../model/types";
+import { levelsOf } from "../../plan/layers";
+import {
+  componentIndexOfTray,
+  componentSummary,
+  kindIndexOf,
+  layerLabel,
+  shadeVars,
+} from "../identity";
 import { KindIcon } from "../KindIcon";
-import { ComponentCard } from "./ComponentCard";
+import { ValidationContext } from "../validation";
 
 export const ADD_LABELS: Record<ComponentKind, string> = {
   cards: "Add cards",
-  bulk: "Add bits",
+  bulk: "Add tokens and dice",
   tiles: "Add tiles",
   minis: "Add miniatures",
   custom: "Add other item",
@@ -18,7 +26,7 @@ const KINDS = Object.keys(ADD_LABELS) as ComponentKind[];
 /** What each kind is for, under its name on the Add button. */
 const KIND_NAMES: Record<ComponentKind, string> = {
   cards: "Cards",
-  bulk: "Bits",
+  bulk: "Tokens and dice",
   tiles: "Tiles",
   minis: "Miniatures",
   custom: "Other",
@@ -32,26 +40,26 @@ const KIND_HINTS: Record<ComponentKind, string> = {
   custom: "any size",
 };
 
-/** The five Add buttons: the kind's swatch (in the tint its first item would get), a name and a hint. */
+/** The five Add buttons: the kind's swatch (in the shade its next item would get), a name and a hint. */
 export function AddKinds({
   onAdd,
-  startIndex,
+  counts = {},
   label = "Add a component",
 }: {
   onAdd: (kind: ComponentKind) => void;
   /** The group's accessible name (the empty state shows a second group next to the rail's). */
   label?: string;
-  /** How many components exist: the swatches preview the tints the new items would take. */
-  startIndex: number;
+  /** How many components of each kind exist: the swatches preview the shades the new ones would take. */
+  counts?: Partial<Record<ComponentKind, number>>;
 }) {
   return (
     <div class="pf-kinds" role="group" aria-label={label}>
-      {KINDS.map((k, i) => (
+      {KINDS.map((k) => (
         <button
           type="button"
           class="pf-kind"
           key={k}
-          style={{ "--tint": tintVar(startIndex + i) }}
+          style={shadeVars(k, counts[k] ?? 0)}
           aria-label={ADD_LABELS[k]}
           onClick={() => onAdd(k)}
         >
@@ -68,85 +76,213 @@ export function AddKinds({
 
 export interface ComponentListProps {
   components: readonly Component[];
+  /** The plan's trays; absent while the plan is out of date (no layer is named then). */
+  trays?: readonly TraySpec[];
+  locks?: readonly Lock[];
   onAdd: (kind: ComponentKind) => void;
-  onChange: (id: string, next: Component) => void;
-  /** Returns false when the user declined (nothing was removed). */
-  onRemove: (id: string) => boolean;
-  /** Per component (by index): the numbers of the trays that hold it. Absent while the plan is out of date. */
-  trayNumbers?: ReadonlyMap<number, readonly number[]>;
+  /** A row was chosen: open its editor. */
+  onOpen: (id: string) => void;
+  /** The pins of these trays, and of the stacks they are in, come off. */
+  onUnpin?: (trayKeys: string[]) => void;
+  /** The size locks of these trays come off. */
+  onUnlockSize?: (trayKeys: string[]) => void;
 }
 
+interface Chip {
+  label: string;
+  kind: "pin" | "size";
+  trayKeys: string[];
+}
+
+/** One chip per rule a component's trays are under: pins (turned or not) and size locks. */
+function chipsOf(c: Component, locks: readonly Lock[]): Chip[] {
+  const prefix = `${requirementKey(c)}:`;
+  const mine = locks.filter((l) => l.kind !== "stack" && l.trayKey.startsWith(prefix));
+  const chips: Chip[] = [];
+  const add = (label: string, kind: Chip["kind"], trayKey: string): void => {
+    const known = chips.find((x) => x.label === label);
+    if (known) {
+      known.trayKeys.push(trayKey);
+    } else {
+      chips.push({ label, kind, trayKeys: [trayKey] });
+    }
+  };
+  for (const l of mine) {
+    if (l.kind === "position") {
+      add(l.rotated ? "Pinned, turned" : "Pinned", "pin", l.trayKey);
+    }
+  }
+  for (const l of mine) {
+    if (l.kind === "size") {
+      add("Size locked", "size", l.trayKey);
+    }
+  }
+  return chips;
+}
+
+/** Whether any of these trays is in a pinned stack of several trays: unpinning it lifts them all. */
+function inStack(trayKeys: readonly string[], locks: readonly Lock[]): boolean {
+  return locks.some(
+    (l) =>
+      l.kind === "stack" && l.trayKeys.length > 1 && l.trayKeys.some((k) => trayKeys.includes(k)),
+  );
+}
+
+/** The layers a component's trays stand on, named: "Layer 2", or "Layers 1 and 2". */
+function layersOf(
+  index: number,
+  components: readonly Component[],
+  trays: readonly TraySpec[],
+  levels: readonly number[],
+): string {
+  if (levels.length < 2) {
+    return "";
+  }
+  const at = new Set(
+    trays
+      .filter((t) => t.part === "tray" && componentIndexOfTray(t, components) === index)
+      .map((t) => levels.indexOf(t.level))
+      .filter((l) => l !== -1),
+  );
+  const own = [...at].sort((a, b) => a - b);
+  const [only] = own;
+  if (own.length === 0 || only === undefined) {
+    return "";
+  }
+  if (own.length === 1) {
+    return layerLabel(only, levels.length);
+  }
+  return `Layers ${own.map((l) => l + 1).join(", ")}`;
+}
+
+/**
+ * What's inside: the five Add buttons, then a row per component with its kind's shade, name,
+ * a line about what is in it, its layer, and a chip for each rule its trays are under (each
+ * with an × to lift it). A row opens the component's editor.
+ */
 export function ComponentList({
   components,
+  trays,
+  locks = [],
   onAdd,
-  onChange,
-  onRemove,
-  trayNumbers,
+  onOpen,
+  onUnpin,
+  onUnlockSize,
 }: ComponentListProps) {
+  const notices = useContext(ValidationContext);
   const listRef = useRef<HTMLDivElement>(null);
-  const removing = useRef<{ id: string; index: number } | null>(null);
-  // The card being edited: one at a time, and a new one opens as soon as it is added.
-  const [openId, setOpenId] = useState<string | null>(null);
-  const knownIds = useRef(new Set(components.map((c) => c.id)));
+  // The × that was pressed goes with its chip: the focus moves to the next chip of the row, or to
+  // the row itself, once the list has re-rendered without it.
+  const pressed = useRef<{ button: HTMLElement; rowId: string; index: number } | null>(null);
   useEffect(() => {
-    const added = components.filter((c) => !knownIds.current.has(c.id));
-    knownIds.current = new Set(components.map((c) => c.id));
-    const last = added[added.length - 1];
-    if (last && added.length === 1) {
-      setOpenId(last.id);
-    }
-  }, [components]);
-
-  // The Remove button that had the focus is gone with its card: hand the focus to the card that
-  // took its place (or the one before it), or to the Add buttons when the list is empty. A
-  // removal the user declined leaves everything where it is.
-  useEffect(() => {
-    const r = removing.current;
-    if (r === null || components.some((c) => c.id === r.id)) {
-      removing.current = null;
+    const p = pressed.current;
+    if (p === null || p.button.isConnected) {
       return;
     }
-    removing.current = null;
-    const root = listRef.current;
-    const target =
-      components.length === 0
-        ? root?.querySelector<HTMLElement>(".pf-kinds button")
-        : root?.querySelectorAll<HTMLElement>(".component-card .pf-item__title")[
-            Math.min(r.index, components.length - 1)
-          ];
-    target?.focus();
-  }, [components]);
-
+    pressed.current = null;
+    if (document.activeElement !== null && document.activeElement !== document.body) {
+      return;
+    }
+    const row = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-row-id]") ?? [])].find(
+      (r) => r.dataset.rowId === p.rowId,
+    );
+    const next = row?.querySelectorAll<HTMLElement>(".pf-chip__x")[p.index];
+    (next ?? row?.querySelector<HTMLElement>(".pf-row__open"))?.focus();
+  });
+  const levels = trays ? levelsOf([...trays]) : [];
+  const counts: Partial<Record<ComponentKind, number>> = {};
+  for (const c of components) {
+    counts[c.kind] = (counts[c.kind] ?? 0) + 1;
+  }
   return (
     <div class="component-list" ref={listRef}>
       {components.length === 0 ? (
         <p class="hint">
-          Add what goes in the box: cards, bits (tokens, cubes, dice), tiles, miniatures or anything
-          else. Each one gets a colour you will see again in the plan.
+          Add what goes in the box: cards, tokens and dice, tiles, miniatures or anything else. Each
+          one gets a colour you will see again in the plan.
         </p>
       ) : null}
       <p class="pf-eyebrow add-label">
         {components.length === 0 ? "Add to the box" : "Add another"}
       </p>
-      <AddKinds onAdd={onAdd} startIndex={components.length} />
-      {components.map((c, i) => (
-        <ComponentCard
-          key={c.id}
-          component={c}
-          index={i}
-          open={openId === c.id}
-          trays={trayNumbers?.get(i)}
-          sameName={components.some((o) => o.id !== c.id && o.name === c.name)}
-          onToggle={(open) => setOpenId(open ? c.id : openId === c.id ? null : openId)}
-          onChange={(next) => onChange(c.id, next)}
-          onRemove={() => {
-            removing.current = { id: c.id, index: i };
-            if (!onRemove(c.id)) {
-              removing.current = null;
-            }
-          }}
-        />
-      ))}
+      <AddKinds onAdd={onAdd} counts={counts} />
+      {components.length > 0 ? (
+        <ul class="pf-rows" aria-label="What's inside">
+          {components.map((c, i) => {
+            const name = c.name === "" ? "(unnamed)" : c.name;
+            const sameName = components.some((o) => o.id !== c.id && o.name === c.name);
+            const who = sameName ? `${name} (item ${i + 1})` : name;
+            const layer = trays ? layersOf(i, components, trays, levels) : "";
+            const chips = chipsOf(c, locks);
+            const at = `/components/${i}`;
+            // An error inside the editor is not in sight from here: the row says so.
+            const problem = notices.some(
+              (n) =>
+                n.level === "error" && (n.path === at || (n.path?.startsWith(`${at}/`) ?? false)),
+            );
+            return (
+              <li
+                class="pf-row"
+                key={c.id}
+                aria-label={who}
+                data-row-id={c.id}
+                style={shadeVars(c.kind, kindIndexOf(components, i))}
+              >
+                <button type="button" class="pf-row__open" onClick={() => onOpen(c.id)}>
+                  <KindIcon kind={c.kind} />
+                  <span class="pf-row__text">
+                    <span class="pf-item__title">{name}</span>
+                    <span class="visually-hidden">, </span>
+                    <span class="pf-item__meta" data-problem={problem ? "true" : undefined}>
+                      {problem ? "Needs attention" : componentSummary(c)}
+                    </span>
+                  </span>
+                  {layer === "" ? null : (
+                    <>
+                      <span class="visually-hidden">, </span>
+                      <span class="pf-row__layer">{layer}</span>
+                    </>
+                  )}
+                </button>
+                {chips.length === 0 ? null : (
+                  <ul class="pf-chips" aria-label={`Rules for ${who}`}>
+                    {chips.map((chip, chipIndex) => (
+                      <li class="pf-chip" key={chip.label}>
+                        <span>{chip.label}</span>
+                        <button
+                          type="button"
+                          class="pf-chip__x"
+                          aria-label={
+                            chip.kind === "pin"
+                              ? `Unpin ${who}${inStack(chip.trayKeys, locks) ? " and its stack" : ""}`
+                              : `Remove the size lock on ${who}`
+                          }
+                          onClick={(e) => {
+                            pressed.current = {
+                              button: e.currentTarget,
+                              rowId: c.id,
+                              index: chipIndex,
+                            };
+                            if (chip.kind === "pin") {
+                              onUnpin?.(chip.trayKeys);
+                            } else {
+                              onUnlockSize?.(chip.trayKeys);
+                            }
+                          }}
+                        >
+                          <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                            <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" />
+                          </svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </div>
   );
 }

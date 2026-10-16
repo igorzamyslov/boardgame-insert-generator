@@ -1,21 +1,33 @@
 // src/ui/components/ComponentList.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { makeTray } from "../../app/test-helpers";
 import { newComponent } from "../../model/defaults";
-import type { Component, ComponentKind } from "../../model/types";
+import type { Component, ComponentKind, Lock } from "../../model/types";
+import { ValidationContext } from "../validation";
 import { ADD_LABELS, ComponentList } from "./ComponentList";
 
 afterEach(cleanup);
 
-/** The one-line name of a folded card (the title element, which also takes the focus). */
-const titleOf = (name: string | RegExp) => screen.getByText(name, { selector: ".pf-item__title" });
-
 const KINDS = Object.keys(ADD_LABELS) as ComponentKind[];
 
 function handlers() {
-  return { onAdd: vi.fn(), onChange: vi.fn(), onRemove: vi.fn(() => true) };
+  return { onAdd: vi.fn(), onOpen: vi.fn(), onUnpin: vi.fn(), onUnlockSize: vi.fn() };
 }
+
+const named = (kind: ComponentKind, id: string, name: string): Component => ({
+  ...newComponent(kind),
+  id,
+  name,
+});
+
+const pin = (trayKey: string, rotated = false): Lock => ({
+  kind: "position",
+  trayKey,
+  path: "0",
+  rotated,
+});
 
 describe("ComponentList", () => {
   it("shows a hint and add buttons when empty", () => {
@@ -23,146 +35,177 @@ describe("ComponentList", () => {
     render(<ComponentList components={[]} {...h} />);
     expect(screen.getByText(/Add what goes in the box/)).toBeTruthy();
     // each Add button carries a small hint, so its name is only matched from the start
-    fireEvent.click(screen.getByRole("button", { name: /^Add bits/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Add tokens and dice/ }));
     expect(h.onAdd).toHaveBeenCalledWith("bulk");
     for (const name of [/^Add cards/, /^Add tiles/, /^Add miniatures/, /^Add other item/]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
   });
 
-  it("renders the right editor for every kind", () => {
-    const comps: Component[] = KINDS.map((k) => newComponent(k));
-    const { container } = render(<ComponentList components={comps} {...handlers()} />);
-    expect(screen.getByLabelText("Card size")).toBeTruthy();
-    expect(screen.getByLabelText("How to size item 1")).toBeTruthy();
-    expect(screen.getByLabelText("Tile shape")).toBeTruthy();
-    expect(screen.getByLabelText(/Figure 1 height/)).toBeTruthy();
-    expect(screen.getByLabelText("How many")).toBeTruthy();
-    expect(container.querySelectorAll("details.component-card")).toHaveLength(5);
-  });
-
-  it("renames, sets access and removes", () => {
-    const c = { ...newComponent("cards"), name: "Main deck" };
+  it("has a row for every kind, in the kind's colour, and opens it on a click", () => {
+    const comps = KINDS.map((k, i) => named(k, `id${i}`, `Thing ${i}`));
     const h = handlers();
-    render(<ComponentList components={[c]} {...h} />);
-    expect(titleOf("Main deck")).toBeTruthy();
-    expect(screen.getByText(/^50 cards/)).toBeTruthy();
-    fireEvent.input(screen.getByLabelText("Name"), { target: { value: "Market" } });
-    expect(h.onChange).toHaveBeenLastCalledWith(c.id, { ...c, name: "Market" });
-    fireEvent.change(screen.getByLabelText("Needed during play"), { target: { value: "often" } });
-    expect(h.onChange).toHaveBeenLastCalledWith(c.id, { ...c, access: "often" });
-    fireEvent.click(screen.getByRole("button", { name: "Remove Main deck" }));
-    expect(h.onRemove).toHaveBeenCalledWith(c.id);
+    const { container } = render(<ComponentList components={comps} {...h} />);
+    expect(container.querySelectorAll(".pf-row")).toHaveLength(5);
+    expect(
+      (container.querySelector(".pf-row") as HTMLElement).style.getPropertyValue("--shade-fill"),
+    ).toMatch(/^light-dark\(#/);
+    fireEvent.click(screen.getByRole("button", { name: /^Thing 2,/ }));
+    expect(h.onOpen).toHaveBeenCalledWith("id2");
   });
 
-  it("puts the Add buttons above the cards and shows the trays a card makes", () => {
-    const a = { ...newComponent("custom"), id: "a", name: "Dial" };
-    const b = { ...newComponent("custom"), id: "b", name: "Die" };
-    const trays = new Map([
-      [0, [3]],
-      [1, [1, 4]],
-    ]);
+  it("gives two components of one kind their own shades", () => {
+    const comps = [named("cards", "a", "Main"), named("cards", "b", "Market")];
+    const { container } = render(<ComponentList components={comps} {...handlers()} />);
+    const fill = (row: Element) => (row as HTMLElement).style.getPropertyValue("--shade-fill");
+    const [first, second] = [...container.querySelectorAll(".pf-row")];
+    expect(fill(first as Element)).not.toBe(fill(second as Element));
+  });
+
+  it("shows the name, what is in it and a stand-in for an empty name", () => {
+    const c = { ...named("cards", "a", "Main deck") };
+    const blank = named("custom", "b", "");
+    render(<ComponentList components={[c, blank]} {...handlers()} />);
+    const row = screen.getByRole("button", { name: /^Main deck,/ });
+    expect(within(row).getByText(/^50 cards/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^\(unnamed\),/ })).toBeTruthy();
+  });
+
+  it("says Needs attention on the row of a component with an error", () => {
+    const comps = [named("cards", "a", "Main"), named("bulk", "b", "Gems")];
+    render(
+      <ValidationContext.Provider
+        value={[{ level: "error", code: "x", message: "Bad", path: "/components/1/items/0/w" }]}
+      >
+        <ComponentList components={comps} {...handlers()} />
+      </ValidationContext.Provider>,
+    );
+    expect(screen.getByRole("button", { name: /^Gems,\s*Needs attention/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Main,\s*50 cards/ })).toBeTruthy();
+  });
+
+  it("puts the Add buttons above the rows", () => {
     const { container } = render(
-      <ComponentList components={[a, b]} trayNumbers={trays} {...handlers()} />,
+      <ComponentList components={[named("custom", "a", "Dial")]} {...handlers()} />,
     );
     const kinds = container.querySelector(".pf-kinds") as HTMLElement;
-    const card = container.querySelector(".component-card") as HTMLElement;
-    expect(kinds.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText(/ · tray 3$/)).toBeTruthy();
-    expect(screen.getByText(/ · trays 1, 4$/)).toBeTruthy();
+    const row = container.querySelector(".pf-row") as HTMLElement;
+    expect(kinds.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("keeps one card open at a time and opens a newly added one", () => {
-    const a = { ...newComponent("custom"), id: "a", name: "Dial" };
-    const b = { ...newComponent("custom"), id: "b", name: "Die" };
-    const h = handlers();
-    const view = render(<ComponentList components={[a]} {...h} />);
-    const cardOf = (name: string) => titleOf(name).closest("details") as HTMLDetailsElement;
-    expect(cardOf("Dial").open).toBe(false);
-    view.rerender(<ComponentList components={[a, b]} {...h} />);
-    expect(cardOf("Die").open).toBe(true);
-    expect(cardOf("Dial").open).toBe(false);
-    cardOf("Dial").open = true;
-    fireEvent(cardOf("Dial"), new Event("toggle"));
-    expect(cardOf("Dial").open).toBe(true);
-    expect(cardOf("Die").open).toBe(false);
+  it("names the layer of each row once the plan has more than one", () => {
+    const comps = [named("cards", "a", "Main"), named("bulk", "b", "Gems")];
+    const trays = [
+      makeTray({ key: "a:p0:0", level: 0, compartments: [{ ...well("a") }] }),
+      makeTray({ key: "b:p0:0", level: 1, compartments: [{ ...well("b") }] }),
+    ];
+    render(<ComponentList components={comps} trays={trays} {...handlers()} />);
+    expect(screen.getByRole("button", { name: /^Main,.*Layer 1 \(bottom\)$/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Gems,.*Layer 2 \(top\)$/ })).toBeTruthy();
   });
 
-  it("names each remove button after its card, with a stand-in for an empty name and the position for a repeated one", () => {
-    const a = { ...newComponent("custom"), id: "a", name: "" };
-    const b = { ...newComponent("custom"), id: "b", name: "Dial" };
-    const d = { ...newComponent("custom"), id: "d", name: "Dial" };
-    const h = handlers();
-    render(<ComponentList components={[a, b, d]} {...h} />);
-    const names = screen.getAllByRole("button", { name: /^Remove / }).map((x) => x.ariaLabel);
-    // Two cards share a name: their buttons say which one by position.
-    expect(names).toEqual(["Remove (unnamed)", "Remove Dial (item 2)", "Remove Dial (item 3)"]);
-    fireEvent.click(screen.getByRole("button", { name: "Remove Dial (item 3)" }));
-    expect(h.onRemove).toHaveBeenCalledWith("d");
+  it("names no layer without a plan, or with a single layer", () => {
+    const comps = [named("cards", "a", "Main")];
+    const trays = [makeTray({ key: "a:p0:0", compartments: [{ ...well("a") }] })];
+    const view = render(<ComponentList components={comps} trays={trays} {...handlers()} />);
+    expect(screen.queryByText(/^Layer/)).toBeNull();
+    view.rerender(<ComponentList components={comps} {...handlers()} />);
+    expect(screen.queryByText(/^Layer/)).toBeNull();
   });
 
-  describe("focus after a removal", () => {
-    const three = ["a", "b", "c"].map((id) => ({
-      ...newComponent("custom"),
-      id,
-      name: `Item ${id}`,
-    }));
+  describe("chips", () => {
+    const comps = [named("cards", "a", "Main deck"), named("bulk", "b", "Gems")];
 
-    function setup(components: Component[]) {
+    it("shows Pinned, Pinned, turned and Size locked on the component they belong to", () => {
+      const locks: Lock[] = [
+        pin("a:p0:0"),
+        pin("b:p0:0", true),
+        { kind: "size", trayKey: "a:p0:0", w: 1, d: 1, h: 1 },
+      ];
+      render(<ComponentList components={comps} locks={locks} {...handlers()} />);
+      const main = screen.getByRole("listitem", { name: "Main deck" });
+      expect(within(main).getByText("Pinned")).toBeTruthy();
+      expect(within(main).getByText("Size locked")).toBeTruthy();
+      const gems = screen.getByRole("listitem", { name: "Gems" });
+      expect(within(gems).getByText("Pinned, turned")).toBeTruthy();
+      expect(within(gems).queryByText("Size locked")).toBeNull();
+    });
+
+    it("shows one chip for a component whose trays are all pinned", () => {
+      const locks: Lock[] = [pin("a:p0:0"), pin("a:p1:0")];
+      render(<ComponentList components={comps} locks={locks} {...handlers()} />);
+      expect(screen.getAllByText("Pinned")).toHaveLength(1);
+    });
+
+    it("removing a Pinned chip unpins the stack", () => {
+      const locks: Lock[] = [pin("a:p0:0"), pin("a:p1:0"), pin("b:p0:0")];
       const h = handlers();
-      const view = render(<ComponentList components={components} {...h} />);
-      const rerender = (next: Component[]) =>
-        view.rerender(<ComponentList components={next} {...h} />);
-      return { rerender };
-    }
-
-    const removeButton = (n: number) =>
-      screen.getByRole("button", { name: `Remove Item ${"abc"[n - 1]}` });
-
-    it("moves to the title of the card that took the place of the removed one", () => {
-      const { rerender } = setup(three);
-      removeButton(2).focus();
-      fireEvent.click(removeButton(2));
-      rerender([three[0] as Component, three[2] as Component]);
-      expect(document.activeElement).toBe(titleOf(/Item c/));
+      render(<ComponentList components={comps} locks={locks} {...h} />);
+      fireEvent.click(screen.getByRole("button", { name: "Unpin Main deck" }));
+      expect(h.onUnpin).toHaveBeenCalledWith(["a:p0:0", "a:p1:0"]);
+      expect(h.onUnlockSize).not.toHaveBeenCalled();
+      expect(h.onOpen).not.toHaveBeenCalled();
     });
 
-    it("moves to the new last card when the last one was removed", () => {
-      const { rerender } = setup(three);
-      removeButton(3).focus();
-      fireEvent.click(removeButton(3));
-      rerender(three.slice(0, 2));
-      expect(document.activeElement).toBe(titleOf(/Item b/));
+    it("says a stack goes with its pin, when the stack has several trays", () => {
+      const locks: Lock[] = [
+        pin("a:p0:0"),
+        pin("b:p0:0"),
+        { kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] },
+      ];
+      render(<ComponentList components={comps} locks={locks} {...handlers()} />);
+      expect(screen.getByRole("button", { name: "Unpin Main deck and its stack" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Unpin Gems and its stack" })).toBeTruthy();
     });
 
-    it("moves to the Add buttons when the list is empty now", () => {
-      const only = three.slice(0, 1);
-      const { rerender } = setup(only);
-      removeButton(1).focus();
-      fireEvent.click(removeButton(1));
-      rerender([]);
-      expect(document.activeElement).toBe(document.querySelector(".pf-kinds button"));
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Add cards/ }));
+    it("keeps a lone pin's button plainly Unpin", () => {
+      render(<ComponentList components={comps} locks={[pin("a:p0:0")]} {...handlers()} />);
+      expect(screen.getByRole("button", { name: "Unpin Main deck" })).toBeTruthy();
     });
 
-    it("forgets a declined removal, so a later change of the list doesn't take the focus", () => {
+    it("moves the focus to the next chip of the row when a chip goes, else to the row", () => {
+      const locks: Lock[] = [pin("a:p0:0"), { kind: "size", trayKey: "a:p0:0", w: 1, d: 1, h: 1 }];
       const h = handlers();
-      h.onRemove.mockReturnValue(false);
-      const view = render(<ComponentList components={three} {...h} />);
-      removeButton(2).focus();
-      fireEvent.click(removeButton(2));
-      expect(h.onRemove).toHaveBeenCalledWith("b");
-      // another project is opened: the list loses "b" for a reason that has nothing to do with it
-      view.rerender(<ComponentList components={[three[0] as Component]} {...h} />);
-      expect(document.activeElement).not.toBe(titleOf(/Item a/));
+      const view = render(<ComponentList components={comps} locks={locks} {...h} />);
+      const unpin = screen.getByRole("button", { name: "Unpin Main deck" });
+      unpin.focus();
+      fireEvent.click(unpin);
+      view.rerender(<ComponentList components={comps} locks={[locks[1] as Lock]} {...h} />);
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Remove the size lock on Main deck" }),
+      );
+      fireEvent.click(document.activeElement as HTMLElement);
+      view.rerender(<ComponentList components={comps} locks={[]} {...h} />);
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Main deck,/ }));
     });
 
-    it("leaves the focus alone when the removal was declined", () => {
-      const { rerender } = setup(three);
-      removeButton(2).focus();
-      fireEvent.click(removeButton(2));
-      rerender(three.map((c) => (c.id === "a" ? { ...c, name: "Renamed" } : c)));
-      expect(document.activeElement).toBe(removeButton(2));
+    it("removing a Size locked chip lifts the size lock", () => {
+      const locks: Lock[] = [{ kind: "size", trayKey: "b:p0:0", w: 1, d: 1, h: 1 }];
+      const h = handlers();
+      render(<ComponentList components={comps} locks={locks} {...h} />);
+      fireEvent.click(screen.getByRole("button", { name: "Remove the size lock on Gems" }));
+      expect(h.onUnlockSize).toHaveBeenCalledWith(["b:p0:0"]);
+    });
+
+    it("follows a group's key, so each member of the group shows the pin", () => {
+      const a = { ...named("bulk", "a", "Cubes"), groupId: "tokens" };
+      const b = { ...named("bulk", "b", "Dice"), groupId: "tokens" };
+      render(<ComponentList components={[a, b]} locks={[pin("tokens:p0:0")]} {...handlers()} />);
+      expect(screen.getAllByText("Pinned")).toHaveLength(2);
     });
   });
 });
+
+function well(componentId: string) {
+  return {
+    x: 1.6,
+    y: 1.6,
+    w: 50,
+    d: 50,
+    floorZ: 1.2,
+    kind: "well" as const,
+    contents: "x",
+    features: [],
+    componentId,
+  };
+}

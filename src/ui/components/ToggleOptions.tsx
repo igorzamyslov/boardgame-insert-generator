@@ -74,7 +74,7 @@ export function ToggleOptions<C extends Component>({
       ) : null}
       <CheckField
         id={`${c.id}-cornerReliefs`}
-        label="Corner reliefs"
+        label="Corner holes"
         checked={cornerReliefsOn(c)}
         hint="Round holes in each compartment's corners, so flat square pieces sit flat."
         onChange={(on) => onChange({ ...c, cornerReliefs: on })}
@@ -104,7 +104,7 @@ export function ToggleOptions<C extends Component>({
           {dividersOffered(c) ? (
             <NumberField
               id={`${c.id}-dividers`}
-              label="Dividers"
+              label="Removable dividers"
               hint={`Loose plates that split the grown well into this many plus one sections (per player, by card type), each standing in a slot in the tray's floor. Evenly spaced. Each section is held upright at both ends, so the room may be that many times larger. Every divider takes about ${DIVIDER_THICKNESS + DIVIDER_PLAY} mm of the well, and the tray is up to ${DIVIDER_GROOVE} mm taller for the slots. Not combined with spacer plates. 0: none.`}
               value={dividersOf(c)}
               {...DIVIDERS}

@@ -125,6 +125,12 @@ export function shadeOf(kind: ComponentKind, index: number): Shade {
   };
 }
 
+/** The shade of the nth component of a kind as CSS custom properties, for a row or a panel to take. */
+export function shadeVars(kind: ComponentKind, index: number): Record<string, string> {
+  const shade = shadeOf(kind, index);
+  return { "--shade-fill": shade.fill, "--shade-line": shade.line, "--shade-ink": shade.ink };
+}
+
 /**
  * Every card spacer is this one colour, in the 3D view and on the assembly page: a spacer
  * belongs to no component, and they all do the same job, so telling them apart by colour
@@ -193,27 +199,6 @@ export function tintOfTray(tray: TraySpec, components: readonly Component[]): st
   return index === null ? null : tintVar(index);
 }
 
-/** For each component (by index), the numbers of the trays that hold it, in plan order. */
-export function trayNumbersByComponent(
-  parts: readonly { number: number; spec: TraySpec }[],
-  components: readonly Component[],
-): Map<number, number[]> {
-  const out = new Map<number, number[]>();
-  for (const part of parts) {
-    if (part.spec.part !== "tray") {
-      continue;
-    }
-    const index = componentIndexOfTray(part.spec, components);
-    if (index !== null) {
-      out.set(
-        index,
-        [...(out.get(index) ?? []), part.number].sort((x, y) => x - y),
-      );
-    }
-  }
-  return out;
-}
-
 const mm = (v: number): string => String(Math.round(v * 10) / 10);
 
 /** One line about a component for its collapsed row: what and how much. */
@@ -221,7 +206,11 @@ export function componentSummary(c: Component): string {
   switch (c.kind) {
     case "cards": {
       const n = c.decks.reduce((sum, d) => sum + d.count, 0);
-      return `${n} cards · ${mm(c.shortSide)} × ${mm(c.longSide)} mm`;
+      const sleeves =
+        c.sleeve === "none"
+          ? ""
+          : ` · ${typeof c.sleeve === "object" ? "custom" : c.sleeve} sleeves`;
+      return `${n} cards · ${mm(c.shortSide)} × ${mm(c.longSide)} mm${sleeves}`;
     }
     case "bulk": {
       const n = c.items.length;
@@ -241,4 +230,16 @@ export function componentSummary(c: Component): string {
     case "custom":
       return `${c.count} × ${mm(c.w)} × ${mm(c.d)} × ${mm(c.h)} mm`;
   }
+}
+
+/** Which shade of its kind's hue the component at `index` takes: how many of its kind come before it. */
+export function kindIndexOf(components: readonly Component[], index: number): number {
+  const kind = components[index]?.kind;
+  return components.slice(0, index).filter((c) => c.kind === kind).length;
+}
+
+/** "Layer 1 (bottom)", "Layer 2", … "Layer n (top)"; a single layer is just "Layer 1". */
+export function layerLabel(level: number, count: number): string {
+  const end = count < 2 ? "" : level === 0 ? " (bottom)" : level === count - 1 ? " (top)" : "";
+  return `Layer ${level + 1}${end}`;
 }
