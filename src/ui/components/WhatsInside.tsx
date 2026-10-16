@@ -49,14 +49,18 @@ export function WhatsInside({
   const setOpenId = onOpenChange ?? setOwnId;
   const comeBackTo = useRef<{ id: string; index: number; removed: boolean } | null>(null);
   const knownIds = useRef(new Set(components.map((c) => c.id)));
+  // Only an Add pressed here opens the new item. An item that turns up any other way (another
+  // project, an Undo that brings one back, a Redo of an add) must not open an editor or take focus.
+  const adding = useRef(false);
 
   useEffect(() => {
     const added = components.filter((c) => !knownIds.current.has(c.id));
     knownIds.current = new Set(components.map((c) => c.id));
     const last = added[added.length - 1];
-    if (last && added.length === 1) {
+    if (last && added.length === 1 && adding.current) {
       setOpenId(last.id);
     }
+    adding.current = false;
   }, [components]);
 
   const index = components.findIndex((c) => c.id === openId);
@@ -96,7 +100,10 @@ export function WhatsInside({
           components={components}
           trays={trays}
           locks={locks}
-          onAdd={onAdd}
+          onAdd={(kind) => {
+            adding.current = true;
+            onAdd(kind);
+          }}
           onOpen={setOpenId}
           onUnpin={onUnpin}
           onUnlockSize={onUnlockSize}

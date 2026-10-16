@@ -63,11 +63,28 @@ describe("WhatsInside", () => {
 
   it("opens a component as soon as it is added, and not when several are", () => {
     const { rerender } = setup(three.slice(0, 1));
+    fireEvent.click(screen.getByRole("button", { name: "Add other item" }));
     rerender(three.slice(0, 2));
     expect(screen.getByRole("heading", { name: "Item b" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add other item" }));
     rerender([...three.slice(0, 2), item("d", "Item d"), item("e", "Item e")]);
     expect(screen.queryByRole("heading", { name: /^Item [de]$/ })).toBeNull();
+  });
+
+  it("does not open an editor, or take the focus, for an item that turns up without an Add", () => {
+    // another project with one unseen item, or an Undo that brings one back
+    const { rerender } = setup(three);
+    const menu = document.createElement("button");
+    document.body.append(menu);
+    menu.focus();
+    rerender([item("z", "Item z")]);
+    expect(screen.queryByRole("heading", { name: "Item z" })).toBeNull();
+    expect(screen.getByRole("list", { name: "What's inside" })).toBeTruthy();
+    expect(document.activeElement).toBe(menu);
+    rerender([item("z", "Item z"), item("y", "Item y")]);
+    expect(screen.queryByRole("heading", { name: "Item y" })).toBeNull();
+    menu.remove();
   });
 
   it("goes back to the list when the open component goes away", () => {
