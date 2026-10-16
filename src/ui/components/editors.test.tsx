@@ -68,16 +68,13 @@ describe("BulkEditor", () => {
 describe("TilesEditor", () => {
   it("switches to hexagons and sets the orientation", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
-    const view = render(
-      <TilesEditor component={of("tiles")} index={0} advanced={false} onChange={onChange} />,
-    );
+    const view = render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Tile shape"), { target: { value: "hex" } });
     expect(lastOf(onChange).shape).toEqual({ type: "hex", flatToFlat: 40, orientation: "flat" });
     view.rerender(
       <TilesEditor
         component={{ ...of("tiles"), shape: { type: "hex", flatToFlat: 40, orientation: "flat" } }}
         index={0}
-        advanced={false}
         onChange={onChange}
       />,
     );
@@ -91,7 +88,7 @@ describe("TilesEditor", () => {
 
   it("offers storage under More options", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
-    render(<TilesEditor component={of("tiles")} index={0} advanced onChange={onChange} />);
+    render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Storage"), { target: { value: "upright" } });
     expect(lastOf(onChange).storage).toBe("upright");
   });
@@ -153,7 +150,7 @@ describe("toggles", () => {
 
   it("offers no curved floor on tiles, and corner reliefs on by default in advanced mode", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
-    render(<TilesEditor component={of("tiles")} index={0} advanced onChange={onChange} />);
+    render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
     expect(screen.queryByLabelText("Curved floor")).toBeNull();
     fireEvent.click(screen.getByLabelText("Corner reliefs"));
     expect(lastOf(onChange).cornerReliefs).toBe(false);
@@ -164,7 +161,6 @@ describe("toggles", () => {
       <TilesEditor
         component={{ ...of("tiles"), growth: { stack: "off" } }}
         index={0}
-        advanced
         onChange={vi.fn()}
       />,
     );
@@ -175,7 +171,6 @@ describe("toggles", () => {
       <TilesEditor
         component={{ ...of("tiles"), storage: "upright" }}
         index={0}
-        advanced
         onChange={onChange}
       />,
     );
@@ -207,7 +202,6 @@ describe("toggles", () => {
         <TilesEditor
           component={{ ...of("tiles"), storage: "upright", separators: 5 }}
           index={0}
-          advanced
           onChange={vi.fn()}
         />
       </SizingContext.Provider>,
@@ -227,7 +221,6 @@ describe("toggles", () => {
         <TilesEditor
           component={{ ...of("tiles"), storage: "upright" }}
           index={0}
-          advanced
           onChange={onChange}
         />,
       );
@@ -242,7 +235,6 @@ describe("toggles", () => {
         <TilesEditor
           component={{ ...of("tiles"), storage: "flat" }}
           index={0}
-          advanced
           onChange={vi.fn()}
         />,
       );
@@ -349,7 +341,7 @@ describe("validation shown in place", () => {
           err("field.curvedFloor", "/components/0/curvedFloor", "Tiles can't have a curved floor."),
         ]}
       >
-        <TilesEditor component={tiles} index={0} advanced onChange={vi.fn()} />
+        <TilesEditor component={tiles} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     const alert = screen.getByRole("alert");
@@ -434,7 +426,7 @@ describe("validation shown in place", () => {
   it("moves focus to Finger cuts when a file-set curved floor on tiles is turned off", () => {
     function Harness() {
       const [c, setC] = useState<TilesComponent>({ ...of("tiles"), curvedFloor: true });
-      return <TilesEditor component={c} index={0} advanced onChange={setC} />;
+      return <TilesEditor component={c} index={0} onChange={setC} />;
     }
     render(<Harness />);
     const floor = screen.getByLabelText("Curved floor");
