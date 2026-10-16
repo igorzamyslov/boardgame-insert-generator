@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { DEFAULT_SETTINGS } from "../model/settings";
+import { shadeHex } from "../ui/identity";
 import type { Component, Project } from "../model/types";
 import { pngSize, svgDataUrl } from "./png";
 import { escapeXml, layerInfo, packingSteps, render, truncate, whatGoesWhere } from "./render";
@@ -169,7 +170,8 @@ describe("render", () => {
       }
       const colours = [...svg.matchAll(/(?:fill|stroke)="([^"]+)"/g)].map((m) => m[1]);
       for (const c of colours) {
-        expect(c, `colour ${c}`).toMatch(/^(none|#[0-9a-f]{3,8})$/i);
+        // The spacer hatch is a pattern the SVG defines itself.
+        expect(c, `colour ${c}`).toMatch(/^(none|#[0-9a-f]{3,8}|url\(#spacer-hatch\))$/i);
       }
     }
   });
@@ -196,12 +198,39 @@ describe("render", () => {
     const fills = [...parse(svg ?? "").querySelectorAll('rect[rx="1.5"]')].map((r) =>
       r.getAttribute("fill"),
     );
-    expect(fills).toEqual(["#d3e0f5", "#f0d5cc", "#d6ead7"]);
+    // Each component has its own shade of its kind's hue, as on screen, in plain hex.
+    const comps = project.components;
+    const shades = comps
+      .slice(0, 3)
+      .map((c, i) =>
+        shadeHex(
+          c.kind,
+          comps.slice(0, i).filter((x) => x.kind === c.kind).length,
+          "light",
+        ).fill.toLowerCase(),
+      );
+    expect(new Set(shades).size).toBe(3);
+    expect(fills.map((f) => f?.toLowerCase())).toEqual(shades);
     // one cards glyph per tray, stroked, unfilled
     const glyphs = parse(svg ?? "").querySelectorAll("g[transform]");
     expect(glyphs).toHaveLength(3);
     expect(glyphs[0]?.getAttribute("stroke")).toBe("#333333");
     expect(glyphs[0]?.getAttribute("fill")).toBe("none");
+  });
+
+  it("hatches spacers with a dashed edge, and defines the hatch only where a spacer is drawn", () => {
+    const withSpacer = makeLayout("h", [bottom, spacer]);
+    const [svg] = render(withSpacer, named);
+    const doc = parse(svg ?? "");
+    expect(doc.querySelectorAll("pattern#spacer-hatch")).toHaveLength(1);
+    const hatched = [...doc.querySelectorAll("rect")].filter(
+      (r) => r.getAttribute("fill") === "url(#spacer-hatch)",
+    );
+    expect(hatched).toHaveLength(1);
+    expect(hatched[0]?.getAttribute("stroke")).toBe("#6e695c");
+    expect(hatched[0]?.getAttribute("stroke-dasharray")).toBeTruthy();
+    const [plain] = render(makeLayout("h", [bottom]), named);
+    expect(plain).not.toContain("spacer-hatch");
   });
 
   it("leaves spare and leftover trays white with a dashed outline and no glyph", () => {
@@ -396,7 +425,7 @@ describe("packing order and parts list", () => {
   it("packs bottom first, spacers after their tray", () => {
     expect(packingSteps(layout, named.components)).toEqual([
       "Layer 1: place Deck A 1.",
-      "Slide Spacer by Deck A 2 into Deck A 1.",
+      "Slide the spacer into Deck A 1 (Spacer by Deck A 2).",
       "Layer 1: place Deck A 2.",
       "Layer 2: place <Coins> & gems on top.",
     ]);

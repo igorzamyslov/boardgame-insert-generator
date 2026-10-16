@@ -1,6 +1,7 @@
 // src/instructions/render.ts
 import type { Component, ComponentKind, Project, StoredLayout, TraySpec } from "../model/types";
-import { SPACER_COLOR, componentIndexOfTray } from "../ui/identity";
+import { componentIndexOfTray, shadeHex } from "../ui/identity";
+import type { Shade } from "../ui/identity";
 import {
   footprintsAt,
   isAddOn,
@@ -60,27 +61,37 @@ export function truncate(s: string, max: number): string {
 const SVG_PX_PER_MM = 3;
 
 /**
- * The identity tints on paper: the light-theme values of --tint-1 … --tint-8, fixed because a
- * printed page is always black on white whatever theme the screen uses. Indexed like tintVar.
+ * A spacer on paper: hatched, with a dashed edge, as on screen. Plain hex, because a printed page
+ * is always black on white whatever theme the screen uses.
  */
-const PAPER_TINTS = [
-  "#d3e0f5",
-  "#f0d5cc",
-  "#d6ead7",
-  "#f2e6bd",
-  "#e0d7f0",
-  "#cde8e6",
-  "#f2d3de",
-  "#dfe2e7",
-] as const;
+export const SPACER_PAPER = { fill: "#e9e5db", hatch: "#ddd8cc", dash: "#6e695c" } as const;
+
+/** The id of the hatch every spacer on a layer picture is filled with. */
+const HATCH_ID = "spacer-hatch";
+
+const HATCH_DEFS = `<defs><pattern id="${HATCH_ID}" width="2" height="2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2" height="2" fill="${SPACER_PAPER.fill}"/><line x1="0" y1="0" x2="0" y2="2" stroke="${SPACER_PAPER.hatch}" stroke-width="0.9"/></pattern></defs>`;
 
 export const INK = "#333333";
 const GHOST = "#767676";
 
-/** A tray's fill on paper: its component's tint, or null for a part that holds nothing (spare, filler). */
-export function paperTintOf(t: TraySpec, project: Project): string | null {
+/**
+ * A tray's colours on paper: its component's shade of its kind's hue (the light-scheme hex of
+ * `shadeOf`, as on screen), or null for a part that holds nothing (spare, filler).
+ */
+export function paperShadeOf(t: TraySpec, project: Project): Shade | null {
   const index = t.part === "leftover" ? null : componentIndexOfTray(t, project.components);
-  return index === null ? null : (PAPER_TINTS[index % PAPER_TINTS.length] ?? null);
+  const component = index === null ? undefined : project.components[index];
+  if (index === null || component === undefined) {
+    return null;
+  }
+  // Each component of a kind has its own shade: the nth of its kind, in list order.
+  const nth = project.components.slice(0, index).filter((c) => c.kind === component.kind).length;
+  return shadeHex(component.kind, nth, "light");
+}
+
+/** A tray's fill on paper: see `paperShadeOf`. */
+export function paperTintOf(t: TraySpec, project: Project): string | null {
+  return paperShadeOf(t, project)?.fill ?? null;
 }
 
 /** The kind glyphs of src/ui/kindGlyphs.tsx as plain SVG markup, on the same 24 unit grid. */
@@ -127,12 +138,12 @@ function layerSvg(
   for (const t of trays) {
     const shapes = footprintsAt(t, level).map((f) => toSvgRect(f, frame));
     const index = t.part === "leftover" ? null : componentIndexOfTray(t, project.components);
-    const tint = index === null ? null : PAPER_TINTS[index % PAPER_TINTS.length];
+    const shade = paperShadeOf(t, project);
     // Spare and leftover trays hold no component: plain white, dashed, so they read as "the rest".
     const look =
-      tint === null || tint === undefined
+      shade === null
         ? `fill="#ffffff" stroke="${INK}" stroke-width="0.5" stroke-dasharray="2 1.5"`
-        : `fill="${tint}" stroke="${INK}" stroke-width="0.5"`;
+        : `fill="${shade.fill}" stroke="${shade.line}" stroke-width="0.6"`;
     for (const r of shapes) {
       out.push(
         `<rect x="${n(r.x)}" y="${n(r.y)}" width="${n(r.w)}" height="${n(r.h)}" rx="1.5" ${look}/>`,
@@ -144,10 +155,13 @@ function layerSvg(
       out.push(glyphSvg(kind, r));
     }
   }
+  if (spacers.length > 0) {
+    out.push(HATCH_DEFS);
+  }
   for (const s of spacers) {
     const r = toSvgRect(s, frame);
     out.push(
-      `<rect x="${n(r.x)}" y="${n(r.y)}" width="${n(r.w)}" height="${n(r.h)}" fill="${SPACER_COLOR}" stroke="#8a5a00" stroke-width="0.4" stroke-dasharray="1.5 1"/>`,
+      `<rect x="${n(r.x)}" y="${n(r.y)}" width="${n(r.w)}" height="${n(r.h)}" fill="url(#${HATCH_ID})" stroke="${SPACER_PAPER.dash}" stroke-width="0.5" stroke-dasharray="1.5 1"/>`,
     );
   }
   // The trays of the layer below, faintly, over the shapes: where this layer's trays stand.
@@ -215,7 +229,7 @@ function layerSvg(
   });
   placed.forEach((b, i) => {
     const spacer = i >= trays.length;
-    const stroke = spacer ? "#8a5a00" : INK;
+    const stroke = spacer ? SPACER_PAPER.dash : INK;
     out.push(
       `<rect x="${n(b.cx - b.w / 2)}" y="${n(b.cy - b.h / 2)}" width="${n(b.w)}" height="${n(b.h)}" rx="${n(b.h / 2)}" fill="#ffffff" stroke="${stroke}" stroke-width="0.4"/>`,
       `<text x="${n(b.cx)}" y="${n(b.cy)}" font-size="${n(b.fs)}" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#111111">${escapeXml(b.text)}</text>`,
@@ -346,7 +360,7 @@ export function packingSteps(layout: StoredLayout, components: readonly Componen
       }
       for (const s of parts) {
         if (s.spec.part === "spacer" && s.parentNumber === p.number) {
-          steps.push(`Slide ${nameOf(s)} into ${nameOf(p)}.`);
+          steps.push(`Slide the spacer into ${nameOf(p)} (${nameOf(s)}).`);
         }
         if (s.spec.part === "divider" && s.parentNumber === p.number) {
           steps.push(`Stand ${nameOf(s)} in its floor slot.`);

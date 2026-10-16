@@ -8,13 +8,12 @@
 // as the layer pictures beside it. The price is that a part is a block, not its real mesh: a
 // tray's pockets are not drawn. The arrangement itself is the 3D view's (`trayPosition`).
 import type { BoxMm, Project, StoredLayout, TraySpec } from "../model/types";
-import { SPACER_COLOR } from "../ui/identity";
 import { anchorOf, boxOutline, outlineCenter, trayPosition } from "../viewer/transform";
 import { badgeSize } from "./labels";
 import { trayNames } from "./naming";
 import { numberParts, parentKey } from "./numbering";
 import type { NumberedPart } from "./numbering";
-import { escapeXml, INK, paperTintOf } from "./render";
+import { escapeXml, INK, paperShadeOf, SPACER_PAPER } from "./render";
 
 /** How far apart the parts are drawn: all the way, the 3D view's slider at its end. */
 export const EXPLODED_FACTOR = 1;
@@ -307,9 +306,10 @@ export function explodedView(layout: StoredLayout, project: Project): ExplodedVi
     }
     const spec = b.part.spec;
     const loose = spec.part === "spacer" || spec.part === "divider";
-    const tint = loose ? SPACER_COLOR : (paperTintOf(spec, project) ?? "#ffffff");
-    const stroke = loose ? "#8a5a00" : INK;
-    const dash = !loose && paperTintOf(spec, project) === null ? ` stroke-dasharray="2 1.5"` : "";
+    const own = loose ? null : paperShadeOf(spec, project);
+    const tint = loose ? SPACER_PAPER.fill : (own?.fill ?? "#ffffff");
+    const stroke = loose ? SPACER_PAPER.dash : (own?.line ?? INK);
+    const dash = !loose && own === null ? ` stroke-dasharray="2 1.5"` : "";
     const look = `stroke="${stroke}" stroke-width="0.4" stroke-linejoin="round"${dash}`;
     out.push(
       `<g data-part="${b.part.number}">`,

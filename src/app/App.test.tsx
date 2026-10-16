@@ -87,13 +87,13 @@ function removeFromEditor(name: string): void {
 
 /** The export panel is a dialog over the view; its button opens it. */
 function openExport(): void {
-  fireEvent.click(screen.getByRole("button", { name: /^Export all \d+ parts?$/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Download" }));
 }
 
-/** The assembly page's button lives in the export panel. */
+/** The packing guide's button lives in the download dialog. */
 function openAssemblyPage(): void {
   openExport();
-  fireEvent.click(screen.getByRole("button", { name: "Open the assembly page" }));
+  fireEvent.click(screen.getByRole("button", { name: "Open the packing guide" }));
 }
 
 describe("App", () => {
@@ -211,8 +211,9 @@ describe("App", () => {
     expect(document.querySelector(".plan-tray")).toBeNull();
     expect(screen.queryByRole("tab", { name: "Export" })).toBeNull();
     openExport();
-    expect(screen.getByRole("dialog", { name: "Export all 2 parts" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "3MF per part (.zip)" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Download" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download 3MF" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Other formats" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     // The export was a dialog over the 3D view, not a view of its own: closing it leaves that view.
@@ -246,15 +247,18 @@ describe("App", () => {
   it("blocks exporting while the inputs differ from the layout, even before a run starts", async () => {
     const { store } = renderApp({ project: withLayoutProject() });
     openExport();
-    const stl = screen.getByRole("button", { name: "STL files (.zip)" });
-    expect(stl.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Other formats" }));
+    const stl = screen.getByRole("button", { name: "Download STL files (.zip)" });
+    expect(stl.getAttribute("aria-disabled")).toBeNull();
     store.edit((q) => ({ ...q, settings: { ...q.settings, wall: q.settings.wall + 0.4 } }));
     expect(store.state.stale.value).toBe(true);
-    expect(
-      await screen.findByText("Inputs changed — update the plan before exporting."),
-    ).toBeTruthy();
-    for (const name of ["3MF per part (.zip)", "One combined 3MF", "STL files (.zip)"]) {
-      expect(screen.getByRole("button", { name }).hasAttribute("disabled")).toBe(true);
+    expect(await screen.findByText("Update the plan first.")).toBeTruthy();
+    for (const name of [
+      "Download 3MF",
+      "Download 3MF per part (.zip)",
+      "Download STL files (.zip)",
+    ]) {
+      expect(screen.getByRole("button", { name }).getAttribute("aria-disabled")).toBe("true");
     }
   });
 
@@ -402,37 +406,35 @@ describe("App", () => {
       store.edit((q) => ({ ...q, settings: { ...q.settings, wall: q.settings.wall + 0.4 } }));
     };
 
-    it("can't be opened as the assembly page, and says why", async () => {
+    it("can't be opened as the packing guide, and says why", async () => {
       const { store } = renderApp({ project: withLayoutProject() });
       openExport();
-      const open = screen.getByRole("button", { name: "Open the assembly page" });
-      expect(open.hasAttribute("disabled")).toBe(false);
+      const open = screen.getByRole("button", { name: "Open the packing guide" });
+      expect(open.getAttribute("aria-disabled")).toBeNull();
       makeStale(store);
+      expect(await screen.findByText("Update the plan first.")).toBeTruthy();
       expect(
-        await screen.findByText(
-          "Inputs changed — update the plan before opening the assembly page.",
-        ),
-      ).toBeTruthy();
-      expect(
-        screen.getByRole("button", { name: "Open the assembly page" }).hasAttribute("disabled"),
-      ).toBe(true);
+        screen
+          .getByRole("button", { name: "Open the packing guide" })
+          .getAttribute("aria-disabled"),
+      ).toBe("true");
     });
 
-    it("turns an open assembly page read-only when it goes stale", async () => {
+    it("turns an open packing guide read-only when it goes stale", async () => {
       const { store } = renderApp({ project: withLayoutProject() });
       openAssemblyPage();
       expect(
-        screen.getByRole("button", { name: "Print / save as PDF" }).hasAttribute("disabled"),
-      ).toBe(false);
+        screen.getByRole("button", { name: "Print or save as PDF" }).getAttribute("aria-disabled"),
+      ).toBeNull();
       makeStale(store);
-      expect(await screen.findByText(/Inputs changed — update the plan/)).toBeTruthy();
+      expect(await screen.findByText(/The plan is out of date/)).toBeTruthy();
       expect(
-        screen.getByRole("button", { name: "Print / save as PDF" }).hasAttribute("disabled"),
-      ).toBe(true);
+        screen.getByRole("button", { name: "Print or save as PDF" }).getAttribute("aria-disabled"),
+      ).toBe("true");
       expect(
         screen
           .getAllByRole("button", { name: /^Download PNG/ })
-          .every((b) => b.hasAttribute("disabled")),
+          .every((b) => b.getAttribute("aria-disabled") === "true"),
       ).toBe(true);
     });
 
@@ -461,11 +463,11 @@ describe("App", () => {
     expect(store.state.project.value.locks).toEqual([]);
   });
 
-  it("opens the assembly page and comes back", () => {
+  it("opens the packing guide and comes back", () => {
     renderApp({ project: withLayoutProject() });
     openAssemblyPage();
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/— assembly$/);
-    fireEvent.click(screen.getByRole("button", { name: "Back to the editor" }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/— packing guide$/);
+    fireEvent.click(screen.getByRole("button", { name: "Back to your insert" }));
     expect(screen.getByRole("tab", { name: "Plan" })).toBeTruthy();
   });
 
@@ -655,7 +657,7 @@ describe("App", () => {
       expect(download().getAttribute("title")).toBe("Update the plan first");
       expect(download().getAttribute("aria-describedby")).toBeTruthy();
       fireEvent.click(download());
-      expect(screen.queryByRole("heading", { name: /export/i })).toBeNull();
+      expect(screen.queryByRole("heading", { name: "Download" })).toBeNull();
       // Current again, but a run is pending.
       act(() => {
         store.state.project.value = {
@@ -674,7 +676,7 @@ describe("App", () => {
     it("Download opens the export dialog once there is a plan", () => {
       renderApp({ project: withLayoutProject() });
       fireEvent.click(screen.getByRole("button", { name: "Download" }));
-      expect(screen.getByRole("heading", { name: /export/i })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Download" })).toBeTruthy();
     });
 
     it("returns the focus to the menu button after a choice", () => {
@@ -838,7 +840,7 @@ describe("App", () => {
       const refit = vi.spyOn(store, "refit").mockImplementation(() => undefined);
       fireEvent.click(await screen.findByRole("button", { name: "Reprint everything" }));
       expect(refit).toHaveBeenCalled();
-      expect(screen.queryByRole("heading", { name: /export/i })).toBeNull();
+      expect(screen.queryByRole("heading", { name: "Download" })).toBeNull();
     });
 
     it("shows only the older-geometry banner when the plan is also stale", async () => {
@@ -921,8 +923,7 @@ describe("App", () => {
   });
 
   describe("export dialog", () => {
-    const exportButton = (): HTMLElement =>
-      screen.getByRole("button", { name: /^Export all \d+ parts?$/ });
+    const exportButton = (): HTMLElement => screen.getByRole("button", { name: "Download" });
 
     afterEach(() => {
       Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
@@ -939,11 +940,15 @@ describe("App", () => {
       expect(exportButton().getAttribute("aria-haspopup")).toBe("dialog");
       fireEvent.click(exportButton());
       expect(showModal).toHaveBeenCalledTimes(1);
-      const dialog = screen.getByRole("dialog", { name: "Export all 2 parts" });
+      const dialog = screen.getByRole("dialog", { name: "Download" });
       expect(dialog.tagName).toBe("DIALOG");
-      expect(document.activeElement).toBe(
-        screen.getByRole("heading", { name: "Export all 2 parts" }),
-      );
+      expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Download" }));
+    });
+
+    it("has the header Download as its only way in", () => {
+      renderApp({ project: withLayoutProject() });
+      expect(screen.queryByRole("button", { name: /^Export all/ })).toBeNull();
+      expect(screen.getAllByRole("button", { name: "Download" })).toHaveLength(1);
     });
 
     it("closes on Escape, on Close, and puts the focus back on its button", () => {
@@ -991,8 +996,8 @@ describe("App", () => {
         },
       });
       openExport();
-      fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
-      expect(await screen.findByText(/Closing this window also cancels the export/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Download 3MF" }));
+      expect(await screen.findByRole("button", { name: "Stop" })).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Close" }));
       await flush();
       expect(screen.queryByRole("dialog")).toBeNull();
@@ -1000,17 +1005,15 @@ describe("App", () => {
     });
   });
 
-  describe("assembly page", () => {
+  describe("packing guide", () => {
     it("moves the focus to the page and back to its button, and scrolls to the top", () => {
       renderApp({ project: withLayoutProject() });
       openAssemblyPage();
       expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
       expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
-      fireEvent.click(screen.getByRole("button", { name: "Back to the editor" }));
+      fireEvent.click(screen.getByRole("button", { name: "Back to your insert" }));
       // Back where the export was opened from: its button.
-      expect(document.activeElement).toBe(
-        screen.getByRole("button", { name: /^Export all \d+ parts?$/ }),
-      );
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Download" }));
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
@@ -1033,7 +1036,7 @@ describe("App", () => {
       ).toBeTruthy();
       store.openProject(project.id);
       expect(await screen.findByRole("tab", { name: "Plan" })).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Back to the editor" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Back to your insert" })).toBeNull();
     });
 
     it("returns to the editor when another project is opened", async () => {
@@ -1043,7 +1046,7 @@ describe("App", () => {
       projectStore.save({ ...other, layout: makeLayout(inputsHash(other)) }, EMPTY_FOREIGN);
       store.openProject(other.id);
       expect(await screen.findByRole("region", { name: "Inputs" })).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Back to the editor" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Back to your insert" })).toBeNull();
     });
   });
 

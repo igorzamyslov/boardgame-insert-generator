@@ -1,5 +1,5 @@
 // src/ui/AppHeader.tsx
-import type { ComponentChildren } from "preact";
+import type { ComponentChildren, Ref } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { SaveState } from "../app/state";
 import { SavedStatus } from "./SavedStatus";
@@ -14,6 +14,8 @@ export interface AppHeaderProps {
   onUndo: () => void;
   onRedo: () => void;
   onDownload: () => void;
+  /** The Download button, so the app can hand the focus back to it. */
+  downloadRef?: Ref<HTMLButtonElement>;
   downloadDisabled: boolean;
   /** Why Download is off (the button's title and description), e.g. "Update the plan first". */
   downloadReason?: string;
@@ -223,6 +225,7 @@ export function AppHeader(p: AppHeaderProps) {
         <button
           type="button"
           class="app-download"
+          ref={p.downloadRef}
           aria-disabled={p.downloadDisabled}
           aria-describedby={p.downloadDisabled && p.downloadReason ? "download-reason" : undefined}
           title={p.downloadDisabled ? p.downloadReason : undefined}
