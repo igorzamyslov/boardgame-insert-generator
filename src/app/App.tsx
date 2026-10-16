@@ -136,6 +136,13 @@ export function App(props: AppProps) {
     project.components.length === 0 ? "box" : "components",
   );
   const [view, setView] = useState<ViewId>("plan");
+  // A swap belongs to the plan: it ends when the view moves away from it.
+  function showView(next: ViewId): void {
+    if (next !== "plan") {
+      s.swapFrom.value = null;
+    }
+    setView(next);
+  }
   // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
   const [exportOpen, setExportOpen] = useState(false);
   // The component just removed, for the Undo toast (cleared when another project opens).
@@ -472,7 +479,7 @@ export function App(props: AppProps) {
                                     : undefined;
                           if (next !== undefined) {
                             e.preventDefault();
-                            setView(next);
+                            showView(next);
                             document.getElementById(`tab-${next}`)?.focus();
                           }
                         }}
@@ -491,7 +498,7 @@ export function App(props: AppProps) {
                             aria-selected={view === id}
                             aria-controls={`panel-${id}`}
                             tabIndex={view === id ? 0 : -1}
-                            onClick={() => setView(id)}
+                            onClick={() => showView(id)}
                           >
                             {label}
                           </button>
@@ -526,6 +533,14 @@ export function App(props: AppProps) {
                           lockedKeys={locked}
                           selectedKey={s.selection.value}
                           stale={s.stale.value}
+                          level={s.viewLevel.value}
+                          onLevelChange={(l) => {
+                            s.viewLevel.value = l;
+                          }}
+                          swapFrom={s.swapFrom.value}
+                          onSwapFromChange={(key) => {
+                            s.swapFrom.value = key;
+                          }}
                           onSelect={(key) => {
                             s.selection.value = key;
                           }}

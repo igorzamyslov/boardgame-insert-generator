@@ -1,6 +1,6 @@
 // src/plan/PlanView.tsx
 import type { JSX } from "preact";
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { isLockable } from "../app/actions";
 import { numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
@@ -40,6 +40,12 @@ export interface PlanViewProps {
   onToggleSizeLock: (key: string) => void;
   /** The inputs no longer match the layout: the plan is greyed out and the details say so. */
   stale?: boolean;
+  /** Index of the layer shown (0 = the bottom layer); the app owns it. Clamped to the layers there are. */
+  level: number;
+  onLevelChange: (level: number) => void;
+  /** The tray a "Swap with…" is under way from, or null; the app owns it. */
+  swapFrom: string | null;
+  onSwapFromChange: (key: string | null) => void;
 }
 
 /** Side of a tile's kind glyph, in SVG units, and the room it needs. */
@@ -84,13 +90,27 @@ export function PlanView(props: PlanViewProps) {
     onToggleLock,
     sizeLockedKeys,
     onToggleSizeLock,
+    swapFrom,
+    onSwapFromChange: setSwapFrom,
+    onLevelChange,
   } = props;
   const levels = levelsOf(trays);
-  const [levelIndex, setLevelIndex] = useState(0);
-  const idx = Math.min(levelIndex, Math.max(0, levels.length - 1));
+  const idx = Math.max(0, Math.min(props.level, levels.length - 1));
   const level = levels[idx] ?? 0;
   const belowLevel = idx > 0 ? levels[idx - 1] : undefined;
-  const [swapFrom, setSwapFrom] = useState<string | null>(null);
+  // The app keeps the layer: bring it back in range when the layers shrink.
+  useEffect(() => {
+    if (props.level !== idx) {
+      onLevelChange(idx);
+    }
+  }, [props.level, idx]);
+  // A swap is from the selected tray: the selection moving away from it (or clearing), from
+  // anywhere, ends it.
+  useEffect(() => {
+    if (swapFrom !== null && selectedKey !== swapFrom) {
+      setSwapFrom(null);
+    }
+  }, [selectedKey, swapFrom]);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
   const [swapRefused, setSwapRefused] = useState(false);
@@ -308,7 +328,7 @@ export function PlanView(props: PlanViewProps) {
                   name="plan-layer"
                   aria-label={i === 0 ? "Layer 1, the bottom layer" : undefined}
                   checked={i === idx}
-                  onChange={() => setLevelIndex(i)}
+                  onChange={() => onLevelChange(i)}
                 />
                 {`Layer ${i + 1}`}
               </label>

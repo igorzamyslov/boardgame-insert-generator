@@ -152,6 +152,21 @@ describe("App", () => {
     ]);
   });
 
+  it("ends a swap when the view leaves the plan, whatever is selected meanwhile", () => {
+    const { store } = renderApp({ project: withLayoutProject() });
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
+    expect(screen.getByText(/Choose the tray to swap with/)).toBeTruthy();
+    openTab("3D");
+    expect(store.state.swapFrom.value).toBeNull();
+    store.state.selection.value = "b:p0:0";
+    openTab("Plan");
+    expect(screen.queryByText(/Choose the tray to swap with/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Swap with…" }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
+  });
+
   it("blocks exporting while the inputs differ from the layout, even before a run starts", async () => {
     const { store } = renderApp({ project: withLayoutProject() });
     openExport();
