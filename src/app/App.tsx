@@ -480,7 +480,11 @@ export function App(props: AppProps) {
                 downloadLabel={fitProblem ? "Fix the fit to download" : undefined}
                 downloadReason={
                   layout === undefined
-                    ? undefined
+                    ? project.components.length === 0
+                      ? "Add what goes inside first"
+                      : canPlan
+                        ? "Wait for the first plan"
+                        : "Fix the errors marked in the inputs first"
                     : s.runPending.value
                       ? "Wait for the plan to finish"
                       : s.stale.value

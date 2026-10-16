@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { GEOMETRY_VERSION, isOlderGeometryLine } from "./version";
+import source from "./version.ts?raw";
 
 describe("isOlderGeometryLine", () => {
   it("pre-1.0, treats each 0.MINOR as a major line (spec §9)", () => {
@@ -36,7 +36,6 @@ describe("isOlderGeometryLine", () => {
 });
 
 describe("the version history", () => {
-  const source = readFileSync(new URL("./version.ts", import.meta.url), "utf8");
   const at = (heading: string) => source.indexOf(` * ${heading} `);
 
   it("reads in order: 0.8.0 flush stacking, then 0.8.1 name engraving; no version that never shipped", () => {

@@ -6,7 +6,7 @@ import type { MeshSource } from "../app/meshes";
 import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { SPACER_COLOR, SPARE_COLOR, shadeHex, shadeIndexOf, shadeOf } from "../ui/identity";
+import { SPACER_SHADE, shadeHex, shadeIndexOf, shadeOf } from "../ui/identity";
 import type { Component } from "../model/types";
 import type { ViewBasis } from "./axes";
 import type { SceneFactory, SceneHandle } from "./types";
@@ -471,8 +471,9 @@ describe("Viewer", () => {
       expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "light").fill);
       expect(got["b:p0:0"]).toBe(shadeHex("cards", 2, "light").fill);
       expect(got["a:p0:0"]).not.toBe(got["b:p0:0"]);
-      expect(got["a:p0:0:spacer"]).toBe(SPACER_COLOR);
-      expect(got["c:p0:0"]).toBe(SPARE_COLOR);
+      // a spacer and a spare tray are the plan's hatched neutral, not a hue
+      expect(got["a:p0:0:spacer"]).toBe(SPACER_SHADE.light.fill);
+      expect(got["c:p0:0"]).toBe(SPACER_SHADE.light.fill);
     });
 
     it("counts shades among the components of the same kind only", async () => {
@@ -494,8 +495,14 @@ describe("Viewer", () => {
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),
       }));
-      const got = await colours({ trays: [market], components: fixtureProject().components });
+      const got = await colours({
+        trays: [market, spacer, spare],
+        components: fixtureProject().components,
+      });
       expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "dark").fill);
+      // the spacer neutral follows the scheme too
+      expect(got["a:p0:0:spacer"]).toBe(SPACER_SHADE.dark.fill);
+      expect(got["c:p0:0"]).toBe(SPACER_SHADE.dark.fill);
     });
 
     it("repaints in the dark shade when the system theme changes while the view is open", async () => {
@@ -543,10 +550,11 @@ describe("Viewer", () => {
       expect(listeners).toHaveLength(1);
     });
 
-    it("lets the page's chosen theme win over the system's", async () => {
+    it("follows the system theme only: the page has no switch, so data-theme is not read", async () => {
       document.documentElement.setAttribute("data-theme", "dark");
       const got = await colours({ trays: [market], components: fixtureProject().components });
-      expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "dark").fill);
+      // jsdom has no matchMedia: the system reads light
+      expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "light").fill);
     });
 
     it("names the selected tray in full over the view, never by number", async () => {

@@ -21,7 +21,7 @@ import {
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { TraySpec } from "../model/types";
-import { SPARE_COLOR } from "../ui/identity";
+import { SPACER_SHADE } from "../ui/identity";
 import type { ViewBasis } from "./axes";
 import { anchorOf, isVisible, outlineCenter, trayPosition } from "./transform";
 import type { BoxOutline, SceneFactory, SceneHandle, SceneTray } from "./types";
@@ -216,7 +216,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         // means "this is that component" (its shade, as in the top view), so an invented one
         // would claim an identity it hasn't got.
         const material = new MeshStandardMaterial({
-          color: litColor(color ?? SPARE_COLOR),
+          color: litColor(color ?? SPACER_SHADE.light.fill),
           flatShading: true,
           roughness: 0.8,
         });

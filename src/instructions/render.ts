@@ -1,6 +1,6 @@
 // src/instructions/render.ts
 import type { Component, ComponentKind, Project, StoredLayout, TraySpec } from "../model/types";
-import { componentIndexOfTray, shadeHex } from "../ui/identity";
+import { SPACER_SHADE, componentIndexOfTray, shadeHex } from "../ui/identity";
 import type { Shade } from "../ui/identity";
 import {
   footprintsAt,
@@ -64,7 +64,7 @@ const SVG_PX_PER_MM = 3;
  * A spacer on paper: hatched, with a dashed edge, as on screen. Plain hex, because a printed page
  * is always black on white whatever theme the screen uses.
  */
-export const SPACER_PAPER = { fill: "#e9e5db", hatch: "#ddd8cc", dash: "#6e695c" } as const;
+export const SPACER_PAPER = SPACER_SHADE.light;
 
 /** The id of the hatch every spacer on a layer picture is filled with. */
 const HATCH_ID = "spacer-hatch";
@@ -87,11 +87,6 @@ export function paperShadeOf(t: TraySpec, project: Project): Shade | null {
   // Each component of a kind has its own shade: the nth of its kind, in list order.
   const nth = project.components.slice(0, index).filter((c) => c.kind === component.kind).length;
   return shadeHex(component.kind, nth, "light");
-}
-
-/** A tray's fill on paper: see `paperShadeOf`. */
-export function paperTintOf(t: TraySpec, project: Project): string | null {
-  return paperShadeOf(t, project)?.fill ?? null;
 }
 
 /** The kind glyphs of src/ui/kindGlyphs.tsx as plain SVG markup, on the same 24 unit grid. */

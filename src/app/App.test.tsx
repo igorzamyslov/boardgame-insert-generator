@@ -647,11 +647,19 @@ describe("App", () => {
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     });
 
-    it("keeps Download off until there is a plan", () => {
-      renderApp();
-      expect(screen.getByRole("button", { name: "Download" }).getAttribute("aria-disabled")).toBe(
-        "true",
-      );
+    it("keeps Download off until there is a plan, and says what to do", () => {
+      const { store } = renderApp();
+      const download = screen.getByRole("button", { name: "Download" });
+      expect(download.getAttribute("aria-disabled")).toBe("true");
+      expect(download.getAttribute("title")).toBe("Add what goes inside first");
+      expect(
+        document.getElementById(download.getAttribute("aria-describedby") ?? "")?.textContent,
+      ).toBe("Add what goes inside first");
+      // with items but no plan yet
+      act(() => {
+        store.state.project.value = fixtureProject();
+      });
+      expect(download.getAttribute("title")).toBe("Wait for the first plan");
     });
 
     it("keeps Download off, with the reason, while the plan is stale or a run is pending", async () => {

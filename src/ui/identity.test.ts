@@ -13,6 +13,7 @@ import tokens from "../styles/tokens.css?raw";
 import { contrast, hexToHsl, hexToRgb } from "./color";
 import {
   BOX_COLOR,
+  SPACER_SHADE,
   SHADE_COUNT,
   componentIndexOfTray,
   componentSummary,
@@ -79,7 +80,7 @@ describe("tray identity", () => {
     const components = [cards("c1", "Cards")];
     const spacer = makeTray({ part: "spacer", compartments: [] });
     expect(componentIndexOfTray(spacer, components)).toBeNull();
-    // A riser is the neutral filler too: SPARE_COLOR in the 3D view, which is what null means.
+    // A riser is the neutral too: SPACER_SHADE in the 3D view, which is what null means.
     const riser = makeTray({ part: "riser", compartments: [] });
     expect(componentIndexOfTray(riser, components)).toBeNull();
   });
@@ -127,6 +128,19 @@ describe("component shades", () => {
       expect(BOX_COLOR[scheme].toLowerCase()).toBe(found.get("--box"));
     }
     expect(new Set(KINDS.map((k) => shadeHex(k, 0, "light").fill)).size).toBe(KINDS.length);
+  });
+
+  it("mirrors the spacer tokens, in both schemes", () => {
+    const at = tokens.indexOf("@media");
+    const blocks = { light: tokens.slice(0, at), dark: tokens.slice(at) };
+    for (const scheme of SCHEMES) {
+      const found = new Map(
+        [...blocks[scheme].matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
+      );
+      expect(SPACER_SHADE[scheme].fill, `${scheme} fill`).toBe(found.get("--spacer-fill"));
+      expect(SPACER_SHADE[scheme].hatch, `${scheme} hatch`).toBe(found.get("--spacer-hatch"));
+      expect(SPACER_SHADE[scheme].dash, `${scheme} dash`).toBe(found.get("--spacer-dash"));
+    }
   });
 
   it("keeps every shade's line at 3:1 on the box and on its own fill, and its ink at 4.5:1 on the fill", () => {

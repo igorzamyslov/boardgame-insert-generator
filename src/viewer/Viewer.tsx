@@ -32,7 +32,11 @@ export interface ViewerProps {
 
 type Status = "loading" | "ready" | "nowebgl" | "error" | "lost";
 
-/** The page's colour scheme, kept current: the scene is repainted when it changes. */
+/**
+ * The page's colour scheme, kept current: the scene is repainted when it changes. The scheme is
+ * the system's; the page has no switch (DESIGN §4). A switch would have to set an attribute on
+ * the root and this hook would have to watch it: see `pageScheme` in shades.ts.
+ */
 function usePageScheme(): ColorScheme {
   const [scheme, setScheme] = useState<ColorScheme>(pageScheme);
   useEffect(() => {
@@ -45,12 +49,6 @@ function usePageScheme(): ColorScheme {
     } else {
       query?.addListener?.(update);
     }
-    // The page's theme toggle sets data-theme on the root; the system query alone wouldn't see it.
-    const observer = typeof MutationObserver === "undefined" ? null : new MutationObserver(update);
-    observer?.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme"],
-    });
     update();
     return () => {
       if (query?.removeEventListener) {
@@ -58,7 +56,6 @@ function usePageScheme(): ColorScheme {
       } else {
         query?.removeListener?.(update);
       }
-      observer?.disconnect();
     };
   }, []);
   return scheme;

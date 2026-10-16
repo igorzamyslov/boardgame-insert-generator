@@ -345,6 +345,10 @@ describe("ExportPanel", () => {
     const retry = await screen.findByRole("button", { name: "Try again" });
     view.rerender(<ExportPanel {...p} stale />);
     expect(isOff(retry)).toBe(true);
+    // the reason is read with the button
+    expect(document.getElementById(retry.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Make a new plan first.",
+    );
     fireEvent.click(retry);
     expect(m.forget).not.toHaveBeenCalled();
   });
@@ -452,7 +456,11 @@ describe("ExportPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     view.rerender(<ExportPanel {...p} disabled />);
-    expect(isOff(screen.getByRole("button", { name: "Try again" }))).toBe(true);
+    const retry = screen.getByRole("button", { name: "Try again" });
+    expect(isOff(retry)).toBe(true);
+    expect(document.getElementById(retry.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "The plan is updating.",
+    );
   });
 
   it("forgets the failed trays when the layout changes", async () => {

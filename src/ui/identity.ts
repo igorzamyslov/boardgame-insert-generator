@@ -124,14 +124,16 @@ export function shadeVars(kind: ComponentKind, index: number): Record<string, st
 }
 
 /**
- * Every card spacer is this one colour, in the 3D view and on the assembly page: a spacer
- * belongs to no component, and they all do the same job, so telling them apart by colour
- * would say something that isn't there.
+ * A part with no component of its own (a spacer, a divider, a spare tray or a riser) is one
+ * hatched warm neutral everywhere: they all do the same job, so telling them apart by colour would
+ * say something that isn't there. In the plan this is `--spacer-fill`, `--spacer-hatch` and
+ * `--spacer-dash`; this mirrors them for what can't read CSS: the 3D view (the scheme asked for)
+ * and the packing guide (paper, always "light").
  */
-export const SPACER_COLOR = "#f7e3c4";
-
-/** A part with no component of its own: a spare tray, a spacer block or a riser. */
-export const SPARE_COLOR = "#dfe2e7";
+export const SPACER_SHADE: Record<ColorScheme, { fill: string; hatch: string; dash: string }> = {
+  light: { fill: "#e9e5db", hatch: "#ddd8cc", dash: "#6e695c" },
+  dark: { fill: "#2e2c26", hatch: "#3a372f", dash: "#9a9688" },
+};
 
 /** The index of the component whose name appears in tray contents text such as "Deck ×50". */
 export function componentIndexOfContents(

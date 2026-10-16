@@ -6,13 +6,12 @@ import type {
   Component,
   ComponentKind,
   Lock,
-  Notice,
   Printer,
   Project,
   Settings,
   TraySpec,
 } from "../model/types";
-import { NOTICE_CODES, swapLocks } from "../layout";
+import { swapLocks } from "../layout";
 import { turnLocks } from "./dryRun";
 
 /** Only real trays can be locked; leftovers are regenerated and spacers follow their tray. */
@@ -22,10 +21,6 @@ export function isLockable(t: TraySpec): boolean {
 
 export function updateBox(p: Project, patch: Partial<Box>): Project {
   return { ...p, box: { ...p.box, ...patch } };
-}
-
-export function updatePrinter(p: Project, patch: Partial<Printer>): Project {
-  return { ...p, printer: { ...p.printer, ...patch } };
 }
 
 /** Replaces the whole printer, e.g. with the one in the preferences. */
@@ -85,15 +80,6 @@ export function removeComponent(p: Project, id: string): Project {
     p,
     p.components.filter((c) => c.id !== id),
   );
-}
-
-/** Puts a removed component back where it was (Undo); nothing happens if it is already there. */
-export function restoreComponent(p: Project, component: Component, index: number): Project {
-  if (p.components.some((c) => c.id === component.id)) {
-    return p;
-  }
-  const at = Math.min(Math.max(0, index), p.components.length);
-  return withComponents(p, [...p.components.slice(0, at), component, ...p.components.slice(at)]);
 }
 
 export function setSettings(p: Project, s: Settings): Project {
@@ -227,28 +213,6 @@ export function toggleSizeLock(p: Project, tray: TraySpec): Project {
     return removeLock(p, tray.key, "size");
   }
   return setLock(p, { kind: "size", trayKey: tray.key, w: tray.w, d: tray.d, h: tray.h });
-}
-
-const DROPPED_LOCK_PATH = /^\/locks\/(\d+)$/;
-
-/**
- * Removes the locks named by `lock.dropped` notices, which carry `path: "/locks/<index>"` into
- * `p.locks`. For explicit use only: the runner no longer calls it, because a run's pins are never
- * dropped silently (it reports `LayoutResult.lockConflicts` and the user unpins).
- * Returns `p` itself when nothing was dropped.
- */
-export function pruneDroppedLocks(p: Project, notices: readonly Notice[]): Project {
-  const dropped = new Set<number>();
-  for (const n of notices) {
-    const m = n.code === NOTICE_CODES.lockDropped ? DROPPED_LOCK_PATH.exec(n.path ?? "") : null;
-    if (m) {
-      dropped.add(Number(m[1]));
-    }
-  }
-  if (dropped.size === 0) {
-    return p;
-  }
-  return { ...p, locks: p.locks.filter((_, i) => !dropped.has(i)) };
 }
 
 export function swapTrays(p: Project, keyA: string, keyB: string): Project {

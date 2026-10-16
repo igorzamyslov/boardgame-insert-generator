@@ -17,8 +17,6 @@ export interface NumberedPart {
   parentNumber: number | null;
 }
 
-export const SPACER_SUFFIX = ":spacer";
-
 /** A spacer's key ends `:spacer`, or `:spacer:<n>` for plate n of several (splitSeparators). */
 const SPACER_KEY = /:spacer(?::(\d+))?$/;
 

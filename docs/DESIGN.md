@@ -273,7 +273,8 @@ Each kind has a fill, line and ink triple:
 
 Each component takes its own shade of its kind's hue, by its place among components of that kind
 (`shadeIndexOf`). Shades cycle after a few. Spare trays and spacers belong to no kind: hatched
-`--spacer-fill` / `--spacer-hatch` with a dashed `--spacer-dash` edge (`src/plan/plan.css`).
+`--spacer-fill` / `--spacer-hatch` with a dashed `--spacer-dash` edge (`src/plan/plan.css`); the
+3D view and the packing guide use the same neutral (`SPACER_SHADE` in `src/ui/identity.ts`).
 "Everything fits" borrows the tiles green; that is the only place a kind hue means something else.
 
 ### Typography
@@ -299,7 +300,9 @@ Each component takes its own shade of its kind's hue, by its place among compone
 
 - A warm dark set redefines the same token names under
   `@media screen and (prefers-color-scheme: dark)`. It follows the system; there is no in-app
-  switch.
+  switch. The 3D view reads only the system's setting (`pageScheme` in `src/viewer/shades.ts`). A
+  switch would have to set `data-theme` on the root, make `pageScheme` read it and make
+  `usePageScheme` in `src/viewer/Viewer.tsx` watch it: that code was removed with the rule.
 - Print is always light (`src/style.css` sets `color-scheme: light` for print).
 - The 3D view reads the current scheme and asks for `shadeHex(…, scheme)` (`src/viewer/shades.ts`).
 

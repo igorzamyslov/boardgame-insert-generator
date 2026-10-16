@@ -314,6 +314,7 @@ export function ExportPanel(p: ExportPanelProps) {
           <button
             type="button"
             aria-disabled={retryOff ? "true" : undefined}
+            aria-describedby={retryOff ? describedBy : undefined}
             onClick={() => {
               if (!retryOff) {
                 p.meshes.reset();
@@ -339,6 +340,7 @@ export function ExportPanel(p: ExportPanelProps) {
             <button
               type="button"
               aria-disabled={retryOff ? "true" : undefined}
+              aria-describedby={retryOff ? describedBy : undefined}
               onClick={() => {
                 if (retryOff) {
                   return;
