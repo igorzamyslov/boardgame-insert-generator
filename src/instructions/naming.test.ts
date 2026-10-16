@@ -148,8 +148,8 @@ describe("trayNames", () => {
     const f = (n: number, x: number): TraySpec =>
       makeTray({ key: `leftover:${n}`, part: "leftover", solid: true, compartments: [], x, y: 80 });
     const names = named([a, f(0, 0), f(1, 50)], [cards("c1", "Dice")]);
-    expect(names.get("leftover:0")?.full).toBe("Spacer by Dice 1");
-    expect(names.get("leftover:1")?.full).toBe("Spacer by Dice 2");
+    expect(names.get("leftover:0")?.full).toBe("Spacer 1 by Dice");
+    expect(names.get("leftover:1")?.full).toBe("Spacer 2 by Dice");
     expect(names.get("leftover:0")?.short).not.toBe(names.get("leftover:1")?.short);
   });
 
@@ -184,9 +184,118 @@ describe("trayNames", () => {
     const names = named([t], [cards("c1", "Würfel & Münzen")]);
     expect(names.get("a:p0:0")?.short).toMatch(/^[A-Za-z0-9 -]+$/);
     expect(names.get("a:p0:0")?.short).toBe("Wurfel");
-    const odd = named([t], [cards("c1", "Карты")]);
-    expect(odd.get("a:p0:0")?.short).toMatch(/^[A-Za-z0-9 -]+$/);
-    expect(odd.get("a:p0:0")?.short.length).toBeGreaterThan(0);
+  });
+
+  it("transliterates Cyrillic, keeping several names apart", () => {
+    const trays = [
+      trayOf("a:p0:0", "c1"),
+      trayOf("b:p0:0", "c2"),
+      trayOf("c:p0:0", "c3"),
+      trayOf("d:p0:0", "c4"),
+    ];
+    const names = named(trays, [
+      cards("c1", "Карты"),
+      cards("c2", "Кубики"),
+      cards("c3", "Жетоны ресурсов"),
+      cards("c4", "ШАХ"),
+    ]);
+    expect(names.get("a:p0:0")?.short).toBe("Karty");
+    expect(names.get("b:p0:0")?.short).toBe("Kubiki");
+    expect(names.get("c:p0:0")?.short).toBe("Zhetony");
+    expect(names.get("d:p0:0")?.short).toBe("SHAKH");
+    const short = [...names.values()].map((n) => n.short.toUpperCase());
+    expect(new Set(short).size).toBe(short.length);
+  });
+
+  it("falls back to the kind name for a name with nothing printable", () => {
+    const trays = [trayOf("a:p0:0", "c1"), trayOf("b:p0:0", "c2")];
+    const cjk = named(trays, [cards("c1", "卡片"), cards("c2", "骰子")]);
+    expect(cjk.get("a:p0:0")?.short).toBe("Cards 1");
+    expect(cjk.get("b:p0:0")?.short).toBe("Cards 2");
+    expect(cjk.get("a:p0:0")?.full).toBe("卡片");
+    const one = named([trays[0] as TraySpec], [cards("c1", "卡片")]);
+    expect(one.get("a:p0:0")?.short).toBe("Cards");
+    expect(one.get("a:p0:0")?.short).not.toMatch(/Tray/);
+  });
+
+  it("calls an empty component name by its kind", () => {
+    const names = named([trayOf("a:p0:0", "c1")], [cards("c1", "  ")]);
+    expect(names.get("a:p0:0")).toEqual({ full: "Cards", short: "Cards" });
+  });
+
+  it("keeps two components with the same name apart", () => {
+    const trays = [trayOf("a:p0:0", "c1"), trayOf("b:p0:0", "c2")];
+    const names = named(trays, [cards("c1", "Dice"), cards("c2", "Dice")]);
+    expect(names.get("a:p0:0")).toEqual({ full: "Dice 1", short: "Dice 1" });
+    expect(names.get("b:p0:0")).toEqual({ full: "Dice 2", short: "Dice 2" });
+  });
+
+  it("gives every tray of a shared first word the same treatment", () => {
+    const trays = ["red", "blue", "green"].map((c) => trayOf(`${c}:p0:0`, c));
+    const names = named(
+      trays,
+      ["red", "blue", "green"].map((c) => cards(c, `Wooden meeples ${c}`)),
+    );
+    expect(names.get("red:p0:0")?.short).toBe("Woo red");
+    expect(names.get("blue:p0:0")?.short).toBe("Woo blue");
+    expect(names.get("green:p0:0")?.short).toBe("Woo green");
+  });
+
+  it("does not let a numbered component take the plain name from its neighbour", () => {
+    const trays = [trayOf("a:p0:0", "c1"), trayOf("a:p0:1", "c1"), trayOf("b:p0:0", "c2")];
+    const names = named(trays, [cards("c1", "Market deck"), cards("c2", "Market")]);
+    expect(names.get("a:p0:0")?.short).toBe("Mar deck 1");
+    expect(names.get("a:p0:1")?.short).toBe("Mar deck 2");
+    expect(names.get("b:p0:0")?.short).toBe("Mar");
+  });
+
+  it("builds a short name for a part by a tray from that tray's short name", () => {
+    const a = trayOf("a:p0:0", "c1", { x: 0, y: 0 });
+    const b = trayOf("b:p0:0", "c2", { x: 100, y: 0 });
+    const c = trayOf("b:p0:1", "c2", { x: 200, y: 0 });
+    const f = makeTray({
+      key: "leftover:0",
+      part: "leftover",
+      solid: true,
+      compartments: [],
+      x: 0,
+      y: 80,
+      w: 100,
+    });
+    const g = makeTray({
+      key: "leftover:1",
+      part: "leftover",
+      solid: false,
+      compartments: [],
+      x: 100,
+      y: 80,
+      w: 50,
+    });
+    const names = named([a, b, c, f, g], [cards("c1", "Dice"), cards("c2", "Hex tiles")]);
+    expect(names.get("leftover:0")).toEqual({ full: "Spacer by Dice", short: "Spac Dice" });
+    expect(names.get("leftover:1")).toEqual({ full: "Spare by Hex tiles 1", short: "Spar Hex 1" });
+  });
+
+  it("does not depend on the order the parts are passed in", () => {
+    const comps = [cards("c1", "Wooden meeples red"), cards("c2", "Wooden meeples blue")];
+    const trays = [
+      trayOf("a:p0:0", "c1", { x: 0 }),
+      trayOf("b:p0:0", "c2", { x: 100 }),
+      makeTray({ key: "leftover:0", part: "leftover", solid: true, compartments: [], x: 0, y: 80 }),
+      makeTray({
+        key: "leftover:1",
+        part: "leftover",
+        solid: true,
+        compartments: [],
+        x: 50,
+        y: 80,
+      }),
+    ];
+    const parts = numberParts(trays);
+    const expected = [...trayNames(parts, comps)];
+    const shuffled = [parts[2], parts[0], parts[3], parts[1]] as typeof parts;
+    expect([...trayNames([...parts].reverse(), comps)]).toEqual(expected);
+    expect([...trayNames(shuffled, comps)]).toEqual(expected);
   });
 });
 
@@ -198,7 +307,9 @@ const LAYOUTS: Record<string, unknown> = {
   "tight-minis": tightMinis,
 };
 
-function namesOfFixture(name: string) {
+const memo = new Map<string, ReturnType<typeof computeFixture>>();
+
+function computeFixture(name: string) {
   const parsed = parseProject(LAYOUTS[name]);
   if (!parsed.ok) {
     throw new Error(parsed.error);
@@ -213,13 +324,22 @@ function namesOfFixture(name: string) {
     locks: p.locks,
   }).trays;
   const parts = numberParts(printed);
-  return { parts, names: trayNames(parts, p.components) };
+  return { parts, components: p.components, names: trayNames(parts, p.components) };
+}
+
+/** The fixture's plan, computed once and only when a test asks for it. */
+function namesOfFixture(name: string) {
+  let found = memo.get(name);
+  if (found === undefined) {
+    found = computeFixture(name);
+    memo.set(name, found);
+  }
+  return found;
 }
 
 describe.each(Object.keys(LAYOUTS))("trayNames on fixture %s", (name) => {
-  const { parts, names } = namesOfFixture(name);
-
   it("names every part", () => {
+    const { parts, names } = namesOfFixture(name);
     expect(parts.length).toBeGreaterThan(0);
     for (const part of parts) {
       expect(names.get(part.spec.key)?.full.length).toBeGreaterThan(0);
@@ -227,11 +347,13 @@ describe.each(Object.keys(LAYOUTS))("trayNames on fixture %s", (name) => {
   });
 
   it("never returns two equal full names", () => {
+    const { names } = namesOfFixture(name);
     const full = [...names.values()].map((n) => n.full.toLowerCase());
     expect(new Set(full).size).toBe(full.length);
   });
 
   it("short names fit 10 characters and stay unique", () => {
+    const { names } = namesOfFixture(name);
     const short = [...names.values()].map((n) => n.short.toUpperCase());
     for (const s of short) {
       expect(s.length).toBeGreaterThan(0);
@@ -241,7 +363,10 @@ describe.each(Object.keys(LAYOUTS))("trayNames on fixture %s", (name) => {
     expect(new Set(short).size).toBe(short.length);
   });
 
-  it("is deterministic", () => {
-    expect([...namesOfFixture(name).names]).toEqual([...names]);
+  it("is deterministic over reversed and shuffled parts", () => {
+    const { parts, components, names } = namesOfFixture(name);
+    expect([...trayNames([...parts].reverse(), components)]).toEqual([...names]);
+    const shuffled = [...parts].sort((a, b) => ((a.number * 7) % 11) - ((b.number * 7) % 11));
+    expect([...trayNames(shuffled, components)]).toEqual([...names]);
   });
 });
