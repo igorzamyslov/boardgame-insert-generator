@@ -172,12 +172,16 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
     const p = state.project.value;
     if (!canOptimize(p)) {
       invalidate();
-      state.lockConflicts.value = [];
-      state.run.value = { status: "idle" };
+      batch(() => {
+        state.lockConflicts.value = [];
+        state.run.value = { status: "idle" };
+        state.runScheduled.value = false;
+      });
       return;
     }
     if (state.needsConfirm.value) {
       if (trigger === "auto" || !deps.confirm(NEWER_MINOR_CONFIRM)) {
+        state.runScheduled.value = false;
         return;
       }
       state.needsConfirm.value = false;
@@ -196,7 +200,11 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       trigger === "user" && failedRun?.hash === hash
         ? Math.max(base, failedRun.iterations * REPEAT_FACTOR)
         : base;
-    state.run.value = { status: "running", done: 0, total: iterations };
+    // one step: the pending run is handed from "scheduled" to "running" with no gap
+    batch(() => {
+      state.run.value = { status: "running", done: 0, total: iterations };
+      state.runScheduled.value = false;
+    });
     try {
       const input = buildLayoutInput(p);
       const c = await getClient();
@@ -236,9 +244,12 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       }
       clearTimer();
       invalidate();
-      if (state.run.value.status === "running") {
-        state.run.value = { status: "idle" };
-      }
+      batch(() => {
+        if (state.run.value.status === "running") {
+          state.run.value = { status: "idle" };
+        }
+        state.runScheduled.value = true;
+      });
       timer = setTimeout(() => {
         timer = undefined;
         void runNow("edit", "auto");
@@ -248,7 +259,10 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
     cancel() {
       clearTimer();
       invalidate();
-      state.run.value = { status: "idle" };
+      batch(() => {
+        state.run.value = { status: "idle" };
+        state.runScheduled.value = false;
+      });
     },
     retry() {
       return runNow(lastKind, "user");
@@ -259,6 +273,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       }
       clearTimer();
       invalidate();
+      state.runScheduled.value = false;
       if (opts.run && !state.project.value.layout) {
         void runNow("edit", "auto");
       }
@@ -267,9 +282,12 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       disposed = true;
       clearTimer();
       invalidate();
-      if (state.run.value.status === "running") {
-        state.run.value = { status: "idle" };
-      }
+      batch(() => {
+        if (state.run.value.status === "running") {
+          state.run.value = { status: "idle" };
+        }
+        state.runScheduled.value = false;
+      });
       client?.dispose();
       client = null;
       clientPromise = null;

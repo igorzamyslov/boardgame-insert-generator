@@ -209,6 +209,70 @@ describe("persistence", () => {
     expect(saved?.ok && saved.project.name).toBe("Too big to store");
   });
 
+  it("saveState is paused during a conflict and failed after a write error", () => {
+    const shared = new MemoryStorage();
+    const tab1 = tab(createProjectStore(shared));
+    tab1.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    expect(tab1.state.saveState.value).toBe("saved");
+    rename(tab1.state, "Edited");
+    tab1.persistence.scheduleSave();
+    expect(tab1.state.saveState.value).toBe("saving");
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    expect(tab1.state.saveState.value).toBe("saved");
+
+    // a write error: failed until the next successful write, whatever is scheduled meanwhile
+    shared.failOn = () => true;
+    rename(tab1.state, "Too big");
+    tab1.persistence.scheduleSave();
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    expect(tab1.state.saveState.value).toBe("failed");
+    rename(tab1.state, "Still too big");
+    tab1.persistence.scheduleSave();
+    expect(tab1.state.saveState.value).toBe("failed");
+    shared.failOn = () => false;
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    expect(tab1.state.saveState.value).toBe("saved");
+
+    // the other tab saves: this tab is paused until the user chooses
+    const tab2 = tab(createProjectStore(shared));
+    tab2.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    rename(tab2.state, "From tab 2");
+    tab2.persistence.flush();
+    rename(tab1.state, "From tab 1");
+    tab1.persistence.onExternalChange();
+    expect(tab1.state.conflict.value).toBe(true);
+    expect(tab1.state.saveState.value).toBe("paused");
+    tab1.persistence.scheduleSave();
+    expect(tab1.state.saveState.value).toBe("paused");
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    expect(tab1.state.saveState.value).toBe("paused");
+    tab1.persistence.resolveConflict("keepMine");
+    expect(tab1.state.saveState.value).toBe("saved");
+  });
+
+  it("saveState is unavailable without storage and saved after a project is opened", () => {
+    const none = tab(createProjectStore(null));
+    none.persistence.start("");
+    expect(none.state.saveState.value).toBe("unavailable");
+    rename(none.state, "Offline");
+    none.persistence.scheduleSave();
+    expect(none.state.saveState.value).toBe("unavailable");
+
+    const storage = new MemoryStorage();
+    const t = tab(createProjectStore(storage));
+    t.persistence.start("");
+    storage.failOn = () => true;
+    rename(t.state, "Too big");
+    t.persistence.flush();
+    expect(t.state.saveState.value).toBe("failed");
+    // opening another project starts clean: its own first write succeeds
+    storage.failOn = () => false;
+    t.persistence.newProject();
+    expect(t.state.saveState.value).toBe("saved");
+  });
+
   it("keeps working without storage", () => {
     const store = createProjectStore(null);
     expect(store.available).toBe(false);

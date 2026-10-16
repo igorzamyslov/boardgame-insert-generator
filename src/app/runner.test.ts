@@ -1,4 +1,5 @@
 // src/app/runner.test.ts
+import { effect } from "@preact/signals";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_ITERATIONS, NOTICE_CODES, REPEAT_FACTOR } from "../layout";
 import { inputsHash } from "../model/hash";
@@ -46,6 +47,82 @@ describe("runner", () => {
     await flush();
     expect(stub.calls).toHaveLength(1);
     expect(stub.calls[0]?.input.inputsHash).toBe(inputsHash(state.project.value));
+  });
+
+  it("runPending is true during the debounce", async () => {
+    const { state, stub, runner } = setup();
+    expect(state.runPending.value).toBe(false);
+    bumpHeight(state);
+    runner.schedule();
+    expect(state.runPending.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS - 1);
+    expect(state.runPending.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    await flush();
+    // the debounce is over and the run is in flight: still pending, never a gap in between
+    expect(stub.calls).toHaveLength(1);
+    expect(state.runPending.value).toBe(true);
+    const call = stub.calls[0];
+    call?.resolve(makeResult(makeLayout(call.input.inputsHash)));
+    await flush();
+    expect(state.run.value).toEqual({ status: "done" });
+    expect(state.runPending.value).toBe(false);
+  });
+
+  it("runPending never dips to false between an edit's debounce and its run", async () => {
+    const { state, runner } = setup();
+    const seen: boolean[] = [];
+    const stop = effect(() => {
+      seen.push(state.runPending.value);
+    });
+    bumpHeight(state);
+    runner.schedule();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    stop();
+    expect(seen).toEqual([false, true]);
+  });
+
+  it("runPending is false once a run settles any other way", async () => {
+    const { state, stub, runner } = setup();
+    // cancelled while waiting
+    bumpHeight(state);
+    runner.schedule();
+    runner.cancel();
+    expect(state.runPending.value).toBe(false);
+    // errored
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(state.runPending.value).toBe(true);
+    stub.calls[0]?.reject(new Error("worker crashed"));
+    await flush();
+    expect(state.run.value.status).toBe("error");
+    expect(state.runPending.value).toBe(false);
+    // discarded: the inputs changed under it and nothing was scheduled again
+    void runner.runNow("edit", "user");
+    await flush();
+    const stale = stub.calls[1];
+    bumpHeight(state);
+    stale?.resolve(makeResult(makeLayout(stale.input.inputsHash)));
+    await flush();
+    expect(state.run.value).toEqual({ status: "idle" });
+    expect(state.runPending.value).toBe(false);
+  });
+
+  it("runPending is false when the project has nothing to optimize or a run needs confirming", async () => {
+    const empty = setup({ ...fixtureProject(), components: [] });
+    empty.runner.schedule();
+    expect(empty.state.runPending.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    expect(empty.state.runPending.value).toBe(false);
+    const guarded = setup();
+    guarded.state.needsConfirm.value = true;
+    guarded.runner.schedule();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    expect(guarded.stub.calls).toHaveLength(0);
+    expect(guarded.state.runPending.value).toBe(false);
   });
 
   it("accepts a finished run and keeps the previous layout for undo", async () => {

@@ -64,11 +64,15 @@ export function createPersistence(
   let written = "";
   let active = false;
 
+  // The store never changes under us: whether projects can be kept is known up front.
+  state.storageAvailable.value = store.available;
+
   function clearTimer(): void {
     if (timer !== undefined) {
       clearTimeout(timer);
       timer = undefined;
     }
+    state.savePending.value = false;
   }
 
   function refreshList(): void {
@@ -128,6 +132,8 @@ export function createPersistence(
     const p = state.project.value;
     const current = serializeProject(p, state.foreign.value);
     if (current === lastSynced) {
+      // what is stored is what is open (a refused write leaves them different)
+      state.saveFailed.value = false;
       return true;
     }
     if (changedElsewhere(p.id)) {
@@ -137,6 +143,7 @@ export function createPersistence(
     try {
       store.save(p, state.foreign.value);
     } catch (e) {
+      state.saveFailed.value = true;
       const reason =
         e instanceof StoreWriteError
           ? "the browser refused to store it (storage may be full)"
@@ -148,6 +155,7 @@ export function createPersistence(
       });
       return false;
     }
+    state.saveFailed.value = false;
     dismissNotice(state, SAVE_FAILED_CODE);
     lastSynced = storedSerialized(p.id) || current;
     refreshList();
@@ -245,6 +253,8 @@ export function createPersistence(
       state.selection.value = null;
       state.run.value = { status: "idle" };
       state.conflict.value = false;
+      // a project newly opened starts clean: its own first write says whether saving works
+      state.saveFailed.value = false;
       state.needsConfirm.value =
         foreign.components.length > 0 ||
         notices.some((n) => n.code === SCHEMA_NOTICE_CODES.newerMinor);
@@ -297,6 +307,7 @@ export function createPersistence(
         return;
       }
       clearTimer();
+      state.savePending.value = true;
       timer = setTimeout(flush, SAVE_DEBOUNCE_MS);
     },
     flush,
