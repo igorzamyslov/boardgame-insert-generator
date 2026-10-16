@@ -261,7 +261,11 @@ export function createRun(
     }
     return {
       layout: null,
-      bestAttempt: { trays: attemptTrays, shortfall },
+      bestAttempt: {
+        trays: attemptTrays,
+        shortfall,
+        overBedKeys: overBed.filter((o) => !o.filler).map((o) => o.key),
+      },
       summary: null,
       notices,
       lockConflicts: dedupeConflicts(lockConflicts),

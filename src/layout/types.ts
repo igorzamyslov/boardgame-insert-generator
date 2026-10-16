@@ -47,7 +47,12 @@ export interface LockConflict {
 
 export interface LayoutResult {
   layout: StoredLayout | null; // best feasible; null if none
-  bestAttempt: { trays: TraySpec[]; shortfall: { x: number; y: number; z: number } } | null;
+  bestAttempt: {
+    trays: TraySpec[];
+    shortfall: { x: number; y: number; z: number };
+    /** Keys of the trays of this attempt that no print bed orientation can hold (`overBedParts`); absent means none known. */
+    overBedKeys?: string[];
+  } | null;
   summary: LayoutSummary | null;
   notices: Notice[]; // warnings (coverage, play, lip off, capped, bed, doesNotFit)
   /** Pins the layout ignored. Not empty: the layout is not to be accepted (pins are never dropped silently). */

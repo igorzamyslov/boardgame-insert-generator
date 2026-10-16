@@ -112,6 +112,16 @@ describe("AppHeader", () => {
     expect(p.onDownload).toHaveBeenCalledTimes(1);
   });
 
+  it("can name what is wrong on the Download button itself", () => {
+    const p = props({ downloadDisabled: true, downloadLabel: "Fix the fit to download" });
+    render(<AppHeader {...p} />);
+    expect(screen.queryByRole("button", { name: "Download" })).toBeNull();
+    const b = screen.getByRole("button", { name: "Fix the fit to download" });
+    expect(b.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(b);
+    expect(p.onDownload).not.toHaveBeenCalled();
+  });
+
   it("gives the reason Download is off as its title and description", () => {
     render(
       <AppHeader {...props({ downloadDisabled: true, downloadReason: "Update the plan first" })} />,

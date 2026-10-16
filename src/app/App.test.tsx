@@ -498,17 +498,19 @@ describe("App", () => {
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
   });
 
-  it("shows the shortfall of an infeasible run only while its inputs are current", async () => {
-    const { store } = renderApp();
-    store.state.lastResult.value = makeResult(null, {
-      bestAttempt: { trays: [], shortfall: { x: 12.3, y: 0, z: 0 } },
+  it("shows a no-fit run only while its inputs are current", async () => {
+    const { store } = renderApp({ project: withLayoutProject() });
+    act(() => {
+      store.state.lastResult.value = makeResult(null, {
+        bestAttempt: { trays: [], shortfall: { x: 12.3, y: 0, z: 0 } },
+      });
+      store.state.lastResultHash.value = store.state.currentHash.value;
     });
-    store.state.lastResultHash.value = store.state.currentHash.value;
-    expect(
-      await screen.findByText(/Closest attempt so far is short by 12\.3 mm left–right/),
-    ).toBeTruthy();
-    addCards();
-    await waitFor(() => expect(screen.queryByText(/Closest attempt so far/)).toBeNull());
+    expect(await screen.findByText("The trays don't fit the box yet")).toBeTruthy();
+    act(() => {
+      store.edit((q) => updateBox(q, { innerWidth: q.box.innerWidth + 5 }));
+    });
+    await waitFor(() => expect(screen.queryByText(/don't fit the box yet/)).toBeNull());
   });
 
   describe("header and project menu", () => {
@@ -670,6 +672,8 @@ describe("App", () => {
         store.state.runScheduled.value = true;
       });
       expect(download().getAttribute("aria-disabled")).toBe("true");
+      // Only a run is pending: the plan updates by itself, so the reason says to wait.
+      expect(download().getAttribute("title")).toBe("Wait for the plan to finish");
       act(() => {
         store.state.runScheduled.value = false;
       });
@@ -745,7 +749,7 @@ describe("App", () => {
     expect(screen.queryByText(/Preview:/)).toBeNull();
   });
 
-  it("offers Update plan for a layout made under older geometry", async () => {
+  it("offers Reprint everything, not Keep searching, for a layout made under older geometry", async () => {
     const p = fixtureProject();
     renderApp({
       project: {
@@ -753,7 +757,8 @@ describe("App", () => {
         layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
       },
     });
-    expect(await screen.findByRole("button", { name: "Update plan" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
     expect(
       screen.getByText(
@@ -762,6 +767,195 @@ describe("App", () => {
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Keep the old plan" }));
     expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
+  });
+
+  it("shows the stale banner after Keep the old plan and an edit", () => {
+    const p = fixtureProject();
+    const { store } = renderApp({
+      project: {
+        ...p,
+        layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Keep the old plan" }));
+    expect(screen.queryByRole("button", { name: "Update the plan" })).toBeNull();
+    act(() => {
+      store.edit((q) => updateBox(q, { innerWidth: q.box.innerWidth + 5 }));
+    });
+    // the edit's own run has settled without a new plan
+    act(() => {
+      store.state.runScheduled.value = false;
+      store.state.run.value = { status: "idle" };
+    });
+    expect(store.state.stale.value).toBe(true);
+    expect(screen.getByText("This plan is from before your last changes.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Update the plan" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
+  });
+
+  describe("status line", () => {
+    const status = (): HTMLElement => screen.getByRole("group", { name: "Plan status" });
+
+    it("says everything fits, with the trays, the layers and the height", () => {
+      renderApp({ project: withLayoutProject() });
+      // two stored trays 40 mm high; the box is 70 mm inside and keeps 8 mm free on top
+      expect(status().textContent).toContain("Everything fits.");
+      expect(status().textContent).toContain("2 trays in 1 layer, 40 of 62 mm high.");
+      expect(screen.getByRole("button", { name: "Download" }).getAttribute("aria-disabled")).toBe(
+        "false",
+      );
+    });
+
+    it("Keep searching starts a longer search and becomes Stop while it runs", async () => {
+      const { stub } = renderApp({ project: withLayoutProject() });
+      fireEvent.click(screen.getByRole("button", { name: "Keep searching" }));
+      expect(await screen.findByRole("button", { name: "Stop" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+      expect(stub.calls).toHaveLength(1);
+      expect(screen.getByRole("progressbar", { name: "Updating the plan" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+      expect(stub.cancelCount()).toBeGreaterThan(0);
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
+      expect(screen.getByRole("button", { name: "Keep searching" })).toBeTruthy();
+    });
+
+    it("keeps the focus on the button across Keep searching and Stop", async () => {
+      renderApp({ project: withLayoutProject() });
+      const keep = screen.getByRole("button", { name: "Keep searching" });
+      keep.focus();
+      fireEvent.click(keep);
+      const stop = await screen.findByRole("button", { name: "Stop" });
+      expect(document.activeElement).toBe(stop);
+      fireEvent.click(stop);
+      const again = await screen.findByRole("button", { name: "Keep searching" });
+      expect(document.activeElement).toBe(again);
+    });
+
+    it("names the component that does not fit, opens its editor, and keeps Download off", async () => {
+      const { store } = renderApp({ project: withLayoutProject() });
+      const market = store.state.project.value.components[1];
+      const tray = makeTray({
+        key: "m:p0:0",
+        x: 200,
+        w: 120,
+        compartments: [
+          {
+            x: 1.6,
+            y: 1.6,
+            w: 100,
+            d: 70,
+            floorZ: 1.2,
+            kind: "well",
+            contents: "Market",
+            componentId: market?.id,
+            features: [],
+          },
+        ],
+      });
+      act(() => {
+        store.state.lastResult.value = makeResult(null, {
+          bestAttempt: { trays: [tray], shortfall: { x: 30, y: 0, z: 0 } },
+        });
+        store.state.lastResultHash.value = store.state.currentHash.value;
+      });
+      expect(status().textContent).toContain("Market doesn't fit the box yet");
+      expect(status().textContent).not.toContain("Everything fits");
+      const download = screen.getByRole("button", { name: "Fix the fit to download" });
+      expect(download.getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(download);
+      expect(screen.queryByRole("dialog", { name: "Download" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Market" }));
+      expect(await screen.findByRole("heading", { name: "Market" })).toBeTruthy();
+      // leaving the editor does not bring it back
+      fireEvent.click(screen.getByRole("button", { name: "Done" }));
+      expect(screen.queryByRole("heading", { name: "Market" })).toBeNull();
+    });
+
+    it("says a tray is too big for the bed when the run reports it", () => {
+      const { store } = renderApp({ project: withLayoutProject() });
+      const market = store.state.project.value.components[1];
+      const tray = makeTray({
+        key: "m:p0:0",
+        compartments: [
+          {
+            x: 1.6,
+            y: 1.6,
+            w: 100,
+            d: 70,
+            floorZ: 1.2,
+            kind: "well",
+            contents: "Market",
+            componentId: market?.id,
+            features: [],
+          },
+        ],
+      });
+      act(() => {
+        store.state.lastResult.value = makeResult(null, {
+          bestAttempt: {
+            trays: [tray],
+            shortfall: { x: 0, y: 0, z: 0 },
+            overBedKeys: ["m:p0:0"],
+          },
+        });
+        store.state.lastResultHash.value = store.state.currentHash.value;
+      });
+      expect(status().textContent).toContain("Market is too big for your printer's bed");
+    });
+
+    it("offers to unpin each pin the last run could not keep", async () => {
+      const p = withLayoutProject();
+      const { store } = renderApp({
+        project: {
+          ...p,
+          locks: [
+            { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
+            { kind: "size", trayKey: "b:p0:0", w: 100, d: 80, h: 40 },
+          ],
+        },
+      });
+      act(() => {
+        store.state.lockConflicts.value = [
+          { trayKey: "a:p0:0", kind: "position", name: "Action cards", reason: "it is too big" },
+          { trayKey: "b:p0:0", kind: "size", name: "Market", reason: "no room" },
+        ];
+      });
+      expect(status().textContent).toContain("Action cards doesn't fit with your pins");
+      expect(status().textContent).toContain("Market doesn't fit with your pins");
+      expect(screen.getByRole("button", { name: "Fix the fit to download" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Unpin Action cards" }));
+      // only that pin goes, and the plan updates; the other conflict waits for the run's verdict
+      expect(store.state.project.value.locks.map((l) => l.kind)).toEqual(["size"]);
+      expect(store.state.lockConflicts.value.map((c) => c.name)).toEqual(["Market"]);
+      expect(status().textContent).toBe("Updating the plan…");
+    });
+
+    it("unpins a stack the last run could not keep", () => {
+      const p = withLayoutProject();
+      const { store } = renderApp({
+        project: { ...p, locks: [{ kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] }] },
+      });
+      act(() => {
+        store.state.lockConflicts.value = [
+          { trayKey: "a:p0:0", kind: "stack", name: "Action cards, Market", reason: "no room" },
+        ];
+      });
+      expect(status().textContent).toContain("Action cards, Market doesn't fit with your pins");
+      fireEvent.click(screen.getByRole("button", { name: "Unpin Action cards, Market" }));
+      expect(store.state.project.value.locks).toEqual([]);
+      expect(store.state.lockConflicts.value).toEqual([]);
+    });
+
+    it("says the plan is updating while a run is pending, with Download waiting", () => {
+      const { store } = renderApp({ project: withLayoutProject() });
+      act(() => {
+        store.state.runScheduled.value = true;
+      });
+      expect(status().textContent).toBe("Updating the plan…");
+      expect(screen.getByRole("button", { name: "Download" }).getAttribute("title")).toBe(
+        "Wait for the plan to finish",
+      );
+    });
   });
 
   describe("conflict notices", () => {
@@ -1268,12 +1462,14 @@ describe("App", () => {
     expect(store.state.appNotices.value).toEqual([]);
   });
 
-  it("undoes the last layout from the summary", async () => {
+  it("undoes the last layout from the header, and the summary has no Undo of its own", async () => {
     const p = fixtureProject();
     const before = makeLayout(inputsHash(p), [makeTray({ key: "old:p0:0" })]);
     const { store } = renderApp({ project: { ...p, layout: before } });
     store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
-    fireEvent.click(await screen.findByRole("button", { name: "Undo layout" }));
+    await waitFor(() => expect(store.canUndo.value).toBe(true));
+    expect(screen.getAllByRole("button", { name: /undo/i })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     expect(store.state.project.value.layout).toEqual(before);
     expect(store.state.project.value.box.innerHeight).toBe(p.box.innerHeight);
     expect(store.canUndo.value).toBe(false);

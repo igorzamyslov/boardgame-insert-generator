@@ -147,8 +147,10 @@ describe("createState", () => {
     expect(s.shortfall.value).toBeNull();
     s.lastResultHash.value = s.currentHash.value;
     expect(s.shortfall.value).toEqual(shortfall);
+    expect(s.noFitAttempt.value).toEqual({ trays: [], shortfall });
     s.project.value = { ...p, box: { ...p.box, innerHeight: p.box.innerHeight + 1 } };
     expect(s.shortfall.value).toBeNull();
+    expect(s.noFitAttempt.value).toBeNull();
   });
 
   it("has no shortfall for a feasible result", () => {

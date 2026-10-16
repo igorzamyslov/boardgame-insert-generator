@@ -4,6 +4,7 @@ import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Component, ComponentKind } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
+import { topPlane } from "../model/settings";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
@@ -19,6 +20,8 @@ import { placeNotices } from "../ui/noticePlacement";
 import { ProjectMenu } from "../ui/ProjectMenu";
 import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
+import { misfitOf } from "../ui/noFit";
+import { StatusLine } from "../ui/StatusLine";
 import { Summary } from "../ui/Summary";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
 import { Section } from "../ui/Section";
@@ -252,7 +255,7 @@ export function App(props: AppProps) {
     }
     setOpenSection("components");
   };
-  // The tray bar's Edit: the component's editor, in the list's place, as a click on its row opens it.
+  // The tray bar's and the status line's Edit: the component's editor, in the list's place, as a click on its row opens it.
   const editComponent = (id: string): void => {
     showSection("components");
     setEditingId(id);
@@ -264,17 +267,21 @@ export function App(props: AppProps) {
   // Where each notice shows: the one banner, the project menu (with a dot), or inline.
   const noFit =
     s.shortfall.value !== null || layoutNotices.some((n) => n.code === NOTICE_CODES.doesNotFit);
+  const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
+  // The older-geometry notice the person chose to keep is not shown, so it must not hide the stale
+  // one either (placeNotices lets the geometry notice speak for both).
   const placed = placeNotices(
     [
       ...s.appNotices.value,
-      ...layoutNotices.filter((n) => n.code === STALE_CODE || n.code === GEOMETRY_MAJOR_CODE),
+      ...layoutNotices.filter(
+        (n) =>
+          n.code === STALE_CODE || (n.code === GEOMETRY_MAJOR_CODE && geometryKept !== geometryKey),
+      ),
     ],
     { runPending: s.runPending.value, runStatus: run.status, noFit },
   );
-  const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
   const showStale = placed.banner.some((n) => n.code === STALE_CODE);
-  const showGeometry =
-    placed.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE) && geometryKept !== geometryKey;
+  const showGeometry = placed.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE);
   // The stale and older-geometry notices are the banner's: the summary lists the others.
   const summaryNotices = layoutNotices.filter(
     (n) => n.code !== STALE_CODE && n.code !== GEOMETRY_MAJOR_CODE,
@@ -321,7 +328,21 @@ export function App(props: AppProps) {
   const planCurrent = layout !== undefined && !s.stale.value && run.status !== "running";
   const listTrays = planCurrent ? printable : undefined;
   const layers = layout ? levelsOf(layout.trays).length : 0;
-  const spares = layout ? layout.trays.filter((t) => t.part === "leftover").length : 0;
+  // What the status line says of a plan that matches the inputs: how many trays, how high.
+  const summary = s.summary.value;
+  const fits =
+    layout !== undefined && summary !== null && !s.stale.value
+      ? {
+          trays: summary.trayCount,
+          layers: Math.max(1, layers),
+          height: Math.max(0, ...layout.trays.map((t) => t.z + t.h)),
+          // the height below the space the box keeps free on top (where every stack reaches)
+          boxHeight: topPlane(project.box, projSettings),
+        }
+      : null;
+  const conflicts = s.lockConflicts.value;
+  // Download waits while the plan changes by itself; otherwise a plan that doesn't fit says so.
+  const fitProblem = !s.runPending.value && (noFit || conflicts.length > 0);
 
   // A tray is selected and in the plan: its bar shows, and the plan's generic hint goes.
   const hasSelectedTray =
@@ -357,11 +378,18 @@ export function App(props: AppProps) {
                 onRedo={() => store.redo()}
                 downloadRef={downloadButtonRef}
                 onDownload={() => setExportOpen(true)}
-                downloadDisabled={layout === undefined || s.stale.value || s.runPending.value}
+                downloadDisabled={
+                  layout === undefined || s.stale.value || s.runPending.value || fitProblem
+                }
+                downloadLabel={fitProblem ? "Fix the fit to download" : undefined}
                 downloadReason={
-                  layout !== undefined && (s.stale.value || s.runPending.value)
-                    ? "Update the plan first"
-                    : undefined
+                  layout === undefined
+                    ? undefined
+                    : s.runPending.value
+                      ? "Wait for the plan to finish"
+                      : s.stale.value
+                        ? "Update the plan first"
+                        : undefined
                 }
                 menuDot={placed.menu.length > 0}
                 menuNoticeCount={placed.menu.length}
@@ -471,25 +499,41 @@ export function App(props: AppProps) {
               )}
               <main class="pf-app__stage" ref={mainRef}>
                 <h2 class="visually-hidden">Results</h2>
+                <StatusLine
+                  run={run}
+                  pending={s.runPending.value}
+                  canOptimize={canOptimize(project, validation)}
+                  hasLayout={layout !== undefined}
+                  fits={fits}
+                  canSearchMore={!s.geometryOld.value}
+                  noFit={
+                    noFit
+                      ? {
+                          misfit: misfitOf(
+                            s.noFitAttempt.value,
+                            project.box,
+                            projSettings,
+                            project.components,
+                          ),
+                        }
+                      : null
+                  }
+                  conflicts={conflicts}
+                  onKeepSearching={() => store.refit()}
+                  onStop={() => store.cancelRun()}
+                  onEdit={editComponent}
+                  onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
+                />
                 <Summary
-                  summary={s.summary.value}
+                  summary={summary}
                   run={run}
                   notices={summaryNotices}
                   hasLayout={layout !== undefined}
-                  stale={s.stale.value}
-                  geometryOld={s.geometryOld.value}
-                  layers={layers}
-                  spares={spares}
-                  canUndo={store.canUndo.value}
                   canOptimize={canOptimize(project, validation)}
                   hasComponents={project.components.length > 0}
                   hiddenErrors={errorsWithoutField(validation)}
                   problemSections={problemSections}
                   onShowSection={showSection}
-                  shortfall={s.shortfall.value}
-                  onRefit={() => store.refit()}
-                  onUndo={() => store.undo()}
-                  onCancel={() => store.cancelRun()}
                   onRetry={() => store.retry()}
                 />
                 {firstVisit ? (
