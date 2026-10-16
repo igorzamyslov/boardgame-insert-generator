@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { createCtx } from "./context";
 import { evaluate } from "./fill";
-import { OVERFLOW_WEIGHT, scorePlan, WEIGHTS, type PrevPos } from "./score";
+import {
+  OVERFLOW_WEIGHT,
+  SEAL_REACH_MM,
+  SWOLLEN_CAP_MM,
+  scorePlan,
+  WEIGHTS,
+  type PrevPos,
+} from "./score";
+import { CHANNEL_DEPTH } from "../sizing/constants";
+import { optimize } from "./optimize";
 import { boxReq, comp, fakeMeasure, item, makeInput, part, req, variant } from "./test-utils";
 import { cut, leaf, type Tree } from "./tree";
 
@@ -38,9 +47,12 @@ describe("score", () => {
           WEIGHTS.moved +
           WEIGHTS.unturned +
           WEIGHTS.apart +
-          WEIGHTS.fillers) +
+          WEIGHTS.fillers +
+          WEIGHTS.sealed) +
       20_000 * WEIGHTS.play +
-      100_000 * WEIGHTS.filament;
+      100_000 * WEIGHTS.filament +
+      // thirty trays, each swollen to the cap on both axes
+      30 * 2 * SWOLLEN_CAP_MM ** 2 * WEIGHTS.swollen;
     expect(OVERFLOW_WEIGHT).toBeGreaterThan(maxFeasible);
   });
 
@@ -212,6 +224,14 @@ describe("score", () => {
       expect(score(side([piece(0)], [piece(1)], [piece(2)], [k])).terms.apart).toBe(2);
     });
 
+    it("counts the trays of other requirements standing between a requirement's parts", () => {
+      // adjacent in the stack, or not: one foreign tray between two of its parts is one more
+      expect(score(side([piece(0), piece(1), k])).terms.apart).toBe(0);
+      expect(score(side([k, piece(0), piece(1)])).terms.apart).toBe(0);
+      expect(score(side([piece(0), k, piece(1)])).terms.apart).toBe(1);
+      expect(score(side([piece(0), k, piece(1)], [piece(2)])).terms.apart).toBe(2);
+    });
+
     it("never outweighs keeping an often-used tray on top", () => {
       // The Star Realms case: grouping all three parts buries two of them, the interleaved layout
       // only one. The weak term must not decide it, however it is arranged around them.
@@ -310,6 +330,170 @@ describe("score", () => {
       // so avoiding a filler never costs a stacked tray, nor a tray buried under another
       expect(WEIGHTS.trays + WEIGHTS.fillers).toBeLessThan(WEIGHTS.stacked);
       expect(WEIGHTS.fillers).toBeLessThan(WEIGHTS.access);
+    });
+  });
+
+  describe("stack order by footprint (spec §6.4)", () => {
+    // 100 × 60 and 50 × 40 parts in one stack: the small one under the large one has to carry the
+    // large one's footprint in its walls, over it stands at its own size with a filler beside it.
+    const wide = boxReq("wide", 100, 60, 20);
+    const small = boxReq("small", 50, 40, 10);
+    const ctx = createCtx(makeInput([wide, small]), fakeMeasure);
+    const stackOf = (...order: number[]) =>
+      scorePlan(ctx, evaluate(ctx, { root: leaf(order.map((r) => item(r))), variants: [0, 0] }));
+
+    it("charges a small tray under a large one, and nothing for the other way round", () => {
+      const smallFirst = stackOf(1, 0);
+      const wideFirst = stackOf(0, 1);
+      expect(smallFirst.overflow).toBe(0);
+      expect(wideFirst.overflow).toBe(0);
+      expect(smallFirst.terms.swollen).toBeGreaterThan(0);
+      expect(wideFirst.terms.swollen).toBe(0);
+    });
+
+    it("prefers the largest tray at the bottom", () => {
+      expect(stackOf(0, 1).total).toBeLessThan(stackOf(1, 0).total);
+    });
+
+    it("does not charge the room two equal trays ask of each other, in either order", () => {
+      const twin = createCtx(
+        makeInput([boxReq("a", 60, 40, 10), boxReq("b", 60, 40, 10)]),
+        fakeMeasure,
+      );
+      const s = scorePlan(
+        twin,
+        evaluate(twin, { root: leaf([item(0), item(1)]), variants: [0, 0] }),
+      );
+      expect(s.overflow).toBe(0);
+      expect(s.terms.swollen).toBe(0);
+    });
+
+    it("does not charge room the tray's contents may grow into", () => {
+      const grows = boxReq("small", 50, 40, 10, { elastic: { w: true, d: true } });
+      const c = createCtx(makeInput([wide, grows]), fakeMeasure);
+      const s = scorePlan(c, evaluate(c, { root: leaf([item(1), item(0)]), variants: [0, 0] }));
+      expect(s.terms.swollen).toBe(0);
+    });
+
+    it("keeps an often-used tray on top: the tray under it carries its footprint uncharged", () => {
+      const often = createCtx(
+        makeInput([boxReq("wide", 100, 60, 20, { access: "often" }), small]),
+        fakeMeasure,
+      );
+      const run = (...order: number[]) =>
+        scorePlan(
+          often,
+          evaluate(often, { root: leaf(order.map((r) => item(r))), variants: [0, 0] }),
+        );
+      const onTop = run(1, 0);
+      const buried = run(0, 1);
+      expect(onTop.terms.swollen).toBe(0);
+      expect(onTop.terms.access).toBe(0);
+      expect(buried.terms.access).toBe(1);
+      expect(onTop.total).toBeLessThan(buried.total);
+    });
+
+    it("stays under the box's own coverage at a millimetre or two, and cannot beat feasibility", () => {
+      expect(WEIGHTS.swollen).toBeGreaterThan(WEIGHTS.fillers);
+      expect(WEIGHTS.swollen * 2.5 ** 2).toBeGreaterThanOrEqual(WEIGHTS.coverage);
+      // one tray at the cap on both axes is far under a single unit of overflow
+      expect(2 * SWOLLEN_CAP_MM ** 2 * WEIGHTS.swollen * 30).toBeLessThan(OVERFLOW_WEIGHT);
+    });
+
+    it("orders a stack largest-first when the search is free to", () => {
+      // Three trays of three different footprints that must stack (one 70 × 60 floor spot each
+      // would not fit beside each other), offered smallest first.
+      const trio = [
+        boxReq("big", 90, 60, 14),
+        boxReq("mid", 70, 50, 14),
+        boxReq("tiny", 40, 30, 14),
+      ];
+      const input = makeInput(trio, { box: { innerWidth: 100, innerDepth: 70, innerHeight: 60 } });
+      const { layout } = optimize(input, 1, 20_000);
+      expect(layout).not.toBeNull();
+      const stack = (layout?.trays ?? [])
+        .filter((t) => t.part === "tray")
+        .sort((a, b) => a.level - b.level);
+      expect(stack.map((t) => t.key)).toEqual(["big:p0:0", "mid:p0:0", "tiny:p0:0"]);
+    });
+  });
+
+  describe("fillers and finger cuts (spec §6.4)", () => {
+    // A tray with a cut on its front wall (`comp` default for a narrow part), and a box with room
+    // for a filler beside it on one axis only.
+    const cutAt = (side: "front" | "back" | "left" | "right") => ({
+      ...comp({ minW: 60, minD: 40, minH: 10 }),
+      features: [
+        { type: "wallCutout" as const, side, depthFraction: CHANNEL_DEPTH, floorNotch: false },
+      ],
+    });
+    const withCut = (side: "front" | "back" | "left" | "right") =>
+      req("cut", [variant("v", [part("cut:p0:0", [cutAt(side)], false)])]);
+    const run = (side: "front" | "back" | "left" | "right", box: Record<string, number>) => {
+      const c = createCtx(makeInput([withCut(side)], { box }), fakeMeasure);
+      const plan = evaluate(c, { root: leaf([item(0)]), variants: [0] });
+      return { plan, score: scorePlan(c, plan) };
+    };
+
+    it("counts a cut wall with a filler against it, not one with a filler at another face", () => {
+      // 40 mm of slack along X, none along Y: the filler stands against the right wall
+      const alongX = { innerWidth: 110, innerDepth: 46 };
+      expect(run("right", alongX).plan.leftovers.length).toBe(1);
+      expect(run("right", alongX).score.terms.sealed).toBe(1);
+      expect(run("front", alongX).score.terms.sealed).toBe(0);
+      expect(run("left", alongX).score.terms.sealed).toBe(0);
+    });
+
+    it("prefers the layout with no sealed cut by exactly its weight, all else equal", () => {
+      const alongX = { innerWidth: 110, innerDepth: 46 };
+      const sealed = run("right", alongX).score;
+      const clear = run("front", alongX).score;
+      expect(clear.terms.leftover).toBe(sealed.terms.leftover);
+      expect(sealed.total - clear.total).toBe(WEIGHTS.sealed);
+    });
+
+    it("counts only a filler within reach of the wall", () => {
+      const alongX = { innerWidth: 110, innerDepth: 46 };
+      const { plan } = run("right", alongX);
+      const c = createCtx(makeInput([withCut("right")], { box: alongX }), fakeMeasure);
+      const far = plan.leftovers.map((l) => ({ ...l, x: l.x + Math.round(SEAL_REACH_MM * 100) }));
+      expect(scorePlan(c, { ...plan, leftovers: far }).terms.sealed).toBe(0);
+    });
+
+    it("yields when there is no other face: a layout that must seal a cut still comes out", () => {
+      // Slack only along X and the only tray cut on both X walls: any layout seals one.
+      const both = req("cut", [
+        variant("v", [
+          part(
+            "cut:p0:0",
+            [
+              {
+                ...comp({ minW: 60, minD: 40, minH: 10 }),
+                features: (["left", "right"] as const).map((side) => ({
+                  type: "wallCutout" as const,
+                  side,
+                  depthFraction: CHANNEL_DEPTH,
+                  floorNotch: false,
+                })),
+              },
+            ],
+            false,
+          ),
+        ]),
+      ]);
+      const input = makeInput([both], { box: { innerWidth: 110, innerDepth: 46 } });
+      const { layout } = optimize(input, 1, 5_000);
+      expect(layout).not.toBeNull();
+      expect(layout?.trays.some((t) => t.part === "leftover")).toBe(true);
+      const c = createCtx(input, fakeMeasure);
+      const plan = evaluate(c, { root: leaf([item(0)]), variants: [0] });
+      expect(scorePlan(c, plan).terms.sealed).toBeGreaterThan(0);
+      expect(scorePlan(c, plan).overflow).toBe(0);
+    });
+
+    it("stays below an extra printed part and above a moved tray, so it never buys a part", () => {
+      expect(WEIGHTS.sealed).toBeLessThan(WEIGHTS.trays);
+      expect(WEIGHTS.sealed).toBeGreaterThan(WEIGHTS.moved);
     });
   });
 

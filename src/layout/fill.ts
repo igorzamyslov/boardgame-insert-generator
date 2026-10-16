@@ -10,8 +10,11 @@ import {
   stackMinFootprint,
   type Level,
 } from "./stack";
+import type { OuterCutSides } from "../sizing";
 import { placeLeaves, type Leaf, type StackItem, type Tree } from "./tree";
 import type { Ext, Rect, U } from "./units";
+
+const NO_CUTS: OuterCutSides = { left: false, right: false, front: false, back: false };
 
 export interface PlacedTray {
   readonly path: string;
@@ -161,12 +164,16 @@ export interface StackPlacement {
   readonly overflowLock: U;
 }
 
-/** Leftover rects of `region` around a tray at its corner: beside it along X, then below it along Y. */
-function beside(ctx: Ctx, region: Rect, foot: Ext): Rect[] {
+/**
+ * Leftover rects of `region` around a tray standing at one end of each axis: beside it along X
+ * (the whole depth of the region), then along Y (as wide as the tray). `highX` / `highY` put the
+ * tray at the far end of that axis, so its slack lies on the near side instead.
+ */
+function beside(ctx: Ctx, region: Rect, foot: Ext, highX = false, highY = false): Rect[] {
   const out: Rect[] = [];
   if (foot.w < region.w) {
     out.push({
-      x: region.x + foot.w + ctx.gap,
+      x: highX ? region.x : region.x + foot.w + ctx.gap,
       y: region.y,
       w: region.w - foot.w - ctx.gap,
       d: region.d,
@@ -174,8 +181,8 @@ function beside(ctx: Ctx, region: Rect, foot: Ext): Rect[] {
   }
   if (foot.d < region.d) {
     out.push({
-      x: region.x,
-      y: region.y + foot.d + ctx.gap,
+      x: highX ? region.x + region.w - foot.w : region.x,
+      y: highY ? region.y : region.y + foot.d + ctx.gap,
       w: foot.w,
       d: region.d - foot.d - ctx.gap,
     });
@@ -207,15 +214,39 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
   let z = 0;
   let lockOver = heights.lockOverflow;
   let region = rect;
+  // The walls with a finger cut among the tray of each level and everything above it
+  const cutsFrom: OuterCutSides[] = [];
+  for (let k = levels.length - 1; k >= 0; k--) {
+    const l = levels[k];
+    const own = l ? ctx.cutSides(l.item, l.item.rotated) : NO_CUTS;
+    const above = cutsFrom[k + 1] ?? NO_CUTS;
+    cutsFrom[k] = {
+      left: own.left || above.left,
+      right: own.right || above.right,
+      front: own.front || above.front,
+      back: own.back || above.back,
+    };
+  }
   const trays = levels.map((l, k) => {
     const F = mins[k] ?? { w: l.minW, d: l.minD };
     const { foot } = chooseTray(ctx, l, F, region, k === 0 ? ctx.minFiller : ctx.minFillerUpper);
     const h = heights.h[k] ?? 0;
+    // An upper tray with slack beside it stands at the end of its axis that keeps the filler off
+    // the walls a finger cut goes through, when only one of the two ends has one (spec §6.4). The
+    // trays above stand inside it, so their cuts count too. The bottom tray stays in its corner:
+    // a cut there faces the neighbouring leaf or the box wall either way.
+    const cuts = k > 0 ? cutsFrom[k] : undefined;
+    const highX = cuts !== undefined && foot.w < region.w && cuts.right && !cuts.left;
+    const highY = cuts !== undefined && foot.d < region.d && cuts.back && !cuts.front;
+    const at = {
+      x: highX ? region.x + region.w - foot.w : region.x,
+      y: highY ? region.y + region.d - foot.d : region.y,
+    };
     const t = {
       level: k,
       item: l.item,
-      x: region.x,
-      y: region.y,
+      x: at.x,
+      y: at.y,
       z,
       w: foot.w,
       d: foot.d,
@@ -233,7 +264,7 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
     if (l.fixed) {
       lockOver += Math.max(0, foot.w - l.fixed.w) + Math.max(0, foot.d - l.fixed.d);
     }
-    const rest = beside(ctx, region, foot);
+    const rest = beside(ctx, region, foot, highX, highY);
     if (k === 0) {
       leftovers = rest;
     } else {
@@ -243,8 +274,8 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
     }
     // the next tray stands inside this one's lip ring
     region = {
-      x: region.x + ctx.inset,
-      y: region.y + ctx.inset,
+      x: at.x + ctx.inset,
+      y: at.y + ctx.inset,
       w: foot.w - 2 * ctx.inset,
       d: foot.d - 2 * ctx.inset,
     };

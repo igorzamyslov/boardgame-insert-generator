@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createCtx, withSizeLocks, type Ctx } from "./context";
 import { evaluate, overflowTotal, placeStack } from "./fill";
 import { stackLevels } from "./stack";
-import { boxReq, fakeMeasure, item, makeInput } from "./test-utils";
+import { CHANNEL_DEPTH } from "../sizing/constants";
+import { boxReq, comp, fakeMeasure, item, makeInput, part, req, variant } from "./test-utils";
 import { cut, leaf } from "./tree";
 import type { TrayRequirement } from "../sizing/types";
 
@@ -193,6 +194,118 @@ describe("fill: a stack level holds a tray plus fillers", () => {
     expect(sp.trays[1]?.d).toBe(4400);
     expect(sp.overflowLock).toBe(0);
     expect(sp.fillers.length).toBeGreaterThan(0);
+  });
+});
+
+describe("fill: which end of its level an upper tray stands at (spec §6.4)", () => {
+  // A 100 × 60 tray under a 50 × 40 one that has a finger cut on one wall: the filler beside the
+  // small tray goes to the end its cut does not face.
+  const wide = boxReq("wide", 100, 60, 20);
+  const cutOn = (...sides: ("front" | "back" | "left" | "right")[]): TrayRequirement =>
+    req("small", [
+      variant("v", [
+        part(
+          "small:p0:0",
+          [
+            {
+              ...comp({ minW: 50, minD: 40, minH: 10 }),
+              features: sides.map((side) => ({
+                type: "wallCutout" as const,
+                side,
+                depthFraction: CHANNEL_DEPTH,
+                floorNotch: false,
+              })),
+            },
+          ],
+          false,
+        ),
+      ]),
+    ]);
+  const upper = (small: TrayRequirement) => {
+    const ctx = ctxOf([wide, small]);
+    const sp = placeStack(ctx, stackLevels(ctx, [item(0), item(1)]), {
+      x: 0,
+      y: 0,
+      w: 10600,
+      d: 6600,
+    });
+    const ring = { x: ctx.inset, y: ctx.inset, w: 10600 - 2 * ctx.inset, d: 6600 - 2 * ctx.inset };
+    return { ctx, sp, ring, tray: sp.trays[1] };
+  };
+
+  it("keeps the corner when the cut faces the wall beside the tray, as before", () => {
+    const { sp, ring, tray } = upper(cutOn("left"));
+    expect(tray?.x).toBe(ring.x);
+    expect(tray?.y).toBe(ring.y);
+    expect(sp.fillers.some((f) => f.rect.x >= ring.x + (tray?.w ?? 0))).toBe(true);
+  });
+
+  it("stands at the far end of X when its cut is on the right, filler on the left", () => {
+    const { ctx, sp, ring, tray } = upper(cutOn("right"));
+    expect(tray).toBeDefined();
+    expect((tray?.x ?? 0) + (tray?.w ?? 0)).toBe(ring.x + ring.w);
+    expect(tray?.y).toBe(ring.y);
+    const left = sp.fillers.find((f) => f.rect.x === ring.x && f.rect.d === ring.d);
+    expect(left?.rect.w).toBe((tray?.x ?? 0) - ctx.gap - ring.x);
+    // nothing stands beyond the right wall
+    expect(sp.fillers.every((f) => f.rect.x < (tray?.x ?? 0) + (tray?.w ?? 0))).toBe(true);
+  });
+
+  it("stands at the far end of Y when its cut is at the back, filler in front", () => {
+    const { sp, ring, tray } = upper(cutOn("back"));
+    expect((tray?.y ?? 0) + (tray?.d ?? 0)).toBe(ring.y + ring.d);
+    expect(tray?.x).toBe(ring.x);
+    expect(sp.fillers.every((f) => f.rect.y < (tray?.y ?? 0) + (tray?.d ?? 0))).toBe(true);
+  });
+
+  it("stays in the corner when both walls of the axis have a cut: no end is clear", () => {
+    const { ring, tray } = upper(cutOn("left", "right"));
+    expect(tray?.x).toBe(ring.x);
+  });
+
+  it("follows a part turned 90°: a cut on its front is on the right of the box", () => {
+    const ctx = ctxOf([wide, cutOn("front")]);
+    expect(ctx.cutSides(item(1), false)).toEqual({
+      front: true,
+      back: false,
+      left: false,
+      right: false,
+    });
+    expect(ctx.cutSides(item(1), true)).toEqual({
+      front: false,
+      back: false,
+      left: false,
+      right: true,
+    });
+  });
+
+  it("counts the cuts of the trays above: they stand inside, against the same filler", () => {
+    // the middle tray has no cut, the one on it has one on the right: the middle tray's filler goes
+    // to the left too, or it would stand against the top tray's right wall
+    const ctx = ctxOf([wide, boxReq("mid", 70, 50, 14), cutOn("right")]);
+    const sp = placeStack(ctx, stackLevels(ctx, [item(0), item(1), item(2)]), {
+      x: 0,
+      y: 0,
+      w: 10600,
+      d: 6600,
+    });
+    const [, mid, top] = sp.trays;
+    expect(mid).toBeDefined();
+    expect((mid?.x ?? 0) + (mid?.w ?? 0)).toBe(10600 - ctx.inset);
+    expect(top).toBeDefined();
+  });
+
+  it("puts the next level in the ring of the tray at the far end", () => {
+    const ctx = ctxOf([wide, cutOn("right"), boxReq("tiny", 30, 20, 8)]);
+    const sp = placeStack(ctx, stackLevels(ctx, [item(0), item(1), item(2)]), {
+      x: 0,
+      y: 0,
+      w: 10600,
+      d: 6600,
+    });
+    const [, mid, top] = sp.trays;
+    expect(mid && top && top.x - mid.x).toBe(ctx.inset);
+    expect(mid && top && top.x + top.w <= mid.x + mid.w - ctx.inset).toBe(true);
   });
 });
 

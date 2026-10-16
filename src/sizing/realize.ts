@@ -680,6 +680,41 @@ export function minOuter(part: TrayPartReq, settings: Settings, opts: RealizeOpt
   return { w: fromU(min.w), d: fromU(min.d), h: fromU(min.h) };
 }
 
+/** The outer walls of a part, in its own frame, that a finger cut passes through. */
+export interface OuterCutSides {
+  readonly left: boolean;
+  readonly right: boolean;
+  readonly front: boolean;
+  readonly back: boolean;
+}
+
+/**
+ * Which outer walls the part's wall cutouts pass through, where realizeTray places them at its
+ * minimum size (the first row's left wall counts as left, and so on: any row). Cuts are placed
+ * from the compartments alone, so this is the same at a larger outer in all but contrived cases;
+ * where the cuts cannot be placed (a hand-built part) it falls back to the cuts asked for.
+ * The layout uses it to keep fillers off the walls a person reaches through (spec: stack order).
+ */
+export function outerCutSides(
+  part: TrayPartReq,
+  settings: Settings,
+  opts: RealizeOptions,
+): OuterCutSides {
+  let walls: CutWalls;
+  try {
+    const min = minLayoutOf(part, settings, opts);
+    walls = layoutAt(part, min, [min.w, min.d, min.h], settings).walls;
+  } catch {
+    walls = requestedWalls(part);
+  }
+  return {
+    left: walls.left.some(Boolean),
+    right: walls.right.some(Boolean),
+    front: walls.front,
+    back: walls.back,
+  };
+}
+
 /**
  * Realizes `part` in `outer` (roadmap §4.2, §4.7). Throws RangeError when `outer` is smaller than
  * minOuter, and CutFitError (sizing-internal) when a card, tile, minis or custom compartment gets

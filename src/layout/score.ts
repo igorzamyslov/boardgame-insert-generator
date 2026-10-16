@@ -1,6 +1,6 @@
 import type { Ctx } from "./context";
-import { overflowTotal, type Plan } from "./fill";
-import { volMm3, type U } from "./units";
+import { overflowTotal, type PlacedLeftover, type PlacedTray, type Plan } from "./fill";
+import { toU, volMm3, type U } from "./units";
 
 /** Where a tray was in the warm-start layout (units). */
 export interface PrevPos {
@@ -35,7 +35,8 @@ export interface ScoreTerms {
   readonly unturned: number;
   /**
    * Parts of one requirement spread over several stacks: per requirement, its stacks beyond the
-   * first. Only a preference; a tray reachable on top comes first (spec §6).
+   * first, plus the trays of other requirements standing between its parts in a stack, so its
+   * parts end up adjacent. Only a preference; a tray reachable on top comes first (spec §6).
    */
   readonly apart: number;
   /**
@@ -43,6 +44,18 @@ export interface ScoreTerms {
    * so each costs its own term on top of `trays` (spec §6, lever 2).
    */
   readonly fillers: number;
+  /**
+   * Walls a stack swells beyond what it asks of them: per tray and axis, the square of the extra
+   * thickness (mm per side) its footprint is forced to by the trays above it, over what an equal
+   * tray above would force and over what the tray absorbs as room for its contents. A small tray
+   * under a large one carries the large one's footprint in its walls (spec: stack order).
+   */
+  readonly swollen: number;
+  /**
+   * Finger-cut walls with a filler against them: per tray, the cut walls with a filler part
+   * closer than `SEAL_REACH_MM` (spec: sealed cuts). Only a preference.
+   */
+  readonly sealed: number;
 }
 
 export interface Score {
@@ -68,6 +81,9 @@ export interface Score {
  *   one extra stack for a requirement   =             10 000
  * and one for the loose pieces a person places by hand (spec §6, lever 2):
  *   one filler part (on top of `trays`)  =             20 000
+ * and two preferences about how a stack and its fillers look (spec §6.4):
+ *   a wall swollen 1 mm per side beyond need   =       80 000 (× the square of mm)
+ *   one finger-cut wall with a filler against it =      10 000
  * Overflow (any hard-rule violation) costs OVERFLOW_WEIGHT per 0.01 mm, more than any
  * feasible score can reach, so the search always prefers reducing violations.
  * Totals stay far below 2^53, so score deltas are exact integers.
@@ -103,6 +119,21 @@ export const WEIGHTS: Readonly<ScoreTerms> = {
   // is set by those neighbours, not by the search. Spec §6 lever 3, a reward for fillers against
   // the box wall, was measured and dropped: it raised the filler count (spec §6.2).
   fillers: 20_000,
+  // The square of the avoidable thickness in mm (see `swollenTotal`), so a few millimetres cost
+  // little and a wall carrying a whole footprint costs a great deal: 1 mm per side is 80 000 (two
+  // fillers), 2.5 mm is `coverage` (500 000), 10 mm is 8 % of the box. It has to be big
+  // because `leftover` charges a filler by volume too, and a small tray on top of a stack has a
+  // filler as tall as the stack above its level, taller than the swollen walls it replaces: the
+  // honest volume of the thick-walled layout is the smaller, so only a stronger preference moves
+  // it (spec §6.4: the mean forced wall on the real project over six seeds fell from 26.0 mm to
+  // 6.7 at 20 000, 4.3 at 80 000 and 1.9 at 160 000, with no change to a fixture). Kept under the
+  // top of that range so it stays near `coverage`. An "often" tray above exempts the tray under it,
+  // so reachability is never what pays for it.
+  swollen: 80_000,
+  // A filler against a cut wall seals it. It is free to avoid when the slack can go to another
+  // face, so it must never buy a part (20 000) or a filler (40 000): half a part, and above
+  // `moved` so a warm start can still be rearranged to clear one.
+  sealed: 10_000,
 };
 
 export const OVERFLOW_WEIGHT = 1_000_000_000;
@@ -125,6 +156,113 @@ function shell(ctx: Ctx, w: U, d: U, h: U): number {
   return volMm3(w, d, h) - volMm3(w - 2 * ctx.wall, d - 2 * ctx.wall, h - ctx.floor);
 }
 
+/**
+ * Thickness (mm per side) past which `swollen` stops growing. Without it a tray 400 mm wider than
+ * the one above would cost more than OVERFLOW_WEIGHT, and a feasible layout could lose to one that
+ * overflows; at 10 mm a tray costs 2 × 100 × 80 000 = 16 million at most, and a box of thirty
+ * trays under that is still under it.
+ */
+export const SWOLLEN_CAP_MM = 10;
+
+/** A filler closer than this to a cut wall seals it: less than a fingertip of room (spec §6.4). */
+export const SEAL_REACH_MM = 8;
+const SEAL_REACH_U: U = toU(SEAL_REACH_MM);
+
+/**
+ * The extra thickness (units per side) a tray's walls are forced to by the trays above it, per
+ * axis, beyond what avoids no one: an equal tray above costs two insets of footprint per level
+ * (the lip ring it stands inside), which no order of trays avoids, and room the tray takes as
+ * space for its contents or as walls the user allowed is not forced waste (`usable`).
+ */
+function swollenOf(ctx: Ctx, t: PlacedTray, above: number): [U, U] {
+  const allowance = 2 * ctx.inset * above;
+  const usableW = Math.min(t.w, t.minW + Math.max(0, t.capW - ctx.oneWallCap));
+  const usableD = Math.min(t.d, t.minD + Math.max(0, t.capD - ctx.oneWallCap));
+  const axis = (own: U, need: U, size: U, usable: U): U =>
+    Math.max(0, Math.min(size - usable, need - own) - allowance) / 2;
+  return [axis(t.minW, t.needW, t.w, usableW), axis(t.minD, t.needD, t.d, usableD)];
+}
+
+/**
+ * Sum over trays and axes of the square of `swollenOf` in mm, rounded: an integer count. A tray with
+ * an "often" tray somewhere above it is left out: a wide tray people reach for during play stays on
+ * top, so the tray under it carries its footprint, and reachability is not traded for walls.
+ */
+function swollenTotal(ctx: Ctx, trays: readonly PlacedTray[]): number {
+  const top = new Map<number, number>();
+  const oftenAbove = new Map<number, number>();
+  for (const t of trays) {
+    top.set(t.stack, Math.max(top.get(t.stack) ?? 0, t.level));
+    if (ctx.input.requirements[t.item.req]?.access === "often") {
+      oftenAbove.set(t.stack, Math.max(oftenAbove.get(t.stack) ?? -1, t.level));
+    }
+  }
+  let total = 0;
+  for (const t of trays) {
+    if ((oftenAbove.get(t.stack) ?? -1) > t.level) {
+      continue;
+    }
+    const [w, d] = swollenOf(ctx, t, (top.get(t.stack) ?? 0) - t.level);
+    total += Math.min(SWOLLEN_CAP_MM, w / 100) ** 2 + Math.min(SWOLLEN_CAP_MM, d / 100) ** 2;
+  }
+  return Math.round(total);
+}
+
+/**
+ * Cut walls with a filler against them. A wall counts once, however many fillers stand there.
+ * The cut's place along the wall is not known here (realize places it), so a filler counts when it
+ * overlaps the wall by at least a finger pocket's width, or the whole wall when that is shorter.
+ */
+function sealedTotal(
+  ctx: Ctx,
+  trays: readonly PlacedTray[],
+  fillers: readonly PlacedLeftover[],
+): number {
+  if (fillers.length === 0) {
+    return 0;
+  }
+  const pocket = toU(ctx.input.settings.fingerPocket.width);
+  let total = 0;
+  for (const t of trays) {
+    const cuts = ctx.cutSides(t.item, t.item.rotated);
+    if (!cuts.left && !cuts.right && !cuts.front && !cuts.back) {
+      continue;
+    }
+    // [lo, hi) along the wall, and the gap from the wall to a filler, per side
+    const hit = (side: "left" | "right" | "front" | "back"): boolean => {
+      const alongX = side === "front" || side === "back";
+      const lo = alongX ? t.x : t.y;
+      const hi = lo + (alongX ? t.w : t.d);
+      const need = Math.min(pocket, hi - lo);
+      return fillers.some((f) => {
+        if (f.z >= t.z + t.h || f.z + f.h <= t.z) {
+          return false;
+        }
+        const flo = alongX ? f.x : f.y;
+        const fhi = flo + (alongX ? f.w : f.d);
+        if (Math.min(hi, fhi) - Math.max(lo, flo) < need) {
+          return false;
+        }
+        const gap =
+          side === "right"
+            ? f.x - (t.x + t.w)
+            : side === "left"
+              ? t.x - (f.x + f.w)
+              : side === "back"
+                ? f.y - (t.y + t.d)
+                : t.y - (f.y + f.d);
+        return gap >= 0 && gap < SEAL_REACH_U;
+      });
+    };
+    for (const side of ["left", "right", "front", "back"] as const) {
+      if (cuts[side] && hit(side)) {
+        total++;
+      }
+    }
+  }
+  return total;
+}
+
 export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevPos>): Score {
   const boxMm3 = Math.max(1, volMm3(ctx.floorW, ctx.floorD, Math.max(ctx.topPlane, 1)));
   const covers = coverageApplies(ctx);
@@ -136,12 +274,24 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
   let stacked = 0;
   let moved = 0;
   // Per requirement: the parts turned each way, and the stacks they stand in.
-  const siblings = new Map<number, { turned: number; straight: number; stacks: Set<number> }>();
+  const siblings = new Map<
+    number,
+    { turned: number; straight: number; stacks: Map<number, { lo: number; hi: number; n: number }> }
+  >();
   for (const t of plan.trays) {
-    const kin = siblings.get(t.item.req) ?? { turned: 0, straight: 0, stacks: new Set<number>() };
+    const kin = siblings.get(t.item.req) ?? {
+      turned: 0,
+      straight: 0,
+      stacks: new Map<number, { lo: number; hi: number; n: number }>(),
+    };
     siblings.set(t.item.req, kin);
     kin[t.item.rotated ? "turned" : "straight"]++;
-    kin.stacks.add(t.stack);
+    const at = kin.stacks.get(t.stack) ?? { lo: t.level, hi: t.level, n: 0 };
+    kin.stacks.set(t.stack, {
+      lo: Math.min(at.lo, t.level),
+      hi: Math.max(at.hi, t.level),
+      n: at.n + 1,
+    });
     const usableW = Math.min(t.w, t.minW + Math.max(0, t.capW - ctx.oneWallCap));
     const usableD = Math.min(t.d, t.minD + Math.max(0, t.capD - ctx.oneWallCap));
     leftoverMm3 += volMm3(t.w, t.d, t.h) - volMm3(usableW, usableD, t.h);
@@ -174,6 +324,10 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
   for (const kin of siblings.values()) {
     unturned += Math.min(kin.turned, kin.straight);
     apart += kin.stacks.size - 1;
+    // the trays of other components standing between its parts in a stack
+    for (const { lo, hi, n } of kin.stacks.values()) {
+      apart += hi - lo + 1 - n;
+    }
   }
   for (const l of plan.leftovers) {
     leftoverMm3 += volMm3(l.w, l.d, l.h);
@@ -194,6 +348,8 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     unturned,
     apart,
     fillers: plan.leftovers.length,
+    swollen: swollenTotal(ctx, plan.trays),
+    sealed: sealedTotal(ctx, plan.trays, plan.leftovers),
   };
   const overflow = overflowTotal(plan.overflow);
   const total =
@@ -209,6 +365,8 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     terms.moved * WEIGHTS.moved +
     terms.unturned * WEIGHTS.unturned +
     terms.apart * WEIGHTS.apart +
-    terms.fillers * WEIGHTS.fillers;
+    terms.fillers * WEIGHTS.fillers +
+    terms.swollen * WEIGHTS.swollen +
+    terms.sealed * WEIGHTS.sealed;
   return { total, overflow, terms };
 }

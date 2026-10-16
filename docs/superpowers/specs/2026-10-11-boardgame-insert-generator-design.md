@@ -874,8 +874,9 @@ fallback: a requirement that still has no variant is left out with a
   nodes are X or Y cuts; neighbouring leaves are separated by `trayGap`. Each
   leaf is a **stack**: an ordered list of trays. The bottom tray has the
   leaf's footprint (less any filler beside it); the tray at level k stands in the
-  corner of the tray below it, one `lip.thickness + lip.play` inset in per side,
-  and is no larger than that tray's inset footprint. A leaf is feasible when, for
+  corner of the tray below it (or at the far end of an axis, where that keeps a filler off a
+  finger cut), one `lip.thickness + lip.play` inset in per side, and is no larger than that
+  tray's inset footprint. A leaf is feasible when, for
   every level k, `leaf ≥ req_k + 2·k·(lip.thickness + lip.play)`. The stack's
   total height (Σ `tray.h`) equals `topPlane`. **A level is one tray plus its
   fillers:** a tray is built at the smallest size that holds its own contents and
@@ -995,13 +996,23 @@ fallback: a requirement that still has no variant is left out with a
       project share an orientation, but stay in two stacks, because one stack would bury two
       "often" trays under the 200 000 each costs), and their total is orders of magnitude
       under the overflow weight, so they cannot make a feasible layout lose to an infeasible
-      one;
+      one. The stack count also counts the trays of other requirements standing between its
+      parts, so they end up adjacent where their sizes allow (minimal-trays spec §6.4);
   11. the number of filler parts (a leftover, in a stack level too): 20 000 each, on top of the
       20 000 every part costs (§6.2 of the minimal-trays spec). Under a stacked tray's 50 000 with
       its part, so avoiding a filler never buys a stacked tray, and over every cohesion preference.
       Counts stored leftovers, not merged parts: the merge is a print-time setting outside the
       hash. A reward for fillers against the box wall was measured and dropped: it raised the
       filler count.
+  12. walls a stack swells (`swollen`): per tray and axis the square of the extra thickness per side
+      that the trays above force on it beyond an equal tray's two insets and what it absorbs as room
+      for its contents, 80 000 per mm², capped at 10 mm per axis; a tray with an "often" tray
+      above it is exempt, so reachability is never what pays. It puts the largest footprint at the
+      bottom of a stack, which `leftover` alone did not (it charges a filler by volume too);
+  13. finger-cut walls with a filler within 8 mm against them (`sealed`): 10 000 each, under a
+      printed part, a preference only. An upper tray with slack beside it also stands at the end
+      of its axis that keeps the filler off a cut (derived in `placeStack`, not searched or stored).
+      Both: minimal-trays spec §6.4.
 - **Locks:**
   - Locked paths, sizes and stacks are fixed in the tree; moves never change
     them. A position lock fixes the tree topology along its path; cut
@@ -1321,6 +1332,10 @@ Older apps reading newer files is best effort, as below.
     outer size, lip, inset, well and cut of a tray realized at the same size are unchanged; the
     setting only changes which sizes the layout chooses, as `wallAbsorb` always did (§6.3 of the
     minimal-trays spec).
+    Neither the schema (0.1.15) nor the geometry (0.7.2) changes for stack order and sealed cuts
+    (§6.4 of the minimal-trays spec): no field is new, `planTray` and every size of a tray realized
+    at the same size are unchanged, and only the order and sizes the layout chooses, and the
+    position of an upper tray within its level, differ.
   - MAJOR: anything that removes, renames or changes the meaning of a field.
 - **Loading rules** (app schema `A.b.c`, file `X.y.z`):
 
