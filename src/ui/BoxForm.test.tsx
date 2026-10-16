@@ -55,7 +55,7 @@ describe("PrinterForm", () => {
     expect(bedPresetOf(DEFAULT_PRINTER)).toBe("bambu-256");
     expect(bedPresetOf({ ...DEFAULT_PRINTER, bedX: 300 })).toBe("custom");
     const onChange = vi.fn();
-    render(<PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={onChange} />);
+    render(<PrinterForm printer={DEFAULT_PRINTER} onChange={onChange} />);
     expect(screen.queryByLabelText(/Bed X/)).toBeNull();
     fireEvent.change(screen.getByLabelText("Print bed"), { target: { value: "prusa-mk4" } });
     expect(onChange).toHaveBeenCalledWith({ bedX: 250, bedY: 210, bedZ: 220 });
@@ -63,7 +63,7 @@ describe("PrinterForm", () => {
 
   it("shows X/Y/Z for a custom bed", () => {
     const onChange = vi.fn();
-    render(<PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={onChange} />);
+    render(<PrinterForm printer={DEFAULT_PRINTER} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Print bed"), { target: { value: "custom" } });
     fireEvent.input(screen.getByLabelText(/Bed X/), { target: { value: "300" } });
     expect(onChange).toHaveBeenCalledWith({ bedX: 300 });
@@ -71,12 +71,8 @@ describe("PrinterForm", () => {
     expect(screen.getByLabelText(/Bed Z/)).toBeTruthy();
   });
 
-  it("shows bed margin and layer height only in advanced mode", () => {
-    const view = render(
-      <PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={vi.fn()} />,
-    );
-    expect(screen.queryByLabelText(/Bed margin/)).toBeNull();
-    view.rerender(<PrinterForm printer={DEFAULT_PRINTER} advanced onChange={vi.fn()} />);
+  it("shows bed margin and layer height", () => {
+    render(<PrinterForm printer={DEFAULT_PRINTER} onChange={vi.fn()} />);
     expect(screen.getByLabelText(/Bed margin/)).toBeTruthy();
     expect(screen.getByLabelText(/Layer height/)).toBeTruthy();
   });
@@ -84,15 +80,13 @@ describe("PrinterForm", () => {
 
 describe("PrinterForm custom bed", () => {
   it("drops a custom choice when another project's preset bed is loaded", () => {
-    const view = render(
-      <PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={vi.fn()} />,
-    );
+    const view = render(<PrinterForm printer={DEFAULT_PRINTER} onChange={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Print bed"), { target: { value: "custom" } });
     expect(screen.getByLabelText(/Bed X/)).toBeTruthy();
     view.rerender(
       <PrinterForm
         printer={{ ...DEFAULT_PRINTER, bedX: 250, bedY: 210, bedZ: 220 }}
-        advanced={false}
+
         onChange={vi.fn()}
       />,
     );
@@ -106,7 +100,7 @@ describe("PrinterForm custom bed", () => {
       return (
         <PrinterForm
           printer={printer}
-          advanced={false}
+
           onChange={(patch) => setPrinter((p) => ({ ...p, ...patch }))}
         />
       );
@@ -131,7 +125,7 @@ describe("PrinterForm custom bed", () => {
       return (
         <PrinterForm
           printer={printer}
-          advanced={false}
+
           onChange={(patch) => setPrinter((p) => ({ ...p, ...patch }))}
         />
       );

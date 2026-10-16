@@ -352,7 +352,6 @@ export function App(props: AppProps) {
                     {x.id === "printer" ? (
                       <PrinterForm
                         printer={project.printer}
-                        advanced
                         onChange={(patch) => store.edit((q) => updatePrinter(q, patch))}
                       />
                     ) : null}
