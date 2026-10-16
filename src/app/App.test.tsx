@@ -64,6 +64,11 @@ function withLayoutProject(): Project {
   return { ...p, layout: makeLayout(inputsHash(p), trays) };
 }
 
+/** A tray on the plan, by its key (trays are named, and the fixture's trays hold nothing to name them by). */
+function tile(key: string): Element {
+  return document.querySelector(`.plan-tray[data-key="${key}"]`) as Element;
+}
+
 /** Switches the view sheet to a tab; only the selected view's panel is mounted. */
 function openTab(name: "Plan" | "3D"): void {
   fireEvent.click(screen.getByRole("tab", { name }));
@@ -130,11 +135,11 @@ describe("App", () => {
     const { store, stub } = renderApp({ project: withLayoutProject() });
     expect(stub.calls).toHaveLength(0);
     expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByRole("button", { name: /^Tray 1,/ })).toBeTruthy();
+    expect(tile("a:p0:0")).toBeTruthy();
     expect(screen.queryByText(/needs WebGL/)).toBeNull();
     openTab("3D");
     expect(screen.getByText(/needs WebGL/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^Tray 1,/ })).toBeNull();
+    expect(document.querySelector(".plan-tray")).toBeNull();
     expect(screen.queryByRole("tab", { name: "Export" })).toBeNull();
     openExport();
     expect(screen.getByRole("dialog", { name: "Export all 2 parts" })).toBeTruthy();
@@ -145,9 +150,9 @@ describe("App", () => {
     expect(screen.getByRole("tab", { name: "3D" }).getAttribute("aria-selected")).toBe("true");
     openTab("Plan");
     expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
+    fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 2,/ }), { key: "Enter" });
+    fireEvent.keyDown(tile("b:p0:0"), { key: "Enter" });
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "a:p0:0", path: "1", rotated: false },
       { kind: "position", trayKey: "b:p0:0", path: "0", rotated: false },
@@ -156,7 +161,7 @@ describe("App", () => {
 
   it("ends a swap when the view leaves the plan, whatever is selected meanwhile", () => {
     const { store } = renderApp({ project: withLayoutProject() });
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
+    fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
     expect(screen.getByText(/Choose the tray to swap with/)).toBeTruthy();
     openTab("3D");
@@ -275,7 +280,7 @@ describe("App", () => {
         viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(stubSceneFactory()) },
       },
     });
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
+    fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     openTab("3D");
     await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
     expect(screen.getAllByRole("heading", { name: /^#1 / })).toHaveLength(1);
@@ -324,7 +329,7 @@ describe("App", () => {
 
     it("hints in the tray details that they may not match", async () => {
       const { store } = renderApp({ project: withLayoutProject() });
-      fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
+      fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
       expect(document.querySelector(".tray-details .hint")?.textContent ?? "").not.toMatch(
         /Inputs changed/,
       );
@@ -337,12 +342,12 @@ describe("App", () => {
 
   it("locks and unlocks a tray's size from the tray details", () => {
     const { store } = renderApp({ project: withLayoutProject() });
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
+    fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Lock size" }));
     expect(store.state.project.value.locks).toEqual([
       { kind: "size", trayKey: "a:p0:0", w: 100, d: 80, h: 40 },
     ]);
-    expect(screen.getByRole("button", { name: /^Tray 1, .*, size locked$/ })).toBeTruthy();
+    expect(tile("a:p0:0").getAttribute("aria-label")).toMatch(/, layer 1, size locked$/);
     fireEvent.click(screen.getByRole("button", { name: "Unlock size" }));
     expect(store.state.project.value.locks).toEqual([]);
   });
@@ -938,7 +943,7 @@ describe("App", () => {
       makeTray({ key: "c:p1:0", path: "1", stack: 1, x: 110 }),
     ];
     const { store } = renderApp({ project: { ...p, layout: makeLayout(inputsHash(p), trays) } });
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
+    fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Lock position" }));
     const locks = store.state.project.value.locks;
     expect(locks.filter((l) => l.kind === "position").map((l) => l.trayKey)).toEqual([
