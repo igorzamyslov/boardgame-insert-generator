@@ -9,6 +9,7 @@ import { encodeHash } from "../test-support/link";
 import { MemoryStorage } from "../test-support/memory-storage";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
+import type { ShareFile } from "./sendFile";
 import { renameProject, updateBox } from "./actions";
 import { CONFLICT_CODE } from "./persistence";
 import {
@@ -197,7 +198,7 @@ describe("App", () => {
     expect(names()).toEqual(["Bits"]);
     const toast = await screen.findByText(/Removed “Cards”/);
     expect(toast.getAttribute("role")).toBe("status");
-    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Undo removal" }));
     expect(names()).toEqual(["Cards", "Bits"]);
     expect(screen.queryByText(/Removed “Cards”/)).toBeNull();
   });
@@ -209,7 +210,7 @@ describe("App", () => {
     await screen.findByText(/Removed “Cards”/);
     act(() => store.edit((q) => renameProject(q, "Something else")));
     await waitFor(() => expect(screen.queryByText(/Removed “Cards”/)).toBeNull());
-    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Undo removal" })).toBeNull();
   });
 
   it("dismisses the Undo toast", async () => {
@@ -324,10 +325,11 @@ describe("App", () => {
     expect(screen.getByRole("tab", { name: "Plan" })).toBeTruthy();
   });
 
-  it("has no Copy link, and Save to file keeps a copy", () => {
+  it("has no Copy link, and Save file keeps a copy", () => {
     const { download } = renderApp();
     expect(screen.queryByRole("button", { name: "Copy link" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Save to file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save file" }));
     expect(download).toHaveBeenCalledTimes(1);
   });
 
@@ -360,49 +362,128 @@ describe("App", () => {
     await waitFor(() => expect(screen.queryByText(/Closest attempt so far/)).toBeNull());
   });
 
-  describe("project menu", () => {
-    const menu = (): HTMLDetailsElement =>
-      document.querySelector("details.app-menu") as HTMLDetailsElement;
-    const open = (): void => {
-      menu().open = true;
+  describe("header and project menu", () => {
+    const openMenu = (): HTMLElement => {
+      const button = screen.getByRole("button", { name: /^Project menu/ });
+      fireEvent.click(button);
+      return button;
     };
 
-    it("closes on a click outside it, but not on a click inside", () => {
-      renderApp();
-      open();
-      fireEvent.click(screen.getByLabelText("Project name"));
-      expect(menu().open).toBe(true);
-      fireEvent.click(screen.getByRole("heading", { level: 2, name: "Results" }));
-      expect(menu().open).toBe(false);
+    it("has the wordmark, the project name, the save state and Download", () => {
+      const { store } = renderApp();
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      expect((screen.getByLabelText("Project name") as HTMLInputElement).value).toBe(
+        store.state.project.value.name,
+      );
+      expect(screen.getByText("Saved in this browser")).toBeTruthy();
+      expect(document.querySelector("details.app-menu")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Project" })).toBeNull();
     });
 
-    it("closes on Escape and returns focus to its button", () => {
-      renderApp();
-      open();
-      fireEvent.keyDown(document, { key: "Escape" });
-      expect(menu().open).toBe(false);
-      expect(document.activeElement).toBe(menu().querySelector("summary"));
+    it("renames the project from the header", () => {
+      const { store } = renderApp();
+      fireEvent.input(screen.getByLabelText("Project name"), { target: { value: "Wingspan" } });
+      expect(store.state.project.value.name).toBe("Wingspan");
     });
 
-    it("closes when a project is chosen, and when a new one is made", () => {
+    it("follows the history with Undo and Redo", () => {
+      const { store } = renderApp();
+      const undo = () => screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement;
+      const redo = () => screen.getByRole("button", { name: "Redo" }) as HTMLButtonElement;
+      expect(undo().disabled).toBe(true);
+      fireEvent.input(screen.getByLabelText("Project name"), { target: { value: "Wingspan" } });
+      expect(undo().disabled).toBe(false);
+      fireEvent.click(undo());
+      expect(store.state.project.value.name).not.toBe("Wingspan");
+      expect(redo().disabled).toBe(false);
+      fireEvent.click(redo());
+      expect(store.state.project.value.name).toBe("Wingspan");
+    });
+
+    it("shows Saving paused during a conflict and the dot on the menu button", async () => {
+      const { store } = renderApp();
+      store.state.conflict.value = true;
+      store.pushNotice({ level: "warning", code: CONFLICT_CODE, message: "Another tab saved." });
+      expect(await screen.findByText("Saving paused")).toBeTruthy();
+      expect(screen.getByRole("button", { name: /needs your attention/ })).toBeTruthy();
+    });
+
+    it("closes the menu when a project is chosen, and when a new one is made", () => {
       const { store } = renderApp();
       store.newProject();
-      open();
-      const other = (screen.getByLabelText("Saved projects") as HTMLSelectElement).options[0];
-      fireEvent.change(screen.getByLabelText("Saved projects"), {
-        target: { value: other?.value },
-      });
-      expect(menu().open).toBe(false);
-      open();
-      fireEvent.click(screen.getByRole("button", { name: "New project" }));
-      expect(menu().open).toBe(false);
+      const first = store.state.projects.value.find((e) => e.id !== store.state.project.value.id);
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Your inserts" }));
+      fireEvent.click(screen.getByRole("button", { name: first?.name || "(unnamed)" }));
+      expect(store.state.project.value.id).toBe(first?.id);
+      expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "New insert" }));
+      expect(store.state.project.value.id).not.toBe(first?.id);
+      expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
     });
 
-    it("ignores Escape and outside clicks while it is closed", () => {
+    it("deletes an insert after the question, not before", () => {
+      const { store, projectStore } = renderApp();
+      store.newProject();
+      const doomed = store.state.project.value.id;
+      expect(projectStore.list().map((e) => e.id)).toContain(doomed);
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Delete…" }));
+      expect(projectStore.list().map((e) => e.id)).toContain(doomed);
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+      expect(projectStore.list().map((e) => e.id)).not.toContain(doomed);
+    });
+
+    it("Settings opens the settings section", () => {
+      Element.prototype.scrollIntoView = vi.fn();
       renderApp();
-      fireEvent.keyDown(document, { key: "Escape" });
-      fireEvent.click(document.body);
-      expect(menu().open).toBe(false);
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+      expect((document.getElementById("section-settings") as HTMLDetailsElement).open).toBe(true);
+      expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
+    });
+
+    it("keeps Download off until there is a plan", () => {
+      renderApp();
+      expect((screen.getByRole("button", { name: "Download" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+    });
+
+    it("Download opens the export dialog once there is a plan", () => {
+      renderApp({ project: withLayoutProject() });
+      fireEvent.click(screen.getByRole("button", { name: "Download" }));
+      expect(screen.getByRole("heading", { name: /export/i })).toBeTruthy();
+    });
+
+    it("Send file hands the file to the share sheet", async () => {
+      const share = vi.fn<ShareFile>(() => Promise.resolve("shared"));
+      const { download } = renderApp({ overrides: { share } });
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Send file" }));
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+      const file = share.mock.calls[0]?.[0] as File;
+      expect(file.name).toMatch(/\.insert\.json$/);
+      expect(download).not.toHaveBeenCalled();
+    });
+
+    it("Send file saves the file where the share sheet can't take it", async () => {
+      const share = vi.fn<ShareFile>(() => Promise.resolve("unsupported"));
+      const { download } = renderApp({ overrides: { share } });
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Send file" }));
+      await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
+    });
+
+    it("Send file does nothing more when the sheet is dismissed", async () => {
+      const share = vi.fn<ShareFile>(() => Promise.resolve("cancelled"));
+      const { download } = renderApp({ overrides: { share } });
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Send file" }));
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+      await flush();
+      expect(download).not.toHaveBeenCalled();
     });
   });
 

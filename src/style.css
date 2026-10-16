@@ -140,16 +140,227 @@ input[aria-invalid="true"] {
   display: grid;
 }
 
-.app-title-block {
+/* ---- Header: logo, name and save state, then the actions ---- */
+.app-header {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
 }
 
-.app-project-name {
-  color: var(--ink-soft);
+.app-brand {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  font: 700 20px/26px var(--font-display);
+}
+
+.app-logo {
+  flex: none;
+}
+
+.app-name-block {
+  display: flex;
+  flex: 1 1 260px;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  min-width: 0;
+}
+
+.app-name {
+  flex: 1 1 160px;
+  width: auto;
+  max-width: 320px;
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink);
+  font: 600 16px/24px var(--font-ui);
+}
+
+.app-name:hover,
+.app-name:focus {
+  border-color: var(--edge);
+  background: var(--sheet);
+}
+
+.saved-status {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--muted);
   font: 400 14px/20px var(--font-ui);
+}
+
+.saved-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tiles-line);
+}
+
+.saved-status[data-state="saving"] .saved-dot,
+.saved-status[data-state="paused"] .saved-dot {
+  background: var(--warn);
+}
+
+.saved-status[data-state="failed"] .saved-dot,
+.saved-status[data-state="unavailable"] .saved-dot {
+  background: var(--danger);
+}
+
+.app-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-left: auto;
+}
+
+.app-icon-btn,
+.app-download {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+}
+
+.app-icon-btn {
+  border-color: transparent;
+  background: transparent;
+}
+
+.app-icon-btn:hover:not(:disabled) {
+  border-color: var(--edge);
+}
+
+.app-download {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--page);
+}
+
+.app-download:hover:not(:disabled) {
+  background: var(--ink);
+  filter: brightness(1.25);
+}
+
+.app-menu-wrap {
+  position: relative;
+}
+
+.app-menu-btn {
+  position: relative;
+}
+
+.app-menu-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--sheet);
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.app-menu-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 10;
+  width: min(360px, calc(100vw - 2 * var(--space-4)));
+  max-height: 80vh;
+  padding: var(--space-3);
+  overflow: auto;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet);
+}
+
+.project-menu {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.menu-items {
+  display: grid;
+}
+
+.menu-item {
+  justify-content: flex-start;
+  min-height: var(--control-h);
+  border-color: transparent;
+  background: transparent;
+  text-align: left;
+}
+
+.menu-item:hover:not(:disabled) {
+  border-color: var(--edge);
+}
+
+.menu-delete {
+  color: var(--danger);
+}
+
+/* Send file is for phones, where the share sheet is. */
+.menu-phone-only {
+  display: none;
+}
+
+.menu-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.tap {
+  min-height: var(--control-h);
+}
+
+.menu-title {
+  margin: 0;
+  font: 700 18px/24px var(--font-display);
+}
+
+.inserts-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inserts-line {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inserts-name {
+  min-width: 0;
+  text-align: left;
+}
+
+span.inserts-name {
+  font-weight: 600;
+}
+
+.delete-confirm {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--danger-wash);
 }
 
 .mode-toggle {
@@ -171,47 +382,6 @@ input[aria-invalid="true"] {
   padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--rule);
   background: var(--sheet);
-}
-
-.app-menu summary {
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 var(--space-4);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-md);
-  background: var(--sheet);
-  font: 600 14px/20px var(--font-ui);
-  list-style: none;
-  cursor: pointer;
-}
-
-.app-menu summary::-webkit-details-marker {
-  display: none;
-}
-
-.app-menu[open] summary {
-  background: var(--sheet-sunken);
-}
-
-.app-menu-panel {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: var(--space-5);
-  z-index: 10;
-  width: min(420px, calc(100vw - 2 * var(--space-4)));
-  max-height: 80vh;
-  padding: var(--space-4);
-  overflow: auto;
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-lg);
-  background: var(--sheet);
-  box-shadow: var(--shadow-sheet);
-}
-
-.project-menu {
-  display: grid;
-  gap: var(--space-3);
 }
 
 .button-row {
@@ -724,12 +894,42 @@ input[aria-invalid="true"] {
     margin: var(--space-3) var(--space-4) 0;
   }
 
-  .app-menu-panel {
-    right: var(--space-3);
-  }
-
   .pf-app__bar {
     padding: var(--space-3) var(--space-4);
+  }
+}
+
+/* Phone layout (below 760 px): Send file is offered, and the header buttons are icons. */
+.app-btn-label {
+  display: none;
+}
+
+@media (width >= 760px) {
+  .app-btn-label {
+    display: inline;
+  }
+}
+
+@media (width < 760px) {
+  .menu-phone-only {
+    display: block;
+  }
+
+  /* The panel spans the screen, whatever the button's place in the row. */
+  .app-menu-wrap {
+    position: static;
+  }
+
+  .app-menu-panel {
+    right: var(--space-4);
+    left: var(--space-4);
+    width: auto;
+  }
+
+  .app-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    margin-left: 0;
   }
 }
 
