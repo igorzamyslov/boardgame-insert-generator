@@ -51,8 +51,8 @@
 /* A tray takes its component's shade (--tile-fill/-line/-ink, set per tile); a tray that holds no
    component falls back to the neutral tint. */
 .plan-face {
-  fill: var(--tile-fill, var(--tint-8));
-  stroke: var(--tile-line, var(--rule-strong));
+  fill: var(--tile-fill, var(--rule));
+  stroke: var(--tile-line, var(--edge));
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }

@@ -448,11 +448,6 @@ span.inserts-name {
   line-height: 20px;
 }
 
-.field-error::before {
-  content: "! ";
-  font-weight: 700;
-}
-
 /* Warnings and info under a field or a list (FieldMessages): a .hint with a mark at the side. */
 .field-notes {
   padding-left: var(--space-2);
@@ -585,10 +580,6 @@ span.inserts-name {
 .pf-item__meta[data-problem="true"] {
   color: var(--danger);
   font-weight: 600;
-}
-
-.pf-item__meta[data-problem="true"]::before {
-  content: "! ";
 }
 
 .pf-chips {
@@ -754,6 +745,14 @@ span.inserts-name {
   padding: 0 var(--space-2);
 }
 
+.notice-dismiss svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+}
+
 /* ---- Stage: the result, problems, the view sheet ---- */
 .stage-empty {
   display: grid;
@@ -773,7 +772,7 @@ span.inserts-name {
 
 .stage-empty p {
   margin: 0;
-  color: var(--ink-soft);
+  color: var(--muted);
   text-wrap: balance;
 }
 
@@ -787,7 +786,7 @@ span.inserts-name {
   place-items: center;
   width: 160px;
   height: 160px;
-  border: 1.5px dashed var(--rule-strong);
+  border: 1.5px dashed var(--edge);
   background: var(--sheet);
 }
 
@@ -800,7 +799,7 @@ span.inserts-name {
 
 .run-status progress {
   flex: 1 1 10rem;
-  accent-color: var(--indigo);
+  accent-color: var(--focus);
 }
 
 /* The status line above the plan: one single-line pill per matter, every control 44 px. */
@@ -855,7 +854,7 @@ span.inserts-name {
 .pf-status__pill progress {
   flex: 0 1 10rem;
   min-width: 3rem;
-  accent-color: var(--indigo);
+  accent-color: var(--focus);
 }
 
 /* Below 760 px the no-fit pill drops Keep searching, so the name has room. */
@@ -972,9 +971,9 @@ span.inserts-name {
 
 .tray-bar__chip {
   padding: 0 var(--space-2);
-  border: 1px solid var(--rule-strong);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-md);
-  background: var(--sheet-sunken);
+  background: var(--page);
   font: 600 14px/22px var(--font-ui);
 }
 
@@ -1552,9 +1551,9 @@ html:has(dialog.modal[open]) {
 
 .pf-toggle button[aria-pressed="true"],
 .pf-toggle button[aria-pressed="true"]:hover:not(:disabled) {
-  border-color: var(--indigo);
-  background: var(--indigo);
-  color: var(--on-indigo);
+  border-color: var(--focus);
+  background: var(--focus);
+  color: var(--on-focus);
 }
 
 /*
@@ -1570,7 +1569,7 @@ html:has(dialog.modal[open]) {
   display: flex;
   flex-direction: column;
   height: var(--sheet-foot);
-  border-top: 1px solid var(--rule-strong);
+  border-top: 1px solid var(--edge);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: var(--sheet);
   box-shadow: var(--shadow-sheet);

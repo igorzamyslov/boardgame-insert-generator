@@ -88,7 +88,9 @@ export function Notices({
                   aria-label={`Dismiss: ${n.message}`}
                   onClick={() => onDismiss(n.code)}
                 >
-                  ×
+                  <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                    <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" />
+                  </svg>
                 </button>
               ) : null}
             </div>

@@ -78,6 +78,13 @@ describe("Notices markup", () => {
     );
   });
 
+  it("draws the dismiss button's cross as an SVG, not as a character", () => {
+    render(<Notices notices={[notice("info")]} onDismiss={() => undefined} />);
+    const button = screen.getByRole("button", { name: "Dismiss: A info message" });
+    expect(button.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+    expect(button.textContent).toBe("");
+  });
+
   describe("limit", () => {
     const many = (count: number, level: Notice["level"], prefix = level): Notice[] =>
       Array.from({ length: count }, (_, i) => ({

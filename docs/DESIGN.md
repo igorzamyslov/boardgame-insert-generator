@@ -123,7 +123,9 @@ technical palette. The owner called it unusable. Everything below exists so it d
 - MUST take every colour from a token in `src/styles/tokens.css`. MUST NOT write a raw hex in
   component CSS or inline styles. New code uses the primary names (`--page`, `--ink`, `--focus`,
   `--danger` …), not the legacy aliases at the end of `tokens.css` (`--indigo`, `--madder`,
-  `--paper`, `--tint-8` …).
+  `--paper`, `--tint-8` …). About 70 old uses of the aliases remain in `src/style.css`,
+  `src/styles/proof.css` and `src/plan/plan.css`; move one to the primary name when you touch it.
+  `src/rules.test.ts` fails if the count grows.
 - MUST colour a component and its trays with its kind's hue in its own shade:
   `shadeIndexOf(components, i)` picks the shade, `shadeOf(kind, i)` gives page CSS colours
   (`light-dark()`), `shadeHex(kind, i, scheme)` gives plain hex. All in `src/ui/identity.ts`.
@@ -243,17 +245,17 @@ technical palette. The owner called it unusable. Everything below exists so it d
 
 Light and warm by default. Tokens in `src/styles/tokens.css`:
 
-| Role                      | Token                                      |
-| ------------------------- | ------------------------------------------ |
-| Page background           | `--page`                                   |
-| Cards, panels, sheets     | `--sheet`, with `--shadow-sheet`           |
-| Text                      | `--ink`; secondary text `--muted`          |
-| Hairlines, dividers       | `--rule`                                   |
-| Control and tray edges    | `--edge`                                   |
-| The box floor in the plan | `--box`                                    |
-| Focus, links, selection   | `--focus`, text on it `--on-focus`         |
-| Errors, no-fit            | `--danger`, `--danger-wash`, `--on-danger` |
-| Warnings, the menu dot    | `--warn`, `--on-warn`                      |
+| Role                      | Token                                              |
+| ------------------------- | -------------------------------------------------- |
+| Page background           | `--page`                                           |
+| Cards, panels, sheets     | `--sheet`, with `--shadow-sheet`                   |
+| Text                      | `--ink`; secondary text `--muted`                  |
+| Hairlines, dividers       | `--rule`                                           |
+| Control and tray edges    | `--edge`                                           |
+| The box floor in the plan | `--box`                                            |
+| Focus, links, selection   | `--focus`, `--focus-wash`, text on it `--on-focus` |
+| Errors, no-fit            | `--danger`, `--danger-wash`, `--on-danger`         |
+| Warnings, the menu dot    | `--warn`, `--warn-wash`, `--on-warn`               |
 
 Never lay `--muted` text on `--box`: it falls below 4.5:1 in light mode.
 

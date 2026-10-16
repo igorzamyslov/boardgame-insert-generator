@@ -51,6 +51,8 @@
   --warn: #d9a52e;
   --on-warn: #1d1f1c;
   --on-focus: #ffffff;
+  --focus-wash: var(--cards-fill);
+  --warn-wash: var(--bits-fill);
   --shadow-sheet: 0 1px 0 rgb(29 31 28 / 8%), 0 10px 24px -14px rgb(29 31 28 / 30%);
 
   /* Rhythm. */
@@ -70,8 +72,10 @@
   --control-h: 44px;
 
   /*
-   * Names the existing components still use, on the new palette. Later tasks move their
-   * callers to the names above and these go.
+   * Legacy names, on the new palette. Old rules in style.css, proof.css and plan.css still use
+   * them (about 70 uses); new code uses the names above, and a test (src/rules.test.ts) stops the
+   * count growing. Move a rule to the primary name whenever you touch it; when none are left,
+   * delete these.
    */
   --paper: var(--page);
   --sheet-sunken: var(--page);

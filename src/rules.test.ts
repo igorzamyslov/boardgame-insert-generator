@@ -2,6 +2,12 @@
 import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
 
+const styles = import.meta.glob<string>("./**/*.css", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+
 /**
  * Tests for the hard rules in docs/DESIGN.md §2 that no feature test covers. Each one reads the
  * source (or the CSS) as text, so a change that breaks a rule fails here with the place named.
@@ -66,5 +72,33 @@ describe("rules", () => {
       visit(file);
     }
     expect(found).toEqual([]);
+  });
+
+  // DESIGN §2 Accessibility: icons are inline SVG or drawn shapes, never text characters. CSS may
+  // only generate empty boxes (`content: ""`) or read an attribute (`attr(data-label)`).
+  it("generates no text character in CSS to stand for an icon", () => {
+    const found: string[] = [];
+    for (const [path, css] of Object.entries(styles)) {
+      for (const m of css.matchAll(/(?<![\w-])content:\s*([^;}]+)/g)) {
+        const value = (m[1] ?? "").trim();
+        if (value !== '""' && value !== "none" && !value.startsWith("attr(")) {
+          found.push(`${path}: content: ${value}`);
+        }
+      }
+    }
+    expect(Object.keys(styles).length).toBeGreaterThan(5);
+    expect(found).toEqual([]);
+  });
+
+  // DESIGN §2 Colour: new code uses the primary token names. The legacy aliases at the end of
+  // tokens.css still have old users; this ratchet only lets their number go down.
+  it("does not add uses of the legacy alias tokens", () => {
+    const LEGACY =
+      /var\(--(?:paper|sheet-sunken|rule-strong|ink-soft|indigo|on-indigo|indigo-wash|madder|on-madder|madder-wash|ochre|on-ochre|ochre-wash|tint-8)\)/g;
+    let uses = 0;
+    for (const css of Object.values(styles)) {
+      uses += css.match(LEGACY)?.length ?? 0;
+    }
+    expect(uses).toBeLessThanOrEqual(70);
   });
 });
