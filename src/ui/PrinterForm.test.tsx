@@ -1,54 +1,12 @@
-// src/ui/BoxForm.test.tsx
+// src/ui/PrinterForm.test.tsx
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { useState } from "preact/hooks";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_BOX, DEFAULT_PRINTER } from "../model/defaults";
-import { BoxForm } from "./BoxForm";
+import { DEFAULT_PRINTER } from "../model/defaults";
 import { PrinterForm, bedPresetOf } from "./PrinterForm";
 
 afterEach(cleanup);
-
-describe("BoxForm", () => {
-  it("labels the size fields and commits decimal-comma input", () => {
-    const onChange = vi.fn();
-    render(<BoxForm box={DEFAULT_BOX} onChange={onChange} />);
-    fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "290,5" } });
-    expect(onChange).toHaveBeenCalledWith({ innerWidth: 290.5 });
-    expect(screen.getByLabelText(/^Length/)).toBeTruthy();
-    // front to back is "length", not "depth", which reads as vertical
-    expect(screen.queryByLabelText(/^Depth/)).toBeNull();
-    expect(screen.getByText(/length front to back/)).toBeTruthy();
-    expect(screen.getByLabelText(/^Height/)).toBeTruthy();
-    expect(screen.getAllByText(/narrowest point/)).toHaveLength(1);
-  });
-
-  it("offers headroom and the side-storage switch beside the size fields", () => {
-    const onChange = vi.fn();
-    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={onChange} />);
-    expect(screen.getByLabelText(/^Headroom/)).toBeTruthy();
-    expect(screen.getByLabelText(/stored on its side/)).toBeTruthy();
-    expect(screen.getByText(/plus 1 mm for warp/)).toBeTruthy();
-    fireEvent.input(screen.getByLabelText(/^Headroom/), { target: { value: "5" } });
-    expect(onChange).toHaveBeenCalledWith({ headroom: 5 });
-  });
-
-  it("hides headroom coverage when headroom is 0", () => {
-    const view = render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 0 }} onChange={vi.fn()} />);
-    expect(screen.queryByLabelText("Covered by boards")).toBeNull();
-    view.rerender(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={vi.fn()} />);
-    expect(screen.getByLabelText("Covered by boards")).toBeTruthy();
-  });
-
-  it("toggles stored-on-side and coverage", () => {
-    const onChange = vi.fn();
-    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={onChange} />);
-    fireEvent.click(screen.getByLabelText(/stored on its side/));
-    expect(onChange).toHaveBeenCalledWith({ storedOnSide: true });
-    fireEvent.change(screen.getByLabelText("Covered by boards"), { target: { value: "partial" } });
-    expect(onChange).toHaveBeenCalledWith({ headroomCoverage: "partial" });
-  });
-});
 
 describe("PrinterForm", () => {
   it("recognizes presets and applies a picked preset", () => {

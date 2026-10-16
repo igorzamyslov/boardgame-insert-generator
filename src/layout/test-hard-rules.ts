@@ -274,7 +274,7 @@ export function checkHardRules(
     }
   }
 
-  // Rule 3: loose bits left uncovered in the top layer need the coverage warning.
+  // Rule 3: loose pieces left uncovered in the top layer need the coverage warning.
   const coverageNeeded =
     (input.box.headroom > 0 && input.box.headroomCoverage === "partial") || input.box.storedOnSide;
   const exposedLoose = real.some((t) => {
@@ -284,7 +284,7 @@ export function checkHardRules(
   });
   const has = (code: string): boolean => notices.some((n) => n.code === code);
   if (coverageNeeded && exposedLoose && !has("layout.coverage")) {
-    v.push("loose bits are uncovered in the top layer but there is no layout.coverage notice");
+    v.push("loose pieces are uncovered in the top layer but there is no layout.coverage notice");
   }
 
   // Rule 4 with the lip off: stacked trays are loose, so the lip-off warning is required
