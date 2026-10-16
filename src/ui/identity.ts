@@ -172,6 +172,21 @@ export function tintOfContents(contents: string, components: readonly Component[
   return index === null ? null : tintVar(index);
 }
 
+/**
+ * Which shade of its kind's hue a component takes: its place among the components of the same
+ * kind, in component order. The top view and 3D both use it, so a tray is the same colour in both.
+ */
+export function shadeIndexOf(components: readonly Component[], index: number): number {
+  const kind = components[index]?.kind;
+  let before = 0;
+  for (let i = 0; i < index; i++) {
+    if (components[i]?.kind === kind) {
+      before += 1;
+    }
+  }
+  return before;
+}
+
 /** The component a tray holds: its first compartment's component, else null (spare, leftover, spacer). */
 export function componentIndexOfTray(
   tray: TraySpec,

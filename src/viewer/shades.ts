@@ -1,23 +1,13 @@
 // src/viewer/shades.ts: the colour of each part in 3D, from the same shades as the top view.
 import type { Component, TraySpec } from "../model/types";
-import { SPACER_COLOR, SPARE_COLOR, componentIndexOfTray, shadeHex } from "../ui/identity";
+import {
+  SPACER_COLOR,
+  SPARE_COLOR,
+  componentIndexOfTray,
+  shadeHex,
+  shadeIndexOf,
+} from "../ui/identity";
 import type { ColorScheme } from "../ui/identity";
-
-/**
- * Which shade of its kind's hue a component takes: its place among the components of the same
- * kind, in component order. The top view counts the same way, so a tray is the same colour in
- * both views.
- */
-export function shadeIndexOf(components: readonly Component[], index: number): number {
-  const kind = components[index]?.kind;
-  let before = 0;
-  for (let i = 0; i < index; i++) {
-    if (components[i]?.kind === kind) {
-      before += 1;
-    }
-  }
-  return before;
-}
 
 /**
  * The colour scheme the page shows now. three.js can't read `light-dark()`, so the scene asks

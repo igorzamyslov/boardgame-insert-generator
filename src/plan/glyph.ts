@@ -1,6 +1,6 @@
 // src/plan/glyph.ts
 import type { Component, ComponentKind, TraySpec } from "../model/types";
-import { componentIndexOfTray, shadeOf } from "../ui/identity";
+import { componentIndexOfTray, shadeIndexOf, shadeOf } from "../ui/identity";
 import type { Shade } from "../ui/identity";
 
 /** What a tray's component gives it on the plan: its kind (for the icon) and its own shade. */
@@ -24,6 +24,5 @@ export function lookOfTray(tray: TraySpec, components: readonly Component[]): Tr
   if (index === null || component === undefined) {
     return null;
   }
-  const shadeIndex = components.slice(0, index).filter((c) => c.kind === component.kind).length;
-  return { kind: component.kind, shade: shadeOf(component.kind, shadeIndex) };
+  return { kind: component.kind, shade: shadeOf(component.kind, shadeIndexOf(components, index)) };
 }
