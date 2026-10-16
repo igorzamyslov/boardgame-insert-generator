@@ -4,13 +4,14 @@ import { App } from "./app/App";
 import { loadGeometryClient, loadLayoutClient } from "./app/clients";
 import { createMeshSource } from "./app/meshes";
 import { connectWindow, createAppStore } from "./app/store";
-import { createProjectStore } from "./share";
+import { createPrefsStore, createProjectStore } from "./share";
 import "./styles/proof-tokens.css";
 import "./styles/proof.css";
 import "./style.css";
 
 const store = createAppStore({
   projectStore: createProjectStore(),
+  prefs: createPrefsStore(),
   loadLayoutClient,
   replaceHash: (hash) => {
     history.replaceState(null, "", hash);

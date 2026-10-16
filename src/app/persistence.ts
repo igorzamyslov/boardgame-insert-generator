@@ -24,6 +24,8 @@ export interface PersistenceDeps {
   projectStore: ProjectStore;
   replaceHash: (hash: string) => void;
   confirm: (message: string) => boolean;
+  /** Makes a new, empty project (default: the built-in defaults). */
+  createProject?: () => Project;
 }
 
 export interface PersistenceHooks {
@@ -58,6 +60,7 @@ export function createPersistence(
   hooks: PersistenceHooks,
 ): Persistence {
   const store = deps.projectStore;
+  const createProject = deps.createProject ?? makeNewProject;
   let timer: ReturnType<typeof setTimeout> | undefined;
   // What this tab last saw in storage for the current project (serialized), or null.
   let lastSynced: string | null = null;
@@ -287,7 +290,7 @@ export function createPersistence(
     if (loaded && loaded.ok) {
       setCurrent(loaded.project, loaded.foreign, loaded.notices);
     } else {
-      setCurrent(makeNewProject(), noForeign(), []);
+      setCurrent(createProject(), noForeign(), []);
     }
   }
 
@@ -352,7 +355,7 @@ export function createPersistence(
       setCurrent(r.project, r.foreign, r.notices);
     },
     newProject() {
-      setCurrent(makeNewProject(), noForeign(), []);
+      setCurrent(createProject(), noForeign(), []);
     },
     deleteProject(id) {
       const name = state.projects.value.find((e) => e.id === id)?.name ?? "this project";

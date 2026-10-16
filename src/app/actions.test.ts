@@ -26,6 +26,7 @@ import {
   updateBox,
   updateComponent,
   updatePrinter,
+  applyPrinter,
 } from "./actions";
 
 function tray(over: Partial<TraySpec>): TraySpec {
@@ -74,6 +75,18 @@ describe("project actions", () => {
     expect(q.box.innerWidth).toBe(290);
     expect(q.box.innerDepth).toBe(p.box.innerDepth);
     expect(q.printer.bedX).toBe(256);
+    expect(JSON.stringify(p)).toBe(frozen);
+  });
+
+  it("applies a whole printer as a copy, leaving the rest alone", () => {
+    const p = addComponent(newProject(), "cards");
+    const frozen = JSON.stringify(p);
+    const printer = { bedX: 180, bedY: 170, bedZ: 160, bedMargin: 3, layerHeight: 0.16 };
+    const q = applyPrinter(p, printer);
+    expect(q.printer).toEqual(printer);
+    expect(q.printer).not.toBe(printer);
+    expect(q.box).toBe(p.box);
+    expect(q.components).toBe(p.components);
     expect(JSON.stringify(p)).toBe(frozen);
   });
 
