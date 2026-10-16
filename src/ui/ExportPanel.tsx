@@ -11,7 +11,9 @@ import {
 import type { ExportOptions, ExportOutput } from "../app/exportBuild";
 import type { MeshSource } from "../app/meshes";
 import { buildErrorReason } from "../app/support";
-import type { Printer, Settings, TraySpec } from "../model/types";
+import { trayNames } from "../instructions/naming";
+import { numberParts } from "../instructions/numbering";
+import type { Component, Printer, Settings, TraySpec } from "../model/types";
 
 export type ExportKind = "parts" | "combined" | "stl";
 
@@ -31,10 +33,12 @@ const EXPORT_HINTS: Record<ExportKind, string> = {
 };
 
 /** Trays that only fill a gap in the box: failing to export one costs nothing. */
-const SPARE_LABELS = ["Spare tray", "Filler block"];
+const fillsGap = (spec: TraySpec): boolean => spec.part === "leftover" && spec.merged === undefined;
 
 export interface ExportPanelProps {
   trays: readonly TraySpec[];
+  /** The components the trays hold: the trays are named after them. */
+  components?: readonly Component[];
   printer: Printer;
   settings: Settings;
   meshes: MeshSource;
@@ -55,6 +59,11 @@ interface Busy {
 
 export function ExportPanel(p: ExportPanelProps) {
   const plan = useMemo(() => planExport(p.trays), [p.trays]);
+  // Every part is called as on the screens and the assembly page, in files and the list below.
+  const names = useMemo(
+    () => trayNames(numberParts(p.trays), p.components ?? []),
+    [p.trays, p.components],
+  );
   const [busy, setBusy] = useState<Busy | null>(null);
   const [error, setError] = useState<{ kind: ExportKind; message: string } | null>(null);
   const [failed, setFailed] = useState<ExportOutput["failed"]>([]);
@@ -128,7 +137,8 @@ export function ExportPanel(p: ExportPanelProps) {
     setBusy({ kind, done: 0, total: plan.parts.length });
     const opts: ExportOptions = {
       getMesh: (spec) => p.meshes.get(spec, p.settings, controller.signal),
-      engrave: p.settings.engraveNumbers,
+      names,
+      engrave: p.settings.engraveNames,
       onProgress: (progress) => {
         if (!controller.signal.aborted) {
           setBusy({ kind, ...progress });
@@ -184,8 +194,8 @@ export function ExportPanel(p: ExportPanelProps) {
         {`Export all ${plan.parts.length} ${plan.parts.length === 1 ? "part" : "parts"}`}
       </h2>
       <p class="hint">
-        Every part prints open side up, the way it sits in the box. Trays are numbered as in the
-        plan and on the assembly page.
+        Every part prints open side up, the way it sits in the box. Trays are named as in the plan
+        and on the assembly page, and each file is called by its tray.
       </p>
       {p.stale ? <p class="hint">Inputs changed — update the plan before exporting.</p> : null}
       <div class="export-options" ref={buttonRow}>
@@ -265,10 +275,8 @@ export function ExportPanel(p: ExportPanelProps) {
           <ul>
             {notExported.map((s) => (
               <li key={s.part.spec.key}>
-                {`#${s.part.number} ${s.part.label}: ${s.reason}`}
-                {SPARE_LABELS.includes(s.part.label)
-                  ? " It only fills a gap, so you can skip it."
-                  : ""}
+                {`${names.get(s.part.spec.key)?.full ?? s.part.label}: ${s.reason}`}
+                {fillsGap(s.part.spec) ? " It only fills a gap, so you can skip it." : ""}
               </li>
             ))}
           </ul>

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { boxOutline, outlineCenter, trayPosition } from "../viewer/transform";
 import { explodedView } from "./exploded";
+import { trayNames } from "./naming";
 import { numberParts } from "./numbering";
 
 const project = fixtureProject();
@@ -70,17 +71,24 @@ describe("explodedView", () => {
     expect(view?.svg.length).toBeLessThan(20_000);
   });
 
-  it("lists and numbers the parts in assembly order, as the instructions do", () => {
+  it("lists and names the parts in assembly order, as the instructions do", () => {
     const view = explodedView(layout, project);
     const expected = numberParts(layout.trays);
-    expect(view?.parts).toEqual(expected.map((p) => ({ number: p.number, label: p.label })));
-    expect(view?.parts.map((p) => p.number)).toEqual([1, 2, 3, 4]);
+    const names = trayNames(expected, project.components);
+    const full = expected.map((p) => names.get(p.spec.key)?.full);
+    expect(view?.parts).toEqual(full.map((name) => ({ name })));
+    expect(new Set(full).size).toBe(4);
     const doc = parse(view?.svg ?? "");
     const badges = [...doc.querySelectorAll("g[data-badge]")];
-    // One badge per part, in numbering order, carrying that number.
+    // One badge per part, in assembly order, carrying the short name engraved on the part.
     expect(badges.map((b) => b.getAttribute("data-badge"))).toEqual(["1", "2", "3", "4"]);
-    expect(badges.map((b) => b.querySelector("text")?.textContent)).toEqual(["1", "2", "3", "4"]);
-    // The tray at level 0 of stack 0 is #1, its spacer #2, the tray on it #3, the next stack #4.
+    expect(badges.map((b) => b.querySelector("text")?.textContent)).toEqual(
+      expected.map((p) => names.get(p.spec.key)?.short.toUpperCase()),
+    );
+    expect(badges.some((b) => /^\d+$/.test(b.querySelector("text")?.textContent ?? ""))).toBe(
+      false,
+    );
+    // The tray at level 0 of stack 0 is first, its spacer next, the tray on it, the next stack.
     expect(expected.map((p) => p.spec.key)).toEqual([
       "a:p0:0",
       "a:p0:0:spacer",
@@ -156,24 +164,31 @@ describe("explodedView", () => {
     );
     expect(order.indexOf(1)).toBeLessThan(order.indexOf(2));
     expect(order.indexOf(1)).toBeLessThan(order.indexOf(3));
-    // Every number's badge is painted after every part, so no number is hidden.
+    // Every badge is painted after every part, so no name is hidden.
     const all = [...doc.documentElement.children];
     const lastPart = all.reduce((at, e, i) => (e.getAttribute("data-part") !== null ? i : at), -1);
     const firstBadge = all.findIndex((e) => e.getAttribute("data-badge") !== null);
     expect(firstBadge).toBeGreaterThan(lastPart);
   });
 
-  it("keeps the numbers apart", () => {
+  it("keeps the name badges apart", () => {
     const doc = parse(explodedView(layout, project)?.svg ?? "");
-    const centres = [...doc.querySelectorAll("g[data-badge] circle")].map((c) => ({
-      x: Number(c.getAttribute("cx")),
-      y: Number(c.getAttribute("cy")),
+    const pills = [...doc.querySelectorAll("g[data-badge] rect")].map((r) => ({
+      x: Number(r.getAttribute("x")),
+      y: Number(r.getAttribute("y")),
+      w: Number(r.getAttribute("width")),
+      h: Number(r.getAttribute("height")),
     }));
-    for (let i = 0; i < centres.length; i++) {
-      for (let j = i + 1; j < centres.length; j++) {
-        const a = centres[i];
-        const b = centres[j];
-        expect(Math.hypot((a?.x ?? 0) - (b?.x ?? 0), (a?.y ?? 0) - (b?.y ?? 0))).toBeGreaterThan(8);
+    expect(pills).toHaveLength(4);
+    for (let i = 0; i < pills.length; i++) {
+      for (let j = i + 1; j < pills.length; j++) {
+        const a = pills[i];
+        const b = pills[j];
+        if (!a || !b) {
+          continue;
+        }
+        const apart = a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+        expect(apart).toBe(true);
       }
     }
   });

@@ -1,6 +1,7 @@
 // src/viewer/Viewer.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { MeshSource } from "../app/meshes";
+import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
@@ -83,6 +84,7 @@ export function Viewer(p: ViewerProps) {
   const levels = useMemo(() => levelsOf(p.trays), [p.trays]);
   const parts = useMemo(() => numberParts(p.trays), [p.trays]);
   const byKey = useMemo(() => partsByKey(parts), [parts]);
+  const names = useMemo(() => trayNames(parts, p.components ?? []), [parts, p.components]);
   // The chosen layer may vanish when the layout changes: show everything then.
   const shownLevel = maxLevel !== null && levels.includes(maxLevel) ? maxLevel : null;
 
@@ -189,7 +191,9 @@ export function Viewer(p: ViewerProps) {
       list.map(async (spec, i) => {
         try {
           const part = byKey.get(spec.key);
-          const asked = part ? buildSpecOf(part, p.settings.engraveNumbers) : spec;
+          const asked = part
+            ? buildSpecOf(part, p.settings.engraveNames, names.get(spec.key)?.short)
+            : spec;
           const built = await p.meshes.get(asked, p.settings, controller.signal);
           results[i] = { spec, mesh: built.mesh, color: tintColorOf(spec, p.components) };
         } catch {
@@ -218,7 +222,7 @@ export function Viewer(p: ViewerProps) {
     // p.components is a dependency because it decides each tray's colour: without it, editing
     // the components (which can leave the layout alone) left the scene on its old colours while
     // the list, plan and chips moved on.
-  }, [status, p.trays, p.settings, p.stale, p.meshes, p.components, byKey, attempt]);
+  }, [status, p.trays, p.settings, p.stale, p.meshes, p.components, byKey, names, attempt]);
 
   useEffect(() => {
     handleRef.current?.setExplode(explode);
@@ -358,7 +362,7 @@ export function Viewer(p: ViewerProps) {
                 <button
                   type="button"
                   aria-pressed={isSelected}
-                  aria-label={`Tray ${part.number}, ${part.label}`}
+                  aria-label={names.get(key)?.full ?? part.label}
                   onClick={() => p.onSelect(isSelected ? null : key)}
                 >
                   <span
@@ -366,7 +370,7 @@ export function Viewer(p: ViewerProps) {
                     style={tint === null ? undefined : { "--tint": tint }}
                     aria-hidden="true"
                   />
-                  {`${part.number} ${part.label}`}
+                  {names.get(key)?.full ?? part.label}
                 </button>
               </li>
             );

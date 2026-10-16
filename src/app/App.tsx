@@ -581,6 +581,7 @@ export function App(props: AppProps) {
                         <ExportPanel
                           titleId="export-title"
                           trays={printable}
+                          components={project.components}
                           printer={project.printer}
                           settings={project.settings}
                           meshes={meshes}
@@ -593,9 +594,8 @@ export function App(props: AppProps) {
                           <div>
                             <strong>Assembly page</strong>
                             <p class="hint">
-                              An exploded picture of the build order, numbered pictures of each
-                              layer and a parts list, to print or save as PDF. Print this one
-                              yourself.
+                              An exploded picture of the build order, named pictures of each layer
+                              and a parts list, to print or save as PDF. Print this one yourself.
                             </p>
                             {s.stale.value ? (
                               <p class="hint">

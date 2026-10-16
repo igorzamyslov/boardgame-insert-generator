@@ -2,7 +2,7 @@ import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
 import type { MergedPart, Settings, Side, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
-import { carriesNumber } from "../model/part-number";
+import { carriesName } from "../model/part-name";
 import { buildEngraving, planEngraving } from "./engrave";
 import type { EngravePlan } from "./engrave";
 import { cutFace, filletStrip } from "./plan-cuts";
@@ -317,12 +317,12 @@ function buildSolid(
   return solid;
 }
 
-// The number engraved on a part (spec.partNumber, set by the app on the copy it asks to build when
+// The name engraved on a part (spec.partName, set by the app on the copy it asks to build when
 // the engraving setting is on) and where; null for a part that carries none (a plate: a spacer or
 // divider), or that has no face with room (planEngraving).
 function engravingOf(plan: TrayPlan, spec: TraySpec): EngravePlan | null {
-  const n = spec.partNumber;
-  return n === undefined || !carriesNumber(spec.part) ? null : planEngraving(plan, n);
+  const name = spec.partName;
+  return name === undefined || !carriesName(spec.part) ? null : planEngraving(plan, name);
 }
 
 function buildPart(
@@ -346,12 +346,12 @@ function buildMerged(
   merged: MergedPart,
   settings: Settings,
 ): Manifold {
-  // The number goes on one member, on a face on the merged part's own outside (as it prints: a
+  // The name goes on one member, on a face on the merged part's own outside (as it prints: a
   // flipped part is turned over, front and back change places): the member where it is largest.
   const plans = merged.members.map((member) => planTray(member, settings));
   let onMember = -1;
   let engraving: EngravePlan | null = null;
-  if (spec.partNumber !== undefined && carriesNumber(spec.part)) {
+  if (spec.partName !== undefined && carriesName(spec.part)) {
     const flipped = merged.flipped === true;
     merged.members.forEach((member, i) => {
       const plan = plans[i];
@@ -372,7 +372,7 @@ function buildMerged(
         faces.push("right");
       }
       const found =
-        plan === undefined ? null : planEngraving(plan, spec.partNumber ?? 0, faces, flipped);
+        plan === undefined ? null : planEngraving(plan, spec.partName ?? "", faces, flipped);
       if (found !== null && (engraving === null || found.stroke > engraving.stroke)) {
         engraving = found;
         onMember = i;

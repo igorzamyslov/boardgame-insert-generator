@@ -1,14 +1,14 @@
 import type { Manifold, ManifoldToplevel, Vec3 } from "manifold-3d";
 import { MIN_FEATURE_MM } from "../model/settings";
 import type { Side } from "../model/types";
-import { DIGIT_ROWS, numberRects, numberWidth } from "./glyphs";
+import { GLYPH_ROWS, isEngravable, textRects, textWidth } from "./glyphs";
 import { FINGER_FILLET_MM } from "./plan-types";
 import type { TrayPlan } from "./plan-types";
 import type { Scope } from "./scope";
 import { hullPoints } from "./shapes";
 
-// Part numbers (spec §6.1 "Part numbers"): the number of the part in the assembly instructions,
-// engraved into one of its outer walls as shallow recessed digits (glyphs.ts). A recess on a
+// Part names (spec §6.1 "Part names"): the short name of the part (trayNames), engraved into one of
+// its outer walls as shallow recessed capitals (glyphs.ts). A recess on a
 // vertical wall adds no support, cannot catch or change how parts mate, and leaves the outer size
 // as it is. Its roof (the top of a stroke) slopes down into the wall at more than 45°, so no face
 // of it overhangs.
@@ -19,31 +19,38 @@ export const ENGRAVE_DEPTH_MM = 0.4;
 export const ENGRAVE_KEEP_MM = MIN_FEATURE_MM + 0.01;
 /** The shallowest engraving worth cutting; a wall too thin to take it is left plain. */
 export const ENGRAVE_MIN_DEPTH_MM = 0.3;
-/** Stroke width, mm, at most (digits 8 mm tall) and at least (5 mm tall; also the gap, ≥ 0.8). */
+/** Stroke width, mm, at most (letters 8 mm tall) and at least (5 mm tall; also the gap, ≥ 0.8). */
 export const ENGRAVE_STROKE_MAX_MM = 1.6;
 export const ENGRAVE_STROKE_MIN_MM = 1;
-/** A face that gives the digits at least this stroke is used before looking at the next. */
+/** A face that gives the name at least this stroke is used before looking at the next. */
 const GOOD_STROKE_MM = 1.3;
-/** The digits keep this far from a corner's arc, a through cut's fillets and the chamfer. */
+/** The letters keep this far from a corner's arc, a through cut's fillets and the chamfer. */
 const EDGE_MM = 1.5;
 const BELOW_CHAMFER_MM = 1;
 const BELOW_RIM_MM = 1.5;
 /** A roof falls this many mm per mm of depth: 1.25 is steeper than 45°, so nothing overhangs. */
 const ROOF_SLOPE = 1.25;
 const OVERSHOOT = 1;
+/**
+ * Each stroke's cutter is made this much bigger along the text and upward, so two strokes that
+ * meet only at a corner of the font's cells (the steps of a diagonal) cut one connected recess,
+ * not two that touch along a bare edge. Far below what a printer resolves.
+ */
+const JOIN_MM = 0.03;
 
 /** Faces in the order they are tried. */
 export const ENGRAVE_FACES: readonly Side[] = ["front", "back", "left", "right"];
 
 export interface EngravePlan {
   face: Side;
-  number: number;
+  /** The text engraved, as given (the font draws capitals). */
+  text: string;
   /** Stroke (and gap) width, mm. */
   stroke: number;
   depth: number;
-  /** Along the face, from its left end as seen from outside, to the digits' left edge, mm. */
+  /** Along the face, from its left end as seen from outside, to the text's left edge, mm. */
   from: number;
-  /** Height of the digits' lower edge above the part's bed side, mm. */
+  /** Height of the text's lower edge above the part's bed side, mm. */
   z: number;
   /** The part is built upside down in relation to the way it prints (merged.flipped). */
   flipped: boolean;
@@ -68,7 +75,7 @@ function alongOf(face: Side, plan: TrayPlan, x: number, y: number): number {
   }
 }
 
-/** The material between the face and the nearest well (or relief) that the digits could meet. */
+/** The material between the face and the nearest well (or relief) that the letters could meet. */
 function thicknessBehind(plan: TrayPlan, face: Side, top: number): number {
   let t = Infinity;
   for (const c of plan.compartments) {
@@ -92,7 +99,7 @@ function thicknessBehind(plan: TrayPlan, face: Side, top: number): number {
   return t;
 }
 
-// The free stretches of the face (as the plan sees it, before any flip) that digits may take:
+// The free stretches of the face (as the plan sees it, before any flip) that the text may take:
 // between the corners' arcs, less every cut through the face and its fillets.
 function freeSpans(plan: TrayPlan, face: Side): Span[] {
   const length = face === "front" || face === "back" ? plan.w : plan.d;
@@ -119,28 +126,29 @@ function freeSpans(plan: TrayPlan, face: Side): Span[] {
 }
 
 /**
- * Where the number n goes on a part, or null when no face has room for digits at least
- * ENGRAVE_STROKE_MIN_MM a stroke, or a wall thick enough to take them (a thin face is left plain
- * rather than weakened). Only the `faces` are tried (a merged part's own faces are those on its
- * outside), in ENGRAVE_FACES order: the first that gives a good stroke wins, else the best. A part
- * that is built upside down (`flipped`: its members are solid) is planned as it prints, so the
- * digits read upright; a flipped part with wells is left plain.
+ * Where the text goes on a part, or null when no face has room for it at least
+ * ENGRAVE_STROKE_MIN_MM a stroke (a name too long for the face is left off, never replaced by
+ * something else), or a wall thick enough to take it (a thin face is left plain rather than
+ * weakened), or the font lacks a character of it. Only the `faces` are tried (a merged part's own
+ * faces are those on its outside), in ENGRAVE_FACES order: the first that gives a good stroke wins,
+ * else the best. A part that is built upside down (`flipped`: its members are solid) is planned as
+ * it prints, so the text reads upright; a flipped part with wells is left plain.
  */
 export function planEngraving(
   plan: TrayPlan,
-  number: number,
+  text: string,
   faces: readonly Side[] = ENGRAVE_FACES,
   flipped = false,
 ): EngravePlan | null {
-  if (flipped && plan.compartments.length > 0) {
+  if ((flipped && plan.compartments.length > 0) || text === "" || !isEngravable(text)) {
     return null;
   }
-  const strokesWide = numberWidth(number);
-  // The band of the part's height the digits sit in, in the printed frame.
+  const strokesWide = textWidth(text);
+  // the band of the part's height the text sits in, in the printed frame.
   const lo = plan.chamfer + BELOW_CHAMFER_MM;
   const hi = plan.h - BELOW_RIM_MM;
   const band = flipped ? { lo: plan.h - hi, hi: plan.h - lo } : { lo, hi };
-  const byHeight = (band.hi - band.lo) / DIGIT_ROWS;
+  const byHeight = (band.hi - band.lo) / GLYPH_ROWS;
   let best: EngravePlan | null = null;
   for (const face of ENGRAVE_FACES.filter((f) => faces.includes(f))) {
     const depth = Math.min(ENGRAVE_DEPTH_MM, thicknessBehind(plan, face, hi) - ENGRAVE_KEEP_MM);
@@ -160,11 +168,11 @@ export function planEngraving(
     }
     best = {
       face,
-      number,
+      text,
       stroke,
       depth,
       from: (span.lo + span.hi) / 2 - (stroke * strokesWide) / 2,
-      z: (band.lo + band.hi) / 2 - (stroke * DIGIT_ROWS) / 2,
+      z: (band.lo + band.hi) / 2 - (stroke * GLYPH_ROWS) / 2,
       flipped,
     };
     if (stroke >= GOOD_STROKE_MM) {
@@ -195,9 +203,9 @@ export function engravingPieces(
     }[face];
     return plan.flipped ? [x, part.d - y, part.h - z] : [x, y, z];
   };
-  return numberRects(plan.number).map((r) => {
-    const zb = z0 + r.z0 * u;
-    const zt = z0 + r.z1 * u;
+  return textRects(plan.text).map((r) => {
+    const zb = z0 + r.z0 * u - JOIN_MM;
+    const zt = z0 + r.z1 * u + JOIN_MM;
     const profile: [number, number][] = [
       [-OVERSHOOT, zb],
       [depth, zb],
@@ -206,7 +214,7 @@ export function engravingPieces(
       [-OVERSHOOT, zt],
     ];
     const points: Vec3[] = [];
-    for (const a of [from + r.x0 * u, from + r.x1 * u]) {
+    for (const a of [from + r.x0 * u - JOIN_MM, from + r.x1 * u + JOIN_MM]) {
       for (const [into, z] of profile) {
         points.push(toPart(a, into, z));
       }

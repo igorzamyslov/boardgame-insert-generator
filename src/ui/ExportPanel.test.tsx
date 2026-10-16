@@ -1,13 +1,14 @@
 // src/ui/ExportPanel.test.tsx
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { unzipSync } from "fflate";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MeshSource } from "../app/meshes";
-import { cubeMesh, makeTray } from "../app/test-helpers";
+import { cubeMesh, fixtureProject, makeTray } from "../app/test-helpers";
 import { GeometryBuildError } from "../geometry/client";
 import { DEFAULT_PRINTER } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { FeatureSpec } from "../model/types";
+import type { Component, FeatureSpec } from "../model/types";
 import { ExportPanel } from "./ExportPanel";
 import type { ExportPanelProps } from "./ExportPanel";
 
@@ -47,9 +48,17 @@ const magnet = makeTray({
   ],
 });
 
+/** The two components the trays hold, so the trays are named "Deck A 1", "Deck A 2" and "Magnets". */
+const components: Component[] = ["Deck A", "Magnets"].map((name, i) => ({
+  ...structuredClone(fixtureProject().components[0] as Component),
+  id: `comp000${i}`,
+  name,
+}));
+
 function props(over: Partial<ExportPanelProps> = {}): ExportPanelProps {
   return {
     trays: [makeTray({ key: "a:p0:0", stack: 0 }), makeTray({ key: "b:p0:0", stack: 1 }), magnet],
+    components,
     printer: DEFAULT_PRINTER,
     settings: DEFAULT_SETTINGS,
     meshes: meshes(),
@@ -64,7 +73,7 @@ describe("ExportPanel", () => {
   it("exports a zip of 3MF parts and lists the unsupported tray", async () => {
     const p = props();
     render(<ExportPanel {...p} />);
-    expect(screen.getByText(/#3 Magnets: Uses feature "magnet"/)).toBeTruthy();
+    expect(screen.getByText(/^Magnets: Uses feature "magnet"/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
     const stl = screen.getByRole("button", { name: "STL files (.zip)" });
     expect(stl.getAttribute("aria-disabled")).toBe("true");
@@ -75,6 +84,29 @@ describe("ExportPanel", () => {
     expect(name).toBe("Wing-span-3mf-parts.zip");
     expect(blob).toBeInstanceOf(Blob);
     expect(p.meshes.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("engraves each tray's short name and calls its file by its full name, never by a number", async () => {
+    const p = props();
+    render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+    await waitFor(() => expect(p.download).toHaveBeenCalled());
+    const asked = vi.mocked(p.meshes.get).mock.calls.map(([spec]) => [spec.key, spec.partName]);
+    expect(asked).toEqual([
+      ["a:p0:0", "Deck 1"],
+      ["b:p0:0", "Deck 2"],
+    ]);
+    const [blob] = vi.mocked(p.download ?? vi.fn()).mock.calls[0] ?? [];
+    const zip = unzipSync(new Uint8Array(await (blob as Blob).arrayBuffer()));
+    expect(Object.keys(zip)).toEqual(["Deck-A-1.3mf", "Deck-A-2.3mf"]);
+    cleanup();
+    const off = props({ settings: { ...DEFAULT_SETTINGS, engraveNames: false }, meshes: meshes() });
+    render(<ExportPanel {...off} />);
+    fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
+    await waitFor(() => expect(off.download).toHaveBeenCalled());
+    expect(
+      vi.mocked(off.meshes.get).mock.calls.every(([spec]) => spec.partName === undefined),
+    ).toBe(true);
   });
 
   it("exports the combined 3MF and the STL zip", async () => {
@@ -101,7 +133,7 @@ describe("ExportPanel", () => {
     render(<ExportPanel {...p} />);
     fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
     await waitFor(() => expect(p.download).toHaveBeenCalled());
-    expect(screen.getByText(/#2 .*compartments overlap/)).toBeTruthy();
+    expect(screen.getByText(/^Deck A 2: .*compartments overlap/)).toBeTruthy();
   });
 
   it("shows a worker failure with Retry", async () => {
@@ -210,9 +242,9 @@ describe("ExportPanel", () => {
     expect(forgotten?.map((t) => t.key)).toEqual(["b:p0:0"]);
     expect(forSettings).toBe(DEFAULT_SETTINGS);
     await waitFor(() => expect(p.download).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.queryByText(/#2 .*took too long/)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/^Deck A 2: .*took too long/)).toBeNull());
     expect(screen.queryByRole("button", { name: "Retry failed trays" })).toBeNull();
-    expect(screen.getByText(/#3 Magnets/)).toBeTruthy();
+    expect(screen.getByText(/^Magnets: /)).toBeTruthy();
   });
 
   it("disables Retry while the layout is not ready", async () => {
@@ -237,7 +269,7 @@ describe("ExportPanel", () => {
     const view = render(<ExportPanel {...p} />);
     fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
     await waitFor(() => expect(p.download).toHaveBeenCalled());
-    expect(screen.getByText(/#2 .*compartments overlap/)).toBeTruthy();
+    expect(screen.getByText(/^Deck A 2: .*compartments overlap/)).toBeTruthy();
     view.rerender(<ExportPanel {...p} trays={[makeTray({ key: "a:p0:0", stack: 0 }), magnet]} />);
     expect(screen.queryByText(/compartments overlap/)).toBeNull();
     expect(screen.getByText(/Magnets/)).toBeTruthy();
@@ -451,11 +483,9 @@ describe("ExportPanel", () => {
     expect(notice?.querySelector(".notice-level")?.textContent).toBe("Warning:");
     expect(notice?.textContent).toMatch(/2 of 3 trays weren't exported\./);
     expect(
-      screen.getByText(/#2 Spare tray: .*It only fills a gap, so you can skip it\./),
+      screen.getByText(/^Spare by [\w ]+: .*It only fills a gap, so you can skip it\./),
     ).toBeTruthy();
-    expect(screen.getByText(/#3 Magnets: Uses feature/).textContent).not.toMatch(
-      /only fills a gap/,
-    );
+    expect(screen.getByText(/^Magnets: Uses feature/).textContent).not.toMatch(/only fills a gap/);
     expect(notice?.contains(screen.getByRole("button", { name: "Retry failed trays" }))).toBe(true);
   });
 });

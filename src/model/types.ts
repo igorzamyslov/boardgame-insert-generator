@@ -209,11 +209,12 @@ export interface Settings {
    */
   playLimit: number;
   /**
-   * Engrave each part's number from the assembly instructions into one of its outer walls (spec
-   * §6.1 "Part numbers"), so a printed part matches its step. Changes the mesh and nothing else,
-   * so, like `infill` and the merge switches, it is no part of the inputs hash.
+   * Engrave each part's short name (trayNames) into one of its outer walls (spec §6.1 "Part
+   * names"), so a printed part can be told from the others. Changes the mesh and nothing else, so,
+   * like `infill` and the merge switches, it is no part of the inputs hash. Files before schema
+   * 0.1.16 call it `engraveNames` (they engraved the part's number).
    */
-  engraveNumbers: boolean;
+  engraveNames: boolean;
 }
 
 export interface StoredLayout {
@@ -288,11 +289,12 @@ export interface TraySpec {
    */
   merged?: MergedPart;
   /**
-   * The part's number in the assembly instructions, to engrave on it (settings.engraveNumbers,
-   * spec §6.1 "Part numbers"). Never stored: the app sets it on the copy of a spec it sends to the
-   * geometry layer, as the number depends on the whole part list. Absent: no engraving.
+   * The part's short name (trayNames: letters, digits, space and hyphen), to engrave on it
+   * (settings.engraveNames, spec §6.1 "Part names"). Never stored: the app sets it on the copy of a
+   * spec it sends to the geometry layer, as the name depends on the whole part list. Absent: no
+   * engraving.
    */
-  partNumber?: number;
+  partName?: string;
 }
 
 /** An axis-aligned box in box coordinates, mm. */

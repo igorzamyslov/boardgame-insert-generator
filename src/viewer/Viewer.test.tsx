@@ -48,6 +48,20 @@ function meshes() {
   return { get, reset: vi.fn(), forget: vi.fn(), dispose: vi.fn() };
 }
 
+/** A well holding something of a component of the cards-heavy fixture. */
+function deckWell(contents: string) {
+  return {
+    x: 1.6,
+    y: 1.6,
+    w: 10,
+    d: 10,
+    floorZ: 1.2,
+    kind: "well" as const,
+    contents,
+    features: [],
+  };
+}
+
 const trays = [
   makeTray({ key: "a:p0:0", stack: 0, level: 0 }),
   makeTray({ key: "b:p0:0", stack: 0, level: 1, z: 40 }),
@@ -196,25 +210,30 @@ describe("Viewer", () => {
       scene.pick("b:p0:0");
       expect(p.onSelect).toHaveBeenCalledWith("b:p0:0");
       expect(scene.handle.setTrays).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole("button", { name: /^Tray 2,/ })).toBeTruthy();
+      expect(screen.getAllByRole("button", { name: /^Spare \d$/ })).toHaveLength(2);
     });
   });
 
-  it("asks for each part with its number to engrave, as the instructions number it, unless that is off", async () => {
+  it("asks for each part with its short name to engrave, as the instructions name it, unless that is off", async () => {
     const scene = stubScene();
     const m = meshes();
-    render(<Viewer {...props({ meshes: m }, scene)} />);
+    const components = fixtureProject().components;
+    const twoDecks = [
+      makeTray({ key: "a:p0:0", level: 0, compartments: [deckWell("Market ×20")] }),
+      makeTray({ key: "b:p0:0", level: 1, z: 40, compartments: [deckWell("Objectives ×10")] }),
+    ];
+    render(<Viewer {...props({ meshes: m, trays: twoDecks, components }, scene)} />);
     await waitFor(() => expect(m.get).toHaveBeenCalledTimes(2));
-    expect(m.get.mock.calls.map(([spec]) => [spec.key, spec.partNumber])).toEqual([
-      ["a:p0:0", 1],
-      ["b:p0:0", 2],
+    expect(m.get.mock.calls.map(([spec]) => [spec.key, spec.partName])).toEqual([
+      ["a:p0:0", "Market"],
+      ["b:p0:0", "Objectives"],
     ]);
     cleanup();
     const off = meshes();
-    const settings = { ...DEFAULT_SETTINGS, engraveNumbers: false };
-    render(<Viewer {...props({ meshes: off, settings }, scene)} />);
+    const settings = { ...DEFAULT_SETTINGS, engraveNames: false };
+    render(<Viewer {...props({ meshes: off, settings, trays: twoDecks, components }, scene)} />);
     await waitFor(() => expect(off.get).toHaveBeenCalledTimes(2));
-    expect(off.get.mock.calls.every(([spec]) => spec.partNumber === undefined)).toBe(true);
+    expect(off.get.mock.calls.every(([spec]) => spec.partName === undefined)).toBe(true);
   });
 
   it("reports parts that could not be built and retries", async () => {
@@ -419,14 +438,19 @@ describe("Viewer", () => {
 
     it("lists the trays except spacers as toggle buttons and selects on click", () => {
       const scene = stubScene();
-      const p = props({ trays: named, selectedKey: "b:p0:0" }, scene);
+      const p = props(
+        { trays: named, selectedKey: "b:p0:0", components: fixtureProject().components },
+        scene,
+      );
       render(<Viewer {...p} />);
       const list = screen.getByRole("list", { name: "Trays" });
       const buttons = [...list.querySelectorAll("button")];
+      // named after what they hold, no number in front
       expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
-        "Tray 1, Deck A ×40",
-        "Tray 3, Market ×20",
+        "Spare by Market",
+        "Market",
       ]);
+      expect(buttons.map((b) => b.textContent)).toEqual(["Spare by Market", "Market"]);
       expect(buttons.map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "true"]);
       fireEvent.click(buttons[0] as HTMLButtonElement);
       expect(p.onSelect).toHaveBeenLastCalledWith("a:p0:0");
@@ -448,11 +472,13 @@ describe("Viewer", () => {
 
     it("lists only the trays on the layers shown", async () => {
       const scene = stubScene();
-      render(<Viewer {...props({ trays: named }, scene)} />);
+      render(
+        <Viewer {...props({ trays: named, components: fixtureProject().components }, scene)} />,
+      );
       fireEvent.change(screen.getByLabelText("Show layers"), { target: { value: "0" } });
       const list = screen.getByRole("list", { name: "Trays" });
       expect([...list.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"))).toEqual(
-        ["Tray 1, Deck A ×40"],
+        ["Spare by Market"],
       );
     });
   });

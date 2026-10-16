@@ -47,9 +47,9 @@ describe("zipFiles", () => {
 
   it("round-trips many files with emoji and umlaut source names", () => {
     const files = Array.from({ length: 250 }, (_, i) => ({
+      // the counter keeps the names apart, as the export does with uniqueFileNames
       name: partFileName(
-        i + 1,
-        i % 2 === 0 ? "Würfel 🎲" : "Plättchen ✨",
+        `${i % 2 === 0 ? "Würfel 🎲" : "Plättchen ✨"} ${i + 1}`,
         i % 3 === 0 ? "stl" : "3mf",
       ),
       data: new Uint8Array([i % 256, (i >> 8) & 255]),

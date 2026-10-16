@@ -167,10 +167,10 @@ describe("inputsHash", () => {
     }
   });
 
-  it("ignores engraveNumbers: it only engraves the printed meshes", () => {
+  it("ignores engraveNames: it only engraves the printed meshes", () => {
     const base = sample();
-    for (const engraveNumbers of [true, false]) {
-      const p: Project = { ...base, settings: { ...base.settings, engraveNumbers } };
+    for (const engraveNames of [true, false]) {
+      const p: Project = { ...base, settings: { ...base.settings, engraveNames } };
       expect(inputsHash(p)).toBe(inputsHash(base));
     }
   });

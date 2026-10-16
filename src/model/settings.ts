@@ -90,7 +90,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   mergeRisers: false,
   infill: 15,
   playLimit: 1.5,
-  engraveNumbers: true,
+  engraveNames: true,
 });
 
 export type WallChoice = "thin" | "normal" | "sturdy";
