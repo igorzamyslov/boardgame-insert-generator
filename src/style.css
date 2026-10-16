@@ -754,12 +754,17 @@ span.inserts-name {
   box-shadow: inset 0 0 0 2px var(--ink);
 }
 
-.viewer-selection {
+.viewer-selection-live {
   position: absolute;
   top: var(--space-2);
   left: var(--space-2);
+  display: flex;
   max-width: calc(100% - var(--control-h) - var(--space-2) * 3);
-  margin: 0;
+  pointer-events: none;
+}
+
+.viewer-selection {
+  min-width: 0;
   padding: var(--space-1) var(--space-3);
   overflow: hidden;
   border-radius: var(--radius-md);
@@ -768,7 +773,6 @@ span.inserts-name {
   font: 600 14px/20px var(--font-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
-  pointer-events: none;
 }
 
 .axis-gizmo {

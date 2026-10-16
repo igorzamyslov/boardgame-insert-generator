@@ -46,7 +46,13 @@ function usePageScheme(): ColorScheme {
     const update = (): void => setScheme(pageScheme());
     const query =
       typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
-    query?.addEventListener("change", update);
+    // Older browsers only have the deprecated addListener on a MediaQueryList.
+    if (query?.addEventListener) {
+      query.addEventListener("change", update);
+    } else {
+      query?.addListener?.(update);
+    }
+    // The page's theme toggle sets data-theme on the root; the system query alone wouldn't see it.
     const observer = typeof MutationObserver === "undefined" ? null : new MutationObserver(update);
     observer?.observe(document.documentElement, {
       attributes: true,
@@ -54,7 +60,11 @@ function usePageScheme(): ColorScheme {
     });
     update();
     return () => {
-      query?.removeEventListener("change", update);
+      if (query?.removeEventListener) {
+        query.removeEventListener("change", update);
+      } else {
+        query?.removeListener?.(update);
+      }
       observer?.disconnect();
     };
   }, []);
@@ -284,11 +294,15 @@ export function Viewer(p: ViewerProps) {
           aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
         />
         {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
-        {selectedName !== null ? (
-          <p class="viewer-selection" role="status">
-            {selectedName}
-          </p>
-        ) : null}
+        {/* Always mounted, so a reader that watches it hears the name appear; it also covers
+            views where the details panel is off. */}
+        <div class="viewer-selection-live" role="status">
+          {selectedName !== null ? (
+            <span class="viewer-selection" title={selectedName}>
+              {selectedName}
+            </span>
+          ) : null}
+        </div>
         <button
           type="button"
           class="viewer-axes-toggle"

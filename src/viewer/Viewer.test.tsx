@@ -496,6 +496,51 @@ describe("Viewer", () => {
       expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "dark").fill);
     });
 
+    it("repaints in the dark shade when the system theme changes while the view is open", async () => {
+      let dark = false;
+      const listeners: (() => void)[] = [];
+      vi.stubGlobal("matchMedia", (q: string) => ({
+        get matches() {
+          return dark && q.includes("dark");
+        },
+        media: q,
+        addEventListener: (_: string, cb: () => void) => listeners.push(cb),
+        removeEventListener: vi.fn(),
+      }));
+      const scene = stubScene();
+      render(
+        <Viewer {...props({ trays: [market], components: fixtureProject().components }, scene)} />,
+      );
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(scene.handle.setTrays).mock.calls[0]?.[0][0]?.color).toBe(
+        shadeHex("cards", 1, "light").fill,
+      );
+      dark = true;
+      act(() => {
+        for (const cb of listeners) {
+          cb();
+        }
+      });
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalledTimes(2));
+      expect(vi.mocked(scene.handle.setTrays).mock.calls.at(-1)?.[0][0]?.color).toBe(
+        shadeHex("cards", 1, "dark").fill,
+      );
+    });
+
+    it("still follows the system theme on a browser with only addListener", async () => {
+      const listeners: (() => void)[] = [];
+      vi.stubGlobal("matchMedia", (q: string) => ({
+        matches: false,
+        media: q,
+        addListener: (cb: () => void) => listeners.push(cb),
+        removeListener: vi.fn(),
+      }));
+      const scene = stubScene();
+      render(<Viewer {...props({ trays: [market] }, scene)} />);
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+      expect(listeners).toHaveLength(1);
+    });
+
     it("lets the page's chosen theme win over the system's", async () => {
       document.documentElement.setAttribute("data-theme", "dark");
       const got = await colours({ trays: [market], components: fixtureProject().components });
@@ -507,14 +552,23 @@ describe("Viewer", () => {
       const components = fixtureProject().components;
       const p = props({ trays: [market, goals], components }, scene);
       const view = render(<Viewer {...p} />);
+      // The live region is there from the start, empty, so a reader hears the name arrive.
+      const region = view.container.querySelector(".viewer-selection-live");
+      expect(region?.getAttribute("role")).toBe("status");
+      expect(region?.textContent).toBe("");
       expect(view.container.querySelector(".viewer-selection")).toBeNull();
       view.rerender(<Viewer {...p} selectedKey="b:p0:0" />);
       const label = view.container.querySelector(".viewer-selection");
       expect(label?.closest(".viewer-stage")).toBeTruthy();
+      expect(view.container.querySelector(".viewer-selection-live")).toBe(region);
+      expect(region?.textContent).toBe("Objectives");
+      // a name cut off on a narrow screen can still be read in full
+      expect(label?.getAttribute("title")).toBe("Objectives");
       expect(label?.textContent).toBe("Objectives");
       expect(label?.textContent).not.toMatch(/\d/);
       view.rerender(<Viewer {...p} selectedKey={null} />);
       expect(view.container.querySelector(".viewer-selection")).toBeNull();
+      expect(view.container.querySelector(".viewer-selection-live")?.textContent).toBe("");
     });
   });
 

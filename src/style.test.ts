@@ -116,7 +116,7 @@ describe("style.css", () => {
     expect(body).toMatch(/position:\s*absolute/);
     expect(body).toMatch(/min-width:\s*var\(--control-h\)/);
     expect(body).toMatch(/min-height:\s*var\(--control-h\)/);
-    expect(ruleFor(".viewer-selection")).toMatch(/pointer-events:\s*none/);
+    expect(ruleFor(".viewer-selection-live")).toMatch(/pointer-events:\s*none/);
   });
 
   it("lets one finger scroll the page past the 3D canvas and shortens it on phones", () => {
