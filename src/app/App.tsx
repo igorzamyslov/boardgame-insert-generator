@@ -504,7 +504,6 @@ export function App(props: AppProps) {
                           box={project.box}
                           settings={project.settings}
                           components={project.components}
-                          advanced
                           stale={s.stale.value}
                           meshes={meshes}
                           selectedKey={s.selection.value}
