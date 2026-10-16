@@ -12,7 +12,6 @@
   flex-direction: column;
   gap: var(--s-16);
   min-height: 0;
-  line-height: normal; /* Main sets none: its rows are the font's own height, not the page's 1.45 */
 }
 
 /* Only the list gives way when the column is short: nothing else in it shrinks. */
@@ -146,7 +145,6 @@
 /* The sheet's list is the sheet body's to scroll; the rows sit flush, as the board draws them. */
 .rail-list--sheet {
   flex: none;
-  line-height: normal; /* as the rail's: MobileWorkspace sets none */
   gap: 0;
   margin: 0;
   padding: 0;

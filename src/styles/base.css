@@ -7,7 +7,7 @@ body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
-  font: 400 15px/1.45 var(--font-ui);
+  font: 400 15px/normal var(--font-ui); /* the boards set no line height: type is the font's own */
   font-style: normal;
   overflow-wrap: anywhere;
 }
@@ -17,6 +17,11 @@ body {
   body {
     font-size: 16px;
   }
+}
+
+/* Running text sets its own, as the boards' notes do (1.5). */
+p {
+  line-height: 1.5;
 }
 
 h1,
