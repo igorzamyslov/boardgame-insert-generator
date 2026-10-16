@@ -675,8 +675,6 @@ export function App(props: AppProps) {
             <footer class="app-footer">
               {`Insert Generator v${APP_VERSION} (${BUILD_ID}) · `}
               <a href="./third-party-licenses.txt">Third-party licenses</a>
-              {" · "}
-              <a href="../">All apps</a>
             </footer>
           </div>
         </SettingsContext.Provider>

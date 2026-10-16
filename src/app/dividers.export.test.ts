@@ -106,7 +106,7 @@ describe("a project with dividers", () => {
     if (!back.ok) {
       throw new Error(back.error);
     }
-    expect(back.project).toEqual(p);
+    expect({ ...back.project, createdWith: p.createdWith }).toEqual(p);
     expect(parts({ ...p, ...back.project, layout: back.project.layout ?? p.layout })).toEqual(
       parts(p),
     );

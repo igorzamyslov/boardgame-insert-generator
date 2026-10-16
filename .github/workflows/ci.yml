@@ -107,3 +107,18 @@ jobs:
       - name: All checks passed
         run: |
           [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "false" ]
+
+  # Every merge to main is a release, so a pull request must raise package.json's version
+  # (the one the footer shows) above main's.
+  version-bump:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: git show "origin/${{ github.base_ref }}:package.json" > "$RUNNER_TEMP/base-package.json"
+      - run: node scripts/check-version-bump.mjs "$RUNNER_TEMP/base-package.json" package.json

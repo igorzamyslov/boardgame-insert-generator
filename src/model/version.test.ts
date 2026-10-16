@@ -23,10 +23,6 @@ describe("version", () => {
     },
   );
 
-  it("is app 0.2.0", () => {
-    expect(APP_VERSION).toBe("0.2.0");
-  });
-
   it("has a build id: a short SHA (optionally -dirty), or unknown without git", () => {
     expect(BUILD_ID).toMatch(/^([0-9a-f]{7}(-dirty)?|unknown)$/);
   });
