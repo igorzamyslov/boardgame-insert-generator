@@ -40,8 +40,6 @@ export interface PlanViewProps {
   onToggleSizeLock: (key: string) => void;
   /** The inputs no longer match the layout: the plan is greyed out and the details say so. */
   stale?: boolean;
-  /** Show the lock and swap buttons (default false: only the selected tray's details). */
-  advanced?: boolean;
 }
 
 /** Side of a tile's kind glyph, in SVG units, and the room it needs. */
@@ -86,7 +84,6 @@ export function PlanView(props: PlanViewProps) {
     onToggleLock,
     sizeLockedKeys,
     onToggleSizeLock,
-    advanced = false,
   } = props;
   const levels = levelsOf(trays);
   const [levelIndex, setLevelIndex] = useState(0);
@@ -495,35 +492,31 @@ export function PlanView(props: PlanViewProps) {
               locked={selectedLocked}
               sizeLocked={sizeLockedKeys.has(selectedPart.spec.key)}
               stale={props.stale}
-              onToggleSizeLock={
-                advanced ? () => onToggleSizeLock(selectedPart.spec.key) : undefined
-              }
+              onToggleSizeLock={() => onToggleSizeLock(selectedPart.spec.key)}
             />
-            {advanced ? (
-              <div class="button-row">
-                <button
-                  type="button"
-                  aria-pressed={swapFrom !== null}
-                  disabled={!isLockable(selectedPart.spec)}
-                  onClick={() => {
-                    setSwapRefused(false);
-                    setSwapFrom(swapFrom === null ? selectedPart.spec.key : null);
-                  }}
-                >
-                  Swap with…
-                </button>
-                <button
-                  type="button"
-                  disabled={!isLockable(selectedPart.spec)}
-                  onClick={() => onToggleLock(selectedPart.spec.key)}
-                >
-                  {selectedLocked ? "Unlock position" : "Lock position"}
-                </button>
-                {!isLockable(selectedPart.spec) ? (
-                  <span class="hint">Leftover trays and spacers can't be locked.</span>
-                ) : null}
-              </div>
-            ) : null}
+            <div class="button-row">
+              <button
+                type="button"
+                aria-pressed={swapFrom !== null}
+                disabled={!isLockable(selectedPart.spec)}
+                onClick={() => {
+                  setSwapRefused(false);
+                  setSwapFrom(swapFrom === null ? selectedPart.spec.key : null);
+                }}
+              >
+                Swap with…
+              </button>
+              <button
+                type="button"
+                disabled={!isLockable(selectedPart.spec)}
+                onClick={() => onToggleLock(selectedPart.spec.key)}
+              >
+                {selectedLocked ? "Unlock position" : "Lock position"}
+              </button>
+              {!isLockable(selectedPart.spec) ? (
+                <span class="hint">Leftover trays and spacers can't be locked.</span>
+              ) : null}
+            </div>
           </>
         ) : null}
       </div>

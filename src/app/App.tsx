@@ -482,7 +482,6 @@ export function App(props: AppProps) {
                           box={project.box}
                           settings={project.settings}
                           components={project.components}
-                          advanced
                           lockedKeys={locked}
                           selectedKey={s.selection.value}
                           stale={s.stale.value}
