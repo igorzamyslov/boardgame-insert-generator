@@ -1,0 +1,211 @@
+/*
+ * The rail, "What's inside" (UI rebuild Task 5): Main's rail at 1440, MobileWorkspace's sheet list
+ * below 760 px, and the Add pill's picker. On the tokens (styles/tokens.css) and the kit
+ * (kit/kit.css); loaded after style.css, whose old `button` rules a class here has to beat or tie.
+ * The workspace shell (workspace.css) gives the column: padding, width and the clipping.
+ */
+
+/* ---- The column: the box card, the heading, the list, the note, the foot; 16 px between ---- */
+.rail {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-16);
+  min-height: 0;
+  line-height: normal; /* Main sets none: its rows are the font's own height, not the page's 1.45 */
+}
+
+/* Only the list gives way when the column is short: nothing else in it shrinks. */
+.rail > :not(.rail-list) {
+  flex: none;
+}
+
+/* ---- The box card: a tile, "The box" over its size, and "Change" ---- */
+
+.rail-box__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.rail-box__label {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.rail-box__size {
+  font-size: 16px; /* Main */
+  font-weight: 600;
+}
+
+.rail-box__change {
+  flex: none;
+  color: var(--muted-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---- The heading and the Add pill ---- */
+.rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rail-title {
+  margin: 0;
+  font: 700 var(--h2) / normal var(--font-display);
+}
+
+/* Add is a 14 px type pill with 16 px on each side (Main). */
+.kp__add {
+  padding: 0 var(--s-16);
+}
+
+/* The phone's Add is 15 px (MobileWorkspace). */
+.k-sheet .kp__add {
+  font-size: 15px;
+}
+
+/* The picker opens under the pill, right-aligned to it; on the phone's sheet it opens over it. */
+.kp {
+  position: relative;
+}
+
+.kp__panel {
+  position: absolute;
+  top: calc(100% + var(--s-4));
+  right: 0;
+  z-index: 5;
+}
+
+.kp__panel[data-placement="above"] {
+  top: auto;
+  bottom: calc(100% + var(--s-4));
+}
+
+.kp__panel > .k-menu {
+  gap: var(--s-4);
+}
+
+/* ---- The list: one row a component, a chip beside it for each rule ---- */
+
+/*
+ * It takes what the column leaves and scrolls inside it, so the page never does: any number of
+ * components, and the note and the foot stay in sight. The padding (and the margin that takes it
+ * back) is room for the focus ring, which the scroll area would clip.
+ */
+.rail-list {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-height: 0;
+  margin: calc(-1 * var(--s-5));
+  padding: var(--s-5);
+  overflow: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.rail-item {
+  margin: 0;
+  padding: 0;
+}
+
+.rail-chips {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail-chips > li {
+  margin: 0;
+  padding: 0;
+}
+
+/* A row that has an error inside its editor says so in the error's colour. */
+.k-row[data-problem="true"] .k-row__meta {
+  color: var(--danger);
+}
+
+/* The sheet's list is the sheet body's to scroll; the rows sit flush, as the board draws them. */
+.rail-list--sheet {
+  flex: none;
+  line-height: normal; /* as the rail's: MobileWorkspace sets none */
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+/* ---- The note under the list while any rule is set ---- */
+.rail-note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-12);
+  border-radius: var(--r-field);
+  background: var(--page);
+}
+
+.rail-note__text {
+  color: var(--muted-strong);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.rail-clear {
+  --k-fg: var(--muted-strong);
+
+  align-self: flex-start;
+  height: auto;
+  min-height: var(--control-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-field);
+  text-decoration: underline;
+  text-underline-offset: 3px; /* Main */
+}
+
+/* ---- The foot: the printer's bed and Settings ---- */
+.rail-foot {
+  display: flex;
+  gap: var(--s-10);
+  align-items: center;
+  margin-top: auto;
+  padding-top: var(--s-12);
+  border-top: 1px solid var(--rule-soft);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.rail-foot__text {
+  flex: 1 1 auto;
+}
+
+.rail-settings {
+  --k-fg: var(--ink);
+
+  flex: none;
+  padding: 0 var(--s-8);
+}
+
+/* The first visit's kinds, until its own task rebuilds it: Empty's tiles, one to a row. */
+.rail-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+}
+
+/* What's inside holds its list in the rail's own column, and an editor in a scrolling panel. */
+.wi:not(.ws-interim) {
+  display: contents;
+}

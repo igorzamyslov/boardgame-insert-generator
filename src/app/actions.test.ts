@@ -5,6 +5,7 @@ import { GEOMETRY_VERSION } from "../geometry/version";
 import type { CardsComponent, Lock, Project, TraySpec } from "../model/types";
 import {
   addComponent,
+  clearChoices,
   isLockable,
   lockedKeys,
   removeComponent,
@@ -141,6 +142,23 @@ describe("project actions", () => {
     const lockC: Lock = { kind: "position", trayKey: `${c.id}:p0:0`, path: "2", rotated: false };
     const ungrouped: Project = { ...newProject(), components: [c], locks: [lockC] };
     expect(updateComponent(ungrouped, c.id, setGroup(c, "g")).locks).toEqual([]);
+  });
+
+  it("clears every choice in one step", () => {
+    const c = newComponent("cards");
+    const locks: Lock[] = [
+      { kind: "position", trayKey: `${c.id}:p0:0`, path: "1", rotated: true },
+      { kind: "size", trayKey: `${c.id}:p0:0`, w: 1, d: 2, h: 3 },
+      { kind: "stack", trayKeys: [`${c.id}:p0:0`, "b:p0:0"] },
+    ];
+    const p: Project = { ...newProject(), components: [c], locks };
+    const cleared = clearChoices(p);
+    expect(cleared.locks).toEqual([]);
+    expect(cleared.components).toBe(p.components);
+    expect(cleared.box).toBe(p.box);
+    expect(p.locks).toHaveLength(3);
+    // nothing to clear: the same project, so no history step is made for it
+    expect(clearChoices(cleared)).toBe(cleared);
   });
 
   it("replaces the settings", () => {

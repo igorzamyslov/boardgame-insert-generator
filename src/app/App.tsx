@@ -9,10 +9,11 @@ import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
 import { Header } from "../screens/Header";
+import { hoveredComponent } from "../screens/hover";
+import { AddMenu, KindTiles } from "../screens/KindPicker";
 import { ProjectMenu } from "../screens/ProjectMenu";
 import { Workspace } from "../screens/Workspace";
 import { BoxPanel } from "../ui/BoxPanel";
-import { AddKinds } from "../ui/components/ComponentList";
 import { WhatsInside } from "../ui/components/WhatsInside";
 import { ExportPanel } from "../ui/ExportPanel";
 import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
@@ -26,7 +27,7 @@ import { StatusLine } from "../ui/StatusLine";
 import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { Summary } from "../ui/Summary";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
-import { Section } from "../ui/Section";
+import { componentIndexOfTray, mm } from "../ui/identity";
 import {
   SettingsContext,
   SizingContext,
@@ -37,6 +38,7 @@ import { Viewer } from "../viewer/Viewer";
 import type { ViewerProps } from "../viewer/Viewer";
 import {
   addComponent,
+  clearChoices,
   lockedKeys,
   removeComponent,
   removeLock,
@@ -67,31 +69,24 @@ export interface AppProps {
   viewerProps?: Pick<ViewerProps, "webgl" | "loadScene">;
 }
 
-type SectionId = "box" | "components";
-/** What a validation path belongs to: a rail section, or the settings sheet. */
-type PathHome = SectionId | "settings";
 type ViewId = "plan" | "3d";
 
-const SECTION_TITLES: Record<SectionId, string> = {
-  box: "The box",
-  components: "What's inside",
-};
+/** What a validation path belongs to: the box's editor, a component's, or the settings sheet. */
+type PathHome = { kind: "box" } | { kind: "component"; index: number } | { kind: "settings" };
 
-/** Where the fields a validation path belongs to are: a rail section, or the settings sheet. */
-function sectionOf(path: string | undefined): PathHome | null {
+function homeOf(path: string | undefined): PathHome | null {
   if (path === undefined) {
     return null;
   }
   if (path.startsWith("/box")) {
-    return "box";
+    return { kind: "box" };
   }
-  if (path.startsWith("/components")) {
-    return "components";
+  const component = /^\/components\/(\d+)(?:\/|$)/.exec(path);
+  if (component !== null) {
+    return { kind: "component", index: Number(component[1]) };
   }
-  return path.startsWith("/settings") || path.startsWith("/printer") ? "settings" : null;
+  return path.startsWith("/settings") || path.startsWith("/printer") ? { kind: "settings" } : null;
 }
-
-const mm = (v: number): string => String(Math.round(v * 10) / 10);
 
 export function App(props: AppProps) {
   const { store, meshes } = props;
@@ -136,12 +131,18 @@ export function App(props: AppProps) {
   // The first visit's block in the rail, where the focus goes when the last item is removed.
   const firstVisitRef = useRef<HTMLDivElement>(null);
   const restoreFocus = useRef(false);
-  const [openSection, setOpenSection] = useState<SectionId | null>(
-    project.components.length === 0 ? "box" : "components",
-  );
   // The component whose editor is open in the rail (null: the list). The tray bar's Edit sets it
-  // too, and a first item added from the first visit opens at once.
+  // too, and an item just added opens at once.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // The box's editor is open in the rail, in the list's place (until the box screen, Task 11).
+  const [boxOpen, setBoxOpen] = useState(false);
+  const boxHeadingRef = useRef<HTMLHeadingElement>(null);
+  // The pointer or focus on a rail row lights that component's trays; nothing is lit once the rail goes.
+  useEffect(() => {
+    return () => {
+      hoveredComponent.value = null;
+    };
+  }, []);
   const firstVisit = project.components.length === 0;
   // Below 760 px the rail is a sheet at the foot of the screen: folded, with its handle showing.
   const phone = useMediaQuery(PHONE_QUERY);
@@ -161,11 +162,22 @@ export function App(props: AppProps) {
     if (firstVisit && !wasFirstVisit.current) {
       setSheetOpen(false);
       if (document.activeElement === document.body) {
-        firstVisitRef.current?.querySelector<HTMLElement>(".pf-kinds button")?.focus();
+        firstVisitRef.current?.querySelector<HTMLElement>(".rail-kinds button")?.focus();
       }
     }
     wasFirstVisit.current = firstVisit;
   }, [firstVisit]);
+  // The box's editor takes the focus when it opens; the box card (or row) gets it back when it closes.
+  const wasBoxOpen = useRef(false);
+  useEffect(() => {
+    if (boxOpen) {
+      boxHeadingRef.current?.focus();
+    } else if (wasBoxOpen.current && document.activeElement === document.body) {
+      // Done or the way back went with the focus: the card (or row) that opened the editor takes it.
+      document.querySelector<HTMLElement>("[data-rail-box]")?.focus();
+    }
+    wasBoxOpen.current = boxOpen;
+  }, [boxOpen]);
   const [view, setView] = useState<ViewId>("plan");
   // A swap belongs to the plan: it ends when the view moves away from it.
   function showView(next: ViewId): void {
@@ -188,6 +200,7 @@ export function App(props: AppProps) {
     setExportOpen(false);
     setSettingsOpen(null);
     setSheetOpen(false);
+    setBoxOpen(false);
   }, [project.id]);
   const locked = lockedKeys(project);
   const sizeLocked = sizeLockedKeys(project);
@@ -264,61 +277,65 @@ export function App(props: AppProps) {
   }
 
   const validation = s.validation.value;
-  const problems = new Set<PathHome>();
+  // The editors and the sheet that hold an error: the summary sends the reader to each ("Show <name>").
+  const problemSections: { id: string; title: string }[] = [];
+  const seen = new Set<string>();
   for (const n of validation) {
-    const id = n.level === "error" ? sectionOf(n.path) : null;
-    if (id !== null) {
-      problems.add(id);
+    const home = n.level === "error" ? homeOf(n.path) : null;
+    const target =
+      home === null
+        ? undefined
+        : home.kind === "box"
+          ? { id: "box", title: "The box" }
+          : home.kind === "settings"
+            ? { id: "settings", title: "Settings" }
+            : project.components[home.index] === undefined
+              ? undefined
+              : {
+                  id: (project.components[home.index] as Component).id,
+                  title: (project.components[home.index] as Component).name || "(unnamed)",
+                };
+    if (target !== undefined && !seen.has(target.id)) {
+      seen.add(target.id);
+      problemSections.push(target);
     }
   }
-  const sections: { id: SectionId; step: number }[] = [
-    { id: "box", step: 1 },
-    { id: "components", step: 2 },
-  ];
-  const problemSections: { id: PathHome; title: string }[] = [
-    ...sections
-      .filter((x) => problems.has(x.id))
-      .map((x) => ({ id: x.id, title: SECTION_TITLES[x.id] })),
-    ...(problems.has("settings") ? [{ id: "settings" as const, title: "Settings" }] : []),
-  ];
-  const summaries: Record<SectionId, string> = {
-    box: `${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} × ${mm(project.box.innerHeight)} mm`,
-    components:
-      project.components.length === 0
-        ? "nothing yet"
-        : project.components.length === 1
-          ? "1 item"
-          : `${project.components.length} items`,
-  };
   // The settings sheet, over whichever view is showing; `tab` is the one it opens on.
   const openSettings = (tab?: SettingsTab): void =>
     setSettingsOpen({ tab: tab ?? settingsTabFor(validation) });
+  // The box's editor, in the rail's place (a phone's sheet opens for it).
+  const openBox = (): void => {
+    setEditingId(null);
+    setBoxOpen(true);
+    setSheetOpen(true);
+  };
+  // A component's editor, in the list's place, as a click on its row opens it.
+  const editComponent = (id: string): void => {
+    setBoxOpen(false);
+    setEditingId(id);
+    setSheetOpen(true);
+  };
+  // Where the summary's "Show …" leads: the box's editor, a component's, or Settings.
   const showSection = (id: string): void => {
     if (id === "settings") {
       openSettings();
-      return;
+    } else if (id === "box") {
+      openBox();
+    } else {
+      editComponent(id);
     }
-    setOpenSection(id as SectionId);
-    setSheetOpen(true);
-    document.getElementById(`section-${id}`)?.scrollIntoView?.({ block: "nearest" });
   };
   const addComponentOfKind = (kind: ComponentKind): void => {
     store.edit((q) => addComponent(q, kind));
-    // From the first visit the list is not on screen yet to open the new item by itself.
-    if (firstVisit) {
-      setEditingId(store.state.project.peek().components.at(-1)?.id ?? null);
+    // The new item opens at once, whether the Add was the rail's, the phone sheet's or the first visit's.
+    setEditingId(store.state.project.peek().components.at(-1)?.id ?? null);
+    setBoxOpen(false);
+    if (firstVisit || phone) {
       setSheetOpen(true);
     }
-    setOpenSection("components");
-  };
-  // The tray bar's and the status line's Edit: the component's editor, in the list's place, as a click on its row opens it.
-  const editComponent = (id: string): void => {
-    showSection("components");
-    setEditingId(id);
   };
   const addExample = (): void => {
     store.edit((q) => (["cards", "bulk", "tiles"] as const).reduce(addComponent, q));
-    setOpenSection("components");
   };
   // Where each notice shows: the one banner, the project menu (with a dot), or inline.
   const noFit =
@@ -425,54 +442,73 @@ export function App(props: AppProps) {
     onEditComponent: editComponent,
   };
 
-  // The box and the list: the rail's two sections (on a phone, the sheet's).
-  const railSections = (
-    <>
-      {sections.map((x) => (
-        <Section
-          key={x.id}
-          id={x.id}
-          step={x.step}
-          title={SECTION_TITLES[x.id]}
-          summary={summaries[x.id]}
-          problem={problems.has(x.id)}
-          open={openSection === x.id}
-          onToggle={(open) => setOpenSection(open ? x.id : null)}
-        >
-          {x.id === "box" ? (
-            <BoxPanel
-              box={project.box}
-              onChange={(patch) => store.edit((q) => updateBox(q, patch))}
-            />
-          ) : null}
-          {x.id === "components" ? (
-            <WhatsInside
-              components={project.components}
-              openId={editingId}
-              onOpenChange={setEditingId}
-              trays={listTrays}
-              locks={project.locks}
-              onAdd={addComponentOfKind}
-              onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
-              onUnlockSize={(keys) =>
-                store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
-              }
-              onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
-              onRemove={(id) => {
-                const component = project.components.find((x) => x.id === id);
-                if (component === undefined) {
-                  return false;
-                }
-                store.edit((q) => removeComponent(q, id));
-                // Undo on the toast is only right while the removal is still the latest step.
-                setRemoved({ component, version: s.history.version.peek() });
-                return true;
-              }}
-            />
-          ) : null}
-        </Section>
-      ))}
-    </>
+  // The component the selected tray belongs to: its row in the rail is pressed.
+  const selectedTray = layout ? printable.find((t) => t.key === s.selection.value) : undefined;
+  const selectedIndex =
+    selectedTray === undefined ? null : componentIndexOfTray(selectedTray, project.components);
+  const selectedId =
+    selectedIndex === null ? null : (project.components[selectedIndex]?.id ?? null);
+  // What's inside: the rail's list (the sheet's, on a phone), or a component's editor in its place.
+  const whatsInside = (
+    <WhatsInside
+      components={project.components}
+      openId={editingId}
+      onOpenChange={(id) => {
+        setEditingId(id);
+        // A row chosen from the folded sheet opens it on the editor.
+        if (id !== null) {
+          setSheetOpen(true);
+        }
+      }}
+      trays={listTrays}
+      locks={project.locks}
+      box={project.box}
+      printer={projPrinter}
+      phone={phone}
+      selectedId={selectedId}
+      onOpenBox={openBox}
+      onSettings={() => openSettings()}
+      onHover={(id) => {
+        hoveredComponent.value = id;
+      }}
+      onClearChoices={() => store.edit(clearChoices)}
+      onAdd={addComponentOfKind}
+      onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
+      onUnlockSize={(keys) =>
+        store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
+      }
+      onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
+      onRemove={(id) => {
+        const component = project.components.find((x) => x.id === id);
+        if (component === undefined) {
+          return false;
+        }
+        store.edit((q) => removeComponent(q, id));
+        // Undo on the toast is only right while the removal is still the latest step.
+        setRemoved({ component, version: s.history.version.peek() });
+        return true;
+      }}
+    />
+  );
+  // The box's editor, in the rail's place until the box screen (Task 11): the old fields, a way back.
+  const boxEditor = (
+    <section class="wi ws-interim" aria-labelledby="box-editor-title">
+      <div class="editor-panel__bar">
+        <button type="button" class="pf-back" onClick={() => setBoxOpen(false)}>
+          <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+            <path d="M7.5 2l-4 4 4 4" />
+          </svg>
+          What&apos;s inside
+        </button>
+        <button type="button" class="primary editor-panel__btn" onClick={() => setBoxOpen(false)}>
+          Done
+        </button>
+      </div>
+      <h3 class="editor-panel__title" id="box-editor-title" tabIndex={-1} ref={boxHeadingRef}>
+        The box
+      </h3>
+      <BoxPanel box={project.box} onChange={(patch) => store.edit((q) => updateBox(q, patch))} />
+    </section>
   );
   // Below 760 px the status pill has no room for Keep searching on a plan that doesn't fit:
   // the sheet's bar offers it.
@@ -481,8 +517,8 @@ export function App(props: AppProps) {
 
   // The editor is showing in the sheet, or the box has it: the sheet is "full"; below 600 px that
   // fills the screen, and what is behind it is out of reach of Tab and screen readers (inert).
-  const editing = editingId !== null && openSection === "components";
-  const sheetFull = editingId !== null || openSection === "box";
+  const editing = editingId !== null;
+  const sheetFull = editingId !== null || boxOpen;
   const sheetCoversScreen = phone && narrow && !firstVisit && sheetOpen && sheetFull;
 
   // The three slots of the workspace shell. What is in them is the old UI, unchanged, until the
@@ -582,7 +618,9 @@ export function App(props: AppProps) {
       </div>
       <div class="pf-first__step">
         <h3>Pick what goes inside</h3>
-        <AddKinds onAdd={addComponentOfKind} label="Pick what goes inside" />
+        <div class="rail-kinds" role="group" aria-label="Pick what goes inside">
+          <KindTiles onPick={addComponentOfKind} />
+        </div>
         <button type="button" onClick={addExample}>
           Start from an example game
         </button>
@@ -594,12 +632,10 @@ export function App(props: AppProps) {
     <div class="ws-interim" ref={firstVisitRef}>
       {firstVisitBlock}
     </div>
-  ) : phone ? (
-    railSections
+  ) : boxOpen ? (
+    boxEditor
   ) : (
-    <section class="ws-interim" aria-label="Inputs">
-      {railSections}
-    </section>
+    whatsInside
   );
   const stageSlot = (
     <>
@@ -818,7 +854,6 @@ export function App(props: AppProps) {
             onClick={() => {
               setRemoved(null);
               store.undo();
-              setOpenSection("components");
             }}
           >
             Undo removal
@@ -847,30 +882,39 @@ export function App(props: AppProps) {
                 : {
                     label: "The box and what's inside",
                     title: "What's inside",
-                    summary: summaries.components,
+                    summary: String(project.components.length),
+                    handleLabel: "Show everything",
                     expanded: sheetOpen,
                     full: sheetFull,
                     editing,
                     handleRef: sheetHandle,
                     onExpandedChange: (open) => {
                       setSheetOpen(open);
-                      // The box has the sheet to itself: folding it comes back to the list.
-                      if (!open && openSection === "box") {
-                        setOpenSection("components");
+                      // An editor, or the box, has the sheet to itself: folding it comes back to the list.
+                      if (!open) {
+                        setEditingId(null);
+                        setBoxOpen(false);
                       }
                     },
-                    action: searchOnPhone ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          store.refit();
-                          // The button goes with the search: the handle keeps the place.
-                          sheetHandle.current?.focus();
-                        }}
-                      >
-                        Keep searching
-                      </button>
-                    ) : undefined,
+                    action: (
+                      <>
+                        {searchOnPhone ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              store.refit();
+                              // The button goes with the search: the handle keeps the place.
+                              sheetHandle.current?.focus();
+                            }}
+                          >
+                            Keep searching
+                          </button>
+                        ) : null}
+                        {editing || boxOpen ? null : (
+                          <AddMenu placement="above" onPick={addComponentOfKind} />
+                        )}
+                      </>
+                    ),
                   }
             }
           />

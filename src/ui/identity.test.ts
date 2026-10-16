@@ -8,6 +8,7 @@ import type {
   Component,
   CompartmentSpec,
   ComponentKind,
+  MinisComponent,
 } from "../model/types";
 import tokens from "../styles/tokens.css?raw";
 import { contrast, hexToHsl, hexToRgb } from "./color";
@@ -224,19 +225,51 @@ describe("layerLabel", () => {
 });
 
 describe("componentSummary", () => {
-  it("mentions sleeves when the cards have them", () => {
+  it("says how many cards there are, and that they are sleeved", () => {
     const c = { ...(newComponent("cards") as CardsComponent), sleeve: "standard" as const };
-    expect(componentSummary(c)).toBe("50 cards · 63.5 × 88 mm · standard sleeves");
-    expect(componentSummary({ ...c, sleeve: { w: 66, h: 91, thickness: 0.1 } })).toMatch(
-      /· custom sleeves$/,
+    expect(componentSummary(c)).toBe("50 cards, sleeved");
+    expect(componentSummary({ ...c, sleeve: { w: 66, h: 91, thickness: 0.1 } })).toBe(
+      "50 cards, sleeved",
     );
-    expect(componentSummary({ ...c, sleeve: "none" })).toBe("50 cards · 63.5 × 88 mm");
+    expect(componentSummary({ ...c, sleeve: "none" })).toBe("50 cards");
   });
 
-  it("calls tokens and dice by that name, not bits", () => {
+  it("says how the cards are split into decks", () => {
+    const c = newComponent("cards") as CardsComponent;
+    const decks = (counts: number[]): CardsComponent["decks"] =>
+      counts.map((count, i) => ({ name: `Deck ${i + 1}`, count }));
+    expect(componentSummary({ ...c, decks: decks([12, 12, 12, 12]) })).toBe("4 decks of 12");
+    expect(componentSummary({ ...c, decks: decks([12, 30]) })).toBe("42 cards in 2 decks");
+  });
+
+  it("calls tokens and dice kinds and pieces, not bits", () => {
     const c = newComponent("bulk") as BulkComponent;
-    const item = c.items[0] as BulkComponent["items"][number];
-    expect(componentSummary(c)).toBe("1 kind of tokens and dice");
-    expect(componentSummary({ ...c, items: [item, item] })).toBe("2 kinds of tokens and dice");
+    const item = { name: "Coins", count: 40, w: 20, d: 20, h: 2 };
+    expect(componentSummary({ ...c, items: [item] })).toBe("40 pieces");
+    expect(componentSummary({ ...c, items: [item, { ...item, count: 24 }] })).toBe(
+      "2 kinds, 64 pieces",
+    );
+    // a kind given by volume has no count to add up
+    expect(componentSummary({ ...c, items: [item, { name: "Beads", volumeMl: 50 }] })).toBe(
+      "2 kinds",
+    );
+    expect(componentSummary({ ...c, items: [{ name: "Beads", volumeMl: 50 }] })).toBe("1 kind");
+  });
+
+  it("counts tiles, figures and custom pieces", () => {
+    expect(componentSummary({ ...newComponent("tiles"), count: 24 } as Component)).toBe("24 tiles");
+    const minis = newComponent("minis") as MinisComponent;
+    expect(
+      componentSummary({
+        ...minis,
+        figures: [
+          { ...(minis.figures[0] as MinisComponent["figures"][number]), count: 4 },
+          { ...(minis.figures[0] as MinisComponent["figures"][number]), count: 2 },
+        ],
+      }),
+    ).toBe("6 figures");
+    expect(
+      componentSummary({ ...newComponent("custom"), count: 2, w: 30, d: 20, h: 10 } as Component),
+    ).toBe("2 × 30 × 20 × 10 mm");
   });
 });

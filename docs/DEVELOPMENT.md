@@ -236,7 +236,7 @@ it only with a written reason in the code or the PR.
     unconditionally: the button that went was the one just pressed, so nothing is stolen.
 - MUST focus an editor's, dialog's or panel's heading when it opens (`tabIndex={-1}` on the
   heading, `.focus()` in an effect), and return focus to what opened it on close. Exemption: the
-  phone's list sheet (`BottomSheet`) is an in-page disclosure, not a dialog; its 44 px handle
+  phone's list sheet (`kit/Sheet.tsx`) is an in-page disclosure, not a dialog; its 44 px handle
   carries the name and opening it focuses the first control, not a heading. The sheet holding an
   editor or the box still lands on that editor's heading:
   - `WhatsInside.tsx` returns it to the row.
@@ -273,8 +273,8 @@ scheme)`, with `"light"` for paper. `viewer/shades.ts` and `plan/glyph.ts` go th
   `style.test.ts` checks both lines, and that no other `@media` width exists beyond the ruled
   760 to 960 px tablet rail.
 - SHOULD prefer attributes over `:has()` and DOM queries for state-driven styling. For example,
-  `BottomSheet` sets `data-editing`, `data-full` and `data-expanded`, and App passes a
-  `handleRef` instead of `querySelector(".pf-sheet__handle")`.
+  `Sheet` sets `data-editing`, `data-full` and `data-expanded`, and App passes a
+  `handleRef` instead of `querySelector(".k-sheet__handle")`.
 - Note: stylelint ignores `src/styles/**` (`.stylelintrc.json`), so `tokens.css`, `base.css`
   and `fonts.css` are only checked by `style.test.ts` and `identity.test.ts`. Run those tests
   after touching them.
@@ -573,11 +573,11 @@ addition:
   `showModal`, so Modal falls back to `open`. Fire `cancel` to test Escape, and note that the
   real focus trap wasn't exercised.
 
-- **Panel in the page** (phone list sheet): `ui/BottomSheet.tsx`. State comes in as attributes
+- **Panel in the page** (phone list sheet): `kit/Sheet.tsx`, placed by `screens/Workspace.tsx`. State comes in as attributes
   (`data-expanded`, `data-full`, `data-editing`) and the handle as a `handleRef`. Below
   `NARROW_QUERY` a full sheet covers the screen, and App puts `inert` on `.app-top` and `<main>`.
   Between 600 and 760 px it's non-modal. Add every transitioned selector to the reduced-motion
-  block, which `BottomSheet.test.tsx` checks by brace matching.
+  block, which `kit/Sheet.test.tsx` checks by brace matching.
 - Every new button gets 44 px, from the base `button` rule or `.tap`. Pin a new media-query rule
   in `style.test.ts`.
 

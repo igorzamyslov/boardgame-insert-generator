@@ -6,8 +6,8 @@
  * On the tokens (styles/tokens.css).
  */
 .ws {
-  --sheet-handle: var(--control-h);
-  --sheet-foot: calc(var(--sheet-handle) + env(safe-area-inset-bottom, 0px));
+  /* What the folded sheet covers at the foot of a phone: its peek (MobileWorkspace). */
+  --sheet-foot: calc(var(--sheet-peek) + env(safe-area-inset-bottom, 0px));
 
   position: relative;
   display: flex;
@@ -131,7 +131,7 @@
     order: -1;
   }
 
-  /* The sheet is fixed over the foot of the screen: the stage leaves its handle clear. */
+  /* The sheet is fixed over the foot of the screen: the stage leaves its peek clear. */
   .ws--sheet .ws-stage {
     padding-bottom: calc(var(--sheet-foot) + var(--s-12));
     scroll-padding-bottom: calc(var(--sheet-foot) + var(--s-12));

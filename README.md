@@ -190,7 +190,7 @@ in `app/meshes.ts`.
    `EditorProps<YourComponent>` (the basics first, then the rest inside the
    `<MoreOptions errorPaths={commonOptionPaths(index)}>` disclosure, with `<ToggleOptions …/>`
    and `<CommonOptions …/>`), add a `case` to `KindEditor` in `EditorPanel.tsx`,
-   and add the kind to `ADD_LABELS` in `ComponentList.tsx`. Field paths must
+   and add the kind to `KIND_TILES` in `screens/KindPicker.tsx`. Field paths must
    match `validateProject()` so errors show next to the field.
 5. **Tests:** sizing unit tests, an editor test next to the editor, and run
    `npm run build`.

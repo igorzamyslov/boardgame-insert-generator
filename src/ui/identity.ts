@@ -197,34 +197,43 @@ export function componentIndexOfTray(
   return componentIndexOfContents(first.contents, components);
 }
 
-const mm = (v: number): string => String(Math.round(v * 10) / 10);
+/** A length in mm to one decimal, without a trailing zero: "285", "63.5". */
+export const mm = (v: number): string => String(Math.round(v * 10) / 10);
 
-/** One line about a component for its collapsed row: what and how much. */
+/**
+ * The short line under a component's name in the rail (Main's "80 cards, sleeved", "4 decks of 12",
+ * "4 kinds, 96 pieces", "24 tiles", "6 figures"): what it is and how much, in a handful of words.
+ * Sizes and sleeves live in the editor.
+ */
 export function componentSummary(c: Component): string {
   switch (c.kind) {
     case "cards": {
-      const n = c.decks.reduce((sum, d) => sum + d.count, 0);
-      const sleeves =
-        c.sleeve === "none"
-          ? ""
-          : ` · ${typeof c.sleeve === "object" ? "custom" : c.sleeve} sleeves`;
-      return `${n} cards · ${mm(c.shortSide)} × ${mm(c.longSide)} mm${sleeves}`;
+      const [first, ...more] = c.decks;
+      if (first !== undefined && more.length > 0) {
+        const n = c.decks.reduce((sum, d) => sum + d.count, 0);
+        return c.decks.every((d) => d.count === first.count)
+          ? `${c.decks.length} decks of ${first.count}`
+          : `${n} cards in ${c.decks.length} decks`;
+      }
+      const n = first?.count ?? 0;
+      return c.sleeve === "none" ? `${n} cards` : `${n} cards, sleeved`;
     }
     case "bulk": {
-      const n = c.items.length;
-      return `${n} ${n === 1 ? "kind" : "kinds"} of tokens and dice`;
+      const kinds = c.items.length;
+      const counts = c.items.map((item) => ("count" in item ? item.count : undefined));
+      // Only pieces that were counted can be added up: an item given by volume has no count.
+      const pieces = counts.every((n) => n !== undefined)
+        ? counts.reduce((sum: number, n) => sum + (n ?? 0), 0)
+        : undefined;
+      if (pieces === undefined) {
+        return `${kinds} ${kinds === 1 ? "kind" : "kinds"}`;
+      }
+      return kinds === 1 ? `${pieces} pieces` : `${kinds} kinds, ${pieces} pieces`;
     }
-    case "tiles": {
-      const size =
-        c.shape.type === "rect"
-          ? `${mm(c.shape.w)} × ${mm(c.shape.d)} mm`
-          : `${mm(c.shape.flatToFlat)} mm hex`;
-      return `${c.count} tiles · ${size}`;
-    }
-    case "minis": {
-      const n = c.figures.reduce((sum, f) => sum + f.count, 0);
-      return `${n} miniatures`;
-    }
+    case "tiles":
+      return `${c.count} tiles`;
+    case "minis":
+      return `${c.figures.reduce((sum, f) => sum + f.count, 0)} figures`;
     case "custom":
       return `${c.count} × ${mm(c.w)} × ${mm(c.d)} × ${mm(c.h)} mm`;
   }

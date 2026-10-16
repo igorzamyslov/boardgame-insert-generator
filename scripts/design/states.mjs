@@ -105,6 +105,27 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [{ click: { role: "button", name: /^Market deck/, in: '[data-region="stage"]' } }],
   },
+  // The Add pill's picker: no board of its own, judged against Empty's kind tiles (its `kind-picker` crop).
+  "workspace-add": {
+    board: "Empty",
+    nearest: "no board of its own: Empty's kind tiles",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: "Add", in: '[data-region="rail"]' } }],
+  },
+  // A pin: its chip beside the row, and the note with Clear all my choices (Main's `pins` state).
+  "workspace-rules": {
+    board: "Main",
+    boardOpts: { state: { pins: { market: { x: 0, y: 0, layer: "bottom" } } } },
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      { click: { role: "button", name: /^Market deck/, in: '[data-region="stage"]' } },
+      { click: { role: "button", name: "Pin" } },
+      // the pin makes the plan stale and the rail loses its layers; they are back with the new plan
+      { waitFor: { role: "button", name: /^Market deck\s*,.*Layer 1/ } },
+    ],
+  },
   "workspace-long": {
     board: "Main",
     nearest: "no board of its own: judged against Main",
@@ -117,13 +138,13 @@ export const STATES = {
     boardOpts: { props: { moreOpen: false } },
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: "Market deck" } }],
+    steps: [{ click: { role: "button", name: /^Market deck\s*,/, in: '[data-region="rail"]' } }],
   },
   box: {
     board: "Box",
     viewport: DESKTOP,
     seed: "harbour-kings-headroom",
-    steps: [{ click: { role: "heading", name: "The box" } }],
+    steps: [{ click: { role: "button", name: /^The box/, in: '[data-region="rail"]' } }],
   },
   "no-fit": {
     board: "NoFit",
@@ -194,7 +215,7 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [
       { click: { role: "button", name: /What's inside/ } },
-      { click: { role: "button", name: "Heroes" } },
+      { click: { role: "button", name: /^Heroes\s*,/, in: '[data-region="sheet"]' } },
     ],
   },
   "m-download": {
@@ -213,9 +234,6 @@ export const STATES = {
     board: "MobileBox",
     viewport: PHONE,
     seed: "harbour-kings-headroom",
-    steps: [
-      { click: { role: "button", name: /What's inside/ } },
-      { click: { role: "heading", name: "The box" } },
-    ],
+    steps: [{ click: { role: "button", name: /^The box/, in: '[data-region="sheet"]' } }],
   },
 };

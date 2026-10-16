@@ -1,6 +1,6 @@
 // src/screens/Workspace.tsx
 import type { ComponentChildren, RefObject } from "preact";
-import { BottomSheet } from "../ui/BottomSheet";
+import { Sheet } from "../kit";
 
 /**
  * The phone's rail: the sheet that holds the rail's content (below 760 px). The owner keeps its
@@ -11,8 +11,10 @@ export interface WorkspaceSheet {
   label: string;
   /** The handle's words. */
   title: string;
-  /** The line after the title that says what is inside; it stays while the sheet is folded. */
+  /** The line after the title that says what is inside (the count); it stays while the sheet is folded. */
   summary?: string;
+  /** The grip's own button, named so ("Show everything"). */
+  handleLabel?: string;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   full?: boolean;
@@ -52,8 +54,9 @@ export function Workspace(p: WorkspaceProps) {
       </header>
       <div class="ws-body">
         {sheet ? (
-          <BottomSheet
+          <Sheet
             region="sheet"
+            peek
             label={sheet.label}
             title={sheet.title}
             meta={sheet.summary}
@@ -61,11 +64,12 @@ export function Workspace(p: WorkspaceProps) {
             onExpandedChange={sheet.onExpandedChange}
             full={sheet.full}
             editing={sheet.editing}
+            handleLabel={sheet.handleLabel}
             handleRef={sheet.handleRef}
             action={sheet.action}
           >
             {p.rail}
-          </BottomSheet>
+          </Sheet>
         ) : (
           <aside class="ws-rail" data-region="rail" aria-label="What's inside">
             {p.rail}

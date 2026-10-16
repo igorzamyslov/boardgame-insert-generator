@@ -22,6 +22,7 @@ import {
   makeResult,
   makeTray,
 } from "./test-helpers";
+import { hoveredComponent } from "../screens/hover";
 import { renderApp, renderAppFromHash } from "./test-app";
 
 // The assembly page's PNG needs a canvas, which jsdom lacks.
@@ -74,9 +75,20 @@ function openTab(name: "Plan" | "3D"): void {
   fireEvent.click(screen.getByRole("tab", { name }));
 }
 
-/** The empty state and the rail both offer the Add buttons; either one adds. */
+/**
+ * Adds a kind of item: on the first visit the kinds are on the page; later they are behind the Add
+ * pill of the rail.
+ */
+function addKind(name: string): void {
+  const pill = screen.queryByRole("button", { name: "Add" });
+  if (pill !== null) {
+    fireEvent.click(pill);
+  }
+  fireEvent.click(screen.getByRole("button", { name }));
+}
+
 function addCards(): void {
-  fireEvent.click(screen.getAllByRole("button", { name: "Add cards" })[0] as HTMLElement);
+  addKind("Cards");
 }
 
 /** The editor in the aside asks before it removes: the Remove… button, then the answer. */
@@ -106,15 +118,15 @@ function openAssemblyPage(): void {
 }
 
 describe("App", () => {
-  it("lays out the title, inputs then results", () => {
+  it("lays out the title, the rail with the box and what's inside, then the results", () => {
     renderApp({ project: withLayoutProject() });
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Insert Generator");
-    const inputs = screen.getByRole("region", { name: "Inputs" });
-    const titles = (): (string | undefined)[] =>
-      [...inputs.querySelectorAll("details.pf-acc > summary h2")].map((t) =>
-        t.textContent?.replace(/^\d+/, ""),
-      );
-    expect(titles()).toEqual(["The box", "What's inside"]);
+    const rail = screen.getByRole("complementary", { name: "What's inside" });
+    expect(within(rail).getByRole("button", { name: /^The box/ })).toBeTruthy();
+    expect(within(rail).getByRole("heading", { level: 2, name: "What's inside" })).toBeTruthy();
+    expect(within(rail).getByRole("button", { name: "Add" })).toBeTruthy();
+    // the numbered accordion is gone
+    expect(document.querySelector("details.pf-acc")).toBeNull();
     const results = screen.getByRole("main");
     expect(within(results).getByRole("heading", { level: 2, name: "Results" })).toBeTruthy();
     expect(screen.queryByText(/shared links may break/)).toBeNull();
@@ -140,29 +152,35 @@ describe("App", () => {
       expect(screen.getByLabelText(/^Keep space free on top/)).toBeTruthy();
       expect(screen.getByRole("button", { name: "Whole top" })).toBeTruthy();
       expect(screen.getByLabelText(/stored on its side/)).toBeTruthy();
-      expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(5);
-      expect(screen.getByRole("button", { name: "Add tokens and dice" })).toBeTruthy();
+      const kinds = screen.getByRole("group", { name: "Pick what goes inside" });
+      expect(
+        within(kinds)
+          .getAllByRole("button")
+          .map((b) => b.textContent),
+      ).toEqual(["Cards", "Tokens and dice", "Tiles", "Miniatures", "Something else"]);
+      // the Add pill is the rail's, and the rail is not there yet
+      expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
       expect(screen.getByRole("button", { name: "Start from an example game" })).toBeTruthy();
       expect(screen.getByText("Your inserts are saved in this browser.")).toBeTruthy();
       // each field once: no second copy in a rail
       expect(document.querySelectorAll("#box-innerWidth")).toHaveLength(1);
-      expect(screen.queryByRole("region", { name: "Inputs" })).toBeNull();
+      expect(screen.queryByRole("heading", { level: 2, name: "What's inside" })).toBeNull();
       expect(document.body.textContent).not.toMatch(/\bbits?\b/i);
     });
 
     it("adding the first item opens its editor", async () => {
       const { stub } = renderApp();
       fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "250" } });
-      fireEvent.click(screen.getByRole("button", { name: "Add cards" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cards" }));
       // the editor is open in the rail, over the list, and the box kept what was typed
       const heading = screen.getByRole("heading", { level: 3, name: "Cards" });
       expect(document.activeElement).toBe(heading);
       expect(screen.getByRole("button", { name: "What's inside" })).toBeTruthy();
-      expect(screen.getByRole("region", { name: "Inputs" })).toBeTruthy();
+      expect(screen.getByRole("complementary", { name: "What's inside" })).toBeTruthy();
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
       expect(screen.queryByRole("button", { name: "Start from an example game" })).toBeNull();
       await waitFor(() => expect(stub.calls).toHaveLength(1));
-      // back to the list, and the box section shows the size
+      // back to the list, and the box card shows the size
       fireEvent.click(screen.getByRole("button", { name: "What's inside" }));
       expect(screen.getByText(/^250 × 285 × 70 mm$/)).toBeTruthy();
     });
@@ -190,7 +208,7 @@ describe("App", () => {
       addCards();
       removeFromEditor("Cards");
       expect(screen.getByRole("button", { name: "Start from an example game" })).toBeTruthy();
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add cards" }));
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cards" }));
     });
   });
 
@@ -315,9 +333,7 @@ describe("App", () => {
     const { store } = renderApp();
     addCards();
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Add tokens and dice" })[0] as HTMLElement,
-    );
+    addKind("Tokens and dice");
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     const names = (): string[] => store.state.project.value.components.map((c) => c.name);
     expect(names()).toEqual(["Cards", "Tokens and dice"]);
@@ -667,7 +683,11 @@ describe("App", () => {
         fireEvent.click(screen.getByRole("button", { name: "Close" }));
         expect(screen.queryByRole("dialog")).toBeNull();
         fireEvent.click(screen.getByRole("button", { name: /^Project menu/ }));
-        fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+        fireEvent.click(
+          within(screen.getByRole("group", { name: "Project" })).getByRole("button", {
+            name: "Settings",
+          }),
+        );
         const sheet = screen.getByRole("dialog", { name: "Settings" });
         expect(key({ key: "z", ctrlKey: true }, sheet)).toBe(true);
         expect(nameNow(store)).toBe("Wingspan");
@@ -1553,7 +1573,7 @@ describe("App", () => {
       const other = { ...fixtureProject(), id: "other-project", name: "Other" };
       projectStore.save({ ...other, layout: makeLayout(inputsHash(other)) }, EMPTY_FOREIGN);
       store.openProject(other.id);
-      expect(await screen.findByRole("region", { name: "Inputs" })).toBeTruthy();
+      expect(await screen.findByRole("complementary", { name: "What's inside" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Back to your insert" })).toBeNull();
     });
   });
@@ -1698,7 +1718,7 @@ describe("App", () => {
 
     it("Edit opens the component's editor panel in the rail, as a row does", async () => {
       renderApp({ project: market() });
-      const rail = screen.getByRole("region", { name: "Inputs" });
+      const rail = screen.getByRole("complementary", { name: "What's inside" });
       // The list is showing, with no editor.
       expect(within(rail).queryByRole("heading", { level: 3 })).toBeNull();
       fireEvent.keyDown(tile("m:p0:0"), { key: "Enter" });
@@ -1785,5 +1805,128 @@ describe("App", () => {
     expect(store.state.project.value.layout).toEqual(before);
     expect(store.state.project.value.box.innerHeight).toBe(p.box.innerHeight);
     expect(store.canUndo.value).toBe(false);
+  });
+});
+
+describe("the rail, What's inside", () => {
+  const rail = (): HTMLElement => screen.getByRole("complementary", { name: "What's inside" });
+
+  it("opens the box's editor from the box card and gives the focus back to the card", () => {
+    const { store } = renderApp({ project: fixtureProject() });
+    fireEvent.click(within(rail()).getByRole("button", { name: /^The box/ }));
+    const heading = within(rail()).getByRole("heading", { level: 3, name: "The box" });
+    expect(document.activeElement).toBe(heading);
+    // the list gives way to the box's fields
+    expect(within(rail()).queryByRole("list", { name: "What's inside" })).toBeNull();
+    fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "250" } });
+    expect(store.state.project.value.box.innerWidth).toBe(250);
+    fireEvent.click(within(rail()).getByRole("button", { name: "Done" }));
+    expect(within(rail()).getByRole("list", { name: "What's inside" })).toBeTruthy();
+    expect(document.activeElement).toBe(within(rail()).getByRole("button", { name: /^The box/ }));
+    expect(within(rail()).getByText("250 × 290 × 70 mm")).toBeTruthy();
+  });
+
+  it("adds from the Add pill, and the new item's editor opens", () => {
+    const { store } = renderApp({ project: fixtureProject() });
+    const before = store.state.project.value.components.length;
+    fireEvent.click(within(rail()).getByRole("button", { name: "Add" }));
+    fireEvent.click(within(rail()).getByRole("button", { name: "Miniatures" }));
+    const components = store.state.project.value.components;
+    expect(components).toHaveLength(before + 1);
+    expect(components.at(-1)?.kind).toBe("minis");
+    expect(within(rail()).getByRole("heading", { level: 3 })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Add something inside" })).toBeNull();
+  });
+
+  it("presses the row of the selected tray's component", () => {
+    const p = fixtureProject();
+    const [first] = p.components;
+    if (first === undefined) {
+      throw new Error("the fixture has no component");
+    }
+    const tray = makeTray({
+      key: "m:p0:0",
+      compartments: [
+        {
+          x: 1.6,
+          y: 1.6,
+          w: 96.8,
+          d: 76.8,
+          floorZ: 1.2,
+          kind: "well",
+          contents: "x",
+          componentId: first.id,
+          features: [],
+        },
+      ],
+    });
+    renderApp({ project: { ...p, layout: makeLayout(inputsHash(p), [tray]) } });
+    const pressed = (): string[] =>
+      within(rail())
+        .queryAllByRole("button", { pressed: true })
+        .map((b) => b.textContent ?? "");
+    expect(pressed()).toEqual([]);
+    fireEvent.keyDown(tile("m:p0:0"), { key: "Enter" });
+    expect(pressed()).toHaveLength(1);
+    expect(pressed()[0]).toContain(first.name);
+  });
+
+  it("tells the plan which component's row the pointer is on", () => {
+    renderApp({ project: fixtureProject() });
+    const [first] = fixtureProject().components;
+    const row = within(rail()).getAllByRole("button", { name: /,/ })[0] as HTMLElement;
+    fireEvent.mouseEnter(row);
+    expect(hoveredComponent.value).toBe(first?.id);
+    fireEvent.mouseLeave(row);
+    expect(hoveredComponent.value).toBeNull();
+  });
+
+  it("lights no trays once the row has opened its editor", () => {
+    renderApp({ project: fixtureProject() });
+    const row = within(rail()).getAllByRole("button", { name: /,/ })[0] as HTMLElement;
+    fireEvent.mouseEnter(row);
+    expect(hoveredComponent.value).not.toBeNull();
+    fireEvent.click(row);
+    expect(within(rail()).getByRole("heading", { level: 3 })).toBeTruthy();
+    expect(hoveredComponent.value).toBeNull();
+  });
+
+  it("shows the printer bed of the insert, and Settings opens from it", () => {
+    const p = fixtureProject();
+    renderApp({ project: p });
+    expect(
+      within(rail()).getByText(`Printer bed ${p.printer.bedX} × ${p.printer.bedY} mm`),
+    ).toBeTruthy();
+    fireEvent.click(within(rail()).getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+  });
+
+  describe("the summary's Show buttons", () => {
+    it("lead to a component's editor, with its name on the button", async () => {
+      const { store } = renderApp({ project: fixtureProject() });
+      const [first] = store.state.project.value.components;
+      if (first === undefined || first.kind !== "cards") {
+        throw new Error("the fixture's first component is not cards");
+      }
+      store.edit((q) => ({
+        ...q,
+        components: q.components.map((c) =>
+          c.id === first.id && c.kind === "cards" ? { ...c, decks: [{ name: "x", count: -1 }] } : c,
+        ),
+      }));
+      fireEvent.click(await screen.findByRole("button", { name: `Show ${first.name}` }));
+      expect(
+        await within(rail()).findByRole("heading", { level: 3, name: first.name }),
+      ).toBeTruthy();
+    });
+
+    it("lead to the box's editor", async () => {
+      const { store } = renderApp({ project: fixtureProject() });
+      store.edit((q) => updateBox(q, { innerHeight: -5 }));
+      fireEvent.click(await screen.findByRole("button", { name: "Show The box" }));
+      expect(
+        await within(rail()).findByRole("heading", { level: 3, name: "The box" }),
+      ).toBeTruthy();
+    });
   });
 });

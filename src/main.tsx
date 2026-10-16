@@ -12,6 +12,7 @@ import "./kit/kit.css";
 import "./style.css";
 import "./screens/workspace.css";
 import "./screens/header.css";
+import "./screens/rail.css";
 
 const store = createAppStore({
   projectStore: createProjectStore(),

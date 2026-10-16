@@ -22,6 +22,12 @@ export interface SheetProps {
   peek?: boolean;
   /** The handle, for an owner that hands the focus to it. */
   handleRef?: RefObject<HTMLButtonElement | null>;
+  /**
+   * The grip becomes a button of its own, named by these words ("Show everything"), and the title
+   * with its count becomes the button inside an h2, as MobileWorkspace's head row is drawn.
+   * Without it one handle holds the grip, the title and the chevron.
+   */
+  handleLabel?: string;
   /** A button beside the handle, in reach while the sheet is folded. */
   action?: ComponentChildren;
   /** The `data-region` the screenshot harness finds the sheet by (the owner names it). */
@@ -68,6 +74,20 @@ export function Sheet(p: SheetProps) {
   // `inert` is not in Preact's typings yet.
   const inert = { inert: !p.expanded && p.peek !== true } as Record<string, unknown>;
   const c = p.legacy ? "pf-sheet" : "k-sheet";
+  const toggle = (): void => p.onExpandedChange(!p.expanded);
+  const title = (
+    <>
+      <span class={`${c}__title`}>{p.title}</span>
+      {p.meta === undefined ? null : <span class={`${c}__meta`}>{p.meta}</span>}
+    </>
+  );
+  // MobileWorkspace draws the chevron 16 px; the legacy look keeps its 20.
+  const size = p.legacy ? 20 : 16;
+  const chevron = (
+    <svg class={`${c}__chevron`} viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <path d="m6 15 6-6 6 6" />
+    </svg>
+  );
   return (
     <section
       class={c}
@@ -77,6 +97,7 @@ export function Sheet(p: SheetProps) {
       data-full={p.full ? "true" : undefined}
       data-editing={p.editing ? "true" : undefined}
       data-peek={p.peek ? "true" : undefined}
+      data-grip={p.handleLabel === undefined ? undefined : "button"}
       data-region={p.region}
       onKeyDown={(e) => {
         if (e.key === "Escape" && p.expanded && !e.defaultPrevented) {
@@ -86,27 +107,44 @@ export function Sheet(p: SheetProps) {
       }}
     >
       <div class={`${c}__bar`}>
-        <button
-          type="button"
-          class={`${c}__handle`}
-          ref={handle}
-          aria-expanded={p.expanded}
-          aria-controls={bodyId}
-          onClick={() => p.onExpandedChange(!p.expanded)}
-        >
-          <span class={`${c}__grip`} aria-hidden="true" />
-          <span class={`${c}__title`}>{p.title}</span>
-          {p.meta === undefined ? null : <span class={`${c}__meta`}>{p.meta}</span>}
-          <svg
-            class={`${c}__chevron`}
-            viewBox="0 0 24 24"
-            width="20"
-            height="20"
-            aria-hidden="true"
+        {p.handleLabel === undefined ? (
+          <button
+            type="button"
+            class={`${c}__handle`}
+            ref={handle}
+            aria-expanded={p.expanded}
+            aria-controls={bodyId}
+            onClick={toggle}
           >
-            <path d="m6 15 6-6 6 6" />
-          </svg>
-        </button>
+            <span class={`${c}__grip`} aria-hidden="true" />
+            {title}
+            {chevron}
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              class={`${c}__grip ${c}__grip--button`}
+              aria-label={p.handleLabel}
+              aria-expanded={p.expanded}
+              aria-controls={bodyId}
+              onClick={toggle}
+            />
+            <h2 class={`${c}__head`}>
+              <button
+                type="button"
+                class={`${c}__handle`}
+                ref={handle}
+                aria-expanded={p.expanded}
+                aria-controls={bodyId}
+                onClick={toggle}
+              >
+                {title}
+                {chevron}
+              </button>
+            </h2>
+          </>
+        )}
         {p.action}
       </div>
       <div class={`${c}__body`} id={bodyId} ref={body} {...inert}>

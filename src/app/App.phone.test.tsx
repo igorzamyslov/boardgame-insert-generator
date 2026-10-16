@@ -50,15 +50,17 @@ function project(): Project {
 }
 
 const sheet = (): HTMLElement => screen.getByRole("region", { name: "The box and what's inside" });
-// The editor has its own way back named "What's inside" too, so the handle is found by its class.
-const handle = (): HTMLElement => sheet().querySelector(".pf-sheet__handle") as HTMLElement;
+// The title's button; the editor has its own way back named "What's inside" too, so it is found by its class.
+const handle = (): HTMLElement => sheet().querySelector(".k-sheet__handle") as HTMLElement;
+const grip = (): HTMLElement => within(sheet()).getByRole("button", { name: "Show everything" });
+const rowIn = (name: RegExp): HTMLElement => within(sheet()).getByRole("button", { name });
 
 describe("the phone layout", () => {
   it("keeps the list in the rail on a wider screen", () => {
     phone(false);
     renderApp({ project: project() });
     expect(screen.queryByRole("region", { name: "The box and what's inside" })).toBeNull();
-    expect(screen.getByRole("region", { name: "Inputs" })).toBeTruthy();
+    expect(screen.getByRole("complementary", { name: "What's inside" })).toBeTruthy();
   });
 
   it("still has exactly one Download button on a phone", () => {
@@ -69,14 +71,60 @@ describe("the phone layout", () => {
     ).toHaveLength(1);
   });
 
-  it("puts the list in a folded sheet whose handle opens it", () => {
+  it("puts the list in a sheet that peeks while folded, and the grip and the title open it", () => {
     phone();
     renderApp({ project: project() });
-    expect(screen.queryByRole("region", { name: "Inputs" })).toBeNull();
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(sheet().getAttribute("data-peek")).toBe("true");
     expect(handle().getAttribute("aria-expanded")).toBe("false");
+    // folded, the rows and the Add pill are still in reach
+    expect(rowIn(/^The box,/).closest("[inert]")).toBeNull();
+    expect(within(sheet()).getByRole("button", { name: "Add" }).closest("[inert]")).toBeNull();
     fireEvent.click(handle());
     expect(handle().getAttribute("aria-expanded")).toBe("true");
-    expect(within(sheet()).getByRole("button", { name: "Add cards" })).toBeTruthy();
+    fireEvent.click(grip());
+    expect(handle().getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(grip());
+    expect(grip().getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("says how many items there are beside the title", () => {
+    phone();
+    renderApp({ project: project() });
+    expect(handle().textContent).toBe(`What's inside${project().components.length}`);
+  });
+
+  it("lists The box first in the sheet", () => {
+    phone();
+    renderApp({ project: project() });
+    const rows = within(within(sheet()).getByRole("list", { name: "What's inside" })).getAllByRole(
+      "listitem",
+    );
+    expect(rows[0]?.textContent).toMatch(/^The box,/);
+    expect(rows).toHaveLength(project().components.length + 1);
+  });
+
+  it("opens an editor from a row of the folded sheet, and unfolds the sheet for it", async () => {
+    phone();
+    renderApp({ project: project() });
+    fireEvent.click(rowIn(/^Market,/));
+    expect(handle().getAttribute("aria-expanded")).toBe("true");
+    expect(sheet().getAttribute("data-full")).toBe("true");
+    expect(await within(sheet()).findByRole("heading", { level: 3, name: "Market" })).toBeTruthy();
+    // no Add pill over an editor
+    expect(within(sheet()).queryByRole("button", { name: "Add" })).toBeNull();
+  });
+
+  it("adds from the sheet's Add pill: the picker opens over it, and the new item opens", async () => {
+    phone();
+    const { store } = renderApp({ project: project() });
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Add" }));
+    const picker = screen.getByRole("group", { name: "Add something inside" });
+    expect(picker.parentElement?.getAttribute("data-placement")).toBe("above");
+    fireEvent.click(within(picker).getByRole("button", { name: "Tiles" }));
+    expect(store.state.project.value.components.map((c) => c.kind)).toContain("tiles");
+    expect(handle().getAttribute("aria-expanded")).toBe("true");
+    expect(await within(sheet()).findByRole("heading", { level: 3, name: "Tiles" })).toBeTruthy();
   });
 
   it("opens the sheet on the editor when a tray's Edit is pressed", async () => {
@@ -138,34 +186,43 @@ describe("the phone layout", () => {
       renderApp({ project: project() });
       fireEvent.click(handle());
       expect(behind().some((el) => el.hasAttribute("inert"))).toBe(false);
-      const box = sheet().querySelector("#section-box") as HTMLDetailsElement;
-      box.open = true;
-      fireEvent(box, new Event("toggle"));
+      fireEvent.click(rowIn(/^The box,/));
       expect(behind().every((el) => el.hasAttribute("inert"))).toBe(true);
       expect(sheet().getAttribute("data-editing")).toBeNull();
     });
   });
 
-  it("fills the screen for the box, and folds back to the list when closed", () => {
+  it("fills the screen for the box, and folds back to the list when closed", async () => {
     phone();
     renderApp({ project: project() });
     fireEvent.click(handle());
     expect(sheet().getAttribute("data-full")).toBeNull();
-    // jsdom does not open a <details> by itself: do what the browser does
-    const box = sheet().querySelector("#section-box") as HTMLDetailsElement;
-    box.open = true;
-    fireEvent(box, new Event("toggle"));
+    fireEvent.click(rowIn(/^The box,/));
     expect(sheet().getAttribute("data-full")).toBe("true");
+    expect(await within(sheet()).findByRole("heading", { level: 3, name: "The box" })).toBeTruthy();
     fireEvent.keyDown(handle(), { key: "Escape" });
     expect(handle().getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(handle());
     expect(sheet().getAttribute("data-full")).toBeNull();
+    expect(rowIn(/^The box,/)).toBeTruthy();
+  });
+
+  it("folds an editor back to the list too", async () => {
+    phone();
+    renderApp({ project: project() });
+    fireEvent.click(rowIn(/^Market,/));
+    await within(sheet()).findByRole("heading", { level: 3, name: "Market" });
+    fireEvent.click(handle());
+    expect(sheet().getAttribute("data-editing")).toBeNull();
+    expect(within(sheet()).queryByRole("heading", { level: 3 })).toBeNull();
+    expect(rowIn(/^Market,/)).toBeTruthy();
   });
 
   it("offers Keep searching beside the handle when the trays do not fit", async () => {
     phone();
     const { store, stub } = renderApp({ project: project() });
     expect(within(sheet()).queryByRole("button", { name: "Keep searching" })).toBeNull();
+    expect(within(sheet()).getByRole("button", { name: "Add" })).toBeTruthy();
     act(() => {
       store.state.lastResult.value = makeResult(null, {
         bestAttempt: { trays: [], shortfall: { x: 12.3, y: 0, z: 0 } },

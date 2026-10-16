@@ -1,19 +1,19 @@
 // src/ui/components/ComponentList.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../../app/test-helpers";
 import { newComponent } from "../../model/defaults";
 import type { Component, ComponentKind, Lock } from "../../model/types";
 import { ValidationContext } from "../validation";
-import { ADD_LABELS, ComponentList } from "./ComponentList";
+import { ComponentList } from "./ComponentList";
 
 afterEach(cleanup);
 
-const KINDS = Object.keys(ADD_LABELS) as ComponentKind[];
+const KINDS: ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
 
 function handlers() {
-  return { onAdd: vi.fn(), onOpen: vi.fn(), onUnpin: vi.fn(), onUnlockSize: vi.fn() };
+  return { onOpen: vi.fn(), onUnpin: vi.fn(), onUnlockSize: vi.fn() };
 }
 
 const named = (kind: ComponentKind, id: string, name: string): Component => ({
@@ -30,25 +30,18 @@ const pin = (trayKey: string, rotated = false): Lock => ({
 });
 
 describe("ComponentList", () => {
-  it("shows a hint and add buttons when empty", () => {
-    const h = handlers();
-    render(<ComponentList components={[]} {...h} />);
-    expect(screen.getByText(/Add what goes in the box/)).toBeTruthy();
-    // each Add button carries a small hint, so its name is only matched from the start
-    fireEvent.click(screen.getByRole("button", { name: /^Add tokens and dice/ }));
-    expect(h.onAdd).toHaveBeenCalledWith("bulk");
-    for (const name of [/^Add cards/, /^Add tiles/, /^Add miniatures/, /^Add other item/]) {
-      expect(screen.getByRole("button", { name })).toBeTruthy();
-    }
+  it("draws no list while there is nothing inside", () => {
+    const { container } = render(<ComponentList components={[]} {...handlers()} />);
+    expect(container.querySelector("ul")).toBeNull();
   });
 
   it("has a row for every kind, in the kind's colour, and opens it on a click", () => {
     const comps = KINDS.map((k, i) => named(k, `id${i}`, `Thing ${i}`));
     const h = handlers();
     const { container } = render(<ComponentList components={comps} {...h} />);
-    expect(container.querySelectorAll(".pf-row")).toHaveLength(5);
+    expect(container.querySelectorAll(".k-rowwrap")).toHaveLength(5);
     expect(
-      (container.querySelector(".pf-row") as HTMLElement).style.getPropertyValue("--shade-fill"),
+      (container.querySelector(".k-rowwrap") as HTMLElement).style.getPropertyValue("--shade-fill"),
     ).toMatch(/^light-dark\(#/);
     fireEvent.click(screen.getByRole("button", { name: /^Thing 2,/ }));
     expect(h.onOpen).toHaveBeenCalledWith("id2");
@@ -58,7 +51,7 @@ describe("ComponentList", () => {
     const comps = [named("cards", "a", "Main"), named("cards", "b", "Market")];
     const { container } = render(<ComponentList components={comps} {...handlers()} />);
     const fill = (row: Element) => (row as HTMLElement).style.getPropertyValue("--shade-fill");
-    const [first, second] = [...container.querySelectorAll(".pf-row")];
+    const [first, second] = [...container.querySelectorAll(".k-rowwrap")];
     expect(fill(first as Element)).not.toBe(fill(second as Element));
   });
 
@@ -84,13 +77,99 @@ describe("ComponentList", () => {
     expect(screen.getByRole("button", { name: /^Main,\s*50 cards/ })).toBeTruthy();
   });
 
-  it("puts the Add buttons above the rows", () => {
-    const { container } = render(
-      <ComponentList components={[named("custom", "a", "Dial")]} {...handlers()} />,
+  it("keeps a 40-character name on one line, with the whole name in its title", () => {
+    const long = "The Very Long Name Of A Card Deck Here 40";
+    expect(long).toHaveLength(41);
+    render(<ComponentList components={[named("cards", "a", long)]} {...handlers()} />);
+    const text = screen.getByText(long);
+    expect(text.classList.contains("ellipsis")).toBe(true);
+    expect(text.getAttribute("title")).toBe(long);
+  });
+
+  it("presses the row of the selected component, and no other", () => {
+    const comps = [named("cards", "a", "Main"), named("bulk", "b", "Gems")];
+    render(<ComponentList components={comps} selectedId="b" {...handlers()} />);
+    expect(screen.getByRole("button", { name: /^Gems,/ }).getAttribute("aria-pressed")).toBe(
+      "true",
     );
-    const kinds = container.querySelector(".pf-kinds") as HTMLElement;
-    const row = container.querySelector(".pf-row") as HTMLElement;
-    expect(kinds.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Main,/ }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
+  });
+
+  it("tells what the pointer or the focus is on, and when it leaves", () => {
+    const comps = [named("cards", "a", "Main"), named("bulk", "b", "Gems")];
+    const onHover = vi.fn();
+    render(<ComponentList components={comps} onHover={onHover} {...handlers()} />);
+    const gems = screen.getByRole("button", { name: /^Gems,/ });
+    fireEvent.mouseEnter(gems);
+    expect(onHover).toHaveBeenLastCalledWith("b");
+    fireEvent.mouseLeave(gems);
+    expect(onHover).toHaveBeenLastCalledWith(null);
+    fireEvent.focus(screen.getByRole("button", { name: /^Main,/ }));
+    expect(onHover).toHaveBeenLastCalledWith("a");
+    fireEvent.blur(screen.getByRole("button", { name: /^Main,/ }));
+    expect(onHover).toHaveBeenLastCalledWith(null);
+  });
+
+  it("lights nothing once the list goes, as when an editor opens in its place", () => {
+    const comps = [named("cards", "a", "Main")];
+    const onHover = vi.fn();
+    const view = render(<ComponentList components={comps} onHover={onHover} {...handlers()} />);
+    fireEvent.mouseEnter(screen.getByRole("button", { name: /^Main,/ }));
+    expect(onHover).toHaveBeenLastCalledWith("a");
+    act(() => {
+      view.unmount();
+    });
+    expect(onHover).toHaveBeenLastCalledWith(null);
+  });
+
+  it("names the layer of a component's first tray when it has trays on two", () => {
+    const comps = [named("cards", "a", "Main"), named("bulk", "b", "Gems")];
+    const trays = [
+      makeTray({ key: "a:p0:0", level: 1, compartments: [{ ...well("a") }] }),
+      makeTray({ key: "a:p1:0", level: 0, compartments: [{ ...well("a") }] }),
+      makeTray({ key: "b:p0:0", level: 0, compartments: [{ ...well("b") }] }),
+    ];
+    render(<ComponentList components={comps} trays={trays} {...handlers()} />);
+    expect(screen.getByRole("button", { name: /^Main,.*Layer 2 \(top\)$/ })).toBeTruthy();
+  });
+
+  describe("on the phone's sheet", () => {
+    it("lists a compact row a component, after the row it is given first", () => {
+      const comps = [named("cards", "a", "Main"), named("bulk", "b", "Gems")];
+      const { container } = render(
+        <ComponentList
+          compact
+          components={comps}
+          first={
+            <li>
+              <button type="button">The box</button>
+            </li>
+          }
+          {...handlers()}
+        />,
+      );
+      const rows = within(screen.getByRole("list", { name: "What's inside" })).getAllByRole(
+        "listitem",
+      );
+      expect(rows[0]?.textContent).toBe("The box");
+      expect(container.querySelectorAll(".k-row--compact")).toHaveLength(2);
+      // the sheet's rows are links into editors, not toggles
+      expect(screen.getByRole("button", { name: /^Main,/ }).hasAttribute("aria-pressed")).toBe(
+        false,
+      );
+    });
+
+    it("leaves the layer to the box: the row says what is in it", () => {
+      const comps = [named("cards", "a", "Main"), named("bulk", "b", "Gems")];
+      const trays = [
+        makeTray({ key: "a:p0:0", level: 0, compartments: [{ ...well("a") }] }),
+        makeTray({ key: "b:p0:0", level: 1, compartments: [{ ...well("b") }] }),
+      ];
+      render(<ComponentList compact components={comps} trays={trays} {...handlers()} />);
+      expect(screen.queryByText(/Layer/)).toBeNull();
+    });
   });
 
   it("names the layer of each row once the plan has more than one", () => {

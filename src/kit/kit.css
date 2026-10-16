@@ -514,6 +514,37 @@
   font-size: var(--text-xs);
 }
 
+/* The phone sheet's row: a swatch, the name, and the meta on the right (MobileWorkspace). */
+.k-row--compact {
+  padding: 0 var(--s-8);
+}
+
+.k-row--compact .k-row__name {
+  flex: 1 1 auto;
+}
+
+.k-row--compact .k-row__meta {
+  flex: 0 1 auto;
+  font-size: var(--text-sm);
+}
+
+.k-row__swatch {
+  flex: none;
+  box-sizing: border-box;
+  width: 14px; /* MobileWorkspace */
+  height: 14px;
+  border: 2px solid var(--shade-line, var(--kind-line));
+  border-radius: 4px;
+  background: var(--shade-fill, var(--kind-fill));
+}
+
+/* The box's own row: an outlined square in the spacer's line colour, no fill (MobileWorkspace draws it solid). */
+.k-row__swatch--box {
+  box-sizing: content-box; /* MobileWorkspace sizes this one square without border-box: 14 inside, 18 outside */
+  border: 2px solid var(--spacer-dash);
+  background: none;
+}
+
 /* ---- RuleChip: an ink pill with an ×; drawn 32 px, a 44 px target ---- */
 .k-rulechip {
   --k-bg: var(--ink);
@@ -1054,6 +1085,36 @@ html:has(dialog.k-dialog[open], dialog.k-drawer[open]) {
   height: 5px;
   border-radius: var(--r-pill);
   background: var(--handle);
+}
+
+/* With its own grip button (MobileWorkspace): a 4 px gap under the grip, under the head, and 8 px below. */
+.k-sheet[data-grip="button"] {
+  gap: var(--s-4);
+  padding-top: calc(var(--control-h) + var(--s-4));
+  padding-bottom: var(--s-8);
+}
+
+.k-sheet__grip--button {
+  top: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The title's button sits in an h2 of its own: the head row is the title and then Add. */
+.k-sheet__head {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px; /* MobileWorkspace: the h2 itself; the title inside sets its own */
+}
+
+.k-sheet__head > .k-sheet__handle {
+  width: 100%;
 }
 
 .k-sheet__title {

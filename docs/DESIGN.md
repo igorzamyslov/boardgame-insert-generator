@@ -245,16 +245,18 @@ technical palette. The owner called it unusable. Everything below exists so it d
   (see the end of `src/style.css`). Keep motion short (200 ms) and functional. _Why:_ motion can
   make people ill, and it is never the message.
 - **Phone: stage first, list in a sheet.** Below 760 px the status pill and the box come first;
-  What's inside is a bottom sheet (`src/ui/BottomSheet.tsx`) with a 44 px handle. _Why:_ on a
-  small screen the box is still the hero, and the list is one tap away.
-- **Reuse before you add.** Use `EditorPanel`, `Modal`, `Toast`, `BottomSheet`, `Notices`,
+  What's inside is a bottom sheet (the kit's `Sheet`) that peeks at 196 px, with a 44 px handle.
+  _Why:_ on a small screen the box is still the hero, and the list is one tap away.
+- **Reuse before you add.** Use `EditorPanel`, `Modal`, `Toast`, `Sheet`, `Notices`,
   `MoreOptions` and `NumberField` before writing a new container or field. _Why:_ each one already
   carries focus handling, live regions and 44 px targets that a new one would have to relearn.
 - **Pins are promises.** Pins, turns and swaps stay as set when the plan updates; when they block
   a fit, say which ones and offer to unpin. _Why:_ a choice the app quietly undoes is worse than
   no choice.
 - **Let the person drop a rule where they see it.** Every chip ("Pinned", "Pinned, turned", "Size
-  locked") has its own ×. _Why:_ the person should not have to find the tray to undo a rule.
+  locked") has its own ×, and while any rule is set the rail says they stay as set and offers
+  "Clear all my choices", one undo step. _Why:_ the person should not have to find the tray to undo a
+  rule, nor undo them one at a time.
 - **Keep support low-key.** The Ko-fi and PayPal links sit in one quiet "Support it" line at the
   end of the download dialog, opening in a new tab. _Why:_ asking loudly spoils the moment the app
   just earned.
@@ -359,9 +361,21 @@ Each component takes its own shade of its kind's hue, by its place among compone
 
 ## 5. Interaction patterns
 
-**Workspace.** `src/screens/Workspace.tsx` is its shell: the header, the rail (`aside`, "What's inside") and the stage (the one `main`), marked `data-region`. Below 760 px the stage comes first and the rail is the sheet. The page is one screen tall and never scrolls on a desktop. `src/app/App.tsx` fills the slots: `Header` (`src/screens/Header.tsx`: logo, wordmark, the insert name as a button that becomes a field, `SavedStatus`, Undo, Redo, the project menu, Download; on a phone the logo, the name over where it is saved, Undo, Send file, the menu and an icon Download), then What's inside (`WhatsInside`) in the rail and the
+**Workspace.** `src/screens/Workspace.tsx` is its shell: the header, the rail (`aside`, "What's inside") and the stage (the one `main`), marked `data-region`. Below 760 px the stage comes first and the rail is the sheet. The page is one screen tall and never scrolls on a desktop. `src/app/App.tsx` fills the slots: `Header` (`src/screens/Header.tsx`: logo, wordmark, the insert name as a button that becomes a field, `SavedStatus`, Undo, Redo, the project menu, Download; on a phone the logo, the name over where it is saved, Undo, Send file, the menu and an icon Download), then What's inside (`WhatsInside`: the rail, below) in the rail and the
 stage: `StatusLine`, the Plan / 3D tabs (`src/plan/PlanView.tsx`,
 `src/viewer/Viewer.tsx`), then `Summary` (figures, notes and messages about the plan). There is no footer: the version, build id and licences link end the project menu.
+
+**The rail.** `src/screens/Rail.tsx`, Main's "What's inside", top to bottom: the box card (a button:
+"The box", its inside size, "Change"; it opens the box's editor), the heading "What's inside" with
+the "Add" pill, the list, the note about rules, and the foot ("Printer bed 256 × 256 mm", the
+insert's printer, and Settings). One row per component (`src/ui/components/ComponentList.tsx`
+on the kit's `ListRow`): its kind's tile, its name, and one line under it, what it holds and the
+layer of its first tray ("80 cards, sleeved · Layer 1 (bottom)"; no layer without a current plan or
+with a single layer). A row opens the component's editor and is pressed while one of its trays is
+selected; hovering or focusing it lights its trays. Beside a row sits one chip per rule it is under
+(the kit's `RuleChip`, with its ×). While any rule is set the note "These stay as you set them when
+the plan updates." and "Clear all my choices" follow the list; the list scrolls inside the rail, so
+the note and the foot stay in sight and the page never scrolls.
 
 **Selection and the tray bar.** Click or focus a tray in the plan or the 3D view to select it. The
 tray bar (`src/ui/SelectedTrayBar.tsx` wrapping `src/ui/TrayBar.tsx`) shows its name, layer
@@ -392,8 +406,8 @@ decides where. The stale banner ("Make a new plan") or the older-geometry banner
 everything", which re-plans with current geometry, or "Use the old plan") sit above the plan.
 Another-tab conflicts and storage problems go into the project menu as notes (Main's `menuNote`), with a dot on its button.
 
-**Editor flow.** What's inside lists components; "Add" picks a kind; a first item opens its
-editor at once. Editing replaces the list with `EditorPanel`
+**Editor flow.** What's inside lists components; "Add" opens a kind picker (a panel of five kind
+tiles, `src/screens/KindPicker.tsx`) and the kind chosen opens its editor at once. Editing replaces the list with `EditorPanel`
 (`src/ui/components/EditorPanel.tsx`): the basics, then "More options" opening in the same panel.
 Each option change shows a short note at the foot of the page via `Toast` (`src/ui/Toast.tsx`), worded by
 `describeOptionChange` (`src/ui/components/optionNotes.ts`). "Done" or the back link returns to the
@@ -426,9 +440,12 @@ download. It does not count the parts that carry no engraved name; the packing g
 (one button per kind), "Start from an example game", and one line saying inserts are saved in this
 browser. Field errors say what is wrong, why, and what to do (the spec's example: "Use 70 mm").
 
-**Phone sheet.** Below 760 px What's inside lives in `BottomSheet`: a 44 px handle, a summary
-line that stays when folded, and an action slot beside the handle (Keep searching when nothing
-fits). It opens and closes by tap only, no swipe. Below 600 px a sheet holding the editor or the
+**Phone sheet.** Below 760 px What's inside lives in the kit's `Sheet`, peeking at 196 px: a grip
+button ("Show everything"), then a head row of the title with the item count (a button in an h2) and
+the Add pill, which opens its picker over the sheet. Then "The box" and a compact row per component
+(a swatch, the name, what it holds on the right); an editor or the box replaces the list. Beside Add
+sits Keep searching when nothing fits. It opens and closes by tap only, no swipe, and folding it
+brings back the list. Below 600 px a sheet holding the editor or the
 box fills the screen, and the page behind it is inert. Dialogs (`Modal`) fill the screen too.
 
 ## 6. Engine boundaries
@@ -544,6 +561,12 @@ rule in this document.
 | An unnamed insert reads (unnamed) in the header's name button and in Your inserts                                                                                                                                                                                                               | The name button and the list row need some text; the old field's placeholder was the same word                                                                                                                                                                                                                           | None                                                                                                                |
 | A menu note other than another tab's shows the engine's words and a Dismiss button; another tab's keeps the board's words and its two choices until one is made                                                                                                                                 | Main's `menuNote` has a title and two pills; engine notices have no title                                                                                                                                                                                                                                                | A long engine sentence is hard to read in a 260 px panel                                                            |
 | Your inserts is a page of the project menu: Back, a row per insert ("Open now" on the open one) with its own Delete…, and a question before it deletes                                                                                                                                          | No board shows it; judged against Main's menu panel (UI rebuild Task 4)                                                                                                                                                                                                                                                  | Delete is two clicks from the menu                                                                                  |
+| Add opens a kind picker: a panel of five kind tiles (Cards, Tokens and dice, Tiles, Miniatures, Something else) under the pill, over it on a phone; the phone's pill reads Add with a plus icon                                                                                                 | Replaces the five Add buttons under the list; Main draws the pill and Empty draws the tiles, no board draws the two together                                                                                                                                                                                             | One more press to add an item                                                                                       |
+| Clear all my choices lifts every pin and size lock in one undo step, beside a note that they stay as set                                                                                                                                                                                        | Main's `resetAll`; one rule chip per row is too slow for ten pins                                                                                                                                                                                                                                                        | The note takes a block of the rail while any rule is set                                                            |
+| The rail's rule chips are one per rule, beside the row: Pinned, Pinned, turned, Size locked                                                                                                                                                                                                     | Main joins a row's rules in one chip ("Pinned · Turned"); each rule has its own ×                                                                                                                                                                                                                                        | A row with two rules is two chips wide                                                                              |
+| The rail's footer line shows the insert's printer ("Printer bed 256 × 256 mm") with Settings                                                                                                                                                                                                    | Main's foot; the bed is the printer the plan was made for, which may differ from the browser's                                                                                                                                                                                                                           | None                                                                                                                |
+| A row's line under the name is short: "80 cards, sleeved", "4 decks of 12", "4 kinds, 96 pieces", "24 tiles", "6 figures" (a layer after it)                                                                                                                                                    | The boards show these; sizes and sleeves are in the editor. "{n} pieces", "{n} kinds", "1 kind" and "{n} cards in {n} decks" are the same line for what the boards do not draw; the phone sheet's rows say what the rail's do, and a row with an error inside its editor says Needs attention instead                    | A card size is no longer on the row                                                                                 |
+| The phone sheet peeks at 196 px with "The box" as its first row, and its rows are compact                                                                                                                                                                                                       | MobileWorkspace draws the sheet so; the list is a page of rows, not a numbered accordion                                                                                                                                                                                                                                 | Rows below the first two need the sheet opened                                                                      |
 | Default name "Tokens and dice"                                                                                                                                                                                                                                                                  | Display and engraving only; not in `inputsHash`                                                                                                                                                                                                                                                                          | A copy change                                                                                                       |
 | Size lock keeps "Lock size"; position locks are "pins"                                                                                                                                                                                                                                          | The plan names the control; pins are a different thing                                                                                                                                                                                                                                                                   | Rename the size lock                                                                                                |
 | "Exact values" became "Exact numbers"; "Update the plan" became "Make a new plan"                                                                                                                                                                                                               | Plainer words                                                                                                                                                                                                                                                                                                            | A copy change                                                                                                       |

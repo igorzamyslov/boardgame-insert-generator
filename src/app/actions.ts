@@ -109,6 +109,14 @@ export function removeLock(p: Project, trayKey: string, kind?: Lock["kind"]): Pr
   return { ...p, locks };
 }
 
+/**
+ * Takes every rule off the plan: pins (turned or not), stack locks and size locks, in one step.
+ * The rail's "Clear all my choices". The components and the box stay as they are.
+ */
+export function clearChoices(p: Project): Project {
+  return p.locks.length === 0 ? p : { ...p, locks: [] };
+}
+
 export function lockedKeys(p: Project): Set<string> {
   const keys = new Set<string>();
   for (const l of p.locks) {

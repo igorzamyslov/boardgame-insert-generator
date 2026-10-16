@@ -472,7 +472,7 @@ describe("the phone layout", () => {
     const body = ruleFor(".pf-toasts", phoneLayout);
     expect(body).toMatch(/position:\s*fixed/);
     expect(body).toMatch(/calc\(var\(--sheet-foot\)/);
-    expect(ruleFor(".ws", workspace)).toMatch(/--sheet-handle:\s*var\(--control-h\)/);
+    expect(ruleFor(".ws", workspace)).toMatch(/--sheet-foot:\s*calc\(var\(--sheet-peek\)/);
   });
 
   it("makes the screen one dvh tall, so a browser's own bars do not cover the sheet", () => {
@@ -618,7 +618,7 @@ describe("workspace.css", () => {
     expect(ruleFor(".ws-header", phone)).toMatch(/min-height:\s*var\(--header-h-phone\)/);
   });
 
-  it("keeps the handle of the sheet clear of the stage's last block, only where a sheet is", () => {
+  it("keeps the sheet's peek clear of the stage's last block, only where a sheet is", () => {
     const phone = mediaBlock("(width < 760px)", stripped);
     expect(ruleFor(".ws--sheet .ws-stage", phone)).toMatch(/calc\(var\(--sheet-foot\)/);
     expect(ruleFor(".ws-stage", phone)).not.toMatch(/--sheet-foot/);

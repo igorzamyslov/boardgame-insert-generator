@@ -187,6 +187,62 @@ describe("Sheet", () => {
   });
 });
 
+describe("Sheet with a grip button of its own", () => {
+  function Gripped() {
+    const [open, setOpen] = useState(false);
+    return (
+      <Sheet
+        label="What's inside"
+        title="What's inside"
+        meta="8"
+        handleLabel="Show everything"
+        peek
+        expanded={open}
+        onExpandedChange={setOpen}
+        action={<button type="button">Add</button>}
+      >
+        <p>Inside</p>
+      </Sheet>
+    );
+  }
+
+  it("names the grip, and holds the title and its count in a button inside an h2", () => {
+    render(<Gripped />);
+    const grip = screen.getByRole("button", { name: "Show everything" });
+    const title = screen.getByRole("button", { name: /^What's inside\s*8$/ });
+    expect(grip.getAttribute("aria-expanded")).toBe("false");
+    expect(title.getAttribute("aria-expanded")).toBe("false");
+    expect(title.parentElement?.tagName).toBe("H2");
+    expect(screen.getByRole("heading", { level: 2 }).contains(title)).toBe(true);
+    expect(grip.getAttribute("aria-controls")).toBe(title.getAttribute("aria-controls"));
+    expect(screen.getByRole("region").getAttribute("data-grip")).toBe("button");
+  });
+
+  it("opens from either, and the action stays beside them", () => {
+    render(<Gripped />);
+    fireEvent.click(screen.getByRole("button", { name: "Show everything" }));
+    expect(
+      screen.getByRole("button", { name: /^What's inside\s*8$/ }).getAttribute("aria-expanded"),
+    ).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: /^What's inside\s*8$/ }));
+    expect(
+      screen.getByRole("button", { name: "Show everything" }).getAttribute("aria-expanded"),
+    ).toBe("false");
+    expect(screen.getByRole("button", { name: "Add" }).closest("[inert]")).toBeNull();
+  });
+
+  it("gives the focus back to the title's button when Escape folds it", () => {
+    render(<Gripped />);
+    fireEvent.click(screen.getByRole("button", { name: "Show everything" }));
+    const inside = screen.getByRole("button", { name: "Add" });
+    inside.focus();
+    fireEvent.keyDown(inside, { key: "Escape" });
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: /^What's inside\s*8$/ }),
+    );
+  });
+});
+
 describe("Sheet, legacy look", () => {
   it("keeps the old classes for the screens not rebuilt yet", () => {
     render(
@@ -235,6 +291,13 @@ describe("the sheet's styles", () => {
     expect(body).toMatch(/border-radius:\s*var\(--r-dialog\) var\(--r-dialog\) 0 0/);
     expect(body).toMatch(/box-shadow:\s*var\(--shadow-peek\)/);
     expect(rule('.k-sheet[data-peek="true"]')).toMatch(/height:\s*var\(--sheet-peek\)/);
+  });
+
+  it("spaces the head as MobileWorkspace does: 4 px under the grip and the head, 8 px below", () => {
+    const sheet = rule('.k-sheet[data-grip="button"]');
+    expect(sheet).toMatch(/gap:\s*var\(--s-4\)/);
+    expect(sheet).toMatch(/padding-top:\s*calc\(var\(--control-h\) \+ var\(--s-4\)\)/);
+    expect(sheet).toMatch(/padding-bottom:\s*var\(--s-8\)/);
   });
 
   it("draws a 40 by 5 handle in the handle colour", () => {

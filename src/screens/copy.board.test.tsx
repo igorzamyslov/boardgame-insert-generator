@@ -57,7 +57,70 @@ const conflict = (store: Store): void => {
   });
 };
 
+const addKind = (): void => {
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
+};
+
+/** One of each rule on the first three components: a pin, a turned pin and a size lock. */
+const setRules = (store: Store): void => {
+  act(() =>
+    store.edit((q) => {
+      const [a, b] = q.components;
+      if (a === undefined || b === undefined) {
+        throw new Error("the seed has fewer than two components");
+      }
+      return {
+        ...q,
+        locks: [
+          { kind: "position", trayKey: `${a.id}:p0:0`, path: "0", rotated: false },
+          { kind: "position", trayKey: `${b.id}:p0:0`, path: "1", rotated: true },
+          { kind: "size", trayKey: `${a.id}:p0:0`, w: 95, d: 190, h: 40 },
+        ],
+      };
+    }),
+  );
+};
+
+/** A count no deck can have: the first component's editor holds an error. */
+const breakFirst = (store: Store): void => {
+  act(() =>
+    store.edit((q) => ({
+      ...q,
+      components: q.components.map((c, i) =>
+        i === 0 && c.kind === "cards" ? { ...c, decks: [{ name: "x", count: -1 }] } : c,
+      ),
+    })),
+  );
+  // the case is only worth anything while the row says so
+  expect(screen.getByText("Needs attention")).toBeTruthy();
+};
+
 const CASES: readonly Case[] = [
+  { state: "workspace", board: "Main", region: "rail", steps: () => undefined },
+  { state: "workspace-add", board: "Main", region: "rail", steps: addKind },
+  { state: "workspace-rules", board: "Main", region: "rail", steps: setRules },
+  { state: "workspace-error", board: "Main", region: "rail", steps: breakFirst },
+  {
+    state: "m-workspace",
+    board: "MobileWorkspace",
+    region: "sheet",
+    phone: true,
+    steps: () => undefined,
+  },
+  {
+    state: "m-workspace-add",
+    board: "MobileWorkspace",
+    region: "sheet",
+    phone: true,
+    steps: addKind,
+  },
+  {
+    state: "m-workspace-rules",
+    board: "MobileWorkspace",
+    region: "sheet",
+    phone: true,
+    steps: setRules,
+  },
   { state: "workspace", board: "Main", region: "header", steps: () => undefined },
   { state: "workspace-menu", board: "Main", region: "menu", steps: openMenu },
   {
