@@ -19,6 +19,8 @@ export interface AppHeaderProps {
   downloadDisabled: boolean;
   /** Why Download is off (the button's title and description), e.g. "Make a new plan first". */
   downloadReason?: string;
+  /** The blocked button was pressed (it stays focusable, so it can be): a way to show the way out. */
+  onBlockedDownload?: () => void;
   /** What the button says (default "Download"); "Fix the fit to download" while the plan doesn't fit. */
   downloadLabel?: string;
   /** Something inside the project menu needs a look: the button wears a dot. */
@@ -233,7 +235,9 @@ export function AppHeader(p: AppHeaderProps) {
           title={p.downloadDisabled ? p.downloadReason : undefined}
           aria-haspopup="dialog"
           onClick={() => {
-            if (!p.downloadDisabled) {
+            if (p.downloadDisabled) {
+              p.onBlockedDownload?.();
+            } else {
               p.onDownload();
             }
           }}

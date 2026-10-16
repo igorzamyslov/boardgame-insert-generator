@@ -124,6 +124,16 @@ describe("AppHeader", () => {
     expect(p.onDownload).not.toHaveBeenCalled();
   });
 
+  it("tells a press on the blocked Download, and only then", () => {
+    const onBlockedDownload = vi.fn();
+    const { rerender } = render(<AppHeader {...props({ onBlockedDownload })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    expect(onBlockedDownload).not.toHaveBeenCalled();
+    rerender(<AppHeader {...props({ downloadDisabled: true, onBlockedDownload })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    expect(onBlockedDownload).toHaveBeenCalledTimes(1);
+  });
+
   it("gives the reason Download is off as its title and description", () => {
     render(
       <AppHeader {...props({ downloadDisabled: true, downloadReason: "Make a new plan first" })} />,

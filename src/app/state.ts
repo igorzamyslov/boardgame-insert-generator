@@ -36,6 +36,9 @@ export const STALE_MESSAGE = "This plan is from before your last changes.";
 export const GEOMETRY_OLD_MESSAGE =
   "Made with an older version of the app. Trays printed from it won't stack with trays you print now.";
 
+/** Why Download is off while an older-geometry plan is kept: Reprint everything is the way out. */
+export const GEOMETRY_REPRINT_REASON = "Reprint everything to download";
+
 export interface State {
   project: Signal<Project>;
   foreign: Signal<ForeignData>;

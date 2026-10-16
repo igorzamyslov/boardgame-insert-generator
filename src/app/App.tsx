@@ -52,7 +52,7 @@ import {
 import { downloadBlob } from "./download";
 import type { MeshSource } from "./meshes";
 import { OPEN_FAILED_CODE } from "./persistence";
-import { GEOMETRY_MAJOR_CODE, STALE_CODE } from "./state";
+import { GEOMETRY_MAJOR_CODE, GEOMETRY_REPRINT_REASON, STALE_CODE } from "./state";
 import { canOptimize } from "./runner";
 import { shareFile } from "./sendFile";
 import type { ShareFile } from "./sendFile";
@@ -475,7 +475,11 @@ export function App(props: AppProps) {
                 downloadRef={downloadButtonRef}
                 onDownload={() => setExportOpen(true)}
                 downloadDisabled={
-                  layout === undefined || s.stale.value || s.runPending.value || fitProblem
+                  layout === undefined ||
+                  s.stale.value ||
+                  s.geometryOld.value ||
+                  s.runPending.value ||
+                  fitProblem
                 }
                 downloadLabel={fitProblem ? "Fix the fit to download" : undefined}
                 downloadReason={
@@ -487,10 +491,19 @@ export function App(props: AppProps) {
                         : "Fix the errors marked in the inputs first"
                     : s.runPending.value
                       ? "Wait for the plan to finish"
-                      : s.stale.value
-                        ? "Make a new plan first"
-                        : undefined
+                      : s.geometryOld.value && !showStale
+                        ? GEOMETRY_REPRINT_REASON
+                        : s.stale.value
+                          ? "Make a new plan first"
+                          : undefined
                 }
+                // A blocked Download pressed while the old plan is kept brings its banner back:
+                // Reprint everything is the way out, and the person asked where it is.
+                onBlockedDownload={() => {
+                  if (s.geometryOld.value && geometryKept !== null) {
+                    setGeometryKept(null);
+                  }
+                }}
                 menuDot={placed.menu.length > 0}
                 menuNoticeCount={placed.menu.length}
                 menu={(close) => (

@@ -731,6 +731,88 @@ describe("App", () => {
       expect(download().getAttribute("aria-disabled")).toBe("false");
     });
 
+    describe("an older-geometry plan", () => {
+      const oldPlan = (hash?: string): Project => {
+        const p = fixtureProject();
+        return {
+          ...p,
+          layout: makeLayout(hash ?? inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
+        };
+      };
+      const download = (): HTMLElement => screen.getByRole("button", { name: "Download" });
+      const reasonOf = (button: HTMLElement): string | undefined =>
+        document.getElementById(button.getAttribute("aria-describedby") ?? "")?.textContent ??
+        undefined;
+
+      it("keeps Download off, with one short line that points to Reprint everything", async () => {
+        renderApp({ project: oldPlan() });
+        expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
+        expect(download().getAttribute("aria-disabled")).toBe("true");
+        expect(download().getAttribute("disabled")).toBeNull();
+        expect(download().getAttribute("title")).toBe("Reprint everything to download");
+        expect(reasonOf(download())).toBe("Reprint everything to download");
+        // short and on one line
+        expect("Reprint everything to download".length).toBeLessThanOrEqual(40);
+        expect(download().getAttribute("title")).not.toMatch(/\n/);
+        fireEvent.click(download());
+        expect(screen.queryByRole("heading", { name: "Download" })).toBeNull();
+      });
+
+      it("keeps it off after Use the old plan, and a press on it brings the banner back", async () => {
+        renderApp({ project: oldPlan() });
+        fireEvent.click(await screen.findByRole("button", { name: "Use the old plan" }));
+        expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
+        expect(download().getAttribute("aria-disabled")).toBe("true");
+        expect(download().getAttribute("title")).toBe("Reprint everything to download");
+        expect(reasonOf(download())).toBe("Reprint everything to download");
+        // still focusable, and pressing it opens nothing; the way out shows again
+        download().focus();
+        expect(document.activeElement).toBe(download());
+        fireEvent.click(download());
+        expect(screen.queryByRole("heading", { name: "Download" })).toBeNull();
+        expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
+      });
+
+      it("says Make a new plan first when the plan is also stale and its own banner shows", async () => {
+        // older and stale: the older-geometry banner speaks for both, and so does the reason
+        renderApp({ project: oldPlan("an-older-hash") });
+        expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
+        expect(download().getAttribute("title")).toBe("Reprint everything to download");
+        cleanup();
+        // kept, then stale: the stale banner is the one in view, with its own button
+        const { store } = renderApp({ project: oldPlan() });
+        fireEvent.click(await screen.findByRole("button", { name: "Use the old plan" }));
+        act(() => {
+          store.edit((q) => updateBox(q, { innerWidth: q.box.innerWidth + 5 }));
+        });
+        act(() => {
+          store.state.runScheduled.value = false;
+          store.state.run.value = { status: "idle" };
+        });
+        expect(screen.getByRole("button", { name: "Make a new plan" })).toBeTruthy();
+        expect(download().getAttribute("title")).toBe("Make a new plan first");
+      });
+
+      it("is cleared by Reprint everything: a plan from the current geometry downloads", async () => {
+        const { store } = renderApp({ project: oldPlan() });
+        const refit = vi.spyOn(store, "refit").mockImplementation(() => {
+          // what the run does when it succeeds: a layout made by this version of the app
+          store.state.project.value = {
+            ...store.state.project.value,
+            layout: makeLayout(store.state.currentHash.value),
+          };
+        });
+        fireEvent.click(await screen.findByRole("button", { name: "Reprint everything" }));
+        expect(refit).toHaveBeenCalled();
+        expect(store.state.geometryOld.value).toBe(false);
+        await waitFor(() => expect(download().getAttribute("aria-disabled")).toBe("false"));
+        expect(download().getAttribute("title") ?? "").toBe("");
+        expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
+        fireEvent.click(download());
+        expect(screen.getByRole("heading", { name: "Download" })).toBeTruthy();
+      });
+    });
+
     it("Download opens the export dialog once there is a plan", () => {
       renderApp({ project: withLayoutProject() });
       fireEvent.click(screen.getByRole("button", { name: "Download" }));
