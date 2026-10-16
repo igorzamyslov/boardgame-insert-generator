@@ -1,0 +1,366 @@
+/*
+ * The header and the project menu (UI rebuild Task 4): Main's header at 1440, MobileWorkspace's
+ * below 760 px (the component picks, by its `phone` prop), and Main's menu panel with its note.
+ * On the tokens (styles/tokens.css) and the kit (kit/kit.css); loaded after style.css, whose old
+ * `button` and `input[type="text"]` rules a class here has to beat or tie.
+ */
+
+/* ---- The bar: 60 px and then its 1 px rule, as Main draws it (content box) ---- */
+.hd {
+  display: flex;
+  gap: var(--s-12);
+  align-items: center;
+  box-sizing: content-box;
+  height: var(--header-h);
+  padding: 0 var(--s-24);
+  border-bottom: 1px solid var(--rule);
+}
+
+.hd--phone {
+  gap: var(--s-4);
+  height: var(--header-h-phone);
+  padding: 0 var(--s-8) 0 var(--s-16);
+}
+
+.hd-grow {
+  flex: 1 1 auto;
+}
+
+/* ---- Logo: four squares in the kinds' colours on ink; 28 px, the phone's 26 px with radius 7 ---- */
+.hd-logo {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: var(--s-5);
+  border-radius: var(--r-logo);
+  background: var(--ink);
+}
+
+.hd--phone .hd-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px; /* MobileWorkspace */
+}
+
+.hd-logo > span {
+  border-radius: 2px; /* Main */
+}
+
+.hd-logo__cards {
+  background: var(--logo-cards);
+}
+
+.hd-logo__bits {
+  background: var(--logo-bits);
+}
+
+.hd-logo__tiles {
+  background: var(--logo-tiles);
+}
+
+.hd-logo__minis {
+  background: var(--logo-minis);
+}
+
+.hd-wordmark {
+  flex: none;
+  margin: 0;
+  font: 700 var(--text-wordmark) / normal var(--font-display);
+  white-space: nowrap;
+}
+
+.hd-divider {
+  flex: none;
+  width: 1px;
+  height: 22px;
+  background: var(--field-line);
+}
+
+/* ---- The name: a button with a pencil that becomes a field ---- */
+.hd-name {
+  display: flex;
+  flex: 0 1 auto;
+  gap: var(--s-6);
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+  height: var(--control-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--s-10);
+  border: 0;
+  border-radius: var(--r-logo);
+  background: none;
+  color: var(--muted-strong);
+  font: inherit;
+  line-height: normal;
+  cursor: pointer;
+}
+
+.hd-name > svg {
+  flex: none;
+}
+
+.hd-name__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hd-name__text--none {
+  color: var(--muted);
+}
+
+input.hd-name__input {
+  flex: 0 1 280px;
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  height: var(--control-h);
+  padding: 0 var(--s-10);
+  border: 1px solid var(--field-line);
+  border-radius: var(--r-logo);
+  background: var(--sheet);
+  font: inherit;
+}
+
+/* The phone: the name over where it is saved (MobileWorkspace); the whole block is the target. */
+.hd-who {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  padding-left: var(--s-8);
+}
+
+.hd--phone .hd-name {
+  position: relative;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.hd--phone .hd-name::before {
+  content: "";
+  position: absolute;
+  inset: -12px 0; /* a 44 px target on a line of 20 */
+}
+
+.hd--phone .hd-name > svg {
+  display: none;
+}
+
+/* style.css still repaints a hovered button (until Task 17): the name stays bare. */
+.hd-name:hover:not(:disabled) {
+  background: none;
+}
+
+.hd--phone input.hd-name__input {
+  flex: none;
+  width: 100%;
+}
+
+/* ---- Saved status: 13 px, the state's colour, a check (or a dot) before it ---- */
+.saved-status {
+  display: inline-flex;
+  flex: none;
+  gap: var(--s-6);
+  align-items: center;
+  color: var(--ok);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.saved-mark {
+  display: inline-flex;
+  flex: none;
+}
+
+.saved-dot {
+  width: 8px;
+  height: 8px;
+  margin: 0 var(--s-3);
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.saved-status[data-state="saving"] {
+  color: var(--muted);
+}
+
+.saved-status[data-state="saving"] .saved-dot {
+  background: var(--warn);
+}
+
+.saved-status[data-state="paused"] {
+  color: var(--warn-ink);
+}
+
+.saved-status[data-state="failed"],
+.saved-status[data-state="unavailable"] {
+  color: var(--danger-ink);
+}
+
+.saved-status[data-state="failed"] .saved-dot,
+.saved-status[data-state="unavailable"] .saved-dot {
+  background: var(--danger);
+}
+
+/* The phone: 12 px, muted, no mark (MobileWorkspace); a state that needs a look keeps its colour. */
+.hd--phone .saved-status {
+  font-size: var(--text-2xs);
+}
+
+.hd--phone .saved-status[data-state="saved"] {
+  color: var(--muted);
+}
+
+.hd--phone .saved-mark {
+  display: none;
+}
+
+/* ---- The menu: its button, and the panel 4 px under it, right-aligned to it ---- */
+.hd-menu {
+  position: relative;
+  flex: none;
+}
+
+.hd-menu__panel {
+  position: absolute;
+  top: calc(100% + var(--s-4));
+  right: 0;
+  z-index: 10;
+}
+
+/* ---- Menu note: Main's `menuNote` (padding 12, radius 10, warn ground, 40 px buttons) ---- */
+.pm-note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  margin-bottom: var(--s-6);
+  padding: var(--s-12);
+  border-radius: var(--r-tile);
+  background: var(--warn-bg);
+  color: var(--warn-ink-strong);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.pm-note__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-6);
+}
+
+/* 40 px as drawn; the target is still 44 (DESIGN §2). */
+.pm-note .k-btn {
+  position: relative;
+  height: 40px;
+  padding: 0 var(--s-12);
+  font-size: var(--text-xs);
+}
+
+.pm-note .k-btn::before {
+  content: "";
+  position: absolute;
+  inset: -2px 0;
+}
+
+.pm-note .k-btn--secondary {
+  --k-edge: var(--line-strong);
+}
+
+/* ---- The foot of the panel: the version, then the licences ---- */
+.pm-version {
+  padding: var(--s-6) var(--s-12) var(--s-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* ---- Your inserts: a page of the panel ---- */
+.pm-head {
+  display: flex;
+  gap: var(--s-4);
+  align-items: center;
+  margin-bottom: var(--s-4);
+}
+
+.pm-title {
+  margin: 0;
+  font: 700 var(--h3) / 1.2 var(--font-display);
+}
+
+.pm-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pm-row {
+  display: flex;
+  gap: var(--s-4);
+  align-items: center;
+}
+
+.pm-row__name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pm-row__name--open {
+  flex-direction: column;
+  gap: 0;
+  align-items: flex-start;
+  justify-content: center;
+  cursor: default;
+}
+
+.pm-row .k-btn--quiet {
+  --k-fg: var(--destructive);
+}
+
+.pm-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  margin: var(--s-2) 0 var(--s-6);
+  padding: var(--s-12);
+  border-radius: var(--r-tile);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+
+.pm-confirm__text {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.pm-confirm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-6);
+}
+
+.pm-confirm .pm-confirm__delete {
+  --k-fg: var(--destructive);
+}
+
+.pm-empty {
+  margin: 0;
+  padding: var(--s-12);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}

@@ -31,7 +31,8 @@ import readme from "../../README.md?raw";
  * - "Lock size", "Unlock size", "size locked", "size lock(s)": the size lock is a real control
  *   and its name (spec: only the position lock is a "pin").
  * - "Keep searching", "Keep space free", "Part of it": real labels (the box's headroom choice;
- *   named in DESIGN §2 Words).
+ *   named in DESIGN §2 Words). "Keep this version": the project menu's choice after another tab
+ *   changed the insert (Main's board; it has nothing to do with pins).
  * - "data-part": an attribute name inside an SVG string, not text.
  * - "part"/"parts" is the download list's word, so it is allowed (PART_FILES) only in the three
  *   files that write the download list (ExportPanel.tsx), the reason it can be empty
@@ -189,7 +190,7 @@ const NOT_WORDS =
 
 /** Legitimate uses, removed from the text before NOT_WORDS looks at it. */
 const ALLOWED =
-  /\b(?:Lock size|Unlock size|size locked|size locks?|Keep searching|Keep space free|Part of it|data-part)\b/gi;
+  /\b(?:Lock size|Unlock size|size locked|size locks?|Keep searching|Keep space free|Keep this version|Part of it|data-part)\b/gi;
 
 /** Files that write the download list, why a part could not be exported, and part names. */
 const PART_FILES: readonly RegExp[] = [
@@ -260,6 +261,7 @@ describe("copy", () => {
     expect(not("Lock size and keep it")).toBe("keep");
     expect(not("Keep searching")).toBeNull();
     expect(not("Keep space free on top")).toBeNull();
+    expect(not("Keep this version")).toBeNull();
     expect(not("Size locked")).toBeNull();
     expect(not("the filler piece")).toBe("filler");
     expect(not("Parts")).toBe("Parts");

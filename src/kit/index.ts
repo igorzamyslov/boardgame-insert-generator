@@ -21,6 +21,7 @@ export { KindTile, type KindTileProps } from "./KindTile";
 export { ListRow, type ListRowProps } from "./ListRow";
 export {
   MenuItem,
+  MenuLink,
   MenuPanel,
   MenuSeparator,
   type MenuItemProps,

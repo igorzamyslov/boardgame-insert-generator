@@ -11,6 +11,7 @@ import "./styles/base.css";
 import "./kit/kit.css";
 import "./style.css";
 import "./screens/workspace.css";
+import "./screens/header.css";
 
 const store = createAppStore({
   projectStore: createProjectStore(),

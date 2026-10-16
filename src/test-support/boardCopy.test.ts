@@ -36,7 +36,7 @@ describe("boardCopy", () => {
   });
 
   it("splits on the middle dot", () => {
-    const rulings = [{ text: "Layer 1 (bottom)", row: "test" }];
+    const rulings = [{ text: "Layer 1 (bottom)", states: "all" as const, ruling: "test" }];
     expect(
       unruled(["Layer 1 (bottom) · 95 × 190 × 40 mm · about 3.5 h, 58 g"], { ...empty, rulings }),
     ).toEqual([]);
@@ -48,7 +48,9 @@ describe("boardCopy", () => {
   });
 
   it("matches ruled templates", () => {
-    const rulings = [{ text: "The {name} tray doesn't fit yet", row: "test" }];
+    const rulings = [
+      { text: "The {name} tray doesn't fit yet", states: "all" as const, ruling: "test" },
+    ];
     expect(unruled(["The Heroes tray doesn't fit yet"], { ...empty, rulings })).toEqual([]);
     expect(unruled(["Heroes don't fit yet"], { ...empty, rulings })).toEqual([
       "Heroes don't fit yet",

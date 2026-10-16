@@ -16,6 +16,8 @@ export interface ButtonProps extends Omit<
   size?: ButtonSize;
   /** Present: the button is blocked (`aria-disabled`), still focusable, and this says why. */
   blockedReason?: string;
+  /** A press while blocked (the button does nothing else): it may show the way out. */
+  onBlockedClick?: () => void;
   /** An icon before the words, drawn by the caller (see `Icon`). */
   icon?: ComponentChildren;
   children?: ComponentChildren;
@@ -26,6 +28,7 @@ export function Button({
   variant = "secondary",
   size = "control",
   blockedReason,
+  onBlockedClick,
   icon,
   children,
   class: extra,
@@ -33,7 +36,7 @@ export function Button({
   type = "button",
   ...rest
 }: ButtonProps) {
-  const blocked = useBlocked(blockedReason, onClick);
+  const blocked = useBlocked(blockedReason, onClick, onBlockedClick);
   return (
     <>
       <button

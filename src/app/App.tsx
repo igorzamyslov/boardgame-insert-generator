@@ -3,14 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Component, ComponentKind } from "../model/types";
-import { APP_VERSION, BUILD_ID } from "../model/version";
 import { topPlane } from "../model/settings";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
+import { Header } from "../screens/Header";
+import { ProjectMenu } from "../screens/ProjectMenu";
 import { Workspace } from "../screens/Workspace";
-import { AppHeader } from "../ui/AppHeader";
 import { BoxPanel } from "../ui/BoxPanel";
 import { AddKinds } from "../ui/components/ComponentList";
 import { WhatsInside } from "../ui/components/WhatsInside";
@@ -19,7 +19,6 @@ import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
 import { Modal } from "../ui/Modal";
 import { Notices, PlanBanners } from "../ui/Notices";
 import { placeNotices } from "../ui/noticePlacement";
-import { ProjectMenu } from "../ui/ProjectMenu";
 import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
 import { misfitOf } from "../ui/noFit";
@@ -475,13 +474,6 @@ export function App(props: AppProps) {
       ))}
     </>
   );
-  // The line at the foot of the page; on a phone it ends the first visit or the sheet, so the handle stays clear.
-  const footer = (
-    <footer class="app-footer">
-      {`Insert Generator v${APP_VERSION} (${BUILD_ID}) · `}
-      <a href="./third-party-licenses.txt">Third-party licenses</a>
-    </footer>
-  );
   // Below 760 px the status pill has no room for Keep searching on a plan that doesn't fit:
   // the sheet's bar offers it.
   const searchOnPhone =
@@ -497,7 +489,7 @@ export function App(props: AppProps) {
   // task that rebuilds it: the header (Task 4), the rail (Tasks 5, 9, 10, 11), the stage (6 to 8).
   const headerSlot = (
     <>
-      <AppHeader
+      <Header
         name={project.name}
         onRename={(name) => store.edit((q) => renameProject(q, name))}
         saveState={s.saveState.value}
@@ -537,6 +529,11 @@ export function App(props: AppProps) {
             setGeometryKept(null);
           }
         }}
+        phone={phone}
+        onSendFile={() => {
+          void sendFile();
+        }}
+        brandIsHeading
         menuDot={placed.menu.length > 0}
         menuNoticeCount={placed.menu.length}
         menu={(close) => (
@@ -551,10 +548,10 @@ export function App(props: AppProps) {
             onDelete={(id) => store.deleteProject(id)}
             onOpenFile={() => fileRef.current?.click()}
             onSaveFile={saveFile}
-            onSendFile={() => {
-              void sendFile();
-            }}
             onSettings={() => openSettings()}
+            phone={phone}
+            canRedo={store.canRedo.value}
+            onRedo={() => store.redo()}
             notices={placed.menu}
             conflict={s.conflict.value}
             onResolveConflict={(choice) => store.resolveConflict(choice)}
@@ -596,17 +593,12 @@ export function App(props: AppProps) {
   const railSlot = firstVisit ? (
     <div class="ws-interim" ref={firstVisitRef}>
       {firstVisitBlock}
-      {footer}
     </div>
   ) : phone ? (
-    <>
-      {railSections}
-      {footer}
-    </>
+    railSections
   ) : (
     <section class="ws-interim" aria-label="Inputs">
       {railSections}
-      {footer}
     </section>
   );
   const stageSlot = (

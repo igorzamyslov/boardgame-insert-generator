@@ -170,6 +170,22 @@
   cursor: not-allowed;
 }
 
+/* MobileWorkspace's blocked Download: the rule's fill and the dimmer icon. */
+.k-iconbtn--primary[aria-disabled="true"] {
+  --k-bg: var(--rule);
+}
+
+/*
+ * style.css (until Task 17) paints every `button[aria-disabled]` itself, which would beat the
+ * variables of these rules: a blocked kit control says its own colours.
+ */
+.k-btn[aria-disabled="true"],
+.k-iconbtn[aria-disabled="true"] {
+  border-color: var(--k-edge);
+  background: var(--k-bg);
+  color: var(--k-fg);
+}
+
 /* The menu's warning dot: 10 px, top 6, right 6 (Main). */
 .k-iconbtn__dot {
   position: absolute;
@@ -881,6 +897,13 @@
   text-align: left;
   text-decoration: none;
   cursor: pointer;
+}
+
+.k-menu__item[aria-disabled="true"] {
+  border: 0;
+  background: var(--k-bg);
+  color: var(--ink-off);
+  cursor: not-allowed;
 }
 
 .k-menu__meta {

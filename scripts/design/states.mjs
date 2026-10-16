@@ -80,6 +80,24 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [MENU],
   },
+  // The project menu on a phone: no board of its own, judged against Main's menu panel (its `menu` crop).
+  "workspace-menu-phone": {
+    board: "Main",
+    boardOpts: { state: { menu: true } },
+    nearest: "no board of its own: Main's menu panel",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: [MENU],
+  },
+  // Your inserts, a page of the same panel.
+  inserts: {
+    board: "Main",
+    boardOpts: { state: { menu: true } },
+    nearest: "no board of its own: Main's menu panel",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [MENU, { click: { role: "button", name: /^Your inserts/ } }],
+  },
   "workspace-tray": {
     board: "Main",
     boardOpts: { state: { sel: "market" } },

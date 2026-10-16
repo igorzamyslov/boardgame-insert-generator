@@ -3,16 +3,45 @@
 // `src/test-support/boardCopy.ts` reads both; `src/screens/copy.board.test.tsx` (from Task 4)
 // enforces them.
 
-/** A string the app prints that no board has, ruled in docs/DESIGN.md. */
+/** A string the app prints that no board has, ruled in docs/DESIGN.md §7. */
 export interface CopyRuling {
   /** The text; `{name}` stands for any text (a component or tray name, a number with a unit). */
   text: string;
-  /** The DESIGN §7 row (decision log) that rules it. */
-  row: string;
+  /** The states (`scripts/design/states.mjs`, or the copy test's own) that may print it, or all. */
+  states: readonly string[] | "all";
+  /** The first words of the §7 row's Decision cell that rules it. */
+  ruling: string;
 }
 
+const FOOTER = "The footer moves into the project menu";
+const SAVED = "The saved status has five states";
+const DISMISS = "A menu note other than another tab's";
+const INSERTS = "Your inserts is a page of the project menu";
+const REDO = "Redo sits beside Undo";
+
 /** Ruled strings, added by the task that builds the screen that prints them. */
-export const COPY_RULINGS: readonly CopyRuling[] = [];
+export const COPY_RULINGS: readonly CopyRuling[] = [
+  // Task 4: the header and the project menu
+  { text: "Insert Generator {version}", states: "all", ruling: FOOTER },
+  { text: "Licences", states: "all", ruling: FOOTER },
+  { text: "Redo", states: "all", ruling: REDO },
+  { text: "Saving…", states: "all", ruling: SAVED },
+  { text: "Couldn't save", states: "all", ruling: SAVED },
+  { text: "Not saved: this browser blocks storage", states: "all", ruling: SAVED },
+  { text: "(unnamed)", states: "all", ruling: SAVED },
+  { text: "Dismiss", states: "all", ruling: DISMISS },
+  { text: "Back", states: "all", ruling: INSERTS },
+  { text: "Open now", states: "all", ruling: INSERTS },
+  { text: "Delete…", states: "all", ruling: INSERTS },
+  { text: "Delete", states: "all", ruling: INSERTS },
+  { text: "Cancel", states: "all", ruling: INSERTS },
+  {
+    text: "Delete “{name}” from this browser? This can't be undone.",
+    states: "all",
+    ruling: INSERTS,
+  },
+  { text: "Nothing saved yet.", states: "all", ruling: INSERTS },
+];
 
 /**
  * Board strings the app does not print: board items the app does not build, and the left column of

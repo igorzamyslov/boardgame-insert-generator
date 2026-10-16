@@ -4,7 +4,8 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
-import { fixtureProject, makeLayout, makeResult, makeTray } from "./test-helpers";
+import type { ShareFile } from "./sendFile";
+import { fixtureProject, flush, makeLayout, makeResult, makeTray } from "./test-helpers";
 import { renderApp } from "./test-app";
 
 beforeEach(() => {
@@ -196,17 +197,69 @@ describe("the phone layout", () => {
     Reflect.deleteProperty(Element.prototype, "scrollIntoView");
   });
 
-  it("ends the first visit with the licenses link, once", () => {
-    phone();
-    renderApp();
-    expect(screen.queryByRole("region", { name: "The box and what's inside" })).toBeNull();
-    expect(screen.getAllByRole("link", { name: "Third-party licenses" })).toHaveLength(1);
-  });
-
-  it("keeps the project's licenses link in the sheet, out of the way of the handle", () => {
+  it("has no footer on a phone: the licences are the project menu's last line", () => {
     phone();
     renderApp({ project: project() });
-    expect(within(sheet()).getByRole("link", { name: "Third-party licenses" })).toBeTruthy();
-    expect(screen.getAllByRole("link", { name: "Third-party licenses" })).toHaveLength(1);
+    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(screen.queryByText(/Third-party licenses/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
+    expect(screen.getAllByRole("link", { name: "Licences" })).toHaveLength(1);
+  });
+
+  it("has no footer on the first visit either", () => {
+    phone();
+    renderApp();
+    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(screen.queryByRole("link", { name: /licen[cs]es/i })).toBeNull();
+  });
+
+  describe("the phone header", () => {
+    it("has Undo and Send file, the menu button and Download, and no Redo", () => {
+      phone();
+      renderApp({ project: project() });
+      const header = document.querySelector('[data-region="header"]') as HTMLElement;
+      for (const name of ["Undo", "Send file", "Project menu", "Download"]) {
+        expect(within(header).getByRole("button", { name })).toBeTruthy();
+      }
+      expect(within(header).queryByRole("button", { name: "Redo" })).toBeNull();
+    });
+
+    it("puts Redo first in the project menu, and Send file is not there", () => {
+      phone();
+      renderApp({ project: project() });
+      fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
+      const panel = screen.getByRole("group", { name: "Project" });
+      expect(panel.querySelector("button")?.textContent).toBe("Redo");
+      expect(within(panel).queryByRole("button", { name: "Send file" })).toBeNull();
+    });
+
+    it("Send file hands the file to the share sheet", async () => {
+      phone();
+      const share = vi.fn<ShareFile>(() => Promise.resolve("shared"));
+      const { download } = renderApp({ overrides: { share } });
+      fireEvent.click(screen.getByRole("button", { name: "Send file" }));
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+      const file = share.mock.calls[0]?.[0] as File;
+      expect(file.name).toMatch(/\.insert\.json$/);
+      expect(download).not.toHaveBeenCalled();
+    });
+
+    it("Send file saves the file where the share sheet can't take it", async () => {
+      phone();
+      const share = vi.fn<ShareFile>(() => Promise.resolve("unsupported"));
+      const { download } = renderApp({ overrides: { share } });
+      fireEvent.click(screen.getByRole("button", { name: "Send file" }));
+      await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
+    });
+
+    it("Send file does nothing more when the sheet is dismissed", async () => {
+      phone();
+      const share = vi.fn<ShareFile>(() => Promise.resolve("cancelled"));
+      const { download } = renderApp({ overrides: { share } });
+      fireEvent.click(screen.getByRole("button", { name: "Send file" }));
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+      await flush();
+      expect(download).not.toHaveBeenCalled();
+    });
   });
 });

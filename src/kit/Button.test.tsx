@@ -24,6 +24,34 @@ describe("Button", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it("tells a press on a blocked button to its owner, and runs nothing else", () => {
+    const onClick = vi.fn();
+    const onBlockedClick = vi.fn();
+    const { rerender } = render(
+      <Button onClick={onClick} onBlockedClick={onBlockedClick}>
+        Download
+      </Button>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onBlockedClick).not.toHaveBeenCalled();
+    rerender(
+      <Button blockedReason="Not yet" onClick={onClick} onBlockedClick={onBlockedClick}>
+        Download
+      </Button>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onBlockedClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("has nothing to describe when the reason is empty (its own words say it)", () => {
+    render(<Button blockedReason="">Fix the fit to download</Button>);
+    const button = screen.getByRole("button", { name: "Fix the fit to download" });
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+    expect(button.hasAttribute("aria-describedby")).toBe(false);
+  });
+
   it("keeps a blocked button in the Tab order", () => {
     render(<Button blockedReason="Not yet">Go</Button>);
     const button = screen.getByRole("button", { name: "Go" });

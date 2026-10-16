@@ -49,6 +49,16 @@ const DRAWINGS = {
       </>
     ),
   },
+  redo: {
+    stroke: 2,
+    round: true,
+    shapes: (
+      <>
+        <path d="M15 14l5-5-5-5" />
+        <path d="M20 9H10a6 6 0 0 0 0 12h3" />
+      </>
+    ),
+  },
   download: {
     stroke: 2,
     round: true,

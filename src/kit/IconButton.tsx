@@ -17,6 +17,8 @@ export interface IconButtonProps extends Omit<
   dot?: boolean;
   /** Present: blocked, still focusable, and this says why. */
   blockedReason?: string;
+  /** A press while blocked (the button does nothing else): it may show the way out. */
+  onBlockedClick?: () => void;
   /** The icon, drawn by the caller (see `Icon`). */
   icon: ComponentChildren;
 }
@@ -27,13 +29,14 @@ export function IconButton({
   variant = "plain",
   dot = false,
   blockedReason,
+  onBlockedClick,
   icon,
   class: extra,
   onClick,
   type = "button",
   ...rest
 }: IconButtonProps) {
-  const blocked = useBlocked(blockedReason, onClick);
+  const blocked = useBlocked(blockedReason, onClick, onBlockedClick);
   return (
     <>
       <button

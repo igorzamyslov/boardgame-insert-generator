@@ -199,8 +199,7 @@
   }
 
   .no-print,
-  .pf-app__bar,
-  .app-footer {
+  .ws-header {
     display: none;
   }
 

@@ -11,7 +11,6 @@ import { encodeHash } from "../test-support/link";
 import { MemoryStorage } from "../test-support/memory-storage";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
-import type { ShareFile } from "./sendFile";
 import { renameProject, updateBox } from "./actions";
 import { canOptimize } from "./runner";
 import { CONFLICT_CODE, OPEN_FAILED_CODE } from "./persistence";
@@ -107,7 +106,7 @@ function openAssemblyPage(): void {
 }
 
 describe("App", () => {
-  it("lays out the title, inputs then results and footer", () => {
+  it("lays out the title, inputs then results", () => {
     renderApp({ project: withLayoutProject() });
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Insert Generator");
     const inputs = screen.getByRole("region", { name: "Inputs" });
@@ -119,11 +118,17 @@ describe("App", () => {
     const results = screen.getByRole("main");
     expect(within(results).getByRole("heading", { level: 2, name: "Results" })).toBeTruthy();
     expect(screen.queryByText(/shared links may break/)).toBeNull();
-    const footer = screen.getByRole("contentinfo");
-    expect(footer.textContent).toContain(`v${APP_VERSION} (${BUILD_ID})`);
-    expect(
-      within(footer).getByRole("link", { name: "Third-party licenses" }).getAttribute("href"),
-    ).toBe("./third-party-licenses.txt");
+  });
+
+  it("has no footer: the version and the licences are the project menu's last two lines", () => {
+    renderApp({ project: withLayoutProject() });
+    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(screen.queryByText(/Third-party licenses/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
+    const panel = screen.getByRole("group", { name: "Project" });
+    const [version, licences] = [...panel.children].slice(-2);
+    expect(version?.textContent).toBe(`Insert Generator ${APP_VERSION} (${BUILD_ID})`);
+    expect(licences?.getAttribute("href")).toBe("./third-party-licenses.txt");
   });
 
   describe("first visit", () => {
@@ -542,9 +547,20 @@ describe("App", () => {
       return button;
     };
 
+    /** Types a new name: the name is a button until it is pressed, then a field (left open). */
+    const renameTo = (name: string): void => {
+      if (screen.queryByLabelText("Project name") === null) {
+        fireEvent.click(document.querySelector(".hd-name") as HTMLElement);
+      }
+      fireEvent.input(screen.getByLabelText("Project name"), { target: { value: name } });
+    };
+
     it("has the wordmark, the project name, the save state and Download", () => {
       const { store } = renderApp();
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      // the name is a button until it is pressed, then a field
+      const name = screen.getByRole("button", { name: store.state.project.value.name });
+      fireEvent.click(name);
       expect((screen.getByLabelText("Project name") as HTMLInputElement).value).toBe(
         store.state.project.value.name,
       );
@@ -555,7 +571,7 @@ describe("App", () => {
 
     it("renames the project from the header", () => {
       const { store } = renderApp();
-      fireEvent.input(screen.getByLabelText("Project name"), { target: { value: "Wingspan" } });
+      renameTo("Wingspan");
       expect(store.state.project.value.name).toBe("Wingspan");
     });
 
@@ -565,7 +581,7 @@ describe("App", () => {
       const redo = () => screen.getByRole("button", { name: "Redo" });
       const off = (b: HTMLElement): boolean => b.getAttribute("aria-disabled") === "true";
       expect(off(undo())).toBe(true);
-      fireEvent.input(screen.getByLabelText("Project name"), { target: { value: "Wingspan" } });
+      renameTo("Wingspan");
       expect(off(undo())).toBe(false);
       fireEvent.click(undo());
       expect(store.state.project.value.name).not.toBe("Wingspan");
@@ -575,9 +591,7 @@ describe("App", () => {
     });
 
     describe("Undo and Redo from the keyboard", () => {
-      const rename = (name: string): void => {
-        fireEvent.input(screen.getByLabelText("Project name"), { target: { value: name } });
-      };
+      const rename = renameTo;
       const key = (init: KeyboardEventInit, target: Element = document.body): boolean =>
         fireEvent.keyDown(target, init);
       const nameNow = (store: { state: { project: { value: Project } } }): string =>
@@ -719,8 +733,9 @@ describe("App", () => {
       store.newProject();
       const first = store.state.projects.value.find((e) => e.id !== store.state.project.value.id);
       openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Your inserts" }));
-      fireEvent.click(screen.getByRole("button", { name: first?.name || "(unnamed)" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Your inserts/ }));
+      const panel = screen.getByRole("group", { name: "Project" });
+      fireEvent.click(within(panel).getByRole("button", { name: first?.name || "(unnamed)" }));
       expect(store.state.project.value.id).toBe(first?.id);
       expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
       openMenu();
@@ -729,13 +744,16 @@ describe("App", () => {
       expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
     });
 
-    it("deletes an insert after the question, not before", () => {
+    it("deletes an insert from Your inserts after the question, not before", () => {
       const { store, projectStore } = renderApp();
       store.newProject();
       const doomed = store.state.project.value.id;
       expect(projectStore.list().map((e) => e.id)).toContain(doomed);
       openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Delete…" }));
+      // Delete is not in the menu itself: it is a row's button in Your inserts
+      expect(screen.queryByRole("button", { name: /^Delete/ })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /^Your inserts/ }));
+      fireEvent.click(document.querySelector(`[data-delete="${doomed}"]`) as HTMLElement);
       expect(projectStore.list().map((e) => e.id)).toContain(doomed);
       fireEvent.click(screen.getByRole("button", { name: "Delete" }));
       expect(projectStore.list().map((e) => e.id)).not.toContain(doomed);
@@ -856,7 +874,7 @@ describe("App", () => {
       act(() => {
         store.state.runScheduled.value = false;
       });
-      expect(download().getAttribute("aria-disabled")).toBe("false");
+      expect(download().getAttribute("aria-disabled")).toBeNull();
     });
 
     describe("an older-geometry plan", () => {
@@ -933,7 +951,7 @@ describe("App", () => {
         fireEvent.click(await screen.findByRole("button", { name: "Reprint everything" }));
         expect(refit).toHaveBeenCalled();
         expect(store.state.geometryOld.value).toBe(false);
-        await waitFor(() => expect(download().getAttribute("aria-disabled")).toBe("false"));
+        await waitFor(() => expect(download().getAttribute("aria-disabled")).toBeNull());
         expect(download().getAttribute("title") ?? "").toBe("");
         expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
         fireEvent.click(download());
@@ -971,35 +989,6 @@ describe("App", () => {
       fireEvent.change(input, { target: { files: [broken] } });
       expect(await screen.findByText(/Couldn't read broken\.json: unreadable/)).toBeTruthy();
       expect(input.value).toBe("");
-    });
-
-    it("Send file hands the file to the share sheet", async () => {
-      const share = vi.fn<ShareFile>(() => Promise.resolve("shared"));
-      const { download } = renderApp({ overrides: { share } });
-      openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Send file" }));
-      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
-      const file = share.mock.calls[0]?.[0] as File;
-      expect(file.name).toMatch(/\.insert\.json$/);
-      expect(download).not.toHaveBeenCalled();
-    });
-
-    it("Send file saves the file where the share sheet can't take it", async () => {
-      const share = vi.fn<ShareFile>(() => Promise.resolve("unsupported"));
-      const { download } = renderApp({ overrides: { share } });
-      openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Send file" }));
-      await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
-    });
-
-    it("Send file does nothing more when the sheet is dismissed", async () => {
-      const share = vi.fn<ShareFile>(() => Promise.resolve("cancelled"));
-      const { download } = renderApp({ overrides: { share } });
-      openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Send file" }));
-      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
-      await flush();
-      expect(download).not.toHaveBeenCalled();
     });
   });
 
@@ -1085,9 +1074,9 @@ describe("App", () => {
       // two stored trays 40 mm high; the box is 70 mm inside and keeps 8 mm free on top
       expect(status().textContent).toContain("Everything fits.");
       expect(status().textContent).toContain("2 trays in 1 layer, 40 of 62 mm high.");
-      expect(screen.getByRole("button", { name: "Download" }).getAttribute("aria-disabled")).toBe(
-        "false",
-      );
+      expect(
+        screen.getByRole("button", { name: "Download" }).getAttribute("aria-disabled"),
+      ).toBeNull();
     });
 
     it("Keep searching starts a longer search and becomes Stop while it runs", async () => {
@@ -1269,7 +1258,7 @@ describe("App", () => {
       expect(store.state.conflict.value).toBe(false);
       openMenu();
       expect(await screen.findByText(/kept as a copy/)).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Use this tab's version" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Keep this version" })).toBeNull();
       expect(screen.queryByRole("button", { name: /Use the other tab/ })).toBeNull();
     });
 
@@ -1278,8 +1267,9 @@ describe("App", () => {
       store.state.conflict.value = true;
       store.pushNotice(notice("Another tab saved this project."));
       openMenu();
-      expect(await screen.findByText(/Another tab saved/)).toBeTruthy();
-      expect(screen.queryByRole("button", { name: /^Dismiss: Another tab saved/ })).toBeNull();
+      // the board's words for the choice, with no way to dismiss it
+      expect(await screen.findByText("Saving is paused here until you choose.")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /^Dismiss/ })).toBeNull();
       store.state.conflict.value = false;
       expect(
         await screen.findByRole("button", { name: /^Dismiss: Another tab saved/ }),
@@ -1292,10 +1282,10 @@ describe("App", () => {
       store.state.conflict.value = true;
       store.pushNotice(notice("Another tab saved this project."));
       openMenu();
-      fireEvent.click(await screen.findByRole("button", { name: "Use this tab's version" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Keep this version" }));
       expect(resolve).toHaveBeenLastCalledWith("keepMine");
       openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Use the other tab's version" }));
+      fireEvent.click(screen.getByRole("button", { name: "Use the other tab version" }));
       expect(resolve).toHaveBeenLastCalledWith("loadTheirs");
     });
 
@@ -1311,14 +1301,12 @@ describe("App", () => {
       expect(document.querySelector(".app-notices")?.getAttribute("data-empty")).toBe("true");
       expect(document.querySelectorAll(".app-notices li")).toHaveLength(0);
       const menu = await screen.findByRole("button", { name: "Project menu, 1 notice" });
-      expect(document.querySelector(".app-menu-dot")).not.toBeNull();
+      expect(document.querySelector(".k-iconbtn__dot")).not.toBeNull();
       fireEvent.click(menu);
       const panel = screen.getByRole("group", { name: "Project" });
       const first = panel.querySelector("button");
-      expect(first?.textContent).toBe("Use this tab's version");
-      expect(
-        within(panel).getByRole("button", { name: "Use the other tab's version" }),
-      ).toBeTruthy();
+      expect(first?.textContent).toBe("Keep this version");
+      expect(within(panel).getByRole("button", { name: "Use the other tab version" })).toBeTruthy();
     });
   });
 
@@ -1437,7 +1425,7 @@ describe("App", () => {
       store.pushNotice({ level: "error", code: OPEN_FAILED_CODE, message: "That file is broken." });
       expect(await screen.findByText("That file is broken.")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Project menu" })).toBeTruthy();
-      expect(document.querySelector(".app-menu-dot")).toBeNull();
+      expect(document.querySelector(".k-iconbtn__dot")).toBeNull();
     });
   });
 

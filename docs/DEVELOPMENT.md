@@ -205,7 +205,7 @@ it only with a written reason in the code or the PR.
   [Gotchas](#4-gotchas)). HTML elements may use `tabIndex`.
 - MUST keep a control that is off but explained focusable. Give it
   `aria-disabled="true"`, guard its click handler, and point `aria-describedby` at the sentence
-  that says why (`Action` in `ui/TrayBar.tsx`, Download in `ui/AppHeader.tsx`). Never use
+  that says why (`Action` in `ui/TrayBar.tsx`, Download in `screens/Header.tsx`). Never use
   `disabled` for it, because a disabled control leaves the Tab order and its reason can't be
   read. `CheckField` takes `disabled` and renders `aria-disabled`; `RowRemove` is the Remove
   button of a row that can't go (the last one). The one exception is `disabled` on an `<option>`
@@ -248,7 +248,7 @@ it only with a written reason in the code or the PR.
   exempt (their size is tray geometry, WCAG 2.5.8 "essential"; see the comment in
   `plan/plan.css`).
 - SHOULD use a disclosure (`aria-expanded` plus a group of buttons) rather than an ARIA menu for
-  a panel of buttons (`ProjectMenu`, ruling P2 Task 4). Don't put `aria-haspopup` on it.
+  a panel of buttons (`screens/ProjectMenu.tsx`, ruling P2 Task 4). Don't put `aria-haspopup` on it.
 - SHOULD use `useId()` for ids that tie a control to its description.
 
 ### CSS and tokens
@@ -375,7 +375,7 @@ any camelCase prop on SVG that isn't a real SVG attribute.
 **`onFocusOut` never fires.**
 → Preact derives the DOM event name from the prop and listens for a `FocusOut` event, which
 Chrome doesn't dispatch.
-→ Use `onBlurCapture` and check `relatedTarget` against the wrapper (`ui/AppHeader.tsx`, the
+→ Use `onBlurCapture` and check `relatedTarget` against the wrapper (`screens/Header.tsx`, the
 project menu). Safari doesn't focus buttons on click, so keep an outside-click handler as well.
 
 **`inert` is a type error.**

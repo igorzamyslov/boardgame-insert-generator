@@ -1,6 +1,6 @@
 // src/app/App.release.test.tsx
 // @vitest-environment jsdom
-import { cleanup, screen } from "@testing-library/preact";
+import { cleanup, fireEvent, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderApp } from "./test-app";
 
@@ -19,8 +19,9 @@ describe("App shell for a release version", () => {
     expect(screen.queryByText(/shared links may break/)).toBeNull();
   });
 
-  it("shows the release version and the build id in the footer", () => {
+  it("shows the release version and the build id in the project menu", () => {
     renderApp();
-    expect(screen.getByRole("contentinfo").textContent).toContain("v1.0.0 (abc1234)");
+    fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
+    expect(screen.getByText("Insert Generator 1.0.0 (abc1234)")).toBeTruthy();
   });
 });
