@@ -12,15 +12,27 @@ export function isMacPlatform(nav: { platform?: string; userAgent?: string } | u
 
 /**
  * What a key press asks for: Ctrl+Z or Cmd+Z undoes; Shift+Ctrl+Z, Shift+Cmd+Z and Ctrl+Y redo.
- * Alt, a repeat while the key is held, and an input method's composition are not a request.
+ * Alt, a repeat while the key is held, and an input method's composition are not a request. The
+ * key is read by its letter, and by its place on the keyboard when the layout has no Latin letter
+ * there (a Cyrillic layout gives "я" for Z), so the shortcut works on any layout.
  */
 export function historyKeyOf(
-  e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey" | "isComposing">,
+  e: Pick<
+    KeyboardEvent,
+    "key" | "code" | "repeat" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey" | "isComposing"
+  >,
 ): HistoryKey | null {
-  if (e.altKey || e.isComposing) {
+  if (e.altKey || e.isComposing || e.repeat) {
     return null;
   }
-  const key = e.key.toLowerCase();
+  const letter = e.key.toLowerCase();
+  const key = /^[a-z]$/.test(letter)
+    ? letter
+    : e.code === "KeyZ"
+      ? "z"
+      : e.code === "KeyY"
+        ? "y"
+        : letter;
   if (key === "z" && (e.ctrlKey || e.metaKey)) {
     return e.shiftKey ? "redo" : "undo";
   }

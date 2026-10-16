@@ -13,6 +13,8 @@ import {
 const press = (init: Partial<Parameters<typeof historyKeyOf>[0]>) =>
   historyKeyOf({
     key: "",
+    code: "",
+    repeat: false,
     ctrlKey: false,
     metaKey: false,
     shiftKey: false,
@@ -33,6 +35,18 @@ describe("historyKeyOf", () => {
     expect(press({ key: "Z", metaKey: true, shiftKey: true })).toBe("redo");
     expect(press({ key: "y", ctrlKey: true })).toBe("redo");
     expect(press({ key: "Y", ctrlKey: true })).toBe("redo");
+  });
+
+  it("ignores a held key, so holding Ctrl+Z undoes once", () => {
+    expect(press({ key: "z", ctrlKey: true, repeat: true })).toBeNull();
+  });
+
+  it("works on a layout without Latin letters, by the key's place", () => {
+    expect(press({ key: "я", code: "KeyZ", ctrlKey: true })).toBe("undo");
+    expect(press({ key: "Я", code: "KeyZ", ctrlKey: true, shiftKey: true })).toBe("redo");
+    expect(press({ key: "н", code: "KeyY", ctrlKey: true })).toBe("redo");
+    // a Latin layout that puts Z elsewhere (QWERTZ) still goes by the letter
+    expect(press({ key: "z", code: "KeyY", ctrlKey: true })).toBe("undo");
   });
 
   it("reads nothing else", () => {

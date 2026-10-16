@@ -104,8 +104,7 @@ import type { Semver } from "../model/version";
  * (a low one) is tried again in a tighter band before it is left plain; a part that was engraved
  * before is engraved just as before. Carried over from 0.8.0: a name on an upper tray with the lip
  * on is cut in a band that starts above the groove's roof, so it never touches the groove.
- * Also in 0.8.1, and not a new version (the branch has not shipped, so 0.8.1 is not public yet): the
- * name goes on up to three faces, each that has room: the wall it already chose and the wall
+ * Also in 0.8.1 (both landed before 0.8.1 was released): the name goes on up to three faces, each that has room: the wall it already chose and the wall
  * opposite it (the same bands, and the thinnest feature kept between the two recesses), and the
  * underside, mirrored so it reads upright from below, centred, kept clear of the groove, the corner
  * arcs and any floor notch, as V grooves that close in a ridge (no flat roof, so no overhang)
