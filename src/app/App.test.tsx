@@ -89,9 +89,9 @@ describe("App", () => {
     const inputs = screen.getByRole("region", { name: "Inputs" });
     const titles = (): (string | undefined)[] =>
       [...inputs.querySelectorAll("details.pf-acc > summary h2")].map((t) =>
-        t.textContent?.replace(/^\d+/, "").replace(/adv$/, ""),
+        t.textContent?.replace(/^\d+/, ""),
       );
-    expect(titles()).toEqual(["The box", "What goes inside", "Your printer"]);
+    expect(titles()).toEqual(["The box", "What goes inside", "Your printer", "Walls and fit"]);
     const results = screen.getByRole("main");
     expect(within(results).getByRole("heading", { level: 2, name: "Results" })).toBeTruthy();
     expect(screen.queryByText(/shared links may break/)).toBeNull();
@@ -100,14 +100,16 @@ describe("App", () => {
     expect(
       within(footer).getByRole("link", { name: "Third-party licenses" }).getAttribute("href"),
     ).toBe("./third-party-licenses.txt");
-    fireEvent.click(screen.getByLabelText("Advanced"));
-    expect(titles()).toEqual(["The box", "What goes inside", "Your printer", "Walls and fit"]);
   });
 
-  it("switches to advanced inputs", () => {
+  it("has no Simple/Advanced switch", () => {
     renderApp();
-    expect(screen.queryByLabelText(/Bed margin/)).toBeNull();
-    fireEvent.click(screen.getByLabelText("Advanced"));
+    expect(screen.queryByLabelText("Advanced")).toBeNull();
+    expect(screen.queryByLabelText("Simple")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Input mode" })).toBeNull();
+    expect(screen.queryByText(/Dotted edge/)).toBeNull();
+    expect(document.querySelector("[data-level]")).toBeNull();
+    // What the switch used to hide is on screen.
     expect(screen.getByLabelText(/Bed margin/)).toBeTruthy();
   });
 
@@ -120,9 +122,8 @@ describe("App", () => {
     await waitFor(() => expect(stub.calls).toHaveLength(1));
   });
 
-  it("shows plan and 3D fallback tabs and the export panel for a stored layout, and swaps with the keyboard in Advanced", () => {
+  it("shows plan and 3D fallback tabs and the export panel for a stored layout, and swaps with the keyboard", () => {
     const { store, stub } = renderApp({ project: withLayoutProject() });
-    fireEvent.click(screen.getByLabelText("Advanced"));
     expect(stub.calls).toHaveLength(0);
     expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("button", { name: /^Tray 1,/ })).toBeTruthy();
@@ -154,7 +155,6 @@ describe("App", () => {
     openExport();
     const stl = screen.getByRole("button", { name: "STL files (.zip)" });
     expect(stl.hasAttribute("disabled")).toBe(false);
-    fireEvent.click(screen.getByLabelText("Advanced"));
     store.edit((q) => ({ ...q, settings: { ...q.settings, wall: q.settings.wall + 0.4 } }));
     expect(store.state.stale.value).toBe(true);
     expect(
@@ -165,7 +165,7 @@ describe("App", () => {
     }
   });
 
-  it("says why the optimizer is blocked by an error whose field is hidden in simple mode", async () => {
+  it("shows settings errors next to their field", async () => {
     const { store } = renderApp();
     addCards();
     const results = screen.getByRole("main");
@@ -173,11 +173,18 @@ describe("App", () => {
     store.edit((q) => ({ ...q, settings: { ...q.settings, bottomChamfer: 3 } }));
     expect(await within(results).findByText(/Fix the errors marked in the inputs/)).toBeTruthy();
     expect(within(results).queryByText(/add at least one component/)).toBeNull();
-    const list = within(results).getByRole("list", { name: "Errors without a field" });
-    expect(list.textContent).toMatch(/Bottom chamfer must be at most/);
-    fireEvent.click(screen.getByLabelText("Advanced"));
+    // The field is on screen, so the summary lists no error of its own for it.
     expect(within(results).queryByRole("list", { name: "Errors without a field" })).toBeNull();
-    expect(within(results).getByText(/Fix the errors marked in the inputs/)).toBeTruthy();
+    const inputs = screen.getByRole("region", { name: "Inputs" });
+    const settings = inputs.querySelector("#section-settings") as HTMLElement;
+    expect(settings.textContent).toMatch(/Needs attention/);
+    const message = within(settings).getByText(/Bottom chamfer must be at most/);
+    // The message is on screen: no closed <details> between it and the page.
+    for (let el = message.parentElement; el !== null; el = el.parentElement) {
+      if (el.tagName === "DETAILS" && el.id !== "section-settings") {
+        expect((el as HTMLDetailsElement).open).toBe(true);
+      }
+    }
   });
 
   it("removes a component with an Undo toast that puts it back where it was", async () => {
@@ -237,7 +244,6 @@ describe("App", () => {
         viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(stubSceneFactory()) },
       },
     });
-    fireEvent.click(screen.getByLabelText("Advanced"));
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     openTab("3D");
     await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
@@ -298,17 +304,8 @@ describe("App", () => {
     });
   });
 
-  it("offers no locks or swaps in the simple plan", () => {
-    renderApp({ project: withLayoutProject() });
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
-    for (const name of ["Lock size", "Lock position", "Swap with…"]) {
-      expect(screen.queryByRole("button", { name })).toBeNull();
-    }
-  });
-
-  it("locks and unlocks a tray's size from the tray details in Advanced", () => {
+  it("locks and unlocks a tray's size from the tray details", () => {
     const { store } = renderApp({ project: withLayoutProject() });
-    fireEvent.click(screen.getByLabelText("Advanced"));
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Lock size" }));
     expect(store.state.project.value.locks).toEqual([
@@ -601,7 +598,6 @@ describe("App", () => {
       makeTray({ key: "c:p1:0", path: "1", stack: 1, x: 110 }),
     ];
     const { store } = renderApp({ project: { ...p, layout: makeLayout(inputsHash(p), trays) } });
-    fireEvent.click(screen.getByLabelText("Advanced"));
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Lock position" }));
     const locks = store.state.project.value.locks;

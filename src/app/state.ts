@@ -14,7 +14,6 @@ import { errorText } from "../util/errors";
 import { createHistory } from "./history";
 import type { History } from "./history";
 
-export type Mode = "simple" | "advanced";
 export type RunKind = "edit" | "improve";
 export type RunState =
   | { status: "idle" }
@@ -33,7 +32,6 @@ export interface State {
   project: Signal<Project>;
   foreign: Signal<ForeignData>;
   projects: Signal<ProjectListEntry[]>;
-  mode: Signal<Mode>;
   run: Signal<RunState>;
   lastResult: Signal<LayoutResult | null>;
   /** The inputs hash `lastResult` was computed for; its notices show only while it is current. */
@@ -217,7 +215,6 @@ export function createState(
     project,
     foreign: signal(foreign),
     projects: signal<ProjectListEntry[]>([]),
-    mode: signal<Mode>("simple"),
     run,
     lastResult,
     lastResultHash,

@@ -1,5 +1,5 @@
 // src/ui/SettingsForm.tsx
-import { useState } from "preact/hooks";
+import { useContext, useRef, useState } from "preact/hooks";
 import {
   DEFAULT_SETTINGS,
   FINGER_DIVIDER_ROOM_MM,
@@ -21,6 +21,7 @@ import { CheckField, SelectField } from "./fields";
 import type { SelectOption } from "./fields";
 import { NumberField, formatNumber } from "./NumberField";
 import { SETTING_SETTERS, settingUnit } from "./settingsFields";
+import { ValidationContext } from "./validation";
 
 export interface SettingsFormProps {
   settings: Settings;
@@ -144,7 +145,19 @@ function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void
 }
 const wallAbsorbRange = SETTING_RANGES.find((r) => r.path === WALL_ABSORB_PATH);
 
+const PANEL_PATHS: ReadonlySet<string> = new Set(PANEL_RANGES.map((r) => `/settings/${r.path}`));
+
 export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps) {
+  const notices = useContext(ValidationContext);
+  const hasError = notices.some(
+    (n) => n.level === "error" && n.path !== undefined && PANEL_PATHS.has(n.path),
+  );
+  // An error in a field of the closed "Exact values" opens it, and it stays open while the user
+  // fixes the error.
+  const forced = useRef(false);
+  if (hasError) {
+    forced.current = true;
+  }
   if (!advanced) {
     return (
       <div class="form-grid">
@@ -156,7 +169,7 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
   return (
     <div class="form-grid">
       <SimpleChoices settings={settings} onChange={onChange} />
-      <details class="pf-disc">
+      <details class="pf-disc" open={forced.current || undefined}>
         <summary>
           Exact values
           {changed.length > 0 ? <span class="pf-count">{`${changed.length} changed`}</span> : null}

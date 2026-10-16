@@ -38,6 +38,28 @@ describe("SETTING_SETTERS", () => {
 });
 
 describe("SettingsForm", () => {
+  it("opens Exact values for an error in a field inside, and keeps it open once fixed", () => {
+    const error = {
+      level: "error" as const,
+      code: "field.setting",
+      message: "Bottom chamfer is too big",
+      path: "/settings/bottomChamfer",
+    };
+    const form = (notices: (typeof error)[]) => (
+      <ValidationContext.Provider value={notices}>
+        <SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={vi.fn()} />
+      </ValidationContext.Provider>
+    );
+    const view = render(form([]));
+    const disc = (): HTMLDetailsElement =>
+      document.querySelector("details.pf-disc") as HTMLDetailsElement;
+    expect(disc().open).toBe(false);
+    view.rerender(form([error]));
+    expect(disc().open).toBe(true);
+    view.rerender(form([]));
+    expect(disc().open).toBe(true);
+  });
+
   it("writes resolved values from the simple choices", () => {
     const onChange = vi.fn();
     render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
