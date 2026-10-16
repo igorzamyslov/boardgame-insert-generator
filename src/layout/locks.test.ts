@@ -37,6 +37,7 @@ describe("resolveLocks", () => {
     expect(r.conflicts).toEqual([
       {
         trayKey: "c:p0:2",
+        kind: "position",
         name: "a tray that no longer exists",
         reason: "the component it was on was removed or changed",
       },
@@ -70,17 +71,20 @@ describe("resolveLocks", () => {
     const { conflicts } = resolveLocks(ctx, locks);
     expect(conflicts).toContainEqual({
       trayKey: "cowsarwz:p0:0",
+      kind: "position",
       name: "Deck ×50",
       reason: "this tray can't be rotated",
     });
     expect(conflicts).toContainEqual({
       trayKey: "other:p0:0",
+      kind: "position",
       name: "Tokens ×20",
       reason: 'it conflicts with the position lock on "Deck ×50"',
     });
     // a stack lock is named by its trays; the key to unpin is its first tray
     expect(conflicts).toContainEqual({
       trayKey: "cowsarwz:p0:0",
+      kind: "stack",
       name: "Deck ×50, a tray that no longer exists",
       reason: "the component it was on was removed or changed",
     });
@@ -124,7 +128,8 @@ describe("resolveLocks", () => {
     expect(r.resolved.kept.map((l) => (l.kind === "position" ? l.trayKey : ""))).toEqual([
       "a:p0:0",
     ]);
-    expect(r.conflicts.map((c) => c.trayKey).sort()).toEqual(["b:p0:0", "b:p0:0", "c:p0:0"]);
+    // two conflicting locks on one tray and kind are listed once
+    expect(r.conflicts.map((c) => c.trayKey).sort()).toEqual(["b:p0:0", "c:p0:0"]);
     expect(r.resolved.lockedPaths).toEqual(["01"]);
   });
 

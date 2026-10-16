@@ -176,6 +176,54 @@ describe("runner", () => {
       expect(state.lockConflicts.value).toEqual([conflict]);
     });
 
+    it("shows what a search that found no plan reports, next to the conflicts", async () => {
+      const p = fixtureProject();
+      const old = makeLayout(inputsHash({ ...p, locks }));
+      const { state, stub, runner } = setup({ ...p, locks, layout: old });
+      void runner.runNow("edit", "user");
+      await flush();
+      const call = stub.calls[0];
+      if (!call) {
+        throw new Error("no run");
+      }
+      const shortfall = { x: 12, y: 0, z: 0 };
+      const doesNotFit: Notice = {
+        level: "error",
+        code: NOTICE_CODES.doesNotFit,
+        message: "Nothing fits.",
+      };
+      call.resolve(
+        makeResult(null, {
+          bestAttempt: { trays: [], shortfall },
+          notices: [doesNotFit],
+          lockConflicts: [conflict],
+        }),
+      );
+      await flush();
+      expect(state.lockConflicts.value).toEqual([conflict]);
+      expect(state.shortfall.value).toEqual(shortfall);
+      expect(state.layoutNotices.value).toContainEqual(doesNotFit);
+      // no project change
+      expect(state.project.value.locks).toEqual(locks);
+      expect(state.project.value.layout).toBe(old);
+      expect(state.history.canUndo.value).toBe(false);
+    });
+
+    it("discards a run that reported pins without searching, and doesn't count it as a failed search", async () => {
+      const p = fixtureProject();
+      const { state, stub, runner } = setup({ ...p, locks });
+      void runner.runNow("edit", "user");
+      await flush();
+      stub.calls[0]?.resolve(makeResult(null, { lockConflicts: [conflict] }));
+      await flush();
+      expect(state.lockConflicts.value).toEqual([conflict]);
+      expect(state.lastResult.value).toBeNull();
+      // a repeat gets the normal budget: nothing was searched
+      void runner.runNow("edit", "user");
+      await flush();
+      expect(stub.calls[1]?.iterations).toBe(DEFAULT_ITERATIONS);
+    });
+
     it("clears the conflicts when a later run has none, and accepts that plan", async () => {
       const { state, stub, runner } = await conflicted();
       state.project.value = {

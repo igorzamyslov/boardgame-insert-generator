@@ -132,7 +132,7 @@ export function toggleLock(p: Project, tray: TraySpec): Project {
     return p;
   }
   // The whole stack: locking one tray of a stack alone would put it on the floor and evict
-  // the trays under and over it (plan 4 drops such a lock with a notice).
+  // the trays under and over it (a run reports such a lock as a pin conflict).
   const stack = (p.layout?.trays ?? [])
     .filter((t) => t.part === "tray" && t.path === tray.path)
     .sort((a, b) => a.level - b.level);

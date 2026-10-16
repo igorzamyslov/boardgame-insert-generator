@@ -101,11 +101,25 @@ export function conflictOf(lock: Lock, reason: string, name: TrayNamer): LockCon
   if (lock.kind === "stack") {
     return {
       trayKey: lock.trayKeys[0] ?? "",
+      kind: lock.kind,
       name: lock.trayKeys.map(name).join(", "),
       reason,
     };
   }
-  return { trayKey: lock.trayKey, name: name(lock.trayKey), reason };
+  return { trayKey: lock.trayKey, kind: lock.kind, name: name(lock.trayKey), reason };
+}
+
+/** One conflict per tray and kind of lock (the first reason found), so a duplicate lock lists once. */
+export function dedupeConflicts(conflicts: readonly LockConflict[]): LockConflict[] {
+  const seen = new Set<string>();
+  return conflicts.filter((c) => {
+    const key = `${c.trayKey}|${c.kind ?? ""}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 /**
@@ -142,7 +156,7 @@ export function resolveLocks(
   for (;;) {
     const pass = resolveOnce(ctx, live, hints);
     if (pass.lateDropped.size === 0) {
-      return { resolved: pass.resolved, conflicts: [...late, ...pass.conflicts] };
+      return { resolved: pass.resolved, conflicts: dedupeConflicts([...late, ...pass.conflicts]) };
     }
     late.push(...pass.lateConflicts);
     live = live.filter((l) => !pass.lateDropped.has(l));

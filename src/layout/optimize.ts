@@ -7,6 +7,7 @@ import { greedyTree, partitionTrees } from "./greedy";
 import {
   applyLocks,
   conflictOf,
+  dedupeConflicts,
   moveEnvOf,
   noLocks,
   resolveLocks,
@@ -185,7 +186,10 @@ export function createRun(
   const main = startPhase(input, seed, budget, opts, hints, true);
   let derived: Phase | null = null;
   let fallback: Phase | null = null;
-  let finished = false;
+  // Pins the layout can't keep make the result unusable (the caller discards it), so such a run
+  // reports them without searching.
+  const skipped = main.conflicts.length > 0;
+  let finished = skipped;
   let stop: StopReason | null = null;
 
   const chains = (): Phase[] => [main, derived, fallback].filter((p) => p !== null);
@@ -193,13 +197,22 @@ export function createRun(
 
   const build = (): LayoutResult => {
     const phase = feasible();
+    if (skipped) {
+      return {
+        layout: null,
+        bestAttempt: null,
+        summary: null,
+        notices: [],
+        lockConflicts: main.conflicts,
+      };
+    }
     const notices: Notice[] = [];
     // Pins the layout had to ignore: never dropped, reported for the caller to refuse the layout.
     const lockConflicts: LockConflict[] = [...main.conflicts];
     if (phase !== undefined && phase === fallback) {
       for (const lock of main.resolved.kept) {
         lockConflicts.push(
-          conflictOf(lock, "no layout that keeps it fits in the box", trayNamer(phase.ctx)),
+          conflictOf(lock, "the pins together leave no layout that fits", trayNamer(phase.ctx)),
         );
       }
     }
@@ -227,7 +240,7 @@ export function createRun(
         bestAttempt: null,
         summary,
         notices,
-        lockConflicts,
+        lockConflicts: dedupeConflicts(lockConflicts),
       };
     }
     // Nothing fits: report the least-overflow attempt of the chains that keep the locks (the
@@ -251,7 +264,7 @@ export function createRun(
       bestAttempt: { trays: attemptTrays, shortfall },
       summary: null,
       notices,
-      lockConflicts,
+      lockConflicts: dedupeConflicts(lockConflicts),
     };
   };
 
@@ -283,6 +296,9 @@ export function createRun(
       return chains().reduce((sum, p) => sum + p.annealer.done, 0);
     },
     get total() {
+      if (skipped) {
+        return 0;
+      }
       const locked = main.resolved.kept.length > 0 ? 1 : 0;
       let ahead = 0;
       if (feasible() === undefined) {

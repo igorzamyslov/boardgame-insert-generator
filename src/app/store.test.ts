@@ -295,6 +295,43 @@ describe("app store", () => {
       expect(store.state.lockConflicts.value).toEqual([]);
     });
 
+    it("lists no conflict for a pin the moment it is removed, before the re-run is back", async () => {
+      const { store, stub } = await conflicted();
+      store.unpin("a:p0:0");
+      expect(store.state.lockConflicts.value).toEqual([]);
+      expect(stub.calls).toHaveLength(1);
+    });
+
+    it("removes only the conflicting kind of lock when given one", async () => {
+      const s = setup();
+      const p = { ...fixtureProject(), locks };
+      const sizeConflict = {
+        trayKey: "c:p0:0",
+        kind: "size" as const,
+        name: "Deck C",
+        reason: "its contents no longer fit that size",
+      };
+      const both: Lock[] = [
+        { kind: "position", trayKey: "c:p0:0", path: "1", rotated: false },
+        locks[3] as Lock,
+      ];
+      const withBoth = { ...p, locks: both };
+      s.store.start(
+        encodeHash({ ...withBoth, layout: makeLayout(inputsHash(withBoth)) }, EMPTY_FOREIGN),
+      );
+      s.store.refit();
+      await flush();
+      const call = s.stub.calls[0];
+      call?.resolve(
+        makeResult(makeLayout(call.input.inputsHash), { lockConflicts: [sizeConflict] }),
+      );
+      await flush();
+      expect(s.store.state.lockConflicts.value).toEqual([sizeConflict]);
+      s.store.unpin("c:p0:0", "size");
+      expect(s.store.state.project.value.locks).toEqual([both[0]]);
+      expect(s.store.state.lockConflicts.value).toEqual([]);
+    });
+
     it("removes that tray's pin and the stack lock around it, then re-runs", async () => {
       const { store, stub } = await conflicted();
       store.unpin("a:p0:0");

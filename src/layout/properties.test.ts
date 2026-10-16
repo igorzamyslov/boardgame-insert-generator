@@ -176,12 +176,22 @@ describe("hard rules (spec §3) on random inputs", () => {
         const locks: Lock[] = [
           { kind: "position", trayKey: t.key, path: t.path, rotated: t.rotated },
           { kind: "size", trayKey: t.key, w: t.w, d: t.d, h: t.h },
-          { kind: "position", trayKey: "ghost:p0:0", path: "1", rotated: false },
         ];
         const locked = { ...input, locks };
         const r = optimize(locked, seed, 200, { warmStart: first.layout });
-        expectValid(locked, r);
-        expect(r.lockConflicts.some((c) => c.trayKey === "ghost:p0:0")).toBe(true);
+        if (r.layout === null && r.bestAttempt === null) {
+          // pins that conflict up front are reported without a search
+          expect(r.lockConflicts.length).toBeGreaterThan(0);
+        } else {
+          expectValid(locked, r);
+        }
+        // a pin on a tray that doesn't exist is reported, without a search
+        const ghost: Lock = { kind: "position", trayKey: "ghost:p0:0", path: "1", rotated: false };
+        const withGhost = optimize({ ...locked, locks: [...locks, ghost] }, seed, 200, {
+          warmStart: first.layout,
+        });
+        expect(withGhost.lockConflicts.map((c) => c.trayKey)).toContain("ghost:p0:0");
+        expect(withGhost.layout).toBeNull();
       }),
       { numRuns: 100 },
     );

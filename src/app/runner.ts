@@ -63,6 +63,13 @@ export function buildLayoutInput(p: Project): LayoutInput {
   };
 }
 
+/** The run searched and found no layout: its best attempt is what it reports. */
+function searchedInfeasible(result: LayoutResult): boolean {
+  return (
+    result.layout === null && (result.lockConflicts.length === 0 || result.bestAttempt !== null)
+  );
+}
+
 export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks): Runner {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let token = 0;
@@ -112,8 +119,10 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
     const current = state.project.value;
     // Pins are never dropped silently: a run that had to ignore some did not lay out the project
     // the user asked for, so its plan is not accepted. The previous plan, the history and the pins
-    // stay as they were; the conflicts are listed for the user to unpin (which runs again).
-    if (result.lockConflicts.length > 0) {
+    // stay as they were; the conflicts are listed for the user to unpin (which runs again). A run
+    // that found no plan at all (it searched, and nothing fits even without the pins) is kept as
+    // the infeasible result it is, so its notice and shortfall show; it changes no project.
+    if (result.lockConflicts.length > 0 && !searchedInfeasible(result)) {
       batch(() => {
         state.lockConflicts.value = result.lockConflicts;
         state.run.value = { status: "done" };
@@ -127,7 +136,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
     batch(() => {
       state.lastResult.value = result;
       state.lastResultHash.value = inputsHash(current);
-      state.lockConflicts.value = [];
+      state.lockConflicts.value = result.lockConflicts;
       if (next !== current) {
         if (result.layout && hadCurrentPlan) {
           state.history.ensureBase(current);
@@ -206,7 +215,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
         state.run.value = { status: "idle" };
         return;
       }
-      failedRun = result.layout === null ? { hash: input.inputsHash, iterations } : null;
+      failedRun = searchedInfeasible(result) ? { hash: input.inputsHash, iterations } : null;
       accept(result);
     } catch (e) {
       if (my !== token) {

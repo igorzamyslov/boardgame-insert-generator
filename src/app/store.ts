@@ -2,10 +2,11 @@
 import { batch } from "@preact/signals";
 import type { ReadonlySignal } from "@preact/signals";
 import { newProject } from "../model/defaults";
-import type { Notice, Project } from "../model/types";
+import type { Lock, Notice, Project } from "../model/types";
 import { STORAGE_PREFIX } from "../share";
 import type { ProjectStore } from "../share";
 import { removeLock } from "./actions";
+import type { LockConflict } from "../layout/types";
 import type { LayoutClient } from "./clients";
 import { createPersistence } from "./persistence";
 import type { ConflictChoice } from "./persistence";
@@ -24,6 +25,15 @@ export interface AppDeps {
 
 export const COALESCE_MS = 1000;
 
+/** True while some lock still is the one a conflict is about. */
+function lockStillThere(c: LockConflict, locks: readonly Lock[]): boolean {
+  return locks.some(
+    (l) =>
+      (c.kind === undefined || l.kind === c.kind) &&
+      (l.kind === "stack" ? l.trayKeys.includes(c.trayKey) : l.trayKey === c.trayKey),
+  );
+}
+
 function sameComponents(a: Project, b: Project): boolean {
   return (
     a.components.length === b.components.length &&
@@ -41,10 +51,11 @@ export interface AppStore {
   canUndo: ReadonlySignal<boolean>;
   canRedo: ReadonlySignal<boolean>;
   /**
-   * Removes every lock on this tray (its pin, a stack lock it is in, a size lock) and re-runs. For
-   * the pins a run reported in `state.lockConflicts`, which it did not keep.
+   * Removes the locks on this tray (its pin, a stack lock it is in, its size lock; only those of
+   * `kind` when given) and re-runs. For the pins a run reported in `state.lockConflicts`, which
+   * it did not keep: pass the conflict's `kind` so the tray's other locks stay.
    */
-  unpin(trayKey: string): void;
+  unpin(trayKey: string, kind?: Lock["kind"]): void;
   /** Re-fits from the current layout: the normal budget when there is no layout or it is stale
    * (an edit) or made under older geometry, the bigger "keep searching" budget when the layout is current. */
   refit(): void;
@@ -107,6 +118,12 @@ export function createAppStore(deps: AppDeps): AppStore {
       // Typing in a field is one step; adding or removing a component never merges into its neighbours.
       state.history.push(next, sameComponents(before, next) ? { coalesceMs: COALESCE_MS } : {});
       state.project.value = next;
+      // A conflict whose lock the edit removed is settled now, not after the next run.
+      if (next.locks !== before.locks && state.lockConflicts.value.length > 0) {
+        state.lockConflicts.value = state.lockConflicts.value.filter((c) =>
+          lockStillThere(c, next.locks),
+        );
+      }
     });
     persistence.scheduleSave();
     if (state.currentHash.value !== beforeHash) {
@@ -126,8 +143,8 @@ export function createAppStore(deps: AppDeps): AppStore {
     redo() {
       restore(state.history.redo());
     },
-    unpin(trayKey) {
-      edit((p) => removeLock(p, trayKey));
+    unpin(trayKey, kind) {
+      edit((p) => removeLock(p, trayKey, kind));
     },
     refit() {
       const current =

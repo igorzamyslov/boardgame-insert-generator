@@ -80,12 +80,11 @@ function overlap3d(a: TraySpec, b: TraySpec): boolean {
 
 /**
  * True when the layout ignored this lock: a conflict names its tray (a stack lock: its first
- * tray). A conflict doesn't say which kind of lock it is about, so another lock on the same
- * tray counts as ignored too.
+ * tray) and its kind.
  */
 export function isDropped(lock: Lock, conflicts: readonly LockConflict[]): boolean {
   const key = lock.kind === "stack" ? lock.trayKeys[0] : lock.trayKey;
-  return conflicts.some((c) => c.trayKey === key);
+  return conflicts.some((c) => c.trayKey === key && (c.kind === undefined || c.kind === lock.kind));
 }
 
 export function checkHardRules(

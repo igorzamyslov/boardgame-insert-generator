@@ -168,7 +168,22 @@ describe("optimize", () => {
     const r = optimize(makeInput(tall, { box, locks }), 1, 1000);
     expect(r.layout).not.toBeNull();
     expect(r.lockConflicts.map((c) => c.trayKey)).toEqual(["p:p0:0", "q:p0:0"]);
-    expect(r.lockConflicts[0]?.reason).toBe("no layout that keeps it fits in the box");
+    expect(r.lockConflicts[0]?.reason).toBe("the pins together leave no layout that fits");
+  });
+
+  it("reports pins that conflict up front without searching", () => {
+    const locks = [{ kind: "position" as const, trayKey: "ghost:p0:0", path: "0", rotated: false }];
+    const input = makeInput([boxReq("a", 50, 50, 20)], { locks });
+    const run = createRun(input, 1, 5000);
+    expect(run.step()).toBe(true);
+    expect(run.done).toBe(0);
+    const r = run.result();
+    expect(r.layout).toBeNull();
+    expect(r.bestAttempt).toBeNull();
+    expect(r.notices).toEqual([]);
+    expect(r.lockConflicts).toEqual([
+      expect.objectContaining({ trayKey: "ghost:p0:0", kind: "position" }),
+    ]);
   });
 
   // Review focus: a single requirement filling exactly the whole box.

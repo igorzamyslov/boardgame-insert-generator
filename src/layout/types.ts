@@ -37,6 +37,8 @@ export interface LayoutSummary {
 export interface LockConflict {
   /** The pinned tray; for a stack lock, its first tray. */
   trayKey: string;
+  /** Which of the tray's locks conflicts (a tray can have a pin and a size lock). */
+  kind?: Lock["kind"];
   /** What the user calls the tray (a stack lock: its trays, comma separated). */
   name: string;
   /** Why the pin can't be kept, as a phrase continuing "…because": no trailing period. */
