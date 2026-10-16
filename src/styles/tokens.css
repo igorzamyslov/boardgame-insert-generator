@@ -55,6 +55,14 @@
   --warn-wash: var(--bits-fill);
   --shadow-sheet: 0 1px 0 rgb(29 31 28 / 8%), 0 10px 24px -14px rgb(29 31 28 / 30%);
 
+  /* The X, Y and Z of the 3D view's axis indicator, one hue each. */
+  --axis-x: #d03a3a;
+  --axis-y: #2a8a3e;
+  --axis-z: #3466d1;
+
+  /* Paper: the packing guide's pictures are drawn for white paper, whatever the screen theme. */
+  --paper-white: #ffffff;
+
   /* Rhythm. */
   --space-1: 4px;
   --space-2: 8px;
@@ -131,6 +139,13 @@
     --on-warn: #1b1a17;
     --on-focus: #1b1a17;
     --shadow-sheet: 0 1px 0 rgb(0 0 0 / 50%), 0 10px 24px -14px rgb(0 0 0 / 80%);
+
+    --axis-x: #f0807a;
+    --axis-y: #6fcf86;
+    --axis-z: #7da3f0;
+
+    /* The same white: the pictures are always drawn for paper. */
+    --paper-white: #ffffff;
   }
 }
 

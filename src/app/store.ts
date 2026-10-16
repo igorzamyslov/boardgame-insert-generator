@@ -115,6 +115,13 @@ export function createAppStore(deps: AppDeps): AppStore {
       state.project.value = project;
       // a run for the restored project reports its own conflicts
       state.lockConflicts.value = [];
+      // A "Swap with…" under way belongs to the plan it began in, and a selected tray that is not
+      // in the restored plan has gone: either would act on a tray that is not there.
+      state.swapFrom.value = null;
+      const selected = state.selection.value;
+      if (selected !== null && !project.layout?.trays.some((t) => t.key === selected)) {
+        state.selection.value = null;
+      }
     });
     persistence.scheduleSave();
     if (project.layout === undefined || state.stale.value) {

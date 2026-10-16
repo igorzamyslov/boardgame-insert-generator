@@ -1112,10 +1112,6 @@ span.inserts-name {
   pointer-events: none;
   overflow: visible;
   font: 700 12px/1 var(--font-ui);
-
-  --axis-x: #d03a3a;
-  --axis-y: #2a8a3e;
-  --axis-z: #3466d1;
 }
 
 .axis-gizmo [data-axis="x"] {
@@ -1162,7 +1158,7 @@ span.inserts-name {
   touch-action: pan-y;
 }
 
-@media (width <= 600px) {
+@media (width < 600px) {
   .viewer-canvas {
     height: min(45vh, 320px);
     height: min(45dvh, 320px);

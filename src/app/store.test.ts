@@ -17,6 +17,7 @@ import {
   flush,
   makeLayout,
   makeResult,
+  makeTray,
   stubLayoutClient,
   withoutLayout,
 } from "./test-helpers";
@@ -109,6 +110,36 @@ describe("app store", () => {
     await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
     await flush();
     expect(stub.calls).toHaveLength(1);
+  });
+
+  it("undo ends a swap under way, and clears a selection whose tray is not in the restored plan", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    const old = makeLayout(inputsHash(p), [makeTray({ key: "a:p0:0" })]);
+    store.start(encodeHash({ ...p, layout: old }, EMPTY_FOREIGN));
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    const call = stub.calls[0];
+    const next = makeLayout(call?.input.inputsHash ?? "", [
+      makeTray({ key: "a:p0:0" }),
+      makeTray({ key: "z:p0:0" }),
+    ]);
+    call?.resolve(makeResult(next));
+    await flush();
+    store.state.selection.value = "z:p0:0";
+    store.state.swapFrom.value = "z:p0:0";
+    store.undo();
+    // z is not in the old plan: nothing is selected and no swap waits for a second tile
+    expect(store.state.selection.value).toBeNull();
+    expect(store.state.swapFrom.value).toBeNull();
+    // redo, then a tray that is in both plans stays selected; only the swap ends
+    store.redo();
+    store.state.selection.value = "a:p0:0";
+    store.state.swapFrom.value = "a:p0:0";
+    store.undo();
+    expect(store.state.selection.value).toBe("a:p0:0");
+    expect(store.state.swapFrom.value).toBeNull();
   });
 
   it("redo reapplies the edit and its plan", async () => {

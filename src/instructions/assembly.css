@@ -103,7 +103,7 @@
   height: auto;
   border: 1px solid var(--rule);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--paper-white);
 }
 
 .parts-table {

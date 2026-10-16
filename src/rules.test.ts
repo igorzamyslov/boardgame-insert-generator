@@ -101,4 +101,35 @@ describe("rules", () => {
     }
     expect(uses).toBeLessThanOrEqual(70);
   });
+
+  // DESIGN §2 Colour: every colour comes from a token. Hex lives in tokens.css; the print rules of
+  // the packing guide are the exemption (paper is black on white whatever the screen uses).
+  it("writes no raw hex colour in component CSS, outside tokens.css and print rules", () => {
+    const found: string[] = [];
+    for (const [path, css] of Object.entries(styles)) {
+      if (path.endsWith("/tokens.css")) {
+        continue;
+      }
+      let source = css.replace(/\/\*[\s\S]*?\*\//g, "");
+      for (;;) {
+        const at = source.indexOf("@media print");
+        if (at === -1) {
+          break;
+        }
+        let depth = 0;
+        let end = source.indexOf("{", at);
+        for (; end < source.length; end += 1) {
+          depth += source[end] === "{" ? 1 : source[end] === "}" ? -1 : 0;
+          if (depth === 0) {
+            break;
+          }
+        }
+        source = source.slice(0, at) + source.slice(end + 1);
+      }
+      for (const m of source.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) {
+        found.push(`${path}: ${m[0]}`);
+      }
+    }
+    expect(found).toEqual([]);
+  });
 });

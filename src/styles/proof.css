@@ -365,13 +365,6 @@
   }
 }
 
-@media (width <= 520px) {
-
-  .pf-app__stage {
-    padding: var(--space-3);
-  }
-}
-
 /* Accordion section: a title and a one-line summary; one open at a time (shared name on the details). */
 .pf-acc {
   border-bottom: 1px solid var(--rule);

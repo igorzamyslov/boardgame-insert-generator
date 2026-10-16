@@ -255,7 +255,8 @@ scheme)`, with `"light"` for paper. `viewer/shades.ts` and `plan/glyph.ts` go th
   component that reads its CSS as `?raw`.
 - MUST keep the breakpoints in step with the JS. `PHONE_QUERY` `(width < 760px)` and
   `NARROW_QUERY` `(width < 600px)` in `ui/useMediaQuery.ts` must match `style.css`.
-  `style.test.ts` checks the phone line.
+  `style.test.ts` checks both lines, and that no other `@media` width exists beyond the ruled
+  760 to 960 px tablet rail.
 - SHOULD prefer attributes over `:has()` and DOM queries for state-driven styling. For example,
   `BottomSheet` sets `data-editing`, `data-full` and `data-expanded`, and App passes a
   `handleRef` instead of `querySelector(".pf-sheet__handle")`.
