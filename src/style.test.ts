@@ -111,6 +111,14 @@ describe("style.css", () => {
     expect(ruleFor(".viewer-stage")).toMatch(/position:\s*relative/);
   });
 
+  it("keeps the axes toggle in the view's corner with a 44 px target", () => {
+    const body = ruleFor(".viewer-axes-toggle");
+    expect(body).toMatch(/position:\s*absolute/);
+    expect(body).toMatch(/min-width:\s*var\(--control-h\)/);
+    expect(body).toMatch(/min-height:\s*var\(--control-h\)/);
+    expect(ruleFor(".viewer-selection")).toMatch(/pointer-events:\s*none/);
+  });
+
   it("lets one finger scroll the page past the 3D canvas and shortens it on phones", () => {
     const body = ruleFor(".viewer-canvas");
     expect(body).toMatch(/touch-action:\s*pan-y/);

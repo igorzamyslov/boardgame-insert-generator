@@ -731,6 +731,46 @@ span.inserts-name {
   position: relative;
 }
 
+/* The corner controls sit over the canvas: the axes toggle top right, the selected tray's name top left. */
+.viewer-axes-toggle {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0;
+}
+
+.viewer-axes-toggle svg {
+  width: 24px;
+  height: 24px;
+}
+
+.viewer-axes-toggle[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.viewer-selection {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  max-width: calc(100% - var(--control-h) - var(--space-2) * 3);
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--sheet);
+  color: var(--ink);
+  font: 600 14px/20px var(--font-ui);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .axis-gizmo {
   position: absolute;
   bottom: var(--space-2);

@@ -38,8 +38,7 @@ interface TrayObject {
 
 const CLICK_SLOP_PX = 5;
 
-/** Frees the renderer and, since browsers keep only a few, the WebGL context behind it. */
-/** A tint as a lit surface needs it: the dark-scheme tints are lifted so the shading shows. */
+/** A shade as a lit surface needs it: the dark-scheme shades are lifted so the shading shows. */
 function litColor(css: string): Color {
   const c = new Color(css);
   const hsl = { h: 0, s: 0, l: 0 };
@@ -47,6 +46,7 @@ function litColor(css: string): Color {
   return hsl.l < 0.4 ? c.setHSL(hsl.h, Math.min(1, hsl.s + 0.1), hsl.l + 0.25) : c;
 }
 
+/** Frees the renderer and, since browsers keep only a few, the WebGL context behind it. */
 function release(renderer: WebGLRenderer): void {
   renderer.dispose();
   renderer.forceContextLoss();
@@ -213,7 +213,8 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         geometry.setIndex(new BufferAttribute(mesh.indices, 1));
         geometry.computeVertexNormals();
         // A part with no colour of its own takes the neutral, not a hue of its own: colour here
-        // means "this is that component", so an invented one would claim an identity it hasn't got.
+        // means "this is that component" (its shade, as in the top view), so an invented one
+        // would claim an identity it hasn't got.
         const material = new MeshStandardMaterial({
           color: litColor(color ?? SPARE_COLOR),
           flatShading: true,
