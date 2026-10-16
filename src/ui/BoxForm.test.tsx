@@ -12,7 +12,7 @@ afterEach(cleanup);
 describe("BoxForm", () => {
   it("labels the size fields and commits decimal-comma input", () => {
     const onChange = vi.fn();
-    render(<BoxForm box={DEFAULT_BOX} advanced={false} onChange={onChange} />);
+    render(<BoxForm box={DEFAULT_BOX} onChange={onChange} />);
     fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "290,5" } });
     expect(onChange).toHaveBeenCalledWith({ innerWidth: 290.5 });
     expect(screen.getByLabelText(/^Length/)).toBeTruthy();
@@ -23,21 +23,9 @@ describe("BoxForm", () => {
     expect(screen.getAllByText(/narrowest point/)).toHaveLength(1);
   });
 
-  it("shows only the three size fields in simple mode", () => {
-    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced={false} onChange={vi.fn()} />);
-    expect(document.querySelector(".pf-adv")).toBeNull();
-    expect(screen.queryByLabelText(/Headroom/)).toBeNull();
-    expect(screen.queryByLabelText(/Covered by boards/)).toBeNull();
-    expect(screen.queryByLabelText(/stored on its side/)).toBeNull();
-  });
-
-  it("adds an Advanced block with headroom and the side-storage switch in advanced mode", () => {
+  it("offers headroom and the side-storage switch beside the size fields", () => {
     const onChange = vi.fn();
-    const view = render(
-      <BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced onChange={onChange} />,
-    );
-    expect(screen.getByLabelText("Headroom (mm)").closest(".pf-adv")).not.toBeNull();
-    expect(view.container.querySelector(".pf-adv")).toBeTruthy();
+    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={onChange} />);
     expect(screen.getByLabelText(/^Headroom/)).toBeTruthy();
     expect(screen.getByLabelText(/stored on its side/)).toBeTruthy();
     expect(screen.getByText(/plus 1 mm for warp/)).toBeTruthy();
@@ -46,17 +34,15 @@ describe("BoxForm", () => {
   });
 
   it("hides headroom coverage when headroom is 0", () => {
-    const view = render(
-      <BoxForm box={{ ...DEFAULT_BOX, headroom: 0 }} advanced onChange={vi.fn()} />,
-    );
+    const view = render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 0 }} onChange={vi.fn()} />);
     expect(screen.queryByLabelText("Covered by boards")).toBeNull();
-    view.rerender(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced onChange={vi.fn()} />);
+    view.rerender(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={vi.fn()} />);
     expect(screen.getByLabelText("Covered by boards")).toBeTruthy();
   });
 
   it("toggles stored-on-side and coverage", () => {
     const onChange = vi.fn();
-    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced onChange={onChange} />);
+    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(/stored on its side/));
     expect(onChange).toHaveBeenCalledWith({ storedOnSide: true });
     fireEvent.change(screen.getByLabelText("Covered by boards"), { target: { value: "partial" } });
@@ -69,7 +55,7 @@ describe("PrinterForm", () => {
     expect(bedPresetOf(DEFAULT_PRINTER)).toBe("bambu-256");
     expect(bedPresetOf({ ...DEFAULT_PRINTER, bedX: 300 })).toBe("custom");
     const onChange = vi.fn();
-    render(<PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={onChange} />);
+    render(<PrinterForm printer={DEFAULT_PRINTER} onChange={onChange} />);
     expect(screen.queryByLabelText(/Bed X/)).toBeNull();
     fireEvent.change(screen.getByLabelText("Print bed"), { target: { value: "prusa-mk4" } });
     expect(onChange).toHaveBeenCalledWith({ bedX: 250, bedY: 210, bedZ: 220 });
@@ -77,7 +63,7 @@ describe("PrinterForm", () => {
 
   it("shows X/Y/Z for a custom bed", () => {
     const onChange = vi.fn();
-    render(<PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={onChange} />);
+    render(<PrinterForm printer={DEFAULT_PRINTER} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Print bed"), { target: { value: "custom" } });
     fireEvent.input(screen.getByLabelText(/Bed X/), { target: { value: "300" } });
     expect(onChange).toHaveBeenCalledWith({ bedX: 300 });
@@ -85,12 +71,8 @@ describe("PrinterForm", () => {
     expect(screen.getByLabelText(/Bed Z/)).toBeTruthy();
   });
 
-  it("shows bed margin and layer height only in advanced mode", () => {
-    const view = render(
-      <PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={vi.fn()} />,
-    );
-    expect(screen.queryByLabelText(/Bed margin/)).toBeNull();
-    view.rerender(<PrinterForm printer={DEFAULT_PRINTER} advanced onChange={vi.fn()} />);
+  it("shows bed margin and layer height", () => {
+    render(<PrinterForm printer={DEFAULT_PRINTER} onChange={vi.fn()} />);
     expect(screen.getByLabelText(/Bed margin/)).toBeTruthy();
     expect(screen.getByLabelText(/Layer height/)).toBeTruthy();
   });
@@ -98,15 +80,13 @@ describe("PrinterForm", () => {
 
 describe("PrinterForm custom bed", () => {
   it("drops a custom choice when another project's preset bed is loaded", () => {
-    const view = render(
-      <PrinterForm printer={DEFAULT_PRINTER} advanced={false} onChange={vi.fn()} />,
-    );
+    const view = render(<PrinterForm printer={DEFAULT_PRINTER} onChange={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Print bed"), { target: { value: "custom" } });
     expect(screen.getByLabelText(/Bed X/)).toBeTruthy();
     view.rerender(
       <PrinterForm
         printer={{ ...DEFAULT_PRINTER, bedX: 250, bedY: 210, bedZ: 220 }}
-        advanced={false}
+
         onChange={vi.fn()}
       />,
     );
@@ -120,7 +100,7 @@ describe("PrinterForm custom bed", () => {
       return (
         <PrinterForm
           printer={printer}
-          advanced={false}
+
           onChange={(patch) => setPrinter((p) => ({ ...p, ...patch }))}
         />
       );
@@ -145,7 +125,7 @@ describe("PrinterForm custom bed", () => {
       return (
         <PrinterForm
           printer={printer}
-          advanced={false}
+
           onChange={(patch) => setPrinter((p) => ({ ...p, ...patch }))}
         />
       );

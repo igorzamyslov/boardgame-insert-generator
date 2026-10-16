@@ -12,7 +12,6 @@ import { TilesEditor } from "./TilesEditor";
 export interface ComponentCardProps {
   component: Component;
   index: number;
-  advanced: boolean;
   /** Unfolded: the editor shows. Folded, the card is one line: the name and what is in it. */
   open: boolean;
   onToggle: (open: boolean) => void;
@@ -27,20 +26,19 @@ export interface ComponentCardProps {
 function KindEditor({
   component: c,
   index,
-  advanced,
   onChange,
 }: Omit<ComponentCardProps, "onRemove" | "open" | "onToggle" | "trays" | "sameName">) {
   switch (c.kind) {
     case "cards":
-      return <CardsEditor component={c} index={index} advanced={advanced} onChange={onChange} />;
+      return <CardsEditor component={c} index={index} onChange={onChange} />;
     case "bulk":
-      return <BulkEditor component={c} index={index} advanced={advanced} onChange={onChange} />;
+      return <BulkEditor component={c} index={index} onChange={onChange} />;
     case "tiles":
-      return <TilesEditor component={c} index={index} advanced={advanced} onChange={onChange} />;
+      return <TilesEditor component={c} index={index} onChange={onChange} />;
     case "minis":
-      return <MinisEditor component={c} index={index} advanced={advanced} onChange={onChange} />;
+      return <MinisEditor component={c} index={index} onChange={onChange} />;
     case "custom":
-      return <CustomEditor component={c} index={index} advanced={advanced} onChange={onChange} />;
+      return <CustomEditor component={c} index={index} onChange={onChange} />;
   }
 }
 
@@ -55,7 +53,6 @@ function trayText(trays: readonly number[]): string {
 export function ComponentCard({
   component: c,
   index,
-  advanced,
   open,
   onToggle,
   onChange,
@@ -99,7 +96,7 @@ export function ComponentCard({
             value={c.name}
             onCommit={(name) => onChange({ ...c, name })}
           />
-          <KindEditor component={c} index={index} advanced={advanced} onChange={onChange} />
+          <KindEditor component={c} index={index} onChange={onChange} />
         </div>
         <div class="component-card-foot">
           <span />

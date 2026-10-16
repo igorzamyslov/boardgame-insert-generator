@@ -1,17 +1,15 @@
 // src/ui/BoxForm.tsx
 import type { Box } from "../model/types";
-import { Advanced } from "./Advanced";
 import { CheckField, SelectField } from "./fields";
 import { LENGTH, OFFSET } from "./limits";
 import { NumberField } from "./NumberField";
 
 export interface BoxFormProps {
   box: Box;
-  advanced: boolean;
   onChange: (patch: Partial<Box>) => void;
 }
 
-export function BoxForm({ box, advanced, onChange }: BoxFormProps) {
+export function BoxForm({ box, onChange }: BoxFormProps) {
   return (
     <div class="form-grid">
       <div class="form-grid form-grid-3">
@@ -47,40 +45,36 @@ export function BoxForm({ box, advanced, onChange }: BoxFormProps) {
         Measure the inside of the box at its narrowest point. Width runs left to right, length front
         to back, seen from the front. Height runs from the floor to the underside of the lid.
       </p>
-      {advanced ? (
-        <Advanced>
-          <NumberField
-            id="box-headroom"
-            label="Headroom"
-            unit="mm"
-            value={box.headroom}
-            path="/box/headroom"
-            {...OFFSET}
-            hint="Boards and rulebooks stacked as they lie on top, plus 1 mm for warp. 0 if nothing lies on top."
-            onCommit={(v) => onChange({ headroom: v })}
-          />
-          {box.headroom > 0 ? (
-            <SelectField
-              id="box-headroomCoverage"
-              label="Covered by boards"
-              value={box.headroomCoverage}
-              options={[
-                { value: "full", label: "Yes, the whole box" },
-                { value: "partial", label: "No, only part of it" },
-              ]}
-              hint="Do the boards and books cover every tray? Loose bits are kept out of top trays that nothing covers."
-              onChange={(v) => onChange({ headroomCoverage: v })}
-            />
-          ) : null}
-          <CheckField
-            id="box-storedOnSide"
-            label="The box is stored on its side"
-            checked={box.storedOnSide}
-            hint="Loose bits in the top layer then get a warning."
-            onChange={(v) => onChange({ storedOnSide: v })}
-          />
-        </Advanced>
+      <NumberField
+        id="box-headroom"
+        label="Headroom"
+        unit="mm"
+        value={box.headroom}
+        path="/box/headroom"
+        {...OFFSET}
+        hint="Boards and rulebooks stacked as they lie on top, plus 1 mm for warp. 0 if nothing lies on top."
+        onCommit={(v) => onChange({ headroom: v })}
+      />
+      {box.headroom > 0 ? (
+        <SelectField
+          id="box-headroomCoverage"
+          label="Covered by boards"
+          value={box.headroomCoverage}
+          options={[
+            { value: "full", label: "Yes, the whole box" },
+            { value: "partial", label: "No, only part of it" },
+          ]}
+          hint="Do the boards and books cover every tray? Loose bits are kept out of top trays that nothing covers."
+          onChange={(v) => onChange({ headroomCoverage: v })}
+        />
       ) : null}
+      <CheckField
+        id="box-storedOnSide"
+        label="The box is stored on its side"
+        checked={box.storedOnSide}
+        hint="Loose bits in the top layer then get a warning."
+        onChange={(v) => onChange({ storedOnSide: v })}
+      />
     </div>
   );
 }

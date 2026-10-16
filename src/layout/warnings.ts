@@ -57,8 +57,8 @@ function playMessage(
   }
   tips.push(
     crossed > 1
-      ? "lower Box clearance (counts twice) or Tray gap (once per extra tray) under Exact values in Advanced mode"
-      : "lower Box clearance (counts twice) under Exact values in Advanced mode",
+      ? "lower Box clearance (counts twice) or Tray gap (once per extra tray) under Exact values"
+      : "lower Box clearance (counts twice) under Exact values",
   );
   if (crossed > 1) {
     tips.push("put fewer trays in that row");

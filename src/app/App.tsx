@@ -366,21 +366,18 @@ export function App(props: AppProps) {
                     {x.id === "box" ? (
                       <BoxForm
                         box={project.box}
-                        advanced
                         onChange={(patch) => store.edit((q) => updateBox(q, patch))}
                       />
                     ) : null}
                     {x.id === "printer" ? (
                       <PrinterForm
                         printer={project.printer}
-                        advanced
                         onChange={(patch) => store.edit((q) => updatePrinter(q, patch))}
                       />
                     ) : null}
                     {x.id === "components" ? (
                       <ComponentList
                         components={project.components}
-                        advanced
                         trayNumbers={trayNumbers}
                         onAdd={addComponentOfKind}
                         onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
@@ -399,7 +396,6 @@ export function App(props: AppProps) {
                     {x.id === "settings" ? (
                       <SettingsForm
                         settings={project.settings}
-                        advanced
                         onChange={(next) => store.edit((q) => setSettings(q, next))}
                       />
                     ) : null}
@@ -421,7 +417,6 @@ export function App(props: AppProps) {
                   canOptimize={canOptimize(project, validation)}
                   hasComponents={project.components.length > 0}
                   hiddenErrors={errorsWithoutField(validation)}
-                  advanced
                   problemSections={problemSections}
                   onShowSection={showSection}
                   shortfall={s.shortfall.value}
@@ -503,7 +498,6 @@ export function App(props: AppProps) {
                           box={project.box}
                           settings={project.settings}
                           components={project.components}
-                          advanced
                           lockedKeys={locked}
                           selectedKey={s.selection.value}
                           stale={s.stale.value}
@@ -526,7 +520,6 @@ export function App(props: AppProps) {
                           box={project.box}
                           settings={project.settings}
                           components={project.components}
-                          advanced
                           stale={s.stale.value}
                           meshes={meshes}
                           selectedKey={s.selection.value}

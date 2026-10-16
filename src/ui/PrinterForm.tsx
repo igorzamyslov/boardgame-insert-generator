@@ -5,7 +5,6 @@ import type { Printer } from "../model/types";
 import { SelectField } from "./fields";
 import type { SelectOption } from "./fields";
 import { LAYER_HEIGHT, LENGTH, OFFSET } from "./limits";
-import { Advanced } from "./Advanced";
 import { NumberField } from "./NumberField";
 
 export const CUSTOM_BED = "custom";
@@ -19,7 +18,6 @@ export function bedPresetOf(p: Printer): string {
 
 export interface PrinterFormProps {
   printer: Printer;
-  advanced: boolean;
   onChange: (patch: Partial<Printer>) => void;
 }
 
@@ -32,7 +30,7 @@ function bedKey(p: Pick<Printer, "bedX" | "bedY" | "bedZ">): string {
   return `${p.bedX}x${p.bedY}x${p.bedZ}`;
 }
 
-export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
+export function PrinterForm({ printer, onChange }: PrinterFormProps) {
   const matched = bedPresetOf(printer);
   const [customChosen, setCustomChosen] = useState(matched === CUSTOM_BED);
   const key = bedKey(printer);
@@ -105,30 +103,26 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
           />
         </div>
       ) : null}
-      {advanced ? (
-        <Advanced>
-          <NumberField
-            id="printer-bedMargin"
-            label="Bed margin"
-            unit="mm"
-            value={printer.bedMargin}
-            path="/printer/bedMargin"
-            {...OFFSET}
-            hint="Kept free on every side for the purge line or skirt."
-            onCommit={(v) => onChange({ bedMargin: v })}
-          />
-          <NumberField
-            id="printer-layerHeight"
-            label="Layer height"
-            unit="mm"
-            value={printer.layerHeight}
-            path="/printer/layerHeight"
-            {...LAYER_HEIGHT}
-            hint="Tray heights are rounded to multiples of this."
-            onCommit={(v) => onChange({ layerHeight: v })}
-          />
-        </Advanced>
-      ) : null}
+      <NumberField
+        id="printer-bedMargin"
+        label="Bed margin"
+        unit="mm"
+        value={printer.bedMargin}
+        path="/printer/bedMargin"
+        {...OFFSET}
+        hint="Kept free on every side for the purge line or skirt."
+        onCommit={(v) => onChange({ bedMargin: v })}
+      />
+      <NumberField
+        id="printer-layerHeight"
+        label="Layer height"
+        unit="mm"
+        value={printer.layerHeight}
+        path="/printer/layerHeight"
+        {...LAYER_HEIGHT}
+        hint="Tray heights are rounded to multiples of this."
+        onCommit={(v) => onChange({ layerHeight: v })}
+      />
     </div>
   );
 }

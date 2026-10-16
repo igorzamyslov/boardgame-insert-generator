@@ -53,12 +53,7 @@ const STORAGE_OPTIONS: SelectOption<CardsComponent["storage"]>[] = [
   { value: "flat", label: "Lying flat" },
 ];
 
-export function CardsEditor({
-  component: c,
-  index,
-  advanced,
-  onChange,
-}: EditorProps<CardsComponent>) {
+export function CardsEditor({ component: c, index, onChange }: EditorProps<CardsComponent>) {
   const at = `/components/${index}`;
   const matched = cardPresetOf(c);
   const [customSize, setCustomSize] = useState(matched === CUSTOM_SIZE);
@@ -209,7 +204,6 @@ export function CardsEditor({
       <BinNotes component={c} index={index} />
       <DerivedSizes component={c} index={index} />
       <MoreOptions
-        open={advanced}
         errorPaths={[
           ...commonOptionPaths(index),
           `${at}/thickness/scale`,
@@ -292,7 +286,7 @@ export function CardsEditor({
                 hint="How the decks stand in the tray. Upright decks stand on the long or the short edge; flat decks lie in stacks. The optimizer tries every orientation and keeps the one that packs best."
                 onChange={(storage) => onChange({ ...c, storage })}
               />
-              <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+              <ToggleOptions component={c} index={index} onChange={onChange} />
             </>
           }
         />

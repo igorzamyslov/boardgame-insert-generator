@@ -14,7 +14,10 @@ const ACCESS_OPTIONS: SelectOption<Access>[] = [
   { value: "setup", label: "Only at setup" },
 ];
 
-/** Validation paths of the fields CommonOptions shows (they live under More options). */
+/**
+ * Validation paths of the fields under More options that every kind has: CommonOptions and
+ * ToggleOptions (with GrowthOptions). An error at a path, or below it, opens the section.
+ */
 export function commonOptionPaths(index: number): string[] {
   const at = `/components/${index}`;
   return [
@@ -23,20 +26,22 @@ export function commonOptionPaths(index: number): string[] {
     `${at}/perPlayer/players`,
     `${at}/clearance`,
     `${at}/curvedFloor`,
+    `${at}/separators`,
+    `${at}/dividers`,
+    `${at}/growth`,
   ];
 }
 
-export interface CommonOptionsProps<C extends Component> extends Omit<EditorProps<C>, "advanced"> {
-  /** The editor's own advanced fields about the contents, listed first. */
+export interface CommonOptionsProps<C extends Component> extends EditorProps<C> {
+  /** The editor's own optional fields about the contents, listed first. */
   pieces?: ComponentChildren;
-  /** The editor's own advanced fields about the tray, listed after how it is used in play. */
+  /** The editor's own optional fields about the tray, listed after how it is used in play. */
   tray?: ComponentChildren;
 }
 
 /**
- * The advanced fields every kind has, after the editor's own (`pieces`, then `tray`): how the
- * component is used in play, then how its tray is made. One flat list: the dotted edge of the
- * advanced block is the only marking.
+ * The optional fields every kind has, after the editor's own (`pieces`, then `tray`): how the
+ * component is used in play, then how its tray is made. One flat list, folded under More options.
  */
 export function CommonOptions<C extends Component>({
   component: c,

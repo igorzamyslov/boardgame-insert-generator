@@ -483,15 +483,13 @@ describe("Viewer", () => {
     });
   });
 
-  it("shows the simple details by default and the positions and locks when advanced", () => {
+  it("shows the selected tray's details with its position and locks", () => {
     const scene = stubScene();
     const p = props({ selectedKey: "b:p0:0" }, scene);
-    const view = render(<Viewer {...p} />);
+    render(<Viewer {...p} />);
     const details = screen.getByRole("group", { name: "Selected tray" });
     expect(details.getAttribute("aria-live")).toBe("polite");
     expect(details.textContent).toMatch(/Outer size/);
-    expect(details.textContent).not.toMatch(/Position/);
-    view.rerender(<Viewer {...p} advanced />);
-    expect(screen.getByRole("group", { name: "Selected tray" }).textContent).toMatch(/Position/);
+    expect(details.textContent).toMatch(/Position/);
   });
 });

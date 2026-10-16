@@ -12,12 +12,7 @@ import type { EditorProps } from "./types";
 
 type Figure = MinisComponent["figures"][number];
 
-export function MinisEditor({
-  component: c,
-  index,
-  advanced,
-  onChange,
-}: EditorProps<MinisComponent>) {
+export function MinisEditor({ component: c, index, onChange }: EditorProps<MinisComponent>) {
   const at = `/components/${index}`;
   const setFigure = (j: number, patch: Partial<Figure>): void => {
     onChange({ ...c, figures: c.figures.map((f, k) => (k === j ? { ...f, ...patch } : f)) });
@@ -101,7 +96,7 @@ export function MinisEditor({
       </fieldset>
       <BinNotes component={c} index={index} />
       <DerivedSizes component={c} index={index} />
-      <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
+      <MoreOptions errorPaths={commonOptionPaths(index)}>
         <CommonOptions
           component={c}
           index={index}
@@ -119,7 +114,7 @@ export function MinisEditor({
                 ]}
                 onChange={(storage) => onChange({ ...c, storage })}
               />
-              <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+              <ToggleOptions component={c} index={index} onChange={onChange} />
             </>
           }
         />

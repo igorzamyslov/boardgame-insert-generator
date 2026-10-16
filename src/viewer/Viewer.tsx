@@ -31,8 +31,6 @@ export interface ViewerProps {
   onSelect: (key: string | null) => void;
   /** Show the selected tray's details under the view; off where another panel shows them. */
   details?: boolean;
-  /** Show positions and locks in the details too; off by default. */
-  advanced?: boolean;
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -384,7 +382,6 @@ export function Viewer(p: ViewerProps) {
           locked={p.lockedKeys.has(selected.spec.key)}
           sizeLocked={p.sizeLockedKeys?.has(selected.spec.key) ?? false}
           stale={p.stale}
-          advanced={p.advanced ?? false}
           onToggleSizeLock={
             p.onToggleSizeLock ? () => p.onToggleSizeLock?.(selected.spec.key) : undefined
           }

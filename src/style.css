@@ -859,7 +859,6 @@ span.inserts-name {
 /* Full-width grid children; after the base rules (no-descending-specificity). */
 .form-grid > fieldset,
 .form-grid > details,
-.form-grid > .pf-adv,
 .form-grid > .form-grid-3,
 .form-grid > .hint,
 .form-grid > .check-field,

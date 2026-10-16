@@ -47,7 +47,7 @@ describe("SettingsForm", () => {
     };
     const form = (notices: (typeof error)[]) => (
       <ValidationContext.Provider value={notices}>
-        <SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={vi.fn()} />
+        <SettingsForm settings={DEFAULT_SETTINGS} onChange={vi.fn()} />
       </ValidationContext.Provider>
     );
     const view = render(form([]));
@@ -62,14 +62,14 @@ describe("SettingsForm", () => {
 
   it("writes resolved values from the simple choices", () => {
     const onChange = vi.fn();
-    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
+    render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Walls"), { target: { value: "sturdy" } });
     expect(onChange).toHaveBeenCalledWith(applyWallChoice(DEFAULT_SETTINGS, "sturdy"));
-    fireEvent.change(screen.getByLabelText("Fit"), { target: { value: "loose" } });
+    // the exact "Fit" number has the same label, so tell the choice apart by its role
+    fireEvent.change(screen.getByRole("combobox", { name: "Fit" }), { target: { value: "loose" } });
     expect(onChange).toHaveBeenCalledWith(applyFitChoice(DEFAULT_SETTINGS, "loose"));
     fireEvent.click(screen.getByLabelText("Extra finger room in the box"));
     expect(onChange).toHaveBeenCalledWith(applyFingerRoom(DEFAULT_SETTINGS, true));
-    expect(screen.queryByLabelText(/Corner radius/)).toBeNull();
   });
 
   it("shows a custom finger room as on, names it, and switches it off", () => {
@@ -78,7 +78,7 @@ describe("SettingsForm", () => {
       ...DEFAULT_SETTINGS,
       fingerPocket: { ...DEFAULT_SETTINGS.fingerPocket, wallRoom: 4 },
     };
-    render(<SettingsForm settings={four} advanced={false} onChange={onChange} />);
+    render(<SettingsForm settings={four} onChange={onChange} />);
     const box = screen.getByLabelText("Extra finger room in the box");
     if (!(box instanceof HTMLInputElement)) {
       throw new Error("not a checkbox");
@@ -89,14 +89,8 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenCalledWith(applyFingerRoom(four, false));
   });
 
-  it("shows a custom choice when advanced values match no preset", () => {
-    render(
-      <SettingsForm
-        settings={{ ...DEFAULT_SETTINGS, wall: 1.8 }}
-        advanced={false}
-        onChange={vi.fn()}
-      />,
-    );
+  it("shows a custom choice when values match no preset", () => {
+    render(<SettingsForm settings={{ ...DEFAULT_SETTINGS, wall: 1.8 }} onChange={vi.fn()} />);
     const select = screen.getByLabelText("Walls");
     if (!(select instanceof HTMLSelectElement)) {
       throw new Error("not a select");
@@ -107,9 +101,9 @@ describe("SettingsForm", () => {
     );
   });
 
-  it("keeps the simple choices in advanced mode and tucks the exact numbers into a disclosure", () => {
+  it("keeps the simple choices and tucks the exact numbers into a disclosure", () => {
     const onChange = vi.fn();
-    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
     expect(screen.getByLabelText("Walls")).toBeTruthy();
     // the exact "Fit" number has the same label, so tell the choice apart by its role
     expect(screen.getByRole("combobox", { name: "Fit" })).toBeTruthy();
@@ -126,7 +120,7 @@ describe("SettingsForm", () => {
   });
 
   it("describes every exact value and wires the hint to its input", () => {
-    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={vi.fn()} />);
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
     const disc = view.container.querySelector("details.pf-disc");
     // wallAbsorb sits beside "Unused space", not under Exact values (tested below).
     for (const r of SETTING_RANGES.filter((x) => x.path !== "wallAbsorb")) {
@@ -137,9 +131,9 @@ describe("SettingsForm", () => {
     }
   });
 
-  it("puts the wall absorption control beside Unused space in advanced mode only, with its hint", () => {
+  it("puts the wall absorption control beside Unused space, with its hint", () => {
     const onChange = vi.fn();
-    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const disc = view.container.querySelector("details.pf-disc");
     const input = screen.getByLabelText(/^Thicker walls instead of a filler/);
     expect(disc?.contains(input)).toBe(false);
@@ -147,9 +141,6 @@ describe("SettingsForm", () => {
     expect(document.getElementById("settings-wallAbsorb-hint")?.textContent).toBe(range?.hint);
     fireEvent.input(input, { target: { value: "1,5" } });
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, wallAbsorb: 1.5 });
-    cleanup();
-    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
-    expect(screen.queryByLabelText(/^Thicker walls instead of a filler/)).toBeNull();
   });
 
   describe("settings that differ from their defaults", () => {
@@ -160,7 +151,7 @@ describe("SettingsForm", () => {
     const field = (label: RegExp) => screen.getByLabelText(label).closest(".field") as HTMLElement;
 
     it("marks nothing, and offers no restore, when every value is the default", () => {
-      const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={vi.fn()} />);
+      const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
       expect(view.container.querySelector(".field-changed")).toBeNull();
       expect(screen.queryByRole("button", { name: /Restore/ })).toBeNull();
       expect(view.container.querySelector(".pf-disc .pf-count")).toBeNull();
@@ -170,7 +161,7 @@ describe("SettingsForm", () => {
     it("marks only the changed field, says its default, and restores just that one", () => {
       const onChange = vi.fn();
       const s = changedFrom({ cornerRadius: 4.5, trayGap: 0.4 });
-      const view = render(<SettingsForm settings={s} advanced onChange={onChange} />);
+      const view = render(<SettingsForm settings={s} onChange={onChange} />);
       const marked = [...view.container.querySelectorAll(".field-changed")];
       expect(marked).toHaveLength(2);
       const corner = field(/^Corner radius/);
@@ -192,7 +183,7 @@ describe("SettingsForm", () => {
     it("restores a nested value (the lip's play) and a unitless one (Fit)", () => {
       const onChange = vi.fn();
       const s = changedFrom({ fit: 1.4, lip: { ...DEFAULT_SETTINGS.lip, play: 0.4 } });
-      render(<SettingsForm settings={s} advanced onChange={onChange} />);
+      render(<SettingsForm settings={s} onChange={onChange} />);
       expect(field(/^Lip play/).textContent).toContain("Changed from the default, 0.25 mm.");
       fireEvent.click(screen.getByRole("button", { name: "Restore the default for Lip play" }));
       expect(onChange).toHaveBeenLastCalledWith({ ...s, lip: { ...s.lip, play: 0.25 } });
@@ -207,7 +198,6 @@ describe("SettingsForm", () => {
       const view = render(
         <SettingsForm
           settings={changedFrom({ cornerRadius: 4.5, trayGap: 0.4, wall: 2 })}
-          advanced
           onChange={vi.fn()}
         />,
       );
@@ -218,11 +208,7 @@ describe("SettingsForm", () => {
 
     it("counts a choice made in the simple controls, which write the same numbers", () => {
       const view = render(
-        <SettingsForm
-          settings={applyWallChoice(DEFAULT_SETTINGS, "sturdy")}
-          advanced
-          onChange={vi.fn()}
-        />,
+        <SettingsForm settings={applyWallChoice(DEFAULT_SETTINGS, "sturdy")} onChange={vi.fn()} />,
       );
       expect(view.container.querySelector("details.pf-disc .pf-count")?.textContent).toBe(
         "1 changed",
@@ -232,7 +218,7 @@ describe("SettingsForm", () => {
     it("asks before restoring everything, and keeps the values when you decline", () => {
       const onChange = vi.fn();
       const s = changedFrom({ cornerRadius: 4.5, trayGap: 0.4 });
-      render(<SettingsForm settings={s} advanced onChange={onChange} />);
+      render(<SettingsForm settings={s} onChange={onChange} />);
       fireEvent.click(screen.getByRole("button", { name: "Restore all exact values" }));
       // the first press discards nothing
       expect(onChange).not.toHaveBeenCalled();
@@ -271,7 +257,7 @@ describe("SettingsForm", () => {
 
     it("does not mark the wall absorption control, which sits outside the panel", () => {
       const view = render(
-        <SettingsForm settings={changedFrom({ wallAbsorb: 1 })} advanced onChange={vi.fn()} />,
+        <SettingsForm settings={changedFrom({ wallAbsorb: 1 })} onChange={vi.fn()} />,
       );
       expect(view.container.querySelector(".field-changed")).toBeNull();
       expect(view.container.querySelector(".pf-count")).toBeNull();
@@ -279,9 +265,7 @@ describe("SettingsForm", () => {
 
     it("offers the play limit among the exact values, with its hint", () => {
       const onChange = vi.fn();
-      const view = render(
-        <SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />,
-      );
+      const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
       const input = screen.getByLabelText(/^Play limit/);
       expect(view.container.querySelector("details.pf-disc")?.contains(input)).toBe(true);
       fireEvent.input(input, { target: { value: "2,5" } });
@@ -289,9 +273,9 @@ describe("SettingsForm", () => {
     });
   });
 
-  it("edits every advanced number, the lip and the leftover", () => {
+  it("edits every number, the lip and the leftover", () => {
     const onChange = vi.fn();
-    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const exactValues = within(view.container.querySelector("details.pf-disc") as HTMLElement);
     for (const r of SETTING_RANGES.filter((x) => x.path !== "wallAbsorb")) {
       const exact = new RegExp(`^${r.label.replace(/[()]/g, "\\$&")}( \\((mm|%)\\))?$`);
@@ -314,33 +298,27 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });
   });
 
-  it("offers the one-wall switch in advanced mode only, off by default", () => {
+  it("offers the one-wall switch, off by default", () => {
     const onChange = vi.fn();
-    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const box = screen.getByLabelText("One thick wall instead of a filler") as HTMLInputElement;
     expect(box.checked).toBe(false);
     fireEvent.click(box);
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, oneWall: true });
-    cleanup();
-    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
-    expect(screen.queryByLabelText("One thick wall instead of a filler")).toBeNull();
   });
 
-  it("offers the tray name engraving in advanced mode, on by default", () => {
+  it("offers the tray name engraving, on by default", () => {
     const onChange = vi.fn();
-    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const box = screen.getByLabelText("Engrave tray names") as HTMLInputElement;
     expect(box.checked).toBe(true);
     fireEvent.click(box);
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, engraveNames: false });
-    cleanup();
-    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
-    expect(screen.queryByLabelText("Engrave tray names")).toBeNull();
   });
 
-  it("offers the two merge switches in advanced mode only: fillers on, risers off by default", () => {
+  it("offers the two merge switches: fillers on, risers off by default", () => {
     const onChange = vi.fn();
-    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const fillers = screen.getByLabelText("Merge fillers into one part") as HTMLInputElement;
     const risers = screen.getByLabelText("Fold risers into the merged fillers") as HTMLInputElement;
     expect(fillers.checked).toBe(true);
@@ -352,32 +330,21 @@ describe("SettingsForm", () => {
     view.unmount();
     // the riser switch does nothing while fillers are not merged, so it cannot be ticked
     render(
-      <SettingsForm
-        settings={{ ...DEFAULT_SETTINGS, mergeFillers: false }}
-        advanced
-        onChange={onChange}
-      />,
+      <SettingsForm settings={{ ...DEFAULT_SETTINGS, mergeFillers: false }} onChange={onChange} />,
     );
     expect(
       (screen.getByLabelText("Fold risers into the merged fillers") as HTMLInputElement).disabled,
     ).toBe(true);
-    cleanup();
-    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
-    expect(screen.queryByLabelText("Merge fillers into one part")).toBeNull();
-    expect(screen.queryByLabelText("Fold risers into the merged fillers")).toBeNull();
   });
 
-  it("offers Fill the box to the top in advanced mode only, on by default", () => {
+  it("offers Fill the box to the top, on by default", () => {
     const onChange = vi.fn();
-    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={onChange} />);
+    const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const box = screen.getByLabelText("Fill the box to the top") as HTMLInputElement;
     expect(box.checked).toBe(true);
     expect(view.container.textContent).toContain("so every stack reaches the lid");
     fireEvent.click(box);
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, fillToTop: false });
-    view.unmount();
-    render(<SettingsForm settings={DEFAULT_SETTINGS} advanced={false} onChange={onChange} />);
-    expect(screen.queryByLabelText("Fill the box to the top")).toBeNull();
   });
 
   it.each([
@@ -388,7 +355,7 @@ describe("SettingsForm", () => {
       <ValidationContext.Provider
         value={[{ level: "error", code, path: "/settings/bottomChamfer", message }]}
       >
-        <SettingsForm settings={DEFAULT_SETTINGS} advanced onChange={vi.fn()} />
+        <SettingsForm settings={DEFAULT_SETTINGS} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     const field = screen.getByLabelText(/^Bottom chamfer/);

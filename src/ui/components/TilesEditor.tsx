@@ -14,12 +14,7 @@ const DEFAULT_SHAPES: Record<TileShape["type"], TileShape> = {
   hex: { type: "hex", flatToFlat: 40, orientation: "flat" },
 };
 
-export function TilesEditor({
-  component: c,
-  index,
-  advanced,
-  onChange,
-}: EditorProps<TilesComponent>) {
+export function TilesEditor({ component: c, index, onChange }: EditorProps<TilesComponent>) {
   const at = `/components/${index}`;
   const rect = c.shape.type === "rect" ? c.shape : null;
   const hex = c.shape.type === "hex" ? c.shape : null;
@@ -103,7 +98,7 @@ export function TilesEditor({
       />
       <BinNotes component={c} index={index} />
       <DerivedSizes component={c} index={index} />
-      <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
+      <MoreOptions errorPaths={commonOptionPaths(index)}>
         <CommonOptions
           component={c}
           index={index}
@@ -122,7 +117,7 @@ export function TilesEditor({
                 ]}
                 onChange={(storage) => onChange({ ...c, storage })}
               />
-              <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+              <ToggleOptions component={c} index={index} onChange={onChange} />
             </>
           }
         />

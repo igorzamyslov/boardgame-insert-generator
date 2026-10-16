@@ -7,12 +7,7 @@ import { MoreOptions } from "./MoreOptions";
 import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
-export function CustomEditor({
-  component: c,
-  index,
-  advanced,
-  onChange,
-}: EditorProps<CustomComponent>) {
+export function CustomEditor({ component: c, index, onChange }: EditorProps<CustomComponent>) {
   const at = `/components/${index}`;
   return (
     <>
@@ -52,14 +47,12 @@ export function CustomEditor({
         onCommit={(count) => onChange({ ...c, count })}
       />
       <BinNotes component={c} index={index} />
-      <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
+      <MoreOptions errorPaths={commonOptionPaths(index)}>
         <CommonOptions
           component={c}
           index={index}
           onChange={onChange}
-          tray={
-            <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
-          }
+          tray={<ToggleOptions component={c} index={index} onChange={onChange} />}
         />
       </MoreOptions>
     </>

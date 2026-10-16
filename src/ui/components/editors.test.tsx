@@ -14,6 +14,7 @@ import type {
 } from "../../model/types";
 import { SizingContext, ValidationContext } from "../validation";
 import { BulkEditor } from "./BulkEditor";
+import { CardsEditor } from "./CardsEditor";
 import { CustomEditor } from "./CustomEditor";
 import { MinisEditor } from "./MinisEditor";
 import { TilesEditor } from "./TilesEditor";
@@ -39,16 +40,13 @@ function lastOf<T>(fn: { mock: { calls: T[][] } }): T {
 describe("BulkEditor", () => {
   it("switches an item to a pile volume and edits it", () => {
     const onChange = vi.fn<(c: BulkComponent) => void>();
-    const view = render(
-      <BulkEditor component={of("bulk")} index={0} advanced={false} onChange={onChange} />,
-    );
+    const view = render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("How to size item 1"), { target: { value: "volume" } });
     expect(lastOf(onChange).items).toEqual([{ name: "", volumeMl: 50 }]);
     view.rerender(
       <BulkEditor
         component={{ ...of("bulk"), items: [{ name: "Coins", volumeMl: 50 }] }}
         index={0}
-        advanced={false}
         onChange={onChange}
       />,
     );
@@ -58,7 +56,7 @@ describe("BulkEditor", () => {
 
   it("edits piece sizes and adds items", () => {
     const onChange = vi.fn<(c: BulkComponent) => void>();
-    render(<BulkEditor component={of("bulk")} index={0} advanced={false} onChange={onChange} />);
+    render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
     fireEvent.input(screen.getByLabelText("How many of item 1"), { target: { value: "30" } });
     expect(lastOf(onChange).items[0]).toMatchObject({ count: 30 });
     fireEvent.input(screen.getByLabelText(/Item 1 height/), { target: { value: "2,5" } });
@@ -71,16 +69,13 @@ describe("BulkEditor", () => {
 describe("TilesEditor", () => {
   it("switches to hexagons and sets the orientation", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
-    const view = render(
-      <TilesEditor component={of("tiles")} index={0} advanced={false} onChange={onChange} />,
-    );
+    const view = render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Tile shape"), { target: { value: "hex" } });
     expect(lastOf(onChange).shape).toEqual({ type: "hex", flatToFlat: 40, orientation: "flat" });
     view.rerender(
       <TilesEditor
         component={{ ...of("tiles"), shape: { type: "hex", flatToFlat: 40, orientation: "flat" } }}
         index={0}
-        advanced={false}
         onChange={onChange}
       />,
     );
@@ -92,9 +87,9 @@ describe("TilesEditor", () => {
     expect(lastOf(onChange).count).toBe(60);
   });
 
-  it("offers storage in the Advanced block", () => {
+  it("offers storage under More options", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
-    render(<TilesEditor component={of("tiles")} index={0} advanced onChange={onChange} />);
+    render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Storage"), { target: { value: "upright" } });
     expect(lastOf(onChange).storage).toBe("upright");
   });
@@ -103,7 +98,7 @@ describe("TilesEditor", () => {
 describe("MinisEditor", () => {
   it("edits figures and storage", () => {
     const onChange = vi.fn<(c: MinisComponent) => void>();
-    render(<MinisEditor component={of("minis")} index={0} advanced onChange={onChange} />);
+    render(<MinisEditor component={of("minis")} index={0} onChange={onChange} />);
     fireEvent.input(screen.getByLabelText(/Figure 1 height/), { target: { value: "55" } });
     expect(lastOf(onChange).figures[0]).toMatchObject({ h: 55 });
     fireEvent.click(screen.getByRole("button", { name: "Add figure" }));
@@ -116,7 +111,7 @@ describe("MinisEditor", () => {
 describe("toggles", () => {
   it("defaults bits to a curved floor without finger cuts, and turns cuts on", () => {
     const onChange = vi.fn<(c: BulkComponent) => void>();
-    render(<BulkEditor component={of("bulk")} index={0} advanced onChange={onChange} />);
+    render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
     expect((screen.getByLabelText("Curved floor") as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByLabelText("Finger cuts"));
     expect(lastOf(onChange).fingerCuts).toBe(true);
@@ -131,32 +126,32 @@ describe("toggles", () => {
     };
     render(
       <SizingContext.Provider value={[binned]}>
-        <CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />
+        <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </SizingContext.Provider>,
     );
     expect((screen.getByLabelText("Finger cuts") as HTMLInputElement).checked).toBe(true);
     expect(screen.getByText(/stored loose in a bin with a curved floor/)).toBeTruthy();
   });
 
-  it("shows the bin note even in simple mode, outside the Advanced block", () => {
+  it("shows the bin note outside More options", () => {
     const binned: Notice = {
       level: "info",
       code: "sizing.noFingerSlot",
       path: "/components/0",
       message: "Dial: … so it is stored loose in a bin with a curved floor instead.",
     };
-    const { container } = render(
+    render(
       <SizingContext.Provider value={[binned]}>
-        <CustomEditor component={of("custom")} index={0} advanced={false} onChange={vi.fn()} />
+        <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </SizingContext.Provider>,
     );
-    expect(container.querySelector(".pf-adv")).toBeNull();
-    expect(screen.getByText(/stored loose in a bin with a curved floor/)).toBeTruthy();
+    const note = screen.getByText(/stored loose in a bin with a curved floor/);
+    expect(note.closest("details.pf-disc")).toBeNull();
   });
 
-  it("offers no curved floor on tiles, and corner reliefs on by default in advanced mode", () => {
+  it("offers no curved floor on tiles, and corner reliefs on by default", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
-    render(<TilesEditor component={of("tiles")} index={0} advanced onChange={onChange} />);
+    render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
     expect(screen.queryByLabelText("Curved floor")).toBeNull();
     fireEvent.click(screen.getByLabelText("Corner reliefs"));
     expect(lastOf(onChange).cornerReliefs).toBe(false);
@@ -167,7 +162,6 @@ describe("toggles", () => {
       <TilesEditor
         component={{ ...of("tiles"), growth: { stack: "off" } }}
         index={0}
-        advanced
         onChange={vi.fn()}
       />,
     );
@@ -178,7 +172,6 @@ describe("toggles", () => {
       <TilesEditor
         component={{ ...of("tiles"), storage: "upright" }}
         index={0}
-        advanced
         onChange={onChange}
       />,
     );
@@ -192,7 +185,7 @@ describe("toggles", () => {
       ["custom", CustomEditor],
     ] as const) {
       const c = { ...of(kind), separators: 3 };
-      render(<Editor component={c as never} index={0} advanced onChange={vi.fn()} />);
+      render(<Editor component={c as never} index={0} onChange={vi.fn()} />);
       expect(screen.queryByLabelText("Spacer plates")).toBeNull();
       cleanup();
     }
@@ -210,7 +203,6 @@ describe("toggles", () => {
         <TilesEditor
           component={{ ...of("tiles"), storage: "upright", separators: 5 }}
           index={0}
-          advanced
           onChange={vi.fn()}
         />
       </SizingContext.Provider>,
@@ -230,7 +222,6 @@ describe("toggles", () => {
         <TilesEditor
           component={{ ...of("tiles"), storage: "upright" }}
           index={0}
-          advanced
           onChange={onChange}
         />,
       );
@@ -245,7 +236,6 @@ describe("toggles", () => {
         <TilesEditor
           component={{ ...of("tiles"), storage: "flat" }}
           index={0}
-          advanced
           onChange={vi.fn()}
         />,
       );
@@ -254,7 +244,7 @@ describe("toggles", () => {
 
     it("offers bulk all three axes, auto by default, each stored on its own", () => {
       const onChange = vi.fn<(c: BulkComponent) => void>();
-      render(<BulkEditor component={of("bulk")} index={0} advanced onChange={onChange} />);
+      render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
       expect(labels()).toEqual(["Extra width", "Extra length", "Extra height"]);
       for (const label of labels()) {
         expect((screen.getByLabelText(label ?? "") as HTMLSelectElement).value).toBe("auto");
@@ -264,7 +254,7 @@ describe("toggles", () => {
     });
 
     it("offers minis in pockets only width and length, off by default: a pocket's depth is a figure's height", () => {
-      render(<MinisEditor component={of("minis")} index={0} advanced onChange={vi.fn()} />);
+      render(<MinisEditor component={of("minis")} index={0} onChange={vi.fn()} />);
       expect(labels()).toEqual(["Looser pockets: width", "Looser pockets: length"]);
       expect((screen.getByLabelText("Looser pockets: width") as HTMLSelectElement).value).toBe(
         "off",
@@ -277,7 +267,6 @@ describe("toggles", () => {
         <MinisEditor
           component={{ ...of("minis"), storage: "bulk" }}
           index={0}
-          advanced
           onChange={vi.fn()}
         />,
       );
@@ -286,18 +275,22 @@ describe("toggles", () => {
     });
 
     it("offers a custom well all three, off by default", () => {
-      render(<CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />);
+      render(<CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />);
       expect(labels()).toEqual(["Extra width", "Extra length", "Extra height"]);
       expect((screen.getByLabelText("Extra width") as HTMLSelectElement).value).toBe("off");
     });
 
-    it("offers nothing in simple mode: it lives under the advanced options", () => {
-      render(<BulkEditor component={of("bulk")} index={0} advanced={false} onChange={vi.fn()} />);
-      expect(growthIds()).toEqual([]);
+    it("keeps them under More options", () => {
+      render(<BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />);
+      const disc = document.querySelector("details.pf-disc");
+      expect(growthIds().length).toBeGreaterThan(0);
+      for (const id of growthIds()) {
+        expect(disc?.contains(document.getElementById(id))).toBe(true);
+      }
     });
 
     it("states the auto cap beside each control", () => {
-      render(<BulkEditor component={of("bulk")} index={0} advanced onChange={vi.fn()} />);
+      render(<BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />);
       const select = screen.getByLabelText("Extra width");
       expect(document.getElementById(`${select.id}-hint`)?.textContent).toMatch(
         /Auto: up to the bin's width, at most 50 mm/,
@@ -309,9 +302,7 @@ describe("toggles", () => {
 describe("CustomEditor", () => {
   it("edits sizes and rejects a fractional count", () => {
     const onChange = vi.fn<(c: CustomComponent) => void>();
-    render(
-      <CustomEditor component={of("custom")} index={0} advanced={false} onChange={onChange} />,
-    );
+    render(<CustomEditor component={of("custom")} index={0} onChange={onChange} />);
     fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "70" } });
     expect(lastOf(onChange).w).toBe(70);
     fireEvent.input(screen.getByLabelText("How many"), { target: { value: "2,5" } });
@@ -332,7 +323,7 @@ describe("validation shown in place", () => {
       <ValidationContext.Provider
         value={[err("field.groupId", "/components/0/groupId", "A group name can't contain ':'.")]}
       >
-        <CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />
+        <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     const group = screen.getByLabelText(/^Group/);
@@ -348,7 +339,7 @@ describe("validation shown in place", () => {
           err("field.curvedFloor", "/components/0/curvedFloor", "Tiles can't have a curved floor."),
         ]}
       >
-        <TilesEditor component={tiles} index={0} advanced onChange={vi.fn()} />
+        <TilesEditor component={tiles} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     const alert = screen.getByRole("alert");
@@ -367,48 +358,83 @@ describe("validation shown in place", () => {
     };
     render(
       <ValidationContext.Provider value={[warn]}>
-        <CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />
+        <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByText("Heads up.")).toBeTruthy();
   });
 
-  it("hides the Advanced block in simple mode and shows it in advanced mode", () => {
-    const view = render(
-      <CustomEditor component={of("custom")} index={0} advanced={false} onChange={vi.fn()} />,
-    );
-    expect(view.container.querySelector(".pf-adv")).toBeNull();
+  it("folds the optional fields under More options, closed by default", () => {
+    const view = render(<CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />);
+    const disc = view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
+    expect(disc.querySelector("summary")?.textContent).toBe("More options");
+    expect(disc.open).toBe(false);
     for (const label of ["Needed during play", "Finger cuts", /^Group/]) {
-      expect(screen.queryByLabelText(label)).toBeNull();
+      expect(disc.contains(screen.getByLabelText(label))).toBe(true);
     }
-    view.rerender(<CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />);
-    expect(view.container.querySelector(".pf-adv")).not.toBeNull();
-    expect(screen.getByLabelText("Needed during play")).toBeTruthy();
-    expect(screen.getByLabelText("Finger cuts")).toBeTruthy();
   });
 
-  it("shows the Advanced block in simple mode when a field inside has an error", () => {
+  it("opens More options when a field inside has an error, and keeps it open", () => {
     const notice = err("field.count", "/components/0/perPlayer/players", "Bad players.");
     const c = { ...of("custom"), perPlayer: { players: 0 } };
-    const view = render(
-      <CustomEditor component={c} index={0} advanced={false} onChange={vi.fn()} />,
-    );
-    expect(view.container.querySelector(".pf-adv")).toBeNull();
+    const disc = (view: ReturnType<typeof render>) =>
+      view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
+    const view = render(<CustomEditor component={c} index={0} onChange={vi.fn()} />);
+    expect(disc(view).open).toBe(false);
     view.rerender(
       <ValidationContext.Provider value={[notice]}>
-        <CustomEditor component={c} index={0} advanced={false} onChange={vi.fn()} />
+        <CustomEditor component={c} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
-    expect(view.container.querySelector(".pf-adv")).not.toBeNull();
+    expect(disc(view).open).toBe(true);
     expect(screen.getByRole("alert").textContent).toBe("Bad players.");
     view.rerender(
       <ValidationContext.Provider value={[]}>
-        <CustomEditor component={c} index={0} advanced={false} onChange={vi.fn()} />
+        <CustomEditor component={c} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
-    // stays shown once an error brought it up, so it does not vanish under the user fixing it
-    expect(view.container.querySelector(".pf-adv")).not.toBeNull();
+    // stays open once an error brought it up, so it does not vanish under the user fixing it
+    expect(disc(view).open).toBe(true);
+  });
+
+  describe.each([
+    ["cards", (c: never) => <CardsEditor component={c} index={0} onChange={vi.fn()} />],
+    ["bulk", (c: never) => <BulkEditor component={c} index={0} onChange={vi.fn()} />],
+    ["tiles", (c: never) => <TilesEditor component={c} index={0} onChange={vi.fn()} />],
+    ["minis", (c: never) => <MinisEditor component={c} index={0} onChange={vi.fn()} />],
+    ["custom", (c: never) => <CustomEditor component={c} index={0} onChange={vi.fn()} />],
+  ] as const)("More options of %s", (kind, editor) => {
+    it.each([
+      "groupId",
+      "perPlayer/players",
+      "clearance",
+      "curvedFloor",
+      "separators",
+      "dividers",
+      "growth/stack",
+      "growth/width",
+    ])("opens for an error at /components/0/%s", (field) => {
+      const view = render(
+        <ValidationContext.Provider value={[err("field.test", `/components/0/${field}`, "Bad.")]}>
+          {editor(of(kind) as never)}
+        </ValidationContext.Provider>,
+      );
+      const disc = view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
+      expect(disc.open).toBe(true);
+    });
+
+    it("stays closed for an error at another component", () => {
+      const view = render(
+        <ValidationContext.Provider
+          value={[err("field.test", "/components/10/separators", "Bad.")]}
+        >
+          {editor(of(kind) as never)}
+        </ValidationContext.Provider>,
+      );
+      const disc = view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
+      expect(disc.open).toBe(false);
+    });
   });
 
   it("shows empty-list errors under the Items and Figures legends", () => {
@@ -419,16 +445,10 @@ describe("validation shown in place", () => {
           err("field.empty", "/components/1/figures", "Add at least one figure."),
         ]}
       >
-        <BulkEditor
-          component={{ ...of("bulk"), items: [] }}
-          index={0}
-          advanced={false}
-          onChange={vi.fn()}
-        />
+        <BulkEditor component={{ ...of("bulk"), items: [] }} index={0} onChange={vi.fn()} />
         <MinisEditor
           component={{ ...of("minis"), id: "x2", figures: [] }}
           index={1}
-          advanced={false}
           onChange={vi.fn()}
         />
       </ValidationContext.Provider>,
@@ -440,7 +460,7 @@ describe("validation shown in place", () => {
   it("moves focus to Finger cuts when a file-set curved floor on tiles is turned off", () => {
     function Harness() {
       const [c, setC] = useState<TilesComponent>({ ...of("tiles"), curvedFloor: true });
-      return <TilesEditor component={c} index={0} advanced onChange={setC} />;
+      return <TilesEditor component={c} index={0} onChange={setC} />;
     }
     render(<Harness />);
     const floor = screen.getByLabelText("Curved floor");

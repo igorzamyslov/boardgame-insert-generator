@@ -135,7 +135,6 @@ function setup(over: Partial<PlanViewProps> = {}) {
     onToggleLock: vi.fn(),
     sizeLockedKeys: new Set<string>(),
     onToggleSizeLock: vi.fn(),
-    advanced: true,
     ...over,
   };
   const view = render(<PlanView {...p} />);
@@ -484,13 +483,9 @@ describe("PlanView", () => {
     expect(planCss).toMatch(/\.plan-svg\.is-stale\s*{[^}]*grayscale\(0\.8\)/);
   });
 
-  it("shows the lock and swap buttons only in advanced mode", () => {
-    const { p, view } = setup({ selectedKey: "a:p0:0", advanced: false });
+  it("shows the lock and swap buttons for the selected tray", () => {
+    setup({ selectedKey: "a:p0:0" });
     expect(screen.getByRole("heading", { name: /#1/ })).toBeTruthy();
-    for (const name of ["Lock position", "Lock size", "Swap with…"]) {
-      expect(screen.queryByRole("button", { name })).toBeNull();
-    }
-    view.rerender(<PlanView {...p} advanced />);
     for (const name of ["Lock position", "Lock size", "Swap with…"]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
