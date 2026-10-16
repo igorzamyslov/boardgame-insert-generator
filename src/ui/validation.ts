@@ -25,14 +25,11 @@ export function useSizingNotices(path: string): Notice[] {
 /** The project's settings, for the derived sizes an editor shows (`derivedSizes`). */
 export const SettingsContext = createContext<Settings>(DEFAULT_SETTINGS);
 
-const PRINTER_ADVANCED_ONLY = new Set(["/printer/bedMargin", "/printer/layerHeight"]);
-
 /**
  * The errors of `validateProject()` with no field on screen to show them, so the summary has
- * to: lock and project-level errors, and in simple mode the settings and printer fields
- * that only advanced mode shows (cross-field settings errors included).
+ * to: lock and project-level errors. Every settings and printer field is on screen.
  */
-export function errorsWithoutField(notices: readonly Notice[], advanced: boolean): Notice[] {
+export function errorsWithoutField(notices: readonly Notice[]): Notice[] {
   return notices.filter((n) => {
     if (n.level !== "error") {
       return false;
@@ -41,9 +38,6 @@ export function errorsWithoutField(notices: readonly Notice[], advanced: boolean
     if (path === undefined || path === "/id" || path === "/components") {
       return true;
     }
-    if (path.startsWith("/locks")) {
-      return true;
-    }
-    return !advanced && (path.startsWith("/settings/") || PRINTER_ADVANCED_ONLY.has(path));
+    return path.startsWith("/locks");
   });
 }

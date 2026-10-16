@@ -3,15 +3,13 @@ import type { ComponentChildren } from "preact";
 
 export interface SectionProps {
   id: string;
-  /** The step number shown before the title; none for an Advanced-only section. */
+  /** The step number shown before the title; none for the section after the steps. */
   step?: number;
   title: string;
   /** One line shown while the section is folded: what is set in it. */
   summary: string;
   /** An error is inside: the summary says so in madder. */
   problem?: boolean;
-  /** Only shown in Advanced mode: marked with the dotted edge. */
-  advanced?: boolean;
   open: boolean;
   onToggle: (open: boolean) => void;
   children: ComponentChildren;
@@ -21,7 +19,7 @@ export interface SectionProps {
 export function Section(p: SectionProps) {
   return (
     <details
-      class={p.advanced ? "pf-acc pf-adv" : "pf-acc"}
+      class="pf-acc"
       id={`section-${p.id}`}
       open={p.open}
       onToggle={(e) => {

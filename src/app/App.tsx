@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { numberParts } from "../instructions/numbering";
 import { printableParts } from "../layout";
-import { DEFAULT_PRINTER } from "../model/defaults";
 import type { Component, ComponentKind, Notice, Project, TraySpec } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
 import { levelsOf } from "../plan/layers";
@@ -153,7 +152,6 @@ export function App(props: AppProps) {
       document.removeEventListener("keydown", onKey);
     };
   }, []);
-  const advanced = s.mode.value === "advanced";
   const [openSection, setOpenSection] = useState<SectionId | null>(
     project.components.length === 0 ? "box" : "components",
   );
@@ -217,32 +215,24 @@ export function App(props: AppProps) {
   const problems = new Set<SectionId>();
   for (const n of validation) {
     const id = n.level === "error" ? sectionOf(n.path) : null;
-    // Settings are only on screen in Advanced mode; their errors are listed in the summary.
-    if (id !== null && (id !== "settings" || advanced)) {
+    if (id !== null) {
       problems.add(id);
     }
   }
-  const sections: { id: SectionId; advanced: boolean; step?: number }[] = [
-    { id: "box", advanced: false, step: 1 },
-    { id: "components", advanced: false, step: 2 },
-    { id: "printer", advanced: false, step: 3 },
-    { id: "settings", advanced: true },
+  const sections: { id: SectionId; step?: number }[] = [
+    { id: "box", step: 1 },
+    { id: "components", step: 2 },
+    { id: "printer", step: 3 },
+    { id: "settings" },
   ];
-  const shownSections = sections.filter((x) => advanced || !x.advanced);
-  const problemSections = shownSections
+  const problemSections = sections
     .filter((x) => problems.has(x.id))
     .map((x) => ({ id: x.id, title: SECTION_TITLES[x.id] }));
   const printer = project.printer;
   const bedSize = `${mm(printer.bedX)} × ${mm(printer.bedY)} × ${mm(printer.bedZ)} mm`;
-  const defaultBed =
-    printer.bedX === DEFAULT_PRINTER.bedX &&
-    printer.bedY === DEFAULT_PRINTER.bedY &&
-    printer.bedZ === DEFAULT_PRINTER.bedZ;
   const summaries: Record<SectionId, string> = {
     box: `${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} × ${mm(project.box.innerHeight)} mm`,
-    printer: advanced
-      ? `${bedSize} · margin ${mm(printer.bedMargin)} mm · layers ${mm(printer.layerHeight)} mm`
-      : `${bedSize}${defaultBed ? " · default" : ""}`,
+    printer: `${bedSize} · margin ${mm(printer.bedMargin)} mm · layers ${mm(printer.layerHeight)} mm`,
     components:
       project.components.length === 0
         ? "nothing yet"
@@ -276,7 +266,7 @@ export function App(props: AppProps) {
     <ValidationContext.Provider value={validation}>
       <SizingContext.Provider value={sizingNotices}>
         <SettingsContext.Provider value={projSettings}>
-          <div class="pf-app" data-level={advanced ? "advanced" : "simple"}>
+          <div class="pf-app">
             <div class="app-top">
               <header class="pf-app__bar">
                 <div class="app-title-block">
@@ -286,38 +276,6 @@ export function App(props: AppProps) {
                   </span>
                 </div>
                 <div class="pf-toolbar__group">
-                  {advanced ? (
-                    <span class="pf-mode-note" aria-hidden="true">
-                      Dotted edge = advanced
-                    </span>
-                  ) : null}
-                  <fieldset class="mode-toggle">
-                    <legend>Input mode</legend>
-                    <div class="pf-seg">
-                      <label class="pf-seg__opt">
-                        <input
-                          type="radio"
-                          name="input-mode"
-                          checked={!advanced}
-                          onChange={() => {
-                            s.mode.value = "simple";
-                          }}
-                        />
-                        Simple
-                      </label>
-                      <label class="pf-seg__opt">
-                        <input
-                          type="radio"
-                          name="input-mode"
-                          checked={advanced}
-                          onChange={() => {
-                            s.mode.value = "advanced";
-                          }}
-                        />
-                        Advanced
-                      </label>
-                    </div>
-                  </fieldset>
                   <details class="app-menu" ref={menuRef}>
                     <summary>Project</summary>
                     <div class="app-menu-panel">
@@ -374,7 +332,7 @@ export function App(props: AppProps) {
             </div>
             <div class="pf-app__body">
               <section class="pf-app__rail" aria-label="Inputs">
-                {shownSections.map((x) => (
+                {sections.map((x) => (
                   <Section
                     key={x.id}
                     id={x.id}
@@ -382,28 +340,27 @@ export function App(props: AppProps) {
                     title={SECTION_TITLES[x.id]}
                     summary={summaries[x.id]}
                     problem={problems.has(x.id)}
-                    advanced={x.advanced}
                     open={openSection === x.id}
                     onToggle={(open) => setOpenSection(open ? x.id : null)}
                   >
                     {x.id === "box" ? (
                       <BoxForm
                         box={project.box}
-                        advanced={advanced}
+                        advanced
                         onChange={(patch) => store.edit((q) => updateBox(q, patch))}
                       />
                     ) : null}
                     {x.id === "printer" ? (
                       <PrinterForm
                         printer={project.printer}
-                        advanced={advanced}
+                        advanced
                         onChange={(patch) => store.edit((q) => updatePrinter(q, patch))}
                       />
                     ) : null}
                     {x.id === "components" ? (
                       <ComponentList
                         components={project.components}
-                        advanced={advanced}
+                        advanced
                         trayNumbers={trayNumbers}
                         onAdd={addComponentOfKind}
                         onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
@@ -422,7 +379,7 @@ export function App(props: AppProps) {
                     {x.id === "settings" ? (
                       <SettingsForm
                         settings={project.settings}
-                        advanced={advanced}
+                        advanced
                         onChange={(next) => store.edit((q) => setSettings(q, next))}
                       />
                     ) : null}
@@ -443,8 +400,8 @@ export function App(props: AppProps) {
                   canUndo={store.canUndo.value}
                   canOptimize={canOptimize(project, validation)}
                   hasComponents={project.components.length > 0}
-                  hiddenErrors={errorsWithoutField(validation, advanced)}
-                  advanced={advanced}
+                  hiddenErrors={errorsWithoutField(validation)}
+                  advanced
                   problemSections={problemSections}
                   onShowSection={showSection}
                   shortfall={s.shortfall.value}
@@ -526,7 +483,7 @@ export function App(props: AppProps) {
                           box={project.box}
                           settings={project.settings}
                           components={project.components}
-                          advanced={advanced}
+                          advanced
                           lockedKeys={locked}
                           selectedKey={s.selection.value}
                           stale={s.stale.value}
@@ -549,7 +506,7 @@ export function App(props: AppProps) {
                           box={project.box}
                           settings={project.settings}
                           components={project.components}
-                          advanced={advanced}
+                          advanced
                           stale={s.stale.value}
                           meshes={meshes}
                           selectedKey={s.selection.value}
