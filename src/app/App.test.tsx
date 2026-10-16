@@ -705,14 +705,15 @@ describe("App", () => {
         }
       });
 
-      it("shows the shortcut in the buttons' titles: Ctrl, or the Command sign on a Mac", () => {
+      it("shows the shortcut in the buttons' titles while they work, the reason while not", () => {
         renderApp();
-        expect(screen.getByRole("button", { name: "Undo" }).getAttribute("title")).toBe(
-          "Undo (Ctrl+Z)",
-        );
-        expect(screen.getByRole("button", { name: "Redo" }).getAttribute("title")).toBe(
-          "Redo (Ctrl+Y)",
-        );
+        const title = (name: string) => screen.getByRole("button", { name }).getAttribute("title");
+        expect(title("Undo")).toBe("Nothing to undo");
+        expect(title("Redo")).toBe("Nothing to redo");
+        rename("Wingspan");
+        expect(title("Undo")).toBe("Undo (Ctrl+Z)");
+        fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+        expect(title("Redo")).toBe("Redo (Ctrl+Y)");
       });
     });
 

@@ -213,8 +213,30 @@ describe("Header", () => {
     expect(onBlockedDownload).toHaveBeenCalledTimes(1);
   });
 
+  it("titles a blocked Undo and Redo with the reason, not the shortcut", () => {
+    render(<Header {...props({ canUndo: false, canRedo: false })} />);
+    expect(screen.getByRole("button", { name: "Undo" }).getAttribute("title")).toBe(
+      "Nothing to undo",
+    );
+    expect(screen.getByRole("button", { name: "Redo" }).getAttribute("title")).toBe(
+      "Nothing to redo",
+    );
+    // the shortcut is still announced for assistive technology
+    expect(
+      screen.getByRole("button", { name: "Redo" }).getAttribute("aria-keyshortcuts"),
+    ).toContain("Control+Y");
+  });
+
+  it("points aria-controls at the menu only while it is open", () => {
+    render(<Header {...props()} />);
+    const button = screen.getByRole("button", { name: "Project menu" });
+    expect(button.hasAttribute("aria-controls")).toBe(false);
+    fireEvent.click(button);
+    expect(document.getElementById(button.getAttribute("aria-controls") ?? "")).not.toBeNull();
+  });
+
   it("names the shortcuts in the Undo and Redo titles, Command on a Mac", () => {
-    const { unmount } = render(<Header {...props()} />);
+    const { unmount } = render(<Header {...props({ canUndo: true, canRedo: true })} />);
     expect(screen.getByRole("button", { name: "Undo" }).getAttribute("title")).toBe(
       "Undo (Ctrl+Z)",
     );
@@ -227,7 +249,7 @@ describe("Header", () => {
     unmount();
     const platform = vi.spyOn(window.navigator, "platform", "get").mockReturnValue("MacIntel");
     try {
-      render(<Header {...props()} />);
+      render(<Header {...props({ canUndo: true, canRedo: true })} />);
       expect(screen.getByRole("button", { name: "Undo" }).getAttribute("title")).toBe("Undo (⌘Z)");
       expect(screen.getByRole("button", { name: "Redo" }).getAttribute("title")).toBe("Redo (⇧⌘Z)");
     } finally {

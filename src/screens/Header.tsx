@@ -205,7 +205,7 @@ export function Header(p: HeaderProps) {
       icon={<Icon name="undo" size={p.phone ? 20 : 18} />}
       blockedReason={p.canUndo ? undefined : "Nothing to undo"}
       aria-keyshortcuts="Control+Z Meta+Z"
-      title={historyTitle("undo", mac)}
+      title={p.canUndo ? historyTitle("undo", mac) : "Nothing to undo"}
       onClick={p.onUndo}
     />
   );
@@ -229,7 +229,7 @@ export function Header(p: HeaderProps) {
         icon={<Icon name="more" size={p.phone ? 20 : 18} />}
         dot={p.menuDot}
         aria-expanded={open}
-        aria-controls="project-menu"
+        aria-controls={open ? "project-menu" : undefined}
         onClick={() => setOpen(!open)}
       />
       {open ? (
@@ -285,7 +285,7 @@ export function Header(p: HeaderProps) {
         icon={<Icon name="redo" />}
         blockedReason={p.canRedo ? undefined : "Nothing to redo"}
         aria-keyshortcuts="Control+Y Control+Shift+Z Meta+Shift+Z"
-        title={historyTitle("redo", mac)}
+        title={p.canRedo ? historyTitle("redo", mac) : "Nothing to redo"}
         onClick={p.onRedo}
       />
       {menuButton}

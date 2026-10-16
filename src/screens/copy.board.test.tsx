@@ -88,6 +88,14 @@ const CASES: readonly Case[] = [
       fireEvent.click(screen.getAllByRole("button", { name: /^Delete…/ })[0] as HTMLElement);
     },
   },
+  {
+    state: "workspace-unnamed",
+    board: "Main",
+    region: "header",
+    steps: (store) => {
+      act(() => store.edit((q) => ({ ...q, name: "" })));
+    },
+  },
   // Main's `{props: {notice: "otherTab"}}`: Saving paused, the dot, and the note in the menu.
   {
     state: "workspace-note",

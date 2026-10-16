@@ -17,6 +17,8 @@ const FOOTER = "The footer moves into the project menu";
 const SAVED = "The saved status has five states";
 const DISMISS = "A menu note other than another tab's";
 const INSERTS = "Your inserts is a page of the project menu";
+const UNNAMED = "An unnamed insert reads (unnamed)";
+const PAGE = ["inserts", "inserts-delete"] as const;
 const REDO = "Redo sits beside Undo";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
@@ -28,19 +30,19 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Saving…", states: "all", ruling: SAVED },
   { text: "Couldn't save", states: "all", ruling: SAVED },
   { text: "Not saved: this browser blocks storage", states: "all", ruling: SAVED },
-  { text: "(unnamed)", states: "all", ruling: SAVED },
+  { text: "(unnamed)", states: "all", ruling: UNNAMED },
   { text: "Dismiss", states: "all", ruling: DISMISS },
-  { text: "Back", states: "all", ruling: INSERTS },
-  { text: "Open now", states: "all", ruling: INSERTS },
-  { text: "Delete…", states: "all", ruling: INSERTS },
-  { text: "Delete", states: "all", ruling: INSERTS },
-  { text: "Cancel", states: "all", ruling: INSERTS },
+  { text: "Back", states: PAGE, ruling: INSERTS },
+  { text: "Open now", states: PAGE, ruling: INSERTS },
+  { text: "Delete…", states: PAGE, ruling: INSERTS },
+  { text: "Delete", states: PAGE, ruling: INSERTS },
+  { text: "Cancel", states: PAGE, ruling: INSERTS },
   {
     text: "Delete “{name}” from this browser? This can't be undone.",
-    states: "all",
+    states: PAGE,
     ruling: INSERTS,
   },
-  { text: "Nothing saved yet.", states: "all", ruling: INSERTS },
+  { text: "Nothing saved yet.", states: PAGE, ruling: INSERTS },
 ];
 
 /**
