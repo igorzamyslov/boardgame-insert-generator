@@ -1003,6 +1003,23 @@ describe("App", () => {
     });
   });
 
+  it("lays the stage out as the status line, the plan, then the figures", () => {
+    renderApp({ project: withLayoutProject() });
+    const stage = document.querySelector(".pf-app__stage") as HTMLElement;
+    const index = (selector: string): number => {
+      const el = stage.querySelector(`:scope > ${selector}`);
+      return el === null ? -1 : [...stage.children].indexOf(el);
+    };
+    const status = index(".pf-status");
+    const plan = index(".pf-view");
+    const figures = index(".pf-readouts");
+    const note = index(".stage-block.hint");
+    expect(status).toBeGreaterThanOrEqual(0);
+    expect(plan).toBeGreaterThan(status);
+    expect(figures).toBeGreaterThan(plan);
+    expect(note).toBeGreaterThan(figures);
+  });
+
   it("has no preview banner, whatever the version", () => {
     renderApp();
     expect(screen.queryByRole("note")).toBeNull();

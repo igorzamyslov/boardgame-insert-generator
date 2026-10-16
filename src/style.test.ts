@@ -214,9 +214,10 @@ describe("the phone layout", () => {
     expect(mediaBlocks(`(width < ${px}px)`).length).toBeGreaterThan(1);
   });
 
-  it("puts the status pill first and the figures after the box", () => {
-    expect(ruleFor(".pf-app__stage > .pf-status", phoneLayout)).toMatch(/order:\s*-1/);
-    expect(ruleFor(".pf-app__stage > .stage-block", phoneLayout)).toMatch(/order:\s*2/);
+  it("leaves the order of the stage to the page: the status pill, the box, then the figures", () => {
+    // DESIGN §5: the same order on every width, so no `order` moves a block (App.test.tsx checks the page)
+    expect(ruleFor(".pf-app__stage > .stage-block", phoneLayout)).not.toMatch(/order:/);
+    expect(css).not.toMatch(/\.pf-app__stage > \.pf-status\s*{[^}]*order:/);
   });
 
   it("fills the screen with an open sheet that holds the editor or the box, below 600 px", () => {
@@ -232,7 +233,7 @@ describe("the phone layout", () => {
     expect(ruleFor("button", css, true)).toMatch(/min-height:\s*var\(--control-h\)/);
   });
 
-  it("keeps the plan at least 24 rem tall, so the stage scrolls rather than shrink it", () => {
+  it("keeps the plan at least 24 rem tall (the figures below it still share the stage), so it scrolls rather than shrinks", () => {
     expect(ruleFor(".pf-app__stage > .pf-view")).toMatch(/min-height:\s*24rem/);
   });
 

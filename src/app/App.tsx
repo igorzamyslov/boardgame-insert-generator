@@ -665,18 +665,6 @@ export function App(props: AppProps) {
                   onEdit={editComponent}
                   onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
                 />
-                <Summary
-                  summary={summary}
-                  run={run}
-                  notices={summaryNotices}
-                  hasLayout={layout !== undefined}
-                  canOptimize={canPlan}
-                  hasComponents={project.components.length > 0}
-                  hiddenErrors={errorsWithoutField(validation)}
-                  problemSections={problemSections}
-                  onShowSection={showSection}
-                  onRetry={() => store.retry()}
-                />
                 {firstVisit ? (
                   <section class="pf-first" aria-label="Start">
                     <h2>Fit your game into its box.</h2>
@@ -839,6 +827,19 @@ export function App(props: AppProps) {
                     </div>
                   </section>
                 )}
+                {/* The figures come after the plan, on every width (the status line is above it). */}
+                <Summary
+                  summary={summary}
+                  run={run}
+                  notices={summaryNotices}
+                  hasLayout={layout !== undefined}
+                  canOptimize={canPlan}
+                  hasComponents={project.components.length > 0}
+                  hiddenErrors={errorsWithoutField(validation)}
+                  problemSections={problemSections}
+                  onShowSection={showSection}
+                  onRetry={() => store.retry()}
+                />
                 {/* always mounted: the removal is spoken, and Undo is in the header as well */}
                 <div class="visually-hidden" role="status" data-live="removed">
                   {removed !== null && removed.version === s.history.version.value

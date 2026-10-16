@@ -925,7 +925,8 @@ span.inserts-name {
 .pf-app__stage > .pf-view {
   flex: 1 1 auto;
 
-  /* The plan never shrinks to a thumbnail: on a short screen the stage scrolls instead. */
+  /* The plan never shrinks to a thumbnail: on a short screen the stage scrolls instead. Still
+     needed with the figures below it (measured at 1440 by 700 px without it: 93 px tall). */
   min-height: 24rem;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
@@ -1739,15 +1740,10 @@ html:has(dialog.modal[open]) {
     padding-bottom: var(--space-3);
   }
 
-  /* The status pill first, then the box; the figures follow it. */
+  /* The status pill, then the box, then the figures: the order they come in the page, as on a wide screen. */
   .pf-app__stage > .stage-block {
     flex: none;
-    order: 2;
     margin: 0 0 var(--space-3);
-  }
-
-  .pf-app__stage > .pf-status {
-    order: -1;
   }
 
   /* The box fills what the screen has left under the status pill; the figures wait below it. */
