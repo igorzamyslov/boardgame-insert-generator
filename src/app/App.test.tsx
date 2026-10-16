@@ -3,6 +3,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
+import { DEFAULT_SETTINGS } from "../model/settings";
 import { toSerializable } from "../model/schema";
 import type { Project } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
@@ -93,7 +94,7 @@ describe("App", () => {
       [...inputs.querySelectorAll("details.pf-acc > summary h2")].map((t) =>
         t.textContent?.replace(/^\d+/, ""),
       );
-    expect(titles()).toEqual(["The box", "What goes inside", "Your printer", "Walls and fit"]);
+    expect(titles()).toEqual(["The box", "What goes inside"]);
     const results = screen.getByRole("main");
     expect(within(results).getByRole("heading", { level: 2, name: "Results" })).toBeTruthy();
     expect(screen.queryByText(/shared links may break/)).toBeNull();
@@ -111,8 +112,9 @@ describe("App", () => {
     expect(screen.queryByRole("group", { name: "Input mode" })).toBeNull();
     expect(screen.queryByText(/Dotted edge/)).toBeNull();
     expect(document.querySelector("[data-level]")).toBeNull();
-    // What the switch used to hide is on screen.
-    expect(screen.getByLabelText(/Bed margin/)).toBeTruthy();
+    // What the switch used to hide is in the settings sheet, not in the rail.
+    expect(screen.queryByLabelText(/Bed margin/)).toBeNull();
+    expect(screen.queryByLabelText(/^Corner radius/)).toBeNull();
   });
 
   it("adds a component and starts an optimizer run after the pause", async () => {
@@ -167,7 +169,7 @@ describe("App", () => {
     }
   });
 
-  it("shows settings errors next to their field", async () => {
+  it("shows settings errors next to their field, in the settings sheet", async () => {
     const { store } = renderApp();
     addCards();
     const results = screen.getByRole("main");
@@ -175,18 +177,30 @@ describe("App", () => {
     store.edit((q) => ({ ...q, settings: { ...q.settings, bottomChamfer: 3 } }));
     expect(await within(results).findByText(/Fix the errors marked in the inputs/)).toBeTruthy();
     expect(within(results).queryByText(/add at least one component/)).toBeNull();
-    // The field is on screen, so the summary lists no error of its own for it.
+    // The field is in the sheet, so the summary lists no error of its own for it.
     expect(within(results).queryByRole("list", { name: "Errors without a field" })).toBeNull();
-    const inputs = screen.getByRole("region", { name: "Inputs" });
-    const settings = inputs.querySelector("#section-settings") as HTMLElement;
-    expect(settings.textContent).toMatch(/Needs attention/);
-    const message = within(settings).getByText(/Bottom chamfer must be at most/);
+    fireEvent.click(within(results).getByRole("button", { name: "Show Settings" }));
+    const sheet = screen.getByRole("dialog", { name: "Settings" });
+    expect(screen.getByRole("tab", { name: /^This insert/ }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+    const message = within(sheet).getByText(/Bottom chamfer must be at most/);
     // The message is on screen: no closed <details> between it and the page.
     for (let el = message.parentElement; el !== null; el = el.parentElement) {
-      if (el.tagName === "DETAILS" && el.id !== "section-settings") {
+      if (el.tagName === "DETAILS") {
         expect((el as HTMLDetailsElement).open).toBe(true);
       }
     }
+  });
+
+  it("opens the settings sheet on My printer for an error in the insert's printer", async () => {
+    const { store } = renderApp();
+    addCards();
+    store.edit((q) => ({ ...q, printer: { ...q.printer, bedMargin: -1 } }));
+    fireEvent.click(await screen.findByRole("button", { name: "Show Settings" }));
+    expect(screen.getByRole("tab", { name: /^My printer/ }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
   });
 
   it("removes a component with an Undo toast that puts it back where it was", async () => {
@@ -442,13 +456,58 @@ describe("App", () => {
       expect(projectStore.list().map((e) => e.id)).not.toContain(doomed);
     });
 
-    it("Settings opens the settings section", () => {
-      Element.prototype.scrollIntoView = vi.fn();
+    it("Settings opens the settings sheet, and Escape closes it back to the menu button", () => {
       renderApp();
+      const button = openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+      expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
+      const dialog = screen.getByRole("dialog", { name: "Settings" });
+      expect(within(dialog).getByRole("tab", { name: "This insert" })).toBeTruthy();
+      fireEvent(dialog, new Event("cancel", { cancelable: true }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(document.activeElement).toBe(button);
+    });
+
+    it("keeps the settings and printer out of the rail", () => {
+      renderApp();
+      expect(document.getElementById("section-settings")).toBeNull();
+      expect(document.getElementById("section-printer")).toBeNull();
+    });
+
+    it("edits this insert's settings from the sheet as one undoable step", () => {
+      const { store } = renderApp();
       openMenu();
       fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-      expect((document.getElementById("section-settings") as HTMLDetailsElement).open).toBe(true);
-      expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
+      fireEvent.change(screen.getByRole("combobox", { name: "Walls" }), {
+        target: { value: "sturdy" },
+      });
+      expect(store.state.project.value.settings.wall).toBe(2);
+      store.undo();
+      expect(store.state.project.value.settings.wall).toBe(DEFAULT_SETTINGS.wall);
+    });
+
+    it("sets my printer without touching this insert until Apply, which is one step to undo", () => {
+      const { store, prefs } = renderApp();
+      const before = store.state.project.value.printer;
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+      fireEvent.click(screen.getByRole("tab", { name: "My printer" }));
+      fireEvent.input(screen.getByLabelText(/^Bed margin/), { target: { value: "9" } });
+      expect(prefs.printer.value.bedMargin).toBe(9);
+      expect(store.state.project.value.printer).toEqual(before);
+      fireEvent.click(screen.getByRole("button", { name: "Apply to this insert" }));
+      expect(store.state.project.value.printer).toEqual(prefs.printer.value);
+      expect(screen.getByText("This insert already uses this printer.")).toBeTruthy();
+      store.undo();
+      expect(store.state.project.value.printer).toEqual(before);
+    });
+
+    it("closes the sheet when another insert opens", async () => {
+      const { store } = renderApp();
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+      store.newProject();
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     });
 
     it("keeps Download off until there is a plan", () => {

@@ -17,9 +17,9 @@ import { ExportPanel } from "../ui/ExportPanel";
 import { Modal } from "../ui/Modal";
 import { Notices, PlanBanners } from "../ui/Notices";
 import { placeNotices } from "../ui/noticePlacement";
-import { PrinterForm } from "../ui/PrinterForm";
 import { ProjectMenu } from "../ui/ProjectMenu";
-import { SettingsForm } from "../ui/SettingsForm";
+import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
+import type { SettingsTab } from "../ui/SettingsSheet";
 import { Summary } from "../ui/Summary";
 import { Section } from "../ui/Section";
 import {
@@ -40,9 +40,9 @@ import {
   sizeLockedKeys,
   toggleLock,
   toggleSizeLock,
+  applyPrinter,
   updateBox,
   updateComponent,
-  updatePrinter,
 } from "./actions";
 import { downloadBlob } from "./download";
 import type { MeshSource } from "./meshes";
@@ -62,31 +62,28 @@ export interface AppProps {
   viewerProps?: Pick<ViewerProps, "webgl" | "loadScene">;
 }
 
-type SectionId = "box" | "printer" | "components" | "settings";
+type SectionId = "box" | "components";
+/** What a validation path belongs to: a rail section, or the settings sheet. */
+type PathHome = SectionId | "settings";
 type ViewId = "plan" | "3d";
 
 const SECTION_TITLES: Record<SectionId, string> = {
   box: "The box",
-  printer: "Your printer",
   components: "What goes inside",
-  settings: "Walls and fit",
 };
 
-/** The section whose fields a validation path belongs to. */
-function sectionOf(path: string | undefined): SectionId | null {
+/** Where the fields a validation path belongs to are: a rail section, or the settings sheet. */
+function sectionOf(path: string | undefined): PathHome | null {
   if (path === undefined) {
     return null;
   }
   if (path.startsWith("/box")) {
     return "box";
   }
-  if (path.startsWith("/printer")) {
-    return "printer";
-  }
   if (path.startsWith("/components")) {
     return "components";
   }
-  return path.startsWith("/settings") ? "settings" : null;
+  return path.startsWith("/settings") || path.startsWith("/printer") ? "settings" : null;
 }
 
 const mm = (v: number): string => String(Math.round(v * 10) / 10);
@@ -138,6 +135,8 @@ export function App(props: AppProps) {
   const [view, setView] = useState<ViewId>("plan");
   // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
   const [exportOpen, setExportOpen] = useState(false);
+  // The settings sheet is a dialog too; null while it is closed.
+  const [settingsOpen, setSettingsOpen] = useState<{ tab: SettingsTab } | null>(null);
   // The component just removed, for the Undo toast (cleared when another project opens).
   const [removed, setRemoved] = useState<{ component: Component; version: number } | null>(null);
   // The older plan the person chose to keep (project and geometry line), so its banner stays away.
@@ -146,6 +145,7 @@ export function App(props: AppProps) {
   useEffect(() => {
     setRemoved(null);
     setExportOpen(false);
+    setSettingsOpen(null);
   }, [project.id]);
   const locked = lockedKeys(project);
   const sizeLocked = sizeLockedKeys(project);
@@ -194,36 +194,40 @@ export function App(props: AppProps) {
   }
 
   const validation = s.validation.value;
-  const problems = new Set<SectionId>();
+  const problems = new Set<PathHome>();
   for (const n of validation) {
     const id = n.level === "error" ? sectionOf(n.path) : null;
     if (id !== null) {
       problems.add(id);
     }
   }
-  const sections: { id: SectionId; step?: number }[] = [
+  const sections: { id: SectionId; step: number }[] = [
     { id: "box", step: 1 },
     { id: "components", step: 2 },
-    { id: "printer", step: 3 },
-    { id: "settings" },
   ];
-  const problemSections = sections
-    .filter((x) => problems.has(x.id))
-    .map((x) => ({ id: x.id, title: SECTION_TITLES[x.id] }));
-  const printer = project.printer;
-  const bedSize = `${mm(printer.bedX)} × ${mm(printer.bedY)} × ${mm(printer.bedZ)} mm`;
+  const problemSections: { id: PathHome; title: string }[] = [
+    ...sections
+      .filter((x) => problems.has(x.id))
+      .map((x) => ({ id: x.id, title: SECTION_TITLES[x.id] })),
+    ...(problems.has("settings") ? [{ id: "settings" as const, title: "Settings" }] : []),
+  ];
   const summaries: Record<SectionId, string> = {
     box: `${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} × ${mm(project.box.innerHeight)} mm`,
-    printer: `${bedSize} · margin ${mm(printer.bedMargin)} mm · layers ${mm(printer.layerHeight)} mm`,
     components:
       project.components.length === 0
         ? "nothing yet"
         : project.components.length === 1
           ? "1 item"
           : `${project.components.length} items`,
-    settings: `${mm(project.settings.wall)} mm walls · fit ×${mm(project.settings.fit)}`,
   };
+  // The settings sheet, over whichever view is showing; `tab` is the one it opens on.
+  const openSettings = (tab?: SettingsTab): void =>
+    setSettingsOpen({ tab: tab ?? settingsTabFor(validation) });
   const showSection = (id: string): void => {
+    if (id === "settings") {
+      openSettings();
+      return;
+    }
     setOpenSection(id as SectionId);
     document.getElementById(`section-${id}`)?.scrollIntoView({ block: "nearest" });
   };
@@ -337,7 +341,7 @@ export function App(props: AppProps) {
                     onSendFile={() => {
                       void sendFile();
                     }}
-                    onSettings={() => showSection("settings")}
+                    onSettings={() => openSettings()}
                     notices={placed.menu}
                     conflict={s.conflict.value}
                     onResolveConflict={(choice) => store.resolveConflict(choice)}
@@ -394,12 +398,6 @@ export function App(props: AppProps) {
                         onChange={(patch) => store.edit((q) => updateBox(q, patch))}
                       />
                     ) : null}
-                    {x.id === "printer" ? (
-                      <PrinterForm
-                        printer={project.printer}
-                        onChange={(patch) => store.edit((q) => updatePrinter(q, patch))}
-                      />
-                    ) : null}
                     {x.id === "components" ? (
                       <ComponentList
                         components={project.components}
@@ -416,12 +414,6 @@ export function App(props: AppProps) {
                           setRemoved({ component, version: s.history.version.peek() });
                           return true;
                         }}
-                      />
-                    ) : null}
-                    {x.id === "settings" ? (
-                      <SettingsForm
-                        settings={project.settings}
-                        onChange={(next) => store.edit((q) => setSettings(q, next))}
                       />
                     ) : null}
                   </Section>
@@ -660,6 +652,20 @@ export function App(props: AppProps) {
               {" · "}
               <a href="../">All apps</a>
             </footer>
+            {settingsOpen !== null ? (
+              <SettingsSheet
+                initialTab={settingsOpen.tab}
+                settings={project.settings}
+                onSettingsChange={(next) => store.edit((q) => setSettings(q, next))}
+                printer={project.printer}
+                myPrinter={store.prefs.printer.value}
+                onMyPrinterChange={(p) => store.prefs.setPrinter(p)}
+                onApplyPrinter={() =>
+                  store.edit((q) => applyPrinter(q, store.prefs.printer.peek()))
+                }
+                onClose={() => setSettingsOpen(null)}
+              />
+            ) : null}
           </div>
         </SettingsContext.Provider>
       </SizingContext.Provider>

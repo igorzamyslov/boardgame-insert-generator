@@ -7,6 +7,8 @@ export interface ModalProps {
   labelledBy: string;
   /** Escape or the Close button: the owner unmounts the modal, which ends it. */
   onClose: () => void;
+  /** An extra class for the dialog (its size, say). */
+  class?: string;
   children: ComponentChildren;
 }
 
@@ -21,7 +23,7 @@ export interface ModalProps {
  * element. Where `showModal` is missing (jsdom, very old browsers) the dialog is simply shown
  * open, without the trap.
  */
-export function Modal({ labelledBy, onClose, children }: ModalProps) {
+export function Modal({ labelledBy, onClose, class: extra, children }: ModalProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -52,7 +54,8 @@ export function Modal({ labelledBy, onClose, children }: ModalProps) {
   return (
     <dialog
       ref={dialog}
-      class="modal"
+      class={extra === undefined ? "modal" : `modal ${extra}`}
+      aria-modal="true"
       aria-labelledby={labelledBy}
       onCancel={(e) => {
         // Not the browser's own close: the state decides, so the two never disagree.

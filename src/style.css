@@ -994,6 +994,84 @@ html:has(dialog.modal[open]) {
   border-top: 1px solid var(--rule);
 }
 
+/* The settings sheet (ui/SettingsSheet.tsx): two tabs over a scrolling panel; full screen on a phone. */
+.settings-sheet {
+  width: min(720px, calc(100vw - 2 * var(--space-4)));
+  height: min(820px, calc(100vh - 2 * var(--space-4)));
+}
+
+/* The panel scrolls, so Close stays in view. */
+.settings-sheet[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settings-sheet .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (width < 600px) {
+  .modal,
+  .settings-sheet {
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+.settings-sheet .pf-tabs button {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 44px;
+  border-radius: 0;
+}
+
+.settings-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.settings-panel,
+.settings-stack,
+.settings-group,
+.settings-apply {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.settings-stack {
+  gap: var(--space-5);
+}
+
+.settings-group h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.settings-group > .hint {
+  margin: 0;
+}
+
+.settings-apply-btn {
+  justify-self: start;
+  min-height: 44px;
+}
+
+.settings-apply .field-error {
+  margin: 0;
+}
+
 .export-title {
   margin: 0;
   font-size: 20px;

@@ -79,7 +79,6 @@ export function PrinterForm({ printer, onChange }: PrinterFormProps) {
             label="Bed X"
             unit="mm"
             value={printer.bedX}
-            path="/printer/bedX"
             {...LENGTH}
             onCommit={(v) => changeBed({ bedX: v })}
           />
@@ -88,7 +87,6 @@ export function PrinterForm({ printer, onChange }: PrinterFormProps) {
             label="Bed Y"
             unit="mm"
             value={printer.bedY}
-            path="/printer/bedY"
             {...LENGTH}
             onCommit={(v) => changeBed({ bedY: v })}
           />
@@ -97,7 +95,6 @@ export function PrinterForm({ printer, onChange }: PrinterFormProps) {
             label="Bed Z"
             unit="mm"
             value={printer.bedZ}
-            path="/printer/bedZ"
             {...LENGTH}
             onCommit={(v) => changeBed({ bedZ: v })}
           />
@@ -108,7 +105,6 @@ export function PrinterForm({ printer, onChange }: PrinterFormProps) {
         label="Bed margin"
         unit="mm"
         value={printer.bedMargin}
-        path="/printer/bedMargin"
         {...OFFSET}
         hint="Kept free on every side for the purge line or skirt."
         onCommit={(v) => onChange({ bedMargin: v })}
@@ -118,7 +114,6 @@ export function PrinterForm({ printer, onChange }: PrinterFormProps) {
         label="Layer height"
         unit="mm"
         value={printer.layerHeight}
-        path="/printer/layerHeight"
         {...LAYER_HEIGHT}
         hint="Tray heights are rounded to multiples of this."
         onCommit={(v) => onChange({ layerHeight: v })}

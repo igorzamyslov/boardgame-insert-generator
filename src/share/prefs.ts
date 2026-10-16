@@ -51,10 +51,14 @@ function validPrinter(x: unknown): Printer | null {
     }
     printer[field] = v;
   }
-  const bad = validateProject({ ...newProject(), printer }).some(
-    (n) => n.level === "error" && n.path?.startsWith("/printer") === true,
-  );
-  return bad ? null : printer;
+  return printerProblems(printer).length > 0 ? null : printer;
+}
+
+/** What the project validator says is wrong with this printer (nothing for a printer it accepts). */
+export function printerProblems(printer: Printer): string[] {
+  return validateProject({ ...newProject(), printer })
+    .filter((n) => n.level === "error" && n.path?.startsWith("/printer") === true)
+    .map((n) => n.message);
 }
 
 function samePrinter(a: Printer, b: Printer): boolean {

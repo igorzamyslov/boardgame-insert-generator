@@ -49,6 +49,8 @@ function sameComponents(a: Project, b: Project): boolean {
 export interface AppStore {
   state: State;
   storageAvailable: boolean;
+  /** The preferences (my printer) new inserts start from. */
+  prefs: PrefsStore;
   edit(fn: (p: Project) => Project): void;
   /** Steps back through the edits of the open project, restoring the whole project (inputs, plan, locks). */
   undo(): void;
@@ -150,6 +152,7 @@ export function createAppStore(deps: AppDeps): AppStore {
   return {
     state,
     storageAvailable: deps.projectStore.available,
+    prefs,
     canUndo: state.history.canUndo,
     canRedo: state.history.canRedo,
     edit,

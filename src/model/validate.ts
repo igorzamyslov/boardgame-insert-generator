@@ -291,11 +291,11 @@ const settingRanges: SettingRange[] = [
   },
   {
     path: "wallAbsorb",
-    label: "Thicker walls instead of a filler",
+    label: "Thicker walls instead of a spacer",
     get: (s) => s.wallAbsorb,
     min: 0,
     max: 3,
-    hint: "How much thicker each wall or divider may get to absorb spare room instead of printing a separate filler part. A thicker wall holds nothing and gives the contents no more room: it only hides the gap. 0 keeps every wall as set and prints the filler. Ignored while One thick wall instead of a filler is on. Above 3 mm a wall is more than double a normal one, so a filler is the better choice.",
+    hint: "How much thicker each wall or divider may get to absorb spare room instead of printing a separate spacer. A thicker wall holds nothing and gives the contents no more room: it only hides the gap. 0 keeps every wall as set and prints the spacer. Ignored while One thick wall instead of a spacer is on. Above 3 mm a wall is more than double a normal one, so a spacer is the better choice.",
   },
   {
     path: "infill",
