@@ -47,6 +47,10 @@ export function placeNotices(notices: readonly Notice[], ctx: PlacementContext):
       out[place].push(n);
     }
   }
+  // One plan banner: where the plan is both old and out of date, the older-geometry one speaks.
+  if (out.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE)) {
+    out.banner = out.banner.filter((n) => n.code !== STALE_CODE);
+  }
   return out;
 }
 

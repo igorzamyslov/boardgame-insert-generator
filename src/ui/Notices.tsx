@@ -1,6 +1,7 @@
 // src/ui/Notices.tsx
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
+import { GEOMETRY_OLD_MESSAGE, STALE_MESSAGE } from "../app/state";
 import type { Notice } from "../model/types";
 
 const LEVEL_LABEL: Record<Notice["level"], string> = {
@@ -131,12 +132,9 @@ export function PlanBanners(p: PlanBannersProps) {
   return (
     <>
       {p.geometryOld ? (
-        <div class="pf-notice pf-notice--warn banner" role="status">
+        <div class="pf-notice pf-notice--warn" role="status">
           <div>
-            <span class="notice-text">
-              Made with an older version of the app. Trays printed from it won't stack with trays
-              you print now.
-            </span>
+            <span class="notice-text">{GEOMETRY_OLD_MESSAGE}</span>
             <span class="notice-action">
               <button type="button" onClick={p.onReprint}>
                 Reprint everything
@@ -149,9 +147,9 @@ export function PlanBanners(p: PlanBannersProps) {
         </div>
       ) : null}
       {p.stale ? (
-        <div class="pf-notice banner">
+        <div class="pf-notice">
           <div>
-            <span class="notice-text">This plan is from before your last changes.</span>
+            <span class="notice-text">{STALE_MESSAGE}</span>
             <span class="notice-action">
               <button type="button" onClick={p.onUpdate}>
                 Update the plan

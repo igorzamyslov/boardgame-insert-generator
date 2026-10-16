@@ -50,6 +50,11 @@ describe("noticePlacement", () => {
     expect(placed).toEqual({ banner: [], menu: [], inline: [] });
   });
 
+  it("shows one plan banner: the older-geometry one when both would", () => {
+    const placed = placeNotices([notice(STALE_CODE), notice(GEOMETRY_MAJOR_CODE)], quiet);
+    expect(placed.banner.map((n) => n.code)).toEqual([GEOMETRY_MAJOR_CODE]);
+  });
+
   it("names the menu notices for the menu button", () => {
     expect(menuNoticeCount(0)).toBe("");
     expect(menuNoticeCount(1)).toBe(", 1 notice");

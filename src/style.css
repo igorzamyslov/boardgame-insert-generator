@@ -253,9 +253,14 @@ input[aria-invalid="true"] {
   color: var(--page);
 }
 
-.app-download:hover:not(:disabled) {
+.app-download:hover:not(:disabled, [aria-disabled="true"]) {
   background: var(--ink);
   filter: brightness(1.25);
+}
+
+/* Download stays in the Tab order while it is off, so its reason can be read. */
+.app-download[aria-disabled="true"] {
+  opacity: 0.45;
 }
 
 .app-menu-wrap {

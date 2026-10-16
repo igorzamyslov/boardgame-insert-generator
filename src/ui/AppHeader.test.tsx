@@ -106,9 +106,20 @@ describe("AppHeader", () => {
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
     expect(p.onDownload).toHaveBeenCalledTimes(1);
     rerender(<AppHeader {...props({ downloadDisabled: true })} />);
-    expect((screen.getByRole("button", { name: "Download" }) as HTMLButtonElement).disabled).toBe(
-      true,
+    const off = screen.getByRole("button", { name: "Download" });
+    expect(off.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(off);
+    expect(p.onDownload).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the reason Download is off as its title and description", () => {
+    render(
+      <AppHeader {...props({ downloadDisabled: true, downloadReason: "Update the plan first" })} />,
     );
+    const b = screen.getByRole("button", { name: "Download" });
+    expect(b.getAttribute("title")).toBe("Update the plan first");
+    expect(b.getAttribute("aria-describedby")).toBe("download-reason");
+    expect(document.getElementById("download-reason")?.textContent).toBe("Update the plan first");
   });
 
   it("opens the project menu, closes it on Escape and returns focus to its button", () => {

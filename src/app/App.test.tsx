@@ -453,9 +453,34 @@ describe("App", () => {
 
     it("keeps Download off until there is a plan", () => {
       renderApp();
-      expect((screen.getByRole("button", { name: "Download" }) as HTMLButtonElement).disabled).toBe(
-        true,
+      expect(screen.getByRole("button", { name: "Download" }).getAttribute("aria-disabled")).toBe(
+        "true",
       );
+    });
+
+    it("keeps Download off, with the reason, while the plan is stale or a run is pending", async () => {
+      const p = fixtureProject();
+      const { store } = renderApp({ project: { ...p, layout: makeLayout("an-older-hash") } });
+      const download = (): HTMLElement => screen.getByRole("button", { name: "Download" });
+      expect(store.state.stale.value).toBe(true);
+      expect(download().getAttribute("aria-disabled")).toBe("true");
+      expect(download().getAttribute("title")).toBe("Update the plan first");
+      expect(download().getAttribute("aria-describedby")).toBeTruthy();
+      fireEvent.click(download());
+      expect(screen.queryByRole("heading", { name: /export/i })).toBeNull();
+      // Current again, but a run is pending.
+      act(() => {
+        store.state.project.value = {
+          ...store.state.project.value,
+          layout: makeLayout(store.state.currentHash.value),
+        };
+        store.state.runScheduled.value = true;
+      });
+      expect(download().getAttribute("aria-disabled")).toBe("true");
+      act(() => {
+        store.state.runScheduled.value = false;
+      });
+      expect(download().getAttribute("aria-disabled")).toBe("false");
     });
 
     it("Download opens the export dialog once there is a plan", () => {
@@ -542,7 +567,6 @@ describe("App", () => {
         "Made with an older version of the app. Trays printed from it won't stack with trays you print now.",
       ),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Reprint everything" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Keep the old plan" }));
     expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
   });
@@ -615,6 +639,45 @@ describe("App", () => {
   });
 
   describe("notice placement", () => {
+    it("Reprint everything re-plans with the current geometry", async () => {
+      const p = fixtureProject();
+      const { store } = renderApp({
+        project: {
+          ...p,
+          layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
+        },
+      });
+      const refit = vi.spyOn(store, "refit").mockImplementation(() => undefined);
+      fireEvent.click(await screen.findByRole("button", { name: "Reprint everything" }));
+      expect(refit).toHaveBeenCalled();
+      expect(screen.queryByRole("heading", { name: /export/i })).toBeNull();
+    });
+
+    it("shows only the older-geometry banner when the plan is also stale", async () => {
+      const p = fixtureProject();
+      renderApp({
+        project: {
+          ...p,
+          layout: makeLayout("an-older-hash", undefined, { geometryVersion: "0.1.0" }),
+        },
+      });
+      expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
+      expect(screen.queryByText("This plan is from before your last changes.")).toBeNull();
+    });
+
+    it("folds inline notices behind Show all after three, and never hides an error", async () => {
+      const { store } = renderApp();
+      for (const i of [1, 2, 3, 4]) {
+        store.pushNotice({ level: "info", code: `test.note${i}`, message: `Note ${i}.` });
+      }
+      store.pushNotice({ level: "error", code: "test.err", message: "Broken." });
+      expect(await screen.findByText("Broken.")).toBeTruthy();
+      expect(document.querySelectorAll(".app-notices li")).toHaveLength(3);
+      expect(screen.getByRole("button", { name: /^Show all 5 messages/ })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /^Show all 5 messages/ }));
+      expect(document.querySelectorAll(".app-notices li")).toHaveLength(5);
+    });
+
     const stalePlan = (): Project => {
       const p = fixtureProject();
       return { ...p, layout: makeLayout("an-older-hash") };

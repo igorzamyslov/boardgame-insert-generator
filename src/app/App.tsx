@@ -314,7 +314,12 @@ export function App(props: AppProps) {
                 onUndo={() => store.undo()}
                 onRedo={() => store.redo()}
                 onDownload={() => setExportOpen(true)}
-                downloadDisabled={layout === undefined}
+                downloadDisabled={layout === undefined || s.stale.value || s.runPending.value}
+                downloadReason={
+                  layout !== undefined && (s.stale.value || s.runPending.value)
+                    ? "Update the plan first"
+                    : undefined
+                }
                 menuDot={placed.menu.length > 0}
                 menuNoticeCount={placed.menu.length}
                 menu={(close) => (
@@ -358,7 +363,7 @@ export function App(props: AppProps) {
                     stale={showStale}
                     geometryOld={showGeometry}
                     onUpdate={() => store.refit()}
-                    onReprint={() => setExportOpen(true)}
+                    onReprint={() => store.refit()}
                     onKeepOld={() => setGeometryKept(geometryKey)}
                   />
                   <Notices

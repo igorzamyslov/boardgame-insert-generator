@@ -1,7 +1,7 @@
 // src/app/state.ts
 import { computed, signal } from "@preact/signals";
 import type { ReadonlySignal, Signal } from "@preact/signals";
-import { GEOMETRY_VERSION, isOlderGeometryLine } from "../geometry/version";
+import { isOlderGeometryLine } from "../geometry/version";
 import { NOTICE_CODES, summarize } from "../layout";
 import type { LayoutResult, LayoutSummary, LockConflict } from "../layout/types";
 import { inputsHash } from "../model/hash";
@@ -27,6 +27,10 @@ export type SaveState = "saved" | "saving" | "paused" | "failed" | "unavailable"
 export const STALE_CODE = "layout.stale";
 export const CAPPED_CODE = NOTICE_CODES.capped;
 export const GEOMETRY_MAJOR_CODE = "geometry.olderMajor";
+/** The banner copy of the two plan notices (the UI shows these words). */
+export const STALE_MESSAGE = "This plan is from before your last changes.";
+export const GEOMETRY_OLD_MESSAGE =
+  "Made with an older version of the app. Trays printed from it won't stack with trays you print now.";
 
 export interface State {
   project: Signal<Project>;
@@ -196,7 +200,7 @@ export function createState(
       out.push({
         level: "info",
         code: STALE_CODE,
-        message: "Inputs changed since this plan was made — update the plan?",
+        message: STALE_MESSAGE,
       });
     }
     // An older compatibility line: an older MAJOR, or pre-1.0 an older 0.MINOR (spec §9).
@@ -204,7 +208,7 @@ export function createState(
       out.push({
         level: "warning",
         code: GEOMETRY_MAJOR_CODE,
-        message: `This plan is out of date: it was made with tray geometry ${layout.geometryVersion}, and the app now uses ${GEOMETRY_VERSION}. Press “Update plan” to rebuild the trays with the current geometry. Trays exported from the old plan won't mate with the new ones, so reprint the whole insert.`,
+        message: GEOMETRY_OLD_MESSAGE,
       });
     }
     out.push(...sizingNotices.value);

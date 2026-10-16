@@ -15,6 +15,8 @@ export interface AppHeaderProps {
   onRedo: () => void;
   onDownload: () => void;
   downloadDisabled: boolean;
+  /** Why Download is off (the button's title and description), e.g. "Update the plan first". */
+  downloadReason?: string;
   /** Something inside the project menu needs a look: the button wears a dot. */
   menuDot: boolean;
   /** How many notices wait in the menu: the button's name says it (1 when only `menuDot` is set). */
@@ -221,12 +223,23 @@ export function AppHeader(p: AppHeaderProps) {
         <button
           type="button"
           class="app-download"
-          disabled={p.downloadDisabled}
+          aria-disabled={p.downloadDisabled}
+          aria-describedby={p.downloadDisabled && p.downloadReason ? "download-reason" : undefined}
+          title={p.downloadDisabled ? p.downloadReason : undefined}
           aria-haspopup="dialog"
-          onClick={p.onDownload}
+          onClick={() => {
+            if (!p.downloadDisabled) {
+              p.onDownload();
+            }
+          }}
         >
           Download
         </button>
+        {p.downloadDisabled && p.downloadReason ? (
+          <span class="visually-hidden" id="download-reason">
+            {p.downloadReason}
+          </span>
+        ) : null}
       </div>
     </header>
   );
