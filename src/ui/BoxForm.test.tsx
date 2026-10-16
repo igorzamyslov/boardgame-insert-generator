@@ -12,7 +12,7 @@ afterEach(cleanup);
 describe("BoxForm", () => {
   it("labels the size fields and commits decimal-comma input", () => {
     const onChange = vi.fn();
-    render(<BoxForm box={DEFAULT_BOX} advanced={false} onChange={onChange} />);
+    render(<BoxForm box={DEFAULT_BOX} onChange={onChange} />);
     fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "290,5" } });
     expect(onChange).toHaveBeenCalledWith({ innerWidth: 290.5 });
     expect(screen.getByLabelText(/^Length/)).toBeTruthy();
@@ -23,21 +23,9 @@ describe("BoxForm", () => {
     expect(screen.getAllByText(/narrowest point/)).toHaveLength(1);
   });
 
-  it("shows only the three size fields in simple mode", () => {
-    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced={false} onChange={vi.fn()} />);
-    expect(document.querySelector(".pf-adv")).toBeNull();
-    expect(screen.queryByLabelText(/Headroom/)).toBeNull();
-    expect(screen.queryByLabelText(/Covered by boards/)).toBeNull();
-    expect(screen.queryByLabelText(/stored on its side/)).toBeNull();
-  });
-
-  it("adds an Advanced block with headroom and the side-storage switch in advanced mode", () => {
+  it("offers headroom and the side-storage switch beside the size fields", () => {
     const onChange = vi.fn();
-    const view = render(
-      <BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced onChange={onChange} />,
-    );
-    expect(screen.getByLabelText("Headroom (mm)").closest(".pf-adv")).not.toBeNull();
-    expect(view.container.querySelector(".pf-adv")).toBeTruthy();
+    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={onChange} />);
     expect(screen.getByLabelText(/^Headroom/)).toBeTruthy();
     expect(screen.getByLabelText(/stored on its side/)).toBeTruthy();
     expect(screen.getByText(/plus 1 mm for warp/)).toBeTruthy();
@@ -46,17 +34,15 @@ describe("BoxForm", () => {
   });
 
   it("hides headroom coverage when headroom is 0", () => {
-    const view = render(
-      <BoxForm box={{ ...DEFAULT_BOX, headroom: 0 }} advanced onChange={vi.fn()} />,
-    );
+    const view = render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 0 }} onChange={vi.fn()} />);
     expect(screen.queryByLabelText("Covered by boards")).toBeNull();
-    view.rerender(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced onChange={vi.fn()} />);
+    view.rerender(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={vi.fn()} />);
     expect(screen.getByLabelText("Covered by boards")).toBeTruthy();
   });
 
   it("toggles stored-on-side and coverage", () => {
     const onChange = vi.fn();
-    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} advanced onChange={onChange} />);
+    render(<BoxForm box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(/stored on its side/));
     expect(onChange).toHaveBeenCalledWith({ storedOnSide: true });
     fireEvent.change(screen.getByLabelText("Covered by boards"), { target: { value: "partial" } });

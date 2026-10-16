@@ -346,7 +346,6 @@ export function App(props: AppProps) {
                     {x.id === "box" ? (
                       <BoxForm
                         box={project.box}
-                        advanced
                         onChange={(patch) => store.edit((q) => updateBox(q, patch))}
                       />
                     ) : null}
