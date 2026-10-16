@@ -6,7 +6,7 @@ import type { ViewBasis } from "./axes";
 export interface SceneTray {
   spec: TraySpec;
   mesh: Mesh;
-  /** A CSS colour (the tint of the tray's component, as in the plan); absent: a generated one. */
+  /** A plain hex colour (the shade of the tray's component, as in the top view); absent: the neutral. */
   color?: string;
 }
 

@@ -6,6 +6,8 @@ import type { MeshSource } from "../app/meshes";
 import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
+import { SPACER_COLOR, SPARE_COLOR, shadeHex } from "../ui/identity";
+import type { Component } from "../model/types";
 import type { ViewBasis } from "./axes";
 import type { SceneFactory, SceneHandle } from "./types";
 import { Viewer } from "./Viewer";
@@ -83,11 +85,15 @@ function props(over: Partial<ViewerProps>, scene: ReturnType<typeof stubScene>):
 }
 
 describe("Viewer", () => {
-  it("shows a message without WebGL and never loads three", async () => {
+  it("explains when WebGL is missing", async () => {
     const scene = stubScene();
     const loadScene = vi.fn(() => Promise.resolve(scene.factory));
     render(<Viewer {...props({ webgl: () => false, loadScene }, scene)} />);
-    expect(screen.getByRole("note").textContent).toMatch(/needs WebGL/);
+    expect(screen.getByRole("note").textContent).toBe(
+      "3D needs WebGL turned on. The top view works the same.",
+    );
+    // a missing WebGL is not an error to retry: the page says what to do
+    expect(screen.queryByRole("alert")).toBeNull();
     await flush();
     expect(loadScene).not.toHaveBeenCalled();
     expect(scene.factory).not.toHaveBeenCalled();
@@ -99,7 +105,11 @@ describe("Viewer", () => {
       throw new WebGLUnavailableError("Error creating WebGL context");
     });
     render(<Viewer {...props({ loadScene: () => Promise.resolve(broken) }, scene)} />);
-    await waitFor(() => expect(screen.getByRole("note").textContent).toMatch(/needs WebGL/));
+    await waitFor(() =>
+      expect(screen.getByRole("note").textContent).toBe(
+        "3D needs WebGL turned on. The top view works the same.",
+      ),
+    );
   });
 
   it("shows a generic error, not the WebGL message, for other scene failures, and retries", async () => {
@@ -146,12 +156,12 @@ describe("Viewer", () => {
     /** The camera in front of the box, level: X to the right, Z up, Y away from the viewer. */
     const FRONT: ViewBasis = { right: [1, 0, 0], up: [0, 0, 1], back: [0, -1, 0] };
 
-    it("is off by default: an unchecked toggle with a hint, no indicator, no camera reports", async () => {
+    it("is off by default: an unpressed toggle with a hint, no indicator, no camera reports", async () => {
       const scene = stubScene();
       render(<Viewer {...props({}, scene)} />);
       await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-      const toggle = screen.getByRole("checkbox", { name: "Show axes" }) as HTMLInputElement;
-      expect(toggle.checked).toBe(false);
+      const toggle = screen.getByRole("button", { name: "Show axes" });
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
       const hint = document.getElementById(toggle.getAttribute("aria-describedby") ?? "");
       expect(hint?.textContent).toMatch(
         /X runs across the box, Y from its front to its back, Z up/,
@@ -160,19 +170,32 @@ describe("Viewer", () => {
       expect(scene.listening()).toBe(false);
     });
 
-    it("sits beside the Spread apart slider", async () => {
+    it("sits in the corner of the view, not among the controls below it", async () => {
       const scene = stubScene();
       render(<Viewer {...props({}, scene)} />);
       await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-      const controls = screen.getByLabelText("Spread apart").closest(".viewer-controls");
-      expect(controls?.contains(screen.getByRole("checkbox", { name: "Show axes" }))).toBe(true);
+      const toggle = screen.getByRole("button", { name: "Show axes" });
+      expect(toggle.closest(".viewer-stage")).toBeTruthy();
+      expect(toggle.closest(".viewer-controls")).toBeNull();
+      expect(toggle.classList.contains("viewer-axes-toggle")).toBe(true);
+    });
+
+    it("is pressed while the axes show", async () => {
+      const scene = stubScene();
+      render(<Viewer {...props({}, scene)} />);
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+      const toggle = screen.getByRole("button", { name: "Show axes" });
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-pressed")).toBe("true");
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
     });
 
     it("shows labelled X, Y and Z axes that follow the camera, and stops listening when turned off", async () => {
       const scene = stubScene();
       render(<Viewer {...props({}, scene)} />);
       await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-      fireEvent.click(screen.getByRole("checkbox", { name: "Show axes" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show axes" }));
       expect(scene.listening()).toBe(true);
       // Nothing is drawn before the camera has said which way it looks.
       expect(screen.queryByTestId("axis-gizmo")).toBeNull();
@@ -193,7 +216,7 @@ describe("Viewer", () => {
       act(() => scene.look({ right: [0, 1, 0], up: [0, 0, 1], back: [1, 0, 0] }));
       expect(tip("y").x).toBeGreaterThan(42);
       expect(tip("x")).toEqual({ x: 42, y: 42 });
-      fireEvent.click(screen.getByRole("checkbox", { name: "Show axes" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show axes" }));
       expect(scene.listening()).toBe(false);
       expect(screen.queryByTestId("axis-gizmo")).toBeNull();
     });
@@ -203,7 +226,7 @@ describe("Viewer", () => {
       const p = props({}, scene);
       render(<Viewer {...p} />);
       await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-      fireEvent.click(screen.getByRole("checkbox", { name: "Show axes" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show axes" }));
       act(() => scene.look(FRONT));
       // The picking is the scene's, on the canvas: the indicator is not inside it, takes no
       // pointer events (see style.test.ts) and the scene is never told about it.
@@ -415,6 +438,142 @@ describe("Viewer", () => {
       ["1", "Layers 1 to 2"],
       ["2", "Layers 1 to 3"],
     ]);
+  });
+
+  describe("colours and names", () => {
+    const market = makeTray({ key: "a:p0:0", level: 0, compartments: [deckWell("Market ×20")] });
+    const goals = makeTray({
+      key: "b:p0:0",
+      level: 1,
+      z: 40,
+      compartments: [deckWell("Objectives ×10")],
+    });
+    const spacer = makeTray({ key: "a:p0:0:spacer", part: "spacer", level: 0, compartments: [] });
+    const spare = makeTray({ key: "c:p0:0", level: 0, compartments: [] });
+
+    async function colours(
+      over: Partial<ViewerProps>,
+    ): Promise<Record<string, string | undefined>> {
+      const scene = stubScene();
+      render(<Viewer {...props(over, scene)} />);
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+      const shown = vi.mocked(scene.handle.setTrays).mock.calls.at(-1)?.[0] ?? [];
+      return Object.fromEntries(shown.map((t) => [t.spec.key, t.color]));
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      document.documentElement.removeAttribute("data-theme");
+    });
+
+    it("gives each component of a kind its own shade, the one the top view uses", async () => {
+      const components = fixtureProject().components;
+      const got = await colours({ trays: [market, goals, spacer, spare], components });
+      // Market and Objectives are the 2nd and 3rd cards components: shades 1 and 2 of the hue.
+      expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "light").fill);
+      expect(got["b:p0:0"]).toBe(shadeHex("cards", 2, "light").fill);
+      expect(got["a:p0:0"]).not.toBe(got["b:p0:0"]);
+      expect(got["a:p0:0:spacer"]).toBe(SPACER_COLOR);
+      expect(got["c:p0:0"]).toBe(SPARE_COLOR);
+    });
+
+    it("counts shades among the components of the same kind only", async () => {
+      const [cards, , objectives] = fixtureProject().components;
+      const tiles = { id: "fxtile01", kind: "tiles", name: "Terrain" } as unknown as Component;
+      const components = [tiles, cards, objectives] as Component[];
+      const terrain = makeTray({ key: "t:p0:0", compartments: [deckWell("Terrain ×6")] });
+      const first = makeTray({ key: "a:p0:0", compartments: [deckWell("Action cards ×20")] });
+      const got = await colours({ trays: [terrain, first, goals], components });
+      expect(got["t:p0:0"]).toBe(shadeHex("tiles", 0, "light").fill);
+      expect(got["a:p0:0"]).toBe(shadeHex("cards", 0, "light").fill);
+      expect(got["b:p0:0"]).toBe(shadeHex("cards", 1, "light").fill);
+    });
+
+    it("takes the dark shades on a dark page", async () => {
+      vi.stubGlobal("matchMedia", (q: string) => ({
+        matches: q.includes("dark"),
+        media: q,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }));
+      const got = await colours({ trays: [market], components: fixtureProject().components });
+      expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "dark").fill);
+    });
+
+    it("repaints in the dark shade when the system theme changes while the view is open", async () => {
+      let dark = false;
+      const listeners: (() => void)[] = [];
+      vi.stubGlobal("matchMedia", (q: string) => ({
+        get matches() {
+          return dark && q.includes("dark");
+        },
+        media: q,
+        addEventListener: (_: string, cb: () => void) => listeners.push(cb),
+        removeEventListener: vi.fn(),
+      }));
+      const scene = stubScene();
+      render(
+        <Viewer {...props({ trays: [market], components: fixtureProject().components }, scene)} />,
+      );
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(scene.handle.setTrays).mock.calls[0]?.[0][0]?.color).toBe(
+        shadeHex("cards", 1, "light").fill,
+      );
+      dark = true;
+      act(() => {
+        for (const cb of listeners) {
+          cb();
+        }
+      });
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalledTimes(2));
+      expect(vi.mocked(scene.handle.setTrays).mock.calls.at(-1)?.[0][0]?.color).toBe(
+        shadeHex("cards", 1, "dark").fill,
+      );
+    });
+
+    it("still follows the system theme on a browser with only addListener", async () => {
+      const listeners: (() => void)[] = [];
+      vi.stubGlobal("matchMedia", (q: string) => ({
+        matches: false,
+        media: q,
+        addListener: (cb: () => void) => listeners.push(cb),
+        removeListener: vi.fn(),
+      }));
+      const scene = stubScene();
+      render(<Viewer {...props({ trays: [market] }, scene)} />);
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+      expect(listeners).toHaveLength(1);
+    });
+
+    it("lets the page's chosen theme win over the system's", async () => {
+      document.documentElement.setAttribute("data-theme", "dark");
+      const got = await colours({ trays: [market], components: fixtureProject().components });
+      expect(got["a:p0:0"]).toBe(shadeHex("cards", 1, "dark").fill);
+    });
+
+    it("names the selected tray in full over the view, never by number", async () => {
+      const scene = stubScene();
+      const components = fixtureProject().components;
+      const p = props({ trays: [market, goals], components }, scene);
+      const view = render(<Viewer {...p} />);
+      // The live region is there from the start, empty, so a reader hears the name arrive.
+      const region = view.container.querySelector(".viewer-selection-live");
+      expect(region?.getAttribute("role")).toBe("status");
+      expect(region?.textContent).toBe("");
+      expect(view.container.querySelector(".viewer-selection")).toBeNull();
+      view.rerender(<Viewer {...p} selectedKey="b:p0:0" />);
+      const label = view.container.querySelector(".viewer-selection");
+      expect(label?.closest(".viewer-stage")).toBeTruthy();
+      expect(view.container.querySelector(".viewer-selection-live")).toBe(region);
+      expect(region?.textContent).toBe("Objectives");
+      // a name cut off on a narrow screen can still be read in full
+      expect(label?.getAttribute("title")).toBe("Objectives");
+      expect(label?.textContent).toBe("Objectives");
+      expect(label?.textContent).not.toMatch(/\d/);
+      view.rerender(<Viewer {...p} selectedKey={null} />);
+      expect(view.container.querySelector(".viewer-selection")).toBeNull();
+      expect(view.container.querySelector(".viewer-selection-live")?.textContent).toBe("");
+    });
   });
 
   describe("tray picker", () => {

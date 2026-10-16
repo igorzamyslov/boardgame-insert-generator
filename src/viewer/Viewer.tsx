@@ -5,11 +5,13 @@ import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
-import { CheckField, SelectField } from "../ui/fields";
-import { SPACER_COLOR, SPARE_COLOR, tintOfTray } from "../ui/identity";
+import { SelectField } from "../ui/fields";
+import { tintOfTray } from "../ui/identity";
+import type { ColorScheme } from "../ui/identity";
 import { TrayDetails } from "../ui/TrayDetails";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
+import { pageScheme, shadeColorOf } from "./shades";
 import { boxOutline } from "./transform";
 import type { SceneFactory, SceneHandle, SceneTray } from "./types";
 import { WebGLUnavailableError, hasWebGL } from "./webgl";
@@ -37,25 +39,36 @@ export interface ViewerProps {
 
 type Status = "loading" | "ready" | "nowebgl" | "error" | "lost";
 
-/**
- * A part's colour in 3D, resolved to a real colour so the scene agrees with the list, the plan
- * and the chips: its component's tint for a tray, one shared colour for every spacer, and a
- * neutral for a part that holds nothing (a spare tray or a filler block).
- */
-function tintColorOf(
-  spec: TraySpec,
-  components: readonly Component[] | undefined,
-): string | undefined {
-  if (spec.part === "spacer" || spec.part === "divider") {
-    return SPACER_COLOR;
-  }
-  const tint = tintOfTray(spec, components ?? []);
-  const name = tint === null ? null : /var\((--[\w-]+)\)/.exec(tint)?.[1];
-  if (!name || typeof document === "undefined") {
-    return tint === null ? SPARE_COLOR : undefined;
-  }
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return value === "" ? SPARE_COLOR : value;
+/** The page's colour scheme, kept current: the scene is repainted when it changes. */
+function usePageScheme(): ColorScheme {
+  const [scheme, setScheme] = useState<ColorScheme>(pageScheme);
+  useEffect(() => {
+    const update = (): void => setScheme(pageScheme());
+    const query =
+      typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
+    // Older browsers only have the deprecated addListener on a MediaQueryList.
+    if (query?.addEventListener) {
+      query.addEventListener("change", update);
+    } else {
+      query?.addListener?.(update);
+    }
+    // The page's theme toggle sets data-theme on the root; the system query alone wouldn't see it.
+    const observer = typeof MutationObserver === "undefined" ? null : new MutationObserver(update);
+    observer?.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    update();
+    return () => {
+      if (query?.removeEventListener) {
+        query.removeEventListener("change", update);
+      } else {
+        query?.removeListener?.(update);
+      }
+      observer?.disconnect();
+    };
+  }, []);
+  return scheme;
 }
 
 async function defaultLoadScene(): Promise<SceneFactory> {
@@ -79,6 +92,7 @@ export function Viewer(p: ViewerProps) {
   const [attempt, setAttempt] = useState(0);
   // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
   const [canvasKey, setCanvasKey] = useState(0);
+  const scheme = usePageScheme();
   const levels = useMemo(() => levelsOf(p.trays), [p.trays]);
   const parts = useMemo(() => numberParts(p.trays), [p.trays]);
   const byKey = useMemo(() => partsByKey(parts), [parts]);
@@ -193,7 +207,11 @@ export function Viewer(p: ViewerProps) {
             ? buildSpecOf(part, p.settings.engraveNames, names.get(spec.key)?.short)
             : spec;
           const built = await p.meshes.get(asked, p.settings, controller.signal);
-          results[i] = { spec, mesh: built.mesh, color: tintColorOf(spec, p.components) };
+          results[i] = {
+            spec,
+            mesh: built.mesh,
+            color: shadeColorOf(spec, p.components ?? [], scheme),
+          };
         } catch {
           failed += 1;
         }
@@ -217,10 +235,10 @@ export function Viewer(p: ViewerProps) {
       cancelled = true;
       controller.abort();
     };
-    // p.components is a dependency because it decides each tray's colour: without it, editing
-    // the components (which can leave the layout alone) left the scene on its old colours while
-    // the list, plan and chips moved on.
-  }, [status, p.trays, p.settings, p.stale, p.meshes, p.components, byKey, names, attempt]);
+    // p.components and the colour scheme are dependencies because they decide each tray's colour:
+    // without them, editing the components (which can leave the layout alone) or switching the
+    // page to dark left the scene on its old colours while the list, plan and chips moved on.
+  }, [status, p.trays, p.settings, p.stale, p.meshes, p.components, scheme, byKey, names, attempt]);
 
   useEffect(() => {
     handleRef.current?.setExplode(explode);
@@ -253,8 +271,7 @@ export function Viewer(p: ViewerProps) {
   if (status === "nowebgl") {
     return (
       <p class="viewer-fallback" role="note">
-        The 3D preview needs WebGL, which isn't available in this browser. The plan view, export and
-        assembly page still work.
+        3D needs WebGL turned on. The top view works the same.
       </p>
     );
   }
@@ -266,6 +283,7 @@ export function Viewer(p: ViewerProps) {
       (shownLevel === null || part.spec.level <= shownLevel),
   );
   const selected = p.selectedKey === null ? undefined : byKey.get(p.selectedKey);
+  const selectedName = selected ? (names.get(selected.spec.key)?.full ?? selected.label) : null;
   return (
     <div class="viewer">
       <div class="viewer-stage">
@@ -276,6 +294,39 @@ export function Viewer(p: ViewerProps) {
           aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
         />
         {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
+        {/* Always mounted, so a reader that watches it hears the name appear; it also covers
+            views where the details panel is off. */}
+        <div class="viewer-selection-live" role="status">
+          {selectedName !== null ? (
+            <span class="viewer-selection" title={selectedName}>
+              {selectedName}
+            </span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          class="viewer-axes-toggle"
+          aria-pressed={showAxes}
+          aria-label="Show axes"
+          aria-describedby="viewer-axes-hint"
+          title="Show axes"
+          onClick={() => setShowAxes((v) => !v)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            aria-hidden="true"
+          >
+            <path d="M5 19V4M5 19h15M5 19l8-8" />
+          </svg>
+        </button>
+        <span id="viewer-axes-hint" class="visually-hidden">
+          A small X, Y, Z indicator in the corner that turns with the model: X runs across the box,
+          Y from its front to its back, Z up.
+        </span>
       </div>
       {status === "loading" ? <p class="hint">Loading the 3D preview…</p> : null}
       {status === "error" || status === "lost" ? (
@@ -326,13 +377,6 @@ export function Viewer(p: ViewerProps) {
             onInput={(e) => setExplode(Number(e.currentTarget.value))}
           />
         </label>
-        <CheckField
-          id="viewer-axes"
-          label="Show axes"
-          checked={showAxes}
-          onChange={setShowAxes}
-          hint="A small X, Y, Z indicator in the corner that turns with the model: X runs across the box, Y from its front to its back, Z up."
-        />
         {levels.length > 1 ? (
           <SelectField
             id="viewer-layers"
