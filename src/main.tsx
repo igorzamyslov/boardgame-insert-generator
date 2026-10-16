@@ -8,6 +8,7 @@ import { createPrefsStore, createProjectStore } from "./share";
 import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
+import "./kit/kit.css";
 import "./style.css";
 
 const store = createAppStore({

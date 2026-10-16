@@ -51,6 +51,17 @@ export function checkNumber(text: string, rules: NumberRules): NumberCheck {
   return { kind: "ok", value };
 }
 
+/**
+ * The keyboard a number field asks for: mm get the decimal keyboard, counts the plain digits, and
+ * Return moves on to the next field. Shared with the kit's `Field` and `Stepper`.
+ */
+export function numberInputAttrs(integer: boolean): {
+  inputMode: "numeric" | "decimal";
+  enterKeyHint: "next";
+} {
+  return { inputMode: integer ? "numeric" : "decimal", enterKeyHint: "next" };
+}
+
 export function formatNumber(v: number): string {
   return String(Math.round(v * 1000) / 1000);
 }
@@ -115,9 +126,7 @@ export function NumberField(props: NumberFieldProps) {
     <input
       id={id}
       type="text"
-      // mm get the decimal keyboard, counts the plain digits; Return moves on to the next field.
-      inputMode={props.integer ? "numeric" : "decimal"}
-      enterKeyHint="next"
+      {...numberInputAttrs(props.integer === true)}
       autoComplete="off"
       value={text}
       aria-invalid={errors.length > 0}

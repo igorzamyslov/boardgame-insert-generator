@@ -262,7 +262,7 @@ async function openApp(browser, appUrl, name, state, seeds) {
   );
   const problems = [];
   page.on("pageerror", (e) => problems.push(`page error: ${e.message}`));
-  await page.goto(appUrl, { waitUntil: "load" });
+  await page.goto(new URL(state.url ?? "", appUrl).href, { waitUntil: "load" });
   for (const step of state.steps ?? []) {
     try {
       await runStep(page, step);
@@ -378,7 +378,10 @@ async function shootState(browser, appUrl, name, seeds) {
   const board = await openBoard(browser, state.board, state.boardOpts ?? {}, state.viewport, key);
   try {
     const boardPng = await board.screenshot();
-    const appPng = await app.screenshot({ path: `${outDir}${name}.app.png` });
+    const appPng = await app.screenshot({
+      path: `${outDir}${name}.app.png`,
+      fullPage: state.fullPage === true,
+    });
     const width = Math.max(pngSize(boardPng).width, pngSize(appPng).width);
     await compose(
       browser,

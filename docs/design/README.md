@@ -13,6 +13,13 @@ The UI rebuild is built from these boards, so each screen can be set beside its 
 - `seeds/` are what the app's `localStorage` holds for each "Harbour Kings" state the screenshots
   start from. Committed. Never edit one by hand.
 
+## The kit gallery
+
+`/kit.html` (`npm run dev`) shows every primitive of `src/kit` in each state the boards draw:
+blocked, pressed, error, each tone. `npm run shots -- kit kit-phone` draws it at 1440 and 390
+beside the nearest boards. It is served in dev and shots mode only; `vite build` builds just
+`index.html`.
+
 ## `npm run seeds`
 
 Makes `seeds/<name>.json` with the real optimizer (the runner's seed and budget, the worker's 30 s
@@ -61,4 +68,6 @@ carries none of it, and `scripts/smoke-dist.mjs` fails if `__shotsHold` is found
 
 Add it to `scripts/design/states.mjs`: its board (and the `boardOpts` that make the board show the
 same state), the viewport, a seed, and the steps. A step is a click on a role and name, a wait, or
-a key. Give the screen's regions `data-region` attributes as the screen is built.
+a key. A page other than the app's own is a `url` (`/kit.html`, the kit gallery), and a page that
+scrolls is drawn whole with `fullPage: true`. Give the screen's regions `data-region` attributes as
+the screen is built.

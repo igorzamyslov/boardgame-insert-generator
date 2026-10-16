@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import kit from "./kit/kit.css?raw";
 import css from "./style.css?raw";
 import base from "./styles/base.css?raw";
 import fonts from "./styles/fonts.css?raw";
@@ -577,5 +578,36 @@ describe("breakpoints", () => {
       /grid-template-columns:\s*minmax\(280px, 340px\)/,
     );
     expect(ruleFor(".pf-app__rail", rail)).toMatch(/padding-inline/);
+  });
+});
+
+describe("kit.css", () => {
+  const stripped = kit.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("sizes the kit from tokens", () => {
+    expect(ruleFor(".k-btn", stripped)).toMatch(/height:\s*var\(--control-h\)/);
+    expect(ruleFor(".k-field__box", stripped)).toMatch(/height:\s*var\(--field-h\)/);
+    expect(ruleFor(".k-btn", stripped)).toMatch(/border-radius:\s*var\(--r-pill\)/);
+    expect(stripped).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it("keeps the other sizes the boards draw", () => {
+    expect(ruleFor(".k-btn--dialog", stripped)).toMatch(/height:\s*var\(--dialog-btn-h\)/);
+    expect(ruleFor(".k-btn--cta", stripped)).toMatch(/height:\s*var\(--cta-h\)/);
+    expect(ruleFor(".k-iconbtn", stripped)).toMatch(/width:\s*var\(--control-h\)/);
+    expect(ruleFor(".k-seg__item", stripped)).toMatch(/height:\s*var\(--control-h\)/);
+    expect(ruleFor(".k-chip", stripped)).toMatch(/height:\s*var\(--control-h\)/);
+    expect(ruleFor(".k-kindtile", stripped)).toMatch(/height:\s*var\(--kind-tile-h\)/);
+    expect(ruleFor(".k-menu", stripped)).toMatch(/width:\s*var\(--menu-w\)/);
+  });
+
+  it("writes only the breakpoints DESIGN rules", () => {
+    const queries = [...stripped.matchAll(/@media\s+([^{]+)\{/g)].map((m) => (m[1] ?? "").trim());
+    expect(queries.length).toBeGreaterThan(0);
+    for (const q of queries) {
+      expect(["(width < 760px)", "(width < 600px)", "(prefers-reduced-motion: reduce)"]).toContain(
+        q,
+      );
+    }
   });
 });

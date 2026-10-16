@@ -8,6 +8,8 @@
 //   nearest    set when no board of its own exists: why this board is the nearest
 //   viewport   the app's window; the board variant is drawn at this size too
 //   seed       a docs/design/seeds name, or null for empty storage (first visit)
+//   url        the page to open, relative to the dev server ("/kit.html"); the app's own by default
+//   fullPage   the app is drawn in full, not just the window (a page that scrolls, like the kit gallery)
 //   holds      shots-mode holds to set before the app starts ("export", "search")
 //   steps      what to do before the screenshot
 //   noPageScroll  the state fails when the page scrolls at its size (a review focus)
@@ -133,6 +135,25 @@ export const STATES = {
       { click: { role: "button", name: /Download (the )?3MF/ } },
       { waitFor: { role: "progressbar" } },
     ],
+  },
+  // The kit gallery (kit.html): every primitive in each state, judged against the controls of the
+  // boards it repeats (Main's menu and status heading, Empty, Edit, Settings).
+  kit: {
+    board: "Main",
+    boardOpts: { state: { menu: true } },
+    nearest: "no board of its own: the controls of Main, Empty, Edit and Settings",
+    viewport: DESKTOP,
+    seed: null,
+    url: "/kit.html",
+    fullPage: true,
+  },
+  "kit-phone": {
+    board: "MobileWorkspace",
+    nearest: "no board of its own: the controls of MobileWorkspace",
+    viewport: PHONE,
+    seed: null,
+    url: "/kit.html",
+    fullPage: true,
   },
   "m-start": { board: "MobileStart", viewport: PHONE, seed: null },
   "m-workspace": { board: "MobileWorkspace", viewport: PHONE, seed: "harbour-kings" },
