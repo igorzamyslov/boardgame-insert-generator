@@ -53,10 +53,10 @@ const KIND_BASES: Record<ComponentKind, Record<ColorScheme, Shade>> = {
 /** How each further shade moves the fill within the hue: lightness points, saturation points. */
 const SHADE_STEPS: readonly { l: number; s: number }[] = [
   { l: 0, s: 0 },
-  { l: -8, s: 8 },
-  { l: -26, s: 14 },
-  { l: 4, s: -14 },
-  { l: -16, s: -24 },
+  { l: -7, s: 0 },
+  { l: -15, s: -8 },
+  { l: 4, s: -12 },
+  { l: -10, s: -26 },
 ];
 
 const DARK_FILL_MAX_L = 34;
@@ -67,8 +67,8 @@ const MIN_INK_CONTRAST = 4.8;
  * The colours of the nth component of a kind, as hex for one colour scheme. Index 0 is the
  * kind's base hue; the next ones step lightness and saturation inside that hue (the other way
  * round on a dark page, where the lighter fill is the one that stands out), and then they
- * start over. The line is pushed until it keeps 3:1 on the box and the ink until it keeps
- * 4.5:1 on the fill, so any shade can be used for outlines and for text.
+ * start over. The line is pushed until it keeps 3:1 on the box and on its own fill, and the ink
+ * until it keeps 4.5:1 on the fill, so any shade can be used for outlines and for text.
  */
 export function shadeHex(kind: ComponentKind, index: number, scheme: ColorScheme): Shade {
   const base = KIND_BASES[kind][scheme];
@@ -81,33 +81,39 @@ export function shadeHex(kind: ComponentKind, index: number, scheme: ColorScheme
   // where light ink still reads on the fill.
   const dL = scheme === "light" ? step.l : -step.l * 0.7;
   const f = hexToHsl(base.fill);
-  // Never so grey that the hue is lost.
+  // Fills stay pastel like the base hue: saturation never rises, and never falls so far that the
+  // hue is lost.
   const fill = hslToHex({
     h: f.h,
-    s: Math.max(f.s * 0.5, f.s + step.s),
+    s: Math.min(f.s, Math.max(f.s * 0.5, f.s + step.s)),
     l: scheme === "light" ? f.l + dL : Math.min(DARK_FILL_MAX_L, f.l + dL),
   });
   // Away from the box and the fill: darker on a light page, lighter on a dark one.
-  const away = (hex: string, against: string, need: number): string => {
+  const away = (hex: string, against: readonly string[], need: number): string => {
     const hsl = hexToHsl(hex);
-    for (let i = 0; i < 80 && contrast(hslToHex(hsl), against) < need; i++) {
+    const short = (): boolean => against.some((g) => contrast(hslToHex(hsl), g) < need);
+    for (let i = 0; i < 100 && short(); i++) {
       hsl.l += scheme === "light" ? -1 : 1;
     }
     return hslToHex(hsl);
   };
   const l = hexToHsl(base.line);
   const line = away(
-    hslToHex({ h: l.h, s: l.s + step.s / 2, l: l.l + dL * 0.3 }),
-    BOX_COLOR[scheme],
+    hslToHex({ h: l.h, s: l.s, l: l.l + dL * 0.3 }),
+    [BOX_COLOR[scheme], fill],
     MIN_LINE_CONTRAST,
   );
-  const ink = away(base.ink, fill, MIN_INK_CONTRAST);
+  const ink = away(base.ink, [fill], MIN_INK_CONTRAST);
   return { fill, line, ink };
 }
 
 /**
  * The same colours as CSS: `light-dark(…)` per colour, so one inline style (or custom property)
  * follows the page's scheme. Needs `color-scheme: light dark` on the page (tokens.css has it).
+ *
+ * Only for the page's own CSS. `light-dark()` means nothing outside it: the 3D view (three.js),
+ * the PNG and SVG export (a standalone SVG, `svgDataUrl` in instructions/png.ts) and anything
+ * printed must use plain hex, `shadeHex(kind, index, "light")`: paper is always light.
  */
 export function shadeOf(kind: ComponentKind, index: number): Shade {
   const light = shadeHex(kind, index, "light");

@@ -102,12 +102,14 @@ element gets a 3 px `--focus` outline (`:focus-visible` in `tokens.css`).
 
 `shadeOf(kind, index)` in `src/ui/identity.ts` gives each component of a kind its own shade of
 the kind's hue (`light-dark(…)` colours, so one inline style follows the scheme; `shadeHex`
-gives plain hex per scheme for canvas and 3D). `src/ui/identity.test.ts` checks the base
+gives plain hex per scheme). `light-dark()` only works in the page's own CSS: the 3D view,
+the PNG and SVG export and anything printed must use `shadeHex(kind, i, "light")` (paper is
+always light); a test keeps `light-dark(` out of the exported SVG. `src/ui/identity.test.ts` checks the base
 shades against the tokens and the contrast of every shade.
 
 Headings use Bricolage Grotesque (500, 700) and everything else Figtree (400, 600, 700),
-both self-hosted from `@fontsource` packages (`src/styles/fonts.css` imports only those
-weights; Vite emits the files as relative assets, so `base: "./"` keeps working and the page
+both self-hosted from `@fontsource` packages (`src/styles/fonts.css` declares only those
+weights, woff2, latin and latin-ext subsets; Vite emits the files as relative assets, so `base: "./"` keeps working and the page
 requests nothing from another host). Their SIL OFL licences are added to
 `third-party-licenses.txt` by `licenses.config.ts`. `src/styles/proof.css` (the older `pf-`
 components) stays until the new screens replace it; it reads the new tokens through a short

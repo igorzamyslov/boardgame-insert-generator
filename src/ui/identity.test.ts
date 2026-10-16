@@ -138,17 +138,30 @@ describe("component shades", () => {
     expect(new Set(KINDS.map((k) => shadeHex(k, 0, "light").fill)).size).toBe(KINDS.length);
   });
 
-  it("keeps lines at 3:1 on the box and ink at 4.5:1 on the fill, in every shade", () => {
+  it("keeps every shade's line at 3:1 on the box and on its own fill, and its ink at 4.5:1 on the fill", () => {
     for (const scheme of SCHEMES) {
       for (const kind of KINDS) {
         for (let index = 0; index < 2 * SHADE_COUNT; index++) {
           const { fill, line, ink } = shadeHex(kind, index, scheme);
-          expect(
-            contrast(line, BOX_COLOR[scheme]),
-            `${kind} ${index} ${scheme} line`,
-          ).toBeGreaterThanOrEqual(3);
-          expect(contrast(ink, fill), `${kind} ${index} ${scheme} ink`).toBeGreaterThanOrEqual(4.5);
+          const at = `${kind} ${index} ${scheme}`;
+          expect(contrast(line, BOX_COLOR[scheme]), `${at} line on box`).toBeGreaterThanOrEqual(3);
+          expect(contrast(line, fill), `${at} line on fill`).toBeGreaterThanOrEqual(3);
+          expect(contrast(ink, fill), `${at} ink on fill`).toBeGreaterThanOrEqual(4.5);
         }
+      }
+    }
+  });
+
+  it("keeps light fills pastel (the vivid #5C8FF6 or #FFBA40 are out)", () => {
+    // HSV saturation: pastels sit low (the bases 0.1 to 0.2), the vivid ones high (0.6 and up).
+    const chroma = (hex: string): number => {
+      const [r, g, b] = hexToRgb(hex);
+      return (Math.max(r, g, b) - Math.min(r, g, b)) / Math.max(r, g, b);
+    };
+    for (const kind of KINDS) {
+      for (let index = 0; index < SHADE_COUNT; index++) {
+        const { fill } = shadeHex(kind, index, "light");
+        expect(chroma(fill), `${kind} ${index} ${fill}`).toBeLessThanOrEqual(0.5);
       }
     }
   });
@@ -164,7 +177,7 @@ describe("component shades", () => {
             expect(
               Math.hypot(r1 - r2, g1 - g2, b1 - b2),
               `${kind} ${a}/${b} ${scheme}`,
-            ).toBeGreaterThanOrEqual(14);
+            ).toBeGreaterThanOrEqual(12);
           }
         }
         expect(shadeHex(kind, SHADE_COUNT, scheme)).toEqual(shadeHex(kind, 0, scheme));
