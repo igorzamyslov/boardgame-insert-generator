@@ -6,19 +6,20 @@
  * Known limits: a TraySpec does not record which variant produced it, and variants share
  * trayKeys, so the variant is inferred from the trays (`inferVariant`) and rule 7 is judged
  * against whichever same-key variant matches the stored trays. The bearing test of rule 4
- * restates the inset check with the realized lower wall, so it is a consistency check, not an
+ * restates the flush check with the realized lower wall, so it is a consistency check, not an
  * independent one. The coverage and lip-off rules are derived here from the box and settings
  * (not by importing the engine's predicates).
  */
 import { planTray } from "../geometry/plan";
-import { effectiveBottomChamfer } from "../model/settings";
+import { effective } from "../model/settings";
+import { grooveOf } from "../model/lip";
 import type { Notice, StoredLayout, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
 import { hasGrip, needsGrip, wallFor } from "../sizing";
 import { createCtx, printedHeight, type PartRef } from "./context";
 import { inferVariant, meetsMinimum } from "./warmstart";
 import type { LayoutInput } from "./types";
-import { toMm, toU, type Rect, type U } from "./units";
+import { toU, type Rect, type U } from "./units";
 
 function tiles(rects: readonly Rect[], region: Rect, gap: U): boolean {
   if (rects.length === 0) {
@@ -154,8 +155,8 @@ export function checkHardRules(
   for (const t of real) {
     byPath.set(t.path, [...(byPath.get(t.path) ?? []), t]);
   }
-  const chamfer = effectiveBottomChamfer(settings, 1);
-  const play = toMm(ctx.inset) - settings.lip.thickness;
+  const groove = grooveOf(settings, 1);
+  const play = effective(settings).lipPlay;
   for (const [path, list] of byPath) {
     const stack = [...list].sort((a, b) => a.level - b.level);
     const base = stack[0];
@@ -182,20 +183,21 @@ export function checkHardRules(
         v.push(`${t.key}: lip flag wrong`);
       }
       if (base && k > 0) {
-        // A level is its own tray plus fillers: it stands in a corner of the tray below, one
-        // inset in, and is no larger than that tray's inset footprint.
+        // A level is its own tray plus fillers: it stands flush in a corner of the tray below
+        // (the lip is flush with the outer face, and the tray above has a groove for it, so the
+        // stack does not narrow), and is no larger than that tray.
         const below = stack[k - 1];
         // (at either end of an axis: the filler goes to the end a finger cut does not face)
         const flush = (at: number, size: number, from: number, room: number): boolean =>
-          at - from === ctx.inset || at + size === from + room - ctx.inset;
+          at === from || at + size === from + room;
         if (
           !below ||
           !flush(toU(t.x), toU(t.w), toU(below.x), toU(below.w)) ||
           !flush(toU(t.y), toU(t.d), toU(below.y), toU(below.d)) ||
-          toU(t.w) > toU(below.w) - 2 * ctx.inset ||
-          toU(t.d) > toU(below.d) - 2 * ctx.inset
+          toU(t.w) > toU(below.w) ||
+          toU(t.d) > toU(below.d)
         ) {
-          v.push(`${t.key}: level ${k} not inset k·(lip.thickness + play)`);
+          v.push(`${t.key}: level ${k} not flush in the tray below`);
         }
         if (settings.lip.enabled && toU(t.h) < ctx.upperMinH) {
           v.push(`${t.key}: upper tray lower than lip.height + 3`);
@@ -208,7 +210,9 @@ export function checkHardRules(
           // tray's cavity at the other end, where the filler holds the space)
           const onLow = t.x - lower.x;
           const onHigh = lower.x + lower.w - (t.x + t.w);
-          const bearing = lipped - Math.min(onLow, onHigh) - play - chamfer;
+          // what is left of the lower tray's rim past the groove's foot, and the play
+          const bearing = lipped - Math.min(onLow, onHigh) - play - (groove?.reach ?? 0);
+          const chamfer = groove?.foot ?? 0;
           if (bearing < settings.lip.ledge - 2 * play - chamfer - eps || bearing <= 0) {
             v.push(`${t.key}: bearing ${bearing} too small`);
           }
@@ -247,12 +251,12 @@ export function checkHardRules(
       v.push(`${l.key}: filler does not run from its level's floor to the top of the stack`);
     }
     const inside =
-      toU(l.x) >= toU(below.x) + ctx.inset &&
-      toU(l.y) >= toU(below.y) + ctx.inset &&
-      toU(l.x) + toU(l.w) <= toU(below.x) + toU(below.w) - ctx.inset &&
-      toU(l.y) + toU(l.d) <= toU(below.y) + toU(below.d) - ctx.inset;
+      toU(l.x) >= toU(below.x) &&
+      toU(l.y) >= toU(below.y) &&
+      toU(l.x) + toU(l.w) <= toU(below.x) + toU(below.w) &&
+      toU(l.y) + toU(l.d) <= toU(below.y) + toU(below.d);
     if (!inside) {
-      v.push(`${l.key}: filler not inside the inset footprint of the tray below`);
+      v.push(`${l.key}: filler not inside the footprint of the tray below`);
     }
     const apartX =
       toU(l.x) >= toU(own.x) + toU(own.w) + ctx.gap || toU(own.x) >= toU(l.x) + toU(l.w) + ctx.gap;
@@ -335,7 +339,7 @@ export function checkHardRules(
   // when lip is set), not touching each other, floorZ in (0, h). planTray below checks every
   // rule; these name the common failures.
   for (const t of printed) {
-    const wallOut = t.lip ? Math.max(t.wall, wallFor(settings, true)) : t.wall;
+    const wallOut = Math.max(t.wall, wallFor(settings, t.lip, t.level));
     t.compartments.forEach((s, i) => {
       if (
         s.x < wallOut - eps ||

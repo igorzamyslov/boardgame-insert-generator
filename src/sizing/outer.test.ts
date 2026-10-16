@@ -29,6 +29,19 @@ describe("wallFor", () => {
     expect(wallFor({ ...s, wall: 0.5 }, false)).toBe(MIN_WALL_MM);
     expect(MIN_WALL_MM).toBeCloseTo(0.9, 9);
   });
+
+  it("is thicker above level 0 with the lip on, for the groove under the tray's outer edge", () => {
+    // 2.56 mm at the defaults: the groove's inner wall (1.45) and 0.8, and enough that no well
+    // corner shrinks the 3 mm outer corner radius
+    expect(wallFor(s, false, 1)).toBeCloseTo(2.55, 1);
+    expect(wallFor(s, false, 1)).toBeGreaterThan(wallFor(s, false, 0));
+    // a lipped wall that is thicker already stays as it is
+    expect(wallFor(s, true, 1)).toBeCloseTo(2.9, 9);
+    // level 0 and the lip off: as before
+    expect(wallFor(s, false, 0)).toBe(1.6);
+    expect(wallFor({ ...s, lip: { ...s.lip, enabled: false } }, false, 1)).toBe(1.6);
+    expect(wallFor({ ...s, lip: { ...s.lip, enabled: false } }, true, 1)).toBe(1.6);
+  });
 });
 
 describe("rowsOf", () => {

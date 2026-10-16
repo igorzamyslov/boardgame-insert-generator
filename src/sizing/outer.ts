@@ -1,9 +1,6 @@
-import {
-  MIN_FEATURE_MM,
-  MIN_WALL_MM,
-  chamferMinimums,
-  effectiveBottomChamfer,
-} from "../model/settings";
+import { MIN_FEATURE_MM, MIN_WALL_MM, effectiveBottomChamfer } from "../model/settings";
+import { bottomEdgeOf, bottomMinimums, grooveWall } from "../model/lip";
+import type { BottomEdge } from "../model/lip";
 import type { Settings, Side } from "../model/types";
 import { UPPER_TRAY_MIN_ABOVE_LIP } from "./constants";
 import { cutoutSides } from "./common";
@@ -12,23 +9,40 @@ import { ceilU, maxOf, sum } from "./units";
 
 /**
  * Outer wall thickness: max(wall, MIN_WALL_MM); lipped walls are at least lip.thickness +
- * lip.ledge (spec §6.1).
+ * lip.ledge, and with the lip on a tray above level 0 (`level`) is at least what its groove
+ * leaves around the wells (grooveWall; 2.25 mm at the defaults) (spec §6.1).
  */
-export function wallFor(settings: Settings, lipped: boolean): number {
+export function wallFor(settings: Settings, lipped: boolean, level = 0): number {
   const base = Math.max(settings.wall, MIN_WALL_MM);
+  const grooved = Math.max(base, grooveWall(settings, level));
   if (!lipped || !settings.lip.enabled) {
-    return base;
+    return grooved;
   }
-  return Math.max(base, settings.lip.thickness + settings.lip.ledge);
+  return Math.max(grooved, settings.lip.thickness + settings.lip.ledge);
 }
 
 /**
- * chamferMinimums (model/settings: what planTray requires under the 45° bottom chamfer) in whole
- * 0.01 mm units, rounded up. Spacers pass level 0.
+ * bottomMinimums (model/lip: what planTray requires under the 45° bottom chamfer, or the groove
+ * of a tray above level 0 with the lip on) in whole 0.01 mm units, rounded up. Spacers pass
+ * level 0.
  */
 export function chamferMinimumsU(settings: Settings, level: number): { side: number; h: number } {
-  const min = chamferMinimums(settings, level);
+  const min = bottomMinimums(settings, level);
   return { side: ceilU(min.side), h: ceilU(min.h) };
+}
+
+/**
+ * The tray's bottom edge (a plain chamfer, or the groove of a tray above level 0 with the lip on)
+ * in 0.01 mm units, every length rounded up so the rules cut placement keeps are never undershot.
+ */
+export function bottomEdgeU(settings: Settings, level: number): BottomEdge {
+  const edge = bottomEdgeOf(settings, level);
+  return {
+    at: (z) => ceilU(edge.at(z / 100)),
+    reach: ceilU(edge.reach),
+    top: ceilU(edge.top),
+    rise: (u) => ceilU(edge.rise(u / 100)),
+  };
 }
 
 /** strip → one row; rows2 → first ceil(n/2) items, then the rest. Empty rows are dropped. */
@@ -74,6 +88,7 @@ export interface MinLayout {
   divider: number;
   floor: number;
   chamfer: number; // the tray's bottom chamfer (effectiveBottomChamfer), rounded up
+  edge: BottomEdge; // its bottom edge: the chamfer, or the groove (bottomEdgeU), in units
   room: CutRoom;
   rows: CompartmentReq[][]; // rowsOf(part.arrangement, part.compartments)
   widths: number[][]; // per row: each compartment's minW
@@ -133,7 +148,7 @@ export function minLayoutU(
   }
   // Every minimum rounds up, so a setting that is not a whole 0.01 mm is never undershot.
   // Compartment minimums too: size() emits whole units, but a hand-built part may not.
-  const wall = ceilU(wallFor(settings, opts.lipped));
+  const wall = ceilU(wallFor(settings, opts.lipped, opts.level));
   const divider = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
   const floor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
   const rows = rowsOf(part.arrangement, part.compartments);
@@ -176,6 +191,7 @@ export function minLayoutU(
     divider,
     floor,
     chamfer: ceilU(effectiveBottomChamfer(settings, opts.level)),
+    edge: bottomEdgeU(settings, opts.level),
     room,
     rows,
     widths,

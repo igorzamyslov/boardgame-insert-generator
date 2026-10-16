@@ -196,7 +196,8 @@ function beside(ctx: Ctx, region: Rect, foot: Ext, highX = false, highY = false)
  *   (elastic axes, `wallAbsorb`) becomes a leftover strip of any width from ctx.minFiller up
  *   that stands beside the whole stack, and a gap narrower than that is absorbed by the tray;
  *   bed and size-lock caps force a leftover of at least ctx.minFiller;
- * - tray k ≥ 1 sits inset k·inset per side in the tray below it, is built at the smallest size
+ * - tray k ≥ 1 stands flush in the tray below it (its groove takes the lip's place of the
+ *   inset), is built at the smallest size
  *   that holds itself and the trays above it (levelMinFootprints), grows only as its own
  *   settings allow, and the rest of its room becomes fillers in that level, standing from the
  *   level's floor to the top of the stack (at least ctx.minFillerUpper wide, a narrower gap is
@@ -207,7 +208,7 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
   if (levels.length === 0) {
     return { trays: [], leftovers: [rect], fillers: [], overflowZ: 0, overflowLock: 0 };
   }
-  const mins = levelMinFootprints(ctx, levels);
+  const mins = levelMinFootprints(levels);
   const heights = stackHeights(ctx, levels);
   let leftovers: Rect[] = [];
   const fillers: LevelFiller[] = [];
@@ -272,13 +273,8 @@ export function placeStack(ctx: Ctx, levels: readonly Level[], rect: Rect): Stac
         fillers.push({ level: k, rect: r, z, h: 0 });
       }
     }
-    // the next tray stands inside this one's lip ring
-    region = {
-      x: at.x + ctx.inset,
-      y: at.y + ctx.inset,
-      w: foot.w - 2 * ctx.inset,
-      d: foot.d - 2 * ctx.inset,
-    };
+    // the next tray stands flush on this one: its groove takes this one's lip
+    region = { x: at.x, y: at.y, w: foot.w, d: foot.d };
     z += h;
     return t;
   });
@@ -358,12 +354,12 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
       pending.push({ path: pl.path, rect: r });
     }
   }
-  const spareMin = GRIP_U + 2 * ctx.wall;
-  // A spare leftover needs a grip (≥ 25 mm inside) and a floor below its rim (roadmap §4.6).
-  const solidFor = (piece: Rect, h: U): boolean =>
+  // A spare leftover needs a grip (≥ 25 mm inside) and a floor below its rim (roadmap §4.6); one
+  // in a stack level has the groove's thicker wall.
+  const solidFor = (piece: Rect, h: U, level = 0): boolean =>
     ctx.input.settings.leftover === "solid" ||
     h <= 2 * ctx.floor ||
-    Math.min(piece.w, piece.d) < spareMin;
+    Math.min(piece.w, piece.d) < GRIP_U + 2 * (level > 0 ? ctx.upperWall : ctx.wall);
   for (const p of pending) {
     for (const piece of splitForBed(ctx.bed, p.rect, ctx.gap)) {
       leftovers.push({
@@ -389,7 +385,7 @@ export function evaluate(ctx: Ctx, tree: Tree): Plan {
         z: f.filler.z,
         ...piece,
         h: f.filler.h,
-        solid: solidFor(piece, f.filler.h),
+        solid: solidFor(piece, f.filler.h, f.filler.level),
       });
       bed += bedExcess(ctx.bed, piece.w, piece.d, f.filler.h);
     }

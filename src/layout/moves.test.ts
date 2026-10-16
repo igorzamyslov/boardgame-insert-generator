@@ -22,7 +22,16 @@ import { createRng } from "./prng";
 import { fitsBed } from "./bed";
 import type { Ctx } from "./context";
 import { stackLevels, stackMinFootprint } from "./stack";
-import { boxReq, comp, fakeMeasure, makeInput, part, req, variant } from "./test-utils";
+import {
+  boxReq,
+  comp,
+  fakeMeasure,
+  groovedMeasure,
+  makeInput,
+  part,
+  req,
+  variant,
+} from "./test-utils";
 import {
   cut,
   cuts,
@@ -252,13 +261,13 @@ describe("moves", () => {
 });
 
 describe("stacks the bed cannot print", () => {
-  // fakeMeasure: outer = inner + 4 plain, + 6 lipped; usable bed 120 mm, lip inset 1.45 mm per
-  // side and level. "wide" fits the bed plain (119 mm) but neither under a lip (121) nor on
-  // top of a tray (119 + 2 × 1.45), so it can only stand alone.
+  // groovedMeasure: outer = inner + 4 plain, + 6 lipped, + 5.2 on top of a lipped tray (its
+  // groove's wall); usable bed 120 mm. "wide" fits the bed plain (119 mm) but neither under a lip
+  // (121) nor on top of a tray (120.2), so it can only stand alone.
   const topReqs = [boxReq("wide", 115, 40, 10), boxReq("n1", 40, 30, 10), boxReq("n2", 40, 30, 10)];
   const topCtx = createCtx(
     makeInput(topReqs, { printer: { bedX: 130, bedY: 130 }, box: { innerHeight: 100 } }),
-    fakeMeasure,
+    groovedMeasure,
   );
   const topEnv: MoveEnv = {
     ctx: topCtx,

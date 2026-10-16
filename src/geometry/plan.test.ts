@@ -17,7 +17,7 @@ import {
 } from "./test-specs";
 
 describe("planTray basics", () => {
-  it("uses the settings chamfer on level 0 and at least 0.5 on upper levels", () => {
+  it("uses the settings chamfer on level 0 and at least 0.5 on upper levels (the groove's foot)", () => {
     expect(planTray(plainBox, GEO).chamfer).toBe(0.4);
     expect(planTray(upperLevel1, GEO).chamfer).toBe(0.5);
     expect(planTray(upperLevel1, { ...GEO, bottomChamfer: 0.8 }).chamfer).toBe(0.8);
@@ -26,7 +26,9 @@ describe("planTray basics", () => {
 
   it("adds the lip from settings and widens the outer wall", () => {
     const plan = planTray(lippedLower, GEO);
-    expect(plan.lip).toEqual({ height: 2, thickness: 1.2, chamfer: 0.6 });
+    expect(plan.lip).toMatchObject({ height: 2, thickness: 1.2 });
+    expect(plan.lip?.flat).toBeCloseTo(0.6, 9);
+    expect(plan.lip?.zIn).toBeCloseTo(1.4, 9);
     expect(plan.outerWall).toBeCloseTo(2.9, 9);
     expect(plan.topZ).toBe(27);
     expect(planTray(plainBox, GEO).lip).toBeNull();
@@ -214,20 +216,33 @@ describe("rejections", () => {
     expect(planTray(lippedLower, exact).lip?.thickness).toBe(0.9);
   });
 
-  it("keeps a flat lip top of at least 0.6 mm: chamfer min(0.6, thickness − 0.6)", () => {
-    // The ledge keeps the lipped wall at lippedLower's 2.9 mm.
+  it("keeps a flat lip top of at least 0.6 mm and an inner face of at least 0.6 mm", () => {
+    // The ledge keeps the lipped wall at lippedLower's 2.9 mm. The ramp down from the flat top is
+    // 45° and takes the rest of the thickness: thickness − 0.6, but no more than leaves the inner
+    // face its 0.6 mm (a thick lip gets a longer flat).
     const lipOf = (thickness: number) =>
       planTray(lippedLower, { ...GEO, lip: { ...GEO.lip, thickness, ledge: 2.9 - thickness } }).lip;
-    expect(lipOf(0.9)?.chamfer).toBeCloseTo(0.3, 9);
-    expect(lipOf(1)?.chamfer).toBeCloseTo(0.4, 9);
-    expect(lipOf(1.2)?.chamfer).toBe(0.6);
-    expect(lipOf(2)?.chamfer).toBe(0.6);
+    const shape = (thickness: number): [number | undefined, number | undefined] => [
+      lipOf(thickness)?.flat,
+      lipOf(thickness)?.zIn,
+    ];
+    expect(shape(0.9)[0]).toBeCloseTo(0.6, 9);
+    expect(shape(0.9)[1]).toBeCloseTo(1.7, 9);
+    expect(shape(1.2)[0]).toBeCloseTo(0.6, 9);
+    expect(shape(1.2)[1]).toBeCloseTo(1.4, 9);
+    expect(shape(2)[0]).toBeCloseTo(0.6, 9);
+    expect(shape(2)[1]).toBeCloseTo(0.6, 9);
+    // thicker than the height leaves room for: the flat widens instead of the inner face shrinking
+    expect(shape(3)[0]).toBeCloseTo(1.6, 9);
+    expect(shape(3)[1]).toBeCloseTo(0.6, 9);
   });
 
   it("plans the lowest lip height settings allow (1 mm)", () => {
     const low = { ...GEO, lip: { ...GEO.lip, height: 1 } };
     const plan = planTray(lippedLower, low);
-    expect(plan.lip).toEqual({ height: 1, thickness: 1.2, chamfer: 0.6 });
+    expect(plan.lip).toMatchObject({ height: 1, thickness: 1.2 });
+    expect(plan.lip?.flat).toBeCloseTo(0.8, 9);
+    expect(plan.lip?.zIn).toBeCloseTo(0.6, 9);
     expect(plan.topZ).toBe(26);
   });
 

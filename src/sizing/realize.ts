@@ -314,6 +314,7 @@ function wallCutouts(
     span: { x: W, y: D },
     H,
     chamfer: min.chamfer,
+    edge: min.edge,
     width: ceilU(settings.fingerPocket.width),
     notch: ceilU(settings.fingerPocket.floorNotch),
   });

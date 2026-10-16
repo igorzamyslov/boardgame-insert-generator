@@ -1,4 +1,6 @@
 import { MIN_FEATURE_MM, SPEC_TOLERANCE as TOL } from "../model/settings";
+import { asEdge } from "../model/lip";
+import type { BottomEdge } from "../model/lip";
 import type { Rect, SlotPlan } from "./plan-types";
 
 // Divider slots (FeatureSpec "dividerSlot", minimal-trays spec §5): a slot in a well's floor that a
@@ -17,8 +19,8 @@ type Fail = (message: string) => never;
 /**
  * Plans one slot of the compartment `rect` (floor at `floorZ`) of a tray `frame` big:
  * - it lies within the well across its width (it may not cut into a wall);
- * - its bottom keeps MIN_FEATURE_MM of floor above the bed, and above the 45° bottom chamfer
- *   where the slot is within `chamfer` of an outer face (the chamfer rises that much at the face).
+ * - its bottom keeps MIN_FEATURE_MM of floor above the bed, and above the 45° bottom chamfer (or
+ *   the groove) where the slot is within its reach of an outer face (it rises that high there).
  */
 export function planSlot(
   q: SlotRequest,
@@ -26,7 +28,7 @@ export function planSlot(
   rect: Rect,
   floorZ: number,
   frame: { w: number; d: number },
-  chamfer: number,
+  chamferOrEdge: number | BottomEdge,
   fail: Fail,
 ): SlotPlan {
   const where = `compartment ${index}: the divider slot at ${q.at} mm`;
@@ -52,12 +54,13 @@ export function planSlot(
   ) {
     fail(`${where} is not within compartment ${index}`);
   }
+  const edge = asEdge(chamferOrEdge);
   const bottomZ = floorZ - q.depth;
   // The distance from the slot to the nearest outer face, for the chamfer under it.
   const nearest = Math.min(box.x0, box.y0, frame.w - box.x1, frame.d - box.y1);
-  if (bottomZ - Math.max(0, chamfer - nearest) < MIN_FEATURE_MM - TOL) {
+  if (bottomZ - edge.rise(nearest) < MIN_FEATURE_MM - TOL) {
     fail(
-      `${where} leaves less than ${MIN_FEATURE_MM} mm of floor under it (floor ${floorZ} mm, slot ${q.depth} mm deep, ${chamfer} mm bottom chamfer)`,
+      `${where} leaves less than ${MIN_FEATURE_MM} mm of floor under it (floor ${floorZ} mm, slot ${q.depth} mm deep, ${edge.reach} mm bottom ${edge.top === edge.reach ? "chamfer" : "groove"})`,
     );
   }
   return { ...box, bottomZ };

@@ -210,7 +210,7 @@ export function SettingsForm({ settings, advanced, onChange }: SettingsFormProps
         id="settings-lip-enabled"
         label="Locating lip on stacked trays"
         checked={settings.lip.enabled}
-        hint="Without the lip, stacked trays can shift; the app then warns."
+        hint="A rim on each tray that fits a groove under the tray above, so stacks stay flush and do not shift. Without it the app warns about stacked trays."
         onChange={(enabled) => onChange({ ...settings, lip: { ...settings.lip, enabled } })}
       />
       <SelectField

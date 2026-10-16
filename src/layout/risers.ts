@@ -1,4 +1,4 @@
-import { chamferMinimums } from "../model/settings";
+import { bottomMinimums } from "../model/lip";
 import type { Lock, Printer, Settings, TraySpec } from "../model/types";
 import { MIN_RISER, MIN_SPARE, RISER_SUFFIX, UPPER_TRAY_MIN_ABOVE_LIP } from "../sizing/constants";
 import { roundDownTo, roundMm, roundUpTo, toMm, toU, toUFloor, type U } from "./units";
@@ -78,7 +78,7 @@ export function splitRisers(trays: readonly TraySpec[], o: RiserInputs): TraySpe
       list.map((t) => {
         const upper =
           t.level > 0 && settings.lip.enabled ? settings.lip.height + UPPER_TRAY_MIN_ABOVE_LIP : 0;
-        const least = Math.max(chamferMinimums(settings, t.level).h, upper);
+        const least = Math.max(bottomMinimums(settings, t.level).h, upper);
         // A spare is filler, not content: a layout stored before geometry 0.5.1 can hold one in a
         // tray, standing at the tray floor, and it must not veto the split. It is clamped to the shortened tray's floor below. A tray of nothing but
         // spares has no content to size against, so it is left as it is.

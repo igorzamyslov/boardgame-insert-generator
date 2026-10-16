@@ -1,4 +1,6 @@
 import { MIN_CUT_MM, MIN_FEATURE_MM, POST_MM } from "../model/settings";
+import { plainEdge } from "../model/lip";
+import type { BottomEdge } from "../model/lip";
 import type { Side } from "../model/types";
 import { OPPOSITE, alongX, axes, faceOf, nearestAcross } from "../model/cut-rules";
 import type { RectMm } from "../model/cut-rules";
@@ -39,6 +41,7 @@ export interface CutContext {
   span: { x: number; y: number }; // outer size along x and y
   H: number; // outer height
   chamfer: number; // the tray's bottom chamfer
+  edge?: BottomEdge; // the tray's bottom edge with a groove (units); a plain chamfer when absent
   width: number; // fingerPocket.width
   notch: number; // fingerPocket.floorNotch, 0 = none
 }
@@ -55,6 +58,11 @@ const MIN_NOTCH = 100;
  */
 function narrowest(width: number): number {
   return 2 * Math.floor(Math.min(MIN_CUT, width) / 2);
+}
+
+/** The tray's bottom edge: its groove, or its plain chamfer. */
+function edgeOf(ctx: CutContext): BottomEdge {
+  return ctx.edge ?? plainEdge(ctx.chamfer);
 }
 
 /** Compartment `i` of the tray. */
@@ -312,13 +320,13 @@ function placeRuns(requests: readonly CutAsk[], ctx: CutContext, placed: PlacedC
         notch = Math.min(
           ctx.notch,
           Math.floor((own.v1 - own.v0 - MIN) / 2),
-          behind - ctx.chamfer - MIN,
+          behind - edgeOf(ctx).reach - MIN,
         );
         notch = notch < MIN_NOTCH ? 0 : notch;
       }
       let depth = q.fraction >= 1 ? ownDepth : Math.max(1, Math.round(q.fraction * shallowest));
       if (across[k]?.kind === "exit" && notch === 0) {
-        depth = Math.min(depth, ctx.H - ctx.chamfer - MIN);
+        depth = Math.min(depth, ctx.H - edgeOf(ctx).top - MIN);
       }
       depth = Math.min(depth, ownDepth);
       if (depth >= 1) {

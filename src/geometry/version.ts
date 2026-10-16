@@ -83,8 +83,20 @@ import type { Semver } from "../model/version";
  * trays printed before and after still mate and stack; what differs is the inside of a deck's
  * well (wider, no spacer to fill it). A stored 0.7.1 layout builds as before, with the spacers it
  * stored, until its plan is run again.
+ *
+ * 0.8.0 stacks trays flush (spec §6.1 "Locating lip"). With the lip on, a tray above level 0 gets a
+ * groove along its outer bottom edge that takes the lip of the tray below, so a stack no longer
+ * narrows by the lip's thickness and play at every level: the lip is now flush with the outer face
+ * and has a sloped top, the upper tray has the same outer footprint and a thicker outer wall (2.25
+ * mm at the defaults), and the groove's roof is a 45° face, so it prints without support. The inset
+ * is gone from the layout. A breaking change on every count: a tray's outer size, wall and lip
+ * shape differ, and a tray printed before (inset, inside the lip ring) would not mate with one
+ * printed after (flush, in the groove), so trays printed before and after must not be mixed. With
+ * the lip off nothing changes: a tray builds exactly as before. planTray is stricter too: a tray
+ * above level 0 with the lip on needs the groove's wall, so a stored 0.7.x upper tray (inset, 1.6
+ * mm wall) is refused until the plan is run again.
  */
-export const GEOMETRY_VERSION = "0.7.2";
+export const GEOMETRY_VERSION = "0.8.0";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

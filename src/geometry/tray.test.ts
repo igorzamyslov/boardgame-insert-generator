@@ -3,6 +3,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
 import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import type { TraySpec } from "../model/types";
+import { grooveOf } from "../model/lip";
+import type { Groove } from "../model/lip";
 import { MIN_SEPARATOR } from "../sizing/constants";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
 import type { RealizeOptions } from "../sizing/types";
@@ -289,9 +291,21 @@ describe("buildTray per tray type", () => {
     expect(Math.abs(volumeMm3 - expected) / expected).toBeLessThan(0.002);
   });
 
-  it("level-1 upper tray: 0.5 mm bottom chamfer", () => {
+  it("level-1 upper tray: flush, with the groove for the lip under its outer edge", () => {
     const { volumeMm3 } = expectWellFormed(upperLevel1);
-    const expected = blockVolume(97.1, 57.1, 20, 3, 0.5) - wellVolume(93.9, 53.9, 18.8);
+    // The groove (in from the outer face u: 1.95 − z up the 0.5 foot chamfer, 1.45 up the inner
+    // wall to 1.4, 2.85 − z up the roof) removes ∫ (P·u − π·u²) dz from the block.
+    const g = grooveOf(GEO, 1);
+    expect(g).toEqual({ inset: 1.45, foot: 0.5, zIn: 1.4, zTop: 2.85, reach: 1.95 });
+    const { inset, foot, zIn, reach } = g as Groove;
+    const perimeter = 2 * (100 + 60) - (8 - 2 * Math.PI) * 3;
+    const removed =
+      perimeter * (reach * foot - (foot * foot) / 2) -
+      (Math.PI * (reach ** 3 - inset ** 3)) / 3 +
+      (perimeter * inset - Math.PI * inset * inset) * (zIn - foot) +
+      (perimeter * inset ** 2) / 2 -
+      (Math.PI * inset ** 3) / 3;
+    const expected = blockVolume(100, 60, 20, 3, 0) - removed - wellVolume(94.88, 54.88, 18.8);
     expect(Math.abs(volumeMm3 - expected) / expected).toBeLessThan(0.002);
   });
 });

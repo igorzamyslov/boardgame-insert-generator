@@ -302,7 +302,8 @@ function mergedSpec(
  * keeps its individual leftovers: like them, it is no part of the inputs hash.
  *
  * What merges: parts `leftover` (the fillers, including the ones beside a tray in a stack level,
- * which stand from that level's floor to the top of the stack), and with `mergeRisers` the risers
+ * which stand from that level's floor to the top of the stack; with the lip on, not those, which
+ * have a groove for the lip below them), and with `mergeRisers` the risers
  * too. Two parts are connected when they stand side by side across a gap of at most `trayGap`
  * (the gap between leaves, or between a tray and its filler) over at least MIN_JOIN_MM of their
  * edge and height; the part absorbs the gap with a solid bridge, so it is a little larger than
@@ -322,8 +323,12 @@ export function mergeParts(trays: readonly TraySpec[], o: MergeInputs): TraySpec
   if (!settings.mergeFillers) {
     return [...trays];
   }
+  // With the lip on a filler in a stack level has a groove along its outer edge for the lip of the
+  // tray below, and the lip runs along that tray's outer edge, under the filler's. A bridge to a
+  // part beside it would reach over the lip, so such a filler stays a part of its own.
   const candidate = (t: TraySpec): boolean =>
     t.merged === undefined &&
+    !(settings.lip.enabled && t.level > 0) &&
     (t.part === "leftover" || (settings.mergeRisers && t.part === "riser"));
   const items = trays.filter(candidate).map(itemOf);
   if (items.length < 2) {

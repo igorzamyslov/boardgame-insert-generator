@@ -25,7 +25,6 @@ export type Realize = (
  */
 export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray): TraySpec[] {
   const s = ctx.input.settings;
-  const wall = toMm(ctx.wall);
   const floor = toMm(ctx.floor);
   const out: TraySpec[] = [];
   for (const t of plan.trays) {
@@ -66,7 +65,7 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
       d,
       h,
       rotated: t.item.rotated,
-      wall,
+      wall: toMm(ctx.wall),
       floor,
       lip: t.lipped,
       solid: false,
@@ -91,6 +90,9 @@ export function materialize(ctx: Ctx, plan: Plan, realize: Realize = realizeTray
   plan.leftovers.forEach((l, n) => {
     const w = toMm(l.w);
     const d = toMm(l.d);
+    // A filler in a stack level stands on a lipped tray, so with the lip on it has the groove a
+    // tray above level 0 has, and the wall that leaves around its well.
+    const wall = toMm(l.level > 0 ? ctx.upperWall : ctx.wall);
     out.push({
       key: `leftover:${n}`,
       part: "leftover",
