@@ -77,6 +77,12 @@ button.quiet,
   color: var(--madder);
 }
 
+.row-remove[aria-disabled="true"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
 button[aria-disabled="true"] {
   border-color: var(--rule-strong);
   background: var(--sheet-sunken);
@@ -481,6 +487,12 @@ span.inserts-name {
   display: flex;
   align-items: center;
   min-height: var(--control-h);
+}
+
+.check-field input[aria-disabled="true"],
+.check-field input[aria-disabled="true"] + label {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .check-field .hint,

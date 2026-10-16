@@ -56,7 +56,15 @@ describe("CardsEditor", () => {
 
   it("edits, adds and removes decks", () => {
     const { last, view, onChange } = setup(cards());
-    expect(screen.getByRole("button", { name: /Remove deck/ }).hasAttribute("disabled")).toBe(true);
+    // the last deck stays: its Remove is off but focusable, and says why
+    const only = screen.getByRole("button", { name: /Remove deck/ });
+    expect(only.hasAttribute("disabled")).toBe(false);
+    expect(only.getAttribute("aria-disabled")).toBe("true");
+    expect(document.getElementById(only.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "There has to be at least one deck.",
+    );
+    fireEvent.click(only);
+    expect(onChange).not.toHaveBeenCalled();
     fireEvent.input(screen.getByLabelText("Cards in deck 1"), { target: { value: "52" } });
     expect(last().decks).toEqual([{ name: "", count: 52 }]);
     fireEvent.click(screen.getByRole("button", { name: "Add deck" }));
@@ -110,7 +118,17 @@ describe("CardsEditor", () => {
     view.rerender(
       <CardsEditor component={cards({ groupId: "g" })} index={0} onChange={onChange} />,
     );
-    expect(screen.getByLabelText(/per player/).hasAttribute("disabled")).toBe(true);
+    // grouped items can't count per player: the box stays focusable, says why, and does nothing
+    const perPlayer = screen.getByLabelText(/per player/) as HTMLInputElement;
+    expect(perPlayer.disabled).toBe(false);
+    expect(perPlayer.getAttribute("aria-disabled")).toBe("true");
+    expect(
+      document.getElementById(perPlayer.getAttribute("aria-describedby") ?? "")?.textContent,
+    ).toContain("Not available for grouped items.");
+    onChange.mockClear();
+    fireEvent.click(perPlayer);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(perPlayer.checked).toBe(false);
     const group = screen.getByLabelText(/^Group/);
     fireEvent.input(group, { target: { value: "" } });
     fireEvent.blur(group);

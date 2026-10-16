@@ -7,6 +7,7 @@ import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { ListNotices } from "./ListNotices";
 import { DerivedSizes } from "./DerivedSizes";
 import { MoreOptions } from "./MoreOptions";
+import { RowRemove } from "./RowRemove";
 import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
@@ -67,15 +68,12 @@ export function MinisEditor({ component: c, index, onChange }: EditorProps<Minis
                 path={`${at}/figures/${j}/count`}
                 onCommit={(count) => setFigure(j, { count })}
               />
-              <button
-                type="button"
-                class="row-remove"
-                aria-label={`Remove figure ${f.name === "" ? n : f.name}`}
-                disabled={c.figures.length <= 1}
-                onClick={() => onChange({ ...c, figures: c.figures.filter((_f, k) => k !== j) })}
-              >
-                Remove
-              </button>
+              <RowRemove
+                label={`Remove figure ${f.name === "" ? n : f.name}`}
+                onlyOne={c.figures.length <= 1}
+                reason="There has to be at least one figure."
+                onRemove={() => onChange({ ...c, figures: c.figures.filter((_f, k) => k !== j) })}
+              />
             </div>
           );
         })}

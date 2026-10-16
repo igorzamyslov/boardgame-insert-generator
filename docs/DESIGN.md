@@ -82,7 +82,10 @@ technical palette. The owner called it unusable. Everything below exists so it d
   Enforced in `src/ui/TrayBar.test.tsx`.
 - MUST keep a blocked action focusable: `aria-disabled="true"` plus `aria-describedby` pointing at
   the sentence that says why. MUST NOT use the `disabled` attribute on an action that has a reason.
-  See `Action` in `src/ui/TrayBar.tsx` and the Download button in `src/ui/AppHeader.tsx`.
+  See `Action` in `src/ui/TrayBar.tsx`, the Download button in `src/ui/AppHeader.tsx`, `CheckField`
+  in `src/ui/fields.tsx` and `RowRemove` in `src/ui/components/RowRemove.tsx`. The one exception is
+  `disabled` on an `<option>` of a `<select>` (the "Custom" placeholder). Enforced by
+  `src/rules.test.ts`.
 - MUST show the 3 px focus ring from `src/styles/tokens.css` (`:focus-visible`, `--focus`, 2 px
   offset) on every focusable element. SVG tiles draw their own ring (`.plan-ring`); do not remove
   outlines elsewhere.

@@ -394,13 +394,23 @@ describe("SettingsForm", () => {
     fireEvent.click(risers);
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, mergeRisers: true });
     view.unmount();
-    // the riser switch does nothing while fillers are not merged, so it cannot be ticked
+    // the riser switch does nothing while fillers are not merged: it stays focusable (never
+    // `disabled`), its hint says why, and activating it changes nothing
+    onChange.mockClear();
     render(
       <SettingsForm settings={{ ...DEFAULT_SETTINGS, mergeFillers: false }} onChange={onChange} />,
     );
-    expect(
-      (screen.getByLabelText("Fold risers into the joined spacers") as HTMLInputElement).disabled,
-    ).toBe(true);
+    const off = screen.getByLabelText("Fold risers into the joined spacers") as HTMLInputElement;
+    expect(off.disabled).toBe(false);
+    expect(off.getAttribute("aria-disabled")).toBe("true");
+    const why = (off.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent ?? "")
+      .join(" ");
+    expect(why).toContain("Needs joined spacers.");
+    fireEvent.click(off);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(off.checked).toBe(false);
   });
 
   it("offers Fill to the lid, on by default", () => {

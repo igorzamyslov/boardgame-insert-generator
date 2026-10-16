@@ -11,6 +11,7 @@ import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { DerivedSizes } from "./DerivedSizes";
 import { ListNotices } from "./ListNotices";
 import { MoreOptions } from "./MoreOptions";
+import { RowRemove } from "./RowRemove";
 import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
@@ -128,15 +129,12 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
               path={`${at}/decks/${j}/count`}
               onCommit={(count) => setDeck(j, { count })}
             />
-            <button
-              type="button"
-              class="row-remove"
-              aria-label={`Remove deck ${deck.name === "" ? j + 1 : deck.name}`}
-              disabled={c.decks.length <= 1}
-              onClick={() => onChange({ ...c, decks: c.decks.filter((_d, k) => k !== j) })}
-            >
-              Remove
-            </button>
+            <RowRemove
+              label={`Remove deck ${deck.name === "" ? j + 1 : deck.name}`}
+              onlyOne={c.decks.length <= 1}
+              reason="There has to be at least one deck."
+              onRemove={() => onChange({ ...c, decks: c.decks.filter((_d, k) => k !== j) })}
+            />
           </div>
         ))}
         <button

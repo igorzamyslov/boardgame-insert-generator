@@ -196,8 +196,12 @@ it only with a written reason in the code or the PR.
   `aria-disabled="true"`, guard its click handler, and point `aria-describedby` at the sentence
   that says why (`Action` in `ui/TrayBar.tsx`, Download in `ui/AppHeader.tsx`). Never use
   `disabled` for it, because a disabled control leaves the Tab order and its reason can't be
-  read. There are no `disabled={…}` props in `src/` today; keep it that way. The shared look is
-  `button[aria-disabled="true"]` in `style.css`.
+  read. `CheckField` takes `disabled` and renders `aria-disabled`; `RowRemove` is the Remove
+  button of a row that can't go (the last one). The one exception is `disabled` on an `<option>`
+  in a `<select>` (the "Custom" placeholder in `ui/fields.tsx`): that is correct HTML and the
+  option is not in the Tab order anyway. `src/rules.test.ts` fails on `disabled` on a button,
+  input, select, textarea or fieldset. The shared look is `button[aria-disabled="true"]` in
+  `style.css`.
 - MUST give a toggle whose label stays the same `aria-pressed` ("Swap with…"). The exception is
   a control whose label changes to name the action (Pin/Unpin, Lock size/Unlock size). It takes
   no `aria-pressed`, and `data-on="true"` drives its pressed look (ruling, P2 Task 8).
