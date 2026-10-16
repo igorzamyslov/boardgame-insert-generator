@@ -251,6 +251,8 @@ describe("SettingsSheet", () => {
     it("applies my printer to this insert when it differs, and says when it does not", () => {
       const { props } = open({ myPrinter: MINE });
       expect(screen.getByText(/This insert is planned for 256 × 256 × 256 mm bed/)).toBeTruthy();
+      // the overwrite is stated
+      expect(screen.getByText(/Applying replaces it\./)).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Apply to this insert" }));
       expect(props.onApplyPrinter).toHaveBeenCalledTimes(1);
       cleanup();

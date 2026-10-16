@@ -65,7 +65,7 @@ export function Modal({ labelledBy, onClose, class: extra, children }: ModalProp
     >
       <div class="modal-body">{children}</div>
       <div class="modal-actions">
-        <button type="button" onClick={() => onCloseRef.current()}>
+        <button type="button" class="tap" onClick={() => onCloseRef.current()}>
           Close
         </button>
       </div>

@@ -88,7 +88,7 @@ function ChangedNote(p: {
       {`Changed from the default, ${p.defaultText}. `}
       <button
         type="button"
-        class="quiet"
+        class="quiet tap"
         aria-label={`Restore the default for ${p.label}`}
         onClick={() => {
           p.onRestore();
@@ -115,7 +115,7 @@ function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void
   if (!asking) {
     return (
       <div class="button-row">
-        <button type="button" class="quiet" onClick={() => setAsking(true)}>
+        <button type="button" class="quiet tap" onClick={() => setAsking(true)}>
           Restore all exact values
         </button>
       </div>
@@ -130,6 +130,7 @@ function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void
       <span class="hint">{`Put ${plural(count)} back to their defaults? Your own numbers are lost.`}</span>
       <button
         type="button"
+        class="tap"
         onClick={() => {
           setAsking(false);
           onRestore();
@@ -137,7 +138,7 @@ function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void
       >
         Restore
       </button>
-      <button type="button" class="quiet" onClick={() => setAsking(false)}>
+      <button type="button" class="quiet tap" onClick={() => setAsking(false)}>
         Keep my values
       </button>
     </div>

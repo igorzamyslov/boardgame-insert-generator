@@ -130,3 +130,11 @@ describe("style.css", () => {
     expect(print).toMatch(/:root\s*\{[^}]*color-scheme:\s*light/);
   });
 });
+
+describe("touch targets", () => {
+  it("gives fields at least 44 px, and the .tap buttons the control height", () => {
+    expect(ruleFor('input[type="search"]')).toMatch(/min-height:\s*44px/);
+    expect(ruleFor('input[type="text"]')).toMatch(/min-height:\s*44px/);
+    expect(ruleFor(".tap")).toMatch(/min-height:\s*var\(--control-h\)/);
+  });
+});

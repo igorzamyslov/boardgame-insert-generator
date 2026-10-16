@@ -86,7 +86,7 @@ function PrinterTab(p: SettingsSheetProps) {
           <p class="hint" id="settings-apply-hint">
             {same
               ? "This insert already uses this printer."
-              : `This insert is planned for ${printerText(p.printer)}. Changing your printer leaves it alone until you apply it.`}
+              : `This insert is planned for ${printerText(p.printer)}. Changing your printer leaves it alone until you apply it. Applying replaces it.`}
           </p>
           {problems.map((n) => (
             <p class="field-error" key={n.message}>
