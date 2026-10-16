@@ -8,8 +8,8 @@ import { splitDividers } from "../layout/dividers";
 import { openSpacers } from "../layout/spacers";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
-import { carriesNumber } from "../model/part-number";
-import { planEngraving } from "./engrave";
+import { carriesName } from "../model/part-name";
+import { hasEngraving, planEngravings } from "./engrave";
 import { loadManifold } from "./load";
 import { planTray } from "./plan";
 import { problemsOf } from "./test-build";
@@ -37,6 +37,20 @@ import type { RealizeOptions } from "../sizing/types";
 
 // A settings profile, and the lip and level options each part is built at (all by default).
 type MeshProfile = [string, Profile, (readonly RealizeOptions[])?];
+
+/** Names of every shape the app gives a part: one word, several, a counter, ten characters. */
+const SWEEP_NAMES = [
+  "Cards",
+  "Spac Dice",
+  "Market 12",
+  "Wooden Meeples",
+  "A",
+  "Spare Hex 2",
+  "ABCDEFGHIJ",
+  "KLMNOPQRST",
+  "UVWXYZ 0123",
+  "456789-RSW",
+].map((n) => n.slice(0, 10).trim());
 
 const MESH_PROFILES: MeshProfile[] = [
   ["fixture settings", FIXTURE_SETTINGS],
@@ -145,13 +159,13 @@ export function sweepMeshes(fixtures: readonly [string, unknown][]): void {
       let engraved = 0;
       const failures: string[] = [];
       for (const [i, { spec: plain, where }] of specs.entries()) {
-        // Every part carries a number (one to three digits), as the app asks for them: the
+        // Every part carries a name (a few short words), as the app asks for them: the
         // engraving must leave a closed, printable solid of the spec's size wherever it lands.
-        const spec = { ...plain, partNumber: 1 + ((i * 37) % 240) };
+        const spec = { ...plain, partName: SWEEP_NAMES[i % SWEEP_NAMES.length] };
         try {
           if (
-            carriesNumber(spec.part) &&
-            planEngraving(planTray(spec, settings), spec.partNumber)
+            carriesName(spec.part) &&
+            hasEngraving(planEngravings(planTray(spec, settings), spec.partName ?? ""))
           ) {
             engraved += 1;
           }

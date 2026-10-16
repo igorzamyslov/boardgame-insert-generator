@@ -40,11 +40,10 @@ function SeparatorNotes({ index }: Pick<EditorProps<Component>, "index">) {
   ) : null;
 }
 
-/** The finger cuts, curved floor and corner reliefs switches (inside the advanced options). */
+/** The finger cuts, curved floor and corner reliefs switches (inside More options). */
 export function ToggleOptions<C extends Component>({
   component: c,
   index,
-  advanced,
   onChange,
 }: EditorProps<C>) {
   return (
@@ -73,15 +72,13 @@ export function ToggleOptions<C extends Component>({
           }}
         />
       ) : null}
-      {advanced ? (
-        <CheckField
-          id={`${c.id}-cornerReliefs`}
-          label="Corner reliefs"
-          checked={cornerReliefsOn(c)}
-          hint="Round holes in each compartment's corners, so flat square pieces sit flat."
-          onChange={(on) => onChange({ ...c, cornerReliefs: on })}
-        />
-      ) : null}
+      <CheckField
+        id={`${c.id}-cornerReliefs`}
+        label="Corner holes"
+        checked={cornerReliefsOn(c)}
+        hint="Round holes in each compartment's corners, so flat square pieces sit flat."
+        onChange={(on) => onChange({ ...c, cornerReliefs: on })}
+      />
       <GrowthOptions component={c} index={index} onChange={onChange} />
       {(c.kind === "cards" || c.kind === "tiles") &&
       growthOf(c, "stack", c.storage === "flat") !== "off" ? (
@@ -91,7 +88,7 @@ export function ToggleOptions<C extends Component>({
               <NumberField
                 id={`${c.id}-separators`}
                 label="Spacer plates"
-                hint="Print the room the stack grows into as this many thin loose plates (1: one block), so the stack stays snug and one can be pulled out as the collection grows. 0 (the default): nothing is printed, the stack simply stands in a wider well. Plates also let it grow further: they hold the stack upright, so the room is not limited to its own thickness or to what keeps it under its finger cut."
+                hint="Print the room the stack grows into as this many thin plates (1: one block), so the stack stays snug and one can be pulled out as the collection grows. 0 (the default): nothing is printed, the stack simply stands in a wider well. Plates also let it grow further: they hold the stack upright, so the room is not limited to its own thickness or to what leaves it under its finger cut."
                 value={separatorsOf(c)}
                 {...SEPARATORS}
                 path={`/components/${index}/separators`}
@@ -107,8 +104,8 @@ export function ToggleOptions<C extends Component>({
           {dividersOffered(c) ? (
             <NumberField
               id={`${c.id}-dividers`}
-              label="Dividers"
-              hint={`Loose plates that split the grown well into this many plus one sections (per player, by card type), each standing in a slot in the tray's floor. Evenly spaced. Each section is held upright at both ends, so the room may be that many times larger. Every divider takes about ${DIVIDER_THICKNESS + DIVIDER_PLAY} mm of the well, and the tray is up to ${DIVIDER_GROOVE} mm taller for the slots. Not combined with spacer plates. 0: none.`}
+              label="Removable dividers"
+              hint={`Dividers you can take out. They split the grown well into this many plus one sections (per player, by card type), each standing in a slot in the tray's floor. Evenly spaced. Each section is held upright at both ends, so the room may be that many times larger. Every divider takes about ${DIVIDER_THICKNESS + DIVIDER_PLAY} mm of the well, and the tray is up to ${DIVIDER_GROOVE} mm taller for the slots. Not combined with spacer plates. 0: none.`}
               value={dividersOf(c)}
               {...DIVIDERS}
               path={`/components/${index}/dividers`}

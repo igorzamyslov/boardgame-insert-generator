@@ -13,12 +13,12 @@
 import { planTray } from "../geometry/plan";
 import { effective } from "../model/settings";
 import { grooveOf } from "../model/lip";
-import type { Notice, StoredLayout, TraySpec } from "../model/types";
+import type { Lock, Notice, StoredLayout, TraySpec } from "../model/types";
 import { fitsBed } from "./bed";
 import { hasGrip, needsGrip, wallFor } from "../sizing";
 import { createCtx, printedHeight, type PartRef } from "./context";
 import { inferVariant, meetsMinimum } from "./warmstart";
-import type { LayoutInput } from "./types";
+import type { LayoutInput, LockConflict } from "./types";
 import { toU, type Rect, type U } from "./units";
 
 function tiles(rects: readonly Rect[], region: Rect, gap: U): boolean {
@@ -79,15 +79,21 @@ function overlap3d(a: TraySpec, b: TraySpec): boolean {
   return ov(p.x0, p.x1, q.x0, q.x1) && ov(p.y0, p.y1, q.y0, q.y1) && ov(p.z0, p.z1, q.z0, q.z1);
 }
 
-/** True when a `lock.dropped` notice carries the path of the lock at `index` in `input.locks`. */
-export function isDropped(index: number, notices: readonly Notice[]): boolean {
-  return notices.some((n) => n.code === "lock.dropped" && n.path === `/locks/${index}`);
+/**
+ * True when the layout ignored this lock: a conflict names its tray (a stack lock: its first
+ * tray) and its kind.
+ */
+export function isDropped(lock: Lock, conflicts: readonly LockConflict[]): boolean {
+  const key = lock.kind === "stack" ? lock.trayKeys[0] : lock.trayKey;
+  return conflicts.some((c) => c.trayKey === key && (c.kind === undefined || c.kind === lock.kind));
 }
 
 export function checkHardRules(
   input: LayoutInput,
   layout: StoredLayout,
   notices: readonly Notice[],
+  /** The result's `lockConflicts`: locks the layout ignored are not checked. */
+  conflicts: readonly LockConflict[] = [],
 ): string[] {
   const v: string[] = [];
   const ctx = createCtx(input);
@@ -149,7 +155,7 @@ export function checkHardRules(
 
   // Rules 2 and 4: stacks.
   const sizeLocked = new Set(
-    input.locks.flatMap((l, i) => (l.kind === "size" && !isDropped(i, notices) ? [l.trayKey] : [])),
+    input.locks.flatMap((l) => (l.kind === "size" && !isDropped(l, conflicts) ? [l.trayKey] : [])),
   );
   const byPath = new Map<string, TraySpec[]>();
   for (const t of real) {
@@ -272,7 +278,7 @@ export function checkHardRules(
     }
   }
 
-  // Rule 3: loose bits left uncovered in the top layer need the coverage warning.
+  // Rule 3: loose pieces left uncovered in the top layer need the coverage warning.
   const coverageNeeded =
     (input.box.headroom > 0 && input.box.headroomCoverage === "partial") || input.box.storedOnSide;
   const exposedLoose = real.some((t) => {
@@ -282,7 +288,7 @@ export function checkHardRules(
   });
   const has = (code: string): boolean => notices.some((n) => n.code === code);
   if (coverageNeeded && exposedLoose && !has("layout.coverage")) {
-    v.push("loose bits are uncovered in the top layer but there is no layout.coverage notice");
+    v.push("loose pieces are uncovered in the top layer but there is no layout.coverage notice");
   }
 
   // Rule 4 with the lip off: stacked trays are loose, so the lip-off warning is required
@@ -403,9 +409,9 @@ export function checkHardRules(
     }
   }
 
-  // Locks: respected, or dropped with a notice.
-  for (const [index, lock] of input.locks.entries()) {
-    if (isDropped(index, notices)) {
+  // Locks: respected, or reported as conflicts.
+  for (const lock of input.locks) {
+    if (isDropped(lock, conflicts)) {
       continue;
     }
     if (lock.kind === "position") {

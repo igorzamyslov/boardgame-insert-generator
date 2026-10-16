@@ -198,13 +198,8 @@ describe("toSerializable", () => {
     });
     expect(out.box).toEqual({ ...p.box, headroomCoverage: "none" });
     // the two merge switches and the engraving switch at their defaults are left out of what is written
-    const { mergeFillers, mergeRisers, engraveNumbers, oneWall, ...written } = p.settings;
-    expect([mergeFillers, mergeRisers, engraveNumbers, oneWall]).toEqual([
-      true,
-      false,
-      true,
-      false,
-    ]);
+    const { mergeFillers, mergeRisers, engraveNames, oneWall, ...written } = p.settings;
+    expect([mergeFillers, mergeRisers, engraveNames, oneWall]).toEqual([true, false, true, false]);
     expect(out.settings).toEqual({ ...written, leftover: "hollow" });
     expect(p).toEqual(before);
   });
@@ -246,15 +241,36 @@ describe("toSerializable", () => {
     expect(back.ok && back.project.settings.oneWall).toBe(true);
   });
 
+  it("reads engraveNumbers into engraveNames", () => {
+    const written = JSON.parse(serializeProject(sampleProject(), noForeign())) as {
+      schemaVersion: string;
+      settings: Record<string, unknown>;
+    };
+    written.schemaVersion = "0.1.15";
+    for (const value of [true, false]) {
+      written.settings.engraveNumbers = value;
+      const read = parseProject(written);
+      expect(read.ok && read.project.settings.engraveNames).toBe(value);
+      // the old key is read, so it is not reported as an unknown field
+      expect(read.ok && read.notices).toEqual([]);
+    }
+    // a file that has the new key reads it
+    delete written.settings.engraveNumbers;
+    written.settings.engraveNames = false;
+    const named = parseProject(written);
+    expect(named.ok && named.project.settings.engraveNames).toBe(false);
+  });
+
   it("round-trips the engraving switch: left out while on, written when off", () => {
     const p = sampleProject();
-    expect(p.settings.engraveNumbers).toBe(true);
-    expect(serializeProject(p, noForeign())).not.toContain("engraveNumbers");
-    const off = { ...p, settings: { ...p.settings, engraveNumbers: false } };
+    expect(p.settings.engraveNames).toBe(true);
+    expect(serializeProject(p, noForeign())).not.toContain("engraveNames");
+    const off = { ...p, settings: { ...p.settings, engraveNames: false } };
     const text = serializeProject(off, noForeign());
-    expect(text).toContain('"engraveNumbers":false');
+    expect(text).toContain('"engraveNames":false');
+    expect(text).not.toContain("engraveNumbers");
     const back = parseProject(JSON.parse(text));
-    expect(back.ok && back.project.settings.engraveNumbers).toBe(false);
+    expect(back.ok && back.project.settings.engraveNames).toBe(false);
     // and it is no part of the inputs hash: switching it never stales a plan
     expect(inputsHash(off)).toBe(inputsHash(p));
   });
@@ -500,7 +516,7 @@ describe("parseProject: spec §5 bounds", () => {
       h: 10,
       count: 1,
     }));
-    expect(expectError(input)).toMatch(/Too many components \(101\)/);
+    expect(expectError(input)).toMatch(/Too many items \(101\)/);
   });
 
   it("refuses an empty project id, and gives a file without one a new id", () => {
@@ -516,7 +532,7 @@ describe("parseProject: spec §5 bounds", () => {
   it("refuses a component id containing a colon", () => {
     const input = raw(sampleProject());
     firstCards(input).id = "a:b";
-    expect(expectError(input)).toMatch(/\/components\/0\/id: A component id can't contain ':'/);
+    expect(expectError(input)).toMatch(/\/components\/0\/id: An item id can't contain ':'/);
   });
 
   it("still loads field-level problems, so a half-edited project can be fixed", () => {

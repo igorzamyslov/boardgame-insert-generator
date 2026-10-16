@@ -1,17 +1,17 @@
 # insert-generator
 
 Built app: **Vite + TypeScript + Preact (signals)**. Turns a board game box and
-its components into a 3D-printable insert: trays that tile the box, stack with
+what goes inside it into a 3D-printable insert: trays that tile the box, stack with
 a locating lip, open upward and fit the print bed. Exports 3MF/STL and a
 printable assembly page. Design: [`docs/superpowers/specs/2026-10-11-boardgame-insert-generator-design.md`](docs/superpowers/specs/2026-10-11-boardgame-insert-generator-design.md).
 
-Status: **preview (0.x)**: saved projects and shared links may break between
+Status: **preview (0.x)**: saved projects and files may break between
 versions.
 
 ```bash
 npm install
 npm run dev        # dev server
-npm test           # vitest run (unit + jsdom component tests + script tests)
+npm test           # vitest run (unit + jsdom UI tests + script tests)
 npm run verify     # lint + format check + build (what CI runs)
 npm run build      # vitest run && tsc (app + node configs) && vite build → dist/ && smoke test of dist/
 npm run preview    # serve the production build
@@ -19,120 +19,153 @@ npm run preview    # serve the production build
 
 Tests run inside `npm run build` (and `npm run verify`); CI also runs them as their
 own job (`npm test`) next to lint, format, typecheck, build + smoke test and audit, so a
-failure names what broke. Component tests opt in to jsdom with
+failure names what broke. UI tests opt in to jsdom with
 `// @vitest-environment jsdom` in their header comment and stub the layout and
 geometry clients, so they never start a worker or load WASM.
 
 ## What the app does
 
-1. **Describe the box and the printer**, then **add components.** The inputs
-   are a short accordion in the left rail: "The box" (width, depth, height),
-   "What goes inside" (cards, bits such as tokens, cubes and dice, tiles,
-   miniatures and other items) and "Your printer" (the print bed, chosen by
-   size). Each component is one folded line with its kind's icon on a colour,
-   and the number of the tray it makes; the same colour and icon mark that
-   tray in the plan and the 3D view. Simple mode shows only what most games
-   need. **Advanced** (switch in the bar) adds, behind a dotted edge: the
-   box's headroom and side storage, the printer's bed margin and layer height,
-   a "Walls and fit" section (walls, fit, finger room, exact numbers, locating
-   lip, unused space), and per component "Needed during play", group,
-   per-player counts, extra room, finger cuts, curved floor, corner reliefs,
-   measured card stacks and storage. Switching back to Simple keeps every
-   value. The page is one screen: inputs on the left, the result on the right
-   (a plain sentence, "Everything fits. 6 trays (2 are spares) in 2 layers,
-   78% of the box used.", then the plan or the 3D view). Under 960px the
-   result and any problem come first, then the form.
-2. **Per component toggles.** Every editor has "Finger cuts" (a cut through a
-   wall of each compartment, to reach in) and, for bits, miniatures and other
-   items, "Curved floor" (a scoop ramp). "Corner reliefs" (round holes in the
-   compartment corners, so square pieces sit flat) shows in Advanced mode. Each
-   toggle starts at the default of its kind and writes an explicit value when
-   changed. In Simple mode, the Settings switch "Extra finger room in the box"
-   leaves extra room beside the walls and dividers for fingers; Advanced mode
-   edits the wall and divider room numbers it sets (Advanced mode, "Walls and fit").
-3. **Bulk fallback.** When no tray variant can give a tiles, miniatures
-   (pockets) or other item a finger cut, its pieces are stored loose in a bin
-   with a curved floor instead. The editor says so, and what the bin has.
-4. **Layout.** The optimizer runs on its own 400 ms after you stop editing and
-   says the result in one sentence; Advanced adds the slack per axis and an
-   upper bound for the filament. One search button and "Undo layout" (one step) sit under it: the
-   button says "Update plan" while there is no layout or the inputs changed since it was made, and "Keep searching"
-   (a longer search, about three times the budget) once the layout is current; either way the search starts from the
-   current layout and never throws it away. Spare trays (plain, dashed, still
-   numbered) fill gaps so the other trays cannot move; print them too. In the
-   plan view, select a tray to see its details; in Advanced, drag a tray onto
-   another (or use the keyboard) to swap them, and "Lock position" / "Lock
-   size" keep a tray where or as big as it is; the optimizer works around
-   locks.
-5. **3D view and export.** The 3D view shows the trays (it needs WebGL; the
-   rest works without). "Show axes" adds a small X, Y, Z indicator that turns with the model.
-   "Export all N parts" opens the export dialog over the view you are in (close it
-   with Close or Escape and you are right where you were), which gives "3MF per
-   part (.zip)", "One combined 3MF" or "STL files (.zip)", with a progress bar
-   and a Cancel button (closing the dialog cancels a running export). A tray that
-   fails to build is listed under "Not exported" with its reason, and "Retry
-   failed trays" builds just those again.
-6. **Assembly page.** "Open the assembly page" shows the packing order (bottom
-   layer first), an exploded picture of all the parts, a numbered picture per layer, a "What goes where" table, PNG
-   download per layer and "Print / save as PDF".
-7. **Save and share.** Projects autosave in the browser. "Copy link" puts the
-   whole project in the `#1.` link (the project menu offers JSON download
-   when the link is too long), "Save to file" saves the project as a file, and
-   "Open from file…" opens a file as a separate project (a file whose id and
-   content match a stored project just opens that project; one whose id
-   matches a different project opens as a copy). When another tab changes the
-   project you are editing, autosave pauses until you choose which version to
-   keep.
+One screen, one mode: plain choices come first, and the exact numbers sit behind "More options" (per item) and "Exact numbers" (in Settings).
 
-If you change the inputs after a layout was made, the layout stays and an
-"Inputs changed since this plan was made — update the plan?" notice points
-at the "Update plan" button; the plan is greyed and badged "Out of date"; export and the assembly page are off, and the 3D view keeps
-showing the last layout, until you do. A layout whose geometry version is on an older line than
-the app's gets a "reprint the whole insert" notice: its trays no longer mate
-with trays exported now.
+1. **Start.** A first visit asks for the box's inside size ("Measure the box"), then a kind
+   ("Pick what goes inside") or "Start from an example game". After that the workspace has
+   "What's inside" (the list) on the left and the box drawn large on the right. Below 760 px
+   the box comes first and the list is a bottom sheet; dialogs fill the screen below 600 px.
+2. **What's inside.** Five kinds: Cards, Tokens and dice, Tiles, Miniatures (the pieces are
+   figures) and Other. Each item has its own shade of its kind's colour and icon, and
+   that same shade marks its trays in the plan and in the 3D view. Editing an item opens
+   a panel with the basics and, under "More options", the rest: room for expansions, how
+   often you reach for it, finger cuts, curved floor, corner reliefs, how cards stand,
+   one pile per player, removable dividers. Each change shows a short note over the box. When
+   no tray variant can give tiles, miniatures (pockets) or an other item a finger cut, its
+   pieces are stored loose in a tray with a curved floor instead, and the editor says so.
+3. **The box.** The section "The box" (above the list; the same panel is the first step of a
+   first visit) sets the inside width, length and height, "Keep space free on top" (the whole
+   top or part of it) and whether the box is stored on its side.
+4. **The plan.** The optimizer runs on its own 400 ms after you stop editing. A line above
+   the box says the result ("Everything fits. 6 trays in 2 layers, 40 of 52 mm high.") or
+   what is wrong: it names the tray that doesn't fit and offers "Edit <name>"; when your
+   pins block the fit it offers "Unpin <name>" for each. "Keep searching" runs a longer
+   search (about three times the budget) from the current plan and never throws it away;
+   it becomes "Stop" while the search runs. Trays are named by what they hold, never
+   shown with numbers ("Market", "Spare by Market"). Spare trays and spacers fill gaps so the other
+   trays cannot move; print them too. Layers are labelled "Layer 1 (bottom)" to
+   "Layer n (top)", and the plan has a button for each.
+5. **Trays.** Select a tray, in the plan or in the 3D view, to see its tray bar: its layer,
+   size, what it joins, what it holds, and the actions. "Pin" holds it where it is, "Turn 90°"
+   turns it (which pins its stack), "Swap with…" swaps two trays (drag one onto another, or
+   use the keyboard; both stacks are pinned), "Lock size" holds it at the size it is, and "Edit"
+   opens its item. A line says why an action is blocked. Pins and size locks also show
+   as chips on the item's row, each with an x ("Unpin", "Unlock size").
+   The optimizer works around them and never drops one silently.
+6. **3D view.** The "3D" tab shows the trays (it needs WebGL; the rest works without), with
+   an explode slider, "Show layers", a tray picker and "Show axes", a small X, Y, Z indicator
+   that turns with the model.
+7. **Settings.** A sheet with two tabs. "This insert": how trays sit (Fit, Walls, Room for
+   fingers, Rim between layers, Fill to the lid, Unused space), and "Exact numbers" with a
+   search, a restore button per value and "N changed". "My printer": the bed size, bed margin
+   and layer height, then "Printing options" that change the printed trays, not where trays
+   sit (such as "Engrave tray names"). **The printer is a preference in this browser** and
+   every new insert starts with it; "Apply to this insert" copies it to the open one.
+8. **Download.** The header's "Download" opens one panel with how many parts are in the download
+   list, the filament and the print time, and one primary button, "Download 3MF": a single combined file. "Other
+   formats" holds "3MF per part (.zip)" and "STL files (.zip)". A progress bar and "Stop" show
+   while it builds (closing the panel stops it); a tray that fails to build is listed under
+   "Not exported" with its reason and "Try again". Download says "Fix the fit to download"
+   while nothing fits and is off while the plan is out of date. The panel ends with a quiet
+   "Support it" line (Ko-fi, PayPal).
+9. **Packing guide.** "Open the packing guide" shows the packing order (bottom layer first),
+   how it goes together (an exploded picture), a picture per layer, a "What goes where"
+   table, PNG downloads per layer and "Print or save as PDF". Trays are named; the download
+   list is the one place that says "part".
+10. **Save and share.** Projects autosave in the browser, and the header says "Saved in this
+    browser". There are no share links: the address bar never changes. The project menu
+    (the header's "...") has New insert, Your inserts, "Open file...", "Save file", "Send file"
+    (on a phone, through the share sheet), Settings and Delete. A file holds the whole insert,
+    so sending the file is how you share one. Opening a file opens it as a separate insert (a
+    file whose id and content match a stored one just opens that one; one whose id matches a
+    different one opens as a copy). A `#1.` link made by an older version still opens, once,
+    as a copy, and the address bar is cleared. If the browser blocks storage the app says so
+    and asks you to save a file; the page warns before closing while there are changes no
+    file holds. When another tab changes the insert you are editing, autosave pauses and the
+    menu offers "Use this tab's version" or "Use the other tab's version".
+11. **Undo and redo.** Every edit is a step (header buttons); "Keep searching" results are
+    steps of their own.
+
+If you change the inputs after a plan was made, the plan stays, is greyed and badged "Out of
+date", and a banner says "This plan is from before your last changes." with "Make a new plan".
+Download and the packing guide are off until you do. A plan made under an older line of tray
+geometry gets a banner too ("Reprint everything" or "Use the old plan"): its trays no longer
+mate with trays exported now.
+
+The footer shows the app version, the build id and a link to the third-party licenses.
 
 ## Look
 
-The interface uses the Proof design system: `src/styles/proof-tokens.css` (tokens,
-compiled from its `tokens.json`) and `src/styles/proof.css` (its `pf-` components) are
-copied in as they are, and `src/style.css` holds only the app's own rules. One typeface
-(Hanken Grotesk, falling back to the system sans; the page loads no web fonts), sentence-case
-labels, solid selected states, shaped notices and a dotted edge for Advanced fields come from
-there. Update the two copied files together when the design system changes.
+The redesign's tokens live in `src/styles/tokens.css`: page, sheet, ink, muted, rule, edge, box
+and focus colours, one fill/line/ink triple per kind (cards blue, tokens and dice amber, tiles
+green, miniatures rose, custom violet; the tokens and dice colour is named `--bits-*`), the hatched spacer, spacing, radii and the two typefaces.
+Light is the default; a warm dark set redefines the same names under
+`prefers-color-scheme: dark` (screen only, so printing stays on white). Text stays at 4.5:1 and
+edges 3:1 against their ground in both, and `src/style.test.ts` checks it. Every focusable
+element gets a 3 px `--focus` outline (`:focus-visible` in `tokens.css`).
+
+`shadeOf(kind, index)` in `src/ui/identity.ts` gives each item of a kind its own shade of
+the kind's hue (`light-dark(…)` colours, so one inline style follows the scheme; `shadeHex`
+gives plain hex per scheme). `light-dark()` only works in the page's own CSS: the 3D view,
+the PNG and SVG export and anything printed must use `shadeHex(kind, i, "light")` (paper is
+always light); a test checks that `light-dark(` stays out of the exported SVG. `src/ui/identity.test.ts` checks the base
+shades against the tokens and the contrast of every shade.
+
+Headings use Bricolage Grotesque (500, 700) and everything else Figtree (400, 600, 700),
+both self-hosted from `@fontsource` packages (`src/styles/fonts.css` declares only those
+weights, woff2, latin and latin-ext subsets; Vite emits the files as relative assets, so `base: "./"` still works and the page
+requests nothing from another host). Their SIL OFL licences are added to
+`third-party-licenses.txt` by `licenses.config.ts`. `src/styles/proof.css` holds the older `pf-`
+classes that are still in use; it reads the new tokens through a short block of legacy names
+at the end of `tokens.css`. `src/style.css` holds the app's own rules. A test (`src/ui/copy.test.ts`)
+scans the string literals and JSX text of every non-test source file for words the redesign
+retired (the spec's "Words" section lists them), so they stay out.
 
 ## Architecture
 
-| Folder          | What it does                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------- |
-| `model/`        | Types, defaults, validation, schema versioning, `inputsHash`                                      |
-| `share/`        | `#1.` link codec, local project store, JSON files                                                 |
-| `sizing/`       | Component (group) → tray requirements with variants                                               |
-| `layout/`       | Optimizer (Web Worker, deterministic), `summarize`, `swapLocks`                                   |
-| `geometry/`     | `TraySpec` → manifold mesh (Web Worker; only `geometry/client.ts` is imported by the page)        |
-| `export/`       | 3MF / STL writers, zip, grid layout                                                               |
-| `app/`          | State (`state.ts`), optimizer runner, persistence, store, export builders, mesh cache, `App.tsx`  |
-| `ui/`           | Forms, component editors, rail sections, project menu, summary, export panel                      |
-| `plan/`         | Top-down plan view: tiles with number, name, size and kind icon; select, drag/keyboard swap, lock |
-| `viewer/`       | three.js 3D view (`scene.ts` is loaded lazily)                                                    |
-| `instructions/` | Part numbering, assembly SVGs, packing order, printable page, PNG                                 |
-| `licenses/`     | Builds `dist/third-party-licenses.txt` (see `licenses.config.ts`)                                 |
+| Folder          | What it does                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| `model/`        | Types, defaults, validation, schema versioning, `inputsHash`                                        |
+| `share/`        | Reader for old `#1.` links, local project store, JSON files, the printer preference                 |
+| `sizing/`       | Items (group) → tray requirements with variants                                                     |
+| `layout/`       | Optimizer (Web Worker, deterministic), `summarize`, `swapLocks`                                     |
+| `geometry/`     | `TraySpec` → manifold mesh (Web Worker; only `geometry/client.ts` is imported by the page)          |
+| `export/`       | 3MF / STL writers, zip, grid layout                                                                 |
+| `app/`          | State (`state.ts`), optimizer runner, persistence, store, export builders, mesh cache, `App.tsx`    |
+| `ui/`           | What's inside, the editors for each kind, settings sheet, project menu, status line, download panel |
+| `plan/`         | Top-down plan view: tiles with name, size and kind icon; select, drag/keyboard swap, pin            |
+| `viewer/`       | three.js 3D view (`scene.ts` is loaded lazily)                                                      |
+| `instructions/` | Tray names, part ids for the download list, packing guide SVGs, packing order, printable page, PNG  |
+| `licenses/`     | Builds `dist/third-party-licenses.txt` (see `licenses.config.ts`)                                   |
 
 **Data flow.** Every edit goes through `store.edit(fn)` with a pure function
 from `app/actions.ts`. If `inputsHash` changed, `app/runner.ts` waits 400 ms,
 cancels any running optimization, runs `size()` and the layout worker (same
 seed, warm start from the current layout) and auto-accepts the result into
-`project.layout`, keeping the previous layout for one-step Undo. A result whose
-inputs no longer match the project is discarded. `app/persistence.ts` autosaves
-(500 ms) to localStorage, tells `main.tsx` the new `#1.` link (which writes it
-with `history.replaceState`), opens links and files as separate projects (a
-different project with the same id becomes a copy) and pauses autosave if
-another tab saved the same project.
+`project.layout`. Every edit is an Undo/Redo step of the whole project (`app/history.ts`, up to
+100, cleared when another project opens); the plan joins the history entry of the edit that
+caused it, and a "Keep searching" result is a step of its own. A result whose
+inputs no longer match the project is discarded. Pins are never dropped silently:
+when the worker had to ignore pins (`LayoutResult.lockConflicts`), the runner does
+not accept that plan. The previous plan and every pin stay, the conflicts are in
+`state.lockConflicts`, and `store.unpin(trayKey)` removes a tray's pins and size lock and
+re-runs. `app/persistence.ts` autosaves
+(500 ms) to localStorage, opens files (and, once at start, an old `#1.` link,
+after which `main.tsx` clears the address bar) as separate projects (a different
+project with the same id becomes a copy), warns before the page closes when
+storage is unavailable and changes are unsaved, and pauses autosave if another
+tab saved the same project.
 A project with a stored layout is never re-optimized on load; if its inputs
-changed, the "Inputs changed since this plan was made — update the plan?" notice
-appears instead. Meshes are built on demand by the geometry worker and cached
+changed, the "This plan is from before your last changes." banner appears instead. Meshes are built on demand by the geometry worker and cached
 in `app/meshes.ts`.
 
-## How to add a component kind
+## How to add a kind of item
 
 1. **Model (additive schema bump):** add the interface to `src/model/types.ts`
    (roadmap §4.1), add it to the `Component` union, give it defaults in
@@ -154,9 +187,9 @@ in `app/meshes.ts`.
    a new line ("reprint the whole insert"); from 1.0 on they are MINOR and
    MAJOR.
 4. **UI:** create `src/ui/components/<Kind>Editor.tsx` taking
-   `EditorProps<YourComponent>` (simple fields first, then `<ToggleOptions …/>`,
-   then extra ones inside `<MoreOptions open={advanced}>` together with
-   `<CommonOptions …/>`), add a `case` to `KindEditor` in `ComponentCard.tsx`,
+   `EditorProps<YourComponent>` (the basics first, then the rest inside the
+   `<MoreOptions errorPaths={commonOptionPaths(index)}>` disclosure, with `<ToggleOptions …/>`
+   and `<CommonOptions …/>`), add a `case` to `KindEditor` in `EditorPanel.tsx`,
    and add the kind to `ADD_LABELS` in `ComponentList.tsx`. Field paths must
    match `validateProject()` so errors show next to the field.
 5. **Tests:** sizing unit tests, an editor test next to the editor, and run
@@ -172,7 +205,7 @@ nothing points at `/assets/` absolutely, and that `third-party-licenses.txt`
 names every bundled library.
 No browser runs the page, so it cannot prove the workers or WASM execute; do a
 manual check in a real browser (import a fixture from `test/fixtures/`, export,
-open the link) before a release.
+open the page) before a release.
 
 `vite.config.ts` sets `base: "./"` for subpath hosting and defines
 `__APP_VERSION__` from `package.json` and `__BUILD_ID__` (the short git SHA, `-dirty` for
@@ -200,7 +233,7 @@ semver than on `main`.
 1. In this repo's GitHub settings, Pages: set Source to "GitHub Actions".
 2. In [igorzamyslov/static-web-apps](https://github.com/igorzamyslov/static-web-apps), remove the
    `apps/insert-generator` submodule (or replace its page with a redirect to the URL above), so the
-   old `/static-web-apps/insert-generator/` address does not keep serving a stale copy.
+   old `/static-web-apps/insert-generator/` address does not go on serving a stale copy.
 
 ### Releasing
 

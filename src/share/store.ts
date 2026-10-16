@@ -37,7 +37,8 @@ export class StoreWriteError extends Error {
   override name = "StoreWriteError";
 }
 
-function defaultStorage(): Storage | null {
+/** The browser's localStorage, or null when it is missing or blocked. */
+export function defaultStorage(): Storage | null {
   try {
     return globalThis.localStorage;
   } catch {

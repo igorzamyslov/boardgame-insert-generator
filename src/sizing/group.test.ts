@@ -284,7 +284,7 @@ describe("size", () => {
       level: "info",
       code: "sizing.noFingerSlot",
       path: `/components/${index}`,
-      message: `${name}: no tray arrangement leaves room for a finger cutout of at least 10 mm by ${contents} with 3 mm of wall beside it, so it is stored loose in a bin with a curved floor instead.`,
+      message: `${name}: no tray arrangement leaves room for a finger cutout of at least 10 mm by ${contents} with 3 mm of wall beside it, so it is stored loose in a tray with a curved floor instead.`,
     });
     // The thinnest wall, floor and divider with a tight fit: a 15 mm tile's well is under 16 mm.
     const thinAndTight = {
@@ -341,7 +341,7 @@ describe("size", () => {
       const reliefs = at(size([minis({ figures: tiny, cornerReliefs: true })], s).requirements, 0);
       expect(features(first(reliefs))).toEqual(["scoop", "cornerRelief"]);
       expect(size([minis({ figures: tiny, cornerReliefs: true })], s).notices[0]?.message).toMatch(
-        /so it is stored loose in a bin with a curved floor and corner reliefs instead\.$/,
+        /so it is stored loose in a tray with a curved floor and corner reliefs instead\.$/,
       );
     });
 

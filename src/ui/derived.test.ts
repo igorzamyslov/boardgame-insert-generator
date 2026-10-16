@@ -72,7 +72,7 @@ describe("derivedSizes", () => {
     const c = bulk({ items: [{ name: "Coins", volumeMl: 120 }] });
     const bins = componentOptions(c, s, 0).options.map((o) => at(at(o.blocks, 0), 0));
     const line = at(derivedSizes(c, s, 0), 0);
-    expect(line).toContain("Bits — Coins: a bin of ");
+    expect(line).toContain("Bits — Coins: a tray of ");
     expect(line).toContain("for 120 ml.");
     for (const bin of bins) {
       expect(line).toContain(`${bin.minW} × ${bin.minD} × ${bin.minH} mm`);
@@ -83,7 +83,7 @@ describe("derivedSizes", () => {
 
   it("gives minis stored as bulk the bins of bulk storage, shallow and deep", () => {
     const line = at(derivedSizes(minis({ storage: "bulk" }), s, 0), 0);
-    expect(line).toContain("Minis — Hero: a bin of ");
+    expect(line).toContain("Minis — Hero: a tray of ");
     expect(line).toContain("(shallow)");
     expect(line).toContain("(deep)");
   });

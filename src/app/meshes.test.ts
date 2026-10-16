@@ -88,6 +88,21 @@ describe("createMeshSource", () => {
     expect(f.build).toHaveBeenCalledTimes(2);
   });
 
+  it("rebuilds a part when its name changes", async () => {
+    const f = fakeClient();
+    const source = createMeshSource(() => Promise.resolve(f.client));
+    const t = makeTray();
+    await source.get({ ...t, partName: "Cards" }, DEFAULT_SETTINGS);
+    await source.get({ ...t, partName: "Cards" }, DEFAULT_SETTINGS);
+    expect(f.build).toHaveBeenCalledTimes(1);
+    // another name is other engraving: another mesh; and no name at all is the plain part
+    await source.get({ ...t, partName: "Dice" }, DEFAULT_SETTINGS);
+    expect(f.build).toHaveBeenCalledTimes(2);
+    await source.get(t, DEFAULT_SETTINGS);
+    expect(f.build).toHaveBeenCalledTimes(3);
+    expect(f.build.mock.calls.map(([spec]) => spec.partName)).toEqual(["Cards", "Dice", undefined]);
+  });
+
   it("rejects unsupported trays without building them", async () => {
     const f = fakeClient();
     const source = createMeshSource(() => Promise.resolve(f.client));

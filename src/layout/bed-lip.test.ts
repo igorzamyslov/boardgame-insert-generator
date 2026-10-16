@@ -71,6 +71,8 @@ describe("parts the lip makes too big for the bed", { timeout: 30_000 }, () => {
     expect(dnf).toContain('"board"');
     expect(dnf).toContain("usable bed is 190.0 × 190.0 mm");
     expect(dnf).toContain("larger bed");
+    // the same trays, by key, for the app to name
+    expect(r.bestAttempt?.overBedKeys).toEqual(["board:p0:0"]);
   });
 });
 
@@ -79,7 +81,7 @@ describe("parts the lip makes too big for the bed", { timeout: 30_000 }, () => {
 // Filler pieces (leftovers) are as tall as the stacks beside them, so a box taller than the
 // print bed cannot have any (future work: split them in Z).
 describe("a box taller than the print bed", () => {
-  it("says the filler pieces can't be printed in one piece, instead of a generic message", () => {
+  it("says the spacers can't be printed in one piece, instead of a generic message", () => {
     const r = optimize(
       makeInput([boxReq("a", 50, 50, 20), boxReq("b", 50, 50, 20), boxReq("c", 50, 50, 20)], {
         box: { innerWidth: 200, innerDepth: 150, innerHeight: 100 },
@@ -91,7 +93,7 @@ describe("a box taller than the print bed", () => {
     expect(r.layout).toBeNull();
     const dnf = r.notices.find((n) => n.code === "layout.doesNotFit")?.message ?? "";
     expect(dnf).not.toContain("Some trays don't fit");
-    expect(dnf).toContain("filler pieces");
+    expect(dnf).toContain("the spacers that fill");
     expect(dnf).toContain("The stacks are 100.0 mm tall");
     expect(dnf).not.toContain("tall inside");
     expect(dnf).toContain("60.0 mm high");
@@ -130,12 +132,12 @@ describe("the lip counts toward the bed height", () => {
       },
     );
 
-  it("a stack whose lipped bottom tray would print above the bed is not kept", () => {
+  it("a stack whose lipped bottom tray would print above the bed is a conflict", () => {
     const fits = optimize(stacked(78), 1, 2000);
-    expect(fits.notices.some((n) => n.code === "lock.dropped")).toBe(false);
-    // 58.8 mm of tray plus the 2 mm lip is 60.8 mm: the lock gives way (the flipped stack fits)
+    expect(fits.lockConflicts).toEqual([]);
+    // 58.8 mm of tray plus the 2 mm lip is 60.8 mm: the lock conflicts (the flipped stack fits)
     const tooTall = optimize(stacked(80), 1, 2000);
-    expect(tooTall.notices.some((n) => n.code === "lock.dropped")).toBe(true);
+    expect(tooTall.lockConflicts.length).toBeGreaterThan(0);
     // nothing fits at all
     const hopeless = optimize(stacked(83), 1, 2000);
     expect(hopeless.layout).toBeNull();

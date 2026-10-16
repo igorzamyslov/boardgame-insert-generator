@@ -136,7 +136,7 @@ describe("cutoutSides", () => {
 describe("a new component's blank inner line name", () => {
   it.each([
     ["cards", "Cards ×50"],
-    ["bulk", "Bits ×20"],
+    ["bulk", "Tokens and dice ×20"],
     ["minis", "Miniatures 1/4"],
   ] as const)("labels a new %s compartment with the component's name", (kind, expected) => {
     const options = componentOptions(newComponent(kind), DEFAULT_SETTINGS, 0).options;

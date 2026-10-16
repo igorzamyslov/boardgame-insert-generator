@@ -162,6 +162,10 @@ export interface CheckFieldProps {
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  /**
+   * Off for a reason the hint gives. The box stays focusable (aria-disabled, never `disabled`, so
+   * a screen reader reaches it and reads the hint) and does nothing when activated.
+   */
   disabled?: boolean;
   hint?: string;
   /** Validation path whose notices are shown with the checkbox. */
@@ -184,10 +188,20 @@ export function CheckField({
         id={id}
         type="checkbox"
         checked={checked}
-        disabled={disabled}
+        aria-disabled={disabled === true ? "true" : undefined}
         aria-invalid={errors.length > 0}
         aria-describedby={describedByIds(id, hint, errors, notes)}
-        onChange={(e) => onChange(e.currentTarget.checked)}
+        onClick={(e) => {
+          // A click (or Space) would flip the box on screen: put it back.
+          if (disabled === true) {
+            e.preventDefault();
+          }
+        }}
+        onChange={(e) => {
+          if (disabled !== true) {
+            onChange(e.currentTarget.checked);
+          }
+        }}
       />
       <label htmlFor={id}>{label}</label>
       <FieldMessages id={id} hint={hint} errors={errors} notes={notes} />

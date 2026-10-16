@@ -4,16 +4,27 @@ import { App } from "./app/App";
 import { loadGeometryClient, loadLayoutClient } from "./app/clients";
 import { createMeshSource } from "./app/meshes";
 import { connectWindow, createAppStore } from "./app/store";
-import { createProjectStore } from "./share";
-import "./styles/proof-tokens.css";
+import { createPrefsStore, createProjectStore } from "./share";
+import "./styles/fonts.css";
+import "./styles/tokens.css";
 import "./styles/proof.css";
 import "./style.css";
 
 const store = createAppStore({
   projectStore: createProjectStore(),
+  prefs: createPrefsStore(),
   loadLayoutClient,
-  replaceHash: (hash) => {
-    history.replaceState(null, "", hash);
+  clearHash: () => {
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+  },
+  guardLeaving: (shouldWarn) => {
+    // Only when the open project has changes that neither the browser nor a file holds.
+    window.addEventListener("beforeunload", (e) => {
+      if (shouldWarn()) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
   },
   confirm: (message) => window.confirm(message),
 });

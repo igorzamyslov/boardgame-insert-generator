@@ -320,7 +320,7 @@ describe("bottom chamfer against walls and floor", () => {
     expect(() => planTray(corner, { ...GEO, bottomChamfer: 1.95 })).toThrow(/outer corner radius/);
     // R = chamfer = 1.88 keeps 1.88 − 0.68 − √2·0.28 = 0.80 mm on the true arc: not the 0.8 mm plus
     // CORNER_MARGIN the arc polygon needs.
-    expect(() => planTray(corner, { ...GEO, bottomChamfer: 1.88 })).toThrow(/keeps only 0.80 mm/);
+    expect(() => planTray(corner, { ...GEO, bottomChamfer: 1.88 })).toThrow(/leaves only 0.80 mm/);
     // At 1.81 the corner limit for e = 0.61 is rounder than the chamfer.
     expect(planTray(corner, { ...GEO, bottomChamfer: 1.81 }).cornerRadius).toBeCloseTo(
       maxCornerRadius(1.6, 1.6, 0.61),

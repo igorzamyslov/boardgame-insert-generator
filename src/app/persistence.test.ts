@@ -1,9 +1,11 @@
 // src/app/persistence.test.ts
+import { effect } from "@preact/signals";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
 import { SCHEMA_NOTICE_CODES } from "../model/schema";
-import { STORAGE_PREFIX, createProjectStore, encodeHash } from "../share";
+import { STORAGE_PREFIX, createProjectStore } from "../share";
+import { encodeHash } from "../test-support/link";
 import type { ProjectStore } from "../share";
 import {
   CONFLICT_CODE,
@@ -20,10 +22,19 @@ import { EMPTY_FOREIGN, fixtureProject, makeLayout } from "./test-helpers";
 
 function tab(projectStore: ProjectStore, confirm = vi.fn(() => true)) {
   const state = createState(fixtureProject());
-  const replaceHash = vi.fn<(hash: string) => void>();
+  const clearHash = vi.fn<() => void>();
+  // the predicate a window's beforeunload handler would ask
+  let warn: () => boolean = () => false;
+  const guardLeaving = (shouldWarn: () => boolean): void => {
+    warn = shouldWarn;
+  };
   const hooks = { onClosing: vi.fn(), onOpened: vi.fn() };
-  const persistence = createPersistence(state, { projectStore, replaceHash, confirm }, hooks);
-  return { state, persistence, replaceHash, hooks, confirm };
+  const persistence = createPersistence(
+    state,
+    { projectStore, clearHash, guardLeaving, confirm },
+    hooks,
+  );
+  return { state, persistence, clearHash, warnsOnLeave: () => warn(), hooks, confirm };
 }
 
 function rename(state: ReturnType<typeof createState>, name: string): void {
@@ -45,7 +56,7 @@ describe("persistence", () => {
     t.persistence.start("");
     expect(t.state.project.value.components).toEqual([]);
     expect(store.list().map((e) => e.id)).toEqual([t.state.project.value.id]);
-    expect(t.replaceHash).toHaveBeenLastCalledWith(expect.stringMatching(/^#1\./));
+    expect(t.clearHash).not.toHaveBeenCalled();
     expect(t.hooks.onOpened).toHaveBeenCalledTimes(1);
   });
 
@@ -209,6 +220,86 @@ describe("persistence", () => {
     expect(saved?.ok && saved.project.name).toBe("Too big to store");
   });
 
+  it("saveState is paused during a conflict and failed after a write error", () => {
+    const shared = new MemoryStorage();
+    const tab1 = tab(createProjectStore(shared));
+    tab1.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    expect(tab1.state.saveState.value).toBe("saved");
+    rename(tab1.state, "Edited");
+    tab1.persistence.scheduleSave();
+    expect(tab1.state.saveState.value).toBe("saving");
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    expect(tab1.state.saveState.value).toBe("saved");
+
+    // a write error: failed until the next successful write, whatever is scheduled meanwhile
+    shared.failOn = () => true;
+    rename(tab1.state, "Too big");
+    tab1.persistence.scheduleSave();
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    expect(tab1.state.saveState.value).toBe("failed");
+    rename(tab1.state, "Still too big");
+    tab1.persistence.scheduleSave();
+    expect(tab1.state.saveState.value).toBe("failed");
+    shared.failOn = () => false;
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    expect(tab1.state.saveState.value).toBe("saved");
+
+    // the other tab saves: this tab is paused until the user chooses
+    const tab2 = tab(createProjectStore(shared));
+    tab2.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    rename(tab2.state, "From tab 2");
+    tab2.persistence.flush();
+    rename(tab1.state, "From tab 1");
+    tab1.persistence.onExternalChange();
+    expect(tab1.state.conflict.value).toBe(true);
+    expect(tab1.state.saveState.value).toBe("paused");
+    tab1.persistence.scheduleSave();
+    expect(tab1.state.saveState.value).toBe("paused");
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
+    expect(tab1.state.saveState.value).toBe("paused");
+    tab1.persistence.resolveConflict("keepMine");
+    expect(tab1.state.saveState.value).toBe("saved");
+  });
+
+  it("saveState does not flicker when an edit reschedules a pending save", () => {
+    const t = tab(createProjectStore(new MemoryStorage()));
+    t.persistence.start("");
+    vi.advanceTimersByTime(1000);
+    const seen: string[] = [];
+    const stop = effect(() => {
+      seen.push(t.state.saveState.value);
+    });
+    rename(t.state, "One");
+    t.persistence.scheduleSave();
+    rename(t.state, "Two");
+    t.persistence.scheduleSave();
+    stop();
+    expect(seen).toEqual(["saved", "saving"]);
+  });
+
+  it("saveState is unavailable without storage and saved after a project is opened", () => {
+    const none = tab(createProjectStore(null));
+    none.persistence.start("");
+    expect(none.state.saveState.value).toBe("unavailable");
+    rename(none.state, "Offline");
+    none.persistence.scheduleSave();
+    expect(none.state.saveState.value).toBe("unavailable");
+
+    const storage = new MemoryStorage();
+    const t = tab(createProjectStore(storage));
+    t.persistence.start("");
+    storage.failOn = () => true;
+    rename(t.state, "Too big");
+    t.persistence.flush();
+    expect(t.state.saveState.value).toBe("failed");
+    // opening another project starts clean: its own first write succeeds
+    storage.failOn = () => false;
+    t.persistence.newProject();
+    expect(t.state.saveState.value).toBe("saved");
+  });
+
   it("keeps working without storage", () => {
     const store = createProjectStore(null);
     expect(store.available).toBe(false);
@@ -218,27 +309,103 @@ describe("persistence", () => {
     rename(t.state, "Offline");
     t.persistence.scheduleSave();
     vi.advanceTimersByTime(SAVE_DEBOUNCE_MS);
-    expect(t.replaceHash).toHaveBeenCalledTimes(2);
     expect(t.state.projects.value).toEqual([]);
   });
 
-  it("debounces autosave and updates the URL hash", () => {
+  it("says a file keeps the work when nothing can be stored", () => {
+    const t = tab(createProjectStore(null));
+    t.persistence.start("");
+    const notice = t.state.appNotices.value.find((n) => n.code === STORAGE_UNAVAILABLE_CODE);
+    expect(notice?.message).toContain("Save a file so your work is not lost");
+    expect(notice?.message).not.toMatch(/link/i);
+  });
+
+  it("warns before leaving when nothing can be saved", () => {
+    const t = tab(createProjectStore(null));
+    t.persistence.start("");
+    // nothing has been changed yet: a plan arriving on its own is no reason to hold the tab
+    expect(t.warnsOnLeave()).toBe(false);
+    t.state.project.value = { ...t.state.project.value, layout: makeLayout("some-run") };
+    t.persistence.scheduleSave();
+    expect(t.warnsOnLeave()).toBe(false);
+    rename(t.state, "Offline");
+    t.persistence.scheduleSave();
+    expect(t.warnsOnLeave()).toBe(true);
+    // a saved file is a copy of the work
+    t.persistence.markSavedToFile();
+    expect(t.warnsOnLeave()).toBe(false);
+    rename(t.state, "Offline again");
+    t.persistence.scheduleSave();
+    expect(t.warnsOnLeave()).toBe(true);
+    // a different project starts clean
+    t.persistence.newProject();
+    expect(t.warnsOnLeave()).toBe(false);
+  });
+
+  it("warns before leaving when storage exists but the last write failed", () => {
+    const storage = new MemoryStorage();
+    const t = tab(createProjectStore(storage));
+    t.persistence.start("");
+    expect(t.warnsOnLeave()).toBe(false);
+    storage.failOn = () => true;
+    rename(t.state, "Too big");
+    t.persistence.flush();
+    expect(t.state.saveFailed.value).toBe(true);
+    expect(t.warnsOnLeave()).toBe(true);
+    // a file is a copy of the work
+    t.persistence.markSavedToFile();
+    expect(t.warnsOnLeave()).toBe(false);
+    rename(t.state, "Still too big");
+    t.persistence.flush();
+    expect(t.warnsOnLeave()).toBe(true);
+    // the write works again: the browser keeps it
+    storage.failOn = () => false;
+    t.persistence.flush();
+    expect(t.state.saveFailed.value).toBe(false);
+    expect(t.warnsOnLeave()).toBe(false);
+  });
+
+  it("never warns before leaving when the browser keeps the work", () => {
+    const t = tab(createProjectStore(new MemoryStorage()));
+    t.persistence.start("");
+    rename(t.state, "Stored");
+    t.persistence.scheduleSave();
+    expect(t.warnsOnLeave()).toBe(false);
+  });
+
+  it("clears the address bar once after reading an old link", () => {
+    const t = tab(createProjectStore(new MemoryStorage()));
+    t.persistence.start(encodeHash(fixtureProject(), EMPTY_FOREIGN));
+    expect(t.clearHash).toHaveBeenCalledTimes(1);
+    rename(t.state, "Edited");
+    t.persistence.flush();
+    expect(t.clearHash).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the address bar after a link that can't be read, and not when there is none", () => {
+    const damaged = tab(createProjectStore(new MemoryStorage()));
+    damaged.persistence.start("#1.this-is-not-a-valid-payload");
+    expect(damaged.clearHash).toHaveBeenCalledTimes(1);
+    const none = tab(createProjectStore(new MemoryStorage()));
+    none.persistence.start("#");
+    expect(none.clearHash).not.toHaveBeenCalled();
+  });
+
+  it("debounces autosave", () => {
     const store = createProjectStore(new MemoryStorage());
     const t = tab(store);
     t.persistence.start("");
-    const before = t.replaceHash.mock.calls.length;
     rename(t.state, "Typing");
     t.persistence.scheduleSave();
     t.persistence.scheduleSave();
     t.persistence.scheduleSave();
     vi.advanceTimersByTime(SAVE_DEBOUNCE_MS - 1);
-    expect(t.replaceHash.mock.calls.length).toBe(before);
+    expect(store.list()[0]?.name).not.toBe("Typing");
     vi.advanceTimersByTime(1);
-    expect(t.replaceHash.mock.calls.length).toBe(before + 1);
     expect(store.list()[0]?.name).toBe("Typing");
   });
 
-  it("deletes the current project after confirmation and opens the next", () => {
+  it("deletes the current project (the screen asks first) and opens the next", () => {
     const store = createProjectStore(new MemoryStorage());
     const a = fixtureProject();
     store.save(a, EMPTY_FOREIGN);
@@ -247,12 +414,22 @@ describe("persistence", () => {
     t.persistence.start("");
     t.persistence.newProject();
     const fresh = t.state.project.value.id;
-    t.confirm.mockReturnValueOnce(false);
     t.persistence.deleteProject(fresh);
-    expect(store.list()).toHaveLength(2);
-    t.persistence.deleteProject(fresh);
+    expect(t.confirm).not.toHaveBeenCalled();
     expect(store.list().map((e) => e.id)).toEqual([a.id]);
     expect(t.state.project.value.id).toBe(a.id);
+  });
+
+  it("ends a swap and returns to the bottom layer when another project is opened", () => {
+    const t = tab(createProjectStore(new MemoryStorage()));
+    t.persistence.start("");
+    t.state.selection.value = "a:p0:0";
+    t.state.swapFrom.value = "a:p0:0";
+    t.state.viewLevel.value = 2;
+    t.persistence.newProject();
+    expect(t.state.selection.value).toBeNull();
+    expect(t.state.swapFrom.value).toBeNull();
+    expect(t.state.viewLevel.value).toBe(0);
   });
 
   it("imports JSON as a project and keeps the current one on bad input", () => {
@@ -472,13 +649,6 @@ describe("persistence", () => {
         "importing a file",
         ({ t }) => t.persistence.importJson(JSON.stringify({ ...fixtureProject(), id: "file" })),
       ],
-      [
-        "following a link",
-        ({ t }) =>
-          t.persistence.openFromHash(
-            encodeHash({ ...fixtureProject(), id: "link" }, EMPTY_FOREIGN),
-          ),
-      ],
     ];
 
     for (const [name, leave] of paths) {
@@ -490,9 +660,6 @@ describe("persistence", () => {
         expect(x.t.state.project.value.id).toBe("mine");
         expect(x.t.state.project.value.name).toBe("Unsaved edits");
         expect(x.t.state.appNotices.value.map((n) => n.code)).toContain(SAVE_FAILED_CODE);
-        expect(x.t.replaceHash).toHaveBeenLastCalledWith(
-          encodeHash(x.t.state.project.value, EMPTY_FOREIGN),
-        );
       });
 
       it(`leaves after ${name} when confirmed, and keeps a notice naming the project`, () => {

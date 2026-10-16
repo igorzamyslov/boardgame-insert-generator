@@ -6,7 +6,8 @@ import { evaluate } from "./fill";
 import { greedyTree, partitionTrees } from "./greedy";
 import {
   applyLocks,
-  lockDroppedNotice,
+  conflictOf,
+  dedupeConflicts,
   moveEnvOf,
   noLocks,
   resolveLocks,
@@ -18,7 +19,7 @@ import { createRng } from "./prng";
 import { scorePlan, type PrevPos } from "./score";
 import { summarize } from "./summarize";
 import type { Tree } from "./tree";
-import type { LayoutInput, LayoutResult } from "./types";
+import type { LayoutInput, LayoutResult, LockConflict } from "./types";
 import { toMm } from "./units";
 import { warmHints, warmTree, type WarmHints } from "./warmstart";
 import {
@@ -74,7 +75,7 @@ export interface Run {
 interface Phase {
   readonly ctx: Ctx;
   readonly resolved: ResolvedLocks;
-  readonly notices: Notice[];
+  readonly conflicts: LockConflict[];
   readonly annealer: Annealer;
 }
 
@@ -105,9 +106,9 @@ function startPhase(
   useLocks: boolean,
 ): Phase {
   const base = createCtx(input, opts.measure);
-  const { resolved, notices } = useLocks
+  const { resolved, conflicts } = useLocks
     ? resolveLocks(base, input.locks, hints)
-    : { resolved: noLocks(base), notices: [] };
+    : { resolved: noLocks(base), conflicts: [] };
   const ctx = withSizeLocks(base, resolved.sizes);
   const env = moveEnvOf(ctx, resolved);
   const rng = createRng(seed);
@@ -153,7 +154,7 @@ function startPhase(
   return {
     ctx,
     resolved,
-    notices,
+    conflicts,
     annealer: createAnnealer(env, evalTree, start, rng, iterations),
   };
 }
@@ -185,7 +186,10 @@ export function createRun(
   const main = startPhase(input, seed, budget, opts, hints, true);
   let derived: Phase | null = null;
   let fallback: Phase | null = null;
-  let finished = false;
+  // Pins the layout can't keep make the result unusable (the caller discards it), so such a run
+  // reports them without searching.
+  const skipped = main.conflicts.length > 0;
+  let finished = skipped;
   let stop: StopReason | null = null;
 
   const chains = (): Phase[] => [main, derived, fallback].filter((p) => p !== null);
@@ -193,16 +197,22 @@ export function createRun(
 
   const build = (): LayoutResult => {
     const phase = feasible();
-    const notices: Notice[] = [...main.notices];
+    if (skipped) {
+      return {
+        layout: null,
+        bestAttempt: null,
+        summary: null,
+        notices: [],
+        lockConflicts: main.conflicts,
+      };
+    }
+    const notices: Notice[] = [];
+    // Pins the layout had to ignore: never dropped, reported for the caller to refuse the layout.
+    const lockConflicts: LockConflict[] = [...main.conflicts];
     if (phase !== undefined && phase === fallback) {
       for (const lock of main.resolved.kept) {
-        notices.push(
-          lockDroppedNotice(
-            lock,
-            "no layout that keeps it fits in the box",
-            trayNamer(phase.ctx),
-            input.locks.indexOf(lock),
-          ),
+        lockConflicts.push(
+          conflictOf(lock, "the pins together leave no layout that fits", trayNamer(phase.ctx)),
         );
       }
     }
@@ -230,6 +240,7 @@ export function createRun(
         bestAttempt: null,
         summary,
         notices,
+        lockConflicts: dedupeConflicts(lockConflicts),
       };
     }
     // Nothing fits: report the least-overflow attempt of the chains that keep the locks (the
@@ -250,9 +261,14 @@ export function createRun(
     }
     return {
       layout: null,
-      bestAttempt: { trays: attemptTrays, shortfall },
+      bestAttempt: {
+        trays: attemptTrays,
+        shortfall,
+        overBedKeys: overBed.filter((o) => !o.filler).map((o) => o.key),
+      },
       summary: null,
       notices,
+      lockConflicts: dedupeConflicts(lockConflicts),
     };
   };
 
@@ -284,6 +300,9 @@ export function createRun(
       return chains().reduce((sum, p) => sum + p.annealer.done, 0);
     },
     get total() {
+      if (skipped) {
+        return 0;
+      }
       const locked = main.resolved.kept.length > 0 ? 1 : 0;
       let ahead = 0;
       if (feasible() === undefined) {

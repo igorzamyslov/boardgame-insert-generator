@@ -1,10 +1,11 @@
 // src/app/store.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { renameProject, updateBox } from "./actions";
-import { NOTICE_CODES } from "../layout";
+import { applyPrinter, renameProject, updateBox } from "./actions";
 import { inputsHash } from "../model/hash";
-import type { Lock, Notice } from "../model/types";
-import { STORAGE_PREFIX, createProjectStore, encodeHash } from "../share";
+import type { Lock } from "../model/types";
+import { STORAGE_PREFIX, createPrefsStore, createProjectStore } from "../share";
+import { encodeHash } from "../test-support/link";
+import type { Printer } from "../model/types";
 import { DEBOUNCE_MS, IMPROVE_FACTOR } from "./runner";
 import { DEFAULT_ITERATIONS } from "../layout";
 import { CONFLICT_CODE, SAVE_DEBOUNCE_MS } from "./persistence";
@@ -16,6 +17,7 @@ import {
   flush,
   makeLayout,
   makeResult,
+  makeTray,
   stubLayoutClient,
   withoutLayout,
 } from "./test-helpers";
@@ -23,14 +25,18 @@ import {
 function setup() {
   const stub = stubLayoutClient();
   const projectStore = createProjectStore(new MemoryStorage());
+  const prefs = createPrefsStore(new MemoryStorage());
   const store = createAppStore({
     projectStore,
+    prefs,
     loadLayoutClient: () => Promise.resolve(stub.client),
-    replaceHash: vi.fn(),
+    clearHash: vi.fn(),
     confirm: () => true,
   });
-  return { store, stub, projectStore };
+  return { store, stub, projectStore, prefs };
 }
+
+const MY_PRINTER: Printer = { bedX: 180, bedY: 180, bedZ: 180, bedMargin: 3, layerHeight: 0.16 };
 
 describe("app store", () => {
   beforeEach(() => {
@@ -68,7 +74,7 @@ describe("app store", () => {
     expect(projectStore.list().find((e) => e.id === p.id)?.name).toBe("Renamed");
   });
 
-  it("re-optimizes after an input edit and undo restores the previous layout", async () => {
+  it("re-optimizes after an input edit with the stored layout as warm start", async () => {
     const { store, stub } = setup();
     const p = fixtureProject();
     const first = makeLayout(inputsHash(p));
@@ -77,16 +83,199 @@ describe("app store", () => {
     store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
     await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
     await flush();
+    expect(stub.calls[0]?.warmStart).toEqual(loaded);
+  });
+
+  it("undo after an edit restores the inputs and the plan, not stale", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    const first = makeLayout(inputsHash(p));
+    store.start(encodeHash({ ...p, layout: first }, EMPTY_FOREIGN));
+    const before = store.state.project.value;
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
     const call = stub.calls[0];
-    expect(call?.warmStart).toEqual(loaded);
+    const next = makeLayout(call?.input.inputsHash ?? "");
+    call?.resolve(makeResult(next));
+    await flush();
+    expect(store.state.project.value.layout).toBe(next);
+    expect(store.canUndo.value).toBe(true);
+    store.undo();
+    expect(store.state.project.value.components).toEqual(before.components);
+    expect(store.state.project.value.box).toEqual(before.box);
+    expect(store.state.project.value.layout).toEqual(before.layout);
+    expect(store.state.stale.value).toBe(false);
+    expect(store.canUndo.value).toBe(false);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+    await flush();
+    expect(stub.calls).toHaveLength(1);
+  });
+
+  it("undo ends a swap under way, and clears a selection whose tray is not in the restored plan", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    const old = makeLayout(inputsHash(p), [makeTray({ key: "a:p0:0" })]);
+    store.start(encodeHash({ ...p, layout: old }, EMPTY_FOREIGN));
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    const call = stub.calls[0];
+    const next = makeLayout(call?.input.inputsHash ?? "", [
+      makeTray({ key: "a:p0:0" }),
+      makeTray({ key: "z:p0:0" }),
+    ]);
+    call?.resolve(makeResult(next));
+    await flush();
+    store.state.selection.value = "z:p0:0";
+    store.state.swapFrom.value = "z:p0:0";
+    store.undo();
+    // z is not in the old plan: nothing is selected and no swap waits for a second tile
+    expect(store.state.selection.value).toBeNull();
+    expect(store.state.swapFrom.value).toBeNull();
+    // redo, then a tray that is in both plans stays selected; only the swap ends
+    store.redo();
+    store.state.selection.value = "a:p0:0";
+    store.state.swapFrom.value = "a:p0:0";
+    store.undo();
+    expect(store.state.selection.value).toBe("a:p0:0");
+    expect(store.state.swapFrom.value).toBeNull();
+  });
+
+  it("redo reapplies the edit and its plan", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN));
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
+    const edited = store.state.project.value.box;
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    const call = stub.calls[0];
+    const next = makeLayout(call?.input.inputsHash ?? "");
+    call?.resolve(makeResult(next));
+    await flush();
+    expect(store.canRedo.value).toBe(false);
+    store.undo();
+    expect(store.canRedo.value).toBe(true);
+    store.redo();
+    expect(store.state.project.value.box).toEqual(edited);
+    expect(store.state.project.value.layout).toBe(next);
+    expect(store.state.stale.value).toBe(false);
+    expect(store.canRedo.value).toBe(false);
+    expect(store.canUndo.value).toBe(true);
+  });
+
+  it("a new edit after undo drops what could be redone", () => {
+    const { store } = setup();
+    store.start(encodeHash(fixtureProject(), EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "One"));
+    store.undo();
+    expect(store.canRedo.value).toBe(true);
+    store.edit((q) => renameProject(q, "Two"));
+    expect(store.canRedo.value).toBe(false);
+    store.redo();
+    expect(store.state.project.value.name).toBe("Two");
+  });
+
+  it("a Keep searching result is one undo step", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    const first = makeLayout(inputsHash(p));
+    store.start(encodeHash({ ...p, layout: first }, EMPTY_FOREIGN));
+    expect(store.canUndo.value).toBe(false);
+    store.refit();
+    await flush();
+    const call = stub.calls[0];
+    const better = makeLayout(call?.input.inputsHash ?? "");
+    call?.resolve(makeResult(better));
+    await flush();
+    expect(store.state.project.value.layout).toBe(better);
+    store.undo();
+    expect(store.state.project.value.layout).toEqual(first);
+    expect(store.canUndo.value).toBe(false);
+    store.redo();
+    expect(store.state.project.value.layout).toBe(better);
+  });
+
+  it("edits made in quick succession are one undo step", async () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash(p, EMPTY_FOREIGN));
+    for (const name of ["A", "AB", "ABC"]) {
+      store.edit((q) => renameProject(q, name));
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    expect(store.state.project.value.name).toBe("ABC");
+    store.undo();
+    expect(store.state.project.value.name).toBe(p.name);
+    expect(store.canUndo.value).toBe(false);
+    store.redo();
+    expect(store.state.project.value.name).toBe("ABC");
+  });
+
+  it("removing a component right after another edit is its own undo step", async () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    const first = p.components[0];
+    store.start(encodeHash(p, EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "Renamed"));
+    await vi.advanceTimersByTimeAsync(100);
+    store.edit((q) => ({ ...q, components: q.components.slice(1) }));
+    expect(store.state.project.value.components).toHaveLength(p.components.length - 1);
+    store.undo();
+    expect(store.state.project.value.components[0]?.id).toBe(first?.id);
+    expect(store.state.project.value.name).toBe("Renamed");
+  });
+
+  it("edits more than a second apart are separate undo steps", async () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash(p, EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "First"));
+    await vi.advanceTimersByTimeAsync(1500);
+    store.edit((q) => renameProject(q, "Second"));
+    store.undo();
+    expect(store.state.project.value.name).toBe("First");
+    store.undo();
+    expect(store.state.project.value.name).toBe(p.name);
+  });
+
+  it("a step taken while an edit's run was pending gets the plan too, so undoing to it is not stale", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN));
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + 1500);
+    await flush();
+    const call = stub.calls[0];
+    store.edit((q) => renameProject(q, "Renamed while running"));
     const next = makeLayout(call?.input.inputsHash ?? "");
     call?.resolve(makeResult(next));
     await flush();
     expect(store.state.project.value.layout).toBe(next);
     store.undo();
-    expect(store.state.project.value.layout).toEqual(first);
-    expect(store.state.undoSlot.value).toBeNull();
-    expect(store.state.stale.value).toBe(true);
+    expect(store.state.project.value.name).toBe(p.name);
+    expect(store.state.project.value.box.innerHeight).toBe(p.box.innerHeight + 2);
+    expect(store.state.project.value.layout).toBe(next);
+    expect(store.state.stale.value).toBe(false);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 3);
+    await flush();
+    expect(stub.calls).toHaveLength(1);
+  });
+
+  it("history clears when another project opens", () => {
+    const { store } = setup();
+    store.start(encodeHash(fixtureProject(), EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "Edited"));
+    store.undo();
+    expect(store.canUndo.value || store.canRedo.value).toBe(true);
+    store.newProject();
+    expect(store.canUndo.value).toBe(false);
+    expect(store.canRedo.value).toBe(false);
+    const name = store.state.project.value.name;
+    store.undo();
+    store.redo();
+    expect(store.state.project.value.name).toBe(name);
   });
 
   it("refit keeps searching (3x budget) on a current layout and runs the normal budget when stale or missing", async () => {
@@ -107,62 +296,125 @@ describe("app store", () => {
     expect(stub.calls[1]?.iterations).toBe(DEFAULT_ITERATIONS);
   });
 
-  it("undo restores the locks a run pruned, so the restored layout is fresh", async () => {
-    const { store, stub } = setup();
-    const p = fixtureProject();
+  describe("unpin", () => {
     const locks: Lock[] = [
       { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
-      { kind: "size", trayKey: "b:p0:0", w: 50, d: 40, h: 20 },
+      { kind: "position", trayKey: "b:p0:0", path: "0", rotated: false },
+      { kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] },
+      { kind: "size", trayKey: "c:p0:0", w: 50, d: 40, h: 20 },
     ];
-    const withLocks = { ...p, locks };
-    const first = makeLayout(inputsHash(withLocks));
-    store.start(encodeHash({ ...withLocks, layout: first }, EMPTY_FOREIGN));
-    store.refit();
-    await flush();
-    const call = stub.calls[0];
-    const notice: Notice = {
-      level: "warning",
-      code: NOTICE_CODES.lockDropped,
-      message: "dropped",
-      path: "/locks/1",
-    };
-    call?.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
-    await flush();
-    expect(store.state.project.value.locks).toEqual([locks[0]]);
-    store.undo();
-    expect(store.state.project.value.locks).toEqual(locks);
-    expect(store.state.project.value.layout).toEqual(first);
-    expect(store.state.stale.value).toBe(false);
+    const conflict = { trayKey: "a:p0:0", name: "Deck A ×40", reason: "it is on top of others" };
+
+    async function conflicted() {
+      const s = setup();
+      const p = { ...fixtureProject(), locks };
+      const first = makeLayout(inputsHash(p));
+      s.store.start(encodeHash({ ...p, layout: first }, EMPTY_FOREIGN));
+      s.store.refit();
+      await flush();
+      const call = s.stub.calls[0];
+      call?.resolve(makeResult(makeLayout(call.input.inputsHash), { lockConflicts: [conflict] }));
+      await flush();
+      return { ...s, first };
+    }
+
+    it("keeps the pins and the plan, and lists the conflicts, until the user unpins", async () => {
+      const { store, first } = await conflicted();
+      expect(store.state.project.value.locks).toEqual(locks);
+      expect(store.state.project.value.layout).toEqual(first);
+      expect(store.state.lockConflicts.value).toEqual([conflict]);
+      expect(store.canUndo.value).toBe(false);
+    });
+
+    it("forgets the conflicts when another project opens", async () => {
+      const { store } = await conflicted();
+      store.newProject();
+      expect(store.state.lockConflicts.value).toEqual([]);
+    });
+
+    it("lists no conflict for a pin the moment it is removed, before the re-run is back", async () => {
+      const { store, stub } = await conflicted();
+      store.unpin("a:p0:0");
+      expect(store.state.lockConflicts.value).toEqual([]);
+      expect(stub.calls).toHaveLength(1);
+    });
+
+    it("removes only the conflicting kind of lock when given one", async () => {
+      const s = setup();
+      const p = { ...fixtureProject(), locks };
+      const sizeConflict = {
+        trayKey: "c:p0:0",
+        kind: "size" as const,
+        name: "Deck C",
+        reason: "its contents no longer fit that size",
+      };
+      const both: Lock[] = [
+        { kind: "position", trayKey: "c:p0:0", path: "1", rotated: false },
+        locks[3] as Lock,
+      ];
+      const withBoth = { ...p, locks: both };
+      s.store.start(
+        encodeHash({ ...withBoth, layout: makeLayout(inputsHash(withBoth)) }, EMPTY_FOREIGN),
+      );
+      s.store.refit();
+      await flush();
+      const call = s.stub.calls[0];
+      call?.resolve(
+        makeResult(makeLayout(call.input.inputsHash), { lockConflicts: [sizeConflict] }),
+      );
+      await flush();
+      expect(s.store.state.lockConflicts.value).toEqual([sizeConflict]);
+      s.store.unpin("c:p0:0", "size");
+      expect(s.store.state.project.value.locks).toEqual([both[0]]);
+      expect(s.store.state.lockConflicts.value).toEqual([]);
+    });
+
+    it("removes that tray's pin and the stack lock around it, then re-runs", async () => {
+      const { store, stub } = await conflicted();
+      store.unpin("a:p0:0");
+      expect(store.state.project.value.locks).toEqual([locks[1], locks[3]]);
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+      await flush();
+      expect(stub.calls).toHaveLength(2);
+      expect(stub.calls[1]?.input.locks).toEqual([locks[1], locks[3]]);
+      const call = stub.calls[1];
+      const next = makeLayout(call?.input.inputsHash ?? "");
+      call?.resolve(makeResult(next));
+      await flush();
+      expect(store.state.lockConflicts.value).toEqual([]);
+      expect(store.state.project.value.layout).toEqual(next);
+      // undo brings the pins back, and the plan that came with them
+      store.undo();
+      expect(store.state.project.value.locks).toEqual(locks);
+      expect(store.state.lockConflicts.value).toEqual([]);
+    });
   });
 
-  it("opens a pasted link on hashchange and flushes on pagehide", () => {
+  it("flushes on pagehide and does not follow a changed address bar", () => {
     const { store, projectStore } = setup();
     store.start("");
-    const other = fixtureProject();
+    const id = store.state.project.value.id;
     const win = Object.assign(new EventTarget(), { location: { hash: "" } });
     const disconnect = connectWindow(store, win as unknown as Window);
-    win.location.hash = encodeHash(other, EMPTY_FOREIGN);
+    win.location.hash = encodeHash(fixtureProject(), EMPTY_FOREIGN);
     win.dispatchEvent(new Event("hashchange"));
-    expect(store.state.project.value.id).toBe(other.id);
+    expect(store.state.project.value.id).toBe(id);
     store.edit((q) => renameProject(q, "Before leaving"));
     win.dispatchEvent(new Event("pagehide"));
-    expect(projectStore.list().find((e) => e.id === other.id)?.name).toBe("Before leaving");
+    expect(projectStore.list().find((e) => e.id === id)?.name).toBe("Before leaving");
     disconnect();
   });
 
   it("disconnect removes the window listeners", () => {
     const { store } = setup();
     const onExternalChange = vi.spyOn(store, "onExternalChange");
-    const openFromHash = vi.spyOn(store, "openFromHash");
     const flushSave = vi.spyOn(store, "flushSave");
     const win = Object.assign(new EventTarget(), { location: { hash: "" } });
     const disconnect = connectWindow(store, win as unknown as Window);
     disconnect();
     win.dispatchEvent(Object.assign(new Event("storage"), { key: `${STORAGE_PREFIX}index` }));
-    win.dispatchEvent(new Event("hashchange"));
     win.dispatchEvent(new Event("pagehide"));
     expect(onExternalChange).not.toHaveBeenCalled();
-    expect(openFromHash).not.toHaveBeenCalled();
     expect(flushSave).not.toHaveBeenCalled();
   });
 
@@ -172,7 +424,7 @@ describe("app store", () => {
       createAppStore({
         projectStore: createProjectStore(shared),
         loadLayoutClient: () => Promise.resolve(stubLayoutClient().client),
-        replaceHash: vi.fn(),
+        clearHash: vi.fn(),
         confirm: () => true,
       });
     const mine = make();
@@ -203,7 +455,7 @@ describe("app store", () => {
       const store = createAppStore({
         projectStore: createProjectStore(shared),
         loadLayoutClient: () => Promise.resolve(stub.client),
-        replaceHash: vi.fn(),
+        clearHash: vi.fn(),
         confirm: () => true,
       });
       const win = Object.assign(new EventTarget(), { location: { hash: "" } });
@@ -271,6 +523,50 @@ describe("app store", () => {
       editing.storageEvent(id);
       expect(editing.store.state.conflict.value).toBe(false);
       expect(stored(shared, id)?.name).toBe("From the editing tab");
+    });
+  });
+
+  describe("printer preference", () => {
+    it("a new insert uses my printer", () => {
+      const { store, prefs } = setup();
+      prefs.setPrinter(MY_PRINTER);
+      store.newProject();
+      expect(store.state.project.value.printer).toEqual(MY_PRINTER);
+    });
+
+    it("an app that starts without a stored project uses my printer", () => {
+      const { store, prefs } = setup();
+      prefs.setPrinter(MY_PRINTER);
+      store.start("");
+      expect(store.state.project.value.printer).toEqual(MY_PRINTER);
+    });
+
+    it("changing my printer leaves existing inserts alone until applied", async () => {
+      const { store, stub, prefs } = setup();
+      const p = fixtureProject();
+      store.start(encodeHash(withoutLayout(p), EMPTY_FOREIGN));
+      await flush();
+      const before = store.state.project.value.printer;
+      prefs.setPrinter(MY_PRINTER);
+      expect(store.state.project.value.printer).toEqual(before);
+      expect(before).not.toEqual(MY_PRINTER);
+
+      const calls = stub.calls.length;
+      store.edit((q) => applyPrinter(q, prefs.printer.value));
+      expect(store.state.project.value.printer).toEqual(MY_PRINTER);
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 3);
+      await flush();
+      expect(stub.calls.length).toBeGreaterThan(calls);
+      store.undo();
+      expect(store.state.project.value.printer).toEqual(before);
+    });
+
+    it("an opened file keeps its own printer", () => {
+      const { store, prefs } = setup();
+      prefs.setPrinter(MY_PRINTER);
+      const p = fixtureProject();
+      store.start(encodeHash(p, EMPTY_FOREIGN));
+      expect(store.state.project.value.printer).toEqual(p.printer);
     });
   });
 });

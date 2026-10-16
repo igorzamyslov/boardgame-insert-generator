@@ -95,8 +95,26 @@ import type { Semver } from "../model/version";
  * the lip off nothing changes: a tray builds exactly as before. planTray is stricter too: a tray
  * above level 0 with the lip on needs the groove's wall, so a stored 0.7.x upper tray (inset, 1.6
  * mm wall) is refused until the plan is run again.
+ *
+ * 0.8.1 engraves the part's short name (`TraySpec.partName`, `settings.engraveNames`; capitals of a 3
+ * by 5 block font) where 0.8.0 engraved its number (`partNumber`). A PATCH, as 0.7.1 was: the same
+ * mesh-only recess on the same walls, so no outer size, lip, groove, well or cut moves and parts
+ * printed before and after still mate and stack; a spec without a name builds exactly as before. A
+ * name too long for any face at the least stroke is left off. A part with no room in the usual band
+ * (a low one) is tried again in a tighter band before it is left plain; a part that was engraved
+ * before is engraved just as before. Carried over from 0.8.0: a name on an upper tray with the lip
+ * on is cut in a band that starts above the groove's roof, so it never touches the groove.
+ * Also in 0.8.1 (both landed before 0.8.1 was released): the name goes on up to three faces, each that has room: the wall it already chose and the wall
+ * opposite it (the same bands, and the thinnest feature kept between the two recesses), and the
+ * underside, mirrored so it reads upright from below, centred, kept clear of the groove, the corner
+ * arcs and any floor notch, as V grooves that close in a ridge (no flat roof, so no overhang)
+ * cut at most 0.6 mm deep and never closer than 0.81 mm to the floor's top. A name that does not
+ * fit a face is left off that face only; a part that fits none is plain, as before. Every cut is
+ * still a recess in a face's interior, so the outer size, lip, groove, wells and cuts do not move
+ * and parts printed before and after still mate and stack. A merged part carries its name on walls
+ * only.
  */
-export const GEOMETRY_VERSION = "0.8.0";
+export const GEOMETRY_VERSION = "0.8.1";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

@@ -6,13 +6,13 @@ import type {
   Component,
   ComponentKind,
   Lock,
-  Notice,
   Printer,
   Project,
   Settings,
   TraySpec,
 } from "../model/types";
-import { NOTICE_CODES, swapLocks } from "../layout";
+import { swapLocks } from "../layout";
+import { turnLocks } from "./dryRun";
 
 /** Only real trays can be locked; leftovers are regenerated and spacers follow their tray. */
 export function isLockable(t: TraySpec): boolean {
@@ -23,8 +23,9 @@ export function updateBox(p: Project, patch: Partial<Box>): Project {
   return { ...p, box: { ...p.box, ...patch } };
 }
 
-export function updatePrinter(p: Project, patch: Partial<Printer>): Project {
-  return { ...p, printer: { ...p.printer, ...patch } };
+/** Replaces the whole printer, e.g. with the one in the preferences. */
+export function applyPrinter(p: Project, printer: Printer): Project {
+  return { ...p, printer: { ...printer } };
 }
 
 export function renameProject(p: Project, name: string): Project {
@@ -36,7 +37,7 @@ export function addComponent(p: Project, kind: ComponentKind): Project {
 }
 
 /** The key a component's requirement and its trays carry: its group, else its own id. */
-function requirementKey(c: Component): string {
+export function requirementKey(c: Component): string {
   return groupOf(c) ?? c.id;
 }
 
@@ -81,15 +82,6 @@ export function removeComponent(p: Project, id: string): Project {
   );
 }
 
-/** Puts a removed component back where it was (Undo); nothing happens if it is already there. */
-export function restoreComponent(p: Project, component: Component, index: number): Project {
-  if (p.components.some((c) => c.id === component.id)) {
-    return p;
-  }
-  const at = Math.min(Math.max(0, index), p.components.length);
-  return withComponents(p, [...p.components.slice(0, at), component, ...p.components.slice(at)]);
-}
-
 export function setSettings(p: Project, s: Settings): Project {
   return { ...p, settings: s };
 }
@@ -132,7 +124,7 @@ export function toggleLock(p: Project, tray: TraySpec): Project {
     return p;
   }
   // The whole stack: locking one tray of a stack alone would put it on the floor and evict
-  // the trays under and over it (plan 4 drops such a lock with a notice).
+  // the trays under and over it (a run reports such a lock as a pin conflict).
   const stack = (p.layout?.trays ?? [])
     .filter((t) => t.part === "tray" && t.path === tray.path)
     .sort((a, b) => a.level - b.level);
@@ -168,6 +160,39 @@ export function toggleLock(p: Project, tray: TraySpec): Project {
   return { ...p, locks: [...rest, ...locks] };
 }
 
+/**
+ * Takes the pins off these trays, and off the whole stack each is in: a pinned stack is pinned as
+ * one, so what stays pinned would be a half of it. Size locks stay.
+ */
+export function unpinTrays(p: Project, trayKeys: readonly string[]): Project {
+  const keys = new Set(trayKeys);
+  for (const l of p.locks) {
+    if (l.kind === "stack" && l.trayKeys.some((k) => keys.has(k))) {
+      l.trayKeys.forEach((k) => keys.add(k));
+    }
+  }
+  const locks = p.locks.filter((l) => {
+    if (l.kind === "stack") {
+      return !l.trayKeys.some((k) => keys.has(k));
+    }
+    return l.kind !== "position" || !keys.has(l.trayKey);
+  });
+  return locks.length === p.locks.length ? p : { ...p, locks };
+}
+
+/**
+ * Turns a tray 90°, which means its whole stack pinned where it is with every rotation flipped
+ * (`turnLocks`). Whether that works is `canTurn`'s question; this writes the locks regardless, and
+ * the next run reports any it cannot keep.
+ */
+export function turnTray(p: Project, tray: TraySpec): Project {
+  if (!isLockable(tray)) {
+    return p;
+  }
+  const locks = turnLocks(p, tray.key);
+  return locks ? { ...p, locks } : p;
+}
+
 /** trayKeys with a size lock. */
 export function sizeLockedKeys(p: Project): Set<string> {
   const keys = new Set<string>();
@@ -188,27 +213,6 @@ export function toggleSizeLock(p: Project, tray: TraySpec): Project {
     return removeLock(p, tray.key, "size");
   }
   return setLock(p, { kind: "size", trayKey: tray.key, w: tray.w, d: tray.d, h: tray.h });
-}
-
-const DROPPED_LOCK_PATH = /^\/locks\/(\d+)$/;
-
-/**
- * Removes the locks a run gave up (spec §7.2): plan 4's `lock.dropped` notices carry
- * `path: "/locks/<index>"` into the run's `LayoutInput.locks`, which are `p.locks`.
- * Returns `p` itself when nothing was dropped.
- */
-export function pruneDroppedLocks(p: Project, notices: readonly Notice[]): Project {
-  const dropped = new Set<number>();
-  for (const n of notices) {
-    const m = n.code === NOTICE_CODES.lockDropped ? DROPPED_LOCK_PATH.exec(n.path ?? "") : null;
-    if (m) {
-      dropped.add(Number(m[1]));
-    }
-  }
-  if (dropped.size === 0) {
-    return p;
-  }
-  return { ...p, locks: p.locks.filter((_, i) => !dropped.has(i)) };
 }
 
 export function swapTrays(p: Project, keyA: string, keyB: string): Project {

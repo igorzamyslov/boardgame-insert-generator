@@ -7,17 +7,13 @@ import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { ListNotices } from "./ListNotices";
 import { DerivedSizes } from "./DerivedSizes";
 import { MoreOptions } from "./MoreOptions";
+import { RowRemove } from "./RowRemove";
 import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 type Figure = MinisComponent["figures"][number];
 
-export function MinisEditor({
-  component: c,
-  index,
-  advanced,
-  onChange,
-}: EditorProps<MinisComponent>) {
+export function MinisEditor({ component: c, index, onChange }: EditorProps<MinisComponent>) {
   const at = `/components/${index}`;
   const setFigure = (j: number, patch: Partial<Figure>): void => {
     onChange({ ...c, figures: c.figures.map((f, k) => (k === j ? { ...f, ...patch } : f)) });
@@ -72,15 +68,12 @@ export function MinisEditor({
                 path={`${at}/figures/${j}/count`}
                 onCommit={(count) => setFigure(j, { count })}
               />
-              <button
-                type="button"
-                class="row-remove"
-                aria-label={`Remove figure ${f.name === "" ? n : f.name}`}
-                disabled={c.figures.length <= 1}
-                onClick={() => onChange({ ...c, figures: c.figures.filter((_f, k) => k !== j) })}
-              >
-                Remove
-              </button>
+              <RowRemove
+                label={`Remove figure ${f.name === "" ? n : f.name}`}
+                onlyOne={c.figures.length <= 1}
+                reason="There has to be at least one figure."
+                onRemove={() => onChange({ ...c, figures: c.figures.filter((_f, k) => k !== j) })}
+              />
             </div>
           );
         })}
@@ -101,7 +94,7 @@ export function MinisEditor({
       </fieldset>
       <BinNotes component={c} index={index} />
       <DerivedSizes component={c} index={index} />
-      <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
+      <MoreOptions errorPaths={commonOptionPaths(index)}>
         <CommonOptions
           component={c}
           index={index}
@@ -111,7 +104,7 @@ export function MinisEditor({
               <SelectField
                 id={`${c.id}-storage`}
                 label="Storage"
-                hint="One pocket per figure gives each its own slot, sized to it. Loose in a scoop tray piles them in a bin you scoop from, sized by the Packing factor in the exact values."
+                hint="One pocket per figure gives each its own slot, sized to it. Loose in a scoop tray piles them in a tray you scoop from, sized by the Packing factor in the exact numbers."
                 value={c.storage}
                 options={[
                   { value: "pockets", label: "One pocket per figure" },
@@ -119,7 +112,7 @@ export function MinisEditor({
                 ]}
                 onChange={(storage) => onChange({ ...c, storage })}
               />
-              <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
+              <ToggleOptions component={c} index={index} onChange={onChange} />
             </>
           }
         />

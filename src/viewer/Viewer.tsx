@@ -1,14 +1,17 @@
 // src/viewer/Viewer.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { MeshSource } from "../app/meshes";
+import { STALE_MESSAGE } from "../app/state";
+import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
-import { CheckField, SelectField } from "../ui/fields";
-import { SPACER_COLOR, SPARE_COLOR, tintOfTray } from "../ui/identity";
-import { TrayDetails } from "../ui/TrayDetails";
+import { SelectField } from "../ui/fields";
+import { lookOfTray } from "../plan/glyph";
+import type { ColorScheme } from "../ui/identity";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
+import { pageScheme, shadeColorOf } from "./shades";
 import { boxOutline } from "./transform";
 import type { SceneFactory, SceneHandle, SceneTray } from "./types";
 import { WebGLUnavailableError, hasWebGL } from "./webgl";
@@ -23,15 +26,7 @@ export interface ViewerProps {
   stale?: boolean;
   meshes: MeshSource;
   selectedKey: string | null;
-  lockedKeys: ReadonlySet<string>;
-  /** trayKeys with a size lock; with `onToggleSizeLock` the details offer "Lock size". */
-  sizeLockedKeys?: ReadonlySet<string>;
-  onToggleSizeLock?: (key: string) => void;
   onSelect: (key: string | null) => void;
-  /** Show the selected tray's details under the view; off where another panel shows them. */
-  details?: boolean;
-  /** Show positions and locks in the details too; off by default. */
-  advanced?: boolean;
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -39,24 +34,32 @@ export interface ViewerProps {
 type Status = "loading" | "ready" | "nowebgl" | "error" | "lost";
 
 /**
- * A part's colour in 3D, resolved to a real colour so the scene agrees with the list, the plan
- * and the chips: its component's tint for a tray, one shared colour for every spacer, and a
- * neutral for a part that holds nothing (a spare tray or a filler block).
+ * The page's colour scheme, kept current: the scene is repainted when it changes. The scheme is
+ * the system's; the page has no switch (DESIGN §4). A switch would have to set an attribute on
+ * the root and this hook would have to watch it: see `pageScheme` in shades.ts.
  */
-function tintColorOf(
-  spec: TraySpec,
-  components: readonly Component[] | undefined,
-): string | undefined {
-  if (spec.part === "spacer" || spec.part === "divider") {
-    return SPACER_COLOR;
-  }
-  const tint = tintOfTray(spec, components ?? []);
-  const name = tint === null ? null : /var\((--[\w-]+)\)/.exec(tint)?.[1];
-  if (!name || typeof document === "undefined") {
-    return tint === null ? SPARE_COLOR : undefined;
-  }
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return value === "" ? SPARE_COLOR : value;
+function usePageScheme(): ColorScheme {
+  const [scheme, setScheme] = useState<ColorScheme>(pageScheme);
+  useEffect(() => {
+    const update = (): void => setScheme(pageScheme());
+    const query =
+      typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
+    // Older browsers only have the deprecated addListener on a MediaQueryList.
+    if (query?.addEventListener) {
+      query.addEventListener("change", update);
+    } else {
+      query?.addListener?.(update);
+    }
+    update();
+    return () => {
+      if (query?.removeEventListener) {
+        query.removeEventListener("change", update);
+      } else {
+        query?.removeListener?.(update);
+      }
+    };
+  }, []);
+  return scheme;
 }
 
 async function defaultLoadScene(): Promise<SceneFactory> {
@@ -80,9 +83,11 @@ export function Viewer(p: ViewerProps) {
   const [attempt, setAttempt] = useState(0);
   // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
   const [canvasKey, setCanvasKey] = useState(0);
+  const scheme = usePageScheme();
   const levels = useMemo(() => levelsOf(p.trays), [p.trays]);
   const parts = useMemo(() => numberParts(p.trays), [p.trays]);
   const byKey = useMemo(() => partsByKey(parts), [parts]);
+  const names = useMemo(() => trayNames(parts, p.components ?? []), [parts, p.components]);
   // The chosen layer may vanish when the layout changes: show everything then.
   const shownLevel = maxLevel !== null && levels.includes(maxLevel) ? maxLevel : null;
 
@@ -189,9 +194,15 @@ export function Viewer(p: ViewerProps) {
       list.map(async (spec, i) => {
         try {
           const part = byKey.get(spec.key);
-          const asked = part ? buildSpecOf(part, p.settings.engraveNumbers) : spec;
+          const asked = part
+            ? buildSpecOf(part, p.settings.engraveNames, names.get(spec.key)?.short)
+            : spec;
           const built = await p.meshes.get(asked, p.settings, controller.signal);
-          results[i] = { spec, mesh: built.mesh, color: tintColorOf(spec, p.components) };
+          results[i] = {
+            spec,
+            mesh: built.mesh,
+            color: shadeColorOf(spec, p.components ?? [], scheme),
+          };
         } catch {
           failed += 1;
         }
@@ -215,10 +226,10 @@ export function Viewer(p: ViewerProps) {
       cancelled = true;
       controller.abort();
     };
-    // p.components is a dependency because it decides each tray's colour: without it, editing
-    // the components (which can leave the layout alone) left the scene on its old colours while
-    // the list, plan and chips moved on.
-  }, [status, p.trays, p.settings, p.stale, p.meshes, p.components, byKey, attempt]);
+    // p.components and the colour scheme are dependencies because they decide each tray's colour:
+    // without them, editing the components (which can leave the layout alone) or switching the
+    // page to dark left the scene on its old colours while the list, plan and chips moved on.
+  }, [status, p.trays, p.settings, p.stale, p.meshes, p.components, scheme, byKey, names, attempt]);
 
   useEffect(() => {
     handleRef.current?.setExplode(explode);
@@ -251,8 +262,7 @@ export function Viewer(p: ViewerProps) {
   if (status === "nowebgl") {
     return (
       <p class="viewer-fallback" role="note">
-        The 3D preview needs WebGL, which isn't available in this browser. The plan view, export and
-        assembly page still work.
+        3D needs WebGL turned on. The top view works the same.
       </p>
     );
   }
@@ -264,6 +274,7 @@ export function Viewer(p: ViewerProps) {
       (shownLevel === null || part.spec.level <= shownLevel),
   );
   const selected = p.selectedKey === null ? undefined : byKey.get(p.selectedKey);
+  const selectedName = selected ? (names.get(selected.spec.key)?.full ?? selected.label) : null;
   return (
     <div class="viewer">
       <div class="viewer-stage">
@@ -274,6 +285,38 @@ export function Viewer(p: ViewerProps) {
           aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
         />
         {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
+        {/* Always mounted, so a reader that watches it hears the name appear. */}
+        <div class="viewer-selection-live" role="status">
+          {selectedName !== null ? (
+            <span class="viewer-selection" title={selectedName}>
+              {selectedName}
+            </span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          class="viewer-axes-toggle"
+          aria-pressed={showAxes}
+          aria-label="Show axes"
+          aria-describedby="viewer-axes-hint"
+          title="Show axes"
+          onClick={() => setShowAxes((v) => !v)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            aria-hidden="true"
+          >
+            <path d="M5 19V4M5 19h15M5 19l8-8" />
+          </svg>
+        </button>
+        <span id="viewer-axes-hint" class="visually-hidden">
+          A small X, Y, Z indicator in the corner that turns with the model: X runs across the box,
+          Y from its front to its back, Z up.
+        </span>
       </div>
       {status === "loading" ? <p class="hint">Loading the 3D preview…</p> : null}
       {status === "error" || status === "lost" ? (
@@ -286,20 +329,20 @@ export function Viewer(p: ViewerProps) {
           </button>
         </p>
       ) : null}
-      {p.stale ? (
-        <p class="hint">
-          Inputs changed: the preview shows the last layout. Update the plan to fix it.
-        </p>
-      ) : null}
+      {p.stale ? <p class="hint">{`${STALE_MESSAGE} The preview shows the last plan.`}</p> : null}
+      {/* always mounted, so the progress is spoken when it starts; the count stays on screen only */}
+      <div class="visually-hidden" role="status">
+        {!p.stale && build.total > 0 && build.done < build.total ? "Building 3D models." : ""}
+      </div>
       {!p.stale && build.total > 0 && build.done < build.total ? (
-        <div class="run-status" role="status">
+        <div class="run-status">
           <progress value={build.done} max={build.total} aria-label="Building 3D models" />
           <span>{`Building 3D models ${build.done}/${build.total}…`}</span>
         </div>
       ) : null}
       {build.failed > 0 && build.done === build.total ? (
         <p role="alert">
-          {`${build.failed} part(s) couldn't be shown. `}
+          {`${build.failed === 1 ? "1 tray" : `${build.failed} trays`} couldn't be shown. `}
           <button
             type="button"
             onClick={() => {
@@ -324,13 +367,6 @@ export function Viewer(p: ViewerProps) {
             onInput={(e) => setExplode(Number(e.currentTarget.value))}
           />
         </label>
-        <CheckField
-          id="viewer-axes"
-          label="Show axes"
-          checked={showAxes}
-          onChange={setShowAxes}
-          hint="A small X, Y, Z indicator in the corner that turns with the model: X runs across the box, Y from its front to its back, Z up."
-        />
         {levels.length > 1 ? (
           <SelectField
             id="viewer-layers"
@@ -352,13 +388,15 @@ export function Viewer(p: ViewerProps) {
           {pickable.map((part) => {
             const key = part.spec.key;
             const isSelected = key === p.selectedKey;
-            const tint = tintOfTray(part.spec, p.components ?? []);
+            // The shade the plan tile has: one colour per component, everywhere.
+            const tint = lookOfTray(part.spec, p.components ?? [])?.shade.fill ?? null;
             return (
               <li key={key}>
                 <button
                   type="button"
+                  data-key={key}
                   aria-pressed={isSelected}
-                  aria-label={`Tray ${part.number}, ${part.label}`}
+                  aria-label={names.get(key)?.full ?? part.label}
                   onClick={() => p.onSelect(isSelected ? null : key)}
                 >
                   <span
@@ -366,25 +404,12 @@ export function Viewer(p: ViewerProps) {
                     style={tint === null ? undefined : { "--tint": tint }}
                     aria-hidden="true"
                   />
-                  {`${part.number} ${part.label}`}
+                  {names.get(key)?.full ?? part.label}
                 </button>
               </li>
             );
           })}
         </ul>
-      ) : null}
-      {selected && p.details !== false ? (
-        <TrayDetails
-          part={selected}
-          settings={p.settings}
-          locked={p.lockedKeys.has(selected.spec.key)}
-          sizeLocked={p.sizeLockedKeys?.has(selected.spec.key) ?? false}
-          stale={p.stale}
-          advanced={p.advanced ?? false}
-          onToggleSizeLock={
-            p.onToggleSizeLock ? () => p.onToggleSizeLock?.(selected.spec.key) : undefined
-          }
-        />
       ) : null}
     </div>
   );

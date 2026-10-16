@@ -2,20 +2,48 @@
 // Test-only: the App on a real store with stubbed clients. Imported only from *.test.tsx files.
 import { render } from "@testing-library/preact";
 import { vi } from "vitest";
-import { createProjectStore } from "../share";
+import type { Project } from "../model/types";
+import { createPrefsStore, createProjectStore } from "../share";
 import { MemoryStorage } from "../test-support/memory-storage";
 import { App } from "./App";
 import type { AppProps } from "./App";
 import type { MeshSource } from "./meshes";
 import { createAppStore } from "./store";
-import { cubeMesh, stubLayoutClient } from "./test-helpers";
+import { EMPTY_FOREIGN, cubeMesh, stubLayoutClient } from "./test-helpers";
 
-export function renderApp(hash = "", overrides: Partial<AppProps> = {}) {
+export interface RenderAppOptions {
+  /** Saved into the project store before the app starts, so it opens as the latest project. */
+  project?: Project;
+  storage?: MemoryStorage;
+  overrides?: Partial<AppProps>;
+}
+
+export function renderApp(opts: RenderAppOptions = {}) {
+  return mountApp("", opts.overrides ?? {}, opts);
+}
+
+/** The app opened on an old `#1.` link, as a bookmarked or sent one would be. */
+export function renderAppFromHash(hash: string, opts: RenderAppOptions = {}) {
+  return mountApp(hash, opts.overrides ?? {}, opts);
+}
+
+function mountApp(
+  hash: string,
+  overrides: Partial<AppProps>,
+  opts: { project?: Project; storage?: MemoryStorage },
+) {
   const stub = stubLayoutClient();
+  const projectStore = createProjectStore(opts.storage ?? new MemoryStorage());
+  if (opts.project) {
+    projectStore.save(opts.project, EMPTY_FOREIGN);
+  }
+  const prefs = createPrefsStore(new MemoryStorage());
+  const clearHash = vi.fn<() => void>();
   const store = createAppStore({
-    projectStore: createProjectStore(new MemoryStorage()),
+    projectStore,
+    prefs,
     loadLayoutClient: () => Promise.resolve(stub.client),
-    replaceHash: vi.fn(),
+    clearHash,
     confirm: () => true,
   });
   store.start(hash);
@@ -25,18 +53,15 @@ export function renderApp(hash = "", overrides: Partial<AppProps> = {}) {
     forget: vi.fn(),
     dispose: vi.fn(),
   };
-  const clipboard = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
   const download = vi.fn<(blob: Blob, filename: string) => void>();
   render(
     <App
       store={store}
       meshes={meshes}
-      clipboard={clipboard}
-      currentHref={() => "https://example.test/insert-generator/"}
       download={download}
       viewerProps={{ webgl: () => false }}
       {...overrides}
     />,
   );
-  return { store, stub, clipboard, download };
+  return { store, stub, projectStore, prefs, clearHash, download };
 }

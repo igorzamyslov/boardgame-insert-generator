@@ -1,44 +1,28 @@
 // src/plan/glyph.ts
-import { KIND_NAMES } from "../model/defaults";
 import type { Component, ComponentKind, TraySpec } from "../model/types";
+import { componentIndexOfTray, shadeIndexOf, shadeOf } from "../ui/identity";
+import type { Shade } from "../ui/identity";
 
-/** The names a component's tray contents can carry: its own, and its decks, items or figures. */
-function namesOf(c: Component): string[] {
-  const names = [c.name === "" ? KIND_NAMES[c.kind] : c.name];
-  if (c.kind === "cards") {
-    names.push(...c.decks.map((d) => d.name));
-  } else if (c.kind === "bulk") {
-    names.push(...c.items.map((i) => i.name));
-  } else if (c.kind === "minis") {
-    names.push(...c.figures.map((f) => f.name));
-  }
-  return names;
+/** What a tray's component gives it on the plan: its kind (for the icon) and its own shade. */
+export interface TrayLook {
+  kind: ComponentKind;
+  shade: Shade;
 }
 
 /**
- * The kind of the component a tray holds: its first compartment's contents name the component
- * (the longest matching name wins), as in tintOfTray. Null for a leftover, a spacer or a tray
- * whose contents match no component.
+ * The look of a tray: the kind of the component it holds, and that component's shade of the
+ * kind's hue. A component's shade is its place among the components of the same kind, in
+ * component order, so it does not change when components of other kinds come and go. Null for a
+ * spare tray, a filler, a spacer or a tray whose contents match no component.
  */
-export function kindOfTray(tray: TraySpec, components: readonly Component[]): ComponentKind | null {
+export function lookOfTray(tray: TraySpec, components: readonly Component[]): TrayLook | null {
   if (tray.part !== "tray") {
     return null;
   }
-  const first = tray.compartments.find((c) => c.kind !== "spare" && c.contents !== "");
-  if (!first) {
+  const index = componentIndexOfTray(tray, components);
+  const component = index === null ? undefined : components[index];
+  if (index === null || component === undefined) {
     return null;
   }
-  let best: { kind: ComponentKind; length: number } | null = null;
-  for (const c of components) {
-    for (const name of namesOf(c)) {
-      if (
-        name !== "" &&
-        first.contents.includes(name) &&
-        (best === null || name.length > best.length)
-      ) {
-        best = { kind: c.kind, length: name.length };
-      }
-    }
-  }
-  return best === null ? null : (best as { kind: ComponentKind }).kind;
+  return { kind: component.kind, shade: shadeOf(component.kind, shadeIndexOf(components, index)) };
 }

@@ -263,7 +263,7 @@ const settingRanges: SettingRange[] = [
     get: (s) => s.lip.ledge,
     min: 0.5,
     max: 10,
-    hint: "Width of the flat band between the lip and the compartments, which the tray above rests on. Lipped trays keep their compartments at least lip thickness plus ledge from the outer faces. Trays above the first keep theirs a little further out still, for their groove (about 2.6 mm at the defaults).",
+    hint: "Width of the flat band between the lip and the compartments, which the tray above rests on. Lipped trays set their compartments at least lip thickness plus ledge back from the outer faces. Trays above the first set theirs a little further back still, for their groove (about 2.6 mm at the defaults).",
   },
   {
     path: "lip/play",
@@ -291,11 +291,11 @@ const settingRanges: SettingRange[] = [
   },
   {
     path: "wallAbsorb",
-    label: "Thicker walls instead of a filler",
+    label: "Thicker walls instead of a spacer",
     get: (s) => s.wallAbsorb,
     min: 0,
     max: 3,
-    hint: "How much thicker each wall or divider may get to absorb spare room instead of printing a separate filler part. A thicker wall holds nothing and gives the contents no more room: it only hides the gap. 0 keeps every wall as set and prints the filler. Ignored while One thick wall instead of a filler is on. Above 3 mm a wall is more than double a normal one, so a filler is the better choice.",
+    hint: "How much thicker each wall or divider may get to absorb spare room instead of printing a separate spacer. A thicker wall holds nothing and gives the contents no more room: it only hides the gap. 0 leaves every wall as set and prints the spacer. Ignored while One thick wall instead of a spacer is on. Above 3 mm a wall is more than double a normal one, so a spacer is the better choice.",
   },
   {
     path: "infill",
@@ -303,7 +303,7 @@ const settingRanges: SettingRange[] = [
     get: (s) => s.infill,
     min: 0,
     max: 100,
-    hint: "The infill (percent) you print at. Only the filament estimate reads it: walls, floors and thin parts print solid whatever it is, so it lowers the figure only for thick blocks and raised floors. It changes no part.",
+    hint: "The infill (percent) you print at. Only the filament estimate reads it: walls, floors and thin pieces print solid whatever it is, so it lowers the figure only for thick blocks and raised floors. It changes no tray.",
   },
   {
     path: "playLimit",
@@ -311,12 +311,12 @@ const settingRanges: SettingRange[] = [
     get: (s) => s.playLimit,
     min: 0.5,
     max: 5,
-    hint: "How much sideways play the trays may have in the box before the plan counts it against a layout and warns. Raise it if the warning is more caution than you need; lower it for a tighter box. It changes no part, but the optimizer then re-fits.",
+    hint: "How much sideways play the trays may have in the box before the plan counts it against a layout and warns. Raise it if the warning is more caution than you need; lower it for a tighter box. It changes no tray, but the optimizer then re-fits.",
   },
 ];
 
 /**
- * Advanced-settings ranges. Floor and divider minimums are MIN_FEATURE_MM, the minimum printable
+ * Ranges of the Exact numbers in Settings. Floor and divider minimums are MIN_FEATURE_MM, the minimum printable
  * feature width (spec §6.1). Wall and lip thickness minimums are MIN_WALL_MM, which adds
  * CORNER_MARGIN: a sharp cut corner at the wall keeps MIN_FEATURE_MM to the polygon of the rounded
  * outer corner only with that margin (maxCornerRadius in ./settings), and the lip is a ring
@@ -429,7 +429,7 @@ function checkBase(ck: Checker, c: Component, at: string): void {
       ck.error(
         VALIDATION_NOTICE_CODES.field.perPlayerInGroup,
         `${at}/perPlayer`,
-        "A grouped component can't be per player. Remove it from the group or turn off per player.",
+        "A grouped item can't be per player. Remove it from the group or turn off per player.",
       );
     }
   }
@@ -657,21 +657,21 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
         ck.error(
           VALIDATION_NOTICE_CODES.field.lockPath,
           `${at}/path`,
-          "A position lock path may only contain 0 and 1, up to 64 characters.",
+          "A pin's path may only contain 0 and 1, up to 64 characters.",
         );
       }
       return;
     case "size":
-      ck.length(`${at}/w`, "Locked width", lock.w);
-      ck.length(`${at}/d`, "Locked length", lock.d);
-      ck.length(`${at}/h`, "Locked height", lock.h);
+      ck.length(`${at}/w`, "Size lock width", lock.w);
+      ck.length(`${at}/d`, "Size lock length", lock.d);
+      ck.length(`${at}/h`, "Size lock height", lock.h);
       return;
     case "stack":
       if (lock.trayKeys.length === 0) {
         ck.error(
           VALIDATION_NOTICE_CODES.field.lockStack,
           `${at}/trayKeys`,
-          "A stack lock needs at least one tray.",
+          "A pinned stack needs at least one tray.",
         );
       }
       return;
@@ -742,7 +742,7 @@ export function validateProject(p: Project): Notice[] {
     ck.error(
       VALIDATION_NOTICE_CODES.limit.components,
       "/components",
-      `Too many components (${p.components.length}); the maximum is ${BOUNDS.maxComponents}.`,
+      `Too many items (${p.components.length}); the maximum is ${BOUNDS.maxComponents}.`,
     );
   }
   const idCounts = new Map<string, number>();
@@ -753,15 +753,15 @@ export function validateProject(p: Project): Notice[] {
   p.components.forEach((c, i) => {
     const at = `/components/${i}`;
     if (c.id === "") {
-      ck.error(VALIDATION_NOTICE_CODES.invalid.id, `${at}/id`, "Component id must not be empty.");
+      ck.error(VALIDATION_NOTICE_CODES.invalid.id, `${at}/id`, "Item id must not be empty.");
     } else if (c.id.includes(":")) {
       // Tray keys are `<component id>:p…`, matched by prefix, so a ":" in an id could make two collide.
-      ck.error(VALIDATION_NOTICE_CODES.invalid.id, `${at}/id`, "A component id can't contain ':'.");
+      ck.error(VALIDATION_NOTICE_CODES.invalid.id, `${at}/id`, "An item id can't contain ':'.");
     } else if (seen.has(c.id)) {
       ck.error(
         VALIDATION_NOTICE_CODES.invalid.duplicateId,
         `${at}/id`,
-        `Two components share the id "${c.id}".`,
+        `Two items share the id "${c.id}".`,
       );
     }
     seen.add(c.id);
@@ -780,7 +780,7 @@ export function validateProject(p: Project): Notice[] {
         ck.error(
           VALIDATION_NOTICE_CODES.field.groupId,
           `${at}/groupId`,
-          "Group name collides with another component's id.",
+          "Group name collides with another item's id.",
         );
       }
     }

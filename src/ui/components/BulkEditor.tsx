@@ -7,15 +7,11 @@ import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { ListNotices } from "./ListNotices";
 import { DerivedSizes } from "./DerivedSizes";
 import { MoreOptions } from "./MoreOptions";
+import { RowRemove } from "./RowRemove";
 import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
-export function BulkEditor({
-  component: c,
-  index,
-  advanced,
-  onChange,
-}: EditorProps<BulkComponent>) {
+export function BulkEditor({ component: c, index, onChange }: EditorProps<BulkComponent>) {
   const at = `/components/${index}`;
   const setItem = (j: number, item: BulkItem): void => {
     onChange({ ...c, items: c.items.map((x, k) => (k === j ? item : x)) });
@@ -105,15 +101,12 @@ export function BulkEditor({
                   />
                 </>
               ) : null}
-              <button
-                type="button"
-                class="row-remove"
-                aria-label={`Remove item ${item.name === "" ? n : item.name}`}
-                disabled={c.items.length <= 1}
-                onClick={() => onChange({ ...c, items: c.items.filter((_x, k) => k !== j) })}
-              >
-                Remove
-              </button>
+              <RowRemove
+                label={`Remove item ${item.name === "" ? n : item.name}`}
+                onlyOne={c.items.length <= 1}
+                reason="There has to be at least one item."
+                onRemove={() => onChange({ ...c, items: c.items.filter((_x, k) => k !== j) })}
+              />
             </div>
           );
         })}
@@ -134,14 +127,12 @@ export function BulkEditor({
       </fieldset>
       <BinNotes component={c} index={index} />
       <DerivedSizes component={c} index={index} />
-      <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
+      <MoreOptions errorPaths={commonOptionPaths(index)}>
         <CommonOptions
           component={c}
           index={index}
           onChange={onChange}
-          tray={
-            <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
-          }
+          tray={<ToggleOptions component={c} index={index} onChange={onChange} />}
         />
       </MoreOptions>
     </>

@@ -9,7 +9,8 @@ import { MemoryStorage } from "../test-support/memory-storage";
 import { sampleProject } from "../test-support/sample";
 import { importJsonText } from "./file";
 import { splitRisers } from "../layout/risers";
-import { decodeHash, encodeHash } from "./link";
+import { encodeHash } from "../test-support/link";
+import { decodeHash } from "./link";
 import { STORAGE_PREFIX, StoreWriteError, createProjectStore } from "./store";
 
 function named(name: string): Project {
@@ -316,7 +317,7 @@ describe("createProjectStore with a project from a newer minor", () => {
     const storage = new MemoryStorage();
     const store = createProjectStore(storage);
     const file = JSON.parse(serializeProject(sampleProject(), noForeign())) as Json;
-    file.schemaVersion = "0.1.16";
+    file.schemaVersion = "0.1.17";
     file.theme = { colours: ["dark"] };
     (file.box as Json).lidColour = "blue";
     (file.components as Json[]).splice(1, 0, { kind: "dial", id: "dial0001", ring: { n: 1 } });
@@ -335,7 +336,7 @@ describe("createProjectStore with a project from a newer minor", () => {
     if (!loaded?.ok) {
       throw new Error("expected the autosave to load");
     }
-    expect(loaded.project.schemaVersion).toBe("0.1.16");
+    expect(loaded.project.schemaVersion).toBe("0.1.17");
     expect(loaded.project).toHaveProperty("theme", { colours: ["dark"] });
     expect(loaded.project.box).toHaveProperty("lidColour", "blue");
     expect(loaded.foreign).toEqual(opened.foreign);
@@ -397,7 +398,7 @@ describe("createProjectStore and the spec §5 upper bounds", () => {
       VALIDATION_NOTICE_CODES.limit.components,
     );
 
-    const refused = /Too many components \(101\)/;
+    const refused = /Too many items \(101\)/;
     const file = importJsonText(serializeProject(p, noForeign()));
     expect(file.ok ? "loaded" : file.error).toMatch(refused);
     const link = decodeHash(encodeHash(p, noForeign()));

@@ -372,7 +372,7 @@ describe("thin outer corners", () => {
   it("rejects a corner under 0.8 mm plus the corner margin, which the arc polygon thins", () => {
     // R = 2.1: 2.1 − √2·0.9 = 0.83 mm on the true arc, up to 0.08 mm less on the polygon.
     expect(thinCorner(tray, 2.1, 0.4, [well])).toEqual(
-      expect.stringMatching(/keeps only 0\.83 mm/),
+      expect.stringMatching(/leaves only 0\.83 mm/),
     );
   });
 });

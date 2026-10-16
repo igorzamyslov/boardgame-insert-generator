@@ -5,6 +5,7 @@
    view's height is indefinite, the percentages resolve to auto, and the drawing simply keeps
    its own aspect ratio while the page scrolls as a whole. */
 .plan {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -40,29 +41,53 @@
   filter: grayscale(0.8);
 }
 
+/* Ruling (owner, P2 Task 15): a plan tile smaller than 44 px is exempt from the 44 px rule on the
+   "essential" ground: its size is the tray's physical geometry, drawn to scale, and cannot change
+   to suit a finger. Every other control stays at 44 px. */
 .plan-tray {
   cursor: grab;
 }
 
-.plan-tray rect {
-  fill: var(--tint, var(--tint-8));
-  stroke: var(--rule-strong);
+/* A tray takes its component's shade (--tile-fill/-line/-ink, set per tile); a tray that holds no
+   component falls back to the neutral tint. */
+.plan-face {
+  fill: var(--tile-fill, var(--rule));
+  stroke: var(--tile-line, var(--edge));
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 
-/* Spare trays and filler blocks: plain, with a dashed edge, no tint and no glyph. */
-.plan-tray.is-leftover rect {
-  fill: var(--sheet);
+/* Spare trays and filler blocks belong to no component: hatched, with a dashed edge. */
+.plan-hatch-ground {
+  fill: var(--spacer-fill);
+}
+
+.plan-hatch-line {
+  stroke: var(--spacer-hatch);
+  stroke-width: 1;
+}
+
+.plan-tray.is-leftover .plan-face {
+  fill: url("#plan-hatch");
+  stroke: var(--spacer-dash);
   stroke-dasharray: 4 3;
   stroke-width: 1.5;
 }
 
-.plan-tray.is-source rect {
+/* The name sits in a pill so it reads on any shade and over the hatching. */
+.plan-pill {
+  fill: var(--sheet);
+  stroke: var(--tile-line, var(--spacer-dash));
+  stroke-width: 0.75;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.plan-tray.is-source .plan-face {
   opacity: 0.6;
 }
 
-.plan-tray.is-drop rect {
+.plan-tray.is-drop .plan-face {
   fill: var(--indigo-wash);
 }
 
@@ -89,7 +114,7 @@
 .plan-glyph {
   fill: none;
   pointer-events: none;
-  stroke: var(--ink);
+  stroke: var(--tile-ink, var(--ink));
   stroke-width: 1.5;
   stroke-linecap: square;
 }
@@ -98,7 +123,6 @@
   vector-effect: non-scaling-stroke;
 }
 
-.plan-label,
 .plan-name,
 .plan-size,
 .plan-lock,
@@ -125,9 +149,19 @@
   letter-spacing: 0.1em;
 }
 
-.plan-name,
+/* The name is ink on the sheet-coloured pill; the size is ink on the shade, so it uses the
+   shade's own ink (which keeps its contrast on the fill). */
+.plan-name {
+  fill: var(--tile-ink, var(--ink));
+  font-weight: 600;
+}
+
 .plan-size {
-  font-family: var(--font-ui);
+  fill: var(--tile-ink, var(--ink));
+}
+
+.plan-tray.is-leftover .plan-size {
+  fill: var(--ink);
 }
 
 .layer-picker {

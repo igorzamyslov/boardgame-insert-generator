@@ -1,8 +1,7 @@
 // src/ui/ProjectMenu.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { CopyLinkResult } from "../app/link";
 import { ProjectMenu } from "./ProjectMenu";
 import type { ProjectMenuProps } from "./ProjectMenu";
 
@@ -17,212 +16,122 @@ function props(over: Partial<ProjectMenuProps> = {}): ProjectMenuProps {
       { id: "b", name: "Ark Nova", updatedAt: 1 },
     ],
     storageAvailable: true,
-    onRename: vi.fn(),
     onOpen: vi.fn(),
     onNew: vi.fn(),
     onDelete: vi.fn(),
-    onImport: vi.fn(),
-    onExportJson: vi.fn(),
-    onCopyLink: vi.fn(() =>
-      Promise.resolve<CopyLinkResult>({ status: "copied", length: 300, tooLong: false }),
-    ),
+    onOpenFile: vi.fn(),
+    onSaveFile: vi.fn(),
+    onSendFile: vi.fn(),
+    onSettings: vi.fn(),
+    onClose: vi.fn(),
     ...over,
   };
 }
 
+const button = (name: string | RegExp): HTMLElement => screen.getByRole("button", { name });
+
 describe("ProjectMenu", () => {
-  it("renames, opens, creates, deletes and exports", () => {
+  it("offers New insert, Your inserts, Open file, Save file and Settings", () => {
     const p = props();
     render(<ProjectMenu {...p} />);
-    fireEvent.input(screen.getByLabelText("Project name"), { target: { value: "Wingspan 2" } });
-    expect(p.onRename).toHaveBeenCalledWith("Wingspan 2");
-    fireEvent.change(screen.getByLabelText("Saved projects"), { target: { value: "b" } });
-    expect(p.onOpen).toHaveBeenCalledWith("b");
-    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    for (const name of ["New insert", "Your inserts", "Open file…", "Save file", "Settings"]) {
+      expect(button(name)).toBeTruthy();
+    }
+    fireEvent.click(button("New insert"));
     expect(p.onNew).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Delete project" }));
+    fireEvent.click(button("Save file"));
+    expect(p.onSaveFile).toHaveBeenCalled();
+    fireEvent.click(button("Send file"));
+    expect(p.onSendFile).toHaveBeenCalled();
+    fireEvent.click(button("Settings"));
+    expect(p.onSettings).toHaveBeenCalled();
+    expect(p.onClose).toHaveBeenCalledTimes(4);
+  });
+
+  it("opens an insert from Your inserts and goes back", () => {
+    const p = props();
+    render(<ProjectMenu {...p} />);
+    fireEvent.click(button("Your inserts"));
+    expect(screen.getByRole("heading", { name: "Your inserts" })).toBeTruthy();
+    fireEvent.click(button("Ark Nova"));
+    expect(p.onOpen).toHaveBeenCalledWith("b");
+    expect(p.onClose).toHaveBeenCalled();
+    fireEvent.click(button("Back"));
+    expect(button("New insert")).toBeTruthy();
+  });
+
+  it("deletes the open insert only after the question is answered", () => {
+    const p = props();
+    render(<ProjectMenu {...p} />);
+    fireEvent.click(button("Delete…"));
+    expect(p.onDelete).not.toHaveBeenCalled();
+    fireEvent.click(button("Delete"));
     expect(p.onDelete).toHaveBeenCalledWith("a");
-    fireEvent.click(screen.getByRole("button", { name: "Save to file" }));
-    expect(p.onExportJson).toHaveBeenCalled();
   });
 
-  it("imports a chosen JSON file", async () => {
+  it("asks the page for its file chooser and closes", () => {
     const p = props();
     render(<ProjectMenu {...p} />);
-    const input = screen.getByLabelText("Open a project file");
-    const file = new File(['{"hello":1}'], "game.insert.json", { type: "application/json" });
-    fireEvent.change(input, { target: { files: [file] } });
-    await waitFor(() => expect(p.onImport).toHaveBeenCalledWith('{"hello":1}'));
+    fireEvent.click(button("Open file…"));
+    expect(p.onOpenFile).toHaveBeenCalledTimes(1);
+    expect(p.onClose).toHaveBeenCalled();
+    expect(document.querySelector("input[type=file]")).toBeNull();
   });
 
-  it("confirms a copied link", async () => {
+  it("offers files, not links", () => {
     render(<ProjectMenu {...props()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Link copied."));
+    expect(screen.queryByRole("button", { name: /link/i })).toBeNull();
   });
 
-  it("warns about a long link and offers the JSON file", async () => {
-    const p = props({
-      onCopyLink: () => Promise.resolve({ status: "copied", length: 2400, tooLong: true }),
-    });
-    render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/2400 characters/));
-    fireEvent.click(screen.getByRole("button", { name: "Save to a file instead" }));
-    expect(p.onExportJson).toHaveBeenCalled();
-  });
-
-  it("shows the link for manual copying when the clipboard refuses", async () => {
-    const p = props({
-      onCopyLink: () =>
-        Promise.resolve({
-          status: "failed",
-          length: 20,
-          tooLong: false,
-          link: "https://x.test/#1.abc",
-          error: "denied",
-        }),
-    });
-    render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => {
-      const field = screen.getByLabelText("Share link");
-      expect((field as HTMLInputElement).value).toBe("https://x.test/#1.abc");
-    });
-    expect(screen.getByRole("alert").textContent).toMatch(/denied/);
-  });
-
-  it("hides the saved list and delete without storage", () => {
+  it("hides Your inserts and Delete without storage", () => {
     render(<ProjectMenu {...props({ storageAvailable: false })} />);
-    expect(screen.queryByLabelText("Saved projects")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Delete project" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Your inserts" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete…" })).toBeNull();
+    expect(screen.getByText(/use Save file so nothing is lost/)).toBeTruthy();
   });
 
-  it("shows a message when the chosen file cannot be read, and resets the input", async () => {
-    const p = props();
-    render(<ProjectMenu {...p} />);
-    const input = screen.getByLabelText("Open a project file") as HTMLInputElement;
-    const file = new File(["x"], "broken.json", { type: "application/json" });
-    Object.defineProperty(file, "text", { value: () => Promise.reject(new Error("unreadable")) });
-    fireEvent.change(input, { target: { files: [file] } });
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/unreadable/));
-    expect(p.onImport).not.toHaveBeenCalled();
-    expect(input.value).toBe("");
+  it("moves the focus into Your inserts and back to the button that opened it", () => {
+    render(<ProjectMenu {...props()} />);
+    fireEvent.click(button("Your inserts"));
+    expect(document.activeElement).toBe(button("Back"));
+    fireEvent.click(button("Back"));
+    expect(document.activeElement).toBe(button("Your inserts"));
   });
 
-  it("shows a message when copying the link throws", async () => {
-    const p = props({ onCopyLink: () => Promise.reject(new Error("no link")) });
-    render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/no link/));
+  it("puts the focus on Cancel when the delete question opens, and back on Delete… when kept", () => {
+    render(<ProjectMenu {...props()} />);
+    fireEvent.click(button("Delete…"));
+    expect(document.activeElement).toBe(button("Cancel"));
+    fireEvent.click(button("Cancel"));
+    expect(document.activeElement).toBe(button("Delete…"));
   });
 
-  it("drops the copy status when another project is opened", async () => {
-    const p = props();
-    const view = render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Link copied."));
-    view.rerender(<ProjectMenu {...p} currentId="b" name="Ark Nova" />);
-    expect(screen.queryByRole("status")).toBeNull();
-    view.rerender(<ProjectMenu {...p} />);
-    expect(screen.queryByRole("status")).toBeNull();
+  it("lists an open insert that is not saved yet", () => {
+    render(<ProjectMenu {...props({ currentId: "new", name: "Fresh", projects: [] })} />);
+    fireEvent.click(button("Your inserts"));
+    expect(screen.getAllByText("Fresh").length).toBeGreaterThan(0);
+    expect(screen.getByText("Open now")).toBeTruthy();
   });
 
-  it("drops a manual-copy link when another project is opened", async () => {
+  it("lists the menu's notices at the top, with the conflict choices", () => {
     const p = props({
-      onCopyLink: () =>
-        Promise.resolve({
-          status: "failed",
-          length: 3,
-          tooLong: false,
-          link: "abc",
-          error: "denied",
-        }),
-    });
-    const view = render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => screen.getByLabelText("Share link"));
-    view.rerender(<ProjectMenu {...p} currentId="b" name="Ark Nova" />);
-    expect(screen.queryByLabelText("Share link")).toBeNull();
-  });
-
-  it("lists a current project that is not saved yet, and names an empty one", () => {
-    const { rerender } = render(
-      <ProjectMenu {...props({ currentId: "new", name: "Fresh", projects: [] })} />,
-    );
-    const select = screen.getByLabelText("Saved projects") as HTMLSelectElement;
-    expect([...select.options].map((o) => [o.value, o.textContent])).toEqual([["new", "Fresh"]]);
-    expect(select.value).toBe("new");
-    rerender(
-      <ProjectMenu
-        {...props({
-          currentId: "new",
-          name: "",
-          projects: [{ id: "a", name: "", updatedAt: 1 }],
-        })}
-      />,
-    );
-    const next = screen.getByLabelText("Saved projects") as HTMLSelectElement;
-    expect([...next.options].map((o) => o.textContent)).toEqual(["(unnamed)", "(unnamed)"]);
-  });
-
-  it("shows the manual link and the long-link warning together", async () => {
-    const p = props({
-      onCopyLink: () =>
-        Promise.resolve({
-          status: "failed",
-          length: 2400,
-          tooLong: true,
-          link: "https://x.test/#1.long",
-          error: "denied",
-        }),
+      conflict: true,
+      onResolveConflict: vi.fn(),
+      notices: [{ level: "warning", code: "storage.conflict", message: "Another tab saved." }],
     });
     render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => screen.getByLabelText("Share link"));
-    const alert = screen.getByRole("alert").textContent ?? "";
-    expect(alert).toMatch(/denied/);
-    expect(alert).toMatch(/2400 characters/);
-    fireEvent.click(screen.getByRole("button", { name: "Save to a file instead" }));
-    expect(p.onExportJson).toHaveBeenCalled();
+    // the messages come first: after their (hidden) live region, before any button
+    const [live, list] = [...(document.querySelector(".project-menu")?.children ?? [])];
+    expect(live?.getAttribute("role")).toBe("status");
+    expect(list?.getAttribute("aria-label")).toBe("Project messages");
+    expect(screen.getAllByText("Another tab saved.")).toHaveLength(2); // on screen, and spoken
+    fireEvent.click(button("Use the other tab's version"));
+    expect(p.onResolveConflict).toHaveBeenCalledWith("loadTheirs");
+    expect(p.onClose).toHaveBeenCalled();
   });
 
-  it("ignores a link result that arrives after the project was switched away and back", async () => {
-    let resolve: (r: CopyLinkResult) => void = () => undefined;
-    const p = props({
-      onCopyLink: () =>
-        new Promise<CopyLinkResult>((r) => {
-          resolve = r;
-        }),
-    });
-    const view = render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    view.rerender(<ProjectMenu {...p} currentId="b" name="Ark Nova" />);
-    view.rerender(<ProjectMenu {...p} />);
-    resolve({ status: "copied", length: 10, tooLong: false });
-    await new Promise((r) => setTimeout(r, 0));
-    expect(screen.queryByRole("status")).toBeNull();
-    // a result for the project that is open still shows
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    resolve({ status: "copied", length: 10, tooLong: false });
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Link copied."));
-  });
-
-  it("ignores a link result that arrives while another project is open", async () => {
-    let resolve: (r: CopyLinkResult) => void = () => undefined;
-    const p = props({
-      onCopyLink: () =>
-        new Promise<CopyLinkResult>((r) => {
-          resolve = r;
-        }),
-    });
-    const view = render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    view.rerender(<ProjectMenu {...p} currentId="b" name="Ark Nova" />);
-    resolve({ status: "copied", length: 10, tooLong: false });
-    await new Promise((r) => setTimeout(r, 0));
-    expect(screen.queryByRole("status")).toBeNull();
-    view.rerender(<ProjectMenu {...p} />);
-    expect(screen.queryByRole("status")).toBeNull();
+  it("shows no messages block without notices", () => {
+    render(<ProjectMenu {...props()} />);
+    expect(screen.queryByRole("list", { name: "Project messages" })).toBeNull();
   });
 });

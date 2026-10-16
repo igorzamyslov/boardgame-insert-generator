@@ -61,9 +61,9 @@ describe("export round trip with real trays", () => {
     const b = buildTray(m, scoopBulk, GEO);
     const stl = toStl(b.mesh, "Bits");
     expect(stl.length).toBe(84 + 50 * (b.mesh.indices.length / 3));
-    const name = partFileName(1, "Bits ×3", "stl");
+    const name = partFileName("Bits ×3", "stl");
     const files = unzipSync(zipFiles([{ name, data: stl }]));
-    expect(Object.keys(files)).toEqual(["01-Bits-3.stl"]);
+    expect(Object.keys(files)).toEqual(["Bits-3.stl"]);
     expect(files[name]?.length).toBe(stl.length);
   });
 });

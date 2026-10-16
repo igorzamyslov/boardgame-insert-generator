@@ -3,6 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { DEFAULT_SETTINGS } from "../model/settings";
+import { shadeHex } from "../ui/identity";
+import type { Component, Project } from "../model/types";
 import { pngSize, svgDataUrl } from "./png";
 import { escapeXml, layerInfo, packingSteps, render, truncate, whatGoesWhere } from "./render";
 
@@ -35,16 +37,16 @@ const top = makeTray({
   key: "b:p0:0",
   stack: 0,
   level: 1,
-  x: 1.45,
-  y: 1.45,
+  x: 0, // flush on the tray below: a stored 0.8 upper tray has the same footprint and a groove's wall
+  y: 0,
   z: 30,
-  w: 117,
-  d: 87,
+  w: 120,
+  d: 90,
   h: 25,
   compartments: [
     {
-      x: 2,
-      y: 2,
+      x: 3,
+      y: 3,
       w: 100,
       d: 70,
       floorZ: 1.2,
@@ -57,33 +59,54 @@ const top = makeTray({
 const side = makeTray({ key: "c:p0:0", stack: 1, level: 0, x: 130, y: 0, w: 100, d: 90, h: 55 });
 const layout = makeLayout("h", [bottom, spacer, top, side]);
 
+/** The cards-heavy project with the two components the layouts below hold, named for them. */
+function namedProject(): Project {
+  const project = fixtureProject();
+  const base = project.components[0] as Component;
+  const named = (id: string, name: string): Component => ({
+    ...structuredClone(base),
+    id,
+    name,
+  });
+  return {
+    ...project,
+    components: [named("deck0001", "Deck A"), named("coin0001", "<Coins> & gems")],
+  };
+}
+
+const named = namedProject();
+
 function parse(svg: string): Document {
   return new DOMParser().parseFromString(svg, "image/svg+xml");
 }
 
 describe("render", () => {
   it("draws one well-formed SVG per layer, bottom first", () => {
-    const svgs = render(layout, fixtureProject());
+    const svgs = render(layout, named);
     expect(svgs).toHaveLength(2);
     for (const svg of svgs) {
       expect(parse(svg).getElementsByTagName("parsererror")).toHaveLength(0);
-      expect(svg).toContain(">FRONT<");
+      expect(svg).toContain(">Front<");
     }
     const [first, second] = svgs;
     expect(first).toContain("<title>Layer 1 of 2</title>");
-    expect(first).toMatch(/>1<\/text>/);
-    expect(first).toMatch(/>2<\/text>/);
-    expect(first).toMatch(/>4<\/text>/);
-    expect(second).toMatch(/>3<\/text>/);
+    // each part has a badge with its short name, in capitals, as engraved on it
+    expect(first).toContain(">DECK 1</text>");
+    expect(first).toContain(">SPAC DEC 2</text>");
+    expect(first).toContain(">DECK 2</text>");
+    expect(second).toContain(">COINS</text>");
+    // and the full name where the tray has room for a caption
     expect(second).toContain("&lt;Coins&gt; &amp; gems");
-    // layer 2 shows the trays of layer 1 as ghosts: 1 and 4 (the spacer is not a tray)
-    expect(second).toMatch(/>1<\/text>/);
-    expect(second).toMatch(/>4<\/text>/);
-    expect(second).not.toMatch(/>2<\/text>/);
+    // layer 2 shows the trays of layer 1 as ghosts: the two decks (the spacer is not a tray)
+    expect(second).toContain(">DECK 1</text>");
+    expect(second).toContain(">DECK 2</text>");
+    expect(second).not.toContain(">SPAC DEC 2</text>");
+    // no number is drawn as a label
+    expect(first).not.toMatch(/>\d<\/text>/);
   });
 
-  it("draws every number after every shape, so no shape can cover one", () => {
-    // A spacer centred on its tray used to be painted over the tray's number.
+  it("draws every name after every shape, so no shape can cover one", () => {
+    // A spacer centred on its tray used to be painted over the tray's badge.
     const covered = makeLayout("h", [
       makeTray({ key: "a:p0:0", x: 0, y: 0, w: 100, d: 80 }),
       makeTray({
@@ -99,19 +122,58 @@ describe("render", () => {
       }),
       makeTray({ key: "tiny:p0:0", stack: 1, x: 110, y: 0, w: 4, d: 4, compartments: [] }),
     ]);
-    const [svg] = render(covered, fixtureProject());
+    const [svg] = render(covered, named);
     const doc = parse(svg ?? "");
     const all = [...doc.documentElement.querySelectorAll("*")];
-    const lastShape = all.map((e) => e.tagName).lastIndexOf("rect");
-    const numbers = all.filter((e) => e.tagName === "text" && /^\d+$/.test(e.textContent ?? ""));
-    expect(numbers.map((e) => e.textContent).sort()).toEqual(["1", "2", "3"]);
-    for (const t of numbers) {
+    // the shapes are the outline, the trays (rx 1.5) and the spacers; the badge pills are rounder
+    const isShape = (e: Element) =>
+      e.tagName === "rect" && (e.getAttribute("rx") ?? "1.5") === "1.5";
+    const lastShape = all.map(isShape).lastIndexOf(true);
+    const badges = all.filter(
+      (e) => e.tagName === "text" && e.getAttribute("font-weight") === "700",
+    );
+    expect(badges).toHaveLength(3);
+    for (const t of badges) {
       expect(all.indexOf(t)).toBeGreaterThan(lastShape);
-      // each number sits on its own white badge, drawn right before it
-      expect(all[all.indexOf(t) - 1]?.tagName).toBe("circle");
+      // each name sits on its own white pill, drawn right before it
+      expect(all[all.indexOf(t) - 1]?.tagName).toBe("rect");
     }
-    // a tray too small for its number gets a leader line
+    // a tray too small for its badge gets a leader line
     expect(doc.getElementsByTagName("line").length).toBeGreaterThan(0);
+  });
+
+  // light-dark() and var() are CSS-only: a standalone SVG, and so the PNG made from it, shows
+  // nothing for them. Paper colours must be plain hex (shadeHex(kind, i, "light") when they move
+  // to the per-component shades).
+  it("keeps CSS-only colour functions out of the SVG and its data URL", () => {
+    const comp = (key: string, contents: string, x: number) =>
+      makeTray({
+        key,
+        x,
+        y: 0,
+        w: 40,
+        d: 30,
+        compartments: [
+          { x: 1, y: 1, w: 30, d: 20, floorZ: 1, kind: "well", contents, features: [] },
+        ],
+      });
+    const two = makeLayout("h", [
+      comp("a:p0:0", "Action ×10", 0),
+      comp("b:p0:0", "Market ×10", 50),
+    ]);
+    const svgs = render(two, fixtureProject());
+    expect(svgs.length).toBeGreaterThan(0);
+    for (const svg of svgs) {
+      for (const text of [svg, decodeURIComponent(svgDataUrl(svg))]) {
+        expect(text).not.toContain("light-dark(");
+        expect(text).not.toContain("var(");
+      }
+      const colours = [...svg.matchAll(/(?:fill|stroke)="([^"]+)"/g)].map((m) => m[1]);
+      for (const c of colours) {
+        // The spacer hatch is a pattern the SVG defines itself.
+        expect(c, `colour ${c}`).toMatch(/^(none|#[0-9a-f]{3,8}|url\(#spacer-hatch\))$/i);
+      }
+    }
   });
 
   it("fills each tray with the tint of its component and adds the kind glyph", () => {
@@ -133,15 +195,42 @@ describe("render", () => {
     ]);
     const project = fixtureProject();
     const [svg] = render(tinted, project);
-    const fills = [...parse(svg ?? "").querySelectorAll("rect[rx]")].map((r) =>
+    const fills = [...parse(svg ?? "").querySelectorAll('rect[rx="1.5"]')].map((r) =>
       r.getAttribute("fill"),
     );
-    expect(fills).toEqual(["#d3e0f5", "#f0d5cc", "#d6ead7"]);
+    // Each component has its own shade of its kind's hue, as on screen, in plain hex.
+    const comps = project.components;
+    const shades = comps
+      .slice(0, 3)
+      .map((c, i) =>
+        shadeHex(
+          c.kind,
+          comps.slice(0, i).filter((x) => x.kind === c.kind).length,
+          "light",
+        ).fill.toLowerCase(),
+      );
+    expect(new Set(shades).size).toBe(3);
+    expect(fills.map((f) => f?.toLowerCase())).toEqual(shades);
     // one cards glyph per tray, stroked, unfilled
     const glyphs = parse(svg ?? "").querySelectorAll("g[transform]");
     expect(glyphs).toHaveLength(3);
     expect(glyphs[0]?.getAttribute("stroke")).toBe("#333333");
     expect(glyphs[0]?.getAttribute("fill")).toBe("none");
+  });
+
+  it("hatches spacers with a dashed edge, and defines the hatch only where a spacer is drawn", () => {
+    const withSpacer = makeLayout("h", [bottom, spacer]);
+    const [svg] = render(withSpacer, named);
+    const doc = parse(svg ?? "");
+    expect(doc.querySelectorAll("pattern#spacer-hatch")).toHaveLength(1);
+    const hatched = [...doc.querySelectorAll("rect")].filter(
+      (r) => r.getAttribute("fill") === "url(#spacer-hatch)",
+    );
+    expect(hatched).toHaveLength(1);
+    expect(hatched[0]?.getAttribute("stroke")).toBe("#6e695c");
+    expect(hatched[0]?.getAttribute("stroke-dasharray")).toBeTruthy();
+    const [plain] = render(makeLayout("h", [bottom]), named);
+    expect(plain).not.toContain("spacer-hatch");
   });
 
   it("leaves spare and leftover trays white with a dashed outline and no glyph", () => {
@@ -150,7 +239,7 @@ describe("render", () => {
       makeTray({ key: "b:p0:0", stack: 1, x: 120, y: 0 }),
     ]);
     const [svg] = render(spare, fixtureProject());
-    const rects = [...parse(svg ?? "").querySelectorAll("rect[rx]")];
+    const rects = [...parse(svg ?? "").querySelectorAll('rect[rx="1.5"]')];
     expect(rects).toHaveLength(2);
     for (const r of rects) {
       expect(r.getAttribute("fill")).toBe("#ffffff");
@@ -175,8 +264,8 @@ describe("render", () => {
     expect(parse(svg ?? "").querySelectorAll("g[transform]")).toHaveLength(0);
   });
 
-  it("draws the trays of the layer below as numbered grey ghosts, and none on layer 1", () => {
-    const [first, second] = render(layout, fixtureProject());
+  it("draws the trays of the layer below as grey ghosts with their names, and none on layer 1", () => {
+    const [first, second] = render(layout, named);
     const ghosts = (svg: string | undefined) =>
       [...parse(svg ?? "").querySelectorAll("rect")].filter(
         (r) => r.getAttribute("stroke") === "#767676",
@@ -186,7 +275,7 @@ describe("render", () => {
     const grey = [...parse(second ?? "").querySelectorAll("text")].filter(
       (t) => t.getAttribute("fill") === "#767676",
     );
-    expect(grey.map((t) => t.textContent)).toEqual(["1", "4"]);
+    expect(grey.map((t) => t.textContent)).toEqual(["DECK 1", "DECK 2"]);
     expect(ghosts(second)[0]?.getAttribute("fill")).toBe("none");
   });
 
@@ -229,7 +318,12 @@ describe("text safety", () => {
         ],
       }),
     ]);
-    const [svg] = render(messy, fixtureProject());
+    const base = named.components[0] as Component;
+    const project = {
+      ...named,
+      components: [{ ...structuredClone(base), id: "messy001", name: "Co\u0001ins\uD83D" }],
+    };
+    const [svg] = render(messy, project);
     expect(parse(svg ?? "").getElementsByTagName("parsererror")).toHaveLength(0);
     expect(svg).toContain("Coins");
   });
@@ -249,9 +343,9 @@ describe("packing order and parts list", () => {
         compartments: [],
       }),
     ]);
-    expect(packingSteps(orphan)).toEqual([
-      "Layer 1: place #1 Deck A ×40.",
-      "Place card spacer #2 (the tray it belongs in is not in this layout).",
+    expect(packingSteps(orphan, named.components)).toEqual([
+      "Layer 1: place Deck A.",
+      "Place Spacer by Deck A (the tray it belongs in is not in this layout).",
     ]);
   });
 
@@ -270,25 +364,23 @@ describe("packing order and parts list", () => {
         }),
       ),
     ]);
-    expect(packingSteps(withDividers)).toEqual([
-      "Layer 1: place #1 Deck A ×40.",
-      "Stand divider 1 #2 in its floor slot in tray #1.",
-      "Stand divider 2 #3 in its floor slot in tray #1.",
+    expect(packingSteps(withDividers, named.components)).toEqual([
+      "Layer 1: place Deck A.",
+      "Stand Divider 1 in Deck A in its floor slot.",
+      "Stand Divider 2 in Deck A in its floor slot.",
     ]);
-    expect(layerInfo(withDividers)).toEqual([
-      { layer: 1, title: "Layer 1 (bottom)", trays: ["1 Deck A ×40"] },
+    expect(layerInfo(withDividers, named.components)).toEqual([
+      { layer: 1, title: "Layer 1 (bottom)", trays: ["Deck A"] },
     ]);
-    expect(
-      whatGoesWhere(withDividers, DEFAULT_SETTINGS).map((r) => [r.number, r.goesInto]),
-    ).toEqual([
-      [1, null],
-      [2, 1],
-      [3, 1],
+    expect(whatGoesWhere(withDividers, named).map((r) => [r.name, r.goesInto])).toEqual([
+      ["Deck A", null],
+      ["Divider 1 in Deck A", "Deck A"],
+      ["Divider 2 in Deck A", "Deck A"],
     ]);
-    // every divider has a numbered badge on the plan
-    const [svg] = render(withDividers, fixtureProject());
-    expect(svg).toContain(">2</text>");
-    expect(svg).toContain(">3</text>");
+    // every divider has a badge with its name on the plan
+    const [svg] = render(withDividers, named);
+    expect(svg).toContain(">DIV1 DECK</text>");
+    expect(svg).toContain(">DIV2 DECK</text>");
   });
 
   it("places a riser first and stands its tray on it, leaving it out of the layers", () => {
@@ -306,15 +398,17 @@ describe("packing order and parts list", () => {
         compartments: [],
       }),
     ]);
-    expect(packingSteps(withRiser)).toEqual(["Layer 1: place riser #1, then #2 Deck A ×40 on it."]);
-    expect(layerInfo(withRiser)).toEqual([
-      { layer: 1, title: "Layer 1 (bottom)", trays: ["2 Deck A ×40"] },
+    expect(packingSteps(withRiser, named.components)).toEqual([
+      "Layer 1: place Riser under Deck A, then Deck A on it.",
     ]);
-    expect(render(withRiser, fixtureProject())).toHaveLength(1);
-    const rows = whatGoesWhere(withRiser, DEFAULT_SETTINGS);
-    expect(rows.map((r) => [r.number, r.label, r.goesInto, r.carries])).toEqual([
-      [1, "Riser", null, 2],
-      [2, "Deck A ×40", null, null],
+    expect(layerInfo(withRiser, named.components)).toEqual([
+      { layer: 1, title: "Layer 1 (bottom)", trays: ["Deck A"] },
+    ]);
+    expect(render(withRiser, named)).toHaveLength(1);
+    const rows = whatGoesWhere(withRiser, named);
+    expect(rows.map((r) => [r.name, r.goesInto, r.carries])).toEqual([
+      ["Riser under Deck A", null, "Deck A"],
+      ["Deck A", null, null],
     ]);
   });
 
@@ -323,44 +417,74 @@ describe("packing order and parts list", () => {
       makeTray({ key: "a:p0:0", stack: 0, level: 0 }),
       makeTray({ key: "gone:p0:0:riser", part: "riser", path: "", stack: 5, level: 0 }),
     ]);
-    expect(packingSteps(orphan).at(-1)).toBe(
-      "Place riser #2 (the tray that stands on it is not in this layout).",
+    expect(packingSteps(orphan, named.components).at(-1)).toBe(
+      "Place Riser under Deck A (the tray that stands on it is not in this layout).",
     );
   });
 
   it("packs bottom first, spacers after their tray", () => {
-    expect(packingSteps(layout)).toEqual([
-      "Layer 1: place #1 Deck A ×40.",
-      "Slide card spacer #2 into tray #1.",
-      "Layer 1: place #4 Deck A ×40.",
-      "Layer 2: place #3 <Coins> & gems on top.",
+    expect(packingSteps(layout, named.components)).toEqual([
+      "Layer 1: place Deck A 1.",
+      "Slide the spacer into Deck A 1 (Spacer by Deck A 2).",
+      "Layer 1: place Deck A 2.",
+      "Layer 2: place <Coins> & gems on top.",
     ]);
   });
 
   it("titles the layers and lists their trays", () => {
-    expect(layerInfo(layout)).toEqual([
-      { layer: 1, title: "Layer 1 (bottom)", trays: ["1 Deck A ×40", "4 Deck A ×40"] },
-      { layer: 2, title: "Layer 2 (top)", trays: ["3 <Coins> & gems"] },
+    expect(layerInfo(layout, named.components)).toEqual([
+      { layer: 1, title: "Layer 1 (bottom)", trays: ["Deck A 1", "Deck A 2"] },
+      { layer: 2, title: "Layer 2 (top)", trays: ["<Coins> & gems"] },
     ]);
     const three = makeLayout("h", [
       makeTray({ key: "a:p0:0", level: 0 }),
       makeTray({ key: "b:p0:0", level: 1, z: 40 }),
       makeTray({ key: "c:p0:0", level: 2, z: 80 }),
     ]);
-    expect(layerInfo(three).map((l) => l.title)).toEqual([
+    expect(layerInfo(three, named.components).map((l) => l.title)).toEqual([
       "Layer 1 (bottom)",
       "Layer 2",
       "Layer 3 (top)",
     ]);
-    expect(layerInfo(makeLayout("h", [makeTray()])).map((l) => l.title)).toEqual([
+    expect(layerInfo(makeLayout("h", [makeTray()]), named.components).map((l) => l.title)).toEqual([
       "Layer 1 (bottom)",
+    ]);
+  });
+
+  it("says what each part is engraved as: its short name in capitals, nothing for a plate or a tiny part", () => {
+    // the same trays as above, with the lip left off the one that could not be planned with it
+    const valid = makeLayout("h", [{ ...bottom, lip: false, w: 120, d: 90 }, spacer, top, side]);
+    const rows = whatGoesWhere(valid, named);
+    // trays carry the short name drawn on the diagrams; the spacer is a plate and carries none
+    expect(rows.map((r) => [r.name, r.engraved, r.tooSmall])).toEqual([
+      ["Deck A 1", "DECK 1", false],
+      ["Spacer by Deck A 2", null, false],
+      ["<Coins> & gems", "COINS", false],
+      ["Deck A 2", "DECK 2", false],
+    ]);
+    // a tray 4 mm across has no room for any name, and the guide says so
+    const tiny = makeLayout("h", [
+      makeTray({ key: "a:p0:0", w: 4, d: 4, h: 30, compartments: [] }),
+      makeTray({ key: "b:p0:0", stack: 1, x: 10 }),
+    ]);
+    const [small, roomy] = whatGoesWhere(tiny, named);
+    expect(small).toMatchObject({ engraved: null, tooSmall: true });
+    expect(roomy?.engraved).not.toBeNull();
+    // a part that cannot be planned at all (the fixture's lipped tray) is neither engraved nor
+    // "too small": nothing can be said of its name
+    expect(whatGoesWhere(layout, named)[0]).toMatchObject({ engraved: null, tooSmall: false });
+    // with the engraving off nothing is engraved and nothing is too small to carry a name
+    const off = { ...named, settings: { ...named.settings, engraveNames: false } };
+    expect(whatGoesWhere(tiny, off).map((r) => [r.engraved, r.tooSmall])).toEqual([
+      [null, false],
+      [null, false],
     ]);
   });
 
   it("says where each part stands, to 0.1 mm", () => {
     const rows = whatGoesWhere(
       makeLayout("h", [makeTray({ x: 12, y: 30.04 }), makeTray({ key: "b:p0:0", x: 0.26, y: 0 })]),
-      DEFAULT_SETTINGS,
+      named,
     );
     expect(rows.map((r) => r.position)).toEqual([
       "12 mm from the left, 30 mm from the front",
@@ -369,12 +493,12 @@ describe("packing order and parts list", () => {
   });
 
   it("lists what goes where", () => {
-    const rows = whatGoesWhere(layout, DEFAULT_SETTINGS);
-    expect(rows.map((r) => [r.number, r.layer, r.goesInto])).toEqual([
-      [1, 1, null],
-      [2, 1, 1],
-      [3, 2, null],
-      [4, 1, null],
+    const rows = whatGoesWhere(layout, named);
+    expect(rows.map((r) => [r.name, r.layer, r.goesInto])).toEqual([
+      ["Deck A 1", 1, null],
+      ["Spacer by Deck A 2", 1, "Deck A 1"],
+      ["<Coins> & gems", 2, null],
+      ["Deck A 2", 1, null],
     ]);
     // the lipped bottom tray prints taller than its h: 30 + the lip height
     expect(rows[0]?.size).toBe(
@@ -415,23 +539,23 @@ describe("a merged filler in the instructions", () => {
   });
   const withMerged = makeLayout("h", [bottom, merged]);
 
-  it("draws a shape per member and one number, on the larger", () => {
-    const [svg] = render(withMerged, fixtureProject());
+  it("draws a shape per member and one badge with its name, on the larger", () => {
+    const [svg] = render(withMerged, named);
     const doc = parse(svg ?? "");
     // the bottom tray and one rect per member (plus the box outline and the white page)
     const shapes = [...doc.querySelectorAll("rect")].filter((r) => r.getAttribute("rx") === "1.5");
     expect(shapes).toHaveLength(3);
-    const numbers = [...doc.querySelectorAll("text")].filter((t) =>
-      /^\d+$/.test(t.textContent ?? ""),
+    const badges = [...doc.querySelectorAll("text")].filter(
+      (t) => t.getAttribute("font-weight") === "700",
     );
-    expect(numbers.map((t) => t.textContent).sort()).toEqual(["1", "2"]);
+    expect(badges.map((t) => t.textContent).sort()).toEqual(["DECK", "SPAC DECK"]);
   });
 
   it("lists and places it as one part", () => {
-    const rows = whatGoesWhere(withMerged, DEFAULT_SETTINGS);
-    const row = rows.find((r) => r.label === "Merged filler block");
+    const rows = whatGoesWhere(withMerged, named);
+    const row = rows.find((r) => r.name.startsWith("Spacer by"));
     expect(row).toMatchObject({ layer: 1, goesInto: null, carries: null });
     expect(rows).toHaveLength(2);
-    expect(packingSteps(withMerged).join("\n")).toContain("Merged filler block");
+    expect(packingSteps(withMerged, named.components).join("\n")).toContain(row?.name ?? "?");
   });
 });

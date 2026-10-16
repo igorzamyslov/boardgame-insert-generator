@@ -138,7 +138,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
     notices.push({
       level: "warning",
       code: SCHEMA_NOTICE_CODES.newerMinor,
-      message: `Made with app ${createdWith} (schema ${versionText}), which is newer than this app (${APP_VERSION}, schema ${opts.appSchemaVersion}). Parts this app doesn't know are kept but not laid out. Re-optimizing needs confirmation.`,
+      message: `Made with app ${createdWith} (schema ${versionText}), which is newer than this app (${APP_VERSION}, schema ${opts.appSchemaVersion}). Trays this app doesn't know are saved back unchanged, but not laid out. Re-optimizing needs confirmation.`,
     });
   }
 
@@ -312,8 +312,8 @@ function compactSettings(out: Json): void {
   if (settings.mergeRisers === DEFAULT_SETTINGS.mergeRisers) {
     delete settings.mergeRisers;
   }
-  if (settings.engraveNumbers === DEFAULT_SETTINGS.engraveNumbers) {
-    delete settings.engraveNumbers;
+  if (settings.engraveNames === DEFAULT_SETTINGS.engraveNames) {
+    delete settings.engraveNames;
   }
   if (settings.oneWall === DEFAULT_SETTINGS.oneWall) {
     delete settings.oneWall;

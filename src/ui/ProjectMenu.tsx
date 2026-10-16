@@ -1,187 +1,172 @@
 // src/ui/ProjectMenu.tsx
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { CopyLinkResult } from "../app/link";
-import { LINK_MAX_URL_CHARS } from "../share";
+import { CONFLICT_CODE } from "../app/persistence";
+import type { ConflictChoice } from "../app/persistence";
+import type { Notice } from "../model/types";
 import type { ProjectListEntry } from "../share";
-import { errorText } from "../util/errors";
-import { SelectField, TextField } from "./fields";
+import { DeleteConfirm, InsertsList } from "./InsertsList";
+import { Notices } from "./Notices";
 
 export interface ProjectMenuProps {
+  /** The open insert's name (for the delete question). */
   name: string;
   currentId: string;
   projects: readonly ProjectListEntry[];
   storageAvailable: boolean;
-  onRename: (name: string) => void;
   onOpen: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
-  onImport: (text: string) => void;
-  onExportJson: () => void;
-  onCopyLink: () => Promise<CopyLinkResult>;
+  /** Opens the file chooser (the page owns the chooser, so closing the menu doesn't lose its answer). */
+  onOpenFile: () => void;
+  onSaveFile: () => void;
+  /** Phone: hands the file to the share sheet (the owner saves it where that isn't possible). */
+  onSendFile: () => void;
+  /** Goes to the settings section. */
+  onSettings: () => void;
+  /** After a choice that leaves the menu. */
+  onClose: () => void;
+  /** The notices that wait in the menu (a conflict, a failed save, no storage), shown at its top. */
+  notices?: readonly Notice[];
+  /** Another tab saved this insert: the notice offers the two choices until one is made. */
+  conflict?: boolean;
+  onResolveConflict?: (choice: ConflictChoice) => void;
+  onDismissNotice?: (code: string) => void;
 }
 
-function CopyStatus({
-  result,
-  onExportJson,
-}: {
-  result: CopyLinkResult;
-  onExportJson: () => void;
-}) {
-  const longWarning = result.tooLong ? (
-    <>
-      {" "}
-      It is {result.length} characters long; some chats (e.g. Discord) cut messages over{" "}
-      {LINK_MAX_URL_CHARS} characters.{" "}
-      <button type="button" onClick={onExportJson}>
-        Save to a file instead
-      </button>
-    </>
-  ) : null;
-  if (result.status === "copied") {
-    return (
-      <p class={result.tooLong ? "link-status link-warning" : "link-status"} role="status">
-        Link copied.{longWarning}
-      </p>
-    );
-  }
-  return (
-    <div class="link-status link-warning" role="alert">
-      <p>
-        Couldn't copy automatically ({result.error}). Copy the link yourself:{longWarning}
-      </p>
-      <input
-        class="copy-fallback"
-        type="text"
-        readOnly
-        value={result.link}
-        aria-label="Share link"
-        onFocus={(e) => e.currentTarget.select()}
-      />
-    </div>
-  );
-}
+type Page = "menu" | "inserts";
 
+/** What the "⋯" button opens: the insert's file and list actions. */
 export function ProjectMenu(props: ProjectMenuProps) {
   const { name, currentId, projects, storageAvailable } = props;
-  // Tagged with the project it was made for, so it never shows against another one.
-  const [copy, setCopy] = useState<{ id: string; result: CopyLinkResult } | null>(null);
-  const [problem, setProblem] = useState<{ id: string; message: string } | null>(null);
-  // The tag already hides a result from another project; clearing also stops it coming back
-  // when the user returns to the first one.
-  // Counts project switches, so a request started before one is recognised when it resolves,
-  // even if the user has come back to the same project by then.
-  const switches = useRef({ id: currentId, count: 0 });
-  if (switches.current.id !== currentId) {
-    switches.current = { id: currentId, count: switches.current.count + 1 };
-  }
+  const [page, setPage] = useState<Page>("menu");
+  const [deleting, setDeleting] = useState(false);
   useEffect(() => {
-    setCopy(null);
-    setProblem(null);
+    setDeleting(false);
   }, [currentId]);
-  const fileRef = useRef<HTMLInputElement>(null);
   const listed = projects.some((p) => p.id === currentId)
     ? projects
     : [{ id: currentId, name, updatedAt: 0 }, ...projects];
-
-  async function readFile(input: HTMLInputElement): Promise<void> {
-    const file = input.files?.[0];
-    if (!file) {
-      return;
+  const backRef = useRef<HTMLButtonElement>(null);
+  const insertsRef = useRef<HTMLButtonElement>(null);
+  const deleteRef = useRef<HTMLButtonElement>(null);
+  const moved = useRef(false);
+  // Changing page replaces the buttons: the focus goes to where the person came in, not to the page.
+  useEffect(() => {
+    if (moved.current) {
+      (page === "inserts" ? backRef : insertsRef).current?.focus();
     }
-    let text: string;
-    try {
-      text = await file.text();
-    } catch (e) {
-      setProblem({ id: currentId, message: `Couldn't read ${file.name}: ${errorText(e)}` });
-      return;
-    } finally {
-      input.value = "";
-    }
-    setProblem(null);
-    props.onImport(text);
-  }
+    moved.current = true;
+  }, [page]);
 
-  function copyCurrentLink(): void {
-    const id = currentId;
-    const started = switches.current.count;
-    setProblem(null);
-    props.onCopyLink().then(
-      (result) => {
-        // A result for a project that was left meanwhile is dropped, not kept for its return.
-        if (switches.current.count === started) {
-          setCopy({ id, result });
-        }
-      },
-      (e: unknown) => {
-        if (switches.current.count === started) {
-          setProblem({ id, message: `Couldn't make the link: ${errorText(e)}` });
-        }
-      },
+  /** Runs a choice that leaves the menu. */
+  const choose = (fn: () => void) => (): void => {
+    props.onClose();
+    fn();
+  };
+
+  if (page === "inserts") {
+    return (
+      <div class="project-menu">
+        <div class="menu-head">
+          <button type="button" class="quiet tap" ref={backRef} onClick={() => setPage("menu")}>
+            Back
+          </button>
+          <h2 class="menu-title">Your inserts</h2>
+        </div>
+        <InsertsList
+          currentId={currentId}
+          projects={listed}
+          onOpen={(id) => {
+            props.onClose();
+            props.onOpen(id);
+          }}
+          onDelete={props.onDelete}
+        />
+      </div>
     );
   }
 
+  const notices = props.notices ?? [];
   return (
     <div class="project-menu">
-      <TextField id="project-name" label="Project name" value={name} onCommit={props.onRename} />
-      {storageAvailable ? (
-        <SelectField
-          id="project-open"
-          label="Saved projects"
-          value={currentId}
-          options={listed.map((p) => ({
-            value: p.id,
-            label: p.name === "" ? "(unnamed)" : p.name,
-          }))}
-          onChange={props.onOpen}
+      {notices.length > 0 ? (
+        <Notices
+          notices={notices}
+          label="Project messages"
+          class="menu-notices"
+          onDismiss={props.onDismissNotice}
+          // The choice stays on screen while autosave is paused for it.
+          canDismiss={(n) => !(n.code === CONFLICT_CODE && props.conflict)}
+          renderAction={(n) =>
+            n.code === CONFLICT_CODE && props.conflict ? (
+              <span class="menu-notice-choices">
+                <button type="button" onClick={choose(() => props.onResolveConflict?.("keepMine"))}>
+                  Use this tab's version
+                </button>
+                <button
+                  type="button"
+                  onClick={choose(() => props.onResolveConflict?.("loadTheirs"))}
+                >
+                  Use the other tab's version
+                </button>
+              </span>
+            ) : null
+          }
+        />
+      ) : null}
+      <div class="menu-items">
+        <button type="button" class="menu-item" onClick={choose(props.onNew)}>
+          New insert
+        </button>
+        {storageAvailable ? (
+          <button
+            type="button"
+            class="menu-item"
+            ref={insertsRef}
+            onClick={() => setPage("inserts")}
+          >
+            Your inserts
+          </button>
+        ) : null}
+        <button type="button" class="menu-item" onClick={choose(props.onOpenFile)}>
+          Open file…
+        </button>
+        <button type="button" class="menu-item" onClick={choose(props.onSaveFile)}>
+          Save file
+        </button>
+        <button type="button" class="menu-item menu-phone-only" onClick={choose(props.onSendFile)}>
+          Send file
+        </button>
+        <button type="button" class="menu-item" onClick={choose(props.onSettings)}>
+          Settings
+        </button>
+        {storageAvailable ? (
+          <button
+            type="button"
+            class="menu-item menu-delete"
+            ref={deleteRef}
+            aria-expanded={deleting}
+            onClick={() => setDeleting(!deleting)}
+          >
+            Delete…
+          </button>
+        ) : null}
+      </div>
+      {deleting ? (
+        <DeleteConfirm
+          name={name}
+          onCancel={() => {
+            setDeleting(false);
+            deleteRef.current?.focus();
+          }}
+          onConfirm={choose(() => props.onDelete(currentId))}
         />
       ) : null}
       <p class="hint">
         {storageAvailable
-          ? "Saved in this browser as you work."
-          : "This browser blocks saving: use Save to file to keep your work."}
+          ? "A saved file holds the whole insert: save it, send it, or open it elsewhere."
+          : "This browser blocks saving: use Save file so nothing is lost."}
       </p>
-      <div class="menu-actions">
-        <button type="button" onClick={props.onNew}>
-          New project
-        </button>
-        <button type="button" onClick={() => fileRef.current?.click()}>
-          Open from file…
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          class="visually-hidden"
-          tabIndex={-1}
-          aria-label="Open a project file"
-          onChange={(e) => {
-            void readFile(e.currentTarget);
-          }}
-        />
-        <button type="button" onClick={props.onExportJson}>
-          Save to file
-        </button>
-        <button type="button" onClick={copyCurrentLink}>
-          Copy link
-        </button>
-      </div>
-      <p class="hint">The link holds the whole project, so you can send it to someone.</p>
-      {storageAvailable ? (
-        <>
-          <button type="button" class="menu-delete" onClick={() => props.onDelete(currentId)}>
-            Delete project
-          </button>
-          <p class="hint">{`Deletes “${name === "" ? "(unnamed)" : name}” from this browser.`}</p>
-        </>
-      ) : null}
-      {copy?.id === currentId ? (
-        <CopyStatus result={copy.result} onExportJson={props.onExportJson} />
-      ) : null}
-      {problem?.id === currentId ? (
-        <p class="link-status link-warning" role="alert">
-          {problem.message}
-        </p>
-      ) : null}
     </div>
   );
 }

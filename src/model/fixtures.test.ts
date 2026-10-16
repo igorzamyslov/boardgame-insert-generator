@@ -4,7 +4,8 @@ import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import smallTiles from "../../test/fixtures/small-tiles.json";
 import tilesMinis from "../../test/fixtures/tiles-minis.json";
 import tinyBox from "../../test/fixtures/tiny-box.json";
-import { LINK_TARGET_CHARS, decodeHash, encodeHash } from "../share/link";
+import { decodeHash } from "../share/link";
+import { encodeHash } from "../test-support/link";
 import { growthOf } from "./defaults";
 import { noForeign, parseProject, serializeProject } from "./schema";
 import { validateProject } from "./validate";
@@ -50,10 +51,9 @@ describe.each(Object.entries(FIXTURES))("fixture %s", (_name, raw) => {
     expect(validateProject(project).filter((n) => n.level === "error")).toEqual([]);
   });
 
-  it(`fits in a ${LINK_TARGET_CHARS}-character link and decodes back`, () => {
+  it("decodes back from an old link", () => {
     const { project } = load(raw);
     const hash = encodeHash(project, noForeign());
-    expect(hash.length).toBeLessThanOrEqual(LINK_TARGET_CHARS);
     const decoded = decodeHash(hash);
     // A link does not carry createdWith; decoding stamps the running app's version.
     expect(decoded.ok && { ...decoded.project, createdWith: project.createdWith }).toEqual(project);
@@ -262,10 +262,20 @@ describe("schema history", () => {
   it("reads the engraving switch from the 0.1.14 file, and defaults it on for older files", () => {
     const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.14.json"]);
     expect(notices).toEqual([]);
-    expect(project.settings.engraveNumbers).toBe(false);
+    expect(project.settings.engraveNames).toBe(false);
     const older = load(HISTORY["../../test/fixtures/schema/0.1.13.json"]);
     expect(older.notices).toEqual([]);
-    expect(older.project.settings.engraveNumbers).toBe(true);
+    expect(older.project.settings.engraveNames).toBe(true);
+  });
+
+  it("reads the engraving switch from the 0.1.16 file under its new name", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.16.json"]);
+    expect(notices).toEqual([]);
+    expect(project.settings.engraveNames).toBe(false);
+    // the 0.1.15 file calls it engraveNumbers
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.15.json"]);
+    expect(older.notices).toEqual([]);
+    expect(older.project.settings.engraveNames).toBe(false);
   });
 
   it("reads the one-wall switch from the 0.1.15 file, and defaults it off for older files", () => {

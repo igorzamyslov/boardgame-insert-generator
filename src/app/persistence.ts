@@ -4,7 +4,7 @@ import { newProject as makeNewProject } from "../model/defaults";
 import { newId } from "../model/ids";
 import { SCHEMA_NOTICE_CODES, noForeign, serializeProject } from "../model/schema";
 import type { ForeignData, Notice, ParseResult, Project } from "../model/types";
-import { StoreWriteError, decodeHash, encodeHash, importJsonText } from "../share";
+import { StoreWriteError, decodeHash, importJsonText } from "../share";
 import type { ProjectStore } from "../share";
 import { errorText } from "../util/errors";
 import { dismissNotice, pushNotice } from "./state";
@@ -22,8 +22,16 @@ export type ConflictChoice = "keepMine" | "loadTheirs";
 
 export interface PersistenceDeps {
   projectStore: ProjectStore;
-  replaceHash: (hash: string) => void;
+  /** Removes the `#…` from the address bar once an old link has been read. */
+  clearHash: () => void;
+  /**
+   * Hands over the question "should leaving the page warn?" (asked when the page is closing), so
+   * the window's beforeunload hook lives outside. Default: never warns.
+   */
+  guardLeaving?: (shouldWarn: () => boolean) => void;
   confirm: (message: string) => boolean;
+  /** Makes a new, empty project (default: the built-in defaults). */
+  createProject?: () => Project;
 }
 
 export interface PersistenceHooks {
@@ -36,11 +44,16 @@ export interface Persistence {
   scheduleSave(): void;
   /** Saves now; true when nothing is left unsaved here (saved, unchanged, or no storage to save to). */
   flush(): boolean;
+  /** Opens what is stored, or an old `#1.` link (read-only; the address bar is cleared after). */
   start(hash: string): void;
-  openFromHash(hash: string): boolean;
+  /** The open project went into a file, so leaving it loses nothing. */
+  markSavedToFile(): void;
+  /** Nothing can be stored here (no storage, or the last write failed) and the open project has changes no file holds. */
+  hasUnsavedWork(): boolean;
   openParsed(result: ParseResult, source: OpenSource): boolean;
   openProject(id: string): void;
   newProject(): void;
+  /** Removes a stored project (the screen asks first); opens the next one when it was the open one. */
   deleteProject(id: string): void;
   importJson(text: string): boolean;
   onExternalChange(): void;
@@ -58,27 +71,38 @@ export function createPersistence(
   hooks: PersistenceHooks,
 ): Persistence {
   const store = deps.projectStore;
+  const createProject = deps.createProject ?? makeNewProject;
   let timer: ReturnType<typeof setTimeout> | undefined;
   // What this tab last saw in storage for the current project (serialized), or null.
   let lastSynced: string | null = null;
-  let written = "";
   let active = false;
+  // The project's own content (not the plan the optimizer makes) when it was opened or last saved to a file.
+  let fileKey = "";
+
+  // The store never changes under us: whether projects can be kept is known up front.
+  state.storageAvailable.value = store.available;
 
   function clearTimer(): void {
     if (timer !== undefined) {
       clearTimeout(timer);
       timer = undefined;
     }
+    state.savePending.value = false;
   }
 
   function refreshList(): void {
     state.projects.value = store.available ? store.list() : [];
   }
 
-  function writeHash(): void {
-    const hash = encodeHash(state.project.value, state.foreign.value);
-    written = hash;
-    deps.replaceHash(hash);
+  /** What the user made: the project without the layout, which the optimizer fills in. */
+  function contentKey(): string {
+    return serializeProject({ ...state.project.value, layout: undefined }, state.foreign.value);
+  }
+
+  deps.guardLeaving?.(() => hasUnsavedWork());
+
+  function hasUnsavedWork(): boolean {
+    return active && (!store.available || state.saveFailed.value) && contentKey() !== fileKey;
   }
 
   /** The stored project as it loads, serialized; null when absent, "" when unreadable. */
@@ -105,7 +129,7 @@ export function createPersistence(
       level: "warning",
       code: CONFLICT_CODE,
       message:
-        "This project was changed in another tab. Autosave is paused here until you choose which version to keep.",
+        "This project was changed in another tab. Autosave is paused here until you choose which version to use.",
     });
   }
 
@@ -114,7 +138,6 @@ export function createPersistence(
     if (!active) {
       return true;
     }
-    writeHash();
     if (!store.available) {
       return true;
     }
@@ -128,6 +151,8 @@ export function createPersistence(
     const p = state.project.value;
     const current = serializeProject(p, state.foreign.value);
     if (current === lastSynced) {
+      // what is stored is what is open (a refused write leaves them different)
+      state.saveFailed.value = false;
       return true;
     }
     if (changedElsewhere(p.id)) {
@@ -137,6 +162,7 @@ export function createPersistence(
     try {
       store.save(p, state.foreign.value);
     } catch (e) {
+      state.saveFailed.value = true;
       const reason =
         e instanceof StoreWriteError
           ? "the browser refused to store it (storage may be full)"
@@ -144,10 +170,11 @@ export function createPersistence(
       pushNotice(state, {
         level: "warning",
         code: SAVE_FAILED_CODE,
-        message: `Autosave failed: ${reason}. Your work is still open here; use Save to file or Copy link to keep it.`,
+        message: `Autosave failed: ${reason}. Your work is still open here; use Save file so nothing is lost.`,
       });
       return false;
     }
+    state.saveFailed.value = false;
     dismissNotice(state, SAVE_FAILED_CODE);
     lastSynced = storedSerialized(p.id) || current;
     refreshList();
@@ -175,7 +202,7 @@ export function createPersistence(
         notice: {
           level: "warning",
           code: CONFLICT_CODE,
-          message: `“${p.name}” was changed in another tab and this tab's version couldn't be kept (the browser refused to store it).`,
+          message: `“${p.name}” was changed in another tab and this tab's version couldn't be saved (the browser refused to store it).`,
         },
       };
     }
@@ -185,7 +212,7 @@ export function createPersistence(
       notice: {
         level: "info",
         code: CONFLICT_CODE,
-        message: `“${p.name}” was changed in another tab; this tab's version was kept as “${copy.name}”.`,
+        message: `“${p.name}” was changed in another tab; this tab's version was saved as “${copy.name}”.`,
       },
     };
   }
@@ -217,10 +244,9 @@ export function createPersistence(
       if (
         copy.failed &&
         !deps.confirm(
-          `“${leaving.name}” was changed in another tab and this tab's version can't be kept. Open the other project anyway?`,
+          `“${leaving.name}” was changed in another tab and this tab's version can't be saved. Open the other project anyway?`,
         )
       ) {
-        writeHash();
         return false;
       }
       extra = copy.notice ? [copy.notice] : [];
@@ -239,11 +265,16 @@ export function createPersistence(
     batch(() => {
       state.project.value = project;
       state.foreign.value = foreign;
-      state.undoSlot.value = null;
+      state.history.clear();
       state.lastResult.value = null;
+      state.lockConflicts.value = [];
       state.selection.value = null;
+      state.swapFrom.value = null;
+      state.viewLevel.value = 0;
       state.run.value = { status: "idle" };
       state.conflict.value = false;
+      // a project newly opened starts clean: its own first write says whether saving works
+      state.saveFailed.value = false;
       state.needsConfirm.value =
         foreign.components.length > 0 ||
         notices.some((n) => n.code === SCHEMA_NOTICE_CODES.newerMinor);
@@ -251,6 +282,7 @@ export function createPersistence(
       state.appNotices.value = [...kept, ...notices, ...extra];
     });
     active = true;
+    fileKey = contentKey();
     lastSynced = storedSerialized(project.id) || null;
     flush();
     hooks.onOpened(opts);
@@ -286,7 +318,7 @@ export function createPersistence(
     if (loaded && loaded.ok) {
       setCurrent(loaded.project, loaded.foreign, loaded.notices);
     } else {
-      setCurrent(makeNewProject(), noForeign(), []);
+      setCurrent(createProject(), noForeign(), []);
     }
   }
 
@@ -295,7 +327,10 @@ export function createPersistence(
       if (!active) {
         return;
       }
-      clearTimer();
+      batch(() => {
+        clearTimer();
+        state.savePending.value = true;
+      });
       timer = setTimeout(flush, SAVE_DEBOUNCE_MS);
     },
     flush,
@@ -305,11 +340,15 @@ export function createPersistence(
           level: "info",
           code: STORAGE_UNAVAILABLE_CODE,
           message:
-            "Local storage is unavailable, so autosave and the project list are off. Use Copy link or Save to file to keep your work.",
+            "Local storage is unavailable, so autosave and the project list are off. Save a file so your work is not lost.",
         });
       }
       refreshList();
       const parsed = isEmptyHash(hash) ? null : decodeHash(hash);
+      if (parsed) {
+        // The link is read once; it is not a live channel, and the address bar stops carrying it.
+        deps.clearHash();
+      }
       if (parsed && parsed.ok) {
         openParsed(parsed, "link");
         return;
@@ -319,12 +358,10 @@ export function createPersistence(
         openParsed(parsed, "link");
       }
     },
-    openFromHash(hash) {
-      if (isEmptyHash(hash) || hash === written) {
-        return false;
-      }
-      return openParsed(decodeHash(hash), "link");
+    markSavedToFile() {
+      fileKey = contentKey();
     },
+    hasUnsavedWork,
     openParsed,
     openProject(id) {
       if (id === state.project.value.id) {
@@ -351,13 +388,9 @@ export function createPersistence(
       setCurrent(r.project, r.foreign, r.notices);
     },
     newProject() {
-      setCurrent(makeNewProject(), noForeign(), []);
+      setCurrent(createProject(), noForeign(), []);
     },
     deleteProject(id) {
-      const name = state.projects.value.find((e) => e.id === id)?.name ?? "this project";
-      if (!deps.confirm(`Delete “${name}” from this browser? This can't be undone.`)) {
-        return;
-      }
       const wasCurrent = id === state.project.value.id;
       if (wasCurrent) {
         clearTimer();
@@ -428,7 +461,7 @@ export function createPersistence(
         code: OPEN_FAILED_CODE,
         message: r
           ? `Couldn't load the other tab's version: ${r.error} This tab's version is unchanged.`
-          : "The other tab's version is no longer stored. This tab's version is unchanged; choose Keep mine to save it again.",
+          : "The other tab's version is no longer stored. This tab's version is unchanged; choose “Use this tab's version” to save it again.",
       });
     },
     dispose() {

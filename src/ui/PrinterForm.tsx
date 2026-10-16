@@ -5,7 +5,6 @@ import type { Printer } from "../model/types";
 import { SelectField } from "./fields";
 import type { SelectOption } from "./fields";
 import { LAYER_HEIGHT, LENGTH, OFFSET } from "./limits";
-import { Advanced } from "./Advanced";
 import { NumberField } from "./NumberField";
 
 export const CUSTOM_BED = "custom";
@@ -19,7 +18,6 @@ export function bedPresetOf(p: Printer): string {
 
 export interface PrinterFormProps {
   printer: Printer;
-  advanced: boolean;
   onChange: (patch: Partial<Printer>) => void;
 }
 
@@ -32,7 +30,7 @@ function bedKey(p: Pick<Printer, "bedX" | "bedY" | "bedZ">): string {
   return `${p.bedX}x${p.bedY}x${p.bedZ}`;
 }
 
-export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
+export function PrinterForm({ printer, onChange }: PrinterFormProps) {
   const matched = bedPresetOf(printer);
   const [customChosen, setCustomChosen] = useState(matched === CUSTOM_BED);
   const key = bedKey(printer);
@@ -61,7 +59,7 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
         options={OPTIONS}
         hint={
           examples !== undefined
-            ? `Fits ${examples}. Not on the list? Choose “Custom size”. Not sure? Keep this and ask whoever will print it.`
+            ? `Fits ${examples}. Not on the list? Choose “Custom size”. Not sure? Leave this as it is and ask whoever will print it.`
             : "Measure the flat area the printer can print on, and its maximum height."
         }
         onChange={(id) => {
@@ -81,7 +79,6 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             label="Bed X"
             unit="mm"
             value={printer.bedX}
-            path="/printer/bedX"
             {...LENGTH}
             onCommit={(v) => changeBed({ bedX: v })}
           />
@@ -90,7 +87,6 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             label="Bed Y"
             unit="mm"
             value={printer.bedY}
-            path="/printer/bedY"
             {...LENGTH}
             onCommit={(v) => changeBed({ bedY: v })}
           />
@@ -99,36 +95,29 @@ export function PrinterForm({ printer, advanced, onChange }: PrinterFormProps) {
             label="Bed Z"
             unit="mm"
             value={printer.bedZ}
-            path="/printer/bedZ"
             {...LENGTH}
             onCommit={(v) => changeBed({ bedZ: v })}
           />
         </div>
       ) : null}
-      {advanced ? (
-        <Advanced>
-          <NumberField
-            id="printer-bedMargin"
-            label="Bed margin"
-            unit="mm"
-            value={printer.bedMargin}
-            path="/printer/bedMargin"
-            {...OFFSET}
-            hint="Kept free on every side for the purge line or skirt."
-            onCommit={(v) => onChange({ bedMargin: v })}
-          />
-          <NumberField
-            id="printer-layerHeight"
-            label="Layer height"
-            unit="mm"
-            value={printer.layerHeight}
-            path="/printer/layerHeight"
-            {...LAYER_HEIGHT}
-            hint="Tray heights are rounded to multiples of this."
-            onCommit={(v) => onChange({ layerHeight: v })}
-          />
-        </Advanced>
-      ) : null}
+      <NumberField
+        id="printer-bedMargin"
+        label="Bed margin"
+        unit="mm"
+        value={printer.bedMargin}
+        {...OFFSET}
+        hint="Kept free on every side for the purge line or skirt."
+        onCommit={(v) => onChange({ bedMargin: v })}
+      />
+      <NumberField
+        id="printer-layerHeight"
+        label="Layer height"
+        unit="mm"
+        value={printer.layerHeight}
+        {...LAYER_HEIGHT}
+        hint="Tray heights are rounded to multiples of this."
+        onCommit={(v) => onChange({ layerHeight: v })}
+      />
     </div>
   );
 }

@@ -1,54 +1,87 @@
 // src/app/state.ts
 import { computed, signal } from "@preact/signals";
 import type { ReadonlySignal, Signal } from "@preact/signals";
-import { GEOMETRY_VERSION, isOlderGeometryLine } from "../geometry/version";
+import { isOlderGeometryLine } from "../geometry/version";
 import { NOTICE_CODES, summarize } from "../layout";
-import type { LayoutResult, LayoutSummary } from "../layout/types";
+import type { LayoutResult, LayoutSummary, LockConflict } from "../layout/types";
 import { inputsHash } from "../model/hash";
 import { noForeign } from "../model/schema";
-import type { ForeignData, Lock, Notice, Project, StoredLayout } from "../model/types";
+import type { ForeignData, Notice, Project } from "../model/types";
 import { validateProject } from "../model/validate";
 import type { ProjectListEntry } from "../share";
 import { size } from "../sizing";
 import { errorText } from "../util/errors";
+import { createHistory } from "./history";
+import type { History } from "./history";
 
-export type Mode = "simple" | "advanced";
 export type RunKind = "edit" | "improve";
 export type RunState =
   | { status: "idle" }
-  | { status: "running"; done: number; total: number }
+  /** `kind` is why it runs: an edit's new plan, or "Keep searching" ("improve"); absent reads as an edit. */
+  | { status: "running"; done: number; total: number; kind?: RunKind }
   | { status: "done" }
   | { status: "error"; message: string };
 
-/**
- * What undo restores: the layout before the last accepted run and, when that run pruned
- * locks it had to drop, the locks as they were, so the restored layout matches its inputs.
- */
-export interface UndoSlot {
-  layout: StoredLayout;
-  locks?: Lock[];
-}
+/** Where the autosave of the open project stands (persistence writes the inputs of this). */
+export type SaveState = "saved" | "saving" | "paused" | "failed" | "unavailable";
 
 export const STALE_CODE = "layout.stale";
 export const CAPPED_CODE = NOTICE_CODES.capped;
 export const GEOMETRY_MAJOR_CODE = "geometry.olderMajor";
+/** The banner copy of the two plan notices (the UI shows these words). */
+/** What a run says while it works: a new plan for an edit, a search for "Keep searching". */
+export const MAKING_PLAN_MESSAGE = "Making a new plan…";
+export const SEARCHING_MESSAGE = "Searching…";
+export const STALE_MESSAGE = "This plan is from before your last changes.";
+export const GEOMETRY_OLD_MESSAGE =
+  "Made with an older version of the app. Trays printed from it won't stack with trays you print now.";
+
+/** Why Download is off while an older-geometry plan is kept: Reprint everything is the way out. */
+export const GEOMETRY_REPRINT_REASON = "Reprint everything to download";
 
 export interface State {
   project: Signal<Project>;
   foreign: Signal<ForeignData>;
   projects: Signal<ProjectListEntry[]>;
-  mode: Signal<Mode>;
   run: Signal<RunState>;
   lastResult: Signal<LayoutResult | null>;
   /** The inputs hash `lastResult` was computed for; its notices show only while it is current. */
   lastResultHash: Signal<string | null>;
-  undoSlot: Signal<UndoSlot | null>;
+  /**
+   * The pins the last run could not keep, while no run has accepted a plan since. The run's plan
+   * was not accepted (the previous one stays); `store.unpin` removes a pin and re-runs.
+   */
+  lockConflicts: Signal<LockConflict[]>;
+  /** Undo and redo steps of the open project (whole projects). */
+  history: History;
   selection: Signal<string | null>;
+  /** Index of the layer the plan shows (0 = the bottom layer); the plan clamps it to the layers there are. */
+  viewLevel: Signal<number>;
+  /** The tray a "Swap with…" is under way from, or null; reset on Escape, after a swap, on clearing the selection and on a new project. */
+  swapFrom: Signal<string | null>;
   appNotices: Signal<Notice[]>;
   /** Newer-minor file: automatic runs are skipped, a user run asks first (spec §9). */
   needsConfirm: Signal<boolean>;
   /** Another tab saved this project; autosave is paused (persistence). */
   conflict: Signal<boolean>;
+  /** An edit's run is waiting out its debounce (the runner sets it). */
+  runScheduled: Signal<boolean>;
+  /**
+   * True from the moment an edit schedules a run until that run settles (accepted, discarded,
+   * cancelled or failed), so it also covers the run in flight; false when idle with nothing scheduled.
+   */
+  runPending: ReadonlySignal<boolean>;
+  /** The browser can keep projects (persistence sets it once, from the store). */
+  storageAvailable: Signal<boolean>;
+  /** A save is waiting out its debounce (persistence sets it). */
+  savePending: Signal<boolean>;
+  /** The last write was refused, and none has succeeded since (persistence sets it). */
+  saveFailed: Signal<boolean>;
+  /**
+   * "unavailable" without storage; "paused" while the other-tab conflict is open; "failed" after a
+   * write error until the next success; "saving" while a save is scheduled; otherwise "saved".
+   */
+  saveState: ReadonlySignal<SaveState>;
   validation: ReadonlySignal<Notice[]>;
   currentHash: ReadonlySignal<string>;
   stale: ReadonlySignal<boolean>;
@@ -59,6 +92,8 @@ export interface State {
   layoutNotices: ReadonlySignal<Notice[]>;
   /** The "short by" amounts of an infeasible run, while its inputs are the current ones. */
   shortfall: ReadonlySignal<{ x: number; y: number; z: number } | null>;
+  /** The closest attempt of that run (its trays and shortfall), on the same terms. */
+  noFitAttempt: ReadonlySignal<LayoutResult["bestAttempt"]>;
 }
 
 function sizingNoticesOf(p: Project): Notice[] {
@@ -69,7 +104,7 @@ function sizingNoticesOf(p: Project): Notice[] {
       {
         level: "error",
         code: "sizing.failed",
-        message: `Couldn't size the components: ${errorText(e)}`,
+        message: `Couldn't size what's inside: ${errorText(e)}`,
       },
     ];
   }
@@ -87,7 +122,11 @@ function dedupe(list: Notice[]): Notice[] {
   });
 }
 
-export function createState(initial: Project, foreign: ForeignData = noForeign()): State {
+export function createState(
+  initial: Project,
+  foreign: ForeignData = noForeign(),
+  now?: () => number,
+): State {
   const project = signal(initial);
   const lastResult = signal<LayoutResult | null>(null);
   const lastResultHash = signal<string | null>(null);
@@ -100,6 +139,25 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
   const geometryOld = computed(() => {
     const layout = project.value.layout;
     return layout !== undefined && isOlderGeometryLine(layout.geometryVersion);
+  });
+  const runScheduled = signal(false);
+  const run = signal<RunState>({ status: "idle" });
+  const runPending = computed(() => runScheduled.value || run.value.status === "running");
+  const conflict = signal(false);
+  const storageAvailable = signal(true);
+  const savePending = signal(false);
+  const saveFailed = signal(false);
+  const saveState = computed<SaveState>(() => {
+    if (!storageAvailable.value) {
+      return "unavailable";
+    }
+    if (conflict.value) {
+      return "paused";
+    }
+    if (saveFailed.value) {
+      return "failed";
+    }
+    return savePending.value ? "saving" : "saved";
   });
   const sizingNotices = computed(() => sizingNoticesOf(project.value));
   const summary = computed<LayoutSummary | null>(() => {
@@ -135,7 +193,8 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     const r = lastResult.value;
     return r && r.layout === null && lastResultHash.value === currentHash.value ? r : null;
   });
-  const shortfall = computed(() => infeasible.value?.bestAttempt?.shortfall ?? null);
+  const noFitAttempt = computed(() => infeasible.value?.bestAttempt ?? null);
+  const shortfall = computed(() => noFitAttempt.value?.shortfall ?? null);
   const layoutNotices = computed<Notice[]>(() => {
     const layout = project.value.layout;
     const r = lastResult.value;
@@ -147,15 +206,14 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
       out.push({
         level: "info",
         code: CAPPED_CODE,
-        message:
-          "The optimizer stopped at its safety limit; this layout can't be reproduced from its seed. Try “Improve more”.",
+        message: "The search stopped at its limit. Try “Keep searching”.",
       });
     }
     if (stale.value) {
       out.push({
         level: "info",
         code: STALE_CODE,
-        message: "Inputs changed since this plan was made — update the plan?",
+        message: STALE_MESSAGE,
       });
     }
     // An older compatibility line: an older MAJOR, or pre-1.0 an older 0.MINOR (spec §9).
@@ -163,7 +221,7 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
       out.push({
         level: "warning",
         code: GEOMETRY_MAJOR_CODE,
-        message: `This plan is out of date: it was made with tray geometry ${layout.geometryVersion}, and the app now uses ${GEOMETRY_VERSION}. Press “Update plan” to rebuild the trays with the current geometry. Trays exported from the old plan won't mate with the new ones, so reprint the whole insert.`,
+        message: GEOMETRY_OLD_MESSAGE,
       });
     }
     out.push(...sizingNotices.value);
@@ -174,15 +232,23 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     project,
     foreign: signal(foreign),
     projects: signal<ProjectListEntry[]>([]),
-    mode: signal<Mode>("simple"),
-    run: signal<RunState>({ status: "idle" }),
+    run,
     lastResult,
     lastResultHash,
-    undoSlot: signal<UndoSlot | null>(null),
+    lockConflicts: signal<LockConflict[]>([]),
+    history: createHistory(undefined, now),
     selection: signal<string | null>(null),
+    viewLevel: signal(0),
+    swapFrom: signal<string | null>(null),
     appNotices: signal<Notice[]>([]),
     needsConfirm: signal(false),
-    conflict: signal(false),
+    conflict,
+    runScheduled,
+    runPending,
+    storageAvailable,
+    savePending,
+    saveFailed,
+    saveState,
     validation,
     currentHash,
     stale,
@@ -191,6 +257,7 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     summary,
     layoutNotices,
     shortfall,
+    noFitAttempt,
   };
 }
 

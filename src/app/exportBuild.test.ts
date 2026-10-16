@@ -16,6 +16,8 @@ import {
 import type { BuiltMesh } from "./meshes";
 import { cubeMesh, makeTray } from "./test-helpers";
 import type { Mesh } from "../geometry/types";
+import { trayNames } from "../instructions/naming";
+import { numberParts } from "../instructions/numbering";
 
 const ok = (): Promise<BuiltMesh> =>
   Promise.resolve({ mesh: cubeMesh([20, 30, 10]), volumeMm3: 6000 });
@@ -25,7 +27,7 @@ function trays(n: number) {
 }
 
 describe("planExport", () => {
-  it("numbers parts and sets aside unsupported ones with a reason", () => {
+  it("sets aside unsupported parts with a reason", () => {
     const magnet = makeTray({
       key: "m:p0:0",
       stack: 9,
@@ -43,10 +45,10 @@ describe("planExport", () => {
       ],
     });
     const plan = planExport([...trays(2), magnet]);
-    expect(plan.parts.map((p) => p.number)).toEqual([1, 2]);
+    expect(plan.parts.map((p) => p.spec.key)).toEqual(["t0:p0:0", "t1:p0:0"]);
     expect(plan.skipped).toHaveLength(1);
     expect(plan.skipped[0]?.reason).toMatch(/magnet/);
-    expect(plan.skipped[0]?.part.number).toBe(3);
+    expect(plan.skipped[0]?.part.spec.key).toBe("m:p0:0");
   });
 });
 
@@ -80,32 +82,62 @@ describe("export builders", () => {
     expect(events.filter((e) => e === "yield")).toHaveLength(50);
     const files = Object.keys(unzipSync(out.data));
     expect(files).toHaveLength(25);
-    expect(files.every((f) => /^\d\d-[A-Za-z0-9._-]+\.3mf$/.test(f))).toBe(true);
+    // called by their names, which are all different, with no number in front
+    expect(files.every((f) => /^[A-Za-z][A-Za-z0-9._-]*\.3mf$/.test(f))).toBe(true);
+    expect(new Set(files).size).toBe(25);
     expect(out.included).toBe(25);
   });
 
-  it("asks for each part with the number the plan gives it, plates excepted, only when engraving", async () => {
+  it("asks for each part with its short name, plates excepted, only when engraving", async () => {
     const list = [
       makeTray({ key: "a:p0:0", stack: 0 }),
       makeTray({ key: "a:p0:0:spacer", part: "spacer", path: "", solid: true }),
       makeTray({ key: "b:p0:0", stack: 1 }),
     ];
-    const asked = async (engrave: boolean) => {
+    const names = trayNames(numberParts(list), []);
+    const asked = async (engrave: boolean, withNames = true) => {
       const getMesh = vi.fn<(spec: TraySpec) => Promise<BuiltMesh>>(() => ok());
       await buildStlZip(planExport(list).parts, {
         getMesh,
         engrave,
+        ...(withNames ? { names } : {}),
         onProgress: vi.fn(),
         yieldToUi: () => Promise.resolve(),
       });
-      return getMesh.mock.calls.map(([spec]) => [spec.key, spec.partNumber]);
+      return getMesh.mock.calls.map(([spec]) => [spec.key, spec.partName]);
     };
     expect(await asked(true)).toEqual([
-      ["a:p0:0", 1],
+      ["a:p0:0", names.get("a:p0:0")?.short],
       ["a:p0:0:spacer", undefined],
-      ["b:p0:0", 3],
+      ["b:p0:0", names.get("b:p0:0")?.short],
     ]);
+    expect(names.get("a:p0:0")?.short).not.toBe(names.get("b:p0:0")?.short);
     expect((await asked(false)).every(([, n]) => n === undefined)).toBe(true);
+    // nothing to engrave without names
+    expect((await asked(true, false)).every(([, n]) => n === undefined)).toBe(true);
+  });
+
+  it("calls the files and objects by the full names, and keeps two like names apart", async () => {
+    const list = [
+      makeTray({ key: "a:p0:0", stack: 0 }),
+      makeTray({ key: "b:p0:0", stack: 1 }),
+      makeTray({ key: "c:p0:0", stack: 2 }),
+    ];
+    const parts = planExport(list).parts;
+    const same = new Map(
+      parts.map((p, i) => [p.spec.key, { full: i === 2 ? "dice!" : "Dice?", short: "Dice" }]),
+    );
+    const out = await buildStlZip(parts, {
+      getMesh: () => ok(),
+      names: same,
+      onProgress: vi.fn(),
+      yieldToUi: () => Promise.resolve(),
+    });
+    // "Dice?", "Dice?" and "dice!" all come out as Dice.stl once cleaned
+    const files = Object.keys(unzipSync(out.data));
+    expect(files).toContain("Dice.stl");
+    expect(new Set(files.map((f) => f.toLowerCase())).size).toBe(3);
+    expect(objectName(parts[0] as (typeof parts)[number], same)).toBe("Dice?");
   });
 
   it("rethrows an abort instead of reporting it as a failed part", async () => {
@@ -141,8 +173,8 @@ describe("export builders", () => {
     });
     expect(Object.keys(unzipSync(out.data))).toHaveLength(2);
     expect(Object.keys(unzipSync(out.data)).every((f) => f.endsWith(".stl"))).toBe(true);
-    expect(out.failed.map((f) => [f.part.number, f.reason])).toEqual([
-      [2, "Tray t1:p0:0: compartments overlap"],
+    expect(out.failed.map((f) => [f.part.spec.key, f.reason])).toEqual([
+      ["t1:p0:0", "Tray t1:p0:0: compartments overlap"],
     ]);
   });
 
@@ -174,7 +206,10 @@ describe("export builders", () => {
     if (!part) {
       throw new Error("no part");
     }
-    expect(objectName(part)).toBe("01 Deck A ×40");
+    expect(objectName(part)).toBe("Deck A ×40");
+    expect(objectName(part, new Map([[part.spec.key, { full: "Deck A", short: "Deck" }]]))).toBe(
+      "Deck A",
+    );
     expect(meshFootprint(cubeMesh([20, 30, 10]))).toEqual({ w: 20, d: 30 });
   });
 });

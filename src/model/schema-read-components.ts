@@ -283,13 +283,13 @@ export function readComponents(
       // Not in project.components, so the notice points into the file.
       const which =
         typeof raw.name === "string"
-          ? `${quote(raw.name)} (component ${index + 1} in the file)`
+          ? `${quote(raw.name)} (item ${index + 1} in the file)`
           : `${index + 1} in the file`;
       ctx.notices.push({
         level: "warning",
         code: SCHEMA_NOTICE_CODES.foreignComponent,
         path,
-        message: `Component ${which} uses features this app version doesn't know. It is kept but not laid out.`,
+        message: `Item ${which} uses features this app version doesn't know. It is saved back unchanged, but not laid out.`,
       });
     } else if (unreadable) {
       absorbErrors(ctx, sub);

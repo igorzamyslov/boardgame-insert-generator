@@ -1,0 +1,51 @@
+import { describe, expect, it } from "vitest";
+import { layoutTileText, sizeText } from "./tileText";
+
+const rect = (w: number, h: number) => ({ x: 10, y: 20, w, h });
+
+describe("layoutTileText", () => {
+  it("centres the name pill on the tile and puts the size under it", () => {
+    const t = layoutTileText(rect(80, 60), "Region deck", sizeText(80, 60));
+    expect(t.name?.text).toBe("Region deck");
+    expect(t.pill).not.toBeNull();
+    const pill = t.pill as NonNullable<typeof t.pill>;
+    expect(pill.x + pill.w / 2).toBeCloseTo(50);
+    expect(pill.w).toBeLessThanOrEqual(80);
+    expect(t.size?.text).toBe("80 × 60");
+    expect((t.size?.y ?? 0) > pill.y + pill.h).toBe(true);
+  });
+
+  it("cuts a name that is too wide with an ellipsis", () => {
+    const t = layoutTileText(rect(40, 60), "A very long component name", "40 × 60");
+    expect(t.name?.text.endsWith("…")).toBe(true);
+    expect((t.pill?.w ?? 99) <= 40).toBe(true);
+  });
+
+  it("drops the size first, then the name, as the tile gets short", () => {
+    const short = layoutTileText(rect(80, 14), "Dice", "80 × 14");
+    expect(short.name?.text).toBe("Dice");
+    expect(short.size).toBeNull();
+    const tiny = layoutTileText(rect(8, 8), "Dice", "8 × 8");
+    expect(tiny.name).toBeNull();
+    expect(tiny.pill).toBeNull();
+  });
+
+  it("cuts a long all-caps name, which is wider than lower case", () => {
+    const t = layoutTileText(rect(60, 60), "MARKET DISTRICT TOKENS", "60 × 60");
+    expect(t.name?.text.endsWith("…")).toBe(true);
+    // what is shown fits the pill at the width of a capital (about 0.7 of the font size)
+    const shownWidth = (t.name?.text.length ?? 0) * t.fontSize * 0.7;
+    expect(shownWidth).toBeLessThanOrEqual((t.pill?.w ?? 0) + t.fontSize);
+  });
+
+  it("never splits an emoji or a letter with its accent when cutting", () => {
+    const t = layoutTileText(rect(48, 60), "😀😀😀😀😀😀😀😀😀😀😀😀", "48 × 60");
+    const text = t.name?.text ?? "";
+    expect(text.endsWith("…")).toBe(true);
+    expect(Array.from(text.slice(0, -1)).every((c) => c === "😀")).toBe(true);
+    // "é" written as e + combining acute stays whole: every accent follows its letter
+    const accented = layoutTileText(rect(48, 60), "Caf\u0065\u0301 ".repeat(5), "x");
+    const kept = (accented.name?.text ?? "").replace("…", "");
+    expect(kept).not.toMatch(/(^|[^e])\u0301/u);
+  });
+});

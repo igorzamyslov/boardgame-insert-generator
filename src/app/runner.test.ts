@@ -1,10 +1,11 @@
 // src/app/runner.test.ts
+import { effect } from "@preact/signals";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_ITERATIONS, NOTICE_CODES, REPEAT_FACTOR } from "../layout";
 import { inputsHash } from "../model/hash";
 import type { Lock, Notice, Project } from "../model/types";
 import { DEBOUNCE_MS, IMPROVE_FACTOR, canOptimize, createRunner } from "./runner";
-import { STALE_CODE, createState } from "./state";
+import { createState } from "./state";
 import type { State } from "./state";
 import type { LayoutClient } from "./clients";
 import { fixtureProject, flush, makeLayout, makeResult, stubLayoutClient } from "./test-helpers";
@@ -48,9 +49,85 @@ describe("runner", () => {
     expect(stub.calls[0]?.input.inputsHash).toBe(inputsHash(state.project.value));
   });
 
+  it("runPending is true during the debounce", async () => {
+    const { state, stub, runner } = setup();
+    expect(state.runPending.value).toBe(false);
+    bumpHeight(state);
+    runner.schedule();
+    expect(state.runPending.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS - 1);
+    expect(state.runPending.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    await flush();
+    // the debounce is over and the run is in flight: still pending, never a gap in between
+    expect(stub.calls).toHaveLength(1);
+    expect(state.runPending.value).toBe(true);
+    const call = stub.calls[0];
+    call?.resolve(makeResult(makeLayout(call.input.inputsHash)));
+    await flush();
+    expect(state.run.value).toEqual({ status: "done" });
+    expect(state.runPending.value).toBe(false);
+  });
+
+  it("runPending never dips to false between an edit's debounce and its run", async () => {
+    const { state, runner } = setup();
+    const seen: boolean[] = [];
+    const stop = effect(() => {
+      seen.push(state.runPending.value);
+    });
+    bumpHeight(state);
+    runner.schedule();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    stop();
+    expect(seen).toEqual([false, true]);
+  });
+
+  it("runPending is false once a run settles any other way", async () => {
+    const { state, stub, runner } = setup();
+    // cancelled while waiting
+    bumpHeight(state);
+    runner.schedule();
+    runner.cancel();
+    expect(state.runPending.value).toBe(false);
+    // errored
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(state.runPending.value).toBe(true);
+    stub.calls[0]?.reject(new Error("worker crashed"));
+    await flush();
+    expect(state.run.value.status).toBe("error");
+    expect(state.runPending.value).toBe(false);
+    // discarded: the inputs changed under it and nothing was scheduled again
+    void runner.runNow("edit", "user");
+    await flush();
+    const stale = stub.calls[1];
+    bumpHeight(state);
+    stale?.resolve(makeResult(makeLayout(stale.input.inputsHash)));
+    await flush();
+    expect(state.run.value).toEqual({ status: "idle" });
+    expect(state.runPending.value).toBe(false);
+  });
+
+  it("runPending is false when the project has nothing to optimize or a run needs confirming", async () => {
+    const empty = setup({ ...fixtureProject(), components: [] });
+    empty.runner.schedule();
+    expect(empty.state.runPending.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    expect(empty.state.runPending.value).toBe(false);
+    const guarded = setup();
+    guarded.state.needsConfirm.value = true;
+    guarded.runner.schedule();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await flush();
+    expect(guarded.stub.calls).toHaveLength(0);
+    expect(guarded.state.runPending.value).toBe(false);
+  });
+
   it("accepts a finished run and keeps the previous layout for undo", async () => {
     const p = fixtureProject();
-    const old = makeLayout("old-hash");
+    const old = makeLayout(inputsHash(p));
     const { state, stub, runner, onAccepted } = setup({ ...p, layout: old });
     void runner.runNow("edit", "user");
     await flush();
@@ -60,12 +137,12 @@ describe("runner", () => {
     }
     expect(call.warmStart).toBe(old);
     call.onProgress(500, 1000, makeResult(null));
-    expect(state.run.value).toEqual({ status: "running", done: 500, total: 1000 });
+    expect(state.run.value).toEqual({ status: "running", done: 500, total: 1000, kind: "edit" });
     const next = makeLayout(call.input.inputsHash);
     call.resolve(makeResult(next));
     await flush();
     expect(state.project.value.layout).toBe(next);
-    expect(state.undoSlot.value).toEqual({ layout: old });
+    expect(state.history.undo()?.layout).toBe(old);
     expect(state.run.value).toEqual({ status: "done" });
     expect(onAccepted).toHaveBeenCalledTimes(1);
   });
@@ -132,36 +209,155 @@ describe("runner", () => {
     expect(stub.calls[0]?.warmStart).toBe(layout);
   });
 
-  it("removes locks a run dropped in the same update, keeps the layout fresh and doesn't re-run", async () => {
+  it("says why it runs: a new plan for an edit, a search for Keep searching", async () => {
     const p = fixtureProject();
+    const { state, stub, runner } = setup({ ...p, layout: makeLayout(inputsHash(p)) });
+    void runner.runNow("improve", "user");
+    await flush();
+    expect(state.run.value).toEqual({
+      status: "running",
+      done: 0,
+      total: IMPROVE_FACTOR * DEFAULT_ITERATIONS,
+      kind: "improve",
+    });
+    stub.calls[0]?.onProgress(10, 400, makeResult(null));
+    expect(state.run.value).toMatchObject({ status: "running", done: 10, kind: "improve" });
+    runner.cancel();
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(state.run.value).toMatchObject({ status: "running", kind: "edit" });
+  });
+
+  describe("pins that conflict", () => {
     const locks: Lock[] = [
       { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
       { kind: "size", trayKey: "b:p0:0", w: 50, d: 40, h: 20 },
     ];
-    const { state, stub, runner, onAccepted } = setup({ ...p, locks });
-    void runner.runNow("edit", "user");
-    await flush();
-    const call = stub.calls[0];
-    if (!call) {
-      throw new Error("no run");
-    }
-    const notice: Notice = {
-      level: "warning",
-      code: NOTICE_CODES.lockDropped,
-      message: "Size lock on b:p0:0 was dropped: its contents no longer fit.",
-      path: "/locks/1",
+    const conflict = {
+      trayKey: "b:p0:0",
+      name: "Deck B ×40",
+      reason: "its contents no longer fit that size",
     };
-    call.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
-    await flush();
-    expect(state.project.value.locks).toEqual([locks[0]]);
-    expect(state.project.value.layout?.inputsHash).toBe(inputsHash(state.project.value));
-    expect(state.stale.value).toBe(false);
-    expect(state.layoutNotices.value).toContainEqual(notice);
-    expect(state.layoutNotices.value.map((n) => n.code)).not.toContain(STALE_CODE);
-    expect(onAccepted).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
-    await flush();
-    expect(stub.calls).toHaveLength(1);
+
+    async function conflicted() {
+      const p = fixtureProject();
+      const old = makeLayout(inputsHash({ ...p, locks }));
+      const s = setup({ ...p, locks, layout: old });
+      void s.runner.runNow("edit", "user");
+      await flush();
+      const call = s.stub.calls[0];
+      if (!call) {
+        throw new Error("no run");
+      }
+      call.resolve(makeResult(makeLayout(call.input.inputsHash), { lockConflicts: [conflict] }));
+      await flush();
+      return { ...s, old, call };
+    }
+
+    it("keeps every pin and the previous plan when pins conflict", async () => {
+      const { state, stub, old, onAccepted } = await conflicted();
+      expect(state.project.value.locks).toEqual(locks);
+      expect(state.project.value.layout).toBe(old);
+      // nothing was accepted: no history step, no save, no new run
+      expect(state.history.canUndo.value).toBe(false);
+      expect(onAccepted).not.toHaveBeenCalled();
+      expect(state.run.value).toEqual({ status: "done" });
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+      await flush();
+      expect(stub.calls).toHaveLength(1);
+    });
+
+    it("reports which pins conflict and why", async () => {
+      const { state } = await conflicted();
+      expect(state.lockConflicts.value).toEqual([conflict]);
+    });
+
+    it("shows what a search that found no plan reports, next to the conflicts", async () => {
+      const p = fixtureProject();
+      const old = makeLayout(inputsHash({ ...p, locks }));
+      const { state, stub, runner } = setup({ ...p, locks, layout: old });
+      void runner.runNow("edit", "user");
+      await flush();
+      const call = stub.calls[0];
+      if (!call) {
+        throw new Error("no run");
+      }
+      const shortfall = { x: 12, y: 0, z: 0 };
+      const doesNotFit: Notice = {
+        level: "error",
+        code: NOTICE_CODES.doesNotFit,
+        message: "Nothing fits.",
+      };
+      call.resolve(
+        makeResult(null, {
+          bestAttempt: { trays: [], shortfall },
+          notices: [doesNotFit],
+          lockConflicts: [conflict],
+        }),
+      );
+      await flush();
+      expect(state.lockConflicts.value).toEqual([conflict]);
+      expect(state.shortfall.value).toEqual(shortfall);
+      expect(state.layoutNotices.value).toContainEqual(doesNotFit);
+      // no project change
+      expect(state.project.value.locks).toEqual(locks);
+      expect(state.project.value.layout).toBe(old);
+      expect(state.history.canUndo.value).toBe(false);
+    });
+
+    it("discards a run that reported pins without searching, and doesn't count it as a failed search", async () => {
+      const p = fixtureProject();
+      const { state, stub, runner } = setup({ ...p, locks });
+      void runner.runNow("edit", "user");
+      await flush();
+      stub.calls[0]?.resolve(makeResult(null, { lockConflicts: [conflict] }));
+      await flush();
+      expect(state.lockConflicts.value).toEqual([conflict]);
+      expect(state.lastResult.value).toBeNull();
+      // a repeat gets the normal budget: nothing was searched
+      void runner.runNow("edit", "user");
+      await flush();
+      expect(stub.calls[1]?.iterations).toBe(DEFAULT_ITERATIONS);
+    });
+
+    it("clears the conflicts when a later run has none, and accepts that plan", async () => {
+      const { state, stub, runner } = await conflicted();
+      state.project.value = {
+        ...state.project.value,
+        locks: [locks[0] as Lock],
+      };
+      void runner.runNow("edit", "user");
+      await flush();
+      const call = stub.calls[1];
+      if (!call) {
+        throw new Error("no second run");
+      }
+      const next = makeLayout(call.input.inputsHash);
+      call.resolve(makeResult(next));
+      await flush();
+      expect(state.lockConflicts.value).toEqual([]);
+      expect(state.project.value.layout).toBe(next);
+    });
+
+    it("never prunes pins on its own, even for lock.dropped notices", async () => {
+      const p = fixtureProject();
+      const { state, stub, runner } = setup({ ...p, locks });
+      void runner.runNow("edit", "user");
+      await flush();
+      const call = stub.calls[0];
+      if (!call) {
+        throw new Error("no run");
+      }
+      const notice: Notice = {
+        level: "warning",
+        code: NOTICE_CODES.lockDropped,
+        message: "dropped",
+        path: "/locks/1",
+      };
+      call.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
+      await flush();
+      expect(state.project.value.locks).toEqual(locks);
+    });
   });
 
   it("does not run without components or with invalid inputs", async () => {
@@ -217,7 +413,7 @@ describe("runner", () => {
     stub.calls[0]?.resolve(makeResult(null));
     await flush();
     expect(state.project.value.layout).toBe(good);
-    expect(state.undoSlot.value).toBeNull();
+    expect(state.history.canUndo.value).toBe(false);
     expect(onAccepted).not.toHaveBeenCalled();
     expect(state.lastResult.value?.layout).toBeNull();
   });
@@ -363,31 +559,5 @@ describe("runner guards", () => {
     expect(load).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
     expect(state.run.value).toEqual({ status: "idle" });
-  });
-
-  it("undo slot keeps the locks a run pruned, so undo can restore both", async () => {
-    const p = fixtureProject();
-    const old = makeLayout("old-hash");
-    const locks: Lock[] = [
-      { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
-      { kind: "size", trayKey: "b:p0:0", w: 50, d: 40, h: 20 },
-    ];
-    const { state, stub, runner } = setup({ ...p, locks, layout: old });
-    void runner.runNow("edit", "user");
-    await flush();
-    const call = stub.calls[0];
-    if (!call) {
-      throw new Error("no run");
-    }
-    const notice: Notice = {
-      level: "warning",
-      code: NOTICE_CODES.lockDropped,
-      message: "dropped",
-      path: "/locks/1",
-    };
-    call.resolve(makeResult(makeLayout(call.input.inputsHash), { notices: [notice] }));
-    await flush();
-    expect(state.project.value.locks).toEqual([locks[0]]);
-    expect(state.undoSlot.value).toEqual({ layout: old, locks });
   });
 });

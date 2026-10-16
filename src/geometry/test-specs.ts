@@ -508,7 +508,7 @@ export const PROFILES: readonly [string, Profile][] = [
     "lip thickness 0.9",
     (s) => ({ ...s, lip: { ...s.lip, enabled: true, thickness: MIN_WALL_MM } }),
   ],
-  ["finger room in the cut walls (simple mode)", (s) => applyFingerRoom(s, true)],
+  ["finger room in the cut walls (Extra finger room switch on)", (s) => applyFingerRoom(s, true)],
   [
     "the widest finger room and floor notch, thinnest walls and largest chamfer",
     (s) => {

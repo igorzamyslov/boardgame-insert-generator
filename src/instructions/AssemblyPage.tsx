@@ -24,18 +24,22 @@ const PNG_WIDTH_PX = 1600;
 export function AssemblyPage(p: AssemblyPageProps) {
   const svgs = useMemo(() => render(p.layout, p.project), [p.layout, p.project]);
   const exploded = useMemo(() => explodedView(p.layout, p.project), [p.layout, p.project]);
-  const steps = useMemo(() => packingSteps(p.layout), [p.layout]);
-  const layers = useMemo(() => layerInfo(p.layout), [p.layout]);
-  const rows = useMemo(
-    () => whatGoesWhere(p.layout, p.project.settings),
-    [p.layout, p.project.settings],
+  const steps = useMemo(
+    () => packingSteps(p.layout, p.project.components),
+    [p.layout, p.project.components],
   );
+  const layers = useMemo(
+    () => layerInfo(p.layout, p.project.components),
+    [p.layout, p.project.components],
+  );
+  const rows = useMemo(() => whatGoesWhere(p.layout, p.project), [p.layout, p.project]);
   const [pngError, setPngError] = useState<string | null>(null);
   // One PNG at a time: the ref stops a double click before the state has re-rendered.
   const making = useRef(false);
   const [busy, setBusy] = useState(false);
   const slug = fileSlug(p.project.name);
   const { box } = p.project;
+  const engraving = p.project.settings.engraveNames;
 
   async function savePng(svg: string, name: string): Promise<void> {
     if (making.current) {
@@ -59,26 +63,33 @@ export function AssemblyPage(p: AssemblyPageProps) {
     <article class="assembly" aria-labelledby="assembly-title">
       <div class="assembly-toolbar no-print">
         <button type="button" onClick={p.onBack}>
-          Back to the editor
+          Back to your insert
         </button>
         <button
           type="button"
-          disabled={p.stale}
-          onClick={() => (p.print ?? (() => window.print()))()}
+          class="primary"
+          aria-disabled={p.stale ? "true" : undefined}
+          onClick={() => {
+            if (!p.stale) {
+              (p.print ?? (() => window.print()))();
+            }
+          }}
         >
-          Print / save as PDF
+          Print or save as PDF
         </button>
       </div>
-      <h1 id="assembly-title" tabIndex={-1}>{`${p.project.name} — assembly`}</h1>
-      <p class="hint">
-        {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Layers are drawn from above with the box front at the bottom; numbers match the exported files.`}
+      <h1 id="assembly-title" tabIndex={-1}>{`${p.project.name} — packing guide`}</h1>
+      <p class="assembly-meta">
+        {`Box ${box.innerWidth} × ${box.innerDepth} × ${box.innerHeight} mm. Layers are drawn from above, with the front of the box at the bottom.`}
       </p>
-      {p.stale ? (
-        <p class="hint" role="status">
-          Inputs changed — update the plan before printing or saving this page. Go back to the
-          editor to do that.
-        </p>
-      ) : null}
+      {/* always mounted, so the reader is told when the plan goes out of date while the guide is open */}
+      <div role="status" class="no-print">
+        {p.stale ? (
+          <p class="assembly-stale">
+            The plan is out of date. Go back to your insert to update it.
+          </p>
+        ) : null}
+      </div>
       {pngError !== null ? (
         <p class="run-error no-print" role="alert">
           {pngError}
@@ -86,8 +97,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
       ) : null}
       {svgs.length === 0 ? (
         <p class="hint" role="note">
-          This layout has no trays yet, so there is nothing to assemble. Go back and add components,
-          then let the layout run.
+          There are no trays yet, so nothing to pack. Go back and add what goes inside.
         </p>
       ) : (
         <>
@@ -102,23 +112,21 @@ export function AssemblyPage(p: AssemblyPageProps) {
           {exploded !== null ? (
             <section class="assembly-exploded" aria-labelledby="exploded-title">
               <h2 id="exploded-title">How it goes together</h2>
-              <p class="hint">
-                Every part pulled apart, bottom first, with the numbers of the list above and the
-                table below. Parts are drawn as plain blocks: the real trays are open on top.
-              </p>
               <img
                 class="assembly-svg"
                 src={svgDataUrl(exploded.svg)}
-                alt={`Exploded view of the parts in assembly order: ${exploded.parts
-                  .map((x) => `${x.number} ${x.label}`)
+                alt={`Exploded view of the trays in assembly order: ${exploded.parts
+                  .map((x) => x.name)
                   .join(", ")}`}
               />
               <button
                 type="button"
                 class="no-print"
-                disabled={busy || p.stale}
+                aria-disabled={busy || p.stale ? "true" : undefined}
                 onClick={() => {
-                  void savePng(exploded.svg, "exploded");
+                  if (!busy && !p.stale) {
+                    void savePng(exploded.svg, "exploded");
+                  }
                 }}
               >
                 Download PNG of the exploded view
@@ -134,7 +142,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
               const alt =
                 trays.length > 0
                   ? `${title}: ${trays.length === 1 ? "tray" : "trays"} ${trays.join(", ")}`
-                  : `${title}: numbered trays seen from above`;
+                  : `${title}: named trays seen from above`;
               return (
                 <section class="assembly-layer" key={i} aria-labelledby={`layer-title-${layer}`}>
                   <h2 id={`layer-title-${layer}`}>{title}</h2>
@@ -142,9 +150,11 @@ export function AssemblyPage(p: AssemblyPageProps) {
                   <button
                     type="button"
                     class="no-print"
-                    disabled={busy || p.stale}
+                    aria-disabled={busy || p.stale ? "true" : undefined}
                     onClick={() => {
-                      void savePng(svg, `layer-${layer}`);
+                      if (!busy && !p.stale) {
+                        void savePng(svg, `layer-${layer}`);
+                      }
                     }}
                   >
                     {`Download PNG of layer ${layer}`}
@@ -155,31 +165,57 @@ export function AssemblyPage(p: AssemblyPageProps) {
           </div>
           <section aria-labelledby="parts-title">
             <h2 id="parts-title">What goes where</h2>
-            <table class="parts-table">
-              <caption class="visually-hidden">Which part goes where</caption>
-              <thead>
-                <tr>
-                  <th scope="col">#</th>
-                  <th scope="col">Part</th>
-                  <th scope="col">Size</th>
-                  <th scope="col">Position</th>
-                  <th scope="col">Layer</th>
-                  <th scope="col">Holds</th>
+            <table class="parts-table" role="table">
+              <caption class="visually-hidden">Which tray goes where</caption>
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th role="columnheader" scope="col">
+                    Name
+                  </th>
+                  {engraving ? (
+                    <th role="columnheader" scope="col">
+                      Engraved as
+                    </th>
+                  ) : null}
+                  <th role="columnheader" scope="col">
+                    Size
+                  </th>
+                  <th role="columnheader" scope="col">
+                    Position
+                  </th>
+                  <th role="columnheader" scope="col">
+                    Layer
+                  </th>
+                  <th role="columnheader" scope="col">
+                    Holds
+                  </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {rows.map((r) => (
-                  <tr key={r.number}>
-                    <th scope="row">{r.number}</th>
-                    <td>{r.label}</td>
-                    <td>{r.size}</td>
-                    <td>{r.position}</td>
-                    <td>{r.layer}</td>
-                    <td>
+                  <tr key={r.key} role="row">
+                    <th role="rowheader" scope="row">
+                      {r.name}
+                    </th>
+                    {engraving ? (
+                      <td role="cell" data-label="Engraved as">
+                        {r.engraved ?? (r.tooSmall ? "Too small for its name" : "—")}
+                      </td>
+                    ) : null}
+                    <td role="cell" data-label="Size">
+                      {r.size}
+                    </td>
+                    <td role="cell" data-label="Position">
+                      {r.position}
+                    </td>
+                    <td role="cell" data-label="Layer">
+                      {layers[r.layer - 1]?.title ?? `Layer ${r.layer}`}
+                    </td>
+                    <td role="cell" data-label="Holds">
                       {r.goesInto !== null
-                        ? `Goes into tray #${r.goesInto}`
+                        ? `Goes into ${r.goesInto}`
                         : r.carries !== null
-                          ? `Carries tray #${r.carries}`
+                          ? `Carries ${r.carries}`
                           : r.contents.length > 0
                             ? r.contents.join(", ")
                             : "—"}

@@ -117,7 +117,7 @@ function expectValid(input: LayoutInput, r: LayoutResult): void {
     if (input.settings.lip.enabled && r.layout.trays.some((t) => t.level > 0)) {
       seen.lippedStacks++;
     }
-    expect(checkHardRules(input, r.layout, r.notices)).toEqual([]);
+    expect(checkHardRules(input, r.layout, r.notices, r.lockConflicts)).toEqual([]);
     expect(r.bestAttempt).toBeNull();
   } else {
     expect(r.bestAttempt).not.toBeNull();
@@ -163,7 +163,7 @@ describe("hard rules (spec §3) on random inputs", () => {
     expect(seen.lippedStacks).toBeGreaterThanOrEqual(5);
   });
 
-  it("locks taken from a result are respected or dropped with a notice", () => {
+  it("locks taken from a result are respected or reported as conflicts", () => {
     fc.assert(
       fc.property(inputArb, fc.nat(), fc.nat(), (spec, pick, seed) => {
         const input = build(spec);
@@ -176,14 +176,22 @@ describe("hard rules (spec §3) on random inputs", () => {
         const locks: Lock[] = [
           { kind: "position", trayKey: t.key, path: t.path, rotated: t.rotated },
           { kind: "size", trayKey: t.key, w: t.w, d: t.d, h: t.h },
-          { kind: "position", trayKey: "ghost:p0:0", path: "1", rotated: false },
         ];
         const locked = { ...input, locks };
         const r = optimize(locked, seed, 200, { warmStart: first.layout });
-        expectValid(locked, r);
-        expect(r.notices.some((n) => n.code === "lock.dropped" && n.path === "/locks/2")).toBe(
-          true,
-        );
+        if (r.layout === null && r.bestAttempt === null) {
+          // pins that conflict up front are reported without a search
+          expect(r.lockConflicts.length).toBeGreaterThan(0);
+        } else {
+          expectValid(locked, r);
+        }
+        // a pin on a tray that doesn't exist is reported, without a search
+        const ghost: Lock = { kind: "position", trayKey: "ghost:p0:0", path: "1", rotated: false };
+        const withGhost = optimize({ ...locked, locks: [...locks, ghost] }, seed, 200, {
+          warmStart: first.layout,
+        });
+        expect(withGhost.lockConflicts.map((c) => c.trayKey)).toContain("ghost:p0:0");
+        expect(withGhost.layout).toBeNull();
       }),
       { numRuns: 100 },
     );

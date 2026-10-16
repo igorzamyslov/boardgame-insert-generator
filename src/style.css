@@ -1,4 +1,4 @@
-/* src/style.css: the app's own rules, on the Proof tokens and components (styles/proof*.css). */
+/* src/style.css: the app's own rules, on the tokens (styles/tokens.css) and the base components (styles/proof.css). */
 
 *,
 *::before,
@@ -18,8 +18,8 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--font-ui);
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 a {
@@ -34,7 +34,7 @@ select {
 
 /* ---- Buttons: one quiet default, indigo for the one thing to do next, madder for removing ---- */
 button {
-  min-height: 36px;
+  min-height: var(--control-h);
   padding: 0 var(--space-3);
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-md);
@@ -77,6 +77,12 @@ button.quiet,
   color: var(--madder);
 }
 
+.row-remove[aria-disabled="true"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
 button[aria-disabled="true"] {
   border-color: var(--rule-strong);
   background: var(--sheet-sunken);
@@ -95,10 +101,11 @@ button[aria-disabled="true"] {
 
 /* ---- Inputs ---- */
 input[type="text"],
+input[type="search"],
 select {
   width: 100%;
   min-width: 0;
-  min-height: 40px;
+  min-height: 44px;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-md);
@@ -106,7 +113,8 @@ select {
   color: var(--ink);
 }
 
-input[inputmode="decimal"] {
+input[inputmode="decimal"],
+input[inputmode="numeric"] {
   font: 500 14px/22px var(--font-ui);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -129,6 +137,9 @@ input[aria-invalid="true"] {
 
 /* ---- App bar ---- */
 .pf-app {
+  --sheet-handle: var(--control-h);
+  --sheet-foot: calc(var(--sheet-handle) + env(safe-area-inset-bottom, 0px));
+
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
@@ -140,70 +151,158 @@ input[aria-invalid="true"] {
   display: grid;
 }
 
-.app-title-block {
+/* ---- Header: logo, name and save state, then the actions ---- */
+.app-header {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
 }
 
-.app-project-name {
-  color: var(--ink-soft);
+.app-brand {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  font: 700 20px/26px var(--font-display);
+}
+
+.app-logo {
+  flex: none;
+}
+
+.app-name-block {
+  display: flex;
+  flex: 1 1 260px;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  min-width: 0;
+}
+
+.app-name {
+  flex: 1 1 160px;
+  width: auto;
+  max-width: 320px;
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink);
+  font: 600 16px/24px var(--font-ui);
+}
+
+.app-name:hover,
+.app-name:focus {
+  border-color: var(--edge);
+  background: var(--sheet);
+}
+
+.saved-status {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--muted);
   font: 400 14px/20px var(--font-ui);
 }
 
-.mode-toggle {
-  display: inline-flex;
-  margin: 0;
-  padding: 0;
-  border: 0;
+.saved-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tiles-line);
 }
 
-.mode-toggle legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
+.saved-status[data-state="saving"] .saved-dot,
+.saved-status[data-state="paused"] .saved-dot {
+  background: var(--warn);
 }
 
-.app-notices {
-  padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--rule);
-  background: var(--sheet);
+.saved-status[data-state="failed"] .saved-dot,
+.saved-status[data-state="unavailable"] .saved-dot {
+  background: var(--danger);
 }
 
-.app-menu summary {
-  display: inline-flex;
+.app-actions {
+  display: flex;
+  gap: var(--space-2);
   align-items: center;
-  min-height: 40px;
-  padding: 0 var(--space-4);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-md);
-  background: var(--sheet);
-  font: 600 14px/20px var(--font-ui);
-  list-style: none;
-  cursor: pointer;
+  margin-left: auto;
 }
 
-.app-menu summary::-webkit-details-marker {
-  display: none;
+.app-icon-btn,
+.app-download {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
 }
 
-.app-menu[open] summary {
-  background: var(--sheet-sunken);
+.app-icon-btn {
+  border-color: transparent;
+  background: transparent;
+}
+
+.app-icon-btn:hover:not(:disabled, [aria-disabled="true"]) {
+  border-color: var(--edge);
+}
+
+/* Undo and Redo stay in the Tab order when there is nothing to step to; they only look off. */
+.app-icon-btn[aria-disabled="true"] {
+  border-color: transparent;
+  background: transparent;
+  opacity: 0.45;
+}
+
+.app-download {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--page);
+}
+
+.app-download:hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--ink);
+  filter: brightness(1.25);
+}
+
+/* Download stays in the Tab order while it is off, so its reason can be read. */
+.app-download[aria-disabled="true"] {
+  opacity: 0.45;
+}
+
+.app-menu-wrap {
+  position: relative;
+}
+
+.app-menu-btn {
+  position: relative;
+}
+
+.app-menu-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--sheet);
+  border-radius: 50%;
+  background: var(--danger);
 }
 
 .app-menu-panel {
   position: absolute;
   top: calc(100% + 4px);
-  right: var(--space-5);
+  right: 0;
   z-index: 10;
-  width: min(420px, calc(100vw - 2 * var(--space-4)));
+  width: min(360px, calc(100vw - 2 * var(--space-4)));
   max-height: 80vh;
-  padding: var(--space-4);
+  padding: var(--space-3);
   overflow: auto;
-  border: 1px solid var(--rule-strong);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
   background: var(--sheet);
   box-shadow: var(--shadow-sheet);
@@ -212,6 +311,98 @@ input[aria-invalid="true"] {
 .project-menu {
   display: grid;
   gap: var(--space-3);
+}
+
+.menu-items {
+  display: grid;
+}
+
+.menu-notice-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.menu-item {
+  justify-content: flex-start;
+  min-height: var(--control-h);
+  border-color: transparent;
+  background: transparent;
+  text-align: left;
+}
+
+.menu-item:hover:not(:disabled) {
+  border-color: var(--edge);
+}
+
+.menu-delete {
+  color: var(--danger);
+}
+
+/* Send file is for phones, where the share sheet is. */
+.menu-phone-only {
+  display: none;
+}
+
+.menu-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.tap {
+  min-height: var(--control-h);
+}
+
+.menu-title {
+  margin: 0;
+  font: 700 18px/24px var(--font-display);
+}
+
+.inserts-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inserts-line {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inserts-name {
+  min-width: 0;
+  text-align: left;
+}
+
+span.inserts-name {
+  font-weight: 600;
+}
+
+.delete-confirm {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--danger-wash);
+}
+
+.app-notices {
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--rule);
+  background: var(--sheet);
+}
+
+/* Nothing to show: the box stays (its live regions must stay mounted) but takes no room. */
+.app-notices[data-empty="true"] {
+  padding: 0;
+  border: 0;
 }
 
 .button-row {
@@ -263,11 +454,6 @@ input[aria-invalid="true"] {
   line-height: 20px;
 }
 
-.field-error::before {
-  content: "! ";
-  font-weight: 700;
-}
-
 /* Warnings and info under a field or a list (FieldMessages): a .hint with a mark at the side. */
 .field-notes {
   padding-left: var(--space-2);
@@ -284,17 +470,30 @@ input[aria-invalid="true"] {
   align-items: center;
 }
 
+/* A checkbox is a 44 px cell with the box in it, beside a label at least as tall. */
 .check-field {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0 var(--space-2);
-  align-items: start;
+  grid-template-columns: var(--control-h) 1fr;
+  gap: 0;
+  align-items: center;
 }
 
 .check-field input {
-  width: 18px;
-  height: 18px;
-  margin: 3px 0 0;
+  width: 24px;
+  height: 24px;
+  margin: 10px;
+}
+
+.check-field > label {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-h);
+}
+
+.check-field input[aria-disabled="true"],
+.check-field input[aria-disabled="true"] + label {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .check-field .hint,
@@ -341,6 +540,179 @@ input[aria-invalid="true"] {
   gap: var(--space-3);
 }
 
+/* ---- What's inside: a row per component in its kind's shade, with a chip for each rule ---- */
+.pf-rows {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-row {
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--shade-line);
+  border-radius: var(--radius-md);
+  background: var(--sheet);
+}
+
+.pf-row__open {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  min-height: var(--control-h);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: transparent;
+  font-weight: 400;
+  text-align: left;
+}
+
+.pf-row .pf-swatch,
+.editor-panel .pf-swatch {
+  border-color: var(--shade-line);
+  background: var(--shade-fill);
+  color: var(--shade-ink);
+}
+
+.pf-row__layer {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.pf-item__meta[data-problem="true"] {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.pf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) * 2 + 28px);
+  list-style: none;
+}
+
+.pf-chip {
+  display: inline-flex;
+  align-items: center;
+  padding-left: var(--space-2);
+  border: 1px solid var(--shade-line);
+  border-radius: var(--radius-lg);
+  background: var(--shade-fill);
+  color: var(--shade-ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+/* The × is 44 px to touch, drawn small: it reaches past the chip's edge. */
+.pf-chip__x {
+  display: grid;
+  place-items: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  margin: -10px 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.pf-chip svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+}
+
+/* ---- The component editor, in the place of the list ---- */
+.editor-panel {
+  display: grid;
+  gap: var(--space-4);
+  border-left: 4px solid var(--shade-line);
+  padding-left: var(--space-3);
+}
+
+.editor-panel__bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  background: var(--sheet);
+}
+
+.pf-back,
+.editor-panel__btn {
+  min-height: var(--control-h);
+}
+
+.pf-back {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink);
+}
+
+.pf-back svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+}
+
+.editor-panel__title {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin: 0;
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.editor-panel__title:focus {
+  outline: none;
+}
+
+.editor-panel__title:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.editor-panel__ask {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+}
+
+/* A note about the change just made: it sits at the foot of the page for a few seconds. */
+.pf-toasts {
+  position: fixed;
+  inset: auto var(--space-4) var(--space-4);
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.pf-toast--note {
+  max-width: 480px;
+  margin: 0;
+}
+
 .component-card-foot {
   display: flex;
   justify-content: flex-end;
@@ -373,9 +745,18 @@ input[aria-invalid="true"] {
 }
 
 .notice-dismiss {
-  min-height: 24px;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
   margin-left: var(--space-2);
   padding: 0 var(--space-2);
+}
+
+.notice-dismiss svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
 }
 
 /* ---- Stage: the result, problems, the view sheet ---- */
@@ -397,7 +778,7 @@ input[aria-invalid="true"] {
 
 .stage-empty p {
   margin: 0;
-  color: var(--ink-soft);
+  color: var(--muted);
   text-wrap: balance;
 }
 
@@ -411,7 +792,7 @@ input[aria-invalid="true"] {
   place-items: center;
   width: 160px;
   height: 160px;
-  border: 1.5px dashed var(--rule-strong);
+  border: 1.5px dashed var(--edge);
   background: var(--sheet);
 }
 
@@ -424,10 +805,84 @@ input[aria-invalid="true"] {
 
 .run-status progress {
   flex: 1 1 10rem;
-  accent-color: var(--indigo);
+  accent-color: var(--focus);
 }
 
-.shortfall,
+/* The status line above the plan: one single-line pill per matter, every control 44 px. */
+.pf-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+}
+
+.pf-status__pill {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  min-height: var(--control-h);
+  padding: 0 var(--space-2) 0 var(--space-4);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--sheet);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.pf-status__pill[data-kind="fits"] {
+  border-color: var(--tiles-line);
+  background: var(--tiles-fill);
+  color: var(--tiles-ink);
+}
+
+.pf-status__pill[data-kind="problem"] {
+  border-color: var(--danger);
+  background: var(--danger-wash);
+}
+
+.pf-status__text {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A long name on the button (Unpin Spacer 1 by Tokens and dice) shrinks with an ellipsis rather than
+   push the pill past the edge or squeeze the sentence to a few words. */
+.pf-status__btn {
+  flex: 0 1 auto;
+  min-width: var(--control-h);
+  max-width: 60%;
+  min-height: var(--control-h);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.pf-status__pill progress {
+  flex: 0 1 10rem;
+  min-width: 3rem;
+  accent-color: var(--focus);
+}
+
+/* Below 760 px the no-fit pill drops Keep searching, so the name has room. */
+@media (width < 760px) {
+  .pf-status__btn--phone-off {
+    display: none;
+  }
+}
+
+.pf-status__percent {
+  flex: none;
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .optimizer-blocked,
 .run-error {
   margin: 0;
@@ -469,7 +924,10 @@ input[aria-invalid="true"] {
    whenever anything else appeared (a warning, say) and the view scrolled instead. */
 .pf-app__stage > .pf-view {
   flex: 1 1 auto;
-  min-height: 0;
+
+  /* The plan never shrinks to a thumbnail: on a short screen the stage scrolls instead. Still
+     needed with the figures below it (measured at 1440 by 700 px without it: 93 px tall). */
+  min-height: 24rem;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
 }
@@ -483,63 +941,173 @@ input[aria-invalid="true"] {
   align-items: end;
 }
 
+/*
+ * The drawing above keeps most of the height whether or not a tray is selected: this area grows
+ * with the tray bar up to a ceiling, and what is longer than that scrolls inside, behind the bar's
+ * own buttons, which stay in view. The phone layout keeps the same bounds.
+ */
 .plan-toolbar {
   display: grid;
+  flex: 0 0 auto;
   gap: var(--space-2);
   margin-top: var(--space-3);
   align-content: start;
+  min-height: 5rem;
+  max-height: 15rem;
+  overflow: auto;
 }
 
-/*
- * The drawing above keeps one size whether or not a tray is selected. This area is the same
- * height either way, so picking a tray fills it instead of squeezing the plan, and details
- * longer than it scroll inside. Below 960px the page scrolls as a whole and it simply grows.
- */
-@media (width > 960px) {
-  .plan-toolbar {
-    flex: 0 0 auto;
-    height: 10rem;
-    overflow: auto;
-  }
+/* The 3D view's tray bar sits under the picker. */
+.view-bar {
+  margin-top: var(--space-3);
 }
 
-.tray-details {
+/* The tray bar: what the selected tray is and what can be done with it. */
+.tray-bar {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
-.tray-details h3 {
+.tray-bar__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.tray-bar h3 {
+  flex: 1 1 auto;
   margin: 0;
   font-size: 20px;
   line-height: 26px;
 }
 
-.tray-details dl {
+.tray-bar__chip {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-md);
+  background: var(--page);
+  font: 600 14px/22px var(--font-ui);
+}
+
+.tray-bar dl {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
   gap: var(--space-1) var(--space-4);
   margin: 0;
 }
 
-.tray-details dt {
+.tray-bar dt {
   color: var(--ink-soft);
   font: 500 14px/20px var(--font-ui);
 }
 
-.tray-details dd {
+.tray-bar dd {
   margin: 0;
   font: 500 14px/20px var(--font-ui);
   font-variant-numeric: tabular-nums;
 }
 
-.tray-contents {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-5);
+/* What it holds is one line, whatever there is of it: the title has the rest. */
+.tray-bar__contents dd {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tray-bar__chips {
+  display: contents;
+}
+
+/* The buttons and the reason stay in view while the rest of the bar scrolls. */
+.tray-bar__foot {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-1);
+  background: var(--sheet);
+}
+
+.tray-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Every control is a full-size target; the icon-only Close is as wide as it is tall. */
+/* stylelint-disable-next-line no-descending-specificity */
+.tray-bar button {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+}
+
+.tray-bar button[aria-pressed="true"],
+.tray-bar button[data-on="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.tray-bar__close {
+  border-color: transparent;
+  background: transparent;
+}
+
+.tray-bar p {
+  margin: 0;
 }
 
 /* The axis indicator sits over the canvas' corner and lets every pointer event through. */
 .viewer-stage {
   position: relative;
+}
+
+/* The corner controls sit over the canvas: the axes toggle top right, the selected tray's name top left. */
+.viewer-axes-toggle {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0;
+}
+
+.viewer-axes-toggle svg {
+  width: 24px;
+  height: 24px;
+}
+
+.viewer-axes-toggle[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.viewer-selection-live {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  display: flex;
+  max-width: calc(100% - var(--control-h) - var(--space-2) * 3);
+  pointer-events: none;
+}
+
+.viewer-selection {
+  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--sheet);
+  color: var(--ink);
+  font: 600 14px/20px var(--font-ui);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .axis-gizmo {
@@ -551,10 +1119,6 @@ input[aria-invalid="true"] {
   pointer-events: none;
   overflow: visible;
   font: 700 12px/1 var(--font-ui);
-
-  --axis-x: #d03a3a;
-  --axis-y: #2a8a3e;
-  --axis-z: #3466d1;
 }
 
 .axis-gizmo [data-axis="x"] {
@@ -593,6 +1157,7 @@ input[aria-invalid="true"] {
   display: block;
   width: 100%;
   height: min(60vh, 480px);
+  height: min(60dvh, 480px);
   border-radius: var(--radius-md);
   background: var(--sheet-sunken);
 
@@ -600,9 +1165,10 @@ input[aria-invalid="true"] {
   touch-action: pan-y;
 }
 
-@media (width <= 600px) {
+@media (width < 600px) {
   .viewer-canvas {
     height: min(45vh, 320px);
+    height: min(45dvh, 320px);
   }
 }
 
@@ -625,6 +1191,8 @@ input[aria-invalid="true"] {
 }
 
 .range-field input {
+  min-height: var(--control-h);
+  margin: 0;
   accent-color: var(--indigo);
 }
 
@@ -635,54 +1203,9 @@ input[aria-invalid="true"] {
   background: var(--sheet-sunken);
 }
 
-.export-panel {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.export-panel > * {
-  margin: 0;
-}
-
-.export-skipped h3 {
-  margin: var(--space-3) 0 var(--space-1);
-  font-size: 18px;
-}
-
-.export-skipped ul {
-  margin: 0;
-  padding-left: var(--space-5);
-}
-
-.link-status {
-  margin: 0;
-}
-
-.link-warning {
-  padding: var(--space-2) var(--space-3);
-  border-left: 4px solid var(--ochre);
-  border-radius: var(--radius-md);
-  background: var(--ochre-wash);
-}
-
-/* The menu's own failures (a file it couldn't read, a link it couldn't make, a copy that failed). */
-.link-status[role="alert"] {
-  border-left-color: var(--madder);
-  background: var(--madder-wash);
-}
-
-.link-status p {
-  margin: 0 0 var(--space-2);
-}
-
-.copy-fallback {
-  margin-top: var(--space-2);
-}
-
 /* Full-width grid children; after the base rules (no-descending-specificity). */
 .form-grid > fieldset,
 .form-grid > details,
-.form-grid > .pf-adv,
 .form-grid > .form-grid-3,
 .form-grid > .hint,
 .form-grid > .check-field,
@@ -709,27 +1232,62 @@ input[aria-invalid="true"] {
 }
 
 .app-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
   color: inherit;
 }
 
-/* Narrow screens: the Proof shell moves the verdict, notices and readouts above the form; the app's
-   own blocks do the same, and the menu panel fits the screen. */
-@media (width <= 960px) {
-  .pf-app__stage {
-    display: contents;
+/* A tablet (760 to 960 px) keeps the two columns with a narrower rail. */
+@media (width >= 760px) and (width <= 960px) {
+  .pf-app__body {
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
   }
 
-  .pf-app__stage > .stage-block {
-    order: -1;
-    margin: var(--space-3) var(--space-4) 0;
+  .pf-app__body[data-first-visit="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pf-app__rail {
+    padding-inline: var(--space-4);
+  }
+
+  .pf-app__stage {
+    padding: var(--space-3) var(--space-4);
+  }
+}
+
+/* Phone layout (below 760 px): Send file is offered, and the header buttons are icons. */
+.app-btn-label {
+  display: none;
+}
+
+@media (width >= 760px) {
+  .app-btn-label {
+    display: inline;
+  }
+}
+
+@media (width < 760px) {
+  .menu-phone-only {
+    display: block;
+  }
+
+  /* The panel spans the screen, whatever the button's place in the row. */
+  .app-menu-wrap {
+    position: static;
   }
 
   .app-menu-panel {
-    right: var(--space-3);
+    right: var(--space-4);
+    left: var(--space-4);
+    width: auto;
   }
 
-  .pf-app__bar {
-    padding: var(--space-3) var(--space-4);
+  .app-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    margin-left: 0;
   }
 }
 
@@ -744,6 +1302,7 @@ input[aria-invalid="true"] {
 .modal {
   width: min(640px, calc(100vw - 2 * var(--space-4)));
   max-height: calc(100vh - 2 * var(--space-4));
+  max-height: calc(100dvh - 2 * var(--space-4));
   padding: 0;
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-lg);
@@ -761,7 +1320,7 @@ html:has(dialog.modal[open]) {
   overflow: hidden;
 }
 
-/* The export dialog: a heading, the three file choices as rows, and the assembly page as a fourth row. */
+/* The body of a dialog and its Close row. The download dialog's own rules are in ui/export.css. */
 .modal-body {
   display: grid;
   gap: var(--space-3);
@@ -776,34 +1335,119 @@ html:has(dialog.modal[open]) {
   border-top: 1px solid var(--rule);
 }
 
+/* The settings sheet (ui/SettingsSheet.tsx): two tabs over a scrolling panel; full screen on a phone. */
+.settings-sheet {
+  width: min(720px, calc(100vw - 2 * var(--space-4)));
+  height: min(820px, calc(100vh - 2 * var(--space-4)));
+  height: min(820px, calc(100dvh - 2 * var(--space-4)));
+}
+
+/* The panel scrolls, so Close stays in view. */
+.settings-sheet[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Positioned, so the visually hidden text inside is clipped with the panel and cannot stretch the dialog. */
+.settings-sheet .modal-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (width < 600px) {
+  .modal,
+  .settings-sheet {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+.settings-sheet .pf-tabs button {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 44px;
+  border-radius: 0;
+}
+
+.settings-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.settings-panel,
+.settings-stack,
+.settings-group,
+.settings-apply {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.settings-stack {
+  gap: var(--space-5);
+}
+
+.settings-group h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.settings-group > .hint {
+  margin: 0;
+}
+
+.settings-apply-btn {
+  justify-self: start;
+  min-height: 44px;
+}
+
+.settings-apply .field-error {
+  margin: 0;
+}
+
 .export-title {
   margin: 0;
   font-size: 20px;
   line-height: 26px;
 }
 
-.export-options {
-  display: grid;
-  gap: var(--space-2);
+/* stylelint-disable-next-line no-descending-specificity */
+.modal-actions button {
+  min-width: var(--control-h);
+  min-height: var(--control-h);
 }
 
-.export-option {
-  display: flex;
-  gap: var(--space-4);
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-md);
-  background: var(--sheet);
-}
+/* A dialog fills a phone's screen. */
+@media (width < 600px) {
+  .modal {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
 
-.export-option > div:first-child {
-  flex: 1;
-}
+  /* Close stays at the bottom of the screen, whatever the content's height. */
+  .modal[open] {
+    display: flex;
+    flex-direction: column;
+  }
 
-.export-option p {
-  margin: 2px 0 0;
+  .modal-body {
+    flex: 1;
+  }
 }
 
 /* The tray picker under the 3D view: a text route to every tray, with its colour and number. */
@@ -839,4 +1483,317 @@ html:has(dialog.modal[open]) {
 .tray-chip--spare {
   border-style: dashed;
   background: var(--sheet);
+}
+
+/* First visit: one column with the box, the kinds and the example, in the order a person goes. */
+.pf-app__body[data-first-visit="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.pf-first {
+  display: grid;
+  gap: var(--space-5);
+  align-content: start;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-4) 0;
+}
+
+.pf-first h2 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 38px;
+}
+
+.pf-first h3 {
+  margin: 0 0 var(--space-3);
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.pf-first__step {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--sheet);
+}
+
+.pf-first__step > * {
+  width: 100%;
+}
+
+/* stylelint-disable-next-line no-descending-specificity */
+.pf-first__step > button {
+  width: auto;
+  min-height: 44px;
+}
+
+.pf-first__step > h3 {
+  margin: 0;
+}
+
+/* The box panel: every control at least 44 px, the checkbox included. */
+.box-panel {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.box-panel .field-label {
+  color: var(--ink);
+  font: 500 14px/20px var(--font-ui);
+}
+
+/* Two or three choices side by side; the pressed one is filled. */
+.pf-toggle {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* stylelint-disable-next-line no-descending-specificity */
+.pf-toggle button {
+  flex: 1 1 0;
+  min-height: 44px;
+}
+
+.pf-toggle button[aria-pressed="true"],
+.pf-toggle button[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--focus);
+  background: var(--focus);
+  color: var(--on-focus);
+}
+
+/*
+ * ---- Phone layout (below 760 px): the box first, the list in a sheet at the foot ----
+ * The screen is one dvh tall: the stage scrolls inside, and the sheet is fixed over its foot, so
+ * its 44 px handle is always in reach. Below 600 px an open sheet showing the editor or the box
+ * fills the screen, like the dialogs.
+ */
+.pf-sheet {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  height: var(--sheet-foot);
+  border-top: 1px solid var(--edge);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet);
+  transition: height 200ms ease;
+}
+
+.pf-sheet[data-expanded="true"] {
+  height: min(70vh, 40rem);
+  height: min(70dvh, 40rem);
+}
+
+.pf-sheet__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding-right: var(--space-2);
+}
+
+.pf-sheet__bar > :not(.pf-sheet__handle) {
+  flex: none;
+  min-height: var(--control-h);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.pf-sheet__handle {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  gap: var(--space-3);
+  align-items: center;
+  min-width: 0;
+  min-height: var(--control-h);
+  padding: var(--space-2) var(--space-4) 0;
+  border: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: transparent;
+  color: var(--ink);
+  font: 600 16px/24px var(--font-ui);
+  text-align: left;
+}
+
+.pf-sheet__grip {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background: var(--edge);
+}
+
+.pf-sheet__title {
+  flex: none;
+}
+
+.pf-sheet__meta {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-sheet__chevron {
+  flex: none;
+  margin-left: auto;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 200ms ease;
+}
+
+.pf-sheet[data-expanded="true"] .pf-sheet__chevron {
+  transform: rotate(180deg);
+}
+
+.pf-sheet__body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-1) var(--space-4) var(--space-4);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* Folded, the content is out of sight as well as inert; it hides after the sheet has shut. */
+.pf-sheet[data-expanded="false"] .pf-sheet__body {
+  visibility: hidden;
+  transition: visibility 0s linear 200ms;
+}
+
+.pf-sheet .app-footer {
+  margin: var(--space-4) calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+}
+
+@media (width < 760px) {
+  .pf-app__bar {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  /* A banner's choices go under its words, side by side where they fit. */
+  .app-notices {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .notice-action {
+    display: flex;
+    margin: var(--space-2) 0 0;
+  }
+
+  /* The menu opens over the sheet, not under it. */
+  .app-top {
+    position: relative;
+    z-index: 25;
+  }
+
+  /* The name of the app is a heading for the page; the logo says it, so the words are for readers. */
+  .app-wordmark {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .app-name-block {
+    flex: 1 1 0;
+    flex-wrap: nowrap;
+  }
+
+  .app-name {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .saved-status {
+    flex: none;
+  }
+
+  .pf-app__body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pf-app__stage {
+    flex: 1 1 auto;
+    padding: var(--space-3) var(--space-3) calc(var(--sheet-foot) + var(--space-3));
+    scroll-padding-bottom: calc(var(--sheet-foot) + var(--space-3));
+  }
+
+  .pf-app__body[data-first-visit="true"] .pf-app__stage {
+    padding-bottom: var(--space-3);
+  }
+
+  /* The status pill, then the box, then the figures: the order they come in the page, as on a wide screen. */
+  .pf-app__stage > .stage-block {
+    flex: none;
+    margin: 0 0 var(--space-3);
+  }
+
+  /* The box fills what the screen has left under the status pill; the figures wait below it. */
+  .pf-app__stage > .pf-view {
+    flex: 1 0 auto;
+    min-height: max(28rem, calc(100dvh - 17rem));
+    padding: var(--space-3);
+  }
+
+  .pf-frame {
+    padding: var(--space-3);
+  }
+
+  /* A note over the foot of the screen stays above the handle. */
+  .pf-toasts,
+  .pf-app__stage > .pf-toast {
+    position: fixed;
+    inset: auto var(--space-3) calc(var(--sheet-foot) + var(--space-2));
+    z-index: 30;
+  }
+
+  .pf-app__stage > .pf-toast {
+    margin: 0;
+  }
+}
+
+@media (width < 600px) {
+  .pf-sheet[data-full="true"][data-expanded="true"] {
+    inset: 0;
+    z-index: 40;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .pf-sheet[data-full="true"] .pf-sheet__handle {
+    border-radius: 0;
+  }
+
+  /* The editor has the whole screen, its own bar and way back: the section titles step aside. */
+  .pf-sheet[data-editing="true"] .pf-acc:not([open]),
+  .pf-sheet[data-editing="true"] .pf-acc > summary {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-sheet,
+  .pf-sheet__chevron,
+  .pf-sheet[data-expanded="false"] .pf-sheet__body {
+    transition: none;
+  }
 }

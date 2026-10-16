@@ -210,7 +210,7 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
       }
       const p = part(ref);
       if (!p) {
-        throw new RangeError(`unknown part ${ref.req}/${ref.variant}/${ref.part}`);
+        throw new RangeError(`unknown tray ${ref.req}/${ref.variant}/${ref.part}`);
       }
       const o = measure(p, settings, { lipped, level });
       const growW = growth(p, "w");

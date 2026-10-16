@@ -254,8 +254,8 @@ describe("readProject: files of this schema line", () => {
       [SCHEMA_NOTICE_CODES.lockDropped, "/locks/4"],
     ]);
     expect(result.notices.map((n) => n.message)).toEqual([
-      'Couldn\'t read the "size" lock for tray "x" (lock 4 in the file), so it was dropped: /locks/3/w: missing; /locks/3/d: missing; /locks/3/h: missing.',
-      "Couldn't read the lock (lock 5 in the file), so it was dropped: /locks/4: expected an object.",
+      'Couldn\'t read the "size" rule for tray "x" (rule 4 in the file), so it was dropped: /locks/3/w: missing; /locks/3/d: missing; /locks/3/h: missing.',
+      "Couldn't read the rule (rule 5 in the file), so it was dropped: /locks/4: expected an object.",
     ]);
   });
 
@@ -264,8 +264,8 @@ describe("readProject: files of this schema line", () => {
     input.locks = [{ kind: "teleport", trayKeys: ["a"] }, { trayKey: "t".repeat(100) }];
     const result = expectOk(readProject(input, CURRENT));
     expect(result.notices.map((n) => n.message)).toEqual([
-      'Couldn\'t read the "teleport" lock (lock 1 in the file), so it was dropped: /locks/0/kind: unknown value "teleport".',
-      `Couldn't read the lock for tray "${"t".repeat(40)}…" (lock 2 in the file), so it was dropped: /locks/1/kind: missing.`,
+      'Couldn\'t read the "teleport" rule (rule 1 in the file), so it was dropped: /locks/0/kind: unknown value "teleport".',
+      `Couldn't read the rule for tray "${"t".repeat(40)}…" (rule 2 in the file), so it was dropped: /locks/1/kind: missing.`,
     ]);
   });
 
@@ -405,10 +405,10 @@ describe("readProject: files from a newer minor", () => {
       [SCHEMA_NOTICE_CODES.cardSidesSwapped, "/components/0/shortSide"],
     ]);
     expect(result.notices[0]?.message).toBe(
-      'Component "Dial" (component 1 in the file) uses features this app version doesn\'t know. It is kept but not laid out.',
+      'Item "Dial" (item 1 in the file) uses features this app version doesn\'t know. It is saved back unchanged, but not laid out.',
     );
     expect(result.notices[1]?.message).toBe(
-      "Component 2 in the file uses features this app version doesn't know. It is kept but not laid out.",
+      "Item 2 in the file uses features this app version doesn't know. It is saved back unchanged, but not laid out.",
     );
   });
 
@@ -440,7 +440,7 @@ describe("readProject: files from a newer minor", () => {
       [SCHEMA_NOTICE_CODES.unknownValue, "/locks/3"],
     ]);
     expect(result.notices[0]?.message).toBe(
-      'The "magnet" lock for tray "x" (lock 4 in the file) is of a kind this app version doesn\'t know. It is kept and saved back, but not applied.',
+      'The "magnet" rule for tray "x" (rule 4 in the file) is of a kind this app version doesn\'t know. It is saved back unchanged, but not applied.',
     );
   });
 

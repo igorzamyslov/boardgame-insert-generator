@@ -1,0 +1,156 @@
+/*
+ * The redesign's tokens. Light is the default; the dark set below redefines the same names
+ * under prefers-color-scheme: dark (screen only: paper stays light). Text keeps 4.5:1 and
+ * edges 3:1 in both. The kind colours are mirrored in src/ui/identity.ts (shadeOf), which
+ * steps each kind's hue per component; src/style.test.ts checks the two agree.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Faces: self-hosted (styles/fonts.css), with system fallbacks. */
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-ui: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Surfaces and text. */
+  --page: #f4f3ef;
+  --sheet: #ffffff;
+  --ink: #1d1f1c;
+  --muted: #5f625c;
+  --rule: #e4e1d9;
+  --edge: #7d796b;
+  --box: #d3cdbf;
+  --focus: #2f5bb8;
+
+  /* Kind hues: fill, line and ink. Each component of a kind gets its own shade of these. */
+  --cards-fill: #dce6fa;
+  --cards-line: #335aa6;
+  --cards-ink: #22457e;
+  --bits-fill: #fbe9c9;
+  --bits-line: #8a5d08;
+  --bits-ink: #6e4c0e;
+  --tiles-fill: #d8eede;
+  --tiles-line: #2e6b41;
+  --tiles-ink: #22552e;
+  --minis-fill: #f5dce7;
+  --minis-line: #964068;
+  --minis-ink: #74244b;
+  --custom-fill: #e7e3f4;
+  --custom-line: #5b4b9a;
+  --custom-ink: #45397a;
+
+  /* A spacer belongs to no kind: hatched, dashed. */
+  --spacer-fill: #e9e5db;
+  --spacer-hatch: #ddd8cc;
+  --spacer-dash: #6e695c;
+
+  /* Meaning colours. */
+  --danger: #b0432f;
+  --on-danger: #ffffff;
+  --danger-wash: #f8e1db;
+  --warn: #d9a52e;
+  --on-warn: #1d1f1c;
+  --on-focus: #ffffff;
+  --focus-wash: var(--cards-fill);
+  --warn-wash: var(--bits-fill);
+  --shadow-sheet: 0 1px 0 rgb(29 31 28 / 8%), 0 10px 24px -14px rgb(29 31 28 / 30%);
+
+  /* The X, Y and Z of the 3D view's axis indicator, one hue each. */
+  --axis-x: #d03a3a;
+  --axis-y: #2a8a3e;
+  --axis-z: #3466d1;
+
+  /* Paper: the packing guide's pictures are drawn for white paper, whatever the screen theme. */
+  --paper-white: #ffffff;
+
+  /* Rhythm. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --rail-width: 440px;
+  --page-max: 1440px;
+  --control-h: 44px;
+
+  /*
+   * Legacy names, on the new palette. Old rules in style.css, proof.css and plan.css still use
+   * them (about 70 uses); new code uses the names above, and a test (src/rules.test.ts) stops the
+   * count growing. Move a rule to the primary name whenever you touch it; when none are left,
+   * delete these.
+   */
+  --paper: var(--page);
+  --sheet-sunken: var(--page);
+  --rule-strong: var(--edge);
+  --ink-soft: var(--muted);
+  --indigo: var(--focus);
+  --on-indigo: var(--on-focus);
+  --indigo-wash: var(--cards-fill);
+  --madder: var(--danger);
+  --on-madder: var(--on-danger);
+  --madder-wash: var(--danger-wash);
+  --ochre: var(--warn);
+  --on-ochre: var(--on-warn);
+  --ochre-wash: var(--bits-fill);
+  --tint-8: var(--rule);
+}
+
+@media screen and (prefers-color-scheme: dark) {
+  :root {
+    --page: #1b1a17;
+    --sheet: #25241f;
+    --ink: #edebe5;
+    --muted: #a9a69d;
+    --rule: #34322b;
+    --edge: #8f8b7e;
+    --box: #3a372f;
+    --focus: #8faef0;
+
+    --cards-fill: #263654;
+    --cards-line: #829fd9;
+    --cards-ink: #c3d2e9;
+    --bits-fill: #584523;
+    --bits-line: #f6c465;
+    --bits-ink: #efdebd;
+    --tiles-fill: #314938;
+    --tiles-line: #8dcea1;
+    --tiles-ink: #c8e4cf;
+    --minis-fill: #4e2c3b;
+    --minis-line: #ce8dab;
+    --minis-ink: #e7c5d6;
+    --custom-fill: #36304b;
+    --custom-line: #9d91ca;
+    --custom-ink: #cfcae2;
+
+    --spacer-fill: #2e2c26;
+    --spacer-hatch: #3a372f;
+    --spacer-dash: #9a9688;
+
+    --danger: #ee9884;
+    --on-danger: #1b1a17;
+    --danger-wash: #3a2320;
+    --warn: #dcb760;
+    --on-warn: #1b1a17;
+    --on-focus: #1b1a17;
+    --shadow-sheet: 0 1px 0 rgb(0 0 0 / 50%), 0 10px 24px -14px rgb(0 0 0 / 80%);
+
+    --axis-x: #f0807a;
+    --axis-y: #6fcf86;
+    --axis-z: #7da3f0;
+
+    /* The same white: the pictures are always drawn for paper. */
+    --paper-white: #ffffff;
+  }
+}
+
+/* Base: every control shows where the keyboard is, in both schemes. */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}

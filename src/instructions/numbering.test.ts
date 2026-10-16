@@ -2,8 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { StoredLayout, TraySpec } from "../model/types";
-import { whatGoesWhere } from "./render";
+import type { TraySpec } from "../model/types";
+import { trayNames } from "./naming";
 import {
   buildSpecOf,
   numberParts,
@@ -28,7 +28,7 @@ describe("partLabel", () => {
     expect(partLabel(makeTray({ part: "spacer", key: "a:p0:0:spacer" }))).toBe("Card spacer");
     expect(partLabel(makeTray({ part: "riser", key: "a:p0:0:riser", path: "" }))).toBe("Riser");
     expect(partLabel(makeTray({ part: "leftover", key: "leftover:0", solid: true }))).toBe(
-      "Filler block",
+      "Spacer block",
     );
     expect(partLabel(makeTray({ part: "leftover", key: "leftover:1", solid: false }))).toBe(
       "Spare tray",
@@ -56,7 +56,7 @@ describe("printedHeight", () => {
 });
 
 describe("buildSpecOf", () => {
-  it("carries the part's number to engrave on trays, fillers and risers, not on plates", () => {
+  it("carries the part's short name to engrave on trays, fillers and risers, not on plates", () => {
     const list = [
       makeTray({ key: "a:p0:0:riser", part: "riser", path: "", stack: 0 }),
       makeTray({ key: "a:p0:0", stack: 0 }),
@@ -65,25 +65,23 @@ describe("buildSpecOf", () => {
       makeTray({ key: "leftover:0", part: "leftover", solid: true, stack: 9 }),
     ];
     const parts = numberParts(list);
-    const numbered = parts.map((p) => [p.spec.part, buildSpecOf(p, true).partNumber]);
-    expect(numbered).toEqual([
-      ["riser", 1],
-      ["tray", 2],
+    const names = trayNames(parts, []);
+    const short = (p: (typeof parts)[number]) => names.get(p.spec.key)?.short;
+    const engraved = parts.map((p) => [p.spec.part, buildSpecOf(p, true, short(p)).partName]);
+    expect(engraved).toEqual([
+      ["riser", short(parts[0] as (typeof parts)[number])],
+      ["tray", short(parts[1] as (typeof parts)[number])],
       ["spacer", undefined],
       ["divider", undefined],
-      ["leftover", 5],
+      ["leftover", short(parts[4] as (typeof parts)[number])],
     ]);
-    // switched off, or on a part that has none: the very same spec
-    for (const p of parts) {
-      expect(buildSpecOf(p, false)).toBe(p.spec);
+    for (const [, name] of engraved) {
+      expect(name === undefined || /^[A-Za-z0-9 -]{1,10}$/.test(name)).toBe(true);
     }
-    // the engraved number is the number the instructions give the part
-    const rows = whatGoesWhere({ trays: list } as StoredLayout, DEFAULT_SETTINGS);
+    // switched off, without a name, or on a part that has none: the very same spec
     for (const p of parts) {
-      const n = buildSpecOf(p, true).partNumber;
-      if (n !== undefined) {
-        expect(rows.find((r) => r.number === n)?.label).toBe(p.label);
-      }
+      expect(buildSpecOf(p, false, short(p))).toBe(p.spec);
+      expect(buildSpecOf(p, true, undefined)).toBe(p.spec);
     }
   });
 });
@@ -160,7 +158,7 @@ describe("numberParts", () => {
         [2, "a:p0:0"],
         [3, "b:p0:0"],
       ]);
-      expect(parts[0]?.label).toBe("Merged filler block");
+      expect(parts[0]?.label).toBe("Merged spacer block");
       expect(parts[0]?.parentNumber).toBeNull();
       expect(partLabel({ ...strip, solid: false })).toBe("Merged spare tray");
     });

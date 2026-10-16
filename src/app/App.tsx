@@ -1,24 +1,32 @@
 // src/app/App.tsx
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
-import { numberParts } from "../instructions/numbering";
-import { printableParts } from "../layout";
-import { DEFAULT_PRINTER } from "../model/defaults";
-import type { Component, ComponentKind, Notice, Project, TraySpec } from "../model/types";
+import { NOTICE_CODES, printableParts } from "../layout";
+import type { Component, ComponentKind } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
+import { topPlane } from "../model/settings";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
-import { encodeHash, exportJsonFile, jsonFileName } from "../share";
-import { BoxForm } from "../ui/BoxForm";
-import { AddKinds, ComponentList } from "../ui/components/ComponentList";
-import { trayNumbersByComponent } from "../ui/identity";
+import { exportJsonFile, jsonFileName } from "../share";
+import { errorText } from "../util/errors";
+import { AppHeader } from "../ui/AppHeader";
+import { BottomSheet } from "../ui/BottomSheet";
+import { BoxPanel } from "../ui/BoxPanel";
+import { AddKinds } from "../ui/components/ComponentList";
+import { WhatsInside } from "../ui/components/WhatsInside";
 import { ExportPanel } from "../ui/ExportPanel";
+import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
 import { Modal } from "../ui/Modal";
-import { Notices } from "../ui/Notices";
-import { PrinterForm } from "../ui/PrinterForm";
+import { Notices, PlanBanners } from "../ui/Notices";
+import { placeNotices } from "../ui/noticePlacement";
 import { ProjectMenu } from "../ui/ProjectMenu";
-import { SettingsForm } from "../ui/SettingsForm";
+import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
+import type { SettingsTab } from "../ui/SettingsSheet";
+import { misfitOf } from "../ui/noFit";
+import { StatusLine } from "../ui/StatusLine";
+import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { Summary } from "../ui/Summary";
+import { SelectedTrayBar } from "../ui/SelectedTrayBar";
 import { Section } from "../ui/Section";
 import {
   SettingsContext,
@@ -32,59 +40,56 @@ import {
   addComponent,
   lockedKeys,
   removeComponent,
-  restoreComponent,
+  removeLock,
   renameProject,
   setSettings,
   swapTrays,
   sizeLockedKeys,
-  toggleLock,
-  toggleSizeLock,
+  applyPrinter,
+  unpinTrays,
   updateBox,
   updateComponent,
-  updatePrinter,
 } from "./actions";
 import { downloadBlob } from "./download";
-import { copyLink, shareLink } from "./link";
-import type { CopyLinkResult } from "./link";
 import type { MeshSource } from "./meshes";
-import { CONFLICT_CODE } from "./persistence";
+import { OPEN_FAILED_CODE } from "./persistence";
+import { GEOMETRY_MAJOR_CODE, GEOMETRY_REPRINT_REASON, STALE_CODE } from "./state";
 import { canOptimize } from "./runner";
+import { shareFile } from "./sendFile";
+import type { ShareFile } from "./sendFile";
 import type { AppStore } from "./store";
 
 export interface AppProps {
   store: AppStore;
   meshes: MeshSource;
-  clipboard?: (text: string) => Promise<void>;
-  currentHref?: () => string;
   download?: (blob: Blob, filename: string) => void;
+  /** Puts a file into the phone's share sheet (default: `navigator.share`); tests inject it. */
+  share?: ShareFile;
   viewerProps?: Pick<ViewerProps, "webgl" | "loadScene">;
 }
 
-type SectionId = "box" | "printer" | "components" | "settings";
+type SectionId = "box" | "components";
+/** What a validation path belongs to: a rail section, or the settings sheet. */
+type PathHome = SectionId | "settings";
 type ViewId = "plan" | "3d";
 
 const SECTION_TITLES: Record<SectionId, string> = {
   box: "The box",
-  printer: "Your printer",
-  components: "What goes inside",
-  settings: "Walls and fit",
+  components: "What's inside",
 };
 
-/** The section whose fields a validation path belongs to. */
-function sectionOf(path: string | undefined): SectionId | null {
+/** Where the fields a validation path belongs to are: a rail section, or the settings sheet. */
+function sectionOf(path: string | undefined): PathHome | null {
   if (path === undefined) {
     return null;
   }
   if (path.startsWith("/box")) {
     return "box";
   }
-  if (path.startsWith("/printer")) {
-    return "printer";
-  }
   if (path.startsWith("/components")) {
     return "components";
   }
-  return path.startsWith("/settings") ? "settings" : null;
+  return path.startsWith("/settings") || path.startsWith("/printer") ? "settings" : null;
 }
 
 const mm = (v: number): string => String(Math.round(v * 10) / 10);
@@ -127,50 +132,61 @@ export function App(props: AppProps) {
   );
   const showAssembly = assemblyFor === project.id && layout !== undefined;
   const mainRef = useRef<HTMLElement>(null);
-  const exportButtonRef = useRef<HTMLButtonElement>(null);
+  const downloadButtonRef = useRef<HTMLButtonElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const restoreFocus = useRef(false);
-  const menuRef = useRef<HTMLDetailsElement>(null);
-  const closeMenu = () => {
-    if (menuRef.current) {
-      menuRef.current.open = false;
-    }
-  };
-  // The Project menu is a <details>: it closes on a click outside it, on Escape (focus goes back
-  // to its button), and on choosing a project.
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      const menu = menuRef.current;
-      if (menu?.open && e.target instanceof Node && !menu.contains(e.target)) {
-        menu.open = false;
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      const menu = menuRef.current;
-      if (e.key === "Escape" && menu?.open) {
-        menu.open = false;
-        menu.querySelector("summary")?.focus();
-      }
-    };
-    document.addEventListener("click", onClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("click", onClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
-  const advanced = s.mode.value === "advanced";
   const [openSection, setOpenSection] = useState<SectionId | null>(
     project.components.length === 0 ? "box" : "components",
   );
+  // The component whose editor is open in the rail (null: the list). The tray bar's Edit sets it
+  // too, and a first item added from the first visit opens at once.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const firstVisit = project.components.length === 0;
+  // Below 760 px the rail is a sheet at the foot of the screen: folded, with its handle showing.
+  const phone = useMediaQuery(PHONE_QUERY);
+  const narrow = useMediaQuery(NARROW_QUERY);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetHandle = useRef<HTMLButtonElement>(null);
+  // A tray picked on a phone: its bar comes up over the sheet's handle, not under it.
+  const selection = s.selection.value;
+  useEffect(() => {
+    if (phone && selection !== null) {
+      document.querySelector(".tray-bar")?.scrollIntoView?.({ block: "nearest" });
+    }
+  }, [phone, selection]);
+  // Removing the last item swaps the rail for the first visit: the focus goes to the kinds there.
+  const wasFirstVisit = useRef(firstVisit);
+  useEffect(() => {
+    if (firstVisit && !wasFirstVisit.current) {
+      setSheetOpen(false);
+      if (document.activeElement === document.body) {
+        mainRef.current?.querySelector<HTMLElement>(".pf-kinds button")?.focus();
+      }
+    }
+    wasFirstVisit.current = firstVisit;
+  }, [firstVisit]);
   const [view, setView] = useState<ViewId>("plan");
+  // A swap belongs to the plan: it ends when the view moves away from it.
+  function showView(next: ViewId): void {
+    if (next !== "plan") {
+      s.swapFrom.value = null;
+    }
+    setView(next);
+  }
   // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
   const [exportOpen, setExportOpen] = useState(false);
+  // The settings sheet is a dialog too; null while it is closed.
+  const [settingsOpen, setSettingsOpen] = useState<{ tab: SettingsTab } | null>(null);
   // The component just removed, for the Undo toast (cleared when another project opens).
-  const [removed, setRemoved] = useState<{ component: Component; index: number } | null>(null);
+  const [removed, setRemoved] = useState<{ component: Component; version: number } | null>(null);
+  // The older plan the person chose to keep (project and geometry line), so its banner stays away.
+  const [geometryKept, setGeometryKept] = useState<string | null>(null);
   const run = s.run.value;
   useEffect(() => {
     setRemoved(null);
     setExportOpen(false);
+    setSettingsOpen(null);
+    setSheetOpen(false);
   }, [project.id]);
   const locked = lockedKeys(project);
   const sizeLocked = sizeLockedKeys(project);
@@ -189,24 +205,45 @@ export function App(props: AppProps) {
       mainRef.current?.querySelector("h1")?.focus();
     } else if (restoreFocus.current) {
       restoreFocus.current = false;
-      exportButtonRef.current?.focus();
+      downloadButtonRef.current?.focus();
     }
   }, [showAssembly]);
 
-  const withTray = (key: string, fn: (tray: TraySpec) => (q: Project) => Project): void => {
-    const tray = layout?.trays.find((t) => t.key === key);
-    if (tray) {
-      store.edit(fn(tray));
-    }
-  };
-  const download = props.download ?? downloadBlob;
+  // Undo and Redo from the keyboard: the one global key handler of the app, added here and taken
+  // off when App goes (DESIGN.md §2, Accessibility). It stands aside where the browser has its own
+  // undo (a text field), behind any open modal dialog (whose controls are the whole screen) and on
+  // the packing guide, which shows no insert to change.
+  const onPage = useRef(true);
+  onPage.current = !showAssembly;
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      const which = historyKeyOf(e);
+      if (
+        which === null ||
+        e.defaultPrevented ||
+        !onPage.current ||
+        hasNativeUndo(e.target) ||
+        modalIsOpen(document)
+      ) {
+        return;
+      }
+      // As the buttons: a blocked one (nothing to undo) does nothing, and the key goes on to the page.
+      if (which === "undo" ? store.canUndo.peek() : store.canRedo.peek()) {
+        e.preventDefault();
+        if (which === "undo") {
+          store.undo();
+        } else {
+          store.redo();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [store]);
 
-  async function onCopyLink(): Promise<CopyLinkResult> {
-    const href = (props.currentHref ?? (() => window.location.href))();
-    const link = shareLink(href, encodeHash(project, s.foreign.value));
-    const write = props.clipboard ?? ((text: string) => navigator.clipboard.writeText(text));
-    return copyLink(link, write);
-  }
+  const download = props.download ?? downloadBlob;
 
   if (showAssembly) {
     return (
@@ -226,246 +263,429 @@ export function App(props: AppProps) {
   }
 
   const validation = s.validation.value;
-  const problems = new Set<SectionId>();
+  const problems = new Set<PathHome>();
   for (const n of validation) {
     const id = n.level === "error" ? sectionOf(n.path) : null;
-    // Settings are only on screen in Advanced mode; their errors are listed in the summary.
-    if (id !== null && (id !== "settings" || advanced)) {
+    if (id !== null) {
       problems.add(id);
     }
   }
-  const sections: { id: SectionId; advanced: boolean; step?: number }[] = [
-    { id: "box", advanced: false, step: 1 },
-    { id: "components", advanced: false, step: 2 },
-    { id: "printer", advanced: false, step: 3 },
-    { id: "settings", advanced: true },
+  const sections: { id: SectionId; step: number }[] = [
+    { id: "box", step: 1 },
+    { id: "components", step: 2 },
   ];
-  const shownSections = sections.filter((x) => advanced || !x.advanced);
-  const problemSections = shownSections
-    .filter((x) => problems.has(x.id))
-    .map((x) => ({ id: x.id, title: SECTION_TITLES[x.id] }));
-  const printer = project.printer;
-  const bedSize = `${mm(printer.bedX)} × ${mm(printer.bedY)} × ${mm(printer.bedZ)} mm`;
-  const defaultBed =
-    printer.bedX === DEFAULT_PRINTER.bedX &&
-    printer.bedY === DEFAULT_PRINTER.bedY &&
-    printer.bedZ === DEFAULT_PRINTER.bedZ;
+  const problemSections: { id: PathHome; title: string }[] = [
+    ...sections
+      .filter((x) => problems.has(x.id))
+      .map((x) => ({ id: x.id, title: SECTION_TITLES[x.id] })),
+    ...(problems.has("settings") ? [{ id: "settings" as const, title: "Settings" }] : []),
+  ];
   const summaries: Record<SectionId, string> = {
     box: `${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} × ${mm(project.box.innerHeight)} mm`,
-    printer: advanced
-      ? `${bedSize} · margin ${mm(printer.bedMargin)} mm · layers ${mm(printer.layerHeight)} mm`
-      : `${bedSize}${defaultBed ? " · default" : ""}`,
     components:
       project.components.length === 0
         ? "nothing yet"
         : project.components.length === 1
           ? "1 item"
           : `${project.components.length} items`,
-    settings: `${mm(project.settings.wall)} mm walls · fit ×${mm(project.settings.fit)}`,
   };
+  // The settings sheet, over whichever view is showing; `tab` is the one it opens on.
+  const openSettings = (tab?: SettingsTab): void =>
+    setSettingsOpen({ tab: tab ?? settingsTabFor(validation) });
   const showSection = (id: string): void => {
+    if (id === "settings") {
+      openSettings();
+      return;
+    }
     setOpenSection(id as SectionId);
-    document.getElementById(`section-${id}`)?.scrollIntoView({ block: "nearest" });
+    setSheetOpen(true);
+    document.getElementById(`section-${id}`)?.scrollIntoView?.({ block: "nearest" });
   };
   const addComponentOfKind = (kind: ComponentKind): void => {
     store.edit((q) => addComponent(q, kind));
+    // From the first visit the list is not on screen yet to open the new item by itself.
+    if (firstVisit) {
+      setEditingId(store.state.project.peek().components.at(-1)?.id ?? null);
+      setSheetOpen(true);
+    }
     setOpenSection("components");
+  };
+  // The tray bar's and the status line's Edit: the component's editor, in the list's place, as a click on its row opens it.
+  const editComponent = (id: string): void => {
+    showSection("components");
+    setEditingId(id);
   };
   const addExample = (): void => {
     store.edit((q) => (["cards", "bulk", "tiles"] as const).reduce(addComponent, q));
     setOpenSection("components");
   };
-  const notices: readonly Notice[] = s.appNotices.value;
-  // What the plan holds, for the sentence, the Export button and the tray numbers of the list.
-  const parts = layout ? numberParts(printable) : [];
+  // Where each notice shows: the one banner, the project menu (with a dot), or inline.
+  const noFit =
+    s.shortfall.value !== null || layoutNotices.some((n) => n.code === NOTICE_CODES.doesNotFit);
+  const conflicts = s.lockConflicts.value;
+  const canPlan = canOptimize(project, validation);
+  const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
+  // The older-geometry notice the person chose to keep is not shown, so it must not hide the stale
+  // one either (placeNotices lets the geometry notice speak for both).
+  const placed = placeNotices(
+    [
+      ...s.appNotices.value,
+      ...layoutNotices.filter(
+        (n) =>
+          n.code === STALE_CODE || (n.code === GEOMETRY_MAJOR_CODE && geometryKept !== geometryKey),
+      ),
+    ],
+    {
+      runPending: s.runPending.value,
+      runStatus: run.status,
+      noFit,
+      pinConflict: conflicts.length > 0,
+      canOptimize: canPlan,
+    },
+  );
+  const showStale = placed.banner.some((n) => n.code === STALE_CODE);
+  const showGeometry = placed.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE);
+  // The stale and older-geometry notices are the banner's: the summary lists the others.
+  const summaryNotices = layoutNotices.filter(
+    (n) => n.code !== STALE_CODE && n.code !== GEOMETRY_MAJOR_CODE,
+  );
+  // The file chooser lives here, not in the menu: the menu may close while the system dialog is up.
+  async function readFile(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+    let text: string;
+    try {
+      text = await file.text();
+    } catch (e) {
+      store.pushNotice({
+        level: "error",
+        code: OPEN_FAILED_CODE,
+        message: `Couldn't read ${file.name}: ${errorText(e)}`,
+      });
+      return;
+    } finally {
+      input.value = "";
+    }
+    store.importJson(text);
+  }
+  const saveFile = (): void => {
+    download(exportJsonFile(project, s.foreign.value), jsonFileName(project));
+    store.markSavedToFile();
+  };
+  // Phone: the share sheet takes the file; where it can't, Send file is Save file.
+  const sendFile = async (): Promise<void> => {
+    const name = jsonFileName(project);
+    const file = new File([exportJsonFile(project, s.foreign.value)], name, {
+      type: "application/json",
+    });
+    const result = await (props.share ?? shareFile)(file);
+    if (result === "shared") {
+      store.markSavedToFile();
+    } else if (result === "unsupported") {
+      saveFile();
+    }
+  };
+  // What the plan holds, for the sentence, the Export button and the layers named in the list.
   const planCurrent = layout !== undefined && !s.stale.value && run.status !== "running";
-  const trayNumbers = planCurrent ? trayNumbersByComponent(parts, project.components) : undefined;
+  const listTrays = planCurrent ? printable : undefined;
   const layers = layout ? levelsOf(layout.trays).length : 0;
-  const spares = layout ? layout.trays.filter((t) => t.part === "leftover").length : 0;
-  const partTotal = printable.length;
+  // What the status line says of a plan that matches the inputs: how many trays, how high.
+  const summary = s.summary.value;
+  const fits =
+    layout !== undefined && summary !== null && !s.stale.value
+      ? {
+          trays: summary.trayCount,
+          layers: Math.max(1, layers),
+          height: Math.max(0, ...layout.trays.map((t) => t.z + t.h)),
+          // the height below the space the box keeps free on top (where every stack reaches)
+          boxHeight: topPlane(project.box, projSettings),
+        }
+      : null;
+  // Download waits while the plan changes by itself; otherwise a plan that doesn't fit says so.
+  const fitProblem = !s.runPending.value && (noFit || conflicts.length > 0);
+
+  // A tray is selected and in the plan: its bar shows, and the plan's generic hint goes.
+  const hasSelectedTray =
+    layout !== undefined && printable.some((t) => t.key === s.selection.value);
+  const barProps = {
+    project,
+    trays: printable,
+    selectedKey: layout ? s.selection.value : null,
+    stale: s.stale.value,
+    edit: store.edit,
+    onSelect: (key: string | null) => {
+      s.selection.value = key;
+    },
+    onSwapFromChange: (key: string | null) => {
+      s.swapFrom.value = key;
+    },
+    onEditComponent: editComponent,
+  };
+
+  // The box and the list: the rail's two sections (on a phone, the sheet's).
+  const railSections = (
+    <>
+      {sections.map((x) => (
+        <Section
+          key={x.id}
+          id={x.id}
+          step={x.step}
+          title={SECTION_TITLES[x.id]}
+          summary={summaries[x.id]}
+          problem={problems.has(x.id)}
+          open={openSection === x.id}
+          onToggle={(open) => setOpenSection(open ? x.id : null)}
+        >
+          {x.id === "box" ? (
+            <BoxPanel
+              box={project.box}
+              onChange={(patch) => store.edit((q) => updateBox(q, patch))}
+            />
+          ) : null}
+          {x.id === "components" ? (
+            <WhatsInside
+              components={project.components}
+              openId={editingId}
+              onOpenChange={setEditingId}
+              trays={listTrays}
+              locks={project.locks}
+              onAdd={addComponentOfKind}
+              onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
+              onUnlockSize={(keys) =>
+                store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
+              }
+              onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
+              onRemove={(id) => {
+                const component = project.components.find((x) => x.id === id);
+                if (component === undefined) {
+                  return false;
+                }
+                store.edit((q) => removeComponent(q, id));
+                // Undo on the toast is only right while the removal is still the latest step.
+                setRemoved({ component, version: s.history.version.peek() });
+                return true;
+              }}
+            />
+          ) : null}
+        </Section>
+      ))}
+    </>
+  );
+  // The line at the foot of the page; on a phone it ends the first visit or the sheet, so the handle stays clear.
+  const footer = (
+    <footer class="app-footer">
+      {`Insert Generator v${APP_VERSION} (${BUILD_ID}) · `}
+      <a href="./third-party-licenses.txt">Third-party licenses</a>
+    </footer>
+  );
+  // Below 760 px the status pill has no room for Keep searching on a plan that doesn't fit:
+  // the sheet's bar offers it.
+  const searchOnPhone =
+    noFit && !s.geometryOld.value && !s.runPending.value && run.status !== "running" && canPlan;
+
+  // The editor is showing in the sheet, or the box has it: the sheet is "full"; below 600 px that
+  // fills the screen, and what is behind it is out of reach of Tab and screen readers (inert).
+  const editing = editingId !== null && openSection === "components";
+  const sheetFull = editingId !== null || openSection === "box";
+  const sheetCoversScreen = phone && narrow && !firstVisit && sheetOpen && sheetFull;
+  // `inert` is not in Preact's typings yet.
+  const behindSheet = { inert: sheetCoversScreen } as Record<string, unknown>;
 
   return (
     <ValidationContext.Provider value={validation}>
       <SizingContext.Provider value={sizingNotices}>
         <SettingsContext.Provider value={projSettings}>
-          <div class="pf-app" data-level={advanced ? "advanced" : "simple"}>
-            <div class="app-top">
-              <header class="pf-app__bar">
-                <div class="app-title-block">
-                  <h1 class="pf-app__title">Insert Generator</h1>
-                  <span class="app-project-name">
-                    {project.name === "" ? "(unnamed)" : project.name}
-                  </span>
-                </div>
-                <div class="pf-toolbar__group">
-                  {advanced ? (
-                    <span class="pf-mode-note" aria-hidden="true">
-                      Dotted edge = advanced
-                    </span>
-                  ) : null}
-                  <fieldset class="mode-toggle">
-                    <legend>Input mode</legend>
-                    <div class="pf-seg">
-                      <label class="pf-seg__opt">
-                        <input
-                          type="radio"
-                          name="input-mode"
-                          checked={!advanced}
-                          onChange={() => {
-                            s.mode.value = "simple";
-                          }}
-                        />
-                        Simple
-                      </label>
-                      <label class="pf-seg__opt">
-                        <input
-                          type="radio"
-                          name="input-mode"
-                          checked={advanced}
-                          onChange={() => {
-                            s.mode.value = "advanced";
-                          }}
-                        />
-                        Advanced
-                      </label>
-                    </div>
-                  </fieldset>
-                  <details class="app-menu" ref={menuRef}>
-                    <summary>Project</summary>
-                    <div class="app-menu-panel">
-                      <ProjectMenu
-                        name={project.name}
-                        currentId={project.id}
-                        projects={s.projects.value}
-                        storageAvailable={store.storageAvailable}
-                        onRename={(name) => store.edit((q) => renameProject(q, name))}
-                        onOpen={(id) => {
-                          closeMenu();
-                          store.openProject(id);
-                        }}
-                        onNew={() => {
-                          closeMenu();
-                          store.newProject();
-                        }}
-                        onDelete={(id) => store.deleteProject(id)}
-                        onImport={(text) => {
-                          store.importJson(text);
-                        }}
-                        onExportJson={() =>
-                          download(exportJsonFile(project, s.foreign.value), jsonFileName(project))
-                        }
-                        onCopyLink={onCopyLink}
-                      />
-                    </div>
-                  </details>
-                </div>
-              </header>
-              {notices.length > 0 ? (
-                <div class="app-notices">
-                  <Notices
-                    notices={notices}
-                    label="App messages"
-                    onDismiss={(code) => store.dismissNotice(code)}
-                    // The choice stays on screen while autosave is paused for it.
-                    canDismiss={(n) => !(n.code === CONFLICT_CODE && s.conflict.value)}
-                    renderAction={(n) =>
-                      n.code === CONFLICT_CODE && s.conflict.value ? (
-                        <>
-                          <button type="button" onClick={() => store.resolveConflict("keepMine")}>
-                            Keep my version
-                          </button>
-                          <button type="button" onClick={() => store.resolveConflict("loadTheirs")}>
-                            Load the other tab's version
-                          </button>
-                        </>
-                      ) : null
-                    }
+          <div class="pf-app">
+            <div class="app-top" {...behindSheet}>
+              <AppHeader
+                name={project.name}
+                onRename={(name) => store.edit((q) => renameProject(q, name))}
+                saveState={s.saveState.value}
+                canUndo={store.canUndo.value}
+                canRedo={store.canRedo.value}
+                onUndo={() => store.undo()}
+                onRedo={() => store.redo()}
+                downloadRef={downloadButtonRef}
+                onDownload={() => setExportOpen(true)}
+                downloadDisabled={
+                  layout === undefined ||
+                  s.stale.value ||
+                  s.geometryOld.value ||
+                  s.runPending.value ||
+                  fitProblem
+                }
+                downloadLabel={fitProblem ? "Fix the fit to download" : undefined}
+                downloadReason={
+                  layout === undefined
+                    ? project.components.length === 0
+                      ? "Add what goes inside first"
+                      : canPlan
+                        ? "Wait for the first plan"
+                        : "Fix the errors marked in the inputs first"
+                    : s.runPending.value
+                      ? "Wait for the plan to finish"
+                      : s.geometryOld.value && !showStale
+                        ? GEOMETRY_REPRINT_REASON
+                        : s.stale.value
+                          ? "Make a new plan first"
+                          : undefined
+                }
+                // A blocked Download pressed while the old plan is kept brings its banner back:
+                // Reprint everything is the way out, and the person asked where it is.
+                onBlockedDownload={() => {
+                  if (s.geometryOld.value && geometryKept !== null) {
+                    setGeometryKept(null);
+                  }
+                }}
+                menuDot={placed.menu.length > 0}
+                menuNoticeCount={placed.menu.length}
+                menu={(close) => (
+                  <ProjectMenu
+                    name={project.name}
+                    currentId={project.id}
+                    projects={s.projects.value}
+                    storageAvailable={store.storageAvailable}
+                    onClose={close}
+                    onOpen={(id) => store.openProject(id)}
+                    onNew={() => store.newProject()}
+                    onDelete={(id) => store.deleteProject(id)}
+                    onOpenFile={() => fileRef.current?.click()}
+                    onSaveFile={saveFile}
+                    onSendFile={() => {
+                      void sendFile();
+                    }}
+                    onSettings={() => openSettings()}
+                    notices={placed.menu}
+                    conflict={s.conflict.value}
+                    onResolveConflict={(choice) => store.resolveConflict(choice)}
+                    onDismissNotice={(code) => store.dismissNotice(code)}
                   />
-                </div>
-              ) : null}
+                )}
+              />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                class="visually-hidden"
+                tabIndex={-1}
+                aria-hidden="true"
+                aria-label="Open an insert file"
+                onChange={(e) => {
+                  void readFile(e.currentTarget);
+                }}
+              />
+              {/* Always mounted, so its live regions are there before they have anything to say. */}
+              <div
+                class="app-notices"
+                data-empty={
+                  showStale || showGeometry || placed.inline.length > 0 ? undefined : "true"
+                }
+              >
+                <PlanBanners
+                  stale={showStale}
+                  geometryOld={showGeometry}
+                  onUpdate={() => store.refit()}
+                  onReprint={() => store.refit()}
+                  onKeepOld={() => setGeometryKept(geometryKey)}
+                />
+                <Notices
+                  notices={placed.inline}
+                  label="App messages"
+                  limit={3}
+                  onDismiss={(code) => store.dismissNotice(code)}
+                />
+              </div>
             </div>
-            <div class="pf-app__body">
-              <section class="pf-app__rail" aria-label="Inputs">
-                {shownSections.map((x) => (
-                  <Section
-                    key={x.id}
-                    id={x.id}
-                    step={x.step}
-                    title={SECTION_TITLES[x.id]}
-                    summary={summaries[x.id]}
-                    problem={problems.has(x.id)}
-                    advanced={x.advanced}
-                    open={openSection === x.id}
-                    onToggle={(open) => setOpenSection(open ? x.id : null)}
-                  >
-                    {x.id === "box" ? (
-                      <BoxForm
+            <div class="pf-app__body" data-first-visit={firstVisit ? "true" : undefined}>
+              {firstVisit ? null : phone ? (
+                <BottomSheet
+                  label="The box and what's inside"
+                  title="What's inside"
+                  meta={summaries.components}
+                  expanded={sheetOpen}
+                  full={sheetFull}
+                  editing={editing}
+                  handleRef={sheetHandle}
+                  onExpandedChange={(open) => {
+                    setSheetOpen(open);
+                    // The box has the sheet to itself: folding it comes back to the list.
+                    if (!open && openSection === "box") {
+                      setOpenSection("components");
+                    }
+                  }}
+                  action={
+                    searchOnPhone ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          store.refit();
+                          // The button goes with the search: the handle keeps the place.
+                          sheetHandle.current?.focus();
+                        }}
+                      >
+                        Keep searching
+                      </button>
+                    ) : undefined
+                  }
+                >
+                  {railSections}
+                  {footer}
+                </BottomSheet>
+              ) : (
+                <section class="pf-app__rail" aria-label="Inputs">
+                  {railSections}
+                </section>
+              )}
+              <main class="pf-app__stage" ref={mainRef} {...behindSheet}>
+                <h2 class="visually-hidden">Results</h2>
+                <StatusLine
+                  run={run}
+                  pending={s.runPending.value}
+                  canOptimize={canPlan}
+                  hasLayout={layout !== undefined}
+                  fits={fits}
+                  canSearchMore={!s.geometryOld.value}
+                  noFit={
+                    noFit
+                      ? {
+                          misfit: misfitOf(
+                            s.noFitAttempt.value,
+                            project.box,
+                            projSettings,
+                            project.components,
+                          ),
+                        }
+                      : null
+                  }
+                  conflicts={conflicts}
+                  onKeepSearching={() => store.refit()}
+                  onStop={() => store.cancelRun()}
+                  onEdit={editComponent}
+                  onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
+                />
+                {firstVisit ? (
+                  <section class="pf-first" aria-label="Start">
+                    <h2>Fit your game into its box.</h2>
+                    <div class="pf-first__step">
+                      <h3>Measure the box</h3>
+                      <BoxPanel
                         box={project.box}
-                        advanced={advanced}
                         onChange={(patch) => store.edit((q) => updateBox(q, patch))}
                       />
-                    ) : null}
-                    {x.id === "printer" ? (
-                      <PrinterForm
-                        printer={project.printer}
-                        advanced={advanced}
-                        onChange={(patch) => store.edit((q) => updatePrinter(q, patch))}
-                      />
-                    ) : null}
-                    {x.id === "components" ? (
-                      <ComponentList
-                        components={project.components}
-                        advanced={advanced}
-                        trayNumbers={trayNumbers}
-                        onAdd={addComponentOfKind}
-                        onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
-                        onRemove={(id) => {
-                          const index = project.components.findIndex((x) => x.id === id);
-                          const component = project.components[index];
-                          if (component === undefined) {
-                            return false;
-                          }
-                          setRemoved({ component, index });
-                          store.edit((q) => removeComponent(q, id));
-                          return true;
-                        }}
-                      />
-                    ) : null}
-                    {x.id === "settings" ? (
-                      <SettingsForm
-                        settings={project.settings}
-                        advanced={advanced}
-                        onChange={(next) => store.edit((q) => setSettings(q, next))}
-                      />
-                    ) : null}
-                  </Section>
-                ))}
-              </section>
-              <main class="pf-app__stage" ref={mainRef}>
-                <h2 class="visually-hidden">Results</h2>
-                <Summary
-                  summary={s.summary.value}
-                  run={run}
-                  notices={layoutNotices}
-                  hasLayout={layout !== undefined}
-                  stale={s.stale.value}
-                  geometryOld={s.geometryOld.value}
-                  layers={layers}
-                  spares={spares}
-                  canUndo={s.undoSlot.value !== null}
-                  canOptimize={canOptimize(project, validation)}
-                  hasComponents={project.components.length > 0}
-                  hiddenErrors={errorsWithoutField(validation, advanced)}
-                  advanced={advanced}
-                  problemSections={problemSections}
-                  onShowSection={showSection}
-                  shortfall={s.shortfall.value}
-                  onRefit={() => store.refit()}
-                  onUndo={() => store.undo()}
-                  onCancel={() => store.cancelRun()}
-                  onRetry={() => store.retry()}
-                />
-                {layout ? (
+                    </div>
+                    <div class="pf-first__step">
+                      <h3>Pick what goes inside</h3>
+                      <AddKinds onAdd={addComponentOfKind} label="Pick what goes inside" />
+                      <button type="button" onClick={addExample}>
+                        Start from an example game
+                      </button>
+                    </div>
+                    <p class="hint">Your inserts are saved in this browser.</p>
+                    {phone ? footer : null}
+                  </section>
+                ) : layout ? (
                   <section class="pf-frame pf-view" aria-label="Preview">
                     <div class="pf-view__head">
                       <div
@@ -487,7 +707,7 @@ export function App(props: AppProps) {
                                     : undefined;
                           if (next !== undefined) {
                             e.preventDefault();
-                            setView(next);
+                            showView(next);
                             document.getElementById(`tab-${next}`)?.focus();
                           }
                         }}
@@ -506,7 +726,7 @@ export function App(props: AppProps) {
                             aria-selected={view === id}
                             aria-controls={`panel-${id}`}
                             tabIndex={view === id ? 0 : -1}
-                            onClick={() => setView(id)}
+                            onClick={() => showView(id)}
                           >
                             {label}
                           </button>
@@ -514,16 +734,6 @@ export function App(props: AppProps) {
                       </div>
                       <div class="pf-toolbar__group">
                         {s.stale.value ? <span class="pf-badge">Out of date</span> : null}
-                        {run.status === "running" ? <span class="pf-badge">Updating…</span> : null}
-                        <button
-                          type="button"
-                          class="primary"
-                          ref={exportButtonRef}
-                          aria-haspopup="dialog"
-                          onClick={() => setExportOpen(true)}
-                        >
-                          {`Export all ${partTotal} ${partTotal === 1 ? "part" : "parts"}`}
-                        </button>
                       </div>
                     </div>
                     <div
@@ -538,43 +748,50 @@ export function App(props: AppProps) {
                           box={project.box}
                           settings={project.settings}
                           components={project.components}
-                          advanced={advanced}
                           lockedKeys={locked}
                           selectedKey={s.selection.value}
                           stale={s.stale.value}
+                          level={s.viewLevel.value}
+                          onLevelChange={(l) => {
+                            s.viewLevel.value = l;
+                          }}
+                          swapFrom={s.swapFrom.value}
+                          onSwapFromChange={(key) => {
+                            s.swapFrom.value = key;
+                          }}
                           onSelect={(key) => {
                             s.selection.value = key;
                           }}
                           onSwap={(a, b) => store.edit((q) => swapTrays(q, a, b))}
                           sizeLockedKeys={sizeLocked}
-                          onToggleSizeLock={(key) =>
-                            withTray(key, (tray) => (q) => toggleSizeLock(q, tray))
-                          }
-                          onToggleLock={(key) =>
-                            withTray(key, (tray) => (q) => toggleLock(q, tray))
+                          bar={
+                            hasSelectedTray ? (
+                              <SelectedTrayBar {...barProps} inPlan swapFrom={s.swapFrom.value} />
+                            ) : undefined
                           }
                         />
                       ) : null}
                       {view === "3d" ? (
-                        <Viewer
-                          trays={printable}
-                          box={project.box}
-                          settings={project.settings}
-                          components={project.components}
-                          advanced={advanced}
-                          stale={s.stale.value}
-                          meshes={meshes}
-                          selectedKey={s.selection.value}
-                          lockedKeys={locked}
-                          sizeLockedKeys={sizeLocked}
-                          onToggleSizeLock={(key) =>
-                            withTray(key, (tray) => (q) => toggleSizeLock(q, tray))
-                          }
-                          onSelect={(key) => {
-                            s.selection.value = key;
-                          }}
-                          {...props.viewerProps}
-                        />
+                        <>
+                          <Viewer
+                            trays={printable}
+                            box={project.box}
+                            settings={project.settings}
+                            components={project.components}
+                            stale={s.stale.value}
+                            meshes={meshes}
+                            selectedKey={s.selection.value}
+                            onSelect={(key) => {
+                              s.selection.value = key;
+                            }}
+                            {...props.viewerProps}
+                          />
+                          {hasSelectedTray ? (
+                            <div class="view-bar">
+                              <SelectedTrayBar {...barProps} inPlan={false} swapFrom={null} />
+                            </div>
+                          ) : null}
+                        </>
                       ) : null}
                     </div>
                     {exportOpen ? (
@@ -582,39 +799,20 @@ export function App(props: AppProps) {
                         <ExportPanel
                           titleId="export-title"
                           trays={printable}
+                          components={project.components}
                           printer={project.printer}
                           settings={project.settings}
                           meshes={meshes}
                           projectName={project.name}
+                          summary={s.summary.value}
                           disabled={run.status === "running"}
                           stale={s.stale.value}
                           download={download}
+                          onOpenGuide={() => {
+                            setExportOpen(false);
+                            setAssemblyFor(project.id);
+                          }}
                         />
-                        <div class="export-option export-assembly">
-                          <div>
-                            <strong>Assembly page</strong>
-                            <p class="hint">
-                              An exploded picture of the build order, numbered pictures of each
-                              layer and a parts list, to print or save as PDF. Print this one
-                              yourself.
-                            </p>
-                            {s.stale.value ? (
-                              <p class="hint">
-                                Inputs changed — update the plan before opening the assembly page.
-                              </p>
-                            ) : null}
-                          </div>
-                          <button
-                            type="button"
-                            disabled={s.stale.value}
-                            onClick={() => {
-                              setExportOpen(false);
-                              setAssemblyFor(project.id);
-                            }}
-                          >
-                            Open the assembly page
-                          </button>
-                        </div>
                       </Modal>
                     ) : null}
                   </section>
@@ -624,46 +822,43 @@ export function App(props: AppProps) {
                       <div class="stage-empty-box">
                         <span class="pf-measure">{`Your box, ${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} mm`}</span>
                       </div>
-                      <h2>
-                        {project.components.length === 0
-                          ? "Fit your game into its box."
-                          : "Working out the trays…"}
-                      </h2>
-                      <p>
-                        {project.components.length === 0
-                          ? "Check the box size on the left, then pick what goes inside. The plan draws itself as you go."
-                          : "The plan appears here as soon as every field is valid."}
-                      </p>
-                      {project.components.length === 0 ? (
-                        <>
-                          <AddKinds
-                            onAdd={addComponentOfKind}
-                            startIndex={0}
-                            label="Pick what goes inside"
-                          />
-                          <button type="button" onClick={addExample}>
-                            Not sure? Try an example
-                          </button>
-                        </>
-                      ) : null}
-                      <p class="hint">Everything stays in your browser.</p>
+                      <h2>Working out the trays…</h2>
+                      <p>The plan appears here as soon as every field is valid.</p>
                     </div>
                   </section>
                 )}
-                {removed !== null ? (
-                  <div class="pf-toast stage-block" role="status">
+                {/* The figures come after the plan, on every width (the status line is above it). */}
+                <Summary
+                  summary={summary}
+                  run={run}
+                  notices={summaryNotices}
+                  hasLayout={layout !== undefined}
+                  canOptimize={canPlan}
+                  hasComponents={project.components.length > 0}
+                  hiddenErrors={errorsWithoutField(validation)}
+                  problemSections={problemSections}
+                  onShowSection={showSection}
+                  onRetry={() => store.retry()}
+                />
+                {/* always mounted: the removal is spoken, and Undo is in the header as well */}
+                <div class="visually-hidden" role="status" data-live="removed">
+                  {removed !== null && removed.version === s.history.version.value
+                    ? `Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. Undo removal is available.`
+                    : ""}
+                </div>
+                {removed !== null && removed.version === s.history.version.value ? (
+                  <div class="pf-toast stage-block">
                     {`Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. `}
                     <button
                       type="button"
                       class="pf-link"
                       onClick={() => {
-                        const back = removed;
                         setRemoved(null);
-                        store.edit((q) => restoreComponent(q, back.component, back.index));
+                        store.undo();
                         setOpenSection("components");
                       }}
                     >
-                      Undo
+                      Undo removal
                     </button>
                     <button type="button" class="pf-link" onClick={() => setRemoved(null)}>
                       Dismiss
@@ -672,10 +867,21 @@ export function App(props: AppProps) {
                 ) : null}
               </main>
             </div>
-            <footer class="app-footer">
-              {`Insert Generator v${APP_VERSION} (${BUILD_ID}) · `}
-              <a href="./third-party-licenses.txt">Third-party licenses</a>
-            </footer>
+            {phone ? null : footer}
+            {settingsOpen !== null ? (
+              <SettingsSheet
+                initialTab={settingsOpen.tab}
+                settings={project.settings}
+                onSettingsChange={(next) => store.edit((q) => setSettings(q, next))}
+                printer={project.printer}
+                myPrinter={store.prefs.printer.value}
+                onMyPrinterChange={(p) => store.prefs.setPrinter(p)}
+                onApplyPrinter={() =>
+                  store.edit((q) => applyPrinter(q, store.prefs.printer.peek()))
+                }
+                onClose={() => setSettingsOpen(null)}
+              />
+            ) : null}
           </div>
         </SettingsContext.Provider>
       </SizingContext.Provider>

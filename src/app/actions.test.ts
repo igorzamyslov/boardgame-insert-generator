@@ -2,15 +2,12 @@
 import { describe, expect, it } from "vitest";
 import { newComponent, newProject } from "../model/defaults";
 import { GEOMETRY_VERSION } from "../geometry/version";
-import { NOTICE_CODES } from "../layout";
-import type { CardsComponent, Lock, Notice, Project, TraySpec } from "../model/types";
+import type { CardsComponent, Lock, Project, TraySpec } from "../model/types";
 import {
   addComponent,
   isLockable,
   lockedKeys,
-  pruneDroppedLocks,
   removeComponent,
-  restoreComponent,
   removeLock,
   renameProject,
   setCardSides,
@@ -23,9 +20,10 @@ import {
   swapTrays,
   toggleLock,
   toggleSizeLock,
+  unpinTrays,
   updateBox,
   updateComponent,
-  updatePrinter,
+  applyPrinter,
 } from "./actions";
 
 function tray(over: Partial<TraySpec>): TraySpec {
@@ -67,13 +65,24 @@ function withLayout(p: Project, trays: TraySpec[]): Project {
 }
 
 describe("project actions", () => {
-  it("patches box and printer without mutating the input", () => {
+  it("patches the box without mutating the input", () => {
     const p = newProject();
     const frozen = JSON.stringify(p);
-    const q = updatePrinter(updateBox(p, { innerWidth: 290 }), { bedX: 256 });
+    const q = updateBox(p, { innerWidth: 290 });
     expect(q.box.innerWidth).toBe(290);
     expect(q.box.innerDepth).toBe(p.box.innerDepth);
-    expect(q.printer.bedX).toBe(256);
+    expect(JSON.stringify(p)).toBe(frozen);
+  });
+
+  it("applies a whole printer as a copy, leaving the rest alone", () => {
+    const p = addComponent(newProject(), "cards");
+    const frozen = JSON.stringify(p);
+    const printer = { bedX: 180, bedY: 170, bedZ: 160, bedMargin: 3, layerHeight: 0.16 };
+    const q = applyPrinter(p, printer);
+    expect(q.printer).toEqual(printer);
+    expect(q.printer).not.toBe(printer);
+    expect(q.box).toBe(p.box);
+    expect(q.components).toBe(p.components);
     expect(JSON.stringify(p)).toBe(frozen);
   });
 
@@ -240,52 +249,32 @@ describe("size locks", () => {
   });
 });
 
-describe("pruneDroppedLocks", () => {
-  const locks: Lock[] = [
-    { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
-    { kind: "size", trayKey: "a:p0:0", w: 50, d: 40, h: 20 },
-    { kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] },
-  ];
-  const dropped = (index: number): Notice => ({
-    level: "warning",
-    code: NOTICE_CODES.lockDropped,
-    message: "Size lock on a:p0:0 was dropped: its contents no longer fit.",
-    path: `/locks/${index}`,
-  });
+describe("unpinTrays", () => {
+  const stacked = (): Project => {
+    const lower = tray({ key: "a:p0:0", path: "0", level: 0 });
+    const upper = tray({ key: "b:p0:0", path: "0", level: 1 });
+    const alone = tray({ key: "c:p0:0", path: "1" });
+    const p = withLayout(newProject(), [lower, upper, alone]);
+    return toggleSizeLock(toggleLock(toggleLock(p, lower), alone), alone);
+  };
 
-  it("removes exactly the locks named by lock.dropped notices", () => {
-    const p: Project = { ...newProject(), locks };
-    expect(pruneDroppedLocks(p, [dropped(1), dropped(2)]).locks).toEqual([locks[0]]);
-  });
-
-  it("returns the same project when nothing was dropped or the notice has no lock path", () => {
-    const p: Project = { ...newProject(), locks };
-    const other: Notice = {
-      level: "warning",
-      code: NOTICE_CODES.play,
-      message: "",
-      path: "/locks/0",
-    };
-    const noPath: Notice = { level: "warning", code: NOTICE_CODES.lockDropped, message: "" };
-    expect(pruneDroppedLocks(p, [other, noPath])).toBe(p);
-  });
-});
-
-describe("restoreComponent", () => {
-  it("puts a removed component back at its index, and does nothing if it is already there", () => {
-    const p0 = addComponent(addComponent(newProject(), "cards"), "bulk");
-    const [first, second] = p0.components;
-    if (first === undefined || second === undefined) {
-      throw new Error("expected two components");
-    }
-    const p1 = removeComponent(p0, first.id);
-    expect(p1.components.map((c) => c.id)).toEqual([second.id]);
-    const p2 = restoreComponent(p1, first, 0);
-    expect(p2.components.map((c) => c.id)).toEqual([first.id, second.id]);
-    expect(restoreComponent(p2, first, 1)).toBe(p2);
-    expect(restoreComponent(p1, first, 99).components.map((c) => c.id)).toEqual([
-      second.id,
-      first.id,
+  it("unpins the whole stack a tray is in, and leaves other pins and the size locks", () => {
+    const p = stacked();
+    expect(p.locks.map((l) => l.kind).sort()).toEqual([
+      "position",
+      "position",
+      "position",
+      "size",
+      "stack",
     ]);
+    const q = unpinTrays(p, ["b:p0:0"]);
+    expect(lockedKeys(q)).toEqual(new Set(["c:p0:0"]));
+    expect(q.locks.some((l) => l.kind === "stack")).toBe(false);
+    expect(sizeLockedKeys(q)).toEqual(new Set(["c:p0:0"]));
+  });
+
+  it("returns the same project when nothing was pinned there", () => {
+    const p = stacked();
+    expect(unpinTrays(p, ["zzz:p0:0"])).toBe(p);
   });
 });

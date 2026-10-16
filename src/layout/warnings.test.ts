@@ -59,7 +59,7 @@ const reqs = [boxReq("bits", 40, 40, 10, { loose: true }), boxReq("cards", 40, 4
 const trays = [tray("bits:p0:0", "0", 0, "Cubes"), tray("cards:p0:0", "1", 0, "Deck")];
 
 describe("layout warnings", () => {
-  it("warns about loose bits on top only when coverage is partial or the box stands on its side", () => {
+  it("warns about loose pieces on top only when coverage is partial or the box stands on its side", () => {
     const full = createCtx(makeInput(reqs, { box: { headroom: 5 } }), fakeMeasure);
     expect(layoutWarnings(full, trays, okSummary)).toEqual([]);
     const partial = createCtx(
@@ -93,7 +93,7 @@ describe("layout warnings", () => {
     const ctx = createCtx(makeInput(reqs), fakeMeasure);
     const x = layoutWarnings(ctx, trays, { ...okSummary, playX: 1.6, crossX: 4 })[0]?.message;
     expect(x).toBe(
-      "Trays can shift 1.60 mm left–right (Play limit: 1.5 mm): 4 trays sit side by side in one row. To reduce it: choose a tighter Fit; lower Box clearance (counts twice) or Tray gap (once per extra tray) under Exact values in Advanced mode; or put fewer trays in that row. Or raise Play limit there.",
+      "Trays can shift 1.60 mm left–right (Play limit: 1.5 mm): 4 trays sit side by side in one row. To reduce it: choose a tighter Fit; lower Box clearance (counts twice) or Tray gap (once per extra tray) under Exact numbers; or put fewer trays in that row. Or raise Play limit there.",
     );
     const y = layoutWarnings(ctx, trays, { ...okSummary, playY: 1.6, crossY: 4 })[0]?.message;
     expect(y).toContain("front–back");
@@ -131,7 +131,7 @@ describe("layout warnings", () => {
     const ctx = createCtx(makeInput(reqs), fakeMeasure);
     const msg = layoutWarnings(ctx, trays, { ...okSummary, playY: 1.6, crossY: 4 })[0]?.message;
     const before =
-      "Trays can shift 1.60 mm front–back (more than 1.5 mm): 4 trays sit one behind the other in one row. To reduce it: choose a tighter Fit; lower Box clearance (it counts twice) or Tray gap (it counts once for each extra tray in the row) under Exact values in Advanced mode; or put fewer trays in that row.";
+      "Trays can shift 1.60 mm front–back (more than 1.5 mm): 4 trays sit one behind the other in one row. To reduce it: choose a tighter Fit; lower Box clearance (it counts twice) or Tray gap (it counts once for each extra tray in the row) under Exact numbers; or put fewer trays in that row.";
     expect(msg?.length).toBeLessThanOrEqual(before.length);
   });
 
@@ -205,7 +205,7 @@ describe("layout warnings", () => {
     expect(n.message).toContain("300,000 iterations");
     expect(n.message).toContain("not proof");
     expect(n.message).toContain("closest attempt so far is short by 12.4 mm in width (X)");
-    expect(n.message).toContain("Press “Update plan” again to search about 3 times longer");
+    expect(n.message).toContain("Press “Keep searching” to search about 3 times longer");
     for (const verdict of ["too small by", "don't fit in this box"]) {
       expect(n.message).not.toContain(verdict);
     }

@@ -8,7 +8,6 @@ import { validateProject } from "../model/validate";
 import { APP_VERSION } from "../model/version";
 import { size } from "../sizing";
 import { errorText } from "../util/errors";
-import { pruneDroppedLocks } from "./actions";
 import type { LayoutClient } from "./clients";
 import type { RunKind, State } from "./state";
 
@@ -16,7 +15,7 @@ export const DEBOUNCE_MS = 400;
 export const DEFAULT_SEED = 1;
 export const IMPROVE_FACTOR = 3;
 export const NEWER_MINOR_CONFIRM =
-  "This project was made with a newer app version. Updating the plan replaces its stored layout and may drop parts this version doesn't understand. Continue?";
+  "This project was made with a newer app version. Making a new plan replaces its stored layout and may drop trays this version doesn't understand. Continue?";
 
 export type RunTrigger = "auto" | "user";
 
@@ -62,6 +61,13 @@ export function buildLayoutInput(p: Project): LayoutInput {
     inputsHash: inputsHash(p),
     appVersion: APP_VERSION,
   };
+}
+
+/** The run searched and found no layout: its best attempt is what it reports. */
+function searchedInfeasible(result: LayoutResult): boolean {
+  return (
+    result.layout === null && (result.lockConflicts.length === 0 || result.bestAttempt !== null)
+  );
 }
 
 export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks): Runner {
@@ -111,29 +117,49 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
 
   function accept(result: LayoutResult): void {
     const current = state.project.value;
-    // Locks the run dropped leave the project in the same update, so the plan view and the
-    // inputs hash match what was laid out. The layout ignored them, so it is valid for the
-    // pruned inputs: it is stored under the post-prune hash, so it doesn't look stale and
-    // nothing re-runs. lastResult keeps pointing at the stored layout (its notices stay shown).
-    const pruned = pruneDroppedLocks(current, result.notices);
-    const accepted: LayoutResult =
-      pruned !== current && result.layout
-        ? { ...result, layout: { ...result.layout, inputsHash: inputsHash(pruned) } }
-        : result;
+    // Pins are never dropped silently: a run that had to ignore some did not lay out the project
+    // the user asked for, so its plan is not accepted. The previous plan, the history and the pins
+    // stay as they were; the conflicts are listed for the user to unpin (which runs again). A run
+    // that found no plan at all (it searched, and nothing fits even without the pins) is kept as
+    // the infeasible result it is, so its notice and shortfall show; it changes no project.
+    if (result.lockConflicts.length > 0 && !searchedInfeasible(result)) {
+      batch(() => {
+        state.lockConflicts.value = result.lockConflicts;
+        state.run.value = { status: "done" };
+      });
+      return;
+    }
+    const next: Project = result.layout ? { ...current, layout: result.layout } : current;
+    // A plan for inputs that changed completes the edit's own history entry; a better plan for
+    // inputs that already had a current one is a step of its own, so undo brings the old one back.
+    const hadCurrentPlan = current.layout?.inputsHash === inputsHash(current);
     batch(() => {
-      state.lastResult.value = accepted;
-      state.lastResultHash.value = inputsHash(pruned);
-      if (accepted.layout) {
-        state.undoSlot.value = current.layout
-          ? { layout: current.layout, ...(pruned !== current && { locks: current.locks }) }
-          : null;
-        state.project.value = { ...pruned, layout: accepted.layout };
-      } else if (pruned !== current) {
-        state.project.value = pruned;
+      state.lastResult.value = result;
+      state.lastResultHash.value = inputsHash(current);
+      state.lockConflicts.value = result.lockConflicts;
+      if (next !== current) {
+        if (result.layout && hadCurrentPlan) {
+          state.history.ensureBase(current);
+          state.history.push(next);
+        } else {
+          state.history.amend(next);
+          if (result.layout) {
+            // Steps taken after the edit while its run was pending (renames) share its inputs: they
+            // get the plan too, so undoing back to them doesn't show it stale.
+            const hash = inputsHash(current);
+            const plan = result.layout;
+            state.history.amendBefore((e) =>
+              inputsHash(e) === hash && e.layout?.inputsHash !== hash
+                ? { ...e, layout: plan }
+                : null,
+            );
+          }
+        }
+        state.project.value = next;
       }
       state.run.value = { status: "done" };
     });
-    if (accepted.layout || pruned !== current) {
+    if (result.layout) {
       hooks.onAccepted();
     }
   }
@@ -146,11 +172,16 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
     const p = state.project.value;
     if (!canOptimize(p)) {
       invalidate();
-      state.run.value = { status: "idle" };
+      batch(() => {
+        state.lockConflicts.value = [];
+        state.run.value = { status: "idle" };
+        state.runScheduled.value = false;
+      });
       return;
     }
     if (state.needsConfirm.value) {
       if (trigger === "auto" || !deps.confirm(NEWER_MINOR_CONFIRM)) {
+        state.runScheduled.value = false;
         return;
       }
       state.needsConfirm.value = false;
@@ -169,7 +200,11 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       trigger === "user" && failedRun?.hash === hash
         ? Math.max(base, failedRun.iterations * REPEAT_FACTOR)
         : base;
-    state.run.value = { status: "running", done: 0, total: iterations };
+    // one step: the pending run is handed from "scheduled" to "running" with no gap
+    batch(() => {
+      state.run.value = { status: "running", done: 0, total: iterations, kind };
+      state.runScheduled.value = false;
+    });
     try {
       const input = buildLayoutInput(p);
       const c = await getClient();
@@ -178,7 +213,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       }
       const result = await c.run(input, seed, iterations, previous, (done, total) => {
         if (my === token) {
-          state.run.value = { status: "running", done, total };
+          state.run.value = { status: "running", done, total, kind };
         }
       });
       if (my !== token) {
@@ -188,7 +223,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
         state.run.value = { status: "idle" };
         return;
       }
-      failedRun = result.layout === null ? { hash: input.inputsHash, iterations } : null;
+      failedRun = searchedInfeasible(result) ? { hash: input.inputsHash, iterations } : null;
       accept(result);
     } catch (e) {
       if (my !== token) {
@@ -209,9 +244,12 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       }
       clearTimer();
       invalidate();
-      if (state.run.value.status === "running") {
-        state.run.value = { status: "idle" };
-      }
+      batch(() => {
+        if (state.run.value.status === "running") {
+          state.run.value = { status: "idle" };
+        }
+        state.runScheduled.value = true;
+      });
       timer = setTimeout(() => {
         timer = undefined;
         void runNow("edit", "auto");
@@ -221,7 +259,10 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
     cancel() {
       clearTimer();
       invalidate();
-      state.run.value = { status: "idle" };
+      batch(() => {
+        state.run.value = { status: "idle" };
+        state.runScheduled.value = false;
+      });
     },
     retry() {
       return runNow(lastKind, "user");
@@ -232,6 +273,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       }
       clearTimer();
       invalidate();
+      state.runScheduled.value = false;
       if (opts.run && !state.project.value.layout) {
         void runNow("edit", "auto");
       }
@@ -240,9 +282,12 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       disposed = true;
       clearTimer();
       invalidate();
-      if (state.run.value.status === "running") {
-        state.run.value = { status: "idle" };
-      }
+      batch(() => {
+        if (state.run.value.status === "running") {
+          state.run.value = { status: "idle" };
+        }
+        state.runScheduled.value = false;
+      });
       client?.dispose();
       client = null;
       clientPromise = null;

@@ -75,10 +75,11 @@ export default tseslint.config(
 
   // the main thread must not pull the geometry kernel (and
   // manifold-3d with its WASM) into the app bundle. Outside geometry/ it may
-  // import only geometry/types, geometry/version and geometry/client, which
-  // talks to the kernel through a Web Worker (roadmap section 4.6). Tests, test-only
-  // helpers (test-*.ts) and geometry/ itself are exempt. The pattern group is an allowlist: every
-  // geometry/* module except those three is restricted, new ones included.
+  // import only geometry/types, geometry/version, geometry/engraves (pure planning, no kernel: whether
+  // a name fits on a part) and geometry/client, which talks to the kernel through a Web Worker
+  // (roadmap section 4.6). Tests, test-only helpers (test-*.ts) and geometry/ itself are exempt. The
+  // pattern group is an allowlist: every geometry/* module except those four is restricted, new
+  // ones included.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/geometry/**", "src/**/*.test.{ts,tsx}", "src/**/test-*.{ts,tsx}"],
@@ -100,10 +101,11 @@ export default tseslint.config(
                 "**/geometry/*",
                 "!**/geometry/types",
                 "!**/geometry/version",
+                "!**/geometry/engraves",
                 "!**/geometry/client",
               ],
               message:
-                "The main thread may import only geometry/types, geometry/version and geometry/client (roadmap 4.6).",
+                "The main thread may import only geometry/types, geometry/version, geometry/engraves and geometry/client (roadmap 4.6).",
             },
             {
               regex: "(^|/)geometry/?$",
