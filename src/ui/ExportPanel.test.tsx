@@ -184,7 +184,9 @@ describe("ExportPanel", () => {
     const view = render(<ExportPanel {...p} />);
     fireEvent.click(screen.getByRole("button", { name: "STL files (.zip)" }));
     await waitFor(() => expect(m.get).toHaveBeenCalled());
-    act(() => view.unmount());
+    act(() => {
+      view.unmount();
+    });
     expect(m.get.mock.calls[0]?.[2]?.aborted).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(p.download).not.toHaveBeenCalled();
