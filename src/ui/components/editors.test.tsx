@@ -14,6 +14,7 @@ import type {
 } from "../../model/types";
 import { SizingContext, ValidationContext } from "../validation";
 import { BulkEditor } from "./BulkEditor";
+import { CardsEditor } from "./CardsEditor";
 import { CustomEditor } from "./CustomEditor";
 import { MinisEditor } from "./MinisEditor";
 import { TilesEditor } from "./TilesEditor";
@@ -395,6 +396,45 @@ describe("validation shown in place", () => {
     );
     // stays open once an error brought it up, so it does not vanish under the user fixing it
     expect(disc(view).open).toBe(true);
+  });
+
+  describe.each([
+    ["cards", (c: never) => <CardsEditor component={c} index={0} onChange={vi.fn()} />],
+    ["bulk", (c: never) => <BulkEditor component={c} index={0} onChange={vi.fn()} />],
+    ["tiles", (c: never) => <TilesEditor component={c} index={0} onChange={vi.fn()} />],
+    ["minis", (c: never) => <MinisEditor component={c} index={0} onChange={vi.fn()} />],
+    ["custom", (c: never) => <CustomEditor component={c} index={0} onChange={vi.fn()} />],
+  ] as const)("More options of %s", (kind, editor) => {
+    it.each([
+      "groupId",
+      "perPlayer/players",
+      "clearance",
+      "curvedFloor",
+      "separators",
+      "dividers",
+      "growth/stack",
+      "growth/width",
+    ])("opens for an error at /components/0/%s", (field) => {
+      const view = render(
+        <ValidationContext.Provider value={[err("field.test", `/components/0/${field}`, "Bad.")]}>
+          {editor(of(kind) as never)}
+        </ValidationContext.Provider>,
+      );
+      const disc = view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
+      expect(disc.open).toBe(true);
+    });
+
+    it("stays closed for an error at another component", () => {
+      const view = render(
+        <ValidationContext.Provider
+          value={[err("field.test", "/components/10/separators", "Bad.")]}
+        >
+          {editor(of(kind) as never)}
+        </ValidationContext.Provider>,
+      );
+      const disc = view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
+      expect(disc.open).toBe(false);
+    });
   });
 
   it("shows empty-list errors under the Items and Figures legends", () => {

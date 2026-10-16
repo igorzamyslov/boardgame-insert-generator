@@ -14,7 +14,10 @@ const ACCESS_OPTIONS: SelectOption<Access>[] = [
   { value: "setup", label: "Only at setup" },
 ];
 
-/** Validation paths of the fields CommonOptions shows (they live under More options). */
+/**
+ * Validation paths of the fields under More options that every kind has: CommonOptions and
+ * ToggleOptions (with GrowthOptions). An error at a path, or below it, opens the section.
+ */
 export function commonOptionPaths(index: number): string[] {
   const at = `/components/${index}`;
   return [
@@ -23,6 +26,9 @@ export function commonOptionPaths(index: number): string[] {
     `${at}/perPlayer/players`,
     `${at}/clearance`,
     `${at}/curvedFloor`,
+    `${at}/separators`,
+    `${at}/dividers`,
+    `${at}/growth`,
   ];
 }
 
