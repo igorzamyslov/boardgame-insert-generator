@@ -55,7 +55,8 @@ describe.each(Object.entries(FIXTURES))("fixture %s", (_name, raw) => {
     const hash = encodeHash(project, noForeign());
     expect(hash.length).toBeLessThanOrEqual(LINK_TARGET_CHARS);
     const decoded = decodeHash(hash);
-    expect(decoded.ok && decoded.project).toEqual(project);
+    // A link does not carry createdWith; decoding stamps the running app's version.
+    expect(decoded.ok && { ...decoded.project, createdWith: project.createdWith }).toEqual(project);
   });
 });
 
@@ -182,7 +183,8 @@ describe("schema history", () => {
     ]);
     expect(validateProject(project).filter((n) => n.level === "error")).toEqual([]);
     const again = load(JSON.parse(serializeProject(project, noForeign())));
-    expect(again.project).toEqual(project);
+    // Saving stamps the running app's version, which is not what the old file says.
+    expect({ ...again.project, createdWith: project.createdWith }).toEqual(project);
   });
 
   it("reads the dividers of the 0.1.13 file, and keeps them through a save and a link", () => {
@@ -198,9 +200,10 @@ describe("schema history", () => {
     ]);
     expect(validateProject(project).filter((n) => n.level === "error")).toEqual([]);
     const again = load(JSON.parse(serializeProject(project, noForeign())));
-    expect(again.project).toEqual(project);
+    // Saving stamps the running app's version, which is not what the old file says.
+    expect({ ...again.project, createdWith: project.createdWith }).toEqual(project);
     const decoded = decodeHash(encodeHash(project, noForeign()));
-    expect(decoded.ok && decoded.project).toEqual(project);
+    expect(decoded.ok && { ...decoded.project, createdWith: project.createdWith }).toEqual(project);
   });
 
   it("refuses a growth that is neither a word nor a number", () => {

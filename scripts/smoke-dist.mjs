@@ -4,7 +4,7 @@
 //   node scripts/smoke-dist.mjs [distDir]
 //
 // Serves dist/ from the deploy subpath, the way GitHub Pages does
-// (/static-web-apps/insert-generator/), and checks that index.html only uses
+// (/boardgame-insert-generator/), and checks that index.html only uses
 // relative asset URLs that load, that the layout and geometry workers and the
 // manifold WASM exist and are referenced by name, that every script (lazy chunks included)
 // loads and every chunk a script imports exists, that no file points at an
@@ -18,7 +18,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { extname, join, posix, relative, resolve, sep } from "node:path";
 import process from "node:process";
 
-const BASE = "/static-web-apps/insert-generator/";
+const BASE = "/boardgame-insert-generator/";
 // Keep in step with REQUIRED_PACKAGES in src/licenses/renderLicenses.ts, the source of truth
 // (this plain Node script cannot import that TypeScript module).
 const REQUIRED_LICENSES = [
