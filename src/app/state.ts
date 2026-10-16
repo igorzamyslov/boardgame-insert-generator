@@ -22,6 +22,9 @@ export type RunState =
   | { status: "done" }
   | { status: "error"; message: string };
 
+/** Where the autosave of the open project stands (persistence writes the inputs of this). */
+export type SaveState = "saved" | "saving" | "paused" | "failed" | "unavailable";
+
 export const STALE_CODE = "layout.stale";
 export const CAPPED_CODE = NOTICE_CODES.capped;
 export const GEOMETRY_MAJOR_CODE = "geometry.olderMajor";
@@ -48,6 +51,24 @@ export interface State {
   needsConfirm: Signal<boolean>;
   /** Another tab saved this project; autosave is paused (persistence). */
   conflict: Signal<boolean>;
+  /** An edit's run is waiting out its debounce (the runner sets it). */
+  runScheduled: Signal<boolean>;
+  /**
+   * True from the moment an edit schedules a run until that run settles (accepted, discarded,
+   * cancelled or failed), so it also covers the run in flight; false when idle with nothing scheduled.
+   */
+  runPending: ReadonlySignal<boolean>;
+  /** The browser can keep projects (persistence sets it once, from the store). */
+  storageAvailable: Signal<boolean>;
+  /** A save is waiting out its debounce (persistence sets it). */
+  savePending: Signal<boolean>;
+  /** The last write was refused, and none has succeeded since (persistence sets it). */
+  saveFailed: Signal<boolean>;
+  /**
+   * "unavailable" without storage; "paused" while the other-tab conflict is open; "failed" after a
+   * write error until the next success; "saving" while a save is scheduled; otherwise "saved".
+   */
+  saveState: ReadonlySignal<SaveState>;
   validation: ReadonlySignal<Notice[]>;
   currentHash: ReadonlySignal<string>;
   stale: ReadonlySignal<boolean>;
@@ -103,6 +124,25 @@ export function createState(
   const geometryOld = computed(() => {
     const layout = project.value.layout;
     return layout !== undefined && isOlderGeometryLine(layout.geometryVersion);
+  });
+  const runScheduled = signal(false);
+  const run = signal<RunState>({ status: "idle" });
+  const runPending = computed(() => runScheduled.value || run.value.status === "running");
+  const conflict = signal(false);
+  const storageAvailable = signal(true);
+  const savePending = signal(false);
+  const saveFailed = signal(false);
+  const saveState = computed<SaveState>(() => {
+    if (!storageAvailable.value) {
+      return "unavailable";
+    }
+    if (conflict.value) {
+      return "paused";
+    }
+    if (saveFailed.value) {
+      return "failed";
+    }
+    return savePending.value ? "saving" : "saved";
   });
   const sizingNotices = computed(() => sizingNoticesOf(project.value));
   const summary = computed<LayoutSummary | null>(() => {
@@ -178,7 +218,7 @@ export function createState(
     foreign: signal(foreign),
     projects: signal<ProjectListEntry[]>([]),
     mode: signal<Mode>("simple"),
-    run: signal<RunState>({ status: "idle" }),
+    run,
     lastResult,
     lastResultHash,
     lockConflicts: signal<LockConflict[]>([]),
@@ -186,7 +226,13 @@ export function createState(
     selection: signal<string | null>(null),
     appNotices: signal<Notice[]>([]),
     needsConfirm: signal(false),
-    conflict: signal(false),
+    conflict,
+    runScheduled,
+    runPending,
+    storageAvailable,
+    savePending,
+    saveFailed,
+    saveState,
     validation,
     currentHash,
     stale,
