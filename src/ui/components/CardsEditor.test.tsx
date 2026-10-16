@@ -100,9 +100,9 @@ describe("CardsEditor", () => {
     expect(last().sleeve).toEqual({ w: 66.5, h: 91, thickness: 0.2 });
   });
 
-  it("offers measure N cards, storage and common options in the Advanced block", () => {
+  it("offers measure N cards, storage and common options under More options", () => {
     const { last, view, onChange } = setup(cards(), true);
-    expect(screen.getByLabelText("Needed during play").closest(".pf-adv")).not.toBeNull();
+    expect(screen.getByLabelText("Needed during play").closest("details.pf-disc")).not.toBeNull();
     fireEvent.click(screen.getByLabelText(/Measure a stack/));
     expect(last().thickness).toEqual({ mode: "measured", cards: 50, stackMm: 20 });
     fireEvent.change(screen.getByLabelText("Storage"), { target: { value: "flat" } });
@@ -119,18 +119,21 @@ describe("CardsEditor", () => {
     expect("groupId" in last()).toBe(false);
   });
 
-  it("hides the Advanced block in simple mode, with every field in it", () => {
+  it("folds the optional fields under More options, closed unless something inside has an error", () => {
     const { view } = setup(cards());
-    expect(view.container.querySelector(".pf-adv")).toBeNull();
+    const disc = view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
+    expect(disc.querySelector("summary")?.textContent).toBe("More options");
+    expect(disc.open).toBe(false);
     for (const label of ["Finger cuts", "Storage", "Group", /Measure a stack/, /per player/]) {
-      expect(screen.queryByLabelText(label)).toBeNull();
+      expect(disc.contains(screen.getByLabelText(label))).toBe(true);
     }
+    expect(disc.contains(screen.getByLabelText("Name of deck 1"))).toBe(false);
   });
 
-  it("shows finger cuts, no curved floor, and corner reliefs in advanced mode", () => {
+  it("shows finger cuts, no curved floor, and corner reliefs", () => {
     const { last } = setup(cards(), true);
     const cuts = screen.getByLabelText("Finger cuts") as HTMLInputElement;
-    expect(cuts.closest(".pf-adv")).not.toBeNull();
+    expect(cuts.closest("details.pf-disc")).not.toBeNull();
     expect(cuts.checked).toBe(true);
     expect(screen.queryByLabelText("Curved floor")).toBeNull();
     const reliefs = screen.getByLabelText("Corner reliefs") as HTMLInputElement;
@@ -146,7 +149,7 @@ describe("CardsEditor", () => {
 
     it("offers one control, along the stack, set to auto by default for an upright deck", () => {
       const { last } = setup(cards({ storage: "upright-long" }), true);
-      expect(control().closest(".pf-adv")).not.toBeNull();
+      expect(control().closest("details.pf-disc")).not.toBeNull();
       expect(control().value).toBe("auto");
       const labels = Array.from(control().options).map((o) => o.textContent);
       expect(labels).toEqual(["Off", "Auto (default)", "A set amount", "As much as there is"]);
@@ -300,7 +303,7 @@ describe("CardsEditor validation", () => {
     expect(screen.getByRole("alert").textContent).toBe("Add at least one deck.");
   });
 
-  it("shows the Advanced block for a measured stack error in simple mode", () => {
+  it("opens More options for a measured stack error", () => {
     const { container } = render(
       <ValidationContext.Provider
         value={[
@@ -320,7 +323,7 @@ describe("CardsEditor validation", () => {
         />
       </ValidationContext.Provider>,
     );
-    expect(container.querySelector(".pf-adv")).not.toBeNull();
+    expect((container.querySelector("details.pf-disc") as HTMLDetailsElement).open).toBe(true);
     expect(screen.getByRole("alert").textContent).toBe("Bad stack.");
   });
 

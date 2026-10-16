@@ -101,7 +101,7 @@ export function MinisEditor({
       </fieldset>
       <BinNotes component={c} index={index} />
       <DerivedSizes component={c} index={index} />
-      <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
+      <MoreOptions errorPaths={commonOptionPaths(index)}>
         <CommonOptions
           component={c}
           index={index}

@@ -209,7 +209,6 @@ export function CardsEditor({
       <BinNotes component={c} index={index} />
       <DerivedSizes component={c} index={index} />
       <MoreOptions
-        open={advanced}
         errorPaths={[
           ...commonOptionPaths(index),
           `${at}/thickness/scale`,

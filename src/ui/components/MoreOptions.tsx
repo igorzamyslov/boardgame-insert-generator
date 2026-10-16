@@ -1,18 +1,15 @@
-// src/ui/components/MoreOptions.tsx
 import type { ComponentChildren } from "preact";
 import { useContext, useRef } from "preact/hooks";
-import { Advanced } from "../Advanced";
 import { ValidationContext } from "../validation";
 
 export interface MoreOptionsProps {
-  /** Advanced mode: shown. Otherwise only an error in one of the fields shows them. */
-  open: boolean;
   /** Validation paths of the fields inside; an error at one opens the section. */
   errorPaths?: readonly string[];
   children: ComponentChildren;
 }
 
-export function MoreOptions({ open, errorPaths = [], children }: MoreOptionsProps) {
+/** The fields most people never touch, folded under "More options". An error inside opens it. */
+export function MoreOptions({ errorPaths = [], children }: MoreOptionsProps) {
   const notices = useContext(ValidationContext);
   const hasError = notices.some(
     (n) => n.level === "error" && n.path && errorPaths.includes(n.path),
@@ -22,8 +19,12 @@ export function MoreOptions({ open, errorPaths = [], children }: MoreOptionsProp
   if (hasError) {
     forced.current = true;
   }
-  if (!open && !forced.current) {
-    return null;
-  }
-  return <Advanced>{children}</Advanced>;
+  return (
+    <details class="pf-disc" open={forced.current || undefined}>
+      <summary>More options</summary>
+      <div class="pf-disc__body">
+        <div class="form-grid">{children}</div>
+      </div>
+    </details>
+  );
 }

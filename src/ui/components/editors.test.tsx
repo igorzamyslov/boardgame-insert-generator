@@ -92,7 +92,7 @@ describe("TilesEditor", () => {
     expect(lastOf(onChange).count).toBe(60);
   });
 
-  it("offers storage in the Advanced block", () => {
+  it("offers storage under More options", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
     render(<TilesEditor component={of("tiles")} index={0} advanced onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Storage"), { target: { value: "upright" } });
@@ -138,20 +138,20 @@ describe("toggles", () => {
     expect(screen.getByText(/stored loose in a bin with a curved floor/)).toBeTruthy();
   });
 
-  it("shows the bin note even in simple mode, outside the Advanced block", () => {
+  it("shows the bin note outside More options", () => {
     const binned: Notice = {
       level: "info",
       code: "sizing.noFingerSlot",
       path: "/components/0",
       message: "Dial: … so it is stored loose in a bin with a curved floor instead.",
     };
-    const { container } = render(
+    render(
       <SizingContext.Provider value={[binned]}>
         <CustomEditor component={of("custom")} index={0} advanced={false} onChange={vi.fn()} />
       </SizingContext.Provider>,
     );
-    expect(container.querySelector(".pf-adv")).toBeNull();
-    expect(screen.getByText(/stored loose in a bin with a curved floor/)).toBeTruthy();
+    const note = screen.getByText(/stored loose in a bin with a curved floor/);
+    expect(note.closest("details.pf-disc")).toBeNull();
   });
 
   it("offers no curved floor on tiles, and corner reliefs on by default in advanced mode", () => {
@@ -291,9 +291,13 @@ describe("toggles", () => {
       expect((screen.getByLabelText("Extra width") as HTMLSelectElement).value).toBe("off");
     });
 
-    it("offers nothing in simple mode: it lives under the advanced options", () => {
-      render(<BulkEditor component={of("bulk")} index={0} advanced={false} onChange={vi.fn()} />);
-      expect(growthIds()).toEqual([]);
+    it("keeps them under More options", () => {
+      render(<BulkEditor component={of("bulk")} index={0} advanced onChange={vi.fn()} />);
+      const disc = document.querySelector("details.pf-disc");
+      expect(growthIds().length).toBeGreaterThan(0);
+      for (const id of growthIds()) {
+        expect(disc?.contains(document.getElementById(id))).toBe(true);
+      }
     });
 
     it("states the auto cap beside each control", () => {
@@ -374,41 +378,39 @@ describe("validation shown in place", () => {
     expect(screen.getByText("Heads up.")).toBeTruthy();
   });
 
-  it("hides the Advanced block in simple mode and shows it in advanced mode", () => {
+  it("folds the optional fields under More options, closed by default", () => {
     const view = render(
-      <CustomEditor component={of("custom")} index={0} advanced={false} onChange={vi.fn()} />,
+      <CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />,
     );
-    expect(view.container.querySelector(".pf-adv")).toBeNull();
+    const disc = view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
+    expect(disc.querySelector("summary")?.textContent).toBe("More options");
+    expect(disc.open).toBe(false);
     for (const label of ["Needed during play", "Finger cuts", /^Group/]) {
-      expect(screen.queryByLabelText(label)).toBeNull();
+      expect(disc.contains(screen.getByLabelText(label))).toBe(true);
     }
-    view.rerender(<CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />);
-    expect(view.container.querySelector(".pf-adv")).not.toBeNull();
-    expect(screen.getByLabelText("Needed during play")).toBeTruthy();
-    expect(screen.getByLabelText("Finger cuts")).toBeTruthy();
   });
 
-  it("shows the Advanced block in simple mode when a field inside has an error", () => {
+  it("opens More options when a field inside has an error, and keeps it open", () => {
     const notice = err("field.count", "/components/0/perPlayer/players", "Bad players.");
     const c = { ...of("custom"), perPlayer: { players: 0 } };
-    const view = render(
-      <CustomEditor component={c} index={0} advanced={false} onChange={vi.fn()} />,
-    );
-    expect(view.container.querySelector(".pf-adv")).toBeNull();
+    const disc = (view: ReturnType<typeof render>) =>
+      view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
+    const view = render(<CustomEditor component={c} index={0} advanced onChange={vi.fn()} />);
+    expect(disc(view).open).toBe(false);
     view.rerender(
       <ValidationContext.Provider value={[notice]}>
-        <CustomEditor component={c} index={0} advanced={false} onChange={vi.fn()} />
+        <CustomEditor component={c} index={0} advanced onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
-    expect(view.container.querySelector(".pf-adv")).not.toBeNull();
+    expect(disc(view).open).toBe(true);
     expect(screen.getByRole("alert").textContent).toBe("Bad players.");
     view.rerender(
       <ValidationContext.Provider value={[]}>
-        <CustomEditor component={c} index={0} advanced={false} onChange={vi.fn()} />
+        <CustomEditor component={c} index={0} advanced onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
-    // stays shown once an error brought it up, so it does not vanish under the user fixing it
-    expect(view.container.querySelector(".pf-adv")).not.toBeNull();
+    // stays open once an error brought it up, so it does not vanish under the user fixing it
+    expect(disc(view).open).toBe(true);
   });
 
   it("shows empty-list errors under the Items and Figures legends", () => {

@@ -1041,28 +1041,6 @@
   border-top: 1px solid var(--rule);
 }
 
-/* Advanced fields: a dotted edge in the gutter and nothing else (no tag on each field, no repeated label).
-   The only explanation is one short note beside the level switch. Hints inside show on focus. */
-.pf-adv {
-  display: grid;
-  gap: var(--space-3);
-  margin-left: -14px;
-  padding-left: 12px;
-  border-left: 2px dotted var(--rule-strong);
-}
-
-.pf-item__body .pf-adv {
-  margin-left: 0;
-}
-
-.pf-adv .pf-field__hint {
-  display: none;
-}
-
-.pf-adv :focus-within > .pf-field__hint {
-  display: block;
-}
-
 .pf-mode-note {
   color: var(--ink-soft);
   font: 400 14px/20px var(--font-ui);

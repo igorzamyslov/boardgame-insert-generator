@@ -52,7 +52,7 @@ export function CustomEditor({
         onCommit={(count) => onChange({ ...c, count })}
       />
       <BinNotes component={c} index={index} />
-      <MoreOptions open={advanced} errorPaths={commonOptionPaths(index)}>
+      <MoreOptions errorPaths={commonOptionPaths(index)}>
         <CommonOptions
           component={c}
           index={index}
