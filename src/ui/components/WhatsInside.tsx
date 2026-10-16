@@ -8,10 +8,12 @@ import { EditorPanel } from "./EditorPanel";
 export interface WhatsInsideProps {
   components: readonly Component[];
   /**
-   * Set while the list is first shown right after the first item was added (the first visit had
-   * no list yet): that item's editor opens at once, as any item added later does.
+   * The component whose editor is open (null: the list), when the caller keeps it: the tray bar's
+   * Edit opens an editor from outside, and so does a first item added before the list was shown.
+   * Without it the list keeps this to itself.
    */
-  openFirst?: boolean;
+  openId?: string | null;
+  onOpenChange?: (id: string | null) => void;
   /** The plan's trays; absent while the plan is out of date. */
   trays?: readonly TraySpec[];
   locks?: readonly Lock[];
@@ -31,7 +33,8 @@ export interface WhatsInsideProps {
  */
 export function WhatsInside({
   components,
-  openFirst = false,
+  openId: controlledId,
+  onOpenChange,
   trays,
   locks,
   onAdd,
@@ -41,9 +44,9 @@ export function WhatsInside({
   onUnlockSize,
 }: WhatsInsideProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [openId, setOpenId] = useState<string | null>(
-    openFirst && components.length === 1 ? (components[0]?.id ?? null) : null,
-  );
+  const [ownId, setOwnId] = useState<string | null>(null);
+  const openId = controlledId === undefined ? ownId : controlledId;
+  const setOpenId = onOpenChange ?? setOwnId;
   const comeBackTo = useRef<{ id: string; index: number; removed: boolean } | null>(null);
   const knownIds = useRef(new Set(components.map((c) => c.id)));
 

@@ -1,12 +1,11 @@
 // src/plan/PlanView.tsx
-import type { JSX, TargetedPointerEvent } from "preact";
+import type { ComponentChildren, JSX, TargetedPointerEvent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isLockable } from "../app/actions";
 import { trayNames } from "../instructions/naming";
 import { numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { KIND_GLYPHS } from "../ui/kindGlyphs";
-import { TrayDetails } from "../ui/TrayDetails";
 import {
   clientToSvg,
   footprintsAt,
@@ -34,12 +33,12 @@ export interface PlanViewProps {
   selectedKey: string | null;
   onSelect: (key: string | null) => void;
   onSwap: (keyA: string, keyB: string) => void;
-  onToggleLock: (key: string) => void;
   /** trayKeys with a size lock (shown as "size locked" on the tray). */
   sizeLockedKeys: ReadonlySet<string>;
-  onToggleSizeLock: (key: string) => void;
-  /** The inputs no longer match the layout: the plan is greyed out and the details say so. */
+  /** The inputs no longer match the layout: the plan is greyed out. */
   stale?: boolean;
+  /** The tray bar, shown under the plan while a tray is selected (the app owns it). */
+  bar?: ComponentChildren;
   /** Index of the layer shown (0 = the bottom layer); the app owns it. Clamped to the layers there are. */
   level: number;
   onLevelChange: (level: number) => void;
@@ -97,9 +96,7 @@ export function PlanView(props: PlanViewProps) {
     selectedKey,
     onSelect,
     onSwap,
-    onToggleLock,
     sizeLockedKeys,
-    onToggleSizeLock,
     swapFrom,
     onSwapFromChange: setSwapFrom,
     onLevelChange,
@@ -124,6 +121,12 @@ export function PlanView(props: PlanViewProps) {
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
   const [swapRefused, setSwapRefused] = useState(false);
+  // The tray bar starts a swap from outside: a refusal of the last one is no longer news.
+  useEffect(() => {
+    if (swapFrom === null) {
+      setSwapRefused(false);
+    }
+  }, [swapFrom]);
   /** Why a drag cannot swap (or did not), shown next to the plan, not only as a tooltip. */
   const [dragNote, setDragNote] = useState<string | null>(null);
   /** The tray with the keyboard focus ring (drawn last so no neighbour paints over it). */
@@ -143,7 +146,6 @@ export function PlanView(props: PlanViewProps) {
   const rects = shown.flatMap((t) =>
     footprintsAt(t, level).map((f) => ({ key: t.key, rect: toSvgRect(f, frame) })),
   );
-  const selectedPart = selectedKey === null ? null : (byKey.get(selectedKey) ?? null);
 
   function swappable(key: string | null): boolean {
     const part = key === null ? undefined : byKey.get(key);
@@ -324,7 +326,6 @@ export function PlanView(props: PlanViewProps) {
       </>
     );
   }
-  const selectedLocked = selectedPart !== null && lockedKeys.has(selectedPart.spec.key);
 
   return (
     <div class="plan" onKeyDown={onPlanKeyDown}>
@@ -436,7 +437,8 @@ export function PlanView(props: PlanViewProps) {
                     }
               }
               role="button"
-              tabIndex={0}
+              // Lower case: an SVG attribute is case-sensitive, and `tabIndex` there is no tab stop.
+              tabindex={0}
               aria-pressed={t.key === selectedKey}
               aria-label={trayLabel(name, idx + 1, locked, sizeLocked)}
               onKeyDown={(e) => onKeyDown(e, t.key)}
@@ -548,7 +550,11 @@ export function PlanView(props: PlanViewProps) {
         </p>
       ) : null}
       <div class="plan-toolbar">
-        <p class="hint">Select a tray to see its details. Drag a tray onto another to swap them.</p>
+        {props.bar ? null : (
+          <p class="hint">
+            Select a tray to see its details. Drag a tray onto another to swap them.
+          </p>
+        )}
         {swapFrom !== null ? (
           <p role="status">
             {swapRefused
@@ -560,41 +566,7 @@ export function PlanView(props: PlanViewProps) {
             {dragNote}
           </p>
         ) : null}
-        {selectedPart ? (
-          <>
-            <TrayDetails
-              part={selectedPart}
-              settings={settings}
-              locked={selectedLocked}
-              sizeLocked={sizeLockedKeys.has(selectedPart.spec.key)}
-              stale={props.stale}
-              onToggleSizeLock={() => onToggleSizeLock(selectedPart.spec.key)}
-            />
-            <div class="button-row">
-              <button
-                type="button"
-                aria-pressed={swapFrom !== null}
-                disabled={!isLockable(selectedPart.spec)}
-                onClick={() => {
-                  setSwapRefused(false);
-                  setSwapFrom(swapFrom === null ? selectedPart.spec.key : null);
-                }}
-              >
-                Swap with…
-              </button>
-              <button
-                type="button"
-                disabled={!isLockable(selectedPart.spec)}
-                onClick={() => onToggleLock(selectedPart.spec.key)}
-              >
-                {selectedLocked ? "Unlock position" : "Lock position"}
-              </button>
-              {!isLockable(selectedPart.spec) ? (
-                <span class="hint">Leftover trays and spacers can't be locked.</span>
-              ) : null}
-            </div>
-          </>
-        ) : null}
+        {props.bar}
       </div>
     </div>
   );

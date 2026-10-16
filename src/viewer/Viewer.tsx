@@ -8,7 +8,6 @@ import { levelsOf } from "../plan/layers";
 import { SelectField } from "../ui/fields";
 import { tintOfTray } from "../ui/identity";
 import type { ColorScheme } from "../ui/identity";
-import { TrayDetails } from "../ui/TrayDetails";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
 import { pageScheme, shadeColorOf } from "./shades";
@@ -26,13 +25,7 @@ export interface ViewerProps {
   stale?: boolean;
   meshes: MeshSource;
   selectedKey: string | null;
-  lockedKeys: ReadonlySet<string>;
-  /** trayKeys with a size lock; with `onToggleSizeLock` the details offer "Lock size". */
-  sizeLockedKeys?: ReadonlySet<string>;
-  onToggleSizeLock?: (key: string) => void;
   onSelect: (key: string | null) => void;
-  /** Show the selected tray's details under the view; off where another panel shows them. */
-  details?: boolean;
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -294,8 +287,7 @@ export function Viewer(p: ViewerProps) {
           aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
         />
         {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
-        {/* Always mounted, so a reader that watches it hears the name appear; it also covers
-            views where the details panel is off. */}
+        {/* Always mounted, so a reader that watches it hears the name appear. */}
         <div class="viewer-selection-live" role="status">
           {selectedName !== null ? (
             <span class="viewer-selection" title={selectedName}>
@@ -403,6 +395,7 @@ export function Viewer(p: ViewerProps) {
               <li key={key}>
                 <button
                   type="button"
+                  data-key={key}
                   aria-pressed={isSelected}
                   aria-label={names.get(key)?.full ?? part.label}
                   onClick={() => p.onSelect(isSelected ? null : key)}
@@ -418,18 +411,6 @@ export function Viewer(p: ViewerProps) {
             );
           })}
         </ul>
-      ) : null}
-      {selected && p.details !== false ? (
-        <TrayDetails
-          part={selected}
-          settings={p.settings}
-          locked={p.lockedKeys.has(selected.spec.key)}
-          sizeLocked={p.sizeLockedKeys?.has(selected.spec.key) ?? false}
-          stale={p.stale}
-          onToggleSizeLock={
-            p.onToggleSizeLock ? () => p.onToggleSizeLock?.(selected.spec.key) : undefined
-          }
-        />
       ) : null}
     </div>
   );

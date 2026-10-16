@@ -13,6 +13,7 @@ import type {
   TraySpec,
 } from "../model/types";
 import { NOTICE_CODES, swapLocks } from "../layout";
+import { turnLocks } from "./dryRun";
 
 /** Only real trays can be locked; leftovers are regenerated and spacers follow their tray. */
 export function isLockable(t: TraySpec): boolean {
@@ -191,6 +192,19 @@ export function unpinTrays(p: Project, trayKeys: readonly string[]): Project {
     return l.kind !== "position" || !keys.has(l.trayKey);
   });
   return locks.length === p.locks.length ? p : { ...p, locks };
+}
+
+/**
+ * Turns a tray 90°, which means its whole stack pinned where it is with every rotation flipped
+ * (`turnLocks`). Whether that works is `canTurn`'s question; this writes the locks regardless, and
+ * the next run reports any it cannot keep.
+ */
+export function turnTray(p: Project, tray: TraySpec): Project {
+  if (!isLockable(tray)) {
+    return p;
+  }
+  const locks = turnLocks(p, tray.key);
+  return locks ? { ...p, locks } : p;
 }
 
 /** trayKeys with a size lock. */
