@@ -112,3 +112,54 @@ export function Notices({
     </>
   );
 }
+
+export interface PlanBannersProps {
+  /** The plan is from before the latest changes (and nothing else is about to replace it). */
+  stale: boolean;
+  /** The plan was made under older tray geometry. */
+  geometryOld: boolean;
+  onUpdate: () => void;
+  onReprint: () => void;
+  onKeepOld: () => void;
+}
+
+/** The one banner under the header: it asks for a decision about the plan itself. */
+export function PlanBanners(p: PlanBannersProps) {
+  if (!p.stale && !p.geometryOld) {
+    return null;
+  }
+  return (
+    <>
+      {p.geometryOld ? (
+        <div class="pf-notice pf-notice--warn banner" role="status">
+          <div>
+            <span class="notice-text">
+              Made with an older version of the app. Trays printed from it won't stack with trays
+              you print now.
+            </span>
+            <span class="notice-action">
+              <button type="button" onClick={p.onReprint}>
+                Reprint everything
+              </button>
+              <button type="button" onClick={p.onKeepOld}>
+                Keep the old plan
+              </button>
+            </span>
+          </div>
+        </div>
+      ) : null}
+      {p.stale ? (
+        <div class="pf-notice banner">
+          <div>
+            <span class="notice-text">This plan is from before your last changes.</span>
+            <span class="notice-action">
+              <button type="button" onClick={p.onUpdate}>
+                Update the plan
+              </button>
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}

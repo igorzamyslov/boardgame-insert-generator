@@ -1,7 +1,11 @@
 // src/ui/ProjectMenu.tsx
 import { useEffect, useRef, useState } from "preact/hooks";
+import { CONFLICT_CODE } from "../app/persistence";
+import type { ConflictChoice } from "../app/persistence";
+import type { Notice } from "../model/types";
 import type { ProjectListEntry } from "../share";
 import { DeleteConfirm, InsertsList } from "./InsertsList";
+import { Notices } from "./Notices";
 
 export interface ProjectMenuProps {
   /** The open insert's name (for the delete question). */
@@ -21,6 +25,12 @@ export interface ProjectMenuProps {
   onSettings: () => void;
   /** After a choice that leaves the menu. */
   onClose: () => void;
+  /** The notices that wait in the menu (a conflict, a failed save, no storage), shown at its top. */
+  notices?: readonly Notice[];
+  /** Another tab saved this insert: the notice offers the two choices until one is made. */
+  conflict?: boolean;
+  onResolveConflict?: (choice: ConflictChoice) => void;
+  onDismissNotice?: (code: string) => void;
 }
 
 type Page = "menu" | "inserts";
@@ -76,8 +86,34 @@ export function ProjectMenu(props: ProjectMenuProps) {
     );
   }
 
+  const notices = props.notices ?? [];
   return (
     <div class="project-menu">
+      {notices.length > 0 ? (
+        <Notices
+          notices={notices}
+          label="Project messages"
+          class="menu-notices"
+          onDismiss={props.onDismissNotice}
+          // The choice stays on screen while autosave is paused for it.
+          canDismiss={(n) => !(n.code === CONFLICT_CODE && props.conflict)}
+          renderAction={(n) =>
+            n.code === CONFLICT_CODE && props.conflict ? (
+              <span class="menu-notice-choices">
+                <button type="button" onClick={choose(() => props.onResolveConflict?.("keepMine"))}>
+                  Keep this version
+                </button>
+                <button
+                  type="button"
+                  onClick={choose(() => props.onResolveConflict?.("loadTheirs"))}
+                >
+                  Use the other tab's version
+                </button>
+              </span>
+            ) : null
+          }
+        />
+      ) : null}
       <div class="menu-items">
         <button type="button" class="menu-item" onClick={choose(props.onNew)}>
           New insert

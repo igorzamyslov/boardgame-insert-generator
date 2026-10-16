@@ -210,10 +210,10 @@ describe("AppHeader", () => {
   it("marks the menu button with a dot when something inside needs a look", () => {
     const { rerender, container } = render(<AppHeader {...props()} />);
     expect(container.querySelector(".app-menu-dot")).toBeNull();
-    rerender(<AppHeader {...props({ menuDot: true })} />);
+    rerender(<AppHeader {...props({ menuDot: true, menuNoticeCount: 1 })} />);
     expect(container.querySelector(".app-menu-dot")).not.toBeNull();
-    expect(screen.getByRole("button", { name: /^Project menu/ }).textContent).toMatch(
-      /needs your attention/,
-    );
+    expect(screen.getByRole("button", { name: "Project menu, 1 notice" })).toBeTruthy();
+    rerender(<AppHeader {...props({ menuDot: true, menuNoticeCount: 2 })} />);
+    expect(screen.getByRole("button", { name: "Project menu, 2 notices" })).toBeTruthy();
   });
 });
