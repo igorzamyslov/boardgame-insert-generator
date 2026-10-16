@@ -17,8 +17,9 @@ npm run build      # vitest run && tsc (app + node configs) && vite build → di
 npm run preview    # serve the production build
 ```
 
-Tests run inside `npm run build`, because the repo's quality gate only runs
-lint, format and build. Component tests opt in to jsdom with
+Tests run inside `npm run build` (and `npm run verify`); CI also runs them as their
+own job (`npm test`) next to lint, format, typecheck, build + smoke test and audit, so a
+failure names what broke. Component tests opt in to jsdom with
 `// @vitest-environment jsdom` in their header comment and stub the layout and
 geometry clients, so they never start a worker or load WASM.
 
