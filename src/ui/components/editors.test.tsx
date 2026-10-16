@@ -125,7 +125,7 @@ describe("toggles", () => {
     };
     render(
       <SizingContext.Provider value={[binned]}>
-        <CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />
+        <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </SizingContext.Provider>,
     );
     expect((screen.getByLabelText("Finger cuts") as HTMLInputElement).checked).toBe(true);
@@ -141,7 +141,7 @@ describe("toggles", () => {
     };
     render(
       <SizingContext.Provider value={[binned]}>
-        <CustomEditor component={of("custom")} index={0} advanced={false} onChange={vi.fn()} />
+        <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </SizingContext.Provider>,
     );
     const note = screen.getByText(/stored loose in a bin with a curved floor/);
@@ -274,7 +274,7 @@ describe("toggles", () => {
     });
 
     it("offers a custom well all three, off by default", () => {
-      render(<CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />);
+      render(<CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />);
       expect(labels()).toEqual(["Extra width", "Extra length", "Extra height"]);
       expect((screen.getByLabelText("Extra width") as HTMLSelectElement).value).toBe("off");
     });
@@ -301,9 +301,7 @@ describe("toggles", () => {
 describe("CustomEditor", () => {
   it("edits sizes and rejects a fractional count", () => {
     const onChange = vi.fn<(c: CustomComponent) => void>();
-    render(
-      <CustomEditor component={of("custom")} index={0} advanced={false} onChange={onChange} />,
-    );
+    render(<CustomEditor component={of("custom")} index={0} onChange={onChange} />);
     fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "70" } });
     expect(lastOf(onChange).w).toBe(70);
     fireEvent.input(screen.getByLabelText("How many"), { target: { value: "2,5" } });
@@ -324,7 +322,7 @@ describe("validation shown in place", () => {
       <ValidationContext.Provider
         value={[err("field.groupId", "/components/0/groupId", "A group name can't contain ':'.")]}
       >
-        <CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />
+        <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     const group = screen.getByLabelText(/^Group/);
@@ -359,7 +357,7 @@ describe("validation shown in place", () => {
     };
     render(
       <ValidationContext.Provider value={[warn]}>
-        <CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />
+        <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     expect(screen.queryByRole("alert")).toBeNull();
@@ -367,9 +365,7 @@ describe("validation shown in place", () => {
   });
 
   it("folds the optional fields under More options, closed by default", () => {
-    const view = render(
-      <CustomEditor component={of("custom")} index={0} advanced onChange={vi.fn()} />,
-    );
+    const view = render(<CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />);
     const disc = view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
     expect(disc.querySelector("summary")?.textContent).toBe("More options");
     expect(disc.open).toBe(false);
@@ -383,18 +379,18 @@ describe("validation shown in place", () => {
     const c = { ...of("custom"), perPlayer: { players: 0 } };
     const disc = (view: ReturnType<typeof render>) =>
       view.container.querySelector("details.pf-disc") as HTMLDetailsElement;
-    const view = render(<CustomEditor component={c} index={0} advanced onChange={vi.fn()} />);
+    const view = render(<CustomEditor component={c} index={0} onChange={vi.fn()} />);
     expect(disc(view).open).toBe(false);
     view.rerender(
       <ValidationContext.Provider value={[notice]}>
-        <CustomEditor component={c} index={0} advanced onChange={vi.fn()} />
+        <CustomEditor component={c} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     expect(disc(view).open).toBe(true);
     expect(screen.getByRole("alert").textContent).toBe("Bad players.");
     view.rerender(
       <ValidationContext.Provider value={[]}>
-        <CustomEditor component={c} index={0} advanced onChange={vi.fn()} />
+        <CustomEditor component={c} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     // stays open once an error brought it up, so it does not vanish under the user fixing it
