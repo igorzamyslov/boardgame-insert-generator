@@ -40,11 +40,10 @@ function SeparatorNotes({ index }: Pick<EditorProps<Component>, "index">) {
   ) : null;
 }
 
-/** The finger cuts, curved floor and corner reliefs switches (inside the advanced options). */
+/** The finger cuts, curved floor and corner reliefs switches (inside More options). */
 export function ToggleOptions<C extends Component>({
   component: c,
   index,
-  advanced,
   onChange,
 }: EditorProps<C>) {
   return (
@@ -73,15 +72,13 @@ export function ToggleOptions<C extends Component>({
           }}
         />
       ) : null}
-      {advanced ? (
-        <CheckField
-          id={`${c.id}-cornerReliefs`}
-          label="Corner reliefs"
-          checked={cornerReliefsOn(c)}
-          hint="Round holes in each compartment's corners, so flat square pieces sit flat."
-          onChange={(on) => onChange({ ...c, cornerReliefs: on })}
-        />
-      ) : null}
+      <CheckField
+        id={`${c.id}-cornerReliefs`}
+        label="Corner reliefs"
+        checked={cornerReliefsOn(c)}
+        hint="Round holes in each compartment's corners, so flat square pieces sit flat."
+        onChange={(on) => onChange({ ...c, cornerReliefs: on })}
+      />
       <GrowthOptions component={c} index={index} onChange={onChange} />
       {(c.kind === "cards" || c.kind === "tiles") &&
       growthOf(c, "stack", c.storage === "flat") !== "off" ? (
