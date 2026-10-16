@@ -2,7 +2,13 @@
 import { describe, expect, it } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { newComponent } from "../model/defaults";
-import type { CardsComponent, Component, CompartmentSpec, ComponentKind } from "../model/types";
+import type {
+  BulkComponent,
+  CardsComponent,
+  Component,
+  CompartmentSpec,
+  ComponentKind,
+} from "../model/types";
 import tokens from "../styles/tokens.css?raw";
 import { contrast, hexToHsl, hexToRgb } from "./color";
 import {
@@ -217,5 +223,12 @@ describe("componentSummary", () => {
       /· custom sleeves$/,
     );
     expect(componentSummary({ ...c, sleeve: "none" })).toBe("50 cards · 63.5 × 88 mm");
+  });
+
+  it("calls tokens and dice by that name, not bits", () => {
+    const c = newComponent("bulk") as BulkComponent;
+    const item = c.items[0] as BulkComponent["items"][number];
+    expect(componentSummary(c)).toBe("1 kind of tokens and dice");
+    expect(componentSummary({ ...c, items: [item, item] })).toBe("2 kinds of tokens and dice");
   });
 });

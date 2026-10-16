@@ -49,7 +49,7 @@ export const DEFAULT_PROJECT_NAME = "Untitled insert";
 /** Default display name per component kind. Frozen. */
 export const KIND_NAMES: Record<ComponentKind, string> = deepFreeze({
   cards: "Cards",
-  bulk: "Bits",
+  bulk: "Tokens and dice",
   tiles: "Tiles",
   minis: "Miniatures",
   custom: "Item",

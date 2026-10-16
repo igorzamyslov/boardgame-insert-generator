@@ -305,14 +305,14 @@ describe("App", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     const names = (): string[] => store.state.project.value.components.map((c) => c.name);
-    expect(names()).toEqual(["Cards", "Bits"]);
+    expect(names()).toEqual(["Cards", "Tokens and dice"]);
     fireEvent.click(screen.getByRole("button", { name: /^Cards,/ }));
     removeFromEditor("Cards");
-    expect(names()).toEqual(["Bits"]);
+    expect(names()).toEqual(["Tokens and dice"]);
     const toast = await screen.findByText(/Removed “Cards”/);
     expect(toast.getAttribute("role")).toBe("status");
     fireEvent.click(screen.getByRole("button", { name: "Undo removal" }));
-    expect(names()).toEqual(["Cards", "Bits"]);
+    expect(names()).toEqual(["Cards", "Tokens and dice"]);
     expect(screen.queryByText(/Removed “Cards”/)).toBeNull();
   });
 

@@ -229,7 +229,7 @@ export function componentSummary(c: Component): string {
     }
     case "bulk": {
       const n = c.items.length;
-      return n === 1 ? "1 kind of bit" : `${n} kinds of bits`;
+      return `${n} ${n === 1 ? "kind" : "kinds"} of tokens and dice`;
     }
     case "tiles": {
       const size =
