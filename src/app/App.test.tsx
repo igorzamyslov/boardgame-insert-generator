@@ -89,7 +89,7 @@ describe("App", () => {
     const inputs = screen.getByRole("region", { name: "Inputs" });
     const titles = (): (string | undefined)[] =>
       [...inputs.querySelectorAll("details.pf-acc > summary h2")].map((t) =>
-        t.textContent?.replace(/^\d+/, "").replace(/adv$/, ""),
+        t.textContent?.replace(/^\d+/, ""),
       );
     expect(titles()).toEqual(["The box", "What goes inside", "Your printer", "Walls and fit"]);
     const results = screen.getByRole("main");
@@ -178,7 +178,13 @@ describe("App", () => {
     const inputs = screen.getByRole("region", { name: "Inputs" });
     const settings = inputs.querySelector("#section-settings") as HTMLElement;
     expect(settings.textContent).toMatch(/Needs attention/);
-    expect(settings.textContent).toMatch(/Bottom chamfer must be at most/);
+    const message = within(settings).getByText(/Bottom chamfer must be at most/);
+    // The message is on screen: no closed <details> between it and the page.
+    for (let el = message.parentElement; el !== null; el = el.parentElement) {
+      if (el.tagName === "DETAILS" && el.id !== "section-settings") {
+        expect((el as HTMLDetailsElement).open).toBe(true);
+      }
+    }
   });
 
   it("removes a component with an Undo toast that puts it back where it was", async () => {
