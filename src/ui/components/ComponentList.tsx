@@ -68,7 +68,6 @@ export function AddKinds({
 
 export interface ComponentListProps {
   components: readonly Component[];
-  advanced: boolean;
   onAdd: (kind: ComponentKind) => void;
   onChange: (id: string, next: Component) => void;
   /** Returns false when the user declined (nothing was removed). */

@@ -358,7 +358,6 @@ export function App(props: AppProps) {
                     {x.id === "components" ? (
                       <ComponentList
                         components={project.components}
-                        advanced
                         trayNumbers={trayNumbers}
                         onAdd={addComponentOfKind}
                         onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}

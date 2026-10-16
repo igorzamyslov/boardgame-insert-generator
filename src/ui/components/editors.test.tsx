@@ -148,7 +148,7 @@ describe("toggles", () => {
     expect(note.closest("details.pf-disc")).toBeNull();
   });
 
-  it("offers no curved floor on tiles, and corner reliefs on by default in advanced mode", () => {
+  it("offers no curved floor on tiles, and corner reliefs on by default", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
     render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
     expect(screen.queryByLabelText("Curved floor")).toBeNull();
@@ -184,7 +184,7 @@ describe("toggles", () => {
       ["custom", CustomEditor],
     ] as const) {
       const c = { ...of(kind), separators: 3 };
-      render(<Editor component={c as never} index={0} advanced onChange={vi.fn()} />);
+      render(<Editor component={c as never} index={0} onChange={vi.fn()} />);
       expect(screen.queryByLabelText("Spacer plates")).toBeNull();
       cleanup();
     }

@@ -20,7 +20,7 @@ function handlers() {
 describe("ComponentList", () => {
   it("shows a hint and add buttons when empty", () => {
     const h = handlers();
-    render(<ComponentList components={[]} advanced={false} {...h} />);
+    render(<ComponentList components={[]} {...h} />);
     expect(screen.getByText(/Add what goes in the box/)).toBeTruthy();
     // each Add button carries a small hint, so its name is only matched from the start
     fireEvent.click(screen.getByRole("button", { name: /^Add bits/ }));
@@ -32,9 +32,7 @@ describe("ComponentList", () => {
 
   it("renders the right editor for every kind", () => {
     const comps: Component[] = KINDS.map((k) => newComponent(k));
-    const { container } = render(
-      <ComponentList components={comps} advanced={false} {...handlers()} />,
-    );
+    const { container } = render(<ComponentList components={comps} {...handlers()} />);
     expect(screen.getByLabelText("Card size")).toBeTruthy();
     expect(screen.getByLabelText("How to size item 1")).toBeTruthy();
     expect(screen.getByLabelText("Tile shape")).toBeTruthy();
@@ -46,7 +44,7 @@ describe("ComponentList", () => {
   it("renames, sets access and removes", () => {
     const c = { ...newComponent("cards"), name: "Main deck" };
     const h = handlers();
-    render(<ComponentList components={[c]} advanced {...h} />);
+    render(<ComponentList components={[c]} {...h} />);
     expect(titleOf("Main deck")).toBeTruthy();
     expect(screen.getByText(/^50 cards/)).toBeTruthy();
     fireEvent.input(screen.getByLabelText("Name"), { target: { value: "Market" } });
@@ -65,7 +63,7 @@ describe("ComponentList", () => {
       [1, [1, 4]],
     ]);
     const { container } = render(
-      <ComponentList components={[a, b]} advanced={false} trayNumbers={trays} {...handlers()} />,
+      <ComponentList components={[a, b]} trayNumbers={trays} {...handlers()} />,
     );
     const kinds = container.querySelector(".pf-kinds") as HTMLElement;
     const card = container.querySelector(".component-card") as HTMLElement;
@@ -78,10 +76,10 @@ describe("ComponentList", () => {
     const a = { ...newComponent("custom"), id: "a", name: "Dial" };
     const b = { ...newComponent("custom"), id: "b", name: "Die" };
     const h = handlers();
-    const view = render(<ComponentList components={[a]} advanced={false} {...h} />);
+    const view = render(<ComponentList components={[a]} {...h} />);
     const cardOf = (name: string) => titleOf(name).closest("details") as HTMLDetailsElement;
     expect(cardOf("Dial").open).toBe(false);
-    view.rerender(<ComponentList components={[a, b]} advanced={false} {...h} />);
+    view.rerender(<ComponentList components={[a, b]} {...h} />);
     expect(cardOf("Die").open).toBe(true);
     expect(cardOf("Dial").open).toBe(false);
     cardOf("Dial").open = true;
@@ -95,7 +93,7 @@ describe("ComponentList", () => {
     const b = { ...newComponent("custom"), id: "b", name: "Dial" };
     const d = { ...newComponent("custom"), id: "d", name: "Dial" };
     const h = handlers();
-    render(<ComponentList components={[a, b, d]} advanced={false} {...h} />);
+    render(<ComponentList components={[a, b, d]} {...h} />);
     const names = screen.getAllByRole("button", { name: /^Remove / }).map((x) => x.ariaLabel);
     // Two cards share a name: their buttons say which one by position.
     expect(names).toEqual(["Remove (unnamed)", "Remove Dial (item 2)", "Remove Dial (item 3)"]);
@@ -112,9 +110,9 @@ describe("ComponentList", () => {
 
     function setup(components: Component[]) {
       const h = handlers();
-      const view = render(<ComponentList components={components} advanced={false} {...h} />);
+      const view = render(<ComponentList components={components} {...h} />);
       const rerender = (next: Component[]) =>
-        view.rerender(<ComponentList components={next} advanced={false} {...h} />);
+        view.rerender(<ComponentList components={next} {...h} />);
       return { rerender };
     }
 
@@ -150,12 +148,12 @@ describe("ComponentList", () => {
     it("forgets a declined removal, so a later change of the list doesn't take the focus", () => {
       const h = handlers();
       h.onRemove.mockReturnValue(false);
-      const view = render(<ComponentList components={three} advanced={false} {...h} />);
+      const view = render(<ComponentList components={three} {...h} />);
       removeButton(2).focus();
       fireEvent.click(removeButton(2));
       expect(h.onRemove).toHaveBeenCalledWith("b");
       // another project is opened: the list loses "b" for a reason that has nothing to do with it
-      view.rerender(<ComponentList components={[three[0] as Component]} advanced={false} {...h} />);
+      view.rerender(<ComponentList components={[three[0] as Component]} {...h} />);
       expect(document.activeElement).not.toBe(titleOf(/Item a/));
     });
 

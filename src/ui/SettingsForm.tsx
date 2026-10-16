@@ -282,7 +282,7 @@ export function SettingsForm({ settings, onChange }: SettingsFormProps) {
   );
 }
 
-/** The finger room switch's hint: what it does, and a custom advanced value if there is one. */
+/** The finger room switch's hint: what it does, and a custom value if there is one. */
 function fingerRoomHint(s: Settings): string {
   const base = `Makes the outer walls the finger cutouts go through ${FINGER_ROOM_MM} mm and the dividers they cross ${FINGER_DIVIDER_ROOM_MM} mm thicker, so you can reach in when trays sit tight.`;
   const { wallRoom, dividerRoom } = s.fingerPocket;
