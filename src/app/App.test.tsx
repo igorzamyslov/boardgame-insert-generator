@@ -1005,7 +1005,7 @@ describe("App", () => {
 
   it("lays the stage out as the status line, the plan, then the figures", () => {
     renderApp({ project: withLayoutProject() });
-    const stage = document.querySelector(".pf-app__stage") as HTMLElement;
+    const stage = document.querySelector('[data-region="stage"]') as HTMLElement;
     const index = (selector: string): number => {
       const el = stage.querySelector(`:scope > ${selector}`);
       return el === null ? -1 : [...stage.children].indexOf(el);
@@ -1677,9 +1677,10 @@ describe("App", () => {
     expect(store.state.project.value.locks).toEqual([]);
   });
 
-  it("hides the generic hint while the bar shows", () => {
+  it("prints no hint paragraph under the plan, with or without a tray selected", () => {
     renderApp({ project: withLayoutProject() });
-    expect(screen.getByText(/Select a tray to see its details/)).toBeTruthy();
+    expect(screen.queryByText(/Select a tray to see its details/)).toBeNull();
+    expect(screen.queryByText(/Hatched trays are spares/)).toBeNull();
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     expect(screen.queryByText(/Select a tray to see its details/)).toBeNull();
   });

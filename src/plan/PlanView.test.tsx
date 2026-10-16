@@ -574,7 +574,7 @@ describe("PlanView", () => {
     expect(screen.getByRole("button", { name: "Dice, layer 1" })).toBeTruthy();
   });
 
-  it("draws a spare tray hatched with a dashed edge, with a legend, and no glyph", () => {
+  it("draws a spare tray hatched with a dashed edge, and no glyph", () => {
     const { svg } = setup({
       trays: [A, B, { ...L2, w: 60, d: 40 }],
       selectedKey: "leftover:1",
@@ -587,14 +587,18 @@ describe("PlanView", () => {
     expect(planCss).toMatch(/\.plan-tray\.is-leftover \.plan-face\s*{[^}]*url\("#plan-hatch"\)/);
     expect(planCss).toMatch(/\.plan-tray\.is-leftover \.plan-face\s*{[^}]*stroke-dasharray/);
     expect(planCss).toMatch(/--spacer-dash/);
-    expect(screen.getByText(/Hatched trays are spares/).getAttribute("class")).toContain(
-      "plan-legend",
-    );
   });
 
-  it("has no spare-tray legend without a spare tray", () => {
-    setup();
+  it("prints no legend paragraph under the plan, spare tray or not (the boards show none)", () => {
+    setup({ trays: [A, B, { ...L2, w: 60, d: 40 }] });
     expect(screen.queryByText(/Hatched trays are spares/)).toBeNull();
+    expect(document.querySelector(".plan-legend")).toBeNull();
+  });
+
+  it("prints no hint paragraph under the plan", () => {
+    setup();
+    expect(screen.queryByText(/Select a tray to see its details/)).toBeNull();
+    expect(document.querySelector(".plan .hint")).toBeNull();
   });
 
   it("greys out a stale plan by class, not by opacity", () => {

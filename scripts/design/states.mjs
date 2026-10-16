@@ -78,7 +78,7 @@ export const STATES = {
     boardOpts: { state: { sel: "market" } },
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: /^Market deck/, in: ".plan" } }],
+    steps: [{ click: { role: "button", name: /^Market deck/, in: '[data-region="stage"]' } }],
   },
   "workspace-long": {
     board: "Main",
@@ -161,7 +161,7 @@ export const STATES = {
     board: "MobileTray",
     viewport: PHONE,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: /^Heroes/, in: ".plan" } }],
+    steps: [{ click: { role: "button", name: /^Heroes/, in: '[data-region="stage"]' } }],
   },
   "m-edit": {
     board: "MobileEdit",

@@ -24,6 +24,8 @@ export interface SheetProps {
   handleRef?: RefObject<HTMLButtonElement | null>;
   /** A button beside the handle, in reach while the sheet is folded. */
   action?: ComponentChildren;
+  /** The `data-region` the screenshot harness finds the sheet by (the owner names it). */
+  region?: string;
   /** The old look: the `.pf-sheet` classes of style.css, for the screens not rebuilt yet. Task 17 removes this. */
   legacy?: boolean;
   children: ComponentChildren;
@@ -75,6 +77,7 @@ export function Sheet(p: SheetProps) {
       data-full={p.full ? "true" : undefined}
       data-editing={p.editing ? "true" : undefined}
       data-peek={p.peek ? "true" : undefined}
+      data-region={p.region}
       onKeyDown={(e) => {
         if (e.key === "Escape" && p.expanded && !e.defaultPrevented) {
           e.preventDefault();

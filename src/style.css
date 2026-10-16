@@ -331,37 +331,8 @@ select {
   position: relative;
 }
 
-.pf-app__body {
-  display: grid;
-  grid-template-columns: minmax(320px, var(--rail-width, 400px)) minmax(0, 1fr);
-  min-height: 0;
-}
-
-.pf-app__rail {
-  min-height: 0;
-  padding: 4px var(--space-5) var(--space-4);
-  overflow: auto;
-  border-right: 1px solid var(--rule);
-  background: var(--sheet);
-}
-
-/* The stage stacks its blocks (verdict, notices, the sheet); only the sheet takes the spare height. */
-.pf-app__stage {
-  display: flex;
-  gap: var(--space-4);
-  min-height: 0;
-  padding: var(--space-4) var(--space-5);
-  flex-direction: column;
-  overflow: auto;
-}
-
-.pf-app__stage > .pf-notice {
-  grid-row: auto;
-}
-
 /* Narrow screens: nothing runs off the edge (the layout itself is style.css's phone layout). */
 @media (width < 760px) {
-  .pf-app__body,
   .pf-frame,
   .pf-notice {
     min-width: 0;
@@ -704,23 +675,6 @@ input[aria-invalid="true"] {
   border-width: 2px;
 }
 
-/* ---- App bar ---- */
-.pf-app {
-  --sheet-handle: var(--control-h);
-  --sheet-foot: calc(var(--sheet-handle) + env(safe-area-inset-bottom, 0px));
-
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  height: 100vh;
-  height: 100dvh;
-  background: var(--page);
-  color: var(--ink);
-}
-
-.app-top {
-  display: grid;
-}
-
 /* ---- Header: logo, name and save state, then the actions ---- */
 .app-header {
   display: flex;
@@ -959,16 +913,17 @@ span.inserts-name {
   background: var(--danger-wash);
 }
 
+/* The banners and messages, first in the stage (Main's banner is there too). */
 .app-notices {
-  padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--rule);
-  background: var(--sheet);
+  flex: none;
 }
 
-/* Nothing to show: the box stays (its live regions must stay mounted) but takes no room. */
+/* Nothing to show: the box stays (its live regions must stay mounted) but takes no room, not even the stage's gap. */
 .app-notices[data-empty="true"] {
-  padding: 0;
-  border: 0;
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
 }
 
 .button-row {
@@ -1474,19 +1429,6 @@ span.inserts-name {
   margin: 0;
 }
 
-/* The head takes what it needs and the body takes the rest. Without this the view's rows are
-   all content-sized, so the plan had to guess at the room left above it; the guess was wrong
-   whenever anything else appeared (a warning, say) and the view scrolled instead. */
-.pf-app__stage > .pf-view {
-  flex: 1 1 auto;
-
-  /* The plan never shrinks to a thumbnail: on a short screen the stage scrolls instead. Still
-     needed with the figures below it (measured at 1440 by 700 px without it: 93 px tall). */
-  min-height: 24rem;
-  grid-template-rows: auto minmax(0, 1fr);
-  align-content: stretch;
-}
-
 .pf-view__body {
   min-height: 0;
   overflow: auto;
@@ -1769,11 +1711,6 @@ span.inserts-name {
   grid-column: 1 / -1;
 }
 
-.pf-app__stage > .pf-toast {
-  align-self: center;
-  flex: none;
-}
-
 .app-footer {
   padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--rule);
@@ -1787,25 +1724,6 @@ span.inserts-name {
   align-items: center;
   min-height: var(--control-h);
   color: inherit;
-}
-
-/* A tablet (760 to 960 px) keeps the two columns with a narrower rail. */
-@media (width >= 760px) and (width <= 960px) {
-  .pf-app__body {
-    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-  }
-
-  .pf-app__body[data-first-visit="true"] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .pf-app__rail {
-    padding-inline: var(--space-4);
-  }
-
-  .pf-app__stage {
-    padding: var(--space-3) var(--space-4);
-  }
 }
 
 /* Phone layout (below 760 px): Send file is offered, and the header buttons are icons. */
@@ -2036,11 +1954,6 @@ html:has(dialog.modal[open]) {
   background: var(--sheet);
 }
 
-/* First visit: one column with the box, the kinds and the example, in the order a person goes. */
-.pf-app__body[data-first-visit="true"] {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .pf-first {
   display: grid;
   gap: var(--space-5);
@@ -2237,17 +2150,13 @@ html:has(dialog.modal[open]) {
   }
 
   /* A banner's choices go under its words, side by side where they fit. */
-  .app-notices {
-    padding: var(--space-2) var(--space-3);
-  }
-
   .notice-action {
     display: flex;
     margin: var(--space-2) 0 0;
   }
 
   /* The menu opens over the sheet, not under it. */
-  .app-top {
+  .ws-header {
     position: relative;
     z-index: 25;
   }
@@ -2276,48 +2185,15 @@ html:has(dialog.modal[open]) {
     flex: none;
   }
 
-  .pf-app__body {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .pf-app__stage {
-    flex: 1 1 auto;
-    padding: var(--space-3) var(--space-3) calc(var(--sheet-foot) + var(--space-3));
-    scroll-padding-bottom: calc(var(--sheet-foot) + var(--space-3));
-  }
-
-  .pf-app__body[data-first-visit="true"] .pf-app__stage {
-    padding-bottom: var(--space-3);
-  }
-
-  /* The status pill, then the box, then the figures: the order they come in the page, as on a wide screen. */
-  .pf-app__stage > .stage-block {
-    flex: none;
-    margin: 0 0 var(--space-3);
-  }
-
-  /* The box fills what the screen has left under the status pill; the figures wait below it. */
-  .pf-app__stage > .pf-view {
-    flex: 1 0 auto;
-    min-height: max(28rem, calc(100dvh - 17rem));
-    padding: var(--space-3);
-  }
-
   .pf-frame {
     padding: var(--space-3);
   }
 
   /* A note over the foot of the screen stays above the handle. */
-  .pf-toasts,
-  .pf-app__stage > .pf-toast {
+  .pf-toasts {
     position: fixed;
     inset: auto var(--space-3) calc(var(--sheet-foot) + var(--space-2));
     z-index: 30;
-  }
-
-  .pf-app__stage > .pf-toast {
-    margin: 0;
   }
 }
 

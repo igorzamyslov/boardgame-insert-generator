@@ -6,13 +6,15 @@
 // element marked `data-region="<name>"`: the UI task that builds the region puts the attribute on
 // it. A region found in only one of the two has no pair crop.
 //
-// Names, with the task that owns each in the app: header, rail, status, plan-box, tray-bar, menu,
+// Names, with the task that owns each in the app: header, rail, stage (Task 3), status, plan-box, tray-bar, menu,
 // dialog, drawer, sheet.
 
 /** @type {Record<string, { board: (doc: Document) => Element | null }>} */
 export const REGIONS = {
   header: { board: (doc) => doc.querySelector("header") },
   rail: { board: (doc) => doc.querySelector("aside") },
+  // The whole of <main>: the stage the status row, the plan and its slots sit in.
+  stage: { board: (doc) => doc.querySelector("main") },
   // The child of <main> that holds the first h1: the heading row (icon, h1, line, controls).
   status: {
     board: (doc) => {

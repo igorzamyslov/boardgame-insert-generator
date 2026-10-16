@@ -8,7 +8,7 @@
 // relative asset URLs that load, that the layout and geometry workers and the
 // manifold WASM exist and are referenced by name, that every script (lazy chunks included)
 // loads and every chunk a script imports exists, that no file points at an
-// absolute /assets/ path, that no screenshot-harness hold (`__shotsHold`) was built in, and that
+// absolute /assets/ path, that no screenshot-harness hold (`__shotsHold`) and no kit gallery (`kit.html`, "Kit gallery") was built in, and that
 // the third-party licenses file is complete.
 //
 // Limits: no browser runs the page. This proves the files are there and wired
@@ -137,6 +137,17 @@ async function check() {
     for (const [name, text] of texts) {
       if (text.includes("__shotsHold")) {
         problems.push(`${name} contains a shots hold (__shotsHold): build without --mode shots`);
+      }
+    }
+
+    // The kit gallery (kit.html, src/kit/Gallery.tsx) is for development and the shots: a build
+    // carries neither the page nor its words.
+    if (files.includes("kit.html")) {
+      problems.push("kit.html is in dist: the kit gallery is not part of the build");
+    }
+    for (const [name, text] of texts) {
+      if (text.includes("Kit gallery")) {
+        problems.push(`${name} contains the kit gallery ("Kit gallery")`);
       }
     }
 

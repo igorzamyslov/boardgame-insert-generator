@@ -138,7 +138,7 @@ export function AppHeader(p: AppHeaderProps) {
     };
   }, [open]);
   return (
-    <header class="pf-app__bar app-header">
+    <div class="pf-app__bar app-header">
       <h1 class="app-brand">
         <LogoMark />
         <span class="app-wordmark">Insert Generator</span>
@@ -256,6 +256,6 @@ export function AppHeader(p: AppHeaderProps) {
           </span>
         ) : null}
       </div>
-    </header>
+    </div>
   );
 }

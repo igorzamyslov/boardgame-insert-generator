@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import kit from "./kit/kit.css?raw";
+import workspace from "./screens/workspace.css?raw";
 import css from "./style.css?raw";
 import base from "./styles/base.css?raw";
 import fonts from "./styles/fonts.css?raw";
@@ -471,11 +472,11 @@ describe("the phone layout", () => {
     const body = ruleFor(".pf-toasts", phoneLayout);
     expect(body).toMatch(/position:\s*fixed/);
     expect(body).toMatch(/calc\(var\(--sheet-foot\)/);
-    expect(ruleFor(".pf-app")).toMatch(/--sheet-handle:\s*var\(--control-h\)/);
+    expect(ruleFor(".ws", workspace)).toMatch(/--sheet-handle:\s*var\(--control-h\)/);
   });
 
   it("makes the screen one dvh tall, so a browser's own bars do not cover the sheet", () => {
-    expect(ruleFor(".pf-app")).toMatch(/height:\s*100dvh/);
+    expect(ruleFor(".ws", workspace)).toMatch(/height:\s*100dvh/);
   });
 
   it("leaves the scrolling to the settings sheet's panel, whatever the screen's width", () => {
@@ -500,8 +501,8 @@ describe("the phone layout", () => {
 
   it("leaves the order of the stage to the page: the status pill, the box, then the figures", () => {
     // DESIGN §5: the same order on every width, so no `order` moves a block (App.test.tsx checks the page)
-    expect(ruleFor(".pf-app__stage > .stage-block", phoneLayout)).not.toMatch(/order:/);
-    expect(css).not.toMatch(/\.pf-app__stage > \.pf-status\s*{[^}]*order:/);
+    expect(ruleFor(".ws-stage > .stage-block", workspace)).not.toMatch(/order:/);
+    expect(mediaBlock("(width < 760px)", workspace)).not.toMatch(/\.stage-block|\.pf-status/);
   });
 
   it("fills the screen with an open sheet that holds the editor or the box, below 600 px", () => {
@@ -518,7 +519,7 @@ describe("the phone layout", () => {
   });
 
   it("keeps the plan at least 24 rem tall (the figures below it still share the stage), so it scrolls rather than shrinks", () => {
-    expect(ruleFor(".pf-app__stage > .pf-view")).toMatch(/min-height:\s*24rem/);
+    expect(ruleFor(".ws-stage > .pf-view", workspace)).toMatch(/min-height:\s*24rem/);
   });
 
   it("gives the view's tabs a 44 px target", () => {
@@ -552,12 +553,11 @@ describe("breakpoints", () => {
     eager: true,
   });
 
-  it("are 760 (phone), 600 (full-screen dialogs) and the 760 to 960 tablet rail, and nothing else", () => {
+  it("are 760 (phone) and 600 (full-screen dialogs), and nothing else", () => {
     const RULED = new Set([
       "(width < 760px)",
       "screen and (width < 760px)",
       "(width >= 760px)",
-      "(width >= 760px) and (width <= 960px)",
       "(width < 600px)",
       "(prefers-reduced-motion: reduce)",
       "print",
@@ -571,13 +571,60 @@ describe("breakpoints", () => {
     expect(found.size).toBeGreaterThan(4);
     expect([...found].filter((q) => !RULED.has(q))).toEqual([]);
   });
+});
 
-  it("narrows the rail between 760 and 960 px, and no further", () => {
-    const rail = mediaBlock("(width >= 760px) and (width <= 960px)");
-    expect(ruleFor(".pf-app__body", rail)).toMatch(
-      /grid-template-columns:\s*minmax\(280px, 340px\)/,
-    );
-    expect(ruleFor(".pf-app__rail", rail)).toMatch(/padding-inline/);
+describe("workspace.css", () => {
+  const stripped = workspace.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("fills the viewport and never scrolls the page on desktop", () => {
+    expect(ruleFor(".ws", stripped)).toMatch(/height:\s*100dvh/);
+    expect(ruleFor(".ws-header", stripped)).toMatch(/flex:\s*none/);
+    const body = ruleFor(".ws-body", stripped);
+    expect(body).toMatch(/display:\s*flex/);
+    expect(body).toMatch(/flex-wrap:\s*wrap/);
+    expect(body).toMatch(/min-height:\s*0/);
+    expect(ruleFor(".ws", stripped)).toMatch(/overflow:\s*clip/);
+    // a column is never taller than the body, so the page has no scroll of its own
+    expect(ruleFor(".ws-rail", stripped)).toMatch(/max-height:\s*100%/);
+    expect(ruleFor(".ws-stage", stripped)).toMatch(/max-height:\s*100%/);
+  });
+
+  it("gives the rail Main's width on every screen", () => {
+    const rail = ruleFor(".ws-rail", stripped);
+    expect(rail).toMatch(/flex:\s*1 1 var\(--rail-basis\)/);
+    expect(rail).toMatch(/max-width:\s*var\(--rail-max\)/);
+    expect(rail).toMatch(/padding:\s*var\(--rail-pad\)/);
+    expect(rail).toMatch(/background:\s*var\(--sheet\)/);
+    expect(rail).toMatch(/border-right:\s*1px solid var\(--rule\)/);
+    expect(rail).toMatch(/overflow:\s*hidden/);
+    const light = declarations(tokens.replace(/\/\*[\s\S]*?\*\//g, ""));
+    expect(light.get("--rail-basis")).toBe("300px");
+    expect(light.get("--rail-max")).toBe("350px");
+  });
+
+  it("lets the stage take the rest", () => {
+    const stage = ruleFor(".ws-stage", stripped);
+    expect(stage).toMatch(/flex:\s*999 1 640px/);
+    expect(stage).toMatch(/min-width:\s*0/);
+    expect(stage).toMatch(/padding:\s*var\(--stage-pad\)/);
+    expect(stage).toMatch(/gap:\s*var\(--s-16\)/);
+    expect(ruleFor(".ws-stage--focus", stripped)).toMatch(/padding:\s*var\(--stage-pad-focus\)/);
+  });
+
+  it("puts the stage first on a phone, and the header at the phone's height", () => {
+    const phone = mediaBlock("(width < 760px)", stripped);
+    expect(ruleFor(".ws-stage", phone)).toMatch(/order:\s*-1/);
+    expect(ruleFor(".ws-header", phone)).toMatch(/min-height:\s*var\(--header-h-phone\)/);
+  });
+
+  it("keeps the handle of the sheet clear of the stage's last block, only where a sheet is", () => {
+    const phone = mediaBlock("(width < 760px)", stripped);
+    expect(ruleFor(".ws--sheet .ws-stage", phone)).toMatch(/calc\(var\(--sheet-foot\)/);
+    expect(ruleFor(".ws-stage", phone)).not.toMatch(/--sheet-foot/);
+  });
+
+  it("writes no raw colours", () => {
+    expect(stripped).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });
 

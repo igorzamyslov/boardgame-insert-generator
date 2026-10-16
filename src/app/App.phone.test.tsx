@@ -96,7 +96,7 @@ describe("the phone layout", () => {
 
   describe("what is behind a sheet that fills the screen", () => {
     const behind = (): Element[] => [
-      document.querySelector(".app-top") as Element,
+      document.querySelector('[data-region="header"]') as Element,
       screen.getByRole("main"),
     ];
 

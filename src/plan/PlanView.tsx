@@ -142,7 +142,6 @@ export function PlanView(props: PlanViewProps) {
   const shown = traysAt(trays, level);
   const below = belowLevel === undefined ? [] : traysAt(trays, belowLevel);
   const components = props.components ?? [];
-  const hasLeftover = trays.some((t) => t.part === "leftover");
   const rects = shown.flatMap((t) =>
     footprintsAt(t, level).map((f) => ({ key: t.key, rect: toSvgRect(f, frame) })),
   );
@@ -544,17 +543,7 @@ export function PlanView(props: PlanViewProps) {
           </li>
         ))}
       </ul>
-      {hasLeftover ? (
-        <p class="hint plan-legend">
-          Hatched trays are spares: they fill the gap so the other trays stay put. Print them too.
-        </p>
-      ) : null}
       <div class="plan-toolbar">
-        {props.bar ? null : (
-          <p class="hint">
-            Select a tray to see its details. Drag a tray onto another to swap them.
-          </p>
-        )}
         {/* always mounted, so a reader hears a note arrive */}
         <div role="status">
           {swapFrom !== null ? (

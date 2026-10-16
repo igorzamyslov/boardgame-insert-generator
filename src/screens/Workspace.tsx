@@ -1,0 +1,84 @@
+// src/screens/Workspace.tsx
+import type { ComponentChildren, RefObject } from "preact";
+import { BottomSheet } from "../ui/BottomSheet";
+
+/**
+ * The phone's rail: the sheet that holds the rail's content (below 760 px). The owner keeps its
+ * state, so it can open the sheet for an editor and take the focus to its handle.
+ */
+export interface WorkspaceSheet {
+  /** The sheet's name for assistive technology. */
+  label: string;
+  /** The handle's words. */
+  title: string;
+  /** The line after the title that says what is inside; it stays while the sheet is folded. */
+  summary?: string;
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
+  full?: boolean;
+  editing?: boolean;
+  handleRef?: RefObject<HTMLButtonElement | null>;
+  action?: ComponentChildren;
+}
+
+export interface WorkspaceProps {
+  /** The header's content (the banner landmark is the shell's). */
+  header: ComponentChildren;
+  /** What the rail holds: on a phone, the sheet's content. */
+  rail: ComponentChildren;
+  /** What the stage holds (the one `main`). */
+  stage: ComponentChildren;
+  /** The wider stage padding of a screen that is one task: first visit, an editor, the box, a fit problem. */
+  focus?: boolean;
+  /** On a phone the rail is this sheet; without it the rail is the `aside` at every width. */
+  sheet?: WorkspaceSheet;
+  /** Set on what is behind a sheet that fills the screen, so Tab and screen readers skip it. */
+  inert?: boolean;
+}
+
+/**
+ * The shell of every screen after the first: the header on top, then the rail and the stage as
+ * Main draws them (UI rebuild Task 3). It lays out and names the regions (`data-region`: header,
+ * rail, stage) and nothing else; the screens fill the slots. The CSS is `workspace.css`.
+ */
+export function Workspace(p: WorkspaceProps) {
+  // `inert` is not in Preact's typings yet.
+  const behindSheet = { inert: p.inert === true ? true : undefined } as Record<string, unknown>;
+  const sheet = p.sheet;
+  return (
+    <div class={`ws${sheet ? " ws--sheet" : ""}`}>
+      <header class="ws-header" data-region="header" {...behindSheet}>
+        {p.header}
+      </header>
+      <div class="ws-body">
+        {sheet ? (
+          <BottomSheet
+            region="sheet"
+            label={sheet.label}
+            title={sheet.title}
+            meta={sheet.summary}
+            expanded={sheet.expanded}
+            onExpandedChange={sheet.onExpandedChange}
+            full={sheet.full}
+            editing={sheet.editing}
+            handleRef={sheet.handleRef}
+            action={sheet.action}
+          >
+            {p.rail}
+          </BottomSheet>
+        ) : (
+          <aside class="ws-rail" data-region="rail" aria-label="What's inside">
+            {p.rail}
+          </aside>
+        )}
+        <main
+          class={`ws-stage${p.focus ? " ws-stage--focus" : ""}`}
+          data-region="stage"
+          {...behindSheet}
+        >
+          {p.stage}
+        </main>
+      </div>
+    </div>
+  );
+}

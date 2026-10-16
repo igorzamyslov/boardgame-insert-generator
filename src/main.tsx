@@ -10,6 +10,7 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import "./kit/kit.css";
 import "./style.css";
+import "./screens/workspace.css";
 
 const store = createAppStore({
   projectStore: createProjectStore(),
