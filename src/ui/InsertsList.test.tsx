@@ -42,6 +42,27 @@ describe("InsertsList", () => {
     expect(p.onDelete).toHaveBeenCalledWith("b");
   });
 
+  it("focuses Keep it when the question opens and goes back to Delete… when it is kept", () => {
+    render(<InsertsList {...props()} />);
+    const ask = screen.getByRole("button", { name: /^Delete… .*Ark Nova/ });
+    fireEvent.click(ask);
+    const keep = screen.getByRole("button", { name: "Keep it" });
+    expect(document.activeElement).toBe(keep);
+    fireEvent.click(keep);
+    expect(document.activeElement).toBe(ask);
+  });
+
+  it("puts the focus on the list's first item once a deleted insert is gone", () => {
+    const p = props();
+    const { rerender } = render(<InsertsList {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Delete… .*Ark Nova/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    rerender(<InsertsList {...p} projects={[{ id: "a", name: "Wingspan", updatedAt: 2 }]} />);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: /^Delete… .*Wingspan/ }),
+    );
+  });
+
   it("keeps an insert when the question is cancelled", () => {
     const p = props();
     render(<InsertsList {...p} />);

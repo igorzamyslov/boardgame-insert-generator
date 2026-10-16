@@ -42,7 +42,9 @@ describe("AppHeader", () => {
 
   it("shows Saved in this browser", () => {
     render(<AppHeader {...props({ saveState: "saved" })} />);
-    expect(screen.getByRole("status").textContent).toBe("Saved in this browser");
+    expect(screen.getByText("Saved in this browser")).toBeTruthy();
+    // routine saving is not announced
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("shows Saving paused", () => {
@@ -59,25 +61,43 @@ describe("AppHeader", () => {
       unavailable: "Not saved: this browser blocks storage",
     };
     const { rerender } = render(<AppHeader {...props()} />);
+    const announced = ["paused", "failed", "unavailable"];
     for (const [state, expected] of Object.entries(text)) {
       rerender(<AppHeader {...props({ saveState: state as SaveState })} />);
-      expect(screen.getByRole("status").textContent).toBe(expected);
+      expect(screen.getByText(expected)).toBeTruthy();
+      // only the states that need attention are live
+      expect(screen.queryByRole("status") !== null).toBe(announced.includes(state));
     }
   });
 
   it("Undo and Redo follow history", () => {
     const p = props({ canUndo: true, canRedo: false });
     const { rerender } = render(<AppHeader {...p} />);
-    const undo = screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement;
-    const redo = screen.getByRole("button", { name: "Redo" }) as HTMLButtonElement;
-    expect(undo.disabled).toBe(false);
-    expect(redo.disabled).toBe(true);
-    fireEvent.click(undo);
+    const undo = () => screen.getByRole("button", { name: "Undo" });
+    const redo = () => screen.getByRole("button", { name: "Redo" });
+    expect(undo().getAttribute("aria-disabled")).toBe("false");
+    expect(redo().getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(undo());
     expect(p.onUndo).toHaveBeenCalledTimes(1);
+    fireEvent.click(redo());
+    expect(p.onRedo).not.toHaveBeenCalled();
     rerender(<AppHeader {...props({ ...p, canUndo: false, canRedo: true })} />);
-    expect((screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "Redo" }));
+    expect(undo().getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(undo());
+    expect(p.onUndo).toHaveBeenCalledTimes(1);
+    fireEvent.click(redo());
     expect(p.onRedo).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Undo and Redo in the Tab order when there is nothing to step to", () => {
+    render(<AppHeader {...props()} />);
+    for (const name of ["Undo", "Redo"]) {
+      const b = screen.getByRole("button", { name }) as HTMLButtonElement;
+      expect(b.disabled).toBe(false);
+      expect(b.tabIndex).toBe(0);
+      b.focus();
+      expect(document.activeElement).toBe(b);
+    }
   });
 
   it("Download calls out, and is off while there is nothing to download", () => {
@@ -115,6 +135,67 @@ describe("AppHeader", () => {
     expect(screen.getByText("Inside the menu")).toBeTruthy();
     fireEvent.click(screen.getByText("Inside the menu"));
     expect(screen.queryByText("Inside the menu")).toBeNull();
+  });
+
+  it("is a disclosure, not an ARIA menu", () => {
+    render(<AppHeader {...props()} />);
+    expect(screen.getByRole("button", { name: "Project menu" }).hasAttribute("aria-haspopup")).toBe(
+      false,
+    );
+  });
+
+  it("moves the focus to the first item when the menu opens", () => {
+    render(<AppHeader {...props()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
+    expect(document.activeElement).toBe(screen.getByText("Inside the menu"));
+  });
+
+  it("puts the focus back on the menu button after a choice", () => {
+    render(<AppHeader {...props()} />);
+    const button = screen.getByRole("button", { name: "Project menu" });
+    fireEvent.click(button);
+    fireEvent.click(screen.getByText("Inside the menu"));
+    expect(screen.queryByText("Inside the menu")).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it("closes when the focus leaves it for somewhere else, and leaves the focus there", () => {
+    render(<AppHeader {...props()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
+    const name = screen.getByLabelText("Project name");
+    fireEvent.blur(screen.getByText("Inside the menu"), { relatedTarget: name });
+    expect(screen.queryByText("Inside the menu")).toBeNull();
+    // focus moving between the menu's own buttons keeps it open
+    fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
+    fireEvent.blur(screen.getByText("Inside the menu"), {
+      relatedTarget: screen.getByRole("button", { name: "Project menu" }),
+    });
+    expect(screen.getByText("Inside the menu")).toBeTruthy();
+  });
+
+  it("commits the name on Enter, reverts it on Escape and trims it on blur", () => {
+    const p = props();
+    render(<AppHeader {...p} />);
+    const name = screen.getByLabelText("Project name") as HTMLInputElement;
+    fireEvent.focus(name);
+    fireEvent.input(name, { target: { value: "  Everdell  " } });
+    fireEvent.blur(name);
+    expect(p.onRename).toHaveBeenLastCalledWith("Everdell");
+    expect(name.value).toBe("Everdell");
+    // Escape goes back to what the name was when the field got focus
+    const q = props({ name: "Wingspan" });
+    cleanup();
+    render(<AppHeader {...q} />);
+    const again = screen.getByLabelText("Project name") as HTMLInputElement;
+    fireEvent.focus(again);
+    fireEvent.input(again, { target: { value: "Oops" } });
+    fireEvent.keyDown(again, { key: "Escape" });
+    expect(q.onRename).toHaveBeenLastCalledWith("Wingspan");
+    expect(again.value).toBe("Wingspan");
+    // Enter leaves the field
+    again.focus();
+    fireEvent.keyDown(again, { key: "Enter" });
+    expect(document.activeElement).not.toBe(again);
   });
 
   it("ignores Escape and outside clicks while the menu is closed", () => {

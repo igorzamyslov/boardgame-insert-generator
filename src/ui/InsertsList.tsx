@@ -1,5 +1,5 @@
 // src/ui/InsertsList.tsx
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { ProjectListEntry } from "../share";
 
 const shown = (name: string): string => (name === "" ? "(unnamed)" : name);
@@ -12,6 +12,11 @@ export interface DeleteConfirmProps {
 
 /** The question before an insert is deleted from this browser. */
 export function DeleteConfirm({ name, onConfirm, onCancel }: DeleteConfirmProps) {
+  const keep = useRef<HTMLButtonElement>(null);
+  // The safe answer has the focus, so a stray Enter keeps the insert.
+  useEffect(() => {
+    keep.current?.focus();
+  }, []);
   return (
     <div class="delete-confirm" role="group" aria-label={`Delete “${shown(name)}”?`}>
       <p class="hint">{`Delete “${shown(name)}” from this browser? This can't be undone.`}</p>
@@ -19,7 +24,7 @@ export function DeleteConfirm({ name, onConfirm, onCancel }: DeleteConfirmProps)
         <button type="button" class="menu-delete tap" onClick={onConfirm}>
           Delete
         </button>
-        <button type="button" class="tap" onClick={onCancel}>
+        <button type="button" class="tap" ref={keep} onClick={onCancel}>
           Keep it
         </button>
       </div>
@@ -37,11 +42,20 @@ export interface InsertsListProps {
 /** The inserts saved in this browser: open one, or delete one after a question. */
 export function InsertsList({ currentId, projects, onOpen, onDelete }: InsertsListProps) {
   const [asking, setAsking] = useState<string | null>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const deleted = useRef(false);
+  // A deleted row takes the focus with it: it goes to the list's first item.
+  useEffect(() => {
+    if (deleted.current) {
+      deleted.current = false;
+      list.current?.querySelector("button")?.focus();
+    }
+  }, [projects]);
   if (projects.length === 0) {
     return <p class="hint">Nothing saved yet.</p>;
   }
   return (
-    <ul class="inserts-list">
+    <ul class="inserts-list" ref={list}>
       {projects.map((p) => (
         <li key={p.id} class="inserts-row">
           <div class="inserts-line">
@@ -57,6 +71,7 @@ export function InsertsList({ currentId, projects, onOpen, onDelete }: InsertsLi
             <button
               type="button"
               class="quiet menu-delete tap"
+              data-delete={p.id}
               aria-expanded={asking === p.id}
               onClick={() => setAsking(asking === p.id ? null : p.id)}
             >
@@ -67,9 +82,16 @@ export function InsertsList({ currentId, projects, onOpen, onDelete }: InsertsLi
           {asking === p.id ? (
             <DeleteConfirm
               name={p.name}
-              onCancel={() => setAsking(null)}
+              onCancel={() => {
+                setAsking(null);
+                // back on the button that asked
+                [...(list.current?.querySelectorAll<HTMLElement>("[data-delete]") ?? [])]
+                  .find((el) => el.dataset.delete === p.id)
+                  ?.focus();
+              }}
               onConfirm={() => {
                 setAsking(null);
+                deleted.current = true;
                 onDelete(p.id);
               }}
             />

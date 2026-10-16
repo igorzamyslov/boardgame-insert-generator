@@ -1,6 +1,6 @@
 // src/ui/ProjectMenu.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProjectMenu } from "./ProjectMenu";
 import type { ProjectMenuProps } from "./ProjectMenu";
@@ -19,7 +19,7 @@ function props(over: Partial<ProjectMenuProps> = {}): ProjectMenuProps {
     onOpen: vi.fn(),
     onNew: vi.fn(),
     onDelete: vi.fn(),
-    onImport: vi.fn(),
+    onOpenFile: vi.fn(),
     onSaveFile: vi.fn(),
     onSendFile: vi.fn(),
     onSettings: vi.fn(),
@@ -69,14 +69,13 @@ describe("ProjectMenu", () => {
     expect(p.onDelete).toHaveBeenCalledWith("a");
   });
 
-  it("imports a chosen JSON file and closes", async () => {
+  it("asks the page for its file chooser and closes", () => {
     const p = props();
     render(<ProjectMenu {...p} />);
-    const input = screen.getByLabelText("Open an insert file");
-    const file = new File(['{"hello":1}'], "game.insert.json", { type: "application/json" });
-    fireEvent.change(input, { target: { files: [file] } });
-    await waitFor(() => expect(p.onImport).toHaveBeenCalledWith('{"hello":1}'));
+    fireEvent.click(button("Open file…"));
+    expect(p.onOpenFile).toHaveBeenCalledTimes(1);
     expect(p.onClose).toHaveBeenCalled();
+    expect(document.querySelector("input[type=file]")).toBeNull();
   });
 
   it("offers files, not links", () => {
@@ -91,17 +90,20 @@ describe("ProjectMenu", () => {
     expect(screen.getByText(/use Save file to keep your work/)).toBeTruthy();
   });
 
-  it("shows a message when the chosen file cannot be read, resets the input and stays open", async () => {
-    const p = props();
-    render(<ProjectMenu {...p} />);
-    const input = screen.getByLabelText("Open an insert file") as HTMLInputElement;
-    const file = new File(["x"], "broken.json", { type: "application/json" });
-    Object.defineProperty(file, "text", { value: () => Promise.reject(new Error("unreadable")) });
-    fireEvent.change(input, { target: { files: [file] } });
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/unreadable/));
-    expect(p.onImport).not.toHaveBeenCalled();
-    expect(p.onClose).not.toHaveBeenCalled();
-    expect(input.value).toBe("");
+  it("moves the focus into Your inserts and back to the button that opened it", () => {
+    render(<ProjectMenu {...props()} />);
+    fireEvent.click(button("Your inserts"));
+    expect(document.activeElement).toBe(button("Back"));
+    fireEvent.click(button("Back"));
+    expect(document.activeElement).toBe(button("Your inserts"));
+  });
+
+  it("puts the focus on Keep it when the delete question opens, and back on Delete… when kept", () => {
+    render(<ProjectMenu {...props()} />);
+    fireEvent.click(button("Delete…"));
+    expect(document.activeElement).toBe(button("Keep it"));
+    fireEvent.click(button("Keep it"));
+    expect(document.activeElement).toBe(button("Delete…"));
   });
 
   it("lists an open insert that is not saved yet", () => {

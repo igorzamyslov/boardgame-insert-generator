@@ -47,6 +47,8 @@ const ICON = {
 /** The project name: edited in place, committed as it is typed. */
 function NameInput({ name, onRename }: { name: string; onRename: (name: string) => void }) {
   const [text, setText] = useState(name);
+  // What the name was when the field got focus: Escape goes back to it.
+  const atFocus = useRef(name);
   useEffect(() => {
     setText(name);
   }, [name]);
@@ -57,9 +59,27 @@ function NameInput({ name, onRename }: { name: string; onRename: (name: string) 
       aria-label="Project name"
       placeholder="(unnamed)"
       value={text}
+      onFocus={() => {
+        atFocus.current = name;
+      }}
       onInput={(e) => {
         setText(e.currentTarget.value);
         onRename(e.currentTarget.value);
+      }}
+      onBlur={() => {
+        const trimmed = text.trim();
+        if (trimmed !== text) {
+          setText(trimmed);
+          onRename(trimmed);
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.currentTarget.blur();
+        } else if (e.key === "Escape" && text !== atFocus.current) {
+          setText(atFocus.current);
+          onRename(atFocus.current);
+        }
       }}
     />
   );
@@ -70,6 +90,18 @@ export function AppHeader(p: AppHeaderProps) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  /** Shuts the menu and puts the focus back on its button. */
+  const close = (): void => {
+    setOpen(false);
+    button.current?.focus();
+  };
+  // Opening moves the focus to the first item.
+  useEffect(() => {
+    if (open) {
+      panel.current?.querySelector<HTMLElement>("button, input, [href]")?.focus();
+    }
+  }, [open]);
   // The menu closes on a click outside it and on Escape (the focus goes back to its button).
   useEffect(() => {
     if (!open) {
@@ -82,8 +114,7 @@ export function AppHeader(p: AppHeaderProps) {
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setOpen(false);
-        button.current?.focus();
+        close();
       }
     };
     document.addEventListener("click", onClick);
@@ -107,8 +138,12 @@ export function AppHeader(p: AppHeaderProps) {
         <button
           type="button"
           class="app-icon-btn"
-          disabled={!p.canUndo}
-          onClick={p.onUndo}
+          aria-disabled={!p.canUndo}
+          onClick={() => {
+            if (p.canUndo) {
+              p.onUndo();
+            }
+          }}
           aria-label="Undo"
         >
           <svg {...ICON}>
@@ -122,8 +157,12 @@ export function AppHeader(p: AppHeaderProps) {
         <button
           type="button"
           class="app-icon-btn"
-          disabled={!p.canRedo}
-          onClick={p.onRedo}
+          aria-disabled={!p.canRedo}
+          onClick={() => {
+            if (p.canRedo) {
+              p.onRedo();
+            }
+          }}
           aria-label="Redo"
         >
           <svg {...ICON}>
@@ -134,12 +173,22 @@ export function AppHeader(p: AppHeaderProps) {
             Redo
           </span>
         </button>
-        <div class="app-menu-wrap" ref={wrap}>
+        <div
+          class="app-menu-wrap"
+          ref={wrap}
+          onBlurCapture={(e) => {
+            // The focus went somewhere outside the menu (Tab past its end, say): it closes and
+            // leaves the focus where it went. A focus that went nowhere is the click handler's.
+            const to = e.relatedTarget;
+            if (open && to instanceof Node && !wrap.current?.contains(to)) {
+              setOpen(false);
+            }
+          }}
+        >
           <button
             type="button"
             class="app-icon-btn app-menu-btn"
             ref={button}
-            aria-haspopup="true"
             aria-expanded={open}
             aria-controls="project-menu"
             onClick={() => setOpen(!open)}
@@ -155,8 +204,14 @@ export function AppHeader(p: AppHeaderProps) {
             {p.menuDot ? <span class="app-menu-dot" aria-hidden="true" /> : null}
           </button>
           {open ? (
-            <div class="app-menu-panel" id="project-menu" role="group" aria-label="Project">
-              {p.menu(() => setOpen(false))}
+            <div
+              class="app-menu-panel"
+              id="project-menu"
+              role="group"
+              aria-label="Project"
+              ref={panel}
+            >
+              {p.menu(close)}
             </div>
           ) : null}
         </div>

@@ -236,8 +236,15 @@ input[aria-invalid="true"] {
   background: transparent;
 }
 
-.app-icon-btn:hover:not(:disabled) {
+.app-icon-btn:hover:not(:disabled, [aria-disabled="true"]) {
   border-color: var(--edge);
+}
+
+/* Undo and Redo stay in the Tab order when there is nothing to step to; they only look off. */
+.app-icon-btn[aria-disabled="true"] {
+  border-color: transparent;
+  background: transparent;
+  opacity: 0.45;
 }
 
 .app-download {

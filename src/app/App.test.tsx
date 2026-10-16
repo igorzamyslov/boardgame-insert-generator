@@ -3,6 +3,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
+import { toSerializable } from "../model/schema";
 import type { Project } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
 import { encodeHash } from "../test-support/link";
@@ -363,6 +364,11 @@ describe("App", () => {
   });
 
   describe("header and project menu", () => {
+    afterEach(() => {
+      // jsdom has no scrollIntoView: the Settings test stubs it
+      Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+    });
+
     const openMenu = (): HTMLElement => {
       const button = screen.getByRole("button", { name: /^Project menu/ });
       fireEvent.click(button);
@@ -388,14 +394,15 @@ describe("App", () => {
 
     it("follows the history with Undo and Redo", () => {
       const { store } = renderApp();
-      const undo = () => screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement;
-      const redo = () => screen.getByRole("button", { name: "Redo" }) as HTMLButtonElement;
-      expect(undo().disabled).toBe(true);
+      const undo = () => screen.getByRole("button", { name: "Undo" });
+      const redo = () => screen.getByRole("button", { name: "Redo" });
+      const off = (b: HTMLElement): boolean => b.getAttribute("aria-disabled") === "true";
+      expect(off(undo())).toBe(true);
       fireEvent.input(screen.getByLabelText("Project name"), { target: { value: "Wingspan" } });
-      expect(undo().disabled).toBe(false);
+      expect(off(undo())).toBe(false);
       fireEvent.click(undo());
       expect(store.state.project.value.name).not.toBe("Wingspan");
-      expect(redo().disabled).toBe(false);
+      expect(off(redo())).toBe(false);
       fireEvent.click(redo());
       expect(store.state.project.value.name).toBe("Wingspan");
     });
@@ -455,6 +462,32 @@ describe("App", () => {
       renderApp({ project: withLayoutProject() });
       fireEvent.click(screen.getByRole("button", { name: "Download" }));
       expect(screen.getByRole("heading", { name: /export/i })).toBeTruthy();
+    });
+
+    it("returns the focus to the menu button after a choice", () => {
+      renderApp();
+      const button = openMenu();
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "New insert" }));
+      fireEvent.click(screen.getByRole("button", { name: "New insert" }));
+      expect(document.activeElement).toBe(button);
+    });
+
+    it("opens a chosen insert file, and tells when it can't be read", async () => {
+      const { store } = renderApp();
+      const input = screen.getByLabelText("Open an insert file") as HTMLInputElement;
+      expect(input.getAttribute("aria-hidden")).toBe("true");
+      expect(input.tabIndex).toBe(-1);
+      const other = { ...fixtureProject(), id: "from-file", name: "From a file" };
+      const text = JSON.stringify(toSerializable(other, EMPTY_FOREIGN));
+      fireEvent.change(input, { target: { files: [new File([text], "a.insert.json")] } });
+      await waitFor(() => expect(store.state.project.value.id).toBe("from-file"));
+      const broken = new File(["x"], "broken.json");
+      Object.defineProperty(broken, "text", {
+        value: () => Promise.reject(new Error("unreadable")),
+      });
+      fireEvent.change(input, { target: { files: [broken] } });
+      expect(await screen.findByText(/Couldn't read broken\.json: unreadable/)).toBeTruthy();
+      expect(input.value).toBe("");
     });
 
     it("Send file hands the file to the share sheet", async () => {

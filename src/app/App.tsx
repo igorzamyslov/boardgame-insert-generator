@@ -8,6 +8,7 @@ import { APP_VERSION, BUILD_ID } from "../model/version";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
+import { errorText } from "../util/errors";
 import { AppHeader } from "../ui/AppHeader";
 import { BoxForm } from "../ui/BoxForm";
 import { AddKinds, ComponentList } from "../ui/components/ComponentList";
@@ -44,7 +45,7 @@ import {
 } from "./actions";
 import { downloadBlob } from "./download";
 import type { MeshSource } from "./meshes";
-import { CONFLICT_CODE } from "./persistence";
+import { CONFLICT_CODE, OPEN_FAILED_CODE } from "./persistence";
 import { canOptimize } from "./runner";
 import { shareFile } from "./sendFile";
 import type { ShareFile } from "./sendFile";
@@ -127,6 +128,7 @@ export function App(props: AppProps) {
   const showAssembly = assemblyFor === project.id && layout !== undefined;
   const mainRef = useRef<HTMLElement>(null);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const restoreFocus = useRef(false);
   const [openSection, setOpenSection] = useState<SectionId | null>(
     project.components.length === 0 ? "box" : "components",
@@ -230,6 +232,27 @@ export function App(props: AppProps) {
     setOpenSection("components");
   };
   const notices: readonly Notice[] = s.appNotices.value;
+  // The file chooser lives here, not in the menu: the menu may close while the system dialog is up.
+  async function readFile(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+    let text: string;
+    try {
+      text = await file.text();
+    } catch (e) {
+      store.pushNotice({
+        level: "error",
+        code: OPEN_FAILED_CODE,
+        message: `Couldn't read ${file.name}: ${errorText(e)}`,
+      });
+      return;
+    } finally {
+      input.value = "";
+    }
+    store.importJson(text);
+  }
   const saveFile = (): void => {
     download(exportJsonFile(project, s.foreign.value), jsonFileName(project));
     store.markSavedToFile();
@@ -282,9 +305,7 @@ export function App(props: AppProps) {
                     onOpen={(id) => store.openProject(id)}
                     onNew={() => store.newProject()}
                     onDelete={(id) => store.deleteProject(id)}
-                    onImport={(text) => {
-                      store.importJson(text);
-                    }}
+                    onOpenFile={() => fileRef.current?.click()}
                     onSaveFile={saveFile}
                     onSendFile={() => {
                       void sendFile();
@@ -292,6 +313,18 @@ export function App(props: AppProps) {
                     onSettings={() => showSection("settings")}
                   />
                 )}
+              />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                class="visually-hidden"
+                tabIndex={-1}
+                aria-hidden="true"
+                aria-label="Open an insert file"
+                onChange={(e) => {
+                  void readFile(e.currentTarget);
+                }}
               />
               {notices.length > 0 ? (
                 <div class="app-notices">
