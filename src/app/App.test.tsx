@@ -1,13 +1,13 @@
 // src/app/App.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
-import { updateBox } from "./actions";
+import { renameProject, updateBox } from "./actions";
 import { CONFLICT_CODE } from "./persistence";
 import {
   EMPTY_FOREIGN,
@@ -191,6 +191,16 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     expect(names()).toEqual(["Cards", "Bits"]);
     expect(screen.queryByText(/Removed “Cards”/)).toBeNull();
+  });
+
+  it("hides the Undo toast once another edit comes after the removal", async () => {
+    const { store } = renderApp();
+    addCards();
+    fireEvent.click(screen.getByRole("button", { name: "Remove Cards" }));
+    await screen.findByText(/Removed “Cards”/);
+    act(() => store.edit((q) => renameProject(q, "Something else")));
+    await waitFor(() => expect(screen.queryByText(/Removed “Cards”/)).toBeNull());
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
   });
 
   it("dismisses the Undo toast", async () => {

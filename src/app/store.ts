@@ -17,6 +17,17 @@ export interface AppDeps {
   loadLayoutClient: () => Promise<LayoutClient>;
   replaceHash: (hash: string) => void;
   confirm: (message: string) => boolean;
+  /** The clock edits are grouped by (default `Date.now`). */
+  now?: () => number;
+}
+
+export const COALESCE_MS = 1000;
+
+function sameComponents(a: Project, b: Project): boolean {
+  return (
+    a.components.length === b.components.length &&
+    a.components.every((c, i) => c.id === b.components[i]?.id)
+  );
 }
 
 export interface AppStore {
@@ -48,7 +59,7 @@ export interface AppStore {
 }
 
 export function createAppStore(deps: AppDeps): AppStore {
-  const state = createState(newProject());
+  const state = createState(newProject(), undefined, deps.now);
   const runner = createRunner(
     state,
     { loadLayoutClient: deps.loadLayoutClient, confirm: deps.confirm },
@@ -88,7 +99,8 @@ export function createAppStore(deps: AppDeps): AppStore {
       }
       batch(() => {
         state.history.ensureBase(before);
-        state.history.push(next);
+        // Typing in a field is one step; adding or removing a component never merges into its neighbours.
+        state.history.push(next, sameComponents(before, next) ? { coalesceMs: COALESCE_MS } : {});
         state.project.value = next;
       });
       persistence.scheduleSave();

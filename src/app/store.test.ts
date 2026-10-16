@@ -161,6 +161,72 @@ describe("app store", () => {
     expect(store.state.project.value.layout).toBe(better);
   });
 
+  it("edits made in quick succession are one undo step", async () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash(p, EMPTY_FOREIGN));
+    for (const name of ["A", "AB", "ABC"]) {
+      store.edit((q) => renameProject(q, name));
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    expect(store.state.project.value.name).toBe("ABC");
+    store.undo();
+    expect(store.state.project.value.name).toBe(p.name);
+    expect(store.canUndo.value).toBe(false);
+    store.redo();
+    expect(store.state.project.value.name).toBe("ABC");
+  });
+
+  it("removing a component right after another edit is its own undo step", async () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    const first = p.components[0];
+    store.start(encodeHash(p, EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "Renamed"));
+    await vi.advanceTimersByTimeAsync(100);
+    store.edit((q) => ({ ...q, components: q.components.slice(1) }));
+    expect(store.state.project.value.components).toHaveLength(p.components.length - 1);
+    store.undo();
+    expect(store.state.project.value.components[0]?.id).toBe(first?.id);
+    expect(store.state.project.value.name).toBe("Renamed");
+  });
+
+  it("edits more than a second apart are separate undo steps", async () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash(p, EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "First"));
+    await vi.advanceTimersByTimeAsync(1500);
+    store.edit((q) => renameProject(q, "Second"));
+    store.undo();
+    expect(store.state.project.value.name).toBe("First");
+    store.undo();
+    expect(store.state.project.value.name).toBe(p.name);
+  });
+
+  it("a step taken while an edit's run was pending gets the plan too, so undoing to it is not stale", async () => {
+    const { store, stub } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN));
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + 1500);
+    await flush();
+    const call = stub.calls[0];
+    store.edit((q) => renameProject(q, "Renamed while running"));
+    const next = makeLayout(call?.input.inputsHash ?? "");
+    call?.resolve(makeResult(next));
+    await flush();
+    expect(store.state.project.value.layout).toBe(next);
+    store.undo();
+    expect(store.state.project.value.name).toBe(p.name);
+    expect(store.state.project.value.box.innerHeight).toBe(p.box.innerHeight + 2);
+    expect(store.state.project.value.layout).toBe(next);
+    expect(store.state.stale.value).toBe(false);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 3);
+    await flush();
+    expect(stub.calls).toHaveLength(1);
+  });
+
   it("history clears when another project opens", () => {
     const { store } = setup();
     store.start(encodeHash(fixtureProject(), EMPTY_FOREIGN));

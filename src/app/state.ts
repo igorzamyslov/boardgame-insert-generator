@@ -81,7 +81,11 @@ function dedupe(list: Notice[]): Notice[] {
   });
 }
 
-export function createState(initial: Project, foreign: ForeignData = noForeign()): State {
+export function createState(
+  initial: Project,
+  foreign: ForeignData = noForeign(),
+  now?: () => number,
+): State {
   const project = signal(initial);
   const lastResult = signal<LayoutResult | null>(null);
   const lastResultHash = signal<string | null>(null);
@@ -172,7 +176,7 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     run: signal<RunState>({ status: "idle" }),
     lastResult,
     lastResultHash,
-    history: createHistory(),
+    history: createHistory(undefined, now),
     selection: signal<string | null>(null),
     appNotices: signal<Notice[]>([]),
     needsConfirm: signal(false),

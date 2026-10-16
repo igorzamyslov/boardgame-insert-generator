@@ -133,6 +133,17 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
           state.history.push(next);
         } else {
           state.history.amend(next);
+          if (accepted.layout) {
+            // Steps taken after the edit while its run was pending (renames) share its inputs: they
+            // get the plan too, so undoing back to them doesn't show it stale.
+            const hash = inputsHash(current);
+            const plan = accepted.layout;
+            state.history.amendBefore((e) =>
+              inputsHash(e) === hash && e.layout?.inputsHash !== hash
+                ? { ...e, locks: pruned.locks, layout: plan }
+                : null,
+            );
+          }
         }
         state.project.value = next;
       }
