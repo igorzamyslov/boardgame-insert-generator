@@ -71,11 +71,14 @@ export function inputsHash(p: Project): string {
   // infill only scales the filament estimate; no part depends on it, so it must not stale the plan.
   // wallAbsorb is hashed under its old name, wallGrowth: renaming the setting must not change the
   // hash of every saved project and so mark all of their plans stale.
-  const { wallAbsorb, playLimit, ...rest } = p.settings;
+  const { wallAbsorb, oneWall, playLimit, ...rest } = p.settings;
   // mergeFillers and mergeRisers are print-time decompositions (mergeParts), so they are out too.
   const settings = {
     ...rest,
     wallGrowth: wallAbsorb,
+    // It moves where leaf slack goes, so it is hashed, but only when on: off is left out so every
+    // project saved before the setting existed keeps its hash and its plan stays current.
+    oneWall: oneWall ? true : undefined,
     infill: undefined,
     mergeFillers: undefined,
     mergeRisers: undefined,

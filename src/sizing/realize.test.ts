@@ -3,7 +3,7 @@ import { DEFAULT_SETTINGS } from "../model/settings";
 import type { CompartmentSpec, Component, FeatureSpec, Settings } from "../model/types";
 import { CutFitError } from "./errors";
 import { size } from "./group";
-import { minOuter, realizeTray } from "./realize";
+import { minOuter, oneWallOf, realizeTray } from "./realize";
 import {
   assertTrayInvariants,
   at,
@@ -1026,5 +1026,78 @@ describe("realizeTray", () => {
         }
       }
     });
+  });
+});
+
+describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () => {
+  const on: Settings = { ...s, oneWall: true };
+  const wallsOf = (
+    r: ReturnType<typeof realizeTray>,
+    outer: OuterSize,
+  ): { left: number; right: number; front: number; back: number } => {
+    const c = at(r.compartments, 0);
+    return {
+      left: c.x,
+      right: outer.w - (c.x + c.w),
+      front: c.y,
+      back: outer.d - (c.y + c.d),
+    };
+  };
+
+  it("changes nothing while off: the slack is split between the two walls as before", () => {
+    const outer = { w: 26.7, d: 115.7, h: 69.2 };
+    const r = realizeTray(single, outer, { ...s, oneWall: false }, ground);
+    expect(r).toEqual(realizeTray(single, outer, s, ground));
+    const w = wallsOf(r, outer);
+    expect(w.front).toBeCloseTo(w.back, 1);
+    expect(w.front).toBeCloseTo(11.6, 1);
+  });
+
+  it("puts all of the slack into the back wall when nothing is cut there", () => {
+    const outer = { w: 26.7, d: 115.7, h: 69.2 };
+    const r = realizeTray(single, outer, on, ground);
+    const w = wallsOf(r, outer);
+    expect(w.front).toBeCloseTo(1.6, 2);
+    expect(w.back).toBeCloseTo(1.6 + 20, 2);
+    assertTrayInvariants(r, outer, on, ground);
+  });
+
+  it("subsumes wallAbsorb: the thin-wall setting has no say while it is on", () => {
+    const outer = { w: 26.7, d: 115.7, h: 69.2 };
+    const plain = realizeTray(single, outer, on, ground);
+    expect(realizeTray(single, outer, { ...on, wallAbsorb: 3 }, ground)).toEqual(plain);
+  });
+
+  it("never deepens a wall a finger cut goes through", () => {
+    // A dial with a cut in its front wall: the room is taken by the back wall, and the front wall
+    // stays exactly as deep as it is at the minimum.
+    const part = partOf([custom({ count: 1 })], "custom|strip|split1", on);
+    const min = minOuter(part, on, ground);
+    const outer = { w: min.w + 12, d: min.d + 12, h: min.h };
+    const r = realizeTray(part, outer, on, ground);
+    const atMin = realizeTray(part, min, on, ground);
+    const c = at(r.compartments, 0);
+    expect(cutsOf(c).map((f) => (f as { side: string }).side)).toEqual(["front"]);
+    expect(c.y).toBeCloseTo(at(atMin.compartments, 0).y, 2);
+    expect(outer.d - (c.y + c.d)).toBeCloseTo(min.d - (c.y + c.d) + 12, 1);
+    // Width has no cut at either end, so the right wall takes it and the left stays flush.
+    expect(c.x).toBeCloseTo(at(atMin.compartments, 0).x, 2);
+    assertTrayInvariants(r, outer, on, ground);
+  });
+
+  it("falls back to an even split where both walls on an axis carry a cut", () => {
+    // A deck is cut through both end walls (left and right): neither may be deepened.
+    const outer = { w: 66.7, d: 95.7, h: 69.2 };
+    const min = minOuter(single, on, ground);
+    expect(outer.w).toBeGreaterThan(min.w);
+    const w = wallsOf(realizeTray(single, outer, on, ground), outer);
+    expect(w.left).toBeCloseTo(w.right, 1);
+  });
+
+  it("picks the far wall, then the near one, and neither when both are cut", () => {
+    expect(oneWallOf(false, false)).toBe("back");
+    expect(oneWallOf(false, true)).toBe("back");
+    expect(oneWallOf(true, false)).toBe("front");
+    expect(oneWallOf(true, true)).toBeNull();
   });
 });

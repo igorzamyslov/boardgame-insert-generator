@@ -142,8 +142,8 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     siblings.set(t.item.req, kin);
     kin[t.item.rotated ? "turned" : "straight"]++;
     kin.stacks.add(t.stack);
-    const usableW = Math.min(t.w, t.minW + t.capW);
-    const usableD = Math.min(t.d, t.minD + t.capD);
+    const usableW = Math.min(t.w, t.minW + Math.max(0, t.capW - ctx.oneWallCap));
+    const usableD = Math.min(t.d, t.minD + Math.max(0, t.capD - ctx.oneWallCap));
     leftoverMm3 += volMm3(t.w, t.d, t.h) - volMm3(usableW, usableD, t.h);
     filamentMm3 += shell(ctx, t.w, t.d, t.h);
     const r = ctx.input.requirements[t.item.req];

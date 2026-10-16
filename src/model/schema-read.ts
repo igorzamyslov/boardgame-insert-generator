@@ -194,6 +194,7 @@ function readSettings(r: Reader | undefined): Settings {
     leftover: r.oneOf("leftover", ["spare", "solid"], d.leftover),
     fillToTop: r.bool("fillToTop", d.fillToTop),
     wallAbsorb: r.num("wallAbsorb", legacyWallAbsorb),
+    oneWall: r.bool("oneWall", d.oneWall),
     mergeFillers: r.bool("mergeFillers", d.mergeFillers),
     mergeRisers: r.bool("mergeRisers", d.mergeRisers),
     infill: r.num("infill", d.infill),

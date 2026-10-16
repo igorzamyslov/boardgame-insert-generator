@@ -798,7 +798,7 @@ fragment it into several edge strips where it would otherwise have pooled into
 one interior block. The user flagged their own uncertainty here. Measure count
 and placement together before adopting it, and drop it if it raises the count.
 
-### An escape hatch: let one wall take it
+### An escape hatch: let one wall take it (done: see §6.3)
 
 Some people would rather have a slightly odd tray than loose pieces to fit.
 Offer a mode where, instead of a filler, the slack goes entirely into **one**
@@ -1022,6 +1022,96 @@ beside them; the filler column then counts the merged parts that hold a riser, 3
 `small-tiles` filament is up by 15 g on average because one seed's layout (seed 5) is a heavier
 one (441 g, against 334 g) that has two stored fillers instead of three: the term chose it, which
 is the trade it is for, and over 40 seeds the mean is unchanged (375 g to 374 g).
+
+### 6.3 One thick wall instead of a filler, as implemented (schema 0.1.15, geometry stays 0.7.2)
+
+**The setting.** `oneWall` (boolean, default off), advanced mode, beside "Thicker walls instead of
+a filler": "One thick wall instead of a filler". It is project-wide, like `wallAbsorb` and the other
+switches around it, not per component: it answers "do I want loose pieces at all", which a person
+decides once for the whole insert, and it acts on leaf slack, which belongs to no single component.
+
+**What it does.** The room a tray cannot give its contents (growth, §5) and would have left as a
+filler goes into **one** outer wall on each axis instead, up to `ONE_WALL_MAX_MM` (20 mm, in
+`sizing/constants.ts`) per axis. Layout (`levelAbsorb`, through `PartMetrics.capW`/`capD`): the
+walls' share of what a tray may absorb is 20 mm in place of the two thin walls of `wallAbsorb`, so
+a gap of up to growth plus 20 mm is taken with no filler, and past that the tray keeps only its
+growth and the rest is a filler as before. Realize (`layoutAt`): after the contents have taken
+theirs, all remaining slack on an axis goes to one wall, and nothing is split.
+
+**The ceiling, and why 20 mm.** There must be one, or a 60 mm gap becomes a 60 mm wall. The gap is
+not clipped: past the ceiling the tray does not take any of it, it prints the filler it would have
+printed (a tray with a 20 mm wall _and_ a filler beside it is exactly what §5 forbids). 20 mm is
+about ten normal walls: generous enough to swallow most of the gaps that make a filler, and a block
+that still reads as a deliberate shoulder against the box edge. Filament is what it costs: on
+`cards-heavy` the mode adds about 220 g (617 g to 836 g), which is the price of the parts it
+saves, and why it is not a default. The number is a constant, not a setting: a ceiling the user must
+choose is a second knob for the one decision "fewer parts or less plastic". It is a judgement
+call and was not tuned: only 20 mm was measured, so a lower ceiling (less plastic, fewer gaps
+taken) is the first thing to try if the filament cost bites.
+
+**Which wall.** The far wall of the axis (back, right) unless a finger cut goes through it, then the
+near one (front, left); when both carry a cut, the slack is split between them as without the
+setting, since there is no wall that can deepen safely (deepening a cut wall lengthens the reach and
+can break the cut's geometry). Which walls carry a cut is known only once the cuts are placed, so
+`realizeTray` lays the tray out, reads where the cuts landed (`CutWalls`), and lays it out again with
+those walls kept clear, up to `ROOM_ROUNDS` times. The spec preferred the wall that faces the box
+wall or another tray's back; `realizeTray` knows nothing of its neighbours (a tray is realized from
+its own part and outer size), so the choice is made from the tray's own frame, and the far wall is a
+fixed convention, not a placement. Leaving the choice to the layout would mean storing it, which the
+share link (about 135 characters of headroom on `small-tiles`) could not take. The setting does not
+look at which wall ends up against the box: the tray is flush on its other side either way, which is
+what keeps it reading as one deliberate wall.
+
+**It replaces `wallAbsorb`.** The two do the same job (soak gaps into walls instead of a filler);
+`oneWall` does it with one wall and a ceiling nearly seven times higher. Two settings that nearly
+agree is the confusion the `wallGrowth` rename fixed, so while `oneWall` is on `wallAbsorb` is
+ignored (its field stays in the form, and its hint says so) rather than the two adding up. Dividers
+do not thicken either: one wall takes the slack, nothing else does.
+
+**The score counts the wall as wasted room.** The plain `wallAbsorb` walls count as usable room
+(the tray absorbed them, so no leftover). A 20 mm shoulder is not capacity, so with `oneWall` the
+room above what the contents can use (`Ctx.oneWallCap`) counts as leftover in `scorePlan`,
+exactly as the filler's room would have. The setting then saves what it is for, the filler's own
+two terms (`trays` and `fillers`, 40 000 a part), and without this the optimizer found the wall
+free and sprawled: in a first run with it counted as usable, `cards-heavy` weighed 955 to 1 168 g
+(against 787 to 895 g once it counts) and its parts did not fall on two of three seeds.
+
+**Hash and share link.** It moves layouts, so it is in `inputsHash`, but only when on (off is left
+out of the hashed settings, so every saved project keeps its hash: the pinned fixture hashes in
+`hash.test.ts` still hold). A share link leaves it out while off, as `engraveNumbers` is left out
+while on, and reading puts it back; on, it costs the field (`"oneWall":true`, 15 characters).
+
+**Versions.** Schema 0.1.14 to 0.1.15: a new optional field with a default, a PATCH by the 0.1.x
+rule (an older file reads as off). Geometry stays **0.7.2**: `planTray` is unchanged, and so is
+every outer size, lip, inset, well and cut of a tray realized from the same part at the same size;
+the setting changes which sizes the layout chooses, as `wallAbsorb` always did, and with it off
+nothing is built differently. A tray printed with the setting on mates with the same tray printed
+without it.
+
+**Measured** (five seeds, `DEFAULT_ITERATIONS`, cold; printed parts = trays + fillers after
+merging; filament is the solid upper bound `filamentG`; link is the whole share link on the real
+deploy URL). **With it off, every layout, count, fill and filament is identical to the commit this
+started from, and every link is byte for byte the same once the schema version string is the same
+(the 0.1.15 string alone moves a link by one to three characters).**
+
+| fixture       | off: parts (mean)    | on: parts (mean)    | off: fillers | on: fillers | fill %          | filament g, off to on | links, off | links, on |
+| ------------- | -------------------- | ------------------- | ------------ | ----------- | --------------- | --------------------- | ---------- | --------- |
+| `cards-heavy` | 11,9,11,11,12 (10.8) | 9,10,9,9,9 (9.2)    | 1.8          | 1.2         | 99.7, same      | 617 to 836            | 1790-1847  | 1831-1866 |
+| `bits-heavy`  | 4,4,4,4,7 (4.6)      | 4,4,7,7,7 (5.8)     | 0            | 0           | 99.8, same      | 452 to 473            | 1766-1903  | 1783-1913 |
+| `tiles-minis` | 8 on every seed      | 8 on every seed     | 3.0          | 3.0         | 99.8, same      | 1218 to 1333          | 1831-1875  | 1850-1881 |
+| `small-tiles` | 12,9,10,14,11 (11.2) | 10,10,9,10,10 (9.8) | 1.4          | 1.6         | 99.4-99.5, same | 407 to 351            | 1737-1862  | 1735-1802 |
+
+Nothing was infeasible in either mode, and no guarded fixture crossed 2 000 characters on those
+seeds (the longest with the mode on is `bits-heavy` at 1 913). The result is a real saving only
+where the filler's gap is under the ceiling: `cards-heavy` loses about 1.6 parts for about 220 g
+more plastic, and `small-tiles` loses 1.4 parts and, because the search lands on lighter layouts,
+gets lighter. `tiles-minis` is unchanged in parts, and costs 115 g of wall for nothing: its three
+fillers are ones this does not remove (why was not investigated). **`bits-heavy` is worse**: the mode lands on its 7-tray layout
+more often (12 of 20 seeds against 6 of 20 off, over the five above and 15 further seeds, 4
+trays and 0 fillers being the best layout in both modes). That is search noise on a rugged landscape that the setting makes
+rougher, not a geometry cost, and it is the one place to watch. On the further seeds with the mode
+on, `bits-heavy` crossed 2 000 characters once (2 042), as it does with the mode off (2 066): the
+longer links belong to the 7 to 9-tray layouts of either mode.
 
 ## 7. Risks, and what to measure before shipping
 

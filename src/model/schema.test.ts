@@ -198,8 +198,13 @@ describe("toSerializable", () => {
     });
     expect(out.box).toEqual({ ...p.box, headroomCoverage: "none" });
     // the two merge switches and the engraving switch at their defaults are left out of what is written
-    const { mergeFillers, mergeRisers, engraveNumbers, ...written } = p.settings;
-    expect([mergeFillers, mergeRisers, engraveNumbers]).toEqual([true, false, true]);
+    const { mergeFillers, mergeRisers, engraveNumbers, oneWall, ...written } = p.settings;
+    expect([mergeFillers, mergeRisers, engraveNumbers, oneWall]).toEqual([
+      true,
+      false,
+      true,
+      false,
+    ]);
     expect(out.settings).toEqual({ ...written, leftover: "hollow" });
     expect(p).toEqual(before);
   });
@@ -227,6 +232,18 @@ describe("toSerializable", () => {
     });
     // writing leaves the project itself alone
     expect(p.settings.mergeFillers).toBe(true);
+  });
+
+  it("round-trips the one-wall switch: left out while off, written when on", () => {
+    const p = sampleProject();
+    expect(serializeProject(p, noForeign())).not.toContain("oneWall");
+    const text = serializeProject(
+      { ...p, settings: { ...p.settings, oneWall: true } },
+      noForeign(),
+    );
+    expect(text).toContain('"oneWall":true');
+    const back = parseProject(JSON.parse(text));
+    expect(back.ok && back.project.settings.oneWall).toBe(true);
   });
 
   it("round-trips the engraving switch: left out while on, written when off", () => {
@@ -569,7 +586,7 @@ describe("parseProject: hostile input", () => {
 
   it("rejects deeply nested data without throwing, in newer and current files", () => {
     const deep = nested(5000);
-    const newer = (input: Json): Json => ({ ...input, schemaVersion: "0.1.14" });
+    const newer = (input: Json): Json => ({ ...input, schemaVersion: "0.1.15" });
 
     const field = raw(sampleProject());
     field.extra = deep;
@@ -586,7 +603,7 @@ describe("parseProject: hostile input", () => {
   });
 
   it("accepts data nested exactly as deep as the limit", () => {
-    const input: Json = { ...raw(sampleProject()), schemaVersion: "0.1.14" };
+    const input: Json = { ...raw(sampleProject()), schemaVersion: "0.1.15" };
     // The project object is one level, so the field may hold MAX_JSON_DEPTH - 1 more.
     input.extra = nested(MAX_JSON_DEPTH - 1);
     expect(parseProject(input).ok).toBe(true);

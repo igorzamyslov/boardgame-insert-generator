@@ -97,6 +97,16 @@ describe("inputsHash", () => {
     expect(inputsHash(grown)).not.toBe(inputsHash(base));
   });
 
+  it("changes with oneWall when on, and is the hash it was before the setting when off", () => {
+    const base = sample();
+    const on: Project = { ...base, settings: { ...base.settings, oneWall: true } };
+    expect(inputsHash(on)).not.toBe(inputsHash(base));
+    // Off is left out of the hashed settings, so no saved plan goes stale: the pinned fixture
+    // hashes below are the same as before the setting existed.
+    const off: Project = { ...base, settings: { ...base.settings, oneWall: false } };
+    expect(inputsHash(off)).toBe(inputsHash(base));
+  });
+
   it("hashes the fixtures as before wallGrowth became wallAbsorb, so no saved plan goes stale", () => {
     // Pinned from the code before the rename: the hash still names the setting wallGrowth.
     // cards-heavy and small-tiles used to set `stretch: true`, which `growth` replaced (schema

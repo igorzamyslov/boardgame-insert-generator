@@ -179,6 +179,14 @@ export interface Settings {
    */
   wallAbsorb: number;
   /**
+   * Let one wall take the room a filler would have (minimal-trays spec §6, "An escape hatch"):
+   * the slack a tray cannot give its contents, up to ONE_WALL_MAX_MM per axis, goes into ONE outer
+   * wall on each axis, never one a finger cut passes through, instead of becoming a filler part.
+   * Trades honest geometry for fewer parts. It replaces `wallAbsorb` while on (which then does
+   * nothing), and is part of the inputs hash only when on. Default off.
+   */
+  oneWall: boolean;
+  /**
    * Print connected filler parts as one part, up to the largest that fits the print bed (spec
    * minimal-trays §6.1, lever 1). A print-time decomposition like the riser split: no part of the
    * inputs hash, so toggling it never stales a plan or changes the stored layout.

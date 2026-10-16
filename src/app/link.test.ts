@@ -44,16 +44,19 @@ describe("copyLink", () => {
 const PAGES_URL = "https://igorzamyslov.github.io/static-web-apps/insert-generator/";
 
 /** The share link of a fixture with its optimized layout stored, on the real deploy URL. */
-function fixtureLink(name: FixtureName): string {
+function fixtureLink(name: FixtureName, oneWall = false): string {
   const parsed = parseProject(FIXTURES[name]);
   if (!parsed.ok) {
     throw new Error(parsed.error);
   }
-  const { layout } = optimize(fixtureInput(name), 1, DEFAULT_ITERATIONS);
+  const base = fixtureInput(name);
+  const input = oneWall ? { ...base, settings: { ...base.settings, oneWall } } : base;
+  const { layout } = optimize(input, 1, DEFAULT_ITERATIONS);
   expect(layout).not.toBeNull();
+  const settings = { ...parsed.project.settings, oneWall };
   return shareLink(
     PAGES_URL,
-    encodeHash({ ...parsed.project, layout: layout ?? undefined }, parsed.foreign),
+    encodeHash({ ...parsed.project, settings, layout: layout ?? undefined }, parsed.foreign),
   );
 }
 
@@ -61,6 +64,13 @@ describe("share links of the fixtures with a stored layout", () => {
   for (const name of ["cards-heavy", "bits-heavy", "small-tiles"] as const) {
     it(`${name} fits in ${LINK_MAX_URL_CHARS} characters on GitHub Pages`, () => {
       expect(fixtureLink(name).length).toBeLessThanOrEqual(LINK_MAX_URL_CHARS);
+    });
+  }
+
+  // The one-wall setting writes its own field and changes the layout, so it must fit too.
+  for (const name of ["cards-heavy", "bits-heavy", "small-tiles"] as const) {
+    it(`${name} fits in ${LINK_MAX_URL_CHARS} characters with oneWall on`, () => {
+      expect(fixtureLink(name, true).length).toBeLessThanOrEqual(LINK_MAX_URL_CHARS);
     });
   }
 

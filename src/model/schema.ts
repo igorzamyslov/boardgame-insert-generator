@@ -315,6 +315,9 @@ function compactSettings(out: Json): void {
   if (settings.engraveNumbers === DEFAULT_SETTINGS.engraveNumbers) {
     delete settings.engraveNumbers;
   }
+  if (settings.oneWall === DEFAULT_SETTINGS.oneWall) {
+    delete settings.oneWall;
+  }
 }
 
 /**

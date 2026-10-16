@@ -61,6 +61,24 @@ describe("score", () => {
     );
   });
 
+  it("with oneWall, counts a thick wall as wasted room, and saves the filler's parts", () => {
+    // A 100 × 60 tray (106 × 66 with its lip) in a 120 × 70 box: 14 mm of width to place.
+    const one = [boxReq("a", 100, 60, 20)];
+    const box = { innerWidth: 120, innerDepth: 70 };
+    const tree: Tree = { root: leaf([item(0)]), variants: [0] };
+    const printed = createCtx(makeInput(one, { box }), fakeMeasure);
+    const walled = createCtx(makeInput(one, { box, settings: { oneWall: true } }), fakeMeasure);
+    const a = scorePlan(printed, evaluate(printed, tree));
+    const b = scorePlan(walled, evaluate(walled, tree));
+    expect(a.terms.fillers).toBeGreaterThan(0);
+    expect(b.terms.fillers).toBeLessThan(a.terms.fillers);
+    expect(b.terms.trays).toBeLessThan(a.terms.trays);
+    // The room is still wasted, not capacity: the wall costs about what the filler's room did
+    // (within a few per cent: the tray gap and the filler's height differ), where thin walls
+    // (wallAbsorb) would have made it free.
+    expect(b.terms.leftover).toBeGreaterThan(0.9 * a.terms.leftover);
+  });
+
   it("applies the coverage penalty only with partial coverage or a box stored on its side", () => {
     const tree: Tree = { root: cut("x", leaf([item(0)]), leaf([item(1)])), variants: [0, 0] };
     const full = createCtx(makeInput(reqs, { box: { headroom: 5 } }), fakeMeasure);

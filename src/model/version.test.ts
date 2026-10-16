@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.14: 0.1.13 with the `engraveNumbers` setting", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.14");
+  it("is at schema 0.1.15: 0.1.14 with the `oneWall` setting", () => {
+    expect(SCHEMA_VERSION).toBe("0.1.15");
   });
 
   it("parses strict semver", () => {

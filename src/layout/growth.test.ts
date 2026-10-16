@@ -35,6 +35,19 @@ describe("the room a part's contents may take (PartMetrics)", () => {
     expect(rigid.capW).toBe(320);
   });
 
+  it("with oneWall, is the one wall's ceiling on top instead of both thin walls, and says so", () => {
+    const ctx = createCtx(
+      makeInput([boxReq("rigid", 50, 40, 10)], { settings: { oneWall: true, wallAbsorb: 3 } }),
+      fakeMeasure,
+    );
+    const rigid = ctx.metrics({ req: 0, variant: 0, part: 0 }, false, 0);
+    expect(rigid.capW).toBe(2000);
+    expect(rigid.capD).toBe(2000);
+    expect(ctx.oneWallCap).toBe(2000);
+    // Off, the context has none and the thin walls count as before.
+    expect(ctxOf(undefined, { wallAbsorb: 1.6 }).oneWallCap).toBe(0);
+  });
+
   it("is the cap, in units, with the walls' share on top in capW", () => {
     const ctx = ctxOf({ w: 12.5, d: 3, h: 20 }, { wallAbsorb: 1.6 });
     const bin = ctx.metrics({ req: 0, variant: 0, part: 0 }, false, 0);

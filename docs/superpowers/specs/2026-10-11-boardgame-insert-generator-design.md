@@ -374,6 +374,7 @@ interface Settings {
   leftover: "spare" | "solid";
   fillToTop: boolean; // rule 2: pad every stack to the top plane (a riser); off = content height
   wallAbsorb: number; // mm each wall or divider may thicken to absorb leaf slack instead of a filler part (§7.2); 0 = never. Called wallGrowth up to schema 0.1.7; still read
+  oneWall: boolean; // instead of a filler, let ONE outer wall per axis take the slack, up to 20 mm (minimal-trays spec §6.3); replaces wallAbsorb while on; in inputsHash only when on
   mergeFillers: boolean; // print connected fillers as one part, up to what fits the bed (§6.2); print-time, not in inputsHash
   mergeRisers: boolean; // with mergeFillers, fold the risers into those parts (the L in elevation, §6.2); print-time, not in inputsHash
   infill: number; // % infill the filament estimate assumes for sparse interiors (§8.3); display only, not in inputsHash
@@ -408,6 +409,7 @@ interface Settings {
 | `leftover` (also the riser's and the spacer's style) | advanced: spare tray / solid                                         | spare tray                |
 | `fillToTop`                                          | advanced: "Fill the box to the top"                                  | on                        |
 | `wallAbsorb`                                         | advanced: "Thicker walls instead of a filler", beside "Unused space" | 0 (up to 3 mm per wall)   |
+| `oneWall`                                            | advanced: "One thick wall instead of a filler", beside the above     | off                       |
 | `mergeFillers`                                       | advanced: "Merge fillers into one part", beside "Unused space"       | on                        |
 | `mergeRisers`                                        | advanced: "Fold risers into the merged fillers" (needs the above)    | off                       |
 | `engraveNumbers`                                     | advanced: "Engrave part numbers", beside the merge switches          | on                        |
@@ -485,7 +487,7 @@ matches the longest name found in the text, so both forms resolve to the same co
 interface StoredLayout {
   createdWith: string; // app version
   geometryVersion: string; // semver of the tray geometry generator, §9
-  inputsHash: string; // hash of canonical box, printer, settings, components (names excluded; `separators` and `dividers` are included; `infill`, `engraveNumbers`, `mergeFillers` and `mergeRisers` are not; `playLimit` is, but left out at its default 1.5 so older plans stay current), locks
+  inputsHash: string; // hash of canonical box, printer, settings, components (names excluded; `separators` and `dividers` are included; `infill`, `engraveNumbers`, `mergeFillers` and `mergeRisers` are not; `oneWall` is, but only when on; `playLimit` is, but left out at its default 1.5 so older plans stay current), locks
   seed: number;
   iterations: number;
   capped: boolean; // stopped by the safety time cap → not reproducible
@@ -918,6 +920,11 @@ fallback: a requirement that still has no variant is left out with a
        offsets on the 0.01 mm grid.
        Slack inside a stack level follows the same rules, level by level
        (`wallAbsorb`, else a filler in the level, else the side walls).
+    5. Opt-in, and instead of 3: with `oneWall` on, one outer wall per axis takes the
+       slack the contents cannot, up to 20 mm (`ONE_WALL_MAX_MM`), rather than a filler;
+       past that a filler, and `wallAbsorb` is ignored. It is the far wall (back, right)
+       unless a finger cut goes through it, then the near one, and the slack is split
+       where both are cut (minimal-trays spec §6.3).
   - A growing deck's slack along its stack axis, up to its growth, widens its well (geometry
     0.7.2), and is a spacer (§6.2), or, as `separators` plates, the same space split into plates,
     only where the component sets `separators`; there is no spare pocket (geometry
@@ -1309,6 +1316,11 @@ Older apps reading newer files is best effort, as below.
     printed before and after mate; no file the app writes changes (a `separators` of 0 is read, never
     written) and the inputs hash is the same, so no plan goes stale. A stored 0.7.1 layout is
     current, with the spacers it stored, until it is run again.
+    Schema 0.1.15 adds `oneWall` (default off, left out of what is written while off, in the inputs
+    hash only while on, so no existing plan goes stale). Geometry stays 0.7.2: `planTray` and every
+    outer size, lip, inset, well and cut of a tray realized at the same size are unchanged; the
+    setting only changes which sizes the layout chooses, as `wallAbsorb` always did (§6.3 of the
+    minimal-trays spec).
   - MAJOR: anything that removes, renames or changes the meaning of a field.
 - **Loading rules** (app schema `A.b.c`, file `X.y.z`):
 

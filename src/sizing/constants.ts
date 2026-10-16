@@ -49,6 +49,13 @@ export const SPACER_TOP_GAP = 5;
  */
 export const MIN_RISER = 10;
 export const RISER_SUFFIX = ":riser";
+/**
+ * The most slack (mm, per axis) the `oneWall` setting lets a tray's one thick wall take beyond what
+ * its contents may grow into (minimal-trays spec §6). A wall this thick (about ten normal walls)
+ * still reads as a deliberate block against the box edge; a larger gap is printed as a filler
+ * beside the tray as usual, so a 60 mm gap never becomes a 60 mm wall.
+ */
+export const ONE_WALL_MAX_MM = 20;
 /** Corner relief diameter in tile and custom wells (spec §6.1). */
 export const CORNER_RELIEF_D = 3;
 /** At most this many variants per requirement (spec §7.1). */

@@ -265,6 +265,15 @@ describe("schema history", () => {
     expect(older.project.settings.engraveNumbers).toBe(true);
   });
 
+  it("reads the one-wall switch from the 0.1.15 file, and defaults it off for older files", () => {
+    const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.15.json"]);
+    expect(notices).toEqual([]);
+    expect(project.settings.oneWall).toBe(true);
+    const older = load(HISTORY["../../test/fixtures/schema/0.1.14.json"]);
+    expect(older.notices).toEqual([]);
+    expect(older.project.settings.oneWall).toBe(false);
+  });
+
   it("reads the play limit from the 0.1.11 file, and defaults it for older files", () => {
     const { project, notices } = load(HISTORY["../../test/fixtures/schema/0.1.11.json"]);
     expect(notices).toEqual([]);
