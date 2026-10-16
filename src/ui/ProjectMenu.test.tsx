@@ -112,4 +112,24 @@ describe("ProjectMenu", () => {
     expect(screen.getAllByText("Fresh").length).toBeGreaterThan(0);
     expect(screen.getByText("Open now")).toBeTruthy();
   });
+
+  it("lists the menu's notices at the top, with the conflict choices", () => {
+    const p = props({
+      conflict: true,
+      onResolveConflict: vi.fn(),
+      notices: [{ level: "warning", code: "storage.conflict", message: "Another tab saved." }],
+    });
+    render(<ProjectMenu {...p} />);
+    const first = document.querySelector(".project-menu")?.firstElementChild;
+    expect(first?.getAttribute("aria-label")).toBe("Project messages");
+    expect(screen.getByText("Another tab saved.")).toBeTruthy();
+    fireEvent.click(button("Use the other tab's version"));
+    expect(p.onResolveConflict).toHaveBeenCalledWith("loadTheirs");
+    expect(p.onClose).toHaveBeenCalled();
+  });
+
+  it("shows no messages block without notices", () => {
+    render(<ProjectMenu {...props()} />);
+    expect(screen.queryByRole("list", { name: "Project messages" })).toBeNull();
+  });
 });

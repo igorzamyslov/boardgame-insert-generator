@@ -1,11 +1,12 @@
 // src/app/state.test.ts
 import { describe, expect, it } from "vitest";
-import { GEOMETRY_VERSION } from "../geometry/version";
 import { NOTICE_CODES } from "../layout";
 import { inputsHash } from "../model/hash";
 import {
   CAPPED_CODE,
   GEOMETRY_MAJOR_CODE,
+  GEOMETRY_OLD_MESSAGE,
+  STALE_MESSAGE,
   STALE_CODE,
   createState,
   dismissNotice,
@@ -27,6 +28,7 @@ describe("createState", () => {
     s.project.value = { ...s.project.value, box: { ...p.box, innerHeight: p.box.innerHeight + 1 } };
     expect(s.stale.value).toBe(true);
     expect(s.layoutNotices.value.map((n) => n.code)).toContain(STALE_CODE);
+    expect(s.layoutNotices.value.find((n) => n.code === STALE_CODE)?.message).toBe(STALE_MESSAGE);
   });
 
   it("does not become stale when only the name changes", () => {
@@ -174,7 +176,7 @@ describe("createState", () => {
     expect(codesFor("0.8.0")).not.toContain(GEOMETRY_MAJOR_CODE);
   });
 
-  it("says the plan is out of date, and that re-running it rebuilds the trays", () => {
+  it("says the plan was made with an older version, in the banner's words", () => {
     const p = fixtureProject();
     const s = createState({
       ...p,
@@ -183,12 +185,7 @@ describe("createState", () => {
     expect(s.geometryOld.value).toBe(true);
     const n = s.layoutNotices.value.find((x) => x.code === GEOMETRY_MAJOR_CODE);
     expect(n?.level).toBe("warning");
-    expect(n?.message).toContain("out of date");
-    expect(n?.message).toContain("0.1.0");
-    expect(n?.message).toContain(`the app now uses ${GEOMETRY_VERSION}`);
-    expect(n?.message).toContain("Update plan");
-    expect(n?.message).toContain("current geometry");
-    expect(n?.message).toContain("reprint the whole insert");
+    expect(n?.message).toBe(GEOMETRY_OLD_MESSAGE);
     const current = createState({ ...p, layout: makeLayout(inputsHash(p)) });
     expect(current.geometryOld.value).toBe(false);
   });

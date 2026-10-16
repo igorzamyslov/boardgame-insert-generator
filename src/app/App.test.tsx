@@ -12,7 +12,7 @@ import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
 import type { ShareFile } from "./sendFile";
 import { renameProject, updateBox } from "./actions";
-import { CONFLICT_CODE } from "./persistence";
+import { CONFLICT_CODE, OPEN_FAILED_CODE } from "./persistence";
 import {
   EMPTY_FOREIGN,
   fixtureProject,
@@ -412,7 +412,7 @@ describe("App", () => {
       store.state.conflict.value = true;
       store.pushNotice({ level: "warning", code: CONFLICT_CODE, message: "Another tab saved." });
       expect(await screen.findByText("Saving paused")).toBeTruthy();
-      expect(screen.getByRole("button", { name: /needs your attention/ })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Project menu, 1 notice" })).toBeTruthy();
     });
 
     it("closes the menu when a project is chosen, and when a new one is made", () => {
@@ -453,9 +453,34 @@ describe("App", () => {
 
     it("keeps Download off until there is a plan", () => {
       renderApp();
-      expect((screen.getByRole("button", { name: "Download" }) as HTMLButtonElement).disabled).toBe(
-        true,
+      expect(screen.getByRole("button", { name: "Download" }).getAttribute("aria-disabled")).toBe(
+        "true",
       );
+    });
+
+    it("keeps Download off, with the reason, while the plan is stale or a run is pending", async () => {
+      const p = fixtureProject();
+      const { store } = renderApp({ project: { ...p, layout: makeLayout("an-older-hash") } });
+      const download = (): HTMLElement => screen.getByRole("button", { name: "Download" });
+      expect(store.state.stale.value).toBe(true);
+      expect(download().getAttribute("aria-disabled")).toBe("true");
+      expect(download().getAttribute("title")).toBe("Update the plan first");
+      expect(download().getAttribute("aria-describedby")).toBeTruthy();
+      fireEvent.click(download());
+      expect(screen.queryByRole("heading", { name: /export/i })).toBeNull();
+      // Current again, but a run is pending.
+      act(() => {
+        store.state.project.value = {
+          ...store.state.project.value,
+          layout: makeLayout(store.state.currentHash.value),
+        };
+        store.state.runScheduled.value = true;
+      });
+      expect(download().getAttribute("aria-disabled")).toBe("true");
+      act(() => {
+        store.state.runScheduled.value = false;
+      });
+      expect(download().getAttribute("aria-disabled")).toBe("false");
     });
 
     it("Download opens the export dialog once there is a plan", () => {
@@ -537,7 +562,13 @@ describe("App", () => {
     });
     expect(await screen.findByRole("button", { name: "Update plan" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
-    expect(screen.getByText(/This plan is out of date/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Made with an older version of the app. Trays printed from it won't stack with trays you print now.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Keep the old plan" }));
+    expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
   });
 
   describe("conflict notices", () => {
@@ -546,20 +577,25 @@ describe("App", () => {
       code: CONFLICT_CODE,
       message,
     });
+    const openMenu = (): void => {
+      fireEvent.click(screen.getByRole("button", { name: /^Project menu/ }));
+    };
 
     it("offers no choice on a notice left over from a resolved conflict", async () => {
       const { store } = renderApp();
       store.pushNotice(notice("Your version was kept as a copy."));
       expect(store.state.conflict.value).toBe(false);
+      openMenu();
       expect(await screen.findByText(/kept as a copy/)).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Keep my version" })).toBeNull();
-      expect(screen.queryByRole("button", { name: /Load the other tab/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Keep this version" })).toBeNull();
+      expect(screen.queryByRole("button", { name: /Use the other tab/ })).toBeNull();
     });
 
     it("can't be dismissed during a real conflict, only after it is resolved", async () => {
       const { store } = renderApp();
       store.state.conflict.value = true;
       store.pushNotice(notice("Another tab saved this project."));
+      openMenu();
       expect(await screen.findByText(/Another tab saved/)).toBeTruthy();
       expect(screen.queryByRole("button", { name: /^Dismiss: Another tab saved/ })).toBeNull();
       store.state.conflict.value = false;
@@ -573,10 +609,126 @@ describe("App", () => {
       const resolve = vi.spyOn(store, "resolveConflict").mockImplementation(() => undefined);
       store.state.conflict.value = true;
       store.pushNotice(notice("Another tab saved this project."));
-      fireEvent.click(await screen.findByRole("button", { name: "Keep my version" }));
+      openMenu();
+      fireEvent.click(await screen.findByRole("button", { name: "Keep this version" }));
       expect(resolve).toHaveBeenLastCalledWith("keepMine");
-      fireEvent.click(screen.getByRole("button", { name: "Load the other tab's version" }));
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Use the other tab's version" }));
       expect(resolve).toHaveBeenLastCalledWith("loadTheirs");
+    });
+
+    it("conflict shows a menu dot and both choices", async () => {
+      const { store, projectStore } = renderApp();
+      const mine = store.state.project.value;
+      // The other tab saved a different version of the same insert.
+      projectStore.save({ ...mine, name: "From the other tab" }, EMPTY_FOREIGN);
+      store.edit((q) => renameProject(q, "From this tab"));
+      store.onExternalChange();
+      expect(store.state.conflict.value).toBe(true);
+      expect(document.querySelector(".app-notices")).toBeNull();
+      const menu = await screen.findByRole("button", { name: "Project menu, 1 notice" });
+      expect(document.querySelector(".app-menu-dot")).not.toBeNull();
+      fireEvent.click(menu);
+      const panel = screen.getByRole("group", { name: "Project" });
+      const first = panel.querySelector("button");
+      expect(first?.textContent).toBe("Keep this version");
+      expect(
+        within(panel).getByRole("button", { name: "Use the other tab's version" }),
+      ).toBeTruthy();
+    });
+  });
+
+  describe("notice placement", () => {
+    it("Reprint everything re-plans with the current geometry", async () => {
+      const p = fixtureProject();
+      const { store } = renderApp({
+        project: {
+          ...p,
+          layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
+        },
+      });
+      const refit = vi.spyOn(store, "refit").mockImplementation(() => undefined);
+      fireEvent.click(await screen.findByRole("button", { name: "Reprint everything" }));
+      expect(refit).toHaveBeenCalled();
+      expect(screen.queryByRole("heading", { name: /export/i })).toBeNull();
+    });
+
+    it("shows only the older-geometry banner when the plan is also stale", async () => {
+      const p = fixtureProject();
+      renderApp({
+        project: {
+          ...p,
+          layout: makeLayout("an-older-hash", undefined, { geometryVersion: "0.1.0" }),
+        },
+      });
+      expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
+      expect(screen.queryByText("This plan is from before your last changes.")).toBeNull();
+    });
+
+    it("folds inline notices behind Show all after three, and never hides an error", async () => {
+      const { store } = renderApp();
+      for (const i of [1, 2, 3, 4]) {
+        store.pushNotice({ level: "info", code: `test.note${i}`, message: `Note ${i}.` });
+      }
+      store.pushNotice({ level: "error", code: "test.err", message: "Broken." });
+      expect(await screen.findByText("Broken.")).toBeTruthy();
+      expect(document.querySelectorAll(".app-notices li")).toHaveLength(3);
+      expect(screen.getByRole("button", { name: /^Show all 5 messages/ })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /^Show all 5 messages/ }));
+      expect(document.querySelectorAll(".app-notices li")).toHaveLength(5);
+    });
+
+    const stalePlan = (): Project => {
+      const p = fixtureProject();
+      return { ...p, layout: makeLayout("an-older-hash") };
+    };
+
+    it("shows the stale banner once, with Update the plan", async () => {
+      const { store } = renderApp({ project: stalePlan() });
+      expect(store.state.stale.value).toBe(true);
+      expect(await screen.findByText("This plan is from before your last changes.")).toBeTruthy();
+      expect(screen.queryByText(/Inputs changed since this plan was made/)).toBeNull();
+      const refit = vi.spyOn(store, "refit").mockImplementation(() => undefined);
+      fireEvent.click(screen.getByRole("button", { name: "Update the plan" }));
+      expect(refit).toHaveBeenCalled();
+    });
+
+    it("no stale banner while a run is pending", async () => {
+      const { store } = renderApp({ project: stalePlan() });
+      expect(await screen.findByText("This plan is from before your last changes.")).toBeTruthy();
+      act(() => {
+        store.state.runScheduled.value = true;
+      });
+      expect(screen.queryByText("This plan is from before your last changes.")).toBeNull();
+      act(() => {
+        store.state.runScheduled.value = false;
+        store.state.run.value = { status: "running", done: 1, total: 4 };
+      });
+      expect(screen.queryByText("This plan is from before your last changes.")).toBeNull();
+      act(() => {
+        store.state.run.value = { status: "idle" };
+      });
+      expect(screen.getByText("This plan is from before your last changes.")).toBeTruthy();
+    });
+
+    it("shows no stale banner when the inputs do not fit", async () => {
+      const { store } = renderApp({ project: stalePlan() });
+      expect(await screen.findByText("This plan is from before your last changes.")).toBeTruthy();
+      act(() => {
+        store.state.lastResult.value = makeResult(null, {
+          notices: [{ level: "error", code: "layout.doesNotFit", message: "Does not fit." }],
+        });
+        store.state.lastResultHash.value = store.state.currentHash.value;
+      });
+      expect(screen.queryByText("This plan is from before your last changes.")).toBeNull();
+    });
+
+    it("shows a failed open inline, under the header", async () => {
+      const { store } = renderApp();
+      store.pushNotice({ level: "error", code: OPEN_FAILED_CODE, message: "That file is broken." });
+      expect(await screen.findByText("That file is broken.")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Project menu" })).toBeTruthy();
+      expect(document.querySelector(".app-menu-dot")).toBeNull();
     });
   });
 

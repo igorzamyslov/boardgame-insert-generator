@@ -3,6 +3,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { SaveState } from "../app/state";
 import { SavedStatus } from "./SavedStatus";
+import { menuNoticeCount } from "./noticePlacement";
 
 export interface AppHeaderProps {
   name: string;
@@ -14,8 +15,12 @@ export interface AppHeaderProps {
   onRedo: () => void;
   onDownload: () => void;
   downloadDisabled: boolean;
+  /** Why Download is off (the button's title and description), e.g. "Update the plan first". */
+  downloadReason?: string;
   /** Something inside the project menu needs a look: the button wears a dot. */
   menuDot: boolean;
+  /** How many notices wait in the menu: the button's name says it (1 when only `menuDot` is set). */
+  menuNoticeCount?: number;
   /** The menu's content; `close` shuts the menu (after a choice). */
   menu: (close: () => void) => ComponentChildren;
 }
@@ -199,7 +204,7 @@ export function AppHeader(p: AppHeaderProps) {
               <circle cx="19" cy="12" r="2" />
             </svg>
             <span class="visually-hidden">
-              {p.menuDot ? "Project menu (needs your attention)" : "Project menu"}
+              {`Project menu${menuNoticeCount(p.menuNoticeCount ?? (p.menuDot ? 1 : 0))}`}
             </span>
             {p.menuDot ? <span class="app-menu-dot" aria-hidden="true" /> : null}
           </button>
@@ -218,12 +223,23 @@ export function AppHeader(p: AppHeaderProps) {
         <button
           type="button"
           class="app-download"
-          disabled={p.downloadDisabled}
+          aria-disabled={p.downloadDisabled}
+          aria-describedby={p.downloadDisabled && p.downloadReason ? "download-reason" : undefined}
+          title={p.downloadDisabled ? p.downloadReason : undefined}
           aria-haspopup="dialog"
-          onClick={p.onDownload}
+          onClick={() => {
+            if (!p.downloadDisabled) {
+              p.onDownload();
+            }
+          }}
         >
           Download
         </button>
+        {p.downloadDisabled && p.downloadReason ? (
+          <span class="visually-hidden" id="download-reason">
+            {p.downloadReason}
+          </span>
+        ) : null}
       </div>
     </header>
   );

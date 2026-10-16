@@ -2,8 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { numberParts } from "../instructions/numbering";
-import { printableParts } from "../layout";
-import type { Component, ComponentKind, Notice, Project, TraySpec } from "../model/types";
+import { NOTICE_CODES, printableParts } from "../layout";
+import type { Component, ComponentKind, Project, TraySpec } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
@@ -15,7 +15,8 @@ import { AddKinds, ComponentList } from "../ui/components/ComponentList";
 import { trayNumbersByComponent } from "../ui/identity";
 import { ExportPanel } from "../ui/ExportPanel";
 import { Modal } from "../ui/Modal";
-import { Notices } from "../ui/Notices";
+import { Notices, PlanBanners } from "../ui/Notices";
+import { placeNotices } from "../ui/noticePlacement";
 import { PrinterForm } from "../ui/PrinterForm";
 import { ProjectMenu } from "../ui/ProjectMenu";
 import { SettingsForm } from "../ui/SettingsForm";
@@ -45,7 +46,8 @@ import {
 } from "./actions";
 import { downloadBlob } from "./download";
 import type { MeshSource } from "./meshes";
-import { CONFLICT_CODE, OPEN_FAILED_CODE } from "./persistence";
+import { OPEN_FAILED_CODE } from "./persistence";
+import { GEOMETRY_MAJOR_CODE, STALE_CODE } from "./state";
 import { canOptimize } from "./runner";
 import { shareFile } from "./sendFile";
 import type { ShareFile } from "./sendFile";
@@ -138,6 +140,8 @@ export function App(props: AppProps) {
   const [exportOpen, setExportOpen] = useState(false);
   // The component just removed, for the Undo toast (cleared when another project opens).
   const [removed, setRemoved] = useState<{ component: Component; version: number } | null>(null);
+  // The older plan the person chose to keep (project and geometry line), so its banner stays away.
+  const [geometryKept, setGeometryKept] = useState<string | null>(null);
   const run = s.run.value;
   useEffect(() => {
     setRemoved(null);
@@ -231,7 +235,24 @@ export function App(props: AppProps) {
     store.edit((q) => (["cards", "bulk", "tiles"] as const).reduce(addComponent, q));
     setOpenSection("components");
   };
-  const notices: readonly Notice[] = s.appNotices.value;
+  // Where each notice shows: the one banner, the project menu (with a dot), or inline.
+  const noFit =
+    s.shortfall.value !== null || layoutNotices.some((n) => n.code === NOTICE_CODES.doesNotFit);
+  const placed = placeNotices(
+    [
+      ...s.appNotices.value,
+      ...layoutNotices.filter((n) => n.code === STALE_CODE || n.code === GEOMETRY_MAJOR_CODE),
+    ],
+    { runPending: s.runPending.value, runStatus: run.status, noFit },
+  );
+  const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
+  const showStale = placed.banner.some((n) => n.code === STALE_CODE);
+  const showGeometry =
+    placed.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE) && geometryKept !== geometryKey;
+  // The stale and older-geometry notices are the banner's: the summary lists the others.
+  const summaryNotices = layoutNotices.filter(
+    (n) => n.code !== STALE_CODE && n.code !== GEOMETRY_MAJOR_CODE,
+  );
   // The file chooser lives here, not in the menu: the menu may close while the system dialog is up.
   async function readFile(input: HTMLInputElement): Promise<void> {
     const file = input.files?.[0];
@@ -293,8 +314,14 @@ export function App(props: AppProps) {
                 onUndo={() => store.undo()}
                 onRedo={() => store.redo()}
                 onDownload={() => setExportOpen(true)}
-                downloadDisabled={layout === undefined}
-                menuDot={notices.length > 0}
+                downloadDisabled={layout === undefined || s.stale.value || s.runPending.value}
+                downloadReason={
+                  layout !== undefined && (s.stale.value || s.runPending.value)
+                    ? "Update the plan first"
+                    : undefined
+                }
+                menuDot={placed.menu.length > 0}
+                menuNoticeCount={placed.menu.length}
                 menu={(close) => (
                   <ProjectMenu
                     name={project.name}
@@ -311,6 +338,10 @@ export function App(props: AppProps) {
                       void sendFile();
                     }}
                     onSettings={() => showSection("settings")}
+                    notices={placed.menu}
+                    conflict={s.conflict.value}
+                    onResolveConflict={(choice) => store.resolveConflict(choice)}
+                    onDismissNotice={(code) => store.dismissNotice(code)}
                   />
                 )}
               />
@@ -326,26 +357,20 @@ export function App(props: AppProps) {
                   void readFile(e.currentTarget);
                 }}
               />
-              {notices.length > 0 ? (
+              {showStale || showGeometry || placed.inline.length > 0 ? (
                 <div class="app-notices">
+                  <PlanBanners
+                    stale={showStale}
+                    geometryOld={showGeometry}
+                    onUpdate={() => store.refit()}
+                    onReprint={() => store.refit()}
+                    onKeepOld={() => setGeometryKept(geometryKey)}
+                  />
                   <Notices
-                    notices={notices}
+                    notices={placed.inline}
                     label="App messages"
+                    limit={3}
                     onDismiss={(code) => store.dismissNotice(code)}
-                    // The choice stays on screen while autosave is paused for it.
-                    canDismiss={(n) => !(n.code === CONFLICT_CODE && s.conflict.value)}
-                    renderAction={(n) =>
-                      n.code === CONFLICT_CODE && s.conflict.value ? (
-                        <>
-                          <button type="button" onClick={() => store.resolveConflict("keepMine")}>
-                            Keep my version
-                          </button>
-                          <button type="button" onClick={() => store.resolveConflict("loadTheirs")}>
-                            Load the other tab's version
-                          </button>
-                        </>
-                      ) : null
-                    }
                   />
                 </div>
               ) : null}
@@ -407,7 +432,7 @@ export function App(props: AppProps) {
                 <Summary
                   summary={s.summary.value}
                   run={run}
-                  notices={layoutNotices}
+                  notices={summaryNotices}
                   hasLayout={layout !== undefined}
                   stale={s.stale.value}
                   geometryOld={s.geometryOld.value}
