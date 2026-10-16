@@ -15,6 +15,7 @@ import { BoxPanel } from "../ui/BoxPanel";
 import { AddKinds } from "../ui/components/ComponentList";
 import { WhatsInside } from "../ui/components/WhatsInside";
 import { ExportPanel } from "../ui/ExportPanel";
+import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
 import { Modal } from "../ui/Modal";
 import { Notices, PlanBanners } from "../ui/Notices";
 import { placeNotices } from "../ui/noticePlacement";
@@ -207,6 +208,40 @@ export function App(props: AppProps) {
       downloadButtonRef.current?.focus();
     }
   }, [showAssembly]);
+
+  // Undo and Redo from the keyboard: the one global key handler of the app, added here and taken
+  // off when App goes (DESIGN.md §2, Accessibility). It stands aside where the browser has its own
+  // undo (a text field), behind any open modal dialog (whose controls are the whole screen) and on
+  // the packing guide, which shows no insert to change.
+  const onPage = useRef(true);
+  onPage.current = !showAssembly;
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      const which = historyKeyOf(e);
+      if (
+        which === null ||
+        e.defaultPrevented ||
+        !onPage.current ||
+        hasNativeUndo(e.target) ||
+        modalIsOpen(document)
+      ) {
+        return;
+      }
+      // As the buttons: a blocked one (nothing to undo) does nothing, and the key goes on to the page.
+      if (which === "undo" ? store.canUndo.peek() : store.canRedo.peek()) {
+        e.preventDefault();
+        if (which === "undo") {
+          store.undo();
+        } else {
+          store.redo();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [store]);
 
   const download = props.download ?? downloadBlob;
 

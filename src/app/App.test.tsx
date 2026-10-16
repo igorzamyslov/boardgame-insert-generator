@@ -574,6 +574,134 @@ describe("App", () => {
       expect(store.state.project.value.name).toBe("Wingspan");
     });
 
+    describe("Undo and Redo from the keyboard", () => {
+      const rename = (name: string): void => {
+        fireEvent.input(screen.getByLabelText("Project name"), { target: { value: name } });
+      };
+      const key = (init: KeyboardEventInit, target: Element = document.body): boolean =>
+        fireEvent.keyDown(target, init);
+      const nameNow = (store: { state: { project: { value: Project } } }): string =>
+        store.state.project.value.name;
+
+      it("undoes on Ctrl+Z and Cmd+Z, redoes on Shift+Ctrl+Z, Shift+Cmd+Z and Ctrl+Y", () => {
+        const { store } = renderApp();
+        const before = nameNow(store);
+        rename("Wingspan");
+        // not left to the browser: the key was taken
+        expect(key({ key: "z", ctrlKey: true })).toBe(false);
+        expect(nameNow(store)).toBe(before);
+        expect(key({ key: "Z", ctrlKey: true, shiftKey: true })).toBe(false);
+        expect(nameNow(store)).toBe("Wingspan");
+        expect(key({ key: "z", metaKey: true })).toBe(false);
+        expect(nameNow(store)).toBe(before);
+        expect(key({ key: "Z", metaKey: true, shiftKey: true })).toBe(false);
+        expect(nameNow(store)).toBe("Wingspan");
+        key({ key: "z", ctrlKey: true });
+        expect(nameNow(store)).toBe(before);
+        expect(key({ key: "y", ctrlKey: true })).toBe(false);
+        expect(nameNow(store)).toBe("Wingspan");
+      });
+
+      it("does nothing, and leaves the key to the browser, when there is nothing to undo or redo", () => {
+        const { store } = renderApp();
+        expect(store.canUndo.value).toBe(false);
+        expect(key({ key: "z", ctrlKey: true })).toBe(true);
+        expect(key({ key: "y", ctrlKey: true })).toBe(true);
+        expect(key({ key: "z", ctrlKey: true, shiftKey: true })).toBe(true);
+        rename("Wingspan");
+        // something to undo, nothing to redo
+        expect(key({ key: "y", ctrlKey: true })).toBe(true);
+        expect(nameNow(store)).toBe("Wingspan");
+        // as the buttons say
+        expect(screen.getByRole("button", { name: "Redo" }).getAttribute("aria-disabled")).toBe(
+          "true",
+        );
+      });
+
+      it("ignores other keys and other chords", () => {
+        const { store } = renderApp();
+        rename("Wingspan");
+        expect(key({ key: "z" })).toBe(true);
+        expect(key({ key: "x", ctrlKey: true })).toBe(true);
+        expect(key({ key: "z", ctrlKey: true, altKey: true })).toBe(true);
+        expect(key({ key: "y", metaKey: true })).toBe(true);
+        expect(key({ key: "y", ctrlKey: true, shiftKey: true })).toBe(true);
+        expect(nameNow(store)).toBe("Wingspan");
+      });
+
+      it("leaves a text field its own undo", () => {
+        const { store } = renderApp();
+        const before = nameNow(store);
+        rename("Wingspan");
+        const field = screen.getByLabelText("Project name");
+        field.focus();
+        expect(key({ key: "z", ctrlKey: true }, field)).toBe(true);
+        expect(nameNow(store)).toBe("Wingspan");
+        // back on the page the same key undoes
+        (field as HTMLElement).blur();
+        key({ key: "z", ctrlKey: true });
+        expect(nameNow(store)).toBe(before);
+      });
+
+      it("stands aside while a modal dialog is open (Download, Settings), and works again after", () => {
+        const { store } = renderApp({ project: withLayoutProject() });
+        rename("Wingspan");
+        fireEvent.click(screen.getByRole("button", { name: "Download" }));
+        expect(screen.getByRole("dialog", { name: "Download" })).toBeTruthy();
+        expect(key({ key: "z", ctrlKey: true })).toBe(true);
+        expect(nameNow(store)).toBe("Wingspan");
+        fireEvent.click(screen.getByRole("button", { name: "Close" }));
+        expect(screen.queryByRole("dialog")).toBeNull();
+        fireEvent.click(screen.getByRole("button", { name: /^Project menu/ }));
+        fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+        const sheet = screen.getByRole("dialog", { name: "Settings" });
+        expect(key({ key: "z", ctrlKey: true }, sheet)).toBe(true);
+        expect(nameNow(store)).toBe("Wingspan");
+        fireEvent.click(within(sheet).getByRole("button", { name: "Close" }));
+        expect(key({ key: "z", ctrlKey: true })).toBe(false);
+        expect(nameNow(store)).not.toBe("Wingspan");
+      });
+
+      it("has one listener, added with the app and removed when it goes", async () => {
+        const added = vi.spyOn(document, "addEventListener");
+        const removed = vi.spyOn(document, "removeEventListener");
+        try {
+          const { store } = renderApp();
+          const live = (): Set<unknown> => {
+            const on = new Set(added.mock.calls.filter(([t]) => t === "keydown").map((c) => c[1]));
+            for (const [t, fn] of removed.mock.calls) {
+              if (t === "keydown") {
+                on.delete(fn);
+              }
+            }
+            return on;
+          };
+          // one listener while the app is on screen, and it is the app's, not a menu's
+          expect(live().size).toBe(1);
+          rename("Wingspan");
+          expect(live().size).toBe(1);
+          cleanup();
+          await waitFor(() => expect(live().size).toBe(0));
+          // nothing listens now
+          expect(key({ key: "z", ctrlKey: true })).toBe(true);
+          expect(nameNow(store)).toBe("Wingspan");
+        } finally {
+          added.mockRestore();
+          removed.mockRestore();
+        }
+      });
+
+      it("shows the shortcut in the buttons' titles: Ctrl, or the Command sign on a Mac", () => {
+        renderApp();
+        expect(screen.getByRole("button", { name: "Undo" }).getAttribute("title")).toBe(
+          "Undo (Ctrl+Z)",
+        );
+        expect(screen.getByRole("button", { name: "Redo" }).getAttribute("title")).toBe(
+          "Redo (Ctrl+Y)",
+        );
+      });
+    });
+
     it("shows Saving paused during a conflict and the dot on the menu button", async () => {
       const { store } = renderApp();
       store.state.conflict.value = true;

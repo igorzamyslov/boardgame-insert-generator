@@ -128,6 +128,10 @@ it only with a written reason in the code or the PR.
 - MUST change the project only through `store.edit(fn)` (or the store's named methods: `undo`,
   `unpin`, `refit`…), with `fn` a pure `Project → Project` function, usually from
   `app/actions.ts`. Never assign `state.project.value` from UI code.
+- MUST NOT add a global key handler without a decision-log row (DESIGN.md). The one that exists
+  is App's Undo and Redo listener (`src/ui/historyKeys.ts`): added in an effect, removed in its
+  cleanup, skipped in fields that have their own undo and behind modal dialogs. Put its checks in
+  `historyKeys.ts` and test them with plain events.
 - MUST keep shared view state in App (`State` signals or App `useState`) and pass it down as
   controlled props (`openId`/`onOpenChange`, `swapFrom`/`onSwapFromChange`, `level`/…). Don't
   invent "request" objects (`{ id, nonce }`) or effects that query the DOM to open something.

@@ -134,6 +134,28 @@ describe("AppHeader", () => {
     expect(onBlockedDownload).toHaveBeenCalledTimes(1);
   });
 
+  it("names the shortcuts in the Undo and Redo titles, Command on a Mac", () => {
+    const { unmount } = render(<AppHeader {...props()} />);
+    expect(screen.getByRole("button", { name: "Undo" }).getAttribute("title")).toBe(
+      "Undo (Ctrl+Z)",
+    );
+    expect(screen.getByRole("button", { name: "Redo" }).getAttribute("title")).toBe(
+      "Redo (Ctrl+Y)",
+    );
+    expect(screen.getByRole("button", { name: "Undo" }).getAttribute("aria-keyshortcuts")).toBe(
+      "Control+Z Meta+Z",
+    );
+    unmount();
+    const platform = vi.spyOn(window.navigator, "platform", "get").mockReturnValue("MacIntel");
+    try {
+      render(<AppHeader {...props()} />);
+      expect(screen.getByRole("button", { name: "Undo" }).getAttribute("title")).toBe("Undo (⌘Z)");
+      expect(screen.getByRole("button", { name: "Redo" }).getAttribute("title")).toBe("Redo (⇧⌘Z)");
+    } finally {
+      platform.mockRestore();
+    }
+  });
+
   it("gives the reason Download is off as its title and description", () => {
     render(
       <AppHeader {...props({ downloadDisabled: true, downloadReason: "Make a new plan first" })} />,

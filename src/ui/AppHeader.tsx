@@ -3,6 +3,7 @@ import type { ComponentChildren, Ref } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { SaveState } from "../app/state";
 import { SavedStatus } from "./SavedStatus";
+import { historyTitle, isMacPlatform } from "./historyKeys";
 import { menuNoticeCount } from "./noticePlacement";
 
 export interface AppHeaderProps {
@@ -99,6 +100,7 @@ function NameInput({ name, onRename }: { name: string; onRename: (name: string) 
 /** The bar on top: logo, name, where it is saved, Undo and Redo, the project menu and Download. */
 export function AppHeader(p: AppHeaderProps) {
   const [open, setOpen] = useState(false);
+  const mac = isMacPlatform(typeof navigator === "undefined" ? undefined : navigator);
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -156,6 +158,8 @@ export function AppHeader(p: AppHeaderProps) {
             }
           }}
           aria-label="Undo"
+          aria-keyshortcuts="Control+Z Meta+Z"
+          title={historyTitle("undo", mac)}
         >
           <svg {...ICON}>
             <path d="M9 14 4 9l5-5" />
@@ -175,6 +179,8 @@ export function AppHeader(p: AppHeaderProps) {
             }
           }}
           aria-label="Redo"
+          aria-keyshortcuts="Control+Y Control+Shift+Z Meta+Shift+Z"
+          title={historyTitle("redo", mac)}
         >
           <svg {...ICON}>
             <path d="m15 14 5-5-5-5" />
