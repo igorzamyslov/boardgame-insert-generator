@@ -137,7 +137,7 @@ describe("runner", () => {
     }
     expect(call.warmStart).toBe(old);
     call.onProgress(500, 1000, makeResult(null));
-    expect(state.run.value).toEqual({ status: "running", done: 500, total: 1000 });
+    expect(state.run.value).toEqual({ status: "running", done: 500, total: 1000, kind: "edit" });
     const next = makeLayout(call.input.inputsHash);
     call.resolve(makeResult(next));
     await flush();
@@ -207,6 +207,25 @@ describe("runner", () => {
     expect(stub.calls[0]?.seed).toBe(7);
     expect(stub.calls[0]?.iterations).toBe(IMPROVE_FACTOR * DEFAULT_ITERATIONS);
     expect(stub.calls[0]?.warmStart).toBe(layout);
+  });
+
+  it("says why it runs: a new plan for an edit, a search for Keep searching", async () => {
+    const p = fixtureProject();
+    const { state, stub, runner } = setup({ ...p, layout: makeLayout(inputsHash(p)) });
+    void runner.runNow("improve", "user");
+    await flush();
+    expect(state.run.value).toEqual({
+      status: "running",
+      done: 0,
+      total: IMPROVE_FACTOR * DEFAULT_ITERATIONS,
+      kind: "improve",
+    });
+    stub.calls[0]?.onProgress(10, 400, makeResult(null));
+    expect(state.run.value).toMatchObject({ status: "running", done: 10, kind: "improve" });
+    runner.cancel();
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(state.run.value).toMatchObject({ status: "running", kind: "edit" });
   });
 
   describe("pins that conflict", () => {

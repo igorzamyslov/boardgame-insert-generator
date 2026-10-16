@@ -50,6 +50,19 @@ describe("StatusLine", () => {
     expect(text(view.container)).toContain("Everything fits.");
   });
 
+  it("says Searching… for Keep searching and Making a new plan… for an edit", () => {
+    const run = (kind?: "edit" | "improve") =>
+      props({ pending: true, run: { status: "running", done: 100, total: 1000, kind } });
+    const view = render(<StatusLine {...run("improve")} />);
+    expect(text(view.container)).toContain("Searching…");
+    expect(screen.getByRole("progressbar", { name: "Searching" })).toBeTruthy();
+    view.rerender(<StatusLine {...run("edit")} />);
+    expect(text(view.container)).toContain("Making a new plan…");
+    view.rerender(<StatusLine {...run()} />);
+    expect(text(view.container)).toContain("Making a new plan…");
+    expect(text(view.container)).not.toContain("Updating");
+  });
+
   it("Keep searching becomes Stop while running", () => {
     const p = props();
     const view = render(<StatusLine {...p} />);
@@ -60,7 +73,7 @@ describe("StatusLine", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
-    expect(screen.getByRole("progressbar", { name: "Updating the plan" })).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: "Making a new plan" })).toBeTruthy();
     expect(screen.getByText("25%").getAttribute("aria-hidden")).toBe("true");
     expect(text(view.container)).not.toContain("Everything fits");
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
@@ -148,7 +161,7 @@ describe("StatusLine", () => {
 
   it("says the plan is updating while a run waits to start, with nothing to press", () => {
     const view = render(<StatusLine {...props({ pending: true, fits: null })} />);
-    expect(text(view.container)).toBe("Updating the plan…");
+    expect(text(view.container)).toBe("Making a new plan…");
     expect(screen.queryByRole("button")).toBeNull();
   });
 

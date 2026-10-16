@@ -1,10 +1,11 @@
 // src/ui/Summary.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { RunState } from "../app/state";
 import { NOTICE_CODES } from "../layout";
 import type { Notice } from "../model/types";
-import { LAYOUT_NOTICES_SHOWN, Summary, formatPrintTime } from "./Summary";
+import { LAYOUT_NOTICES_SHOWN, SLOW_RUN_MS, Summary, formatPrintTime } from "./Summary";
 import type { SummaryProps } from "./Summary";
 
 afterEach(cleanup);
@@ -210,17 +211,66 @@ describe("Summary", () => {
     expect(screen.getByText(/Too large for the print bed/).textContent).toBe(message);
   });
 
-  it("announces only the start and the end of a run, not every percent", () => {
-    const view = render(<Summary {...props({ run: { status: "idle" } })} />);
-    const live = screen.getByRole("status");
-    expect(live.textContent).toBe("");
-    view.rerender(<Summary {...props({ run: { status: "running", done: 250, total: 1000 } })} />);
-    expect(live.textContent).toBe("Updating the plan…");
-    expect(live.textContent).not.toMatch(/%/);
-    view.rerender(<Summary {...props({ run: { status: "running", done: 500, total: 1000 } })} />);
-    expect(live.textContent).toBe("Updating the plan…");
-    view.rerender(<Summary {...props({ run: { status: "done" } })} />);
-    expect(live.textContent).toBe("Plan updated.");
+  describe("the live region", () => {
+    const running = (kind?: "edit" | "improve", done = 250): RunState => ({
+      status: "running",
+      done,
+      total: 1000,
+      kind,
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("is there from the start, empty, so a reader hears the words arrive", () => {
+      const view = render(<Summary {...props({ run: { status: "idle" } })} />);
+      const live = screen.getByRole("status");
+      expect(live.textContent).toBe("");
+      view.rerender(<Summary {...props({ run: running("improve") })} />);
+      expect(screen.getByRole("status")).toBe(live);
+    });
+
+    it("announces Keep searching at the start and at the end, never the percent", () => {
+      const view = render(<Summary {...props({ run: { status: "idle" } })} />);
+      const live = screen.getByRole("status");
+      view.rerender(<Summary {...props({ run: running("improve") })} />);
+      expect(live.textContent).toBe("Searching…");
+      expect(live.textContent).not.toMatch(/%/);
+      view.rerender(<Summary {...props({ run: running("improve", 500) })} />);
+      expect(live.textContent).toBe("Searching…");
+      view.rerender(<Summary {...props({ run: { status: "done" } })} />);
+      expect(live.textContent).toBe("Search finished.");
+    });
+
+    it("keeps quiet about a new plan that takes under a second, like saving", () => {
+      vi.useFakeTimers();
+      const view = render(<Summary {...props({ run: { status: "idle" } })} />);
+      const live = screen.getByRole("status");
+      view.rerender(<Summary {...props({ run: running("edit") })} />);
+      act(() => {
+        vi.advanceTimersByTime(SLOW_RUN_MS - 100);
+      });
+      expect(live.textContent).toBe("");
+      view.rerender(<Summary {...props({ run: { status: "done" } })} />);
+      act(() => {
+        vi.advanceTimersByTime(SLOW_RUN_MS);
+      });
+      expect(live.textContent).toBe("");
+    });
+
+    it("announces a new plan that is slow, and when it is ready", () => {
+      vi.useFakeTimers();
+      const view = render(<Summary {...props({ run: { status: "idle" } })} />);
+      const live = screen.getByRole("status");
+      view.rerender(<Summary {...props({ run: running("edit") })} />);
+      act(() => {
+        vi.advanceTimersByTime(SLOW_RUN_MS + 10);
+      });
+      expect(live.textContent).toBe("Making a new plan…");
+      view.rerender(<Summary {...props({ run: { status: "done" } })} />);
+      expect(live.textContent).toBe("Plan updated.");
+    });
   });
 
   it("shows the slack with two decimals, like the play notice", () => {

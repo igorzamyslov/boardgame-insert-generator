@@ -821,7 +821,7 @@ describe("App", () => {
       expect(await screen.findByRole("button", { name: "Stop" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
       expect(stub.calls).toHaveLength(1);
-      expect(screen.getByRole("progressbar", { name: "Updating the plan" })).toBeTruthy();
+      expect(screen.getByRole("progressbar", { name: "Searching" })).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Stop" }));
       expect(stub.cancelCount()).toBeGreaterThan(0);
       await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
@@ -937,7 +937,7 @@ describe("App", () => {
       // only that pin goes, and the plan updates; the other conflict waits for the run's verdict
       expect(store.state.project.value.locks.map((l) => l.kind)).toEqual(["size"]);
       expect(store.state.lockConflicts.value.map((c) => c.name)).toEqual(["Market"]);
-      expect(status().textContent).toBe("Updating the plan…");
+      expect(status().textContent).toBe("Making a new plan…");
     });
 
     it("unpins a stack the last run could not keep", () => {
@@ -961,7 +961,7 @@ describe("App", () => {
       act(() => {
         store.state.runScheduled.value = true;
       });
-      expect(status().textContent).toBe("Updating the plan…");
+      expect(status().textContent).toBe("Making a new plan…");
       expect(screen.getByRole("button", { name: "Download" }).getAttribute("title")).toBe(
         "Wait for the plan to finish",
       );

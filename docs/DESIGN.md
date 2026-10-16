@@ -226,7 +226,8 @@ technical palette. The owner called it unusable. Everything below exists so it d
   end of the download dialog, opening in a new tab. _Why:_ asking loudly spoils the moment the app
   just earned.
 - **Announce only what matters.** Errors are alerts, warnings polite, routine saving silent
-  (`src/ui/Notices.tsx`, `src/ui/SavedStatus.tsx`). _Why:_ a screen reader that talks constantly
+  (`src/ui/Notices.tsx`, `src/ui/SavedStatus.tsx`). A new plan after an edit is announced only if
+  it takes over a second; "Keep searching" always is (`src/ui/Summary.tsx`). _Why:_ a screen reader that talks constantly
   is ignored.
 
 ### Non-goals
@@ -339,8 +340,8 @@ the tray at fault, shown as is. Each rule shows as a chip on the component's row
 **Status line.** `src/ui/StatusLine.tsx`, one single-line pill per matter:
 
 - fits: "Everything fits. 6 trays in 2 layers, 40 of 52 mm high." with Keep searching;
-- searching: a progress bar and Stop (focus moves between Keep searching and Stop);
-- updating: a run is pending, Download waits;
+- searching: "Searching…", a progress bar and Stop (focus moves between Keep searching and Stop);
+- making a new plan: "Making a new plan…" while an edit's run is pending or going, Download waits;
 - no fit: names the tray (`misfitOf` in `src/ui/noFit.ts`) and offers "Edit <name>"; on a phone
   Keep searching moves to the bottom sheet's bar;
 - pin conflict: "<name> doesn't fit with your pins" with one "Unpin <name>" per conflicting pin; for

@@ -1,4 +1,6 @@
 // src/ui/Summary.tsx
+import { useEffect, useState } from "preact/hooks";
+import { MAKING_PLAN_MESSAGE, SEARCHING_MESSAGE } from "../app/state";
 import type { RunState } from "../app/state";
 import { PRINT_FLOW_MM3_PER_S } from "../layout";
 import type { LayoutSummary } from "../layout/types";
@@ -63,21 +65,48 @@ function sentence(message: string): string {
   return /[.!?…]$/.test(message) ? message : `${message}.`;
 }
 
+/** A new plan after an edit shorter than this is not announced: it is routine, like saving. */
+export const SLOW_RUN_MS = 1000;
+
 /** What the screen-reader live region says: only the start and the end of a run, never the
  * percent (it would be read out at every step). */
-function liveText(run: RunState): string {
+function liveText(run: RunState, spoken: Spoken): string {
   if (run.status === "running") {
-    return "Updating the plan…";
+    // only the words that fit this run: a leftover from the one before says nothing
+    if (run.kind === "improve") {
+      return spoken === "search" ? SEARCHING_MESSAGE : "";
+    }
+    return spoken === "plan" ? MAKING_PLAN_MESSAGE : "";
   }
-  return run.status === "done" ? "Plan updated." : "";
+  if (run.status === "done" && spoken !== null) {
+    return spoken === "search" ? "Search finished." : "Plan updated.";
+  }
+  return "";
 }
+
+/** The run worth announcing: a "Keep searching" (the person asked), or a new plan that is slow. */
+type Spoken = "search" | "plan" | null;
 
 export function Summary(p: SummaryProps) {
   const running = p.run.status === "running";
+  const improving = p.run.status === "running" && p.run.kind === "improve";
+  const [spoken, setSpoken] = useState<Spoken>(null);
+  useEffect(() => {
+    if (!running) {
+      return undefined;
+    }
+    if (improving) {
+      setSpoken("search");
+      return undefined;
+    }
+    setSpoken(null);
+    const timer = setTimeout(() => setSpoken("plan"), SLOW_RUN_MS);
+    return () => clearTimeout(timer);
+  }, [running, improving]);
   return (
     <>
       <p class="visually-hidden" role="status">
-        {liveText(p.run)}
+        {liveText(p.run, spoken)}
       </p>
       {p.run.status === "error" ? (
         <div class="pf-notice pf-notice--error stage-block" role="alert">

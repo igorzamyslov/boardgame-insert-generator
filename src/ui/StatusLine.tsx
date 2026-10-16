@@ -1,6 +1,7 @@
 // src/ui/StatusLine.tsx
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef } from "preact/hooks";
+import { MAKING_PLAN_MESSAGE, SEARCHING_MESSAGE } from "../app/state";
 import type { RunState } from "../app/state";
 import type { LockConflict } from "../layout/types";
 import type { Misfit } from "./noFit";
@@ -97,11 +98,15 @@ export function StatusLine(p: StatusLineProps) {
     </button>
   );
   let pills: ComponentChildren = null;
+  const progress =
+    p.run.status === "running" && p.run.kind === "improve"
+      ? SEARCHING_MESSAGE
+      : MAKING_PLAN_MESSAGE;
   if (p.run.status === "running") {
     pills = (
       <Pill kind="busy">
-        <span class="pf-status__text">Updating the plan…</span>
-        <progress value={percent} max={100} aria-label="Updating the plan" />
+        <span class="pf-status__text">{progress}</span>
+        <progress value={percent} max={100} aria-label={progress.replace(/…$/, "")} />
         <span class="pf-status__percent" aria-hidden="true">{`${percent}%`}</span>
         <button
           type="button"
@@ -119,7 +124,7 @@ export function StatusLine(p: StatusLineProps) {
   } else if (p.pending) {
     pills = (
       <Pill kind="busy">
-        <span class="pf-status__text">Updating the plan…</span>
+        <span class="pf-status__text">{MAKING_PLAN_MESSAGE}</span>
       </Pill>
     );
   } else if (p.conflicts.length > 0) {

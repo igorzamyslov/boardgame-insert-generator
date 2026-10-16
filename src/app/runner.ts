@@ -202,7 +202,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
         : base;
     // one step: the pending run is handed from "scheduled" to "running" with no gap
     batch(() => {
-      state.run.value = { status: "running", done: 0, total: iterations };
+      state.run.value = { status: "running", done: 0, total: iterations, kind };
       state.runScheduled.value = false;
     });
     try {
@@ -213,7 +213,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       }
       const result = await c.run(input, seed, iterations, previous, (done, total) => {
         if (my === token) {
-          state.run.value = { status: "running", done, total };
+          state.run.value = { status: "running", done, total, kind };
         }
       });
       if (my !== token) {
