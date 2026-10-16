@@ -61,7 +61,7 @@
       "stylelint --fix",
       "prettier --write"
     ],
-    "*.html": [
+    "!(*.dc).html": [
       "html-validate",
       "prettier --write"
     ],
