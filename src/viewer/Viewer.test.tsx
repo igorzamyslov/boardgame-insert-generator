@@ -259,7 +259,7 @@ describe("Viewer", () => {
     expect(off.get.mock.calls.every(([spec]) => spec.partName === undefined)).toBe(true);
   });
 
-  it("reports parts that could not be built and retries", async () => {
+  it("reports trays that could not be built and retries", async () => {
     const scene = stubScene();
     const m = meshes();
     m.get.mockImplementation((spec) =>
@@ -269,7 +269,7 @@ describe("Viewer", () => {
     );
     render(<Viewer {...props({ meshes: m }, scene)} />);
     await waitFor(() =>
-      expect(screen.getByRole("alert").textContent).toMatch(/1 part\(s\) couldn't be shown/),
+      expect(screen.getByRole("alert").textContent).toMatch(/1 tray\(s\) couldn't be shown/),
     );
     m.get.mockImplementation(() => Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1 }));
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));

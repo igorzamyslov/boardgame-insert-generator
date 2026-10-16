@@ -112,7 +112,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
               <img
                 class="assembly-svg"
                 src={svgDataUrl(exploded.svg)}
-                alt={`Exploded view of the parts in assembly order: ${exploded.parts
+                alt={`Exploded view of the trays in assembly order: ${exploded.parts
                   .map((x) => x.name)
                   .join(", ")}`}
               />

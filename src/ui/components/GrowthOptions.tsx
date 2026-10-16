@@ -22,7 +22,7 @@ const percent = `${Math.round(AUTO_GROWTH_FRACTION * 100)}%`;
 
 /** What `auto` means, in a hint: the same words everywhere, naming the quantity. */
 function autoHint(what: string): string {
-  return `Auto: up to ${AUTO_GROWTH_FRACTION === 1 ? "" : `${percent} of `}${what}, at most ${AUTO_GROWTH_CEILING} mm; any room beyond that is a filler.`;
+  return `Auto: up to ${AUTO_GROWTH_FRACTION === 1 ? "" : `${percent} of `}${what}, at most ${AUTO_GROWTH_CEILING} mm; any room beyond that is a spacer.`;
 }
 
 const EXPLAIN = "Off: never. A set amount: that many mm. As much as there is: all of it.";
@@ -38,7 +38,7 @@ function textOf(c: Component, axis: GrowthAxis): AxisText {
     const stack = c.kind === "tiles" ? "stack of tiles" : "deck";
     return {
       label: "Room for expansions",
-      hint: `How much more room the ${stack} gets, so the collection can grow: along its stack when it stands up, taller when it lies flat (off by default: a riser takes the spare height). ${autoHint(`the ${stack}'s thickness`)} Standing up with no spacer plates, a ${stack} is held to at most ${UNPLATED_RETENTION}× its own thickness, past which it would topple, and to what keeps it under its finger cut when it stands against one end of the well; with plates, ${PLATED_RETENTION}×; with dividers, ${UNPLATED_RETENTION}× per section. ${EXPLAIN}`,
+      hint: `How much more room the ${stack} gets, so the collection can grow: along its stack when it stands up, taller when it lies flat (off by default: a riser takes the spare height). ${autoHint(`the ${stack}'s thickness`)} Standing up with no spacer plates, a ${stack} is held to at most ${UNPLATED_RETENTION}× its own thickness, past which it would topple, and to what leaves it under its finger cut when it stands against one end of the well; with plates, ${PLATED_RETENTION}×; with dividers, ${UNPLATED_RETENTION}× per section. ${EXPLAIN}`,
     };
   }
   if (c.kind === "minis" && c.storage === "pockets") {
@@ -50,11 +50,11 @@ function textOf(c: Component, axis: GrowthAxis): AxisText {
   }
   const label = { w: "Extra width", d: "Extra length", h: "Extra height" }[axis];
   const side = { w: "width", d: "length", h: "height" }[axis];
-  const what = c.kind === "custom" ? `the well's ${side}` : `the bin's ${side}`;
+  const what = c.kind === "custom" ? `the well's ${side}` : `the tray's ${side}`;
   const why =
     c.kind === "custom"
       ? "More room around the item, for tolerance only. Off by default."
-      : "More room for loose pieces, so a bin takes a few millimetres rather than a filler beside it.";
+      : "More room for loose pieces, so the tray takes a few millimetres rather than a spacer beside it.";
   return { label, hint: `${why} ${autoHint(what)} ${EXPLAIN}` };
 }
 

@@ -55,7 +55,7 @@ function fitOptions(s: Settings): SelectOption<FitChoice | "custom">[] {
 
 const WALL_ABSORB_PATH = "wallAbsorb";
 
-/** The fields of the Exact values panel (wallAbsorb sits beside Unused space, outside it). */
+/** The fields of the Exact numbers panel (wallAbsorb sits beside Unused space, outside it). */
 const PANEL_RANGES = SETTING_RANGES.filter((r) => r.path !== WALL_ABSORB_PATH);
 
 /** The panel's fields whose value differs from DEFAULT_SETTINGS. */
@@ -116,7 +116,7 @@ function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void
     return (
       <div class="button-row">
         <button type="button" class="quiet tap" onClick={() => setAsking(true)}>
-          Restore all exact values
+          Restore all exact numbers
         </button>
       </div>
     );
@@ -125,7 +125,7 @@ function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void
     <div
       class="button-row restore-all"
       role="group"
-      aria-label="Confirm restoring all exact values"
+      aria-label="Confirm restoring all exact numbers"
     >
       <span class="hint">{`Put ${plural(count)} back to their defaults? Your own numbers are lost.`}</span>
       <button
@@ -139,7 +139,7 @@ function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void
         Restore
       </button>
       <button type="button" class="quiet tap" onClick={() => setAsking(false)}>
-        Keep my values
+        Cancel
       </button>
     </div>
   );
@@ -165,7 +165,7 @@ function ExactValues({ settings, onChange }: SettingsFormProps) {
   const hasError = notices.some(
     (n) => n.level === "error" && n.path !== undefined && PANEL_PATHS.has(n.path),
   );
-  // An error in a field of the closed "Exact values" opens it, and it stays open while the user
+  // An error in a field of the closed "Exact numbers" opens it, and it stays open while the user
   // fixes the error.
   const forced = useRef(false);
   if (hasError) {
@@ -183,12 +183,12 @@ function ExactValues({ settings, onChange }: SettingsFormProps) {
   return (
     <details class="pf-disc" open={forced.current || undefined}>
       <summary>
-        Exact values
+        Exact numbers
         {changed.length > 0 ? <span class="pf-count">{`${changed.length} changed`}</span> : null}
       </summary>
       <div class="pf-disc__body">
         <div class="field">
-          <label htmlFor="settings-exact-search">Search exact values</label>
+          <label htmlFor="settings-exact-search">Search exact numbers</label>
           <input
             id="settings-exact-search"
             type="search"
@@ -200,7 +200,7 @@ function ExactValues({ settings, onChange }: SettingsFormProps) {
           <p class="hint" role="status">
             {searching
               ? shown.length === 0
-                ? "No exact value matches."
+                ? "No exact number matches."
                 : `${shown.length} of ${PANEL_RANGES.length} shown.`
               : ""}
           </p>
@@ -286,7 +286,7 @@ export function InsertSettings({ settings, onChange }: SettingsFormProps) {
         id="settings-oneWall"
         label="One thick wall instead of a spacer"
         checked={settings.oneWall}
-        hint={`Where a gap would be a spacer, one wall of the neighbouring tray takes it instead, up to ${ONE_WALL_MAX_MM} mm per direction: fewer loose parts to place, but a fat wall that holds nothing and more filament. It is never a wall with a finger cut, and a bigger gap is still a spacer. Replaces "Thicker walls instead of a spacer" while on. Changes the layout.`}
+        hint={`Where a gap would be a spacer, one wall of the neighbouring tray takes it instead, up to ${ONE_WALL_MAX_MM} mm per direction: fewer spacers to place, but a fat wall that holds nothing and more filament. It is never a wall with a finger cut, and a bigger gap is still a spacer. Replaces "Thicker walls instead of a spacer" while on. Changes the layout.`}
         onChange={(oneWall) => onChange({ ...settings, oneWall })}
       />
       {wallAbsorbRange ? (
@@ -315,14 +315,14 @@ export function PrintingOptions({ settings, onChange }: SettingsFormProps) {
         id="settings-engraveNames"
         label="Engrave tray names"
         checked={settings.engraveNames}
-        hint="Cuts each tray's name, shortened to fit, into one of its outer walls, a shallow 0.4 mm recess you can read once the tray is out of the box. Plates that go inside another part (card spacers, dividers) carry none, and a tray with no room or too thin a wall is left plain. Only the printed parts change: your layout and share link stay the same."
+        hint="Cuts each tray's name, shortened to fit, into one of its outer walls, a shallow 0.4 mm recess you can read once the tray is out of the box. Plates that go inside another tray (card spacers, dividers) carry none, and a tray with no room or too thin a wall is left plain. Only the printed trays change: your layout stays the same."
         onChange={(engraveNames) => onChange({ ...settings, engraveNames })}
       />
       <CheckField
         id="settings-mergeFillers"
-        label="Join spacers into fewer parts"
+        label="Join spacers into fewer pieces to print"
         checked={settings.mergeFillers}
-        hint="Spacers that touch (across the gap between trays) print as one part, the largest that fits your print bed, so there are fewer loose pieces to place by hand. Only the printed parts change: your layout and share link stay the same. A bigger part warps a little more and a failed print loses more at once."
+        hint="Spacers that touch (across the gap between trays) print as one piece, the largest that fits your print bed, so there are fewer loose pieces to place by hand. Only the printed pieces change: your layout stays the same. A bigger piece warps a little more and a failed print loses more at once."
         onChange={(mergeFillers) => onChange({ ...settings, mergeFillers })}
       />
       <CheckField
@@ -330,7 +330,7 @@ export function PrintingOptions({ settings, onChange }: SettingsFormProps) {
         label="Fold risers into the joined spacers"
         checked={settings.mergeRisers}
         disabled={!settings.mergeFillers}
-        hint="Also prints the riser under a stack as part of the spacer beside it: a low shelf the tray rests on with a full-height wall alongside. Fewer parts again, and the joined part goes in before the trays that rest on it. Needs joined spacers."
+        hint="Also prints the riser under a stack with the spacer beside it: a low shelf the tray rests on with a full-height wall alongside. Fewer pieces again, and the joined piece goes in before the trays that rest on it. Needs joined spacers."
         onChange={(mergeRisers) => onChange({ ...settings, mergeRisers })}
       />
     </div>
@@ -348,7 +348,7 @@ function fingerRoomHint(s: Settings): string {
 
 /**
  * Choices that write resolved numbers (spec §5): fit, walls and the finger room switch (on for
- * any wall room, including a custom one). The numbers themselves are under Exact values.
+ * any wall room, including a custom one). The numbers themselves are under Exact numbers.
  */
 function PlainChoices({ settings, onChange }: SettingsFormProps) {
   return (
@@ -358,7 +358,7 @@ function PlainChoices({ settings, onChange }: SettingsFormProps) {
         label="Fit"
         value={fitChoiceOf(settings)}
         options={fitOptions(settings)}
-        hint="Scales every clearance. Pick loose if your printer's parts usually come out snug."
+        hint="Scales every clearance. Pick loose if your printer's prints usually come out snug."
         onChange={(c) => {
           if (c !== "custom") {
             onChange(applyFitChoice(settings, c));

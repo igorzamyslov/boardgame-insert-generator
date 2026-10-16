@@ -101,7 +101,7 @@ export function ProjectMenu(props: ProjectMenuProps) {
             n.code === CONFLICT_CODE && props.conflict ? (
               <span class="menu-notice-choices">
                 <button type="button" onClick={choose(() => props.onResolveConflict?.("keepMine"))}>
-                  Keep this version
+                  Use this tab's version
                 </button>
                 <button
                   type="button"
@@ -164,8 +164,8 @@ export function ProjectMenu(props: ProjectMenuProps) {
       ) : null}
       <p class="hint">
         {storageAvailable
-          ? "A saved file holds the whole insert: keep it, send it, or open it elsewhere."
-          : "This browser blocks saving: use Save file to keep your work."}
+          ? "A saved file holds the whole insert: save it, send it, or open it elsewhere."
+          : "This browser blocks saving: use Save file to save your work."}
       </p>
     </div>
   );

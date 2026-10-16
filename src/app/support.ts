@@ -10,7 +10,7 @@ const FEATURES = new Set<string>(KNOWN_FEATURE_TYPES);
 /** Why this app version can't build a stored tray (newer-minor files, spec §9), or null. */
 export function unsupportedReason(spec: TraySpec): string | null {
   if (!PARTS.has(spec.part)) {
-    return `Uses part type "${String(spec.part)}" from a newer app version.`;
+    return `Uses a tray type "${String(spec.part)}" from a newer app version.`;
   }
   // The part's own features (a card spacer's notch).
   for (const f of spec.features ?? []) {

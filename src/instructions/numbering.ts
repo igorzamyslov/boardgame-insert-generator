@@ -46,9 +46,9 @@ export function partLabel(spec: TraySpec): string {
   }
   if (spec.part === "leftover") {
     if (spec.merged) {
-      return spec.solid ? "Merged filler block" : "Merged spare tray";
+      return spec.solid ? "Merged spacer block" : "Merged spare tray";
     }
-    return spec.solid ? "Filler block" : "Spare tray";
+    return spec.solid ? "Spacer block" : "Spare tray";
   }
   const names: string[] = [];
   for (const c of spec.compartments) {

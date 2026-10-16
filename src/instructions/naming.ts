@@ -329,7 +329,7 @@ function trayShorts(trays: readonly Draft[]): Map<string, string> {
 
 /**
  * Names for every part, by the part's key. A component with one tray is called by its name; with
- * several, its name and " 1", " 2" in plan order. A card spacer, filler block, riser or divider is
+ * several, its name and " 1", " 2" in plan order. A card spacer, spacer block, riser or divider is
  * "Spacer by <the tray beside it>" ("Spare by …" for a spare tray, "Riser under …", "Divider in …");
  * several by the same tray are numbered "Spacer 1 by …", "Spacer 2 by …". `short` is what fits
  * engraved on the part: at most SHORT_NAME_MAX characters of letters, digits, spaces and hyphens

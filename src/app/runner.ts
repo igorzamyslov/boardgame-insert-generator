@@ -15,7 +15,7 @@ export const DEBOUNCE_MS = 400;
 export const DEFAULT_SEED = 1;
 export const IMPROVE_FACTOR = 3;
 export const NEWER_MINOR_CONFIRM =
-  "This project was made with a newer app version. Updating the plan replaces its stored layout and may drop parts this version doesn't understand. Continue?";
+  "This project was made with a newer app version. Making a new plan replaces its stored layout and may drop trays this version doesn't understand. Continue?";
 
 export type RunTrigger = "auto" | "user";
 

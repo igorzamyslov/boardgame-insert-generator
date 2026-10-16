@@ -254,7 +254,7 @@ export function thinCorner(
     } else if (p < radius && q < radius) {
       const material = radius - disc.e - disc.rho - Math.hypot(radius - p, radius - q);
       if (material < MIN_FEATURE_MM + CORNER_MARGIN - SPEC_TOLERANCE) {
-        return `a cut at ${p.toFixed(2)} × ${q.toFixed(2)} mm from an outer corner keeps only ${material.toFixed(2)} mm`;
+        return `a cut at ${p.toFixed(2)} × ${q.toFixed(2)} mm from an outer corner leaves only ${material.toFixed(2)} mm`;
       }
     }
   }

@@ -87,7 +87,7 @@ describe("ProjectMenu", () => {
     render(<ProjectMenu {...props({ storageAvailable: false })} />);
     expect(screen.queryByRole("button", { name: "Your inserts" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete…" })).toBeNull();
-    expect(screen.getByText(/use Save file to keep your work/)).toBeTruthy();
+    expect(screen.getByText(/use Save file to save your work/)).toBeTruthy();
   });
 
   it("moves the focus into Your inserts and back to the button that opened it", () => {
@@ -98,11 +98,11 @@ describe("ProjectMenu", () => {
     expect(document.activeElement).toBe(button("Your inserts"));
   });
 
-  it("puts the focus on Keep it when the delete question opens, and back on Delete… when kept", () => {
+  it("puts the focus on Cancel when the delete question opens, and back on Delete… when kept", () => {
     render(<ProjectMenu {...props()} />);
     fireEvent.click(button("Delete…"));
-    expect(document.activeElement).toBe(button("Keep it"));
-    fireEvent.click(button("Keep it"));
+    expect(document.activeElement).toBe(button("Cancel"));
+    fireEvent.click(button("Cancel"));
     expect(document.activeElement).toBe(button("Delete…"));
   });
 

@@ -129,7 +129,7 @@ export function createPersistence(
       level: "warning",
       code: CONFLICT_CODE,
       message:
-        "This project was changed in another tab. Autosave is paused here until you choose which version to keep.",
+        "This project was changed in another tab. Autosave is paused here until you choose which version to use.",
     });
   }
 
@@ -170,7 +170,7 @@ export function createPersistence(
       pushNotice(state, {
         level: "warning",
         code: SAVE_FAILED_CODE,
-        message: `Autosave failed: ${reason}. Your work is still open here; use Save to file to keep it.`,
+        message: `Autosave failed: ${reason}. Your work is still open here; use Save file to save it.`,
       });
       return false;
     }
@@ -202,7 +202,7 @@ export function createPersistence(
         notice: {
           level: "warning",
           code: CONFLICT_CODE,
-          message: `“${p.name}” was changed in another tab and this tab's version couldn't be kept (the browser refused to store it).`,
+          message: `“${p.name}” was changed in another tab and this tab's version couldn't be saved (the browser refused to store it).`,
         },
       };
     }
@@ -212,7 +212,7 @@ export function createPersistence(
       notice: {
         level: "info",
         code: CONFLICT_CODE,
-        message: `“${p.name}” was changed in another tab; this tab's version was kept as “${copy.name}”.`,
+        message: `“${p.name}” was changed in another tab; this tab's version was saved as “${copy.name}”.`,
       },
     };
   }
@@ -244,7 +244,7 @@ export function createPersistence(
       if (
         copy.failed &&
         !deps.confirm(
-          `“${leaving.name}” was changed in another tab and this tab's version can't be kept. Open the other project anyway?`,
+          `“${leaving.name}” was changed in another tab and this tab's version can't be saved. Open the other project anyway?`,
         )
       ) {
         return false;
@@ -340,7 +340,7 @@ export function createPersistence(
           level: "info",
           code: STORAGE_UNAVAILABLE_CODE,
           message:
-            "Local storage is unavailable, so autosave and the project list are off. Save a file to keep your work.",
+            "Local storage is unavailable, so autosave and the project list are off. Save a file so your work is not lost.",
         });
       }
       refreshList();
@@ -461,7 +461,7 @@ export function createPersistence(
         code: OPEN_FAILED_CODE,
         message: r
           ? `Couldn't load the other tab's version: ${r.error} This tab's version is unchanged.`
-          : "The other tab's version is no longer stored. This tab's version is unchanged; choose Keep mine to save it again.",
+          : "The other tab's version is no longer stored. This tab's version is unchanged; choose Use this tab's version to save it again.",
       });
     },
     dispose() {

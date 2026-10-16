@@ -39,7 +39,7 @@ describe("resolveLocks", () => {
         trayKey: "c:p0:2",
         kind: "position",
         name: "a tray that no longer exists",
-        reason: "the component it was on was removed or changed",
+        reason: "what it held was removed or changed",
       },
     ]);
   });
@@ -79,14 +79,14 @@ describe("resolveLocks", () => {
       trayKey: "other:p0:0",
       kind: "position",
       name: "Tokens ×20",
-      reason: 'it conflicts with the position lock on "Deck ×50"',
+      reason: 'it conflicts with the pin on "Deck ×50"',
     });
     // a stack lock is named by its trays; the key to unpin is its first tray
     expect(conflicts).toContainEqual({
       trayKey: "cowsarwz:p0:0",
       kind: "stack",
       name: "Deck ×50, a tray that no longer exists",
-      reason: "the component it was on was removed or changed",
+      reason: "what it held was removed or changed",
     });
     for (const c of conflicts) {
       expect(c.name).not.toMatch(/:p0:/);

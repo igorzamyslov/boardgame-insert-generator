@@ -140,7 +140,7 @@ export function PlanBanners(p: PlanBannersProps) {
                 Reprint everything
               </button>
               <button type="button" onClick={p.onKeepOld}>
-                Keep the old plan
+                Use the old plan
               </button>
             </span>
           </div>
@@ -152,7 +152,7 @@ export function PlanBanners(p: PlanBannersProps) {
             <span class="notice-text">{STALE_MESSAGE}</span>
             <span class="notice-action">
               <button type="button" onClick={p.onUpdate}>
-                Update the plan
+                Make a new plan
               </button>
             </span>
           </div>

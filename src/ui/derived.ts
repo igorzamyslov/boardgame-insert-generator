@@ -98,6 +98,6 @@ function binLines(c: Component, options: StorageOption[], names: string[]): stri
     const sizes = bins.map(({ id, bin }) => `${box(bin)} (${id})`).join(" or ");
     const volume =
       first.bin.minVolume === undefined ? "" : ` for ${mm1(first.bin.minVolume / 1000)} ml`;
-    return [`${itemLabel(c, name)}: a bin of ${sizes}${volume}.`];
+    return [`${itemLabel(c, name)}: a tray of ${sizes}${volume}.`];
   });
 }

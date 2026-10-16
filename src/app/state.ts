@@ -97,7 +97,7 @@ function sizingNoticesOf(p: Project): Notice[] {
       {
         level: "error",
         code: "sizing.failed",
-        message: `Couldn't size the components: ${errorText(e)}`,
+        message: `Couldn't size what's inside: ${errorText(e)}`,
       },
     ];
   }

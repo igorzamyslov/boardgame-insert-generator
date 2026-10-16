@@ -85,7 +85,7 @@ export function ExportPanel(p: ExportPanelProps) {
   const download = p.download ?? downloadBlob;
   const slug = fileSlug(p.projectName);
   const blockedReason = p.stale
-    ? "Update the plan first."
+    ? "Make a new plan first."
     : p.disabled
       ? "The plan is updating."
       : null;

@@ -333,7 +333,7 @@ export function Viewer(p: ViewerProps) {
       ) : null}
       {p.stale ? (
         <p class="hint">
-          Inputs changed: the preview shows the last layout. Update the plan to fix it.
+          Inputs changed: the preview shows the last layout. Make a new plan to fix it.
         </p>
       ) : null}
       {!p.stale && build.total > 0 && build.done < build.total ? (
@@ -344,7 +344,7 @@ export function Viewer(p: ViewerProps) {
       ) : null}
       {build.failed > 0 && build.done === build.total ? (
         <p role="alert">
-          {`${build.failed} part(s) couldn't be shown. `}
+          {`${build.failed} tray(s) couldn't be shown. `}
           <button
             type="button"
             onClick={() => {

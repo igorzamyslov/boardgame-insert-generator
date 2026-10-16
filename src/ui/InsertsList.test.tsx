@@ -42,11 +42,11 @@ describe("InsertsList", () => {
     expect(p.onDelete).toHaveBeenCalledWith("b");
   });
 
-  it("focuses Keep it when the question opens and goes back to Delete… when it is kept", () => {
+  it("focuses Cancel when the question opens and goes back to Delete… when it is kept", () => {
     render(<InsertsList {...props()} />);
     const ask = screen.getByRole("button", { name: /^Delete… .*Ark Nova/ });
     fireEvent.click(ask);
-    const keep = screen.getByRole("button", { name: "Keep it" });
+    const keep = screen.getByRole("button", { name: "Cancel" });
     expect(document.activeElement).toBe(keep);
     fireEvent.click(keep);
     expect(document.activeElement).toBe(ask);
@@ -67,7 +67,7 @@ describe("InsertsList", () => {
     const p = props();
     render(<InsertsList {...p} />);
     fireEvent.click(screen.getByRole("button", { name: /^Delete… .*Wingspan/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(p.onDelete).not.toHaveBeenCalled();
     expect(screen.queryByRole("group", { name: /^Delete/ })).toBeNull();
   });

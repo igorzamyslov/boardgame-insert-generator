@@ -122,7 +122,7 @@ describe("toggles", () => {
       level: "info",
       code: "sizing.noFingerSlot",
       path: "/components/0",
-      message: "Dial: … so it is stored loose in a bin with a curved floor instead.",
+      message: "Dial: … so it is stored loose in a tray with a curved floor instead.",
     };
     render(
       <SizingContext.Provider value={[binned]}>
@@ -130,7 +130,7 @@ describe("toggles", () => {
       </SizingContext.Provider>,
     );
     expect((screen.getByLabelText("Finger cuts") as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByText(/stored loose in a bin with a curved floor/)).toBeTruthy();
+    expect(screen.getByText(/stored loose in a tray with a curved floor/)).toBeTruthy();
   });
 
   it("shows the bin note outside More options", () => {
@@ -138,14 +138,14 @@ describe("toggles", () => {
       level: "info",
       code: "sizing.noFingerSlot",
       path: "/components/0",
-      message: "Dial: … so it is stored loose in a bin with a curved floor instead.",
+      message: "Dial: … so it is stored loose in a tray with a curved floor instead.",
     };
     render(
       <SizingContext.Provider value={[binned]}>
         <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
       </SizingContext.Provider>,
     );
-    const note = screen.getByText(/stored loose in a bin with a curved floor/);
+    const note = screen.getByText(/stored loose in a tray with a curved floor/);
     expect(note.closest("details.pf-disc")).toBeNull();
   });
 
@@ -293,7 +293,7 @@ describe("toggles", () => {
       render(<BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />);
       const select = screen.getByLabelText("Extra width");
       expect(document.getElementById(`${select.id}-hint`)?.textContent).toMatch(
-        /Auto: up to the bin's width, at most 50 mm/,
+        /Auto: up to the tray's width, at most 50 mm/,
       );
     });
   });

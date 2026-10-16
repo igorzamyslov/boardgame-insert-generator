@@ -28,7 +28,7 @@ describe("partLabel", () => {
     expect(partLabel(makeTray({ part: "spacer", key: "a:p0:0:spacer" }))).toBe("Card spacer");
     expect(partLabel(makeTray({ part: "riser", key: "a:p0:0:riser", path: "" }))).toBe("Riser");
     expect(partLabel(makeTray({ part: "leftover", key: "leftover:0", solid: true }))).toBe(
-      "Filler block",
+      "Spacer block",
     );
     expect(partLabel(makeTray({ part: "leftover", key: "leftover:1", solid: false }))).toBe(
       "Spare tray",
@@ -158,7 +158,7 @@ describe("numberParts", () => {
         [2, "a:p0:0"],
         [3, "b:p0:0"],
       ]);
-      expect(parts[0]?.label).toBe("Merged filler block");
+      expect(parts[0]?.label).toBe("Merged spacer block");
       expect(parts[0]?.parentNumber).toBeNull();
       expect(partLabel({ ...strip, solid: false })).toBe("Merged spare tray");
     });

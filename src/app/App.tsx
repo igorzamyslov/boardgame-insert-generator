@@ -481,7 +481,7 @@ export function App(props: AppProps) {
                     : s.runPending.value
                       ? "Wait for the plan to finish"
                       : s.stale.value
-                        ? "Update the plan first"
+                        ? "Make a new plan first"
                         : undefined
                 }
                 menuDot={placed.menu.length > 0}

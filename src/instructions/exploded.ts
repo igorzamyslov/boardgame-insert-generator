@@ -294,7 +294,7 @@ export function explodedView(layout: StoredLayout, project: Project): ExplodedVi
 
   const out: string[] = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${n(minX)} ${n(minY)} ${n(w)} ${n(h)}" width="${n(w * 3)}" height="${n(h * 3)}" font-family="system-ui, sans-serif">`,
-    `<title>${escapeXml("Exploded view of all parts, in assembly order")}</title>`,
+    `<title>${escapeXml("Exploded view of all trays, in assembly order")}</title>`,
     `<rect x="${n(minX)}" y="${n(minY)}" width="${n(w)}" height="${n(h)}" fill="#ffffff"/>`,
     `<polygon points="${points(floor)}" fill="none" stroke="#767676" stroke-width="0.5" stroke-dasharray="2 1.5"/>`,
   ];

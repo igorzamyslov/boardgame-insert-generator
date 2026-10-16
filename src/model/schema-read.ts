@@ -58,9 +58,9 @@ function readLock(r: Reader): Lock | null {
  */
 function describeLock(raw: unknown, index: number): string {
   const fields = isRecord(raw) ? raw : {};
-  const kind = typeof fields.kind === "string" ? `${quote(fields.kind)} lock` : "lock";
+  const kind = typeof fields.kind === "string" ? `${quote(fields.kind)} rule` : "rule";
   const tray = typeof fields.trayKey === "string" ? ` for tray ${quote(fields.trayKey)}` : "";
-  return `${kind}${tray} (lock ${index + 1} in the file)`;
+  return `${kind}${tray} (rule ${index + 1} in the file)`;
 }
 
 /**
@@ -94,7 +94,7 @@ function readLocks(list: unknown[], ctx: Ctx): { locks: Lock[]; kept: ForeignVal
         level: "warning",
         code: SCHEMA_NOTICE_CODES.unknownValue,
         path,
-        message: `The ${describeLock(raw, i)} is of a kind this app version doesn't know. It is kept and saved back, but not applied.`,
+        message: `The ${describeLock(raw, i)} is of a kind this app version doesn't know. It is saved back unchanged, but not applied.`,
       });
     } else {
       ctx.notices.push({

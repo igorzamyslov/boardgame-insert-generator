@@ -398,7 +398,7 @@ describe("createProjectStore and the spec §5 upper bounds", () => {
       VALIDATION_NOTICE_CODES.limit.components,
     );
 
-    const refused = /Too many components \(101\)/;
+    const refused = /Too many items \(101\)/;
     const file = importJsonText(serializeProject(p, noForeign()));
     expect(file.ok ? "loaded" : file.error).toMatch(refused);
     const link = decodeHash(encodeHash(p, noForeign()));

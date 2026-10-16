@@ -287,7 +287,7 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
                 label="Storage"
                 value={c.storage}
                 options={STORAGE_OPTIONS}
-                hint="How the decks stand in the tray. Upright decks stand on the long or the short edge; flat decks lie in stacks. The optimizer tries every orientation and keeps the one that packs best."
+                hint="How the decks stand in the tray. Upright decks stand on the long or the short edge; flat decks lie in stacks. The optimizer tries every orientation and uses the one that packs best."
                 onChange={(storage) => onChange({ ...c, storage })}
               />
               <ToggleOptions component={c} index={index} onChange={onChange} />

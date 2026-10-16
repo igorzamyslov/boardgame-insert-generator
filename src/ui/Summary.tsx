@@ -144,7 +144,7 @@ export function Summary(p: SummaryProps) {
             value={`≈ ${formatPrintTime(p.summary.printMinutes)}`}
           />
           <Readout
-            label="Longest single part"
+            label="Longest single piece"
             value={`≈ ${formatPrintTime(p.summary.longestPartMinutes)}`}
           />
         </dl>
@@ -153,8 +153,8 @@ export function Summary(p: SummaryProps) {
         <p class="hint stage-block">
           Slack is the sideways play the trays have in the box: twice the box clearance, plus one
           tray gap for each extra tray in a row. Above {p.summary.playLimit} mm (your Play limit, in
-          Exact values) trays can shift when the box is moved.
-          {` The filament estimate prints the first 3 perimeters and the top and bottom 5 layers of every part solid, whatever the infill, and only the interior beyond that at ${p.summary.infillPct} %. Walls, floors and thin parts are therefore counted solid, so it falls well below the 100 % figure only for thick blocks and raised floors. The estimate is rounded to the nearest gram, the 100 % figure up. The print time is that same plastic volume at a steady ${PRINT_FLOW_MM3_PER_S} mm³/s, and nothing else: travel, acceleration, cooling and slower outer walls are not modelled, so a real print usually takes longer, small parts much longer. Use it to compare, or to plan which parts go on one overnight plate.`}
+          Exact numbers) trays can shift when the box is moved.
+          {` The filament estimate prints the first 3 perimeters and the top and bottom 5 layers of every piece solid, whatever the infill, and only the interior beyond that at ${p.summary.infillPct} %. Walls, floors and thin walls are therefore counted solid, so it falls well below the 100 % figure only for thick blocks and raised floors. The estimate is rounded to the nearest gram, the 100 % figure up. The print time is that same plastic volume at a steady ${PRINT_FLOW_MM3_PER_S} mm³/s, and nothing else: travel, acceleration, cooling and slower outer walls are not modelled, so a real print usually takes longer, small pieces much longer. Use it to compare, or to plan which pieces go on one overnight plate.`}
         </p>
       ) : null}
       <Notices

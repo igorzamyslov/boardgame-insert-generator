@@ -230,12 +230,12 @@ describe("TrayBar of a merged part", () => {
   it("says what it joins", () => {
     show(merged([filler, { ...filler, key: "leftover:1" }], false));
     expect(screen.getByText("Joins")).toBeTruthy();
-    expect(screen.getByText("2 fillers, printed as one part.")).toBeTruthy();
+    expect(screen.getByText("2 spacers, printed as one piece.")).toBeTruthy();
   });
 
   it("counts a riser folded in", () => {
     show(merged([riser, filler], false));
-    expect(screen.getByText("1 filler and a riser, printed as one part.")).toBeTruthy();
+    expect(screen.getByText("1 spacer and a riser, printed as one piece.")).toBeTruthy();
   });
 
   it("tells you to print one with members on different floors upside down", () => {

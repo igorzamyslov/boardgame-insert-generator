@@ -17,7 +17,7 @@ export interface AppHeaderProps {
   /** The Download button, so the app can hand the focus back to it. */
   downloadRef?: Ref<HTMLButtonElement>;
   downloadDisabled: boolean;
-  /** Why Download is off (the button's title and description), e.g. "Update the plan first". */
+  /** Why Download is off (the button's title and description), e.g. "Make a new plan first". */
   downloadReason?: string;
   /** What the button says (default "Download"); "Fix the fit to download" while the plan doesn't fit. */
   downloadLabel?: string;

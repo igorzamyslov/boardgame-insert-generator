@@ -110,7 +110,7 @@ function PrinterTab(p: SettingsSheetProps) {
       </section>
       <section class="settings-group" aria-labelledby="settings-printing-title">
         <h3 id="settings-printing-title">Printing options</h3>
-        <p class="hint">For this insert. They change the printed parts, not where trays sit.</p>
+        <p class="hint">For this insert. They change the printed trays, not where trays sit.</p>
         <PrintingOptions settings={p.settings} onChange={p.onSettingsChange} />
       </section>
     </div>

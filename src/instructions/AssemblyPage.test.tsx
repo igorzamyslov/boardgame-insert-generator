@@ -59,11 +59,11 @@ describe("AssemblyPage", () => {
     expect(document.querySelector(".assembly-layers")?.children).toHaveLength(2);
   });
 
-  it("shows the exploded view with the parts in assembly order, between the packing order and the layers", () => {
+  it("shows the exploded view with the trays in assembly order, between the packing order and the layers", () => {
     render(<AssemblyPage project={deckProject()} layout={layout} onBack={vi.fn()} />);
     const exploded = screen.getByRole("img", { name: /^Exploded view/ });
     expect(exploded.getAttribute("alt")).toBe(
-      "Exploded view of the parts in assembly order: Deck A 1, Deck A 2",
+      "Exploded view of the trays in assembly order: Deck A 1, Deck A 2",
     );
     expect(exploded.getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
     expect(exploded.closest("section")?.getAttribute("aria-labelledby")).toBe("exploded-title");

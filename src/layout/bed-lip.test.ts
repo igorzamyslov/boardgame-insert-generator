@@ -81,7 +81,7 @@ describe("parts the lip makes too big for the bed", { timeout: 30_000 }, () => {
 // Filler pieces (leftovers) are as tall as the stacks beside them, so a box taller than the
 // print bed cannot have any (future work: split them in Z).
 describe("a box taller than the print bed", () => {
-  it("says the filler pieces can't be printed in one piece, instead of a generic message", () => {
+  it("says the spacers can't be printed in one piece, instead of a generic message", () => {
     const r = optimize(
       makeInput([boxReq("a", 50, 50, 20), boxReq("b", 50, 50, 20), boxReq("c", 50, 50, 20)], {
         box: { innerWidth: 200, innerDepth: 150, innerHeight: 100 },
@@ -93,7 +93,7 @@ describe("a box taller than the print bed", () => {
     expect(r.layout).toBeNull();
     const dnf = r.notices.find((n) => n.code === "layout.doesNotFit")?.message ?? "";
     expect(dnf).not.toContain("Some trays don't fit");
-    expect(dnf).toContain("filler pieces");
+    expect(dnf).toContain("the spacers that fill");
     expect(dnf).toContain("The stacks are 100.0 mm tall");
     expect(dnf).not.toContain("tall inside");
     expect(dnf).toContain("60.0 mm high");

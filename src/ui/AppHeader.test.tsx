@@ -124,12 +124,12 @@ describe("AppHeader", () => {
 
   it("gives the reason Download is off as its title and description", () => {
     render(
-      <AppHeader {...props({ downloadDisabled: true, downloadReason: "Update the plan first" })} />,
+      <AppHeader {...props({ downloadDisabled: true, downloadReason: "Make a new plan first" })} />,
     );
     const b = screen.getByRole("button", { name: "Download" });
-    expect(b.getAttribute("title")).toBe("Update the plan first");
+    expect(b.getAttribute("title")).toBe("Make a new plan first");
     expect(b.getAttribute("aria-describedby")).toBe("download-reason");
-    expect(document.getElementById("download-reason")?.textContent).toBe("Update the plan first");
+    expect(document.getElementById("download-reason")?.textContent).toBe("Make a new plan first");
   });
 
   it("opens the project menu, closes it on Escape and returns focus to its button", () => {

@@ -44,7 +44,7 @@ const KIND_HINTS: Record<ComponentKind, string> = {
 export function AddKinds({
   onAdd,
   counts = {},
-  label = "Add a component",
+  label = "Add something inside",
 }: {
   onAdd: (kind: ComponentKind) => void;
   /** The group's accessible name (the empty state shows a second group next to the rail's). */

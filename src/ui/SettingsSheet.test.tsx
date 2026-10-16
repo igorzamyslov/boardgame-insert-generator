@@ -77,7 +77,7 @@ describe("SettingsSheet", () => {
     ]) {
       expect(screen.getByRole("checkbox", { name }), name).toBeTruthy();
     }
-    expect(screen.getByRole("searchbox", { name: "Search exact values" })).toBeTruthy();
+    expect(screen.getByRole("searchbox", { name: "Search exact numbers" })).toBeTruthy();
     for (const r of SETTING_RANGES) {
       // a unit is part of a number's name: "Wall (mm)"
       const label = new RegExp(`^${r.label.replace(/[()]/g, "\\$&")}( \\((mm|%)\\))?$`);
@@ -92,7 +92,7 @@ describe("SettingsSheet", () => {
     }
     for (const name of [
       "Engrave tray names",
-      "Join spacers into fewer parts",
+      "Join spacers into fewer pieces to print",
       "Fold risers into the joined spacers",
     ]) {
       expect(screen.getByRole("checkbox", { name }), name).toBeTruthy();
@@ -186,7 +186,7 @@ describe("SettingsSheet", () => {
   });
 
   describe("an error", () => {
-    it("in a setting opens This insert with Exact values open", () => {
+    it("in a setting opens This insert with Exact numbers open", () => {
       sheet({}, [error("/settings/bottomChamfer", "Bottom chamfer is too big")]);
       expect(selected()).toEqual(["This insert, needs attention"]);
       expect((document.querySelector("details.pf-disc") as HTMLDetailsElement).open).toBe(true);

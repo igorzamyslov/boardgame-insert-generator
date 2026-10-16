@@ -84,7 +84,7 @@ function noFingerSlot(error: CutFitError, key: string, usable: readonly Usable[]
   };
 }
 
-/** What a bin has, from its features: "a bin with a curved floor", or "a plain bin". */
+/** What a bin has, from its features: "a bin with a curved floor", or "a plain tray". */
 function binWords(features: readonly FeatureReq[]): string {
   const has = (type: FeatureReq["type"]) => features.some((f) => f.type === type);
   const parts = [
@@ -93,10 +93,10 @@ function binWords(features: readonly FeatureReq[]): string {
     ...(has("cornerRelief") ? ["corner reliefs"] : []),
   ];
   if (parts.length === 0) {
-    return "a plain bin";
+    return "a plain tray";
   }
   const last = parts.pop();
-  return `a bin with ${parts.length > 0 ? `${parts.join(", ")} and ${last}` : last}`;
+  return `a tray with ${parts.length > 0 ? `${parts.join(", ")} and ${last}` : last}`;
 }
 
 /**

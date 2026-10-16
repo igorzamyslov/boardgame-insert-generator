@@ -92,7 +92,7 @@ export function splitSeparators(
   });
   const notices = [...cut].map(([index, r]): Notice => {
     const name = o.components[index]?.name ?? "";
-    const label = name === "" ? "this component" : `"${name}"`;
+    const label = name === "" ? "this item" : `"${name}"`;
     return {
       level: "info",
       code: SEPARATORS_REDUCED_CODE,

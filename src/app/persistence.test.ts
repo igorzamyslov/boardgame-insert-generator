@@ -316,7 +316,7 @@ describe("persistence", () => {
     const t = tab(createProjectStore(null));
     t.persistence.start("");
     const notice = t.state.appNotices.value.find((n) => n.code === STORAGE_UNAVAILABLE_CODE);
-    expect(notice?.message).toContain("Save a file to keep your work");
+    expect(notice?.message).toContain("Save a file so your work is not lost");
     expect(notice?.message).not.toMatch(/link/i);
   });
 

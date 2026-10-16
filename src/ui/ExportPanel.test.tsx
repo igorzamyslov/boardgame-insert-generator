@@ -320,7 +320,7 @@ describe("ExportPanel", () => {
     }
     const primary = screen.getByRole("button", { name: COMBINED });
     const reason = document.getElementById(primary.getAttribute("aria-describedby") ?? "");
-    expect(reason?.textContent).toBe("Update the plan first.");
+    expect(reason?.textContent).toBe("Make a new plan first.");
   });
 
   it("offers the downloads again once the layout is current", () => {
@@ -328,7 +328,7 @@ describe("ExportPanel", () => {
     view.rerender(<ExportPanel {...props({ stale: false })} />);
     openOtherFormats();
     expect(isOff(screen.getByRole("button", { name: STL }))).toBe(false);
-    expect(screen.queryByText("Update the plan first.")).toBeNull();
+    expect(screen.queryByText("Make a new plan first.")).toBeNull();
   });
 
   it("keeps Try again off for a stale layout", async () => {

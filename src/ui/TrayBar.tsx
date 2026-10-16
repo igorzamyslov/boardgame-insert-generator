@@ -100,12 +100,12 @@ function Icon({ name }: { name: keyof typeof GLYPHS }) {
 function mergedText(t: TraySpec): string {
   const members = t.merged?.members ?? [];
   const risers = members.filter((m) => m.part === "riser").length;
-  const fillers = members.length - risers;
-  const noun = `${fillers} ${fillers === 1 ? "filler" : "fillers"}`;
+  const spacers = members.length - risers;
+  const noun = `${spacers} ${spacers === 1 ? "spacer" : "spacers"}`;
   const joined = risers > 0 ? `${noun} and ${risers === 1 ? "a riser" : `${risers} risers`}` : noun;
   return t.merged?.flipped
     ? `${joined}. Print it upside down, the flat top on the bed, so nothing hangs.`
-    : `${joined}, printed as one part.`;
+    : `${joined}, printed as one piece.`;
 }
 
 /** Filament and time to print this part alone, from the same rough model as the summary. */
@@ -196,7 +196,7 @@ export function TrayBar(p: TrayBarProps) {
       </div>
       {p.stale ? (
         <p class="hint">
-          Inputs changed — the sizes shown may not match this layout. Update the plan to fix it.
+          Inputs changed — the sizes shown may not match this layout. Make a new plan to fix it.
         </p>
       ) : null}
       <dl>
@@ -269,7 +269,7 @@ export function TrayBar(p: TrayBarProps) {
           ) : null}
         </div>
         {why === undefined ? (
-          <p class="hint">A size lock keeps this size when the plan is updated.</p>
+          <p class="hint">A size lock holds this size whenever a new plan is made.</p>
         ) : null}
       </div>
     </div>

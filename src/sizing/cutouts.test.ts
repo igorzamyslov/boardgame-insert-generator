@@ -514,7 +514,7 @@ describe("no wall left for a cutout", () => {
         level: "info",
         code: "sizing.noFingerSlot",
         message: expect.stringMatching(
-          /^Pip: no tray arrangement leaves room for a finger cutout of at least 10 mm by Pip ×1 with 3 mm of wall beside it, so it is stored loose in a bin with a curved floor instead\.$/,
+          /^Pip: no tray arrangement leaves room for a finger cutout of at least 10 mm by Pip ×1 with 3 mm of wall beside it, so it is stored loose in a tray with a curved floor instead\.$/,
         ),
         path: "/components/0",
       }),

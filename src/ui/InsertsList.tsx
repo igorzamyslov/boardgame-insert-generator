@@ -25,7 +25,7 @@ export function DeleteConfirm({ name, onConfirm, onCancel }: DeleteConfirmProps)
           Delete
         </button>
         <button type="button" class="tap" ref={keep} onClick={onCancel}>
-          Keep it
+          Cancel
         </button>
       </div>
     </div>

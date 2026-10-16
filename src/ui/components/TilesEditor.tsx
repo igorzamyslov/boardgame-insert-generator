@@ -108,7 +108,7 @@ export function TilesEditor({ component: c, index, onChange }: EditorProps<Tiles
               <SelectField
                 id={`${c.id}-storage`}
                 label="Storage"
-                hint="Flat piles the tiles in stacks; upright stands them on edge like cards. The optimizer tries both and keeps the one that packs best."
+                hint="Flat piles the tiles in stacks; upright stands them on edge like cards. The optimizer tries both and uses the one that packs best."
                 value={c.storage}
                 options={[
                   { value: "auto", label: "Let the optimizer choose" },

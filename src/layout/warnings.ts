@@ -57,8 +57,8 @@ function playMessage(
   }
   tips.push(
     crossed > 1
-      ? "lower Box clearance (counts twice) or Tray gap (once per extra tray) under Exact values"
-      : "lower Box clearance (counts twice) under Exact values",
+      ? "lower Box clearance (counts twice) or Tray gap (once per extra tray) under Exact numbers"
+      : "lower Box clearance (counts twice) under Exact numbers",
   );
   if (crossed > 1) {
     tips.push("put fewer trays in that row");
@@ -383,10 +383,10 @@ export function doesNotFitNotice(
     tips.push(
       "use a printer with a taller bed",
       "leave more headroom, so the stacks are lower",
-      "add a component that fills the gaps around the trays",
+      "add something inside that fills the gaps around the trays",
     );
   }
-  tips.push("split groups into separate components");
+  tips.push("split groups into separate items");
   const sentences: string[] = [];
   if (parts.length > 0) {
     sentences.push(`The closest attempt so far is short by ${parts.join(", ")}.`);
@@ -404,18 +404,18 @@ export function doesNotFitNotice(
   if (fillers.length > 0) {
     const height = Math.max(...fillers.map((o) => o.h));
     sentences.push(
-      `The stacks are ${mm(height)} mm tall but the print bed is only ${mm(toMm(ctx.bed.z))} mm high, so the filler pieces that fill the gaps around the trays can't be printed in one piece.`,
+      `The stacks are ${mm(height)} mm tall but the print bed is only ${mm(toMm(ctx.bed.z))} mm high, so the spacers that fill the gaps around the trays can't be printed in one piece.`,
     );
   }
   if (sentences.length === 0) {
-    sentences.push("Some trays don't fit the print bed or a locked size.");
+    sentences.push("Some trays don't fit the print bed or a size lock.");
   }
   const searched =
     iterations > 0 ? `ran ${iterations.toLocaleString("en-US")} iterations` : "ran for a while";
   return {
     level: "error",
     code: NOTICE_CODES.doesNotFit,
-    message: `No fit found yet. The search ${searched} without finding a layout that fits. This is not proof that the components can't fit: a very tight box can need a much longer search. ${sentences.join(" ")} Press “Keep searching” to search about ${REPEAT_FACTOR} times longer. If it still doesn't fit, try: ${tips.join("; ")}.`,
+    message: `No fit found yet. The search ${searched} without finding a layout that fits. This is not proof that what's inside can't fit: a very tight box can need a much longer search. ${sentences.join(" ")} Press “Keep searching” to search about ${REPEAT_FACTOR} times longer. If it still doesn't fit, try: ${tips.join("; ")}.`,
   };
 }
 

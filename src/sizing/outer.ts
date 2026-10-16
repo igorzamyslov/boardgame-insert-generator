@@ -144,7 +144,7 @@ export function minLayoutU(
   walls: CutWalls = requestedWalls(part),
 ): MinLayout {
   if (part.compartments.length === 0) {
-    throw new RangeError(`Tray part ${part.trayKey} has no compartments`);
+    throw new RangeError(`Tray ${part.trayKey} has no compartments`);
   }
   // Every minimum rounds up, so a setting that is not a whole 0.01 mm is never undershot.
   // Compartment minimums too: size() emits whole units, but a hand-built part may not.

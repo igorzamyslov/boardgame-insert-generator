@@ -202,7 +202,7 @@ function resolveOnce(
     }
     const missing = keys.find((k) => ctx.refsOfKey(k).length === 0);
     if (missing !== undefined) {
-      drop(lock, "the component it was on was removed or changed");
+      drop(lock, "what it held was removed or changed");
       continue;
     }
     const next = new Map<number, Set<number>>();
@@ -220,7 +220,7 @@ function resolveOnce(
       next.set(r, inter);
     }
     if (!ok) {
-      drop(lock, "it conflicts with other locks on the same component");
+      drop(lock, "it conflicts with other pins on the same item");
       continue;
     }
     for (const [r, set] of next) {
@@ -291,7 +291,7 @@ function resolveOnce(
       continue;
     }
     if (pos.has(id)) {
-      drop(lock, "another position lock already places this tray");
+      drop(lock, "another pin already holds this tray in place");
       continue;
     }
     if (lock.rotated && !rotatable(ref)) {
@@ -309,7 +309,7 @@ function resolveOnce(
         (p.lock.path.startsWith(lock.path) || lock.path.startsWith(p.lock.path)),
     );
     if (clash) {
-      drop(lock, `it conflicts with the position lock on "${name(clash.lock.trayKey)}"`);
+      drop(lock, `it conflicts with the pin on "${name(clash.lock.trayKey)}"`);
       continue;
     }
     if (lock.path === "" && !singleTray && hints.singleLeaf !== true) {
@@ -347,7 +347,7 @@ function resolveOnce(
     const items = lock.trayKeys.map(itemOf);
     const ids = items.map((i) => ctx.partId(i));
     if (new Set(ids).size !== ids.length || ids.some((id) => inGroup.has(id))) {
-      drop(lock, "a tray appears in more than one stack lock");
+      drop(lock, "a tray is in more than one pinned stack");
       continue;
     }
     if (items.length > MAX_LEVELS) {
@@ -361,7 +361,7 @@ function resolveOnce(
       }),
     );
     if (paths.size > 1) {
-      drop(lock, "its trays are locked to different positions");
+      drop(lock, "its trays are pinned to different positions");
       continue;
     }
     if (!fitsHeight(items)) {
@@ -423,7 +423,7 @@ function resolveOnce(
     if (lowest?.pos && lowest.level > 0 && lowest.level !== Infinity) {
       drop(
         lowest.pos.lock,
-        "it is on top of other trays in the current layout and nothing under it is locked to the same position; lock the whole stack to keep it there",
+        "it is on top of other trays in the current layout and nothing under it is pinned to the same position; pin the whole stack to hold it there",
       );
       pos.delete(lowest.pos.id);
       continue;
@@ -431,7 +431,7 @@ function resolveOnce(
     const items = units.flatMap((u) => u.items);
     if (items.length > MAX_LEVELS || !fitsHeight(items)) {
       for (const p of entry.locks) {
-        drop(p.lock, "the trays locked to this position don't fit on top of each other");
+        drop(p.lock, "the trays pinned to this position don't fit on top of each other");
         pos.delete(p.id);
       }
       continue;

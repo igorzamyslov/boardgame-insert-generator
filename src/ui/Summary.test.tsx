@@ -111,7 +111,7 @@ describe("Summary", () => {
     const { container } = render(<Summary {...props()} />);
     // fixture: 90 min in all, 30 min for the longest part
     expect(screen.getByText(/^Print time/).nextElementSibling?.textContent).toBe("≈ 1.5 h");
-    expect(screen.getByText("Longest single part").nextElementSibling?.textContent).toBe(
+    expect(screen.getByText("Longest single piece").nextElementSibling?.textContent).toBe(
       "≈ 30 min",
     );
     expect(container.textContent).toMatch(/steady 4 mm³\/s, and nothing else/);

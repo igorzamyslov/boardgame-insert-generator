@@ -516,7 +516,7 @@ describe("parseProject: spec §5 bounds", () => {
       h: 10,
       count: 1,
     }));
-    expect(expectError(input)).toMatch(/Too many components \(101\)/);
+    expect(expectError(input)).toMatch(/Too many items \(101\)/);
   });
 
   it("refuses an empty project id, and gives a file without one a new id", () => {
@@ -532,7 +532,7 @@ describe("parseProject: spec §5 bounds", () => {
   it("refuses a component id containing a colon", () => {
     const input = raw(sampleProject());
     firstCards(input).id = "a:b";
-    expect(expectError(input)).toMatch(/\/components\/0\/id: A component id can't contain ':'/);
+    expect(expectError(input)).toMatch(/\/components\/0\/id: An item id can't contain ':'/);
   });
 
   it("still loads field-level problems, so a half-edited project can be fixed", () => {

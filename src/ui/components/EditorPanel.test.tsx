@@ -160,10 +160,10 @@ describe("EditorPanel", () => {
     it("keeps the component when asked to keep it", () => {
       const { onRemove } = panel({ ...of("cards"), name: "Main deck" });
       fireEvent.click(screen.getByRole("button", { name: "Remove Main deck…" }));
-      fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(onRemove).not.toHaveBeenCalled();
       expect(screen.getByRole("button", { name: "Remove Main deck…" })).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Keep it" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
     });
 
     it("names an unnamed one, and a repeated name by its position", () => {

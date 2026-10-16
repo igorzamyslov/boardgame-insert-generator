@@ -159,7 +159,7 @@ export function applyFingerRoom(s: Settings, on: boolean): Settings {
 
 /**
  * Whether the finger room toggle is on (exactly its wall and divider room), off (no room) or
- * "custom" (any other pair, set under Exact values).
+ * "custom" (any other pair, set under Exact numbers).
  */
 export function fingerRoomOf(s: Settings): boolean | "custom" {
   const wall = choiceOf({ on: FINGER_ROOM_MM, off: 0 }, s.fingerPocket.wallRoom);
@@ -167,12 +167,12 @@ export function fingerRoomOf(s: Settings): boolean | "custom" {
   return wall === "custom" || wall !== divider ? "custom" : wall === "on";
 }
 
-/** Which Walls choice the current wall matches, or "custom" (set under Exact values). */
+/** Which Walls choice the current wall matches, or "custom" (set under Exact numbers). */
 export function wallChoiceOf(s: Settings): WallChoice | "custom" {
   return choiceOf(WALL_CHOICES, s.wall);
 }
 
-/** Which Fit choice the current fit matches, or "custom" (set under Exact values). */
+/** Which Fit choice the current fit matches, or "custom" (set under Exact numbers). */
 export function fitChoiceOf(s: Settings): FitChoice | "custom" {
   return choiceOf(FIT_CHOICES, s.fit);
 }

@@ -106,7 +106,7 @@ export function MinisEditor({ component: c, index, onChange }: EditorProps<Minis
               <SelectField
                 id={`${c.id}-storage`}
                 label="Storage"
-                hint="One pocket per figure gives each its own slot, sized to it. Loose in a scoop tray piles them in a bin you scoop from, sized by the Packing factor in the exact values."
+                hint="One pocket per figure gives each its own slot, sized to it. Loose in a scoop tray piles them in a tray you scoop from, sized by the Packing factor in the exact numbers."
                 value={c.storage}
                 options={[
                   { value: "pockets", label: "One pocket per figure" },

@@ -59,7 +59,7 @@ export function PrinterForm({ printer, onChange }: PrinterFormProps) {
         options={OPTIONS}
         hint={
           examples !== undefined
-            ? `Fits ${examples}. Not on the list? Choose “Custom size”. Not sure? Keep this and ask whoever will print it.`
+            ? `Fits ${examples}. Not on the list? Choose “Custom size”. Not sure? Leave this as it is and ask whoever will print it.`
             : "Measure the flat area the printer can print on, and its maximum height."
         }
         onChange={(id) => {

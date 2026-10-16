@@ -252,7 +252,7 @@ describe("App", () => {
     expect(stl.getAttribute("aria-disabled")).toBeNull();
     store.edit((q) => ({ ...q, settings: { ...q.settings, wall: q.settings.wall + 0.4 } }));
     expect(store.state.stale.value).toBe(true);
-    expect(await screen.findByText("Update the plan first.")).toBeTruthy();
+    expect(await screen.findByText("Make a new plan first.")).toBeTruthy();
     for (const name of [
       "Download 3MF",
       "Download 3MF per part (.zip)",
@@ -415,7 +415,7 @@ describe("App", () => {
       const open = screen.getByRole("button", { name: "Open the packing guide" });
       expect(open.getAttribute("aria-disabled")).toBeNull();
       makeStale(store);
-      expect(await screen.findByText("Update the plan first.")).toBeTruthy();
+      expect(await screen.findByText("Make a new plan first.")).toBeTruthy();
       expect(
         screen
           .getByRole("button", { name: "Open the packing guide" })
@@ -659,7 +659,7 @@ describe("App", () => {
       const download = (): HTMLElement => screen.getByRole("button", { name: "Download" });
       expect(store.state.stale.value).toBe(true);
       expect(download().getAttribute("aria-disabled")).toBe("true");
-      expect(download().getAttribute("title")).toBe("Update the plan first");
+      expect(download().getAttribute("title")).toBe("Make a new plan first");
       expect(download().getAttribute("aria-describedby")).toBeTruthy();
       fireEvent.click(download());
       expect(screen.queryByRole("heading", { name: "Download" })).toBeNull();
@@ -765,11 +765,11 @@ describe("App", () => {
         "Made with an older version of the app. Trays printed from it won't stack with trays you print now.",
       ),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Keep the old plan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use the old plan" }));
     expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
   });
 
-  it("shows the stale banner after Keep the old plan and an edit", () => {
+  it("shows the stale banner after Use the old plan and an edit", () => {
     const p = fixtureProject();
     const { store } = renderApp({
       project: {
@@ -777,8 +777,8 @@ describe("App", () => {
         layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Keep the old plan" }));
-    expect(screen.queryByRole("button", { name: "Update the plan" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Use the old plan" }));
+    expect(screen.queryByRole("button", { name: "Make a new plan" })).toBeNull();
     act(() => {
       store.edit((q) => updateBox(q, { innerWidth: q.box.innerWidth + 5 }));
     });
@@ -789,7 +789,7 @@ describe("App", () => {
     });
     expect(store.state.stale.value).toBe(true);
     expect(screen.getByText("This plan is from before your last changes.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Update the plan" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Make a new plan" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
   });
 
@@ -974,7 +974,7 @@ describe("App", () => {
       expect(store.state.conflict.value).toBe(false);
       openMenu();
       expect(await screen.findByText(/kept as a copy/)).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Keep this version" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Use this tab's version" })).toBeNull();
       expect(screen.queryByRole("button", { name: /Use the other tab/ })).toBeNull();
     });
 
@@ -997,7 +997,7 @@ describe("App", () => {
       store.state.conflict.value = true;
       store.pushNotice(notice("Another tab saved this project."));
       openMenu();
-      fireEvent.click(await screen.findByRole("button", { name: "Keep this version" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Use this tab's version" }));
       expect(resolve).toHaveBeenLastCalledWith("keepMine");
       openMenu();
       fireEvent.click(screen.getByRole("button", { name: "Use the other tab's version" }));
@@ -1018,7 +1018,7 @@ describe("App", () => {
       fireEvent.click(menu);
       const panel = screen.getByRole("group", { name: "Project" });
       const first = panel.querySelector("button");
-      expect(first?.textContent).toBe("Keep this version");
+      expect(first?.textContent).toBe("Use this tab's version");
       expect(
         within(panel).getByRole("button", { name: "Use the other tab's version" }),
       ).toBeTruthy();
@@ -1070,13 +1070,13 @@ describe("App", () => {
       return { ...p, layout: makeLayout("an-older-hash") };
     };
 
-    it("shows the stale banner once, with Update the plan", async () => {
+    it("shows the stale banner once, with Make a new plan", async () => {
       const { store } = renderApp({ project: stalePlan() });
       expect(store.state.stale.value).toBe(true);
       expect(await screen.findByText("This plan is from before your last changes.")).toBeTruthy();
       expect(screen.queryByText(/Inputs changed since this plan was made/)).toBeNull();
       const refit = vi.spyOn(store, "refit").mockImplementation(() => undefined);
-      fireEvent.click(screen.getByRole("button", { name: "Update the plan" }));
+      fireEvent.click(screen.getByRole("button", { name: "Make a new plan" }));
       expect(refit).toHaveBeenCalled();
     });
 

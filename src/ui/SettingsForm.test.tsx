@@ -49,7 +49,7 @@ describe("SETTING_SETTERS", () => {
 });
 
 describe("SettingsForm", () => {
-  it("opens Exact values for an error in a field inside, and keeps it open once fixed", () => {
+  it("opens Exact numbers for an error in a field inside, and keeps it open once fixed", () => {
     const error = {
       level: "error" as const,
       code: "field.setting",
@@ -120,7 +120,7 @@ describe("SettingsForm", () => {
     expect(screen.getByRole("combobox", { name: "Fit" })).toBeTruthy();
     expect(screen.getByLabelText("Room for fingers")).toBeTruthy();
     const disc = view.container.querySelector("details.pf-disc");
-    expect(disc?.querySelector("summary")?.textContent).toBe("Exact values");
+    expect(disc?.querySelector("summary")?.textContent).toBe("Exact numbers");
     expect(disc?.hasAttribute("open")).toBe(false);
     // the numeric fields are inside the disclosure, the lip and leftover are not
     expect(disc?.contains(screen.getByLabelText(/^Corner radius/))).toBe(true);
@@ -130,10 +130,10 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenLastCalledWith(applyWallChoice(DEFAULT_SETTINGS, "sturdy"));
   });
 
-  it("describes every exact value and wires the hint to its input", () => {
+  it("describes every exact number and wires the hint to its input", () => {
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
     const disc = view.container.querySelector("details.pf-disc");
-    // wallAbsorb sits beside "Unused space", not under Exact values (tested below).
+    // wallAbsorb sits beside "Unused space", not under Exact numbers (tested below).
     for (const r of SETTING_RANGES.filter((x) => x.path !== "wallAbsorb")) {
       const input = disc?.querySelector(`#settings-${r.path.replace("/", "-")}`);
       const hint = document.getElementById(`${input?.id}-hint`);
@@ -213,7 +213,7 @@ describe("SettingsForm", () => {
         />,
       );
       const summary = view.container.querySelector("details.pf-disc > summary");
-      expect(summary?.textContent).toBe("Exact values3 changed");
+      expect(summary?.textContent).toBe("Exact numbers3 changed");
       expect(view.container.querySelector("details.pf-disc")?.hasAttribute("open")).toBe(false);
     });
 
@@ -230,20 +230,20 @@ describe("SettingsForm", () => {
       const onChange = vi.fn();
       const s = changedFrom({ cornerRadius: 4.5, trayGap: 0.4 });
       render(<SettingsForm settings={s} onChange={onChange} />);
-      fireEvent.click(screen.getByRole("button", { name: "Restore all exact values" }));
+      fireEvent.click(screen.getByRole("button", { name: "Restore all exact numbers" }));
       // the first press discards nothing
       expect(onChange).not.toHaveBeenCalled();
       expect(screen.getByText(/Put 2 values back to their defaults\?/)).toBeTruthy();
-      fireEvent.click(screen.getByRole("button", { name: "Keep my values" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(onChange).not.toHaveBeenCalled();
-      expect(screen.getByRole("button", { name: "Restore all exact values" })).toBeTruthy();
-      fireEvent.click(screen.getByRole("button", { name: "Restore all exact values" }));
+      expect(screen.getByRole("button", { name: "Restore all exact numbers" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Restore all exact numbers" }));
       fireEvent.click(screen.getByRole("button", { name: "Restore" }));
       expect(onChange).toHaveBeenCalledTimes(1);
       expect(onChange).toHaveBeenLastCalledWith(DEFAULT_SETTINGS);
     });
 
-    it("restores every exact value but leaves the choices outside the panel alone", () => {
+    it("restores every exact number but leaves the choices outside the panel alone", () => {
       const s = changedFrom({
         wall: 2,
         fit: 1.4,
@@ -274,7 +274,7 @@ describe("SettingsForm", () => {
       expect(view.container.querySelector(".pf-count")).toBeNull();
     });
 
-    it("offers the play limit among the exact values, with its hint", () => {
+    it("offers the play limit among the exact numbers, with its hint", () => {
       const onChange = vi.fn();
       const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
       const input = screen.getByLabelText(/^Play limit/);
@@ -309,9 +309,9 @@ describe("SettingsForm", () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });
   });
 
-  describe("search among the exact values", () => {
+  describe("search among the exact numbers", () => {
     const search = (text: string): void => {
-      fireEvent.input(screen.getByRole("searchbox", { name: "Search exact values" }), {
+      fireEvent.input(screen.getByRole("searchbox", { name: "Search exact numbers" }), {
         target: { value: text },
       });
     };
@@ -358,7 +358,7 @@ describe("SettingsForm", () => {
     it("reports no match", () => {
       render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
       search("zzzz");
-      expect(screen.getByRole("status").textContent).toBe("No exact value matches.");
+      expect(screen.getByRole("status").textContent).toBe("No exact number matches.");
     });
   });
 
@@ -383,7 +383,9 @@ describe("SettingsForm", () => {
   it("offers the two merge switches: spacers on, risers off by default", () => {
     const onChange = vi.fn();
     const view = render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
-    const fillers = screen.getByLabelText("Join spacers into fewer parts") as HTMLInputElement;
+    const fillers = screen.getByLabelText(
+      "Join spacers into fewer pieces to print",
+    ) as HTMLInputElement;
     const risers = screen.getByLabelText("Fold risers into the joined spacers") as HTMLInputElement;
     expect(fillers.checked).toBe(true);
     expect(risers.checked).toBe(false);

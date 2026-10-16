@@ -71,7 +71,7 @@ export function CommonOptions<C extends Component>({
         path={`${at}/perPlayer`}
         hint={
           grouped
-            ? "Not available for grouped components."
+            ? "Not available for grouped items."
             : "Each player's set gets its own tray or compartment."
         }
         onChange={(on) => onChange(setPerPlayer(c, on ? 4 : undefined))}
@@ -96,13 +96,13 @@ export function CommonOptions<C extends Component>({
         normalize={(v) => v.trim()}
         path={`${at}/groupId`}
         placeholder="e.g. tokens"
-        hint="Components with the same group name share one tray, each in its own compartment."
+        hint="Items with the same group name share one tray, each in its own compartment."
         onCommit={(v) => onChange(setGroup(c, v))}
       />
       <CheckField
         id={`${c.id}-ownClearance`}
         label="Use its own extra room"
-        hint="Replaces the global clearance for this component only."
+        hint="Replaces the global clearance for this item only."
         checked={c.clearance !== undefined}
         onChange={(on) => onChange(setClearance(c, on ? 1 : undefined))}
       />

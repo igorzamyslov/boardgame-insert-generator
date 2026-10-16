@@ -134,7 +134,7 @@ export function EditorPanel({
               ref={keepRef}
               onClick={() => ask(false)}
             >
-              Keep it
+              Cancel
             </button>
           </div>
         ) : (
