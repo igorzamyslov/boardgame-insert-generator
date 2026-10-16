@@ -54,7 +54,7 @@ describe("prefs store", () => {
     ["null", "null"],
     ["no printer", "{}"],
     ["a string bed", JSON.stringify({ printer: { ...MINE, bedX: "256" } })],
-    ["a missing field", JSON.stringify({ printer: { bedX: 200, bedY: 200, bedZ: 200 } })],
+    ["a null field", JSON.stringify({ printer: { ...MINE, bedMargin: null } })],
     ["a negative bed", JSON.stringify({ printer: { ...MINE, bedX: -5 } })],
     ["a margin that eats the bed", JSON.stringify({ printer: { ...MINE, bedMargin: 90 } })],
     ["a layer height out of range", JSON.stringify({ printer: { ...MINE, layerHeight: 5 } })],
@@ -81,5 +81,22 @@ describe("prefs store", () => {
     const storage = new MemoryStorage();
     storage.setItem(KEY, JSON.stringify({ printer: { ...MINE, nozzle: 0.4 }, future: true }));
     expect(createPrefsStore(storage).printer.value).toEqual(MINE);
+  });
+
+  it("takes the default for a field the stored printer lacks, so an older entry still loads", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(KEY, JSON.stringify({ printer: { bedX: 200, bedY: 190, bedZ: 180 } }));
+    expect(createPrefsStore(storage).printer.value).toEqual({
+      ...DEFAULT_PRINTER,
+      bedX: 200,
+      bedY: 190,
+      bedZ: 180,
+    });
+  });
+
+  it("still rejects a field that is present but wrong", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(KEY, JSON.stringify({ printer: { bedX: "200" } }));
+    expect(createPrefsStore(storage).printer.value).toEqual(DEFAULT_PRINTER);
   });
 });

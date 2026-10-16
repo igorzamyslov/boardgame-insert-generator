@@ -7,7 +7,19 @@ import { validateProject } from "../model/validate";
 import { STORAGE_PREFIX, defaultStorage } from "./store";
 
 const PREFS_KEY = `${STORAGE_PREFIX}prefs`;
-const PRINTER_FIELDS = ["bedX", "bedY", "bedZ", "bedMargin", "layerHeight"] as const;
+const PRINTER_FIELDS = [
+  "bedX",
+  "bedY",
+  "bedZ",
+  "bedMargin",
+  "layerHeight",
+] as const satisfies readonly (keyof Printer)[];
+
+// Adding a field to Printer fails to compile here until PRINTER_FIELDS lists it, so a stored
+// entry is never read without it (or silently stripped of it).
+type UnlistedPrinterField = Exclude<keyof Printer, (typeof PRINTER_FIELDS)[number]>;
+const ALL_PRINTER_FIELDS_LISTED: [UnlistedPrinterField] extends [never] ? true : never = true;
+void ALL_PRINTER_FIELDS_LISTED;
 
 export interface PrefsStore {
   /** The printer new inserts start with; the defaults until one is set (or when none can be read). */
@@ -19,14 +31,21 @@ export interface PrefsStore {
   setPrinter(p: Printer): void;
 }
 
-/** The printer when every field is a finite number and the project validator finds nothing wrong with it. */
+/**
+ * The printer when every field it carries is a finite number and the project validator finds
+ * nothing wrong with it. A field it lacks (an entry from before the field existed) takes its
+ * default; a field that is there but not a number is a damaged entry.
+ */
 function validPrinter(x: unknown): Printer | null {
   if (!isRecord(x)) {
     return null;
   }
-  const printer = {} as Printer;
+  const printer: Printer = { ...DEFAULT_PRINTER };
   for (const field of PRINTER_FIELDS) {
     const v = x[field];
+    if (v === undefined) {
+      continue;
+    }
     if (typeof v !== "number" || !Number.isFinite(v)) {
       return null;
     }
@@ -36,6 +55,10 @@ function validPrinter(x: unknown): Printer | null {
     (n) => n.level === "error" && n.path?.startsWith("/printer") === true,
   );
   return bad ? null : printer;
+}
+
+function samePrinter(a: Printer, b: Printer): boolean {
+  return PRINTER_FIELDS.every((f) => a[f] === b[f]);
 }
 
 function readPrinter(storage: Storage | null): Printer {
@@ -63,6 +86,19 @@ function readPrinter(storage: Storage | null): Printer {
  */
 export function createPrefsStore(storage: Storage | null = defaultStorage()): PrefsStore {
   const printer = signal(readPrinter(storage));
+  if (storage && typeof window !== "undefined") {
+    // Another tab saved (or cleared) the preference: follow it, so this tab never writes over it
+    // with a printer it has since been told to forget.
+    window.addEventListener("storage", (e) => {
+      if (e.storageArea !== storage || (e.key !== null && e.key !== PREFS_KEY)) {
+        return;
+      }
+      const next = readPrinter(storage);
+      if (!samePrinter(next, printer.peek())) {
+        printer.value = next;
+      }
+    });
+  }
   return {
     printer,
     setPrinter(p) {
