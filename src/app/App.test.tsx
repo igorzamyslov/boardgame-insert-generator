@@ -667,6 +667,8 @@ describe("App", () => {
         store.state.runScheduled.value = true;
       });
       expect(download().getAttribute("aria-disabled")).toBe("true");
+      // Only a run is pending: the plan updates by itself, so the reason says to wait.
+      expect(download().getAttribute("title")).toBe("Wait for the plan to finish");
       act(() => {
         store.state.runScheduled.value = false;
       });
@@ -758,6 +760,30 @@ describe("App", () => {
       ),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Keep the old plan" }));
+    expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
+  });
+
+  it("shows the stale banner after Keep the old plan and an edit", () => {
+    const p = fixtureProject();
+    const { store } = renderApp({
+      project: {
+        ...p,
+        layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Keep the old plan" }));
+    expect(screen.queryByRole("button", { name: "Update the plan" })).toBeNull();
+    act(() => {
+      store.edit((q) => updateBox(q, { innerWidth: q.box.innerWidth + 5 }));
+    });
+    // the edit's own run has settled without a new plan
+    act(() => {
+      store.state.runScheduled.value = false;
+      store.state.run.value = { status: "idle" };
+    });
+    expect(store.state.stale.value).toBe(true);
+    expect(screen.getByText("This plan is from before your last changes.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Update the plan" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
   });
 

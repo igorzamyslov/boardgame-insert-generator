@@ -269,17 +269,21 @@ export function App(props: AppProps) {
   // Where each notice shows: the one banner, the project menu (with a dot), or inline.
   const noFit =
     s.shortfall.value !== null || layoutNotices.some((n) => n.code === NOTICE_CODES.doesNotFit);
+  const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
+  // The older-geometry notice the person chose to keep is not shown, so it must not hide the stale
+  // one either (placeNotices lets the geometry notice speak for both).
   const placed = placeNotices(
     [
       ...s.appNotices.value,
-      ...layoutNotices.filter((n) => n.code === STALE_CODE || n.code === GEOMETRY_MAJOR_CODE),
+      ...layoutNotices.filter(
+        (n) =>
+          n.code === STALE_CODE || (n.code === GEOMETRY_MAJOR_CODE && geometryKept !== geometryKey),
+      ),
     ],
     { runPending: s.runPending.value, runStatus: run.status, noFit },
   );
-  const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
   const showStale = placed.banner.some((n) => n.code === STALE_CODE);
-  const showGeometry =
-    placed.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE) && geometryKept !== geometryKey;
+  const showGeometry = placed.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE);
   // The stale and older-geometry notices are the banner's: the summary lists the others.
   const summaryNotices = layoutNotices.filter(
     (n) => n.code !== STALE_CODE && n.code !== GEOMETRY_MAJOR_CODE,
@@ -346,9 +350,13 @@ export function App(props: AppProps) {
                 onDownload={() => setExportOpen(true)}
                 downloadDisabled={layout === undefined || s.stale.value || s.runPending.value}
                 downloadReason={
-                  layout !== undefined && (s.stale.value || s.runPending.value)
-                    ? "Update the plan first"
-                    : undefined
+                  layout === undefined
+                    ? undefined
+                    : s.runPending.value
+                      ? "Wait for the plan to finish"
+                      : s.stale.value
+                        ? "Update the plan first"
+                        : undefined
                 }
                 menuDot={placed.menu.length > 0}
                 menuNoticeCount={placed.menu.length}
