@@ -1,5 +1,6 @@
 import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
+import readme from "../../README.md?raw";
 
 /**
  * How the scan works. Every non-test `.ts` and `.tsx` file under `src/` is parsed with the
@@ -119,5 +120,22 @@ describe("copy", () => {
       }
     }
     expect(found).toEqual([]);
+  });
+
+  it("keeps the README to the same words", () => {
+    // The README says what the app does today: no mode switch, no numbered trays, no old controls.
+    for (const old of [
+      /\bAdvanced\b/,
+      /\bSimple mode\b/,
+      /\bnumbered (?:tray|spare)/i,
+      /\bLock position\b/,
+      /<MoreOptions open=/,
+      /\bCopy link\b/,
+      /\bFind a better fit\b/i,
+    ]) {
+      expect(readme).not.toMatch(old);
+    }
+    expect(readme).toContain("Pin");
+    expect(readme).toContain("Keep searching");
   });
 });
