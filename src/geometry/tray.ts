@@ -4,8 +4,8 @@ import type { MergedPart, Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
 import { carriesName } from "../model/part-name";
-import { buildEngraving, planEngraving, planMergedEngraving } from "./engrave";
-import type { EngravePlan } from "./engrave";
+import { buildEngravings, hasEngraving, planEngravings, planMergedEngraving } from "./engrave";
+import type { Engravings } from "./engrave";
 import { cutFace, filletStrip } from "./plan-cuts";
 import { INNER_CORNER_RADIUS_MM } from "./plan-types";
 import type { CompartmentPlan, CutPlan, LipPlan, Rect, ScoopPlan, TrayPlan } from "./plan-types";
@@ -310,7 +310,7 @@ function buildSolid(
   spec: TraySpec,
   settings: Settings,
   plan: TrayPlan = planTray(spec, settings),
-  engraving: EngravePlan | null = null,
+  engravings: Engravings | null = null,
 ): Manifold {
   let solid = buildOuter(m, scope, plan);
   if (plan.lip) {
@@ -330,8 +330,9 @@ function buildSolid(
       : { v0: -OVERSHOOT, v1: plan.d + OVERSHOOT };
     cutters.push(...buildTopFillets(m, scope, n, { top: plan.h, ...strip }));
   }
-  if (engraving) {
-    cutters.push(buildEngraving(m, scope, engraving, spec));
+  const engraved = engravings ? buildEngravings(m, scope, engravings, spec) : null;
+  if (engraved) {
+    cutters.push(engraved);
   }
   if (cutters.length > 0) {
     solid = scope.track(solid.subtract(scope.track(m.Manifold.union(cutters))));
@@ -340,11 +341,16 @@ function buildSolid(
 }
 
 // The name engraved on a part (spec.partName, set by the app on the copy it asks to build when
-// the engraving setting is on) and where; null for a part that carries none (a plate: a spacer or
-// divider), or that has no face with room (planEngraving).
-function engravingOf(plan: TrayPlan, spec: TraySpec): EngravePlan | null {
+// the engraving setting is on) and where: two opposite outer walls and the underside, each that
+// has room; null for a part that carries none (a plate: a spacer or divider), or that has no face
+// with room (planEngravings).
+function engravingsOf(plan: TrayPlan, spec: TraySpec): Engravings | null {
   const name = spec.partName;
-  return name === undefined || !carriesName(spec.part) ? null : planEngraving(plan, name);
+  if (name === undefined || !carriesName(spec.part)) {
+    return null;
+  }
+  const found = planEngravings(plan, name);
+  return hasEngraving(found) ? found : null;
 }
 
 function buildPart(
@@ -354,7 +360,7 @@ function buildPart(
   settings: Settings,
 ): Manifold {
   const plan = planTray(spec, settings);
-  return buildSolid(m, scope, spec, settings, plan, engravingOf(plan, spec));
+  return buildSolid(m, scope, spec, settings, plan, engravingsOf(plan, spec));
 }
 
 // A merged part (several fillers and risers printed as one, mergeParts): each member built as it
@@ -369,19 +375,25 @@ function buildMerged(
   settings: Settings,
 ): Manifold {
   // The name goes on one member, on a face on the merged part's own outside (as it prints: a
-  // flipped part is turned over, front and back change places): the member where it is largest.
+  // flipped part is turned over, front and back change places): the member where it is largest,
+  // and the wall opposite when that is on the outside too. Never the underside.
   const plans = merged.members.map((member) => planTray(member, settings));
   const found =
     spec.partName !== undefined && carriesName(spec.part)
       ? planMergedEngraving(spec, merged, plans, spec.partName)
       : null;
   const onMember = found?.member ?? -1;
-  const engraving = found?.engraving ?? null;
+  const engravings: Engravings | null = found ? { walls: found.engravings, underside: null } : null;
   const pieces: Manifold[] = merged.members.map((member, i) =>
     scope.track(
-      buildSolid(m, scope, member, settings, plans[i], i === onMember ? engraving : null).translate(
-        [member.x - spec.x, member.y - spec.y, member.z - spec.z],
-      ),
+      buildSolid(
+        m,
+        scope,
+        member,
+        settings,
+        plans[i],
+        i === onMember ? engravings : null,
+      ).translate([member.x - spec.x, member.y - spec.y, member.z - spec.z]),
     ),
   );
   for (const b of merged.bridges) {

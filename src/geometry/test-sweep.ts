@@ -9,7 +9,7 @@ import { openSpacers } from "../layout/spacers";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
 import { carriesName } from "../model/part-name";
-import { planEngraving } from "./engrave";
+import { hasEngraving, planEngravings } from "./engrave";
 import { loadManifold } from "./load";
 import { planTray } from "./plan";
 import { problemsOf } from "./test-build";
@@ -39,9 +39,18 @@ import type { RealizeOptions } from "../sizing/types";
 type MeshProfile = [string, Profile, (readonly RealizeOptions[])?];
 
 /** Names of every shape the app gives a part: one word, several, a counter, ten characters. */
-const SWEEP_NAMES = ["Cards", "Spac Dice", "Market 12", "Wooden Meeples", "A", "Spare Hex 2"].map(
-  (n) => n.slice(0, 10).trim(),
-);
+const SWEEP_NAMES = [
+  "Cards",
+  "Spac Dice",
+  "Market 12",
+  "Wooden Meeples",
+  "A",
+  "Spare Hex 2",
+  "ABCDEFGHIJ",
+  "KLMNOPQRST",
+  "UVWXYZ 0123",
+  "456789-RSW",
+].map((n) => n.slice(0, 10).trim());
 
 const MESH_PROFILES: MeshProfile[] = [
   ["fixture settings", FIXTURE_SETTINGS],
@@ -156,7 +165,7 @@ export function sweepMeshes(fixtures: readonly [string, unknown][]): void {
         try {
           if (
             carriesName(spec.part) &&
-            planEngraving(planTray(spec, settings), spec.partName ?? "")
+            hasEngraving(planEngravings(planTray(spec, settings), spec.partName ?? ""))
           ) {
             engraved += 1;
           }

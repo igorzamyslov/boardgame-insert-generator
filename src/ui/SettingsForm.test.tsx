@@ -376,6 +376,11 @@ describe("SettingsForm", () => {
     render(<SettingsForm settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const box = screen.getByLabelText("Engrave tray names") as HTMLInputElement;
     expect(box.checked).toBe(true);
+    // it says where the name goes: two opposite walls and the underside
+    const hint = document.getElementById(box.getAttribute("aria-describedby") ?? "")?.textContent;
+    expect(hint).toMatch(/two opposite outer walls and under the tray/);
+    expect(hint).toMatch(/mirrored/);
+    expect(hint).not.toMatch(/one of its outer walls/);
     fireEvent.click(box);
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, engraveNames: false });
   });

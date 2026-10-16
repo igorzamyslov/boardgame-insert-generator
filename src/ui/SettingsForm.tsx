@@ -315,7 +315,7 @@ export function PrintingOptions({ settings, onChange }: SettingsFormProps) {
         id="settings-engraveNames"
         label="Engrave tray names"
         checked={settings.engraveNames}
-        hint="Cuts each tray's name, shortened to fit, into one of its outer walls, a shallow 0.4 mm recess you can read once the tray is out of the box. Plates that go inside another tray (card spacers, dividers) carry none, and a tray with no room or too thin a wall is left plain. Only the printed trays change: your layout stays the same."
+        hint="Cuts each tray's name, shortened to fit, into two opposite outer walls and under the tray, shallow recesses you can read once the tray is out of the box (the name under it is mirrored, so it reads right when you turn the tray over). A side that is too small or too thin is left plain, and so is a tray with no room anywhere. Plates that go inside another tray (card spacers, dividers) carry none. Only the printed trays change: your layout stays the same."
         onChange={(engraveNames) => onChange({ ...settings, engraveNames })}
       />
       <CheckField

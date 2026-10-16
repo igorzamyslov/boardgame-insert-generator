@@ -11,10 +11,16 @@ import {
   ENGRAVE_DEPTH_MM,
   ENGRAVE_STROKE_MAX_MM,
   ENGRAVE_STROKE_MIN_MM,
+  UNDERSIDE_DEPTH_MAX_MM,
+  UNDERSIDE_SLOPE,
   engravingPieces,
   planEngraving,
+  planEngravings,
+  planUnderside,
+  planWallEngravings,
+  undersidePieces,
 } from "./engrave";
-import { GLYPH_ROWS, textWidth } from "./glyphs";
+import { GLYPH_ROWS, glyphRects, textWidth } from "./glyphs";
 import { engravesName } from "./engraves";
 import { loadManifold } from "./load";
 import { planTray } from "./plan";
@@ -41,6 +47,9 @@ import {
 import { problemsOf } from "./test-build";
 import { bounds, signedVolume, topology } from "./test-mesh";
 import { buildTray } from "./tray";
+
+// How many strokes a character's cutter has: its pieces in `undersidePieces`.
+const glyphRectCount = (ch: string): number => glyphRects(ch).length;
 
 let m: ManifoldToplevel;
 beforeAll(async () => {
@@ -72,10 +81,12 @@ describe("an engraved tray name", () => {
     const plain = buildTray(m, plainBox, GEO);
     const named = buildTray(m, { ...plainBox, partName: "Cards" }, GEO);
     expect(named.volumeMm3).toBeLessThan(plain.volumeMm3);
-    // five capitals, 8 mm tall and 4.8 mm wide, 0.4 mm deep (less their roofs and the islands)
+    // five capitals, 8 mm tall and 4.8 mm wide, 0.4 mm deep (less their roofs and the islands), on
+    // the front wall and on the back wall, and a shallower V under the tray
     const removed = plain.volumeMm3 - named.volumeMm3;
-    expect(removed).toBeGreaterThan(20);
-    expect(removed).toBeLessThan(8 * textWidth("Cards") * ENGRAVE_STROKE_MAX_MM * ENGRAVE_DEPTH_MM);
+    expect(removed).toBeGreaterThan(40);
+    const oneWall = 8 * textWidth("Cards") * ENGRAVE_STROKE_MAX_MM * ENGRAVE_DEPTH_MM;
+    expect(removed).toBeLessThan(2 * oneWall + 20);
     // same outer size
     expect(bounds(named.mesh)).toEqual(bounds(plain.mesh));
     expect(problemsOf(m, { ...plainBox, partName: "Cards" }, GEO)).toEqual([]);
@@ -148,9 +159,14 @@ describe("an engraved tray name", () => {
       compartments: [compartment({ x: 0.9, y: 0.9, w: 98.2, d: 58.2 })],
     };
     expect(planEngraving(planTray(spec, thin), "Dice")).toBeNull();
-    expect(buildTray(m, { ...spec, partName: "Dice" }, thin).volumeMm3).toBe(
-      buildTray(m, spec, thin).volumeMm3,
-    );
+    expect(planWallEngravings(planTray(spec, thin), "Dice")).toEqual([]);
+    // the walls are left plain (the underside is planned on its own, over the 1.2 mm floor)
+    const named = buildTray(m, { ...spec, partName: "Dice" }, thin);
+    const plain = buildTray(m, spec, thin);
+    const front = onPlane(named.mesh, 1, ENGRAVE_DEPTH_MM).filter(([, , z]) => z > 1.5);
+    expect(front).toEqual([]);
+    expect(onPlane(named.mesh, 1, 60 - ENGRAVE_DEPTH_MM).filter(([, , z]) => z > 1.5)).toEqual([]);
+    expect(named.volumeMm3).toBeLessThanOrEqual(plain.volumeMm3);
     // a 1.2 mm wall takes a shallower cut that still leaves 0.8 mm
     const sturdier = {
       ...spec,
@@ -223,7 +239,7 @@ describe("an engraved tray name", () => {
     expect(planEngraving(planTray(flat, GEO), "Dice")).toBeNull();
   });
 
-  it("tries a tighter band on a low part before leaving it plain, and never the underside", () => {
+  it("tries a tighter band on a low part before leaving it plain", () => {
     const low = (h: number) => traySpec({ key: `l${h}:p0:0`, w: 80, d: 50, h, solid: true });
     // 7 mm tall: no room between the usual margins (1 mm above the chamfer, 1.5 mm below the rim)
     const seven = planTray(low(7), GEO);
@@ -273,6 +289,14 @@ describe("an engraved tray name", () => {
       return out;
     };
 
+    // The vertices of `fresh` on the walls: within a millimetre of an outer face (the underside's
+    // are further in than the groove's reach).
+    const wallVertices = (
+      fresh: [number, number, number][],
+      part: { w: number; d: number },
+    ): [number, number, number][] =>
+      fresh.filter(([x, y]) => Math.min(x, part.w - x, y, part.d - y) < 1);
+
     it("starts above the groove's roof: the recess's lowest point is not under the groove's top", () => {
       // 13 mm high: the usual band (1 mm above the groove, 1.5 below the rim) is just what the letters fill
       const tray = { ...upperLevel1, h: 13 };
@@ -291,8 +315,9 @@ describe("an engraved tray name", () => {
       const plain = buildTray(m, tray, GEO);
       const cut = buildTray(m, named, GEO);
       expect(cut.volumeMm3).toBeLessThan(plain.volumeMm3);
-      // every vertex the engraving adds, its floor and its roof, lies on or above the groove's top
-      const fresh = added(cut.mesh, plain.mesh);
+      // every vertex the wall engravings add, their floors and roofs, lies on or above the groove's
+      // top (the underside engraving's are the ones near the bed: see "on three faces")
+      const fresh = wallVertices(added(cut.mesh, plain.mesh), tray);
       expect(fresh.length).toBeGreaterThan(0);
       expect(Math.min(...fresh.map((p) => p[2]))).toBeGreaterThanOrEqual(zTop);
       // and it is still one closed, printable solid
@@ -313,9 +338,9 @@ describe("an engraved tray name", () => {
       const plain = buildTray(m, low(10), GEO);
       const cut = buildTray(m, named, GEO);
       expect(cut.volumeMm3).toBeLessThan(plain.volumeMm3);
-      expect(Math.min(...added(cut.mesh, plain.mesh).map((p) => p[2]))).toBeGreaterThanOrEqual(
-        zTop,
-      );
+      expect(
+        Math.min(...wallVertices(added(cut.mesh, plain.mesh), low(10)).map((p) => p[2])),
+      ).toBeGreaterThanOrEqual(zTop);
       expect(problemsOf(m, named, GEO)).toEqual([]);
       // too low even for that: plain
       expect(planEngraving(planTray(low(9), GEO), "Dice")).toBeNull();
@@ -372,6 +397,346 @@ describe("an engraved tray name", () => {
       expect(topo.genus).toBe(topology(plain.mesh).genus);
       expect(signedVolume(named.mesh)).toBeCloseTo(named.volumeMm3, 0);
       expect(checkPrintability(named.mesh)).toMatchObject({ ok: true, overhangTriangles: 0 });
+    }
+  });
+});
+
+describe("a name on three faces: two opposite walls and the underside", () => {
+  // The vertices `named` has that `plain` has not: the engravings' own corners.
+  const added = (named: { positions: Float32Array }, plain: { positions: Float32Array }) => {
+    const key = (a: Float32Array, i: number) =>
+      [0, 1, 2].map((k) => (a[i + k] ?? 0).toFixed(3)).join(",");
+    const had = new Set<string>();
+    for (let i = 0; i < plain.positions.length; i += 3) {
+      had.add(key(plain.positions, i));
+    }
+    const out: [number, number, number][] = [];
+    for (let i = 0; i < named.positions.length; i += 3) {
+      if (!had.has(key(named.positions, i))) {
+        out.push([
+          named.positions[i] ?? 0,
+          named.positions[i + 1] ?? 0,
+          named.positions[i + 2] ?? 0,
+        ]);
+      }
+    }
+    return out;
+  };
+  // The underside's vertices are the new ones within the groove-free bed: below the walls' band.
+  const underside = (fresh: [number, number, number][]) => fresh.filter(([, , z]) => z < 1);
+  const wallsOf = (fresh: [number, number, number][]) => fresh.filter(([, , z]) => z >= 1);
+
+  it("engraves the long walls and the underside of a plain tray, each with its own room", () => {
+    const plan = planTray(plainBox, GEO);
+    const e = planEngravings(plan, "Cards");
+    // the face today's rule prefers (the front, the first with a good stroke) and the one across
+    expect(e.walls.map((w) => w.face)).toEqual(["front", "back"]);
+    expect(e.walls.every((w) => w.stroke === ENGRAVE_STROKE_MAX_MM)).toBe(true);
+    const u = e.underside;
+    expect(u).not.toBeNull();
+    // centred, along the longer side, at the largest stroke
+    expect(u?.cx).toBe(50);
+    expect(u?.cy).toBe(30);
+    expect(u?.along).toBe("x");
+    expect(u?.stroke).toBe(ENGRAVE_STROKE_MAX_MM);
+
+    const plain = buildTray(m, plainBox, GEO);
+    const named = buildTray(m, { ...plainBox, partName: "Cards" }, GEO);
+    expect(problemsOf(m, { ...plainBox, partName: "Cards" }, GEO)).toEqual([]);
+    expect(bounds(named.mesh)).toEqual(bounds(plain.mesh));
+    const fresh = added(named.mesh, plain.mesh);
+    // both walls: recess floors in the planes y = depth and y = d - depth
+    expect(onPlane(named.mesh, 1, ENGRAVE_DEPTH_MM).length).toBeGreaterThan(0);
+    expect(onPlane(named.mesh, 1, 60 - ENGRAVE_DEPTH_MM).length).toBeGreaterThan(0);
+    expect(wallsOf(fresh).length).toBeGreaterThan(0);
+    // the underside: grooves in the bed face, none deeper than the cap
+    const under = underside(fresh);
+    expect(under.length).toBeGreaterThan(0);
+    expect(Math.max(...under.map((p) => p[2]))).toBeLessThanOrEqual(UNDERSIDE_DEPTH_MAX_MM + 1e-6);
+    expect(Math.max(...under.map((p) => p[2]))).toBeCloseTo(u?.depth ?? NaN, 3);
+  });
+
+  it("puts a wall's name on the pair across from the face it prefers, each wall on its own room", () => {
+    // 22 mm cut at the middle of the front wall of a 40 mm wide tray: no room in front, so the back
+    // is the face the rule prefers, and the front, across from it, is left off alone
+    const narrow = traySpec({
+      key: "n:p0:0",
+      w: 40,
+      d: 70,
+      h: 30,
+      compartments: [
+        compartment({ x: 1.6, y: 1.6, w: 36.8, d: 66.8, features: [cutout("front", 20, 12)] }),
+      ],
+    });
+    const walls = planWallEngravings(planTray(narrow, GEO), "Dice");
+    expect(walls.map((w) => w.face)).toEqual(["back"]);
+    // a part that is longer than wide with no cuts: front and back, not left and right
+    const long = traySpec({
+      key: "l:p0:0",
+      w: 40,
+      d: 70,
+      h: 30,
+      compartments: [compartment({ x: 1.6, y: 1.6, w: 36.8, d: 66.8 })],
+    });
+    expect(planWallEngravings(planTray(long, GEO), "Dice").map((w) => w.face)).toEqual([
+      "front",
+      "back",
+    ]);
+    // a face too narrow takes the pair that fits: 12 mm wide, 80 mm long
+    const slim = traySpec({ key: "s:p0:0", w: 12, d: 80, h: 30, solid: true });
+    expect(planWallEngravings(planTray(slim, GEO), "Dice").map((w) => w.face)).toEqual([
+      "left",
+      "right",
+    ]);
+  });
+
+  it("keeps the thinnest feature between two recesses on a thin solid part", () => {
+    // 1.7 mm thick: two 0.4 mm recesses would leave 0.9; a third face thinner is left plain
+    const plate = traySpec({ key: "t:p0:0", w: 60, d: 30, h: 20, solid: true });
+    const walls = planWallEngravings(planTray(plate, GEO), "Dice");
+    expect(walls).toHaveLength(2);
+    expect(30 - walls.reduce((sum, w) => sum + w.depth, 0)).toBeGreaterThanOrEqual(MIN_FEATURE_MM);
+  });
+
+  describe("the underside", () => {
+    it("is mirrored: it reads upright from below, so from above it runs toward -x", () => {
+      const u = planUnderside(planTray(plainBox, GEO), "AB");
+      expect(u).not.toBeNull();
+      if (u === null) {
+        return;
+      }
+      // the stroke footprints on the bed face, one per piece, in the part's frame
+      const feet = undersidePieces(u).map((points) => {
+        const bed = points.filter((p) => p[2] === 0);
+        const xs = bed.map((p) => p[0]);
+        const ys = bed.map((p) => p[1]);
+        return {
+          x0: Math.min(...xs),
+          x1: Math.max(...xs),
+          y0: Math.min(...ys),
+          y1: Math.max(...ys),
+        };
+      });
+      // A is the first letter and B the second: A lies at larger x, since the text reads toward -x
+      const aCells = glyphRectCount("A");
+      const a = feet.slice(0, aCells);
+      const b = feet.slice(aCells);
+      expect(Math.min(...a.map((f) => f.x0))).toBeGreaterThan(Math.max(...b.map((f) => f.x1)));
+      // the same on a part that is longer than wide, turned: the first letter lies at lower y
+      const t = planUnderside(
+        planTray(
+          traySpec({
+            key: "t:p0:0",
+            w: 60,
+            d: 100,
+            h: 30,
+            compartments: [compartment({ x: 1.6, y: 1.6, w: 56.8, d: 96.8 })],
+          }),
+          GEO,
+        ),
+        "AB",
+      );
+      expect(t?.along).toBe("y");
+      const tf = undersidePieces(t as NonNullable<typeof t>).map((points) =>
+        points.filter((p) => p[2] === 0).map((p) => p[1]),
+      );
+      expect(Math.max(...tf.slice(0, aCells).flat())).toBeLessThan(
+        Math.min(...tf.slice(aCells).flat()),
+      );
+    });
+
+    it("draws the letters as a viewer below the part sees them: right is -x, up is +y", () => {
+      const u = planUnderside(planTray(plainBox, GEO), "2");
+      expect(u).not.toBeNull();
+      if (u === null) {
+        return;
+      }
+      const feet = undersidePieces(u).map((points) => {
+        const bed = points.filter((p) => p[2] === 0);
+        const rights = bed.map((p) => -p[0]);
+        const ups = bed.map((p) => p[1]);
+        return {
+          r0: Math.min(...rights),
+          r1: Math.max(...rights),
+          u0: Math.min(...ups),
+          u1: Math.max(...ups),
+        };
+      });
+      const inset = (u.stroke - u.line) / 2;
+      const r0 = Math.min(...feet.map((f) => f.r0)) - inset;
+      const u0 = Math.min(...feet.map((f) => f.u0)) - inset;
+      const rows: string[] = [];
+      for (let row = 4; row >= 0; row -= 1) {
+        let line = "";
+        for (let col = 0; col < 3; col += 1) {
+          const r = r0 + (col + 0.5) * u.stroke;
+          const up = u0 + (row + 0.5) * u.stroke;
+          line += feet.some((f) => r > f.r0 && r < f.r1 && up > f.u0 && up < f.u1) ? "#" : ".";
+        }
+        rows.push(line);
+      }
+      // the 2 of glyphs.ts, upright and not reversed
+      expect(rows).toEqual(["###", "..#", "###", "#..", "###"]);
+    });
+
+    it("keeps clear of the stacking groove on an upper tray, and the walls stay above it", () => {
+      const tray = { ...upperLevel1, h: 13 };
+      const plan = planTray(tray, GEO);
+      const groove = plan.groove;
+      expect(groove).not.toBeNull();
+      const reach = groove?.reach ?? NaN;
+      const zTop = groove?.zTop ?? NaN;
+      const e = planEngravings(plan, "Cards");
+      expect(e.walls.length).toBe(2);
+      expect(e.underside).not.toBeNull();
+      const plain = buildTray(m, tray, GEO);
+      const named = buildTray(m, { ...tray, partName: "Cards" }, GEO);
+      expect(problemsOf(m, { ...tray, partName: "Cards" }, GEO)).toEqual([]);
+      const fresh = added(named.mesh, plain.mesh);
+      const under = underside(fresh);
+      expect(under.length).toBeGreaterThan(0);
+      // every vertex of the underside engraving is further in than the groove's reach (the foot
+      // chamfer's edge) plus the clearance, so it cannot touch the groove, and sits in the floor
+      const distance = ([x, y]: [number, number, number]) => Math.min(x, tray.w - x, y, tray.d - y);
+      expect(Math.min(...under.map(distance))).toBeGreaterThanOrEqual(reach + 1.5 - 1e-3);
+      expect(Math.max(...under.map((p) => p[2]))).toBeLessThan(1.2);
+      // the walls' engravings start above the groove's roof, on both walls
+      const walls = wallsOf(fresh);
+      expect(Math.min(...walls.map((p) => p[2]))).toBeGreaterThanOrEqual(zTop);
+      expect(walls.some((p) => p[1] < 1)).toBe(true);
+      expect(walls.some((p) => p[1] > tray.d - 1)).toBe(true);
+    });
+
+    it("is cut as V grooves: every face slopes up at more than 45°, and no face of it faces down", () => {
+      const u = planUnderside(planTray(plainBox, GEO), "Cards");
+      expect(u).not.toBeNull();
+      expect(u?.depth).toBeCloseTo(((u?.line ?? 0) * UNDERSIDE_SLOPE) / 2, 9);
+      expect(UNDERSIDE_SLOPE).toBeGreaterThan(1);
+      // the printed mesh has no downward face steeper than 45° above the bed (problemsOf checks it)
+      expect(problemsOf(m, { ...plainBox, partName: "Cards" }, GEO)).toEqual([]);
+      const named = buildTray(m, { ...plainBox, partName: "Cards" }, GEO);
+      expect(checkPrintability(named.mesh)).toMatchObject({ ok: true, overhangTriangles: 0 });
+    });
+
+    it("leaves the floor its thinnest feature: the depth follows the floor, up to the cap", () => {
+      const over = (floorZ: number, h = 30) =>
+        planTray(
+          traySpec({
+            key: `f${floorZ}:p0:0`,
+            w: 100,
+            d: 60,
+            h,
+            compartments: [compartment({ x: 1.6, y: 1.6, w: 96.8, d: 56.8, floorZ })],
+          }),
+          GEO,
+        );
+      // the default 1.2 mm floor: 1.2 - 0.81 = 0.39 mm deep, 0.81 mm of floor above the ridge
+      const standard = planUnderside(over(1.2), "Dice");
+      expect(standard?.depth).toBeCloseTo(1.2 - MIN_FEATURE_MM - 0.01, 6);
+      expect(1.2 - (standard?.depth ?? 0)).toBeGreaterThanOrEqual(MIN_FEATURE_MM);
+      // a thicker floor takes more, never over the cap
+      const thick = planUnderside(over(3), "Dice");
+      expect(thick?.depth).toBeLessThanOrEqual(UNDERSIDE_DEPTH_MAX_MM + 1e-9);
+      expect(thick?.depth).toBeGreaterThan(standard?.depth ?? 0);
+      // a floor too thin to keep 0.8 mm over a groove 0.3 mm deep has none
+      expect(planUnderside(over(1.05), "Dice")).toBeNull();
+      // the walls have room all the same
+      expect(planWallEngravings(over(1.05), "Dice").length).toBe(2);
+    });
+
+    it("is left off alone when the name does not fit it, or a floor notch is in its way", () => {
+      // 30 mm square: 26 mm of bed face is 0.6 mm a stroke for ten characters: off every face
+      const small = traySpec({
+        key: "s:p0:0",
+        w: 30,
+        d: 30,
+        h: 30,
+        compartments: [compartment({ x: 1.6, y: 1.6, w: 26.8, d: 26.8 })],
+      });
+      const plan = planTray(small, GEO);
+      const none = planEngravings(plan, "Wooden Mee");
+      expect(none.walls).toEqual([]);
+      expect(none.underside).toBeNull();
+      // "Dice" fits both: the walls, and the underside
+      const dice = planEngravings(plan, "Dice");
+      expect(dice.walls.length).toBe(2);
+      expect(dice.underside).not.toBeNull();
+      // ten characters on a 90 mm bed face still fit the underside (and the long walls) at 1.0
+      const wide = traySpec({
+        key: "w:p0:0",
+        w: 90,
+        d: 40,
+        h: 30,
+        compartments: [compartment({ x: 1.6, y: 1.6, w: 86.8, d: 36.8 })],
+      });
+      expect(planEngravings(planTray(wide, GEO), "Wooden Mee").underside).not.toBeNull();
+      // a floor notch under the middle of the bed face: the underside is off, the walls stay
+      const notched = traySpec({
+        key: "x:p0:0",
+        w: 50,
+        d: 50,
+        h: 30,
+        compartments: [
+          compartment({
+            x: 1.6,
+            y: 1.6,
+            w: 46.8,
+            d: 46.8,
+            features: [cutout("left", 25, 20, 24, 22)],
+          }),
+        ],
+      });
+      const n = planEngravings(planTray(notched, GEO), "Dice");
+      expect(n.underside).toBeNull();
+      expect(n.walls.length).toBeGreaterThan(0);
+      expect(problemsOf(m, { ...notched, partName: "Dice" }, GEO)).toEqual([]);
+    });
+
+    it("is the only engraving on a part too low for its walls to carry the name", () => {
+      // 6 mm high and solid: the walls have no band, the bed face has all the room it needs
+      const flat = traySpec({ key: "f:p0:0", w: 80, d: 50, h: 6, solid: true });
+      const e = planEngravings(planTray(flat, GEO), "Dice");
+      expect(e.walls).toEqual([]);
+      expect(e.underside).not.toBeNull();
+      const plain = buildTray(m, flat, GEO);
+      const named = buildTray(m, { ...flat, partName: "Dice" }, GEO);
+      expect(named.volumeMm3).toBeLessThan(plain.volumeMm3);
+      expect(problemsOf(m, { ...flat, partName: "Dice" }, GEO)).toEqual([]);
+      expect(engravesName(flat, GEO, "Dice")).toBe(true);
+    });
+  });
+
+  it("leaves a tray too small for every face plain, with the same mesh", () => {
+    const tiny = traySpec({ key: "t:p0:0", w: 12, d: 12, h: 20, solid: true });
+    const e = planEngravings(planTray(tiny, GEO), "Dice");
+    expect(e.walls).toEqual([]);
+    expect(e.underside).toBeNull();
+    const plain = buildTray(m, tiny, GEO);
+    const named = buildTray(m, { ...tiny, partName: "Dice" }, GEO);
+    expect(named.volumeMm3).toBe(plain.volumeMm3);
+    expect(named.mesh.positions).toEqual(plain.mesh.positions);
+    expect(engravesName(tiny, GEO, "Dice")).toBe(false);
+  });
+
+  it("builds a valid manifold of the same size from every kind of part, on every face that fits", () => {
+    const parts: [string, TraySpec][] = [
+      ["plain", plainBox],
+      ["upper level", { ...upperLevel1, h: 13 }],
+      ["lipped lower", lippedLower],
+      ["solid leftover", solidLeftover],
+      ["open riser", openRiser],
+      ["flat cutouts", flatCutouts],
+    ];
+    for (const [name, spec] of parts) {
+      const plain = buildTray(m, spec, GEO);
+      const named = buildTray(m, { ...spec, partName: "Dice 12" }, GEO);
+      const topo = topology(named.mesh);
+      expect(topo.closed, name).toBe(true);
+      expect(topo.genus, name).toBe(topology(plain.mesh).genus);
+      expect(bounds(named.mesh), name).toEqual(bounds(plain.mesh));
+      expect(named.volumeMm3, name).toBeLessThan(plain.volumeMm3);
+      expect(signedVolume(named.mesh), name).toBeCloseTo(named.volumeMm3, 0);
+      expect(checkPrintability(named.mesh), name).toMatchObject({ ok: true, overhangTriangles: 0 });
     }
   });
 });

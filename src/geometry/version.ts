@@ -104,6 +104,16 @@ import type { Semver } from "../model/version";
  * (a low one) is tried again in a tighter band before it is left plain; a part that was engraved
  * before is engraved just as before. Carried over from 0.8.0: a name on an upper tray with the lip
  * on is cut in a band that starts above the groove's roof, so it never touches the groove.
+ * Also in 0.8.1, and not a new version (the branch has not shipped, so 0.8.1 is not public yet): the
+ * name goes on up to three faces, each that has room: the wall it already chose and the wall
+ * opposite it (the same bands, and the thinnest feature kept between the two recesses), and the
+ * underside, mirrored so it reads upright from below, centred, kept clear of the groove, the corner
+ * arcs and any floor notch, as V grooves that close in a ridge (no flat roof, so no overhang)
+ * cut at most 0.6 mm deep and never closer than 0.81 mm to the floor's top. A name that does not
+ * fit a face is left off that face only; a part that fits none is plain, as before. Every cut is
+ * still a recess in a face's interior, so the outer size, lip, groove, wells and cuts do not move
+ * and parts printed before and after still mate and stack. A merged part carries its name on walls
+ * only.
  */
 export const GEOMETRY_VERSION = "0.8.1";
 

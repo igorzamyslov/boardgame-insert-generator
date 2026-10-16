@@ -3,12 +3,13 @@
 // packing guide and the export panel say which parts are too small to carry their name.
 import { carriesName } from "../model/part-name";
 import type { Settings, TraySpec } from "../model/types";
-import { planEngraving, planMergedEngraving } from "./engrave";
+import { hasEngraving, planEngravings, planMergedEngraving } from "./engrave";
 import { planTray } from "./plan";
 
 /**
- * True when the part is of a kind that carries a name and `name` has room on it; false when it
- * carries none or is too small (or too thin) for it; null when the part cannot be planned at all
+ * True when the part is of a kind that carries a name and `name` has room on at least one of its
+ * faces (two opposite walls and the underside); false when it
+ * carries none or is too small (or too thin) for every face; null when the part cannot be planned at all
  * (such a part is not built either, so nothing can be said of its name).
  */
 export function engravesName(spec: TraySpec, settings: Settings, name: string): boolean | null {
@@ -20,7 +21,7 @@ export function engravesName(spec: TraySpec, settings: Settings, name: string): 
       const plans = spec.merged.members.map((member) => planTray(member, settings));
       return planMergedEngraving(spec, spec.merged, plans, name) !== null;
     }
-    return planEngraving(planTray(spec, settings), name) !== null;
+    return hasEngraving(planEngravings(planTray(spec, settings), name));
   } catch {
     return null;
   }
