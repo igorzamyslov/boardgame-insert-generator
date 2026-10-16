@@ -1,19 +1,15 @@
-import { Inflate, deflateSync, strToU8 } from "fflate";
-import { parseProject, serializeProject } from "../model/schema";
-import type { ForeignData, ParseResult, Project } from "../model/types";
-import { fromBase64Url, isBase64UrlChar, toBase64Url } from "./base64url";
+import { Inflate } from "fflate";
+import { parseProject } from "../model/schema";
+import type { ParseResult } from "../model/types";
+import { fromBase64Url, isBase64UrlChar } from "./base64url";
 
-/** Version of the `#<format>.<payload>` link format (spec §8.4). */
+/**
+ * Version of the `#<format>.<payload>` link format (spec §8.4). The app no longer writes these
+ * links; it still reads them, so one saved or sent earlier opens as a copy.
+ */
 export const HASH_FORMAT = 1;
 /** Inflated JSON larger than this is refused (spec §8.4). */
 export const MAX_INFLATED_BYTES = 1024 * 1024;
-/** Hash budget for typical projects without a stored layout (fixtures test, spec §8.4). */
-export const LINK_TARGET_CHARS = 1900;
-/**
- * A whole share URL longer than this gets a "may be cut" warning (plan 5): Discord's
- * 2 000-character message limit. Fixtures with a stored layout stay under it on GitHub Pages.
- */
-export const LINK_MAX_URL_CHARS = 2000;
 
 const CHUNK_BYTES = 1024;
 
@@ -22,12 +18,6 @@ const INVISIBLE = /[\s\u00ad\u200b-\u200d\u2060\ufeff]+/g;
 
 const DAMAGED =
   "This link is incomplete or damaged. It may have been cut off when it was copied or sent. Ask for the link again, or for the project file.";
-
-/** `#1.<base64url(deflate(json))>` */
-export function encodeHash(p: Project, foreign: ForeignData): string {
-  const deflated = deflateSync(strToU8(serializeProject(p, foreign)), { level: 9 });
-  return `#${HASH_FORMAT}.${toBase64Url(deflated)}`;
-}
 
 export class InflateLimitError extends Error {}
 

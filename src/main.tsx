@@ -13,8 +13,17 @@ const store = createAppStore({
   projectStore: createProjectStore(),
   prefs: createPrefsStore(),
   loadLayoutClient,
-  replaceHash: (hash) => {
-    history.replaceState(null, "", hash);
+  clearHash: () => {
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+  },
+  guardLeaving: (shouldWarn) => {
+    // Only reached without browser storage, when the open project has changes no file holds.
+    window.addEventListener("beforeunload", (e) => {
+      if (shouldWarn()) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
   },
   confirm: (message) => window.confirm(message),
 });

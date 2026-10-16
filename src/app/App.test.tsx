@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
+import { encodeHash } from "../test-support/link";
+import { MemoryStorage } from "../test-support/memory-storage";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
 import { renameProject, updateBox } from "./actions";
@@ -17,7 +19,7 @@ import {
   makeResult,
   makeTray,
 } from "./test-helpers";
-import { renderApp } from "./test-app";
+import { renderApp, renderAppFromHash } from "./test-app";
 
 // The assembly page's PNG needs a canvas, which jsdom lacks.
 vi.mock("../instructions/png", async (orig) => ({
@@ -325,13 +327,27 @@ describe("App", () => {
     expect(screen.getByRole("tab", { name: "Plan" })).toBeTruthy();
   });
 
-  it("copies a share link built from the current page", async () => {
-    const { clipboard } = renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => expect(clipboard).toHaveBeenCalled());
-    expect(clipboard.mock.calls[0]?.[0]).toMatch(
-      /^https:\/\/example\.test\/insert-generator\/#1\./,
-    );
+  it("has no Copy link, and Save to file keeps a copy", () => {
+    const { download } = renderApp();
+    expect(screen.queryByRole("button", { name: "Copy link" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save to file" }));
+    expect(download).toHaveBeenCalledTimes(1);
+  });
+
+  it("an old link opens as a copy and the address bar is cleared", () => {
+    const stored = { ...fixtureProject(), id: "shared-project", name: "Mine" };
+    const storage = new MemoryStorage();
+    const sent = { ...stored, name: "Sent to me" };
+    const { store, projectStore, clearHash } = renderAppFromHash(encodeHash(sent, EMPTY_FOREIGN), {
+      project: stored,
+      storage,
+    });
+    expect(store.state.project.value.name).toBe("Sent to me (copy)");
+    expect(store.state.project.value.id).not.toBe(stored.id);
+    // the project that was already here is untouched
+    expect(projectStore.load(stored.id)).toMatchObject({ ok: true, project: { name: "Mine" } });
+    expect(clearHash).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
   });
 
   it("shows the shortfall of an infeasible run only while its inputs are current", async () => {
@@ -575,18 +591,6 @@ describe("App", () => {
       expect(await screen.findByRole("region", { name: "Inputs" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Back to the editor" })).toBeNull();
     });
-  });
-
-  it("shows the message of a link that could not be built", async () => {
-    renderApp({
-      overrides: {
-        currentHref: () => {
-          throw new Error("no address");
-        },
-      },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    expect(await screen.findByText(/Couldn't make the link: no address/)).toBeTruthy();
   });
 
   it("locks the whole stack from the plan's Lock position button", () => {

@@ -4,7 +4,8 @@ import cardsHeavy from "../../test/fixtures/cards-heavy.json";
 import smallTiles from "../../test/fixtures/small-tiles.json";
 import tilesMinis from "../../test/fixtures/tiles-minis.json";
 import tinyBox from "../../test/fixtures/tiny-box.json";
-import { LINK_TARGET_CHARS, decodeHash, encodeHash } from "../share/link";
+import { decodeHash } from "../share/link";
+import { encodeHash } from "../test-support/link";
 import { growthOf } from "./defaults";
 import { noForeign, parseProject, serializeProject } from "./schema";
 import { validateProject } from "./validate";
@@ -50,10 +51,9 @@ describe.each(Object.entries(FIXTURES))("fixture %s", (_name, raw) => {
     expect(validateProject(project).filter((n) => n.level === "error")).toEqual([]);
   });
 
-  it(`fits in a ${LINK_TARGET_CHARS}-character link and decodes back`, () => {
+  it("decodes back from an old link", () => {
     const { project } = load(raw);
     const hash = encodeHash(project, noForeign());
-    expect(hash.length).toBeLessThanOrEqual(LINK_TARGET_CHARS);
     const decoded = decodeHash(hash);
     expect(decoded.ok && decoded.project).toEqual(project);
   });

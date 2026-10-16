@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyPrinter, renameProject, updateBox } from "./actions";
 import { inputsHash } from "../model/hash";
 import type { Lock } from "../model/types";
-import { STORAGE_PREFIX, createPrefsStore, createProjectStore, encodeHash } from "../share";
+import { STORAGE_PREFIX, createPrefsStore, createProjectStore } from "../share";
+import { encodeHash } from "../test-support/link";
 import type { Printer } from "../model/types";
 import { DEBOUNCE_MS, IMPROVE_FACTOR } from "./runner";
 import { DEFAULT_ITERATIONS } from "../layout";
@@ -28,7 +29,7 @@ function setup() {
     projectStore,
     prefs,
     loadLayoutClient: () => Promise.resolve(stub.client),
-    replaceHash: vi.fn(),
+    clearHash: vi.fn(),
     confirm: () => true,
   });
   return { store, stub, projectStore, prefs };
@@ -358,34 +359,31 @@ describe("app store", () => {
     });
   });
 
-  it("opens a pasted link on hashchange and flushes on pagehide", () => {
+  it("flushes on pagehide and does not follow a changed address bar", () => {
     const { store, projectStore } = setup();
     store.start("");
-    const other = fixtureProject();
+    const id = store.state.project.value.id;
     const win = Object.assign(new EventTarget(), { location: { hash: "" } });
     const disconnect = connectWindow(store, win as unknown as Window);
-    win.location.hash = encodeHash(other, EMPTY_FOREIGN);
+    win.location.hash = encodeHash(fixtureProject(), EMPTY_FOREIGN);
     win.dispatchEvent(new Event("hashchange"));
-    expect(store.state.project.value.id).toBe(other.id);
+    expect(store.state.project.value.id).toBe(id);
     store.edit((q) => renameProject(q, "Before leaving"));
     win.dispatchEvent(new Event("pagehide"));
-    expect(projectStore.list().find((e) => e.id === other.id)?.name).toBe("Before leaving");
+    expect(projectStore.list().find((e) => e.id === id)?.name).toBe("Before leaving");
     disconnect();
   });
 
   it("disconnect removes the window listeners", () => {
     const { store } = setup();
     const onExternalChange = vi.spyOn(store, "onExternalChange");
-    const openFromHash = vi.spyOn(store, "openFromHash");
     const flushSave = vi.spyOn(store, "flushSave");
     const win = Object.assign(new EventTarget(), { location: { hash: "" } });
     const disconnect = connectWindow(store, win as unknown as Window);
     disconnect();
     win.dispatchEvent(Object.assign(new Event("storage"), { key: `${STORAGE_PREFIX}index` }));
-    win.dispatchEvent(new Event("hashchange"));
     win.dispatchEvent(new Event("pagehide"));
     expect(onExternalChange).not.toHaveBeenCalled();
-    expect(openFromHash).not.toHaveBeenCalled();
     expect(flushSave).not.toHaveBeenCalled();
   });
 
@@ -395,7 +393,7 @@ describe("app store", () => {
       createAppStore({
         projectStore: createProjectStore(shared),
         loadLayoutClient: () => Promise.resolve(stubLayoutClient().client),
-        replaceHash: vi.fn(),
+        clearHash: vi.fn(),
         confirm: () => true,
       });
     const mine = make();
@@ -426,7 +424,7 @@ describe("app store", () => {
       const store = createAppStore({
         projectStore: createProjectStore(shared),
         loadLayoutClient: () => Promise.resolve(stub.client),
-        replaceHash: vi.fn(),
+        clearHash: vi.fn(),
         confirm: () => true,
       });
       const win = Object.assign(new EventTarget(), { location: { hash: "" } });

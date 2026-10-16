@@ -2,7 +2,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { CopyLinkResult } from "../app/link";
 import { ProjectMenu } from "./ProjectMenu";
 import type { ProjectMenuProps } from "./ProjectMenu";
 
@@ -23,9 +22,6 @@ function props(over: Partial<ProjectMenuProps> = {}): ProjectMenuProps {
     onDelete: vi.fn(),
     onImport: vi.fn(),
     onExportJson: vi.fn(),
-    onCopyLink: vi.fn(() =>
-      Promise.resolve<CopyLinkResult>({ status: "copied", length: 300, tooLong: false }),
-    ),
     ...over,
   };
 }
@@ -55,41 +51,11 @@ describe("ProjectMenu", () => {
     await waitFor(() => expect(p.onImport).toHaveBeenCalledWith('{"hello":1}'));
   });
 
-  it("confirms a copied link", async () => {
+  it("offers files, not links", () => {
     render(<ProjectMenu {...props()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Link copied."));
-  });
-
-  it("warns about a long link and offers the JSON file", async () => {
-    const p = props({
-      onCopyLink: () => Promise.resolve({ status: "copied", length: 2400, tooLong: true }),
-    });
-    render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/2400 characters/));
-    fireEvent.click(screen.getByRole("button", { name: "Save to a file instead" }));
-    expect(p.onExportJson).toHaveBeenCalled();
-  });
-
-  it("shows the link for manual copying when the clipboard refuses", async () => {
-    const p = props({
-      onCopyLink: () =>
-        Promise.resolve({
-          status: "failed",
-          length: 20,
-          tooLong: false,
-          link: "https://x.test/#1.abc",
-          error: "denied",
-        }),
-    });
-    render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => {
-      const field = screen.getByLabelText("Share link");
-      expect((field as HTMLInputElement).value).toBe("https://x.test/#1.abc");
-    });
-    expect(screen.getByRole("alert").textContent).toMatch(/denied/);
+    expect(screen.queryByRole("button", { name: /link/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Save to file" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open from file…" })).toBeTruthy();
   });
 
   it("hides the saved list and delete without storage", () => {
@@ -110,42 +76,6 @@ describe("ProjectMenu", () => {
     expect(input.value).toBe("");
   });
 
-  it("shows a message when copying the link throws", async () => {
-    const p = props({ onCopyLink: () => Promise.reject(new Error("no link")) });
-    render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/no link/));
-  });
-
-  it("drops the copy status when another project is opened", async () => {
-    const p = props();
-    const view = render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Link copied."));
-    view.rerender(<ProjectMenu {...p} currentId="b" name="Ark Nova" />);
-    expect(screen.queryByRole("status")).toBeNull();
-    view.rerender(<ProjectMenu {...p} />);
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("drops a manual-copy link when another project is opened", async () => {
-    const p = props({
-      onCopyLink: () =>
-        Promise.resolve({
-          status: "failed",
-          length: 3,
-          tooLong: false,
-          link: "abc",
-          error: "denied",
-        }),
-    });
-    const view = render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => screen.getByLabelText("Share link"));
-    view.rerender(<ProjectMenu {...p} currentId="b" name="Ark Nova" />);
-    expect(screen.queryByLabelText("Share link")).toBeNull();
-  });
-
   it("lists a current project that is not saved yet, and names an empty one", () => {
     const { rerender } = render(
       <ProjectMenu {...props({ currentId: "new", name: "Fresh", projects: [] })} />,
@@ -164,65 +94,5 @@ describe("ProjectMenu", () => {
     );
     const next = screen.getByLabelText("Saved projects") as HTMLSelectElement;
     expect([...next.options].map((o) => o.textContent)).toEqual(["(unnamed)", "(unnamed)"]);
-  });
-
-  it("shows the manual link and the long-link warning together", async () => {
-    const p = props({
-      onCopyLink: () =>
-        Promise.resolve({
-          status: "failed",
-          length: 2400,
-          tooLong: true,
-          link: "https://x.test/#1.long",
-          error: "denied",
-        }),
-    });
-    render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    await waitFor(() => screen.getByLabelText("Share link"));
-    const alert = screen.getByRole("alert").textContent ?? "";
-    expect(alert).toMatch(/denied/);
-    expect(alert).toMatch(/2400 characters/);
-    fireEvent.click(screen.getByRole("button", { name: "Save to a file instead" }));
-    expect(p.onExportJson).toHaveBeenCalled();
-  });
-
-  it("ignores a link result that arrives after the project was switched away and back", async () => {
-    let resolve: (r: CopyLinkResult) => void = () => undefined;
-    const p = props({
-      onCopyLink: () =>
-        new Promise<CopyLinkResult>((r) => {
-          resolve = r;
-        }),
-    });
-    const view = render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    view.rerender(<ProjectMenu {...p} currentId="b" name="Ark Nova" />);
-    view.rerender(<ProjectMenu {...p} />);
-    resolve({ status: "copied", length: 10, tooLong: false });
-    await new Promise((r) => setTimeout(r, 0));
-    expect(screen.queryByRole("status")).toBeNull();
-    // a result for the project that is open still shows
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    resolve({ status: "copied", length: 10, tooLong: false });
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Link copied."));
-  });
-
-  it("ignores a link result that arrives while another project is open", async () => {
-    let resolve: (r: CopyLinkResult) => void = () => undefined;
-    const p = props({
-      onCopyLink: () =>
-        new Promise<CopyLinkResult>((r) => {
-          resolve = r;
-        }),
-    });
-    const view = render(<ProjectMenu {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-    view.rerender(<ProjectMenu {...p} currentId="b" name="Ark Nova" />);
-    resolve({ status: "copied", length: 10, tooLong: false });
-    await new Promise((r) => setTimeout(r, 0));
-    expect(screen.queryByRole("status")).toBeNull();
-    view.rerender(<ProjectMenu {...p} />);
-    expect(screen.queryByRole("status")).toBeNull();
   });
 });

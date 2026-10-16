@@ -8,7 +8,7 @@ import type { Component, ComponentKind, Notice, Project, TraySpec } from "../mod
 import { APP_VERSION, BUILD_ID } from "../model/version";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
-import { encodeHash, exportJsonFile, jsonFileName } from "../share";
+import { exportJsonFile, jsonFileName } from "../share";
 import { BoxForm } from "../ui/BoxForm";
 import { AddKinds, ComponentList } from "../ui/components/ComponentList";
 import { trayNumbersByComponent } from "../ui/identity";
@@ -43,8 +43,6 @@ import {
   updatePrinter,
 } from "./actions";
 import { downloadBlob } from "./download";
-import { copyLink, shareLink } from "./link";
-import type { CopyLinkResult } from "./link";
 import type { MeshSource } from "./meshes";
 import { CONFLICT_CODE } from "./persistence";
 import { canOptimize } from "./runner";
@@ -53,8 +51,6 @@ import type { AppStore } from "./store";
 export interface AppProps {
   store: AppStore;
   meshes: MeshSource;
-  clipboard?: (text: string) => Promise<void>;
-  currentHref?: () => string;
   download?: (blob: Blob, filename: string) => void;
   viewerProps?: Pick<ViewerProps, "webgl" | "loadScene">;
 }
@@ -200,13 +196,6 @@ export function App(props: AppProps) {
   };
   const download = props.download ?? downloadBlob;
 
-  async function onCopyLink(): Promise<CopyLinkResult> {
-    const href = (props.currentHref ?? (() => window.location.href))();
-    const link = shareLink(href, encodeHash(project, s.foreign.value));
-    const write = props.clipboard ?? ((text: string) => navigator.clipboard.writeText(text));
-    return copyLink(link, write);
-  }
-
   if (showAssembly) {
     return (
       <main ref={mainRef}>
@@ -350,10 +339,10 @@ export function App(props: AppProps) {
                         onImport={(text) => {
                           store.importJson(text);
                         }}
-                        onExportJson={() =>
-                          download(exportJsonFile(project, s.foreign.value), jsonFileName(project))
-                        }
-                        onCopyLink={onCopyLink}
+                        onExportJson={() => {
+                          download(exportJsonFile(project, s.foreign.value), jsonFileName(project));
+                          store.markSavedToFile();
+                        }}
                       />
                     </div>
                   </details>

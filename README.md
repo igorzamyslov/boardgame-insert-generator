@@ -5,7 +5,7 @@ its components into a 3D-printable insert: trays that tile the box, stack with
 a locating lip, open upward and fit the print bed. Exports 3MF/STL and a
 printable assembly page. Design: [`docs/superpowers/specs/2026-10-11-boardgame-insert-generator-design.md`](docs/superpowers/specs/2026-10-11-boardgame-insert-generator-design.md).
 
-Status: **preview (0.x)**: saved projects and shared links may break between
+Status: **preview (0.x)**: saved projects and files may break between
 versions.
 
 ```bash
@@ -74,14 +74,16 @@ geometry clients, so they never start a worker or load WASM.
 6. **Assembly page.** "Open the assembly page" shows the packing order (bottom
    layer first), an exploded picture of all the parts, a numbered picture per layer, a "What goes where" table, PNG
    download per layer and "Print / save as PDF".
-7. **Save and share.** Projects autosave in the browser. "Copy link" puts the
-   whole project in the `#1.` link (the project menu offers JSON download
-   when the link is too long), "Save to file" saves the project as a file, and
-   "Open from file…" opens a file as a separate project (a file whose id and
-   content match a stored project just opens that project; one whose id
-   matches a different project opens as a copy). When another tab changes the
-   project you are editing, autosave pauses until you choose which version to
-   keep.
+7. **Save and share.** Projects autosave in the browser. "Save to file" saves
+   the project as a file you can keep or send, and "Open from file…" opens a
+   file as a separate project (a file whose id and content match a stored
+   project just opens that project; one whose id matches a different project
+   opens as a copy). There are no share links: the address bar never changes.
+   A `#1.` link made by an older version still opens, once, as a copy, and the
+   address bar is cleared. If the browser blocks storage, the app says so and
+   asks you to save a file; the page warns before closing while there are
+   changes no file holds. When another tab changes the project you are
+   editing, autosave pauses until you choose which version to keep.
 
 If you change the inputs after a layout was made, the layout stays and an
 "Inputs changed since this plan was made — update the plan?" notice points
@@ -104,7 +106,7 @@ there. Update the two copied files together when the design system changes.
 | Folder          | What it does                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------- |
 | `model/`        | Types, defaults, validation, schema versioning, `inputsHash`                                      |
-| `share/`        | `#1.` link codec, local project store, JSON files                                                 |
+| `share/`        | Reader for old `#1.` links, local project store, JSON files                                       |
 | `sizing/`       | Component (group) → tray requirements with variants                                               |
 | `layout/`       | Optimizer (Web Worker, deterministic), `summarize`, `swapLocks`                                   |
 | `geometry/`     | `TraySpec` → manifold mesh (Web Worker; only `geometry/client.ts` is imported by the page)        |
@@ -128,10 +130,11 @@ when the worker had to ignore pins (`LayoutResult.lockConflicts`), the runner do
 not accept that plan. The previous plan and every pin stay, the conflicts are in
 `state.lockConflicts`, and `store.unpin(trayKey)` removes a tray's locks and
 re-runs. `app/persistence.ts` autosaves
-(500 ms) to localStorage, tells `main.tsx` the new `#1.` link (which writes it
-with `history.replaceState`), opens links and files as separate projects (a
-different project with the same id becomes a copy) and pauses autosave if
-another tab saved the same project.
+(500 ms) to localStorage, opens files (and, once at start, an old `#1.` link,
+after which `main.tsx` clears the address bar) as separate projects (a different
+project with the same id becomes a copy), warns before the page closes when
+storage is unavailable and changes are unsaved, and pauses autosave if another
+tab saved the same project.
 A project with a stored layout is never re-optimized on load; if its inputs
 changed, the "Inputs changed since this plan was made — update the plan?" notice
 appears instead. Meshes are built on demand by the geometry worker and cached
@@ -177,7 +180,7 @@ nothing points at `/assets/` absolutely, and that `third-party-licenses.txt`
 names every bundled library.
 No browser runs the page, so it cannot prove the workers or WASM execute; do a
 manual check in a real browser (import a fixture from `test/fixtures/`, export,
-open the link) before a release.
+open the page) before a release.
 
 `vite.config.ts` sets `base: "./"` for subpath hosting and defines
 `__APP_VERSION__` from `package.json` and `__BUILD_ID__` (the short git SHA, `-dirty` for

@@ -22,9 +22,9 @@ export function renderApp(opts: RenderAppOptions = {}) {
   return mountApp("", opts.overrides ?? {}, opts);
 }
 
-/** Temporary: for the tests that test opening a link. */
-export function renderAppFromHash(hash: string, overrides: Partial<AppProps> = {}) {
-  return mountApp(hash, overrides, {});
+/** The app opened on an old `#1.` link, as a bookmarked or sent one would be. */
+export function renderAppFromHash(hash: string, opts: RenderAppOptions = {}) {
+  return mountApp(hash, opts.overrides ?? {}, opts);
 }
 
 function mountApp(
@@ -38,11 +38,12 @@ function mountApp(
     projectStore.save(opts.project, EMPTY_FOREIGN);
   }
   const prefs = createPrefsStore(new MemoryStorage());
+  const clearHash = vi.fn<() => void>();
   const store = createAppStore({
     projectStore,
     prefs,
     loadLayoutClient: () => Promise.resolve(stub.client),
-    replaceHash: vi.fn(),
+    clearHash,
     confirm: () => true,
   });
   store.start(hash);
@@ -52,18 +53,15 @@ function mountApp(
     forget: vi.fn(),
     dispose: vi.fn(),
   };
-  const clipboard = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
   const download = vi.fn<(blob: Blob, filename: string) => void>();
   render(
     <App
       store={store}
       meshes={meshes}
-      clipboard={clipboard}
-      currentHref={() => "https://example.test/insert-generator/"}
       download={download}
       viewerProps={{ webgl: () => false }}
       {...overrides}
     />,
   );
-  return { store, stub, projectStore, prefs, clipboard, download };
+  return { store, stub, projectStore, prefs, clearHash, download };
 }
