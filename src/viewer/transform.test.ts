@@ -24,8 +24,37 @@ describe("viewer transforms", () => {
     expect(r[0]).toBeGreaterThan(160);
     expect(r[0] - l[0]).toBeGreaterThan(160);
     expect(l[1]).toBe(40);
-    // A tray at the very centre stays where it is.
-    expect(trayPosition(makeTray({ x: 80, y: 40, w: 40, d: 20 }), 1, c)).toEqual([80, 40, 0]);
+    // A tray at the very centre has no spread to move by; it drops instead (next test).
+    const mid = trayPosition(makeTray({ x: 80, y: 40, w: 40, d: 20 }), 1, c);
+    expect([mid[0], mid[1]]).toEqual([80, 40]);
+  });
+
+  // A merged filler wrapping the trays has its bounding box centred on the box, so the spread
+  // gave it no sideways move, and at level 0 no lift: it alone stayed put.
+  it("drops a part centred on the box, which spreading and lifting leave in place", () => {
+    const c: [number, number] = [100, 50];
+    const wrap = makeTray({ x: 2, y: 2, w: 196, d: 96, h: 30, level: 0 });
+    expect(trayPosition(wrap, 0, c)).toEqual([2, 2, 0]);
+    const full = trayPosition(wrap, 1, c);
+    expect(full[0]).toBeCloseTo(2);
+    expect(full[1]).toBeCloseTo(2);
+    expect(full[2]).toBeCloseTo(-EXPLODE_MM);
+    // It drops gradually with the slider, and never moves sideways.
+    expect(trayPosition(wrap, 0.5, c)[2]).toBeCloseTo(-EXPLODE_MM / 2);
+    // Without a centre only the lift applies, as before.
+    expect(trayPosition(wrap, 1)).toEqual([2, 2, 0]);
+  });
+
+  it("leaves a part that spreads visibly exactly where it was, and an upper part to lift", () => {
+    const c: [number, number] = [100, 50];
+    // 20 mm off centre in x: a 10 mm spread, at the edge of the drop's range.
+    const off = makeTray({ x: 100, y: 40, w: 40, d: 20 });
+    expect(trayPosition(off, 1, c)).toEqual([100 + 20 * 0.5, 40, 0]);
+    const far = makeTray({ x: 160, y: 40, w: 40, d: 20 });
+    expect(trayPosition(far, 1, c)[2]).toBe(0);
+    // A centred part on an upper level lifts, not drops.
+    const up = makeTray({ x: 80, y: 40, w: 40, d: 20, level: 1, z: 40 });
+    expect(trayPosition(up, 1, c)[2]).toBe(40 + EXPLODE_MM);
   });
 
   // A spacer sits inside its tray's well. Spread moves a part in proportion to its own

@@ -2,7 +2,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
-import { trayPosition } from "../viewer/transform";
+import { boxOutline, outlineCenter, trayPosition } from "../viewer/transform";
 import { explodedView } from "./exploded";
 import { numberParts } from "./numbering";
 
@@ -98,6 +98,54 @@ describe("explodedView", () => {
     expect(trayPosition(top, 1)[2] - trayPosition(bottom, 1)[2]).toBe(70);
     expect(upperY).toBeLessThan(lowerY);
     expect(lowerY - upperY).toBeGreaterThan(40);
+  });
+
+  // A merged filler that wraps the trays is centred on the box, so spreading and lifting left it
+  // among the trays. trayPosition now drops it; the picture, which shares it, must show it lower.
+  it("draws a merged part that wraps the box dropped clear below the trays", () => {
+    const outline = boxOutline(project.box, project.settings);
+    const [cx, cy] = outlineCenter(outline);
+    const w = outline.size[0] - 4;
+    const d = outline.size[1] - 4;
+    const h = 30;
+    const frame = makeTray({
+      key: "m:p0:0",
+      stack: 0,
+      level: 0,
+      x: cx - w / 2,
+      y: cy - d / 2,
+      w,
+      d,
+      h,
+      merged: {
+        members: [makeTray({ key: "m:p0:0", x: cx - w / 2, y: cy - d / 2, w, d: 10, h })],
+        bridges: [{ x: cx - w / 2, y: cy - d / 2, z: 0, w: 10, d, h }],
+      },
+    });
+    const small = makeTray({ key: "s:p0:0", stack: 1, level: 0, x: 0, y: 0, w: 40, d: 40, h });
+    const doc = parse(explodedView(makeLayout("h", [frame, small]), project)?.svg ?? "");
+    const frameNo = numberParts([frame, small]).find((p) => p.spec === frame)?.number ?? 0;
+    // The frame's block is bridged members, so take the lowest point of any of its faces.
+    const ys = [...doc.querySelectorAll(`g[data-part="${frameNo}"] polygon`)]
+      .flatMap((poly) => (poly.getAttribute("points") ?? "").split(" "))
+      .map((pt) => Number(pt.split(",")[1]));
+    // Undropped, its lowest point on the page is one of its bounding box's corners.
+    const AZ = (35 * Math.PI) / 180;
+    const EL = (30 * Math.PI) / 180;
+    const [b0, b1, b2] = [Math.sin(AZ) * Math.cos(EL), -Math.cos(AZ) * Math.cos(EL), Math.sin(EL)];
+    const [r0, r1, r2] = [Math.cos(AZ), Math.sin(AZ), 0];
+    const [upX, upY, upZ] = [b1 * r2 - b2 * r1, b2 * r0 - b0 * r2, b0 * r1 - b1 * r0];
+    const pageY = (x: number, y: number, z: number): number => -(upX * x + upY * y + upZ * z);
+    const boxes = [...(frame.merged?.members ?? []), ...(frame.merged?.bridges ?? [])];
+    const assembledLowest = Math.max(
+      ...boxes.flatMap((b) =>
+        [b.x, b.x + b.w].flatMap((x) =>
+          [b.y, b.y + b.d].flatMap((y) => [0, h].map((z) => pageY(x, y, z))),
+        ),
+      ),
+    );
+    // Page y grows downward: dropped 40 mm, it reaches 40 * cos(30 deg) lower than assembled.
+    expect(Math.max(...ys) - assembledLowest).toBeGreaterThan(40 * Math.cos(EL) - 0.5);
   });
 
   it("paints back to front: a tray before the spacer that goes into it, lower layers before upper", () => {

@@ -1154,7 +1154,10 @@ Numbers accept a decimal comma or point.
   keyboard to swap, lock toggle. A merged filler is drawn as the members of it that stand on the
   layer shown, with one number.
 - **3D view:** explode slider, layer toggle, click a tray for contents and
-  dimensions. An optional axis indicator ("Show axes", off by default, beside the explode slider)
+  dimensions. Exploding lifts upper levels and moves each part away from the box centre in
+  proportion to its distance from it; a bottom-level part centred on the box (a merged filler
+  wrapping the trays) would not move at all, so it drops by up to 40 mm instead, fading out as its
+  own spread grows to 10 mm (geometry, not `merged`, decides). An optional axis indicator ("Show axes", off by default, beside the explode slider)
   draws labelled X (red), Y (green) and Z (blue) arrows in the canvas' bottom-left corner. It turns
   with the camera, so it says which way is up and which side is the front of the box (X runs
   across the box, Y from its front to its back, Z up) at any angle. It is an SVG laid over the
@@ -1186,7 +1189,8 @@ Numbers accept a decimal comma or point.
   download per layer and for the exploded picture.
   - **Exploded picture** (`instructions/exploded.ts`): every part as a block, arranged by the 3D
     view's own `trayPosition` at full explode (a spacer or divider travels with its tray, a merged
-    part moves as one), seen from the front, 35° to the right and 30° above. It is projected to SVG
+    part moves as one; a part centred on the box, such as a merged filler wrapping the trays, has
+    no spread to move by, so at level 0 it drops by one level's step instead of staying among them), seen from the front, 35° to the right and 30° above. It is projected to SVG
     rather than rendered: the page is made to be printed, and an SVG is vector at any print size,
     a few kilobytes, prints (a WebGL canvas may not) and needs no renderer, so it works without
     WebGL. A part is therefore a block, not its mesh: the pockets of the real, open trays are not
