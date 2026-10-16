@@ -13,6 +13,7 @@ import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
 import type { ShareFile } from "./sendFile";
 import { renameProject, updateBox } from "./actions";
+import { canOptimize } from "./runner";
 import { CONFLICT_CODE, OPEN_FAILED_CODE } from "./persistence";
 import {
   EMPTY_FOREIGN,
@@ -1078,6 +1079,31 @@ describe("App", () => {
       const refit = vi.spyOn(store, "refit").mockImplementation(() => undefined);
       fireEvent.click(screen.getByRole("button", { name: "Make a new plan" }));
       expect(refit).toHaveBeenCalled();
+    });
+
+    it("no stale banner beside a pin conflict: the pill is the one call to action", async () => {
+      const { store } = renderApp({ project: stalePlan() });
+      expect(await screen.findByRole("button", { name: "Make a new plan" })).toBeTruthy();
+      act(() => {
+        store.state.lockConflicts.value = [
+          { trayKey: "a:p0:0", kind: "position", name: "Action cards", reason: "it is too big" },
+        ];
+      });
+      expect(store.state.stale.value).toBe(true);
+      expect(screen.queryByRole("button", { name: "Make a new plan" })).toBeNull();
+      expect(screen.queryByText("This plan is from before your last changes.")).toBeNull();
+      expect(screen.getByRole("button", { name: "Unpin Action cards" })).toBeTruthy();
+    });
+
+    it("no stale banner while a field is in error: a new plan could not be made", async () => {
+      const p = stalePlan();
+      const { store } = renderApp({ project: p });
+      expect(await screen.findByRole("button", { name: "Make a new plan" })).toBeTruthy();
+      act(() => {
+        store.edit((q) => updateBox(q, { innerWidth: 0 }));
+      });
+      expect(canOptimize(store.state.project.value, store.state.validation.value)).toBe(false);
+      expect(screen.queryByRole("button", { name: "Make a new plan" })).toBeNull();
     });
 
     it("no stale banner while a run is pending", async () => {

@@ -13,6 +13,10 @@ export interface PlacementContext {
   runStatus: RunState["status"];
   /** The inputs do not fit the box: that state is the news, not the stale plan behind it. */
   noFit: boolean;
+  /** A run hit pins that conflict: the pill says so, and a new plan would meet the same conflict. */
+  pinConflict: boolean;
+  /** The inputs can be planned. While a field is in error "Make a new plan" can do nothing. */
+  canOptimize: boolean;
 }
 
 /** Notices that need a look but not an interruption: they wait in the project menu. */
@@ -24,7 +28,8 @@ const MENU_CODES: ReadonlySet<string> = new Set([
 
 export function noticePlacement(n: Notice, ctx: PlacementContext): NoticePlace {
   if (n.code === STALE_CODE) {
-    return !ctx.runPending && ctx.runStatus !== "running" && !ctx.noFit ? "banner" : "none";
+    const waiting = ctx.runPending || ctx.runStatus === "running";
+    return !waiting && !ctx.noFit && !ctx.pinConflict && ctx.canOptimize ? "banner" : "none";
   }
   if (n.code === GEOMETRY_MAJOR_CODE) {
     return "banner";

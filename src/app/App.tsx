@@ -287,6 +287,8 @@ export function App(props: AppProps) {
   // Where each notice shows: the one banner, the project menu (with a dot), or inline.
   const noFit =
     s.shortfall.value !== null || layoutNotices.some((n) => n.code === NOTICE_CODES.doesNotFit);
+  const conflicts = s.lockConflicts.value;
+  const canPlan = canOptimize(project, validation);
   const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
   // The older-geometry notice the person chose to keep is not shown, so it must not hide the stale
   // one either (placeNotices lets the geometry notice speak for both).
@@ -298,7 +300,13 @@ export function App(props: AppProps) {
           n.code === STALE_CODE || (n.code === GEOMETRY_MAJOR_CODE && geometryKept !== geometryKey),
       ),
     ],
-    { runPending: s.runPending.value, runStatus: run.status, noFit },
+    {
+      runPending: s.runPending.value,
+      runStatus: run.status,
+      noFit,
+      pinConflict: conflicts.length > 0,
+      canOptimize: canPlan,
+    },
   );
   const showStale = placed.banner.some((n) => n.code === STALE_CODE);
   const showGeometry = placed.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE);
@@ -360,7 +368,6 @@ export function App(props: AppProps) {
           boxHeight: topPlane(project.box, projSettings),
         }
       : null;
-  const conflicts = s.lockConflicts.value;
   // Download waits while the plan changes by itself; otherwise a plan that doesn't fit says so.
   const fitProblem = !s.runPending.value && (noFit || conflicts.length > 0);
 
@@ -441,11 +448,7 @@ export function App(props: AppProps) {
   // Below 760 px the status pill has no room for Keep searching on a plan that doesn't fit:
   // the sheet's bar offers it.
   const searchOnPhone =
-    noFit &&
-    !s.geometryOld.value &&
-    !s.runPending.value &&
-    run.status !== "running" &&
-    canOptimize(project, validation);
+    noFit && !s.geometryOld.value && !s.runPending.value && run.status !== "running" && canPlan;
 
   // The editor is showing in the sheet, or the box has it: the sheet is "full"; below 600 px that
   // fills the screen, and what is behind it is out of reach of Tab and screen readers (inert).
@@ -584,7 +587,7 @@ export function App(props: AppProps) {
                 <StatusLine
                   run={run}
                   pending={s.runPending.value}
-                  canOptimize={canOptimize(project, validation)}
+                  canOptimize={canPlan}
                   hasLayout={layout !== undefined}
                   fits={fits}
                   canSearchMore={!s.geometryOld.value}
@@ -611,7 +614,7 @@ export function App(props: AppProps) {
                   run={run}
                   notices={summaryNotices}
                   hasLayout={layout !== undefined}
-                  canOptimize={canOptimize(project, validation)}
+                  canOptimize={canPlan}
                   hasComponents={project.components.length > 0}
                   hiddenErrors={errorsWithoutField(validation)}
                   problemSections={problemSections}

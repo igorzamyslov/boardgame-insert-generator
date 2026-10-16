@@ -11,7 +11,13 @@ import type { Notice } from "../model/types";
 import { menuNoticeCount, noticePlacement, placeNotices } from "./noticePlacement";
 import type { PlacementContext } from "./noticePlacement";
 
-const quiet: PlacementContext = { runPending: false, runStatus: "idle", noFit: false };
+const quiet: PlacementContext = {
+  runPending: false,
+  runStatus: "idle",
+  noFit: false,
+  pinConflict: false,
+  canOptimize: true,
+};
 const notice = (code: string): Notice => ({ level: "info", code, message: code });
 
 describe("noticePlacement", () => {
@@ -20,6 +26,8 @@ describe("noticePlacement", () => {
     [STALE_CODE, { ...quiet, runPending: true }, "none"],
     [STALE_CODE, { ...quiet, runStatus: "running" as const }, "none"],
     [STALE_CODE, { ...quiet, noFit: true }, "none"],
+    [STALE_CODE, { ...quiet, pinConflict: true }, "none"],
+    [STALE_CODE, { ...quiet, canOptimize: false }, "none"],
     [GEOMETRY_MAJOR_CODE, quiet, "banner"],
     [GEOMETRY_MAJOR_CODE, { ...quiet, runPending: true, noFit: true }, "banner"],
     [CONFLICT_CODE, quiet, "menu"],
