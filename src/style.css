@@ -797,6 +797,7 @@ span.inserts-name {
 /* The status line above the plan: one single-line pill per matter, every control 44 px. */
 .pf-status {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   margin: 0 0 var(--space-3);
 }
