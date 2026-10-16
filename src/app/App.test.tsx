@@ -3,8 +3,8 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
+import type { Project } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
-import { encodeHash } from "../share";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
 import { CONFLICT_CODE } from "./persistence";
@@ -49,13 +49,13 @@ function stubSceneFactory(): SceneFactory {
   return () => handle;
 }
 
-function withLayoutHash(): string {
+function withLayoutProject(): Project {
   const p = fixtureProject();
   const trays = [
     makeTray({ key: "a:p0:0", path: "0", stack: 0, x: 0, y: 0 }),
     makeTray({ key: "b:p0:0", path: "1", stack: 1, x: 110, y: 0 }),
   ];
-  return encodeHash({ ...p, layout: makeLayout(inputsHash(p), trays) }, EMPTY_FOREIGN);
+  return { ...p, layout: makeLayout(inputsHash(p), trays) };
 }
 
 /** Switches the view sheet to a tab; only the selected view's panel is mounted. */
@@ -118,7 +118,7 @@ describe("App", () => {
   });
 
   it("shows plan and 3D fallback tabs and the export panel for a stored layout, and swaps with the keyboard in Advanced", () => {
-    const { store, stub } = renderApp(withLayoutHash());
+    const { store, stub } = renderApp({ project: withLayoutProject() });
     fireEvent.click(screen.getByLabelText("Advanced"));
     expect(stub.calls).toHaveLength(0);
     expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
@@ -147,7 +147,7 @@ describe("App", () => {
   });
 
   it("blocks exporting while the inputs differ from the layout, even before a run starts", async () => {
-    const { store } = renderApp(withLayoutHash());
+    const { store } = renderApp({ project: withLayoutProject() });
     openExport();
     const stl = screen.getByRole("button", { name: "STL files (.zip)" });
     expect(stl.hasAttribute("disabled")).toBe(false);
@@ -203,7 +203,7 @@ describe("App", () => {
   });
 
   it("moves between the Plan and 3D tabs with the arrow keys, Home and End", () => {
-    renderApp(withLayoutHash());
+    renderApp({ project: withLayoutProject() });
     const plan = screen.getByRole("tab", { name: "Plan" });
     plan.focus();
     fireEvent.keyDown(plan, { key: "ArrowRight" });
@@ -218,8 +218,11 @@ describe("App", () => {
   });
 
   it("shows the selected tray's details once in the 3D tab", async () => {
-    renderApp(withLayoutHash(), {
-      viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(stubSceneFactory()) },
+    renderApp({
+      project: withLayoutProject(),
+      overrides: {
+        viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(stubSceneFactory()) },
+      },
     });
     fireEvent.click(screen.getByLabelText("Advanced"));
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
@@ -236,7 +239,7 @@ describe("App", () => {
     };
 
     it("can't be opened as the assembly page, and says why", async () => {
-      const { store } = renderApp(withLayoutHash());
+      const { store } = renderApp({ project: withLayoutProject() });
       openExport();
       const open = screen.getByRole("button", { name: "Open the assembly page" });
       expect(open.hasAttribute("disabled")).toBe(false);
@@ -252,7 +255,7 @@ describe("App", () => {
     });
 
     it("turns an open assembly page read-only when it goes stale", async () => {
-      const { store } = renderApp(withLayoutHash());
+      const { store } = renderApp({ project: withLayoutProject() });
       openAssemblyPage();
       expect(
         screen.getByRole("button", { name: "Print / save as PDF" }).hasAttribute("disabled"),
@@ -270,7 +273,7 @@ describe("App", () => {
     });
 
     it("hints in the tray details that they may not match", async () => {
-      const { store } = renderApp(withLayoutHash());
+      const { store } = renderApp({ project: withLayoutProject() });
       fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
       expect(document.querySelector(".tray-details .hint")?.textContent ?? "").not.toMatch(
         /Inputs changed/,
@@ -283,7 +286,7 @@ describe("App", () => {
   });
 
   it("offers no locks or swaps in the simple plan", () => {
-    renderApp(withLayoutHash());
+    renderApp({ project: withLayoutProject() });
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     for (const name of ["Lock size", "Lock position", "Swap with…"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
@@ -291,7 +294,7 @@ describe("App", () => {
   });
 
   it("locks and unlocks a tray's size from the tray details in Advanced", () => {
-    const { store } = renderApp(withLayoutHash());
+    const { store } = renderApp({ project: withLayoutProject() });
     fireEvent.click(screen.getByLabelText("Advanced"));
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Lock size" }));
@@ -304,7 +307,7 @@ describe("App", () => {
   });
 
   it("opens the assembly page and comes back", () => {
-    renderApp(withLayoutHash());
+    renderApp({ project: withLayoutProject() });
     openAssemblyPage();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/— assembly$/);
     fireEvent.click(screen.getByRole("button", { name: "Back to the editor" }));
@@ -388,11 +391,12 @@ describe("App", () => {
 
   it("offers Update plan for a layout made under older geometry", async () => {
     const p = fixtureProject();
-    const hash = encodeHash(
-      { ...p, layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }) },
-      EMPTY_FOREIGN,
-    );
-    renderApp(hash);
+    renderApp({
+      project: {
+        ...p,
+        layout: makeLayout(inputsHash(p), undefined, { geometryVersion: "0.1.0" }),
+      },
+    });
     expect(await screen.findByRole("button", { name: "Update plan" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
     expect(screen.getByText(/This plan is out of date/)).toBeTruthy();
@@ -452,7 +456,7 @@ describe("App", () => {
         this.setAttribute("open", "");
       });
       HTMLDialogElement.prototype.showModal = showModal;
-      renderApp(withLayoutHash());
+      renderApp({ project: withLayoutProject() });
       expect(screen.queryByRole("dialog")).toBeNull();
       expect(exportButton().getAttribute("aria-haspopup")).toBe("dialog");
       fireEvent.click(exportButton());
@@ -465,7 +469,7 @@ describe("App", () => {
     });
 
     it("closes on Escape, on Close, and puts the focus back on its button", () => {
-      renderApp(withLayoutHash());
+      renderApp({ project: withLayoutProject() });
       exportButton().focus();
       fireEvent.click(exportButton());
       // Escape reaches a modal <dialog> as a cancel event.
@@ -480,7 +484,7 @@ describe("App", () => {
     });
 
     it("leaves the view, the selection and the tab exactly as they were", () => {
-      const { store } = renderApp(withLayoutHash());
+      const { store } = renderApp({ project: withLayoutProject() });
       openTab("3D");
       store.state.selection.value = "a:p0:0";
       openExport();
@@ -491,7 +495,7 @@ describe("App", () => {
     });
 
     it("closes itself when another project is opened", async () => {
-      const { store } = renderApp(withLayoutHash());
+      const { store } = renderApp({ project: withLayoutProject() });
       openExport();
       store.newProject();
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -502,8 +506,11 @@ describe("App", () => {
         new Promise((_resolve, reject) => {
           signal?.addEventListener("abort", () => reject(new Error("cancelled")));
         });
-      const { download } = renderApp(withLayoutHash(), {
-        meshes: { get: waits, reset: vi.fn(), forget: vi.fn(), dispose: vi.fn() },
+      const { download } = renderApp({
+        project: withLayoutProject(),
+        overrides: {
+          meshes: { get: waits, reset: vi.fn(), forget: vi.fn(), dispose: vi.fn() },
+        },
       });
       openExport();
       fireEvent.click(screen.getByRole("button", { name: "3MF per part (.zip)" }));
@@ -517,7 +524,7 @@ describe("App", () => {
 
   describe("assembly page", () => {
     it("moves the focus to the page and back to its button, and scrolls to the top", () => {
-      renderApp(withLayoutHash());
+      renderApp({ project: withLayoutProject() });
       openAssemblyPage();
       expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
       expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
@@ -530,7 +537,7 @@ describe("App", () => {
     });
 
     it("hands its downloads to the app's download function", async () => {
-      const { download } = renderApp(withLayoutHash());
+      const { download } = renderApp({ project: withLayoutProject() });
       openAssemblyPage();
       fireEvent.click(screen.getByRole("button", { name: /^Download PNG of layer 1/ }));
       await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
@@ -538,31 +545,33 @@ describe("App", () => {
     });
 
     it("returns to the editor when the layout goes away, and stays there when one comes back", async () => {
-      const { store } = renderApp(withLayoutHash());
+      const project = withLayoutProject();
+      const { store } = renderApp({ project });
       openAssemblyPage();
       store.newProject();
       expect(await screen.findByRole("region", { name: "Inputs" })).toBeTruthy();
-      store.openFromHash(withLayoutHash());
+      store.openProject(project.id);
       expect(await screen.findByRole("tab", { name: "Plan" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Back to the editor" })).toBeNull();
     });
 
     it("returns to the editor when another project is opened", async () => {
-      const { store } = renderApp(withLayoutHash());
+      const { store, projectStore } = renderApp({ project: withLayoutProject() });
       openAssemblyPage();
       const other = { ...fixtureProject(), id: "other-project", name: "Other" };
-      store.openFromHash(
-        encodeHash({ ...other, layout: makeLayout(inputsHash(other)) }, EMPTY_FOREIGN),
-      );
+      projectStore.save({ ...other, layout: makeLayout(inputsHash(other)) }, EMPTY_FOREIGN);
+      store.openProject(other.id);
       expect(await screen.findByRole("region", { name: "Inputs" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Back to the editor" })).toBeNull();
     });
   });
 
   it("shows the message of a link that could not be built", async () => {
-    renderApp("", {
-      currentHref: () => {
-        throw new Error("no address");
+    renderApp({
+      overrides: {
+        currentHref: () => {
+          throw new Error("no address");
+        },
       },
     });
     fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
@@ -576,8 +585,7 @@ describe("App", () => {
       makeTray({ key: "b:p0:1", path: "0", level: 1, z: 40 }),
       makeTray({ key: "c:p1:0", path: "1", stack: 1, x: 110 }),
     ];
-    const hash = encodeHash({ ...p, layout: makeLayout(inputsHash(p), trays) }, EMPTY_FOREIGN);
-    const { store } = renderApp(hash);
+    const { store } = renderApp({ project: { ...p, layout: makeLayout(inputsHash(p), trays) } });
     fireEvent.click(screen.getByLabelText("Advanced"));
     fireEvent.keyDown(screen.getByRole("button", { name: /^Tray 1,/ }), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Lock position" }));
@@ -604,9 +612,7 @@ describe("App", () => {
   it("undoes the last layout from the summary", async () => {
     const p = fixtureProject();
     const before = makeLayout(inputsHash(p), [makeTray({ key: "old:p0:0" })]);
-    const { store } = renderApp(
-      encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN),
-    );
+    const { store } = renderApp({ project: { ...p, layout: makeLayout(inputsHash(p)) } });
     store.state.undoSlot.value = { layout: before };
     fireEvent.click(await screen.findByRole("button", { name: "Undo layout" }));
     expect(store.state.project.value.layout).toBe(before);
