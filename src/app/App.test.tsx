@@ -199,7 +199,9 @@ describe("App", () => {
     const { store } = renderApp();
     addCards();
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Add bits" })[0] as HTMLElement);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Add tokens and dice" })[0] as HTMLElement,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     const names = (): string[] => store.state.project.value.components.map((c) => c.name);
     expect(names()).toEqual(["Cards", "Bits"]);

@@ -2,19 +2,19 @@
 import { describe, expect, it } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { newComponent } from "../model/defaults";
-import type { Component, CompartmentSpec, ComponentKind } from "../model/types";
+import type { CardsComponent, Component, CompartmentSpec, ComponentKind } from "../model/types";
 import tokens from "../styles/tokens.css?raw";
 import { contrast, hexToHsl, hexToRgb } from "./color";
 import {
   BOX_COLOR,
   SHADE_COUNT,
   componentIndexOfTray,
+  componentSummary,
   kindIndexOf,
   layerLabel,
   shadeHex,
   shadeOf,
   tintOfTray,
-  trayNumbersByComponent,
 } from "./identity";
 
 function cards(id: string, name: string): Component {
@@ -53,19 +53,6 @@ describe("tray identity", () => {
     expect(componentIndexOfTray(first, components)).toBe(0);
     expect(componentIndexOfTray(second, components)).toBe(1);
     expect(tintOfTray(first, components)).not.toBe(tintOfTray(second, components));
-  });
-
-  it("lists each component's own trays when the names collide", () => {
-    const components = [cards("c1", "Cards"), cards("c2", "Cards")];
-    const parts = [
-      { number: 1, spec: makeTray({ compartments: [well({ componentId: "c1" })] }) },
-      { number: 2, spec: makeTray({ compartments: [well({ componentId: "c2" })] }) },
-      { number: 3, spec: makeTray({ compartments: [well({ componentId: "c2" })] }) },
-    ];
-    expect([...trayNumbersByComponent(parts, components)]).toEqual([
-      [0, [1]],
-      [1, [2, 3]],
-    ]);
   });
 
   // Layouts stored before schema 0.1.2 have no componentId, so they keep the old behaviour.
@@ -219,5 +206,16 @@ describe("layerLabel", () => {
     ]);
     expect([0, 1].map((l) => layerLabel(l, 2))).toEqual(["Layer 1 (bottom)", "Layer 2 (top)"]);
     expect(layerLabel(0, 1)).toBe("Layer 1");
+  });
+});
+
+describe("componentSummary", () => {
+  it("mentions sleeves when the cards have them", () => {
+    const c = { ...(newComponent("cards") as CardsComponent), sleeve: "standard" as const };
+    expect(componentSummary(c)).toBe("50 cards · 63.5 × 88 mm · standard sleeves");
+    expect(componentSummary({ ...c, sleeve: { w: 66, h: 91, thickness: 0.1 } })).toMatch(
+      /· custom sleeves$/,
+    );
+    expect(componentSummary({ ...c, sleeve: "none" })).toBe("50 cards · 63.5 × 88 mm");
   });
 });

@@ -63,7 +63,8 @@ export function EditorPanel({
   const headingId = `${c.id}-heading`;
   const name = c.name === "" ? "(unnamed)" : c.name;
   const who = sameName ? `${name} (item ${index + 1})` : name;
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<{ text: string; id: number } | null>(null);
+  const noteId = useRef(0);
   const [asking, setAsking] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const removeRef = useRef<HTMLButtonElement>(null);
@@ -78,7 +79,8 @@ export function EditorPanel({
   const change = (next: Component): void => {
     const said = describeOptionChange(c, next);
     if (said !== null) {
-      setNote(said);
+      noteId.current += 1;
+      setNote({ text: said, id: noteId.current });
     }
     onChange(next);
   };
@@ -147,7 +149,7 @@ export function EditorPanel({
           </button>
         )}
       </div>
-      <Toast message={note} onDone={clearNote} />
+      <Toast message={note?.text ?? null} nonce={note?.id} onDone={clearNote} />
     </section>
   );
 }

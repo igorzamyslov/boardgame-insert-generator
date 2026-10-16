@@ -1,5 +1,5 @@
 // src/ui/components/ComponentList.tsx
-import { useContext } from "preact/hooks";
+import { useContext, useEffect, useRef } from "preact/hooks";
 import { requirementKey } from "../../app/actions";
 import type { Component, ComponentKind, Lock, TraySpec } from "../../model/types";
 import { levelsOf } from "../../plan/layers";
@@ -15,7 +15,7 @@ import { ValidationContext } from "../validation";
 
 export const ADD_LABELS: Record<ComponentKind, string> = {
   cards: "Add cards",
-  bulk: "Add bits",
+  bulk: "Add tokens and dice",
   tiles: "Add tiles",
   minis: "Add miniatures",
   custom: "Add other item",
@@ -26,7 +26,7 @@ const KINDS = Object.keys(ADD_LABELS) as ComponentKind[];
 /** What each kind is for, under its name on the Add button. */
 const KIND_NAMES: Record<ComponentKind, string> = {
   cards: "Cards",
-  bulk: "Bits",
+  bulk: "Tokens and dice",
   tiles: "Tiles",
   minis: "Miniatures",
   custom: "Other",
@@ -120,6 +120,14 @@ function chipsOf(c: Component, locks: readonly Lock[]): Chip[] {
   return chips;
 }
 
+/** Whether any of these trays is in a pinned stack of several trays: unpinning it lifts them all. */
+function inStack(trayKeys: readonly string[], locks: readonly Lock[]): boolean {
+  return locks.some(
+    (l) =>
+      l.kind === "stack" && l.trayKeys.length > 1 && l.trayKeys.some((k) => trayKeys.includes(k)),
+  );
+}
+
 /** The layers a component's trays stand on, named: "Layer 2", or "Layers 1 and 2". */
 function layersOf(
   index: number,
@@ -162,17 +170,36 @@ export function ComponentList({
   onUnlockSize,
 }: ComponentListProps) {
   const notices = useContext(ValidationContext);
+  const listRef = useRef<HTMLDivElement>(null);
+  // The × that was pressed goes with its chip: the focus moves to the next chip of the row, or to
+  // the row itself, once the list has re-rendered without it.
+  const pressed = useRef<{ button: HTMLElement; rowId: string; index: number } | null>(null);
+  useEffect(() => {
+    const p = pressed.current;
+    if (p === null || p.button.isConnected) {
+      return;
+    }
+    pressed.current = null;
+    if (document.activeElement !== null && document.activeElement !== document.body) {
+      return;
+    }
+    const row = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-row-id]") ?? [])].find(
+      (r) => r.dataset.rowId === p.rowId,
+    );
+    const next = row?.querySelectorAll<HTMLElement>(".pf-chip__x")[p.index];
+    (next ?? row?.querySelector<HTMLElement>(".pf-row__open"))?.focus();
+  });
   const levels = trays ? levelsOf([...trays]) : [];
   const counts: Partial<Record<ComponentKind, number>> = {};
   for (const c of components) {
     counts[c.kind] = (counts[c.kind] ?? 0) + 1;
   }
   return (
-    <div class="component-list">
+    <div class="component-list" ref={listRef}>
       {components.length === 0 ? (
         <p class="hint">
-          Add what goes in the box: cards, bits (tokens, cubes, dice), tiles, miniatures or anything
-          else. Each one gets a colour you will see again in the plan.
+          Add what goes in the box: cards, tokens and dice, tiles, miniatures or anything else. Each
+          one gets a colour you will see again in the plan.
         </p>
       ) : null}
       <p class="pf-eyebrow add-label">
@@ -219,20 +246,29 @@ export function ComponentList({
                 </button>
                 {chips.length === 0 ? null : (
                   <ul class="pf-chips" aria-label={`Rules for ${who}`}>
-                    {chips.map((chip) => (
+                    {chips.map((chip, chipIndex) => (
                       <li class="pf-chip" key={chip.label}>
                         <span>{chip.label}</span>
                         <button
                           type="button"
                           class="pf-chip__x"
                           aria-label={
-                            chip.kind === "pin" ? `Unpin ${who}` : `Remove the size lock on ${who}`
-                          }
-                          onClick={() =>
                             chip.kind === "pin"
-                              ? onUnpin?.(chip.trayKeys)
-                              : onUnlockSize?.(chip.trayKeys)
+                              ? `Unpin ${who}${inStack(chip.trayKeys, locks) ? " and its stack" : ""}`
+                              : `Remove the size lock on ${who}`
                           }
+                          onClick={(e) => {
+                            pressed.current = {
+                              button: e.currentTarget,
+                              rowId: c.id,
+                              index: chipIndex,
+                            };
+                            if (chip.kind === "pin") {
+                              onUnpin?.(chip.trayKeys);
+                            } else {
+                              onUnlockSize?.(chip.trayKeys);
+                            }
+                          }}
                         >
                           <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
                             <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" />

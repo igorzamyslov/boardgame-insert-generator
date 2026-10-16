@@ -50,4 +50,17 @@ describe("Toast", () => {
     });
     expect(onDone).toHaveBeenCalledTimes(1);
   });
+
+  it("starts the clock again when the same text comes twice in a row", () => {
+    const onDone = vi.fn();
+    const view = render(<Toast message="Same." nonce={1} onDone={onDone} />);
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS - 100);
+    });
+    view.rerender(<Toast message="Same." nonce={2} onDone={onDone} />);
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS - 100);
+    });
+    expect(onDone).not.toHaveBeenCalled();
+  });
 });

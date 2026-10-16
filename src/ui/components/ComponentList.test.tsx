@@ -35,7 +35,7 @@ describe("ComponentList", () => {
     render(<ComponentList components={[]} {...h} />);
     expect(screen.getByText(/Add what goes in the box/)).toBeTruthy();
     // each Add button carries a small hint, so its name is only matched from the start
-    fireEvent.click(screen.getByRole("button", { name: /^Add bits/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Add tokens and dice/ }));
     expect(h.onAdd).toHaveBeenCalledWith("bulk");
     for (const name of [/^Add cards/, /^Add tiles/, /^Add miniatures/, /^Add other item/]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
@@ -145,6 +145,38 @@ describe("ComponentList", () => {
       expect(h.onUnpin).toHaveBeenCalledWith(["a:p0:0", "a:p1:0"]);
       expect(h.onUnlockSize).not.toHaveBeenCalled();
       expect(h.onOpen).not.toHaveBeenCalled();
+    });
+
+    it("says a stack goes with its pin, when the stack has several trays", () => {
+      const locks: Lock[] = [
+        pin("a:p0:0"),
+        pin("b:p0:0"),
+        { kind: "stack", trayKeys: ["a:p0:0", "b:p0:0"] },
+      ];
+      render(<ComponentList components={comps} locks={locks} {...handlers()} />);
+      expect(screen.getByRole("button", { name: "Unpin Main deck and its stack" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Unpin Gems and its stack" })).toBeTruthy();
+    });
+
+    it("keeps a lone pin's button plainly Unpin", () => {
+      render(<ComponentList components={comps} locks={[pin("a:p0:0")]} {...handlers()} />);
+      expect(screen.getByRole("button", { name: "Unpin Main deck" })).toBeTruthy();
+    });
+
+    it("moves the focus to the next chip of the row when a chip goes, else to the row", () => {
+      const locks: Lock[] = [pin("a:p0:0"), { kind: "size", trayKey: "a:p0:0", w: 1, d: 1, h: 1 }];
+      const h = handlers();
+      const view = render(<ComponentList components={comps} locks={locks} {...h} />);
+      const unpin = screen.getByRole("button", { name: "Unpin Main deck" });
+      unpin.focus();
+      fireEvent.click(unpin);
+      view.rerender(<ComponentList components={comps} locks={[locks[1] as Lock]} {...h} />);
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Remove the size lock on Main deck" }),
+      );
+      fireEvent.click(document.activeElement as HTMLElement);
+      view.rerender(<ComponentList components={comps} locks={[]} {...h} />);
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Main deck,/ }));
     });
 
     it("removing a Size locked chip lifts the size lock", () => {
