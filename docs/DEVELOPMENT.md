@@ -333,6 +333,31 @@ scheme)`, with `"light"` for paper. `viewer/shades.ts` and `plan/glyph.ts` go th
   worktrees. lint-staged also leaves its own backup entries there.
 - SHOULD start each source file with its path comment (`// src/ui/Modal.tsx`), as most files do.
 
+### UI work (visual changes, new screens, redesigns)
+
+Written after the 2026-10 redesign. It passed every review and 3,200 tests, but it shipped the old
+layout. See [`docs/retros/2026-10-16-ux-redesign.md`](retros/2026-10-16-ux-redesign.md).
+
+- MUST keep the design in the repo (boards as HTML or images under `docs/design/`). Every UI task
+  names and links the board(s) it implements, and the implementer reads them before coding. A
+  design that exists only as prose, or as a link nobody opens, does not count.
+- MUST build a screen's layout from its board first: regions, proportions, and what is absent.
+  Features go in afterwards. "Modify the old screen" is not a plan for a redesign.
+- MUST list what the boards do NOT show (old blocks, hints, paragraphs), and give the deletions a
+  task.
+- MUST keep on-screen text to what the board shows. Any other hint, paragraph or label needs a
+  ruling in `docs/DESIGN.md`. Correct words are not enough; volume counts too.
+- MUST take the whole visual language from the boards into tokens: radii, spacing, type scale,
+  surfaces and shadows, not only colours.
+- MUST gate every UI task on screenshots at 1440 and 390 px, set beside the board. A reviewer
+  looks at them in a browser and answers three questions: does it match, what is extra, what is
+  missing. "Checked by hand" with no owner and no artifact is not a check.
+- MUST show the owner the running app after the first screen is built and at the end of each
+  phase, and wait for a nod before going on.
+- MUST answer, in plan review and in final review: "If every task passes, will each screen look
+  like its board?" Answer with evidence, not belief.
+- SHOULD have whoever orchestrates the work open the app at least once per phase.
+
 ---
 
 ## 4. Gotchas
