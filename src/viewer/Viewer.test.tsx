@@ -6,7 +6,7 @@ import type { MeshSource } from "../app/meshes";
 import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { SPACER_COLOR, SPARE_COLOR, shadeHex } from "../ui/identity";
+import { SPACER_COLOR, SPARE_COLOR, shadeHex, shadeIndexOf, shadeOf } from "../ui/identity";
 import type { Component } from "../model/types";
 import type { ViewBasis } from "./axes";
 import type { SceneFactory, SceneHandle } from "./types";
@@ -628,7 +628,12 @@ describe("Viewer", () => {
       expect(chips[0]?.classList.contains("tray-chip--spare")).toBe(true);
       expect(chips[0]?.style.getPropertyValue("--tint")).toBe("");
       expect(chips[1]?.classList.contains("tray-chip--spare")).toBe(false);
-      expect(chips[1]?.style.getPropertyValue("--tint")).toMatch(/^var\(--tint-\d\)$/);
+      // The same shade as the plan tile and the 3D tray: the component's place among its kind.
+      const at = components.findIndex((c) => c.name === "Market");
+      const market = components[at] as Component;
+      expect(chips[1]?.style.getPropertyValue("--tint")).toBe(
+        shadeOf(market.kind, shadeIndexOf(components, at)).fill,
+      );
     });
 
     it("lists only the trays on the layers shown", async () => {

@@ -1,12 +1,4 @@
-/* Proof components: plain CSS classes over the tokens. No JavaScript, no framework. */
-
-.pf-page {
-  margin: 0;
-  background: var(--paper);
-  color: var(--ink);
-  font: 400 16px/24px var(--font-ui);
-  font-style: normal;
-}
+/* The older pf- components still in use: plain CSS classes over the tokens. */
 
 .pf-eyebrow {
   margin: 0;
@@ -31,123 +23,6 @@
   border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sheet);
-}
-
-.pf-frame--flat {
-  box-shadow: none;
-}
-
-.pf-frame__head {
-  display: flex;
-  gap: var(--space-3);
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--rule);
-}
-
-/* Button */
-.pf-btn {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  justify-content: center;
-  min-height: var(--control-h);
-  padding: 0 var(--space-4);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-md);
-  background: var(--sheet);
-  color: var(--ink);
-  font: 600 14px/20px var(--font-ui);
-  cursor: pointer;
-}
-
-.pf-btn:hover {
-  background: var(--sheet-sunken);
-}
-
-.pf-btn--primary {
-  border-color: var(--indigo);
-  background: var(--indigo);
-  color: var(--on-indigo);
-}
-
-.pf-btn--primary:hover {
-  background: var(--indigo);
-  filter: brightness(0.92);
-}
-
-.pf-btn--danger {
-  border-color: var(--madder);
-  background: transparent;
-  color: var(--madder);
-}
-
-.pf-btn--ghost {
-  border-color: transparent;
-  background: transparent;
-}
-
-.pf-btn[disabled] {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-/* Field */
-.pf-field {
-  display: grid;
-  gap: var(--space-1);
-}
-
-/* A field label is a sentence in ink: capitals are for readout keys, not for labels. */
-.pf-field > .pf-eyebrow {
-  color: var(--ink);
-  font: 500 14px/20px var(--font-ui);
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.pf-field__hint {
-  margin: 0;
-  color: var(--ink-soft);
-  font: 400 14px/20px var(--font-ui);
-}
-
-.pf-input {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  min-height: var(--control-h);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-md);
-  background: var(--sheet-sunken);
-  color: var(--ink);
-  font: 400 16px/24px var(--font-ui);
-}
-
-/* Numbers: the interface face with tabular figures, right-aligned. (`--mono` is the old name.) */
-.pf-input--num,
-.pf-input--mono {
-  font: 500 14px/22px var(--font-ui);
-  font-variant-numeric: tabular-nums;
-}
-
-.pf-input[aria-invalid="true"] {
-  border-color: var(--madder);
-  border-width: 2px;
-}
-
-.pf-field__error {
-  margin: 0;
-  color: var(--madder);
-  font: 600 14px/20px var(--font-ui);
-}
-
-.pf-field__error::before {
-  content: "! ";
-  font-weight: 700;
 }
 
 /* Segmented control */
@@ -175,129 +50,6 @@
   color: var(--on-indigo);
 }
 
-/* Dropzone: a dashed fold line around a drop target. */
-.pf-drop {
-  display: grid;
-  gap: var(--space-1);
-  place-items: center;
-  min-height: 140px;
-  padding: var(--space-5);
-  border: 1.5px dashed var(--rule-strong);
-  border-radius: var(--radius-lg);
-  background: var(--sheet);
-  color: var(--ink);
-  text-align: center;
-}
-
-.pf-drop[data-over="true"] {
-  border-color: var(--indigo);
-  background: var(--indigo-wash);
-}
-
-.pf-drop__title {
-  margin: 0;
-  font: 600 24px/30px var(--font-ui);
-}
-
-.pf-drop__hint {
-  margin: 0;
-  color: var(--ink-soft);
-  font: 400 14px/20px var(--font-ui);
-}
-
-/* Mark: the three proofreader's marks. The sign carries meaning; colour reinforces it. */
-.pf-mark {
-  display: inline-flex;
-  gap: var(--space-1);
-  align-items: center;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  color: var(--ink);
-  font: 600 12px/20px var(--font-ui);
-}
-
-.pf-mark::before {
-  font: 700 14px/20px var(--font-ui);
-}
-
-.pf-mark--added {
-  background: var(--indigo-wash);
-  box-shadow: inset 0 -2px 0 var(--indigo);
-}
-
-.pf-mark--added::before {
-  content: "+";
-}
-
-.pf-mark--removed {
-  background: var(--madder-wash);
-  text-decoration: line-through;
-  text-decoration-color: var(--madder);
-  text-decoration-thickness: 1px;
-}
-
-.pf-mark--removed::before {
-  content: "\2212";
-  text-decoration: none;
-  display: inline-block;
-}
-
-.pf-mark--changed {
-  background: var(--ochre-wash);
-  box-shadow: inset 0 -2px 0 var(--ochre);
-}
-
-.pf-mark--changed::before {
-  content: "~";
-}
-
-/* Cut and fold lines for templates. */
-.pf-cut {
-  stroke: var(--madder);
-  stroke-width: 1.5;
-  fill: none;
-}
-
-.pf-fold {
-  stroke: var(--indigo);
-  stroke-width: 1.5;
-  stroke-dasharray: 6 4;
-  fill: none;
-}
-
-/* ---- Complexity: layout, hierarchy, disclosure ---- */
-
-/* Workbench: inputs rail on the left, the proof on the right, always in view. */
-.pf-workbench {
-  display: grid;
-  gap: var(--space-5);
-  grid-template-columns: minmax(340px, var(--rail-width, 440px)) minmax(0, 1fr);
-  align-items: start;
-  max-width: var(--page-max, 1440px);
-  margin: 0 auto;
-  padding: var(--space-5);
-}
-
-.pf-stage {
-  position: sticky;
-  top: var(--space-4);
-  display: grid;
-  gap: var(--space-4);
-  max-height: calc(100vh - var(--space-5));
-  overflow: auto;
-}
-
-@media (width <= 960px) {
-  .pf-workbench {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .pf-stage {
-    position: static;
-    max-height: none;
-  }
-}
-
 .pf-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -313,68 +65,10 @@
   align-items: center;
 }
 
-/* Section > Group > Field: three levels, separated by rules rather than boxes. */
-.pf-section {
-  padding: var(--space-5) 0;
-  border-top: 1px solid var(--rule);
-}
-
-.pf-section:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.pf-section__title {
-  margin: 0 0 var(--space-4);
-  font: 600 24px/30px var(--font-ui);
-}
-
-.pf-group {
-  display: grid;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-
-.pf-group__label {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  margin: 0;
-  color: var(--ink-soft);
-  font: 600 12px/16px var(--font-ui);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.pf-group__label::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--rule);
-}
-
-.pf-grid {
-  display: grid;
-  gap: var(--space-3);
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-}
-
-.pf-grid--2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.pf-grid--3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 /* Field extras: unit suffix, hint only on focus, checkbox row. */
 .pf-unit {
   position: relative;
   display: block;
-}
-
-.pf-unit .pf-input {
-  padding-right: 48px;
-  text-align: right;
 }
 
 .pf-unit__sfx {
@@ -387,38 +81,6 @@
   color: var(--ink-soft);
   font: 500 13px/16px var(--font-ui);
   pointer-events: none;
-}
-
-.pf-field--tip .pf-field__hint {
-  display: none;
-}
-
-.pf-field--tip:focus-within .pf-field__hint {
-  display: block;
-}
-
-.pf-check {
-  display: grid;
-  gap: 0 var(--space-2);
-  grid-template-columns: auto 1fr;
-  align-items: start;
-  font: 400 16px/24px var(--font-ui);
-}
-
-.pf-check input {
-  width: 18px;
-  height: 18px;
-  margin: 3px 0 0;
-  accent-color: var(--indigo);
-}
-
-.pf-check .pf-field__hint {
-  grid-column: 2;
-}
-
-/* Level of detail: hide advanced controls unless the root says data-level="advanced". */
-[data-level="simple"] [data-min-level="advanced"] {
-  display: none;
 }
 
 /* Disclosure: "More options", with a count of what is set inside. */
@@ -467,12 +129,6 @@
   font: 500 13px/18px var(--font-ui);
 }
 
-/* Item: one repeating thing (a component, a deck). Collapsed it is a single summary line. */
-.pf-items {
-  display: grid;
-  gap: var(--space-2);
-}
-
 .pf-item {
   border: 1px solid var(--rule);
   border-radius: var(--radius-md);
@@ -510,13 +166,6 @@
   display: block;
   color: var(--ink-soft);
   font: 400 14px/20px var(--font-ui);
-}
-
-.pf-item__body {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-3) var(--space-4);
-  border-top: 1px solid var(--rule);
 }
 
 /* A swatch: the identity tint, with the kind's glyph (an inline svg, 1.5px strokes in currentColor). */
@@ -641,89 +290,6 @@
   color: var(--ink);
 }
 
-/* Plan: a canvas of tiles, each a button tinted by identity, with the kind's glyph, a number and a name. */
-.pf-plan {
-  display: grid;
-  gap: 3px;
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--sheet-sunken);
-}
-
-.pf-tile {
-  position: relative;
-  display: grid;
-  gap: 2px;
-  align-content: center;
-  justify-items: center;
-  min-height: 72px;
-  padding: var(--space-2);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--tint, var(--sheet));
-  box-shadow: inset 0 0 0 1px var(--rule-strong);
-  color: var(--ink);
-  font: 600 26px/1 var(--font-ui);
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-}
-
-.pf-tile small {
-  display: grid;
-  max-width: 100%;
-  color: var(--ink);
-  font: 400 14px/18px var(--font-ui);
-  white-space: nowrap;
-}
-
-.pf-tile small > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The kind's glyph in the corner of a tile (an svg, 1.75px strokes in ink). */
-.pf-tile__glyph {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 20px;
-  height: 20px;
-  stroke-width: 1.75;
-}
-
-/* Selected: a 3px ink ring. Focused: an indigo ring outside it, above neighbouring tiles. */
-.pf-tile[aria-pressed="true"],
-.pf-tile[aria-selected="true"] {
-  box-shadow: inset 0 0 0 3px var(--ink);
-}
-
-.pf-tile:focus-visible {
-  z-index: 2;
-  outline: 3px solid var(--indigo);
-  outline-offset: 2px;
-}
-
-/* A spare tray (a real part that fills a gap so the others stay put): neutral, dashed, still numbered. */
-.pf-tile--spare {
-  background: var(--sheet);
-  box-shadow: none;
-  border: 1.5px dashed var(--rule-strong);
-}
-
-.pf-tile[data-locked="true"] small::after {
-  content: " \00b7 locked";
-}
-
-/* A plan that no longer matches the inputs: greyed, not faded, so its text stays readable. Say so with a Badge. */
-.pf-stale {
-  filter: grayscale(0.8);
-}
-
-.pf-plan__edge {
-  margin-top: var(--space-2);
-  text-align: center;
-}
-
 /* ---- App shell: the page is one screen tall; the preview is the centre-piece ---- */
 .pf-app {
   display: grid;
@@ -743,11 +309,6 @@
   padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--rule);
   background: var(--sheet);
-}
-
-.pf-app__title {
-  margin: 0;
-  font: 600 24px/30px var(--font-ui);
 }
 
 .pf-app__body {
@@ -780,7 +341,6 @@
 @media (width < 760px) {
   .pf-app__body,
   .pf-frame,
-  .pf-plan,
   .pf-notice {
     min-width: 0;
     max-width: 100%;
@@ -792,9 +352,6 @@
 }
 
 @media (width <= 520px) {
-  .pf-tile small > span:nth-child(2) {
-    display: none;
-  }
 
   .pf-app__stage {
     padding: var(--space-3);
@@ -912,59 +469,7 @@
   border-bottom: 0;
 }
 
-.pf-plan--fill {
-  height: 100%;
-  min-height: 0;
-}
-
-.pf-plan--fill .pf-tile {
-  min-height: 0;
-}
-
-/* Menu: group rarely used actions behind one button. */
-.pf-menu {
-  position: relative;
-}
-
-.pf-menu > summary {
-  list-style: none;
-}
-
-.pf-menu > summary::-webkit-details-marker {
-  display: none;
-}
-
-.pf-menu__list {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 5;
-  display: grid;
-  min-width: 190px;
-  padding: var(--space-1);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-md);
-  background: var(--sheet);
-  box-shadow: var(--shadow-sheet);
-}
-
-.pf-menu__list button {
-  min-height: var(--control-h);
-  padding: 0 var(--space-3);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--ink);
-  font: 400 14px/20px var(--font-ui);
-  text-align: left;
-  cursor: pointer;
-}
-
-.pf-menu__list button:hover {
-  background: var(--sheet-sunken);
-}
-
-/* ---- Levels of detail, steps, results, kinds ---- */
+/* ---- Steps, results, kinds ---- */
 
 /* A step number in front of a rail section's title: filled indigo while the section is open. */
 .pf-step {
@@ -985,29 +490,6 @@
   background: var(--indigo);
   box-shadow: none;
   color: var(--on-indigo);
-}
-
-/* A band between rail sections that names what they are about. Use only when a rail truly has two kinds of input. */
-.pf-band {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  margin: var(--space-4) 0 0;
-  color: var(--ink-soft);
-  font: 600 12px/16px var(--font-ui);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.pf-band::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--rule);
-}
-
-.pf-mode-note {
-  color: var(--ink-soft);
-  font: 400 14px/20px var(--font-ui);
 }
 
 /* A segmented control made of radio buttons: each label holds a visually hidden input. */
@@ -1042,21 +524,6 @@
   white-space: nowrap;
 }
 
-/* A full-width segmented control inside a field: the segments share the width. */
-.pf-field > .pf-seg {
-  display: flex;
-}
-
-.pf-field > .pf-seg button {
-  flex: 1;
-}
-
-/* The result in a sentence, above any numbers: "Everything fits. 6 trays in 2 layers." */
-.pf-verdict {
-  margin: 0;
-  font: 400 16px/24px var(--font-ui);
-}
-
 /* A short label that says what state something is in: "Out of date", "Updating…". */
 .pf-badge {
   padding: 2px 8px;
@@ -1079,13 +546,6 @@
 
 .pf-link + .pf-link {
   margin-left: var(--space-3);
-}
-
-.pf-btn[aria-disabled="true"] {
-  border-color: var(--rule-strong);
-  background: var(--sheet-sunken);
-  color: var(--ink-soft);
-  cursor: not-allowed;
 }
 
 /* An add button that previews the identity of what it adds: the kind swatch, a name, a hint. */
@@ -1117,18 +577,6 @@
   font: 400 14px/18px var(--font-ui);
 }
 
-/* A progress row and a toast. The toast says what happened and offers the undo; it never covers the sheet. */
-.pf-progress {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.pf-progress progress {
-  flex: 1;
-  accent-color: var(--indigo);
-}
-
 .pf-toast {
   justify-self: center;
   padding: var(--space-2) var(--space-4);
@@ -1144,9 +592,4 @@
 
 .pf-toast :focus-visible {
   outline-color: var(--paper);
-}
-
-/* Rendered documents only: the one place the serif is used. */
-.pf-prose {
-  font: 400 18px/29px var(--font-display);
 }

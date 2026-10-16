@@ -256,7 +256,7 @@ function ExactValues({ settings, onChange }: SettingsFormProps) {
 export function InsertSettings({ settings, onChange }: SettingsFormProps) {
   return (
     <div class="form-grid">
-      <SimpleChoices settings={settings} onChange={onChange} />
+      <PlainChoices settings={settings} onChange={onChange} />
       <CheckField
         id="settings-lip-enabled"
         label="Rim between layers"
@@ -350,7 +350,7 @@ function fingerRoomHint(s: Settings): string {
  * Choices that write resolved numbers (spec §5): fit, walls and the finger room switch (on for
  * any wall room, including a custom one). The numbers themselves are under Exact values.
  */
-function SimpleChoices({ settings, onChange }: SettingsFormProps) {
+function PlainChoices({ settings, onChange }: SettingsFormProps) {
   return (
     <>
       <SelectField

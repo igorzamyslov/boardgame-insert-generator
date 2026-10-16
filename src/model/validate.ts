@@ -316,7 +316,7 @@ const settingRanges: SettingRange[] = [
 ];
 
 /**
- * Advanced-settings ranges. Floor and divider minimums are MIN_FEATURE_MM, the minimum printable
+ * Ranges of the Exact values in Settings. Floor and divider minimums are MIN_FEATURE_MM, the minimum printable
  * feature width (spec §6.1). Wall and lip thickness minimums are MIN_WALL_MM, which adds
  * CORNER_MARGIN: a sharp cut corner at the wall keeps MIN_FEATURE_MM to the polygon of the rounded
  * outer corner only with that margin (maxCornerRadius in ./settings), and the lip is a ring

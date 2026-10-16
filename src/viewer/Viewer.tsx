@@ -6,7 +6,7 @@ import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering"
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { SelectField } from "../ui/fields";
-import { tintOfTray } from "../ui/identity";
+import { lookOfTray } from "../plan/glyph";
 import type { ColorScheme } from "../ui/identity";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
@@ -390,7 +390,8 @@ export function Viewer(p: ViewerProps) {
           {pickable.map((part) => {
             const key = part.spec.key;
             const isSelected = key === p.selectedKey;
-            const tint = tintOfTray(part.spec, p.components ?? []);
+            // The shade the plan tile has: one colour per component, everywhere.
+            const tint = lookOfTray(part.spec, p.components ?? [])?.shade.fill ?? null;
             return (
               <li key={key}>
                 <button

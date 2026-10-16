@@ -20,7 +20,6 @@ import {
   layerLabel,
   shadeHex,
   shadeOf,
-  tintOfTray,
 } from "./identity";
 
 function cards(id: string, name: string): Component {
@@ -58,7 +57,6 @@ describe("tray identity", () => {
 
     expect(componentIndexOfTray(first, components)).toBe(0);
     expect(componentIndexOfTray(second, components)).toBe(1);
-    expect(tintOfTray(first, components)).not.toBe(tintOfTray(second, components));
   });
 
   // Layouts stored before schema 0.1.2 have no componentId, so they keep the old behaviour.
@@ -81,11 +79,9 @@ describe("tray identity", () => {
     const components = [cards("c1", "Cards")];
     const spacer = makeTray({ part: "spacer", compartments: [] });
     expect(componentIndexOfTray(spacer, components)).toBeNull();
-    expect(tintOfTray(spacer, components)).toBeNull();
     // A riser is the neutral filler too: SPARE_COLOR in the 3D view, which is what null means.
     const riser = makeTray({ part: "riser", compartments: [] });
     expect(componentIndexOfTray(riser, components)).toBeNull();
-    expect(tintOfTray(riser, components)).toBeNull();
   });
 });
 

@@ -3,14 +3,6 @@ import { KIND_NAMES } from "../model/defaults";
 import type { Component, ComponentKind, TraySpec } from "../model/types";
 import { contrast, hexToHsl, hslToHex } from "./color";
 
-/** How many identity tints the design system has (--tint-1 … --tint-8). */
-const TINT_COUNT = 8;
-
-/** The CSS colour of the nth component, matching its swatch in the list and its tray in the plan. */
-export function tintVar(index: number): string {
-  return `var(--tint-${(index % TINT_COUNT) + 1})`;
-}
-
 export type ColorScheme = "light" | "dark";
 
 /** One component's colours: the face of its trays, their outline, and text laid on the face. */
@@ -166,12 +158,6 @@ export function componentIndexOfContents(
   return found === null ? null : found.index;
 }
 
-/** The tint of tray contents text such as "Deck ×50": the component whose name appears in it. */
-export function tintOfContents(contents: string, components: readonly Component[]): string | null {
-  const index = componentIndexOfContents(contents, components);
-  return index === null ? null : tintVar(index);
-}
-
 /**
  * Which shade of its kind's hue a component takes: its place among the components of the same
  * kind, in component order. The top view and 3D both use it, so a tray is the same colour in both.
@@ -206,12 +192,6 @@ export function componentIndexOfTray(
     }
   }
   return componentIndexOfContents(first.contents, components);
-}
-
-/** The tint of a tray: its first compartment's component, else null (spare, leftover, spacer). */
-export function tintOfTray(tray: TraySpec, components: readonly Component[]): string | null {
-  const index = componentIndexOfTray(tray, components);
-  return index === null ? null : tintVar(index);
 }
 
 const mm = (v: number): string => String(Math.round(v * 10) / 10);

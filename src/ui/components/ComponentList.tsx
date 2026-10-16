@@ -176,10 +176,15 @@ export function ComponentList({
   const pressed = useRef<{ button: HTMLElement; rowId: string; index: number } | null>(null);
   useEffect(() => {
     const p = pressed.current;
-    if (p === null || p.button.isConnected) {
+    if (p === null) {
       return;
     }
+    // The render after the click either took the chip away or left it: either way the click is
+    // done with, so a later change cannot pull the focus back to a row.
     pressed.current = null;
+    if (p.button.isConnected) {
+      return;
+    }
     if (document.activeElement !== null && document.activeElement !== document.body) {
       return;
     }

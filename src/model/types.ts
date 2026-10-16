@@ -49,7 +49,7 @@ export interface ComponentBase {
   // Absent: the kind's default (fingerCutsOn, curvedFloorOn, cornerReliefsOn, growthOf, separatorsOf in ./defaults; spec §5).
   fingerCuts?: boolean; // a centred finger cut through a wall of each compartment
   curvedFloor?: boolean; // a scoop ramp on the floor (bulk, minis, custom only)
-  cornerReliefs?: boolean; // advanced: Ø 3 mm reliefs in the corners of each compartment
+  cornerReliefs?: boolean; // Ø 3 mm reliefs in the corners of each compartment
   // How much more room the component's own contents may have beyond what they need, per axis
   // (minimal-trays spec §5). Absent, or an axis absent: the kind's default (growthOf in ./defaults).
   // Replaces `stretch`, which the reader still accepts (readBase).

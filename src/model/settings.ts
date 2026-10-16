@@ -109,12 +109,12 @@ export const FIT_CHOICES: Record<FitChoice, number> = deepFreeze({
   loose: 1.4,
 });
 
-/** Simple-mode "Walls" control: writes the resolved wall thickness. */
+/** The "Walls" choice: writes the resolved wall thickness. */
 export function applyWallChoice(s: Settings, c: WallChoice): Settings {
   return { ...s, wall: WALL_CHOICES[c] };
 }
 
-/** Simple-mode "Fit" control: writes the resolved fit factor. */
+/** The "Fit" choice: writes the resolved fit factor. */
 export function applyFitChoice(s: Settings, c: FitChoice): Settings {
   return { ...s, fit: FIT_CHOICES[c] };
 }
@@ -130,7 +130,7 @@ function choiceOf<C extends string>(table: Record<C, number>, value: number): C 
 }
 
 /**
- * Simple-mode "Extra finger room in the box" toggle: on writes this wall room (mm), off writes 0.
+ * The "Extra finger room in the box" switch: on writes this wall room (mm), off writes 0.
  * The outer walls a finger channel or cutout passes through become that much thicker, so the cut
  * itself leaves room for a finger when the tray sits flush against its neighbours.
  */
@@ -143,7 +143,7 @@ export const FINGER_ROOM_MM = 10;
 export const FINGER_DIVIDER_ROOM_MM = 5;
 
 /**
- * Simple-mode finger room toggle: writes the resolved fingerPocket.wallRoom and .dividerRoom
+ * The finger room switch: writes the resolved fingerPocket.wallRoom and .dividerRoom
  * (FINGER_ROOM_MM and FINGER_DIVIDER_ROOM_MM, or 0 and 0).
  */
 export function applyFingerRoom(s: Settings, on: boolean): Settings {
@@ -159,7 +159,7 @@ export function applyFingerRoom(s: Settings, on: boolean): Settings {
 
 /**
  * Whether the finger room toggle is on (exactly its wall and divider room), off (no room) or
- * "custom" (any other pair, set in advanced mode).
+ * "custom" (any other pair, set under Exact values).
  */
 export function fingerRoomOf(s: Settings): boolean | "custom" {
   const wall = choiceOf({ on: FINGER_ROOM_MM, off: 0 }, s.fingerPocket.wallRoom);
@@ -167,12 +167,12 @@ export function fingerRoomOf(s: Settings): boolean | "custom" {
   return wall === "custom" || wall !== divider ? "custom" : wall === "on";
 }
 
-/** Which simple-mode choice the current wall matches, or "custom" (set in advanced mode). */
+/** Which Walls choice the current wall matches, or "custom" (set under Exact values). */
 export function wallChoiceOf(s: Settings): WallChoice | "custom" {
   return choiceOf(WALL_CHOICES, s.wall);
 }
 
-/** Which simple-mode choice the current fit matches, or "custom" (set in advanced mode). */
+/** Which Fit choice the current fit matches, or "custom" (set under Exact values). */
 export function fitChoiceOf(s: Settings): FitChoice | "custom" {
   return choiceOf(FIT_CHOICES, s.fit);
 }

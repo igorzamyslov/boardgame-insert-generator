@@ -86,13 +86,6 @@
   --ochre: var(--warn);
   --on-ochre: var(--on-warn);
   --ochre-wash: var(--bits-fill);
-  --tint-1: var(--cards-fill);
-  --tint-2: var(--bits-fill);
-  --tint-3: var(--tiles-fill);
-  --tint-4: var(--minis-fill);
-  --tint-5: var(--custom-fill);
-  --tint-6: #d6ecea;
-  --tint-7: #f3d9d2;
   --tint-8: var(--rule);
 }
 
@@ -134,9 +127,6 @@
     --on-warn: #1b1a17;
     --on-focus: #1b1a17;
     --shadow-sheet: 0 1px 0 rgb(0 0 0 / 50%), 0 10px 24px -14px rgb(0 0 0 / 80%);
-
-    --tint-6: #214341;
-    --tint-7: #4a2e28;
   }
 }
 

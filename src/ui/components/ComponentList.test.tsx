@@ -179,6 +179,19 @@ describe("ComponentList", () => {
       expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Main deck,/ }));
     });
 
+    it("forgets a pressed × when its chip stays, so a later change does not steal the focus", () => {
+      const locks: Lock[] = [pin("a:p0:0")];
+      const h = handlers();
+      const view = render(<ComponentList components={comps} locks={locks} {...h} />);
+      fireEvent.click(screen.getByRole("button", { name: "Unpin Main deck" }));
+      // The click changed nothing here (a blocked change, say): the list renders, chip still there.
+      view.rerender(<ComponentList components={comps} locks={[pin("a:p0:0")]} {...h} />);
+      (document.activeElement as HTMLElement).blur();
+      // Later the pin goes for another reason (another tab, an undo): the focus is not moved.
+      view.rerender(<ComponentList components={comps} locks={[]} {...h} />);
+      expect(document.activeElement).toBe(document.body);
+    });
+
     it("removing a Size locked chip lifts the size lock", () => {
       const locks: Lock[] = [{ kind: "size", trayKey: "b:p0:0", w: 1, d: 1, h: 1 }];
       const h = handlers();

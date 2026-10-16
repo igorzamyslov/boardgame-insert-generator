@@ -387,21 +387,6 @@ span.inserts-name {
   background: var(--danger-wash);
 }
 
-.mode-toggle {
-  display: inline-flex;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.mode-toggle legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
 .app-notices {
   padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--rule);
@@ -1196,31 +1181,6 @@ span.inserts-name {
   padding: var(--space-4);
   border-radius: var(--radius-md);
   background: var(--sheet-sunken);
-}
-
-.link-status {
-  margin: 0;
-}
-
-.link-warning {
-  padding: var(--space-2) var(--space-3);
-  border-left: 4px solid var(--ochre);
-  border-radius: var(--radius-md);
-  background: var(--ochre-wash);
-}
-
-/* The menu's own failures (a file it couldn't read, a link it couldn't make, a copy that failed). */
-.link-status[role="alert"] {
-  border-left-color: var(--madder);
-  background: var(--madder-wash);
-}
-
-.link-status p {
-  margin: 0 0 var(--space-2);
-}
-
-.copy-fallback {
-  margin-top: var(--space-2);
 }
 
 /* Full-width grid children; after the base rules (no-descending-specificity). */
