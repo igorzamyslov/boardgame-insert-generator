@@ -102,6 +102,14 @@ describe("smoke-dist", () => {
     expect(result.status).toBe(0);
   });
 
+  it("fails on a shots hold left in the build", () => {
+    const files = goodFiles();
+    files["assets/client-x.js"] += " globalThis.__shotsHold?.export;";
+    const result = run(makeDist(files));
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/__shotsHold/);
+  });
+
   it("fails when the licenses file misses a package", () => {
     const files = goodFiles();
     files["third-party-licenses.txt"] = "three preact";

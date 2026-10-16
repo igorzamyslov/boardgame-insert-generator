@@ -18,11 +18,12 @@ import readme from "../../README.md?raw";
  * - NOT_WORDS: the spec's "Not" column, as whole words, case-insensitively ("bits", "minis",
  *   "components", "filler", "lock", "keep", "placement", "bin", "part", "things", ...).
  *
- * Not copy, so never checked: a string that is one lowercase token (a type tag such as "minis" or
- * "part", a key, a path) and a string made only of hyphenated or dotted lowercase tokens (a
- * class list such as "tray-chip tray-chip--spare"). A hex colour (`#1D1F1C`), an HTML entity
- * (`&#8212;`) and a colour put together from its channels (`#${r}${g}${b}`) are not "#" and a
- * digit; `Plan #{n}`, `"Plan #" + n` and `Plan #${n}` are.
+ * Not copy, so never checked: the `COPY_DENIED` list in `src/screens/copy-rulings.ts` (board
+ * strings the app must never print, so it names retired words on purpose); a string that is one
+ * lowercase token (a type tag such as "minis" or "part", a key, a path) and a string made only of
+ * hyphenated or dotted lowercase tokens (a class list such as "tray-chip tray-chip--spare"). A hex
+ * colour (`#1D1F1C`), an HTML entity (`&#8212;`) and a colour put together from its channels
+ * (`#${r}${g}${b}`) are not "#" and a digit; `Plan #{n}`, `"Plan #" + n` and `Plan #${n}` are.
  *
  * ALLOWED is the allow-list of legitimate uses of a Not-word. Each entry is removed from the text
  * before the check, so the rest of the same string is still checked:
@@ -81,6 +82,9 @@ function texts(path: string, source: string): { text: string; line: number }[] {
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
       return; // module paths are not copy
+    }
+    if (ts.isVariableDeclaration(node) && node.name.getText(file) === "COPY_DENIED") {
+      return; // src/screens/copy-rulings.ts: the board strings the app must never print
     }
     if (
       ts.isStringLiteral(node) ||
@@ -221,6 +225,7 @@ describe("copy", () => {
     expect(texts("x.ts", "// Advanced mode, #1.\nconst a = '#1D1F1C';").map((t) => t.text)).toEqual(
       ["#1D1F1C"],
     );
+    expect(texts("x.ts", "export const COPY_DENIED = ['Update plan', 'Keep'];")).toEqual([]);
     const retired = (s: string) =>
       texts("x.tsx", s).some((t) => RETIRED.some((w) => w.test(t.text)));
     expect(retired("const a = 'Copy link';")).toBe(true);

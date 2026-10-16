@@ -10,6 +10,7 @@ import {
 } from "../app/exportBuild";
 import type { ExportOptions, ExportOutput } from "../app/exportBuild";
 import type { MeshSource } from "../app/meshes";
+import { shotsHold } from "../app/shotsHold";
 import { buildErrorReason } from "../app/support";
 import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts } from "../instructions/numbering";
@@ -143,8 +144,16 @@ export function ExportPanel(p: ExportPanelProps) {
     setFailed([]);
     setDownloaded(null);
     setBusy({ kind, done: 0, total: plan.parts.length });
+    let firstMesh = true;
     const opts: ExportOptions = {
-      getMesh: (spec) => p.meshes.get(spec, p.settings, controller.signal),
+      getMesh: async (spec) => {
+        if (!firstMesh) {
+          // Shots mode only (shotsHold.ts): keeps the build mid-way for its screenshot.
+          await shotsHold("export");
+        }
+        firstMesh = false;
+        return p.meshes.get(spec, p.settings, controller.signal);
+      },
       names,
       engrave: p.settings.engraveNames,
       onProgress: (progress) => {

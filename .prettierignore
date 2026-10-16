@@ -5,3 +5,5 @@ _site
 src/styles
 .claude
 docs/design/boards/
+docs/design/shots/
+docs/design/seeds/
