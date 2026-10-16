@@ -68,6 +68,25 @@ describe("BoxPanel", () => {
     expect(onChange).toHaveBeenCalledWith({ headroomCoverage: "full" });
   });
 
+  it("mutes Whole top and Part of it at 0 mm, still visible and focusable", () => {
+    const onChange = vi.fn();
+    const view = render(<BoxPanel box={{ ...DEFAULT_BOX, headroom: 0 }} onChange={onChange} />);
+    expect(screen.getByRole("group", { name: "Covers" })).toBeTruthy();
+    for (const name of ["Whole top", "Part of it"]) {
+      const button = screen.getByRole("button", { name }) as HTMLButtonElement;
+      expect(button.getAttribute("aria-disabled")).toBe("true");
+      expect(button.disabled).toBe(false);
+      button.focus();
+      expect(document.activeElement).toBe(button);
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Part of it" }));
+    expect(onChange).not.toHaveBeenCalled();
+    view.rerender(<BoxPanel box={{ ...DEFAULT_BOX, headroom: 8 }} onChange={onChange} />);
+    expect(screen.getByRole("button", { name: "Part of it" }).hasAttribute("aria-disabled")).toBe(
+      false,
+    );
+  });
+
   it("toggles stored-on-side", () => {
     const onChange = vi.fn();
     render(<BoxPanel box={DEFAULT_BOX} onChange={onChange} />);

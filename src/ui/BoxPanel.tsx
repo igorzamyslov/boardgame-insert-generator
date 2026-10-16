@@ -66,7 +66,7 @@ export function BoxPanel({ box, onChange }: BoxPanelProps) {
       />
       <div class="field">
         <span class="field-label" id="box-headroomCoverage-label">
-          What lies on top covers
+          Covers
         </span>
         <div class="pf-toggle" role="group" aria-labelledby="box-headroomCoverage-label">
           {COVERAGE.map((o) => (
@@ -74,7 +74,13 @@ export function BoxPanel({ box, onChange }: BoxPanelProps) {
               type="button"
               key={o.value}
               aria-pressed={box.headroomCoverage === o.value}
-              onClick={() => onChange({ headroomCoverage: o.value })}
+              aria-disabled={box.headroom === 0 ? true : undefined}
+              onClick={() => {
+                // Nothing lies on top at 0 mm: the choice stays visible but does nothing.
+                if (box.headroom > 0) {
+                  onChange({ headroomCoverage: o.value });
+                }
+              }}
             >
               {o.label}
             </button>
