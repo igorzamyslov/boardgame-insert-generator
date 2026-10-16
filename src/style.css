@@ -131,6 +131,9 @@ input[aria-invalid="true"] {
 
 /* ---- App bar ---- */
 .pf-app {
+  --sheet-handle: var(--control-h);
+  --sheet-foot: calc(var(--sheet-handle) + env(safe-area-inset-bottom, 0px));
+
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
@@ -919,25 +922,20 @@ span.inserts-name {
   align-items: end;
 }
 
-.plan-toolbar {
-  display: grid;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-  align-content: start;
-}
-
 /*
  * The drawing above keeps most of the height whether or not a tray is selected: this area grows
  * with the tray bar up to a ceiling, and what is longer than that scrolls inside, behind the bar's
- * own buttons, which stay in view. Below 960px the page scrolls as a whole and it simply grows.
+ * own buttons, which stay in view. The phone layout keeps the same bounds.
  */
-@media (width > 960px) {
-  .plan-toolbar {
-    flex: 0 0 auto;
-    min-height: 5rem;
-    max-height: 15rem;
-    overflow: auto;
-  }
+.plan-toolbar {
+  display: grid;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  align-content: start;
+  min-height: 5rem;
+  max-height: 15rem;
+  overflow: auto;
 }
 
 /* The 3D view's tray bar sits under the picker. */
@@ -1144,6 +1142,7 @@ span.inserts-name {
   display: block;
   width: 100%;
   height: min(60vh, 480px);
+  height: min(60dvh, 480px);
   border-radius: var(--radius-md);
   background: var(--sheet-sunken);
 
@@ -1154,6 +1153,7 @@ span.inserts-name {
 @media (width <= 600px) {
   .viewer-canvas {
     height: min(45vh, 320px);
+    height: min(45dvh, 320px);
   }
 }
 
@@ -1243,19 +1243,21 @@ span.inserts-name {
   color: inherit;
 }
 
-/* Narrow screens: the Proof shell moves the verdict, notices and readouts above the form; the app's
-   own blocks do the same, and the menu panel fits the screen. */
-@media (width <= 960px) {
+/* A tablet (760 to 960 px) keeps the two columns with a narrower rail. */
+@media (width >= 760px) and (width <= 960px) {
+  .pf-app__body {
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  }
+
+  .pf-app__body[data-first-visit="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pf-app__rail {
+    padding-inline: var(--space-4);
+  }
+
   .pf-app__stage {
-    display: contents;
-  }
-
-  .pf-app__stage > .stage-block {
-    order: -1;
-    margin: var(--space-3) var(--space-4) 0;
-  }
-
-  .pf-app__bar {
     padding: var(--space-3) var(--space-4);
   }
 }
@@ -1305,6 +1307,7 @@ span.inserts-name {
 .modal {
   width: min(640px, calc(100vw - 2 * var(--space-4)));
   max-height: calc(100vh - 2 * var(--space-4));
+  max-height: calc(100dvh - 2 * var(--space-4));
   padding: 0;
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-lg);
@@ -1341,6 +1344,7 @@ html:has(dialog.modal[open]) {
 .settings-sheet {
   width: min(720px, calc(100vw - 2 * var(--space-4)));
   height: min(820px, calc(100vh - 2 * var(--space-4)));
+  height: min(820px, calc(100dvh - 2 * var(--space-4)));
 }
 
 /* The panel scrolls, so Close stays in view. */
@@ -1361,7 +1365,7 @@ html:has(dialog.modal[open]) {
   .settings-sheet {
     width: 100vw;
     max-width: none;
-    height: 100vh;
+    height: 100dvh;
     max-height: none;
     border: 0;
     border-radius: 0;
@@ -1531,13 +1535,6 @@ html:has(dialog.modal[open]) {
   min-height: 44px;
 }
 
-/* Below the two-column layout the stage has no padding of its own. */
-@media (width <= 960px) {
-  .pf-first {
-    padding: var(--space-4) var(--space-3);
-  }
-}
-
 .pf-first__step > h3 {
   margin: 0;
 }
@@ -1586,4 +1583,242 @@ html:has(dialog.modal[open]) {
   border-color: var(--indigo);
   background: var(--indigo);
   color: var(--on-indigo);
+}
+
+/*
+ * ---- Phone layout (below 760 px): the box first, the list in a sheet at the foot ----
+ * The screen is one dvh tall: the stage scrolls inside, and the sheet is fixed over its foot, so
+ * its 44 px handle is always in reach. Below 600 px an open sheet showing the editor or the box
+ * fills the screen, like the dialogs.
+ */
+.pf-sheet {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  height: var(--sheet-foot);
+  border-top: 1px solid var(--rule-strong);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet);
+  transition: height 200ms ease;
+}
+
+.pf-sheet[data-expanded="true"] {
+  height: min(70vh, 40rem);
+  height: min(70dvh, 40rem);
+}
+
+.pf-sheet__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding-right: var(--space-2);
+}
+
+.pf-sheet__bar > :not(.pf-sheet__handle) {
+  flex: none;
+  min-height: var(--control-h);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.pf-sheet__handle {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  gap: var(--space-3);
+  align-items: center;
+  min-width: 0;
+  min-height: var(--control-h);
+  padding: var(--space-2) var(--space-4) 0;
+  border: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: transparent;
+  color: var(--ink);
+  font: 600 16px/24px var(--font-ui);
+  text-align: left;
+}
+
+.pf-sheet__grip {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background: var(--edge);
+}
+
+.pf-sheet__title {
+  flex: none;
+}
+
+.pf-sheet__meta {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-sheet__chevron {
+  flex: none;
+  margin-left: auto;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 200ms ease;
+}
+
+.pf-sheet[data-expanded="true"] .pf-sheet__chevron {
+  transform: rotate(180deg);
+}
+
+.pf-sheet__body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-1) var(--space-4) var(--space-4);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* Folded, the content is out of sight as well as inert; it hides after the sheet has shut. */
+.pf-sheet[data-expanded="false"] .pf-sheet__body {
+  visibility: hidden;
+  transition: visibility 0s linear 200ms;
+}
+
+.pf-sheet .app-footer {
+  margin: var(--space-4) calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+}
+
+@media (width < 760px) {
+  .pf-app__bar {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  /* A banner's choices go under its words, side by side where they fit. */
+  .app-notices {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .notice-action {
+    display: flex;
+    margin: var(--space-2) 0 0;
+  }
+
+  /* The menu opens over the sheet, not under it. */
+  .app-top {
+    position: relative;
+    z-index: 25;
+  }
+
+  /* The name of the app is a heading for the page; the logo says it, so the words are for readers. */
+  .app-wordmark {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .app-name-block {
+    flex: 1 1 0;
+    flex-wrap: nowrap;
+  }
+
+  .app-name {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .saved-status {
+    flex: none;
+  }
+
+  .pf-app__body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pf-app__stage {
+    flex: 1 1 auto;
+    padding: var(--space-3) var(--space-3) calc(var(--sheet-foot) + var(--space-3));
+    scroll-padding-bottom: calc(var(--sheet-foot) + var(--space-3));
+  }
+
+  .pf-app__body[data-first-visit="true"] .pf-app__stage {
+    padding-bottom: var(--space-3);
+  }
+
+  /* The status pill first, then the box; the figures follow it. */
+  .pf-app__stage > .stage-block {
+    flex: none;
+    order: 2;
+    margin: 0 0 var(--space-3);
+  }
+
+  .pf-app__stage > .pf-status {
+    order: -1;
+  }
+
+  /* The box fills what the screen has left under the status pill; the figures wait below it. */
+  .pf-app__stage > .pf-view {
+    flex: 1 0 auto;
+    min-height: max(28rem, calc(100dvh - 17rem));
+    padding: var(--space-3);
+  }
+
+  .pf-frame {
+    padding: var(--space-3);
+  }
+
+  /* A note over the foot of the screen stays above the handle. */
+  .pf-toasts,
+  .pf-app__stage > .pf-toast {
+    position: fixed;
+    inset: auto var(--space-3) calc(var(--sheet-foot) + var(--space-2));
+    z-index: 30;
+  }
+
+  .pf-app__stage > .pf-toast {
+    margin: 0;
+  }
+}
+
+@media (width < 600px) {
+  .pf-sheet[data-full="true"][data-expanded="true"] {
+    inset: 0;
+    z-index: 40;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .pf-sheet[data-full="true"] .pf-sheet__handle {
+    border-radius: 0;
+  }
+
+  /* The editor has the whole screen, its own bar and way back: the section titles step aside. */
+  .pf-sheet[data-full="true"]:has(.editor-panel) .pf-acc:not(:has(.editor-panel)),
+  .pf-sheet[data-full="true"]:has(.editor-panel) .pf-acc > summary {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-sheet,
+  .pf-sheet__chevron,
+  .pf-sheet[data-expanded="false"] .pf-sheet__body {
+    transition: none;
+  }
 }

@@ -624,7 +624,7 @@
 }
 
 .pf-tabs button {
-  min-height: 40px;
+  min-height: var(--control-h);
   margin-bottom: -1px;
   padding: 0 var(--space-1);
   border: 0;
@@ -728,6 +728,7 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
+  height: 100dvh;
   background: var(--paper);
   color: var(--ink);
 }
@@ -774,46 +775,8 @@
   grid-row: auto;
 }
 
-/* Narrow screens: the result and any problem come first, then the form, then the sheet. Nothing runs off the edge. */
-@media (width <= 960px) {
-  .pf-app {
-    height: auto;
-  }
-
-  .pf-app__body {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .pf-app__stage {
-    display: contents;
-  }
-
-  .pf-app__stage > .pf-verdict,
-  .pf-app__stage > .pf-notice,
-  .pf-app__stage > .pf-readouts {
-    order: -1;
-    margin: var(--space-3) var(--space-4) 0;
-  }
-
-  .pf-app__rail {
-    order: 0;
-    border-right: 0;
-  }
-
-  .pf-app__stage > .pf-view {
-    order: 1;
-    margin: var(--space-3);
-  }
-
-  .pf-app__stage > .pf-toast {
-    position: fixed;
-    right: var(--space-3);
-    bottom: var(--space-3);
-    left: var(--space-3);
-    z-index: 20;
-  }
-
+/* Narrow screens: nothing runs off the edge (the layout itself is style.css's phone layout). */
+@media (width < 760px) {
   .pf-app__body,
   .pf-frame,
   .pf-plan,

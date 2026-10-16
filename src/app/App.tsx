@@ -10,6 +10,7 @@ import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
 import { AppHeader } from "../ui/AppHeader";
+import { BottomSheet } from "../ui/BottomSheet";
 import { BoxPanel } from "../ui/BoxPanel";
 import { AddKinds } from "../ui/components/ComponentList";
 import { WhatsInside } from "../ui/components/WhatsInside";
@@ -22,6 +23,7 @@ import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
 import { misfitOf } from "../ui/noFit";
 import { StatusLine } from "../ui/StatusLine";
+import { PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { Summary } from "../ui/Summary";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
 import { Section } from "../ui/Section";
@@ -139,11 +141,24 @@ export function App(props: AppProps) {
   // too, and a first item added from the first visit opens at once.
   const [editingId, setEditingId] = useState<string | null>(null);
   const firstVisit = project.components.length === 0;
+  // Below 760 px the rail is a sheet at the foot of the screen: folded, with its handle showing.
+  const phone = useMediaQuery(PHONE_QUERY);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  // A tray picked on a phone: its bar comes up over the sheet's handle, not under it.
+  const selection = s.selection.value;
+  useEffect(() => {
+    if (phone && selection !== null) {
+      document.querySelector(".tray-bar")?.scrollIntoView?.({ block: "nearest" });
+    }
+  }, [phone, selection]);
   // Removing the last item swaps the rail for the first visit: the focus goes to the kinds there.
   const wasFirstVisit = useRef(firstVisit);
   useEffect(() => {
-    if (firstVisit && !wasFirstVisit.current && document.activeElement === document.body) {
-      mainRef.current?.querySelector<HTMLElement>(".pf-kinds button")?.focus();
+    if (firstVisit && !wasFirstVisit.current) {
+      setSheetOpen(false);
+      if (document.activeElement === document.body) {
+        mainRef.current?.querySelector<HTMLElement>(".pf-kinds button")?.focus();
+      }
     }
     wasFirstVisit.current = firstVisit;
   }, [firstVisit]);
@@ -168,6 +183,7 @@ export function App(props: AppProps) {
     setRemoved(null);
     setExportOpen(false);
     setSettingsOpen(null);
+    setSheetOpen(false);
   }, [project.id]);
   const locked = lockedKeys(project);
   const sizeLocked = sizeLockedKeys(project);
@@ -245,6 +261,7 @@ export function App(props: AppProps) {
       return;
     }
     setOpenSection(id as SectionId);
+    setSheetOpen(true);
     document.getElementById(`section-${id}`)?.scrollIntoView?.({ block: "nearest" });
   };
   const addComponentOfKind = (kind: ComponentKind): void => {
@@ -252,6 +269,7 @@ export function App(props: AppProps) {
     // From the first visit the list is not on screen yet to open the new item by itself.
     if (firstVisit) {
       setEditingId(store.state.project.peek().components.at(-1)?.id ?? null);
+      setSheetOpen(true);
     }
     setOpenSection("components");
   };
@@ -362,6 +380,71 @@ export function App(props: AppProps) {
     onEditComponent: editComponent,
   };
 
+  // The box and the list: the rail's two sections (on a phone, the sheet's).
+  const railSections = (
+    <>
+      {sections.map((x) => (
+        <Section
+          key={x.id}
+          id={x.id}
+          step={x.step}
+          title={SECTION_TITLES[x.id]}
+          summary={summaries[x.id]}
+          problem={problems.has(x.id)}
+          open={openSection === x.id}
+          onToggle={(open) => setOpenSection(open ? x.id : null)}
+        >
+          {x.id === "box" ? (
+            <BoxPanel
+              box={project.box}
+              onChange={(patch) => store.edit((q) => updateBox(q, patch))}
+            />
+          ) : null}
+          {x.id === "components" ? (
+            <WhatsInside
+              components={project.components}
+              openId={editingId}
+              onOpenChange={setEditingId}
+              trays={listTrays}
+              locks={project.locks}
+              onAdd={addComponentOfKind}
+              onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
+              onUnlockSize={(keys) =>
+                store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
+              }
+              onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
+              onRemove={(id) => {
+                const component = project.components.find((x) => x.id === id);
+                if (component === undefined) {
+                  return false;
+                }
+                store.edit((q) => removeComponent(q, id));
+                // Undo on the toast is only right while the removal is still the latest step.
+                setRemoved({ component, version: s.history.version.peek() });
+                return true;
+              }}
+            />
+          ) : null}
+        </Section>
+      ))}
+    </>
+  );
+  // The line at the foot of the page; on a phone the sheet holds it, so the handle stays clear.
+  const footer = (
+    <footer class="app-footer">
+      {`Insert Generator v${APP_VERSION} (${BUILD_ID}) · `}
+      <a href="./third-party-licenses.txt">Third-party licenses</a>
+    </footer>
+  );
+  // Below 760 px the status pill has no room for Keep searching on a plan that doesn't fit:
+  // the sheet's bar offers it.
+  const searchOnPhone =
+    noFit &&
+    !s.geometryOld.value &&
+    !s.runPending.value &&
+    run.status !== "running" &&
+    canOptimize(project, validation);
+
   return (
     <ValidationContext.Provider value={validation}>
       <SizingContext.Provider value={sizingNotices}>
@@ -447,54 +530,41 @@ export function App(props: AppProps) {
               ) : null}
             </div>
             <div class="pf-app__body" data-first-visit={firstVisit ? "true" : undefined}>
-              {firstVisit ? null : (
+              {firstVisit ? null : phone ? (
+                <BottomSheet
+                  label="The box and what's inside"
+                  title="What's inside"
+                  meta={summaries.components}
+                  expanded={sheetOpen}
+                  full={editingId !== null || openSection === "box"}
+                  onExpandedChange={(open) => {
+                    setSheetOpen(open);
+                    // The box has the sheet to itself: folding it comes back to the list.
+                    if (!open && openSection === "box") {
+                      setOpenSection("components");
+                    }
+                  }}
+                  action={
+                    searchOnPhone ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          store.refit();
+                          // The button goes with the search: the handle keeps the place.
+                          document.querySelector<HTMLElement>(".pf-sheet__handle")?.focus();
+                        }}
+                      >
+                        Keep searching
+                      </button>
+                    ) : undefined
+                  }
+                >
+                  {railSections}
+                  {footer}
+                </BottomSheet>
+              ) : (
                 <section class="pf-app__rail" aria-label="Inputs">
-                  {sections.map((x) => (
-                    <Section
-                      key={x.id}
-                      id={x.id}
-                      step={x.step}
-                      title={SECTION_TITLES[x.id]}
-                      summary={summaries[x.id]}
-                      problem={problems.has(x.id)}
-                      open={openSection === x.id}
-                      onToggle={(open) => setOpenSection(open ? x.id : null)}
-                    >
-                      {x.id === "box" ? (
-                        <BoxPanel
-                          box={project.box}
-                          onChange={(patch) => store.edit((q) => updateBox(q, patch))}
-                        />
-                      ) : null}
-                      {x.id === "components" ? (
-                        <WhatsInside
-                          components={project.components}
-                          openId={editingId}
-                          onOpenChange={setEditingId}
-                          trays={listTrays}
-                          locks={project.locks}
-                          onAdd={addComponentOfKind}
-                          onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
-                          onUnlockSize={(keys) =>
-                            store.edit((q) =>
-                              keys.reduce((p, key) => removeLock(p, key, "size"), q),
-                            )
-                          }
-                          onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
-                          onRemove={(id) => {
-                            const component = project.components.find((x) => x.id === id);
-                            if (component === undefined) {
-                              return false;
-                            }
-                            store.edit((q) => removeComponent(q, id));
-                            // Undo on the toast is only right while the removal is still the latest step.
-                            setRemoved({ component, version: s.history.version.peek() });
-                            return true;
-                          }}
-                        />
-                      ) : null}
-                    </Section>
-                  ))}
+                  {railSections}
                 </section>
               )}
               <main class="pf-app__stage" ref={mainRef}>
@@ -719,10 +789,7 @@ export function App(props: AppProps) {
                 ) : null}
               </main>
             </div>
-            <footer class="app-footer">
-              {`Insert Generator v${APP_VERSION} (${BUILD_ID}) · `}
-              <a href="./third-party-licenses.txt">Third-party licenses</a>
-            </footer>
+            {phone && !firstVisit ? null : footer}
             {settingsOpen !== null ? (
               <SettingsSheet
                 initialTab={settingsOpen.tab}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import css from "./style.css?raw";
+import proof from "./styles/proof.css?raw";
 import tokens from "./styles/tokens.css?raw";
 import { contrast } from "./ui/color";
 
@@ -144,5 +145,30 @@ describe("touch targets", () => {
     expect(ruleFor('input[type="search"]')).toMatch(/min-height:\s*44px/);
     expect(ruleFor('input[type="text"]')).toMatch(/min-height:\s*44px/);
     expect(ruleFor(".tap")).toMatch(/min-height:\s*var\(--control-h\)/);
+  });
+});
+
+describe("the phone layout", () => {
+  const phoneLayout = css.slice(css.indexOf(".pf-sheet {"));
+
+  it("keeps a note over the foot of the screen above the sheet's handle", () => {
+    const body = ruleFor(".pf-toasts", phoneLayout);
+    expect(body).toMatch(/position:\s*fixed/);
+    expect(body).toMatch(/calc\(var\(--sheet-foot\)/);
+    expect(ruleFor(".pf-app")).toMatch(/--sheet-handle:\s*var\(--control-h\)/);
+  });
+
+  it("makes the screen one dvh tall, so a browser's own bars do not cover the sheet", () => {
+    expect(ruleFor(".pf-app", proof)).toMatch(/height:\s*100dvh/);
+  });
+
+  it("leaves the scrolling to the settings sheet's panel, whatever the screen's width", () => {
+    expect(ruleFor(".settings-sheet .modal-body")).toMatch(/overflow:\s*auto/);
+    expect(ruleFor(".settings-sheet[open]")).toMatch(/overflow:\s*hidden/);
+    expect(ruleFor(".settings-sheet")).toMatch(/dvh/);
+  });
+
+  it("gives the view's tabs a 44 px target", () => {
+    expect(ruleFor(".pf-tabs button", proof)).toMatch(/min-height:\s*var\(--control-h\)/);
   });
 });
