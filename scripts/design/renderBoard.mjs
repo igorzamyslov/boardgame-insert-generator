@@ -165,6 +165,11 @@ export async function renderBoard(file, opts = {}) {
     script.remove();
   }
   const head = document.head;
+  // Before the board's own styles, so any of its rules wins: a board link that sets no colour
+  // (MobileWorkspace's rows) must not turn browser blue, as no board means it to.
+  const reset = document.createElement("style");
+  reset.textContent = "a{color:inherit}";
+  head.append(reset);
   const helmet = document.querySelector("helmet");
   for (const node of [...(helmet?.childNodes ?? [])]) {
     if (
