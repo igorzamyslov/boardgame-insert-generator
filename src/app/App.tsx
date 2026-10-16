@@ -32,7 +32,6 @@ import {
   addComponent,
   lockedKeys,
   removeComponent,
-  restoreComponent,
   renameProject,
   setSettings,
   swapTrays,
@@ -452,7 +451,7 @@ export function App(props: AppProps) {
                   geometryOld={s.geometryOld.value}
                   layers={layers}
                   spares={spares}
-                  canUndo={s.undoSlot.value !== null}
+                  canUndo={store.canUndo.value}
                   canOptimize={canOptimize(project, validation)}
                   hasComponents={project.components.length > 0}
                   hiddenErrors={errorsWithoutField(validation, advanced)}
@@ -657,9 +656,8 @@ export function App(props: AppProps) {
                       type="button"
                       class="pf-link"
                       onClick={() => {
-                        const back = removed;
                         setRemoved(null);
-                        store.edit((q) => restoreComponent(q, back.component, back.index));
+                        store.undo();
                         setOpenSection("components");
                       }}
                     >

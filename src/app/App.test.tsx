@@ -7,6 +7,7 @@ import type { Project } from "../model/types";
 import { APP_VERSION, BUILD_ID } from "../model/version";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
+import { updateBox } from "./actions";
 import { CONFLICT_CODE } from "./persistence";
 import {
   EMPTY_FOREIGN,
@@ -612,10 +613,11 @@ describe("App", () => {
   it("undoes the last layout from the summary", async () => {
     const p = fixtureProject();
     const before = makeLayout(inputsHash(p), [makeTray({ key: "old:p0:0" })]);
-    const { store } = renderApp({ project: { ...p, layout: makeLayout(inputsHash(p)) } });
-    store.state.undoSlot.value = { layout: before };
+    const { store } = renderApp({ project: { ...p, layout: before } });
+    store.edit((q) => updateBox(q, { innerHeight: q.box.innerHeight + 2 }));
     fireEvent.click(await screen.findByRole("button", { name: "Undo layout" }));
-    expect(store.state.project.value.layout).toBe(before);
-    expect(store.state.undoSlot.value).toBeNull();
+    expect(store.state.project.value.layout).toEqual(before);
+    expect(store.state.project.value.box.innerHeight).toBe(p.box.innerHeight);
+    expect(store.canUndo.value).toBe(false);
   });
 });

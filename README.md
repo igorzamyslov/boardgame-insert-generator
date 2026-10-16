@@ -54,7 +54,7 @@ geometry clients, so they never start a worker or load WASM.
    with a curved floor instead. The editor says so, and what the bin has.
 4. **Layout.** The optimizer runs on its own 400 ms after you stop editing and
    says the result in one sentence; Advanced adds the slack per axis and an
-   upper bound for the filament. One search button and "Undo layout" (one step) sit under it: the
+   upper bound for the filament. One search button and "Undo layout" sit under it: the
    button says "Update plan" while there is no layout or the inputs changed since it was made, and "Keep searching"
    (a longer search, about three times the budget) once the layout is current; either way the search starts from the
    current layout and never throws it away. Spare trays (plain, dashed, still
@@ -120,7 +120,9 @@ there. Update the two copied files together when the design system changes.
 from `app/actions.ts`. If `inputsHash` changed, `app/runner.ts` waits 400 ms,
 cancels any running optimization, runs `size()` and the layout worker (same
 seed, warm start from the current layout) and auto-accepts the result into
-`project.layout`, keeping the previous layout for one-step Undo. A result whose
+`project.layout`. Every edit is an Undo/Redo step of the whole project (`app/history.ts`, up to
+100, cleared when another project opens); the plan joins the history entry of the edit that
+caused it, and a "Keep searching" result is a step of its own. A result whose
 inputs no longer match the project is discarded. `app/persistence.ts` autosaves
 (500 ms) to localStorage, tells `main.tsx` the new `#1.` link (which writes it
 with `history.replaceState`), opens links and files as separate projects (a

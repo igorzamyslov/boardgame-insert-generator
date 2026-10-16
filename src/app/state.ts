@@ -6,11 +6,13 @@ import { NOTICE_CODES, summarize } from "../layout";
 import type { LayoutResult, LayoutSummary } from "../layout/types";
 import { inputsHash } from "../model/hash";
 import { noForeign } from "../model/schema";
-import type { ForeignData, Lock, Notice, Project, StoredLayout } from "../model/types";
+import type { ForeignData, Notice, Project } from "../model/types";
 import { validateProject } from "../model/validate";
 import type { ProjectListEntry } from "../share";
 import { size } from "../sizing";
 import { errorText } from "../util/errors";
+import { createHistory } from "./history";
+import type { History } from "./history";
 
 export type Mode = "simple" | "advanced";
 export type RunKind = "edit" | "improve";
@@ -19,15 +21,6 @@ export type RunState =
   | { status: "running"; done: number; total: number }
   | { status: "done" }
   | { status: "error"; message: string };
-
-/**
- * What undo restores: the layout before the last accepted run and, when that run pruned
- * locks it had to drop, the locks as they were, so the restored layout matches its inputs.
- */
-export interface UndoSlot {
-  layout: StoredLayout;
-  locks?: Lock[];
-}
 
 export const STALE_CODE = "layout.stale";
 export const CAPPED_CODE = NOTICE_CODES.capped;
@@ -42,7 +35,8 @@ export interface State {
   lastResult: Signal<LayoutResult | null>;
   /** The inputs hash `lastResult` was computed for; its notices show only while it is current. */
   lastResultHash: Signal<string | null>;
-  undoSlot: Signal<UndoSlot | null>;
+  /** Undo and redo steps of the open project (whole projects). */
+  history: History;
   selection: Signal<string | null>;
   appNotices: Signal<Notice[]>;
   /** Newer-minor file: automatic runs are skipped, a user run asks first (spec §9). */
@@ -178,7 +172,7 @@ export function createState(initial: Project, foreign: ForeignData = noForeign()
     run: signal<RunState>({ status: "idle" }),
     lastResult,
     lastResultHash,
-    undoSlot: signal<UndoSlot | null>(null),
+    history: createHistory(),
     selection: signal<string | null>(null),
     appNotices: signal<Notice[]>([]),
     needsConfirm: signal(false),
