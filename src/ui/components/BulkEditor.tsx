@@ -10,12 +10,7 @@ import { MoreOptions } from "./MoreOptions";
 import { BinNotes, ToggleOptions } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
-export function BulkEditor({
-  component: c,
-  index,
-  advanced,
-  onChange,
-}: EditorProps<BulkComponent>) {
+export function BulkEditor({ component: c, index, onChange }: EditorProps<BulkComponent>) {
   const at = `/components/${index}`;
   const setItem = (j: number, item: BulkItem): void => {
     onChange({ ...c, items: c.items.map((x, k) => (k === j ? item : x)) });
@@ -139,9 +134,7 @@ export function BulkEditor({
           component={c}
           index={index}
           onChange={onChange}
-          tray={
-            <ToggleOptions component={c} index={index} advanced={advanced} onChange={onChange} />
-          }
+          tray={<ToggleOptions component={c} index={index} onChange={onChange} />}
         />
       </MoreOptions>
     </>

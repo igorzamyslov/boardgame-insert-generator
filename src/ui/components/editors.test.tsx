@@ -39,16 +39,13 @@ function lastOf<T>(fn: { mock: { calls: T[][] } }): T {
 describe("BulkEditor", () => {
   it("switches an item to a pile volume and edits it", () => {
     const onChange = vi.fn<(c: BulkComponent) => void>();
-    const view = render(
-      <BulkEditor component={of("bulk")} index={0} advanced={false} onChange={onChange} />,
-    );
+    const view = render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("How to size item 1"), { target: { value: "volume" } });
     expect(lastOf(onChange).items).toEqual([{ name: "", volumeMl: 50 }]);
     view.rerender(
       <BulkEditor
         component={{ ...of("bulk"), items: [{ name: "Coins", volumeMl: 50 }] }}
         index={0}
-        advanced={false}
         onChange={onChange}
       />,
     );
@@ -58,7 +55,7 @@ describe("BulkEditor", () => {
 
   it("edits piece sizes and adds items", () => {
     const onChange = vi.fn<(c: BulkComponent) => void>();
-    render(<BulkEditor component={of("bulk")} index={0} advanced={false} onChange={onChange} />);
+    render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
     fireEvent.input(screen.getByLabelText("How many of item 1"), { target: { value: "30" } });
     expect(lastOf(onChange).items[0]).toMatchObject({ count: 30 });
     fireEvent.input(screen.getByLabelText(/Item 1 height/), { target: { value: "2,5" } });
@@ -116,7 +113,7 @@ describe("MinisEditor", () => {
 describe("toggles", () => {
   it("defaults bits to a curved floor without finger cuts, and turns cuts on", () => {
     const onChange = vi.fn<(c: BulkComponent) => void>();
-    render(<BulkEditor component={of("bulk")} index={0} advanced onChange={onChange} />);
+    render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
     expect((screen.getByLabelText("Curved floor") as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByLabelText("Finger cuts"));
     expect(lastOf(onChange).fingerCuts).toBe(true);
@@ -254,7 +251,7 @@ describe("toggles", () => {
 
     it("offers bulk all three axes, auto by default, each stored on its own", () => {
       const onChange = vi.fn<(c: BulkComponent) => void>();
-      render(<BulkEditor component={of("bulk")} index={0} advanced onChange={onChange} />);
+      render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
       expect(labels()).toEqual(["Extra width", "Extra length", "Extra height"]);
       for (const label of labels()) {
         expect((screen.getByLabelText(label ?? "") as HTMLSelectElement).value).toBe("auto");
@@ -292,7 +289,7 @@ describe("toggles", () => {
     });
 
     it("keeps them under More options", () => {
-      render(<BulkEditor component={of("bulk")} index={0} advanced onChange={vi.fn()} />);
+      render(<BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />);
       const disc = document.querySelector("details.pf-disc");
       expect(growthIds().length).toBeGreaterThan(0);
       for (const id of growthIds()) {
@@ -301,7 +298,7 @@ describe("toggles", () => {
     });
 
     it("states the auto cap beside each control", () => {
-      render(<BulkEditor component={of("bulk")} index={0} advanced onChange={vi.fn()} />);
+      render(<BulkEditor component={of("bulk")} index={0} onChange={vi.fn()} />);
       const select = screen.getByLabelText("Extra width");
       expect(document.getElementById(`${select.id}-hint`)?.textContent).toMatch(
         /Auto: up to the bin's width, at most 50 mm/,
@@ -421,12 +418,7 @@ describe("validation shown in place", () => {
           err("field.empty", "/components/1/figures", "Add at least one figure."),
         ]}
       >
-        <BulkEditor
-          component={{ ...of("bulk"), items: [] }}
-          index={0}
-          advanced={false}
-          onChange={vi.fn()}
-        />
+        <BulkEditor component={{ ...of("bulk"), items: [] }} index={0} onChange={vi.fn()} />
         <MinisEditor
           component={{ ...of("minis"), id: "x2", figures: [] }}
           index={1}
