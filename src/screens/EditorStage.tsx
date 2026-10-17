@@ -14,7 +14,7 @@ import { levelsOf } from "../plan/layers";
 import { lookOfTray } from "../plan/glyph";
 import { PlanView } from "../plan/PlanView";
 import type { PlanViewProps } from "../plan/PlanView";
-import { componentIndexOfTray, mm } from "../ui/identity";
+import { componentIndexesOfTray, mm } from "../ui/identity";
 import { layerOptions } from "./StageTop";
 import type { EditorProblem } from "./StageTop";
 import { useNoteClock } from "../kit/Toast";
@@ -33,7 +33,10 @@ export interface TrayFacts {
   size: { w: number; d: number } | null;
 }
 
-/** The trays of the component in the plan (the stored trays, not the spacers and risers made for printing). */
+/**
+ * The trays of the component in the plan (the stored trays, not the spacers and risers made for
+ * printing): every tray it is in, a tray shared with the rest of its group included.
+ */
 export function traysOfComponent(
   trays: readonly TraySpec[],
   components: readonly Component[],
@@ -42,7 +45,9 @@ export function traysOfComponent(
   const index = components.findIndex((c) => c.id === componentId);
   return index === -1
     ? []
-    : trays.filter((t) => t.part === "tray" && componentIndexOfTray(t, components) === index);
+    : trays.filter(
+        (t) => t.part === "tray" && componentIndexesOfTray(t, components).includes(index),
+      );
 }
 
 /**

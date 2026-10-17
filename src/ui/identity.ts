@@ -182,25 +182,79 @@ export function shadeIndexOf(components: readonly Component[], index: number): n
   return before;
 }
 
-/** The component a tray holds: its first compartment's component, else null (spare, leftover, spacer). */
-export function componentIndexOfTray(
-  tray: TraySpec,
+/** The component a compartment holds, by the id it names, else by its words; null for none. */
+function componentIndexOfCompartment(
+  compartment: TraySpec["compartments"][number],
   components: readonly Component[],
 ): number | null {
-  const first = tray.compartments.find((c) => c.kind !== "spare" && c.contents !== "");
-  if (first === undefined) {
-    return null;
-  }
   // Layouts from schema 0.1.2 on name the component outright, so two components called the
   // same thing (several unnamed "Cards", say) keep their own colour instead of collapsing
   // onto whichever one the text happened to match first.
-  if (first.componentId !== undefined) {
-    const byId = components.findIndex((c) => c.id === first.componentId);
+  if (compartment.componentId !== undefined) {
+    const byId = components.findIndex((c) => c.id === compartment.componentId);
     if (byId !== -1) {
       return byId;
     }
   }
-  return componentIndexOfContents(first.contents, components);
+  return componentIndexOfContents(compartment.contents, components);
+}
+
+/** The compartments of a tray that hold something of a component (not a spare well). */
+const holding = (tray: TraySpec): TraySpec["compartments"] =>
+  tray.compartments.filter((c) => c.kind !== "spare" && c.contents !== "");
+
+/**
+ * The component a tray takes its colour and name from: its first compartment's, else null (spare,
+ * leftover, spacer). A tray can hold several (a group shares one): `componentIndexesOfTray` names
+ * them all; this one is the first of them.
+ */
+export function componentIndexOfTray(
+  tray: TraySpec,
+  components: readonly Component[],
+): number | null {
+  const first = holding(tray)[0];
+  return first === undefined ? null : componentIndexOfCompartment(first, components);
+}
+
+/**
+ * Every component a tray holds, each once, in compartment order. A tray belongs to all of them: the
+ * rail lights each one's row when the tray is chosen, each one's row names its layer and each one's
+ * editor lifts the tray. The colour is the first's alone (`componentIndexOfTray`, `shadeIndexOf`).
+ */
+export function componentIndexesOfTray(tray: TraySpec, components: readonly Component[]): number[] {
+  const out: number[] = [];
+  for (const compartment of holding(tray)) {
+    const at = componentIndexOfCompartment(compartment, components);
+    if (at !== null && !out.includes(at)) {
+      out.push(at);
+    }
+  }
+  return out;
+}
+
+/** The ids of the components a tray holds (`componentIndexesOfTray`). */
+export function componentIdsOfTray(tray: TraySpec, components: readonly Component[]): string[] {
+  return componentIndexesOfTray(tray, components).flatMap((i) => components[i]?.id ?? []);
+}
+
+/**
+ * What lights together with the component `id`: itself and every component that shares a tray with
+ * it (a group's members), since the tray is one thing in the plan. A component with a tray to
+ * itself, or none, is only itself.
+ */
+export function sharingTrayWith(
+  id: string,
+  trays: readonly TraySpec[],
+  components: readonly Component[],
+): Set<string> {
+  const out = new Set([id]);
+  for (const tray of trays) {
+    const ids = componentIdsOfTray(tray, components);
+    if (ids.includes(id)) {
+      ids.forEach((other) => out.add(other));
+    }
+  }
+  return out;
 }
 
 /** A length in mm to one decimal, without a trailing zero: "285", "63.5". */

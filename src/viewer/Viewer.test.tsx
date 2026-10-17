@@ -710,6 +710,29 @@ describe("Viewer", () => {
       expect(scene.handle.setLit).toHaveBeenLastCalledWith([]);
     });
 
+    it("tints a group's shared tray from either member's row, and lights the pair's trays together", async () => {
+      const scene = stubScene();
+      // Objectives and the second component share the tray b; the second also has the tray a
+      const shared = makeTray({
+        key: "b:p0:0",
+        level: 1,
+        z: 40,
+        compartments: [deckWell("Objectives ×10"), deckWell("Market ×20")],
+      });
+      const own = makeTray({ key: "a:p0:0", level: 0, compartments: [deckWell("Market ×20")] });
+      render(<Viewer {...props({ trays: [own, shared], components }, scene)} />);
+      await waitFor(() => expect(scene.handle.setLit).toHaveBeenCalled());
+      // each member's row finds the shared tray (by contents text, as these wells name no id)
+      act(() => {
+        hoveredComponent.value = third.id;
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["a:p0:0", "b:p0:0"]);
+      act(() => {
+        hoveredComponent.value = second.id;
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["a:p0:0", "b:p0:0"]);
+    });
+
     it("tints nothing for a component that holds no tray here", async () => {
       const scene = stubScene();
       render(<Viewer {...props({ trays: all, components }, scene)} />);

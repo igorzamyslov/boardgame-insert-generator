@@ -7,11 +7,12 @@ import type { Component, Lock, TraySpec } from "../../model/types";
 import { levelsOf } from "../../plan/layers";
 import { hoveredComponent } from "../../screens/hover";
 import {
-  componentIndexOfTray,
+  componentIndexesOfTray,
   componentSummary,
   kindIndexOf,
   layerWords,
   shadeVars,
+  sharingTrayWith,
 } from "../identity";
 import { ValidationContext } from "../validation";
 
@@ -24,8 +25,8 @@ export interface ComponentListProps {
   compact?: boolean;
   /** A row before the components' own, in the same list (the sheet's "The box"). */
   first?: ComponentChildren;
-  /** The component the selected tray belongs to: its row is pressed. */
-  selectedId?: string | null;
+  /** The components the selected tray belongs to (a group's tray has several): their rows are pressed. */
+  selectedIds?: readonly string[];
   /** The components whose tray does not fit (a fit problem's culprit): their rows are warn-lit and say so. */
   culprits?: ReadonlySet<string>;
   /** A row was chosen: open its editor. */
@@ -79,7 +80,8 @@ function inStack(trayKeys: readonly string[], locks: readonly Lock[]): boolean {
 }
 
 /**
- * The layer of a component's first tray, named as Main does ("bottom layer", "layer 2"); nothing while there is no
+ * The layer of a component's first tray (a tray it shares with the rest of its group is its own),
+ * named as Main does ("bottom layer", "layer 2"); nothing while there is no
  * current plan or it has a single layer.
  */
 export function layerOfComponent(
@@ -95,7 +97,7 @@ export function layerOfComponent(
     return "";
   }
   const first = trays.find(
-    (t) => t.part === "tray" && componentIndexOfTray(t, components) === index,
+    (t) => t.part === "tray" && componentIndexesOfTray(t, components).includes(index),
   );
   const at = first === undefined ? -1 : levels.indexOf(first.level);
   return at === -1 ? "" : layerWords(at, levels.length);
@@ -112,7 +114,7 @@ export function ComponentList({
   locks = [],
   compact = false,
   first,
-  selectedId = null,
+  selectedIds = [],
   culprits,
   onOpen,
   onHover,
@@ -120,8 +122,13 @@ export function ComponentList({
   onUnlockSize,
 }: ComponentListProps) {
   const notices = useContext(ValidationContext);
-  // The component being pointed at, on the plan or here: its row takes the selected look (Main).
-  const lit = hoveredComponent.value;
+  // The component being pointed at, on the plan or here: its row takes the selected look (Main),
+  // and so do the rows of the items that share a tray with it (a group lights as one).
+  const pointed = hoveredComponent.value;
+  const lit =
+    pointed === null
+      ? null
+      : sharingTrayWith(pointed, trays === undefined ? [] : trays, components);
   const listRef = useRef<HTMLUListElement>(null);
   // The × that was pressed goes with its chip: the focus moves to the next chip of the row, or to
   // the row itself, once the list has re-rendered without it.
@@ -202,8 +209,8 @@ export function ComponentList({
                   .filter((x) => x !== "")
                   .join(" ") || undefined
               }
-              selected={selectedId === c.id}
-              lit={lit === c.id}
+              selected={selectedIds.includes(c.id)}
+              lit={lit?.has(c.id) === true}
               shade={shadeVars(c.kind, kindIndexOf(components, i))}
               data-row-id={c.id}
               data-problem={problem ? "true" : undefined}

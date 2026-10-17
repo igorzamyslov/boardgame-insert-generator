@@ -23,8 +23,8 @@ export interface WhatsInsideProps {
   printer: Printer;
   /** The sheet's list (a phone) rather than the rail's. */
   phone?: boolean;
-  /** The component the selected tray belongs to. */
-  selectedId?: string | null;
+  /** The components the selected tray belongs to (a group's tray has several). */
+  selectedIds?: readonly string[];
   /** The components whose tray does not fit (a fit problem): their rows say so. */
   culprits?: ReadonlySet<string>;
   onOpenBox: () => void;
@@ -59,7 +59,7 @@ export function WhatsInside({
   box,
   printer,
   phone = false,
-  selectedId,
+  selectedIds,
   culprits,
   onOpenBox,
   onSettings,
@@ -131,7 +131,7 @@ export function WhatsInside({
       trays,
       locks,
       box,
-      selectedId,
+      selectedIds,
       culprits,
       onOpenBox,
       onOpenEditor: setOpenId,

@@ -7,7 +7,7 @@ import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering"
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { hoveredComponent } from "../screens/hover";
-import { componentIndexOfTray } from "../ui/identity";
+import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
 import { pageScheme, shadeColorOf } from "./shades";
@@ -217,15 +217,15 @@ export function Viewer(p: ViewerProps) {
   const railId = hoveredComponent.value;
   const litKey = useMemo(() => {
     const comps = p.components ?? [];
-    return railId === null
-      ? ""
-      : p.trays
-          .filter((t) => {
-            const at = componentIndexOfTray(t, comps);
-            return at !== null && comps[at]?.id === railId;
-          })
-          .map((t) => t.key)
-          .join("\n");
+    if (railId === null) {
+      return "";
+    }
+    // The items that share a tray with the one pointed at light with it, as in the top view.
+    const lit = sharingTrayWith(railId, p.trays, comps);
+    return p.trays
+      .filter((t) => componentIdsOfTray(t, comps).some((id) => lit.has(id)))
+      .map((t) => t.key)
+      .join("\n");
   }, [railId, p.trays, p.components]);
   useEffect(() => {
     handleRef.current?.setLit(litKey === "" ? [] : litKey.split("\n"));

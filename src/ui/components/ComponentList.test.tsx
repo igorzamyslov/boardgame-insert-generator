@@ -92,7 +92,7 @@ describe("ComponentList", () => {
 
   it("presses the row of the selected component, and no other", () => {
     const comps = [named("cards", "a", "Main"), named("bulk", "b", "Gems")];
-    render(<ComponentList components={comps} selectedId="b" {...handlers()} />);
+    render(<ComponentList components={comps} selectedIds={["b"]} {...handlers()} />);
     expect(screen.getByRole("button", { name: /^Gems,/ }).getAttribute("aria-pressed")).toBe(
       "true",
     );

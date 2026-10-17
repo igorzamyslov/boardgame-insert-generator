@@ -37,7 +37,7 @@ import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
 import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
-import { componentIndexOfTray, mm } from "../ui/identity";
+import { componentIdsOfTray, mm } from "../ui/identity";
 import { misfitOf, namedConflicts } from "../ui/noFit";
 import {
   SettingsContext,
@@ -467,10 +467,8 @@ export function App(props: AppProps) {
 
   // The component the selected tray belongs to: its row in the rail is pressed.
   const selectedTray = layout ? printable.find((t) => t.key === s.selection.value) : undefined;
-  const selectedIndex =
-    selectedTray === undefined ? null : componentIndexOfTray(selectedTray, project.components);
-  const selectedId =
-    selectedIndex === null ? null : (project.components[selectedIndex]?.id ?? null);
+  const selectedIds =
+    selectedTray === undefined ? [] : componentIdsOfTray(selectedTray, project.components);
   // The tray the closest attempt could not fit, for the status and for the picture that marks it.
   const misfit = noFit
     ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components)
@@ -566,7 +564,7 @@ export function App(props: AppProps) {
       box={project.box}
       printer={projPrinter}
       phone={phone}
-      selectedId={selectedId}
+      selectedIds={selectedIds}
       culprits={culprits}
       onOpenBox={openBox}
       onSettings={() => openSettings()}
