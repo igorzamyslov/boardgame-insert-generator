@@ -429,7 +429,9 @@ describe("style.css", () => {
   it("draws the 3D view in the plan's frame: the same size, radius and ground", () => {
     const frame = ruleFor(".viewer-stage", plan);
     expect(frame).toBe(ruleFor(".plan-box", plan));
-    expect(frame).toMatch(/min\(582px,\s*100cqw,\s*100cqh\)/);
+    expect(frame).toMatch(
+      /--side:\s*min\(\s*582px,\s*calc\(\(100cqw - 12px\) \* var\(--long\) \/ var\(--box-w\) \+ 12px\),\s*calc\(\(100cqh - 12px\) \* var\(--long\) \/ var\(--box-l\) \+ 12px\)\s*\)/,
+    );
     expect(frame).toMatch(/border-radius:\s*var\(--r-panel\)/);
     expect(frame).toMatch(/background:\s*var\(--box\)/);
     expect(ruleFor(".viewer-canvas")).toMatch(/border-radius:\s*inherit/);
@@ -446,6 +448,14 @@ describe("style.css", () => {
     expect(body).toMatch(/min-width:\s*var\(--control-h\)/);
     expect(body).toMatch(/min-height:\s*var\(--control-h\)/);
     expect(ruleFor(".viewer-selection-live")).toMatch(/pointer-events:\s*none/);
+  });
+
+  it("keeps the 3D controls out of the flow, over the foot of the frame, so the frame never shrinks", () => {
+    const under = ruleFor(".viewer-under");
+    expect(under).toMatch(/position:\s*absolute/);
+    expect(under).toMatch(/bottom:\s*var\(--s-8\)/);
+    expect(under).toMatch(/max-height:\s*55%/);
+    expect(ruleFor(".viewer-under .tray-picker")).toMatch(/flex-wrap:\s*nowrap/);
   });
 
   it("lets one finger scroll the page past the 3D canvas", () => {
@@ -550,7 +560,10 @@ describe("the phone layout", () => {
     // no floor under it: the 24 rem of the old layout is gone
     expect(workspace).not.toMatch(/24rem/);
     // the box: Main's 582 px, or less
-    expect(ruleFor(".plan-box", plan)).toMatch(/--side:\s*min\(582px,\s*100cqw,\s*100cqh\)/);
+    // each side of the box is held by its own container side, whichever way the box lies
+    expect(ruleFor(".plan-box", plan)).toMatch(
+      /--side:\s*min\(\s*582px,\s*calc\(\(100cqw - 12px\) \* var\(--long\) \/ var\(--box-w\) \+ 12px\),\s*calc\(\(100cqh - 12px\) \* var\(--long\) \/ var\(--box-l\) \+ 12px\)\s*\)/,
+    );
     expect(ruleFor(".plan-box", plan)).toMatch(/border-radius:\s*var\(--r-panel\)/);
     expect(ruleFor(".plan-box", plan)).toMatch(/box-shadow:\s*var\(--box-inset-plan\)/);
     // a phone: the page's width less 16 px a side, radius 14, and the frame sets no height cap

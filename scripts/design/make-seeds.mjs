@@ -187,6 +187,7 @@ try {
   const base = withLayout(kit.harbourKings());
   const headroom = withLayout(kit.harbourKingsHeadroom());
   const long = withLayout(kit.harbourKingsLong());
+  const wide = withLayout(kit.harbourKingsWide());
 
   // Stale seeds: the base plan with an edit that the plan does not cover.
   const stale = {
@@ -262,6 +263,7 @@ try {
       "harbour-kings": { project: base },
       "harbour-kings-headroom": { project: headroom },
       "harbour-kings-long": { project: long },
+      "harbour-kings-wide": { project: wide },
       "harbour-kings-stale": { project: stale },
       "harbour-kings-notes": { project: notes },
       "harbour-kings-nofit": { project: noFitRun.project, result: noFitRun.result },

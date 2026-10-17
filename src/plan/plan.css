@@ -35,9 +35,15 @@
  */
 .plan-box,
 .viewer-stage {
-  --side: min(582px, 100cqw, 100cqh);
-  --floor: calc(var(--side) - 12px);
   --long: max(var(--box-w), var(--box-l));
+
+  /* the longer side: 582 px, or what makes the width fit 100cqw and the height 100cqh, whichever way the box lies */
+  --side: min(
+    582px,
+    calc((100cqw - 12px) * var(--long) / var(--box-w) + 12px),
+    calc((100cqh - 12px) * var(--long) / var(--box-l) + 12px)
+  );
+  --floor: calc(var(--side) - 12px);
 
   position: relative;
   flex: none;

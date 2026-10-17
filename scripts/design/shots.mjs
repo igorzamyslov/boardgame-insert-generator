@@ -301,6 +301,28 @@ async function openApp(browser, appUrl, name, state, seeds) {
       problems.push("the stage scrolls at this size (it must not: the plan shrinks instead)");
     }
   }
+  if (
+    state.needsWebGL &&
+    (await page.locator('[data-region="plan-box"].viewer-stage').count()) === 0
+  ) {
+    // The 3D button is blocked without WebGL and the stage says so: a note, not a failure.
+    problems.push(
+      "WebGL is missing here: the 3D view shows its fallback line, so its frame was not drawn or compared",
+    );
+  }
+  if (state.planWidth !== undefined) {
+    // The computed size of the plan's box, not a string in the CSS: a wide box is as wide as a square one.
+    const box = await page.evaluate(() => {
+      const el = document.querySelector('[data-region="plan-box"]');
+      const r = el === null ? null : el.getBoundingClientRect();
+      return r === null ? null : { w: r.width, h: r.height };
+    });
+    if (box === null || Math.abs(box.w - state.planWidth) > 1) {
+      problems.push(
+        `the plan box is ${box === null ? "missing" : `${Math.round(box.w * 100) / 100} px wide`}, not the ${state.planWidth} px it must be`,
+      );
+    }
+  }
   if (state.minPlanWidth !== undefined) {
     const width = await page.evaluate(() => {
       const box = document.querySelector('[data-region="plan-box"]');
@@ -321,7 +343,12 @@ const regionSource = (name) => REGIONS[name].board.toString();
 
 // ---------------------------------------------------------------- nothing jumps (Review Focus 4)
 
-const JUMP_STATES = ["workspace", "workspace-searching"];
+// Pairs that must not differ: Keep searching turning into Stop, and the View segment turning to 3D.
+const JUMP_PAIRS = [
+  ["workspace", "workspace-searching"],
+  ["workspace", "workspace-3d"],
+];
+const JUMP_STATES = [...new Set(JUMP_PAIRS.flat())];
 const jumpBoxes = new Map();
 
 async function measureJump(page) {
@@ -527,7 +554,8 @@ async function shootState(browser, appUrl, name, seeds) {
         regions.push(region);
       }
     }
-    if (JUMP_STATES.includes(name)) {
+    // a 3D view that could not be drawn (no WebGL here) has nothing to compare
+    if (JUMP_STATES.includes(name) && !problems.some((p) => p.startsWith("WebGL is missing"))) {
       jumpBoxes.set(name, await measureJump(app));
     }
     const table = numbersTable(await measure(board, true), await measure(app, false));
@@ -593,15 +621,18 @@ try {
       lines.push(`FAILED  ${name}: ${firstLine(e)}`);
     }
   }
-  if (JUMP_STATES.every((n) => jumpBoxes.has(n))) {
-    const problems = jumpProblems(...JUMP_STATES.map((n) => jumpBoxes.get(n)));
+  for (const pair of JUMP_PAIRS) {
+    if (!pair.every((n) => jumpBoxes.has(n))) {
+      continue;
+    }
+    const problems = jumpProblems(...pair.map((n) => jumpBoxes.get(n)));
     // a region found in neither state is not a failure: it only says the check had nothing to compare
     const hard = problems.filter((p) => !p.endsWith("(nothing compared)"));
     failed += hard.length > 0 ? 1 : 0;
     lines.push(
       hard.length > 0
-        ? `FAILED  jump: ${hard.join("; ")}`
-        : `ok      jump: header, rail, status and plan box do not move between ${JUMP_STATES.join(" and ")}${problems.length > 0 ? ` (${problems.join("; ")})` : ""}`,
+        ? `FAILED  jump (${pair.join(" and ")}): ${hard.join("; ")}`
+        : `ok      jump: header, rail, status and plan box do not move between ${pair.join(" and ")}${problems.length > 0 ? ` (${problems.join("; ")})` : ""}`,
     );
   }
   console.log(`\n${lines.join("\n")}\n\nout: ${outDir}`);

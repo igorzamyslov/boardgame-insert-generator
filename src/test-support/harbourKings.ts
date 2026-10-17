@@ -166,6 +166,12 @@ export function harbourKingsHeadroom(): Project {
   return { ...p, box: { ...p.box, headroom: 8, headroomCoverage: "full" } };
 }
 
+/** The same game in a wide box (400 × 285 mm): the plan's frame is not square. */
+export function harbourKingsWide(): Project {
+  const p = harbourKings();
+  return { ...p, box: { ...p.box, innerWidth: 400 } };
+}
+
 /** 25 components, one with a 40-character name and a group of three: a long list and long names. */
 export function harbourKingsLong(): Project {
   const p = harbourKings();

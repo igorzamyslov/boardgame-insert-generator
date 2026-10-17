@@ -15,6 +15,8 @@
 //   noPageScroll  the state fails when the page scrolls at its size (a review focus)
 //   noStageScroll  the state fails when the stage scrolls: the plan's box shrinks instead (Task 7)
 //   minPlanWidth  the state fails when the plan's box is narrower than this many px
+//   planWidth     the state fails when the plan's box is not this many px wide (±1), by its computed size
+//   needsWebGL    the state draws the 3D view: without WebGL it notes the fallback and the jump check skips it
 //
 // Step = { click: { role, name, in? } }  click getByRole(role, { name }), inside the CSS selector `in`
 //      | { waitFor: { role?, name?, text?, timeout? } }  (default 15 s)
@@ -36,7 +38,7 @@ const STATUS = '[data-region="status"]';
 
 /** Seeds: a current plan each, and the ones that are stale on purpose (make-seeds.mjs). */
 export const SEEDS = {
-  current: ["harbour-kings", "harbour-kings-headroom", "harbour-kings-long"],
+  current: ["harbour-kings", "harbour-kings-headroom", "harbour-kings-long", "harbour-kings-wide"],
   stale: [
     "harbour-kings-stale",
     "harbour-kings-notes",
@@ -89,6 +91,15 @@ export const STATES = {
     seed: "harbour-kings-notes",
     noStageScroll: true,
   },
+  // A box that is not square (400 × 285 mm): its longer side is 582 px wide, as a square box's is.
+  "workspace-wide": {
+    board: "Main",
+    nearest: "no board of its own: Main's box frame, wider than it is tall",
+    viewport: DESKTOP,
+    seed: "harbour-kings-wide",
+    planWidth: 582,
+    noStageScroll: true,
+  },
   // The 3D view: three.js in the plan's frame. Main's own 3D is a CSS tilt of the flat box.
   "workspace-3d": {
     board: "Main",
@@ -96,6 +107,7 @@ export const STATES = {
     nearest: "no board of its own: Main's box frame and segments",
     viewport: DESKTOP,
     seed: "harbour-kings",
+    needsWebGL: true,
     steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   "workspace-menu": {

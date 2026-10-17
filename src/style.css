@@ -905,8 +905,8 @@ input[aria-invalid="true"] {
 
 .axis-gizmo {
   position: absolute;
-  bottom: var(--space-2);
-  left: var(--space-2);
+  top: calc(var(--s-8) + 32px); /* under the selected tray's name */
+  left: var(--s-8);
   width: 84px;
   height: 84px;
   pointer-events: none;
@@ -957,14 +957,28 @@ input[aria-invalid="true"] {
   touch-action: pan-y;
 }
 
-/* What the view says and offers under its frame: the controls, the picker. */
+/*
+ * What the view says and offers (the controls, the picker, a message) sits over the foot of the
+ * frame, out of the flow, so the 3D view is as big as the plan's box and nothing jumps when the
+ * View segment changes.
+ */
 .viewer-under {
+  position: absolute;
+  right: var(--s-8);
+  bottom: var(--s-8);
+  left: var(--s-8);
   display: flex;
-  flex: none;
   flex-direction: column;
-  gap: var(--s-8);
-  align-self: stretch;
-  padding: var(--s-4);
+  gap: var(--s-4);
+  max-height: 55%;
+  padding: var(--s-8);
+  overflow: auto;
+  border-radius: var(--r-tile);
+  background: var(--pill-fill);
+}
+
+.viewer-under p {
+  margin: 0;
 }
 
 .viewer-controls {
@@ -1193,19 +1207,20 @@ html:has(dialog.modal[open]) {
   box-shadow: inset 0 0 0 3px var(--ink);
 }
 
-/* In the 3D view the picker is two rows tall at most and scrolls inside, so the frame keeps its size. */
+/* In the 3D view the picker is one row and scrolls sideways, so the strip stays low. */
 .viewer-under .tray-picker {
-  max-height: calc(2 * var(--control-h) + var(--s-2) + 2 * var(--s-4));
+  flex-wrap: nowrap;
   margin: 0;
   padding: var(--s-4);
-  overflow: auto;
+  overflow-x: auto;
 }
 
-@media (width < 760px) {
-  .viewer-under .tray-picker {
-    max-height: none;
-    overflow: visible;
-  }
+.viewer-under .tray-picker li {
+  flex: none;
+}
+
+.viewer-under .tray-picker button {
+  white-space: nowrap;
 }
 
 .tray-chip {

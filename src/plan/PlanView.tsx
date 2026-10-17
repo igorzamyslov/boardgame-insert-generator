@@ -21,7 +21,7 @@ import {
   traysAt,
 } from "./layers";
 import { lookOfTray } from "./glyph";
-import { DESKTOP_PILL, PHONE_PILL, pillName } from "./tileText";
+import { DESKTOP_PILL, PHONE_PILL, hasPillRoom } from "./tileText";
 import "./plan.css";
 
 export const DRAG_THRESHOLD_PX = 6;
@@ -428,7 +428,8 @@ export function PlanView(props: PlanViewProps) {
               const dimmed = searching ? !locked : lightsSome && identity !== active;
               // The kind icon says what a tray holds when you point at it: the lit trays.
               const icon = look !== null && lit;
-              const text = pillName(
+              // The pill shows the whole name and its CSS cuts it to the tile; here only whether there is room.
+              const pill = hasPillRoom(
                 name,
                 { w: r.w * pxPerMm - TILE_GAP_PX, h: r.h * pxPerMm - TILE_GAP_PX },
                 pillType,
@@ -525,13 +526,13 @@ export function PlanView(props: PlanViewProps) {
                         ))}
                       </div>
                     ) : null}
-                    {text !== null ? (
+                    {pill ? (
                       <span class="plan-center" aria-hidden="true">
                         <span class="plan-pill">
                           {icon && look !== null ? (
                             <KindGlyph kind={look.kind} size={pillType.icon} />
                           ) : null}
-                          <span class="plan-name">{text}</span>
+                          <span class="plan-name">{name}</span>
                         </span>
                       </span>
                     ) : null}

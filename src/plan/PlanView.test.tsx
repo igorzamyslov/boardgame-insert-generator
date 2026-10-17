@@ -625,14 +625,13 @@ describe("PlanView", () => {
     const long = makeTray({ ...A, w: 99, compartments: [holding(name)] });
     const tiny = makeTray({ ...B, w: 8, d: 8 });
     const { box } = setup({ trays: [long, tiny], components: [longName, dice] });
-    const shown = box.querySelector('[data-key="a:p0:0"] .plan-name')?.textContent ?? "";
-    expect(shown.endsWith("…")).toBe(true);
-    expect(shown.length).toBeLessThan(name.length);
-    // the whole name is in the title and the accessible name
+    // the pill holds the whole name and the CSS cuts it: one line, an ellipsis, the name in the title
+    expect(box.querySelector('[data-key="a:p0:0"] .plan-name')?.textContent).toBe(name);
     expect(box.querySelector('[data-key="a:p0:0"]')?.getAttribute("title")).toBe(name);
     expect(screen.getByRole("button", { name: `${name}, layer 1` })).toBeTruthy();
-    // the CSS keeps it on one line whatever the estimate let through
     expect(planCss).toMatch(/\.plan-pill\s*{[^}]*white-space:\s*nowrap/);
+    expect(planCss).toMatch(/\.plan-pill\s*{[^}]*max-width:\s*100%/);
+    expect(planCss).toMatch(/\.plan-name\s*{[^}]*overflow:\s*hidden/);
     expect(planCss).toMatch(/\.plan-name\s*{[^}]*text-overflow:\s*ellipsis/);
     // a tile too small for a pill has none; its name is still its title
     expect(box.querySelector('[data-key="b:p0:0"] .plan-pill')).toBeNull();

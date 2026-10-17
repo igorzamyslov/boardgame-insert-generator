@@ -405,10 +405,10 @@ focus wasn't checked.
 **Text overflows its pill, or tests can't tell whether it fits.**
 → jsdom has no layout or text measurement, and `getBBox` and `getComputedTextLength` don't
 exist.
-→ Estimate the width (`CHAR_WIDTH = 0.5` em in `plan/tileText.ts`, from the tile's measured px)
-and let the pill's CSS (`overflow: hidden; text-overflow: ellipsis`) catch what a bad estimate lets
-through (`plan.css`). Cut names by grapheme with `Intl.Segmenter` (with an `Array.from` fallback)
-so an emoji or combining accent is never split.
+→ Let the CSS cut it: the pill holds the whole name, with `overflow: hidden; text-overflow:
+ellipsis` on the text and `max-width: 100%` on the pill (`plan/plan.css`). JS only decides whether
+a tile has room for a pill at all (`hasPillRoom` in `plan/tileText.ts`, an estimate from the
+tile's measured px, `CHAR_WIDTH = 0.5` em); the whole name stays in the tile's `title`.
 
 **A media-query behaviour has no test.**
 → jsdom has no `matchMedia`, and CSS media queries never apply.

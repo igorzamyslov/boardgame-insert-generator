@@ -6,7 +6,12 @@ import { levelsOf } from "../plan/layers";
 import { misfitOf } from "../ui/noFit";
 import { harbourKings, loadSeed, LONG_NAME } from "./harbourKings";
 
-const CURRENT = ["harbour-kings", "harbour-kings-headroom", "harbour-kings-long"];
+const CURRENT = [
+  "harbour-kings",
+  "harbour-kings-headroom",
+  "harbour-kings-long",
+  "harbour-kings-wide",
+];
 const STALE = [
   "harbour-kings-stale",
   "harbour-kings-nofit",
@@ -81,6 +86,12 @@ describe("harbourKings", () => {
       const { project } = loadSeed(name);
       expect(project.layout?.inputsHash, name).not.toBe(inputsHash(project));
     }
+  });
+
+  it("keeps a wide box (400 by 285 mm) in the wide seed", () => {
+    const { project } = loadSeed("harbour-kings-wide");
+    expect([project.box.innerWidth, project.box.innerDepth]).toEqual([400, 285]);
+    expect(project.layout).toBeDefined();
   });
 
   it("keeps a 25-component list with a long name in the long seed", () => {
