@@ -341,6 +341,113 @@ const PROBES = {
     }
     return problems.map((p) => `probe tray-sheet: ${p}`);
   },
+  /**
+   * One selection for both views (parity): after a tray was chosen in Top and 3D opened, its bar
+   * and rail row are still there, pointing at a row (or focusing it) lights its trays in the
+   * canvas, and going back to Top keeps the selection. Reads `__shotsScene` (shots mode only).
+   */
+  async "selection-parity"(page) {
+    // The state selected Market deck in the top view, then opened 3D. Needs WebGL: without it the
+    // frame is the fallback line and the harness already notes that, so there is nothing to probe.
+    if ((await page.locator('[data-region="plan-box"].viewer-stage').count()) === 0) {
+      return [];
+    }
+    const problems = [];
+    const bar = page.locator('[data-region="tray-bar"]');
+    const rail = page.locator('[data-region="rail"]');
+    const pressed = () => rail.locator('button[aria-pressed="true"]');
+    const glow = () => page.evaluate(() => globalThis.__shotsScene?.emissive() ?? null);
+    const count = (map, hex) => Object.values(map).filter((v) => v === hex).length;
+    const SELECTED = 0x444444;
+    const LIT = 0x383838;
+
+    // 1. the selection made in Top is still there in 3D: the bar, its rail row, the glowing tray
+    if ((await bar.count()) !== 1) {
+      problems.push(`the tray bar is not there in 3D (${await bar.count()} found)`);
+    } else if (!/Market deck/.test((await bar.textContent()) ?? "")) {
+      problems.push("the tray bar in 3D is not the Market deck's");
+    }
+    const rows = await pressed().allTextContents();
+    if (rows.length !== 1 || !/^Market deck/.test(rows[0])) {
+      problems.push(
+        `the pressed rail rows in 3D are ${JSON.stringify(rows)}, not the Market deck's`,
+      );
+    }
+    const before = await glow();
+    if (before === null) {
+      return [
+        ...problems,
+        "the scene's shots window (__shotsScene) is missing: is this a --mode shots build?",
+      ].map((p) => `probe selection-parity: ${p}`);
+    }
+    if (count(before, SELECTED) !== 1) {
+      problems.push(`${count(before, SELECTED)} trays glow as selected in 3D, not 1`);
+    }
+    if (count(before, LIT) !== 0) {
+      problems.push("a tray is lit in 3D before any row is pointed at");
+    }
+
+    // 2. pointing at another row lights its trays in the canvas: the glow table and the pixels change
+    const canvas = page.locator(".viewer-canvas");
+    const pixelsBefore = await canvas.screenshot();
+    await rail
+      .getByRole("button", { name: /^Starter decks/ })
+      .first()
+      .hover({ timeout: STEP_TIMEOUT });
+    await page.waitForTimeout(400);
+    const lit = await glow();
+    const pixelsLit = await canvas.screenshot();
+    // kept beside the state's pictures, for whoever judges how subtle the tint is
+    writeFileSync(`${outDir}workspace-3d-selected.canvas-before.png`, pixelsBefore);
+    writeFileSync(`${outDir}workspace-3d-selected.canvas-hover.png`, pixelsLit);
+    if (count(lit, LIT) < 1) {
+      problems.push("pointing at the Starter decks row lit no tray in 3D");
+    }
+    if (count(lit, SELECTED) !== 1) {
+      problems.push("pointing at a row took the selected tray's glow away in 3D");
+    }
+    if (pixelsBefore.equals(pixelsLit)) {
+      problems.push("pointing at the Starter decks row left the 3D canvas's pixels unchanged");
+    }
+    // keyboard focus lights the same trays: the row holds the focus, then loses it
+    await page.mouse.move(720, 450);
+    await page.waitForTimeout(300);
+    if (count(await glow(), LIT) !== 0) {
+      problems.push("a tray stays lit in 3D after the pointer left the row");
+    }
+    await rail
+      .getByRole("button", { name: /^Starter decks/ })
+      .first()
+      .focus();
+    await page.waitForTimeout(300);
+    if (count(await glow(), LIT) < 1) {
+      problems.push("focusing the Starter decks row lit no tray in 3D");
+    }
+    await page.evaluate(() => document.activeElement?.blur());
+    await page.waitForTimeout(300);
+    if (count(await glow(), LIT) !== 0) {
+      problems.push("a tray stays lit in 3D after the row lost the focus");
+    }
+
+    // 3. back to Top: the same tray is selected and the bar stays
+    await page
+      .locator('[data-region="status"]')
+      .getByRole("button", { name: "Top", exact: true })
+      .first()
+      .click({ timeout: STEP_TIMEOUT });
+    await page.waitForTimeout(300);
+    if ((await bar.count()) !== 1 || !/Market deck/.test((await bar.textContent()) ?? "")) {
+      problems.push("the tray bar is gone or changed after going back to Top");
+    }
+    if ((await page.locator(".plan-tile.is-selected").count()) < 1) {
+      problems.push("no tile is selected in the top view after going back from 3D");
+    }
+    const rowsTop = await pressed().allTextContents();
+    if (rowsTop.length !== 1 || !/^Market deck/.test(rowsTop[0])) {
+      problems.push(`the pressed rail rows in Top are ${JSON.stringify(rowsTop)}`);
+    }
+    return problems.map((p) => `probe selection-parity: ${p}`);
+  },
 };
 
 const firstLine = (e) => String(e.message).split("\n")[0];

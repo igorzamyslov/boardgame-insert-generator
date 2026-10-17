@@ -49,6 +49,7 @@ function stubSceneFactory(): SceneFactory {
     setExplode: vi.fn(),
     setMaxLevel: vi.fn(),
     setSelected: vi.fn(),
+    setLit: vi.fn(),
     onPick: vi.fn(),
     onView: vi.fn(),
     resize: vi.fn(),

@@ -23,8 +23,9 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { TraySpec } from "../model/types";
 import { SPACER_SHADE } from "../ui/identity";
 import type { ViewBasis } from "./axes";
-import { anchorOf, isVisible, outlineCenter, trayPosition } from "./transform";
+import { anchorOf, emissiveOf, isVisible, outlineCenter, trayPosition } from "./transform";
 import type { BoxOutline, SceneFactory, SceneHandle, SceneTray } from "./types";
+import { exposeShotsScene } from "./shotsScene";
 import { WebGLUnavailableError } from "./webgl";
 
 interface TrayObject {
@@ -90,6 +91,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   let center: [number, number] | undefined;
   let maxLevel: number | null = null;
   let selected: string | null = null;
+  let lit: ReadonlySet<string> = new Set();
   let pick: ((key: string | null) => void) | null = null;
   let viewCb: ((view: ViewBasis) => void) | null = null;
   let frameId = 0;
@@ -129,7 +131,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       const [x, y, z] = trayPosition(t.spec, explode, center, t.anchor);
       t.object.position.set(x, y, z);
       t.object.visible = isVisible(t.spec, maxLevel);
-      t.material.emissive.setHex(t.spec.key === selected ? 0x444444 : 0x000000);
+      t.material.emissive.setHex(emissiveOf(t.spec.key, selected, lit));
     }
     requestDraw();
   }
@@ -180,6 +182,11 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("pointercancel", onPointerCancel);
+
+  // Shots mode only: lets the harness read which trays glow (shotsScene.ts).
+  const dropShotsScene = exposeShotsScene(() =>
+    Object.fromEntries(trays.map((t) => [t.spec.key, t.material.emissive.getHex()])),
+  );
 
   const handle: SceneHandle = {
     setBox(o: BoxOutline) {
@@ -239,6 +246,10 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       selected = key;
       apply();
     },
+    setLit(keys) {
+      lit = new Set(keys);
+      apply();
+    },
     onPick(cb) {
       pick = cb;
     },
@@ -268,6 +279,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       clearTrays();
       clearOutline();
       release(renderer);
+      dropShotsScene();
       pick = null;
       viewCb = null;
     },

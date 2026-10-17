@@ -6,7 +6,9 @@ import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
+import { hoveredComponent } from "../screens/hover";
 import { SelectField } from "../ui/fields";
+import { componentIndexOfTray } from "../ui/identity";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
 import { pageScheme, shadeColorOf } from "./shades";
@@ -211,6 +213,25 @@ export function Viewer(p: ViewerProps) {
   useEffect(() => {
     handleRef.current?.setSelected(p.selectedKey);
   }, [status, p.selectedKey]);
+
+  // The rail row the pointer or focus is on lights its component's trays, as it does in the top
+  // view. A string key, so the scene hears of a change and not of every render.
+  const railId = hoveredComponent.value;
+  const litKey = useMemo(() => {
+    const comps = p.components ?? [];
+    return railId === null
+      ? ""
+      : p.trays
+          .filter((t) => {
+            const at = componentIndexOfTray(t, comps);
+            return at !== null && comps[at]?.id === railId;
+          })
+          .map((t) => t.key)
+          .join("\n");
+  }, [railId, p.trays, p.components]);
+  useEffect(() => {
+    handleRef.current?.setLit(litKey === "" ? [] : litKey.split("\n"));
+  }, [status, litKey]);
 
   useEffect(() => {
     const h = handleRef.current;

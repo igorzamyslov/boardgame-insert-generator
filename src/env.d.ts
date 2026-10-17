@@ -6,3 +6,7 @@ declare const __BUILD_ID__: string;
 // that the app waits on there. Absent in every real run.
 // eslint-disable-next-line no-var
 declare var __shotsHold: Partial<Record<"export" | "search", Promise<void>>> | undefined;
+// Set by the 3D scene in shots mode only (src/viewer/shotsScene.ts): what the screenshot harness may
+// read of it. Absent in every real run.
+// eslint-disable-next-line no-var
+declare var __shotsScene: { emissive(): Record<string, number> } | undefined;

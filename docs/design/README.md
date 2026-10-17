@@ -81,6 +81,13 @@ promise the harness leaves pending, so a screenshot catches them mid-way without
 `src/app/shotsHold.ts` holds this. Vite folds the mode in at build time, so a production build
 carries none of it, and `scripts/smoke-dist.mjs` fails if `__shotsHold` is found in `dist`.
 
+The 3D scene also offers a read-only window in shots mode, `globalThis.__shotsScene`
+(`src/viewer/shotsScene.ts`): each tray's emissive colour by key, which a canvas cannot tell. The
+`selection-parity` probe reads it (`workspace-3d-selected`: a tray chosen in Top, then 3D; the bar
+and rail row stay, pointing at or focusing another row tints its trays and changes the canvas's
+pixels, and Top still has the tray selected). It needs WebGL: without it the probe has nothing to
+check and the state notes the fallback. The same smoke check fails if `__shotsScene` is found in `dist`.
+
 ## Adding a state
 
 Add it to `scripts/design/states.mjs`: its board (and the `boardOpts` that make the board show the

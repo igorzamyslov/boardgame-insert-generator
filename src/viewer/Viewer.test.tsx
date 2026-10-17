@@ -7,6 +7,7 @@ import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { SPACER_SHADE, shadeHex } from "../ui/identity";
+import { hoveredComponent } from "../screens/hover";
 import type { Component } from "../model/types";
 import type { ViewBasis } from "./axes";
 import type { SceneFactory, SceneHandle } from "./types";
@@ -25,6 +26,7 @@ function stubScene() {
     setExplode: vi.fn(),
     setMaxLevel: vi.fn(),
     setSelected: vi.fn(),
+    setLit: vi.fn(),
     onPick: vi.fn((cb: (key: string | null) => void) => {
       picked = cb;
     }),
@@ -666,6 +668,66 @@ describe("Viewer", () => {
       });
       // layer 1 holds one tray (and a spacer): the step lands on itself
       expect(p.onSelect).toHaveBeenLastCalledWith("a:p0:0");
+    });
+  });
+
+  describe("a lit rail row", () => {
+    const [, second, third] = fixtureProject().components as [Component, Component, Component];
+    const market = makeTray({ key: "a:p0:0", level: 0, compartments: [deckWell("Market ×20")] });
+    const goals = makeTray({
+      key: "b:p0:0",
+      level: 1,
+      z: 40,
+      compartments: [deckWell("Objectives ×10")],
+    });
+    const spacer = makeTray({ key: "a:p0:0:spacer", part: "spacer", level: 0, compartments: [] });
+    const all = [market, goals, spacer];
+    const components = fixtureProject().components;
+
+    afterEach(() => {
+      hoveredComponent.value = null;
+    });
+
+    it("tints the trays of that component only, spacers and other components' trays left out", async () => {
+      const scene = stubScene();
+      render(<Viewer {...props({ trays: all, components }, scene)} />);
+      await waitFor(() => expect(scene.handle.setLit).toHaveBeenCalled());
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith([]);
+      act(() => {
+        hoveredComponent.value = second.id;
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["a:p0:0"]);
+      act(() => {
+        hoveredComponent.value = third.id;
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["b:p0:0"]);
+      act(() => {
+        hoveredComponent.value = null;
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith([]);
+    });
+
+    it("tints nothing for a component that holds no tray here", async () => {
+      const scene = stubScene();
+      render(<Viewer {...props({ trays: all, components }, scene)} />);
+      await waitFor(() => expect(scene.handle.setLit).toHaveBeenCalled());
+      act(() => {
+        hoveredComponent.value = "no-such-component";
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith([]);
+    });
+
+    it("does not call the scene again while the lit trays stay the same", async () => {
+      const scene = stubScene();
+      const p = props({ trays: all, components }, scene);
+      const view = render(<Viewer {...p} />);
+      await waitFor(() => expect(scene.handle.setLit).toHaveBeenCalled());
+      act(() => {
+        hoveredComponent.value = second.id;
+      });
+      const calls = vi.mocked(scene.handle.setLit).mock.calls.length;
+      view.rerender(<Viewer {...p} selectedKey="b:p0:0" />);
+      expect(vi.mocked(scene.handle.setLit).mock.calls.length).toBe(calls);
     });
   });
 });

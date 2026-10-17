@@ -3,7 +3,15 @@ import { describe, expect, it } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { EXPLODE_MM, boxOutline, isVisible, trayPosition } from "./transform";
+import {
+  EXPLODE_MM,
+  LIT_EMISSIVE,
+  SELECTED_EMISSIVE,
+  boxOutline,
+  emissiveOf,
+  isVisible,
+  trayPosition,
+} from "./transform";
 
 describe("viewer transforms", () => {
   it("lifts upper levels when exploded", () => {
@@ -116,6 +124,23 @@ describe("viewer transforms", () => {
     ).toEqual({
       min: [-0.5, -0.5, 0],
       size: [200, 100, 50],
+    });
+  });
+
+  describe("emissiveOf", () => {
+    const lit = new Set(["a", "b"]);
+
+    it("glows the selected tray, softly tints the lit ones, and leaves the rest alone", () => {
+      expect(emissiveOf("a", "c", lit)).toBe(LIT_EMISSIVE);
+      expect(emissiveOf("c", "c", lit)).toBe(SELECTED_EMISSIVE);
+      expect(emissiveOf("d", "c", lit)).toBe(0);
+      expect(emissiveOf("d", null, new Set())).toBe(0);
+    });
+
+    it("keeps the selected tray's own glow while it is lit, and the lit glow quieter", () => {
+      expect(emissiveOf("a", "a", lit)).toBe(SELECTED_EMISSIVE);
+      expect(LIT_EMISSIVE).toBeGreaterThan(0);
+      expect(LIT_EMISSIVE).toBeLessThan(SELECTED_EMISSIVE);
     });
   });
 });

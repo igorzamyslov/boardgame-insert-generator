@@ -85,3 +85,20 @@ export function anchorOf(spec: TraySpec, byKey: ReadonlyMap<string, TraySpec>): 
     ? (byKey.get(parentKey(spec)) ?? spec)
     : spec;
 }
+
+/** The glow of the selected tray: the one tray the bar is for. */
+export const SELECTED_EMISSIVE = 0x444444;
+
+/** The softer glow of a tray whose rail row is pointed at or focused: quieter than the selected one. */
+export const LIT_EMISSIVE = 0x383838;
+
+/**
+ * A tray's emissive colour: the selected tray's own glow, else the lit one while its component's
+ * rail row is pointed at, else none. The selected tray keeps its stronger glow while lit.
+ */
+export function emissiveOf(key: string, selected: string | null, lit: ReadonlySet<string>): number {
+  if (key === selected) {
+    return SELECTED_EMISSIVE;
+  }
+  return lit.has(key) ? LIT_EMISSIVE : 0x000000;
+}

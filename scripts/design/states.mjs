@@ -138,6 +138,19 @@ export const STATES = {
     needsWebGL: true,
     steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
+  // One selection for both views (parity): a tray chosen in the top view, then the 3D view. Its bar
+  // stays and the tray's rail row is pressed; the probe also points at another row and checks the
+  // canvas changed, and goes back to Top to check the selection is still there.
+  "workspace-3d-selected": {
+    board: "Main",
+    boardOpts: { state: { view: "3d", sel: "market" } },
+    nearest: "no board of its own: Main's box frame, segments and tray bar",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [SELECT_MARKET, { click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
+    probes: ["selection-parity"],
+  },
   "workspace-menu": {
     board: "Main",
     boardOpts: { state: { menu: true } },

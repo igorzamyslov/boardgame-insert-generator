@@ -110,6 +110,15 @@ describe("smoke-dist", () => {
     expect(result.stderr).toMatch(/__shotsHold/);
   });
 
+  it("fails on the harness's window onto the 3D scene left in the build", () => {
+    const files = goodFiles();
+    files["assets/scene-x.js"] = "globalThis.__shotsScene = { emissive() {} };";
+    files["assets/index-abc.js"] += ' import("./scene-x.js");';
+    const result = run(makeDist(files));
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/__shotsScene/);
+  });
+
   it("fails on the kit gallery page left in the build", () => {
     const files = goodFiles();
     files["kit.html"] = "<!doctype html><title>Kit</title>";
