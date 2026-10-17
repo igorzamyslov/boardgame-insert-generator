@@ -303,7 +303,7 @@ describe("CardsEditor", () => {
 });
 
 describe("CardsEditor validation", () => {
-  it("shows the empty decks error under the Decks legend", () => {
+  it("leaves the empty decks error to the status heading, which lists it", () => {
     render(
       <ValidationContext.Provider
         value={[
@@ -318,7 +318,8 @@ describe("CardsEditor validation", () => {
         <CardsEditor component={cards({ decks: [] })} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
-    expect(screen.getByRole("alert").textContent).toBe("Add at least one deck.");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(document.body.textContent).not.toContain("Add at least one deck");
   });
 
   it("opens More options for a measured stack error", () => {

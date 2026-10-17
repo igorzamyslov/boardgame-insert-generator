@@ -29,6 +29,30 @@ const ADDING = ["workspace-add", "m-workspace-add"] as const;
 const RAIL = ["workspace", "workspace-rules", "workspace-add", "workspace-error"] as const;
 const SHEET = ["m-workspace", "m-workspace-add", "m-workspace-rules"] as const;
 const RULED = ["workspace-rules", "m-workspace-rules"] as const;
+// Task 6: the top of the stage. The states are the stage-top cases of copy.board.test.tsx.
+const PLAN_STATES = [
+  "workspace",
+  "workspace-searching",
+  "workspace-banner",
+  "m-workspace",
+] as const;
+const LAYERS = "The layer switch uses DESIGN's names";
+const HOMES = "The Summary's jobs have new homes";
+const NOFIT = "The no-fit heading names the tray";
+const BANNERS = "The plan banners use DESIGN's words";
+const NOTES = "Layout and sizing notices sit under the plan caption";
+const FAILED = ["workspace-failed"] as const;
+const ERRORS = ["workspace-error"] as const;
+const FIT_PROBLEMS = ["no-fit", "no-fit-bed", "pin-conflict"] as const;
+/** Every stage-top case that has a plan under it, so a Layer switch. */
+const SWITCHED = [
+  ...PLAN_STATES,
+  ...ERRORS,
+  ...FAILED,
+  ...FIT_PROBLEMS,
+  "workspace-making",
+  "workspace-box-error",
+] as const;
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
@@ -78,6 +102,45 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "{n} decks of {n}", states: SHEET, ruling: SUMMARY },
   { text: "{n} kinds, {n} pieces", states: SHEET, ruling: SUMMARY },
   { text: "Needs attention", states: ["workspace-error"], ruling: SUMMARY },
+  // Task 6: the status heading, the switches, the banner and the notes
+  { text: "Layer {n} (bottom)", states: SWITCHED, ruling: LAYERS },
+  { text: "Layer {n} (top)", states: SWITCHED, ruling: LAYERS },
+  { text: "Layer {n}", states: SWITCHED, ruling: LAYERS },
+  { text: "Making a new plan…", states: ["workspace-making"], ruling: HOMES },
+  { text: "No plan yet", states: ["workspace-noplan"], ruling: HOMES },
+  { text: "Make a plan", states: ["workspace-noplan"], ruling: HOMES },
+  { text: "The plan couldn't be updated", states: FAILED, ruling: HOMES },
+  {
+    text: "{message} The plan shown is the last good one, from before your latest change.",
+    states: FAILED,
+    ruling: HOMES,
+  },
+  { text: "Retry", states: FAILED, ruling: HOMES },
+  {
+    text: "Fix the errors marked in the inputs",
+    states: [...ERRORS, "workspace-box-error"],
+    ruling: HOMES,
+  },
+  { text: "Edit {name}", states: [...ERRORS, ...FIT_PROBLEMS], ruling: HOMES },
+  { text: "Change the box", states: ["workspace-box-error"], ruling: HOMES },
+  { text: "The {name} tray doesn't fit yet", states: ["no-fit"], ruling: NOFIT },
+  { text: "Not everything fits yet", states: ["no-fit"], ruling: NOFIT },
+  { text: "There's no room left for it in the box.", states: ["no-fit"], ruling: NOFIT },
+  { text: "It's too big for your printer's bed.", states: ["no-fit-bed"], ruling: NOFIT },
+  { text: "The {name} tray doesn't fit yet", states: ["no-fit-bed"], ruling: NOFIT },
+  { text: "{name} doesn't fit with your pins", states: ["pin-conflict"], ruling: NOFIT },
+  { text: "Unpin {name}", states: ["pin-conflict"], ruling: NOFIT },
+  { text: "Make a new plan", states: ["workspace-banner"], ruling: BANNERS },
+  {
+    text: "Trays printed from it won't stack with trays you print now.",
+    states: ["workspace-older"],
+    ruling: BANNERS,
+  },
+  { text: "Use the old plan", states: ["workspace-older"], ruling: BANNERS },
+  { text: "Show all", states: ["workspace-notes"], ruling: NOTES },
+  { text: "Warning:", states: ["workspace-notes"], ruling: NOTES },
+  { text: "Note:", states: ["workspace-notes"], ruling: NOTES },
+  { text: "Error:", states: ["workspace-notes"], ruling: NOTES },
 ];
 
 /**

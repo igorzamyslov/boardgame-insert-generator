@@ -16,8 +16,8 @@ export interface StatusHeadingProps {
   tone: StatusTone;
   /** The page's h1: one line, cut with an ellipsis, the whole of it in a `title`. */
   title: string;
-  /** Muted, under the title. */
-  line?: string;
+  /** Muted, under the title: a sentence, or a list of them (the errors that have no field). */
+  line?: ComponentChildren;
   /** To the right, wrapping under on a narrow stage: segments, Keep searching, Stop. */
   extra?: ComponentChildren;
   /** The heading level: 1 on a page (there is one h1 per screen); the gallery shows several. */
@@ -37,7 +37,7 @@ export function StatusHeading({ tone, title, line, extra, level = 1 }: StatusHea
           <Heading class="k-status__title ellipsis" title={title}>
             {title}
           </Heading>
-          {line !== undefined ? <span class="k-status__line">{line}</span> : null}
+          {line !== undefined ? <div class="k-status__line">{line}</div> : null}
         </div>
       </div>
       {extra !== undefined ? <div class="k-status__extra">{extra}</div> : null}

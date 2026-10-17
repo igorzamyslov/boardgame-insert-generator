@@ -1,9 +1,12 @@
 // src/kit/Segmented.tsx
+import { useBlocked } from "./blocked";
 import { cx } from "./cx";
 
 export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
+  /** Present: this option is blocked (`aria-disabled`, still focusable) and this says why (Main's "3D needs WebGL"). */
+  blockedReason?: string;
 }
 
 export interface SegmentedProps<T extends string> {
@@ -35,16 +38,34 @@ export function Segmented<T extends string>({
       data-tone={tone}
     >
       {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          class="k-seg__item"
-          aria-pressed={o.value === value}
-          onClick={() => onChange(o.value)}
-        >
-          {o.label}
-        </button>
+        <Item key={o.value} option={o} pressed={o.value === value} onPick={onChange} />
       ))}
     </div>
+  );
+}
+
+function Item<T extends string>({
+  option,
+  pressed,
+  onPick,
+}: {
+  option: SegmentedOption<T>;
+  pressed: boolean;
+  onPick: (value: T) => void;
+}) {
+  const blocked = useBlocked(option.blockedReason, () => onPick(option.value));
+  return (
+    <>
+      <button
+        type="button"
+        class="k-seg__item"
+        aria-pressed={pressed}
+        title={option.blockedReason}
+        {...blocked.props}
+      >
+        {option.label}
+      </button>
+      {blocked.reason}
+    </>
   );
 }

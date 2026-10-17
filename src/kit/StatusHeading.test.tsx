@@ -47,4 +47,19 @@ describe("StatusHeading", () => {
       cleanup();
     }
   });
+
+  it("takes a line made of several lines", () => {
+    render(
+      <StatusHeading
+        tone="error"
+        title="Fix the errors marked in the inputs"
+        line={
+          <ul aria-label="Errors without a field">
+            <li>Lock 1 is broken.</li>
+          </ul>
+        }
+      />,
+    );
+    expect(screen.getByRole("list", { name: "Errors without a field" })).toBeTruthy();
+  });
 });

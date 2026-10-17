@@ -44,11 +44,18 @@ The default out folder is `.superpowers/sdd/2026-10-16-ui-rebuild/shots/` (not c
 - `<state>.pair.png`: the board above the app, both at 1:1, a labelled gap between.
 - `<state>.<region>.pair.png`: the same for each region found in both. A region in the board is
   found by `scripts/design/regions.mjs`; in the app it is the element with `data-region="<name>"`.
-- `<state>.numbers.md`: header height, rail width, plan width and the first h1, board against app;
-  `≠` marks a difference over 1 px, or a metric one side lacks.
+- `<state>.numbers.md`: header height, rail width, plan width and the first h1, board against app,
+  then the status row's parts (icon, h1, line, the Layer and View switches, the action, the
+  banner; a part neither side has is no row); `≠` marks a difference over 1 px, or a metric one
+  side lacks.
 - `<state>.failed.png` when a step could not find its target; the state is then listed as FAILED.
 
 Board PNGs and seeds are committed; app shots are not, until the final pairs (Task 17) are.
+
+When `workspace` and `workspace-searching` both run, `scripts/design/jump.mjs` compares the header,
+the rail, the status row and the plan box (the `.pf-view` frame until Task 7 marks `plan-box`):
+none may move or change size by more than 1 px, or the run fails ("Keep searching" turning into
+"Stop" must not shift the page).
 
 The board renderer adds `a{color:inherit}` ahead of a board's own styles: some boards have links
 with no colour set (MobileWorkspace's sheet rows), which a browser draws blue, and no board means that.

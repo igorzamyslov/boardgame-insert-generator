@@ -4,7 +4,6 @@ import { SelectField, TextField } from "../fields";
 import { COUNT, LENGTH } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions, commonOptionPaths } from "./CommonOptions";
-import { ListNotices } from "./ListNotices";
 import { DerivedSizes } from "./DerivedSizes";
 import { MoreOptions } from "./MoreOptions";
 import { RowRemove } from "./RowRemove";
@@ -22,7 +21,6 @@ export function MinisEditor({ component: c, index, onChange }: EditorProps<Minis
     <>
       <fieldset class="list-rows">
         <legend>Figures</legend>
-        <ListNotices id={`${c.id}-figures`} path={`${at}/figures`} />
         {c.figures.map((f, j) => {
           const n = j + 1;
           return (

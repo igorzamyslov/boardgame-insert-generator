@@ -14,14 +14,6 @@ select {
 
 /* ---- Base components: plain classes over the tokens ---- */
 
-.pf-eyebrow {
-  margin: 0;
-  color: var(--muted);
-  font: 600 12px/16px var(--font-ui);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 /* Measures and numbers: the interface face with tabular figures, so one typeface carries the screen. */
 .pf-measure {
   font: 500 14px/20px var(--font-ui);
@@ -37,46 +29,6 @@ select {
   border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sheet);
-}
-
-/* Segmented control */
-.pf-seg {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-md);
-  background: var(--row);
-}
-
-.pf-seg button {
-  min-height: var(--control-h);
-  padding: 0 var(--space-3);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--muted);
-  font: 600 14px/20px var(--font-ui);
-  cursor: pointer;
-}
-
-.pf-seg button[aria-pressed="true"] {
-  background: var(--focus);
-  color: var(--on-focus);
-}
-
-.pf-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: center;
-  justify-content: space-between;
-}
-
-.pf-toolbar__group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
 }
 
 /* Field extras: unit suffix, hint only on focus, checkbox row. */
@@ -183,29 +135,6 @@ select {
 .pf-swatch svg {
   width: 18px;
   height: 18px;
-}
-
-/* Readouts: results as numbers. */
-.pf-readouts {
-  display: grid;
-  gap: var(--space-4);
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-}
-
-.pf-readout {
-  display: grid;
-  gap: 2px;
-}
-
-.pf-readout__value {
-  font: 500 24px/28px var(--font-ui);
-  font-variant-numeric: tabular-nums;
-}
-
-.pf-readout__unit {
-  margin-left: 4px;
-  color: var(--muted);
-  font: 500 14px/20px var(--font-ui);
 }
 
 /* Notice: a message with a sign, placed next to its cause. */
@@ -326,24 +255,6 @@ select {
   }
 }
 
-/* Compact readouts in one line above the preview. */
-.pf-readouts--strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-6);
-}
-
-.pf-readouts--strip .pf-readout {
-  display: flex;
-  gap: var(--space-2);
-  align-items: baseline;
-}
-
-.pf-readouts--strip .pf-readout__value {
-  font-size: 16px;
-  line-height: 24px;
-}
-
 /* The preview sheet: header (tabs, actions), the view filling the rest, a footer line. */
 .pf-view {
   display: grid;
@@ -353,58 +264,6 @@ select {
   min-height: 0;
   padding: var(--space-4);
   overflow: auto;
-}
-
-.pf-view__head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: end;
-  justify-content: space-between;
-}
-
-.pf-view__head .pf-tabs {
-  border-bottom: 0;
-}
-
-/* A segmented control made of radio buttons: each label holds a visually hidden input. */
-.pf-seg__opt {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--control-h);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-  font: 600 14px/20px var(--font-ui);
-  cursor: pointer;
-}
-
-.pf-seg__opt:has(input:checked) {
-  background: var(--focus);
-  color: var(--on-focus);
-}
-
-.pf-seg__opt:has(input:focus-visible) {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
-}
-
-.pf-seg__opt input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-/* A short label that says what state something is in: "Out of date", "Open now". */
-.pf-badge {
-  padding: 2px 8px;
-  border: 1px solid var(--warn);
-  border-radius: var(--radius-sm);
-  background: var(--warn-wash);
-  font: 600 13px/18px var(--font-ui);
 }
 
 /* An action inside a sentence. */
@@ -851,82 +710,6 @@ input[aria-invalid="true"] {
   accent-color: var(--focus);
 }
 
-/* The status line above the plan: one single-line pill per matter, every control 44 px. */
-.pf-status {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-2);
-  margin: 0 0 var(--space-3);
-}
-
-.pf-status__pill {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: var(--space-2) var(--space-3);
-  align-items: center;
-  min-height: var(--control-h);
-  padding: 0 var(--space-2) 0 var(--space-4);
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  background: var(--sheet);
-  color: var(--ink);
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.pf-status__pill[data-kind="fits"] {
-  border-color: var(--tiles-line);
-  background: var(--tiles-fill);
-  color: var(--tiles-ink);
-}
-
-.pf-status__pill[data-kind="problem"] {
-  border-color: var(--danger);
-  background: var(--danger-wash);
-}
-
-.pf-status__text {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* A long name on the button (Unpin Spacer 1 by Tokens and dice) shrinks with an ellipsis rather than
-   push the pill past the edge or squeeze the sentence to a few words. */
-.pf-status__btn {
-  flex: 0 1 auto;
-  min-width: var(--control-h);
-  max-width: 60%;
-  min-height: var(--control-h);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.pf-status__pill progress {
-  flex: 0 1 10rem;
-  min-width: 3rem;
-  accent-color: var(--focus);
-}
-
-/* Below 760 px the no-fit pill drops Keep searching, so the name has room. */
-@media (width < 760px) {
-  .pf-status__btn--phone-off {
-    display: none;
-  }
-}
-
-.pf-status__percent {
-  flex: none;
-  min-width: 3ch;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.optimizer-blocked,
 .run-error {
   margin: 0;
   padding: var(--space-3);
@@ -936,22 +719,7 @@ input[aria-invalid="true"] {
   font-size: 14px;
 }
 
-.optimizer-blocked ul {
-  margin: var(--space-1) 0 0;
-  padding-left: var(--space-5);
-}
-
-.optimizer-blocked p,
 .run-error p {
-  margin: 0;
-}
-
-.play-warn {
-  color: var(--madder);
-}
-
-.pf-readout dt,
-.pf-readout dd {
   margin: 0;
 }
 

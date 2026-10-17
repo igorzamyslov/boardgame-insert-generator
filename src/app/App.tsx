@@ -12,20 +12,23 @@ import { Header } from "../screens/Header";
 import { hoveredComponent } from "../screens/hover";
 import { AddMenu, KindTiles } from "../screens/KindPicker";
 import { ProjectMenu } from "../screens/ProjectMenu";
+import { RunAnnouncer } from "../screens/RunAnnouncer";
+import { StageNotes } from "../screens/StageNotes";
+import { stageView } from "../screens/stageView";
+import { PlanBanner, StageTop, problemAreas } from "../screens/StageTop";
+import type { StageView } from "../screens/StageTop";
 import { Workspace } from "../screens/Workspace";
 import { BoxPanel } from "../ui/BoxPanel";
 import { WhatsInside } from "../ui/components/WhatsInside";
 import { ExportPanel } from "../ui/ExportPanel";
 import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
 import { Modal } from "../ui/Modal";
-import { Notices, PlanBanners } from "../ui/Notices";
+import { Notices } from "../ui/Notices";
 import { placeNotices } from "../ui/noticePlacement";
 import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
 import { misfitOf } from "../ui/noFit";
-import { StatusLine } from "../ui/StatusLine";
 import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
-import { Summary } from "../ui/Summary";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
 import { componentIndexOfTray, mm } from "../ui/identity";
 import {
@@ -35,6 +38,7 @@ import {
   errorsWithoutField,
 } from "../ui/validation";
 import { Viewer } from "../viewer/Viewer";
+import { hasWebGL } from "../viewer/webgl";
 import type { ViewerProps } from "../viewer/Viewer";
 import {
   addComponent,
@@ -67,25 +71,6 @@ export interface AppProps {
   /** Puts a file into the phone's share sheet (default: `navigator.share`); tests inject it. */
   share?: ShareFile;
   viewerProps?: Pick<ViewerProps, "webgl" | "loadScene">;
-}
-
-type ViewId = "plan" | "3d";
-
-/** What a validation path belongs to: the box's editor, a component's, or the settings sheet. */
-type PathHome = { kind: "box" } | { kind: "component"; index: number } | { kind: "settings" };
-
-function homeOf(path: string | undefined): PathHome | null {
-  if (path === undefined) {
-    return null;
-  }
-  if (path.startsWith("/box")) {
-    return { kind: "box" };
-  }
-  const component = /^\/components\/(\d+)(?:\/|$)/.exec(path);
-  if (component !== null) {
-    return { kind: "component", index: Number(component[1]) };
-  }
-  return path.startsWith("/settings") || path.startsWith("/printer") ? { kind: "settings" } : null;
 }
 
 export function App(props: AppProps) {
@@ -178,13 +163,21 @@ export function App(props: AppProps) {
     }
     wasBoxOpen.current = boxOpen;
   }, [boxOpen]);
-  const [view, setView] = useState<ViewId>("plan");
+  // The View segment's choice is a signal of the stage (`stageView`), reset when the app goes.
+  const view = stageView.value;
+  useEffect(() => {
+    return () => {
+      stageView.value = "plan";
+    };
+  }, []);
+  // The browser can draw the 3D view: asked once, when the app opens.
+  const [webgl] = useState(() => (props.viewerProps?.webgl ?? hasWebGL)());
   // A swap belongs to the plan: it ends when the view moves away from it.
-  function showView(next: ViewId): void {
+  function showView(next: StageView): void {
     if (next !== "plan") {
       s.swapFrom.value = null;
     }
-    setView(next);
+    stageView.value = next;
   }
   // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
   const [exportOpen, setExportOpen] = useState(false);
@@ -277,29 +270,8 @@ export function App(props: AppProps) {
   }
 
   const validation = s.validation.value;
-  // The editors and the sheet that hold an error: the summary sends the reader to each ("Show <name>").
-  const problemSections: { id: string; title: string }[] = [];
-  const seen = new Set<string>();
-  for (const n of validation) {
-    const home = n.level === "error" ? homeOf(n.path) : null;
-    const target =
-      home === null
-        ? undefined
-        : home.kind === "box"
-          ? { id: "box", title: "The box" }
-          : home.kind === "settings"
-            ? { id: "settings", title: "Settings" }
-            : project.components[home.index] === undefined
-              ? undefined
-              : {
-                  id: (project.components[home.index] as Component).id,
-                  title: (project.components[home.index] as Component).name || "(unnamed)",
-                };
-    if (target !== undefined && !seen.has(target.id)) {
-      seen.add(target.id);
-      problemSections.push(target);
-    }
-  }
+  // The editors and the sheet that hold an error: the status heading sends the reader to each.
+  const problems = problemAreas(validation, project.components);
   // The settings sheet, over whichever view is showing; `tab` is the one it opens on.
   const openSettings = (tab?: SettingsTab): void =>
     setSettingsOpen({ tab: tab ?? settingsTabFor(validation) });
@@ -315,7 +287,7 @@ export function App(props: AppProps) {
     setEditingId(id);
     setSheetOpen(true);
   };
-  // Where the summary's "Show …" leads: the box's editor, a component's, or Settings.
+  // Where the status heading's jump buttons lead: the box's editor, a component's, or Settings.
   const showSection = (id: string): void => {
     if (id === "settings") {
       openSettings();
@@ -363,7 +335,7 @@ export function App(props: AppProps) {
   );
   const showStale = placed.banner.some((n) => n.code === STALE_CODE);
   const showGeometry = placed.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE);
-  // The stale and older-geometry notices are the banner's: the summary lists the others.
+  // The stale and older-geometry notices are the banner's: the notes under the plan list the others.
   const summaryNotices = layoutNotices.filter(
     (n) => n.code !== STALE_CODE && n.code !== GEOMETRY_MAJOR_CODE,
   );
@@ -405,14 +377,15 @@ export function App(props: AppProps) {
       saveFile();
     }
   };
-  // What the plan holds, for the sentence, the Export button and the layers named in the list.
+  // What the plan holds, for the status, the Export button and the layers named in the list.
   const planCurrent = layout !== undefined && !s.stale.value && run.status !== "running";
   const listTrays = planCurrent ? printable : undefined;
   const layers = layout ? levelsOf(layout.trays).length : 0;
-  // What the status line says of a plan that matches the inputs: how many trays, how high.
+  // What the status says of the plan: how many trays, how high (the heading holds even for a plan
+  // out of date, as Main draws it under its banner).
   const summary = s.summary.value;
   const fits =
-    layout !== undefined && summary !== null && !s.stale.value
+    layout !== undefined && summary !== null
       ? {
           trays: summary.trayCount,
           layers: Math.max(1, layers),
@@ -569,7 +542,8 @@ export function App(props: AppProps) {
         onSendFile={() => {
           void sendFile();
         }}
-        brandIsHeading
+        // the status heading is the page's h1 on the workspace; the first visit has none until Task 9
+        brandIsHeading={firstVisit}
         menuDot={placed.menu.length > 0}
         menuNoticeCount={placed.menu.length}
         menu={(close) => (
@@ -644,7 +618,7 @@ export function App(props: AppProps) {
         class="app-notices"
         data-empty={showStale || showGeometry || placed.inline.length > 0 ? undefined : "true"}
       >
-        <PlanBanners
+        <PlanBanner
           stale={showStale}
           geometryOld={showGeometry}
           onUpdate={() => store.refit()}
@@ -658,89 +632,50 @@ export function App(props: AppProps) {
           onDismiss={(code) => store.dismissNotice(code)}
         />
       </div>
-      <h2 class="visually-hidden">Results</h2>
-      <StatusLine
-        run={run}
-        pending={s.runPending.value}
-        canOptimize={canPlan}
-        hasLayout={layout !== undefined}
-        fits={fits}
-        canSearchMore={!s.geometryOld.value}
-        noFit={
-          noFit
-            ? {
-                misfit: misfitOf(
-                  s.noFitAttempt.value,
-                  project.box,
-                  projSettings,
-                  project.components,
-                ),
-              }
-            : null
-        }
-        conflicts={conflicts}
-        onKeepSearching={() => store.refit()}
-        onStop={() => store.cancelRun()}
-        onEdit={editComponent}
-        onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
-      />
+      <RunAnnouncer run={run} />
+      {firstVisit ? null : (
+        <StageTop
+          run={run}
+          pending={s.runPending.value}
+          hasComponents={project.components.length > 0}
+          canOptimize={canPlan}
+          hasLayout={layout !== undefined}
+          fits={fits}
+          canSearchMore={!s.geometryOld.value}
+          noFit={
+            noFit
+              ? {
+                  misfit: misfitOf(
+                    s.noFitAttempt.value,
+                    project.box,
+                    projSettings,
+                    project.components,
+                  ),
+                }
+              : null
+          }
+          conflicts={conflicts}
+          hiddenErrors={errorsWithoutField(validation)}
+          problems={problems}
+          trays={layout ? printable : undefined}
+          level={s.viewLevel.value}
+          onLevelChange={(l) => {
+            s.viewLevel.value = l;
+          }}
+          view={view}
+          onViewChange={showView}
+          webgl={webgl}
+          phone={phone}
+          onKeepSearching={() => store.refit()}
+          onStop={() => store.cancelRun()}
+          onRetry={() => store.retry()}
+          onShow={showSection}
+          onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
+        />
+      )}
       {firstVisit ? null : layout ? (
         <section class="pf-frame pf-view" aria-label="Preview">
-          <div class="pf-view__head">
-            <div
-              class="pf-tabs"
-              role="tablist"
-              aria-label="Views"
-              onKeyDown={(e) => {
-                const order: ViewId[] = ["plan", "3d"];
-                const at = order.indexOf(view);
-                const next =
-                  e.key === "ArrowRight"
-                    ? order[(Math.max(at, 0) + 1) % order.length]
-                    : e.key === "ArrowLeft"
-                      ? order[(Math.max(at, 0) + order.length - 1) % order.length]
-                      : e.key === "Home"
-                        ? order[0]
-                        : e.key === "End"
-                          ? order[order.length - 1]
-                          : undefined;
-                if (next !== undefined) {
-                  e.preventDefault();
-                  showView(next);
-                  document.getElementById(`tab-${next}`)?.focus();
-                }
-              }}
-            >
-              {(
-                [
-                  ["plan", "Plan"],
-                  ["3d", "3D"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  type="button"
-                  role="tab"
-                  key={id}
-                  id={`tab-${id}`}
-                  aria-selected={view === id}
-                  aria-controls={`panel-${id}`}
-                  tabIndex={view === id ? 0 : -1}
-                  onClick={() => showView(id)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div class="pf-toolbar__group">
-              {s.stale.value ? <span class="pf-badge">Out of date</span> : null}
-            </div>
-          </div>
-          <div
-            class="pf-view__body"
-            role="tabpanel"
-            id={`panel-${view}`}
-            aria-labelledby={`tab-${view}`}
-          >
+          <div class="pf-view__body">
             {view === "plan" ? (
               <PlanView
                 trays={printable}
@@ -803,7 +738,7 @@ export function App(props: AppProps) {
                 settings={project.settings}
                 meshes={meshes}
                 projectName={project.name}
-                summary={s.summary.value}
+                summary={summary}
                 disabled={run.status === "running"}
                 stale={s.stale.value}
                 download={download}
@@ -826,19 +761,8 @@ export function App(props: AppProps) {
           </div>
         </section>
       )}
-      {/* The figures come after the plan, on every width (the status line is above it). */}
-      <Summary
-        summary={summary}
-        run={run}
-        notices={summaryNotices}
-        hasLayout={layout !== undefined}
-        canOptimize={canPlan}
-        hasComponents={project.components.length > 0}
-        hiddenErrors={errorsWithoutField(validation)}
-        problemSections={problemSections}
-        onShowSection={showSection}
-        onRetry={() => store.retry()}
-      />
+      {/* The layout and sizing notices, under the plan caption. */}
+      <StageNotes notices={summaryNotices} />
       {/* always mounted: the removal is spoken, and Undo is in the header as well */}
       <div class="visually-hidden" role="status" data-live="removed">
         {removed !== null && removed.version === s.history.version.value

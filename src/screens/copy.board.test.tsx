@@ -15,6 +15,7 @@ import { COPY_RULINGS } from "./copy-rulings";
 import { boardLiterals, unruled, visibleStrings } from "../test-support/boardCopy";
 import type { Allowed } from "../test-support/boardCopy";
 import { loadSeed } from "../test-support/harbourKings";
+import type { Project } from "../model/types";
 
 afterEach(() => {
   cleanup();
@@ -32,6 +33,10 @@ interface Case {
   region: string;
   /** The phone: the width query answers yes. */
   phone?: boolean;
+  /** The committed seed the app opens on (default "harbour-kings"). */
+  seed?: string;
+  /** The project as the state has it (a run that has not made a plan yet, say). */
+  project?: (p: Project) => Project;
   /** What a person does before the region is looked at. */
   steps: (store: Store) => void;
 }
@@ -95,6 +100,28 @@ const breakFirst = (store: Store): void => {
   expect(screen.getByText("Needs attention")).toBeTruthy();
 };
 
+/** A run that "Keep searching" started, and that has not finished. */
+const searching = (store: Store): void => {
+  act(() => {
+    store.state.run.value = { status: "running", done: 5, total: 100, kind: "improve" };
+  });
+};
+
+/** What a failed search left (the seed's `.result.json`): the closest attempt, or the pins in the way. */
+const searchFailed =
+  (seed: string) =>
+  (store: Store): void => {
+    const { result } = loadSeed(seed);
+    if (result === undefined) {
+      throw new Error(`seed ${seed} has no result`);
+    }
+    act(() => {
+      store.state.lastResult.value = result;
+      store.state.lastResultHash.value = store.state.currentHash.value;
+      store.state.lockConflicts.value = result.lockConflicts;
+    });
+  };
+
 const CASES: readonly Case[] = [
   { state: "workspace", board: "Main", region: "rail", steps: () => undefined },
   { state: "workspace-add", board: "Main", region: "rail", steps: addKind },
@@ -120,6 +147,111 @@ const CASES: readonly Case[] = [
     region: "sheet",
     phone: true,
     steps: setRules,
+  },
+  // Task 6: the status heading with its switches and action, the banner, the notes
+  { state: "workspace", board: "Main", region: "status", steps: () => undefined },
+  { state: "workspace-searching", board: "Main", region: "status", steps: searching },
+  {
+    state: "workspace-banner",
+    board: "Main",
+    region: "status",
+    seed: "harbour-kings-stale",
+    steps: () => undefined,
+  },
+  {
+    state: "workspace-banner",
+    board: "Main",
+    region: "banner",
+    seed: "harbour-kings-stale",
+    steps: () => undefined,
+  },
+  {
+    state: "m-workspace",
+    board: "MobileWorkspace",
+    region: "status",
+    phone: true,
+    steps: () => undefined,
+  },
+  // Main's `{props: {notice: "olderVersion"}}`, which Main draws in the menu: the app keeps it a plan banner.
+  {
+    state: "workspace-older",
+    board: "Main",
+    region: "banner",
+    project: (p) =>
+      p.layout === undefined ? p : { ...p, layout: { ...p.layout, geometryVersion: "0.1.0" } },
+    steps: () => undefined,
+  },
+  {
+    state: "workspace-notes",
+    board: "Main",
+    region: "notes",
+    seed: "harbour-kings-notes",
+    steps: () => undefined,
+  },
+  // No board of its own: judged against Main's status heading (the fit problems too: Task 12 puts
+  // NoFit's and PinConflict's boards against these).
+  {
+    state: "workspace-making",
+    board: "Main",
+    region: "status",
+    steps: (store) => {
+      act(() => {
+        store.state.runScheduled.value = true;
+      });
+    },
+  },
+  {
+    state: "workspace-noplan",
+    board: "Main",
+    region: "status",
+    project: (p) => ({ ...p, layout: undefined }),
+    // the run that was on its way has ended without a plan: nothing is going on, and there is none
+    steps: (store) => {
+      act(() => {
+        store.state.runScheduled.value = false;
+        store.state.run.value = { status: "idle" };
+      });
+    },
+  },
+  {
+    state: "workspace-failed",
+    board: "Main",
+    region: "status",
+    steps: (store) => {
+      act(() => {
+        store.state.run.value = { status: "error", message: "Worker crashed" };
+      });
+    },
+  },
+  { state: "workspace-error", board: "Main", region: "status", steps: breakFirst },
+  {
+    state: "workspace-box-error",
+    board: "Main",
+    region: "status",
+    steps: (store) => {
+      act(() => store.edit((q) => ({ ...q, box: { ...q.box, innerHeight: -5 } })));
+    },
+  },
+  {
+    state: "no-fit",
+    board: "Main",
+    region: "status",
+    seed: "harbour-kings-nofit",
+    steps: searchFailed("harbour-kings-nofit"),
+  },
+  {
+    state: "no-fit-bed",
+    board: "Main",
+    region: "status",
+    seed: "harbour-kings-nofit-bed",
+    steps: searchFailed("harbour-kings-nofit-bed"),
+  },
+  {
+    state: "pin-conflict",
+    board: "Main",
+    region: "status",
+    seed: "harbour-kings-pins",
+    steps: searchFailed("harbour-kings-pins"),
   },
   { state: "workspace", board: "Main", region: "header", steps: () => undefined },
   { state: "workspace-menu", board: "Main", region: "menu", steps: openMenu },
@@ -219,8 +351,8 @@ async function stringsOf(c: Case): Promise<string[]> {
   if (c.phone === true) {
     phone();
   }
-  const { project } = loadSeed("harbour-kings");
-  const { store } = renderApp({ project });
+  const { project } = loadSeed(c.seed ?? "harbour-kings");
+  const { store } = renderApp({ project: c.project === undefined ? project : c.project(project) });
   c.steps(store);
   const region = document.querySelector(`[data-region="${c.region}"]`);
   expect(region, `${c.state}: no element with data-region="${c.region}"`).not.toBeNull();

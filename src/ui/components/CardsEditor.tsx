@@ -9,7 +9,6 @@ import { COUNT, LENGTH, OFFSET, THICKNESS_CORRECTION } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions, commonOptionPaths } from "./CommonOptions";
 import { DerivedSizes } from "./DerivedSizes";
-import { ListNotices } from "./ListNotices";
 import { MoreOptions } from "./MoreOptions";
 import { RowRemove } from "./RowRemove";
 import { BinNotes, ToggleOptions } from "./ToggleOptions";
@@ -112,7 +111,6 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
       ) : null}
       <fieldset class="list-rows">
         <legend>Decks</legend>
-        <ListNotices id={`${c.id}-decks`} path={`${at}/decks`} />
         {c.decks.map((deck, j) => (
           <div class="list-row" key={j}>
             <TextField

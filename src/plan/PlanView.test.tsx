@@ -475,40 +475,16 @@ describe("PlanView", () => {
     expect(screen.getByText("pinned")).toBeTruthy();
   });
 
-  it("switches layers", () => {
+  it("shows the layer the app asks for (the stage's Layer switch owns the choice)", () => {
     setup();
-    fireEvent.click(screen.getByLabelText("Layer 2 (top)"));
-    expect(screen.getByRole("button", { name: /layer 2/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /layer 1/ })).toBeNull();
-  });
-
-  it("labels the layers bottom to top, and has no switch for one layer", () => {
-    const top = makeTray({ ...C, key: "d:p0:0", level: 2 });
-    const { view } = setup({ trays: [A, B, C, top] });
-    const labels = Array.from(view.container.querySelectorAll(".layer-picker label")).map(
-      (l) => l.textContent,
-    );
-    expect(labels).toEqual(["Layer 1 (bottom)", "Layer 2", "Layer 3 (top)"]);
-    view.unmount();
-    setup({ trays: [A, B] });
+    expect(screen.getAllByRole("button", { name: /layer 1/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /layer 2/ })).toBeNull();
     expect(document.querySelector(".layer-picker")).toBeNull();
+    expect(screen.queryByRole("radio")).toBeNull();
   });
 
-  it("the layer switch is controlled by the app", () => {
-    const { p, view } = setup({ level: 1 });
-    // the layer comes from the prop: layer 2 is shown and its radio is checked
-    expect((screen.getByLabelText("Layer 2 (top)") as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByRole("button", { name: /layer 2/ })).toBeTruthy();
-    // choosing a layer reports it
-    fireEvent.click(screen.getByLabelText("Layer 1 (bottom)"));
-    expect(p.onLevelChange).toHaveBeenCalledWith(0);
-    expect(screen.getByRole("button", { name: "Region deck, layer 1" })).toBeTruthy();
-    view.unmount();
-    // without a parent that follows, the shown layer does not change on its own
-    const onLevelChange = vi.fn();
-    render(<PlanView {...p} level={1} onLevelChange={onLevelChange} />);
-    fireEvent.click(screen.getByLabelText("Layer 1 (bottom)"));
-    expect(onLevelChange).toHaveBeenCalledWith(0);
+  it("shows layer 2 when the app's level is 1", () => {
+    setup({ level: 1 });
     expect(screen.getByRole("button", { name: /layer 2/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /layer 1/ })).toBeNull();
   });
@@ -623,12 +599,6 @@ describe("PlanView", () => {
       Node.DOCUMENT_POSITION_PRECEDING,
     );
   });
-
-  it("offers a segmented layer picker", () => {
-    const { view } = setup();
-    expect(view.container.querySelector("fieldset.layer-picker .pf-seg .pf-seg__opt")).toBeTruthy();
-    expect(screen.getByLabelText("Layer 1 (bottom)")).toBeTruthy();
-  });
 });
 
 describe("a merged filler on the plan", () => {
@@ -644,8 +614,7 @@ describe("a merged filler on the plan", () => {
 
   it("shows its other member on the next layer, and is selected from either", () => {
     const onSelect = vi.fn();
-    const { view } = setup({ trays: [A, B, C, M], onSelect });
-    fireEvent.click(screen.getByRole("radio", { name: /Layer 2/ }));
+    const { view } = setup({ trays: [A, B, C, M], onSelect, level: 1 });
     const merged = view.container.querySelector('[data-key="merged:0"]');
     expect(merged?.querySelectorAll("rect.plan-face")).toHaveLength(1);
     fireEvent.keyDown(merged as Element, { key: "Enter" });

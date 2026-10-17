@@ -3,8 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Notice } from "../model/types";
-import { GEOMETRY_OLD_MESSAGE } from "../app/state";
-import { Notices, PlanBanners } from "./Notices";
+import { Notices } from "./Notices";
 
 afterEach(cleanup);
 
@@ -99,27 +98,6 @@ describe("Notices markup", () => {
     view.rerender(<Notices notices={[notice("error")]} />);
     expect(screen.getByRole("alert").textContent).toContain("A error message");
     expect(live.textContent).toBe("");
-  });
-
-  it("PlanBanners: the older-geometry words come from a region that was already there", () => {
-    const noop = () => undefined;
-    const view = render(
-      <PlanBanners
-        stale={false}
-        geometryOld={false}
-        onUpdate={noop}
-        onReprint={noop}
-        onKeepOld={noop}
-      />,
-    );
-    const live = screen.getByRole("status");
-    expect(live.textContent).toBe("");
-    view.rerender(
-      <PlanBanners stale={false} geometryOld onUpdate={noop} onReprint={noop} onKeepOld={noop} />,
-    );
-    expect(screen.getByRole("status")).toBe(live);
-    expect(live.textContent).toBe(GEOMETRY_OLD_MESSAGE);
-    expect(document.querySelector(".pf-notice--warn")?.getAttribute("role")).toBeNull();
   });
 
   it("draws the dismiss button's cross as an SVG, not as a character", () => {

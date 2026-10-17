@@ -43,4 +43,28 @@ describe("Segmented", () => {
     const { container } = render(<Host />);
     expect(container.querySelector(".k-seg")?.getAttribute("data-tone")).toBe("quiet");
   });
+
+  it("blocks one option and says why, as a blocked button does", () => {
+    const picked: string[] = [];
+    render(
+      <Segmented
+        label="View"
+        options={[
+          { value: "top", label: "Top" },
+          { value: "3d", label: "3D", blockedReason: "3D needs WebGL" },
+        ]}
+        value="top"
+        onChange={(v) => picked.push(v)}
+      />,
+    );
+    const blocked = screen.getByRole("button", { name: "3D" });
+    expect(blocked.getAttribute("aria-disabled")).toBe("true");
+    expect(blocked.hasAttribute("disabled")).toBe(false);
+    expect(blocked.getAttribute("title")).toBe("3D needs WebGL");
+    expect(blocked.getAttribute("aria-describedby")).toBeTruthy();
+    fireEvent.click(blocked);
+    expect(picked).toEqual([]);
+    fireEvent.click(screen.getByRole("button", { name: "Top" }));
+    expect(picked).toEqual(["top"]);
+  });
 });

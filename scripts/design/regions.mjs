@@ -6,8 +6,8 @@
 // element marked `data-region="<name>"`: the UI task that builds the region puts the attribute on
 // it. A region found in only one of the two has no pair crop.
 //
-// Names, with the task that owns each in the app: header, rail, stage (Task 3), status, plan-box, tray-bar, menu,
-// dialog, drawer, sheet, kind-picker.
+// Names, with the task that owns each in the app: header, rail, stage (Task 3), status, switches, banner
+// (Task 6), plan-box, tray-bar, menu, dialog, drawer, sheet, kind-picker.
 
 /** @type {Record<string, { board: (doc: Document) => Element | null }>} */
 export const REGIONS = {
@@ -15,16 +15,33 @@ export const REGIONS = {
   rail: { board: (doc) => doc.querySelector("aside") },
   // The whole of <main>: the stage the status row, the plan and its slots sit in.
   stage: { board: (doc) => doc.querySelector("main") },
-  // The child of <main> that holds the first h1: the heading row (icon, h1, line, controls).
+  // The child of <main> that holds the first h1: the heading row (icon, h1, line, controls). A
+  // phone board has no <main>: the heading row is the block of the screen's column that holds it.
   status: {
     board: (doc) => {
       let el = doc.querySelector("main h1");
-      while (el && el.parentElement && el.parentElement.localName !== "main") {
+      if (el) {
+        while (el.parentElement && el.parentElement.localName !== "main") {
+          el = el.parentElement;
+        }
+        return el.parentElement ? el : null;
+      }
+      el = doc.querySelector("h1");
+      while (el && el.parentElement && el.parentElement.children.length < 4) {
         el = el.parentElement;
       }
-      return el && el.parentElement ? el : null;
+      return el && el !== doc.querySelector("h1") ? el : null;
     },
   },
+  // A phone's Layer and 3D row, under the heading (Main's are in its heading row).
+  switches: {
+    board: (doc) => {
+      const layer = doc.querySelector('[role="group"][aria-label="Layer"]');
+      return layer && !doc.querySelector("main") ? layer.parentElement : null;
+    },
+  },
+  // Main's banner: the status box above the heading row.
+  banner: { board: (doc) => doc.querySelector('main > [role="status"]') },
   // The first element in <main> sized by aspect-ratio: 1: the box frame.
   "plan-box": {
     board: (doc) =>

@@ -10,6 +10,10 @@
 //   <state>.<region>.pair.png  the same for each region (regions.mjs) found in both
 //   <state>.numbers.md         header height, rail width, plan width, first h1: board vs app
 //
+// When `workspace` and `workspace-searching` both run, their layout is compared: the header, the
+// rail, the status row and the plan box must not move by more than 1 px between them (Keep
+// searching turning into Stop must not shift the page), else the run fails.
+//
 // `npm run shots -- --boards` only redraws the board PNGs (all of them, or the named states').
 //
 // The app is served by `vite --mode shots` on a free port; the child is stopped by its PID when
@@ -22,6 +26,7 @@ import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { BOARDS_DIR, boardPreview, renderBoard } from "./renderBoard.mjs";
+import { JUMP_REGIONS, jumpProblems } from "./jump.mjs";
 import { REGIONS } from "./regions.mjs";
 import { SEEDS, STATES } from "./states.mjs";
 import { createModuleLoader } from "./viteModules.mjs";
@@ -291,6 +296,23 @@ async function openApp(browser, appUrl, name, state, seeds) {
 
 const regionSource = (name) => REGIONS[name].board.toString();
 
+// ---------------------------------------------------------------- nothing jumps (Review Focus 4)
+
+const JUMP_STATES = ["workspace", "workspace-searching"];
+const jumpBoxes = new Map();
+
+async function measureJump(page) {
+  return page.evaluate((regions) => {
+    const out = {};
+    for (const [name, selector] of Object.entries(regions)) {
+      const el = document.querySelector(selector);
+      const r = el ? el.getBoundingClientRect() : null;
+      out[name] = r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null;
+    }
+    return out;
+  }, JUMP_REGIONS);
+}
+
 /** The bounding box of a region in a page, from its definition (board) or data-region (app). */
 async function regionHandle(page, name, isBoard) {
   const handle = isBoard
@@ -323,14 +345,82 @@ async function measure(page, isBoard) {
   });
   out["h1 font-size"] = h1 ? Number.parseFloat(h1.size) : null;
   out["h1 text"] = h1 ? h1.text : null;
+  Object.assign(out, await page.evaluate(measureStatusRow));
   return out;
 }
+
+/**
+ * The status row's parts, in page coordinates, found by structure so a board and the app answer
+ * alike: the icon is the sibling before the h1's column, the line the sibling after the h1, the
+ * switches the groups named Layer and View, the action the button that says Keep searching, Stop,
+ * Retry or Make a plan. Runs in the page, so it is self-contained. Null for a part the page lacks.
+ */
+function measureStatusRow() {
+  const round = (n) => Math.round(n * 100) / 100;
+  const h1 = document.querySelector("h1");
+  // page coordinates: an element's screenshot may have scrolled the page, which must not read as a move
+  const box = (el) => {
+    if (!el) {
+      return null;
+    }
+    const r = el.getBoundingClientRect();
+    return {
+      left: r.left + window.scrollX,
+      top: r.top + window.scrollY,
+      width: r.width,
+      height: r.height,
+    };
+  };
+  const icon = h1 && h1.parentElement ? h1.parentElement.previousElementSibling : null;
+  const line = h1 ? h1.nextElementSibling : null;
+  const group = (name) => document.querySelector(`[role="group"][aria-label="${name}"]`);
+  const action = Array.from(document.querySelectorAll("button")).find((b) =>
+    /^(Keep searching|Stop|Retry|Make a plan)$/.test(
+      (b.getAttribute("aria-label") || b.textContent || "").trim(),
+    ),
+  );
+  const banner = document.querySelector(
+    '[data-region="banner"], main > [role="status"]:not(.visually-hidden)',
+  );
+  const out = {};
+  const put = (key, value) => {
+    out[key] = value === null || value === undefined ? null : round(value);
+  };
+  const h = box(h1);
+  const i = box(icon);
+  put("icon size", i ? i.width : null);
+  put("icon left", i ? i.left : null);
+  put("icon top", i ? i.top : null);
+  put("h1 left", h ? h.left : null);
+  put("h1 top", h ? h.top : null);
+  put("line top", box(line) ? box(line).top : null);
+  put("line font-size", line ? Number.parseFloat(getComputedStyle(line).fontSize) : null);
+  put("layer switch top", box(group("Layer")) ? box(group("Layer")).top : null);
+  put("layer switch height", box(group("Layer")) ? box(group("Layer")).height : null);
+  put("view switch height", box(group("View")) ? box(group("View")).height : null);
+  put("action height", box(action) ? box(action).height : null);
+  put("banner height", box(banner) ? box(banner).height : null);
+  return out;
+}
+
+/** The numbers every state has: a row for them even when a side lacks one (flagged). */
+const CORE_METRICS = new Set([
+  "header height",
+  "rail width",
+  "plan-box width",
+  "h1 font-size",
+  "h1 text",
+]);
 
 function numbersTable(board, app) {
   const rows = ["| metric | board | app | Δ | flag |", "| --- | --- | --- | --- | --- |"];
   for (const metric of Object.keys(board)) {
     const b = board[metric];
     const a = app[metric];
+    // a part neither side has (a banner, a switch) is no row
+    if (b === null && a === null && !CORE_METRICS.has(metric)) {
+      continue;
+    }
     let delta = "";
     let flag = "";
     if (b === null || a === null) {
@@ -413,6 +503,9 @@ async function shootState(browser, appUrl, name, seeds) {
         regions.push(region);
       }
     }
+    if (JUMP_STATES.includes(name)) {
+      jumpBoxes.set(name, await measureJump(app));
+    }
     const table = numbersTable(await measure(board, true), await measure(app, false));
     writeFileSync(
       `${outDir}${name}.numbers.md`,
@@ -474,6 +567,17 @@ try {
       failed += 1;
       lines.push(`FAILED  ${name}: ${firstLine(e)}`);
     }
+  }
+  if (JUMP_STATES.every((n) => jumpBoxes.has(n))) {
+    const problems = jumpProblems(...JUMP_STATES.map((n) => jumpBoxes.get(n)));
+    // a region found in neither state is not a failure: it only says the check had nothing to compare
+    const hard = problems.filter((p) => !p.endsWith("(nothing compared)"));
+    failed += hard.length > 0 ? 1 : 0;
+    lines.push(
+      hard.length > 0
+        ? `FAILED  jump: ${hard.join("; ")}`
+        : `ok      jump: header, rail, status and plan box do not move between ${JUMP_STATES.join(" and ")}${problems.length > 0 ? ` (${problems.join("; ")})` : ""}`,
+    );
   }
   console.log(`\n${lines.join("\n")}\n\nout: ${outDir}`);
   writeFileSync(`${outDir}summary.txt`, `${lines.join("\n")}\n`);

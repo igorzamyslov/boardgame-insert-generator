@@ -13,6 +13,7 @@ import "./style.css";
 import "./screens/workspace.css";
 import "./screens/header.css";
 import "./screens/rail.css";
+import "./screens/stage.css";
 
 const store = createAppStore({
   projectStore: createProjectStore(),

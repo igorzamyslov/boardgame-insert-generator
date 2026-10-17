@@ -26,8 +26,15 @@ export function useSizingNotices(path: string): Notice[] {
 export const SettingsContext = createContext<Settings>(DEFAULT_SETTINGS);
 
 /**
- * The errors of `validateProject()` with no field on screen to show them, so the summary has
- * to: lock and project-level errors. Every settings and printer field is on screen.
+ * A whole list of a component, as a path ends it ("Add at least one deck."). The list has no field
+ * of its own in the editors, so the status heading says it (it was the list's own notice).
+ */
+const LIST_PATH = /^\/components\/\d+\/(decks|items|figures)$/;
+
+/**
+ * The errors of `validateProject()` with no field on screen to show them, so the status heading
+ * has to: lock and project-level errors, and an empty list. Every settings and printer field is on
+ * screen.
  */
 export function errorsWithoutField(notices: readonly Notice[]): Notice[] {
   return notices.filter((n) => {
@@ -38,6 +45,6 @@ export function errorsWithoutField(notices: readonly Notice[]): Notice[] {
     if (path === undefined || path === "/id" || path === "/components") {
       return true;
     }
-    return path.startsWith("/locks");
+    return path.startsWith("/locks") || LIST_PATH.test(path);
   });
 }

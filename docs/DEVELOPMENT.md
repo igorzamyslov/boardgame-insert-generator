@@ -46,9 +46,10 @@ a commit can rewrite your files. Node version: `.nvmrc` (24).
 - `export/` writes 3MF and STL files and zips them.
 - `app/` holds state, store, history, runner, persistence, the mesh cache, export building,
   the dry run (`dryRun.ts`), and `App.tsx`, which wires the screen.
-- `ui/` holds the header, the list and editors (`ui/components/`), the settings sheet, the
-  status line, the tray bar, notices, the download panel, and colour and identity
-  (`identity.ts`).
+- `ui/` holds the list and editors (`ui/components/`), the settings sheet, the tray bar, notices,
+  the download panel, and colour and identity (`identity.ts`). `screens/` holds the workspace
+  shell, the header, the rail and the top of the stage (`StageTop.tsx`: the status heading, the
+  switches and the plan banner; `StageNotes.tsx`; `RunAnnouncer.tsx`).
 - `plan/` is the SVG top view, `viewer/` the three.js view (`scene.ts` loads lazily).
 - `instructions/` handles tray names (`naming.ts`), part ids (`numbering.ts`), the packing
   guide and the PNG.
@@ -230,8 +231,8 @@ it only with a written reason in the code or the PR.
   `document.body`, so you never steal it from where the person moved it. Examples:
   - `ui/components/ComponentList.tsx`: a chip's × moves focus to the next chip, else to the
     row's button.
-  - `ui/StatusLine.tsx`: Keep searching and Stop sit in different pills, so the one that appears
-    takes focus.
+  - `screens/StageTop.tsx`: Keep searching and Stop swap places in the status row, so the one
+    that appears takes focus.
   - `ui/components/EditorPanel.tsx`: the Remove… and Cancel confirmation pair. It moves the focus
     unconditionally: the button that went was the one just pressed, so nothing is stolen.
 - MUST focus an editor's, dialog's or panel's heading when it opens (`tabIndex={-1}` on the
@@ -450,7 +451,7 @@ For example, after a chip's ×, after Keep searching turns into Stop, or after d
 row.
 → The focused element unmounted.
 → In an effect after the re-render, if `document.activeElement` is `body` (or null), focus the
-counterpart, the next item or the owner (`StatusLine.tsx`, `ComponentList.tsx`). Never move focus
+counterpart, the next item or the owner (`StageTop.tsx`, `ComponentList.tsx`). Never move focus
 when it's somewhere else.
 
 **Calling `rerender` from an `onChange` in a test overflows the stack.**
@@ -592,7 +593,7 @@ addition:
     time**; when both apply, the older-geometry one wins (`placeNotices`).
   - `"menu"`: needs a look but no interruption. It adds a dot and a count to the project menu
     button (`MENU_CODES`).
-  - `"inline"`: under the status line (the default). `Notices` shows at most 3; errors always
+  - `"inline"`: under the status heading (the default). `Notices` shows at most 3; errors always
     show, and the rest fold behind "Show all".
   - `"none"`: for example, the stale notice while a run is pending or the inputs don't fit.
 - To add one: give it a stable code constant, decide its place in `noticePlacement` (add to

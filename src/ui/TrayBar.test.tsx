@@ -52,7 +52,7 @@ describe("TrayBar", () => {
     expect(screen.getByText("Layer 1 (bottom)")).toBeTruthy();
     expect(screen.getByText("72.0 × 96.0 × 40.0 mm")).toBeTruthy();
     expect(screen.getByText("Deck A ×40")).toBeTruthy();
-    expect(screen.getByText(/^≈ \d+ g · ≈ .+ (min|h)$/)).toBeTruthy();
+    expect(screen.getByText(/^about \d+ g · about .+ (min|h)$/)).toBeTruthy();
     expect(screen.getByRole("group", { name: "Selected tray" }).textContent).not.toMatch(/#\d/);
   });
 

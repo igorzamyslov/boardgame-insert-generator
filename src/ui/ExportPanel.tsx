@@ -16,7 +16,7 @@ import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts } from "../instructions/numbering";
 import type { LayoutSummary } from "../layout/types";
 import type { Component, Printer, Settings, TraySpec } from "../model/types";
-import { formatPrintTime } from "./Summary";
+import { formatGrams, formatPrintTime } from "./estimates";
 import "./export.css";
 
 export type ExportKind = "parts" | "combined" | "stl";
@@ -225,11 +225,11 @@ export function ExportPanel(p: ExportPanelProps) {
           <>
             <div>
               <dt>Filament</dt>
-              <dd>{`≈ ${Math.round(p.summary.filamentAtInfillG)} g`}</dd>
+              <dd>{formatGrams(p.summary.filamentAtInfillG)}</dd>
             </div>
             <div>
               <dt>Print time</dt>
-              <dd>{`≈ ${formatPrintTime(p.summary.printMinutes)}`}</dd>
+              <dd>{formatPrintTime(p.summary.printMinutes)}</dd>
             </div>
           </>
         ) : null}

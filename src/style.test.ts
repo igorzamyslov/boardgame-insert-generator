@@ -499,10 +499,13 @@ describe("the phone layout", () => {
     expect(mediaBlocks(`(width < ${px}px)`).length).toBeGreaterThan(1);
   });
 
-  it("leaves the order of the stage to the page: the status pill, the box, then the figures", () => {
-    // DESIGN §5: the same order on every width, so no `order` moves a block (App.test.tsx checks the page)
+  it("orders the stage: banner, status, plan", () => {
+    // DESIGN §5: the page's order is the order on every width, so no `order` moves a block
+    // (App.test.tsx checks the page; stage.style.test.ts checks stage.css has none)
     expect(ruleFor(".ws-stage > .stage-block", workspace)).not.toMatch(/order:/);
-    expect(mediaBlock("(width < 760px)", workspace)).not.toMatch(/\.stage-block|\.pf-status/);
+    expect(mediaBlock("(width < 760px)", workspace)).not.toMatch(
+      /\.stage-block|\.stage-status|\.app-notices/,
+    );
   });
 
   it("fills the screen with an open sheet that holds the editor or the box, below 600 px", () => {
@@ -522,27 +525,19 @@ describe("the phone layout", () => {
     expect(ruleFor(".ws-stage > .pf-view", workspace)).toMatch(/min-height:\s*24rem/);
   });
 
-  it("gives the view's tabs a 44 px target", () => {
-    expect(ruleFor(".pf-tabs button")).toMatch(/min-height:\s*var\(--control-h\)/);
+  it("gives the Layer and View segments a 44 px target", () => {
+    // the status row's segments are the kit's (Main's, 44 px each in a 3 px track)
+    expect(ruleFor(".k-seg__item", kit)).toMatch(/height:\s*var\(--control-h\)/);
   });
 });
 
 describe("pills", () => {
-  // DESIGN §2 Claims: a pill is one line; what does not fit ends in an ellipsis, never wraps.
-  it("keep to one line: the pill does not wrap, its text and its button are cut with an ellipsis", () => {
-    const pill = ruleFor(".pf-status__pill");
-    expect(pill).toMatch(/display:\s*flex/);
-    expect(pill).toMatch(/flex-wrap:\s*nowrap/);
-    for (const part of [".pf-status__text", ".pf-status__btn"]) {
-      const body = ruleFor(part);
-      expect(body, part).toMatch(/white-space:\s*nowrap/);
-      expect(body, part).toMatch(/text-overflow:\s*ellipsis/);
-      expect(body, part).toMatch(/overflow:\s*hidden/);
-    }
-    // the text gives way first, and the button can shrink instead of overflowing the pill
-    expect(ruleFor(".pf-status__text")).toMatch(/min-width:\s*0/);
-    expect(ruleFor(".pf-status__btn")).toMatch(/flex:\s*0 1 auto/);
-    expect(ruleFor(".pf-status__btn")).toMatch(/max-width:\s*\d+%/);
+  // DESIGN §2 Claims: what does not fit in a pill ends in an ellipsis; the status heading's title
+  // is one line, cut with one, and its whole text is in a title (the kit's `ellipsis`).
+  it("keep the status heading's title to one line, cut with an ellipsis", () => {
+    expect(ruleFor(".ellipsis", kit)).toMatch(/white-space:\s*nowrap/);
+    expect(ruleFor(".ellipsis", kit)).toMatch(/text-overflow:\s*ellipsis/);
+    expect(ruleFor(".ellipsis", kit)).toMatch(/overflow:\s*hidden/);
   });
 });
 

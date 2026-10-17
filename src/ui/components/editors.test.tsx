@@ -437,7 +437,7 @@ describe("validation shown in place", () => {
     });
   });
 
-  it("shows empty-list errors under the Items and Figures legends", () => {
+  it("leaves empty-list errors to the status heading, which lists them (errorsWithoutField)", () => {
     render(
       <ValidationContext.Provider
         value={[
@@ -453,8 +453,8 @@ describe("validation shown in place", () => {
         />
       </ValidationContext.Provider>,
     );
-    const alerts = screen.getAllByRole("alert").map((a) => a.textContent);
-    expect(alerts).toEqual(["Add at least one item.", "Add at least one figure."]);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(document.body.textContent).not.toContain("Add at least one");
   });
 
   it("moves focus to Finger cuts when a file-set curved floor on tiles is turned off", () => {

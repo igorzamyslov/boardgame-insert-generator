@@ -333,6 +333,12 @@
   font-weight: 600;
 }
 
+/* Main's blocked "3D": dimmer, and the cursor says so. */
+.k-seg__item[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ---- ChoiceChips: pressed pills ---- */
 .k-chips {
   display: flex;
@@ -1182,7 +1188,7 @@ html:has(dialog.k-dialog[open], dialog.k-drawer[open]) {
   }
 }
 
-/* The status heading on a phone: a 32 px icon and the 21 px h1. */
+/* The status heading on a phone: a 32 px icon 12 px from the text, the 21 px h1 and a 13 px line. */
 @media (width < 760px) {
   .k-status__icon {
     width: var(--status-icon-phone);
@@ -1191,6 +1197,14 @@ html:has(dialog.k-dialog[open], dialog.k-drawer[open]) {
 
   .k-status__title {
     font-size: var(--h1-phone);
+  }
+
+  .k-status__line {
+    font-size: var(--text-xs);
+  }
+
+  .k-status__lead {
+    gap: var(--s-12);
   }
 }
 

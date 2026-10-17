@@ -22,10 +22,14 @@ const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
 
 const MENU = { click: { role: "button", name: /^Project menu/ } };
-// The no-fit heading: the board's "...fit yet", and the old UI's "<name> doesn't fit the box yet"
-// (a figure too tall) or "<name> is too big for your printer's bed".
-const FIT_YET = /fit (the box )?yet|too big for/;
-const MAKE_NEW_PLAN = { click: { role: "button", name: "Make a new plan" } };
+// The no-fit heading: "The <name> tray doesn't fit yet" (owner decision; the board's is "<name> don't fit yet").
+const FIT_YET = /tray doesn't fit yet|Not everything fits yet/;
+// The banner's button (the stale seeds): a new plan, whose result the state then waits for.
+const MAKE_NEW_PLAN = {
+  click: { role: "button", name: "Make a new plan", in: '[data-region="banner"]' },
+};
+// The status heading of the stage (Task 6): the h1, its switches and its action.
+const STATUS = '[data-region="status"]';
 
 /** Seeds: a current plan each, and the ones that are stale on purpose (make-seeds.mjs). */
 export const SEEDS = {
@@ -57,7 +61,7 @@ export const STATES = {
     seed: "harbour-kings",
     holds: ["search"],
     steps: [
-      { click: { role: "button", name: "Keep searching" } },
+      { click: { role: "button", name: "Keep searching", in: STATUS } },
       { waitFor: { role: "button", name: "Stop" } },
     ],
   },

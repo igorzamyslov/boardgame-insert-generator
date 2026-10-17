@@ -7,7 +7,7 @@ import { STALE_MESSAGE } from "../app/state";
 import { outerSizeText } from "../instructions/numbering";
 import { summarize } from "../layout";
 import type { Project, TraySpec } from "../model/types";
-import { formatPrintTime } from "./Summary";
+import { formatGrams, formatPrintTime } from "./estimates";
 
 export interface TrayBarProps {
   /** The project: its locks say what is pinned, and the dry run behind Turn reads its plan. */
@@ -118,7 +118,7 @@ function printEstimate(p: Project, t: TraySpec): string | null {
       settings: p.settings,
       locks: p.locks,
     });
-    return `≈ ${Math.max(1, Math.round(s.filamentAtInfillG))} g · ≈ ${formatPrintTime(s.printMinutes)}`;
+    return `${formatGrams(s.filamentAtInfillG)} · ${formatPrintTime(s.printMinutes)}`;
   } catch {
     return null;
   }

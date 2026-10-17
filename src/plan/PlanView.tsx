@@ -328,25 +328,6 @@ export function PlanView(props: PlanViewProps) {
 
   return (
     <div class="plan" onKeyDown={onPlanKeyDown}>
-      {levels.length > 1 ? (
-        <fieldset class="layer-picker">
-          <legend class="visually-hidden">Layer</legend>
-          <div class="pf-seg">
-            {levels.map((l, i) => (
-              <label key={l} class="pf-seg__opt">
-                <input
-                  type="radio"
-                  class="visually-hidden"
-                  name="plan-layer"
-                  checked={i === idx}
-                  onChange={() => onLevelChange(i)}
-                />
-                {layerLabel(i, levels.length)}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      ) : null}
       <svg
         ref={svgRef}
         class={stale ? "plan-svg is-stale" : "plan-svg"}

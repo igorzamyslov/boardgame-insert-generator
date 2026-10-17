@@ -4,7 +4,6 @@ import { SelectField, TextField } from "../fields";
 import { COUNT, LENGTH, VOLUME_ML } from "../limits";
 import { NumberField } from "../NumberField";
 import { CommonOptions, commonOptionPaths } from "./CommonOptions";
-import { ListNotices } from "./ListNotices";
 import { DerivedSizes } from "./DerivedSizes";
 import { MoreOptions } from "./MoreOptions";
 import { RowRemove } from "./RowRemove";
@@ -20,7 +19,6 @@ export function BulkEditor({ component: c, index, onChange }: EditorProps<BulkCo
     <>
       <fieldset class="list-rows">
         <legend>Items</legend>
-        <ListNotices id={`${c.id}-items`} path={`${at}/items`} />
         {c.items.map((item, j) => {
           const n = j + 1;
           const volume = "volumeMl" in item ? item : null;

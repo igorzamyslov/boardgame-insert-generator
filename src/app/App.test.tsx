@@ -11,6 +11,7 @@ import { encodeHash } from "../test-support/link";
 import { MemoryStorage } from "../test-support/memory-storage";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
+import type { AppProps } from "./App";
 import { renameProject, updateBox } from "./actions";
 import { canOptimize } from "./runner";
 import { CONFLICT_CODE, OPEN_FAILED_CODE } from "./persistence";
@@ -70,9 +71,27 @@ function tile(key: string): Element {
   return document.querySelector(`.plan-tray[data-key="${key}"]`) as Element;
 }
 
-/** Switches the view sheet to a tab; only the selected view's panel is mounted. */
-function openTab(name: "Plan" | "3D"): void {
-  fireEvent.click(screen.getByRole("tab", { name }));
+/** The stage's View segment: "Top" shows the plan, "3D" the 3D view (only the chosen one is mounted). */
+function openView(name: "Top" | "3D"): void {
+  fireEvent.click(
+    within(screen.getByRole("group", { name: "View" })).getByRole("button", { name }),
+  );
+}
+
+/** Whether a View option is the pressed one. */
+function viewPressed(name: "Top" | "3D"): boolean {
+  return (
+    within(screen.getByRole("group", { name: "View" }))
+      .getByRole("button", { name })
+      .getAttribute("aria-pressed") === "true"
+  );
+}
+
+/** A browser that can draw the 3D view: the segment's "3D" is open, and the scene is a stub. */
+function withWebGL(): { viewerProps: AppProps["viewerProps"] } {
+  return {
+    viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(stubSceneFactory()) },
+  };
 }
 
 /**
@@ -118,17 +137,20 @@ function openAssemblyPage(): void {
 }
 
 describe("App", () => {
-  it("lays out the title, the rail with the box and what's inside, then the results", () => {
+  it("lays out the rail with the box and what's inside, then the stage under the status heading", () => {
     renderApp({ project: withLayoutProject() });
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Insert Generator");
+    // the status heading is the page's one h1 on the workspace; the wordmark is not a heading
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Everything fits");
+    expect(screen.queryByRole("heading", { name: "Insert Generator" })).toBeNull();
     const rail = screen.getByRole("complementary", { name: "What's inside" });
     expect(within(rail).getByRole("button", { name: /^The box/ })).toBeTruthy();
     expect(within(rail).getByRole("heading", { level: 2, name: "What's inside" })).toBeTruthy();
     expect(within(rail).getByRole("button", { name: "Add" })).toBeTruthy();
     // the numbered accordion is gone
     expect(document.querySelector("details.pf-acc")).toBeNull();
-    const results = screen.getByRole("main");
-    expect(within(results).getByRole("heading", { level: 2, name: "Results" })).toBeTruthy();
+    const stage = screen.getByRole("main");
+    expect(within(stage).getByRole("heading", { level: 1, name: "Everything fits" })).toBeTruthy();
     expect(screen.queryByText(/shared links may break/)).toBeNull();
   });
 
@@ -233,14 +255,16 @@ describe("App", () => {
     await waitFor(() => expect(stub.calls).toHaveLength(1));
   });
 
-  it("shows plan and 3D fallback tabs and the export panel for a stored layout, and swaps with the keyboard", () => {
-    const { store, stub } = renderApp({ project: withLayoutProject() });
+  it("shows the View segment and the export panel for a stored layout, and swaps with the keyboard", () => {
+    const { store, stub } = renderApp({ project: withLayoutProject(), overrides: withWebGL() });
     expect(stub.calls).toHaveLength(0);
-    expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
+    expect(viewPressed("Top")).toBe(true);
+    expect(viewPressed("3D")).toBe(false);
     expect(tile("a:p0:0")).toBeTruthy();
-    expect(screen.queryByText(/needs WebGL/)).toBeNull();
-    openTab("3D");
-    expect(screen.getByText(/needs WebGL/)).toBeTruthy();
+    expect(screen.queryByText(/WebGL turned on/)).toBeNull();
+    expect(screen.queryByRole("tablist")).toBeNull();
+    openView("3D");
+    expect(viewPressed("3D")).toBe(true);
     expect(document.querySelector(".plan-tray")).toBeNull();
     expect(screen.queryByRole("tab", { name: "Export" })).toBeNull();
     openExport();
@@ -250,9 +274,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     // The export was a dialog over the 3D view, not a view of its own: closing it leaves that view.
-    expect(screen.getByRole("tab", { name: "3D" }).getAttribute("aria-selected")).toBe("true");
-    openTab("Plan");
-    expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
+    expect(viewPressed("3D")).toBe(true);
+    openView("Top");
+    expect(viewPressed("Top")).toBe(true);
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
     fireEvent.keyDown(tile("b:p0:0"), { key: "Enter" });
@@ -262,15 +286,30 @@ describe("App", () => {
     ]);
   });
 
+  it("blocks 3D without WebGL, says why, and keeps the top view", () => {
+    renderApp({ project: withLayoutProject() });
+    const threeD = within(screen.getByRole("group", { name: "View" })).getByRole("button", {
+      name: "3D",
+    });
+    expect(threeD.getAttribute("aria-disabled")).toBe("true");
+    expect(threeD.getAttribute("title")).toBe("3D needs WebGL");
+    expect(
+      screen.getByText("3D needs a browser with WebGL turned on. The top view works the same."),
+    ).toBeTruthy();
+    fireEvent.click(threeD);
+    expect(viewPressed("Top")).toBe(true);
+    expect(tile("a:p0:0")).toBeTruthy();
+  });
+
   it("ends a swap when the view leaves the plan, whatever is selected meanwhile", () => {
-    const { store } = renderApp({ project: withLayoutProject() });
+    const { store } = renderApp({ project: withLayoutProject(), overrides: withWebGL() });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
     expect(screen.getByText(/Choose the tray to swap with/)).toBeTruthy();
-    openTab("3D");
+    openView("3D");
     expect(store.state.swapFrom.value).toBeNull();
     store.state.selection.value = "b:p0:0";
-    openTab("Plan");
+    openView("Top");
     expect(screen.queryByText(/Choose the tray to swap with/)).toBeNull();
     expect(screen.getByRole("button", { name: "Swap with…" }).getAttribute("aria-pressed")).toBe(
       "false",
@@ -303,9 +342,9 @@ describe("App", () => {
     store.edit((q) => ({ ...q, settings: { ...q.settings, bottomChamfer: 3 } }));
     expect(await within(results).findByText(/Fix the errors marked in the inputs/)).toBeTruthy();
     expect(within(results).queryByText(/add at least one component/)).toBeNull();
-    // The field is in the sheet, so the summary lists no error of its own for it.
+    // The field is in the sheet, so the heading lists no error of its own for it.
     expect(within(results).queryByRole("list", { name: "Errors without a field" })).toBeNull();
-    fireEvent.click(within(results).getByRole("button", { name: "Show Settings" }));
+    fireEvent.click(within(results).getByRole("button", { name: "Settings" }));
     const sheet = screen.getByRole("dialog", { name: "Settings" });
     expect(screen.getByRole("tab", { name: /^This insert/ }).getAttribute("aria-selected")).toBe(
       "true",
@@ -323,7 +362,9 @@ describe("App", () => {
     const { store } = renderApp();
     addCards();
     store.edit((q) => ({ ...q, printer: { ...q.printer, bedMargin: -1 } }));
-    fireEvent.click(await screen.findByRole("button", { name: "Show Settings" }));
+    fireEvent.click(
+      await within(screen.getByRole("main")).findByRole("button", { name: "Settings" }),
+    );
     expect(screen.getByRole("tab", { name: /^My printer/ }).getAttribute("aria-selected")).toBe(
       "true",
     );
@@ -407,30 +448,25 @@ describe("App", () => {
     expect(store.state.project.value.components).toHaveLength(0);
   });
 
-  it("moves between the Plan and 3D tabs with the arrow keys, Home and End", () => {
-    renderApp({ project: withLayoutProject() });
-    const plan = screen.getByRole("tab", { name: "Plan" });
-    plan.focus();
-    fireEvent.keyDown(plan, { key: "ArrowRight" });
-    expect(screen.getByRole("tab", { name: "3D" }).getAttribute("aria-selected")).toBe("true");
-    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "3D" }));
-    fireEvent.keyDown(screen.getByRole("tab", { name: "3D" }), { key: "ArrowRight" });
-    expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
-    fireEvent.keyDown(screen.getByRole("tab", { name: "Plan" }), { key: "End" });
-    expect(screen.getByRole("tab", { name: "3D" }).getAttribute("aria-selected")).toBe("true");
-    fireEvent.keyDown(screen.getByRole("tab", { name: "3D" }), { key: "Home" });
-    expect(screen.getByRole("tab", { name: "Plan" }).getAttribute("aria-selected")).toBe("true");
+  it("picks the view with its two buttons, as any pressed toggle: no tablist, no arrow keys", () => {
+    renderApp({ project: withLayoutProject(), overrides: withWebGL() });
+    const group = screen.getByRole("group", { name: "View" });
+    expect(
+      within(group)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Top", "3D"]);
+    openView("3D");
+    expect(viewPressed("3D")).toBe(true);
+    expect(viewPressed("Top")).toBe(false);
+    openView("Top");
+    expect(viewPressed("Top")).toBe(true);
   });
 
   it("shows the tray bar once in the 3D tab", async () => {
-    renderApp({
-      project: withLayoutProject(),
-      overrides: {
-        viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(stubSceneFactory()) },
-      },
-    });
+    renderApp({ project: withLayoutProject(), overrides: withWebGL() });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
-    openTab("3D");
+    openView("3D");
     await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
     expect(screen.getAllByRole("group", { name: "Selected tray" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Lock size" })).toHaveLength(1);
@@ -509,7 +545,7 @@ describe("App", () => {
     openAssemblyPage();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/— packing guide$/);
     fireEvent.click(screen.getByRole("button", { name: "Back to your insert" }));
-    expect(screen.getByRole("tab", { name: "Plan" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "View" })).toBeTruthy();
   });
 
   it("has no Copy link, and Save file keeps a copy", () => {
@@ -544,11 +580,11 @@ describe("App", () => {
       });
       store.state.lastResultHash.value = store.state.currentHash.value;
     });
-    expect(await screen.findByText("The trays don't fit the box yet")).toBeTruthy();
+    expect(await screen.findByText("Not everything fits yet")).toBeTruthy();
     act(() => {
       store.edit((q) => updateBox(q, { innerWidth: q.box.innerWidth + 5 }));
     });
-    await waitFor(() => expect(screen.queryByText(/don't fit the box yet/)).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Not everything fits yet")).toBeNull());
   });
 
   describe("header and project menu", () => {
@@ -1013,21 +1049,23 @@ describe("App", () => {
     });
   });
 
-  it("lays the stage out as the status line, the plan, then the figures", () => {
-    renderApp({ project: withLayoutProject() });
+  it("orders the stage: banner, status, plan, then the notes", () => {
+    const p = fixtureProject();
+    renderApp({ project: { ...p, layout: makeLayout("an-older-hash") } });
     const stage = document.querySelector('[data-region="stage"]') as HTMLElement;
     const index = (selector: string): number => {
       const el = stage.querySelector(`:scope > ${selector}`);
       return el === null ? -1 : [...stage.children].indexOf(el);
     };
-    const status = index(".pf-status");
+    const banner = index(".app-notices");
+    const status = index('[data-region="status"]');
     const plan = index(".pf-view");
-    const figures = index(".pf-readouts");
-    const note = index(".stage-block.hint");
-    expect(status).toBeGreaterThanOrEqual(0);
+    expect(banner).toBeGreaterThanOrEqual(0);
+    expect(stage.querySelector(".app-notices .k-notice")).not.toBeNull();
+    expect(status).toBeGreaterThan(banner);
     expect(plan).toBeGreaterThan(status);
-    expect(figures).toBeGreaterThan(plan);
-    expect(note).toBeGreaterThan(figures);
+    // the figures and their notes are gone: nothing of the Summary is left
+    expect(stage.querySelector(".pf-readouts, .pf-status, .hint")).toBeNull();
   });
 
   it("has no preview banner, whatever the version", () => {
@@ -1048,7 +1086,7 @@ describe("App", () => {
     expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Update plan" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
-    const banner = document.querySelector(".pf-notice--warn");
+    const banner = document.querySelector('.k-notice[data-tone="warn"]');
     expect(banner?.textContent).toContain(
       "Made with an older version of the app. Trays printed from it won't stack with trays you print now.",
     );
@@ -1087,14 +1125,16 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
   });
 
-  describe("status line", () => {
-    const status = (): HTMLElement => screen.getByRole("group", { name: "Plan status" });
+  describe("status heading", () => {
+    const status = (): HTMLElement =>
+      document.querySelector('[data-region="status"]') as HTMLElement;
+    const heading = (): string => screen.getByRole("heading", { level: 1 }).textContent ?? "";
 
     it("says everything fits, with the trays, the layers and the height", () => {
       renderApp({ project: withLayoutProject() });
       // two stored trays 40 mm high; the box is 70 mm inside and keeps 8 mm free on top
-      expect(status().textContent).toContain("Everything fits.");
-      expect(status().textContent).toContain("2 trays in 1 layer, 40 of 62 mm high.");
+      expect(heading()).toBe("Everything fits");
+      expect(status().textContent).toContain("2 trays in 1 layer, 40 of 62 mm high");
       expect(
         screen.getByRole("button", { name: "Download" }).getAttribute("aria-disabled"),
       ).toBeNull();
@@ -1106,7 +1146,9 @@ describe("App", () => {
       expect(await screen.findByRole("button", { name: "Stop" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
       expect(stub.calls).toHaveLength(1);
-      expect(screen.getByRole("progressbar", { name: "Searching" })).toBeTruthy();
+      expect(heading()).toBe("Searching for a better plan…");
+      // Main shows no progress bar
+      expect(screen.queryByRole("progressbar")).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Stop" }));
       expect(stub.cancelCount()).toBeGreaterThan(0);
       await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
@@ -1152,7 +1194,7 @@ describe("App", () => {
         });
         store.state.lastResultHash.value = store.state.currentHash.value;
       });
-      expect(status().textContent).toContain("Market doesn't fit the box yet");
+      expect(heading()).toBe("The Market tray doesn't fit yet");
       expect(status().textContent).not.toContain("Everything fits");
       const download = screen.getByRole("button", { name: "Fix the fit to download" });
       expect(download.getAttribute("aria-disabled")).toBe("true");
@@ -1194,7 +1236,8 @@ describe("App", () => {
         });
         store.state.lastResultHash.value = store.state.currentHash.value;
       });
-      expect(status().textContent).toContain("Market is too big for your printer's bed");
+      expect(heading()).toBe("The Market tray doesn't fit yet");
+      expect(status().textContent).toContain("It's too big for your printer's bed.");
     });
 
     it("offers to unpin each pin the last run could not keep", async () => {
@@ -1214,7 +1257,7 @@ describe("App", () => {
           { trayKey: "b:p0:0", kind: "size", name: "Market", reason: "no room" },
         ];
       });
-      expect(status().textContent).toContain("Action cards doesn't fit with your pins");
+      expect(heading()).toBe("Action cards doesn't fit with your pins");
       expect(status().textContent).toContain("Market doesn't fit with its size locked");
       expect(screen.getByRole("button", { name: "Unlock size of Market" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Fix the fit to download" })).toBeTruthy();
@@ -1222,7 +1265,7 @@ describe("App", () => {
       // only that pin goes, and the plan updates; the other conflict waits for the run's verdict
       expect(store.state.project.value.locks.map((l) => l.kind)).toEqual(["size"]);
       expect(store.state.lockConflicts.value.map((c) => c.name)).toEqual(["Market"]);
-      expect(status().textContent).toBe("Making a new plan…");
+      expect(heading()).toBe("Making a new plan…");
     });
 
     it("unpins a stack the last run could not keep", () => {
@@ -1235,18 +1278,18 @@ describe("App", () => {
           { trayKey: "a:p0:0", kind: "stack", name: "Action cards, Market", reason: "no room" },
         ];
       });
-      expect(status().textContent).toContain("Action cards, Market doesn't fit with your pins");
+      expect(heading()).toBe("Action cards, Market doesn't fit with your pins");
       fireEvent.click(screen.getByRole("button", { name: "Unpin Action cards, Market" }));
       expect(store.state.project.value.locks).toEqual([]);
       expect(store.state.lockConflicts.value).toEqual([]);
     });
 
-    it("says a run is going once, in the status pill, not again in a badge over the view", () => {
+    it("says a run is going once, in the status heading, not again in a badge over the view", () => {
       const { store } = renderApp({ project: withLayoutProject() });
       act(() => {
         store.state.run.value = { status: "running", done: 5, total: 100, kind: "edit" };
       });
-      expect(status().textContent).toContain("Making a new plan…");
+      expect(heading()).toBe("Making a new plan…");
       expect(screen.queryByText("Updating…")).toBeNull();
       expect(document.querySelector(".pf-badge")).toBeNull();
     });
@@ -1256,7 +1299,7 @@ describe("App", () => {
       act(() => {
         store.state.runScheduled.value = true;
       });
-      expect(status().textContent).toBe("Making a new plan…");
+      expect(heading()).toBe("Making a new plan…");
       expect(screen.getByRole("button", { name: "Download" }).getAttribute("title")).toBe(
         "Wait for the plan to finish",
       );
@@ -1495,14 +1538,14 @@ describe("App", () => {
     });
 
     it("leaves the view, the selection and the tab exactly as they were", () => {
-      const { store } = renderApp({ project: withLayoutProject() });
-      openTab("3D");
+      const { store } = renderApp({ project: withLayoutProject(), overrides: withWebGL() });
+      openView("3D");
       store.state.selection.value = "a:p0:0";
       openExport();
       fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
-      expect(screen.getByRole("tab", { name: "3D" }).getAttribute("aria-selected")).toBe("true");
+      expect(viewPressed("3D")).toBe(true);
       expect(store.state.selection.value).toBe("a:p0:0");
-      expect(screen.getByText(/needs WebGL/)).toBeTruthy();
+      expect(document.querySelector(".plan-tray")).toBeNull();
     });
 
     it("closes itself when another project is opened", async () => {
@@ -1563,7 +1606,7 @@ describe("App", () => {
         await screen.findByRole("button", { name: "Start from an example game" }),
       ).toBeTruthy();
       store.openProject(project.id);
-      expect(await screen.findByRole("tab", { name: "Plan" })).toBeTruthy();
+      expect(await screen.findByRole("group", { name: "View" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Back to your insert" })).toBeNull();
     });
 
@@ -1758,14 +1801,9 @@ describe("App", () => {
     });
 
     it("Close in 3D hands the focus to that tray's picker item", async () => {
-      renderApp({
-        project: withLayoutProject(),
-        overrides: {
-          viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(stubSceneFactory()) },
-        },
-      });
+      renderApp({ project: withLayoutProject(), overrides: withWebGL() });
       fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
-      openTab("3D");
+      openView("3D");
       await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
       fireEvent.click(screen.getByRole("button", { name: "Close" }));
       await waitFor(() => {
@@ -1901,7 +1939,7 @@ describe("the rail, What's inside", () => {
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
   });
 
-  describe("the summary's Show buttons", () => {
+  describe("the status heading's jump buttons", () => {
     it("lead to a component's editor, with its name on the button", async () => {
       const { store } = renderApp({ project: fixtureProject() });
       const [first] = store.state.project.value.components;
@@ -1914,7 +1952,7 @@ describe("the rail, What's inside", () => {
           c.id === first.id && c.kind === "cards" ? { ...c, decks: [{ name: "x", count: -1 }] } : c,
         ),
       }));
-      fireEvent.click(await screen.findByRole("button", { name: `Show ${first.name}` }));
+      fireEvent.click(await screen.findByRole("button", { name: `Edit ${first.name}` }));
       expect(
         await within(rail()).findByRole("heading", { level: 3, name: first.name }),
       ).toBeTruthy();
@@ -1923,7 +1961,7 @@ describe("the rail, What's inside", () => {
     it("lead to the box's editor", async () => {
       const { store } = renderApp({ project: fixtureProject() });
       store.edit((q) => updateBox(q, { innerHeight: -5 }));
-      fireEvent.click(await screen.findByRole("button", { name: "Show The box" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Change the box" }));
       expect(
         await within(rail()).findByRole("heading", { level: 3, name: "The box" }),
       ).toBeTruthy();

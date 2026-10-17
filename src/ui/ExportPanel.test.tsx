@@ -150,14 +150,24 @@ describe("ExportPanel", () => {
     ]);
     expect(facts).toEqual([
       ["Parts", "2"],
-      ["Filament", "≈ 123 g"],
-      ["Print time", "≈ 14 h"],
+      ["Filament", "about 123 g"],
+      ["Print time", "about 14 h"],
     ]);
     cleanup();
     const bare = render(<ExportPanel {...props()} />);
     expect(
       [...bare.container.querySelectorAll(".export-facts dt")].map((d) => d.textContent),
     ).toEqual(["Parts"]);
+  });
+
+  it("shows filament and print time", () => {
+    // the Summary's two figures live here now: the rough estimate, said as "about", never "≈"
+    render(<ExportPanel {...props({ summary })} />);
+    const value = (label: string): string | null =>
+      screen.getByText(label, { selector: "dt" }).nextElementSibling?.textContent ?? null;
+    expect(value("Filament")).toMatch(/^about \d+ g$/);
+    expect(value("Print time")).toMatch(/^about \d+(\.\d)? h$|^about \d+ min$/);
+    expect(document.body.textContent).not.toContain("≈");
   });
 
   it("says nothing about slicers or what the files open in", () => {

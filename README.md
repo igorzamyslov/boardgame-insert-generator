@@ -129,20 +129,20 @@ retired (the spec's "Words" section lists them), so they stay out.
 
 ## Architecture
 
-| Folder          | What it does                                                                                        |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| `model/`        | Types, defaults, validation, schema versioning, `inputsHash`                                        |
-| `share/`        | Reader for old `#1.` links, local project store, JSON files, the printer preference                 |
-| `sizing/`       | Items (group) → tray requirements with variants                                                     |
-| `layout/`       | Optimizer (Web Worker, deterministic), `summarize`, `swapLocks`                                     |
-| `geometry/`     | `TraySpec` → manifold mesh (Web Worker; only `geometry/client.ts` is imported by the page)          |
-| `export/`       | 3MF / STL writers, zip, grid layout                                                                 |
-| `app/`          | State (`state.ts`), optimizer runner, persistence, store, export builders, mesh cache, `App.tsx`    |
-| `ui/`           | What's inside, the editors for each kind, settings sheet, project menu, status line, download panel |
-| `plan/`         | Top-down plan view: tiles with name, size and kind icon; select, drag/keyboard swap, pin            |
-| `viewer/`       | three.js 3D view (`scene.ts` is loaded lazily)                                                      |
-| `instructions/` | Tray names, part ids for the download list, packing guide SVGs, packing order, printable page, PNG  |
-| `licenses/`     | Builds `dist/third-party-licenses.txt` (see `licenses.config.ts`)                                   |
+| Folder          | What it does                                                                                       |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `model/`        | Types, defaults, validation, schema versioning, `inputsHash`                                       |
+| `share/`        | Reader for old `#1.` links, local project store, JSON files, the printer preference                |
+| `sizing/`       | Items (group) → tray requirements with variants                                                    |
+| `layout/`       | Optimizer (Web Worker, deterministic), `summarize`, `swapLocks`                                    |
+| `geometry/`     | `TraySpec` → manifold mesh (Web Worker; only `geometry/client.ts` is imported by the page)         |
+| `export/`       | 3MF / STL writers, zip, grid layout                                                                |
+| `app/`          | State (`state.ts`), optimizer runner, persistence, store, export builders, mesh cache, `App.tsx`   |
+| `ui/`           | What's inside, the editors for each kind, settings sheet, project menu, download panel             |
+| `plan/`         | Top-down plan view: tiles with name, size and kind icon; select, drag/keyboard swap, pin           |
+| `viewer/`       | three.js 3D view (`scene.ts` is loaded lazily)                                                     |
+| `instructions/` | Tray names, part ids for the download list, packing guide SVGs, packing order, printable page, PNG |
+| `licenses/`     | Builds `dist/third-party-licenses.txt` (see `licenses.config.ts`)                                  |
 
 **Data flow.** Every edit goes through `store.edit(fn)` with a pure function
 from `app/actions.ts`. If `inputsHash` changed, `app/runner.ts` waits 400 ms,

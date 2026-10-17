@@ -114,7 +114,7 @@ const SHAPES = [
 
 function Pick<T extends string>(p: {
   label: string;
-  options: readonly { value: T; label: string }[];
+  options: readonly { value: T; label: string; blockedReason?: string }[];
   start: T;
   tone?: "quiet" | "track";
   stretch?: boolean;
@@ -426,6 +426,17 @@ export function Gallery() {
           <Row label="Track">
             <Pick label="Layer" options={LAYERS} start="bottom" tone="track" />
             <Pick label="View" options={VIEWS} start="top" tone="track" />
+          </Row>
+          <Row label="Track, one option blocked (no WebGL)">
+            <Pick
+              label="View without WebGL"
+              options={[
+                VIEWS[0] as (typeof VIEWS)[number],
+                { ...(VIEWS[1] as (typeof VIEWS)[number]), blockedReason: "3D needs WebGL" },
+              ]}
+              start="top"
+              tone="track"
+            />
           </Row>
         </Section>
 

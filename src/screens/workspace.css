@@ -133,7 +133,9 @@
 
   /* The sheet is fixed over the foot of the screen: the stage leaves its peek clear. */
   .ws--sheet .ws-stage {
-    padding-bottom: calc(var(--sheet-foot) + var(--s-12));
+    /* MobileWorkspace: its heading, switches and box all sit 16 px in, the heading 14 px down. */
+    padding: var(--s-14) var(--s-16) calc(var(--sheet-foot) + var(--s-12));
+    gap: var(--s-10);
     scroll-padding-bottom: calc(var(--sheet-foot) + var(--s-12));
   }
 

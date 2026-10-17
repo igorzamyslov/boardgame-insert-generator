@@ -42,7 +42,7 @@ function parse(path: string): ts.SourceFile {
 describe("rules", () => {
   it("reads the source", () => {
     expect(appFiles.length).toBeGreaterThan(100);
-    expect(appFiles).toContain("/src/ui/StatusLine.tsx");
+    expect(appFiles).toContain("/src/screens/StageTop.tsx");
   });
 
   // DESIGN §2 Accessibility: a blocked action stays focusable (aria-disabled plus a reason).
