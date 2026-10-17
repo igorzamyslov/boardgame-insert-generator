@@ -7,7 +7,6 @@ import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering"
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { hoveredComponent } from "../screens/hover";
-import { SelectField } from "../ui/fields";
 import { componentIndexOfTray } from "../ui/identity";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
@@ -27,6 +26,11 @@ export interface ViewerProps {
   meshes: MeshSource;
   selectedKey: string | null;
   onSelect: (key: string | null) => void;
+  /**
+   * The Layer switch's cut (StageTop, in 3D): the index of the highest layer shown, so layers 1
+   * to it; null or none shows every layer. A layer the plan no longer has shows everything.
+   */
+  topLayer?: number | null;
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -49,7 +53,6 @@ export function Viewer(p: ViewerProps) {
   const [explode, setExplode] = useState(0);
   // The axis indicator is off until asked for: most people never need it.
   const [showAxes, setShowAxes] = useState(false);
-  const [maxLevel, setMaxLevel] = useState<number | null>(null);
   const [build, setBuild] = useState({ done: 0, total: 0, failed: 0 });
   const [attempt, setAttempt] = useState(0);
   // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
@@ -60,7 +63,8 @@ export function Viewer(p: ViewerProps) {
   const byKey = useMemo(() => partsByKey(parts), [parts]);
   const names = useMemo(() => trayNames(parts, p.components ?? []), [parts, p.components]);
   // The chosen layer may vanish when the layout changes: show everything then.
-  const shownLevel = maxLevel !== null && levels.includes(maxLevel) ? maxLevel : null;
+  const shownLevel =
+    p.topLayer === null || p.topLayer === undefined ? null : (levels[p.topLayer] ?? null);
 
   const watchView = useCallback((cb: (view: ViewBasis) => void) => {
     handleRef.current?.onView(cb);
@@ -139,12 +143,6 @@ export function Viewer(p: ViewerProps) {
     canvas.addEventListener("webglcontextlost", onLost);
     return () => canvas.removeEventListener("webglcontextlost", onLost);
   }, [status]);
-
-  useEffect(() => {
-    if (maxLevel !== null && shownLevel === null) {
-      setMaxLevel(null);
-    }
-  }, [maxLevel, shownLevel]);
 
   useEffect(() => {
     const h = handleRef.current;
@@ -393,21 +391,6 @@ export function Viewer(p: ViewerProps) {
                   onInput={(e) => setExplode(Number(e.currentTarget.value))}
                 />
               </label>
-              {levels.length > 1 ? (
-                <SelectField
-                  id="viewer-layers"
-                  label="Show layers"
-                  value={shownLevel === null ? "all" : String(shownLevel)}
-                  options={[
-                    { value: "all", label: "All layers" },
-                    ...levels.map((l, i) => ({
-                      value: String(l),
-                      label: i === 0 ? "Layer 1 only" : `Layers 1 to ${i + 1}`,
-                    })),
-                  ]}
-                  onChange={(v) => setMaxLevel(v === "all" ? null : Number(v))}
-                />
-              ) : null}
             </div>
           </div>
         </div>

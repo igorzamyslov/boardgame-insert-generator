@@ -278,3 +278,55 @@ describe("the keyboard reaches the same bar from either view, and Close goes bac
     expect(pressedRows()).toEqual([]);
   });
 });
+
+describe("the Layer switch drives the 3D view", () => {
+  /** Three layers, one tray each. */
+  function threeLayers(): Project {
+    const p = fixtureProject();
+    const trays = [
+      makeTray({ key: "a:p0:0", path: "0", stack: 0, level: 0, h: 30 }),
+      makeTray({ key: "b:p0:0", path: "1", stack: 0, level: 1, z: 30, h: 30 }),
+      makeTray({ key: "c:p0:0", path: "2", stack: 0, level: 2, z: 60, h: 30 }),
+    ];
+    return { ...p, layout: makeLayout(inputsHash(p), trays) };
+  }
+  const layer = (name: string): HTMLElement =>
+    within(screen.getByRole("group", { name: "Layer" })).getByRole("button", {
+      name: name === "All" ? name : new RegExp(`^${name.replace(/[()]/g, "\\$&")}`),
+    });
+
+  it("opens on All, peels the layers one by one, and keeps the top view's own layer", async () => {
+    const scene = stubScene();
+    renderApp({ project: threeLayers(), overrides: { viewerProps: scene.viewerProps } });
+    // the top view: one layer, no All
+    expect(within(screen.getByRole("group", { name: "Layer" })).queryByText("All")).toBeNull();
+    fireEvent.click(layer("Layer 2"));
+    await inThreeD();
+    expect(layer("All").getAttribute("aria-pressed")).toBe("true");
+    await waitFor(() => expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(null));
+    // there is no select of its own any more
+    expect(screen.queryByLabelText("Show layers")).toBeNull();
+    fireEvent.click(layer("Layer 1 (bottom)"));
+    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(0);
+    fireEvent.click(layer("Layer 2"));
+    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(1);
+    fireEvent.click(layer("Layer 3 (top)"));
+    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(2);
+    fireEvent.click(layer("All"));
+    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(null);
+    // back in the top view, the layer it had is still its own
+    fireEvent.click(layer("Layer 1 (bottom)"));
+    openView("Top");
+    expect(layer("Layer 2").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("opens 3D on All again each time", async () => {
+    const scene = stubScene();
+    renderApp({ project: threeLayers(), overrides: { viewerProps: scene.viewerProps } });
+    await inThreeD();
+    fireEvent.click(layer("Layer 1 (bottom)"));
+    openView("Top");
+    openView("3D");
+    expect(layer("All").getAttribute("aria-pressed")).toBe("true");
+  });
+});

@@ -187,6 +187,10 @@ export function App(props: AppProps) {
     if (next !== "plan") {
       s.swapFrom.value = null;
     }
+    if (next === "3d") {
+      // 3D opens on every layer; the cut is a look at the model, not a choice to carry back
+      s.viewCut.value = null;
+    }
     stageView.value = next;
   }
   // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
@@ -896,6 +900,10 @@ export function App(props: AppProps) {
             onLevelChange={(l) => {
               s.viewLevel.value = l;
             }}
+            cut={s.viewCut.value}
+            onCutChange={(c) => {
+              s.viewCut.value = c;
+            }}
             view={view}
             onViewChange={showView}
             webgl={webgl}
@@ -948,6 +956,7 @@ export function App(props: AppProps) {
                     stale={s.stale.value}
                     meshes={meshes}
                     selectedKey={s.selection.value}
+                    topLayer={s.viewCut.value}
                     onSelect={(key) => {
                       s.selection.value = key;
                     }}

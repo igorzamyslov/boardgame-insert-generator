@@ -49,6 +49,8 @@ function props(over: Partial<StageTopProps> = {}): StageTopProps {
     trays: TWO_LAYERS,
     level: 0,
     onLevelChange: vi.fn(),
+    cut: null,
+    onCutChange: vi.fn(),
     view: "plan",
     onViewChange: vi.fn(),
     webgl: true,
@@ -363,6 +365,49 @@ describe("StageTop", () => {
     });
   });
 
+  describe("the Layer switch in 3D", () => {
+    const names = (): string[] =>
+      within(screen.getByRole("group", { name: "Layer" }))
+        .getAllByRole("button")
+        .map((b) => b.textContent ?? "");
+    const pressed = (): string[] =>
+      within(screen.getByRole("group", { name: "Layer" }))
+        .getAllByRole("button", { pressed: true })
+        .map((b) => b.textContent ?? "");
+
+    it("starts with All, and All is pressed while nothing is cut", () => {
+      render(<StageTop {...props({ view: "3d" })} />);
+      expect(names()).toEqual(["All", "Layer 1 (bottom) · 40 mm", "Layer 2 (top) · 26 mm"]);
+      expect(pressed()).toEqual(["All"]);
+    });
+
+    it("has no All in the top view, which shows one layer at a time", () => {
+      render(<StageTop {...props({ view: "plan" })} />);
+      expect(names()).not.toContain("All");
+    });
+
+    it("presses the layer the cut is at, and reports a pick as a cut, not as the top view's layer", () => {
+      const p = props({ view: "3d", cut: 0, level: 1 });
+      render(<StageTop {...p} />);
+      expect(pressed()).toEqual(["Layer 1 (bottom) · 40 mm"]);
+      fireEvent.click(screen.getByRole("button", { name: "Layer 2 (top) · 26 mm" }));
+      expect(p.onCutChange).toHaveBeenLastCalledWith(1);
+      fireEvent.click(screen.getByRole("button", { name: "All" }));
+      expect(p.onCutChange).toHaveBeenLastCalledWith(null);
+      expect(p.onLevelChange).not.toHaveBeenCalled();
+    });
+
+    it("reads a cut at a layer the plan no longer has as All", () => {
+      render(<StageTop {...props({ view: "3d", cut: 5 })} />);
+      expect(pressed()).toEqual(["All"]);
+    });
+
+    it("has no switch at all for one layer, in either view", () => {
+      render(<StageTop {...props({ view: "3d", trays: ONE_LAYER })} />);
+      expect(screen.queryByRole("group", { name: "Layer" })).toBeNull();
+    });
+  });
+
   describe("the View switch", () => {
     it("is Top and 3D, one pressed", () => {
       const p = props();
@@ -404,7 +449,7 @@ describe("StageTop", () => {
         within(layer)
           .getAllByRole("button")
           .map((b) => b.textContent),
-      ).toEqual(["Layer 1 (bottom)", "Layer 2 (top)"]);
+      ).toEqual(["All", "Layer 1 (bottom)", "Layer 2 (top)"]);
       expect(within(row).queryByRole("group", { name: "View" })).toBeNull();
       const toggle = within(row).getByRole("button", { name: "3D" });
       expect(toggle.getAttribute("aria-pressed")).toBe("true");

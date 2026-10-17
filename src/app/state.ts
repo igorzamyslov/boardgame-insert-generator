@@ -57,6 +57,11 @@ export interface State {
   selection: Signal<string | null>;
   /** Index of the layer the plan shows (0 = the bottom layer); the plan clamps it to the layers there are. */
   viewLevel: Signal<number>;
+  /**
+   * What the 3D view's Layer switch cuts to: the index of the highest layer drawn (layers 1 to it),
+   * or null for all of them (the switch's "All"). The top view shows one layer, `viewLevel`.
+   */
+  viewCut: Signal<number | null>;
   /** The tray a "Swap with…" is under way from, or null; reset on Escape, after a swap, on clearing the selection and on a new project. */
   swapFrom: Signal<string | null>;
   appNotices: Signal<Notice[]>;
@@ -239,6 +244,7 @@ export function createState(
     history: createHistory(undefined, now),
     selection: signal<string | null>(null),
     viewLevel: signal(0),
+    viewCut: signal<number | null>(null),
     swapFrom: signal<string | null>(null),
     appNotices: signal<Notice[]>([]),
     needsConfirm: signal(false),
