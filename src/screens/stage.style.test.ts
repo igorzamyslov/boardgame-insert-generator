@@ -45,15 +45,16 @@ describe("stage.css", () => {
     expect(ruleFor(".stage-notes")).toMatch(/list-style:\s*none/);
   });
 
-  it("puts what the plan says under the tray bar, across the slot, not squeezing the bar", () => {
-    expect(ruleFor(".stage-slot")).toMatch(/flex-wrap:\s*wrap/);
-    const note = ruleFor('.stage-slot > [role="status"]:not(:empty)');
-    expect(note).toMatch(/flex:\s*1 0 100%/);
-    expect(note).toMatch(/order:\s*1/);
+  it("lays what the plan says over the box while the bar holds the slot, so nothing moves", () => {
+    const note = ruleFor('.stage-slot[data-held="true"] > [role="status"]:not(:empty)');
+    expect(note).toMatch(/position:\s*absolute/);
+    expect(note).toMatch(/pointer-events:\s*none/);
+    expect(ruleFor(".stage-slot")).toMatch(/position:\s*relative/);
+    expect(ruleFor(".stage-slot")).not.toMatch(/flex-wrap/);
   });
 
   it("moves nothing: the order of the stage is the page's (banner, status, plan)", () => {
-    expect(strip(css).replace(/\n\s*order: 1;/, "")).not.toMatch(/\border:/);
+    expect(strip(css)).not.toMatch(/\border:/);
   });
 
   it("keeps the heading's text as tall with no line as with one, so the row does not shift", () => {

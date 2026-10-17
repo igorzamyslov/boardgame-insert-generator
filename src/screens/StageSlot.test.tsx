@@ -22,6 +22,17 @@ describe("StageSlot", () => {
     expect(screen.queryByText("Tap a tray for details.")).toBeNull();
   });
 
+  it("says it is held while it has the tray bar, so a note can lie over the box and not push it", () => {
+    const { container, rerender } = render(<StageSlot />);
+    expect(container.querySelector(".stage-slot")?.hasAttribute("data-held")).toBe(false);
+    rerender(
+      <StageSlot>
+        <p>The tray bar</p>
+      </StageSlot>,
+    );
+    expect(container.querySelector(".stage-slot")?.getAttribute("data-held")).toBe("true");
+  });
+
   it("takes empty children as nothing, so the ask stays", () => {
     render(<StageSlot>{null}</StageSlot>);
     expect(screen.getByText("Tap a tray for details.")).toBeTruthy();

@@ -56,11 +56,16 @@ The default out folder is `.superpowers/sdd/2026-10-16-ui-rebuild/shots/` (not c
 
 Board PNGs and seeds are committed; app shots are not, until the final pairs (Task 17) are.
 
+A state may name `probes` (`scripts/design/shots.mjs`): checks that need Chromium, run after the
+pictures. `m-tray-more` probes the phone's native dialog: Escape with More open closes only More,
+and a press on the backdrop closes the sheet.
+
 When `workspace` and `workspace-searching` both run, `scripts/design/jump.mjs` compares the header,
 the rail, the status row and the plan box (`data-region="plan-box"`): none may move or change
 size by more than 1 px, or the run fails ("Keep searching" turning into
 "Stop" must not shift the page). `workspace` and `workspace-tray` are compared too: the tray bar
-is taller than the slot's hint, so the plan's box may slide down but must keep its size.
+is taller than the slot's hint, so the plan's box may slide down but must keep its size. With a
+swap chosen (`workspace-swap`) the box is where `workspace-tray` has it: the prompt lies over the box.
 
 The board renderer adds `a{color:inherit}` ahead of a board's own styles: some boards have links
 with no colour set (MobileWorkspace's sheet rows), which a browser draws blue, and no board means that.

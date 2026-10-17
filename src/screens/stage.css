@@ -66,19 +66,36 @@
  * tray bar while one is, a toast. 52 px tall, taller when what it holds is.
  */
 .stage-slot {
+  position: relative;
   display: flex;
   flex: none;
-  flex-wrap: wrap;
   align-items: center;
   align-self: stretch;
   min-height: var(--stage-slot);
 }
 
-/* What the plan says while a swap is chosen or a drag was refused: a line under the bar, not beside it. */
-.stage-slot > [role="status"]:not(:empty) {
-  order: 1;
-  flex: 1 0 100%;
-  margin-top: var(--s-6);
+/*
+ * What the plan says while a swap is chosen, with the tray bar in the slot: a small pill over the
+ * top of the box, so the slot keeps its height and the plan does not move. It lets presses through
+ * to the tiles under it.
+ */
+.stage-slot[data-held="true"] > [role="status"]:not(:empty) {
+  position: absolute;
+  top: calc(100% + var(--s-2));
+  left: 50%;
+  z-index: 5;
+  box-sizing: border-box;
+  max-width: calc(100% - 2 * var(--s-12));
+  padding: var(--s-2) var(--s-12);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  background: var(--sheet);
+  box-shadow: var(--shadow-toast);
+  font-size: var(--text-xs);
+  text-align: center;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .stage-slot__hint {

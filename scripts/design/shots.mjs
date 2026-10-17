@@ -245,6 +245,48 @@ async function runStep(page, step) {
   }
 }
 
+/**
+ * Probes run in Chromium after the pictures are taken: what jsdom cannot see of a native
+ * `<dialog>`. A probe returns the problems it found; each one fails the state.
+ */
+const PROBES = {
+  /**
+   * The tray sheet (Task 8), with More open: Escape closes More and only More; then a press on the
+   * backdrop (the page above the sheet) closes the sheet.
+   */
+  async "tray-sheet"(page) {
+    const problems = [];
+    const dialog = page.locator('dialog[data-region="sheet"]');
+    const more = dialog.getByRole("button", { name: "More", exact: true });
+    const state = async () => ({
+      dialogs: await page.locator("dialog[open]").count(),
+      expanded: (await more.count()) === 0 ? null : await more.getAttribute("aria-expanded"),
+    });
+    const before = await state();
+    if (before.dialogs !== 1 || before.expanded !== "true") {
+      return [
+        `probe tray-sheet: it needs the sheet open with More open, found ${JSON.stringify(before)}`,
+      ];
+    }
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(150);
+    const afterEscape = await state();
+    if (afterEscape.dialogs !== 1) {
+      problems.push("Escape with More open closed the sheet (it must close only More)");
+    } else if (afterEscape.expanded !== "false") {
+      problems.push(`Escape with More open left More ${afterEscape.expanded} (it must close it)`);
+    }
+    // the page above the sheet: the backdrop, which the native dialog sends to the dialog itself
+    await page.mouse.click(195, 100);
+    await page.waitForTimeout(150);
+    const afterBackdrop = await state();
+    if (afterBackdrop.dialogs !== 0) {
+      problems.push("a press on the backdrop did not close the sheet");
+    }
+    return problems.map((p) => `probe tray-sheet: ${p}`);
+  },
+};
+
 const firstLine = (e) => String(e.message).split("\n")[0];
 
 const describeStep = (step) =>
@@ -349,6 +391,9 @@ const JUMP_PAIRS = [
   { pair: ["workspace", "workspace-searching"], sizeOnly: [] },
   { pair: ["workspace", "workspace-3d"], sizeOnly: [] },
   { pair: ["workspace", "workspace-tray"], sizeOnly: ["plan-box"] },
+  // a swap chosen puts its prompt over the box, so the plan is where it was with the bar alone (Task 8)
+  { pair: ["workspace", "workspace-swap"], sizeOnly: ["plan-box"] },
+  { pair: ["workspace-tray", "workspace-swap"], sizeOnly: [] },
 ];
 const JUMP_STATES = [...new Set(JUMP_PAIRS.flatMap((j) => j.pair))];
 const jumpBoxes = new Map();
@@ -647,6 +692,10 @@ async function shootState(browser, appUrl, name, seeds) {
       jumpBoxes.set(name, await measureJump(app));
     }
     const table = numbersTable(await measure(board, true), await measure(app, false));
+    // last: a probe may change the page
+    for (const probe of state.probes ?? []) {
+      problems.push(...(await PROBES[probe](app)));
+    }
     writeFileSync(
       `${outDir}${name}.numbers.md`,
       `# ${name}: board ${state.board}${state.nearest ? ` (${state.nearest})` : ""} against the app\n\n${table}`,
@@ -693,7 +742,9 @@ try {
     try {
       const { regions, problems } = await shootState(browser, appUrl, name, seeds);
       // what fails a state (its pictures are written first: they show by how much)
-      const hard = problems.filter((p) => /^the (page scrolls|stage scrolls|plan box)/.test(p));
+      const hard = problems.filter((p) =>
+        /^(the (page scrolls|stage scrolls|plan box)|probe )/.test(p),
+      );
       const paired = `regions ${regions.length > 0 ? regions.join(", ") : "none paired"}`;
       if (hard.length > 0) {
         failed += 1;

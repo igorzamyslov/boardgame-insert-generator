@@ -16,6 +16,7 @@
 //   noStageScroll  the state fails when the stage scrolls: the plan's box shrinks instead (Task 7)
 //   minPlanWidth  the state fails when the plan's box is narrower than this many px
 //   planWidth     the state fails when the plan's box is not this many px wide (±1), by its computed size
+//   probes        names of probes (shots.mjs PROBES) run in Chromium after the pictures; a problem fails the state
 //   needsWebGL    the state draws the 3D view: without WebGL it notes the fallback and the jump check skips it
 //
 // Step = { click: { role, name, in? } }  click getByRole(role, { name }), inside the CSS selector `in`
@@ -302,6 +303,8 @@ export const STATES = {
       SELECT_HEROES,
       { click: { role: "button", name: "More", in: '[data-region="sheet"]' } },
     ],
+    // the native dialog, which jsdom cannot run: Escape closes only More, a press on the backdrop closes the sheet
+    probes: ["tray-sheet"],
   },
   "m-edit": {
     board: "MobileEdit",

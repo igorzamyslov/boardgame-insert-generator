@@ -171,6 +171,18 @@ describe("TrayBar", () => {
     expect(button("Unlock size").classList.contains("is-on")).toBe(true);
   });
 
+  it("shows a dot on More while the size is locked, for a person who has not opened it", () => {
+    const { p, view } = bar();
+    expect(button("More").querySelector(".tray-more__dot")).toBeNull();
+    const locks: Lock[] = [{ kind: "size", trayKey: KEY, w: 72, d: 96, h: 40 }];
+    view.rerender(<TrayBar {...p} project={planned([p.tray], locks)} />);
+    const dot = button("More").querySelector(".tray-more__dot");
+    expect(dot?.getAttribute("aria-hidden")).toBe("true");
+    // the name does not change
+    expect(button("More").textContent).toBe("More");
+    expect(ruleFor(".tray-more__dot")).toMatch(/position:\s*absolute/);
+  });
+
   it("reads the meta from the layout", () => {
     bar();
     const meta = region().querySelector(".tray-bar__meta");
@@ -414,6 +426,12 @@ describe("TrayBar as the phone's sheet", () => {
       "More",
     ]);
     expect(button("Close")).toBeTruthy();
+  });
+
+  it("shows the size lock's dot on the More tile too", () => {
+    const locks: Lock[] = [{ kind: "size", trayKey: KEY, w: 72, d: 96, h: 40 }];
+    sheet({ project: planned([tray()], locks) });
+    expect(button("More").querySelector(".tray-more__dot")).not.toBeNull();
   });
 
   it("opens More over the tiles, with Swap with… and Lock size", () => {

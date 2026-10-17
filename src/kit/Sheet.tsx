@@ -41,6 +41,9 @@ const FOCUSABLE =
   "button, input, select, textarea, summary, [href], [tabindex]:not([tabindex='-1'])";
 
 /**
+ * The workspace's disclosure sheet (the list, with its peek). The modal sheet of MobileTray, a
+ * tray's, is not this: it is `Dialog placement="bottom"`.
+ *
  * A sheet fixed to the foot of a phone's screen: folded, only its 44 px handle shows (or the
  * peek); open, it covers most of the screen and scrolls inside. The handle is a real button with
  * `aria-expanded`. Folded content is inert, so Tab and a screen reader skip it (unless it peeks).

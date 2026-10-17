@@ -277,6 +277,32 @@ describe("the phone layout", () => {
       expect(store.state.selection.value).toBeNull();
     });
 
+    it("gives the focus back to the tile when Escape closes the sheet", async () => {
+      phone();
+      const { store } = renderApp({ project: project() });
+      const tile = document.querySelector('.plan-tile[data-key="m:p0:0"]') as HTMLElement;
+      // picked without the focus on it, so only the bar's own hand-back can put it there
+      pick();
+      expect(document.activeElement).not.toBe(tile);
+      act(() => {
+        screen.getByRole("dialog").dispatchEvent(new Event("cancel", { cancelable: true }));
+      });
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(store.state.selection.value).toBeNull();
+      await waitFor(() => expect(document.activeElement).toBe(tile));
+    });
+
+    it("gives the focus back to the tile when a press behind the sheet closes it", async () => {
+      phone();
+      const { store } = renderApp({ project: project() });
+      const tile = document.querySelector('.plan-tile[data-key="m:p0:0"]') as HTMLElement;
+      pick();
+      fireEvent.click(screen.getByRole("dialog"));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(store.state.selection.value).toBeNull();
+      await waitFor(() => expect(document.activeElement).toBe(tile));
+    });
+
     it("lets go of the plan while a swap is chosen, and takes it back when it is made", () => {
       phone();
       const p = fixtureProject();

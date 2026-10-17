@@ -71,6 +71,23 @@ function tile(key: string): Element {
   return document.querySelector(`.plan-tile[data-key="${key}"]`) as Element;
 }
 
+/**
+ * What a browser does for a button that has the focus: Enter clicks on keydown, Space on keyup.
+ * jsdom does neither, so the key events are real and the click they lead to is sent here.
+ */
+function press(el: HTMLElement, key: "Enter" | " "): void {
+  el.focus();
+  expect(document.activeElement).toBe(el);
+  const down = fireEvent.keyDown(el, { key });
+  if (key === "Enter" && down) {
+    fireEvent.click(el);
+  }
+  const up = fireEvent.keyUp(el, { key });
+  if (key === " " && down && up) {
+    fireEvent.click(el);
+  }
+}
+
 /** The tray bar's More (it holds Swap with… and Lock size): opens its panel. */
 function openMore(): void {
   fireEvent.click(screen.getByRole("button", { name: "More" }));
@@ -1664,14 +1681,21 @@ describe("App", () => {
     expect(a.getAttribute("tabindex")).toBe("0");
     fireEvent.keyDown(a, { key: " " });
     expect(store.state.selection.value).toBe("a:p0:0");
-    // Pin and Swap with… are buttons, so Enter or Space on them is a click.
-    fireEvent.click(within(trayBar()).getByRole("button", { name: "Pin" }));
+    // The bar's buttons are in the Tab order, and Space or Enter on one presses it.
+    for (const b of within(trayBar()).getAllByRole("button")) {
+      expect(b.getAttribute("tabindex")).not.toBe("-1");
+    }
+    press(within(trayBar()).getByRole("button", { name: "Pin" }), " ");
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
     ]);
     expect(within(trayBar()).getByText("Pinned")).toBeTruthy();
-    fireEvent.click(within(trayBar()).getByRole("button", { name: "More" }));
-    fireEvent.click(within(trayBar()).getByRole("button", { name: "Swap with…" }));
+    press(within(trayBar()).getByRole("button", { name: "More" }), "Enter");
+    // Opened with the keyboard, More puts the focus on its first item
+    expect(document.activeElement).toBe(
+      within(trayBar()).getByRole("button", { name: "Swap with…" }),
+    );
+    press(within(trayBar()).getByRole("button", { name: "Swap with…" }), "Enter");
     expect(
       within(trayBar()).getByRole("button", { name: "Swap with…" }).getAttribute("aria-pressed"),
     ).toBe("true");

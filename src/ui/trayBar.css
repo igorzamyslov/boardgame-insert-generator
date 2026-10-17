@@ -114,6 +114,22 @@
   flex: none;
 }
 
+/* A size lock has a cue in the bar itself: a small ink dot on More, which holds Unlock size. */
+.tray-more > .k-btn {
+  position: relative;
+}
+
+.tray-more__dot {
+  position: absolute;
+  top: var(--s-8);
+  right: var(--s-8);
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  box-shadow: var(--ring-dot);
+}
+
 .tray-more__panel {
   position: absolute;
   top: calc(100% + var(--s-6));

@@ -55,12 +55,7 @@ const MORE = "More holds Swap with… and Lock size";
 const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
 const PIN_LABEL = "Pin/Unpin and Lock size carry no `aria-pressed`";
 const TRAY_SHEET = "A phone's tray bar is a modal sheet";
-const BAR_STATES = [
-  "workspace-tray",
-  "workspace-tray-more",
-  "workspace-tray-spacer",
-  "workspace-tray-riser",
-] as const;
+const BAR_STATES = ["workspace-tray", "workspace-tray-more", "workspace-tray-spacer"] as const;
 const SHEET_STATES = ["m-tray", "m-tray-more", "m-tray-market", "m-tray-spacer"] as const;
 /** Every stage-top case that has a plan under it, so a Layer switch. */
 const SWITCHED = [
@@ -193,6 +188,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   },
   {
     text: "Carries {name}",
+    // no copy case: a riser is not in the seed (TrayBar.test covers it)
     states: ["workspace-tray-riser"],
     ruling: NO_ACTIONS,
   },

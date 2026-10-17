@@ -300,6 +300,7 @@ function DesktopBar(p: Inner) {
               onClick={more.toggle}
             >
               More
+              {facts.sizeLocked ? <span class="tray-more__dot" aria-hidden="true" /> : null}
             </Button>
             {more.open ? (
               <MoreItems
@@ -410,6 +411,7 @@ function PhoneSheet(p: Inner) {
                   onClick={more.toggle}
                 >
                   More
+                  {facts.sizeLocked ? <span class="tray-more__dot" aria-hidden="true" /> : null}
                 </Button>
                 {more.open ? (
                   <MoreItems

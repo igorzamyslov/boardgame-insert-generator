@@ -677,7 +677,7 @@ export function Gallery() {
 
         <Section
           name="Sheet"
-          note="MobileWorkspace's sheet, peeking: handle, title, count and Add."
+          note="MobileWorkspace's sheet, peeking: handle, title, count and Add. It is the disclosure sheet; a tray's modal sheet (MobileTray) is the bottom Dialog."
           region="sheet"
         >
           <SheetDemo />

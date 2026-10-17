@@ -20,7 +20,7 @@ export interface StageSlotProps {
 export function StageSlot({ children, live, quiet = false, idle = false }: StageSlotProps) {
   const held = toChildArray(children).some((c) => c !== "");
   return (
-    <div class={cx("stage-slot", idle && "visually-hidden")}>
+    <div class={cx("stage-slot", idle && "visually-hidden")} data-held={held ? "true" : undefined}>
       {live}
       {held ? (
         children
