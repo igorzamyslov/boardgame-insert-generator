@@ -9,7 +9,7 @@ import { App } from "./App";
 import type { AppProps } from "./App";
 import type { MeshSource } from "./meshes";
 import { createAppStore } from "./store";
-import { EMPTY_FOREIGN, cubeMesh, stubLayoutClient } from "./test-helpers";
+import { EMPTY_FOREIGN, cubeMesh, fixtureProject, stubLayoutClient } from "./test-helpers";
 
 export interface RenderAppOptions {
   /** Saved into the project store before the app starts, so it opens as the latest project. */
@@ -20,6 +20,14 @@ export interface RenderAppOptions {
 
 export function renderApp(opts: RenderAppOptions = {}) {
   return mountApp("", opts.overrides ?? {}, opts);
+}
+
+/**
+ * The app past its first visit: a project with items in it, so the header has its name, Undo, the
+ * menu and Download (the first visit's header is Open file alone).
+ */
+export function renderWorkspace(opts: RenderAppOptions = {}) {
+  return renderApp({ ...opts, project: opts.project ?? fixtureProject() });
 }
 
 /** The app opened on an old `#1.` link, as a bookmarked or sent one would be. */

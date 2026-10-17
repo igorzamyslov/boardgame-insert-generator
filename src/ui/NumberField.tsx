@@ -80,12 +80,32 @@ export interface NumberFieldProps extends NumberRules {
   commitOn?: "input" | "blur";
 }
 
-export function NumberField(props: NumberFieldProps) {
-  const { id, label, value, onCommit, unit, hint, path } = props;
-  const commitOn = props.commitOn ?? "input";
+export interface NumberText {
+  /** What is typed. */
+  text: string;
+  /** The words of a typed value the rules refuse, until it is mended; `null` while it is fine. */
+  error: string | null;
+  onInput: (next: string) => void;
+  /** Leaving the field: "63," means 63, a lone sign does not. */
+  onBlur: () => void;
+  /** Enter ends the edit as leaving does. */
+  onKeyDown: (e: KeyboardEvent) => void;
+}
+
+/**
+ * The text of a number field and what it commits: every valid keystroke (or, with `commitOn`
+ * "blur", only the leaving), never a value the rules refuse. A new `value` from outside replaces
+ * the text unless the text already means it. Shared by `NumberField` and the first visit's three
+ * measures, which draw their message elsewhere.
+ */
+export function useNumberText(
+  value: number,
+  onCommit: (value: number) => void,
+  rules: NumberRules,
+  commitOn: "input" | "blur" = "input",
+): NumberText {
   const [text, setText] = useState(() => formatNumber(value));
   const [error, setError] = useState<string | null>(null);
-  const notices = useFieldNotices(path);
 
   useEffect(() => {
     setText((current) => (parseNumber(current) === value ? current : formatNumber(value)));
@@ -93,10 +113,10 @@ export function NumberField(props: NumberFieldProps) {
   }, [value]);
 
   function evaluate(next: string, final: boolean): void {
-    let result = checkNumber(next, props);
+    let result = checkNumber(next, rules);
     if (result.kind === "incomplete" && final) {
       // Leaving the field: "63," means 63, but a lone sign or separator is not a number.
-      result = checkNumber(next.trim().replace(/[.,]$/, ""), props);
+      result = checkNumber(next.trim().replace(/[.,]$/, ""), rules);
       if (result.kind === "incomplete") {
         result = { kind: "error", message: "Enter a number." };
       }
@@ -119,6 +139,32 @@ export function NumberField(props: NumberFieldProps) {
     }
   }
 
+  return {
+    text,
+    error,
+    onInput: (next) => {
+      setText(next);
+      evaluate(next, false);
+    },
+    onBlur: () => evaluate(text, true),
+    onKeyDown: (e) => {
+      if (e.key === "Enter") {
+        evaluate(text, true);
+      }
+    },
+  };
+}
+
+export function NumberField(props: NumberFieldProps) {
+  const { id, label, value, onCommit, unit, hint, path } = props;
+  const { text, error, onInput, onBlur, onKeyDown } = useNumberText(
+    value,
+    onCommit,
+    props,
+    props.commitOn ?? "input",
+  );
+  const notices = useFieldNotices(path);
+
   const { errors: noticeErrors, notes } = messagesOf(notices);
   const errors = error !== null ? [error] : noticeErrors;
 
@@ -131,17 +177,9 @@ export function NumberField(props: NumberFieldProps) {
       value={text}
       aria-invalid={errors.length > 0}
       aria-describedby={describedByIds(id, hint, errors, notes)}
-      onInput={(e) => {
-        const next = e.currentTarget.value;
-        setText(next);
-        evaluate(next, false);
-      }}
-      onBlur={() => evaluate(text, true)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          evaluate(text, true);
-        }
-      }}
+      onInput={(e) => onInput(e.currentTarget.value)}
+      onBlur={onBlur}
+      onKeyDown={onKeyDown}
     />
   );
 

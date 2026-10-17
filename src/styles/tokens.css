@@ -183,6 +183,7 @@
   --text-stat: 24px; /* a stat tile's value, display 700 */
   --h1: 28px; /* status heading, Exporting */
   --h1-first: 40px; /* first visit: letter-spacing -0.02em, line-height 1.1 */
+  --h1-first-phone: 30px; /* first visit on a phone (MobileStart), same spacing */
   --h1-dialog: 30px; /* Export */
   --h1-drawer: 26px; /* Settings */
   --h1-phone: 21px;

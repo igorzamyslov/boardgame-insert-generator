@@ -28,7 +28,7 @@ geometry clients, so they never start a worker or load WASM.
 One screen, one mode: plain choices come first, and the exact numbers sit behind "More options" (per item) and "Exact numbers" (in Settings).
 
 1. **Start.** A first visit asks for the box's inside size ("Measure the box"), then a kind
-   ("Pick what goes inside") or "Start from an example game". After that the workspace has
+   ("Add what goes inside") or "Start from an example game". After that the workspace has
    "What's inside" (the list) on the left and the box drawn large on the right. Below 760 px
    the box comes first and the list is a bottom sheet; dialogs fill the screen below 600 px.
 2. **What's inside.** Five kinds: Cards, Tokens and dice, Tiles, Miniatures (the pieces are
@@ -39,9 +39,9 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    one pile per player, removable dividers. Each change shows a short note over the box. When
    no tray variant can give tiles, miniatures (pockets) or an other item a finger cut, its
    pieces are stored loose in a tray with a curved floor instead, and the editor says so.
-3. **The box.** The section "The box" (above the list; the same panel is the first step of a
-   first visit) sets the inside width, length and height, "Keep space free on top" (the whole
-   top or part of it) and whether the box is stored on its side.
+3. **The box.** The section "The box" (above the list) sets the inside width, length and height,
+   "Keep space free on top" (the whole top or part of it) and whether the box is stored on its
+   side. A first visit asks for the three sizes only.
 4. **The plan.** The optimizer runs on its own 400 ms after you stop editing. A line above
    the box says the result ("Everything fits. 6 trays in 2 layers, 40 of 52 mm high.") or
    what is wrong: it names the tray that doesn't fit and offers "Edit <name>"; when your

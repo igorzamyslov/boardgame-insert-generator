@@ -16,6 +16,11 @@ export interface FieldProps {
   unit?: string;
   /** The words under the box when the value is wrong; the box turns red. */
   error?: string;
+  /**
+   * The id of a message drawn elsewhere (Empty's card under the three fields): the box turns red
+   * and the input points at it, and the field draws no message of its own. `error` wins.
+   */
+  invalidBy?: string;
   /** `decimal` (mm), `integer` (a count) or `text`: the keyboard the phone shows. */
   mode?: "decimal" | "integer" | "text";
   /** The 44 px box (counts, exact numbers) instead of the 48 px one. */
@@ -34,6 +39,7 @@ export function Field({
   onKeyDown,
   unit,
   error,
+  invalidBy,
   mode = "decimal",
   compact = false,
   placeholder,
@@ -42,7 +48,8 @@ export function Field({
   const made = useId();
   const id = given ?? made;
   const errorId = `${id}-error`;
-  const invalid = error !== undefined && error !== "";
+  const shown = error !== undefined && error !== "";
+  const invalid = shown || (invalidBy !== undefined && invalidBy !== "");
   const keyboard = mode === "text" ? {} : numberInputAttrs(mode === "integer");
   return (
     <div class={cx("k-field", extra)}>
@@ -64,7 +71,7 @@ export function Field({
           value={value}
           placeholder={placeholder}
           aria-invalid={invalid ? true : undefined}
-          aria-describedby={invalid ? errorId : undefined}
+          aria-describedby={shown ? errorId : invalid ? invalidBy : undefined}
           onInput={(e) => onInput(e.currentTarget.value)}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
@@ -75,7 +82,7 @@ export function Field({
           </span>
         ) : null}
       </span>
-      {invalid ? (
+      {shown ? (
         <p class="k-field__error" id={errorId} role="alert">
           {error}
         </p>

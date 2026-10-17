@@ -84,7 +84,7 @@ carries none of it, and `scripts/smoke-dist.mjs` fails if `__shotsHold` is found
 ## Adding a state
 
 Add it to `scripts/design/states.mjs`: its board (and the `boardOpts` that make the board show the
-same state), the viewport, a seed, and the steps. A step is a click on a role and name, a wait for something
+same state), the viewport, a seed, and the steps. A step is a click on a role and name, a text typed into the box with a label (`fill`), a wait for something
 to show (`waitFor`), a pause (`wait`: milliseconds) or a key. A page other than the app's own is a `url` (`/kit.html`, the kit gallery), and a page that
 scrolls is drawn whole with `fullPage: true`. Give the screen's regions `data-region` attributes as
 the screen is built.

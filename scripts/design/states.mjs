@@ -21,6 +21,7 @@
 //
 // Step = { click: { role, name, in? } }  click getByRole(role, { name }), inside the CSS selector `in`
 //      | { waitFor: { role?, name?, text?, timeout? } }  (default 15 s)
+//      | { fill: { label, value } }  type a value into the text box with that label (getByLabel)
 //      | { press: key }
 //      | { wait: ms }  a pause, for what has no mark to wait on (the 3D view building its meshes)
 
@@ -59,7 +60,19 @@ export const SEEDS = {
 
 /** @type {Record<string, any>} */
 export const STATES = {
-  "first-visit": { board: "Empty", viewport: DESKTOP, seed: null },
+  // Empty at 1440: the page does not scroll, the h1 is the first visit's. The board's rail is 320
+  // wide and Main's is 300 (a ruling), so the rail and the stage differ in width by the ruling.
+  "first-visit": { board: "Empty", viewport: DESKTOP, seed: null, noPageScroll: true },
+  // The board draws Height 7 with Use 70 mm; the engine has no rule for 7 mm and no value to
+  // suggest (a ruling), so the app's card says what the rules say of a 0.
+  "first-visit-error": {
+    board: "Empty",
+    nearest: "Empty, whose card is drawn with a Use 70 mm button the app does not build",
+    viewport: DESKTOP,
+    seed: null,
+    noPageScroll: true,
+    steps: [{ fill: { label: "Height", value: "0" } }, { waitFor: { role: "alert" } }],
+  },
   // The plan is the hero: at 1440×900 its box is at least 560 px wide (Main's is 582).
   workspace: {
     board: "Main",
@@ -285,7 +298,8 @@ export const STATES = {
     url: "/kit.html",
     fullPage: true,
   },
-  "m-start": { board: "MobileStart", viewport: PHONE, seed: null },
+  // MobileStart: the h1, the two steps, the foot as a bar at the bottom of the screen; no page scroll.
+  "m-start": { board: "MobileStart", viewport: PHONE, seed: null, noPageScroll: true },
   "m-workspace": { board: "MobileWorkspace", viewport: PHONE, seed: "harbour-kings" },
   // The tray sheet (Task 8): a modal dialog; the other trays are at half behind it.
   "m-tray": {

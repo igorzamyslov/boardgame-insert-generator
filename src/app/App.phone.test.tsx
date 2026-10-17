@@ -6,7 +6,7 @@ import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
 import type { ShareFile } from "./sendFile";
 import { fixtureProject, flush, makeLayout, makeResult, makeTray } from "./test-helpers";
-import { renderApp } from "./test-app";
+import { renderApp, renderWorkspace } from "./test-app";
 
 beforeEach(() => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
@@ -368,7 +368,7 @@ describe("the phone layout", () => {
     it("Send file hands the file to the share sheet", async () => {
       phone();
       const share = vi.fn<ShareFile>(() => Promise.resolve("shared"));
-      const { download } = renderApp({ overrides: { share } });
+      const { download } = renderWorkspace({ overrides: { share } });
       fireEvent.click(screen.getByRole("button", { name: "Send file" }));
       await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
       const file = share.mock.calls[0]?.[0] as File;
@@ -379,7 +379,7 @@ describe("the phone layout", () => {
     it("Send file saves the file where the share sheet can't take it", async () => {
       phone();
       const share = vi.fn<ShareFile>(() => Promise.resolve("unsupported"));
-      const { download } = renderApp({ overrides: { share } });
+      const { download } = renderWorkspace({ overrides: { share } });
       fireEvent.click(screen.getByRole("button", { name: "Send file" }));
       await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
     });
@@ -387,7 +387,7 @@ describe("the phone layout", () => {
     it("Send file does nothing more when the sheet is dismissed", async () => {
       phone();
       const share = vi.fn<ShareFile>(() => Promise.resolve("cancelled"));
-      const { download } = renderApp({ overrides: { share } });
+      const { download } = renderWorkspace({ overrides: { share } });
       fireEvent.click(screen.getByRole("button", { name: "Send file" }));
       await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
       await flush();

@@ -33,6 +33,8 @@ interface Case {
   region: string;
   /** The phone: the width query answers yes. */
   phone?: boolean;
+  /** The app opens on no project at all: the first visit (Task 9). */
+  empty?: boolean;
   /** The committed seed the app opens on (default "harbour-kings"). */
   seed?: string;
   /** The project as the state has it (a run that has not made a plan yet, say). */
@@ -140,7 +142,43 @@ const searchFailed =
     });
   };
 
+/** A box measure the rules refuse, typed as a person would: the first visit's card says why. */
+const breakHeight = (): void => {
+  fireEvent.input(screen.getByLabelText(/^Height/), { target: { value: "0" } });
+  expect(screen.getByRole("alert")).toBeTruthy();
+};
+
 const CASES: readonly Case[] = [
+  // Task 9: the first visit, Empty at 1440 and MobileStart on a phone
+  { state: "first-visit", board: "Empty", region: "header", empty: true, steps: () => undefined },
+  { state: "first-visit", board: "Empty", region: "rail", empty: true, steps: () => undefined },
+  { state: "first-visit", board: "Empty", region: "stage", empty: true, steps: () => undefined },
+  // Empty's error card, minus its button: the words are the rules' (ruled in DESIGN §7)
+  { state: "first-visit-error", board: "Empty", region: "rail", empty: true, steps: breakHeight },
+  {
+    state: "m-start",
+    board: "MobileStart",
+    region: "header",
+    phone: true,
+    empty: true,
+    steps: () => undefined,
+  },
+  {
+    state: "m-start",
+    board: "MobileStart",
+    region: "rail",
+    phone: true,
+    empty: true,
+    steps: () => undefined,
+  },
+  {
+    state: "m-start",
+    board: "MobileStart",
+    region: "stage",
+    phone: true,
+    empty: true,
+    steps: () => undefined,
+  },
   { state: "workspace", board: "Main", region: "rail", steps: () => undefined },
   { state: "workspace-add", board: "Main", region: "rail", steps: addKind },
   { state: "workspace-rules", board: "Main", region: "rail", steps: setRules },
@@ -451,7 +489,9 @@ async function stringsOf(c: Case): Promise<string[]> {
     phone();
   }
   const { project } = loadSeed(c.seed ?? "harbour-kings");
-  const { store } = renderApp({ project: c.project === undefined ? project : c.project(project) });
+  const { store } = c.empty
+    ? renderApp()
+    : renderApp({ project: c.project === undefined ? project : c.project(project) });
   c.steps(store);
   const region = document.querySelector(`[data-region="${c.region}"]`);
   expect(region, `${c.state}: no element with data-region="${c.region}"`).not.toBeNull();

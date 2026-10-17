@@ -69,6 +69,10 @@ const SWITCHED = [
   "workspace-box-error",
 ] as const;
 
+// Task 9: the first visit's box error. The state is the copy test's own (`first-visit-error`).
+const ERROR_CARD = "The first visit's box error is a card";
+const ITEMS = 'The first visit says "Trays appear in the box as you add items."';
+
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
   // Task 4: the header and the project menu
@@ -168,6 +172,21 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["m-workspace-rules"],
     ruling: PHONE_PINS,
   },
+  // Task 9: Empty's line says "things", a retired word (the Words table: What's inside)
+  {
+    text: "Trays appear in the box as you add items.",
+    states: ["first-visit"],
+    ruling: ITEMS,
+  },
+  // Task 9: the words of a measure the rules refuse, in the card under the three fields
+  { text: "Enter a number.", states: ["first-visit-error"], ruling: ERROR_CARD },
+  {
+    text: "Not a number. Use digits with one decimal point or comma, e.g. 63,5.",
+    states: ["first-visit-error"],
+    ruling: ERROR_CARD,
+  },
+  { text: "Must be more than {n}.", states: ["first-visit-error"], ruling: ERROR_CARD },
+  { text: "Must be at most {n}.", states: ["first-visit-error"], ruling: ERROR_CARD },
   // Task 8: the tray bar (desktop) and the tray sheet (phone)
   { text: "More", states: [...BAR_STATES, ...SHEET_STATES], ruling: MORE },
   {
@@ -234,6 +253,7 @@ export const COPY_DENIED: readonly string[] = [
   "Choose…",
   "Still fits",
   "Use 70 mm",
+  "Trays appear in the box as you add things.",
   "Copy a report",
   "Start again",
   "Trays then fill up to the lid, so nothing falls out",

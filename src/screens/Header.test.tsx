@@ -33,13 +33,13 @@ function props(over: Partial<HeaderProps> = {}): HeaderProps {
 }
 
 describe("Header", () => {
-  it("has one h1 with the wordmark and an editable project name", () => {
+  it("has the wordmark as a plain span, and an editable project name", () => {
     const p = props({ name: "Harbour Kings" });
-    const { rerender } = render(<Header {...p} />);
+    render(<Header {...p} />);
     const banner = document.body;
-    expect(
-      within(banner).getByRole("heading", { level: 1, name: "Insert Generator" }),
-    ).toBeTruthy();
+    // the screen's own heading is the page's h1: the wordmark is not one
+    expect(within(banner).queryByRole("heading", { level: 1 })).toBeNull();
+    expect(within(banner).getByText("Insert Generator").localName).toBe("span");
     const name = screen.getByRole("button", { name: "Harbour Kings" });
     expect(name.textContent).toBe("Harbour Kings");
     fireEvent.click(name);
@@ -52,10 +52,6 @@ describe("Header", () => {
     // Enter ends the editing: the button is back, with the focus on it
     expect(screen.queryByLabelText("Project name")).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Harbour Kings" }));
-    // while the screen has its own h1, the wordmark is a plain span
-    rerender(<Header {...p} brandIsHeading={false} />);
-    expect(within(banner).queryByRole("heading", { level: 1 })).toBeNull();
-    expect(within(banner).getByText("Insert Generator").localName).toBe("span");
   });
 
   it("shows Undo and Redo on desktop, Undo only on a phone", () => {
@@ -89,11 +85,9 @@ describe("Header", () => {
     expect(screen.getByRole("button", { name: "Download" }).classList.contains("k-iconbtn")).toBe(
       true,
     );
-    // the wordmark is still the page's h1, for readers: the logo says it to everyone else
-    expect(screen.getByRole("heading", { level: 1, name: "Insert Generator" })).toBeTruthy();
-    expect(container.querySelector(".hd-wordmark")?.classList.contains("visually-hidden")).toBe(
-      true,
-    );
+    // the phone's header has no wordmark: the name is there instead
+    expect(container.querySelector(".hd-wordmark")).toBeNull();
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
   });
 
   it("blocks the phone's Download with its reason as title and description", () => {

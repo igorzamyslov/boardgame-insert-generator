@@ -2,7 +2,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderApp } from "./test-app";
+import { renderApp, renderWorkspace } from "./test-app";
 
 vi.mock("../model/version", async (orig) => ({
   ...(await orig<typeof import("../model/version")>()),
@@ -20,7 +20,7 @@ describe("App shell for a release version", () => {
   });
 
   it("shows the release version and the build id in the project menu", () => {
-    renderApp();
+    renderWorkspace();
     fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
     expect(screen.getByText("Insert Generator 1.0.0 (abc1234)")).toBeTruthy();
   });

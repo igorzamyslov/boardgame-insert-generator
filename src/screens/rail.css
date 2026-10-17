@@ -203,13 +203,6 @@
   padding: 0 var(--s-8);
 }
 
-/* The first visit's kinds, until its own task rebuilds it: Empty's tiles, one to a row. */
-.rail-kinds {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-6);
-}
-
 /* What's inside holds its list in the rail's own column, and an editor in a scrolling panel. */
 .wi:not(.ws-interim) {
   display: contents;

@@ -36,6 +36,8 @@ export interface WorkspaceProps {
   focus?: boolean;
   /** On a phone the rail is this sheet; without it the rail is the `aside` at every width. */
   sheet?: WorkspaceSheet;
+  /** A class on the shell, for a screen that restyles its regions (the first visit's `fv`). */
+  class?: string;
   /** Set on what is behind a sheet that fills the screen, so Tab and screen readers skip it. */
   inert?: boolean;
 }
@@ -50,7 +52,7 @@ export function Workspace(p: WorkspaceProps) {
   const behindSheet = { inert: p.inert === true ? true : undefined } as Record<string, unknown>;
   const sheet = p.sheet;
   return (
-    <div class={`ws${sheet ? " ws--sheet" : ""}`}>
+    <div class={`ws${sheet ? " ws--sheet" : ""}${p.class ? ` ${p.class}` : ""}`}>
       <header class="ws-header" data-region="header" {...behindSheet}>
         {p.header}
       </header>

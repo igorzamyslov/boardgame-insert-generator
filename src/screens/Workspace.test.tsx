@@ -44,6 +44,11 @@ describe("Workspace", () => {
     expect(container.querySelector('main[data-region="stage"].ws-stage--focus')).toBeTruthy();
   });
 
+  it("takes a class for a screen that restyles its regions", () => {
+    const { container } = render(<Workspace {...slots} class="fv" />);
+    expect(container.firstElementChild?.className).toBe("ws fv");
+  });
+
   it("makes the header and the stage inert behind a sheet that fills the screen", () => {
     const { container, rerender } = render(<Workspace {...slots} />);
     expect(container.querySelector("[inert]")).toBeNull();

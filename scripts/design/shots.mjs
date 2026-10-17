@@ -236,6 +236,10 @@ async function runStep(page, step) {
       ? page.getByRole(role, name === undefined ? {} : { name })
       : page.getByText(text);
     await target.first().waitFor({ state: "visible", timeout });
+  } else if (step.fill) {
+    // a text box by its label: the value replaces what is there (the first visit's Height, say)
+    const { label, value } = step.fill;
+    await page.getByLabel(label).first().fill(value, { timeout: STEP_TIMEOUT });
   } else if (step.press) {
     await page.keyboard.press(step.press);
   } else if (step.wait !== undefined) {

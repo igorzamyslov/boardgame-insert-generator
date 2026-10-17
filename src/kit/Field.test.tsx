@@ -44,6 +44,23 @@ describe("Field", () => {
     expect(input.closest(".k-field__box")?.hasAttribute("data-invalid")).toBe(true);
   });
 
+  it("can point at a message that is somewhere else (Empty's card under the three fields)", () => {
+    render(
+      <>
+        <Field id="h" label="Height" value="0" invalidBy="card" onInput={() => undefined} />
+        <p id="card" role="alert">
+          Must be more than 0.
+        </p>
+      </>,
+    );
+    const input = screen.getByRole("textbox");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(input.getAttribute("aria-describedby")).toBe("card");
+    expect(input.closest(".k-field__box")?.hasAttribute("data-invalid")).toBe(true);
+    // the field draws no message of its own: the card is the one alert
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+  });
+
   it("is not invalid when there is no error", () => {
     render(<Field id="h" label="Height" value="70" onInput={() => undefined} />);
     const input = screen.getByRole("textbox");

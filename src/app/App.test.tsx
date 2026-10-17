@@ -12,7 +12,7 @@ import { MemoryStorage } from "../test-support/memory-storage";
 import type { SceneFactory, SceneHandle } from "../viewer/types";
 import type { MeshSource } from "./meshes";
 import type { AppProps } from "./App";
-import { renameProject, updateBox } from "./actions";
+import { addComponent, renameProject, updateBox } from "./actions";
 import { canOptimize } from "./runner";
 import { CONFLICT_CODE, OPEN_FAILED_CODE } from "./persistence";
 import {
@@ -24,7 +24,7 @@ import {
   makeTray,
 } from "./test-helpers";
 import { hoveredComponent } from "../screens/hover";
-import { renderApp, renderAppFromHash } from "./test-app";
+import { renderApp, renderWorkspace, renderAppFromHash } from "./test-app";
 
 // The assembly page's PNG needs a canvas, which jsdom lacks.
 vi.mock("../instructions/png", async (orig) => ({
@@ -187,73 +187,10 @@ describe("App", () => {
     expect(licences?.getAttribute("href")).toBe("./third-party-licenses.txt");
   });
 
-  describe("first visit", () => {
-    it("offers the box, the kinds, an example and where it is saved, under one h1", () => {
-      renderApp();
-      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-      // the box fields are on the page itself, not behind a fold
-      expect(screen.getByLabelText(/^Width/)).toBeTruthy();
-      expect(screen.getByLabelText(/^Keep space free on top/)).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Whole top" })).toBeTruthy();
-      expect(screen.getByLabelText(/stored on its side/)).toBeTruthy();
-      const kinds = screen.getByRole("group", { name: "Pick what goes inside" });
-      expect(
-        within(kinds)
-          .getAllByRole("button")
-          .map((b) => b.textContent),
-      ).toEqual(["Cards", "Tokens and dice", "Tiles", "Miniatures", "Something else"]);
-      // the Add pill is the rail's, and the rail is not there yet
-      expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
-      expect(screen.getByRole("button", { name: "Start from an example game" })).toBeTruthy();
-      expect(screen.getByText("Your inserts are saved in this browser.")).toBeTruthy();
-      // each field once: no second copy in a rail
-      expect(document.querySelectorAll("#box-innerWidth")).toHaveLength(1);
-      expect(screen.queryByRole("heading", { level: 2, name: "What's inside" })).toBeNull();
-      expect(document.body.textContent).not.toMatch(/\bbits?\b/i);
-    });
-
-    it("adding the first item opens its editor", async () => {
-      const { stub } = renderApp();
-      fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "250" } });
-      fireEvent.click(screen.getByRole("button", { name: "Cards" }));
-      // the editor is open in the rail, over the list, and the box kept what was typed
-      const heading = screen.getByRole("heading", { level: 3, name: "Cards" });
-      expect(document.activeElement).toBe(heading);
-      expect(screen.getByRole("button", { name: "What's inside" })).toBeTruthy();
-      expect(screen.getByRole("complementary", { name: "What's inside" })).toBeTruthy();
-      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-      expect(screen.queryByRole("button", { name: "Start from an example game" })).toBeNull();
-      await waitFor(() => expect(stub.calls).toHaveLength(1));
-      // back to the list, and the box card shows the size
-      fireEvent.click(screen.getByRole("button", { name: "What's inside" }));
-      expect(screen.getByText(/^250 × 285 × 70 mm$/)).toBeTruthy();
-    });
-
-    it("an item added later does not open its editor when the rail was already there", () => {
-      renderApp({ project: withLayoutProject() });
-      expect(screen.queryByRole("heading", { level: 3, name: "Cards" })).toBeNull();
-    });
-
-    it("starts from the example game: three items, no editor open", () => {
-      const { store } = renderApp();
-      fireEvent.click(screen.getByRole("button", { name: "Start from an example game" }));
-      expect(store.state.project.value.components.map((c) => c.kind)).toEqual([
-        "cards",
-        "bulk",
-        "tiles",
-      ]);
-      const list = screen.getByRole("list", { name: "What's inside" });
-      expect(within(list).getAllByRole("listitem").length).toBeGreaterThanOrEqual(3);
-      expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
-    });
-
-    it("returns to the first visit when the last item goes, with the focus on a kind", () => {
-      renderApp();
-      addCards();
-      removeFromEditor("Cards");
-      expect(screen.getByRole("button", { name: "Start from an example game" })).toBeTruthy();
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cards" }));
-    });
+  // The first visit's own tests are in screens/FirstVisit.test.tsx.
+  it("an item added later does not open its editor when the rail was already there", () => {
+    renderApp({ project: withLayoutProject() });
+    expect(screen.queryByRole("heading", { level: 3, name: "Cards" })).toBeNull();
   });
 
   it("has no Simple/Advanced switch", () => {
@@ -577,7 +514,7 @@ describe("App", () => {
   });
 
   it("has no Copy link, and Save file keeps a copy", () => {
-    const { download } = renderApp();
+    const { download } = renderWorkspace();
     expect(screen.queryByRole("button", { name: "Copy link" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
     fireEvent.click(screen.getByRole("button", { name: "Save file" }));
@@ -627,6 +564,9 @@ describe("App", () => {
       return button;
     };
 
+    /** The open project menu's panel: the rail has a Settings button of its own. */
+    const menuPanel = (): HTMLElement => screen.getByRole("group", { name: "Project" });
+
     /** Types a new name: the name is a button until it is pressed, then a field (left open). */
     const renameTo = (name: string): void => {
       if (screen.queryByLabelText("Project name") === null) {
@@ -636,7 +576,7 @@ describe("App", () => {
     };
 
     it("has the wordmark, the project name, the save state and Download", () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
       // the name is a button until it is pressed, then a field
       const name = screen.getByRole("button", { name: store.state.project.value.name });
@@ -650,13 +590,13 @@ describe("App", () => {
     });
 
     it("renames the project from the header", () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       renameTo("Wingspan");
       expect(store.state.project.value.name).toBe("Wingspan");
     });
 
     it("follows the history with Undo and Redo", () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       const undo = () => screen.getByRole("button", { name: "Undo" });
       const redo = () => screen.getByRole("button", { name: "Redo" });
       const off = (b: HTMLElement): boolean => b.getAttribute("aria-disabled") === "true";
@@ -678,7 +618,7 @@ describe("App", () => {
         store.state.project.value.name;
 
       it("undoes on Ctrl+Z and Cmd+Z, redoes on Shift+Ctrl+Z, Shift+Cmd+Z and Ctrl+Y", () => {
-        const { store } = renderApp();
+        const { store } = renderWorkspace();
         const before = nameNow(store);
         rename("Wingspan");
         // not left to the browser: the key was taken
@@ -697,7 +637,7 @@ describe("App", () => {
       });
 
       it("does nothing, and leaves the key to the browser, when there is nothing to undo or redo", () => {
-        const { store } = renderApp();
+        const { store } = renderWorkspace();
         expect(store.canUndo.value).toBe(false);
         expect(key({ key: "z", ctrlKey: true })).toBe(true);
         expect(key({ key: "y", ctrlKey: true })).toBe(true);
@@ -713,7 +653,7 @@ describe("App", () => {
       });
 
       it("ignores other keys and other chords", () => {
-        const { store } = renderApp();
+        const { store } = renderWorkspace();
         rename("Wingspan");
         expect(key({ key: "z" })).toBe(true);
         expect(key({ key: "x", ctrlKey: true })).toBe(true);
@@ -724,7 +664,7 @@ describe("App", () => {
       });
 
       it("leaves a text field its own undo", () => {
-        const { store } = renderApp();
+        const { store } = renderWorkspace();
         const before = nameNow(store);
         rename("Wingspan");
         const field = screen.getByLabelText("Project name");
@@ -738,7 +678,7 @@ describe("App", () => {
       });
 
       it("stands aside while a modal dialog is open (Download, Settings), and works again after", () => {
-        const { store } = renderApp({ project: withLayoutProject() });
+        const { store } = renderWorkspace({ project: withLayoutProject() });
         rename("Wingspan");
         fireEvent.click(screen.getByRole("button", { name: "Download" }));
         expect(screen.getByRole("dialog", { name: "Download" })).toBeTruthy();
@@ -764,7 +704,7 @@ describe("App", () => {
         const added = vi.spyOn(document, "addEventListener");
         const removed = vi.spyOn(document, "removeEventListener");
         try {
-          const { store } = renderApp();
+          const { store } = renderWorkspace();
           const live = (): Set<unknown> => {
             const on = new Set(added.mock.calls.filter(([t]) => t === "keydown").map((c) => c[1]));
             for (const [t, fn] of removed.mock.calls) {
@@ -790,7 +730,7 @@ describe("App", () => {
       });
 
       it("shows the shortcut in the buttons' titles while they work, the reason while not", () => {
-        renderApp();
+        renderWorkspace();
         const title = (name: string) => screen.getByRole("button", { name }).getAttribute("title");
         expect(title("Undo")).toBe("Nothing to undo");
         expect(title("Redo")).toBe("Nothing to redo");
@@ -802,7 +742,7 @@ describe("App", () => {
     });
 
     it("shows Saving paused during a conflict and the dot on the menu button", async () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       store.state.conflict.value = true;
       store.pushNotice({ level: "warning", code: CONFLICT_CODE, message: "Another tab saved." });
       await waitFor(() =>
@@ -814,8 +754,10 @@ describe("App", () => {
     });
 
     it("closes the menu when a project is chosen, and when a new one is made", () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       store.newProject();
+      // an empty insert is the first visit, which has no menu: give it something inside
+      act(() => store.edit((q) => addComponent(q, "cards")));
       const first = store.state.projects.value.find((e) => e.id !== store.state.project.value.id);
       openMenu();
       fireEvent.click(screen.getByRole("button", { name: /^Your inserts/ }));
@@ -830,8 +772,9 @@ describe("App", () => {
     });
 
     it("deletes an insert from Your inserts after the question, not before", () => {
-      const { store, projectStore } = renderApp();
+      const { store, projectStore } = renderWorkspace();
       store.newProject();
+      act(() => store.edit((q) => addComponent(q, "cards")));
       const doomed = store.state.project.value.id;
       expect(projectStore.list().map((e) => e.id)).toContain(doomed);
       openMenu();
@@ -845,9 +788,9 @@ describe("App", () => {
     });
 
     it("Settings opens the settings sheet, and Escape closes it back to the menu button", () => {
-      renderApp();
+      renderWorkspace();
       const button = openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+      fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
       expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
       const dialog = screen.getByRole("dialog", { name: "Settings" });
       expect(within(dialog).getByRole("tab", { name: "This insert" })).toBeTruthy();
@@ -857,15 +800,15 @@ describe("App", () => {
     });
 
     it("keeps the settings and printer out of the rail", () => {
-      renderApp();
+      renderWorkspace();
       expect(document.getElementById("section-settings")).toBeNull();
       expect(document.getElementById("section-printer")).toBeNull();
     });
 
     it("edits this insert's settings from the sheet as one undoable step", () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+      fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
       fireEvent.change(screen.getByRole("combobox", { name: "Walls" }), {
         target: { value: "sturdy" },
       });
@@ -875,10 +818,10 @@ describe("App", () => {
     });
 
     it("sets my printer without touching this insert until Apply, which is one step to undo", () => {
-      const { store, prefs } = renderApp();
+      const { store, prefs } = renderWorkspace();
       const before = store.state.project.value.printer;
       openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+      fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
       fireEvent.click(screen.getByRole("tab", { name: "My printer" }));
       fireEvent.input(screen.getByLabelText(/^Bed margin/), { target: { value: "9" } });
       expect(prefs.printer.value.bedMargin).toBe(9);
@@ -891,9 +834,9 @@ describe("App", () => {
     });
 
     it("closes the sheet when another insert opens", async () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       openMenu();
-      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+      fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
       store.newProject();
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     });
@@ -902,11 +845,11 @@ describe("App", () => {
       const entry = (): HTMLElement[] =>
         screen.queryAllByRole("button", { name: /^(?:Download|Fix the fit to download)$/ });
       // no plan yet
-      renderApp();
+      renderWorkspace();
       expect(entry()).toHaveLength(1);
       cleanup();
       // a plan, a stale plan, a pin conflict, no fit
-      const current = renderApp({ project: withLayoutProject() });
+      const current = renderWorkspace({ project: withLayoutProject() });
       expect(entry()).toHaveLength(1);
       act(() => {
         current.store.state.lockConflicts.value = [
@@ -916,28 +859,24 @@ describe("App", () => {
       expect(entry()).toHaveLength(1);
       expect(entry()[0]?.textContent).toBe("Fix the fit to download");
       cleanup();
-      renderApp({ project: { ...fixtureProject(), layout: makeLayout("older") } });
+      renderWorkspace({ project: { ...fixtureProject(), layout: makeLayout("older") } });
       expect(entry()).toHaveLength(1);
     });
 
     it("keeps Download off until there is a plan, and says what to do", () => {
-      const { store } = renderApp();
+      // items but no plan yet (an empty insert is the first visit, which has no Download)
+      renderWorkspace();
       const download = screen.getByRole("button", { name: "Download" });
       expect(download.getAttribute("aria-disabled")).toBe("true");
-      expect(download.getAttribute("title")).toBe("Add what goes inside first");
+      expect(download.getAttribute("title")).toBe("Wait for the first plan");
       expect(
         document.getElementById(download.getAttribute("aria-describedby") ?? "")?.textContent,
-      ).toBe("Add what goes inside first");
-      // with items but no plan yet
-      act(() => {
-        store.state.project.value = fixtureProject();
-      });
-      expect(download.getAttribute("title")).toBe("Wait for the first plan");
+      ).toBe("Wait for the first plan");
     });
 
     it("keeps Download off, with the reason, while the plan is stale or a run is pending", async () => {
       const p = fixtureProject();
-      const { store } = renderApp({ project: { ...p, layout: makeLayout("an-older-hash") } });
+      const { store } = renderWorkspace({ project: { ...p, layout: makeLayout("an-older-hash") } });
       const download = (): HTMLElement => screen.getByRole("button", { name: "Download" });
       expect(store.state.stale.value).toBe(true);
       expect(download().getAttribute("aria-disabled")).toBe("true");
@@ -976,7 +915,7 @@ describe("App", () => {
         undefined;
 
       it("keeps Download off, with one short line that points to Reprint everything", async () => {
-        renderApp({ project: oldPlan() });
+        renderWorkspace({ project: oldPlan() });
         expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
         expect(download().getAttribute("aria-disabled")).toBe("true");
         expect(download().getAttribute("disabled")).toBeNull();
@@ -990,7 +929,7 @@ describe("App", () => {
       });
 
       it("keeps it off after Use the old plan, and a press on it brings the banner back", async () => {
-        renderApp({ project: oldPlan() });
+        renderWorkspace({ project: oldPlan() });
         fireEvent.click(await screen.findByRole("button", { name: "Use the old plan" }));
         expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
         expect(download().getAttribute("aria-disabled")).toBe("true");
@@ -1006,12 +945,12 @@ describe("App", () => {
 
       it("says Make a new plan first when the plan is also stale and its own banner shows", async () => {
         // older and stale: the older-geometry banner speaks for both, and so does the reason
-        renderApp({ project: oldPlan("an-older-hash") });
+        renderWorkspace({ project: oldPlan("an-older-hash") });
         expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
         expect(download().getAttribute("title")).toBe("Reprint everything to download");
         cleanup();
         // kept, then stale: the stale banner is the one in view, with its own button
-        const { store } = renderApp({ project: oldPlan() });
+        const { store } = renderWorkspace({ project: oldPlan() });
         fireEvent.click(await screen.findByRole("button", { name: "Use the old plan" }));
         act(() => {
           store.edit((q) => updateBox(q, { innerWidth: q.box.innerWidth + 5 }));
@@ -1025,7 +964,7 @@ describe("App", () => {
       });
 
       it("is cleared by Reprint everything: a plan from the current geometry downloads", async () => {
-        const { store } = renderApp({ project: oldPlan() });
+        const { store } = renderWorkspace({ project: oldPlan() });
         const refit = vi.spyOn(store, "refit").mockImplementation(() => {
           // what the run does when it succeeds: a layout made by this version of the app
           store.state.project.value = {
@@ -1045,21 +984,21 @@ describe("App", () => {
     });
 
     it("Download opens the export dialog once there is a plan", () => {
-      renderApp({ project: withLayoutProject() });
+      renderWorkspace({ project: withLayoutProject() });
       fireEvent.click(screen.getByRole("button", { name: "Download" }));
       expect(screen.getByRole("heading", { name: "Download" })).toBeTruthy();
     });
 
     it("returns the focus to the menu button after a choice", () => {
-      renderApp();
+      renderWorkspace();
       const button = openMenu();
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "New insert" }));
-      fireEvent.click(screen.getByRole("button", { name: "New insert" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save file" }));
       expect(document.activeElement).toBe(button);
     });
 
     it("opens a chosen insert file, and tells when it can't be read", async () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       const input = screen.getByLabelText("Open an insert file") as HTMLInputElement;
       expect(input.getAttribute("aria-hidden")).toBe("true");
       expect(input.tabIndex).toBe(-1);
@@ -1345,7 +1284,7 @@ describe("App", () => {
     };
 
     it("offers no choice on a notice left over from a resolved conflict", async () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       store.pushNotice(notice("Your version was kept as a copy."));
       expect(store.state.conflict.value).toBe(false);
       openMenu();
@@ -1355,7 +1294,7 @@ describe("App", () => {
     });
 
     it("can't be dismissed during a real conflict, only after it is resolved", async () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       store.state.conflict.value = true;
       store.pushNotice(notice("Another tab saved this project."));
       openMenu();
@@ -1369,7 +1308,7 @@ describe("App", () => {
     });
 
     it("offers both choices during a real conflict and passes them on", async () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       const resolve = vi.spyOn(store, "resolveConflict").mockImplementation(() => undefined);
       store.state.conflict.value = true;
       store.pushNotice(notice("Another tab saved this project."));
@@ -1382,7 +1321,7 @@ describe("App", () => {
     });
 
     it("conflict shows a menu dot and both choices", async () => {
-      const { store, projectStore } = renderApp();
+      const { store, projectStore } = renderWorkspace();
       const mine = store.state.project.value;
       // The other tab saved a different version of the same insert.
       projectStore.save({ ...mine, name: "From the other tab" }, EMPTY_FOREIGN);
@@ -1513,7 +1452,7 @@ describe("App", () => {
     });
 
     it("shows a failed open inline, under the header", async () => {
-      const { store } = renderApp();
+      const { store } = renderWorkspace();
       store.pushNotice({ level: "error", code: OPEN_FAILED_CODE, message: "That file is broken." });
       expect(await screen.findByText("That file is broken.")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Project menu" })).toBeTruthy();

@@ -35,15 +35,10 @@ export interface HeaderProps {
   phone: boolean;
   /** Phone: hands the file to the share sheet. */
   onSendFile: () => void;
-  /**
-   * The wordmark is the page's h1 until a screen has an h1 of its own (UI rebuild: each screen's
-   * task passes `false` when its own lands; Task 11 removes the prop and the wordmark is a span).
-   */
-  brandIsHeading?: boolean;
 }
 
 /** Four squares, one in each kind's colour: the insert's pieces (Main's logo). */
-function Logo() {
+export function Logo() {
   return (
     <span class="hd-logo" aria-hidden="true">
       <span class="hd-logo__cards" />
@@ -156,7 +151,6 @@ export function Header(p: HeaderProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
-  const brandIsHeading = p.brandIsHeading ?? true;
   /** Shuts the menu and puts the focus back on its button. */
   const close = (): void => {
     setOpen(false);
@@ -194,11 +188,8 @@ export function Header(p: HeaderProps) {
     };
   }, [open]);
 
-  const wordmark = brandIsHeading ? (
-    <h1 class={p.phone ? "hd-wordmark visually-hidden" : "hd-wordmark"}>Insert Generator</h1>
-  ) : p.phone ? null : (
-    <span class="hd-wordmark">Insert Generator</span>
-  );
+  // Every screen has an h1 of its own (the status heading, the first visit's), so this is a span.
+  const wordmark = p.phone ? null : <span class="hd-wordmark">Insert Generator</span>;
   const undo = (
     <IconButton
       label="Undo"

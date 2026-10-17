@@ -44,10 +44,10 @@ describe("the stage's top, in the app", () => {
     expect(line).toMatch(/^\d+ trays in \d+ layers?, \d+(\.\d)? of 70 mm high$/);
   });
 
-  it("keeps the wordmark as the h1 on the first visit, which has no status", () => {
+  it("gives the h1 to the first visit's own heading, which has no status", () => {
     renderApp();
     expect(h1s()).toHaveLength(1);
-    expect(h1s()[0]?.textContent).toBe("Insert Generator");
+    expect(h1s()[0]?.textContent).toBe("Let's build an insert for your game");
     expect(document.querySelector('[data-region="status"]')).toBeNull();
   });
 

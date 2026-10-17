@@ -10,7 +10,8 @@ import { exportJsonFile, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
 import { Header } from "../screens/Header";
 import { hoveredComponent } from "../screens/hover";
-import { AddMenu, KindTiles } from "../screens/KindPicker";
+import { FirstVisit } from "../screens/FirstVisit";
+import { AddMenu } from "../screens/KindPicker";
 import { ProjectMenu } from "../screens/ProjectMenu";
 import { RunAnnouncer } from "../screens/RunAnnouncer";
 import { StageSlot } from "../screens/StageSlot";
@@ -114,8 +115,6 @@ export function App(props: AppProps) {
   const mainRef = useRef<HTMLElement>(null);
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  // The first visit's block in the rail, where the focus goes when the last item is removed.
-  const firstVisitRef = useRef<HTMLDivElement>(null);
   const restoreFocus = useRef(false);
   // The component whose editor is open in the rail (null: the list). The tray bar's Edit sets it
   // too, and an item just added opens at once.
@@ -135,13 +134,13 @@ export function App(props: AppProps) {
   const narrow = useMediaQuery(NARROW_QUERY);
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetHandle = useRef<HTMLButtonElement>(null);
-  // Removing the last item swaps the rail for the first visit: the focus goes to the kinds there.
+  // Removing the last item swaps the workspace for the first visit: the focus goes to the kinds there.
   const wasFirstVisit = useRef(firstVisit);
   useEffect(() => {
     if (firstVisit && !wasFirstVisit.current) {
       setSheetOpen(false);
       if (document.activeElement === document.body) {
-        firstVisitRef.current?.querySelector<HTMLElement>(".rail-kinds button")?.focus();
+        document.querySelector<HTMLElement>(".fv-kinds button")?.focus();
       }
     }
     wasFirstVisit.current = firstVisit;
@@ -485,10 +484,26 @@ export function App(props: AppProps) {
   // fills the screen, and what is behind it is out of reach of Tab and screen readers (inert).
   const editing = editingId !== null;
   const sheetFull = editingId !== null || boxOpen;
-  const sheetCoversScreen = phone && narrow && !firstVisit && sheetOpen && sheetFull;
+  const sheetCoversScreen = phone && narrow && sheetOpen && sheetFull;
 
   // The three slots of the workspace shell. What is in them is the old UI, unchanged, until the
-  // task that rebuilds it: the header (Task 4), the rail (Tasks 5, 9, 10, 11), the stage (6 to 8).
+  // task that rebuilds it: the header (Task 4), the rail (Tasks 10, 11), the stage (6 to 8). The
+  // first visit is its own screen (`FirstVisit`, Task 9) on the same shell.
+  // The file chooser lives here, not in the menu: the menu may close while the system dialog is up.
+  const fileInput = (
+    <input
+      ref={fileRef}
+      type="file"
+      accept="application/json,.json"
+      class="visually-hidden"
+      tabIndex={-1}
+      aria-hidden="true"
+      aria-label="Open an insert file"
+      onChange={(e) => {
+        void readFile(e.currentTarget);
+      }}
+    />
+  );
   const headerSlot = (
     <>
       <Header
@@ -511,11 +526,9 @@ export function App(props: AppProps) {
         downloadLabel={fitProblem ? "Fix the fit to download" : undefined}
         downloadReason={
           layout === undefined
-            ? project.components.length === 0
-              ? "Add what goes inside first"
-              : canPlan
-                ? "Wait for the first plan"
-                : "Fix the errors marked in the inputs first"
+            ? canPlan
+              ? "Wait for the first plan"
+              : "Fix the errors marked in the inputs first"
             : s.runPending.value
               ? "Wait for the plan to finish"
               : s.geometryOld.value && !showStale
@@ -535,8 +548,6 @@ export function App(props: AppProps) {
         onSendFile={() => {
           void sendFile();
         }}
-        // the status heading is the page's h1 on the workspace; the first visit has none until Task 9
-        brandIsHeading={firstVisit}
         menuDot={placed.menu.length > 0}
         menuNoticeCount={placed.menu.length}
         menu={(close) => (
@@ -562,52 +573,14 @@ export function App(props: AppProps) {
           />
         )}
       />
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/json,.json"
-        class="visually-hidden"
-        tabIndex={-1}
-        aria-hidden="true"
-        aria-label="Open an insert file"
-        onChange={(e) => {
-          void readFile(e.currentTarget);
-        }}
-      />
+      {fileInput}
     </>
   );
-  const firstVisitBlock = (
-    <section class="pf-first" aria-label="Start">
-      <h2>Fit your game into its box.</h2>
-      <div class="pf-first__step">
-        <h3>Measure the box</h3>
-        <BoxPanel box={project.box} onChange={(patch) => store.edit((q) => updateBox(q, patch))} />
-      </div>
-      <div class="pf-first__step">
-        <h3>Pick what goes inside</h3>
-        <div class="rail-kinds" role="group" aria-label="Pick what goes inside">
-          <KindTiles onPick={addComponentOfKind} />
-        </div>
-        <button type="button" onClick={addExample}>
-          Start from an example game
-        </button>
-      </div>
-      <p class="hint">Your inserts are saved in this browser.</p>
-    </section>
-  );
-  const railSlot = firstVisit ? (
-    <div class="ws-interim" ref={firstVisitRef}>
-      {firstVisitBlock}
-    </div>
-  ) : boxOpen ? (
-    boxEditor
-  ) : (
-    whatsInside
-  );
+  const railSlot = boxOpen ? boxEditor : whatsInside;
   // A phone's tray bar is a modal sheet (MobileTray). It gives way to an editor in the sheet below, and
   // to the plan while a swap is chosen (SelectedTrayBar). It is in the top layer: where it is in the tree does not matter.
   const traySheet =
-    phone && hasSelectedTray && !firstVisit && !editing && !boxOpen ? (
+    phone && hasSelectedTray && !editing && !boxOpen ? (
       <SelectedTrayBar
         {...barProps}
         phone
@@ -615,7 +588,9 @@ export function App(props: AppProps) {
         swapFrom={view === "plan" ? s.swapFrom.value : null}
       />
     ) : null;
-  const stageSlot = (
+  // What every stage has: the app's notices and live regions (always mounted, so a region is there
+  // before it has anything to say), and, at the foot, the note about a removal.
+  const notices = (
     <>
       {/* Always mounted, so its live regions are there before they have anything to say. */}
       <div
@@ -637,8 +612,41 @@ export function App(props: AppProps) {
         />
       </div>
       <RunAnnouncer run={run} />
+    </>
+  );
+  const removedNote = (
+    <>
+      {/* always mounted: the removal is spoken, and Undo is in the header as well */}
+      <div class="visually-hidden" role="status" data-live="removed">
+        {removed !== null && removed.version === s.history.version.value
+          ? `Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. Undo removal is available.`
+          : ""}
+      </div>
+      {removed !== null && removed.version === s.history.version.value ? (
+        <div class="pf-toast stage-block">
+          {`Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. `}
+          <button
+            type="button"
+            class="pf-link"
+            onClick={() => {
+              setRemoved(null);
+              store.undo();
+            }}
+          >
+            Undo removal
+          </button>
+          <button type="button" class="pf-link" onClick={() => setRemoved(null)}>
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+  const stageSlot = (
+    <>
+      {notices}
       {traySheet}
-      {firstVisit ? null : (
+      {
         <StageTop
           run={run}
           pending={s.runPending.value}
@@ -677,10 +685,8 @@ export function App(props: AppProps) {
           onShow={showSection}
           onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
         />
-      )}
-      {firstVisit ? (
-        <StageNotes notices={summaryNotices} />
-      ) : (
+      }
+      {
         <section class="plan-col" aria-label="Preview" data-region="plan">
           {layout ? (
             view === "plan" ? (
@@ -753,8 +759,8 @@ export function App(props: AppProps) {
           {/* The layout and sizing notices, under the plan caption. */}
           <StageNotes notices={summaryNotices} />
         </section>
-      )}
-      {exportOpen && layout !== undefined && !firstVisit ? (
+      }
+      {exportOpen && layout !== undefined ? (
         <Modal labelledBy="export-title" onClose={() => setExportOpen(false)}>
           <ExportPanel
             titleId="export-title"
@@ -775,30 +781,7 @@ export function App(props: AppProps) {
           />
         </Modal>
       ) : null}
-      {/* always mounted: the removal is spoken, and Undo is in the header as well */}
-      <div class="visually-hidden" role="status" data-live="removed">
-        {removed !== null && removed.version === s.history.version.value
-          ? `Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. Undo removal is available.`
-          : ""}
-      </div>
-      {removed !== null && removed.version === s.history.version.value ? (
-        <div class="pf-toast stage-block">
-          {`Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. `}
-          <button
-            type="button"
-            class="pf-link"
-            onClick={() => {
-              setRemoved(null);
-              store.undo();
-            }}
-          >
-            Undo removal
-          </button>
-          <button type="button" class="pf-link" onClick={() => setRemoved(null)}>
-            Dismiss
-          </button>
-        </div>
-      ) : null}
+      {removedNote}
     </>
   );
 
@@ -806,56 +789,69 @@ export function App(props: AppProps) {
     <ValidationContext.Provider value={validation}>
       <SizingContext.Provider value={sizingNotices}>
         <SettingsContext.Provider value={projSettings}>
-          <Workspace
-            header={headerSlot}
-            rail={railSlot}
-            stage={stageSlot}
-            focus={firstVisit}
-            inert={sheetCoversScreen}
-            sheet={
-              firstVisit || !phone
-                ? undefined
-                : {
-                    label: "The box and what's inside",
-                    title: "What's inside",
-                    summary: String(project.components.length),
-                    handleLabel: "Show everything",
-                    expanded: sheetOpen,
-                    full: sheetFull,
-                    editing,
-                    handleRef: sheetHandle,
-                    // a tray's sheet in front of it has the region's name
-                    region: traySheet === null ? "sheet" : "sheet-behind",
-                    onExpandedChange: (open) => {
-                      setSheetOpen(open);
-                      // An editor, or the box, has the sheet to itself: folding it comes back to the list.
-                      if (!open) {
-                        setEditingId(null);
-                        setBoxOpen(false);
-                      }
-                    },
-                    action: (
-                      <>
-                        {searchOnPhone ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              store.refit();
-                              // The button goes with the search: the handle keeps the place.
-                              sheetHandle.current?.focus();
-                            }}
-                          >
-                            Keep searching
-                          </button>
-                        ) : null}
-                        {editing || boxOpen ? null : (
-                          <AddMenu placement="above" onPick={addComponentOfKind} />
-                        )}
-                      </>
-                    ),
-                  }
-            }
-          />
+          {firstVisit ? (
+            <FirstVisit
+              box={project.box}
+              phone={phone}
+              onBoxChange={(patch) => store.edit((q) => updateBox(q, patch))}
+              onPick={addComponentOfKind}
+              onExample={addExample}
+              onOpenFile={() => fileRef.current?.click()}
+              headerExtra={fileInput}
+              stageBefore={notices}
+              stageAfter={removedNote}
+            />
+          ) : (
+            <Workspace
+              header={headerSlot}
+              rail={railSlot}
+              stage={stageSlot}
+              inert={sheetCoversScreen}
+              sheet={
+                !phone
+                  ? undefined
+                  : {
+                      label: "The box and what's inside",
+                      title: "What's inside",
+                      summary: String(project.components.length),
+                      handleLabel: "Show everything",
+                      expanded: sheetOpen,
+                      full: sheetFull,
+                      editing,
+                      handleRef: sheetHandle,
+                      // a tray's sheet in front of it has the region's name
+                      region: traySheet === null ? "sheet" : "sheet-behind",
+                      onExpandedChange: (open) => {
+                        setSheetOpen(open);
+                        // An editor, or the box, has the sheet to itself: folding it comes back to the list.
+                        if (!open) {
+                          setEditingId(null);
+                          setBoxOpen(false);
+                        }
+                      },
+                      action: (
+                        <>
+                          {searchOnPhone ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                store.refit();
+                                // The button goes with the search: the handle keeps the place.
+                                sheetHandle.current?.focus();
+                              }}
+                            >
+                              Keep searching
+                            </button>
+                          ) : null}
+                          {editing || boxOpen ? null : (
+                            <AddMenu placement="above" onPick={addComponentOfKind} />
+                          )}
+                        </>
+                      ),
+                    }
+              }
+            />
+          )}
           {settingsOpen !== null ? (
             <SettingsSheet
               initialTab={settingsOpen.tab}

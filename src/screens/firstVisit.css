@@ -1,0 +1,380 @@
+/*
+ * The first visit (UI rebuild Task 9): Empty at 1440, MobileStart below 760 px. It sits in the
+ * workspace shell (workspace.css, class `fv` on the shell), so the rail is Main's width on this
+ * screen too (a ruling; Empty draws it wider). On the tokens (styles/tokens.css) and the kit
+ * (kit/kit.css); loaded after style.css, whose old `button` rules a class here has to beat or tie.
+ */
+
+/* ---- The header: logo, wordmark, and Open file alone at the right ---- */
+.hd.fv-header {
+  gap: var(--s-14); /* Empty (Main's is 12) */
+}
+
+/* Empty sets the button's face at the page's size, 600. */
+.fv-open {
+  padding: 0 var(--s-16);
+  font-size: inherit;
+}
+
+/* ---- The rail: two steps, then the foot at the bottom; 28 px between ---- */
+
+/* The shell's rail pads 20; Empty's pads 24 above and below, so 4 more here. */
+.fv-rail {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-28);
+  min-height: 0;
+  padding: var(--s-4) 0;
+  overflow: auto;
+}
+
+.fv-rail > * {
+  flex: none;
+}
+
+.fv-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-14);
+}
+
+.fv-step__head {
+  display: flex;
+  gap: var(--s-10);
+  align-items: center;
+}
+
+.fv-step__title {
+  margin: 0;
+  font: 700 var(--h2) / normal var(--font-display);
+}
+
+/* Width, Length, Height side by side. */
+.fv-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-10);
+}
+
+/* Empty's card for what is wrong with a measure: a message and no button (the engine has no value to suggest). */
+.fv-error {
+  display: flex;
+  gap: var(--s-10);
+  align-items: flex-start;
+  padding: var(--s-10) var(--s-12);
+  border-radius: var(--r-field);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.fv-error > svg {
+  flex: none;
+  margin-top: 1px; /* Empty */
+}
+
+.fv-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/*
+ * Main's rail is 300 px where Empty's is 320, so a measure has 80 px: less padding and a smaller
+ * unit keep "285" whole beside it.
+ */
+.fv-fields .k-field__box {
+  gap: var(--s-2);
+  padding: 0 var(--s-8);
+}
+
+.fv-fields .k-field__unit {
+  font-size: var(--text-sm);
+}
+
+/* The five kinds, two to a row; Something else takes the last row. */
+.fv-kinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-10);
+}
+
+.fv-kinds > :last-child {
+  grid-column: span 2;
+}
+
+/*
+ * Empty's tiles shrink their icon when the name is long ("Miniatures"), and the narrower rail
+ * (a ruling) leaves 125 px a tile, so the padding and the gap are 10 and 8. A name keeps its
+ * words whole.
+ */
+.fv-kinds .k-kindtile {
+  gap: var(--s-8);
+  padding: 0 var(--s-10);
+}
+
+.fv-kinds .k-tile {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.fv-kinds .k-kindtile__name {
+  overflow-wrap: normal;
+}
+
+/* ---- The foot: the example, and where inserts are kept ---- */
+.fv-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  align-items: flex-start;
+  margin-top: auto;
+}
+
+.fv-example {
+  --k-fg: var(--ink);
+
+  align-self: flex-start;
+  height: auto;
+  min-height: var(--control-h);
+  padding: var(--s-8) 0;
+  border: 0;
+  border-radius: var(--r-field);
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px; /* Empty */
+}
+
+.fv-saved {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* ---- The stage: the h1, one line, and the empty box with its chips ---- */
+.fv-stage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-28);
+  align-items: center;
+  justify-content: center;
+}
+
+.fv-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  align-items: center;
+  text-align: center;
+}
+
+.fv-title {
+  max-width: 560px;
+  margin: 0;
+  font: 700 var(--h1-first) / 1.1 var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.fv-lede {
+  margin: 0;
+  line-height: normal; /* Empty sets none */
+  color: var(--muted);
+  font-size: 17px; /* Empty */
+}
+
+/* The box in the middle, the width chip above it, the length chip at its left, the front below. */
+.fv-view {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto auto;
+  gap: var(--s-12);
+  place-items: center center;
+}
+
+.fv-chip {
+  padding: var(--s-4) var(--s-12);
+  border-radius: var(--r-pill);
+  background: var(--chip);
+  color: var(--muted-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fv-chip--width {
+  grid-area: 1 / 2;
+}
+
+/* Written up the side, reading from the foot of the box to its back. */
+.fv-chip--length {
+  grid-area: 2 / 1;
+  padding: var(--s-12) var(--s-4);
+  transform: rotate(180deg);
+  writing-mode: vertical-rl;
+}
+
+.fv-box {
+  display: flex;
+  grid-area: 2 / 2;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: min(440px, calc(100vw - 96px));
+  aspect-ratio: 1;
+  padding: 8%;
+  border-radius: var(--r-panel);
+  background: var(--box);
+  box-shadow: var(--box-inset-plan);
+}
+
+.fv-box__inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border: 2px dashed var(--box-dash);
+  border-radius: var(--r-field);
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+
+.fv-front {
+  display: flex;
+  grid-area: 3 / 2;
+  gap: var(--s-6);
+  align-items: center;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/*
+ * MobileStart: one white column. The header, the h1, the two steps, and the foot as a bar at the
+ * bottom (it sticks there when the steps are taller than the screen). No empty box, no chips.
+ */
+@media (width < 760px) {
+  .fv,
+  .fv .ws-stage {
+    background: var(--sheet);
+  }
+
+  .hd.fv-header {
+    gap: var(--s-10);
+    padding: 0 var(--s-16);
+    border-bottom-color: var(--rule-soft);
+  }
+
+  .fv-header .hd-wordmark {
+    flex: 1 1 auto;
+    font-size: 17px; /* MobileStart */
+  }
+
+  .fv-header .hd-grow {
+    display: none;
+  }
+
+  .fv-open {
+    padding: 0 var(--s-14);
+    font-size: 15px; /* MobileStart sets it, the page being 16 */
+  }
+
+  /* The steps scroll under the h1; the rail grows to the screen's foot so the foot has the bottom. */
+  .fv .ws-body {
+    flex-flow: column nowrap;
+  }
+
+  .fv .ws-stage {
+    flex: none;
+    padding: var(--s-24) var(--s-16) 0;
+  }
+
+  .fv .ws-rail {
+    flex: 1 0 auto;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .fv-rail {
+    gap: 26px; /* MobileStart */
+    padding: 26px 0 0;
+    overflow: visible;
+  }
+
+  .fv-stage {
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .fv-intro {
+    align-items: stretch;
+    text-align: left;
+  }
+
+  .fv-title {
+    max-width: none;
+    font-size: var(--h1-first-phone);
+  }
+
+  .fv-step {
+    gap: var(--s-12);
+    margin: 0 var(--s-16);
+  }
+
+  .fv-step:nth-child(2) {
+    margin-bottom: var(--s-24);
+  }
+
+  .fv-fields,
+  .fv-kinds {
+    gap: var(--s-8);
+  }
+
+  /* MobileStart's fields are 52 px tall with an 18 px value; its tile icons 32 px. */
+  .fv-fields .k-field__box {
+    gap: var(--s-4);
+    height: 52px;
+    padding: 0 var(--s-10);
+  }
+
+  .fv-fields .k-field .k-field__input {
+    font-size: var(--text-count);
+  }
+
+  .fv-fields .k-field__unit {
+    font-size: var(--text-sm);
+  }
+
+  .fv-kinds .k-kindtile {
+    gap: var(--s-10);
+    padding: 0 var(--s-12);
+  }
+
+  .fv-kinds .k-tile {
+    width: 32px;
+    height: 32px;
+  }
+
+  .fv-kinds .k-tile svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .fv-foot {
+    position: sticky;
+    bottom: 0;
+    gap: var(--s-4);
+    align-items: center;
+    padding: var(--s-12) var(--s-16) calc(var(--s-20) + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--rule-soft);
+    background: var(--sheet);
+  }
+
+  .fv-example {
+    align-self: center;
+    height: var(--control-h);
+    padding: 0 var(--s-12);
+  }
+}

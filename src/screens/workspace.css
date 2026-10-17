@@ -74,8 +74,8 @@
 }
 
 /*
- * The old rail content (the accordion, the first-visit block) until Task 5 and Task 9 replace it:
- * it scrolls inside the rail, so nothing is cut off.
+ * The old rail editors (a component's until Task 10, the box's until Task 11) scroll inside the
+ * rail, so nothing is cut off.
  */
 .ws-interim {
   flex: 1 1 auto;
