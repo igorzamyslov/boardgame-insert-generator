@@ -108,6 +108,8 @@ describe("the first visit", () => {
     expect(box.getByText("Width 285 mm")).toBeTruthy();
     expect(box.getByText("Length 285 mm")).toBeTruthy();
     expect(box.getByText("Front of the box")).toBeTruthy();
+    // the harness measures it as it measures the workspace's box
+    expect(stage().querySelector('[data-region="plan-box"]')?.textContent).toBe("Empty box");
     // the chips follow the fields
     fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "250" } });
     fireEvent.input(screen.getByLabelText(/^Length/), { target: { value: "190,5" } });

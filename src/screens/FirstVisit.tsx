@@ -137,7 +137,7 @@ function EmptyBox({ box }: { box: Box }) {
     <div class="fv-view">
       <span class="fv-chip fv-chip--width">{`Width ${mm(box.innerWidth)} mm`}</span>
       <span class="fv-chip fv-chip--length">{`Length ${mm(box.innerDepth)} mm`}</span>
-      <div class="fv-box">
+      <div class="fv-box" data-region="plan-box">
         <div class="fv-box__inner">Empty box</div>
       </div>
       <span class="fv-front">
