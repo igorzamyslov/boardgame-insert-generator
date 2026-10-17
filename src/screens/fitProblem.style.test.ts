@@ -101,17 +101,6 @@ describe("fitProblem.css", () => {
     expect(ruleFor(".fp-card:hover:not(:disabled)")).toMatch(/background:\s*var\(--sheet\)/);
   });
 
-  it("draws Undo quiet: 14 px, muted, underlined 3 px off, flush left", () => {
-    const undo = ruleFor(".fp-cards > .fp-undo");
-    expect(undo).toMatch(/--k-fg:\s*var\(--muted\)/);
-    expect(undo).toMatch(/align-self:\s*flex-start/);
-    expect(undo).toMatch(/font-size:\s*var\(--text-sm\)/);
-    expect(undo).toMatch(/text-decoration:\s*underline/);
-    expect(undo).toMatch(/text-underline-offset:\s*3px/);
-    // blocked it stays a link, not the kit's grey pill
-    expect(ruleFor('.fp-cards > .fp-undo[aria-disabled="true"]')).toMatch(/--k-bg:\s*transparent/);
-  });
-
   describe("on a phone (MobileFix)", () => {
     it("peeks the sheet at 276 px", () => {
       expect(ruleFor(".ws--fit", css, true)).toMatch(/--sheet-peek:\s*276px/);

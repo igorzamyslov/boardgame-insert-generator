@@ -1,7 +1,7 @@
 /*
  * The fit problems' stage (UI rebuild Task 12), from NoFit, PinConflict and MobileFix: the status
  * heading (the kit's), the plan as a picture, and the panel of what to do. The heading's warn
- * icon, the cards' buttons and the quiet Undo are the kit's or the board's own values, on the
+ * icon and the cards are the kit's or the board's own values, on the
  * tokens (styles/tokens.css).
  */
 
@@ -127,23 +127,6 @@
 
 .fp-cards[data-kind="pinConflict"] > .fp-card {
   border-radius: var(--r-card);
-}
-
-/* PinConflict's Undo: quiet, 14 px 600 in the muted ink, underlined, flush left. */
-.fp-cards > .fp-undo {
-  --k-fg: var(--muted);
-
-  align-self: flex-start;
-  padding: 0;
-  font-size: var(--text-sm);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-/* Blocked (nothing to undo): the same link, in the dimmer ink, not the kit's grey pill. */
-.fp-cards > .fp-undo[aria-disabled="true"] {
-  --k-bg: transparent;
-  --k-fg: var(--ink-off);
 }
 
 /*

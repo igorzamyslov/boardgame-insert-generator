@@ -6,7 +6,9 @@
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderApp } from "../app/test-app";
+import type { Project } from "../model/types";
 import { loadSeed } from "../test-support/harbourKings";
+import type { LockConflict } from "../layout/types";
 import { misfitOf } from "../ui/noFit";
 import { hoveredComponent } from "./hover";
 
@@ -20,11 +22,14 @@ afterEach(() => {
 function fitProblem(
   seed: string,
   tweak?: (r: NonNullable<ReturnType<typeof loadSeed>["result"]>) => void,
+  tweakProject?: (p: Project) => Project,
 ) {
-  const { project, result } = loadSeed(seed);
+  const seeded = loadSeed(seed);
+  const result = seeded.result;
   if (result === undefined) {
     throw new Error(`seed ${seed} has no result`);
   }
+  const project = tweakProject === undefined ? seeded.project : tweakProject(seeded.project);
   const app = renderApp({ project });
   const run = structuredClone(result);
   tweak?.(run);
@@ -63,8 +68,9 @@ describe("when it doesn't fit (NoFit)", () => {
     expect(misfit?.name).toBe("Heroes");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(h1().textContent).toBe(`The ${misfit?.name} tray doesn't fit yet`);
+    // the engine's whole-plan shortfall (17.2 mm in height) is the one figure
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "There's no room left for it in the box.",
+      "There's no room left for it in the box. The closest plan is 17.2 mm too tall.",
     );
     // the status is in the stage as a region of its own, in the warn tone
     expect(
@@ -80,6 +86,55 @@ describe("when it doesn't fit (NoFit)", () => {
     );
   });
 
+  it("names every axis that is short, the largest first, rounded up", () => {
+    fitProblem("harbour-kings-nofit", (r) => {
+      if (r.bestAttempt !== null) {
+        r.bestAttempt.shortfall = { x: 2.951, y: 0, z: 17.2 };
+      }
+    });
+    expect(document.querySelector(".k-status__line")?.textContent).toBe(
+      "There's no room left for it in the box. The closest plan is 17.2 mm too tall and 3.0 mm too wide.",
+    );
+  });
+
+  it("names a shortfall in length, and says nothing of one that is not there", () => {
+    fitProblem("harbour-kings-nofit", (r) => {
+      if (r.bestAttempt !== null) {
+        r.bestAttempt.shortfall = { x: 0, y: 4, z: 0 };
+      }
+    });
+    expect(document.querySelector(".k-status__line")?.textContent).toBe(
+      "There's no room left for it in the box. The closest plan is 4.0 mm too long.",
+    );
+    cleanup();
+    fitProblem("harbour-kings-nofit", (r) => {
+      if (r.bestAttempt !== null) {
+        r.bestAttempt.shortfall = { x: 0, y: 0, z: 0.01 };
+      }
+    });
+    expect(document.querySelector(".k-status__line")?.textContent).toMatch(/0\.1 mm too tall/);
+  });
+
+  it("does not repeat the engine's no-fit paragraph, and keeps the other notices", () => {
+    fitProblem("harbour-kings-nofit");
+    const stage = document.querySelector('[data-region="stage"]') as HTMLElement;
+    expect(stage.textContent).not.toMatch(/No fit found yet|iterations without finding/);
+    expect(stage.querySelector(".stage-notes")).toBeNull();
+    cleanup();
+    fitProblem("harbour-kings-nofit", (r) => {
+      r.notices = [
+        ...r.notices,
+        { level: "warning", code: "layout.play", message: "Trays can shift 1.60 mm." },
+      ];
+    });
+    expect(document.querySelector('[data-region="stage"]')?.textContent).toContain(
+      "Trays can shift 1.60 mm.",
+    );
+    expect(document.querySelector('[data-region="stage"]')?.textContent).not.toMatch(
+      /No fit found yet/,
+    );
+  });
+
   it("falls back when no tray stands out", () => {
     fitProblem("harbour-kings-nofit", (r) => {
       // no tray overhangs and none is beyond the bed: misfitOf finds no one
@@ -88,7 +143,10 @@ describe("when it doesn't fit (NoFit)", () => {
       }
     });
     expect(h1().textContent).toBe("Not everything fits yet");
-    expect(document.querySelector(".k-status__line")).toBeNull();
+    // no tray to blame, but the plan's shortfall is still the one figure
+    expect(document.querySelector(".k-status__line")?.textContent).toBe(
+      "The closest plan is 5.0 mm too tall.",
+    );
     // nothing to edit: only the search is offered
     expect(names(options())).toEqual(["Keep searching"]);
   });
@@ -261,8 +319,9 @@ describe("when pins block a fit (PinConflict)", () => {
       "Unpin Heroes",
       "Unpin Event cards",
       "Unpin Heroes and Event cards",
-      "Undo",
     ]);
+    // the header's Undo is the way back: the column has none of its own
+    expect(within(column).queryByRole("button", { name: "Undo" })).toBeNull();
     expect(document.querySelector('[data-region="stage"]')?.textContent).not.toMatch(DENIED);
     // the conflict area (95 × 140 needed, 95 × 95 free) is not drawn
     expect(document.querySelector(".plan-box")?.textContent).not.toMatch(/mm/);
@@ -295,14 +354,22 @@ describe("when pins block a fit (PinConflict)", () => {
     expect(document.querySelector(".plan-pins")).toBeNull();
   });
 
-  it("keeps the rule chips, and lights the row of the tray the heading names", () => {
+  it("keeps the rule chips, and lights the row of every tray with a pin in the way", () => {
     fitProblem("harbour-kings-pins");
     const rail = document.querySelector('[data-region="rail"]') as HTMLElement;
     expect(within(rail).getByRole("button", { name: "Unpin Market deck" })).toBeTruthy();
-    const row = within(rail).getByRole("button", { name: /^Market deck, / });
-    expect(row.classList.contains("is-culprit")).toBe(true);
-    expect(row.textContent).toContain("Doesn't fit");
-    expect(rail.querySelectorAll(".is-culprit")).toHaveLength(1);
+    const lit = [...rail.querySelectorAll(".is-culprit")].map((r) => r.getAttribute("aria-label"));
+    expect(lit).toEqual([
+      "Market deck, Doesn't fit",
+      "Event cards, Doesn't fit",
+      "Heroes, Doesn't fit",
+    ]);
+    // a row with no pin in the way is not lit
+    expect(
+      within(rail)
+        .getByRole("button", { name: /^Starter decks, / })
+        .classList.contains("is-culprit"),
+    ).toBe(false);
   });
 
   it("says a size lock in its own words", () => {
@@ -320,23 +387,86 @@ describe("when pins block a fit (PinConflict)", () => {
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
       "What it holds no longer fits that size.",
     );
-    expect(names(options())).toEqual(["Unlock size of Market deck", "Undo"]);
+    expect(names(options())).toEqual(["Unlock size of Market deck"]);
   });
 
-  it("has an Undo that takes back the last change, and blocks it when there is none", () => {
-    const app = fitProblem("harbour-kings-pins");
-    const undo = within(options()).getByRole("button", { name: "Undo" });
-    expect(undo.getAttribute("aria-disabled")).toBe("true");
-    const p = app.store.state.project.value;
+  it("unlocks the size from its card, and only the size", () => {
+    const lock = { kind: "size" as const, trayKey: "market01:p0:0", w: 95, d: 190, h: 40 };
+    const app = fitProblem(
+      "harbour-kings-pins",
+      (r) => {
+        r.lockConflicts = [
+          { trayKey: "market01:p0:0", kind: "size", name: "Market deck ×80", reason: "no room" },
+        ];
+      },
+      (p) => ({ ...p, locks: [...p.locks, lock] }),
+    );
+    const before = app.store.state.project.value.locks;
+    expect(before).toHaveLength(5);
+    fireEvent.click(within(options()).getByRole("button", { name: "Unlock size of Market deck" }));
+    const after = app.store.state.project.value.locks;
+    expect(after.some((l) => l.kind === "size")).toBe(false);
+    expect(after).toHaveLength(4);
+    expect(after.filter((l) => l.kind === "position")).toHaveLength(3);
+    act(() => app.store.undo());
+    expect(app.store.state.project.value.locks).toEqual(before);
+  });
+
+  /** A card's run: it begins, then ends with the conflicts the run left. */
+  function runLeaves(app: ReturnType<typeof fitProblem>, conflicts: LockConflict[]) {
     act(() => {
-      app.store.state.history.ensureBase(p);
-      app.store.state.history.push({ ...p, name: "Changed" });
+      // the edit scheduled a run; the run begins, and the schedule is over
+      app.store.state.runScheduled.value = false;
+      app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "edit" };
     });
-    expect(
-      within(options()).getByRole("button", { name: "Undo" }).getAttribute("aria-disabled"),
-    ).toBe(null);
-    fireEvent.click(within(options()).getByRole("button", { name: "Undo" }));
-    expect(app.store.state.project.value.name).toBe(p.name);
+    act(() => {
+      app.store.state.lockConflicts.value = conflicts;
+      app.store.state.run.value = { status: "done" };
+    });
+  }
+
+  it("hands the focus to Download when an Unpin resolved the conflict", () => {
+    const app = fitProblem("harbour-kings-pins");
+    const card = within(options()).getByRole("button", { name: "Unpin Market deck" });
+    card.focus();
+    fireEvent.click(card);
+    expect(document.activeElement).toBe(document.body);
+    runLeaves(app, []);
+    expect(document.querySelector('[data-region="options"]')).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /Download/ }));
+  });
+
+  it("hands the focus to the first card when the Unpin left a conflict", () => {
+    const app = fitProblem("harbour-kings-pins");
+    const left = app.store.state.lockConflicts.value.slice(1);
+    const card = within(options()).getByRole("button", { name: "Unpin Market deck" });
+    card.focus();
+    fireEvent.click(card);
+    runLeaves(app, left);
+    expect(document.activeElement).toBe(within(options()).getAllByRole("button")[0]);
+  });
+
+  it("does not move the focus to Download for a run that no fit problem began", () => {
+    const { project } = loadSeed("harbour-kings");
+    const app = renderApp({ project });
+    act(() => {
+      app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "edit" };
+    });
+    act(() => {
+      app.store.state.run.value = { status: "done" };
+    });
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("does not hand the focus to Stop when Keep searching starts no search", () => {
+    const app = fitProblem("harbour-kings-nofit");
+    vi.spyOn(app.store, "refit").mockImplementation(() => undefined);
+    fireEvent.click(within(options()).getByRole("button", { name: "Keep searching" }));
+    // a later run that the person did not ask for must not pull the focus to its Stop
+    act(() => {
+      app.store.state.run.value = { status: "running", done: 0, total: 100, kind: "edit" };
+    });
+    expect(document.activeElement).toBe(document.body);
   });
 
   it("blocks Download with its reason", () => {
@@ -380,8 +510,12 @@ describe("on a phone (MobileFix)", () => {
     const names = within(sheet().querySelector(".fp-cards") as HTMLElement)
       .getAllByRole("button")
       .map((b) => b.textContent);
-    expect(names.slice(0, 2)).toEqual(["Unpin Market deck", "Unpin Heroes"]);
-    expect(names.at(-1)).toBe("Undo");
+    expect(names).toEqual([
+      "Unpin Market deck",
+      "Unpin Heroes",
+      "Unpin Event cards",
+      "Unpin Heroes and Event cards",
+    ]);
   });
 
   it("keeps the list within reach under the cards", () => {

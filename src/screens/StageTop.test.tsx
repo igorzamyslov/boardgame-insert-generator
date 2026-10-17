@@ -9,6 +9,7 @@ import {
   PlanBanner,
   StageTop,
   conflictLine,
+  shortfallSentence,
   layerOptions,
   problemAreas,
   statusOf,
@@ -433,6 +434,31 @@ describe("StageTop", () => {
   });
 });
 
+describe("shortfallSentence", () => {
+  it("names the largest axis, rounded up to 0.1 mm", () => {
+    expect(shortfallSentence({ x: 0, y: 0, z: 17.2 })).toBe(
+      "The closest plan is 17.2 mm too tall.",
+    );
+    expect(shortfallSentence({ x: 3.01, y: 0, z: 0 })).toBe("The closest plan is 3.1 mm too wide.");
+    expect(shortfallSentence({ x: 0, y: 8, z: 0 })).toBe("The closest plan is 8.0 mm too long.");
+  });
+
+  it("joins the axes that are short, the largest first", () => {
+    expect(shortfallSentence({ x: 3, y: 0, z: 17.2 })).toBe(
+      "The closest plan is 17.2 mm too tall and 3.0 mm too wide.",
+    );
+    expect(shortfallSentence({ x: 3, y: 9, z: 17.2 })).toBe(
+      "The closest plan is 17.2 mm too tall, 9.0 mm too long and 3.0 mm too wide.",
+    );
+  });
+
+  it("is empty when no axis is short, or there is no figure", () => {
+    expect(shortfallSentence({ x: 0, y: 0, z: 0 })).toBe("");
+    expect(shortfallSentence(null)).toBe("");
+    expect(shortfallSentence(undefined)).toBe("");
+  });
+});
+
 describe("statusOf, the fit problems", () => {
   const misfit = { componentId: "c1", trayKey: "t1", name: "Boards", reason: "box" as const };
   const noFit = (over: Partial<StatusInput> = {}) =>
@@ -449,6 +475,19 @@ describe("statusOf, the fit problems", () => {
         { kind: "keep", label: "Keep searching" },
       ],
     });
+  });
+
+  it("adds the closest plan's shortfall to the box reason, and not to the bed's", () => {
+    const shortfall = { x: 0, y: 0, z: 17.2 };
+    expect(noFit({ noFit: { misfit, shortfall } }).line).toBe(
+      "There's no room left for it in the box. The closest plan is 17.2 mm too tall.",
+    );
+    expect(noFit({ noFit: { misfit: { ...misfit, reason: "bed" }, shortfall } }).line).toBe(
+      "It's too big for your printer's bed.",
+    );
+    expect(noFit({ noFit: { misfit, shortfall: null } }).line).toBe(
+      "There's no room left for it in the box.",
+    );
   });
 
   it("says a tray is too big for the printer's bed when that is the reason", () => {

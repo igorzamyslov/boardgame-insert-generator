@@ -51,7 +51,7 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    what is wrong. When nothing fits the screen shows the closest attempt, dimmed, with the tray
    that doesn't fit marked, and "Ways to make it fit": "Edit <name>" and "Keep searching". When
    your pins block the fit it shows the plan that was kept and "Unpin one": "Unpin <name>" (or
-   "Unlock size of <name>") for each pin in the way, and Undo. "Keep searching" runs a longer
+   "Unlock size of <name>") for each pin in the way. "Keep searching" runs a longer
    search (about three times the budget) from the current plan and never throws it away;
    it becomes "Stop" while the search runs. Trays are named by what they hold, never
    shown with numbers ("Market", "Spare by Market"). Spare trays and spacers fill gaps so the other

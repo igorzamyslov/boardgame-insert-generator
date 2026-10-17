@@ -59,6 +59,7 @@ const NOFIT = "The no-fit heading names the tray";
 const PINS =
   "Pins in the way: the first conflict names the heading, the engine's reasons are its line, and each conflict is a card";
 const FIT_PANEL = "The fit problems are a stage of their own";
+const NOFIT_FIGURE = "The no-fit line gives the closest plan's shortfall";
 const FIT_ROW = "The rail marks the tray that does not fit: Doesn't fit";
 const BANNERS = "The plan banners use DESIGN's words";
 const NOTES = "Layout and sizing notices sit under the plan caption";
@@ -280,13 +281,18 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "The {name} tray doesn't fit yet", states: NO_FIT, ruling: NOFIT },
   { text: "Not everything fits yet", states: NO_FIT, ruling: NOFIT },
   { text: "There's no room left for it in the box.", states: ["no-fit", "m-fix"], ruling: NOFIT },
+  // the engine's whole-plan shortfall, one sentence: "17.2 mm too tall", "17.2 mm too tall and 3.0 mm too wide"
+  {
+    text: "There's no room left for it in the box. The closest plan is {name}.",
+    states: ["no-fit", "m-fix"],
+    ruling: NOFIT_FIGURE,
+  },
+  { text: "The closest plan is {name}.", states: NO_FIT, ruling: NOFIT_FIGURE },
   { text: "It's too big for your printer's bed.", states: ["no-fit-bed"], ruling: NOFIT },
   { text: "{name} doesn't fit with your pins", states: PIN_CONFLICT, ruling: PINS },
   { text: "{name} doesn't fit with its size locked", states: PIN_CONFLICT, ruling: PINS },
   { text: "Unpin {name}", states: PIN_CONFLICT, ruling: PINS },
   { text: "Unlock size of {name}", states: PIN_CONFLICT, ruling: PINS },
-  // PinConflict's Undo is a board literal; MobileFix has none, and the phone's column is the same
-  { text: "Undo", states: ["m-pin-conflict"], ruling: PINS },
   { text: "Doesn't fit", states: FIT_PROBLEMS, ruling: FIT_ROW },
   { text: "Make a new plan", states: ["workspace-banner"], ruling: BANNERS },
   {

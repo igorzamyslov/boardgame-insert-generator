@@ -3,12 +3,12 @@
 // layout, and PinConflict's, for pins that block one. The heading is the page's h1 in the warn
 // tone; under it the plan as a picture (the closest attempt dimmed with the tray that overhangs
 // marked, or the plan the runner kept with its pins) and a panel of what the engine can do about
-// it: Edit the tray and Keep searching, or Unpin / Unlock size per conflict and Undo. No outcome
+// it: Edit the tray and Keep searching, or Unpin / Unlock size per conflict. No outcome
 // is promised and no figure invented (DESIGN §6: trial runs are Phase 3). On a phone the same
 // cards are the peek sheet's (MobileFix), and the stage holds the heading and the picture.
 import type { ComponentChildren } from "preact";
 import { useId } from "preact/hooks";
-import { Button, StatusHeading } from "../kit";
+import { StatusHeading } from "../kit";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
@@ -37,9 +37,6 @@ export interface FitCardsProps extends Fixes {
   kind: FitKind;
   /** The status' actions, each a card in this order. */
   actions: readonly StatusAction[];
-  /** The last change can be taken back: Undo (the pins' column only) is live. */
-  canUndo: boolean;
-  onUndo: () => void;
 }
 
 /** One thing to do, as a card: its words alone (no outcome: the engine has no way to say one). */
@@ -58,7 +55,7 @@ function Card(p: { lead: boolean; first: boolean; label: string; onClick: () => 
 }
 
 /**
- * The cards of a fit problem, and PinConflict's quiet Undo under them. NoFit's first card has the
+ * The cards of a fit problem (the header's Undo is the way back; PinConflict's own is not built). NoFit's first card has the
  * ink edge (its recommended one on the board); the pins' cards are equals, since nothing here
  * knows which unpin helps.
  */
@@ -102,16 +99,6 @@ export function FitCards(p: FitCardsProps) {
             return null;
         }
       })}
-      {noFit ? null : (
-        <Button
-          variant="quiet"
-          class="fp-undo"
-          blockedReason={p.canUndo ? undefined : "Nothing to undo"}
-          onClick={p.onUndo}
-        >
-          Undo
-        </Button>
-      )}
     </div>
   );
 }

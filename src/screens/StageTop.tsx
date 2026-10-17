@@ -12,6 +12,7 @@ import {
 import { Button, Icon, IconButton, Notice, Segmented, StatusHeading } from "../kit";
 import type { StatusTone } from "../kit";
 import type { LockConflict } from "../layout/types";
+import { mmUp } from "../layout/warnings";
 import type { Component, Notice as NoticeData, TraySpec } from "../model/types";
 import { layerHeights, levelsOf } from "../plan/layers";
 import { layerLabel, mm } from "../ui/identity";
@@ -80,8 +81,15 @@ export interface StatusInput {
   fits: Fits | null;
   /** Searching on from this plan is right (it is not from older tray geometry). */
   canSearchMore: boolean;
-  /** The search found no layout; `misfit` is the component that most clearly does not fit. */
-  noFit: { misfit: Misfit | null } | null;
+  /**
+   * The search found no layout; `misfit` is the component that most clearly does not fit, and
+   * `shortfall` how far (mm per axis) the closest plan is short of the box: the engine's own
+   * figure for the whole plan, not for one tray.
+   */
+  noFit: {
+    misfit: Misfit | null;
+    shortfall?: { x: number; y: number; z: number } | null;
+  } | null;
   /** The pins the last run could not keep. */
   conflicts: readonly LockConflict[];
   /** The errors that have no field on screen (`errorsWithoutField`). */
@@ -106,6 +114,33 @@ const conflictSentence = (c: LockConflict): string =>
   c.kind === "size"
     ? `${c.name} doesn't fit with its size locked`
     : `${c.name} doesn't fit with your pins`;
+
+/**
+ * "The closest plan is 17.2 mm too tall." (a figure for each axis that is short, the largest first,
+ * "17.2 mm too tall and 3.0 mm too wide"), or "" when no axis is.
+ */
+export function shortfallSentence(
+  shortfall: { x: number; y: number; z: number } | null | undefined,
+): string {
+  if (shortfall === null || shortfall === undefined) {
+    return "";
+  }
+  const short = (
+    [
+      [shortfall.z, "too tall"],
+      [shortfall.x, "too wide"],
+      [shortfall.y, "too long"],
+    ] as const
+  )
+    .filter(([v]) => Number(mmUp(v)) > 0)
+    .sort((a, b) => b[0] - a[0])
+    .map(([v, word]) => `${mmUp(v)} mm ${word}`);
+  if (short.length === 0) {
+    return "";
+  }
+  const last = short.pop();
+  return `The closest plan is ${short.length === 0 ? "" : `${short.join(", ")} and `}${last}.`;
+}
 
 /**
  * The engine's reasons (phrases that continue "…because", no full stop), each once, as sentences:
@@ -203,17 +238,19 @@ export function statusOf(s: StatusInput): Status {
   }
   if (s.noFit !== null) {
     const misfit = s.noFit.misfit;
+    const figure = shortfallSentence(s.noFit.shortfall);
+    const line =
+      misfit === null
+        ? figure
+        : misfit.reason === "bed"
+          ? "It's too big for your printer's bed."
+          : `There's no room left for it in the box.${figure === "" ? "" : ` ${figure}`}`;
     return {
       tone: "warn",
       fit: "noFit",
       title:
         misfit === null ? "Not everything fits yet" : `The ${misfit.name} tray doesn't fit yet`,
-      line:
-        misfit === null
-          ? undefined
-          : misfit.reason === "bed"
-            ? "It's too big for your printer's bed."
-            : "There's no room left for it in the box.",
+      line: line === "" ? undefined : line,
       actions: [
         ...(misfit === null
           ? []

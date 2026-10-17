@@ -201,10 +201,13 @@ export function App(props: AppProps) {
   // A fit problem's cards and the heading's Stop trade places as Keep searching and Stop do in the
   // heading (StageTop): the button pressed goes with its screen, so the focus is handed on, and only
   // when it fell to the page. Keep searching on the cards hands it to Stop; a run that ends on a fit
-  // problem hands it to the first card.
+  // problem hands it to the first card, and one that ends with the problem gone (an Unpin that
+  // resolved it) to Download, the next step.
   const working = run.status === "running" || s.runPending.value;
   const wasWorking = useRef(working);
   const keptFromFit = useRef(false);
+  // A fit problem was on screen since the last run began: the run that ends is the one a card started.
+  const fitSeen = useRef(false);
   useEffect(() => {
     const was = wasWorking.current;
     wasWorking.current = working;
@@ -217,7 +220,13 @@ export function App(props: AppProps) {
       document.querySelector<HTMLElement>('[data-toggle="stop"]')?.focus();
     } else if (was && !working) {
       keptFromFit.current = false;
-      document.querySelector<HTMLElement>("[data-fit-first]")?.focus();
+      const card = document.querySelector<HTMLElement>("[data-fit-first]");
+      if (card !== null) {
+        card.focus();
+      } else if (fitSeen.current) {
+        downloadButtonRef.current?.focus();
+      }
+      fitSeen.current = false;
     }
   });
   useEffect(() => {
@@ -471,7 +480,7 @@ export function App(props: AppProps) {
     hasLayout: layout !== undefined,
     fits,
     canSearchMore: !s.geometryOld.value,
-    noFit: noFit ? { misfit } : null,
+    noFit: noFit ? { misfit, shortfall: s.noFitAttempt.value?.shortfall ?? null } : null,
     conflicts,
     hiddenErrors: errorsWithoutField(validation),
     problems,
@@ -485,26 +494,36 @@ export function App(props: AppProps) {
   // box is open: their stages tell it in a line.
   const fitKind = status.fit === undefined ? null : fitKindOf(status.fit);
   const showFit = fitKind !== null && !editing && !boxOpen;
-  // The rows that say "Doesn't fit": the tray of the closest attempt that does not, or the tray the
-  // heading names (the first pin in the way).
+  // The rows that say "Doesn't fit": the tray of the closest attempt that does not, or the component
+  // of every pin in the way (the heading names the first).
   const firstConflict = conflicts[0];
-  const culpritId =
-    fitKind === "noFit"
-      ? misfit?.componentId
-      : fitKind === "pinConflict" && firstConflict !== undefined
-        ? project.components.find((c) => firstConflict.trayKey.startsWith(`${requirementKey(c)}:`))
-            ?.id
-        : undefined;
-  const culprits = culpritId === undefined ? undefined : new Set([culpritId]);
+  const culprits = new Set<string>();
+  if (fitKind === "noFit" && misfit !== null) {
+    culprits.add(misfit.componentId);
+  } else if (fitKind === "pinConflict") {
+    for (const conflict of conflicts) {
+      const owner = project.components.find((c) =>
+        conflict.trayKey.startsWith(`${requirementKey(c)}:`),
+      );
+      if (owner !== undefined) {
+        culprits.add(owner.id);
+      }
+    }
+  }
+  if (showFit) {
+    fitSeen.current = true;
+  } else if (!working && !wasWorking.current) {
+    // idle, and not just back from a run: the problem went by another way (Undo), nothing to hand on
+    fitSeen.current = false;
+  }
   const fixes = {
     kind: fitKind ?? "noFit",
     actions: status.actions,
-    canUndo: store.canUndo.value,
-    onUndo: () => store.undo(),
     onShow: showSection,
     onKeepSearching: () => {
-      keptFromFit.current = true;
       store.refit();
+      // only a search that began has a Stop to hand the focus to
+      keptFromFit.current = store.state.run.peek().status === "running";
     },
     onUnpin: (c: { trayKey: string; kind?: "position" | "size" | "stack" }) =>
       store.unpin(c.trayKey, c.kind),
@@ -808,6 +827,10 @@ export function App(props: AppProps) {
   );
   // The layout and sizing notices, under the plan caption.
   const stageNotes = <StageNotes notices={summaryNotices} />;
+  // The fit problems say how far the plan is short in the heading's line: the engine's paragraph is not repeated.
+  const fitNotes = (
+    <StageNotes notices={summaryNotices.filter((n) => n.code !== NOTICE_CODES.doesNotFit)} />
+  );
   const stageSlot = (
     <>
       {notices}
@@ -862,7 +885,7 @@ export function App(props: AppProps) {
           misfitKey={misfit?.trayKey}
           focusKey={fitKind === "noFit" ? misfit?.trayKey : firstConflict?.trayKey}
           phone={phone}
-          after={stageNotes}
+          after={fitNotes}
         />
       ) : (
         <>
