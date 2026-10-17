@@ -1,5 +1,5 @@
 // src/ui/components/RowRemove.tsx
-import { useId } from "preact/hooks";
+import { Icon, IconButton } from "../../kit";
 
 export interface RowRemoveProps {
   /** The button's name: "Remove deck Main". */
@@ -12,32 +12,19 @@ export interface RowRemoveProps {
 }
 
 /**
- * A row's Remove button. On the last row it is aria-disabled, not `disabled`: it stays in the Tab
- * order and its reason is read with it (DESIGN §2, "Keep a blocked action focusable").
+ * The little × at the end of a card's top row (EditKinds): removes that deck, item or figure. On
+ * the last one it is aria-disabled, not `disabled`: it stays in the Tab order and its reason is
+ * read with it (DESIGN §2, "Keep a blocked action focusable").
  */
 export function RowRemove({ label, onlyOne, reason, onRemove }: RowRemoveProps) {
-  const reasonId = useId();
   return (
-    <>
-      <button
-        type="button"
-        class="row-remove"
-        aria-label={label}
-        aria-disabled={onlyOne ? "true" : undefined}
-        aria-describedby={onlyOne ? reasonId : undefined}
-        onClick={() => {
-          if (!onlyOne) {
-            onRemove();
-          }
-        }}
-      >
-        Remove
-      </button>
-      {onlyOne ? (
-        <span class="visually-hidden" id={reasonId}>
-          {reason}
-        </span>
-      ) : null}
-    </>
+    <IconButton
+      label={label}
+      variant="plain"
+      class="ed-x"
+      icon={<Icon name="close" size={16} />}
+      blockedReason={onlyOne ? reason : undefined}
+      onClick={onRemove}
+    />
   );
 }

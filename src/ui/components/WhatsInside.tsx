@@ -1,8 +1,9 @@
 // src/ui/components/WhatsInside.tsx
+import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { Component, ComponentKind, Lock, TraySpec } from "../../model/types";
+import type { Box, Component, ComponentKind, Lock, Printer, TraySpec } from "../../model/types";
+import { Rail, SheetList } from "../../screens/Rail";
 import { kindIndexOf } from "../identity";
-import { ComponentList } from "./ComponentList";
 import { EditorPanel } from "./EditorPanel";
 
 export interface WhatsInsideProps {
@@ -17,19 +18,37 @@ export interface WhatsInsideProps {
   /** The plan's trays; absent while the plan is out of date. */
   trays?: readonly TraySpec[];
   locks?: readonly Lock[];
+  box: Box;
+  /** The insert's printer: the rail's foot says its bed. */
+  printer: Printer;
+  /** The sheet's list (a phone) rather than the rail's. */
+  phone?: boolean;
+  /** The component the selected tray belongs to. */
+  selectedId?: string | null;
+  /** The components whose tray does not fit (a fit problem): their rows say so. */
+  culprits?: ReadonlySet<string>;
+  onOpenBox: () => void;
+  onSettings: () => void;
+  onHover?: (id: string | null) => void;
+  /** Every pin and size lock comes off, in one undo step. */
+  onClearChoices: () => void;
   onAdd: (kind: ComponentKind) => void;
   onChange: (id: string, next: Component) => void;
   /** Returns false when nothing was removed. */
   onRemove: (id: string) => boolean;
   onUnpin?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
+  /** An option of the open editor changed, and this is what it does: the stage shows it as a note. */
+  onNote?: (text: string) => void;
+  /** The phone's strip in the open editor: the tray drawn small and the sentence (or the note). */
+  strip?: ComponentChildren;
 }
 
 /**
- * The aside's "What's inside": the list, or, once a row is chosen, that component's editor in its
- * place (Done or the back link return to the list). A component just added opens at once. The
- * focus follows: the editor's heading when it opens, the row left (or the one that took its place,
- * or the Add buttons) when it closes.
+ * "What's inside": the rail's list (the sheet's, on a phone), or, once a row is chosen, that
+ * component's editor in its place (Done or the back link return to the list). A component just
+ * added opens at once. The focus follows: the editor's heading when it opens, the row left (or the
+ * one that took its place, or the Add pill) when it closes.
  */
 export function WhatsInside({
   components,
@@ -37,11 +56,22 @@ export function WhatsInside({
   onOpenChange,
   trays,
   locks,
+  box,
+  printer,
+  phone = false,
+  selectedId,
+  culprits,
+  onOpenBox,
+  onSettings,
+  onHover,
+  onClearChoices,
   onAdd,
   onChange,
   onRemove,
   onUnpin,
   onUnlockSize,
+  onNote,
+  strip,
 }: WhatsInsideProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [ownId, setOwnId] = useState<string | null>(null);
@@ -87,27 +117,44 @@ export function WhatsInside({
     }
     comeBackTo.current = null;
     const row = own ?? rows[Math.min(back.index, rows.length - 1)];
-    const target =
-      row?.querySelector<HTMLElement>(".pf-row__open") ??
-      root?.querySelector<HTMLElement>(".pf-kinds button");
-    target?.focus();
+    // On a phone the Add pill is the sheet's, not the list's.
+    (
+      row ??
+      root?.querySelector<HTMLElement>("[data-rail-add]") ??
+      document.querySelector<HTMLElement>("[data-rail-add]")
+    )?.focus();
   }, [open, components]);
 
   if (open === undefined) {
+    const list = {
+      components,
+      trays,
+      locks,
+      box,
+      selectedId,
+      culprits,
+      onOpenBox,
+      onOpenEditor: setOpenId,
+      onHover,
+      onUnpin,
+      onUnlockSize,
+      onClearChoices,
+    };
     return (
-      <div ref={rootRef}>
-        <ComponentList
-          components={components}
-          trays={trays}
-          locks={locks}
-          onAdd={(kind) => {
-            adding.current = true;
-            onAdd(kind);
-          }}
-          onOpen={setOpenId}
-          onUnpin={onUnpin}
-          onUnlockSize={onUnlockSize}
-        />
+      <div class="wi" ref={rootRef}>
+        {phone ? (
+          <SheetList {...list} />
+        ) : (
+          <Rail
+            {...list}
+            printer={printer}
+            onSettings={onSettings}
+            onAdd={(kind) => {
+              adding.current = true;
+              onAdd(kind);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -116,13 +163,16 @@ export function WhatsInside({
     setOpenId(null);
   };
   return (
-    <div ref={rootRef}>
+    <div class="wi ws-interim wi--edit" ref={rootRef}>
       <EditorPanel
         key={open.id}
         component={open}
         index={index}
         kindIndex={kindIndexOf(components, index)}
         sameName={components.some((o) => o.id !== open.id && o.name === open.name)}
+        phone={phone}
+        strip={strip}
+        onNote={onNote}
         onChange={(next) => onChange(open.id, next)}
         onBack={leave}
         onRemove={() => {

@@ -1,0 +1,210 @@
+/* The kit gallery's own layout (kit.html). Not part of the kit: tokens only, no hex. */
+
+.gal,
+.gal *,
+.gal *::before,
+.gal *::after {
+  box-sizing: border-box;
+}
+
+.gal {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: var(--s-24) var(--s-24) var(--s-40);
+}
+
+.gal__head h1 {
+  margin: 0;
+  font: 700 var(--h1) / 1.2 var(--font-display);
+}
+
+.gal__head p {
+  margin: var(--s-4) 0 var(--s-20);
+  color: var(--muted);
+}
+
+.gal__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: var(--s-16);
+  align-items: start;
+}
+
+.gal__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  min-width: 0;
+  padding: var(--s-16);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-panel);
+  background: var(--sheet);
+}
+
+.gal__section[data-primitive="StatusHeading"],
+.gal__section[data-primitive="Notice"] {
+  grid-column: 1 / -1;
+}
+
+.gal__name {
+  margin: 0;
+  font: 700 var(--h3) / 1.2 var(--font-display);
+}
+
+.gal__note {
+  margin: calc(-1 * var(--s-8)) 0 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.gal__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  min-width: 0;
+}
+
+.gal__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+}
+
+.gal__label {
+  color: var(--muted);
+  font-size: var(--text-2xs);
+}
+
+.gal__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-10);
+  align-items: center;
+}
+
+.gal__fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-10);
+}
+
+.gal__kinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-10);
+}
+
+.gal .gal__wide {
+  grid-column: span 2;
+}
+
+.gal__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.gal__narrow {
+  width: 220px;
+  margin-top: var(--s-8);
+}
+
+.gal__card-text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.gal__card-label {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.gal__card-value {
+  font-size: 16px; /* Main's box card */
+  font-weight: 600;
+}
+
+.gal__card-action {
+  color: var(--muted-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.gal__muted {
+  color: var(--muted);
+}
+
+/* A dialog or a drawer drawn in the page, not over it: the same classes, laid out in flow. */
+.gal .gal__surface {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+  width: 100%;
+  max-width: var(--dialog-max);
+  height: auto;
+  max-height: none;
+  margin: 0;
+  border-radius: var(--r-dialog);
+}
+
+.gal .gal__surface--drawer {
+  gap: 0;
+  height: 340px;
+  margin-left: auto;
+  border-radius: 0;
+}
+
+.gal__dialog-head,
+.gal__drawer-head {
+  display: flex;
+  gap: var(--s-12);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.gal__dialog-title {
+  margin: 0 0 var(--s-6);
+  font: 700 var(--h1-dialog) / 1.2 var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.gal__drawer-head {
+  align-items: center;
+  padding: var(--s-22) var(--s-16);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.gal__drawer-head .gal__dialog-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--h1-drawer);
+  white-space: nowrap;
+}
+
+.gal__drawer-body {
+  flex: 1 1 0;
+  padding: var(--s-14) var(--s-16) 0;
+}
+
+.gal__drawer-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--s-16);
+  border-top: 1px solid var(--rule-soft);
+  background: var(--row);
+}
+
+/* A phone's screen: the sheet is fixed to it, because the transform makes it the sheet's frame. */
+.gal__phone {
+  position: relative;
+  width: min(100%, 390px);
+  height: 380px;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  background: var(--page);
+  transform: translateZ(0);
+}

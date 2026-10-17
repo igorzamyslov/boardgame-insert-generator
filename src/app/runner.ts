@@ -9,6 +9,7 @@ import { APP_VERSION } from "../model/version";
 import { size } from "../sizing";
 import { errorText } from "../util/errors";
 import type { LayoutClient } from "./clients";
+import { shotsHold } from "./shotsHold";
 import type { RunKind, State } from "./state";
 
 export const DEBOUNCE_MS = 400;
@@ -218,6 +219,13 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
       });
       if (my !== token) {
         return;
+      }
+      if (kind === "improve") {
+        // Shots mode only (shotsHold.ts): keeps a search running for its screenshot.
+        await shotsHold("search");
+        if (my !== token) {
+          return;
+        }
       }
       if (inputsHash(state.project.value) !== input.inputsHash) {
         state.run.value = { status: "idle" };

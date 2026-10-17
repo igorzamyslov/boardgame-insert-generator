@@ -46,10 +46,12 @@ a commit can rewrite your files. Node version: `.nvmrc` (24).
 - `export/` writes 3MF and STL files and zips them.
 - `app/` holds state, store, history, runner, persistence, the mesh cache, export building,
   the dry run (`dryRun.ts`), and `App.tsx`, which wires the screen.
-- `ui/` holds the header, the list and editors (`ui/components/`), the settings sheet, the
-  status line, the tray bar, notices, the download panel, and colour and identity
-  (`identity.ts`).
-- `plan/` is the SVG top view, `viewer/` the three.js view (`scene.ts` loads lazily).
+- `ui/` holds the list and editors (`ui/components/`), the settings sheet, the tray bar, notices,
+  the download panel, and colour and identity (`identity.ts`). `screens/` holds the workspace
+  shell, the header, the rail and the top of the stage (`StageTop.tsx`: the status heading, the
+  switches and the plan banner; `StageNotes.tsx`; `RunAnnouncer.tsx`).
+- `plan/` is the top view (a box frame of HTML tiles), `viewer/` the three.js view in the same frame
+  (`scene.ts` loads lazily).
 - `instructions/` handles tray names (`naming.ts`), part ids (`numbering.ts`), the packing
   guide and the PNG.
 - `share/` holds the local project store, JSON files, printer prefs and the reader for old
@@ -80,7 +82,7 @@ runner accepts → project.layout (StoredLayout: TraySpec[]), joins the edit's H
   │  lockConflicts non-empty → NOT accepted; old plan + every pin stay; state.lockConflicts set
   ▼
 printableParts(layout.trays, …) (layout/printable.ts): risers split, spacers opened, parts merged
-  ├──► plan/PlanView.tsx (SVG)      names: instructions/naming.ts trayNames(numberParts(…))
+  ├──► plan/PlanView.tsx (HTML)     names: instructions/naming.ts trayNames(numberParts(…))
   ├──► viewer/Viewer.tsx (three.js) colours: shadeHex via viewer/shades.ts
   └──► meshes: app/meshes.ts cache, key JSON.stringify([spec, settings])
            └─► geometry worker (geometry/client.ts → worker.ts, manifold WASM)
@@ -205,9 +207,9 @@ it only with a written reason in the code or the PR.
   [Gotchas](#4-gotchas)). HTML elements may use `tabIndex`.
 - MUST keep a control that is off but explained focusable. Give it
   `aria-disabled="true"`, guard its click handler, and point `aria-describedby` at the sentence
-  that says why (`Action` in `ui/TrayBar.tsx`, Download in `ui/AppHeader.tsx`). Never use
+  that says why (`Button`'s `blockedReason` in `kit/blocked.tsx`, as the tray bar's Turn 90° and Download in `screens/Header.tsx` use it). Never use
   `disabled` for it, because a disabled control leaves the Tab order and its reason can't be
-  read. `CheckField` takes `disabled` and renders `aria-disabled`; `RowRemove` is the Remove
+  read. `CheckRow` (`kit/CheckRow.tsx`) takes `blocked` and renders `aria-disabled`; `RowRemove` is the Remove
   button of a row that can't go (the last one). The one exception is `disabled` on an `<option>`
   in a `<select>` (the "Custom" placeholder in `ui/fields.tsx`): that is correct HTML and the
   option is not in the Tab order anyway. `src/rules.test.ts` fails on `disabled` on a button,
@@ -217,10 +219,10 @@ it only with a written reason in the code or the PR.
   a control whose label changes to name the action (Pin/Unpin, Lock size/Unlock size). It takes
   no `aria-pressed`, and `data-on="true"` drives its pressed look (ruling, P2 Task 8).
 - MUST mount a live region (`role="status"` or `aria-live`) before its text changes. Render the
-  region always and swap only its content (`ui/Toast.tsx`, the `viewer-selection-live` region in
+  region always and swap only its content (`kit/Toast.tsx`, the `viewer-selection-live` region in
   `viewer/Viewer.tsx`). Keep `aria-live` narrow: the changing words only, never a whole toolbar
-  (`ui/TrayBar.tsx` has exactly two live regions, the chips and the reason line, and a test
-  checks that). Every region in the app is mounted before it speaks. Where the thing to say is a
+  (`ui/TrayBar.tsx` has exactly two live regions, the hidden pin and size-lock words and the reason
+  line, and a test checks that). Every region in the app is mounted before it speaks. Where the thing to say is a
   visible notice or banner that comes and goes, keep a visually hidden region beside it that
   always exists (`Announcer` in `ui/Notices.tsx`, `SavedStatus`, the remove toast's
   `data-live="removed"` region in `App.tsx`) and keep the notice itself free of `role`. Keep a
@@ -230,17 +232,19 @@ it only with a written reason in the code or the PR.
   `document.body`, so you never steal it from where the person moved it. Examples:
   - `ui/components/ComponentList.tsx`: a chip's × moves focus to the next chip, else to the
     row's button.
-  - `ui/StatusLine.tsx`: Keep searching and Stop sit in different pills, so the one that appears
-    takes focus.
+  - `screens/StageTop.tsx`: Keep searching and Stop swap places in the status row, so the one
+    that appears takes focus.
   - `ui/components/EditorPanel.tsx`: the Remove… and Cancel confirmation pair. It moves the focus
     unconditionally: the button that went was the one just pressed, so nothing is stolen.
 - MUST focus an editor's, dialog's or panel's heading when it opens (`tabIndex={-1}` on the
-  heading, `.focus()` in an effect), and return focus to what opened it on close. Exemption: the
-  phone's list sheet (`BottomSheet`) is an in-page disclosure, not a dialog; its 44 px handle
+  heading, `.focus()` in an effect), and return focus to what opened it on close. The rail's editor
+  has no visible heading (its name is an input styled as a title, and the stage's sentence is the
+  page's h1): a visually hidden h2 takes the focus. The phone's editor focuses its h1. Exemption: the
+  phone's list sheet (`kit/Sheet.tsx`) is an in-page disclosure, not a dialog; its 44 px handle
   carries the name and opening it focuses the first control, not a heading. The sheet holding an
   editor or the box still lands on that editor's heading:
   - `WhatsInside.tsx` returns it to the row.
-  - `Modal.tsx` returns it to the opener.
+  - `kit/Dialog.tsx` returns it to the opener.
   - `SelectedTrayBar.tsx` returns it to the tile, or in 3D to the picker item (`data-key`).
 - MUST make touch targets 44 px. The base `button` and the text inputs and selects take
   `min-height: var(--control-h)` (44px, `styles/tokens.css`). Where a container rule would have
@@ -248,14 +252,14 @@ it only with a written reason in the code or the PR.
   exempt (their size is tray geometry, WCAG 2.5.8 "essential"; see the comment in
   `plan/plan.css`).
 - SHOULD use a disclosure (`aria-expanded` plus a group of buttons) rather than an ARIA menu for
-  a panel of buttons (`ProjectMenu`, ruling P2 Task 4). Don't put `aria-haspopup` on it.
+  a panel of buttons (`screens/ProjectMenu.tsx`, ruling P2 Task 4). Don't put `aria-haspopup` on it.
 - SHOULD use `useId()` for ids that tie a control to its description.
 
 ### CSS and tokens
 
-- MUST take colours, spacing, radii, fonts and `--control-h` from `src/styles/tokens.css`. Dark
-  mode redefines the same names under `@media screen and (prefers-color-scheme: dark)`, so print
-  stays light.
+- MUST take colours, spacing, radii, fonts, sizes and `--control-h` from `src/styles/tokens.css`.
+  Light is the only theme for now; dark is opt-in and not built (DESIGN §4 Dark mode). The page,
+  type, focus ring, `.tap` and `.visually-hidden` live in `src/styles/base.css`.
 - MUST decide a component's shade in one place only: `shadeIndexOf(components, index)` in
   `src/ui/identity.ts`. Then pick the format by consumer:
   - DOM: `shadeOf(kind, i)` or `shadeVars`. These are CSS `light-dark()` strings, so one inline
@@ -273,9 +277,9 @@ scheme)`, with `"light"` for paper. `viewer/shades.ts` and `plan/glyph.ts` go th
   `style.test.ts` checks both lines, and that no other `@media` width exists beyond the ruled
   760 to 960 px tablet rail.
 - SHOULD prefer attributes over `:has()` and DOM queries for state-driven styling. For example,
-  `BottomSheet` sets `data-editing`, `data-full` and `data-expanded`, and App passes a
-  `handleRef` instead of `querySelector(".pf-sheet__handle")`.
-- Note: stylelint ignores `src/styles/**` (`.stylelintrc.json`), so `tokens.css`, `proof.css`
+  `Sheet` sets `data-editing`, `data-full` and `data-expanded`, and App passes a
+  `handleRef` instead of `querySelector(".k-sheet__handle")`.
+- Note: stylelint ignores `src/styles/**` (`.stylelintrc.json`), so `tokens.css`, `base.css`
   and `fonts.css` are only checked by `style.test.ts` and `identity.test.ts`. Run those tests
   after touching them.
 
@@ -300,9 +304,9 @@ scheme)`, with `"light"` for paper. `viewer/shades.ts` and `plan/glyph.ts` go th
   `src/app/test-app.tsx`. It wires a real store with a stubbed layout client, a stubbed mesh
   source and `viewerProps={{ webgl: () => false }}`. Use `fixtureProject`, `makeTray`,
   `makeLayout`, `makeResult`, `stubLayoutClient` and `flush` from `src/app/test-helpers.ts`.
-  Find plan tiles with a `tile(key)` helper (`.plan-tray[data-key=…]`, as in `App.test.tsx`).
-- MUST prefer `getByRole(…, { name })` queries. Fall back to `data-key` or classes only for SVG
-  tiles and other things with no role.
+  Find plan tiles with a `tile(key)` helper (`.plan-tile[data-key=…]`, as in `App.test.tsx`).
+- MUST prefer `getByRole(…, { name })` queries. Fall back to `data-key` or classes only for plan
+  tiles' parts and other things with no role.
 - MUST name keyboard tests honestly. If the test says "keyboard", it must fire real key events
   (`fireEvent.keyDown(tile, { key: " " })`) and assert the tab stop (`tabindex="0"`). Clicking a
   button covers Enter and Space on that button and is fine, but don't call a click test a
@@ -331,7 +335,7 @@ scheme)`, with `"light"` for paper. `viewer/shades.ts` and `plan/glyph.ts` go th
   Stop only the process you started, by its PID or through the tool that started it.
 - MUST NOT use a bare `git stash` or `git stash pop`, because the stash stack is shared across
   worktrees. lint-staged also leaves its own backup entries there.
-- SHOULD start each source file with its path comment (`// src/ui/Modal.tsx`), as most files do.
+- SHOULD start each source file with its path comment (`// src/kit/Dialog.tsx`), as most files do.
 
 ### UI work (visual changes, new screens, redesigns)
 
@@ -366,16 +370,17 @@ Each entry reads: symptom → cause → what to do.
 
 **SVG `tabIndex` is not a tab stop.**
 Plan tiles couldn't be reached with Tab even though the code said `tabIndex={0}` (this shipped
-in P2 Task 7 and was caught in P2 Task 8).
+in P2 Task 7 and was caught in P2 Task 8; the plan's tiles are HTML since the UI rebuild's Task 7,
+where `tabIndex` is right, but the lesson stands for any SVG).
 → Preact 11 passes SVG prop names to `setAttribute` as written. SVG attributes are case-sensitive,
 so `tabIndex` on `<g>` renders a literal `tabIndex` attribute that the browser ignores.
-→ Write `tabindex={0}` on SVG elements (`plan/PlanView.tsx`, with a comment). The same goes for
-any camelCase prop on SVG that isn't a real SVG attribute.
+→ Write `tabindex={0}` on SVG elements. The same goes for any camelCase prop on SVG that isn't a
+real SVG attribute.
 
 **`onFocusOut` never fires.**
 → Preact derives the DOM event name from the prop and listens for a `FocusOut` event, which
 Chrome doesn't dispatch.
-→ Use `onBlurCapture` and check `relatedTarget` against the wrapper (`ui/AppHeader.tsx`, the
+→ Use `onBlurCapture` and check `relatedTarget` against the wrapper (`screens/Header.tsx`, the
 project menu). Safari doesn't focus buttons on click, so keep an outside-click handler as well.
 
 **`inert` is a type error.**
@@ -388,10 +393,11 @@ Record<string, unknown>;` then `<main {...behindSheet}>` (`app/App.tsx`).
 → Call it as `el.scrollIntoView?.({ block: "nearest" })` in app code (`App.tsx`). To assert on
 it, stub `Element.prototype.scrollIntoView` and delete it afterwards (`App.phone.test.tsx`).
 
-**Focus assertions on SVG tiles fail.**
-→ jsdom gives SVG elements no `focus()`.
-→ Stub it on the instance: `(tile(key) as unknown as { focus: () => void }).focus = vi.fn()`
-(`App.test.tsx`). Say in the report that real focus wasn't checked.
+**Focus assertions on SVG elements fail.**
+→ jsdom gives SVG elements no `focus()`. (The plan's tiles are HTML now and have one; a test may
+still stub it on the instance, as `App.test.tsx` does:
+`(tile(key) as unknown as { focus: () => void }).focus = vi.fn()`.) Say in the report that real
+focus wasn't checked.
 
 **`:focus-visible` styling or logic can't be tested.**
 → jsdom doesn't match `:focus-visible`.
@@ -401,10 +407,10 @@ it, stub `Element.prototype.scrollIntoView` and delete it afterwards (`App.phone
 **Text overflows its pill, or tests can't tell whether it fits.**
 → jsdom has no layout or text measurement, and `getBBox` and `getComputedTextLength` don't
 exist.
-→ Estimate the width (`CHAR_WIDTH = 0.6` em in `plan/tileText.ts`) and clip the text to the
-pill with a `<clipPath>` so a bad estimate can't paint outside (`PlanView.tsx`). Cut names by
-grapheme with `Intl.Segmenter` (with an `Array.from` fallback) so an emoji or combining accent is
-never split.
+→ Let the CSS cut it: the pill holds the whole name, with `overflow: hidden; text-overflow:
+ellipsis` on the text and `max-width: 100%` on the pill (`plan/plan.css`). JS only decides whether
+a tile has room for a pill at all (`hasPillRoom` in `plan/tileText.ts`, an estimate from the
+tile's measured px, `CHAR_WIDTH = 0.5` em); the whole name stays in the tile's `title`.
 
 **A media-query behaviour has no test.**
 → jsdom has no `matchMedia`, and CSS media queries never apply.
@@ -432,7 +438,7 @@ For example, `.modal-actions button { min-height: … }` after the base `button`
 → The container rule is more specific than, and comes after, rules for the same element
 elsewhere.
 → Add the shared `.tap` class (`min-height: var(--control-h)`) to the button instead
-(`ui/Modal.tsx` Close, the `SettingsForm` buttons).
+(the `SettingsForm` buttons).
 
 **A Not-word passes review and then fails `copy.test.ts`, or a legitimate label fails it.**
 → The test parses source with the TypeScript compiler and checks string literals, template text
@@ -442,15 +448,15 @@ and JSX text. Comments and identifiers aren't checked.
 **A live region says nothing.**
 → The region was mounted in the same render as its text, and screen readers announce changes
 inside a region that already exists.
-→ Mount the region always and swap its children (`ui/Toast.tsx`). Toggling `role` with the text
-(`ui/SavedStatus.tsx` today) has the same problem.
+→ Mount the region always and swap its children (`kit/Toast.tsx`). Toggling `role` with the text
+has the same problem (`ui/SavedStatus.tsx` keeps its region mounted and empty while saving works).
 
 **Focus lands on `<body>` after a click.**
 For example, after a chip's ×, after Keep searching turns into Stop, or after deleting the last
 row.
 → The focused element unmounted.
 → In an effect after the re-render, if `document.activeElement` is `body` (or null), focus the
-counterpart, the next item or the owner (`StatusLine.tsx`, `ComponentList.tsx`). Never move focus
+counterpart, the next item or the owner (`StageTop.tsx`, `ComponentList.tsx`). Never move focus
 when it's somewhere else.
 
 **Calling `rerender` from an `onChange` in a test overflows the stack.**
@@ -502,7 +508,7 @@ addition:
 - Add the kind's shade triple to `src/styles/tokens.css` and to `KIND_BASES` in `ui/identity.ts`.
   `identity.test.ts` checks the base shades against the tokens, and the contrast for every
   index in both schemes.
-- Add its glyph (`ui/kindGlyphs.tsx`, `ui/KindIcon.tsx`) and its name in `KIND_NAMES`, using the
+- Add its glyph (`KindGlyph` in `kit/icons.tsx`, shown by `kit/IconTile.tsx`) and its name in `KIND_NAMES`, using the
   spec's words.
 - Check that `instructions/naming.ts` names it sensibly when the user leaves the name empty (it
   falls back to the kind's name).
@@ -529,9 +535,11 @@ addition:
    - If it changes printed geometry, `GEOMETRY_VERSION`: PATCH if parts still mate, MINOR if
      not.
    - `package.json` on the PR.
-6. UI: put it in the settings sheet (`ui/SettingsSheet.tsx` and `ui/SettingsForm.tsx`, or the My
-   printer tab for printer things). If it sits under "Exact numbers", make sure an error there
-   opens that disclosure.
+6. UI: put it in the Settings drawer (`ui/SettingsSheet.tsx` and `ui/SettingsForm.tsx`, or the My
+   printer tab for printer things). A number goes in a group of `ui/settingsGroups.ts` (a test
+   fails while a `SETTING_RANGES` path is in no group); an error at its path then opens that group.
+   The first screen of "This insert" is the board's plain choices: do not add to it without a
+   decision-log row.
 7. Tests: the hash test (`model/hash.test.ts`: it changes, or doesn't change, the hash), the
    schema read test, and a form test that the error shows next to the field.
 
@@ -559,25 +567,25 @@ addition:
 
 ### Add a dialog or sheet
 
-- **Modal over the page** (download, settings): wrap the content in `ui/Modal.tsx`
-  (`labelledBy`, `onClose`, optional `class`). The owner mounts it to open and unmounts it to
-  close. Modal handles the rest:
+- **Modal over the page** (download, settings): wrap the content in the kit's `Dialog`
+  (`kit/Dialog.tsx`; `Drawer` for Settings' right-hand placement), with `labelledBy` (the id of its
+  h1), `onClose` and optional `class` and `region`. The owner mounts it to open and unmounts it to
+  close. Dialog handles the rest:
   - it opens a native `<dialog>` with `showModal()`, which traps focus and makes the page inert
   - Escape goes through `onCancel` to your `onClose`
   - it returns focus to the opener on unmount
-  - it provides a 44 px Close button (`.tap`)
-  - it goes full-screen below 600 px (`.modal` in `style.css`).
+  - it goes full screen below 600 px (`.k-dialog`, `.k-drawer` in `kit/kit.css`)
+  - the content draws its own Close (`CloseButton`) and Done.
 
-  Model a tabbed sheet on `ui/SettingsSheet.tsx`: it focuses its heading (`tabIndex={-1}`) in an
-  effect, and its tabs use roving `tabIndex` with Arrow, Home and End. In tests, jsdom has no
-  `showModal`, so Modal falls back to `open`. Fire `cancel` to test Escape, and note that the
-  real focus trap wasn't exercised.
+  Model a drawer on `ui/SettingsSheet.tsx` and a dialog on `ui/ExportPanel.tsx`: each focuses its
+  h1 (`tabIndex={-1}`) in an effect. In tests, jsdom has no `showModal`, so Dialog falls back to
+  `open`. Fire `cancel` to test Escape, and note that the real focus trap wasn't exercised.
 
-- **Panel in the page** (phone list sheet): `ui/BottomSheet.tsx`. State comes in as attributes
+- **Panel in the page** (phone list sheet): `kit/Sheet.tsx`, placed by `screens/Workspace.tsx`. State comes in as attributes
   (`data-expanded`, `data-full`, `data-editing`) and the handle as a `handleRef`. Below
   `NARROW_QUERY` a full sheet covers the screen, and App puts `inert` on `.app-top` and `<main>`.
   Between 600 and 760 px it's non-modal. Add every transitioned selector to the reduced-motion
-  block, which `BottomSheet.test.tsx` checks by brace matching.
+  block, which `kit/Sheet.test.tsx` checks by brace matching.
 - Every new button gets 44 px, from the base `button` rule or `.tap`. Pin a new media-query rule
   in `style.test.ts`.
 
@@ -592,7 +600,7 @@ addition:
     time**; when both apply, the older-geometry one wins (`placeNotices`).
   - `"menu"`: needs a look but no interruption. It adds a dot and a count to the project menu
     button (`MENU_CODES`).
-  - `"inline"`: under the status line (the default). `Notices` shows at most 3; errors always
+  - `"inline"`: under the status heading (the default). `Notices` shows at most 3; errors always
     show, and the rest fold behind "Show all".
   - `"none"`: for example, the stale notice while a run is pending or the inputs don't fit.
 - To add one: give it a stable code constant, decide its place in `noticePlacement` (add to

@@ -1,4 +1,5 @@
 // src/ui/components/ToggleOptions.tsx
+import { useId } from "preact/hooks";
 import {
   cornerReliefsOn,
   curvedFloorOn,
@@ -10,17 +11,17 @@ import {
   withDividers,
   withSeparators,
 } from "../../model/defaults";
+import { ChoiceChips } from "../../kit";
 import type { Component } from "../../model/types";
-import { CheckField } from "../fields";
-import { DIVIDER_GROOVE, DIVIDER_PLAY, DIVIDER_THICKNESS } from "../../sizing/constants";
 import { DIVIDERS, SEPARATORS } from "../limits";
-import { NumberField } from "../NumberField";
 import { useSizingNotices } from "../validation";
-import { GrowthOptions } from "./GrowthOptions";
+import { Alert, ExactRow, Group, Notes, NumField } from "./controls";
 import type { EditorProps } from "./types";
 
 /** Kinds that may have a curved floor (spec §5): it would bend cards and tilt upright tiles. */
 const CURVED_KINDS: readonly Component["kind"][] = ["bulk", "minis", "custom"];
+
+type Shape = "fingerCuts" | "curvedFloor" | "cornerReliefs" | "dividers";
 
 /** The bulk fallback's note: the component is stored in a bin, and what the bin has. */
 export function BinNotes({ index }: Pick<EditorProps<Component>, "component" | "index">) {
@@ -28,91 +29,123 @@ export function BinNotes({ index }: Pick<EditorProps<Component>, "component" | "
     (n) => n.code === "sizing.noFingerSlot" && n.level === "info",
   );
   return binNotes.length > 0 ? (
-    <p class="hint">{binNotes.map((n) => n.message).join(" ")}</p>
+    <p class="ed-note">{binNotes.map((n) => n.message).join(" ")}</p>
   ) : null;
 }
 
 /** The note that a spacer-plate count was cut back to what fits (a print-time sizing notice). */
 function SeparatorNotes({ index }: Pick<EditorProps<Component>, "index">) {
   const notes = useSizingNotices(`/components/${index}/separators`);
-  return notes.length > 0 ? (
-    <p class="hint field-notes">{notes.map((n) => n.message).join(" ")}</p>
-  ) : null;
+  return notes.length > 0 ? <p class="ed-note">{notes.map((n) => n.message).join(" ")}</p> : null;
 }
 
-/** The finger cuts, curved floor and corner reliefs switches (inside More options). */
-export function ToggleOptions<C extends Component>({
-  component: c,
-  index,
-  onChange,
-}: EditorProps<C>) {
+/**
+ * Edit's "Tray shape": pressed chips for the finger cuts, the curved floor (where the kind may
+ * have one, or a file set it), the corner holes and one removable divider (where the well may have
+ * dividers). A curved-floor error shows under the chips.
+ */
+export function TrayShape<C extends Component>({ component: c, index, onChange }: EditorProps<C>) {
+  const errorId = useId();
+  const floor = CURVED_KINDS.includes(c.kind) || c.curvedFloor === true;
+  const on: Shape[] = [];
+  if (fingerCutsOn(c)) {
+    on.push("fingerCuts");
+  }
+  if (floor && (c.curvedFloor === true || curvedFloorOn(c))) {
+    on.push("curvedFloor");
+  }
+  if (cornerReliefsOn(c)) {
+    on.push("cornerReliefs");
+  }
+  if (dividersOf(c) > 0) {
+    on.push("dividers");
+  }
+  const chips: { value: Shape; label: string }[] = [{ value: "fingerCuts", label: "Finger cuts" }];
+  if (floor) {
+    chips.push({ value: "curvedFloor", label: "Curved floor" });
+  }
+  chips.push({ value: "cornerReliefs", label: "Corner holes" });
+  if (dividersOffered(c)) {
+    chips.push({ value: "dividers", label: "Removable dividers" });
+  }
+  const toggle = (which: Shape): void => {
+    switch (which) {
+      case "fingerCuts":
+        onChange({ ...c, fingerCuts: !fingerCutsOn(c) });
+        return;
+      case "cornerReliefs":
+        onChange({ ...c, cornerReliefs: !cornerReliefsOn(c) });
+        return;
+      case "dividers":
+        onChange(withDividers(c, dividersOf(c) > 0 ? 0 : 1));
+        return;
+      case "curvedFloor": {
+        const now = c.curvedFloor === true || curvedFloorOn(c);
+        if (now && !CURVED_KINDS.includes(c.kind)) {
+          // The chip only exists on this kind while a file set it, so turning it off removes it:
+          // keep the keyboard focus in the group.
+          document.getElementById(`${c.id}-shape`)?.querySelector<HTMLElement>("button")?.focus();
+        }
+        onChange({ ...c, curvedFloor: !now });
+      }
+    }
+  };
+  return (
+    <Group label="Tray shape">
+      <div id={`${c.id}-shape`}>
+        <ChoiceChips
+          label="Tray shape"
+          options={chips}
+          value={on}
+          describedBy={errorId}
+          onChange={toggle}
+        />
+      </div>
+      <Alert id={errorId} path={`/components/${index}/curvedFloor`} />
+      <Notes path={`/components/${index}/curvedFloor`} />
+    </Group>
+  );
+}
+
+/**
+ * The exact numbers that go with the shape of a stack's well: the spacer plates the room it grows
+ * into is printed as, and the removable dividers. Only cards and tiles that may grow along the
+ * stack have them (spec §5); the dividers take the plates' place when there are any.
+ */
+export function WellRows<C extends Component>({ component: c, index, onChange }: EditorProps<C>) {
+  if (
+    !(c.kind === "cards" || c.kind === "tiles") ||
+    growthOf(c, "stack", c.storage === "flat") === "off"
+  ) {
+    return null;
+  }
+  const dividers = dividersOf(c);
   return (
     <>
-      <CheckField
-        id={`${c.id}-fingerCuts`}
-        label="Finger cuts"
-        checked={fingerCutsOn(c)}
-        hint="A cut through a wall of each compartment, to reach in."
-        onChange={(on) => onChange({ ...c, fingerCuts: on })}
-      />
-      {CURVED_KINDS.includes(c.kind) || c.curvedFloor === true ? (
-        <CheckField
-          id={`${c.id}-curvedFloor`}
-          label="Curved floor"
-          checked={c.curvedFloor === true || curvedFloorOn(c)}
-          hint="A ramp up one wall of each compartment, to scoop pieces out."
-          path={`/components/${index}/curvedFloor`}
-          onChange={(on) => {
-            if (!on && !CURVED_KINDS.includes(c.kind)) {
-              // The control only exists on this kind while a file set it, so turning it off
-              // removes it: keep the keyboard focus in the form.
-              document.getElementById(`${c.id}-fingerCuts`)?.focus();
-            }
-            onChange({ ...c, curvedFloor: on });
-          }}
-        />
+      {dividers === 0 ? (
+        <ExactRow title="Spacer plates" errorPaths={[`/components/${index}/separators`]}>
+          <NumField
+            id={`${c.id}-separators`}
+            label="Spacer plates"
+            value={separatorsOf(c)}
+            {...SEPARATORS}
+            path={`/components/${index}/separators`}
+            onCommit={(v) => onChange(withSeparators(c, v))}
+          />
+          <SeparatorNotes index={index} />
+        </ExactRow>
       ) : null}
-      <CheckField
-        id={`${c.id}-cornerReliefs`}
-        label="Corner holes"
-        checked={cornerReliefsOn(c)}
-        hint="Round holes in each compartment's corners, so flat square pieces sit flat."
-        onChange={(on) => onChange({ ...c, cornerReliefs: on })}
-      />
-      <GrowthOptions component={c} index={index} onChange={onChange} />
-      {(c.kind === "cards" || c.kind === "tiles") &&
-      growthOf(c, "stack", c.storage === "flat") !== "off" ? (
-        <>
-          {dividersOf(c) === 0 ? (
-            <>
-              <NumberField
-                id={`${c.id}-separators`}
-                label="Spacer plates"
-                hint="Print the room the stack grows into as this many thin plates (1: one block), so the stack stays snug and one can be pulled out as the collection grows. 0 (the default): nothing is printed, the stack simply stands in a wider well. Plates also let it grow further: they hold the stack upright, so the room is not limited to its own thickness or to what leaves it under its finger cut."
-                value={separatorsOf(c)}
-                {...SEPARATORS}
-                path={`/components/${index}/separators`}
-                onCommit={(v) => onChange(withSeparators(c, v))}
-              />
-              <SeparatorNotes index={index} />
-            </>
-          ) : (
-            <p class="hint">
-              Spacer plates are off while the well has dividers: the dividers hold the room instead.
-            </p>
-          )}
-          {dividersOffered(c) ? (
-            <NumberField
-              id={`${c.id}-dividers`}
-              label="Removable dividers"
-              hint={`Dividers you can take out. They split the grown well into this many plus one sections (per player, by card type), each standing in a slot in the tray's floor. Evenly spaced. Each section is held upright at both ends, so the room may be that many times larger. Every divider takes about ${DIVIDER_THICKNESS + DIVIDER_PLAY} mm of the well, and the tray is up to ${DIVIDER_GROOVE} mm taller for the slots. Not combined with spacer plates. 0: none.`}
-              value={dividersOf(c)}
-              {...DIVIDERS}
-              path={`/components/${index}/dividers`}
-              onCommit={(v) => onChange(withDividers(c, v))}
-            />
-          ) : null}
-        </>
+      {dividersOffered(c) ? (
+        <ExactRow title="Dividers" errorPaths={[`/components/${index}/dividers`]}>
+          <NumField
+            id={`${c.id}-dividers`}
+            label="Number of dividers"
+            value={dividers}
+            {...DIVIDERS}
+            path={`/components/${index}/dividers`}
+            onCommit={(v) => onChange(withDividers(c, v))}
+          />
+        </ExactRow>
       ) : null}
     </>
   );

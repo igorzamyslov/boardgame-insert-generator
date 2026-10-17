@@ -42,7 +42,33 @@ function parse(path: string): ts.SourceFile {
 describe("rules", () => {
   it("reads the source", () => {
     expect(appFiles.length).toBeGreaterThan(100);
-    expect(appFiles).toContain("/src/ui/StatusLine.tsx");
+    expect(appFiles).toContain("/src/screens/StageTop.tsx");
+  });
+
+  // DESIGN §2 Accessibility: every target is 44 px. A bare checkbox is about 13 px with the
+  // browser's accent (it shipped once, in Settings): a switch is the kit's CheckRow, whose row is
+  // 44 px tall and whose box takes the kit's look.
+  it("draws no checkbox outside the kit's CheckRow", () => {
+    const found: string[] = [];
+    for (const path of appFiles.filter((p) => p.endsWith(".tsx") && !p.startsWith("/src/kit/"))) {
+      const file = parse(path);
+      const visit = (node: ts.Node): void => {
+        if (
+          ts.isJsxAttribute(node) &&
+          ts.isIdentifier(node.name) &&
+          node.name.text === "type" &&
+          node.initializer !== undefined &&
+          ts.isStringLiteral(node.initializer) &&
+          node.initializer.text === "checkbox"
+        ) {
+          const { line } = file.getLineAndCharacterOfPosition(node.getStart(file));
+          found.push(`${path}:${line + 1}`);
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(file);
+    }
+    expect(found).toEqual([]);
   });
 
   // DESIGN §2 Accessibility: a blocked action stays focusable (aria-disabled plus a reason).
@@ -113,7 +139,7 @@ describe("rules", () => {
     for (const css of Object.values(styles)) {
       uses += css.match(LEGACY)?.length ?? 0;
     }
-    expect(uses).toBeLessThanOrEqual(70);
+    expect(uses).toBeLessThanOrEqual(32);
   });
 
   // DESIGN §2 Colour: every colour comes from a token. Hex lives in tokens.css; the print rules of

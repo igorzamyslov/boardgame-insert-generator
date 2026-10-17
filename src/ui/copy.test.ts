@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import appJson from "../../app.json?raw";
 import indexHtml from "../../index.html?raw";
 import readme from "../../README.md?raw";
+import { COPY_RULINGS, DOWNLOAD_STATES } from "../screens/copy-rulings";
 
 /**
  * How the scan works. Every non-test `.ts` and `.tsx` file under `src/` is parsed with the
@@ -18,11 +19,12 @@ import readme from "../../README.md?raw";
  * - NOT_WORDS: the spec's "Not" column, as whole words, case-insensitively ("bits", "minis",
  *   "components", "filler", "lock", "keep", "placement", "bin", "part", "things", ...).
  *
- * Not copy, so never checked: a string that is one lowercase token (a type tag such as "minis" or
- * "part", a key, a path) and a string made only of hyphenated or dotted lowercase tokens (a
- * class list such as "tray-chip tray-chip--spare"). A hex colour (`#1D1F1C`), an HTML entity
- * (`&#8212;`) and a colour put together from its channels (`#${r}${g}${b}`) are not "#" and a
- * digit; `Plan #{n}`, `"Plan #" + n` and `Plan #${n}` are.
+ * Not copy, so never checked: the `COPY_DENIED` list in `src/screens/copy-rulings.ts` only (board
+ * strings the app must never print, so it names retired words on purpose); a string that is one
+ * lowercase token (a type tag such as "minis" or "part", a key, a path) and a string made only of
+ * hyphenated or dotted lowercase tokens (a class list such as "tray-chip tray-chip--spare"). A hex
+ * colour (`#1D1F1C`), an HTML entity (`&#8212;`) and a colour put together from its channels
+ * (`#${r}${g}${b}`) are not "#" and a digit; `Plan #{n}`, `"Plan #" + n` and `Plan #${n}` are.
  *
  * ALLOWED is the allow-list of legitimate uses of a Not-word. Each entry is removed from the text
  * before the check, so the rest of the same string is still checked:
@@ -30,12 +32,16 @@ import readme from "../../README.md?raw";
  * - "Lock size", "Unlock size", "size locked", "size lock(s)": the size lock is a real control
  *   and its name (spec: only the position lock is a "pin").
  * - "Keep searching", "Keep space free", "Part of it": real labels (the box's headroom choice;
- *   named in DESIGN §2 Words).
+ *   named in DESIGN §2 Words). "Keep this version": the project menu's choice after another tab
+ *   changed the insert (Main's board; it has nothing to do with pins). "keeps the top layer from
+ *   sliding" and "Keeps everything snug": the hints of Settings' board, where "keeps" is the plain
+ *   verb (DESIGN §7).
  * - "data-part": an attribute name inside an SVG string, not text.
  * - "part"/"parts" is the download list's word, so it is allowed (PART_FILES) only in the three
  *   files that write the download list (ExportPanel.tsx), the reason it can be empty
  *   (app/exportBuild.ts) and the part names (instructions/naming.ts); spec: "part (except in the
- *   download list)". Nowhere else.
+ *   download list)". Nowhere else. One more place: a ruling in copy-rulings.ts that rules the
+ *   singular of those words, if every state it names is a download state (DOWNLOAD_STATES).
  */
 const sources = new Map(
   Object.entries(
@@ -81,6 +87,13 @@ function texts(path: string, source: string): { text: string; line: number }[] {
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
       return; // module paths are not copy
+    }
+    if (
+      path.endsWith("src/screens/copy-rulings.ts") &&
+      ts.isVariableDeclaration(node) &&
+      node.name.getText(file) === "COPY_DENIED"
+    ) {
+      return; // src/screens/copy-rulings.ts: the board strings the app must never print
     }
     if (
       ts.isStringLiteral(node) ||
@@ -181,7 +194,7 @@ const NOT_WORDS =
 
 /** Legitimate uses, removed from the text before NOT_WORDS looks at it. */
 const ALLOWED =
-  /\b(?:Lock size|Unlock size|size locked|size locks?|Keep searching|Keep space free|Part of it|data-part)\b/gi;
+  /\b(?:Lock size|Unlock size|size[ -]locked|size locks?|Keep searching|Keep space free|Keep this version|keeps the top layer from sliding|Keeps everything snug|Part of it|data-part)\b/gi;
 
 /** Files that write the download list, why a part could not be exported, and part names. */
 const PART_FILES: readonly RegExp[] = [
@@ -209,7 +222,16 @@ function notWordsIn(path: string, text: string): string | null {
   return null;
 }
 
+const onlyDownload = (states: readonly string[] | "all"): boolean =>
+  states !== "all" && states.every((s) => (DOWNLOAD_STATES as readonly string[]).includes(s));
+
 describe("copy", () => {
+  it("lets only the download dialog's rulings say part", () => {
+    const saying = COPY_RULINGS.filter((r) => /\bparts?\b/i.test(r.text));
+    expect(saying.length).toBeGreaterThan(0);
+    expect(saying.filter((r) => !onlyDownload(r.states)).map((r) => r.text)).toEqual([]);
+  });
+
   it("scans the app's strings", () => {
     const files = [...sources.keys()].filter(isScanned);
     expect(files.length).toBeGreaterThan(100);
@@ -221,6 +243,13 @@ describe("copy", () => {
     expect(texts("x.ts", "// Advanced mode, #1.\nconst a = '#1D1F1C';").map((t) => t.text)).toEqual(
       ["#1D1F1C"],
     );
+    const denied = "export const COPY_DENIED = ['Update plan', 'Keep'];";
+    expect(texts("/src/screens/copy-rulings.ts", denied)).toEqual([]);
+    // Only that one file may name them: the same declaration anywhere else is scanned.
+    expect(texts("/src/ui/other.ts", denied).map((t) => t.text)).toEqual(["Update plan", "Keep"]);
+    expect(
+      texts("/src/screens/copy-rulings.ts", "export const COPY_RULINGS = ['Keep'];"),
+    ).toHaveLength(1);
     const retired = (s: string) =>
       texts("x.tsx", s).some((t) => RETIRED.some((w) => w.test(t.text)));
     expect(retired("const a = 'Copy link';")).toBe(true);
@@ -245,7 +274,9 @@ describe("copy", () => {
     expect(not("Lock size and keep it")).toBe("keep");
     expect(not("Keep searching")).toBeNull();
     expect(not("Keep space free on top")).toBeNull();
+    expect(not("Keep this version")).toBeNull();
     expect(not("Size locked")).toBeNull();
+    expect(not("Pinned and size-locked trays")).toBeNull();
     expect(not("the filler piece")).toBe("filler");
     expect(not("Parts")).toBe("Parts");
     expect(not("Parts", "/src/ui/ExportPanel.tsx")).toBeNull();
@@ -263,7 +294,11 @@ describe("copy", () => {
             found.push(`${path}:${line} ${word.name}: ${JSON.stringify(text.slice(0, 80))}`);
           }
         }
-        const not = isNotCopy(text) ? null : notWordsIn(path, text);
+        // A ruling of the download dialog's singular ("The part is ready"): its states are checked below.
+        const ruled =
+          path.endsWith("/screens/copy-rulings.ts") &&
+          COPY_RULINGS.some((r) => r.text === text && onlyDownload(r.states));
+        const not = isNotCopy(text) || ruled ? null : notWordsIn(path, text);
         if (not !== null) {
           found.push(`${path}:${line} Not-word "${not}": ${JSON.stringify(text.slice(0, 80))}`);
         }

@@ -1,0 +1,139 @@
+/*
+ * The box's stage (UI rebuild Task 11), from Box and MobileBox: the box seen from the side, in the
+ * middle of the stage, with its label over it (the page's h1 while the box's editor is open) and a
+ * caption under it. The drawing is a cross-section: as wide as the board's, with the height the
+ * trays fill drawn at a fixed height (not the same scale as across). On the tokens (styles/tokens.css).
+ */
+.bx-stage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* A failed run, a tray that does not fit or pins in the way: the line sits at the top, the picture stays in the middle. */
+.bx-stage > .ed-problem {
+  flex: none;
+}
+
+.bx-stage__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-18);
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* Box: the label is a 600 line in --muted-strong at the page's size, though it is the page's h1. */
+.bx-label {
+  margin: 0;
+  color: var(--muted-strong);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: normal;
+}
+
+/* ---- The drawing ---- */
+.bx-side {
+  /* The height the trays fill: Box's rows are 278 px under the 46 px band; MobileBox's 178 under 30. */
+  --bx-rows: 278px;
+  --bx-gap: var(--s-6);
+  --bx-inset: calc(var(--bx-gap) / 2);
+  --bx-tray-r: var(--r-logo);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-18);
+  align-items: center;
+  max-width: 100%;
+}
+
+.bx-drawing {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 48px));
+  overflow: hidden;
+  border-radius: var(--r-panel);
+  background: var(--box);
+  box-shadow: var(--box-inset-side);
+}
+
+/* The space kept free: a white band on the box, closed by a dashed line (the lid's or the rulebook's). */
+.bx-band {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: content-box; /* Box's band is 46 px and its dashed line 2 px more */
+  height: 46px;
+  border-bottom: 2px dashed var(--spacer-dash);
+  background: var(--sheet);
+  color: var(--muted-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/*
+ * The cross-section's floor: as high as what the trays fill, drawn at one scale across and one
+ * up (the drawing is not to scale between the two). Its plane is the box's width by that height;
+ * each block is placed on it by its own x, z, w and h, 3 px in, so blocks are 6 px apart.
+ */
+.bx-floor {
+  position: relative;
+  height: var(--bx-rows);
+}
+
+.bx-plane {
+  position: absolute;
+  inset: var(--bx-inset);
+}
+
+/* A tray the cut crosses: the kind's fill and line (a spare one is plain with a dashed edge, as on the plan). */
+.bx-tray {
+  position: absolute;
+  bottom: calc(var(--z) + var(--bx-inset));
+  left: calc(var(--x) + var(--bx-inset));
+  box-sizing: border-box;
+  width: calc(var(--w) - var(--bx-gap));
+  min-width: 0;
+  height: calc(var(--h) - var(--bx-gap));
+  border: 2px solid var(--tile-line, var(--spacer-dash));
+  border-radius: var(--bx-tray-r);
+  background: var(--tile-fill, var(--spacer-fill));
+}
+
+.bx-tray[data-spare] {
+  border-style: dashed;
+}
+
+.bx-caption {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: normal; /* Box's caption is a span on the page's own */
+}
+
+/* MobileBox: 358 wide, 14 px round, a 30 px band, blocks 5 px apart, 7 px round trays; the caption 8 px under. */
+.bx-side[data-phone] {
+  --bx-rows: 178px;
+  --bx-gap: var(--s-5);
+  --bx-tray-r: 7px; /* MobileBox's tray radius: between --r-cell and --r-logo */
+
+  gap: var(--s-8);
+  width: 100%;
+}
+
+.bx-side[data-phone] .bx-drawing {
+  width: min(358px, 100%);
+  border-radius: var(--r-card);
+}
+
+.bx-side[data-phone] .bx-band {
+  height: 30px;
+  font-size: var(--text-xs);
+}

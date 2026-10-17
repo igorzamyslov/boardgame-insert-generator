@@ -1,0 +1,1345 @@
+/*
+ * The kit: the primitives the design boards repeat (src/kit). Tokens only, no hex. A value the
+ * boards draw once and the tokens do not name (22 px checkbox, 10 px dot, 32 px rule chip) stays
+ * literal with a comment naming the board. Loaded after styles/tokens.css and styles/base.css.
+ *
+ * Specificity: while style.css still has its old button and input rules (until the UI rebuild's
+ * Task 17), a kit rule that competes with one of them is written at least as specific
+ * (`.k-field .k-field__input`, a `:hover` rule per control), so the kit looks the same with or
+ * without them. Breakpoints are DESIGN's: 760 (phone) and 600 (full-screen dialogs and sheets).
+ */
+
+/* A name or a line that must stay on one line ends in an ellipsis; its owner gives `title` the whole of it. */
+.ellipsis {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Kind colours: a tile, a row or a tile button takes its kind's fill, line and ink ---- */
+:is(.k-tile, .k-rowwrap)[data-kind="cards"] {
+  --kind-fill: var(--cards-fill);
+  --kind-line: var(--cards-line);
+  --kind-ink: var(--cards-ink);
+}
+
+:is(.k-tile, .k-rowwrap)[data-kind="bulk"] {
+  --kind-fill: var(--bits-fill);
+  --kind-line: var(--bits-line);
+  --kind-ink: var(--bits-ink);
+}
+
+:is(.k-tile, .k-rowwrap)[data-kind="tiles"] {
+  --kind-fill: var(--tiles-fill);
+  --kind-line: var(--tiles-line);
+  --kind-ink: var(--tiles-ink);
+}
+
+:is(.k-tile, .k-rowwrap)[data-kind="minis"] {
+  --kind-fill: var(--minis-fill);
+  --kind-line: var(--minis-line);
+  --kind-ink: var(--minis-ink);
+}
+
+:is(.k-tile, .k-rowwrap)[data-kind="custom"] {
+  --kind-fill: var(--custom-fill);
+  --kind-line: var(--custom-line);
+  --kind-ink: var(--custom-ink);
+}
+
+/* ---- Button: a pill, 44 px; dialog 48; the call to action 54 ---- */
+.k-btn {
+  --k-bg: var(--sheet);
+  --k-fg: var(--ink);
+  --k-edge: transparent;
+
+  display: inline-flex;
+  flex: none;
+  gap: var(--s-6);
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: var(--control-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--s-14);
+  border: 1px solid var(--k-edge);
+  border-radius: var(--r-pill);
+  background: var(--k-bg);
+  color: var(--k-fg);
+  font: 600 var(--text-sm) / 1.2 var(--font-ui);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Ink with white words: the one thing to do next. The boards set it at the page's size. */
+.k-btn--primary {
+  --k-bg: var(--ink);
+  --k-fg: var(--sheet);
+
+  padding: 0 var(--s-18);
+  font-size: inherit;
+}
+
+.k-btn--secondary {
+  --k-bg: var(--sheet);
+  --k-edge: var(--field-line);
+}
+
+.k-btn--quiet {
+  --k-bg: transparent;
+  --k-fg: var(--muted-strong);
+}
+
+/* Pin, Turn 90°, Close: the page's own colour. */
+.k-btn--soft {
+  --k-bg: var(--page);
+}
+
+.k-btn--dialog {
+  height: var(--dialog-btn-h);
+  padding: 0 var(--s-22);
+}
+
+/* Export's primary: full width, 16 px (the board). */
+.k-btn--cta {
+  gap: var(--s-10);
+  width: 100%;
+  height: var(--cta-h);
+  font-size: 16px;
+}
+
+/* Blocked: still focusable, and its reason is read with it. The board's NoFit Download. */
+.k-btn[aria-disabled="true"] {
+  --k-bg: var(--rule);
+  --k-fg: var(--muted-strong);
+  --k-edge: transparent;
+
+  cursor: not-allowed;
+}
+
+/* Soft and blocked, as Main's Turn 90° is: the page's colour with a dimmer ink. */
+.k-btn--soft[aria-disabled="true"] {
+  --k-bg: var(--page);
+  --k-fg: var(--ink-off);
+}
+
+/* ---- IconButton: 44 px round, an icon and no words ---- */
+.k-iconbtn {
+  --k-bg: transparent;
+  --k-fg: var(--ink);
+  --k-edge: transparent;
+
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--k-edge);
+  border-radius: var(--r-pill);
+  background: var(--k-bg);
+  color: var(--k-fg);
+  cursor: pointer;
+}
+
+.k-iconbtn--outlined {
+  --k-bg: var(--sheet);
+  --k-edge: var(--field-line);
+}
+
+.k-iconbtn--soft {
+  --k-bg: var(--page);
+}
+
+.k-iconbtn--primary {
+  --k-bg: var(--ink);
+  --k-fg: var(--sheet);
+}
+
+.k-iconbtn[aria-disabled="true"] {
+  --k-fg: var(--ink-off);
+
+  cursor: not-allowed;
+}
+
+/* MobileWorkspace's blocked Download: the rule's fill and the dimmer icon. */
+.k-iconbtn--primary[aria-disabled="true"] {
+  --k-bg: var(--rule);
+}
+
+/*
+ * style.css (until Task 17) paints every `button[aria-disabled]` itself, which would beat the
+ * variables of these rules: a blocked kit control says its own colours.
+ */
+.k-btn[aria-disabled="true"],
+.k-iconbtn[aria-disabled="true"] {
+  border-color: var(--k-edge);
+  background: var(--k-bg);
+  color: var(--k-fg);
+}
+
+/* The menu's warning dot: 10 px, top 6, right 6 (Main). */
+.k-iconbtn__dot {
+  position: absolute;
+  top: var(--s-6);
+  right: var(--s-6);
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--warn);
+  box-shadow: var(--ring-dot);
+}
+
+/* ---- Field: the label above, a 48 px box with the value and its unit ---- */
+.k-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  min-width: 0;
+}
+
+.k-field__label {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* The box is `.field-box` too: base.css draws the focus (an ink border and a glow) on it. */
+.k-field__box {
+  display: flex;
+  gap: var(--s-4);
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--field-h);
+  padding: 0 var(--s-12);
+  border: 1px solid var(--field-line);
+  border-radius: var(--r-field);
+  background: var(--sheet);
+}
+
+.k-field__box[data-compact] {
+  height: var(--field-h-compact);
+}
+
+/* After the focus rule of base.css, so an error keeps its red edge while the field has focus. */
+.k-field__box[data-invalid] {
+  border: 2px solid var(--danger);
+}
+
+.k-field .k-field__input {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 600 var(--text-field) / 1.2 var(--font-ui);
+  text-align: left;
+}
+
+/* The box shows the focus; the input inside has none of its own. */
+.k-field .k-field__box .k-field__input:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+.k-field__unit {
+  flex: none;
+  color: var(--muted);
+}
+
+.k-field__error {
+  margin: 0;
+  color: var(--danger-ink);
+  font-size: var(--text-xs);
+}
+
+/* ---- Stepper: Fewer, the count, More ---- */
+.k-stepper-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+}
+
+/* The message takes the stepper's width and never widens it (a figure's card puts it in a row). */
+.k-stepper-box > .k-field__error {
+  width: 0;
+  min-width: 100%;
+}
+
+.k-stepper {
+  display: flex;
+  gap: var(--s-8);
+  align-items: center;
+}
+
+/* A bare input: base.css gives it the focus look itself. */
+.k-stepper .k-stepper__input {
+  box-sizing: border-box;
+  width: 90px; /* Edit's count */
+  height: var(--control-h);
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--field-line);
+  border-radius: var(--r-field);
+  background: var(--sheet);
+  color: var(--ink);
+  font: 600 var(--text-count) / 1.2 var(--font-ui);
+  text-align: center;
+}
+
+/* ---- Segmented: one of a few, a raised thumb on a pill track ---- */
+.k-seg {
+  display: inline-flex;
+  padding: var(--s-3);
+  border-radius: var(--r-pill);
+  background: var(--fill-quiet);
+}
+
+.k-seg[data-tone="track"] {
+  background: var(--track);
+}
+
+.k-seg--stretch {
+  display: flex;
+}
+
+.k-seg__item {
+  --k-bg: transparent;
+
+  flex: 0 1 auto;
+  box-sizing: border-box;
+  height: var(--control-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--s-16);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--k-bg);
+  color: var(--muted-strong);
+  font: 500 var(--text-sm) / 1.2 var(--font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Edit's buttons take an equal share and have no side padding of their own (4 px stays so a long word never touches the edge). */
+.k-seg--stretch .k-seg__item {
+  flex: 1 1 0;
+  padding: 0 var(--s-4);
+}
+
+.k-seg__item[aria-pressed="true"] {
+  --k-bg: var(--sheet);
+
+  box-shadow: var(--shadow-thumb);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Settings' "Custom" wall: set by hand, so its pressed words are in the changed ink. */
+.k-seg__item[aria-pressed="true"][data-changed] {
+  color: var(--changed-ink);
+}
+
+/* A tab whose panel has an error: an 8 px dot after the label (the old sheet's, in the error colour). */
+.k-seg__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: var(--s-8);
+  border-radius: var(--r-pill);
+  background: var(--danger);
+}
+
+/* Main's blocked "3D": dimmer, and the cursor says so. */
+.k-seg__item[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---- ChoiceChips: pressed pills ---- */
+.k-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+}
+
+.k-chip {
+  --k-bg: var(--sheet);
+
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--control-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--s-14);
+  border: 1px solid var(--field-line);
+  border-radius: var(--r-pill);
+  background: var(--k-bg);
+  color: var(--ink);
+  font: 400 var(--text-sm) / 1.2 var(--font-ui);
+  cursor: pointer;
+}
+
+.k-chip[aria-pressed="true"] {
+  --k-bg: var(--ink);
+
+  border: 1.5px solid var(--ink);
+  color: var(--sheet);
+  font-weight: 600;
+}
+
+/* ---- CheckRow: the words on the left, a 22 px checkbox on the right ---- */
+.k-check {
+  display: flex;
+  gap: var(--s-12);
+  align-items: center;
+  min-height: var(--row-min);
+  cursor: pointer;
+}
+
+.k-check[data-compact] {
+  min-height: var(--control-h);
+}
+
+.k-check__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.k-check__label {
+  font-weight: 600;
+}
+
+/* A value that differs from its default: Settings' 8 px dot after the label. */
+.k-check__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: var(--s-8);
+  border-radius: var(--r-pill);
+  background: var(--changed);
+}
+
+.k-check__hint {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.k-check .k-check__box {
+  flex: none;
+  width: 22px; /* the boards' checkbox */
+  height: 22px;
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+/* ---- IconTile: a rounded square on the kind's fill, or a neutral ground ---- */
+.k-tile {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--tile);
+  height: var(--tile);
+  border-radius: var(--tile-r);
+  background: var(--shade-fill, var(--kind-fill, var(--icon-ground)));
+  color: var(--shade-ink, var(--kind-ink, var(--muted)));
+}
+
+.k-tile--34 {
+  --tile: 34px;
+  --tile-r: var(--r-icon);
+}
+
+.k-tile--36 {
+  --tile: 36px;
+  --tile-r: var(--r-tile);
+}
+
+.k-tile--40 {
+  --tile: 40px;
+  --tile-r: var(--r-tile);
+}
+
+.k-tile--44 {
+  --tile: 44px;
+  --tile-r: var(--r-field);
+}
+
+/* MobileTray's header tile: the kind's line round it, 2 px, outside its 36 px (the board's box is content-sized: 40 in all). */
+.k-tile--lined {
+  box-sizing: content-box;
+  border: 2px solid var(--shade-line, var(--kind-line, var(--rule)));
+}
+
+/* ---- KindTile: Empty's 56 px button ---- */
+.k-kindtile {
+  --k-bg: var(--row);
+
+  display: flex;
+  gap: var(--s-10);
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--kind-tile-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--s-12);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  background: var(--k-bg);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ---- ListRow: Main's "What's inside" ---- */
+.k-rowwrap {
+  display: flex;
+  gap: var(--s-4);
+  align-items: center;
+}
+
+.k-row {
+  --k-bg: transparent;
+
+  display: flex;
+  flex: 1 1 0;
+  gap: var(--s-12);
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--row-min);
+  margin: 0;
+  padding: var(--s-8) var(--s-10);
+  border: 1.5px solid transparent;
+  border-radius: var(--r-field);
+  background: var(--k-bg);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 150ms,
+    border-color 150ms;
+}
+
+/* The kind's fill at 40 %, and its line: pressed, or lit while its trays are pointed at. */
+.k-row[aria-pressed="true"],
+.k-row[data-lit="true"] {
+  --k-bg: color-mix(in srgb, var(--shade-fill, var(--kind-fill)) 40%, transparent);
+
+  border-color: var(--shade-line, var(--kind-line));
+}
+
+.k-row__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 1px; /* Main */
+  min-width: 0;
+}
+
+.k-row__name {
+  font-weight: 600;
+}
+
+.k-row__meta {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* The phone sheet's row: a swatch, the name, and the meta on the right (MobileWorkspace). */
+.k-row--compact {
+  padding: 0 var(--s-8);
+}
+
+.k-row--compact .k-row__name {
+  flex: 1 1 auto;
+}
+
+.k-row--compact .k-row__meta {
+  flex: 0 1 auto;
+  font-size: var(--text-sm);
+}
+
+.k-row__swatch {
+  flex: none;
+  box-sizing: border-box;
+  width: 14px; /* MobileWorkspace */
+  height: 14px;
+  border: 2px solid var(--shade-line, var(--kind-line));
+  border-radius: 4px;
+  background: var(--shade-fill, var(--kind-fill));
+}
+
+/* The box's own row: an outlined square in the spacer's line colour, no fill (MobileWorkspace draws it solid). */
+.k-row__swatch--box {
+  box-sizing: content-box; /* MobileWorkspace sizes this one square without border-box: 14 inside, 18 outside */
+  border: 2px solid var(--spacer-dash);
+  background: none;
+}
+
+/* ---- RuleChip: an ink pill with an ×; drawn 32 px, a 44 px target ---- */
+.k-rulechip {
+  --k-bg: var(--ink);
+
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  gap: var(--s-6);
+  align-items: center;
+  box-sizing: border-box;
+  height: 32px; /* the board's; the target is the ::before below */
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--s-8) 0 var(--s-10);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--k-bg);
+  color: var(--sheet);
+  font: 600 var(--text-2xs) / 1 var(--font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.k-rulechip::before {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
+}
+
+/* ---- Card: Main's box card ---- */
+.k-card {
+  --k-bg: var(--row);
+
+  display: flex;
+  gap: var(--s-14);
+  align-items: center;
+  box-sizing: border-box;
+  padding: var(--s-12) var(--s-14);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  background: var(--k-bg);
+  color: inherit;
+}
+
+.k-card--button {
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ---- StepBadge: Empty's 26 px circle ---- */
+.k-step {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px; /* Empty */
+  height: 26px;
+  border-radius: var(--r-pill);
+  background: var(--icon-ground);
+  color: var(--muted);
+  font: 700 var(--text-xs) / 1 var(--font-ui);
+}
+
+.k-step[data-active] {
+  background: var(--ink);
+  color: var(--sheet);
+}
+
+/* ---- StatusHeading: a tone's round icon, the h1 and a line; controls to the right ---- */
+.k-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-14);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.k-status__lead {
+  display: flex;
+  gap: var(--s-14);
+  align-items: center;
+  min-width: 0;
+}
+
+.k-status__icon {
+  --status-bg: var(--icon-ground);
+  --status-fg: var(--muted);
+
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--status-icon);
+  height: var(--status-icon);
+  border-radius: var(--r-pill);
+  background: var(--status-bg);
+  color: var(--status-fg);
+}
+
+.k-status[data-tone="fit"] .k-status__icon {
+  --status-bg: var(--fit-bg);
+  --status-fg: var(--ok);
+}
+
+.k-status[data-tone="info"] .k-status__icon {
+  --status-bg: var(--info-bg);
+  --status-fg: var(--focus);
+}
+
+.k-status[data-tone="warn"] .k-status__icon {
+  --status-bg: var(--warn-bg);
+  --status-fg: var(--warn-icon);
+}
+
+.k-status[data-tone="error"] .k-status__icon {
+  --status-bg: var(--danger-bg);
+  --status-fg: var(--danger);
+}
+
+/* The title and its line take the room of both even when there is no line ("Making a new plan…"), so the row does not shift. */
+.k-status__text {
+  --status-line-h: 18px; /* a 15 px line at the page's `normal` */
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+  min-height: calc(var(--h1) * 1.2 + var(--s-2) + var(--status-line-h));
+}
+
+.k-status__title {
+  margin: 0;
+  font: 700 var(--h1) / 1.2 var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.k-status__line {
+  color: var(--muted);
+}
+
+.k-status__extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-10);
+  align-items: center;
+}
+
+/* ---- Notice: Main's banner ---- */
+.k-notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-12);
+  align-items: center;
+  padding: var(--s-12) var(--s-14);
+  border-radius: var(--r-card);
+  background: var(--info-bg);
+  color: var(--info-ink);
+}
+
+.k-notice[data-tone="warn"] {
+  background: var(--warn-bg);
+  color: var(--warn-ink-strong);
+}
+
+.k-notice__text {
+  flex: 1 1 320px; /* Main: the words first, the pills under them when it is narrow */
+  line-height: 1.45;
+}
+
+.k-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+}
+
+.k-notice .k-btn--secondary {
+  --k-edge: var(--line-strong);
+}
+
+/* ---- Toast: Edit's note, an ink pill with an icon ---- */
+.k-toast-region {
+  display: flex;
+  align-items: center;
+}
+
+.k-toast {
+  display: inline-flex;
+  gap: var(--s-12);
+  align-items: center;
+  margin: 0;
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-card);
+  background: var(--ink);
+  color: var(--sheet);
+  box-shadow: var(--shadow-toast);
+}
+
+/* ---- Disclosure: Edit's "More options" ---- */
+.k-disclosure {
+  display: flex;
+  flex-direction: column;
+  border-block: 1px solid var(--rule-soft);
+}
+
+.k-disclosure__button {
+  --k-bg: transparent;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 60px; /* Edit */
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--k-bg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.k-disclosure__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.k-disclosure__title {
+  font-weight: 600;
+}
+
+.k-disclosure__summary {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.k-disclosure__chevron {
+  display: flex;
+  flex: none;
+  transition: transform 200ms;
+}
+
+.k-disclosure__button[aria-expanded="true"] .k-disclosure__chevron {
+  transform: rotate(180deg);
+}
+
+.k-disclosure__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-18);
+  padding: var(--s-4) 0 var(--s-18);
+}
+
+/* ---- DisclosureRow: Settings' 48 px row that opens a group ---- */
+.k-drow {
+  --k-bg: var(--sheet);
+
+  display: flex;
+  gap: var(--s-10);
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--field-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--s-14);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-field);
+  background: var(--k-bg);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.k-drow__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.k-drow__title {
+  font-weight: 600;
+}
+
+.k-drow__hint {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* Edit's "Card thickness": a plain 52 px row, no box, the hint under the title. */
+.k-drow[data-plain] {
+  --k-bg: transparent;
+
+  height: auto;
+  min-height: var(--row-min);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.k-drow__meta {
+  display: flex;
+  gap: var(--s-6);
+  align-items: center;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.k-drow__meta[data-changed] {
+  color: var(--changed-ink);
+  font-weight: 600;
+}
+
+.k-drow__chevron {
+  display: flex;
+  transition: transform 200ms;
+}
+
+.k-drow__chevron[data-open] {
+  transform: rotate(90deg);
+}
+
+/* ---- ProgressBar ---- */
+.k-progress {
+  height: 10px; /* Exporting */
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: var(--fill-quiet);
+}
+
+.k-progress__bar {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  transition: width 300ms ease;
+}
+
+/* ---- SearchField: Settings' 44 px search box ---- */
+.k-search {
+  display: flex;
+  gap: var(--s-10);
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--field-h-compact);
+  padding: 0 var(--s-14);
+  border: 1px solid var(--field-line);
+  border-radius: var(--r-field);
+  background: var(--sheet);
+  color: var(--muted);
+}
+
+.k-search .k-search__input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  appearance: none;
+}
+
+.k-search .k-search__input:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+/* ---- MenuPanel: Main's 260 px panel of plain buttons ---- */
+.k-menu {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: var(--menu-w);
+  padding: var(--s-6);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  box-shadow: var(--shadow-menu);
+}
+
+.k-menu__item {
+  --k-bg: transparent;
+
+  display: flex;
+  gap: var(--s-8);
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  margin: 0;
+  padding: 0 var(--s-12);
+  border: 0;
+  border-radius: var(--r-tile);
+  background: var(--k-bg);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.k-menu__item[aria-disabled="true"] {
+  border: 0;
+  background: var(--k-bg);
+  color: var(--ink-off);
+  cursor: not-allowed;
+}
+
+.k-menu__meta {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.k-menu__sep {
+  height: 1px; /* Main */
+  margin: var(--s-4) var(--s-8);
+  background: var(--rule-soft);
+}
+
+/*
+ * Until style.css loses its `button:hover` rule (Task 17), it would repaint a kit control under
+ * the pointer: these say what the control's own colour is.
+ */
+.k-btn:hover:not(:disabled),
+.k-iconbtn:hover:not(:disabled),
+.k-seg__item:hover:not(:disabled),
+.k-chip:hover:not(:disabled),
+.k-kindtile:hover:not(:disabled),
+.k-row:hover:not(:disabled),
+.k-rulechip:hover:not(:disabled),
+.k-card--button:hover:not(:disabled),
+.k-disclosure__button:hover:not(:disabled),
+.k-drow:hover:not(:disabled),
+.k-menu__item:hover:not(:disabled) {
+  background: var(--k-bg);
+}
+
+/* ---- Dialog: Export's, in the middle over the scrim ---- */
+.k-dialog {
+  box-sizing: border-box;
+  width: min(var(--dialog-max), calc(100% - 2 * var(--s-16)));
+  max-width: var(--dialog-max);
+  max-height: calc(100dvh - 2 * var(--s-40));
+  margin: auto;
+  padding: var(--dialog-pad);
+  overflow: auto;
+  border: 0;
+  border-radius: var(--r-dialog);
+  background: var(--sheet);
+  box-shadow: var(--shadow-dialog);
+  color: var(--ink);
+}
+
+/* Drawer: Settings', against the right edge, full height. */
+.k-drawer {
+  box-sizing: border-box;
+  width: min(var(--dialog-max), 100vw);
+  max-width: var(--dialog-max);
+  height: 100dvh;
+  max-height: none;
+  margin: 0 0 0 auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: var(--sheet);
+  box-shadow: var(--shadow-drawer);
+  color: var(--ink);
+}
+
+.k-drawer[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.k-dialog::backdrop,
+.k-drawer::backdrop {
+  background: var(--scrim);
+}
+
+/*
+ * MobileTray's modal sheet: a dialog at the foot of the screen, 404 px tall, over a page that
+ * stays as it was (no scrim: the other trays are at half behind it). The content brings its own
+ * padding, so a press on the dialog itself is a press on the backdrop.
+ */
+.k-sheetmodal {
+  position: fixed;
+  inset: auto 0 0;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  height: var(--tray-sheet-h);
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: var(--r-dialog) var(--r-dialog) 0 0;
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet-modal);
+  color: var(--ink);
+}
+
+.k-sheetmodal::backdrop {
+  background: transparent;
+}
+
+/* The page behind a modal stays where it was. */
+html:has(dialog.k-dialog[open], dialog.k-drawer[open]) {
+  overflow: hidden;
+}
+
+/* ---- Sheet: the phone's, at the foot of the screen ---- */
+.k-sheet {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: calc(var(--control-h) * 2);
+  padding-top: var(--control-h); /* the grip's 44 px row */
+  border-radius: var(--r-dialog) var(--r-dialog) 0 0;
+  background: var(--sheet);
+  box-shadow: var(--shadow-peek);
+  transition: height 200ms ease;
+}
+
+.k-sheet[data-peek="true"] {
+  height: var(--sheet-peek);
+}
+
+.k-sheet[data-expanded="true"] {
+  height: min(70dvh, 40rem);
+}
+
+.k-sheet__bar {
+  display: flex;
+  flex: none;
+  gap: var(--s-8);
+  align-items: center;
+  padding-right: var(--s-16);
+}
+
+.k-sheet__handle {
+  --k-bg: transparent;
+
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  gap: var(--s-6);
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--control-h);
+  margin: 0;
+  padding: 0 0 0 var(--s-16);
+  border: 0;
+  background: var(--k-bg);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The 40 by 5 bar sits in its own 44 px row above the title, and a press on it is a press on the handle. */
+.k-sheet__grip {
+  position: absolute;
+  top: calc(-1 * var(--control-h));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px; /* MobileWorkspace */
+  height: var(--control-h);
+  transform: translateX(-50%);
+}
+
+.k-sheet__grip::after {
+  content: "";
+  width: 40px;
+  height: 5px;
+  border-radius: var(--r-pill);
+  background: var(--handle);
+}
+
+/* With its own grip button (MobileWorkspace): a 4 px gap under the grip, under the head, and 8 px below. */
+.k-sheet[data-grip="button"] {
+  gap: var(--s-4);
+  padding-top: calc(var(--control-h) + var(--s-4));
+  padding-bottom: var(--s-8);
+}
+
+.k-sheet__grip--button {
+  top: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The title's button sits in an h2 of its own: the head row is the title and then Add. */
+.k-sheet__head {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px; /* MobileWorkspace: the h2 itself; the title inside sets its own */
+}
+
+.k-sheet__head > .k-sheet__handle {
+  width: 100%;
+}
+
+.k-sheet__title {
+  flex: none;
+  font: 700 var(--h3) / 1.2 var(--font-display);
+}
+
+.k-sheet__meta {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.k-sheet__chevron {
+  flex: none;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 200ms ease;
+}
+
+.k-sheet[data-expanded="true"] .k-sheet__chevron {
+  transform: rotate(180deg);
+}
+
+.k-sheet__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--s-8) var(--s-12);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/*
+ * An editor in the sheet (MobileEdit): it brings its own header (Back, the name, Done), so the
+ * sheet hides its grip and title and the editor fills it.
+ */
+.k-sheet[data-editing="true"] {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.k-sheet__bar[hidden] {
+  display: none;
+}
+
+.k-sheet[data-editing="true"] > .k-sheet__body {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Folded without a peek, the content is out of sight as well as inert; it hides after the sheet has shut. */
+.k-sheet[data-expanded="false"]:not([data-peek="true"]) .k-sheet__body {
+  visibility: hidden;
+  transition: visibility 0s linear 200ms;
+}
+
+/* Full screen on a phone: a dialog's way, no radius, no peek. */
+@media (width < 600px) {
+  .k-dialog,
+  .k-drawer {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .k-dialog {
+    padding: var(--s-20);
+  }
+
+  .k-sheet[data-full="true"][data-expanded="true"] {
+    inset: 0;
+    z-index: 40;
+    height: 100dvh;
+    border-radius: 0;
+  }
+}
+
+/* The status heading on a phone: a 32 px icon 12 px from the text, the 21 px h1 and a 13 px line. */
+@media (width < 760px) {
+  .k-status__icon {
+    width: var(--status-icon-phone);
+    height: var(--status-icon-phone);
+  }
+
+  .k-status__title {
+    font-size: var(--h1-phone);
+  }
+
+  .k-status__line {
+    font-size: var(--text-xs);
+  }
+
+  .k-status__lead {
+    gap: var(--s-12);
+  }
+
+  .k-status__text {
+    --status-line-h: 16px; /* a 13 px line */
+
+    min-height: calc(var(--h1-phone) * 1.2 + var(--s-2) + var(--status-line-h));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-sheet,
+  .k-sheet__chevron,
+  .k-sheet[data-expanded="false"]:not([data-peek="true"]) .k-sheet__body,
+  .k-row,
+  .k-disclosure__chevron,
+  .k-drow__chevron,
+  .k-progress__bar {
+    transition: none;
+  }
+}

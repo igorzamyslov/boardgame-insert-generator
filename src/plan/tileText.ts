@@ -1,103 +1,54 @@
 // src/plan/tileText.ts
-import type { SvgRect } from "./layers";
+// The name pill of a plan tile (Main's pill: one line, 13 px 600): whether its tile has room for one.
 
-/** The name pill of a tile, and the size line under it, all in SVG units. */
-export interface TileText {
-  /** Font size of the name and the size line. */
-  fontSize: number;
-  /** Font size of the size line. */
-  sizeFontSize: number;
-  /** The pill behind the name, centred on the tile; null when the name does not fit. */
-  pill: { x: number; y: number; w: number; h: number } | null;
-  /** The name as shown (cut with an ellipsis when it does not fit) and its centre line. */
-  name: { text: string; y: number } | null;
-  /** The size under the pill, dropped when the tile is too small for it. */
-  size: { text: string; y: number } | null;
+/** The pill's type, in CSS px, as Main (desktop) and MobileWorkspace (phone) draw it. */
+export interface PillType {
+  /** Font size. */
+  font: number;
+  /** Padding left and right of the text. */
+  padX: number;
+  /** The kind icon, shown while the tile is hovered, focused or selected, and the gap after it. */
+  icon: number;
+  gap: number;
+  /** What the tile takes from the pill's room, each side: its 2 px line and its padding (a phone's has none). */
+  inset: number;
 }
 
-/** Average character width as a share of the font size: wide enough for capitals and the fallback font. */
-const CHAR_WIDTH = 0.6;
-const MARGIN = 2;
-const MIN_FONT = 3.5;
-const MAX_FONT = 7;
-/** Room inside the pill, each side of the text, as a share of the font size. */
-const PAD_X = 0.7;
-const PILL_HEIGHT = 1.7;
+export const DESKTOP_PILL: PillType = { font: 13, padX: 9, icon: 13, gap: 5, inset: 10 };
+export const PHONE_PILL: PillType = { font: 12, padX: 7, icon: 12, gap: 4, inset: 2 };
 
-/** The characters a person sees: an emoji or an accented letter is one, never cut in two. */
-function graphemes(text: string): string[] {
-  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
-    return Array.from(
-      new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text),
-      (g) => g.segment,
-    );
-  }
-  return Array.from(text);
-}
-
-const mm = (v: number): string => String(Math.round(v * 10) / 10);
-
-/** "W × D" in mm, without the unit (the details carry it). */
-export function sizeText(w: number, d: number): string {
-  return `${mm(w)} × ${mm(d)}`;
-}
+/** Average character width as a share of the font size (Figtree 600 mixed case is about 0.5). */
+const CHAR_WIDTH = 0.5;
+/** The pill's own vertical padding (2 px each side) and a line's height at `normal`. */
+const PILL_PAD_Y = 4;
+const LINE_HEIGHT = 1.25;
+/** The shortest cut worth showing: four characters. */
+const MIN_CHARS = 4;
 
 /**
- * Lay the name pill and the size out in a tile. The name is cut with an ellipsis to what fits
- * the width, and left out (with its pill) when not even four characters fit; the size line is
- * dropped first when the tile is too short for both. The full name stays in the tile's accessible
- * name and its title, so nothing is lost when it is cut here.
+ * Whether a tile `tile.w` by `tile.h` px has room for a name pill at all: a line's height, and
+ * four characters' width (the cut itself is the pill's CSS, `overflow: hidden; text-overflow:
+ * ellipsis`, which measures what jsdom cannot). Without room the tile has no pill; its name stays
+ * in its accessible name and title.
  */
-export function layoutTileText(r: SvgRect, name: string, size: string): TileText {
-  const fontSize = Math.max(MIN_FONT, Math.min(MAX_FONT, Math.min(r.w, r.h) * 0.12));
-  const sizeFont = fontSize * 0.85;
-  const pillH = fontSize * PILL_HEIGHT;
-  const room = Math.floor((r.w - 2 * MARGIN - 2 * PAD_X * fontSize) / (fontSize * CHAR_WIDTH));
-  let shown: string | null = null;
-  const chars = graphemes(name);
-  if (name !== "") {
-    if (chars.length <= room) {
-      shown = name;
-    } else if (room >= 4) {
-      shown = `${chars
-        .slice(0, room - 1)
-        .join("")
-        .trimEnd()}…`;
-    }
+export function hasPillRoom(
+  name: string,
+  tile: { w: number; h: number },
+  pill: PillType,
+  withIcon = false,
+): boolean {
+  if (name === "" || tile.h - 2 * pill.inset < pill.font * LINE_HEIGHT + PILL_PAD_Y) {
+    return false;
   }
-  const sizeRoom = Math.floor((r.w - 2 * MARGIN) / (sizeFont * CHAR_WIDTH));
-  let sizeLine: string | null = size.length <= sizeRoom ? size : null;
-  const sizeH = sizeFont * 1.3;
-  const height = (pill: boolean, line: boolean): number =>
-    (pill ? pillH : 0) + (pill && line ? 2 : 0) + (line ? sizeH : 0);
-  const space = r.h - 2 * MARGIN;
-  if (shown !== null && sizeLine !== null && height(true, true) > space) {
-    sizeLine = null;
+  const icon = withIcon ? pill.icon + pill.gap : 0;
+  const room = (tile.w - 2 * pill.inset - 2 * pill.padX - icon) / (pill.font * CHAR_WIDTH);
+  return room >= Math.min(MIN_CHARS, graphemeCount(name));
+}
+
+function graphemeCount(text: string): number {
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    return Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text))
+      .length;
   }
-  if (shown !== null && height(true, false) > space) {
-    shown = null;
-  }
-  if (shown === null && sizeLine !== null && height(false, true) > space) {
-    sizeLine = null;
-  }
-  const total = height(shown !== null, sizeLine !== null);
-  const top = r.y + (r.h - total) / 2;
-  const pill =
-    shown === null
-      ? null
-      : (() => {
-          const w = Math.min(
-            r.w - 2 * MARGIN,
-            graphemes(shown).length * fontSize * CHAR_WIDTH + 2 * PAD_X * fontSize,
-          );
-          return { x: r.x + (r.w - w) / 2, y: top, w, h: pillH };
-        })();
-  const sizeY = top + (pill ? pillH + 2 : 0) + sizeH / 2;
-  return {
-    fontSize,
-    sizeFontSize: sizeFont,
-    pill,
-    name: shown === null ? null : { text: shown, y: top + pillH / 2 },
-    size: sizeLine === null ? null : { text: sizeLine, y: sizeY },
-  };
+  return Array.from(text).length;
 }

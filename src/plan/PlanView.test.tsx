@@ -1,14 +1,16 @@
 // src/plan/PlanView.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
 import { useState } from "preact/hooks";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX, newComponent } from "../model/defaults";
 import type { CompartmentSpec } from "../model/types";
 import { DEFAULT_SETTINGS } from "../model/settings";
+import { hoveredComponent } from "../screens/hover";
+import { shadeHex } from "../ui/identity";
 import planCss from "./plan.css?raw";
-import { planFrame, planViewBox } from "./layers";
+import { planFrame } from "./layers";
 import { PlanView } from "./PlanView";
 import type { PlanViewProps } from "./PlanView";
 
@@ -33,13 +35,25 @@ beforeAll(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  hoveredComponent.value = null;
 });
+
+/** A phone: the width query the app asks (below 760 px) answers yes. */
+function phone(): void {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(width < 760px)",
+    media: query,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
+}
 
 /** Two components: tray A holds the deck, tray B the dice. */
 const deck = { ...newComponent("cards"), name: "Region deck" };
 const dice = { ...newComponent("bulk"), name: "Dice" };
-const box = { ...DEFAULT_BOX, innerWidth: 200, innerDepth: 100 };
-const vb = planViewBox(planFrame(box, DEFAULT_SETTINGS));
+const insertBox = { ...DEFAULT_BOX, innerWidth: 200, innerDepth: 100 };
+const frame = planFrame(insertBox, DEFAULT_SETTINGS);
 const A = makeTray({
   key: "a:p0:0",
   path: "0",
@@ -110,9 +124,9 @@ function holding(contents: string): CompartmentSpec {
   return { x: 1, y: 1, w: 10, d: 10, floorZ: 1, kind: "well", features: [], contents };
 }
 
-/** Client pixel of an SVG point: the SVG is laid out 1 px per mm at (0, 0). */
-function at(svgX: number, svgY: number) {
-  return { clientX: svgX - vb.x, clientY: svgY - vb.y };
+/** Client pixel of a plan point: the floor is laid out 1 px per mm at (0, 0), the plan starting the clearance in. */
+function at(planX: number, planY: number) {
+  return { clientX: planX + frame.bc, clientY: planY + frame.bc };
 }
 
 /** The app's part: keeps the layer and the swap under way (the props give their start), and reports changes. */
@@ -140,7 +154,7 @@ function setup(over: Partial<PlanViewProps> = {}) {
   const p: PlanViewProps = {
     trays: [A, B, C],
     components: [deck, dice],
-    box,
+    box: insertBox,
     settings: DEFAULT_SETTINGS,
     lockedKeys: new Set<string>(),
     selectedKey: null,
@@ -154,22 +168,23 @@ function setup(over: Partial<PlanViewProps> = {}) {
     ...over,
   };
   const view = render(<Host {...p} />);
-  const svg = view.container.querySelector("svg");
-  if (!svg) {
-    throw new Error("no svg");
+  const box = view.container.querySelector<HTMLElement>(".plan-box");
+  const floor = view.container.querySelector<HTMLElement>(".plan-floor");
+  if (!box || !floor) {
+    throw new Error("no plan box");
   }
   const rect = {
     x: 0,
     y: 0,
     left: 0,
     top: 0,
-    right: vb.w,
-    bottom: vb.h,
-    width: vb.w,
-    height: vb.h,
+    right: frame.innerW,
+    bottom: frame.innerD,
+    width: frame.innerW,
+    height: frame.innerD,
   };
-  vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ ...rect, toJSON: () => rect });
-  return { p, view, svg };
+  vi.spyOn(floor, "getBoundingClientRect").mockReturnValue({ ...rect, toJSON: () => rect });
+  return { p, view, box };
 }
 
 const centerA = at(45, 49.5);
@@ -177,20 +192,18 @@ const centerB = at(149.5, 49.5);
 
 describe("PlanView", () => {
   it("labels trays by name, never by number", () => {
-    const { svg } = setup({ trays: [A, B, C] });
+    const { box } = setup({ trays: [A, B, C] });
     expect(screen.getByRole("button", { name: "Region deck, layer 1" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Dice, layer 1" })).toBeTruthy();
-    const tile = svg.querySelector('[data-key="a:p0:0"]');
+    const tile = box.querySelector('[data-key="a:p0:0"]');
     expect(tile?.querySelector(".plan-label")).toBeNull();
-    expect(tile?.querySelector(".plan-pill")).toBeTruthy();
     expect(tile?.querySelector(".plan-name")?.textContent).toBe("Region deck");
-    expect(tile?.querySelector("title")?.textContent).toBe("Region deck");
+    expect(tile?.getAttribute("title")).toBe("Region deck");
     for (const button of screen.getAllByRole("button")) {
       expect(button.getAttribute("aria-label") ?? "").not.toMatch(/\bTray \d|#\d/);
     }
-    for (const t of Array.from(svg.querySelectorAll(".plan-tray"))) {
+    for (const t of Array.from(box.querySelectorAll(".plan-tile"))) {
       expect(t.textContent).not.toMatch(/^\d+$/);
-      expect(t.querySelector("text")?.textContent).not.toMatch(/^\d+$/);
     }
   });
 
@@ -209,35 +222,36 @@ describe("PlanView", () => {
   it("gives each component of a kind its own shade, stable by component order", () => {
     const second = { ...newComponent("cards"), name: "Event deck" };
     const trays = [A, makeTray({ ...B, compartments: [holding("Event deck ×30")] })];
-    const { svg } = setup({ trays, components: [deck, dice, second] });
+    const { box } = setup({ trays, components: [deck, dice, second] });
     const fill = (key: string) =>
-      (svg.querySelector(`[data-key="${key}"]`)?.getAttribute("style") ?? "").match(
+      (box.querySelector(`[data-key="${key}"]`)?.getAttribute("style") ?? "").match(
         /--tile-fill:\s*([^;]+)/,
       )?.[1];
     // The first deck is the kind's base hue; the second is a shade of it, not the dice's index.
-    expect(fill("a:p0:0")).toContain("#DCE6FA");
+    expect(fill("a:p0:0")).toContain(shadeHex("cards", 0, "light").fill);
     expect(fill("b:p0:0")).toBeTruthy();
     expect(fill("b:p0:0")).not.toBe(fill("a:p0:0"));
     expect(fill("b:p0:0")).toContain("light-dark(");
   });
 
   it("shows the kind icon only on the selected tray", () => {
-    const { svg, view, p } = setup();
-    expect(svg.querySelector(".plan-glyph")).toBeNull();
+    const { box, view, p } = setup();
+    expect(box.querySelector(".plan-pill svg")).toBeNull();
     view.rerender(<Host {...p} selectedKey="a:p0:0" />);
-    expect(svg.querySelectorAll(".plan-glyph")).toHaveLength(1);
-    const glyph = svg.querySelector('[data-key="a:p0:0"] .plan-glyph');
+    expect(box.querySelectorAll(".plan-pill svg")).toHaveLength(1);
+    const glyph = box.querySelector('[data-key="a:p0:0"] .plan-pill svg');
     expect(glyph?.getAttribute("aria-hidden")).toBe("true");
+    expect(glyph?.getAttribute("width")).toBe("13");
     expect(glyph?.querySelector("rect, path")).toBeTruthy();
-    expect(svg.querySelector('[data-key="b:p0:0"] .plan-glyph')).toBeNull();
+    expect(box.querySelector('[data-key="b:p0:0"] .plan-pill svg')).toBeNull();
     view.rerender(<Host {...p} selectedKey="b:p0:0" />);
-    expect(svg.querySelector('[data-key="a:p0:0"] .plan-glyph')).toBeNull();
-    expect(svg.querySelector('[data-key="b:p0:0"] .plan-glyph')).toBeTruthy();
+    expect(box.querySelector('[data-key="a:p0:0"] .plan-pill svg')).toBeNull();
+    expect(box.querySelector('[data-key="b:p0:0"] .plan-pill svg')).toBeTruthy();
   });
 
   it("shows the kind icon on the tray with the keyboard focus", () => {
-    const { svg } = setup();
-    // jsdom does not move the focus onto an SVG element: say that the focus ring is showing.
+    const { box } = setup();
+    // jsdom has no :focus-visible: say that the focus ring is showing.
     const matches = Element.prototype.matches;
     vi.spyOn(Element.prototype, "matches").mockImplementation(function (
       this: Element,
@@ -246,8 +260,19 @@ describe("PlanView", () => {
       return selector === ":focus-visible" || matches.call(this, selector);
     });
     fireEvent.focus(screen.getByRole("button", { name: "Dice, layer 1" }));
-    expect(svg.querySelector('[data-key="b:p0:0"] .plan-glyph')).toBeTruthy();
-    expect(svg.querySelector('[data-key="a:p0:0"] .plan-glyph')).toBeNull();
+    expect(box.querySelector('[data-key="b:p0:0"] .plan-pill svg')).toBeTruthy();
+    expect(box.querySelector('[data-key="a:p0:0"] .plan-pill svg')).toBeNull();
+  });
+
+  it("shows the kind icon on the tray the pointer is on, and not for a touch", () => {
+    const { box } = setup();
+    const dice = screen.getByRole("button", { name: /^Dice/ });
+    fireEvent.pointerEnter(dice, { pointerType: "touch" });
+    expect(box.querySelector(".plan-pill svg")).toBeNull();
+    fireEvent.pointerEnter(dice, { pointerType: "mouse" });
+    expect(box.querySelector('[data-key="b:p0:0"] .plan-pill svg')).toBeTruthy();
+    fireEvent.pointerLeave(dice, { pointerType: "mouse" });
+    expect(box.querySelector(".plan-pill svg")).toBeNull();
   });
 
   it("lists the trays of the shown layer for screen readers", () => {
@@ -267,46 +292,46 @@ describe("PlanView", () => {
   });
 
   it("selects a tray on tap", () => {
-    const { p, svg } = setup();
+    const { p, box } = setup();
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Region deck/ }), {
       ...centerA,
       pointerId: 1,
       button: 0,
     });
-    fireEvent.pointerUp(svg, { ...centerA, pointerId: 1 });
+    fireEvent.pointerUp(box, { ...centerA, pointerId: 1 });
     expect(p.onSelect).toHaveBeenCalledWith("a:p0:0");
     expect(p.onSwap).not.toHaveBeenCalled();
   });
 
-  it("touch drag swaps; svg has touch-action none", () => {
-    expect(planCss).toMatch(/\.plan-svg\s*{[^}]*touch-action:\s*none/);
-    const { p, svg } = setup();
+  it("touch drag swaps; the box has touch-action none", () => {
+    expect(planCss).toMatch(/\.plan-box\s*{[^}]*touch-action:\s*none/);
+    const { p, box } = setup();
     // The stylesheet rule applies to the element PlanView renders.
-    expect(svg.getAttribute("class")).toContain("plan-svg");
+    expect(box.getAttribute("class")).toContain("plan-box");
     const touch = { pointerId: 7, pointerType: "touch", button: 0 };
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Region deck/ }), {
       ...centerA,
       ...touch,
     });
-    fireEvent.pointerMove(svg, { ...at(100, 49.5), ...touch });
-    fireEvent.pointerMove(svg, { ...centerB, ...touch });
+    fireEvent.pointerMove(box, { ...at(100, 49.5), ...touch });
+    fireEvent.pointerMove(box, { ...centerB, ...touch });
     expect(screen.getByRole("button", { name: /^Dice/ }).getAttribute("class")).toContain(
       "is-drop",
     );
-    fireEvent.pointerUp(svg, { ...centerB, ...touch });
+    fireEvent.pointerUp(box, { ...centerB, ...touch });
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
   });
 
   it("pointercancel resets the drag", () => {
-    const { p, svg } = setup();
+    const { p, box } = setup();
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Region deck/ }), {
       ...centerA,
       pointerId: 2,
       button: 0,
     });
-    fireEvent.pointerMove(svg, { ...centerB, pointerId: 2 });
-    fireEvent.pointerCancel(svg, { pointerId: 2 });
-    fireEvent.pointerUp(svg, { ...centerB, pointerId: 2 });
+    fireEvent.pointerMove(box, { ...centerB, pointerId: 2 });
+    fireEvent.pointerCancel(box, { pointerId: 2 });
+    fireEvent.pointerUp(box, { ...centerB, pointerId: 2 });
     expect(p.onSwap).not.toHaveBeenCalled();
     expect(p.onSelect).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: /^Dice/ }).getAttribute("class")).not.toContain(
@@ -315,15 +340,15 @@ describe("PlanView", () => {
   });
 
   it("a lost pointer capture ends the drag like a cancel", () => {
-    const { p, svg } = setup();
+    const { p, box } = setup();
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Region deck/ }), {
       ...centerA,
       pointerId: 2,
       button: 0,
     });
-    fireEvent.pointerMove(svg, { ...centerB, pointerId: 2 });
-    fireEvent.lostPointerCapture(svg, { pointerId: 2 });
-    fireEvent.pointerUp(svg, { ...centerB, pointerId: 2 });
+    fireEvent.pointerMove(box, { ...centerB, pointerId: 2 });
+    fireEvent.lostPointerCapture(box, { pointerId: 2 });
+    fireEvent.pointerUp(box, { ...centerB, pointerId: 2 });
     expect(p.onSwap).not.toHaveBeenCalled();
     expect(p.onSelect).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: /^Dice/ }).getAttribute("class")).not.toContain(
@@ -332,17 +357,17 @@ describe("PlanView", () => {
   });
 
   it("does not drag leftovers or drop onto them", () => {
-    const { p, svg } = setup({ trays: [A, B, L2] });
+    const { p, box } = setup({ trays: [A, B, L2] });
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Region deck/ }), {
       ...centerA,
       pointerId: 3,
       button: 0,
     });
-    fireEvent.pointerMove(svg, { ...centerL2, pointerId: 3 });
+    fireEvent.pointerMove(box, { ...centerL2, pointerId: 3 });
     expect(screen.getByRole("button", { name: /^Spare/ }).getAttribute("class")).not.toContain(
       "is-drop",
     );
-    fireEvent.pointerUp(svg, { ...centerL2, pointerId: 3 });
+    fireEvent.pointerUp(box, { ...centerL2, pointerId: 3 });
     expect(p.onSwap).not.toHaveBeenCalled();
     // A leftover can't start a drag either, but a tap still selects it.
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Spare/ }), {
@@ -350,38 +375,38 @@ describe("PlanView", () => {
       pointerId: 4,
       button: 0,
     });
-    fireEvent.pointerMove(svg, { ...centerA, pointerId: 4 });
+    fireEvent.pointerMove(box, { ...centerA, pointerId: 4 });
     expect(
       screen.getByRole("button", { name: /^Region deck/ }).getAttribute("class"),
     ).not.toContain("is-drop");
     expect(screen.getByRole("button", { name: /^Spare/ }).getAttribute("class")).not.toContain(
       "is-source",
     );
-    fireEvent.pointerUp(svg, { ...centerA, pointerId: 4 });
+    fireEvent.pointerUp(box, { ...centerA, pointerId: 4 });
     expect(p.onSwap).not.toHaveBeenCalled();
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Spare/ }), {
       ...centerL2,
       pointerId: 5,
       button: 0,
     });
-    fireEvent.pointerUp(svg, { ...centerL2, pointerId: 5 });
+    fireEvent.pointerUp(box, { ...centerL2, pointerId: 5 });
     expect(p.onSelect).toHaveBeenCalledWith("leftover:1");
   });
 
   it("says next to the plan why a drag cannot swap", () => {
-    const { p, svg } = setup({ trays: [A, B, L2] });
+    const { p, box } = setup({ trays: [A, B, L2] });
     const a = screen.getByRole("button", { name: /^Region deck/ });
     // Over a leftover: refused, with a visible message.
     fireEvent.pointerDown(a, { ...centerA, pointerId: 1, button: 0 });
-    fireEvent.pointerMove(svg, { ...centerL2, pointerId: 1 });
+    fireEvent.pointerMove(box, { ...centerL2, pointerId: 1 });
     expect(screen.getByRole("status").textContent).toMatch(/can't be swapped with/);
-    fireEvent.pointerUp(svg, { ...centerL2, pointerId: 1 });
+    fireEvent.pointerUp(box, { ...centerL2, pointerId: 1 });
     expect(p.onSwap).not.toHaveBeenCalled();
     expect(screen.getByRole("status").textContent).toMatch(/can't be swapped with/);
     // Released over empty space: nothing happens, and it says so.
     fireEvent.pointerDown(a, { ...centerA, pointerId: 2, button: 0 });
-    fireEvent.pointerMove(svg, { ...at(95, 50), pointerId: 2 });
-    fireEvent.pointerUp(svg, { ...at(95, 50), pointerId: 2 });
+    fireEvent.pointerMove(box, { ...at(95, 50), pointerId: 2 });
+    fireEvent.pointerUp(box, { ...at(95, 50), pointerId: 2 });
     expect(screen.getByRole("status").textContent).toMatch(/Nothing was swapped/);
     // Dragging a leftover is refused with a message; a valid swap clears it.
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Spare/ }), {
@@ -389,12 +414,12 @@ describe("PlanView", () => {
       pointerId: 3,
       button: 0,
     });
-    fireEvent.pointerMove(svg, { ...centerA, pointerId: 3 });
+    fireEvent.pointerMove(box, { ...centerA, pointerId: 3 });
     expect(screen.getByRole("status").textContent).toMatch(/can't be dragged/);
-    fireEvent.pointerUp(svg, { ...centerA, pointerId: 3 });
+    fireEvent.pointerUp(box, { ...centerA, pointerId: 3 });
     fireEvent.pointerDown(a, { ...centerA, pointerId: 4, button: 0 });
-    fireEvent.pointerMove(svg, { ...centerB, pointerId: 4 });
-    fireEvent.pointerUp(svg, { ...centerB, pointerId: 4 });
+    fireEvent.pointerMove(box, { ...centerB, pointerId: 4 });
+    fireEvent.pointerUp(box, { ...centerB, pointerId: 4 });
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
     expect(screen.getByRole("status").textContent).toBe(""); // still there, saying nothing
   });
@@ -418,7 +443,7 @@ describe("PlanView", () => {
   });
 
   it("ignores the cancel of another pointer and a second press during a drag", () => {
-    const { p, svg } = setup();
+    const { p, box } = setup();
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Region deck/ }), {
       ...centerA,
       pointerId: 1,
@@ -429,19 +454,19 @@ describe("PlanView", () => {
       pointerId: 2,
       button: 0,
     });
-    fireEvent.pointerUp(svg, { ...centerB, pointerId: 2 });
+    fireEvent.pointerUp(box, { ...centerB, pointerId: 2 });
     expect(p.onSelect).not.toHaveBeenCalled();
-    fireEvent.pointerMove(svg, { ...centerB, pointerId: 1 });
-    fireEvent.pointerCancel(svg, { pointerId: 3 });
+    fireEvent.pointerMove(box, { ...centerB, pointerId: 1 });
+    fireEvent.pointerCancel(box, { pointerId: 3 });
     expect(screen.getByRole("button", { name: /^Dice/ }).getAttribute("class")).toContain(
       "is-drop",
     );
-    fireEvent.pointerUp(svg, { ...centerB, pointerId: 1 });
+    fireEvent.pointerUp(box, { ...centerB, pointerId: 1 });
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
   });
 
   it("recovers when a pointerup never came: the same pointer pressing again starts afresh", () => {
-    const { p, svg } = setup();
+    const { p, box } = setup();
     fireEvent.pointerDown(screen.getByRole("button", { name: /^Region deck/ }), {
       ...centerA,
       pointerId: 1,
@@ -453,7 +478,7 @@ describe("PlanView", () => {
       pointerId: 1,
       button: 0,
     });
-    fireEvent.pointerUp(svg, { ...centerB, pointerId: 1 });
+    fireEvent.pointerUp(box, { ...centerB, pointerId: 1 });
     expect(p.onSelect).toHaveBeenCalledWith("b:p0:0");
     expect(p.onSwap).not.toHaveBeenCalled();
   });
@@ -465,50 +490,93 @@ describe("PlanView", () => {
     expect(p.onSwap).toHaveBeenCalledWith("a:p0:0", "b:p0:0");
   });
 
-  it("marks pinned and size-locked trays on the tile and in the name", () => {
+  it("badges a pinned tray", () => {
+    const { p, view } = setup();
+    expect(screen.queryByRole("img", { name: "Pinned" })).toBeNull();
+    view.rerender(<Host {...p} lockedKeys={new Set(["a:p0:0"])} />);
+    expect(screen.getByRole("button", { name: "Region deck, layer 1, pinned" })).toBeTruthy();
+    const badge = screen.getByRole("img", { name: "Pinned" });
+    expect(badge.closest('[data-key="a:p0:0"]')).not.toBeNull();
+    // a pin that is not turned has no tag
+    expect(screen.queryByText("Turned")).toBeNull();
+  });
+
+  it("tags a turned pin", () => {
+    const turned = makeTray({ ...A, rotated: true });
+    const { p, view } = setup({ trays: [turned, B], lockedKeys: new Set(["a:p0:0"]) });
+    expect(screen.getByRole("img", { name: "Pinned" })).toBeTruthy();
+    expect(screen.getByText("Turned")).toBeTruthy();
+    // a tray turned by the plan, not pinned, carries no tag: the tag belongs to the pin
+    view.rerender(<Host {...p} lockedKeys={new Set<string>()} />);
+    expect(screen.queryByText("Turned")).toBeNull();
+  });
+
+  it("says size locked in the name of a tray, and prints nothing more on the tile", () => {
     const { p, view } = setup();
     view.rerender(<Host {...p} sizeLockedKeys={new Set(["a:p0:0"])} />);
     expect(screen.getByRole("button", { name: "Region deck, layer 1, size locked" })).toBeTruthy();
-    expect(screen.getByText("size locked")).toBeTruthy();
-    view.rerender(<Host {...p} lockedKeys={new Set(["a:p0:0"])} />);
-    expect(screen.getByRole("button", { name: "Region deck, layer 1, pinned" })).toBeTruthy();
-    expect(screen.getByText("pinned")).toBeTruthy();
+    expect(screen.queryByText("size locked")).toBeNull();
   });
 
-  it("switches layers", () => {
-    setup();
-    fireEvent.click(screen.getByLabelText("Layer 2 (top)"));
-    expect(screen.getByRole("button", { name: /layer 2/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /layer 1/ })).toBeNull();
-  });
-
-  it("labels the layers bottom to top, and has no switch for one layer", () => {
-    const top = makeTray({ ...C, key: "d:p0:0", level: 2 });
-    const { view } = setup({ trays: [A, B, C, top] });
-    const labels = Array.from(view.container.querySelectorAll(".layer-picker label")).map(
-      (l) => l.textContent,
+  it("dims the other trays while one is selected, and none when nothing is", () => {
+    const { box, view, p } = setup();
+    expect(box.querySelectorAll(".is-dimmed")).toHaveLength(0);
+    view.rerender(<Host {...p} selectedKey="a:p0:0" />);
+    const dimmed = Array.from(box.querySelectorAll(".plan-tile.is-dimmed")).map((t) =>
+      t.getAttribute("data-key"),
     );
-    expect(labels).toEqual(["Layer 1 (bottom)", "Layer 2", "Layer 3 (top)"]);
-    view.unmount();
-    setup({ trays: [A, B] });
-    expect(document.querySelector(".layer-picker")).toBeNull();
+    expect(dimmed).toEqual(["b:p0:0"]);
+    expect(box.querySelector('[data-key="a:p0:0"]')?.getAttribute("class")).toContain(
+      "is-selected",
+    );
   });
 
-  it("the layer switch is controlled by the app", () => {
-    const { p, view } = setup({ level: 1 });
-    // the layer comes from the prop: layer 2 is shown and its radio is checked
-    expect((screen.getByLabelText("Layer 2 (top)") as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByRole("button", { name: /layer 2/ })).toBeTruthy();
-    // choosing a layer reports it
-    fireEvent.click(screen.getByLabelText("Layer 1 (bottom)"));
-    expect(p.onLevelChange).toHaveBeenCalledWith(0);
-    expect(screen.getByRole("button", { name: "Region deck, layer 1" })).toBeTruthy();
-    view.unmount();
-    // without a parent that follows, the shown layer does not change on its own
-    const onLevelChange = vi.fn();
-    render(<PlanView {...p} level={1} onLevelChange={onLevelChange} />);
-    fireEvent.click(screen.getByLabelText("Layer 1 (bottom)"));
-    expect(onLevelChange).toHaveBeenCalledWith(0);
+  it("lights the trays of the component the rail is pointing at, and dims the rest", () => {
+    const { box } = setup();
+    act(() => {
+      hoveredComponent.value = deck.id;
+    });
+    expect(box.querySelector('[data-key="a:p0:0"]')?.getAttribute("class")).not.toContain(
+      "is-dimmed",
+    );
+    expect(box.querySelector('[data-key="b:p0:0"]')?.getAttribute("class")).toContain("is-dimmed");
+    expect(box.querySelector('[data-key="a:p0:0"] .plan-pill svg')).toBeTruthy();
+    act(() => {
+      hoveredComponent.value = null;
+    });
+    expect(box.querySelectorAll(".is-dimmed")).toHaveLength(0);
+  });
+
+  it("points the rail at the component of the tray the pointer is on", () => {
+    setup();
+    fireEvent.pointerEnter(screen.getByRole("button", { name: /^Dice/ }), {
+      pointerType: "mouse",
+    });
+    expect(hoveredComponent.value).toBe(dice.id);
+    fireEvent.pointerLeave(screen.getByRole("button", { name: /^Dice/ }), {
+      pointerType: "mouse",
+    });
+    expect(hoveredComponent.value).toBeNull();
+  });
+
+  it("dims every tray that is not pinned while a search runs", () => {
+    const { box } = setup({ searching: true, lockedKeys: new Set(["a:p0:0"]) });
+    expect(box.querySelector('[data-key="a:p0:0"]')?.getAttribute("class")).not.toContain(
+      "is-dimmed",
+    );
+    expect(box.querySelector('[data-key="b:p0:0"]')?.getAttribute("class")).toContain("is-dimmed");
+  });
+
+  it("shows the layer the app asks for (the stage's Layer switch owns the choice)", () => {
+    setup();
+    expect(screen.getAllByRole("button", { name: /layer 1/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /layer 2/ })).toBeNull();
+    expect(document.querySelector(".layer-picker")).toBeNull();
+    expect(screen.queryByRole("radio")).toBeNull();
+  });
+
+  it("shows layer 2 when the app's level is 1", () => {
+    setup({ level: 1 });
     expect(screen.getByRole("button", { name: /layer 2/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /layer 1/ })).toBeNull();
   });
@@ -542,114 +610,456 @@ describe("PlanView", () => {
     expect(screen.getByRole("status").textContent).toBe(""); // still there, saying nothing
   });
 
-  it("shows the name and size on a tile, and keeps the unit out of it", () => {
-    const { svg } = setup();
-    const tile = svg.querySelector('[data-key="a:p0:0"]');
+  it("shows the name on a tile, and no size", () => {
+    const { box } = setup();
+    const tile = box.querySelector('[data-key="a:p0:0"]');
     expect(tile?.querySelector(".plan-name")?.textContent).toBe("Region deck");
-    expect(tile?.querySelector(".plan-size")?.textContent).toBe("90 × 99");
-    expect(tile?.querySelector("text[aria-hidden]")).toBeTruthy();
+    expect(tile?.textContent).not.toMatch(/90 × 99/);
+    // the pill is for the eye: the tile's own name speaks for it
+    expect(tile?.querySelector(".plan-center")?.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("truncates a long name, keeping the whole of it in the name and title, and drops the text on a tiny tile", () => {
-    const longName = { ...newComponent("cards"), name: "A very long component name" };
-    const long = makeTray({
-      ...A,
-      w: 40,
-      compartments: [holding("A very long component name")],
-    });
+  it("keeps name pills on one line", () => {
+    const name = "The very long name of a card deck here 40";
+    expect(name).toHaveLength(41);
+    const longName = { ...newComponent("cards"), name };
+    const long = makeTray({ ...A, w: 99, compartments: [holding(name)] });
     const tiny = makeTray({ ...B, w: 8, d: 8 });
-    const { svg } = setup({ trays: [long, tiny], components: [longName, dice] });
-    const name = svg.querySelector('[data-key="a:p0:0"] .plan-name')?.textContent ?? "";
-    expect(name.endsWith("…")).toBe(true);
-    expect(name.length).toBeLessThan("A very long component name".length);
-    expect(svg.querySelector('[data-key="a:p0:0"] title')?.textContent).toBe(
-      "A very long component name",
-    );
-    expect(
-      screen.getByRole("button", { name: "A very long component name, layer 1" }),
-    ).toBeTruthy();
-    expect(svg.querySelector('[data-key="b:p0:0"] .plan-pill')).toBeNull();
-    expect(svg.querySelector('[data-key="b:p0:0"] .plan-name')).toBeNull();
-    expect(svg.querySelector('[data-key="b:p0:0"] .plan-size')).toBeNull();
+    const { box } = setup({ trays: [long, tiny], components: [longName, dice] });
+    // the pill holds the whole name and the CSS cuts it: one line, an ellipsis, the name in the title
+    expect(box.querySelector('[data-key="a:p0:0"] .plan-name')?.textContent).toBe(name);
+    expect(box.querySelector('[data-key="a:p0:0"]')?.getAttribute("title")).toBe(name);
+    expect(screen.getByRole("button", { name: `${name}, layer 1` })).toBeTruthy();
+    expect(planCss).toMatch(/\.plan-pill\s*{[^}]*white-space:\s*nowrap/);
+    expect(planCss).toMatch(/\.plan-pill\s*{[^}]*max-width:\s*100%/);
+    expect(planCss).toMatch(/\.plan-name\s*{[^}]*overflow:\s*hidden/);
+    expect(planCss).toMatch(/\.plan-name\s*{[^}]*text-overflow:\s*ellipsis/);
+    // a tile too small for a pill has none; its name is still its title
+    expect(box.querySelector('[data-key="b:p0:0"] .plan-pill')).toBeNull();
     expect(screen.getByRole("button", { name: "Dice, layer 1" })).toBeTruthy();
   });
 
-  it("draws a spare tray hatched with a dashed edge, with a legend, and no glyph", () => {
-    const { svg } = setup({
+  it("centres the pill in the tile, the icon and the name side by side", () => {
+    const { box } = setup({ selectedKey: "a:p0:0" });
+    const pill = box.querySelector('[data-key="a:p0:0"] .plan-pill');
+    expect(pill?.parentElement?.getAttribute("class")).toContain("plan-center");
+    expect(Array.from(pill?.children ?? []).map((c) => c.localName)).toEqual(["svg", "span"]);
+  });
+
+  it("draws a cell per compartment", () => {
+    const four = [0, 1, 2, 3].map((i) => ({
+      ...holding("Region deck ×50"),
+      x: 1.6 + (i % 2) * 45,
+      y: 1.6 + Math.floor(i / 2) * 48,
+      w: 43,
+      d: 46,
+    }));
+    const starter = makeTray({ ...A, compartments: four });
+    const { box } = setup({ trays: [starter, B] });
+    expect(box.querySelectorAll('[data-key="a:p0:0"] .plan-cell')).toHaveLength(4);
+    expect(box.querySelectorAll('[data-key="b:p0:0"] .plan-cell')).toHaveLength(1);
+  });
+
+  it("draws each compartment where it is", () => {
+    // 90 wide, 99 deep: the first well is the left half, the second the right half of the lower part
+    const tray = makeTray({
+      ...A,
+      compartments: [
+        { ...holding("Region deck ×50"), x: 0, y: 49.5, w: 45, d: 49.5 },
+        { ...holding("Region deck ×50"), x: 45, y: 0, w: 22.5, d: 24.75 },
+      ],
+    });
+    const { box } = setup({ trays: [tray] });
+    const cells = Array.from(box.querySelectorAll<HTMLElement>('[data-key="a:p0:0"] .plan-cell'));
+    // x from the left; y from the front, so the front (y 0) is the bottom of the tile
+    expect(cells[0]?.style.left).toBe("0%");
+    expect(cells[0]?.style.width).toBe("50%");
+    expect(cells[0]?.style.top).toBe("0%");
+    expect(cells[0]?.style.height).toBe("50%");
+    expect(cells[1]?.style.left).toBe("50%");
+    expect(cells[1]?.style.width).toBe("25%");
+    expect(cells[1]?.style.top).toBe("75%");
+    expect(cells[1]?.style.height).toBe("25%");
+    // the cells sit in the tile's padding box, 8 px in: the tile's own box is not theirs
+    expect(cells[0]?.parentElement?.getAttribute("class")).toContain("plan-cells");
+  });
+
+  it("draws no cells in a spare tray, and no icon", () => {
+    const { box } = setup({
       trays: [A, B, { ...L2, w: 60, d: 40 }],
       selectedKey: "leftover:1",
     });
-    const spare = svg.querySelector('[data-key="leftover:1"]');
+    const spare = box.querySelector('[data-key="leftover:1"]');
     expect(spare?.getAttribute("class")).toContain("is-leftover");
-    expect(spare?.querySelector(".plan-glyph")).toBeNull();
+    expect(spare?.querySelectorAll(".plan-cell")).toHaveLength(0);
+    expect(spare?.querySelector(".plan-pill svg")).toBeNull();
     expect(spare?.querySelector(".plan-name")?.textContent).toMatch(/^Spare/);
-    expect(svg.querySelector("defs pattern#plan-hatch")).toBeTruthy();
-    expect(planCss).toMatch(/\.plan-tray\.is-leftover \.plan-face\s*{[^}]*url\("#plan-hatch"\)/);
-    expect(planCss).toMatch(/\.plan-tray\.is-leftover \.plan-face\s*{[^}]*stroke-dasharray/);
-    expect(planCss).toMatch(/--spacer-dash/);
-    expect(screen.getByText(/Hatched trays are spares/).getAttribute("class")).toContain(
-      "plan-legend",
-    );
   });
 
-  it("has no spare-tray legend without a spare tray", () => {
-    setup();
+  it("draws a spacer hatched with a dashed edge", () => {
+    expect(planCss).toMatch(
+      /\.plan-tile\.is-leftover\s*{[^}]*repeating-linear-gradient\(\s*135deg,\s*var\(--spacer-fill\) 0 6px,\s*var\(--spacer-hatch\) 6px 12px/,
+    );
+    expect(planCss).toMatch(/\.plan-tile\.is-leftover\s*{[^}]*2px dashed var\(--spacer-dash\)/);
+    expect(planCss).toMatch(/\.plan-tile\.is-leftover \.plan-pill\s*{[^}]*--muted-strong/);
+  });
+
+  it("draws every part, a tray or a spacer, with the same inset: its footprint less 3 px a side", () => {
+    // A thin spacer (4 mm) beside a tray, a spare tray, and a merged part's members: all of them
+    const thin = makeTray({
+      key: "leftover:thin",
+      part: "leftover",
+      path: "13",
+      stack: 4,
+      x: 0,
+      y: 90.2,
+      w: 90,
+      d: 4,
+      compartments: [],
+    });
+    // a spacer made of two members on the same layer: each is drawn on its own
+    const joined = {
+      ...M,
+      key: "merged:2",
+      merged: {
+        members: [
+          { ...L2, key: "leftover:m1", x: 91, y: 10, w: 8, d: 30 },
+          { ...L2, key: "leftover:m2", x: 91, y: 50, w: 8, d: 3 },
+        ],
+        bridges: [],
+        flipped: false,
+      },
+    };
+    const trays = [A, B, thin, L2, joined];
+    const { box } = setup({ trays });
+    const css = planCss.replace(/\/\*[\s\S]*?\*\//g, "");
+    const rule = (selector: string): string => {
+      for (const [, selectors = "", body = ""] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (selectors.trim() === selector) {
+          return body;
+        }
+      }
+      return "";
+    };
+    // the one rule that places a tile: 3 px in on each side, and no padding that could push it out
+    const base = rule(".plan-tile");
+    expect(base).toMatch(/top:\s*calc\(var\(--y\) \+ 3px\)/);
+    expect(base).toMatch(/left:\s*calc\(var\(--x\) \+ 3px\)/);
+    expect(base).toMatch(/width:\s*calc\(var\(--w\) - 6px\)/);
+    expect(base).toMatch(/height:\s*calc\(var\(--d\) - 6px\)/);
+    expect(base).toMatch(/box-sizing:\s*border-box/);
+    expect(base).toMatch(/padding:\s*0;/);
+    // and no variant (a spacer, the tray that does not fit, a media query) moves or resizes it
+    const SIZING =
+      /(^|[\s;])(top|left|right|bottom|width|height|min-width|min-height|padding[a-z-]*|margin[a-z-]*|box-sizing|inset)\s*:/;
+    for (const [, selectors = "", body = ""] of css.matchAll(/([^{}@]+)\{([^{}]*)\}/g)) {
+      const own = selectors
+        .trim()
+        .split(",")
+        .map((x) => x.trim())
+        .filter((x) => /^(\.plan-box\[[^\]]*\] )?\.plan-tile[.:[\w-]*$/.test(x));
+      if (own.length > 0 && !own.includes(".plan-tile")) {
+        expect(body, selectors.trim()).not.toMatch(SIZING);
+      }
+    }
+    // each drawn part is its own footprint as shares of the floor, with no inline inset of its own
+    const inner = { w: insertBox.innerWidth, d: insertBox.innerDepth };
+    const drawn = [
+      ["a:p0:0", A],
+      ["b:p0:0", B],
+      ["leftover:thin", thin],
+      ["leftover:1", L2],
+    ] as const;
+    for (const [key, t] of drawn) {
+      const tile = box.querySelector<HTMLElement>(`[data-key="${key}"]`);
+      expect(tile, key).not.toBeNull();
+      const px = (name: string): number =>
+        Number.parseFloat(tile?.style.getPropertyValue(name) ?? "");
+      expect(px("--x"), key).toBeCloseTo(((frame.bc + t.x) / inner.w) * 100, 3);
+      // the front of the box is the bottom of the plan, so y counts from the back
+      expect(px("--y"), key).toBeCloseTo(
+        ((frame.bc + frame.usableD - t.y - t.d) / inner.d) * 100,
+        3,
+      );
+      expect(px("--w"), key).toBeCloseTo((t.w / inner.w) * 100, 3);
+      expect(px("--d"), key).toBeCloseTo((t.d / inner.d) * 100, 3);
+      for (const prop of ["top", "left", "width", "height", "padding", "margin"]) {
+        expect(tile?.style.getPropertyValue(prop), `${key} ${prop}`).toBe("");
+      }
+    }
+    // a merged part's members are drawn the same way
+    const members = [
+      ...box.querySelectorAll<HTMLElement>('[data-of="merged:2"], [data-key="merged:2"]'),
+    ];
+    expect(members).toHaveLength(2);
+    for (const m of members) {
+      expect(m.style.getPropertyValue("top")).toBe("");
+      expect(m.style.getPropertyValue("--w")).toBe(`${(8 / inner.w) * 100}%`);
+    }
+  });
+
+  it("positions a tile from its footprint in the box, and the box from its measures", () => {
+    const { box } = setup({ trays: [B] });
+    const tile = box.querySelector<HTMLElement>('[data-key="b:p0:0"]');
+    // B stands at x 100, y 0, 99 by 99, in a 200 by 100 box with 0.5 mm clearance
+    expect(frame.bc).toBe(0.5);
+    expect(tile?.style.getPropertyValue("--x")).toBe("50.25%");
+    expect(tile?.style.getPropertyValue("--y")).toBe("0.5%");
+    expect(tile?.style.getPropertyValue("--w")).toBe("49.5%");
+    expect(tile?.style.getPropertyValue("--d")).toBe("99%");
+    const fit = box.closest<HTMLElement>(".plan-fit");
+    expect(fit?.style.getPropertyValue("--box-w")).toBe("200");
+    expect(fit?.style.getPropertyValue("--box-l")).toBe("100");
+  });
+
+  it("prints no legend paragraph under the plan, spare tray or not (the boards show none)", () => {
+    setup({ trays: [A, B, { ...L2, w: 60, d: 40 }] });
     expect(screen.queryByText(/Hatched trays are spares/)).toBeNull();
+    expect(document.querySelector(".plan-legend")).toBeNull();
   });
 
-  it("greys out a stale plan by class, not by opacity", () => {
-    const { svg, view, p } = setup();
-    expect(svg.getAttribute("class")).not.toContain("is-stale");
+  it("prints no hint paragraph under the plan", () => {
+    setup();
+    expect(screen.queryByText(/Select a tray to see its details/)).toBeNull();
+    expect(document.querySelector(".plan .hint")).toBeNull();
+  });
+
+  it("draws a plan that is out of date as it is: the banner says so, as Main's does", () => {
+    const { box, view, p } = setup();
     view.rerender(<Host {...p} stale />);
-    expect(view.container.querySelector("svg")?.getAttribute("class")).toContain("is-stale");
-    expect(planCss).toMatch(/\.plan-svg\.is-stale\s*{[^}]*grayscale\(0\.8\)/);
+    expect(box.getAttribute("class")).not.toMatch(/stale/);
+    expect(planCss).not.toMatch(/grayscale/);
   });
 
-  it("shows the tray bar it is given under the drawing", () => {
-    const { svg } = setup({ selectedKey: "a:p0:0", bar: <p>The tray bar</p> });
+  it("shows the tray bar it is given in the slot above the box", () => {
+    const { box } = setup({ selectedKey: "a:p0:0", bar: <p>The tray bar</p> });
     const bar = screen.getByText("The tray bar");
-    expect(svg.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(bar.closest(".stage-slot")).not.toBeNull();
+    expect(box.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(screen.queryByText("Tap a tray for details.")).toBeNull();
   });
 
-  it("draws the selection ring after the tiles", () => {
-    const { svg } = setup({ selectedKey: "a:p0:0" });
-    const last = svg.querySelector(".plan-ring.is-selected");
-    expect(last).toBeTruthy();
-    expect(last?.compareDocumentPosition(svg.querySelector('[data-key="b:p0:0"]') as Element)).toBe(
-      Node.DOCUMENT_POSITION_PRECEDING,
+  it("asks for a tap in the slot while no tray is selected", () => {
+    const { p, view } = setup();
+    expect(screen.getByText("Tap a tray for details.").closest(".stage-slot")).not.toBeNull();
+    view.rerender(<Host {...p} selectedKey="a:p0:0" bar={<p>The tray bar</p>} />);
+    expect(screen.queryByText("Tap a tray for details.")).toBeNull();
+  });
+
+  it("rings the selected tray on the tile, with the ring over its neighbours", () => {
+    const { box } = setup({ selectedKey: "a:p0:0" });
+    const tile = box.querySelector('[data-key="a:p0:0"]');
+    expect(tile?.getAttribute("class")).toContain("is-selected");
+    expect(tile?.getAttribute("aria-pressed")).toBe("true");
+    expect(box.querySelector('[data-key="b:p0:0"]')?.getAttribute("aria-pressed")).toBe("false");
+    expect(planCss).toMatch(
+      /\.plan-tile\.is-selected\s*{[^}]*box-shadow:\s*var\(--ring-selected\)/,
     );
   });
 
-  it("offers a segmented layer picker", () => {
-    const { view } = setup();
-    expect(view.container.querySelector("fieldset.layer-picker .pf-seg .pf-seg__opt")).toBeTruthy();
-    expect(screen.getByLabelText("Layer 1 (bottom)")).toBeTruthy();
+  it("marks the plan's box for the screenshots", () => {
+    const { box } = setup();
+    expect(box.getAttribute("data-region")).toBe("plan-box");
+  });
+
+  it("captions the box with its layer and its front", () => {
+    setup({ trays: [A, B, C] });
+    const caption = screen.getByText("Layer 1 (bottom), seen from above. Front of the box");
+    expect(caption.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    cleanup();
+    setup({ trays: [A, B, C], level: 1 });
+    expect(screen.getByText("Layer 2 (top), seen from above. Front of the box")).toBeTruthy();
+    cleanup();
+    setup({ trays: [A, B] });
+    expect(screen.getByText("Layer 1, seen from above. Front of the box")).toBeTruthy();
+  });
+
+  it("captions a phone's box with its front only, and drops the slot's hint", () => {
+    phone();
+    setup({ trays: [A, B, C] });
+    expect(screen.getByText("Front of the box")).toBeTruthy();
+    expect(screen.queryByText(/seen from above/)).toBeNull();
+    // the slot is there for the live region, but it takes no room while it has nothing to say
+    expect(document.querySelector(".stage-slot")?.getAttribute("class")).toContain(
+      "visually-hidden",
+    );
+  });
+
+  it("says the gaps are filled again while a pin exists, and not otherwise", () => {
+    const { p, view } = setup();
+    const line = "Spacers fill the gaps again when the plan updates.";
+    expect(screen.queryByText(line)).toBeNull();
+    view.rerender(<Host {...p} lockedKeys={new Set(["a:p0:0"])} />);
+    expect(screen.getByText(line)).toBeTruthy();
+  });
+});
+
+describe("PlanView as a picture (read-only)", () => {
+  const picture = (over: Partial<PlanViewProps> = {}) =>
+    setup({ readOnly: true, trays: [A, B], ...over });
+
+  it("has no control: no tile is a button or a tab stop, no slot or pin line", () => {
+    const { box, view } = picture({ lockedKeys: new Set(["a:p0:0"]) });
+    expect(within(box).queryAllByRole("button")).toHaveLength(0);
+    expect(box.querySelectorAll("[tabindex]")).toHaveLength(0);
+    expect(view.container.querySelector(".stage-slot")).toBeNull();
+    expect(screen.queryByText("Spacers fill the gaps again when the plan updates.")).toBeNull();
+    // the trays are still named for a screen reader, in the list
+    expect(
+      [...view.container.querySelectorAll("ul.visually-hidden li")].map((li) => li.textContent),
+    ).toEqual(["Region deck, pinned", "Dice"]);
+  });
+
+  it("selects and swaps nothing", () => {
+    const { p, box } = picture();
+    fireEvent.pointerDown(box.querySelector('[data-key="a:p0:0"]') as Element, {
+      ...centerA,
+      pointerId: 1,
+      button: 0,
+    });
+    fireEvent.pointerUp(box, { ...centerA, pointerId: 1 });
+    fireEvent.keyDown(box.querySelector('[data-key="a:p0:0"]') as Element, { key: "Enter" });
+    expect(p.onSelect).not.toHaveBeenCalled();
+    expect(p.onSwap).not.toHaveBeenCalled();
+  });
+
+  it("is not lit by the rail's pointer", () => {
+    picture();
+    act(() => {
+      hoveredComponent.value = deck.id;
+    });
+    // a plan that is not a picture would dim the dice here, and show the lit deck's kind icon in its pill
+    expect(document.querySelectorAll(".plan-tile.is-dimmed")).toHaveLength(0);
+    expect(document.querySelector(".plan-pill svg")).toBeNull();
+  });
+
+  it("dims every tile, or every tile that is not pinned, as it is told", () => {
+    const { view } = picture({ dim: "all" });
+    expect(view.container.querySelectorAll(".plan-tile.is-dimmed")).toHaveLength(2);
+    cleanup();
+    const { view: pins } = picture({ dim: "unpinned", lockedKeys: new Set(["a:p0:0"]) });
+    expect(
+      pins.container.querySelector('[data-key="a:p0:0"]')?.classList.contains("is-dimmed"),
+    ).toBe(false);
+    expect(
+      pins.container.querySelector('[data-key="b:p0:0"]')?.classList.contains("is-dimmed"),
+    ).toBe(true);
+    cleanup();
+    const { view: plain } = picture();
+    expect(plain.container.querySelectorAll(".plan-tile.is-dimmed")).toHaveLength(0);
+  });
+
+  it("marks the tray that does not fit: its name alone, on top, and not dimmed", () => {
+    const { view } = picture({ dim: "all", misfitKey: "b:p0:0" });
+    const marked = view.container.querySelectorAll(".plan-tile.is-misfit");
+    expect(marked).toHaveLength(1);
+    expect(marked[0]?.getAttribute("data-key")).toBe("b:p0:0");
+    expect(marked[0]?.textContent).toBe("Dice");
+    expect(marked[0]?.classList.contains("is-dimmed")).toBe(false);
+    expect(marked[0]?.querySelector(".plan-cells, .plan-pill")).toBeNull();
+    expect(
+      view.container.querySelector('[data-key="a:p0:0"]')?.classList.contains("is-dimmed"),
+    ).toBe(true);
+  });
+
+  it("draws the marked tray inside the frame, so its name is not cut off with what hangs over", () => {
+    // 150 mm in and 100 mm wide in a 200 mm box: 50 mm of it is in the frame
+    const wide = makeTray({
+      key: "w:p0:0",
+      path: "0",
+      x: 150,
+      y: 0,
+      w: 100,
+      d: 99,
+      compartments: [holding("Region deck ×50")],
+    });
+    const { view } = picture({ trays: [A, wide], misfitKey: "w:p0:0", dim: "all" });
+    const tile = view.container.querySelector('[data-key="w:p0:0"]') as HTMLElement;
+    const left = Number.parseFloat(tile.style.getPropertyValue("--x"));
+    const width = Number.parseFloat(tile.style.getPropertyValue("--w"));
+    expect(left + width).toBeLessThanOrEqual(100);
+    expect(width).toBeCloseTo(((200 - (150 + frame.bc)) / 200) * 100, 1);
+    // another tray that hangs over keeps its real place, the frame cuts it
+    cleanup();
+    const { view: plain } = picture({ trays: [A, wide], dim: "all" });
+    const other = plain.container.querySelector('[data-key="w:p0:0"]') as HTMLElement;
+    expect(Number.parseFloat(other.style.getPropertyValue("--w"))).toBeCloseTo(50, 1);
+  });
+
+  it("cuts what hangs over the frame at the frame", () => {
+    const { box } = picture();
+    expect(box.getAttribute("data-readonly")).toBe("true");
+    expect(planCss).toMatch(/\.plan-box\[data-readonly="true"\]\s*\{[^}]*overflow:\s*hidden/);
+    expect(planCss).toMatch(/\.plan-tile\.is-misfit\s*\{[^}]*border:\s*2px dashed var\(--warn\)/);
+    expect(planCss).toMatch(/\.plan-tile\.is-misfit\s*\{[^}]*background:\s*var\(--warn-bg\)/);
+    expect(planCss).toMatch(/\.plan-misfit\s*\{[^}]*color:\s*var\(--warn-ink\)/);
+    expect(planCss).toMatch(/\.plan-misfit\s*\{[^}]*font-weight:\s*700/);
+  });
+
+  it("is a plain plan when it is not read-only: tiles are buttons, nothing is marked", () => {
+    setup({ trays: [A, B], misfitKey: "b:p0:0", dim: "all" });
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(document.querySelector(".is-misfit, .is-dimmed")).toBeNull();
   });
 });
 
 describe("a merged filler on the plan", () => {
-  it("is one tile per member on the layer it stands on, all with one number and one key", () => {
+  it("is one tile per member on the layer it stands on, all with one key", () => {
     const { view } = setup({ trays: [A, B, C, M] });
     const merged = view.container.querySelectorAll('[data-key="merged:0"]');
-    // one group, drawn as the members of the layer (layer 1: the ground filler)
+    // one tile with the name and the role, drawn as the members of the layer (layer 1: the ground filler)
     expect(merged).toHaveLength(1);
-    expect(merged[0]?.querySelectorAll("rect.plan-face")).toHaveLength(1);
-    expect(merged[0]?.querySelector("title")?.textContent).toMatch(/^Spare/);
+    expect(view.container.querySelectorAll('[data-of="merged:0"]')).toHaveLength(0);
+    expect(merged[0]?.getAttribute("title")).toMatch(/^Spare/);
     expect(merged[0]?.classList.contains("is-leftover")).toBe(true);
+  });
+
+  it("draws a merged part's other members as plain parts of the same tile", () => {
+    const two = makeTray({
+      ...M,
+      merged: {
+        members: [
+          { ...L2, x: 91, y: 0, w: 8, d: 30 },
+          { ...L2, key: "leftover:2", x: 91, y: 60, w: 8, d: 39 },
+        ],
+        bridges: [],
+        flipped: false,
+      },
+    });
+    const { view } = setup({ trays: [A, B, two], selectedKey: "merged:0" });
+    const parts = view.container.querySelectorAll('[data-of="merged:0"]');
+    expect(parts).toHaveLength(1);
+    expect(parts[0]?.getAttribute("role")).toBeNull();
+    expect(parts[0]?.getAttribute("aria-hidden")).toBe("true");
+    expect(parts[0]?.getAttribute("class")).toContain("is-selected");
   });
 
   it("shows its other member on the next layer, and is selected from either", () => {
     const onSelect = vi.fn();
-    const { view } = setup({ trays: [A, B, C, M], onSelect });
-    fireEvent.click(screen.getByRole("radio", { name: /Layer 2/ }));
+    const { view } = setup({ trays: [A, B, C, M], onSelect, level: 1 });
     const merged = view.container.querySelector('[data-key="merged:0"]');
-    expect(merged?.querySelectorAll("rect.plan-face")).toHaveLength(1);
+    expect(merged).not.toBeNull();
     fireEvent.keyDown(merged as Element, { key: "Enter" });
     expect(onSelect).toHaveBeenCalledWith("merged:0");
   });
 
-  it("draws the ring round every member of a selected merged part", () => {
-    const { view } = setup({ trays: [A, B, C, M], selectedKey: "merged:0" });
-    expect(view.container.querySelectorAll("rect.plan-ring.is-selected")).toHaveLength(1);
+  it("selects a merged part by tapping any of its members", () => {
+    const two = makeTray({
+      ...M,
+      merged: {
+        members: [
+          { ...L2, x: 91, y: 0, w: 8, d: 30 },
+          { ...L2, key: "leftover:2", x: 91, y: 60, w: 8, d: 39 },
+        ],
+        bridges: [],
+        flipped: false,
+      },
+    });
+    const onSelect = vi.fn();
+    const { view, box } = setup({ trays: [A, B, two], onSelect });
+    const part = view.container.querySelector('[data-of="merged:0"]') as Element;
+    fireEvent.pointerDown(part, { ...at(95, 20), pointerId: 1, button: 0 });
+    fireEvent.pointerUp(box, { ...at(95, 20), pointerId: 1 });
+    expect(onSelect).toHaveBeenCalledWith("merged:0");
   });
 });

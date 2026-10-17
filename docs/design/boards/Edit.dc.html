@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Editing a component</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&amp;family=Figtree:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F3EF}:focus-visible{outline:3px solid #2F5BB8;outline-offset:2px}label:focus-within>span{box-shadow:0 0 0 3px #CFDCF6}@media (max-width:760px){main{order:-1}aside{max-width:none !important;flex-basis:100% !important}}
+a{color:#1D1F1C}a:hover{color:#000}
+button,input{font:inherit;color:inherit}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-direction: column; background: #F4F3EF; color: #1D1F1C; font-family: Figtree, system-ui, sans-serif; font-size: 15px">
+
+<header style="height: 60px; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 0 24px; border-bottom: 1px solid #E4E1D9">
+<div aria-hidden="true" style="width: 28px; height: 28px; border-radius: 8px; background: #1D1F1C; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; padding: 5px; box-sizing: border-box">
+<span style="border-radius: 2px; background: #8FB0EE"></span><span style="border-radius: 2px; background: #EDC175"></span><span style="border-radius: 2px; background: #86C79A"></span><span style="border-radius: 2px; background: #E89BBE"></span>
+</div>
+<span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px">Insert Generator</span>
+<span aria-hidden="true" style="width: 1px; height: 22px; background: #DAD6CC"></span>
+<span style="color: #3E413C; padding: 8px 10px">Harbour Kings</span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #2B7247"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Saved in this browser</span>
+<div style="flex-grow: 1"></div>
+<button type="button" aria-label="Undo" title="Undo" style="width: 44px; height: 44px; border-radius: 999px; border: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-3"></path></svg></button>
+<button type="button" aria-label="Project menu" aria-haspopup="menu" style="width: 44px; height: 44px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></button>
+<a href="Export.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 18px; border-radius: 999px; background: #1D1F1C; color: #FFFFFF; text-decoration: none; font-weight: 600">Download</a>
+</header>
+
+<div style="flex-grow: 1; display: flex; flex-wrap: wrap">
+
+<aside style="flex: 1 1 340px; max-width: 400px; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E4E1D9; padding: 12px 20px 20px; display: flex; flex-direction: column; gap: 20px">
+<a href="Main.dc.html" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px 0 4px; border-radius: 8px; text-decoration: none; color: #3E413C; font-weight: 600; font-size: 14px">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+What's inside
+</a>
+
+<div style="display: flex; align-items: center; gap: 12px">
+<span aria-hidden="true" style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: #DCE6FA; color: #22457E; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="7" y="3" width="12" height="16" rx="2"></rect><path d="M5 7v12a2 2 0 0 0 2 2h9"></path></svg></span>
+<label style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #5F625C">Cards
+<input type="text" value="Market deck" aria-label="Name" style="border: 0; border-bottom: 1.5px dashed #DAD6CC; padding: 2px 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 22px; color: #1D1F1C; background: none">
+</label>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">How many cards?</span>
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="Fewer" style="width: 44px; height: 44px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+<input type="text" inputmode="numeric" value="80" aria-label="Number of cards" style="width: 90px; height: 44px; box-sizing: border-box; text-align: center; border-radius: 12px; border: 1px solid #DAD6CC; font-size: 18px; font-weight: 600">
+<button type="button" aria-label="More" style="width: 44px; height: 44px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Card size</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" aria-pressed="true" style="height: 44px; padding: 0 14px; border-radius: 999px; border: 1.5px solid #1D1F1C; background: #1D1F1C; color: #FFFFFF; font-weight: 600; cursor: pointer">Standard</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer">Mini</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer">Tarot</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer">Square</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer">My own size</button>
+</div>
+<span style="font-size: 13px; color: #5F625C">63.5 × 88 mm</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Sleeves</span>
+<div style="display: flex; padding: 3px; border-radius: 999px; background: #EFEDE7" role="group" aria-label="Sleeves">
+<button type="button" aria-pressed="false" style="flex: 1; white-space: nowrap; height: 44px; border-radius: 999px; border: 0; background: none; cursor: pointer; color: #3E413C">None</button>
+<button type="button" aria-pressed="true" style="flex: 1; white-space: nowrap; height: 44px; border-radius: 999px; border: 0; background: #FFFFFF; box-shadow: 0 1px 2px rgba(29,31,28,.12); cursor: pointer; font-weight: 600">Standard</button>
+<button type="button" aria-pressed="false" style="flex: 1; white-space: nowrap; height: 44px; border-radius: 999px; border: 0; background: none; cursor: pointer; color: #3E413C">Premium</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; border-top: 1px solid #EEEBE4; border-bottom: 1px solid #EEEBE4">
+<button type="button" onClick="{{toggleMore}}" aria-expanded="{{moreOpen}}" aria-controls="more-options" style="display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 60px; padding: 0; border: 0; background: none; cursor: pointer; text-align: left">
+<span style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-weight: 600">More options</span>
+<span style="font-size: 13px; color: #5F625C">{{summary}}</span>
+</span>
+<span style="{{chevronStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span>
+</button>
+<sc-if value="{{moreOpen}}" hint-placeholder-val="{{false}}">
+<div id="more-options" style="display: flex; flex-direction: column; gap: 18px; padding: 4px 0 18px">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">{{g.label}}</span>
+<div style="display: flex; padding: 3px; border-radius: 999px; background: #EFEDE7" role="group" aria-label="{{g.label}}">
+<sc-for list="{{g.options}}" as="o">
+<button type="button" onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="{{o.style}}">{{o.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Tray shape</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{shapes}}" as="s" hint-placeholder-count="3">
+<button type="button" onClick="{{s.toggle}}" aria-pressed="{{s.on}}" style="{{s.style}}">{{s.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Keep it next to</span>
+<button type="button" style="align-self: flex-start; height: 44px; padding: 0 14px; border-radius: 999px; border: 1px dashed #6E695C; background: none; cursor: pointer; font-size: 14px; color: #3E413C">Choose…</button>
+</div>
+<button type="button" style="display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0; border: 0; background: none; cursor: pointer; text-align: left">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600">Card thickness</span><span style="font-size: 13px; color: #5F625C">From the sleeve table. Measure your stack if decks come out tight.</span></span>
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+</button>
+</div>
+</sc-if>
+</div>
+
+<div style="margin-top: auto; display: flex; justify-content: space-between; align-items: center">
+<button type="button" style="min-height: 44px; border: 0; background: none; padding: 0; cursor: pointer; color: #A13A2C; font-weight: 600">Remove…</button>
+<a href="Main.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 22px; border-radius: 999px; background: #1D1F1C; color: #FFFFFF; text-decoration: none; font-weight: 600">Done</a>
+</div>
+</aside>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px 40px; display: flex; flex-direction: column; align-items: center; gap: 16px">
+<div style="align-self: stretch; min-height: 52px; display: flex; align-items: center" aria-live="polite">
+<sc-if value="{{hasNote}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px; background: #1D1F1C; color: #FFFFFF; box-shadow: 0 10px 24px rgba(29,31,28,.18)">
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+<span>{{note}}</span>
+</div>
+</sc-if>
+<sc-if value="{{noNote}}" hint-placeholder-val="{{true}}">
+<h1 style="margin: 0; font-size: 17px; font-weight: 400"><strong>Market deck</strong> tray, 95 × 190 mm. It grows as you add cards.</h1>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 12px">
+<div style="position: relative; width: min(582px, calc(100vw - 32px)); aspect-ratio: 1; flex-shrink: 0; border-radius: 16px; background: #D3CDBF; box-shadow: inset 0 0 0 1px #BFB8A8">
+<sc-for list="{{trays}}" as="t" hint-placeholder-count="7">
+<span style="{{t.style}}">
+<sc-for list="{{t.cells}}" as="cell"><span style="{{cell.style}}"></span></sc-for>
+<span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+<span style="{{t.nameStyle}}">
+<sc-if value="{{t.isCards}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="7" y="3" width="12" height="16" rx="2"></rect><path d="M5 7v12a2 2 0 0 0 2 2h9"></path></svg></sc-if>
+<sc-if value="{{t.isBits}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path><path d="M4 7.5l8 4.5 8-4.5M12 12v9"></path></svg></sc-if>
+<sc-if value="{{t.isTiles}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg></sc-if>
+<sc-if value="{{t.isMinis}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="6.5" r="3"></circle><path d="M9.5 10.5h5l1.5 7h-8z"></path><path d="M6 20.5h12"></path></svg></sc-if>
+{{t.label}}</span>
+</span>
+</span>
+</sc-for>
+</div>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #5F625C">Bottom layer, seen from above. Front of the box <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"></path></svg></span>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"moreOpen":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+const K = {
+  cards: { fill: '#DCE6FA', line: '#335AA6', ink: '#22457E' },
+  bits: { fill: '#FBE9C9', line: '#8A5D08', ink: '#6E4C0E' },
+  tiles: { fill: '#D8EEDE', line: '#2E6B41', ink: '#22552E' },
+  minis: { fill: '#F5DCE7', line: '#964068', ink: '#74244B' }
+};
+const TRAYS = [
+  { kind: 'cards', name: 'Market deck', x: 0, y: 0, w: 95, d: 190, cols: 1, rows: 1, lit: true },
+  { kind: 'cards', name: 'Starter decks', x: 95, y: 0, w: 95, d: 95, cols: 2, rows: 2 },
+  { kind: 'tiles', name: 'Hex tiles', x: 190, y: 0, w: 95, d: 140, cols: 1, rows: 1 },
+  { kind: 'bits', name: 'Coins and cubes', x: 95, y: 95, w: 95, d: 95, cols: 2, rows: 2 },
+  { kind: 'bits', name: 'Dice', x: 0, y: 190, w: 95, d: 95, cols: 1, rows: 1 },
+  { kind: null, name: 'Spacer', x: 95, y: 190, w: 95, d: 95 },
+  { kind: 'minis', name: 'Heroes', x: 190, y: 140, w: 95, d: 145, cols: 2, rows: 3 }
+];
+const GROUPS = [
+  { key: 'growth', label: 'Room for expansions', options: [
+    ['none', 'None', 'No extra room. The tray fits today’s 80 cards.'],
+    ['few', 'A few cards', 'Room for about 3 more cards. A spacer fills the gap until then.'],
+    ['full', 'A full expansion', 'Room for about 8 more cards. A spacer fills the gap until then.']] },
+  { key: 'access', label: 'How often you reach for it', options: [
+    ['often', 'Often', 'Market deck goes where it’s easy to reach, on top if it can.'],
+    ['sometimes', 'Sometimes', 'Market deck can go anywhere in the box.'],
+    ['setup', 'Only at setup', 'Market deck can go under other trays.']] },
+  { key: 'stand', label: 'Cards stand', options: [
+    ['upright', 'Upright', 'Cards stand on their long edge.'],
+    ['flat', 'Flat', 'Cards lie flat. The tray gets wider and shallower.'],
+    ['auto', 'Auto', 'Upright or flat, whichever fits better.']] }
+];
+const SHAPES = [
+  ['finger', 'Finger cuts', 'Finger cuts on: a dip in the wall to pinch the cards.', 'Finger cuts off.'],
+  ['corner', 'Corner holes', 'Round holes in the corners so square pieces sit flat.', 'Corner holes off.'],
+  ['dividers', 'Removable dividers', 'One removable divider, printed as a separate part.', 'No dividers.']
+];
+const DEFAULTS = { growth: 'none', access: 'sometimes', stand: 'upright', finger: true, corner: false, dividers: false };
+const segOn = 'flex:1;white-space:nowrap;height:44px;border-radius:999px;border:0;background:#FFFFFF;box-shadow:0 1px 2px rgba(29,31,28,.12);cursor:pointer;font-weight:600';
+const segOff = 'flex:1;white-space:nowrap;height:44px;border-radius:999px;border:0;background:none;cursor:pointer;color:#3E413C';
+const chipOn = 'display:inline-flex;align-items:center;height:44px;padding:0 14px;border-radius:999px;border:1.5px solid #1D1F1C;background:#1D1F1C;color:#FFFFFF;cursor:pointer;font-weight:600;font-size:14px';
+const chipOff = 'display:inline-flex;align-items:center;height:44px;padding:0 14px;border-radius:999px;border:1px solid #DAD6CC;background:#FFFFFF;cursor:pointer;font-size:14px';
+
+class Component extends DCLogic {
+  componentWillUnmount() { clearTimeout(this.timer); }
+  renderVals() {
+    const st = this.state || {};
+    const v = Object.assign({}, DEFAULTS, st.v || {});
+    const moreOpen = st.more ?? (this.props.moreOpen ?? true);
+    const say = (patch, text) => {
+      clearTimeout(this.timer);
+      this.setState({ v: Object.assign({}, v, patch), note: text });
+      this.timer = setTimeout(() => this.setState({ note: null }), 4000);
+    };
+    const groups = GROUPS.map((g) => ({
+      label: g.label,
+      options: g.options.map(([val, label, msg]) => ({
+        label, on: v[g.key] === val, style: v[g.key] === val ? segOn : segOff,
+        pick: () => say({ [g.key]: val }, msg)
+      }))
+    }));
+    const shapes = SHAPES.map(([key, label, onMsg, offMsg]) => ({
+      label, on: !!v[key], style: v[key] ? chipOn : chipOff,
+      toggle: () => say({ [key]: !v[key] }, v[key] ? offMsg : onMsg)
+    }));
+    const changed = Object.keys(DEFAULTS).filter((k) => v[k] !== DEFAULTS[k]).length;
+    const parts = [];
+    parts.push(v.finger ? 'Finger cuts on' : 'Finger cuts off');
+    parts.push(v.stand === 'auto' ? 'stands either way' : (v.stand === 'flat' ? 'lies flat' : 'stands upright'));
+    if (v.growth !== 'none') parts.push('room to grow');
+    const trays = TRAYS.map((t) => {
+      const k = t.kind ? K[t.kind] : null;
+      const look = k ? `background:${k.fill};border:2px solid ${k.line};` : 'background:repeating-linear-gradient(135deg,#E9E5DB 0 6px,#DDD8CC 6px 12px);border:2px dashed #6E695C;';
+      const lift = t.lit ? `box-shadow:0 0 0 4px #FFFFFF,0 0 0 6px #335AA6,0 14px 28px rgba(29,31,28,.2);z-index:2;${st.note ? 'transform:scale(1.02);' : ''}` : '';
+      const cells = [];
+      const count = k ? t.cols * t.rows : 0;
+      for (let i = 0; i < count; i++) cells.push({ style: `border-radius:6px;background:rgba(255,255,255,.6);border:1px solid ${k.line}40` });
+      return {
+        label: t.name, cells, isCards: !!t.lit && t.kind === 'cards', isBits: !!t.lit && t.kind === 'bits', isTiles: !!t.lit && t.kind === 'tiles', isMinis: !!t.lit && t.kind === 'minis',
+        style: `position:absolute;left:${(9 + t.x * 2) / 5.82}%;top:${(9 + t.y * 2) / 5.82}%;width:${(t.w * 2 - 6) / 5.82}%;height:${(t.d * 2 - 6) / 5.82}%;box-sizing:border-box;border-radius:10px;padding:8px;display:grid;grid-template-columns:repeat(${t.cols || 1},minmax(0,1fr));grid-template-rows:repeat(${t.rows || 1},minmax(0,1fr));gap:6px;transition:transform .2s;opacity:${t.lit ? 1 : 0.5};${look}${lift}`,
+        nameStyle: `display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.92);color:${k ? k.ink : '#3E413C'};white-space:nowrap`
+      };
+    });
+    return {
+      trays, groups, shapes,
+      moreOpen,
+      toggleMore: () => this.setState({ more: !moreOpen }),
+      chevronStyle: `display:flex;transition:transform .2s;transform:rotate(${moreOpen ? 180 : 0}deg)`,
+      summary: parts.join(', ') + (changed ? ` · ${changed} changed` : ''),
+      hasNote: !!st.note, noNote: !st.note, note: st.note || ''
+    };
+  }
+}
+</script>
+</body>
+</html>

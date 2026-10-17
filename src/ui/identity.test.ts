@@ -8,17 +8,20 @@ import type {
   Component,
   CompartmentSpec,
   ComponentKind,
+  MinisComponent,
 } from "../model/types";
 import tokens from "../styles/tokens.css?raw";
-import { contrast, hexToHsl, hexToRgb } from "./color";
+import { contrast, hexToHsl, hexToRgb, rgbToHex } from "./color";
 import {
   BOX_COLOR,
   SPACER_SHADE,
   SHADE_COUNT,
+  compartmentWords,
   componentIndexOfTray,
   componentSummary,
   kindIndexOf,
   layerLabel,
+  layerWords,
   shadeHex,
   shadeOf,
 } from "./identity";
@@ -111,12 +114,11 @@ describe("component shades", () => {
     }
   });
 
-  it("starts every kind on its own hue from the tokens, in both schemes", () => {
-    const at = tokens.indexOf("@media");
-    const blocks = { light: tokens.slice(0, at), dark: tokens.slice(at) };
-    for (const scheme of SCHEMES) {
+  it("starts every kind on its own hue from the tokens", () => {
+    // tokens.css is light only until the opt-in dark theme (UI rebuild Task 16) restores its set
+    for (const scheme of ["light"] as const) {
       const found = new Map(
-        [...blocks[scheme].matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
+        [...tokens.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
       );
       for (const kind of KINDS) {
         const base = shadeHex(kind, 0, scheme);
@@ -130,12 +132,11 @@ describe("component shades", () => {
     expect(new Set(KINDS.map((k) => shadeHex(k, 0, "light").fill)).size).toBe(KINDS.length);
   });
 
-  it("mirrors the spacer tokens, in both schemes", () => {
-    const at = tokens.indexOf("@media");
-    const blocks = { light: tokens.slice(0, at), dark: tokens.slice(at) };
-    for (const scheme of SCHEMES) {
+  it("mirrors the spacer tokens", () => {
+    // tokens.css is light only until the opt-in dark theme (UI rebuild Task 16) restores its set
+    for (const scheme of ["light"] as const) {
       const found = new Map(
-        [...blocks[scheme].matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
+        [...tokens.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
       );
       expect(SPACER_SHADE[scheme].fill, `${scheme} fill`).toBe(found.get("--spacer-fill"));
       expect(SPACER_SHADE[scheme].hatch, `${scheme} hatch`).toBe(found.get("--spacer-hatch"));
@@ -157,8 +158,9 @@ describe("component shades", () => {
     }
   });
 
-  it("keeps light fills pastel (the vivid #5C8FF6 or #FFBA40 are out)", () => {
-    // HSV saturation: pastels sit low (the bases 0.1 to 0.2), the vivid ones high (0.6 and up).
+  it("keeps light fills soft (the vivid #5C8FF6 or #FFBA40 are out)", () => {
+    // HSV saturation: the bases sit low (0.2 to 0.33), the deepest shades of amber 0.55, the
+    // vivid ones high (0.6 and up).
     const chroma = (hex: string): number => {
       const [r, g, b] = hexToRgb(hex);
       return (Math.max(r, g, b) - Math.min(r, g, b)) / Math.max(r, g, b);
@@ -166,8 +168,67 @@ describe("component shades", () => {
     for (const kind of KINDS) {
       for (let index = 0; index < SHADE_COUNT; index++) {
         const { fill } = shadeHex(kind, index, "light");
-        expect(chroma(fill), `${kind} ${index} ${fill}`).toBeLessThanOrEqual(0.5);
+        expect(chroma(fill), `${kind} ${index} ${fill}`).toBeLessThanOrEqual(0.58);
       }
+    }
+  });
+
+  it("keeps every shade's ink at 4.5:1 on the name pill (92% white) laid over its fill", () => {
+    const alpha = Number(/--pill-fill:\s*rgb\(255 255 255 \/ (\d+)%\)/.exec(tokens)?.[1]) / 100;
+    expect(alpha).toBeGreaterThan(0.5);
+    for (let index = 0; index < 2 * SHADE_COUNT; index++) {
+      for (const kind of KINDS) {
+        const { fill, ink } = shadeHex(kind, index, "light");
+        const [r, g, b] = hexToRgb(fill);
+        const over = (v: number): number => alpha * 255 + (1 - alpha) * v;
+        const pill = rgbToHex(over(r), over(g), over(b));
+        expect(contrast(ink, pill), `${kind} ${index} ink on pill`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it("makes a tile's compartment cells lighter than its fill but no more than 40% white", () => {
+    const alpha = Number(/--cell-fill:\s*rgb\(255 255 255 \/ (\d+)%\)/.exec(tokens)?.[1]) / 100;
+    expect(alpha).toBeGreaterThan(0.2);
+    expect(alpha).toBeLessThanOrEqual(0.4);
+  });
+
+  // Owner feedback: "colors in the box look a bit pale". The cause was the base fills (HSL
+  // lightness 89 to 92, as the board draws them) under a white cell that covered most of the
+  // tile, and a later shade that stepped toward white (lightness 96) or toward grey (saturation
+  // down by a quarter). Fills sit a notch deeper, and a later shade goes darker or a little
+  // lighter, but keeps its colour.
+  it("keeps every light fill at lightness 90 or less, and the base fills a notch deeper than the board's", () => {
+    for (const kind of KINDS) {
+      expect(hexToHsl(shadeHex(kind, 0, "light").fill).l, `${kind} base`).toBeLessThanOrEqual(87);
+      for (let index = 0; index < SHADE_COUNT; index++) {
+        const { fill } = shadeHex(kind, index, "light");
+        expect(hexToHsl(fill).l, `${kind} ${index} ${fill}`).toBeLessThanOrEqual(90);
+      }
+    }
+  });
+
+  it("keeps a later shade's colour: its saturation stays within 80% of the base fill's", () => {
+    for (const kind of KINDS) {
+      const base = hexToHsl(shadeHex(kind, 0, "light").fill);
+      for (let index = 1; index < SHADE_COUNT; index++) {
+        const { fill } = shadeHex(kind, index, "light");
+        expect(hexToHsl(fill).s, `${kind} ${index} ${fill}`).toBeGreaterThanOrEqual(base.s * 0.8);
+      }
+    }
+  });
+
+  it("steps lightness both ways from the base, not only toward white", () => {
+    for (const kind of KINDS) {
+      const base = hexToHsl(shadeHex(kind, 0, "light").fill).l;
+      const later = Array.from(
+        { length: SHADE_COUNT - 1 },
+        (_, i) => hexToHsl(shadeHex(kind, i + 1, "light").fill).l,
+      );
+      expect(Math.min(...later), `${kind} has a darker shade`).toBeLessThan(base - 5);
+      expect(Math.max(...later), `${kind} has a lighter shade`).toBeGreaterThan(base);
+      // lighter by a few points only
+      expect(Math.max(...later), `${kind} lighter shade`).toBeLessThanOrEqual(base + 5);
     }
   });
 
@@ -213,6 +274,18 @@ describe("kindIndexOf", () => {
   });
 });
 
+describe("layerWords", () => {
+  it("writes the layers as Main does", () => {
+    expect([0, 1, 2].map((l) => layerWords(l, 3))).toEqual([
+      "bottom layer",
+      "layer 2",
+      "top layer",
+    ]);
+    expect([0, 1].map((l) => layerWords(l, 2))).toEqual(["bottom layer", "top layer"]);
+    expect(layerWords(0, 1)).toBe("");
+  });
+});
+
 describe("layerLabel", () => {
   it("names the bottom and top layer, and the ones between", () => {
     expect([0, 1, 2].map((l) => layerLabel(l, 3))).toEqual([
@@ -226,19 +299,99 @@ describe("layerLabel", () => {
 });
 
 describe("componentSummary", () => {
-  it("mentions sleeves when the cards have them", () => {
+  it("says how many cards there are, and that they are sleeved", () => {
     const c = { ...(newComponent("cards") as CardsComponent), sleeve: "standard" as const };
-    expect(componentSummary(c)).toBe("50 cards · 63.5 × 88 mm · standard sleeves");
-    expect(componentSummary({ ...c, sleeve: { w: 66, h: 91, thickness: 0.1 } })).toMatch(
-      /· custom sleeves$/,
+    expect(componentSummary(c)).toBe("50 cards, sleeved");
+    expect(componentSummary({ ...c, sleeve: { w: 66, h: 91, thickness: 0.1 } })).toBe(
+      "50 cards, sleeved",
     );
-    expect(componentSummary({ ...c, sleeve: "none" })).toBe("50 cards · 63.5 × 88 mm");
+    expect(componentSummary({ ...c, sleeve: "none" })).toBe("50 cards");
   });
 
-  it("calls tokens and dice by that name, not bits", () => {
+  it("says how the cards are split into decks", () => {
+    const c = newComponent("cards") as CardsComponent;
+    const decks = (counts: number[]): CardsComponent["decks"] =>
+      counts.map((count, i) => ({ name: `Deck ${i + 1}`, count }));
+    expect(componentSummary({ ...c, decks: decks([12, 12, 12, 12]) })).toBe("4 decks of 12");
+    expect(componentSummary({ ...c, decks: decks([12, 30]) })).toBe("42 cards in 2 decks");
+  });
+
+  it("calls tokens and dice kinds and pieces, not bits", () => {
     const c = newComponent("bulk") as BulkComponent;
-    const item = c.items[0] as BulkComponent["items"][number];
-    expect(componentSummary(c)).toBe("1 kind of tokens and dice");
-    expect(componentSummary({ ...c, items: [item, item] })).toBe("2 kinds of tokens and dice");
+    const item = { name: "Coins", count: 40, w: 20, d: 20, h: 2 };
+    expect(componentSummary({ ...c, items: [item] })).toBe("40 pieces");
+    expect(componentSummary({ ...c, items: [item, { ...item, count: 24 }] })).toBe(
+      "2 kinds, 64 pieces",
+    );
+    // a kind given by volume has no count to add up
+    expect(componentSummary({ ...c, items: [item, { name: "Beads", volumeMl: 50 }] })).toBe(
+      "2 kinds",
+    );
+    expect(componentSummary({ ...c, items: [{ name: "Beads", volumeMl: 50 }] })).toBe("1 kind");
+  });
+
+  it("counts tiles, figures and custom pieces", () => {
+    expect(componentSummary({ ...newComponent("tiles"), count: 24 } as Component)).toBe("24 tiles");
+    const minis = newComponent("minis") as MinisComponent;
+    expect(
+      componentSummary({
+        ...minis,
+        figures: [
+          { ...(minis.figures[0] as MinisComponent["figures"][number]), count: 4 },
+          { ...(minis.figures[0] as MinisComponent["figures"][number]), count: 2 },
+        ],
+      }),
+    ).toBe("6 figures");
+    expect(
+      componentSummary({ ...newComponent("custom"), count: 2, w: 30, d: 20, h: 10 } as Component),
+    ).toBe("2 × 30 × 20 × 10 mm");
+  });
+});
+
+describe("compartmentWords", () => {
+  const compartment = (kind: "well" | "scoop" | "pocket" | "spare") => ({
+    x: 0,
+    y: 0,
+    w: 10,
+    d: 10,
+    floorZ: 1,
+    kind,
+    contents: kind === "spare" ? "" : "x",
+    features: [],
+  });
+  const trayOf = (...kinds: ("well" | "scoop" | "pocket" | "spare")[]) =>
+    makeTray({ compartments: kinds.map(compartment) });
+
+  it("names a well by what it holds, and counts them", () => {
+    expect(compartmentWords(trayOf("well"), newComponent("cards") as Component)).toBe(
+      "1 card well",
+    );
+    expect(
+      compartmentWords(trayOf("well", "well", "well", "well"), newComponent("cards") as Component),
+    ).toBe("4 card wells");
+    expect(compartmentWords(trayOf("well"), newComponent("tiles") as Component)).toBe(
+      "1 tile stack",
+    );
+    expect(compartmentWords(trayOf("well"), newComponent("bulk") as Component)).toBe(
+      "1 compartment",
+    );
+    expect(compartmentWords(trayOf("well"), undefined)).toBe("1 compartment");
+  });
+
+  it("says scooped compartments and figure pockets by the compartment's own kind", () => {
+    expect(compartmentWords(trayOf("scoop", "scoop"), newComponent("bulk") as Component)).toBe(
+      "2 scooped compartments",
+    );
+    expect(
+      compartmentWords(trayOf(...Array(6).fill("pocket")), newComponent("minis") as Component),
+    ).toBe("6 figure pockets");
+  });
+
+  it("says nothing for a tray with no compartments, and leaves spares out of the count", () => {
+    expect(compartmentWords(trayOf(), undefined)).toBeNull();
+    expect(compartmentWords(trayOf("spare"), undefined)).toBeNull();
+    expect(compartmentWords(trayOf("well", "spare"), newComponent("cards") as Component)).toBe(
+      "1 card well",
+    );
   });
 });

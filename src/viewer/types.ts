@@ -21,6 +21,11 @@ export interface SceneHandle {
   setExplode(f: number): void;
   setMaxLevel(level: number | null): void;
   setSelected(key: string | null): void;
+  /**
+   * The trays to tint softly, those of the component whose rail row is pointed at or focused (the
+   * top view lights them the same way). The selected tray keeps its stronger glow.
+   */
+  setLit(keys: readonly string[]): void;
   onPick(cb: (key: string | null) => void): void;
   /**
    * Reports the camera's orientation now and on every turn, for the axis indicator; `null` stops

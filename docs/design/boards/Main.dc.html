@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Insert workspace</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&amp;family=Figtree:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F3EF}:focus-visible{outline:3px solid #2F5BB8;outline-offset:2px}@media (max-width:760px){main{order:-1}aside{max-width:none !important;flex-basis:100% !important}}
+a{color:#1D1F1C}a:hover{color:#000}
+button{font:inherit;color:inherit}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-direction: column; background: #F4F3EF; color: #1D1F1C; font-family: Figtree, system-ui, sans-serif; font-size: 15px">
+
+<header style="position: relative; height: 60px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 24px; border-bottom: 1px solid #E4E1D9">
+<div aria-hidden="true" style="width: 28px; height: 28px; border-radius: 8px; background: #1D1F1C; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; padding: 5px; box-sizing: border-box">
+<span style="border-radius: 2px; background: #8FB0EE"></span><span style="border-radius: 2px; background: #EDC175"></span><span style="border-radius: 2px; background: #86C79A"></span><span style="border-radius: 2px; background: #E89BBE"></span>
+</div>
+<span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px">Insert Generator</span>
+<span aria-hidden="true" style="width: 1px; height: 22px; background: #DAD6CC"></span>
+<button type="button" style="display: flex; align-items: center; gap: 6px; height: 44px; border: 0; background: none; padding: 0 10px; border-radius: 8px; cursor: pointer; color: #3E413C">
+<span>Harbour Kings</span>
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg>
+</button>
+<span style="{{savedStyle}}">
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+{{savedText}}
+</span>
+<div style="flex-grow: 1"></div>
+<button type="button" aria-label="Undo" title="Undo" style="width: 44px; height: 44px; border-radius: 999px; border: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-3"></path></svg></button>
+<button type="button" aria-label="{{menuAria}}" aria-haspopup="menu" aria-expanded="{{menuOpen}}" onClick="{{toggleMenu}}" style="position: relative; width: 44px; height: 44px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
+<sc-if value="{{menuDot}}" hint-placeholder-val="{{false}}"><span aria-hidden="true" style="position: absolute; top: 6px; right: 6px; width: 10px; height: 10px; border-radius: 999px; background: #C2620F; box-shadow: 0 0 0 2px #FFFFFF"></span></sc-if>
+</button>
+<a href="Export.dc.html" style="{{downloadStyle}}">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"></path><path d="M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>
+Download
+</a>
+<sc-if value="{{menuOpen}}" hint-placeholder-val="{{false}}">
+<div role="menu" aria-label="Project" style="position: absolute; right: 120px; top: 56px; z-index: 10; width: 260px; padding: 6px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E4E1D9; box-shadow: 0 16px 40px rgba(29,31,28,.18); display: flex; flex-direction: column">
+<sc-if value="{{menuDot}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; padding: 12px; border-radius: 10px; background: #FCE6CF; color: #5A2A06; font-size: 14px; line-height: 1.45">
+<span><strong>{{menuNote.title}}</strong> {{menuNote.body}}</span>
+<span style="display: flex; flex-wrap: wrap; gap: 6px">
+<button type="button" role="menuitem" onClick="{{closeMenu}}" style="min-height: 40px; padding: 0 12px; border-radius: 999px; border: 0; background: #1D1F1C; color: #FFFFFF; cursor: pointer; font-weight: 600; font-size: 13px">{{menuNote.primary}}</button>
+<button type="button" role="menuitem" onClick="{{closeMenu}}" style="min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid #BDB7A9; background: #FFFFFF; cursor: pointer; font-weight: 600; font-size: 13px">{{menuNote.secondary}}</button>
+</span>
+</div>
+</sc-if>
+<a role="menuitem" href="Empty.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 10px; text-decoration: none">New insert</a>
+<button type="button" role="menuitem" onClick="{{closeMenu}}" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 0; background: none; cursor: pointer; text-align: left">Your inserts<span style="font-size: 13px; color: #5F625C">3 in this browser</span></button>
+<button type="button" role="menuitem" onClick="{{closeMenu}}" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 0; background: none; cursor: pointer; text-align: left">Open file…</button>
+<button type="button" role="menuitem" onClick="{{closeMenu}}" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 0; background: none; cursor: pointer; text-align: left">Save file</button>
+<span aria-hidden="true" style="height: 1px; margin: 4px 8px; background: #EEEBE4"></span>
+<a role="menuitem" href="Settings.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 10px; text-decoration: none">Settings</a>
+
+</div>
+</sc-if>
+</header>
+
+<div style="flex-grow: 1; display: flex; flex-wrap: wrap">
+
+<aside style="flex: 1 1 300px; max-width: 350px; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E4E1D9; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+<a href="Box.dc.html" style="display: flex; align-items: center; gap: 14px; width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 1px solid #E4E1D9; background: #FAF9F6; text-decoration: none">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 10px; background: #EDEAE2; display: flex; align-items: center; justify-content: center; color: #5F625C">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 8l9-4 9 4v9l-9 4-9-4z"></path><path d="M3 8l9 4 9-4M12 12v9"></path></svg>
+</span>
+<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1">
+<span style="font-size: 13px; color: #5F625C">The box</span>
+<span style="font-weight: 600; font-size: 16px">285 × 285 × 70 mm</span>
+</span>
+<span style="font-size: 14px; font-weight: 600; color: #3E413C">Change</span>
+</a>
+
+<div style="display: flex; align-items: center; justify-content: space-between">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 20px">What's inside</h2>
+<a href="EditKinds.dc.html" style="display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; text-decoration: none; font-weight: 600; font-size: 14px">
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+Add
+</a>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{comps}}" as="c" hint-placeholder-count="8">
+<div style="display: flex; align-items: center; gap: 4px">
+<button type="button" onMouseEnter="{{c.enter}}" onMouseLeave="{{c.leave}}" onFocus="{{c.enter}}" onBlur="{{c.leave}}" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="{{c.rowStyle}}">
+<span aria-hidden="true" style="{{c.iconStyle}}">
+<sc-if value="{{c.isCards}}" hint-placeholder-val="{{true}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="7" y="3" width="12" height="16" rx="2"></rect><path d="M5 7v12a2 2 0 0 0 2 2h9"></path></svg></sc-if>
+<sc-if value="{{c.isBits}}" hint-placeholder-val="{{false}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path><path d="M4 7.5l8 4.5 8-4.5M12 12v9"></path></svg></sc-if>
+<sc-if value="{{c.isTiles}}" hint-placeholder-val="{{false}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg></sc-if>
+<sc-if value="{{c.isMinis}}" hint-placeholder-val="{{false}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="6.5" r="3"></circle><path d="M9.5 10.5h5l1.5 7h-8z"></path><path d="M6 20.5h12"></path></svg></sc-if>
+</span>
+<span style="display: flex; flex-direction: column; gap: 1px; flex-grow: 1; min-width: 0">
+<span style="font-weight: 600">{{c.name}}</span>
+<span style="font-size: 13px; color: #5F625C">{{c.meta}}</span>
+</span>
+</button>
+<sc-if value="{{c.hasRule}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{c.clearRules}}" aria-label="{{c.clearAria}}" style="display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 8px 0 10px; border-radius: 999px; border: 0; background: #1D1F1C; color: #FFFFFF; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap">
+{{c.rule}}
+<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<sc-if value="{{hasRules}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 12px; background: #F4F3EF">
+<span style="font-size: 13px; line-height: 1.5; color: #3E413C">These stay as you set them when the plan updates.</span>
+<button type="button" onClick="{{resetAll}}" style="align-self: flex-start; min-height: 44px; border: 0; background: none; padding: 0; cursor: pointer; font-weight: 600; font-size: 14px; color: #3E413C; text-decoration: underline; text-underline-offset: 3px">Clear all my choices</button>
+</div>
+</sc-if>
+
+<div style="margin-top: auto; padding-top: 12px; border-top: 1px solid #EEEBE4; display: flex; align-items: center; gap: 10px; color: #5F625C; font-size: 14px">
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="13" width="16" height="7" rx="1.5"></rect><path d="M7 13V5h10v8"></path></svg>
+<span style="flex-grow: 1">Printer bed 256 × 256 mm</span>
+<a href="Settings.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 8px; font-weight: 600; text-decoration: none">Settings</a>
+</div>
+</aside>
+
+<main style="flex: 999 1 640px; min-width: 0; box-sizing: border-box; padding: 22px 36px 28px; display: flex; flex-direction: column; gap: 16px">
+
+<sc-if value="{{hasNotice}}" hint-placeholder-val="{{false}}">
+<div role="status" style="{{noticeStyle}}">
+<span style="flex: 1 1 320px; line-height: 1.45"><strong>{{notice.title}}</strong> {{notice.body}}</span>
+<span style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" style="height: 44px; padding: 0 14px; border-radius: 999px; border: 0; background: #1D1F1C; color: #FFFFFF; cursor: pointer; font-weight: 600; font-size: 14px">{{notice.primary}}</button>
+<sc-if value="{{notice.hasSecondary}}" hint-placeholder-val="{{true}}">
+<button type="button" style="height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #BDB7A9; background: #FFFFFF; cursor: pointer; font-weight: 600; font-size: 14px">{{notice.secondary}}</button>
+</sc-if>
+</span>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px" aria-live="polite">
+<div style="display: flex; gap: 14px; align-items: center">
+<sc-if value="{{idle}}" hint-placeholder-val="{{true}}">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 999px; background: #DDF0E3; color: #2B7247; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 28px; letter-spacing: -0.01em">Everything fits</h1>
+<span style="color: #5F625C">{{statusLine}}</span>
+</div>
+</sc-if>
+<sc-if value="{{searching}}" hint-placeholder-val="{{false}}">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 999px; background: #E6EEFC; color: #2F5BB8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 28px; letter-spacing: -0.01em">Searching for a better plan…</h1>
+<span style="color: #5F625C">This plan stays unless a better one turns up.</span>
+</div>
+</sc-if>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<div style="display: flex; padding: 3px; border-radius: 999px; background: #E9E7E0" role="group" aria-label="Layer">
+<sc-for list="{{layerTabs}}" as="l" hint-placeholder-count="2">
+<button type="button" onClick="{{l.show}}" aria-pressed="{{l.on}}" style="{{l.style}}">{{l.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; padding: 3px; border-radius: 999px; background: #E9E7E0" role="group" aria-label="View">
+<button type="button" onClick="{{showFlat}}" aria-pressed="{{isFlat}}" style="{{flatTab}}">Top</button>
+<button type="button" onClick="{{show3d}}" aria-pressed="{{is3d}}" aria-disabled="{{noGL}}" title="{{glTitle}}" style="{{tiltTab}}">3D</button>
+</div>
+<sc-if value="{{idle}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{search}}" style="display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; font-weight: 600; font-size: 14px">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg>
+Keep searching
+</button>
+</sc-if>
+<sc-if value="{{searching}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{stop}}" style="height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #1D1F1C; background: #FFFFFF; cursor: pointer; font-weight: 600; font-size: 14px">Stop</button>
+</sc-if>
+</div>
+</div>
+<sc-if value="{{noGL}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 13px; color: #5F625C">3D needs a browser with WebGL turned on. The top view works the same.</span>
+</sc-if>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<div style="flex: 1 1 560px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 12px">
+<div style="align-self: stretch; min-height: 52px; display: flex; align-items: center">
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{false}}">
+<div role="region" aria-label="Selected tray" style="flex-grow: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E1D9; box-shadow: 0 6px 18px rgba(29,31,28,.08)">
+<span aria-hidden="true" style="{{selSwatch}}"></span>
+<span style="display: flex; flex-direction: column; flex: 1 1 200px; min-width: 0">
+<span style="font-weight: 700">{{sel.name}}</span>
+<span style="font-size: 13px; color: #5F625C">{{sel.meta}}</span>
+</span>
+<sc-if value="{{sel.isTray}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{togglePin}}" aria-pressed="{{sel.pinned}}" style="{{pinStyle}}">
+<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 5 3 3H7l3-3z"></path><path d="M12 12v8"></path></svg>
+{{pinLabel}}
+</button>
+<button type="button" onClick="{{turn}}" aria-disabled="{{turnBlocked}}" style="{{turnStyle}}">
+<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg>
+{{turnLabel}}
+</button>
+<button type="button" onClick="{{move}}" aria-disabled="{{moveBlocked}}" style="{{moveStyle}}">
+<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"></path><path d="M3 16l9 5 9-5"></path></svg>
+{{moveLabel}}
+</button>
+<a href="Edit.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 16px; border-radius: 999px; background: #1D1F1C; color: #FFFFFF; text-decoration: none; font-weight: 600; font-size: 14px">Edit</a>
+</sc-if>
+<button type="button" aria-label="Close" onClick="{{clear}}" style="width: 44px; height: 44px; border-radius: 999px; border: 0; background: #F4F3EF; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+<sc-if value="{{hasWhy}}" hint-placeholder-val="{{false}}">
+<span style="flex-basis: 100%; font-size: 13px; color: #7A3A08">{{why}}</span>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{noSel}}" hint-placeholder-val="{{true}}">
+<span style="color: #5F625C">Tap a tray for details.</span>
+</sc-if>
+</div>
+<div style="{{boxStyle}}">
+<sc-for list="{{trays}}" as="t" hint-placeholder-count="7">
+<button type="button" aria-label="{{t.aria}}" aria-pressed="{{t.selected}}" onMouseEnter="{{t.enter}}" onMouseLeave="{{t.leave}}" onFocus="{{t.enter}}" onBlur="{{t.leave}}" onClick="{{t.pick}}" style="{{t.style}}">
+<sc-for list="{{t.cells}}" as="cell"><span style="{{cell.style}}"></span></sc-for>
+<span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none">
+<span style="{{t.nameStyle}}">
+<sc-if value="{{t.isCards}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="7" y="3" width="12" height="16" rx="2"></rect><path d="M5 7v12a2 2 0 0 0 2 2h9"></path></svg></sc-if>
+<sc-if value="{{t.isBits}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path><path d="M4 7.5l8 4.5 8-4.5M12 12v9"></path></svg></sc-if>
+<sc-if value="{{t.isTiles}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg></sc-if>
+<sc-if value="{{t.isMinis}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="6.5" r="3"></circle><path d="M9.5 10.5h5l1.5 7h-8z"></path><path d="M6 20.5h12"></path></svg></sc-if>
+{{t.label}}
+</span>
+</span>
+<sc-if value="{{t.pinned}}" hint-placeholder-val="{{false}}">
+<span role="img" aria-label="Pinned" style="position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 999px; background: #1D1F1C; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 5 3 3H7l3-3z"></path><path d="M12 12v8"></path></svg>
+</span>
+</sc-if>
+<sc-if value="{{t.hasTag}}" hint-placeholder-val="{{false}}">
+<span style="position: absolute; left: 8px; bottom: 8px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #1D1F1C; color: #FFFFFF">{{t.tag}}</span>
+</sc-if>
+</button>
+</sc-for>
+</div>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #5F625C">
+{{viewName}}, seen from above. Front of the box
+<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"></path></svg>
+</span>
+<sc-if value="{{custom}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 13px; color: #5F625C">Spacers fill the gaps again when the plan updates.</span>
+</sc-if>
+</div>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"notice":{"editor":"enum","options":["none","outdated","olderVersion","otherTab","noWebGL"],"default":"none"},"$preview":{"width":1440,"height":900}}'>
+const KINDS = {
+  cards: { fill: '#DCE6FA', line: '#335AA6', ink: '#22457E' },
+  bits: { fill: '#FBE9C9', line: '#8A5D08', ink: '#6E4C0E' },
+  tiles: { fill: '#D8EEDE', line: '#2E6B41', ink: '#22552E' },
+  minis: { fill: '#F5DCE7', line: '#964068', ink: '#74244B' }
+};
+const LAYER_H = { top: 26, bottom: 40 };
+const LAYER_NAME = { top: 'Top layer', bottom: 'Bottom layer' };
+const COMPS = [
+  { id: 'market', name: 'Market deck', kind: 'cards', meta: '80 cards, sleeved' },
+  { id: 'starter', name: 'Starter decks', kind: 'cards', meta: '4 decks of 12' },
+  { id: 'events', name: 'Event cards', kind: 'cards', meta: '30 cards' },
+  { id: 'coins', name: 'Coins and cubes', kind: 'bits', meta: '4 kinds, 96 pieces' },
+  { id: 'resources', name: 'Resource tokens', kind: 'bits', meta: '6 kinds, 120 pieces' },
+  { id: 'dice', name: 'Dice', kind: 'bits', meta: '10 dice' },
+  { id: 'hex', name: 'Hex tiles', kind: 'tiles', meta: '24 tiles' },
+  { id: 'heroes', name: 'Heroes', kind: 'minis', meta: '6 figures' }
+];
+const TRAYS = [
+  { comp: 'market', layer: 'bottom', x: 0, y: 0, w: 95, d: 190, h: 40, needs: 38, cols: 1, rows: 1, what: '1 card well' },
+  { comp: 'starter', layer: 'bottom', x: 95, y: 0, w: 95, d: 95, h: 40, needs: 38, cols: 2, rows: 2, what: '4 card wells' },
+  { comp: 'hex', layer: 'bottom', x: 190, y: 0, w: 95, d: 140, h: 40, needs: 30, cols: 1, rows: 1, what: '1 tile stack' },
+  { comp: 'coins', layer: 'bottom', x: 95, y: 95, w: 95, d: 95, h: 40, needs: 22, cols: 2, rows: 2, what: '4 scooped bins' },
+  { comp: 'dice', layer: 'bottom', x: 0, y: 190, w: 95, d: 95, h: 40, needs: 24, cols: 1, rows: 1, what: '1 scooped bin' },
+  { comp: null, key: 'spacerBottom', layer: 'bottom', x: 95, y: 190, w: 95, d: 95, h: 40 },
+  { comp: 'heroes', layer: 'bottom', x: 190, y: 140, w: 95, d: 145, h: 40, needs: 38, cols: 2, rows: 3, what: '6 figure pockets' },
+  { comp: 'events', layer: 'top', x: 0, y: 0, w: 95, d: 140, h: 26, needs: 20, cols: 1, rows: 1, what: '1 card well' },
+  { comp: 'resources', layer: 'top', x: 95, y: 0, w: 190, d: 140, h: 26, needs: 18, cols: 3, rows: 2, what: '6 scooped bins' },
+  { comp: null, key: 'spacerTop', layer: 'top', x: 0, y: 140, w: 285, d: 145, h: 26 }
+];
+const keyOf = (t) => t.comp || t.key;
+const other = (l) => (l === 'top' ? 'bottom' : 'top');
+const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.d && b.y < a.y + a.d;
+const grams = (t) => Math.round((t.w * t.d * t.h) / 9500);
+const hours = (t) => Math.max(0.5, Math.round((grams(t) / 17) * 2) / 2);
+const segOn = 'height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: #FFFFFF; box-shadow: 0 1px 2px rgba(29,31,28,.12); cursor: pointer; font-weight: 600; font-size: 14px';
+const segOff = 'height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: none; cursor: pointer; font-weight: 500; font-size: 14px; color: #3E413C';
+const NOTICES = {
+  outdated: { tone: 'info', title: 'This plan is from before your last changes.', body: 'Download is off until it is updated.', primary: 'Update the plan', secondary: '' },
+  olderVersion: { tone: 'warn', title: 'Made with an older version of the app.', body: 'Trays printed from it will not stack with trays you print now.', primary: 'Reprint everything', secondary: 'Keep the old plan' },
+  otherTab: { tone: 'info', title: 'You changed this insert in another tab.', body: 'Saving is paused here until you choose.', primary: 'Keep this version', secondary: 'Use the other tab version' }
+};
+
+class Component extends DCLogic {
+  componentWillUnmount() { clearTimeout(this.timer); }
+  renderVals() {
+    const st = this.state || {};
+    const moves = st.moves || {};
+    const turns = st.turns || {};
+    const pins = st.pins || {};
+    const view = st.layer || 'bottom';
+    const mode = st.view || 'flat';
+    const sel = st.sel || null;
+    const searching = !!st.searching;
+    const active = searching ? null : (st.hov || sel);
+    const set = (p) => this.setState(p);
+    const noticeKey = this.props.notice ?? 'none';
+    const noGL = noticeKey === 'noWebGL';
+
+    const base = (c) => TRAYS.find((t) => t.comp === c);
+    const layerOf = (c) => moves[c] || base(c).layer;
+    const turnCount = Object.keys(turns).filter((k) => turns[k]).length;
+    const pinCount = Object.keys(pins).filter((k) => pins[k]).length;
+    const moveCount = Object.keys(moves).length;
+    const custom = moveCount > 0 || turnCount > 0;
+
+    const layout = (l, extraMoves, extraTurns) => {
+      const mv = Object.assign({}, moves, extraMoves || {});
+      const tn = Object.assign({}, turns, extraTurns || {});
+      const anyTurn = Object.keys(tn).some((k) => tn[k]);
+      if (!Object.keys(mv).length && !anyTurn) return TRAYS.filter((t) => t.layer === l).map((t) => Object.assign({}, t));
+      const items = TRAYS.filter((t) => t.comp && (mv[t.comp] || t.layer) === l)
+        .map((t) => (tn[t.comp] ? Object.assign({}, t, { w: t.d, d: t.w, cols: t.rows, rows: t.cols }) : Object.assign({}, t)));
+      const placed = [];
+      items.filter((t) => pins[t.comp] && pins[t.comp].layer === l).forEach((t) => placed.push(Object.assign(t, { x: pins[t.comp].x, y: pins[t.comp].y })));
+      const rest = items.filter((t) => !(pins[t.comp] && pins[t.comp].layer === l)).sort((a, b) => b.w * b.d - a.w * a.d);
+      for (const t of rest) {
+        let spot = null;
+        for (let y = 0; !spot && y + t.d <= 285; y += 5) {
+          for (let x = 0; x + t.w <= 285; x += 5) {
+            const cand = { x, y, w: t.w, d: t.d };
+            if (!placed.some((p) => overlaps(cand, p))) { spot = cand; break; }
+          }
+        }
+        if (!spot) return null;
+        placed.push(Object.assign(t, { x: spot.x, y: spot.y }));
+      }
+      return placed;
+    };
+    const pinsOn = (l) => Object.keys(pins).some((k) => pins[k] && pins[k].layer === l);
+    const nameOf = (c) => COMPS.find((x) => x.id === c).name;
+    const tryMove = (c) => {
+      const to = other(layerOf(c));
+      if (pins[c]) return { ok: false, to, why: 'Unpin it first to move it.' };
+      if (base(c).needs > LAYER_H[to]) return { ok: false, to, why: `${nameOf(c)} needs ${base(c).needs} mm of height. The ${to} layer has ${LAYER_H[to]} mm.` };
+      if (!layout(to, { [c]: to })) return { ok: false, to, why: pinsOn(to) ? `No room on the ${to} layer while your pinned trays stay put.` : `No room left on the ${to} layer.` };
+      return { ok: true, to };
+    };
+    const tryTurn = (c) => {
+      if (pins[c]) return { ok: false, why: 'Unpin it first to turn it.' };
+      if (!layout(layerOf(c), null, { [c]: !turns[c] })) return { ok: false, why: `Turned, it no longer fits on the ${layerOf(c)} layer.` };
+      return { ok: true };
+    };
+    const rulesOf = (c) => {
+      const r = [];
+      if (pins[c]) r.push('Pinned');
+      if (moves[c]) r.push(LAYER_NAME[moves[c]]);
+      if (turns[c]) r.push('Turned');
+      return r;
+    };
+
+    const current = layout(view) || [];
+    const trays = current.map((t) => {
+      const key = keyOf(t);
+      const comp = t.comp ? COMPS.find((x) => x.id === t.comp) : null;
+      const k = comp ? KINDS[comp.kind] : null;
+      const lit = searching ? !!(t.comp && pins[t.comp]) : (!active || active === key);
+      let look = k ? `background:${k.fill};border:2px solid ${k.line};` : 'background:repeating-linear-gradient(135deg,#E9E5DB 0 6px,#DDD8CC 6px 12px);border:2px dashed #6E695C;';
+      if (mode === '3d') look += `box-shadow:0 ${t.h / 3}px 0 ${k ? k.line : '#8C8778'};`;
+      if (sel === key && mode !== '3d') look += 'box-shadow:0 0 0 3px #FFFFFF,0 0 0 5px #1D1F1C;';
+      const cells = [];
+      const count = k ? t.cols * t.rows : 0;
+      for (let i = 0; i < count; i++) cells.push({ style: `border-radius:6px;background:rgba(255,255,255,.6);border:1px solid ${k.line}40` });
+      const tags = t.comp ? rulesOf(t.comp).filter((r) => r !== 'Pinned') : [];
+      return {
+        label: comp ? comp.name : 'Spacer',
+        aria: comp ? `${comp.name} tray, ${LAYER_NAME[view].toLowerCase()}` : 'Spacer',
+        selected: sel === key,
+        cells,
+        isCards: !!comp && active === key && comp.kind === 'cards', isBits: !!comp && active === key && comp.kind === 'bits', isTiles: !!comp && active === key && comp.kind === 'tiles', isMinis: !!comp && active === key && comp.kind === 'minis',
+        pinned: !!(t.comp && pins[t.comp]),
+        hasTag: tags.length > 0, tag: tags.join(' · '),
+        style: `position:absolute;left:${(9 + t.x * 2) / 5.82}%;top:${(9 + t.y * 2) / 5.82}%;width:${(t.w * 2 - 6) / 5.82}%;height:${(t.d * 2 - 6) / 5.82}%;box-sizing:border-box;border-radius:10px;padding:8px;display:grid;grid-template-columns:repeat(${t.cols || 1},minmax(0,1fr));grid-template-rows:repeat(${t.rows || 1},minmax(0,1fr));gap:6px;cursor:pointer;transition:opacity .18s,box-shadow .18s;opacity:${lit ? 1 : 0.5};${look}`,
+        nameStyle: `display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.92);color:${k ? k.ink : '#3E413C'};white-space:nowrap`,
+        enter: () => set({ hov: key }),
+        leave: () => set({ hov: null }),
+        pick: () => set({ sel: sel === key ? null : key, menu: false })
+      };
+    });
+
+    const selTray = sel ? (current.find((t) => keyOf(t) === sel) || null) : null;
+    const selComp = selTray && selTray.comp ? COMPS.find((x) => x.id === selTray.comp) : null;
+
+    const comps = COMPS.map((c) => {
+      const k = KINDS[c.kind];
+      const on = active === c.id;
+      const rules = rulesOf(c.id);
+      return {
+        name: c.name,
+        meta: `${c.meta} · ${LAYER_NAME[layerOf(c.id)].toLowerCase()}`,
+        on: sel === c.id,
+        isCards: c.kind === 'cards', isBits: c.kind === 'bits', isTiles: c.kind === 'tiles', isMinis: c.kind === 'minis',
+        hasRule: rules.length > 0, rule: rules.join(' · '),
+        clearAria: `Clear your choices for ${c.name}`,
+        clearRules: () => {
+          const nm = Object.assign({}, moves); delete nm[c.id];
+          const np = Object.assign({}, pins); delete np[c.id];
+          const nt = Object.assign({}, turns); delete nt[c.id];
+          set({ moves: nm, pins: np, turns: nt });
+        },
+        rowStyle: `display:flex;align-items:center;gap:12px;flex:1;min-width:0;min-height:52px;padding:8px 10px;border-radius:12px;text-align:left;cursor:pointer;transition:background .15s,border-color .15s;border:1.5px solid ${on ? k.line : 'transparent'};background:${on ? k.fill + '66' : 'transparent'}`,
+        iconStyle: `width:36px;height:36px;flex-shrink:0;border-radius:10px;display:flex;align-items:center;justify-content:center;background:${k.fill};color:${k.ink}`,
+        enter: () => set({ hov: c.id }),
+        leave: () => set({ hov: null }),
+        pick: () => set({ sel: sel === c.id ? null : c.id, layer: layerOf(c.id), menu: false })
+      };
+    });
+
+    let selInfo = {};
+    let turnR = { ok: true, why: '' };
+    const moveR = selComp ? tryMove(selComp.id) : { ok: true, why: '' };
+    if (selTray) {
+      if (selComp) {
+        turnR = tryTurn(selComp.id);
+        selInfo = {
+          isTray: true,
+          name: selComp.name,
+          pinned: !!pins[selComp.id],
+          meta: `${LAYER_NAME[layerOf(selComp.id)]} · ${selTray.w} × ${selTray.d} × ${selTray.h} mm · ${selTray.what} · about ${hours(selTray)} h, ${grams(selTray)} g`
+        };
+      } else {
+        selInfo = { isTray: false, name: 'Spacer', pinned: false, meta: `Fills the gap so the trays can't slide. Print it too. ${selTray.w} × ${selTray.d} × ${selTray.h} mm` };
+      }
+    }
+    const sk = selComp ? KINDS[selComp.kind] : null;
+    const notice = noticeKey === 'outdated' ? NOTICES.outdated : null;
+    const menuNote = noticeKey === 'otherTab' || noticeKey === 'olderVersion' ? NOTICES[noticeKey] : null;
+    const blockedDownload = noticeKey === 'outdated';
+    const tilt = mode === '3d' ? 'transform:perspective(1800px) rotateX(46deg) rotateZ(-28deg) scale(.86);' : 'transform:none;';
+    const choiceCount = pinCount + moveCount + turnCount;
+
+    return {
+      comps, trays,
+      custom,
+      hasRules: choiceCount > 0,
+      statusLine: '10 trays in 2 layers, 66 of 70 mm high',
+      idle: !searching, searching,
+      viewName: LAYER_NAME[view],
+      hasSel: !!selTray, noSel: !selTray,
+      sel: selInfo,
+      selSwatch: `width:30px;height:30px;flex-shrink:0;border-radius:9px;box-sizing:border-box;${sk ? `background:${sk.fill};border:2px solid ${sk.line}` : 'background:repeating-linear-gradient(135deg,#E9E5DB 0 5px,#DDD8CC 5px 10px);border:2px dashed #6E695C'}`,
+      pinLabel: selComp && pins[selComp.id] ? 'Unpin' : 'Pin',
+      pinStyle: `display:flex;align-items:center;gap:6px;height:44px;padding:0 14px;border-radius:999px;border:0;cursor:pointer;font-weight:600;font-size:14px;background:${selComp && pins[selComp.id] ? '#1D1F1C' : '#F4F3EF'};color:${selComp && pins[selComp.id] ? '#FFFFFF' : '#1D1F1C'}`,
+      togglePin: () => {
+        if (!selComp) return;
+        const np = Object.assign({}, pins);
+        if (np[selComp.id]) delete np[selComp.id]; else np[selComp.id] = { x: selTray.x, y: selTray.y, layer: layerOf(selComp.id) };
+        set({ pins: np });
+      },
+      turnLabel: selComp && turns[selComp.id] ? 'Turn back' : 'Turn 90°',
+      turnBlocked: !!selComp && !turnR.ok,
+      turnWhy: turnR.why || '',
+      turnStyle: `display:flex;align-items:center;gap:6px;height:44px;padding:0 14px;border-radius:999px;border:0;font-weight:600;font-size:14px;background:#F4F3EF;cursor:${turnR.ok ? 'pointer' : 'not-allowed'};color:${turnR.ok ? '#1D1F1C' : '#6B6E68'}`,
+      moveLabel: selComp ? `To ${other(layerOf(selComp.id))} layer` : '',
+      moveBlocked: !!selComp && !moveR.ok,
+      moveStyle: `display:flex;align-items:center;gap:6px;height:44px;padding:0 14px;border-radius:999px;border:0;font-weight:600;font-size:14px;background:#F4F3EF;cursor:${moveR.ok ? 'pointer' : 'not-allowed'};color:${moveR.ok ? '#1D1F1C' : '#6B6E68'}`,
+      move: () => {
+        if (!selComp || !moveR.ok) return;
+        const to = other(layerOf(selComp.id));
+        const nm = Object.assign({}, moves);
+        if (base(selComp.id).layer === to) delete nm[selComp.id]; else nm[selComp.id] = to;
+        set({ moves: nm, layer: to });
+      },
+      hasWhy: !!selComp && (!turnR.ok || !moveR.ok),
+      why: selComp && pins[selComp.id] ? 'Pinned trays stay put. Unpin it to move or turn it.' : [!moveR.ok ? moveR.why : '', !turnR.ok ? turnR.why : ''].filter(Boolean).join(' '),
+      layerTabs: ['bottom', 'top'].map((l) => ({
+        label: `${LAYER_NAME[l]} · ${LAYER_H[l]} mm`,
+        on: l === view,
+        style: l === view ? segOn : segOff,
+        show: () => set({ layer: l })
+      })),
+      turn: () => { if (selComp && turnR.ok) set({ turns: Object.assign({}, turns, { [selComp.id]: !turns[selComp.id] }) }); },
+      clear: () => set({ sel: null }),
+      resetAll: () => set({ moves: {}, pins: {}, turns: {} }),
+      search: () => {
+        set({ searching: true, sel: null, hov: null });
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => this.setState({ searching: false }), 2600);
+      },
+      stop: () => { clearTimeout(this.timer); set({ searching: false }); },
+      menuOpen: !!st.menu,
+      menuDot: !!menuNote,
+      menuNote: menuNote || {},
+      menuAria: menuNote ? 'Project menu, 1 notice' : 'Project menu',
+      toggleMenu: () => set({ menu: !st.menu }),
+      closeMenu: () => set({ menu: false }),
+      hasNotice: !!notice,
+      notice: notice ? Object.assign({ hasSecondary: !!notice.secondary }, notice) : {},
+      noticeStyle: `display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;${notice && notice.tone === 'warn' ? 'background:#FCE6CF;color:#5A2A06' : 'background:#E6EEFC;color:#1B3D7A'}`,
+      savedText: noticeKey === 'otherTab' ? 'Saving paused' : 'Saved in this browser',
+      savedStyle: `display:flex;align-items:center;gap:6px;font-size:13px;color:${noticeKey === 'otherTab' ? '#7A3A08' : '#2B7247'}`,
+      downloadStyle: `display:flex;align-items:center;gap:8px;height:44px;padding:0 18px;border-radius:999px;text-decoration:none;font-weight:600;${blockedDownload ? 'background:#E4E1D9;color:#3E413C;pointer-events:none' : 'background:#1D1F1C;color:#FFFFFF'}`,
+      boxStyle: `position:relative;width:min(582px,calc(100vw - 32px));aspect-ratio:1;flex-shrink:0;border-radius:16px;background:#D3CDBF;box-shadow:inset 0 0 0 1px #BFB8A8;transition:transform .45s ease;${tilt}`,
+      noGL, glTitle: noGL ? '3D needs WebGL' : '3D view',
+      showFlat: () => set({ view: 'flat' }),
+      show3d: () => { if (!noGL) set({ view: '3d' }); },
+      isFlat: mode === 'flat', is3d: mode === '3d',
+      flatTab: mode === 'flat' ? segOn : segOff,
+      tiltTab: mode === '3d' ? segOn : (noGL ? segOff + '; cursor: not-allowed; opacity: .6' : segOff)
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { withGrowth, withSeparators } from "../../model/defaults";
 import { newComponent } from "../../model/defaults";
 import type { CardsComponent, Component, MinisComponent, TilesComponent } from "../../model/types";
-import { describeOptionChange } from "./optionNotes";
+import { OPTION_NOTE_TEXTS, describeOptionChange } from "./optionNotes";
 
 const cards = (): CardsComponent => ({ ...(newComponent("cards") as CardsComponent), id: "c" });
 
@@ -101,5 +101,39 @@ describe("describeOptionChange", () => {
     expect(describeOptionChange(c, { ...c, name: "Other" })).toBeNull();
     expect(describeOptionChange(c, { ...c, decks: [{ name: "", count: 12 }] })).toBeNull();
     expect(describeOptionChange(c, c)).toBeNull();
+  });
+});
+
+describe("sleeves", () => {
+  const withSleeve = (c: CardsComponent, sleeve: CardsComponent["sleeve"]): CardsComponent => ({
+    ...c,
+    sleeve,
+  });
+
+  it("says which sleeves the deck has now", () => {
+    expect(describeOptionChange(cards(), withSleeve(cards(), "standard"))).toBe(
+      "Standard sleeves. The tray leaves room for them.",
+    );
+    expect(
+      describeOptionChange(withSleeve(cards(), "standard"), withSleeve(cards(), "premium")),
+    ).toBe("Premium sleeves. The tray leaves room for thicker ones.");
+    expect(describeOptionChange(withSleeve(cards(), "standard"), cards())).toBe(
+      "No sleeves. The tray fits the bare cards.",
+    );
+  });
+
+  it("says a sleeve of its own once, and nothing while its numbers are typed", () => {
+    const own = withSleeve(cards(), { w: 66.5, h: 91, thickness: 0.1 });
+    expect(describeOptionChange(cards(), own)).toBe(
+      "Your own sleeve size. The tray leaves room for it.",
+    );
+    expect(
+      describeOptionChange(own, withSleeve(cards(), { w: 67, h: 91, thickness: 0.1 })),
+    ).toBeNull();
+  });
+
+  it("lists every sentence, so the copy test can rule them", () => {
+    expect(OPTION_NOTE_TEXTS).toContain("Premium sleeves. The tray leaves room for thicker ones.");
+    expect(OPTION_NOTE_TEXTS).toContain("Finger cuts added.");
   });
 });

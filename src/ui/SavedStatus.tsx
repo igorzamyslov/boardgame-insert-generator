@@ -1,28 +1,44 @@
 // src/ui/SavedStatus.tsx
 import type { SaveState } from "../app/state";
+import { Icon } from "../kit";
 
 const TEXT: Record<SaveState, string> = {
-  saved: "Saved in this browser",
-  saving: "Saving…",
+  saved: "",
+  saving: "",
   paused: "Saving paused",
   failed: "Couldn't save",
   unavailable: "Not saved: this browser blocks storage",
 };
 
-/** Only these are worth interrupting for; routine saving and saved are not announced. */
-const ANNOUNCED: readonly SaveState[] = ["paused", "failed", "unavailable"];
+/**
+ * Only a problem is shown, and only a problem is announced (owner decision, DESIGN §7): while
+ * saving works the header says nothing, not "Saved in this browser" and not a passing "Saved".
+ */
+const PROBLEMS: readonly SaveState[] = ["paused", "failed", "unavailable"];
 
-/** Where the open insert is kept, in words: the colour of the dot only repeats what the text says. */
+/** Main draws a check before "Saving paused"; the failures keep a dot. */
+const CHECKED: readonly SaveState[] = ["paused"];
+
+/**
+ * What is wrong with keeping the open insert, in words: 13 px, the colour of the state and a check
+ * or a dot before it (styled in `screens/header.css`). Nothing is drawn while saving works; the
+ * live region is always mounted, so the words arrive in a region that was already there.
+ */
 export function SavedStatus({ state }: { state: SaveState }) {
-  const announced = ANNOUNCED.includes(state);
+  const problem = PROBLEMS.includes(state);
   return (
-    <span class="saved-status" data-state={state}>
-      <span class="saved-dot" aria-hidden="true" />
-      {/* what is on screen; a reader gets it from the live region below when it is worth saying */}
-      <span aria-hidden={announced ? "true" : undefined}>{TEXT[state]}</span>
-      {/* always mounted, empty for routine saving: the words arrive in a region that was there */}
+    <span class="saved-status" data-state={state} data-quiet={problem ? undefined : "true"}>
+      {problem ? (
+        <>
+          <span class="saved-mark" aria-hidden="true">
+            {CHECKED.includes(state) ? <Icon name="check" size={14} /> : <span class="saved-dot" />}
+          </span>
+          {/* what is on screen; a reader gets it from the live region below */}
+          <span aria-hidden="true">{TEXT[state]}</span>
+        </>
+      ) : null}
       <span class="visually-hidden" role="status">
-        {announced ? TEXT[state] : ""}
+        {problem ? TEXT[state] : ""}
       </span>
     </span>
   );
