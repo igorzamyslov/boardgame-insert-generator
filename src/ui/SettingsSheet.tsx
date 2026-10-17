@@ -10,7 +10,7 @@ import type { Notice, Printer, Settings } from "../model/types";
 import { printerProblems } from "../share";
 import { FoldRisers, InsertSettings, PrintingOptions } from "./SettingsForm";
 import { PrinterForm } from "./PrinterForm";
-import { changedCount } from "./settingsFields";
+import { changedByTab, changedCount } from "./settingsFields";
 import type { NameExample } from "./settingsFields";
 import { ValidationContext } from "./validation";
 import "./settings.css";
@@ -80,6 +80,7 @@ function PrinterTab(p: SettingsSheetProps) {
       <p class="st-intro">Bed, margin and layer height are kept in this browser.</p>
       <PrinterForm
         printer={p.myPrinter}
+        changedInside={p.settings.mergeRisers !== DEFAULT_SETTINGS.mergeRisers ? 1 : 0}
         onChange={(patch) => {
           const next = { ...p.myPrinter, ...patch };
           const found = printerProblems(next);
@@ -113,6 +114,7 @@ export function SettingsSheet(p: SettingsSheetProps) {
     title.current?.focus();
   }, []);
   const changed = changedCount(p.settings);
+  const byTab = changedByTab(p.settings);
   return (
     <Drawer labelledBy="settings-title" onClose={p.onClose}>
       <div class="st-head">
@@ -150,11 +152,13 @@ export function SettingsSheet(p: SettingsSheetProps) {
               value: "insert",
               label: "This insert",
               attention: hasErrorUnder(notices, "/settings"),
+              changedDot: byTab.insert > 0,
             },
             {
               value: "printer",
               label: "My printer",
               attention: hasErrorUnder(notices, "/printer"),
+              changedDot: byTab.printer > 0,
             },
           ]}
           value={tab}

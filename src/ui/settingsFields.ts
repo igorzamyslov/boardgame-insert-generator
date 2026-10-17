@@ -50,24 +50,54 @@ export function settingUnit(path: string): string | undefined {
   return UNITLESS.has(path) ? undefined : "mm";
 }
 
-function leavesDiffer(a: unknown, b: unknown): number {
+/** The settings that differ from `b`, as paths ("wall", "lip/enabled"), one per leaf. */
+function leavesDiffer(a: unknown, b: unknown, path = ""): string[] {
   if (a !== null && typeof a === "object" && b !== null && typeof b === "object") {
-    return Object.keys(a).reduce(
-      (n, key) =>
-        n + leavesDiffer((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
-      0,
+    return Object.keys(a).flatMap((key) =>
+      leavesDiffer(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key],
+        path === "" ? key : `${path}/${key}`,
+      ),
     );
   }
-  return a === b ? 0 : 1;
+  return a === b ? [] : [path];
+}
+
+/** The two numbers the "Room for fingers" switch writes: they are one setting to the person. */
+const FINGER_ROOM_LEAVES = ["fingerPocket/wallRoom", "fingerPocket/dividerRoom"];
+
+/**
+ * The settings the "My printer" tab draws (the printing options and folding risers into the
+ * joined spacers); every other one is on "This insert".
+ */
+const PRINTER_TAB_LEAVES = ["engraveNames", "mergeFillers", "mergeRisers"];
+
+/**
+ * The settings that differ from their defaults, each one as the sheet draws it: a number, a choice
+ * or a switch is one, and "Room for fingers" is one though its switch writes two numbers.
+ */
+function changedSettings(s: Settings): string[] {
+  const leaves = leavesDiffer(s, DEFAULT_SETTINGS);
+  const fingers = leaves.some((l) => FINGER_ROOM_LEAVES.includes(l));
+  const rest = leaves.filter((l) => !FINGER_ROOM_LEAVES.includes(l));
+  return fingers ? [...rest, "fingerRoom"] : rest;
 }
 
 /**
  * How many settings differ from their defaults: every number, choice and switch, wherever the
- * sheet draws it. It is what "Reset all" puts back, so the header's "N changed" and the reset
- * agree.
+ * sheet draws it, "Room for fingers" once. It is what "Reset all" puts back, so the header's
+ * "N changed" and the reset agree.
  */
 export function changedCount(s: Settings): number {
-  return leavesDiffer(s, DEFAULT_SETTINGS);
+  return changedSettings(s).length;
+}
+
+/** The same count by tab: "This insert" and "My printer" (which then carries a dot of its own). */
+export function changedByTab(s: Settings): { insert: number; printer: number } {
+  const changed = changedSettings(s);
+  const printer = changed.filter((c) => PRINTER_TAB_LEAVES.includes(c)).length;
+  return { insert: changed.length - printer, printer };
 }
 
 /** A tray whose engraved name is shorter than its full one: the engraving hint's example. */

@@ -173,6 +173,21 @@
   flex-direction: column;
 }
 
+/* A switch and, while it differs from its default, the way back under its words. */
+.st-switch {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.st-switch > .k-check {
+  align-self: stretch;
+}
+
+.st-back--switch {
+  margin: calc(-1 * var(--s-4)) 0 var(--s-8);
+}
+
 /* ---- Exact numbers: the search, then the groups ---- */
 .st-search {
   display: flex;
@@ -273,7 +288,7 @@
   border: 2px solid var(--danger);
 }
 
-.st-card .st-back {
+.st-back {
   height: var(--control-h);
   min-height: 0;
   padding: 0 var(--s-10);
@@ -288,7 +303,7 @@
 }
 
 /* style.css repaints a button under the pointer: this is the pill's own colour. */
-.st-card .st-back:hover:not(:disabled) {
+.st-back:hover:not(:disabled) {
   background: var(--changed-bg);
 }
 

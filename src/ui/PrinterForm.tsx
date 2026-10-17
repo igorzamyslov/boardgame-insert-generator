@@ -26,6 +26,8 @@ export interface PrinterFormProps {
   onChange: (patch: Partial<Printer>) => void;
   /** What the sheet adds inside Printer details (folding risers): after the printer's own numbers. */
   children?: ComponentChildren;
+  /** How many of the values in `children` differ from their defaults: the closed row says "1 changed". */
+  changedInside?: number;
 }
 
 /** The board's three beds, named by size; every other bed is "My own size". */
@@ -47,7 +49,7 @@ function bedKey(p: Pick<Printer, "bedX" | "bedY" | "bedZ">): string {
   return `${p.bedX}x${p.bedY}x${p.bedZ}`;
 }
 
-export function PrinterForm({ printer, onChange, children }: PrinterFormProps) {
+export function PrinterForm({ printer, onChange, children, changedInside }: PrinterFormProps) {
   const matched = bedPresetOf(printer);
   const [customChosen, setCustomChosen] = useState(matched === CUSTOM_BED);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -96,6 +98,7 @@ export function PrinterForm({ printer, onChange, children }: PrinterFormProps) {
       <DisclosureRow
         title="Printer details"
         meta={`${formatNumber(printer.bedMargin)} mm margin, ${formatNumber(printer.layerHeight)} mm layers`}
+        changed={changedInside}
         open={detailsOpen}
         controls={panelId}
         onClick={() => setDetailsOpen(!detailsOpen)}

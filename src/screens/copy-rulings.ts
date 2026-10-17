@@ -258,6 +258,7 @@ const SET_PRINTER = "My printer shows another printer on this insert as a row wi
 const SET_DETAILS =
   "Printer details holds the own bed size, margin, layer height and folding risers";
 const SET_INTRO = "My printer's intro names the values it covers";
+const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
@@ -265,6 +266,8 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // Task 14: Settings. The board's words, except where the Words table or the owner rules otherwise.
   ...SETTING_RANGES.map((r) => ({ text: r.label, states: SETTINGS_STATES, ruling: SET_EXACT })),
   { text: "Room around trays and pieces", states: SETTINGS_STATES, ruling: SET_WORDS },
+  { text: "Back to on", states: SETTINGS_STATES, ruling: SET_BACK },
+  { text: "Back to off", states: SETTINGS_STATES, ruling: SET_BACK },
   { text: "Spacers and space", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Unused space", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_EXACT },

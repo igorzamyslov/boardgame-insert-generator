@@ -80,11 +80,14 @@ describe("settings.css", () => {
     expect(num).toMatch(/border-radius:\s*var\(--r-tile\)/);
     expect(num).toMatch(/text-align:\s*right/);
     expect(ruleFor(".st-card .st-num[data-changed]")).toMatch(/1\.5px solid var\(--changed\)/);
-    const back = ruleFor(".st-card .st-back");
+    const back = ruleFor(".st-back");
     expect(back).toMatch(/background:\s*var\(--changed-bg\)/);
     expect(back).toMatch(/color:\s*var\(--changed-ink\)/);
     // a 44 px target
     expect(back).toMatch(/height:\s*var\(--control-h\)/);
+    // a switch has the same way back, under its words
+    expect(ruleFor(".st-back--switch")).toMatch(/margin:/);
+    expect(ruleFor(".st-switch")).toMatch(/flex-direction:\s*column/);
   });
 
   it("draws the other-printer row in the info colours, 12 14, radius 12", () => {
