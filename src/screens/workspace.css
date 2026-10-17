@@ -87,6 +87,23 @@
   overflow: auto;
 }
 
+/*
+ * An editor in the rail reaches over the rail's right padding to the rail's edge, and its panel
+ * (`.ed`, which is what scrolls: `.wi--edit` clips the wrapper) puts the padding back inside itself
+ * and keeps a gutter of its own, as the list does (rail.css). A scrollbar that takes room (Windows,
+ * or macOS set to always) then sits at the edge, never against the fields. Only in the rail: a
+ * phone's sheet holds the same editor and has no padding to reach over.
+ */
+.ws-rail > .ws-interim {
+  margin-right: calc(-1 * var(--rail-pad));
+}
+
+.ws-rail > .ws-interim > .ed {
+  padding-right: var(--rail-pad);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
 /* The status pill, then the box, then the figures: a block takes its own height. */
 .ws-stage > .stage-block {
   flex: none;

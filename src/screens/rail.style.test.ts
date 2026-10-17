@@ -27,6 +27,18 @@ describe("rail.css", () => {
     expect(ruleFor(".rail")).toMatch(/flex-direction:\s*column/);
   });
 
+  it("keeps the list's scrollbar at the rail's edge, with a gutter of its own, off the rows", () => {
+    const list = ruleFor(".rail-list");
+    expect(list).toMatch(/scrollbar-gutter:\s*stable/);
+    // it reaches over the rail's padding to the edge, and puts the padding back inside itself
+    expect(list).toMatch(/margin:[^;]*calc\(-1 \* var\(--rail-pad\)\)/);
+    expect(list).toMatch(/padding:[^;]*var\(--rail-pad\)/);
+    // the phone's sheet list has no scroll of its own and no rail to reach over
+    const sheet = ruleFor(".rail-list--sheet");
+    expect(sheet).toMatch(/margin:\s*0/);
+    expect(sheet).toMatch(/padding:\s*0/);
+  });
+
   it("keeps the foot at the bottom of the rail, under the note", () => {
     const foot = ruleFor(".rail-foot");
     expect(foot).toMatch(/margin-top:\s*auto/);

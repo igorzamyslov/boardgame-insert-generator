@@ -119,7 +119,9 @@
 /*
  * It takes what the column leaves and scrolls inside it, so the page never does: any number of
  * components, and the note and the foot stay in sight. The padding (and the margin that takes it
- * back) is room for the focus ring, which the scroll area would clip.
+ * back) is room for the focus ring, which the scroll area would clip. On the right it is the
+ * rail's own padding: the list reaches the rail's edge, so a scrollbar that takes room (Windows,
+ * or macOS set to always) sits there with a gutter of its own and never against the rows.
  */
 .rail-list {
   display: flex;
@@ -127,11 +129,14 @@
   flex-direction: column;
   gap: var(--s-4);
   min-height: 0;
-  margin: calc(-1 * var(--s-5));
-  padding: var(--s-5);
+  margin: calc(-1 * var(--s-5)) calc(-1 * var(--rail-pad)) calc(-1 * var(--s-5))
+    calc(-1 * var(--s-5));
+  padding: var(--s-5) var(--rail-pad) var(--s-5) var(--s-5);
   overflow: auto;
   overscroll-behavior: contain;
   list-style: none;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
 }
 
 .rail-item {
