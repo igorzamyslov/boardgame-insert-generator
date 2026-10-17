@@ -382,12 +382,18 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [MENU, { click: { role: "button", name: "Settings" } }],
   },
+  // Export (Task 13): the dialog opened from the header. Export draws "Other formats" open; the
+  // app folds it, so the state opens it too.
   download: {
     board: "Export",
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: "Download" } }],
+    steps: [
+      { click: { role: "button", name: "Download" } },
+      { click: { role: "button", name: "Other formats" } },
+    ],
   },
+  // Exporting, building: the build stays at "1 of N" (the export hold, shotsHold.ts).
   exporting: {
     board: "Exporting",
     boardOpts: { state: { phase: "building", p: 10 } },
@@ -396,8 +402,34 @@ export const STATES = {
     holds: ["export"],
     steps: [
       { click: { role: "button", name: "Download" } },
-      { click: { role: "button", name: /Download (the )?3MF/ } },
+      { click: { role: "button", name: "Download the 3MF file" } },
       { waitFor: { role: "progressbar" } },
+    ],
+  },
+  // Exporting, done: no hold; the real build runs to its end (the geometry worker, up to 120 s).
+  "exporting-done": {
+    board: "Exporting",
+    boardOpts: { state: { phase: "done", p: 100 } },
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      { click: { role: "button", name: "Download" } },
+      { click: { role: "button", name: "Download the 3MF file" } },
+      { waitFor: { role: "heading", name: /parts are ready/, timeout: 120_000 } },
+    ],
+  },
+  // The packing guide (Task 13): no board draws it; Export's cards, type and spacing are the nearest.
+  "packing-guide": {
+    board: "Export",
+    nearest:
+      "no board of its own: Export's cards (14 px radius, 1 px line), Bricolage titles and 13 px captions",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    fullPage: true,
+    steps: [
+      { click: { role: "button", name: "Download" } },
+      { click: { role: "button", name: /^Packing guide/ } },
+      { waitFor: { role: "heading", name: /packing guide$/ } },
     ],
   },
   // The kit gallery (kit.html): every primitive in each state, judged against the controls of the
@@ -455,6 +487,19 @@ export const STATES = {
     viewport: PHONE,
     seed: "harbour-kings",
     steps: [{ click: { role: "button", name: "Download" } }],
+  },
+  // The packing guide on a phone: one column, a card for each tray (no board: MobileDownload's cards are the nearest).
+  "m-packing-guide": {
+    board: "MobileDownload",
+    nearest: "no board of its own: MobileDownload's cards and captions",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    fullPage: true,
+    steps: [
+      { click: { role: "button", name: "Download" } },
+      { click: { role: "button", name: /^Packing guide/ } },
+      { waitFor: { role: "heading", name: /packing guide$/ } },
+    ],
   },
   // MobileFix (Task 12): the heading, the attempt and the peek sheet "Ways to make it fit".
   "m-fix": {

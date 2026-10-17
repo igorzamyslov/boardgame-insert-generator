@@ -210,8 +210,47 @@ const EDITOR_LABELS: readonly string[] = [
 const BOX_WORDS = "The box editor has the board's words only";
 const BOX_HINT = "The box's stored-on-its-side hint says what the engine does";
 
+// Task 13: the Download dialog and the building of the file. The states are the dialog cases of
+// copy.board.test.tsx (download, exporting, exporting-done, m-download) and the ones no case reaches.
+const DOWNLOAD = [
+  "download",
+  "m-download",
+  "exporting",
+  "exporting-done",
+  "exporting-partial",
+] as const;
+const DL_COUNT = "The Download dialog counts trays and spacers";
+const DL_FLOW = "The Download dialog's title and body follow the build";
+const DL_NOT = "Exporting's report, partial download and Start again are not built";
+const DL_BLOCKED = "The Download dialog says why it is blocked in its caption line";
+/** "8 trays and 2 spacers for Harbour Kings" in each of its forms: the board has the plural one. */
+const HOLDS: readonly string[] = [
+  ...["{n} trays", "1 tray"].flatMap((trays) => [
+    `${trays} for {name}`,
+    ...["{n} spacers", "1 spacer"].map((spacers) => `${trays} and ${spacers} for {name}`),
+  ]),
+  "{n} spacers for {name}",
+  "1 spacer for {name}",
+];
+
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
+  // Task 13: Export, Exporting and MobileDownload have the plural forms only, and no failure of a whole build
+  ...HOLDS.map((text) => ({ text, states: DOWNLOAD, ruling: DL_COUNT })),
+  { text: "1 spacer", states: DOWNLOAD, ruling: DL_COUNT },
+  { text: "One file with the part.", states: DOWNLOAD, ruling: DL_COUNT },
+  { text: "The part is ready", states: DOWNLOAD, ruling: DL_FLOW },
+  { text: "{n} of 1 part built", states: DOWNLOAD, ruling: DL_FLOW },
+  { text: "{n} of 1 part is ready", states: DOWNLOAD, ruling: DL_FLOW },
+  // a zip is not "one file with every part": the done phase says what was downloaded
+  { text: "Downloaded {name}.", states: DOWNLOAD, ruling: DL_FLOW },
+  { text: "Not exported", states: DOWNLOAD, ruling: DL_NOT },
+  { text: "{name}: {name}", states: DOWNLOAD, ruling: DL_NOT },
+  { text: "Try again", states: DOWNLOAD, ruling: DL_NOT },
+  { text: "Error:", states: DOWNLOAD, ruling: DL_NOT },
+  { text: "Download failed: {name}", states: DOWNLOAD, ruling: DL_NOT },
+  { text: "Make a new plan first.", states: DOWNLOAD, ruling: DL_BLOCKED },
+  { text: "The plan is updating.", states: DOWNLOAD, ruling: DL_BLOCKED },
   // Task 4: the header and the project menu
   { text: "Insert Generator {version}", states: "all", ruling: FOOTER },
   { text: "Licences", states: "all", ruling: FOOTER },
@@ -473,6 +512,11 @@ export const COPY_DENIED: readonly string[] = [
   "Trays appear in the box as you add things.",
   "Copy a report",
   "Start again",
+  // Exporting's failed-part rows: the report, the partial download and the retry's own phases are not built (DESIGN §7)
+  "Download without Heroes (that tray will be missing)",
+  "Heroes couldn't be built. That's a bug on our side. Try again, or copy a report for us.",
+  "Trying Heroes again",
+  "Nothing was downloaded.",
   "Trays then fill up to the lid, so nothing falls out",
   "These stay as you set them when the plan updates.",
   "Saved in this browser",

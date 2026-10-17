@@ -7,6 +7,8 @@
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import design from "../../docs/DESIGN.md?raw";
+import type { AppProps } from "../app/App";
+import type { MeshSource } from "../app/meshes";
 import { createAppStore } from "../app/store";
 import { renderApp } from "../app/test-app";
 import { trayNames } from "../instructions/naming";
@@ -45,8 +47,10 @@ interface Case {
   seed?: string;
   /** The project as the state has it (a run that has not made a plan yet, say). */
   project?: (p: Project) => Project;
-  /** What a person does before the region is looked at. */
-  steps: (store: Store) => void;
+  /** What the app is given besides the project (a build that never finishes, say). */
+  overrides?: Partial<AppProps>;
+  /** What a person does before the region is looked at (it may wait for the app to answer). */
+  steps: (store: Store) => void | Promise<void>;
 }
 
 /** A phone: the width query the app asks (below 760 px) answers yes. */
@@ -180,7 +184,56 @@ const breakHeight = (): void => {
   expect(screen.getByRole("alert")).toBeTruthy();
 };
 
+/** The header's Download opens the dialog; "Other formats" shows its two buttons too. */
+const openDownload = (): void => {
+  fireEvent.click(screen.getByRole("button", { name: "Download" }));
+};
+const openFormats = (): void => {
+  openDownload();
+  fireEvent.click(screen.getByRole("button", { name: "Other formats" }));
+};
+
+/** The primary of the dialog, pressed: the file starts to build. */
+const startBuild = (): void => {
+  openDownload();
+  fireEvent.click(screen.getByRole("button", { name: "Download the 3MF file" }));
+};
+
+/** A mesh source whose builds never finish: the dialog stays on its first part. */
+const hanging: MeshSource = {
+  get: () => new Promise(() => undefined),
+  reset: () => undefined,
+  forget: () => undefined,
+  dispose: () => undefined,
+};
+
 const CASES: readonly Case[] = [
+  // Task 13: the Download dialog (Export at 1440, MobileDownload on a phone) and the building of the
+  // file (Exporting: building, then done). The packing guide has no board and no case.
+  { state: "download", board: "Export", region: "dialog", steps: openFormats },
+  {
+    state: "m-download",
+    board: "MobileDownload",
+    region: "dialog",
+    phone: true,
+    steps: openDownload,
+  },
+  {
+    state: "exporting",
+    board: "Exporting",
+    region: "dialog",
+    overrides: { meshes: hanging },
+    steps: startBuild,
+  },
+  {
+    state: "exporting-done",
+    board: "Exporting",
+    region: "dialog",
+    steps: async () => {
+      startBuild();
+      await screen.findByRole("heading", { name: /parts are ready$/ });
+    },
+  },
   // Task 11: the box's editor, Box at 1440 and MobileBox on a phone, and the plan's problems told in its stage
   {
     state: "box",
@@ -705,8 +758,11 @@ async function stringsOf(c: Case): Promise<string[]> {
   const { project } = loadSeed(c.seed ?? "harbour-kings");
   const { store } = c.empty
     ? renderApp()
-    : renderApp({ project: c.project === undefined ? project : c.project(project) });
-  c.steps(store);
+    : renderApp({
+        project: c.project === undefined ? project : c.project(project),
+        overrides: c.overrides,
+      });
+  await c.steps(store);
   const region = document.querySelector(`[data-region="${c.region}"]`);
   expect(region, `${c.state}: no element with data-region="${c.region}"`).not.toBeNull();
   const literals = await boardLiterals(`${c.board}.dc.html`);

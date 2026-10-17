@@ -30,7 +30,6 @@ import { BoxPanel } from "../ui/BoxPanel";
 import { WhatsInside } from "../ui/components/WhatsInside";
 import { ExportPanel } from "../ui/ExportPanel";
 import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
-import { Modal } from "../ui/Modal";
 import { Notices } from "../ui/Notices";
 import { placeNotices } from "../ui/noticePlacement";
 import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
@@ -968,25 +967,28 @@ export function App(props: AppProps) {
         </>
       )}
       {exportOpen && layout !== undefined ? (
-        <Modal labelledBy="export-title" onClose={() => setExportOpen(false)}>
-          <ExportPanel
-            titleId="export-title"
-            trays={printable}
-            components={project.components}
-            printer={project.printer}
-            settings={project.settings}
-            meshes={meshes}
-            projectName={project.name}
-            summary={summary}
-            disabled={run.status === "running"}
-            stale={s.stale.value}
-            download={download}
-            onOpenGuide={() => {
-              setExportOpen(false);
-              setAssemblyFor(project.id);
-            }}
-          />
-        </Modal>
+        <ExportPanel
+          titleId="export-title"
+          trays={printable}
+          components={project.components}
+          printer={project.printer}
+          settings={project.settings}
+          meshes={meshes}
+          projectName={project.name}
+          summary={summary}
+          disabled={run.status === "running"}
+          stale={s.stale.value}
+          download={download}
+          phone={phone}
+          onSendFile={() => {
+            void sendFile();
+          }}
+          onClose={() => setExportOpen(false)}
+          onOpenGuide={() => {
+            setExportOpen(false);
+            setAssemblyFor(project.id);
+          }}
+        />
       ) : null}
       {removedLive}
       {phone ? removedToast : null}

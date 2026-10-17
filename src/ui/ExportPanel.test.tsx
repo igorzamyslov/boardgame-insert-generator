@@ -11,6 +11,7 @@ import { DEFAULT_PRINTER } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { LayoutSummary } from "../layout/types";
 import type { Component, FeatureSpec } from "../model/types";
+import { loadSeed } from "../test-support/harbourKings";
 import css from "./export.css?raw";
 import { ExportPanel } from "./ExportPanel";
 import type { ExportPanelProps } from "./ExportPanel";
@@ -82,9 +83,9 @@ function openOtherFormats(): void {
   fireEvent.click(screen.getByRole("button", { name: "Other formats" }));
 }
 
-const PER_PART = "Download 3MF per part (.zip)";
-const STL = "Download STL files (.zip)";
-const COMBINED = "Download 3MF";
+const PER_PART = "One 3MF per part (.zip)";
+const STL = "STL files (.zip)";
+const COMBINED = "Download the 3MF file";
 
 /** The aria-disabled state a blocked or busy button shows. */
 const isOff = (el: HTMLElement): boolean => el.getAttribute("aria-disabled") === "true";
@@ -99,18 +100,137 @@ function props(over: Partial<ExportPanelProps> = {}): ExportPanelProps {
     projectName: "Wing span",
     disabled: false,
     download: vi.fn(),
+    onClose: vi.fn(),
     ...over,
   };
 }
 
+/** A plan's spacer: the part that is not a tray of its own. */
+const spacer = makeTray({
+  key: "a:p0:0:spacer",
+  part: "spacer",
+  path: "",
+  solid: true,
+  compartments: [],
+});
+
+/** What a failed or skipped part is shown in: a box with its name and reason. */
+const problems = (): HTMLElement[] => [
+  ...document.querySelectorAll<HTMLElement>(".export-problem"),
+];
+
 describe("ExportPanel", () => {
+  it("titles itself Ready to print and names what it holds", () => {
+    const withSpacer = props({
+      trays: [makeTray({ key: "a:p0:0", stack: 0 }), makeTray({ key: "b:p0:0", stack: 1 }), spacer],
+      titleId: "export-title",
+    });
+    render(<ExportPanel {...withSpacer} />);
+    const h1 = screen.getByRole("heading", { level: 1, name: "Ready to print" });
+    expect(h1.id).toBe("export-title");
+    expect(h1.getAttribute("tabindex")).toBe("-1");
+    expect(document.activeElement).toBe(h1);
+    // the dialog is named by it
+    expect(screen.getByRole("dialog", { name: "Ready to print" })).toBeTruthy();
+    expect(screen.getByText("2 trays and 1 spacer for Wing span")).toBeTruthy();
+    cleanup();
+    // the seed the boards are drawn with
+    const { project } = loadSeed("harbour-kings");
+    render(
+      <ExportPanel
+        {...props({
+          trays: project.layout?.trays ?? [],
+          components: project.components,
+          projectName: project.name,
+        })}
+      />,
+    );
+    expect(screen.getByText(/^\d+ trays and \d+ spacers? for Harbour Kings$/)).toBeTruthy();
+  });
+
+  it("says a plan with no spacers, one tray or no name in its own words", () => {
+    render(<ExportPanel {...props()} />);
+    expect(screen.getByText("2 trays for Wing span")).toBeTruthy();
+    cleanup();
+    render(
+      <ExportPanel
+        {...props({ trays: [makeTray({ key: "a:p0:0", stack: 0 })], projectName: "" })}
+      />,
+    );
+    expect(screen.getByText("1 tray for (unnamed)")).toBeTruthy();
+    expect(screen.getByText("One file with the part.")).toBeTruthy();
+  });
+
+  it("shows a chip per tray in its colour and one for the spacers", () => {
+    const trays = [
+      makeTray({ key: "a:p0:0", stack: 0 }),
+      makeTray({ key: "b:p0:0", stack: 1 }),
+      spacer,
+      { ...spacer, key: "b:p0:0:spacer" },
+    ];
+    render(<ExportPanel {...props({ trays })} />);
+    const chips = screen.getAllByRole("listitem");
+    expect(chips.map((c) => c.textContent)).toEqual(["Deck A 1", "Deck A 2", "2 spacers"]);
+    // a tray's chip takes its component's shade, the spacers' one is dashed and takes none
+    expect((chips[0] as HTMLElement).style.getPropertyValue("--shade-fill")).toMatch(
+      /^light-dark\(#/,
+    );
+    expect(chips[2]?.classList.contains("export-chip--spacers")).toBe(true);
+    expect((chips[2] as HTMLElement).style.getPropertyValue("--shade-fill")).toBe("");
+    cleanup();
+    render(<ExportPanel {...props({ trays: [spacer] })} />);
+    expect(screen.getByText("1 spacer").getAttribute("title")).toBeNull();
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+  });
+
+  it("gives a long tray name its whole text in a title and cuts it by CSS", () => {
+    const long = "The Very Long Name Of A Card Deck Here 40";
+    const named: Component[] = [{ ...(components[0] as Component), name: long }];
+    const deck = makeTray({
+      compartments: [
+        {
+          x: 1.6,
+          y: 1.6,
+          w: 96.8,
+          d: 76.8,
+          floorZ: 1.2,
+          kind: "well",
+          contents: `${long} ×40`,
+          features: [],
+        },
+      ],
+    });
+    render(<ExportPanel {...props({ components: named, trays: [deck] })} />);
+    const chip = screen.getAllByRole("listitem")[0] as HTMLElement;
+    expect(chip.getAttribute("title")).toBe(long);
+    expect(css).toMatch(/\.export-chip\s*\{[^}]*max-width:\s*100%/);
+    expect(css).toMatch(/\.export-chip\s*\{[^}]*text-overflow:\s*ellipsis/);
+  });
+
+  it("shows filament and print time as tiles", () => {
+    render(<ExportPanel {...props({ summary })} />);
+    const value = (label: string): string | null =>
+      screen.getByText(label).nextElementSibling?.textContent ?? null;
+    expect(value("Filament")).toBe("about 123 g");
+    expect(value("Print time")).toBe("about 14 h");
+    expect(value("Filament")).toMatch(/^about \d+ g$/);
+    expect(value("Print time")).toMatch(/^about [\d.]+ (h|min)$/);
+    expect(document.body.textContent).not.toContain("≈");
+    cleanup();
+    // without the plan's totals there are no tiles at all
+    render(<ExportPanel {...props()} />);
+    expect(screen.queryByText("Filament")).toBeNull();
+    expect(screen.queryByText("Print time")).toBeNull();
+  });
+
   it("downloads one combined 3MF by default", async () => {
     const p = props();
     render(<ExportPanel {...p} />);
     // One primary button, and the other formats are not on screen yet.
     expect(screen.queryByRole("button", { name: PER_PART })).toBeNull();
     const primary = screen.getByRole("button", { name: COMBINED });
-    expect(primary.classList.contains("primary")).toBe(true);
+    expect(primary.classList.contains("k-btn--primary")).toBe(true);
+    expect(screen.getByText("One file with all 2 parts.")).toBeTruthy();
     fireEvent.click(primary);
     await waitFor(() => expect(p.download).toHaveBeenCalledTimes(1));
     const [blob, name] = vi.mocked(p.download ?? vi.fn()).mock.calls[0] ?? [];
@@ -126,7 +246,34 @@ describe("ExportPanel", () => {
     ]);
     expect(model.match(/<item /g)).toHaveLength(2);
     expect(p.meshes.get).toHaveBeenCalledTimes(2);
-    expect(await screen.findByText("Downloaded Wing-span.3mf.")).toBeTruthy();
+    // the build is over: every part is ready, in one file, and there is no second download
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "All 2 parts are ready" }),
+    ).toBeTruthy();
+    expect(screen.getByText("One file with every part.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: COMBINED })).toBeNull();
+  });
+
+  it("is done with a Back to the plan, and says the file's name for a screen reader", async () => {
+    const p = props();
+    render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    const back = await screen.findByRole("button", { name: "Back to the plan" });
+    expect(back.classList.contains("k-btn--secondary")).toBe(true);
+    expect(back.classList.contains("k-btn--dialog")).toBe(true);
+    // the live region was on the page before it spoke
+    expect(document.querySelector("[data-live='build']")?.textContent).toBe(
+      "Downloaded Wing-span.3mf.",
+    );
+    fireEvent.click(back);
+    expect(p.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes from its Close button", () => {
+    const p = props();
+    render(<ExportPanel {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(p.onClose).toHaveBeenCalledTimes(1);
   });
 
   it("support links open in a new tab", () => {
@@ -139,35 +286,9 @@ describe("ExportPanel", () => {
       expect(link.getAttribute("target")).toBe("_blank");
       expect(link.getAttribute("rel")).toBe("noopener noreferrer");
     }
-    expect(screen.getByText("Support it")).toBeTruthy();
-  });
-
-  it("shows the parts, the filament and the print time as numbers", () => {
-    const { container } = render(<ExportPanel {...props({ summary })} />);
-    const facts = [...container.querySelectorAll(".export-facts > div")].map((d) => [
-      d.querySelector("dt")?.textContent,
-      d.querySelector("dd")?.textContent,
-    ]);
-    expect(facts).toEqual([
-      ["Parts", "2"],
-      ["Filament", "about 123 g"],
-      ["Print time", "about 14 h"],
-    ]);
-    cleanup();
-    const bare = render(<ExportPanel {...props()} />);
-    expect(
-      [...bare.container.querySelectorAll(".export-facts dt")].map((d) => d.textContent),
-    ).toEqual(["Parts"]);
-  });
-
-  it("shows filament and print time", () => {
-    // the Summary's two figures live here now: the rough estimate, said as "about", never "≈"
-    render(<ExportPanel {...props({ summary })} />);
-    const value = (label: string): string | null =>
-      screen.getByText(label, { selector: "dt" }).nextElementSibling?.textContent ?? null;
-    expect(value("Filament")).toMatch(/^about \d+ g$/);
-    expect(value("Print time")).toMatch(/^about \d+(\.\d)? h$|^about \d+ min$/);
-    expect(document.body.textContent).not.toContain("≈");
+    expect(screen.getByText("This tool is free. Support it if you like it.")).toBeTruthy();
+    // one quiet line: the support row is not a second call to action
+    expect(kofi.classList.contains("k-btn--primary")).toBe(false);
   });
 
   it("says nothing about slicers or what the files open in", () => {
@@ -176,42 +297,55 @@ describe("ExportPanel", () => {
     expect(container.textContent).not.toMatch(/slicer|recommended|compatible|works with/i);
   });
 
-  it("titles the dialog and focuses the title on mount", () => {
-    render(<ExportPanel {...props()} titleId="export-title" />);
-    const heading = screen.getByRole("heading", { name: "Download" });
-    expect(heading.id).toBe("export-title");
-    expect(heading.getAttribute("tabindex")).toBe("-1");
-    expect(document.activeElement).toBe(heading);
+  it("offers neither a report, a restart nor a download without the failed part", async () => {
+    const m = meshes();
+    m.get.mockImplementation((spec) =>
+      spec.key === "b:p0:0"
+        ? Promise.reject(new GeometryBuildError("too slow", "TimeoutError"))
+        : Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }),
+    );
+    render(<ExportPanel {...props({ meshes: m })} />);
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    await screen.findByRole("heading", { name: "Not exported" });
+    expect(document.body.textContent).not.toMatch(/Copy a report|Start again|Download without/i);
   });
 
-  it("opens the packing guide from its own button", () => {
+  it("opens the packing guide from its card, and says what it is", () => {
     const onOpenGuide = vi.fn();
     render(<ExportPanel {...props({ onOpenGuide })} />);
-    fireEvent.click(screen.getByRole("button", { name: "Open the packing guide" }));
+    const card = screen.getByRole("button", { name: /^Packing guide/ });
+    expect(card.textContent).toBe(
+      "Packing guideA printable sheet showing where each named tray goes",
+    );
+    fireEvent.click(card);
     expect(onOpenGuide).toHaveBeenCalledTimes(1);
     cleanup();
     render(<ExportPanel {...props()} />);
-    expect(screen.queryByRole("button", { name: "Open the packing guide" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Packing guide/ })).toBeNull();
   });
 
   it("keeps the packing guide closed while the plan is out of date", () => {
     const onOpenGuide = vi.fn();
     render(<ExportPanel {...props({ onOpenGuide, stale: true })} />);
-    const guide = screen.getByRole("button", { name: "Open the packing guide" });
+    const guide = screen.getByRole("button", { name: /^Packing guide/ });
     expect(isOff(guide)).toBe(true);
+    expect(document.getElementById(guide.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Make a new plan first.",
+    );
     fireEvent.click(guide);
     expect(onOpenGuide).not.toHaveBeenCalled();
   });
 
-  it("hides the other formats until asked, then lists each with a Download button", () => {
+  it("hides the other formats until asked, then offers each as a button", () => {
     render(<ExportPanel {...props()} />);
     const toggle = screen.getByRole("button", { name: "Other formats" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     openOtherFormats();
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    const per = screen.getByRole("button", { name: PER_PART });
-    expect(per.textContent).toBe("Download");
-    expect(screen.getByRole("button", { name: STL }).textContent).toBe("Download");
+    expect(
+      screen.getByRole("button", { name: PER_PART }).classList.contains("k-btn--secondary"),
+    ).toBe(true);
+    expect(screen.getByRole("button", { name: STL })).toBeTruthy();
     fireEvent.click(toggle);
     expect(screen.queryByRole("button", { name: PER_PART })).toBeNull();
   });
@@ -219,19 +353,25 @@ describe("ExportPanel", () => {
   it("exports a zip of 3MF parts and lists the unsupported tray as not exported", async () => {
     const p = props();
     render(<ExportPanel {...p} />);
-    expect(screen.getByRole("heading", { name: "Not exported" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Not exported" })).toBeTruthy();
     expect(screen.getByText(/^Magnets: Uses feature "magnet"/)).toBeTruthy();
+    // nothing to try again: the part is not one the files can hold
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
     openOtherFormats();
     fireEvent.click(screen.getByRole("button", { name: PER_PART }));
-    const stl = screen.getByRole("button", { name: STL });
-    expect(isOff(stl)).toBe(true);
-    const hint = document.getElementById(stl.getAttribute("aria-describedby") ?? "");
-    expect(hint?.textContent).toBe("Available when the build finishes.");
+    // while it builds there is only the bar and Stop
+    expect(screen.getByRole("progressbar")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: STL })).toBeNull();
     await waitFor(() => expect(p.download).toHaveBeenCalled());
     const [blob, name] = vi.mocked(p.download ?? vi.fn()).mock.calls[0] ?? [];
     expect(name).toBe("Wing-span-3mf-parts.zip");
     expect(blob).toBeInstanceOf(Blob);
     expect(p.meshes.get).toHaveBeenCalledTimes(2);
+    // a zip is not "one file with every part": it says what was downloaded
+    await screen.findByRole("heading", { level: 1, name: "All 2 parts are ready" });
+    expect(document.querySelector(".export-sub")?.textContent).toBe(
+      "Downloaded Wing-span-3mf-parts.zip.",
+    );
   });
 
   it("engraves each tray's short name and calls its file by its full name, never by a number", async () => {
@@ -269,13 +409,12 @@ describe("ExportPanel", () => {
   it("exports the STL zip from Other formats", async () => {
     const p = props();
     render(<ExportPanel {...p} />);
-    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
-    await waitFor(() => expect(p.download).toHaveBeenCalledTimes(1));
     openOtherFormats();
     fireEvent.click(screen.getByRole("button", { name: STL }));
-    await waitFor(() => expect(p.download).toHaveBeenCalledTimes(2));
-    const names = vi.mocked(p.download ?? vi.fn()).mock.calls.map((c) => c[1]);
-    expect(names).toEqual(["Wing-span.3mf", "Wing-span-stl.zip"]);
+    await waitFor(() => expect(p.download).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(p.download ?? vi.fn()).mock.calls.map((c) => c[1])).toEqual([
+      "Wing-span-stl.zip",
+    ]);
   });
 
   it("lists a tray whose build fails by name and still downloads the rest", async () => {
@@ -291,7 +430,13 @@ describe("ExportPanel", () => {
     render(<ExportPanel {...p} />);
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
     await waitFor(() => expect(p.download).toHaveBeenCalled());
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "1 of 2 parts are ready" }),
+    ).toBeTruthy();
     expect(screen.getByText(/^Deck A 2: .*compartments overlap/)).toBeTruthy();
+    // the file is downloaded: this is not the done phase, and it has no second download
+    expect(screen.queryByRole("button", { name: "Back to the plan" })).toBeNull();
+    expect(screen.queryByRole("button", { name: COMBINED })).toBeNull();
   });
 
   it("shows a worker failure with Try again", async () => {
@@ -319,6 +464,8 @@ describe("ExportPanel", () => {
       fireEvent.click(b);
     }
     expect(screen.getByText("The plan is updating.")).toBeTruthy();
+    // the reason takes the caption's place: one line under the primary
+    expect(screen.queryByText(/^One file with all/)).toBeNull();
     expect(p.meshes.get).not.toHaveBeenCalled();
     expect(p.download).not.toHaveBeenCalled();
   });
@@ -340,6 +487,7 @@ describe("ExportPanel", () => {
     openOtherFormats();
     expect(isOff(screen.getByRole("button", { name: STL }))).toBe(false);
     expect(screen.queryByText("Make a new plan first.")).toBeNull();
+    expect(screen.getByText("One file with all 2 parts.")).toBeTruthy();
   });
 
   it("keeps Try again off for a stale layout", async () => {
@@ -375,6 +523,7 @@ describe("ExportPanel", () => {
     await waitFor(() => expect(isOff(screen.getByRole("button", { name: COMBINED }))).toBe(false));
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "Ready to print" })).toBeTruthy();
     expect(p.download).not.toHaveBeenCalled();
   });
 
@@ -405,7 +554,7 @@ describe("ExportPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
     await waitFor(() => expect(p.download).toHaveBeenCalledTimes(1));
     m.get.mockImplementation(() => Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }));
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
     // Only the failed tray is forgotten: the cache the 3D view shares stays.
     expect(m.reset).not.toHaveBeenCalled();
     expect(m.forget).toHaveBeenCalledTimes(1);
@@ -415,6 +564,8 @@ describe("ExportPanel", () => {
     await waitFor(() => expect(p.download).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByText(/^Deck A 2: /)).toBeNull());
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "All 2 parts are ready" })).toBeTruthy();
+    // the tray the files cannot hold stays listed
     expect(screen.getByText(/^Magnets: /)).toBeTruthy();
   });
 
@@ -484,10 +635,12 @@ describe("ExportPanel", () => {
     const view = render(<ExportPanel {...p} />);
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
     await waitFor(() => expect(p.download).toHaveBeenCalled());
-    expect(screen.getByText(/^Deck A 2: .*compartments overlap/)).toBeTruthy();
+    expect(await screen.findByText(/^Deck A 2: .*compartments overlap/)).toBeTruthy();
     view.rerender(<ExportPanel {...p} trays={[makeTray({ key: "a:p0:0", stack: 0 }), magnet]} />);
     expect(screen.queryByText(/compartments overlap/)).toBeNull();
     expect(screen.getByText(/Magnets/)).toBeTruthy();
+    // the panel is where it began
+    expect(screen.getByRole("heading", { level: 1, name: "Ready to print" })).toBeTruthy();
   });
 
   it("puts the focus back on Download when Stop goes away", async () => {
@@ -517,10 +670,10 @@ describe("ExportPanel", () => {
     expect(p.download).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).toBeNull();
     // Only the unsupported tray is listed: no failure of the old plan came back.
-    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(problems()).toHaveLength(1);
   });
 
-  it("puts the focus back on Download when an export finishes under the focused Stop", async () => {
+  it("puts the focus on Back to the plan when an export finishes under the focused Stop", async () => {
     const m = meshes();
     let finish: () => void = () => undefined;
     m.get.mockImplementation(
@@ -538,8 +691,22 @@ describe("ExportPanel", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
     // Effects run after the DOM update: wait for the hand-over.
     await waitFor(() =>
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: COMBINED })),
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back to the plan" })),
     );
+  });
+
+  it("puts the focus on the first Try again when an export finishes with a failed part", async () => {
+    const m = meshes();
+    m.get.mockImplementation((spec) =>
+      spec.key === "b:p0:0"
+        ? Promise.reject(new GeometryBuildError("too slow", "TimeoutError"))
+        : Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }),
+    );
+    render(<ExportPanel {...props({ meshes: m })} />);
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    (await screen.findByRole("button", { name: "Stop" })).focus();
+    const retry = await screen.findByRole("button", { name: "Try again" });
+    await waitFor(() => expect(document.activeElement).toBe(retry));
   });
 
   it("puts the focus back on Download when a layout change drops the focused Stop", async () => {
@@ -591,49 +758,60 @@ describe("ExportPanel", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("says what was downloaded, and only for the last download", async () => {
+  it("says what was downloaded to a screen reader, only for the last download", async () => {
     const p = props();
-    render(<ExportPanel {...p} />);
+    const view = render(<ExportPanel {...p} />);
+    const live = document.querySelector<HTMLElement>("[data-live='build']") as HTMLElement;
+    expect(live.textContent).toBe("");
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
-    await screen.findByText("Downloaded Wing-span.3mf.");
-    openOtherFormats();
-    fireEvent.click(screen.getByRole("button", { name: STL }));
-    await screen.findByText("Downloaded Wing-span-stl.zip.");
-    expect(screen.queryByText("Downloaded Wing-span.3mf.")).toBeNull();
-    expect(screen.getAllByRole("status").some((s) => /Downloaded/.test(s.textContent ?? ""))).toBe(
-      true,
-    );
+    await screen.findByRole("heading", { name: /parts are ready$/ });
+    expect(live.textContent).toBe("Downloaded Wing-span.3mf.");
+    // another plan: what was downloaded was for the old one
+    view.rerender(<ExportPanel {...p} trays={[makeTray({ key: "z:p0:0", stack: 0 }), magnet]} />);
+    expect(live.textContent).toBe("");
   });
 
-  it("shows the build progress and ignores clicks on the busy buttons", async () => {
+  it("shows progress and Stop while building, and the ready controls give way", async () => {
     const m = meshes();
-    m.get.mockImplementation(waitsForAbort);
+    let release: () => void = () => undefined;
+    m.get
+      .mockImplementationOnce(() => Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }))
+      .mockImplementation(
+        (_spec, _settings, signal) =>
+          new Promise((resolve, reject) => {
+            release = () => resolve({ mesh: cubeMesh(), volumeMm3: 1000 });
+            signal?.addEventListener("abort", () =>
+              reject(new GeometryBuildError("c", "AbortError")),
+            );
+          }),
+      );
     const p = props({ meshes: m });
     render(<ExportPanel {...p} />);
-    openOtherFormats();
     // the live region is on the page before the build starts, and the Stop button is not in it
     const live = document.querySelector<HTMLElement>("[data-live='build']") as HTMLElement;
     expect(live.textContent).toBe("");
-    fireEvent.click(screen.getByRole("button", { name: PER_PART }));
-    await screen.findByRole("button", { name: "Stop" });
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "Building your print file",
+    });
+    expect(heading.getAttribute("style")).toBeNull();
     expect(live.textContent).toBe("Building the files.");
     expect(live.contains(screen.getByRole("button", { name: "Stop" }))).toBe(false);
-    expect(screen.getByText("Building 0 of 2").closest("[role=status]")).toBeNull();
-    expect(screen.getByLabelText("Building the files").tagName).toBe("PROGRESS");
-    const callsBefore = m.get.mock.calls.length;
-    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
-    fireEvent.click(screen.getByRole("button", { name: PER_PART }));
-    expect(m.get.mock.calls.length).toBe(callsBefore);
-    for (const name of [COMBINED, PER_PART, STL]) {
-      const b = screen.getByRole("button", { name });
-      expect(isOff(b)).toBe(true);
-      expect(b.hasAttribute("disabled")).toBe(false);
+    await screen.findByText("1 of 2 parts built");
+    const bar = screen.getByRole("progressbar");
+    expect(bar.getAttribute("aria-valuenow")).toBe("50");
+    // nothing else is offered while it builds
+    for (const name of [COMBINED, "Other formats", /^Packing guide/]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
     }
-    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
-    await waitFor(() => expect(isOff(screen.getByRole("button", { name: STL }))).toBe(false));
+    await waitFor(() => expect(m.get).toHaveBeenCalledTimes(2));
+    release();
+    await screen.findByRole("heading", { level: 1, name: "All 2 parts are ready" });
+    expect(screen.queryByRole("progressbar")).toBeNull();
   });
 
-  it("puts a failure in an error notice with Try again outside the alert", async () => {
+  it("puts a failure in a box with Try again outside the alert", async () => {
     const m = meshes();
     m.get.mockImplementation(() => Promise.reject(new Error("Geometry worker failed: oom")));
     render(<ExportPanel {...props({ meshes: m })} />);
@@ -641,14 +819,14 @@ describe("ExportPanel", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toBe("Error: Download failed: Geometry worker failed: oom");
     expect(alert.querySelector(".notice-level")?.textContent).toBe("Error:");
-    const notice = alert.parentElement;
-    expect(notice?.classList.contains("pf-notice--error")).toBe(true);
+    const box = alert.parentElement;
+    expect(box?.classList.contains("export-problem")).toBe(true);
     const retry = screen.getByRole("button", { name: "Try again" });
-    expect(notice?.contains(retry)).toBe(true);
+    expect(box?.contains(retry)).toBe(true);
     expect(alert.contains(retry)).toBe(false);
   });
 
-  it("lists what was not exported by name, plainly, with one Try again for the failures", async () => {
+  it("lists what was not exported by name, plainly, with Try again on the failed part only", async () => {
     const spare = makeTray({ key: "s:p0:0", stack: 2, part: "leftover" });
     const m = meshes();
     m.get.mockImplementation((spec) =>
@@ -660,15 +838,18 @@ describe("ExportPanel", () => {
     const { container } = render(<ExportPanel {...p} />);
     fireEvent.click(screen.getByRole("button", { name: COMBINED }));
     await waitFor(() => expect(p.download).toHaveBeenCalled());
-    const section = container.querySelector(".export-failed");
-    expect(section?.querySelector("h3")?.textContent).toBe("Not exported");
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    const section = (await screen.findByRole("heading", { level: 2, name: "Not exported" }))
+      .parentElement as HTMLElement;
+    expect(section.classList.contains("export-failed")).toBe(true);
+    expect(container.querySelectorAll(".export-failed")).toHaveLength(1);
+    expect(problems()).toHaveLength(2);
     expect(screen.getByText(/^Spare by [\w ]+: /)).toBeTruthy();
     expect(screen.getByText(/^Magnets: Uses feature/)).toBeTruthy();
     // Plain and short: no count, no advice.
-    expect(section?.textContent).not.toMatch(/weren't|skip|gap|warning/i);
+    expect(section.textContent).not.toMatch(/weren't|skip|gap|warning|bug/i);
+    const retry = screen.getByRole("button", { name: "Try again" });
     expect(screen.getAllByRole("button", { name: "Try again" })).toHaveLength(1);
-    expect(section?.contains(screen.getByRole("button", { name: "Try again" }))).toBe(true);
+    expect(problems().find((box) => box.contains(retry))?.textContent).toMatch(/^Spare by /);
   });
 
   it("shows no Not exported list when everything can be exported", () => {
@@ -676,12 +857,50 @@ describe("ExportPanel", () => {
     expect(screen.queryByRole("heading", { name: "Not exported" })).toBeNull();
   });
 
+  describe("on a phone", () => {
+    it("has the bar with Close, the title block, Send file and the foot with Download", () => {
+      const onSendFile = vi.fn();
+      const p = props({ phone: true, onSendFile, onOpenGuide: vi.fn(), summary });
+      render(<ExportPanel {...p} />);
+      const dialog = screen.getByRole("dialog", { name: "Ready to print" });
+      expect(dialog.classList.contains("export-dialog--phone")).toBe(true);
+      const send = screen.getByRole("button", { name: "Send file" });
+      expect(send.classList.contains("k-btn--secondary")).toBe(true);
+      fireEvent.click(send);
+      expect(onSendFile).toHaveBeenCalledTimes(1);
+      // the guide card says it shorter
+      expect(screen.getByRole("button", { name: /^Packing guide/ }).textContent).toBe(
+        "Packing guideWhere each named tray goes",
+      );
+      // the primary and its caption are in the fixed foot, after everything else
+      const foot = dialog.querySelector(".export-foot") as HTMLElement;
+      expect(foot.contains(screen.getByRole("button", { name: COMBINED }))).toBe(true);
+      expect(foot.textContent).toContain("One file with all 2 parts.");
+      expect(foot.previousElementSibling?.classList.contains("export-body")).toBe(true);
+      // Close is in the bar above the title block
+      const bar = dialog.querySelector(".export-bar") as HTMLElement;
+      expect(bar.contains(screen.getByRole("button", { name: "Close" }))).toBe(true);
+    });
+
+    it("leaves Send file out of a desktop's dialog", () => {
+      render(<ExportPanel {...props({ onSendFile: vi.fn() })} />);
+      expect(screen.queryByRole("button", { name: "Send file" })).toBeNull();
+    });
+  });
+
   it("makes every control at least 44 px, and the dialog fill a phone", async () => {
+    // the buttons are the kit's (44 px, 48 and 54 for the cta); the one of its own is the Other formats
+    // toggle, drawn 29 px tall as the board does, with a hit area that makes it 44 (a phone's is 44 itself)
+    expect(css).toMatch(/\.export-toggle::before\s*\{[^}]*inset:\s*-8px 0/);
     expect(css).toMatch(
-      /\.export-panel button,\s*\.export-panel a\s*\{[^}]*min-width:\s*var\(--control-h\);[^}]*min-height:\s*var\(--control-h\)/,
+      /\.export-dialog--phone \.export-toggle\s*\{[^}]*min-height:\s*var\(--control-h\)/,
+    );
+    expect(css).toMatch(/\.export-problem__retry::before\s*\{[^}]*inset:\s*-2px 0/);
+    const kit = (await import("../kit/kit.css?raw")).default;
+    expect(kit).toMatch(
+      /@media \(width < 600px\)\s*\{\s*\.k-dialog,\s*\.k-drawer\s*\{[^}]*height:\s*100dvh/,
     );
     const style = (await import("../style.css?raw")).default;
     expect(style).toMatch(/--control-h/);
-    expect(style).toMatch(/@media \(width < 600px\)\s*\{\s*\.modal\s*\{[^}]*height:\s*100dvh/);
   });
 });

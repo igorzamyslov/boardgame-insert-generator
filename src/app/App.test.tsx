@@ -156,7 +156,7 @@ function openExport(): void {
 /** The packing guide's button lives in the download dialog. */
 function openAssemblyPage(): void {
   openExport();
-  fireEvent.click(screen.getByRole("button", { name: "Open the packing guide" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Packing guide/ }));
 }
 
 describe("App", () => {
@@ -229,8 +229,8 @@ describe("App", () => {
     expect(document.querySelector(".plan-tile")).toBeNull();
     expect(screen.queryByRole("tab", { name: "Export" })).toBeNull();
     openExport();
-    expect(screen.getByRole("dialog", { name: "Download" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Download 3MF" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Ready to print" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download the 3MF file" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Other formats" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -288,16 +288,12 @@ describe("App", () => {
     const { store } = renderApp({ project: withLayoutProject() });
     openExport();
     fireEvent.click(screen.getByRole("button", { name: "Other formats" }));
-    const stl = screen.getByRole("button", { name: "Download STL files (.zip)" });
+    const stl = screen.getByRole("button", { name: "STL files (.zip)" });
     expect(stl.getAttribute("aria-disabled")).toBeNull();
     store.edit((q) => ({ ...q, settings: { ...q.settings, wall: q.settings.wall + 0.4 } }));
     expect(store.state.stale.value).toBe(true);
     expect(await screen.findByText("Make a new plan first.")).toBeTruthy();
-    for (const name of [
-      "Download 3MF",
-      "Download 3MF per part (.zip)",
-      "Download STL files (.zip)",
-    ]) {
+    for (const name of ["Download the 3MF file", "One 3MF per part (.zip)", "STL files (.zip)"]) {
       expect(screen.getByRole("button", { name }).getAttribute("aria-disabled")).toBe("true");
     }
   });
@@ -474,14 +470,12 @@ describe("App", () => {
     it("can't be opened as the packing guide, and says why", async () => {
       const { store } = renderApp({ project: withLayoutProject() });
       openExport();
-      const open = screen.getByRole("button", { name: "Open the packing guide" });
+      const open = screen.getByRole("button", { name: /^Packing guide/ });
       expect(open.getAttribute("aria-disabled")).toBeNull();
       makeStale(store);
       expect(await screen.findByText("Make a new plan first.")).toBeTruthy();
       expect(
-        screen
-          .getByRole("button", { name: "Open the packing guide" })
-          .getAttribute("aria-disabled"),
+        screen.getByRole("button", { name: /^Packing guide/ }).getAttribute("aria-disabled"),
       ).toBe("true");
     });
 
@@ -706,7 +700,7 @@ describe("App", () => {
         const { store } = renderWorkspace({ project: withLayoutProject() });
         rename("Wingspan");
         fireEvent.click(screen.getByRole("button", { name: "Download" }));
-        expect(screen.getByRole("dialog", { name: "Download" })).toBeTruthy();
+        expect(screen.getByRole("dialog", { name: "Ready to print" })).toBeTruthy();
         expect(key({ key: "z", ctrlKey: true })).toBe(true);
         expect(nameNow(store)).toBe("Wingspan");
         fireEvent.click(screen.getByRole("button", { name: "Close" }));
@@ -908,7 +902,7 @@ describe("App", () => {
       expect(download().getAttribute("title")).toBe("Make a new plan first");
       expect(download().getAttribute("aria-describedby")).toBeTruthy();
       fireEvent.click(download());
-      expect(screen.queryByRole("heading", { name: "Download" })).toBeNull();
+      expect(screen.queryByRole("heading", { name: "Ready to print" })).toBeNull();
       // Current again, but a run is pending.
       act(() => {
         store.state.project.value = {
@@ -950,7 +944,7 @@ describe("App", () => {
         expect("Reprint everything to download".length).toBeLessThanOrEqual(40);
         expect(download().getAttribute("title")).not.toMatch(/\n/);
         fireEvent.click(download());
-        expect(screen.queryByRole("heading", { name: "Download" })).toBeNull();
+        expect(screen.queryByRole("heading", { name: "Ready to print" })).toBeNull();
       });
 
       it("keeps it off after Use the old plan, and a press on it brings the banner back", async () => {
@@ -964,7 +958,7 @@ describe("App", () => {
         download().focus();
         expect(document.activeElement).toBe(download());
         fireEvent.click(download());
-        expect(screen.queryByRole("heading", { name: "Download" })).toBeNull();
+        expect(screen.queryByRole("heading", { name: "Ready to print" })).toBeNull();
         expect(await screen.findByRole("button", { name: "Reprint everything" })).toBeTruthy();
       });
 
@@ -1004,14 +998,14 @@ describe("App", () => {
         expect(download().getAttribute("title") ?? "").toBe("");
         expect(screen.queryByRole("button", { name: "Reprint everything" })).toBeNull();
         fireEvent.click(download());
-        expect(screen.getByRole("heading", { name: "Download" })).toBeTruthy();
+        expect(screen.getByRole("heading", { name: "Ready to print" })).toBeTruthy();
       });
     });
 
     it("Download opens the export dialog once there is a plan", () => {
       renderWorkspace({ project: withLayoutProject() });
       fireEvent.click(screen.getByRole("button", { name: "Download" }));
-      expect(screen.getByRole("heading", { name: "Download" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Ready to print" })).toBeTruthy();
     });
 
     it("returns the focus to the menu button after a choice", () => {
@@ -1191,7 +1185,7 @@ describe("App", () => {
       const download = screen.getByRole("button", { name: "Fix the fit to download" });
       expect(download.getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(download);
-      expect(screen.queryByRole("dialog", { name: "Download" })).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Ready to print" })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Edit Market" }));
       expect(await screen.findByRole("heading", { level: 2, name: "Market" })).toBeTruthy();
       // leaving the editor does not bring it back
@@ -1379,7 +1373,7 @@ describe("App", () => {
       const refit = vi.spyOn(store, "refit").mockImplementation(() => undefined);
       fireEvent.click(await screen.findByRole("button", { name: "Reprint everything" }));
       expect(refit).toHaveBeenCalled();
-      expect(screen.queryByRole("heading", { name: "Download" })).toBeNull();
+      expect(screen.queryByRole("heading", { name: "Ready to print" })).toBeNull();
     });
 
     it("shows only the older-geometry banner when the plan is also stale", async () => {
@@ -1504,9 +1498,9 @@ describe("App", () => {
       expect(exportButton().getAttribute("aria-haspopup")).toBe("dialog");
       fireEvent.click(exportButton());
       expect(showModal).toHaveBeenCalledTimes(1);
-      const dialog = screen.getByRole("dialog", { name: "Download" });
+      const dialog = screen.getByRole("dialog", { name: "Ready to print" });
       expect(dialog.tagName).toBe("DIALOG");
-      expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Download" }));
+      expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Ready to print" }));
     });
 
     it("has the header Download as its only way in", () => {
@@ -1560,7 +1554,7 @@ describe("App", () => {
         },
       });
       openExport();
-      fireEvent.click(screen.getByRole("button", { name: "Download 3MF" }));
+      fireEvent.click(screen.getByRole("button", { name: "Download the 3MF file" }));
       expect(await screen.findByRole("button", { name: "Stop" })).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Close" }));
       await flush();

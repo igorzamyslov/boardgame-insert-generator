@@ -376,6 +376,45 @@ describe("the phone layout", () => {
     expect(screen.queryByRole("link", { name: /licen[cs]es/i })).toBeNull();
   });
 
+  describe("the Download dialog", () => {
+    const openDownload = (): HTMLElement => {
+      const header = document.querySelector('[data-region="header"]') as HTMLElement;
+      fireEvent.click(within(header).getByRole("button", { name: "Download" }));
+      return screen.getByRole("dialog", { name: "Ready to print" });
+    };
+
+    it("is MobileDownload's on a phone: Close, the guide's short line, Send file and Download in the foot", () => {
+      phone();
+      renderApp({ project: project() });
+      const dialog = openDownload();
+      expect(dialog.classList.contains("export-dialog--phone")).toBe(true);
+      expect(within(dialog).getByRole("button", { name: "Close" })).toBeTruthy();
+      expect(within(dialog).getByText("Where each named tray goes")).toBeTruthy();
+      expect(
+        dialog
+          .querySelector(".export-foot")
+          ?.contains(within(dialog).getByRole("button", { name: "Download the 3MF file" })),
+      ).toBe(true);
+    });
+
+    it("has Send file, which hands the file to the share sheet", async () => {
+      phone();
+      const share = vi.fn<ShareFile>(() => Promise.resolve("shared"));
+      renderApp({ project: project(), overrides: { share } });
+      fireEvent.click(within(openDownload()).getByRole("button", { name: "Send file" }));
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+      expect((share.mock.calls[0]?.[0] as File).name).toMatch(/\.insert\.json$/);
+    });
+
+    it("has no Send file on a desktop", () => {
+      phone(false);
+      renderApp({ project: project() });
+      const dialog = openDownload();
+      expect(dialog.classList.contains("export-dialog--phone")).toBe(false);
+      expect(within(dialog).queryByRole("button", { name: "Send file" })).toBeNull();
+    });
+  });
+
   describe("the phone header", () => {
     it("has Undo and Send file, the menu button and Download, and no Redo", () => {
       phone();

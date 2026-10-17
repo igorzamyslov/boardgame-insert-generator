@@ -1,124 +1,405 @@
-/* src/ui/export.css: the download dialog. One primary button, the rest quiet. */
-.export-panel {
-  display: grid;
-  gap: var(--space-4);
-  justify-items: start;
-}
+/*
+ * src/ui/export.css: the Download dialog (Export, MobileDownload) and the building of the file
+ * (Exporting). The dialog itself is the kit's (`.k-dialog`: 22 px corners, 32 px padding, full
+ * screen below 600 px); this is what is in it. Tokens only; the 1.5 px, 2 px, 6 px and 8 px
+ * values the boards draw once stay literal with a comment naming the board.
+ */
 
-.export-panel > * {
-  margin: 0;
-}
-
-/* Every control in the panel is at least 44 px tall and wide. */
-.export-panel button,
-.export-panel a {
-  min-width: var(--control-h);
-  min-height: var(--control-h);
-}
-
+/* Settings' title still takes this until the drawer is rebuilt (UI rebuild Task 14). */
 .export-title {
   font-family: var(--font-display);
   font-size: 24px;
   line-height: 30px;
 }
 
-/* What is about to be printed, as plain numbers. */
-.export-facts {
+/* ---- The body: one column, gap 24 (Export), 22 while the file is built (Exporting) ---- */
+.export-body {
+  --export-gap: var(--s-24);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--export-gap);
+}
+
+.export-body[data-view="building"],
+.export-body[data-view="done"],
+.export-body[data-view="partial"] {
+  --export-gap: var(--s-22);
+}
+
+.export-body > * {
+  flex: none;
+  margin: 0;
+}
+
+/* ---- The title block and Close ---- */
+.export-head {
+  display: flex;
+  gap: var(--s-16);
+  align-items: flex-start;
+}
+
+.export-head__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-6);
+  min-width: 0;
+}
+
+.export-h1 {
+  margin: 0;
+  font: 700 var(--h1-dialog) / normal var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* Exporting's title is the smaller one. */
+.export-body:not([data-view="ready"]) .export-h1 {
+  font-size: var(--h1);
+}
+
+.export-sub {
+  color: var(--muted);
+}
+
+/* ---- Tray chips: a pill in each tray's colour; the spacers are one dashed pill ---- */
+.export-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
+  gap: var(--s-6);
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.export-facts dt {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.export-facts dd {
-  margin: 0;
+.export-chip {
+  box-sizing: border-box;
+  max-width: 100%;
+  height: 30px; /* Export */
+  padding: 0 var(--s-10);
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: var(--shade-fill, var(--icon-ground));
+  color: var(--shade-ink, var(--ink-dim));
+  font-size: var(--text-xs);
   font-weight: 600;
-  font-size: 20px;
-  line-height: 26px;
-  font-variant-numeric: tabular-nums;
+  line-height: 30px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.export-primary {
+.export-chip--spacers {
+  border: 1.5px dashed var(--spacer-dash); /* Export */
+  background: none;
+  color: var(--ink-dim);
+  line-height: 27px;
+}
+
+/* ---- Stat tiles: Filament and Print time ---- */
+.export-stats {
   display: grid;
-  gap: 0;
-  justify-items: start;
-}
-
-.export-done {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-12);
   margin: 0;
+}
+
+.export-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-16);
+  border-radius: var(--r-card);
+  background: var(--page);
+}
+
+.export-stat dt {
   color: var(--muted);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: var(--text-xs);
 }
 
-.export-done:not(:empty) {
-  margin-top: var(--space-2);
+.export-stat dd {
+  margin: 0;
+  font: 700 var(--text-stat) / normal var(--font-display);
 }
 
+/* ---- The primary and its caption ---- */
+.export-primary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-10);
+}
+
+.export-caption {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+/*
+ * ---- The packing guide's card: the page's own icon ground, a line round it ----
+ * Written with the kit's own class: it sets --k-bg too, and the rule that comes later wins a tie.
+ */
+.k-card.export-guide {
+  --k-bg: var(--sheet);
+  --kind-fill: var(--page);
+  --kind-ink: var(--ink);
+
+  padding: var(--s-14);
+}
+
+/* style.css (until Task 17) paints every blocked button itself. */
+.k-card.export-guide[aria-disabled="true"] {
+  border-color: var(--rule);
+  background: var(--sheet);
+  color: var(--ink-off);
+  cursor: not-allowed;
+}
+
+.export-guide__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.export-guide__title {
+  font-weight: 600;
+}
+
+.export-guide__line {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* ---- Other formats: a quiet toggle, then two pills ---- */
 .export-more {
-  display: grid;
-  gap: var(--space-2);
-  justify-items: start;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
 }
 
 .export-toggle {
-  color: var(--muted);
-}
-
-.export-options {
-  display: grid;
-  gap: var(--space-2);
-  width: 100%;
-}
-
-.export-option {
+  position: relative;
   display: flex;
-  gap: var(--space-4);
+  min-height: 0;
+  gap: var(--s-6);
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-md);
-  background: var(--sheet);
+  align-self: flex-start;
+  margin: 0;
+  padding: var(--s-6) 0; /* Export */
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: 600 var(--text-sm) / normal var(--font-ui);
+  cursor: pointer;
 }
 
-.export-panel .run-status,
-.export-panel .pf-notice,
-.export-failed {
-  width: 100%;
+.export-toggle:hover:not(:disabled) {
+  background: none;
 }
 
-.export-failed h3 {
-  margin: 0 0 var(--space-1);
-  font-size: 16px;
-  line-height: 22px;
+/* The board draws it 29 px tall; the target is 44 (DESIGN §2: 44 px controls). */
+.export-toggle::before {
+  position: absolute;
+  inset: -8px 0;
+  content: "";
 }
 
-.export-failed ul {
-  margin: 0 0 var(--space-2);
-  padding-left: var(--space-5);
+.export-formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
 }
 
-/* Quiet: the same small type as a hint, links in the muted ink. */
+/* Export draws these two in the page's weight, not the buttons' 600. */
+.k-btn.export-format {
+  font-weight: 400;
+}
+
+/* ---- Support: one quiet line ---- */
 .export-support {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 var(--space-3);
+  gap: var(--s-12);
   align-items: center;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 20px;
+  padding-top: var(--s-18);
+  border-top: 1px solid var(--rule-soft);
 }
 
-.export-support a {
-  display: inline-flex;
-  align-items: center;
+.export-support__text {
+  flex: 1 1 auto;
   color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.export-support__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+}
+
+.k-btn.export-kofi {
+  --k-bg: var(--bits-fill);
+  --k-fg: var(--bits-ink);
+}
+
+/* ---- Building, done: the bar and what can be pressed ---- */
+.export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-10);
+  justify-content: flex-end;
+}
+
+/* ---- Not exported: a part the files cannot hold, or that failed. Plain (DESIGN §7). ---- */
+.export-failed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+.export-h2 {
+  margin: 0;
+  font: 700 var(--h3) / normal var(--font-display);
+}
+
+.export-problems {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.export-problem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-10);
+  align-items: center;
+  padding: var(--s-10) var(--s-12);
+  border-radius: var(--r-field);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.export-problem__text {
+  flex: 1 1 220px; /* Exporting */
+  min-width: 0;
+}
+
+/* Exporting draws it 40 px tall with a 1.5 px ink line; the target is 44. */
+.k-btn.export-problem__retry {
+  --k-fg: var(--warn-ink);
+
+  position: relative;
+  height: 40px;
+  border: 1.5px solid var(--warn-ink);
+}
+
+.export-problem__retry::before {
+  position: absolute;
+  inset: -2px 0;
+  content: "";
+}
+
+/* ---- A phone (MobileDownload): a bar with Close, a body that scrolls, a fixed foot ---- */
+.k-dialog.export-dialog--phone {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.export-dialog--phone .export-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  height: var(--header-h-phone);
+  padding: 0 var(--s-8);
+}
+
+.export-dialog--phone .export-body {
+  --export-gap: var(--s-20);
+
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  min-height: 0;
+  padding: 0 var(--s-16) var(--s-20);
+  overflow: auto;
+}
+
+.export-dialog--phone .export-head__text {
+  gap: var(--s-4);
+}
+
+.export-dialog--phone .export-stats {
+  gap: var(--s-10);
+}
+
+.export-dialog--phone .export-stat {
+  padding: var(--s-14);
+}
+
+.export-dialog--phone .export-stat dd {
+  font-size: 22px; /* MobileDownload */
+}
+
+.export-dialog--phone .export-chip--spacers {
+  color: var(--muted-strong);
+}
+
+/* stylelint-disable-next-line no-descending-specificity */
+.export-dialog--phone .export-toggle {
+  min-height: var(--control-h);
+  padding: 0;
+  color: var(--muted-strong);
+}
+
+/* MobileDownload's guide card: no icon, 60 px tall, 12 px between its words and the chevron. */
+.export-dialog--phone .k-card.export-guide {
+  gap: var(--s-12);
+  min-height: 60px;
+  padding: 0 var(--s-14);
+}
+
+.export-send {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-10);
+  padding: var(--s-14);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+}
+
+.export-send .k-btn {
+  align-self: flex-start;
+  padding: 0 var(--s-16);
+  font-size: inherit; /* MobileDownload: the page's 16 px */
+}
+
+.export-dialog--phone .export-support {
+  padding-top: var(--s-16);
+}
+
+.export-dialog--phone .export-support__text {
+  flex: 1 0 100%;
+}
+
+.export-foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--s-6);
+  padding: var(--s-12) var(--s-16) var(--s-24);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.export-foot .k-btn--cta {
+  font-size: 17px; /* MobileDownload */
 }

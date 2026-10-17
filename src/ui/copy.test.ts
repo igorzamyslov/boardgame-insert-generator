@@ -34,10 +34,10 @@ import readme from "../../README.md?raw";
  *   named in DESIGN §2 Words). "Keep this version": the project menu's choice after another tab
  *   changed the insert (Main's board; it has nothing to do with pins).
  * - "data-part": an attribute name inside an SVG string, not text.
- * - "part"/"parts" is the download list's word, so it is allowed (PART_FILES) only in the three
- *   files that write the download list (ExportPanel.tsx), the reason it can be empty
- *   (app/exportBuild.ts) and the part names (instructions/naming.ts); spec: "part (except in the
- *   download list)". Nowhere else.
+ * - "part"/"parts" is the download list's word, so it is allowed (PART_FILES) only in the files
+ *   that write the download list (ExportPanel.tsx; copy-rulings.ts, which rules its singular
+ *   forms), the reason it can be empty (app/exportBuild.ts) and the part names
+ *   (instructions/naming.ts); spec: "part (except in the download list)". Nowhere else.
  */
 const sources = new Map(
   Object.entries(
@@ -192,9 +192,10 @@ const NOT_WORDS =
 const ALLOWED =
   /\b(?:Lock size|Unlock size|size[ -]locked|size locks?|Keep searching|Keep space free|Keep this version|Part of it|data-part)\b/gi;
 
-/** Files that write the download list, why a part could not be exported, and part names. */
+/** Files that write the download list, why a part could not be exported, and part names (and the rulings that cite its words). */
 const PART_FILES: readonly RegExp[] = [
   /\/ui\/ExportPanel\.tsx$/,
+  /\/screens\/copy-rulings\.ts$/,
   /\/app\/exportBuild\.ts$/,
   /\/instructions\/naming\.ts$/,
 ];
