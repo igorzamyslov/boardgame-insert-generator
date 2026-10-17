@@ -266,6 +266,18 @@
 }
 
 /* ---- Stepper: Fewer, the count, More ---- */
+.k-stepper-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+}
+
+/* The message takes the stepper's width and never widens it (a figure's card puts it in a row). */
+.k-stepper-box > .k-field__error {
+  width: 0;
+  min-width: 100%;
+}
+
 .k-stepper {
   display: flex;
   gap: var(--s-8);

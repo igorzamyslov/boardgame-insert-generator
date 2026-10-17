@@ -6,9 +6,35 @@
 .ed-slot {
   display: flex;
   flex: 1 1 auto;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
   min-width: 0;
   min-height: var(--stage-slot);
+}
+
+.ed-slot__row {
+  display: flex;
+  align-items: center;
+  min-height: var(--stage-slot);
+}
+
+/* A failed run, a tray that does not fit or pins in the way, in the status heading's words (no heading: the sentence is the h1). */
+.ed-problem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4) var(--s-8);
+  align-items: center;
+  margin: 0 0 var(--s-8);
+  padding: var(--s-8) var(--s-12);
+  border-radius: var(--r-field);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  font-size: var(--text-sm);
+}
+
+.ed-problem[data-tone="error"] {
+  background: var(--danger-bg);
+  color: var(--danger-ink);
 }
 
 /* Edit: 17 px, 400; the name in bold. */

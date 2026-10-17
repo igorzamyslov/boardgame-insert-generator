@@ -24,10 +24,11 @@ export function cardPresetOf(c: CardsComponent): string {
   return preset ? preset.id : CUSTOM_SIZE;
 }
 
-/** The sizes offered as chips: the common ones, and the one a file set when it is not among them. */
-function chipPresets(chosen: string): (typeof CARD_PRESETS)[number][] {
-  return CARD_PRESETS.filter((p) => p.common === true || p.id === chosen);
-}
+/** The sizes offered as chips on the first screen: the common ones. */
+const COMMON_PRESETS = CARD_PRESETS.filter((p) => p.common === true);
+
+/** The others, offered as chips inside "My own size" (every preset of the engine can be chosen). */
+const OTHER_PRESETS = CARD_PRESETS.filter((p) => p.common !== true);
 
 type SleeveChoice = "none" | "standard" | "premium" | "custom";
 
@@ -51,8 +52,15 @@ type Deck = CardsComponent["decks"][number];
 export function CardsEditor({ component: c, index, onChange }: EditorProps<CardsComponent>) {
   const at = `/components/${index}`;
   const matched = cardPresetOf(c);
-  const [customSize, setCustomSize] = useState(matched === CUSTOM_SIZE);
+  // "My own size" is open for a size that is no common preset: the others are chips inside it.
+  const [customSize, setCustomSize] = useState(!COMMON_PRESETS.some((p) => p.id === matched));
   const sizeValue = customSize ? CUSTOM_SIZE : matched;
+  const pick = (id: string): void => {
+    const preset = CARD_PRESETS.find((p) => p.id === id);
+    if (preset) {
+      onChange(setCardSides(c, preset.shortSide, preset.longSide));
+    }
+  };
   const sleeveChoice: SleeveChoice = typeof c.sleeve === "object" ? "custom" : c.sleeve;
   const sleeveNow =
     typeof c.sleeve === "object"
@@ -134,43 +142,50 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
         <ChoiceChips
           label="Card size"
           options={[
-            ...chipPresets(sizeValue).map((p) => ({ value: p.id, label: p.label })),
+            ...COMMON_PRESETS.map((p) => ({ value: p.id, label: p.label })),
             { value: CUSTOM_SIZE, label: "My own size" },
           ]}
           value={sizeValue}
           onChange={(id) => {
-            const preset = CARD_PRESETS.find((p) => p.id === id);
-            if (preset) {
-              setCustomSize(false);
-              onChange(setCardSides(c, preset.shortSide, preset.longSide));
-            } else {
+            if (id === CUSTOM_SIZE) {
               setCustomSize(true);
+            } else {
+              setCustomSize(false);
+              pick(id);
             }
           }}
         />
         {sizeValue === CUSTOM_SIZE ? (
-          <div class="ed-pair">
-            <NumField
-              id={`${c.id}-shortSide`}
-              label="Short side"
-              unit="mm"
-              value={c.shortSide}
-              path={`${at}/shortSide`}
-              {...LENGTH}
-              commitOn="blur"
-              onCommit={(v) => onChange(setCardSides(c, v, c.longSide))}
+          <>
+            <ChoiceChips
+              label="Other sizes"
+              options={OTHER_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
+              value={OTHER_PRESETS.some((p) => p.id === matched) ? matched : ""}
+              onChange={pick}
             />
-            <NumField
-              id={`${c.id}-longSide`}
-              label="Long side"
-              unit="mm"
-              value={c.longSide}
-              path={`${at}/longSide`}
-              {...LENGTH}
-              commitOn="blur"
-              onCommit={(v) => onChange(setCardSides(c, c.shortSide, v))}
-            />
-          </div>
+            <div class="ed-pair">
+              <NumField
+                id={`${c.id}-shortSide`}
+                label="Short side"
+                unit="mm"
+                value={c.shortSide}
+                path={`${at}/shortSide`}
+                {...LENGTH}
+                commitOn="blur"
+                onCommit={(v) => onChange(setCardSides(c, v, c.longSide))}
+              />
+              <NumField
+                id={`${c.id}-longSide`}
+                label="Long side"
+                unit="mm"
+                value={c.longSide}
+                path={`${at}/longSide`}
+                {...LENGTH}
+                commitOn="blur"
+                onCommit={(v) => onChange(setCardSides(c, c.shortSide, v))}
+              />
+            </div>
+          </>
         ) : null}
         <span class="ed-line">{`${mm(c.shortSide)} × ${mm(c.longSide)} mm`}</span>
       </Group>

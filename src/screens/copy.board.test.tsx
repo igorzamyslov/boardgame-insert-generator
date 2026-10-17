@@ -224,6 +224,38 @@ const CASES: readonly Case[] = [
       );
     },
   },
+  // The plan's problems, told in the slot while an editor is open (the status heading's words)
+  {
+    state: "workspace-failed",
+    board: "Main",
+    region: "stage",
+    steps: (store) => {
+      editRow(/^Market deck, /)();
+      act(() => {
+        store.state.run.value = { status: "error", message: "Worker crashed" };
+      });
+    },
+  },
+  {
+    state: "no-fit",
+    board: "Main",
+    region: "stage",
+    seed: "harbour-kings-nofit",
+    steps: (store) => {
+      editRow(/^Market deck, /)();
+      searchFailed("harbour-kings-nofit")(store);
+    },
+  },
+  {
+    state: "pin-conflict",
+    board: "Main",
+    region: "stage",
+    seed: "harbour-kings-pins",
+    steps: (store) => {
+      editRow(/^Market deck, /)();
+      searchFailed("harbour-kings-pins")(store);
+    },
+  },
   {
     state: "editor-removed",
     board: "Edit",

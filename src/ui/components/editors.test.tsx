@@ -36,6 +36,7 @@ describe("BulkEditor", () => {
   it("switches a piece to a pile volume and edits it", () => {
     const onChange = vi.fn<(c: BulkComponent) => void>();
     const view = render(<BulkEditor component={of("bulk")} index={0} onChange={onChange} />);
+    // the link names the piece it acts on (an unnamed one has the board's words)
     fireEvent.click(
       screen.getByRole("button", { name: "Don't know the size? Give a volume instead" }),
     );
@@ -63,6 +64,24 @@ describe("BulkEditor", () => {
     expect(lastOf(onChange).items[0]).toMatchObject({ h: 2.5 });
     fireEvent.click(screen.getByRole("button", { name: "+ Another kind of piece" }));
     expect(lastOf(onChange).items).toHaveLength(2);
+  });
+
+  it("names the piece the volume link acts on: the newest one that has a size", () => {
+    const onChange = vi.fn<(c: BulkComponent) => void>();
+    const c = {
+      ...of("bulk"),
+      items: [
+        { name: "Gold coins", count: 40, w: 20, d: 20, h: 2 },
+        { name: "Wood cubes", count: 24, w: 8, d: 8, h: 8 },
+      ],
+    };
+    render(<BulkEditor component={c} index={0} onChange={onChange} />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Don't know the size of Wood cubes? Give a volume instead",
+      }),
+    );
+    expect(lastOf(onChange).items).toEqual([c.items[0], { name: "Wood cubes", volumeMl: 50 }]);
   });
 
   it("offers no way to store the pieces in one bin: the engine has none", () => {

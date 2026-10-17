@@ -30,6 +30,8 @@ describe("editor.css", () => {
     expect(foot).toMatch(/margin-top:\s*auto/);
     expect(foot).toMatch(/position:\s*sticky/);
     expect(foot).toMatch(/justify-content:\s*space-between/);
+    // a line over it, so content scrolling under it is not cut off without a cue
+    expect(foot).toMatch(/border-top:\s*1px solid var\(--rule-soft\)/);
   });
 
   it("draws the back link as Edit's: 44 px, 14 px 600, a chevron and 8 px round", () => {
@@ -96,6 +98,13 @@ describe("the editor's stage", () => {
     expect(sentence).toMatch(/font-size:\s*17px/);
     expect(sentence).toMatch(/font-weight:\s*400/);
     expect(ruleFor(".ed-slot", stage)).toMatch(/min-height:\s*var\(--stage-slot\)/);
+  });
+
+  it("draws a problem under the sentence as a tinted line: warn for a tray that does not fit, danger for a failed run", () => {
+    expect(ruleFor(".ed-problem", stage)).toMatch(/background:\s*var\(--warn-bg\)/);
+    expect(ruleFor('.ed-problem[data-tone="error"]', stage)).toMatch(
+      /background:\s*var\(--danger-bg\)/,
+    );
   });
 
   it("lifts the edited tray: a 4 px sheet ring, a 6 px ring in the kind's line, the drop shadow", () => {

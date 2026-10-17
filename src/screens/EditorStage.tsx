@@ -5,7 +5,7 @@
 // sheet's name is the h1, and the strip under its header shows the same two things.
 import type { ComponentChildren } from "preact";
 import { Fragment } from "preact";
-import { Toast } from "../kit";
+import { Button, Toast } from "../kit";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { growthOf } from "../model/defaults";
 import { planFrame, toSvgRect, traysAt } from "../plan/layers";
@@ -14,6 +14,7 @@ import { lookOfTray } from "../plan/glyph";
 import { PlanView } from "../plan/PlanView";
 import type { PlanViewProps } from "../plan/PlanView";
 import { componentIndexOfTray, mm } from "../ui/identity";
+import type { EditorProblem } from "./StageTop";
 import { useNoteClock } from "../kit/Toast";
 import "./editorStage.css";
 
@@ -51,10 +52,13 @@ export function StageSentence({
   component: c,
   trays,
   tag: Tag = "h1",
+  hidden = false,
 }: {
   component: Component;
   trays: readonly TraySpec[];
   tag?: "h1" | "p";
+  /** Not drawn (the note is in its place), still on the page: the page always has its h1. */
+  hidden?: boolean;
 }) {
   const name = c.name === "" ? "(unnamed)" : c.name;
   const first = trays[0];
@@ -66,10 +70,36 @@ export function StageSentence({
     rest = ` tray, ${mm(first.w)} × ${mm(first.d)} mm.${grows ? " It grows as you add cards." : ""}`;
   }
   return (
-    <Tag class="ed-sentence">
+    <Tag class={hidden ? "ed-sentence visually-hidden" : "ed-sentence"}>
       <strong>{name}</strong>
       {rest === "" ? null : rest}
     </Tag>
+  );
+}
+
+/**
+ * A failed run, a tray that does not fit or pins in the way, told in the status heading's own
+ * words while the heading is not drawn: an alert, not a heading, with Retry for a failed run.
+ */
+export function ProblemLine({
+  problem,
+  onRetry,
+}: {
+  problem: EditorProblem;
+  onRetry?: () => void;
+}) {
+  return (
+    <p class="ed-problem" role="alert" data-tone={problem.tone}>
+      <strong>{problem.title}</strong>
+      {problem.lines.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+      {problem.retry && onRetry !== undefined ? (
+        <Button variant="secondary" onClick={onRetry}>
+          Retry
+        </Button>
+      ) : null}
+    </p>
   );
 }
 
@@ -92,6 +122,9 @@ export interface EditorStageProps {
   placeholder?: ComponentChildren;
   /** Under the plan: the layout and sizing notices. */
   after?: ComponentChildren;
+  /** What the plan's status says that the editor must not lose (null: nothing). */
+  problem?: EditorProblem | null;
+  onRetry?: () => void;
 }
 
 const nothing = (): void => undefined;
@@ -105,16 +138,23 @@ function Slot({
   trays,
   note,
   onNoteDone,
+  problem,
+  onRetry,
 }: {
   component: Component;
   trays: readonly TraySpec[];
   note: EditNote | null;
   onNoteDone: () => void;
+  problem?: EditorProblem | null;
+  onRetry?: () => void;
 }) {
   return (
     <div class="ed-slot" data-region="status">
-      <Toast message={note?.text ?? null} nonce={note?.id} onDone={onNoteDone} />
-      {note === null ? <StageSentence component={component} trays={trays} /> : null}
+      <div class="ed-slot__row">
+        <Toast message={note?.text ?? null} nonce={note?.id} onDone={onNoteDone} />
+        <StageSentence component={component} trays={trays} hidden={note !== null} />
+      </div>
+      {problem ? <ProblemLine problem={problem} onRetry={onRetry} /> : null}
     </div>
   );
 }
@@ -130,6 +170,8 @@ export function EditorStage({
   plan,
   placeholder,
   after,
+  problem,
+  onRetry,
 }: EditorStageProps) {
   const component = components.find((c) => c.id === componentId);
   if (component === undefined) {
@@ -140,7 +182,14 @@ export function EditorStage({
   const levels = levelsOf(trays);
   const at = mine[0] === undefined ? 0 : Math.max(0, levels.indexOf(mine[0].level));
   const slot = phone ? undefined : (
-    <Slot component={component} trays={mine} note={note} onNoteDone={onNoteDone} />
+    <Slot
+      component={component}
+      trays={mine}
+      note={note}
+      onNoteDone={onNoteDone}
+      problem={problem}
+      onRetry={onRetry}
+    />
   );
   return (
     <section class="plan-col ed-stage" aria-label="Preview" data-region="plan">
@@ -180,6 +229,8 @@ export function EditorStrip({
   settings,
   note,
   onNoteDone,
+  problem,
+  onRetry,
 }: {
   componentId: string;
   components: readonly Component[];
@@ -188,6 +239,8 @@ export function EditorStrip({
   settings: Settings;
   note: EditNote | null;
   onNoteDone: () => void;
+  problem?: EditorProblem | null;
+  onRetry?: () => void;
 }) {
   useNoteClock(note?.text ?? null, note?.id, onNoteDone);
   const component = components.find((c) => c.id === componentId);
@@ -236,6 +289,7 @@ export function EditorStrip({
       <div>
         <div role="status">{note === null ? null : <p class="ed-strip__text">{note.text}</p>}</div>
         {note === null ? <StageSentence component={component} trays={mine} tag="p" /> : null}
+        {problem ? <ProblemLine problem={problem} onRetry={onRetry} /> : null}
       </div>
     </div>
   );

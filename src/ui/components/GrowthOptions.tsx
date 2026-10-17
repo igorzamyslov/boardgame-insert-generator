@@ -62,6 +62,7 @@ export function GrowthOptions<C extends Component>({
               value={modeOf(mode)}
               onChange={(choice) => set(choice === "amount" ? STARTING_AMOUNT : choice)}
             />
+            <span class="ed-line">{`${standard === "auto" ? "Auto" : "None"} is the default`}</span>
             {typeof mode === "number" ? (
               <NumField
                 id={`${c.id}-growth-${axis}-amount`}

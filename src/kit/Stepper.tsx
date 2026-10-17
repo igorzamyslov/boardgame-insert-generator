@@ -1,6 +1,6 @@
 // src/kit/Stepper.tsx
-import { useEffect, useState } from "preact/hooks";
-import { numberInputAttrs } from "../ui/NumberField";
+import { useId } from "preact/hooks";
+import { numberInputAttrs, useNumberText } from "../ui/NumberField";
 import { IconButton } from "./IconButton";
 import { Icon } from "./icons";
 
@@ -17,7 +17,10 @@ export interface StepperProps {
   maxReason?: string;
 }
 
-/** Fewer, a count you can type in, More: the board's "How many". */
+/**
+ * Fewer, a count you can type in, More: the board's "How many". A typed count the rules refuse is
+ * kept, with the words of what is wrong under it, until it is mended; it never commits.
+ */
 export function Stepper({
   label,
   value,
@@ -27,46 +30,46 @@ export function Stepper({
   minReason = "That is the fewest it can be.",
   maxReason = "That is the most it can be.",
 }: StepperProps) {
-  const [text, setText] = useState(String(value));
-  useEffect(() => {
-    setText(String(value));
-  }, [value]);
+  const typed = useNumberText(value, onChange, { integer: true, min, max });
+  const errorId = useId();
   const atMin = value <= min;
   const atMax = max !== undefined && value >= max;
-  const inRange = (n: number): boolean => n >= min && (max === undefined || n <= max);
   return (
-    <div class="k-stepper">
-      <IconButton
-        label="Fewer"
-        variant="outlined"
-        icon={<Icon name="minus" size={14} />}
-        blockedReason={atMin ? minReason : undefined}
-        onClick={() => onChange(value - 1)}
-      />
-      <input
-        class="k-stepper__input"
-        type="text"
-        autoComplete="off"
-        {...numberInputAttrs(true)}
-        aria-label={label}
-        value={text}
-        onInput={(e) => {
-          const next = e.currentTarget.value;
-          setText(next);
-          const n = Number(next.trim());
-          if (next.trim() !== "" && Number.isInteger(n) && inRange(n) && n !== value) {
-            onChange(n);
-          }
-        }}
-        onBlur={() => setText(String(value))}
-      />
-      <IconButton
-        label="More"
-        variant="outlined"
-        icon={<Icon name="plus" size={14} />}
-        blockedReason={atMax ? maxReason : undefined}
-        onClick={() => onChange(value + 1)}
-      />
+    <div class="k-stepper-box">
+      <div class="k-stepper">
+        <IconButton
+          label="Fewer"
+          variant="outlined"
+          icon={<Icon name="minus" size={14} />}
+          blockedReason={atMin ? minReason : undefined}
+          onClick={() => onChange(value - 1)}
+        />
+        <input
+          class="k-stepper__input"
+          type="text"
+          autoComplete="off"
+          {...numberInputAttrs(true)}
+          aria-label={label}
+          aria-invalid={typed.error === null ? undefined : true}
+          aria-describedby={typed.error === null ? undefined : errorId}
+          value={typed.text}
+          onInput={(e) => typed.onInput(e.currentTarget.value)}
+          onBlur={typed.onBlur}
+          onKeyDown={typed.onKeyDown}
+        />
+        <IconButton
+          label="More"
+          variant="outlined"
+          icon={<Icon name="plus" size={14} />}
+          blockedReason={atMax ? maxReason : undefined}
+          onClick={() => onChange(value + 1)}
+        />
+      </div>
+      {typed.error === null ? null : (
+        <p class="k-field__error" id={errorId} role="alert">
+          {typed.error}
+        </p>
+      )}
     </div>
   );
 }

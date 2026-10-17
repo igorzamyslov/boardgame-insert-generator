@@ -104,6 +104,34 @@ const conflictSentence = (c: LockConflict): string =>
     ? `${c.name} doesn't fit with its size locked`
     : `${c.name} doesn't fit with your pins`;
 
+/** What the editor still says of the plan when its status heading is not drawn: a failed run, no fit, or pins in the way. */
+export interface EditorProblem {
+  tone: "error" | "warn";
+  title: string;
+  /** The muted line and the list under the title, one string each. */
+  lines: readonly string[];
+  /** The run can be tried again (a failed run). */
+  retry: boolean;
+}
+
+/**
+ * The words of a status the editor must not lose (the status heading is not drawn beside the
+ * stage sentence): the failed run, the tray that does not fit, the pins in the way. Errors in the
+ * inputs are marked in the editor itself; the rest of the statuses are not problems.
+ */
+export function editorProblem(status: Status): EditorProblem | null {
+  const problem = (status.tone === "error" && status.alert === true) || status.tone === "warn";
+  if (!problem) {
+    return null;
+  }
+  return {
+    tone: status.tone === "error" ? "error" : "warn",
+    title: status.title,
+    lines: [...(status.line === undefined ? [] : [status.line]), ...(status.list?.items ?? [])],
+    retry: status.actions.some((a) => a.kind === "retry"),
+  };
+}
+
 /**
  * What the status heading says: its tone, the h1, the muted line and what to press. Task 12 adds
  * the fit problems' fixes here.

@@ -20,8 +20,8 @@ import { RunAnnouncer } from "../screens/RunAnnouncer";
 import { StageSlot } from "../screens/StageSlot";
 import { StageNotes } from "../screens/StageNotes";
 import { stageView } from "../screens/stageView";
-import { PlanBanner, StageTop, problemAreas } from "../screens/StageTop";
-import type { StageView } from "../screens/StageTop";
+import { PlanBanner, StageTop, editorProblem, problemAreas, statusOf } from "../screens/StageTop";
+import type { StageView, StatusInput } from "../screens/StageTop";
 import { Workspace } from "../screens/Workspace";
 import { BoxPanel } from "../ui/BoxPanel";
 import { WhatsInside } from "../ui/components/WhatsInside";
@@ -428,6 +428,24 @@ export function App(props: AppProps) {
     selectedTray === undefined ? null : componentIndexOfTray(selectedTray, project.components);
   const selectedId =
     selectedIndex === null ? null : (project.components[selectedIndex]?.id ?? null);
+  // What the status says (the heading; and, while an editor is open, the problems it still tells).
+  const statusInput: StatusInput = {
+    run,
+    pending: s.runPending.value,
+    hasComponents: project.components.length > 0,
+    canOptimize: canPlan,
+    hasLayout: layout !== undefined,
+    fits,
+    canSearchMore: !s.geometryOld.value,
+    noFit: noFit
+      ? {
+          misfit: misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components),
+        }
+      : null,
+    conflicts,
+    hiddenErrors: errorsWithoutField(validation),
+    problems,
+  };
   // The component whose editor is open (the rail's, the sheet's), if it is still there.
   const editedComponent =
     editingId === null ? undefined : project.components.find((c) => c.id === editingId);
@@ -444,6 +462,8 @@ export function App(props: AppProps) {
         settings={projSettings}
         note={editNote}
         onNoteDone={clearEditNote}
+        problem={editorProblem(statusOf(statusInput))}
+        onRetry={() => store.retry()}
       />
     ) : undefined;
   // What's inside: the rail's list (the sheet's, on a phone), or a component's editor in its place.
@@ -730,32 +750,13 @@ export function App(props: AppProps) {
           plan={planProps}
           placeholder={workingOnIt}
           after={stageNotes}
+          problem={editorProblem(statusOf(statusInput))}
+          onRetry={() => store.retry()}
         />
       ) : (
         <>
           <StageTop
-            run={run}
-            pending={s.runPending.value}
-            hasComponents={project.components.length > 0}
-            canOptimize={canPlan}
-            hasLayout={layout !== undefined}
-            fits={fits}
-            canSearchMore={!s.geometryOld.value}
-            noFit={
-              noFit
-                ? {
-                    misfit: misfitOf(
-                      s.noFitAttempt.value,
-                      project.box,
-                      projSettings,
-                      project.components,
-                    ),
-                  }
-                : null
-            }
-            conflicts={conflicts}
-            hiddenErrors={errorsWithoutField(validation)}
-            problems={problems}
+            {...statusInput}
             trays={layout?.trays}
             level={s.viewLevel.value}
             onLevelChange={(l) => {

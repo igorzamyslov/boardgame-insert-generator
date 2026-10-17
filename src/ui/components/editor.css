@@ -272,6 +272,8 @@
   align-items: center;
   justify-content: space-between;
   margin-top: auto;
+  padding-top: var(--s-8);
+  border-top: 1px solid var(--rule-soft); /* where the panel scrolls under the foot, a line says so */
   background: var(--sheet);
 }
 

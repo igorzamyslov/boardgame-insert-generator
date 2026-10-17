@@ -177,6 +177,10 @@ const EDITOR_LABELS: readonly string[] = [
   "Extra room",
   "Use its own extra room",
   "Extra room mm",
+  "Other sizes",
+  "Auto is the default",
+  "None is the default",
+  "Don't know the size of {name}? Give a volume instead",
 ];
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
@@ -265,13 +269,16 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Show all", states: ["workspace-notes"], ruling: NOTES },
   { text: "Warning:", states: ["workspace-notes"], ruling: NOTES },
   { text: "Note:", states: ["workspace-notes"], ruling: NOTES },
-  { text: "Error:", states: ["workspace-notes"], ruling: NOTES },
+  { text: "Error:", states: ["workspace-notes", "no-fit"], ruling: NOTES },
   // Task 7: under the box, and the marks a phone's plan keeps
   {
     text: "{name}, seen from above. Front of the box",
     states: [
       "workspace",
       "workspace-rules",
+      "workspace-failed",
+      "no-fit",
+      "pin-conflict",
       "editor",
       "editor-more",
       "editor-note",
@@ -352,6 +359,11 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   {
     text: "tray, {name} × {name} mm.",
     states: [...EDITS, ...PHONE_EDITS],
+    ruling: EDITOR_SENTENCE,
+  },
+  {
+    text: "tray, {name} × {name} mm. It grows as you add cards.",
+    states: ["workspace-failed", "no-fit", "pin-conflict"],
     ruling: EDITOR_SENTENCE,
   },
   { text: ", {n} trays.", states: [...EDITS, ...PHONE_EDITS], ruling: EDITOR_SENTENCE },

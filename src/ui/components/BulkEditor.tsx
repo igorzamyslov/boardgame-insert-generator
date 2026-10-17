@@ -18,6 +18,7 @@ export function BulkEditor({ component: c, index, onChange }: EditorProps<BulkCo
   };
   // The board's one link, under the list, is for the newest piece; a piece given as a volume has its own way back.
   const lastCount = c.items.map((x) => !("volumeMl" in x)).lastIndexOf(true);
+  const lastItem = c.items[lastCount];
   return (
     <>
       <div class="ed-cards">
@@ -137,7 +138,9 @@ export function BulkEditor({ component: c, index, onChange }: EditorProps<BulkCo
             }
           }}
         >
-          Don&apos;t know the size? Give a volume instead
+          {lastItem === undefined || lastItem.name === ""
+            ? "Don't know the size? Give a volume instead"
+            : `Don't know the size of ${lastItem.name}? Give a volume instead`}
         </button>
       ) : null}
       <BinNotes component={c} index={index} />

@@ -84,13 +84,16 @@ describe("EditorStage", () => {
       .getAllByRole("status")
       .find((el) => el.textContent === said);
     expect(note, "the note is in a status region of the stage").toBeTruthy();
-    // it replaces the sentence while it shows
-    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+    // it takes the sentence's place on screen, and the page keeps its h1 (hidden) meanwhile
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1.classList.contains("visually-hidden")).toBe(true);
     act(() => {
       vi.advanceTimersByTime(4000);
     });
     expect(within(stage()).queryByText(said as string)).toBeNull();
-    expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).classList.contains("visually-hidden")).toBe(
+      false,
+    );
   });
 
   it("goes back to the workspace's status heading when the editor closes", () => {
@@ -109,6 +112,79 @@ describe("EditorStage", () => {
     ) as HTMLElement;
     fireEvent.keyDown(other, { key: "Enter" });
     expect(screen.queryByRole("region", { name: "Selected tray" })).toBeNull();
+  });
+});
+
+describe("what the plan says while an editor is open", () => {
+  const alertIn = (): HTMLElement => {
+    const alert = within(stage())
+      .getAllByRole("alert")
+      .find((el) => el.classList.contains("ed-problem"));
+    if (alert === undefined) {
+      throw new Error("no problem line in the stage");
+    }
+    return alert;
+  };
+
+  it("tells a failed run in the heading's words, with Retry, and keeps the sentence as the h1", () => {
+    const { store } = renderApp({ project: loadSeed("harbour-kings").project });
+    editMarket();
+    act(() => {
+      store.state.run.value = { status: "error", message: "Worker crashed" };
+    });
+    const alert = alertIn();
+    expect(alert.tagName).toBe("P");
+    expect(alert.textContent).toContain("The plan couldn't be updated");
+    expect(alert.textContent).toContain("Worker crashed.");
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/^Market deck tray/);
+    const retry = vi.spyOn(store, "retry");
+    fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells a tray that does not fit", () => {
+    const seed = loadSeed("harbour-kings-nofit");
+    const { store } = renderApp({ project: seed.project });
+    editMarket();
+    act(() => {
+      store.state.lastResult.value = seed.result ?? null;
+      store.state.lastResultHash.value = store.state.currentHash.value;
+      store.state.lockConflicts.value = seed.result?.lockConflicts ?? [];
+    });
+    expect(alertIn().textContent).toMatch(/tray doesn't fit yet|Not everything fits yet/);
+    expect(within(alertIn()).queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
+  it("tells the pins in the way", () => {
+    const seed = loadSeed("harbour-kings-pins");
+    const { store } = renderApp({ project: seed.project });
+    editMarket();
+    act(() => {
+      store.state.lastResult.value = seed.result ?? null;
+      store.state.lastResultHash.value = store.state.currentHash.value;
+      store.state.lockConflicts.value = seed.result?.lockConflicts ?? [];
+    });
+    expect(alertIn().textContent).toMatch(/doesn't fit with (your pins|its size locked)/);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
+  it("says nothing of a plan that is fine, or of errors that the editor marks itself", () => {
+    const { store } = renderApp({ project: loadSeed("harbour-kings").project });
+    editMarket();
+    expect(document.querySelector(".ed-problem")).toBeNull();
+    act(() => {
+      store.edit((q) => ({
+        ...q,
+        components: q.components.map((c) =>
+          c.kind === "cards" && c.name === "Market deck"
+            ? { ...c, decks: [{ name: "x", count: -1 }] }
+            : c,
+        ),
+      }));
+    });
+    expect(document.querySelector(".ed-problem")).toBeNull();
   });
 });
 

@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newComponent } from "../../model/defaults";
+import { CARD_PRESETS } from "../../model/presets";
 import type { CardsComponent } from "../../model/types";
 import { ValidationContext } from "../validation";
 import { CardsEditor, cardPresetOf } from "./CardsEditor";
@@ -45,22 +46,48 @@ describe("CardsEditor", () => {
     expect(screen.getByText("63.5 × 88 mm")).toBeTruthy();
   });
 
-  it("offers the common sizes, and the one a file set when it is not among them", () => {
-    setup(cards({ shortSide: 80, longSide: 120 }));
-    const labels = Array.from(
-      screen.getByRole("group", { name: "Card size" }).querySelectorAll("button"),
-    ).map((b) => b.textContent);
-    expect(labels).toEqual([
+  it("offers the common sizes as chips, and the others inside My own size", () => {
+    setup(cards());
+    const labels = (name: string): (string | null)[] =>
+      Array.from(screen.getByRole("group", { name }).querySelectorAll("button")).map(
+        (b) => b.textContent,
+      );
+    expect(labels("Card size")).toEqual([
       "Standard",
       "Standard American",
       "Euro",
       "Mini Euro",
       "Tarot",
-      "Dixit",
       "My own size",
     ]);
-    expect(pressedIn("Card size")).toBe("Dixit");
+    expect(screen.queryByRole("group", { name: "Other sizes" })).toBeNull();
+    choose("Card size", "My own size");
+    expect(labels("Other sizes")).toEqual([
+      "Mini American",
+      "French Tarot",
+      "Extra Large",
+      "Dixit",
+    ]);
   });
+
+  it("opens My own size, with the other size pressed, for a file that set one", () => {
+    setup(cards({ shortSide: 80, longSide: 120 }));
+    expect(pressedIn("Card size")).toBe("My own size");
+    expect(pressedIn("Other sizes")).toBe("Dixit");
+  });
+
+  it.each(CARD_PRESETS.map((p) => [p.id, p] as const))(
+    "can select the %s preset",
+    (_id, preset) => {
+      const { last } = setup(cards({ shortSide: 10, longSide: 20 }));
+      if (preset.common === true) {
+        choose("Card size", preset.label);
+      } else {
+        choose("Other sizes", preset.label);
+      }
+      expect(last()).toMatchObject({ shortSide: preset.shortSide, longSide: preset.longSide });
+    },
+  );
 
   it("commits custom sides on blur and orders them short ≤ long", () => {
     const { onChange, last } = setup(cards());
@@ -256,6 +283,16 @@ describe("CardsEditor", () => {
       choose("Room for expansions", "None");
       expect(last().growth).toEqual({ stack: "off" });
       expect("stretch" in last()).toBe(false);
+    });
+
+    it("says which choice is the default, for a deck that stands and for one that lies", () => {
+      const { view } = setup(cards({ storage: "upright-long" }));
+      openMore();
+      expect(screen.getByText("Auto is the default")).toBeTruthy();
+      view.unmount();
+      setup(cards({ storage: "flat" }));
+      openMore();
+      expect(screen.getByText("None is the default")).toBeTruthy();
     });
 
     it("never offers the card's own width or length, or a second axis", () => {
