@@ -4,7 +4,7 @@
 // literal of that state's board, a ruled string (copy-rulings.ts, citing a DESIGN §7 row), the
 // user's own words (`data`) or a string the engine writes (`engine`). Each screen's task adds its
 // (state, region) cases here.
-import { act, cleanup, fireEvent, screen } from "@testing-library/preact";
+import { act, cleanup, fireEvent, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import design from "../../docs/DESIGN.md?raw";
 import { createAppStore } from "../app/store";
@@ -50,6 +50,24 @@ function phone(): void {
     removeEventListener: () => undefined,
   }));
 }
+
+/** A tray of the plan, selected as a person does: Enter on its tile, found by the name its label starts with. */
+const selectTray = (name: RegExp) => (): void => {
+  const stage = document.querySelector('[data-region="stage"]') as HTMLElement;
+  fireEvent.keyDown(within(stage).getByRole("button", { name }), { key: "Enter" });
+};
+
+/** The spare tray or spacer of the plan (the seed has them on its top layer): it has no component, so no name to look for. */
+const selectSpacer = (): void => {
+  fireEvent.click(screen.getByRole("button", { name: /^Layer 2/ }));
+  const spacer = document.querySelector(".plan-tile.is-leftover") as Element;
+  expect(spacer, "the seed's top layer has a spacer").not.toBeNull();
+  fireEvent.keyDown(spacer, { key: "Enter" });
+};
+
+const openMore = (): void => {
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+};
 
 const openMenu = (): void => {
   fireEvent.click(screen.getByRole("button", { name: /^Project menu/ }));
@@ -285,6 +303,54 @@ const CASES: readonly Case[] = [
     region: "plan",
     phone: true,
     steps: setRules,
+  },
+  // Task 8: the tray bar and the phone's tray sheet (no board draws More's panel, a spacer's sheet or a riser)
+  {
+    state: "workspace-tray",
+    board: "Main",
+    region: "tray-bar",
+    steps: selectTray(/^Market deck/),
+  },
+  {
+    state: "workspace-tray-more",
+    board: "Main",
+    region: "tray-bar",
+    steps: () => {
+      selectTray(/^Market deck/)();
+      openMore();
+    },
+  },
+  { state: "workspace-tray-spacer", board: "Main", region: "tray-bar", steps: selectSpacer },
+  {
+    state: "m-tray",
+    board: "MobileTray",
+    region: "sheet",
+    phone: true,
+    steps: selectTray(/^Heroes/),
+  },
+  {
+    state: "m-tray-market",
+    board: "MobileTray",
+    region: "sheet",
+    phone: true,
+    steps: selectTray(/^Market deck/),
+  },
+  {
+    state: "m-tray-more",
+    board: "MobileTray",
+    region: "sheet",
+    phone: true,
+    steps: () => {
+      selectTray(/^Heroes/)();
+      openMore();
+    },
+  },
+  {
+    state: "m-tray-spacer",
+    board: "MobileTray",
+    region: "sheet",
+    phone: true,
+    steps: selectSpacer,
   },
   { state: "workspace", board: "Main", region: "header", steps: () => undefined },
   { state: "workspace-menu", board: "Main", region: "menu", steps: openMenu },

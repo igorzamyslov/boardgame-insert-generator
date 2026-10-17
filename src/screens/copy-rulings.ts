@@ -13,6 +13,8 @@ export interface CopyRuling {
   ruling: string;
 }
 
+import { COMPARTMENT_WORDS } from "../ui/identity";
+
 const FOOTER = "The footer moves into the project menu";
 const SAVED = "The saved status has five states";
 const DISMISS = "A menu note other than another tab's";
@@ -48,8 +50,22 @@ const PHONE_PINS = "A phone's plan shows the pin marks";
 const FAILED = ["workspace-failed"] as const;
 const ERRORS = ["workspace-error"] as const;
 const FIT_PROBLEMS = ["no-fit", "no-fit-bed", "pin-conflict"] as const;
+// Task 8: the tray bar and the phone's tray sheet. The states are the tray cases of copy.board.test.tsx.
+const MORE = "More holds Swap with… and Lock size";
+const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
+const PIN_LABEL = "Pin/Unpin and Lock size carry no `aria-pressed`";
+const TRAY_SHEET = "A phone's tray bar is a modal sheet";
+const BAR_STATES = [
+  "workspace-tray",
+  "workspace-tray-more",
+  "workspace-tray-spacer",
+  "workspace-tray-riser",
+] as const;
+const SHEET_STATES = ["m-tray", "m-tray-more", "m-tray-market", "m-tray-spacer"] as const;
 /** Every stage-top case that has a plan under it, so a Layer switch. */
 const SWITCHED = [
+  ...BAR_STATES,
+  ...SHEET_STATES,
   ...PLAN_STATES,
   ...ERRORS,
   ...FAILED,
@@ -157,6 +173,38 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["m-workspace-rules"],
     ruling: PHONE_PINS,
   },
+  // Task 8: the tray bar (desktop) and the tray sheet (phone)
+  { text: "More", states: [...BAR_STATES, ...SHEET_STATES], ruling: MORE },
+  {
+    text: "Swap with…",
+    states: ["workspace-tray-more", "m-tray-more", "m-tray-market"],
+    ruling: MORE,
+  },
+  {
+    text: "Lock size",
+    states: ["workspace-tray-more", "m-tray-more", "m-tray-market"],
+    ruling: MORE,
+  },
+  { text: "Unlock size", states: ["workspace-tray-more", "m-tray-more"], ruling: MORE },
+  {
+    text: "Fills the gap so the trays can't slide. Print it too. {size}",
+    states: ["workspace-tray-spacer", "m-tray-spacer"],
+    ruling: NO_ACTIONS,
+  },
+  {
+    text: "Carries {name}",
+    states: ["workspace-tray-riser"],
+    ruling: NO_ACTIONS,
+  },
+  { text: "Edit {name}", states: SHEET_STATES, ruling: TRAY_SHEET },
+  // MobileTray's tile says "Pin here" and never "Unpin"; the label is the action, as on the bar
+  { text: "Pin", states: SHEET_STATES, ruling: PIN_LABEL },
+  { text: "Unpin", states: SHEET_STATES, ruling: PIN_LABEL },
+  // "6 figure pockets" is MobileTray's own; the others say the same of the other kinds
+  ...Object.values(COMPARTMENT_WORDS).flatMap(([one, many]) => [
+    { text: `{n} ${one}`, states: SHEET_STATES, ruling: TRAY_SHEET },
+    { text: `{n} ${many}`, states: SHEET_STATES, ruling: TRAY_SHEET },
+  ]),
 ];
 
 /**

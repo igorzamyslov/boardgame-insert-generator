@@ -171,6 +171,7 @@
   --dialog-max: 560px;
   --dialog-pad: 32px; /* below 600 px: 20 px, radius 0 */
   --sheet-peek: 196px;
+  --tray-sheet-h: 404px; /* MobileTray's modal sheet */
 
   /* Type. Base 15 px (phone 16 px, base.css); weights 400, 500, 600, 700. */
   --text-sm: 14px;

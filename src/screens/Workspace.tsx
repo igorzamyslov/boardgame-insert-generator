@@ -21,6 +21,8 @@ export interface WorkspaceSheet {
   editing?: boolean;
   handleRef?: RefObject<HTMLButtonElement | null>;
   action?: ComponentChildren;
+  /** Its `data-region` ("sheet"): another sheet in front of it (a tray's, Task 8) takes the name, so only one has it. */
+  region?: string;
 }
 
 export interface WorkspaceProps {
@@ -55,7 +57,7 @@ export function Workspace(p: WorkspaceProps) {
       <div class="ws-body">
         {sheet ? (
           <Sheet
-            region="sheet"
+            region={sheet.region ?? "sheet"}
             peek
             label={sheet.label}
             title={sheet.title}

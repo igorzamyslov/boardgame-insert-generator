@@ -261,3 +261,40 @@ export function layerWords(level: number, count: number): string {
   }
   return level === 0 ? "bottom layer" : level === count - 1 ? "top layer" : `layer ${level + 1}`;
 }
+
+/**
+ * What a tray's compartments are called, one and many: the phone sheet's "6 figure pockets"
+ * (MobileTray). The board's "scooped bins" is not ours: a tray holds things in compartments, and
+ * "bin" is one of the Words table's Not-words.
+ */
+export const COMPARTMENT_WORDS = {
+  card: ["card well", "card wells"],
+  tile: ["tile stack", "tile stacks"],
+  scoop: ["scooped compartment", "scooped compartments"],
+  figure: ["figure pocket", "figure pockets"],
+  other: ["compartment", "compartments"],
+} as const;
+
+/**
+ * What a tray's compartments are, with their count: "1 card well", "4 scooped compartments", "6 figure
+ * pockets". The compartment's own kind says scoop or pocket; a well is a card well or a tile stack
+ * by what it holds. Null for a tray with none.
+ */
+export function compartmentWords(tray: TraySpec, component: Component | undefined): string | null {
+  const own = tray.compartments.filter((c) => c.kind !== "spare");
+  const first = own[0];
+  if (first === undefined) {
+    return null;
+  }
+  const words =
+    first.kind === "scoop"
+      ? COMPARTMENT_WORDS.scoop
+      : first.kind === "pocket"
+        ? COMPARTMENT_WORDS.figure
+        : component?.kind === "cards"
+          ? COMPARTMENT_WORDS.card
+          : component?.kind === "tiles"
+            ? COMPARTMENT_WORDS.tile
+            : COMPARTMENT_WORDS.other;
+  return `${own.length} ${own.length === 1 ? words[0] : words[1]}`;
+}

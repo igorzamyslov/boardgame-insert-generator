@@ -71,6 +71,11 @@ function tile(key: string): Element {
   return document.querySelector(`.plan-tile[data-key="${key}"]`) as Element;
 }
 
+/** The tray bar's More (it holds Swap with… and Lock size): opens its panel. */
+function openMore(): void {
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+}
+
 /** The stage's View segment: "Top" shows the plan, "3D" the 3D view (only the chosen one is mounted). */
 function openView(name: "Top" | "3D"): void {
   fireEvent.click(
@@ -278,6 +283,7 @@ describe("App", () => {
     openView("Top");
     expect(viewPressed("Top")).toBe(true);
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
+    openMore();
     fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
     fireEvent.keyDown(tile("b:p0:0"), { key: "Enter" });
     expect(store.state.project.value.locks).toEqual([
@@ -304,13 +310,19 @@ describe("App", () => {
   it("ends a swap when the view leaves the plan, whatever is selected meanwhile", () => {
     const { store } = renderApp({ project: withLayoutProject(), overrides: withWebGL() });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
+    openMore();
     fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
     expect(screen.getByText(/Choose the tray to swap with/)).toBeTruthy();
+    // the swap under way keeps More open on the pressed Swap with…
+    expect(screen.getByRole("button", { name: "Swap with…" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
     openView("3D");
     expect(store.state.swapFrom.value).toBeNull();
     store.state.selection.value = "b:p0:0";
     openView("Top");
     expect(screen.queryByText(/Choose the tray to swap with/)).toBeNull();
+    openMore();
     expect(screen.getByRole("button", { name: "Swap with…" }).getAttribute("aria-pressed")).toBe(
       "false",
     );
@@ -468,7 +480,8 @@ describe("App", () => {
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     openView("3D");
     await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
-    expect(screen.getAllByRole("group", { name: "Selected tray" })).toHaveLength(1);
+    expect(screen.getAllByRole("region", { name: "Selected tray" })).toHaveLength(1);
+    openMore();
     expect(screen.getAllByRole("button", { name: "Lock size" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Pin" })).toHaveLength(1);
     // A swap is made on the plan, so the 3D view's bar has no Swap with….
@@ -513,17 +526,13 @@ describe("App", () => {
       ).toBe(true);
     });
 
-    it("hints in the tray bar that the sizes may not match", async () => {
+    it("leaves a plan the inputs have outgrown to its banner: the tray bar says nothing of it", async () => {
       const { store } = renderApp({ project: withLayoutProject() });
       fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
-      expect(document.querySelector(".tray-bar .hint")?.textContent ?? "").not.toMatch(
-        /from before your last changes/,
-      );
       makeStale(store);
-      await waitFor(() =>
-        expect(document.querySelector(".tray-bar")?.textContent).toMatch(
-          /The sizes shown may not match/,
-        ),
+      await waitFor(() => expect(store.state.stale.value).toBe(true));
+      expect(screen.getByRole("region", { name: "Selected tray" }).textContent).not.toMatch(
+        /before your last changes|sizes shown may not match/,
       );
     });
   });
@@ -531,11 +540,13 @@ describe("App", () => {
   it("locks and unlocks a tray's size from the tray bar", () => {
     const { store } = renderApp({ project: withLayoutProject() });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
+    openMore();
     fireEvent.click(screen.getByRole("button", { name: "Lock size" }));
     expect(store.state.project.value.locks).toEqual([
       { kind: "size", trayKey: "a:p0:0", w: 100, d: 80, h: 40 },
     ]);
     expect(tile("a:p0:0").getAttribute("aria-label")).toMatch(/, layer 1, size locked$/);
+    openMore();
     fireEvent.click(screen.getByRole("button", { name: "Unlock size" }));
     expect(store.state.project.value.locks).toEqual([]);
   });
@@ -1643,7 +1654,7 @@ describe("App", () => {
   });
 
   /** The tray bar, so a chip is looked for there and not in the list's own chips. */
-  const trayBar = (): HTMLElement => screen.getByRole("group", { name: "Selected tray" });
+  const trayBar = (): HTMLElement => screen.getByRole("region", { name: "Selected tray" });
 
   it("keyboard pin and swap", () => {
     const { store } = renderApp({ project: withLayoutProject() });
@@ -1659,6 +1670,7 @@ describe("App", () => {
       { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
     ]);
     expect(within(trayBar()).getByText("Pinned")).toBeTruthy();
+    fireEvent.click(within(trayBar()).getByRole("button", { name: "More" }));
     fireEvent.click(within(trayBar()).getByRole("button", { name: "Swap with…" }));
     expect(
       within(trayBar()).getByRole("button", { name: "Swap with…" }).getAttribute("aria-pressed"),
@@ -1722,7 +1734,11 @@ describe("App", () => {
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
     const turn = screen.getByRole("button", { name: "Turn 90°" });
     expect(turn.getAttribute("aria-disabled")).toBe("true");
-    expect(screen.getByText("This tray is square, so turning changes nothing.")).toBeTruthy();
+    expect(
+      within(trayBar()).getByText("This tray is square, so turning changes nothing.", {
+        selector: ".tray-bar__why p",
+      }),
+    ).toBeTruthy();
     fireEvent.click(turn);
     expect(store.state.project.value.locks).toEqual([]);
   });
@@ -1763,7 +1779,7 @@ describe("App", () => {
       // The list is showing, with no editor.
       expect(within(rail).queryByRole("heading", { level: 3 })).toBeNull();
       fireEvent.keyDown(tile("m:p0:0"), { key: "Enter" });
-      expect(within(trayBar()).getByRole("heading", { name: "Market" })).toBeTruthy();
+      expect(within(trayBar()).getByText("Market", { selector: ".tray-bar__name" })).toBeTruthy();
       fireEvent.click(within(trayBar()).getByRole("button", { name: "Edit" }));
       // The editor panel is open for that component, with its way back to the list.
       const heading = await within(rail).findByRole("heading", { level: 3, name: "Market" });
@@ -1773,7 +1789,7 @@ describe("App", () => {
       // Back to the list leaves the tray selected.
       fireEvent.click(within(rail).getByRole("button", { name: "What's inside" }));
       expect(within(rail).queryByRole("heading", { level: 3 })).toBeNull();
-      expect(screen.getByRole("group", { name: "Selected tray" })).toBeTruthy();
+      expect(screen.getByRole("region", { name: "Selected tray" })).toBeTruthy();
     });
 
     it("Close hands the focus back to the tray", async () => {
@@ -1783,13 +1799,14 @@ describe("App", () => {
       const focus = vi.fn();
       (tile("m:p0:0") as unknown as { focus: () => void }).focus = focus;
       fireEvent.click(screen.getByRole("button", { name: "Close" }));
-      expect(screen.queryByRole("group", { name: "Selected tray" })).toBeNull();
+      expect(screen.queryByRole("region", { name: "Selected tray" })).toBeNull();
       await waitFor(() => expect(focus).toHaveBeenCalledTimes(1));
     });
 
     it("Close during a swap ends it", () => {
       const { store } = renderApp({ project: withLayoutProject() });
       fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
+      openMore();
       fireEvent.click(screen.getByRole("button", { name: "Swap with…" }));
       expect(store.state.swapFrom.value).toBe("a:p0:0");
       fireEvent.click(screen.getByRole("button", { name: "Close" }));

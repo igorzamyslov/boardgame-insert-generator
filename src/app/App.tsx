@@ -135,13 +135,6 @@ export function App(props: AppProps) {
   const narrow = useMediaQuery(NARROW_QUERY);
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetHandle = useRef<HTMLButtonElement>(null);
-  // A tray picked on a phone: its bar comes up over the sheet's handle, not under it.
-  const selection = s.selection.value;
-  useEffect(() => {
-    if (phone && selection !== null) {
-      document.querySelector(".tray-bar")?.scrollIntoView?.({ block: "nearest" });
-    }
-  }, [phone, selection]);
   // Removing the last item swaps the rail for the first visit: the focus goes to the kinds there.
   const wasFirstVisit = useRef(firstVisit);
   useEffect(() => {
@@ -405,7 +398,6 @@ export function App(props: AppProps) {
     project,
     trays: printable,
     selectedKey: layout ? s.selection.value : null,
-    stale: s.stale.value,
     edit: store.edit,
     onSelect: (key: string | null) => {
       s.selection.value = key;
@@ -612,6 +604,17 @@ export function App(props: AppProps) {
   ) : (
     whatsInside
   );
+  // A phone's tray bar is a modal sheet (MobileTray). It gives way to an editor in the sheet below, and
+  // to the plan while a swap is chosen (SelectedTrayBar). It is in the top layer: where it is in the tree does not matter.
+  const traySheet =
+    phone && hasSelectedTray && !firstVisit && !editing && !boxOpen ? (
+      <SelectedTrayBar
+        {...barProps}
+        phone
+        inPlan={view === "plan"}
+        swapFrom={view === "plan" ? s.swapFrom.value : null}
+      />
+    ) : null;
   const stageSlot = (
     <>
       {/* Always mounted, so its live regions are there before they have anything to say. */}
@@ -634,6 +637,7 @@ export function App(props: AppProps) {
         />
       </div>
       <RunAnnouncer run={run} />
+      {traySheet}
       {firstVisit ? null : (
         <StageTop
           run={run}
@@ -703,16 +707,21 @@ export function App(props: AppProps) {
                 onSwap={(a, b) => store.edit((q) => swapTrays(q, a, b))}
                 sizeLockedKeys={sizeLocked}
                 bar={
-                  hasSelectedTray ? (
-                    <SelectedTrayBar {...barProps} inPlan swapFrom={s.swapFrom.value} />
+                  hasSelectedTray && !phone ? (
+                    <SelectedTrayBar
+                      {...barProps}
+                      phone={false}
+                      inPlan
+                      swapFrom={s.swapFrom.value}
+                    />
                   ) : undefined
                 }
               />
             ) : (
               <>
-                <StageSlot idle={phone && !hasSelectedTray}>
-                  {hasSelectedTray ? (
-                    <SelectedTrayBar {...barProps} inPlan={false} swapFrom={null} />
+                <StageSlot idle={phone}>
+                  {hasSelectedTray && !phone ? (
+                    <SelectedTrayBar {...barProps} phone={false} inPlan={false} swapFrom={null} />
                   ) : undefined}
                 </StageSlot>
                 <Viewer
@@ -815,6 +824,8 @@ export function App(props: AppProps) {
                     full: sheetFull,
                     editing,
                     handleRef: sheetHandle,
+                    // a tray's sheet in front of it has the region's name
+                    region: traySheet === null ? "sheet" : "sheet-behind",
                     onExpandedChange: (open) => {
                       setSheetOpen(open);
                       // An editor, or the box, has the sheet to itself: folding it comes back to the list.

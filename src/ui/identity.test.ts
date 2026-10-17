@@ -16,6 +16,7 @@ import {
   BOX_COLOR,
   SPACER_SHADE,
   SHADE_COUNT,
+  compartmentWords,
   componentIndexOfTray,
   componentSummary,
   kindIndexOf,
@@ -284,5 +285,53 @@ describe("componentSummary", () => {
     expect(
       componentSummary({ ...newComponent("custom"), count: 2, w: 30, d: 20, h: 10 } as Component),
     ).toBe("2 × 30 × 20 × 10 mm");
+  });
+});
+
+describe("compartmentWords", () => {
+  const compartment = (kind: "well" | "scoop" | "pocket" | "spare") => ({
+    x: 0,
+    y: 0,
+    w: 10,
+    d: 10,
+    floorZ: 1,
+    kind,
+    contents: kind === "spare" ? "" : "x",
+    features: [],
+  });
+  const trayOf = (...kinds: ("well" | "scoop" | "pocket" | "spare")[]) =>
+    makeTray({ compartments: kinds.map(compartment) });
+
+  it("names a well by what it holds, and counts them", () => {
+    expect(compartmentWords(trayOf("well"), newComponent("cards") as Component)).toBe(
+      "1 card well",
+    );
+    expect(
+      compartmentWords(trayOf("well", "well", "well", "well"), newComponent("cards") as Component),
+    ).toBe("4 card wells");
+    expect(compartmentWords(trayOf("well"), newComponent("tiles") as Component)).toBe(
+      "1 tile stack",
+    );
+    expect(compartmentWords(trayOf("well"), newComponent("bulk") as Component)).toBe(
+      "1 compartment",
+    );
+    expect(compartmentWords(trayOf("well"), undefined)).toBe("1 compartment");
+  });
+
+  it("says scooped compartments and figure pockets by the compartment's own kind", () => {
+    expect(compartmentWords(trayOf("scoop", "scoop"), newComponent("bulk") as Component)).toBe(
+      "2 scooped compartments",
+    );
+    expect(
+      compartmentWords(trayOf(...Array(6).fill("pocket")), newComponent("minis") as Component),
+    ).toBe("6 figure pockets");
+  });
+
+  it("says nothing for a tray with no compartments, and leaves spares out of the count", () => {
+    expect(compartmentWords(trayOf(), undefined)).toBeNull();
+    expect(compartmentWords(trayOf("spare"), undefined)).toBeNull();
+    expect(compartmentWords(trayOf("well", "spare"), newComponent("cards") as Component)).toBe(
+      "1 card well",
+    );
   });
 });

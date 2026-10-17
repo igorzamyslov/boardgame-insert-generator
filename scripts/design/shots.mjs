@@ -344,11 +344,13 @@ const regionSource = (name) => REGIONS[name].board.toString();
 // ---------------------------------------------------------------- nothing jumps (Review Focus 4)
 
 // Pairs that must not differ: Keep searching turning into Stop, and the View segment turning to 3D.
+// `sizeOnly`: a tray bar is taller than the slot's hint, so the plan's box slides down; it may not change size (Task 8).
 const JUMP_PAIRS = [
-  ["workspace", "workspace-searching"],
-  ["workspace", "workspace-3d"],
+  { pair: ["workspace", "workspace-searching"], sizeOnly: [] },
+  { pair: ["workspace", "workspace-3d"], sizeOnly: [] },
+  { pair: ["workspace", "workspace-tray"], sizeOnly: ["plan-box"] },
 ];
-const JUMP_STATES = [...new Set(JUMP_PAIRS.flat())];
+const JUMP_STATES = [...new Set(JUMP_PAIRS.flatMap((j) => j.pair))];
 const jumpBoxes = new Map();
 
 async function measureJump(page) {
@@ -396,6 +398,92 @@ async function measure(page, isBoard) {
   out["h1 font-size"] = h1 ? Number.parseFloat(h1.size) : null;
   out["h1 text"] = h1 ? h1.text : null;
   Object.assign(out, await page.evaluate(measureStatusRow));
+  Object.assign(out, await page.evaluate(measureTray));
+  return out;
+}
+
+/**
+ * The tray bar (a region named "Selected tray") and the phone's tray sheet (the page's dialog), by
+ * structure so a board and the app answer alike (Task 8). Runs in the page, so it is
+ * self-contained. A part the page lacks is null, and a metric neither side has is no row.
+ */
+function measureTray() {
+  const round = (n) => Math.round(n * 100) / 100;
+  const out = {};
+  const put = (key, value) => {
+    out[key] = value === null || value === undefined || Number.isNaN(value) ? null : round(value);
+  };
+  const rect = (el) => {
+    if (!el) {
+      return null;
+    }
+    const r = el.getBoundingClientRect();
+    return { top: r.top + window.scrollY, left: r.left + window.scrollX, w: r.width, h: r.height };
+  };
+  const style = (el, prop) => (el ? Number.parseFloat(getComputedStyle(el)[prop]) : null);
+  const named = (root, test) =>
+    Array.from(root.querySelectorAll("button, a")).find((b) =>
+      test((b.getAttribute("aria-label") || b.textContent || "").trim()),
+    ) || null;
+
+  const bar = document.querySelector('[aria-label="Selected tray"]');
+  const b = rect(bar);
+  put("bar top", b ? b.top : null);
+  put("bar left", b ? b.left : null);
+  put("bar width", b ? b.w : null);
+  put("bar height", b ? b.h : null);
+  put("bar radius", style(bar, "borderTopLeftRadius"));
+  put("bar padding left", style(bar, "paddingLeft"));
+  const swatch = bar ? bar.children[0] : null;
+  put("bar swatch size", rect(swatch) ? rect(swatch).w : null);
+  put("bar swatch radius", style(swatch, "borderTopLeftRadius"));
+  const text = bar ? bar.children[1] : null;
+  put("bar text left", rect(text) ? rect(text).left : null);
+  put("bar name font-size", style(text ? text.children[0] : null, "fontSize"));
+  put("bar name weight", style(text ? text.children[0] : null, "fontWeight"));
+  put("bar meta font-size", style(text ? text.children[1] : null, "fontSize"));
+  const pin = bar ? named(bar, (t) => /^(Pin|Unpin)$/.test(t)) : null;
+  const edit = bar ? named(bar, (t) => t === "Edit") : null;
+  const close = bar ? named(bar, (t) => t === "Close") : null;
+  put("bar Pin height", rect(pin) ? rect(pin).h : null);
+  put("bar Pin left", rect(pin) ? rect(pin).left : null);
+  put("bar Edit width", rect(edit) ? rect(edit).w : null);
+  put("bar Edit left", rect(edit) ? rect(edit).left : null);
+  put("bar Close size", rect(close) ? rect(close).w : null);
+  put("bar Close left", rect(close) ? rect(close).left : null);
+
+  const dialog = document.querySelector('dialog, [role="dialog"]');
+  const root =
+    dialog && dialog.children.length === 1 && dialog.firstElementChild.localName === "div"
+      ? dialog.firstElementChild
+      : dialog;
+  const d = rect(dialog);
+  put("sheet top", d ? d.top : null);
+  put("sheet height", d ? d.h : null);
+  put("sheet radius", style(dialog, "borderTopLeftRadius"));
+  const handle = root ? root.children[0] : null;
+  put("sheet handle width", rect(handle) ? rect(handle).w : null);
+  put("sheet handle top", rect(handle) ? rect(handle).top : null);
+  const head = root ? root.children[1] : null;
+  const tile = head ? head.children[0] : null;
+  put("sheet tile size", rect(tile) ? rect(tile).w : null);
+  put("sheet tile left", rect(tile) ? rect(tile).left : null);
+  const h2 = dialog ? dialog.querySelector("h2") : null;
+  put("sheet h2 font-size", style(h2, "fontSize"));
+  put("sheet h2 top", rect(h2) ? rect(h2).top : null);
+  const sheetEdit = dialog ? named(dialog, (t) => /^Edit /.test(t)) : null;
+  put("sheet Edit height", rect(sheetEdit) ? rect(sheetEdit).h : null);
+  put("sheet Edit top", rect(sheetEdit) ? rect(sheetEdit).top : null);
+  const dl = dialog ? dialog.querySelector("dl") : null;
+  put("sheet Size row top", rect(dl) ? rect(dl).top : null);
+  const tiles = root
+    ? Array.from(root.querySelectorAll("div")).find(
+        (el) => el.children.length === 3 && el.querySelectorAll("button").length === 3,
+      )
+    : null;
+  put("sheet tiles top", rect(tiles) ? rect(tiles).top : null);
+  const firstTile = tiles ? tiles.querySelector("button") : null;
+  put("sheet tile height", rect(firstTile) ? rect(firstTile).h : null);
   return out;
 }
 
@@ -621,18 +709,20 @@ try {
       lines.push(`FAILED  ${name}: ${firstLine(e)}`);
     }
   }
-  for (const pair of JUMP_PAIRS) {
+  for (const { pair, sizeOnly } of JUMP_PAIRS) {
     if (!pair.every((n) => jumpBoxes.has(n))) {
       continue;
     }
-    const problems = jumpProblems(...pair.map((n) => jumpBoxes.get(n)));
+    const problems = jumpProblems(...pair.map((n) => jumpBoxes.get(n)), { sizeOnly });
     // a region found in neither state is not a failure: it only says the check had nothing to compare
     const hard = problems.filter((p) => !p.endsWith("(nothing compared)"));
     failed += hard.length > 0 ? 1 : 0;
+    const slides =
+      sizeOnly.length > 0 ? ` (the ${sizeOnly.join(" and ")} may slide, not resize)` : "";
     lines.push(
       hard.length > 0
         ? `FAILED  jump (${pair.join(" and ")}): ${hard.join("; ")}`
-        : `ok      jump: header, rail, status and plan box do not move between ${pair.join(" and ")}${problems.length > 0 ? ` (${problems.join("; ")})` : ""}`,
+        : `ok      jump: header, rail, status and plan box do not move between ${pair.join(" and ")}${slides}${problems.length > 0 ? ` (${problems.join("; ")})` : ""}`,
     );
   }
   console.log(`\n${lines.join("\n")}\n\nout: ${outDir}`);

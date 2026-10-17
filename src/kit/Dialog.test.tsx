@@ -120,6 +120,45 @@ describe("Dialog", () => {
   });
 });
 
+describe("Dialog, at the foot of a phone's screen", () => {
+  it("is the modal sheet, named by the region the screenshots look for", () => {
+    render(
+      <Dialog labelledBy="t" placement="bottom" region="sheet" onClose={() => undefined}>
+        <h2 id="t">Title</h2>
+      </Dialog>,
+    );
+    const dialog = document.querySelector("dialog");
+    expect(dialog?.classList.contains("k-sheetmodal")).toBe(true);
+    expect(dialog?.classList.contains("k-dialog")).toBe(false);
+    expect(dialog?.getAttribute("data-region")).toBe("sheet");
+    expect(css).toMatch(/\.k-sheetmodal::backdrop\s*{[^}]*background:\s*transparent/);
+  });
+
+  it("closes on a press on the dialog itself (what is behind it), not on one inside", () => {
+    const onClose = vi.fn();
+    render(
+      <Dialog labelledBy="t" placement="bottom" onClose={onClose}>
+        <h2 id="t">Title</h2>
+      </Dialog>,
+    );
+    fireEvent.click(screen.getByRole("heading", { name: "Title", hidden: true }));
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(document.querySelector("dialog") as HTMLElement);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a centred dialog alone: a press on its edge does nothing", () => {
+    const onClose = vi.fn();
+    render(
+      <Dialog labelledBy="t" onClose={onClose}>
+        <h2 id="t">Title</h2>
+      </Dialog>,
+    );
+    fireEvent.click(document.querySelector("dialog") as HTMLElement);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
 describe("Dialog, legacy look", () => {
   it("keeps the old classes and its Close row, for the screens not rebuilt yet", () => {
     const onClose = vi.fn();

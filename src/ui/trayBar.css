@@ -1,0 +1,245 @@
+/* src/ui/trayBar.css */
+
+/*
+ * The tray bar (UI rebuild Task 8), from Main's `sel` state and MobileTray. The buttons are the
+ * kit's (kit.css: a pill is 44 px high, an icon button 44 px round); this file only places them.
+ * The bar sits in the stage's slot (screens/StageSlot); the phone's sheet is the kit's modal
+ * Dialog (`k-sheetmodal`). On the tokens (styles/tokens.css).
+ */
+
+/* The bar: one row that wraps, as Main draws it. */
+.tray-bar {
+  position: relative; /* the empty line of reasons is out of the row, so it takes neither room nor a gap */
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--s-8) var(--s-8) var(--s-8) var(--s-12);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-bar);
+  background: var(--sheet);
+  box-shadow: var(--shadow-bar);
+}
+
+/* The 30 px swatch: the component's fill with its 2 px line; a part with none is hatched and dashed. */
+.tray-bar__swatch,
+.tray-sheet__swatch {
+  flex: none;
+  box-sizing: border-box;
+  border: 2px solid var(--shade-line, var(--rule));
+  background: var(--shade-fill, var(--rule));
+}
+
+.tray-bar__swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-icon);
+}
+
+.tray-bar__swatch--spacer {
+  border: 2px dashed var(--spacer-dash);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--spacer-fill) 0 5px,
+    var(--spacer-hatch) 5px 10px
+  );
+}
+
+/* The name over its line, taking what the buttons leave (200 px at least, then the buttons wrap). */
+.tray-bar__text {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tray-bar__name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tray-bar__meta {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pin when it is set: ink with white words (Main's pinned button). */
+.tray-bar .k-btn[data-on="true"],
+.tray-sheet .k-btn[data-on="true"] {
+  --k-bg: var(--ink);
+  --k-fg: var(--sheet);
+}
+
+/* Main's Edit: 16 px of padding at the bar's 14 px type (the kit's 1 px edge makes it 15 here). */
+.tray-bar .tray-bar__edit {
+  padding: 0 calc(var(--s-16) - 1px);
+  font-size: var(--text-sm);
+}
+
+/*
+ * The reason a button is off: a full-width line under the row. It is a live region that is always
+ * mounted, so empty it is taken out of the row (no line, no gap) and stays in the page.
+ */
+.tray-bar__why,
+.tray-sheet__why {
+  flex-basis: 100%;
+  color: var(--warn-ink);
+  font-size: var(--text-xs);
+}
+
+.tray-bar__why:empty,
+.tray-sheet__why:empty {
+  position: absolute;
+}
+
+.tray-bar__why p,
+.tray-sheet__why p {
+  margin: 0;
+}
+
+/* More: its panel opens under it, over whatever the stage or the sheet holds there. */
+.tray-more {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.tray-more__panel {
+  position: absolute;
+  top: calc(100% + var(--s-6));
+  right: 0;
+  z-index: 30;
+}
+
+/* Swap with… while it is under way, and Unlock size: the page's colour under the item. */
+.tray-more__panel .k-menu__item[aria-pressed="true"],
+.tray-more__panel .k-menu__item.is-on {
+  --k-bg: var(--page);
+}
+
+/* ---- The phone's sheet (MobileTray): a handle, the head, Edit, Size and Printing, three tiles ---- */
+.tray-sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-14);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--s-8) var(--s-16) var(--s-20);
+}
+
+/* A spacer or a riser has only its head: the sheet is as tall as that. */
+.k-sheetmodal.tray-sheet--part {
+  height: auto;
+}
+
+.tray-sheet--part .tray-sheet {
+  height: auto;
+}
+
+.tray-sheet__handle {
+  flex: none;
+  align-self: center;
+  width: 40px;
+  height: 5px;
+  border-radius: var(--r-pill);
+  background: var(--handle);
+}
+
+.tray-sheet__head {
+  display: flex;
+  gap: var(--s-12);
+  align-items: center;
+}
+
+.tray-sheet__swatch {
+  box-sizing: content-box; /* MobileTray: 36 px inside its 2 px line, 40 in all */
+  width: 36px;
+  height: 36px;
+  border: 2px dashed var(--spacer-dash);
+  border-radius: var(--r-tile);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--spacer-fill) 0 6px,
+    var(--spacer-hatch) 6px 12px
+  );
+}
+
+.tray-sheet__title {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tray-sheet__title h2 {
+  margin: 0;
+  font: 700 var(--h1-phone) / normal var(--font-display);
+}
+
+.tray-sheet__meta {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* Edit <name>: 48 px, the whole width; a long name is cut. */
+.tray-sheet .tray-sheet__edit {
+  flex: none;
+  width: 100%;
+  font-size: inherit;
+}
+
+.tray-sheet__edit > .ellipsis {
+  max-width: 100%;
+}
+
+.tray-sheet__dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-6) var(--s-16);
+  margin: 0;
+  font-size: 15px; /* MobileTray: the list sits at 15 px on the phone's 16 */
+}
+
+.tray-sheet__dl dt {
+  color: var(--muted);
+}
+
+.tray-sheet__dl dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Pin, Turn 90°, More: three 68 px tiles in the page's colour, an icon over 13 px words. */
+.tray-sheet__tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-8);
+}
+
+.tray-sheet__tiles > .tray-more {
+  display: flex;
+}
+
+.tray-sheet__tile.k-btn {
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-4);
+  height: auto;
+  min-height: 68px;
+  padding: var(--s-6);
+  border-radius: var(--r-card);
+  font-size: var(--text-xs);
+  line-height: normal;
+  white-space: normal;
+}

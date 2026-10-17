@@ -18,3 +18,8 @@ export function formatPrintTime(minutes: number): string {
   }
   return `about ${Math.round((minutes / 60) * 2) / 2} h`;
 }
+
+/** One part's cost on a single line, time first, as Main's tray bar says it: "about 3.5 h, 58 g". */
+export function formatPrintCost(minutes: number, grams: number): string {
+  return `${formatPrintTime(minutes)}, ${Math.max(1, Math.round(grams))} g`;
+}

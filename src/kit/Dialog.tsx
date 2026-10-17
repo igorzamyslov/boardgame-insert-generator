@@ -11,8 +11,13 @@ export interface DialogProps {
   /** An extra class for the dialog (its size, say). */
   class?: string;
   children: ComponentChildren;
-  /** Where it sits: in the middle (Export) or against the right edge (Settings' drawer). */
-  placement?: "center" | "right";
+  /**
+   * Where it sits: in the middle (Export), against the right edge (Settings' drawer) or at the
+   * foot of a phone's screen (MobileTray's sheet: a press on what is behind it closes it).
+   */
+  placement?: "center" | "right" | "bottom";
+  /** The `data-region` the screenshot harness finds the dialog by. */
+  region?: string;
   /**
    * The old look: the `.modal` classes of style.css and a Close row at the foot, for the screens
    * not rebuilt yet. The rebuilt screens draw their own Close beside the title (`CloseButton`).
@@ -38,6 +43,7 @@ export function Dialog({
   class: extra,
   children,
   placement = "center",
+  region,
   legacy = false,
 }: DialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -67,13 +73,27 @@ export function Dialog({
     };
   }, []);
 
-  const own = legacy ? "modal" : placement === "right" ? "k-drawer" : "k-dialog";
+  const own = legacy
+    ? "modal"
+    : placement === "right"
+      ? "k-drawer"
+      : placement === "bottom"
+        ? "k-sheetmodal"
+        : "k-dialog";
   return (
     <dialog
       ref={dialog}
       class={cx(own, extra)}
       aria-modal="true"
       aria-labelledby={labelledBy}
+      data-region={region}
+      onClick={(e) => {
+        // The sheet fills its own box, so a press that lands on the dialog itself is one on the
+        // page behind it (the backdrop is part of the dialog's box).
+        if (placement === "bottom" && !legacy && e.target === e.currentTarget) {
+          onCloseRef.current();
+        }
+      }}
       onCancel={(e) => {
         // Not the browser's own close: the state decides, so the two never disagree.
         e.preventDefault();
@@ -97,6 +117,6 @@ export function Dialog({
 }
 
 /** Settings' drawer: a dialog against the right edge, full height, full screen on a phone. */
-export function Drawer(props: Omit<DialogProps, "placement" | "legacy">) {
+export function Drawer(props: Omit<DialogProps, "placement" | "legacy" | "region">) {
   return <Dialog {...props} placement="right" />;
 }

@@ -1,6 +1,6 @@
 // src/ui/estimates.test.ts
 import { describe, expect, it } from "vitest";
-import { formatGrams, formatPrintTime } from "./estimates";
+import { formatGrams, formatPrintCost, formatPrintTime } from "./estimates";
 
 describe("formatGrams", () => {
   it("rounds to the gram and says about, never ≈", () => {
@@ -31,5 +31,12 @@ describe("formatPrintTime", () => {
 
   it("never writes the approximation sign", () => {
     expect(`${formatGrams(100)} ${formatPrintTime(100)}`).not.toContain("≈");
+  });
+});
+
+describe("formatPrintCost", () => {
+  it("says the time, then the grams, with one about", () => {
+    expect(formatPrintCost(208, 58.2)).toBe("about 3.5 h, 58 g");
+    expect(formatPrintCost(43, 0.2)).toBe("about 45 min, 1 g");
   });
 });

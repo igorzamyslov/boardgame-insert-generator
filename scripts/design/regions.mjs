@@ -7,7 +7,7 @@
 // it. A region found in only one of the two has no pair crop.
 //
 // Names, with the task that owns each in the app: header, rail, stage (Task 3), status, switches, banner
-// (Task 6), plan-box, tray-bar, menu, dialog, drawer, sheet, kind-picker.
+// (Task 6), plan-box, tray-bar (Task 8), menu, dialog, drawer, sheet, kind-picker.
 
 /** @type {Record<string, { board: (doc: Document) => Element | null }>} */
 export const REGIONS = {
@@ -63,7 +63,7 @@ export const REGIONS = {
   },
   dialog: { board: (doc) => doc.querySelector('[role="dialog"]') },
   drawer: { board: (doc) => doc.querySelector('[role="dialog"]') },
-  // The panel placed against the bottom edge of a phone board.
+  // The panel placed against the bottom edge of a phone board. In the app, the sheet in front: a tray's (Task 8) over the list's.
   sheet: {
     board: (doc) =>
       Array.from(doc.querySelectorAll('[role="region"], [role="dialog"]')).find((el) => {

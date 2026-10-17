@@ -134,13 +134,15 @@ describe("the phone layout", () => {
       key: "Enter",
     });
     fireEvent.click(
-      within(screen.getByRole("group", { name: "Selected tray" })).getByRole("button", {
-        name: "Edit",
-      }),
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Edit Market" }),
     );
     expect(handle().getAttribute("aria-expanded")).toBe("true");
     expect(sheet().getAttribute("data-full")).toBe("true");
     expect(await within(sheet()).findByRole("heading", { level: 3, name: "Market" })).toBeTruthy();
+    // the tray's sheet gives way to the editor, and comes back with the list: the tray is still selected
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(handle());
+    expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
   describe("what is behind a sheet that fills the screen", () => {
@@ -154,9 +156,7 @@ describe("the phone layout", () => {
         key: "Enter",
       });
       fireEvent.click(
-        within(screen.getByRole("group", { name: "Selected tray" })).getByRole("button", {
-          name: "Edit",
-        }),
+        within(screen.getByRole("dialog")).getByRole("button", { name: "Edit Market" }),
       );
     }
 
@@ -238,20 +238,69 @@ describe("the phone layout", () => {
     expect(document.activeElement).toBe(handle());
   });
 
-  it("brings the tray bar into view above the handle when a tray is selected", () => {
-    phone();
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
-    renderApp({ project: project() });
-    expect(scrollIntoView).not.toHaveBeenCalled();
-    fireEvent.keyDown(document.querySelector('.plan-tile[data-key="m:p0:0"]') as Element, {
-      key: "Enter",
+  describe("a tray picked on the plan", () => {
+    const pick = (): void => {
+      fireEvent.keyDown(document.querySelector('.plan-tile[data-key="m:p0:0"]') as Element, {
+        key: "Enter",
+      });
+    };
+
+    it("opens the tray's sheet: a modal dialog named by the tray, and no bar in the stage", () => {
+      phone();
+      renderApp({ project: project() });
+      expect(screen.queryByRole("dialog")).toBeNull();
+      pick();
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByRole("heading", { level: 2, name: "Market" })).toBeTruthy();
+      expect(dialog.getAttribute("aria-modal")).toBe("true");
+      expect(screen.queryByRole("region", { name: "Selected tray" })).toBeNull();
+      // only one element is the sheet: the list's sheet behind it lets go of the name
+      expect(document.querySelectorAll('[data-region="sheet"]')).toHaveLength(1);
+      expect(document.querySelector('[data-region="sheet"]')).toBe(dialog);
     });
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
-    expect(scrollIntoView.mock.contexts[0]).toBe(
-      screen.getByRole("group", { name: "Selected tray" }),
-    );
-    Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+
+    it("keeps the plan where it is: the slot has no room for a bar the sheet replaces", () => {
+      phone();
+      renderApp({ project: project() });
+      const slot = (): Element | null => document.querySelector(".stage-slot");
+      expect(slot()?.classList.contains("visually-hidden")).toBe(true);
+      pick();
+      expect(slot()?.classList.contains("visually-hidden")).toBe(true);
+    });
+
+    it("closes with Close, and clears the selection", () => {
+      phone();
+      const { store } = renderApp({ project: project() });
+      pick();
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(store.state.selection.value).toBeNull();
+    });
+
+    it("lets go of the plan while a swap is chosen, and takes it back when it is made", () => {
+      phone();
+      const p = fixtureProject();
+      const trays = [
+        makeTray({ key: "a:p0:0", path: "0", stack: 0, x: 0, y: 0 }),
+        makeTray({ key: "b:p0:0", path: "1", stack: 1, x: 110, y: 0 }),
+      ];
+      const { store } = renderApp({ project: { ...p, layout: makeLayout(inputsHash(p), trays) } });
+      fireEvent.keyDown(document.querySelector('.plan-tile[data-key="a:p0:0"]') as Element, {
+        key: "Enter",
+      });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "More" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Swap with…" }));
+      expect(store.state.swapFrom.value).toBe("a:p0:0");
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.getByText(/Choose the tray to swap with/)).toBeTruthy();
+      fireEvent.keyDown(document.querySelector('.plan-tile[data-key="b:p0:0"]') as Element, {
+        key: "Enter",
+      });
+      expect(store.state.project.value.locks).toHaveLength(2);
+      expect(store.state.swapFrom.value).toBeNull();
+      expect(screen.getByRole("dialog")).toBeTruthy();
+    });
   });
 
   it("has no footer on a phone: the licences are the project menu's last line", () => {

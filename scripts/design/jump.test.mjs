@@ -38,6 +38,26 @@ describe("jumpProblems", () => {
     ]);
   });
 
+  it("lets a region named in sizeOnly move, and not change size", () => {
+    const slid = page({ "plan-box": box(337, 153, 1067, 700) });
+    expect(jumpProblems(page(), slid, { sizeOnly: ["plan-box"] })).toEqual([]);
+    expect(jumpProblems(page(), slid)).toHaveLength(1);
+    const smaller = page({ "plan-box": box(337, 153, 1067, 690) });
+    expect(jumpProblems(page(), smaller, { sizeOnly: ["plan-box"] })).toEqual([
+      "plan-box changed size: 337,143 1067×700 against 337,153 1067×690",
+    ]);
+  });
+
+  it("still holds the other regions still when the plan's box may slide", () => {
+    const problems = jumpProblems(
+      page(),
+      page({ "plan-box": box(337, 153, 1067, 700), status: box(337, 93, 1067, 60) }),
+      { sizeOnly: ["plan-box"] },
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/^status moved/);
+  });
+
   it("finds the plan's box by its data-region, with no fallback", () => {
     expect(JUMP_REGIONS["plan-box"]).toBe('[data-region="plan-box"]');
   });

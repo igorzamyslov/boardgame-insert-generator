@@ -9,6 +9,18 @@ import { StepBadge } from "./StepBadge";
 afterEach(cleanup);
 
 describe("IconTile", () => {
+  it("wears the kind's line only when asked (MobileTray's header)", () => {
+    const { container } = render(
+      <>
+        <IconTile size={36} kind="minis" lined />
+        <IconTile size={36} kind="minis" />
+      </>,
+    );
+    const [lined, plain] = [...container.querySelectorAll(".k-tile")];
+    expect(lined?.classList.contains("k-tile--lined")).toBe(true);
+    expect(plain?.classList.contains("k-tile--lined")).toBe(false);
+  });
+
   it("takes the kind's colours and draws its icon, hidden from assistive technology", () => {
     const { container } = render(<IconTile size={36} kind="cards" />);
     const tile = container.querySelector(".k-tile");

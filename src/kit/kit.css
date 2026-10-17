@@ -442,6 +442,12 @@
   --tile-r: var(--r-field);
 }
 
+/* MobileTray's header tile: the kind's line round it, 2 px, outside its 36 px (the board's box is content-sized: 40 in all). */
+.k-tile--lined {
+  box-sizing: content-box;
+  border: 2px solid var(--shade-line, var(--kind-line, var(--rule)));
+}
+
 /* ---- KindTile: Empty's 56 px button ---- */
 .k-kindtile {
   --k-bg: var(--row);
@@ -1017,6 +1023,33 @@
 .k-dialog::backdrop,
 .k-drawer::backdrop {
   background: var(--scrim);
+}
+
+/*
+ * MobileTray's modal sheet: a dialog at the foot of the screen, 404 px tall, over a page that
+ * stays as it was (no scrim: the other trays are at half behind it). The content brings its own
+ * padding, so a press on the dialog itself is a press on the backdrop.
+ */
+.k-sheetmodal {
+  position: fixed;
+  inset: auto 0 0;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  height: var(--tray-sheet-h);
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: var(--r-dialog) var(--r-dialog) 0 0;
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet-modal);
+  color: var(--ink);
+}
+
+.k-sheetmodal::backdrop {
+  background: transparent;
 }
 
 /* The page behind a modal stays where it was. */

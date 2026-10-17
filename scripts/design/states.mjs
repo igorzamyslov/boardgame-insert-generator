@@ -35,6 +35,14 @@ const MAKE_NEW_PLAN = {
 };
 // The status heading of the stage (Task 6): the h1, its switches and its action.
 const STATUS = '[data-region="status"]';
+// The tray bar (Task 8), and the tray the harness selects in it.
+const TRAY_BAR = '[data-region="tray-bar"]';
+const SELECT_HEROES = {
+  click: { role: "button", name: /^Heroes/, in: '[data-region="stage"]' },
+};
+const SELECT_MARKET = {
+  click: { role: "button", name: /^Market deck/, in: '[data-region="stage"]' },
+};
 
 /** Seeds: a current plan each, and the ones that are stale on purpose (make-seeds.mjs). */
 export const SEEDS = {
@@ -135,12 +143,49 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [MENU, { click: { role: "button", name: /^Your inserts/ } }],
   },
+  // The tray bar (Task 8): a tray selected. The plan's box keeps the size it has with nothing selected (jump check).
   "workspace-tray": {
     board: "Main",
     boardOpts: { state: { sel: "market" } },
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: /^Market deck/, in: '[data-region="stage"]' } }],
+    planWidth: 582,
+    noStageScroll: true,
+    steps: [SELECT_MARKET],
+  },
+  // More open: its panel of Swap with… and Lock size. No board draws it.
+  "workspace-tray-more": {
+    board: "Main",
+    boardOpts: { state: { sel: "market" } },
+    nearest: "no board of its own: Main's tray bar and menu panel",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [SELECT_MARKET, { click: { role: "button", name: "More", in: TRAY_BAR } }],
+  },
+  // A swap under way: More stays open on the pressed Swap with…, and the slot says what to do.
+  "workspace-swap": {
+    board: "Main",
+    boardOpts: { state: { sel: "market" } },
+    nearest: "no board of its own: Main's tray bar",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      SELECT_MARKET,
+      { click: { role: "button", name: "More", in: TRAY_BAR } },
+      { click: { role: "button", name: "Swap with…", in: TRAY_BAR } },
+      { waitFor: { text: /Choose the tray to swap with/ } },
+    ],
+  },
+  // A spacer: a swatch, its name, one line and Close. The seed's spacers are on its top layer.
+  "workspace-tray-spacer": {
+    board: "Main",
+    boardOpts: { state: { sel: "spacerBottom" } },
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      { click: { role: "button", name: /^Layer 2/, in: STATUS } },
+      { click: { role: "button", name: /^Spacer/, in: '[data-region="stage"]' } },
+    ],
   },
   // The Add pill's picker: no board of its own, judged against Empty's kind tiles (its `kind-picker` crop).
   "workspace-add": {
@@ -241,11 +286,22 @@ export const STATES = {
   },
   "m-start": { board: "MobileStart", viewport: PHONE, seed: null },
   "m-workspace": { board: "MobileWorkspace", viewport: PHONE, seed: "harbour-kings" },
+  // The tray sheet (Task 8): a modal dialog; the other trays are at half behind it.
   "m-tray": {
     board: "MobileTray",
     viewport: PHONE,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: /^Heroes/, in: '[data-region="stage"]' } }],
+    steps: [SELECT_HEROES],
+  },
+  "m-tray-more": {
+    board: "MobileTray",
+    nearest: "no board of its own: MobileTray's tiles, with the menu panel over them",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: [
+      SELECT_HEROES,
+      { click: { role: "button", name: "More", in: '[data-region="sheet"]' } },
+    ],
   },
   "m-edit": {
     board: "MobileEdit",

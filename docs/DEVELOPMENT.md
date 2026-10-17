@@ -207,7 +207,7 @@ it only with a written reason in the code or the PR.
   [Gotchas](#4-gotchas)). HTML elements may use `tabIndex`.
 - MUST keep a control that is off but explained focusable. Give it
   `aria-disabled="true"`, guard its click handler, and point `aria-describedby` at the sentence
-  that says why (`Action` in `ui/TrayBar.tsx`, Download in `screens/Header.tsx`). Never use
+  that says why (`Button`'s `blockedReason` in `kit/blocked.tsx`, as the tray bar's Turn 90° and Download in `screens/Header.tsx` use it). Never use
   `disabled` for it, because a disabled control leaves the Tab order and its reason can't be
   read. `CheckField` takes `disabled` and renders `aria-disabled`; `RowRemove` is the Remove
   button of a row that can't go (the last one). The one exception is `disabled` on an `<option>`
@@ -221,8 +221,8 @@ it only with a written reason in the code or the PR.
 - MUST mount a live region (`role="status"` or `aria-live`) before its text changes. Render the
   region always and swap only its content (`ui/Toast.tsx`, the `viewer-selection-live` region in
   `viewer/Viewer.tsx`). Keep `aria-live` narrow: the changing words only, never a whole toolbar
-  (`ui/TrayBar.tsx` has exactly two live regions, the chips and the reason line, and a test
-  checks that). Every region in the app is mounted before it speaks. Where the thing to say is a
+  (`ui/TrayBar.tsx` has exactly two live regions, the hidden pin and size-lock words and the reason
+  line, and a test checks that). Every region in the app is mounted before it speaks. Where the thing to say is a
   visible notice or banner that comes and goes, keep a visually hidden region beside it that
   always exists (`Announcer` in `ui/Notices.tsx`, `SavedStatus`, the remove toast's
   `data-live="removed"` region in `App.tsx`) and keep the notice itself free of `role`. Keep a
