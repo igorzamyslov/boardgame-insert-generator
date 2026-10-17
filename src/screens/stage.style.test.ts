@@ -49,6 +49,15 @@ describe("stage.css", () => {
     expect(strip(css)).not.toMatch(/\border:/);
   });
 
+  it("keeps the heading's text as tall with no line as with one, so the row does not shift", () => {
+    const text = ruleFor(".k-status__text", strip(kit));
+    expect(text).toMatch(
+      /min-height:\s*calc\(var\(--h1\) \* 1\.2 \+ var\(--s-2\) \+ var\(--status-line-h\)\)/,
+    );
+    const phone = kit.slice(kit.indexOf("The status heading on a phone"));
+    expect(phone).toMatch(/min-height:\s*calc\(var\(--h1-phone\)/);
+  });
+
   it("gives the heading a 13 px line on a phone, in the kit", () => {
     const phone = kit.slice(kit.indexOf("The status heading on a phone"));
     expect(phone).toMatch(/\.k-status__line\s*\{[^}]*font-size:\s*var\(--text-xs\)/);

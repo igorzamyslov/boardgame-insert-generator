@@ -393,6 +393,7 @@ function measureStatusRow() {
   put("icon top", i ? i.top : null);
   put("h1 left", h ? h.left : null);
   put("h1 top", h ? h.top : null);
+  put("heading text height", h && h1.parentElement ? box(h1.parentElement).height : null);
   put("line top", box(line) ? box(line).top : null);
   put("line font-size", line ? Number.parseFloat(getComputedStyle(line).fontSize) : null);
   put("layer switch top", box(group("Layer")) ? box(group("Layer")).top : null);

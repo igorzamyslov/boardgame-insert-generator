@@ -393,6 +393,27 @@ describe("StageTop", () => {
       ]);
     });
 
+    it("labels add up to the status height", () => {
+      // a stack as the engine makes it: the tallest tray of the bottom layer (57.2) is taller than
+      // the layer (the top layer starts at 45.2), and the plan reaches 70
+      const stack = [
+        makeTray({ key: "a:p0:0", level: 0, z: 0, h: 57.2 }),
+        makeTray({ key: "b:p0:0", level: 0, z: 0, h: 45.2, x: 100 }),
+        makeTray({ key: "c:p0:0", level: 1, z: 45.2, h: 24.8, x: 100 }),
+      ];
+      const labels = layerOptions(stack, false).map((o) => o.label);
+      expect(labels).toEqual(["Layer 1 (bottom) · 45.2 mm", "Layer 2 (top) · 24.8 mm"]);
+      const sum = labels.reduce((n, l) => n + Number(/· ([\d.]+) mm$/.exec(l)?.[1]), 0);
+      expect(Math.round(sum * 10) / 10).toBe(70);
+      // and the heading says the same height
+      render(
+        <StageTop
+          {...props({ trays: stack, fits: { trays: 3, layers: 2, height: 70, boxHeight: 70 } })}
+        />,
+      );
+      expect(line()).toBe("3 trays in 2 layers, 70 of 70 mm high");
+    });
+
     it("drops the height on a phone", () => {
       expect(layerOptions(TWO_LAYERS, true).map((o) => o.label)).toEqual([
         "Layer 1 (bottom)",

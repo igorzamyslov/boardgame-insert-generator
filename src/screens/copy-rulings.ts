@@ -39,6 +39,7 @@ const PLAN_STATES = [
 const LAYERS = "The layer switch uses DESIGN's names";
 const HOMES = "The Summary's jobs have new homes";
 const NOFIT = "The no-fit heading names the tray";
+const PINS = "Pins in the way are the heading's, one pill each (interim until Task 12)";
 const BANNERS = "The plan banners use DESIGN's words";
 const NOTES = "Layout and sizing notices sit under the plan caption";
 const FAILED = ["workspace-failed"] as const;
@@ -128,8 +129,8 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "There's no room left for it in the box.", states: ["no-fit"], ruling: NOFIT },
   { text: "It's too big for your printer's bed.", states: ["no-fit-bed"], ruling: NOFIT },
   { text: "The {name} tray doesn't fit yet", states: ["no-fit-bed"], ruling: NOFIT },
-  { text: "{name} doesn't fit with your pins", states: ["pin-conflict"], ruling: NOFIT },
-  { text: "Unpin {name}", states: ["pin-conflict"], ruling: NOFIT },
+  { text: "{name} doesn't fit with your pins", states: ["pin-conflict"], ruling: PINS },
+  { text: "Unpin {name}", states: ["pin-conflict"], ruling: PINS },
   { text: "Make a new plan", states: ["workspace-banner"], ruling: BANNERS },
   {
     text: "Trays printed from it won't stack with trays you print now.",

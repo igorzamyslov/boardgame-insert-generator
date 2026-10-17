@@ -657,7 +657,7 @@ export function App(props: AppProps) {
           conflicts={conflicts}
           hiddenErrors={errorsWithoutField(validation)}
           problems={problems}
-          trays={layout ? printable : undefined}
+          trays={layout?.trays}
           level={s.viewLevel.value}
           onLevelChange={(l) => {
             s.viewLevel.value = l;

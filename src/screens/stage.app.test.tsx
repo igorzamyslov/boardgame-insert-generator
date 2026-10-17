@@ -184,6 +184,19 @@ describe("the stage's top, in the app", () => {
       expect(document.querySelector('.plan-tray[data-key="a:p0:0"]')).toBeNull();
     });
 
+    it("labels add up to the status height, on the Harbour Kings plan", () => {
+      const { project } = loadSeed("harbour-kings");
+      renderApp({ project });
+      const heights = within(screen.getByRole("group", { name: "Layer" }))
+        .getAllByRole("button")
+        .map((b) => Number(/· ([\d.]+) mm$/.exec(b.textContent ?? "")?.[1]));
+      const status = /(\d+(?:\.\d)?) of 70 mm high$/.exec(
+        document.querySelector(".k-status__line")?.textContent ?? "",
+      )?.[1];
+      expect(heights).toHaveLength(2);
+      expect(Math.round(((heights[0] ?? 0) + (heights[1] ?? 0)) * 10) / 10).toBe(Number(status));
+    });
+
     it("has no Layer group for one layer, and the plan has no picker of its own", () => {
       const p = fixtureProject();
       renderApp({

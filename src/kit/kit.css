@@ -674,11 +674,15 @@
   --status-fg: var(--danger);
 }
 
+/* The title and its line take the room of both even when there is no line ("Making a new plan…"), so the row does not shift. */
 .k-status__text {
+  --status-line-h: 18px; /* a 15 px line at the page's `normal` */
+
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
   min-width: 0;
+  min-height: calc(var(--h1) * 1.2 + var(--s-2) + var(--status-line-h));
 }
 
 .k-status__title {
@@ -1205,6 +1209,12 @@ html:has(dialog.k-dialog[open], dialog.k-drawer[open]) {
 
   .k-status__lead {
     gap: var(--s-12);
+  }
+
+  .k-status__text {
+    --status-line-h: 16px; /* a 13 px line */
+
+    min-height: calc(var(--h1-phone) * 1.2 + var(--s-2) + var(--status-line-h));
   }
 }
 

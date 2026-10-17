@@ -234,18 +234,27 @@ export type StageView = "plan" | "3d";
 
 const WEBGL_REASON = "3D needs WebGL";
 
-/** The Layer switch's options: "Layer 1 (bottom) · 40 mm" (a phone drops the height). */
+/**
+ * The Layer switch's options: "Layer 1 (bottom) · 40 mm" (a phone drops the height). A layer's
+ * height is the stretch from its lower edge to the next layer's: the lower edge is the least z of
+ * its trays (0 for the first layer), the top layer ends at the plan's highest point. The heights
+ * therefore add up to the status line's "H of B mm high", which counts the same way.
+ */
 export function layerOptions(trays: readonly TraySpec[], phone: boolean) {
   const levels = levelsOf(trays);
-  return levels.map((level, i) => {
+  const top = Math.max(0, ...trays.map((t) => t.z + t.h));
+  const lower = levels.map((level, i) =>
+    i === 0 ? 0 : Math.min(...traysAt(trays, level).map((t) => t.z)),
+  );
+  return levels.map((_, i) => {
     const label = layerLabel(i, levels.length);
-    const height = Math.max(0, ...traysAt(trays, level).map((t) => t.h));
+    const height = (lower[i + 1] ?? top) - (lower[i] ?? 0);
     return { value: String(i), label: phone ? label : `${label} · ${mm(height)} mm` };
   });
 }
 
 export interface StageTopProps extends StatusInput {
-  /** The plan's parts, for the Layer switch; without them (no plan) there are no switches. */
+  /** The stored plan's trays (`layout.trays`), for the Layer switch; without them (no plan) there are no switches. */
   trays?: readonly TraySpec[];
   /** The layer the plan shows (0 = the bottom). */
   level: number;
@@ -407,9 +416,7 @@ export function StageTop(p: StageTopProps) {
         {status.line}
         <ul class="stage-list" aria-label={status.list.label}>
           {status.list.items.map((item, i) => (
-            <li key={`${i}|${item}`} class="ellipsis" title={item}>
-              {item}
-            </li>
+            <li key={`${i}|${item}`}>{item}</li>
           ))}
         </ul>
       </>
