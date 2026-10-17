@@ -139,6 +139,11 @@
   vertical-align: top;
 }
 
+/* "Layer 1 (bottom)" stays on one line. */
+.parts-table td[data-label="Layer"] {
+  white-space: nowrap;
+}
+
 .parts-table thead th {
   border-bottom-color: var(--field-line);
   color: var(--muted);

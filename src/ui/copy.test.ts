@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import appJson from "../../app.json?raw";
 import indexHtml from "../../index.html?raw";
 import readme from "../../README.md?raw";
+import { COPY_RULINGS, DOWNLOAD_STATES } from "../screens/copy-rulings";
 
 /**
  * How the scan works. Every non-test `.ts` and `.tsx` file under `src/` is parsed with the
@@ -34,10 +35,11 @@ import readme from "../../README.md?raw";
  *   named in DESIGN §2 Words). "Keep this version": the project menu's choice after another tab
  *   changed the insert (Main's board; it has nothing to do with pins).
  * - "data-part": an attribute name inside an SVG string, not text.
- * - "part"/"parts" is the download list's word, so it is allowed (PART_FILES) only in the files
- *   that write the download list (ExportPanel.tsx; copy-rulings.ts, which rules its singular
- *   forms), the reason it can be empty (app/exportBuild.ts) and the part names
- *   (instructions/naming.ts); spec: "part (except in the download list)". Nowhere else.
+ * - "part"/"parts" is the download list's word, so it is allowed (PART_FILES) only in the three
+ *   files that write the download list (ExportPanel.tsx), the reason it can be empty
+ *   (app/exportBuild.ts) and the part names (instructions/naming.ts); spec: "part (except in the
+ *   download list)". Nowhere else. One more place: a ruling in copy-rulings.ts that rules the
+ *   singular of those words, if every state it names is a download state (DOWNLOAD_STATES).
  */
 const sources = new Map(
   Object.entries(
@@ -192,10 +194,9 @@ const NOT_WORDS =
 const ALLOWED =
   /\b(?:Lock size|Unlock size|size[ -]locked|size locks?|Keep searching|Keep space free|Keep this version|Part of it|data-part)\b/gi;
 
-/** Files that write the download list, why a part could not be exported, and part names (and the rulings that cite its words). */
+/** Files that write the download list, why a part could not be exported, and part names. */
 const PART_FILES: readonly RegExp[] = [
   /\/ui\/ExportPanel\.tsx$/,
-  /\/screens\/copy-rulings\.ts$/,
   /\/app\/exportBuild\.ts$/,
   /\/instructions\/naming\.ts$/,
 ];
@@ -219,7 +220,16 @@ function notWordsIn(path: string, text: string): string | null {
   return null;
 }
 
+const onlyDownload = (states: readonly string[] | "all"): boolean =>
+  states !== "all" && states.every((s) => (DOWNLOAD_STATES as readonly string[]).includes(s));
+
 describe("copy", () => {
+  it("lets only the download dialog's rulings say part", () => {
+    const saying = COPY_RULINGS.filter((r) => /\bparts?\b/i.test(r.text));
+    expect(saying.length).toBeGreaterThan(0);
+    expect(saying.filter((r) => !onlyDownload(r.states)).map((r) => r.text)).toEqual([]);
+  });
+
   it("scans the app's strings", () => {
     const files = [...sources.keys()].filter(isScanned);
     expect(files.length).toBeGreaterThan(100);
@@ -282,7 +292,11 @@ describe("copy", () => {
             found.push(`${path}:${line} ${word.name}: ${JSON.stringify(text.slice(0, 80))}`);
           }
         }
-        const not = isNotCopy(text) ? null : notWordsIn(path, text);
+        // A ruling of the download dialog's singular ("The part is ready"): its states are checked below.
+        const ruled =
+          path.endsWith("/screens/copy-rulings.ts") &&
+          COPY_RULINGS.some((r) => r.text === text && onlyDownload(r.states));
+        const not = isNotCopy(text) || ruled ? null : notWordsIn(path, text);
         if (not !== null) {
           found.push(`${path}:${line} Not-word "${not}": ${JSON.stringify(text.slice(0, 80))}`);
         }

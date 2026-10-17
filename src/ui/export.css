@@ -259,6 +259,25 @@
   gap: var(--s-8);
 }
 
+/* The plain note under "All <n> parts are ready": the trays the files cannot hold. */
+.export-note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.export-note__label {
+  font-weight: 600;
+}
+
+.export-note__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .export-h2 {
   margin: 0;
   font: 700 var(--h3) / normal var(--font-display);
@@ -304,6 +323,10 @@
   position: absolute;
   inset: -2px 0;
   content: "";
+}
+
+.export-failed > .k-btn.export-problem__retry {
+  align-self: flex-start;
 }
 
 /* ---- A phone (MobileDownload): a bar with Close, a body that scrolls, a fixed foot ---- */

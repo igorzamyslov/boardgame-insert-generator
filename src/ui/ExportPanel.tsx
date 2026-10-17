@@ -2,6 +2,7 @@
 // The Download dialog (Export, MobileDownload) and the building of the file (Exporting): one
 // dialog whose title and body follow the build: ready, building, done (every part is in the file)
 // and partial (a part could not be built). DESIGN §5.
+import { Fragment } from "preact";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "preact/hooks";
 import { bytesToBlob, downloadBlob, fileSlug } from "../app/download";
 import {
@@ -168,6 +169,17 @@ export function ExportPanel(p: ExportPanelProps) {
       target?.focus();
     }
   }, [busy, view]);
+
+  // Download unmounts when the build starts, and the focus with it: a keyboard user who pressed
+  // Enter on it lands on Stop (or the title), unless the focus is somewhere else already.
+  useEffect(() => {
+    if (view === "building") {
+      const at = document.activeElement;
+      if (at === null || at === document.body) {
+        (stopButton.current ?? title.current)?.focus();
+      }
+    }
+  }, [view]);
 
   // Leaving the panel (closing its dialog) stops the export, so nothing downloads after the user
   // has gone.
@@ -339,33 +351,47 @@ export function ExportPanel(p: ExportPanelProps) {
       </span>
     ) : null;
 
+  // What was left out or failed, one box each with its reason; then ONE Try again for the failed
+  // ones (a retry rebuilds the whole file, so a button per box would promise less than it does).
   const problemBoxes =
     notExported.length > 0 ? (
       <div class="export-failed">
         <h2 class="export-h2">Not exported</h2>
         <ul class="export-problems">
-          {notExported.map((s, i) => {
-            const isFailed = i >= plan.skipped.length;
-            return (
-              <li class="export-problem" key={s.part.spec.key}>
-                <span class="export-problem__text">
-                  {`${names.get(s.part.spec.key)?.full ?? s.part.label}: ${s.reason}`}
-                </span>
-                {isFailed ? (
-                  <Button
-                    ref={i === plan.skipped.length ? firstRetry : undefined}
-                    variant="secondary"
-                    class="export-problem__retry"
-                    aria-disabled={retryOff ? "true" : undefined}
-                    aria-describedby={retryOff ? describedBy : undefined}
-                    onClick={retryFailed}
-                  >
-                    Try again
-                  </Button>
-                ) : null}
-              </li>
-            );
-          })}
+          {notExported.map((s) => (
+            <li class="export-problem" key={s.part.spec.key}>
+              <span class="export-problem__text">
+                {`${names.get(s.part.spec.key)?.full ?? s.part.label}: ${s.reason}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {failed.length > 0 ? (
+          <Button
+            ref={firstRetry}
+            variant="secondary"
+            class="export-problem__retry"
+            aria-disabled={retryOff ? "true" : undefined}
+            aria-describedby={retryOff ? describedBy : undefined}
+            onClick={retryFailed}
+          >
+            Try again
+          </Button>
+        ) : null}
+      </div>
+    ) : null;
+
+  // Under "All <n> parts are ready" the trays the files cannot hold are a plain note, not a box.
+  const skippedNote =
+    plan.skipped.length > 0 ? (
+      <div class="export-note">
+        <span class="export-note__label">Not exported</span>
+        <ul class="export-note__list">
+          {plan.skipped.map((s) => (
+            <li key={s.part.spec.key}>
+              {`${names.get(s.part.spec.key)?.full ?? s.part.label}: ${s.reason}`}
+            </li>
+          ))}
         </ul>
       </div>
     ) : null;
@@ -563,7 +589,7 @@ export function ExportPanel(p: ExportPanelProps) {
   } else {
     body = (
       <>
-        {problemBoxes}
+        {view === "done" ? skippedNote : problemBoxes}
         {reasonLine}
         {view === "done" ? (
           <div class="export-actions">
@@ -586,7 +612,8 @@ export function ExportPanel(p: ExportPanelProps) {
       {phone ? <div class="export-bar">{closeButton}</div> : null}
       <div class="export-body" data-view={view}>
         {head}
-        {body}
+        {/* keyed: Download is taken away, never turned into Stop in place, so the focus has to be moved */}
+        <Fragment key={view}>{body}</Fragment>
       </div>
       {phone && view === "ready" ? (
         <div class="export-foot">

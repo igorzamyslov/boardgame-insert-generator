@@ -10,6 +10,8 @@ import design from "../../docs/DESIGN.md?raw";
 import type { AppProps } from "../app/App";
 import type { MeshSource } from "../app/meshes";
 import { createAppStore } from "../app/store";
+import { cubeMesh } from "../app/test-helpers";
+import { GeometryBuildError } from "../geometry/client";
 import { renderApp } from "../app/test-app";
 import { trayNames } from "../instructions/naming";
 import { numberParts } from "../instructions/numbering";
@@ -207,6 +209,23 @@ const hanging: MeshSource = {
   dispose: () => undefined,
 };
 
+/** A mesh source whose first build fails: the file downloads without that part. */
+const failsOnce = (): MeshSource => {
+  let first = true;
+  return {
+    get: () => {
+      if (first) {
+        first = false;
+        return Promise.reject(new GeometryBuildError("too slow", "TimeoutError"));
+      }
+      return Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1 });
+    },
+    reset: () => undefined,
+    forget: () => undefined,
+    dispose: () => undefined,
+  };
+};
+
 const CASES: readonly Case[] = [
   // Task 13: the Download dialog (Export at 1440, MobileDownload on a phone) and the building of the
   // file (Exporting: building, then done). The packing guide has no board and no case.
@@ -224,6 +243,18 @@ const CASES: readonly Case[] = [
     region: "dialog",
     overrides: { meshes: hanging },
     steps: startBuild,
+  },
+  {
+    state: "exporting-partial",
+    board: "Exporting",
+    region: "dialog",
+    overrides: { meshes: failsOnce() },
+    steps: async () => {
+      startBuild();
+      await screen.findByRole("heading", { name: /parts are ready$/ });
+      // the part that failed is listed with the one Try again
+      expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+    },
   },
   {
     state: "exporting-done",

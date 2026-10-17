@@ -826,7 +826,7 @@ describe("ExportPanel", () => {
     expect(alert.contains(retry)).toBe(false);
   });
 
-  it("lists what was not exported by name, plainly, with Try again on the failed part only", async () => {
+  it("lists what was not exported by name, plainly, with one Try again under the boxes", async () => {
     const spare = makeTray({ key: "s:p0:0", stack: 2, part: "leftover" });
     const m = meshes();
     m.get.mockImplementation((spec) =>
@@ -847,9 +847,76 @@ describe("ExportPanel", () => {
     expect(screen.getByText(/^Magnets: Uses feature/)).toBeTruthy();
     // Plain and short: no count, no advice.
     expect(section.textContent).not.toMatch(/weren't|skip|gap|warning|bug/i);
+    // ONE Try again (it rebuilds the whole file), after the boxes, in no box; the skipped tray has none
     const retry = screen.getByRole("button", { name: "Try again" });
     expect(screen.getAllByRole("button", { name: "Try again" })).toHaveLength(1);
-    expect(problems().find((box) => box.contains(retry))?.textContent).toMatch(/^Spare by /);
+    expect(problems().some((box) => box.contains(retry))).toBe(false);
+    expect(section.contains(retry)).toBe(true);
+    expect(section.lastElementChild).toBe(retry);
+  });
+
+  it("gives two failed parts one Try again, not one each", async () => {
+    const m = meshes();
+    m.get.mockImplementation((spec) =>
+      spec.key === "a:p0:0" || spec.key === "b:p0:0"
+        ? Promise.reject(new GeometryBuildError("too slow", "TimeoutError"))
+        : Promise.resolve({ mesh: cubeMesh(), volumeMm3: 1000 }),
+    );
+    const trays = [
+      makeTray({ key: "a:p0:0", stack: 0 }),
+      makeTray({ key: "b:p0:0", stack: 1 }),
+      makeTray({ key: "c:p0:0", stack: 2 }),
+    ];
+    render(<ExportPanel {...props({ meshes: m, trays })} />);
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    await screen.findByRole("heading", { level: 1, name: "1 of 3 parts are ready" });
+    expect(problems()).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Try again" })).toHaveLength(1);
+  });
+
+  it("shows a tray the files cannot hold as a plain note once every part is ready", async () => {
+    render(<ExportPanel {...props()} />);
+    // before the build: a box, as the list is the news
+    expect(problems()).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    await screen.findByRole("heading", { level: 1, name: "All 2 parts are ready" });
+    expect(problems()).toHaveLength(0);
+    expect(screen.queryByRole("heading", { name: "Not exported" })).toBeNull();
+    const note = document.querySelector(".export-note") as HTMLElement;
+    expect(note.textContent).toMatch(/^Not exported/);
+    expect(note.textContent).toMatch(/Magnets: Uses feature "magnet"/);
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  it("moves the focus to Stop when Download goes away under a keyboard user", async () => {
+    const m = meshes();
+    m.get.mockImplementation(waitsForAbort);
+    render(<ExportPanel {...props({ meshes: m })} />);
+    const download = screen.getByRole("button", { name: COMBINED });
+    download.focus();
+    expect(document.activeElement).toBe(download);
+    // Enter on a button is a click
+    fireEvent.click(download);
+    expect(download.isConnected).toBe(false);
+    const stop = await screen.findByRole("button", { name: "Stop" });
+    await waitFor(() => expect(document.activeElement).toBe(stop));
+  });
+
+  it("does not take the focus from elsewhere when the build starts", async () => {
+    const m = meshes();
+    m.get.mockImplementation(waitsForAbort);
+    render(
+      <>
+        <input aria-label="elsewhere" />
+        <ExportPanel {...props({ meshes: m })} />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: COMBINED }));
+    await screen.findByRole("button", { name: "Stop" });
+    const elsewhere = screen.getByLabelText("elsewhere");
+    elsewhere.focus();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(document.activeElement).toBe(elsewhere);
   });
 
   it("shows no Not exported list when everything can be exported", () => {

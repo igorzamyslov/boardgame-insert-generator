@@ -212,13 +212,15 @@ const BOX_HINT = "The box's stored-on-its-side hint says what the engine does";
 
 // Task 13: the Download dialog and the building of the file. The states are the dialog cases of
 // copy.board.test.tsx (download, exporting, exporting-done, m-download) and the ones no case reaches.
-const DOWNLOAD = [
+/** The states whose copy may say "part" (the download list's word, DESIGN §2 Words): copy.test.ts checks it. */
+export const DOWNLOAD_STATES = [
   "download",
   "m-download",
   "exporting",
   "exporting-done",
   "exporting-partial",
 ] as const;
+const DOWNLOAD = DOWNLOAD_STATES;
 const DL_COUNT = "The Download dialog counts trays and spacers";
 const DL_FLOW = "The Download dialog's title and body follow the build";
 const DL_NOT = "Exporting's report, partial download and Start again are not built";
