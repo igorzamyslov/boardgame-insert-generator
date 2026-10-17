@@ -1,0 +1,71 @@
+/*
+ * The editor's stage (UI rebuild Task 10), from Edit: the 52 px slot above the box holds the
+ * sentence that says which tray this is, or the note about the option just changed, in the page's
+ * own place. The box is the workspace's (plan.css); its lifted tray is there too.
+ */
+.ed-slot {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--stage-slot);
+}
+
+/* Edit: 17 px, 400; the name in bold. */
+.ed-sentence {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 17px; /* Edit's sentence: between the 15 px page text and the 20 px heading */
+  font-weight: 400;
+  line-height: normal;
+}
+
+/* The phone's strip repeats the sentence as a plain line, and the slot above the box is not drawn. */
+.ed-strip__text {
+  margin: 0;
+}
+
+/* The slot and the box line up on the left as Edit's: the note is a pill the slot holds, not stretched. */
+.ed-slot .k-toast {
+  max-width: 100%;
+}
+
+/*
+ * The note after a removal (no board draws it: Edit's note toast, in the same slot). Its two
+ * words are buttons, set as links on the ink: 44 px targets, underlined.
+ */
+.removed-toast {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+}
+
+.removed-toast .k-toast {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.k-toast .toast-btn,
+.k-toast .toast-btn:hover:not(:disabled) {
+  min-height: var(--control-h);
+  margin: 0;
+  padding: 0 var(--s-8);
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* A phone has no slot over the box: the note floats over the foot of the screen, above the sheet's handle. */
+@media (width < 760px) {
+  .ws-stage > .removed-toast {
+    position: fixed;
+    inset: auto var(--s-12) calc(var(--sheet-foot) + var(--s-8));
+    z-index: 30;
+    justify-content: center;
+    margin: 0;
+  }
+}

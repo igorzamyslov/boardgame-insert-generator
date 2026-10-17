@@ -1,0 +1,242 @@
+// src/screens/EditorStage.tsx
+// The stage while a component is being edited (Edit): the slot above the box holds the sentence
+// that says which tray this is (the page's one h1) or, for a few seconds after an option changed,
+// the note about it; the edited component's trays are lifted and the rest dimmed. On a phone the
+// sheet's name is the h1, and the strip under its header shows the same two things.
+import type { ComponentChildren } from "preact";
+import { Fragment } from "preact";
+import { Toast } from "../kit";
+import type { Box, Component, Settings, TraySpec } from "../model/types";
+import { growthOf } from "../model/defaults";
+import { planFrame, toSvgRect, traysAt } from "../plan/layers";
+import { levelsOf } from "../plan/layers";
+import { lookOfTray } from "../plan/glyph";
+import { PlanView } from "../plan/PlanView";
+import type { PlanViewProps } from "../plan/PlanView";
+import { componentIndexOfTray, mm } from "../ui/identity";
+import { useNoteClock } from "../kit/Toast";
+import "./editorStage.css";
+
+/** A note about an option change: its words, and a number that changes with each one. */
+export interface EditNote {
+  text: string;
+  id: number;
+}
+
+/** What the plan says of the component's trays: how many, and the first one's size. */
+export interface TrayFacts {
+  count: number;
+  /** The first tray's footprint in mm, when the plan has one. */
+  size: { w: number; d: number } | null;
+}
+
+/** The trays of the component in the plan (the stored trays, not the spacers and risers made for printing). */
+export function traysOfComponent(
+  trays: readonly TraySpec[],
+  components: readonly Component[],
+  componentId: string,
+): TraySpec[] {
+  const index = components.findIndex((c) => c.id === componentId);
+  return index === -1
+    ? []
+    : trays.filter((t) => t.part === "tray" && componentIndexOfTray(t, components) === index);
+}
+
+/**
+ * "Market deck tray, 95 × 190 mm. It grows as you add cards." (Edit's sentence): the name in bold,
+ * the first tray's footprint, and for a deck that leaves room to grow, that it does. Several trays:
+ * "Starter decks, 4 trays." Without a plan yet, the name alone.
+ */
+export function StageSentence({
+  component: c,
+  trays,
+  tag: Tag = "h1",
+}: {
+  component: Component;
+  trays: readonly TraySpec[];
+  tag?: "h1" | "p";
+}) {
+  const name = c.name === "" ? "(unnamed)" : c.name;
+  const first = trays[0];
+  const grows = c.kind === "cards" && growthOf(c, "stack", c.storage === "flat") !== "off";
+  let rest = "";
+  if (trays.length > 1) {
+    rest = `, ${trays.length} trays.`;
+  } else if (first !== undefined) {
+    rest = ` tray, ${mm(first.w)} × ${mm(first.d)} mm.${grows ? " It grows as you add cards." : ""}`;
+  }
+  return (
+    <Tag class="ed-sentence">
+      <strong>{name}</strong>
+      {rest === "" ? null : rest}
+    </Tag>
+  );
+}
+
+export interface EditorStageProps {
+  componentId: string;
+  components: readonly Component[];
+  /** The plan's trays as printed (the app's `printable`). */
+  trays: readonly TraySpec[];
+  note: EditNote | null;
+  /** The note's time is up: the owner clears it. */
+  onNoteDone: () => void;
+  /** Below 760 px: the sheet has the h1, and the stage is the plan alone. */
+  phone?: boolean;
+  /** The plan, as the workspace draws it; null while there is none (the placeholder takes its place). */
+  plan: Omit<
+    PlanViewProps,
+    "bar" | "editedId" | "level" | "onLevelChange" | "selectedKey" | "onSelect"
+  > | null;
+  /** What stands where the plan would be while there is none. */
+  placeholder?: ComponentChildren;
+  /** Under the plan: the layout and sizing notices. */
+  after?: ComponentChildren;
+}
+
+const nothing = (): void => undefined;
+
+/**
+ * The slot's content: the sentence (the page's h1), or the note in its place. The note's region is
+ * always on the page, so a reader hears it arrive.
+ */
+function Slot({
+  component,
+  trays,
+  note,
+  onNoteDone,
+}: {
+  component: Component;
+  trays: readonly TraySpec[];
+  note: EditNote | null;
+  onNoteDone: () => void;
+}) {
+  return (
+    <div class="ed-slot" data-region="status">
+      <Toast message={note?.text ?? null} nonce={note?.id} onDone={onNoteDone} />
+      {note === null ? <StageSentence component={component} trays={trays} /> : null}
+    </div>
+  );
+}
+
+/** The stage of the editor: the slot, the box with the component's trays lifted, and its caption. */
+export function EditorStage({
+  componentId,
+  components,
+  trays,
+  note,
+  onNoteDone,
+  phone = false,
+  plan,
+  placeholder,
+  after,
+}: EditorStageProps) {
+  const component = components.find((c) => c.id === componentId);
+  if (component === undefined) {
+    return null;
+  }
+  const mine = traysOfComponent(trays, components, componentId);
+  // The box shows the layer the component is on, so its lift is in sight.
+  const levels = levelsOf(trays);
+  const at = mine[0] === undefined ? 0 : Math.max(0, levels.indexOf(mine[0].level));
+  const slot = phone ? undefined : (
+    <Slot component={component} trays={mine} note={note} onNoteDone={onNoteDone} />
+  );
+  return (
+    <section class="plan-col ed-stage" aria-label="Preview" data-region="plan">
+      {plan === null ? (
+        <>
+          {slot === undefined ? null : <div class="stage-slot">{slot}</div>}
+          {placeholder}
+        </>
+      ) : (
+        <PlanView
+          {...plan}
+          bar={slot}
+          editedId={componentId}
+          level={at}
+          onLevelChange={nothing}
+          selectedKey={null}
+          onSelect={nothing}
+        />
+      )}
+      {after}
+    </section>
+  );
+}
+
+const STRIP_PX = 84;
+
+/**
+ * MobileEdit's strip under the sheet's header: the box drawn small with the component's trays in
+ * full and the rest at half, and the sentence that says which tray this is (or the note). The
+ * picture is for the eye only.
+ */
+export function EditorStrip({
+  componentId,
+  components,
+  trays,
+  box,
+  settings,
+  note,
+  onNoteDone,
+}: {
+  componentId: string;
+  components: readonly Component[];
+  trays: readonly TraySpec[];
+  box: Box;
+  settings: Settings;
+  note: EditNote | null;
+  onNoteDone: () => void;
+}) {
+  useNoteClock(note?.text ?? null, note?.id, onNoteDone);
+  const component = components.find((c) => c.id === componentId);
+  if (component === undefined) {
+    return null;
+  }
+  const mine = traysOfComponent(trays, components, componentId);
+  const levels = levelsOf(trays);
+  const level = mine[0] === undefined ? (levels[0] ?? 0) : mine[0].level;
+  const frame = planFrame(box, settings);
+  const wide = frame.innerW >= frame.innerD;
+  const pct = (v: number): string => `${Math.round(v * 10000) / 10000}%`;
+  return (
+    <div class="ed-strip">
+      <div
+        class="ed-strip__box"
+        aria-hidden="true"
+        style={{
+          width: wide ? STRIP_PX : (STRIP_PX * frame.innerW) / frame.innerD,
+          height: wide ? (STRIP_PX * frame.innerD) / frame.innerW : STRIP_PX,
+        }}
+      >
+        {traysAt(trays, level).map((t) => {
+          const r = toSvgRect(t, frame);
+          const look = lookOfTray(t, components);
+          const edited = mine.some((m) => m.key === t.key);
+          return (
+            <Fragment key={t.key}>
+              <span
+                class="ed-strip__tray"
+                data-edited={edited ? "" : undefined}
+                style={{
+                  left: pct(((frame.bc + r.x) / frame.innerW) * 100),
+                  top: pct(((frame.bc + r.y) / frame.innerD) * 100),
+                  width: pct((r.w / frame.innerW) * 100),
+                  height: pct((r.h / frame.innerD) * 100),
+                  ...(look === null
+                    ? {}
+                    : { "--tile-fill": look.shade.fill, "--tile-line": look.shade.line }),
+                }}
+              />
+            </Fragment>
+          );
+        })}
+      </div>
+      <div>
+        <div role="status">{note === null ? null : <p class="ed-strip__text">{note.text}</p>}</div>
+        {note === null ? <StageSentence component={component} trays={mine} tag="p" /> : null}
+      </div>
+    </div>
+  );
+}

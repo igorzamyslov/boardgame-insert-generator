@@ -1,5 +1,5 @@
 // src/app/App.tsx
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Component, ComponentKind } from "../model/types";
@@ -8,11 +8,14 @@ import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
+import { EditorStage, EditorStrip } from "../screens/EditorStage";
+import type { EditNote } from "../screens/EditorStage";
 import { Header } from "../screens/Header";
 import { hoveredComponent } from "../screens/hover";
 import { FirstVisit } from "../screens/FirstVisit";
 import { AddMenu } from "../screens/KindPicker";
 import { ProjectMenu } from "../screens/ProjectMenu";
+import { RemovedToast, removedWords } from "../screens/RemovedToast";
 import { RunAnnouncer } from "../screens/RunAnnouncer";
 import { StageSlot } from "../screens/StageSlot";
 import { StageNotes } from "../screens/StageNotes";
@@ -119,6 +122,13 @@ export function App(props: AppProps) {
   // The component whose editor is open in the rail (null: the list). The tray bar's Edit sets it
   // too, and an item just added opens at once.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // What the last option change of the open editor said, for the stage's slot (Edit's note toast).
+  const [editNote, setEditNote] = useState<EditNote | null>(null);
+  const noteSeq = useRef(0);
+  useEffect(() => {
+    // another editor, or none: the note belonged to the one before
+    setEditNote(null);
+  }, [editingId]);
   // The box's editor is open in the rail, in the list's place (until the box screen, Task 11).
   const [boxOpen, setBoxOpen] = useState(false);
   const boxHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -418,6 +428,24 @@ export function App(props: AppProps) {
     selectedTray === undefined ? null : componentIndexOfTray(selectedTray, project.components);
   const selectedId =
     selectedIndex === null ? null : (project.components[selectedIndex]?.id ?? null);
+  // The component whose editor is open (the rail's, the sheet's), if it is still there.
+  const editedComponent =
+    editingId === null ? undefined : project.components.find((c) => c.id === editingId);
+  const editing = editedComponent !== undefined;
+  const clearEditNote = useCallback(() => setEditNote(null), []);
+  // The phone's strip in the sheet's editor: the tray drawn small, and the sentence or the note.
+  const editorStrip =
+    editedComponent !== undefined && phone ? (
+      <EditorStrip
+        componentId={editedComponent.id}
+        components={project.components}
+        trays={printable}
+        box={project.box}
+        settings={projSettings}
+        note={editNote}
+        onNoteDone={clearEditNote}
+      />
+    ) : undefined;
   // What's inside: the rail's list (the sheet's, on a phone), or a component's editor in its place.
   const whatsInside = (
     <WhatsInside
@@ -448,6 +476,11 @@ export function App(props: AppProps) {
         store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
       }
       onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
+      onNote={(text) => {
+        noteSeq.current += 1;
+        setEditNote({ text, id: noteSeq.current });
+      }}
+      strip={editorStrip}
       onRemove={(id) => {
         const component = project.components.find((x) => x.id === id);
         if (component === undefined) {
@@ -487,8 +520,7 @@ export function App(props: AppProps) {
 
   // The editor is showing in the sheet, or the box has it: the sheet is "full"; below 600 px that
   // fills the screen, and what is behind it is out of reach of Tab and screen readers (inert).
-  const editing = editingId !== null;
-  const sheetFull = editingId !== null || boxOpen;
+  const sheetFull = editing || boxOpen;
   const sheetCoversScreen = phone && narrow && sheetOpen && sheetFull;
 
   // The three slots of the workspace shell. What is in them is the old UI, unchanged, until the
@@ -622,152 +654,185 @@ export function App(props: AppProps) {
       <RunAnnouncer run={run} />
     </>
   );
+  // The removal's note: said aloud (always mounted, so it is heard), and shown in the stage's slot,
+  // as Edit's note toast is (the first visit has no slot: it follows the empty box).
+  const removedShown = removed !== null && removed.version === s.history.version.value;
+  const removedName =
+    removed === null ? "" : removed.component.name === "" ? "(unnamed)" : removed.component.name;
+  const removedLive = (
+    <div class="visually-hidden" role="status" data-live="removed">
+      {removedShown ? `${removedWords(removedName)} Undo removal is available.` : ""}
+    </div>
+  );
+  const removedToast = removedShown ? (
+    <RemovedToast
+      name={removedName}
+      onUndo={() => {
+        setRemoved(null);
+        store.undo();
+      }}
+      onDismiss={() => setRemoved(null)}
+    />
+  ) : null;
   const removedNote = (
     <>
-      {/* always mounted: the removal is spoken, and Undo is in the header as well */}
-      <div class="visually-hidden" role="status" data-live="removed">
-        {removed !== null && removed.version === s.history.version.value
-          ? `Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. Undo removal is available.`
-          : ""}
-      </div>
-      {removed !== null && removed.version === s.history.version.value ? (
-        <div class="pf-toast stage-block">
-          {`Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. `}
-          <button
-            type="button"
-            class="pf-link"
-            onClick={() => {
-              setRemoved(null);
-              store.undo();
-            }}
-          >
-            Undo removal
-          </button>
-          <button type="button" class="pf-link" onClick={() => setRemoved(null)}>
-            Dismiss
-          </button>
-        </div>
-      ) : null}
+      {removedLive}
+      {removedToast}
     </>
   );
+  // The plan's frame, as the workspace and the editor both draw it (the layer, the selection and
+  // the slot are each one's own).
+  const planProps = layout
+    ? {
+        trays: printable,
+        box: project.box,
+        settings: project.settings,
+        components: project.components,
+        lockedKeys: locked,
+        stale: s.stale.value,
+        searching: run.status === "running",
+        swapFrom: s.swapFrom.value,
+        onSwapFromChange: (key: string | null) => {
+          s.swapFrom.value = key;
+        },
+        onSwap: (a: string, b: string) => store.edit((q) => swapTrays(q, a, b)),
+        sizeLockedKeys: sizeLocked,
+      }
+    : null;
+  // An insert with items and no plan yet.
+  const workingOnIt = (
+    <div class="pf-frame pf-view">
+      <div class="stage-empty">
+        <div class="stage-empty-box">
+          <span class="pf-measure">{`Your box, ${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} mm`}</span>
+        </div>
+        <h2>Working out the trays…</h2>
+        <p>The plan appears here as soon as every field is valid.</p>
+      </div>
+    </div>
+  );
+  // The layout and sizing notices, under the plan caption.
+  const stageNotes = <StageNotes notices={summaryNotices} />;
   const stageSlot = (
     <>
       {notices}
       {traySheet}
-      {
-        <StageTop
-          run={run}
-          pending={s.runPending.value}
-          hasComponents={project.components.length > 0}
-          canOptimize={canPlan}
-          hasLayout={layout !== undefined}
-          fits={fits}
-          canSearchMore={!s.geometryOld.value}
-          noFit={
-            noFit
-              ? {
-                  misfit: misfitOf(
-                    s.noFitAttempt.value,
-                    project.box,
-                    projSettings,
-                    project.components,
-                  ),
-                }
-              : null
-          }
-          conflicts={conflicts}
-          hiddenErrors={errorsWithoutField(validation)}
-          problems={problems}
-          trays={layout?.trays}
-          level={s.viewLevel.value}
-          onLevelChange={(l) => {
-            s.viewLevel.value = l;
-          }}
-          view={view}
-          onViewChange={showView}
-          webgl={webgl}
+      {editedComponent !== undefined ? (
+        // While a component is edited the stage is Edit's: the sentence is the page's h1, the box
+        // shows the component's trays lifted. (A phone's sheet has the h1.)
+        <EditorStage
+          componentId={editedComponent.id}
+          components={project.components}
+          trays={printable}
+          note={editNote}
+          onNoteDone={clearEditNote}
           phone={phone}
-          onKeepSearching={() => store.refit()}
-          onStop={() => store.cancelRun()}
-          onRetry={() => store.retry()}
-          onShow={showSection}
-          onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
+          plan={planProps}
+          placeholder={workingOnIt}
+          after={stageNotes}
         />
-      }
-      {
-        <section class="plan-col" aria-label="Preview" data-region="plan">
-          {layout ? (
-            view === "plan" ? (
-              <PlanView
-                trays={printable}
-                box={project.box}
-                settings={project.settings}
-                components={project.components}
-                lockedKeys={locked}
-                selectedKey={s.selection.value}
-                stale={s.stale.value}
-                searching={run.status === "running"}
-                level={s.viewLevel.value}
-                onLevelChange={(l) => {
-                  s.viewLevel.value = l;
-                }}
-                swapFrom={s.swapFrom.value}
-                onSwapFromChange={(key) => {
-                  s.swapFrom.value = key;
-                }}
-                onSelect={(key) => {
-                  s.selection.value = key;
-                }}
-                onSwap={(a, b) => store.edit((q) => swapTrays(q, a, b))}
-                sizeLockedKeys={sizeLocked}
-                bar={
-                  hasSelectedTray && !phone ? (
-                    <SelectedTrayBar
-                      {...barProps}
-                      phone={false}
-                      inPlan
-                      swapFrom={s.swapFrom.value}
-                    />
-                  ) : undefined
-                }
-              />
-            ) : (
-              <>
-                <StageSlot idle={phone}>
-                  {hasSelectedTray && !phone ? (
-                    <SelectedTrayBar {...barProps} phone={false} inPlan={false} swapFrom={null} />
-                  ) : undefined}
-                </StageSlot>
-                <Viewer
-                  trays={printable}
-                  box={project.box}
-                  settings={project.settings}
-                  components={project.components}
-                  stale={s.stale.value}
-                  meshes={meshes}
+      ) : (
+        <>
+          <StageTop
+            run={run}
+            pending={s.runPending.value}
+            hasComponents={project.components.length > 0}
+            canOptimize={canPlan}
+            hasLayout={layout !== undefined}
+            fits={fits}
+            canSearchMore={!s.geometryOld.value}
+            noFit={
+              noFit
+                ? {
+                    misfit: misfitOf(
+                      s.noFitAttempt.value,
+                      project.box,
+                      projSettings,
+                      project.components,
+                    ),
+                  }
+                : null
+            }
+            conflicts={conflicts}
+            hiddenErrors={errorsWithoutField(validation)}
+            problems={problems}
+            trays={layout?.trays}
+            level={s.viewLevel.value}
+            onLevelChange={(l) => {
+              s.viewLevel.value = l;
+            }}
+            view={view}
+            onViewChange={showView}
+            webgl={webgl}
+            phone={phone}
+            onKeepSearching={() => store.refit()}
+            onStop={() => store.cancelRun()}
+            onRetry={() => store.retry()}
+            onShow={showSection}
+            onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
+          />
+          <section class="plan-col" aria-label="Preview" data-region="plan">
+            {planProps !== null ? (
+              view === "plan" ? (
+                <PlanView
+                  {...planProps}
                   selectedKey={s.selection.value}
+                  level={s.viewLevel.value}
+                  onLevelChange={(l) => {
+                    s.viewLevel.value = l;
+                  }}
                   onSelect={(key) => {
                     s.selection.value = key;
                   }}
-                  {...props.viewerProps}
+                  bar={
+                    hasSelectedTray && !phone ? (
+                      <SelectedTrayBar
+                        {...barProps}
+                        phone={false}
+                        inPlan
+                        swapFrom={s.swapFrom.value}
+                      />
+                    ) : phone ? undefined : (
+                      (removedToast ?? undefined)
+                    )
+                  }
                 />
+              ) : (
+                <>
+                  <StageSlot idle={phone}>
+                    {hasSelectedTray && !phone ? (
+                      <SelectedTrayBar {...barProps} phone={false} inPlan={false} swapFrom={null} />
+                    ) : phone ? undefined : (
+                      (removedToast ?? undefined)
+                    )}
+                  </StageSlot>
+                  <Viewer
+                    trays={printable}
+                    box={project.box}
+                    settings={project.settings}
+                    components={project.components}
+                    stale={s.stale.value}
+                    meshes={meshes}
+                    selectedKey={s.selection.value}
+                    onSelect={(key) => {
+                      s.selection.value = key;
+                    }}
+                    {...props.viewerProps}
+                  />
+                </>
+              )
+            ) : (
+              <>
+                <StageSlot quiet idle={phone}>
+                  {phone ? undefined : (removedToast ?? undefined)}
+                </StageSlot>
+                {workingOnIt}
               </>
-            )
-          ) : (
-            <div class="pf-frame pf-view">
-              <div class="stage-empty">
-                <div class="stage-empty-box">
-                  <span class="pf-measure">{`Your box, ${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} mm`}</span>
-                </div>
-                <h2>Working out the trays…</h2>
-                <p>The plan appears here as soon as every field is valid.</p>
-              </div>
-            </div>
-          )}
-          {/* The layout and sizing notices, under the plan caption. */}
-          <StageNotes notices={summaryNotices} />
-        </section>
-      }
+            )}
+            {stageNotes}
+          </section>
+        </>
+      )}
       {exportOpen && layout !== undefined ? (
         <Modal labelledBy="export-title" onClose={() => setExportOpen(false)}>
           <ExportPanel
@@ -789,7 +854,8 @@ export function App(props: AppProps) {
           />
         </Modal>
       ) : null}
-      {removedNote}
+      {removedLive}
+      {phone ? removedToast : null}
     </>
   );
 
@@ -814,6 +880,8 @@ export function App(props: AppProps) {
             />
           ) : (
             <Workspace
+              focus={editing && !phone}
+              class={editing ? "ws--edit" : undefined}
               header={headerSlot}
               rail={railSlot}
               stage={stageSlot}

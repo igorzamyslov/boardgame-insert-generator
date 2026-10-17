@@ -104,13 +104,24 @@ describe("the phone layout", () => {
     expect(rows).toHaveLength(project().components.length + 1);
   });
 
+  it("has one h1 while editing: the sheet's name", async () => {
+    phone();
+    renderApp({ project: project() });
+    fireEvent.click(grip());
+    fireEvent.click(rowIn(/^Market/));
+    const h1s = screen.getAllByRole("heading", { level: 1 });
+    expect(h1s).toHaveLength(1);
+    expect(sheet().contains(h1s[0] as HTMLElement)).toBe(true);
+    expect(h1s[0]?.textContent).toBe("Market");
+  });
+
   it("opens an editor from a row of the folded sheet, and unfolds the sheet for it", async () => {
     phone();
     renderApp({ project: project() });
     fireEvent.click(rowIn(/^Market,/));
     expect(handle().getAttribute("aria-expanded")).toBe("true");
     expect(sheet().getAttribute("data-full")).toBe("true");
-    expect(await within(sheet()).findByRole("heading", { level: 3, name: "Market" })).toBeTruthy();
+    expect(await within(sheet()).findByRole("heading", { level: 1, name: "Market" })).toBeTruthy();
     // no Add pill over an editor
     expect(within(sheet()).queryByRole("button", { name: "Add" })).toBeNull();
   });
@@ -124,7 +135,7 @@ describe("the phone layout", () => {
     fireEvent.click(within(picker).getByRole("button", { name: "Tiles" }));
     expect(store.state.project.value.components.map((c) => c.kind)).toContain("tiles");
     expect(handle().getAttribute("aria-expanded")).toBe("true");
-    expect(await within(sheet()).findByRole("heading", { level: 3, name: "Tiles" })).toBeTruthy();
+    expect(await within(sheet()).findByRole("heading", { level: 1, name: "Tiles" })).toBeTruthy();
   });
 
   it("opens the sheet on the editor when a tray's Edit is pressed", async () => {
@@ -138,7 +149,7 @@ describe("the phone layout", () => {
     );
     expect(handle().getAttribute("aria-expanded")).toBe("true");
     expect(sheet().getAttribute("data-full")).toBe("true");
-    expect(await within(sheet()).findByRole("heading", { level: 3, name: "Market" })).toBeTruthy();
+    expect(await within(sheet()).findByRole("heading", { level: 1, name: "Market" })).toBeTruthy();
     // the tray's sheet gives way to the editor, and comes back with the list: the tray is still selected
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(handle());
@@ -211,10 +222,10 @@ describe("the phone layout", () => {
     phone();
     renderApp({ project: project() });
     fireEvent.click(rowIn(/^Market,/));
-    await within(sheet()).findByRole("heading", { level: 3, name: "Market" });
+    await within(sheet()).findByRole("heading", { level: 1, name: "Market" });
     fireEvent.click(handle());
     expect(sheet().getAttribute("data-editing")).toBeNull();
-    expect(within(sheet()).queryByRole("heading", { level: 3 })).toBeNull();
+    expect(within(sheet()).queryByRole("heading", { level: 1 })).toBeNull();
     expect(rowIn(/^Market,/)).toBeTruthy();
   });
 

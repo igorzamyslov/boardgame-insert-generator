@@ -178,7 +178,10 @@ describe("Sheet", () => {
       </Sheet>,
     );
     expect(screen.getByRole("region").getAttribute("data-editing")).toBe("true");
-    expect(handleRef.current).toBe(screen.getByRole("button", { name: "List" }));
+    // the grip and the title are hidden (the editor has a header of its own), the handle is still there
+    expect(handleRef.current).not.toBeNull();
+    expect(handleRef.current?.closest("[hidden]")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "List" })).toBeNull();
   });
 
   it("marks a sheet that fills the screen", () => {

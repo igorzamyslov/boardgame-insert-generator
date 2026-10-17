@@ -414,11 +414,18 @@ async function measureJump(page) {
   }, JUMP_REGIONS);
 }
 
-/** The bounding box of a region in a page, from its definition (board) or data-region (app). */
-async function regionHandle(page, name, isBoard) {
-  const handle = isBoard
-    ? await page.evaluateHandle(`(${regionSource(name)})(document)`)
-    : await page.evaluateHandle((n) => document.querySelector(`[data-region="${n}"]`), name);
+/**
+ * The bounding box of a region in a page, from its definition (board) or data-region (app). A
+ * state's `boardCrop` names a CSS selector for a region of the board instead of its definition:
+ * a board that draws several screens side by side (EditKinds) is judged by one of them.
+ */
+async function regionHandle(page, name, isBoard, crop = {}) {
+  const selector = isBoard ? crop[name] : undefined;
+  const handle = selector
+    ? await page.evaluateHandle((q) => document.querySelector(q), selector)
+    : isBoard
+      ? await page.evaluateHandle(`(${regionSource(name)})(document)`)
+      : await page.evaluateHandle((n) => document.querySelector(`[data-region="${n}"]`), name);
   const element = handle.asElement();
   if (element === null) {
     await handle.dispose();
@@ -426,10 +433,10 @@ async function regionHandle(page, name, isBoard) {
   return element;
 }
 
-async function measure(page, isBoard) {
+async function measure(page, isBoard, crop = {}) {
   const out = {};
   const sizeOf = async (name, key) => {
-    const el = await regionHandle(page, name, isBoard);
+    const el = await regionHandle(page, name, isBoard, crop);
     if (el === null) {
       return null;
     }
@@ -673,7 +680,7 @@ async function shootState(browser, appUrl, name, seeds) {
 
     const regions = [];
     for (const region of Object.keys(REGIONS)) {
-      const b = await regionHandle(board, region, true);
+      const b = await regionHandle(board, region, true, state.boardCrop);
       const a = await regionHandle(app, region, false);
       if (b !== null && a !== null) {
         const bPng = await b.screenshot();
@@ -695,7 +702,10 @@ async function shootState(browser, appUrl, name, seeds) {
     if (JUMP_STATES.includes(name) && !problems.some((p) => p.startsWith("WebGL is missing"))) {
       jumpBoxes.set(name, await measureJump(app));
     }
-    const table = numbersTable(await measure(board, true), await measure(app, false));
+    const table = numbersTable(
+      await measure(board, true, state.boardCrop),
+      await measure(app, false),
+    );
     // last: a probe may change the page
     for (const probe of state.probes ?? []) {
       problems.push(...(await PROBES[probe](app)));

@@ -44,6 +44,11 @@ export interface PlanViewProps {
   searching?: boolean;
   /** The tray bar, shown in the slot above the box while a tray is selected (the app owns it). */
   bar?: ComponentChildren;
+  /**
+   * The component whose editor is open (Edit): its trays are lifted and the rest dimmed, whatever
+   * the pointer is on. The slot above the box is the editor's then (`bar`).
+   */
+  editedId?: string | null;
   /** Index of the layer shown (0 = the bottom layer); the app owns it. Clamped to the layers there are. */
   level: number;
   onLevelChange: (level: number) => void;
@@ -211,7 +216,9 @@ export function PlanView(props: PlanViewProps) {
   // selected tray's: its trays stay lit and the rest dim. A search lights the pinned trays only.
   const searching = props.searching === true;
   const railId = hoveredComponent.value;
-  const active = railId ?? identityOf(hoverKey) ?? identityOf(focusKey) ?? identityOf(selectedKey);
+  const editedId = props.editedId ?? null;
+  const active =
+    editedId ?? railId ?? identityOf(hoverKey) ?? identityOf(focusKey) ?? identityOf(selectedKey);
   const lightsSome =
     !searching && active !== null && shown.some((t) => identityOf(t.key) === active);
 
@@ -425,6 +432,7 @@ export function PlanView(props: PlanViewProps) {
               const look = lookOfTray(t, components);
               const identity = identityOf(t.key);
               const lit = lightsSome && identity === active;
+              const lifted = editedId !== null && identity === editedId;
               const dimmed = searching ? !locked : lightsSome && identity !== active;
               // The kind icon says what a tray holds when you point at it: the lit trays.
               const icon = look !== null && lit;
@@ -439,6 +447,7 @@ export function PlanView(props: PlanViewProps) {
                 "plan-tile",
                 t.part === "leftover" ? "is-leftover" : "",
                 t.key === selectedKey ? "is-selected" : "",
+                lifted ? "is-lifted" : "",
                 dimmed ? "is-dimmed" : "",
                 t.key === dropKey ? "is-drop" : "",
                 t.key === dragKey || t.key === swapFrom ? "is-source" : "",

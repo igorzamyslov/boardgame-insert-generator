@@ -13,6 +13,7 @@ export interface CopyRuling {
   ruling: string;
 }
 
+import { OPTION_NOTE_TEXTS } from "../ui/components/optionNotes";
 import { COMPARTMENT_WORDS } from "../ui/identity";
 
 const FOOTER = "The footer moves into the project menu";
@@ -72,6 +73,111 @@ const SWITCHED = [
 // Task 9: the first visit's box error. The state is the copy test's own (`first-visit-error`).
 const ERROR_CARD = "The first visit's box error is a card";
 const ITEMS = 'The first visit says "Trays appear in the box as you add items."';
+
+// Task 10: the editors, desktop and phone. The states are the editor cases of copy.board.test.tsx.
+const EDITS = [
+  "editor",
+  "editor-more",
+  "editor-tokens",
+  "editor-tokens-more",
+  "editor-tiles",
+  "editor-tiles-more",
+  "editor-custom",
+  "editor-custom-more",
+  "editor-minis",
+  "editor-minis-more",
+] as const;
+const PHONE_EDITS = ["m-edit", "m-edit-more"] as const;
+const EDITING = [...EDITS, ...PHONE_EDITS] as const;
+const EDITOR_OPTIONS = "The editors name every option the engine has";
+const EDITOR_SIZES = "Card sizes are the engine's presets";
+const EDITOR_SUMMARY = "More options says what is inside it";
+const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
+const EDITOR_SENTENCE = "The stage sentence is the page's h1 while editing";
+const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
+const EDITOR_NAME = "The phone editor has a Name field";
+const EDITOR_WORDS = "The Words table beats MobileEdit's second way to store figures";
+/** The strings the editors print that no board of theirs has (the boards have them in other states, or in the old words). */
+const EDITOR_LABELS: readonly string[] = [
+  // the kinds, as Empty's tiles say them
+  "Cards",
+  "Tokens and dice",
+  "Tiles",
+  "Miniatures",
+  "Something else",
+  // the panel's frame
+  "What's inside",
+  "Remove…",
+  "Remove {name}…",
+  // groups and their choices
+  "Room for expansions",
+  "Extra width",
+  "Extra length",
+  "Extra height",
+  "Looser pockets: width",
+  "Looser pockets: length",
+  "None",
+  "Auto",
+  "A set amount",
+  "Max",
+  "How often you reach for it",
+  "Often",
+  "Sometimes",
+  "Only at setup",
+  "Cards stand",
+  "Long edge",
+  "Short edge",
+  "Flat",
+  "Upright",
+  "Tiles stand",
+  "Shape",
+  "Which way up",
+  "Tray shape",
+  "Finger cuts",
+  "Curved floor",
+  "Corner holes",
+  "Removable dividers",
+  // fields
+  "How many cards?",
+  "Card size",
+  "Sleeves",
+  "Short side",
+  "Long side",
+  "Side mm",
+  "Width mm",
+  "Depth mm",
+  "Height mm",
+  "Across the flat sides (mm)",
+  "Thickness (mm)",
+  "How many tiles?",
+  "Volume ml",
+  "Know the size? Give a count and a size instead",
+  "{name}, amount mm",
+  // the rows under More options, and what is in them
+  "Card thickness",
+  "Correct the estimated thickness",
+  "Measure a stack of cards (sleeves included)",
+  "Cards in the measured stack",
+  "Height of that stack",
+  "Sleeve size",
+  "Sleeve outer width",
+  "Sleeve outer length",
+  "Added thickness per card",
+  "Spacer plates",
+  "Dividers",
+  "Number of dividers",
+  "Decks",
+  "Deck",
+  "+ Another deck",
+  "Per player",
+  "Counts are per player",
+  "Not available for grouped items.",
+  "Players",
+  "Group",
+  "Extra room",
+  "Use its own extra room",
+  "Extra room mm",
+];
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
@@ -163,7 +269,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // Task 7: under the box, and the marks a phone's plan keeps
   {
     text: "{name}, seen from above. Front of the box",
-    states: ["workspace", "workspace-rules"],
+    states: [
+      "workspace",
+      "workspace-rules",
+      "editor",
+      "editor-more",
+      "editor-note",
+      "editor-removed",
+    ],
     ruling: CAPTION,
   },
   { text: "Turned", states: ["m-workspace-rules"], ruling: PHONE_PINS },
@@ -220,6 +333,40 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     { text: `{n} ${one}`, states: SHEET_STATES, ruling: TRAY_SHEET },
     { text: `{n} ${many}`, states: SHEET_STATES, ruling: TRAY_SHEET },
   ]),
+  // Task 10: the editors (Edit, EditKinds, MobileEdit) and the stage beside them
+  ...EDITOR_LABELS.map((text) => ({ text, states: EDITING, ruling: EDITOR_OPTIONS })),
+  // the engine's presets, as the chips and the size line say them
+  { text: "Standard American", states: EDITING, ruling: EDITOR_SIZES },
+  { text: "Euro", states: EDITING, ruling: EDITOR_SIZES },
+  { text: "Mini Euro", states: EDITING, ruling: EDITOR_SIZES },
+  { text: "French Tarot", states: EDITING, ruling: EDITOR_SIZES },
+  { text: "Mini American", states: EDITING, ruling: EDITOR_SIZES },
+  { text: "Extra Large", states: EDITING, ruling: EDITOR_SIZES },
+  { text: "Dixit", states: EDITING, ruling: EDITOR_SIZES },
+  { text: "Custom", states: EDITING, ruling: EDITOR_SIZES },
+  { text: "Loose in a tray", states: EDITING, ruling: EDITOR_WORDS },
+  { text: "Finger cuts {name}", states: EDITING, ruling: EDITOR_SUMMARY },
+  { text: "{n} changed", states: EDITING, ruling: EDITOR_SUMMARY },
+  { text: "Name", states: PHONE_EDITS, ruling: EDITOR_NAME },
+  // the stage sentence: Edit's, for the kinds and the counts it does not draw
+  {
+    text: "tray, {name} × {name} mm.",
+    states: [...EDITS, ...PHONE_EDITS],
+    ruling: EDITOR_SENTENCE,
+  },
+  { text: ", {n} trays.", states: [...EDITS, ...PHONE_EDITS], ruling: EDITOR_SENTENCE },
+  ...OPTION_NOTE_TEXTS.map((text) => ({
+    text,
+    states: ["editor-note", ...PHONE_EDITS] as readonly string[],
+    ruling: EDITOR_NOTES,
+  })),
+  // asking before a removal, and the note after it (it sits in the stage slot, as the option notes do)
+  { text: "Remove “{name}” from the box?", states: EDITING, ruling: EDITOR_REMOVE },
+  { text: "Remove", states: EDITING, ruling: EDITOR_REMOVE },
+  { text: "Cancel", states: EDITING, ruling: EDITOR_REMOVE },
+  { text: "Removed “{name}”.", states: ["editor-removed"], ruling: EDITOR_REMOVE },
+  { text: "Undo removal", states: ["editor-removed"], ruling: EDITOR_REMOVE },
+  { text: "Dismiss", states: ["editor-removed"], ruling: EDITOR_REMOVE },
 ];
 
 /**
@@ -258,4 +405,9 @@ export const COPY_DENIED: readonly string[] = [
   "Start again",
   "Trays then fill up to the lid, so nothing falls out",
   "It's on the bottom layer, front right.",
+  "A few cards",
+  "A full expansion",
+  "A bin each",
+  "All in one bin",
+  "Loose in a bin",
 ];

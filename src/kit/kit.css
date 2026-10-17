@@ -321,8 +321,10 @@
   cursor: pointer;
 }
 
+/* Edit's buttons take an equal share and have no side padding of their own (4 px stays so a long word never touches the edge). */
 .k-seg--stretch .k-seg__item {
   flex: 1 1 0;
+  padding: 0 var(--s-4);
 }
 
 .k-seg__item[aria-pressed="true"] {
@@ -802,6 +804,7 @@
 
 .k-disclosure__chevron {
   display: flex;
+  flex: none;
   transition: transform 200ms;
 }
 
@@ -839,8 +842,30 @@
   cursor: pointer;
 }
 
+.k-drow__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .k-drow__title {
   font-weight: 600;
+}
+
+.k-drow__hint {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* Edit's "Card thickness": a plain 52 px row, no box, the hint under the title. */
+.k-drow[data-plain] {
+  --k-bg: transparent;
+
+  height: auto;
+  min-height: var(--row-min);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
 }
 
 .k-drow__meta {
@@ -1195,6 +1220,24 @@ html:has(dialog.k-dialog[open], dialog.k-drawer[open]) {
   padding: 0 var(--s-8) var(--s-12);
   overflow: auto;
   overscroll-behavior: contain;
+}
+
+/*
+ * An editor in the sheet (MobileEdit): it brings its own header (Back, the name, Done), so the
+ * sheet hides its grip and title and the editor fills it.
+ */
+.k-sheet[data-editing="true"] {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.k-sheet__bar[hidden] {
+  display: none;
+}
+
+.k-sheet[data-editing="true"] > .k-sheet__body {
+  padding: 0;
+  overflow: hidden;
 }
 
 /* Folded without a peek, the content is out of sight as well as inert; it hides after the sheet has shut. */

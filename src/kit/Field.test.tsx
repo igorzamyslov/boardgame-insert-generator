@@ -82,3 +82,12 @@ describe("Field", () => {
     expect(container.querySelector(".k-field__box")?.classList.contains("field-box")).toBe(true);
   });
 });
+
+describe("Field labelExtra", () => {
+  it("adds words for assistive technology after the label, and none for the eye", () => {
+    render(<Field label="Width mm" labelExtra="of piece 2" value="20" onInput={() => undefined} />);
+    expect(screen.getByLabelText("Width mm of piece 2")).toBeTruthy();
+    const label = document.querySelector("label") as HTMLElement;
+    expect(label.querySelector(".visually-hidden")?.textContent).toBe(" of piece 2");
+  });
+});

@@ -71,6 +71,32 @@ const openMore = (): void => {
   fireEvent.click(screen.getByRole("button", { name: "More" }));
 };
 
+/** A component's editor, opened from its row in the rail (the phone's sheet has the same rows). */
+const editRow = (name: RegExp) => (): void => {
+  const rail = (document.querySelector('[data-region="rail"], [data-region="sheet"]') ??
+    document.body) as HTMLElement;
+  fireEvent.click(within(rail).getByRole("button", { name }));
+};
+
+/** Every row under More options that opens its exact values, opened too. */
+const openAllRows = (): void => {
+  fireEvent.click(screen.getByRole("button", { name: /^More options/ }));
+  for (const row of document.querySelectorAll<HTMLElement>(".k-drow")) {
+    fireEvent.click(row);
+  }
+};
+
+const editMore = (name: RegExp) => (): void => {
+  editRow(name)();
+  openAllRows();
+};
+
+/** The kind picker's "Something else", added: its editor opens at once. */
+const addCustom = (): void => {
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
+  fireEvent.click(screen.getByRole("button", { name: "Something else" }));
+};
+
 const openMenu = (): void => {
   fireEvent.click(screen.getByRole("button", { name: /^Project menu/ }));
 };
@@ -149,6 +175,79 @@ const breakHeight = (): void => {
 };
 
 const CASES: readonly Case[] = [
+  // Task 10: the editors. Edit's Cards, EditKinds' other three, MobileEdit's Miniatures (on a
+  // desktop, which no board draws: Edit's layout and MobileEdit's content), and the phone's sheet.
+  { state: "editor", board: "Edit", region: "rail", steps: editRow(/^Market deck, /) },
+  { state: "editor", board: "Edit", region: "stage", steps: editRow(/^Market deck, /) },
+  { state: "editor-more", board: "Edit", region: "rail", steps: editMore(/^Market deck, /) },
+  {
+    state: "editor-tokens",
+    board: "EditKinds",
+    region: "rail",
+    steps: editRow(/^Coins and cubes, /),
+  },
+  {
+    state: "editor-tokens-more",
+    board: "EditKinds",
+    region: "rail",
+    steps: editMore(/^Coins and cubes, /),
+  },
+  { state: "editor-tiles", board: "EditKinds", region: "rail", steps: editRow(/^Hex tiles, /) },
+  {
+    state: "editor-tiles-more",
+    board: "EditKinds",
+    region: "rail",
+    steps: editMore(/^Hex tiles, /),
+  },
+  { state: "editor-custom", board: "EditKinds", region: "rail", steps: addCustom },
+  {
+    state: "editor-custom-more",
+    board: "EditKinds",
+    region: "rail",
+    steps: () => {
+      addCustom();
+      openAllRows();
+    },
+  },
+  { state: "editor-minis", board: "MobileEdit", region: "rail", steps: editRow(/^Heroes, /) },
+  { state: "editor-minis-more", board: "MobileEdit", region: "rail", steps: editMore(/^Heroes, /) },
+  {
+    state: "editor-note",
+    board: "Edit",
+    region: "stage",
+    steps: () => {
+      editRow(/^Market deck, /)();
+      fireEvent.click(
+        within(screen.getByRole("group", { name: "Sleeves" })).getByRole("button", {
+          name: "Premium",
+        }),
+      );
+    },
+  },
+  {
+    state: "editor-removed",
+    board: "Edit",
+    region: "plan",
+    steps: () => {
+      editRow(/^Market deck, /)();
+      fireEvent.click(screen.getByRole("button", { name: "Remove Market deck…" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove Market deck" }));
+    },
+  },
+  {
+    state: "m-edit",
+    board: "MobileEdit",
+    region: "sheet",
+    phone: true,
+    steps: editRow(/^Heroes, /),
+  },
+  {
+    state: "m-edit-more",
+    board: "MobileEdit",
+    region: "sheet",
+    phone: true,
+    steps: editMore(/^Heroes, /),
+  },
   // Task 9: the first visit, Empty at 1440 and MobileStart on a phone
   { state: "first-visit", board: "Empty", region: "header", empty: true, steps: () => undefined },
   { state: "first-visit", board: "Empty", region: "rail", empty: true, steps: () => undefined },

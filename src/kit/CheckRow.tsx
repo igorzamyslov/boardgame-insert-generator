@@ -9,10 +9,28 @@ export interface CheckRowProps {
   onChange: (checked: boolean) => void;
   /** The 44 px row (the printer list), not the 52 px one. */
   compact?: boolean;
+  /**
+   * Off for a reason the hint gives. The box stays focusable (`aria-disabled`, never `disabled`, so
+   * a reader reaches it and hears the hint) and does nothing when it is pressed.
+   */
+  blocked?: boolean;
+  /** The id of a message drawn under the row (an error): the box points at it as well as at the hint. */
+  describedBy?: string;
+  /** The box and its row are red-flagged: the message under the row says why. */
+  invalid?: boolean;
 }
 
 /** A label and its hint on the left, a 22 px checkbox on the right. */
-export function CheckRow({ label, hint, checked, onChange, compact = false }: CheckRowProps) {
+export function CheckRow({
+  label,
+  hint,
+  checked,
+  onChange,
+  compact = false,
+  blocked = false,
+  describedBy,
+  invalid = false,
+}: CheckRowProps) {
   const labelId = useId();
   const hintId = useId();
   return (
@@ -32,8 +50,24 @@ export function CheckRow({ label, hint, checked, onChange, compact = false }: Ch
         type="checkbox"
         checked={checked}
         aria-labelledby={labelId}
-        aria-describedby={hint !== undefined ? hintId : undefined}
-        onChange={(e) => onChange(e.currentTarget.checked)}
+        aria-disabled={blocked ? "true" : undefined}
+        aria-invalid={invalid ? true : undefined}
+        aria-describedby={
+          [hint !== undefined ? hintId : null, describedBy ?? null]
+            .filter((x) => x !== null)
+            .join(" ") || undefined
+        }
+        onClick={(e) => {
+          // A press (or Space) would flip the box on screen: put it back.
+          if (blocked) {
+            e.preventDefault();
+          }
+        }}
+        onChange={(e) => {
+          if (!blocked) {
+            onChange(e.currentTarget.checked);
+          }
+        }}
       />
     </label>
   );

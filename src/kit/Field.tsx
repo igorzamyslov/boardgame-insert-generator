@@ -12,6 +12,11 @@ export interface FieldProps {
   onInput: (text: string) => void;
   onBlur?: () => void;
   onKeyDown?: (e: KeyboardEvent) => void;
+  /**
+   * Words after the label that only assistive technology reads ("of piece 2"): a screen reader gets
+   * "Width mm of piece 2" where the eye has "Width mm", repeated down a list.
+   */
+  labelExtra?: string;
   /** After the value, inside the box ("mm"). It is not part of the input's name. */
   unit?: string;
   /** The words under the box when the value is wrong; the box turns red. */
@@ -37,6 +42,7 @@ export function Field({
   onInput,
   onBlur,
   onKeyDown,
+  labelExtra,
   unit,
   error,
   invalidBy,
@@ -55,6 +61,7 @@ export function Field({
     <div class={cx("k-field", extra)}>
       <label class="k-field__label" htmlFor={id}>
         {label}
+        {labelExtra !== undefined ? <span class="visually-hidden">{` ${labelExtra}`}</span> : null}
         {unit !== undefined ? <span class="visually-hidden">{` (${unit})`}</span> : null}
       </label>
       <span

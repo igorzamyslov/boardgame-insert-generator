@@ -50,3 +50,20 @@ describe("ChoiceChips", () => {
     expect(on).toEqual(["Mini", "Tarot"]);
   });
 });
+
+describe("ChoiceChips describedBy", () => {
+  it("points the group at a message drawn under it", () => {
+    render(
+      <ChoiceChips
+        label="Tray shape"
+        options={[{ value: "a", label: "A" }]}
+        value={[]}
+        describedBy="why"
+        onChange={() => undefined}
+      />,
+    );
+    expect(screen.getByRole("group", { name: "Tray shape" }).getAttribute("aria-describedby")).toBe(
+      "why",
+    );
+  });
+});

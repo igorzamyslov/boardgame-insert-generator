@@ -1,16 +1,24 @@
 // src/ui/components/MinisEditor.tsx
+// MobileEdit's figures editor: a card for each size of figure, and how they are stored.
+import type { SegmentedOption } from "../../kit";
+import { Stepper } from "../../kit";
 import type { MinisComponent } from "../../model/types";
-import { SelectField, TextField } from "../fields";
 import { COUNT, LENGTH } from "../limits";
-import { NumberField } from "../NumberField";
-import { CommonOptions, commonOptionPaths } from "./CommonOptions";
-import { DerivedSizes } from "./DerivedSizes";
+import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
+import { Alert, Choice, Group, NumField, Notes, TitleInput } from "./controls";
+import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
+import { moreSummary } from "./moreSummary";
 import { RowRemove } from "./RowRemove";
-import { BinNotes, ToggleOptions } from "./ToggleOptions";
+import { BinNotes, TrayShape } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 type Figure = MinisComponent["figures"][number];
+
+const STORAGE_OPTIONS: SegmentedOption<MinisComponent["storage"]>[] = [
+  { value: "pockets", label: "One pocket each" },
+  { value: "bulk", label: "Loose in a tray" },
+];
 
 export function MinisEditor({ component: c, index, onChange }: EditorProps<MinisComponent>) {
   const at = `/components/${index}`;
@@ -19,64 +27,84 @@ export function MinisEditor({ component: c, index, onChange }: EditorProps<Minis
   };
   return (
     <>
-      <fieldset class="list-rows">
-        <legend>Figures</legend>
-        {c.figures.map((f, j) => {
-          const n = j + 1;
-          return (
-            <div class="list-row" key={j}>
-              <TextField
-                id={`${c.id}-fig${j}-name`}
-                label={`Name of figure ${n}`}
-                value={f.name}
-                onCommit={(name) => setFigure(j, { name })}
-              />
-              <NumberField
-                id={`${c.id}-fig${j}-w`}
-                label={`Figure ${n} width`}
-                unit="mm"
-                value={f.w}
-                path={`${at}/figures/${j}/w`}
-                {...LENGTH}
-                onCommit={(w) => setFigure(j, { w })}
-              />
-              <NumberField
-                id={`${c.id}-fig${j}-d`}
-                label={`Figure ${n} length`}
-                unit="mm"
-                value={f.d}
-                path={`${at}/figures/${j}/d`}
-                {...LENGTH}
-                onCommit={(d) => setFigure(j, { d })}
-              />
-              <NumberField
-                id={`${c.id}-fig${j}-h`}
-                label={`Figure ${n} height`}
-                unit="mm"
-                value={f.h}
-                path={`${at}/figures/${j}/h`}
-                {...LENGTH}
-                onCommit={(h) => setFigure(j, { h })}
-              />
-              <NumberField
-                id={`${c.id}-fig${j}-count`}
-                label={`How many of figure ${n}`}
-                value={f.count}
-                {...COUNT}
-                path={`${at}/figures/${j}/count`}
-                onCommit={(count) => setFigure(j, { count })}
-              />
-              <RowRemove
-                label={`Remove figure ${f.name === "" ? n : f.name}`}
-                onlyOne={c.figures.length <= 1}
-                reason="There has to be at least one figure."
-                onRemove={() => onChange({ ...c, figures: c.figures.filter((_f, k) => k !== j) })}
-              />
-            </div>
-          );
-        })}
+      <Group label="Figures">
+        <div class="ed-cards">
+          {c.figures.map((f, j) => {
+            const n = j + 1;
+            const countPath = `${at}/figures/${j}/count`;
+            return (
+              <div class="ed-card ed-card--figure" key={j}>
+                <div class="ed-card__top ed-card__top--center">
+                  <TitleInput
+                    class="ed-grow"
+                    id={`${c.id}-fig${j}-name`}
+                    label={`Name of figure ${n}`}
+                    value={f.name}
+                    onCommit={(name) => setFigure(j, { name })}
+                  />
+                  <Stepper
+                    label={f.name === "" ? `Number of figure ${n}` : `Number of ${f.name} figures`}
+                    value={f.count}
+                    min={COUNT.min}
+                    max={COUNT.max}
+                    onChange={(count) => setFigure(j, { count })}
+                  />
+                  {c.figures.length > 1 ? (
+                    <RowRemove
+                      label={`Remove figure ${f.name === "" ? n : f.name}`}
+                      onlyOne={false}
+                      reason="There has to be at least one figure."
+                      onRemove={() =>
+                        onChange({ ...c, figures: c.figures.filter((_f, k) => k !== j) })
+                      }
+                    />
+                  ) : null}
+                </div>
+                <Alert id={`${c.id}-fig${j}-count-error`} path={countPath} />
+                <Notes path={countPath} />
+                <span class="ed-line">Measure one figure, base included</span>
+                <div class="ed-trio">
+                  <NumField
+                    compact={false}
+                    id={`${c.id}-fig${j}-w`}
+                    label="Wide"
+                    labelExtra={`figure ${n}`}
+                    unit="mm"
+                    value={f.w}
+                    path={`${at}/figures/${j}/w`}
+                    {...LENGTH}
+                    onCommit={(w) => setFigure(j, { w })}
+                  />
+                  <NumField
+                    compact={false}
+                    id={`${c.id}-fig${j}-d`}
+                    label="Deep"
+                    labelExtra={`figure ${n}`}
+                    unit="mm"
+                    value={f.d}
+                    path={`${at}/figures/${j}/d`}
+                    {...LENGTH}
+                    onCommit={(d) => setFigure(j, { d })}
+                  />
+                  <NumField
+                    compact={false}
+                    id={`${c.id}-fig${j}-h`}
+                    label="Tall"
+                    labelExtra={`figure ${n}`}
+                    unit="mm"
+                    value={f.h}
+                    path={`${at}/figures/${j}/h`}
+                    {...LENGTH}
+                    onCommit={(h) => setFigure(j, { h })}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
         <button
           type="button"
+          class="ed-add"
           onClick={() =>
             onChange({
               ...c,
@@ -87,33 +115,21 @@ export function MinisEditor({ component: c, index, onChange }: EditorProps<Minis
             })
           }
         >
-          Add figure
+          + Another size of figure
         </button>
-      </fieldset>
+      </Group>
+      <Choice
+        label="How they're stored"
+        options={STORAGE_OPTIONS}
+        value={c.storage}
+        onChange={(storage) => onChange({ ...c, storage })}
+      />
       <BinNotes component={c} index={index} />
-      <DerivedSizes component={c} index={index} />
-      <MoreOptions errorPaths={commonOptionPaths(index)}>
-        <CommonOptions
-          component={c}
-          index={index}
-          onChange={onChange}
-          tray={
-            <>
-              <SelectField
-                id={`${c.id}-storage`}
-                label="Storage"
-                hint="One pocket per figure gives each its own slot, sized to it. Loose in a scoop tray piles them in a tray you scoop from, sized by the Packing factor in the exact numbers."
-                value={c.storage}
-                options={[
-                  { value: "pockets", label: "One pocket per figure" },
-                  { value: "bulk", label: "Loose in a scoop tray" },
-                ]}
-                onChange={(storage) => onChange({ ...c, storage })}
-              />
-              <ToggleOptions component={c} index={index} onChange={onChange} />
-            </>
-          }
-        />
+      <MoreOptions summary={moreSummary(c)} errorPaths={commonOptionPaths(index)}>
+        <GrowthOptions component={c} index={index} onChange={onChange} />
+        <AccessChoice component={c} index={index} onChange={onChange} />
+        <TrayShape component={c} index={index} onChange={onChange} />
+        <CommonRows component={c} index={index} onChange={onChange} />
       </MoreOptions>
     </>
   );

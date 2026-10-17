@@ -1,13 +1,14 @@
 // src/ui/components/BulkEditor.tsx
+// EditKinds' tokens and dice editor: a card for each kind of piece, with its count and its size.
 import type { BulkComponent, BulkItem } from "../../model/types";
-import { SelectField, TextField } from "../fields";
 import { COUNT, LENGTH, VOLUME_ML } from "../limits";
-import { NumberField } from "../NumberField";
-import { CommonOptions, commonOptionPaths } from "./CommonOptions";
-import { DerivedSizes } from "./DerivedSizes";
+import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
+import { NumField, TextBox } from "./controls";
+import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
+import { moreSummary } from "./moreSummary";
 import { RowRemove } from "./RowRemove";
-import { BinNotes, ToggleOptions } from "./ToggleOptions";
+import { BinNotes, TrayShape } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 export function BulkEditor({ component: c, index, onChange }: EditorProps<BulkComponent>) {
@@ -15,123 +16,136 @@ export function BulkEditor({ component: c, index, onChange }: EditorProps<BulkCo
   const setItem = (j: number, item: BulkItem): void => {
     onChange({ ...c, items: c.items.map((x, k) => (k === j ? item : x)) });
   };
+  // The board's one link, under the list, is for the newest piece; a piece given as a volume has its own way back.
+  const lastCount = c.items.map((x) => !("volumeMl" in x)).lastIndexOf(true);
   return (
     <>
-      <fieldset class="list-rows">
-        <legend>Items</legend>
+      <div class="ed-cards">
         {c.items.map((item, j) => {
           const n = j + 1;
           const volume = "volumeMl" in item ? item : null;
           const pieces = "volumeMl" in item ? null : item;
           return (
-            <div class="list-row" key={j}>
-              <TextField
-                id={`${c.id}-item${j}-name`}
-                label={`Name of item ${n}`}
-                value={item.name}
-                onCommit={(name) => setItem(j, { ...item, name })}
-              />
-              <SelectField
-                id={`${c.id}-item${j}-kind`}
-                label={`How to size item ${n}`}
-                value={volume ? "volume" : "pieces"}
-                options={[
-                  { value: "pieces", label: "Count × size" },
-                  { value: "volume", label: "Pile volume" },
-                ]}
-                hint="Use the pile volume for coins or cubes: pour them into a measuring cup."
-                onChange={(kind) =>
-                  setItem(
-                    j,
-                    kind === "volume"
-                      ? { name: item.name, volumeMl: 50 }
-                      : { name: item.name, count: 10, w: 16, d: 16, h: 4 },
-                  )
-                }
-              />
-              {volume ? (
-                <NumberField
-                  id={`${c.id}-item${j}-volume`}
-                  label={`Volume of item ${n}`}
-                  unit="ml"
-                  value={volume.volumeMl}
-                  {...VOLUME_ML}
-                  path={`${at}/items/${j}/volumeMl`}
-                  onCommit={(volumeMl) => setItem(j, { ...volume, volumeMl })}
+            <div class="ed-card" key={j}>
+              <div class="ed-card__top">
+                <TextBox
+                  class="ed-grow"
+                  id={`${c.id}-item${j}-name`}
+                  label="Piece"
+                  labelExtra={`${n}`}
+                  value={item.name}
+                  onCommit={(name) => setItem(j, { ...item, name })}
                 />
-              ) : null}
-              {pieces ? (
-                <>
-                  <NumberField
+                {pieces ? (
+                  <NumField
+                    class="ed-count"
                     id={`${c.id}-item${j}-count`}
-                    label={`How many of item ${n}`}
+                    label="How many"
+                    labelExtra={`of piece ${n}`}
                     value={pieces.count}
                     {...COUNT}
                     path={`${at}/items/${j}/count`}
                     onCommit={(count) => setItem(j, { ...pieces, count })}
                   />
-                  <NumberField
+                ) : null}
+                <RowRemove
+                  label={`Remove ${item.name === "" ? `piece ${n}` : item.name}`}
+                  onlyOne={c.items.length <= 1}
+                  reason="There has to be at least one piece."
+                  onRemove={() => onChange({ ...c, items: c.items.filter((_x, k) => k !== j) })}
+                />
+              </div>
+              {pieces ? (
+                <div class="ed-card__sizes">
+                  <NumField
                     id={`${c.id}-item${j}-w`}
-                    label={`Item ${n} width`}
-                    unit="mm"
+                    label="Width mm"
+                    labelExtra={`of piece ${n}`}
                     value={pieces.w}
                     path={`${at}/items/${j}/w`}
                     {...LENGTH}
                     onCommit={(w) => setItem(j, { ...pieces, w })}
                   />
-                  <NumberField
+                  <NumField
                     id={`${c.id}-item${j}-d`}
-                    label={`Item ${n} length`}
-                    unit="mm"
+                    label="Depth mm"
+                    labelExtra={`of piece ${n}`}
                     value={pieces.d}
                     path={`${at}/items/${j}/d`}
                     {...LENGTH}
                     onCommit={(d) => setItem(j, { ...pieces, d })}
                   />
-                  <NumberField
+                  <NumField
                     id={`${c.id}-item${j}-h`}
-                    label={`Item ${n} height`}
-                    unit="mm"
+                    label="Height mm"
+                    labelExtra={`of piece ${n}`}
                     value={pieces.h}
                     path={`${at}/items/${j}/h`}
                     {...LENGTH}
                     onCommit={(h) => setItem(j, { ...pieces, h })}
                   />
+                </div>
+              ) : null}
+              {volume ? (
+                <>
+                  <NumField
+                    id={`${c.id}-item${j}-volume`}
+                    label="Volume ml"
+                    labelExtra={`of piece ${n}`}
+                    value={volume.volumeMl}
+                    {...VOLUME_ML}
+                    path={`${at}/items/${j}/volumeMl`}
+                    onCommit={(volumeMl) => setItem(j, { ...volume, volumeMl })}
+                  />
+                  <button
+                    type="button"
+                    class="ed-link"
+                    onClick={() => setItem(j, { name: item.name, count: 10, w: 16, d: 16, h: 4 })}
+                  >
+                    Know the size? Give a count and a size instead
+                  </button>
                 </>
               ) : null}
-              <RowRemove
-                label={`Remove item ${item.name === "" ? n : item.name}`}
-                onlyOne={c.items.length <= 1}
-                reason="There has to be at least one item."
-                onRemove={() => onChange({ ...c, items: c.items.filter((_x, k) => k !== j) })}
-              />
             </div>
           );
         })}
+      </div>
+      <button
+        type="button"
+        class="ed-add"
+        data-block=""
+        onClick={() =>
+          onChange({
+            ...c,
+            items: [
+              ...c.items,
+              { name: `Item ${c.items.length + 1}`, count: 10, w: 16, d: 16, h: 4 },
+            ],
+          })
+        }
+      >
+        + Another kind of piece
+      </button>
+      {lastCount !== -1 ? (
         <button
           type="button"
-          onClick={() =>
-            onChange({
-              ...c,
-              items: [
-                ...c.items,
-                { name: `Item ${c.items.length + 1}`, count: 10, w: 16, d: 16, h: 4 },
-              ],
-            })
-          }
+          class="ed-link"
+          onClick={() => {
+            const item = c.items[lastCount];
+            if (item !== undefined) {
+              setItem(lastCount, { name: item.name, volumeMl: 50 });
+            }
+          }}
         >
-          Add item
+          Don&apos;t know the size? Give a volume instead
         </button>
-      </fieldset>
+      ) : null}
       <BinNotes component={c} index={index} />
-      <DerivedSizes component={c} index={index} />
-      <MoreOptions errorPaths={commonOptionPaths(index)}>
-        <CommonOptions
-          component={c}
-          index={index}
-          onChange={onChange}
-          tray={<ToggleOptions component={c} index={index} onChange={onChange} />}
-        />
+      <MoreOptions summary={moreSummary(c)} errorPaths={commonOptionPaths(index)}>
+        <GrowthOptions component={c} index={index} onChange={onChange} />
+        <AccessChoice component={c} index={index} onChange={onChange} />
+        <TrayShape component={c} index={index} onChange={onChange} />
+        <CommonRows component={c} index={index} onChange={onChange} />
       </MoreOptions>
     </>
   );

@@ -4,7 +4,8 @@
 //
 //   board      the board file without ".dc.html" (docs/design/boards)
 //   boardOpts  renderBoard options for the board variant: { props, state }
-//   boardCrop  a region name (regions.mjs): the board is judged by that part of it only
+//   boardCrop  { <region name (regions.mjs)>: <CSS selector in the board> }: the board is judged by
+//              that part of it only, for a board that draws several screens side by side (EditKinds)
 //   nearest    set when no board of its own exists: why this board is the nearest
 //   viewport   the app's window; the board variant is drawn at this size too
 //   seed       a docs/design/seeds name, or null for empty storage (first visit)
@@ -29,6 +30,10 @@ const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
 
 const MENU = { click: { role: "button", name: /^Project menu/ } };
+// The rail (Task 5) and the editor opened from it (Task 10).
+const RAIL = '[data-region="rail"]';
+const EDIT_MARKET = { click: { role: "button", name: /^Market deck, /, in: RAIL } };
+const MORE_OPTIONS = { click: { role: "button", name: /^More options/, in: RAIL } };
 // The no-fit heading: "The <name> tray doesn't fit yet" (owner decision; the board's is "<name> don't fit yet").
 const FIT_YET = /tray doesn't fit yet|Not everything fits yet/;
 // The banner's button (the stale seeds): a new plan, whose result the state then waits for.
@@ -230,12 +235,58 @@ export const STATES = {
     noPageScroll: true,
     noStageScroll: true,
   },
+  // Edit with More options folded, and open (the board's own default).
   editor: {
     board: "Edit",
     boardOpts: { props: { moreOpen: false } },
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [{ click: { role: "button", name: /^Market deck, /, in: '[data-region="rail"]' } }],
+    steps: [EDIT_MARKET],
+  },
+  "editor-more": {
+    board: "Edit",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [EDIT_MARKET, MORE_OPTIONS],
+  },
+  // EditKinds draws the other three editors side by side: each is judged by its own section.
+  "editor-tokens": {
+    board: "EditKinds",
+    boardCrop: { rail: "main section:nth-of-type(1)" },
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: /^Coins and cubes, /, in: RAIL } }],
+  },
+  "editor-tiles": {
+    board: "EditKinds",
+    boardCrop: { rail: "main section:nth-of-type(2)" },
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: /^Hex tiles, /, in: RAIL } }],
+  },
+  // Something else: the seed has none, so one is added and filled in as the board has it.
+  "editor-custom": {
+    board: "EditKinds",
+    boardCrop: { rail: "main section:nth-of-type(3)" },
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      { click: { role: "button", name: "Add", in: RAIL } },
+      { click: { role: "button", name: "Something else" } },
+      { fill: { label: "Name", value: "Player boards" } },
+      { fill: { label: "Width mm", value: "230" } },
+      { fill: { label: "Depth mm", value: "150" } },
+      { fill: { label: "Height mm", value: "3" } },
+      { fill: { label: "Number of items", value: "4" } },
+    ],
+  },
+  // Miniatures on a desktop: no board draws it. Edit's layout, MobileEdit's content.
+  "editor-minis": {
+    board: "Edit",
+    nearest: "no board of its own: Edit's layout, MobileEdit's content",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: /^Heroes, /, in: RAIL } }],
   },
   box: {
     board: "Box",

@@ -35,8 +35,10 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    figures) and Other. Each item has its own shade of its kind's colour and icon, and
    that same shade marks its trays in the plan and in the 3D view. Editing an item opens
    a panel with the basics and, under "More options", the rest: room for expansions, how
-   often you reach for it, finger cuts, curved floor, corner reliefs, how cards stand,
-   one pile per player, removable dividers. Each change shows a short note over the box. When
+   often you reach for it, finger cuts, curved floor, corner holes, how cards stand,
+   one pile per player, removable dividers, and the exact numbers in rows that open in place.
+   The box beside it shows the item's trays lifted, and each change to an option shows a short
+   note over the box. When
    no tray variant can give tiles, miniatures (pockets) or an other item a finger cut, its
    pieces are stored loose in a tray with a curved floor instead, and the editor says so.
 3. **The box.** The section "The box" (above the list) sets the inside width, length and height,
@@ -189,8 +191,9 @@ in `app/meshes.ts`.
    MAJOR.
 4. **UI:** create `src/ui/components/<Kind>Editor.tsx` taking
    `EditorProps<YourComponent>` (the basics first, then the rest inside the
-   `<MoreOptions errorPaths={commonOptionPaths(index)}>` disclosure, with `<ToggleOptions …/>`
-   and `<CommonOptions …/>`), add a `case` to `KindEditor` in `EditorPanel.tsx`,
+   `<MoreOptions summary={moreSummary(c)} errorPaths={commonOptionPaths(index)}>` disclosure,
+   with `<GrowthOptions …/>`, `<AccessChoice …/>`, `<TrayShape …/>` and `<CommonRows …/>`; the
+   controls are in `ui/components/controls.tsx`), add a `case` to `KindEditor` in `EditorPanel.tsx`,
    and add the kind to `KIND_TILES` in `screens/KindPicker.tsx`. Field paths must
    match `validateProject()` so errors show next to the field.
 5. **Tests:** sizing unit tests, an editor test next to the editor, and run

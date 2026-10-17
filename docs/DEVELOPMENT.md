@@ -219,7 +219,7 @@ it only with a written reason in the code or the PR.
   a control whose label changes to name the action (Pin/Unpin, Lock size/Unlock size). It takes
   no `aria-pressed`, and `data-on="true"` drives its pressed look (ruling, P2 Task 8).
 - MUST mount a live region (`role="status"` or `aria-live`) before its text changes. Render the
-  region always and swap only its content (`ui/Toast.tsx`, the `viewer-selection-live` region in
+  region always and swap only its content (`kit/Toast.tsx`, the `viewer-selection-live` region in
   `viewer/Viewer.tsx`). Keep `aria-live` narrow: the changing words only, never a whole toolbar
   (`ui/TrayBar.tsx` has exactly two live regions, the hidden pin and size-lock words and the reason
   line, and a test checks that). Every region in the app is mounted before it speaks. Where the thing to say is a
@@ -237,7 +237,9 @@ it only with a written reason in the code or the PR.
   - `ui/components/EditorPanel.tsx`: the Remove… and Cancel confirmation pair. It moves the focus
     unconditionally: the button that went was the one just pressed, so nothing is stolen.
 - MUST focus an editor's, dialog's or panel's heading when it opens (`tabIndex={-1}` on the
-  heading, `.focus()` in an effect), and return focus to what opened it on close. Exemption: the
+  heading, `.focus()` in an effect), and return focus to what opened it on close. The rail's editor
+  has no visible heading (its name is an input styled as a title, and the stage's sentence is the
+  page's h1): a visually hidden h2 takes the focus. The phone's editor focuses its h1. Exemption: the
   phone's list sheet (`kit/Sheet.tsx`) is an in-page disclosure, not a dialog; its 44 px handle
   carries the name and opening it focuses the first control, not a heading. The sheet holding an
   editor or the box still lands on that editor's heading:
@@ -446,7 +448,7 @@ and JSX text. Comments and identifiers aren't checked.
 **A live region says nothing.**
 → The region was mounted in the same render as its text, and screen readers announce changes
 inside a region that already exists.
-→ Mount the region always and swap its children (`ui/Toast.tsx`). Toggling `role` with the text
+→ Mount the region always and swap its children (`kit/Toast.tsx`). Toggling `role` with the text
 (`ui/SavedStatus.tsx` today) has the same problem.
 
 **Focus lands on `<body>` after a click.**

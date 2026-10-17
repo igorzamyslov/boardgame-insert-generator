@@ -1,4 +1,5 @@
 // src/ui/components/WhatsInside.tsx
+import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { Box, Component, ComponentKind, Lock, Printer, TraySpec } from "../../model/types";
 import { Rail, SheetList } from "../../screens/Rail";
@@ -35,6 +36,10 @@ export interface WhatsInsideProps {
   onRemove: (id: string) => boolean;
   onUnpin?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
+  /** An option of the open editor changed, and this is what it does: the stage shows it as a note. */
+  onNote?: (text: string) => void;
+  /** The phone's strip in the open editor: the tray drawn small and the sentence (or the note). */
+  strip?: ComponentChildren;
 }
 
 /**
@@ -62,6 +67,8 @@ export function WhatsInside({
   onRemove,
   onUnpin,
   onUnlockSize,
+  onNote,
+  strip,
 }: WhatsInsideProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [ownId, setOwnId] = useState<string | null>(null);
@@ -152,13 +159,16 @@ export function WhatsInside({
     setOpenId(null);
   };
   return (
-    <div class="wi ws-interim" ref={rootRef}>
+    <div class="wi ws-interim wi--edit" ref={rootRef}>
       <EditorPanel
         key={open.id}
         component={open}
         index={index}
         kindIndex={kindIndexOf(components, index)}
         sameName={components.some((o) => o.id !== open.id && o.name === open.name)}
+        phone={phone}
+        strip={strip}
+        onNote={onNote}
         onChange={(next) => onChange(open.id, next)}
         onBack={leave}
         onRemove={() => {

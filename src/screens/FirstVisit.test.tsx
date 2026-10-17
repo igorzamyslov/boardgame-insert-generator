@@ -239,7 +239,7 @@ describe("the first visit", () => {
     fireEvent.input(screen.getByLabelText(/^Width/), { target: { value: "250" } });
     fireEvent.click(screen.getByRole("button", { name: "Cards" }));
     // the editor is open in the rail, over the list, and the box kept what was typed
-    const heading = screen.getByRole("heading", { level: 3, name: "Cards" });
+    const heading = screen.getByRole("heading", { level: 2, name: "Cards" });
     expect(document.activeElement).toBe(heading);
     expect(screen.getByRole("button", { name: "What's inside" })).toBeTruthy();
     expect(screen.getByRole("complementary", { name: "What's inside" })).toBeTruthy();
@@ -261,7 +261,7 @@ describe("the first visit", () => {
     ]);
     const list = screen.getByRole("list", { name: "What's inside" });
     expect(within(list).getAllByRole("listitem").length).toBeGreaterThanOrEqual(3);
-    expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
+    expect(screen.queryByRole("heading", { level: 2, name: "Cards" })).toBeNull();
   });
 
   it("returns to the first visit when the last item goes, with the focus on a kind", () => {
@@ -315,7 +315,7 @@ describe("the first visit on a phone", () => {
     phone();
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Tiles" }));
-    expect(screen.getByRole("heading", { level: 3, name: "Tiles" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Tiles" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "The box and what's inside" })).toBeTruthy();
   });
 

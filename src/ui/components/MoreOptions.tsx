@@ -1,34 +1,25 @@
 // src/ui/components/MoreOptions.tsx
 import type { ComponentChildren } from "preact";
-import { useContext, useRef } from "preact/hooks";
-import { ValidationContext } from "../validation";
+import { Disclosure } from "../../kit";
+import { useOpenOnError } from "./controls";
 
 export interface MoreOptionsProps {
+  /** What is inside, in a few words (Edit's "Finger cuts on, stands upright"). */
+  summary?: string;
   /** Validation paths of the fields inside; an error at one (or below it) opens the section. */
   errorPaths?: readonly string[];
   children: ComponentChildren;
 }
 
-/** The fields most people never touch, folded under "More options". An error inside opens it. */
-export function MoreOptions({ errorPaths = [], children }: MoreOptionsProps) {
-  const notices = useContext(ValidationContext);
-  const hasError = notices.some(
-    (n) =>
-      n.level === "error" &&
-      n.path !== undefined &&
-      errorPaths.some((p) => n.path === p || n.path?.startsWith(`${p}/`)),
-  );
-  // Once an error has opened it, it stays open, so it does not collapse as the user fixes the error.
-  const forced = useRef(false);
-  if (hasError) {
-    forced.current = true;
-  }
+/**
+ * The options most people never touch, folded under "More options" and opening in place. An error
+ * inside opens it, and it stays open once an error brought it up.
+ */
+export function MoreOptions({ summary, errorPaths = [], children }: MoreOptionsProps) {
+  const [open, setOpen] = useOpenOnError(errorPaths);
   return (
-    <details class="pf-disc" open={forced.current || undefined}>
-      <summary>More options</summary>
-      <div class="pf-disc__body">
-        <div class="form-grid">{children}</div>
-      </div>
-    </details>
+    <Disclosure title="More options" summary={summary} open={open} onOpenChange={setOpen}>
+      {children}
+    </Disclosure>
   );
 }

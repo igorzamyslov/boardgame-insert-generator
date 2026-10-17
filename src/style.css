@@ -120,23 +120,6 @@ select {
   display: none;
 }
 
-/* A swatch: the identity tint, with the kind's glyph (an inline svg, 1.5px strokes in currentColor). */
-.pf-swatch {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-sm);
-  background: var(--tint, var(--row));
-  color: var(--ink);
-}
-
-.pf-swatch svg {
-  width: 18px;
-  height: 18px;
-}
-
 /* Notice: a message with a sign, placed next to its cause. */
 .pf-notice {
   display: grid;
@@ -337,21 +320,9 @@ button.primary:hover:not(:disabled) {
   filter: brightness(0.92);
 }
 
-button.quiet,
-.row-remove {
+button.quiet {
   border-color: transparent;
   background: transparent;
-}
-
-.row-remove {
-  justify-self: start;
-  color: var(--madder);
-}
-
-.row-remove[aria-disabled="true"] {
-  border-color: transparent;
-  background: transparent;
-  color: var(--muted);
 }
 
 button[aria-disabled="true"] {
@@ -502,54 +473,7 @@ input[aria-invalid="true"] {
   grid-column: 2;
 }
 
-.list-rows {
-  display: grid;
-  gap: var(--space-3);
-  margin: 0;
-  padding: var(--space-3);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-md);
-}
-
-.list-rows legend {
-  padding: 0 var(--space-1);
-  color: var(--ink);
-  font: 500 14px/20px var(--font-ui);
-}
-
-.list-rows > .hint,
-.list-rows > .field-error {
-  margin: 0;
-}
-
-.list-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
-  gap: var(--space-2);
-  align-items: start;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px dashed var(--rule-strong);
-}
-
-.list-row:last-of-type {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.editor-panel .pf-swatch {
-  border-color: var(--shade-line);
-  background: var(--shade-fill);
-  color: var(--shade-ink);
-}
-
-/* ---- The component editor, in the place of the list ---- */
-.editor-panel {
-  display: grid;
-  gap: var(--space-4);
-  border-left: 4px solid var(--shade-line);
-  padding-left: var(--space-3);
-}
-
+/* ---- The box editor's bar, in the place of the list (until the box screen, Task 11) ---- */
 .editor-panel__bar {
   position: sticky;
   top: 0;
@@ -602,13 +526,6 @@ input[aria-invalid="true"] {
   outline-offset: 2px;
 }
 
-.editor-panel__ask {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-  align-items: center;
-}
-
 /* A note about the change just made: it sits at the foot of the page for a few seconds. */
 .pf-toasts {
   position: fixed;
@@ -622,13 +539,6 @@ input[aria-invalid="true"] {
 .pf-toast--note {
   max-width: 480px;
   margin: 0;
-}
-
-.component-card-foot {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--rule);
 }
 
 /* ---- Notices: a shaped sign, a lead word, the message and an action; next to what they are about ---- */

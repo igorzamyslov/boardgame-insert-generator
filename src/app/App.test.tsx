@@ -209,7 +209,8 @@ describe("App", () => {
     const { stub } = renderApp();
     addCards();
     // a component just added opens in the aside, in the place of the list
-    expect(screen.getByRole("heading", { level: 3, name: "Cards" })).toBeTruthy();
+    const heading = screen.getByRole("heading", { level: 2, name: "Cards" });
+    expect(document.activeElement).toBe(heading);
     expect(screen.getByRole("button", { name: "What's inside" })).toBeTruthy();
     await waitFor(() => expect(stub.calls).toHaveLength(1));
   });
@@ -303,6 +304,8 @@ describe("App", () => {
   it("shows settings errors next to their field, in the settings sheet", async () => {
     const { store } = renderApp();
     addCards();
+    // the editor has the stage while it is open: the status heading is back once it is closed
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
     const results = screen.getByRole("main");
     expect(within(results).queryByText(/Fix the errors/)).toBeNull();
     store.edit((q) => ({ ...q, settings: { ...q.settings, bottomChamfer: 3 } }));
@@ -327,6 +330,7 @@ describe("App", () => {
   it("opens the settings sheet on My printer for an error in the insert's printer", async () => {
     const { store } = renderApp();
     addCards();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
     store.edit((q) => ({ ...q, printer: { ...q.printer, bedMargin: -1 } }));
     fireEvent.click(
       await within(screen.getByRole("main")).findByRole("button", { name: "Settings" }),
@@ -348,7 +352,9 @@ describe("App", () => {
     removeFromEditor("Cards");
     expect(names()).toEqual(["Tokens and dice"]);
     const toast = await screen.findByText(/^Removed “Cards”\.$/);
-    expect(toast.closest(".pf-toast")).not.toBeNull();
+    expect(toast.closest(".k-toast")).not.toBeNull();
+    // in the stage's slot above the box, as Edit's note toast is
+    expect(toast.closest(".stage-slot")).not.toBeNull();
     // the live region was on the page before it spoke, and it says the same
     const live = removedLive();
     expect(live.textContent).toMatch(/^Removed “Cards”\. Undo removal is available\.$/);
@@ -357,6 +363,22 @@ describe("App", () => {
     expect(screen.queryByText(/Removed “Cards”/)).toBeNull();
     expect(removedLive()).toBe(live);
     expect(live.textContent).toBe("");
+  });
+
+  it("has one h1 while editing: the stage's sentence", () => {
+    renderApp({ project: fixtureProject() });
+    const first = within(screen.getByRole("list", { name: "What's inside" })).getAllByRole(
+      "button",
+      { name: /,/ },
+    )[0] as HTMLElement;
+    fireEvent.click(first);
+    const h1s = screen.getAllByRole("heading", { level: 1 });
+    expect(h1s).toHaveLength(1);
+    expect(within(screen.getByRole("main")).getByRole("heading", { level: 1 })).toBe(h1s[0]);
+    // the status heading is back with the list
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 }).closest(".k-status")).not.toBeNull();
   });
 
   it("opens a row's editor in the aside and returns to the list from Done", () => {
@@ -1168,10 +1190,10 @@ describe("App", () => {
       fireEvent.click(download);
       expect(screen.queryByRole("dialog", { name: "Download" })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Edit Market" }));
-      expect(await screen.findByRole("heading", { name: "Market" })).toBeTruthy();
+      expect(await screen.findByRole("heading", { level: 2, name: "Market" })).toBeTruthy();
       // leaving the editor does not bring it back
       fireEvent.click(screen.getByRole("button", { name: "Done" }));
-      expect(screen.queryByRole("heading", { name: "Market" })).toBeNull();
+      expect(screen.queryByRole("heading", { level: 2, name: "Market" })).toBeNull();
     });
 
     it("says a tray is too big for the bed when the run reports it", () => {
@@ -1740,18 +1762,18 @@ describe("App", () => {
       renderApp({ project: market() });
       const rail = screen.getByRole("complementary", { name: "What's inside" });
       // The list is showing, with no editor.
-      expect(within(rail).queryByRole("heading", { level: 3 })).toBeNull();
+      expect(within(rail).queryByRole("heading", { level: 2, name: "Market" })).toBeNull();
       fireEvent.keyDown(tile("m:p0:0"), { key: "Enter" });
       expect(within(trayBar()).getByText("Market", { selector: ".tray-bar__name" })).toBeTruthy();
       fireEvent.click(within(trayBar()).getByRole("button", { name: "Edit" }));
       // The editor panel is open for that component, with its way back to the list.
-      const heading = await within(rail).findByRole("heading", { level: 3, name: "Market" });
+      const heading = await within(rail).findByRole("heading", { level: 2, name: "Market" });
       expect(document.activeElement).toBe(heading);
       expect(within(rail).getByRole("button", { name: "What's inside" })).toBeTruthy();
       expect(within(rail).getByRole("button", { name: /^Remove Market/ })).toBeTruthy();
       // Back to the list leaves the tray selected.
       fireEvent.click(within(rail).getByRole("button", { name: "What's inside" }));
-      expect(within(rail).queryByRole("heading", { level: 3 })).toBeNull();
+      expect(within(rail).queryByRole("heading", { level: 2, name: "Market" })).toBeNull();
       expect(screen.getByRole("region", { name: "Selected tray" })).toBeTruthy();
     });
 
@@ -1861,7 +1883,7 @@ describe("the rail, What's inside", () => {
     const components = store.state.project.value.components;
     expect(components).toHaveLength(before + 1);
     expect(components.at(-1)?.kind).toBe("minis");
-    expect(within(rail()).getByRole("heading", { level: 3 })).toBeTruthy();
+    expect(within(rail()).getByRole("button", { name: "What's inside" })).toBeTruthy();
     expect(screen.queryByRole("group", { name: "Add something inside" })).toBeNull();
   });
 
@@ -1914,7 +1936,7 @@ describe("the rail, What's inside", () => {
     fireEvent.mouseEnter(row);
     expect(hoveredComponent.value).not.toBeNull();
     fireEvent.click(row);
-    expect(within(rail()).getByRole("heading", { level: 3 })).toBeTruthy();
+    expect(within(rail()).getByRole("button", { name: "Done" })).toBeTruthy();
     expect(hoveredComponent.value).toBeNull();
   });
 
@@ -1943,7 +1965,7 @@ describe("the rail, What's inside", () => {
       }));
       fireEvent.click(await screen.findByRole("button", { name: `Edit ${first.name}` }));
       expect(
-        await within(rail()).findByRole("heading", { level: 3, name: first.name }),
+        await within(rail()).findByRole("heading", { level: 2, name: first.name }),
       ).toBeTruthy();
     });
 

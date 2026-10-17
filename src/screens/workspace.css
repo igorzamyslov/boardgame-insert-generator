@@ -73,6 +73,11 @@
   padding: var(--stage-pad-focus);
 }
 
+/* An editor in the rail (Edit): its back link sits 12 px from the top, not the rail's 20. */
+.ws--edit .ws-rail {
+  padding-top: var(--s-12);
+}
+
 /*
  * The old rail editors (a component's until Task 10, the box's until Task 11) scroll inside the
  * rail, so nothing is cut off.

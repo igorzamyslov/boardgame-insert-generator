@@ -52,4 +52,19 @@ describe("DisclosureRow", () => {
     expect(row.textContent).toContain("4 values");
     expect(row.getAttribute("aria-expanded")).toBe("false");
   });
+
+  it("says what it is for under its title, as Edit's Card thickness does", () => {
+    render(
+      <DisclosureRow
+        title="Card thickness"
+        hint="From the sleeve table. Measure your stack if decks come out tight."
+        open={false}
+      />,
+    );
+    const row = screen.getByRole("button", { name: /Card thickness/ });
+    expect(row.textContent).toContain("From the sleeve table.");
+    expect(row.getAttribute("aria-expanded")).toBe("false");
+    // the plain look: no box
+    expect(row.hasAttribute("data-plain")).toBe(true);
+  });
 });

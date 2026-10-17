@@ -138,7 +138,9 @@ describe("the stage's top, in the app", () => {
     // the editor opens in the rail: its back link names the list
     const rail = screen.getByRole("complementary", { name: "What's inside" });
     expect(await within(rail).findByRole("button", { name: "What's inside" })).toBeTruthy();
-    expect(within(rail).getByRole("heading", { level: 3, name: market.name })).toBeTruthy();
+    expect(within(rail).getByRole("heading", { level: 2, name: market.name })).toBeTruthy();
+    // the editor has the stage while it is open: the status heading is back when it is closed
+    fireEvent.click(within(rail).getByRole("button", { name: "Done" }));
     // a box in error: Change the box
     act(() => {
       store.edit((q) => updateBox(q, { innerHeight: -5 }));

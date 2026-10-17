@@ -109,7 +109,8 @@ export function Sheet(p: SheetProps) {
         }
       }}
     >
-      <div class={`${c}__bar`}>
+      {/* An editor brings its own header (MobileEdit): the grip and title are hidden, still there for the owner's handle. */}
+      <div class={`${c}__bar`} hidden={p.editing ? true : undefined}>
         {p.handleLabel === undefined ? (
           <button
             type="button"
