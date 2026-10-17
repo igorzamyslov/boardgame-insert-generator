@@ -14,7 +14,7 @@ import type { StatusTone } from "../kit";
 import type { LockConflict } from "../layout/types";
 import { mmUp } from "../layout/warnings";
 import type { Component, Notice as NoticeData, TraySpec } from "../model/types";
-import { layerHeights, levelsOf } from "../plan/layers";
+import { levelsOf } from "../plan/layers";
 import { layerLabel, mm } from "../ui/identity";
 import type { Misfit } from "../ui/noFit";
 
@@ -318,16 +318,13 @@ const WEBGL_REASON = "3D needs WebGL";
 const ALL_LAYERS = "all";
 
 /**
- * The Layer switch's options: "Layer 1 (bottom) · 40 mm" (a phone drops the height). The heights
- * are `layerHeights`'. With `all` (the 3D view) a first option, "All", cuts nothing away.
+ * The Layer switch's options: "Layer 1 (bottom)", "Layer 2", "Layer 3 (top)" (`layerLabel`), with
+ * no height: the status line gives the plan's. With `all` (the 3D view) a first option, "All",
+ * cuts nothing away.
  */
-export function layerOptions(trays: readonly TraySpec[], phone: boolean, all = false) {
+export function layerOptions(trays: readonly TraySpec[], all = false) {
   const levels = levelsOf(trays);
-  const heights = layerHeights(trays);
-  const layers = levels.map((_, i) => {
-    const label = layerLabel(i, levels.length);
-    return { value: String(i), label: phone ? label : `${label} · ${mm(heights[i] ?? 0)} mm` };
-  });
+  const layers = levels.map((_, i) => ({ value: String(i), label: layerLabel(i, levels.length) }));
   return all ? [{ value: ALL_LAYERS, label: "All" }, ...layers] : layers;
 }
 
@@ -446,7 +443,7 @@ export function StageTop(p: StageTopProps) {
     });
 
   const in3d = p.view === "3d";
-  const options = p.trays === undefined ? [] : layerOptions(p.trays, p.phone, in3d);
+  const options = p.trays === undefined ? [] : layerOptions(p.trays, in3d);
   const layers = options.length - (in3d ? 1 : 0);
   const layerValue = in3d
     ? p.cut === null || p.cut >= layers

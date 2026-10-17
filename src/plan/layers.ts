@@ -38,8 +38,8 @@ export function levelsOf(trays: readonly TraySpec[]): number[] {
  * The height of each layer, bottom first (the order of `levelsOf`). A layer's height is the stretch
  * from its lower edge to the next layer's: the lower edge is the least z of its trays (0 for the
  * first layer), and the top layer ends at the plan's highest point. The heights therefore add up to
- * the status line's "H of B mm high", which counts the same way. The Layer switch and the box's
- * side view both read them.
+ * the status line's "H of B mm high", which counts the same way. (The Layer switch no longer
+ * prints them: DESIGN §7.)
  */
 export function layerHeights(trays: readonly TraySpec[]): number[] {
   const levels = levelsOf(trays);

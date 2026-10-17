@@ -295,13 +295,13 @@ describe("StageTop", () => {
   });
 
   describe("the Layer switch", () => {
-    it("labels layers by number and height", () => {
+    it("labels layers by number, with no height", () => {
       render(<StageTop {...props()} />);
       const group = screen.getByRole("group", { name: "Layer" });
       const names = within(group)
         .getAllByRole("button")
         .map((b) => b.textContent);
-      expect(names).toEqual(["Layer 1 (bottom) · 40 mm", "Layer 2 (top) · 26 mm"]);
+      expect(names).toEqual(["Layer 1 (bottom)", "Layer 2 (top)"]);
       expect(group.getAttribute("data-tone")).toBe("track");
     });
 
@@ -314,54 +314,43 @@ describe("StageTop", () => {
       const p = props({ level: 1 });
       render(<StageTop {...p} />);
       expect(
-        screen.getByRole("button", { name: "Layer 2 (top) · 26 mm" }).getAttribute("aria-pressed"),
+        screen.getByRole("button", { name: "Layer 2 (top)" }).getAttribute("aria-pressed"),
       ).toBe("true");
-      fireEvent.click(screen.getByRole("button", { name: "Layer 1 (bottom) · 40 mm" }));
+      fireEvent.click(screen.getByRole("button", { name: "Layer 1 (bottom)" }));
       expect(p.onLevelChange).toHaveBeenCalledWith(0);
     });
 
     it("clamps a level there is no layer for to the top layer", () => {
       render(<StageTop {...props({ level: 7 })} />);
       expect(
-        screen.getByRole("button", { name: "Layer 2 (top) · 26 mm" }).getAttribute("aria-pressed"),
+        screen.getByRole("button", { name: "Layer 2 (top)" }).getAttribute("aria-pressed"),
       ).toBe("true");
     });
 
     it("names three layers bottom, middle and top", () => {
       const three = [...TWO_LAYERS, makeTray({ key: "d:p0:0", level: 2, h: 20, z: 66 })];
-      expect(layerOptions(three, false).map((o) => o.label)).toEqual([
-        "Layer 1 (bottom) · 40 mm",
-        "Layer 2 · 26 mm",
-        "Layer 3 (top) · 20 mm",
+      expect(layerOptions(three).map((o) => o.label)).toEqual([
+        "Layer 1 (bottom)",
+        "Layer 2",
+        "Layer 3 (top)",
       ]);
     });
 
-    it("labels add up to the status height", () => {
-      // a stack as the engine makes it: the tallest tray of the bottom layer (57.2) is taller than
-      // the layer (the top layer starts at 45.2), and the plan reaches 70
-      const stack = [
-        makeTray({ key: "a:p0:0", level: 0, z: 0, h: 57.2 }),
-        makeTray({ key: "b:p0:0", level: 0, z: 0, h: 45.2, x: 100 }),
-        makeTray({ key: "c:p0:0", level: 1, z: 45.2, h: 24.8, x: 100 }),
-      ];
-      const labels = layerOptions(stack, false).map((o) => o.label);
-      expect(labels).toEqual(["Layer 1 (bottom) · 45.2 mm", "Layer 2 (top) · 24.8 mm"]);
-      const sum = labels.reduce((n, l) => n + Number(/· ([\d.]+) mm$/.exec(l)?.[1]), 0);
-      expect(Math.round(sum * 10) / 10).toBe(70);
-      // and the heading says the same height
-      render(
-        <StageTop
-          {...props({ trays: stack, fits: { trays: 3, layers: 2, height: 70, boxHeight: 70 } })}
-        />,
-      );
-      expect(line()).toBe("3 trays in 2 layers, 70 of 70 mm high");
-    });
-
-    it("drops the height on a phone", () => {
-      expect(layerOptions(TWO_LAYERS, true).map((o) => o.label)).toEqual([
+    it("says no height, on any width: the status line holds the plan's height", () => {
+      expect(layerOptions(TWO_LAYERS).map((o) => o.label)).toEqual([
         "Layer 1 (bottom)",
         "Layer 2 (top)",
       ]);
+      for (const phone of [false, true]) {
+        render(
+          <StageTop
+            {...props({ phone, fits: { trays: 3, layers: 2, height: 66, boxHeight: 70 } })}
+          />,
+        );
+        expect(line()).toBe("3 trays in 2 layers, 66 of 70 mm high");
+        expect(screen.getByRole("group", { name: "Layer" }).textContent).not.toMatch(/mm/);
+        cleanup();
+      }
     });
   });
 
@@ -377,7 +366,7 @@ describe("StageTop", () => {
 
     it("starts with All, and All is pressed while nothing is cut", () => {
       render(<StageTop {...props({ view: "3d" })} />);
-      expect(names()).toEqual(["All", "Layer 1 (bottom) · 40 mm", "Layer 2 (top) · 26 mm"]);
+      expect(names()).toEqual(["All", "Layer 1 (bottom)", "Layer 2 (top)"]);
       expect(pressed()).toEqual(["All"]);
     });
 
@@ -389,8 +378,8 @@ describe("StageTop", () => {
     it("presses the layer the cut is at, and reports a pick as a cut, not as the top view's layer", () => {
       const p = props({ view: "3d", cut: 0, level: 1 });
       render(<StageTop {...p} />);
-      expect(pressed()).toEqual(["Layer 1 (bottom) · 40 mm"]);
-      fireEvent.click(screen.getByRole("button", { name: "Layer 2 (top) · 26 mm" }));
+      expect(pressed()).toEqual(["Layer 1 (bottom)"]);
+      fireEvent.click(screen.getByRole("button", { name: "Layer 2 (top)" }));
       expect(p.onCutChange).toHaveBeenLastCalledWith(1);
       fireEvent.click(screen.getByRole("button", { name: "All" }));
       expect(p.onCutChange).toHaveBeenLastCalledWith(null);
