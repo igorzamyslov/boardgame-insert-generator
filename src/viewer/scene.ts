@@ -23,7 +23,15 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { TraySpec } from "../model/types";
 import { SPACER_SHADE } from "../ui/identity";
 import type { ViewBasis } from "./axes";
-import { anchorOf, emissiveOf, isVisible, outlineCenter, trayPosition } from "./transform";
+import {
+  PAGE_HEX,
+  anchorOf,
+  emissiveOf,
+  fadeOf,
+  isVisible,
+  outlineCenter,
+  trayPosition,
+} from "./transform";
 import type { BoxOutline, SceneFactory, SceneHandle, SceneTray } from "./types";
 import { exposeShotsScene } from "./shotsScene";
 import { WebGLUnavailableError } from "./webgl";
@@ -35,6 +43,8 @@ interface TrayObject {
   anchor: TraySpec;
   object: ThreeMesh;
   material: MeshStandardMaterial;
+  /** The tray's own colour: what it shows at full strength, before any fade toward the page. */
+  base: Color;
 }
 
 const CLICK_SLOP_PX = 5;
@@ -45,6 +55,11 @@ function litColor(css: string): Color {
   const hsl = { h: 0, s: 0, l: 0 };
   c.getHSL(hsl);
   return hsl.l < 0.4 ? c.setHSL(hsl.h, Math.min(1, hsl.s + 0.1), hsl.l + 0.25) : c;
+}
+
+/** A colour as "#rrggbb", for the shots window. */
+function hexOf(c: Color): string {
+  return "#".concat(c.getHexString());
 }
 
 /** Frees the renderer and, since browsers keep only a few, the WebGL context behind it. */
@@ -92,6 +107,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   let maxLevel: number | null = null;
   let selected: string | null = null;
   let lit: ReadonlySet<string> = new Set();
+  const pageColor = new Color(PAGE_HEX);
   let pick: ((key: string | null) => void) | null = null;
   let viewCb: ((view: ViewBasis) => void) | null = null;
   let frameId = 0;
@@ -132,6 +148,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       t.object.position.set(x, y, z);
       t.object.visible = isVisible(t.spec, maxLevel);
       t.material.emissive.setHex(emissiveOf(t.spec.key, selected, lit));
+      t.material.color.copy(t.base).lerp(pageColor, fadeOf(t.spec.key, selected, lit));
     }
     requestDraw();
   }
@@ -184,9 +201,16 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   canvas.addEventListener("pointercancel", onPointerCancel);
 
   // Shots mode only: lets the harness read which trays glow (shotsScene.ts).
-  const dropShotsScene = exposeShotsScene(() =>
-    Object.fromEntries(trays.map((t) => [t.spec.key, t.material.emissive.getHex()])),
-  );
+  const dropShotsScene = exposeShotsScene({
+    emissive: () =>
+      Object.fromEntries(trays.map((t) => [t.spec.key, t.material.emissive.getHex()])),
+    tints: () => ({
+      page: PAGE_HEX,
+      trays: Object.fromEntries(
+        trays.map((t) => [t.spec.key, { color: hexOf(t.material.color), base: hexOf(t.base) }]),
+      ),
+    }),
+  });
 
   const handle: SceneHandle = {
     setBox(o: BoxOutline) {
@@ -222,15 +246,16 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         // A part with no colour of its own takes the neutral, not a hue of its own: colour here
         // means "this is that component" (its shade, as in the top view), so an invented one
         // would claim an identity it hasn't got.
+        const base = litColor(color ?? SPACER_SHADE.light.fill);
         const material = new MeshStandardMaterial({
-          color: litColor(color ?? SPACER_SHADE.light.fill),
+          color: base.clone(),
           flatShading: true,
           roughness: 0.8,
         });
         const object = new ThreeMesh(geometry, material);
         scene.add(object);
         const anchor = anchorOf(spec, byKey);
-        trays.push({ spec, anchor, object, material });
+        trays.push({ spec, anchor, object, material, base });
       });
       apply();
     },

@@ -343,8 +343,10 @@ const PROBES = {
   },
   /**
    * One selection for both views (parity): after a tray was chosen in Top and 3D opened, its bar
-   * and rail row are still there, pointing at a row (or focusing it) lights its trays in the
-   * canvas, and going back to Top keeps the selection. Reads `__shotsScene` (shots mode only).
+   * and rail row are still there, the selected tray keeps its colour while every other tray fades
+   * toward the page's, pointing at a row (or focusing it) keeps that component's trays at full
+   * colour and fades the rest, with no selection and no row nothing fades, and going back to Top
+   * keeps the selection. Reads `__shotsScene` (shots mode only).
    */
   async "selection-parity"(page) {
     // The state selected Market deck in the top view, then opened 3D. Needs WebGL: without it the
@@ -358,6 +360,17 @@ const PROBES = {
     const pressed = () => rail.locator('button[aria-pressed="true"]');
     const glow = () => page.evaluate(() => globalThis.__shotsScene?.emissive() ?? null);
     const count = (map, hex) => Object.values(map).filter((v) => v === hex).length;
+    const tints = () => page.evaluate(() => globalThis.__shotsScene?.tints() ?? null);
+    const rgb = (hex) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+    // how far a colour is from the page's, as the sum of its channel differences
+    const away = (page, hex) => rgb(hex).reduce((n, c, i) => n + Math.abs(c - rgb(page)[i]), 0);
+    // a tray is faded when its colour moved toward the page's, full when it is its own colour
+    const stateOf = (t, page) =>
+      t.color === t.base ? "full" : away(page, t.color) < away(page, t.base) ? "faded" : "other";
+    const states = (read) =>
+      Object.fromEntries(
+        Object.entries(read.trays).map(([key, t]) => [key, stateOf(t, read.page)]),
+      );
     const SELECTED = 0x444444;
     const LIT = 0x383838;
 
@@ -386,6 +399,21 @@ const PROBES = {
     if (count(before, LIT) !== 0) {
       problems.push("a tray is lit in 3D before any row is pointed at");
     }
+    // the selected tray keeps its colour; every other tray moved toward the page's
+    const selectedKeys = Object.keys(before).filter((k) => before[k] === SELECTED);
+    const tinted = await tints();
+    const sel = tinted === null ? {} : states(tinted);
+    for (const key of selectedKeys) {
+      if (sel[key] !== "full") {
+        problems.push(`the selected tray's colour moved in 3D (${key} is ${sel[key]})`);
+      }
+    }
+    const others = Object.entries(sel).filter(([key]) => !selectedKeys.includes(key));
+    if (others.length === 0 || others.some(([, v]) => v !== "faded")) {
+      problems.push(
+        `with a tray selected, the other trays did not all fade toward the page's colour: ${JSON.stringify(Object.fromEntries(others))}`,
+      );
+    }
 
     // 2. pointing at another row lights its trays in the canvas: the glow table and the pixels change
     const canvas = page.locator(".viewer-canvas");
@@ -405,6 +433,17 @@ const PROBES = {
     }
     if (count(lit, SELECTED) !== 1) {
       problems.push("pointing at a row took the selected tray's glow away in 3D");
+    }
+    // the lit trays and the selected one are at full colour, every other tray is faded
+    const litKeys = Object.keys(lit).filter((k) => lit[k] === LIT);
+    const hovered = states((await tints()) ?? { page: "#000000", trays: {} });
+    for (const [key, v] of Object.entries(hovered)) {
+      const full = litKeys.includes(key) || selectedKeys.includes(key);
+      if (full !== (v === "full")) {
+        problems.push(
+          `pointing at the Starter decks row: ${key} is ${v}, it should be ${full ? "full" : "faded"}`,
+        );
+      }
     }
     if (pixelsBefore.equals(pixelsLit)) {
       problems.push("pointing at the Starter decks row left the 3D canvas's pixels unchanged");
@@ -429,7 +468,8 @@ const PROBES = {
       problems.push("a tray stays lit in 3D after the row lost the focus");
     }
 
-    // 3. back to Top: the same tray is selected and the bar stays
+    // 3. back to Top: the same tray is selected and the bar stays; then 3D again, where closing
+    // the bar leaves nothing selected and nothing faded
     await page
       .locator('[data-region="status"]')
       .getByRole("button", { name: "Top", exact: true })
@@ -445,6 +485,33 @@ const PROBES = {
     const rowsTop = await pressed().allTextContents();
     if (rowsTop.length !== 1 || !/^Market deck/.test(rowsTop[0])) {
       problems.push(`the pressed rail rows in Top are ${JSON.stringify(rowsTop)}`);
+    }
+    await page
+      .locator('[data-region="status"]')
+      .getByRole("button", { name: "3D", exact: true })
+      .click({ timeout: STEP_TIMEOUT });
+    await page.waitForFunction(
+      () => Object.keys(globalThis.__shotsScene?.tints().trays ?? {}).length > 0,
+      undefined,
+      { timeout: STEP_TIMEOUT },
+    );
+    await page.waitForTimeout(500);
+    const again = await tints();
+    const againStates = again === null ? {} : states(again);
+    if (Object.values(againStates).filter((v) => v === "full").length < 1) {
+      problems.push("back in 3D the selected tray is not at full colour");
+    }
+    await bar.getByRole("button", { name: "Close", exact: true }).click({ timeout: STEP_TIMEOUT });
+    await page.waitForTimeout(500);
+    const closed = await tints();
+    const closedStates = closed === null ? {} : states(closed);
+    if (
+      Object.keys(closedStates).length === 0 ||
+      Object.values(closedStates).some((v) => v !== "full")
+    ) {
+      problems.push(
+        `with nothing selected or pointed at, a tray is not at full colour: ${JSON.stringify(closedStates)}`,
+      );
     }
     return problems.map((p) => `probe selection-parity: ${p}`);
   },

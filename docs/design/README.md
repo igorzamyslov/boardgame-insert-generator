@@ -82,10 +82,10 @@ promise the harness leaves pending, so a screenshot catches them mid-way without
 carries none of it, and `scripts/smoke-dist.mjs` fails if `__shotsHold` is found in `dist`.
 
 The 3D scene also offers a read-only window in shots mode, `globalThis.__shotsScene`
-(`src/viewer/shotsScene.ts`): each tray's emissive colour by key, which a canvas cannot tell. The
+(`src/viewer/shotsScene.ts`): each tray's emissive colour and its colour against its own full colour, by key, which a canvas cannot tell. The
 `selection-parity` probe reads it (`workspace-3d-selected`: a tray chosen in Top, then 3D; the bar
-and rail row stay, pointing at or focusing another row tints its trays and changes the canvas's
-pixels, and Top still has the tray selected). It needs WebGL: without it the probe has nothing to
+and rail row stay, the other trays' colours moved toward the page's while the selected tray's did not, pointing at or focusing another row keeps its trays full and fades the rest (and changes the canvas's
+pixels), closing the bar leaves every tray at full colour, and Top still has the tray selected). It needs WebGL: without it the probe has nothing to
 check and the state notes the fallback. The same smoke check fails if `__shotsScene` is found in `dist`.
 
 ## Adding a state

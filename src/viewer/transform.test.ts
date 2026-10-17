@@ -1,14 +1,18 @@
 // src/viewer/transform.test.ts
 import { describe, expect, it } from "vitest";
+import tokens from "../styles/tokens.css?raw";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import {
   EXPLODE_MM,
+  FADE_BLEND,
   LIT_EMISSIVE,
+  PAGE_HEX,
   SELECTED_EMISSIVE,
   boxOutline,
   emissiveOf,
+  fadeOf,
   isVisible,
   trayPosition,
 } from "./transform";
@@ -142,5 +146,41 @@ describe("viewer transforms", () => {
       expect(LIT_EMISSIVE).toBeGreaterThan(0);
       expect(LIT_EMISSIVE).toBeLessThan(SELECTED_EMISSIVE);
     });
+  });
+
+  describe("fadeOf", () => {
+    const lit = new Set(["a", "b"]);
+    const none = new Set<string>();
+
+    it("fades nothing while nothing is selected or lit", () => {
+      expect(fadeOf("a", null, none)).toBe(0);
+      expect(fadeOf("z", null, none)).toBe(0);
+    });
+
+    it("keeps the selected tray at full colour and fades every other", () => {
+      expect(fadeOf("c", "c", none)).toBe(0);
+      expect(fadeOf("a", "c", none)).toBe(FADE_BLEND);
+      expect(fadeOf("z", "c", none)).toBe(FADE_BLEND);
+    });
+
+    it("keeps the lit trays at full colour and fades the rest, while nothing is selected", () => {
+      expect(fadeOf("a", null, lit)).toBe(0);
+      expect(fadeOf("b", null, lit)).toBe(0);
+      expect(fadeOf("z", null, lit)).toBe(FADE_BLEND);
+    });
+
+    it("keeps both the selected tray and the lit ones at full colour", () => {
+      expect(fadeOf("c", "c", lit)).toBe(0);
+      expect(fadeOf("a", "c", lit)).toBe(0);
+      expect(fadeOf("z", "c", lit)).toBe(FADE_BLEND);
+    });
+
+    it("blends as far as the plan's dimmed tile lets the page show through (opacity 0.6)", () => {
+      expect(FADE_BLEND).toBeCloseTo(1 - 0.6);
+    });
+  });
+
+  it("fades toward the page's own colour", () => {
+    expect(tokens).toContain(`--page: ${PAGE_HEX};`);
   });
 });

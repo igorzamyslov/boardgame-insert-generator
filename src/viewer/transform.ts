@@ -102,3 +102,24 @@ export function emissiveOf(key: string, selected: string | null, lit: ReadonlySe
   }
   return lit.has(key) ? LIT_EMISSIVE : 0x000000;
 }
+
+/** The page's colour (`--page` in tokens.css): what a faded tray blends toward, as the plan's dimmed tiles let it show through. */
+export const PAGE_HEX = "#f4f3ef";
+
+/**
+ * How far a faded tray's colour moves toward the page's: the plan dims a tile to opacity 0.6 on the
+ * page, which is a 0.4 blend. A colour blend, not transparency: no sorting artefacts between trays.
+ */
+export const FADE_BLEND = 0.4;
+
+/**
+ * How far a tray's colour moves toward the page's (0 for none). While a tray is selected or a rail
+ * row is pointed at, as in the plan, the trays in focus (the selected one, the lit ones) keep
+ * their full colour and every other tray fades; with neither, nothing fades.
+ */
+export function fadeOf(key: string, selected: string | null, lit: ReadonlySet<string>): number {
+  if (selected === null && lit.size === 0) {
+    return 0;
+  }
+  return key === selected || lit.has(key) ? 0 : FADE_BLEND;
+}

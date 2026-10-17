@@ -9,4 +9,4 @@ declare var __shotsHold: Partial<Record<"export" | "search", Promise<void>>> | u
 // Set by the 3D scene in shots mode only (src/viewer/shotsScene.ts): what the screenshot harness may
 // read of it. Absent in every real run.
 // eslint-disable-next-line no-var
-declare var __shotsScene: { emissive(): Record<string, number> } | undefined;
+declare var __shotsScene: import("./viewer/shotsScene").ShotsScene | undefined;
