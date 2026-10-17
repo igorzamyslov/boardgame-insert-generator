@@ -33,6 +33,7 @@ import {
   trayPosition,
 } from "./transform";
 import type { BoxOutline, SceneFactory, SceneHandle, SceneTray } from "./types";
+import { cornersOf, fitDistance, modelRadius, ndcOf, outlineTarget } from "./fit";
 import { exposeShotsScene } from "./shotsScene";
 import { WebGLUnavailableError } from "./webgl";
 
@@ -48,6 +49,12 @@ interface TrayObject {
 }
 
 const CLICK_SLOP_PX = 5;
+
+/**
+ * The camera's first place, as a direction from the middle of the box (y toward the front, z up):
+ * in front of it and above, as the view has always opened. Its length is the fit's, not this one's.
+ */
+const OPENING_VIEW = { y: -1, z: 0.9 };
 
 /** A shade as a lit surface needs it: the dark-scheme shades are lifted so the shading shows. */
 function litColor(css: string): Color {
@@ -102,6 +109,11 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
 
   let trays: TrayObject[] = [];
   let outline: { line: LineSegments; material: LineBasicMaterial } | null = null;
+  // The box the camera is fitted to, and the distance it was last fitted at (0: not yet).
+  let framed: BoxOutline | null = null;
+  let fitted = 0;
+  // The frame's width over its height: the horizontal field of view follows it.
+  let aspect = 1;
   let explode = 0;
   let center: [number, number] | undefined;
   let maxLevel: number | null = null;
@@ -151,6 +163,42 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       t.material.color.copy(t.base).lerp(pageColor, fadeOf(t.spec.key, selected, lit));
     }
     requestDraw();
+  }
+
+  /** The distance from the middle of the box at which the model, spread as far as it is, is in frame. */
+  function wantedDistance(): number {
+    return framed === null
+      ? 0
+      : fitDistance(
+          modelRadius(
+            framed,
+            trays.map(({ spec, anchor }) => ({ spec, anchor })),
+            explode,
+          ),
+          aspect,
+        );
+  }
+
+  /**
+   * Moves the camera along its line of sight to the distance the model needs now (it spreads
+   * apart, the frame is resized): the turn is kept, and so is a zoom the person made, as the same
+   * share of the fit.
+   */
+  function refit(): void {
+    const wanted = wantedDistance();
+    if (wanted === 0) {
+      return;
+    }
+    if (fitted > 0 && Math.abs(wanted - fitted) > 1e-6) {
+      camera.position
+        .sub(controls.target)
+        .multiplyScalar(wanted / fitted)
+        .add(controls.target);
+    }
+    fitted = wanted;
+    camera.far = wanted * 10;
+    camera.updateProjectionMatrix();
+    controls.update();
   }
 
   function clearTrays(): void {
@@ -210,6 +258,29 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         trays.map((t) => [t.spec.key, { color: hexOf(t.material.color), base: hexOf(t.base) }]),
       ),
     }),
+    framing: () => {
+      camera.updateMatrixWorld();
+      const view = camera.matrixWorldInverse.elements;
+      const projection = camera.projectionMatrix.elements;
+      const points = [
+        ...(framed === null ? [] : cornersOf(framed.min, framed.size)),
+        ...trays
+          .filter((t) => t.object.visible)
+          .flatMap((t) =>
+            cornersOf(trayPosition(t.spec, explode, center, t.anchor), [
+              t.spec.w,
+              t.spec.d,
+              t.spec.h,
+            ]),
+          ),
+      ];
+      return {
+        overflow: Math.max(
+          0,
+          ...points.flatMap((p) => ndcOf(view, projection, p).map((v) => Math.abs(v))),
+        ),
+      };
+    },
   });
 
   const handle: SceneHandle = {
@@ -226,9 +297,18 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       line.position.set(x0 + w / 2, y0 + d / 2, z0 + h / 2);
       scene.add(line);
       outline = { line, material };
-      const dist = Math.max(w, d, h) * 1.6;
-      controls.target.set(x0 + w / 2, y0 + d / 2, z0 + h / 2);
-      camera.position.set(x0 + w / 2, y0 + d / 2 - dist, z0 + h / 2 + dist * 0.9);
+      // A new box starts the view again: the opening direction, at the distance that fits the model.
+      framed = o;
+      const [tx, ty, tz] = outlineTarget(o);
+      const dist = wantedDistance();
+      const unit = Math.hypot(OPENING_VIEW.y, OPENING_VIEW.z);
+      controls.target.set(tx, ty, tz);
+      camera.position.set(
+        tx,
+        ty + (OPENING_VIEW.y / unit) * dist,
+        tz + (OPENING_VIEW.z / unit) * dist,
+      );
+      fitted = dist;
       camera.far = dist * 10;
       camera.updateProjectionMatrix();
       controls.update();
@@ -257,10 +337,12 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         const anchor = anchorOf(spec, byKey);
         trays.push({ spec, anchor, object, material, base });
       });
+      refit();
       apply();
     },
     setExplode(f) {
       explode = f;
+      refit();
       apply();
     },
     setMaxLevel(level) {
@@ -287,8 +369,10 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
         return;
       }
       renderer.setSize(width, height, false);
-      camera.aspect = width / height;
+      aspect = width / height;
+      camera.aspect = aspect;
       camera.updateProjectionMatrix();
+      refit();
       requestDraw();
     },
     dispose() {

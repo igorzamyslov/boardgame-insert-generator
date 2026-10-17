@@ -56,6 +56,11 @@ The default out folder is `.superpowers/sdd/2026-10-16-ui-rebuild/shots/` (not c
 
 Board PNGs and seeds are committed; app shots are not, until the final pairs (Task 17) are.
 
+The `fit-3d` probe (`workspace-3d-wide`: the wide seed, a box wider than it is tall) turns the 3D
+camera over and under by dragging the canvas, with "Spread apart" at 0, half and full, and reads
+`__shotsScene.framing()` after each turn: a corner of the box or of a part outside the frame (a value
+over 1) fails the state.
+
 A state may name `probes` (`scripts/design/shots.mjs`): checks that need Chromium, run after the
 pictures. `m-tray-more` probes the phone's native dialog: Escape with More open closes only More,
 and a press on the backdrop closes the sheet.

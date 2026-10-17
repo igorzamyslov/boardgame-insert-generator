@@ -153,6 +153,17 @@ export const STATES = {
     needsWebGL: true,
     steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
+  // A long box in 3D (feedback on 0.5.0, point 10): the camera fits it however it is turned and spread.
+  "workspace-3d-wide": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest: "no board of its own: Main's box frame and segments, with a wider box",
+    viewport: DESKTOP,
+    seed: "harbour-kings-wide",
+    needsWebGL: true,
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
+    probes: ["fit-3d"],
+  },
   // One selection for both views (parity): a tray chosen in the top view, then the 3D view. Its bar
   // stays and the tray's rail row is pressed; the probe also points at another row and checks the
   // canvas changed, and goes back to Top to check the selection is still there.

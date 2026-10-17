@@ -7,6 +7,7 @@ import type { ShotsScene } from "./shotsScene";
 const window = (emissive: Record<string, number>): ShotsScene => ({
   emissive: () => emissive,
   tints: () => ({ page: "#f4f3ef", trays: { a: { color: "#101010", base: "#202020" } } }),
+  framing: () => ({ overflow: 0.5 }),
 });
 
 afterEach(() => {

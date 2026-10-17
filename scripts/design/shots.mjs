@@ -350,6 +350,72 @@ const PROBES = {
     return problems.map((p) => `probe tray-sheet: ${p}`);
   },
   /**
+   * The 3D frame and camera (feedback on 0.5.0, point 10): a long box is not cut off by its frame,
+   * however it is turned and however far apart it is spread. The page's camera is turned by
+   * dragging the canvas, a turn at a time round and over the model, with the spread at rest and at
+   * full; after each, `__shotsScene.framing()` says how far the farthest corner of the box or of a
+   * part is from the frame's edge (1: on it), and anything over 1 is a part cut off. Needs WebGL:
+   * without it the frame is the fallback line and there is nothing to probe.
+   */
+  async "fit-3d"(page) {
+    const canvas = page.locator("canvas.viewer-canvas");
+    if ((await canvas.count()) === 0) {
+      return [];
+    }
+    const framing = () => page.evaluate(() => globalThis.__shotsScene?.framing() ?? null);
+    if ((await framing()) === null) {
+      return [
+        "probe fit-3d: the scene's shots window (__shotsScene) is missing: is this a --mode shots build?",
+      ];
+    }
+    const problems = [];
+    const box = await canvas.boundingBox();
+    if (box === null) {
+      return ["probe fit-3d: the canvas has no box"];
+    }
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const drag = async (dx, dy) => {
+      await page.mouse.move(cx, cy);
+      await page.mouse.down();
+      await page.mouse.move(cx + dx, cy + dy, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(80);
+    };
+    const check = async (what) => {
+      const { overflow } = await framing();
+      if (overflow > 1) {
+        problems.push(
+          `the model is cut off by the frame ${what}: ${overflow.toFixed(3)} (over 1 is outside it)`,
+        );
+      }
+    };
+    const spread = page.getByLabel("Spread apart");
+    for (const [label, value] of [
+      ["together", "0"],
+      ["half spread", "0.5"],
+      ["spread apart", "1"],
+    ]) {
+      await spread.fill(value);
+      await page.waitForTimeout(80);
+      await check(`as it opens, ${label}`);
+      // a turn about the vertical axis in steps, then over the top and under, back and forth
+      for (const [dx, dy] of [
+        [160, 0],
+        [160, 0],
+        [160, 0],
+        [0, 120],
+        [0, -240],
+        [220, 90],
+        [-420, -90],
+      ]) {
+        await drag(dx, dy);
+        await check(`${label}, after turning it by ${dx},${dy}`);
+      }
+    }
+    return problems.map((p) => `probe ${p.replace(/^probe /, "")}`);
+  },
+  /**
    * One selection for both views (parity): after a tray was chosen in Top and 3D opened, its bar
    * and rail row are still there, the selected tray keeps its colour while every other tray fades
    * toward the page's, pointing at a row (or focusing it) keeps that component's trays at full
