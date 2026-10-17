@@ -3,12 +3,12 @@
 // turning into Stop must not move the page. shots.mjs measures these regions in `workspace` and
 // `workspace-searching`; `jumpProblems` says what moved.
 
-/** The regions that must not move; each is a selector in the app. `plan-box` is `.pf-view` until Task 7 marks the plan's box. */
+/** The regions that must not move; each is a selector in the app. */
 export const JUMP_REGIONS = {
   header: '[data-region="header"]',
   rail: '[data-region="rail"]',
   status: '[data-region="status"]',
-  "plan-box": '[data-region="plan-box"], .pf-view',
+  "plan-box": '[data-region="plan-box"]',
 };
 
 /** How far a region may move or change size, in px. */

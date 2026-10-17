@@ -60,3 +60,23 @@
 .stage-more {
   align-self: flex-start;
 }
+
+/*
+ * The slot above the plan's box (Main): "Tap a tray for details." while nothing is selected, the
+ * tray bar while one is, a toast. 52 px tall, taller when what it holds is.
+ */
+.stage-slot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  align-self: stretch;
+  min-height: var(--stage-slot);
+}
+
+.stage-slot__hint {
+  color: var(--muted);
+}
+
+.stage-slot p {
+  margin: 0;
+}

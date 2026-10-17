@@ -4,11 +4,15 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../../app/test-helpers";
 import { newComponent } from "../../model/defaults";
+import { hoveredComponent } from "../../screens/hover";
 import type { Component, ComponentKind, Lock } from "../../model/types";
 import { ValidationContext } from "../validation";
 import { ComponentList } from "./ComponentList";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  hoveredComponent.value = null;
+});
 
 const KINDS: ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
 
@@ -110,6 +114,27 @@ describe("ComponentList", () => {
     expect(onHover).toHaveBeenLastCalledWith("a");
     fireEvent.blur(screen.getByRole("button", { name: /^Main,/ }));
     expect(onHover).toHaveBeenLastCalledWith(null);
+  });
+
+  it("lights the row of the component the plan is pointing at", () => {
+    const comps = [named("cards", "a", "Main"), named("bulk", "b", "Gems")];
+    render(<ComponentList components={comps} {...handlers()} />);
+    const lit = (name: RegExp): string | null =>
+      screen.getByRole("button", { name }).getAttribute("data-lit");
+    expect(lit(/^Gems,/)).toBeNull();
+    act(() => {
+      hoveredComponent.value = "b";
+    });
+    expect(lit(/^Gems,/)).toBe("true");
+    expect(lit(/^Main,/)).toBeNull();
+    // lit is not pressed: only a selected component's row is
+    expect(screen.getByRole("button", { name: /^Gems,/ }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
+    act(() => {
+      hoveredComponent.value = null;
+    });
+    expect(lit(/^Gems,/)).toBeNull();
   });
 
   it("lights nothing once the list goes, as when an editor opens in its place", () => {

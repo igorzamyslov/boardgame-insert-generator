@@ -25,6 +25,7 @@ const DRAWINGS = {
   "chevron-up": { stroke: 2.2, round: true, shapes: <path d="M6 15l6-6 6 6" /> },
   "chevron-right": { stroke: 2.2, round: true, shapes: <path d="M9 5l7 7-7 7" /> },
   "chevron-left": { stroke: 2.2, round: true, shapes: <path d="M15 5l-7 7 7 7" /> },
+  "arrow-down": { stroke: 2.2, round: true, shapes: <path d="M12 5v14M6 13l6 6 6-6" /> },
   plus: { stroke: 2.4, round: true, shapes: <path d="M12 5v14M5 12h14" /> },
   minus: { stroke: 2.4, round: true, shapes: <path d="M5 12h14" /> },
   close: { stroke: 2.4, round: true, shapes: <path d="M6 6l12 12M18 6L6 18" /> },

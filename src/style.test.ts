@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import kit from "./kit/kit.css?raw";
+import plan from "./plan/plan.css?raw";
 import workspace from "./screens/workspace.css?raw";
 import css from "./style.css?raw";
 import base from "./styles/base.css?raw";
@@ -135,6 +136,8 @@ describe("tokens.css", () => {
       "--ink-off": "#6B6E68",
       "--box-edge": "#BFB8A8",
       "--box-dash": "#8C8778",
+      "--cell-fill": "rgb(255 255 255 / 60%)",
+      "--pill-fill": "rgb(255 255 255 / 92%)",
       "--field-glow": "#CFDCF6",
       // meaning
       "--info-bg": "#E6EEFC",
@@ -417,15 +420,24 @@ describe("fonts.css", () => {
 });
 
 describe("style.css", () => {
-  it("gives the 3D canvas an explicit CSS width and height (no ResizeObserver feedback)", () => {
+  it("gives the 3D canvas an explicit CSS width and height, the frame's (no ResizeObserver feedback)", () => {
     const body = ruleFor(".viewer-canvas");
     expect(body).toMatch(/width:\s*100%/);
-    expect(body).toMatch(/height:\s*min\(/);
+    expect(body).toMatch(/height:\s*100%/);
+  });
+
+  it("draws the 3D view in the plan's frame: the same size, radius and ground", () => {
+    const frame = ruleFor(".viewer-stage", plan);
+    expect(frame).toBe(ruleFor(".plan-box", plan));
+    expect(frame).toMatch(/min\(582px,\s*100cqw,\s*100cqh\)/);
+    expect(frame).toMatch(/border-radius:\s*var\(--r-panel\)/);
+    expect(frame).toMatch(/background:\s*var\(--box\)/);
+    expect(ruleFor(".viewer-canvas")).toMatch(/border-radius:\s*inherit/);
   });
 
   it("lets every pointer event through the axis indicator, so trays under it can still be picked", () => {
     expect(ruleFor(".axis-gizmo")).toMatch(/pointer-events:\s*none/);
-    expect(ruleFor(".viewer-stage")).toMatch(/position:\s*relative/);
+    expect(ruleFor(".viewer-stage", plan)).toMatch(/position:\s*relative/);
   });
 
   it("keeps the axes toggle in the view's corner with a 44 px target", () => {
@@ -436,13 +448,12 @@ describe("style.css", () => {
     expect(ruleFor(".viewer-selection-live")).toMatch(/pointer-events:\s*none/);
   });
 
-  it("lets one finger scroll the page past the 3D canvas and shortens it on phones", () => {
+  it("lets one finger scroll the page past the 3D canvas", () => {
     const body = ruleFor(".viewer-canvas");
     expect(body).toMatch(/touch-action:\s*pan-y/);
     expect(body).not.toMatch(/touch-action:\s*none/);
-    expect(ruleFor(".viewer-canvas", mediaBlock("(width < 600px)"))).toMatch(
-      /height:\s*min\(45vh,\s*320px\)/,
-    );
+    // the frame around it takes no touch-action of its own
+    expect(ruleFor(".viewer-stage", plan)).not.toMatch(/touch-action/);
   });
 
   it("puts the field notes in the full-width group of the form grid, not in a rule of their own", () => {
@@ -521,8 +532,56 @@ describe("the phone layout", () => {
     expect(ruleFor("button", css, true)).toMatch(/min-height:\s*var\(--control-h\)/);
   });
 
-  it("keeps the plan at least 24 rem tall (the figures below it still share the stage), so it scrolls rather than shrinks", () => {
-    expect(ruleFor(".ws-stage > .pf-view", workspace)).toMatch(/min-height:\s*24rem/);
+  it("sizes the plan from Main and the height left", () => {
+    // the container takes what the stage has left; the box shrinks into it before the stage scrolls
+    const fit = ruleFor(".plan-fit", plan);
+    expect(fit).toMatch(/container-type:\s*size/);
+    expect(fit).toMatch(/min-height:\s*0/);
+    // as tall as the box at the stage's width, up to the box at full size, so the caption sits
+    // under it; shrinking, never growing
+    expect(fit).toMatch(/flex:\s*0 1 auto/);
+    expect(fit).toMatch(/aspect-ratio:\s*var\(--box-w\) \/ var\(--box-l\)/);
+    expect(fit).toMatch(/max-height:\s*calc\(570px/);
+    expect(fit).toMatch(/display:\s*grid/);
+    expect(fit).toMatch(/place-items:\s*center/);
+    const col = ruleFor(".ws-stage > .plan-col", workspace);
+    expect(col).toMatch(/flex:\s*1 1 auto/);
+    expect(col).toMatch(/min-height:\s*0/);
+    // no floor under it: the 24 rem of the old layout is gone
+    expect(workspace).not.toMatch(/24rem/);
+    // the box: Main's 582 px, or less
+    expect(ruleFor(".plan-box", plan)).toMatch(/--side:\s*min\(582px,\s*100cqw,\s*100cqh\)/);
+    expect(ruleFor(".plan-box", plan)).toMatch(/border-radius:\s*var\(--r-panel\)/);
+    expect(ruleFor(".plan-box", plan)).toMatch(/box-shadow:\s*var\(--box-inset-plan\)/);
+    // a phone: the page's width less 16 px a side, radius 14, and the frame sets no height cap
+    const phone = mediaBlock("(width < 760px)", plan);
+    expect(ruleFor(".plan-box", phone)).toMatch(/--side:\s*calc\(100vw - 32px\)/);
+    expect(ruleFor(".plan-box", phone)).toMatch(/border-radius:\s*var\(--r-card\)/);
+    expect(ruleFor(".plan-fit", phone)).toMatch(/container-type:\s*normal/);
+    expect(ruleFor(".plan-fit", phone)).toMatch(/max-height:\s*none/);
+    // dimming: every other tile at half, with a short fade that reduced motion drops
+    expect(ruleFor(".plan-tile.is-dimmed", plan)).toMatch(/opacity:\s*0\.5/);
+    expect(ruleFor(".plan-tile", plan)).toMatch(/transition:\s*opacity 180ms,\s*box-shadow 180ms/);
+    expect(ruleFor(".plan-tile", mediaBlock("(prefers-reduced-motion: reduce)", plan))).toMatch(
+      /transition:\s*none/,
+    );
+  });
+
+  it("draws a phone's tiles plain: a smaller pill, no cells, no padding", () => {
+    const phone = mediaBlock("(width < 760px)", plan);
+    expect(ruleFor(".plan-cells", phone)).toMatch(/display:\s*none/);
+    expect(ruleFor(".plan-tile", phone)).toMatch(/padding:\s*0/);
+    expect(ruleFor(".plan-pill", phone)).toMatch(/padding:\s*2px 7px/);
+    expect(ruleFor(".plan-pill", phone)).toMatch(/font-size:\s*var\(--text-2xs\)/);
+  });
+
+  it("draws a tile 3 px inside its footprint, 10 px round, with 8 px of padding", () => {
+    const tile = ruleFor(".plan-tile", plan);
+    expect(tile).toMatch(/left:\s*calc\(var\(--x\) \+ 3px\)/);
+    expect(tile).toMatch(/width:\s*calc\(var\(--w\) - 6px\)/);
+    expect(tile).toMatch(/border-radius:\s*var\(--r-tile\)/);
+    expect(tile).toMatch(/padding:\s*var\(--s-8\)/);
+    expect(ruleFor(".plan-floor", plan)).toMatch(/inset:\s*6px/);
   });
 
   it("gives the Layer and View segments a 44 px target", () => {

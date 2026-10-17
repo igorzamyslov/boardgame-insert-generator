@@ -50,7 +50,8 @@ a commit can rewrite your files. Node version: `.nvmrc` (24).
   the download panel, and colour and identity (`identity.ts`). `screens/` holds the workspace
   shell, the header, the rail and the top of the stage (`StageTop.tsx`: the status heading, the
   switches and the plan banner; `StageNotes.tsx`; `RunAnnouncer.tsx`).
-- `plan/` is the SVG top view, `viewer/` the three.js view (`scene.ts` loads lazily).
+- `plan/` is the top view (a box frame of HTML tiles), `viewer/` the three.js view in the same frame
+  (`scene.ts` loads lazily).
 - `instructions/` handles tray names (`naming.ts`), part ids (`numbering.ts`), the packing
   guide and the PNG.
 - `share/` holds the local project store, JSON files, printer prefs and the reader for old
@@ -81,7 +82,7 @@ runner accepts → project.layout (StoredLayout: TraySpec[]), joins the edit's H
   │  lockConflicts non-empty → NOT accepted; old plan + every pin stay; state.lockConflicts set
   ▼
 printableParts(layout.trays, …) (layout/printable.ts): risers split, spacers opened, parts merged
-  ├──► plan/PlanView.tsx (SVG)      names: instructions/naming.ts trayNames(numberParts(…))
+  ├──► plan/PlanView.tsx (HTML)     names: instructions/naming.ts trayNames(numberParts(…))
   ├──► viewer/Viewer.tsx (three.js) colours: shadeHex via viewer/shades.ts
   └──► meshes: app/meshes.ts cache, key JSON.stringify([spec, settings])
            └─► geometry worker (geometry/client.ts → worker.ts, manifold WASM)
@@ -301,9 +302,9 @@ scheme)`, with `"light"` for paper. `viewer/shades.ts` and `plan/glyph.ts` go th
   `src/app/test-app.tsx`. It wires a real store with a stubbed layout client, a stubbed mesh
   source and `viewerProps={{ webgl: () => false }}`. Use `fixtureProject`, `makeTray`,
   `makeLayout`, `makeResult`, `stubLayoutClient` and `flush` from `src/app/test-helpers.ts`.
-  Find plan tiles with a `tile(key)` helper (`.plan-tray[data-key=…]`, as in `App.test.tsx`).
-- MUST prefer `getByRole(…, { name })` queries. Fall back to `data-key` or classes only for SVG
-  tiles and other things with no role.
+  Find plan tiles with a `tile(key)` helper (`.plan-tile[data-key=…]`, as in `App.test.tsx`).
+- MUST prefer `getByRole(…, { name })` queries. Fall back to `data-key` or classes only for plan
+  tiles' parts and other things with no role.
 - MUST name keyboard tests honestly. If the test says "keyboard", it must fire real key events
   (`fireEvent.keyDown(tile, { key: " " })`) and assert the tab stop (`tabindex="0"`). Clicking a
   button covers Enter and Space on that button and is fine, but don't call a click test a
@@ -367,11 +368,12 @@ Each entry reads: symptom → cause → what to do.
 
 **SVG `tabIndex` is not a tab stop.**
 Plan tiles couldn't be reached with Tab even though the code said `tabIndex={0}` (this shipped
-in P2 Task 7 and was caught in P2 Task 8).
+in P2 Task 7 and was caught in P2 Task 8; the plan's tiles are HTML since the UI rebuild's Task 7,
+where `tabIndex` is right, but the lesson stands for any SVG).
 → Preact 11 passes SVG prop names to `setAttribute` as written. SVG attributes are case-sensitive,
 so `tabIndex` on `<g>` renders a literal `tabIndex` attribute that the browser ignores.
-→ Write `tabindex={0}` on SVG elements (`plan/PlanView.tsx`, with a comment). The same goes for
-any camelCase prop on SVG that isn't a real SVG attribute.
+→ Write `tabindex={0}` on SVG elements. The same goes for any camelCase prop on SVG that isn't a
+real SVG attribute.
 
 **`onFocusOut` never fires.**
 → Preact derives the DOM event name from the prop and listens for a `FocusOut` event, which
@@ -389,10 +391,11 @@ Record<string, unknown>;` then `<main {...behindSheet}>` (`app/App.tsx`).
 → Call it as `el.scrollIntoView?.({ block: "nearest" })` in app code (`App.tsx`). To assert on
 it, stub `Element.prototype.scrollIntoView` and delete it afterwards (`App.phone.test.tsx`).
 
-**Focus assertions on SVG tiles fail.**
-→ jsdom gives SVG elements no `focus()`.
-→ Stub it on the instance: `(tile(key) as unknown as { focus: () => void }).focus = vi.fn()`
-(`App.test.tsx`). Say in the report that real focus wasn't checked.
+**Focus assertions on SVG elements fail.**
+→ jsdom gives SVG elements no `focus()`. (The plan's tiles are HTML now and have one; a test may
+still stub it on the instance, as `App.test.tsx` does:
+`(tile(key) as unknown as { focus: () => void }).focus = vi.fn()`.) Say in the report that real
+focus wasn't checked.
 
 **`:focus-visible` styling or logic can't be tested.**
 → jsdom doesn't match `:focus-visible`.
@@ -402,10 +405,10 @@ it, stub `Element.prototype.scrollIntoView` and delete it afterwards (`App.phone
 **Text overflows its pill, or tests can't tell whether it fits.**
 → jsdom has no layout or text measurement, and `getBBox` and `getComputedTextLength` don't
 exist.
-→ Estimate the width (`CHAR_WIDTH = 0.6` em in `plan/tileText.ts`) and clip the text to the
-pill with a `<clipPath>` so a bad estimate can't paint outside (`PlanView.tsx`). Cut names by
-grapheme with `Intl.Segmenter` (with an `Array.from` fallback) so an emoji or combining accent is
-never split.
+→ Estimate the width (`CHAR_WIDTH = 0.5` em in `plan/tileText.ts`, from the tile's measured px)
+and let the pill's CSS (`overflow: hidden; text-overflow: ellipsis`) catch what a bad estimate lets
+through (`plan.css`). Cut names by grapheme with `Intl.Segmenter` (with an `Array.from` fallback)
+so an emoji or combining accent is never split.
 
 **A media-query behaviour has no test.**
 → jsdom has no `matchMedia`, and CSS media queries never apply.

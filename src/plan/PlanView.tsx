@@ -1,24 +1,27 @@
 // src/plan/PlanView.tsx
-import type { ComponentChildren, JSX, TargetedPointerEvent } from "preact";
+import { Fragment } from "preact";
+import type { ComponentChildren, TargetedPointerEvent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isLockable } from "../app/actions";
 import { trayNames } from "../instructions/naming";
 import { numberParts, partsByKey } from "../instructions/numbering";
+import { Icon, KindGlyph } from "../kit";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
-import { KIND_GLYPHS } from "../ui/kindGlyphs";
+import { hoveredComponent } from "../screens/hover";
+import { StageSlot } from "../screens/StageSlot";
+import { componentIndexOfTray } from "../ui/identity";
+import { PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import {
-  clientToSvg,
   footprintsAt,
   hitTest,
   largestOf,
   levelsOf,
   planFrame,
-  planViewBox,
   toSvgRect,
   traysAt,
 } from "./layers";
 import { lookOfTray } from "./glyph";
-import { layoutTileText, sizeText } from "./tileText";
+import { DESKTOP_PILL, PHONE_PILL, pillName } from "./tileText";
 import "./plan.css";
 
 export const DRAG_THRESHOLD_PX = 6;
@@ -35,9 +38,11 @@ export interface PlanViewProps {
   onSwap: (keyA: string, keyB: string) => void;
   /** trayKeys with a size lock (shown as "size locked" on the tray). */
   sizeLockedKeys: ReadonlySet<string>;
-  /** The inputs no longer match the layout: the plan is greyed out. */
+  /** The inputs no longer match the layout. Main draws the plan as it is under its banner. */
   stale?: boolean;
-  /** The tray bar, shown under the plan while a tray is selected (the app owns it). */
+  /** A search is running: the trays that are not pinned are dimmed, as Main draws it. */
+  searching?: boolean;
+  /** The tray bar, shown in the slot above the box while a tray is selected (the app owns it). */
   bar?: ComponentChildren;
   /** Index of the layer shown (0 = the bottom layer); the app owns it. Clamped to the layers there are. */
   level: number;
@@ -57,9 +62,11 @@ function trayLabel(name: string, layer: number, pinned: boolean, sizeLocked: boo
   return `${name}, layer ${layer}${pinned ? ", pinned" : ""}${sizeLocked ? ", size locked" : ""}`;
 }
 
-/** Side of a tile's kind glyph, in SVG units, and the room it needs. */
-const GLYPH_SIZE = 6;
-const GLYPH_MIN_TILE = 14;
+/** The floor's width at Main's full size (a 582 px box less its 6 px floor inset each side), and a phone's before it is measured. */
+const FLOOR_PX = 570;
+const PHONE_FLOOR_PX = 346;
+/** A tile is drawn 3 px inside its footprint, so neighbours are 6 px apart (Main). */
+const TILE_GAP_PX = 6;
 
 interface Drag {
   key: string;
@@ -85,7 +92,9 @@ function isFocusVisible(el: Element): boolean {
   }
 }
 
-type SvgPointer = TargetedPointerEvent<SVGSVGElement>;
+type BoxPointer = TargetedPointerEvent<HTMLDivElement>;
+
+const pct = (v: number): string => `${Math.round(v * 10000) / 10000}%`;
 
 export function PlanView(props: PlanViewProps) {
   const {
@@ -104,7 +113,6 @@ export function PlanView(props: PlanViewProps) {
   const levels = levelsOf(trays);
   const idx = Math.max(0, Math.min(props.level, levels.length - 1));
   const level = levels[idx] ?? 0;
-  const belowLevel = idx > 0 ? levels[idx - 1] : undefined;
   // The app keeps the layer: bring it back in range when the layers shrink.
   useEffect(() => {
     if (props.level !== idx) {
@@ -118,6 +126,7 @@ export function PlanView(props: PlanViewProps) {
       setSwapFrom(null);
     }
   }, [selectedKey, swapFrom]);
+  const phone = useMediaQuery(PHONE_QUERY);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
   const [swapRefused, setSwapRefused] = useState(false);
@@ -129,22 +138,82 @@ export function PlanView(props: PlanViewProps) {
   }, [swapFrom]);
   /** Why a drag cannot swap (or did not), shown next to the plan, not only as a tooltip. */
   const [dragNote, setDragNote] = useState<string | null>(null);
-  /** The tray with the keyboard focus ring (drawn last so no neighbour paints over it). */
+  /** The tray the pointer is on, and the tray with the keyboard focus ring: both light their component. */
+  const [hoverKey, setHoverKey] = useState<string | null>(null);
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  /** The floor's width in px, for cutting names to their tiles; measured once the box is laid out. */
+  const [floorPx, setFloorPx] = useState(phone ? PHONE_FLOOR_PX : FLOOR_PX);
   const dragRef = useRef<Drag | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
+  const floorRef = useRef<HTMLDivElement>(null);
+  /** The component this view last pointed the rail at, so leaving (or going away) can clear it. */
+  const pointedAt = useRef<string | null>(null);
+
+  useEffect(() => {
+    const floor = floorRef.current;
+    if (!floor || typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+    const read = (): void => {
+      const w = floor.getBoundingClientRect().width;
+      if (w > 0) {
+        setFloorPx(w);
+      }
+    };
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(floor);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(
+    () => () => {
+      if (pointedAt.current !== null && hoveredComponent.peek() === pointedAt.current) {
+        hoveredComponent.value = null;
+      }
+    },
+    [],
+  );
 
   const frame = planFrame(box, settings);
-  const vb = planViewBox(frame);
   const numbered = numberParts(trays);
   const byKey = partsByKey(numbered);
-  const names = trayNames(numbered, props.components ?? []);
-  const shown = traysAt(trays, level);
-  const below = belowLevel === undefined ? [] : traysAt(trays, belowLevel);
   const components = props.components ?? [];
+  const names = trayNames(numbered, components);
+  const shown = traysAt(trays, level);
   const rects = shown.flatMap((t) =>
     footprintsAt(t, level).map((f) => ({ key: t.key, rect: toSvgRect(f, frame) })),
   );
+  const pillType = phone ? PHONE_PILL : DESKTOP_PILL;
+  const pxPerMm = floorPx / frame.innerW;
+
+  /** What a tray is lit with: its component's id, or its own key when it holds none (a spacer). */
+  function identityOf(key: string | null): string | null {
+    const t = key === null ? undefined : trays.find((s) => s.key === key);
+    if (!t) {
+      return null;
+    }
+    const i = componentIndexOfTray(t, components);
+    return (i === null ? undefined : components[i]?.id) ?? t.key;
+  }
+
+  /** Points the rail at the tray's component (or takes it away). */
+  function light(key: string | null, on: boolean): void {
+    const id = identityOf(key);
+    const comp = id !== null && id !== key ? id : null;
+    if (on && comp !== null) {
+      pointedAt.current = comp;
+      hoveredComponent.value = comp;
+    } else if (!on && comp !== null && hoveredComponent.peek() === comp) {
+      hoveredComponent.value = null;
+    }
+  }
+
+  // The component being pointed at (the rail's row, a tray, the keyboard focus), else the
+  // selected tray's: its trays stay lit and the rest dim. A search lights the pinned trays only.
+  const searching = props.searching === true;
+  const railId = hoveredComponent.value;
+  const active = railId ?? identityOf(hoverKey) ?? identityOf(focusKey) ?? identityOf(selectedKey);
+  const lightsSome =
+    !searching && active !== null && shown.some((t) => identityOf(t.key) === active);
 
   function swappable(key: string | null): boolean {
     const part = key === null ? undefined : byKey.get(key);
@@ -170,12 +239,20 @@ export function PlanView(props: PlanViewProps) {
   }
 
   function keyAt(clientX: number, clientY: number): string | null {
-    const svg = svgRef.current;
-    if (!svg) {
+    const floor = floorRef.current;
+    if (!floor) {
       return null;
     }
-    const p = clientToSvg(svg.getBoundingClientRect(), vb, clientX, clientY);
-    return p ? hitTest(rects, p) : null;
+    const r = floor.getBoundingClientRect();
+    if (!(r.width > 0 && r.height > 0)) {
+      return null;
+    }
+    // client pixels → the plan's mm (the floor is the box's inside; the plan starts the clearance in)
+    const p = {
+      x: ((clientX - r.left) / r.width) * frame.innerW - frame.bc,
+      y: ((clientY - r.top) / r.height) * frame.innerD - frame.bc,
+    };
+    return hitTest(rects, p);
   }
 
   function clearSwap(): void {
@@ -190,7 +267,7 @@ export function PlanView(props: PlanViewProps) {
     setDropKey(null);
   }
 
-  const onPointerDown = (e: SvgPointer): void => {
+  const onPointerDown = (e: BoxPointer): void => {
     if (e.button !== 0) {
       return;
     }
@@ -203,15 +280,15 @@ export function PlanView(props: PlanViewProps) {
       endDrag();
     }
     setDragNote(null);
-    const target = e.target instanceof Element ? e.target.closest("[data-key]") : null;
-    const key = target?.getAttribute("data-key") ?? null;
+    const target = e.target instanceof Element ? e.target.closest("[data-key], [data-of]") : null;
+    const key = target?.getAttribute("data-key") ?? target?.getAttribute("data-of") ?? null;
     if (key === null) {
       return;
     }
-    const svg = e.currentTarget;
-    if ("setPointerCapture" in svg) {
+    const surface = e.currentTarget;
+    if ("setPointerCapture" in surface) {
       try {
-        svg.setPointerCapture(e.pointerId);
+        surface.setPointerCapture(e.pointerId);
       } catch {
         // Capture is a nicety; the drag still works without it.
       }
@@ -226,7 +303,7 @@ export function PlanView(props: PlanViewProps) {
     };
   };
 
-  const onPointerMove = (e: SvgPointer): void => {
+  const onPointerMove = (e: BoxPointer): void => {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) {
       return;
@@ -249,7 +326,7 @@ export function PlanView(props: PlanViewProps) {
     }
   };
 
-  const onPointerUp = (e: SvgPointer): void => {
+  const onPointerUp = (e: BoxPointer): void => {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) {
       return;
@@ -282,7 +359,7 @@ export function PlanView(props: PlanViewProps) {
     }
   };
 
-  // Escape works wherever the focus is inside the plan (a tray, a button, the layer picker).
+  // Escape works wherever the focus is inside the plan (a tray, a button, the tray bar).
   const onPlanKeyDown = (e: { key: string }): void => {
     if (e.key === "Escape") {
       clearSwap();
@@ -290,233 +367,200 @@ export function PlanView(props: PlanViewProps) {
     }
   };
 
-  const onPointerCancel = (e: SvgPointer): void => {
+  const onPointerCancel = (e: BoxPointer): void => {
     if (dragRef.current?.pointerId === e.pointerId) {
       endDrag();
       setDragNote(null);
     }
   };
 
-  const stale = props.stale === true;
-
-  /** A ring drawn above every tile (SVG has no z-index), so a neighbour never covers it. */
-  function ringOf(key: string | null, cls: string): JSX.Element | null {
-    const t = key === null ? undefined : shown.find((s) => s.key === key);
-    if (!t) {
-      return null;
-    }
-    return (
-      <>
-        {footprintsAt(t, level).map((f, i) => {
-          const r = toSvgRect(f, frame);
-          return (
-            <rect
-              key={i}
-              class={`plan-ring ${cls}`}
-              aria-hidden="true"
-              x={r.x}
-              y={r.y}
-              width={r.w}
-              height={r.h}
-              rx={Math.max(0, Math.min(settings.cornerRadius, r.w / 4, r.h / 4))}
-            />
-          );
-        })}
-      </>
-    );
-  }
+  const message =
+    swapFrom !== null
+      ? swapRefused
+        ? "Spare trays and spacers can't be swapped. Choose another tray, or press Escape."
+        : "Choose the tray to swap with, or press Escape."
+      : dragNote;
+  const hasBar = props.bar !== undefined && props.bar !== null && props.bar !== false;
 
   return (
     <div class="plan" onKeyDown={onPlanKeyDown}>
-      <svg
-        ref={svgRef}
-        class={stale ? "plan-svg is-stale" : "plan-svg"}
-        viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
-        role="group"
-        aria-label={`Plan of layer ${idx + 1} of ${Math.max(1, levels.length)}, seen from above, box front at the bottom`}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerCancel}
-        onLostPointerCapture={onPointerCancel}
+      <StageSlot
+        idle={phone && !hasBar && message === null}
+        quiet={message !== null}
+        live={
+          // always mounted, so a reader hears a note arrive
+          <div role="status">
+            {swapFrom !== null ? (
+              <p>{message}</p>
+            ) : dragNote !== null ? (
+              <p class="plan-note">{dragNote}</p>
+            ) : null}
+          </div>
+        }
       >
-        <defs>
-          <pattern
-            id="plan-hatch"
-            width="3"
-            height="3"
-            patternUnits="userSpaceOnUse"
-            patternTransform="rotate(45)"
-          >
-            <rect class="plan-hatch-ground" width="3" height="3" />
-            <line class="plan-hatch-line" x1="0" y1="0" x2="0" y2="3" />
-          </pattern>
-        </defs>
-        <rect
+        {props.bar}
+      </StageSlot>
+      <div
+        class="plan-fit"
+        style={{ "--box-w": String(frame.innerW), "--box-l": String(frame.innerD) }}
+      >
+        <div
           class="plan-box"
-          x={-frame.bc}
-          y={-frame.bc}
-          width={frame.innerW}
-          height={frame.innerD}
-        />
-        {below.flatMap((t) =>
-          footprintsAt(t, belowLevel ?? 0).map((f, i) => {
-            const r = toSvgRect(f, frame);
-            return (
-              <rect
-                key={`below-${t.key}-${i}`}
-                class="plan-below"
-                x={r.x}
-                y={r.y}
-                width={r.w}
-                height={r.h}
-              />
-            );
-          }),
-        )}
-        {shown.map((t, tileIndex) => {
-          const all = footprintsAt(t, level).map((f) => toSvgRect(f, frame));
-          const r = largestOf(all) ?? toSvgRect(t, frame);
-          const name = names.get(t.key)?.full ?? t.key;
-          const locked = lockedKeys.has(t.key);
-          const sizeLocked = sizeLockedKeys.has(t.key);
-          const look = lookOfTray(t, components);
-          const text = layoutTileText(r, name, sizeText(t.w, t.d));
-          const cls = [
-            "plan-tray",
-            t.part === "leftover" ? "is-leftover" : "",
-            t.key === selectedKey ? "is-selected" : "",
-            t.key === dropKey ? "is-drop" : "",
-            t.key === dragKey || t.key === swapFrom ? "is-source" : "",
-            locked ? "is-locked" : "",
-            sizeLocked ? "is-size-locked" : "",
-          ]
-            .filter((c) => c !== "")
-            .join(" ");
-          // The kind icon says what a tray holds when you point at it: the selected tray and the
-          // one with the keyboard focus. Every tray carrying one all the time is noise.
-          const glyph =
-            look !== null &&
-            (t.key === selectedKey || t.key === focusKey) &&
-            r.w >= GLYPH_MIN_TILE &&
-            r.h >= GLYPH_MIN_TILE
-              ? KIND_GLYPHS[look.kind]
-              : null;
-          return (
-            <g
-              key={t.key}
-              data-key={t.key}
-              class={cls}
-              style={
+          data-region="plan-box"
+          role="group"
+          aria-label={`Plan of layer ${idx + 1} of ${Math.max(1, levels.length)}, seen from above, box front at the bottom`}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
+          onLostPointerCapture={onPointerCancel}
+        >
+          <div class="plan-floor" ref={floorRef}>
+            {shown.map((t) => {
+              const all = footprintsAt(t, level).map((f) => toSvgRect(f, frame));
+              const r = largestOf(all) ?? toSvgRect(t, frame);
+              const name = names.get(t.key)?.full ?? t.key;
+              const locked = lockedKeys.has(t.key);
+              const sizeLocked = sizeLockedKeys.has(t.key);
+              const look = lookOfTray(t, components);
+              const identity = identityOf(t.key);
+              const lit = lightsSome && identity === active;
+              const dimmed = searching ? !locked : lightsSome && identity !== active;
+              // The kind icon says what a tray holds when you point at it: the lit trays.
+              const icon = look !== null && lit;
+              const text = pillName(
+                name,
+                { w: r.w * pxPerMm - TILE_GAP_PX, h: r.h * pxPerMm - TILE_GAP_PX },
+                pillType,
+                icon,
+              );
+              const cls = [
+                "plan-tile",
+                t.part === "leftover" ? "is-leftover" : "",
+                t.key === selectedKey ? "is-selected" : "",
+                dimmed ? "is-dimmed" : "",
+                t.key === dropKey ? "is-drop" : "",
+                t.key === dragKey || t.key === swapFrom ? "is-source" : "",
+                locked ? "is-locked" : "",
+                sizeLocked ? "is-size-locked" : "",
+              ]
+                .filter((c) => c !== "")
+                .join(" ");
+              const shade =
                 look === null
-                  ? undefined
+                  ? {}
                   : {
                       "--tile-fill": look.shade.fill,
                       "--tile-line": look.shade.line,
                       "--tile-ink": look.shade.ink,
-                    }
-              }
-              role="button"
-              // Lower case: an SVG attribute is case-sensitive, and `tabIndex` there is no tab stop.
-              tabindex={0}
-              aria-pressed={t.key === selectedKey}
-              aria-label={trayLabel(name, idx + 1, locked, sizeLocked)}
-              onKeyDown={(e) => onKeyDown(e, t.key)}
-              onFocus={(e) => {
-                setFocusKey(isFocusVisible(e.currentTarget) ? t.key : null);
-              }}
-              onBlur={() => setFocusKey((k) => (k === t.key ? null : k))}
-            >
-              <title>{name}</title>
-              {all.map((a, i) => (
-                <rect
-                  key={i}
-                  class="plan-face"
-                  x={a.x}
-                  y={a.y}
-                  width={a.w}
-                  height={a.h}
-                  rx={Math.max(0, Math.min(settings.cornerRadius, a.w / 4, a.h / 4))}
-                />
-              ))}
-              {text.pill ? (
-                <rect
-                  class="plan-pill"
-                  aria-hidden="true"
-                  x={text.pill.x}
-                  y={text.pill.y}
-                  width={text.pill.w}
-                  height={text.pill.h}
-                  rx={text.pill.h / 2}
-                />
-              ) : null}
-              {text.pill ? (
-                <clipPath id={`plan-clip-${tileIndex}`}>
-                  <rect
-                    x={text.pill.x}
-                    y={text.pill.y}
-                    width={text.pill.w}
-                    height={text.pill.h}
-                    rx={text.pill.h / 2}
-                  />
-                </clipPath>
-              ) : null}
-              {text.name ? (
-                <text
-                  class="plan-name"
-                  aria-hidden="true"
-                  clip-path={`url(#plan-clip-${tileIndex})`}
-                  x={r.x + r.w / 2}
-                  y={text.name.y}
-                  style={{ fontSize: `${text.fontSize}px` }}
-                >
-                  {text.name.text}
-                </text>
-              ) : null}
-              {text.size ? (
-                <text
-                  class="plan-size"
-                  aria-hidden="true"
-                  x={r.x + r.w / 2}
-                  y={text.size.y}
-                  style={{ fontSize: `${text.sizeFontSize}px` }}
-                >
-                  {text.size.text}
-                </text>
-              ) : null}
-              {glyph ? (
-                <g
-                  class="plan-glyph"
-                  aria-hidden="true"
-                  transform={`translate(${r.x + 2} ${r.y + 2}) scale(${GLYPH_SIZE / 24})`}
-                >
-                  {glyph}
-                </g>
-              ) : null}
-              {locked ? (
-                <text
-                  class="plan-lock plan-lock--end"
-                  aria-hidden="true"
-                  x={r.x + r.w - 2}
-                  y={r.y + 5}
-                >
-                  pinned
-                </text>
-              ) : null}
-              {sizeLocked ? (
-                <text class="plan-lock" aria-hidden="true" x={r.x + 2} y={r.y + r.h - 5}>
-                  size locked
-                </text>
-              ) : null}
-            </g>
-          );
-        })}
-        {ringOf(selectedKey, "is-selected")}
-        {ringOf(focusKey, "is-focus")}
-        <text class="plan-front" x={frame.usableW / 2} y={frame.usableD + frame.bc + 9}>
-          FRONT
-        </text>
-      </svg>
+                    };
+              // A footprint's place in the floor, as shares of the box's inside (the tile is drawn 3 px in).
+              const place = (a: { x: number; y: number; w: number; h: number }) => ({
+                "--x": pct(((frame.bc + a.x) / frame.innerW) * 100),
+                "--y": pct(((frame.bc + a.y) / frame.innerD) * 100),
+                "--w": pct((a.w / frame.innerW) * 100),
+                "--d": pct((a.h / frame.innerD) * 100),
+              });
+              const selected = t.key === selectedKey;
+              return (
+                <Fragment key={t.key}>
+                  {all
+                    .filter((a) => a !== r)
+                    .map((a, i) => (
+                      <div
+                        key={`${t.key}:${i}`}
+                        data-of={t.key}
+                        aria-hidden="true"
+                        class={cls}
+                        style={{ ...shade, ...place(a) }}
+                      />
+                    ))}
+                  <div
+                    key={t.key}
+                    data-key={t.key}
+                    class={cls}
+                    style={{ ...shade, ...place(r) }}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={selected}
+                    aria-label={trayLabel(name, idx + 1, locked, sizeLocked)}
+                    title={name}
+                    onKeyDown={(e) => onKeyDown(e, t.key)}
+                    onFocus={(e) => {
+                      if (isFocusVisible(e.currentTarget)) {
+                        setFocusKey(t.key);
+                        light(t.key, true);
+                      }
+                    }}
+                    onBlur={() => {
+                      setFocusKey((k) => (k === t.key ? null : k));
+                      light(t.key, false);
+                    }}
+                    onPointerEnter={(e) => {
+                      // a touch has no hover: the tap that follows selects
+                      if (e.pointerType !== "touch") {
+                        setHoverKey(t.key);
+                        light(t.key, true);
+                      }
+                    }}
+                    onPointerLeave={() => {
+                      setHoverKey((k) => (k === t.key ? null : k));
+                      light(t.key, false);
+                    }}
+                  >
+                    {look !== null && t.part === "tray" && t.compartments.length > 0 ? (
+                      <div class="plan-cells" aria-hidden="true">
+                        {t.compartments.map((c, i) => (
+                          <span
+                            key={i}
+                            class="plan-cell"
+                            style={{
+                              // tray-local, y from the front: the front is the bottom of the tile
+                              left: pct((c.x / t.w) * 100),
+                              top: pct(((t.d - c.y - c.d) / t.d) * 100),
+                              width: pct((c.w / t.w) * 100),
+                              height: pct((c.d / t.d) * 100),
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                    {text !== null ? (
+                      <span class="plan-center" aria-hidden="true">
+                        <span class="plan-pill">
+                          {icon && look !== null ? (
+                            <KindGlyph kind={look.kind} size={pillType.icon} />
+                          ) : null}
+                          <span class="plan-name">{text}</span>
+                        </span>
+                      </span>
+                    ) : null}
+                    {locked ? (
+                      <span class="plan-badge" role="img" aria-label="Pinned">
+                        <Icon name="pin" size={13} />
+                      </span>
+                    ) : null}
+                    {locked && t.rotated ? <span class="plan-tag">Turned</span> : null}
+                  </div>
+                </Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <p class="plan-caption">
+        {phone ? (
+          "Front of the box"
+        ) : (
+          <>
+            {`${layerLabel(idx, levels.length)}, seen from above. Front of the box`}
+            <Icon name="arrow-down" size={12} />
+          </>
+        )}
+      </p>
+      {lockedKeys.size > 0 ? (
+        <p class="plan-pins">Spacers fill the gaps again when the plan updates.</p>
+      ) : null}
       <ul class="visually-hidden" aria-label={`Trays on layer ${idx + 1}`}>
         {shown.map((t) => (
           <li key={t.key}>
@@ -524,21 +568,6 @@ export function PlanView(props: PlanViewProps) {
           </li>
         ))}
       </ul>
-      <div class="plan-toolbar">
-        {/* always mounted, so a reader hears a note arrive */}
-        <div role="status">
-          {swapFrom !== null ? (
-            <p>
-              {swapRefused
-                ? "Spare trays and spacers can't be swapped. Choose another tray, or press Escape."
-                : "Choose the tray to swap with, or press Escape."}
-            </p>
-          ) : dragNote !== null ? (
-            <p class="plan-note">{dragNote}</p>
-          ) : null}
-        </div>
-        {props.bar}
-      </div>
     </div>
   );
 }

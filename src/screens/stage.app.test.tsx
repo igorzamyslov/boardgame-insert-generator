@@ -10,11 +10,13 @@ import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { inputsHash } from "../model/hash";
 import type { Project } from "../model/types";
 import { loadSeed } from "../test-support/harbourKings";
+import { hoveredComponent } from "./hover";
 import { stageView } from "./stageView";
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  hoveredComponent.value = null;
 });
 
 const h1s = (): HTMLElement[] => screen.getAllByRole("heading", { level: 1 });
@@ -162,7 +164,7 @@ describe("the stage's top, in the app", () => {
     const list = await screen.findByRole("list", { name: "Layout messages" });
     expect(list.querySelectorAll("li")).toHaveLength(3);
     // under the plan, not above it
-    const plan = stage().querySelector(".pf-view") as Element;
+    const plan = stage().querySelector(".plan-col") as Element;
     expect(plan.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Show all" }));
     expect(list.querySelectorAll("li")).toHaveLength(5);
@@ -177,11 +179,11 @@ describe("the stage's top, in the app", () => {
           .getAllByRole("button")
           .map((b) => b.textContent),
       ).toEqual(["Layer 1 (bottom) · 40 mm", "Layer 2 (top) · 26 mm"]);
-      expect(document.querySelector('.plan-tray[data-key="a:p0:0"]')).not.toBeNull();
-      expect(document.querySelector('.plan-tray[data-key="b:p0:0"]')).toBeNull();
+      expect(document.querySelector('.plan-tile[data-key="a:p0:0"]')).not.toBeNull();
+      expect(document.querySelector('.plan-tile[data-key="b:p0:0"]')).toBeNull();
       fireEvent.click(within(group).getByRole("button", { name: "Layer 2 (top) · 26 mm" }));
-      expect(document.querySelector('.plan-tray[data-key="b:p0:0"]')).not.toBeNull();
-      expect(document.querySelector('.plan-tray[data-key="a:p0:0"]')).toBeNull();
+      expect(document.querySelector('.plan-tile[data-key="b:p0:0"]')).not.toBeNull();
+      expect(document.querySelector('.plan-tile[data-key="a:p0:0"]')).toBeNull();
     });
 
     it("labels add up to the status height, on the Harbour Kings plan", () => {
@@ -243,5 +245,98 @@ describe("the stage's top, in the app", () => {
       fireEvent.click(screen.getByRole("button", { name: "Make a new plan" }));
       expect(refit).toHaveBeenCalled();
     });
+  });
+});
+
+describe("the plan's column, in the app", () => {
+  const plan = (): HTMLElement => stage().querySelector<HTMLElement>(".plan-col") as HTMLElement;
+
+  it("is the slot, the box's frame and its caption, then the notes, in the stage", () => {
+    const { project } = loadSeed("harbour-kings");
+    renderApp({ project });
+    expect(plan().getAttribute("data-region")).toBe("plan");
+    // `.plan` draws no box of its own (display: contents): its parts are the column's
+    const parts = plan().querySelector(":scope > .plan");
+    const kids = [...(parts?.children ?? [])].map((c) => c.getAttribute("class") ?? c.localName);
+    expect(kids.slice(0, 3)).toEqual(["stage-slot", "plan-fit", "plan-caption"]);
+    // the box is in the frame, and marked for the screenshots
+    expect(plan().querySelector(".plan-fit > .plan-box")?.getAttribute("data-region")).toBe(
+      "plan-box",
+    );
+    // the stage's children: the plan column is one of them, not a section inside a section
+    expect(plan().parentElement).toBe(stage());
+  });
+
+  it("draws the compartments of the Harbour Kings trays, where the engine put them", () => {
+    const { project } = loadSeed("harbour-kings");
+    renderApp({ project });
+    const trays = project.layout?.trays ?? [];
+    const onLayer = trays.filter((t) => t.part === "tray" && (t.level ?? 0) === 0);
+    expect(onLayer.length).toBeGreaterThan(3);
+    for (const t of onLayer) {
+      const tile = document.querySelector(`.plan-tile[data-key="${t.key}"]`);
+      expect(tile?.querySelectorAll(".plan-cell").length, t.key).toBe(t.compartments.length);
+    }
+    // the Starter decks tray holds two wells side by side
+    const starter = onLayer.find((t) => t.key.startsWith("starter"));
+    expect(starter?.compartments).toHaveLength(2);
+  });
+
+  it("lights a component's trays while the pointer is on its row, and dims the rest", () => {
+    const { project } = loadSeed("harbour-kings");
+    renderApp({ project });
+    const tiles = [...document.querySelectorAll(".plan-tile")];
+    expect(tiles.length).toBeGreaterThan(3);
+    expect(tiles.some((t) => t.classList.contains("is-dimmed"))).toBe(false);
+    const rail = screen.getByRole("complementary", { name: "What's inside" });
+    fireEvent.mouseEnter(within(rail).getByRole("button", { name: /^Heroes,/ }));
+    const lit = tiles.filter((t) => !t.classList.contains("is-dimmed"));
+    expect(lit).toHaveLength(1);
+    expect(lit[0]?.getAttribute("aria-label")).toMatch(/^Heroes/);
+    fireEvent.mouseLeave(within(rail).getByRole("button", { name: /^Heroes,/ }));
+    expect(tiles.some((t) => t.classList.contains("is-dimmed"))).toBe(false);
+  });
+
+  it("lights the row of the tray the pointer is on", () => {
+    const { project } = loadSeed("harbour-kings");
+    renderApp({ project });
+    const tile = screen.getByRole("button", { name: /^Heroes, layer 1/ });
+    fireEvent.pointerEnter(tile, { pointerType: "mouse" });
+    const rail = screen.getByRole("complementary", { name: "What's inside" });
+    expect(
+      within(rail)
+        .getByRole("button", { name: /^Heroes,/ })
+        .getAttribute("data-lit"),
+    ).toBe("true");
+    fireEvent.pointerLeave(tile, { pointerType: "mouse" });
+    expect(
+      within(rail)
+        .getByRole("button", { name: /^Heroes,/ })
+        .getAttribute("data-lit"),
+    ).toBe(null);
+  });
+
+  it("dims what is not pinned while a search runs", () => {
+    const { project } = loadSeed("harbour-kings");
+    const { store } = renderApp({ project });
+    act(() => {
+      store.state.run.value = { status: "running", done: 5, total: 100, kind: "improve" };
+    });
+    const tiles = [...document.querySelectorAll(".plan-tile")];
+    expect(tiles.length).toBeGreaterThan(3);
+    expect(tiles.every((t) => t.classList.contains("is-dimmed"))).toBe(true);
+  });
+
+  it("draws the 3D view in the same frame, under the same slot", () => {
+    const { project } = loadSeed("harbour-kings");
+    renderApp({ project, overrides: { viewerProps: { webgl: () => true } } });
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "3D" }),
+    );
+    const kids = [...plan().children].map((c) => c.getAttribute("class") ?? c.localName);
+    expect(kids.slice(0, 2)).toEqual(["stage-slot", "viewer"]);
+    expect(plan().querySelector(":scope > .viewer > .plan-fit")).not.toBeNull();
+    expect(plan().querySelector(".plan-fit > .viewer-stage .viewer-axes-toggle")).not.toBeNull();
+    expect(screen.getByText("Tap a tray for details.")).toBeTruthy();
   });
 });

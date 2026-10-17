@@ -49,12 +49,16 @@ The default out folder is `.superpowers/sdd/2026-10-16-ui-rebuild/shots/` (not c
   banner; a part neither side has is no row); `≠` marks a difference over 1 px, or a metric one
   side lacks.
 - `<state>.failed.png` when a step could not find its target; the state is then listed as FAILED.
+- A state may also fail for what it measures (`states.mjs`): `noPageScroll` (the page scrolls),
+  `noStageScroll` (the stage scrolls: the plan's box shrinks to what the stage has left, so on a
+  desktop it must not) and `minPlanWidth` (the plan's box is narrower than that many px at the
+  state's size).
 
 Board PNGs and seeds are committed; app shots are not, until the final pairs (Task 17) are.
 
 When `workspace` and `workspace-searching` both run, `scripts/design/jump.mjs` compares the header,
-the rail, the status row and the plan box (the `.pf-view` frame until Task 7 marks `plan-box`):
-none may move or change size by more than 1 px, or the run fails ("Keep searching" turning into
+the rail, the status row and the plan box (`data-region="plan-box"`): none may move or change
+size by more than 1 px, or the run fails ("Keep searching" turning into
 "Stop" must not shift the page).
 
 The board renderer adds `a{color:inherit}` ahead of a board's own styles: some boards have links
@@ -74,7 +78,7 @@ carries none of it, and `scripts/smoke-dist.mjs` fails if `__shotsHold` is found
 ## Adding a state
 
 Add it to `scripts/design/states.mjs`: its board (and the `boardOpts` that make the board show the
-same state), the viewport, a seed, and the steps. A step is a click on a role and name, a wait, or
-a key. A page other than the app's own is a `url` (`/kit.html`, the kit gallery), and a page that
+same state), the viewport, a seed, and the steps. A step is a click on a role and name, a wait for something
+to show (`waitFor`), a pause (`wait`: milliseconds) or a key. A page other than the app's own is a `url` (`/kit.html`, the kit gallery), and a page that
 scrolls is drawn whole with `fullPage: true`. Give the screen's regions `data-region` attributes as
 the screen is built.

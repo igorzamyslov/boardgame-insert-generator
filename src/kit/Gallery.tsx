@@ -213,6 +213,7 @@ function Rows() {
           name={r.name}
           meta={r.meta}
           selected={on === r.id}
+          lit={r.id === "coins"}
           onClick={() => setOn(r.id)}
           after={
             r.id === "market" ? (
@@ -493,7 +494,7 @@ export function Gallery() {
 
         <Section
           name="ListRow"
-          note="Main's list: selected, with a rule chip, and a long name on one line."
+          note="Main's list: selected, lit (Coins and cubes: its trays are being pointed at), with a rule chip, and a long name on one line."
         >
           <Rows />
         </Section>

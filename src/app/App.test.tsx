@@ -68,7 +68,7 @@ function withLayoutProject(): Project {
 
 /** A tray on the plan, by its key (trays are named, and the fixture's trays hold nothing to name them by). */
 function tile(key: string): Element {
-  return document.querySelector(`.plan-tray[data-key="${key}"]`) as Element;
+  return document.querySelector(`.plan-tile[data-key="${key}"]`) as Element;
 }
 
 /** The stage's View segment: "Top" shows the plan, "3D" the 3D view (only the chosen one is mounted). */
@@ -265,7 +265,7 @@ describe("App", () => {
     expect(screen.queryByRole("tablist")).toBeNull();
     openView("3D");
     expect(viewPressed("3D")).toBe(true);
-    expect(document.querySelector(".plan-tray")).toBeNull();
+    expect(document.querySelector(".plan-tile")).toBeNull();
     expect(screen.queryByRole("tab", { name: "Export" })).toBeNull();
     openExport();
     expect(screen.getByRole("dialog", { name: "Download" })).toBeTruthy();
@@ -1059,7 +1059,7 @@ describe("App", () => {
     };
     const banner = index(".app-notices");
     const status = index('[data-region="status"]');
-    const plan = index(".pf-view");
+    const plan = index(".plan-col");
     expect(banner).toBeGreaterThanOrEqual(0);
     expect(stage.querySelector(".app-notices .k-notice")).not.toBeNull();
     expect(status).toBeGreaterThan(banner);
@@ -1545,7 +1545,7 @@ describe("App", () => {
       fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
       expect(viewPressed("3D")).toBe(true);
       expect(store.state.selection.value).toBe("a:p0:0");
-      expect(document.querySelector(".plan-tray")).toBeNull();
+      expect(document.querySelector(".plan-tile")).toBeNull();
     });
 
     it("closes itself when another project is opened", async () => {
@@ -1650,9 +1650,7 @@ describe("App", () => {
     // A tray is in the Tab order, and Space or Enter on it selects it.
     const a = tile("a:p0:0");
     expect(a.getAttribute("role")).toBe("button");
-    // Lower-case `tabindex`: an SVG attribute is case-sensitive, and `tabIndex` there is no tab stop.
     expect(a.getAttribute("tabindex")).toBe("0");
-    expect(a.hasAttribute("tabIndex")).toBe(false);
     fireEvent.keyDown(a, { key: " " });
     expect(store.state.selection.value).toBe("a:p0:0");
     // Pin and Swap with… are buttons, so Enter or Space on them is a click.

@@ -42,10 +42,10 @@ export const REGIONS = {
   },
   // Main's banner: the status box above the heading row.
   banner: { board: (doc) => doc.querySelector('main > [role="status"]') },
-  // The first element in <main> sized by aspect-ratio: 1: the box frame.
+  // The first element sized by aspect-ratio: 1 (in <main>; a phone board has none): the box frame.
   "plan-box": {
     board: (doc) =>
-      Array.from(doc.querySelectorAll("main *")).find((el) =>
+      Array.from(doc.querySelectorAll(doc.querySelector("main") ? "main *" : "div")).find((el) =>
         /aspect-ratio:\s*1\b/.test(el.getAttribute("style") || ""),
       ) || null,
   },

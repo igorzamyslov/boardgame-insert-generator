@@ -496,8 +496,9 @@
     border-color 150ms;
 }
 
-/* The kind's fill at 40 %, and its line. */
-.k-row[aria-pressed="true"] {
+/* The kind's fill at 40 %, and its line: pressed, or lit while its trays are pointed at. */
+.k-row[aria-pressed="true"],
+.k-row[data-lit="true"] {
   --k-bg: color-mix(in srgb, var(--shade-fill, var(--kind-fill)) 40%, transparent);
 
   border-color: var(--shade-line, var(--kind-line));

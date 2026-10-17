@@ -4,7 +4,6 @@ import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import {
-  clientToSvg,
   footprintsAt,
   hitTest,
   largestOf,
@@ -33,19 +32,6 @@ describe("plan geometry", () => {
     const vb = planViewBox(f);
     expect(vb.x).toBeLessThan(-f.bc);
     expect(vb.y + vb.h).toBeGreaterThan(f.usableD + f.bc + 8);
-  });
-
-  it("maps client pixels to SVG units with letterboxing", () => {
-    const vb = { x: 0, y: 0, w: 200, h: 100 };
-    expect(clientToSvg({ left: 10, top: 20, width: 400, height: 200 }, vb, 210, 120)).toEqual({
-      x: 100,
-      y: 50,
-    });
-    expect(clientToSvg({ left: 0, top: 0, width: 400, height: 400 }, vb, 200, 200)).toEqual({
-      x: 100,
-      y: 50,
-    });
-    expect(clientToSvg({ left: 0, top: 0, width: 0, height: 0 }, vb, 1, 1)).toBeNull();
   });
 
   it("hit-tests rectangles, last drawn wins", () => {

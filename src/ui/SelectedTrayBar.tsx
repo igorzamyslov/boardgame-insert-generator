@@ -28,7 +28,7 @@ export interface SelectedTrayBarProps {
 
 /** Where the focus goes when the bar closes: the tray it was for, in whichever view shows it. */
 function focusTray(key: string, inPlan: boolean): void {
-  const selector = inPlan ? ".plan-tray" : ".tray-picker button";
+  const selector = inPlan ? ".plan-tile" : ".tray-picker button";
   const target = [...document.querySelectorAll<HTMLElement>(selector)].find(
     (el) => el.getAttribute("data-key") === key,
   );

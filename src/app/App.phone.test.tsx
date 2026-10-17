@@ -130,7 +130,7 @@ describe("the phone layout", () => {
   it("opens the sheet on the editor when a tray's Edit is pressed", async () => {
     phone();
     renderApp({ project: project() });
-    fireEvent.keyDown(document.querySelector('.plan-tray[data-key="m:p0:0"]') as Element, {
+    fireEvent.keyDown(document.querySelector('.plan-tile[data-key="m:p0:0"]') as Element, {
       key: "Enter",
     });
     fireEvent.click(
@@ -150,7 +150,7 @@ describe("the phone layout", () => {
     ];
 
     function openEditor(): void {
-      fireEvent.keyDown(document.querySelector('.plan-tray[data-key="m:p0:0"]') as Element, {
+      fireEvent.keyDown(document.querySelector('.plan-tile[data-key="m:p0:0"]') as Element, {
         key: "Enter",
       });
       fireEvent.click(
@@ -244,7 +244,7 @@ describe("the phone layout", () => {
     Element.prototype.scrollIntoView = scrollIntoView;
     renderApp({ project: project() });
     expect(scrollIntoView).not.toHaveBeenCalled();
-    fireEvent.keyDown(document.querySelector('.plan-tray[data-key="m:p0:0"]') as Element, {
+    fireEvent.keyDown(document.querySelector('.plan-tile[data-key="m:p0:0"]') as Element, {
       key: "Enter",
     });
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });

@@ -5,6 +5,7 @@ import { requirementKey } from "../../app/actions";
 import { ListRow, RuleChip } from "../../kit";
 import type { Component, Lock, TraySpec } from "../../model/types";
 import { levelsOf } from "../../plan/layers";
+import { hoveredComponent } from "../../screens/hover";
 import {
   componentIndexOfTray,
   componentSummary,
@@ -116,6 +117,8 @@ export function ComponentList({
   onUnlockSize,
 }: ComponentListProps) {
   const notices = useContext(ValidationContext);
+  // The component being pointed at, on the plan or here: its row takes the selected look (Main).
+  const lit = hoveredComponent.value;
   const listRef = useRef<HTMLUListElement>(null);
   // The × that was pressed goes with its chip: the focus moves to the next chip of the row, or to
   // the row itself, once the list has re-rendered without it.
@@ -189,6 +192,7 @@ export function ComponentList({
               compact={compact}
               class={chips.length > 0 ? "rail-row--wrap" : undefined}
               selected={selectedId === c.id}
+              lit={lit === c.id}
               shade={shadeVars(c.kind, kindIndexOf(components, i))}
               data-row-id={c.id}
               data-problem={problem ? "true" : undefined}

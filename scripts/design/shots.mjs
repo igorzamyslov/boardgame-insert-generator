@@ -238,6 +238,8 @@ async function runStep(page, step) {
     await target.first().waitFor({ state: "visible", timeout });
   } else if (step.press) {
     await page.keyboard.press(step.press);
+  } else if (step.wait !== undefined) {
+    await page.waitForTimeout(step.wait);
   } else {
     throw new Error(`unknown step ${JSON.stringify(step)}`);
   }
@@ -287,6 +289,27 @@ async function openApp(browser, appUrl, name, state, seeds) {
     if (scrolls) {
       // Reported after the pictures are written: they show how far it scrolls.
       problems.push("the page scrolls at this size (it must not, with many components)");
+    }
+  }
+  if (state.noStageScroll) {
+    // The plan's box shrinks to what the stage has left, so the stage never scrolls on a desktop.
+    const scrolls = await page.evaluate(() => {
+      const stage = document.querySelector('[data-region="stage"]');
+      return stage !== null && stage.scrollHeight > stage.clientHeight;
+    });
+    if (scrolls) {
+      problems.push("the stage scrolls at this size (it must not: the plan shrinks instead)");
+    }
+  }
+  if (state.minPlanWidth !== undefined) {
+    const width = await page.evaluate(() => {
+      const box = document.querySelector('[data-region="plan-box"]');
+      return box === null ? 0 : box.getBoundingClientRect().width;
+    });
+    if (width < state.minPlanWidth) {
+      problems.push(
+        `the plan box is ${Math.round(width * 100) / 100} px wide, under the ${state.minPlanWidth} px it must be`,
+      );
     }
   }
   return { page, problems };
@@ -553,15 +576,16 @@ try {
   for (const name of stateNames) {
     try {
       const { regions, problems } = await shootState(browser, appUrl, name, seeds);
-      const scroll = problems.filter((p) => p.startsWith("the page scrolls"));
+      // what fails a state (its pictures are written first: they show by how much)
+      const hard = problems.filter((p) => /^the (page scrolls|stage scrolls|plan box)/.test(p));
       const paired = `regions ${regions.length > 0 ? regions.join(", ") : "none paired"}`;
-      if (scroll.length > 0) {
+      if (hard.length > 0) {
         failed += 1;
-        lines.push(`FAILED  ${name}: ${scroll[0]} (pictures written; ${paired})`);
+        lines.push(`FAILED  ${name}: ${hard.join("; ")} (pictures written; ${paired})`);
       } else {
         lines.push(`ok      ${name}: ${paired}`);
       }
-      for (const p of problems.filter((p) => !p.startsWith("the page scrolls"))) {
+      for (const p of problems.filter((p) => !hard.includes(p))) {
         lines.push(`        ${p}`);
       }
     } catch (e) {

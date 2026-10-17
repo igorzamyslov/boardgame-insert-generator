@@ -39,7 +39,7 @@
 
 /*
  * Each column is at most as tall as the body, so the body never grows past the screen: the rail
- * keeps its list inside (Task 5), and the stage scrolls until the plan is sized to fit (Task 7).
+ * keeps its list inside (Task 5), and the plan's frame shrinks to what the stage has left (Task 7).
  */
 .ws-rail {
   position: relative; /* the visually hidden text inside is placed in the column, not in the page */
@@ -93,10 +93,29 @@
   flex: none;
 }
 
-/* The plan never shrinks to a thumbnail: on a short screen the stage scrolls instead. */
-.ws-stage > .pf-view {
+/*
+ * The plan's column (Task 7): the slot, the box's frame, the caption and the notes. It takes what
+ * the stage has left and the frame shrinks into it, so the desktop stage never scrolls.
+ */
+.ws-stage > .plan-col {
+  display: flex;
   flex: 1 1 auto;
-  min-height: 24rem;
+  flex-direction: column;
+  gap: var(--s-12);
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.plan-col > .stage-notes {
+  flex: none;
+  align-self: stretch;
+}
+
+/* The "Working out the trays…" frame, until the empty screens are rebuilt (Task 9). */
+.plan-col > .pf-view {
+  flex: 1 1 auto;
+  align-self: stretch;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
 }
@@ -148,9 +167,13 @@
     border-right: 0;
   }
 
-  .ws-stage > .pf-view {
-    flex: 1 0 auto;
-    min-height: max(28rem, calc(100dvh - 17rem));
+  /* MobileWorkspace: the box, then its caption 6 px under it; the page scrolls, the box keeps its size. */
+  .ws-stage > .plan-col {
+    flex: none;
+    gap: var(--s-6);
+  }
+
+  .plan-col > .pf-view {
     padding: var(--s-12);
   }
 

@@ -13,6 +13,7 @@ import { hoveredComponent } from "../screens/hover";
 import { AddMenu, KindTiles } from "../screens/KindPicker";
 import { ProjectMenu } from "../screens/ProjectMenu";
 import { RunAnnouncer } from "../screens/RunAnnouncer";
+import { StageSlot } from "../screens/StageSlot";
 import { StageNotes } from "../screens/StageNotes";
 import { stageView } from "../screens/stageView";
 import { PlanBanner, StageTop, problemAreas } from "../screens/StageTop";
@@ -673,10 +674,12 @@ export function App(props: AppProps) {
           onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
         />
       )}
-      {firstVisit ? null : layout ? (
-        <section class="pf-frame pf-view" aria-label="Preview">
-          <div class="pf-view__body">
-            {view === "plan" ? (
+      {firstVisit ? (
+        <StageNotes notices={summaryNotices} />
+      ) : (
+        <section class="plan-col" aria-label="Preview" data-region="plan">
+          {layout ? (
+            view === "plan" ? (
               <PlanView
                 trays={printable}
                 box={project.box}
@@ -685,6 +688,7 @@ export function App(props: AppProps) {
                 lockedKeys={locked}
                 selectedKey={s.selection.value}
                 stale={s.stale.value}
+                searching={run.status === "running"}
                 level={s.viewLevel.value}
                 onLevelChange={(l) => {
                   s.viewLevel.value = l;
@@ -704,9 +708,13 @@ export function App(props: AppProps) {
                   ) : undefined
                 }
               />
-            ) : null}
-            {view === "3d" ? (
+            ) : (
               <>
+                <StageSlot idle={phone && !hasSelectedTray}>
+                  {hasSelectedTray ? (
+                    <SelectedTrayBar {...barProps} inPlan={false} swapFrom={null} />
+                  ) : undefined}
+                </StageSlot>
                 <Viewer
                   trays={printable}
                   box={project.box}
@@ -720,49 +728,44 @@ export function App(props: AppProps) {
                   }}
                   {...props.viewerProps}
                 />
-                {hasSelectedTray ? (
-                  <div class="view-bar">
-                    <SelectedTrayBar {...barProps} inPlan={false} swapFrom={null} />
-                  </div>
-                ) : null}
               </>
-            ) : null}
-          </div>
-          {exportOpen ? (
-            <Modal labelledBy="export-title" onClose={() => setExportOpen(false)}>
-              <ExportPanel
-                titleId="export-title"
-                trays={printable}
-                components={project.components}
-                printer={project.printer}
-                settings={project.settings}
-                meshes={meshes}
-                projectName={project.name}
-                summary={summary}
-                disabled={run.status === "running"}
-                stale={s.stale.value}
-                download={download}
-                onOpenGuide={() => {
-                  setExportOpen(false);
-                  setAssemblyFor(project.id);
-                }}
-              />
-            </Modal>
-          ) : null}
-        </section>
-      ) : (
-        <section class="pf-frame pf-view" aria-label="Preview">
-          <div class="stage-empty">
-            <div class="stage-empty-box">
-              <span class="pf-measure">{`Your box, ${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} mm`}</span>
+            )
+          ) : (
+            <div class="pf-frame pf-view">
+              <div class="stage-empty">
+                <div class="stage-empty-box">
+                  <span class="pf-measure">{`Your box, ${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} mm`}</span>
+                </div>
+                <h2>Working out the trays…</h2>
+                <p>The plan appears here as soon as every field is valid.</p>
+              </div>
             </div>
-            <h2>Working out the trays…</h2>
-            <p>The plan appears here as soon as every field is valid.</p>
-          </div>
+          )}
+          {/* The layout and sizing notices, under the plan caption. */}
+          <StageNotes notices={summaryNotices} />
         </section>
       )}
-      {/* The layout and sizing notices, under the plan caption. */}
-      <StageNotes notices={summaryNotices} />
+      {exportOpen && layout !== undefined && !firstVisit ? (
+        <Modal labelledBy="export-title" onClose={() => setExportOpen(false)}>
+          <ExportPanel
+            titleId="export-title"
+            trays={printable}
+            components={project.components}
+            printer={project.printer}
+            settings={project.settings}
+            meshes={meshes}
+            projectName={project.name}
+            summary={summary}
+            disabled={run.status === "running"}
+            stale={s.stale.value}
+            download={download}
+            onOpenGuide={() => {
+              setExportOpen(false);
+              setAssemblyFor(project.id);
+            }}
+          />
+        </Modal>
+      ) : null}
       {/* always mounted: the removal is spoken, and Undo is in the header as well */}
       <div class="visually-hidden" role="status" data-live="removed">
         {removed !== null && removed.version === s.history.version.value

@@ -15,6 +15,11 @@ export interface ListRowProps extends Omit<
   meta?: string;
   selected?: boolean;
   /**
+   * Its component's trays are being pointed at (on the plan, or on this very row): it takes the
+   * selected look without being pressed, as Main's row does while its tray is hovered.
+   */
+  lit?: boolean;
+  /**
    * The phone sheet's row (MobileWorkspace): a 14 px swatch in the kind's line and fill, or a
    * dashed square without a kind, the name, and the meta on the right. A link into an editor, so
    * it says nothing of being selected.
@@ -35,6 +40,7 @@ export function ListRow({
   name,
   meta,
   selected = false,
+  lit = false,
   compact = false,
   shade,
   after,
@@ -50,6 +56,7 @@ export function ListRow({
         type={type}
         class={cx("k-row", compact && "k-row--compact", extra as string | undefined)}
         aria-pressed={compact ? undefined : selected}
+        data-lit={lit && !compact ? "true" : undefined}
       >
         {compact ? (
           <span

@@ -848,22 +848,27 @@ input[aria-invalid="true"] {
   margin: 0;
 }
 
-/* The axis indicator sits over the canvas' corner and lets every pointer event through. */
-.viewer-stage {
-  position: relative;
+/*
+ * The 3D view is the plan's frame (plan.css: the same size, radius and ground) with the canvas in
+ * it; the controls under it are `.viewer-under`. The corner controls sit over the canvas: the axes
+ * toggle top right, the selected tray's name top left.
+ */
+.viewer {
+  display: contents;
 }
 
-/* The corner controls sit over the canvas: the axes toggle top right, the selected tray's name top left. */
 .viewer-axes-toggle {
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
+  top: var(--s-8);
+  right: var(--s-8);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: var(--control-h);
   min-height: var(--control-h);
   padding: 0;
+  border-radius: var(--r-pill);
+  background: var(--sheet);
 }
 
 .viewer-axes-toggle svg {
@@ -878,21 +883,22 @@ input[aria-invalid="true"] {
 
 .viewer-selection-live {
   position: absolute;
-  top: var(--space-2);
-  left: var(--space-2);
+  top: var(--s-8);
+  left: var(--s-8);
   display: flex;
-  max-width: calc(100% - var(--control-h) - var(--space-2) * 3);
+  max-width: calc(100% - var(--control-h) - var(--s-8) * 3);
   pointer-events: none;
 }
 
+/* The selected tray's name, in the plan's pill. */
 .viewer-selection {
   min-width: 0;
-  padding: var(--space-1) var(--space-3);
+  padding: 2px 9px;
   overflow: hidden;
-  border-radius: var(--radius-md);
-  background: var(--sheet);
+  border-radius: var(--r-pill);
+  background: var(--pill-fill);
   color: var(--ink);
-  font: 600 14px/20px var(--font-ui);
+  font: 600 var(--text-xs) var(--font-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -940,23 +946,25 @@ input[aria-invalid="true"] {
   dominant-baseline: central;
 }
 
+/* The canvas fills the frame, whose size is the plan's (an explicit CSS size: no ResizeObserver feedback). */
 .viewer-canvas {
   display: block;
   width: 100%;
-  height: min(60vh, 480px);
-  height: min(60dvh, 480px);
-  border-radius: var(--radius-md);
-  background: var(--sheet-sunken);
+  height: 100%;
+  border-radius: inherit;
 
   /* one finger scrolls the page, two fingers turn and zoom (scene.ts); the mouse is unaffected */
   touch-action: pan-y;
 }
 
-@media (width < 600px) {
-  .viewer-canvas {
-    height: min(45vh, 320px);
-    height: min(45dvh, 320px);
-  }
+/* What the view says and offers under its frame: the controls, the picker. */
+.viewer-under {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--s-8);
+  align-self: stretch;
+  padding: var(--s-4);
 }
 
 .viewer-controls {
@@ -964,7 +972,6 @@ input[aria-invalid="true"] {
   flex-wrap: wrap;
   gap: var(--space-3) var(--space-5);
   align-items: end;
-  margin-top: var(--space-3);
 }
 
 .viewer-controls .check-field {
@@ -1184,6 +1191,21 @@ html:has(dialog.modal[open]) {
 
 .tray-picker button[aria-pressed="true"] {
   box-shadow: inset 0 0 0 3px var(--ink);
+}
+
+/* In the 3D view the picker is two rows tall at most and scrolls inside, so the frame keeps its size. */
+.viewer-under .tray-picker {
+  max-height: calc(2 * var(--control-h) + var(--s-2) + 2 * var(--s-4));
+  margin: 0;
+  padding: var(--s-4);
+  overflow: auto;
+}
+
+@media (width < 760px) {
+  .viewer-under .tray-picker {
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 .tray-chip {

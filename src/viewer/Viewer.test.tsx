@@ -452,6 +452,25 @@ describe("Viewer", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("draws the canvas in the plan's frame, sized from the box, with the controls under it", async () => {
+    const scene = stubScene();
+    const { container } = render(
+      <Viewer {...props({ box: { ...DEFAULT_BOX, innerWidth: 300, innerDepth: 150 } }, scene)} />,
+    );
+    await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+    const fit = container.querySelector<HTMLElement>(".plan-fit");
+    expect(fit?.style.getPropertyValue("--box-w")).toBe("300");
+    expect(fit?.style.getPropertyValue("--box-l")).toBe("150");
+    const frame = fit?.querySelector(".viewer-stage");
+    expect(frame?.querySelector("canvas.viewer-canvas")).not.toBeNull();
+    // the axes toggle is in the frame's corner; the controls and the picker are under it
+    expect(frame?.querySelector(".viewer-axes-toggle")).not.toBeNull();
+    const under = container.querySelector(".viewer-under");
+    expect(under?.querySelector(".viewer-controls")).not.toBeNull();
+    expect(under?.querySelector(".tray-picker")).not.toBeNull();
+    expect(frame?.contains(under ?? null)).toBe(false);
+  });
+
   it("labels the spread slider and describes its value", async () => {
     const scene = stubScene();
     render(<Viewer {...props({}, scene)} />);

@@ -1,6 +1,6 @@
 // scripts/design/jump.test.mjs
 import { describe, expect, it } from "vitest";
-import { jumpProblems } from "./jump.mjs";
+import { JUMP_REGIONS, jumpProblems } from "./jump.mjs";
 
 const box = (x, y, w, h) => ({ x, y, w, h });
 const page = (over = {}) => ({
@@ -36,5 +36,9 @@ describe("jumpProblems", () => {
     expect(jumpProblems(page({ rail: null }), page({ rail: null }))).toEqual([
       "rail: in neither state (nothing compared)",
     ]);
+  });
+
+  it("finds the plan's box by its data-region, with no fallback", () => {
+    expect(JUMP_REGIONS["plan-box"]).toBe('[data-region="plan-box"]');
   });
 });

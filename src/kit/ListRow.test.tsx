@@ -76,4 +76,23 @@ describe("ListRow", () => {
       expect(screen.getByText(long).classList.contains("ellipsis")).toBe(true);
     });
   });
+
+  it("takes the selected look while lit, without being pressed", () => {
+    render(<ListRow kind="cards" name="Market deck" meta="80 cards" lit />);
+    const row = screen.getByRole("button", { name: /Market deck/ });
+    expect(row.getAttribute("data-lit")).toBe("true");
+    expect(row.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("is not lit by default, and a compact row is never lit", () => {
+    render(<ListRow kind="cards" name="Market deck" meta="80 cards" />);
+    expect(screen.getByRole("button", { name: /Market deck/ }).hasAttribute("data-lit")).toBe(
+      false,
+    );
+    cleanup();
+    render(<ListRow kind="cards" name="Market deck" compact lit />);
+    expect(screen.getByRole("button", { name: /Market deck/ }).hasAttribute("data-lit")).toBe(
+      false,
+    );
+  });
 });

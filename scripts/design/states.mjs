@@ -13,10 +13,13 @@
 //   holds      shots-mode holds to set before the app starts ("export", "search")
 //   steps      what to do before the screenshot
 //   noPageScroll  the state fails when the page scrolls at its size (a review focus)
+//   noStageScroll  the state fails when the stage scrolls: the plan's box shrinks instead (Task 7)
+//   minPlanWidth  the state fails when the plan's box is narrower than this many px
 //
 // Step = { click: { role, name, in? } }  click getByRole(role, { name }), inside the CSS selector `in`
 //      | { waitFor: { role?, name?, text?, timeout? } }  (default 15 s)
 //      | { press: key }
+//      | { wait: ms }  a pause, for what has no mark to wait on (the 3D view building its meshes)
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
@@ -46,7 +49,14 @@ export const SEEDS = {
 /** @type {Record<string, any>} */
 export const STATES = {
   "first-visit": { board: "Empty", viewport: DESKTOP, seed: null },
-  workspace: { board: "Main", viewport: DESKTOP, seed: "harbour-kings" },
+  // The plan is the hero: at 1440×900 its box is at least 560 px wide (Main's is 582).
+  workspace: {
+    board: "Main",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    minPlanWidth: 560,
+    noStageScroll: true,
+  },
   // The tablet band: the rail stays beside the stage (Task 3 checks it; Task 15 does the pass).
   "workspace-820": {
     board: "Main",
@@ -70,12 +80,23 @@ export const STATES = {
     boardOpts: { props: { notice: "outdated" } },
     viewport: DESKTOP,
     seed: "harbour-kings-stale",
+    noStageScroll: true,
   },
   "workspace-banner-notes": {
     board: "Main",
     boardOpts: { props: { notice: "outdated" } },
     viewport: DESKTOP,
     seed: "harbour-kings-notes",
+    noStageScroll: true,
+  },
+  // The 3D view: three.js in the plan's frame. Main's own 3D is a CSS tilt of the flat box.
+  "workspace-3d": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest: "no board of its own: Main's box frame and segments",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   "workspace-menu": {
     board: "Main",
@@ -136,6 +157,7 @@ export const STATES = {
     viewport: DESKTOP,
     seed: "harbour-kings-long",
     noPageScroll: true,
+    noStageScroll: true,
   },
   editor: {
     board: "Edit",

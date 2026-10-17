@@ -247,140 +247,147 @@ export function Viewer(p: ViewerProps) {
   const selectedName = selected ? (names.get(selected.spec.key)?.full ?? selected.label) : null;
   return (
     <div class="viewer">
-      <div class="viewer-stage">
-        <canvas
-          key={canvasKey}
-          ref={canvasRef}
-          class="viewer-canvas"
-          aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
-        />
-        {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
-        {/* Always mounted, so a reader that watches it hears the name appear. */}
-        <div class="viewer-selection-live" role="status">
-          {selectedName !== null ? (
-            <span class="viewer-selection" title={selectedName}>
-              {selectedName}
-            </span>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          class="viewer-axes-toggle"
-          aria-pressed={showAxes}
-          aria-label="Show axes"
-          aria-describedby="viewer-axes-hint"
-          title="Show axes"
-          onClick={() => setShowAxes((v) => !v)}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            aria-hidden="true"
-          >
-            <path d="M5 19V4M5 19h15M5 19l8-8" />
-          </svg>
-        </button>
-        <span id="viewer-axes-hint" class="visually-hidden">
-          A small X, Y, Z indicator in the corner that turns with the model: X runs across the box,
-          Y from its front to its back, Z up.
-        </span>
-      </div>
-      {status === "loading" ? <p class="hint">Loading the 3D preview…</p> : null}
-      {status === "error" || status === "lost" ? (
-        <p role="alert">
-          {status === "lost"
-            ? "The 3D preview stopped because the graphics context was lost. "
-            : "Couldn't show the 3D preview. "}
-          <button type="button" onClick={retryScene}>
-            Retry
-          </button>
-        </p>
-      ) : null}
-      {p.stale ? <p class="hint">{`${STALE_MESSAGE} The preview shows the last plan.`}</p> : null}
-      {/* always mounted, so the progress is spoken when it starts; the count stays on screen only */}
-      <div class="visually-hidden" role="status">
-        {!p.stale && build.total > 0 && build.done < build.total ? "Building 3D models." : ""}
-      </div>
-      {!p.stale && build.total > 0 && build.done < build.total ? (
-        <div class="run-status">
-          <progress value={build.done} max={build.total} aria-label="Building 3D models" />
-          <span>{`Building 3D models ${build.done}/${build.total}…`}</span>
-        </div>
-      ) : null}
-      {build.failed > 0 && build.done === build.total ? (
-        <p role="alert">
-          {`${build.failed === 1 ? "1 tray" : `${build.failed} trays`} couldn't be shown. `}
+      <div
+        class="plan-fit"
+        style={{ "--box-w": String(p.box.innerWidth), "--box-l": String(p.box.innerDepth) }}
+      >
+        <div class="viewer-stage">
+          <canvas
+            key={canvasKey}
+            ref={canvasRef}
+            class="viewer-canvas"
+            aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
+          />
+          {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
+          {/* Always mounted, so a reader that watches it hears the name appear. */}
+          <div class="viewer-selection-live" role="status">
+            {selectedName !== null ? (
+              <span class="viewer-selection" title={selectedName}>
+                {selectedName}
+              </span>
+            ) : null}
+          </div>
           <button
             type="button"
-            onClick={() => {
-              p.meshes.reset();
-              setAttempt((a) => a + 1);
-            }}
+            class="viewer-axes-toggle"
+            aria-pressed={showAxes}
+            aria-label="Show axes"
+            aria-describedby="viewer-axes-hint"
+            title="Show axes"
+            onClick={() => setShowAxes((v) => !v)}
           >
-            Retry
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M5 19V4M5 19h15M5 19l8-8" />
+            </svg>
           </button>
-        </p>
-      ) : null}
-      <div class="viewer-controls">
-        <label class="range-field">
-          Spread apart
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            aria-valuetext={explode === 0 ? "Together" : `${Math.round(explode * 100)}% apart`}
-            value={explode}
-            onInput={(e) => setExplode(Number(e.currentTarget.value))}
-          />
-        </label>
-        {levels.length > 1 ? (
-          <SelectField
-            id="viewer-layers"
-            label="Show layers"
-            value={shownLevel === null ? "all" : String(shownLevel)}
-            options={[
-              { value: "all", label: "All layers" },
-              ...levels.map((l, i) => ({
-                value: String(l),
-                label: i === 0 ? "Layer 1 only" : `Layers 1 to ${i + 1}`,
-              })),
-            ]}
-            onChange={(v) => setMaxLevel(v === "all" ? null : Number(v))}
-          />
+          <span id="viewer-axes-hint" class="visually-hidden">
+            A small X, Y, Z indicator in the corner that turns with the model: X runs across the
+            box, Y from its front to its back, Z up.
+          </span>
+        </div>
+      </div>
+      <div class="viewer-under">
+        {status === "loading" ? <p class="hint">Loading the 3D preview…</p> : null}
+        {status === "error" || status === "lost" ? (
+          <p role="alert">
+            {status === "lost"
+              ? "The 3D preview stopped because the graphics context was lost. "
+              : "Couldn't show the 3D preview. "}
+            <button type="button" onClick={retryScene}>
+              Retry
+            </button>
+          </p>
+        ) : null}
+        {p.stale ? <p class="hint">{`${STALE_MESSAGE} The preview shows the last plan.`}</p> : null}
+        {/* always mounted, so the progress is spoken when it starts; the count stays on screen only */}
+        <div class="visually-hidden" role="status">
+          {!p.stale && build.total > 0 && build.done < build.total ? "Building 3D models." : ""}
+        </div>
+        {!p.stale && build.total > 0 && build.done < build.total ? (
+          <div class="run-status">
+            <progress value={build.done} max={build.total} aria-label="Building 3D models" />
+            <span>{`Building 3D models ${build.done}/${build.total}…`}</span>
+          </div>
+        ) : null}
+        {build.failed > 0 && build.done === build.total ? (
+          <p role="alert">
+            {`${build.failed === 1 ? "1 tray" : `${build.failed} trays`} couldn't be shown. `}
+            <button
+              type="button"
+              onClick={() => {
+                p.meshes.reset();
+                setAttempt((a) => a + 1);
+              }}
+            >
+              Retry
+            </button>
+          </p>
+        ) : null}
+        <div class="viewer-controls">
+          <label class="range-field">
+            Spread apart
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              aria-valuetext={explode === 0 ? "Together" : `${Math.round(explode * 100)}% apart`}
+              value={explode}
+              onInput={(e) => setExplode(Number(e.currentTarget.value))}
+            />
+          </label>
+          {levels.length > 1 ? (
+            <SelectField
+              id="viewer-layers"
+              label="Show layers"
+              value={shownLevel === null ? "all" : String(shownLevel)}
+              options={[
+                { value: "all", label: "All layers" },
+                ...levels.map((l, i) => ({
+                  value: String(l),
+                  label: i === 0 ? "Layer 1 only" : `Layers 1 to ${i + 1}`,
+                })),
+              ]}
+              onChange={(v) => setMaxLevel(v === "all" ? null : Number(v))}
+            />
+          ) : null}
+        </div>
+        {pickable.length > 0 ? (
+          <ul class="tray-picker" aria-label="Trays">
+            {pickable.map((part) => {
+              const key = part.spec.key;
+              const isSelected = key === p.selectedKey;
+              // The shade the plan tile has: one colour per component, everywhere.
+              const tint = lookOfTray(part.spec, p.components ?? [])?.shade.fill ?? null;
+              return (
+                <li key={key}>
+                  <button
+                    type="button"
+                    data-key={key}
+                    aria-pressed={isSelected}
+                    aria-label={names.get(key)?.full ?? part.label}
+                    onClick={() => p.onSelect(isSelected ? null : key)}
+                  >
+                    <span
+                      class={tint === null ? "tray-chip tray-chip--spare" : "tray-chip"}
+                      style={tint === null ? undefined : { "--tint": tint }}
+                      aria-hidden="true"
+                    />
+                    {names.get(key)?.full ?? part.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         ) : null}
       </div>
-      {pickable.length > 0 ? (
-        <ul class="tray-picker" aria-label="Trays">
-          {pickable.map((part) => {
-            const key = part.spec.key;
-            const isSelected = key === p.selectedKey;
-            // The shade the plan tile has: one colour per component, everywhere.
-            const tint = lookOfTray(part.spec, p.components ?? [])?.shade.fill ?? null;
-            return (
-              <li key={key}>
-                <button
-                  type="button"
-                  data-key={key}
-                  aria-pressed={isSelected}
-                  aria-label={names.get(key)?.full ?? part.label}
-                  onClick={() => p.onSelect(isSelected ? null : key)}
-                >
-                  <span
-                    class={tint === null ? "tray-chip tray-chip--spare" : "tray-chip"}
-                    style={tint === null ? undefined : { "--tint": tint }}
-                    aria-hidden="true"
-                  />
-                  {names.get(key)?.full ?? part.label}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
     </div>
   );
 }

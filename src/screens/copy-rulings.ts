@@ -42,6 +42,9 @@ const NOFIT = "The no-fit heading names the tray";
 const PINS = "Pins in the way are the heading's, one pill each (interim until Task 12)";
 const BANNERS = "The plan banners use DESIGN's words";
 const NOTES = "Layout and sizing notices sit under the plan caption";
+// Task 7: the plan's caption and pin marks. The states are the plan cases of copy.board.test.tsx.
+const CAPTION = "The plan's caption names its layer";
+const PHONE_PINS = "A phone's plan shows the pin marks";
 const FAILED = ["workspace-failed"] as const;
 const ERRORS = ["workspace-error"] as const;
 const FIT_PROBLEMS = ["no-fit", "no-fit-bed", "pin-conflict"] as const;
@@ -142,6 +145,18 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Warning:", states: ["workspace-notes"], ruling: NOTES },
   { text: "Note:", states: ["workspace-notes"], ruling: NOTES },
   { text: "Error:", states: ["workspace-notes"], ruling: NOTES },
+  // Task 7: under the box, and the marks a phone's plan keeps
+  {
+    text: "{name}, seen from above. Front of the box",
+    states: ["workspace", "workspace-rules"],
+    ruling: CAPTION,
+  },
+  { text: "Turned", states: ["m-workspace-rules"], ruling: PHONE_PINS },
+  {
+    text: "Spacers fill the gaps again when the plan updates.",
+    states: ["m-workspace-rules"],
+    ruling: PHONE_PINS,
+  },
 ];
 
 /**

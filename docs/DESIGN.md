@@ -93,8 +93,8 @@ technical palette. The owner called it unusable. Everything below exists so it d
   `disabled` on an `<option>` of a `<select>` (the "Custom" placeholder). Enforced by
   `src/rules.test.ts`.
 - MUST show the 3 px focus ring from `src/styles/tokens.css` (`:focus-visible`, `--focus`, 2 px
-  offset) on every focusable element. SVG tiles draw their own ring (`.plan-ring`); do not remove
-  outlines elsewhere.
+  offset) on every focusable element. A plan tile also has its selected ring (`--ring-selected`,
+  white then ink, a `box-shadow`); neither takes the other's place. Do not remove outlines.
 - MUST draw icons as inline SVG with `aria-hidden="true"` and a text label or `aria-label` on the
   control. MUST NOT use emoji or text characters as icons.
 - MUST keep text at 4.5:1 and tray edges and icons at 3:1 against their ground, in light and dark.
@@ -123,13 +123,15 @@ technical palette. The owner called it unusable. Everything below exists so it d
   the stage takes the rest (`src/screens/workspace.css`). Between 760 and 960 px (a tablet) the
   rail stays beside the stage, which takes a smaller basis (`@media (width >= 760px) and (width <=
 960px)`); that is the only other width rule, and Task 15 of the UI rebuild does the final tablet
-  pass. The 3D canvas is shorter below 600 px, on the 600 px line.
+  pass.
 - MUST NOT add a new breakpoint without a decision-log row. `src/style.test.ts` ("breakpoints")
   lists every `@media` width in the CSS and fails on one that is not ruled here.
 - The stage's order is the page's order on every width: the plan banner, the status heading, the
-  plan, then the notes (`src/app/App.test.tsx`, "orders the stage"). The plan sizes itself from the
-  height left in the stage (Task 7 of the UI rebuild); the interim 24 rem floor in `workspace.css`
-  (`style.test.ts`) goes with it.
+  plan, then the notes (`src/app/App.test.tsx`, "orders the stage"). The plan's longer side is at
+  most 582 px and shrinks to the width and height left in the stage; the stage never scrolls on a
+  desktop (`src/plan/plan.css`, `src/style.test.ts` "sizes the plan from Main and the height left").
+  There is no height floor under it. The 3D view is drawn in the same frame, so it has no height
+  rule of its own.
 
 ### Hosting and network
 
@@ -340,7 +342,9 @@ Each component takes its own shade of its kind's hue, by its place among compone
 
 - Radii are the boards': `--r-cell` 6, `--r-logo` 8, `--r-icon` 9, `--r-tile` 10, `--r-field` 12,
   `--r-card` 14 (cards, menu panel, toast, banner), `--r-panel` 16, `--r-bar` 18, `--r-dialog` 22
-  (dialogs, the phone sheet's top corners), `--r-pill` 999 px.
+  (dialogs, the phone sheet's top corners), `--r-pill` 999 px. On the plan: tiles are `--r-tile`, a
+  tile's cells `--r-cell`, the box's frame (and the 3D view's) `--r-panel`, a phone's frame
+  `--r-card`.
 - Pills: `border-radius: var(--r-pill)`, one line, at least 44 px tall. The status heading's
   actions (Keep searching, Stop, Retry, Edit <name>, Unpin <name>) are pills.
 - Spacing is the boards' scale: `--s-2` … `--s-40` (2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 18, 20, 22,
@@ -362,15 +366,15 @@ Each component takes its own shade of its kind's hue, by its place among compone
   (see `ICON` in `src/ui/TrayBar.tsx`).
 - Kind glyphs live in `src/ui/kindGlyphs.tsx`; `KindIcon` (`src/ui/KindIcon.tsx`) puts a glyph on
   its shade.
-- On the plan, a tray's kind icon shows only when it is hovered, focused or selected
-  (`src/plan/PlanView.tsx`). Keyboard focus mirrors hover.
+- On the plan, a tray's kind icon (13 px, in its name pill) shows only when it is hovered, focused
+  or selected (`src/plan/PlanView.tsx`). Keyboard focus mirrors hover.
 - Never emoji, never text characters (×, ✓, ▸) as icons.
 
 ## 5. Interaction patterns
 
 **Workspace.** `src/screens/Workspace.tsx` is its shell: the header, the rail (`aside`, "What's inside") and the stage (the one `main`), marked `data-region`. Below 760 px the stage comes first and the rail is the sheet. The page is one screen tall and never scrolls on a desktop. `src/app/App.tsx` fills the slots: `Header` (`src/screens/Header.tsx`: logo, wordmark, the insert name as a button that becomes a field, `SavedStatus`, Undo, Redo, the project menu, Download; on a phone the logo, the name over where it is saved, Undo, Send file, the menu and an icon Download), then What's inside (`WhatsInside`: the rail, below) in the rail and the
 stage: `PlanBanner`, `StageTop` (the status heading with the Layer and View segments; `src/screens/StageTop.tsx`), the plan or the 3D view (`src/plan/PlanView.tsx`,
-`src/viewer/Viewer.tsx`), then `StageNotes` (layout and sizing notices under the plan caption); the run's live region (`RunAnnouncer`) sits beside the heading. There is no footer: the version, build id and licences link end the project menu.
+`src/viewer/Viewer.tsx`; each is the slot, the box's frame and its caption), then `StageNotes` (layout and sizing notices under the plan caption); the run's live region (`RunAnnouncer`) sits beside the heading. There is no footer: the version, build id and licences link end the project menu.
 
 **The rail.** `src/screens/Rail.tsx`, Main's "What's inside", top to bottom: the box card (a button:
 "The box", its inside size, "Change"; it opens the box's editor), the heading "What's inside" with
@@ -384,7 +388,21 @@ selected; hovering or focusing it lights its trays. Beside a row sits one chip p
 the plan updates." and "Clear all my choices" follow the list; the list scrolls inside the rail, so
 the note and the foot stay in sight and the page never scrolls.
 
-**Selection and the tray bar.** Click or focus a tray in the plan or the 3D view to select it. The
+**The plan.** Main's box: a frame (`--box`, 16 px round, a 1 px `--box-edge` inside line) whose longer
+side is at most 582 px and shrinks to what the stage leaves, the other side by the box's W:L. Each
+tray is a tile on its footprint, drawn 3 px in (6 px between neighbours), in its component's shade
+with a 2 px line, and its compartments inside it at their own places and sizes (not a grid). A
+spacer or spare tray is hatched with a dashed edge. The tile's name sits in a centred pill (13 px
+600, one line, cut by `tileText.ts`); a pinned tray wears a 26 px ink badge with a pin, top right,
+and a turned pin a "Turned" tag, bottom left. Pointing at a tray or its rail row, or selecting
+it, lights that component's trays and dims the rest to half (a search lights only the pinned
+ones); the selected tray has the ring. Under the box: "Layer 1 (bottom), seen from above. Front of
+the box" (a phone: "Front of the box"), and while a pin exists "Spacers fill the gaps again when the
+plan updates." The layer below, the sizes and a greyed look for an out-of-date plan are not drawn:
+the banner says it.
+
+**Selection and the tray bar.** The slot above the box (`StageSlot`, 52 px) holds "Tap a tray for
+details." while nothing is selected, the tray bar while a tray is, and a toast. Click or focus a tray in the plan or the 3D view to select it. The
 tray bar (`src/ui/SelectedTrayBar.tsx` wrapping `src/ui/TrayBar.tsx`) shows its name, layer
 ("Layer 1 (bottom)"), size, estimates, what it holds or sits on, and the actions: Pin, Turn 90°,
 Swap with… (plan only), Lock size, Edit. Spare trays, spacers and risers get every action blocked
@@ -595,6 +613,10 @@ rule in this document.
 | No URL sharing; files and browser storage                                                                                                                                                                                                                                                                                                                                                                                            | Links were too long for browsers and chat apps                                                                                                                                                                                                                                                                           | Bring back links                                                                                                    |
 | No Simple/Advanced mode                                                                                                                                                                                                                                                                                                                                                                                                              | Disclosure in place does the job                                                                                                                                                                                                                                                                                         | A mode switch                                                                                                       |
 | Part build failure UI is plain and short                                                                                                                                                                                                                                                                                                                                                                                             | Failures are rare bugs                                                                                                                                                                                                                                                                                                   | Heavier recovery UI                                                                                                 |
+| The plan is Main's box: a frame of at most 582 px that shrinks to the width and height the stage leaves, tiles with their compartments at their real places, a name pill (the kind icon only when lit), a pin badge and a Turned tag; no size on the tile, no FRONT label, no layer below, no greyed plan when out of date; the stage never scrolls on a desktop                                                                     | Main draws it so, and the 24 rem floor made a short screen scroll; a stale plan is said by the banner, a size by the tray bar, a size lock by the rail's chip and the tray's name                                                                                                                                        | The SVG plan with sizes, a floor under it                                                                           |
+| The plan's caption names its layer: "Layer 1 (bottom), seen from above. Front of the box"; a phone's says only "Front of the box"                                                                                                                                                                                                                                                                                                    | Main's caption names the layer "Bottom layer"; the layer switch's names win (the row above), and MobileWorkspace keeps the front alone                                                                                                                                                                                   | Main's "Bottom layer"                                                                                               |
+| A phone's plan shows the pin marks of Main's: the badge, the Turned tag, and "Spacers fill the gaps again when the plan updates." while a pin exists                                                                                                                                                                                                                                                                                 | MobileWorkspace's example has no pin; the rules are the same on every width, and a pin the plan does not show would be seen only in the sheet                                                                                                                                                                            | Marks on the desktop plan only                                                                                      |
+| The 3D view keeps three.js, its axes toggle, its picker and its controls, inside the plan's frame; the picker scrolls in two rows                                                                                                                                                                                                                                                                                                    | Main's 3D is a CSS tilt of the flat box and no board draws the rest; the frame is the plan's so the two views do not jump                                                                                                                                                                                                | A tilt of the flat plan                                                                                             |
 | Preact, signals and hand-rolled tokens; no React, Tailwind or Bun                                                                                                                                                                                                                                                                                                                                                                    | No user benefit from switching                                                                                                                                                                                                                                                                                           | A rewrite                                                                                                           |
 
 ## 8. Checklist for a UI change

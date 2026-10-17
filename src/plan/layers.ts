@@ -100,31 +100,6 @@ export function planViewBox(f: PlanFrame): ViewBox {
   };
 }
 
-export interface ClientRect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-export function clientToSvg(
-  rect: ClientRect,
-  vb: ViewBox,
-  clientX: number,
-  clientY: number,
-): { x: number; y: number } | null {
-  const scale = Math.min(rect.width / vb.w, rect.height / vb.h);
-  if (!(scale > 0)) {
-    return null;
-  }
-  const offsetX = (rect.width - vb.w * scale) / 2;
-  const offsetY = (rect.height - vb.h * scale) / 2;
-  return {
-    x: vb.x + (clientX - rect.left - offsetX) / scale,
-    y: vb.y + (clientY - rect.top - offsetY) / scale,
-  };
-}
-
 export function hitTest(
   rects: readonly { key: string; rect: SvgRect }[],
   p: { x: number; y: number },
