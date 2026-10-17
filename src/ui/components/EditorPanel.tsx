@@ -1,16 +1,18 @@
 // src/ui/components/EditorPanel.tsx
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import type { ComponentChildren } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { Button, Icon, IconButton, IconTile } from "../../kit";
 import type { Component } from "../../model/types";
-import { TextField } from "../fields";
+import { KIND_TILES } from "../../screens/KindPicker";
 import { shadeVars } from "../identity";
-import { KindIcon } from "../KindIcon";
-import { Toast } from "../Toast";
 import { BulkEditor } from "./BulkEditor";
 import { CardsEditor } from "./CardsEditor";
+import { TextBox, TitleInput } from "./controls";
 import { CustomEditor } from "./CustomEditor";
 import { MinisEditor } from "./MinisEditor";
 import { describeOptionChange } from "./optionNotes";
 import { TilesEditor } from "./TilesEditor";
+import "./editor.css";
 
 export interface EditorPanelProps {
   component: Component;
@@ -25,6 +27,12 @@ export interface EditorPanelProps {
   onBack: () => void;
   /** The removal was confirmed. */
   onRemove: () => void;
+  /** A change to an option has this to say: the stage shows it as a note (Edit's toast). */
+  onNote?: (text: string) => void;
+  /** Below 760 px: MobileEdit's full-screen sheet, with its own header and no foot. */
+  phone?: boolean;
+  /** The phone's strip under the header: the tray drawn small and the stage sentence (or the note). */
+  strip?: ComponentChildren;
 }
 
 function KindEditor({
@@ -47,9 +55,10 @@ function KindEditor({
 }
 
 /**
- * One component's editor, in the place of the list: the basics of its kind, then More options
- * (already folded inside each editor) in the same panel. A change to an option says what it does
- * in a short note. Removing asks first, in place; the undo toast of the app follows.
+ * One component's editor, in the place of the list (Edit; MobileEdit on a phone): the basics of
+ * its kind, then More options opening in the same panel. A change to an option says what it does in
+ * a short note, which the stage shows. Removing asks first, in place; the undo toast of the app
+ * follows.
  */
 export function EditorPanel({
   component: c,
@@ -59,17 +68,16 @@ export function EditorPanel({
   onChange,
   onBack,
   onRemove,
+  onNote,
+  phone = false,
+  strip,
 }: EditorPanelProps) {
-  const headingId = `${c.id}-heading`;
   const name = c.name === "" ? "(unnamed)" : c.name;
   const who = sameName ? `${name} (item ${index + 1})` : name;
-  const [note, setNote] = useState<{ text: string; id: number } | null>(null);
-  const noteId = useRef(0);
   const [asking, setAsking] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const removeRef = useRef<HTMLButtonElement>(null);
   const keepRef = useRef<HTMLButtonElement>(null);
-  const clearNote = useCallback(() => setNote(null), []);
 
   // The panel replaced the list: the reader starts at its top, and a screen reader hears whose it is.
   useEffect(() => {
@@ -79,8 +87,7 @@ export function EditorPanel({
   const change = (next: Component): void => {
     const said = describeOptionChange(c, next);
     if (said !== null) {
-      noteId.current += 1;
-      setNote({ text: said, id: noteId.current });
+      onNote?.(said);
     }
     onChange(next);
   };
@@ -89,67 +96,105 @@ export function EditorPanel({
     // The button that had the focus goes: its counterpart takes it.
     setTimeout(() => (yes ? keepRef : removeRef).current?.focus(), 0);
   };
+  const removeLabel = phone ? `Remove ${name}…` : "Remove…";
+  const answer = (
+    <div class="ed-ask" role="group" aria-label={`Remove ${who}?`}>
+      <span>{`Remove “${name}” from the box?`}</span>
+      <div class="ed-ask__buttons">
+        <Button
+          variant="secondary"
+          class="ed-remove-yes"
+          aria-label={`Remove ${who}`}
+          onClick={onRemove}
+        >
+          Remove
+        </Button>
+        <Button variant="quiet" ref={keepRef} onClick={() => ask(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+  const remove = (
+    <button
+      type="button"
+      class="ed-remove"
+      ref={removeRef}
+      aria-label={`Remove ${who}…`}
+      onClick={() => ask(true)}
+    >
+      {removeLabel}
+    </button>
+  );
+  const kind = KIND_TILES.find((t) => t.kind === c.kind)?.label ?? "";
+  const rename = (next: string): void => onChange({ ...c, name: next });
 
+  if (phone) {
+    return (
+      <section
+        class="ed ed--phone"
+        data-kind={c.kind}
+        style={shadeVars(c.kind, kindIndex)}
+        aria-label={`Edit ${name}`}
+      >
+        <header class="ed-bar">
+          <IconButton
+            label="Back"
+            variant="plain"
+            icon={<Icon name="chevron-left" size={20} />}
+            onClick={onBack}
+          />
+          <h1 class="ed-bar__title" tabIndex={-1} ref={headingRef}>
+            {name}
+          </h1>
+          <Button variant="primary" class="ed-done" onClick={onBack}>
+            Done
+          </Button>
+        </header>
+        {strip}
+        <div class="ed-scroll">
+          <TextBox id={`${c.id}-name`} label="Name" value={c.name} onCommit={rename} />
+          <KindEditor component={c} index={index} onChange={change} />
+          <div class="ed-remove-row">{asking ? answer : remove}</div>
+        </div>
+      </section>
+    );
+  }
   return (
-    <section class="editor-panel" style={shadeVars(c.kind, kindIndex)} aria-labelledby={headingId}>
-      <div class="editor-panel__bar">
-        <button type="button" class="pf-back" onClick={onBack}>
-          <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
-            <path d="M7.5 2l-4 4 4 4" />
-          </svg>
-          What&apos;s inside
-        </button>
-        <button type="button" class="primary editor-panel__btn" onClick={onBack}>
-          Done
-        </button>
+    <section
+      class="ed"
+      data-kind={c.kind}
+      style={shadeVars(c.kind, kindIndex)}
+      aria-labelledby={`${c.id}-heading`}
+    >
+      {/* the page's h1 is the stage's sentence: this names the panel and takes the focus */}
+      <h2 class="visually-hidden" id={`${c.id}-heading`} tabIndex={-1} ref={headingRef}>
+        {name}
+      </h2>
+      <button type="button" class="ed-back" onClick={onBack}>
+        <Icon name="chevron-left" size={16} />
+        What&apos;s inside
+      </button>
+      <div class="ed-id">
+        <IconTile size={44} kind={c.kind} />
+        <label class="ed-id__label">
+          <span class="ed-id__kind">{kind}</span>
+          <TitleInput id={`${c.id}-name`} label="Name" value={c.name} onCommit={rename} />
+        </label>
       </div>
-      <h3 class="editor-panel__title" id={headingId} tabIndex={-1} ref={headingRef}>
-        <KindIcon kind={c.kind} />
-        <span>{name}</span>
-      </h3>
-      <div class="form-grid">
-        <TextField
-          id={`${c.id}-name`}
-          label="Name"
-          value={c.name}
-          onCommit={(next) => onChange({ ...c, name: next })}
-        />
-        <KindEditor component={c} index={index} onChange={change} />
-      </div>
-      <div class="component-card-foot">
+      <KindEditor component={c} index={index} onChange={change} />
+      <div class="ed-foot">
         {asking ? (
-          <div class="editor-panel__ask" role="group" aria-label={`Remove ${who}?`}>
-            <span>{`Remove “${name}” from the box?`}</span>
-            <button
-              type="button"
-              class="row-remove editor-panel__btn"
-              aria-label={`Remove ${who}`}
-              onClick={onRemove}
-            >
-              Remove
-            </button>
-            <button
-              type="button"
-              class="editor-panel__btn"
-              ref={keepRef}
-              onClick={() => ask(false)}
-            >
-              Cancel
-            </button>
-          </div>
+          answer
         ) : (
-          <button
-            type="button"
-            class="row-remove editor-panel__btn"
-            ref={removeRef}
-            aria-label={`Remove ${who}…`}
-            onClick={() => ask(true)}
-          >
-            Remove…
-          </button>
+          <>
+            {remove}
+            <Button variant="primary" class="ed-done" onClick={onBack}>
+              Done
+            </Button>
+          </>
         )}
       </div>
-      <Toast message={note?.text ?? null} nonce={note?.id} onDone={clearNote} />
     </section>
   );
 }

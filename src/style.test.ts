@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import kit from "./kit/kit.css?raw";
+import plan from "./plan/plan.css?raw";
+import workspace from "./screens/workspace.css?raw";
 import css from "./style.css?raw";
-import proof from "./styles/proof.css?raw";
+import base from "./styles/base.css?raw";
+import fonts from "./styles/fonts.css?raw";
 import tokens from "./styles/tokens.css?raw";
 import { contrast } from "./ui/color";
 import { NARROW_QUERY, PHONE_QUERY } from "./ui/useMediaQuery";
@@ -55,14 +59,32 @@ function declarations(block: string): Map<string, string> {
   return out;
 }
 
+/** A value as the tests compare it: lower case, one space, none around commas, `.25` as `0.25`. */
+const normal = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/\s*,\s*/g, ",")
+    .replace(/(^|[^\d])\.(\d)/g, "$10.$2")
+    .trim();
+
 describe("tokens.css", () => {
   const stripped = tokens.replace(/\/\*[\s\S]*?\*\//g, "");
-  const darkAt = stripped.indexOf("@media screen and (prefers-color-scheme: dark)");
-  const light = declarations(stripped.slice(0, darkAt));
-  const dark = declarations(stripped.slice(darkAt));
+  const light = declarations(stripped);
+  /** A token's value with `var(--other)` followed through to the hex it ends in. */
+  const resolve = (name: string): string => {
+    let value = light.get(name) ?? "";
+    for (let depth = 0; depth < 5; depth += 1) {
+      const next = /^var\((--[\w-]+)\)$/.exec(value)?.[1];
+      if (!next) {
+        break;
+      }
+      value = light.get(next) ?? "";
+    }
+    return value;
+  };
 
   it("defines the redesign tokens", () => {
-    expect(darkAt).toBeGreaterThan(0);
     const expected: Record<string, string> = {
       "--page": "#F4F3EF",
       "--sheet": "#FFFFFF",
@@ -71,19 +93,19 @@ describe("tokens.css", () => {
       "--rule": "#E4E1D9",
       "--box": "#D3CDBF",
       "--focus": "#2F5BB8",
-      "--cards-fill": "#DCE6FA",
+      "--cards-fill": "#C0D3F7",
       "--cards-line": "#335AA6",
       "--cards-ink": "#22457E",
-      "--bits-fill": "#FBE9C9",
+      "--bits-fill": "#FBDEAB",
       "--bits-line": "#8A5D08",
       "--bits-ink": "#6E4C0E",
-      "--tiles-fill": "#D8EEDE",
+      "--tiles-fill": "#C1E7CB",
       "--tiles-line": "#2E6B41",
       "--tiles-ink": "#22552E",
-      "--minis-fill": "#F5DCE7",
+      "--minis-fill": "#F0C2D6",
       "--minis-line": "#964068",
       "--minis-ink": "#74244B",
-      "--custom-fill": "#E7E3F4",
+      "--custom-fill": "#D3CCED",
       "--custom-line": "#5B4B9A",
       "--custom-ink": "#45397A",
       "--spacer-fill": "#E9E5DB",
@@ -93,54 +115,336 @@ describe("tokens.css", () => {
     for (const [name, value] of Object.entries(expected)) {
       expect(light.get(name)?.toUpperCase(), name).toBe(value);
     }
-    expect(stripped).toMatch(/:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--focus\)/);
-    expect(stripped).toMatch(/:focus-visible\s*\{[^}]*outline-offset:\s*2px/);
   });
 
-  it("redefines every colour under the same name in the dark scheme", () => {
-    const colours = [...light].filter(([, v]) => /^#[0-9a-f]{6}$/i.test(v)).map(([n]) => n);
-    expect(colours.length).toBeGreaterThan(20);
-    expect(colours.filter((n) => !dark.has(n))).toEqual([]);
-    // Dark is its own warm palette, not the light one repeated.
-    expect(dark.get("--page")).not.toBe(light.get("--page"));
+  it("defines the board tokens", () => {
+    // Every value of "Values from the boards" in the UI rebuild plan, as the boards draw it.
+    const board: Record<string, string> = {
+      // surfaces, lines, ink
+      "--row": "#FAF9F6",
+      "--fill-quiet": "#EFEDE7",
+      "--chip": "#E9E5DB",
+      "--track": "#E9E7E0",
+      "--icon-ground": "#EDEAE2",
+      "--scrim": "#8E8B83",
+      "--rule-soft": "#EEEBE4",
+      "--field-line": "#DAD6CC",
+      "--line-strong": "#BDB7A9",
+      "--handle": "#D6D2C8",
+      "--muted-strong": "#3E413C",
+      "--ink-dim": "#4A4D47",
+      "--ink-off": "#6B6E68",
+      "--box-edge": "#BFB8A8",
+      "--box-dash": "#8C8778",
+      "--cell-fill": "rgb(255 255 255 / 38%)",
+      "--pill-fill": "rgb(255 255 255 / 92%)",
+      "--field-glow": "#CFDCF6",
+      // meaning
+      "--info-bg": "#E6EEFC",
+      "--info-ink": "#1B3D7A",
+      "--fit-bg": "#DDF0E3",
+      "--ok": "#2B7247",
+      "--danger": "#B4321F",
+      "--danger-bg": "#FBE4E0",
+      "--danger-ink": "#8A2414",
+      "--destructive": "#A13A2C",
+      "--warn": "#C2620F",
+      "--warn-bg": "#FCE6CF",
+      "--warn-ink": "#7A3A08",
+      "--warn-ink-strong": "#5A2A06",
+      "--warn-icon": "#9A4A0B",
+      "--changed": "#3F6FD1",
+      "--changed-bg": "#EEF3FC",
+      "--changed-ink": "#22457E",
+      "--logo-cards": "#8FB0EE",
+      "--logo-bits": "#EDC175",
+      "--logo-tiles": "#86C79A",
+      "--logo-minis": "#E89BBE",
+      // shadows and rings
+      "--shadow-menu": "0 16px 40px rgba(29, 31, 28, 0.18)",
+      "--shadow-dialog": "0 30px 80px rgba(29, 31, 28, 0.35)",
+      "--shadow-drawer": "-20px 0 60px rgba(29, 31, 28, 0.25)",
+      "--shadow-bar": "0 6px 18px rgba(29, 31, 28, 0.08)",
+      "--shadow-thumb": "0 1px 2px rgba(29, 31, 28, 0.12)",
+      "--shadow-toast": "0 10px 24px rgba(29, 31, 28, 0.18)",
+      "--shadow-peek": "0 -8px 30px rgba(29, 31, 28, 0.14)",
+      "--shadow-sheet-modal": "0 -8px 30px rgba(29, 31, 28, 0.18)",
+      "--shadow-lift-drop": "0 14px 28px rgba(29, 31, 28, 0.2)",
+      "--ring-selected": "0 0 0 3px var(--sheet), 0 0 0 5px var(--ink)",
+      "--ring-dot": "0 0 0 2px var(--sheet)",
+      "--box-inset-plan": "inset 0 0 0 1px var(--box-edge)",
+      "--box-inset-side": "inset 0 0 0 2px var(--box-dash)",
+      // spacing
+      "--s-2": "2px",
+      "--s-3": "3px",
+      "--s-4": "4px",
+      "--s-5": "5px",
+      "--s-6": "6px",
+      "--s-8": "8px",
+      "--s-10": "10px",
+      "--s-12": "12px",
+      "--s-14": "14px",
+      "--s-16": "16px",
+      "--s-18": "18px",
+      "--s-20": "20px",
+      "--s-22": "22px",
+      "--s-24": "24px",
+      "--s-28": "28px",
+      "--s-32": "32px",
+      "--s-40": "40px",
+      // radii
+      "--r-pill": "999px",
+      "--r-dialog": "22px",
+      "--r-bar": "18px",
+      "--r-panel": "16px",
+      "--r-card": "14px",
+      "--r-field": "12px",
+      "--r-tile": "10px",
+      "--r-icon": "9px",
+      "--r-logo": "8px",
+      "--r-cell": "6px",
+      // sizes
+      "--control-h": "44px",
+      "--field-h": "48px",
+      "--field-h-compact": "44px",
+      "--cta-h": "54px",
+      "--dialog-btn-h": "48px",
+      "--header-h": "60px",
+      "--header-h-phone": "56px",
+      "--rail-basis": "300px",
+      "--rail-max": "350px",
+      "--rail-pad": "20px",
+      "--stage-pad": "22px 36px 28px",
+      "--stage-pad-focus": "28px 40px",
+      "--row-min": "52px",
+      "--kind-tile-h": "56px",
+      "--stage-slot": "52px",
+      "--status-icon": "40px",
+      "--status-icon-phone": "32px",
+      "--menu-w": "260px",
+      "--dialog-max": "560px",
+      "--dialog-pad": "32px",
+      "--sheet-peek": "196px",
+      // type
+      "--text-sm": "14px",
+      "--text-xs": "13px",
+      "--text-2xs": "12px",
+      "--text-field": "17px",
+      "--text-count": "18px",
+      "--text-wordmark": "18px",
+      "--text-stat": "24px",
+      "--h1": "28px",
+      "--h1-first": "40px",
+      "--h1-dialog": "30px",
+      "--h1-drawer": "26px",
+      "--h1-phone": "21px",
+      "--h2": "20px",
+      "--h2-panel": "22px",
+      "--h2-section": "17px",
+      "--h3": "19px",
+    };
+    const wrong: string[] = [];
+    for (const [name, value] of Object.entries(board)) {
+      if (normal(light.get(name) ?? "") !== normal(value)) {
+        wrong.push(`${name}: ${light.get(name) ?? "(missing)"} is not ${value}`);
+      }
+    }
+    expect(wrong).toEqual([]);
+    expect(Object.keys(board).length).toBeGreaterThan(110);
+    expect(light.get("--font-display")).toContain('"Bricolage Grotesque"');
+    expect(light.get("--font-ui")).toContain('"Figtree"');
   });
 
-  it.each([
-    ["light", light],
-    ["dark", dark],
-  ] as const)("keeps text at 4.5:1 and edges at 3:1 in the %s scheme", (_, set) => {
-    const get = (name: string): string => set.get(name) ?? light.get(name) ?? "#000000";
+  it("keeps dark opt-in", () => {
+    // Task 16 brings dark back behind [data-theme="dark"] and restores a per-token check.
+    expect(stripped).not.toContain("prefers-color-scheme");
+    expect(stripped).toMatch(/:root\s*\{[^}]*color-scheme:\s*light\s*;/);
+    expect(stripped).not.toMatch(/color-scheme:[^;]*dark/);
+  });
+
+  it("keeps the legacy names", () => {
+    const legacy = [
+      "--edge",
+      "--space-1",
+      "--space-2",
+      "--space-3",
+      "--space-4",
+      "--space-5",
+      "--space-6",
+      "--space-7",
+      "--space-8",
+      "--radius-sm",
+      "--radius-md",
+      "--radius-lg",
+      "--rail-width",
+      "--page-max",
+      "--shadow-sheet",
+      "--on-focus",
+      "--focus-wash",
+      "--on-danger",
+      "--danger-wash",
+      "--on-warn",
+      "--warn-wash",
+      "--font-mono",
+      "--paper",
+      "--sheet-sunken",
+      "--rule-strong",
+      "--ink-soft",
+      "--indigo",
+      "--on-indigo",
+      "--indigo-wash",
+      "--madder",
+      "--on-madder",
+      "--madder-wash",
+      "--ochre",
+      "--on-ochre",
+      "--ochre-wash",
+      "--tint-8",
+      "--axis-x",
+      "--axis-y",
+      "--axis-z",
+      "--paper-white",
+    ];
+    expect(legacy.filter((name) => !light.has(name))).toEqual([]);
+    // each one lands on a board value (or, for the three that have none, a plain literal)
+    expect(light.get("--rail-width")).toBe("var(--rail-max)");
+    expect(light.get("--space-3")).toBe("var(--s-12)");
+    expect(light.get("--madder")).toBe("var(--danger)");
+  });
+
+  it("keeps text at 4.5:1 and edges at 3:1", () => {
     for (const ground of ["--page", "--sheet"]) {
-      expect(contrast(get("--ink"), get(ground)), `ink on ${ground}`).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(get("--muted"), get(ground)), `muted on ${ground}`).toBeGreaterThanOrEqual(
-        4.5,
-      );
-      expect(contrast(get("--focus"), get(ground)), `focus on ${ground}`).toBeGreaterThanOrEqual(3);
-      expect(contrast(get("--edge"), get(ground)), `edge on ${ground}`).toBeGreaterThanOrEqual(3);
+      expect(
+        contrast(resolve("--ink"), resolve(ground)),
+        `ink on ${ground}`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(resolve("--muted"), resolve(ground)),
+        `muted on ${ground}`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(resolve("--focus"), resolve(ground)),
+        `focus on ${ground}`,
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        contrast(resolve("--edge"), resolve(ground)),
+        `edge on ${ground}`,
+      ).toBeGreaterThanOrEqual(3);
     }
     for (const kind of ["cards", "bits", "tiles", "minis", "custom"]) {
       expect(
-        contrast(get(`--${kind}-ink`), get(`--${kind}-fill`)),
+        contrast(resolve(`--${kind}-ink`), resolve(`--${kind}-fill`)),
         `${kind} ink on its fill`,
       ).toBeGreaterThanOrEqual(4.5);
       expect(
-        contrast(get(`--${kind}-line`), get("--box")),
+        contrast(resolve(`--${kind}-line`), resolve("--box")),
         `${kind} line on the box`,
       ).toBeGreaterThanOrEqual(3);
     }
   });
+
+  it("keeps the board's message colours readable on their grounds", () => {
+    const text: [string, string][] = [
+      ["--danger-ink", "--danger-bg"],
+      ["--warn-ink", "--warn-bg"],
+      ["--warn-ink-strong", "--warn-bg"],
+      ["--info-ink", "--info-bg"],
+      ["--changed-ink", "--changed-bg"],
+      ["--ok", "--fit-bg"],
+      ["--on-danger", "--danger"],
+      ["--on-focus", "--focus"],
+    ];
+    for (const [ink, ground] of text) {
+      expect(contrast(resolve(ink), resolve(ground)), `${ink} on ${ground}`).toBeGreaterThanOrEqual(
+        4.5,
+      );
+    }
+    // the mark inside the warning triangle is a shape, not text: 3:1
+    expect(contrast(resolve("--on-warn"), resolve("--warn"))).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe("base.css", () => {
+  const stripped = base.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("sets the page, its ink and 15 px Figtree, 16 px on a phone", () => {
+    const body = ruleFor("body", base);
+    expect(body).toMatch(/background:\s*var\(--page\)/);
+    expect(body).toMatch(/color:\s*var\(--ink\)/);
+    expect(body).toMatch(/font:[^;]*15px[^;]*var\(--font-ui\)/);
+    expect(ruleFor("body", mediaBlock("(width < 760px)", base))).toMatch(/font-size:\s*16px/);
+  });
+
+  it("sets headings in the display face at 700", () => {
+    const body = ruleFor("h1", base);
+    expect(body).toMatch(/font-family:\s*var\(--font-display\)/);
+    expect(body).toMatch(/font-weight:\s*700/);
+  });
+
+  it("shows where the keyboard is: a 3 px ring, and the glow on a field with focus", () => {
+    expect(stripped).toMatch(/:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--focus\)/);
+    expect(stripped).toMatch(/:focus-visible\s*\{[^}]*outline-offset:\s*2px/);
+    const field = ruleFor(".field-box:focus-within", base);
+    expect(field).toMatch(/border:\s*1\.5px solid var\(--ink\)/);
+    expect(field).toMatch(/box-shadow:\s*0 0 0 3px var\(--field-glow\)/);
+  });
+
+  it("marks a text field's focus once: border and glow, no outline on top", () => {
+    for (const selector of [
+      'input[type="text"]:focus-visible',
+      'input[type="search"]:focus-visible',
+      "select:focus-visible",
+      "textarea:focus-visible",
+      ".field-box input:focus-visible",
+    ]) {
+      expect(ruleFor(selector, base), selector).toMatch(/outline:\s*none/);
+    }
+    // a button and a link keep the ring
+    expect(ruleFor(":focus-visible", base, true)).toMatch(/outline:\s*3px solid var\(--focus\)/);
+  });
+
+  it("keeps .tap at the control height and .visually-hidden out of sight", () => {
+    expect(ruleFor(".tap", base)).toMatch(/min-height:\s*var\(--control-h\)/);
+    expect(ruleFor(".visually-hidden", base)).toMatch(/clip-path:\s*inset\(50%\)/);
+  });
+});
+
+describe("fonts.css", () => {
+  it("ships Figtree 500", () => {
+    const faces = [...fonts.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((m) => m[1] ?? "");
+    const files = faces
+      .filter((f) => /font-family:\s*"Figtree"/.test(f) && /font-weight:\s*500/.test(f))
+      .map((f) => /figtree-(latin(?:-ext)?)-500-normal\.woff2/.exec(f)?.[1]);
+    expect(files.sort()).toEqual(["latin", "latin-ext"]);
+  });
 });
 
 describe("style.css", () => {
-  it("gives the 3D canvas an explicit CSS width and height (no ResizeObserver feedback)", () => {
+  it("gives the 3D canvas an explicit CSS width and height, the frame's (no ResizeObserver feedback)", () => {
     const body = ruleFor(".viewer-canvas");
     expect(body).toMatch(/width:\s*100%/);
-    expect(body).toMatch(/height:\s*min\(/);
+    expect(body).toMatch(/height:\s*100%/);
+  });
+
+  it("draws the 3D view in the plan's frame: the same size and radius, on the stage's own colour", () => {
+    const frame = ruleFor(".viewer-stage", plan);
+    expect(frame).toBe(ruleFor(".plan-box", plan));
+    expect(frame).toMatch(
+      /--side:\s*min\(\s*582px,\s*calc\(\(100cqw - 12px\) \* var\(--long\) \/ var\(--box-w\) \+ 12px\),\s*calc\(\(100cqh - 12px\) \* var\(--long\) \/ var\(--box-l\) \+ 12px\)\s*\)/,
+    );
+    expect(frame).toMatch(/border-radius:\s*var\(--r-panel\)/);
+    // the plan's box is tan; the model is not in a tan block: it sits on the stage, with no edge drawn round it
+    expect(frame).toMatch(/background:\s*var\(--box\)/);
+    const ground = ruleFor(".viewer-stage", plan, true);
+    expect(ground).toMatch(/background:\s*var\(--page\)/);
+    expect(ground).toMatch(/box-shadow:\s*none/);
+    expect(ruleFor(".viewer-canvas")).toMatch(/border-radius:\s*inherit/);
+    expect(ruleFor(".viewer-canvas")).not.toMatch(/background/);
   });
 
   it("lets every pointer event through the axis indicator, so trays under it can still be picked", () => {
     expect(ruleFor(".axis-gizmo")).toMatch(/pointer-events:\s*none/);
-    expect(ruleFor(".viewer-stage")).toMatch(/position:\s*relative/);
+    expect(ruleFor(".viewer-stage", plan)).toMatch(/position:\s*relative/);
   });
 
   it("keeps the axes toggle in the view's corner with a 44 px target", () => {
@@ -151,13 +455,26 @@ describe("style.css", () => {
     expect(ruleFor(".viewer-selection-live")).toMatch(/pointer-events:\s*none/);
   });
 
-  it("lets one finger scroll the page past the 3D canvas and shortens it on phones", () => {
+  it("keeps the 3D controls out of the flow, over the foot of the frame, so the frame never shrinks", () => {
+    const under = ruleFor(".viewer-under");
+    expect(under).toMatch(/position:\s*absolute/);
+    expect(under).toMatch(/bottom:\s*var\(--s-8\)/);
+    // the strip is no panel: the pointer reaches the canvas round the one row of controls
+    expect(under).toMatch(/pointer-events:\s*none/);
+    expect(under).not.toMatch(/background/);
+    expect(ruleFor(".viewer-under > *")).toMatch(/pointer-events:\s*auto/);
+    const row = ruleFor(".viewer-controls");
+    expect(row).toMatch(/background:\s*var\(--pill-fill\)/);
+    expect(row).toMatch(/align-items:\s*center/);
+    expect(css).not.toMatch(/\.tray-picker|\.tray-chip/);
+  });
+
+  it("lets one finger scroll the page past the 3D canvas", () => {
     const body = ruleFor(".viewer-canvas");
     expect(body).toMatch(/touch-action:\s*pan-y/);
     expect(body).not.toMatch(/touch-action:\s*none/);
-    expect(ruleFor(".viewer-canvas", mediaBlock("(width < 600px)"))).toMatch(
-      /height:\s*min\(45vh,\s*320px\)/,
-    );
+    // the frame around it takes no touch-action of its own
+    expect(ruleFor(".viewer-stage", plan)).not.toMatch(/touch-action/);
   });
 
   it("puts the field notes in the full-width group of the form grid, not in a rule of their own", () => {
@@ -176,7 +493,7 @@ describe("touch targets", () => {
   it("gives fields at least 44 px, and the .tap buttons the control height", () => {
     expect(ruleFor('input[type="search"]')).toMatch(/min-height:\s*44px/);
     expect(ruleFor('input[type="text"]')).toMatch(/min-height:\s*44px/);
-    expect(ruleFor(".tap")).toMatch(/min-height:\s*var\(--control-h\)/);
+    expect(ruleFor(".tap", base)).toMatch(/min-height:\s*var\(--control-h\)/);
   });
 });
 
@@ -187,19 +504,11 @@ describe("the phone layout", () => {
     const body = ruleFor(".pf-toasts", phoneLayout);
     expect(body).toMatch(/position:\s*fixed/);
     expect(body).toMatch(/calc\(var\(--sheet-foot\)/);
-    expect(ruleFor(".pf-app")).toMatch(/--sheet-handle:\s*var\(--control-h\)/);
+    expect(ruleFor(".ws", workspace)).toMatch(/--sheet-foot:\s*calc\(var\(--sheet-peek\)/);
   });
 
   it("makes the screen one dvh tall, so a browser's own bars do not cover the sheet", () => {
-    expect(ruleFor(".pf-app", proof)).toMatch(/height:\s*100dvh/);
-  });
-
-  it("leaves the scrolling to the settings sheet's panel, whatever the screen's width", () => {
-    expect(ruleFor(".settings-sheet .modal-body")).toMatch(/overflow:\s*auto/);
-    // so the visually hidden text inside is clipped by the panel, not stretching the dialog
-    expect(ruleFor(".settings-sheet .modal-body")).toMatch(/position:\s*relative/);
-    expect(ruleFor(".settings-sheet[open]")).toMatch(/overflow:\s*hidden/);
-    expect(ruleFor(".settings-sheet")).toMatch(/dvh/);
+    expect(ruleFor(".ws", workspace)).toMatch(/height:\s*100dvh/);
   });
 
   it("breaks at the width the app asks about", () => {
@@ -214,10 +523,13 @@ describe("the phone layout", () => {
     expect(mediaBlocks(`(width < ${px}px)`).length).toBeGreaterThan(1);
   });
 
-  it("leaves the order of the stage to the page: the status pill, the box, then the figures", () => {
-    // DESIGN §5: the same order on every width, so no `order` moves a block (App.test.tsx checks the page)
-    expect(ruleFor(".pf-app__stage > .stage-block", phoneLayout)).not.toMatch(/order:/);
-    expect(css).not.toMatch(/\.pf-app__stage > \.pf-status\s*{[^}]*order:/);
+  it("orders the stage: banner, status, plan", () => {
+    // DESIGN §5: the page's order is the order on every width, so no `order` moves a block
+    // (App.test.tsx checks the page; stage.style.test.ts checks stage.css has none)
+    expect(ruleFor(".ws-stage > .stage-block", workspace)).not.toMatch(/order:/);
+    expect(mediaBlock("(width < 760px)", workspace)).not.toMatch(
+      /\.stage-block|\.stage-status|\.app-notices/,
+    );
   });
 
   it("fills the screen with an open sheet that holds the editor or the box, below 600 px", () => {
@@ -233,31 +545,75 @@ describe("the phone layout", () => {
     expect(ruleFor("button", css, true)).toMatch(/min-height:\s*var\(--control-h\)/);
   });
 
-  it("keeps the plan at least 24 rem tall (the figures below it still share the stage), so it scrolls rather than shrinks", () => {
-    expect(ruleFor(".pf-app__stage > .pf-view")).toMatch(/min-height:\s*24rem/);
+  it("sizes the plan from Main and the height left", () => {
+    // the container takes what the stage has left; the box shrinks into it before the stage scrolls
+    const fit = ruleFor(".plan-fit", plan);
+    expect(fit).toMatch(/container-type:\s*size/);
+    expect(fit).toMatch(/min-height:\s*0/);
+    // as tall as the box at the stage's width, up to the box at full size, so the caption sits
+    // under it; shrinking, never growing
+    expect(fit).toMatch(/flex:\s*0 1 auto/);
+    expect(fit).toMatch(/aspect-ratio:\s*var\(--box-w\) \/ var\(--box-l\)/);
+    expect(fit).toMatch(/max-height:\s*calc\(570px/);
+    expect(fit).toMatch(/display:\s*grid/);
+    expect(fit).toMatch(/place-items:\s*center/);
+    const col = ruleFor(".ws-stage > .plan-col", workspace);
+    expect(col).toMatch(/flex:\s*1 1 auto/);
+    expect(col).toMatch(/min-height:\s*0/);
+    // no floor under it: the 24 rem of the old layout is gone
+    expect(workspace).not.toMatch(/24rem/);
+    // the box: Main's 582 px, or less
+    // each side of the box is held by its own container side, whichever way the box lies
+    expect(ruleFor(".plan-box", plan)).toMatch(
+      /--side:\s*min\(\s*582px,\s*calc\(\(100cqw - 12px\) \* var\(--long\) \/ var\(--box-w\) \+ 12px\),\s*calc\(\(100cqh - 12px\) \* var\(--long\) \/ var\(--box-l\) \+ 12px\)\s*\)/,
+    );
+    expect(ruleFor(".plan-box", plan)).toMatch(/border-radius:\s*var\(--r-panel\)/);
+    expect(ruleFor(".plan-box", plan)).toMatch(/box-shadow:\s*var\(--box-inset-plan\)/);
+    // a phone: the page's width less 16 px a side, radius 14, and the frame sets no height cap
+    const phone = mediaBlock("(width < 760px)", plan);
+    expect(ruleFor(".plan-box", phone)).toMatch(/--side:\s*calc\(100vw - 32px\)/);
+    expect(ruleFor(".plan-box", phone)).toMatch(/border-radius:\s*var\(--r-card\)/);
+    expect(ruleFor(".plan-fit", phone)).toMatch(/container-type:\s*normal/);
+    expect(ruleFor(".plan-fit", phone)).toMatch(/max-height:\s*none/);
+    // dimming: every other tile at 60% (half washed the hue out; owner: "a bit pale"), with a short fade that reduced motion drops
+    expect(ruleFor(".plan-tile.is-dimmed", plan)).toMatch(/opacity:\s*0\.6/);
+    expect(ruleFor(".plan-tile", plan)).toMatch(/transition:\s*opacity 180ms,\s*box-shadow 180ms/);
+    expect(ruleFor(".plan-tile", mediaBlock("(prefers-reduced-motion: reduce)", plan))).toMatch(
+      /transition:\s*none/,
+    );
   });
 
-  it("gives the view's tabs a 44 px target", () => {
-    expect(ruleFor(".pf-tabs button", proof)).toMatch(/min-height:\s*var\(--control-h\)/);
+  it("draws a phone's tiles plain: a smaller pill, no cells, no padding", () => {
+    const phone = mediaBlock("(width < 760px)", plan);
+    expect(ruleFor(".plan-cells", phone)).toMatch(/display:\s*none/);
+    // no tile has padding, on a phone or not (a thin spacer must not grow past its footprint)
+    expect(ruleFor(".plan-tile", plan)).toMatch(/padding:\s*0;/);
+    expect(ruleFor(".plan-pill", phone)).toMatch(/padding:\s*2px 7px/);
+    expect(ruleFor(".plan-pill", phone)).toMatch(/font-size:\s*var\(--text-2xs\)/);
+  });
+
+  it("draws a tile 3 px inside its footprint, 10 px round, with no padding", () => {
+    const tile = ruleFor(".plan-tile", plan);
+    expect(tile).toMatch(/left:\s*calc\(var\(--x\) \+ 3px\)/);
+    expect(tile).toMatch(/width:\s*calc\(var\(--w\) - 6px\)/);
+    expect(tile).toMatch(/border-radius:\s*var\(--r-tile\)/);
+    expect(tile).toMatch(/padding:\s*0;/);
+    expect(ruleFor(".plan-floor", plan)).toMatch(/inset:\s*6px/);
+  });
+
+  it("gives the Layer and View segments a 44 px target", () => {
+    // the status row's segments are the kit's (Main's, 44 px each in a 3 px track)
+    expect(ruleFor(".k-seg__item", kit)).toMatch(/height:\s*var\(--control-h\)/);
   });
 });
 
 describe("pills", () => {
-  // DESIGN §2 Claims: a pill is one line; what does not fit ends in an ellipsis, never wraps.
-  it("keep to one line: the pill does not wrap, its text and its button are cut with an ellipsis", () => {
-    const pill = ruleFor(".pf-status__pill");
-    expect(pill).toMatch(/display:\s*flex/);
-    expect(pill).toMatch(/flex-wrap:\s*nowrap/);
-    for (const part of [".pf-status__text", ".pf-status__btn"]) {
-      const body = ruleFor(part);
-      expect(body, part).toMatch(/white-space:\s*nowrap/);
-      expect(body, part).toMatch(/text-overflow:\s*ellipsis/);
-      expect(body, part).toMatch(/overflow:\s*hidden/);
-    }
-    // the text gives way first, and the button can shrink instead of overflowing the pill
-    expect(ruleFor(".pf-status__text")).toMatch(/min-width:\s*0/);
-    expect(ruleFor(".pf-status__btn")).toMatch(/flex:\s*0 1 auto/);
-    expect(ruleFor(".pf-status__btn")).toMatch(/max-width:\s*\d+%/);
+  // DESIGN §2 Claims: what does not fit in a pill ends in an ellipsis; the status heading's title
+  // is one line, cut with one, and its whole text is in a title (the kit's `ellipsis`).
+  it("keep the status heading's title to one line, cut with an ellipsis", () => {
+    expect(ruleFor(".ellipsis", kit)).toMatch(/white-space:\s*nowrap/);
+    expect(ruleFor(".ellipsis", kit)).toMatch(/text-overflow:\s*ellipsis/);
+    expect(ruleFor(".ellipsis", kit)).toMatch(/overflow:\s*hidden/);
   });
 });
 
@@ -268,7 +624,7 @@ describe("breakpoints", () => {
     eager: true,
   });
 
-  it("are 760 (phone), 600 (full-screen dialogs) and the 760 to 960 tablet rail, and nothing else", () => {
+  it("are 760 (phone), 600 (full-screen dialogs) and the 760 to 960 tablet band, and nothing else", () => {
     const RULED = new Set([
       "(width < 760px)",
       "screen and (width < 760px)",
@@ -276,8 +632,6 @@ describe("breakpoints", () => {
       "(width >= 760px) and (width <= 960px)",
       "(width < 600px)",
       "(prefers-reduced-motion: reduce)",
-      "(prefers-color-scheme: dark)",
-      "screen and (prefers-color-scheme: dark)",
       "print",
     ]);
     const found = new Set<string>();
@@ -289,12 +643,99 @@ describe("breakpoints", () => {
     expect(found.size).toBeGreaterThan(4);
     expect([...found].filter((q) => !RULED.has(q))).toEqual([]);
   });
+});
 
-  it("narrows the rail between 760 and 960 px, and no further", () => {
-    const rail = mediaBlock("(width >= 760px) and (width <= 960px)");
-    expect(ruleFor(".pf-app__body", rail)).toMatch(
-      /grid-template-columns:\s*minmax\(280px, 340px\)/,
-    );
-    expect(ruleFor(".pf-app__rail", rail)).toMatch(/padding-inline/);
+describe("workspace.css", () => {
+  const stripped = workspace.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("fills the viewport and never scrolls the page on desktop", () => {
+    expect(ruleFor(".ws", stripped)).toMatch(/height:\s*100dvh/);
+    expect(ruleFor(".ws-header", stripped)).toMatch(/flex:\s*none/);
+    const body = ruleFor(".ws-body", stripped);
+    expect(body).toMatch(/display:\s*flex/);
+    expect(body).toMatch(/flex-wrap:\s*wrap/);
+    expect(body).toMatch(/min-height:\s*0/);
+    expect(ruleFor(".ws", stripped)).toMatch(/overflow:\s*clip/);
+    // a column is never taller than the body, so the page has no scroll of its own
+    expect(ruleFor(".ws-rail", stripped)).toMatch(/max-height:\s*100%/);
+    expect(ruleFor(".ws-stage", stripped)).toMatch(/max-height:\s*100%/);
+  });
+
+  it("gives the rail Main's width on every screen", () => {
+    const rail = ruleFor(".ws-rail", stripped);
+    expect(rail).toMatch(/flex:\s*1 1 var\(--rail-basis\)/);
+    expect(rail).toMatch(/max-width:\s*var\(--rail-max\)/);
+    expect(rail).toMatch(/padding:\s*var\(--rail-pad\)/);
+    expect(rail).toMatch(/background:\s*var\(--sheet\)/);
+    expect(rail).toMatch(/border-right:\s*1px solid var\(--rule\)/);
+    expect(rail).toMatch(/overflow:\s*hidden/);
+    const light = declarations(tokens.replace(/\/\*[\s\S]*?\*\//g, ""));
+    expect(light.get("--rail-basis")).toBe("300px");
+    expect(light.get("--rail-max")).toBe("350px");
+  });
+
+  it("lets the stage take the rest", () => {
+    const stage = ruleFor(".ws-stage", stripped);
+    expect(stage).toMatch(/flex:\s*999 1 640px/);
+    expect(stage).toMatch(/min-width:\s*0/);
+    expect(stage).toMatch(/padding:\s*var\(--stage-pad\)/);
+    expect(stage).toMatch(/gap:\s*var\(--s-16\)/);
+    expect(ruleFor(".ws-stage--focus", stripped)).toMatch(/padding:\s*var\(--stage-pad-focus\)/);
+  });
+
+  it("puts the stage first on a phone, and the header at the phone's height", () => {
+    const phone = mediaBlock("(width < 760px)", stripped);
+    expect(ruleFor(".ws-stage", phone)).toMatch(/order:\s*-1/);
+    expect(ruleFor(".ws-header", phone)).toMatch(/min-height:\s*var\(--header-h-phone\)/);
+  });
+
+  it("keeps the sheet's peek clear of the stage's last block, only where a sheet is", () => {
+    const phone = mediaBlock("(width < 760px)", stripped);
+    expect(ruleFor(".ws--sheet .ws-stage", phone)).toMatch(/calc\(var\(--sheet-foot\)/);
+    expect(ruleFor(".ws-stage", phone)).not.toMatch(/--sheet-foot/);
+  });
+
+  it("keeps the rail beside the stage between 760 and 960 px: the stage's basis leaves room for the rail", () => {
+    const tablet = mediaBlock("(width >= 760px) and (width <= 960px)", stripped);
+    const basis = Number(/flex-basis:\s*(\d+)px/.exec(ruleFor(".ws-stage", tablet))?.[1]);
+    const rail = Number(/--rail-basis:\s*(\d+)px/.exec(tokens)?.[1]);
+    expect(basis).toBeGreaterThan(0);
+    // the two fit side by side at 760 px, so the line does not wrap
+    expect(rail + basis).toBeLessThanOrEqual(760);
+  });
+
+  it("writes no raw colours", () => {
+    expect(stripped).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+});
+
+describe("kit.css", () => {
+  const stripped = kit.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("sizes the kit from tokens", () => {
+    expect(ruleFor(".k-btn", stripped)).toMatch(/height:\s*var\(--control-h\)/);
+    expect(ruleFor(".k-field__box", stripped)).toMatch(/height:\s*var\(--field-h\)/);
+    expect(ruleFor(".k-btn", stripped)).toMatch(/border-radius:\s*var\(--r-pill\)/);
+    expect(stripped).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it("keeps the other sizes the boards draw", () => {
+    expect(ruleFor(".k-btn--dialog", stripped)).toMatch(/height:\s*var\(--dialog-btn-h\)/);
+    expect(ruleFor(".k-btn--cta", stripped)).toMatch(/height:\s*var\(--cta-h\)/);
+    expect(ruleFor(".k-iconbtn", stripped)).toMatch(/width:\s*var\(--control-h\)/);
+    expect(ruleFor(".k-seg__item", stripped)).toMatch(/height:\s*var\(--control-h\)/);
+    expect(ruleFor(".k-chip", stripped)).toMatch(/height:\s*var\(--control-h\)/);
+    expect(ruleFor(".k-kindtile", stripped)).toMatch(/height:\s*var\(--kind-tile-h\)/);
+    expect(ruleFor(".k-menu", stripped)).toMatch(/width:\s*var\(--menu-w\)/);
+  });
+
+  it("writes only the breakpoints DESIGN rules", () => {
+    const queries = [...stripped.matchAll(/@media\s+([^{]+)\{/g)].map((m) => (m[1] ?? "").trim());
+    expect(queries.length).toBeGreaterThan(0);
+    for (const q of queries) {
+      expect(["(width < 760px)", "(width < 600px)", "(prefers-reduced-motion: reduce)"]).toContain(
+        q,
+      );
+    }
   });
 });

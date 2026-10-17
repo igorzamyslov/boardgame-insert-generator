@@ -6,9 +6,9 @@ import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
+import { hoveredComponent } from "../screens/hover";
 import { SelectField } from "../ui/fields";
-import { lookOfTray } from "../plan/glyph";
-import type { ColorScheme } from "../ui/identity";
+import { componentIndexOfTray } from "../ui/identity";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
 import { pageScheme, shadeColorOf } from "./shades";
@@ -33,35 +33,6 @@ export interface ViewerProps {
 
 type Status = "loading" | "ready" | "nowebgl" | "error" | "lost";
 
-/**
- * The page's colour scheme, kept current: the scene is repainted when it changes. The scheme is
- * the system's; the page has no switch (DESIGN §4). A switch would have to set an attribute on
- * the root and this hook would have to watch it: see `pageScheme` in shades.ts.
- */
-function usePageScheme(): ColorScheme {
-  const [scheme, setScheme] = useState<ColorScheme>(pageScheme);
-  useEffect(() => {
-    const update = (): void => setScheme(pageScheme());
-    const query =
-      typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
-    // Older browsers only have the deprecated addListener on a MediaQueryList.
-    if (query?.addEventListener) {
-      query.addEventListener("change", update);
-    } else {
-      query?.addListener?.(update);
-    }
-    update();
-    return () => {
-      if (query?.removeEventListener) {
-        query.removeEventListener("change", update);
-      } else {
-        query?.removeListener?.(update);
-      }
-    };
-  }, []);
-  return scheme;
-}
-
 async function defaultLoadScene(): Promise<SceneFactory> {
   const mod = await import("./scene");
   return mod.createScene;
@@ -83,7 +54,7 @@ export function Viewer(p: ViewerProps) {
   const [attempt, setAttempt] = useState(0);
   // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
   const [canvasKey, setCanvasKey] = useState(0);
-  const scheme = usePageScheme();
+  const scheme = pageScheme();
   const levels = useMemo(() => levelsOf(p.trays), [p.trays]);
   const parts = useMemo(() => numberParts(p.trays), [p.trays]);
   const byKey = useMemo(() => partsByKey(parts), [parts]);
@@ -243,6 +214,25 @@ export function Viewer(p: ViewerProps) {
     handleRef.current?.setSelected(p.selectedKey);
   }, [status, p.selectedKey]);
 
+  // The rail row the pointer or focus is on lights its component's trays, as it does in the top
+  // view. A string key, so the scene hears of a change and not of every render.
+  const railId = hoveredComponent.value;
+  const litKey = useMemo(() => {
+    const comps = p.components ?? [];
+    return railId === null
+      ? ""
+      : p.trays
+          .filter((t) => {
+            const at = componentIndexOfTray(t, comps);
+            return at !== null && comps[at]?.id === railId;
+          })
+          .map((t) => t.key)
+          .join("\n");
+  }, [railId, p.trays, p.components]);
+  useEffect(() => {
+    handleRef.current?.setLit(litKey === "" ? [] : litKey.split("\n"));
+  }, [status, litKey]);
+
   useEffect(() => {
     const h = handleRef.current;
     const canvas = canvasRef.current;
@@ -273,144 +263,155 @@ export function Viewer(p: ViewerProps) {
       part.spec.part !== "divider" &&
       (shownLevel === null || part.spec.level <= shownLevel),
   );
+  // The arrow keys step through the trays the scene shows, ends wrapping round: a keyboard route
+  // to every tray, now that the scene has no row of chips for it.
+  const stepTray = (e: KeyboardEvent): void => {
+    const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+    if (
+      (!forward && e.key !== "ArrowLeft" && e.key !== "ArrowUp") ||
+      e.altKey ||
+      e.ctrlKey ||
+      e.metaKey ||
+      pickable.length === 0
+    ) {
+      return;
+    }
+    e.preventDefault();
+    const at = pickable.findIndex((part) => part.spec.key === p.selectedKey);
+    const next =
+      at < 0
+        ? forward
+          ? 0
+          : pickable.length - 1
+        : (at + (forward ? 1 : -1) + pickable.length) % pickable.length;
+    const key = pickable[next]?.spec.key;
+    if (key !== undefined) {
+      p.onSelect(key);
+    }
+  };
   const selected = p.selectedKey === null ? undefined : byKey.get(p.selectedKey);
   const selectedName = selected ? (names.get(selected.spec.key)?.full ?? selected.label) : null;
   return (
     <div class="viewer">
-      <div class="viewer-stage">
-        <canvas
-          key={canvasKey}
-          ref={canvasRef}
-          class="viewer-canvas"
-          aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
-        />
-        {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
-        {/* Always mounted, so a reader that watches it hears the name appear. */}
-        <div class="viewer-selection-live" role="status">
-          {selectedName !== null ? (
-            <span class="viewer-selection" title={selectedName}>
-              {selectedName}
-            </span>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          class="viewer-axes-toggle"
-          aria-pressed={showAxes}
-          aria-label="Show axes"
-          aria-describedby="viewer-axes-hint"
-          title="Show axes"
-          onClick={() => setShowAxes((v) => !v)}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            aria-hidden="true"
-          >
-            <path d="M5 19V4M5 19h15M5 19l8-8" />
-          </svg>
-        </button>
-        <span id="viewer-axes-hint" class="visually-hidden">
-          A small X, Y, Z indicator in the corner that turns with the model: X runs across the box,
-          Y from its front to its back, Z up.
-        </span>
-      </div>
-      {status === "loading" ? <p class="hint">Loading the 3D preview…</p> : null}
-      {status === "error" || status === "lost" ? (
-        <p role="alert">
-          {status === "lost"
-            ? "The 3D preview stopped because the graphics context was lost. "
-            : "Couldn't show the 3D preview. "}
-          <button type="button" onClick={retryScene}>
-            Retry
-          </button>
-        </p>
-      ) : null}
-      {p.stale ? <p class="hint">{`${STALE_MESSAGE} The preview shows the last plan.`}</p> : null}
-      {/* always mounted, so the progress is spoken when it starts; the count stays on screen only */}
-      <div class="visually-hidden" role="status">
-        {!p.stale && build.total > 0 && build.done < build.total ? "Building 3D models." : ""}
-      </div>
-      {!p.stale && build.total > 0 && build.done < build.total ? (
-        <div class="run-status">
-          <progress value={build.done} max={build.total} aria-label="Building 3D models" />
-          <span>{`Building 3D models ${build.done}/${build.total}…`}</span>
-        </div>
-      ) : null}
-      {build.failed > 0 && build.done === build.total ? (
-        <p role="alert">
-          {`${build.failed === 1 ? "1 tray" : `${build.failed} trays`} couldn't be shown. `}
+      <div
+        class="plan-fit"
+        style={{ "--box-w": String(p.box.innerWidth), "--box-l": String(p.box.innerDepth) }}
+      >
+        <div class="viewer-stage" data-region="plan-box">
+          <canvas
+            key={canvasKey}
+            ref={canvasRef}
+            class="viewer-canvas"
+            tabIndex={0}
+            aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details, or step through the trays with the arrow keys. On a touch screen use two fingers; one finger scrolls the page."
+            onKeyDown={stepTray}
+          />
+          {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
+          {/* Always mounted, so a reader that watches it hears the name appear. */}
+          <div class="viewer-selection-live" role="status">
+            {selectedName !== null ? (
+              <span class="viewer-selection" title={selectedName}>
+                {selectedName}
+              </span>
+            ) : null}
+          </div>
           <button
             type="button"
-            onClick={() => {
-              p.meshes.reset();
-              setAttempt((a) => a + 1);
-            }}
+            class="viewer-axes-toggle"
+            aria-pressed={showAxes}
+            aria-label="Show axes"
+            aria-describedby="viewer-axes-hint"
+            title="Show axes"
+            onClick={() => setShowAxes((v) => !v)}
           >
-            Retry
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M5 19V4M5 19h15M5 19l8-8" />
+            </svg>
           </button>
-        </p>
-      ) : null}
-      <div class="viewer-controls">
-        <label class="range-field">
-          Spread apart
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            aria-valuetext={explode === 0 ? "Together" : `${Math.round(explode * 100)}% apart`}
-            value={explode}
-            onInput={(e) => setExplode(Number(e.currentTarget.value))}
-          />
-        </label>
-        {levels.length > 1 ? (
-          <SelectField
-            id="viewer-layers"
-            label="Show layers"
-            value={shownLevel === null ? "all" : String(shownLevel)}
-            options={[
-              { value: "all", label: "All layers" },
-              ...levels.map((l, i) => ({
-                value: String(l),
-                label: i === 0 ? "Layer 1 only" : `Layers 1 to ${i + 1}`,
-              })),
-            ]}
-            onChange={(v) => setMaxLevel(v === "all" ? null : Number(v))}
-          />
-        ) : null}
-      </div>
-      {pickable.length > 0 ? (
-        <ul class="tray-picker" aria-label="Trays">
-          {pickable.map((part) => {
-            const key = part.spec.key;
-            const isSelected = key === p.selectedKey;
-            // The shade the plan tile has: one colour per component, everywhere.
-            const tint = lookOfTray(part.spec, p.components ?? [])?.shade.fill ?? null;
-            return (
-              <li key={key}>
+          <span id="viewer-axes-hint" class="visually-hidden">
+            A small X, Y, Z indicator in the corner that turns with the model: X runs across the
+            box, Y from its front to its back, Z up.
+          </span>
+          <div class="viewer-under">
+            {status === "loading" ? <p class="hint">Loading the 3D preview…</p> : null}
+            {status === "error" || status === "lost" ? (
+              <p role="alert">
+                {status === "lost"
+                  ? "The 3D preview stopped because the graphics context was lost. "
+                  : "Couldn't show the 3D preview. "}
+                <button type="button" onClick={retryScene}>
+                  Retry
+                </button>
+              </p>
+            ) : null}
+            {p.stale ? (
+              <p class="hint">{`${STALE_MESSAGE} The preview shows the last plan.`}</p>
+            ) : null}
+            {/* always mounted, so the progress is spoken when it starts; the count stays on screen only */}
+            <div class="visually-hidden" role="status">
+              {!p.stale && build.total > 0 && build.done < build.total ? "Building 3D models." : ""}
+            </div>
+            {!p.stale && build.total > 0 && build.done < build.total ? (
+              <div class="run-status">
+                <progress value={build.done} max={build.total} aria-label="Building 3D models" />
+                <span>{`Building 3D models ${build.done}/${build.total}…`}</span>
+              </div>
+            ) : null}
+            {build.failed > 0 && build.done === build.total ? (
+              <p role="alert">
+                {`${build.failed === 1 ? "1 tray" : `${build.failed} trays`} couldn't be shown. `}
                 <button
                   type="button"
-                  data-key={key}
-                  aria-pressed={isSelected}
-                  aria-label={names.get(key)?.full ?? part.label}
-                  onClick={() => p.onSelect(isSelected ? null : key)}
+                  onClick={() => {
+                    p.meshes.reset();
+                    setAttempt((a) => a + 1);
+                  }}
                 >
-                  <span
-                    class={tint === null ? "tray-chip tray-chip--spare" : "tray-chip"}
-                    style={tint === null ? undefined : { "--tint": tint }}
-                    aria-hidden="true"
-                  />
-                  {names.get(key)?.full ?? part.label}
+                  Retry
                 </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+              </p>
+            ) : null}
+            <div class="viewer-controls">
+              <label class="range-field">
+                Spread apart
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  aria-valuetext={
+                    explode === 0 ? "Together" : `${Math.round(explode * 100)}% apart`
+                  }
+                  value={explode}
+                  onInput={(e) => setExplode(Number(e.currentTarget.value))}
+                />
+              </label>
+              {levels.length > 1 ? (
+                <SelectField
+                  id="viewer-layers"
+                  label="Show layers"
+                  value={shownLevel === null ? "all" : String(shownLevel)}
+                  options={[
+                    { value: "all", label: "All layers" },
+                    ...levels.map((l, i) => ({
+                      value: String(l),
+                      label: i === 0 ? "Layer 1 only" : `Layers 1 to ${i + 1}`,
+                    })),
+                  ]}
+                  onChange={(v) => setMaxLevel(v === "all" ? null : Number(v))}
+                />
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

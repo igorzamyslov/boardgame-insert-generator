@@ -26,6 +26,15 @@ describe("errorsWithoutField", () => {
     expect(errorsWithoutField(list)).toEqual(list);
   });
 
+  it("keeps the error of an empty list: the list has no field of its own", () => {
+    const list = [
+      err("/components/0/decks", "field.empty"),
+      err("/components/2/items", "field.empty"),
+      err("/components/1/figures", "field.empty"),
+    ];
+    expect(errorsWithoutField(list)).toEqual(list);
+  });
+
   it("keeps errors without a path", () => {
     const list = [err(undefined)];
     expect(errorsWithoutField(list)).toEqual(list);

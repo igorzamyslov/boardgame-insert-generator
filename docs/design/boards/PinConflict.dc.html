@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Choices block a fit</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&amp;family=Figtree:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F3EF}:focus-visible{outline:3px solid #2F5BB8;outline-offset:2px}label:focus-within>span{box-shadow:0 0 0 3px #CFDCF6}@media (max-width:760px){main{order:-1}aside{max-width:none !important;flex-basis:100% !important}}
+a{color:#1D1F1C}a:hover{color:#000}
+button{font:inherit;color:inherit}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-direction: column; background: #F4F3EF; color: #1D1F1C; font-family: Figtree, system-ui, sans-serif; font-size: 15px">
+
+<header style="height: 60px; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 0 24px; border-bottom: 1px solid #E4E1D9">
+<div aria-hidden="true" style="width: 28px; height: 28px; border-radius: 8px; background: #1D1F1C; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; padding: 5px; box-sizing: border-box">
+<span style="border-radius: 2px; background: #8FB0EE"></span><span style="border-radius: 2px; background: #EDC175"></span><span style="border-radius: 2px; background: #86C79A"></span><span style="border-radius: 2px; background: #E89BBE"></span>
+</div>
+<span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px">Insert Generator</span>
+<span aria-hidden="true" style="width: 1px; height: 22px; background: #DAD6CC"></span>
+<span style="color: #5F625C; padding: 8px 10px">Harbour Kings</span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #5F625C"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2B7247" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Saved in this browser</span>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; gap: 2px">
+<button type="button" aria-label="Undo" title="Undo" style="width: 44px; height: 44px; border-radius: 999px; border: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-3"></path></svg></button>
+</div>
+<button type="button" aria-label="Project menu" aria-haspopup="menu" style="width: 44px; height: 44px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></button>
+<button type="button" aria-disabled="true" style="height: 44px; padding: 0 18px; border-radius: 999px; border: 0; background: #E4E1D9; color: #3E413C; cursor: not-allowed; font-weight: 600">Fix the fit to download</button>
+</header>
+
+<div style="flex-grow: 1; display: flex; flex-wrap: wrap">
+
+<aside style="flex: 1 1 300px; max-width: 340px; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E4E1D9; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 20px">What's inside</h2>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{comps}}" as="c" hint-placeholder-count="8">
+<div style="{{c.rowStyle}}">
+<span aria-hidden="true" style="{{c.dotStyle}}"></span>
+<span style="display: flex; flex-direction: column; gap: 1px; flex-grow: 1; min-width: 0">
+<span style="font-weight: 600">{{c.name}}</span>
+<span style="{{c.metaStyle}}">{{c.meta}}</span>
+</span>
+<sc-if value="{{c.hasRule}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: #EFEDE7; color: #3E413C; white-space: nowrap">{{c.rule}}</span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</aside>
+
+<main style="flex: 999 1 600px; min-width: 0; box-sizing: border-box; padding: 24px 36px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; gap: 14px; align-items: center">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 999px; background: #FCE6CF; color: #9A4A0B; display: flex; align-items: center; justify-content: center; "><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5"></path><path d="M12 16.5v.5"></path><path d="M10.3 3.9L2.6 17.3A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.7L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: -0.01em">Hex tiles don't fit with your pins</h1>
+<span style="color: #5F625C">Your pinned trays take the space Hex tiles need. Unpin one and everything fits.</span>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 12px">
+<div style="position: relative; width: min(582px, calc(100vw - 32px)); aspect-ratio: 1; flex-shrink: 0; border-radius: 16px; background: #D3CDBF; box-shadow: inset 0 0 0 1px #BFB8A8">
+<sc-for list="{{trays}}" as="t" hint-placeholder-count="6">
+<span style="{{t.style}}">
+<span style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px">
+<span style="{{t.nameStyle}}">
+<sc-if value="{{t.isCards}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="7" y="3" width="12" height="16" rx="2"></rect><path d="M5 7v12a2 2 0 0 0 2 2h9"></path></svg></sc-if>
+<sc-if value="{{t.isBits}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path><path d="M4 7.5l8 4.5 8-4.5M12 12v9"></path></svg></sc-if>
+<sc-if value="{{t.isTiles}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg></sc-if>
+<sc-if value="{{t.isMinis}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="6.5" r="3"></circle><path d="M9.5 10.5h5l1.5 7h-8z"></path><path d="M6 20.5h12"></path></svg></sc-if>
+{{t.label}}</span>
+</span>
+<sc-if value="{{t.pinned}}" hint-placeholder-val="{{false}}">
+<span role="img" aria-label="Pinned" style="position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 999px; background: #1D1F1C; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 5 3 3H7l3-3z"></path><path d="M12 12v8"></path></svg>
+</span>
+</sc-if>
+</span>
+</sc-for>
+<span style="position: absolute; left: 66.84%; top: 1.55%; width: 31.62%; height: 31.62%; box-sizing: border-box; border-radius: 10px; border: 2px dashed #C2620F; background: rgba(252,230,207,.7); display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px; font-size: 13px; font-weight: 600; color: #7A3A08">Hex tiles need 95 × 140 mm. 95 × 95 is free.</span>
+</div>
+<span style="font-size: 13px; color: #5F625C">Bottom layer, seen from above. Front of the box <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px"><path d="M12 5v14M6 13l6 6 6-6"></path></svg></span>
+</div>
+
+<div style="flex: 1 1 280px; max-width: 340px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 19px">Unpin one</span>
+<a href="Main.dc.html" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; border: 1.5px solid #1D1F1C; background: #FFFFFF; cursor: pointer; text-align: left">
+<span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-weight: 600">Unpin Heroes</span>
+<span style="font-size: 13px; color: #2B7247; font-weight: 600">Everything fits</span>
+</span>
+<span style="font-size: 13px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: #DDF0E3; color: #2B7247">Best</span>
+</a>
+<a href="Main.dc.html" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px; border-radius: 14px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; text-align: left">
+<span style="font-weight: 600">Let Dice go on any layer</span>
+<span style="font-size: 13px; color: #2B7247; font-weight: 600">Everything fits, 1 more spacer</span>
+</a>
+<a href="Main.dc.html" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px; border-radius: 14px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; text-align: left">
+<span style="font-weight: 600">Unpin Market deck</span>
+<span style="font-size: 13px; color: #7A3A08; font-weight: 600">Still doesn't fit</span>
+</a>
+<button type="button" style="align-self: flex-start; min-height: 44px; border: 0; background: none; padding: 8px 0; cursor: pointer; font-weight: 600; font-size: 14px; color: #5F625C; text-decoration: underline; text-underline-offset: 3px">Undo</button>
+</div>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+const K = {
+  cards: { fill: '#DCE6FA', line: '#335AA6', ink: '#22457E' },
+  bits: { fill: '#FBE9C9', line: '#8A5D08', ink: '#6E4C0E' },
+  tiles: { fill: '#D8EEDE', line: '#2E6B41', ink: '#22552E' },
+  minis: { fill: '#F5DCE7', line: '#964068', ink: '#74244B' }
+};
+const TRAYS = [
+  { n: 1, kind: 'cards', name: 'Market deck', x: 0, y: 0, w: 95, d: 190, pinned: true },
+  { n: 2, kind: 'cards', name: 'Starter decks', x: 95, y: 0, w: 95, d: 95 },
+  { n: 6, kind: 'bits', name: 'Coins and cubes', x: 95, y: 95, w: 95, d: 95 },
+  { n: 7, kind: null, name: 'Spacer', x: 0, y: 190, w: 190, d: 95 },
+  { n: 5, kind: 'minis', name: 'Heroes', x: 190, y: 140, w: 95, d: 145, pinned: true }
+];
+const COMPS = [
+  ['Market deck', 'cards', 1, '80 cards, bottom layer', 'Pinned'],
+  ['Starter decks', 'cards', 2, '4 decks, bottom layer', ''],
+  ['Event cards', 'cards', 8, '30 cards, top layer', ''],
+  ['Coins and cubes', 'bits', 6, '4 kinds, bottom layer', ''],
+  ['Resource tokens', 'bits', 9, '6 kinds, top layer', ''],
+  ['Dice', 'bits', 4, '10 dice, top layer', 'Top layer'],
+  ['Hex tiles', 'tiles', 3, 'No room left', ''],
+  ['Heroes', 'minis', 5, '6 figures, bottom layer', 'Pinned']
+];
+class Component extends DCLogic {
+  renderVals() {
+    const trays = TRAYS.map((t) => {
+      const k = t.kind ? K[t.kind] : null;
+      const look = k ? `background:${k.fill};border:2px solid ${k.line};` : 'background:repeating-linear-gradient(135deg,#E9E5DB 0 6px,#DDD8CC 6px 12px);border:2px dashed #6E695C;';
+      return {
+        n: t.n, label: t.name, isCards: !!t.pinned && t.kind === 'cards', isBits: !!t.pinned && t.kind === 'bits', isTiles: !!t.pinned && t.kind === 'tiles', isMinis: !!t.pinned && t.kind === 'minis', pinned: !!t.pinned,
+        style: `position:absolute;left:${(9 + t.x * 2) / 5.82}%;top:${(9 + t.y * 2) / 5.82}%;width:${(t.w * 2 - 6) / 5.82}%;height:${(t.d * 2 - 6) / 5.82}%;box-sizing:border-box;border-radius:10px;opacity:${t.pinned ? 1 : 0.5};${look}`,
+        badgeStyle: `width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:${k ? k.ink : '#6B6E68'};color:#FFFFFF`,
+        nameStyle: `font-size:13px;font-weight:600;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.88);color:${k ? k.ink : '#4A4D47'};white-space:nowrap;display:inline-flex;align-items:center;gap:5px`
+      };
+    });
+    const comps = COMPS.map(([name, kind, n, meta, rule]) => {
+      const bad = kind === 'tiles';
+      const k = K[kind];
+      return {
+        name, n, meta, rule, hasRule: !!rule,
+        rowStyle: `display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:12px;${bad ? 'background:#FCE6CF;border:1.5px solid #C2620F' : 'border:1.5px solid transparent'}`,
+        dotStyle: `width:30px;height:30px;flex-shrink:0;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:${k.fill};color:${k.ink};border:2px solid ${k.line}`,
+        metaStyle: `font-size:13px;color:${bad ? '#7A3A08' : '#5F625C'};${bad ? 'font-weight:600' : ''}`
+      };
+    });
+    return { trays, comps };
+  }
+}
+</script>
+</body>
+</html>

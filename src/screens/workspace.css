@@ -1,0 +1,191 @@
+/*
+ * The workspace shell (UI rebuild Task 3): Main's three regions. The page is one screen tall and
+ * never scrolls on a desktop; the header takes what it needs, the rail and the stage share the
+ * rest the way Main draws it: the rail from 300 to 350 px (one width on every screen), the
+ * stage the rest. Below 760 px the stage comes first and the rail is the sheet at the foot.
+ * On the tokens (styles/tokens.css).
+ */
+.ws {
+  /* What the folded sheet covers at the foot of a phone: its peek (MobileWorkspace). */
+  --sheet-foot: calc(var(--sheet-peek) + env(safe-area-inset-bottom, 0px));
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  overflow: clip; /* the page itself never scrolls: what is too long scrolls in its own column */
+  background: var(--page);
+  color: var(--ink);
+}
+
+.ws-header {
+  position: relative; /* the project menu opens over the body, and over the phone's sheet */
+  z-index: 25;
+  flex: none;
+  min-height: var(--header-h);
+}
+
+.ws-body {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  min-height: 0;
+
+  /* Only a width that cannot hold the rail and the stage side by side (a tablet, until Task 15) scrolls here. */
+  overflow-y: auto;
+}
+
+/*
+ * Each column is at most as tall as the body, so the body never grows past the screen: the rail
+ * keeps its list inside (Task 5), and the plan's frame shrinks to what the stage has left (Task 7).
+ */
+.ws-rail {
+  position: relative; /* the visually hidden text inside is placed in the column, not in the page */
+  display: flex;
+  flex: 1 1 var(--rail-basis);
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 0;
+  max-height: 100%;
+  max-width: var(--rail-max);
+  padding: var(--rail-pad);
+  overflow: hidden;
+  border-right: 1px solid var(--rule);
+  background: var(--sheet);
+}
+
+.ws-stage {
+  position: relative; /* as the rail: hidden text far down a scrolled stage must not stretch the page */
+  display: flex;
+  flex: 999 1 640px;
+  flex-direction: column;
+  box-sizing: border-box;
+  gap: var(--s-16);
+  min-width: 0;
+  max-height: 100%;
+  padding: var(--stage-pad);
+  overflow: auto;
+}
+
+.ws-stage--focus {
+  padding: var(--stage-pad-focus);
+}
+
+/* An editor in the rail (Edit): its back link sits 12 px from the top, not the rail's 20. */
+.ws--edit .ws-rail {
+  padding-top: var(--s-12);
+}
+
+/*
+ * An editor in the rail (a component's, the box's) scrolls inside the rail, so nothing is cut off.
+ */
+.ws-interim {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* The status pill, then the box, then the figures: a block takes its own height. */
+.ws-stage > .stage-block {
+  flex: none;
+}
+
+.ws-stage > .pf-toast {
+  align-self: center;
+  flex: none;
+}
+
+/*
+ * The plan's column (Task 7): the slot, the box's frame, the caption and the notes. It takes what
+ * the stage has left and the frame shrinks into it, so the desktop stage never scrolls.
+ */
+.ws-stage > .plan-col {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-12);
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.plan-col > .stage-notes {
+  flex: none;
+  align-self: stretch;
+}
+
+/* The "Working out the trays…" frame (an insert with items and no plan yet; no board draws it). */
+.plan-col > .pf-view {
+  flex: 1 1 auto;
+  align-self: stretch;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+}
+
+/*
+ * A tablet (760 to 960 px) keeps the rail beside the stage: the stage's basis drops so that the
+ * two fit in 760 px (300 + 440), where 640 would wrap the rail under it. Task 15 does the final
+ * tablet pass.
+ */
+@media (width >= 760px) and (width <= 960px) {
+  .ws-stage {
+    flex-basis: 440px;
+  }
+}
+
+@media (width < 760px) {
+  .ws-header {
+    min-height: var(--header-h-phone);
+  }
+
+  .ws-body {
+    align-content: flex-start;
+  }
+
+  /* The stage first, whatever order the page has them in; the rail is the sheet (or, on a first visit, a block under it). */
+  .ws-stage {
+    flex-basis: 100%;
+    gap: var(--s-12);
+    max-height: none;
+    padding: var(--s-12);
+    overflow: visible;
+    order: -1;
+  }
+
+  /* The sheet is fixed over the foot of the screen: the stage leaves its peek clear. */
+  .ws--sheet .ws-stage {
+    /* MobileWorkspace: its heading, switches and box all sit 16 px in, the heading 14 px down. */
+    padding: var(--s-14) var(--s-16) calc(var(--sheet-foot) + var(--s-12));
+    gap: var(--s-10);
+    scroll-padding-bottom: calc(var(--sheet-foot) + var(--s-12));
+  }
+
+  .ws-rail {
+    flex-basis: 100%;
+    max-height: none;
+    max-width: none;
+    overflow: visible;
+    border-top: 1px solid var(--rule);
+    border-right: 0;
+  }
+
+  /* MobileWorkspace: the box, then its caption 6 px under it; the page scrolls, the box keeps its size. */
+  .ws-stage > .plan-col {
+    flex: none;
+    gap: var(--s-6);
+  }
+
+  .plan-col > .pf-view {
+    padding: var(--s-12);
+  }
+
+  /* A note over the foot of the screen stays above the handle. */
+  .ws-stage > .pf-toast {
+    position: fixed;
+    inset: auto var(--s-12) calc(var(--sheet-foot) + var(--s-8));
+    z-index: 30;
+    margin: 0;
+  }
+}

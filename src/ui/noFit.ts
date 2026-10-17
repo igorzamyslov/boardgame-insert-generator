@@ -2,12 +2,15 @@
 import { holdsOf, trayNames } from "../instructions/naming";
 import { numberParts } from "../instructions/numbering";
 import { topPlane } from "../model/settings";
-import type { Box, Component, Settings, TraySpec } from "../model/types";
+import type { LockConflict } from "../layout/types";
+import type { Box, Component, Lock, Settings, TraySpec } from "../model/types";
 
 /** The tray a failed search could not fit, for the status line to name and open. */
 export interface Misfit {
   /** The first component the tray holds: what Edit opens. */
   componentId: string;
+  /** The tray itself in the attempt: the plan marks its tile. */
+  trayKey: string;
   /** What the tray is called (trayNames), a group of components included. */
   name: string;
   /** "bed": no print bed orientation holds it (a definite cause). "box": it overhangs the box in the closest attempt. */
@@ -63,7 +66,47 @@ export function misfitOf(
   }
   return {
     componentId: best.held.id,
+    trayKey: best.tray.key,
     name: names.get(best.tray.key)?.full ?? best.held.name,
     reason: best.bed ? "bed" : "box",
   };
+}
+
+/**
+ * The pins a run could not keep, called by the names the plan gives the trays ("Market deck", not
+ * the engine's "Market deck ×80" or a list of every figure) and a pinned stack by its trays joined
+ * with "and". A conflict whose tray is not in `trays` (no plan, or an old key) keeps the engine's
+ * own name.
+ */
+export function namedConflicts(
+  conflicts: readonly LockConflict[],
+  trays: readonly TraySpec[] | undefined,
+  components: readonly Component[],
+  locks: readonly Lock[],
+): LockConflict[] {
+  if (trays === undefined) {
+    return [...conflicts];
+  }
+  const names = trayNames(numberParts(trays as TraySpec[]), components);
+  // only a tray that holds something has a name worth the person's reading ("Spare 1" is not one)
+  const nameOf = (key: string): string | undefined => {
+    const tray = trays.find((t) => t.key === key);
+    return tray !== undefined && tray.part === "tray" && holdsOf(tray, components).length > 0
+      ? names.get(key)?.full
+      : undefined;
+  };
+  return conflicts.map((c) => {
+    const keys =
+      c.kind === "stack"
+        ? (
+            locks.find((l) => l.kind === "stack" && l.trayKeys[0] === c.trayKey) as
+              { trayKeys: string[] } | undefined
+          )?.trayKeys
+        : [c.trayKey];
+    const called = keys?.map(nameOf);
+    if (called === undefined || called.length === 0 || called.some((n) => n === undefined)) {
+      return c;
+    }
+    return { ...c, name: [...new Set(called)].join(" and ") };
+  });
 }

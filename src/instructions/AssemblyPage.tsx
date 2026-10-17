@@ -1,6 +1,7 @@
 // src/instructions/AssemblyPage.tsx
 import { useMemo, useRef, useState } from "preact/hooks";
 import { downloadBlob, fileSlug } from "../app/download";
+import { Button } from "../kit";
 import type { Project, StoredLayout } from "../model/types";
 import { errorText } from "../util/errors";
 import { explodedView } from "./exploded";
@@ -62,12 +63,11 @@ export function AssemblyPage(p: AssemblyPageProps) {
   return (
     <article class="assembly" aria-labelledby="assembly-title">
       <div class="assembly-toolbar no-print">
-        <button type="button" onClick={p.onBack}>
+        <Button variant="secondary" onClick={p.onBack}>
           Back to your insert
-        </button>
-        <button
-          type="button"
-          class="primary"
+        </Button>
+        <Button
+          variant="primary"
           aria-disabled={p.stale ? "true" : undefined}
           onClick={() => {
             if (!p.stale) {
@@ -76,7 +76,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
           }}
         >
           Print or save as PDF
-        </button>
+        </Button>
       </div>
       <h1 id="assembly-title" tabIndex={-1}>{`${p.project.name} — packing guide`}</h1>
       <p class="assembly-meta">
@@ -91,7 +91,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
         ) : null}
       </div>
       {pngError !== null ? (
-        <p class="run-error no-print" role="alert">
+        <p class="assembly-error no-print" role="alert">
           {pngError}
         </p>
       ) : null}
@@ -119,8 +119,8 @@ export function AssemblyPage(p: AssemblyPageProps) {
                   .map((x) => x.name)
                   .join(", ")}`}
               />
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 class="no-print"
                 aria-disabled={busy || p.stale ? "true" : undefined}
                 onClick={() => {
@@ -130,7 +130,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
                 }}
               >
                 Download PNG of the exploded view
-              </button>
+              </Button>
             </section>
           ) : null}
           <div class="assembly-layers">
@@ -147,8 +147,8 @@ export function AssemblyPage(p: AssemblyPageProps) {
                 <section class="assembly-layer" key={i} aria-labelledby={`layer-title-${layer}`}>
                   <h2 id={`layer-title-${layer}`}>{title}</h2>
                   <img class="assembly-svg" src={svgDataUrl(svg)} alt={alt} />
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     class="no-print"
                     aria-disabled={busy || p.stale ? "true" : undefined}
                     onClick={() => {
@@ -158,7 +158,7 @@ export function AssemblyPage(p: AssemblyPageProps) {
                     }}
                   >
                     {`Download PNG of layer ${layer}`}
-                  </button>
+                  </Button>
                 </section>
               );
             })}

@@ -4,14 +4,12 @@ import { SPACER_SHADE, componentIndexOfTray, shadeHex, shadeIndexOf } from "../u
 import type { ColorScheme } from "../ui/identity";
 
 /**
- * The colour scheme the page shows now: the system's. three.js can't read `light-dark()`, so the
- * scene asks for plain hex of the right scheme. The page has no theme switch (DESIGN §4); adding
- * one means reading its choice here and watching it in `usePageScheme` (Viewer.tsx).
+ * The colour scheme the page shows now. three.js can't read `light-dark()`, so the scene asks for
+ * plain hex of the right scheme. The page is light only, whatever the system says: it stays this
+ * way until dark is opt-in (UI rebuild Task 16), which will read its choice here and watch it in
+ * Viewer.tsx.
  */
 export function pageScheme(): ColorScheme {
-  if (typeof matchMedia === "function") {
-    return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
   return "light";
 }
 

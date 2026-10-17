@@ -6,7 +6,8 @@ import { numberParts, parentKey } from "../instructions/numbering";
 import type { Project, TraySpec } from "../model/types";
 import { isAddOn, levelsOf } from "../plan/layers";
 import { layerLabel } from "../plan/PlanView";
-import { componentIndexOfTray } from "./identity";
+import { lookOfTray } from "../plan/glyph";
+import { compartmentWords, componentIndexOfTray } from "./identity";
 import { TrayBar } from "./TrayBar";
 
 export interface SelectedTrayBarProps {
@@ -14,9 +15,10 @@ export interface SelectedTrayBarProps {
   /** The parts as they print (what the plan and the 3D view draw). */
   trays: readonly TraySpec[];
   selectedKey: string | null;
-  stale: boolean;
   /** The plan's: a swap is made there only, so the 3D view's bar has no Swap with…. */
   inPlan: boolean;
+  /** A phone: the bar is a modal sheet (MobileTray), which gives way to the plan while a swap is chosen. */
+  phone: boolean;
   /** The tray a swap is under way from, or null. */
   swapFrom: string | null;
   edit: (fn: (p: Project) => Project) => void;
@@ -26,10 +28,16 @@ export interface SelectedTrayBarProps {
   onEditComponent: (id: string) => void;
 }
 
-/** Where the focus goes when the bar closes: the tray it was for, in whichever view shows it. */
+/**
+ * Where the focus goes when the bar closes: the tray it was for in the plan; in the 3D view, which
+ * has no element per tray, its canvas, whose arrow keys step through the trays.
+ */
 function focusTray(key: string, inPlan: boolean): void {
-  const selector = inPlan ? ".plan-tray" : ".tray-picker button";
-  const target = [...document.querySelectorAll<HTMLElement>(selector)].find(
+  if (!inPlan) {
+    document.querySelector<HTMLElement>(".viewer-canvas")?.focus();
+    return;
+  }
+  const target = [...document.querySelectorAll<HTMLElement>(".plan-tile")].find(
     (el) => el.getAttribute("data-key") === key,
   );
   target?.focus();
@@ -37,7 +45,9 @@ function focusTray(key: string, inPlan: boolean): void {
 
 /**
  * The tray bar of the selected tray, wired to the project: what it is called, which layer it is
- * on, and the edits Pin, Turn, Swap and Lock size make. Nothing while no tray is selected.
+ * on, and the edits Pin, Turn, Swap and Lock size make. Nothing while no tray is selected, and,
+ * on a phone, nothing while a swap is being chosen: the sheet is modal, and the other tray is
+ * picked on the plan behind it.
  */
 export function SelectedTrayBar(p: SelectedTrayBarProps) {
   const { project, trays } = p;
@@ -46,7 +56,7 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
     [trays, project.components],
   );
   const tray = p.selectedKey === null ? undefined : trays.find((t) => t.key === p.selectedKey);
-  if (tray === undefined) {
+  if (tray === undefined || (p.phone && p.swapFrom !== null)) {
     return null;
   }
   const key = tray.key;
@@ -68,12 +78,10 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
       tray={tray}
       name={names.get(key)?.full ?? "Tray"}
       layer={at >= 0 ? layerLabel(at, levels.length) : `Layer ${tray.level + 1}`}
-      relation={
-        owner === undefined
-          ? null
-          : { label: tray.part === "riser" ? "Carries" : "Sits on", name: owner.full }
-      }
-      stale={p.stale}
+      look={lookOfTray(tray, project.components)}
+      carries={tray.part === "riser" ? (owner?.full ?? null) : null}
+      compartments={compartmentWords(tray, component)}
+      phone={p.phone}
       swapping={p.swapFrom === key}
       onPin={() => withStored((stored) => (q) => toggleLock(q, stored))}
       onTurn={() => withStored((stored) => (q) => turnTray(q, stored))}

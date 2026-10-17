@@ -1,33 +1,44 @@
 // src/app/App.tsx
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
 import type { Component, ComponentKind } from "../model/types";
-import { APP_VERSION, BUILD_ID } from "../model/version";
 import { topPlane } from "../model/settings";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
-import { AppHeader } from "../ui/AppHeader";
-import { BottomSheet } from "../ui/BottomSheet";
+import { BoxStage } from "../screens/BoxStage";
+import { BoxSideView } from "../screens/BoxSideView";
+import { EditorStage, EditorStrip, ProblemLine } from "../screens/EditorStage";
+import { FitCards, FitProblem, fitKindOf, fitTitle } from "../screens/FitProblem";
+import type { EditNote } from "../screens/EditorStage";
+import { Header } from "../screens/Header";
+import { hoveredComponent } from "../screens/hover";
+import { FirstVisit } from "../screens/FirstVisit";
+import { AddMenu } from "../screens/KindPicker";
+import { ProjectMenu } from "../screens/ProjectMenu";
+import { RemovedToast, removedWords } from "../screens/RemovedToast";
+import { RunAnnouncer } from "../screens/RunAnnouncer";
+import { StageSlot } from "../screens/StageSlot";
+import { StageNotes } from "../screens/StageNotes";
+import { stageView } from "../screens/stageView";
+import { PlanBanner, StageTop, editorProblem, problemAreas, statusOf } from "../screens/StageTop";
+import type { StageView, StatusInput } from "../screens/StageTop";
+import { Workspace } from "../screens/Workspace";
 import { BoxPanel } from "../ui/BoxPanel";
-import { AddKinds } from "../ui/components/ComponentList";
 import { WhatsInside } from "../ui/components/WhatsInside";
 import { ExportPanel } from "../ui/ExportPanel";
 import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
-import { Modal } from "../ui/Modal";
-import { Notices, PlanBanners } from "../ui/Notices";
+import { Notices } from "../ui/Notices";
 import { placeNotices } from "../ui/noticePlacement";
-import { ProjectMenu } from "../ui/ProjectMenu";
+import { nameExampleOf } from "../ui/settingsFields";
 import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
-import { misfitOf } from "../ui/noFit";
-import { StatusLine } from "../ui/StatusLine";
 import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
-import { Summary } from "../ui/Summary";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
-import { Section } from "../ui/Section";
+import { componentIndexOfTray, mm } from "../ui/identity";
+import { misfitOf, namedConflicts } from "../ui/noFit";
 import {
   SettingsContext,
   SizingContext,
@@ -35,11 +46,14 @@ import {
   errorsWithoutField,
 } from "../ui/validation";
 import { Viewer } from "../viewer/Viewer";
+import { hasWebGL } from "../viewer/webgl";
 import type { ViewerProps } from "../viewer/Viewer";
 import {
   addComponent,
+  clearChoices,
   lockedKeys,
   removeComponent,
+  requirementKey,
   removeLock,
   renameProject,
   setSettings,
@@ -67,32 +81,6 @@ export interface AppProps {
   share?: ShareFile;
   viewerProps?: Pick<ViewerProps, "webgl" | "loadScene">;
 }
-
-type SectionId = "box" | "components";
-/** What a validation path belongs to: a rail section, or the settings sheet. */
-type PathHome = SectionId | "settings";
-type ViewId = "plan" | "3d";
-
-const SECTION_TITLES: Record<SectionId, string> = {
-  box: "The box",
-  components: "What's inside",
-};
-
-/** Where the fields a validation path belongs to are: a rail section, or the settings sheet. */
-function sectionOf(path: string | undefined): PathHome | null {
-  if (path === undefined) {
-    return null;
-  }
-  if (path.startsWith("/box")) {
-    return "box";
-  }
-  if (path.startsWith("/components")) {
-    return "components";
-  }
-  return path.startsWith("/settings") || path.startsWith("/printer") ? "settings" : null;
-}
-
-const mm = (v: number): string => String(Math.round(v * 10) / 10);
 
 export function App(props: AppProps) {
   const { store, meshes } = props;
@@ -135,43 +123,71 @@ export function App(props: AppProps) {
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const restoreFocus = useRef(false);
-  const [openSection, setOpenSection] = useState<SectionId | null>(
-    project.components.length === 0 ? "box" : "components",
-  );
   // The component whose editor is open in the rail (null: the list). The tray bar's Edit sets it
-  // too, and a first item added from the first visit opens at once.
+  // too, and an item just added opens at once.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // What the last option change of the open editor said, for the stage's slot (Edit's note toast).
+  const [editNote, setEditNote] = useState<EditNote | null>(null);
+  const noteSeq = useRef(0);
+  useEffect(() => {
+    // another editor, or none: the note belonged to the one before
+    setEditNote(null);
+  }, [editingId]);
+  // The box's editor is open in the rail, in the list's place (the sheet on a phone).
+  const [boxOpen, setBoxOpen] = useState(false);
+  // The pointer or focus on a rail row lights that component's trays; nothing is lit once the rail goes.
+  useEffect(() => {
+    return () => {
+      hoveredComponent.value = null;
+    };
+  }, []);
   const firstVisit = project.components.length === 0;
   // Below 760 px the rail is a sheet at the foot of the screen: folded, with its handle showing.
   const phone = useMediaQuery(PHONE_QUERY);
   const narrow = useMediaQuery(NARROW_QUERY);
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetHandle = useRef<HTMLButtonElement>(null);
-  // A tray picked on a phone: its bar comes up over the sheet's handle, not under it.
-  const selection = s.selection.value;
-  useEffect(() => {
-    if (phone && selection !== null) {
-      document.querySelector(".tray-bar")?.scrollIntoView?.({ block: "nearest" });
-    }
-  }, [phone, selection]);
-  // Removing the last item swaps the rail for the first visit: the focus goes to the kinds there.
+  // Removing the last item swaps the workspace for the first visit: the focus goes to the kinds there.
+  // A new (or another, empty) insert replaces the workspace too, but its menu button had the focus:
+  // it goes to the first visit's menu button, not to the kinds.
   const wasFirstVisit = useRef(firstVisit);
+  const wasProjectId = useRef(project.id);
   useEffect(() => {
     if (firstVisit && !wasFirstVisit.current) {
       setSheetOpen(false);
       if (document.activeElement === document.body) {
-        mainRef.current?.querySelector<HTMLElement>(".pf-kinds button")?.focus();
+        const target = wasProjectId.current === project.id ? ".fv-kinds button" : ".hd-menu button";
+        document.querySelector<HTMLElement>(target)?.focus();
       }
     }
     wasFirstVisit.current = firstVisit;
-  }, [firstVisit]);
-  const [view, setView] = useState<ViewId>("plan");
+    wasProjectId.current = project.id;
+  }, [firstVisit, project.id]);
+  // The box's editor takes the focus when it opens (its panel does); the box card (or row) gets it
+  // back when it closes.
+  const wasBoxOpen = useRef(false);
+  useEffect(() => {
+    if (!boxOpen && wasBoxOpen.current && document.activeElement === document.body) {
+      // Done or the way back went with the focus: the card (or row) that opened the editor takes it.
+      document.querySelector<HTMLElement>("[data-rail-box]")?.focus();
+    }
+    wasBoxOpen.current = boxOpen;
+  }, [boxOpen]);
+  // The View segment's choice is a signal of the stage (`stageView`), reset when the app goes.
+  const view = stageView.value;
+  useEffect(() => {
+    return () => {
+      stageView.value = "plan";
+    };
+  }, []);
+  // The browser can draw the 3D view: asked once, when the app opens.
+  const [webgl] = useState(() => (props.viewerProps?.webgl ?? hasWebGL)());
   // A swap belongs to the plan: it ends when the view moves away from it.
-  function showView(next: ViewId): void {
+  function showView(next: StageView): void {
     if (next !== "plan") {
       s.swapFrom.value = null;
     }
-    setView(next);
+    stageView.value = next;
   }
   // The export is a dialog over whichever view is showing, so closing it leaves everything as it was.
   const [exportOpen, setExportOpen] = useState(false);
@@ -182,11 +198,43 @@ export function App(props: AppProps) {
   // The older plan the person chose to keep (project and geometry line), so its banner stays away.
   const [geometryKept, setGeometryKept] = useState<string | null>(null);
   const run = s.run.value;
+  // A fit problem's cards and the heading's Stop trade places as Keep searching and Stop do in the
+  // heading (StageTop): the button pressed goes with its screen, so the focus is handed on, and only
+  // when it fell to the page. Keep searching on the cards hands it to Stop; a run that ends on a fit
+  // problem hands it to the first card, and one that ends with the problem gone (an Unpin that
+  // resolved it) to Download, the next step.
+  const working = run.status === "running" || s.runPending.value;
+  const wasWorking = useRef(working);
+  const keptFromFit = useRef(false);
+  // A fit problem was on screen since the last run began: the run that ends is the one a card started.
+  const fitSeen = useRef(false);
+  useEffect(() => {
+    const was = wasWorking.current;
+    wasWorking.current = working;
+    const active = document.activeElement;
+    if (active !== null && active !== document.body) {
+      return;
+    }
+    if (working && keptFromFit.current) {
+      keptFromFit.current = false;
+      document.querySelector<HTMLElement>('[data-toggle="stop"]')?.focus();
+    } else if (was && !working) {
+      keptFromFit.current = false;
+      const card = document.querySelector<HTMLElement>("[data-fit-first]");
+      if (card !== null) {
+        card.focus();
+      } else if (fitSeen.current) {
+        downloadButtonRef.current?.focus();
+      }
+      fitSeen.current = false;
+    }
+  });
   useEffect(() => {
     setRemoved(null);
     setExportOpen(false);
     setSettingsOpen(null);
     setSheetOpen(false);
+    setBoxOpen(false);
   }, [project.id]);
   const locked = lockedKeys(project);
   const sizeLocked = sizeLockedKeys(project);
@@ -263,66 +311,55 @@ export function App(props: AppProps) {
   }
 
   const validation = s.validation.value;
-  const problems = new Set<PathHome>();
-  for (const n of validation) {
-    const id = n.level === "error" ? sectionOf(n.path) : null;
-    if (id !== null) {
-      problems.add(id);
-    }
-  }
-  const sections: { id: SectionId; step: number }[] = [
-    { id: "box", step: 1 },
-    { id: "components", step: 2 },
-  ];
-  const problemSections: { id: PathHome; title: string }[] = [
-    ...sections
-      .filter((x) => problems.has(x.id))
-      .map((x) => ({ id: x.id, title: SECTION_TITLES[x.id] })),
-    ...(problems.has("settings") ? [{ id: "settings" as const, title: "Settings" }] : []),
-  ];
-  const summaries: Record<SectionId, string> = {
-    box: `${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} × ${mm(project.box.innerHeight)} mm`,
-    components:
-      project.components.length === 0
-        ? "nothing yet"
-        : project.components.length === 1
-          ? "1 item"
-          : `${project.components.length} items`,
-  };
+  // The editors and the sheet that hold an error: the status heading sends the reader to each.
+  const problems = problemAreas(validation, project.components);
   // The settings sheet, over whichever view is showing; `tab` is the one it opens on.
   const openSettings = (tab?: SettingsTab): void =>
     setSettingsOpen({ tab: tab ?? settingsTabFor(validation) });
+  // The box's editor, in the rail's place (a phone's sheet opens for it).
+  const openBox = (): void => {
+    setEditingId(null);
+    setBoxOpen(true);
+    setSheetOpen(true);
+  };
+  // A component's editor, in the list's place, as a click on its row opens it.
+  const editComponent = (id: string): void => {
+    setBoxOpen(false);
+    setEditingId(id);
+    setSheetOpen(true);
+  };
+  // Where the status heading's jump buttons lead: the box's editor, a component's, or Settings.
   const showSection = (id: string): void => {
     if (id === "settings") {
       openSettings();
-      return;
+    } else if (id === "box") {
+      openBox();
+    } else {
+      editComponent(id);
     }
-    setOpenSection(id as SectionId);
-    setSheetOpen(true);
-    document.getElementById(`section-${id}`)?.scrollIntoView?.({ block: "nearest" });
   };
   const addComponentOfKind = (kind: ComponentKind): void => {
     store.edit((q) => addComponent(q, kind));
-    // From the first visit the list is not on screen yet to open the new item by itself.
-    if (firstVisit) {
-      setEditingId(store.state.project.peek().components.at(-1)?.id ?? null);
+    // The new item opens at once, whether the Add was the rail's, the phone sheet's or the first visit's.
+    setEditingId(store.state.project.peek().components.at(-1)?.id ?? null);
+    setBoxOpen(false);
+    if (firstVisit || phone) {
       setSheetOpen(true);
     }
-    setOpenSection("components");
-  };
-  // The tray bar's and the status line's Edit: the component's editor, in the list's place, as a click on its row opens it.
-  const editComponent = (id: string): void => {
-    showSection("components");
-    setEditingId(id);
   };
   const addExample = (): void => {
     store.edit((q) => (["cards", "bulk", "tiles"] as const).reduce(addComponent, q));
-    setOpenSection("components");
   };
   // Where each notice shows: the one banner, the project menu (with a dot), or inline.
   const noFit =
     s.shortfall.value !== null || layoutNotices.some((n) => n.code === NOTICE_CODES.doesNotFit);
-  const conflicts = s.lockConflicts.value;
+  // The pins the last run could not keep, called by the names the plan gives the trays.
+  const conflicts = namedConflicts(
+    s.lockConflicts.value,
+    layout?.trays,
+    project.components,
+    project.locks,
+  );
   const canPlan = canOptimize(project, validation);
   const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
   // The older-geometry notice the person chose to keep is not shown, so it must not hide the stale
@@ -345,7 +382,7 @@ export function App(props: AppProps) {
   );
   const showStale = placed.banner.some((n) => n.code === STALE_CODE);
   const showGeometry = placed.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE);
-  // The stale and older-geometry notices are the banner's: the summary lists the others.
+  // The stale and older-geometry notices are the banner's: the notes under the plan list the others.
   const summaryNotices = layoutNotices.filter(
     (n) => n.code !== STALE_CODE && n.code !== GEOMETRY_MAJOR_CODE,
   );
@@ -387,14 +424,15 @@ export function App(props: AppProps) {
       saveFile();
     }
   };
-  // What the plan holds, for the sentence, the Export button and the layers named in the list.
+  // What the plan holds, for the status, the Export button and the layers named in the list.
   const planCurrent = layout !== undefined && !s.stale.value && run.status !== "running";
   const listTrays = planCurrent ? printable : undefined;
   const layers = layout ? levelsOf(layout.trays).length : 0;
-  // What the status line says of a plan that matches the inputs: how many trays, how high.
+  // What the status says of the plan: how many trays, how high (the heading holds even for a plan
+  // out of date, as Main draws it under its banner).
   const summary = s.summary.value;
   const fits =
-    layout !== undefined && summary !== null && !s.stale.value
+    layout !== undefined && summary !== null
       ? {
           trays: summary.trayCount,
           layers: Math.max(1, layers),
@@ -413,7 +451,6 @@ export function App(props: AppProps) {
     project,
     trays: printable,
     selectedKey: layout ? s.selection.value : null,
-    stale: s.stale.value,
     edit: store.edit,
     onSelect: (key: string | null) => {
       s.selection.value = key;
@@ -424,465 +461,615 @@ export function App(props: AppProps) {
     onEditComponent: editComponent,
   };
 
-  // The box and the list: the rail's two sections (on a phone, the sheet's).
-  const railSections = (
-    <>
-      {sections.map((x) => (
-        <Section
-          key={x.id}
-          id={x.id}
-          step={x.step}
-          title={SECTION_TITLES[x.id]}
-          summary={summaries[x.id]}
-          problem={problems.has(x.id)}
-          open={openSection === x.id}
-          onToggle={(open) => setOpenSection(open ? x.id : null)}
-        >
-          {x.id === "box" ? (
-            <BoxPanel
-              box={project.box}
-              onChange={(patch) => store.edit((q) => updateBox(q, patch))}
-            />
-          ) : null}
-          {x.id === "components" ? (
-            <WhatsInside
-              components={project.components}
-              openId={editingId}
-              onOpenChange={setEditingId}
-              trays={listTrays}
-              locks={project.locks}
-              onAdd={addComponentOfKind}
-              onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
-              onUnlockSize={(keys) =>
-                store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
-              }
-              onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
-              onRemove={(id) => {
-                const component = project.components.find((x) => x.id === id);
-                if (component === undefined) {
-                  return false;
-                }
-                store.edit((q) => removeComponent(q, id));
-                // Undo on the toast is only right while the removal is still the latest step.
-                setRemoved({ component, version: s.history.version.peek() });
-                return true;
-              }}
-            />
-          ) : null}
-        </Section>
-      ))}
-    </>
-  );
-  // The line at the foot of the page; on a phone it ends the first visit or the sheet, so the handle stays clear.
-  const footer = (
-    <footer class="app-footer">
-      {`Insert Generator v${APP_VERSION} (${BUILD_ID}) · `}
-      <a href="./third-party-licenses.txt">Third-party licenses</a>
-    </footer>
-  );
-  // Below 760 px the status pill has no room for Keep searching on a plan that doesn't fit:
-  // the sheet's bar offers it.
-  const searchOnPhone =
-    noFit && !s.geometryOld.value && !s.runPending.value && run.status !== "running" && canPlan;
+  // The component the selected tray belongs to: its row in the rail is pressed.
+  const selectedTray = layout ? printable.find((t) => t.key === s.selection.value) : undefined;
+  const selectedIndex =
+    selectedTray === undefined ? null : componentIndexOfTray(selectedTray, project.components);
+  const selectedId =
+    selectedIndex === null ? null : (project.components[selectedIndex]?.id ?? null);
+  // The tray the closest attempt could not fit, for the status and for the picture that marks it.
+  const misfit = noFit
+    ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components)
+    : null;
+  // What the status says (the heading; and, while an editor is open, the problems it still tells).
+  const statusInput: StatusInput = {
+    run,
+    pending: s.runPending.value,
+    hasComponents: project.components.length > 0,
+    canOptimize: canPlan,
+    hasLayout: layout !== undefined,
+    fits,
+    canSearchMore: !s.geometryOld.value,
+    noFit: noFit ? { misfit, shortfall: s.noFitAttempt.value?.shortfall ?? null } : null,
+    conflicts,
+    hiddenErrors: errorsWithoutField(validation),
+    problems,
+  };
+  const status = statusOf(statusInput);
+  // The component whose editor is open (the rail's, the sheet's), if it is still there.
+  const editedComponent =
+    editingId === null ? undefined : project.components.find((c) => c.id === editingId);
+  const editing = editedComponent !== undefined;
+  // A fit problem has the stage to itself (NoFit, PinConflict, MobileFix) unless an editor or the
+  // box is open: their stages tell it in a line.
+  const fitKind = status.fit === undefined ? null : fitKindOf(status.fit);
+  const showFit = fitKind !== null && !editing && !boxOpen;
+  // The rows that say "Doesn't fit": the tray of the closest attempt that does not, or the component
+  // of every pin in the way (the heading names the first).
+  const firstConflict = conflicts[0];
+  const culprits = new Set<string>();
+  if (fitKind === "noFit" && misfit !== null) {
+    culprits.add(misfit.componentId);
+  } else if (fitKind === "pinConflict") {
+    for (const conflict of conflicts) {
+      const owner = project.components.find((c) =>
+        conflict.trayKey.startsWith(`${requirementKey(c)}:`),
+      );
+      if (owner !== undefined) {
+        culprits.add(owner.id);
+      }
+    }
+  }
+  if (showFit) {
+    fitSeen.current = true;
+  } else if (!working && !wasWorking.current) {
+    // idle, and not just back from a run: the problem went by another way (Undo), nothing to hand on
+    fitSeen.current = false;
+  }
+  const fixes = {
+    kind: fitKind ?? "noFit",
+    actions: status.actions,
+    onShow: showSection,
+    onKeepSearching: () => {
+      store.refit();
+      // only a search that began has a Stop to hand the focus to
+      keptFromFit.current = store.state.run.peek().status === "running";
+    },
+    onUnpin: (c: { trayKey: string; kind?: "position" | "size" | "stack" }) =>
+      store.unpin(c.trayKey, c.kind),
+  } as const;
 
+  const clearEditNote = useCallback(() => setEditNote(null), []);
+  // The phone's strip in the sheet's editor: the tray drawn small, and the sentence or the note.
+  const editorStrip =
+    editedComponent !== undefined && phone ? (
+      <EditorStrip
+        componentId={editedComponent.id}
+        components={project.components}
+        trays={printable}
+        box={project.box}
+        settings={projSettings}
+        note={editNote}
+        onNoteDone={clearEditNote}
+        problem={editorProblem(status)}
+        onRetry={() => store.retry()}
+      />
+    ) : undefined;
+  // What's inside: the rail's list (the sheet's, on a phone), or a component's editor in its place.
+  const whatsInside = (
+    <WhatsInside
+      components={project.components}
+      openId={editingId}
+      onOpenChange={(id) => {
+        setEditingId(id);
+        // A row chosen from the folded sheet opens it on the editor.
+        if (id !== null) {
+          setSheetOpen(true);
+        }
+      }}
+      trays={listTrays}
+      locks={project.locks}
+      box={project.box}
+      printer={projPrinter}
+      phone={phone}
+      selectedId={selectedId}
+      culprits={culprits}
+      onOpenBox={openBox}
+      onSettings={() => openSettings()}
+      onHover={(id) => {
+        hoveredComponent.value = id;
+      }}
+      onClearChoices={() => store.edit(clearChoices)}
+      onAdd={addComponentOfKind}
+      onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
+      onUnlockSize={(keys) =>
+        store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
+      }
+      onChange={(id, next) => store.edit((q) => updateComponent(q, id, next))}
+      onNote={(text) => {
+        noteSeq.current += 1;
+        setEditNote({ text, id: noteSeq.current });
+      }}
+      strip={editorStrip}
+      onRemove={(id) => {
+        const component = project.components.find((x) => x.id === id);
+        if (component === undefined) {
+          return false;
+        }
+        store.edit((q) => removeComponent(q, id));
+        // Undo on the toast is only right while the removal is still the latest step.
+        setRemoved({ component, version: s.history.version.peek() });
+        return true;
+      }}
+    />
+  );
+  // The box's editor, in the rail's place (the phone's sheet holds it whole, with the side view under
+  // the fields). The problem the plan has, told by the heading while it is drawn, is a line here.
+  const boxProblem = editorProblem(status);
+  const boxSideView = (
+    <BoxSideView
+      box={project.box}
+      settings={projSettings}
+      layout={layout}
+      components={project.components}
+      phone={phone}
+    />
+  );
+  const boxEditor = (
+    <div class="wi ws-interim wi--edit">
+      <BoxPanel
+        box={project.box}
+        onChange={(patch) => store.edit((q) => updateBox(q, patch))}
+        onBack={() => setBoxOpen(false)}
+        phone={phone}
+        sideView={boxSideView}
+        notice={
+          boxProblem ? <ProblemLine problem={boxProblem} onRetry={() => store.retry()} /> : null
+        }
+      />
+    </div>
+  );
   // The editor is showing in the sheet, or the box has it: the sheet is "full"; below 600 px that
   // fills the screen, and what is behind it is out of reach of Tab and screen readers (inert).
-  const editing = editingId !== null && openSection === "components";
-  const sheetFull = editingId !== null || openSection === "box";
-  const sheetCoversScreen = phone && narrow && !firstVisit && sheetOpen && sheetFull;
-  // `inert` is not in Preact's typings yet.
-  const behindSheet = { inert: sheetCoversScreen } as Record<string, unknown>;
+  const sheetFull = editing || boxOpen;
+  const sheetCoversScreen = phone && narrow && sheetOpen && sheetFull;
+
+  // The three slots of the workspace shell. What is in them is the old UI, unchanged, until the
+  // task that rebuilds it: the header (Task 4), the rail (Tasks 10, 11), the stage (6 to 8). The
+  // first visit is its own screen (`FirstVisit`, Task 9) on the same shell.
+  // The file chooser lives here, not in the menu: the menu may close while the system dialog is up.
+  const fileInput = (
+    <input
+      ref={fileRef}
+      type="file"
+      accept="application/json,.json"
+      class="visually-hidden"
+      tabIndex={-1}
+      aria-hidden="true"
+      aria-label="Open an insert file"
+      onChange={(e) => {
+        void readFile(e.currentTarget);
+      }}
+    />
+  );
+  // The project menu's content: the workspace's header and the first visit's header both open it.
+  const projectMenu = (close: () => void) => (
+    <ProjectMenu
+      name={project.name}
+      currentId={project.id}
+      projects={s.projects.value}
+      storageAvailable={store.storageAvailable}
+      onClose={close}
+      onOpen={(id) => store.openProject(id)}
+      onNew={() => store.newProject()}
+      onDelete={(id) => store.deleteProject(id)}
+      onOpenFile={() => fileRef.current?.click()}
+      onSaveFile={saveFile}
+      onSettings={() => openSettings()}
+      phone={phone}
+      canRedo={store.canRedo.value}
+      onRedo={() => store.redo()}
+      notices={placed.menu}
+      conflict={s.conflict.value}
+      onResolveConflict={(choice) => store.resolveConflict(choice)}
+      onDismissNotice={(code) => store.dismissNotice(code)}
+      firstVisit={firstVisit}
+    />
+  );
+  const headerSlot = (
+    <>
+      <Header
+        name={project.name}
+        onRename={(name) => store.edit((q) => renameProject(q, name))}
+        saveState={s.saveState.value}
+        canUndo={store.canUndo.value}
+        canRedo={store.canRedo.value}
+        onUndo={() => store.undo()}
+        onRedo={() => store.redo()}
+        downloadRef={downloadButtonRef}
+        onDownload={() => setExportOpen(true)}
+        downloadDisabled={
+          layout === undefined ||
+          s.stale.value ||
+          s.geometryOld.value ||
+          s.runPending.value ||
+          fitProblem
+        }
+        downloadLabel={fitProblem ? "Fix the fit to download" : undefined}
+        downloadReason={
+          fitProblem
+            ? // the run was made and the plan does not fit: that is what is in the way, not a stale plan
+              "Fix the fit to download"
+            : layout === undefined
+              ? canPlan
+                ? "Wait for the first plan"
+                : "Fix the errors marked in the inputs first"
+              : s.runPending.value
+                ? "Wait for the plan to finish"
+                : s.geometryOld.value && !showStale
+                  ? GEOMETRY_REPRINT_REASON
+                  : s.stale.value
+                    ? "Make a new plan first"
+                    : undefined
+        }
+        // A blocked Download pressed while the old plan is kept brings its banner back:
+        // Reprint everything is the way out, and the person asked where it is.
+        onBlockedDownload={() => {
+          if (s.geometryOld.value && geometryKept !== null) {
+            setGeometryKept(null);
+          }
+        }}
+        phone={phone}
+        onSendFile={() => {
+          void sendFile();
+        }}
+        menuDot={placed.menu.length > 0}
+        menuNoticeCount={placed.menu.length}
+        menu={projectMenu}
+      />
+      {fileInput}
+    </>
+  );
+  // A phone's sheet holds the fit problem's cards over the list (MobileFix): the list stays one tap away.
+  const railSlot = boxOpen ? (
+    boxEditor
+  ) : showFit && phone ? (
+    <>
+      <FitCards {...fixes} />
+      {whatsInside}
+    </>
+  ) : (
+    whatsInside
+  );
+  // A phone's tray bar is a modal sheet (MobileTray). It gives way to an editor in the sheet below, and
+  // to the plan while a swap is chosen (SelectedTrayBar). It is in the top layer: where it is in the tree does not matter.
+  const traySheet =
+    phone && hasSelectedTray && !editing && !boxOpen && !showFit ? (
+      <SelectedTrayBar
+        {...barProps}
+        phone
+        inPlan={view === "plan"}
+        swapFrom={view === "plan" ? s.swapFrom.value : null}
+      />
+    ) : null;
+  // What every stage has: the app's notices and live regions (always mounted, so a region is there
+  // before it has anything to say), and, at the foot, the note about a removal.
+  const notices = (
+    <>
+      {/* Always mounted, so its live regions are there before they have anything to say. */}
+      <div
+        class="app-notices"
+        data-empty={showStale || showGeometry || placed.inline.length > 0 ? undefined : "true"}
+      >
+        <PlanBanner
+          stale={showStale}
+          geometryOld={showGeometry}
+          onUpdate={() => store.refit()}
+          onReprint={() => store.refit()}
+          onKeepOld={() => setGeometryKept(geometryKey)}
+        />
+        <Notices
+          notices={placed.inline}
+          label="App messages"
+          limit={3}
+          onDismiss={(code) => store.dismissNotice(code)}
+        />
+      </div>
+      <RunAnnouncer run={run} />
+    </>
+  );
+  // The removal's note: said aloud (always mounted, so it is heard), and shown in the stage's slot,
+  // as Edit's note toast is (the first visit has no slot: it follows the empty box).
+  const removedShown = removed !== null && removed.version === s.history.version.value;
+  const removedName =
+    removed === null ? "" : removed.component.name === "" ? "(unnamed)" : removed.component.name;
+  const removedLive = (
+    <div class="visually-hidden" role="status" data-live="removed">
+      {removedShown ? `${removedWords(removedName)} Undo removal is available.` : ""}
+    </div>
+  );
+  const removedToast = removedShown ? (
+    <RemovedToast
+      name={removedName}
+      onUndo={() => {
+        setRemoved(null);
+        store.undo();
+      }}
+      onDismiss={() => setRemoved(null)}
+    />
+  ) : null;
+  const removedNote = (
+    <>
+      {removedLive}
+      {removedToast}
+    </>
+  );
+  // The plan's frame, as the workspace and the editor both draw it (the layer, the selection and
+  // the slot are each one's own).
+  const planProps = layout
+    ? {
+        trays: printable,
+        box: project.box,
+        settings: project.settings,
+        components: project.components,
+        lockedKeys: locked,
+        stale: s.stale.value,
+        searching: run.status === "running",
+        swapFrom: s.swapFrom.value,
+        onSwapFromChange: (key: string | null) => {
+          s.swapFrom.value = key;
+        },
+        onSwap: (a: string, b: string) => store.edit((q) => swapTrays(q, a, b)),
+        sizeLockedKeys: sizeLocked,
+      }
+    : null;
+  // An insert with items and no plan yet.
+  const workingOnIt = (
+    <div class="pf-frame pf-view">
+      <div class="stage-empty">
+        <div class="stage-empty-box">
+          <span class="pf-measure">{`Your box, ${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} mm`}</span>
+        </div>
+        <h2>Working out the trays…</h2>
+        <p>The plan appears here as soon as every field is valid.</p>
+      </div>
+    </div>
+  );
+  // The layout and sizing notices, under the plan caption.
+  const stageNotes = <StageNotes notices={summaryNotices} />;
+  // The fit problems say how far the plan is short in the heading's line: the engine's paragraph is not repeated.
+  const fitNotes = (
+    <StageNotes notices={summaryNotices.filter((n) => n.code !== NOTICE_CODES.doesNotFit)} />
+  );
+  const stageSlot = (
+    <>
+      {notices}
+      {traySheet}
+      {boxOpen ? (
+        // While the box is edited the stage is Box's: its side view, labelled as the page's h1. (A
+        // phone's sheet has the h1 and the side view; the stage is the plan alone.)
+        <BoxStage
+          box={project.box}
+          settings={projSettings}
+          layout={layout}
+          components={project.components}
+          phone={phone}
+          plan={planProps}
+          placeholder={workingOnIt}
+          after={stageNotes}
+          problem={boxProblem}
+          onRetry={() => store.retry()}
+        />
+      ) : editedComponent !== undefined ? (
+        // While a component is edited the stage is Edit's: the sentence is the page's h1, the box
+        // shows the component's trays lifted. (A phone's sheet has the h1.)
+        <EditorStage
+          componentId={editedComponent.id}
+          components={project.components}
+          trays={printable}
+          note={editNote}
+          onNoteDone={clearEditNote}
+          phone={phone}
+          plan={planProps}
+          placeholder={workingOnIt}
+          after={stageNotes}
+          problem={editorProblem(status)}
+          onRetry={() => store.retry()}
+        />
+      ) : showFit ? (
+        // NoFit, PinConflict and MobileFix: the heading, the picture and the panel of what to do.
+        <FitProblem
+          {...fixes}
+          status={status}
+          trays={
+            fitKind === "noFit"
+              ? (s.noFitAttempt.value?.trays ?? (layout ? printable : null))
+              : layout
+                ? printable
+                : null
+          }
+          box={project.box}
+          settings={projSettings}
+          components={project.components}
+          lockedKeys={locked}
+          misfitKey={misfit?.trayKey}
+          focusKey={fitKind === "noFit" ? misfit?.trayKey : firstConflict?.trayKey}
+          phone={phone}
+          after={fitNotes}
+        />
+      ) : (
+        <>
+          <StageTop
+            {...statusInput}
+            trays={layout?.trays}
+            level={s.viewLevel.value}
+            onLevelChange={(l) => {
+              s.viewLevel.value = l;
+            }}
+            view={view}
+            onViewChange={showView}
+            webgl={webgl}
+            phone={phone}
+            onKeepSearching={() => store.refit()}
+            onStop={() => store.cancelRun()}
+            onRetry={() => store.retry()}
+            onShow={showSection}
+          />
+          <section class="plan-col" aria-label="Preview" data-region="plan">
+            {planProps !== null ? (
+              view === "plan" ? (
+                <PlanView
+                  {...planProps}
+                  selectedKey={s.selection.value}
+                  level={s.viewLevel.value}
+                  onLevelChange={(l) => {
+                    s.viewLevel.value = l;
+                  }}
+                  onSelect={(key) => {
+                    s.selection.value = key;
+                  }}
+                  bar={
+                    hasSelectedTray && !phone ? (
+                      <SelectedTrayBar
+                        {...barProps}
+                        phone={false}
+                        inPlan
+                        swapFrom={s.swapFrom.value}
+                      />
+                    ) : phone ? undefined : (
+                      (removedToast ?? undefined)
+                    )
+                  }
+                />
+              ) : (
+                <>
+                  <StageSlot idle={phone}>
+                    {hasSelectedTray && !phone ? (
+                      <SelectedTrayBar {...barProps} phone={false} inPlan={false} swapFrom={null} />
+                    ) : phone ? undefined : (
+                      (removedToast ?? undefined)
+                    )}
+                  </StageSlot>
+                  <Viewer
+                    trays={printable}
+                    box={project.box}
+                    settings={project.settings}
+                    components={project.components}
+                    stale={s.stale.value}
+                    meshes={meshes}
+                    selectedKey={s.selection.value}
+                    onSelect={(key) => {
+                      s.selection.value = key;
+                    }}
+                    {...props.viewerProps}
+                  />
+                </>
+              )
+            ) : (
+              <>
+                <StageSlot quiet idle={phone}>
+                  {phone ? undefined : (removedToast ?? undefined)}
+                </StageSlot>
+                {workingOnIt}
+              </>
+            )}
+            {stageNotes}
+          </section>
+        </>
+      )}
+      {exportOpen && layout !== undefined ? (
+        <ExportPanel
+          titleId="export-title"
+          trays={printable}
+          components={project.components}
+          printer={project.printer}
+          settings={project.settings}
+          meshes={meshes}
+          projectName={project.name}
+          summary={summary}
+          disabled={run.status === "running"}
+          stale={s.stale.value}
+          download={download}
+          phone={phone}
+          onSendFile={() => {
+            void sendFile();
+          }}
+          onClose={() => setExportOpen(false)}
+          onOpenGuide={() => {
+            setExportOpen(false);
+            setAssemblyFor(project.id);
+          }}
+        />
+      ) : null}
+      {removedLive}
+      {phone ? removedToast : null}
+    </>
+  );
 
   return (
     <ValidationContext.Provider value={validation}>
       <SizingContext.Provider value={sizingNotices}>
         <SettingsContext.Provider value={projSettings}>
-          <div class="pf-app">
-            <div class="app-top" {...behindSheet}>
-              <AppHeader
-                name={project.name}
-                onRename={(name) => store.edit((q) => renameProject(q, name))}
-                saveState={s.saveState.value}
-                canUndo={store.canUndo.value}
-                canRedo={store.canRedo.value}
-                onUndo={() => store.undo()}
-                onRedo={() => store.redo()}
-                downloadRef={downloadButtonRef}
-                onDownload={() => setExportOpen(true)}
-                downloadDisabled={
-                  layout === undefined ||
-                  s.stale.value ||
-                  s.geometryOld.value ||
-                  s.runPending.value ||
-                  fitProblem
-                }
-                downloadLabel={fitProblem ? "Fix the fit to download" : undefined}
-                downloadReason={
-                  layout === undefined
-                    ? project.components.length === 0
-                      ? "Add what goes inside first"
-                      : canPlan
-                        ? "Wait for the first plan"
-                        : "Fix the errors marked in the inputs first"
-                    : s.runPending.value
-                      ? "Wait for the plan to finish"
-                      : s.geometryOld.value && !showStale
-                        ? GEOMETRY_REPRINT_REASON
-                        : s.stale.value
-                          ? "Make a new plan first"
-                          : undefined
-                }
-                // A blocked Download pressed while the old plan is kept brings its banner back:
-                // Reprint everything is the way out, and the person asked where it is.
-                onBlockedDownload={() => {
-                  if (s.geometryOld.value && geometryKept !== null) {
-                    setGeometryKept(null);
-                  }
-                }}
-                menuDot={placed.menu.length > 0}
-                menuNoticeCount={placed.menu.length}
-                menu={(close) => (
-                  <ProjectMenu
-                    name={project.name}
-                    currentId={project.id}
-                    projects={s.projects.value}
-                    storageAvailable={store.storageAvailable}
-                    onClose={close}
-                    onOpen={(id) => store.openProject(id)}
-                    onNew={() => store.newProject()}
-                    onDelete={(id) => store.deleteProject(id)}
-                    onOpenFile={() => fileRef.current?.click()}
-                    onSaveFile={saveFile}
-                    onSendFile={() => {
-                      void sendFile();
-                    }}
-                    onSettings={() => openSettings()}
-                    notices={placed.menu}
-                    conflict={s.conflict.value}
-                    onResolveConflict={(choice) => store.resolveConflict(choice)}
-                    onDismissNotice={(code) => store.dismissNotice(code)}
-                  />
-                )}
-              />
-              <input
-                ref={fileRef}
-                type="file"
-                accept="application/json,.json"
-                class="visually-hidden"
-                tabIndex={-1}
-                aria-hidden="true"
-                aria-label="Open an insert file"
-                onChange={(e) => {
-                  void readFile(e.currentTarget);
-                }}
-              />
-              {/* Always mounted, so its live regions are there before they have anything to say. */}
-              <div
-                class="app-notices"
-                data-empty={
-                  showStale || showGeometry || placed.inline.length > 0 ? undefined : "true"
-                }
-              >
-                <PlanBanners
-                  stale={showStale}
-                  geometryOld={showGeometry}
-                  onUpdate={() => store.refit()}
-                  onReprint={() => store.refit()}
-                  onKeepOld={() => setGeometryKept(geometryKey)}
-                />
-                <Notices
-                  notices={placed.inline}
-                  label="App messages"
-                  limit={3}
-                  onDismiss={(code) => store.dismissNotice(code)}
-                />
-              </div>
-            </div>
-            <div class="pf-app__body" data-first-visit={firstVisit ? "true" : undefined}>
-              {firstVisit ? null : phone ? (
-                <BottomSheet
-                  label="The box and what's inside"
-                  title="What's inside"
-                  meta={summaries.components}
-                  expanded={sheetOpen}
-                  full={sheetFull}
-                  editing={editing}
-                  handleRef={sheetHandle}
-                  onExpandedChange={(open) => {
-                    setSheetOpen(open);
-                    // The box has the sheet to itself: folding it comes back to the list.
-                    if (!open && openSection === "box") {
-                      setOpenSection("components");
-                    }
-                  }}
-                  action={
-                    searchOnPhone ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          store.refit();
-                          // The button goes with the search: the handle keeps the place.
-                          sheetHandle.current?.focus();
-                        }}
-                      >
-                        Keep searching
-                      </button>
-                    ) : undefined
-                  }
-                >
-                  {railSections}
-                  {footer}
-                </BottomSheet>
-              ) : (
-                <section class="pf-app__rail" aria-label="Inputs">
-                  {railSections}
-                </section>
-              )}
-              <main class="pf-app__stage" ref={mainRef} {...behindSheet}>
-                <h2 class="visually-hidden">Results</h2>
-                <StatusLine
-                  run={run}
-                  pending={s.runPending.value}
-                  canOptimize={canPlan}
-                  hasLayout={layout !== undefined}
-                  fits={fits}
-                  canSearchMore={!s.geometryOld.value}
-                  noFit={
-                    noFit
-                      ? {
-                          misfit: misfitOf(
-                            s.noFitAttempt.value,
-                            project.box,
-                            projSettings,
-                            project.components,
-                          ),
+          {firstVisit ? (
+            <FirstVisit
+              box={project.box}
+              phone={phone}
+              onBoxChange={(patch) => store.edit((q) => updateBox(q, patch))}
+              onPick={addComponentOfKind}
+              onExample={addExample}
+              onOpenFile={() => fileRef.current?.click()}
+              menu={projectMenu}
+              menuDot={placed.menu.length > 0}
+              menuNoticeCount={placed.menu.length}
+              headerExtra={fileInput}
+              stageBefore={notices}
+              stageAfter={removedNote}
+            />
+          ) : (
+            <Workspace
+              focus={(editing || boxOpen || (showFit && fitKind === "noFit")) && !phone}
+              class={editing ? "ws--edit" : boxOpen ? "ws--box" : showFit ? "ws--fit" : undefined}
+              header={headerSlot}
+              rail={railSlot}
+              stage={stageSlot}
+              inert={sheetCoversScreen}
+              sheet={
+                !phone
+                  ? undefined
+                  : {
+                      label:
+                        showFit && fitKind !== null
+                          ? fitTitle(fitKind)
+                          : "The box and what's inside",
+                      title: showFit && fitKind !== null ? fitTitle(fitKind) : "What's inside",
+                      summary: showFit ? undefined : String(project.components.length),
+                      handleLabel: "Show everything",
+                      expanded: sheetOpen,
+                      full: sheetFull,
+                      // an editor and the box each bring their own header (Back, the h1, Done)
+                      editing: sheetFull,
+                      handleRef: sheetHandle,
+                      // a tray's sheet in front of it has the region's name
+                      region: traySheet === null ? "sheet" : "sheet-behind",
+                      onExpandedChange: (open) => {
+                        setSheetOpen(open);
+                        // An editor, or the box, has the sheet to itself: folding it comes back to the list.
+                        if (!open) {
+                          setEditingId(null);
+                          setBoxOpen(false);
                         }
-                      : null
-                  }
-                  conflicts={conflicts}
-                  onKeepSearching={() => store.refit()}
-                  onStop={() => store.cancelRun()}
-                  onEdit={editComponent}
-                  onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
-                />
-                {firstVisit ? (
-                  <section class="pf-first" aria-label="Start">
-                    <h2>Fit your game into its box.</h2>
-                    <div class="pf-first__step">
-                      <h3>Measure the box</h3>
-                      <BoxPanel
-                        box={project.box}
-                        onChange={(patch) => store.edit((q) => updateBox(q, patch))}
-                      />
-                    </div>
-                    <div class="pf-first__step">
-                      <h3>Pick what goes inside</h3>
-                      <AddKinds onAdd={addComponentOfKind} label="Pick what goes inside" />
-                      <button type="button" onClick={addExample}>
-                        Start from an example game
-                      </button>
-                    </div>
-                    <p class="hint">Your inserts are saved in this browser.</p>
-                    {phone ? footer : null}
-                  </section>
-                ) : layout ? (
-                  <section class="pf-frame pf-view" aria-label="Preview">
-                    <div class="pf-view__head">
-                      <div
-                        class="pf-tabs"
-                        role="tablist"
-                        aria-label="Views"
-                        onKeyDown={(e) => {
-                          const order: ViewId[] = ["plan", "3d"];
-                          const at = order.indexOf(view);
-                          const next =
-                            e.key === "ArrowRight"
-                              ? order[(Math.max(at, 0) + 1) % order.length]
-                              : e.key === "ArrowLeft"
-                                ? order[(Math.max(at, 0) + order.length - 1) % order.length]
-                                : e.key === "Home"
-                                  ? order[0]
-                                  : e.key === "End"
-                                    ? order[order.length - 1]
-                                    : undefined;
-                          if (next !== undefined) {
-                            e.preventDefault();
-                            showView(next);
-                            document.getElementById(`tab-${next}`)?.focus();
-                          }
-                        }}
-                      >
-                        {(
-                          [
-                            ["plan", "Plan"],
-                            ["3d", "3D"],
-                          ] as const
-                        ).map(([id, label]) => (
-                          <button
-                            type="button"
-                            role="tab"
-                            key={id}
-                            id={`tab-${id}`}
-                            aria-selected={view === id}
-                            aria-controls={`panel-${id}`}
-                            tabIndex={view === id ? 0 : -1}
-                            onClick={() => showView(id)}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                      <div class="pf-toolbar__group">
-                        {s.stale.value ? <span class="pf-badge">Out of date</span> : null}
-                      </div>
-                    </div>
-                    <div
-                      class="pf-view__body"
-                      role="tabpanel"
-                      id={`panel-${view}`}
-                      aria-labelledby={`tab-${view}`}
-                    >
-                      {view === "plan" ? (
-                        <PlanView
-                          trays={printable}
-                          box={project.box}
-                          settings={project.settings}
-                          components={project.components}
-                          lockedKeys={locked}
-                          selectedKey={s.selection.value}
-                          stale={s.stale.value}
-                          level={s.viewLevel.value}
-                          onLevelChange={(l) => {
-                            s.viewLevel.value = l;
-                          }}
-                          swapFrom={s.swapFrom.value}
-                          onSwapFromChange={(key) => {
-                            s.swapFrom.value = key;
-                          }}
-                          onSelect={(key) => {
-                            s.selection.value = key;
-                          }}
-                          onSwap={(a, b) => store.edit((q) => swapTrays(q, a, b))}
-                          sizeLockedKeys={sizeLocked}
-                          bar={
-                            hasSelectedTray ? (
-                              <SelectedTrayBar {...barProps} inPlan swapFrom={s.swapFrom.value} />
-                            ) : undefined
-                          }
-                        />
-                      ) : null}
-                      {view === "3d" ? (
-                        <>
-                          <Viewer
-                            trays={printable}
-                            box={project.box}
-                            settings={project.settings}
-                            components={project.components}
-                            stale={s.stale.value}
-                            meshes={meshes}
-                            selectedKey={s.selection.value}
-                            onSelect={(key) => {
-                              s.selection.value = key;
-                            }}
-                            {...props.viewerProps}
-                          />
-                          {hasSelectedTray ? (
-                            <div class="view-bar">
-                              <SelectedTrayBar {...barProps} inPlan={false} swapFrom={null} />
-                            </div>
-                          ) : null}
-                        </>
-                      ) : null}
-                    </div>
-                    {exportOpen ? (
-                      <Modal labelledBy="export-title" onClose={() => setExportOpen(false)}>
-                        <ExportPanel
-                          titleId="export-title"
-                          trays={printable}
-                          components={project.components}
-                          printer={project.printer}
-                          settings={project.settings}
-                          meshes={meshes}
-                          projectName={project.name}
-                          summary={s.summary.value}
-                          disabled={run.status === "running"}
-                          stale={s.stale.value}
-                          download={download}
-                          onOpenGuide={() => {
-                            setExportOpen(false);
-                            setAssemblyFor(project.id);
-                          }}
-                        />
-                      </Modal>
-                    ) : null}
-                  </section>
-                ) : (
-                  <section class="pf-frame pf-view" aria-label="Preview">
-                    <div class="stage-empty">
-                      <div class="stage-empty-box">
-                        <span class="pf-measure">{`Your box, ${mm(project.box.innerWidth)} × ${mm(project.box.innerDepth)} mm`}</span>
-                      </div>
-                      <h2>Working out the trays…</h2>
-                      <p>The plan appears here as soon as every field is valid.</p>
-                    </div>
-                  </section>
-                )}
-                {/* The figures come after the plan, on every width (the status line is above it). */}
-                <Summary
-                  summary={summary}
-                  run={run}
-                  notices={summaryNotices}
-                  hasLayout={layout !== undefined}
-                  canOptimize={canPlan}
-                  hasComponents={project.components.length > 0}
-                  hiddenErrors={errorsWithoutField(validation)}
-                  problemSections={problemSections}
-                  onShowSection={showSection}
-                  onRetry={() => store.retry()}
-                />
-                {/* always mounted: the removal is spoken, and Undo is in the header as well */}
-                <div class="visually-hidden" role="status" data-live="removed">
-                  {removed !== null && removed.version === s.history.version.value
-                    ? `Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. Undo removal is available.`
-                    : ""}
-                </div>
-                {removed !== null && removed.version === s.history.version.value ? (
-                  <div class="pf-toast stage-block">
-                    {`Removed “${removed.component.name === "" ? "(unnamed)" : removed.component.name}”. `}
-                    <button
-                      type="button"
-                      class="pf-link"
-                      onClick={() => {
-                        setRemoved(null);
-                        store.undo();
-                        setOpenSection("components");
-                      }}
-                    >
-                      Undo removal
-                    </button>
-                    <button type="button" class="pf-link" onClick={() => setRemoved(null)}>
-                      Dismiss
-                    </button>
-                  </div>
-                ) : null}
-              </main>
-            </div>
-            {phone ? null : footer}
-            {settingsOpen !== null ? (
-              <SettingsSheet
-                initialTab={settingsOpen.tab}
-                settings={project.settings}
-                onSettingsChange={(next) => store.edit((q) => setSettings(q, next))}
-                printer={project.printer}
-                myPrinter={store.prefs.printer.value}
-                onMyPrinterChange={(p) => store.prefs.setPrinter(p)}
-                onApplyPrinter={() =>
-                  store.edit((q) => applyPrinter(q, store.prefs.printer.peek()))
-                }
-                onClose={() => setSettingsOpen(null)}
-              />
-            ) : null}
-          </div>
+                      },
+                      action:
+                        editing || boxOpen || showFit ? null : (
+                          <AddMenu placement="above" onPick={addComponentOfKind} />
+                        ),
+                    }
+              }
+            />
+          )}
+          {settingsOpen !== null ? (
+            <SettingsSheet
+              initialTab={settingsOpen.tab}
+              settings={project.settings}
+              nameExample={nameExampleOf(printable, project.components)}
+              onSettingsChange={(next) => store.edit((q) => setSettings(q, next))}
+              printer={project.printer}
+              myPrinter={store.prefs.printer.value}
+              onMyPrinterChange={(p) => store.prefs.setPrinter(p)}
+              onApplyPrinter={() => store.edit((q) => applyPrinter(q, store.prefs.printer.peek()))}
+              onClose={() => setSettingsOpen(null)}
+            />
+          ) : null}
         </SettingsContext.Provider>
       </SizingContext.Provider>
     </ValidationContext.Provider>

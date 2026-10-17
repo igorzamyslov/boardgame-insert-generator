@@ -1,5 +1,6 @@
 // src/ui/InsertsList.tsx
 import { useEffect, useRef, useState } from "preact/hooks";
+import { Button, MenuItem } from "../kit";
 import type { ProjectListEntry } from "../share";
 
 const shown = (name: string): string => (name === "" ? "(unnamed)" : name);
@@ -18,15 +19,15 @@ export function DeleteConfirm({ name, onConfirm, onCancel }: DeleteConfirmProps)
     keep.current?.focus();
   }, []);
   return (
-    <div class="delete-confirm" role="group" aria-label={`Delete “${shown(name)}”?`}>
-      <p class="hint">{`Delete “${shown(name)}” from this browser? This can't be undone.`}</p>
-      <div class="button-row">
-        <button type="button" class="menu-delete tap" onClick={onConfirm}>
+    <div class="pm-confirm" role="group" aria-label={`Delete “${shown(name)}”?`}>
+      <p class="pm-confirm__text">{`Delete “${shown(name)}” from this browser? This can't be undone.`}</p>
+      <div class="pm-confirm__actions">
+        <Button variant="secondary" class="pm-confirm__delete" onClick={onConfirm}>
           Delete
-        </button>
-        <button type="button" class="tap" ref={keep} onClick={onCancel}>
+        </Button>
+        <Button variant="secondary" ref={keep} onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -39,7 +40,10 @@ export interface InsertsListProps {
   onDelete: (id: string) => void;
 }
 
-/** The inserts saved in this browser: open one, or delete one after a question. */
+/**
+ * The inserts saved in this browser, as rows of the project menu: open one, or delete one after a
+ * question (Delete lives here, one per row, the open insert included).
+ */
 export function InsertsList({ currentId, projects, onOpen, onDelete }: InsertsListProps) {
   const [asking, setAsking] = useState<string | null>(null);
   const list = useRef<HTMLUListElement>(null);
@@ -52,32 +56,37 @@ export function InsertsList({ currentId, projects, onOpen, onDelete }: InsertsLi
     }
   }, [projects]);
   if (projects.length === 0) {
-    return <p class="hint">Nothing saved yet.</p>;
+    return <p class="pm-empty">Nothing saved yet.</p>;
   }
   return (
-    <ul class="inserts-list" ref={list}>
+    <ul class="pm-list" ref={list}>
       {projects.map((p) => (
-        <li key={p.id} class="inserts-row">
-          <div class="inserts-line">
+        <li key={p.id} class="pm-list__item">
+          <div class="pm-row">
             {p.id === currentId ? (
-              <span class="inserts-name">
-                {shown(p.name)} <span class="pf-badge inserts-open">Open now</span>
+              // not a button: the open insert has nothing to open; the item's look is the menu's
+              <span class="k-menu__item pm-row__name pm-row__name--open">
+                <span class="ellipsis" title={shown(p.name)}>
+                  {shown(p.name)}
+                </span>
+                <span class="k-menu__meta">Open now</span>
               </span>
             ) : (
-              <button type="button" class="inserts-name quiet tap" onClick={() => onOpen(p.id)}>
-                {shown(p.name)}
-              </button>
+              <MenuItem class="pm-row__name" onClick={() => onOpen(p.id)}>
+                <span class="ellipsis" title={shown(p.name)}>
+                  {shown(p.name)}
+                </span>
+              </MenuItem>
             )}
-            <button
-              type="button"
-              class="quiet menu-delete tap"
+            <Button
+              variant="quiet"
               data-delete={p.id}
               aria-expanded={asking === p.id}
               onClick={() => setAsking(asking === p.id ? null : p.id)}
             >
               {"Delete… "}
               <span class="visually-hidden">{shown(p.name)}</span>
-            </button>
+            </Button>
           </div>
           {asking === p.id ? (
             <DeleteConfirm

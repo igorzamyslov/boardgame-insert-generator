@@ -1,175 +1,321 @@
 /* src/plan/plan.css */
 
-/* The plan fills its view, so the drawing is never something you have to scroll to: the legend
-   under it takes its own height and the drawing takes what is left. On the narrow layout the
-   view's height is indefinite, the percentages resolve to auto, and the drawing simply keeps
-   its own aspect ratio while the page scrolls as a whole. */
+/*
+ * The plan (UI rebuild Task 7), from Main and MobileWorkspace: a box frame holding a tile per
+ * tray, each tile in its kind's shade with its compartments drawn at their real places, a name
+ * pill, and a caption under the frame. The slot above it, the caption and the notes are children
+ * of the stage's plan column (workspace.css); `.plan` only carries the key handler.
+ */
 .plan {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
+  display: contents;
 }
 
-.plan-svg {
-  display: block;
-  flex: 1 1 auto;
-  width: 100%;
-  height: auto;
+/*
+ * The room for the box. It is as tall as the box at the stage's width, up to the box's height at
+ * Main's full size, so the caption sits 12 px under the box and nothing floats. It shrinks, never
+ * grows, when the stage has less left after the banner, the status row, the slot, the caption and
+ * the notes. It is a size container, so the box takes its measure from it: the box shrinks before
+ * the stage scrolls (the desktop stage never does).
+ */
+.plan-fit {
+  display: grid;
+  flex: 0 1 auto;
+  align-self: stretch;
+  place-items: center;
   min-height: 0;
-  max-height: 100%;
+  max-height: calc(570px * var(--box-l) / max(var(--box-w), var(--box-l)) + 12px);
+  aspect-ratio: var(--box-w) / var(--box-l);
+  container-type: size;
+}
+
+/*
+ * The frame, the plan's and the 3D view's alike. Its longer side is Main's 582 px, or the width
+ * and height the stage leaves (the container's); the other side follows the box's W:L. The floor
+ * is the frame less 6 px each side, so a 285 mm box is drawn at 2 px per mm at full size.
+ */
+.plan-box,
+.viewer-stage {
+  --long: max(var(--box-w), var(--box-l));
+
+  /* the longer side: 582 px, or what makes the width fit 100cqw and the height 100cqh, whichever way the box lies */
+  --side: min(
+    582px,
+    calc((100cqw - 12px) * var(--long) / var(--box-w) + 12px),
+    calc((100cqh - 12px) * var(--long) / var(--box-l) + 12px)
+  );
+  --floor: calc(var(--side) - 12px);
+
+  position: relative;
+  flex: none;
+  width: calc(var(--floor) * var(--box-w) / var(--long) + 12px);
+  height: calc(var(--floor) * var(--box-l) / var(--long) + 12px);
+  border-radius: var(--r-panel);
+  background: var(--box);
+  box-shadow: var(--box-inset-plan);
+}
+
+.plan-box {
   touch-action: none;
   user-select: none;
 }
 
-.plan-box {
-  fill: none;
-  stroke: currentcolor;
-  stroke-width: 0.8;
-  vector-effect: non-scaling-stroke;
+/* A picture of a plan (the fit problems): what hangs over the frame's edge is cut at it, and nothing is a handle. */
+.plan-box[data-readonly="true"] {
+  overflow: hidden;
 }
 
-.plan-below {
-  fill: none;
-  stroke: color-mix(in srgb, currentcolor 35%, transparent);
-  stroke-dasharray: 4 3;
-  vector-effect: non-scaling-stroke;
+/*
+ * The 3D view is the plan's frame without the plan's tan block: the model sits on the stage, in
+ * its own colour, with no edge drawn round it. The canvas (transparent) takes the corners.
+ */
+.viewer-stage {
+  overflow: hidden;
+  background: var(--page);
+  box-shadow: none;
 }
 
-.plan-svg.is-stale {
-  filter: grayscale(0.8);
+.plan-floor {
+  position: absolute;
+  inset: 6px; /* Main: the floor sits 6 px in from the frame */
 }
 
-/* Ruling (owner, P2 Task 15): a plan tile smaller than 44 px is exempt from the 44 px rule on the
-   "essential" ground: its size is the tray's physical geometry, drawn to scale, and cannot change
-   to suit a finger. Every other control stays at 44 px. */
-.plan-tray {
+/*
+ * A tile is its footprint (`--x`, `--y`, `--w`, `--d`: shares of the floor) drawn 3 px inside, so
+ * neighbours are 6 px apart. Ruling (owner, P2 Task 15): a plan tile smaller than 44 px is exempt
+ * from the 44 px rule on the "essential" ground: its size is the tray's physical geometry, drawn
+ * to scale, and cannot change to suit a finger. Every other control stays at 44 px.
+ */
+.plan-tile {
+  position: absolute;
+  top: calc(var(--y) + 3px);
+  left: calc(var(--x) + 3px);
+  box-sizing: border-box;
+  width: calc(var(--w) - 6px);
+  height: calc(var(--d) - 6px);
+
+  /*
+   * No padding: with box-sizing border-box a padding of 8 px each side made a tile under 20 px
+   * (a 10 mm spacer) 20 px, drawn 6 px into its neighbour with no gap. Its parts are positioned
+   * on their own (.plan-cells, .plan-center), so nothing needs it. Every tile, tray or spacer,
+   * is its footprint less the same 3 px a side.
+   */
+  padding: 0;
+  border: 2px solid var(--tile-line, var(--edge));
+  border-radius: var(--r-tile);
+
+  /* A tray takes its component's shade (set per tile); a tray that holds none is neutral. */
+  background: var(--tile-fill, var(--rule));
   cursor: grab;
+  transition:
+    opacity 180ms,
+    box-shadow 180ms;
 }
 
-/* A tray takes its component's shade (--tile-fill/-line/-ink, set per tile); a tray that holds no
-   component falls back to the neutral tint. */
-.plan-face {
-  fill: var(--tile-fill, var(--rule));
-  stroke: var(--tile-line, var(--edge));
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
+/* Spare trays and spacers belong to no component: hatched, with a dashed edge (Main). */
+.plan-tile.is-leftover {
+  border: 2px dashed var(--spacer-dash);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--spacer-fill) 0 6px,
+    var(--spacer-hatch) 6px 12px
+  );
 }
 
-/* Spare trays and filler blocks belong to no component: hatched, with a dashed edge. */
-.plan-hatch-ground {
-  fill: var(--spacer-fill);
-}
-
-.plan-hatch-line {
-  stroke: var(--spacer-hatch);
-  stroke-width: 1;
-}
-
-.plan-tray.is-leftover .plan-face {
-  fill: url("#plan-hatch");
-  stroke: var(--spacer-dash);
-  stroke-dasharray: 4 3;
-  stroke-width: 1.5;
-}
-
-/* The name sits in a pill so it reads on any shade and over the hatching. */
-.plan-pill {
-  fill: var(--sheet);
-  stroke: var(--tile-line, var(--spacer-dash));
-  stroke-width: 0.75;
-  pointer-events: none;
-  vector-effect: non-scaling-stroke;
-}
-
-.plan-tray.is-source .plan-face {
+/* While one component is pointed at or selected, every other tray fades. At 60% the hue stays; at half it went grey on the box. */
+.plan-tile.is-dimmed {
   opacity: 0.6;
 }
 
-.plan-tray.is-drop .plan-face {
-  fill: var(--indigo-wash);
+.plan-tile.is-source {
+  opacity: 0.6;
 }
 
-.plan-tray:focus {
-  outline: none;
+.plan-tile.is-drop {
+  box-shadow: 0 0 0 3px var(--focus);
 }
 
-/* SVG has no z-index: the selection and focus rings are separate rects drawn after every tile. */
-.plan-ring {
-  fill: none;
+/* The ring is 5 px out and neighbours are 6 px apart: it never reaches the next tile. */
+.plan-tile.is-selected {
+  z-index: 1;
+  box-shadow: var(--ring-selected);
+}
+
+/* Edit's lifted tray: a 4 px sheet ring, a 6 px ring in the kind's line, and a drop shadow under it. */
+.plan-tile.is-lifted {
+  z-index: 2;
+  box-shadow:
+    0 0 0 4px var(--sheet),
+    0 0 0 6px var(--tile-line, var(--edge)),
+    var(--shadow-lift-drop);
+}
+
+.plan-tile:focus-visible {
+  z-index: 2;
+}
+
+/* A picture's tiles are not handles. */
+.plan-box[data-readonly="true"] .plan-tile {
+  cursor: default;
+}
+
+/* NoFit's tray that does not fit: on top of the dimmed rest, a dashed warn edge on the warn wash, its name and nothing else. */
+.plan-tile.is-misfit {
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--warn);
+  background: var(--warn-bg);
+}
+
+.plan-misfit {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 var(--s-12);
+  overflow: hidden;
+  color: var(--warn-ink);
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The compartments, each at its own place and size in the tile's padding box (not a grid). */
+.plan-cells {
+  position: absolute;
+  inset: var(--s-8);
   pointer-events: none;
-  stroke-width: 3;
-  vector-effect: non-scaling-stroke;
 }
 
-.plan-ring.is-selected {
-  stroke: var(--ink);
+.plan-cell {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--tile-line, var(--edge)) 25%, transparent);
+  border-radius: var(--r-cell);
+  background: var(--cell-fill);
 }
 
-.plan-ring.is-focus {
-  stroke: var(--indigo);
-}
-
-.plan-glyph {
-  fill: none;
+/* The name sits in a pill so it reads on any shade and over the hatching. */
+.plan-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--s-8);
   pointer-events: none;
-  stroke: var(--tile-ink, var(--ink));
-  stroke-width: 1.5;
-  stroke-linecap: square;
 }
 
-.plan-glyph * {
-  vector-effect: non-scaling-stroke;
+.plan-pill {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 2px 9px; /* Main: 2 px above and below, 9 px each side */
+  border-radius: var(--r-pill);
+  background: var(--pill-fill);
+  color: var(--tile-ink, var(--ink));
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  gap: 5px;
 }
 
-.plan-name,
-.plan-size,
-.plan-lock,
-.plan-front {
-  fill: var(--ink);
-  font-family: var(--font-ui);
-  pointer-events: none;
-  text-anchor: middle;
-  dominant-baseline: central;
+.plan-pill > svg {
+  flex: none;
 }
 
-.plan-lock {
-  font-size: 4px;
-  text-anchor: start;
-}
-
-.plan-lock--end,
-.plan-tray.is-locked .plan-lock:first-of-type {
-  text-anchor: end;
-}
-
-.plan-front {
-  font-size: 6px;
-  letter-spacing: 0.1em;
-}
-
-/* The name is ink on the sheet-coloured pill; the size is ink on the shade, so it uses the
-   shade's own ink (which keeps its contrast on the fill). */
 .plan-name {
-  fill: var(--tile-ink, var(--ink));
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plan-tile.is-leftover .plan-pill {
+  color: var(--muted-strong);
+}
+
+/* A pinned tray: a 26 px ink circle with a pin, top right. */
+.plan-badge {
+  position: absolute;
+  top: var(--s-8);
+  right: var(--s-8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: var(--sheet);
+}
+
+/* A turned pin: a tag, bottom left. */
+.plan-tag {
+  position: absolute;
+  bottom: var(--s-8);
+  left: var(--s-8);
+  padding: 2px var(--s-8);
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: var(--sheet);
+  font-size: var(--text-2xs);
   font-weight: 600;
 }
 
-.plan-size {
-  fill: var(--tile-ink, var(--ink));
+/* Under the box: which layer this is, and where the front is. */
+.plan-caption,
+.plan-pins {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
 }
 
-.plan-tray.is-leftover .plan-size {
-  fill: var(--ink);
+.plan-caption {
+  display: flex;
+  align-items: center;
+  gap: var(--s-6);
 }
 
-.layer-picker {
-  border: 0;
-  padding: 0;
-  margin: 0 0 0.5rem;
+/* MobileWorkspace: the box takes the width the page leaves, and the stage scrolls (no height cap). */
+@media (width < 760px) {
+  .plan-fit {
+    flex: none;
+    max-height: none;
+    aspect-ratio: auto;
+    container-type: normal;
+  }
+
+  .plan-box,
+  .viewer-stage {
+    --side: calc(100vw - 32px);
+
+    border-radius: var(--r-card);
+  }
+
+  .plan-caption {
+    font-size: var(--text-2xs);
+  }
+
+  /* MobileWorkspace: no cells, and a smaller pill. */
+  .plan-cells {
+    display: none;
+  }
+
+  .plan-center {
+    padding: 0;
+  }
+
+  .plan-pill {
+    padding: 2px 7px;
+    font-size: var(--text-2xs);
+    gap: 4px;
+  }
 }
 
-.plan-legend {
-  margin: 0.5rem 0 0;
+@media (prefers-reduced-motion: reduce) {
+  .plan-tile {
+    transition: none;
+  }
 }

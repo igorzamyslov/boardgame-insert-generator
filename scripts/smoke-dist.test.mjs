@@ -102,6 +102,39 @@ describe("smoke-dist", () => {
     expect(result.status).toBe(0);
   });
 
+  it("fails on a shots hold left in the build", () => {
+    const files = goodFiles();
+    files["assets/client-x.js"] += " globalThis.__shotsHold?.export;";
+    const result = run(makeDist(files));
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/__shotsHold/);
+  });
+
+  it("fails on the harness's window onto the 3D scene left in the build", () => {
+    const files = goodFiles();
+    files["assets/scene-x.js"] = "globalThis.__shotsScene = { emissive() {} };";
+    files["assets/index-abc.js"] += ' import("./scene-x.js");';
+    const result = run(makeDist(files));
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/__shotsScene/);
+  });
+
+  it("fails on the kit gallery page left in the build", () => {
+    const files = goodFiles();
+    files["kit.html"] = "<!doctype html><title>Kit</title>";
+    const result = run(makeDist(files));
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/kit\.html/);
+  });
+
+  it("fails on the kit gallery's words left in a script", () => {
+    const files = goodFiles();
+    files["assets/client-x.js"] += ' const t = "Kit gallery";';
+    const result = run(makeDist(files));
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/Kit gallery/);
+  });
+
   it("fails when the licenses file misses a package", () => {
     const files = goodFiles();
     files["third-party-licenses.txt"] = "three preact";

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Change the box</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&amp;family=Figtree:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F3EF}:focus-visible{outline:3px solid #2F5BB8;outline-offset:2px}label:focus-within>span{box-shadow:0 0 0 3px #CFDCF6}@media (max-width:760px){main{order:-1}aside{max-width:none !important;flex-basis:100% !important}}
+a{color:#1D1F1C}a:hover{color:#000}
+button,input{font:inherit;color:inherit}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-direction: column; background: #F4F3EF; color: #1D1F1C; font-family: Figtree, system-ui, sans-serif; font-size: 15px">
+
+<header style="height: 60px; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 0 24px; border-bottom: 1px solid #E4E1D9">
+<div aria-hidden="true" style="width: 28px; height: 28px; border-radius: 8px; background: #1D1F1C; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; padding: 5px; box-sizing: border-box">
+<span style="border-radius: 2px; background: #8FB0EE"></span><span style="border-radius: 2px; background: #EDC175"></span><span style="border-radius: 2px; background: #86C79A"></span><span style="border-radius: 2px; background: #E89BBE"></span>
+</div>
+<span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px">Insert Generator</span>
+<span aria-hidden="true" style="width: 1px; height: 22px; background: #DAD6CC"></span>
+<span style="color: #5F625C; padding: 8px 10px">Harbour Kings</span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #5F625C"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2B7247" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Saved in this browser</span>
+<div style="flex-grow: 1"></div>
+<button type="button" aria-label="Project menu" aria-haspopup="menu" style="width: 44px; height: 44px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></button>
+<button type="button" style="height: 44px; padding: 0 18px; border-radius: 999px; border: 0; background: #1D1F1C; color: #FFFFFF; cursor: pointer; font-weight: 600">Download</button>
+</header>
+
+<div style="flex-grow: 1; display: flex; flex-wrap: wrap">
+
+<aside style="flex: 1 1 340px; max-width: 400px; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E4E1D9; padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 22px">
+<a href="Main.dc.html" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px 0 4px; text-decoration: none; color: #5F625C; font-weight: 600; font-size: 14px">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+What's inside
+</a>
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 22px">The box</h2>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Inside size</span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5F625C">Width
+<span style="display: flex; align-items: center; height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid #DAD6CC; background: #FFFFFF"><input type="text" inputmode="decimal" value="285" style="width: 100%; border: 0; font-size: 17px; font-weight: 600; background: none"><span style="color: #5F625C">mm</span></span>
+</label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5F625C">Length
+<span style="display: flex; align-items: center; height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid #DAD6CC; background: #FFFFFF"><input type="text" inputmode="decimal" value="285" style="width: 100%; border: 0; font-size: 17px; font-weight: 600; background: none"><span style="color: #5F625C">mm</span></span>
+</label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5F625C">Height
+<span style="display: flex; align-items: center; height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid #DAD6CC; background: #FFFFFF"><input type="text" inputmode="decimal" value="70" style="width: 100%; border: 0; font-size: 17px; font-weight: 600; background: none"><span style="color: #5F625C">mm</span></span>
+</label>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid #EEEBE4">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">Keep space free on top</span><span style="font-size: 13px; color: #5F625C">For the rulebook, boards or player mats</span></span>
+<div style="display: flex; align-items: center; gap: 10px">
+<label style="display: flex; align-items: center; height: 48px; width: 120px; padding: 0 12px; box-sizing: border-box; border-radius: 12px; border: 1.5px solid #1D1F1C; background: #FFFFFF; gap: 4px"><input type="text" inputmode="decimal" value="8" aria-label="Space on top, mm" style="width: 100%; border: 0; font-size: 17px; font-weight: 600; background: none"><span style="color: #5F625C">mm</span></label>
+<div style="flex-grow: 1; display: flex; padding: 3px; border-radius: 999px; background: #EFEDE7" role="group" aria-label="How much of the top">
+<button type="button" aria-pressed="true" style="flex: 1; white-space: nowrap; height: 44px; border-radius: 999px; border: 0; background: #FFFFFF; box-shadow: 0 1px 2px rgba(29,31,28,.12); cursor: pointer; font-weight: 600">Whole top</button>
+<button type="button" aria-pressed="false" style="flex: 1; white-space: nowrap; height: 44px; border-radius: 999px; border: 0; background: none; cursor: pointer; color: #5F625C">Part of it</button>
+</div>
+</div>
+<span style="font-size: 13px; color: #5F625C">Part of it: only where the rulebook lies. Trays fill the rest.</span>
+</div>
+
+<label style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding-top: 16px; border-top: 1px solid #EEEBE4; cursor: pointer">
+<span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-weight: 600">The box is stored on its side</span><span style="font-size: 13px; color: #5F625C">Trays then fill up to the lid, so nothing falls out</span></span>
+<input type="checkbox" style="width: 22px; height: 22px; accent-color: #1D1F1C">
+</label>
+
+<div style="margin-top: auto; display: flex; justify-content: flex-end">
+<a href="Main.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 22px; border-radius: 999px; background: #1D1F1C; color: #FFFFFF; text-decoration: none; font-weight: 600">Done</a>
+</div>
+</aside>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px">
+<span style="font-weight: 600; color: #3E413C">Side view of the box</span>
+<div style="width: min(560px, calc(100vw - 48px)); display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; box-shadow: inset 0 0 0 2px #8C8778; background: #D3CDBF">
+<div style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; border-bottom: 2px dashed #6E695C; background: #FFFFFF; color: #3E413C; font-size: 14px; font-weight: 600">Kept free, 8 mm</div>
+<div style="height: 110px; display: flex; gap: 6px; padding: 6px; box-sizing: border-box">
+<span style="flex: 1; border-radius: 8px; background: #DCE6FA; border: 2px solid #335AA6"></span>
+<span style="flex: 2; border-radius: 8px; background: #FBE9C9; border: 2px solid #8A5D08"></span>
+</div>
+<div style="height: 168px; display: flex; gap: 6px; padding: 6px; box-sizing: border-box">
+<span style="flex: 1; border-radius: 8px; background: #DCE6FA; border: 2px solid #335AA6"></span>
+<span style="flex: 1; border-radius: 8px; background: #FBE9C9; border: 2px solid #8A5D08"></span>
+<span style="flex: 1; border-radius: 8px; background: #F5DCE7; border: 2px solid #964068"></span>
+</div>
+</div>
+<span style="font-size: 13px; color: #5F625C">Trays fill the 62 mm below.</span>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

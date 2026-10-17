@@ -1,0 +1,98 @@
+# Design boards and the screenshot harness
+
+The UI rebuild is built from these boards, so each screen can be set beside its board. Rules:
+[`docs/DEVELOPMENT.md`](../DEVELOPMENT.md) → "UI work".
+
+## What is here
+
+- `boards/*.dc.html` are the design canvas's boards (custom elements, inline handlers). `canvas.json`
+  indexes them. Do not reformat them: their whitespace is part of the text.
+- `boards/png/` are the boards drawn to images at 1:1: `<Board>.png` at the board's own size, and
+  `<Board>--<state>.png` for each state in `scripts/design/states.mjs` (its board, with the
+  options that state needs). Committed.
+- `seeds/` are what the app's `localStorage` holds for each "Harbour Kings" state the screenshots
+  start from. Committed. Never edit one by hand.
+
+## The kit gallery
+
+`/kit.html` (`npm run dev`) shows every primitive of `src/kit` in each state the boards draw:
+blocked, pressed, error, each tone. `npm run shots -- kit kit-phone` draws it at 1440 and 390
+beside the nearest boards. It is served in dev and shots mode only; `vite build` builds just
+`index.html`.
+
+## `npm run seeds`
+
+Makes `seeds/<name>.json` with the real optimizer (the runner's seed and budget, the worker's 30 s
+cap), from the fixture in `src/test-support/harbourKings.ts`. A rerun gives the same files (every
+index entry's `updatedAt` is pinned). Seeds for a plan that is not current on purpose:
+`harbour-kings-stale`, `-notes`, `-nofit`, `-pins`. The last two also have a `.result.json`, the
+fresh run's result, because the store cannot keep a failed search (it lives in memory only): their
+screenshots click "Make a new plan" and wait for it. The script runs the same search first and
+stops when the outcome is not the one the state needs, printing the counts it tried. Then edit the
+fixture's count and run it again. A seed that goes stale (the inputs or the geometry version
+changed) fails the seed tests and the screenshots with "run npm run seeds".
+
+## `npm run shots`
+
+`npm run shots` draws every board and runs every state. `npm run shots -- <state>… [--out <dir>]`
+runs the named ones; with `--boards` it only redraws the board PNGs. It starts `vite --mode shots` on a free port and stops it when it ends. It
+needs Chromium: `npx playwright install chromium` once.
+
+The default out folder is `.superpowers/sdd/2026-10-16-ui-rebuild/shots/` (not committed). Per state:
+
+- `<state>.app.png`: the app's window.
+- `<state>.pair.png`: the board above the app, both at 1:1, a labelled gap between.
+- `<state>.<region>.pair.png`: the same for each region found in both. A region in the board is
+  found by `scripts/design/regions.mjs`; in the app it is the element with `data-region="<name>"`.
+- `<state>.numbers.md`: header height, rail width, plan width and the first h1, board against app,
+  then the status row's parts (icon, h1, line, the Layer and View switches, the action, the
+  banner; a part neither side has is no row); `≠` marks a difference over 1 px, or a metric one
+  side lacks.
+- `<state>.failed.png` when a step could not find its target; the state is then listed as FAILED.
+- A state may also fail for what it measures (`states.mjs`): `noPageScroll` (the page scrolls),
+  `noStageScroll` (the stage scrolls: the plan's box shrinks to what the stage has left, so on a
+  desktop it must not) and `minPlanWidth` (the plan's box is narrower than that many px at the
+  state's size).
+
+Board PNGs and seeds are committed; app shots are not, until the final pairs (Task 17) are.
+
+A state may name `probes` (`scripts/design/shots.mjs`): checks that need Chromium, run after the
+pictures. `m-tray-more` probes the phone's native dialog: Escape with More open closes only More,
+and a press on the backdrop closes the sheet.
+
+When `workspace` and `workspace-searching` both run, `scripts/design/jump.mjs` compares the header,
+the rail, the status row and the plan box (`data-region="plan-box"`): none may move or change
+size by more than 1 px, or the run fails ("Keep searching" turning into
+"Stop" must not shift the page). `workspace` and `workspace-tray` are compared too: the tray bar
+is taller than the slot's hint, so the plan's box may slide down but must keep its size. With a
+swap chosen (`workspace-swap`) the box is where `workspace-tray` has it: the prompt lies over the box.
+
+The board renderer adds `a{color:inherit}` ahead of a board's own styles: some boards have links
+with no colour set (MobileWorkspace's sheet rows), which a browser draws blue, and no board means that.
+
+## Shots mode
+
+`vite --mode shots` sets `import.meta.env.MODE` to `"shots"`. Two places in the app then wait on a
+promise the harness leaves pending, so a screenshot catches them mid-way without a race:
+
+- the build in the Download dialog stays at "1 of N" (`export`, `src/ui/ExportPanel.tsx`);
+- a "Keep searching" run stays running (`search`, `src/app/runner.ts`).
+
+`src/app/shotsHold.ts` holds this. Vite folds the mode in at build time, so a production build
+carries none of it, and `scripts/smoke-dist.mjs` fails if `__shotsHold` is found in `dist`.
+
+The 3D scene also offers a read-only window in shots mode, `globalThis.__shotsScene`
+(`src/viewer/shotsScene.ts`): each tray's emissive colour and its colour against its own full colour, by key, which a canvas cannot tell. The
+`selection-parity` probe reads it (`workspace-3d-selected`: a tray chosen in Top, then 3D; the bar
+and rail row stay, the other trays' colours moved toward the page's while the selected tray's did not, pointing at or focusing another row keeps its trays full and fades the rest (and changes the canvas's
+pixels), closing the bar leaves every tray at full colour, and Top still has the tray selected). It needs WebGL: without it the probe has nothing to
+check and the state notes the fallback. The same smoke check fails if `__shotsScene` is found in `dist`.
+
+## Adding a state
+
+Add it to `scripts/design/states.mjs`: its board (and the `boardOpts` that make the board show the
+same state), the viewport, a seed, and the steps. A step is a click on a role and name, a text typed into the box with a label (`fill`), a wait for something
+to show (`waitFor`), a pause (`wait`: milliseconds) or a key. A page other than the app's own is a `url` (`/kit.html`, the kit gallery), and a page that
+scrolls is drawn whole with `fullPage: true`. A board that draws several screens side by side (EditKinds) names the one a state is judged by with
+`boardCrop`: `{ rail: "main section:nth-of-type(2)" }` crops the board's rail to that selector. Give the screen's regions `data-region` attributes as
+the screen is built.

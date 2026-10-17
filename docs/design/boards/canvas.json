@@ -1,0 +1,220 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-10-16T12:00:00Z"
+  },
+  "title": "Insert Generator Redesign",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "2 · Workspace (tap trays: pin, turn, move to the other layer; Tweaks: notices)",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Empty.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "1 · First visit",
+      "expand": "fill"
+    },
+    "Edit.dc.html": {
+      "x": 3040,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "3 · Editing a component (More options opens in place; changes show a short note)",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "NoFit.dc.html": {
+      "x": 0,
+      "y": 1320,
+      "w": 1440,
+      "h": 900,
+      "title": "4 · When something doesn't fit",
+      "expand": "fill"
+    },
+    "Export.dc.html": {
+      "x": 1520,
+      "y": 1320,
+      "w": 1440,
+      "h": 900,
+      "title": "5 · Download",
+      "expand": "fill"
+    },
+    "Box.dc.html": {
+      "x": 4560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "3b · Changing the box",
+      "expand": "fill"
+    },
+    "Exporting.dc.html": {
+      "x": 3040,
+      "y": 1320,
+      "w": 1440,
+      "h": 900,
+      "title": "5b · Building the file (plays itself; the rare failure is a Tweak)",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Settings.dc.html": {
+      "x": 0,
+      "y": 2820,
+      "w": 1440,
+      "h": 900,
+      "title": "7 · Settings: plain choices first, exact numbers on demand",
+      "expand": "fill"
+    },
+    "PinConflict.dc.html": {
+      "x": 1520,
+      "y": 2820,
+      "w": 1440,
+      "h": 900,
+      "title": "9 · When your choices block a fit",
+      "expand": "fill"
+    },
+    "Flow.dc.html": {
+      "x": 0,
+      "y": 4320,
+      "w": 1848,
+      "h": 800,
+      "title": "10 · The whole flow"
+    },
+    "MobileStart.dc.html": {
+      "x": 0,
+      "y": 5500,
+      "w": 390,
+      "h": 844,
+      "title": "M1 · First visit"
+    },
+    "MobileWorkspace.dc.html": {
+      "x": 470,
+      "y": 5500,
+      "w": 390,
+      "h": 844,
+      "title": "M2 · Workspace"
+    },
+    "MobileTray.dc.html": {
+      "x": 940,
+      "y": 5500,
+      "w": 390,
+      "h": 844,
+      "title": "M3 · A tray tapped"
+    },
+    "MobileEdit.dc.html": {
+      "x": 1410,
+      "y": 5500,
+      "w": 390,
+      "h": 844,
+      "title": "M4 · Editing a component"
+    },
+    "MobileDownload.dc.html": {
+      "x": 1880,
+      "y": 5500,
+      "w": 390,
+      "h": 844,
+      "title": "M5 · Download"
+    },
+    "EditKinds.dc.html": {
+      "x": 6080,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "3c · Editors for the other kinds",
+      "expand": "fill"
+    },
+    "MobileFix.dc.html": {
+      "x": 2350,
+      "y": 5500,
+      "w": 390,
+      "h": 844,
+      "title": "M6 · Doesn't fit"
+    },
+    "MobileBox.dc.html": {
+      "x": 2820,
+      "y": 5500,
+      "w": 390,
+      "h": 844,
+      "title": "M7 · The box"
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Empty.dc.html",
+    "Edit.dc.html",
+    "NoFit.dc.html",
+    "Export.dc.html",
+    "Box.dc.html",
+    "Exporting.dc.html",
+    "Settings.dc.html",
+    "PinConflict.dc.html",
+    "Flow.dc.html",
+    "MobileStart.dc.html",
+    "MobileWorkspace.dc.html",
+    "MobileTray.dc.html",
+    "MobileEdit.dc.html",
+    "MobileDownload.dc.html",
+    "EditKinds.dc.html",
+    "MobileFix.dc.html",
+    "MobileBox.dc.html"
+  ],
+  "notes": {
+    "control": {
+      "x": 0,
+      "y": 2520,
+      "text": "Control: settings, options and conflicts",
+      "kind": "title1",
+      "maxW": 6000
+    },
+    "flow": {
+      "x": 0,
+      "y": -300,
+      "text": "One screen: list on the left, the box is the hero",
+      "kind": "title1",
+      "maxW": 7520
+    },
+    "moments": {
+      "x": 0,
+      "y": 1020,
+      "text": "Moments",
+      "kind": "title1",
+      "maxW": 4480
+    },
+    "wholeflow": {
+      "x": 0,
+      "y": 4020,
+      "text": "The whole flow",
+      "kind": "title1",
+      "maxW": 1968
+    },
+    "mobile": {
+      "x": 0,
+      "y": 5200,
+      "text": "On a phone",
+      "kind": "title1",
+      "maxW": 3210
+    },
+    "engine": {
+      "x": 3040,
+      "y": 2820,
+      "w": 620,
+      "maxH": 900,
+      "fill": "orange",
+      "size": "m",
+      "text": "Needs engine work (designed, not yet possible):\n\n• Full undo/redo: the engine has one step, layout only.\n• Engraved tray names: only digits can be engraved today.\n• Keep a tray on a chosen layer: layers are derived from stacks; needs a new lock kind and a schema bump. Pin locks a whole stack today.\n• Fix suggestions with outcomes (Make it fit, Unpin one): each needs a trial layout run; show “Checking…” while they run.\n• Keep it next to: no adjacency today (grouping merges into one tray).\n• Live “Still fits” preview in Settings: needs a side run of the optimizer.\n\nAlready possible: pin, one 90° turn, tighter layout with progress, box headroom, per-player piles, room to grow, project files."
+    }
+  },
+  "designSystems": []
+}

@@ -4,3 +4,6 @@ _site
 **/package-lock.json
 src/styles
 .claude
+docs/design/boards/
+docs/design/shots/
+docs/design/seeds/

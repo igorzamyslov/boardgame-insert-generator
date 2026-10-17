@@ -1,18 +1,20 @@
 // src/ui/components/CardsEditor.tsx
+// Edit's cards editor: how many, the card size, the sleeves; the rest is under More options.
 import { useState } from "preact/hooks";
 import { setCardSides } from "../../app/actions";
-import { CARD_PRESETS } from "../../model/presets";
+import { ChoiceChips, CheckRow, Segmented } from "../../kit";
+import type { SegmentedOption } from "../../kit";
+import { CARD_PRESETS, SLEEVES } from "../../model/presets";
 import type { CardsComponent } from "../../model/types";
-import { CheckField, SelectField, TextField } from "../fields";
-import type { SelectOption } from "../fields";
+import { mm } from "../identity";
 import { COUNT, LENGTH, OFFSET, THICKNESS_CORRECTION } from "../limits";
-import { NumberField } from "../NumberField";
-import { CommonOptions, commonOptionPaths } from "./CommonOptions";
-import { DerivedSizes } from "./DerivedSizes";
-import { ListNotices } from "./ListNotices";
+import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
+import { Choice, CountField, ExactRow, Group, NumField, TextBox } from "./controls";
+import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
+import { moreSummary } from "./moreSummary";
 import { RowRemove } from "./RowRemove";
-import { BinNotes, ToggleOptions } from "./ToggleOptions";
+import { BinNotes, TrayShape, WellRows } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
 export const CUSTOM_SIZE = "custom";
@@ -22,136 +24,191 @@ export function cardPresetOf(c: CardsComponent): string {
   return preset ? preset.id : CUSTOM_SIZE;
 }
 
-const sizeLabel = (p: (typeof CARD_PRESETS)[number]): string =>
-  `${p.label} (${p.shortSide} × ${p.longSide} mm)`;
+/** The sizes offered as chips on the first screen: the common ones. */
+const COMMON_PRESETS = CARD_PRESETS.filter((p) => p.common === true);
 
-/** The common sizes first, then the rest from the smallest card to the largest. */
-const SIZE_OPTIONS: SelectOption<string>[] = [
-  ...CARD_PRESETS.filter((p) => p.common === true).map((p) => ({
-    value: p.id,
-    label: sizeLabel(p),
-    group: "Common sizes",
-  })),
-  ...CARD_PRESETS.filter((p) => p.common !== true)
-    .sort((a, b) => a.shortSide - b.shortSide || a.longSide - b.longSide)
-    .map((p) => ({ value: p.id, label: sizeLabel(p), group: "Other sizes, smallest first" })),
-  { value: CUSTOM_SIZE, label: "Custom size", group: "Other sizes, smallest first" },
-];
+/** The others, offered as chips inside "My own size" (every preset of the engine can be chosen). */
+const OTHER_PRESETS = CARD_PRESETS.filter((p) => p.common !== true);
 
 type SleeveChoice = "none" | "standard" | "premium" | "custom";
 
-const SLEEVE_OPTIONS: SelectOption<SleeveChoice>[] = [
-  { value: "none", label: "No sleeves" },
-  { value: "standard", label: "Standard sleeves" },
-  { value: "premium", label: "Premium sleeves (thick)" },
-  { value: "custom", label: "Custom sleeves" },
+const SLEEVE_OPTIONS: SegmentedOption<SleeveChoice>[] = [
+  { value: "none", label: "None" },
+  { value: "standard", label: "Standard" },
+  { value: "premium", label: "Premium" },
 ];
 
-const STORAGE_OPTIONS: SelectOption<CardsComponent["storage"]>[] = [
-  { value: "auto", label: "Let the optimizer choose" },
-  { value: "upright-long", label: "Upright, standing on the long edge" },
-  { value: "upright-short", label: "Upright, standing on the short edge" },
-  { value: "flat", label: "Lying flat" },
+const STAND_OPTIONS: SegmentedOption<CardsComponent["storage"]>[] = [
+  { value: "upright-long", label: "Long edge" },
+  { value: "upright-short", label: "Short edge" },
+  { value: "flat", label: "Flat" },
+  { value: "auto", label: "Auto" },
 ];
+
+const ANOTHER_DECK = "+ Another deck";
+
+type Deck = CardsComponent["decks"][number];
 
 export function CardsEditor({ component: c, index, onChange }: EditorProps<CardsComponent>) {
   const at = `/components/${index}`;
   const matched = cardPresetOf(c);
-  const [customSize, setCustomSize] = useState(matched === CUSTOM_SIZE);
+  // "My own size" is open for a size that is no common preset: the others are chips inside it.
+  const [customSize, setCustomSize] = useState(!COMMON_PRESETS.some((p) => p.id === matched));
   const sizeValue = customSize ? CUSTOM_SIZE : matched;
-  const customSleeve = typeof c.sleeve === "object" ? c.sleeve : null;
+  const pick = (id: string): void => {
+    const preset = CARD_PRESETS.find((p) => p.id === id);
+    if (preset) {
+      onChange(setCardSides(c, preset.shortSide, preset.longSide));
+    }
+  };
   const sleeveChoice: SleeveChoice = typeof c.sleeve === "object" ? "custom" : c.sleeve;
+  const sleeveNow =
+    typeof c.sleeve === "object"
+      ? c.sleeve
+      : {
+          w: c.shortSide + SLEEVES[c.sleeve].addSize,
+          h: c.longSide + SLEEVES[c.sleeve].addSize,
+          thickness: SLEEVES[c.sleeve].addThickness,
+        };
   const measured = c.thickness.mode === "measured" ? c.thickness : null;
   const scale = c.thickness.mode === "preset" ? (c.thickness.scale ?? 1) : 1;
 
-  const setDeck = (j: number, patch: Partial<CardsComponent["decks"][number]>): void => {
+  const setDeck = (j: number, patch: Partial<Deck>): void => {
     onChange({ ...c, decks: c.decks.map((d, k) => (k === j ? { ...d, ...patch } : d)) });
   };
+  const addDeck = (
+    <button
+      type="button"
+      class="ed-add"
+      onClick={() =>
+        onChange({ ...c, decks: [...c.decks, { name: `Deck ${c.decks.length + 1}`, count: 50 }] })
+      }
+    >
+      {ANOTHER_DECK}
+    </button>
+  );
+  const only = c.decks.length === 1 ? c.decks[0] : undefined;
+  const sleeveCustom = (patch: Partial<typeof sleeveNow>): void =>
+    onChange({ ...c, sleeve: { ...sleeveNow, ...patch } });
 
   return (
     <>
-      <SelectField
-        id={`${c.id}-size`}
-        label="Card size"
-        value={sizeValue}
-        options={SIZE_OPTIONS}
-        hint="The card itself, not the sleeve."
-        onChange={(id) => {
-          const preset = CARD_PRESETS.find((p) => p.id === id);
-          if (preset) {
-            setCustomSize(false);
-            onChange(setCardSides(c, preset.shortSide, preset.longSide));
-          } else {
-            setCustomSize(true);
-          }
-        }}
-      />
-      {sizeValue === CUSTOM_SIZE ? (
+      {only !== undefined ? (
+        <CountField
+          label="How many cards?"
+          name="Number of cards"
+          value={only.count}
+          path={`${at}/decks/0/count`}
+          onChange={(count) => setDeck(0, { count })}
+        />
+      ) : (
         <>
-          <NumberField
-            id={`${c.id}-shortSide`}
-            label="Short side"
-            unit="mm"
-            value={c.shortSide}
-            path={`${at}/shortSide`}
-            {...LENGTH}
-            commitOn="blur"
-            onCommit={(v) => onChange(setCardSides(c, v, c.longSide))}
-          />
-          <NumberField
-            id={`${c.id}-longSide`}
-            label="Long side"
-            unit="mm"
-            value={c.longSide}
-            path={`${at}/longSide`}
-            {...LENGTH}
-            commitOn="blur"
-            onCommit={(v) => onChange(setCardSides(c, c.shortSide, v))}
-          />
-        </>
-      ) : null}
-      <fieldset class="list-rows">
-        <legend>Decks</legend>
-        <ListNotices id={`${c.id}-decks`} path={`${at}/decks`} />
-        {c.decks.map((deck, j) => (
-          <div class="list-row" key={j}>
-            <TextField
-              id={`${c.id}-deck${j}-name`}
-              label={`Name of deck ${j + 1}`}
-              value={deck.name}
-              onCommit={(name) => setDeck(j, { name })}
-            />
-            <NumberField
-              id={`${c.id}-deck${j}-count`}
-              label={`Cards in deck ${j + 1}`}
-              value={deck.count}
-              {...COUNT}
-              path={`${at}/decks/${j}/count`}
-              onCommit={(count) => setDeck(j, { count })}
-            />
-            <RowRemove
-              label={`Remove deck ${deck.name === "" ? j + 1 : deck.name}`}
-              onlyOne={c.decks.length <= 1}
-              reason="There has to be at least one deck."
-              onRemove={() => onChange({ ...c, decks: c.decks.filter((_d, k) => k !== j) })}
-            />
+          <div class="ed-cards">
+            {c.decks.map((deck, j) => (
+              <div class="ed-card" key={j}>
+                <div class="ed-card__top">
+                  <TextBox
+                    class="ed-grow"
+                    id={`${c.id}-deck${j}-name`}
+                    label="Deck"
+                    labelExtra={`${j + 1}`}
+                    value={deck.name}
+                    onCommit={(name) => setDeck(j, { name })}
+                  />
+                  <NumField
+                    class="ed-count"
+                    id={`${c.id}-deck${j}-count`}
+                    label="How many"
+                    labelExtra={`in deck ${j + 1}`}
+                    value={deck.count}
+                    {...COUNT}
+                    path={`${at}/decks/${j}/count`}
+                    onCommit={(count) => setDeck(j, { count })}
+                  />
+                  <RowRemove
+                    label={`Remove deck ${deck.name === "" ? j + 1 : deck.name}`}
+                    onlyOne={c.decks.length <= 1}
+                    reason="There has to be at least one deck."
+                    onRemove={() => onChange({ ...c, decks: c.decks.filter((_d, k) => k !== j) })}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-        <button
-          type="button"
-          onClick={() =>
-            onChange({
-              ...c,
-              decks: [...c.decks, { name: `Deck ${c.decks.length + 1}`, count: 50 }],
-            })
+          {addDeck}
+        </>
+      )}
+      <Group label="Card size">
+        <ChoiceChips
+          label="Card size"
+          options={[
+            ...COMMON_PRESETS.map((p) => ({ value: p.id, label: p.label })),
+            { value: CUSTOM_SIZE, label: "My own size" },
+          ]}
+          value={sizeValue}
+          onChange={(id) => {
+            if (id === CUSTOM_SIZE) {
+              setCustomSize(true);
+            } else {
+              setCustomSize(false);
+              pick(id);
+            }
+          }}
+        />
+        {sizeValue === CUSTOM_SIZE ? (
+          <>
+            <ChoiceChips
+              label="Other sizes"
+              options={OTHER_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
+              value={OTHER_PRESETS.some((p) => p.id === matched) ? matched : ""}
+              onChange={pick}
+            />
+            <div class="ed-pair">
+              <NumField
+                id={`${c.id}-shortSide`}
+                label="Short side"
+                unit="mm"
+                value={c.shortSide}
+                path={`${at}/shortSide`}
+                {...LENGTH}
+                commitOn="blur"
+                onCommit={(v) => onChange(setCardSides(c, v, c.longSide))}
+              />
+              <NumField
+                id={`${c.id}-longSide`}
+                label="Long side"
+                unit="mm"
+                value={c.longSide}
+                path={`${at}/longSide`}
+                {...LENGTH}
+                commitOn="blur"
+                onCommit={(v) => onChange(setCardSides(c, c.shortSide, v))}
+              />
+            </div>
+          </>
+        ) : null}
+        <span class="ed-line">{`${mm(c.shortSide)} × ${mm(c.longSide)} mm`}</span>
+      </Group>
+      <Group label="Sleeves">
+        <Segmented
+          label="Sleeves"
+          stretch
+          options={
+            sleeveChoice === "custom"
+              ? [...SLEEVE_OPTIONS, { value: "custom", label: "Custom" }]
+              : SLEEVE_OPTIONS
           }
-        >
-          Add deck
-        </button>
-      </fieldset>
+          value={sleeveChoice}
+          onChange={(v) => {
+            if (v !== "custom") {
+              onChange({ ...c, sleeve: v });
+            }
+          }}
+        />
+      </Group>
       <BinNotes component={c} index={index} />
-      <DerivedSizes component={c} index={index} />
       <MoreOptions
+        summary={moreSummary(c)}
         errorPaths={[
           ...commonOptionPaths(index),
           `${at}/sleeve`,
@@ -160,138 +217,114 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
           `${at}/thickness/stackMm`,
         ]}
       >
-        <CommonOptions
-          component={c}
-          index={index}
-          onChange={onChange}
-          pieces={
-            <>
-              <SelectField
-                id={`${c.id}-sleeve`}
-                label="Sleeves"
-                value={sleeveChoice}
-                options={SLEEVE_OPTIONS}
-                hint="Standard adds 3 mm to both card sides and 0.1 mm per card; premium adds 3 mm and 0.28 mm per card. Pick custom to enter your sleeve's outer size."
-                onChange={(v) => {
-                  if (v === "custom") {
-                    if (!customSleeve) {
-                      onChange({
-                        ...c,
-                        sleeve: { w: c.shortSide + 3, h: c.longSide + 3, thickness: 0.1 },
-                      });
-                    }
-                  } else {
-                    onChange({ ...c, sleeve: v });
-                  }
-                }}
-              />
-              {customSleeve ? (
-                <>
-                  <NumberField
-                    id={`${c.id}-sleeveW`}
-                    label="Sleeve outer width"
-                    hint="Width of the sleeved card, measured over the sleeve."
-                    unit="mm"
-                    value={customSleeve.w}
-                    path={`${at}/sleeve/w`}
-                    {...LENGTH}
-                    onCommit={(v) => onChange({ ...c, sleeve: { ...customSleeve, w: v } })}
-                  />
-                  <NumberField
-                    id={`${c.id}-sleeveH`}
-                    label="Sleeve outer length"
-                    hint="Length of the sleeved card, measured over the sleeve."
-                    unit="mm"
-                    value={customSleeve.h}
-                    path={`${at}/sleeve/h`}
-                    {...LENGTH}
-                    onCommit={(v) => onChange({ ...c, sleeve: { ...customSleeve, h: v } })}
-                  />
-                  <NumberField
-                    id={`${c.id}-sleeveT`}
-                    label="Added thickness per card"
-                    hint="How much one sleeve adds to the card's own thickness."
-                    unit="mm"
-                    value={customSleeve.thickness}
-                    path={`${at}/sleeve/thickness`}
-                    {...OFFSET}
-                    onCommit={(v) => onChange({ ...c, sleeve: { ...customSleeve, thickness: v } })}
-                  />
-                </>
-              ) : null}
-              {measured ? null : (
-                <NumberField
-                  id={`${c.id}-thicknessCorrection`}
-                  label="Correct the estimated thickness"
-                  hint="Is a deck thicker or thinner than the sizes above say? Enter how far off the thickness per card is: 10 if the real deck is 10 % thicker, -10 if 10 % thinner. This corrects the estimate itself; Fit and the card stack clearance only add room around it. To measure instead, tick the box below."
-                  unit="%"
-                  value={Math.round((scale - 1) * 10000) / 100}
-                  path={`${at}/thickness/scale`}
-                  {...THICKNESS_CORRECTION}
-                  onCommit={(pct) =>
-                    onChange({
-                      ...c,
-                      thickness:
-                        pct === 0
-                          ? { mode: "preset" }
-                          : { mode: "preset", scale: Math.round((1 + pct / 100) * 10000) / 10000 },
-                    })
-                  }
-                />
-              )}
-              <CheckField
-                id={`${c.id}-measured`}
-                label="Measure a stack of cards (sleeves included)"
-                checked={measured !== null}
-                hint="More exact than the sleeve table or a correction: count some cards, measure the stack. It replaces the correction above."
-                onChange={(on) =>
-                  onChange({
-                    ...c,
-                    thickness: on
-                      ? { mode: "measured", cards: 50, stackMm: 20 }
-                      : { mode: "preset" },
-                  })
-                }
-              />
-              {measured ? (
-                <>
-                  <NumberField
-                    id={`${c.id}-measuredCards`}
-                    label="Cards in the measured stack"
-                    hint="How many cards you counted into the stack you measured."
-                    value={measured.cards}
-                    {...COUNT}
-                    path={`${at}/thickness/cards`}
-                    onCommit={(cards) => onChange({ ...c, thickness: { ...measured, cards } })}
-                  />
-                  <NumberField
-                    id={`${c.id}-measuredMm`}
-                    label="Height of that stack"
-                    hint="Measured with the sleeves on, pressed lightly. The thickness per card is this divided by the count."
-                    unit="mm"
-                    value={measured.stackMm}
-                    path={`${at}/thickness/stackMm`}
-                    {...LENGTH}
-                    onCommit={(stackMm) => onChange({ ...c, thickness: { ...measured, stackMm } })}
-                  />
-                </>
-              ) : null}
-            </>
-          }
-          tray={
-            <>
-              <SelectField
-                id={`${c.id}-storage`}
-                label="Storage"
-                value={c.storage}
-                options={STORAGE_OPTIONS}
-                hint="How the decks stand in the tray. Upright decks stand on the long or the short edge; flat decks lie in stacks. The optimizer tries every orientation and uses the one that packs best."
-                onChange={(storage) => onChange({ ...c, storage })}
-              />
-              <ToggleOptions component={c} index={index} onChange={onChange} />
-            </>
-          }
+        <GrowthOptions component={c} index={index} onChange={onChange} />
+        <AccessChoice component={c} index={index} onChange={onChange} />
+        <Choice
+          label="Cards stand"
+          options={STAND_OPTIONS}
+          value={c.storage}
+          onChange={(storage) => onChange({ ...c, storage })}
         />
+        <TrayShape component={c} index={index} onChange={onChange} />
+        <ExactRow
+          title="Card thickness"
+          hint="From the sleeve table. Measure your stack if decks come out tight."
+          errorPaths={[`${at}/thickness/scale`, `${at}/thickness/cards`, `${at}/thickness/stackMm`]}
+        >
+          {measured ? null : (
+            <NumField
+              id={`${c.id}-thicknessCorrection`}
+              label="Correct the estimated thickness"
+              unit="%"
+              value={Math.round((scale - 1) * 10000) / 100}
+              path={`${at}/thickness/scale`}
+              {...THICKNESS_CORRECTION}
+              onCommit={(pct) =>
+                onChange({
+                  ...c,
+                  thickness:
+                    pct === 0
+                      ? { mode: "preset" }
+                      : { mode: "preset", scale: Math.round((1 + pct / 100) * 10000) / 10000 },
+                })
+              }
+            />
+          )}
+          <CheckRow
+            label="Measure a stack of cards (sleeves included)"
+            checked={measured !== null}
+            onChange={(on) =>
+              onChange({
+                ...c,
+                thickness: on ? { mode: "measured", cards: 50, stackMm: 20 } : { mode: "preset" },
+              })
+            }
+          />
+          {measured ? (
+            <>
+              <NumField
+                id={`${c.id}-measuredCards`}
+                label="Cards in the measured stack"
+                value={measured.cards}
+                {...COUNT}
+                path={`${at}/thickness/cards`}
+                onCommit={(cards) => onChange({ ...c, thickness: { ...measured, cards } })}
+              />
+              <NumField
+                id={`${c.id}-measuredMm`}
+                label="Height of that stack"
+                unit="mm"
+                value={measured.stackMm}
+                path={`${at}/thickness/stackMm`}
+                {...LENGTH}
+                onCommit={(stackMm) => onChange({ ...c, thickness: { ...measured, stackMm } })}
+              />
+            </>
+          ) : null}
+        </ExactRow>
+        <ExactRow title="Sleeve size" errorPaths={[`${at}/sleeve`]}>
+          <NumField
+            id={`${c.id}-sleeveW`}
+            label="Sleeve outer width"
+            unit="mm"
+            value={sleeveNow.w}
+            path={`${at}/sleeve/w`}
+            {...LENGTH}
+            onCommit={(w) => sleeveCustom({ w })}
+          />
+          <NumField
+            id={`${c.id}-sleeveH`}
+            label="Sleeve outer length"
+            unit="mm"
+            value={sleeveNow.h}
+            path={`${at}/sleeve/h`}
+            {...LENGTH}
+            onCommit={(h) => sleeveCustom({ h })}
+          />
+          <NumField
+            id={`${c.id}-sleeveT`}
+            label="Added thickness per card"
+            unit="mm"
+            value={sleeveNow.thickness}
+            path={`${at}/sleeve/thickness`}
+            {...OFFSET}
+            onCommit={(thickness) => sleeveCustom({ thickness })}
+          />
+        </ExactRow>
+        <WellRows component={c} index={index} onChange={onChange} />
+        {only !== undefined ? (
+          <ExactRow title="Decks">
+            <TextBox
+              id={`${c.id}-deck0-name`}
+              label="Deck"
+              labelExtra="1"
+              value={only.name}
+              onCommit={(name) => setDeck(0, { name })}
+            />
+            {addDeck}
+          </ExactRow>
+        ) : null}
+        <CommonRows component={c} index={index} onChange={onChange} />
       </MoreOptions>
     </>
   );

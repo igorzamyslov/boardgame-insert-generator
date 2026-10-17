@@ -34,12 +34,73 @@ export function levelsOf(trays: readonly TraySpec[]): number[] {
   return [...levels].sort((a, b) => a - b);
 }
 
+/**
+ * The height of each layer, bottom first (the order of `levelsOf`). A layer's height is the stretch
+ * from its lower edge to the next layer's: the lower edge is the least z of its trays (0 for the
+ * first layer), and the top layer ends at the plan's highest point. The heights therefore add up to
+ * the status line's "H of B mm high", which counts the same way. The Layer switch and the box's
+ * side view both read them.
+ */
+export function layerHeights(trays: readonly TraySpec[]): number[] {
+  const levels = levelsOf(trays);
+  const top = Math.max(0, ...trays.map((t) => t.z + t.h));
+  const lower = levels.map((level, i) =>
+    i === 0 ? 0 : Math.min(...traysAt(trays, level).map((t) => t.z)),
+  );
+  return levels.map((_, i) => (lower[i + 1] ?? top) - (lower[i] ?? 0));
+}
+
 export function traysAt(trays: readonly TraySpec[], level: number): TraySpec[] {
   return trays.filter(
     (t) =>
       !isAddOn(t) &&
       (t.merged ? t.merged.members.some((m) => m.level === level) : t.level === level),
   );
+}
+
+/** Every part that is drawn on its own: a merged part as its members, and no add-on (spacer, riser, divider). */
+function drawnParts(trays: readonly TraySpec[]): TraySpec[] {
+  return trays.flatMap((t) => (t.merged ? t.merged.members : [t])).filter((t) => !isAddOn(t));
+}
+
+/**
+ * The parts a cut through the box from the front crosses, for its side view: the cut is at the
+ * middle (y + d / 2) of the stack of two levels or more with the largest bottom footprint, since
+ * that shows the layers where they are; with no such stack, at the middle of the largest tray at
+ * the front (the least y). Each part is drawn where it is, so a block's x, z, w and h are the
+ * tray's. Sorted by x, then z.
+ */
+export function sideSection(trays: readonly TraySpec[]): TraySpec[] {
+  const parts = drawnParts(trays);
+  if (parts.length === 0) {
+    return [];
+  }
+  const area = (t: TraySpec): number => t.w * t.d;
+  const stacks = new Map<number, TraySpec[]>();
+  for (const t of parts) {
+    stacks.set(t.stack, [...(stacks.get(t.stack) ?? []), t]);
+  }
+  let cutter: TraySpec | undefined;
+  for (const members of stacks.values()) {
+    if (new Set(members.map((t) => t.level)).size < 2) {
+      continue;
+    }
+    const lowest = Math.min(...members.map((t) => t.level));
+    const bottom = members
+      .filter((t) => t.level === lowest)
+      .reduce((best, t) => (area(t) > area(best) ? t : best));
+    if (cutter === undefined || area(bottom) > area(cutter)) {
+      cutter = bottom;
+    }
+  }
+  if (cutter === undefined) {
+    const front = Math.min(...parts.map((t) => t.y));
+    cutter = parts
+      .filter((t) => t.y === front)
+      .reduce((best, t) => (area(t) > area(best) ? t : best));
+  }
+  const y0 = cutter.y + cutter.d / 2;
+  return parts.filter((t) => t.y <= y0 && y0 < t.y + t.d).sort((a, b) => a.x - b.x || a.z - b.z);
 }
 
 type Footprint = Pick<TraySpec, "x" | "y" | "w" | "d">;
@@ -97,31 +158,6 @@ export function planViewBox(f: PlanFrame): ViewBox {
     y: -f.bc - PLAN_MARGIN,
     w: f.innerW + 2 * PLAN_MARGIN,
     h: f.innerD + 2 * PLAN_MARGIN + FRONT_LABEL_SPACE,
-  };
-}
-
-export interface ClientRect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-export function clientToSvg(
-  rect: ClientRect,
-  vb: ViewBox,
-  clientX: number,
-  clientY: number,
-): { x: number; y: number } | null {
-  const scale = Math.min(rect.width / vb.w, rect.height / vb.h);
-  if (!(scale > 0)) {
-    return null;
-  }
-  const offsetX = (rect.width - vb.w * scale) / 2;
-  const offsetY = (rect.height - vb.h * scale) / 2;
-  return {
-    x: vb.x + (clientX - rect.left - offsetX) / scale,
-    y: vb.y + (clientY - rect.top - offsetY) / scale,
   };
 }
 
