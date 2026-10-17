@@ -45,6 +45,32 @@ describe("rules", () => {
     expect(appFiles).toContain("/src/screens/StageTop.tsx");
   });
 
+  // DESIGN §2 Accessibility: every target is 44 px. A bare checkbox is about 13 px with the
+  // browser's accent (it shipped once, in Settings): a switch is the kit's CheckRow, whose row is
+  // 44 px tall and whose box takes the kit's look.
+  it("draws no checkbox outside the kit's CheckRow", () => {
+    const found: string[] = [];
+    for (const path of appFiles.filter((p) => p.endsWith(".tsx") && !p.startsWith("/src/kit/"))) {
+      const file = parse(path);
+      const visit = (node: ts.Node): void => {
+        if (
+          ts.isJsxAttribute(node) &&
+          ts.isIdentifier(node.name) &&
+          node.name.text === "type" &&
+          node.initializer !== undefined &&
+          ts.isStringLiteral(node.initializer) &&
+          node.initializer.text === "checkbox"
+        ) {
+          const { line } = file.getLineAndCharacterOfPosition(node.getStart(file));
+          found.push(`${path}:${line + 1}`);
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(file);
+    }
+    expect(found).toEqual([]);
+  });
+
   // DESIGN §2 Accessibility: a blocked action stays focusable (aria-disabled plus a reason).
   // `disabled` on a select's <option> is correct HTML (an option cannot be aria-disabled in a
   // way every browser honours) and is the one exception.

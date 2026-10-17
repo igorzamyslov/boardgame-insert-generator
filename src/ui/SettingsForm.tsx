@@ -196,22 +196,16 @@ function LeftoverRow({ settings, onChange }: SettingsFormProps) {
 }
 
 function OneWallRow({ settings, onChange }: SettingsFormProps) {
-  const id = "settings-oneWall";
-  const changed = settings.oneWall !== DEFAULT_SETTINGS.oneWall;
   return (
-    <>
-      <label class="st-row__label" htmlFor={id}>
-        One thick wall instead of a spacer
-        {changed ? <Dot /> : null}
-      </label>
-      <input
-        id={id}
-        class="k-check__box st-row__box"
-        type="checkbox"
+    <div class="st-row__check">
+      <CheckRow
+        compact
+        label="One thick wall instead of a spacer"
+        changed={settings.oneWall !== DEFAULT_SETTINGS.oneWall}
         checked={settings.oneWall}
-        onChange={(e) => onChange({ ...settings, oneWall: e.currentTarget.checked })}
+        onChange={(oneWall) => onChange({ ...settings, oneWall })}
       />
-    </>
+    </div>
   );
 }
 

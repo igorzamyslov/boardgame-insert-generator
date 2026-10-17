@@ -77,7 +77,7 @@ function PrinterTab(p: SettingsSheetProps) {
           </Button>
         </div>
       ) : null}
-      <p class="st-intro">These apply to every insert you make.</p>
+      <p class="st-intro">Bed, margin and layer height are kept in this browser.</p>
       <PrinterForm
         printer={p.myPrinter}
         onChange={(patch) => {

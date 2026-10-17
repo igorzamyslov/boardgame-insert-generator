@@ -425,6 +425,16 @@
   font-weight: 600;
 }
 
+/* A value that differs from its default: Settings' 8 px dot after the label. */
+.k-check__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: var(--s-8);
+  border-radius: var(--r-pill);
+  background: var(--changed);
+}
+
 .k-check__hint {
   color: var(--muted);
   font-size: var(--text-xs);

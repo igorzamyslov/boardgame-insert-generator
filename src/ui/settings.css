@@ -298,13 +298,18 @@
 }
 
 /* A segment or a switch in a row takes the two columns the number would. */
-.st-row__control,
-.st-row__box {
+.st-row__control {
   grid-column: 2 / span 2;
 }
 
-.st-row__box {
-  justify-self: end;
+/* A switch is the kit's CheckRow (a 44 px row, the 22 px box), across the whole row. */
+.st-row__check {
+  grid-column: 1 / -1;
+}
+
+/* Inside a group a label is plain, as the number rows' are. */
+.st-row__check .k-check__label {
+  font-weight: 400;
 }
 
 /* Two words to a choice need more than the stretched segment's 4 px each side. */

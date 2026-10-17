@@ -18,6 +18,8 @@ export interface CheckRowProps {
   describedBy?: string;
   /** The box and its row are red-flagged: the message under the row says why. */
   invalid?: boolean;
+  /** This value differs from its default: an 8 px dot after the label (Settings'). */
+  changed?: boolean;
 }
 
 /** A label and its hint on the left, a 22 px checkbox on the right. */
@@ -30,6 +32,7 @@ export function CheckRow({
   blocked = false,
   describedBy,
   invalid = false,
+  changed = false,
 }: CheckRowProps) {
   const labelId = useId();
   const hintId = useId();
@@ -38,6 +41,7 @@ export function CheckRow({
       <span class="k-check__text">
         <span class="k-check__label" id={labelId}>
           {label}
+          {changed ? <span class="k-check__dot" aria-hidden="true" /> : null}
         </span>
         {hint !== undefined ? (
           <span class="k-check__hint" id={hintId}>

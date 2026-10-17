@@ -280,7 +280,7 @@ describe("My printer", () => {
 
   it("starts with what the printer is for, then the bed", () => {
     open();
-    expect(screen.getByText("These apply to every insert you make.")).toBeTruthy();
+    expect(screen.getByText("Bed, margin and layer height are kept in this browser.")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Printer bed" })).toBeTruthy();
   });
 
@@ -323,7 +323,7 @@ describe("My printer", () => {
     same.again([], { printer: MINE });
     // the row is the first thing in the tab, above what the printer is for
     const row = screen.getByText("This insert uses another printer");
-    const intro = screen.getByText("These apply to every insert you make.");
+    const intro = screen.getByText("Bed, margin and layer height are kept in this browser.");
     expect(row.compareDocumentPosition(intro) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(same.props.onApplyPrinter).toHaveBeenCalledTimes(1);

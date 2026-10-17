@@ -209,7 +209,7 @@ it only with a written reason in the code or the PR.
   `aria-disabled="true"`, guard its click handler, and point `aria-describedby` at the sentence
   that says why (`Button`'s `blockedReason` in `kit/blocked.tsx`, as the tray bar's Turn 90° and Download in `screens/Header.tsx` use it). Never use
   `disabled` for it, because a disabled control leaves the Tab order and its reason can't be
-  read. `CheckField` takes `disabled` and renders `aria-disabled`; `RowRemove` is the Remove
+  read. `CheckRow` (`kit/CheckRow.tsx`) takes `blocked` and renders `aria-disabled`; `RowRemove` is the Remove
   button of a row that can't go (the last one). The one exception is `disabled` on an `<option>`
   in a `<select>` (the "Custom" placeholder in `ui/fields.tsx`): that is correct HTML and the
   option is not in the Tab order anyway. `src/rules.test.ts` fails on `disabled` on a button,
@@ -244,7 +244,7 @@ it only with a written reason in the code or the PR.
   carries the name and opening it focuses the first control, not a heading. The sheet holding an
   editor or the box still lands on that editor's heading:
   - `WhatsInside.tsx` returns it to the row.
-  - `Modal.tsx` returns it to the opener.
+  - `kit/Dialog.tsx` returns it to the opener.
   - `SelectedTrayBar.tsx` returns it to the tile, or in 3D to the picker item (`data-key`).
 - MUST make touch targets 44 px. The base `button` and the text inputs and selects take
   `min-height: var(--control-h)` (44px, `styles/tokens.css`). Where a container rule would have
@@ -335,7 +335,7 @@ scheme)`, with `"light"` for paper. `viewer/shades.ts` and `plan/glyph.ts` go th
   Stop only the process you started, by its PID or through the tool that started it.
 - MUST NOT use a bare `git stash` or `git stash pop`, because the stash stack is shared across
   worktrees. lint-staged also leaves its own backup entries there.
-- SHOULD start each source file with its path comment (`// src/ui/Modal.tsx`), as most files do.
+- SHOULD start each source file with its path comment (`// src/kit/Dialog.tsx`), as most files do.
 
 ### UI work (visual changes, new screens, redesigns)
 
@@ -438,7 +438,7 @@ For example, `.modal-actions button { min-height: … }` after the base `button`
 → The container rule is more specific than, and comes after, rules for the same element
 elsewhere.
 → Add the shared `.tap` class (`min-height: var(--control-h)`) to the button instead
-(`ui/Modal.tsx` Close, the `SettingsForm` buttons).
+(the `SettingsForm` buttons).
 
 **A Not-word passes review and then fails `copy.test.ts`, or a legitimate label fails it.**
 → The test parses source with the TypeScript compiler and checks string literals, template text
@@ -508,7 +508,7 @@ addition:
 - Add the kind's shade triple to `src/styles/tokens.css` and to `KIND_BASES` in `ui/identity.ts`.
   `identity.test.ts` checks the base shades against the tokens, and the contrast for every
   index in both schemes.
-- Add its glyph (`ui/kindGlyphs.tsx`, `ui/KindIcon.tsx`) and its name in `KIND_NAMES`, using the
+- Add its glyph (`KindGlyph` in `kit/icons.tsx`, shown by `kit/IconTile.tsx`) and its name in `KIND_NAMES`, using the
   spec's words.
 - Check that `instructions/naming.ts` names it sensibly when the user leaves the name empty (it
   falls back to the kind's name).
@@ -567,19 +567,19 @@ addition:
 
 ### Add a dialog or sheet
 
-- **Modal over the page** (download, settings): wrap the content in `ui/Modal.tsx`
-  (`labelledBy`, `onClose`, optional `class`). The owner mounts it to open and unmounts it to
-  close. Modal handles the rest:
+- **Modal over the page** (download, settings): wrap the content in the kit's `Dialog`
+  (`kit/Dialog.tsx`; `Drawer` for Settings' right-hand placement), with `labelledBy` (the id of its
+  h1), `onClose` and optional `class` and `region`. The owner mounts it to open and unmounts it to
+  close. Dialog handles the rest:
   - it opens a native `<dialog>` with `showModal()`, which traps focus and makes the page inert
   - Escape goes through `onCancel` to your `onClose`
   - it returns focus to the opener on unmount
-  - it provides a 44 px Close button (`.tap`)
-  - it goes full-screen below 600 px (`.modal` in `style.css`).
+  - it goes full screen below 600 px (`.k-dialog`, `.k-drawer` in `kit/kit.css`)
+  - the content draws its own Close (`CloseButton`) and Done.
 
-  Model a tabbed sheet on `ui/SettingsSheet.tsx`: it focuses its heading (`tabIndex={-1}`) in an
-  effect, and its tabs use roving `tabIndex` with Arrow, Home and End. In tests, jsdom has no
-  `showModal`, so Modal falls back to `open`. Fire `cancel` to test Escape, and note that the
-  real focus trap wasn't exercised.
+  Model a drawer on `ui/SettingsSheet.tsx` and a dialog on `ui/ExportPanel.tsx`: each focuses its
+  h1 (`tabIndex={-1}`) in an effect. In tests, jsdom has no `showModal`, so Dialog falls back to
+  `open`. Fire `cancel` to test Escape, and note that the real focus trap wasn't exercised.
 
 - **Panel in the page** (phone list sheet): `kit/Sheet.tsx`, placed by `screens/Workspace.tsx`. State comes in as attributes
   (`data-expanded`, `data-full`, `data-editing`) and the handle as a `handleRef`. Below

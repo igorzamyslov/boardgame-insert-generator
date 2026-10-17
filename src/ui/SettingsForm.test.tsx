@@ -304,6 +304,9 @@ describe("InsertSettings: Exact numbers", () => {
       name: "One thick wall instead of a spacer",
     }) as HTMLInputElement;
     expect(one.checked).toBe(false);
+    // the kit's compact CheckRow: a 44 px row, not a bare box
+    expect(one.closest(".k-check")?.hasAttribute("data-compact")).toBe(true);
+    expect(one.classList.contains("k-check__box")).toBe(true);
     fireEvent.click(one);
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, oneWall: true });
   });
@@ -379,6 +382,14 @@ describe("InsertSettings: what differs from the default", () => {
       <InsertSettings settings={applyWallChoice(DEFAULT_SETTINGS, "sturdy")} onChange={vi.fn()} />,
     );
     expect(within(card("Walls and floors")).getByText("1 changed")).toBeTruthy();
+  });
+
+  it("marks a switch that was changed with a dot, like a number", () => {
+    const { container } = render(
+      <InsertSettings settings={changedFrom({ oneWall: true })} onChange={vi.fn()} />,
+    );
+    fireEvent.click(groupRow("Spacers and space"));
+    expect(container.querySelector(".k-check__dot")).not.toBeNull();
   });
 
   it("counts Unused space and One thick wall among the group's changes", () => {

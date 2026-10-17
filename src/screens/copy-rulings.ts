@@ -254,6 +254,7 @@ const SET_EXACT = "Every setting the board does not show is under Exact numbers"
 const SET_PRINTER = "My printer shows another printer on this insert as a row with Apply";
 const SET_DETAILS =
   "Printer details holds the own bed size, margin, layer height and folding risers";
+const SET_INTRO = "My printer's intro names the values it covers";
 const SET_WORDS = "Settings' hints follow the Words table";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
@@ -278,6 +279,11 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: SET_WORDS,
   },
   { text: "Long names are shortened to fit", states: SETTINGS_STATES, ruling: SET_WORDS },
+  {
+    text: "Bed, margin and layer height are kept in this browser.",
+    states: SETTINGS_STATES,
+    ruling: SET_INTRO,
+  },
   { text: "This insert uses another printer", states: SETTINGS_STATES, ruling: SET_PRINTER },
   { text: "Apply", states: SETTINGS_STATES, ruling: SET_PRINTER },
   ...["Bed X", "Bed Y", "Bed Z", "Bed margin", "Layer height"].map((text) => ({

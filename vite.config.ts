@@ -20,8 +20,8 @@ export default defineConfig({
   worker: { format: "es" },
   optimizeDeps: { exclude: ["manifold-3d"] },
   build: {
-    // The 3D view's chunk (three.js, ~550 kB) is loaded lazily, only when WebGL is there, and the
-    // main chunk stays near 200 kB; the default 500 kB warning would only repeat that on every build.
+    // The 3D view's chunk (three.js, ~550 kB) is loaded lazily, only when WebGL is there, so the
+    // main chunk stays well under it; the default 500 kB warning would only repeat that on every build.
     chunkSizeWarningLimit: 600,
   },
   test: {
