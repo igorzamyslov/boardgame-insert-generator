@@ -5,7 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import type { LockConflict } from "../layout/types";
 import { GEOMETRY_OLD_MESSAGE } from "../app/state";
-import { PlanBanner, StageTop, layerOptions, problemAreas, statusOf } from "./StageTop";
+import {
+  PlanBanner,
+  StageTop,
+  conflictLine,
+  layerOptions,
+  problemAreas,
+  statusOf,
+} from "./StageTop";
 import type { PlanBannerProps, StageTopProps, StatusInput } from "./StageTop";
 
 afterEach(cleanup);
@@ -49,7 +56,6 @@ function props(over: Partial<StageTopProps> = {}): StageTopProps {
     onStop: vi.fn(),
     onRetry: vi.fn(),
     onShow: vi.fn(),
-    onUnpin: vi.fn(),
     ...over,
   };
 }
@@ -247,90 +253,24 @@ describe("StageTop", () => {
     });
   });
 
-  describe("when the search found no fit", () => {
-    const misfit = { componentId: "c1", name: "Boards", reason: "box" as const };
-    const noFit = (over: Partial<StageTopProps> = {}) =>
-      props({ fits: null, noFit: { misfit }, ...over });
-
-    it("names the tray that does not fit, in a warn heading", () => {
-      const p = noFit();
-      render(<StageTop {...p} />);
-      expect(h1().textContent).toBe("The Boards tray doesn't fit yet");
-      expect(line()).toBe("There's no room left for it in the box.");
-      expect(document.querySelector(".k-status[data-tone='warn']")).not.toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Edit Boards" }));
-      expect(p.onShow).toHaveBeenCalledWith("c1");
-      fireEvent.click(screen.getByRole("button", { name: "Keep searching" }));
-      expect(p.onKeepSearching).toHaveBeenCalledTimes(1);
-    });
-
-    it("says a tray is too big for the printer's bed when that is the reason", () => {
-      render(<StageTop {...noFit({ noFit: { misfit: { ...misfit, reason: "bed" } } })} />);
-      expect(h1().textContent).toBe("The Boards tray doesn't fit yet");
-      expect(line()).toBe("It's too big for your printer's bed.");
-    });
-
-    it("says Not everything fits yet when no tray stands out, and offers no edit", () => {
-      render(<StageTop {...noFit({ noFit: { misfit: null } })} />);
-      expect(h1().textContent).toBe("Not everything fits yet");
-      expect(screen.queryByRole("button", { name: /^Edit/ })).toBeNull();
-      expect(screen.getByRole("button", { name: "Keep searching" })).toBeTruthy();
-    });
-
-    it("leaves Keep searching to the phone's sheet, so the name has room", () => {
-      render(<StageTop {...noFit({ phone: true })} />);
-      expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
-      expect(screen.getByRole("button", { name: "Edit Boards" })).toBeTruthy();
-    });
-
-    it("works without a plan behind it", () => {
-      render(<StageTop {...noFit({ hasLayout: false })} />);
-      expect(screen.getByRole("button", { name: "Edit Boards" })).toBeTruthy();
-    });
-  });
-
-  describe("when pins block the fit", () => {
-    const conflicts: LockConflict[] = [
-      { trayKey: "a", kind: "position", name: "Boards", reason: "it is too big for its spot" },
-      { trayKey: "b", kind: "stack", name: "Deck, Tokens", reason: "they need a taller box" },
-    ];
-
-    it("offers to unpin each conflicting pin, and names them in a warn heading", () => {
-      const p = props({ fits: null, conflicts });
-      render(<StageTop {...p} />);
+  describe("when a fit problem is on (the stage is FitProblem's, not the plan's)", () => {
+    // FitProblem.test.tsx draws them; here only that the heading never offers the fixes itself
+    it("leaves a conflict's Unpin to the panel, and has no Keep searching beside a no-fit", () => {
+      const conflicts: LockConflict[] = [
+        { trayKey: "a", kind: "position", name: "Boards", reason: "it is too big for its spot" },
+      ];
+      const view = render(<StageTop {...props({ fits: null, conflicts })} />);
       expect(h1().textContent).toBe("Boards doesn't fit with your pins");
-      const list = screen.getByRole("list", { name: "More pins in the way" });
-      expect(list.textContent).toBe("Deck, Tokens doesn't fit with your pins");
-      expect(screen.getAllByRole("button", { name: /^Unpin / })).toHaveLength(2);
-      fireEvent.click(screen.getByRole("button", { name: "Unpin Deck, Tokens" }));
-      expect(p.onUnpin).toHaveBeenCalledWith(conflicts[1]);
-      fireEvent.click(screen.getByRole("button", { name: "Unpin Boards" }));
-      expect(p.onUnpin).toHaveBeenLastCalledWith(conflicts[0]);
-    });
-
-    it("tells a size lock from a pin of the same tray", () => {
-      render(
+      expect(screen.queryByRole("button", { name: /^Unpin / })).toBeNull();
+      view.rerender(
         <StageTop
           {...props({
             fits: null,
-            conflicts: [
-              { trayKey: "a", kind: "position", name: "Boards", reason: "x" },
-              { trayKey: "a", kind: "size", name: "Boards", reason: "y" },
-            ],
+            noFit: { misfit: { componentId: "c1", trayKey: "t", name: "Boards", reason: "box" } },
           })}
         />,
       );
-      expect(screen.getByRole("button", { name: "Unpin Boards" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Unlock size of Boards" })).toBeTruthy();
-      expect(screen.queryByRole("button", { name: /^Unpin size/ })).toBeNull();
-      expect(h1().textContent).toBe("Boards doesn't fit with your pins");
-      expect(screen.getByText("Boards doesn't fit with its size locked")).toBeTruthy();
-    });
-
-    it("speaks before a no-fit, and has no Keep searching of its own", () => {
-      render(<StageTop {...props({ fits: null, conflicts, noFit: { misfit: null } })} />);
-      expect(screen.queryByText(/Not everything fits/)).toBeNull();
-      expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+      expect(h1().textContent).toBe("The Boards tray doesn't fit yet");
     });
   });
 
@@ -490,6 +430,117 @@ describe("StageTop", () => {
       fireEvent.click(toggle);
       expect(p.onViewChange).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("statusOf, the fit problems", () => {
+  const misfit = { componentId: "c1", trayKey: "t1", name: "Boards", reason: "box" as const };
+  const noFit = (over: Partial<StatusInput> = {}) =>
+    statusOf(input({ fits: null, noFit: { misfit }, ...over }));
+
+  it("names the tray that does not fit, in a warn heading, with Edit and Keep searching to offer", () => {
+    expect(noFit()).toEqual({
+      tone: "warn",
+      fit: "noFit",
+      title: "The Boards tray doesn't fit yet",
+      line: "There's no room left for it in the box.",
+      actions: [
+        { kind: "show", id: "c1", label: "Edit Boards" },
+        { kind: "keep", label: "Keep searching" },
+      ],
+    });
+  });
+
+  it("says a tray is too big for the printer's bed when that is the reason", () => {
+    const s = noFit({ noFit: { misfit: { ...misfit, reason: "bed" } } });
+    expect(s.title).toBe("The Boards tray doesn't fit yet");
+    expect(s.line).toBe("It's too big for your printer's bed.");
+  });
+
+  it("says Not everything fits yet when no tray stands out, and offers no edit", () => {
+    const s = noFit({ noFit: { misfit: null } });
+    expect(s.title).toBe("Not everything fits yet");
+    expect(s.line).toBeUndefined();
+    expect(s.actions).toEqual([{ kind: "keep", label: "Keep searching" }]);
+  });
+
+  it("offers no Keep searching when the plan is from older geometry", () => {
+    expect(noFit({ canSearchMore: false }).actions).toEqual([
+      { kind: "show", id: "c1", label: "Edit Boards" },
+    ]);
+  });
+
+  it("works without a plan behind it", () => {
+    expect(noFit({ hasLayout: false }).actions[0]).toEqual({
+      kind: "show",
+      id: "c1",
+      label: "Edit Boards",
+    });
+  });
+
+  const conflicts: LockConflict[] = [
+    { trayKey: "a", kind: "position", name: "Boards", reason: "it is too big for its spot" },
+    { trayKey: "b", kind: "stack", name: "Deck and Tokens", reason: "they need a taller box" },
+  ];
+
+  it("names the first conflict, gives the engine's reasons as sentences, one Unpin per conflict", () => {
+    const s = statusOf(input({ fits: null, conflicts }));
+    expect(s).toMatchObject({
+      tone: "warn",
+      fit: "pins",
+      title: "Boards doesn't fit with your pins",
+      line: "It is too big for its spot. They need a taller box.",
+    });
+    expect(s.list).toBeUndefined();
+    expect(s.actions).toEqual([
+      { kind: "unpin", conflict: conflicts[0], label: "Unpin Boards" },
+      { kind: "unpin", conflict: conflicts[1], label: "Unpin Deck and Tokens" },
+    ]);
+  });
+
+  it("says a reason once, however many pins share it, and keeps its full stop", () => {
+    const same = [
+      {
+        trayKey: "a",
+        kind: "position" as const,
+        name: "A",
+        reason: "the pins together leave no layout that fits",
+      },
+      {
+        trayKey: "b",
+        kind: "position" as const,
+        name: "B",
+        reason: "the pins together leave no layout that fits",
+      },
+      { trayKey: "c", kind: "position" as const, name: "C", reason: "it ends already." },
+    ];
+    expect(conflictLine(same)).toBe(
+      "The pins together leave no layout that fits. It ends already.",
+    );
+    expect(conflictLine([])).toBe("");
+  });
+
+  it("tells a size lock from a pin of the same tray", () => {
+    const s = statusOf(
+      input({
+        fits: null,
+        conflicts: [
+          { trayKey: "a", kind: "size", name: "Boards", reason: "y" },
+          { trayKey: "a", kind: "position", name: "Boards", reason: "x" },
+        ],
+      }),
+    );
+    expect(s.title).toBe("Boards doesn't fit with its size locked");
+    expect(s.actions.map((a) => (a.kind === "unpin" ? a.label : a.kind))).toEqual([
+      "Unlock size of Boards",
+      "Unpin Boards",
+    ]);
+  });
+
+  it("speaks before a no-fit, and has no Keep searching of its own", () => {
+    const s = statusOf(input({ fits: null, conflicts, noFit: { misfit: null } }));
+    expect(s.fit).toBe("pins");
+    expect(s.actions.some((a) => a.kind === "keep")).toBe(false);
   });
 });
 

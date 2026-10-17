@@ -1,0 +1,192 @@
+/*
+ * The fit problems' stage (UI rebuild Task 12), from NoFit, PinConflict and MobileFix: the status
+ * heading (the kit's), the plan as a picture, and the panel of what to do. The heading's warn
+ * icon, the cards' buttons and the quiet Undo are the kit's or the board's own values, on the
+ * tokens (styles/tokens.css).
+ */
+
+/* The heading keeps its height; the body follows 24 px under it (NoFit): the stage's 16 px gap and 8 more. */
+.fp-status {
+  flex: none;
+}
+
+.fp-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: var(--s-40);
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  margin-top: var(--s-8);
+}
+
+/* PinConflict draws its picture and its column from the left, 32 px apart. */
+.fp-body[data-kind="pinConflict"] {
+  gap: var(--s-32);
+  justify-content: flex-start;
+}
+
+/*
+ * The picture: the plan's box (582 px at most, the board's) and its caption 12 px under it, centred.
+ * It never grows past the stage: the box shrinks first, as the workspace's does.
+ */
+.fp-draw {
+  display: flex;
+  flex: 0 1 582px;
+  flex-direction: column;
+  gap: var(--s-12);
+  align-items: center;
+  min-width: 0;
+  max-height: 100%;
+}
+
+/*
+ * Beside the picture: NoFit's panel, then the notices of the run (they have room here, and the
+ * stage keeps its height). The board's panel is content-sized: 300 px inside its padding, 342 in all.
+ */
+.fp-side {
+  display: flex;
+  flex: 0 1 342px;
+  flex-direction: column;
+  gap: var(--s-12);
+  min-width: 0;
+}
+
+/* PinConflict's is a bare column, 280 px and up to 340. */
+.fp-side[data-kind="pinConflict"] {
+  flex: 1 1 280px;
+  max-width: 340px;
+}
+
+/* NoFit's panel: a white card on the page, 16 px round, a 1 px rule, 20 px in. */
+.fp-panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--s-12);
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--s-20);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-panel);
+  background: var(--sheet);
+}
+
+.fp-panel[data-kind="pinConflict"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.fp-title {
+  margin: 0;
+  font: 700 var(--h3) / normal var(--font-display);
+}
+
+.fp-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  min-width: 0;
+}
+
+/*
+ * One thing to do: its words alone, 600. 14 px in, a 1 px field line and 12 px round (PinConflict's
+ * cards are 14); the first of NoFit's has a 1.5 px ink edge. A button, so it is 44 px at the least.
+ */
+.fp-card {
+  display: flex;
+  align-items: flex-start;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--control-h);
+  margin: 0;
+  padding: var(--s-14);
+  border: 1px solid var(--field-line);
+  border-radius: var(--r-field);
+  background: var(--sheet);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+/* style.css (until Task 17) repaints every button under the pointer: a card keeps its own colour. */
+.fp-card:hover:not(:disabled) {
+  background: var(--sheet);
+}
+
+.fp-card--lead {
+  border: 1.5px solid var(--ink);
+}
+
+.fp-cards[data-kind="pinConflict"] > .fp-card {
+  border-radius: var(--r-card);
+}
+
+/* PinConflict's Undo: quiet, 14 px 600 in the muted ink, underlined, flush left. */
+.fp-cards > .fp-undo {
+  --k-fg: var(--muted);
+
+  align-self: flex-start;
+  padding: 0;
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Blocked (nothing to undo): the same link, in the dimmer ink, not the kit's grey pill. */
+.fp-cards > .fp-undo[aria-disabled="true"] {
+  --k-bg: transparent;
+  --k-fg: var(--ink-off);
+}
+
+/*
+ * MobileFix: the sheet peeks 276 px, not the list's 196, and its cards are 56 px tall with 8 px
+ * between. The heading's words are in the warn ink (the h1 and its line), and the picture is the
+ * page's own column: the box 358 px wide, its caption 6 px under it.
+ */
+@media (width < 760px) {
+  .ws--fit {
+    --sheet-peek: 276px;
+  }
+
+  .fp-status .k-status__title,
+  .fp-status .k-status__line {
+    color: var(--warn-ink);
+  }
+
+  /* MobileFix's heading row is top-aligned: the icon stays by the h1 when the line wraps. */
+  .fp-status .k-status__lead {
+    align-items: flex-start;
+  }
+
+  .fp-body {
+    display: contents;
+  }
+
+  .fp-draw {
+    flex: none;
+    align-self: stretch;
+    gap: var(--s-6);
+    max-height: none;
+  }
+
+  /* The cards fill what the peek shows of the sheet's body (276 less the grip, the title row and the foot), so the list under them waits out of sight. */
+  .fp-cards {
+    gap: var(--s-8);
+    min-height: calc(var(--sheet-peek) - 116px);
+    padding: var(--s-8) var(--s-8) 0;
+  }
+
+  .fp-card {
+    align-items: center;
+    min-height: 56px; /* MobileFix */
+    padding: var(--s-8) var(--s-14);
+  }
+}

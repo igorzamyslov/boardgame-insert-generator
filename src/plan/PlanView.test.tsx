@@ -800,6 +800,115 @@ describe("PlanView", () => {
   });
 });
 
+describe("PlanView as a picture (read-only)", () => {
+  const picture = (over: Partial<PlanViewProps> = {}) =>
+    setup({ readOnly: true, trays: [A, B], ...over });
+
+  it("has no control: no tile is a button or a tab stop, no slot or pin line", () => {
+    const { box, view } = picture({ lockedKeys: new Set(["a:p0:0"]) });
+    expect(within(box).queryAllByRole("button")).toHaveLength(0);
+    expect(box.querySelectorAll("[tabindex]")).toHaveLength(0);
+    expect(view.container.querySelector(".stage-slot")).toBeNull();
+    expect(screen.queryByText("Spacers fill the gaps again when the plan updates.")).toBeNull();
+    // the trays are still named for a screen reader, in the list
+    expect(
+      [...view.container.querySelectorAll("ul.visually-hidden li")].map((li) => li.textContent),
+    ).toEqual(["Region deck, pinned", "Dice"]);
+  });
+
+  it("selects and swaps nothing", () => {
+    const { p, box } = picture();
+    fireEvent.pointerDown(box.querySelector('[data-key="a:p0:0"]') as Element, {
+      ...centerA,
+      pointerId: 1,
+      button: 0,
+    });
+    fireEvent.pointerUp(box, { ...centerA, pointerId: 1 });
+    fireEvent.keyDown(box.querySelector('[data-key="a:p0:0"]') as Element, { key: "Enter" });
+    expect(p.onSelect).not.toHaveBeenCalled();
+    expect(p.onSwap).not.toHaveBeenCalled();
+  });
+
+  it("is not lit by the rail's pointer", () => {
+    picture();
+    act(() => {
+      hoveredComponent.value = deck.id;
+    });
+    // a plan that is not a picture would dim the dice here, and show the lit deck's kind icon in its pill
+    expect(document.querySelectorAll(".plan-tile.is-dimmed")).toHaveLength(0);
+    expect(document.querySelector(".plan-pill svg")).toBeNull();
+  });
+
+  it("dims every tile, or every tile that is not pinned, as it is told", () => {
+    const { view } = picture({ dim: "all" });
+    expect(view.container.querySelectorAll(".plan-tile.is-dimmed")).toHaveLength(2);
+    cleanup();
+    const { view: pins } = picture({ dim: "unpinned", lockedKeys: new Set(["a:p0:0"]) });
+    expect(
+      pins.container.querySelector('[data-key="a:p0:0"]')?.classList.contains("is-dimmed"),
+    ).toBe(false);
+    expect(
+      pins.container.querySelector('[data-key="b:p0:0"]')?.classList.contains("is-dimmed"),
+    ).toBe(true);
+    cleanup();
+    const { view: plain } = picture();
+    expect(plain.container.querySelectorAll(".plan-tile.is-dimmed")).toHaveLength(0);
+  });
+
+  it("marks the tray that does not fit: its name alone, on top, and not dimmed", () => {
+    const { view } = picture({ dim: "all", misfitKey: "b:p0:0" });
+    const marked = view.container.querySelectorAll(".plan-tile.is-misfit");
+    expect(marked).toHaveLength(1);
+    expect(marked[0]?.getAttribute("data-key")).toBe("b:p0:0");
+    expect(marked[0]?.textContent).toBe("Dice");
+    expect(marked[0]?.classList.contains("is-dimmed")).toBe(false);
+    expect(marked[0]?.querySelector(".plan-cells, .plan-pill")).toBeNull();
+    expect(
+      view.container.querySelector('[data-key="a:p0:0"]')?.classList.contains("is-dimmed"),
+    ).toBe(true);
+  });
+
+  it("draws the marked tray inside the frame, so its name is not cut off with what hangs over", () => {
+    // 150 mm in and 100 mm wide in a 200 mm box: 50 mm of it is in the frame
+    const wide = makeTray({
+      key: "w:p0:0",
+      path: "0",
+      x: 150,
+      y: 0,
+      w: 100,
+      d: 99,
+      compartments: [holding("Region deck ×50")],
+    });
+    const { view } = picture({ trays: [A, wide], misfitKey: "w:p0:0", dim: "all" });
+    const tile = view.container.querySelector('[data-key="w:p0:0"]') as HTMLElement;
+    const left = Number.parseFloat(tile.style.getPropertyValue("--x"));
+    const width = Number.parseFloat(tile.style.getPropertyValue("--w"));
+    expect(left + width).toBeLessThanOrEqual(100);
+    expect(width).toBeCloseTo(((200 - (150 + frame.bc)) / 200) * 100, 1);
+    // another tray that hangs over keeps its real place, the frame cuts it
+    cleanup();
+    const { view: plain } = picture({ trays: [A, wide], dim: "all" });
+    const other = plain.container.querySelector('[data-key="w:p0:0"]') as HTMLElement;
+    expect(Number.parseFloat(other.style.getPropertyValue("--w"))).toBeCloseTo(50, 1);
+  });
+
+  it("cuts what hangs over the frame at the frame", () => {
+    const { box } = picture();
+    expect(box.getAttribute("data-readonly")).toBe("true");
+    expect(planCss).toMatch(/\.plan-box\[data-readonly="true"\]\s*\{[^}]*overflow:\s*hidden/);
+    expect(planCss).toMatch(/\.plan-tile\.is-misfit\s*\{[^}]*border:\s*2px dashed var\(--warn\)/);
+    expect(planCss).toMatch(/\.plan-tile\.is-misfit\s*\{[^}]*background:\s*var\(--warn-bg\)/);
+    expect(planCss).toMatch(/\.plan-misfit\s*\{[^}]*color:\s*var\(--warn-ink\)/);
+    expect(planCss).toMatch(/\.plan-misfit\s*\{[^}]*font-weight:\s*700/);
+  });
+
+  it("is a plain plan when it is not read-only: tiles are buttons, nothing is marked", () => {
+    setup({ trays: [A, B], misfitKey: "b:p0:0", dim: "all" });
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(document.querySelector(".is-misfit, .is-dimmed")).toBeNull();
+  });
+});
+
 describe("a merged filler on the plan", () => {
   it("is one tile per member on the layer it stands on, all with one key", () => {
     const { view } = setup({ trays: [A, B, C, M] });

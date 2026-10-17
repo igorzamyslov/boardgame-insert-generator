@@ -26,6 +26,8 @@ export interface ComponentListProps {
   first?: ComponentChildren;
   /** The component the selected tray belongs to: its row is pressed. */
   selectedId?: string | null;
+  /** The components whose tray does not fit (a fit problem's culprit): their rows are warn-lit and say so. */
+  culprits?: ReadonlySet<string>;
   /** A row was chosen: open its editor. */
   onOpen: (id: string) => void;
   /** The pointer or the focus is on a row (its component's id), or left it (null). */
@@ -111,6 +113,7 @@ export function ComponentList({
   compact = false,
   first,
   selectedId = null,
+  culprits,
   onOpen,
   onHover,
   onUnpin,
@@ -175,12 +178,16 @@ export function ComponentList({
           (n) => n.level === "error" && (n.path === at || (n.path?.startsWith(`${at}/`) ?? false)),
         );
         const summary = componentSummary(c);
+        // an error in the editor is the nearer problem: it is told first
+        const culprit = !problem && culprits?.has(c.id) === true;
         // The sheet's row has no room for the layer: the box shows it.
         const meta = problem
           ? "Needs attention"
-          : layer === "" || compact
-            ? summary
-            : `${summary} · ${layer}`;
+          : culprit
+            ? "Doesn't fit"
+            : layer === "" || compact
+              ? summary
+              : `${summary} · ${layer}`;
         const enter = (): void => onHover?.(c.id);
         const leave = (): void => onHover?.(null);
         return (
@@ -190,7 +197,11 @@ export function ComponentList({
               name={name}
               meta={meta}
               compact={compact}
-              class={chips.length > 0 ? "rail-row--wrap" : undefined}
+              class={
+                [chips.length > 0 ? "rail-row--wrap" : "", culprit ? "is-culprit" : ""]
+                  .filter((x) => x !== "")
+                  .join(" ") || undefined
+              }
               selected={selectedId === c.id}
               lit={lit === c.id}
               shade={shadeVars(c.kind, kindIndexOf(components, i))}

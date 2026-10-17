@@ -245,7 +245,7 @@ describe("the phone layout", () => {
     expect(rowIn(/^Market,/)).toBeTruthy();
   });
 
-  it("offers Keep searching beside the handle when the trays do not fit", async () => {
+  it("offers Keep searching on a card of the sheet when the trays do not fit", async () => {
     phone();
     const { store, stub } = renderApp({ project: project() });
     expect(within(sheet()).queryByRole("button", { name: "Keep searching" })).toBeNull();
@@ -256,13 +256,17 @@ describe("the phone layout", () => {
       });
       store.state.lastResultHash.value = store.state.currentHash.value;
     });
-    // folded, and still in reach
-    const keep = within(sheet()).getByRole("button", { name: "Keep searching" });
+    // the sheet is the fit problem's now (a region of its own name): its title, its card, in reach while folded
+    const fix = screen.getByRole("region", { name: "Ways to make it fit" });
+    expect(within(fix).getByRole("heading", { name: "Ways to make it fit" })).toBeTruthy();
+    expect(within(fix).queryByRole("button", { name: "Add" })).toBeNull();
+    const keep = within(fix).getByRole("button", { name: "Keep searching" });
     expect(keep.closest("[inert]")).toBeNull();
     fireEvent.click(keep);
     await waitFor(() => expect(stub.calls).toHaveLength(1));
-    expect(within(sheet()).queryByRole("button", { name: "Keep searching" })).toBeNull();
-    expect(document.activeElement).toBe(handle());
+    expect(screen.queryByRole("button", { name: "Keep searching" })).toBeNull();
+    // the card went with the search: Stop, which took its place, has the focus
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Stop" }));
   });
 
   describe("a tray picked on the plan", () => {

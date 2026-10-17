@@ -1247,7 +1247,8 @@ describe("App", () => {
         ];
       });
       expect(heading()).toBe("Action cards doesn't fit with your pins");
-      expect(status().textContent).toContain("Market doesn't fit with its size locked");
+      // the engine's reasons are the line; the other conflict is a card of its own
+      expect(status().textContent).toContain("It is too big. No room.");
       expect(screen.getByRole("button", { name: "Unlock size of Market" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Fix the fit to download" })).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Unpin Action cards" }));

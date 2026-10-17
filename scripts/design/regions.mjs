@@ -7,7 +7,7 @@
 // it. A region found in only one of the two has no pair crop.
 //
 // Names, with the task that owns each in the app: header, rail, stage (Task 3), status, switches, banner
-// (Task 6), plan-box, tray-bar (Task 8), menu, dialog, drawer, sheet, kind-picker.
+// (Task 6), plan-box, tray-bar (Task 8), menu, dialog, drawer, sheet, kind-picker, options (Task 12).
 
 /** @type {Record<string, { board: (doc: Document) => Element | null }>} */
 export const REGIONS = {
@@ -50,6 +50,14 @@ export const REGIONS = {
       ) || null,
   },
   "tray-bar": { board: (doc) => doc.querySelector('[aria-label="Selected tray"]') },
+  // The fit problems' panel (NoFit's "Ways to make it fit" card, PinConflict's "Unpin one" column): the
+  // parent of the span that holds the title. A phone's cards are in its sheet (no region of their own).
+  options: {
+    board: (doc) =>
+      Array.from(doc.querySelectorAll("main span")).find((el) =>
+        /^(Ways to make it fit|Unpin one)$/.test((el.textContent || "").trim()),
+      )?.parentElement || null,
+  },
   menu: { board: (doc) => doc.querySelector('[role="menu"]') },
   // Empty's kind tiles: the grid of the five kinds (the nearest board of the Add pill's picker).
   "kind-picker": {

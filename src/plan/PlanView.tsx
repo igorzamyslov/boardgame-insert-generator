@@ -55,6 +55,16 @@ export interface PlanViewProps {
   /** The tray a "Swap with…" is under way from, or null; the app owns it. */
   swapFrom: string | null;
   onSwapFromChange: (key: string | null) => void;
+  /**
+   * A picture of a plan and nothing more (the fit problems, UI rebuild Task 12): no tile is a
+   * control, nothing is selected, dragged or lit by the pointer, the slot above the box and the
+   * note about pins are left out, and what hangs over the box's edge is cut at the frame.
+   */
+  readOnly?: boolean;
+  /** Read-only: which tiles are drawn at 0.6 (every one but the marked, or every one that is not pinned). */
+  dim?: "all" | "unpinned";
+  /** Read-only: the tray that does not fit, drawn on top in the warn style with only its name. */
+  misfitKey?: string | null;
 }
 
 /** What the layer switch calls layer `i` (0 = bottom) of `n`: no height, only the order. */
@@ -214,13 +224,15 @@ export function PlanView(props: PlanViewProps) {
 
   // The component being pointed at (the rail's row, a tray, the keyboard focus), else the
   // selected tray's: its trays stay lit and the rest dim. A search lights the pinned trays only.
+  const readOnly = props.readOnly === true;
+  const misfitKey = props.misfitKey ?? null;
   const searching = props.searching === true;
   const railId = hoveredComponent.value;
   const editedId = props.editedId ?? null;
   const active =
     editedId ?? railId ?? identityOf(hoverKey) ?? identityOf(focusKey) ?? identityOf(selectedKey);
   const lightsSome =
-    !searching && active !== null && shown.some((t) => identityOf(t.key) === active);
+    !readOnly && !searching && active !== null && shown.some((t) => identityOf(t.key) === active);
 
   function swappable(key: string | null): boolean {
     const part = key === null ? undefined : byKey.get(key);
@@ -388,25 +400,73 @@ export function PlanView(props: PlanViewProps) {
         : "Choose the tray to swap with, or press Escape."
       : dragNote;
   const hasBar = props.bar !== undefined && props.bar !== null && props.bar !== false;
+  // A picture has no handlers: what a press, a key or the pointer could do is not there to do.
+  const handlers = readOnly
+    ? {}
+    : {
+        onPointerDown,
+        onPointerMove,
+        onPointerUp,
+        onPointerCancel,
+        onLostPointerCapture: onPointerCancel,
+      };
+
+  /** What makes a tile a control: a button with a name, a tab stop, and the pointer and focus lighting its component. */
+  const control = (
+    key: string,
+    name: string,
+    locked: boolean,
+    sizeLocked: boolean,
+    selected: boolean,
+  ) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-pressed": selected,
+    "aria-label": trayLabel(name, idx + 1, locked, sizeLocked),
+    onKeyDown: (e: { key: string; preventDefault: () => void }) => onKeyDown(e, key),
+    onFocus: (e: { currentTarget: Element }) => {
+      if (isFocusVisible(e.currentTarget)) {
+        setFocusKey(key);
+        light(key, true);
+      }
+    },
+    onBlur: () => {
+      setFocusKey((k) => (k === key ? null : k));
+      light(key, false);
+    },
+    onPointerEnter: (e: { pointerType: string }) => {
+      // a touch has no hover: the tap that follows selects
+      if (e.pointerType !== "touch") {
+        setHoverKey(key);
+        light(key, true);
+      }
+    },
+    onPointerLeave: () => {
+      setHoverKey((k) => (k === key ? null : k));
+      light(key, false);
+    },
+  });
 
   return (
-    <div class="plan" onKeyDown={onPlanKeyDown}>
-      <StageSlot
-        idle={phone && !hasBar && message === null}
-        quiet={message !== null}
-        live={
-          // always mounted, so a reader hears a note arrive
-          <div role="status">
-            {swapFrom !== null ? (
-              <p>{message}</p>
-            ) : dragNote !== null ? (
-              <p class="plan-note">{dragNote}</p>
-            ) : null}
-          </div>
-        }
-      >
-        {props.bar}
-      </StageSlot>
+    <div class="plan" onKeyDown={readOnly ? undefined : onPlanKeyDown}>
+      {readOnly ? null : (
+        <StageSlot
+          idle={phone && !hasBar && message === null}
+          quiet={message !== null}
+          live={
+            // always mounted, so a reader hears a note arrive
+            <div role="status">
+              {swapFrom !== null ? (
+                <p>{message}</p>
+              ) : dragNote !== null ? (
+                <p class="plan-note">{dragNote}</p>
+              ) : null}
+            </div>
+          }
+        >
+          {props.bar}
+        </StageSlot>
+      )}
       <div
         class="plan-fit"
         style={{ "--box-w": String(frame.innerW), "--box-l": String(frame.innerD) }}
@@ -416,11 +476,8 @@ export function PlanView(props: PlanViewProps) {
           data-region="plan-box"
           role="group"
           aria-label={`Plan of layer ${idx + 1} of ${Math.max(1, levels.length)}, seen from above, box front at the bottom`}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerCancel}
-          onLostPointerCapture={onPointerCancel}
+          data-readonly={readOnly ? "true" : undefined}
+          {...handlers}
         >
           <div class="plan-floor" ref={floorRef}>
             {shown.map((t) => {
@@ -433,7 +490,14 @@ export function PlanView(props: PlanViewProps) {
               const identity = identityOf(t.key);
               const lit = lightsSome && identity === active;
               const lifted = editedId !== null && identity === editedId;
-              const dimmed = searching ? !locked : lightsSome && identity !== active;
+              const misfit = readOnly && t.key === misfitKey;
+              const dimmed = readOnly
+                ? props.dim === undefined || misfit
+                  ? false
+                  : props.dim === "all" || !locked
+                : searching
+                  ? !locked
+                  : lightsSome && identity !== active;
               // The kind icon says what a tray holds when you point at it: the lit trays.
               const icon = look !== null && lit;
               // The pill shows the whole name and its CSS cuts it to the tile; here only whether there is room.
@@ -453,6 +517,7 @@ export function PlanView(props: PlanViewProps) {
                 t.key === dragKey || t.key === swapFrom ? "is-source" : "",
                 locked ? "is-locked" : "",
                 sizeLocked ? "is-size-locked" : "",
+                misfit ? "is-misfit" : "",
               ]
                 .filter((c) => c !== "")
                 .join(" ");
@@ -471,6 +536,19 @@ export function PlanView(props: PlanViewProps) {
                 "--w": pct((a.w / frame.innerW) * 100),
                 "--d": pct((a.h / frame.innerD) * 100),
               });
+              // The marked tray alone is cut to the frame, so its name is in sight whatever hangs over.
+              const inFrame = (a: { x: number; y: number; w: number; h: number }) => {
+                const left = Math.max(0, frame.bc + a.x);
+                const top = Math.max(0, frame.bc + a.y);
+                const right = Math.min(frame.innerW, frame.bc + a.x + a.w);
+                const bottom = Math.min(frame.innerD, frame.bc + a.y + a.h);
+                return {
+                  x: left - frame.bc,
+                  y: top - frame.bc,
+                  w: Math.max(0, right - left),
+                  h: Math.max(0, bottom - top),
+                };
+              };
               const selected = t.key === selectedKey;
               return (
                 <Fragment key={t.key}>
@@ -489,36 +567,15 @@ export function PlanView(props: PlanViewProps) {
                     key={t.key}
                     data-key={t.key}
                     class={cls}
-                    style={{ ...shade, ...place(r) }}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={selected}
-                    aria-label={trayLabel(name, idx + 1, locked, sizeLocked)}
+                    style={{ ...shade, ...place(misfit ? inFrame(r) : r) }}
                     title={name}
-                    onKeyDown={(e) => onKeyDown(e, t.key)}
-                    onFocus={(e) => {
-                      if (isFocusVisible(e.currentTarget)) {
-                        setFocusKey(t.key);
-                        light(t.key, true);
-                      }
-                    }}
-                    onBlur={() => {
-                      setFocusKey((k) => (k === t.key ? null : k));
-                      light(t.key, false);
-                    }}
-                    onPointerEnter={(e) => {
-                      // a touch has no hover: the tap that follows selects
-                      if (e.pointerType !== "touch") {
-                        setHoverKey(t.key);
-                        light(t.key, true);
-                      }
-                    }}
-                    onPointerLeave={() => {
-                      setHoverKey((k) => (k === t.key ? null : k));
-                      light(t.key, false);
-                    }}
+                    {...(readOnly
+                      ? { "aria-hidden": "true" }
+                      : control(t.key, name, locked, sizeLocked, selected))}
                   >
-                    {look !== null && t.part === "tray" && t.compartments.length > 0 ? (
+                    {misfit ? (
+                      <span class="plan-misfit">{name}</span>
+                    ) : look !== null && t.part === "tray" && t.compartments.length > 0 ? (
                       <div class="plan-cells" aria-hidden="true">
                         {t.compartments.map((c, i) => (
                           <span
@@ -535,7 +592,7 @@ export function PlanView(props: PlanViewProps) {
                         ))}
                       </div>
                     ) : null}
-                    {pill ? (
+                    {pill && !misfit ? (
                       <span class="plan-center" aria-hidden="true">
                         <span class="plan-pill">
                           {icon && look !== null ? (
@@ -568,7 +625,7 @@ export function PlanView(props: PlanViewProps) {
           </>
         )}
       </p>
-      {lockedKeys.size > 0 ? (
+      {lockedKeys.size > 0 && !readOnly ? (
         <p class="plan-pins">Spacers fill the gaps again when the plan updates.</p>
       ) : null}
       <ul class="visually-hidden" aria-label={`Trays on layer ${idx + 1}`}>

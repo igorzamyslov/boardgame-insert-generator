@@ -12,6 +12,7 @@ import { renderApp } from "../app/test-app";
 import { trayNames } from "../instructions/naming";
 import { numberParts } from "../instructions/numbering";
 import { COPY_RULINGS } from "./copy-rulings";
+import { conflictLine } from "./StageTop";
 import { boardLiterals, unruled, visibleStrings } from "../test-support/boardCopy";
 import type { Allowed } from "../test-support/boardCopy";
 import { loadSeed } from "../test-support/harbourKings";
@@ -31,6 +32,11 @@ interface Case {
   board: string;
   /** A region of the app: the element with `data-region="<region>"`. */
   region: string;
+  /**
+   * A second board whose literals the region may use too: a screen built of two boards' parts (the
+   * fit problems' rail is Main's, the phone's fit sheet holds MobileWorkspace's list under MobileFix's cards).
+   */
+  also?: string;
   /** The phone: the width query answers yes. */
   phone?: boolean;
   /** The app opens on no project at all: the first visit (Task 9). */
@@ -475,27 +481,44 @@ const CASES: readonly Case[] = [
       act(() => store.edit((q) => ({ ...q, box: { ...q.box, innerHeight: -5 } })));
     },
   },
-  {
-    state: "no-fit",
-    board: "Main",
-    region: "status",
-    seed: "harbour-kings-nofit",
-    steps: searchFailed("harbour-kings-nofit"),
-  },
-  {
-    state: "no-fit-bed",
-    board: "Main",
-    region: "status",
-    seed: "harbour-kings-nofit-bed",
-    steps: searchFailed("harbour-kings-nofit-bed"),
-  },
-  {
-    state: "pin-conflict",
-    board: "Main",
-    region: "status",
-    seed: "harbour-kings-pins",
-    steps: searchFailed("harbour-kings-pins"),
-  },
+  // Task 12: the fit problems, NoFit and PinConflict at 1440, MobileFix on a phone. The rail is
+  // Main's (Task 5; NoFit and PinConflict draw an older one), and the phone's sheet holds
+  // MobileWorkspace's list under MobileFix's cards.
+  ...(["status", "stage", "rail", "header", "plan-box", "options"] as const).flatMap((region) =>
+    [
+      ["no-fit", "NoFit", "harbour-kings-nofit"],
+      ["no-fit-bed", "NoFit", "harbour-kings-nofit-bed"],
+      ["pin-conflict", "PinConflict", "harbour-kings-pins"],
+    ].flatMap(([state = "", board = "", seed = ""]): Case[] =>
+      // the options panel is only NoFit's and PinConflict's (the bed variant has the same one)
+      region === "options" && state === "no-fit-bed"
+        ? []
+        : [
+            {
+              state,
+              board,
+              also: region === "rail" ? "Main" : undefined,
+              region,
+              seed,
+              steps: searchFailed(seed),
+            },
+          ],
+    ),
+  ),
+  ...(["status", "sheet", "header", "plan-box"] as const).flatMap((region) =>
+    [
+      ["m-fix", "harbour-kings-nofit"],
+      ["m-pin-conflict", "harbour-kings-pins"],
+    ].map(([state = "", seed = ""]): Case => ({
+      state,
+      board: "MobileFix",
+      also: region === "sheet" ? "MobileWorkspace" : undefined,
+      region,
+      phone: true,
+      seed,
+      steps: searchFailed(seed),
+    })),
+  ),
   // Task 7: the plan's box (the tiles' marks), and its column (the slot, the caption, the pins line)
   { state: "workspace", board: "Main", region: "plan-box", steps: () => undefined },
   { state: "workspace-rules", board: "Main", region: "plan-box", steps: setRules },
@@ -668,6 +691,10 @@ function engineOf(store: Store): Set<string> {
   for (const n of [...s.appNotices.value, ...s.validation.value, ...s.layoutNotices.value]) {
     out.add(n.message);
   }
+  // the pins' reasons, as the heading's line says them
+  if (s.lockConflicts.value.length > 0) {
+    out.add(conflictLine(s.lockConflicts.value));
+  }
   return out;
 }
 
@@ -682,8 +709,14 @@ async function stringsOf(c: Case): Promise<string[]> {
   c.steps(store);
   const region = document.querySelector(`[data-region="${c.region}"]`);
   expect(region, `${c.state}: no element with data-region="${c.region}"`).not.toBeNull();
+  const literals = await boardLiterals(`${c.board}.dc.html`);
+  if (c.also !== undefined) {
+    for (const text of await boardLiterals(`${c.also}.dc.html`)) {
+      literals.add(text);
+    }
+  }
   const allowed: Allowed = {
-    literals: await boardLiterals(`${c.board}.dc.html`),
+    literals,
     rulings: COPY_RULINGS.filter((r) => r.states === "all" || r.states.includes(c.state)),
     data: dataOf(store),
     engine: engineOf(store),

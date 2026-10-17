@@ -29,9 +29,23 @@ const CHIPS = "The rail's rule chips are one per rule";
 const CLEAR = "Clear all my choices lifts every pin";
 const ADDING = ["workspace-add", "m-workspace-add"] as const;
 /** The rail's states and the phone sheet's (copy.board.test.tsx has a case for each). */
-const RAIL = ["workspace", "workspace-rules", "workspace-add", "workspace-error"] as const;
-const SHEET = ["m-workspace", "m-workspace-add", "m-workspace-rules"] as const;
-const RULED = ["workspace-rules", "m-workspace-rules"] as const;
+const RAIL = [
+  "workspace",
+  "workspace-rules",
+  "workspace-add",
+  "workspace-error",
+  "no-fit",
+  "no-fit-bed",
+  "pin-conflict",
+] as const;
+const SHEET = [
+  "m-workspace",
+  "m-workspace-add",
+  "m-workspace-rules",
+  "m-fix",
+  "m-pin-conflict",
+] as const;
+const RULED = ["workspace-rules", "m-workspace-rules", "pin-conflict", "m-pin-conflict"] as const;
 // Task 6: the top of the stage. The states are the stage-top cases of copy.board.test.tsx.
 const PLAN_STATES = [
   "workspace",
@@ -42,7 +56,10 @@ const PLAN_STATES = [
 const LAYERS = "The layer switch uses DESIGN's names";
 const HOMES = "The Summary's jobs have new homes";
 const NOFIT = "The no-fit heading names the tray";
-const PINS = "Pins in the way are the heading's, one pill each (interim until Task 12)";
+const PINS =
+  "Pins in the way: the first conflict names the heading, the engine's reasons are its line, and each conflict is a card";
+const FIT_PANEL = "The fit problems are a stage of their own";
+const FIT_ROW = "The rail marks the tray that does not fit: Doesn't fit";
 const BANNERS = "The plan banners use DESIGN's words";
 const NOTES = "Layout and sizing notices sit under the plan caption";
 // Task 7: the plan's caption and pin marks. The states are the plan cases of copy.board.test.tsx.
@@ -50,7 +67,9 @@ const CAPTION = "The plan's caption names its layer";
 const PHONE_PINS = "A phone's plan shows the pin marks";
 const FAILED = ["workspace-failed"] as const;
 const ERRORS = ["workspace-error"] as const;
-const FIT_PROBLEMS = ["no-fit", "no-fit-bed", "pin-conflict"] as const;
+const FIT_PROBLEMS = ["no-fit", "no-fit-bed", "pin-conflict", "m-fix", "m-pin-conflict"] as const;
+const NO_FIT = ["no-fit", "no-fit-bed", "m-fix"] as const;
+const PIN_CONFLICT = ["pin-conflict", "m-pin-conflict"] as const;
 // Task 8: the tray bar and the phone's tray sheet. The states are the tray cases of copy.board.test.tsx.
 const MORE = "More holds Swap with… and Lock size";
 const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
@@ -217,15 +236,15 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Something else", states: ADDING, ruling: PICKER },
   // MobileWorkspace draws "+ Add" with a text plus; the app draws the plus as an icon
   { text: "Add", states: SHEET, ruling: PICKER },
-  { text: "Pinned", states: ["m-workspace-rules"], ruling: CHIPS },
+  { text: "Pinned", states: ["m-workspace-rules", "m-pin-conflict"], ruling: CHIPS },
   { text: "Pinned, turned", states: RULED, ruling: CHIPS },
   { text: "Size locked", states: RULED, ruling: CHIPS },
   {
     text: "These stay as you set them when the plan updates.",
-    states: ["m-workspace-rules"],
+    states: ["m-workspace-rules", "m-pin-conflict"],
     ruling: CLEAR,
   },
-  { text: "Clear all my choices", states: ["m-workspace-rules"], ruling: CLEAR },
+  { text: "Clear all my choices", states: ["m-workspace-rules", "m-pin-conflict"], ruling: CLEAR },
   { text: "bottom layer", states: RAIL, ruling: SUMMARY },
   { text: "top layer", states: RAIL, ruling: SUMMARY },
   { text: "layer {n}", states: RAIL, ruling: SUMMARY },
@@ -255,14 +274,20 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: HOMES,
   },
   { text: "Edit {name}", states: [...ERRORS, ...FIT_PROBLEMS], ruling: HOMES },
+  // Task 12: the fit problems' panel offers what the engine can do, in its own words
+  { text: "Keep searching", states: NO_FIT, ruling: FIT_PANEL },
   { text: "Change the box", states: ["workspace-box-error"], ruling: HOMES },
-  { text: "The {name} tray doesn't fit yet", states: ["no-fit"], ruling: NOFIT },
-  { text: "Not everything fits yet", states: ["no-fit"], ruling: NOFIT },
-  { text: "There's no room left for it in the box.", states: ["no-fit"], ruling: NOFIT },
+  { text: "The {name} tray doesn't fit yet", states: NO_FIT, ruling: NOFIT },
+  { text: "Not everything fits yet", states: NO_FIT, ruling: NOFIT },
+  { text: "There's no room left for it in the box.", states: ["no-fit", "m-fix"], ruling: NOFIT },
   { text: "It's too big for your printer's bed.", states: ["no-fit-bed"], ruling: NOFIT },
-  { text: "The {name} tray doesn't fit yet", states: ["no-fit-bed"], ruling: NOFIT },
-  { text: "{name} doesn't fit with your pins", states: ["pin-conflict"], ruling: PINS },
-  { text: "Unpin {name}", states: ["pin-conflict"], ruling: PINS },
+  { text: "{name} doesn't fit with your pins", states: PIN_CONFLICT, ruling: PINS },
+  { text: "{name} doesn't fit with its size locked", states: PIN_CONFLICT, ruling: PINS },
+  { text: "Unpin {name}", states: PIN_CONFLICT, ruling: PINS },
+  { text: "Unlock size of {name}", states: PIN_CONFLICT, ruling: PINS },
+  // PinConflict's Undo is a board literal; MobileFix has none, and the phone's column is the same
+  { text: "Undo", states: ["m-pin-conflict"], ruling: PINS },
+  { text: "Doesn't fit", states: FIT_PROBLEMS, ruling: FIT_ROW },
   { text: "Make a new plan", states: ["workspace-banner"], ruling: BANNERS },
   {
     text: "Trays printed from it won't stack with trays you print now.",
@@ -273,7 +298,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Show all", states: ["workspace-notes"], ruling: NOTES },
   { text: "Warning:", states: ["workspace-notes"], ruling: NOTES },
   { text: "Note:", states: ["workspace-notes"], ruling: NOTES },
-  { text: "Error:", states: ["workspace-notes", "no-fit"], ruling: NOTES },
+  { text: "Error:", states: ["workspace-notes", "no-fit", "no-fit-bed"], ruling: NOTES },
   // Task 7: under the box, and the marks a phone's plan keeps
   {
     text: "{name}, seen from above. Front of the box",

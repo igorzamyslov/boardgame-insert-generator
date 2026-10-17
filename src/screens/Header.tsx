@@ -259,6 +259,8 @@ export function Header(p: HeaderProps) {
     />
   );
   const download = p.downloadDisabled ? p.downloadReason : undefined;
+  // A reason that is the button's own words ("Fix the fit to download") is not said a second time.
+  const describedBy = p.downloadReason === p.downloadLabel ? "" : (p.downloadReason ?? "");
 
   if (p.phone) {
     return (
@@ -279,7 +281,8 @@ export function Header(p: HeaderProps) {
         <IconButton
           ref={p.downloadRef}
           variant="primary"
-          label={p.downloadLabel ?? "Download"}
+          // an icon: named Download whatever is wrong, and the reason is its title (MobileFix)
+          label="Download"
           icon={<Icon name="download" size={20} />}
           blockedReason={p.downloadDisabled ? (p.downloadReason ?? "") : undefined}
           onBlockedClick={p.onBlockedDownload}
@@ -312,7 +315,7 @@ export function Header(p: HeaderProps) {
         ref={p.downloadRef}
         variant="primary"
         icon={<Icon name="download" size={16} />}
-        blockedReason={p.downloadDisabled ? (p.downloadReason ?? "") : undefined}
+        blockedReason={p.downloadDisabled ? describedBy : undefined}
         onBlockedClick={p.onBlockedDownload}
         title={download}
         aria-haspopup="dialog"

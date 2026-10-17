@@ -59,6 +59,11 @@
   user-select: none;
 }
 
+/* A picture of a plan (the fit problems): what hangs over the frame's edge is cut at it, and nothing is a handle. */
+.plan-box[data-readonly="true"] {
+  overflow: hidden;
+}
+
 /*
  * The 3D view is the plan's frame without the plan's tan block: the model sits on the stage, in
  * its own colour, with no edge drawn round it. The canvas (transparent) takes the corners.
@@ -139,6 +144,32 @@
 
 .plan-tile:focus-visible {
   z-index: 2;
+}
+
+/* A picture's tiles are not handles. */
+.plan-box[data-readonly="true"] .plan-tile {
+  cursor: default;
+}
+
+/* NoFit's tray that does not fit: on top of the dimmed rest, a dashed warn edge on the warn wash, its name and nothing else. */
+.plan-tile.is-misfit {
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-12);
+  border: 2px dashed var(--warn);
+  background: var(--warn-bg);
+}
+
+.plan-misfit {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--warn-ink);
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The compartments, each at its own place and size in the tile's padding box (not a grid). */

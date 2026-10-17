@@ -48,8 +48,10 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    three sizes only, and its header has "Open file" and the project menu.
 4. **The plan.** The optimizer runs on its own 400 ms after you stop editing. A line above
    the box says the result ("Everything fits. 6 trays in 2 layers, 40 of 52 mm high.") or
-   what is wrong: it names the tray that doesn't fit and offers "Edit <name>"; when your
-   pins block the fit it offers "Unpin <name>" for each. "Keep searching" runs a longer
+   what is wrong. When nothing fits the screen shows the closest attempt, dimmed, with the tray
+   that doesn't fit marked, and "Ways to make it fit": "Edit <name>" and "Keep searching". When
+   your pins block the fit it shows the plan that was kept and "Unpin one": "Unpin <name>" (or
+   "Unlock size of <name>") for each pin in the way, and Undo. "Keep searching" runs a longer
    search (about three times the budget) from the current plan and never throws it away;
    it becomes "Stop" while the search runs. Trays are named by what they hold, never
    shown with numbers ("Market", "Spare by Market"). Spare trays and spacers fill gaps so the other

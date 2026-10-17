@@ -137,6 +137,32 @@
   white-space: normal;
 }
 
+/*
+ * The tray that does not fit (NoFit's row): the warn wash, a 1.5 px warn edge and its meta in warn ink 600.
+ * The board draws a 12 px warn dot where Main draws the kind's tile: the row keeps Main's tile, in the warn colours.
+ */
+.k-row.is-culprit {
+  --k-bg: var(--warn-bg);
+
+  border-color: var(--warn);
+}
+
+.k-row.is-culprit .k-row__meta {
+  color: var(--warn-ink);
+  font-weight: 600;
+}
+
+.k-row.is-culprit .k-tile {
+  background: var(--sheet);
+  color: var(--warn-ink);
+  box-shadow: inset 0 0 0 2px var(--warn);
+}
+
+.k-row--compact.is-culprit .k-row__swatch {
+  border-color: var(--warn);
+  background: var(--warn);
+}
+
 /* A row that has an error inside its editor says so in the error's colour. */
 .k-row[data-problem="true"] .k-row__meta {
   color: var(--danger);

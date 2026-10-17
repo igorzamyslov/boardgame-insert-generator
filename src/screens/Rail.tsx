@@ -18,6 +18,8 @@ interface ListProps {
   box: Box;
   /** The component the selected tray belongs to. */
   selectedId?: string | null;
+  /** The components whose tray does not fit: their rows say so. */
+  culprits?: ReadonlySet<string>;
   onOpenBox: () => void;
   onOpenEditor: (id: string) => void;
   onHover?: (id: string | null) => void;
@@ -82,6 +84,7 @@ export function Rail(p: RailProps) {
         trays={p.trays}
         locks={locks}
         selectedId={p.selectedId}
+        culprits={p.culprits}
         onOpen={p.onOpenEditor}
         onHover={p.onHover}
         onUnpin={p.onUnpin}
@@ -112,6 +115,7 @@ export function SheetList(p: ListProps) {
         components={p.components}
         trays={p.trays}
         locks={locks}
+        culprits={p.culprits}
         onOpen={p.onOpenEditor}
         onHover={p.onHover}
         onUnpin={p.onUnpin}

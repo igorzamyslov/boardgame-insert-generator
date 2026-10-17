@@ -313,6 +313,54 @@ describe("ComponentList", () => {
   });
 });
 
+describe("ComponentList, a row that does not fit", () => {
+  const comps = [named("cards", "a", "Market deck"), named("minis", "b", "Heroes")];
+
+  it("is lit in the warn style and says it in the meta, in place of what it holds", () => {
+    render(<ComponentList components={comps} culprits={new Set(["b"])} {...handlers()} />);
+    const row = screen.getByRole("button", { name: /^Heroes, / });
+    expect(row.classList.contains("is-culprit")).toBe(true);
+    expect(row.getAttribute("aria-label")).toBe("Heroes, Doesn't fit");
+    expect(row.querySelector(".k-row__meta")?.textContent).toBe("Doesn't fit");
+    const other = screen.getByRole("button", { name: /^Market deck, / });
+    expect(other.classList.contains("is-culprit")).toBe(false);
+    expect(other.querySelector(".k-row__meta")?.textContent).not.toBe("Doesn't fit");
+  });
+
+  it("keeps its rule chips", () => {
+    render(
+      <ComponentList
+        components={comps}
+        culprits={new Set(["a"])}
+        locks={[pin("a:p0:0")]}
+        {...handlers()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Unpin Market deck" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Market deck, / }).classList).toContain(
+      "is-culprit",
+    );
+  });
+
+  it("says Needs attention before it says Doesn't fit: an error in the editor comes first", () => {
+    const notices = [
+      { level: "error" as const, code: "x", message: "m", path: "/components/1/figures/0/h" },
+    ];
+    render(
+      <ValidationContext.Provider value={notices}>
+        <ComponentList components={comps} culprits={new Set(["b"])} {...handlers()} />
+      </ValidationContext.Provider>,
+    );
+    expect(screen.getByRole("button", { name: "Heroes, Needs attention" })).toBeTruthy();
+  });
+
+  it("says it in the phone sheet's compact row too", () => {
+    render(<ComponentList compact components={comps} culprits={new Set(["b"])} {...handlers()} />);
+    const row = screen.getByRole("button", { name: "Heroes, Doesn't fit" });
+    expect(row.classList.contains("is-culprit")).toBe(true);
+  });
+});
+
 function well(componentId: string) {
   return {
     x: 1.6,

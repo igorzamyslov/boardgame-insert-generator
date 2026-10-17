@@ -316,16 +316,30 @@ export const STATES = {
       { wait: 600 },
     ],
   },
+  // NoFit (Task 12): the closest attempt of a failed search (box height: Heroes 80 mm), the culprit
+  // tray marked, and the panel of what the engine can do. The seed holds no result (the store keeps
+  // none), so the state asks for a new plan and waits for the run.
   "no-fit": {
     board: "NoFit",
     viewport: DESKTOP,
     seed: "harbour-kings-nofit",
+    noPageScroll: true,
     steps: [MAKE_NEW_PLAN, { waitFor: { text: FIT_YET, timeout: 90_000 } }],
   },
+  // The bed variant: a tray no print bed orientation holds ("It's too big for your printer's bed.").
+  "no-fit-bed": {
+    board: "NoFit",
+    viewport: DESKTOP,
+    seed: "harbour-kings-nofit-bed",
+    noPageScroll: true,
+    steps: [MAKE_NEW_PLAN, { waitFor: { text: FIT_YET, timeout: 90_000 } }],
+  },
+  // PinConflict (Task 12): the plan the runner kept, the pins whole, and the column "Unpin one".
   "pin-conflict": {
     board: "PinConflict",
     viewport: DESKTOP,
     seed: "harbour-kings-pins",
+    noPageScroll: true,
     steps: [MAKE_NEW_PLAN, { waitFor: { text: /fit with/, timeout: 90_000 } }],
   },
   settings: {
@@ -408,11 +422,20 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [{ click: { role: "button", name: "Download" } }],
   },
+  // MobileFix (Task 12): the heading, the attempt and the peek sheet "Ways to make it fit".
   "m-fix": {
     board: "MobileFix",
     viewport: PHONE,
     seed: "harbour-kings-nofit",
     steps: [MAKE_NEW_PLAN, { waitFor: { text: FIT_YET, timeout: 90_000 } }],
+  },
+  // Pins in the way on a phone: no board draws it; MobileFix's sheet is the nearest (titled "Unpin one").
+  "m-pin-conflict": {
+    board: "MobileFix",
+    nearest: 'MobileFix, whose sheet holds the cards of pins in the way ("Unpin one") on a phone',
+    viewport: PHONE,
+    seed: "harbour-kings-pins",
+    steps: [MAKE_NEW_PLAN, { waitFor: { text: /fit with/, timeout: 90_000 } }],
   },
   // MobileBox: the sheet fills the screen; its h1 is "The box" and the side view is under the fields.
   "m-box": {

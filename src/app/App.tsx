@@ -11,6 +11,7 @@ import { errorText } from "../util/errors";
 import { BoxStage } from "../screens/BoxStage";
 import { BoxSideView } from "../screens/BoxSideView";
 import { EditorStage, EditorStrip, ProblemLine } from "../screens/EditorStage";
+import { FitCards, FitProblem, fitKindOf, fitTitle } from "../screens/FitProblem";
 import type { EditNote } from "../screens/EditorStage";
 import { Header } from "../screens/Header";
 import { hoveredComponent } from "../screens/hover";
@@ -34,10 +35,10 @@ import { Notices } from "../ui/Notices";
 import { placeNotices } from "../ui/noticePlacement";
 import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
-import { misfitOf } from "../ui/noFit";
 import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
 import { componentIndexOfTray, mm } from "../ui/identity";
+import { misfitOf, namedConflicts } from "../ui/noFit";
 import {
   SettingsContext,
   SizingContext,
@@ -52,6 +53,7 @@ import {
   clearChoices,
   lockedKeys,
   removeComponent,
+  requirementKey,
   removeLock,
   renameProject,
   setSettings,
@@ -196,6 +198,28 @@ export function App(props: AppProps) {
   // The older plan the person chose to keep (project and geometry line), so its banner stays away.
   const [geometryKept, setGeometryKept] = useState<string | null>(null);
   const run = s.run.value;
+  // A fit problem's cards and the heading's Stop trade places as Keep searching and Stop do in the
+  // heading (StageTop): the button pressed goes with its screen, so the focus is handed on, and only
+  // when it fell to the page. Keep searching on the cards hands it to Stop; a run that ends on a fit
+  // problem hands it to the first card.
+  const working = run.status === "running" || s.runPending.value;
+  const wasWorking = useRef(working);
+  const keptFromFit = useRef(false);
+  useEffect(() => {
+    const was = wasWorking.current;
+    wasWorking.current = working;
+    const active = document.activeElement;
+    if (active !== null && active !== document.body) {
+      return;
+    }
+    if (working && keptFromFit.current) {
+      keptFromFit.current = false;
+      document.querySelector<HTMLElement>('[data-toggle="stop"]')?.focus();
+    } else if (was && !working) {
+      keptFromFit.current = false;
+      document.querySelector<HTMLElement>("[data-fit-first]")?.focus();
+    }
+  });
   useEffect(() => {
     setRemoved(null);
     setExportOpen(false);
@@ -320,7 +344,13 @@ export function App(props: AppProps) {
   // Where each notice shows: the one banner, the project menu (with a dot), or inline.
   const noFit =
     s.shortfall.value !== null || layoutNotices.some((n) => n.code === NOTICE_CODES.doesNotFit);
-  const conflicts = s.lockConflicts.value;
+  // The pins the last run could not keep, called by the names the plan gives the trays.
+  const conflicts = namedConflicts(
+    s.lockConflicts.value,
+    layout?.trays,
+    project.components,
+    project.locks,
+  );
   const canPlan = canOptimize(project, validation);
   const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
   // The older-geometry notice the person chose to keep is not shown, so it must not hide the stale
@@ -428,6 +458,10 @@ export function App(props: AppProps) {
     selectedTray === undefined ? null : componentIndexOfTray(selectedTray, project.components);
   const selectedId =
     selectedIndex === null ? null : (project.components[selectedIndex]?.id ?? null);
+  // The tray the closest attempt could not fit, for the status and for the picture that marks it.
+  const misfit = noFit
+    ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components)
+    : null;
   // What the status says (the heading; and, while an editor is open, the problems it still tells).
   const statusInput: StatusInput = {
     run,
@@ -437,19 +471,45 @@ export function App(props: AppProps) {
     hasLayout: layout !== undefined,
     fits,
     canSearchMore: !s.geometryOld.value,
-    noFit: noFit
-      ? {
-          misfit: misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components),
-        }
-      : null,
+    noFit: noFit ? { misfit } : null,
     conflicts,
     hiddenErrors: errorsWithoutField(validation),
     problems,
   };
+  const status = statusOf(statusInput);
   // The component whose editor is open (the rail's, the sheet's), if it is still there.
   const editedComponent =
     editingId === null ? undefined : project.components.find((c) => c.id === editingId);
   const editing = editedComponent !== undefined;
+  // A fit problem has the stage to itself (NoFit, PinConflict, MobileFix) unless an editor or the
+  // box is open: their stages tell it in a line.
+  const fitKind = status.fit === undefined ? null : fitKindOf(status.fit);
+  const showFit = fitKind !== null && !editing && !boxOpen;
+  // The rows that say "Doesn't fit": the tray of the closest attempt that does not, or the tray the
+  // heading names (the first pin in the way).
+  const firstConflict = conflicts[0];
+  const culpritId =
+    fitKind === "noFit"
+      ? misfit?.componentId
+      : fitKind === "pinConflict" && firstConflict !== undefined
+        ? project.components.find((c) => firstConflict.trayKey.startsWith(`${requirementKey(c)}:`))
+            ?.id
+        : undefined;
+  const culprits = culpritId === undefined ? undefined : new Set([culpritId]);
+  const fixes = {
+    kind: fitKind ?? "noFit",
+    actions: status.actions,
+    canUndo: store.canUndo.value,
+    onUndo: () => store.undo(),
+    onShow: showSection,
+    onKeepSearching: () => {
+      keptFromFit.current = true;
+      store.refit();
+    },
+    onUnpin: (c: { trayKey: string; kind?: "position" | "size" | "stack" }) =>
+      store.unpin(c.trayKey, c.kind),
+  } as const;
+
   const clearEditNote = useCallback(() => setEditNote(null), []);
   // The phone's strip in the sheet's editor: the tray drawn small, and the sentence or the note.
   const editorStrip =
@@ -462,7 +522,7 @@ export function App(props: AppProps) {
         settings={projSettings}
         note={editNote}
         onNoteDone={clearEditNote}
-        problem={editorProblem(statusOf(statusInput))}
+        problem={editorProblem(status)}
         onRetry={() => store.retry()}
       />
     ) : undefined;
@@ -484,6 +544,7 @@ export function App(props: AppProps) {
       printer={projPrinter}
       phone={phone}
       selectedId={selectedId}
+      culprits={culprits}
       onOpenBox={openBox}
       onSettings={() => openSettings()}
       onHover={(id) => {
@@ -515,7 +576,7 @@ export function App(props: AppProps) {
   );
   // The box's editor, in the rail's place (the phone's sheet holds it whole, with the side view under
   // the fields). The problem the plan has, told by the heading while it is drawn, is a line here.
-  const boxProblem = editorProblem(statusOf(statusInput));
+  const boxProblem = editorProblem(status);
   const boxSideView = (
     <BoxSideView
       box={project.box}
@@ -539,11 +600,6 @@ export function App(props: AppProps) {
       />
     </div>
   );
-  // Below 760 px the status pill has no room for Keep searching on a plan that doesn't fit:
-  // the sheet's bar offers it.
-  const searchOnPhone =
-    noFit && !s.geometryOld.value && !s.runPending.value && run.status !== "running" && canPlan;
-
   // The editor is showing in the sheet, or the box has it: the sheet is "full"; below 600 px that
   // fills the screen, and what is behind it is out of reach of Tab and screen readers (inert).
   const sheetFull = editing || boxOpen;
@@ -612,17 +668,20 @@ export function App(props: AppProps) {
         }
         downloadLabel={fitProblem ? "Fix the fit to download" : undefined}
         downloadReason={
-          layout === undefined
-            ? canPlan
-              ? "Wait for the first plan"
-              : "Fix the errors marked in the inputs first"
-            : s.runPending.value
-              ? "Wait for the plan to finish"
-              : s.geometryOld.value && !showStale
-                ? GEOMETRY_REPRINT_REASON
-                : s.stale.value
-                  ? "Make a new plan first"
-                  : undefined
+          fitProblem
+            ? // the run was made and the plan does not fit: that is what is in the way, not a stale plan
+              "Fix the fit to download"
+            : layout === undefined
+              ? canPlan
+                ? "Wait for the first plan"
+                : "Fix the errors marked in the inputs first"
+              : s.runPending.value
+                ? "Wait for the plan to finish"
+                : s.geometryOld.value && !showStale
+                  ? GEOMETRY_REPRINT_REASON
+                  : s.stale.value
+                    ? "Make a new plan first"
+                    : undefined
         }
         // A blocked Download pressed while the old plan is kept brings its banner back:
         // Reprint everything is the way out, and the person asked where it is.
@@ -642,11 +701,21 @@ export function App(props: AppProps) {
       {fileInput}
     </>
   );
-  const railSlot = boxOpen ? boxEditor : whatsInside;
+  // A phone's sheet holds the fit problem's cards over the list (MobileFix): the list stays one tap away.
+  const railSlot = boxOpen ? (
+    boxEditor
+  ) : showFit && phone ? (
+    <>
+      <FitCards {...fixes} />
+      {whatsInside}
+    </>
+  ) : (
+    whatsInside
+  );
   // A phone's tray bar is a modal sheet (MobileTray). It gives way to an editor in the sheet below, and
   // to the plan while a swap is chosen (SelectedTrayBar). It is in the top layer: where it is in the tree does not matter.
   const traySheet =
-    phone && hasSelectedTray && !editing && !boxOpen ? (
+    phone && hasSelectedTray && !editing && !boxOpen && !showFit ? (
       <SelectedTrayBar
         {...barProps}
         phone
@@ -771,8 +840,29 @@ export function App(props: AppProps) {
           plan={planProps}
           placeholder={workingOnIt}
           after={stageNotes}
-          problem={editorProblem(statusOf(statusInput))}
+          problem={editorProblem(status)}
           onRetry={() => store.retry()}
+        />
+      ) : showFit ? (
+        // NoFit, PinConflict and MobileFix: the heading, the picture and the panel of what to do.
+        <FitProblem
+          {...fixes}
+          status={status}
+          trays={
+            fitKind === "noFit"
+              ? (s.noFitAttempt.value?.trays ?? (layout ? printable : null))
+              : layout
+                ? printable
+                : null
+          }
+          box={project.box}
+          settings={projSettings}
+          components={project.components}
+          lockedKeys={locked}
+          misfitKey={misfit?.trayKey}
+          focusKey={fitKind === "noFit" ? misfit?.trayKey : firstConflict?.trayKey}
+          phone={phone}
+          after={stageNotes}
         />
       ) : (
         <>
@@ -791,7 +881,6 @@ export function App(props: AppProps) {
             onStop={() => store.cancelRun()}
             onRetry={() => store.retry()}
             onShow={showSection}
-            onUnpin={(c) => store.unpin(c.trayKey, c.kind)}
           />
           <section class="plan-col" aria-label="Preview" data-region="plan">
             {planProps !== null ? (
@@ -902,8 +991,8 @@ export function App(props: AppProps) {
             />
           ) : (
             <Workspace
-              focus={(editing || boxOpen) && !phone}
-              class={editing ? "ws--edit" : boxOpen ? "ws--box" : undefined}
+              focus={(editing || boxOpen || (showFit && fitKind === "noFit")) && !phone}
+              class={editing ? "ws--edit" : boxOpen ? "ws--box" : showFit ? "ws--fit" : undefined}
               header={headerSlot}
               rail={railSlot}
               stage={stageSlot}
@@ -912,9 +1001,12 @@ export function App(props: AppProps) {
                 !phone
                   ? undefined
                   : {
-                      label: "The box and what's inside",
-                      title: "What's inside",
-                      summary: String(project.components.length),
+                      label:
+                        showFit && fitKind !== null
+                          ? fitTitle(fitKind)
+                          : "The box and what's inside",
+                      title: showFit && fitKind !== null ? fitTitle(fitKind) : "What's inside",
+                      summary: showFit ? undefined : String(project.components.length),
                       handleLabel: "Show everything",
                       expanded: sheetOpen,
                       full: sheetFull,
@@ -931,25 +1023,10 @@ export function App(props: AppProps) {
                           setBoxOpen(false);
                         }
                       },
-                      action: (
-                        <>
-                          {searchOnPhone ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                store.refit();
-                                // The button goes with the search: the handle keeps the place.
-                                sheetHandle.current?.focus();
-                              }}
-                            >
-                              Keep searching
-                            </button>
-                          ) : null}
-                          {editing || boxOpen ? null : (
-                            <AddMenu placement="above" onPick={addComponentOfKind} />
-                          )}
-                        </>
-                      ),
+                      action:
+                        editing || boxOpen || showFit ? null : (
+                          <AddMenu placement="above" onPick={addComponentOfKind} />
+                        ),
                     }
               }
             />

@@ -118,6 +118,38 @@ describe("Header", () => {
     );
   });
 
+  it("keeps the phone's Download named Download when the fit is what is wrong, the sentence its title (MobileFix)", () => {
+    render(
+      <Header
+        {...props({
+          phone: true,
+          downloadDisabled: true,
+          downloadLabel: "Fix the fit to download",
+          downloadReason: "Fix the fit to download",
+        })}
+      />,
+    );
+    const b = screen.getByRole("button", { name: "Download" });
+    expect(b.getAttribute("aria-disabled")).toBe("true");
+    expect(b.getAttribute("title")).toBe("Fix the fit to download");
+    expect(screen.queryByRole("button", { name: "Fix the fit to download" })).toBeNull();
+  });
+
+  it("does not say a desktop Download's own words twice: no description when they are the reason", () => {
+    render(
+      <Header
+        {...props({
+          downloadDisabled: true,
+          downloadLabel: "Fix the fit to download",
+          downloadReason: "Fix the fit to download",
+        })}
+      />,
+    );
+    const b = screen.getByRole("button", { name: "Fix the fit to download" });
+    expect(b.getAttribute("aria-disabled")).toBe("true");
+    expect(b.getAttribute("aria-describedby")).toBeNull();
+  });
+
   it("hands the Download button to the app's ref", () => {
     const downloadRef = createRef<HTMLButtonElement>();
     render(<Header {...props({ downloadRef })} />);

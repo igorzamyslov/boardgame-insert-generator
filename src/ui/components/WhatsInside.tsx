@@ -25,6 +25,8 @@ export interface WhatsInsideProps {
   phone?: boolean;
   /** The component the selected tray belongs to. */
   selectedId?: string | null;
+  /** The components whose tray does not fit (a fit problem): their rows say so. */
+  culprits?: ReadonlySet<string>;
   onOpenBox: () => void;
   onSettings: () => void;
   onHover?: (id: string | null) => void;
@@ -58,6 +60,7 @@ export function WhatsInside({
   printer,
   phone = false,
   selectedId,
+  culprits,
   onOpenBox,
   onSettings,
   onHover,
@@ -129,6 +132,7 @@ export function WhatsInside({
       locks,
       box,
       selectedId,
+      culprits,
       onOpenBox,
       onOpenEditor: setOpenId,
       onHover,

@@ -32,8 +32,6 @@ export interface Fits {
 interface KeepAction {
   kind: "keep";
   label: string;
-  /** Left out on a phone: the sheet's bar offers it there. */
-  phoneOff?: boolean;
 }
 
 /** One thing the status offers to do. The stage binds each kind to a handler. */
@@ -56,6 +54,11 @@ export interface Status {
   actions: readonly StatusAction[];
   /** The words go out as an alert as well: a failure the person has to hear. */
   alert?: boolean;
+  /**
+   * A fit problem: the stage draws `FitProblem` (the attempt or the kept plan, and a panel with
+   * these actions) in place of the plan's own controls.
+   */
+  fit?: "noFit" | "pins";
 }
 
 /** A part of the app that holds an error: the status offers a way to it. */
@@ -104,6 +107,17 @@ const conflictSentence = (c: LockConflict): string =>
     ? `${c.name} doesn't fit with its size locked`
     : `${c.name} doesn't fit with your pins`;
 
+/**
+ * The engine's reasons (phrases that continue "…because", no full stop), each once, as sentences:
+ * "The pins together leave no layout that fits."
+ */
+export function conflictLine(conflicts: readonly LockConflict[]): string {
+  const reasons = [...new Set(conflicts.map((c) => c.reason.trim()).filter((r) => r !== ""))];
+  return reasons
+    .map((r) => `${r.charAt(0).toUpperCase()}${r.slice(1)}${/[.!?…]$/.test(r) ? "" : "."}`)
+    .join(" ");
+}
+
 /** What the editor still says of the plan when its status heading is not drawn: a failed run, no fit, or pins in the way. */
 export interface EditorProblem {
   tone: "error" | "warn";
@@ -133,8 +147,10 @@ export function editorProblem(status: Status): EditorProblem | null {
 }
 
 /**
- * What the status heading says: its tone, the h1, the muted line and what to press. Task 12 adds
- * the fit problems' fixes here.
+ * What the status heading says: its tone, the h1, the muted line and what to press. A fit problem
+ * (no fit, pins in the way) is the heading of its own stage: `fit` says which, and the actions are
+ * the cards of its panel, each one something the engine can do (DESIGN §6): Edit the tray that
+ * does not fit and Keep searching; Unpin or Unlock size per conflict.
  */
 export function statusOf(s: StatusInput): Status {
   const keep: KeepAction[] = s.canSearchMore ? [{ kind: "keep", label: "Keep searching" }] : [];
@@ -171,15 +187,13 @@ export function statusOf(s: StatusInput): Status {
   if (s.pending) {
     return { tone: "info", title: MAKING_PLAN_MESSAGE, actions: [] };
   }
-  const [first, ...rest] = s.conflicts;
+  const [first] = s.conflicts;
   if (first !== undefined) {
     return {
       tone: "warn",
+      fit: "pins",
       title: conflictSentence(first),
-      list:
-        rest.length > 0
-          ? { label: "More pins in the way", items: rest.map(conflictSentence) }
-          : undefined,
+      line: conflictLine(s.conflicts),
       actions: s.conflicts.map((c) => ({
         kind: "unpin",
         conflict: c,
@@ -191,6 +205,7 @@ export function statusOf(s: StatusInput): Status {
     const misfit = s.noFit.misfit;
     return {
       tone: "warn",
+      fit: "noFit",
       title:
         misfit === null ? "Not everything fits yet" : `The ${misfit.name} tray doesn't fit yet`,
       line:
@@ -203,7 +218,7 @@ export function statusOf(s: StatusInput): Status {
         ...(misfit === null
           ? []
           : [{ kind: "show", id: misfit.componentId, label: `Edit ${misfit.name}` } as const]),
-        ...keep.map((a) => ({ ...a, phoneOff: true })),
+        ...keep,
       ],
     };
   }
@@ -292,7 +307,6 @@ export interface StageTopProps extends StatusInput {
   onRetry: () => void;
   /** A component's id, "box" or "settings". */
   onShow: (id: string) => void;
-  onUnpin: (conflict: LockConflict) => void;
 }
 
 /**
@@ -323,8 +337,9 @@ export function StageTop(p: StageTopProps) {
     }
   });
 
+  // A fit problem's actions are the cards of its own panel (FitProblem), not pills in the heading.
   const actions = status.actions
-    .filter((a) => !(a.kind === "keep" && a.phoneOff === true && p.phone))
+    .filter((a) => a.kind !== "unpin")
     .map((a) => {
       switch (a.kind) {
         case "keep":
@@ -377,16 +392,6 @@ export function StageTop(p: StageTopProps) {
         case "show":
           return (
             <Button key={a.id} title={a.label} onClick={() => p.onShow(a.id)}>
-              <span class="ellipsis">{a.label}</span>
-            </Button>
-          );
-        case "unpin":
-          return (
-            <Button
-              key={`${a.conflict.trayKey}|${a.conflict.kind ?? ""}`}
-              title={a.label}
-              onClick={() => p.onUnpin(a.conflict)}
-            >
               <span class="ellipsis">{a.label}</span>
             </Button>
           );
