@@ -426,15 +426,20 @@ describe("style.css", () => {
     expect(body).toMatch(/height:\s*100%/);
   });
 
-  it("draws the 3D view in the plan's frame: the same size, radius and ground", () => {
+  it("draws the 3D view in the plan's frame: the same size and radius, on the stage's own colour", () => {
     const frame = ruleFor(".viewer-stage", plan);
     expect(frame).toBe(ruleFor(".plan-box", plan));
     expect(frame).toMatch(
       /--side:\s*min\(\s*582px,\s*calc\(\(100cqw - 12px\) \* var\(--long\) \/ var\(--box-w\) \+ 12px\),\s*calc\(\(100cqh - 12px\) \* var\(--long\) \/ var\(--box-l\) \+ 12px\)\s*\)/,
     );
     expect(frame).toMatch(/border-radius:\s*var\(--r-panel\)/);
+    // the plan's box is tan; the model is not in a tan block: it sits on the stage, with no edge drawn round it
     expect(frame).toMatch(/background:\s*var\(--box\)/);
+    const ground = ruleFor(".viewer-stage", plan, true);
+    expect(ground).toMatch(/background:\s*var\(--page\)/);
+    expect(ground).toMatch(/box-shadow:\s*none/);
     expect(ruleFor(".viewer-canvas")).toMatch(/border-radius:\s*inherit/);
+    expect(ruleFor(".viewer-canvas")).not.toMatch(/background/);
   });
 
   it("lets every pointer event through the axis indicator, so trays under it can still be picked", () => {
@@ -454,8 +459,14 @@ describe("style.css", () => {
     const under = ruleFor(".viewer-under");
     expect(under).toMatch(/position:\s*absolute/);
     expect(under).toMatch(/bottom:\s*var\(--s-8\)/);
-    expect(under).toMatch(/max-height:\s*55%/);
-    expect(ruleFor(".viewer-under .tray-picker")).toMatch(/flex-wrap:\s*nowrap/);
+    // the strip is no panel: the pointer reaches the canvas round the one row of controls
+    expect(under).toMatch(/pointer-events:\s*none/);
+    expect(under).not.toMatch(/background/);
+    expect(ruleFor(".viewer-under > *")).toMatch(/pointer-events:\s*auto/);
+    const row = ruleFor(".viewer-controls");
+    expect(row).toMatch(/background:\s*var\(--pill-fill\)/);
+    expect(row).toMatch(/align-items:\s*center/);
+    expect(css).not.toMatch(/\.tray-picker|\.tray-chip/);
   });
 
   it("lets one finger scroll the page past the 3D canvas", () => {

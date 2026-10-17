@@ -7,7 +7,6 @@ import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering"
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { SelectField } from "../ui/fields";
-import { lookOfTray } from "../plan/glyph";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
 import { pageScheme, shadeColorOf } from "./shades";
@@ -243,6 +242,32 @@ export function Viewer(p: ViewerProps) {
       part.spec.part !== "divider" &&
       (shownLevel === null || part.spec.level <= shownLevel),
   );
+  // The arrow keys step through the trays the scene shows, ends wrapping round: a keyboard route
+  // to every tray, now that the scene has no row of chips for it.
+  const stepTray = (e: KeyboardEvent): void => {
+    const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+    if (
+      (!forward && e.key !== "ArrowLeft" && e.key !== "ArrowUp") ||
+      e.altKey ||
+      e.ctrlKey ||
+      e.metaKey ||
+      pickable.length === 0
+    ) {
+      return;
+    }
+    e.preventDefault();
+    const at = pickable.findIndex((part) => part.spec.key === p.selectedKey);
+    const next =
+      at < 0
+        ? forward
+          ? 0
+          : pickable.length - 1
+        : (at + (forward ? 1 : -1) + pickable.length) % pickable.length;
+    const key = pickable[next]?.spec.key;
+    if (key !== undefined) {
+      p.onSelect(key);
+    }
+  };
   const selected = p.selectedKey === null ? undefined : byKey.get(p.selectedKey);
   const selectedName = selected ? (names.get(selected.spec.key)?.full ?? selected.label) : null;
   return (
@@ -256,7 +281,9 @@ export function Viewer(p: ViewerProps) {
             key={canvasKey}
             ref={canvasRef}
             class="viewer-canvas"
-            aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details. On a touch screen use two fingers; one finger scrolls the page."
+            tabIndex={0}
+            aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details, or step through the trays with the arrow keys. On a touch screen use two fingers; one finger scrolls the page."
+            onKeyDown={stepTray}
           />
           {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
           {/* Always mounted, so a reader that watches it hears the name appear. */}
@@ -361,34 +388,6 @@ export function Viewer(p: ViewerProps) {
                 />
               ) : null}
             </div>
-            {pickable.length > 0 ? (
-              <ul class="tray-picker" aria-label="Trays">
-                {pickable.map((part) => {
-                  const key = part.spec.key;
-                  const isSelected = key === p.selectedKey;
-                  // The shade the plan tile has: one colour per component, everywhere.
-                  const tint = lookOfTray(part.spec, p.components ?? [])?.shade.fill ?? null;
-                  return (
-                    <li key={key}>
-                      <button
-                        type="button"
-                        data-key={key}
-                        aria-pressed={isSelected}
-                        aria-label={names.get(key)?.full ?? part.label}
-                        onClick={() => p.onSelect(isSelected ? null : key)}
-                      >
-                        <span
-                          class={tint === null ? "tray-chip tray-chip--spare" : "tray-chip"}
-                          style={tint === null ? undefined : { "--tint": tint }}
-                          aria-hidden="true"
-                        />
-                        {names.get(key)?.full ?? part.label}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
           </div>
         </div>
       </div>

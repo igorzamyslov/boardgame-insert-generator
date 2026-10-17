@@ -6,7 +6,7 @@ import type { MeshSource } from "../app/meshes";
 import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { SPACER_SHADE, shadeHex, shadeIndexOf, shadeOf } from "../ui/identity";
+import { SPACER_SHADE, shadeHex } from "../ui/identity";
 import type { Component } from "../model/types";
 import type { ViewBasis } from "./axes";
 import type { SceneFactory, SceneHandle } from "./types";
@@ -233,7 +233,6 @@ describe("Viewer", () => {
       scene.pick("b:p0:0");
       expect(p.onSelect).toHaveBeenCalledWith("b:p0:0");
       expect(scene.handle.setTrays).toHaveBeenCalledTimes(1);
-      expect(screen.getAllByRole("button", { name: /^Spare \d$/ })).toHaveLength(2);
     });
   });
 
@@ -463,11 +462,14 @@ describe("Viewer", () => {
     expect(fit?.style.getPropertyValue("--box-l")).toBe("150");
     const frame = fit?.querySelector(".viewer-stage");
     expect(frame?.querySelector("canvas.viewer-canvas")).not.toBeNull();
-    // the axes toggle is in the frame's corner; the controls and the picker are a strip inside it, out of the flow
+    // the axes toggle is in the frame's corner; the one row of controls is inside it, out of the flow
     expect(frame?.querySelector(".viewer-axes-toggle")).not.toBeNull();
     const under = container.querySelector(".viewer-under");
-    expect(under?.querySelector(".viewer-controls")).not.toBeNull();
-    expect(under?.querySelector(".tray-picker")).not.toBeNull();
+    const row = under?.querySelector(".viewer-controls");
+    expect(row).not.toBeNull();
+    // Spread apart and Show layers are the one row; nothing else sits in the strip but messages
+    expect(row?.querySelectorAll("input[type=range], select")).toHaveLength(2);
+    expect(under?.querySelector("ul, li")).toBeNull();
     expect(frame?.contains(under ?? null)).toBe(true);
     expect(frame?.getAttribute("data-region")).toBe("plan-box");
   });
@@ -601,78 +603,69 @@ describe("Viewer", () => {
     });
   });
 
-  describe("tray picker", () => {
+  describe("choosing a tray without the pointer", () => {
     const named = [
       makeTray({ key: "a:p0:0", level: 0 }),
-      makeTray({
-        key: "b:p0:0",
-        level: 1,
-        z: 40,
-        compartments: [
-          {
-            x: 1.6,
-            y: 1.6,
-            w: 10,
-            d: 10,
-            floorZ: 1.2,
-            kind: "well",
-            contents: "Market ×20",
-            features: [],
-          },
-        ],
-      }),
+      makeTray({ key: "b:p0:0", level: 1, z: 40, compartments: [deckWell("Market ×20")] }),
       makeTray({ key: "a:p0:0:spacer", part: "spacer", level: 0, compartments: [] }),
+      makeTray({ key: "c:p0:0", level: 1, z: 40 }),
     ];
 
-    it("lists the trays except spacers as toggle buttons and selects on click", () => {
+    it("has no row of tray chips: a tray is chosen in the scene, the rail or with the keys", () => {
       const scene = stubScene();
-      const p = props(
-        { trays: named, selectedKey: "b:p0:0", components: fixtureProject().components },
-        scene,
-      );
-      render(<Viewer {...p} />);
-      const list = screen.getByRole("list", { name: "Trays" });
-      const buttons = [...list.querySelectorAll("button")];
-      // named after what they hold, no number in front
-      expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
-        "Spare by Market",
-        "Market",
-      ]);
-      expect(buttons.map((b) => b.textContent)).toEqual(["Spare by Market", "Market"]);
-      expect(buttons.map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "true"]);
-      fireEvent.click(buttons[0] as HTMLButtonElement);
+      const { container } = render(<Viewer {...props({ trays: named }, scene)} />);
+      expect(screen.queryByRole("list", { name: "Trays" })).toBeNull();
+      expect(container.querySelector(".tray-picker, .tray-chip")).toBeNull();
+      expect(container.querySelector(".viewer-under button[data-key]")).toBeNull();
+    });
+
+    it("makes the canvas a tab stop that the arrow keys step through the trays from, spacers left out", () => {
+      const scene = stubScene();
+      const p = props({ trays: named, selectedKey: null }, scene);
+      const view = render(<Viewer {...p} />);
+      const canvas = view.container.querySelector("canvas") as HTMLCanvasElement;
+      expect(canvas.tabIndex).toBe(0);
+      fireEvent.keyDown(canvas, { key: "ArrowRight" });
       expect(p.onSelect).toHaveBeenLastCalledWith("a:p0:0");
-      fireEvent.click(buttons[1] as HTMLButtonElement);
-      expect(p.onSelect).toHaveBeenLastCalledWith(null);
+      view.rerender(<Viewer {...p} selectedKey="a:p0:0" />);
+      fireEvent.keyDown(canvas, { key: "ArrowRight" });
+      expect(p.onSelect).toHaveBeenLastCalledWith("b:p0:0");
+      view.rerender(<Viewer {...p} selectedKey="b:p0:0" />);
+      fireEvent.keyDown(canvas, { key: "ArrowDown" });
+      expect(p.onSelect).toHaveBeenLastCalledWith("c:p0:0");
+      // the ends wrap round
+      view.rerender(<Viewer {...p} selectedKey="c:p0:0" />);
+      fireEvent.keyDown(canvas, { key: "ArrowRight" });
+      expect(p.onSelect).toHaveBeenLastCalledWith("a:p0:0");
+      view.rerender(<Viewer {...p} selectedKey="a:p0:0" />);
+      fireEvent.keyDown(canvas, { key: "ArrowLeft" });
+      expect(p.onSelect).toHaveBeenLastCalledWith("c:p0:0");
+      view.rerender(<Viewer {...p} selectedKey="b:p0:0" />);
+      fireEvent.keyDown(canvas, { key: "ArrowUp" });
+      expect(p.onSelect).toHaveBeenLastCalledWith("a:p0:0");
     });
 
-    it("tints a tray by its component and marks the others as spare", () => {
+    it("leaves other keys, and the keys with a modifier, to the browser", () => {
       const scene = stubScene();
-      const components = fixtureProject().components;
-      const { container } = render(<Viewer {...props({ trays: named, components }, scene)} />);
-      const chips = [...container.querySelectorAll<HTMLElement>(".tray-picker .tray-chip")];
-      expect(chips).toHaveLength(2);
-      expect(chips[0]?.classList.contains("tray-chip--spare")).toBe(true);
-      expect(chips[0]?.style.getPropertyValue("--tint")).toBe("");
-      expect(chips[1]?.classList.contains("tray-chip--spare")).toBe(false);
-      // The same shade as the plan tile and the 3D tray: the component's place among its kind.
-      const at = components.findIndex((c) => c.name === "Market");
-      const market = components[at] as Component;
-      expect(chips[1]?.style.getPropertyValue("--tint")).toBe(
-        shadeOf(market.kind, shadeIndexOf(components, at)).fill,
-      );
+      const p = props({ trays: named }, scene);
+      const { container } = render(<Viewer {...p} />);
+      const canvas = container.querySelector("canvas") as HTMLCanvasElement;
+      fireEvent.keyDown(canvas, { key: "Tab" });
+      fireEvent.keyDown(canvas, { key: "ArrowRight", altKey: true });
+      fireEvent.keyDown(canvas, { key: "ArrowRight", metaKey: true });
+      expect(p.onSelect).not.toHaveBeenCalled();
     });
 
-    it("lists only the trays on the layers shown", async () => {
+    it("steps only through the trays on the layers shown", () => {
       const scene = stubScene();
-      render(
-        <Viewer {...props({ trays: named, components: fixtureProject().components }, scene)} />,
-      );
+      const p = props({ trays: named, selectedKey: "a:p0:0" }, scene);
+      const { container } = render(<Viewer {...p} />);
       fireEvent.change(screen.getByLabelText("Show layers"), { target: { value: "0" } });
-      const list = screen.getByRole("list", { name: "Trays" });
-      expect([...list.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"))).toEqual(
-        ["Spare by Market"],
-      );
+      fireEvent.keyDown(container.querySelector("canvas") as HTMLCanvasElement, {
+        key: "ArrowRight",
+      });
+      // layer 1 holds one tray (and a spacer): the step lands on itself
+      expect(p.onSelect).toHaveBeenLastCalledWith("a:p0:0");
     });
   });
 });

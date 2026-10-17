@@ -28,10 +28,16 @@ export interface SelectedTrayBarProps {
   onEditComponent: (id: string) => void;
 }
 
-/** Where the focus goes when the bar closes: the tray it was for, in whichever view shows it. */
+/**
+ * Where the focus goes when the bar closes: the tray it was for in the plan; in the 3D view, which
+ * has no element per tray, its canvas, whose arrow keys step through the trays.
+ */
 function focusTray(key: string, inPlan: boolean): void {
-  const selector = inPlan ? ".plan-tile" : ".tray-picker button";
-  const target = [...document.querySelectorAll<HTMLElement>(selector)].find(
+  if (!inPlan) {
+    document.querySelector<HTMLElement>(".viewer-canvas")?.focus();
+    return;
+  }
+  const target = [...document.querySelectorAll<HTMLElement>(".plan-tile")].find(
     (el) => el.getAttribute("data-key") === key,
   );
   target?.focus();

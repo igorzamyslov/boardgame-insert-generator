@@ -854,9 +854,10 @@ input[aria-invalid="true"] {
 }
 
 /*
- * What the view says and offers (the controls, the picker, a message) sits over the foot of the
- * frame, out of the flow, so the 3D view is as big as the plan's box and nothing jumps when the
- * View segment changes.
+ * What the view says and offers sits over the foot of the frame, out of the flow, so the 3D view
+ * is as big as the plan's box and nothing jumps when the View segment changes. The strip itself
+ * is nothing to look at and lets the pointer through to the canvas; what is on it (the one row of
+ * controls, a message) is a small pill of its own.
  */
 .viewer-under {
   position: absolute;
@@ -866,45 +867,70 @@ input[aria-invalid="true"] {
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
-  max-height: 55%;
-  padding: var(--s-8);
-  overflow: auto;
-  border-radius: var(--r-tile);
-  background: var(--pill-fill);
+  align-items: center;
+  pointer-events: none;
+}
+
+.viewer-under > * {
+  pointer-events: auto;
 }
 
 .viewer-under p {
   margin: 0;
+  padding: var(--s-4) var(--s-12);
+  border-radius: var(--r-tile);
+  background: var(--pill-fill);
+  font: 500 var(--text-xs) / 20px var(--font-ui);
 }
 
+/* Spread apart and Show layers: one quiet row, the labels beside their controls. */
 .viewer-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3) var(--space-5);
-  align-items: end;
+  gap: var(--s-4) var(--s-16);
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: var(--s-4) var(--s-12);
+  border-radius: var(--r-tile);
+  background: var(--pill-fill);
+  color: var(--muted-strong);
+  font: 500 var(--text-xs) / 20px var(--font-ui);
 }
 
-.viewer-controls .check-field {
-  max-width: 26rem;
-}
-
+.viewer-controls .field,
 .range-field {
-  display: grid;
-  gap: var(--space-1);
-  font: 500 14px/20px var(--font-ui);
+  display: flex;
+  gap: var(--s-8);
+  align-items: center;
+}
+
+/* stylelint-disable-next-line no-descending-specificity */
+.viewer-controls .field > label {
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+}
+
+.viewer-controls select {
+  width: auto;
+  font: inherit;
+  color: var(--ink);
 }
 
 .range-field input {
+  width: 7.5rem;
   min-height: var(--control-h);
   margin: 0;
   accent-color: var(--indigo);
 }
 
+/* Without WebGL: one plain, muted sentence on the stage, no panel. */
 .viewer-fallback {
   margin: 0;
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--sheet-sunken);
+  padding: var(--s-8) 0;
+  color: var(--muted);
+  font: 500 14px/20px var(--font-ui);
 }
 
 /* Full-width grid children; after the base rules (no-descending-specificity). */
@@ -1079,57 +1105,6 @@ html:has(dialog.modal[open]) {
   .modal-body {
     flex: 1;
   }
-}
-
-/* The tray picker under the 3D view: a text route to every tray, with its colour and number. */
-.tray-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: var(--space-3) 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* stylelint-disable-next-line no-descending-specificity */
-.tray-picker button {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  font-weight: 500;
-}
-
-.tray-picker button[aria-pressed="true"] {
-  box-shadow: inset 0 0 0 3px var(--ink);
-}
-
-/* In the 3D view the picker is one row and scrolls sideways, so the strip stays low. */
-.viewer-under .tray-picker {
-  flex-wrap: nowrap;
-  margin: 0;
-  padding: var(--s-4);
-  overflow-x: auto;
-}
-
-.viewer-under .tray-picker li {
-  flex: none;
-}
-
-.viewer-under .tray-picker button {
-  white-space: nowrap;
-}
-
-.tray-chip {
-  width: 14px;
-  height: 14px;
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-sm);
-  background: var(--tint, var(--sheet-sunken));
-}
-
-.tray-chip--spare {
-  border-style: dashed;
-  background: var(--sheet);
 }
 
 .pf-first {

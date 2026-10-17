@@ -59,9 +59,14 @@
   user-select: none;
 }
 
-/* The canvas takes the frame's rounded corners. */
+/*
+ * The 3D view is the plan's frame without the plan's tan block: the model sits on the stage, in
+ * its own colour, with no edge drawn round it. The canvas (transparent) takes the corners.
+ */
 .viewer-stage {
   overflow: hidden;
+  background: var(--page);
+  box-shadow: none;
 }
 
 .plan-floor {

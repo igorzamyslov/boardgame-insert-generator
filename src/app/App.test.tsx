@@ -1839,17 +1839,28 @@ describe("App", () => {
       expect(screen.queryByText(/Choose the tray to swap with/)).toBeNull();
     });
 
-    it("Close in 3D hands the focus to that tray's picker item", async () => {
+    it("Close in 3D hands the focus to the 3D stage, where the keys step through the trays", async () => {
       renderApp({ project: withLayoutProject(), overrides: withWebGL() });
       fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
       openView("3D");
       await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
       fireEvent.click(screen.getByRole("button", { name: "Close" }));
       await waitFor(() => {
-        const item = document.activeElement as HTMLElement | null;
-        expect(item?.closest(".tray-picker")).not.toBeNull();
-        expect(item?.getAttribute("data-key")).toBe("a:p0:0");
+        const stage = document.activeElement as HTMLElement | null;
+        expect(stage?.tagName).toBe("CANVAS");
+        expect(stage?.closest(".viewer-stage")).not.toBeNull();
       });
+      expect(document.querySelector(".tray-picker")).toBeNull();
+    });
+
+    it("selects a tray in 3D from the keyboard, and the tray bar shows it", async () => {
+      renderApp({ project: withLayoutProject(), overrides: withWebGL() });
+      openView("3D");
+      await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
+      expect(screen.queryByRole("region", { name: "Selected tray" })).toBeNull();
+      const canvas = document.querySelector(".viewer-canvas") as HTMLElement;
+      fireEvent.keyDown(canvas, { key: "ArrowRight" });
+      expect(screen.getByRole("region", { name: "Selected tray" })).toBeTruthy();
     });
 
     it("names a tray with no name 'Tray', never its key", () => {
