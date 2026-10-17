@@ -58,6 +58,51 @@ export function traysAt(trays: readonly TraySpec[], level: number): TraySpec[] {
   );
 }
 
+/** Every part that is drawn on its own: a merged part as its members, and no add-on (spacer, riser, divider). */
+function drawnParts(trays: readonly TraySpec[]): TraySpec[] {
+  return trays.flatMap((t) => (t.merged ? t.merged.members : [t])).filter((t) => !isAddOn(t));
+}
+
+/**
+ * The parts a cut through the box from the front crosses, for its side view: the cut is at the
+ * middle (y + d / 2) of the stack of two levels or more with the largest bottom footprint, since
+ * that shows the layers where they are; with no such stack, at the middle of the largest tray at
+ * the front (the least y). Each part is drawn where it is, so a block's x, z, w and h are the
+ * tray's. Sorted by x, then z.
+ */
+export function sideSection(trays: readonly TraySpec[]): TraySpec[] {
+  const parts = drawnParts(trays);
+  if (parts.length === 0) {
+    return [];
+  }
+  const area = (t: TraySpec): number => t.w * t.d;
+  const stacks = new Map<number, TraySpec[]>();
+  for (const t of parts) {
+    stacks.set(t.stack, [...(stacks.get(t.stack) ?? []), t]);
+  }
+  let cutter: TraySpec | undefined;
+  for (const members of stacks.values()) {
+    if (new Set(members.map((t) => t.level)).size < 2) {
+      continue;
+    }
+    const lowest = Math.min(...members.map((t) => t.level));
+    const bottom = members
+      .filter((t) => t.level === lowest)
+      .reduce((best, t) => (area(t) > area(best) ? t : best));
+    if (cutter === undefined || area(bottom) > area(cutter)) {
+      cutter = bottom;
+    }
+  }
+  if (cutter === undefined) {
+    const front = Math.min(...parts.map((t) => t.y));
+    cutter = parts
+      .filter((t) => t.y === front)
+      .reduce((best, t) => (area(t) > area(best) ? t : best));
+  }
+  const y0 = cutter.y + cutter.d / 2;
+  return parts.filter((t) => t.y <= y0 && y0 < t.y + t.d).sort((a, b) => a.x - b.x || a.z - b.z);
+}
+
 type Footprint = Pick<TraySpec, "x" | "y" | "w" | "d">;
 
 /**

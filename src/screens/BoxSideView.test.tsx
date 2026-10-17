@@ -2,10 +2,8 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it } from "vitest";
-import { makeLayout, makeTray } from "../app/test-helpers";
-import { DEFAULT_BOX } from "../model/defaults";
-import { DEFAULT_SETTINGS } from "../model/settings";
-import type { Box, Project } from "../model/types";
+import { makeLayout } from "../app/test-helpers";
+import type { Box, Project, TraySpec } from "../model/types";
 import { loadSeed } from "../test-support/harbourKings";
 import { BoxSideView } from "./BoxSideView";
 
@@ -35,29 +33,44 @@ describe("BoxSideView", () => {
     expect(caption.closest("[aria-hidden='true']")).toBeNull();
   });
 
-  it("draws one row per layer, top first", () => {
+  it("draws the trays a slice crosses at their real x, z, h", () => {
     const p = harbour();
     const { container } = draw(p);
-    const rows = [...container.querySelectorAll<HTMLElement>(".bx-row")];
-    expect(rows).toHaveLength(2);
-    const keysOf = (row: HTMLElement): string[] =>
-      [...row.querySelectorAll<HTMLElement>(".bx-tray")].map((t) => t.dataset.key ?? "");
-    const trays = (p.layout?.trays ?? []).filter((t) => t.part !== "spacer");
-    const top = Math.max(...trays.map((t) => t.level));
-    expect(keysOf(rows[0] as HTMLElement).sort()).toEqual(
-      trays
-        .filter((t) => t.level === top)
-        .map((t) => t.key)
-        .sort(),
-    );
-    expect(keysOf(rows[1] as HTMLElement).sort()).toEqual(
-      trays
-        .filter((t) => t.level === 0)
-        .map((t) => t.key)
-        .sort(),
-    );
+    const trays = p.layout?.trays ?? [];
+    // the cut is through the middle of the deepest stack (the one that stands in two levels): y = 233.9
+    const y0 = 183.8 + 100.2 / 2;
+    const crossed = trays.filter((t) => t.part !== "spacer" && t.y <= y0 && y0 < t.y + t.d);
+    expect(crossed.length).toBe(4);
+    const blocks = [...container.querySelectorAll<HTMLElement>(".bx-tray")];
+    expect(blocks.map((b) => b.dataset.key).sort()).toEqual(crossed.map((t) => t.key).sort());
+    const fill = 62;
+    const usable = p.box.innerWidth - 2 * 0.5;
+    for (const t of crossed) {
+      const block = container.querySelector(`.bx-tray[data-key="${t.key}"]`) as HTMLElement;
+      const num = (name: string): number => parseFloat(block.style.getPropertyValue(name));
+      expect(num("--x")).toBeCloseTo((t.x / usable) * 100, 2);
+      expect(num("--w")).toBeCloseTo((t.w / usable) * 100, 2);
+      expect(num("--z")).toBeCloseTo((t.z / fill) * 100, 2);
+      expect(num("--h")).toBeCloseTo((t.h / fill) * 100, 2);
+    }
     // the drawing is for the eye only
     expect(container.querySelector(".bx-drawing")?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("puts no block past the band", () => {
+    for (const seed of ["harbour-kings-headroom", "harbour-kings"]) {
+      const p = loadSeed(seed).project;
+      cleanup();
+      const { container } = draw(p);
+      const fill = 100;
+      for (const block of container.querySelectorAll<HTMLElement>(".bx-tray")) {
+        const num = (name: string): number => parseFloat(block.style.getPropertyValue(name));
+        expect(num("--z") + num("--h"), `${seed}: ${block.dataset.key}`).toBeLessThanOrEqual(
+          fill + 0.01,
+        );
+        expect(num("--x") + num("--w")).toBeLessThanOrEqual(100.5);
+      }
+    }
   });
 
   it("says nothing about free space without headroom", () => {
@@ -68,40 +81,36 @@ describe("BoxSideView", () => {
     expect(document.querySelector(".bx-band")).toBeNull();
   });
 
-  it("sizes a row by its layer's height, from the same bands as the Layer switch", () => {
-    const low = makeTray({ key: "l:p0:0", level: 0, z: 0, h: 20, w: 100 });
-    const high = makeTray({ key: "h:p0:0", level: 1, z: 20, h: 40, w: 100 });
-    const box = { ...DEFAULT_BOX, innerHeight: 68, headroom: 8 };
-    const { container } = render(
-      <BoxSideView
-        box={box}
-        settings={DEFAULT_SETTINGS}
-        layout={makeLayout("h", [low, high])}
-        components={[]}
-      />,
-    );
-    const rows = [...container.querySelectorAll<HTMLElement>(".bx-row")];
-    // 60 mm below the free band: the top layer is two thirds of it, the bottom one third
-    expect(rows.map((r) => r.style.getPropertyValue("--share"))).toEqual(["0.6667", "0.3333"]);
-  });
-
   it("colours a block by its component's kind, and a spare tray plain", () => {
     const p = harbour();
-    const { container } = draw(p);
-    const spare = p.layout?.trays.find((t) => t.part === "leftover");
-    expect(spare).toBeTruthy();
+    const first = p.layout?.trays.find((t) => t.part === "tray");
+    expect(first).toBeTruthy();
+    const kept = { y: 0, d: 50, z: 0, h: 40, level: 0 };
+    const trays = [
+      { ...(first as TraySpec), ...kept, key: "kept", stack: 0, x: 0, w: 60 },
+      {
+        ...(first as TraySpec),
+        ...kept,
+        key: "spare",
+        part: "leftover" as const,
+        stack: 1,
+        x: 70,
+        w: 60,
+      },
+    ];
+    const { container } = draw({ ...p, layout: makeLayout("h", trays) });
     const block = (key: string): HTMLElement =>
       container.querySelector(`.bx-tray[data-key="${key}"]`) as HTMLElement;
-    expect(block(spare?.key ?? "").style.getPropertyValue("--tile-fill")).toBe("");
-    const first = p.layout?.trays.find((t) => t.part === "tray");
-    expect(block(first?.key ?? "").style.getPropertyValue("--tile-fill")).not.toBe("");
+    expect(block("spare").style.getPropertyValue("--tile-fill")).toBe("");
+    expect(block("spare").hasAttribute("data-spare")).toBe(true);
+    expect(block("kept").style.getPropertyValue("--tile-fill")).not.toBe("");
   });
 
   it("draws the free band and an empty floor while there is no plan", () => {
     const p = harbour();
     const { container } = draw({ ...p, layout: undefined });
     expect(screen.getByText("Kept free, 8 mm")).toBeTruthy();
-    expect(container.querySelectorAll(".bx-row")).toHaveLength(0);
+    expect(container.querySelectorAll(".bx-tray")).toHaveLength(0);
     expect(container.querySelector(".bx-floor")).toBeTruthy();
   });
 

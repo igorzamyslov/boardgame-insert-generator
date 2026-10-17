@@ -24,6 +24,14 @@ describe("Field", () => {
     expect(label?.getAttribute("for")).toBe(input.id);
   });
 
+  it("can keep its unit for the name only", () => {
+    render(
+      <Field id="w" label="Width" value="285.5" unit="mm" hideUnit onInput={() => undefined} />,
+    );
+    expect(screen.getByRole("textbox", { name: /^Width\s*\(mm\)$/ })).toBeTruthy();
+    expect(document.querySelector(".k-field__unit")).toBeNull();
+  });
+
   it("gives a millimetre field the decimal keyboard and Return moves on", () => {
     render(<Field id="w" label="Width" value="285" onInput={() => undefined} />);
     const input = screen.getByRole("textbox");

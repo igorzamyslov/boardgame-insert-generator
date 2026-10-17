@@ -1,8 +1,8 @@
 /*
  * The box's stage (UI rebuild Task 11), from Box and MobileBox: the box seen from the side, in the
  * middle of the stage, with its label over it (the page's h1 while the box's editor is open) and a
- * caption under it. The drawing is not to scale across: it is as wide as the board's and its layers
- * share a fixed height by their own. On the tokens (styles/tokens.css).
+ * caption under it. The drawing is a cross-section: as wide as the board's, with the height the
+ * trays fill drawn at a fixed height (not the same scale as across). On the tokens (styles/tokens.css).
  */
 .bx-stage {
   display: flex;
@@ -39,9 +39,10 @@
 
 /* ---- The drawing ---- */
 .bx-side {
-  /* What the layers share: Box's two rows are 110 and 168 px under the 46 px band; MobileBox's 70 and 108 under 30. */
+  /* The height the trays fill: Box's rows are 278 px under the 46 px band; MobileBox's 178 under 30. */
   --bx-rows: 278px;
   --bx-gap: var(--s-6);
+  --bx-inset: calc(var(--bx-gap) / 2);
   --bx-tray-r: var(--r-logo);
 
   display: flex;
@@ -77,27 +78,30 @@
   font-weight: 600;
 }
 
-/* A layer: as high as its share of what the trays fill, never thinner than its blocks need. */
-.bx-row {
-  display: flex;
-  flex: none;
-  gap: var(--bx-gap);
-  box-sizing: border-box;
-  height: calc(var(--bx-rows) * var(--share));
-  min-height: 28px;
-  padding: var(--bx-gap);
-}
-
-/* No plan yet: the floor alone, as high as the layers would be. */
+/*
+ * The cross-section's floor: as high as what the trays fill, drawn at one scale across and one
+ * up (the drawing is not to scale between the two). Its plane is the box's width by that height;
+ * each block is placed on it by its own x, z, w and h, 3 px in, so blocks are 6 px apart.
+ */
 .bx-floor {
+  position: relative;
   height: var(--bx-rows);
 }
 
-/* A tray: the kind's fill and line (a spare one is plain with a dashed edge, as on the plan). */
+.bx-plane {
+  position: absolute;
+  inset: var(--bx-inset);
+}
+
+/* A tray the cut crosses: the kind's fill and line (a spare one is plain with a dashed edge, as on the plan). */
 .bx-tray {
-  flex: 1 1 0;
+  position: absolute;
+  bottom: calc(var(--z) + var(--bx-inset));
+  left: calc(var(--x) + var(--bx-inset));
   box-sizing: border-box;
+  width: calc(var(--w) - var(--bx-gap));
   min-width: 0;
+  height: calc(var(--h) - var(--bx-gap));
   border: 2px solid var(--tile-line, var(--spacer-dash));
   border-radius: var(--bx-tray-r);
   background: var(--tile-fill, var(--spacer-fill));
@@ -114,7 +118,7 @@
   line-height: normal; /* Box's caption is a span on the page's own */
 }
 
-/* MobileBox: 358 wide, 14 px round, a 30 px band, rows 5 px apart, 7 px round trays; the caption 8 px under. */
+/* MobileBox: 358 wide, 14 px round, a 30 px band, blocks 5 px apart, 7 px round trays; the caption 8 px under. */
 .bx-side[data-phone] {
   --bx-rows: 178px;
   --bx-gap: var(--s-5);
@@ -132,8 +136,4 @@
 .bx-side[data-phone] .bx-band {
   height: 30px;
   font-size: var(--text-xs);
-}
-
-.bx-side[data-phone] .bx-row {
-  min-height: 20px;
 }

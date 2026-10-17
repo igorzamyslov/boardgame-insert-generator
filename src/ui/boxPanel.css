@@ -27,6 +27,17 @@
   gap: var(--s-8);
 }
 
+/* "Inside size" over its line ("In mm"), 2 px apart as "Keep space free on top" is over its own. */
+.bx-group__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.bx-group__head .ed-line {
+  margin: 0;
+}
+
 .bx-sizes {
   display: grid;
   gap: var(--s-10);
@@ -34,8 +45,8 @@
 }
 
 /*
- * The rail is Main's 300 px, not Box's 340 (a ruling): each field is 80 px, so the padding and the
- * unit give way and "285" stays whole beside it (the first visit's three fields do the same).
+ * The rail is Main's 300 px, not Box's 340 (a ruling): each field is 80 px, so the padding gives way
+ * and the unit is not drawn in the box (the line above says "In mm"): "285.5" stays whole.
  */
 .bx-sizes .k-field__box {
   gap: var(--s-2);

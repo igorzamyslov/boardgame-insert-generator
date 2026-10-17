@@ -26,6 +26,23 @@ describe("BoxPanel", () => {
     expect(screen.getByText("Inside size")).toBeTruthy();
   });
 
+  it("keeps the unit out of the rail's size fields, says it once above them, and in each name", () => {
+    const { container } = render(<BoxPanel {...props()} />);
+    const sizes = container.querySelector(".bx-sizes") as HTMLElement;
+    // no "mm" drawn inside the three boxes: "285.5" needs the room
+    expect(sizes.querySelectorAll(".k-field__unit")).toHaveLength(0);
+    expect(within(sizes).queryByText("mm")).toBeNull();
+    expect(screen.getByText("In mm")).toBeTruthy();
+    for (const name of ["Width", "Length", "Height"]) {
+      expect(
+        screen.getByRole("textbox", { name: new RegExp(`^${name}\\s*\\(mm\\)$`) }),
+      ).toBeTruthy();
+    }
+    // the space on top keeps its "mm": its field is the same line as the segment, with no line over it
+    expect(screen.getByRole("textbox", { name: /^Space on top\s*\(mm\)$/ })).toBeTruthy();
+    expect(container.querySelectorAll(".k-field__unit")).toHaveLength(1);
+  });
+
   it("drops the hint lines the board does not draw (fate row 32)", () => {
     render(<BoxPanel {...props({ box: { ...DEFAULT_BOX, headroom: 8 } })} />);
     const text = document.body.textContent ?? "";
@@ -186,6 +203,9 @@ describe("BoxPanel", () => {
         screen.getByLabelText(/stored on its side/).compareDocumentPosition(side) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
+      // MobileBox's fields keep their "mm", and it has no line "In mm"
+      expect(document.querySelectorAll(".bx-sizes .k-field__unit")).toHaveLength(3);
+      expect(screen.queryByText("In mm")).toBeNull();
       // MobileBox has no sentence under "Keep space free on top"
       expect(screen.queryByText("For the rulebook, boards or player mats")).toBeNull();
     });

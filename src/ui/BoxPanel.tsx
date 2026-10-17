@@ -35,15 +35,22 @@ const COVERAGE: { value: Box["headroomCoverage"]; label: string }[] = [
 const NOTHING_KEPT = "Nothing is kept free on top yet.";
 
 /** The three measures, side by side. */
-function Sizes({ box, onChange }: Pick<BoxPanelProps, "box" | "onChange">) {
+function Sizes({ box, onChange, phone }: Pick<BoxPanelProps, "box" | "onChange" | "phone">) {
+  // The rail's fields are 80 px: "285.5" needs the room, so the unit is said once above them (and
+  // stays in each name); the phone's are 114 px and keep it.
+  const hideUnit = phone !== true;
   return (
     <div class="bx-group">
-      <span class="ed-label">Inside size</span>
+      <span class="bx-group__head">
+        <span class="ed-label">Inside size</span>
+        {hideUnit ? <span class="ed-line">In mm</span> : null}
+      </span>
       <div class="bx-sizes">
         <NumField
           id="box-innerWidth"
           label="Width"
           unit="mm"
+          hideUnit={hideUnit}
           compact={false}
           value={box.innerWidth}
           path="/box/innerWidth"
@@ -54,6 +61,7 @@ function Sizes({ box, onChange }: Pick<BoxPanelProps, "box" | "onChange">) {
           id="box-innerDepth"
           label="Length"
           unit="mm"
+          hideUnit={hideUnit}
           compact={false}
           value={box.innerDepth}
           path="/box/innerDepth"
@@ -64,6 +72,7 @@ function Sizes({ box, onChange }: Pick<BoxPanelProps, "box" | "onChange">) {
           id="box-innerHeight"
           label="Height"
           unit="mm"
+          hideUnit={hideUnit}
           compact={false}
           value={box.innerHeight}
           path="/box/innerHeight"
@@ -168,7 +177,7 @@ export function BoxPanel({
         </header>
         <div class="ed-scroll">
           {notice}
-          <Sizes box={box} onChange={onChange} />
+          <Sizes box={box} onChange={onChange} phone />
           <KeepFree box={box} onChange={onChange} phone />
           {stored}
           <div class="bx-side-block">

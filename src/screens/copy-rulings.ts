@@ -184,6 +184,7 @@ const EDITOR_LABELS: readonly string[] = [
 ];
 
 // Task 11: the box's editor. The states are the box cases of copy.board.test.tsx.
+const BOX_WORDS = "The box editor has the board's words only";
 const BOX_HINT = "The box's stored-on-its-side hint says what the engine does";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
@@ -349,6 +350,11 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["box", "m-box"],
     ruling: BOX_HINT,
   },
+  // Task 11: the rail's three fields say their unit once, above them (80 px boxes keep their room for "285.5")
+  { text: "In mm", states: ["box"], ruling: BOX_WORDS },
+  // The kit's accessible-name convention is "<label> (<unit>)": the space field's name is "Space on top (mm)"
+  // (Box's aria-label is "Space on top, mm"). Never drawn, so no case sees it; recorded here with the rest.
+  { text: "Space on top (mm)", states: ["box", "m-box"], ruling: BOX_WORDS },
   // Task 10: the editors (Edit, EditKinds, MobileEdit) and the stage beside them
   ...EDITOR_LABELS.map((text) => ({ text, states: EDITING, ruling: EDITOR_OPTIONS })),
   // the engine's presets, as the chips and the size line say them

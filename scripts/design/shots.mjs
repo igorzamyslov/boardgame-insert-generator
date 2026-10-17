@@ -255,6 +255,21 @@ async function runStep(page, step) {
  */
 const PROBES = {
   /**
+   * The box editor's fields (Task 11): no text box cuts its value off ("285.5" in an 80 px field).
+   * The value of each is whole when it does not scroll inside its box.
+   */
+  async "field-clip"(page) {
+    const clipped = await page.evaluate(() =>
+      [...document.querySelectorAll(".k-field__input")]
+        .filter((el) => el.scrollWidth > el.clientWidth)
+        .map(
+          (el) =>
+            `${el.id || el.getAttribute("aria-label")}: "${el.value}" is ${el.scrollWidth} px in ${el.clientWidth}`,
+        ),
+    );
+    return clipped.map((c) => `probe field-clip: ${c}`);
+  },
+  /**
    * The tray sheet (Task 8), with More open: Escape closes More and only More; then a press on the
    * backdrop (the page above the sheet) closes the sheet.
    */

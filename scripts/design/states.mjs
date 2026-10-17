@@ -299,6 +299,23 @@ export const STATES = {
       { waitFor: { role: "heading", name: "Side view of the box" } },
     ],
   },
+  // The box editor with decimals in the three sizes (the rail's fields are 80 px: "285.5" must not clip).
+  "box-decimal": {
+    board: "Box",
+    nearest: "Box, with 285.5 mm where the board has 285",
+    viewport: DESKTOP,
+    seed: "harbour-kings-headroom",
+    noPageScroll: true,
+    probes: ["field-clip"],
+    steps: [
+      { click: { role: "button", name: /^The box/, in: '[data-region="rail"]' } },
+      { waitFor: { role: "heading", name: "Side view of the box" } },
+      { fill: { label: "Width", value: "285.5" } },
+      { fill: { label: "Length", value: "285.5" } },
+      { fill: { label: "Height", value: "70.5" } },
+      { wait: 600 },
+    ],
+  },
   "no-fit": {
     board: "NoFit",
     viewport: DESKTOP,

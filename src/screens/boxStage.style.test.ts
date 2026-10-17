@@ -40,15 +40,20 @@ describe("boxStage.css", () => {
     expect(band).toMatch(/font-weight:\s*600/);
   });
 
-  it("sizes a layer by its share of what the trays fill, with 6 px between and round the blocks", () => {
-    const row = ruleFor(".bx-row", stage);
-    expect(row).toMatch(/height:\s*calc\(var\(--bx-rows\) \* var\(--share\)\)/);
-    expect(row).toMatch(/gap:\s*var\(--bx-gap\)/);
-    expect(row).toMatch(/padding:\s*var\(--bx-gap\)/);
+  it("places each block by its own x, z, w and h on a plane, 3 px in so blocks are 6 px apart", () => {
+    expect(ruleFor(".bx-floor", stage)).toMatch(/position:\s*relative/);
+    expect(ruleFor(".bx-floor", stage)).toMatch(/height:\s*var\(--bx-rows\)/);
+    expect(ruleFor(".bx-plane", stage)).toMatch(/inset:\s*var\(--bx-inset\)/);
     const side = ruleFor(".bx-side", stage);
     expect(side).toMatch(/--bx-rows:\s*278px/);
     expect(side).toMatch(/--bx-gap:\s*var\(--s-6\)/);
+    expect(side).toMatch(/--bx-inset:\s*calc\(var\(--bx-gap\) \/ 2\)/);
     const tray = ruleFor(".bx-tray", stage);
+    expect(tray).toMatch(/position:\s*absolute/);
+    expect(tray).toMatch(/left:\s*calc\(var\(--x\) \+ var\(--bx-inset\)\)/);
+    expect(tray).toMatch(/bottom:\s*calc\(var\(--z\) \+ var\(--bx-inset\)\)/);
+    expect(tray).toMatch(/width:\s*calc\(var\(--w\) - var\(--bx-gap\)\)/);
+    expect(tray).toMatch(/height:\s*calc\(var\(--h\) - var\(--bx-gap\)\)/);
     expect(tray).toMatch(/border:\s*2px solid var\(--tile-line/);
     expect(tray).toMatch(/border-radius:\s*var\(--bx-tray-r\)/);
     expect(tray).toMatch(/background:\s*var\(--tile-fill/);

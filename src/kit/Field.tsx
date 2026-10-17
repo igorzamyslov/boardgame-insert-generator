@@ -35,6 +35,11 @@ export interface FieldProps {
    * names for the eye). It is still the input's name.
    */
   hideLabel?: boolean;
+  /**
+   * The unit is in the name only ("Width (mm)"), not drawn after the value: a narrow box keeps the
+   * room for the digits, and the line above the fields says the unit.
+   */
+  hideUnit?: boolean;
   placeholder?: string;
   class?: string;
 }
@@ -54,6 +59,7 @@ export function Field({
   mode = "decimal",
   compact = false,
   hideLabel = false,
+  hideUnit = false,
   placeholder,
   class: extra,
 }: FieldProps) {
@@ -89,7 +95,7 @@ export function Field({
           onBlur={onBlur}
           onKeyDown={onKeyDown}
         />
-        {unit !== undefined ? (
+        {unit !== undefined && !hideUnit ? (
           <span class="k-field__unit" aria-hidden="true">
             {unit}
           </span>

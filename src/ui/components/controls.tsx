@@ -101,6 +101,8 @@ export interface NumFieldProps extends NumberRules {
   compact?: boolean;
   /** The label is for assistive technology only (the field's name is on the line above it). */
   hideLabel?: boolean;
+  /** The unit is in the name only, not drawn after the value (a narrow box keeps its room for the digits). */
+  hideUnit?: boolean;
   /** The validation path whose messages show with the field. */
   path?: string;
   /** "input" commits every valid keystroke (the default); "blur" only when leaving the field. */
@@ -118,6 +120,7 @@ export function NumField({
   class: extra,
   compact = true,
   hideLabel = false,
+  hideUnit = false,
   path,
   commitOn = "input",
   ...rules
@@ -135,6 +138,7 @@ export function NumField({
         unit={unit}
         compact={compact}
         hideLabel={hideLabel}
+        hideUnit={hideUnit}
         mode={rules.integer === true ? "integer" : "decimal"}
         value={typed.text}
         error={error}

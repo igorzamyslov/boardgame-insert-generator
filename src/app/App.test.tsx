@@ -1900,10 +1900,13 @@ describe("the rail, What's inside", () => {
     expect(store.state.project.value.box.headroom).toBe(5);
     expect(main.getByText("Kept free, 5 mm")).toBeTruthy();
     expect(main.getByText("Trays fill the 65 mm below.")).toBeTruthy();
-    // one edit, one undo step
-    expect(store.canUndo.value).toBe(true);
     fireEvent.input(screen.getByLabelText(/^Space on top/), { target: { value: "0" } });
     expect(main.queryByText(/Kept free/)).toBeNull();
+    // the edits a second apart are one undo step: one Undo and the box is as it was
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(store.state.project.value.box.headroom).toBe(8);
+    expect(main.getByText("Kept free, 8 mm")).toBeTruthy();
+    expect(store.canUndo.value).toBe(false);
   });
 
   it("tells a failed run as an alert in the stage while the box is edited", () => {
