@@ -54,6 +54,20 @@ describe("Header", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Harbour Kings" }));
   });
 
+  it("never makes the wordmark a heading", () => {
+    // every screen's own heading is the page's h1: the banner has none, on any width
+    for (const phone of [false, true]) {
+      const { unmount } = render(<Header {...props({ phone })} />);
+      expect(screen.queryByRole("heading")).toBeNull();
+      unmount();
+    }
+    // and there is no way to ask for one: the prop is gone
+    // @ts-expect-error `brandIsHeading` no longer exists on Header
+    const p: HeaderProps = props({ brandIsHeading: true });
+    render(<Header {...p} />);
+    expect(screen.queryByRole("heading")).toBeNull();
+  });
+
   it("shows Undo and Redo on desktop, Undo only on a phone", () => {
     const { rerender } = render(<Header {...props()} />);
     expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();

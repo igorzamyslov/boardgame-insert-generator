@@ -51,12 +51,12 @@ describe("the stage's top, in the app", () => {
     expect(document.querySelector('[data-region="status"]')).toBeNull();
   });
 
-  it("keeps the h1 while an editor is open in the rail", () => {
+  it("keeps one h1 while the box's editor is open in the rail: the side view's label", () => {
     const { project } = loadSeed("harbour-kings");
     renderApp({ project });
     fireEvent.click(screen.getByRole("button", { name: /^The box/ }));
     expect(h1s()).toHaveLength(1);
-    expect(h1s()[0]?.textContent).toBe("Everything fits");
+    expect(h1s()[0]?.textContent).toBe("Side view of the box");
   });
 
   it("mounts the run's live region even before there is a status", () => {
@@ -146,7 +146,7 @@ describe("the stage's top, in the app", () => {
       store.edit((q) => updateBox(q, { innerHeight: -5 }));
     });
     fireEvent.click(await within(stage()).findByRole("button", { name: "Change the box" }));
-    expect(await within(rail).findByRole("heading", { level: 3, name: "The box" })).toBeTruthy();
+    expect(await within(rail).findByRole("heading", { level: 2, name: "The box" })).toBeTruthy();
   });
 
   it("shows layout notices under the plan, three then Show all", async () => {

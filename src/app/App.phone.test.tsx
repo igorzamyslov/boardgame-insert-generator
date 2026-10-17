@@ -115,6 +115,21 @@ describe("the phone layout", () => {
     expect(h1s[0]?.textContent).toBe("Market");
   });
 
+  it("has one h1 in the box editor: the sheet's name", async () => {
+    phone();
+    renderApp({ project: project() });
+    fireEvent.click(grip());
+    fireEvent.click(rowIn(/^The box,/));
+    const h1s = screen.getAllByRole("heading", { level: 1 });
+    expect(h1s).toHaveLength(1);
+    expect(sheet().contains(h1s[0] as HTMLElement)).toBe(true);
+    expect(h1s[0]?.textContent).toBe("The box");
+    // the side view is under the fields, with its label (not a heading)
+    expect(within(sheet()).getByText("Side view of the box")).toBeTruthy();
+    expect(within(sheet()).getByText("Kept free, 8 mm")).toBeTruthy();
+    expect(within(sheet()).getByText("Trays fill the 62 mm below.")).toBeTruthy();
+  });
+
   it("opens an editor from a row of the folded sheet, and unfolds the sheet for it", async () => {
     phone();
     renderApp({ project: project() });
@@ -199,7 +214,8 @@ describe("the phone layout", () => {
       expect(behind().some((el) => el.hasAttribute("inert"))).toBe(false);
       fireEvent.click(rowIn(/^The box,/));
       expect(behind().every((el) => el.hasAttribute("inert"))).toBe(true);
-      expect(sheet().getAttribute("data-editing")).toBeNull();
+      // the box brings its own header (Back, the h1, Done), as an editor does
+      expect(sheet().getAttribute("data-editing")).toBe("true");
     });
   });
 
@@ -210,7 +226,7 @@ describe("the phone layout", () => {
     expect(sheet().getAttribute("data-full")).toBeNull();
     fireEvent.click(rowIn(/^The box,/));
     expect(sheet().getAttribute("data-full")).toBe("true");
-    expect(await within(sheet()).findByRole("heading", { level: 3, name: "The box" })).toBeTruthy();
+    expect(await within(sheet()).findByRole("heading", { level: 1, name: "The box" })).toBeTruthy();
     fireEvent.keyDown(handle(), { key: "Escape" });
     expect(handle().getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(handle());

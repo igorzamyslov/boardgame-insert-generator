@@ -1863,7 +1863,7 @@ describe("the rail, What's inside", () => {
   it("opens the box's editor from the box card and gives the focus back to the card", () => {
     const { store } = renderApp({ project: fixtureProject() });
     fireEvent.click(within(rail()).getByRole("button", { name: /^The box/ }));
-    const heading = within(rail()).getByRole("heading", { level: 3, name: "The box" });
+    const heading = within(rail()).getByRole("heading", { level: 2, name: "The box" });
     expect(document.activeElement).toBe(heading);
     // the list gives way to the box's fields
     expect(within(rail()).queryByRole("list", { name: "What's inside" })).toBeNull();
@@ -1873,6 +1873,49 @@ describe("the rail, What's inside", () => {
     expect(within(rail()).getByRole("list", { name: "What's inside" })).toBeTruthy();
     expect(document.activeElement).toBe(within(rail()).getByRole("button", { name: /^The box/ }));
     expect(within(rail()).getByText("250 × 290 × 70 mm")).toBeTruthy();
+  });
+
+  it("has one h1 in the box editor: the side view's label, in the stage", () => {
+    renderApp({ project: fixtureProject() });
+    fireEvent.click(within(rail()).getByRole("button", { name: /^The box/ }));
+    const h1s = screen.getAllByRole("heading", { level: 1 });
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0]?.textContent).toBe("Side view of the box");
+    expect(within(screen.getByRole("main")).getByRole("heading", { level: 1 })).toBe(h1s[0]);
+    // the status heading is not drawn beside it, and the wordmark is not a heading
+    expect(document.querySelector(".k-status")).toBeNull();
+    // the status heading is back with the list
+    fireEvent.click(within(rail()).getByRole("button", { name: "Done" }));
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 }).closest(".k-status")).not.toBeNull();
+  });
+
+  it("draws the box's side view in the stage, and keeps it in step with the fields", () => {
+    const { store } = renderApp({ project: fixtureProject() });
+    fireEvent.click(within(rail()).getByRole("button", { name: /^The box/ }));
+    const main = within(screen.getByRole("main"));
+    expect(main.getByText("Kept free, 8 mm")).toBeTruthy();
+    expect(main.getByText("Trays fill the 62 mm below.")).toBeTruthy();
+    fireEvent.input(screen.getByLabelText(/^Space on top/), { target: { value: "5" } });
+    expect(store.state.project.value.box.headroom).toBe(5);
+    expect(main.getByText("Kept free, 5 mm")).toBeTruthy();
+    expect(main.getByText("Trays fill the 65 mm below.")).toBeTruthy();
+    // one edit, one undo step
+    expect(store.canUndo.value).toBe(true);
+    fireEvent.input(screen.getByLabelText(/^Space on top/), { target: { value: "0" } });
+    expect(main.queryByText(/Kept free/)).toBeNull();
+  });
+
+  it("tells a failed run as an alert in the stage while the box is edited", () => {
+    const { store } = renderApp({ project: fixtureProject() });
+    fireEvent.click(within(rail()).getByRole("button", { name: /^The box/ }));
+    act(() => {
+      store.state.run.value = { status: "error", message: "Worker crashed" };
+    });
+    const alert = within(screen.getByRole("main")).getByRole("alert");
+    expect(alert.textContent).toContain("The plan couldn't be updated");
+    expect(alert.closest("h1, h2, h3")).toBeNull();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
   it("adds from the Add pill, and the new item's editor opens", () => {
@@ -1974,7 +2017,7 @@ describe("the rail, What's inside", () => {
       store.edit((q) => updateBox(q, { innerHeight: -5 }));
       fireEvent.click(await screen.findByRole("button", { name: "Change the box" }));
       expect(
-        await within(rail()).findByRole("heading", { level: 3, name: "The box" }),
+        await within(rail()).findByRole("heading", { level: 2, name: "The box" }),
       ).toBeTruthy();
     });
   });

@@ -175,6 +175,60 @@ const breakHeight = (): void => {
 };
 
 const CASES: readonly Case[] = [
+  // Task 11: the box's editor, Box at 1440 and MobileBox on a phone, and the plan's problems told in its stage
+  {
+    state: "box",
+    board: "Box",
+    region: "rail",
+    seed: "harbour-kings-headroom",
+    steps: editRow(/^The box/),
+  },
+  {
+    state: "box",
+    board: "Box",
+    region: "stage",
+    seed: "harbour-kings-headroom",
+    steps: editRow(/^The box/),
+  },
+  {
+    state: "m-box",
+    board: "MobileBox",
+    region: "sheet",
+    phone: true,
+    seed: "harbour-kings-headroom",
+    steps: editRow(/^The box/),
+  },
+  {
+    state: "workspace-failed",
+    board: "Box",
+    region: "stage",
+    steps: (store) => {
+      editRow(/^The box/)();
+      act(() => {
+        store.state.run.value = { status: "error", message: "Worker crashed" };
+      });
+    },
+  },
+  {
+    state: "no-fit",
+    board: "Box",
+    region: "stage",
+    seed: "harbour-kings-nofit",
+    steps: (store) => {
+      editRow(/^The box/)();
+      searchFailed("harbour-kings-nofit")(store);
+    },
+  },
+  {
+    state: "pin-conflict",
+    board: "Box",
+    region: "stage",
+    seed: "harbour-kings-pins",
+    steps: (store) => {
+      editRow(/^The box/)();
+      searchFailed("harbour-kings-pins")(store);
+    },
+  },
   // Task 10: the editors. Edit's Cards, EditKinds' other three, MobileEdit's Miniatures (on a
   // desktop, which no board draws: Edit's layout and MobileEdit's content), and the phone's sheet.
   { state: "editor", board: "Edit", region: "rail", steps: editRow(/^Market deck, /) },

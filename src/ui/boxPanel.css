@@ -1,0 +1,156 @@
+/*
+ * The box's editor (UI rebuild Task 11), from Box and MobileBox: the rail's panel (a back link,
+ * "The box", the inside size, the space kept free on top, how the box is stored, Done) and the
+ * phone's full-screen sheet. The controls are the kit's (kit.css), the panel's frame is the
+ * editors' (editor.css); this file places what is the box's own. On the tokens (styles/tokens.css).
+ */
+
+/* Box: 22 px between the parts, where Edit has 20 (the phone's sheet has none between its bar and its scroll). */
+.ed.bx:not(.ed--phone) {
+  gap: var(--s-22);
+}
+
+/* The rail's top padding is 16 px on this screen (Box), 12 on Edit's. */
+.ws--box .ws-rail {
+  padding-top: var(--s-16);
+}
+
+.bx-title {
+  margin: 0;
+  font: 700 var(--h2-panel) / normal var(--font-display);
+}
+
+/* A name over its control: "Inside size", then the three fields 10 px apart. */
+.bx-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+.bx-sizes {
+  display: grid;
+  gap: var(--s-10);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/*
+ * The rail is Main's 300 px, not Box's 340 (a ruling): each field is 80 px, so the padding and the
+ * unit give way and "285" stays whole beside it (the first visit's three fields do the same).
+ */
+.bx-sizes .k-field__box {
+  gap: var(--s-2);
+  padding: 0 var(--s-8);
+}
+
+.bx-sizes .k-field__unit {
+  font-size: var(--text-sm);
+}
+
+/* "Keep space free on top": a rule over it, the name and its line, the field beside the segment, a line. */
+.bx-top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-10);
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.bx-top__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.bx-top__row {
+  display: flex;
+  gap: var(--s-10);
+  align-items: center;
+}
+
+/*
+ * Box's field is 120 px beside a 170 px segment in its 340 px rail. The rail is 300 here (a ruling),
+ * so the field is 96 px, as MobileBox's, and "Whole top" and "Part of it" fit in what is left. The
+ * label above the field is not drawn.
+ */
+.bx-top .bx-headroom {
+  flex: none;
+  width: 96px;
+}
+
+.bx-top .k-seg {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.bx-top .ed-line {
+  margin: 0;
+  line-height: normal; /* Box's lines are spans on the page's own */
+}
+
+/* How the box is stored: a rule over the row. */
+.bx-stored {
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--rule-soft);
+}
+
+/* Done at the foot, on the right, in sight where the panel scrolls (the board has no line over it: the panel is short). */
+.bx-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  margin-top: auto;
+  background: var(--sheet);
+}
+
+/* ---- The phone: MobileBox's sheet ---- */
+.bx--phone .ed-scroll {
+  gap: var(--s-20);
+}
+
+.bx--phone .bx-sizes {
+  gap: var(--s-8);
+}
+
+.bx--phone .bx-top {
+  padding-top: var(--s-18);
+}
+
+.bx--phone .bx-top .ed-line {
+  line-height: 1.4; /* MobileBox's */
+}
+
+.bx--phone .bx-stored {
+  padding-top: var(--s-18);
+}
+
+.bx--phone .k-check {
+  min-height: 56px; /* MobileBox's row */
+}
+
+.bx--phone .k-check .k-check__box {
+  width: 24px;
+  height: 24px;
+}
+
+/* Under the fields: a rule, the label (14 px 600), the drawing and its caption 8 px apart. */
+.bx-side-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  align-items: center;
+  padding-top: var(--s-18);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.bx-side-block__label {
+  color: var(--muted-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* MobileBox's fields: 10 px inside. */
+.bx--phone .k-field__box {
+  padding: 0 var(--s-10);
+}

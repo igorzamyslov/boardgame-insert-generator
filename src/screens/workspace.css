@@ -79,8 +79,7 @@
 }
 
 /*
- * The old rail editors (a component's until Task 10, the box's until Task 11) scroll inside the
- * rail, so nothing is cut off.
+ * An editor in the rail (a component's, the box's) scrolls inside the rail, so nothing is cut off.
  */
 .ws-interim {
   flex: 1 1 auto;

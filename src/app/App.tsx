@@ -8,7 +8,9 @@ import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import { exportJsonFile, jsonFileName } from "../share";
 import { errorText } from "../util/errors";
-import { EditorStage, EditorStrip } from "../screens/EditorStage";
+import { BoxStage } from "../screens/BoxStage";
+import { BoxSideView } from "../screens/BoxSideView";
+import { EditorStage, EditorStrip, ProblemLine } from "../screens/EditorStage";
 import type { EditNote } from "../screens/EditorStage";
 import { Header } from "../screens/Header";
 import { hoveredComponent } from "../screens/hover";
@@ -129,9 +131,8 @@ export function App(props: AppProps) {
     // another editor, or none: the note belonged to the one before
     setEditNote(null);
   }, [editingId]);
-  // The box's editor is open in the rail, in the list's place (until the box screen, Task 11).
+  // The box's editor is open in the rail, in the list's place (the sheet on a phone).
   const [boxOpen, setBoxOpen] = useState(false);
-  const boxHeadingRef = useRef<HTMLHeadingElement>(null);
   // The pointer or focus on a rail row lights that component's trays; nothing is lit once the rail goes.
   useEffect(() => {
     return () => {
@@ -160,12 +161,11 @@ export function App(props: AppProps) {
     wasFirstVisit.current = firstVisit;
     wasProjectId.current = project.id;
   }, [firstVisit, project.id]);
-  // The box's editor takes the focus when it opens; the box card (or row) gets it back when it closes.
+  // The box's editor takes the focus when it opens (its panel does); the box card (or row) gets it
+  // back when it closes.
   const wasBoxOpen = useRef(false);
   useEffect(() => {
-    if (boxOpen) {
-      boxHeadingRef.current?.focus();
-    } else if (wasBoxOpen.current && document.activeElement === document.body) {
+    if (!boxOpen && wasBoxOpen.current && document.activeElement === document.body) {
       // Done or the way back went with the focus: the card (or row) that opened the editor takes it.
       document.querySelector<HTMLElement>("[data-rail-box]")?.focus();
     }
@@ -513,25 +513,31 @@ export function App(props: AppProps) {
       }}
     />
   );
-  // The box's editor, in the rail's place until the box screen (Task 11): the old fields, a way back.
+  // The box's editor, in the rail's place (the phone's sheet holds it whole, with the side view under
+  // the fields). The problem the plan has, told by the heading while it is drawn, is a line here.
+  const boxProblem = editorProblem(statusOf(statusInput));
+  const boxSideView = (
+    <BoxSideView
+      box={project.box}
+      settings={projSettings}
+      layout={layout}
+      components={project.components}
+      phone={phone}
+    />
+  );
   const boxEditor = (
-    <section class="wi ws-interim" aria-labelledby="box-editor-title">
-      <div class="editor-panel__bar">
-        <button type="button" class="pf-back" onClick={() => setBoxOpen(false)}>
-          <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
-            <path d="M7.5 2l-4 4 4 4" />
-          </svg>
-          What&apos;s inside
-        </button>
-        <button type="button" class="primary editor-panel__btn" onClick={() => setBoxOpen(false)}>
-          Done
-        </button>
-      </div>
-      <h3 class="editor-panel__title" id="box-editor-title" tabIndex={-1} ref={boxHeadingRef}>
-        The box
-      </h3>
-      <BoxPanel box={project.box} onChange={(patch) => store.edit((q) => updateBox(q, patch))} />
-    </section>
+    <div class="wi ws-interim wi--edit">
+      <BoxPanel
+        box={project.box}
+        onChange={(patch) => store.edit((q) => updateBox(q, patch))}
+        onBack={() => setBoxOpen(false)}
+        phone={phone}
+        sideView={boxSideView}
+        notice={
+          boxProblem ? <ProblemLine problem={boxProblem} onRetry={() => store.retry()} /> : null
+        }
+      />
+    </div>
   );
   // Below 760 px the status pill has no room for Keep searching on a plan that doesn't fit:
   // the sheet's bar offers it.
@@ -737,7 +743,22 @@ export function App(props: AppProps) {
     <>
       {notices}
       {traySheet}
-      {editedComponent !== undefined ? (
+      {boxOpen ? (
+        // While the box is edited the stage is Box's: its side view, labelled as the page's h1. (A
+        // phone's sheet has the h1 and the side view; the stage is the plan alone.)
+        <BoxStage
+          box={project.box}
+          settings={projSettings}
+          layout={layout}
+          components={project.components}
+          phone={phone}
+          plan={planProps}
+          placeholder={workingOnIt}
+          after={stageNotes}
+          problem={boxProblem}
+          onRetry={() => store.retry()}
+        />
+      ) : editedComponent !== undefined ? (
         // While a component is edited the stage is Edit's: the sentence is the page's h1, the box
         // shows the component's trays lifted. (A phone's sheet has the h1.)
         <EditorStage
@@ -881,8 +902,8 @@ export function App(props: AppProps) {
             />
           ) : (
             <Workspace
-              focus={editing && !phone}
-              class={editing ? "ws--edit" : undefined}
+              focus={(editing || boxOpen) && !phone}
+              class={editing ? "ws--edit" : boxOpen ? "ws--box" : undefined}
               header={headerSlot}
               rail={railSlot}
               stage={stageSlot}
@@ -897,7 +918,8 @@ export function App(props: AppProps) {
                       handleLabel: "Show everything",
                       expanded: sheetOpen,
                       full: sheetFull,
-                      editing,
+                      // an editor and the box each bring their own header (Back, the h1, Done)
+                      editing: sheetFull,
                       handleRef: sheetHandle,
                       // a tray's sheet in front of it has the region's name
                       region: traySheet === null ? "sheet" : "sheet-behind",

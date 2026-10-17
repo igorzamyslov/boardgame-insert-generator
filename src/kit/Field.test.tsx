@@ -14,6 +14,16 @@ describe("Field", () => {
     expect(screen.getByText("mm").getAttribute("aria-hidden")).toBe("true");
   });
 
+  it("can keep its label for assistive technology only", () => {
+    render(
+      <Field id="t" label="Space on top" value="8" unit="mm" hideLabel onInput={() => undefined} />,
+    );
+    const input = screen.getByRole("textbox", { name: /^Space on top/ });
+    const label = document.querySelector("label[for='t']");
+    expect(label?.classList.contains("visually-hidden")).toBe(true);
+    expect(label?.getAttribute("for")).toBe(input.id);
+  });
+
   it("gives a millimetre field the decimal keyboard and Return moves on", () => {
     render(<Field id="w" label="Width" value="285" onInput={() => undefined} />);
     const input = screen.getByRole("textbox");

@@ -34,6 +34,22 @@ export function levelsOf(trays: readonly TraySpec[]): number[] {
   return [...levels].sort((a, b) => a - b);
 }
 
+/**
+ * The height of each layer, bottom first (the order of `levelsOf`). A layer's height is the stretch
+ * from its lower edge to the next layer's: the lower edge is the least z of its trays (0 for the
+ * first layer), and the top layer ends at the plan's highest point. The heights therefore add up to
+ * the status line's "H of B mm high", which counts the same way. The Layer switch and the box's
+ * side view both read them.
+ */
+export function layerHeights(trays: readonly TraySpec[]): number[] {
+  const levels = levelsOf(trays);
+  const top = Math.max(0, ...trays.map((t) => t.z + t.h));
+  const lower = levels.map((level, i) =>
+    i === 0 ? 0 : Math.min(...traysAt(trays, level).map((t) => t.z)),
+  );
+  return levels.map((_, i) => (lower[i + 1] ?? top) - (lower[i] ?? 0));
+}
+
 export function traysAt(trays: readonly TraySpec[], level: number): TraySpec[] {
   return trays.filter(
     (t) =>

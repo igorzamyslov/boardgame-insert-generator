@@ -288,11 +288,16 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [{ click: { role: "button", name: /^Heroes, /, in: RAIL } }],
   },
+  // The box's editor (Task 11): the rail's panel and the side view, which is the page's h1 ("Side view of the box").
   box: {
     board: "Box",
     viewport: DESKTOP,
     seed: "harbour-kings-headroom",
-    steps: [{ click: { role: "button", name: /^The box/, in: '[data-region="rail"]' } }],
+    noPageScroll: true,
+    steps: [
+      { click: { role: "button", name: /^The box/, in: '[data-region="rail"]' } },
+      { waitFor: { role: "heading", name: "Side view of the box" } },
+    ],
   },
   "no-fit": {
     board: "NoFit",
@@ -392,10 +397,14 @@ export const STATES = {
     seed: "harbour-kings-nofit",
     steps: [MAKE_NEW_PLAN, { waitFor: { text: FIT_YET, timeout: 90_000 } }],
   },
+  // MobileBox: the sheet fills the screen; its h1 is "The box" and the side view is under the fields.
   "m-box": {
     board: "MobileBox",
     viewport: PHONE,
     seed: "harbour-kings-headroom",
-    steps: [{ click: { role: "button", name: /^The box/, in: '[data-region="sheet"]' } }],
+    steps: [
+      { click: { role: "button", name: /^The box/, in: '[data-region="sheet"]' } },
+      { waitFor: { role: "heading", name: "The box" } },
+    ],
   },
 };

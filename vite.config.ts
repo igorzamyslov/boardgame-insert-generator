@@ -30,7 +30,7 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     // Vitest stubs CSS imports to ""; PlanView.test.tsx reads plan.css, AssemblyPage.test.tsx
-    // assembly.css, ExportPanel.test.tsx export.css, style.test.ts style.css, base.css, fonts.css and tokens.css (tokens also read by identity.test.ts), the kit's tests kit.css, Workspace's style tests workspace.css, the header's header.css, the rail's rail.css, the stage's stage.css and the first visit's firstVisit.css, the tray bar's trayBar.css, the editors' editor.css and the editor stage's editorStage.css, as `?raw` to check their rules, so those files are
+    // assembly.css, ExportPanel.test.tsx export.css, style.test.ts style.css, base.css, fonts.css and tokens.css (tokens also read by identity.test.ts), the kit's tests kit.css, Workspace's style tests workspace.css, the header's header.css, the rail's rail.css, the stage's stage.css and the first visit's firstVisit.css, the tray bar's trayBar.css, the editors' editor.css, the editor stage's editorStage.css and the box's boxPanel.css and boxStage.css, as `?raw` to check their rules, so those files are
     // passed through.
     css: {
       include: [
@@ -50,6 +50,8 @@ export default defineConfig({
         /trayBar\.css/,
         /editor\.css/,
         /editorStage\.css/,
+        /boxStage\.css/,
+        /boxPanel\.css/,
       ],
     },
   },

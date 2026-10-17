@@ -7,6 +7,7 @@ import {
   footprintsAt,
   hitTest,
   largestOf,
+  layerHeights,
   labelFontSize,
   levelsOf,
   planFrame,
@@ -130,5 +131,23 @@ describe("plan geometry", () => {
   it("clamps label sizes", () => {
     expect(labelFontSize({ x: 0, y: 0, w: 10, h: 10 })).toBe(6);
     expect(labelFontSize({ x: 0, y: 0, w: 300, h: 300 })).toBe(20);
+  });
+});
+
+describe("layerHeights", () => {
+  it("is the stretch from a layer's lower edge to the next one's, the top layer ending at the highest point", () => {
+    const trays = [
+      makeTray({ key: "a", level: 0, z: 0, h: 20 }),
+      makeTray({ key: "b", level: 0, z: 0, h: 45 }),
+      makeTray({ key: "c", level: 1, z: 20, h: 40 }),
+    ];
+    // the heights telescope to the plan's: 20 + 40 = 60
+    expect(layerHeights(trays)).toEqual([20, 40]);
+  });
+
+  it("leaves out the parts that are not drawn as trays, and is empty without any", () => {
+    const trays = [makeTray({ key: "r", part: "riser", level: 1, z: 5, h: 90 })];
+    expect(layerHeights(trays)).toEqual([]);
+    expect(layerHeights([])).toEqual([]);
   });
 });

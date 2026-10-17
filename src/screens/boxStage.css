@@ -1,0 +1,139 @@
+/*
+ * The box's stage (UI rebuild Task 11), from Box and MobileBox: the box seen from the side, in the
+ * middle of the stage, with its label over it (the page's h1 while the box's editor is open) and a
+ * caption under it. The drawing is not to scale across: it is as wide as the board's and its layers
+ * share a fixed height by their own. On the tokens (styles/tokens.css).
+ */
+.bx-stage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* A failed run, a tray that does not fit or pins in the way: the line sits at the top, the picture stays in the middle. */
+.bx-stage > .ed-problem {
+  flex: none;
+}
+
+.bx-stage__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-18);
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* Box: the label is a 600 line in --muted-strong at the page's size, though it is the page's h1. */
+.bx-label {
+  margin: 0;
+  color: var(--muted-strong);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: normal;
+}
+
+/* ---- The drawing ---- */
+.bx-side {
+  /* What the layers share: Box's two rows are 110 and 168 px under the 46 px band; MobileBox's 70 and 108 under 30. */
+  --bx-rows: 278px;
+  --bx-gap: var(--s-6);
+  --bx-tray-r: var(--r-logo);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-18);
+  align-items: center;
+  max-width: 100%;
+}
+
+.bx-drawing {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 48px));
+  overflow: hidden;
+  border-radius: var(--r-panel);
+  background: var(--box);
+  box-shadow: var(--box-inset-side);
+}
+
+/* The space kept free: a white band on the box, closed by a dashed line (the lid's or the rulebook's). */
+.bx-band {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: content-box; /* Box's band is 46 px and its dashed line 2 px more */
+  height: 46px;
+  border-bottom: 2px dashed var(--spacer-dash);
+  background: var(--sheet);
+  color: var(--muted-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* A layer: as high as its share of what the trays fill, never thinner than its blocks need. */
+.bx-row {
+  display: flex;
+  flex: none;
+  gap: var(--bx-gap);
+  box-sizing: border-box;
+  height: calc(var(--bx-rows) * var(--share));
+  min-height: 28px;
+  padding: var(--bx-gap);
+}
+
+/* No plan yet: the floor alone, as high as the layers would be. */
+.bx-floor {
+  height: var(--bx-rows);
+}
+
+/* A tray: the kind's fill and line (a spare one is plain with a dashed edge, as on the plan). */
+.bx-tray {
+  flex: 1 1 0;
+  box-sizing: border-box;
+  min-width: 0;
+  border: 2px solid var(--tile-line, var(--spacer-dash));
+  border-radius: var(--bx-tray-r);
+  background: var(--tile-fill, var(--spacer-fill));
+}
+
+.bx-tray[data-spare] {
+  border-style: dashed;
+}
+
+.bx-caption {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: normal; /* Box's caption is a span on the page's own */
+}
+
+/* MobileBox: 358 wide, 14 px round, a 30 px band, rows 5 px apart, 7 px round trays; the caption 8 px under. */
+.bx-side[data-phone] {
+  --bx-rows: 178px;
+  --bx-gap: var(--s-5);
+  --bx-tray-r: 7px; /* MobileBox's tray radius: between --r-cell and --r-logo */
+
+  gap: var(--s-8);
+  width: 100%;
+}
+
+.bx-side[data-phone] .bx-drawing {
+  width: min(358px, 100%);
+  border-radius: var(--r-card);
+}
+
+.bx-side[data-phone] .bx-band {
+  height: 30px;
+  font-size: var(--text-xs);
+}
+
+.bx-side[data-phone] .bx-row {
+  min-height: 20px;
+}

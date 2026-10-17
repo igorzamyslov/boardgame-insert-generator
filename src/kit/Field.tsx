@@ -30,6 +30,11 @@ export interface FieldProps {
   mode?: "decimal" | "integer" | "text";
   /** The 44 px box (counts, exact numbers) instead of the 48 px one. */
   compact?: boolean;
+  /**
+   * The label is for assistive technology only (the box's "Space on top", which the line above it
+   * names for the eye). It is still the input's name.
+   */
+  hideLabel?: boolean;
   placeholder?: string;
   class?: string;
 }
@@ -48,6 +53,7 @@ export function Field({
   invalidBy,
   mode = "decimal",
   compact = false,
+  hideLabel = false,
   placeholder,
   class: extra,
 }: FieldProps) {
@@ -59,7 +65,7 @@ export function Field({
   const keyboard = mode === "text" ? {} : numberInputAttrs(mode === "integer");
   return (
     <div class={cx("k-field", extra)}>
-      <label class="k-field__label" htmlFor={id}>
+      <label class={cx("k-field__label", hideLabel && "visually-hidden")} htmlFor={id}>
         {label}
         {labelExtra !== undefined ? <span class="visually-hidden">{` ${labelExtra}`}</span> : null}
         {unit !== undefined ? <span class="visually-hidden">{` (${unit})`}</span> : null}

@@ -473,59 +473,6 @@ input[aria-invalid="true"] {
   grid-column: 2;
 }
 
-/* ---- The box editor's bar, in the place of the list (until the box screen, Task 11) ---- */
-.editor-panel__bar {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-2) 0;
-  background: var(--sheet);
-}
-
-.pf-back,
-.editor-panel__btn {
-  min-height: var(--control-h);
-}
-
-.pf-back {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  border-color: transparent;
-  background: transparent;
-  color: var(--ink);
-}
-
-.pf-back svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: currentcolor;
-  stroke-width: 1.5;
-}
-
-.editor-panel__title {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  margin: 0;
-  font-size: 20px;
-  line-height: 28px;
-}
-
-.editor-panel__title:focus {
-  outline: none;
-}
-
-.editor-panel__title:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
-}
-
 /* A note about the change just made: it sits at the foot of the page for a few seconds. */
 .pf-toasts {
   position: fixed;
@@ -1015,35 +962,6 @@ html:has(dialog.modal[open]) {
   .modal-body {
     flex: 1;
   }
-}
-
-/* The box panel: every control at least 44 px, the checkbox included. */
-.box-panel {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.box-panel .field-label {
-  color: var(--ink);
-  font: 500 14px/20px var(--font-ui);
-}
-
-/* Two or three choices side by side; the pressed one is filled. */
-.pf-toggle {
-  display: flex;
-  gap: var(--space-2);
-}
-
-/* stylelint-disable-next-line no-descending-specificity */
-.pf-toggle button {
-  flex: 1 1 0;
-  min-height: 44px;
-}
-
-.pf-toggle button[aria-pressed="true"],
-.pf-toggle button[aria-pressed="true"]:hover:not(:disabled) {
-  border-color: var(--focus);
-  background: var(--focus);
-  color: var(--on-focus);
 }
 
 /*

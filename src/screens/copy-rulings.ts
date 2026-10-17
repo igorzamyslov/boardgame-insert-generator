@@ -183,6 +183,9 @@ const EDITOR_LABELS: readonly string[] = [
   "Don't know the size of {name}? Give a volume instead",
 ];
 
+// Task 11: the box's editor. The states are the box cases of copy.board.test.tsx.
+const BOX_HINT = "The box's stored-on-its-side hint says what the engine does";
+
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
   // Task 4: the header and the project menu
@@ -340,6 +343,12 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     { text: `{n} ${one}`, states: SHEET_STATES, ruling: TRAY_SHEET },
     { text: `{n} ${many}`, states: SHEET_STATES, ruling: TRAY_SHEET },
   ]),
+  // Task 11: Box's hint is "Trays then fill up to the lid, so nothing falls out" (in COPY_DENIED: not what the engine does)
+  {
+    text: "Loose pieces go under other trays where they can, so nothing spills.",
+    states: ["box", "m-box"],
+    ruling: BOX_HINT,
+  },
   // Task 10: the editors (Edit, EditKinds, MobileEdit) and the stage beside them
   ...EDITOR_LABELS.map((text) => ({ text, states: EDITING, ruling: EDITOR_OPTIONS })),
   // the engine's presets, as the chips and the size line say them

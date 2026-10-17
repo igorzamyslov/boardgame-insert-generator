@@ -13,7 +13,7 @@ import { Button, Icon, IconButton, Notice, Segmented, StatusHeading } from "../k
 import type { StatusTone } from "../kit";
 import type { LockConflict } from "../layout/types";
 import type { Component, Notice as NoticeData, TraySpec } from "../model/types";
-import { levelsOf, traysAt } from "../plan/layers";
+import { layerHeights, levelsOf } from "../plan/layers";
 import { layerLabel, mm } from "../ui/identity";
 import type { Misfit } from "../ui/noFit";
 
@@ -263,21 +263,15 @@ export type StageView = "plan" | "3d";
 const WEBGL_REASON = "3D needs WebGL";
 
 /**
- * The Layer switch's options: "Layer 1 (bottom) · 40 mm" (a phone drops the height). A layer's
- * height is the stretch from its lower edge to the next layer's: the lower edge is the least z of
- * its trays (0 for the first layer), the top layer ends at the plan's highest point. The heights
- * therefore add up to the status line's "H of B mm high", which counts the same way.
+ * The Layer switch's options: "Layer 1 (bottom) · 40 mm" (a phone drops the height). The heights
+ * are `layerHeights`'.
  */
 export function layerOptions(trays: readonly TraySpec[], phone: boolean) {
   const levels = levelsOf(trays);
-  const top = Math.max(0, ...trays.map((t) => t.z + t.h));
-  const lower = levels.map((level, i) =>
-    i === 0 ? 0 : Math.min(...traysAt(trays, level).map((t) => t.z)),
-  );
+  const heights = layerHeights(trays);
   return levels.map((_, i) => {
     const label = layerLabel(i, levels.length);
-    const height = (lower[i + 1] ?? top) - (lower[i] ?? 0);
-    return { value: String(i), label: phone ? label : `${label} · ${mm(height)} mm` };
+    return { value: String(i), label: phone ? label : `${label} · ${mm(heights[i] ?? 0)} mm` };
   });
 }
 

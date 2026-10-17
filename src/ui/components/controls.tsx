@@ -99,6 +99,8 @@ export interface NumFieldProps extends NumberRules {
   class?: string;
   /** The 44 px box (the default); `false` is the 48 px one (MobileEdit's figure sizes). */
   compact?: boolean;
+  /** The label is for assistive technology only (the field's name is on the line above it). */
+  hideLabel?: boolean;
   /** The validation path whose messages show with the field. */
   path?: string;
   /** "input" commits every valid keystroke (the default); "blur" only when leaving the field. */
@@ -115,6 +117,7 @@ export function NumField({
   labelExtra,
   class: extra,
   compact = true,
+  hideLabel = false,
   path,
   commitOn = "input",
   ...rules
@@ -131,6 +134,7 @@ export function NumField({
         class={extra}
         unit={unit}
         compact={compact}
+        hideLabel={hideLabel}
         mode={rules.integer === true ? "integer" : "decimal"}
         value={typed.text}
         error={error}

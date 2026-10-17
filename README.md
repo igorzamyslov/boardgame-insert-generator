@@ -41,10 +41,11 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    note over the box. When
    no tray variant can give tiles, miniatures (pockets) or an other item a finger cut, its
    pieces are stored loose in a tray with a curved floor instead, and the editor says so.
-3. **The box.** The section "The box" (above the list) sets the inside width, length and height,
-   "Keep space free on top" (the whole top or part of it) and whether the box is stored on its
-   side. A first visit asks for the three sizes only, and its header has "Open file" and the
-   project menu.
+3. **The box.** The box card (above the list) opens "The box", which sets the inside width,
+   length and height, "Keep space free on top" (the whole top or part of it) and whether the box
+   is stored on its side. The stage beside it is a side view of the box: the space kept free as
+   a band on top, the layers under it, and how many mm the trays fill. A first visit asks for the
+   three sizes only, and its header has "Open file" and the project menu.
 4. **The plan.** The optimizer runs on its own 400 ms after you stop editing. A line above
    the box says the result ("Everything fits. 6 trays in 2 layers, 40 of 52 mm high.") or
    what is wrong: it names the tray that doesn't fit and offers "Edit <name>"; when your
