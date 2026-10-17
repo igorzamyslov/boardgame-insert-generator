@@ -5,7 +5,8 @@
 // sheet's name is the h1, and the strip under its header shows the same two things.
 import type { ComponentChildren } from "preact";
 import { Fragment } from "preact";
-import { Button, Toast } from "../kit";
+import { useState } from "preact/hooks";
+import { Button, Segmented, Toast } from "../kit";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { growthOf } from "../model/defaults";
 import { planFrame, toSvgRect, traysAt } from "../plan/layers";
@@ -14,6 +15,7 @@ import { lookOfTray } from "../plan/glyph";
 import { PlanView } from "../plan/PlanView";
 import type { PlanViewProps } from "../plan/PlanView";
 import { componentIndexOfTray, mm } from "../ui/identity";
+import { layerOptions } from "./StageTop";
 import type { EditorProblem } from "./StageTop";
 import { useNoteClock } from "../kit/Toast";
 import "./editorStage.css";
@@ -140,6 +142,7 @@ function Slot({
   onNoteDone,
   problem,
   onRetry,
+  layers,
 }: {
   component: Component;
   trays: readonly TraySpec[];
@@ -147,12 +150,15 @@ function Slot({
   onNoteDone: () => void;
   problem?: EditorProblem | null;
   onRetry?: () => void;
+  /** The Layer switch, when the plan has two layers or more. */
+  layers?: ComponentChildren;
 }) {
   return (
     <div class="ed-slot" data-region="status">
       <div class="ed-slot__row">
         <Toast message={note?.text ?? null} nonce={note?.id} onDone={onNoteDone} />
         <StageSentence component={component} trays={trays} hidden={note !== null} />
+        {layers}
       </div>
       {problem ? <ProblemLine problem={problem} onRetry={onRetry} /> : null}
     </div>
@@ -173,14 +179,29 @@ export function EditorStage({
   problem,
   onRetry,
 }: EditorStageProps) {
+  // The layer the person picked, for this component only: another one opens on its own layer.
+  const [picked, setPicked] = useState<{ id: string; layer: number } | null>(null);
   const component = components.find((c) => c.id === componentId);
   if (component === undefined) {
     return null;
   }
   const mine = traysOfComponent(trays, components, componentId);
-  // The box shows the layer the component is on, so its lift is in sight.
+  // The box opens on the layer of the component's first tray, so its lift is in sight; the Layer
+  // switch moves it to see the others (the top view's: one layer at a time).
   const levels = levelsOf(trays);
-  const at = mine[0] === undefined ? 0 : Math.max(0, levels.indexOf(mine[0].level));
+  const home = mine[0] === undefined ? 0 : Math.max(0, levels.indexOf(mine[0].level));
+  const chosen = picked !== null && picked.id === componentId ? picked.layer : null;
+  const at = chosen !== null && chosen < levels.length ? chosen : home;
+  const layers =
+    levels.length > 1 ? (
+      <Segmented
+        label="Layer"
+        tone="track"
+        options={layerOptions(trays)}
+        value={String(at)}
+        onChange={(v) => setPicked({ id: componentId, layer: Number(v) })}
+      />
+    ) : undefined;
   const slot = phone ? undefined : (
     <Slot
       component={component}
@@ -189,6 +210,7 @@ export function EditorStage({
       onNoteDone={onNoteDone}
       problem={problem}
       onRetry={onRetry}
+      layers={layers}
     />
   );
   return (

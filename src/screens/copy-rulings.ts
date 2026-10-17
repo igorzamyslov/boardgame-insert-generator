@@ -61,6 +61,7 @@ const PLAN_STATES = [
 const LAYERS = "The layer switch uses DESIGN's names";
 const LAYERS_3D = "In 3D the Layer switch peels the model";
 const THREE_D = ["workspace-3d", "workspace-3d-selected"] as const;
+const EDITOR_LAYERS = "The editor's stage has the Layer switch";
 const HOMES = "The Summary's jobs have new homes";
 const NOFIT = "The no-fit heading names the tray";
 const PINS =
@@ -373,6 +374,12 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Layer {n}", states: SWITCHED, ruling: LAYERS },
   // In 3D the switch starts with "All": layers 1 to n, nothing cut away
   { text: "All", states: THREE_D, ruling: LAYERS_3D },
+  // the editor's stage has the same switch (it opens on the item's own layer)
+  ...["Layer {n} (bottom)", "Layer {n} (top)", "Layer {n}"].map((text) => ({
+    text,
+    states: ["editor", "editor-note"] as readonly string[],
+    ruling: EDITOR_LAYERS,
+  })),
   { text: "Making a new plan…", states: ["workspace-making"], ruling: HOMES },
   { text: "No plan yet", states: ["workspace-noplan"], ruling: HOMES },
   { text: "Make a plan", states: ["workspace-noplan"], ruling: HOMES },
