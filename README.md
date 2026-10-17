@@ -84,8 +84,8 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    how it goes together (an exploded picture), a picture per layer, a "What goes where"
    table, PNG downloads per layer and "Print or save as PDF". Trays are named; the download
    list is the one place that says "part".
-10. **Save and share.** Projects autosave in the browser, and the header says "Saved in this
-    browser". There are no share links: the address bar never changes. The project menu
+10. **Save and share.** Projects autosave in the browser, and the header says nothing while
+    that works (it speaks up only when saving is paused, fails or is blocked). There are no share links: the address bar never changes. The project menu
     (the header's "...") has New insert, Your inserts, "Open file...", "Save file", "Send file"
     (on a phone, through the share sheet), Settings and Delete. A file holds the whole insert,
     so sending the file is how you share one. Opening a file opens it as a separate insert (a

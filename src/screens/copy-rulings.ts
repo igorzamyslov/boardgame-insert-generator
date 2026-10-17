@@ -17,7 +17,7 @@ import { OPTION_NOTE_TEXTS } from "../ui/components/optionNotes";
 import { COMPARTMENT_WORDS } from "../ui/identity";
 
 const FOOTER = "The footer moves into the project menu";
-const SAVED = "The saved status has five states";
+const SAVED = "The saved status shows only a problem";
 const DISMISS = "A menu note other than another tab's";
 const INSERTS = "Your inserts is a page of the project menu";
 const UNNAMED = "An unnamed insert reads (unnamed)";
@@ -27,6 +27,9 @@ const PICKER = "Add opens a kind picker";
 const SUMMARY = "A row's line under the name is short";
 const CHIPS = "The rail's rule chips are one per rule";
 const CLEAR = "Clear all my choices lifts every pin";
+const NOTE = "The rules note says what stays";
+const BOXCARD = "The rail's box card says its size on one line";
+const BED = "The rail's footer line shows the insert's printer";
 const ADDING = ["workspace-add", "m-workspace-add"] as const;
 /** The rail's states and the phone sheet's (copy.board.test.tsx has a case for each). */
 const RAIL = [
@@ -213,7 +216,6 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Insert Generator {version}", states: "all", ruling: FOOTER },
   { text: "Licences", states: "all", ruling: FOOTER },
   { text: "Redo", states: "all", ruling: REDO },
-  { text: "Saving…", states: "all", ruling: SAVED },
   { text: "Couldn't save", states: "all", ruling: SAVED },
   { text: "Not saved: this browser blocks storage", states: "all", ruling: SAVED },
   { text: "(unnamed)", states: "all", ruling: UNNAMED },
@@ -240,11 +242,21 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Pinned", states: ["m-workspace-rules", "m-pin-conflict"], ruling: CHIPS },
   { text: "Pinned, turned", states: RULED, ruling: CHIPS },
   { text: "Size locked", states: RULED, ruling: CHIPS },
+  // Main's "These stay as you set them when the plan updates." is in COPY_DENIED: it does not say what stays
   {
-    text: "These stay as you set them when the plan updates.",
-    states: ["m-workspace-rules", "m-pin-conflict"],
-    ruling: CLEAR,
+    text: "Pinned trays stay where you put them when the plan updates.",
+    states: RULED,
+    ruling: NOTE,
   },
+  {
+    text: "Pinned and size-locked trays stay as you set them when the plan updates.",
+    states: RULED,
+    ruling: NOTE,
+  },
+  // the box card's unit is its own, smaller element: "285 × 285 × 70" and "mm"
+  { text: "mm", states: RAIL, ruling: BOXCARD },
+  // Main's footer says "Printer bed 256 × 256 mm", which wraps beside Settings in the 300 px rail
+  { text: "Bed {n} × {n} mm", states: RAIL, ruling: BED },
   { text: "Clear all my choices", states: ["m-workspace-rules", "m-pin-conflict"], ruling: CLEAR },
   { text: "bottom layer", states: RAIL, ruling: SUMMARY },
   { text: "top layer", states: RAIL, ruling: SUMMARY },
@@ -462,6 +474,8 @@ export const COPY_DENIED: readonly string[] = [
   "Copy a report",
   "Start again",
   "Trays then fill up to the lid, so nothing falls out",
+  "These stay as you set them when the plan updates.",
+  "Saved in this browser",
   "It's on the bottom layer, front right.",
   "A few cards",
   "A full expansion",

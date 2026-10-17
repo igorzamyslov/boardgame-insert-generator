@@ -91,11 +91,10 @@ describe("Header", () => {
     expect(screen.getByRole("button", { name: "Project menu" })).toBeTruthy();
   });
 
-  it("draws the phone's name over where it is saved, and Download as an icon", () => {
+  it("draws the phone's name, with no save line while saving works, and Download as an icon", () => {
     const { container } = render(<Header {...props({ phone: true, name: "Harbour Kings" })} />);
     const block = container.querySelector(".hd-who");
-    expect(block?.textContent).toContain("Harbour Kings");
-    expect(block?.textContent).toContain("Saved in this browser");
+    expect(block?.textContent).toBe("Harbour Kings");
     expect(screen.getByRole("button", { name: "Download" }).classList.contains("k-iconbtn")).toBe(
       true,
     );
@@ -156,10 +155,12 @@ describe("Header", () => {
     expect(downloadRef.current).toBe(screen.getByRole("button", { name: "Download" }));
   });
 
-  it("shows Saved in this browser, and says nothing for routine saving", () => {
-    render(<Header {...props({ saveState: "saved" })} />);
-    expect(screen.getByText("Saved in this browser")).toBeTruthy();
-    // the live region is there, empty: routine saving is not announced
+  it("shows nothing while saving works: no Saved in this browser, no Saving, an empty live region", () => {
+    const { container } = render(<Header {...props({ saveState: "saved" })} />);
+    expect(container.querySelector(".saved-mark")).toBeNull();
+    expect(container.textContent).not.toContain("Saved");
+    expect(container.textContent).not.toContain("Saving");
+    // the live region is there, empty
     expect(screen.getByRole("status").textContent).toBe("");
   });
 
@@ -170,8 +171,8 @@ describe("Header", () => {
 
   it("says what each other save state means, in a live region that stays mounted", () => {
     const text: Record<SaveState, string> = {
-      saved: "Saved in this browser",
-      saving: "Saving…",
+      saved: "",
+      saving: "",
       paused: "Saving paused",
       failed: "Couldn't save",
       unavailable: "Not saved: this browser blocks storage",
@@ -181,10 +182,12 @@ describe("Header", () => {
     const announced = ["paused", "failed", "unavailable"];
     for (const [state, expected] of Object.entries(text)) {
       rerender(<Header {...props({ saveState: state as SaveState })} />);
-      expect(container.querySelector(".saved-status")?.textContent).toContain(expected);
-      // only the states that need attention are spoken, and the region is the same element
+      // only a problem is drawn, and only a problem is spoken; the region is the same element
+      expect(container.querySelector(".saved-status")?.textContent).toBe(
+        announced.includes(state) ? `${expected}${expected}` : "",
+      );
       expect(screen.getByRole("status")).toBe(region);
-      expect(region.textContent).toBe(announced.includes(state) ? expected : "");
+      expect(region.textContent).toBe(expected);
     }
   });
 

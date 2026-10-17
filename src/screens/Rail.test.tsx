@@ -48,6 +48,11 @@ describe("Rail", () => {
     const card = screen.getByRole("button", { name: /The box/ });
     expect(card.textContent).toContain("285 × 285 × 70 mm");
     expect(card.textContent).toContain("Change");
+    // the size is one element (the line the CSS keeps whole), whole in its title
+    const size = card.querySelector(".rail-box__size");
+    expect(size?.textContent).toBe("285 × 285 × 70 mm");
+    expect(size?.getAttribute("title")).toBe("285 × 285 × 70 mm");
+    expect(size?.querySelector(".rail-box__unit")?.textContent).toBe(" mm");
     fireEvent.click(card);
     expect(h.onOpenBox).toHaveBeenCalledTimes(1);
   });
@@ -103,12 +108,28 @@ describe("Rail", () => {
   it("shows the rules note only with choices", () => {
     const { rerender } = render(<Rail {...props()} />);
     expect(screen.queryByRole("button", { name: "Clear all my choices" })).toBeNull();
-    expect(screen.queryByText(/These stay as you set them/)).toBeNull();
+    expect(screen.queryByText(/when the plan updates/)).toBeNull();
     const h = props({ locks: [pin] });
     rerender(<Rail {...h} />);
-    expect(screen.getByText("These stay as you set them when the plan updates.")).toBeTruthy();
+    expect(
+      screen.getByText("Pinned trays stay where you put them when the plan updates."),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Clear all my choices" }));
     expect(h.onClearChoices).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the size locks in the note only while one is set", () => {
+    const size: Lock = { kind: "size", trayKey: "a:p0:0", w: 80, d: 80, h: 30 };
+    const { rerender } = render(<Rail {...props({ locks: [pin] })} />);
+    expect(screen.queryByText(/size-locked/)).toBeNull();
+    rerender(<Rail {...props({ locks: [pin, size] })} />);
+    expect(
+      screen.getByText("Pinned and size-locked trays stay as you set them when the plan updates."),
+    ).toBeTruthy();
+    expect(screen.queryByText(/stay where you put them/)).toBeNull();
+    // a size lock alone is a rule too
+    rerender(<Rail {...props({ locks: [size] })} />);
+    expect(screen.getByText(/size-locked trays stay as you set them/)).toBeTruthy();
   });
 
   it("puts the focus on the Add pill when the note goes with its button", () => {
@@ -133,7 +154,9 @@ describe("Rail", () => {
   it("shows the printer bed and Settings", () => {
     const h = props();
     render(<Rail {...h} />);
-    expect(screen.getByText("Printer bed 256 × 256 mm")).toBeTruthy();
+    // short enough for one line beside Settings; the whole words are its title
+    const bed = screen.getByText("Bed 256 × 256 mm");
+    expect(bed.getAttribute("title")).toBe("Printer bed 256 × 256 mm");
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(h.onSettings).toHaveBeenCalledTimes(1);
   });

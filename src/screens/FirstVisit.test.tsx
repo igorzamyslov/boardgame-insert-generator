@@ -248,7 +248,7 @@ describe("the first visit", () => {
     await waitFor(() => expect(stub.calls).toHaveLength(1));
     // back to the list, and the box card shows the size
     fireEvent.click(screen.getByRole("button", { name: "What's inside" }));
-    expect(screen.getByText(/^250 × 285 × 70 mm$/)).toBeTruthy();
+    expect(screen.getByTitle("250 × 285 × 70 mm")).toBeTruthy();
   });
 
   it("starts from the example game: three items, no editor open", () => {

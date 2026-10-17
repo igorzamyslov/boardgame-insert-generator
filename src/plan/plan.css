@@ -92,7 +92,14 @@
   box-sizing: border-box;
   width: calc(var(--w) - 6px);
   height: calc(var(--d) - 6px);
-  padding: var(--s-8);
+
+  /*
+   * No padding: with box-sizing border-box a padding of 8 px each side made a tile under 20 px
+   * (a 10 mm spacer) 20 px, drawn 6 px into its neighbour with no gap. Its parts are positioned
+   * on their own (.plan-cells, .plan-center), so nothing needs it. Every tile, tray or spacer,
+   * is its footprint less the same 3 px a side.
+   */
+  padding: 0;
   border: 2px solid var(--tile-line, var(--edge));
   border-radius: var(--r-tile);
 
@@ -157,13 +164,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--s-12);
   border: 2px dashed var(--warn);
   background: var(--warn-bg);
 }
 
 .plan-misfit {
+  box-sizing: border-box;
   min-width: 0;
+  max-width: 100%;
+  padding: 0 var(--s-12);
   overflow: hidden;
   color: var(--warn-ink);
   font-weight: 700;
@@ -289,11 +298,7 @@
     font-size: var(--text-2xs);
   }
 
-  /* MobileWorkspace: plain tiles with a smaller pill, and no cells. */
-  .plan-tile {
-    padding: 0;
-  }
-
+  /* MobileWorkspace: no cells, and a smaller pill. */
   .plan-cells {
     display: none;
   }

@@ -594,17 +594,18 @@ describe("the phone layout", () => {
   it("draws a phone's tiles plain: a smaller pill, no cells, no padding", () => {
     const phone = mediaBlock("(width < 760px)", plan);
     expect(ruleFor(".plan-cells", phone)).toMatch(/display:\s*none/);
-    expect(ruleFor(".plan-tile", phone)).toMatch(/padding:\s*0/);
+    // no tile has padding, on a phone or not (a thin spacer must not grow past its footprint)
+    expect(ruleFor(".plan-tile", plan)).toMatch(/padding:\s*0;/);
     expect(ruleFor(".plan-pill", phone)).toMatch(/padding:\s*2px 7px/);
     expect(ruleFor(".plan-pill", phone)).toMatch(/font-size:\s*var\(--text-2xs\)/);
   });
 
-  it("draws a tile 3 px inside its footprint, 10 px round, with 8 px of padding", () => {
+  it("draws a tile 3 px inside its footprint, 10 px round, with no padding", () => {
     const tile = ruleFor(".plan-tile", plan);
     expect(tile).toMatch(/left:\s*calc\(var\(--x\) \+ 3px\)/);
     expect(tile).toMatch(/width:\s*calc\(var\(--w\) - 6px\)/);
     expect(tile).toMatch(/border-radius:\s*var\(--r-tile\)/);
-    expect(tile).toMatch(/padding:\s*var\(--s-8\)/);
+    expect(tile).toMatch(/padding:\s*0;/);
     expect(ruleFor(".plan-floor", plan)).toMatch(/inset:\s*6px/);
   });
 

@@ -79,18 +79,33 @@
 }
 
 /*
- * Box's field is 120 px beside a 170 px segment in its 340 px rail. The rail is 300 here (a ruling),
- * so the field is 96 px, as MobileBox's, and "Whole top" and "Part of it" fit in what is left. The
- * label above the field is not drawn.
+ * Box's field is 120 px beside a 170 px segment in its 340 px rail. The rail is 300 here (a ruling):
+ * beside a 96 px field the segment has 148 px, and "Whole top" and "Part of it" would have 6 px aside
+ * each. So the segment goes on its own row under the field, the rail's whole width, and each option
+ * has a share of 130 px (about 30 px aside). The phone's sheet is wide enough to keep them side by
+ * side, as MobileBox draws them. The label above the field is not drawn.
  */
+.bx-top__row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .bx-top .bx-headroom {
   flex: none;
   width: 96px;
 }
 
+.bx-top__row--stacked .bx-headroom {
+  align-self: flex-start;
+}
+
 .bx-top .k-seg {
   flex: 1 1 0;
   min-width: 0;
+}
+
+.bx-top__row--stacked .k-seg {
+  flex: none;
 }
 
 .bx-top .ed-line {

@@ -704,6 +704,100 @@ describe("PlanView", () => {
     expect(planCss).toMatch(/\.plan-tile\.is-leftover \.plan-pill\s*{[^}]*--muted-strong/);
   });
 
+  it("draws every part, a tray or a spacer, with the same inset: its footprint less 3 px a side", () => {
+    // A thin spacer (4 mm) beside a tray, a spare tray, and a merged part's members: all of them
+    const thin = makeTray({
+      key: "leftover:thin",
+      part: "leftover",
+      path: "13",
+      stack: 4,
+      x: 0,
+      y: 90.2,
+      w: 90,
+      d: 4,
+      compartments: [],
+    });
+    // a spacer made of two members on the same layer: each is drawn on its own
+    const joined = {
+      ...M,
+      key: "merged:2",
+      merged: {
+        members: [
+          { ...L2, key: "leftover:m1", x: 91, y: 10, w: 8, d: 30 },
+          { ...L2, key: "leftover:m2", x: 91, y: 50, w: 8, d: 3 },
+        ],
+        bridges: [],
+        flipped: false,
+      },
+    };
+    const trays = [A, B, thin, L2, joined];
+    const { box } = setup({ trays });
+    const css = planCss.replace(/\/\*[\s\S]*?\*\//g, "");
+    const rule = (selector: string): string => {
+      for (const [, selectors = "", body = ""] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (selectors.trim() === selector) {
+          return body;
+        }
+      }
+      return "";
+    };
+    // the one rule that places a tile: 3 px in on each side, and no padding that could push it out
+    const base = rule(".plan-tile");
+    expect(base).toMatch(/top:\s*calc\(var\(--y\) \+ 3px\)/);
+    expect(base).toMatch(/left:\s*calc\(var\(--x\) \+ 3px\)/);
+    expect(base).toMatch(/width:\s*calc\(var\(--w\) - 6px\)/);
+    expect(base).toMatch(/height:\s*calc\(var\(--d\) - 6px\)/);
+    expect(base).toMatch(/box-sizing:\s*border-box/);
+    expect(base).toMatch(/padding:\s*0;/);
+    // and no variant (a spacer, the tray that does not fit, a media query) moves or resizes it
+    const SIZING =
+      /(^|[\s;])(top|left|right|bottom|width|height|min-width|min-height|padding[a-z-]*|margin[a-z-]*|box-sizing|inset)\s*:/;
+    for (const [, selectors = "", body = ""] of css.matchAll(/([^{}@]+)\{([^{}]*)\}/g)) {
+      const own = selectors
+        .trim()
+        .split(",")
+        .map((x) => x.trim())
+        .filter((x) => /^(\.plan-box\[[^\]]*\] )?\.plan-tile[.:[\w-]*$/.test(x));
+      if (own.length > 0 && !own.includes(".plan-tile")) {
+        expect(body, selectors.trim()).not.toMatch(SIZING);
+      }
+    }
+    // each drawn part is its own footprint as shares of the floor, with no inline inset of its own
+    const inner = { w: insertBox.innerWidth, d: insertBox.innerDepth };
+    const drawn = [
+      ["a:p0:0", A],
+      ["b:p0:0", B],
+      ["leftover:thin", thin],
+      ["leftover:1", L2],
+    ] as const;
+    for (const [key, t] of drawn) {
+      const tile = box.querySelector<HTMLElement>(`[data-key="${key}"]`);
+      expect(tile, key).not.toBeNull();
+      const px = (name: string): number =>
+        Number.parseFloat(tile?.style.getPropertyValue(name) ?? "");
+      expect(px("--x"), key).toBeCloseTo(((frame.bc + t.x) / inner.w) * 100, 3);
+      // the front of the box is the bottom of the plan, so y counts from the back
+      expect(px("--y"), key).toBeCloseTo(
+        ((frame.bc + frame.usableD - t.y - t.d) / inner.d) * 100,
+        3,
+      );
+      expect(px("--w"), key).toBeCloseTo((t.w / inner.w) * 100, 3);
+      expect(px("--d"), key).toBeCloseTo((t.d / inner.d) * 100, 3);
+      for (const prop of ["top", "left", "width", "height", "padding", "margin"]) {
+        expect(tile?.style.getPropertyValue(prop), `${key} ${prop}`).toBe("");
+      }
+    }
+    // a merged part's members are drawn the same way
+    const members = [
+      ...box.querySelectorAll<HTMLElement>('[data-of="merged:2"], [data-key="merged:2"]'),
+    ];
+    expect(members).toHaveLength(2);
+    for (const m of members) {
+      expect(m.style.getPropertyValue("top")).toBe("");
+      expect(m.style.getPropertyValue("--w")).toBe(`${(8 / inner.w) * 100}%`);
+    }
+  });
+
   it("positions a tile from its footprint in the box, and the box from its measures", () => {
     const { box } = setup({ trays: [B] });
     const tile = box.querySelector<HTMLElement>('[data-key="b:p0:0"]');

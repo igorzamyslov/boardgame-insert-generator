@@ -21,6 +21,13 @@
 
 /* ---- The box card: a tile, "The box" over its size, and "Change" ---- */
 
+/*
+ * The rail's 300 px leaves 116 px beside the tile and "Change" for "285 × 285 × 70 mm", so Main's
+ * card wrapped (on the board too). "Change" goes up on the label's line, right-aligned, and the size
+ * takes the width under both, on one line: its unit is 13 px and muted, the numbers keep 16 px. A
+ * size too long even for that (five digits) is cut with an ellipsis, and its title has it whole.
+ * The whole card is the target, 44 px and more.
+ */
 .rail-box__text {
   display: flex;
   flex: 1 1 auto;
@@ -29,14 +36,31 @@
   min-width: 0;
 }
 
+.rail-box__top {
+  display: flex;
+  gap: var(--s-8);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
 .rail-box__label {
   color: var(--muted);
   font-size: var(--text-xs);
 }
 
 .rail-box__size {
+  min-width: 0;
+  overflow: hidden;
   font-size: 16px; /* Main */
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-box__unit {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
 }
 
 .rail-box__change {
@@ -218,8 +242,13 @@
   font-size: var(--text-sm);
 }
 
+/* One line: a bed too long for it is cut, and its title has it whole. */
 .rail-foot__text {
   flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rail-settings {

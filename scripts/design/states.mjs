@@ -85,6 +85,7 @@ export const STATES = {
     seed: "harbour-kings",
     minPlanWidth: 560,
     noStageScroll: true,
+    probes: ["plan-gaps"],
   },
   // The tablet band: the rail stays beside the stage (Task 3 checks it; Task 15 does the pass).
   "workspace-820": {
@@ -316,10 +317,28 @@ export const STATES = {
       { wait: 600 },
     ],
   },
+  // The rail's box card with a four-digit box (polish: it stays on one line, or is cut with an ellipsis).
+  "workspace-wide-box": {
+    board: "Main",
+    nearest: "Main, with a 1000 × 1000 × 100 mm box where the board has 285 × 285 × 70",
+    viewport: DESKTOP,
+    seed: "harbour-kings-headroom",
+    steps: [
+      { click: { role: "button", name: /^The box/, in: '[data-region="rail"]' } },
+      { waitFor: { role: "heading", name: "Side view of the box" } },
+      { fill: { label: "Width", value: "1000" } },
+      { fill: { label: "Length", value: "1000" } },
+      { fill: { label: "Height", value: "100" } },
+      { wait: 400 },
+      { click: { role: "button", name: "Done", in: '[data-region="rail"]' } },
+      { wait: 400 },
+    ],
+  },
   // NoFit (Task 12): the closest attempt of a failed search (box height: Heroes 80 mm), the culprit
   // tray marked, and the panel of what the engine can do. The seed holds no result (the store keeps
   // none), so the state asks for a new plan and waits for the run.
   "no-fit": {
+    probes: ["plan-gaps"],
     board: "NoFit",
     viewport: DESKTOP,
     seed: "harbour-kings-nofit",
@@ -328,6 +347,7 @@ export const STATES = {
   },
   // The bed variant: a tray no print bed orientation holds ("It's too big for your printer's bed.").
   "no-fit-bed": {
+    probes: ["plan-gaps"],
     board: "NoFit",
     viewport: DESKTOP,
     seed: "harbour-kings-nofit-bed",
@@ -336,6 +356,7 @@ export const STATES = {
   },
   // PinConflict (Task 12): the plan the runner kept, the pins whole, and the column "Unpin one".
   "pin-conflict": {
+    probes: ["plan-gaps"],
     board: "PinConflict",
     viewport: DESKTOP,
     seed: "harbour-kings-pins",

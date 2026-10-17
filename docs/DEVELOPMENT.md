@@ -449,7 +449,7 @@ and JSX text. Comments and identifiers aren't checked.
 → The region was mounted in the same render as its text, and screen readers announce changes
 inside a region that already exists.
 → Mount the region always and swap its children (`kit/Toast.tsx`). Toggling `role` with the text
-(`ui/SavedStatus.tsx` today) has the same problem.
+has the same problem (`ui/SavedStatus.tsx` keeps its region mounted and empty while saving works).
 
 **Focus lands on `<body>` after a click.**
 For example, after a chip's ×, after Keep searching turns into Stop, or after deleting the last

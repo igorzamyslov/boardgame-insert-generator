@@ -97,7 +97,7 @@ function KeepFree({ box, onChange, phone }: Pick<BoxPanelProps, "box" | "onChang
           <span class="ed-line">For the rulebook, boards or player mats</span>
         )}
       </span>
-      <div class="bx-top__row">
+      <div class={phone === true ? "bx-top__row" : "bx-top__row bx-top__row--stacked"}>
         <NumField
           id="box-headroom"
           label="Space on top"

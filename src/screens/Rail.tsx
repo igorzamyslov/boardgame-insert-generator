@@ -5,9 +5,14 @@ import { mm } from "../ui/identity";
 import { ComponentList } from "../ui/components/ComponentList";
 import { AddMenu } from "./KindPicker";
 
+/** "285 × 285 × 70": the box's inside, without its unit. */
+function boxNumbers(box: Box): string {
+  return `${mm(box.innerWidth)} × ${mm(box.innerDepth)} × ${mm(box.innerHeight)}`;
+}
+
 /** "285 × 285 × 70 mm": the box's inside. */
 export function boxSize(box: Box): string {
-  return `${mm(box.innerWidth)} × ${mm(box.innerDepth)} × ${mm(box.innerHeight)} mm`;
+  return `${boxNumbers(box)} mm`;
 }
 
 interface ListProps {
@@ -44,11 +49,18 @@ function clearChoices(onClear: () => void): () => void {
   };
 }
 
+/** What the note says the plan keeps: the pins, and the size locks when there are any (a ruling, DESIGN §7). */
+export function rulesNoteText(locks: readonly Lock[]): string {
+  return locks.some((l) => l.kind === "size")
+    ? "Pinned and size-locked trays stay as you set them when the plan updates."
+    : "Pinned trays stay where you put them when the plan updates.";
+}
+
 /** Main's note under the list while any rule is set, and the way to lift them all. */
-function RulesNote({ onClear }: { onClear: () => void }) {
+function RulesNote({ locks, onClear }: { locks: readonly Lock[]; onClear: () => void }) {
   return (
     <div class="rail-note">
-      <span class="rail-note__text">These stay as you set them when the plan updates.</span>
+      <span class="rail-note__text">{rulesNoteText(locks)}</span>
       <Button variant="quiet" class="rail-clear" onClick={onClear}>
         Clear all my choices
       </Button>
@@ -63,6 +75,9 @@ function RulesNote({ onClear }: { onClear: () => void }) {
  */
 export function Rail(p: RailProps) {
   const locks = p.locks ?? [];
+  // "Printer bed 256 × 256 mm" does not fit beside Settings in 260 px; the printer icon says the rest.
+  const bed = `Bed ${mm(p.printer.bedX)} × ${mm(p.printer.bedY)} mm`;
+  const bedFull = `Printer bed ${mm(p.printer.bedX)} × ${mm(p.printer.bedY)} mm`;
   return (
     <div class="rail">
       <Card class="rail-box" data-rail-box="" onClick={p.onOpenBox}>
@@ -70,10 +85,16 @@ export function Rail(p: RailProps) {
           <Icon name="box" size={20} />
         </IconTile>
         <span class="rail-box__text">
-          <span class="rail-box__label">The box</span>
-          <span class="rail-box__size">{boxSize(p.box)}</span>
+          <span class="rail-box__top">
+            <span class="rail-box__label">The box</span>
+            <span class="rail-box__change">Change</span>
+          </span>
+          {/* one line in the 300 px rail: the unit is smaller and muted, a long size is cut (its title has it all) */}
+          <span class="rail-box__size" title={boxSize(p.box)}>
+            {boxNumbers(p.box)}
+            <span class="rail-box__unit"> mm</span>
+          </span>
         </span>
-        <span class="rail-box__change">Change</span>
       </Card>
       <div class="rail-head">
         <h2 class="rail-title">What&apos;s inside</h2>
@@ -90,10 +111,14 @@ export function Rail(p: RailProps) {
         onUnpin={p.onUnpin}
         onUnlockSize={p.onUnlockSize}
       />
-      {locks.length > 0 ? <RulesNote onClear={clearChoices(p.onClearChoices)} /> : null}
+      {locks.length > 0 ? (
+        <RulesNote locks={locks} onClear={clearChoices(p.onClearChoices)} />
+      ) : null}
       <div class="rail-foot">
         <Icon name="printer" size={18} />
-        <span class="rail-foot__text">{`Printer bed ${mm(p.printer.bedX)} × ${mm(p.printer.bedY)} mm`}</span>
+        <span class="rail-foot__text" title={bedFull}>
+          {bed}
+        </span>
         <Button variant="quiet" class="rail-settings" onClick={p.onSettings}>
           Settings
         </Button>
@@ -132,7 +157,9 @@ export function SheetList(p: ListProps) {
           </li>
         }
       />
-      {locks.length > 0 ? <RulesNote onClear={clearChoices(p.onClearChoices)} /> : null}
+      {locks.length > 0 ? (
+        <RulesNote locks={locks} onClear={clearChoices(p.onClearChoices)} />
+      ) : null}
     </>
   );
 }

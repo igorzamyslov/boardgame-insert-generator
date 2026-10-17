@@ -597,7 +597,7 @@ describe("App", () => {
       fireEvent.input(screen.getByLabelText("Project name"), { target: { value: name } });
     };
 
-    it("has the wordmark, the project name, the save state and Download", () => {
+    it("has the wordmark, the project name, no save line and Download", () => {
       const { store } = renderWorkspace();
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
       // the name is a button until it is pressed, then a field
@@ -606,7 +606,9 @@ describe("App", () => {
       expect((screen.getByLabelText("Project name") as HTMLInputElement).value).toBe(
         store.state.project.value.name,
       );
-      expect(screen.getByText("Saved in this browser")).toBeTruthy();
+      // saving works: the header says nothing about it
+      expect(screen.queryByText("Saved in this browser")).toBeNull();
+      expect(document.querySelector(".saved-status")?.textContent).toBe("");
       expect(document.querySelector("details.app-menu")).toBeNull();
       expect(screen.queryByRole("button", { name: "Project" })).toBeNull();
     });
@@ -1873,7 +1875,7 @@ describe("the rail, What's inside", () => {
     fireEvent.click(within(rail()).getByRole("button", { name: "Done" }));
     expect(within(rail()).getByRole("list", { name: "What's inside" })).toBeTruthy();
     expect(document.activeElement).toBe(within(rail()).getByRole("button", { name: /^The box/ }));
-    expect(within(rail()).getByText("250 × 290 × 70 mm")).toBeTruthy();
+    expect(within(rail()).getByTitle("250 × 290 × 70 mm")).toBeTruthy();
   });
 
   it("has one h1 in the box editor: the side view's label, in the stage", () => {
@@ -1990,9 +1992,7 @@ describe("the rail, What's inside", () => {
   it("shows the printer bed of the insert, and Settings opens from it", () => {
     const p = fixtureProject();
     renderApp({ project: p });
-    expect(
-      within(rail()).getByText(`Printer bed ${p.printer.bedX} × ${p.printer.bedY} mm`),
-    ).toBeTruthy();
+    expect(within(rail()).getByText(`Bed ${p.printer.bedX} × ${p.printer.bedY} mm`)).toBeTruthy();
     fireEvent.click(within(rail()).getByRole("button", { name: "Settings" }));
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
   });

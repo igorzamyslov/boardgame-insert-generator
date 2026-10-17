@@ -270,6 +270,43 @@ const PROBES = {
     return clipped.map((c) => `probe field-clip: ${c}`);
   },
   /**
+   * The plan (polish): every pair of tiles that stand side by side has the same gap between them,
+   * 6 px (each tile is drawn 3 px inside its footprint), whatever the parts are: a tray, a spacer
+   * or a spare tray. A pair closer than that, or touching, is a problem.
+   */
+  async "plan-gaps"(page) {
+    const found = await page.evaluate(() => {
+      const GAP = 6;
+      const tiles = [...document.querySelectorAll(".plan-tile")].map((el) => ({
+        name: el.getAttribute("title") ?? el.getAttribute("data-of") ?? "?",
+        spacer: el.classList.contains("is-leftover"),
+        r: el.getBoundingClientRect(),
+      }));
+      const out = [];
+      const fmt = (t) =>
+        `${t.name}${t.spacer ? " (spacer)" : ""} ${Math.round(t.r.width)}x${Math.round(t.r.height)}@${Math.round(t.r.left)},${Math.round(t.r.top)}`;
+      for (let i = 0; i < tiles.length; i++) {
+        for (let j = i + 1; j < tiles.length; j++) {
+          const a = tiles[i].r;
+          const b = tiles[j].r;
+          const overlapX = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+          const overlapY = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+          const gapX = Math.max(a.left, b.left) - Math.min(a.right, b.right);
+          const gapY = Math.max(a.top, b.top) - Math.min(a.bottom, b.bottom);
+          // side by side: they share a span on one axis and are near on the other
+          const near = (overlapY > 0 && gapX < GAP - 0.5) || (overlapX > 0 && gapY < GAP - 0.5);
+          if (near) {
+            out.push(
+              `${fmt(tiles[i])} and ${fmt(tiles[j])} are ${Math.min(Math.max(gapX, gapY), GAP).toFixed(1)} px apart`,
+            );
+          }
+        }
+      }
+      return out;
+    });
+    return found.map((f) => `probe plan-gaps: ${f}`);
+  },
+  /**
    * The tray sheet (Task 8), with More open: Escape closes More and only More; then a press on the
    * backdrop (the page above the sheet) closes the sheet.
    */

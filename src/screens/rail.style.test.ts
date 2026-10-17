@@ -42,6 +42,22 @@ describe("rail.css", () => {
     expect(note).toMatch(/background:\s*var\(--page\)/);
   });
 
+  it("keeps the box card's size and the foot's bed on one line, cut when too long", () => {
+    for (const selector of [".rail-box__size", ".rail-foot__text"]) {
+      const rule = ruleFor(selector);
+      expect(rule, selector).toMatch(/white-space:\s*nowrap/);
+      expect(rule, selector).toMatch(/overflow:\s*hidden/);
+      expect(rule, selector).toMatch(/text-overflow:\s*ellipsis/);
+      expect(rule, selector).toMatch(/min-width:\s*0/);
+    }
+    // the numbers keep their 16 px; only the unit is smaller and muted
+    expect(ruleFor(".rail-box__size")).toMatch(/font-size:\s*16px/);
+    expect(ruleFor(".rail-box__unit")).toMatch(/font-size:\s*var\(--text-xs\)/);
+    expect(ruleFor(".rail-box__unit")).toMatch(/color:\s*var\(--muted\)/);
+    // "Change" shares the label's line, so the size has the width under both
+    expect(ruleFor(".rail-box__top")).toMatch(/justify-content:\s*space-between/);
+  });
+
   it("keeps a 44 px target on Clear all my choices and Settings", () => {
     expect(ruleFor(".rail-clear")).toMatch(/min-height:\s*var\(--control-h\)/);
     // Settings is a kit Button: 44 px tall, with Main's 8 px aside

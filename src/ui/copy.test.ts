@@ -190,7 +190,7 @@ const NOT_WORDS =
 
 /** Legitimate uses, removed from the text before NOT_WORDS looks at it. */
 const ALLOWED =
-  /\b(?:Lock size|Unlock size|size locked|size locks?|Keep searching|Keep space free|Keep this version|Part of it|data-part)\b/gi;
+  /\b(?:Lock size|Unlock size|size[ -]locked|size locks?|Keep searching|Keep space free|Keep this version|Part of it|data-part)\b/gi;
 
 /** Files that write the download list, why a part could not be exported, and part names. */
 const PART_FILES: readonly RegExp[] = [
@@ -263,6 +263,7 @@ describe("copy", () => {
     expect(not("Keep space free on top")).toBeNull();
     expect(not("Keep this version")).toBeNull();
     expect(not("Size locked")).toBeNull();
+    expect(not("Pinned and size-locked trays")).toBeNull();
     expect(not("the filler piece")).toBe("filler");
     expect(not("Parts")).toBe("Parts");
     expect(not("Parts", "/src/ui/ExportPanel.tsx")).toBeNull();
