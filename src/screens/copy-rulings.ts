@@ -122,6 +122,7 @@ const EDITOR_SIZES = "Card sizes are the engine's presets";
 const EDITOR_SUMMARY = "More options says what is inside it";
 const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
 const EDITOR_SENTENCE = "The stage sentence is the page's h1 while editing";
+const EDITOR_MAX = "A growth choice on Max says what Max means";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
 const EDITOR_NAME = "The phone editor has a Name field";
 const EDITOR_WORDS = "The Words table beats MobileEdit's second way to store figures";
@@ -542,6 +543,13 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["editor-note", ...PHONE_EDITS] as readonly string[],
     ruling: EDITOR_NOTES,
   })),
+  // what Max means, under a growth choice that is on Max (the editors' growth options)
+  {
+    text: "As much as fits beside the other trays and on your printer's bed.",
+    states: EDITING,
+    ruling: EDITOR_MAX,
+  },
+  { text: "As tall as the box allows.", states: EDITING, ruling: EDITOR_MAX },
   // asking before a removal, and the note after it (it sits in the stage slot, as the option notes do)
   { text: "Remove “{name}” from the box?", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Remove", states: EDITING, ruling: EDITOR_REMOVE },
