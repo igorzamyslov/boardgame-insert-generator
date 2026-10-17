@@ -104,9 +104,9 @@
   );
 }
 
-/* While one component is pointed at or selected, every other tray fades. */
+/* While one component is pointed at or selected, every other tray fades. At 60% the hue stays; at half it went grey on the box. */
 .plan-tile.is-dimmed {
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
 .plan-tile.is-source {

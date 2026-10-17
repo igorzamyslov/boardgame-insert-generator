@@ -8,6 +8,7 @@ import { DEFAULT_BOX, newComponent } from "../model/defaults";
 import type { CompartmentSpec } from "../model/types";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { hoveredComponent } from "../screens/hover";
+import { shadeHex } from "../ui/identity";
 import planCss from "./plan.css?raw";
 import { planFrame } from "./layers";
 import { PlanView } from "./PlanView";
@@ -227,7 +228,7 @@ describe("PlanView", () => {
         /--tile-fill:\s*([^;]+)/,
       )?.[1];
     // The first deck is the kind's base hue; the second is a shade of it, not the dice's index.
-    expect(fill("a:p0:0")).toContain("#DCE6FA");
+    expect(fill("a:p0:0")).toContain(shadeHex("cards", 0, "light").fill);
     expect(fill("b:p0:0")).toBeTruthy();
     expect(fill("b:p0:0")).not.toBe(fill("a:p0:0"));
     expect(fill("b:p0:0")).toContain("light-dark(");

@@ -42,7 +42,7 @@
   --box: #d3cdbf;
   --box-edge: #bfb8a8;
   --box-dash: #8c8778;
-  --cell-fill: rgb(255 255 255 / 60%); /* a tile's compartment cells (Main) */
+  --cell-fill: rgb(255 255 255 / 38%); /* a tile's compartment cells (Main drew 60%; owner: colours look pale) */
   --pill-fill: rgb(255 255 255 / 92%); /* a tile's name pill (Main) */
 
   /* Focus. */
@@ -73,20 +73,20 @@
   --logo-tiles: #86c79a;
   --logo-minis: #e89bbe;
 
-  /* Kind hues: fill, line and ink. Each component of a kind gets its own shade of these. */
-  --cards-fill: #dce6fa;
+  /* Kind hues: fill, line and ink. Each component of a kind gets its own shade of these. The fills are a notch deeper than the boards draw them (owner: "colors in the box look a bit pale"). */
+  --cards-fill: #c0d3f7;
   --cards-line: #335aa6;
   --cards-ink: #22457e;
-  --bits-fill: #fbe9c9;
+  --bits-fill: #fbdeab;
   --bits-line: #8a5d08;
   --bits-ink: #6e4c0e;
-  --tiles-fill: #d8eede;
+  --tiles-fill: #c1e7cb;
   --tiles-line: #2e6b41;
   --tiles-ink: #22552e;
-  --minis-fill: #f5dce7;
+  --minis-fill: #f0c2d6;
   --minis-line: #964068;
   --minis-ink: #74244b;
-  --custom-fill: #e7e3f4;
+  --custom-fill: #d3cced;
   --custom-line: #5b4b9a;
   --custom-ink: #45397a;
 

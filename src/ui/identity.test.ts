@@ -11,7 +11,7 @@ import type {
   MinisComponent,
 } from "../model/types";
 import tokens from "../styles/tokens.css?raw";
-import { contrast, hexToHsl, hexToRgb } from "./color";
+import { contrast, hexToHsl, hexToRgb, rgbToHex } from "./color";
 import {
   BOX_COLOR,
   SPACER_SHADE,
@@ -158,8 +158,9 @@ describe("component shades", () => {
     }
   });
 
-  it("keeps light fills pastel (the vivid #5C8FF6 or #FFBA40 are out)", () => {
-    // HSV saturation: pastels sit low (the bases 0.1 to 0.2), the vivid ones high (0.6 and up).
+  it("keeps light fills soft (the vivid #5C8FF6 or #FFBA40 are out)", () => {
+    // HSV saturation: the bases sit low (0.2 to 0.33), the deepest shades of amber 0.55, the
+    // vivid ones high (0.6 and up).
     const chroma = (hex: string): number => {
       const [r, g, b] = hexToRgb(hex);
       return (Math.max(r, g, b) - Math.min(r, g, b)) / Math.max(r, g, b);
@@ -167,8 +168,67 @@ describe("component shades", () => {
     for (const kind of KINDS) {
       for (let index = 0; index < SHADE_COUNT; index++) {
         const { fill } = shadeHex(kind, index, "light");
-        expect(chroma(fill), `${kind} ${index} ${fill}`).toBeLessThanOrEqual(0.5);
+        expect(chroma(fill), `${kind} ${index} ${fill}`).toBeLessThanOrEqual(0.58);
       }
+    }
+  });
+
+  it("keeps every shade's ink at 4.5:1 on the name pill (92% white) laid over its fill", () => {
+    const alpha = Number(/--pill-fill:\s*rgb\(255 255 255 \/ (\d+)%\)/.exec(tokens)?.[1]) / 100;
+    expect(alpha).toBeGreaterThan(0.5);
+    for (let index = 0; index < 2 * SHADE_COUNT; index++) {
+      for (const kind of KINDS) {
+        const { fill, ink } = shadeHex(kind, index, "light");
+        const [r, g, b] = hexToRgb(fill);
+        const over = (v: number): number => alpha * 255 + (1 - alpha) * v;
+        const pill = rgbToHex(over(r), over(g), over(b));
+        expect(contrast(ink, pill), `${kind} ${index} ink on pill`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it("makes a tile's compartment cells lighter than its fill but no more than 40% white", () => {
+    const alpha = Number(/--cell-fill:\s*rgb\(255 255 255 \/ (\d+)%\)/.exec(tokens)?.[1]) / 100;
+    expect(alpha).toBeGreaterThan(0.2);
+    expect(alpha).toBeLessThanOrEqual(0.4);
+  });
+
+  // Owner feedback: "colors in the box look a bit pale". The cause was the base fills (HSL
+  // lightness 89 to 92, as the board draws them) under a white cell that covered most of the
+  // tile, and a later shade that stepped toward white (lightness 96) or toward grey (saturation
+  // down by a quarter). Fills sit a notch deeper, and a later shade goes darker or a little
+  // lighter, but keeps its colour.
+  it("keeps every light fill at lightness 90 or less, and the base fills a notch deeper than the board's", () => {
+    for (const kind of KINDS) {
+      expect(hexToHsl(shadeHex(kind, 0, "light").fill).l, `${kind} base`).toBeLessThanOrEqual(87);
+      for (let index = 0; index < SHADE_COUNT; index++) {
+        const { fill } = shadeHex(kind, index, "light");
+        expect(hexToHsl(fill).l, `${kind} ${index} ${fill}`).toBeLessThanOrEqual(90);
+      }
+    }
+  });
+
+  it("keeps a later shade's colour: its saturation stays within 80% of the base fill's", () => {
+    for (const kind of KINDS) {
+      const base = hexToHsl(shadeHex(kind, 0, "light").fill);
+      for (let index = 1; index < SHADE_COUNT; index++) {
+        const { fill } = shadeHex(kind, index, "light");
+        expect(hexToHsl(fill).s, `${kind} ${index} ${fill}`).toBeGreaterThanOrEqual(base.s * 0.8);
+      }
+    }
+  });
+
+  it("steps lightness both ways from the base, not only toward white", () => {
+    for (const kind of KINDS) {
+      const base = hexToHsl(shadeHex(kind, 0, "light").fill).l;
+      const later = Array.from(
+        { length: SHADE_COUNT - 1 },
+        (_, i) => hexToHsl(shadeHex(kind, i + 1, "light").fill).l,
+      );
+      expect(Math.min(...later), `${kind} has a darker shade`).toBeLessThan(base - 5);
+      expect(Math.max(...later), `${kind} has a lighter shade`).toBeGreaterThan(base);
+      // lighter by a few points only
+      expect(Math.max(...later), `${kind} lighter shade`).toBeLessThanOrEqual(base + 5);
     }
   });
 

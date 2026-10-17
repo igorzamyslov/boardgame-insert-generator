@@ -21,37 +21,44 @@ export const BOX_COLOR: Record<ColorScheme, string> = { light: "#D3CDBF", dark: 
 /** Each kind's base hue, index 0 of its shades. Mirrors --cards-fill … --custom-ink in tokens.css. */
 const KIND_BASES: Record<ComponentKind, Record<ColorScheme, Shade>> = {
   cards: {
-    light: { fill: "#DCE6FA", line: "#335AA6", ink: "#22457E" },
+    light: { fill: "#C0D3F7", line: "#335AA6", ink: "#22457E" },
     dark: { fill: "#263654", line: "#829FD9", ink: "#C3D2E9" },
   },
   bulk: {
-    light: { fill: "#FBE9C9", line: "#8A5D08", ink: "#6E4C0E" },
+    light: { fill: "#FBDEAB", line: "#8A5D08", ink: "#6E4C0E" },
     dark: { fill: "#584523", line: "#F6C465", ink: "#EFDEBD" },
   },
   tiles: {
-    light: { fill: "#D8EEDE", line: "#2E6B41", ink: "#22552E" },
+    light: { fill: "#C1E7CB", line: "#2E6B41", ink: "#22552E" },
     dark: { fill: "#314938", line: "#8DCEA1", ink: "#C8E4CF" },
   },
   minis: {
-    light: { fill: "#F5DCE7", line: "#964068", ink: "#74244B" },
+    light: { fill: "#F0C2D6", line: "#964068", ink: "#74244B" },
     dark: { fill: "#4E2C3B", line: "#CE8DAB", ink: "#E7C5D6" },
   },
   custom: {
-    light: { fill: "#E7E3F4", line: "#5B4B9A", ink: "#45397A" },
+    light: { fill: "#D3CCED", line: "#5B4B9A", ink: "#45397A" },
     dark: { fill: "#36304B", line: "#9D91CA", ink: "#CFCAE2" },
   },
 };
 
-/** How each further shade moves the fill within the hue: lightness points, saturation points. */
+/**
+ * How each further shade moves the fill within the hue: lightness points, saturation percent.
+ * Lightness goes both ways (darker mostly, one a little lighter) and saturation barely falls: a
+ * step toward white or toward grey washed the plan out (owner: "a bit pale").
+ */
 const SHADE_STEPS: readonly { l: number; s: number }[] = [
   { l: 0, s: 0 },
-  { l: -7, s: 0 },
-  { l: -15, s: -8 },
-  { l: 4, s: -12 },
-  { l: -10, s: -26 },
+  { l: -8, s: 0 },
+  { l: 3, s: 0 },
+  { l: -12, s: -4 },
+  { l: -17, s: -18 },
 ];
 
-const DARK_FILL_MAX_L = 34;
+/** The same steps on a dark page, where the lighter fill is the one that stands out. */
+const DARK_L_STEPS: readonly number[] = [0, 5, -4, 9, 13];
+
+const DARK_FILL_MAX_L = 40;
 const MIN_LINE_CONTRAST = 3.2;
 const MIN_INK_CONTRAST = 4.8;
 
@@ -69,15 +76,14 @@ export function shadeHex(kind: ComponentKind, index: number, scheme: ColorScheme
     return { ...base };
   }
   const step = SHADE_STEPS[slot] ?? { l: 0, s: 0 };
-  // On a dark page the steps go the other way round (lighter stands out), more gently, and stop
+  // On a dark page the steps go the other way round (lighter stands out) and stop
   // where light ink still reads on the fill.
-  const dL = scheme === "light" ? step.l : -step.l * 0.7;
+  const dL = scheme === "light" ? step.l : (DARK_L_STEPS[slot] ?? 0);
   const f = hexToHsl(base.fill);
-  // Fills stay pastel like the base hue: saturation never rises, and never falls so far that the
-  // hue is lost.
+  // Saturation never rises, and never falls so far that the hue is lost.
   const fill = hslToHex({
     h: f.h,
-    s: Math.min(f.s, Math.max(f.s * 0.5, f.s + step.s)),
+    s: Math.min(f.s, Math.max(f.s * 0.5, f.s * (1 + step.s / 100))),
     l: scheme === "light" ? f.l + dL : Math.min(DARK_FILL_MAX_L, f.l + dL),
   });
   // Away from the box and the fill: darker on a light page, lighter on a dark one.

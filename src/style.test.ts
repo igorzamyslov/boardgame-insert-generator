@@ -93,19 +93,19 @@ describe("tokens.css", () => {
       "--rule": "#E4E1D9",
       "--box": "#D3CDBF",
       "--focus": "#2F5BB8",
-      "--cards-fill": "#DCE6FA",
+      "--cards-fill": "#C0D3F7",
       "--cards-line": "#335AA6",
       "--cards-ink": "#22457E",
-      "--bits-fill": "#FBE9C9",
+      "--bits-fill": "#FBDEAB",
       "--bits-line": "#8A5D08",
       "--bits-ink": "#6E4C0E",
-      "--tiles-fill": "#D8EEDE",
+      "--tiles-fill": "#C1E7CB",
       "--tiles-line": "#2E6B41",
       "--tiles-ink": "#22552E",
-      "--minis-fill": "#F5DCE7",
+      "--minis-fill": "#F0C2D6",
       "--minis-line": "#964068",
       "--minis-ink": "#74244B",
-      "--custom-fill": "#E7E3F4",
+      "--custom-fill": "#D3CCED",
       "--custom-line": "#5B4B9A",
       "--custom-ink": "#45397A",
       "--spacer-fill": "#E9E5DB",
@@ -136,7 +136,7 @@ describe("tokens.css", () => {
       "--ink-off": "#6B6E68",
       "--box-edge": "#BFB8A8",
       "--box-dash": "#8C8778",
-      "--cell-fill": "rgb(255 255 255 / 60%)",
+      "--cell-fill": "rgb(255 255 255 / 38%)",
       "--pill-fill": "rgb(255 255 255 / 92%)",
       "--field-glow": "#CFDCF6",
       // meaning
@@ -572,8 +572,8 @@ describe("the phone layout", () => {
     expect(ruleFor(".plan-box", phone)).toMatch(/border-radius:\s*var\(--r-card\)/);
     expect(ruleFor(".plan-fit", phone)).toMatch(/container-type:\s*normal/);
     expect(ruleFor(".plan-fit", phone)).toMatch(/max-height:\s*none/);
-    // dimming: every other tile at half, with a short fade that reduced motion drops
-    expect(ruleFor(".plan-tile.is-dimmed", plan)).toMatch(/opacity:\s*0\.5/);
+    // dimming: every other tile at 60% (half washed the hue out; owner: "a bit pale"), with a short fade that reduced motion drops
+    expect(ruleFor(".plan-tile.is-dimmed", plan)).toMatch(/opacity:\s*0\.6/);
     expect(ruleFor(".plan-tile", plan)).toMatch(/transition:\s*opacity 180ms,\s*box-shadow 180ms/);
     expect(ruleFor(".plan-tile", mediaBlock("(prefers-reduced-motion: reduce)", plan))).toMatch(
       /transition:\s*none/,
