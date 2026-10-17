@@ -144,10 +144,25 @@ function NameField({ name, onRename }: { name: string; onRename: (name: string) 
   );
 }
 
-/** The bar on top: Main's header (desktop) and MobileWorkspace's (phone). */
-export function Header(p: HeaderProps) {
+export interface HeaderMenuProps {
+  /** The menu's content; `close` shuts the menu (after a choice). */
+  menu: (close: () => void) => ComponentChildren;
+  /** Something inside needs a look: the button wears a dot. */
+  menuDot: boolean;
+  /** How many notices wait in the menu: the button's name says it (1 when only `menuDot` is set). */
+  menuNoticeCount?: number;
+  phone: boolean;
+  /** `outlined` beside Download; `plain` beside the first visit's Open file. */
+  variant?: "outlined" | "plain";
+}
+
+/**
+ * The project menu's button and its panel, a disclosure (DESIGN §5): opening puts the focus on the
+ * first item; Escape, a click outside or the focus leaving closes it, and Escape or a choice hands
+ * the focus back to the button. In the workspace's header and in the first visit's.
+ */
+export function HeaderMenu(p: HeaderMenuProps) {
   const [open, setOpen] = useState(false);
-  const mac = isMacPlatform(typeof navigator === "undefined" ? undefined : navigator);
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -188,19 +203,7 @@ export function Header(p: HeaderProps) {
     };
   }, [open]);
 
-  // Every screen has an h1 of its own (the status heading, the first visit's), so this is a span.
-  const wordmark = p.phone ? null : <span class="hd-wordmark">Insert Generator</span>;
-  const undo = (
-    <IconButton
-      label="Undo"
-      icon={<Icon name="undo" size={p.phone ? 20 : 18} />}
-      blockedReason={p.canUndo ? undefined : "Nothing to undo"}
-      aria-keyshortcuts="Control+Z Meta+Z"
-      title={p.canUndo ? historyTitle("undo", mac) : "Nothing to undo"}
-      onClick={p.onUndo}
-    />
-  );
-  const menuButton = (
+  return (
     <div
       class="hd-menu"
       ref={wrap}
@@ -215,7 +218,7 @@ export function Header(p: HeaderProps) {
     >
       <IconButton
         ref={button}
-        variant="outlined"
+        variant={p.variant ?? "outlined"}
         label={`Project menu${menuNoticeCount(p.menuNoticeCount ?? (p.menuDot ? 1 : 0))}`}
         icon={<Icon name="more" size={p.phone ? 20 : 18} />}
         dot={p.menuDot}
@@ -229,6 +232,31 @@ export function Header(p: HeaderProps) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** The bar on top: Main's header (desktop) and MobileWorkspace's (phone). */
+export function Header(p: HeaderProps) {
+  const mac = isMacPlatform(typeof navigator === "undefined" ? undefined : navigator);
+  // Every screen has an h1 of its own (the status heading, the first visit's), so this is a span.
+  const wordmark = p.phone ? null : <span class="hd-wordmark">Insert Generator</span>;
+  const undo = (
+    <IconButton
+      label="Undo"
+      icon={<Icon name="undo" size={p.phone ? 20 : 18} />}
+      blockedReason={p.canUndo ? undefined : "Nothing to undo"}
+      aria-keyshortcuts="Control+Z Meta+Z"
+      title={p.canUndo ? historyTitle("undo", mac) : "Nothing to undo"}
+      onClick={p.onUndo}
+    />
+  );
+  const menuButton = (
+    <HeaderMenu
+      menu={p.menu}
+      menuDot={p.menuDot}
+      menuNoticeCount={p.menuNoticeCount}
+      phone={p.phone}
+    />
   );
   const download = p.downloadDisabled ? p.downloadReason : undefined;
 

@@ -3,7 +3,8 @@
 // The first visit (UI rebuild Task 9): Empty on a desktop, MobileStart on a phone.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { renderApp } from "../app/test-app";
+import { CONFLICT_CODE } from "../app/persistence";
+import { renderApp, renderWorkspace } from "../app/test-app";
 import { DEFAULT_BOX } from "../model/defaults";
 import { ValidationContext } from "../ui/validation";
 import { FirstVisit } from "./FirstVisit";
@@ -36,6 +37,12 @@ const stage = (): HTMLElement => document.querySelector('[data-region="stage"]')
 const header = (): HTMLElement => document.querySelector('[data-region="header"]') as HTMLElement;
 const height = (): HTMLInputElement => screen.getByLabelText(/^Height/) as HTMLInputElement;
 
+/** The names of the buttons under `root`: their words, or their label when they have none (an icon). */
+const buttonNames = (root: HTMLElement): (string | null)[] =>
+  within(root)
+    .getAllByRole("button")
+    .map((b) => b.textContent || b.getAttribute("aria-label"));
+
 /** The editor in the rail asks before it removes: the Remove… button, then the answer. */
 function removeFromEditor(name: string): void {
   fireEvent.click(screen.getByRole("button", { name: `Remove ${name}…` }));
@@ -52,18 +59,79 @@ describe("the first visit", () => {
     expect(within(stage()).getByRole("heading", { level: 1 })).toBeTruthy();
   });
 
-  it("offers only Open file in the header", () => {
+  it("offers only Open file and the project menu in the header", () => {
     renderApp();
     const banner = screen.getByRole("banner");
-    expect(
-      within(banner)
-        .getAllByRole("button")
-        .map((b) => b.textContent),
-    ).toEqual(["Open file"]);
+    expect(buttonNames(banner)).toEqual(["Open file", "Project menu"]);
     for (const name of ["Undo", "Redo", "Download", "Send file"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }
-    expect(screen.queryByRole("button", { name: /^Project menu/ })).toBeNull();
+  });
+
+  describe("the project menu", () => {
+    const openMenu = (): HTMLElement => {
+      const button = screen.getByRole("button", { name: /^Project menu/ });
+      fireEvent.click(button);
+      return button;
+    };
+
+    it("opens on the first visit, with Your inserts and Settings in it", () => {
+      renderApp();
+      openMenu();
+      const panel = screen.getByRole("group", { name: "Project" });
+      expect(within(panel).getByRole("button", { name: /^Your inserts/ })).toBeTruthy();
+      fireEvent.click(within(panel).getByRole("button", { name: "Settings" }));
+      expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
+      expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+    });
+
+    it("blocks New insert, which would only pile up another empty one, and hides Open file…", () => {
+      const { store } = renderApp();
+      const id = store.state.project.value.id;
+      openMenu();
+      const item = screen.getByRole("button", { name: "New insert" });
+      expect(item.getAttribute("aria-disabled")).toBe("true");
+      const reason = document.getElementById(item.getAttribute("aria-describedby") ?? "");
+      expect(reason?.textContent).toBe("This insert is empty");
+      fireEvent.click(item);
+      expect(store.state.project.value.id).toBe(id);
+      // the menu stays open: nothing was chosen
+      expect(screen.getByRole("group", { name: "Project" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Open file…" })).toBeNull();
+    });
+
+    it("wears the dot, and says how many notices wait, when the menu has a note", () => {
+      const { store } = renderApp();
+      expect(document.querySelector(".k-iconbtn__dot")).toBeNull();
+      act(() => {
+        store.state.conflict.value = true;
+        store.pushNotice({ level: "warning", code: CONFLICT_CODE, message: "Another tab saved." });
+      });
+      const button = within(screen.getByRole("banner")).getByRole("button", {
+        name: "Project menu, 1 notice",
+      });
+      expect(button.querySelector(".k-iconbtn__dot")).not.toBeNull();
+      openMenu();
+      expect(screen.getByRole("button", { name: "Keep this version" })).toBeTruthy();
+    });
+
+    it("takes the focus back to its button after Escape", () => {
+      renderApp();
+      const button = openMenu();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
+      expect(document.activeElement).toBe(button);
+    });
+
+    it("has the focus on the menu button when New insert, from the workspace, lands here", () => {
+      const { store } = renderWorkspace();
+      const before = store.state.project.value.id;
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "New insert" }));
+      expect(store.state.project.value.id).not.toBe(before);
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(H1);
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Project menu/ }));
+    });
   });
 
   it("Open file asks for the file chooser the app keeps", () => {
@@ -155,6 +223,8 @@ describe("the first visit", () => {
           onPick={vi.fn()}
           onExample={vi.fn()}
           onOpenFile={vi.fn()}
+          menu={() => null}
+          menuDot={false}
         />
       </ValidationContext.Provider>,
     );
@@ -238,11 +308,7 @@ describe("the first visit on a phone", () => {
     expect(screen.queryByText("Empty box")).toBeNull();
     expect(screen.queryByText("Trays appear in the box as you add items.")).toBeNull();
     expect(screen.queryByText("Front of the box")).toBeNull();
-    expect(
-      within(screen.getByRole("banner"))
-        .getAllByRole("button")
-        .map((b) => b.textContent),
-    ).toEqual(["Open file"]);
+    expect(buttonNames(screen.getByRole("banner"))).toEqual(["Open file", "Project menu"]);
   });
 
   it("adding the first item opens its editor in the sheet", () => {

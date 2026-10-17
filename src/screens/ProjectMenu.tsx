@@ -34,6 +34,11 @@ export interface ProjectMenuProps {
   conflict?: boolean;
   onResolveConflict?: (choice: ConflictChoice) => void;
   onDismissNotice?: (code: string) => void;
+  /**
+   * The insert is empty (the first visit): New insert is blocked, so empty inserts do not pile up,
+   * and Open file… is not here, the header has it.
+   */
+  firstVisit?: boolean;
 }
 
 type Page = "menu" | "inserts";
@@ -173,7 +178,12 @@ export function ProjectMenu(props: ProjectMenuProps) {
           </MenuNote>
         ),
       )}
-      <MenuItem onClick={choose(props.onNew)}>New insert</MenuItem>
+      <MenuItem
+        blockedReason={props.firstVisit ? "This insert is empty" : undefined}
+        onClick={choose(props.onNew)}
+      >
+        New insert
+      </MenuItem>
       {storageAvailable ? (
         <MenuItem
           ref={insertsRef}
@@ -183,7 +193,7 @@ export function ProjectMenu(props: ProjectMenuProps) {
           Your inserts
         </MenuItem>
       ) : null}
-      <MenuItem onClick={choose(props.onOpenFile)}>Open file…</MenuItem>
+      {props.firstVisit ? null : <MenuItem onClick={choose(props.onOpenFile)}>Open file…</MenuItem>}
       <MenuItem onClick={choose(props.onSaveFile)}>Save file</MenuItem>
       <MenuSeparator />
       <MenuItem onClick={choose(props.onSettings)}>Settings</MenuItem>

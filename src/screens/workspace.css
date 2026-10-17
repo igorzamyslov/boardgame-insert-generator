@@ -112,7 +112,7 @@
   align-self: stretch;
 }
 
-/* The "Working out the trays…" frame, until the empty screens are rebuilt (Task 9). */
+/* The "Working out the trays…" frame (an insert with items and no plan yet; no board draws it). */
 .plan-col > .pf-view {
   flex: 1 1 auto;
   align-self: stretch;

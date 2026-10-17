@@ -7,7 +7,7 @@ import { mm } from "../ui/identity";
 import { LENGTH } from "../ui/limits";
 import { useNumberText } from "../ui/NumberField";
 import { useFieldNotices } from "../ui/validation";
-import { Logo } from "./Header";
+import { HeaderMenu, Logo } from "./Header";
 import { KindTiles } from "./KindPicker";
 import { Workspace } from "./Workspace";
 
@@ -20,6 +20,10 @@ export interface FirstVisitProps {
   onExample: () => void;
   /** Open file: the owner keeps the file chooser (the menu is not here). */
   onOpenFile: () => void;
+  /** The project menu's content, as the workspace's header has it (`close` shuts it). */
+  menu: (close: () => void) => ComponentChildren;
+  menuDot: boolean;
+  menuNoticeCount?: number;
   /** Beside the header's button (the hidden file chooser the owner keeps). */
   headerExtra?: ComponentChildren;
   /** In the stage above the screen's own content (the app's notices and live regions). */
@@ -28,8 +32,14 @@ export interface FirstVisitProps {
   stageAfter?: ComponentChildren;
 }
 
-/** Logo, wordmark, and the one thing a first visit can do from here: open a file. */
-function FirstVisitHeader({ phone, onOpenFile }: { phone: boolean; onOpenFile: () => void }) {
+/** Logo, wordmark, Open file, and the project menu (a quiet button: other inserts, Settings, notices). */
+function FirstVisitHeader({
+  phone,
+  onOpenFile,
+  menu,
+  menuDot,
+  menuNoticeCount,
+}: Pick<FirstVisitProps, "phone" | "onOpenFile" | "menu" | "menuDot" | "menuNoticeCount">) {
   return (
     <div class={`hd fv-header${phone ? " hd--phone" : ""}`}>
       <Logo />
@@ -38,6 +48,13 @@ function FirstVisitHeader({ phone, onOpenFile }: { phone: boolean; onOpenFile: (
       <Button variant="secondary" class="fv-open" onClick={onOpenFile}>
         Open file
       </Button>
+      <HeaderMenu
+        variant="plain"
+        phone={phone}
+        menu={menu}
+        menuDot={menuDot}
+        menuNoticeCount={menuNoticeCount}
+      />
     </div>
   );
 }
@@ -162,7 +179,13 @@ export function FirstVisit(p: FirstVisitProps) {
       focus
       header={
         <>
-          <FirstVisitHeader phone={p.phone} onOpenFile={p.onOpenFile} />
+          <FirstVisitHeader
+            phone={p.phone}
+            onOpenFile={p.onOpenFile}
+            menu={p.menu}
+            menuDot={p.menuDot}
+            menuNoticeCount={p.menuNoticeCount}
+          />
           {p.headerExtra}
         </>
       }

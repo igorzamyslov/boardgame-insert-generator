@@ -135,16 +135,21 @@ export function App(props: AppProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetHandle = useRef<HTMLButtonElement>(null);
   // Removing the last item swaps the workspace for the first visit: the focus goes to the kinds there.
+  // A new (or another, empty) insert replaces the workspace too, but its menu button had the focus:
+  // it goes to the first visit's menu button, not to the kinds.
   const wasFirstVisit = useRef(firstVisit);
+  const wasProjectId = useRef(project.id);
   useEffect(() => {
     if (firstVisit && !wasFirstVisit.current) {
       setSheetOpen(false);
       if (document.activeElement === document.body) {
-        document.querySelector<HTMLElement>(".fv-kinds button")?.focus();
+        const target = wasProjectId.current === project.id ? ".fv-kinds button" : ".hd-menu button";
+        document.querySelector<HTMLElement>(target)?.focus();
       }
     }
     wasFirstVisit.current = firstVisit;
-  }, [firstVisit]);
+    wasProjectId.current = project.id;
+  }, [firstVisit, project.id]);
   // The box's editor takes the focus when it opens; the box card (or row) gets it back when it closes.
   const wasBoxOpen = useRef(false);
   useEffect(() => {
@@ -504,6 +509,30 @@ export function App(props: AppProps) {
       }}
     />
   );
+  // The project menu's content: the workspace's header and the first visit's header both open it.
+  const projectMenu = (close: () => void) => (
+    <ProjectMenu
+      name={project.name}
+      currentId={project.id}
+      projects={s.projects.value}
+      storageAvailable={store.storageAvailable}
+      onClose={close}
+      onOpen={(id) => store.openProject(id)}
+      onNew={() => store.newProject()}
+      onDelete={(id) => store.deleteProject(id)}
+      onOpenFile={() => fileRef.current?.click()}
+      onSaveFile={saveFile}
+      onSettings={() => openSettings()}
+      phone={phone}
+      canRedo={store.canRedo.value}
+      onRedo={() => store.redo()}
+      notices={placed.menu}
+      conflict={s.conflict.value}
+      onResolveConflict={(choice) => store.resolveConflict(choice)}
+      onDismissNotice={(code) => store.dismissNotice(code)}
+      firstVisit={firstVisit}
+    />
+  );
   const headerSlot = (
     <>
       <Header
@@ -550,28 +579,7 @@ export function App(props: AppProps) {
         }}
         menuDot={placed.menu.length > 0}
         menuNoticeCount={placed.menu.length}
-        menu={(close) => (
-          <ProjectMenu
-            name={project.name}
-            currentId={project.id}
-            projects={s.projects.value}
-            storageAvailable={store.storageAvailable}
-            onClose={close}
-            onOpen={(id) => store.openProject(id)}
-            onNew={() => store.newProject()}
-            onDelete={(id) => store.deleteProject(id)}
-            onOpenFile={() => fileRef.current?.click()}
-            onSaveFile={saveFile}
-            onSettings={() => openSettings()}
-            phone={phone}
-            canRedo={store.canRedo.value}
-            onRedo={() => store.redo()}
-            notices={placed.menu}
-            conflict={s.conflict.value}
-            onResolveConflict={(choice) => store.resolveConflict(choice)}
-            onDismissNotice={(code) => store.dismissNotice(code)}
-          />
-        )}
+        menu={projectMenu}
       />
       {fileInput}
     </>
@@ -797,6 +805,9 @@ export function App(props: AppProps) {
               onPick={addComponentOfKind}
               onExample={addExample}
               onOpenFile={() => fileRef.current?.click()}
+              menu={projectMenu}
+              menuDot={placed.menu.length > 0}
+              menuNoticeCount={placed.menu.length}
               headerExtra={fileInput}
               stageBefore={notices}
               stageAfter={removedNote}

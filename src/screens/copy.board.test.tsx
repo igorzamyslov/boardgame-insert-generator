@@ -153,6 +153,8 @@ const CASES: readonly Case[] = [
   { state: "first-visit", board: "Empty", region: "header", empty: true, steps: () => undefined },
   { state: "first-visit", board: "Empty", region: "rail", empty: true, steps: () => undefined },
   { state: "first-visit", board: "Empty", region: "stage", empty: true, steps: () => undefined },
+  // The project menu on the first visit: Main's panel, with New insert blocked and no Open file…
+  { state: "first-visit-menu", board: "Main", region: "menu", empty: true, steps: openMenu },
   // Empty's error card, minus its button: the words are the rules' (ruled in DESIGN §7)
   { state: "first-visit-error", board: "Empty", region: "rail", empty: true, steps: breakHeight },
   {
