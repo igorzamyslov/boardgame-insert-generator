@@ -24,6 +24,7 @@
 //      | { waitFor: { role?, name?, text?, timeout? } }  (default 15 s)
 //      | { fill: { label, value } }  type a value into the text box with that label (getByLabel)
 //      | { press: key }
+//      | { scrollTop: selector }  a scrolling panel back to its top
 //      | { wait: ms }  a pause, for what has no mark to wait on (the 3D view building its meshes)
 
 const DESKTOP = { width: 1440, height: 900 };
@@ -50,6 +51,20 @@ const SELECT_HEROES = {
 const SELECT_MARKET = {
   click: { role: "button", name: /^Market deck/, in: '[data-region="stage"]' },
 };
+
+// The Settings drawer (Task 14) and the steps that give it the board's three changed values.
+const DRAWER = '[data-region="drawer"]';
+const SCROLL = { scrollTop: ".st-body" };
+const SETTINGS_STEPS = [
+  MENU,
+  { click: { role: "button", name: "Settings" } },
+  { click: { role: "button", name: /^Room around trays and pieces/, in: DRAWER } },
+  { fill: { label: /^Box clearance/, value: "0.8" } },
+  { fill: { label: /^Tray gap/, value: "0.4" } },
+  { click: { role: "button", name: /^Walls and floors/, in: DRAWER } },
+  { fill: { label: /^Wall \(mm\)$/, value: "1.8" } },
+  SCROLL,
+];
 
 /** Seeds: a current plan each, and the ones that are stale on purpose (make-seeds.mjs). */
 export const SEEDS = {
@@ -376,11 +391,80 @@ export const STATES = {
     noPageScroll: true,
     steps: [MAKE_NEW_PLAN, { waitFor: { text: /fit with/, timeout: 90_000 } }],
   },
+  // Settings (Task 14): the drawer, opened from the project menu. The board shows three values
+  // changed (the wall, and two of "Room around things"), so the steps change the same: Box clearance
+  // and Tray gap, then the wall (Walls and floors is the group left open, as the board has it).
   settings: {
     board: "Settings",
     viewport: DESKTOP,
     seed: "harbour-kings",
-    steps: [MENU, { click: { role: "button", name: "Settings" } }],
+    steps: SETTINGS_STEPS,
+  },
+  // My printer: the bed, Printer details folded, Printing; the board's `{ tab: "printer" }`. The
+  // steps change the same three values first, so the header says "3 changed" as the board's does.
+  "settings-printer": {
+    board: "Settings",
+    boardOpts: { state: { tab: "printer" } },
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      ...SETTINGS_STEPS,
+      { click: { role: "button", name: "My printer", in: DRAWER } },
+      SCROLL,
+    ],
+  },
+  // The printer tab's parts the board does not draw, judged against its printer tab: Printer
+  // details open with My own size (the three sizes, margin, layer height, folding risers) ...
+  "settings-printer-details": {
+    board: "Settings",
+    boardOpts: { state: { tab: "printer" } },
+    nearest: "Settings' printer tab: Printer details drawn open (the board draws the row closed)",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      MENU,
+      { click: { role: "button", name: "Settings" } },
+      { click: { role: "button", name: "My printer", in: DRAWER } },
+      { click: { role: "button", name: "My own size", in: DRAWER } },
+      SCROLL,
+    ],
+  },
+  // ... and the row "This insert uses another printer" (my printer is made Medium, so the insert's
+  // Large bed differs), which the board does not draw.
+  "settings-printer-other": {
+    board: "Settings",
+    boardOpts: { state: { tab: "printer" } },
+    nearest: "Settings' printer tab, with the row for another printer (owner decision) above it",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      MENU,
+      { click: { role: "button", name: "Settings" } },
+      { click: { role: "button", name: "My printer", in: DRAWER } },
+      { click: { role: "button", name: "Medium, 220 mm", in: DRAWER } },
+      { waitFor: { text: "This insert uses another printer" } },
+      SCROLL,
+    ],
+  },
+  // The group the board does not draw: "Spacers and space", opened.
+  "settings-spacers": {
+    board: "Settings",
+    nearest: "Settings' open group card, with the group the board does not draw",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      MENU,
+      { click: { role: "button", name: "Settings" } },
+      { click: { role: "button", name: /^Spacers and space/, in: DRAWER } },
+      SCROLL,
+    ],
+  },
+  // The same drawer on a phone: full screen, the board drawn at 390.
+  "m-settings": {
+    board: "Settings",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: SETTINGS_STEPS,
   },
   // Export (Task 13): the dialog opened from the header. Export draws "Other formats" open; the
   // app folds it, so the state opens it too.

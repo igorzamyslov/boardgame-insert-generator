@@ -32,6 +32,7 @@ import { ExportPanel } from "../ui/ExportPanel";
 import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
 import { Notices } from "../ui/Notices";
 import { placeNotices } from "../ui/noticePlacement";
+import { nameExampleOf } from "../ui/settingsFields";
 import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
 import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
@@ -1060,6 +1061,7 @@ export function App(props: AppProps) {
             <SettingsSheet
               initialTab={settingsOpen.tab}
               settings={project.settings}
+              nameExample={nameExampleOf(printable, project.components)}
               onSettingsChange={(next) => store.edit((q) => setSettings(q, next))}
               printer={project.printer}
               myPrinter={store.prefs.printer.value}

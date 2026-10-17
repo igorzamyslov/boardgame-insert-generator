@@ -5,13 +5,6 @@
  * values the boards draw once stay literal with a comment naming the board.
  */
 
-/* Settings' title still takes this until the drawer is rebuilt (UI rebuild Task 14). */
-.export-title {
-  font-family: var(--font-display);
-  font-size: 24px;
-  line-height: 30px;
-}
-
 /* ---- The body: one column, gap 24 (Export), 22 while the file is built (Exporting) ---- */
 .export-body {
   --export-gap: var(--s-24);

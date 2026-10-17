@@ -1,12 +1,10 @@
 // src/ui/SettingsForm.tsx
-// The fields of the settings sheet: "This insert" (how trays sit) and the printing options.
-import { useContext, useRef, useState } from "preact/hooks";
+// The fields of the Settings drawer, from the Settings board: "This insert" (how the trays sit,
+// then Exact numbers) and the Printing options. The words are the board's, except where DESIGN §7
+// rules them (the Words table, the groups the board does not show).
+import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import {
   DEFAULT_SETTINGS,
-  FINGER_DIVIDER_ROOM_MM,
-  FINGER_ROOM_MM,
-  FIT_CHOICES,
-  WALL_CHOICES,
   applyFingerRoom,
   applyFitChoice,
   applyWallChoice,
@@ -16,374 +14,564 @@ import {
 } from "../model/settings";
 import type { FitChoice, WallChoice } from "../model/settings";
 import type { Settings } from "../model/types";
-import { ONE_WALL_MAX_MM } from "../sizing/constants";
 import { SETTING_RANGES } from "../model/validate";
-import { CheckField, SelectField } from "./fields";
-import type { SelectOption } from "./fields";
-import { NumberField, formatNumber } from "./NumberField";
+import { CheckRow, DisclosureRow, SearchField, Segmented } from "../kit";
+import { messagesOf } from "./FieldMessages";
+import { formatNumber, numberInputAttrs, useNumberText } from "./NumberField";
 import { SETTING_SETTERS, settingUnit } from "./settingsFields";
-import { ValidationContext } from "./validation";
+import type { NameExample } from "./settingsFields";
+import { EXACT_GROUPS, groupOfPath } from "./settingsGroups";
+import type { ExactGroup } from "./settingsGroups";
+import { ValidationContext, useFieldNotices } from "./validation";
+import "./settings.css";
 
 export interface SettingsFormProps {
   settings: Settings;
   onChange: (s: Settings) => void;
 }
 
-function wallOptions(s: Settings): SelectOption<WallChoice | "custom">[] {
-  const options: SelectOption<WallChoice | "custom">[] = [
-    { value: "thin", label: `Thin (${WALL_CHOICES.thin} mm)` },
-    { value: "normal", label: `Normal (${WALL_CHOICES.normal} mm)` },
-    { value: "sturdy", label: `Sturdy (${WALL_CHOICES.sturdy} mm)` },
-  ];
-  if (wallChoiceOf(s) === "custom") {
-    options.push({ value: "custom", label: `Custom (${s.wall} mm)`, disabled: true });
-  }
-  return options;
+type Range = (typeof SETTING_RANGES)[number];
+
+/** The exact numbers whose value differs from the default. */
+export function changedRanges(s: Settings): Range[] {
+  return SETTING_RANGES.filter((r) => r.get(s) !== r.get(DEFAULT_SETTINGS));
 }
 
-function fitOptions(s: Settings): SelectOption<FitChoice | "custom">[] {
-  const options: SelectOption<FitChoice | "custom">[] = [
-    { value: "tight", label: `Tight (×${FIT_CHOICES.tight})` },
-    { value: "normal", label: `Normal (×${FIT_CHOICES.normal})` },
-    { value: "loose", label: `Loose (×${FIT_CHOICES.loose})` },
-  ];
-  if (fitChoiceOf(s) === "custom") {
-    options.push({ value: "custom", label: `Custom (×${s.fit})`, disabled: true });
-  }
-  return options;
-}
+const rangeOf = (path: string): Range | undefined => SETTING_RANGES.find((r) => r.path === path);
 
-const WALL_ABSORB_PATH = "wallAbsorb";
+const inputId = (r: Range): string => `settings-${r.path.replace("/", "-")}`;
 
-/** The fields of the Exact numbers panel (wallAbsorb sits beside Unused space, outside it). */
-const PANEL_RANGES = SETTING_RANGES.filter((r) => r.path !== WALL_ABSORB_PATH);
-
-/** The panel's fields whose value differs from DEFAULT_SETTINGS. */
-export function changedRanges(s: Settings): typeof PANEL_RANGES {
-  return PANEL_RANGES.filter((r) => r.get(s) !== r.get(DEFAULT_SETTINGS));
-}
-
-/** Puts every panel field back to its default, leaving the choices outside the panel as they are. */
-export function restoreAllExact(s: Settings): Settings {
-  return changedRanges(s).reduce((acc, r) => {
-    const set = SETTING_SETTERS[r.path];
-    return set ? set(acc, r.get(DEFAULT_SETTINGS)) : acc;
-  }, s);
-}
-
-function defaultText(path: string, value: number): string {
-  const unit = settingUnit(path);
-  return `${formatNumber(value)}${unit === undefined ? "" : ` ${unit}`}`;
-}
-
-/** Under a field that differs from its default: says so, quietly, and offers to put it back. */
-function ChangedNote(p: {
-  fieldId: string;
-  label: string;
-  defaultText: string;
-  onRestore: () => void;
-}) {
-  return (
-    <p class="hint field-changed" id={`${p.fieldId}-changed`}>
-      {`Changed from the default, ${p.defaultText}. `}
-      <button
-        type="button"
-        class="quiet tap"
-        aria-label={`Restore the default for ${p.label}`}
-        onClick={() => {
-          p.onRestore();
-          // The note goes away with the difference: keep the keyboard where it was.
-          document.getElementById(p.fieldId)?.focus();
-        }}
-      >
-        Restore
-      </button>
-    </p>
+/** A dot after a label: this value differs from its default. */
+function Dot({ named = false }: { named?: boolean }) {
+  return named ? (
+    <span class="st-dot" role="img" aria-label="Changed" />
+  ) : (
+    <span class="st-dot" aria-hidden="true" />
   );
 }
 
-function plural(n: number): string {
-  return n === 1 ? "1 value" : `${n} values`;
+// ---- The rows of a group --------------------------------------------------------------------
+
+type RowSpec =
+  | { kind: "number"; key: string; range: Range; words: string }
+  | { kind: "leftover" | "oneWall"; key: string; words: string };
+
+const LEFTOVER_WORDS = "Unused space spare tray solid block";
+const ONE_WALL_WORDS = "One thick wall instead of a spacer";
+
+function rowsOf(g: ExactGroup): RowSpec[] {
+  const extras: RowSpec[] = (g.extras ?? []).map((kind) => ({
+    kind,
+    key: kind,
+    words: `${kind === "leftover" ? LEFTOVER_WORDS : ONE_WALL_WORDS} ${g.title}`,
+  }));
+  const numbers: RowSpec[] = g.paths.flatMap((path) => {
+    const range = rangeOf(path);
+    return range === undefined
+      ? []
+      : [
+          {
+            kind: "number" as const,
+            key: path,
+            range,
+            words: `${range.label} ${range.hint} ${g.title}`,
+          },
+        ];
+  });
+  return [...extras, ...numbers];
 }
 
-/**
- * "Restore all", shown only while something differs from the default and asked twice: the first
- * press only offers the choice, so a stray click discards nothing.
- */
-function RestoreAll({ count, onRestore }: { count: number; onRestore: () => void }) {
-  const [asking, setAsking] = useState(false);
-  if (!asking) {
-    return (
-      <div class="button-row">
-        <button type="button" class="quiet tap" onClick={() => setAsking(true)}>
-          Restore all exact numbers
-        </button>
-      </div>
-    );
-  }
-  return (
-    <div
-      class="button-row restore-all"
-      role="group"
-      aria-label="Confirm restoring all exact numbers"
-    >
-      <span class="hint">{`Put ${plural(count)} back to their defaults? Your own numbers are lost.`}</span>
-      <button
-        type="button"
-        class="tap"
-        onClick={() => {
-          setAsking(false);
-          onRestore();
-        }}
-      >
-        Restore
-      </button>
-      <button type="button" class="quiet tap" onClick={() => setAsking(false)}>
-        Cancel
-      </button>
-    </div>
+/** True when every word of the query is in the row's name or its words (case does not matter). */
+function matchesQuery(words: string, query: string): boolean {
+  const text = words.toLowerCase();
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((w) => text.includes(w));
+}
+
+function NumberRow({ range, settings, onChange }: SettingsFormProps & { range: Range }) {
+  const id = inputId(range);
+  const path = `/settings/${range.path}`;
+  const set = SETTING_SETTERS[range.path];
+  const value = range.get(settings);
+  const fallback = range.get(DEFAULT_SETTINGS);
+  const changed = value !== fallback;
+  const typed = useNumberText(
+    value,
+    (v) => {
+      if (set) {
+        onChange(set(settings, v));
+      }
+    },
+    { min: range.min, max: range.max },
   );
-}
-const wallAbsorbRange = SETTING_RANGES.find((r) => r.path === WALL_ABSORB_PATH);
-
-const PANEL_PATHS: ReadonlySet<string> = new Set(PANEL_RANGES.map((r) => `/settings/${r.path}`));
-
-type PanelRange = (typeof PANEL_RANGES)[number];
-
-/** True when every word of the query is in the field's name or its hint (case does not matter). */
-function matchesQuery(r: PanelRange, query: string): boolean {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const text = `${r.label} ${r.hint}`.toLowerCase();
-  return words.every((w) => text.includes(w));
-}
-
-const exactId = (r: PanelRange): string => `settings-${r.path.replace("/", "-")}`;
-
-/** The numbers behind the choices: a search, every field, and per-value and all-at-once restore. */
-function ExactValues({ settings, onChange }: SettingsFormProps) {
-  const notices = useContext(ValidationContext);
-  const hasError = notices.some(
-    (n) => n.level === "error" && n.path !== undefined && PANEL_PATHS.has(n.path),
-  );
-  // An error in a field of the closed "Exact numbers" opens it, and it stays open while the user
-  // fixes the error.
-  const forced = useRef(false);
-  if (hasError) {
-    forced.current = true;
-  }
-  const [query, setQuery] = useState("");
-  const changed = changedRanges(settings);
-  const searching = query.trim() !== "";
-  const withError = (r: PanelRange): boolean =>
-    notices.some((n) => n.level === "error" && n.path === `/settings/${r.path}`);
-  // A field with an error stays on screen whatever the search says.
-  const shown = searching
-    ? PANEL_RANGES.filter((r) => matchesQuery(r, query) || withError(r))
-    : PANEL_RANGES;
-  return (
-    <details class="pf-disc" open={forced.current || undefined}>
-      <summary>
-        Exact numbers
-        {changed.length > 0 ? <span class="pf-count">{`${changed.length} changed`}</span> : null}
-      </summary>
-      <div class="pf-disc__body">
-        <div class="field">
-          <label htmlFor="settings-exact-search">Search exact numbers</label>
-          <input
-            id="settings-exact-search"
-            type="search"
-            autoComplete="off"
-            value={query}
-            placeholder="clearance, corner, lip…"
-            onInput={(e) => setQuery(e.currentTarget.value)}
-          />
-          <p class="hint" role="status">
-            {searching
-              ? shown.length === 0
-                ? "No exact number matches."
-                : `${shown.length} of ${PANEL_RANGES.length} shown.`
-              : ""}
-          </p>
-        </div>
-        {changed.length > 0 ? (
-          <RestoreAll
-            count={changed.length}
-            onRestore={() => onChange(restoreAllExact(settings))}
-          />
-        ) : null}
-        <div class="form-grid">
-          {shown.map((r) => (
-            <NumberField
-              key={r.path}
-              id={exactId(r)}
-              label={r.label}
-              unit={settingUnit(r.path)}
-              value={r.get(settings)}
-              path={`/settings/${r.path}`}
-              min={r.min}
-              max={r.max}
-              hint={r.hint}
-              footer={
-                changed.includes(r) ? (
-                  <ChangedNote
-                    fieldId={exactId(r)}
-                    label={r.label}
-                    defaultText={defaultText(r.path, r.get(DEFAULT_SETTINGS))}
-                    onRestore={() => {
-                      const set = SETTING_SETTERS[r.path];
-                      if (set) {
-                        onChange(set(settings, r.get(DEFAULT_SETTINGS)));
-                      }
-                    }}
-                  />
-                ) : undefined
-              }
-              onCommit={(v) => {
-                const set = SETTING_SETTERS[r.path];
-                if (set) {
-                  onChange(set(settings, v));
-                }
-              }}
-            />
-          ))}
-        </div>
-      </div>
-    </details>
-  );
-}
-
-/** The sheet's "This insert" tab: how the trays sit in the box. */
-export function InsertSettings({ settings, onChange }: SettingsFormProps) {
-  return (
-    <div class="form-grid">
-      <PlainChoices settings={settings} onChange={onChange} />
-      <CheckField
-        id="settings-lip-enabled"
-        label="Rim between layers"
-        checked={settings.lip.enabled}
-        hint="A rim on each tray that fits a groove under the tray above, so stacks stay flush and do not shift. Without it, stacked trays can shift; the app then warns."
-        onChange={(enabled) => onChange({ ...settings, lip: { ...settings.lip, enabled } })}
-      />
-      <CheckField
-        id="settings-fillToTop"
-        label="Fill to the lid"
-        checked={settings.fillToTop}
-        hint="Trays are padded so every stack reaches the lid and nothing shifts when the box is carried. Turn it off for shorter trays and some empty space above them."
-        onChange={(fillToTop) => onChange({ ...settings, fillToTop })}
-      />
-      <SelectField
-        id="settings-leftover"
-        label="Unused space"
-        value={settings.leftover}
-        hint="What fills the box area the trays do not need. A spare tray is an open tray you can use for extras. A solid block is printed solid, which holds nothing and uses more filament. The same choice applies to risers and card spacers."
-        options={[
-          { value: "spare", label: "Spare tray (open)" },
-          { value: "solid", label: "Solid block" },
-        ]}
-        onChange={(leftover) => onChange({ ...settings, leftover })}
-      />
-      <CheckField
-        id="settings-oneWall"
-        label="One thick wall instead of a spacer"
-        checked={settings.oneWall}
-        hint={`Where a gap would be a spacer, one wall of the neighbouring tray takes it instead, up to ${ONE_WALL_MAX_MM} mm per direction: fewer spacers to place, but a fat wall that holds nothing and more filament. It is never a wall with a finger cut, and a bigger gap is still a spacer. Replaces "Thicker walls instead of a spacer" while on. Changes the layout.`}
-        onChange={(oneWall) => onChange({ ...settings, oneWall })}
-      />
-      {wallAbsorbRange ? (
-        <NumberField
-          id="settings-wallAbsorb"
-          label={wallAbsorbRange.label}
-          unit="mm"
-          value={settings.wallAbsorb}
-          path="/settings/wallAbsorb"
-          min={wallAbsorbRange.min}
-          max={wallAbsorbRange.max}
-          hint={wallAbsorbRange.hint}
-          onCommit={(wallAbsorb) => onChange({ ...settings, wallAbsorb })}
-        />
-      ) : null}
-      <ExactValues settings={settings} onChange={onChange} />
-    </div>
-  );
-}
-
-/** The sheet's printing options: they change the printed parts, never where the trays sit. */
-export function PrintingOptions({ settings, onChange }: SettingsFormProps) {
-  return (
-    <div class="form-grid">
-      <CheckField
-        id="settings-engraveNames"
-        label="Engrave tray names"
-        checked={settings.engraveNames}
-        hint="Cuts each tray's name, shortened to fit, into two opposite outer walls and under the tray, shallow recesses you can read once the tray is out of the box (the name under it is mirrored, so it reads right when you turn the tray over). A side that is too small or too thin is left plain, and so is a tray with no room anywhere. Plates that go inside another tray (card spacers, dividers) carry none. Only the printed trays change: your layout stays the same."
-        onChange={(engraveNames) => onChange({ ...settings, engraveNames })}
-      />
-      <CheckField
-        id="settings-mergeFillers"
-        label="Join spacers into fewer pieces to print"
-        checked={settings.mergeFillers}
-        hint="Spacers that touch (across the gap between trays) print as one piece, the largest that fits your print bed, so there are fewer loose pieces to place by hand. Only the printed pieces change: your layout stays the same. A bigger piece warps a little more and a failed print loses more at once."
-        onChange={(mergeFillers) => onChange({ ...settings, mergeFillers })}
-      />
-      <CheckField
-        id="settings-mergeRisers"
-        label="Fold risers into the joined spacers"
-        checked={settings.mergeRisers}
-        disabled={!settings.mergeFillers}
-        hint="Also prints the riser under a stack with the spacer beside it: a low shelf the tray rests on with a full-height wall alongside. Fewer pieces again, and the joined piece goes in before the trays that rest on it. Needs joined spacers."
-        onChange={(mergeRisers) => onChange({ ...settings, mergeRisers })}
-      />
-    </div>
-  );
-}
-
-/** The finger room switch's hint: what it does, and a custom value if there is one. */
-function fingerRoomHint(s: Settings): string {
-  const base = `Makes the outer walls the finger cutouts go through ${FINGER_ROOM_MM} mm and the dividers they cross ${FINGER_DIVIDER_ROOM_MM} mm thicker, so you can reach in when trays sit tight.`;
-  const { wallRoom, dividerRoom } = s.fingerPocket;
-  return fingerRoomOf(s) === "custom"
-    ? `${base} Custom: ${wallRoom} mm walls, ${dividerRoom} mm dividers.`
-    : base;
-}
-
-/**
- * Choices that write resolved numbers (spec §5): fit, walls and the finger room switch (on for
- * any wall room, including a custom one). The numbers themselves are under Exact numbers.
- */
-function PlainChoices({ settings, onChange }: SettingsFormProps) {
+  const { errors, notes } = messagesOf(useFieldNotices(path));
+  const error = typed.error ?? (errors.length > 0 ? errors.join(" ") : null);
+  const unit = settingUnit(range.path);
+  const describedBy = [
+    error !== null ? `${id}-error` : null,
+    notes.length > 0 ? `${id}-notes` : null,
+  ]
+    .filter((x) => x !== null)
+    .join(" ");
   return (
     <>
-      <SelectField
-        id="settings-fitChoice"
-        label="Fit"
-        value={fitChoiceOf(settings)}
-        options={fitOptions(settings)}
-        hint="Scales every clearance. Pick loose if your prints usually come out snug."
-        onChange={(c) => {
-          if (c !== "custom") {
-            onChange(applyFitChoice(settings, c));
-          }
-        }}
+      <label class="st-row__label" htmlFor={id}>
+        {range.label}
+        {unit !== undefined ? <span class="visually-hidden">{` (${unit})`}</span> : null}
+        {changed ? <Dot /> : null}
+      </label>
+      <input
+        id={id}
+        class="st-num"
+        type="text"
+        {...numberInputAttrs(false)}
+        autoComplete="off"
+        value={typed.text}
+        data-changed={changed ? "" : undefined}
+        aria-invalid={error !== null ? true : undefined}
+        aria-describedby={describedBy === "" ? undefined : describedBy}
+        onInput={(e) => typed.onInput(e.currentTarget.value)}
+        onBlur={typed.onBlur}
+        onKeyDown={typed.onKeyDown}
       />
-      <SelectField
-        id="settings-wallChoice"
-        label="Walls"
-        value={wallChoiceOf(settings)}
-        options={wallOptions(settings)}
-        hint="Thickness of the outer walls. Thicker is stiffer but takes room from the contents."
-        onChange={(c) => {
-          if (c !== "custom") {
-            onChange(applyWallChoice(settings, c));
-          }
-        }}
-      />
-      <CheckField
-        id="settings-fingerRoom"
-        label="Room for fingers"
-        checked={fingerRoomOf(settings) !== false}
-        hint={fingerRoomHint(settings)}
-        onChange={(on) => onChange(applyFingerRoom(settings, on))}
+      {changed ? (
+        <button
+          type="button"
+          class="st-back"
+          aria-label={`Back to ${formatNumber(fallback)} for ${range.label}`}
+          onClick={() => {
+            if (set) {
+              onChange(set(settings, fallback));
+            }
+            // The button goes with the difference: keep the keyboard where it was.
+            document.getElementById(id)?.focus();
+          }}
+        >
+          {`Back to ${formatNumber(fallback)}`}
+        </button>
+      ) : (
+        <span />
+      )}
+      {error !== null ? (
+        <p class="st-row__msg k-field__error" id={`${id}-error`} role="alert">
+          {error}
+        </p>
+      ) : null}
+      {notes.length > 0 ? (
+        <p class="st-row__msg st-note" id={`${id}-notes`}>
+          {notes.join(" ")}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+const LEFTOVER_CHOICES = [
+  { value: "spare", label: "Spare tray" },
+  { value: "solid", label: "Solid block" },
+] as const;
+
+function LeftoverRow({ settings, onChange }: SettingsFormProps) {
+  const changed = settings.leftover !== DEFAULT_SETTINGS.leftover;
+  return (
+    <>
+      <span class="st-row__label">
+        Unused space
+        {changed ? <Dot /> : null}
+      </span>
+      <div class="st-row__control">
+        <Segmented
+          label="Unused space"
+          stretch
+          options={LEFTOVER_CHOICES}
+          value={settings.leftover}
+          onChange={(leftover) => onChange({ ...settings, leftover })}
+        />
+      </div>
+    </>
+  );
+}
+
+function OneWallRow({ settings, onChange }: SettingsFormProps) {
+  const id = "settings-oneWall";
+  const changed = settings.oneWall !== DEFAULT_SETTINGS.oneWall;
+  return (
+    <>
+      <label class="st-row__label" htmlFor={id}>
+        One thick wall instead of a spacer
+        {changed ? <Dot /> : null}
+      </label>
+      <input
+        id={id}
+        class="k-check__box st-row__box"
+        type="checkbox"
+        checked={settings.oneWall}
+        onChange={(e) => onChange({ ...settings, oneWall: e.currentTarget.checked })}
       />
     </>
+  );
+}
+
+function RowOf({ row, settings, onChange }: SettingsFormProps & { row: RowSpec }) {
+  if (row.kind === "number") {
+    return <NumberRow range={row.range} settings={settings} onChange={onChange} />;
+  }
+  return row.kind === "leftover" ? (
+    <LeftoverRow settings={settings} onChange={onChange} />
+  ) : (
+    <OneWallRow settings={settings} onChange={onChange} />
+  );
+}
+
+/** How many of a group's values differ from their defaults. */
+function changedIn(g: ExactGroup, s: Settings): number {
+  const numbers = g.paths.filter((p) => {
+    const r = rangeOf(p);
+    return r !== undefined && r.get(s) !== r.get(DEFAULT_SETTINGS);
+  }).length;
+  const extras = (g.extras ?? []).filter((e) => s[e] !== DEFAULT_SETTINGS[e]).length;
+  return numbers + extras;
+}
+
+/** An open group: its name and what changed in it over its rows. */
+function Card({
+  group,
+  rows,
+  settings,
+  onChange,
+}: SettingsFormProps & { group: ExactGroup; rows: readonly RowSpec[] }) {
+  const headId = useId();
+  const changed = changedIn(group, settings);
+  return (
+    <div class="st-card" role="group" aria-labelledby={headId} data-group={group.id}>
+      <div class="st-card__head">
+        <span class="st-card__title" id={headId}>
+          {group.title}
+        </span>
+        {changed > 0 ? <span class="st-card__changed">{`${changed} changed`}</span> : null}
+      </div>
+      <div class="st-rows">
+        {rows.map((row) => (
+          <RowOf key={row.key} row={row} settings={settings} onChange={onChange} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---- Exact numbers --------------------------------------------------------------------------
+
+interface ExactProps extends SettingsFormProps {
+  /** Opens a group and puts the focus on a number: "Custom" walls take the person to the Wall. */
+  open: string;
+  onOpen: (id: string) => void;
+  query: string;
+  onQuery: (text: string) => void;
+}
+
+/** The numbers behind the choices: a search, and the groups, one open at a time. */
+function ExactNumbers({ settings, onChange, open, onOpen, query, onQuery }: ExactProps) {
+  const notices = useContext(ValidationContext);
+  // A group with an error in one of its fields opens, and stays open while the person mends it.
+  const forced = useRef(new Set<string>());
+  const withError = new Set<string>();
+  for (const n of notices) {
+    const g = n.level === "error" && n.path !== undefined ? groupOfPath(n.path) : undefined;
+    if (g !== undefined) {
+      forced.current.add(g.id);
+      withError.add(n.path ?? "");
+    }
+  }
+  const searching = query.trim() !== "";
+  const all = EXACT_GROUPS.map((g) => ({ group: g, rows: rowsOf(g) }));
+  const total = all.reduce((n, g) => n + g.rows.length, 0);
+  // A field with an error stays on screen whatever the search says.
+  const shown = all
+    .map(({ group, rows }) => ({
+      group,
+      rows: searching
+        ? rows.filter(
+            (r) =>
+              matchesQuery(r.words, query) ||
+              (r.kind === "number" && withError.has(`/settings/${r.range.path}`)),
+          )
+        : rows,
+    }))
+    .filter(({ rows }) => rows.length > 0);
+  const count = shown.reduce((n, g) => n + g.rows.length, 0);
+  return (
+    <section class="st-sec st-sec--exact" aria-labelledby="settings-exact-title">
+      <div class="st-sec__head">
+        <h2 class="st-h2" id="settings-exact-title">
+          Exact numbers
+        </h2>
+        <span class="st-note">For fine-tuning. All in mm.</span>
+      </div>
+      <div class="st-search">
+        <SearchField
+          label="Find a setting"
+          placeholder="Find a setting, like floor or lip"
+          value={query}
+          onInput={onQuery}
+        />
+        <p class="st-status" role="status">
+          {searching
+            ? count === 0
+              ? "No exact number matches."
+              : `${count} of ${total} shown.`
+            : ""}
+        </p>
+      </div>
+      <div class="st-groups">
+        {shown.map(({ group, rows }) =>
+          searching || open === group.id || forced.current.has(group.id) ? (
+            <Card
+              key={group.id}
+              group={group}
+              rows={rows}
+              settings={settings}
+              onChange={onChange}
+            />
+          ) : (
+            <DisclosureRow
+              key={group.id}
+              title={group.title}
+              meta={`${rows.length} values`}
+              changed={changedIn(group, settings)}
+              open={false}
+              onClick={() => onOpen(group.id)}
+            />
+          ),
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---- How the trays sit ----------------------------------------------------------------------
+
+const FIT_OPTIONS = [
+  { value: "tight", label: "Snug" },
+  { value: "normal", label: "Standard" },
+  { value: "loose", label: "Loose" },
+] as const;
+
+/** A name over its control: the board's 600 weight label, a dot when the value was changed. */
+function Labelled({
+  label,
+  changed,
+  children,
+  line,
+}: {
+  label: string;
+  changed: boolean;
+  children: preact.ComponentChildren;
+  line?: string;
+}) {
+  return (
+    <div class="st-field">
+      <span class="st-field__label">
+        {label}
+        {changed ? <Dot named /> : null}
+      </span>
+      {children}
+      {line !== undefined ? <span class="st-note">{line}</span> : null}
+    </div>
+  );
+}
+
+function HowTheTraysSit({
+  settings,
+  onChange,
+  onCustomWall,
+}: SettingsFormProps & { onCustomWall: () => void }) {
+  const wall = wallChoiceOf(settings);
+  const fit = fitChoiceOf(settings);
+  return (
+    <section class="st-sec" aria-labelledby="settings-sit-title">
+      <h2 class="st-h2" id="settings-sit-title">
+        How the trays sit
+      </h2>
+      <Labelled
+        label="Fit in the box"
+        changed={settings.fit !== DEFAULT_SETTINGS.fit}
+        line={
+          fit === "custom" ? `You set the fit to ${formatNumber(settings.fit)} below.` : undefined
+        }
+      >
+        <Segmented<FitChoice | "custom">
+          label="Fit in the box"
+          stretch
+          options={FIT_OPTIONS}
+          value={fit}
+          onChange={(c) => {
+            if (c !== "custom") {
+              onChange(applyFitChoice(settings, c));
+            }
+          }}
+        />
+      </Labelled>
+      <Labelled
+        label="Walls"
+        changed={settings.wall !== DEFAULT_SETTINGS.wall}
+        line={
+          wall === "custom"
+            ? `You set the wall to ${formatNumber(settings.wall)} mm below.`
+            : undefined
+        }
+      >
+        <Segmented<WallChoice | "custom">
+          label="Walls"
+          stretch
+          options={[
+            { value: "thin", label: "Light" },
+            { value: "normal", label: "Standard" },
+            { value: "sturdy", label: "Sturdy" },
+            { value: "custom", label: "Custom", changed: true },
+          ]}
+          value={wall}
+          onChange={(c) => {
+            if (c === "custom") {
+              onCustomWall();
+            } else {
+              onChange(applyWallChoice(settings, c));
+            }
+          }}
+        />
+      </Labelled>
+      <div class="st-checks">
+        <CheckRow
+          label="Room for fingers"
+          hint="Extra space beside walls to reach in"
+          checked={fingerRoomOf(settings) !== false}
+          onChange={(on) => onChange(applyFingerRoom(settings, on))}
+        />
+        <CheckRow
+          label="Rim between layers"
+          hint="A small rim on each tray keeps the top layer from sliding"
+          checked={settings.lip.enabled}
+          onChange={(enabled) => onChange({ ...settings, lip: { ...settings.lip, enabled } })}
+        />
+        <CheckRow
+          label="Fill to the lid"
+          hint="Keeps everything snug if the box is stored on its side"
+          checked={settings.fillToTop}
+          onChange={(fillToTop) => onChange({ ...settings, fillToTop })}
+        />
+      </div>
+    </section>
+  );
+}
+
+/** The sheet's "This insert" tab: how the trays sit, then the exact numbers. */
+export function InsertSettings({ settings, onChange }: SettingsFormProps) {
+  const notices = useContext(ValidationContext);
+  const [open, setOpen] = useState(() => {
+    const first = notices.find(
+      (n) => n.level === "error" && groupOfPath(n.path ?? "") !== undefined,
+    );
+    return (first === undefined ? undefined : groupOfPath(first.path ?? ""))?.id ?? "walls";
+  });
+  const [query, setQuery] = useState("");
+  // What to give the focus to once the render that opens it is done: the group's first control, or
+  // the control with this id (a button that goes when its group opens must not drop the focus).
+  const pending = useRef<{ group?: string; id?: string } | null>(null);
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    const want = pending.current;
+    pending.current = null;
+    if (want === null) {
+      return;
+    }
+    const target =
+      want.id !== undefined
+        ? document.getElementById(want.id)
+        : document.querySelector<HTMLElement>(
+            `[data-group="${want.group ?? ""}"] :is(input, button)`,
+          );
+    target?.focus();
+  });
+  const focusAfter = (want: { group?: string; id?: string }): void => {
+    pending.current = want;
+    redraw((n) => n + 1);
+  };
+  return (
+    <div class="st-stack">
+      <HowTheTraysSit
+        settings={settings}
+        onChange={onChange}
+        onCustomWall={() => {
+          setQuery("");
+          setOpen("walls");
+          focusAfter({ id: "settings-wall" });
+        }}
+      />
+      <ExactNumbers
+        settings={settings}
+        onChange={onChange}
+        open={open}
+        onOpen={(id) => {
+          setOpen(id);
+          focusAfter({ group: id });
+        }}
+        query={query}
+        onQuery={setQuery}
+      />
+    </div>
+  );
+}
+
+// ---- Printing options -----------------------------------------------------------------------
+
+/** "Printing": options that change the printed trays, never where they sit (My printer). */
+export function PrintingOptions({
+  settings,
+  onChange,
+  nameExample,
+}: SettingsFormProps & { nameExample?: NameExample }) {
+  return (
+    <section class="st-sec st-sec--printing" aria-labelledby="settings-printing-title">
+      <h2 class="st-h2 st-h2--tagged" id="settings-printing-title">
+        Printing
+        <span class="st-tag">Doesn't move any trays</span>
+      </h2>
+      <div class="st-checks">
+        <CheckRow
+          compact
+          label="Engrave tray names"
+          hint={
+            nameExample === undefined
+              ? "Long names are shortened to fit"
+              : `Long names are shortened to fit, like “${nameExample.full}” → “${nameExample.short}”`
+          }
+          checked={settings.engraveNames}
+          onChange={(engraveNames) => onChange({ ...settings, engraveNames })}
+        />
+        <CheckRow
+          compact
+          label="Join spacers into fewer pieces to print"
+          checked={settings.mergeFillers}
+          onChange={(mergeFillers) => onChange({ ...settings, mergeFillers })}
+        />
+      </div>
+    </section>
+  );
+}
+
+/** Folding risers into the joined spacers: it needs joined spacers, and says so while it has none. */
+export function FoldRisers({ settings, onChange }: SettingsFormProps) {
+  const blocked = !settings.mergeFillers;
+  return (
+    <CheckRow
+      compact
+      label="Fold risers into the joined spacers"
+      hint={blocked ? "Needs joined spacers." : undefined}
+      blocked={blocked}
+      checked={settings.mergeRisers}
+      onChange={(mergeRisers) => onChange({ ...settings, mergeRisers })}
+    />
   );
 }

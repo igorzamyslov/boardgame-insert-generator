@@ -13,7 +13,7 @@ import { ValidationContext } from "./validation";
 
 afterEach(cleanup);
 
-const MINE: Printer = { ...DEFAULT_PRINTER, bedX: 180, bedY: 180, bedZ: 180 };
+const MINE: Printer = { ...DEFAULT_PRINTER, bedX: 220, bedY: 220, bedZ: 250 };
 
 function sheet(over: Partial<SettingsSheetProps> = {}, notices: Notice[] = []) {
   const props: SettingsSheetProps = {
@@ -32,14 +32,19 @@ function sheet(over: Partial<SettingsSheetProps> = {}, notices: Notice[] = []) {
     </ValidationContext.Provider>
   );
   const view = render(ui(props, notices));
-  return { props, view, again: (n: Notice[]) => view.rerender(ui(props, n)) };
+  return {
+    props,
+    view,
+    again: (n: Notice[], next: Partial<SettingsSheetProps> = {}) =>
+      view.rerender(ui({ ...props, ...next }, n)),
+  };
 }
 
-const tab = (name: string): HTMLElement => screen.getByRole("tab", { name });
-const selected = (): string[] =>
-  screen
-    .getAllByRole("tab")
-    .filter((t) => t.getAttribute("aria-selected") === "true")
+const tab = (name: string | RegExp): HTMLElement => screen.getByRole("button", { name });
+const pressed = (): string[] =>
+  within(screen.getByRole("group", { name: "Settings for" }))
+    .getAllByRole("button")
+    .filter((t) => t.getAttribute("aria-pressed") === "true")
     .map((t) => t.textContent ?? "");
 
 const error = (path: string, message = "Something is wrong."): Notice => ({
@@ -50,43 +55,90 @@ const error = (path: string, message = "Something is wrong."): Notice => ({
 });
 
 describe("SettingsSheet", () => {
-  it("is a modal dialog named Settings with two tabs", () => {
+  it("opens as a drawer titled Settings, with one h1 that has the focus", () => {
     sheet();
     const dialog = screen.getByRole("dialog", { name: "Settings" });
     expect(dialog.getAttribute("aria-modal")).toBe("true");
-    expect(screen.getByRole("tablist", { name: "Settings" })).toBeTruthy();
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
-      "This insert",
-      "My printer",
+    expect(dialog.classList.contains("k-drawer")).toBe(true);
+    expect(dialog.getAttribute("data-region")).toBe("drawer");
+    const h1 = screen.getByRole("heading", { level: 1, name: "Settings" });
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(document.activeElement).toBe(h1);
+  });
+
+  it("has two tabs, This insert and My printer, as a quiet segment named Settings for", () => {
+    sheet();
+    const group = screen.getByRole("group", { name: "Settings for" });
+    expect(
+      within(group)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["This insert", "My printer"]);
+    expect(group.getAttribute("data-tone")).toBe("quiet");
+    expect(pressed()).toEqual(["This insert"]);
+    fireEvent.click(tab("My printer"));
+    expect(pressed()).toEqual(["My printer"]);
+    fireEvent.click(tab("This insert"));
+    expect(pressed()).toEqual(["This insert"]);
+  });
+
+  it("starts on the tab the person asked for", () => {
+    sheet({ initialTab: "printer" });
+    expect(pressed()).toEqual(["My printer"]);
+  });
+
+  it("keeps Done and says nothing about fitting", () => {
+    const { props } = sheet();
+    const dialog = screen.getByRole("dialog", { name: "Settings" });
+    const foot = dialog.querySelector(".st-foot") as HTMLElement;
+    expect(
+      within(foot)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Done"]);
+    expect(screen.queryByText(/Still fits/)).toBeNull();
+    fireEvent.click(within(foot).getByRole("button", { name: "Done" }));
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("scrolls the body alone: the header, tabs and foot stay where they are", () => {
+    sheet();
+    const dialog = screen.getByRole("dialog", { name: "Settings" });
+    expect([...dialog.children].map((c) => c.className)).toEqual([
+      "st-head",
+      "st-tabs",
+      "st-body",
+      "st-foot",
     ]);
-    // starts at the heading, like the export dialog
-    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Settings" }));
   });
 
   it("every setting is reachable", () => {
     sheet({ myPrinter: { ...MINE, bedX: 123 } });
-    // This insert: the simple choices, the checks, and every exact number
-    for (const name of ["Fit", "Walls", "Unused space"]) {
-      expect(screen.getByRole("combobox", { name }), name).toBeTruthy();
+    // This insert: the plain choices, the switches, and every exact number from its group
+    for (const name of ["Fit in the box", "Walls", "Walls and floors"]) {
+      expect(screen.getByRole("group", { name }), name).toBeTruthy();
     }
-    for (const name of [
-      "Room for fingers",
-      "Rim between layers",
-      "Fill to the lid",
-      "One thick wall instead of a spacer",
-    ]) {
-      expect(screen.getByRole("checkbox", { name }), name).toBeTruthy();
+    for (const name of ["Room for fingers", /^Rim between layers/, "Fill to the lid"]) {
+      expect(screen.getByRole("checkbox", { name }), String(name)).toBeTruthy();
     }
-    expect(screen.getByRole("searchbox", { name: "Search exact numbers" })).toBeTruthy();
+    expect(screen.getByRole("searchbox", { name: "Find a setting" })).toBeTruthy();
+    // the search finds each number by its name, whichever group it is in
     for (const r of SETTING_RANGES) {
+      fireEvent.input(screen.getByRole("searchbox"), { target: { value: r.label } });
       // a unit is part of a number's name: "Wall (mm)"
       const label = new RegExp(`^${r.label.replace(/[()]/g, "\\$&")}( \\((mm|%)\\))?$`);
       expect(screen.getAllByLabelText(label).length, r.path).toBeGreaterThan(0);
     }
-    // My printer: the preference, the options that only change the printing
+    fireEvent.input(screen.getByRole("searchbox"), { target: { value: "unused" } });
+    expect(screen.getByRole("group", { name: "Unused space" })).toBeTruthy();
+    fireEvent.input(screen.getByRole("searchbox"), { target: { value: "one thick wall" } });
+    expect(
+      screen.getByRole("checkbox", { name: "One thick wall instead of a spacer" }),
+    ).toBeTruthy();
+    // My printer: the bed, its details, and what changes only the printing
     fireEvent.click(tab("My printer"));
-    expect(screen.getByRole("combobox", { name: "Print bed" })).toBeTruthy();
-    // a bed that matches no preset shows its three sizes
+    expect(screen.getByRole("group", { name: "Printer bed" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Printer details/ }));
     for (const name of ["Bed X", "Bed Y", "Bed Z", "Bed margin", "Layer height"]) {
       expect(screen.getByLabelText(new RegExp(`^${name}`)), name).toBeTruthy();
     }
@@ -97,19 +149,6 @@ describe("SettingsSheet", () => {
     ]) {
       expect(screen.getByRole("checkbox", { name }), name).toBeTruthy();
     }
-    expect(screen.getByRole("button", { name: "Apply to this insert" })).toBeTruthy();
-  });
-
-  it("Walls shows Custom when it matches no preset", () => {
-    const view = sheet({ settings: { ...DEFAULT_SETTINGS, wall: 1.8 } });
-    const walls = screen.getByRole("combobox", { name: "Walls" }) as HTMLSelectElement;
-    expect(walls.value).toBe("custom");
-    expect(within(walls).getByRole("option", { name: "Custom (1.8 mm)" })).toBeTruthy();
-    view.view.unmount();
-    sheet({ settings: applyWallChoice(DEFAULT_SETTINGS, "sturdy") });
-    const again = screen.getByRole("combobox", { name: "Walls" }) as HTMLSelectElement;
-    expect(again.value).toBe("sturdy");
-    expect(within(again).queryByRole("option", { name: /^Custom/ })).toBeNull();
   });
 
   it("Escape closes and returns focus", () => {
@@ -153,139 +192,245 @@ describe("SettingsSheet", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(opener);
   });
+});
 
-  describe("tabs", () => {
-    it("wire each tab to its panel and move with the arrow keys", () => {
-      sheet();
-      expect(selected()).toEqual(["This insert"]);
-      const panel = screen.getByRole("tabpanel");
-      expect(panel.getAttribute("aria-labelledby")).toBe(tab("This insert").id);
-      expect(tab("This insert").getAttribute("aria-controls")).toBe(panel.id);
-      expect(tab("This insert").tabIndex).toBe(0);
-      expect(tab("My printer").tabIndex).toBe(-1);
-      fireEvent.keyDown(tab("This insert"), { key: "ArrowRight" });
-      expect(selected()).toEqual(["My printer"]);
-      expect(document.activeElement).toBe(tab("My printer"));
-      expect(screen.getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(
-        tab("My printer").id,
-      );
-      fireEvent.keyDown(tab("My printer"), { key: "ArrowRight" });
-      expect(selected()).toEqual(["This insert"]);
-      fireEvent.keyDown(tab("This insert"), { key: "End" });
-      expect(selected()).toEqual(["My printer"]);
-      fireEvent.keyDown(tab("My printer"), { key: "Home" });
-      expect(selected()).toEqual(["This insert"]);
-      fireEvent.keyDown(tab("This insert"), { key: "ArrowLeft" });
-      expect(selected()).toEqual(["My printer"]);
-    });
-
-    it("start on the tab the person asked for", () => {
-      sheet({ initialTab: "printer" });
-      expect(selected()).toEqual(["My printer"]);
-    });
+describe("the header: N changed and Reset all", () => {
+  it("says nothing, and offers no reset, while every setting is the default", () => {
+    sheet();
+    expect(screen.queryByText(/ changed$/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reset all" })).toBeNull();
   });
 
-  describe("an error", () => {
-    it("in a setting opens This insert with Exact numbers open", () => {
-      sheet({}, [error("/settings/bottomChamfer", "Bottom chamfer is too big")]);
-      expect(selected()).toEqual(["This insert, needs attention"]);
-      expect((document.querySelector("details.pf-disc") as HTMLDetailsElement).open).toBe(true);
-      expect(screen.getByText("Bottom chamfer is too big")).toBeTruthy();
-    });
-
-    it("in the insert's printer opens My printer and says what is wrong", () => {
-      sheet({}, [error("/printer/bedMargin", "Bed margin leaves no room.")]);
-      expect(selected()).toEqual(["My printer, needs attention"]);
-      expect(screen.getByText("Bed margin leaves no room.")).toBeTruthy();
-    });
-
-    it("picks the settings tab when both have one, and marks the tab it did not open", () => {
-      const both = [error("/settings/wall"), error("/printer/bedX")];
-      expect(settingsTabFor(both)).toBe("insert");
-      expect(settingsTabFor([error("/printer/bedX")])).toBe("printer");
-      expect(settingsTabFor([])).toBe("insert");
-      expect(settingsTabFor([{ ...error("/printer/bedX"), level: "warning" }])).toBe("insert");
-      sheet({}, both);
-      expect(tab("My printer, needs attention")).toBeTruthy();
-    });
-
-    it("that appears while it is open does not move the person to another tab", () => {
-      const view = sheet();
-      fireEvent.click(tab("My printer"));
-      view.again([error("/settings/wall")]);
-      expect(selected()).toEqual(["My printer"]);
-      expect(tab("This insert, needs attention")).toBeTruthy();
-    });
-  });
-
-  describe("My printer", () => {
-    const open = (over: Partial<SettingsSheetProps> = {}) => {
-      const view = sheet(over);
-      fireEvent.click(tab("My printer"));
-      return view;
-    };
-
-    it("saves a change as the preference, leaving this insert to Apply", () => {
-      const { props } = open();
-      fireEvent.input(screen.getByLabelText(/^Bed margin/), { target: { value: "8" } });
-      expect(props.onMyPrinterChange).toHaveBeenLastCalledWith({
-        ...DEFAULT_PRINTER,
-        bedMargin: 8,
-      });
-      expect(props.onApplyPrinter).not.toHaveBeenCalled();
-    });
-
-    it("does not save a printer that cannot work, and says so", () => {
-      const { props } = open();
-      fireEvent.input(screen.getByLabelText(/^Bed margin/), { target: { value: "200" } });
-      expect(props.onMyPrinterChange).not.toHaveBeenCalled();
-      expect(screen.getByRole("alert").textContent).toMatch(/^Not saved: /);
-      fireEvent.input(screen.getByLabelText(/^Bed margin/), { target: { value: "6" } });
-      expect(props.onMyPrinterChange).toHaveBeenLastCalledWith({
-        ...DEFAULT_PRINTER,
-        bedMargin: 6,
-      });
-      expect(screen.queryByRole("alert")).toBeNull();
-    });
-
-    it("applies my printer to this insert when it differs, and says when it does not", () => {
-      const { props } = open({ myPrinter: MINE });
-      expect(screen.getByText(/This insert is planned for 256 × 256 × 256 mm bed/)).toBeTruthy();
-      // the overwrite is stated
-      expect(screen.getByText(/Applying replaces it\./)).toBeTruthy();
-      fireEvent.click(screen.getByRole("button", { name: "Apply to this insert" }));
-      expect(props.onApplyPrinter).toHaveBeenCalledTimes(1);
-      cleanup();
-      const same = open();
-      const apply = screen.getByRole("button", { name: "Apply to this insert" });
-      expect(apply.getAttribute("aria-disabled")).toBe("true");
-      expect(screen.getByText("This insert already uses this printer.")).toBeTruthy();
-      fireEvent.click(apply);
-      expect(same.props.onApplyPrinter).not.toHaveBeenCalled();
-    });
-
-    it("edits this insert's printing options", () => {
-      const { props } = open();
-      fireEvent.click(screen.getByRole("checkbox", { name: "Engrave tray names" }));
-      expect(props.onSettingsChange).toHaveBeenLastCalledWith({
+  it("counts every setting that differs, on both tabs", () => {
+    sheet({
+      settings: {
         ...DEFAULT_SETTINGS,
+        wall: 1.8,
+        trayGap: 0.4,
+        leftover: "solid",
         engraveNames: false,
-      });
+      },
+    });
+    const head = document.querySelector(".st-head") as HTMLElement;
+    expect(within(head).getByText("4 changed")).toBeTruthy();
+    fireEvent.click(tab("My printer"));
+    expect(within(head).getByText("4 changed")).toBeTruthy();
+  });
+
+  it("Reset all writes the defaults in one change, and gives the focus to the heading", () => {
+    const { props } = sheet({ settings: { ...DEFAULT_SETTINGS, wall: 1.8, trayGap: 0.4 } });
+    (document.activeElement as HTMLElement | null)?.blur();
+    fireEvent.click(screen.getByRole("button", { name: "Reset all" }));
+    expect(props.onSettingsChange).toHaveBeenCalledTimes(1);
+    expect(props.onSettingsChange).toHaveBeenLastCalledWith(DEFAULT_SETTINGS);
+    expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
+  });
+
+  it("Reset all hands out a copy, so the defaults cannot be edited through it", () => {
+    const { props } = sheet({ settings: { ...DEFAULT_SETTINGS, wall: 1.8 } });
+    fireEvent.click(screen.getByRole("button", { name: "Reset all" }));
+    const given = (props.onSettingsChange as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(given).not.toBe(DEFAULT_SETTINGS);
+    expect(given.lip).not.toBe(DEFAULT_SETTINGS.lip);
+  });
+});
+
+describe("an error", () => {
+  it("in a setting opens This insert with its group open", () => {
+    sheet({}, [error("/settings/bottomChamfer", "Bottom chamfer is too big")]);
+    expect(pressed()).toEqual(["This insert, needs attention"]);
+    expect(screen.getByRole("group", { name: "Shape and printing" })).toBeTruthy();
+    expect(screen.getByText("Bottom chamfer is too big")).toBeTruthy();
+  });
+
+  it("in the insert's printer opens My printer and says what is wrong", () => {
+    sheet({}, [error("/printer/bedMargin", "Bed margin leaves no room.")]);
+    expect(pressed()).toEqual(["My printer, needs attention"]);
+    expect(screen.getByText("Bed margin leaves no room.")).toBeTruthy();
+  });
+
+  it("picks the settings tab when both have one, and marks the tab it did not open", () => {
+    const both = [error("/settings/wall"), error("/printer/bedX")];
+    expect(settingsTabFor(both)).toBe("insert");
+    expect(settingsTabFor([error("/printer/bedX")])).toBe("printer");
+    expect(settingsTabFor([])).toBe("insert");
+    expect(settingsTabFor([{ ...error("/printer/bedX"), level: "warning" }])).toBe("insert");
+    sheet({}, both);
+    expect(tab("My printer, needs attention")).toBeTruthy();
+  });
+
+  it("that appears while it is open does not move the person to another tab", () => {
+    const view = sheet();
+    fireEvent.click(tab("My printer"));
+    view.again([error("/settings/wall")]);
+    expect(pressed()).toEqual(["My printer"]);
+    expect(tab("This insert, needs attention")).toBeTruthy();
+  });
+});
+
+describe("My printer", () => {
+  const open = (over: Partial<SettingsSheetProps> = {}) => {
+    const view = sheet(over);
+    fireEvent.click(tab("My printer"));
+    return view;
+  };
+  const details = (): void => {
+    fireEvent.click(screen.getByRole("button", { name: /^Printer details/ }));
+  };
+
+  it("starts with what the printer is for, then the bed", () => {
+    open();
+    expect(screen.getByText("These apply to every insert you make.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Printer bed" })).toBeTruthy();
+  });
+
+  it("saves a change as the preference, leaving this insert to Apply", () => {
+    const { props } = open();
+    details();
+    fireEvent.input(screen.getByLabelText(/^Bed margin/), { target: { value: "8" } });
+    expect(props.onMyPrinterChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_PRINTER,
+      bedMargin: 8,
+    });
+    expect(props.onApplyPrinter).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Medium, 220 mm" }));
+    expect(props.onMyPrinterChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_PRINTER,
+      bedX: 220,
+      bedY: 220,
+      bedZ: 250,
     });
   });
 
+  it("does not save a printer that cannot work, and says so", () => {
+    const { props } = open();
+    details();
+    fireEvent.input(screen.getByLabelText(/^Bed margin/), { target: { value: "200" } });
+    expect(props.onMyPrinterChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toMatch(/^Not saved: /);
+    fireEvent.input(screen.getByLabelText(/^Bed margin/), { target: { value: "6" } });
+    expect(props.onMyPrinterChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_PRINTER,
+      bedMargin: 6,
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("offers Apply only when this insert uses another printer", () => {
+    const same = open();
+    expect(screen.queryByText("This insert uses another printer")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Apply" })).toBeNull();
+    same.again([], { printer: MINE });
+    // the row is the first thing in the tab, above what the printer is for
+    const row = screen.getByText("This insert uses another printer");
+    const intro = screen.getByText("These apply to every insert you make.");
+    expect(row.compareDocumentPosition(intro) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(same.props.onApplyPrinter).toHaveBeenCalledTimes(1);
+    // once they match, the row is gone
+    same.again([], { printer: DEFAULT_PRINTER });
+    expect(screen.queryByText("This insert uses another printer")).toBeNull();
+  });
+
+  it("compares the bed, the margin and the layer height", () => {
+    const view = open();
+    view.again([], { printer: { ...DEFAULT_PRINTER, layerHeight: 0.28 } });
+    expect(screen.getByText("This insert uses another printer")).toBeTruthy();
+    view.again([], { printer: { ...DEFAULT_PRINTER, bedMargin: 9 } });
+    expect(screen.getByText("This insert uses another printer")).toBeTruthy();
+  });
+
+  it("keeps margin, layer height and folding risers under Printer details", () => {
+    open();
+    expect(screen.queryByLabelText(/^Bed margin/)).toBeNull();
+    expect(screen.queryByLabelText(/^Layer height/)).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", { name: "Fold risers into the joined spacers" }),
+    ).toBeNull();
+    details();
+    expect(screen.getByLabelText(/^Bed margin/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Layer height/)).toBeTruthy();
+    expect(
+      screen.getByRole("checkbox", { name: "Fold risers into the joined spacers" }),
+    ).toBeTruthy();
+  });
+
+  it("edits this insert's printing options", () => {
+    const { props } = open();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Engrave tray names" }));
+    expect(props.onSettingsChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_SETTINGS,
+      engraveNames: false,
+    });
+  });
+
+  it("blocks the riser fold while spacers are not joined, and says why", () => {
+    const { props } = open({ settings: { ...DEFAULT_SETTINGS, mergeFillers: false } });
+    details();
+    const box = screen.getByRole("checkbox", {
+      name: "Fold risers into the joined spacers",
+    }) as HTMLInputElement;
+    expect(box.disabled).toBe(false);
+    expect(box.getAttribute("aria-disabled")).toBe("true");
+    const why = (box.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent ?? "")
+      .join(" ");
+    expect(why).toContain("Needs joined spacers.");
+    fireEvent.click(box);
+    expect(props.onSettingsChange).not.toHaveBeenCalled();
+  });
+
+  it("offers the fold when spacers are joined", () => {
+    const { props } = open();
+    details();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Fold risers into the joined spacers" }));
+    expect(props.onSettingsChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_SETTINGS,
+      mergeRisers: true,
+    });
+  });
+
+  it("gives the engraving hint the name of a tray, when the project has one", () => {
+    open({ nameExample: { full: "Market deck", short: "Market" } });
+    expect(
+      screen.getByText("Long names are shortened to fit, like “Market deck” → “Market”"),
+    ).toBeTruthy();
+  });
+});
+
+describe("This insert", () => {
   it("edits this insert's settings from the first tab", () => {
     const { props } = sheet();
-    fireEvent.change(screen.getByRole("combobox", { name: "Walls" }), {
-      target: { value: "sturdy" },
-    });
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Walls" })).getByRole("button", { name: "Sturdy" }),
+    );
     expect(props.onSettingsChange).toHaveBeenLastCalledWith(
       applyWallChoice(DEFAULT_SETTINGS, "sturdy"),
     );
-    fireEvent.click(screen.getByRole("checkbox", { name: "Rim between layers" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /^Rim between layers/ }));
     expect(props.onSettingsChange).toHaveBeenLastCalledWith({
       ...DEFAULT_SETTINGS,
       lip: { ...DEFAULT_SETTINGS.lip, enabled: true },
     });
+  });
+
+  it("puts the plain choices first, with Exact numbers after them", () => {
+    sheet();
+    const body = document.querySelector(".st-body") as HTMLElement;
+    expect(
+      within(body)
+        .getAllByRole("heading")
+        .map((h) => h.textContent),
+    ).toEqual(["How the trays sit", "Exact numbers"]);
+  });
+
+  it("finds Unused space under Exact numbers", () => {
+    sheet();
+    expect(screen.queryByText("Unused space")).toBeNull();
+    fireEvent.input(screen.getByRole("searchbox", { name: "Find a setting" }), {
+      target: { value: "unused" },
+    });
+    expect(screen.getByText("Unused space")).toBeTruthy();
   });
 });

@@ -49,52 +49,6 @@ select {
   pointer-events: none;
 }
 
-/* Disclosure: "More options", with a count of what is set inside. */
-.pf-disc > summary {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  min-height: var(--control-h);
-  color: var(--ink);
-  font: 600 14px/20px var(--font-ui);
-  cursor: pointer;
-  list-style: none;
-}
-
-.pf-disc > summary::-webkit-details-marker {
-  display: none;
-}
-
-.pf-disc > summary::before,
-.pf-item > summary::after {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border: solid var(--muted);
-  border-width: 0 2px 2px 0;
-  transform: rotate(-45deg);
-  transition: none;
-}
-
-.pf-disc[open] > summary::before,
-.pf-item[open] > summary::after {
-  transform: rotate(45deg);
-}
-
-.pf-disc__body {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-3) 0 var(--space-1) var(--space-4);
-}
-
-.pf-count {
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--row);
-  color: var(--muted);
-  font: 500 13px/18px var(--font-ui);
-}
-
 .pf-item {
   border: 1px solid var(--rule);
   border-radius: var(--radius-md);
@@ -189,31 +143,6 @@ select {
   background-position: center;
   background-size: 11px 11px;
   clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
-}
-
-/* Tabs: switch what the stage shows. */
-.pf-tabs {
-  display: flex;
-  gap: var(--space-4);
-  border-bottom: 1px solid var(--rule);
-}
-
-.pf-tabs button {
-  min-width: var(--control-h);
-  min-height: var(--control-h);
-  margin-bottom: -1px;
-  padding: 0 var(--space-1);
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--muted);
-  font: 600 14px/20px var(--font-ui);
-  cursor: pointer;
-}
-
-.pf-tabs button[aria-selected="true"] {
-  border-bottom: 3px solid var(--focus);
-  color: var(--ink);
 }
 
 /* ---- App shell: the page is one screen tall; the preview is the centre-piece ---- */
@@ -395,10 +324,6 @@ input[aria-invalid="true"] {
   gap: var(--space-3);
 }
 
-.form-grid-3 {
-  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
-}
-
 .field {
   display: grid;
   gap: var(--space-1);
@@ -430,47 +355,6 @@ input[aria-invalid="true"] {
 .field-notes {
   padding-left: var(--space-2);
   border-left: 3px solid var(--ochre);
-}
-
-/* A field that differs from its default (SettingsForm): a hint with a neutral mark, not a warning's ochre. */
-.field-changed {
-  padding-left: var(--space-2);
-  border-left: 3px solid var(--rule-strong);
-}
-
-.restore-all {
-  align-items: center;
-}
-
-/* A checkbox is a 44 px cell with the box in it, beside a label at least as tall. */
-.check-field {
-  display: grid;
-  grid-template-columns: var(--control-h) 1fr;
-  gap: 0;
-  align-items: center;
-}
-
-.check-field input {
-  width: 24px;
-  height: 24px;
-  margin: 10px;
-}
-
-.check-field > label {
-  display: flex;
-  align-items: center;
-  min-height: var(--control-h);
-}
-
-.check-field input[aria-disabled="true"],
-.check-field input[aria-disabled="true"] + label {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.check-field .hint,
-.check-field .field-error {
-  grid-column: 2;
 }
 
 /* A note about the change just made: it sits at the foot of the page for a few seconds. */
@@ -793,9 +677,7 @@ input[aria-invalid="true"] {
 /* Full-width grid children; after the base rules (no-descending-specificity). */
 .form-grid > fieldset,
 .form-grid > details,
-.form-grid > .form-grid-3,
 .form-grid > .hint,
-.form-grid > .check-field,
 .form-grid > .field-error,
 .form-grid > .field-notes {
   grid-column: 1 / -1;
@@ -847,93 +729,6 @@ html:has(dialog.modal[open]) {
   justify-content: flex-end;
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--rule);
-}
-
-/* The settings sheet (ui/SettingsSheet.tsx): two tabs over a scrolling panel; full screen on a phone. */
-.settings-sheet {
-  width: min(720px, calc(100vw - 2 * var(--space-4)));
-  height: min(820px, calc(100vh - 2 * var(--space-4)));
-  height: min(820px, calc(100dvh - 2 * var(--space-4)));
-}
-
-/* The panel scrolls, so Close stays in view. */
-.settings-sheet[open] {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* Positioned, so the visually hidden text inside is clipped with the panel and cannot stretch the dialog. */
-.settings-sheet .modal-body {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-@media (width < 600px) {
-  .modal,
-  .settings-sheet {
-    width: 100vw;
-    max-width: none;
-    height: 100dvh;
-    max-height: none;
-    border: 0;
-    border-radius: 0;
-  }
-}
-
-.settings-sheet .pf-tabs button {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  min-height: 44px;
-  border-radius: 0;
-}
-
-.settings-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--danger);
-}
-
-.settings-panel,
-.settings-stack,
-.settings-group,
-.settings-apply {
-  display: grid;
-  gap: var(--space-3);
-  align-content: start;
-}
-
-.settings-stack {
-  gap: var(--space-5);
-}
-
-.settings-group h3 {
-  margin: 0;
-  font-size: 16px;
-  line-height: 22px;
-}
-
-.settings-group > .hint {
-  margin: 0;
-}
-
-.settings-apply-btn {
-  justify-self: start;
-  min-height: 44px;
-}
-
-.settings-apply .field-error {
-  margin: 0;
-}
-
-.export-title {
-  margin: 0;
-  font-size: 20px;
-  line-height: 26px;
 }
 
 /* stylelint-disable-next-line no-descending-specificity */

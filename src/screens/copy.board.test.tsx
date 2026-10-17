@@ -16,6 +16,7 @@ import { renderApp } from "../app/test-app";
 import { trayNames } from "../instructions/naming";
 import { numberParts } from "../instructions/numbering";
 import { COPY_RULINGS } from "./copy-rulings";
+import { EXACT_GROUPS } from "../ui/settingsGroups";
 import { conflictLine } from "./StageTop";
 import { boardLiterals, unruled, visibleStrings } from "../test-support/boardCopy";
 import type { Allowed } from "../test-support/boardCopy";
@@ -226,7 +227,86 @@ const failsOnce = (): MeshSource => {
   };
 };
 
+/** The project menu's Settings opens the drawer; its tabs and groups are buttons. */
+const openSettings = (): void => {
+  openMenu();
+  fireEvent.click(
+    within(screen.getByRole("group", { name: "Project" })).getByRole("button", {
+      name: "Settings",
+    }),
+  );
+};
+const inDrawer = (name: string | RegExp): void => {
+  fireEvent.click(
+    within(document.querySelector('[data-region="drawer"]') as HTMLElement).getByRole("button", {
+      name,
+    }),
+  );
+};
+const openPrinter = (): void => {
+  openSettings();
+  inDrawer("My printer");
+};
+const searchSettings = (text: string) => (): void => {
+  openSettings();
+  fireEvent.input(screen.getByRole("searchbox", { name: "Find a setting" }), {
+    target: { value: text },
+  });
+};
+
 const CASES: readonly Case[] = [
+  // Task 14: the Settings drawer, Settings at 1440. Each group of Exact numbers is opened in turn, so
+  // every label a person can reach is checked; the printer tab is checked with Printer details open,
+  // with another printer on the insert and with a printer that was not saved.
+  { state: "settings", board: "Settings", region: "drawer", steps: openSettings },
+  { state: "settings-printer", board: "Settings", region: "drawer", steps: openPrinter },
+  {
+    state: "settings-printer-details",
+    board: "Settings",
+    region: "drawer",
+    steps: () => {
+      openPrinter();
+      inDrawer("My own size");
+    },
+  },
+  {
+    state: "settings-printer-other",
+    board: "Settings",
+    region: "drawer",
+    steps: (store) => {
+      act(() =>
+        store.edit((q) => ({ ...q, printer: { ...q.printer, bedX: 220, bedY: 220, bedZ: 250 } })),
+      );
+      openPrinter();
+    },
+  },
+  {
+    state: "settings-printer-unsaved",
+    board: "Settings",
+    region: "drawer",
+    steps: () => {
+      openPrinter();
+      inDrawer(/^Printer details/);
+      fireEvent.input(screen.getByLabelText(/^Bed margin/), { target: { value: "200" } });
+      expect(screen.getByRole("alert")).toBeTruthy();
+    },
+  },
+  {
+    state: "settings-search",
+    board: "Settings",
+    region: "drawer",
+    steps: searchSettings("unused"),
+  },
+  { state: "settings-nomatch", board: "Settings", region: "drawer", steps: searchSettings("zzzz") },
+  ...EXACT_GROUPS.filter((g) => g.id !== "walls").map((g): Case => ({
+    state: `settings-${g.id}`,
+    board: "Settings",
+    region: "drawer",
+    steps: () => {
+      openSettings();
+      inDrawer(new RegExp(`^${g.title}`));
+    },
+  })),
   // Task 13: the Download dialog (Export at 1440, MobileDownload on a phone) and the building of the
   // file (Exporting: building, then done). The packing guide has no board and no case.
   { state: "download", board: "Export", region: "dialog", steps: openFormats },

@@ -40,6 +40,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 function stubSceneFactory(): SceneFactory {
@@ -312,16 +313,13 @@ describe("App", () => {
     expect(within(results).queryByRole("list", { name: "Errors without a field" })).toBeNull();
     fireEvent.click(within(results).getByRole("button", { name: "Settings" }));
     const sheet = screen.getByRole("dialog", { name: "Settings" });
-    expect(screen.getByRole("tab", { name: /^This insert/ }).getAttribute("aria-selected")).toBe(
+    expect(screen.getByRole("button", { name: /^This insert/ }).getAttribute("aria-pressed")).toBe(
       "true",
     );
     const message = within(sheet).getByText(/Bottom chamfer must be at most/);
-    // The message is on screen: no closed <details> between it and the page.
-    for (let el = message.parentElement; el !== null; el = el.parentElement) {
-      if (el.tagName === "DETAILS") {
-        expect((el as HTMLDetailsElement).open).toBe(true);
-      }
-    }
+    // The message is on screen: its group is open, and nothing between it and the drawer hides it.
+    expect(message.closest("[hidden], [inert]")).toBeNull();
+    expect(within(sheet).getByRole("group", { name: "Shape and printing" })).toBeTruthy();
   });
 
   it("opens the settings sheet on My printer for an error in the insert's printer", async () => {
@@ -332,7 +330,7 @@ describe("App", () => {
     fireEvent.click(
       await within(screen.getByRole("main")).findByRole("button", { name: "Settings" }),
     );
-    expect(screen.getByRole("tab", { name: /^My printer/ }).getAttribute("aria-selected")).toBe(
+    expect(screen.getByRole("button", { name: /^My printer/ }).getAttribute("aria-pressed")).toBe(
       "true",
     );
   });
@@ -812,7 +810,7 @@ describe("App", () => {
       fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
       expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
       const dialog = screen.getByRole("dialog", { name: "Settings" });
-      expect(within(dialog).getByRole("tab", { name: "This insert" })).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "This insert" })).toBeTruthy();
       fireEvent(dialog, new Event("cancel", { cancelable: true }));
       expect(screen.queryByRole("dialog")).toBeNull();
       expect(document.activeElement).toBe(button);
@@ -825,14 +823,25 @@ describe("App", () => {
     });
 
     it("edits this insert's settings from the sheet as one undoable step", () => {
+      // two changes within a second are one step (typing): the clock moves between them
+      vi.useFakeTimers({ toFake: ["Date"] });
       const { store } = renderWorkspace();
       openMenu();
       fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
-      fireEvent.change(screen.getByRole("combobox", { name: "Walls" }), {
-        target: { value: "sturdy" },
-      });
+      fireEvent.click(
+        within(screen.getByRole("group", { name: "Walls" })).getByRole("button", {
+          name: "Sturdy",
+        }),
+      );
       expect(store.state.project.value.settings.wall).toBe(2);
-      store.undo();
+      // the header counts it, and Reset all puts it back as one more step
+      expect(screen.getByText("1 changed")).toBeTruthy();
+      vi.setSystemTime(Date.now() + 5000);
+      fireEvent.click(screen.getByRole("button", { name: "Reset all" }));
+      expect(store.state.project.value.settings.wall).toBe(DEFAULT_SETTINGS.wall);
+      act(() => store.undo());
+      expect(store.state.project.value.settings.wall).toBe(2);
+      act(() => store.undo());
       expect(store.state.project.value.settings.wall).toBe(DEFAULT_SETTINGS.wall);
     });
 
@@ -841,15 +850,42 @@ describe("App", () => {
       const before = store.state.project.value.printer;
       openMenu();
       fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
-      fireEvent.click(screen.getByRole("tab", { name: "My printer" }));
+      fireEvent.click(screen.getByRole("button", { name: "My printer" }));
+      // the insert and the browser agree: nothing to apply
+      expect(screen.queryByText("This insert uses another printer")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /^Printer details/ }));
       fireEvent.input(screen.getByLabelText(/^Bed margin/), { target: { value: "9" } });
       expect(prefs.printer.value.bedMargin).toBe(9);
       expect(store.state.project.value.printer).toEqual(before);
-      fireEvent.click(screen.getByRole("button", { name: "Apply to this insert" }));
+      // now the insert uses another printer: a row at the top says so, with Apply
+      expect(screen.getByText("This insert uses another printer")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Apply" }));
       expect(store.state.project.value.printer).toEqual(prefs.printer.value);
-      expect(screen.getByText("This insert already uses this printer.")).toBeTruthy();
-      store.undo();
+      expect(screen.queryByText("This insert uses another printer")).toBeNull();
+      act(() => store.undo());
       expect(store.state.project.value.printer).toEqual(before);
+      expect(screen.getByText("This insert uses another printer")).toBeTruthy();
+    });
+
+    it("offers Apply when the insert is on a 220 mm bed and the browser's printer is 256 mm", () => {
+      // two edits within a second are one step (typing): the clock moves between them
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const { store, prefs } = renderWorkspace();
+      act(() =>
+        store.edit((q) => ({ ...q, printer: { ...q.printer, bedX: 220, bedY: 220, bedZ: 250 } })),
+      );
+      expect(prefs.printer.value.bedX).toBe(256);
+      vi.setSystemTime(Date.now() + 5000);
+      openMenu();
+      fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
+      fireEvent.click(screen.getByRole("button", { name: "My printer" }));
+      expect(screen.getByText("This insert uses another printer")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+      expect(store.state.project.value.printer.bedX).toBe(256);
+      expect(screen.queryByText("This insert uses another printer")).toBeNull();
+      // one step to undo
+      act(() => store.undo());
+      expect(store.state.project.value.printer.bedX).toBe(220);
     });
 
     it("closes the sheet when another insert opens", async () => {

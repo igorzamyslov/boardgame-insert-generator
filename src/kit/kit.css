@@ -347,6 +347,21 @@
   font-weight: 600;
 }
 
+/* Settings' "Custom" wall: set by hand, so its pressed words are in the changed ink. */
+.k-seg__item[aria-pressed="true"][data-changed] {
+  color: var(--changed-ink);
+}
+
+/* A tab whose panel has an error: an 8 px dot after the label (the old sheet's, in the error colour). */
+.k-seg__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: var(--s-8);
+  border-radius: var(--r-pill);
+  background: var(--danger);
+}
+
 /* Main's blocked "3D": dimmer, and the cursor says so. */
 .k-seg__item[aria-disabled="true"] {
   opacity: 0.6;

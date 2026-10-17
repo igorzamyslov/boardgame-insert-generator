@@ -511,14 +511,6 @@ describe("the phone layout", () => {
     expect(ruleFor(".ws", workspace)).toMatch(/height:\s*100dvh/);
   });
 
-  it("leaves the scrolling to the settings sheet's panel, whatever the screen's width", () => {
-    expect(ruleFor(".settings-sheet .modal-body")).toMatch(/overflow:\s*auto/);
-    // so the visually hidden text inside is clipped by the panel, not stretching the dialog
-    expect(ruleFor(".settings-sheet .modal-body")).toMatch(/position:\s*relative/);
-    expect(ruleFor(".settings-sheet[open]")).toMatch(/overflow:\s*hidden/);
-    expect(ruleFor(".settings-sheet")).toMatch(/dvh/);
-  });
-
   it("breaks at the width the app asks about", () => {
     const px = /\(width < (\d+)px\)/.exec(PHONE_QUERY)?.[1];
     expect(px).toBe("760");

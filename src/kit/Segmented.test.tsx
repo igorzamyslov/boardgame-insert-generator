@@ -67,4 +67,40 @@ describe("Segmented", () => {
     fireEvent.click(screen.getByRole("button", { name: "Top" }));
     expect(picked).toEqual(["top"]);
   });
+
+  it("marks a changed option, which takes the changed ink while it is pressed", () => {
+    render(
+      <Segmented
+        label="Walls"
+        options={[
+          { value: "standard", label: "Standard" },
+          { value: "custom", label: "Custom", changed: true },
+        ]}
+        value="custom"
+        onChange={() => undefined}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Custom" }).hasAttribute("data-changed")).toBe(true);
+    expect(screen.getByRole("button", { name: "Standard" }).hasAttribute("data-changed")).toBe(
+      false,
+    );
+  });
+
+  it("says an option needs attention: a dot for the eye, words for a reader", () => {
+    const { container } = render(
+      <Segmented
+        label="Settings for"
+        options={[
+          { value: "insert", label: "This insert", attention: true },
+          { value: "printer", label: "My printer" },
+        ]}
+        value="printer"
+        onChange={() => undefined}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "This insert, needs attention" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "My printer" })).toBeTruthy();
+    expect(container.querySelectorAll(".k-seg__dot")).toHaveLength(1);
+    expect(container.querySelector(".k-seg__dot")?.getAttribute("aria-hidden")).toBe("true");
+  });
 });

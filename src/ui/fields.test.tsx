@@ -3,8 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { STALE_CODE } from "../app/state";
-import type { Notice } from "../model/types";
-import { CheckField, SelectField, TextField } from "./fields";
+import { SelectField, TextField } from "./fields";
 import { Notices } from "./Notices";
 import { ValidationContext } from "./validation";
 
@@ -109,42 +108,6 @@ describe("SelectField", () => {
     );
     fireEvent.change(screen.getByLabelText("Fit"), { target: { value: "tight" } });
     expect(onChange).toHaveBeenCalledWith("tight");
-  });
-});
-
-describe("CheckField", () => {
-  it("toggles and can be disabled with a hint", () => {
-    const onChange = vi.fn();
-    render(
-      <CheckField
-        id="side"
-        label="Stored on its side"
-        checked={false}
-        onChange={onChange}
-        hint="Upright on a shelf"
-      />,
-    );
-    const box = screen.getByLabelText("Stored on its side");
-    fireEvent.click(box);
-    expect(onChange).toHaveBeenCalledWith(true);
-    expect(box.getAttribute("aria-describedby")).toBe("side-hint");
-  });
-
-  it("shows only errors at its path as an alert tied to the checkbox, other levels as notes", () => {
-    const notices: Notice[] = [
-      { level: "error", code: "field.x", path: "/a", message: "Bad." },
-      { level: "warning", code: "field.y", path: "/a", message: "Careful." },
-    ];
-    render(
-      <ValidationContext.Provider value={notices}>
-        <CheckField id="c" label="Thing" checked onChange={vi.fn()} path="/a" />
-      </ValidationContext.Provider>,
-    );
-    const box = screen.getByLabelText("Thing");
-    expect(screen.getByRole("alert").textContent).toBe("Bad.");
-    expect(box.getAttribute("aria-invalid")).toBe("true");
-    expect(box.getAttribute("aria-describedby")).toBe("c-error c-notes");
-    expect(screen.getByText("Careful.").getAttribute("role")).toBeNull();
   });
 });
 

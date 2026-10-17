@@ -240,6 +240,14 @@ async function runStep(page, step) {
     // a text box by its label: the value replaces what is there (the first visit's Height, say)
     const { label, value } = step.fill;
     await page.getByLabel(label).first().fill(value, { timeout: STEP_TIMEOUT });
+  } else if (step.scrollTop) {
+    // a scrolling panel back to its top (a focused field scrolled it): the board is drawn unscrolled
+    await page
+      .locator(step.scrollTop)
+      .first()
+      .evaluate((el) => {
+        el.scrollTop = 0;
+      });
   } else if (step.press) {
     await page.keyboard.press(step.press);
   } else if (step.wait !== undefined) {
@@ -674,7 +682,9 @@ async function measure(page, isBoard, crop = {}) {
   out["rail width"] = await sizeOf("rail", "width");
   out["plan-box width"] = await sizeOf("plan-box", "width");
   const h1 = await page.evaluate(() => {
-    const el = document.querySelector("h1");
+    // a modal dialog's h1 is the page's h1 while it is open (the page behind it is inert)
+    const el =
+      document.querySelector("dialog[open] h1, [role=dialog] h1") || document.querySelector("h1");
     return el ? { size: getComputedStyle(el).fontSize, text: (el.textContent || "").trim() } : null;
   });
   out["h1 font-size"] = h1 ? Number.parseFloat(h1.size) : null;
@@ -777,7 +787,8 @@ function measureTray() {
  */
 function measureStatusRow() {
   const round = (n) => Math.round(n * 100) / 100;
-  const h1 = document.querySelector("h1");
+  const h1 =
+    document.querySelector("dialog[open] h1, [role=dialog] h1") || document.querySelector("h1");
   // page coordinates: an element's screenshot may have scrolled the page, which must not read as a move
   const box = (el) => {
     if (!el) {

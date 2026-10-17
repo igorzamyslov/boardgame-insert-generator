@@ -116,7 +116,10 @@ export function Dialog({
   );
 }
 
-/** Settings' drawer: a dialog against the right edge, full height, full screen on a phone. */
-export function Drawer(props: Omit<DialogProps, "placement" | "legacy" | "region">) {
-  return <Dialog {...props} placement="right" />;
+/**
+ * Settings' drawer: a dialog against the right edge, full height, full screen on a phone. Its
+ * `data-region` is "drawer", which the screenshot harness finds it by.
+ */
+export function Drawer(props: Omit<DialogProps, "placement" | "legacy">) {
+  return <Dialog region="drawer" {...props} placement="right" />;
 }

@@ -535,9 +535,11 @@ addition:
    - If it changes printed geometry, `GEOMETRY_VERSION`: PATCH if parts still mate, MINOR if
      not.
    - `package.json` on the PR.
-6. UI: put it in the settings sheet (`ui/SettingsSheet.tsx` and `ui/SettingsForm.tsx`, or the My
-   printer tab for printer things). If it sits under "Exact numbers", make sure an error there
-   opens that disclosure.
+6. UI: put it in the Settings drawer (`ui/SettingsSheet.tsx` and `ui/SettingsForm.tsx`, or the My
+   printer tab for printer things). A number goes in a group of `ui/settingsGroups.ts` (a test
+   fails while a `SETTING_RANGES` path is in no group); an error at its path then opens that group.
+   The first screen of "This insert" is the board's plain choices: do not add to it without a
+   decision-log row.
 7. Tests: the hash test (`model/hash.test.ts`: it changes, or doesn't change, the hash), the
    schema read test, and a form test that the error shows next to the field.
 

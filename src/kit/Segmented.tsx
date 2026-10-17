@@ -7,6 +7,10 @@ export interface SegmentedOption<T extends string> {
   label: string;
   /** Present: this option is blocked (`aria-disabled`, still focusable) and this says why (Main's "3D needs WebGL"). */
   blockedReason?: string;
+  /** This value differs from its default (Settings' "Custom" wall): pressed, it is set in the changed ink. */
+  changed?: boolean;
+  /** The option's panel has a problem (a tab with an error): a dot after the label, and words for a reader. */
+  attention?: boolean;
 }
 
 export interface SegmentedProps<T extends string> {
@@ -60,10 +64,17 @@ function Item<T extends string>({
         type="button"
         class="k-seg__item"
         aria-pressed={pressed}
+        data-changed={option.changed === true ? "" : undefined}
         title={option.blockedReason}
         {...blocked.props}
       >
         {option.label}
+        {option.attention === true ? (
+          <>
+            <span class="visually-hidden">, needs attention</span>
+            <span class="k-seg__dot" aria-hidden="true" />
+          </>
+        ) : null}
       </button>
       {blocked.reason}
     </>

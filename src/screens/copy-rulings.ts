@@ -13,8 +13,10 @@ export interface CopyRuling {
   ruling: string;
 }
 
+import { SETTING_RANGES } from "../model/validate";
 import { OPTION_NOTE_TEXTS } from "../ui/components/optionNotes";
 import { COMPARTMENT_WORDS } from "../ui/identity";
+import { EXACT_GROUPS } from "../ui/settingsGroups";
 
 const FOOTER = "The footer moves into the project menu";
 const SAVED = "The saved status shows only a problem";
@@ -235,8 +237,57 @@ const HOLDS: readonly string[] = [
   "1 spacer for {name}",
 ];
 
+// Task 14: the Settings drawer. The states are the drawer cases of copy.board.test.tsx: the two
+// tabs, each group of Exact numbers opened, a search, Printer details, another printer on the insert.
+export const SETTINGS_STATES: readonly string[] = [
+  "settings",
+  "settings-printer",
+  "settings-printer-details",
+  "settings-printer-other",
+  "settings-printer-unsaved",
+  "settings-search",
+  "settings-nomatch",
+  ...EXACT_GROUPS.map((g) => `settings-${g.id}`),
+];
+const SET_FIRST = "Settings' first screen is the board's plain choices";
+const SET_EXACT = "Every setting the board does not show is under Exact numbers";
+const SET_PRINTER = "My printer shows another printer on this insert as a row with Apply";
+const SET_DETAILS =
+  "Printer details holds the own bed size, margin, layer height and folding risers";
+const SET_WORDS = "Settings' hints follow the Words table";
+
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
+  // Task 14: Settings. The board's words, except where the Words table or the owner rules otherwise.
+  ...SETTING_RANGES.map((r) => ({ text: r.label, states: SETTINGS_STATES, ruling: SET_EXACT })),
+  { text: "Room around trays and pieces", states: SETTINGS_STATES, ruling: SET_WORDS },
+  { text: "Spacers and space", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "Unused space", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "Solid block", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "One thick wall instead of a spacer", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "You set the fit to {n} below.", states: SETTINGS_STATES, ruling: SET_FIRST },
+  { text: "Extra space beside walls to reach in", states: SETTINGS_STATES, ruling: SET_WORDS },
+  { text: "No exact number matches.", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "{n} of {n} shown.", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "No tray will be bigger than this.", states: SETTINGS_STATES, ruling: SET_WORDS },
+  { text: "Join spacers into fewer pieces to print", states: SETTINGS_STATES, ruling: SET_WORDS },
+  {
+    text: "Long names are shortened to fit, like “{name}” → “{name}”",
+    states: SETTINGS_STATES,
+    ruling: SET_WORDS,
+  },
+  { text: "Long names are shortened to fit", states: SETTINGS_STATES, ruling: SET_WORDS },
+  { text: "This insert uses another printer", states: SETTINGS_STATES, ruling: SET_PRINTER },
+  { text: "Apply", states: SETTINGS_STATES, ruling: SET_PRINTER },
+  ...["Bed X", "Bed Y", "Bed Z", "Bed margin", "Layer height"].map((text) => ({
+    text,
+    states: SETTINGS_STATES,
+    ruling: SET_DETAILS,
+  })),
+  { text: "Fold risers into the joined spacers", states: SETTINGS_STATES, ruling: SET_DETAILS },
+  { text: "Needs joined spacers.", states: SETTINGS_STATES, ruling: SET_DETAILS },
+  { text: "Not saved: {name}", states: SETTINGS_STATES, ruling: SET_DETAILS },
   // Task 13: Export, Exporting and MobileDownload have the plural forms only, and no failure of a whole build
   ...HOLDS.map((text) => ({ text, states: DOWNLOAD, ruling: DL_COUNT })),
   { text: "1 spacer", states: DOWNLOAD, ruling: DL_COUNT },

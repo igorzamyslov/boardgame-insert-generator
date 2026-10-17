@@ -97,7 +97,7 @@ const WALLS = [
   { value: "light", label: "Light" },
   { value: "standard", label: "Standard" },
   { value: "sturdy", label: "Sturdy" },
-  { value: "custom", label: "Custom" },
+  { value: "custom", label: "Custom", changed: true },
 ];
 const CARD_SIZES = [
   { value: "standard", label: "Standard" },

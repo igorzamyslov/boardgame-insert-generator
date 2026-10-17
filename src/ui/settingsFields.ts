@@ -1,5 +1,8 @@
 // src/ui/settingsFields.ts
-import type { Settings } from "../model/types";
+import { trayNames } from "../instructions/naming";
+import { numberParts } from "../instructions/numbering";
+import { DEFAULT_SETTINGS } from "../model/settings";
+import type { Component, Settings, TraySpec } from "../model/types";
 
 /** Pure setters keyed by plan 1's SETTING_RANGES paths. */
 export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Settings> = {
@@ -45,4 +48,46 @@ export function settingUnit(path: string): string | undefined {
     return "%";
   }
   return UNITLESS.has(path) ? undefined : "mm";
+}
+
+function leavesDiffer(a: unknown, b: unknown): number {
+  if (a !== null && typeof a === "object" && b !== null && typeof b === "object") {
+    return Object.keys(a).reduce(
+      (n, key) =>
+        n + leavesDiffer((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
+      0,
+    );
+  }
+  return a === b ? 0 : 1;
+}
+
+/**
+ * How many settings differ from their defaults: every number, choice and switch, wherever the
+ * sheet draws it. It is what "Reset all" puts back, so the header's "N changed" and the reset
+ * agree.
+ */
+export function changedCount(s: Settings): number {
+  return leavesDiffer(s, DEFAULT_SETTINGS);
+}
+
+/** A tray whose engraved name is shorter than its full one: the engraving hint's example. */
+export interface NameExample {
+  full: string;
+  short: string;
+}
+
+export function nameExampleOf(
+  trays: readonly TraySpec[],
+  components: readonly Component[],
+): NameExample | undefined {
+  const parts = numberParts(trays);
+  const names = trayNames(parts, components);
+  // A tray's own name: a riser or a spacer is named after the tray it serves, which reads badly cut short.
+  for (const part of parts) {
+    const n = part.spec.part === "tray" ? names.get(part.spec.key) : undefined;
+    if (n !== undefined && n.short !== "" && n.short.toLowerCase() !== n.full.toLowerCase()) {
+      return { full: n.full, short: n.short };
+    }
+  }
+  return undefined;
 }
