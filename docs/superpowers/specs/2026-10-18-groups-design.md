@@ -188,9 +188,10 @@ A pure function on raw JSON, deterministic, run by `parseWith` before `readProje
    takes the largest N among its members as its `copies`, and the members' `perPlayer` is deleted.
 4. **Old combined plans go stale.** If the stored layout has a tray key containing `:pall:` (a
    "combined" per-player variant), set `layout.inputsHash` to `""` so it never matches: the plan
-   banner offers "Make a new plan". Pins on `pall` keys are left in `locks`; the existing lock
-   resolution reports a pin whose tray is gone (the builder confirms it is reported, never dropped
-   silently).
+   banner offers "Make a new plan". **Migrated pins are kept** (controller's call): every lock,
+   including those on `pall` keys, stays in `locks`. A pin that no longer fits the new plan is
+   reported through the existing conflict path (`lockConflicts`, the status heading's "Unpin
+   <name>"), never dropped by the migration or the reader.
 5. `schemaVersion` becomes "0.2.0" (the migration loop sets it). The generic
    `schema.migrated` notice says the file was upgraded.
 
@@ -231,6 +232,9 @@ New checks in `validate.ts`, with notice codes in `VALIDATION_NOTICE_CODES`:
 - Group `growth` modes: as a component's (`off`, `auto`, a number ≥ 0, `max`).
 - Groups count towards `BOUNDS.maxComponents` together with the items.
 - An empty group is valid (it is not printed: §6.1).
+- Deleting an item (Remove…) also removes its id from its group's `memberIds`, in the same undo
+  step (`removeComponent` in `src/app/actions.ts`), so a dangling member can only come from a
+  damaged file (controller's call).
 
 ## 5. inputsHash: what makes old plans stale
 
@@ -247,10 +251,12 @@ New checks in `validate.ts`, with notice codes in `VALIDATION_NOTICE_CODES`:
    that had a group gets a new hash. This is wanted: most of those plans split the group into one
    tray per member (point 17), and "Make a new plan" is the fix.
 4. A project with no groups and no Copies hashes exactly as before: nothing else moves.
-5. Left out of the hash: group names (tray names only), the hidden `access` of a grouped item
-   (it changes nothing), the order of `groups` in the array (sort by id before hashing). In the
-   hash: `memberIds` order (it is the compartment order), `copies`, group `access`, group
-   `growth`.
+5. Left out of the hash: group names (tray names only), **empty groups** (a group with no
+   members is dropped before hashing, so adding one from Add never makes the plan stale), **the
+   hidden fields of a grouped item** (its own `access`; it can't carry `copies`), and the order of
+   `groups` in the array (sort by id before hashing). `groups` is hashed only when at least one
+   group has a member. In the hash: `memberIds` order (it is the compartment order), `copies`,
+   group `access`, group `growth` (controller's call on what is excluded).
 
 DESIGN §2 "Data and versions" gets a sentence for rules 1 and 5.
 
@@ -323,12 +329,18 @@ members in `memberIds` order):
   row narrowest (the `splitBlocks` method on widths). No greedy reordering.
 - **split** (only when the whole can't fit, §6.3): `splitBlocks` stays contiguous, and prefers cuts
   between members when one of those is as good as the best cut.
-- **A finger cut that order blocks.** If a member's compartment needs its cut along the row and
-  member order puts it behind another member, the variant may lose its cut (`cutFitError`). Order
-  wins: sizing does not reorder the members. The existing `sizing.noFingerSlot` path reports it,
-  and for a group its message names the fix: "<member>: no tray arrangement leaves room for a
-  finger cut… Move <member> to the start of <group>." (§8). This keeps the order a promise rather
-  than a hint.
+- **A finger cut that order blocks** (controller's call). If a member's compartment needs its cut
+  along the row and member order puts it behind another member, the variant can't give it its cut
+  (`cutFitError`). Order wins: sizing never reorders the members, and **the tray is never
+  dropped**. A new "keep without cut" path in `size()` (`src/sizing/group.ts`): for a group, when
+  `withCuts` would leave the requirement with no variant because of a member that order blocks,
+  sizing keeps those variants and realizes them with that member's finger cuts off (its
+  `wallCutout` features removed from those compartments only), instead of filtering them out or
+  falling back to bins. `withCuts` therefore no longer removes a group's only variants. Variants
+  that do give every cut still rank first. The notice is a warning (`sizing.noFingerSlot`, with
+  the member's path), in the person's words: "Starter deck has no finger cut here. Move it to the
+  start of Player kit for one." (§8). The order stays a promise, and the missing cut is said, not
+  hidden.
 
 **Group "Extra room"** (`Group.growth`, w/d/h, the owner's "extra width/length/height growth"): room
 in the tray beyond what its members ask for, for things added later. Width and length become one
@@ -406,7 +418,9 @@ Every screen follows its board. Strings not on a board are listed in §8 and nee
   items first.
 - Picking Group adds an empty group named "Group" ("Group 2", "Group 3" … if taken) at the end of
   the list, closes the picker and puts the focus on the new card's header. It does not open the
-  group's editor: a group is made by putting items in it. One undo step.
+  group's editor: a group is made by putting items in it. One undo step. Its defaults are Copies 1
+  and access "sometimes" (controller's call). Being empty, it changes nothing in the plan and is not
+  in `inputsHash` (§5).
 
 ### 7.3 Moving items in and out
 
@@ -431,7 +445,9 @@ whose closed line is the group's name or "None". Opened:
 
 - Not in a group: "Move to group…", which opens a small panel (the kit's `MenuPanel`, as the Add
   picker) listing each group by name (with "×N"), then "New group". "New group" makes a group named
-  "Group" (or the next free "Group n") with this item as its only member.
+  "Group" (or the next free "Group n") with this item as its only member. The new group inherits
+  the item's Copies and its access (controller's call), so no pieces change and the tray reaches
+  the same as before; no Copies note is shown.
 - In a group: "In <group>" with "Edit <group>" (opens the group's editor) and "Take out of group".
 
 **What happens to Copies and access** (anti-goal: no silent change to the number of pieces):
@@ -442,6 +458,17 @@ whose closed line is the group's name or "None". Opened:
 - Out of a group, by drag or "Take out of group": the item takes the group's Copies as its own (a
   member of "Player kit ×4" taken out becomes ×4), so no pieces vanish. Its own `access` comes back.
   Note: "<item> is out of <group>."
+
+**What happens to pins and size locks** (controller's call). A change of membership changes tray
+keys, so locks on keys that no longer exist would point at nothing. These edits drop the locks
+whose tray keys disappear, in the same undo step: moving an item into a group or out of one (the
+item's own keys, and for a group whose trays change, its keys), Remove group, lowering a group's or
+an item's Copies (the keys of the copies that go: `p<c>` with c ≥ the new count), and the last
+member leaving a group (all of its keys). A stack lock keeps the rest of its stack while two or
+more trays remain, as `withoutKeys` in `src/app/actions.ts` already does. The undo step's toast
+says what went, after its own note: "1 pin removed", "<n> pins removed", and for size locks "Size
+unlocked on <n> trays" (§8). Undo brings the locks back with the membership. This is the only way
+an edit removes a pin, and it is never silent (DESIGN §2 Flow).
 
 ### 7.4 The group editor (G2)
 
@@ -467,8 +494,9 @@ phone as MobileEdit's sheet. Top to bottom:
 **Remove group…** asks in place, as Remove… does: "Remove the group “Player kit”? Its 3 items stay,
 with 4 copies each." (the second clause only when Copies > 1), Remove group, Cancel. Removing gives
 each member the group's Copies and takes it out of the group, then deletes the group; one undo
-step; the note "Player kit removed. Its items are back in the list." with "Undo removal" and
-Dismiss, in the same slot and style as an item's removal.
+step; the note "Player kit removed. Its items are back in the list." (followed by "1 pin removed"
+etc. when its trays had locks, §7.3) with "Undo removal" and Dismiss, in the same slot and style
+as an item's removal.
 
 **The stage** (G2): the stage sentence is the page's h1, in the existing forms: "<name> tray, <W> ×
 <D> mm." for one tray, "<name>, <n> trays." for several ("Player kit, 4 trays."). The group's trays
@@ -571,9 +599,16 @@ around the pieces, the same idea as Settings' "Room around trays and pieces").
   "<item> is out of <group>.", "Remove the group “<name>”? Its <n> items stay, with <c> copies
   each.", "Remove group", "<name> removed. Its items are back in the list.", "<name> is already
   first.", "<name> is already last.", "<name> is now after <name>.", "<name> is now first.",
-  "<name> moved to <group>.", "Too big for one tray, so it is split.", "Move <member> to the start
-  of <group>.", "Copies are set on the group, <group>.", "Copies must be at most 10.", "Copies must
+  "<name> moved to <group>.", "Too big for one tray, so it is split.",
+  "<member> has no finger cut here. Move it to the start of <group> for one.", "1 pin removed",
+  "<n> pins removed", "Size unlocked on <n> trays", "Copies are set on the group, <group>.", "Copies must be at most 10.", "Copies must
   be a whole number of at least 1.", "Room around the pieces", "Group <n>".
+- Words-table check of the controller's strings: "<member> has no finger cut here…" uses "finger
+  cut" (Settings' and the editor's word) and no retired word. "1 pin removed" / "<n> pins removed"
+  use "pin" as the table asks (not "lock", "keep" or "let go"). "Size unlocked on <n> trays" is
+  the size lock's own wording ("Unlock size", "size locked"); "unlocked" is not yet on the
+  allow-list in `copy.test.ts`, so the builder adds it there with a decision-log row, as DESIGN §2
+  requires.
 - Retired: "Per player", "Counts are per player", "Not available for grouped items.", "Players",
   "e.g. tokens", "A grouped item can't be per player…", "Players must be…".
 
@@ -612,9 +647,13 @@ around the pieces, the same idea as Settings' "Room around trays and pieces").
 - Updating DESIGN (§2 Words, §5 rail, editor and phone sheet, §6 table, §7 rows for every call in
   §12) and README's description of groups, in the same commits as the code.
 - Removing the old text-box code path, `setGroup`/`setPerPlayer`, `groupOf`, `perPlayerInGroup`.
-- Plan the work in phases, each shippable: (1) schema, migration, validation, hash, Copies on items
-  (replacing Per player), engine copies and the split term; (2) groups in the engine (order,
-  naming, identity) and the group editor; (3) the rail card and drag and drop; (4) Extra room.
+- Plan the work in phases (controller's call). Phases are internal build steps: nothing is
+  released between them, and groups ship together once the rail card works. (1) Schema, migration,
+  validation, hash, Copies on items (replacing Per player), engine copies and the split term; the
+  engine already reads groups here (key, copies, access, member order). A state where groups exist
+  but can't be edited is acceptable on the branch only. (2) Groups in the engine (order, naming,
+  identity, the keep-without-cut path) and the group editor. (3) The rail card and drag and drop:
+  the release point. (4) Extra room, which may ship later, hidden until then (§6.5).
 
 ## 11. Testing notes
 
@@ -648,8 +687,8 @@ Made in this document:
 8. Per-player plans that were separate stay current (hashed under the old shape); grouped plans go
    stale (§5).
 9. The split term weighs 300 000: above a buried "often" tray, below `coverage` (§6.3).
-10. Member order wins over finger-cut placement; a blocked cut is reported with "Move <member> to
-    the start of <group>", never fixed by reordering (§6.5).
+10. Member order wins over finger-cut placement; it is never fixed by reordering (§6.5). How a
+    blocked cut is handled is call 25, the controller's.
 11. rows2 keeps order by cutting the list into a front run and a back run (§6.5).
 12. Group Extra room is an empty well (width, length) or a taller tray (height), on top of members'
     own growth, and is hidden until built (§6.5).
@@ -671,3 +710,22 @@ Made in this document:
 21. The item's clearance row is renamed "Room around the pieces" so "Extra room" has one meaning
     (§8).
 22. A copy of a group selects alone but lights all copies; Edit on it opens the group (§7.6).
+
+Made by the controller after the builder check (2026-10-18):
+
+23. **Phases** are internal build steps; nothing is released between them, and groups ship together
+    once the rail card (phase 3) works. A phase-1 branch state where groups exist but can't be
+    edited is acceptable; phase 1 already reads groups in the engine (§10).
+24. **New group defaults:** "New group" from an item inherits that item's Copies and access, so no
+    pieces change; an empty group from Add is Copies 1, access "sometimes" (§7.2, §7.3).
+25. **A finger cut blocked by member order** never drops the tray: a "keep without cut" path keeps
+    the variant and prints it without that member's cut, so `withCuts` no longer removes a group's
+    only variants; the warning reads "Starter deck has no finger cut here. Move it to the start of
+    Player kit for one." (§6.5, §8).
+26. **Locks when membership changes:** moving an item in or out, Remove group, lowering Copies and a
+    group's last member leaving drop the locks whose keys disappear, and the undo step's toast says
+    so ("1 pin removed"); deleting an item prunes it from its group's `memberIds`; migrated pins are
+    kept and a pin that no longer fits is reported through the existing conflict path (§4.2, §4.4,
+    §7.3).
+27. **Hashing:** empty groups and a grouped item's hidden fields are left out of `inputsHash`, so
+    adding an empty group doesn't make the plan stale (§5).
