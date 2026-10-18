@@ -247,7 +247,8 @@ New checks in `validate.ts`, with notice codes in `VALIDATION_NOTICE_CODES`:
 2. **Combined per-player plans go stale** through the migration's `inputsHash: ""` (§4.2, rule 4),
    not through the hash.
 3. **Grouped plans go stale.** `groups` is hashed (without names: `withoutNames` already strips
-   `name`) when it has at least one group, and members no longer carry `groupId`, so every project
+   `name`) when at least one group has a
+   member (rule 5), and members no longer carry `groupId`, so every project
    that had a group gets a new hash. This is wanted: most of those plans split the group into one
    tray per member (point 17), and "Make a new plan" is the fix.
 4. A project with no groups and no Copies hashes exactly as before: nothing else moves.
