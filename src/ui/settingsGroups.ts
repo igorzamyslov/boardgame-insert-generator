@@ -9,8 +9,12 @@ export interface ExactGroup {
   title: string;
   /** The `SETTING_RANGES` paths of the numbers inside, in the order they are drawn. */
   paths: readonly string[];
-  /** Choices and switches that sit among the numbers (they are not in `SETTING_RANGES`). */
-  extras?: readonly ("leftover" | "oneWall")[];
+  /**
+   * Choices that sit among the numbers (they are not in `SETTING_RANGES`). "spareRoom" is the choice
+   * between a spacer, thicker walls and one thick wall: it draws the `wallAbsorb` number itself, so
+   * that path is in `paths` (an error there opens the group) but is not a row of its own.
+   */
+  extras?: readonly ("leftover" | "spareRoom")[];
 }
 
 export const EXACT_GROUPS: readonly ExactGroup[] = [
@@ -49,7 +53,7 @@ export const EXACT_GROUPS: readonly ExactGroup[] = [
     id: "spacers",
     title: "Spacers and space",
     paths: ["wallAbsorb"],
-    extras: ["leftover", "oneWall"],
+    extras: ["leftover", "spareRoom"],
   },
 ];
 

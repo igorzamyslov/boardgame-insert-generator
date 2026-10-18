@@ -66,4 +66,23 @@ describe("ChoiceChips describedBy", () => {
       "why",
     );
   });
+
+  it("marks a chip whose value differs from its default: a dot, and ', changed' for a reader", () => {
+    render(
+      <ChoiceChips
+        label="Tray shape"
+        options={[
+          { value: "cuts", label: "Finger cuts", changed: true },
+          { value: "holes", label: "Corner holes" },
+        ]}
+        value={["cuts"]}
+        onChange={() => undefined}
+      />,
+    );
+    const cuts = screen.getByRole("button", { name: "Finger cuts, changed" });
+    expect(cuts.querySelector(".k-chip__dot")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Corner holes" }).querySelector(".k-chip__dot")).toBe(
+      null,
+    );
+  });
 });

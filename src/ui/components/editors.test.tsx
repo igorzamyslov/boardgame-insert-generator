@@ -202,7 +202,7 @@ describe("toggles", () => {
     const onChange = vi.fn<(c: TilesComponent) => void>();
     render(<TilesEditor component={of("tiles")} index={0} onChange={onChange} />);
     openMore();
-    expect(screen.queryByRole("button", { name: "Curved floor" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
     const holes = screen.getByRole("button", { name: "Corner holes" });
     expect(holes.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(holes);
@@ -522,10 +522,10 @@ describe("validation shown in place", () => {
     }
     render(<Harness />);
     openMore();
-    const floor = screen.getByRole("button", { name: "Curved floor" });
+    const floor = screen.getByRole("button", { name: /^Curved floor/ });
     floor.focus();
     fireEvent.click(floor);
-    expect(screen.queryByRole("button", { name: "Curved floor" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Finger cuts" }));
   });
 });

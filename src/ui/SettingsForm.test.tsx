@@ -25,8 +25,11 @@ const error = (path: string, message: string, code = "field.setting") => ({
   path,
 });
 
-/** The number of rows the search can show: every exact number and the two extras. */
-const ROWS = SETTING_RANGES.length + 2;
+/**
+ * The number of rows the search can show: every exact number and the two choices, less the wall
+ * thickness, which "Fill small gaps with" draws itself.
+ */
+const ROWS = SETTING_RANGES.length + 1;
 
 const WALL = /^Wall( \(mm\))?$/;
 const field = (name: RegExp | string): HTMLInputElement =>
@@ -214,7 +217,7 @@ describe("InsertSettings: Exact numbers", () => {
       "Finger cuts4 values",
       "Rim between layers5 values",
       "Shape and printing6 values",
-      "Spacers and space3 values",
+      "Spacers and space2 values",
     ]);
     expect(screen.queryByLabelText(/^Card clearance/)).toBeNull();
   });
@@ -250,6 +253,13 @@ describe("InsertSettings: Exact numbers", () => {
         openGroup(g.title);
       }
       for (const path of g.paths) {
+        if (path === "wallAbsorb") {
+          // its box belongs to the choice that uses it, and shows under Thicker walls
+          expect(
+            within(card(g.title)).getByRole("group", { name: "Fill small gaps with" }),
+          ).toBeTruthy();
+          continue;
+        }
         const r = SETTING_RANGES.find((x) => x.path === path);
         const label = (r?.label ?? "").replace(/[()]/g, "\\$&");
         // a unit is part of a number's name: "Wall (mm)"
@@ -274,25 +284,20 @@ describe("InsertSettings: Exact numbers", () => {
     });
   });
 
-  it("offers the play limit and the wall absorption among the exact numbers", () => {
+  it("offers the play limit among the exact numbers", () => {
     const onChange = vi.fn();
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
     openGroup("Shape and printing");
     fireEvent.input(field(/^Play limit/), { target: { value: "2,5" } });
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, playLimit: 2.5 });
-    openGroup("Spacers and space");
-    fireEvent.input(field(/^Thicker walls instead of a spacer/), { target: { value: "1,5" } });
-    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, wallAbsorb: 1.5 });
   });
 
-  it("keeps Unused space and One thick wall instead of a spacer under Spacers and space", () => {
+  it("keeps Unused space and Fill small gaps with under Spacers and space", () => {
     const onChange = vi.fn();
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
     // not on the first screen
     expect(screen.queryByRole("group", { name: "Unused space" })).toBeNull();
-    expect(
-      screen.queryByRole("checkbox", { name: "One thick wall instead of a spacer" }),
-    ).toBeNull();
+    expect(screen.queryByRole("group", { name: "Fill small gaps with" })).toBeNull();
     openGroup("Spacers and space");
     const space = within(screen.getByRole("group", { name: "Unused space" }));
     expect(space.getByRole("button", { name: "Spare tray" }).getAttribute("aria-pressed")).toBe(
@@ -300,15 +305,101 @@ describe("InsertSettings: Exact numbers", () => {
     );
     fireEvent.click(space.getByRole("button", { name: "Solid block" }));
     expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, leftover: "solid" });
-    const one = screen.getByRole("checkbox", {
-      name: "One thick wall instead of a spacer",
-    }) as HTMLInputElement;
-    expect(one.checked).toBe(false);
-    // the kit's compact CheckRow: a 44 px row, not a bare box
-    expect(one.closest(".k-check")?.hasAttribute("data-compact")).toBe(true);
-    expect(one.classList.contains("k-check__box")).toBe(true);
-    fireEvent.click(one);
-    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, oneWall: true });
+  });
+});
+
+describe("InsertSettings: Fill small gaps with (thicker walls and one thick wall)", () => {
+  const gaps = () => within(screen.getByRole("group", { name: "Fill small gaps with" }));
+  const pressed = (): string | undefined =>
+    Array.from(
+      screen.getByRole("group", { name: "Fill small gaps with" }).querySelectorAll("button"),
+    ).find((b) => b.getAttribute("aria-pressed") === "true")?.textContent ?? undefined;
+
+  it("is one choice of three, and a spacer is the default", () => {
+    render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
+    openGroup("Spacers and space");
+    expect(
+      Array.from(
+        screen.getByRole("group", { name: "Fill small gaps with" }).querySelectorAll("button"),
+      ).map((b) => b.textContent),
+    ).toEqual(["A spacer", "Thicker walls", "One thick wall"]);
+    expect(pressed()).toBe("A spacer");
+    expect(
+      screen.getByText("A gap a tray can't use is printed as a separate spacer."),
+    ).toBeTruthy();
+    // the two old rows are gone, and the number is not a row of its own
+    expect(screen.queryByRole("checkbox", { name: /One thick wall/ })).toBeNull();
+    expect(screen.queryByLabelText(/Extra thickness per wall/)).toBeNull();
+  });
+
+  it("starts thicker walls at 1 mm, and shows the number only while they are chosen", () => {
+    const onChange = vi.fn();
+    const view = render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
+    openGroup("Spacers and space");
+    fireEvent.click(gaps().getByRole("button", { name: "Thicker walls" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_SETTINGS,
+      oneWall: false,
+      wallAbsorb: 1,
+    });
+    view.rerender(<InsertSettings settings={changedFrom({ wallAbsorb: 1 })} onChange={onChange} />);
+    expect(pressed()).toBe("Thicker walls");
+    expect(
+      screen.getByText("Instead of a spacer, every wall and divider may get up to 1 mm thicker."),
+    ).toBeTruthy();
+    fireEvent.input(field(/^Extra thickness per wall/), { target: { value: "1,5" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, wallAbsorb: 1.5 });
+    // 0 is "A spacer", so the box refuses it rather than flipping the choice while a number is typed
+    fireEvent.input(field(/^Extra thickness per wall/), { target: { value: "0" } });
+    expect(screen.getByRole("alert").textContent).toBe("Must be more than 0.");
+  });
+
+  it("turns one thick wall on, naming what it does to a gap, and keeps the thicker-walls amount", () => {
+    const onChange = vi.fn();
+    const view = render(
+      <InsertSettings settings={changedFrom({ wallAbsorb: 2 })} onChange={onChange} />,
+    );
+    openGroup("Spacers and space");
+    fireEvent.click(gaps().getByRole("button", { name: "One thick wall" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_SETTINGS,
+      oneWall: true,
+      wallAbsorb: 2,
+    });
+    view.rerender(
+      <InsertSettings
+        settings={changedFrom({ oneWall: true, wallAbsorb: 2 })}
+        onChange={onChange}
+      />,
+    );
+    expect(pressed()).toBe("One thick wall");
+    expect(
+      screen.getByText(/^Instead of a spacer, one outer wall in each direction takes up to 20 mm/),
+    ).toBeTruthy();
+    // the amount is ignored while one thick wall is on, so its box is not shown
+    expect(screen.queryByLabelText(/Extra thickness per wall/)).toBeNull();
+    fireEvent.click(gaps().getByRole("button", { name: "Thicker walls" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_SETTINGS,
+      oneWall: false,
+      wallAbsorb: 2,
+    });
+  });
+
+  it("has the dot and Back to a spacer only while another choice is made, and Back puts both settings back", () => {
+    const onChange = vi.fn();
+    const view = render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
+    openGroup("Spacers and space");
+    expect(screen.queryByRole("button", { name: /^Back to a spacer/ })).toBeNull();
+    expect(view.container.querySelector(".st-dot")).toBeNull();
+    for (const over of [{ wallAbsorb: 2 }, { oneWall: true }, { oneWall: true, wallAbsorb: 2 }]) {
+      view.rerender(<InsertSettings settings={changedFrom(over)} onChange={onChange} />);
+      expect(view.container.querySelectorAll(".st-dot")).toHaveLength(1);
+      fireEvent.click(
+        screen.getByRole("button", { name: "Back to a spacer for Fill small gaps with" }),
+      );
+      expect(onChange).toHaveBeenLastCalledWith(DEFAULT_SETTINGS);
+    }
   });
 });
 
@@ -401,21 +492,22 @@ describe("InsertSettings: what differs from the default", () => {
     expect(within(card("Walls and floors")).getByText("1 changed")).toBeTruthy();
   });
 
-  it("marks a switch that was changed with a dot, like a number", () => {
+  it("marks Fill small gaps with by a dot when one thick wall is chosen", () => {
     const { container } = render(
       <InsertSettings settings={changedFrom({ oneWall: true })} onChange={vi.fn()} />,
     );
     fireEvent.click(groupRow("Spacers and space"));
-    expect(container.querySelector(".k-check__dot")).not.toBeNull();
+    expect(container.querySelectorAll(".st-dot")).toHaveLength(1);
   });
 
-  it("counts Unused space and One thick wall among the group's changes", () => {
+  it("counts Unused space and Fill small gaps with among the group's changes, the choice once", () => {
     render(
       <InsertSettings
-        settings={changedFrom({ leftover: "solid", oneWall: true })}
+        settings={changedFrom({ leftover: "solid", oneWall: true, wallAbsorb: 2 })}
         onChange={vi.fn()}
       />,
     );
+    // two settings (one thick wall, and the wall thickness it ignores) are one choice
     expect(groupRow("Spacers and space").textContent).toBe("Spacers and space2 changed");
   });
 });

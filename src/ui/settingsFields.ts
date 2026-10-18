@@ -41,6 +41,45 @@ export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Setting
   playLimit: (s, v) => ({ ...s, playLimit: v }),
 };
 
+/**
+ * What happens to spare room that a tray cannot give its contents (the engine's two ways to absorb
+ * it, `wallAbsorb` and `oneWall`, and the default of neither): it is printed as a separate spacer,
+ * or the walls take it. They are one choice, because `oneWall` replaces `wallAbsorb` while it is on.
+ */
+export type SpareRoom = "spacer" | "walls" | "one";
+
+/** What `wallAbsorb` starts at when "Thicker walls" is picked and none was set (mm; its range is 0 to 3). */
+export const STARTING_WALL_ABSORB = 1;
+
+export function spareRoomOf(s: Settings): SpareRoom {
+  return s.oneWall ? "one" : s.wallAbsorb !== 0 ? "walls" : "spacer";
+}
+
+/**
+ * The settings with `choice`: a spacer sets both to their defaults (no thicker walls, not one
+ * thick wall); thicker walls start at 1 mm unless an amount was set (they stay in the file while
+ * one thick wall is chosen, which ignores them, so going back to thicker walls finds them again);
+ * one thick wall turns that setting on.
+ */
+export function applySpareRoom(s: Settings, choice: SpareRoom): Settings {
+  switch (choice) {
+    case "spacer":
+      return {
+        ...s,
+        oneWall: DEFAULT_SETTINGS.oneWall,
+        wallAbsorb: DEFAULT_SETTINGS.wallAbsorb,
+      };
+    case "walls":
+      return {
+        ...s,
+        oneWall: false,
+        wallAbsorb: s.wallAbsorb !== 0 ? s.wallAbsorb : STARTING_WALL_ABSORB,
+      };
+    case "one":
+      return { ...s, oneWall: true };
+  }
+}
+
 const UNITLESS = new Set(["fit", "cardStackClearancePct", "packingFactor"]);
 
 export function settingUnit(path: string): string | undefined {
@@ -67,6 +106,9 @@ function leavesDiffer(a: unknown, b: unknown, path = ""): string[] {
 /** The two numbers the "Room for fingers" switch writes: they are one setting to the person. */
 const FINGER_ROOM_LEAVES = ["fingerPocket/wallRoom", "fingerPocket/dividerRoom"];
 
+/** The two settings the "Fill small gaps with" choice writes: one setting to the person. */
+const SPARE_ROOM_LEAVES = ["wallAbsorb", "oneWall"];
+
 /**
  * The settings the "My printer" tab draws (the printing options and folding risers into the
  * joined spacers); every other one is on "This insert".
@@ -75,13 +117,16 @@ const PRINTER_TAB_LEAVES = ["engraveNames", "mergeFillers", "mergeRisers"];
 
 /**
  * The settings that differ from their defaults, each one as the sheet draws it: a number, a choice
- * or a switch is one, and "Room for fingers" is one though its switch writes two numbers.
+ * or a switch is one, "Room for fingers" is one though its switch writes two numbers, and so is
+ * "Fill small gaps with" though its choice writes two settings.
  */
 function changedSettings(s: Settings): string[] {
   const leaves = leavesDiffer(s, DEFAULT_SETTINGS);
+  const together = [...FINGER_ROOM_LEAVES, ...SPARE_ROOM_LEAVES];
   const fingers = leaves.some((l) => FINGER_ROOM_LEAVES.includes(l));
-  const rest = leaves.filter((l) => !FINGER_ROOM_LEAVES.includes(l));
-  return fingers ? [...rest, "fingerRoom"] : rest;
+  const spare = leaves.some((l) => SPARE_ROOM_LEAVES.includes(l));
+  const rest = leaves.filter((l) => !together.includes(l));
+  return [...rest, ...(fingers ? ["fingerRoom"] : []), ...(spare ? ["spareRoom"] : [])];
 }
 
 /**

@@ -298,6 +298,17 @@ const CASES: readonly Case[] = [
     steps: searchSettings("unused"),
   },
   { state: "settings-nomatch", board: "Settings", region: "drawer", steps: searchSettings("zzzz") },
+  {
+    // Fill small gaps with on Thicker walls: its hint, the thickness box and the way back
+    state: "settings-spacers-walls",
+    board: "Settings",
+    region: "drawer",
+    steps: () => {
+      openSettings();
+      inDrawer(/^Spacers and space/);
+      inDrawer("Thicker walls");
+    },
+  },
   ...EXACT_GROUPS.filter((g) => g.id !== "walls").map((g): Case => ({
     state: `settings-${g.id}`,
     board: "Settings",
@@ -404,6 +415,16 @@ const CASES: readonly Case[] = [
   { state: "editor", board: "Edit", region: "rail", steps: editRow(/^Market deck, /) },
   { state: "editor", board: "Edit", region: "stage", steps: editRow(/^Market deck, /) },
   { state: "editor-more", board: "Edit", region: "rail", steps: editMore(/^Market deck, /) },
+  {
+    // an option turned on, so a chip and a row show the changed dot and "Back to <default>"
+    state: "editor-more-changed",
+    board: "Edit",
+    region: "rail",
+    steps: () => {
+      editMore(/^Market deck, /)();
+      fireEvent.click(screen.getByRole("button", { name: /^Corner holes/ }));
+    },
+  },
   {
     state: "editor-tokens",
     board: "EditKinds",

@@ -3,6 +3,8 @@
 export interface Chip<T extends string> {
   value: T;
   label: string;
+  /** This chip's value differs from its default: an 8 px dot in the changed colour after the label, and ", changed" for a reader. */
+  changed?: boolean;
 }
 
 export interface ChoiceChipsProps<T extends string> {
@@ -37,6 +39,12 @@ export function ChoiceChips<T extends string>({
           onClick={() => onChange(o.value)}
         >
           {o.label}
+          {o.changed === true ? (
+            <>
+              <span class="visually-hidden">, changed</span>
+              <span class="k-chip__dot" aria-hidden="true" />
+            </>
+          ) : null}
         </button>
       ))}
     </div>

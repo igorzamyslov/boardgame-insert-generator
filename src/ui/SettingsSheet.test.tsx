@@ -125,6 +125,11 @@ describe("SettingsSheet", () => {
     // the search finds each number by its name, whichever group it is in
     for (const r of SETTING_RANGES) {
       fireEvent.input(screen.getByRole("searchbox"), { target: { value: r.label } });
+      if (r.path === "wallAbsorb") {
+        // its box is drawn by "Fill small gaps with", under Thicker walls
+        expect(screen.getByRole("group", { name: "Fill small gaps with" })).toBeTruthy();
+        continue;
+      }
       // a unit is part of a number's name: "Wall (mm)"
       const label = new RegExp(`^${r.label.replace(/[()]/g, "\\$&")}( \\((mm|%)\\))?$`);
       expect(screen.getAllByLabelText(label).length, r.path).toBeGreaterThan(0);
@@ -133,7 +138,9 @@ describe("SettingsSheet", () => {
     expect(screen.getByRole("group", { name: "Unused space" })).toBeTruthy();
     fireEvent.input(screen.getByRole("searchbox"), { target: { value: "one thick wall" } });
     expect(
-      screen.getByRole("checkbox", { name: "One thick wall instead of a spacer" }),
+      within(screen.getByRole("group", { name: "Fill small gaps with" })).getByRole("button", {
+        name: "One thick wall",
+      }),
     ).toBeTruthy();
     // My printer: the bed, its details, and what changes only the printing
     fireEvent.click(tab(/^My printer/));
@@ -467,12 +474,6 @@ describe("every switch shows when it was changed, and the way back", () => {
       to: word(DEFAULT_SETTINGS.fillToTop),
     },
     {
-      label: "One thick wall instead of a spacer",
-      tab: "This insert",
-      changed: { ...DEFAULT_SETTINGS, oneWall: !DEFAULT_SETTINGS.oneWall },
-      to: word(DEFAULT_SETTINGS.oneWall),
-    },
-    {
       label: "Engrave tray names",
       tab: "My printer",
       changed: { ...DEFAULT_SETTINGS, engraveNames: !DEFAULT_SETTINGS.engraveNames },
@@ -500,9 +501,6 @@ describe("every switch shows when it was changed, and the way back", () => {
     if (label === "Fold risers into the joined spacers") {
       // it sits in Printer details
       fireEvent.click(screen.getByRole("button", { name: /^Printer details/ }));
-    }
-    if (label === "One thick wall instead of a spacer") {
-      fireEvent.input(screen.getByRole("searchbox"), { target: { value: "one thick wall" } });
     }
     const box = screen.getByRole("checkbox", { name: label });
     const wrap = box.closest(".st-switch") as HTMLElement;

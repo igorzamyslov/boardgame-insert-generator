@@ -106,6 +106,7 @@ const ITEMS = 'The first visit says "Trays appear in the box as you add items."'
 const EDITS = [
   "editor",
   "editor-more",
+  "editor-more-changed",
   "editor-tokens",
   "editor-tokens-more",
   "editor-tiles",
@@ -124,6 +125,8 @@ const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
 const EDITOR_SENTENCE = "The stage sentence is the page's h1 while editing";
 const EDITOR_MAX = "A growth choice on Max says what Max means";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
+const EDITOR_CHANGED = "More options marks what differs from its default";
+const EDITOR_ROOM = "Extra room shows the insert's number and lets the item change it";
 const EDITOR_NAME = "The phone editor has a Name field";
 const EDITOR_WORDS = "The Words table beats MobileEdit's second way to store figures";
 /** The strings the editors print that no board of theirs has (the boards have them in other states, or in the old words). */
@@ -204,12 +207,24 @@ const EDITOR_LABELS: readonly string[] = [
   "Players",
   "Group",
   "Extra room",
-  "Use its own extra room",
-  "Extra room mm",
   "Other sizes",
-  "Auto is the default",
-  "None is the default",
   "Don't know the size of {name}? Give a volume instead",
+];
+
+/** The way back from a changed option: "Back to <its default>", the default named there and nowhere else. */
+const EDITOR_BACKS: readonly string[] = [
+  "Back to None",
+  "Back to Auto",
+  "Back to Sometimes",
+  "Back to the sleeve table",
+  "Back to 0",
+  "Back to off",
+  "Back to no group",
+  "Back to {n}",
+  ...["finger cuts", "curved floor", "corner holes"].flatMap((chip) => [
+    `Back to ${chip} on`,
+    `Back to ${chip} off`,
+  ]),
 ];
 
 // Task 11: the box's editor. The states are the box cases of copy.board.test.tsx.
@@ -251,6 +266,7 @@ export const SETTINGS_STATES: readonly string[] = [
   "settings-printer-unsaved",
   "settings-search",
   "settings-nomatch",
+  "settings-spacers-walls",
   ...EXACT_GROUPS.map((g) => `settings-${g.id}`),
 ];
 const SET_FIRST = "Settings' first screen is the board's plain choices";
@@ -261,6 +277,7 @@ const SET_DETAILS =
 const SET_INTRO = "My printer's intro names the values it covers";
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
+const SET_GAPS = "Fill small gaps with is one choice of what the engine does with spare room";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
@@ -273,7 +290,26 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Unused space", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Solid block", states: SETTINGS_STATES, ruling: SET_EXACT },
-  { text: "One thick wall instead of a spacer", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "Fill small gaps with", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "A spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "Thicker walls", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "One thick wall", states: SETTINGS_STATES, ruling: SET_GAPS },
+  {
+    text: "A gap a tray can't use is printed as a separate spacer.",
+    states: SETTINGS_STATES,
+    ruling: SET_GAPS,
+  },
+  {
+    text: "Instead of a spacer, every wall and divider may get up to {n} mm thicker.",
+    states: SETTINGS_STATES,
+    ruling: SET_GAPS,
+  },
+  {
+    text: "Instead of a spacer, one outer wall in each direction takes up to {n} mm, avoiding walls with a finger cut. A bigger gap still gets a spacer.",
+    states: SETTINGS_STATES,
+    ruling: SET_GAPS,
+  },
+  { text: "Back to a spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "You set the fit to {n} below.", states: SETTINGS_STATES, ruling: SET_FIRST },
   { text: "Extra space beside walls to reach in", states: SETTINGS_STATES, ruling: SET_WORDS },
   { text: "No exact number matches.", states: SETTINGS_STATES, ruling: SET_EXACT },
@@ -525,6 +561,17 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Loose in a tray", states: EDITING, ruling: EDITOR_WORDS },
   { text: "Finger cuts {name}", states: EDITING, ruling: EDITOR_SUMMARY },
   { text: "{n} changed", states: EDITING, ruling: EDITOR_SUMMARY },
+  ...EDITOR_BACKS.map((text) => ({ text, states: EDITING, ruling: EDITOR_CHANGED })),
+  {
+    text: "The insert's setting. Type another number to give this item its own.",
+    states: EDITING,
+    ruling: EDITOR_ROOM,
+  },
+  {
+    text: "This item's own, whatever Fit says. The insert's is {n} mm.",
+    states: EDITING,
+    ruling: EDITOR_ROOM,
+  },
   { text: "Name", states: PHONE_EDITS, ruling: EDITOR_NAME },
   // the stage sentence: Edit's, for the kinds and the counts it does not draw
   {

@@ -16,9 +16,12 @@ import type { FitChoice, WallChoice } from "../model/settings";
 import type { Settings } from "../model/types";
 import { SETTING_RANGES } from "../model/validate";
 import { CheckRow, DisclosureRow, SearchField, Segmented } from "../kit";
+import { ONE_WALL_MAX_MM } from "../sizing/constants";
 import { messagesOf } from "./FieldMessages";
 import { formatNumber, numberInputAttrs, useNumberText } from "./NumberField";
-import { SETTING_SETTERS, settingUnit } from "./settingsFields";
+import type { NumberRules } from "./NumberField";
+import { SETTING_SETTERS, applySpareRoom, settingUnit, spareRoomOf } from "./settingsFields";
+import type { SpareRoom } from "./settingsFields";
 import type { NameExample } from "./settingsFields";
 import { EXACT_GROUPS, groupOfPath } from "./settingsGroups";
 import type { ExactGroup } from "./settingsGroups";
@@ -54,20 +57,24 @@ function Dot({ named = false }: { named?: boolean }) {
 
 type RowSpec =
   | { kind: "number"; key: string; range: Range; words: string }
-  | { kind: "leftover" | "oneWall"; key: string; words: string };
+  | { kind: "leftover" | "spareRoom"; key: string; words: string };
 
 const LEFTOVER_WORDS = "Unused space spare tray solid block";
-const ONE_WALL_WORDS = "One thick wall instead of a spacer";
+const SPARE_ROOM_WORDS =
+  "Fill small gaps with a spacer thicker walls one thick wall instead of a spacer extra thickness per wall";
+
+/** The numbers a choice draws itself (Fill small gaps with draws the wall thickness), so they are no row of their own. */
+const NESTED_PATHS: readonly string[] = ["wallAbsorb"];
 
 function rowsOf(g: ExactGroup): RowSpec[] {
   const extras: RowSpec[] = (g.extras ?? []).map((kind) => ({
     kind,
     key: kind,
-    words: `${kind === "leftover" ? LEFTOVER_WORDS : ONE_WALL_WORDS} ${g.title}`,
+    words: `${kind === "leftover" ? LEFTOVER_WORDS : SPARE_ROOM_WORDS} ${g.title}`,
   }));
   const numbers: RowSpec[] = g.paths.flatMap((path) => {
     const range = rangeOf(path);
-    return range === undefined
+    return range === undefined || NESTED_PATHS.includes(path)
       ? []
       : [
           {
@@ -91,13 +98,24 @@ function matchesQuery(words: string, query: string): boolean {
     .every((w) => text.includes(w));
 }
 
-function NumberRow({ range, settings, onChange }: SettingsFormProps & { range: Range }) {
+/**
+ * A number of an open group: its name, the 72 px box and, while it differs from its default, the
+ * way back. A `plain` one is a number inside a choice that carries the dot and the way back itself
+ * (`rules` then say what the box takes there).
+ */
+function NumberRow({
+  range,
+  settings,
+  onChange,
+  plain = false,
+  rules,
+}: SettingsFormProps & { range: Range; plain?: boolean; rules?: NumberRules }) {
   const id = inputId(range);
   const path = `/settings/${range.path}`;
   const set = SETTING_SETTERS[range.path];
   const value = range.get(settings);
   const fallback = range.get(DEFAULT_SETTINGS);
-  const changed = value !== fallback;
+  const changed = !plain && value !== fallback;
   const typed = useNumberText(
     value,
     (v) => {
@@ -105,7 +123,7 @@ function NumberRow({ range, settings, onChange }: SettingsFormProps & { range: R
         onChange(set(settings, v));
       }
     },
-    { min: range.min, max: range.max },
+    rules ?? { min: range.min, max: range.max },
   );
   const { errors, notes } = messagesOf(useFieldNotices(path));
   const error = typed.error ?? (errors.length > 0 ? errors.join(" ") : null);
@@ -234,37 +252,102 @@ const LEFTOVER_CHOICES = [
 function LeftoverRow({ settings, onChange }: SettingsFormProps) {
   const changed = settings.leftover !== DEFAULT_SETTINGS.leftover;
   return (
-    <>
+    <div class="st-row__choice">
       <span class="st-row__label">
         Unused space
         {changed ? <Dot /> : null}
       </span>
-      <div class="st-row__control">
-        <Segmented
-          label="Unused space"
-          stretch
-          options={LEFTOVER_CHOICES}
-          value={settings.leftover}
-          onChange={(leftover) => onChange({ ...settings, leftover })}
-        />
-      </div>
-    </>
+      <Segmented
+        label="Unused space"
+        stretch
+        options={LEFTOVER_CHOICES}
+        value={settings.leftover}
+        onChange={(leftover) => onChange({ ...settings, leftover })}
+      />
+    </div>
   );
 }
 
-function OneWallRow({ settings, onChange }: SettingsFormProps) {
+const SPARE_ROOM_LABEL = "Fill small gaps with";
+
+const SPARE_ROOM_CHOICES: readonly { value: SpareRoom; label: string }[] = [
+  { value: "spacer", label: "A spacer" },
+  { value: "walls", label: "Thicker walls" },
+  { value: "one", label: "One thick wall" },
+];
+
+/** What each choice does, as the engine does it (`realize.ts`, `layout/context.ts`). */
+function spareRoomLine(s: Settings): string {
+  switch (spareRoomOf(s)) {
+    case "spacer":
+      return "A gap a tray can't use is printed as a separate spacer.";
+    case "walls":
+      return `Instead of a spacer, every wall and divider may get up to ${formatNumber(s.wallAbsorb)} mm thicker.`;
+    case "one":
+      return `Instead of a spacer, one outer wall in each direction takes up to ${ONE_WALL_MAX_MM} mm, avoiding walls with a finger cut. A bigger gap still gets a spacer.`;
+  }
+}
+
+/** The wall thickness box of "Thicker walls": above 0, as 0 is "A spacer". */
+const WALL_THICKNESS_RULES: NumberRules = {
+  min: 0,
+  minExclusive: true,
+  max: rangeOf("wallAbsorb")?.max,
+};
+
+/**
+ * What happens to a gap a tray cannot use: a separate spacer (the default), every wall and divider
+ * a little thicker, or one thick wall. The engine has two settings for it, thicker walls (a number)
+ * and one thick wall (a switch that replaces it), so they are one choice here, with the number
+ * shown under it while thicker walls are chosen.
+ */
+function SpareRoomRow({ settings, onChange }: SettingsFormProps) {
+  const choice = spareRoomOf(settings);
+  const changed = choice !== "spacer";
+  const wrap = useRef<HTMLDivElement>(null);
+  const range = rangeOf("wallAbsorb");
   return (
-    <div class="st-row__check">
-      <SwitchRow
-        compact
-        label="One thick wall instead of a spacer"
-        changed={settings.oneWall !== DEFAULT_SETTINGS.oneWall}
-        defaultOn={DEFAULT_SETTINGS.oneWall}
-        checked={settings.oneWall}
-        onChange={(oneWall) => onChange({ ...settings, oneWall })}
-        onBack={() => onChange({ ...settings, oneWall: DEFAULT_SETTINGS.oneWall })}
-      />
-    </div>
+    <>
+      <div class="st-row__choice" ref={wrap}>
+        <span class="st-row__label">
+          {SPARE_ROOM_LABEL}
+          {changed ? <Dot /> : null}
+        </span>
+        <Segmented
+          label={SPARE_ROOM_LABEL}
+          stretch
+          options={SPARE_ROOM_CHOICES.map((o) =>
+            o.value === choice && changed ? { ...o, changed } : o,
+          )}
+          value={choice}
+          onChange={(next) => onChange(applySpareRoom(settings, next))}
+        />
+        <span class="st-note">{spareRoomLine(settings)}</span>
+        {changed ? (
+          <button
+            type="button"
+            class="st-back"
+            aria-label={`Back to a spacer for ${SPARE_ROOM_LABEL}`}
+            onClick={() => {
+              onChange(applySpareRoom(settings, "spacer"));
+              // The button goes with the difference: keep the keyboard on the choice.
+              wrap.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus();
+            }}
+          >
+            Back to a spacer
+          </button>
+        ) : null}
+      </div>
+      {choice === "walls" && range !== undefined ? (
+        <NumberRow
+          range={range}
+          settings={settings}
+          onChange={onChange}
+          plain
+          rules={WALL_THICKNESS_RULES}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -275,7 +358,7 @@ function RowOf({ row, settings, onChange }: SettingsFormProps & { row: RowSpec }
   return row.kind === "leftover" ? (
     <LeftoverRow settings={settings} onChange={onChange} />
   ) : (
-    <OneWallRow settings={settings} onChange={onChange} />
+    <SpareRoomRow settings={settings} onChange={onChange} />
   );
 }
 
@@ -287,10 +370,15 @@ function changedIn(g: ExactGroup, s: Settings): number {
   };
   // Room for fingers writes two numbers (wall and divider room): one setting, as the header counts it.
   const room = ["fingerPocket/wallRoom", "fingerPocket/dividerRoom"];
+  // Fill small gaps with writes the wall thickness and the one-wall switch: one choice, drawn as one row.
   const numbers =
-    g.paths.filter((p) => !room.includes(p) && differs(p)).length +
+    g.paths.filter((p) => !room.includes(p) && !NESTED_PATHS.includes(p) && differs(p)).length +
     (g.paths.some((p) => room.includes(p)) && room.some(differs) ? 1 : 0);
-  const extras = (g.extras ?? []).filter((e) => s[e] !== DEFAULT_SETTINGS[e]).length;
+  const extras = (g.extras ?? []).filter((e) =>
+    e === "spareRoom"
+      ? spareRoomOf(s) !== spareRoomOf(DEFAULT_SETTINGS)
+      : s[e] !== DEFAULT_SETTINGS[e],
+  ).length;
   return numbers + extras;
 }
 
@@ -354,7 +442,8 @@ function ExactNumbers({ settings, onChange, open, onOpen, query, onQuery }: Exac
         ? rows.filter(
             (r) =>
               matchesQuery(r.words, query) ||
-              (r.kind === "number" && withError.has(`/settings/${r.range.path}`)),
+              (r.kind === "number" && withError.has(`/settings/${r.range.path}`)) ||
+              (r.kind === "spareRoom" && withError.has("/settings/wallAbsorb")),
           )
         : rows,
     }))

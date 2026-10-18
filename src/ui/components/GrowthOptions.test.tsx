@@ -49,17 +49,17 @@ describe("growthMaxLine", () => {
 });
 
 describe("GrowthOptions: what Max means", () => {
-  it("says it under the choice while Max is chosen, after which choice is the default", () => {
+  it("says it under the choice while Max is chosen", () => {
     const c = withGrowth({ ...of("cards"), storage: "upright-long" as const }, "stack", "max");
     show(c);
-    expect(lineUnder("Room for expansions")).toEqual(["Auto is the default", FOOTPRINT]);
+    expect(lineUnder("Room for expansions")).toEqual([FOOTPRINT]);
   });
 
   it("says nothing of it under any other choice", () => {
     for (const mode of ["off", "auto", 10] as const) {
       const c = withGrowth({ ...of("cards"), storage: "upright-long" as const }, "stack", mode);
       show(c);
-      expect(lineUnder("Room for expansions"), String(mode)).toHaveLength(1);
+      expect(lineUnder("Room for expansions"), String(mode)).toHaveLength(0);
       expect(screen.queryByText(FOOTPRINT)).toBeNull();
       cleanup();
     }

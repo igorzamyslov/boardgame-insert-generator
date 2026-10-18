@@ -406,6 +406,17 @@
   font-weight: 600;
 }
 
+/* A chip whose value differs from its default: the changed dot, ringed in the page colour so it shows on the ink of a pressed chip too. */
+.k-chip__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: var(--s-8);
+  border-radius: var(--r-pill);
+  background: var(--changed);
+  box-shadow: 0 0 0 1.5px var(--sheet);
+}
+
 /* ---- CheckRow: the words on the left, a 22 px checkbox on the right ---- */
 .k-check {
   display: flex;
@@ -892,6 +903,16 @@
 
 .k-drow__title {
   font-weight: 600;
+}
+
+/* A row whose value differs from its default: Settings' 8 px dot after the title. */
+.k-drow__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: var(--s-8);
+  border-radius: var(--r-pill);
+  background: var(--changed);
 }
 
 .k-drow__hint {

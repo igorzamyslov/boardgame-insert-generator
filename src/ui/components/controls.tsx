@@ -2,8 +2,8 @@
 // The pieces the editors are made of, on the kit: a labelled group, a count, a number or a text
 // box that shows the engine's messages at its path, a row that opens its exact values in place.
 // The words of every control are the boards' (Edit, EditKinds, MobileEdit) or ruled in DESIGN §7.
-import type { ComponentChildren } from "preact";
-import { useContext, useEffect, useId, useState } from "preact/hooks";
+import type { ComponentChildren, RefObject } from "preact";
+import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import { DisclosureRow, Field, Segmented, Stepper } from "../../kit";
 import type { SegmentedOption } from "../../kit";
 import { messagesOf } from "../FieldMessages";
@@ -12,11 +12,69 @@ import { useNumberText } from "../NumberField";
 import type { NumberRules } from "../NumberField";
 import { ValidationContext, useFieldNotices } from "../validation";
 
-/** A name over its control: the board's 600 weight label, then the control, 8 px apart. */
-export function Group({ label, children }: { label: string; children: ComponentChildren }) {
+/** The changed dot (Settings'): this value differs from its default. It is named, so a reader hears it. */
+export function Dot() {
+  return <span class="ed-dot" role="img" aria-label="Changed" />;
+}
+
+/** The way back from a changed value: what it returns to, and the one change that does it. */
+export interface Revert {
+  /** The default, in the words after "Back to": "Auto", "0", "finger cuts on". */
+  to: string;
+  /** Puts the value back: one call, so one step of Undo. */
+  onBack: () => void;
+}
+
+/**
+ * Settings' "Back to <default>" pill, in the editor: it shows only while the value differs from its
+ * default, and puts it back in one change. The button goes with the difference, so `focus` names
+ * where the keyboard goes instead (the control it belongs to).
+ */
+export function BackLink({
+  revert,
+  name,
+  focus,
+}: {
+  revert: Revert;
+  /** What it reverts, for assistive technology ("Room for expansions"). */
+  name: string;
+  focus: () => HTMLElement | null | undefined;
+}) {
   return (
-    <div class="ed-group">
-      <span class="ed-label">{label}</span>
+    <button
+      type="button"
+      class="ed-reset"
+      aria-label={`Back to ${revert.to} for ${name}`}
+      onClick={() => {
+        revert.onBack();
+        // after the render that removes this button
+        setTimeout(() => focus()?.focus(), 0);
+      }}
+    >
+      {`Back to ${revert.to}`}
+    </button>
+  );
+}
+
+/** A name over its control: the board's 600 weight label, then the control, 8 px apart. */
+export function Group({
+  label,
+  changed = false,
+  children,
+  groupRef,
+}: {
+  label: string;
+  /** The value differs from its default: the changed dot after the label. */
+  changed?: boolean;
+  children: ComponentChildren;
+  groupRef?: RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div class="ed-group" ref={groupRef}>
+      <span class="ed-label">
+        {label}
+        {changed ? <Dot /> : null}
+      </span>
       {children}
     </div>
   );
@@ -67,21 +125,39 @@ export function useOpenOnError(paths: readonly string[]): [boolean, (open: boole
   return [open, setOpen];
 }
 
-/** One of a few choices: the group's name over a quiet segmented track that takes the width. */
+/**
+ * One of a few choices: the group's name over a quiet segmented track that takes the width. With a
+ * `revert` the value differs from its default: the dot after the name, the chosen segment in the
+ * changed ink, and the way back under the track (the default is named there and nowhere else).
+ */
 export function Choice<T extends string>({
   label,
   options,
   value,
   onChange,
+  revert,
 }: {
   label: string;
   options: readonly SegmentedOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  revert?: Revert;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const shown =
+    revert === undefined
+      ? options
+      : options.map((o) => (o.value === value ? { ...o, changed: true } : o));
   return (
-    <Group label={label}>
-      <Segmented label={label} options={options} value={value} onChange={onChange} stretch />
+    <Group label={label} changed={revert !== undefined} groupRef={ref}>
+      <Segmented label={label} options={shown} value={value} onChange={onChange} stretch />
+      {revert !== undefined ? (
+        <BackLink
+          revert={revert}
+          name={label}
+          focus={() => ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]')}
+        />
+      ) : null}
     </Group>
   );
 }
@@ -270,6 +346,7 @@ export function ExactRow({
   hint,
   meta,
   errorPaths = [],
+  revert,
   children,
 }: {
   title: string;
@@ -277,6 +354,8 @@ export function ExactRow({
   meta?: string;
   /** Validation paths of the values inside; an error at one (or below it) opens the row. */
   errorPaths?: readonly string[];
+  /** The value inside differs from its default: the dot on the row, and the way back at the foot of its values. */
+  revert?: Revert;
   children: ComponentChildren;
 }) {
   const [open, setOpen] = useOpenOnError(errorPaths);
@@ -288,6 +367,7 @@ export function ExactRow({
         title={title}
         hint={hint}
         meta={meta}
+        dot={revert !== undefined}
         open={open}
         controls={panelId}
         onClick={() => setOpen(!open)}
@@ -295,6 +375,13 @@ export function ExactRow({
       {open ? (
         <div class="ed-panel" id={panelId}>
           {children}
+          {revert !== undefined ? (
+            <BackLink
+              revert={revert}
+              name={title}
+              focus={() => document.getElementById(panelId)?.querySelector<HTMLElement>("input")}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>

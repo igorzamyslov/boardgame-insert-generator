@@ -246,11 +246,15 @@
   font-weight: 600;
 }
 
-/* A label, a 72 px box and, when it changed, the way back; a message runs under all three. */
+/*
+ * A label, a 72 px box and, when it changed, the way back; a message runs under all three. The 12 px
+ * between the columns is the boxes' and the pills' own margin, not the grid's gap: with no way back
+ * in view every box ends at the same edge as a choice stretched across the row, in every group.
+ */
 .st-rows {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: var(--s-4) var(--s-12);
+  gap: var(--s-4) 0;
   align-items: center;
   padding: var(--s-8) var(--s-14) var(--s-12);
 }
@@ -265,6 +269,7 @@
 .st-card .st-num {
   box-sizing: border-box;
   width: 72px; /* Settings */
+  margin-left: var(--s-12);
   min-width: 0;
   height: var(--field-h-compact);
   min-height: 0;
@@ -302,6 +307,11 @@
   cursor: pointer;
 }
 
+/* In a group's rows the way back sits 12 px after its box. */
+.st-rows .st-back {
+  margin-left: var(--s-12);
+}
+
 /* style.css repaints a button under the pointer: this is the pill's own colour. */
 .st-back:hover:not(:disabled) {
   background: var(--changed-bg);
@@ -312,9 +322,26 @@
   margin: 0;
 }
 
-/* A segment or a switch in a row takes the two columns the number would. */
-.st-row__control {
-  grid-column: 2 / span 2;
+/*
+ * A choice in a group (Unused space, Fill small gaps with): its name over the segment across the
+ * whole row, then what it does and, while it differs from its default, the way back. It never sits
+ * in the number columns, so it cannot widen them and push the numbers off the row's edge.
+ */
+.st-row__choice {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-direction: column;
+  gap: var(--s-8);
+  align-items: flex-start;
+  padding: var(--s-4) 0;
+}
+
+.st-row__choice .k-seg {
+  align-self: stretch;
+}
+
+.st-rows .st-row__choice .st-back {
+  margin-left: 0;
 }
 
 /* A switch is the kit's CheckRow (a 44 px row, the 22 px box), across the whole row. */
@@ -328,7 +355,7 @@
 }
 
 /* Two words to a choice need more than the stretched segment's 4 px each side. */
-.st-row__control .k-seg--stretch .k-seg__item {
+.st-row__choice .k-seg--stretch .k-seg__item {
   padding: 0 var(--s-12);
 }
 
@@ -375,6 +402,11 @@
 
 .st-pair {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* A number is right-aligned in every box of Settings (the groups' boxes are), the unit after it. */
+.st-details .k-field .k-field__input {
+  text-align: right;
 }
 
 /* ---- A phone: the drawer is full screen (the kit's), the sides take 20 px as every dialog's do ---- */

@@ -1,18 +1,20 @@
 // src/ui/components/CardsEditor.tsx
 // Edit's cards editor: how many, the card size, the sleeves; the rest is under More options.
-import { useState } from "preact/hooks";
+import { useContext, useState } from "preact/hooks";
 import { setCardSides } from "../../app/actions";
 import { ChoiceChips, CheckRow, Segmented } from "../../kit";
 import type { SegmentedOption } from "../../kit";
+import { COMPONENT_DEFAULTS } from "../../model/defaults";
 import { CARD_PRESETS, SLEEVES } from "../../model/presets";
 import type { CardsComponent } from "../../model/types";
 import { mm } from "../identity";
 import { COUNT, LENGTH, OFFSET, THICKNESS_CORRECTION } from "../limits";
+import { SettingsContext } from "../validation";
 import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
 import { Choice, CountField, ExactRow, Group, NumField, TextBox } from "./controls";
 import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
-import { moreSummary } from "./moreSummary";
+import { changedOptions } from "./moreSummary";
 import { RowRemove } from "./RowRemove";
 import { BinNotes, TrayShape, WellRows } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -51,6 +53,8 @@ type Deck = CardsComponent["decks"][number];
 
 export function CardsEditor({ component: c, index, onChange }: EditorProps<CardsComponent>) {
   const at = `/components/${index}`;
+  const settings = useContext(SettingsContext);
+  const changed = changedOptions(c, settings);
   const matched = cardPresetOf(c);
   // "My own size" is open for a size that is no common preset: the others are chips inside it.
   const [customSize, setCustomSize] = useState(!COMMON_PRESETS.some((p) => p.id === matched));
@@ -208,7 +212,7 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
       </Group>
       <BinNotes component={c} index={index} />
       <MoreOptions
-        summary={moreSummary(c)}
+        component={c}
         errorPaths={[
           ...commonOptionPaths(index),
           `${at}/sleeve`,
@@ -224,12 +228,30 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
           options={STAND_OPTIONS}
           value={c.storage}
           onChange={(storage) => onChange({ ...c, storage })}
+          revert={
+            c.storage === COMPONENT_DEFAULTS.cards.storage
+              ? undefined
+              : {
+                  to:
+                    STAND_OPTIONS.find((o) => o.value === COMPONENT_DEFAULTS.cards.storage)
+                      ?.label ?? "Auto",
+                  onBack: () => onChange({ ...c, storage: COMPONENT_DEFAULTS.cards.storage }),
+                }
+          }
         />
         <TrayShape component={c} index={index} onChange={onChange} />
         <ExactRow
           title="Card thickness"
           hint="From the sleeve table. Measure your stack if decks come out tight."
           errorPaths={[`${at}/thickness/scale`, `${at}/thickness/cards`, `${at}/thickness/stackMm`]}
+          revert={
+            changed.has("thickness")
+              ? {
+                  to: "the sleeve table",
+                  onBack: () => onChange({ ...c, thickness: { mode: "preset" } }),
+                }
+              : undefined
+          }
         >
           {measured ? null : (
             <NumField

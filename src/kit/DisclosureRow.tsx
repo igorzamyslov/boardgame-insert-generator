@@ -18,6 +18,8 @@ export interface DisclosureRowProps extends Omit<
   hint?: string;
   /** The same plain look with no hint: a row among Edit's rows. */
   plain?: boolean;
+  /** The value inside differs from its default: an 8 px dot in the changed colour after the title. */
+  dot?: boolean;
   /** Set when the row opens a panel: `aria-expanded`, and the chevron turns. */
   open?: boolean;
   /** The id of the panel the row opens. */
@@ -31,6 +33,7 @@ export function DisclosureRow({
   changed,
   hint,
   plain: plainLook = false,
+  dot = false,
   open,
   controls,
   type = "button",
@@ -48,7 +51,10 @@ export function DisclosureRow({
       aria-controls={controls}
     >
       <span class="k-drow__text">
-        <span class="k-drow__title">{title}</span>
+        <span class="k-drow__title">
+          {title}
+          {dot ? <span class="k-drow__dot" role="img" aria-label="Changed" /> : null}
+        </span>
         {plain ? <span class="k-drow__hint">{hint}</span> : null}
       </span>
       <span class="k-drow__meta" data-changed={hasChanged ? "" : undefined}>
