@@ -106,6 +106,7 @@ const ITEMS = 'The first visit says "Trays appear in the box as you add items."'
 const EDITS = [
   "editor",
   "editor-more",
+  "editor-more-changed",
   "editor-tokens",
   "editor-tokens-more",
   "editor-tiles",
@@ -124,6 +125,8 @@ const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
 const EDITOR_SENTENCE = "The stage sentence is the page's h1 while editing";
 const EDITOR_MAX = "A growth choice on Max says what Max means";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
+const EDITOR_CHANGED = "More options marks what differs from its default";
+const EDITOR_ROOM = "Extra room shows the insert's number and lets the item change it";
 const EDITOR_NAME = "The phone editor has a Name field";
 const EDITOR_WORDS = "The Words table beats MobileEdit's second way to store figures";
 /** The strings the editors print that no board of theirs has (the boards have them in other states, or in the old words). */
@@ -204,12 +207,24 @@ const EDITOR_LABELS: readonly string[] = [
   "Players",
   "Group",
   "Extra room",
-  "Use its own extra room",
-  "Extra room mm",
   "Other sizes",
-  "Auto is the default",
-  "None is the default",
   "Don't know the size of {name}? Give a volume instead",
+];
+
+/** The way back from a changed option: "Back to <its default>", the default named there and nowhere else. */
+const EDITOR_BACKS: readonly string[] = [
+  "Back to None",
+  "Back to Auto",
+  "Back to Sometimes",
+  "Back to the sleeve table",
+  "Back to 0",
+  "Back to off",
+  "Back to no group",
+  "Back to {n}",
+  ...["finger cuts", "curved floor", "corner holes"].flatMap((chip) => [
+    `Back to ${chip} on`,
+    `Back to ${chip} off`,
+  ]),
 ];
 
 // Task 11: the box's editor. The states are the box cases of copy.board.test.tsx.
@@ -525,6 +540,17 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Loose in a tray", states: EDITING, ruling: EDITOR_WORDS },
   { text: "Finger cuts {name}", states: EDITING, ruling: EDITOR_SUMMARY },
   { text: "{n} changed", states: EDITING, ruling: EDITOR_SUMMARY },
+  ...EDITOR_BACKS.map((text) => ({ text, states: EDITING, ruling: EDITOR_CHANGED })),
+  {
+    text: "The insert's setting. Type another number to give this item its own.",
+    states: EDITING,
+    ruling: EDITOR_ROOM,
+  },
+  {
+    text: "This item's own, whatever Fit says. The insert's is {n} mm.",
+    states: EDITING,
+    ruling: EDITOR_ROOM,
+  },
   { text: "Name", states: PHONE_EDITS, ruling: EDITOR_NAME },
   // the stage sentence: Edit's, for the kinds and the counts it does not draw
   {

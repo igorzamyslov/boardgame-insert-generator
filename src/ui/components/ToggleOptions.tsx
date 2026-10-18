@@ -1,12 +1,13 @@
 // src/ui/components/ToggleOptions.tsx
-import { useId } from "preact/hooks";
+import { useId, useRef } from "preact/hooks";
 import {
   cornerReliefsOn,
-  curvedFloorOn,
+  curvedFloorKind,
+  curvedFloorOffered,
+  defaultTogglesOf,
   dividersOf,
   dividersOffered,
   fingerCutsOn,
-  growthOf,
   separatorsOf,
   withDividers,
   withSeparators,
@@ -15,11 +16,9 @@ import { ChoiceChips } from "../../kit";
 import type { Component } from "../../model/types";
 import { DIVIDERS, SEPARATORS } from "../limits";
 import { useSizingNotices } from "../validation";
-import { Alert, ExactRow, Group, Notes, NumField } from "./controls";
+import { Alert, BackLink, ExactRow, Group, Notes, NumField } from "./controls";
+import { curvedFloorShown, wellMayGrow } from "./moreSummary";
 import type { EditorProps } from "./types";
-
-/** Kinds that may have a curved floor (spec §5): it would bend cards and tilt upright tiles. */
-const CURVED_KINDS: readonly Component["kind"][] = ["bulk", "minis", "custom"];
 
 type Shape = "fingerCuts" | "curvedFloor" | "cornerReliefs" | "dividers";
 
@@ -39,19 +38,36 @@ function SeparatorNotes({ index }: Pick<EditorProps<Component>, "index">) {
   return notes.length > 0 ? <p class="ed-note">{notes.map((n) => n.message).join(" ")}</p> : null;
 }
 
+/** A chip that is a way back: "Back to finger cuts on". */
+function stateOf(label: string, on: boolean): string {
+  return `${label.toLowerCase()} ${on ? "on" : "off"}`;
+}
+
+/** Drops a key the component set, so it is what its kind has again (the stored file stays as it was). */
+function without<C extends Component>(
+  c: C,
+  key: "fingerCuts" | "curvedFloor" | "cornerReliefs",
+): C {
+  return Object.fromEntries(Object.entries(c).filter(([k]) => k !== key)) as C;
+}
+
 /**
  * Edit's "Tray shape": pressed chips for the finger cuts, the curved floor (where the kind may
- * have one, or a file set it), the corner holes and one removable divider (where the well may have
- * dividers). A curved-floor error shows under the chips.
+ * have one, or a file set one), the corner holes and one removable divider (where the well may have
+ * dividers). A chip whose state differs from the kind's default has the changed dot and, under the
+ * chips, a way back ("Back to finger cuts on"); the divider chip's way back is its row's (Dividers),
+ * so a divider count is one change, not two. A curved-floor error shows under the chips.
  */
 export function TrayShape<C extends Component>({ component: c, index, onChange }: EditorProps<C>) {
   const errorId = useId();
-  const floor = CURVED_KINDS.includes(c.kind) || c.curvedFloor === true;
+  const group = useRef<HTMLDivElement>(null);
+  const floor = curvedFloorOffered(c);
+  const defaults = defaultTogglesOf(c);
   const on: Shape[] = [];
   if (fingerCutsOn(c)) {
     on.push("fingerCuts");
   }
-  if (floor && (c.curvedFloor === true || curvedFloorOn(c))) {
+  if (floor && curvedFloorShown(c)) {
     on.push("curvedFloor");
   }
   if (cornerReliefsOn(c)) {
@@ -60,14 +76,28 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
   if (dividersOf(c) > 0) {
     on.push("dividers");
   }
-  const chips: { value: Shape; label: string }[] = [{ value: "fingerCuts", label: "Finger cuts" }];
+  const chips: { value: Shape; label: string; changed: boolean }[] = [
+    { value: "fingerCuts", label: "Finger cuts", changed: fingerCutsOn(c) !== defaults.fingerCuts },
+  ];
   if (floor) {
-    chips.push({ value: "curvedFloor", label: "Curved floor" });
+    chips.push({
+      value: "curvedFloor",
+      label: "Curved floor",
+      changed: curvedFloorShown(c) !== defaults.curvedFloor,
+    });
   }
-  chips.push({ value: "cornerReliefs", label: "Corner holes" });
+  chips.push({
+    value: "cornerReliefs",
+    label: "Corner holes",
+    changed: cornerReliefsOn(c) !== defaults.cornerReliefs,
+  });
   if (dividersOffered(c)) {
-    chips.push({ value: "dividers", label: "Removable dividers" });
+    chips.push({ value: "dividers", label: "Removable dividers", changed: false });
   }
+  // the toggles that differ from the kind's: the dividers are counted by their row, not here
+  const changed = chips.flatMap((chip) =>
+    chip.changed && chip.value !== "dividers" ? [{ ...chip, value: chip.value }] : [],
+  );
   const toggle = (which: Shape): void => {
     switch (which) {
       case "fingerCuts":
@@ -80,8 +110,8 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
         onChange(withDividers(c, dividersOf(c) > 0 ? 0 : 1));
         return;
       case "curvedFloor": {
-        const now = c.curvedFloor === true || curvedFloorOn(c);
-        if (now && !CURVED_KINDS.includes(c.kind)) {
+        const now = curvedFloorShown(c);
+        if (now && !curvedFloorKind(c)) {
           // The chip only exists on this kind while a file set it, so turning it off removes it:
           // keep the keyboard focus in the group.
           document.getElementById(`${c.id}-shape`)?.querySelector<HTMLElement>("button")?.focus();
@@ -91,7 +121,7 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
     }
   };
   return (
-    <Group label="Tray shape">
+    <Group label="Tray shape" groupRef={group}>
       <div id={`${c.id}-shape`}>
         <ChoiceChips
           label="Tray shape"
@@ -103,6 +133,21 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
       </div>
       <Alert id={errorId} path={`/components/${index}/curvedFloor`} />
       <Notes path={`/components/${index}/curvedFloor`} />
+      {changed.length > 0 ? (
+        <div class="ed-backs">
+          {changed.map((chip) => (
+            <BackLink
+              key={chip.value}
+              revert={{
+                to: stateOf(chip.label, defaults[chip.value]),
+                onBack: () => onChange(without(c, chip.value)),
+              }}
+              name="Tray shape"
+              focus={() => group.current?.querySelector<HTMLElement>("button")}
+            />
+          ))}
+        </div>
+      ) : null}
     </Group>
   );
 }
@@ -113,17 +158,22 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
  * stack have them (spec §5); the dividers take the plates' place when there are any.
  */
 export function WellRows<C extends Component>({ component: c, index, onChange }: EditorProps<C>) {
-  if (
-    !(c.kind === "cards" || c.kind === "tiles") ||
-    growthOf(c, "stack", c.storage === "flat") === "off"
-  ) {
+  if (!wellMayGrow(c)) {
     return null;
   }
   const dividers = dividersOf(c);
   return (
     <>
       {dividers === 0 ? (
-        <ExactRow title="Spacer plates" errorPaths={[`/components/${index}/separators`]}>
+        <ExactRow
+          title="Spacer plates"
+          errorPaths={[`/components/${index}/separators`]}
+          revert={
+            separatorsOf(c) === 0
+              ? undefined
+              : { to: "0", onBack: () => onChange(withSeparators(c, 0)) }
+          }
+        >
           <NumField
             id={`${c.id}-separators`}
             label="Spacer plates"
@@ -136,7 +186,13 @@ export function WellRows<C extends Component>({ component: c, index, onChange }:
         </ExactRow>
       ) : null}
       {dividersOffered(c) ? (
-        <ExactRow title="Dividers" errorPaths={[`/components/${index}/dividers`]}>
+        <ExactRow
+          title="Dividers"
+          errorPaths={[`/components/${index}/dividers`]}
+          revert={
+            dividers === 0 ? undefined : { to: "0", onBack: () => onChange(withDividers(c, 0)) }
+          }
+        >
           <NumField
             id={`${c.id}-dividers`}
             label="Number of dividers"

@@ -90,7 +90,50 @@
 }
 
 .ed-label {
+  display: flex;
+  gap: var(--s-8);
+  align-items: center;
   font-weight: 600;
+}
+
+/* The changed dot (Settings'): this value differs from its default. */
+.ed-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--changed);
+}
+
+/* "Back to <default>" (Settings' pill): 44 px, the changed colours, under the value it puts back. */
+.ed .ed-reset {
+  align-self: flex-start;
+  box-sizing: border-box;
+  height: var(--control-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--s-10);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--changed-bg);
+  color: var(--changed-ink);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* style.css repaints a button under the pointer: this is the pill's own colour. */
+.ed .ed-reset:hover:not(:disabled) {
+  background: var(--changed-bg);
+}
+
+/* Tray shape's chips each have their own way back: a few pills, side by side. */
+.ed-backs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
 }
 
 .ed-line,

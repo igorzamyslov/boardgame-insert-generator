@@ -104,6 +104,24 @@ function kindDefaults(c: Component): Toggles {
   };
 }
 
+/** What the component's three toggles are when it sets none: its kind's defaults (what an editor's "Back to" returns to). */
+export function defaultTogglesOf(c: Component): Toggles {
+  return kindDefaults(c);
+}
+
+/** Kinds that may have a curved floor (spec §5): it would bend cards and tilt upright tiles. */
+export function curvedFloorKind(c: Component): boolean {
+  return c.kind === "bulk" || c.kind === "minis" || c.kind === "custom";
+}
+
+/**
+ * Whether an editor offers the curved-floor chip: a kind that may have one, or any kind whose file
+ * set one, so a person can turn it off.
+ */
+export function curvedFloorOffered(c: Component): boolean {
+  return curvedFloorKind(c) || c.curvedFloor === true;
+}
+
 /** Whether the component's compartments get finger cuts (spec §5, §6.1). */
 export function fingerCutsOn(c: Component): boolean {
   return c.fingerCuts ?? kindDefaults(c).fingerCuts;

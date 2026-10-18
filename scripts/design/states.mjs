@@ -289,6 +289,21 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [EDIT_MARKET, MORE_OPTIONS],
   },
+  // The same on a tall window (the rail scrolls in a 900 px one): Corner holes turned on, so a chip, and
+  // the Extra room row opened, show the changed dot and "Back to <default>" beside the Market deck's own.
+  "editor-more-changed": {
+    board: "Edit",
+    nearest:
+      "Edit's open More options, with the changed dots and ways back the board does not draw",
+    viewport: { width: 1440, height: 1500 },
+    seed: "harbour-kings",
+    steps: [
+      EDIT_MARKET,
+      MORE_OPTIONS,
+      { click: { role: "button", name: /^Corner holes/, in: RAIL } },
+      { click: { role: "button", name: /^Extra room/, in: RAIL } },
+    ],
+  },
   // EditKinds draws the other three editors side by side: each is judged by its own section.
   "editor-tokens": {
     board: "EditKinds",

@@ -229,11 +229,24 @@ describe("CardsEditor", () => {
       expect("groupId" in last()).toBe(false);
     });
 
-    it("gives the component its own extra room", () => {
+    it("shows the insert's extra room, and a different number gives the component its own", () => {
       const { last } = setup(cards());
       openRows();
-      fireEvent.click(screen.getByLabelText("Use its own extra room"));
-      expect(last().clearance).toBe(1);
+      // the insert's card clearance, 1.5 mm at Fit 1, is in the box: nothing is set
+      const box = screen.getByLabelText(/^Extra room/) as HTMLInputElement;
+      expect(box.value).toBe("1.5");
+      expect(
+        screen.getByText("The insert's setting. Type another number to give this item its own."),
+      ).toBeTruthy();
+      fireEvent.input(box, { target: { value: "2" } });
+      expect(last().clearance).toBe(2);
+    });
+
+    it("sets nothing when the number typed is the insert's own", () => {
+      const { last } = setup(cards({ clearance: 2 }));
+      openRows();
+      fireEvent.input(screen.getByLabelText(/^Extra room/), { target: { value: "1,5" } });
+      expect("clearance" in last()).toBe(false);
     });
 
     it("trims the group name on blur without committing an unchanged value", () => {
@@ -264,7 +277,7 @@ describe("CardsEditor", () => {
     it("shows a curved floor a file set on cards, so it can be turned off", () => {
       const { last } = setup(cards({ curvedFloor: true }));
       openMore();
-      const floor = screen.getByRole("button", { name: "Curved floor" });
+      const floor = screen.getByRole("button", { name: /^Curved floor/ });
       expect(floor.getAttribute("aria-pressed")).toBe("true");
       fireEvent.click(floor);
       expect(last().curvedFloor).toBe(false);
@@ -285,14 +298,21 @@ describe("CardsEditor", () => {
       expect("stretch" in last()).toBe(false);
     });
 
-    it("says which choice is the default, for a deck that stands and for one that lies", () => {
+    it("names the default only in the way back, and only while the choice differs from it", () => {
       const { view } = setup(cards({ storage: "upright-long" }));
       openMore();
-      expect(screen.getByText("Auto is the default")).toBeTruthy();
+      expect(screen.queryByText(/is the default/)).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /^Back to .* for Room for expansions/ }),
+      ).toBeNull();
       view.unmount();
-      setup(cards({ storage: "flat" }));
+      // a deck that lies flat: None is its default, so None chosen is no news and Auto is
+      setup(cards({ storage: "flat", growth: { stack: "auto" } }));
       openMore();
-      expect(screen.getByText("None is the default")).toBeTruthy();
+      expect(screen.queryByText(/is the default/)).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "Back to None for Room for expansions" }),
+      ).toBeTruthy();
     });
 
     it("never offers the card's own width or length, or a second axis", () => {

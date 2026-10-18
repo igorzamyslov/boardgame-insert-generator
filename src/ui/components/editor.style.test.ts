@@ -131,4 +131,29 @@ describe("the editor's stage", () => {
     expect(ruleFor(".k-sheet__bar[hidden]", kit)).toMatch(/display:\s*none/);
     expect(ruleFor('.k-sheet[data-editing="true"] > .k-sheet__body', kit)).toMatch(/padding:\s*0/);
   });
+
+  it("draws Back to <default> as Settings' pill: 44 px, the changed colours, 13 px 600", () => {
+    const back = ruleFor(".ed .ed-reset", css);
+    expect(back).toMatch(/height:\s*var\(--control-h\)/);
+    expect(back).toMatch(/background:\s*var\(--changed-bg\)/);
+    expect(back).toMatch(/color:\s*var\(--changed-ink\)/);
+    expect(back).toMatch(/font-size:\s*var\(--text-xs\)/);
+    expect(back).toMatch(/font-weight:\s*600/);
+    expect(back).toMatch(/border-radius:\s*var\(--r-pill\)/);
+  });
+
+  it("draws the changed dot at 8 px in the changed colour, on a choice, a chip and a row", () => {
+    for (const [selector, source] of [
+      [".ed-dot", css],
+      [".k-chip__dot", kit],
+      [".k-drow__dot", kit],
+    ] as const) {
+      const dot = ruleFor(selector, source);
+      expect(dot, selector).toMatch(/width:\s*8px/);
+      expect(dot, selector).toMatch(/height:\s*8px/);
+      expect(dot, selector).toMatch(/background:\s*var\(--changed\)/);
+    }
+    // ringed in the page colour, so it shows on a pressed chip's ink as well
+    expect(ruleFor(".k-chip__dot", kit)).toMatch(/box-shadow:\s*0 0 0 1\.5px var\(--sheet\)/);
+  });
 });

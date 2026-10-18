@@ -6,7 +6,6 @@ import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
 import { CountField, Group, NumField } from "./controls";
 import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
-import { moreSummary } from "./moreSummary";
 import { BinNotes, TrayShape } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
@@ -51,7 +50,7 @@ export function CustomEditor({ component: c, index, onChange }: EditorProps<Cust
         onChange={(count) => onChange({ ...c, count })}
       />
       <BinNotes component={c} index={index} />
-      <MoreOptions summary={moreSummary(c)} errorPaths={commonOptionPaths(index)}>
+      <MoreOptions component={c} errorPaths={commonOptionPaths(index)}>
         <GrowthOptions component={c} index={index} onChange={onChange} />
         <AccessChoice component={c} index={index} onChange={onChange} />
         <TrayShape component={c} index={index} onChange={onChange} />

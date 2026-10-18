@@ -405,6 +405,16 @@ const CASES: readonly Case[] = [
   { state: "editor", board: "Edit", region: "stage", steps: editRow(/^Market deck, /) },
   { state: "editor-more", board: "Edit", region: "rail", steps: editMore(/^Market deck, /) },
   {
+    // an option turned on, so a chip and a row show the changed dot and "Back to <default>"
+    state: "editor-more-changed",
+    board: "Edit",
+    region: "rail",
+    steps: () => {
+      editMore(/^Market deck, /)();
+      fireEvent.click(screen.getByRole("button", { name: /^Corner holes/ }));
+    },
+  },
+  {
     state: "editor-tokens",
     board: "EditKinds",
     region: "rail",

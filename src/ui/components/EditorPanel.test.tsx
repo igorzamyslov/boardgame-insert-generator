@@ -36,7 +36,7 @@ const COMMON: Label[] = [
   "How often you reach for it",
   /^Counts are per player/,
   /^Group/,
-  "Use its own extra room",
+  "Extra room",
   "Finger cuts",
   "Corner holes",
 ];

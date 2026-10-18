@@ -8,7 +8,6 @@ import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
 import { Alert, Choice, Group, NumField, Notes, TitleInput } from "./controls";
 import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
-import { moreSummary } from "./moreSummary";
 import { RowRemove } from "./RowRemove";
 import { BinNotes, TrayShape } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -125,7 +124,7 @@ export function MinisEditor({ component: c, index, onChange }: EditorProps<Minis
         onChange={(storage) => onChange({ ...c, storage })}
       />
       <BinNotes component={c} index={index} />
-      <MoreOptions summary={moreSummary(c)} errorPaths={commonOptionPaths(index)}>
+      <MoreOptions component={c} errorPaths={commonOptionPaths(index)}>
         <GrowthOptions component={c} index={index} onChange={onChange} />
         <AccessChoice component={c} index={index} onChange={onChange} />
         <TrayShape component={c} index={index} onChange={onChange} />

@@ -8,7 +8,6 @@ import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
 import { Choice, CountField, NumField } from "./controls";
 import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
-import { moreSummary } from "./moreSummary";
 import { BinNotes, TrayShape, WellRows } from "./ToggleOptions";
 import type { EditorProps } from "./types";
 
@@ -131,7 +130,7 @@ export function TilesEditor({ component: c, index, onChange }: EditorProps<Tiles
         onChange={(storage) => onChange({ ...c, storage })}
       />
       <BinNotes component={c} index={index} />
-      <MoreOptions summary={moreSummary(c)} errorPaths={commonOptionPaths(index)}>
+      <MoreOptions component={c} errorPaths={commonOptionPaths(index)}>
         <GrowthOptions component={c} index={index} onChange={onChange} />
         <AccessChoice component={c} index={index} onChange={onChange} />
         <TrayShape component={c} index={index} onChange={onChange} />

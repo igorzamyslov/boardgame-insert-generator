@@ -73,8 +73,16 @@ export function GrowthOptions<C extends Component>({
               options={MODES}
               value={modeOf(mode)}
               onChange={(choice) => set(choice === "amount" ? STARTING_AMOUNT : choice)}
+              // The default is named here, only while the choice differs from it.
+              revert={
+                mode === standard
+                  ? undefined
+                  : {
+                      to: standard === "auto" ? "Auto" : "None",
+                      onBack: () => onChange(withGrowth(c, axis, undefined)),
+                    }
+              }
             />
-            <span class="ed-line">{`${standard === "auto" ? "Auto" : "None"} is the default`}</span>
             {mode === "max" ? <span class="ed-line">{growthMaxLine(c, axis)}</span> : null}
             {typeof mode === "number" ? (
               <NumField

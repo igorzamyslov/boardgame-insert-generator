@@ -448,6 +448,14 @@ export function Gallery() {
           <Row label="Several">
             <ShapeChips />
           </Row>
+          <Row label="Changed">
+            <ChoiceChips
+              label="Tray shape, one chip changed"
+              options={SHAPES.map((o, i) => ({ ...o, changed: i === 0 }))}
+              value={[SHAPES[0]?.value ?? ""]}
+              onChange={() => undefined}
+            />
+          </Row>
         </Section>
 
         <Section name="CheckRow" note="52 px rows; the last is the 44 px compact one.">
@@ -577,10 +585,14 @@ export function Gallery() {
           <DisclosureDemo />
         </Section>
 
-        <Section name="DisclosureRow" note="Settings' rows: changed, plain and open.">
+        <Section
+          name="DisclosureRow"
+          note="Settings' rows: changed, with the changed dot, plain and open."
+        >
           <div class="gal__list">
             <DisclosureRow title="Room around trays" changed={2} />
             <DisclosureRow title="Cards" meta="4 values" />
+            <DisclosureRow plain dot title="Per player" meta="4 players" />
             <DisclosureRow title="Rim between layers" meta="5 values" open controls="gal-open" />
           </div>
         </Section>
