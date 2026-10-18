@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Editing a group</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&amp;family=Figtree:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F3EF}:focus-visible{outline:3px solid #2F5BB8;outline-offset:2px}label:focus-within>span{box-shadow:0 0 0 3px #CFDCF6}@media (max-width:760px){main{order:-1}aside{max-width:none !important;flex-basis:100% !important}}
+a{color:#1D1F1C}a:hover{color:#000}
+button,input{font:inherit;color:inherit}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-direction: column; background: #F4F3EF; color: #1D1F1C; font-family: Figtree, system-ui, sans-serif; font-size: 15px">
+
+<header style="height: 60px; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 0 24px; border-bottom: 1px solid #E4E1D9">
+<div aria-hidden="true" style="width: 28px; height: 28px; border-radius: 8px; background: #1D1F1C; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; padding: 5px; box-sizing: border-box">
+<span style="border-radius: 2px; background: #8FB0EE"></span><span style="border-radius: 2px; background: #EDC175"></span><span style="border-radius: 2px; background: #86C79A"></span><span style="border-radius: 2px; background: #E89BBE"></span>
+</div>
+<span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px">Insert Generator</span>
+<span aria-hidden="true" style="width: 1px; height: 22px; background: #DAD6CC"></span>
+<span style="color: #3E413C; padding: 8px 10px">Harbour Kings</span>
+<div style="flex-grow: 1"></div>
+<button type="button" aria-label="Undo" title="Undo" style="width: 44px; height: 44px; border-radius: 999px; border: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-3"></path></svg></button>
+<button type="button" aria-label="Project menu" style="width: 44px; height: 44px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></button>
+<a href="Export.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 18px; border-radius: 999px; background: #1D1F1C; color: #FFFFFF; text-decoration: none; font-weight: 600">Download</a>
+</header>
+
+<div style="flex-grow: 1; display: flex; flex-wrap: wrap">
+
+<aside style="flex: 1 1 300px; max-width: 350px; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #E4E1D9; padding: 12px 20px 20px; display: flex; flex-direction: column; gap: 18px">
+<a href="GroupRail.dc.html" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px 0 4px; border-radius: 8px; text-decoration: none; color: #3E413C; font-weight: 600; font-size: 14px">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+What's inside
+</a>
+
+<div style="display: flex; align-items: center; gap: 12px">
+<span aria-hidden="true" style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: #EDEAE2; color: #3E413C; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M9 5v14M15 5v14"></path></svg></span>
+<label style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #5F625C">Group
+<input type="text" value="Player kit" aria-label="Name" style="width: 100%; box-sizing: border-box; border: 0; border-bottom: 1.5px dashed #DAD6CC; padding: 2px 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 22px; color: #1D1F1C; background: none">
+</label>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Copies</span>
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="Fewer" style="width: 44px; height: 44px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+<input type="text" inputmode="numeric" value="4" aria-label="Copies" style="width: 72px; height: 44px; box-sizing: border-box; text-align: center; border-radius: 12px; border: 1px solid #DAD6CC; font-size: 18px; font-weight: 600">
+<button type="button" aria-label="More" style="width: 44px; height: 44px; border-radius: 999px; border: 1px solid #DAD6CC; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+<span style="font-size: 13px; color: #5F625C">Each copy is its own tray.</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">How often you reach for it</span>
+<div style="display: flex; padding: 3px; border-radius: 999px; background: #EFEDE7" role="group" aria-label="How often you reach for it">
+<button type="button" aria-pressed="true" style="flex: 1; white-space: nowrap; height: 44px; border-radius: 999px; border: 0; background: #FFFFFF; box-shadow: 0 1px 2px rgba(29,31,28,.12); cursor: pointer; font-weight: 600; font-size: 14px">Often</button>
+<button type="button" aria-pressed="false" style="flex: 1; white-space: nowrap; height: 44px; border-radius: 999px; border: 0; background: none; cursor: pointer; color: #3E413C; font-size: 14px">Sometimes</button>
+<button type="button" aria-pressed="false" style="flex: 1; white-space: nowrap; height: 44px; border-radius: 999px; border: 0; background: none; cursor: pointer; color: #3E413C; font-size: 14px">Only at setup</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span id="order-label" style="font-weight: 600">Order in the tray</span>
+<ol aria-labelledby="order-label" style="list-style: none; margin: 0; padding: 4px; display: flex; flex-direction: column; gap: 2px; border-radius: 14px; border: 1px solid #E4E1D9; background: #FAF9F6">
+<sc-for list="{{members}}" as="m" hint-placeholder-count="3">
+<li style="display: flex; align-items: center; gap: 2px; min-height: 52px">
+<span aria-hidden="true" style="width: 24px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #8C8778; cursor: grab"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="8" r="1.5"></circle><circle cx="9" cy="8" r="1.5"></circle><circle cx="3" cy="13" r="1.5"></circle><circle cx="9" cy="13" r="1.5"></circle></svg></span>
+<span aria-hidden="true" style="{{m.swatch}}"></span>
+<a href="Edit.dc.html" style="flex-grow: 1; min-width: 0; display: flex; align-items: center; min-height: 44px; padding: 0 8px; border-radius: 10px; text-decoration: none; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{m.name}}</a>
+<button type="button" aria-label="{{m.upAria}}" aria-disabled="{{m.first}}" style="{{m.upStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"></path></svg></button>
+<button type="button" aria-label="{{m.downAria}}" aria-disabled="{{m.last}}" style="{{m.downStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+</li>
+</sc-for>
+</ol>
+</div>
+
+<div style="display: flex; flex-direction: column; border-top: 1px solid #EEEBE4; border-bottom: 1px solid #EEEBE4">
+<button type="button" aria-expanded="false" style="display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 60px; padding: 0; border: 0; background: none; cursor: pointer; text-align: left">
+<span style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-weight: 600">Extra room</span>
+<span style="font-size: 13px; color: #5F625C">None</span>
+</span>
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+</button>
+</div>
+
+<div style="margin-top: auto; display: flex; justify-content: space-between; align-items: center">
+<button type="button" style="min-height: 44px; border: 0; background: none; padding: 0; cursor: pointer; color: #A13A2C; font-weight: 600">Remove group…</button>
+<a href="GroupRail.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 22px; border-radius: 999px; background: #1D1F1C; color: #FFFFFF; text-decoration: none; font-weight: 600">Done</a>
+</div>
+</aside>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px 40px; display: flex; flex-direction: column; align-items: center; gap: 16px">
+<div style="align-self: stretch; min-height: 52px; display: flex; align-items: center" aria-live="polite">
+<h1 style="margin: 0; font-size: 17px; font-weight: 400"><strong>Player kit</strong>, 4 trays.</h1>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 12px">
+<div style="position: relative; width: min(582px, calc(100vw - 32px)); aspect-ratio: 1; flex-shrink: 0; border-radius: 16px; background: #D3CDBF; box-shadow: inset 0 0 0 1px #BFB8A8">
+<sc-for list="{{trays}}" as="t" hint-placeholder-count="6">
+<span style="{{t.style}}">
+<sc-for list="{{t.cells}}" as="cell"><span style="{{cell.style}}"></span></sc-for>
+<span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+<span style="{{t.nameStyle}}">{{t.label}}</span>
+</span>
+</span>
+</sc-for>
+</div>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #5F625C">Bottom layer, seen from above. Front of the box <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"></path></svg></span>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+const K = {
+  cards: { fill: '#DCE6FA', line: '#335AA6', ink: '#22457E' },
+  bits: { fill: '#FBE9C9', line: '#8A5D08', ink: '#6E4C0E' },
+  tiles: { fill: '#D8EEDE', line: '#2E6B41', ink: '#22552E' },
+  minis: { fill: '#F5DCE7', line: '#964068', ink: '#74244B' }
+};
+// Compartments follow the member order: Starter deck, Resources (three bins), Hero.
+const KIT = [['cards', 1.4], ['bits', 1], ['bits', 1], ['bits', 1], ['minis', 1.1]];
+const MEMBERS = [
+  { name: 'Starter deck', kind: 'cards' },
+  { name: 'Resources', kind: 'bits' },
+  { name: 'Hero', kind: 'minis' }
+];
+const TRAYS = [
+  { kind: 'cards', name: 'Market deck', x: 0, y: 0, w: 95, d: 190 },
+  { kind: 'tiles', name: 'Hex tiles', x: 0, y: 190, w: 95, d: 95 },
+  { group: true, name: 'Player kit 1', x: 95, y: 0, w: 190, d: 71.25 },
+  { group: true, name: 'Player kit 2', x: 95, y: 71.25, w: 190, d: 71.25 },
+  { group: true, name: 'Player kit 3', x: 95, y: 142.5, w: 190, d: 71.25 },
+  { group: true, name: 'Player kit 4', x: 95, y: 213.75, w: 190, d: 71.25 }
+];
+const arrow = (blocked) => `width:44px;height:44px;flex-shrink:0;border-radius:999px;border:0;background:none;display:flex;align-items:center;justify-content:center;cursor:${blocked ? 'not-allowed' : 'pointer'};color:${blocked ? '#B4AFA3' : '#3E413C'}`;
+
+class Component extends DCLogic {
+  renderVals() {
+    const members = MEMBERS.map((m, i) => {
+      const first = i === 0;
+      const last = i === MEMBERS.length - 1;
+      return {
+        name: m.name, first, last,
+        upAria: `Move ${m.name} up`, downAria: `Move ${m.name} down`,
+        upStyle: arrow(first), downStyle: arrow(last),
+        swatch: `width:14px;height:14px;flex-shrink:0;border-radius:4px;box-sizing:border-box;background:${K[m.kind].fill};border:2px solid ${K[m.kind].line}`
+      };
+    });
+    const trays = TRAYS.map((t) => {
+      const k = t.kind ? K[t.kind] : null;
+      const look = t.group ? 'background:#FFFFFF;border:2px solid #3E413C;' : `background:${k.fill};border:2px solid ${k.line};`;
+      // The edited group's trays are lifted, as Edit lifts the edited item's.
+      const lift = t.group ? 'box-shadow:0 0 0 4px #FFFFFF,0 0 0 6px #3E413C,0 14px 28px rgba(29,31,28,.2);z-index:2;' : '';
+      const cells = t.group
+        ? KIT.map(([kind]) => ({ style: `border-radius:6px;background:${K[kind].fill};border:1.5px solid ${K[kind].line}` }))
+        : [{ style: `border-radius:6px;background:rgba(255,255,255,.6);border:1px solid ${k.line}40` }];
+      const columns = t.group ? KIT.map(([, f]) => `${f}fr`).join(' ') : 'minmax(0,1fr)';
+      return {
+        label: t.name, cells,
+        style: `position:absolute;left:${(9 + t.x * 2) / 5.82}%;top:${(9 + t.y * 2) / 5.82}%;width:${(t.w * 2 - 6) / 5.82}%;height:${(t.d * 2 - 6) / 5.82}%;box-sizing:border-box;border-radius:10px;padding:8px;display:grid;grid-template-columns:${columns};gap:6px;opacity:${t.group ? 1 : 0.5};${look}${lift}`,
+        nameStyle: `display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.92);color:${t.group ? '#3E413C' : k.ink};white-space:nowrap`
+      };
+    });
+    return { members, trays };
+  }
+}
+</script>
+</body>
+</html>

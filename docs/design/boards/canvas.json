@@ -148,6 +148,37 @@
       "w": 390,
       "h": 844,
       "title": "M7 · The box"
+    },
+    "GroupRail.dc.html": {
+      "x": 0,
+      "y": 6944,
+      "w": 1440,
+      "h": 900,
+      "title": "G1 · Group in the rail",
+      "expand": "fill"
+    },
+    "GroupEdit.dc.html": {
+      "x": 1520,
+      "y": 6944,
+      "w": 1440,
+      "h": 900,
+      "title": "G2 · Editing a group (Copies, order, Remove group)",
+      "expand": "fill"
+    },
+    "GroupAdd.dc.html": {
+      "x": 3040,
+      "y": 6944,
+      "w": 1440,
+      "h": 900,
+      "title": "G3 · Adding a group (Add has a sixth choice; an empty group card)",
+      "expand": "fill"
+    },
+    "MobileGroup.dc.html": {
+      "x": 4560,
+      "y": 6944,
+      "w": 390,
+      "h": 844,
+      "title": "G4 · A group on a phone"
     }
   },
   "order": [
@@ -168,7 +199,11 @@
     "MobileDownload.dc.html",
     "EditKinds.dc.html",
     "MobileFix.dc.html",
-    "MobileBox.dc.html"
+    "MobileBox.dc.html",
+    "GroupRail.dc.html",
+    "GroupEdit.dc.html",
+    "GroupAdd.dc.html",
+    "MobileGroup.dc.html"
   ],
   "notes": {
     "control": {
@@ -214,6 +249,13 @@
       "fill": "orange",
       "size": "m",
       "text": "Needs engine work (designed, not yet possible):\n\n• Full undo/redo: the engine has one step, layout only.\n• Engraved tray names: only digits can be engraved today.\n• Keep a tray on a chosen layer: layers are derived from stacks; needs a new lock kind and a schema bump. Pin locks a whole stack today.\n• Fix suggestions with outcomes (Make it fit, Unpin one): each needs a trial layout run; show “Checking…” while they run.\n• Keep it next to: no adjacency today (grouping merges into one tray).\n• Live “Still fits” preview in Settings: needs a side run of the optimizer.\n\nAlready possible: pin, one 90° turn, tighter layout with progress, box headroom, per-player piles, room to grow, project files."
+    },
+    "groups": {
+      "x": 0,
+      "y": 6644,
+      "text": "Groups",
+      "kind": "title1",
+      "maxW": 4950
     }
   },
   "designSystems": []
