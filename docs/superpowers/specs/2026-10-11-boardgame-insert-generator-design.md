@@ -864,8 +864,12 @@ See the minimal-trays spec §6.2 for the measurements.
   rows; bulk wide-and-shallow vs narrow-and-deep; minis standing or lying
   (`h` swapped with the larger of `w`, `d`) when too tall; and **splits**
   across 1–3 trays for every kind (cards and tiles at deck/column boundaries,
-  bulk by item line, minis by figure). At most 8 variants per requirement, in
-  a fixed order. Decks are split into rows greedily by size, largest first.
+  bulk by item line, minis by figure). At most 8 variants per storage option
+  of a requirement, in a fixed order, so `auto` offers every variant each
+  storage offers alone and never fits worse than one of them (0.5.3: a cap of
+  8 per requirement dropped auto's 3-tray splits, and a Starter deck that fit
+  flat had no fit on auto). Decks are split into rows greedily by size,
+  largest first.
 
 With `storage: "auto"`, `sizing` emits all variants. Otherwise only the
 chosen ones. With `perPlayer`, it emits one requirement with two variant

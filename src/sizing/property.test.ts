@@ -383,24 +383,36 @@ function allParts(components: Component[], s: Settings): TrayPartReq[] {
 }
 
 describe("sizing properties", () => {
-  it("returns 1–8 uniquely named variants with non-empty parts", { timeout: 60_000 }, () => {
-    fc.assert(
-      fc.property(componentsArb, settingsArb, (components, s) => {
-        for (const req of sized(components, s).requirements) {
-          expect(req.variants.length).toBeGreaterThanOrEqual(1);
-          expect(req.variants.length).toBeLessThanOrEqual(8);
-          expect(new Set(req.variants.map((v) => v.id)).size).toBe(req.variants.length);
-          for (const v of req.variants) {
-            expect(v.parts.length).toBeGreaterThan(0);
-            for (const part of v.parts) {
-              expect(part.compartments.length).toBeGreaterThan(0);
+  it(
+    "returns 1–8 uniquely named variants per storage option with non-empty parts",
+    { timeout: 60_000 },
+    () => {
+      fc.assert(
+        fc.property(componentsArb, settingsArb, (components, s) => {
+          for (const req of sized(components, s).requirements) {
+            expect(req.variants.length).toBeGreaterThanOrEqual(1);
+            // ids are "<option>|<arrangement>|<split>…"
+            const perOption = new Map<string, number>();
+            for (const v of req.variants) {
+              const option = v.id.split("|")[0] ?? "";
+              perOption.set(option, (perOption.get(option) ?? 0) + 1);
+            }
+            for (const n of perOption.values()) {
+              expect(n).toBeLessThanOrEqual(8);
+            }
+            expect(new Set(req.variants.map((v) => v.id)).size).toBe(req.variants.length);
+            for (const v of req.variants) {
+              expect(v.parts.length).toBeGreaterThan(0);
+              for (const part of v.parts) {
+                expect(part.compartments.length).toBeGreaterThan(0);
+              }
             }
           }
-        }
-      }),
-      { numRuns: 200, seed: SEED },
-    );
-  });
+        }),
+        { numRuns: 200, seed: SEED },
+      );
+    },
+  );
 
   it("realizes every variant part at its minOuter, at every option", { timeout: 120_000 }, () => {
     // size() keeps only variants whose every compartment gets its cut (roadmap §4.7).

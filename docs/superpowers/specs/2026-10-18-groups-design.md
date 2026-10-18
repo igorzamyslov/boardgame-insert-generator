@@ -283,7 +283,7 @@ The "no finger slot" notice says `the group "<name>"`, not the key.
   `p0`, as now.
 - Each copy may be split into 1–3 parts (`MAX_SPLITS`), the same way in every copy:
   strip/rows2 × split1/2/3, at most 6 variants per storage option, still capped at
-  `MAX_VARIANTS`. Today a per-player copy can never split, so a kit too big for the bed has no
+  `MAX_VARIANTS` per storage option (since 0.5.3 the cap is per option, not per requirement). Today a per-player copy can never split, so a kit too big for the bed has no
   variant at all; now it splits when it must.
 - Compartment contents no longer get " (P1)" suffixes: the tray name carries the copy (§6.6).
 
