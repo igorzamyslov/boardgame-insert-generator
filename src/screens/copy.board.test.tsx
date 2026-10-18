@@ -298,6 +298,17 @@ const CASES: readonly Case[] = [
     steps: searchSettings("unused"),
   },
   { state: "settings-nomatch", board: "Settings", region: "drawer", steps: searchSettings("zzzz") },
+  {
+    // Fill small gaps with on Thicker walls: its hint, the thickness box and the way back
+    state: "settings-spacers-walls",
+    board: "Settings",
+    region: "drawer",
+    steps: () => {
+      openSettings();
+      inDrawer(/^Spacers and space/);
+      inDrawer("Thicker walls");
+    },
+  },
   ...EXACT_GROUPS.filter((g) => g.id !== "walls").map((g): Case => ({
     state: `settings-${g.id}`,
     board: "Settings",

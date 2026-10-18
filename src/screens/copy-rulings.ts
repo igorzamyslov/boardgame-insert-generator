@@ -266,6 +266,7 @@ export const SETTINGS_STATES: readonly string[] = [
   "settings-printer-unsaved",
   "settings-search",
   "settings-nomatch",
+  "settings-spacers-walls",
   ...EXACT_GROUPS.map((g) => `settings-${g.id}`),
 ];
 const SET_FIRST = "Settings' first screen is the board's plain choices";
@@ -276,6 +277,7 @@ const SET_DETAILS =
 const SET_INTRO = "My printer's intro names the values it covers";
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
+const SET_GAPS = "Fill small gaps with is one choice of what the engine does with spare room";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
 export const COPY_RULINGS: readonly CopyRuling[] = [
@@ -288,7 +290,26 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Unused space", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Solid block", states: SETTINGS_STATES, ruling: SET_EXACT },
-  { text: "One thick wall instead of a spacer", states: SETTINGS_STATES, ruling: SET_EXACT },
+  { text: "Fill small gaps with", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "A spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "Thicker walls", states: SETTINGS_STATES, ruling: SET_GAPS },
+  { text: "One thick wall", states: SETTINGS_STATES, ruling: SET_GAPS },
+  {
+    text: "A gap a tray can't use is printed as a separate spacer.",
+    states: SETTINGS_STATES,
+    ruling: SET_GAPS,
+  },
+  {
+    text: "Instead of a spacer, every wall and divider may get up to {n} mm thicker.",
+    states: SETTINGS_STATES,
+    ruling: SET_GAPS,
+  },
+  {
+    text: "Instead of a spacer, one outer wall in each direction takes up to {n} mm, avoiding walls with a finger cut. A bigger gap still gets a spacer.",
+    states: SETTINGS_STATES,
+    ruling: SET_GAPS,
+  },
+  { text: "Back to a spacer", states: SETTINGS_STATES, ruling: SET_GAPS },
   { text: "You set the fit to {n} below.", states: SETTINGS_STATES, ruling: SET_FIRST },
   { text: "Extra space beside walls to reach in", states: SETTINGS_STATES, ruling: SET_WORDS },
   { text: "No exact number matches.", states: SETTINGS_STATES, ruling: SET_EXACT },

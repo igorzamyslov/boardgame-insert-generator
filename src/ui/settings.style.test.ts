@@ -90,6 +90,26 @@ describe("settings.css", () => {
     expect(ruleFor(".st-switch")).toMatch(/flex-direction:\s*column/);
   });
 
+  it("ends every number box at the row's edge: no grid gap, the boxes and pills carry their own 12 px", () => {
+    const rows = ruleFor(".st-rows");
+    // a column gap would sit after an empty way-back column and push every box off the edge
+    expect(rows).toMatch(/gap:\s*var\(--s-4\) 0;/);
+    expect(ruleFor(".st-card .st-num")).toMatch(/margin-left:\s*var\(--s-12\)/);
+    expect(ruleFor(".st-rows .st-back")).toMatch(/margin-left:\s*var\(--s-12\)/);
+    // a choice takes the whole row and never the number columns, which it would widen
+    const choice = ruleFor(".st-row__choice");
+    expect(choice).toMatch(/grid-column:\s*1 \/ -1/);
+    expect(choice).toMatch(/flex-direction:\s*column/);
+    expect(stripped).not.toMatch(/span 2/);
+    // the choice's own way back sits at the row's left, not 12 px in
+    expect(ruleFor(".st-rows .st-row__choice .st-back")).toMatch(/margin-left:\s*0/);
+  });
+
+  it("right-aligns the printer's number fields as the groups' boxes are", () => {
+    expect(ruleFor(".st-details .k-field .k-field__input")).toMatch(/text-align:\s*right/);
+    expect(ruleFor(".st-card .st-num")).toMatch(/text-align:\s*right/);
+  });
+
   it("draws the other-printer row in the info colours, 12 14, radius 12", () => {
     const other = ruleFor(".st-other");
     expect(other).toMatch(/padding:\s*var\(--s-12\) var\(--s-14\)/);

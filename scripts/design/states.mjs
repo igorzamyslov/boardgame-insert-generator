@@ -485,6 +485,20 @@ export const STATES = {
       SCROLL,
     ],
   },
+  // "Fill small gaps with" on Thicker walls: the choice, what it does, the wall thickness box under it
+  // (right-aligned like every number box) and the way back.
+  "settings-spacers-walls": {
+    board: "Settings",
+    nearest: "Settings' open group card, with the group the board does not draw, on Thicker walls",
+    viewport: { width: 1440, height: 1500 },
+    seed: "harbour-kings",
+    steps: [
+      MENU,
+      { click: { role: "button", name: "Settings" } },
+      { click: { role: "button", name: /^Spacers and space/, in: DRAWER } },
+      { click: { role: "button", name: "Thicker walls", in: DRAWER } },
+    ],
+  },
   // The same drawer on a phone: full screen, the board drawn at 390.
   "m-settings": {
     board: "Settings",

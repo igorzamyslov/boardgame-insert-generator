@@ -32,9 +32,9 @@ describe("EXACT_GROUPS", () => {
     expect(count("Rim between layers")).toBe(5);
   });
 
-  it("puts Unused space and One thick wall under Spacers and space, beside the wall absorption", () => {
+  it("puts Unused space and Fill small gaps with under Spacers and space, which draws the wall thickness", () => {
     const g = EXACT_GROUPS.find((x) => x.title === "Spacers and space");
-    expect(g?.extras).toEqual(["leftover", "oneWall"]);
+    expect(g?.extras).toEqual(["leftover", "spareRoom"]);
     expect(g?.paths).toEqual(["wallAbsorb"]);
   });
 
@@ -81,6 +81,16 @@ describe("changedCount: what the header says is what the sheet shows", () => {
     expect(
       changedCount({ ...one, fingerPocket: { ...one.fingerPocket, width: 30, floorNotch: 10 } }),
     ).toBe(3);
+  });
+
+  it("counts Fill small gaps with once, though it writes two settings", () => {
+    expect(changedCount({ ...DEFAULT_SETTINGS, wallAbsorb: 2 })).toBe(1);
+    expect(changedCount({ ...DEFAULT_SETTINGS, oneWall: true })).toBe(1);
+    expect(changedCount({ ...DEFAULT_SETTINGS, oneWall: true, wallAbsorb: 2 })).toBe(1);
+    expect(changedByTab({ ...DEFAULT_SETTINGS, oneWall: true, wallAbsorb: 2 })).toEqual({
+      insert: 1,
+      printer: 0,
+    });
   });
 
   it("counts every switch once", () => {
