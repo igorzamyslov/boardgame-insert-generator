@@ -681,7 +681,7 @@ describe("workspace.css", () => {
     );
     // ... and the panel, which is what scrolls, puts the padding back inside itself
     const panel = ruleFor(".ws-rail > .ws-interim > .ed", stripped);
-    expect(panel).toMatch(/padding-right:\s*var\(--rail-pad\)/);
+    expect(panel).toMatch(/padding-right:\s*calc\(var\(--rail-pad\) - var\(--scroll-gutter\)\)/);
     expect(panel).toMatch(/scrollbar-gutter:\s*stable/);
     // only in the rail: a phone's sheet holds the same editor and has no padding to reach over
     expect(ruleFor(".ws-interim", stripped)).not.toMatch(/margin-right/);

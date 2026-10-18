@@ -281,10 +281,15 @@ function RowOf({ row, settings, onChange }: SettingsFormProps & { row: RowSpec }
 
 /** How many of a group's values differ from their defaults. */
 function changedIn(g: ExactGroup, s: Settings): number {
-  const numbers = g.paths.filter((p) => {
+  const differs = (p: string): boolean => {
     const r = rangeOf(p);
     return r !== undefined && r.get(s) !== r.get(DEFAULT_SETTINGS);
-  }).length;
+  };
+  // Room for fingers writes two numbers (wall and divider room): one setting, as the header counts it.
+  const room = ["fingerPocket/wallRoom", "fingerPocket/dividerRoom"];
+  const numbers =
+    g.paths.filter((p) => !room.includes(p) && differs(p)).length +
+    (g.paths.some((p) => room.includes(p)) && room.some(differs) ? 1 : 0);
   const extras = (g.extras ?? []).filter((e) => s[e] !== DEFAULT_SETTINGS[e]).length;
   return numbers + extras;
 }

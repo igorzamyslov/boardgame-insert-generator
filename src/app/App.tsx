@@ -466,6 +466,8 @@ export function App(props: AppProps) {
   };
 
   // The component the selected tray belongs to: its row in the rail is pressed.
+  // The plan's layers, once: the Layer switch and the 3D view both read this list.
+  const planLevels = useMemo(() => levelsOf(layout?.trays ?? []), [layout]);
   const selectedTray = layout ? printable.find((t) => t.key === s.selection.value) : undefined;
   const selectedIds =
     selectedTray === undefined ? [] : componentIdsOfTray(selectedTray, project.components);
@@ -894,6 +896,7 @@ export function App(props: AppProps) {
           <StageTop
             {...statusInput}
             trays={layout?.trays}
+            levels={planLevels}
             level={s.viewLevel.value}
             onLevelChange={(l) => {
               s.viewLevel.value = l;
@@ -955,6 +958,7 @@ export function App(props: AppProps) {
                     meshes={meshes}
                     selectedKey={s.selection.value}
                     topLayer={s.viewCut.value}
+                    levels={planLevels}
                     onSelect={(key) => {
                       s.selection.value = key;
                     }}

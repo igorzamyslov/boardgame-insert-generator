@@ -377,6 +377,23 @@ describe("InsertSettings: what differs from the default", () => {
     expect(within(card("Shape and printing")).getByText("2 changed")).toBeTruthy();
   });
 
+  it("counts Room for fingers once in the Finger cuts card, as the header does", () => {
+    render(
+      <InsertSettings settings={applyFingerRoom(DEFAULT_SETTINGS, true)} onChange={vi.fn()} />,
+    );
+    expect(groupRow("Finger cuts").textContent).toBe("Finger cuts1 changed");
+    // a number of its own beside it is a second change
+    cleanup();
+    const more = applyFingerRoom(DEFAULT_SETTINGS, true);
+    render(
+      <InsertSettings
+        settings={{ ...more, fingerPocket: { ...more.fingerPocket, width: 30 } }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(groupRow("Finger cuts").textContent).toBe("Finger cuts2 changed");
+  });
+
   it("counts a choice made in the plain controls, which write the same numbers", () => {
     render(
       <InsertSettings settings={applyWallChoice(DEFAULT_SETTINGS, "sturdy")} onChange={vi.fn()} />,

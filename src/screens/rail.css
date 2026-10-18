@@ -131,7 +131,7 @@
   min-height: 0;
   margin: calc(-1 * var(--s-5)) calc(-1 * var(--rail-pad)) calc(-1 * var(--s-5))
     calc(-1 * var(--s-5));
-  padding: var(--s-5) var(--rail-pad) var(--s-5) var(--s-5);
+  padding: var(--s-5) calc(var(--rail-pad) - var(--scroll-gutter)) var(--s-5) var(--s-5);
   overflow: auto;
   overscroll-behavior: contain;
   list-style: none;

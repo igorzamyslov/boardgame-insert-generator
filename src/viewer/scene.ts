@@ -97,6 +97,9 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   camera.up.set(0, 0, 1);
   camera.position.set(150, -300, 300);
   const controls = new OrbitControls(camera, canvas);
+  // The camera turns and zooms about the middle of the box and never slides off it: the fit (fit.ts)
+  // holds for a sphere about that point only.
+  controls.enablePan = false;
   // The controls switch the canvas to touch-action: none, which would trap a phone's page scroll
   // on this full-width canvas. One finger scrolls the page (a tap still picks a tray); two
   // fingers zoom and turn. The mouse keeps drag to turn, wheel to zoom.

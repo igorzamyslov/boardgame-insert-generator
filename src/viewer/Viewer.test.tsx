@@ -439,6 +439,17 @@ describe("Viewer", () => {
     }
   });
 
+  it("reads the cut against the level list it is given, the one the Layer switch was made from", async () => {
+    const scene = stubScene();
+    const p = props({ levels: [0, 7] }, scene);
+    const view = render(<Viewer {...p} topLayer={1} />);
+    await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+    // the trays' own levels are 0 and 1; the given list says the second layer is level 7
+    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(7);
+    view.rerender(<Viewer {...p} topLayer={2} />);
+    await waitFor(() => expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(null));
+  });
+
   it("falls back to all layers when the cut layer no longer exists", async () => {
     const scene = stubScene();
     const p = props({ topLayer: 1 }, scene);

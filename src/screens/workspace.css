@@ -99,7 +99,7 @@
 }
 
 .ws-rail > .ws-interim > .ed {
-  padding-right: var(--rail-pad);
+  padding-right: calc(var(--rail-pad) - var(--scroll-gutter));
   scrollbar-gutter: stable;
   scrollbar-width: thin;
 }

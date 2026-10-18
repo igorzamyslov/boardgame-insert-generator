@@ -322,8 +322,11 @@ const ALL_LAYERS = "all";
  * no height: the status line gives the plan's. With `all` (the 3D view) a first option, "All",
  * cuts nothing away.
  */
-export function layerOptions(trays: readonly TraySpec[], all = false) {
-  const levels = levelsOf(trays);
+export function layerOptions(
+  trays: readonly TraySpec[],
+  all = false,
+  levels: readonly number[] = levelsOf(trays),
+) {
   const layers = levels.map((_, i) => ({ value: String(i), label: layerLabel(i, levels.length) }));
   return all ? [{ value: ALL_LAYERS, label: "All" }, ...layers] : layers;
 }
@@ -331,6 +334,8 @@ export function layerOptions(trays: readonly TraySpec[], all = false) {
 export interface StageTopProps extends StatusInput {
   /** The stored plan's trays (`layout.trays`), for the Layer switch; without them (no plan) there are no switches. */
   trays?: readonly TraySpec[];
+  /** The plan's layers (`levelsOf(trays)`), the list the 3D view is given too; made from `trays` when absent. */
+  levels?: readonly number[];
   /** The layer the plan shows (0 = the bottom). */
   level: number;
   onLevelChange: (level: number) => void;
@@ -443,7 +448,7 @@ export function StageTop(p: StageTopProps) {
     });
 
   const in3d = p.view === "3d";
-  const options = p.trays === undefined ? [] : layerOptions(p.trays, in3d);
+  const options = p.trays === undefined ? [] : layerOptions(p.trays, in3d, p.levels);
   const layers = options.length - (in3d ? 1 : 0);
   const layerValue = in3d
     ? p.cut === null || p.cut >= layers

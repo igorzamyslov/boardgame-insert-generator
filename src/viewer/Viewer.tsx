@@ -31,6 +31,11 @@ export interface ViewerProps {
    * to it; null or none shows every layer. A layer the plan no longer has shows everything.
    */
   topLayer?: number | null;
+  /**
+   * The plan's layers (`levelsOf`), the one list the Layer switch is made from: `topLayer` is an
+   * index into it. Without it the list is made from `trays`.
+   */
+  levels?: readonly number[];
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -58,7 +63,8 @@ export function Viewer(p: ViewerProps) {
   // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
   const [canvasKey, setCanvasKey] = useState(0);
   const scheme = pageScheme();
-  const levels = useMemo(() => levelsOf(p.trays), [p.trays]);
+  const ownLevels = useMemo(() => levelsOf(p.trays), [p.trays]);
+  const levels = p.levels ?? ownLevels;
   const parts = useMemo(() => numberParts(p.trays), [p.trays]);
   const byKey = useMemo(() => partsByKey(parts), [parts]);
   const names = useMemo(() => trayNames(parts, p.components ?? []), [parts, p.components]);

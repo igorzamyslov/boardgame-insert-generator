@@ -32,7 +32,7 @@ describe("rail.css", () => {
     expect(list).toMatch(/scrollbar-gutter:\s*stable/);
     // it reaches over the rail's padding to the edge, and puts the padding back inside itself
     expect(list).toMatch(/margin:[^;]*calc\(-1 \* var\(--rail-pad\)\)/);
-    expect(list).toMatch(/padding:[^;]*var\(--rail-pad\)/);
+    expect(list).toMatch(/padding:[^;]*calc\(var\(--rail-pad\) - var\(--scroll-gutter\)\)/);
     // the phone's sheet list has no scroll of its own and no rail to reach over
     const sheet = ruleFor(".rail-list--sheet");
     expect(sheet).toMatch(/margin:\s*0/);
