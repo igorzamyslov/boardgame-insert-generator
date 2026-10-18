@@ -12,6 +12,11 @@ export interface ShotsScene {
    * colour a faded tray moves toward.
    */
   tints(): { page: string; trays: Record<string, { color: string; base: string }> };
+  /**
+   * How far the model is from being cut off by the frame now: the largest x or y of any corner of
+   * the box or of a part shown, in the frame's own -1..1 (a value over 1 is a part outside the frame).
+   */
+  framing(): { overflow: number };
 }
 
 /** Offers `scene` to the harness as `globalThis.__shotsScene`; the returned function takes it back. */

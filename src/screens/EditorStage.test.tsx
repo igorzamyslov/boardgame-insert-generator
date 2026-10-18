@@ -67,6 +67,89 @@ describe("EditorStage", () => {
     expect(lifted).not.toBeNull();
   });
 
+  describe("the Layer switch", () => {
+    const layerGroup = (): HTMLElement => within(stage()).getByRole("group", { name: "Layer" });
+    const pressed = (): string[] =>
+      within(layerGroup())
+        .getAllByRole("button", { pressed: true })
+        .map((b) => b.textContent ?? "");
+    const shownKeys = (): string[] =>
+      [...document.querySelectorAll<HTMLElement>(".plan-tile[data-key]")].map(
+        (t) => t.dataset.key as string,
+      );
+    const open = (name: RegExp): void => {
+      const rail = screen.getByRole("complementary", { name: "What's inside" });
+      fireEvent.click(within(rail).getByRole("button", { name }));
+    };
+
+    it("is in the slot beside the sentence, one group, with the layers' names", () => {
+      renderApp({ project: loadSeed("harbour-kings").project });
+      editMarket();
+      const slot = stage().querySelector(".ed-slot__row") as HTMLElement;
+      expect(slot.contains(layerGroup())).toBe(true);
+      expect(screen.getAllByRole("group", { name: "Layer" })).toHaveLength(1);
+      expect(
+        within(layerGroup())
+          .getAllByRole("button")
+          .map((b) => b.textContent),
+      ).toEqual(["Layer 1 (bottom)", "Layer 2 (top)"]);
+      expect(within(layerGroup()).queryByText("All")).toBeNull();
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    });
+
+    it("opens on the layer of the item's first tray, and the other layer shows when picked", () => {
+      const { project } = loadSeed("harbour-kings");
+      renderApp({ project });
+      editMarket();
+      const trays = project.layout?.trays ?? [];
+      const level = (key: string): number => trays.find((t) => t.key === key)?.level ?? -1;
+      const first = trays.find((t) => t.key.startsWith("market01:"));
+      expect(first).toBeDefined();
+      const home = first?.level ?? 0;
+      expect(pressed()).toEqual([home === 0 ? "Layer 1 (bottom)" : "Layer 2 (top)"]);
+      expect(shownKeys().every((k) => level(k) === home)).toBe(true);
+      expect(document.querySelector(".plan-tile.is-lifted")).not.toBeNull();
+      // the other layer: its trays are drawn, and the item's are not on it
+      fireEvent.click(
+        within(layerGroup()).getByRole("button", {
+          name: home === 0 ? "Layer 2 (top)" : "Layer 1 (bottom)",
+        }),
+      );
+      expect(shownKeys().length).toBeGreaterThan(0);
+      expect(shownKeys().every((k) => level(k) !== home)).toBe(true);
+      expect(shownKeys().some((k) => k.startsWith("market01:"))).toBe(false);
+      expect(document.querySelector(".plan-tile.is-lifted")).toBeNull();
+    });
+
+    it("opens another item on its own layer, whatever layer was looked at before", () => {
+      const { project } = loadSeed("harbour-kings");
+      renderApp({ project });
+      editMarket();
+      const before = pressed()[0];
+      fireEvent.click(
+        within(layerGroup()).getByRole("button", {
+          name: before === "Layer 1 (bottom)" ? "Layer 2 (top)" : "Layer 1 (bottom)",
+        }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Done" }));
+      open(/^Event cards, /);
+      const event = (project.layout?.trays ?? []).find((t) => t.key.startsWith("event"));
+      const expected = event?.level === 0 ? "Layer 1 (bottom)" : "Layer 2 (top)";
+      expect(pressed()).toEqual([expected]);
+      expect(document.querySelector(".plan-tile.is-lifted")).not.toBeNull();
+    });
+
+    it("is not there for a plan of one layer", () => {
+      const { project } = loadSeed("harbour-kings");
+      const one = (project.layout?.trays ?? []).map((t) => ({ ...t, level: 0 }));
+      renderApp({
+        project: { ...project, layout: project.layout && { ...project.layout, trays: one } },
+      });
+      editMarket();
+      expect(screen.queryByRole("group", { name: "Layer" })).toBeNull();
+    });
+  });
+
   it("shows an option change as a note in the slot, in place of the h1", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const { project } = loadSeed("harbour-kings");

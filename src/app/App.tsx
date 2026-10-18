@@ -37,7 +37,7 @@ import { SettingsSheet, settingsTabFor } from "../ui/SettingsSheet";
 import type { SettingsTab } from "../ui/SettingsSheet";
 import { NARROW_QUERY, PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import { SelectedTrayBar } from "../ui/SelectedTrayBar";
-import { componentIndexOfTray, mm } from "../ui/identity";
+import { componentIdsOfTray, mm } from "../ui/identity";
 import { misfitOf, namedConflicts } from "../ui/noFit";
 import {
   SettingsContext,
@@ -186,6 +186,10 @@ export function App(props: AppProps) {
   function showView(next: StageView): void {
     if (next !== "plan") {
       s.swapFrom.value = null;
+    }
+    if (next === "3d") {
+      // 3D opens on every layer; the cut is a look at the model, not a choice to carry back
+      s.viewCut.value = null;
     }
     stageView.value = next;
   }
@@ -462,11 +466,11 @@ export function App(props: AppProps) {
   };
 
   // The component the selected tray belongs to: its row in the rail is pressed.
+  // The plan's layers, once: the Layer switch and the 3D view both read this list.
+  const planLevels = useMemo(() => levelsOf(layout?.trays ?? []), [layout]);
   const selectedTray = layout ? printable.find((t) => t.key === s.selection.value) : undefined;
-  const selectedIndex =
-    selectedTray === undefined ? null : componentIndexOfTray(selectedTray, project.components);
-  const selectedId =
-    selectedIndex === null ? null : (project.components[selectedIndex]?.id ?? null);
+  const selectedIds =
+    selectedTray === undefined ? [] : componentIdsOfTray(selectedTray, project.components);
   // The tray the closest attempt could not fit, for the status and for the picture that marks it.
   const misfit = noFit
     ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components)
@@ -562,7 +566,7 @@ export function App(props: AppProps) {
       box={project.box}
       printer={projPrinter}
       phone={phone}
-      selectedId={selectedId}
+      selectedIds={selectedIds}
       culprits={culprits}
       onOpenBox={openBox}
       onSettings={() => openSettings()}
@@ -892,9 +896,14 @@ export function App(props: AppProps) {
           <StageTop
             {...statusInput}
             trays={layout?.trays}
+            levels={planLevels}
             level={s.viewLevel.value}
             onLevelChange={(l) => {
               s.viewLevel.value = l;
+            }}
+            cut={s.viewCut.value}
+            onCutChange={(c) => {
+              s.viewCut.value = c;
             }}
             view={view}
             onViewChange={showView}
@@ -948,6 +957,8 @@ export function App(props: AppProps) {
                     stale={s.stale.value}
                     meshes={meshes}
                     selectedKey={s.selection.value}
+                    topLayer={s.viewCut.value}
+                    levels={planLevels}
                     onSelect={(key) => {
                       s.selection.value = key;
                     }}

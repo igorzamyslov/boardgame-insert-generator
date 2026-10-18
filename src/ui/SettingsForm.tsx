@@ -169,6 +169,63 @@ function NumberRow({ range, settings, onChange }: SettingsFormProps & { range: R
   );
 }
 
+/**
+ * A switch of Settings: the kit's CheckRow, with the changed dot after its label and, while it
+ * differs from its default, a way back under it ("Back to off"), as the numbers have. The default
+ * is the switch's own: `changed` says it differs and `defaultOn` what Back puts it to.
+ */
+function SwitchRow({
+  label,
+  hint,
+  compact,
+  blocked,
+  checked,
+  changed,
+  defaultOn,
+  onChange,
+  onBack,
+}: {
+  label: string;
+  hint?: string;
+  compact?: boolean;
+  blocked?: boolean;
+  checked: boolean;
+  changed: boolean;
+  defaultOn: boolean;
+  onChange: (on: boolean) => void;
+  onBack: () => void;
+}) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const word = defaultOn ? "on" : "off";
+  return (
+    <div class="st-switch" ref={wrap}>
+      <CheckRow
+        label={label}
+        hint={hint}
+        compact={compact}
+        blocked={blocked}
+        checked={checked}
+        changed={changed}
+        onChange={onChange}
+      />
+      {changed ? (
+        <button
+          type="button"
+          class="st-back st-back--switch"
+          aria-label={`Back to ${word} for ${label}`}
+          onClick={() => {
+            onBack();
+            // The button goes with the difference: keep the keyboard on the switch.
+            wrap.current?.querySelector("input")?.focus();
+          }}
+        >
+          {`Back to ${word}`}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 const LEFTOVER_CHOICES = [
   { value: "spare", label: "Spare tray" },
   { value: "solid", label: "Solid block" },
@@ -198,12 +255,14 @@ function LeftoverRow({ settings, onChange }: SettingsFormProps) {
 function OneWallRow({ settings, onChange }: SettingsFormProps) {
   return (
     <div class="st-row__check">
-      <CheckRow
+      <SwitchRow
         compact
         label="One thick wall instead of a spacer"
         changed={settings.oneWall !== DEFAULT_SETTINGS.oneWall}
+        defaultOn={DEFAULT_SETTINGS.oneWall}
         checked={settings.oneWall}
         onChange={(oneWall) => onChange({ ...settings, oneWall })}
+        onBack={() => onChange({ ...settings, oneWall: DEFAULT_SETTINGS.oneWall })}
       />
     </div>
   );
@@ -222,10 +281,15 @@ function RowOf({ row, settings, onChange }: SettingsFormProps & { row: RowSpec }
 
 /** How many of a group's values differ from their defaults. */
 function changedIn(g: ExactGroup, s: Settings): number {
-  const numbers = g.paths.filter((p) => {
+  const differs = (p: string): boolean => {
     const r = rangeOf(p);
     return r !== undefined && r.get(s) !== r.get(DEFAULT_SETTINGS);
-  }).length;
+  };
+  // Room for fingers writes two numbers (wall and divider room): one setting, as the header counts it.
+  const room = ["fingerPocket/wallRoom", "fingerPocket/dividerRoom"];
+  const numbers =
+    g.paths.filter((p) => !room.includes(p) && differs(p)).length +
+    (g.paths.some((p) => room.includes(p)) && room.some(differs) ? 1 : 0);
   const extras = (g.extras ?? []).filter((e) => s[e] !== DEFAULT_SETTINGS[e]).length;
   return numbers + extras;
 }
@@ -437,23 +501,40 @@ function HowTheTraysSit({
         />
       </Labelled>
       <div class="st-checks">
-        <CheckRow
+        <SwitchRow
           label="Room for fingers"
           hint="Extra space beside walls to reach in"
           checked={fingerRoomOf(settings) !== false}
+          // it is one switch though it writes two numbers: either one off its default is a change
+          changed={fingerRoomOf(settings) !== fingerRoomOf(DEFAULT_SETTINGS)}
+          defaultOn={fingerRoomOf(DEFAULT_SETTINGS) !== false}
           onChange={(on) => onChange(applyFingerRoom(settings, on))}
+          onBack={() =>
+            onChange(applyFingerRoom(settings, fingerRoomOf(DEFAULT_SETTINGS) !== false))
+          }
         />
-        <CheckRow
+        <SwitchRow
           label="Rim between layers"
           hint="A small rim on each tray keeps the top layer from sliding"
           checked={settings.lip.enabled}
+          changed={settings.lip.enabled !== DEFAULT_SETTINGS.lip.enabled}
+          defaultOn={DEFAULT_SETTINGS.lip.enabled}
           onChange={(enabled) => onChange({ ...settings, lip: { ...settings.lip, enabled } })}
+          onBack={() =>
+            onChange({
+              ...settings,
+              lip: { ...settings.lip, enabled: DEFAULT_SETTINGS.lip.enabled },
+            })
+          }
         />
-        <CheckRow
+        <SwitchRow
           label="Fill to the lid"
           hint="Keeps everything snug if the box is stored on its side"
           checked={settings.fillToTop}
+          changed={settings.fillToTop !== DEFAULT_SETTINGS.fillToTop}
+          defaultOn={DEFAULT_SETTINGS.fillToTop}
           onChange={(fillToTop) => onChange({ ...settings, fillToTop })}
+          onBack={() => onChange({ ...settings, fillToTop: DEFAULT_SETTINGS.fillToTop })}
         />
       </div>
     </section>
@@ -533,7 +614,7 @@ export function PrintingOptions({
         <span class="st-tag">Doesn't move any trays</span>
       </h2>
       <div class="st-checks">
-        <CheckRow
+        <SwitchRow
           compact
           label="Engrave tray names"
           hint={
@@ -542,13 +623,19 @@ export function PrintingOptions({
               : `Long names are shortened to fit, like “${nameExample.full}” → “${nameExample.short}”`
           }
           checked={settings.engraveNames}
+          changed={settings.engraveNames !== DEFAULT_SETTINGS.engraveNames}
+          defaultOn={DEFAULT_SETTINGS.engraveNames}
           onChange={(engraveNames) => onChange({ ...settings, engraveNames })}
+          onBack={() => onChange({ ...settings, engraveNames: DEFAULT_SETTINGS.engraveNames })}
         />
-        <CheckRow
+        <SwitchRow
           compact
           label="Join spacers into fewer pieces to print"
           checked={settings.mergeFillers}
+          changed={settings.mergeFillers !== DEFAULT_SETTINGS.mergeFillers}
+          defaultOn={DEFAULT_SETTINGS.mergeFillers}
           onChange={(mergeFillers) => onChange({ ...settings, mergeFillers })}
+          onBack={() => onChange({ ...settings, mergeFillers: DEFAULT_SETTINGS.mergeFillers })}
         />
       </div>
     </section>
@@ -559,13 +646,16 @@ export function PrintingOptions({
 export function FoldRisers({ settings, onChange }: SettingsFormProps) {
   const blocked = !settings.mergeFillers;
   return (
-    <CheckRow
+    <SwitchRow
       compact
       label="Fold risers into the joined spacers"
       hint={blocked ? "Needs joined spacers." : undefined}
       blocked={blocked}
       checked={settings.mergeRisers}
+      changed={settings.mergeRisers !== DEFAULT_SETTINGS.mergeRisers}
+      defaultOn={DEFAULT_SETTINGS.mergeRisers}
       onChange={(mergeRisers) => onChange({ ...settings, mergeRisers })}
+      onBack={() => onChange({ ...settings, mergeRisers: DEFAULT_SETTINGS.mergeRisers })}
     />
   );
 }

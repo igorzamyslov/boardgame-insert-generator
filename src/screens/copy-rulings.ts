@@ -59,6 +59,9 @@ const PLAN_STATES = [
   "m-workspace",
 ] as const;
 const LAYERS = "The layer switch uses DESIGN's names";
+const LAYERS_3D = "In 3D the Layer switch peels the model";
+const THREE_D = ["workspace-3d", "workspace-3d-selected"] as const;
+const EDITOR_LAYERS = "The editor's stage has the Layer switch";
 const HOMES = "The Summary's jobs have new homes";
 const NOFIT = "The no-fit heading names the tray";
 const PINS =
@@ -119,6 +122,7 @@ const EDITOR_SIZES = "Card sizes are the engine's presets";
 const EDITOR_SUMMARY = "More options says what is inside it";
 const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
 const EDITOR_SENTENCE = "The stage sentence is the page's h1 while editing";
+const EDITOR_MAX = "A growth choice on Max says what Max means";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
 const EDITOR_NAME = "The phone editor has a Name field";
 const EDITOR_WORDS = "The Words table beats MobileEdit's second way to store figures";
@@ -255,6 +259,7 @@ const SET_PRINTER = "My printer shows another printer on this insert as a row wi
 const SET_DETAILS =
   "Printer details holds the own bed size, margin, layer height and folding risers";
 const SET_INTRO = "My printer's intro names the values it covers";
+const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
 
 /** Ruled strings, added by the task that builds the screen that prints them. */
@@ -262,6 +267,8 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // Task 14: Settings. The board's words, except where the Words table or the owner rules otherwise.
   ...SETTING_RANGES.map((r) => ({ text: r.label, states: SETTINGS_STATES, ruling: SET_EXACT })),
   { text: "Room around trays and pieces", states: SETTINGS_STATES, ruling: SET_WORDS },
+  { text: "Back to on", states: SETTINGS_STATES, ruling: SET_BACK },
+  { text: "Back to off", states: SETTINGS_STATES, ruling: SET_BACK },
   { text: "Spacers and space", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Unused space", states: SETTINGS_STATES, ruling: SET_EXACT },
   { text: "Spare tray", states: SETTINGS_STATES, ruling: SET_EXACT },
@@ -369,6 +376,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Layer {n} (bottom)", states: SWITCHED, ruling: LAYERS },
   { text: "Layer {n} (top)", states: SWITCHED, ruling: LAYERS },
   { text: "Layer {n}", states: SWITCHED, ruling: LAYERS },
+  // In 3D the switch starts with "All": layers 1 to n, nothing cut away
+  { text: "All", states: THREE_D, ruling: LAYERS_3D },
+  // the editor's stage has the same switch (it opens on the item's own layer)
+  ...["Layer {n} (bottom)", "Layer {n} (top)", "Layer {n}"].map((text) => ({
+    text,
+    states: ["editor", "editor-note"] as readonly string[],
+    ruling: EDITOR_LAYERS,
+  })),
   { text: "Making a new plan…", states: ["workspace-making"], ruling: HOMES },
   { text: "No plan yet", states: ["workspace-noplan"], ruling: HOMES },
   { text: "Make a plan", states: ["workspace-noplan"], ruling: HOMES },
@@ -528,6 +543,13 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["editor-note", ...PHONE_EDITS] as readonly string[],
     ruling: EDITOR_NOTES,
   })),
+  // what Max means, under a growth choice that is on Max (the editors' growth options)
+  {
+    text: "As much as fits beside the other trays and on your printer's bed.",
+    states: EDITING,
+    ruling: EDITOR_MAX,
+  },
+  { text: "As tall as the box allows.", states: EDITING, ruling: EDITOR_MAX },
   // asking before a removal, and the note after it (it sits in the stage slot, as the option notes do)
   { text: "Remove “{name}” from the box?", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Remove", states: EDITING, ruling: EDITOR_REMOVE },

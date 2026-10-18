@@ -173,32 +173,30 @@ describe("the stage's top, in the app", () => {
   });
 
   describe("the Layer switch", () => {
-    it("labels layers by number and height, and shows the one chosen", () => {
+    it("labels layers by number, and shows the one chosen", () => {
       renderApp({ project: twoLayers() });
       const group = screen.getByRole("group", { name: "Layer" });
       expect(
         within(group)
           .getAllByRole("button")
           .map((b) => b.textContent),
-      ).toEqual(["Layer 1 (bottom) · 40 mm", "Layer 2 (top) · 26 mm"]);
+      ).toEqual(["Layer 1 (bottom)", "Layer 2 (top)"]);
       expect(document.querySelector('.plan-tile[data-key="a:p0:0"]')).not.toBeNull();
       expect(document.querySelector('.plan-tile[data-key="b:p0:0"]')).toBeNull();
-      fireEvent.click(within(group).getByRole("button", { name: "Layer 2 (top) · 26 mm" }));
+      fireEvent.click(within(group).getByRole("button", { name: "Layer 2 (top)" }));
       expect(document.querySelector('.plan-tile[data-key="b:p0:0"]')).not.toBeNull();
       expect(document.querySelector('.plan-tile[data-key="a:p0:0"]')).toBeNull();
     });
 
-    it("labels add up to the status height, on the Harbour Kings plan", () => {
+    it("says no height in a label, on the Harbour Kings plan: the status line has the plan's", () => {
       const { project } = loadSeed("harbour-kings");
       renderApp({ project });
-      const heights = within(screen.getByRole("group", { name: "Layer" }))
+      const labels = within(screen.getByRole("group", { name: "Layer" }))
         .getAllByRole("button")
-        .map((b) => Number(/· ([\d.]+) mm$/.exec(b.textContent ?? "")?.[1]));
-      const status = /(\d+(?:\.\d)?) of 70 mm high$/.exec(
-        document.querySelector(".k-status__line")?.textContent ?? "",
-      )?.[1];
-      expect(heights).toHaveLength(2);
-      expect(Math.round(((heights[0] ?? 0) + (heights[1] ?? 0)) * 10) / 10).toBe(Number(status));
+        .map((b) => b.textContent ?? "");
+      expect(labels).toHaveLength(2);
+      expect(labels.join(" ")).not.toMatch(/mm/);
+      expect(document.querySelector(".k-status__line")?.textContent).toMatch(/of 70 mm high$/);
     });
 
     it("has no Layer group for one layer, and the plan has no picker of its own", () => {

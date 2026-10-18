@@ -21,8 +21,8 @@ interface ListProps {
   trays?: readonly TraySpec[];
   locks?: readonly Lock[];
   box: Box;
-  /** The component the selected tray belongs to. */
-  selectedId?: string | null;
+  /** The components the selected tray belongs to (a group's tray has several). */
+  selectedIds?: readonly string[];
   /** The components whose tray does not fit: their rows say so. */
   culprits?: ReadonlySet<string>;
   onOpenBox: () => void;
@@ -104,7 +104,7 @@ export function Rail(p: RailProps) {
         components={p.components}
         trays={p.trays}
         locks={locks}
-        selectedId={p.selectedId}
+        selectedIds={p.selectedIds}
         culprits={p.culprits}
         onOpen={p.onOpenEditor}
         onHover={p.onHover}

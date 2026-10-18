@@ -140,8 +140,10 @@ describe("Viewer", () => {
     expect(scene.handle.setBox).toHaveBeenCalled();
     fireEvent.input(screen.getByLabelText("Spread apart"), { target: { value: "0.5" } });
     expect(scene.handle.setExplode).toHaveBeenLastCalledWith(0.5);
-    fireEvent.change(screen.getByLabelText("Show layers"), { target: { value: "0" } });
+    view.rerender(<Viewer {...p} topLayer={0} />);
     expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(0);
+    view.rerender(<Viewer {...p} topLayer={null} />);
+    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(null);
     scene.pick("b:p0:0");
     expect(p.onSelect).toHaveBeenCalledWith("b:p0:0");
     view.rerender(<Viewer {...p} selectedKey="b:p0:0" />);
@@ -415,18 +417,47 @@ describe("Viewer", () => {
     await waitFor(() => expect(scene.handle.setBox).toHaveBeenCalledTimes(2));
   });
 
-  it("falls back to all layers when the chosen layer no longer exists", async () => {
+  it("peels the layers from the cut it is given: layers 1 to k, and no select of its own", async () => {
     const scene = stubScene();
-    const p = props({}, scene);
+    const three = [
+      makeTray({ key: "a:p0:0", level: 0 }),
+      makeTray({ key: "b:p0:0", level: 1, z: 40 }),
+      makeTray({ key: "c:p0:0", level: 2, z: 80 }),
+    ];
+    const p = props({ trays: three }, scene);
     const view = render(<Viewer {...p} />);
     await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-    fireEvent.change(screen.getByLabelText("Show layers"), { target: { value: "1" } });
-    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(1);
-    view.rerender(<Viewer {...p} trays={[makeTray({ key: "a:p0:0", level: 0 })]} />);
-    await waitFor(() => expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(null));
+    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(null);
     expect(screen.queryByLabelText("Show layers")).toBeNull();
-    view.rerender(<Viewer {...p} />);
-    expect((screen.getByLabelText("Show layers") as HTMLSelectElement).value).toBe("all");
+    for (const [cut, level] of [
+      [0, 0],
+      [1, 1],
+      [2, 2],
+    ] as const) {
+      view.rerender(<Viewer {...p} topLayer={cut} />);
+      expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(level);
+    }
+  });
+
+  it("reads the cut against the level list it is given, the one the Layer switch was made from", async () => {
+    const scene = stubScene();
+    const p = props({ levels: [0, 7] }, scene);
+    const view = render(<Viewer {...p} topLayer={1} />);
+    await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+    // the trays' own levels are 0 and 1; the given list says the second layer is level 7
+    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(7);
+    view.rerender(<Viewer {...p} topLayer={2} />);
+    await waitFor(() => expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(null));
+  });
+
+  it("falls back to all layers when the cut layer no longer exists", async () => {
+    const scene = stubScene();
+    const p = props({ topLayer: 1 }, scene);
+    const view = render(<Viewer {...p} />);
+    await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+    expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(1);
+    view.rerender(<Viewer {...p} trays={[makeTray({ key: "a:p0:0", level: 0 })]} topLayer={1} />);
+    await waitFor(() => expect(scene.handle.setMaxLevel).toHaveBeenLastCalledWith(null));
   });
 
   it("reports a scene that fails while showing trays", async () => {
@@ -469,8 +500,9 @@ describe("Viewer", () => {
     const under = container.querySelector(".viewer-under");
     const row = under?.querySelector(".viewer-controls");
     expect(row).not.toBeNull();
-    // Spread apart and Show layers are the one row; nothing else sits in the strip but messages
-    expect(row?.querySelectorAll("input[type=range], select")).toHaveLength(2);
+    // Spread apart is the one control in the row (the Layer switch is the status row's); nothing else sits in the strip but messages
+    expect(row?.querySelectorAll("input[type=range], select")).toHaveLength(1);
+    expect(row?.querySelector("select")).toBeNull();
     expect(under?.querySelector("ul, li")).toBeNull();
     expect(frame?.contains(under ?? null)).toBe(true);
     expect(frame?.getAttribute("data-region")).toBe("plan-box");
@@ -486,23 +518,6 @@ describe("Viewer", () => {
     fireEvent.input(slider, { target: { value: "0.5" } });
     expect(slider.getAttribute("aria-valuetext")).toBe("50% apart");
     expect([slider.min, slider.max, slider.step]).toEqual(["0", "1", "0.05"]);
-  });
-
-  it("names the layer options by the layers they show", async () => {
-    const scene = stubScene();
-    const three = [
-      makeTray({ key: "a:p0:0", level: 0 }),
-      makeTray({ key: "b:p0:0", level: 1, z: 40 }),
-      makeTray({ key: "c:p0:0", level: 2, z: 80 }),
-    ];
-    render(<Viewer {...props({ trays: three }, scene)} />);
-    const select = screen.getByLabelText("Show layers") as HTMLSelectElement;
-    expect([...select.options].map((o) => [o.value, o.textContent])).toEqual([
-      ["all", "All layers"],
-      ["0", "Layer 1 only"],
-      ["1", "Layers 1 to 2"],
-      ["2", "Layers 1 to 3"],
-    ]);
   });
 
   describe("colours and names", () => {
@@ -660,9 +675,8 @@ describe("Viewer", () => {
 
     it("steps only through the trays on the layers shown", () => {
       const scene = stubScene();
-      const p = props({ trays: named, selectedKey: "a:p0:0" }, scene);
+      const p = props({ trays: named, selectedKey: "a:p0:0", topLayer: 0 }, scene);
       const { container } = render(<Viewer {...p} />);
-      fireEvent.change(screen.getByLabelText("Show layers"), { target: { value: "0" } });
       fireEvent.keyDown(container.querySelector("canvas") as HTMLCanvasElement, {
         key: "ArrowRight",
       });
@@ -705,6 +719,29 @@ describe("Viewer", () => {
         hoveredComponent.value = null;
       });
       expect(scene.handle.setLit).toHaveBeenLastCalledWith([]);
+    });
+
+    it("tints a group's shared tray from either member's row, and lights the pair's trays together", async () => {
+      const scene = stubScene();
+      // Objectives and the second component share the tray b; the second also has the tray a
+      const shared = makeTray({
+        key: "b:p0:0",
+        level: 1,
+        z: 40,
+        compartments: [deckWell("Objectives ×10"), deckWell("Market ×20")],
+      });
+      const own = makeTray({ key: "a:p0:0", level: 0, compartments: [deckWell("Market ×20")] });
+      render(<Viewer {...props({ trays: [own, shared], components }, scene)} />);
+      await waitFor(() => expect(scene.handle.setLit).toHaveBeenCalled());
+      // each member's row finds the shared tray (by contents text, as these wells name no id)
+      act(() => {
+        hoveredComponent.value = third.id;
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["a:p0:0", "b:p0:0"]);
+      act(() => {
+        hoveredComponent.value = second.id;
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["a:p0:0", "b:p0:0"]);
     });
 
     it("tints nothing for a component that holds no tray here", async () => {

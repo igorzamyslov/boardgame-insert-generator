@@ -362,6 +362,11 @@
   background: var(--danger);
 }
 
+/* A tab whose panel holds a changed value: the same dot in the changed colour. */
+.k-seg__dot[data-tone="changed"] {
+  background: var(--changed);
+}
+
 /* Main's blocked "3D": dimmer, and the cursor says so. */
 .k-seg__item[aria-disabled="true"] {
   opacity: 0.6;

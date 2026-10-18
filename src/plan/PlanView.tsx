@@ -9,7 +9,7 @@ import { Icon, KindGlyph } from "../kit";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { hoveredComponent } from "../screens/hover";
 import { StageSlot } from "../screens/StageSlot";
-import { componentIndexOfTray } from "../ui/identity";
+import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
 import { PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
 import {
   footprintsAt,
@@ -200,39 +200,59 @@ export function PlanView(props: PlanViewProps) {
   const pillType = phone ? PHONE_PILL : DESKTOP_PILL;
   const pxPerMm = floorPx / frame.innerW;
 
-  /** What a tray is lit with: its component's id, or its own key when it holds none (a spacer). */
-  function identityOf(key: string | null): string | null {
+  /**
+   * What a tray is lit with: the ids of every component it holds (a group shares one tray), or its
+   * own key when it holds none (a spacer); null for a key that is no tray.
+   */
+  function identitiesOf(key: string | null): string[] | null {
     const t = key === null ? undefined : trays.find((s) => s.key === key);
     if (!t) {
       return null;
     }
-    const i = componentIndexOfTray(t, components);
-    return (i === null ? undefined : components[i]?.id) ?? t.key;
+    const ids = componentIdsOfTray(t, components);
+    return ids.length > 0 ? ids : [t.key];
   }
 
-  /** Points the rail at the tray's component (or takes it away). */
+  /** Points the rail at the tray's components (or takes them away): its first is the one the rail is told of, the rail lights the rest with it. */
   function light(key: string | null, on: boolean): void {
-    const id = identityOf(key);
-    const comp = id !== null && id !== key ? id : null;
-    if (on && comp !== null) {
+    const t = key === null ? undefined : trays.find((s) => s.key === key);
+    const comp = t === undefined ? undefined : componentIdsOfTray(t, components)[0];
+    if (comp === undefined) {
+      return;
+    }
+    if (on) {
       pointedAt.current = comp;
       hoveredComponent.value = comp;
-    } else if (!on && comp !== null && hoveredComponent.peek() === comp) {
+    } else if (hoveredComponent.peek() === comp) {
       hoveredComponent.value = null;
     }
   }
 
   // The component being pointed at (the rail's row, a tray, the keyboard focus), else the
-  // selected tray's: its trays stay lit and the rest dim. A search lights the pinned trays only.
+  // selected tray's: its trays stay lit and the rest dim. What shares a tray with it lights with
+  // it, a group being one tray in the plan; an editor lifts the trays of its component alone. A
+  // search lights the pinned trays only.
   const readOnly = props.readOnly === true;
   const misfitKey = props.misfitKey ?? null;
   const searching = props.searching === true;
   const railId = hoveredComponent.value;
   const editedId = props.editedId ?? null;
-  const active =
-    editedId ?? railId ?? identityOf(hoverKey) ?? identityOf(focusKey) ?? identityOf(selectedKey);
+  const withSharers = (ids: readonly string[]): Set<string> =>
+    new Set(ids.flatMap((id) => [...sharingTrayWith(id, trays, components)]));
+  const litWith = (key: string | null): Set<string> | null => {
+    const ids = identitiesOf(key);
+    return ids === null ? null : withSharers(ids);
+  };
+  const active: Set<string> | null =
+    editedId !== null
+      ? new Set([editedId])
+      : railId !== null
+        ? withSharers([railId])
+        : (litWith(hoverKey) ?? litWith(focusKey) ?? litWith(selectedKey));
+  const isActive = (key: string): boolean =>
+    active !== null && (identitiesOf(key) ?? []).some((id) => active.has(id));
   const lightsSome =
-    !readOnly && !searching && active !== null && shown.some((t) => identityOf(t.key) === active);
+    !readOnly && !searching && active !== null && shown.some((t) => isActive(t.key));
 
   function swappable(key: string | null): boolean {
     const part = key === null ? undefined : byKey.get(key);
@@ -487,9 +507,9 @@ export function PlanView(props: PlanViewProps) {
               const locked = lockedKeys.has(t.key);
               const sizeLocked = sizeLockedKeys.has(t.key);
               const look = lookOfTray(t, components);
-              const identity = identityOf(t.key);
-              const lit = lightsSome && identity === active;
-              const lifted = editedId !== null && identity === editedId;
+              const held = isActive(t.key);
+              const lit = lightsSome && held;
+              const lifted = editedId !== null && (identitiesOf(t.key) ?? []).includes(editedId);
               const misfit = readOnly && t.key === misfitKey;
               const dimmed = readOnly
                 ? props.dim === undefined || misfit
@@ -497,7 +517,7 @@ export function PlanView(props: PlanViewProps) {
                   : props.dim === "all" || !locked
                 : searching
                   ? !locked
-                  : lightsSome && identity !== active;
+                  : lightsSome && !held;
               // The kind icon says what a tray holds when you point at it: the lit trays.
               const icon = look !== null && lit;
               // The pill shows the whole name and its CSS cuts it to the tile; here only whether there is room.

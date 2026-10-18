@@ -624,7 +624,7 @@ input[aria-invalid="true"] {
   font: 500 var(--text-xs) / 20px var(--font-ui);
 }
 
-/* Spread apart and Show layers: one quiet row, the labels beside their controls. */
+/* Spread apart: one quiet row, the label beside its control. */
 .viewer-controls {
   display: flex;
   flex-wrap: wrap;

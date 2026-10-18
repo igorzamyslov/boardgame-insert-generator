@@ -810,7 +810,7 @@ describe("App", () => {
       fireEvent.click(within(menuPanel()).getByRole("button", { name: "Settings" }));
       expect(screen.queryByRole("group", { name: "Project" })).toBeNull();
       const dialog = screen.getByRole("dialog", { name: "Settings" });
-      expect(within(dialog).getByRole("button", { name: "This insert" })).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: /^This insert/ })).toBeTruthy();
       fireEvent(dialog, new Event("cancel", { cancelable: true }));
       expect(screen.queryByRole("dialog")).toBeNull();
       expect(document.activeElement).toBe(button);

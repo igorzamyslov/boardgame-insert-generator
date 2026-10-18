@@ -17,13 +17,17 @@ import {
   SPACER_SHADE,
   SHADE_COUNT,
   compartmentWords,
+  componentIdsOfTray,
   componentIndexOfTray,
+  componentIndexesOfTray,
   componentSummary,
   kindIndexOf,
   layerLabel,
   layerWords,
   shadeHex,
+  shadeIndexOf,
   shadeOf,
+  sharingTrayWith,
 } from "./identity";
 
 function cards(id: string, name: string): Component {
@@ -86,6 +90,75 @@ describe("tray identity", () => {
     // A riser is the neutral too: SPACER_SHADE in the 3D view, which is what null means.
     const riser = makeTray({ part: "riser", compartments: [] });
     expect(componentIndexOfTray(riser, components)).toBeNull();
+  });
+});
+
+// A group puts several components in one tray: the tray belongs to every one of them, and takes its
+// colour from the first (the one `shadeIndexOf` is asked about).
+describe("a tray that holds several components", () => {
+  const components = [cards("c1", "Tableau"), cards("c2", "Market"), cards("c3", "Goals")];
+  const shared = makeTray({
+    key: "g:p0:0",
+    compartments: [
+      well({ componentId: "c2", contents: "Market ×30" }),
+      well({ componentId: "c3", contents: "Goals ×10" }),
+      well({ kind: "spare", contents: "" }),
+    ],
+  });
+
+  it("names every component in it, in compartment order, by its id", () => {
+    expect(componentIndexesOfTray(shared, components)).toEqual([1, 2]);
+    expect(componentIdsOfTray(shared, components)).toEqual(["c2", "c3"]);
+  });
+
+  it("names a component once though it has several compartments", () => {
+    const twice = makeTray({
+      compartments: [
+        well({ componentId: "c1", contents: "Tableau — Deck 1 ×15" }),
+        well({ componentId: "c1", contents: "Tableau — Deck 2 ×15" }),
+        well({ componentId: "c2", contents: "Market ×30" }),
+      ],
+    });
+    expect(componentIndexesOfTray(twice, components)).toEqual([0, 1]);
+  });
+
+  it("finds a component by its words in the contents when the compartment names none", () => {
+    const old = makeTray({
+      compartments: [well({ contents: "Market ×30" }), well({ contents: "Goals ×10" })],
+    });
+    expect(componentIndexesOfTray(old, components)).toEqual([1, 2]);
+  });
+
+  it("leaves out a compartment of nothing, and a part that holds nothing has none", () => {
+    expect(
+      componentIndexesOfTray(makeTray({ part: "spacer", compartments: [] }), components),
+    ).toEqual([]);
+    expect(
+      componentIdsOfTray(
+        makeTray({ compartments: [well({ kind: "spare", contents: "" })] }),
+        components,
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps the colour with the first component: componentIndexOfTray and the shade are unchanged", () => {
+    expect(componentIndexOfTray(shared, components)).toBe(1);
+    // one source for the shade: the first member's index through shadeIndexOf, as the plan and 3D take it
+    expect(shadeIndexOf(components, componentIndexOfTray(shared, components) ?? -1)).toBe(1);
+    expect(componentIndexOfTray(shared, components)).toBe(
+      componentIndexesOfTray(shared, components)[0],
+    );
+  });
+
+  it("lights together the components that share a tray: its own and the others in it", () => {
+    const own = makeTray({ key: "a:p0:0", compartments: [well({ componentId: "c1" })] });
+    const trays = [own, shared];
+    expect([...sharingTrayWith("c2", trays, components)].sort()).toEqual(["c2", "c3"]);
+    expect([...sharingTrayWith("c3", trays, components)].sort()).toEqual(["c2", "c3"]);
+    // a component alone in its tray is just itself
+    expect([...sharingTrayWith("c1", trays, components)]).toEqual(["c1"]);
+    // and one the plan has no tray for
+    expect([...sharingTrayWith("zz", trays, components)]).toEqual(["zz"]);
   });
 });
 

@@ -162,7 +162,7 @@ describe("Rail", () => {
   });
 
   it("presses the selected component's row and lights its trays on hover", () => {
-    const h = props({ selectedId: "b" });
+    const h = props({ selectedIds: ["b"] });
     render(<Rail {...h} />);
     expect(
       screen.getByRole("button", { name: new RegExp(`^${LONG},`) }).getAttribute("aria-pressed"),

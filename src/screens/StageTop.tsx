@@ -14,7 +14,7 @@ import type { StatusTone } from "../kit";
 import type { LockConflict } from "../layout/types";
 import { mmUp } from "../layout/warnings";
 import type { Component, Notice as NoticeData, TraySpec } from "../model/types";
-import { layerHeights, levelsOf } from "../plan/layers";
+import { levelsOf } from "../plan/layers";
 import { layerLabel, mm } from "../ui/identity";
 import type { Misfit } from "../ui/noFit";
 
@@ -314,25 +314,37 @@ export type StageView = "plan" | "3d";
 
 const WEBGL_REASON = "3D needs WebGL";
 
+/** The Layer switch's value for "All" (the 3D view: nothing cut away). */
+const ALL_LAYERS = "all";
+
 /**
- * The Layer switch's options: "Layer 1 (bottom) · 40 mm" (a phone drops the height). The heights
- * are `layerHeights`'.
+ * The Layer switch's options: "Layer 1 (bottom)", "Layer 2", "Layer 3 (top)" (`layerLabel`), with
+ * no height: the status line gives the plan's. With `all` (the 3D view) a first option, "All",
+ * cuts nothing away.
  */
-export function layerOptions(trays: readonly TraySpec[], phone: boolean) {
-  const levels = levelsOf(trays);
-  const heights = layerHeights(trays);
-  return levels.map((_, i) => {
-    const label = layerLabel(i, levels.length);
-    return { value: String(i), label: phone ? label : `${label} · ${mm(heights[i] ?? 0)} mm` };
-  });
+export function layerOptions(
+  trays: readonly TraySpec[],
+  all = false,
+  levels: readonly number[] = levelsOf(trays),
+) {
+  const layers = levels.map((_, i) => ({ value: String(i), label: layerLabel(i, levels.length) }));
+  return all ? [{ value: ALL_LAYERS, label: "All" }, ...layers] : layers;
 }
 
 export interface StageTopProps extends StatusInput {
   /** The stored plan's trays (`layout.trays`), for the Layer switch; without them (no plan) there are no switches. */
   trays?: readonly TraySpec[];
+  /** The plan's layers (`levelsOf(trays)`), the list the 3D view is given too; made from `trays` when absent. */
+  levels?: readonly number[];
   /** The layer the plan shows (0 = the bottom). */
   level: number;
   onLevelChange: (level: number) => void;
+  /**
+   * In 3D the switch cuts instead: the index of the highest layer drawn (layers 1 to it), or null
+   * for All. The top view's `level` is left alone.
+   */
+  cut: number | null;
+  onCutChange: (cut: number | null) => void;
   view: StageView;
   onViewChange: (view: StageView) => void;
   /** The browser can draw the 3D view. */
@@ -435,17 +447,25 @@ export function StageTop(p: StageTopProps) {
       }
     });
 
-  const options = p.trays === undefined ? [] : layerOptions(p.trays, p.phone);
-  const layerValue = String(Math.max(0, Math.min(p.level, options.length - 1)));
+  const in3d = p.view === "3d";
+  const options = p.trays === undefined ? [] : layerOptions(p.trays, in3d, p.levels);
+  const layers = options.length - (in3d ? 1 : 0);
+  const layerValue = in3d
+    ? p.cut === null || p.cut >= layers
+      ? ALL_LAYERS
+      : String(Math.max(0, p.cut))
+    : String(Math.max(0, Math.min(p.level, layers - 1)));
   const layer =
-    options.length > 1 ? (
+    layers > 1 ? (
       <Segmented
         label="Layer"
         tone="track"
         stretch={p.phone}
         options={options}
         value={layerValue}
-        onChange={(v) => p.onLevelChange(Number(v))}
+        onChange={(v) =>
+          in3d ? p.onCutChange(v === ALL_LAYERS ? null : Number(v)) : p.onLevelChange(Number(v))
+        }
       />
     ) : null;
   const showView = p.trays !== undefined;

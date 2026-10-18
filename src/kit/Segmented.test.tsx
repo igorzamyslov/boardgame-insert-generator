@@ -103,4 +103,37 @@ describe("Segmented", () => {
     expect(container.querySelectorAll(".k-seg__dot")).toHaveLength(1);
     expect(container.querySelector(".k-seg__dot")?.getAttribute("aria-hidden")).toBe("true");
   });
+
+  it("says an option holds a changed value: a dot in the changed colour, words for a reader", () => {
+    const { container } = render(
+      <Segmented
+        label="Settings for"
+        options={[
+          { value: "insert", label: "This insert", changedDot: true },
+          { value: "printer", label: "My printer" },
+        ]}
+        value="printer"
+        onChange={() => undefined}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "This insert, changed" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "My printer" })).toBeTruthy();
+    const dot = container.querySelector(".k-seg__dot");
+    expect(dot?.getAttribute("data-tone")).toBe("changed");
+    expect(dot?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("lets an error's dot win over a changed one on the same option", () => {
+    const { container } = render(
+      <Segmented
+        label="Settings for"
+        options={[{ value: "insert", label: "This insert", attention: true, changedDot: true }]}
+        value="insert"
+        onChange={() => undefined}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "This insert, needs attention" })).toBeTruthy();
+    expect(container.querySelectorAll(".k-seg__dot")).toHaveLength(1);
+    expect(container.querySelector(".k-seg__dot")?.getAttribute("data-tone")).toBeNull();
+  });
 });

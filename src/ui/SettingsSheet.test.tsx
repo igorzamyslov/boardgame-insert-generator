@@ -4,8 +4,8 @@ import { useState } from "preact/hooks";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_PRINTER } from "../model/defaults";
-import { DEFAULT_SETTINGS, applyWallChoice } from "../model/settings";
-import type { Notice, Printer } from "../model/types";
+import { DEFAULT_SETTINGS, applyFingerRoom, applyWallChoice } from "../model/settings";
+import type { Notice, Printer, Settings } from "../model/types";
 import { SETTING_RANGES } from "../model/validate";
 import { SettingsSheet, settingsTabFor } from "./SettingsSheet";
 import type { SettingsSheetProps } from "./SettingsSheet";
@@ -76,7 +76,7 @@ describe("SettingsSheet", () => {
     ).toEqual(["This insert", "My printer"]);
     expect(group.getAttribute("data-tone")).toBe("quiet");
     expect(pressed()).toEqual(["This insert"]);
-    fireEvent.click(tab("My printer"));
+    fireEvent.click(tab(/^My printer/));
     expect(pressed()).toEqual(["My printer"]);
     fireEvent.click(tab("This insert"));
     expect(pressed()).toEqual(["This insert"]);
@@ -136,7 +136,7 @@ describe("SettingsSheet", () => {
       screen.getByRole("checkbox", { name: "One thick wall instead of a spacer" }),
     ).toBeTruthy();
     // My printer: the bed, its details, and what changes only the printing
-    fireEvent.click(tab("My printer"));
+    fireEvent.click(tab(/^My printer/));
     expect(screen.getByRole("group", { name: "Printer bed" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /^Printer details/ }));
     for (const name of ["Bed X", "Bed Y", "Bed Z", "Bed margin", "Layer height"]) {
@@ -213,7 +213,7 @@ describe("the header: N changed and Reset all", () => {
     });
     const head = document.querySelector(".st-head") as HTMLElement;
     expect(within(head).getByText("4 changed")).toBeTruthy();
-    fireEvent.click(tab("My printer"));
+    fireEvent.click(tab(/^My printer/));
     expect(within(head).getByText("4 changed")).toBeTruthy();
   });
 
@@ -261,7 +261,7 @@ describe("an error", () => {
 
   it("that appears while it is open does not move the person to another tab", () => {
     const view = sheet();
-    fireEvent.click(tab("My printer"));
+    fireEvent.click(tab(/^My printer/));
     view.again([error("/settings/wall")]);
     expect(pressed()).toEqual(["My printer"]);
     expect(tab("This insert, needs attention")).toBeTruthy();
@@ -271,7 +271,7 @@ describe("an error", () => {
 describe("My printer", () => {
   const open = (over: Partial<SettingsSheetProps> = {}) => {
     const view = sheet(over);
-    fireEvent.click(tab("My printer"));
+    fireEvent.click(tab(/^My printer/));
     return view;
   };
   const details = (): void => {
@@ -432,5 +432,190 @@ describe("This insert", () => {
       target: { value: "unused" },
     });
     expect(screen.getByText("Unused space")).toBeTruthy();
+  });
+});
+
+describe("every switch shows when it was changed, and the way back", () => {
+  const word = (on: boolean): string => (on ? "on" : "off");
+  const SWITCHES: {
+    label: string;
+    tab: "This insert" | "My printer";
+    /** The settings with only this switch away from its default. */
+    changed: Settings;
+    /** What the way back says: the switch's default. */
+    to: string;
+  }[] = [
+    {
+      label: "Room for fingers",
+      tab: "This insert",
+      changed: applyFingerRoom(DEFAULT_SETTINGS, true),
+      to: "off",
+    },
+    {
+      label: "Rim between layers",
+      tab: "This insert",
+      changed: {
+        ...DEFAULT_SETTINGS,
+        lip: { ...DEFAULT_SETTINGS.lip, enabled: !DEFAULT_SETTINGS.lip.enabled },
+      },
+      to: word(DEFAULT_SETTINGS.lip.enabled),
+    },
+    {
+      label: "Fill to the lid",
+      tab: "This insert",
+      changed: { ...DEFAULT_SETTINGS, fillToTop: !DEFAULT_SETTINGS.fillToTop },
+      to: word(DEFAULT_SETTINGS.fillToTop),
+    },
+    {
+      label: "One thick wall instead of a spacer",
+      tab: "This insert",
+      changed: { ...DEFAULT_SETTINGS, oneWall: !DEFAULT_SETTINGS.oneWall },
+      to: word(DEFAULT_SETTINGS.oneWall),
+    },
+    {
+      label: "Engrave tray names",
+      tab: "My printer",
+      changed: { ...DEFAULT_SETTINGS, engraveNames: !DEFAULT_SETTINGS.engraveNames },
+      to: word(DEFAULT_SETTINGS.engraveNames),
+    },
+    {
+      label: "Join spacers into fewer pieces to print",
+      tab: "My printer",
+      changed: { ...DEFAULT_SETTINGS, mergeFillers: !DEFAULT_SETTINGS.mergeFillers },
+      to: word(DEFAULT_SETTINGS.mergeFillers),
+    },
+    {
+      label: "Fold risers into the joined spacers",
+      tab: "My printer",
+      changed: { ...DEFAULT_SETTINGS, mergeRisers: !DEFAULT_SETTINGS.mergeRisers },
+      to: word(DEFAULT_SETTINGS.mergeRisers),
+    },
+  ];
+
+  /** The switch's row: its checkbox, its dot, and the button that puts it back. */
+  function open(label: string, tabName: "This insert" | "My printer") {
+    if (tabName === "My printer") {
+      fireEvent.click(tab(/^My printer/));
+    }
+    if (label === "Fold risers into the joined spacers") {
+      // it sits in Printer details
+      fireEvent.click(screen.getByRole("button", { name: /^Printer details/ }));
+    }
+    if (label === "One thick wall instead of a spacer") {
+      fireEvent.input(screen.getByRole("searchbox"), { target: { value: "one thick wall" } });
+    }
+    const box = screen.getByRole("checkbox", { name: label });
+    const wrap = box.closest(".st-switch") as HTMLElement;
+    return {
+      box,
+      wrap,
+      dot: wrap?.querySelector(".k-check__dot") ?? null,
+      back: within(wrap).queryByRole("button", { name: /^Back to/ }),
+    };
+  }
+
+  it.each(SWITCHES)(
+    "$label: a dot and Back to $to once changed, and neither at its default",
+    (sw) => {
+      const view = sheet({ settings: sw.changed });
+      const changed = open(sw.label, sw.tab);
+      expect(changed.dot, "the dot").not.toBeNull();
+      expect(changed.back, "the way back").not.toBeNull();
+      expect(changed.back?.textContent).toBe(`Back to ${sw.to}`);
+      expect(changed.back?.getAttribute("aria-label")).toBe(`Back to ${sw.to} for ${sw.label}`);
+      view.view.unmount();
+      sheet({ settings: DEFAULT_SETTINGS });
+      const plain = open(sw.label, sw.tab);
+      expect(plain.dot).toBeNull();
+      expect(plain.back).toBeNull();
+    },
+  );
+
+  it.each(SWITCHES)("$label: Back puts only this switch back, and the focus stays on it", (sw) => {
+    const { props } = sheet({ settings: sw.changed });
+    const row = open(sw.label, sw.tab);
+    fireEvent.click(row.back as HTMLElement);
+    expect(props.onSettingsChange).toHaveBeenCalledTimes(1);
+    expect(props.onSettingsChange).toHaveBeenLastCalledWith(DEFAULT_SETTINGS);
+    expect(document.activeElement).toBe(row.box);
+  });
+
+  it("a closed Printer details says when the riser fold inside it was changed", () => {
+    sheet({ settings: { ...DEFAULT_SETTINGS, mergeRisers: true } });
+    fireEvent.click(tab(/^My printer/));
+    const row = screen.getByRole("button", { name: /^Printer details/ });
+    expect(row.textContent).toBe("Printer details1 changed");
+    cleanup();
+    sheet();
+    fireEvent.click(tab("My printer"));
+    expect(screen.getByRole("button", { name: /^Printer details/ }).textContent).toMatch(
+      /margin, .* mm layers$/,
+    );
+  });
+
+  it("Back on Room for fingers puts both of its numbers back", () => {
+    const { props } = sheet({ settings: { ...applyFingerRoom(DEFAULT_SETTINGS, true), wall: 2 } });
+    fireEvent.click(screen.getByRole("button", { name: "Back to off for Room for fingers" }));
+    expect(props.onSettingsChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, wall: 2 });
+  });
+
+  it("counts Room for fingers once in the header, and every switch once", () => {
+    sheet({ settings: applyFingerRoom(DEFAULT_SETTINGS, true) });
+    const head = document.querySelector(".st-head") as HTMLElement;
+    expect(within(head).getByText("1 changed")).toBeTruthy();
+  });
+
+  it("the header count is the number of Back buttons and dots a person can find, switches and numbers", () => {
+    const settings: Settings = {
+      ...applyFingerRoom(DEFAULT_SETTINGS, true),
+      fillToTop: false,
+      wall: 2,
+      engraveNames: false,
+    };
+    sheet({ settings });
+    const head = document.querySelector(".st-head") as HTMLElement;
+    expect(within(head).getByText("4 changed")).toBeTruthy();
+    // This insert: the switches' dots (fingers, fill) and the wall's own, in its group
+    const insert = screen.getByRole("dialog");
+    expect(insert.querySelectorAll(".st-switch .k-check__dot")).toHaveLength(2);
+    fireEvent.click(tab(/^My printer/));
+    expect(insert.querySelectorAll(".st-switch .k-check__dot")).toHaveLength(1);
+  });
+});
+
+describe("the tabs say where a changed setting is", () => {
+  it("puts a dot on the tab whose settings differ, and says so to a reader", () => {
+    sheet({ settings: { ...DEFAULT_SETTINGS, wall: 1.8 } });
+    expect(tab("This insert, changed")).toBeTruthy();
+    expect(tab("My printer")).toBeTruthy();
+    expect(document.querySelectorAll(".st-tabs .k-seg__dot")).toHaveLength(1);
+  });
+
+  it("marks My printer when only a printing option changed", () => {
+    sheet({ settings: { ...DEFAULT_SETTINGS, engraveNames: false } });
+    expect(tab("This insert")).toBeTruthy();
+    expect(tab("My printer, changed")).toBeTruthy();
+    expect(document.querySelectorAll(".st-tabs .k-seg__dot")).toHaveLength(1);
+  });
+
+  it("marks both tabs when both differ, and neither at the defaults", () => {
+    sheet({ settings: { ...DEFAULT_SETTINGS, wall: 1.8, mergeRisers: true } });
+    expect(tab("This insert, changed")).toBeTruthy();
+    expect(tab("My printer, changed")).toBeTruthy();
+    cleanup();
+    sheet();
+    expect(document.querySelectorAll(".st-tabs .k-seg__dot")).toHaveLength(0);
+  });
+
+  it("keeps an error's mark on a tab that has one", () => {
+    sheet({ settings: { ...DEFAULT_SETTINGS, wall: 1.8 } }, [error("/settings/wall")]);
+    expect(tab("This insert, needs attention")).toBeTruthy();
+    expect(document.querySelectorAll(".st-tabs .k-seg__dot")).toHaveLength(1);
+  });
+
+  it("leaves My printer's own values (bed, margin) out: they are not in the count", () => {
+    sheet({ myPrinter: MINE });
+    expect(document.querySelectorAll(".st-tabs .k-seg__dot")).toHaveLength(0);
+    expect(screen.queryByText(/ changed$/)).toBeNull();
   });
 });

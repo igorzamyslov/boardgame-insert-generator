@@ -674,6 +674,19 @@ describe("workspace.css", () => {
     expect(light.get("--rail-max")).toBe("350px");
   });
 
+  it("keeps an editor's scrollbar at the rail's edge, with a gutter of its own, off the fields", () => {
+    // the wrapper reaches over the rail's padding to the edge ...
+    expect(ruleFor(".ws-rail > .ws-interim", stripped)).toMatch(
+      /margin-right:\s*calc\(-1 \* var\(--rail-pad\)\)/,
+    );
+    // ... and the panel, which is what scrolls, puts the padding back inside itself
+    const panel = ruleFor(".ws-rail > .ws-interim > .ed", stripped);
+    expect(panel).toMatch(/padding-right:\s*calc\(var\(--rail-pad\) - var\(--scroll-gutter\)\)/);
+    expect(panel).toMatch(/scrollbar-gutter:\s*stable/);
+    // only in the rail: a phone's sheet holds the same editor and has no padding to reach over
+    expect(ruleFor(".ws-interim", stripped)).not.toMatch(/margin-right/);
+  });
+
   it("lets the stage take the rest", () => {
     const stage = ruleFor(".ws-stage", stripped);
     expect(stage).toMatch(/flex:\s*999 1 640px/);

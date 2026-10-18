@@ -46,6 +46,18 @@
   line-height: normal;
 }
 
+/* The Layer switch sits at the slot's right end; the sentence takes the rest and wraps. */
+.ed-slot__row > .ed-sentence {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: var(--s-12);
+}
+
+.ed-slot__row > .k-seg {
+  flex: none;
+  margin-left: auto;
+}
+
 /* The phone's strip repeats the sentence as a plain line, and the slot above the box is not drawn. */
 .ed-strip__text {
   margin: 0;

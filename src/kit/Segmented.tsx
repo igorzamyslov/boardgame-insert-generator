@@ -11,6 +11,11 @@ export interface SegmentedOption<T extends string> {
   changed?: boolean;
   /** The option's panel has a problem (a tab with an error): a dot after the label, and words for a reader. */
   attention?: boolean;
+  /**
+   * The option's panel holds a value that differs from its default (Settings' tabs): a dot in the
+   * changed colour, and ", changed" for a reader. An `attention` dot wins: one dot, the error's.
+   */
+  changedDot?: boolean;
 }
 
 export interface SegmentedProps<T extends string> {
@@ -73,6 +78,11 @@ function Item<T extends string>({
           <>
             <span class="visually-hidden">, needs attention</span>
             <span class="k-seg__dot" aria-hidden="true" />
+          </>
+        ) : option.changedDot === true ? (
+          <>
+            <span class="visually-hidden">, changed</span>
+            <span class="k-seg__dot" data-tone="changed" aria-hidden="true" />
           </>
         ) : null}
       </button>

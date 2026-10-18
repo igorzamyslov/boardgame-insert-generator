@@ -29,6 +29,18 @@ export function growthLabel(c: Component, axis: GrowthAxis): string {
   return { w: "Extra width", d: "Extra length", h: "Extra height" }[axis];
 }
 
+/**
+ * What "Max" means on `axis`, in one line. The item puts no limit of its own on the axis, so the
+ * tray takes what the layout leaves it (`fill.ts`): on the footprint the room beside the other
+ * trays, up to the printer's bed; in height (a deck lying flat grows taller) the box's.
+ */
+export function growthMaxLine(c: Component, axis: GrowthAxis): string {
+  const lying = (c.kind === "cards" || c.kind === "tiles") && c.storage === "flat";
+  return axis === "h" || (axis === "stack" && lying)
+    ? "As tall as the box allows."
+    : "As much as fits beside the other trays and on your printer's bed.";
+}
+
 function modeOf(mode: GrowthMode): Mode {
   return typeof mode === "number" ? "amount" : mode;
 }
@@ -63,6 +75,7 @@ export function GrowthOptions<C extends Component>({
               onChange={(choice) => set(choice === "amount" ? STARTING_AMOUNT : choice)}
             />
             <span class="ed-line">{`${standard === "auto" ? "Auto" : "None"} is the default`}</span>
+            {mode === "max" ? <span class="ed-line">{growthMaxLine(c, axis)}</span> : null}
             {typeof mode === "number" ? (
               <NumField
                 id={`${c.id}-growth-${axis}-amount`}

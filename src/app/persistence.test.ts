@@ -426,10 +426,12 @@ describe("persistence", () => {
     t.state.selection.value = "a:p0:0";
     t.state.swapFrom.value = "a:p0:0";
     t.state.viewLevel.value = 2;
+    t.state.viewCut.value = 1;
     t.persistence.newProject();
     expect(t.state.selection.value).toBeNull();
     expect(t.state.swapFrom.value).toBeNull();
     expect(t.state.viewLevel.value).toBe(0);
+    expect(t.state.viewCut.value).toBeNull();
   });
 
   it("imports JSON as a project and keeps the current one on bad input", () => {
