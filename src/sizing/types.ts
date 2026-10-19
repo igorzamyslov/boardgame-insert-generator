@@ -1,6 +1,8 @@
 // Cross-plan contract: roadmap §4.2. Do not rename or change these types.
 // (The roadmap's import line also names `Settings`; it is unused here and would
 // fail `noUnusedLocals`, so it is left out.)
+// 0.7.0 added the optional FeatureReq.perSection (flat decks sharing one well), approved by the
+// controller; nothing else here changed.
 import type { Access, CompartmentSpec, Side, TraySpec } from "../model/types";
 
 export interface FeatureReq {

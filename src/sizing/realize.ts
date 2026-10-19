@@ -272,6 +272,20 @@ function corners(r: Rect): RectMm {
   return { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.d };
 }
 
+/** Whether `req` is a divided well whose cuts are placed per section (FeatureReq.perSection). */
+function isSectioned(req: CompartmentReq | undefined): boolean {
+  return (
+    req !== undefined &&
+    (req.dividers ?? 0) > 0 &&
+    req.features.some((f) => f.type === "wallCutout" && f.perSection === true)
+  );
+}
+
+/** Whether a cut on `side` runs along y, through the left or right wall. */
+function throughEnd(side: Side): boolean {
+  return side === "left" || side === "right";
+}
+
 /**
  * The sections of `alloc` a divided well's cuts are placed in: one rectangle per deck where the
  * well asks for a cut `perSection` (flat decks sharing one well: the sections are those between
@@ -279,7 +293,7 @@ function corners(r: Rect): RectMm {
  */
 function sectionsOf(req: CompartmentReq, alloc: Rect, settings: Settings): Rect[] {
   const count = req.dividers ?? 0;
-  if (count <= 0 || !req.features.some((f) => f.type === "wallCutout" && f.perSection === true)) {
+  if (!isSectioned(req)) {
     return [alloc];
   }
   return sectionSpans(alloc.x, alloc.w, count, slotWidthU(settings)).map(([x0, x1]): Rect => ({
@@ -331,7 +345,7 @@ function wallCutouts(
           };
         });
   });
-  const placedCells = placeCutouts(requests, {
+  const placedAll = placeCutouts(requests, {
     rects: cells.map((cell) => corners(cell.alloc)),
     spacers: cells.map(({ alloc, spacer }) =>
       spacer > 0
@@ -351,6 +365,12 @@ function wallCutouts(
     width: ceilU(settings.fingerPocket.width),
     notch: ceilU(settings.fingerPocket.floorNotch),
   });
+  // A section is cut through the front or back wall only: placeCutouts' last retry asks for the
+  // left and right of a cell that got neither, and neighbouring sections would chain one channel
+  // through every section, which the loose plates between them stop. Such a cut is no cut, so the
+  // section counts as uncut and the tray is refused (R21: never a silent side channel).
+  const sectioned = cells.map(({ owner }) => isSectioned(items[owner]?.req));
+  const placedCells = placedAll.filter((p) => !(sectioned[p.owner] === true && throughEnd(p.side)));
   const uncut = cells.flatMap((cell, c) =>
     requests.some((q) => q.owner === c) && !placedCells.some((p) => p.owner === c) ? [cell] : [],
   );

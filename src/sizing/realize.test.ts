@@ -12,6 +12,7 @@ import { dividerSlotWidth } from "./dividers";
 import { CutFitError } from "./errors";
 import { size } from "./group";
 import { minOuter, oneWallOf, realizeTray } from "./realize";
+import { rotateRealized } from "./rotate";
 import {
   assertTrayInvariants,
   at,
@@ -1194,10 +1195,57 @@ describe("flat decks in one well (0.7.0, R7 and R21)", () => {
     expect((cuts[1]?.at ?? 0) > (slot?.at ?? 0)).toBe(true);
   });
 
-  it("refuses the tray, as any flat deck, where a section gets no cut", () => {
-    // A well a deck wide has room; one narrower than a cut and its posts does not.
-    const narrow = shared({ shortSide: 5, longSide: 10, sleeve: "none" });
+  it("refuses the tray where a section is too narrow for a front or back cut, never a side channel", () => {
+    // 8 mm cards: a section has no room for a cut with its posts. The left and right retry would
+    // chain one channel through every section, which the loose plates stop: no cut at all.
+    const narrow = shared({ shortSide: 8, longSide: 80, sleeve: "none" });
     const part = partOf([narrow], "flat|strip|split1");
     expect(() => realizeTray(part, minOuter(part, s, ground), s, ground)).toThrow(CutFitError);
+    expect(() => size([narrow], s)).not.toThrow();
+  });
+
+  it("puts every cut on the back wall when the front faces another row (rows2)", () => {
+    const front = at(
+      partOf([custom({ w: 220, d: 30, h: 10 })], "custom|strip|split1").compartments,
+      0,
+    );
+    const wellPart = partOf([shared()], "flat|strip|split1");
+    const part: TrayPartReq = {
+      ...wellPart,
+      arrangement: "rows2",
+      rowBreak: 1,
+      compartments: [front, ...wellPart.compartments],
+    };
+    const outer = minOuter(part, s, ground);
+    const r = realizeTray(part, outer, s, ground);
+    const well = at(r.compartments, 1);
+    const cuts = well.features.flatMap((f) => (f.type === "wallCutout" ? [f] : []));
+    expect(cuts.map((c) => c.side)).toEqual(["back", "back", "back"]);
+    const section = (well.w - 2 * slotOf) / 3;
+    cuts.forEach((cut, k) => {
+      expect(cut.at).toBeCloseTo(well.x + k * (section + slotOf) + section / 2, 1);
+    });
+    assertTrayInvariants(r, outer, s, ground, part);
+  });
+
+  it("a turned tray keeps one cut per section, on one side, at the sections' centres", () => {
+    const { r, outer } = realized();
+    const turned = rotateRealized(r, outer);
+    const well = at(turned.compartments, 0);
+    const cuts = well.features.flatMap((f) => (f.type === "wallCutout" ? [f] : []));
+    const slots = slotsOf(well);
+    expect(slots.map((f) => f.axis)).toEqual(["x", "x"]);
+    expect(new Set(cuts.map((c) => c.side)).size).toBe(1);
+    expect(cuts).toHaveLength(3);
+    // along y now: the sections between the slots, each with its cut in the middle
+    const edges = [
+      well.y,
+      ...slots.flatMap((f) => [f.at - f.width / 2, f.at + f.width / 2]),
+      well.y + well.d,
+    ];
+    const centres = [0, 2, 4].map((i) => ((edges[i] ?? 0) + (edges[i + 1] ?? 0)) / 2);
+    const found = cuts.map((c) => c.at).sort((a, b) => a - b);
+    centres.sort((a, b) => a - b).forEach((centre, k) => expect(found[k]).toBeCloseTo(centre, 1));
+    assertTrayInvariants(turned, { w: outer.d, d: outer.w, h: outer.h }, s, ground);
   });
 });
