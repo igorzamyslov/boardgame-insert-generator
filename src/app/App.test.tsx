@@ -834,8 +834,9 @@ describe("App", () => {
         }),
       );
       expect(store.state.project.value.settings.wall).toBe(2);
-      // the header counts it, and Reset all puts it back as one more step
-      expect(screen.getByText("1 changed")).toBeTruthy();
+      // the header counts it, and so does the Walls group (the fixture's rim is on, the default);
+      // Reset all puts it back as one more step
+      expect(screen.getAllByText("1 changed")).toHaveLength(2);
       vi.setSystemTime(Date.now() + 5000);
       fireEvent.click(screen.getByRole("button", { name: "Reset all" }));
       expect(store.state.project.value.settings.wall).toBe(DEFAULT_SETTINGS.wall);

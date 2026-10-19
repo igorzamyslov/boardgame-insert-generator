@@ -218,13 +218,17 @@ describe("buildTray with the finger cut and curved floor toggles", () => {
 
 // Planned trays of sizing's output, and the boxes the cuts' top fillets round: beside each side of
 // each cut, its fillet's radius along it, across its fillet strip.
-function plannedTrays(component: Component, variantId: string) {
+function plannedTrays(
+  component: Component,
+  variantId: string,
+  settings: Settings = DEFAULT_SETTINGS,
+) {
   const part = partOf([component], variantId);
   return SWEEP_OPTIONS.map((opts) => {
-    const outer = minOuter(part, DEFAULT_SETTINGS, opts);
-    const realized = realizeTray(part, outer, DEFAULT_SETTINGS, opts);
-    const spec = traySpecFrom(realized, outer, opts, DEFAULT_SETTINGS, part.trayKey);
-    return { opts, spec, plan: planTray(spec, DEFAULT_SETTINGS) };
+    const outer = minOuter(part, settings, opts);
+    const realized = realizeTray(part, outer, settings, opts);
+    const spec = traySpecFrom(realized, outer, opts, settings, part.trayKey);
+    return { opts, spec, plan: planTray(spec, settings) };
   });
 }
 function filletBoxes(plan: TrayPlan, spec: TraySpec): Rect[] {
@@ -322,6 +326,12 @@ describe("top fillets on interior dividers (review 3, M2)", () => {
 });
 
 describe("no piece thinner than 0.8 mm near the rim (review 3, M1)", () => {
+  // The top fillets and reliefs are the subject, so the trays are built without the rim between
+  // layers (on by default now): an upper tray's groove is not what these slices look at.
+  const NO_RIM: Settings = {
+    ...DEFAULT_SETTINGS,
+    lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+  };
   // checkPrintability sees faces only; slicing finds thin solid between sloped faces, such as a
   // top fillet meeting a corner relief at a post (0.04 mm wide at h − 0.2). With reliefs on, the
   // relief stays and the fillet beside it is smaller; with them off, the fillet is 3 mm.
@@ -339,13 +349,13 @@ describe("no piece thinner than 0.8 mm near the rim (review 3, M1)", () => {
     ],
     ["15 mm squares laid flat, reliefs off", squareTiles(false), "flat-c4|strip|split1", false],
   ])("%s", (_name, component, variantId, reliefs) => {
-    for (const { opts, spec, plan } of plannedTrays(component, variantId)) {
+    for (const { opts, spec, plan } of plannedTrays(component, variantId, NO_RIM)) {
       const radii = plan.compartments.flatMap((c) => c.cuts.flatMap((cut) => cut.topFillets));
       expect(plan.compartments.some((c) => c.reliefs.length > 0)).toBe(reliefs);
       if (reliefs && !opts.lipped) {
         expect(radii.some((r) => r > 0 && r < 3 - 1e-6)).toBe(true);
       }
-      const { mesh } = buildTray(m, spec, DEFAULT_SETTINGS);
+      const { mesh } = buildTray(m, spec, NO_RIM);
       // Below the rim: the lip's chamfered top is 0.6 mm wide by design (spec §6.1).
       expect(thinSlices(m, mesh, below(spec.h)), JSON.stringify(opts)).toEqual([]);
     }

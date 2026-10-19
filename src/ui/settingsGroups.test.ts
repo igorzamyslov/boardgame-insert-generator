@@ -53,7 +53,7 @@ describe("changedCount", () => {
     expect(
       changedCount({
         ...DEFAULT_SETTINGS,
-        lip: { ...DEFAULT_SETTINGS.lip, enabled: true, play: 0.4 },
+        lip: { ...DEFAULT_SETTINGS.lip, enabled: false, play: 0.4 },
         leftover: "solid",
         engraveNames: false,
       }),

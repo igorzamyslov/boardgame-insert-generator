@@ -146,9 +146,7 @@ describe("whole trays (groups spec §6.3)", () => {
   });
 
   it("does not, without a one-tray variant", () => {
-    const halves = req("w", [
-      variant("halves", [part("w:p0:0", [a]), part("w:p0:1", [b])]),
-    ]);
+    const halves = req("w", [variant("halves", [part("w:p0:0", [a]), part("w:p0:1", [b])])]);
     expect(createCtx(makeInput([halves]), fakeMeasure).wholeFits).toEqual([false]);
   });
 

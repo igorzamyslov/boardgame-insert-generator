@@ -22,7 +22,12 @@ beforeAll(async () => {
 const WALL = 1.6;
 const FLOOR = 1.2;
 const GAP = DEFAULT_SETTINGS.trayGap;
-const settings: Settings = { ...DEFAULT_SETTINGS, mergeRisers: true };
+// Rim off: a filler in a stack level has a groove with it on, and is not merged.
+const settings: Settings = {
+  ...DEFAULT_SETTINGS,
+  lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+  mergeRisers: true,
+};
 
 const filler = (o: Partial<TraySpec> = {}): TraySpec =>
   traySpec({

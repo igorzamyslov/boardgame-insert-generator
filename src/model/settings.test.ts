@@ -38,7 +38,7 @@ describe("DEFAULT_SETTINGS", () => {
       cornerRadius: 3,
       scoopRadius: 12,
       fingerPocket: { width: 25, floorNotch: 12.5, wallRoom: 0, dividerRoom: 0 },
-      lip: { enabled: false, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
+      lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
       topPressFit: 0,
       packingFactor: 0.5,
       leftover: "spare",

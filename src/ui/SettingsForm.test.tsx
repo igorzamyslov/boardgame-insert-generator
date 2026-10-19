@@ -176,11 +176,11 @@ describe("InsertSettings: how the trays sit", () => {
     fireEvent.click(fingers);
     expect(onChange).toHaveBeenLastCalledWith(applyFingerRoom(DEFAULT_SETTINGS, true));
     const rim = screen.getByRole("checkbox", { name: /^Rim between layers/ }) as HTMLInputElement;
-    expect(rim.checked).toBe(false);
+    expect(rim.checked).toBe(true);
     fireEvent.click(rim);
     expect(onChange).toHaveBeenLastCalledWith({
       ...DEFAULT_SETTINGS,
-      lip: { ...DEFAULT_SETTINGS.lip, enabled: true },
+      lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
     });
     const lid = screen.getByRole("checkbox", { name: "Fill to the lid" }) as HTMLInputElement;
     expect(lid.checked).toBe(true);
