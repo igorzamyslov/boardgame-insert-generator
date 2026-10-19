@@ -492,7 +492,22 @@ export function StageTop(p: StageTopProps) {
   );
 
   // Desktop: the switches and the action in one group (Main); phone: the action alone, the switches under.
-  const extra = p.phone ? actions : [layer, view, ...actions].filter((x) => x !== null);
+  // With a plan the group is three fixed slots, Layer, View and the action, so the View switch stays
+  // where it is whether the Layer switch is there (one layer has none, the 3D view adds "All") and
+  // whichever action stands at the right (Keep searching, Stop, none): DESIGN, Flow.
+  const extra = p.phone
+    ? actions
+    : showView
+      ? [
+          <div class="stage-controls" key="controls">
+            <div class="stage-controls__layer">{layer}</div>
+            <div class="stage-controls__view" data-region="view-switch">
+              {view}
+            </div>
+            <div class="stage-controls__action">{actions}</div>
+          </div>,
+        ]
+      : [layer, view, ...actions].filter((x) => x !== null);
 
   const line: ComponentChildren =
     status.list !== undefined ? (

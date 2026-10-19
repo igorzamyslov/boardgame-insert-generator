@@ -167,6 +167,8 @@
   --kind-tile-h: 56px;
   --stage-slot: 52px;
   --status-icon: 40px;
+  --stage-layer-slot: 14rem; /* the status row's Layer slot: a two-layer switch */
+  --stage-action-slot: 9.5rem; /* and its action slot: Keep searching */
   --status-icon-phone: 32px;
   --menu-w: 260px;
   --dialog-max: 560px;
