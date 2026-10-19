@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import kit from "../kit/kit.css?raw";
 import tokens from "../styles/tokens.css?raw";
 import css from "./trayBar.css?raw";
-import { turnTray } from "../app/actions";
+import { toggleLock, turnTray } from "../app/actions";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { inputsHash } from "../model/hash";
 import type { Lock, Project, TraySpec } from "../model/types";
@@ -295,8 +295,9 @@ describe("TrayBar", () => {
   });
 
   it("says Pinned, turned for a pin that turned the tray", () => {
+    // Turn alone doesn't pin: it is the Turn of a pinned tray that writes a turned pin.
     const base = planned([tray()]);
-    const turned = turnTray(base, tray());
+    const turned = turnTray(toggleLock(base, tray()), tray());
     bar({ project: turned });
     expect(screen.getByText("Pinned, turned")).toBeTruthy();
     expect(screen.queryByText("Pinned")).toBeNull();
@@ -363,12 +364,23 @@ describe("TrayBar", () => {
     expect(ruleFor(".tray-bar__why")).toMatch(/font-size:\s*var\(--text-xs\)/);
   });
 
-  it("gives canTurn's reason when the pins a turn writes clash with a size lock", () => {
+  it("gives canTurn's reason when the pins a turn flips clash with a size lock", () => {
     const low = tray({ key: "fxcrd002:p0:1", path: "10", level: 0 });
     const high = tray({ key: "fxcrd002:p0:0", path: "10", level: 1, z: 20 });
+    // a pinned stack turns as one, so a size lock that only fits its tray as it is stands in the way
+    const pins: Lock[] = [low, high].map((t) => ({
+      kind: "position",
+      trayKey: t.key,
+      path: "10",
+      rotated: false,
+    }));
     const project = planned(
       [low, high],
-      [{ kind: "size", trayKey: high.key, w: 150, d: 150, h: 90 }],
+      [
+        ...pins,
+        { kind: "stack", trayKeys: [low.key, high.key] },
+        { kind: "size", trayKey: high.key, w: 72, d: 96, h: 37 },
+      ],
     );
     bar({ project, tray: low });
     expect(button("Turn this stack 90°, 2 trays").getAttribute("aria-disabled")).toBe("true");

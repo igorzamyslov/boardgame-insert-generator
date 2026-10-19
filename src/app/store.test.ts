@@ -369,6 +369,35 @@ describe("app store", () => {
       expect(s.store.state.lockConflicts.value).toEqual([]);
     });
 
+    it("removes a turn that conflicts with the pin on its tray, and keeps the pin", async () => {
+      const s = setup();
+      const both: Lock[] = [
+        { kind: "position", trayKey: "c:p0:0", path: "1", rotated: false },
+        { kind: "turn", trayKey: "c:p0:0", rotated: true },
+      ];
+      const withBoth = { ...fixtureProject(), locks: both };
+      s.store.start(
+        encodeHash({ ...withBoth, layout: makeLayout(inputsHash(withBoth)) }, EMPTY_FOREIGN),
+      );
+      s.store.refit();
+      await flush();
+      const turnConflict = {
+        trayKey: "c:p0:0",
+        kind: "turn" as const,
+        name: "Deck C",
+        reason: "it conflicts with the pin on the same tray",
+      };
+      const call = s.stub.calls[0];
+      call?.resolve(
+        makeResult(makeLayout(call.input.inputsHash), { lockConflicts: [turnConflict] }),
+      );
+      await flush();
+      expect(s.store.state.lockConflicts.value).toEqual([turnConflict]);
+      s.store.unpin("c:p0:0", "turn");
+      expect(s.store.state.project.value.locks).toEqual([both[0]]);
+      expect(s.store.state.lockConflicts.value).toEqual([]);
+    });
+
     it("removes that tray's pin and the stack lock around it, then re-runs", async () => {
       const { store, stub } = await conflicted();
       store.unpin("a:p0:0");

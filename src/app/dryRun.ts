@@ -33,28 +33,51 @@ function stackOf(
   };
 }
 
+/** Whether any tray of the stack is pinned: pinning holds a stack as one, so then so is Turn. */
+function stackPinned(p: Project, stack: readonly TraySpec[]): boolean {
+  const keys = new Set(stack.map((t) => t.key));
+  return p.locks.some((l) => l.kind === "position" && keys.has(l.trayKey));
+}
+
 /**
- * The project's locks after turning this tray: its whole stack pinned where it is (a position lock
- * per tray, and a stack lock when there are several) with every tray's rotation flipped, because
- * trays that share a footprint turn together. Locks on other trays stay. Null without a plan or
- * when the tray is not in it. Nothing here checks the result: see `canTurn`.
+ * The project's locks after turning this tray: one turn lock on it, with the rotation the other way
+ * round from what it holds now (its turn lock's, else the plan's), and nothing else. The tray stays
+ * free to move, and its stack-mates keep their own rotation. A pinned stack also turns as one: its
+ * position locks flip, so the pins stay what the person sees, and a stack-mate that has a turn
+ * lock of its own gets it flipped with it (none is added). Locks on other trays stay. Null without
+ * a plan or when the tray is not in it. Nothing here checks the result: see `canTurn`.
  */
 export function turnLocks(p: Project, trayKey: string): Lock[] | null {
   const found = p.layout ? stackOf(p.layout, trayKey) : null;
   if (!found) {
     return null;
   }
+  const turnOf = (key: string): (Lock & { kind: "turn" }) | undefined =>
+    p.locks.find((l): l is Lock & { kind: "turn" } => l.kind === "turn" && l.trayKey === key);
+  const current = (t: TraySpec): boolean => turnOf(t.key)?.rotated ?? t.rotated;
+  const turn: Lock = { kind: "turn", trayKey, rotated: !current(found.tray) };
+  if (!stackPinned(p, found.stack)) {
+    return [...p.locks.filter((l) => !(l.kind === "turn" && l.trayKey === trayKey)), turn];
+  }
   const keys = new Set(found.stack.map((t) => t.key));
-  const rest = p.locks.filter((l) =>
-    l.kind === "stack"
-      ? !l.trayKeys.some((k) => keys.has(k))
-      : !(l.kind === "position" && keys.has(l.trayKey)),
-  );
+  const next = new Map(found.stack.map((t) => [t.key, !current(t)]));
+  const rest = p.locks.flatMap((l): Lock[] => {
+    if (l.kind === "stack") {
+      return l.trayKeys.some((k) => keys.has(k)) ? [] : [l];
+    }
+    if (l.kind === "position") {
+      return keys.has(l.trayKey) ? [] : [l];
+    }
+    if (l.kind === "turn" && keys.has(l.trayKey)) {
+      return l.trayKey === trayKey ? [] : [{ ...l, rotated: next.get(l.trayKey) ?? l.rotated }];
+    }
+    return [l];
+  });
   const turned: Lock[] = found.stack.map((t) => ({
     kind: "position",
     trayKey: t.key,
     path: t.path,
-    rotated: !t.rotated,
+    rotated: next.get(t.key) ?? t.rotated,
   }));
   if (found.stack.length > 1) {
     // A pending swap is a stack lock in the swapped order: keep it rather than level order.
@@ -69,7 +92,7 @@ export function turnLocks(p: Project, trayKey: string): Lock[] | null {
       trayKeys: swapped?.kind === "stack" ? swapped.trayKeys : found.stack.map((t) => t.key),
     });
   }
-  return [...rest, ...turned];
+  return [...rest, ...turned, turn];
 }
 
 /** One layout context per project: the lock check reads it, locks aside, for every tray. */
@@ -85,9 +108,9 @@ function ctxOf(p: Project): Ctx {
 }
 
 /**
- * Whether turning this tray (and so its stack) is worth offering, with a sentence the screen can
+ * Whether turning this tray (and its stack, if it is pinned) is worth offering, with a sentence the screen can
  * show as is when not. Reads the stored plan; synchronous, main thread, no optimizer. It checks
- * what `resolveLocks` checks: that the pins a turn writes don't clash with each other or with the
+ * what `resolveLocks` checks: that the locks a turn writes don't clash with each other or with the
  * trays' sizes and rotations. Whether the turned stack then fits the box is only known to the
  * optimizer, which the next run reports. `foreign` is the file's unread components, so a group
  * listing one is no error. Never throws.
@@ -105,7 +128,9 @@ export function canTurn(p: Project, trayKey: string, foreign?: ForeignData): Tur
     if (!found) {
       return { ok: false, reason: "That tray isn't in the plan." };
     }
-    if (found.stack.every((t) => Math.abs(t.w - t.d) < SQUARE_MM)) {
+    // a pinned stack turns as one; a tray that is not pinned turns alone
+    const turning = stackPinned(p, found.stack) ? found.stack : [found.tray];
+    if (turning.every((t) => Math.abs(t.w - t.d) < SQUARE_MM)) {
       return { ok: false, reason: "This tray is square, so turning changes nothing." };
     }
     const locks = turnLocks(p, trayKey);
@@ -115,7 +140,7 @@ export function canTurn(p: Project, trayKey: string, foreign?: ForeignData): Tur
     // The hints a run would give the lock check: the stored plan stands in for the warm start.
     const ctx = ctxOf(p);
     const { conflicts } = resolveLocks(ctx, locks, warmHints(ctx, layout.trays));
-    const keys = new Set(found.stack.map((t) => t.key));
+    const keys = new Set(turning.map((t) => t.key));
     const own = conflicts.find((c) => keys.has(c.trayKey));
     return own
       ? { ok: false, reason: `Turning doesn't work for ${own.name}: ${own.reason}.` }

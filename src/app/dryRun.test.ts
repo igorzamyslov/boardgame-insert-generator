@@ -2,6 +2,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
 import type { Lock, Project, StoredLayout, TraySpec } from "../model/types";
+import { createCtx } from "../layout/context";
+import { resolveLocks } from "../layout/locks";
+import { warmHints } from "../layout/warmstart";
+import { toggleLock, turnTray } from "./actions";
 import { canTurn, turnLocks } from "./dryRun";
 import { buildLayoutInput } from "./runner";
 import { fixtureProject, makeLayout, makeTray } from "./test-helpers";
@@ -59,32 +63,75 @@ describe("canTurn", () => {
     expect(canTurn(planned(), HIGH)).toEqual({ ok: true });
   });
 
-  it("reports a stack conflict before running", () => {
-    // the upper tray's size lock keeps it as it is, so turning the stack contradicts it (it fits either way up)
-    const p = planned([{ kind: "size", trayKey: HIGH, w: 150, d: 150, h: 90 }]);
-    const r = canTurn(p, LOW);
+  it("reports a conflict before running: a size lock on the tray holds its rotation", () => {
+    // the tray's size lock only fits it as it is, so turning it contradicts it
+    const p = planned([{ kind: "size", trayKey: HIGH, w: 72, d: 96, h: 37 }]);
+    const r = canTurn(p, HIGH);
     expect(r.ok).toBe(false);
     // a whole sentence, naming the tray at fault by its label (the contents it holds)
     expect(r.reason).toMatch(
       /^Turning doesn't work for .+: it conflicts with the size lock on the same tray\.$/,
     );
     expect(r.reason).not.toContain(HIGH);
-    // the same stack seen from its other tray
-    expect(canTurn(p, HIGH)).toEqual(r);
-    // a tray alone is not in that stack
+    // its stack-mate and a tray alone are not under that lock: turning them is fine
+    expect(canTurn(p, LOW)).toEqual({ ok: true });
     expect(canTurn(p, ALONE)).toEqual({ ok: true });
   });
 
-  it("a stack is square only when every tray in it is", () => {
+  it("reports a conflict on a pinned stack from any of its trays", () => {
+    const p = planned([
+      { kind: "position", trayKey: LOW, path: "10", rotated: false },
+      { kind: "position", trayKey: HIGH, path: "10", rotated: false },
+      { kind: "stack", trayKeys: [LOW, HIGH] },
+      { kind: "size", trayKey: HIGH, w: 72, d: 96, h: 37 },
+    ]);
+    const r = canTurn(p, LOW);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(
+      /^Turning doesn't work for .+: it conflicts with the size lock on the same tray\.$/,
+    );
+    expect(canTurn(p, HIGH)).toEqual(r);
+  });
+
+  it("a tray turns alone when it is not pinned, so a square stack-mate does not matter", () => {
     const stack = [
       tray(LOW, { path: "10", level: 0, w: 80, d: 80 }),
       tray(HIGH, { path: "10", level: 1, w: 70, d: 90 }),
     ];
-    expect(canTurn(planned([], stack), LOW)).toEqual({ ok: true });
-    const squares = [stack[0] as TraySpec, tray(HIGH, { path: "10", level: 1, w: 78, d: 78.2 })];
-    expect(canTurn(planned([], squares), LOW).reason).toBe(
+    expect(canTurn(planned([], stack), HIGH)).toEqual({ ok: true });
+    expect(canTurn(planned([], stack), LOW).reason).toBe(
       "This tray is square, so turning changes nothing.",
     );
+  });
+
+  it("a pinned stack is square only when every tray in it is", () => {
+    const pins: Lock[] = [
+      { kind: "position", trayKey: LOW, path: "10", rotated: false },
+      { kind: "position", trayKey: HIGH, path: "10", rotated: false },
+      { kind: "stack", trayKeys: [LOW, HIGH] },
+    ];
+    const stack = [
+      tray(LOW, { path: "10", level: 0, w: 80, d: 80 }),
+      tray(HIGH, { path: "10", level: 1, w: 70, d: 90 }),
+    ];
+    expect(canTurn(planned(pins, stack), LOW)).toEqual({ ok: true });
+    const squares = [stack[0] as TraySpec, tray(HIGH, { path: "10", level: 1, w: 78, d: 78.2 })];
+    expect(canTurn(planned(pins, squares), LOW).reason).toBe(
+      "This tray is square, so turning changes nothing.",
+    );
+  });
+
+  it("a pinned tray with a turn lock of its own turns with its pin, so they never clash", () => {
+    const p = planned([
+      { kind: "position", trayKey: ALONE, path: "0", rotated: true },
+      { kind: "turn", trayKey: ALONE, rotated: true },
+    ]);
+    expect(canTurn(p, ALONE)).toEqual({ ok: true });
+    // turned back: both locks say not rotated
+    expect(turnLocks(p, ALONE)).toEqual([
+      { kind: "position", trayKey: ALONE, path: "0", rotated: false },
+      { kind: "turn", trayKey: ALONE, rotated: false },
+    ]);
   });
 
   it("builds the layout input once for several trays of one project", () => {
@@ -144,22 +191,87 @@ describe("canTurn", () => {
 });
 
 describe("turnLocks", () => {
-  it("pins the whole stack with its rotation flipped, keeping other locks", () => {
+  it("on an unpinned tray writes one turn lock, on that tray only, keeping every other lock", () => {
     const other: Lock = { kind: "size", trayKey: ALONE, w: 72, d: 96, h: 20 };
-    const stale: Lock = { kind: "position", trayKey: HIGH, path: "0", rotated: false };
-    const p = planned([other, stale]);
+    const stack: Lock = { kind: "stack", trayKeys: [LOW, HIGH] };
+    const p = planned([other, stack]);
     expect(turnLocks(p, HIGH)).toEqual([
       other,
-      { kind: "position", trayKey: LOW, path: "10", rotated: true },
-      { kind: "position", trayKey: HIGH, path: "10", rotated: true },
-      { kind: "stack", trayKeys: [LOW, HIGH] },
+      stack,
+      { kind: "turn", trayKey: HIGH, rotated: true },
     ]);
   });
 
   it("turns a tray that is already turned back", () => {
     const p = planned([], [tray(ALONE, { path: "0", rotated: true })]);
-    expect(turnLocks(p, ALONE)).toEqual([
-      { kind: "position", trayKey: ALONE, path: "0", rotated: false },
+    expect(turnLocks(p, ALONE)).toEqual([{ kind: "turn", trayKey: ALONE, rotated: false }]);
+  });
+
+  it("flips the turn lock it wrote, not the stale plan's rotation", () => {
+    const first: Lock = { kind: "turn", trayKey: ALONE, rotated: true };
+    // the plan has not caught up with the lock: it still shows the tray as it was
+    const p = planned([first]);
+    expect(turnLocks(p, ALONE)).toEqual([{ kind: "turn", trayKey: ALONE, rotated: false }]);
+  });
+
+  it("on a pinned stack flips its pins as before, and adds one turn lock on the chosen tray", () => {
+    const stale: Lock[] = [
+      { kind: "position", trayKey: LOW, path: "10", rotated: false },
+      { kind: "position", trayKey: HIGH, path: "10", rotated: false },
+      { kind: "stack", trayKeys: [LOW, HIGH] },
+    ];
+    const other: Lock = { kind: "size", trayKey: ALONE, w: 72, d: 96, h: 20 };
+    const p = planned([other, ...stale]);
+    expect(turnLocks(p, HIGH)).toEqual([
+      other,
+      { kind: "position", trayKey: LOW, path: "10", rotated: true },
+      { kind: "position", trayKey: HIGH, path: "10", rotated: true },
+      { kind: "stack", trayKeys: [LOW, HIGH] },
+      { kind: "turn", trayKey: HIGH, rotated: true },
     ]);
+  });
+
+  it("on a pinned stack keeps the pins of the stack and its turn locks in agreement", () => {
+    const own: Lock = { kind: "turn", trayKey: LOW, rotated: true };
+    const locks: Lock[] = [
+      { kind: "position", trayKey: LOW, path: "10", rotated: true },
+      { kind: "position", trayKey: HIGH, path: "10", rotated: false },
+      { kind: "stack", trayKeys: [LOW, HIGH] },
+      own,
+    ];
+    // the plan shows LOW as it was before the turn lock: the lock is what turning flips
+    const turned = turnLocks(planned(locks), HIGH) ?? [];
+    expect(turned.filter((l) => l.kind === "turn")).toEqual([
+      { kind: "turn", trayKey: LOW, rotated: false },
+      { kind: "turn", trayKey: HIGH, rotated: true },
+    ]);
+    expect(turned.filter((l) => l.kind === "position")).toEqual([
+      { kind: "position", trayKey: LOW, path: "10", rotated: false },
+      { kind: "position", trayKey: HIGH, path: "10", rotated: true },
+    ]);
+  });
+
+  it("is null without a plan or for a tray that is not in it", () => {
+    expect(turnLocks(fixtureProject(), ALONE)).toBeNull();
+    expect(turnLocks(planned(), "nope:p0:0")).toBeNull();
+  });
+});
+
+describe("turn, then pin", () => {
+  it("writes a pin that agrees with the turn, against the plan that has not caught up", () => {
+    const p = planned();
+    const tray = (p.layout as StoredLayout).trays.find((t) => t.key === HIGH) as TraySpec;
+    const pinned = toggleLock(turnTray(p, tray), tray);
+    const turn = pinned.locks.find((l) => l.kind === "turn");
+    const pin = pinned.locks.find((l) => l.kind === "position" && l.trayKey === HIGH);
+    expect(turn).toEqual({ kind: "turn", trayKey: HIGH, rotated: true });
+    expect(pin).toMatchObject({ rotated: true });
+    const ctx = createCtx(buildLayoutInput(pinned));
+    const { conflicts } = resolveLocks(
+      ctx,
+      pinned.locks,
+      warmHints(ctx, (p.layout as StoredLayout).trays),
+    );
+    expect(conflicts).toEqual([]);
   });
 });

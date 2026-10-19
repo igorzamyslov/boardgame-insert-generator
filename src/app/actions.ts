@@ -135,6 +135,22 @@ export function lockedKeys(p: Project): Set<string> {
   return keys;
 }
 
+/** trayKeys with a turn lock (a turn fixes a tray's rotation without pinning it). */
+export function turnedKeys(p: Project): Set<string> {
+  const keys = new Set<string>();
+  for (const l of p.locks) {
+    if (l.kind === "turn") {
+      keys.add(l.trayKey);
+    }
+  }
+  return keys;
+}
+
+/** Takes the turn lock off this tray, and nothing else: the rail's "Turned" chip. */
+export function freeTurn(p: Project, trayKey: string): Project {
+  return turnedKeys(p).has(trayKey) ? removeLock(p, trayKey, "turn") : p;
+}
+
 /**
  * The trays a pin on `tray` holds: its whole stack, bottom to top (the trays of the stored plan
  * that share its path), or the tray alone when it is not in a stack of the plan.
@@ -162,11 +178,15 @@ export function toggleLock(p: Project, tray: TraySpec): Project {
   if (lockedKeys(p).has(tray.key)) {
     return { ...p, locks: rest };
   }
+  // a pin holds the rotation the person turned the tray to: the plan may not show it yet
+  const turnedTo = new Map(
+    p.locks.flatMap((l) => (l.kind === "turn" ? [[l.trayKey, l.rotated] as const] : [])),
+  );
   const locks: Lock[] = members.map((t) => ({
     kind: "position",
     trayKey: t.key,
     path: t.path,
-    rotated: t.rotated,
+    rotated: turnedTo.get(t.key) ?? t.rotated,
   }));
   if (members.length > 1) {
     // A pending swap is a stack lock in the swapped order: keep it rather than level order.
@@ -186,7 +206,7 @@ export function toggleLock(p: Project, tray: TraySpec): Project {
 
 /**
  * Takes the pins off these trays, and off the whole stack each is in: a pinned stack is pinned as
- * one, so what stays pinned would be a half of it. Size locks stay.
+ * one, so what stays pinned would be a half of it. Size locks and turn locks stay.
  */
 export function unpinTrays(p: Project, trayKeys: readonly string[]): Project {
   const keys = new Set(trayKeys);
@@ -205,9 +225,9 @@ export function unpinTrays(p: Project, trayKeys: readonly string[]): Project {
 }
 
 /**
- * Turns a tray 90°, which means its whole stack pinned where it is with every rotation flipped
- * (`turnLocks`). Whether that works is `canTurn`'s question; this writes the locks regardless, and
- * the next run reports any it cannot keep.
+ * Turns a tray 90°: one turn lock on it, which fixes its rotation and leaves it free to move; on a
+ * pinned stack the pins flip with it (`turnLocks`). Whether that works is `canTurn`'s question;
+ * this writes the locks regardless, and the next run reports any it cannot keep.
  */
 export function turnTray(p: Project, tray: TraySpec): Project {
   if (!isLockable(tray)) {

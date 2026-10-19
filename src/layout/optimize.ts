@@ -119,7 +119,7 @@ function startPhase(
   };
   const starts: Tree[] = [];
   if (opts.warmStart) {
-    const wt = warmTree(ctx, opts.warmStart.trays, resolved.pinnedVariant, hints);
+    const wt = warmTree(ctx, opts.warmStart.trays, resolved.pinnedVariant, hints, resolved.turns);
     if (wt) {
       starts.push(wt);
     }

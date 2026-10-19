@@ -6,6 +6,7 @@ import type { CardsComponent, Group, Lock, Project, TraySpec } from "../model/ty
 import {
   addComponent,
   clearChoices,
+  freeTurn,
   isLockable,
   lockedKeys,
   removeComponent,
@@ -20,6 +21,8 @@ import {
   swapTrays,
   toggleLock,
   toggleSizeLock,
+  turnTray,
+  turnedKeys,
   unpinTrays,
   updateBox,
   updateComponent,
@@ -302,5 +305,83 @@ describe("unpinTrays", () => {
   it("returns the same project when nothing was pinned there", () => {
     const p = stacked();
     expect(unpinTrays(p, ["zzz:p0:0"])).toBe(p);
+  });
+});
+
+describe("turn locks", () => {
+  // two trays stacked at "1", a third beside them, in a plan of the fixture's own trays
+  const lower = tray({ key: "a:p0:0", path: "1", level: 0 });
+  const upper = tray({ key: "b:p0:0", path: "1", level: 1 });
+  const beside = tray({ key: "c:p0:0", path: "0" });
+  const planned = (): Project => withLayout(newProject(), [beside, lower, upper]);
+  const turns = (p: Project): Lock[] => p.locks.filter((l) => l.kind === "turn");
+
+  it("turn does not pin: one turn lock on that tray, no position lock, no stack lock", () => {
+    const p = turnTray(planned(), upper);
+    expect(p.locks).toEqual([{ kind: "turn", trayKey: "b:p0:0", rotated: true }]);
+    expect(lockedKeys(p).size).toBe(0);
+  });
+
+  it("turn on a pinned stack flips its pins and adds one turn lock", () => {
+    const pinned = toggleLock(planned(), upper);
+    const p = turnTray(pinned, upper);
+    expect(
+      p.locks.filter((l) => l.kind === "position").map((l) => l.kind === "position" && l.rotated),
+    ).toEqual([true, true]);
+    expect(p.locks.some((l) => l.kind === "stack")).toBe(true);
+    expect(turns(p)).toEqual([{ kind: "turn", trayKey: "b:p0:0", rotated: true }]);
+  });
+
+  it("turn twice returns to the first rotation: the second flips the lock, not the stale plan", () => {
+    const once = turnTray(planned(), upper);
+    const twice = turnTray(once, upper);
+    expect(turns(twice)).toEqual([{ kind: "turn", trayKey: "b:p0:0", rotated: false }]);
+    expect(turns(turnTray(twice, upper))).toEqual([
+      { kind: "turn", trayKey: "b:p0:0", rotated: true },
+    ]);
+  });
+
+  it("pin after turn agrees: the pin takes the turn lock's rotation, and nothing conflicts", () => {
+    const once = turnTray(planned(), lower);
+    const pinned = toggleLock(once, lower);
+    const pins = pinned.locks.filter((l) => l.kind === "position");
+    expect(pins.map((l) => l.kind === "position" && [l.trayKey, l.rotated])).toEqual([
+      ["a:p0:0", true],
+      ["b:p0:0", false],
+    ]);
+  });
+
+  it("turn survives a pin and an unpin (R3)", () => {
+    const once = turnTray(planned(), upper);
+    const pinned = toggleLock(once, upper);
+    expect(turns(pinned)).toEqual(turns(once));
+    expect(turns(toggleLock(pinned, upper))).toEqual(turns(once));
+    expect(turns(unpinTrays(pinned, ["b:p0:0"]))).toEqual(turns(once));
+    expect(lockedKeys(unpinTrays(pinned, ["b:p0:0"])).size).toBe(0);
+  });
+
+  it("lockedKeys does not include turned trays; turnedKeys lists them", () => {
+    const p = turnTray(turnTray(planned(), upper), beside);
+    expect(lockedKeys(p).size).toBe(0);
+    expect(turnedKeys(p)).toEqual(new Set(["b:p0:0", "c:p0:0"]));
+  });
+
+  it("freeTurn removes that tray's turn lock only", () => {
+    const other: Lock = { kind: "size", trayKey: "b:p0:0", w: 100, d: 80, h: 40 };
+    const p = turnTray(turnTray({ ...planned(), locks: [other] }, upper), beside);
+    const freed = freeTurn(p, "b:p0:0");
+    expect(freed.locks).toEqual([other, { kind: "turn", trayKey: "c:p0:0", rotated: true }]);
+    expect(freeTurn(freed, "zzz:p0:0")).toBe(freed);
+  });
+
+  it('removeLock by kind "turn" clears a turn conflict, and clearChoices clears turn locks too', () => {
+    const p = turnTray(planned(), upper);
+    expect(removeLock(p, "b:p0:0", "turn").locks).toEqual([]);
+    expect(clearChoices(p).locks).toEqual([]);
+  });
+
+  it("a turn on a leftover is not written", () => {
+    const p = planned();
+    expect(turnTray(p, tray({ key: "leftover:0", part: "leftover" }))).toBe(p);
   });
 });

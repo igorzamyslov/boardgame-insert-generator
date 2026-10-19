@@ -88,7 +88,9 @@ function startingUnits(
       const fixed = ctx.sizeLocks.get(ctx.partId(ref));
       const m = ctx.metrics(ref, false, 0);
       const flat = along === "x" ? m.w < m.d : m.d < m.w;
-      const rotated = fixed ? fixed.rotated : p.rotatable && flat;
+      const rotated = fixed
+        ? fixed.rotated
+        : (resolved.turns.get(ctx.partId(ref)) ?? (p.rotatable && flat));
       const items = [{ ...ref, rotated }];
       units.push({ items, frozen: false, ext: extOf(items) });
     });
