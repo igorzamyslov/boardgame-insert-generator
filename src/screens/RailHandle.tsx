@@ -105,6 +105,13 @@ export function RailHandle({ width: chosen, onPreview, onCommit }: RailHandlePro
           end(false);
         }
       }}
+      onLostPointerCapture={(e) => {
+        // The pointer was taken from the handle mid-drag (the element went, the system took it): as a cancel.
+        // After a normal release the drag has ended already and this finds nothing to end.
+        if (grab.current?.pointerId === e.pointerId) {
+          end(false);
+        }
+      }}
       onDblClick={() => onCommit(RAIL_WIDTH.default)}
       onKeyDown={(e) => {
         const step = e.shiftKey ? BIG_STEP : STEP;

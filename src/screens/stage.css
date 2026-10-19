@@ -55,6 +55,50 @@
   min-width: var(--stage-action-slot);
 }
 
+/*
+ * A status row narrower than the three slots side by side (34 rem: a stage under about 610 px, which
+ * is any window from 760 px with a 300 px rail up to about 910 px, and more with a wider rail) is a
+ * container, and its controls take two rows that keep the same places in every state: the Layer
+ * slot on its own row, always the height of a switch (empty when there is no switch), and under it
+ * the View switch with the action beside it. The View switch still stays where it is when the Layer
+ * switch comes or goes and when Keep searching turns into Stop. A Layer switch longer than the row
+ * (three layers or more) scrolls inside its own slot; the page never scrolls sideways.
+ */
+.ws-stage .k-status {
+  container: stage-status / inline-size;
+}
+
+@container stage-status (width < 34rem) {
+  .stage-controls {
+    display: grid;
+    grid-template-areas:
+      "layer layer"
+      "view action";
+    grid-template-columns: auto auto;
+    justify-content: start;
+    justify-items: start; /* each keeps its own width: the View switch is the same box whatever the other rows hold */
+    max-width: 100%;
+  }
+
+  .stage-controls__layer {
+    grid-area: layer;
+    justify-content: flex-start;
+    min-width: 0;
+    min-height: calc(var(--control-h) + 2 * var(--s-3));
+    overflow-x: auto;
+  }
+
+  .stage-controls__view {
+    grid-area: view;
+  }
+
+  .stage-controls__action {
+    grid-area: action;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+}
+
 /* A long name on a button (Unpin Heroes — Hero 1/6, …) is cut with an ellipsis, not pushed past the row. */
 .k-status__extra .k-btn {
   min-width: 0;

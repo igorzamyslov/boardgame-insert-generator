@@ -202,6 +202,28 @@ describe("Workspace: the rail's handle", () => {
     expect(onChange).toHaveBeenCalledWith(340);
   });
 
+  it("ends a drag whose pointer capture is lost like a cancel: back to the width it began with, selection back on", () => {
+    const { handle, onChange, shell } = setup(340);
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 300 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 400 });
+    expect(shell?.classList.contains("ws--resizing")).toBe(true);
+    fireEvent(handle, Object.assign(new Event("lostpointercapture"), { pointerId: 1 }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(340);
+    expect(shell?.classList.contains("ws--resizing")).toBe(false);
+    expect(shell?.style.getPropertyValue("--rail-w")).toBe("340px");
+  });
+
+  it("does not end a finished drag a second time when the capture is released after the pointer goes up", () => {
+    const { handle, onChange } = setup(300);
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 300 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 360 });
+    fireEvent.pointerUp(handle, { pointerId: 1 });
+    fireEvent(handle, Object.assign(new Event("lostpointercapture"), { pointerId: 1 }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(360);
+  });
+
   describe("in a window too narrow for the chosen width", () => {
     const real = window.innerWidth;
     const resizeTo = (w: number): void => {

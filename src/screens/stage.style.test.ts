@@ -81,4 +81,27 @@ describe("stage.css", () => {
     const phone = kit.slice(kit.indexOf("The status heading on a phone"));
     expect(phone).toMatch(/\.k-status__line\s*\{[^}]*font-size:\s*var\(--text-xs\)/);
   });
+
+  it("takes a narrow status row's controls to two rows with the same places: Layer on its own row, then View and the action", () => {
+    const text = strip(css);
+    // the row is a size container, in the stage only
+    expect(ruleFor(".ws-stage .k-status")).toMatch(/container:\s*stage-status \/ inline-size/);
+    // narrower than the three slots side by side (34 rem; they need about 33)
+    const at = text.indexOf("@container stage-status (width < 34rem)");
+    expect(at).toBeGreaterThan(-1);
+    const block = text.slice(at);
+    const inBlock = (selector: string): string =>
+      ruleFor(selector, block.slice(block.indexOf("{") + 1));
+    const controls = inBlock(".stage-controls");
+    expect(controls).toMatch(/display:\s*grid/);
+    expect(controls).toMatch(/"layer layer"\s*"view action"/);
+    // each keeps its own width, so the View switch is the same box whatever the other rows hold
+    expect(controls).toMatch(/justify-items:\s*start/);
+    // the Layer row keeps a switch's height when it is empty, so the View switch does not rise
+    expect(inBlock(".stage-controls__layer")).toMatch(
+      /min-height:\s*calc\(var\(--control-h\) \+ 2 \* var\(--s-3\)\)/,
+    );
+    // and a long Layer switch scrolls in its slot, never the page
+    expect(inBlock(".stage-controls__layer")).toMatch(/overflow-x:\s*auto/);
+  });
 });

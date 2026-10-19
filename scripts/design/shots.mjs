@@ -836,14 +836,20 @@ async function openApp(browser, appUrl, name, state, seeds) {
       problems.push("the page scrolls at this size (it must not, with many components)");
     }
   }
-  if (state.viewport.width < 760) {
-    // A phone never scrolls sideways (0.6.0 pass): the page is no wider than the window.
-    const sideways = await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth + 1,
-    );
-    if (sideways) {
-      problems.push("the page scrolls sideways on a phone (it must not)");
+  // Nothing scrolls sideways at any width (0.6.0): not the page, and on a desktop not the stage either.
+  const sideways = await page.evaluate(() => {
+    const out = [];
+    if (document.documentElement.scrollWidth > window.innerWidth + 1) {
+      out.push("the page");
     }
+    const stage = document.querySelector('[data-region="stage"]');
+    if (stage !== null && stage.scrollWidth > stage.clientWidth + 1) {
+      out.push("the stage");
+    }
+    return out;
+  });
+  if (sideways.length > 0) {
+    problems.push(`sideways scroll: ${sideways.join(" and ")} (it must not at any width)`);
   }
   if (state.noStageScroll) {
     // The plan's box shrinks to what the stage has left, so the stage never scrolls on a desktop.
@@ -937,6 +943,9 @@ const JUMP_PAIRS = [
   // the same at 1920×1080, where the plan is at its 900 px cap
   { pair: ["workspace-1920", "workspace-3d-1920"], sizeOnly: [] },
   { pair: ["workspace-1920", "workspace-tray-1920"], sizeOnly: [] },
+  // a narrow stage (820 px: the controls take two rows): the View switch stays put too
+  { pair: ["workspace-820", "workspace-820-searching"], sizeOnly: [] },
+  { pair: ["workspace-820", "workspace-820-3d"], sizeOnly: [] },
 ];
 const JUMP_STATES = [...new Set(JUMP_PAIRS.flatMap((j) => j.pair))];
 const jumpBoxes = new Map();
@@ -1308,7 +1317,7 @@ try {
       const { regions, problems } = await shootState(browser, appUrl, name, seeds);
       // what fails a state (its pictures are written first: they show by how much)
       const hard = problems.filter((p) =>
-        /^(the (page scrolls|stage scrolls|stage is not beside|plan box)|probe |console error)/.test(
+        /^(the (page scrolls|stage scrolls|stage is not beside|plan box)|probe |console error|sideways scroll)/.test(
           p,
         ),
       );

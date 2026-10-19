@@ -162,6 +162,29 @@ export const STATES = {
     seed: "harbour-kings",
     noPageScroll: true,
   },
+  // The same at 820 px, where the status row's controls take two rows (stage.css): the View switch still
+  // stays where it is when Keep searching turns into Stop and when the 3D view adds "All" to the Layer switch.
+  "workspace-820-searching": {
+    board: "Main",
+    boardOpts: { state: { searching: true } },
+    nearest: "Main's searching state, drawn at 1440; 820 differs by design",
+    viewport: { width: 820, height: 1180 },
+    seed: "harbour-kings",
+    holds: ["search"],
+    steps: [
+      { click: { role: "button", name: "Keep searching", in: STATUS } },
+      { waitFor: { role: "button", name: "Stop" } },
+    ],
+  },
+  "workspace-820-3d": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest: "no board of its own: Main's 3D view, drawn at 1440; 820 differs by design",
+    viewport: { width: 820, height: 1180 },
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
+  },
   "workspace-searching": {
     board: "Main",
     boardOpts: { state: { searching: true } },
