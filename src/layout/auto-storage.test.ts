@@ -51,3 +51,19 @@ describe("storage auto never fits worse than one storage alone", { timeout: 60_0
     expect(ids("auto")).toEqual(expect.arrayContaining(ids("flat")));
   });
 });
+
+// The owner's second report on this box: "3 flat split decks are not going on top of each other,
+// even though there seems to be space". The Starter deck fits only split in three; Counter and all
+// three of them in one stack, the Trade deck in the other, is feasible (bug-flat-auto §5).
+describe("one item's split trays stay in one stack when they can", { timeout: 60_000 }, () => {
+  it.each(["flat", "auto"] as const)("stacks the three Starter trays together (%s)", (storage) => {
+    const input = inputWith(storage);
+    const key = input.requirements[1]?.key ?? "";
+    const result = optimize(input, 1, DEFAULT_ITERATIONS);
+    const starter = (result.layout?.trays ?? []).filter(
+      (t) => t.part === "tray" && t.key.startsWith(`${key}:`),
+    );
+    expect(starter).toHaveLength(3);
+    expect(new Set(starter.map((t) => t.stack)).size).toBe(1);
+  });
+});

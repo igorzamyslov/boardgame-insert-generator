@@ -354,9 +354,10 @@ describe("optimize", () => {
     });
 
     it("shrinks the total, never grows it, when a chain finds a layout", () => {
-      // case1 seed 39 with a small budget: the first chain dead-ends and the derived-seed chain
-      // finds a layout (at the default budget the first chain finds one on every seed measured)
-      const steps = progress(createRun(bedLipInput("case1"), 39, 1000));
+      // case1 seed 20 (39 before 0.5.3 moved the search) with a small budget: the first chain
+      // dead-ends and the derived-seed chain finds a layout (at the default budget the first
+      // chain finds one on every seed measured)
+      const steps = progress(createRun(bedLipInput("case1"), 20, 1000));
       expect(steps[0]?.total).toBe(2000);
       expect(steps.at(-1)).toEqual({ done: 2000, total: 2000 });
       expect(monotone(steps)).toBe(true);

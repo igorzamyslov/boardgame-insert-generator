@@ -1045,19 +1045,34 @@ fallback: a requirement that still has no variant is left out with a
      prefer underneath, and all three are preferences, not rules;
   8. filament volume;
   9. on warm starts, moving trays whose requirements didn't change;
-  10. the parts of one component looking alike (weak, below a printed part and a stacked tray,
-      far below `access`): parts of one requirement turned the same way (15 000 per part
-      turned unlike the majority) and standing in one stack (10 000 per extra stack, see
-      `WEIGHTS` in `layout/score.ts` for the argument). Preferences, never constraints: they
-      never decide against reachability (the three Starter-deck trays of the Star Realms
-      project share an orientation, but stay in two stacks, because one stack would bury two
-      "often" trays under the 200 000 each costs), and their total is orders of magnitude
-      under the overflow weight, so they cannot make a feasible layout lose to an infeasible
-      one. The stack count also counts the trays of other requirements standing between its
-      parts, so they end up adjacent where their sizes allow (minimal-trays spec §6.4);
+  10. the parts of one component kept together and looking alike (the cohesion terms; see
+      `WEIGHTS` in `layout/score.ts` for the argument). Two are strong, owner rulings of 0.5.3:
+      - one item's trays in one stack (`apart`): per copy of a requirement (one item, or one
+        player's share; one tray per player is not a split), 2 000 000 per extra stack. Above 1 %
+        of the box as leftover, a loose tray on top (`coverage`) and a buried `often` tray, so
+        the split trays of one item stay in one stack whenever a stack can hold them, at the cost
+        of a filler, a buried tray or up to about 2 % of the box (the Star Realms Starter deck,
+        split in three, stands in one stack with the Counter, and the room above the Trade deck
+        is a filler). Far under the overflow weight, so it never costs a fit;
+      - one tray unless no single tray fits (`split`, groups spec §6.3): 300 000 per tray beyond
+        one per copy, charged only when some variant holds each copy in a tray that fits alone
+        (`wholeFits` in `layout/context.ts`: level 0, no lip, on the box floor under the top
+        plane, turned only if it may be, and on the bed less its margin either way round). Above
+        a buried `often` tray, a stacked tray, a filler and the weak terms; below `coverage`, 1 %
+        of the box and `apart`.
+
+      And two are weak preferences (below a printed part and a stacked tray, far below `access`):
+      parts of one requirement turned the same way (`unturned`, 15 000 per part turned unlike the
+      majority), and side by side (`scattered`, 10 000 per extra stack of the requirement, its
+      copies included, and per tray of another requirement standing between its parts in a
+      stack), so they end up adjacent where their sizes allow (minimal-trays spec §6.4). The
+      variant move puts a new variant's trays of one copy on top of each other three times in four
+      where the stack can take them, so a split is not scattered and refused for it;
+
   11. the number of filler parts (a leftover, in a stack level too): 20 000 each, on top of the
       20 000 every part costs (§6.2 of the minimal-trays spec). Under a stacked tray's 50 000 with
-      its part, so avoiding a filler never buys a stacked tray, and over every cohesion preference.
+      its part, so avoiding a filler never buys a stacked tray, and over the weak cohesion
+      preferences.
       Counts stored leftovers, not merged parts: the merge is a print-time setting outside the
       hash. A reward for fillers against the box wall was measured and dropped: it raised the
       filler count.
