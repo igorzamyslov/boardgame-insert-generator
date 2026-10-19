@@ -153,7 +153,7 @@ first (O1–O3). Rulings marked "(review)" were changed by the plan review
 - **R8 (re-review).** No new slot field: the existing `slotCentres` places the slots. The
   geometry version follows DEVELOPMENT. If the printed mesh of any existing spec changes, it is a
   PATCH with a history paragraph. If only new specs use the feature, there is no bump. This matches
-  the owner's "no version bump" for #1. R21's choice may still force a PATCH (option a).
+  the owner's "no version bump" for #1.
 - **R9 (review).** The "Between decks" row lives in the Cards editor's basics, directly under
   Storage. It is shown whenever the item has 2 or more decks, so it never jumps (0.5.3's rule).
   With upright storage it is blocked with the reason "Only flat decks can share one well.". Under
@@ -210,20 +210,11 @@ first (O1–O3). Rulings marked "(review)" were changed by the plan review
 - **R20 (review).** In the `harbour-kings-long` fixture, the "Crew" text group
   (`harbourKings.ts:187`) is removed, so the Main states (`workspace-long`) keep their boards. Group
   coverage lives in the kit seeds.
-- **R21 (re-review). Open question for the owner: flat-deck finger access.** Today's dividers
-  are loose solid plates standing almost to the rim (`splitDividers`, `src/layout/dividers.ts:8-55`).
-  A side-wall channel stops at the first plate, so the middle decks need another way in. The
-  choices:
-  - (a) Notched plates that keep a bridge at the bottom. This is new plate geometry and a
-    GEOMETRY PATCH.
-  - (b) **(provisional pick)** One finger cut per section, through the front wall only, centred
-    on each deck. It uses the existing wall-cutout feature at a position, with no new plate
-    geometry.
-  - (c) Plates lower than the stack, so decks are pinched over them. This is weak for short
-    stacks.
-
-  Task 6 builds (b) unless the owner answers otherwise by the end-of-phase-1 checkpoint (Task 8
-  Step 6). Task 6 starts after that checkpoint.
+- **R21 (owner, 2026-10-19). Flat-deck finger access: one finger cut per deck, through the front
+  wall, centred on each deck's section.** It uses the existing wall-cutout feature at a position,
+  with no new plate geometry. The dividers are loose solid plates (`splitDividers`,
+  `src/layout/dividers.ts:8-55`), so a side-wall channel would stop at the first one. The owner
+  rejected notched plates (geometry PATCH) and low plates.
 
 ---
 
@@ -649,8 +640,7 @@ Project` removes that tray's turn lock (R3). `turnedKeys(p: Project): Set<string
 dividerSlotWidth`. Its height is set by the 30-card stack. It has `floorExtra ===
 DIVIDER_GROOVE`. It has two floor slots, each centred in the gap between two decks
     (`slotCentres`).
-  - `every deck has finger access` (R21, option chosen at the Task 8 checkpoint). For (b): three
-    front-wall cuts, each centred on one deck's section and clear of the slots. Whatever the
+  - `every deck has finger access` (R21): three front-wall cuts, each centred on one deck's section and clear of the slots. Whatever the
     option, the test also checks that the plates (`splitDividers`) leave each deck reachable.
   - `walls default unchanged`: the same item without `flatDecks` gives the 0.6 compartments
     (snapshot from main).
@@ -659,7 +649,7 @@ DIVIDER_GROOVE`. It has two floor slots, each centred in the gap between two dec
   - The geometry case renders, and its divider plates fit their slots (the existing slot-fit
     check). Existing specs' meshes are byte-identical, which decides the R8 PATCH question.
 - [ ] **Step 2:** Run → FAIL.
-- [ ] **Step 3: Implement** R7, R8 and the R21 option the owner chose (or (b)).
+- [ ] **Step 3: Implement** R7, R8 and R21.
 - [ ] **Step 4:** Run `npx vitest run src/sizing src/geometry` → PASS.
 - [ ] **Step 5: Commit** `0.7.0 task 6: flat decks can share one well with removable dividers`
 
