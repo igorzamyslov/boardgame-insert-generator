@@ -529,7 +529,6 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: NO_ACTIONS,
   },
   { text: "Edit {name}", states: SHEET_STATES, ruling: TRAY_SHEET },
-  // MobileTray's tile says "Pin here" and never "Unpin"; the label is the action, as on the bar
   // the buttons say what they hold: this tray alone, or the stack it is in (its tray count follows, for a reader)
   ...["tray", "stack"].flatMap((what) =>
     [`Pin this ${what}`, `Unpin this ${what}`, `Turn this ${what} 90°`].map((text) => ({
