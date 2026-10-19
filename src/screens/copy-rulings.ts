@@ -200,6 +200,7 @@ const EDITOR_LABELS: readonly string[] = [
   "Dividers",
   "Number of dividers",
   "Deck",
+  "Deck name",
   "+ Another deck",
   "Per player",
   "Counts are per player",

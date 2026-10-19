@@ -96,7 +96,9 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
       type="button"
       class="ed-add"
       onClick={() => {
-        onChange({ ...c, decks: [...c.decks, { name: `Deck ${c.decks.length + 1}`, count: 50 }] });
+        // A lone deck carries no name (the item's name stands for it); a second deck names both.
+        const first = c.decks.map((d) => (d.name === "" ? { ...d, name: "Deck 1" } : d));
+        onChange({ ...c, decks: [...first, { name: `Deck ${c.decks.length + 1}`, count: 50 }] });
         setFocusDeck(c.decks.length);
       }}
     >
@@ -104,6 +106,10 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
     </button>
   );
   const only = c.decks.length === 1 ? c.decks[0] : undefined;
+  // An old file's lone deck keeps a name, so its field stays: it shows from the moment the editor
+  // opens with a named lone deck, and stays while it is edited (even emptied), as a control stays
+  // where it first appeared. A removal that leaves one deck clears the name, and the field stays away.
+  const [nameField, setNameField] = useState(only !== undefined && only.name !== "");
   // Custom was just chosen: the width field takes the focus once it is drawn.
   const [focusSleeve, setFocusSleeve] = useState(false);
   useEffect(() => {
@@ -118,13 +124,23 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
   return (
     <>
       {only !== undefined ? (
-        <CountField
-          label="How many cards?"
-          name="Number of cards"
-          value={only.count}
-          path={`${at}/decks/0/count`}
-          onChange={(count) => setDeck(0, { count })}
-        />
+        <>
+          <CountField
+            label="How many cards?"
+            name="Number of cards"
+            value={only.count}
+            path={`${at}/decks/0/count`}
+            onChange={(count) => setDeck(0, { count })}
+          />
+          {nameField ? (
+            <TextBox
+              id={`${c.id}-deck0-name`}
+              label="Deck name"
+              value={only.name}
+              onCommit={(name) => setDeck(0, { name })}
+            />
+          ) : null}
+        </>
       ) : (
         <>
           <div class="ed-cards">
@@ -150,7 +166,16 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
                     label={`Remove deck ${deck.name === "" ? j + 1 : deck.name}`}
                     onlyOne={c.decks.length <= 1}
                     reason="There has to be at least one deck."
-                    onRemove={() => onChange({ ...c, decks: c.decks.filter((_d, k) => k !== j) })}
+                    onRemove={() => {
+                      const rest = c.decks.filter((_d, k) => k !== j);
+                      // Left alone, a deck carries no name: the item's name stands for it.
+                      const [lone] = rest;
+                      setNameField(false);
+                      onChange({
+                        ...c,
+                        decks: rest.length === 1 && lone ? [{ ...lone, name: "" }] : rest,
+                      });
+                    }}
                   />
                 </div>
                 <Alert id={`${c.id}-deck${j}-count-error`} path={`${at}/decks/${j}/count`} />

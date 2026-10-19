@@ -125,9 +125,84 @@ describe("CardsEditor", () => {
       expect(more.getAttribute("aria-expanded")).toBe("false");
       fireEvent.click(add);
       expect(last().decks).toEqual([
-        { name: "", count: 50 },
+        { name: "Deck 1", count: 50 },
         { name: "Deck 2", count: 50 },
       ]);
+    });
+
+    it("shows no name field for a lone deck without a name", () => {
+      setup(cards());
+      expect(screen.queryByLabelText("Deck name")).toBeNull();
+    });
+
+    it("keeps a lone deck's old name editable, under the stepper and before + Another deck", () => {
+      const { last } = setup(cards({ decks: [{ name: "Deck 1", count: 15 }] }));
+      const field = screen.getByLabelText("Deck name") as HTMLInputElement;
+      expect(field.value).toBe("Deck 1");
+      const stepper = screen.getByLabelText("Number of cards");
+      const add = screen.getByRole("button", { name: "+ Another deck" });
+      expect(
+        stepper.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(field.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      fireEvent.input(field, { target: { value: "Base set" } });
+      expect(last().decks).toEqual([{ name: "Base set", count: 15 }]);
+    });
+
+    it("keeps the name field while the name is emptied, and drops it on reopening", () => {
+      const named = cards({ decks: [{ name: "Deck 1", count: 15 }] });
+      const view = setup(named).view;
+      fireEvent.input(screen.getByLabelText("Deck name"), { target: { value: "" } });
+      view.rerender(
+        <CardsEditor
+          component={cards({ decks: [{ name: "", count: 15 }] })}
+          index={0}
+          onChange={vi.fn()}
+        />,
+      );
+      expect((screen.getByLabelText("Deck name") as HTMLInputElement).value).toBe("");
+      cleanup();
+      setup(cards({ decks: [{ name: "", count: 15 }] }));
+      expect(screen.queryByLabelText("Deck name")).toBeNull();
+    });
+
+    it("names a nameless lone deck Deck 1 when another is added", () => {
+      const { last } = setup(cards({ decks: [{ name: "", count: 15 }] }));
+      fireEvent.click(screen.getByRole("button", { name: "+ Another deck" }));
+      expect(last().decks).toEqual([
+        { name: "Deck 1", count: 15 },
+        { name: "Deck 2", count: 50 },
+      ]);
+    });
+
+    it("keeps a named lone deck's name when another is added", () => {
+      const { last } = setup(cards({ decks: [{ name: "Base", count: 15 }] }));
+      fireEvent.click(screen.getByRole("button", { name: "+ Another deck" }));
+      expect(last().decks).toEqual([
+        { name: "Base", count: 15 },
+        { name: "Deck 2", count: 50 },
+      ]);
+    });
+
+    it("clears the name of the deck a removal leaves alone, and offers no name field for it", () => {
+      const two = cards({
+        decks: [
+          { name: "A", count: 10 },
+          { name: "B", count: 20 },
+        ],
+      });
+      const view = setup(two);
+      fireEvent.click(screen.getByRole("button", { name: "Remove deck A" }));
+      expect(view.last().decks).toEqual([{ name: "", count: 20 }]);
+      view.view.rerender(
+        <CardsEditor
+          component={cards({ decks: view.last().decks })}
+          index={0}
+          onChange={vi.fn()}
+        />,
+      );
+      expect(screen.getByLabelText("Number of cards")).toBeTruthy();
+      expect(screen.queryByLabelText("Deck name")).toBeNull();
     });
 
     it("turns the stepper into the deck list in the same place, and back", () => {
@@ -204,9 +279,7 @@ describe("CardsEditor", () => {
       fireEvent.click(more[0] as HTMLElement);
       expect(last().decks[0]).toEqual({ name: "A", count: 11 });
       fireEvent.click(screen.getByRole("button", { name: "Remove deck A" }));
-      expect(last().decks).toEqual([{ name: "B", count: 20 }]);
-      fireEvent.click(screen.getByRole("button", { name: "+ Another deck" }));
-      expect(last().decks).toHaveLength(3);
+      expect(last().decks).toEqual([{ name: "", count: 20 }]);
     });
   });
 
