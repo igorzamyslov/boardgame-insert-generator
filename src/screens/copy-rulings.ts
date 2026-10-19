@@ -198,7 +198,6 @@ const EDITOR_LABELS: readonly string[] = [
   "Spacer plates",
   "Dividers",
   "Number of dividers",
-  "Decks",
   "Deck",
   "+ Another deck",
   "Per player",

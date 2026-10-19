@@ -289,6 +289,17 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [EDIT_MARKET, MORE_OPTIONS],
   },
+  // One deck, then "+ Another deck" pressed: the stepper turns into the deck list where it stood
+  // (the owner's rule, 0.5.3: a control stays where it first appeared). The board has no such line.
+  "editor-decks": {
+    board: "Edit",
+    boardOpts: { props: { moreOpen: false } },
+    nearest:
+      'Edit with a second deck added: the board draws one deck and no "+ Another deck" under the stepper',
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [EDIT_MARKET, { click: { role: "button", name: "+ Another deck", in: RAIL } }],
+  },
   // The same on a tall window (the rail scrolls in a 900 px one): Corner holes turned on, so a chip, and
   // the Extra room row opened, show the changed dot and "Back to <default>" beside the Market deck's own.
   "editor-more-changed": {

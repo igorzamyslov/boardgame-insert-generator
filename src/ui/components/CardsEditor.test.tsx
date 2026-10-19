@@ -1,6 +1,6 @@
 // src/ui/components/CardsEditor.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newComponent } from "../../model/defaults";
 import { CARD_PRESETS } from "../../model/presets";
@@ -115,12 +115,71 @@ describe("CardsEditor", () => {
       expect(last().decks[0]).toMatchObject({ count: 51 });
     });
 
-    it("keeps the way to a second deck under More options, not among the basics", () => {
+    it("offers a second deck among the basics, under the stepper and before More options", () => {
       const { last } = setup(cards());
-      expect(screen.queryByRole("button", { name: "+ Another deck" })).toBeNull();
-      openRows();
+      const add = screen.getByRole("button", { name: "+ Another deck" });
+      const stepper = screen.getByLabelText("Number of cards");
+      const more = screen.getByRole("button", { name: /^More options/ });
+      expect(stepper.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(add.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(more.getAttribute("aria-expanded")).toBe("false");
+      fireEvent.click(add);
+      expect(last().decks).toEqual([
+        { name: "", count: 50 },
+        { name: "Deck 2", count: 50 },
+      ]);
+    });
+
+    it("turns the stepper into the deck list in the same place, and back", () => {
+      const slot = (view: ReturnType<typeof setup>["view"]): number =>
+        Array.from(view.container.children).findIndex(
+          (el) =>
+            el.matches(".ed-cards") || el.querySelector('[aria-label="Number of cards"]') !== null,
+        );
+      const one = setup(cards());
+      const place = slot(one.view);
+      expect(place).toBeGreaterThanOrEqual(0);
+      const grown = cards({
+        decks: [
+          { name: "", count: 50 },
+          { name: "Deck 2", count: 50 },
+        ],
+      });
+      one.view.rerender(<CardsEditor component={grown} index={0} onChange={one.onChange} />);
+      expect(screen.queryByLabelText("Number of cards")).toBeNull();
+      expect(slot(one.view)).toBe(place);
+      // "+ Another deck" stays under the list
+      const list = one.view.container.querySelector(".ed-cards");
+      const add = screen.getByRole("button", { name: "+ Another deck" });
+      expect(list?.compareDocumentPosition(add)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      one.view.rerender(<CardsEditor component={cards()} index={0} onChange={one.onChange} />);
+      expect(screen.getByLabelText("Number of cards")).toBeTruthy();
+      expect(slot(one.view)).toBe(place);
+      expect(screen.getByRole("button", { name: "+ Another deck" })).toBeTruthy();
+    });
+
+    it("moves focus to the new deck's name", async () => {
+      const onChange = vi.fn<(next: CardsComponent) => void>();
+      const view = render(<CardsEditor component={cards()} index={0} onChange={onChange} />);
       fireEvent.click(screen.getByRole("button", { name: "+ Another deck" }));
-      expect(last().decks).toHaveLength(2);
+      const grown = cards({
+        decks: [
+          { name: "", count: 50 },
+          { name: "Deck 2", count: 50 },
+        ],
+      });
+      view.rerender(<CardsEditor component={grown} index={0} onChange={onChange} />);
+      await waitFor(() => {
+        expect(document.activeElement?.id).toBe("c1-deck1-name");
+      });
+    });
+
+    it("has no Decks row under More options", () => {
+      setup(cards());
+      openRows();
+      expect(screen.queryByRole("button", { name: /^Decks/ })).toBeNull();
+      expect(screen.getAllByRole("button", { name: "+ Another deck" })).toHaveLength(1);
+      expect(screen.queryByLabelText(/^Deck/)).toBeNull();
     });
 
     it("shows several decks as cards with a name, a count and a ×, and removes one", () => {

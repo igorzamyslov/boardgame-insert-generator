@@ -1,6 +1,7 @@
 // src/ui/components/CardsEditor.tsx
-// Edit's cards editor: how many, the card size, the sleeves; the rest is under More options.
-import { useContext, useState } from "preact/hooks";
+// Edit's cards editor: how many (one stepper, or the decks), the card size, the sleeves; the rest is
+// under More options.
+import { useContext, useEffect, useState } from "preact/hooks";
 import { setCardSides } from "../../app/actions";
 import { ChoiceChips, CheckRow, Segmented } from "../../kit";
 import type { SegmentedOption } from "../../kit";
@@ -80,13 +81,23 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
   const setDeck = (j: number, patch: Partial<Deck>): void => {
     onChange({ ...c, decks: c.decks.map((d, k) => (k === j ? { ...d, ...patch } : d)) });
   };
+  // A control stays where it first appeared (DESIGN, Flow): "+ Another deck" sits under the stepper,
+  // and under the list once it is one. The new deck's name takes the focus, so it can be typed at once.
+  const [focusDeck, setFocusDeck] = useState<number | null>(null);
+  useEffect(() => {
+    if (focusDeck !== null && focusDeck < c.decks.length) {
+      document.getElementById(`${c.id}-deck${focusDeck}-name`)?.focus();
+      setFocusDeck(null);
+    }
+  }, [focusDeck, c.decks.length, c.id]);
   const addDeck = (
     <button
       type="button"
       class="ed-add"
-      onClick={() =>
-        onChange({ ...c, decks: [...c.decks, { name: `Deck ${c.decks.length + 1}`, count: 50 }] })
-      }
+      onClick={() => {
+        onChange({ ...c, decks: [...c.decks, { name: `Deck ${c.decks.length + 1}`, count: 50 }] });
+        setFocusDeck(c.decks.length);
+      }}
     >
       {ANOTHER_DECK}
     </button>
@@ -139,9 +150,9 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
               </div>
             ))}
           </div>
-          {addDeck}
         </>
       )}
+      {addDeck}
       <Group label="Card size">
         <ChoiceChips
           label="Card size"
@@ -334,18 +345,6 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
           />
         </ExactRow>
         <WellRows component={c} index={index} onChange={onChange} />
-        {only !== undefined ? (
-          <ExactRow title="Decks">
-            <TextBox
-              id={`${c.id}-deck0-name`}
-              label="Deck"
-              labelExtra="1"
-              value={only.name}
-              onCommit={(name) => setDeck(0, { name })}
-            />
-            {addDeck}
-          </ExactRow>
-        ) : null}
         <CommonRows component={c} index={index} onChange={onChange} />
       </MoreOptions>
     </>
