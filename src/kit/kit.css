@@ -1137,9 +1137,13 @@
   flex-direction: column;
 }
 
-.k-dialog::backdrop,
-.k-drawer::backdrop {
+.k-dialog::backdrop {
   background: var(--scrim);
+}
+
+/* Settings' board dims the plan behind the drawer instead of hiding it: a change there can move the fit. */
+.k-drawer::backdrop {
+  background: var(--scrim-see);
 }
 
 /*

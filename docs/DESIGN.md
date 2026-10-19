@@ -303,23 +303,23 @@ technical palette. The owner called it unusable. Everything below exists so it d
 Light and warm. Every value comes from the boards (`docs/design/boards`). Tokens in
 `src/styles/tokens.css`:
 
-| Role                                        | Token                                                                             |
-| ------------------------------------------- | --------------------------------------------------------------------------------- |
-| Page background                             | `--page`                                                                          |
-| Cards, panels, sheets                       | `--sheet`, with `--shadow-sheet`                                                  |
-| List rows, the box card, kind tiles         | `--row`                                                                           |
-| Segment tracks, progress tracks, small tags | `--fill-quiet`; Main's Layer and View segments `--track`                          |
-| Text                                        | `--ink`; secondary text `--muted`, `--muted-strong`; blocked `--ink-off`          |
-| Hairlines, dividers                         | `--rule`, `--rule-soft`; field edges `--field-line`                               |
-| Control and tray edges                      | `--edge`                                                                          |
-| The box floor in the plan                   | `--box`, `--box-edge`, `--box-dash`                                               |
-| Focus, links, selection                     | `--focus`, `--focus-wash`, text on it `--on-focus`; a field's glow `--field-glow` |
-| Info (banner, searching)                    | `--info-bg`, `--info-ink`                                                         |
-| Everything fits, saved                      | `--fit-bg`, `--ok`                                                                |
-| Errors, no-fit                              | `--danger`, `--danger-bg`, `--danger-ink`, `--on-danger`                          |
-| Warnings, the menu dot                      | `--warn`, `--warn-bg`, `--warn-ink`, `--warn-ink-strong`                          |
-| Changed from the default (Settings)         | `--changed`, `--changed-bg`, `--changed-ink`                                      |
-| Behind a dialog or the drawer               | `--scrim`                                                                         |
+| Role                                        | Token                                                                                     |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Page background                             | `--page`                                                                                  |
+| Cards, panels, sheets                       | `--sheet`, with `--shadow-sheet`                                                          |
+| List rows, the box card, kind tiles         | `--row`                                                                                   |
+| Segment tracks, progress tracks, small tags | `--fill-quiet`; Main's Layer and View segments `--track`                                  |
+| Text                                        | `--ink`; secondary text `--muted`, `--muted-strong`; blocked `--ink-off`                  |
+| Hairlines, dividers                         | `--rule`, `--rule-soft`; field edges `--field-line`                                       |
+| Control and tray edges                      | `--edge`                                                                                  |
+| The box floor in the plan                   | `--box`, `--box-edge`, `--box-dash`                                                       |
+| Focus, links, selection                     | `--focus`, `--focus-wash`, text on it `--on-focus`; a field's glow `--field-glow`         |
+| Info (banner, searching)                    | `--info-bg`, `--info-ink`                                                                 |
+| Everything fits, saved                      | `--fit-bg`, `--ok`                                                                        |
+| Errors, no-fit                              | `--danger`, `--danger-bg`, `--danger-ink`, `--on-danger`                                  |
+| Warnings, the menu dot                      | `--warn`, `--warn-bg`, `--warn-ink`, `--warn-ink-strong`                                  |
+| Changed from the default (Settings)         | `--changed`, `--changed-bg`, `--changed-ink`                                              |
+| Behind a dialog                             | `--scrim`; behind the drawer `--scrim-see` (the plan shows, dimmed, as Settings draws it) |
 
 Never lay `--muted` text on `--box`: it falls below 4.5:1 in light mode.
 
