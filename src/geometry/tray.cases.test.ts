@@ -327,9 +327,11 @@ describe("no piece thinner than 0.8 mm near the rim (review 3, M1)", () => {
   // of a fillet is a piece of 0.014 mm² (0.1 mm by 0.26 mm: far under a 0.4 mm line, which the
   // slicer drops), and a divider between two wells has two of them side by side: 0.028 mm². That is
   // numerics of the fillet's faceted arc ending at the rim, the same in every trimming of the tray
-  // (with the rim off and at level 0 too), so the limit is MIN_TIP_AREA, just over two tips. The
-  // feathers this guards against were 0.03 to 0.06 mm² and 0.04 mm wide at h − 0.2, and stay caught.
+  // (with the rim off and at level 0 too), so at that one layer the limit is MIN_TIP_AREA, just
+  // over two tips. Every layer below keeps the old 0.02 mm²: the feathers this guards against were
+  // 0.03 to 0.06 mm² and 0.04 mm wide at h − 0.2, and the looser limit would sit on their low end.
   const MIN_TIP_AREA = 0.03;
+  const MIN_PIECE_AREA = 0.02;
   // checkPrintability sees faces only; slicing finds thin solid between sloped faces, such as a
   // top fillet meeting a corner relief at a post (0.04 mm wide at h − 0.2). With reliefs on, the
   // relief stays and the fillet beside it is smaller; with them off, the fillet is 3 mm.
@@ -355,7 +357,11 @@ describe("no piece thinner than 0.8 mm near the rim (review 3, M1)", () => {
       }
       const { mesh } = buildTray(m, spec, DEFAULT_SETTINGS);
       // Below the rim: the lip's chamfered top is 0.6 mm wide by design (spec §6.1).
-      expect(thinSlices(m, mesh, below(spec.h), MIN_TIP_AREA), JSON.stringify(opts)).toEqual([]);
+      const [rimLayer, ...deeper] = below(spec.h);
+      expect(thinSlices(m, mesh, [rimLayer as number], MIN_TIP_AREA), JSON.stringify(opts)).toEqual(
+        [],
+      );
+      expect(thinSlices(m, mesh, deeper, MIN_PIECE_AREA), JSON.stringify(opts)).toEqual([]);
     }
   });
 });
