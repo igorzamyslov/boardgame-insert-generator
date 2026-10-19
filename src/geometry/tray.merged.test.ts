@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from "vitest";
-import type { ManifoldToplevel } from "manifold-3d";
+import type { ManifoldToplevel, Vec2 } from "manifold-3d";
 import { printMesh } from "../app/exportBuild";
 import { mergeParts } from "../layout/merge";
 import { TEST_PRINTER, traySpec } from "../layout/test-utils";
@@ -9,6 +9,7 @@ import type { Settings, TraySpec } from "../model/types";
 import { loadManifold } from "./load";
 import { checkPrintability } from "./printability";
 import { bounds, signedVolume, topology } from "./test-mesh";
+import { quarterSegments } from "./shapes";
 import { buildTray } from "./tray";
 
 // A merged part (mergeParts) is built from its members and the bridges that fill the tray gaps
@@ -165,5 +166,94 @@ describe("a merged part builds", () => {
     const report = checkPrintability(printed);
     expect(report.problems).toEqual([]);
     expect(report.minFeatureMm).toBeGreaterThan(2);
+  });
+});
+
+// The merged outline is rounded once (spacer fillets after the merge): its convex corners get the
+// corner radius, its concave ones stay sharp, and the seams between members leave no step.
+describe("a merged part is rounded once, after the merge", () => {
+  const R = DEFAULT_SETTINGS.cornerRadius;
+  const ARC = quarterSegments(R) + 1; // points on one rounded corner
+
+  /** The outlines of the part's horizontal slice at height z, outer ring first. */
+  function slice(mesh: ReturnType<typeof buildTray>["mesh"], z: number): Vec2[][] {
+    const solid = new m.Manifold(
+      new m.Mesh({ numProp: 3, vertProperties: mesh.positions, triVerts: mesh.indices }),
+    );
+    const cut = solid.slice(z);
+    const rings = cut.toPolygons();
+    solid.delete();
+    cut.delete();
+    return rings;
+  }
+  const area = (ring: Vec2[]): number =>
+    ring.reduce((sum, [x, y], i) => {
+      const [x2, y2] = ring[(i + 1) % ring.length] as Vec2;
+      return sum + (x * y2 - x2 * y) / 2;
+    }, 0);
+  const outer = (rings: Vec2[][]): Vec2[] =>
+    rings.reduce((big, ring) => (Math.abs(area(ring)) > Math.abs(area(big)) ? ring : big));
+  const near = (ring: Vec2[], x: number, y: number): number =>
+    Math.min(...ring.map(([px, py]) => Math.hypot(px - x, py - y)));
+
+  it("two solid bars side by side make a rectangle: four rounded corners, nothing at the seam", () => {
+    const a = filler({ key: "leftover:0", x: 0, y: 0, w: 60, d: 40 });
+    const b = filler({ key: "leftover:1", x: 60 + GAP, y: 0, w: 20, d: 40, stack: 6 });
+    const { spec, mesh } = built([a, b]);
+    expectsBuilt(spec, mesh);
+    const ring = outer(slice(mesh, 20));
+    expect(ring).toHaveLength(4 * ARC);
+    // no vertex along the straight faces, where the members meet
+    for (const [x, y] of ring) {
+      const atCorner = x < R + 1e-3 || x > spec.w - R - 1e-3;
+      expect(atCorner, `(${x}, ${y})`).toBe(true);
+    }
+    // the corners are round: no vertex near the sharp corner
+    for (const [x, y] of [
+      [0, 0],
+      [spec.w, 0],
+      [0, spec.d],
+      [spec.w, spec.d],
+    ] as Vec2[]) {
+      expect(near(ring, x, y)).toBeGreaterThan(R * (Math.SQRT2 - 1) - 0.05);
+    }
+  });
+
+  it("an L of two bars: five rounded corners, one sharp inner corner, no step at the seam", () => {
+    const a = filler({ key: "leftover:0", x: 0, y: 0, w: 60, d: 40 });
+    const b = filler({ key: "leftover:1", x: 60 + GAP, y: 0, w: 20, d: 20, stack: 6 });
+    const { spec, mesh } = built([a, b]);
+    expectsBuilt(spec, mesh);
+    const ring = outer(slice(mesh, 20));
+    expect(ring).toHaveLength(5 * ARC + 1);
+    // the inner corner (60, 20) is a vertex of its own, sharp
+    expect(near(ring, 60, 20)).toBeLessThan(1e-3);
+    // the bottom face runs straight from corner to corner: no vertex between the arcs
+    const bottom = ring.filter(([, y]) => Math.abs(y) < 1e-6);
+    expect(bottom.every(([x]) => x < R + 1e-3 || x > spec.w - R - 1e-3)).toBe(true);
+  });
+
+  it("two open spare trays: one rounded outline, each pocket kept, the seam solid", () => {
+    const a = open({ key: "leftover:0", x: 0, y: 0, w: 60, d: 40 });
+    const b = open({ key: "leftover:1", x: 60 + GAP, y: 0, w: 50, d: 40, stack: 6 });
+    const { spec, mesh, printed } = built([a, b]);
+    expectsBuilt(spec, mesh);
+    const rings = slice(mesh, 20);
+    expect(rings).toHaveLength(3); // the outline and the two pockets
+    expect(outer(rings)).toHaveLength(4 * ARC);
+    expect(checkPrintability(printed)).toMatchObject({ ok: true, overhangTriangles: 0 });
+  });
+
+  it("keeps the bottom chamfer along the whole joined outline", () => {
+    const a = filler({ key: "leftover:0", x: 0, y: 0, w: 60, d: 40 });
+    const b = filler({ key: "leftover:1", x: 60 + GAP, y: 0, w: 20, d: 20, stack: 6 });
+    const { mesh } = built([a, b]);
+    const c = DEFAULT_SETTINGS.bottomChamfer;
+    const foot = outer(slice(mesh, 0.001));
+    // at the bed the outline is pulled in by the chamfer, the seam included
+    expect(Math.min(...foot.map(([, y]) => y))).toBeCloseTo(c, 2);
+    expect(Math.min(...foot.map(([x]) => x))).toBeCloseTo(c, 2);
+    const wall = outer(slice(mesh, 5));
+    expect(Math.min(...wall.map(([, y]) => y))).toBeCloseTo(0, 6);
   });
 });

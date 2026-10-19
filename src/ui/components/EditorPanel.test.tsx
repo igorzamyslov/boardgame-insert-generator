@@ -51,7 +51,6 @@ const OPTIONS: Record<
       "Cards stand",
       /^Correct the estimated thickness/,
       /^Measure a stack of cards/,
-      /^Sleeve outer width/,
       "Room for expansions",
       "Spacer plates",
       "Removable dividers",

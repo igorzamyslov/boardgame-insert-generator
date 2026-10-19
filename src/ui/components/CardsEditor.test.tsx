@@ -218,23 +218,48 @@ describe("CardsEditor", () => {
       expect(last().sleeve).toBe("premium");
     });
 
-    it("sets a sleeve size of its own from the exact values, starting from what the sleeves add", () => {
+    it("always offers Custom as the fourth segment", () => {
+      setup(cards());
+      const labels = Array.from(
+        screen.getByRole("group", { name: "Sleeves" }).querySelectorAll("button"),
+      ).map((b) => b.textContent);
+      expect(labels).toEqual(["None", "Standard", "Premium", "Custom"]);
+      expect(screen.queryByLabelText(/Sleeve outer width/)).toBeNull();
+    });
+
+    it("opens the sleeve-size fields on Custom, seeded with the sleeve's size now", async () => {
       const { last, view, onChange } = setup(cards({ sleeve: "standard" }));
-      openRows();
+      choose("Sleeves", "Custom");
+      // 63.5 × 88 card, standard sleeve adds 3 mm and 0.1 mm per card
+      expect(last().sleeve).toEqual({ w: 66.5, h: 91, thickness: 0.1 });
+      view.rerender(
+        <CardsEditor component={cards({ sleeve: last().sleeve })} index={0} onChange={onChange} />,
+      );
+      expect(pressedIn("Sleeves")).toBe("Custom");
       expect((screen.getByLabelText(/Sleeve outer width/) as HTMLInputElement).value).toBe("66.5");
+      expect((screen.getByLabelText(/Sleeve outer length/) as HTMLInputElement).value).toBe("91");
+      await waitFor(() => {
+        expect(document.activeElement?.id).toBe("c1-sleeveW");
+      });
+    });
+
+    it("seeds Custom from no sleeve with the card's own size, and goes back to a named sleeve", () => {
+      const { last, view, onChange } = setup(cards());
+      choose("Sleeves", "Custom");
+      expect(last().sleeve).toEqual({ w: 63.5, h: 88, thickness: 0 });
+      view.rerender(
+        <CardsEditor component={cards({ sleeve: last().sleeve })} index={0} onChange={onChange} />,
+      );
+      choose("Sleeves", "Premium");
+      expect(last().sleeve).toBe("premium");
+    });
+
+    it("sets a sleeve size of its own from the fields", () => {
+      const { last } = setup(cards({ sleeve: { w: 66.5, h: 91, thickness: 0.1 } }));
       fireEvent.input(screen.getByLabelText(/Added thickness per card/), {
         target: { value: "0,2" },
       });
       expect(last().sleeve).toEqual({ w: 66.5, h: 91, thickness: 0.2 });
-      view.rerender(
-        <CardsEditor
-          component={cards({ sleeve: { w: 66.5, h: 91, thickness: 0.2 } })}
-          index={0}
-          onChange={onChange}
-        />,
-      );
-      // a sleeve of its own has a segment of its own, pressed
-      expect(pressedIn("Sleeves")).toBe("Custom");
     });
   });
 

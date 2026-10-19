@@ -39,6 +39,7 @@ const SLEEVE_OPTIONS: SegmentedOption<SleeveChoice>[] = [
   { value: "none", label: "None" },
   { value: "standard", label: "Standard" },
   { value: "premium", label: "Premium" },
+  { value: "custom", label: "Custom" },
 ];
 
 const STAND_OPTIONS: SegmentedOption<CardsComponent["storage"]>[] = [
@@ -103,6 +104,14 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
     </button>
   );
   const only = c.decks.length === 1 ? c.decks[0] : undefined;
+  // Custom was just chosen: the width field takes the focus once it is drawn.
+  const [focusSleeve, setFocusSleeve] = useState(false);
+  useEffect(() => {
+    if (focusSleeve && sleeveChoice === "custom") {
+      document.getElementById(`${c.id}-sleeveW`)?.focus();
+      setFocusSleeve(false);
+    }
+  }, [focusSleeve, sleeveChoice, c.id]);
   const sleeveCustom = (patch: Partial<typeof sleeveNow>): void =>
     onChange({ ...c, sleeve: { ...sleeveNow, ...patch } });
 
@@ -207,25 +216,59 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
         <Segmented
           label="Sleeves"
           stretch
-          options={
-            sleeveChoice === "custom"
-              ? [...SLEEVE_OPTIONS, { value: "custom", label: "Custom" }]
-              : SLEEVE_OPTIONS
-          }
+          options={SLEEVE_OPTIONS}
           value={sleeveChoice}
           onChange={(v) => {
-            if (v !== "custom") {
+            if (v === "custom") {
+              // Custom starts from the size the sleeve has now, so nothing jumps; the fields open below.
+              if (sleeveChoice !== "custom") {
+                onChange({ ...c, sleeve: { ...sleeveNow } });
+                setFocusSleeve(true);
+              }
+            } else {
               onChange({ ...c, sleeve: v });
             }
           }}
         />
+        {sleeveChoice === "custom" ? (
+          <>
+            <div class="ed-pair">
+              <NumField
+                id={`${c.id}-sleeveW`}
+                label="Sleeve outer width"
+                unit="mm"
+                value={sleeveNow.w}
+                path={`${at}/sleeve/w`}
+                {...LENGTH}
+                onCommit={(w) => sleeveCustom({ w })}
+              />
+              <NumField
+                id={`${c.id}-sleeveH`}
+                label="Sleeve outer length"
+                unit="mm"
+                value={sleeveNow.h}
+                path={`${at}/sleeve/h`}
+                {...LENGTH}
+                onCommit={(h) => sleeveCustom({ h })}
+              />
+            </div>
+            <NumField
+              id={`${c.id}-sleeveT`}
+              label="Added thickness per card"
+              unit="mm"
+              value={sleeveNow.thickness}
+              path={`${at}/sleeve/thickness`}
+              {...OFFSET}
+              onCommit={(thickness) => sleeveCustom({ thickness })}
+            />
+          </>
+        ) : null}
       </Group>
       <BinNotes component={c} index={index} />
       <MoreOptions
         component={c}
         errorPaths={[
           ...commonOptionPaths(index),
-          `${at}/sleeve`,
           `${at}/thickness/scale`,
           `${at}/thickness/cards`,
           `${at}/thickness/stackMm`,
@@ -313,35 +356,6 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
               />
             </>
           ) : null}
-        </ExactRow>
-        <ExactRow title="Sleeve size" errorPaths={[`${at}/sleeve`]}>
-          <NumField
-            id={`${c.id}-sleeveW`}
-            label="Sleeve outer width"
-            unit="mm"
-            value={sleeveNow.w}
-            path={`${at}/sleeve/w`}
-            {...LENGTH}
-            onCommit={(w) => sleeveCustom({ w })}
-          />
-          <NumField
-            id={`${c.id}-sleeveH`}
-            label="Sleeve outer length"
-            unit="mm"
-            value={sleeveNow.h}
-            path={`${at}/sleeve/h`}
-            {...LENGTH}
-            onCommit={(h) => sleeveCustom({ h })}
-          />
-          <NumField
-            id={`${c.id}-sleeveT`}
-            label="Added thickness per card"
-            unit="mm"
-            value={sleeveNow.thickness}
-            path={`${at}/sleeve/thickness`}
-            {...OFFSET}
-            onCommit={(thickness) => sleeveCustom({ thickness })}
-          />
         </ExactRow>
         <WellRows component={c} index={index} onChange={onChange} />
         <CommonRows component={c} index={index} onChange={onChange} />
