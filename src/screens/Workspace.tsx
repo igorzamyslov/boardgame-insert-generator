@@ -1,6 +1,8 @@
 // src/screens/Workspace.tsx
 import type { ComponentChildren, RefObject } from "preact";
+import { useState } from "preact/hooks";
 import { Sheet } from "../kit";
+import { RailHandle } from "./RailHandle";
 
 /**
  * The phone's rail: the sheet that holds the rail's content (below 760 px). The owner keeps its
@@ -38,6 +40,11 @@ export interface WorkspaceProps {
   sheet?: WorkspaceSheet;
   /** A class on the shell, for a screen that restyles its regions (the first visit's `fv`). */
   class?: string;
+  /**
+   * The rail's width in px and how it is remembered (`prefs.railWidth`): the person drags the
+   * rail's handle (below the sheet's width there is none). Without it the rail is 300 px.
+   */
+  railWidth?: { value: number; onChange: (px: number) => void };
   /** Set on what is behind a sheet that fills the screen, so Tab and screen readers skip it. */
   inert?: boolean;
 }
@@ -51,8 +58,15 @@ export function Workspace(p: WorkspaceProps) {
   // `inert` is not in Preact's typings yet.
   const behindSheet = { inert: p.inert === true ? true : undefined } as Record<string, unknown>;
   const sheet = p.sheet;
+  /** The width a drag shows before it is remembered; null when no drag is going on. */
+  const [drag, setDrag] = useState<number | null>(null);
+  const railWidth = p.railWidth;
+  const width = drag ?? railWidth?.value;
   return (
-    <div class={`ws${sheet ? " ws--sheet" : ""}${p.class ? ` ${p.class}` : ""}`}>
+    <div
+      class={`ws${sheet ? " ws--sheet" : ""}${drag !== null ? " ws--resizing" : ""}${p.class ? ` ${p.class}` : ""}`}
+      style={width === undefined ? undefined : { "--rail-w": `${width}px` }}
+    >
       <header class="ws-header" data-region="header" {...behindSheet}>
         {p.header}
       </header>
@@ -79,6 +93,16 @@ export function Workspace(p: WorkspaceProps) {
             {p.rail}
           </aside>
         )}
+        {!sheet && railWidth && width !== undefined ? (
+          <RailHandle
+            width={width}
+            onPreview={setDrag}
+            onCommit={(px) => {
+              railWidth.onChange(px);
+              setDrag(null);
+            }}
+          />
+        ) : null}
         <main
           class={`ws-stage${p.focus ? " ws-stage--focus" : ""}`}
           data-region="stage"

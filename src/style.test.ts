@@ -211,8 +211,11 @@ describe("tokens.css", () => {
       "--dialog-btn-h": "48px",
       "--header-h": "60px",
       "--header-h-phone": "56px",
-      "--rail-basis": "300px",
-      "--rail-max": "350px",
+      "--rail-w": "300px",
+      "--rail-min": "300px",
+      "--rail-max": "480px",
+      "--stage-min": "360px",
+      "--plan-max": "900px",
       "--rail-pad": "20px",
       "--stage-pad": "22px 36px 28px",
       "--stage-pad-focus": "28px 40px",
@@ -307,7 +310,7 @@ describe("tokens.css", () => {
     ];
     expect(legacy.filter((name) => !light.has(name))).toEqual([]);
     // each one lands on a board value (or, for the three that have none, a plain literal)
-    expect(light.get("--rail-width")).toBe("var(--rail-max)");
+    expect(light.get("--rail-width")).toBe("var(--rail-w)");
     expect(light.get("--space-3")).toBe("var(--s-12)");
     expect(light.get("--madder")).toBe("var(--danger)");
   });
@@ -430,7 +433,7 @@ describe("style.css", () => {
     const frame = ruleFor(".viewer-stage", plan);
     expect(frame).toBe(ruleFor(".plan-box", plan));
     expect(frame).toMatch(
-      /--side:\s*min\(\s*582px,\s*calc\(\(100cqw - 12px\) \* var\(--long\) \/ var\(--box-w\) \+ 12px\),\s*calc\(\(100cqh - 12px\) \* var\(--long\) \/ var\(--box-l\) \+ 12px\)\s*\)/,
+      /--side:\s*min\(\s*var\(--plan-max\),\s*calc\(\(100cqw - 12px\) \* var\(--long\) \/ var\(--box-w\) \+ 12px\),\s*calc\(\(100cqh - 12px\) \* var\(--long\) \/ var\(--box-l\) \+ 12px\)\s*\)/,
     );
     expect(frame).toMatch(/border-radius:\s*var\(--r-panel\)/);
     // the plan's box is tan; the model is not in a tan block: it sits on the stage, with no edge drawn round it
@@ -554,7 +557,7 @@ describe("the phone layout", () => {
     // under it; shrinking, never growing
     expect(fit).toMatch(/flex:\s*0 1 auto/);
     expect(fit).toMatch(/aspect-ratio:\s*var\(--box-w\) \/ var\(--box-l\)/);
-    expect(fit).toMatch(/max-height:\s*calc\(570px/);
+    expect(fit).toMatch(/max-height:\s*calc\(\s*\(var\(--plan-max\) - 12px\)/);
     expect(fit).toMatch(/display:\s*grid/);
     expect(fit).toMatch(/place-items:\s*center/);
     const col = ruleFor(".ws-stage > .plan-col", workspace);
@@ -562,10 +565,10 @@ describe("the phone layout", () => {
     expect(col).toMatch(/min-height:\s*0/);
     // no floor under it: the 24 rem of the old layout is gone
     expect(workspace).not.toMatch(/24rem/);
-    // the box: Main's 582 px, or less
+    // the box: --plan-max (900 px), or less
     // each side of the box is held by its own container side, whichever way the box lies
     expect(ruleFor(".plan-box", plan)).toMatch(
-      /--side:\s*min\(\s*582px,\s*calc\(\(100cqw - 12px\) \* var\(--long\) \/ var\(--box-w\) \+ 12px\),\s*calc\(\(100cqh - 12px\) \* var\(--long\) \/ var\(--box-l\) \+ 12px\)\s*\)/,
+      /--side:\s*min\(\s*var\(--plan-max\),\s*calc\(\(100cqw - 12px\) \* var\(--long\) \/ var\(--box-w\) \+ 12px\),\s*calc\(\(100cqh - 12px\) \* var\(--long\) \/ var\(--box-l\) \+ 12px\)\s*\)/,
     );
     expect(ruleFor(".plan-box", plan)).toMatch(/border-radius:\s*var\(--r-panel\)/);
     expect(ruleFor(".plan-box", plan)).toMatch(/box-shadow:\s*var\(--box-inset-plan\)/);
@@ -624,6 +627,43 @@ describe("breakpoints", () => {
     eager: true,
   });
 
+  it("never scrolls sideways on a phone: no rule sets a fixed width over 390 px outside the wide screens' blocks", () => {
+    // what is left once the blocks that only apply from 760 px (and print) are cut out
+    const phoneRules = (source: string): string => {
+      let out = source.replace(/\/\*[\s\S]*?\*\//g, "");
+      for (const query of ["(width >= 760px)", "(width >= 760px) and (width <= 960px)", "print"]) {
+        for (;;) {
+          const at = out.indexOf(`@media ${query}`);
+          if (at === -1) {
+            break;
+          }
+          const open = out.indexOf("{", at);
+          let depth = 0;
+          let end = open;
+          for (; end < out.length; end += 1) {
+            depth += out[end] === "{" ? 1 : out[end] === "}" ? -1 : 0;
+            if (depth === 0) {
+              break;
+            }
+          }
+          out = out.slice(0, at) + out.slice(end + 1);
+        }
+      }
+      return out;
+    };
+    const wide: string[] = [];
+    for (const [file, source] of Object.entries(sheets)) {
+      for (const m of phoneRules(source).matchAll(
+        /([^{};]+)\{[^{}]*?[;{\s](?:min-)?width:\s*(\d+(?:\.\d+)?)px/g,
+      )) {
+        if (Number(m[2]) > 390) {
+          wide.push(`${file}: ${(m[1] ?? "").trim()} ${m[2]}px`);
+        }
+      }
+    }
+    expect(wide).toEqual([]);
+  });
+
   it("are 760 (phone), 600 (full-screen dialogs) and the 760 to 960 tablet band, and nothing else", () => {
     const RULED = new Set([
       "(width < 760px)",
@@ -661,17 +701,38 @@ describe("workspace.css", () => {
     expect(ruleFor(".ws-stage", stripped)).toMatch(/max-height:\s*100%/);
   });
 
-  it("gives the rail Main's width on every screen", () => {
+  it("gives the rail one width on every screen: the person's, 300 to 480 px, from --rail-w", () => {
     const rail = ruleFor(".ws-rail", stripped);
-    expect(rail).toMatch(/flex:\s*1 1 var\(--rail-basis\)/);
-    expect(rail).toMatch(/max-width:\s*var\(--rail-max\)/);
+    expect(rail).toMatch(/flex:\s*0 1 clamp\(var\(--rail-min\), var\(--rail-w\),/);
+    // the range is in the tokens, not a max-width of the rule
+    expect(rail).not.toMatch(/max-width/);
     expect(rail).toMatch(/padding:\s*var\(--rail-pad\)/);
     expect(rail).toMatch(/background:\s*var\(--sheet\)/);
     expect(rail).toMatch(/border-right:\s*1px solid var\(--rule\)/);
     expect(rail).toMatch(/overflow:\s*hidden/);
     const light = declarations(tokens.replace(/\/\*[\s\S]*?\*\//g, ""));
-    expect(light.get("--rail-basis")).toBe("300px");
-    expect(light.get("--rail-max")).toBe("350px");
+    expect(light.get("--rail-w")).toBe("300px");
+    expect(light.get("--rail-min")).toBe("300px");
+    expect(light.get("--rail-max")).toBe("480px");
+  });
+
+  it("puts the rail's handle on its stage-side edge: a 44 px hit area on the stage's side, a visible focus, no handle on a phone", () => {
+    const handle = ruleFor(".ws-handle", stripped);
+    // a real box (a zero-width one is hidden to assistive technology) that takes no room
+    expect(handle).toMatch(/width:\s*var\(--handle-w\)/);
+    expect(handle).toMatch(/margin-right:\s*calc\(-1 \* var\(--handle-w\)\)/);
+    expect(handle).toMatch(/cursor:\s*col-resize/);
+    expect(handle).toMatch(/touch-action:\s*none/);
+    // the hit area starts at the rail's edge and reaches into the stage, so the rail's scrollbar is never under it
+    const hit = ruleFor(".ws-handle::before", stripped);
+    expect(hit).toMatch(/inset:\s*0 auto 0 0/);
+    expect(hit).toMatch(/width:\s*var\(--control-h\)/);
+    expect(ruleFor(".ws-handle:focus-visible", stripped)).toMatch(
+      /outline:\s*3px solid var\(--focus\)/,
+    );
+    expect(ruleFor(".ws-handle", mediaBlock("(width < 760px)", stripped))).toMatch(
+      /display:\s*none/,
+    );
   });
 
   it("keeps an editor's scrollbar at the rail's edge, with a gutter of its own, off the fields", () => {
@@ -689,7 +750,7 @@ describe("workspace.css", () => {
 
   it("lets the stage take the rest", () => {
     const stage = ruleFor(".ws-stage", stripped);
-    expect(stage).toMatch(/flex:\s*999 1 640px/);
+    expect(stage).toMatch(/flex:\s*999 1 var\(--stage-min\)/);
     expect(stage).toMatch(/min-width:\s*0/);
     expect(stage).toMatch(/padding:\s*var\(--stage-pad\)/);
     expect(stage).toMatch(/gap:\s*var\(--s-16\)/);
@@ -708,13 +769,23 @@ describe("workspace.css", () => {
     expect(ruleFor(".ws-stage", phone)).not.toMatch(/--sheet-foot/);
   });
 
-  it("keeps the rail beside the stage between 760 and 960 px: the stage's basis leaves room for the rail", () => {
-    const tablet = mediaBlock("(width >= 760px) and (width <= 960px)", stripped);
-    const basis = Number(/flex-basis:\s*(\d+)px/.exec(ruleFor(".ws-stage", tablet))?.[1]);
-    const rail = Number(/--rail-basis:\s*(\d+)px/.exec(tokens)?.[1]);
-    expect(basis).toBeGreaterThan(0);
-    // the two fit side by side at 760 px, so the line does not wrap
-    expect(rail + basis).toBeLessThanOrEqual(760);
+  it("keeps the stage beside the rail at every desktop width: the rail clamps to 100vw less the stage's floor, and the floor fits the narrowest desktop", () => {
+    const light = declarations(tokens.replace(/\/\*[\s\S]*?\*\//g, ""));
+    const floor = Number.parseInt(light.get("--stage-min") ?? "", 10);
+    const railMin = Number.parseInt(light.get("--rail-min") ?? "", 10);
+    // the narrowest rail and the stage's floor fit side by side at 760 px, so the line never wraps
+    expect(floor).toBeGreaterThanOrEqual(360);
+    expect(railMin + floor).toBeLessThanOrEqual(760);
+    // whatever width the person chose, at any width: not only in a media band
+    const rail = ruleFor(".ws-rail", stripped);
+    expect(rail).toMatch(
+      /flex:\s*0 1 clamp\(var\(--rail-min\), var\(--rail-w\), calc\(100vw - var\(--stage-min\)\)\)/,
+    );
+    expect(ruleFor(".ws-stage", stripped)).toMatch(/flex:\s*999 1 var\(--stage-min\)/);
+    // and no media rule gives either a basis of its own to undo it
+    expect(mediaBlock("(width >= 760px) and (width <= 960px)", stripped)).not.toMatch(
+      /\.ws-(rail|stage)\b/,
+    );
   });
 
   it("writes no raw colours", () => {

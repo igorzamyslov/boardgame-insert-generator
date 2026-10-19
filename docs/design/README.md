@@ -47,12 +47,20 @@ The default out folder is `.superpowers/sdd/2026-10-16-ui-rebuild/shots/` (not c
 - `<state>.numbers.md`: header height, rail width, plan width and the first h1, board against app,
   then the status row's parts (icon, h1, line, the Layer and View switches, the action, the
   banner; a part neither side has is no row); `≠` marks a difference over 1 px, or a metric one
-  side lacks.
+  side lacks. Under it a "Console errors" section lists what the page logged as an error while the
+  state was shot (`console.error` and uncaught page errors), or "none".
 - `<state>.failed.png` when a step could not find its target; the state is then listed as FAILED.
 - A state may also fail for what it measures (`states.mjs`): `noPageScroll` (the page scrolls),
   `noStageScroll` (the stage scrolls: the plan's box shrinks to what the stage has left, so on a
   desktop it must not) and `minPlanWidth` (the plan's box is narrower than that many px at the
   state's size).
+
+**Console errors fail the run.** Any `console.error` or uncaught page error during a state
+makes it FAILED (and `npm run shots` exit non-zero), unless the state lists the message in its
+`expectedErrors` (a string the message contains, or a RegExp; empty by default). The last line of
+the run says which states had errors ("console errors in 2 states: a (1), b (3)") or "console errors:
+none". The helpers are `scripts/design/consoleErrors.mjs` (tested). Only the app's page is listened to
+(from its first load to the end of the probes), not the page the board is drawn on.
 
 Board PNGs and seeds are committed; app shots are not, until the final pairs (Task 17) are.
 
@@ -65,12 +73,36 @@ A state may name `probes` (`scripts/design/shots.mjs`): checks that need Chromiu
 pictures. `m-tray-more` probes the phone's native dialog: Escape with More open closes only More,
 and a press on the backdrop closes the sheet.
 
+`settings-keys` and `m-settings-keys` (1440×900 and 390×844) open Settings with the keyboard alone
+(Tab to the project menu's button, Enter, Tab to Settings, Enter) and run the `settings-keys` probe:
+the focus starts in the drawer; Tab stays on the drawer's controls and comes round from the last to
+the first, and Shift+Tab from the first goes to the last; the page behind is inert (nothing outside
+the drawer takes the focus, a click on the rail does nothing); Escape closes the drawer; and the
+focus goes back to the project menu's button (the menu hands the focus to its button before
+Settings opens, and the dialog hands it back to whatever had it). A native modal `<dialog>` does not
+wrap the focus inside the page: Tab past the last control goes to the browser's own interface (the
+body in a headless run) and the next Tab comes back to the first control. The probe accepts that one
+step and fails only a focus that lands on the page behind the drawer. Each check's verdict is printed
+under the state in the run's output (`keys: pass …`); a focus that falls to the body in the middle of the trap counts as the browser step, so only a drawer that comes round every time passes; `scripts/design/keys.mjs` judges it (tested).
+
+`box-nofit` and `m-box-nofit` have the box editor open over the no-fit seed (Heroes is 80 mm in a 70 mm box):
+the editor tells the problem in a line ("The Heroes tray doesn't fit yet" with how far the closest
+plan is short), above the fields on a phone and above the side view on a desktop. No board draws
+the editor with the problem: Box and MobileBox are the nearest, and NoFit's status line is the
+words.
+
 When `workspace` and `workspace-searching` both run, `scripts/design/jump.mjs` compares the header,
 the rail, the status row and the plan box (`data-region="plan-box"`): none may move or change
 size by more than 1 px, or the run fails ("Keep searching" turning into
-"Stop" must not shift the page). `workspace` and `workspace-tray` are compared too: the tray bar
-is taller than the slot's hint, so the plan's box may slide down but must keep its size. With a
-swap chosen (`workspace-swap`) the box is where `workspace-tray` has it: the prompt lies over the box.
+"Stop" must not shift the page). `workspace` is compared with `workspace-3d` (the 3D view holds the
+plan's caption line, so the frame has the same height) and with `workspace-tray` (the slot over the
+plan is as tall as the tray bar, `--stage-slot-bar`, so choosing a tray moves nothing). With a
+swap chosen (`workspace-swap`) the box is where `workspace` has it: the prompt lies over the box.
+`workspace-tray` and `workspace-3d-selected` (a tray chosen, then 3D) are compared with no slide allowed,
+and `workspace-1920` against `workspace-3d-1920` and `workspace-tray-1920`: at 1920×1080 the plan is at its
+900 px cap (`--plan-max`). The board is drawn at 1440 only, so the 1920 pairs show Main for reference and
+their numbers differ by design. `workspace-rail-wide` has the rail dragged to 420 px (a state's `storage`
+sets the prefs entry before the app starts). `workspace-rail-wide-1024` (1024×768, rail at 480) fails when the stage is not beside the rail with 360 px (`stageBesideRail`).
 
 The board renderer adds `a{color:inherit}` ahead of a board's own styles: some boards have links
 with no colour set (MobileWorkspace's sheet rows), which a browser draws blue, and no board means that.
@@ -97,7 +129,8 @@ check and the state notes the fallback. The same smoke check fails if `__shotsSc
 
 Add it to `scripts/design/states.mjs`: its board (and the `boardOpts` that make the board show the
 same state), the viewport, a seed, and the steps. A step is a click on a role and name, a text typed into the box with a label (`fill`), a wait for something
-to show (`waitFor`), a pause (`wait`: milliseconds) or a key. A page other than the app's own is a `url` (`/kit.html`, the kit gallery), and a page that
+to show (`waitFor`), a pause (`wait`: milliseconds), a key, or Tab until a control has the focus (`tabTo`: role, name,
+optional `in` and `max`, for a state reached by keyboard alone). A page other than the app's own is a `url` (`/kit.html`, the kit gallery), and a page that
 scrolls is drawn whole with `fullPage: true`. A board that draws several screens side by side (EditKinds) names the one a state is judged by with
 `boardCrop`: `{ rail: "main section:nth-of-type(2)" }` crops the board's rail to that selector. Give the screen's regions `data-region` attributes as
 the screen is built.

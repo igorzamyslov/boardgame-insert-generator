@@ -3,6 +3,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inputsHash } from "../model/hash";
+import tokens from "../styles/tokens.css?raw";
 import type { Project } from "../model/types";
 import type { ShareFile } from "./sendFile";
 import { fixtureProject, flush, makeLayout, makeResult, makeTray } from "./test-helpers";
@@ -86,6 +87,69 @@ describe("the phone layout", () => {
     expect(handle().getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(grip());
     expect(grip().getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("peeks the sheet at 196 px with The box first", () => {
+    phone();
+    renderApp({ project: project() });
+    // folded: the peek, and the one row the peek shows is The box
+    expect(sheet().getAttribute("data-peek")).toBe("true");
+    expect(tokens).toMatch(/--sheet-peek:\s*196px/);
+    const first = within(sheet()).getAllByRole("listitem")[0] as HTMLElement;
+    expect(within(first).getByRole("button", { name: /^The box, / })).toBeTruthy();
+  });
+
+  describe("the page behind a dialog that fills the screen", () => {
+    // a native modal dialog is what makes the page inert (jsdom has none: its showModal is stubbed)
+    const modal = vi.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    });
+    beforeEach(() => {
+      modal.mockClear();
+      HTMLDialogElement.prototype.showModal = modal;
+    });
+    afterEach(() => {
+      Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
+    });
+
+    it("is made inert by the tray sheet, Download and Settings", async () => {
+      phone(true, true);
+      renderApp({ project: project() });
+      fireEvent.keyDown(document.querySelector('.plan-tile[data-key="m:p0:0"]') as Element, {
+        key: "Enter",
+      });
+      expect(screen.getByRole("dialog").tagName).toBe("DIALOG");
+      expect(modal).toHaveBeenCalledTimes(1);
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+      // the focus goes back to the tile on the next frame: let it, so it cannot land in a later test
+      await waitFor(() => expect(document.activeElement?.getAttribute("data-key")).toBe("m:p0:0"));
+
+      const header = document.querySelector('[data-region="header"]') as HTMLElement;
+      fireEvent.click(within(header).getByRole("button", { name: "Download" }));
+      expect(screen.getByRole("dialog", { name: "Ready to print" }).tagName).toBe("DIALOG");
+      expect(modal).toHaveBeenCalledTimes(2);
+      fireEvent.click(
+        within(screen.getByRole("dialog", { name: "Ready to print" })).getByRole("button", {
+          name: "Close",
+        }),
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Project menu" }));
+      fireEvent.click(
+        within(screen.getByRole("group", { name: "Project" })).getByRole("button", {
+          name: "Settings",
+        }),
+      );
+      expect(screen.getByRole("dialog", { name: "Settings" }).tagName).toBe("DIALOG");
+      expect(modal).toHaveBeenCalledTimes(3);
+      // leave the app as it was found
+      fireEvent.click(
+        within(screen.getByRole("dialog", { name: "Settings" })).getByRole("button", {
+          name: "Done",
+        }),
+      );
+      await flush();
+    });
   });
 
   it("says how many items there are beside the title", () => {

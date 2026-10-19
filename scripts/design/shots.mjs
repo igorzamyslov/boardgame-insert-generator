@@ -26,7 +26,9 @@ import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { BOARDS_DIR, boardPreview, renderBoard } from "./renderBoard.mjs";
+import { consoleSection, consoleSummary, splitErrors } from "./consoleErrors.mjs";
 import { JUMP_REGIONS, jumpProblems } from "./jump.mjs";
+import { trapProblems } from "./keys.mjs";
 import { REGIONS } from "./regions.mjs";
 import { SEEDS, STATES } from "./states.mjs";
 import { createModuleLoader } from "./viteModules.mjs";
@@ -248,6 +250,22 @@ async function runStep(page, step) {
       .evaluate((el) => {
         el.scrollTop = 0;
       });
+  } else if (step.tabTo) {
+    // Tab (from where the focus is) until the focus is on the control with that role and name:
+    // for a state reached by keyboard only.
+    const { role, name, in: within, max = 60 } = step.tabTo;
+    const scope = within ? page.locator(within) : page;
+    const target = await scope
+      .getByRole(role, { name })
+      .first()
+      .elementHandle({ timeout: STEP_TIMEOUT });
+    for (let i = 0; i < max; i++) {
+      await page.keyboard.press("Tab");
+      if (await page.evaluate((el) => el === document.activeElement, target)) {
+        return;
+      }
+    }
+    throw new Error(`Tab did not reach the ${role} "${name}" in ${max} presses`);
   } else if (step.press) {
     await page.keyboard.press(step.press);
   } else if (step.wait !== undefined) {
@@ -256,6 +274,9 @@ async function runStep(page, step) {
     throw new Error(`unknown step ${JSON.stringify(step)}`);
   }
 }
+
+/** The keyboard probe's verdict per check, by state name (for the run's summary). */
+const keyChecks = new Map();
 
 /**
  * Probes run in Chromium after the pictures are taken: what jsdom cannot see of a native
@@ -348,6 +369,176 @@ const PROBES = {
       problems.push("a press on the backdrop did not close the sheet");
     }
     return problems.map((p) => `probe tray-sheet: ${p}`);
+  },
+  /**
+   * The Settings drawer by keyboard (0.6.0 carry): the state opened it with keys alone (Tab to the
+   * project menu's button, Enter, Tab to Settings, Enter). Tab then stays inside the drawer and
+   * comes round from the last control to the first, Shift+Tab from the first goes to the last, what
+   * is behind the drawer is inert (it cannot take the focus, and a click on it does nothing),
+   * Escape closes the drawer, and the focus goes back to the project menu's button, which is what
+   * opened it (the menu hands the focus to its button before Settings opens: Header.tsx).
+   * The result of each check is kept in `keyChecks` for the report.
+   */
+  async "settings-keys"(page, name) {
+    const problems = [];
+    const checks = [];
+    const check = (what, found) => {
+      checks.push(`${found.length === 0 ? "pass" : "FAIL"}  ${what}`);
+      problems.push(...found);
+    };
+    const dialog = page.locator('dialog[data-region="drawer"]');
+    if ((await dialog.count()) === 0) {
+      return ["probe settings-keys: the drawer is not open: the keyboard steps did not open it"];
+    }
+    // where the focus is: in the drawer (a stable label with its place), in the browser's own
+    // interface (nothing in the page has it: the body), or on the page behind the drawer
+    const where = () =>
+      page.evaluate(() => {
+        const dlg = document.querySelector('dialog[data-region="drawer"]');
+        const el = document.activeElement;
+        const name = (e) =>
+          `${e.tagName.toLowerCase()} "${(e.getAttribute("aria-label") ?? e.textContent ?? "").trim().slice(0, 30)}"`;
+        if (el === null || el === document.body || el === document.documentElement) {
+          return { kind: "browser", label: "the browser" };
+        }
+        if (dlg === null || !dlg.contains(el)) {
+          return { kind: "behind", label: name(el) };
+        }
+        return {
+          kind: "drawer",
+          label: `${name(el)} #${[...dlg.querySelectorAll("*")].indexOf(el)}`,
+        };
+      });
+    // the drawer opened at its heading (the first thing the focus is on)
+    const start = await where();
+    check(
+      "the drawer opens with the focus inside it",
+      start.kind === "drawer" && /Settings/.test(start.label)
+        ? []
+        : [`the focus is on ${start.label} when the drawer opens, not its heading`],
+    );
+    // 1. Tab through every control until one comes round again
+    const stops = [];
+    const behindLabels = [];
+    let wrapTo = null;
+    let viaBrowser = false;
+    for (let i = 0; i < 80; i++) {
+      await page.keyboard.press("Tab");
+      const at = await where();
+      if (at.kind === "browser") {
+        viaBrowser = true;
+      } else if (at.kind === "behind") {
+        behindLabels.push(at.label);
+      } else if (stops.some((s) => s.label === at.label)) {
+        wrapTo = at.label;
+        break;
+      } else {
+        stops.push(at);
+      }
+    }
+    // 2. Shift+Tab from the first control: the Tab above left the focus on it
+    let shiftTabFromFirst = "nothing";
+    let shiftViaBrowser = false;
+    if (wrapTo !== null) {
+      for (let i = 0; i < 2; i++) {
+        await page.keyboard.press("Shift+Tab");
+        const at = await where();
+        shiftTabFromFirst = at.label;
+        if (at.kind !== "browser") {
+          break;
+        }
+        shiftViaBrowser = true;
+      }
+    }
+    const trap = trapProblems({
+      stops,
+      behind: behindLabels,
+      wrapTo,
+      viaBrowser,
+      shiftTabFromFirst,
+      shiftViaBrowser,
+    });
+    check(
+      `Tab stays inside the drawer (${stops.length} controls)`,
+      trap.filter((t) => t.startsWith("Tab took") || t.includes("nothing to trap")),
+    );
+    check(
+      `Tab past the last control comes round to the first${viaBrowser ? " (through the browser's own interface, as a native dialog does)" : ""}`,
+      trap.filter((t) => t.startsWith("Tab past") || t.startsWith("Tab never")),
+    );
+    check(
+      `Shift+Tab from the first control goes to the last${shiftViaBrowser ? " (through the browser's own interface)" : ""}`,
+      trap.filter((t) => t.startsWith("Shift+Tab")),
+    );
+    // 3. the page behind is inert: its controls cannot take the focus, and a click goes nowhere
+    const behind = await page.evaluate(() => {
+      const dlg = document.querySelector('dialog[data-region="drawer"]');
+      const outside = [
+        ...document.querySelectorAll('button, a[href], input, [tabindex="0"]'),
+      ].filter((el) => !dlg.contains(el) && !el.closest("[hidden]"));
+      const focused = [];
+      for (const el of outside) {
+        el.focus();
+        if (document.activeElement === el) {
+          focused.push(
+            `${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 30)}"`,
+          );
+        }
+      }
+      // put the focus back inside, as the checks below expect
+      dlg.querySelector("h1")?.focus();
+      return { outside: outside.length, focused, modal: dlg.matches(":modal") };
+    });
+    const inert = [];
+    if (!behind.modal) {
+      inert.push("the drawer is not a modal dialog (:modal does not match)");
+    }
+    if (behind.outside === 0) {
+      inert.push("there is nothing behind the drawer to check");
+    }
+    if (behind.focused.length > 0) {
+      inert.push(`controls behind the drawer took the focus: ${behind.focused.join(", ")}`);
+    }
+    // a click on the page where the drawer is not (the rail, on a desktop): the box editor must not open
+    const rail = page.locator('[data-region="rail"] button').first();
+    const r = (await rail.count()) > 0 ? await rail.boundingBox() : null;
+    if (r !== null) {
+      const top = await page.evaluate(
+        ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest("dialog")),
+        { x: r.x + r.width / 2, y: r.y + r.height / 2 },
+      );
+      // (on a phone the drawer covers the page: there is no spot to click)
+      if (!top) {
+        await page.mouse.click(r.x + r.width / 2, r.y + r.height / 2);
+        await page.waitForTimeout(150);
+        if ((await dialog.count()) === 0) {
+          inert.push("a click on the page behind closed the drawer");
+        } else if ((await page.locator("section.bx, section.ed").count()) > 0) {
+          inert.push("a click on the page behind reached it (an editor opened)");
+        }
+      }
+    }
+    check("the page behind the drawer is inert", inert);
+    // 4. Escape closes it
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+    check(
+      "Escape closes the drawer",
+      (await page.locator("dialog[open]").count()) === 0 ? [] : ["Escape left the drawer open"],
+    );
+    // 5. and the focus is back on the button that opened it (the project menu's)
+    const back = await page.evaluate(() => {
+      const el = document.activeElement;
+      return `${el?.tagName.toLowerCase()} "${(el?.getAttribute("aria-label") ?? el?.textContent ?? "").trim().slice(0, 40)}"`;
+    });
+    check(
+      "the focus goes back to the project menu's button",
+      /^button "Project menu/.test(back)
+        ? []
+        : [`after Escape the focus is on ${back}, not the project menu's button`],
+    );
+    keyChecks.set(name, checks);
+    return problems.map((p) => `probe settings-keys: ${p}`);
   },
   /**
    * The 3D frame and camera (feedback on 0.5.0, point 10): a long box is not cut off by its frame,
@@ -611,10 +802,18 @@ async function openApp(browser, appUrl, name, state, seeds) {
         );
       }
     },
-    { storage: seed?.storage ?? {}, holds: state.holds ?? [] },
+    { storage: { ...seed?.storage, ...state.storage }, holds: state.holds ?? [] },
   );
   const problems = [];
-  page.on("pageerror", (e) => problems.push(`page error: ${e.message}`));
+  // What the page logs as an error (console.error and uncaught errors), for the numbers file and the
+  // run's verdict: it is listened to from the first load to the end of the probes.
+  const errors = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") {
+      errors.push(m.text());
+    }
+  });
+  page.on("pageerror", (e) => errors.push(`page error: ${e.message}`));
   await page.goto(new URL(state.url ?? "", appUrl).href, { waitUntil: "load" });
   for (const step of state.steps ?? []) {
     try {
@@ -637,6 +836,21 @@ async function openApp(browser, appUrl, name, state, seeds) {
       problems.push("the page scrolls at this size (it must not, with many components)");
     }
   }
+  // Nothing scrolls sideways at any width (0.6.0): not the page, and on a desktop not the stage either.
+  const sideways = await page.evaluate(() => {
+    const out = [];
+    if (document.documentElement.scrollWidth > window.innerWidth + 1) {
+      out.push("the page");
+    }
+    const stage = document.querySelector('[data-region="stage"]');
+    if (stage !== null && stage.scrollWidth > stage.clientWidth + 1) {
+      out.push("the stage");
+    }
+    return out;
+  });
+  if (sideways.length > 0) {
+    problems.push(`sideways scroll: ${sideways.join(" and ")} (it must not at any width)`);
+  }
   if (state.noStageScroll) {
     // The plan's box shrinks to what the stage has left, so the stage never scrolls on a desktop.
     const scrolls = await page.evaluate(() => {
@@ -655,6 +869,32 @@ async function openApp(browser, appUrl, name, state, seeds) {
     problems.push(
       "WebGL is missing here: the 3D view shows its fallback line, so its frame was not drawn or compared",
     );
+  }
+  if (state.stageBesideRail) {
+    // The rail's width is the person's: the stage must still sit beside it, 360 px wide at least.
+    const at = await page.evaluate(() => {
+      const rail = document.querySelector('[data-region="rail"]')?.getBoundingClientRect();
+      const stage = document.querySelector('[data-region="stage"]')?.getBoundingClientRect();
+      return rail && stage
+        ? {
+            railRight: rail.right,
+            railTop: rail.top,
+            stageLeft: stage.left,
+            stageTop: stage.top,
+            stageW: stage.width,
+          }
+        : null;
+    });
+    if (
+      at === null ||
+      Math.abs(at.stageTop - at.railTop) > 1 ||
+      at.stageLeft < at.railRight - 1 ||
+      at.stageW < 359
+    ) {
+      problems.push(
+        `the stage is not beside the rail with 360 px (${at === null ? "missing" : JSON.stringify(at)})`,
+      );
+    }
   }
   if (state.planWidth !== undefined) {
     // The computed size of the plan's box, not a string in the CSS: a wide box is as wide as a square one.
@@ -680,7 +920,7 @@ async function openApp(browser, appUrl, name, state, seeds) {
       );
     }
   }
-  return { page, problems };
+  return { page, problems, errors };
 }
 
 // ---------------------------------------------------------------- measuring and composing
@@ -690,14 +930,26 @@ const regionSource = (name) => REGIONS[name].board.toString();
 // ---------------------------------------------------------------- nothing jumps (Review Focus 4)
 
 // Pairs that must not differ: Keep searching turning into Stop, and the View segment turning to 3D.
-// `sizeOnly`: a tray bar is taller than the slot's hint, so the plan's box slides down; it may not change size (Task 8).
+// `sizeOnly`: a region that may slide but not change size (none now: the slot over the plan is as tall as the tray bar).
 const JUMP_PAIRS = [
   { pair: ["workspace", "workspace-searching"], sizeOnly: [] },
   { pair: ["workspace", "workspace-3d"], sizeOnly: [] },
-  { pair: ["workspace", "workspace-tray"], sizeOnly: ["plan-box"] },
+  // a tray chosen, then the 3D view: the plan's frame is where the selected top view has it (Task 8, 0.6.0)
+  { pair: ["workspace-tray", "workspace-3d-selected"], sizeOnly: [] },
+  { pair: ["workspace", "workspace-tray"], sizeOnly: [] },
   // a swap chosen puts its prompt over the box, so the plan is where it was with the bar alone (Task 8)
-  { pair: ["workspace", "workspace-swap"], sizeOnly: ["plan-box"] },
+  { pair: ["workspace", "workspace-swap"], sizeOnly: [] },
   { pair: ["workspace-tray", "workspace-swap"], sizeOnly: [] },
+  // the same at 1920×1080, where the plan is at its 900 px cap
+  { pair: ["workspace-1920", "workspace-3d-1920"], sizeOnly: [] },
+  { pair: ["workspace-1920", "workspace-tray-1920"], sizeOnly: [] },
+  // a narrow stage (820 px: the controls take two rows): the View switch stays put too
+  { pair: ["workspace-820", "workspace-820-searching"], sizeOnly: [] },
+  { pair: ["workspace-820", "workspace-820-3d"], sizeOnly: [] },
+  // the band just above the two-row controls: 3D's "All" and three layers fit one row or scroll in their slot
+  { pair: ["workspace-940", "workspace-940-3d"], sizeOnly: [] },
+  { pair: ["workspace-940", "workspace-940-searching"], sizeOnly: [] },
+  { pair: ["workspace-960-long", "workspace-960-long-3d"], sizeOnly: [] },
 ];
 const JUMP_STATES = [...new Set(JUMP_PAIRS.flatMap((j) => j.pair))];
 const jumpBoxes = new Map();
@@ -957,12 +1209,15 @@ function pngSize(buffer) {
   return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
 
+/** What each state's page logged as an error, with the messages the state expects: for the summary line. */
+const consoleErrorsByState = {};
+
 async function shootState(browser, appUrl, name, seeds) {
   const state = STATES[name];
   const key = `${state.board}--${name}`;
   const boardLabel = `Board: ${state.board}--${name}.png${state.nearest ? " (nearest)" : ""}`;
   const appLabel = `App: ${name}`;
-  const { page: app, problems } = await openApp(browser, appUrl, name, state, seeds);
+  const { page: app, problems, errors } = await openApp(browser, appUrl, name, state, seeds);
   const board = await openBoard(browser, state.board, state.boardOpts ?? {}, state.viewport, key);
   try {
     const boardPng = await board.screenshot();
@@ -1011,11 +1266,17 @@ async function shootState(browser, appUrl, name, seeds) {
     );
     // last: a probe may change the page
     for (const probe of state.probes ?? []) {
-      problems.push(...(await PROBES[probe](app)));
+      problems.push(...(await PROBES[probe](app, name)));
+    }
+    // after the probes: they press keys and may make the page log
+    const allowed = state.expectedErrors ?? [];
+    consoleErrorsByState[name] = { errors, allowed };
+    for (const message of splitErrors(errors, allowed).unexpected) {
+      problems.push(`console error: ${message.replaceAll(/\s+/g, " ").trim()}`);
     }
     writeFileSync(
       `${outDir}${name}.numbers.md`,
-      `# ${name}: board ${state.board}${state.nearest ? ` (${state.nearest})` : ""} against the app\n\n${table}`,
+      `# ${name}: board ${state.board}${state.nearest ? ` (${state.nearest})` : ""} against the app\n\n${table}\n${consoleSection(errors, allowed)}`,
     );
     return { regions, problems };
   } finally {
@@ -1060,7 +1321,9 @@ try {
       const { regions, problems } = await shootState(browser, appUrl, name, seeds);
       // what fails a state (its pictures are written first: they show by how much)
       const hard = problems.filter((p) =>
-        /^(the (page scrolls|stage scrolls|plan box)|probe )/.test(p),
+        /^(the (page scrolls|stage scrolls|stage is not beside|plan box)|probe |console error|sideways scroll)/.test(
+          p,
+        ),
       );
       const paired = `regions ${regions.length > 0 ? regions.join(", ") : "none paired"}`;
       if (hard.length > 0) {
@@ -1071,6 +1334,9 @@ try {
       }
       for (const p of problems.filter((p) => !hard.includes(p))) {
         lines.push(`        ${p}`);
+      }
+      for (const c of keyChecks.get(name) ?? []) {
+        lines.push(`        keys: ${c}`);
       }
     } catch (e) {
       failed += 1;
@@ -1093,6 +1359,7 @@ try {
         : `ok      jump: header, rail, status, view switch and plan box do not move between ${pair.join(" and ")}${slides}${problems.length > 0 ? ` (${problems.join("; ")})` : ""}`,
     );
   }
+  lines.push("", consoleSummary(consoleErrorsByState));
   console.log(`\n${lines.join("\n")}\n\nout: ${outDir}`);
   writeFileSync(`${outDir}summary.txt`, `${lines.join("\n")}\n`);
 } finally {

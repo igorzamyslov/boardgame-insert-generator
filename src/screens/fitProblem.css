@@ -29,12 +29,12 @@
 }
 
 /*
- * The picture: the plan's box (582 px at most, the board's) and its caption 12 px under it, centred.
+ * The picture: the plan's box (--plan-max at most) and its caption 12 px under it, centred.
  * It never grows past the stage: the box shrinks first, as the workspace's does.
  */
 .fp-draw {
   display: flex;
-  flex: 0 1 582px;
+  flex: 0 1 var(--plan-max);
   flex-direction: column;
   gap: var(--s-12);
   align-items: center;

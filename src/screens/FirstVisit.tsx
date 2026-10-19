@@ -30,6 +30,8 @@ export interface FirstVisitProps {
   stageBefore?: ComponentChildren;
   /** In the stage below it (the removal's note). */
   stageAfter?: ComponentChildren;
+  /** The rail's width and how it is remembered, as the workspace's (the handle is on this rail too). */
+  railWidth?: { value: number; onChange: (px: number) => void };
 }
 
 /** Logo, wordmark, Open file, and the project menu (a quiet button: other inserts, Settings, notices). */
@@ -177,6 +179,7 @@ export function FirstVisit(p: FirstVisitProps) {
     <Workspace
       class="fv"
       focus
+      railWidth={p.railWidth}
       header={
         <>
           <FirstVisitHeader

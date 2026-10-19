@@ -1230,6 +1230,55 @@ describe("App", () => {
       expect(screen.queryByRole("heading", { level: 2, name: "Market" })).toBeNull();
     });
 
+    it("tells the no-fit fact in one line on every stage: the engine's paragraph is drawn on none", async () => {
+      const { store } = renderApp({ project: withLayoutProject() });
+      const market = store.state.project.value.components[1];
+      const paragraph = "No fit found yet. The search ran 100,000 iterations without a layout.";
+      const tray = makeTray({
+        key: "m:p0:0",
+        compartments: [
+          {
+            x: 1.6,
+            y: 1.6,
+            w: 100,
+            d: 70,
+            floorZ: 1.2,
+            kind: "well",
+            contents: "Market",
+            componentId: market?.id,
+            features: [],
+          },
+        ],
+      });
+      act(() => {
+        store.state.lastResult.value = makeResult(null, {
+          notices: [{ level: "error", code: "layout.doesNotFit", message: paragraph }],
+          bestAttempt: { trays: [tray], shortfall: { x: 30, y: 0, z: 0 } },
+        });
+        store.state.lastResultHash.value = store.state.currentHash.value;
+      });
+      // the fit stage: the heading's line carries it
+      expect(heading()).toMatch(/fits? yet$/);
+      expect(screen.queryByText(new RegExp(paragraph.slice(0, 20)))).toBeNull();
+      // the box's editor: its problem line, not the paragraph
+      fireEvent.click(
+        within(screen.getByRole("complementary", { name: "What's inside" })).getByRole("button", {
+          name: /^The box/,
+        }),
+      );
+      expect(await screen.findByText(/fits? yet$/)).toBeTruthy();
+      expect(screen.queryByText(new RegExp(paragraph.slice(0, 20)))).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Done" }));
+      // an item's editor: the same
+      fireEvent.click(
+        within(screen.getByRole("complementary", { name: "What's inside" })).getByRole("button", {
+          name: /^Market/,
+        }),
+      );
+      expect(await screen.findByRole("heading", { level: 2, name: "Market" })).toBeTruthy();
+      expect(screen.queryByText(new RegExp(paragraph.slice(0, 20)))).toBeNull();
+    });
+
     it("says a tray is too big for the bed when the run reports it", () => {
       const { store } = renderApp({ project: withLayoutProject() });
       const market = store.state.project.value.components[1];
