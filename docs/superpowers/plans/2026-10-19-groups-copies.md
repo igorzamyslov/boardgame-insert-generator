@@ -640,8 +640,7 @@ Project` removes that tray's turn lock (R3). `turnedKeys(p: Project): Set<string
 dividerSlotWidth`. Its height is set by the 30-card stack. It has `floorExtra ===
 DIVIDER_GROOVE`. It has two floor slots, each centred in the gap between two decks
     (`slotCentres`).
-  - `every deck has finger access` (R21): three front-wall cuts, each centred on one deck's section and clear of the slots. Whatever the
-    option, the test also checks that the plates (`splitDividers`) leave each deck reachable.
+  - `every deck has finger access` (R21): three front-wall cuts, each centred on one deck's section and clear of the slots. The test also checks that the plates (`splitDividers`) leave each deck reachable.
   - `walls default unchanged`: the same item without `flatDecks` gives the 0.6 compartments
     (snapshot from main).
   - `auto picks flat → the one well`. With Auto picking upright, `flatDecks` is ignored.
@@ -728,8 +727,7 @@ DIVIDER_GROOVE`. It has two floor slots, each centred in the gap between two dec
 - [ ] **Step 6: STOP — owner checkpoint (end of phase 1, review L8).** Send the owner the plans of
       `harbour-kings-kit`, `harbour-kings-kit-split` and `harbour-kings-flat`, and a before/after of
       `test/fixtures/legacy/grouped-space.json`'s plan (0.6 vs now), rendered with the 0.6 UI (the
-      top view shows the trays). Ask the R21 question (flat-deck finger access) here if it is still
-      open. Wait for a nod before Task 9.
+      top view shows the trays). Wait for a nod before Task 9.
 
 ---
 
