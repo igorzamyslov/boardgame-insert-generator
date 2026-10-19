@@ -218,17 +218,13 @@ describe("buildTray with the finger cut and curved floor toggles", () => {
 
 // Planned trays of sizing's output, and the boxes the cuts' top fillets round: beside each side of
 // each cut, its fillet's radius along it, across its fillet strip.
-function plannedTrays(
-  component: Component,
-  variantId: string,
-  settings: Settings = DEFAULT_SETTINGS,
-) {
+function plannedTrays(component: Component, variantId: string) {
   const part = partOf([component], variantId);
   return SWEEP_OPTIONS.map((opts) => {
-    const outer = minOuter(part, settings, opts);
-    const realized = realizeTray(part, outer, settings, opts);
-    const spec = traySpecFrom(realized, outer, opts, settings, part.trayKey);
-    return { opts, spec, plan: planTray(spec, settings) };
+    const outer = minOuter(part, DEFAULT_SETTINGS, opts);
+    const realized = realizeTray(part, outer, DEFAULT_SETTINGS, opts);
+    const spec = traySpecFrom(realized, outer, opts, DEFAULT_SETTINGS, part.trayKey);
+    return { opts, spec, plan: planTray(spec, DEFAULT_SETTINGS) };
   });
 }
 function filletBoxes(plan: TrayPlan, spec: TraySpec): Rect[] {
@@ -326,12 +322,14 @@ describe("top fillets on interior dividers (review 3, M2)", () => {
 });
 
 describe("no piece thinner than 0.8 mm near the rim (review 3, M1)", () => {
-  // The top fillets and reliefs are the subject, so the trays are built without the rim between
-  // layers (on by default now): an upper tray's groove is not what these slices look at.
-  const NO_RIM: Settings = {
-    ...DEFAULT_SETTINGS,
-    lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
-  };
+  // With the rim on (the default) an upper tray has a groove, and the corner tips of two top
+  // fillets can meet over a divider: at the layer 0.1 mm under the rim, and nowhere else, each tip
+  // of a fillet is a piece of 0.014 mm² (0.1 mm by 0.26 mm: far under a 0.4 mm line, which the
+  // slicer drops), and a divider between two wells has two of them side by side: 0.028 mm². That is
+  // numerics of the fillet's faceted arc ending at the rim, the same in every trimming of the tray
+  // (with the rim off and at level 0 too), so the limit is MIN_TIP_AREA, just over two tips. The
+  // feathers this guards against were 0.03 to 0.06 mm² and 0.04 mm wide at h − 0.2, and stay caught.
+  const MIN_TIP_AREA = 0.03;
   // checkPrintability sees faces only; slicing finds thin solid between sloped faces, such as a
   // top fillet meeting a corner relief at a post (0.04 mm wide at h − 0.2). With reliefs on, the
   // relief stays and the fillet beside it is smaller; with them off, the fillet is 3 mm.
@@ -349,15 +347,15 @@ describe("no piece thinner than 0.8 mm near the rim (review 3, M1)", () => {
     ],
     ["15 mm squares laid flat, reliefs off", squareTiles(false), "flat-c4|strip|split1", false],
   ])("%s", (_name, component, variantId, reliefs) => {
-    for (const { opts, spec, plan } of plannedTrays(component, variantId, NO_RIM)) {
+    for (const { opts, spec, plan } of plannedTrays(component, variantId)) {
       const radii = plan.compartments.flatMap((c) => c.cuts.flatMap((cut) => cut.topFillets));
       expect(plan.compartments.some((c) => c.reliefs.length > 0)).toBe(reliefs);
       if (reliefs && !opts.lipped) {
         expect(radii.some((r) => r > 0 && r < 3 - 1e-6)).toBe(true);
       }
-      const { mesh } = buildTray(m, spec, NO_RIM);
+      const { mesh } = buildTray(m, spec, DEFAULT_SETTINGS);
       // Below the rim: the lip's chamfered top is 0.6 mm wide by design (spec §6.1).
-      expect(thinSlices(m, mesh, below(spec.h)), JSON.stringify(opts)).toEqual([]);
+      expect(thinSlices(m, mesh, below(spec.h), MIN_TIP_AREA), JSON.stringify(opts)).toEqual([]);
     }
   });
 });
