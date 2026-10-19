@@ -380,6 +380,13 @@
   gap: var(--s-8);
 }
 
+/* The reason a pressed blocked chip gives, under the chips. */
+.k-chips__said {
+  margin: var(--s-8) 0 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
 .k-chip {
   --k-bg: var(--sheet);
 

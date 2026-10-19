@@ -1,4 +1,5 @@
 // src/kit/ChoiceChips.tsx
+import { useState } from "preact/hooks";
 import { useBlocked } from "./blocked";
 
 export interface Chip<T extends string> {
@@ -31,12 +32,32 @@ export function ChoiceChips<T extends string>({
   describedBy,
 }: ChoiceChipsProps<T>) {
   const on = (v: T): boolean => (typeof value === "string" ? value === v : value.includes(v));
+  // A press on a blocked chip says why in a line under the chips (a touch has no title to hover);
+  // the line follows the chip: it goes when the chip is unblocked or another chip is pressed.
+  const [said, setSaid] = useState<T | null>(null);
+  const reason = options.find((o) => o.value === said)?.blockedReason;
   return (
-    <div class="k-chips" role="group" aria-label={label} aria-describedby={describedBy}>
-      {options.map((o) => (
-        <Item key={o.value} chip={o} pressed={on(o.value)} onPick={onChange} />
-      ))}
-    </div>
+    <>
+      <div class="k-chips" role="group" aria-label={label} aria-describedby={describedBy}>
+        {options.map((o) => (
+          <Item
+            key={o.value}
+            chip={o}
+            pressed={on(o.value)}
+            onPick={(v) => {
+              setSaid(null);
+              onChange(v);
+            }}
+            onBlocked={() => setSaid(o.value)}
+          />
+        ))}
+      </div>
+      {reason !== undefined && reason !== "" ? (
+        <p class="k-chips__said" role="status">
+          {reason}
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -44,12 +65,14 @@ function Item<T extends string>({
   chip,
   pressed,
   onPick,
+  onBlocked,
 }: {
   chip: Chip<T>;
   pressed: boolean;
   onPick: (value: T) => void;
+  onBlocked: () => void;
 }) {
-  const blocked = useBlocked(chip.blockedReason, () => onPick(chip.value));
+  const blocked = useBlocked(chip.blockedReason, () => onPick(chip.value), onBlocked);
   return (
     <>
       <button

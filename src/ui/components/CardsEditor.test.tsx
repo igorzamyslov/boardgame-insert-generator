@@ -582,6 +582,8 @@ describe("CardsEditor", () => {
       expect(chip.getAttribute("aria-disabled")).toBe("true");
       expect(reasonOf(chip)).toBe("Flat decks have no dividers.");
       fireEvent.click(chip);
+      // a press shows the reason where the chip is, for a touch that has no title
+      expect(screen.getByRole("status").textContent).toBe("Flat decks have no dividers.");
       const row = screen.getByRole("button", { name: /^Dividers/ });
       expect(row.getAttribute("aria-disabled")).toBe("true");
       expect(row.getAttribute("aria-expanded")).toBeNull();
