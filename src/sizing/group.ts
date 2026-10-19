@@ -1,6 +1,6 @@
-import { groupOf } from "../model/defaults";
+import { copiesOf, groupOfItem, mostFrequentAccess } from "../model/groups";
 import { POST_MM } from "../model/settings";
-import type { Access, Component, Notice, Settings } from "../model/types";
+import type { Component, Group, Notice, Settings } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { displayName, type StorageOption } from "./common";
 import { componentOptions, isLoose } from "./component";
@@ -10,8 +10,6 @@ import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
 import type { FeatureReq, RealizeOptions, TrayPartReq, TrayRequirement } from "./types";
 import { buildVariants } from "./variants";
-
-const ACCESS_RANK: Record<Access, number> = { often: 0, sometimes: 1, setup: 2 };
 
 interface Member {
   c: Component;
@@ -23,16 +21,6 @@ interface Usable {
   index: number;
   options: StorageOption[];
   binned: boolean; // its options are its bulk fallback: loose in scoop bins
-}
-
-export function mostFrequentAccess(members: readonly Component[]): Access {
-  let best: Access = "setup";
-  for (const c of members) {
-    if (ACCESS_RANK[c.access] < ACCESS_RANK[best]) {
-      best = c.access;
-    }
-  }
-  return best;
 }
 
 /** Every option layout may build a part at: unlipped or lipped, on the ground or stacked. */
@@ -129,13 +117,23 @@ export function combineOptions(lists: readonly StorageOption[][]): StorageOption
 interface Sized {
   requirement: TrayRequirement;
   usable: Usable[];
+  copies: number;
 }
 
-/** One requirement per bucket, with every variant buildVariants enumerates. */
-function sizeBuckets(components: Component[], settings: Settings, notices: Notice[]): Sized[] {
+/**
+ * One requirement per bucket, with every variant buildVariants enumerates. A bucket is a group,
+ * with its members in list order, or an item in none.
+ */
+function sizeBuckets(
+  components: Component[],
+  settings: Settings,
+  groups: readonly Group[],
+  notices: Notice[],
+): Sized[] {
+  const grouped = { groups };
   const buckets = new Map<string, Member[]>();
   components.forEach((c, index) => {
-    const key = groupOf(c) ?? c.id;
+    const key = groupOfItem(grouped, c.id)?.id ?? c.id;
     const bucket = buckets.get(key);
     if (bucket === undefined) {
       buckets.set(key, [{ c, index }]);
@@ -154,25 +152,28 @@ function sizeBuckets(components: Component[], settings: Settings, notices: Notic
         usable.push({ c, index, options: result.options, binned: false });
       }
     }
-    const requirement = requirementOf(key, usable);
+    const copies = members[0] === undefined ? 1 : copiesOf(grouped, members[0].c);
+    const requirement = requirementOf(key, usable, copies);
     if (requirement !== null) {
-      sized.push({ requirement, usable });
+      sized.push({ requirement, usable, copies });
     }
   }
   return sized;
 }
 
 /** The requirement of a bucket's usable members, or null when it has no variants. */
-function requirementOf(key: string, usable: readonly Usable[]): TrayRequirement | null {
+function requirementOf(
+  key: string,
+  usable: readonly Usable[],
+  copies: number,
+): TrayRequirement | null {
   if (usable.length === 0) {
     return null;
   }
-  // perPlayer is only valid on an ungrouped component, so it is always alone in its bucket.
-  const only = usable.length === 1 ? usable[0] : undefined;
   const variants = buildVariants({
     key,
     options: combineOptions(usable.map((u) => u.options)),
-    players: only?.c.perPlayer?.players ?? null,
+    players: copies > 1 ? copies : null,
   });
   // Defensive: options without compartments have no variants, and a requirement needs at least 1.
   if (variants.length === 0) {
@@ -202,7 +203,7 @@ function withCuts(
 /**
  * Sizes components into tray requirements: one per group (or per ungrouped component), in the
  * order each key first appears. Sizing assumes a valid project: with out-of-range settings it
- * returns nothing, and invalid components (including perPlayer inside a group) have no options,
+ * returns nothing, and invalid components have no options,
  * so they are left out without notices of their own. Variants with a compartment that gets no
  * finger cut (cutFitError) are dropped, the rest keep their order. When none is left, the tiles,
  * minis (pockets) and custom members left without a cut fall back to scoop bins (bulkFallback),
@@ -212,13 +213,19 @@ function withCuts(
 export function size(
   components: Component[],
   settings: Settings,
+  groups: readonly Group[] = [],
 ): { requirements: TrayRequirement[]; notices: Notice[] } {
   if (!settingsValid(settings)) {
     return { requirements: [], notices: [] };
   }
   const notices: Notice[] = [];
   const requirements: TrayRequirement[] = [];
-  for (const { requirement, usable } of sizeBuckets(components, settings, notices)) {
+  for (const { requirement, usable, copies } of sizeBuckets(
+    components,
+    settings,
+    groups,
+    notices,
+  )) {
     const first = withCuts(requirement, settings);
     if (first.kept.variants.length > 0) {
       requirements.push(first.kept);
@@ -231,7 +238,7 @@ export function size(
       return options === null ? u : { ...u, options, binned: true };
     });
     const binned = fallen.filter((u) => u.binned);
-    const retried = binned.length > 0 ? requirementOf(requirement.key, fallen) : null;
+    const retried = binned.length > 0 ? requirementOf(requirement.key, fallen, copies) : null;
     const second = retried === null ? null : withCuts(retried, settings);
     if (second !== null && second.kept.variants.length > 0) {
       requirements.push(second.kept);

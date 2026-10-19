@@ -1,7 +1,15 @@
 // src/ui/components/WhatsInside.tsx
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { Box, Component, ComponentKind, Lock, Printer, TraySpec } from "../../model/types";
+import type {
+  Box,
+  Component,
+  ComponentKind,
+  Group,
+  Lock,
+  Printer,
+  TraySpec,
+} from "../../model/types";
 import { Rail, SheetList } from "../../screens/Rail";
 import { kindIndexOf } from "../identity";
 import { EditorPanel } from "./EditorPanel";
@@ -18,6 +26,7 @@ export interface WhatsInsideProps {
   /** The plan's trays; absent while the plan is out of date. */
   trays?: readonly TraySpec[];
   locks?: readonly Lock[];
+  groups?: readonly Group[];
   box: Box;
   /** The insert's printer: the rail's foot says its bed. */
   printer: Printer;
@@ -56,6 +65,7 @@ export function WhatsInside({
   onOpenChange,
   trays,
   locks,
+  groups,
   box,
   printer,
   phone = false,
@@ -130,6 +140,7 @@ export function WhatsInside({
       components,
       trays,
       locks,
+      groups,
       box,
       selectedIds,
       culprits,

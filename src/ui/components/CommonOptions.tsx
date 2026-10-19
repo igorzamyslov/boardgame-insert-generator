@@ -1,14 +1,14 @@
 // src/ui/components/CommonOptions.tsx
 import { useContext } from "preact/hooks";
-import { setClearance, setGroup, setPerPlayer } from "../../app/actions";
+import { setClearance, setItemCopies } from "../../app/actions";
 import { CheckRow } from "../../kit";
 import type { SegmentedOption } from "../../kit";
-import { COMPONENT_DEFAULTS, groupOf } from "../../model/defaults";
+import { COMPONENT_DEFAULTS } from "../../model/defaults";
 import type { Access, Component } from "../../model/types";
-import { OFFSET, PLAYERS } from "../limits";
+import { COPIES, OFFSET } from "../limits";
 import { formatNumber } from "../NumberField";
 import { SettingsContext } from "../validation";
-import { Choice, ExactRow, NumField, TextBox } from "./controls";
+import { Choice, ExactRow, NumField } from "./controls";
 import { insertClearance } from "./moreSummary";
 import type { EditorProps } from "./types";
 
@@ -22,15 +22,13 @@ const ACCESS_OPTIONS: SegmentedOption<Access>[] = [
 const ACCESS_DEFAULT = ACCESS_OPTIONS.find((o) => o.value === COMPONENT_DEFAULTS.access)?.label;
 
 /**
- * Validation paths of the fields under More options that every kind has: the groups, the shape
+ * Validation paths of the fields under More options that every kind has: the copies, the shape
  * chips and the rows. An error at a path, or below it, opens the section.
  */
 export function commonOptionPaths(index: number): string[] {
   const at = `/components/${index}`;
   return [
-    `${at}/groupId`,
-    `${at}/perPlayer`,
-    `${at}/perPlayer/players`,
+    `${at}/copies`,
     `${at}/clearance`,
     `${at}/curvedFloor`,
     `${at}/separators`,
@@ -100,62 +98,38 @@ function ExtraRoomRow<C extends Component>({ component: c, index, onChange }: Ed
 
 /**
  * The exact values every kind has, each a row that opens in place: whether the counts are per
- * player, the group that shares a tray, and the component's extra room. A row whose value differs
- * from its default has the changed dot and a way back inside.
+ * player, and the component's extra room. A row whose value differs from its default has the
+ * changed dot and a way back inside.
  */
 export function CommonRows<C extends Component>(props: EditorProps<C>) {
   const { component: c, index, onChange } = props;
   const at = `/components/${index}`;
-  const grouped = c.groupId !== undefined;
   return (
     <>
       <ExactRow
         title="Per player"
-        errorPaths={[`${at}/perPlayer`]}
+        errorPaths={[`${at}/copies`]}
         revert={
-          c.perPlayer === undefined
+          c.copies === undefined
             ? undefined
-            : { to: "off", onBack: () => onChange(setPerPlayer(c, undefined)) }
+            : { to: "off", onBack: () => onChange(setItemCopies(c, undefined)) }
         }
       >
         <CheckRow
           label="Counts are per player"
-          hint={grouped ? "Not available for grouped items." : undefined}
-          checked={c.perPlayer !== undefined}
-          blocked={grouped}
-          onChange={(on) => onChange(setPerPlayer(c, on ? 4 : undefined))}
+          checked={c.copies !== undefined}
+          onChange={(on) => onChange(setItemCopies(c, on ? 4 : undefined))}
         />
-        {c.perPlayer !== undefined ? (
+        {c.copies !== undefined ? (
           <NumField
             id={`${c.id}-players`}
             label="Players"
-            value={c.perPlayer.players}
-            {...PLAYERS}
-            path={`${at}/perPlayer/players`}
-            onCommit={(v) => onChange(setPerPlayer(c, v))}
+            value={c.copies}
+            {...COPIES}
+            path={`${at}/copies`}
+            onCommit={(v) => onChange(setItemCopies(c, v))}
           />
         ) : null}
-      </ExactRow>
-      <ExactRow
-        title="Group"
-        meta={c.groupId}
-        errorPaths={[`${at}/groupId`]}
-        revert={
-          groupOf(c) === undefined
-            ? undefined
-            : { to: "no group", onBack: () => onChange(setGroup(c, undefined)) }
-        }
-      >
-        <TextBox
-          id={`${c.id}-group`}
-          label="Group"
-          value={c.groupId ?? ""}
-          commitOn="blur"
-          normalize={(v) => v.trim()}
-          path={`${at}/groupId`}
-          placeholder="e.g. tokens"
-          onCommit={(v) => onChange(setGroup(c, v))}
-        />
       </ExactRow>
       <ExtraRoomRow {...props} />
     </>

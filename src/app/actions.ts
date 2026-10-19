@@ -1,10 +1,12 @@
 // src/app/actions.ts
-import { groupOf, newComponent } from "../model/defaults";
+import { newComponent } from "../model/defaults";
+import { requirementKeyOf } from "../model/groups";
 import type {
   Box,
   CardsComponent,
   Component,
   ComponentKind,
+  Group,
   Lock,
   Printer,
   Project,
@@ -36,11 +38,6 @@ export function addComponent(p: Project, kind: ComponentKind): Project {
   return { ...p, components: [...p.components, newComponent(kind)] };
 }
 
-/** The key a component's requirement and its trays carry: its group, else its own id. */
-export function requirementKey(c: Component): string {
-  return groupOf(c) ?? c.id;
-}
-
 /**
  * Drops the locks of trays keyed `<key>:…`; a stack lock keeps the rest of its stack, in
  * order, while two or more trays remain (one tray alone is no stack).
@@ -61,11 +58,17 @@ function withoutKeys(locks: readonly Lock[], keys: ReadonlySet<string>): Lock[] 
  * after an edit but one had before leaves its locks behind, and the next run would warn
  * about trays "that don't exist any more" that the user removed on purpose.
  */
-function withComponents(p: Project, components: Component[]): Project {
-  const after = new Set(components.map(requirementKey));
-  const gone = new Set(p.components.map(requirementKey).filter((k) => !after.has(k)));
+function withComponents(
+  p: Project,
+  components: Component[],
+  groups: Group[] | undefined = p.groups,
+): Project {
+  const after = new Set(components.map((c) => requirementKeyOf({ groups }, c)));
+  const gone = new Set(
+    p.components.map((c) => requirementKeyOf(p, c)).filter((k) => !after.has(k)),
+  );
   const locks = gone.size === 0 ? p.locks : withoutKeys(p.locks, gone);
-  return { ...p, components, locks };
+  return groups === p.groups ? { ...p, components, locks } : { ...p, components, groups, locks };
 }
 
 export function updateComponent(p: Project, id: string, next: Component): Project {
@@ -75,10 +78,15 @@ export function updateComponent(p: Project, id: string, next: Component): Projec
   );
 }
 
+/** Removes the item, and its id from its group's members, in the same step. */
 export function removeComponent(p: Project, id: string): Project {
+  const groups = p.groups?.some((g) => g.memberIds.includes(id))
+    ? p.groups.map((g) => ({ ...g, memberIds: g.memberIds.filter((m) => m !== id) }))
+    : p.groups;
   return withComponents(
     p,
     p.components.filter((c) => c.id !== id),
+    groups,
   );
 }
 
@@ -242,24 +250,13 @@ export function setCardSides<C extends CardsComponent>(c: C, a: number, b: numbe
   return { ...c, shortSide: Math.min(a, b), longSide: Math.max(a, b) };
 }
 
-export function setGroup<C extends Component>(c: C, groupId: string | undefined): C {
+/** The item with `copies` set to `n`, or none (undefined: one tray, as before). */
+export function setItemCopies<C extends Component>(c: C, n: number | undefined): C {
   const next = { ...c };
-  const trimmed = groupId?.trim() ?? "";
-  if (trimmed === "") {
-    delete next.groupId;
+  if (n === undefined) {
+    delete next.copies;
   } else {
-    next.groupId = trimmed;
-    delete next.perPlayer;
-  }
-  return next;
-}
-
-export function setPerPlayer<C extends Component>(c: C, players: number | undefined): C {
-  const next = { ...c };
-  if (players === undefined) {
-    delete next.perPlayer;
-  } else {
-    next.perPlayer = { players };
+    next.copies = n;
   }
   return next;
 }

@@ -1,9 +1,9 @@
 // src/ui/components/ComponentList.tsx
 import type { ComponentChildren } from "preact";
 import { useContext, useEffect, useRef } from "preact/hooks";
-import { requirementKey } from "../../app/actions";
 import { ListRow, RuleChip } from "../../kit";
-import type { Component, Lock, TraySpec } from "../../model/types";
+import { requirementKeyOf } from "../../model/groups";
+import type { Component, Group, Lock, TraySpec } from "../../model/types";
 import { levelsOf } from "../../plan/layers";
 import { hoveredComponent } from "../../screens/hover";
 import {
@@ -21,6 +21,8 @@ export interface ComponentListProps {
   /** The plan's trays; absent while the plan is out of date (no layer is named then). */
   trays?: readonly TraySpec[];
   locks?: readonly Lock[];
+  /** The project's groups: a grouped item's trays are keyed by its group. */
+  groups?: readonly Group[];
   /** The phone sheet's rows (MobileWorkspace): a swatch, the name and what it holds on the right. */
   compact?: boolean;
   /** A row before the components' own, in the same list (the sheet's "The box"). */
@@ -46,8 +48,8 @@ interface Chip {
 }
 
 /** One chip per rule a component's trays are under: pins (turned or not) and size locks. */
-function chipsOf(c: Component, locks: readonly Lock[]): Chip[] {
-  const prefix = `${requirementKey(c)}:`;
+function chipsOf(c: Component, locks: readonly Lock[], groups: readonly Group[]): Chip[] {
+  const prefix = `${requirementKeyOf({ groups }, c)}:`;
   const mine = locks.filter((l) => l.kind !== "stack" && l.trayKey.startsWith(prefix));
   const chips: Chip[] = [];
   const add = (label: string, kind: Chip["kind"], trayKey: string): void => {
@@ -112,6 +114,7 @@ export function ComponentList({
   components,
   trays,
   locks = [],
+  groups = [],
   compact = false,
   first,
   selectedIds = [],
@@ -178,7 +181,7 @@ export function ComponentList({
         const sameName = components.some((o) => o.id !== c.id && o.name === c.name);
         const who = sameName ? `${name} (item ${i + 1})` : name;
         const layer = layerOfComponent(i, components, trays);
-        const chips = chipsOf(c, locks);
+        const chips = chipsOf(c, locks, groups);
         const at = `/components/${i}`;
         // An error inside the editor is not in sight from here: the row says so.
         const problem = notices.some(

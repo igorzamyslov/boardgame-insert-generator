@@ -14,6 +14,7 @@ import {
   custom,
   minis,
   partOf,
+  partOfGroup,
   tiles,
 } from "./test-helpers";
 
@@ -106,8 +107,8 @@ describe("finger cuts and curved floor toggles", () => {
   });
 
   it("never opens a deck's channel into a well with its finger cuts off", () => {
-    const part = partOf(
-      [cards({ groupId: "g" }), custom({ groupId: "g", count: 1, fingerCuts: false })],
+    const part = partOfGroup(
+      [cards(), custom({ count: 1, fingerCuts: false })],
       "upright-long+custom|strip|split1",
     );
     const outer = minOuter(part, s, ground);
@@ -133,12 +134,12 @@ describe("finger cuts and curved floor toggles", () => {
   });
 
   it("settles the finger room where it moves the cuts back and forth", () => {
-    // Property-test counterexample: four players' curved-floor pockets with 12.6 mm of divider
+    // Property-test counterexample: four copies' curved-floor pockets with 12.6 mm of divider
     // room, whose cuts move as the room moves the layout and never agree with it. After ROOM_ROUNDS
     // rounds every wall or divider any of those layouts cut keeps its room.
     const m = minis({
       curvedFloor: true,
-      perPlayer: { players: 4 },
+      copies: 4,
       figures: [{ name: "Fig", w: 10.32, d: 10.32, h: 10, count: 1 }],
     });
     const settings = {

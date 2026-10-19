@@ -82,7 +82,7 @@ describe("describeOptionChange", () => {
     );
     expect(describeOptionChange(c, { ...c, cornerReliefs: true })).toBe("Corner holes added.");
     expect(describeOptionChange(c, { ...c, curvedFloor: false })).toBe("Curved floor removed.");
-    expect(describeOptionChange(c, { ...c, perPlayer: { players: 4 } })).toBe(
+    expect(describeOptionChange(c, { ...c, copies: 4 })).toBe(
       "Each player's set gets its own tray or compartment.",
     );
   });

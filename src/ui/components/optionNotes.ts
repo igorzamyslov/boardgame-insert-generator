@@ -160,8 +160,8 @@ export function describeOptionChange(prev: Component, next: Component): string |
   if (prev.access !== next.access) {
     return ACCESS_NOTES[next.access];
   }
-  if ((prev.perPlayer === undefined) !== (next.perPlayer === undefined)) {
-    return next.perPlayer === undefined
+  if ((prev.copies === undefined) !== (next.copies === undefined)) {
+    return next.copies === undefined
       ? "One set for everyone."
       : "Each player's set gets its own tray or compartment.";
   }

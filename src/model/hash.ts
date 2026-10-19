@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from "./settings";
-import type { Project } from "./types";
+import type { Component, Project } from "./types";
 
 /**
  * JSON with object keys sorted at every level, so key order never changes the
@@ -41,6 +41,16 @@ function withoutNames(value: unknown): unknown {
     return out;
   }
   return value;
+}
+
+/**
+ * An item with `copies` N (above 1) as the item it was before schema 0.2.0: `perPlayer: { players: N }`.
+ * The two mean the same layout, and hashing the old shape keeps the hash of every saved per-player
+ * project, so its plan stays current across the migration.
+ */
+function withCopiesAsPerPlayer(c: Component): unknown {
+  const { copies, ...rest } = c;
+  return copies !== undefined && copies > 1 ? { ...rest, perPlayer: { players: copies } } : rest;
 }
 
 /** cyrb53 (public domain, bryc): fast 53-bit string hash. Not cryptographic. */
@@ -92,7 +102,10 @@ export function inputsHash(p: Project): string {
     box: p.box,
     printer: p.printer,
     settings,
-    components: withoutNames(p.components),
+    components: withoutNames(p.components.map(withCopiesAsPerPlayer)),
+    // Only when there are some, so a project without groups hashes as it did before they existed.
+    // A group's name is no part of the layout (withoutNames).
+    groups: p.groups && p.groups.length > 0 ? withoutNames(p.groups) : undefined,
     locks: p.locks,
   });
   return cyrb53(canonical).toString(16).padStart(14, "0");

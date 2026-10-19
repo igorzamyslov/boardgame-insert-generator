@@ -12,6 +12,7 @@ import {
   custom,
   minis,
   partOf,
+  partOfGroup,
   tiles,
 } from "./test-helpers";
 import type { CompartmentReq, OuterSize, RealizeOptions, TrayPartReq } from "./types";
@@ -345,10 +346,7 @@ describe("realizeTray", () => {
   });
 
   it("raises the floor of shallow contents to the rim in a group", () => {
-    const part = partOf(
-      [cards({ groupId: "g" }), custom({ groupId: "g", count: 1 })],
-      "upright-long+custom|strip|split1",
-    );
+    const part = partOfGroup([cards(), custom({ count: 1 })], "upright-long+custom|strip|split1");
     expect(part.trayKey).toBe("g:p0:0");
     const outer = minOuter(part, s, ground);
     expect(outer).toEqual({ w: 68.9, d: 95.7, h: 69.2 });
@@ -932,10 +930,7 @@ describe("realizeTray", () => {
   describe("geometry contract", () => {
     const lipped: RealizeOptions = { lipped: true, level: 0 };
     const upper: RealizeOptions = { lipped: false, level: 1 };
-    const group = partOf(
-      [cards({ groupId: "g" }), custom({ groupId: "g", count: 1 })],
-      "upright-long+custom|strip|split1",
-    );
+    const group = partOfGroup([cards(), custom({ count: 1 })], "upright-long+custom|strip|split1");
     const rows = partOf(
       [
         cards({

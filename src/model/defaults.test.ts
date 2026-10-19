@@ -6,7 +6,6 @@ import {
   cornerReliefsOn,
   curvedFloorOn,
   fingerCutsOn,
-  groupOf,
   newComponent,
   newProject,
   binGrowthOf,
@@ -92,15 +91,6 @@ describe("newProject", () => {
 
   it("gives every project a new id", () => {
     expect(newProject().id).not.toBe(newProject().id);
-  });
-});
-
-describe("groupOf", () => {
-  it("is the group id, with an empty one meaning no group", () => {
-    const c = newComponent("custom");
-    expect(groupOf(c)).toBeUndefined();
-    expect(groupOf({ ...c, groupId: "" })).toBeUndefined();
-    expect(groupOf({ ...c, groupId: "g1" })).toBe("g1");
   });
 });
 
@@ -253,8 +243,7 @@ describe("newComponent", () => {
     expect(c.kind).toBe(kind);
     expect(c.access).toBe("sometimes");
     expect(c.id).toMatch(/^[0-9a-z]{8}$/);
-    expect(c.groupId).toBeUndefined();
-    expect(c.perPlayer).toBeUndefined();
+    expect(c.copies).toBeUndefined();
   });
 
   it("uses storage 'auto' for cards and tiles and 'pockets' for minis", () => {

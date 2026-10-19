@@ -14,8 +14,29 @@ export interface Project {
   printer: Printer;
   settings: Settings;
   components: Component[];
+  /** Absent: no groups. A group's members are components, named by id in `memberIds`. */
+  groups?: Group[];
   locks: Lock[];
   layout?: StoredLayout;
+}
+
+/**
+ * Items printed as one tray (one per copy), named and reached for together (groups spec §3.1).
+ * Its members stay in `components`; moving an item in or out only changes `memberIds`.
+ */
+export interface Group {
+  /** The same alphabet and namespace as component ids (newId), and never equal to one. */
+  id: string;
+  /** The tray's name; "" shows as "Group". */
+  name: string;
+  /** 1..10; absent = 1. N identical, separate trays. */
+  copies?: number;
+  /** "How often you reach for it", for the whole tray: a member's own `access` is not used. */
+  access: Access;
+  /** "Extra room" for the whole tray; absent = none. */
+  growth?: Partial<Record<"w" | "d" | "h", GrowthMode>>;
+  /** Component ids, in compartment order. */
+  memberIds: string[];
 }
 
 export interface Box {
@@ -43,8 +64,8 @@ export interface ComponentBase {
   id: string;
   name: string;
   access: Access;
-  groupId?: string;
-  perPlayer?: { players: number };
+  /** 1..10; absent = 1. N identical, separate trays. Only on an item that is in no group. */
+  copies?: number;
   clearance?: number;
   // Absent: the kind's default (fingerCutsOn, curvedFloorOn, cornerReliefsOn, growthOf, separatorsOf in ./defaults; spec §5).
   fingerCuts?: boolean; // a centred finger cut through a wall of each compartment
@@ -102,6 +123,11 @@ export interface CardsComponent extends ComponentBase {
   thickness:
     { mode: "preset"; scale?: number } | { mode: "measured"; cards: number; stackMm: number };
   storage: "upright-long" | "upright-short" | "flat" | "auto";
+  /**
+   * Several flat decks in one well: `walls` (each deck keeps its own wall) or `dividers` (loose
+   * dividers between them, in slots in the floor). Absent: one well per deck, as before.
+   */
+  flatDecks?: "walls" | "dividers";
 }
 
 export type BulkItem =
@@ -142,7 +168,9 @@ export interface CustomComponent extends ComponentBase {
 export type Lock =
   | { kind: "position"; trayKey: string; path: string; rotated: boolean }
   | { kind: "size"; trayKey: string; w: number; d: number; h: number }
-  | { kind: "stack"; trayKeys: string[] };
+  | { kind: "stack"; trayKeys: string[] }
+  // Turn only: fixes the tray's rotation, and nothing else (it stays free to move).
+  | { kind: "turn"; trayKey: string; rotated: boolean };
 
 export interface Settings {
   wall: number;

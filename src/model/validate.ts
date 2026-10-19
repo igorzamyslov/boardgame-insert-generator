@@ -1,4 +1,3 @@
-import { groupOf } from "./defaults";
 import { deepFreeze } from "./freeze";
 import {
   FLOAT_EPSILON,
@@ -23,18 +22,16 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     bottomChamfer: "field.bottomChamfer",
     cardSides: "field.cardSides",
     curvedFloor: "field.curvedFloor",
+    copies: "field.copies",
     count: "field.count",
     dividers: "field.dividers",
     empty: "field.empty",
-    groupId: "field.groupId",
     headroom: "field.headroom",
     layerHeight: "field.layerHeight",
     length: "field.length",
     lipBearing: "field.lipBearing",
     lockPath: "field.lockPath",
     lockStack: "field.lockStack",
-    perPlayerInGroup: "field.perPlayerInGroup",
-    players: "field.players",
     separators: "field.separators",
     setting: "field.setting",
     topPlane: "field.topPlane",
@@ -43,10 +40,10 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
   },
   limit: {
     components: "limit.components",
+    copies: "limit.copies",
     count: "limit.count",
     dividers: "limit.dividers",
     length: "limit.length",
-    players: "limit.players",
     separators: "limit.separators",
     volume: "limit.volume",
   },
@@ -61,7 +58,7 @@ export const BOUNDS = Object.freeze({
   maxComponents: 100,
   maxCount: 2000,
   maxLength: 1000,
-  maxPlayers: 10,
+  maxCopies: 10,
   maxSeparators: 10,
   maxDividers: 6,
 } as const);
@@ -410,26 +407,19 @@ class Checker {
 }
 
 function checkBase(ck: Checker, c: Component, at: string): void {
-  if (c.perPlayer) {
-    const n = c.perPlayer.players;
-    if (n > BOUNDS.maxPlayers) {
+  if (c.copies !== undefined) {
+    const n = c.copies;
+    if (n > BOUNDS.maxCopies) {
       ck.error(
-        VALIDATION_NOTICE_CODES.limit.players,
-        `${at}/perPlayer/players`,
-        `Players must be at most ${BOUNDS.maxPlayers}.`,
+        VALIDATION_NOTICE_CODES.limit.copies,
+        `${at}/copies`,
+        `Copies must be at most ${BOUNDS.maxCopies}.`,
       );
     } else if (!Number.isInteger(n) || n < 1) {
       ck.error(
-        VALIDATION_NOTICE_CODES.field.players,
-        `${at}/perPlayer/players`,
-        "Players must be a whole number of at least 1.",
-      );
-    }
-    if (groupOf(c) !== undefined) {
-      ck.error(
-        VALIDATION_NOTICE_CODES.field.perPlayerInGroup,
-        `${at}/perPlayer`,
-        "A grouped item can't be per player. Remove it from the group or turn off per player.",
+        VALIDATION_NOTICE_CODES.field.copies,
+        `${at}/copies`,
+        "Copies must be a whole number of at least 1.",
       );
     }
   }
@@ -675,6 +665,8 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
         );
       }
       return;
+    case "turn":
+      return;
   }
 }
 
@@ -745,10 +737,6 @@ export function validateProject(p: Project): Notice[] {
       `Too many items (${p.components.length}); the maximum is ${BOUNDS.maxComponents}.`,
     );
   }
-  const idCounts = new Map<string, number>();
-  for (const c of p.components) {
-    idCounts.set(c.id, (idCounts.get(c.id) ?? 0) + 1);
-  }
   const seen = new Set<string>();
   p.components.forEach((c, i) => {
     const at = `/components/${i}`;
@@ -765,25 +753,6 @@ export function validateProject(p: Project): Notice[] {
       );
     }
     seen.add(c.id);
-    const group = groupOf(c);
-    if (group?.includes(":")) {
-      // Tray keys are `<group or component id>:p…`, matched by prefix: a ":" would let two groups collide.
-      ck.error(
-        VALIDATION_NOTICE_CODES.field.groupId,
-        `${at}/groupId`,
-        "A group name can't contain ':'.",
-      );
-    } else if (group !== undefined) {
-      // A component naming its own id as its group is not a collision.
-      const others = (idCounts.get(group) ?? 0) - (group === c.id ? 1 : 0);
-      if (others > 0) {
-        ck.error(
-          VALIDATION_NOTICE_CODES.field.groupId,
-          `${at}/groupId`,
-          "Group name collides with another item's id.",
-        );
-      }
-    }
     checkComponent(ck, c, at);
   });
 

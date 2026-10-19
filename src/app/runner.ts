@@ -52,7 +52,7 @@ export function canOptimize(
 }
 
 export function buildLayoutInput(p: Project): LayoutInput {
-  const { requirements } = size(p.components, p.settings);
+  const { requirements } = size(p.components, p.settings, p.groups);
   return {
     requirements,
     box: p.box,

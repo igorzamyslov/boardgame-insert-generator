@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { newComponent, newProject } from "../model/defaults";
 import { GEOMETRY_VERSION } from "../geometry/version";
-import type { CardsComponent, Lock, Project, TraySpec } from "../model/types";
+import type { CardsComponent, Group, Lock, Project, TraySpec } from "../model/types";
 import {
   addComponent,
   clearChoices,
@@ -13,9 +13,8 @@ import {
   renameProject,
   setCardSides,
   setClearance,
-  setGroup,
   setLock,
-  setPerPlayer,
+  setItemCopies,
   setSettings,
   sizeLockedKeys,
   swapTrays,
@@ -121,27 +120,40 @@ describe("project actions", () => {
   });
 
   it("drops locks keyed by a group no component keeps any more", () => {
-    const a = { ...newComponent("bulk"), groupId: "g" };
-    const b = { ...newComponent("bulk"), groupId: "g" };
+    const a = newComponent("bulk");
+    const b = newComponent("bulk");
+    const group: Group = { id: "g", name: "G", access: "sometimes", memberIds: [a.id, b.id] };
     const lockG: Lock = { kind: "position", trayKey: "g:p0:0", path: "0", rotated: false };
     const lockH: Lock = { kind: "position", trayKey: "h:p0:0", path: "1", rotated: false };
-    const base: Project = { ...newProject(), components: [a, b], locks: [lockG, lockH] };
+    const base: Project = {
+      ...newProject(),
+      components: [a, b],
+      groups: [group],
+      locks: [lockG, lockH],
+    };
     // another member keeps the group: its locks stay
     expect(removeComponent(base, a.id).locks).toEqual([lockG, lockH]);
     // the last member goes: so do its locks
     const last = removeComponent(removeComponent(base, a.id), b.id);
     expect(last.locks).toEqual([lockH]);
-    // regrouping the last member frees the old key, and the new key has no locks yet
-    const solo: Project = { ...base, components: [a] };
-    expect(updateComponent(solo, a.id, setGroup(a, "other")).locks).toEqual([lockH]);
-    expect(updateComponent(solo, a.id, setGroup(a, undefined)).locks).toEqual([lockH]);
     // an edit that keeps the group keeps its locks
-    expect(updateComponent(solo, a.id, { ...a, name: "x" }).locks).toEqual([lockG, lockH]);
-    // an ungrouped component joining a group frees the lock keyed by its own id
+    expect(updateComponent(base, a.id, { ...a, name: "x" }).locks).toEqual([lockG, lockH]);
+  });
+
+  it("removes an item from its group's members in the same step", () => {
+    const a = newComponent("bulk");
+    const b = newComponent("bulk");
     const c = newComponent("bulk");
-    const lockC: Lock = { kind: "position", trayKey: `${c.id}:p0:0`, path: "2", rotated: false };
-    const ungrouped: Project = { ...newProject(), components: [c], locks: [lockC] };
-    expect(updateComponent(ungrouped, c.id, setGroup(c, "g")).locks).toEqual([]);
+    const kit: Group = { id: "kit", name: "Kit", access: "often", memberIds: [a.id, b.id] };
+    const other: Group = { id: "oth", name: "Other", access: "often", memberIds: [c.id] };
+    const base: Project = { ...newProject(), components: [a, b, c], groups: [kit, other] };
+    const after = removeComponent(base, a.id);
+    expect(after.components.map((x) => x.id)).toEqual([b.id, c.id]);
+    expect(after.groups).toEqual([{ ...kit, memberIds: [b.id] }, other]);
+    // the group stays, empty, when its last member goes
+    expect(removeComponent(after, b.id).groups?.[0]?.memberIds).toEqual([]);
+    // a project without groups gets none
+    expect(removeComponent({ ...newProject(), components: [a] }, a.id).groups).toBeUndefined();
   });
 
   it("clears every choice in one step", () => {
@@ -230,15 +242,11 @@ describe("project actions", () => {
     expect(setCardSides(c, 41, 63)).toMatchObject({ shortSide: 41, longSide: 63 });
   });
 
-  it("sets and clears group, perPlayer and clearance", () => {
+  it("sets and clears copies and clearance", () => {
     const c = newComponent("bulk");
-    const pp = setPerPlayer(c, 4);
-    expect(pp.perPlayer).toEqual({ players: 4 });
-    const grouped = setGroup(pp, "  tokens ");
-    expect(grouped.groupId).toBe("tokens");
-    expect(grouped.perPlayer).toBeUndefined();
-    expect("groupId" in setGroup(grouped, "  ")).toBe(false);
-    expect("perPlayer" in setPerPlayer(pp, undefined)).toBe(false);
+    const copied = setItemCopies(c, 4);
+    expect(copied.copies).toBe(4);
+    expect("copies" in setItemCopies(copied, undefined)).toBe(false);
     expect(setClearance(c, 2).clearance).toBe(2);
     expect("clearance" in setClearance(setClearance(c, 2), undefined)).toBe(false);
   });

@@ -429,6 +429,11 @@ export function checkHardRules(
       if (!same) {
         v.push(`size lock on ${lock.trayKey} not respected`);
       }
+    } else if (lock.kind === "turn") {
+      const t = real.find((x) => x.key === lock.trayKey);
+      if (!t || t.rotated !== lock.rotated) {
+        v.push(`turn lock on ${lock.trayKey} not respected`);
+      }
     } else {
       const ts = lock.trayKeys.map((k) => real.find((x) => x.key === k));
       const first = ts[0];

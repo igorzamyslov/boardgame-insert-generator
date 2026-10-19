@@ -99,7 +99,7 @@ describe("harbourKings", () => {
     expect(project.components).toHaveLength(25);
     expect(project.components.some((c) => c.name === LONG_NAME)).toBe(true);
     expect(LONG_NAME.length).toBeGreaterThanOrEqual(40);
-    expect(project.components.filter((c) => c.groupId !== undefined)).toHaveLength(3);
+    expect(project.groups?.map((g) => g.memberIds)).toEqual([["group000", "group001", "group002"]]);
   });
 
   it("stores the fresh runs that no store can restore", () => {

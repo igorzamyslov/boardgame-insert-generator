@@ -17,8 +17,8 @@ export const LENGTH: NumberRules = { min: 0, minExclusive: true, max: BOUNDS.max
 export const OFFSET: NumberRules = { min: 0, max: BOUNDS.maxLength };
 /** A number of cards or pieces. */
 export const COUNT: NumberRules = { integer: true, min: 1, max: BOUNDS.maxCount };
-/** A number of players (a per-player count). */
-export const PLAYERS: NumberRules = { integer: true, min: 1, max: BOUNDS.maxPlayers };
+/** A number of copies (how many separate trays an item is printed as). */
+export const COPIES: NumberRules = { integer: true, min: 1, max: BOUNDS.maxCopies };
 /** A number of spacer plates (a stretched deck's separators); 0: none. */
 export const SEPARATORS: NumberRules = { integer: true, min: 0, max: BOUNDS.maxSeparators };
 /** A number of dividers in a grown deck well (0: none). */

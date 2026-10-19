@@ -8,7 +8,6 @@ import {
   dividersOf,
   dividersOffered,
   fingerCutsOn,
-  groupOf,
   growthAxesOf,
   growthOf,
   separatorsOf,
@@ -33,7 +32,6 @@ export type OptionId =
   | "separators"
   | "thickness"
   | "perPlayer"
-  | "group"
   | "clearance";
 
 /** Whether the deck or stack of tiles may grow along its stack, which is what offers spacer plates and dividers. */
@@ -122,11 +120,8 @@ export function changedOptions(c: Component, settings: Settings): Set<OptionId> 
       out.add("separators");
     }
   }
-  if (c.perPlayer !== undefined) {
+  if (c.copies !== undefined) {
     out.add("perPlayer");
-  }
-  if (groupOf(c) !== undefined) {
-    out.add("group");
   }
   if (c.clearance !== undefined && c.clearance !== insertClearance(c, settings)) {
     out.add("clearance");

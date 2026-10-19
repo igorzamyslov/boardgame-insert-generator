@@ -4,7 +4,8 @@ import { APP_VERSION, SCHEMA_VERSION } from "../model/version";
 
 /**
  * A deterministic project that uses every component kind, every optional
- * component field, every lock kind and a stored layout. Test-only.
+ * component field, a group, copies, the lock kinds a 0.1 file has (position, size, stack) and a
+ * stored layout. Test-only. The turn lock and flat decks are in test/fixtures/schema/0.2.0.json.
  */
 export function sampleProject(): Project {
   return {
@@ -49,7 +50,6 @@ export function sampleProject(): Project {
         sleeve: { w: 73, h: 123, thickness: 0.15 },
         thickness: { mode: "measured", cards: 12, stackMm: 5.4 },
         storage: "flat",
-        groupId: "setup",
         clearance: 2,
       },
       {
@@ -57,7 +57,7 @@ export function sampleProject(): Project {
         name: "Player bits",
         access: "sometimes",
         kind: "bulk",
-        perPlayer: { players: 4 },
+        copies: 4,
         items: [
           { name: "Meeple", count: 5, w: 16, d: 10, h: 16 },
           { name: "Score marker", volumeMl: 20 },
@@ -72,7 +72,6 @@ export function sampleProject(): Project {
         thickness: 2,
         count: 60,
         storage: "auto",
-        groupId: "setup",
       },
       {
         id: "minis001",
@@ -94,6 +93,14 @@ export function sampleProject(): Project {
         d: 70,
         h: 10,
         count: 1,
+      },
+    ],
+    groups: [
+      {
+        id: "setup",
+        name: "Setup",
+        access: "setup",
+        memberIds: ["cards002", "tiles001"],
       },
     ],
     locks: [

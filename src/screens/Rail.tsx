@@ -1,5 +1,5 @@
 // src/screens/Rail.tsx
-import type { ComponentKind, Box, Component, Lock, Printer, TraySpec } from "../model/types";
+import type { ComponentKind, Box, Component, Group, Lock, Printer, TraySpec } from "../model/types";
 import { Button, Card, Icon, IconTile, ListRow } from "../kit";
 import { mm } from "../ui/identity";
 import { ComponentList } from "../ui/components/ComponentList";
@@ -20,6 +20,7 @@ interface ListProps {
   /** The plan's trays; absent while the plan is out of date (no layer is named then). */
   trays?: readonly TraySpec[];
   locks?: readonly Lock[];
+  groups?: readonly Group[];
   box: Box;
   /** The components the selected tray belongs to (a group's tray has several). */
   selectedIds?: readonly string[];
@@ -104,6 +105,7 @@ export function Rail(p: RailProps) {
         components={p.components}
         trays={p.trays}
         locks={locks}
+        groups={p.groups}
         selectedIds={p.selectedIds}
         culprits={p.culprits}
         onOpen={p.onOpenEditor}
@@ -140,6 +142,7 @@ export function SheetList(p: ListProps) {
         components={p.components}
         trays={p.trays}
         locks={locks}
+        groups={p.groups}
         culprits={p.culprits}
         onOpen={p.onOpenEditor}
         onHover={p.onHover}

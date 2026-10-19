@@ -5,11 +5,12 @@ import type {
   Access,
   CardsComponent,
   Component,
+  Group,
   MinisComponent,
   Settings,
   TilesComponent,
 } from "../model/types";
-import { groupOf } from "../model/defaults";
+import { requirementKeyOf } from "../model/groups";
 import { validateComponent } from "../model/validate";
 import { MIN_SPACER } from "./constants";
 import { hasGrip, minOuter, needsGrip, realizeTray, rotateRealized, size } from "./index";
@@ -209,21 +210,30 @@ const toggledArb: Arbitrary<Component> = fc
     };
   });
 
-const componentsArb: Arbitrary<Component[]> = fc
+/** A list of valid components, and the groups that hold some of them. */
+interface Case {
+  components: Component[];
+  groups: Group[];
+}
+
+const componentsArb: Arbitrary<Case> = fc
   .record({
     list: fc.array(toggledArb, { minLength: 1, maxLength: 3 }),
     grouped: fc.boolean(),
-    players: fc.option(fc.integer({ min: 1, max: 4 }), { nil: undefined }),
+    copies: fc.option(fc.integer({ min: 1, max: 4 }), { nil: undefined }),
   })
-  .map(({ list, grouped, players }) =>
-    list.map((c, i): Component => {
+  .map(({ list, grouped, copies }): Case => {
+    const components = list.map((c, i): Component => {
       const withId: Component = { ...c, id: `c${i}` };
-      if (grouped) {
-        return { ...withId, groupId: "g" };
-      }
-      return i === 0 && players !== undefined ? { ...withId, perPlayer: { players } } : withId;
-    }),
-  );
+      return !grouped && i === 0 && copies !== undefined ? { ...withId, copies } : withId;
+    });
+    return {
+      components,
+      groups: grouped
+        ? [{ id: "g", name: "g", access: "sometimes", memberIds: components.map((c) => c.id) }]
+        : [],
+    };
+  });
 
 /**
  * Wall, divider, floor, bottom chamfer, lip and finger cut values (with the cutouts' floor
@@ -352,14 +362,14 @@ function checkTray(part: TrayPartReq, outer: OuterSize, s: Settings, opts: Reali
  * except a component or group size() leaves out with a sizing.noFingerSlot warning naming one of
  * its members; one stored in a bin instead (an info sizing.noFingerSlot) is sized.
  */
-function sized(components: Component[], s: Settings): ReturnType<typeof size> {
+function sized({ components, groups }: Case, s: Settings): ReturnType<typeof size> {
   components.forEach((c, i) => {
     expect(validateComponent(c, i).filter((n) => n.level === "error")).toEqual([]);
   });
-  const result = size(components, s);
+  const result = size(components, s, groups);
   const ids = result.requirements.flatMap((req) => req.componentIds);
   expect(new Set(ids).size).toBe(ids.length);
-  const keyOf = (c: Component): string => groupOf(c) ?? c.id;
+  const keyOf = (c: Component): string => requirementKeyOf({ groups }, c);
   const warned = new Set(
     components.flatMap((c, i) =>
       result.notices.some(
@@ -378,8 +388,8 @@ function sized(components: Component[], s: Settings): ReturnType<typeof size> {
   return result;
 }
 
-function allParts(components: Component[], s: Settings): TrayPartReq[] {
-  return sized(components, s).requirements.flatMap((req) => req.variants.flatMap((v) => v.parts));
+function allParts(found: Case, s: Settings): TrayPartReq[] {
+  return sized(found, s).requirements.flatMap((req) => req.variants.flatMap((v) => v.parts));
 }
 
 describe("sizing properties", () => {
@@ -388,8 +398,8 @@ describe("sizing properties", () => {
     { timeout: 60_000 },
     () => {
       fc.assert(
-        fc.property(componentsArb, settingsArb, (components, s) => {
-          for (const req of sized(components, s).requirements) {
+        fc.property(componentsArb, settingsArb, (found, s) => {
+          for (const req of sized(found, s).requirements) {
             expect(req.variants.length).toBeGreaterThanOrEqual(1);
             // ids are "<option>|<arrangement>|<split>…"
             const perOption = new Map<string, number>();
@@ -418,8 +428,8 @@ describe("sizing properties", () => {
     // size() keeps only variants whose every compartment gets its cut (roadmap §4.7).
     let realized = 0;
     fc.assert(
-      fc.property(componentsArb, settingsArb, (components, s) => {
-        for (const part of allParts(components, s)) {
+      fc.property(componentsArb, settingsArb, (found, s) => {
+        for (const part of allParts(found, s)) {
           for (const opts of OPTS) {
             checkTray(part, minOuter(part, s, opts), s, opts);
             realized += 1;
@@ -439,8 +449,8 @@ describe("sizing properties", () => {
         settingsArb,
         fc.record({ w: mm(0, 80), d: mm(0, 80), h: mm(0, 40) }),
         fc.constantFrom(...OPTS),
-        (components, s, extra, opts) => {
-          for (const part of allParts(components, s)) {
+        (found, s, extra, opts) => {
+          for (const part of allParts(found, s)) {
             const m = minOuter(part, s, opts);
             checkTray(part, { w: m.w + extra.w, d: m.d + extra.d, h: m.h + extra.h }, s, opts);
             larger += 1;
@@ -464,8 +474,8 @@ describe("sizing properties", () => {
           fc.record({ w: mm(0, 20), d: mm(0, 20) }),
           fc.constantFrom(...OPTS),
           (component, s, extra, opts) => {
-            const parts = sized([component], s).requirements.flatMap((req) =>
-              req.variants.filter((v) => v.id.includes("|rows2|")).flatMap((v) => v.parts),
+            const parts = sized({ components: [component], groups: [] }, s).requirements.flatMap(
+              (req) => req.variants.filter((v) => v.id.includes("|rows2|")).flatMap((v) => v.parts),
             );
             for (const part of parts) {
               const m = minOuter(part, s, opts);
@@ -483,8 +493,8 @@ describe("sizing properties", () => {
 
   it("is deterministic", { timeout: 60_000 }, () => {
     fc.assert(
-      fc.property(componentsArb, settingsArb, (components, s) => {
-        expect(sized(components, s)).toEqual(size(components, s));
+      fc.property(componentsArb, settingsArb, (found, s) => {
+        expect(sized(found, s)).toEqual(size(found.components, s, found.groups));
       }),
       { numRuns: 50, seed: SEED },
     );

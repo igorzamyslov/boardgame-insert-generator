@@ -3,6 +3,7 @@ import { newId } from "./ids";
 import type { Json } from "./json";
 import { isRecord, MAX_JSON_DEPTH, pointerKeys, quote, summarize, valueAt } from "./json";
 import { readComponents } from "./schema-read-components";
+import { readGroups } from "./schema-read-groups";
 import { readLayout } from "./schema-read-layout";
 import type { Ctx } from "./schema-reader";
 import { addError, adopt, childCtx, newCtx, Reader, SCHEMA_NOTICE_CODES } from "./schema-reader";
@@ -20,13 +21,19 @@ export const TOO_DEEP_ERROR = `This project file is damaged: nested too deeply (
 export type ForeignValue = NonNullable<ForeignData["values"]>[number];
 
 function readLock(r: Reader): Lock | null {
-  const kind = r.tag("kind", ["position", "size", "stack"]);
+  const kind = r.tag("kind", ["position", "size", "stack", "turn"]);
   switch (kind) {
     case "position":
       return r.finish({
         kind,
         trayKey: r.str("trayKey"),
         path: r.str("path"),
+        rotated: r.bool("rotated", false),
+      });
+    case "turn":
+      return r.finish({
+        kind,
+        trayKey: r.str("trayKey"),
         rotated: r.bool("rotated", false),
       });
     case "size":
@@ -248,6 +255,7 @@ export function readProject(data: Json, opts: ReadOptions): ParseResult {
   const printer = readPrinter(r.child("printer"));
   const settings = readSettings(r.optChild("settings"));
   const { components, foreign } = readComponents(r.list("components", []), ctx);
+  const groups = readGroups(r.list("groups", []), ctx);
   const { locks, kept } = readLocks(r.list("locks", []), ctx);
   const layout = readLayout(r.take("layout"), ctx);
   // finish() last: it treats every key not read so far as unknown.
@@ -260,6 +268,7 @@ export function readProject(data: Json, opts: ReadOptions): ParseResult {
     printer,
     settings,
     components,
+    ...(groups.length > 0 ? { groups } : {}),
     locks,
   });
   if (layout) {

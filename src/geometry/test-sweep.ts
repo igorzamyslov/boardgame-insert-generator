@@ -102,11 +102,11 @@ function selection(
   if (cached !== undefined) {
     return cached;
   }
-  const { components, settings: base } = loadFixture(raw);
+  const { components, groups, settings: base } = loadFixture(raw);
   const settings = profile(base);
   const specs: Selected[] = [];
   let index = 0;
-  for (const req of size(components, settings).requirements) {
+  for (const req of size(components, settings, groups).requirements) {
     for (const variant of req.variants) {
       for (const part of variant.parts) {
         options.forEach((opts, k) => {

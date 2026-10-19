@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, MIN_FEATURE_MM, applyFingerRoom } from "../model/sett
 import { alongX, axes } from "../model/cut-rules";
 import type { Component, Settings, TraySpec } from "../model/types";
 import { minOuter, realizeTray, size } from "../sizing";
-import { at, bulk, cards, custom, partOf, tiles } from "../sizing/test-helpers";
+import { at, bulk, cards, custom, partOf, partOfGroup, tiles } from "../sizing/test-helpers";
 import { loadManifold } from "./load";
 import { filletStrip } from "./plan-cuts";
 import { planTray } from "./plan";
@@ -50,15 +50,13 @@ describe("buildTray with finger room on a cut across the row", () => {
     // A hand-built part: the deck gets no cut along its row, so it is cut through the front and
     // back walls, which take the 10 mm of finger room.
     const settings = applyFingerRoom(DEFAULT_SETTINGS, true);
-    const pile = (id: string) =>
-      bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
+    const pile = (id: string) => bulk({ id, items: [{ name: "Pile", volumeMl: 40 }] });
     const deck = cards({
-      groupId: "g",
       shortSide: 63,
       longSide: 88,
       decks: [{ name: "D", count: 80 }],
     });
-    const sorted = partOf(
+    const sorted = partOfGroup(
       [pile("b1"), deck, pile("b2")],
       "shallow+upright-long+shallow|strip|split1",
       settings,

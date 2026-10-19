@@ -436,9 +436,9 @@ describe("finger slot clearance regression (plan 3)", () => {
   // cards-heavy, part fxcrd003:p0:0: "Goals ×45" beside the slack of its row. Sizing used to put
   // a spare compartment 0.03 mm inside the deck's 22 mm slot, leaving a 0.04 mm feather. The decks
   // have finger channels now.
-  const { components, settings } = loadFixture(cardsHeavy);
+  const { components, groups, settings } = loadFixture(cardsHeavy);
   const part = (variantId: string) => {
-    const found = size(components, settings)
+    const found = size(components, settings, groups)
       .requirements.flatMap((req) => req.variants)
       .filter((v) => v.id === variantId)
       .flatMap((v) => v.parts)

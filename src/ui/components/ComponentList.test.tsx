@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../../app/test-helpers";
 import { newComponent } from "../../model/defaults";
 import { hoveredComponent } from "../../screens/hover";
-import type { Component, ComponentKind, Lock } from "../../model/types";
+import type { Component, ComponentKind, Group, Lock } from "../../model/types";
 import { ValidationContext } from "../validation";
 import { ComponentList } from "./ComponentList";
 
@@ -305,9 +305,22 @@ describe("ComponentList", () => {
     });
 
     it("follows a group's key, so each member of the group shows the pin", () => {
-      const a = { ...named("bulk", "a", "Cubes"), groupId: "tokens" };
-      const b = { ...named("bulk", "b", "Dice"), groupId: "tokens" };
-      render(<ComponentList components={[a, b]} locks={[pin("tokens:p0:0")]} {...handlers()} />);
+      const a = named("bulk", "a", "Cubes");
+      const b = named("bulk", "b", "Dice");
+      const tokens: Group = {
+        id: "tokens",
+        name: "Tokens",
+        access: "sometimes",
+        memberIds: ["a", "b"],
+      };
+      render(
+        <ComponentList
+          components={[a, b]}
+          groups={[tokens]}
+          locks={[pin("tokens:p0:0")]}
+          {...handlers()}
+        />,
+      );
       expect(screen.getAllByText("Pinned")).toHaveLength(2);
     });
   });

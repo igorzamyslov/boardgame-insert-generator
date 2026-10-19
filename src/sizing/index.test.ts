@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import * as sizing from "./index";
-import { bulk, cards, custom, minis, tiles } from "./test-helpers";
+import { bulk, cards, custom, inGroup, minis, tiles } from "./test-helpers";
 
 describe("sizing public API", () => {
   it("exports the contract functions and helpers", () => {
@@ -29,10 +29,11 @@ describe("sizing public API", () => {
       bulk(),
       tiles({ storage: "auto" }),
       minis(),
-      custom({ groupId: "g" }),
-      cards({ id: "c2", groupId: "g" }),
+      custom(),
+      cards({ id: "c2" }),
     ];
-    const { requirements, notices } = sizing.size(components, DEFAULT_SETTINGS);
+    const grouped = components.slice(-2);
+    const { requirements, notices } = sizing.size(components, DEFAULT_SETTINGS, [inGroup(grouped)]);
     expect(notices).toEqual([]);
     expect(requirements.map((r) => r.key)).toEqual(["c1", "b1", "t1", "m1", "g"]);
     for (const opts of [

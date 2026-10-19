@@ -4,7 +4,7 @@
 // screenshot harness and the board copy tests. Test-only: nothing in the app imports it.
 import { toggleLock } from "../app/actions";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { Component, Project, Settings, TraySpec } from "../model/types";
+import type { Component, Group, Project, Settings, TraySpec } from "../model/types";
 import { APP_VERSION, SCHEMA_VERSION } from "../model/version";
 import type { LayoutResult } from "../layout/types";
 import { createProjectStore } from "../share";
@@ -183,15 +183,19 @@ export function harbourKingsLong(): Project {
       ]),
     ),
     ...["Scouts", "Knights", "Ships"].map((name, i) =>
-      bulk(`group00${i}`, name, "setup", [{ name, count: 4, w: 10, d: 10, h: 8 }], {
-        groupId: "Crew",
-      }),
+      bulk(`group00${i}`, name, "setup", [{ name, count: 4, w: 10, d: 10, h: 8 }]),
     ),
     ...["Banners", "Anchors", "Barrels", "Flags", "Keys", "Maps", "Torches"].map((name, i) =>
       bulk(`small00${i}`, name, "sometimes", [{ name, count: 4, w: 8, d: 8, h: 6 }]),
     ),
   ];
-  return { ...p, components: [...p.components, ...extra] };
+  const crew: Group = {
+    id: "Crew",
+    name: "Crew",
+    access: "setup",
+    memberIds: ["group000", "group001", "group002"],
+  };
+  return { ...p, components: [...p.components, ...extra], groups: [crew] };
 }
 
 function withComponent(p: Project, id: string, change: (c: Component) => Component): Project {

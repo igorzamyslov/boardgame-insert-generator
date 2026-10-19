@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
-import type { Component, ComponentKind } from "../model/types";
+import type { Component, ComponentKind, Lock } from "../model/types";
+import { requirementKeyOf } from "../model/groups";
 import { topPlane } from "../model/settings";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
@@ -53,7 +54,6 @@ import {
   clearChoices,
   lockedKeys,
   removeComponent,
-  requirementKey,
   removeLock,
   renameProject,
   setSettings,
@@ -507,7 +507,7 @@ export function App(props: AppProps) {
   } else if (fitKind === "pinConflict") {
     for (const conflict of conflicts) {
       const owner = project.components.find((c) =>
-        conflict.trayKey.startsWith(`${requirementKey(c)}:`),
+        conflict.trayKey.startsWith(`${requirementKeyOf(project, c)}:`),
       );
       if (owner !== undefined) {
         culprits.add(owner.id);
@@ -529,8 +529,7 @@ export function App(props: AppProps) {
       // only a search that began has a Stop to hand the focus to
       keptFromFit.current = store.state.run.peek().status === "running";
     },
-    onUnpin: (c: { trayKey: string; kind?: "position" | "size" | "stack" }) =>
-      store.unpin(c.trayKey, c.kind),
+    onUnpin: (c: { trayKey: string; kind?: Lock["kind"] }) => store.unpin(c.trayKey, c.kind),
   } as const;
 
   const clearEditNote = useCallback(() => setEditNote(null), []);
@@ -563,6 +562,7 @@ export function App(props: AppProps) {
       }}
       trays={listTrays}
       locks={project.locks}
+      groups={project.groups}
       box={project.box}
       printer={projPrinter}
       phone={phone}

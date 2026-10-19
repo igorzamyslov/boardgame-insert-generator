@@ -10,6 +10,7 @@ import type {
   ComponentKind,
   GrowthAxis,
   GrowthMode,
+  Group,
   MinisComponent,
   Printer,
   Project,
@@ -308,9 +309,9 @@ export function binTogglesOf(c: Component): Toggles {
   };
 }
 
-/** The component's group, or undefined when it has none. An empty groupId means no group. */
-export function groupOf(c: Component): string | undefined {
-  return c.groupId === "" ? undefined : c.groupId;
+/** A new, empty group: no copies, reached for "sometimes", with no members yet. */
+export function newGroup(name: string): Group {
+  return { id: newId(), name, access: COMPONENT_DEFAULTS.access, memberIds: [] };
 }
 
 export function newProject(): Project {

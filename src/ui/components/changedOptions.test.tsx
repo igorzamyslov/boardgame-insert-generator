@@ -55,8 +55,7 @@ const SCENARIOS: { name: string; component: Component; changed: OptionId[] }[] =
       cornerReliefs: true,
       separators: 3,
       thickness: { mode: "preset", scale: 1.1 },
-      perPlayer: { players: 4 },
-      groupId: "g",
+      copies: 4,
       clearance: 3,
     }),
     changed: [
@@ -68,7 +67,6 @@ const SCENARIOS: { name: string; component: Component; changed: OptionId[] }[] =
       "separators",
       "thickness",
       "perPlayer",
-      "group",
       "clearance",
     ],
   },
@@ -150,7 +148,6 @@ describe("changedOptions", () => {
       separators: 0,
       dividers: 0,
       thickness: { mode: "preset", scale: 1 },
-      groupId: "",
       clearance: 1.5,
     });
     expect([...changedOptions(cards, DEFAULT_SETTINGS)]).toEqual([]);
@@ -226,8 +223,7 @@ describe("More options: the dot and the way back", () => {
         cornerReliefs: true,
         separators: 2,
         thickness: { mode: "preset", scale: 1.1 },
-        perPlayer: { players: 4 },
-        groupId: "g",
+        copies: 4,
         clearance: 3,
       }),
     );
@@ -241,7 +237,6 @@ describe("More options: the dot and the way back", () => {
         "Back to 0",
         "Back to the sleeve table",
         "Back to off",
-        "Back to no group",
         "Back to 1.5",
       ]),
     );
@@ -266,8 +261,8 @@ describe("More options: the dot and the way back", () => {
   });
 
   it("marks a row with a named dot", () => {
-    panel(of("cards", { groupId: "g" }));
-    const row = screen.getByRole("button", { name: /^Group/ });
+    panel(of("cards", { copies: 4 }));
+    const row = screen.getByRole("button", { name: /^Per player/ });
     expect(row.querySelector('.k-drow__dot[aria-label="Changed"]')).not.toBeNull();
   });
 

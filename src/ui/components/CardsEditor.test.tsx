@@ -368,29 +368,22 @@ describe("CardsEditor", () => {
       expect(last().thickness).toEqual({ mode: "measured", cards: 50, stackMm: 22 });
     });
 
-    it("counts per player, and says why a grouped one can't", () => {
+    it("counts per player: the item's copies", () => {
       const { last, view, onChange } = setup(cards());
       openRows();
       fireEvent.click(screen.getByLabelText(/per player/));
-      expect(last().perPlayer).toEqual({ players: 4 });
-      view.rerender(
-        <CardsEditor component={cards({ groupId: "g" })} index={0} onChange={onChange} />,
-      );
-      // the box stays focusable, says why, and does nothing
-      const perPlayer = screen.getByLabelText(/per player/) as HTMLInputElement;
-      expect(perPlayer.disabled).toBe(false);
-      expect(perPlayer.getAttribute("aria-disabled")).toBe("true");
-      expect(
-        document.getElementById(perPlayer.getAttribute("aria-describedby") ?? "")?.textContent,
-      ).toContain("Not available for grouped items.");
-      onChange.mockClear();
-      fireEvent.click(perPlayer);
-      expect(onChange).not.toHaveBeenCalled();
-      expect(perPlayer.checked).toBe(false);
-      const group = screen.getByLabelText(/^Group/);
-      fireEvent.input(group, { target: { value: "" } });
-      fireEvent.blur(group);
-      expect("groupId" in last()).toBe(false);
+      expect(last().copies).toBe(4);
+      view.rerender(<CardsEditor component={cards({ copies: 4 })} index={0} onChange={onChange} />);
+      fireEvent.input(screen.getByLabelText(/^Players/), { target: { value: "3" } });
+      expect(last().copies).toBe(3);
+      fireEvent.click(screen.getByLabelText(/per player/));
+      expect("copies" in last()).toBe(false);
+    });
+
+    it("has no Group box: a group is made of items, not typed on one", () => {
+      setup(cards());
+      openRows();
+      expect(screen.queryByLabelText(/^Group/)).toBeNull();
     });
 
     it("shows the insert's extra room, and a different number gives the component its own", () => {
@@ -411,17 +404,6 @@ describe("CardsEditor", () => {
       openRows();
       fireEvent.input(screen.getByLabelText(/^Extra room/), { target: { value: "1,5" } });
       expect("clearance" in last()).toBe(false);
-    });
-
-    it("trims the group name on blur without committing an unchanged value", () => {
-      const onChange = vi.fn();
-      render(<CardsEditor component={cards({ groupId: "g" })} index={0} onChange={onChange} />);
-      openRows();
-      const group = screen.getByLabelText(/^Group/) as HTMLInputElement;
-      fireEvent.input(group, { target: { value: "g " } });
-      fireEvent.blur(group);
-      expect(group.value).toBe("g");
-      expect(onChange).not.toHaveBeenCalled();
     });
 
     it("shows finger cuts on, no curved floor, and corner holes off", () => {

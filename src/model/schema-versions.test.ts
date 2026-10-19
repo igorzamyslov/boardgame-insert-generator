@@ -1,11 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
+import combinedLegacy from "../../test/fixtures/legacy/combined.json";
+import groupedLegacy from "../../test/fixtures/legacy/grouped-space.json";
+import hashes from "../../test/fixtures/legacy/hashes.json";
+import perPlayerLegacy from "../../test/fixtures/legacy/per-player.json";
+import plainLegacy from "../../test/fixtures/legacy/plain.json";
 import { sampleProject } from "../test-support/sample";
+import { inputsHash } from "./hash";
 import type { Migration } from "./schema";
 import {
   MIGRATIONS,
   noForeign,
   parseProject,
   parseProjectWith,
+  parseStoredProject,
   SCHEMA_NOTICE_CODES,
   serializeProject,
 } from "./schema";
@@ -362,5 +369,159 @@ describe("unknown-value fallbacks", () => {
       const saved = JSON.parse(serializeProject(result.project, result.foreign)) as Json;
       expect(valueAt(saved, keys), path).toBe("not-a-known-value");
     }
+  });
+});
+
+describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
+  const HISTORY = import.meta.glob<unknown>("../../test/fixtures/schema/*.json", {
+    eager: true,
+    import: "default",
+  });
+  const fixture = (version: string): Json =>
+    structuredClone(HISTORY[`../../test/fixtures/schema/${version}.json`]) as Json;
+  const migrated = (result: ParseResult) =>
+    result.ok ? result.notices.filter((n) => n.code === SCHEMA_NOTICE_CODES.migrated) : [];
+  const old = Object.keys(HISTORY).filter((k) => /\/0\.1\.\d+\.json$/.test(k));
+
+  it("migrates every history fixture, with one migrated notice", () => {
+    expect(old.length).toBeGreaterThan(10);
+    for (const path of old) {
+      const result = expectOk(parseProject(structuredClone(HISTORY[path])));
+      expect(migrated(result), path).toHaveLength(1);
+      expect(result.project.schemaVersion, path).toBe("0.2.0");
+    }
+  });
+
+  it("turns the 0.1.16 group 'setup' into a group of its two members, keeping its pin", () => {
+    const { project } = expectOk(parseProject(fixture("0.1.16")));
+    expect(project.groups).toEqual([
+      { id: "setup", name: "setup", access: "setup", memberIds: ["cards002", "tiles001"] },
+    ]);
+    expect(project.components.some((c) => "groupId" in c)).toBe(false);
+    expect(project.locks).toContainEqual({
+      kind: "stack",
+      trayKeys: ["setup:p0:0", "cards001:p0:0"],
+    });
+    expect(project.components.find((c) => c.id === "bulk0001")?.copies).toBe(4);
+    expect(project.components.some((c) => "perPlayer" in c)).toBe(false);
+  });
+
+  it("reads the 0.2.0 fixture with no notices, and it round-trips", () => {
+    const first = expectOk(parseProject(fixture("0.2.0")));
+    expect(first.notices).toEqual([]);
+    expect(first.foreign.components).toEqual([]);
+    const { project } = first;
+    expect(project.groups?.map((g) => [g.id, g.copies, g.memberIds])).toEqual([
+      ["kit1", 4, ["minis001", "cards002", "custom01"]],
+      ["spare01", undefined, []],
+    ]);
+    expect(project.groups?.[0]?.growth).toEqual({ w: 2, h: "auto" });
+    // a member order that is not the list order, kept
+    expect(project.components.map((c) => c.id).indexOf("cards002")).toBeLessThan(
+      project.components.map((c) => c.id).indexOf("minis001"),
+    );
+    expect(project.components.find((c) => c.id === "bulk0001")?.copies).toBe(3);
+    expect(project.locks).toContainEqual({ kind: "turn", trayKey: "bulk0001:p1:0", rotated: true });
+    const deck = project.components.find((c) => c.id === "cards001");
+    expect(deck?.kind === "cards" && deck.flatDecks).toBe("dividers");
+    const again = expectOk(parseProject(JSON.parse(serializeProject(project, first.foreign))));
+    // Saving stamps the running app's version, which is not what the fixture says.
+    expect({ ...again.project, createdWith: project.createdWith }).toEqual(project);
+    expect(again.notices).toEqual([]);
+  });
+
+  it("writes groups only when there are some", () => {
+    const first = expectOk(parseProject(fixture("0.2.0")));
+    const none = { ...first.project, groups: [] };
+    expect("groups" in (JSON.parse(serializeProject(none, first.foreign)) as Json)).toBe(false);
+    const bare = { ...first.project };
+    delete bare.groups;
+    expect("groups" in (JSON.parse(serializeProject(bare, first.foreign)) as Json)).toBe(false);
+  });
+
+  it("opens an autosave from 0.6 through the migration", () => {
+    const result = expectOk(parseStoredProject(fixture("0.1.16")));
+    expect(migrated(result)).toHaveLength(1);
+    expect(result.project.groups?.[0]?.id).toBe("setup");
+  });
+
+  it("keeps the unknown fields of a group in a newer 0.2.x file, and writes them back", () => {
+    const raw: Json = { ...fixture("0.2.0"), schemaVersion: "0.2.7" };
+    (raw.groups as Json[])[0] = { ...(raw.groups as Json[])[0], future: 1 };
+    const result = expectOk(parseProject(raw));
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.newerMinor]);
+    const saved = JSON.parse(serializeProject(result.project, result.foreign)) as Json;
+    expect((saved.groups as Json[])[0]?.future).toBe(1);
+  });
+
+  it("drops an unknown field of a group with one notice in a file of this version", () => {
+    const raw = fixture("0.2.0");
+    (raw.groups as Json[])[0] = { ...(raw.groups as Json[])[0], future: 1 };
+    const result = expectOk(parseProject(raw));
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.unknownFields]);
+    expect(JSON.stringify(result.project)).not.toContain("future");
+  });
+
+  it("refuses a group that uses a value this app doesn't know, rather than lose it", () => {
+    const raw: Json = { ...fixture("0.2.0"), schemaVersion: "0.2.7" };
+    (raw.groups as Json[])[0] = { ...(raw.groups as Json[])[0], access: "never" };
+    expect(expectError(parseProject(raw))).toMatch(/groups\/0\/access/);
+  });
+
+  it("refuses a group that is not an object", () => {
+    const raw: Json = { ...fixture("0.2.0"), groups: [7] };
+    expect(expectError(parseProject(raw))).toMatch(/groups\/0: expected an object/);
+  });
+
+  it("refuses a 0.2.0 file in a 0.1 app, as it does any newer line", () => {
+    expect(expectError(parseProject(fixture("0.2.0"), "0.1.16"))).toMatch(
+      /Update the app to open it\./,
+    );
+  });
+
+  describe("a 0.6 project with a stored plan", () => {
+    const open = (raw: unknown) => expectOk(parseProject(structuredClone(raw)));
+
+    it("keeps the plan of a plain or per-player project current: its inputsHash is unchanged", () => {
+      for (const [name, raw] of [
+        ["plain", plainLegacy],
+        ["per-player", perPlayerLegacy],
+      ] as const) {
+        const { project } = open(raw);
+        expect(inputsHash(project), name).toBe(hashes[name]);
+        expect(project.layout?.inputsHash, name).toBe(hashes[name]);
+      }
+    });
+
+    it("makes the plan of a grouped project stale: its hash is a new one", () => {
+      const { project } = open(groupedLegacy);
+      expect(inputsHash(project)).not.toBe(hashes["grouped-space"]);
+      expect(project.layout?.inputsHash).not.toBe(inputsHash(project));
+    });
+
+    it("makes a combined plan stale for good, and keeps its tray keys", () => {
+      const { project } = open(combinedLegacy);
+      expect(project.layout?.inputsHash).toBe("");
+      expect(project.layout?.trays.some((t) => t.key.includes(":pall:"))).toBe(true);
+    });
+
+    it("moves a renamed group's pins and plan to its new id, and leaves them valid", () => {
+      const { project } = open(groupedLegacy);
+      expect(project.groups?.[0]).toMatchObject({ id: "group-1", name: "Player kit" });
+      expect(project.locks.map((l) => (l.kind === "stack" ? l.trayKeys : [l.trayKey]))).toEqual([
+        ["group-1:p0:0"],
+        ["group-1:p0:0", "cards001:p0:0"],
+      ]);
+      expect(project.layout?.trays.filter((t) => t.key.startsWith("group-1:"))).not.toHaveLength(0);
+    });
+  });
+
+  it("reads a turn lock, and drops one with no tray with a notice", () => {
+    const raw = fixture("0.2.0");
+    const locks = raw.locks as Json[];
+    locks.push({ kind: "turn", rotated: false });
+    const result = expectOk(parseProject(raw));
+    expect(result.project.locks.filter((l) => l.kind === "turn")).toHaveLength(1);
+    expect(result.notices.map((n) => n.code)).toEqual([SCHEMA_NOTICE_CODES.lockDropped]);
   });
 });

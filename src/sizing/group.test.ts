@@ -4,10 +4,10 @@ import { DEFAULT_SETTINGS, MIN_FEATURE_MM, MIN_WALL_MM } from "../model/settings
 import { compartment, wallCutout } from "./common";
 import * as componentModule from "./component";
 import { CutFitError } from "./errors";
-import { combineOptions, mostFrequentAccess, size } from "./group";
+import { combineOptions, size } from "./group";
 import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
-import { at, bulk, cards, custom, minis, tiles } from "./test-helpers";
+import { at, bulk, cards, custom, inGroup, minis, tiles } from "./test-helpers";
 import type { TrayPartReq } from "./types";
 
 // The real componentOptions, wrapped so one test can return options without compartments.
@@ -45,10 +45,8 @@ describe("size", () => {
   });
 
   it("puts a group into one tray, mixing kinds, with combined storage options", () => {
-    const { requirements } = size(
-      [cards({ groupId: "g", access: "often" }), bulk({ groupId: "g", access: "setup" })],
-      s,
-    );
+    const members = [cards({ access: "often" }), bulk({ access: "setup" })];
+    const { requirements } = size(members, s, [inGroup(members)]);
     expect(requirements).toHaveLength(1);
     const req = at(requirements, 0);
     expect(req.key).toBe("g");
@@ -73,7 +71,7 @@ describe("size", () => {
   });
 
   it("expands perPlayer into separate trays and one combined tray", () => {
-    const { requirements } = size([bulk({ perPlayer: { players: 2 } })], s);
+    const { requirements } = size([bulk({ copies: 2 })], s);
     const req = at(requirements, 0);
     expect(req.variants.map((v) => v.id)).toEqual([
       "shallow|strip|split1|separate",
@@ -94,14 +92,17 @@ describe("size", () => {
     ]);
   });
 
-  it("gives no requirement and no sizing notices to a grouped perPlayer component", () => {
-    const { requirements, notices } = size(
-      [cards({ groupId: "g", perPlayer: { players: 2 } }), bulk({ groupId: "g" })],
-      s,
-    );
+  it("takes a group's copies from the group, and ignores a member's own", () => {
+    const members = [cards({ copies: 2 }), bulk()];
+    const { requirements, notices } = size(members, s, [inGroup(members)]);
     expect(notices).toEqual([]);
     expect(requirements.map((r) => r.key)).toEqual(["g"]);
-    expect(at(requirements, 0).componentIds).toEqual(["b1"]);
+    expect(at(requirements, 0).componentIds).toEqual(["c1", "b1"]);
+    const trayKeys = at(requirements, 0).variants.flatMap((v) => v.parts.map((p) => p.trayKey));
+    expect(trayKeys.every((k) => k.startsWith("g:p0:"))).toBe(true);
+    const copied = size(members, s, [inGroup(members, "g", { copies: 2 })]);
+    const keys = at(copied.requirements, 0).variants.flatMap((v) => v.parts.map((p) => p.trayKey));
+    expect(keys).toContain("g:p1:0");
   });
 
   it("leaves out an invalid component without a sizing notice and keeps the rest", () => {
@@ -121,17 +122,15 @@ describe("size", () => {
     expect(requirements.map((r) => r.key)).toEqual(["b1", "c2"]);
   });
 
-  it("leaves out a component with an invalid player count without a sizing notice", () => {
-    const { requirements, notices } = size([bulk({ perPlayer: { players: 0 } }), cards()], s);
+  it("leaves out a component with an invalid copies count without a sizing notice", () => {
+    const { requirements, notices } = size([bulk({ copies: 0 }), cards()], s);
     expect(notices).toEqual([]);
     expect(requirements.map((r) => r.key)).toEqual(["c1"]);
   });
 
-  it("keeps first-appearance order and treats an empty groupId as none", () => {
-    const { requirements } = size(
-      [bulk(), cards({ groupId: "" }), tiles({ groupId: "g" }), minis({ groupId: "g" })],
-      s,
-    );
+  it("keeps first-appearance order: a group stands where its first member does", () => {
+    const components = [bulk(), cards(), tiles(), minis()];
+    const { requirements } = size(components, s, [inGroup(components.slice(2))]);
     expect(requirements.map((r) => r.key)).toEqual(["b1", "c1", "g"]);
     expect(at(requirements, 2).loose).toBe(true);
   });
@@ -246,9 +245,10 @@ describe("size", () => {
     });
 
     it("names the stuck member of a group whose variants all fail, even with its pockets in a bin", () => {
-      const deck = cards({ id: "c2", groupId: "g", shortSide: 8, longSide: 8, storage: "flat" });
-      const m = minis({ id: "m2", groupId: "g", figures: figures(["A", 3, 3, 1], ["B", 3, 4, 1]) });
-      const { requirements, notices } = size([bulk({ groupId: "g" }), m, deck], s);
+      const deck = cards({ id: "c2", shortSide: 8, longSide: 8, storage: "flat" });
+      const m = minis({ id: "m2", figures: figures(["A", 3, 3, 1], ["B", 3, 4, 1]) });
+      const members = [bulk(), m, deck];
+      const { requirements, notices } = size(members, s, [inGroup(members)]);
       expect(requirements).toEqual([]);
       expect(notices.map((n) => [n.level, n.code, n.path])).toEqual([
         ["warning", "sizing.noFingerSlot", "/components/2"],
@@ -363,8 +363,9 @@ describe("size", () => {
 
     it("puts only the stuck members of a group into a bin", () => {
       const tiny = figures(["A", 3, 3, 1], ["B", 3, 4, 1]);
-      const m = minis({ id: "m2", groupId: "g", figures: tiny });
-      const { requirements, notices } = size([cards({ groupId: "g" }), m], s);
+      const m = minis({ id: "m2", figures: tiny });
+      const members = [cards(), m];
+      const { requirements, notices } = size(members, s, [inGroup(members)]);
       const req = at(requirements, 0);
       expect(req.variants.map((v) => v.id)).toEqual([
         "upright-long+bulk-shallow|strip|split1",
@@ -394,15 +395,6 @@ describe("size", () => {
   it("is deterministic", () => {
     const components = [cards({ storage: "auto" }), bulk(), tiles({ storage: "auto" }), custom()];
     expect(size(components, s)).toEqual(size(components, s));
-  });
-});
-
-describe("mostFrequentAccess", () => {
-  it("picks the most frequently accessed member", () => {
-    expect(mostFrequentAccess([cards({ access: "setup" }), bulk({ access: "sometimes" })])).toBe(
-      "sometimes",
-    );
-    expect(mostFrequentAccess([cards({ access: "setup" })])).toBe("setup");
   });
 });
 

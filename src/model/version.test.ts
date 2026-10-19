@@ -7,8 +7,8 @@ describe("version", () => {
     expect(APP_VERSION).toBe(pkg.version);
   });
 
-  it("is at schema 0.1.16: 0.1.15 with `engraveNumbers` read as `engraveNames`", () => {
-    expect(SCHEMA_VERSION).toBe("0.1.16");
+  it("is at schema 0.2.0: groups are their own list, and Copies replace perPlayer", () => {
+    expect(SCHEMA_VERSION).toBe("0.2.0");
   });
 
   it("parses strict semver", () => {

@@ -4,6 +4,7 @@ import type {
   CompartmentSpec,
   Component,
   FeatureSpec,
+  Group,
   Settings,
   Side,
   TraySpec,
@@ -313,13 +314,18 @@ export const upperLevel1 = traySpec({
   compartments: [compartment({ x: 2.56, y: 2.56, w: 100 - 5.12, d: 60 - 5.12 })],
 });
 
-// The components and settings of a test/fixtures project.
-export function loadFixture(raw: unknown): { components: Component[]; settings: Settings } {
+// The components, groups and settings of a test/fixtures project.
+export function loadFixture(raw: unknown): {
+  components: Component[];
+  groups: Group[];
+  settings: Settings;
+} {
   const parsed = parseProject(raw);
   if (!parsed.ok) {
     throw new Error(parsed.error);
   }
-  return parsed.project;
+  const { components, groups = [], settings } = parsed.project;
+  return { components, groups, settings };
 }
 
 // A tray as the layout builds it from a realized tray placed at `outer`.

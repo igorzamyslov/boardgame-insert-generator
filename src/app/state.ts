@@ -103,7 +103,7 @@ export interface State {
 
 function sizingNoticesOf(p: Project): Notice[] {
   try {
-    return size(p.components, p.settings).notices;
+    return size(p.components, p.settings, p.groups).notices;
   } catch (e) {
     return [
       {

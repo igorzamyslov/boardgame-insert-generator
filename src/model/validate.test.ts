@@ -174,13 +174,6 @@ describe("validateProject", () => {
     ]);
   });
 
-  it("forbids perPlayer inside a group", () => {
-    const p = withComponents(cards({ groupId: "g1", perPlayer: { players: 4 } }));
-    expect(codes(validateProject(p))).toEqual([
-      [field.perPlayerInGroup, "/components/0/perPlayer"],
-    ]);
-  });
-
   it("refuses a curved floor on cards and tiles, and allows it on the other kinds", () => {
     const p = withComponents(
       cards({ curvedFloor: true }),
@@ -202,22 +195,16 @@ describe("validateProject", () => {
     expect(notices.map((n) => n.level)).toEqual(["error", "error"]);
   });
 
-  it("treats an empty groupId as no group", () => {
-    const p = withComponents(
-      { ...newComponent("custom"), id: "x" },
-      cards({ groupId: "", perPlayer: { players: 4 } }),
-    );
-    expect(validateProject(p)).toEqual([]);
-  });
-
-  it("bounds players to 1…10", () => {
-    const p = withComponents(
-      cards({ perPlayer: { players: 0 } }),
-      cards({ perPlayer: { players: 11 } }),
-    );
-    expect(codes(validateProject(p))).toEqual([
-      [field.players, "/components/0/perPlayer/players"],
-      [limit.players, "/components/1/perPlayer/players"],
+  it("bounds copies to 1…10", () => {
+    const p = withComponents(cards({ copies: 0 }), cards({ copies: 11 }));
+    const notices = validateProject(p);
+    expect(codes(notices)).toEqual([
+      [field.copies, "/components/0/copies"],
+      [limit.copies, "/components/1/copies"],
+    ]);
+    expect(notices.map((n) => n.message)).toEqual([
+      "Copies must be a whole number of at least 1.",
+      "Copies must be at most 10.",
     ]);
   });
 
@@ -400,16 +387,16 @@ describe("validateProject", () => {
     );
   });
 
-  const playerCases: [number, string][] = [
-    [10.5, limit.players],
-    [Number.POSITIVE_INFINITY, limit.players],
-    [2.5, field.players],
+  const copiesCases: [number, string][] = [
+    [10.5, limit.copies],
+    [Number.POSITIVE_INFINITY, limit.copies],
+    [2.5, field.copies],
   ];
-  it.each(playerCases)(
-    "tests the players upper bound before integrality (%s gives %s)",
-    (players, code) => {
-      expect(codes(validateProject(withComponents(cards({ perPlayer: { players } }))))).toEqual([
-        [code, "/components/0/perPlayer/players"],
+  it.each(copiesCases)(
+    "tests the copies upper bound before integrality (%s gives %s)",
+    (copies, code) => {
+      expect(codes(validateProject(withComponents(cards({ copies }))))).toEqual([
+        [code, "/components/0/copies"],
       ]);
     },
   );
@@ -527,31 +514,11 @@ describe("validateProject", () => {
     expect(codes(validateProject(p))).toEqual([[field.topPlane, "/box/headroom"]]);
   });
 
-  it("flags a group id that names another component", () => {
-    const target = newComponent("custom");
-    const member = cards({ groupId: target.id });
-    expect(codes(validateProject(withComponents(target, member)))).toEqual([
-      [field.groupId, "/components/1/groupId"],
-    ]);
-  });
-
-  it("rejects a group name containing a colon, which would collide with tray key prefixes", () => {
-    const notices = validateProject(withComponents(cards({ groupId: "g:x" })));
-    expect(codes(notices)).toEqual([[field.groupId, "/components/0/groupId"]]);
-    expect(notices[0]?.message).toBe("A group name can't contain ':'.");
-    expect(validateProject(withComponents(cards({ groupId: "g x" })))).toEqual([]);
-  });
-
   it("rejects a component id containing a colon, which would break tray key prefixes", () => {
     const notices = validateProject(withComponents({ ...cards(), id: "a:b" }));
     expect(codes(notices)).toEqual([[invalid.id, "/components/0/id"]]);
     expect(notices[0]?.message).toBe("An item id can't contain ':'.");
     expect(isBlocking(notices[0] as Notice)).toBe(true);
-  });
-
-  it("does not flag a component whose group is its own id", () => {
-    const solo = cards();
-    expect(validateProject(withComponents({ ...solo, groupId: solo.id }))).toEqual([]);
   });
 
   it("treats an empty component id as blocking", () => {
@@ -583,13 +550,13 @@ describe("validateComponent", () => {
       custom({ w: 0, count: 3000 }),
       { ...newComponent("tiles"), thickness: 0 } as Component,
       { ...newComponent("minis"), figures: [] } as Component,
-      custom({ perPlayer: { players: 0 }, groupId: "g" }),
+      custom({ copies: 0 }),
     );
-    // A duplicate id and a colliding group name are cross-component: not part of validateComponent.
+    // A duplicate id is cross-component: not part of validateComponent.
     const dup = { ...custom({ h: 0 }), id: bad.components.map((c) => c.id)[0] ?? "" };
     const project = { ...bad, components: [...bad.components, dup] };
     const all = validateProject(project);
-    const crossComponent = new Set<string>([invalid.duplicateId, invalid.id, field.groupId]);
+    const crossComponent = new Set<string>([invalid.duplicateId, invalid.id]);
     project.components.forEach((c, i) => {
       const slice = all.filter(
         (n) => n.path?.startsWith(`/components/${i}/`) === true && !crossComponent.has(n.code),
@@ -599,7 +566,7 @@ describe("validateComponent", () => {
     expect(all.some((n) => n.code === invalid.duplicateId)).toBe(true);
     expect(validateComponent(dup, 6).some((n) => n.code === invalid.duplicateId)).toBe(false);
     expect(project.components.map((c, i) => validateComponent(c, i).length)).toEqual([
-      1, 3, 2, 1, 1, 2, 1,
+      1, 3, 2, 1, 1, 1, 1,
     ]);
   });
 
@@ -621,7 +588,7 @@ describe("shared constants", () => {
       maxCount: 2000,
       maxDividers: 6,
       maxLength: 1000,
-      maxPlayers: 10,
+      maxCopies: 10,
       maxSeparators: 10,
     });
   });
