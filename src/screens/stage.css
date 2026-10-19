@@ -84,6 +84,17 @@
 }
 
 /*
+ * A phone's plan has no slot while nothing is said (MobileWorkspace goes from the segments straight
+ * to the box): the idle slot is only for a reader, out of the flow and with no height, whatever the
+ * desktop slot above gives it. (`.visually-hidden` is declared before this file, so the slot's own
+ * `position: relative` and min-height won, and an 80 px empty band sat above the box.)
+ */
+.stage-slot.visually-hidden {
+  position: absolute;
+  min-height: 0;
+}
+
+/*
  * What the plan says while a swap is chosen, with the tray bar in the slot: a small pill over the
  * top of the box, so the slot keeps its height and the plan does not move. It lets presses through
  * to the tiles under it.

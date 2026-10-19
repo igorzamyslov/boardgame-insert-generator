@@ -17,6 +17,17 @@ function ruleFor(selector: string, source = strip(css)): string {
 }
 
 describe("stage.css", () => {
+  it("gives a phone's idle slot no height and no place in the flow (no band above the box)", () => {
+    // `.visually-hidden` is declared before this file, so the slot's own relative position and its
+    // 62 px minimum beat it unless a rule here says otherwise
+    const idle = ruleFor(".stage-slot.visually-hidden");
+    expect(idle).toMatch(/position:\s*absolute/);
+    expect(idle).toMatch(/min-height:\s*0/);
+    expect(css.indexOf(".stage-slot.visually-hidden {")).toBeGreaterThan(
+      css.indexOf(".plan-col .stage-slot {"),
+    );
+  });
+
   it("lets Layer take the width of a phone's switch row, beside the 3D toggle", () => {
     expect(ruleFor(".stage-segs")).toMatch(/display:\s*flex/);
     expect(ruleFor(".stage-segs > .k-seg")).toMatch(/flex:\s*1\b/);
