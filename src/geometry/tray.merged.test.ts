@@ -191,8 +191,15 @@ describe("a merged part is rounded once, after the merge", () => {
       const [x2, y2] = ring[(i + 1) % ring.length] as Vec2;
       return sum + (x * y2 - x2 * y) / 2;
     }, 0);
+  // The slice of a triangulated side face has a point where the diagonal crosses it: not a corner.
+  const corners = (ring: Vec2[]): Vec2[] =>
+    ring.filter(([x, y], i) => {
+      const [px, py] = ring[(i + ring.length - 1) % ring.length] as Vec2;
+      const [nx, ny] = ring[(i + 1) % ring.length] as Vec2;
+      return Math.abs((x - px) * (ny - y) - (y - py) * (nx - x)) > 1e-4;
+    });
   const outer = (rings: Vec2[][]): Vec2[] =>
-    rings.reduce((big, ring) => (Math.abs(area(ring)) > Math.abs(area(big)) ? ring : big));
+    corners(rings.reduce((big, ring) => (Math.abs(area(ring)) > Math.abs(area(big)) ? ring : big)));
   const near = (ring: Vec2[], x: number, y: number): number =>
     Math.min(...ring.map(([px, py]) => Math.hypot(px - x, py - y)));
 
@@ -242,6 +249,32 @@ describe("a merged part is rounded once, after the merge", () => {
     expect(rings).toHaveLength(3); // the outline and the two pockets
     expect(outer(rings)).toHaveLength(4 * ARC);
     expect(checkPrintability(printed)).toMatchObject({ ok: true, overhangTriangles: 0 });
+  });
+
+  it("an L of two open trays: five rounded corners and a sharp inner one, the seam solid", () => {
+    const a = open({ key: "leftover:0", x: 0, y: 0, w: 60, d: 40 });
+    const b = open({ key: "leftover:1", x: 60 + GAP, y: 0, w: 30, d: 24, stack: 6 });
+    const { spec, mesh } = built([a, b]);
+    expectsBuilt(spec, mesh);
+    const rings = slice(mesh, 20);
+    expect(rings).toHaveLength(3);
+    const ring = outer(rings);
+    expect(ring).toHaveLength(5 * ARC + 1);
+    expect(near(ring, 60, 24)).toBeLessThan(1e-3);
+  });
+
+  it("a riser and a tall filler: each height has its own rounded outline", () => {
+    const f = filler({ key: "leftover:0", x: 90 + GAP, y: 0, w: 10, d: 60 });
+    const { spec, mesh } = built([riser(), f]);
+    expectsBuilt(spec, mesh);
+    // over the riser the part is its whole footprint; above it, the filler's
+    const low = outer(slice(mesh, 10));
+    expect(low).toHaveLength(4 * ARC);
+    expect(Math.min(...low.map(([x]) => x))).toBeCloseTo(0, 6);
+    const high = outer(slice(mesh, 25));
+    expect(high).toHaveLength(4 * ARC);
+    expect(Math.min(...high.map(([x]) => x))).toBeCloseTo(90 + GAP, 3);
+    expect(Math.max(...high.map(([x]) => x))).toBeCloseTo(spec.w, 3);
   });
 
   it("keeps the bottom chamfer along the whole joined outline", () => {
