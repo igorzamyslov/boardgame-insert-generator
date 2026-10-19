@@ -166,4 +166,29 @@ describe("whole trays (groups spec §6.3)", () => {
     const copy = (variant: number, p: number) => kits.copyOf({ req: 0, variant, part: p });
     expect([copy(0, 0), copy(0, 1), copy(1, 0), copy(1, 1)]).toEqual([0, 1, 0, 0]);
   });
+
+  it("sums the extra trays over the copies, so four players each split in two count four", () => {
+    const split = req("k", [
+      variant("each in two", [
+        part("k:p0:0", [a]),
+        part("k:p0:1", [b]),
+        part("k:p1:0", [a]),
+        part("k:p1:1", [b]),
+        part("k:p2:0", [a]),
+        part("k:p2:1", [b]),
+        part("k:p3:0", [a]),
+        part("k:p3:1", [b]),
+      ]),
+      // one copy split in three, another whole: two extra
+      variant("uneven", [
+        part("k:p0:0", [a]),
+        part("k:p0:1", [b]),
+        part("k:p0:2", [a]),
+        part("k:p1:0", [b]),
+      ]),
+    ]);
+    const ctx = createCtx(makeInput([split]), fakeMeasure);
+    expect(ctx.extraParts(0, 0)).toBe(4);
+    expect(ctx.extraParts(0, 1)).toBe(2);
+  });
 });

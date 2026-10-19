@@ -106,9 +106,10 @@ export interface Ctx {
    */
   readonly wholeFits: readonly boolean[];
   /**
-   * The trays a variant has beyond one per copy: the most parts of one copy, less one. A copy is
-   * the trays whose keys differ only in their part number (`<key>:p<c>:<part>`), so one tray per
-   * player is no split, and a three-tray split of one deck is two.
+   * The trays a variant has beyond one per copy: each copy's parts less one, summed over the
+   * copies. A copy is the trays whose keys differ only in their part number
+   * (`<key>:p<c>:<part>`), so one tray per player is no split, a three-tray split of one deck is
+   * two, and four players' decks each split in two are four.
    */
   extraParts(req: number, variant: number): number;
   /** Which copy of its variant a part belongs to (see `extraParts`): 0, 1, … in order of first part. */
@@ -163,14 +164,18 @@ function copyKey(trayKey: string): string {
   return cut < 0 ? trayKey : trayKey.slice(0, cut);
 }
 
-/** The most parts any one copy of the variant has, less one (see Ctx.extraParts). */
+/** The parts of every copy of the variant beyond its first, summed over the copies (see Ctx.extraParts). */
 function extraPartsOf(parts: readonly TrayPartReq[]): number {
   const perCopy = new Map<string, number>();
   for (const p of parts) {
     const c = copyKey(p.trayKey);
     perCopy.set(c, (perCopy.get(c) ?? 0) + 1);
   }
-  return Math.max(0, ...perCopy.values()) - 1;
+  let extra = 0;
+  for (const n of perCopy.values()) {
+    extra += n - 1;
+  }
+  return extra;
 }
 
 export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx {
@@ -296,8 +301,8 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
 
 /**
  * Ctx.wholeFits for one requirement. Each tray is measured as it would stand alone in a stack:
- * level 0, without the lip a tray carries only under another, so this is the most room a whole
- * tray can ever need; the margins are the engine's own (the floor less the box clearance, the top
+ * level 0, without the lip a tray carries only under another, so this is the least room a whole
+ * tray can ever need (a lower bound: a tray that does not fit here fits nowhere); the margins are the engine's own (the floor less the box clearance, the top
  * plane, the bed less its margin). Whether the rest of the box leaves it room is the search's
  * business, not this test's: a whole tray that fits here but not beside the others overflows, and
  * overflow outweighs the split term.
