@@ -21,6 +21,17 @@ type UnlistedPrinterField = Exclude<keyof Printer, (typeof PRINTER_FIELDS)[numbe
 const ALL_PRINTER_FIELDS_LISTED: [UnlistedPrinterField] extends [never] ? true : never = true;
 void ALL_PRINTER_FIELDS_LISTED;
 
+/** The rail's width in px: the person sets it between the two with the rail's handle (DESIGN §2, Layout). */
+export const RAIL_WIDTH = { min: 300, max: 480, default: 300 } as const;
+
+/** The width as a whole number of px inside the range; a value that is not a number is null. */
+export function clampRailWidth(px: unknown): number | null {
+  if (typeof px !== "number" || !Number.isFinite(px)) {
+    return null;
+  }
+  return Math.min(RAIL_WIDTH.max, Math.max(RAIL_WIDTH.min, Math.round(px)));
+}
+
 export interface PrefsStore {
   /** The printer new inserts start with; the defaults until one is set (or when none can be read). */
   printer: Signal<Printer>;
@@ -29,6 +40,13 @@ export interface PrefsStore {
    * storage is missing, blocked or full it still holds for this visit.
    */
   setPrinter(p: Printer): void;
+  /** The rail's width in px on a desktop; 300 until one is chosen (or when none can be read). */
+  railWidth: Signal<number>;
+  /**
+   * Remembers the rail's width, clamped to 300 to 480 px. A value that is not a number is ignored.
+   * Holds for this visit when storage is missing, blocked or full.
+   */
+  setRailWidth(px: number): void;
 }
 
 /**
@@ -65,22 +83,31 @@ function samePrinter(a: Printer, b: Printer): boolean {
   return PRINTER_FIELDS.every((f) => a[f] === b[f]);
 }
 
-function readPrinter(storage: Storage | null): Printer {
+/** The stored entry as a record; null when there is none, it is damaged, or storage is blocked. */
+function readEntry(storage: Storage | null): Record<string, unknown> | null {
   if (storage) {
     try {
       const text = storage.getItem(PREFS_KEY);
       if (text !== null) {
         const parsed = JSON.parse(text) as unknown;
-        const printer = isRecord(parsed) ? validPrinter(parsed.printer) : null;
-        if (printer) {
-          return printer;
-        }
+        return isRecord(parsed) ? parsed : null;
       }
     } catch {
       // Blocked storage or a damaged entry: the defaults.
     }
   }
-  return { ...DEFAULT_PRINTER };
+  return null;
+}
+
+function readPrinter(storage: Storage | null): Printer {
+  const entry = readEntry(storage);
+  return (entry ? validPrinter(entry.printer) : null) ?? { ...DEFAULT_PRINTER };
+}
+
+/** The stored rail width; a value that is not a number (or none) is the default. */
+function readRailWidth(storage: Storage | null): number {
+  const entry = readEntry(storage);
+  return (entry ? clampRailWidth(entry.railWidth) : null) ?? RAIL_WIDTH.default;
 }
 
 /**
@@ -90,6 +117,18 @@ function readPrinter(storage: Storage | null): Printer {
  */
 export function createPrefsStore(storage: Storage | null = defaultStorage()): PrefsStore {
   const printer = signal(readPrinter(storage));
+  const railWidth = signal(readRailWidth(storage));
+  /** Writes one field into the entry, keeping the others (and any this version does not know). */
+  const save = (patch: Record<string, unknown>): void => {
+    if (!storage) {
+      return;
+    }
+    try {
+      storage.setItem(PREFS_KEY, JSON.stringify({ ...readEntry(storage), ...patch }));
+    } catch {
+      // Storage full or blocked: kept for this visit only.
+    }
+  };
   if (storage && typeof window !== "undefined") {
     // Another tab saved (or cleared) the preference: follow it, so this tab never writes over it
     // with a printer it has since been told to forget.
@@ -101,6 +140,10 @@ export function createPrefsStore(storage: Storage | null = defaultStorage()): Pr
       if (!samePrinter(next, printer.peek())) {
         printer.value = next;
       }
+      const width = readRailWidth(storage);
+      if (width !== railWidth.peek()) {
+        railWidth.value = width;
+      }
     });
   }
   return {
@@ -111,14 +154,16 @@ export function createPrefsStore(storage: Storage | null = defaultStorage()): Pr
         return;
       }
       printer.value = valid;
-      if (!storage) {
+      save({ printer: valid });
+    },
+    railWidth,
+    setRailWidth(px) {
+      const width = clampRailWidth(px);
+      if (width === null || width === railWidth.peek()) {
         return;
       }
-      try {
-        storage.setItem(PREFS_KEY, JSON.stringify({ printer: valid }));
-      } catch {
-        // Storage full or blocked: kept for this visit only.
-      }
+      railWidth.value = width;
+      save({ railWidth: width });
     },
   };
 }
