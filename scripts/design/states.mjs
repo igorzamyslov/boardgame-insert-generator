@@ -21,10 +21,13 @@
 //   planWidth     the state fails when the plan's box is not this many px wide (±1), by its computed size
 //   probes        names of probes (shots.mjs PROBES) run in Chromium after the pictures; a problem fails the state
 //   needsWebGL    the state draws the 3D view: without WebGL it notes the fallback and the jump check skips it
+//   expectedErrors  console.error messages the state expects: a string the message contains, or a
+//                 RegExp. Any other error the page logs (or an uncaught one) fails the state. Empty by default.
 //
 // Step = { click: { role, name, in? } }  click getByRole(role, { name }), inside the CSS selector `in`
 //      | { waitFor: { role?, name?, text?, timeout? } }  (default 15 s)
 //      | { fill: { label, value } }  type a value into the text box with that label (getByLabel)
+//      | { tabTo: { role, name, in?, max? } }  press Tab until the focus is on that control (keyboard-only states)
 //      | { press: key }
 //      | { scrollTop: selector }  a scrolling panel back to its top
 //      | { wait: ms }  a pause, for what has no mark to wait on (the 3D view building its meshes)
@@ -70,6 +73,15 @@ const SETTINGS_STEPS = [
   { click: { role: "button", name: /^Walls and floors/, in: DRAWER } },
   { fill: { label: /^Wall \(mm\)$/, value: "1.8" } },
   SCROLL,
+];
+
+// Settings opened by keys alone: the project menu's button, Enter, its Settings item, Enter.
+const KEYS_TO_SETTINGS = [
+  { tabTo: { role: "button", name: /^Project menu/ } },
+  { press: "Enter" },
+  { tabTo: { role: "button", name: "Settings", in: "#project-menu" } },
+  { press: "Enter" },
+  { waitFor: { role: "heading", name: "Settings" } },
 ];
 
 /** Seeds: a current plan each, and the ones that are stale on purpose (make-seeds.mjs). */
@@ -476,6 +488,23 @@ export const STATES = {
     noPageScroll: true,
     steps: [MAKE_NEW_PLAN, { waitFor: { text: FIT_YET, timeout: 90_000 } }],
   },
+  // The box's editor while the plan does not fit (0.6.0 carry): the box is open over the no-fit
+  // seed (Heroes is 80 mm in a 70 mm box), so the editor tells the problem in a line. No board
+  // draws this: Box is the editor, NoFit's status line is the problem's words.
+  "box-nofit": {
+    board: "Box",
+    nearest:
+      "Box, with the no-fit line of NoFit above the fields (neither board draws the two together)",
+    viewport: DESKTOP,
+    seed: "harbour-kings-nofit",
+    noPageScroll: true,
+    steps: [
+      MAKE_NEW_PLAN,
+      { waitFor: { text: FIT_YET, timeout: 90_000 } },
+      { click: { role: "button", name: /^The box/, in: '[data-region="rail"]' } },
+      { waitFor: { role: "heading", name: "Side view of the box" } },
+    ],
+  },
   // PinConflict (Task 12): the plan the runner kept, the pins whole, and the column "Unpin one".
   "pin-conflict": {
     probes: ["plan-gaps"],
@@ -573,6 +602,26 @@ export const STATES = {
     viewport: PHONE,
     seed: "harbour-kings",
     steps: SETTINGS_STEPS,
+  },
+  // Settings by keyboard only (0.6.0 carry): Tab to the project menu's button, Enter, Tab to
+  // Settings, Enter; the `settings-keys` probe then checks the trap, the inert page, Escape and
+  // where the focus goes back to. The drawer is drawn with nothing changed, so its header differs
+  // from the board's ("3 changed").
+  "settings-keys": {
+    board: "Settings",
+    nearest: "Settings, drawn with three values changed where this state changes none",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: KEYS_TO_SETTINGS,
+    probes: ["settings-keys"],
+  },
+  "m-settings-keys": {
+    board: "Settings",
+    nearest: "Settings, drawn with three values changed where this state changes none",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: KEYS_TO_SETTINGS,
+    probes: ["settings-keys"],
   },
   // Export (Task 13): the dialog opened from the header. Export draws "Other formats" open; the
   // app folds it, so the state opens it too.
@@ -719,6 +768,20 @@ export const STATES = {
     viewport: PHONE,
     seed: "harbour-kings-pins",
     steps: [MAKE_NEW_PLAN, { waitFor: { text: /fit with/, timeout: 90_000 } }],
+  },
+  // The same on a phone: the sheet's first line in the scroll is the problem.
+  "m-box-nofit": {
+    board: "MobileBox",
+    nearest:
+      "MobileBox, with the no-fit line of MobileFix above the fields (neither board draws the two together)",
+    viewport: PHONE,
+    seed: "harbour-kings-nofit",
+    steps: [
+      MAKE_NEW_PLAN,
+      { waitFor: { text: FIT_YET, timeout: 90_000 } },
+      { click: { role: "button", name: /^The box/, in: '[data-region="sheet"]' } },
+      { waitFor: { role: "heading", name: "The box" } },
+    ],
   },
   // MobileBox: the sheet fills the screen; its h1 is "The box" and the side view is under the fields.
   "m-box": {

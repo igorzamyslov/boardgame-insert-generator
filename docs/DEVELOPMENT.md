@@ -571,7 +571,9 @@ addition:
   (`kit/Dialog.tsx`; `Drawer` for Settings' right-hand placement), with `labelledBy` (the id of its
   h1), `onClose` and optional `class` and `region`. The owner mounts it to open and unmounts it to
   close. Dialog handles the rest:
-  - it opens a native `<dialog>` with `showModal()`, which traps focus and makes the page inert
+  - it opens a native `<dialog>` with `showModal()`, which keeps focus on the dialog and makes the
+    page inert (Tab past the last control goes to the browser's own interface and the next Tab
+    comes back to the first: the platform's way, checked by the `settings-keys` probe)
   - Escape goes through `onCancel` to your `onClose`
   - it returns focus to the opener on unmount
   - it goes full screen below 600 px (`.k-dialog`, `.k-drawer` in `kit/kit.css`)
