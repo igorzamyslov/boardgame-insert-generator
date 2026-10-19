@@ -17,10 +17,16 @@
   border-bottom: 1px solid var(--rule-soft);
 }
 
+/* The heading is only as wide as its text, so its focus ring (it takes the focus when the drawer opens) hugs the
+   word; whatever follows it (the count, Reset all, Close) is pushed to the right edge instead. */
 .st-title {
-  flex-grow: 1;
+  flex: none;
   margin: 0;
   font: 700 var(--h1-drawer) / normal var(--font-display);
+}
+
+.st-head .st-title + * {
+  margin-left: auto;
 }
 
 .st-count {

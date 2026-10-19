@@ -1,6 +1,6 @@
 // src/screens/Header.tsx
 import type { ComponentChildren, Ref } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { SaveState } from "../app/state";
 import { Button, Icon, IconButton } from "../kit";
 import { SavedStatus } from "../ui/SavedStatus";
@@ -166,13 +166,24 @@ export function HeaderMenu(p: HeaderMenuProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  /**
+   * Enter or Space is down, and a choice made with it. A choice hands the focus to the button while
+   * the key is still down, and the browser sends the key's click to whatever has the focus then:
+   * the button, which would open the menu again behind what the choice opened (Settings' drawer
+   * took a hidden menu item as its opener, and lost the focus when it closed). That one click is
+   * dropped; the key coming up ends it.
+   */
+  const keyDown = useRef(false);
+  const dropClick = useRef(false);
   /** Shuts the menu and puts the focus back on its button. */
   const close = (): void => {
+    dropClick.current = keyDown.current;
     setOpen(false);
     button.current?.focus();
   };
-  // Opening moves the focus to the first item.
-  useEffect(() => {
+  // Opening moves the focus to the first item. A layout effect: a plain one waits for the next frame,
+  // and a person (or a test) who keys on in that time would have the focus taken from where they put it.
+  useLayoutEffect(() => {
     if (open) {
       panel.current?.querySelector<HTMLElement>("button, input, [href]")?.focus();
     }
@@ -207,6 +218,14 @@ export function HeaderMenu(p: HeaderMenuProps) {
     <div
       class="hd-menu"
       ref={wrap}
+      // on the menu's own element, not the document: the app has one document keydown listener
+      onKeyDownCapture={(e) => {
+        keyDown.current = e.key === "Enter" || e.key === " ";
+      }}
+      onKeyUpCapture={() => {
+        keyDown.current = false;
+        dropClick.current = false;
+      }}
       onBlurCapture={(e) => {
         // The focus went somewhere outside the menu (Tab past its end, say): it closes and
         // leaves the focus where it went. A focus that went nowhere is the click handler's.
@@ -224,7 +243,13 @@ export function HeaderMenu(p: HeaderMenuProps) {
         dot={p.menuDot}
         aria-expanded={open}
         aria-controls={open ? "project-menu" : undefined}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (dropClick.current) {
+            dropClick.current = false;
+            return;
+          }
+          setOpen(!open);
+        }}
       />
       {open ? (
         <div class="hd-menu__panel" id="project-menu" ref={panel}>

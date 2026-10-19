@@ -324,6 +324,25 @@ describe("Header", () => {
     expect(document.activeElement).toBe(button);
   });
 
+  it("does not reopen after a choice made with Enter (the key's click lands on the button the focus went to)", () => {
+    render(<Header {...props()} />);
+    const button = screen.getByRole("button", { name: "Project menu" });
+    fireEvent.click(button);
+    const item = screen.getByText("Inside the menu");
+    // what the browser does for Enter on an item: keydown, the item's click, then the same key's click on the
+    // element that has the focus by then (the button, which the choice gave it)
+    fireEvent.keyDown(item, { key: "Enter" });
+    fireEvent.click(item);
+    expect(document.activeElement).toBe(button);
+    fireEvent.click(button);
+    expect(screen.queryByText("Inside the menu")).toBeNull();
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    // and once the key is up the button works as it did
+    fireEvent.keyUp(button, { key: "Enter" });
+    fireEvent.click(button);
+    expect(screen.getByText("Inside the menu")).toBeTruthy();
+  });
+
   it("closes on a click outside it, not on a click inside, and when the content asks", () => {
     render(<Header {...props()} />);
     const button = screen.getByRole("button", { name: "Project menu" });
