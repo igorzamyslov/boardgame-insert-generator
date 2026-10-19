@@ -10,7 +10,7 @@ import { size } from "../sizing";
 import { bulk, inGroup } from "../sizing/test-helpers";
 import { createCtx } from "./context";
 import { evaluate } from "./fill";
-import { createRun, DEFAULT_ITERATIONS } from "./optimize";
+import { createRun } from "./optimize";
 import { scorePlan } from "./score";
 import { fixtureInput } from "./test-fixtures";
 import { comp, fakeMeasure, fakeRealize, makeInput, part, req, variant } from "./test-utils";
@@ -66,8 +66,10 @@ describe("a group that fits whole is never split", () => {
   });
 
   // Two 40 × 60 wells per copy: one 84 × 64 tray, or two 44 × 64 trays (fakeMeasure), two copies
-  // in an 88 × 140 box. On packing alone the halves one behind the other win: they fill the
-  // depth, where each whole tray leaves a wide filler beside it. Only the split term keeps them whole.
+  // in a 92 × 140 × 45 box. On packing alone the halves win: four trays on the floor tile 88 × 128
+  // where two whole trays tile 84 × 128, so less of the box is left over, even at the price of
+  // each copy's two parts standing in two stacks. Only the split term (two extra parts in all,
+  // 600 000) keeps them whole. Without it this test fails (checked by setting the weight to 0).
   const well = (c: string) => comp({ minW: 40, minD: 60, minH: 20, contents: c });
   const kit = req("g", [
     variant(
@@ -80,7 +82,7 @@ describe("a group that fits whole is never split", () => {
     ),
   ]);
   const noLip = { lip: { ...makeInput([]).settings.lip, enabled: false } };
-  const box = { innerWidth: 88, innerDepth: 140, innerHeight: 30 };
+  const box = { innerWidth: 92, innerDepth: 140, innerHeight: 45 };
 
   it("holds for copies: the whole variant, and the split term charges per copy", () => {
     const input = makeInput([kit], { box, settings: noLip });
@@ -88,18 +90,17 @@ describe("a group that fits whole is never split", () => {
     expect(ctx.wholeFits).toEqual([true]);
     expect(ctx.extraParts(0, 0)).toBe(2); // one extra part in each of two copies
     expect(ctx.extraParts(0, 1)).toBe(0);
-    const r = createRun(input, 1, DEFAULT_ITERATIONS, {
-      measure: fakeMeasure,
-      realize: fakeRealize,
-    });
-    while (!r.step()) {
-      // to the end of the budget
+    for (const seed of [1, 2, 3]) {
+      const r = createRun(input, seed, 20_000, { measure: fakeMeasure, realize: fakeRealize });
+      while (!r.step()) {
+        // to the end of the budget
+      }
+      expect(
+        parts(r.result())
+          .map((t) => t.key)
+          .sort(),
+      ).toEqual(["g:p0:0", "g:p1:0"]);
     }
-    expect(
-      parts(r.result())
-        .map((t) => t.key)
-        .sort(),
-    ).toEqual(["g:p0:0", "g:p1:0"]);
   });
 });
 
@@ -140,7 +141,7 @@ describe("split is free when no whole variant fits", () => {
 });
 
 describe("a copy's parts share one stack when possible", () => {
-  it("puts the parts of each copy in one stack: three copies, three stacks, in a box with three places", () => {
+  it("keeps each copy's two parts in one stack when the box has three places for three copies", () => {
     // 230 × 80 mm holds three trays side by side and no more; a stack is one copy's two parts
     const base = grouped(tokens(), 3, { bedX: 120, bedY: 120 });
     const input = { ...base, box: { ...base.box, innerWidth: 230, innerDepth: 80 } };
