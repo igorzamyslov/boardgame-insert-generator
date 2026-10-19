@@ -191,11 +191,18 @@ describe("CardsEditor", () => {
       });
       const { last } = setup(two);
       expect(screen.queryByLabelText("Number of cards")).toBeNull();
-      fireEvent.input(screen.getByLabelText("How many in deck 2"), { target: { value: "25" } });
+      fireEvent.input(screen.getByLabelText("Number of cards in deck 2"), {
+        target: { value: "25" },
+      });
       expect(last().decks).toEqual([
         { name: "A", count: 10 },
         { name: "B", count: 25 },
       ]);
+      // each deck's count is a stepper, as the single deck's is
+      const more = screen.getAllByRole("button", { name: "More" });
+      expect(more).toHaveLength(2);
+      fireEvent.click(more[0]);
+      expect(last().decks[0]).toEqual({ name: "A", count: 11 });
       fireEvent.click(screen.getByRole("button", { name: "Remove deck A" }));
       expect(last().decks).toEqual([{ name: "B", count: 20 }]);
       fireEvent.click(screen.getByRole("button", { name: "+ Another deck" }));

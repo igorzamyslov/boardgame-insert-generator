@@ -3,7 +3,7 @@
 // under More options.
 import { useContext, useEffect, useState } from "preact/hooks";
 import { setCardSides } from "../../app/actions";
-import { ChoiceChips, CheckRow, Segmented } from "../../kit";
+import { ChoiceChips, CheckRow, Segmented, Stepper } from "../../kit";
 import type { SegmentedOption } from "../../kit";
 import { COMPONENT_DEFAULTS } from "../../model/defaults";
 import { CARD_PRESETS, SLEEVES } from "../../model/presets";
@@ -12,7 +12,7 @@ import { mm } from "../identity";
 import { COUNT, LENGTH, OFFSET, THICKNESS_CORRECTION } from "../limits";
 import { SettingsContext } from "../validation";
 import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
-import { Choice, CountField, ExactRow, Group, NumField, TextBox } from "./controls";
+import { Alert, Choice, CountField, ExactRow, Group, Notes, NumField, TextBox } from "./controls";
 import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
 import { changedOptions } from "./moreSummary";
@@ -120,25 +120,22 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
         <>
           <div class="ed-cards">
             {c.decks.map((deck, j) => (
-              <div class="ed-card" key={j}>
-                <div class="ed-card__top">
-                  <TextBox
-                    class="ed-grow"
-                    id={`${c.id}-deck${j}-name`}
-                    label="Deck"
-                    labelExtra={`${j + 1}`}
-                    value={deck.name}
-                    onCommit={(name) => setDeck(j, { name })}
-                  />
-                  <NumField
-                    class="ed-count"
-                    id={`${c.id}-deck${j}-count`}
-                    label="How many"
-                    labelExtra={`in deck ${j + 1}`}
+              <div class="ed-card ed-card--deck" key={j}>
+                <TextBox
+                  id={`${c.id}-deck${j}-name`}
+                  label="Deck"
+                  labelExtra={`${j + 1}`}
+                  value={deck.name}
+                  onCommit={(name) => setDeck(j, { name })}
+                />
+                <span class="k-field__label">How many</span>
+                <div class="ed-card__top ed-card__top--center">
+                  <Stepper
+                    label={`Number of cards in deck ${j + 1}`}
                     value={deck.count}
-                    {...COUNT}
-                    path={`${at}/decks/${j}/count`}
-                    onCommit={(count) => setDeck(j, { count })}
+                    min={COUNT.min}
+                    max={COUNT.max}
+                    onChange={(count) => setDeck(j, { count })}
                   />
                   <RowRemove
                     label={`Remove deck ${deck.name === "" ? j + 1 : deck.name}`}
@@ -147,6 +144,8 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
                     onRemove={() => onChange({ ...c, decks: c.decks.filter((_d, k) => k !== j) })}
                   />
                 </div>
+                <Alert id={`${c.id}-deck${j}-count-error`} path={`${at}/decks/${j}/count`} />
+                <Notes path={`${at}/decks/${j}/count`} />
               </div>
             ))}
           </div>
