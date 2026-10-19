@@ -2,6 +2,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ManifoldToplevel } from "manifold-3d";
 import { DEFAULT_SETTINGS, MIN_FEATURE_MM, applyFingerRoom } from "../model/settings";
+import { splitDividers } from "../layout/dividers";
 import { alongX, axes } from "../model/cut-rules";
 import type { Component, Settings, TraySpec } from "../model/types";
 import { minOuter, realizeTray, size } from "../sizing";
@@ -360,6 +361,74 @@ describe("no piece thinner than 0.8 mm near the rim (review 3, M1)", () => {
         [],
       );
       expect(thinSlices(m, mesh, deeper, MIN_PIECE_AREA), JSON.stringify(opts)).toEqual([]);
+    }
+  });
+});
+
+describe("flat decks in one well with removable dividers (0.7.0, R7 and R21)", () => {
+  const shared = (storage: "flat" | "auto" = "flat") =>
+    cards({
+      storage,
+      flatDecks: "dividers",
+      decks: [
+        { name: "A", count: 12 },
+        { name: "B", count: 30 },
+        { name: "C", count: 12 },
+      ],
+    });
+
+  it("builds a closed, printable well, its plates fit their slots, every deck keeps its finger cut", () => {
+    const settings = DEFAULT_SETTINGS;
+    const part = partOf([shared()], "flat|strip|split1", settings);
+    for (const opts of SWEEP_OPTIONS) {
+      const outer = minOuter(part, settings, opts);
+      const realized = realizeTray(part, outer, settings, opts);
+      const spec = traySpecFrom(realized, outer, opts, settings, part.trayKey);
+      expect(problemsOf(m, spec, settings), JSON.stringify(opts)).toEqual([]);
+      const well = at(spec.compartments, 0);
+      const slots = well.features.flatMap((f) => (f.type === "dividerSlot" ? [f] : []));
+      const cuts = well.features.flatMap((f) => (f.type === "wallCutout" ? [f] : []));
+      expect(slots).toHaveLength(2);
+      expect(cuts.map((c) => c.side)).toEqual(["front", "front", "front"]);
+      // The plates are what the slots ask for, and each one builds.
+      const plates = splitDividers([spec]).slice(1);
+      expect(plates).toHaveLength(2);
+      for (const plate of plates) {
+        expect(problemsOf(m, plate, settings), JSON.stringify(opts)).toEqual([]);
+      }
+      // Each deck's section holds one cut, and no plate stands in any cut's way along the wall.
+      const planned = planTray(spec, settings);
+      const planCuts = at(planned.compartments, 0).cuts;
+      expect(planCuts).toHaveLength(3);
+      for (const cut of planCuts) {
+        expect(cut.into).toBeNull();
+        for (const plate of plates) {
+          const clear = Math.max(plate.x - cut.x1, cut.x0 - (plate.x + plate.w));
+          expect(clear, `a plate in the way of the cut at ${cut.x0}`).toBeGreaterThan(0.5);
+        }
+      }
+      for (const [k, cut] of cuts.entries()) {
+        const left = k === 0 ? well.x : (plates[k - 1]?.x ?? 0) + (plates[k - 1]?.w ?? 0);
+        const right = k === 2 ? well.x + well.w : (plates[k]?.x ?? 0);
+        expect(cut.at - cut.width / 2).toBeGreaterThan(left);
+        expect(cut.at + cut.width / 2).toBeLessThan(right);
+      }
+    }
+  });
+
+  it("builds at the thinnest everything, and when auto picks flat", () => {
+    for (const settings of [THINNEST(DEFAULT_SETTINGS), CHAMFER_1(DEFAULT_SETTINGS)]) {
+      const part = partOf([shared("auto")], "flat|strip|split1", settings);
+      const opts = { lipped: false, level: 0 };
+      const outer = minOuter(part, settings, opts);
+      const spec = traySpecFrom(
+        realizeTray(part, outer, settings, opts),
+        outer,
+        opts,
+        settings,
+        part.trayKey,
+      );
+      expect(problemsOf(m, spec, settings)).toEqual([]);
     }
   });
 });

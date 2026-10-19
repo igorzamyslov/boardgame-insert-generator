@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { flatDecksOffered } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { CardsComponent, GrowthMode, Settings } from "../model/types";
 import { cardDims, cardOptions, stackWidth } from "./cards";
-import { AUTO_GROWTH_CEILING, MIN_REACH_OVERLAP, PLATED_RETENTION } from "./constants";
+import {
+  AUTO_GROWTH_CEILING,
+  DIVIDER_GROOVE,
+  MIN_REACH_OVERLAP,
+  PLATED_RETENTION,
+} from "./constants";
+import { dividerSlotWidth } from "./dividers";
+import { mainClearance } from "./common";
 import { at, cards } from "./test-helpers";
 import type { CompartmentReq } from "./types";
 
@@ -428,5 +436,84 @@ describe("cardOptions", () => {
       expect.closeTo(89.5, 9),
       expect.closeTo(18.14, 9),
     ]);
+  });
+});
+
+describe("flat decks in one well (0.7.0, R7 and R21)", () => {
+  const decks = [
+    { name: "A", count: 12 },
+    { name: "B", count: 30 },
+    { name: "C", count: 12 },
+  ];
+  const shared = (over: Partial<CardsComponent> = {}) =>
+    cards({ storage: "flat", flatDecks: "dividers", decks, ...over });
+  const wells = (c: CardsComponent, option = 0) => at(cardOptions(c, s, 0).options, option).blocks;
+
+  it("flat decks of 12/30/12 share one well with 2 slots", () => {
+    const blocks = wells(shared());
+    expect(blocks).toHaveLength(1);
+    expect(at(blocks, 0)).toHaveLength(1);
+    const well = deck(shared());
+    const { dims } = cardDims(shared(), s, 0);
+    const slot = dividerSlotWidth(s);
+    const section = dims.S + mainClearance(shared(), s);
+    expect(well.minD).toBeCloseTo(dims.L + mainClearance(shared(), s), 9);
+    expect(well.minW).toBeCloseTo(3 * section + 2 * slot, 9);
+    // The 30-card stack sets the height, whatever the decks beside it hold.
+    const tallest = deck(cards({ storage: "flat", decks: [{ name: "B", count: 30 }] }));
+    expect(well.minH).toBe(tallest.minH);
+    expect(well.floorExtra).toBe(DIVIDER_GROOVE);
+    expect(well.dividers).toBe(2);
+    expect(well.elastic).toEqual({ w: false, d: false, h: false });
+    expect(well.contents).toBe("Cards — A ×12 + B ×30 + C ×12");
+  });
+
+  it("every deck has finger access: one front-wall cut per section (R21)", () => {
+    const well = deck(shared());
+    expect(well.features).toEqual([
+      { type: "wallCutout", side: "front", depthFraction: 1, floorNotch: true, perSection: true },
+    ]);
+  });
+
+  it("walls default unchanged: the same item without flatDecks has one well per deck", () => {
+    const plain = cards({ storage: "flat", decks });
+    for (const c of [plain, { ...plain, flatDecks: "walls" as const }]) {
+      const blocks = wells(c);
+      expect(blocks).toHaveLength(3);
+      for (const block of blocks) {
+        const well = at(block, 0);
+        expect(well.dividers).toBeUndefined();
+        expect(well.floorExtra).toBeUndefined();
+        expect(well.features).toEqual([cutout("left", 1, true), cutout("right", 1, true)]);
+      }
+    }
+    expect(cardOptions({ ...plain, flatDecks: "walls" }, s, 0)).toEqual(cardOptions(plain, s, 0));
+  });
+
+  it("auto picks flat: the one well; the upright options keep one well per deck", () => {
+    const { options } = cardOptions(shared({ storage: "auto" }), s, 0);
+    expect(options.map((o) => o.id)).toEqual(["upright-long", "upright-short", "flat"]);
+    expect(options.map((o) => o.blocks.length)).toEqual([3, 3, 1]);
+    const plain = cardOptions(cards({ storage: "auto", decks }), s, 0).options;
+    expect(options.slice(0, 2)).toEqual(plain.slice(0, 2));
+  });
+
+  it("one deck: flatDecks is ignored", () => {
+    const one = [{ name: "A", count: 40 }];
+    expect(cardOptions(shared({ decks: one }), s, 0)).toEqual(
+      cardOptions(cards({ storage: "flat", decks: one }), s, 0),
+    );
+  });
+
+  it("an upright storage ignores flatDecks", () => {
+    expect(cardOptions(shared({ storage: "upright-long" }), s, 0)).toEqual(
+      cardOptions(cards({ storage: "upright-long", decks }), s, 0),
+    );
+  });
+
+  it("flatDecksOffered is true with two decks or more", () => {
+    expect(flatDecksOffered(shared())).toBe(true);
+    expect(flatDecksOffered(shared({ decks: [{ name: "A", count: 3 }] }))).toBe(false);
+    expect(flatDecksOffered(cards({ decks: decks.slice(0, 2) }))).toBe(true);
   });
 });

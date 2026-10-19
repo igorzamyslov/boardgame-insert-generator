@@ -11,7 +11,13 @@ import {
   PLATED_RETENTION,
   UNPLATED_RETENTION,
 } from "./constants";
-import { dividedWidth, dividerSlotWidth, dividerThickness, slotCentres } from "./dividers";
+import {
+  dividedWidth,
+  dividerSlotWidth,
+  dividerThickness,
+  sectionSpans,
+  slotCentres,
+} from "./dividers";
 import { stackGrowthMm } from "./growth";
 import { minOuter, realizeTray } from "./realize";
 import { rotateRealized } from "./rotate";
@@ -55,6 +61,23 @@ describe("the slot and its dividers", () => {
     const [a, b] = [at(centres, 0), at(centres, 1)];
     const gaps = [a - 170 - 1000, b - 170 - (a + 170)];
     expect(gaps).toEqual([3106, 3106]);
+  });
+
+  it("spans the sections between the slots, the last taking the few units over", () => {
+    // the same well as above: three sections of 3106 units, a 340 unit slot between each
+    const spans = sectionSpans(1000, 10000, 2, 340);
+    expect(spans).toEqual([
+      [1000, 1000 + 3106],
+      [1000 + 3106 + 340, 1000 + 2 * 3106 + 340],
+      [1000 + 2 * (3106 + 340), 11000],
+    ]);
+    // each slot's centre is the middle of the gap between two sections
+    const centres = slotCentres(1000, 10000, 2, 340);
+    expect(centres).toEqual([
+      (at(spans, 0)[1] + at(spans, 1)[0]) / 2,
+      (at(spans, 1)[1] + at(spans, 2)[0]) / 2,
+    ]);
+    expect(sectionSpans(0, 5000, 0, 340)).toEqual([[0, 5000]]);
   });
 
   it("makes a well no narrower than the stack and its slots, and no section under MIN_SECTION", () => {

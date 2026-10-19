@@ -8,6 +8,9 @@ export interface FeatureReq {
   side?: Side; // wallCutout, scoop
   depthFraction?: number; // wallCutout: 1/2 (of the shallowest well) or 1 (to its floor)
   floorNotch?: boolean; // wallCutout: notch the floor (flat cards and tiles)
+  // wallCutout: a divided well (`dividers`) is cut once per section, each centred on its section
+  // (flat decks sharing one well), not once centred on the whole well
+  perSection?: boolean;
 }
 
 export interface CompartmentReq {

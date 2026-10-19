@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "../model/settings";
-import type { CompartmentSpec, Component, FeatureSpec, Settings } from "../model/types";
+import { DEFAULT_SETTINGS, FINGER_ROOM_MM, applyFingerRoom } from "../model/settings";
+import type {
+  CardsComponent,
+  CompartmentSpec,
+  Component,
+  FeatureSpec,
+  Settings,
+} from "../model/types";
+import { DIVIDER_GROOVE } from "./constants";
+import { dividerSlotWidth } from "./dividers";
 import { CutFitError } from "./errors";
 import { size } from "./group";
 import { minOuter, oneWallOf, realizeTray } from "./realize";
@@ -1094,5 +1102,102 @@ describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () =>
     expect(oneWallOf(false, true)).toBe("back");
     expect(oneWallOf(true, false)).toBe("front");
     expect(oneWallOf(true, true)).toBeNull();
+  });
+});
+
+describe("flat decks in one well (0.7.0, R7 and R21)", () => {
+  const decks = [
+    { name: "A", count: 12 },
+    { name: "B", count: 30 },
+    { name: "C", count: 12 },
+  ];
+  const shared = (over: Partial<CardsComponent> = {}) =>
+    cards({ storage: "flat", flatDecks: "dividers", decks, ...over });
+  const slotOf = dividerSlotWidth(s);
+  type Slot = Extract<FeatureSpec, { type: "dividerSlot" }>;
+  type Cut = Extract<FeatureSpec, { type: "wallCutout" }>;
+  const slotsOf = (c: CompartmentSpec): Slot[] =>
+    c.features.flatMap((f) => (f.type === "dividerSlot" ? [f] : []));
+  const frontCuts = (c: CompartmentSpec): Cut[] =>
+    c.features.flatMap((f) => (f.type === "wallCutout" && f.side === "front" ? [f] : []));
+
+  function realized(component = shared(), over: Partial<Settings> = {}) {
+    const cfg = { ...s, ...over };
+    const part = partOf([component], "flat|strip|split1", cfg);
+    const outer = minOuter(part, cfg, ground);
+    return { part, outer, cfg, r: realizeTray(part, outer, cfg, ground) };
+  }
+
+  it("realizes one well with two slots, each centred in the gap between two decks", () => {
+    const { r } = realized();
+    expect(r.compartments).toHaveLength(1);
+    const well = at(r.compartments, 0);
+    const slots = slotsOf(well);
+    const section = (well.w - 2 * slotOf) / 3;
+    expect(slots).toHaveLength(2);
+    expect(section).toBeCloseTo(68, 1); // a card's 66.5 and its 1.5 mm of clearance
+    slots.forEach((slot, k) => {
+      expect(slot.axis).toBe("y");
+      expect(slot.width).toBe(slotOf);
+      expect(slot.depth).toBe(DIVIDER_GROOVE);
+      // the gap after deck k begins at k+1 sections and k slots from the well's left face
+      expect(slot.at).toBeCloseTo(well.x + (k + 1) * section + k * slotOf + slotOf / 2, 1);
+    });
+  });
+
+  it("cuts the front wall once per deck, centred on its section and clear of the slots", () => {
+    const { r, part, outer } = realized();
+    const well = at(r.compartments, 0);
+    const cuts = frontCuts(well);
+    const slots = slotsOf(well);
+    const section = (well.w - 2 * slotOf) / 3;
+    expect(cuts).toHaveLength(3);
+    cuts.forEach((cut, k) => {
+      expect(cut.at).toBeCloseTo(well.x + k * (section + slotOf) + section / 2, 1);
+      for (const slot of slots) {
+        const clear = Math.abs(cut.at - slot.at) - cut.width / 2 - slot.width / 2;
+        expect(clear, `cut ${k} clear of the slot at ${slot.at}`).toBeGreaterThan(0.5);
+      }
+    });
+    // Only the front: the dividers are loose plates, a channel along the row would stop at one.
+    expect(well.features.filter((f) => f.type === "wallCutout" && f.side !== "front")).toEqual([]);
+    assertTrayInvariants(r, outer, s, ground, part);
+  });
+
+  it("asks the front wall for its finger room, and not the end walls", () => {
+    const on = applyFingerRoom(s, true);
+    const part = partOf([shared()], "flat|strip|split1", on);
+    const off = minOuter(part, s, ground);
+    const room = minOuter(part, on, ground);
+    expect(room.d).toBeCloseTo(off.d + FINGER_ROOM_MM, 2);
+    expect(room.w).toBeCloseTo(off.w, 9);
+  });
+
+  it("gives a well wider than its minimum the same sections, the extra width going to the walls", () => {
+    const { part, cfg, outer } = realized();
+    const wide = { ...outer, w: outer.w + 10 };
+    const r = realizeTray(part, wide, cfg, ground);
+    const well = at(r.compartments, 0);
+    expect(well.w).toBeCloseTo(at(realizeTray(part, outer, cfg, ground).compartments, 0).w, 9);
+    expect(frontCuts(well)).toHaveLength(3);
+    assertTrayInvariants(r, wide, cfg, ground, part);
+  });
+
+  it("two decks: one slot and two cuts, the cuts either side of it", () => {
+    const { r } = realized(shared({ decks: decks.slice(0, 2) }));
+    const well = at(r.compartments, 0);
+    expect(slotsOf(well)).toHaveLength(1);
+    const cuts = frontCuts(well);
+    expect(cuts).toHaveLength(2);
+    const [slot] = slotsOf(well);
+    expect((cuts[0]?.at ?? 0) < (slot?.at ?? 0)).toBe(true);
+    expect((cuts[1]?.at ?? 0) > (slot?.at ?? 0)).toBe(true);
+  });
+
+  it("refuses the tray, as any flat deck, where a section gets no cut", () => {
+    // A well a deck wide has room; one narrower than a cut and its posts does not.
+    const narrow = shared({ shortSide: 5, longSide: 10, sleeve: "none" });
+    const part = partOf([narrow], "flat|strip|split1");
+    expect(() => realizeTray(part, minOuter(part, s, ground), s, ground)).toThrow(CutFitError);
   });
 });

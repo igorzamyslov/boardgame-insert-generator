@@ -1,4 +1,4 @@
-import { dividersOf, growthOf, separatorsOf, togglesOf } from "../model/defaults";
+import { dividersOf, flatDecksOffered, growthOf, separatorsOf, togglesOf } from "../model/defaults";
 import { SLEEVES } from "../model/presets";
 import { effective } from "../model/settings";
 import type { CardsComponent, Notice, Settings } from "../model/types";
@@ -7,15 +7,17 @@ import {
   displayName,
   featuresOf,
   itemLabel,
+  label,
   mainClearance,
+  sectionCutouts,
   wallCutout,
   type OptionsResult,
 } from "./common";
 import { CHANNEL_DEPTH, DIVIDER_GROOVE, MIN_MEASURED_CARD_T } from "./constants";
-import { dividedWidth } from "./dividers";
+import { dividedWidth, dividerSlotWidth } from "./dividers";
 import { growthMm, stackGrowthMm } from "./growth";
 import type { CompartmentReq } from "./types";
-import { ceilU, fromU } from "./units";
+import { ceilU, fromU, toU } from "./units";
 
 type CardStorage = "upright-long" | "upright-short" | "flat";
 const CARD_STORAGES: readonly CardStorage[] = ["upright-long", "upright-short", "flat"];
@@ -147,6 +149,36 @@ function deckCompartment(
   });
 }
 
+/**
+ * The decks of a flat item in ONE well with removable dividers between them (`flatDecks:
+ * "dividers"`, spec: groups and copies R7). One cards item has one card size, so the decks differ
+ * only in count: the well is as deep as a card is long and as high as the tallest deck's stack,
+ * and as wide as every deck's section (a card's short side with its clearance) with a divider's
+ * slot between neighbours. The slots are in the floor (floorExtra, `dividers`: realize puts them
+ * evenly, so each deck's section is one card wide). Finger access is one cut through the front
+ * wall per section (R21): the dividers are loose solid plates, so a channel along the row would
+ * stop at the first.
+ */
+function sharedWell(c: CardsComponent, dims: CardDims, s: Settings): CompartmentReq {
+  const clearance = mainClearance(c, s);
+  const stack = Math.max(...c.decks.map((deck) => fromU(ceilU(stackWidth(deck.count, dims.t, s)))));
+  const slots = c.decks.length - 1;
+  const own = displayName(c);
+  const parts = c.decks.map((deck, i) => `${label(deck.name, `Deck ${i + 1}`)} ×${deck.count}`);
+  return compartment({
+    componentId: c.id,
+    contents: c.name.trim() === "" ? parts.join(" + ") : `${own} — ${parts.join(" + ")}`,
+    kind: "well",
+    w: fromU(c.decks.length * ceilU(dims.S + clearance) + slots * toU(dividerSlotWidth(s))),
+    d: dims.L + clearance,
+    h: stack,
+    grow: { h: growthMm(growthOf(c, "stack", true), stack) },
+    dividers: slots,
+    floorExtra: DIVIDER_GROOVE,
+    features: featuresOf(togglesOf(c), [sectionCutouts("front")]),
+  });
+}
+
 /** Storage options for a cards component. Precondition: it passes validateComponent. */
 export function cardOptions(c: CardsComponent, s: Settings, index: number): OptionsResult {
   const { dims, notices } = cardDims(c, s, index);
@@ -154,7 +186,10 @@ export function cardOptions(c: CardsComponent, s: Settings, index: number): Opti
   return {
     options: storages.map((storage) => ({
       id: storage,
-      blocks: c.decks.map((deck) => [deckCompartment(c, deck, storage, dims, s)]),
+      blocks:
+        storage === "flat" && c.flatDecks === "dividers" && flatDecksOffered(c)
+          ? [[sharedWell(c, dims, s)]]
+          : c.decks.map((deck) => [deckCompartment(c, deck, storage, dims, s)]),
     })),
     notices,
   };
