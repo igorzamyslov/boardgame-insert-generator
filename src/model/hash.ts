@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from "./settings";
-import type { Component, Project } from "./types";
+import type { Component, Group, Project } from "./types";
 
 /**
  * JSON with object keys sorted at every level, so key order never changes the
@@ -53,6 +53,36 @@ function withCopiesAsPerPlayer(c: Component): unknown {
   return copies !== undefined && copies > 1 ? { ...rest, perPlayer: { players: copies } } : rest;
 }
 
+/**
+ * What of an item reaches the hash (groups spec §5): with copies as above, without `access` when
+ * it is in a group (the group's own access is used, so the item's is hidden), and with
+ * `flatDecks` only when it is "dividers" (they cut slots into the floor; "walls" lays out as
+ * before the field existed).
+ */
+function hashedItem(c: Component, grouped: ReadonlySet<string>): unknown {
+  const item: Record<string, unknown> = { ...(withCopiesAsPerPlayer(c) as object) };
+  if (grouped.has(c.id)) {
+    delete item.access;
+  }
+  if (item.flatDecks !== "dividers") {
+    delete item.flatDecks;
+  }
+  return item;
+}
+
+/**
+ * The groups that reach the hash: those with a member (an empty one prints nothing, so adding one
+ * never stales a plan), by id (their order in the array is no part of the layout). Members keep
+ * their order, the compartment order. Names go with withoutNames. Undefined when none, so a
+ * project without groups hashes as it did before they existed.
+ */
+function hashedGroups(groups: readonly Group[] | undefined): Group[] | undefined {
+  const used = (groups ?? [])
+    .filter((g) => g.memberIds.length > 0)
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return used.length > 0 ? used : undefined;
+}
+
 /** cyrb53 (public domain, bryc): fast 53-bit string hash. Not cryptographic. */
 export function cyrb53(str: string, seed = 0): number {
   let h1 = 0xdeadbeef ^ seed;
@@ -98,14 +128,15 @@ export function inputsHash(p: Project): string {
     // still current; any other value is hashed, as it moves the score and the warning.
     playLimit: playLimit === DEFAULT_SETTINGS.playLimit ? undefined : playLimit,
   }; // canonicalJson skips undefined
+  const groups = hashedGroups(p.groups);
+  const grouped = new Set((groups ?? []).flatMap((g) => g.memberIds));
   const canonical = canonicalJson({
     box: p.box,
     printer: p.printer,
     settings,
-    components: withoutNames(p.components.map(withCopiesAsPerPlayer)),
-    // Only when there are some, so a project without groups hashes as it did before they existed.
+    components: withoutNames(p.components.map((c) => hashedItem(c, grouped))),
     // A group's name is no part of the layout (withoutNames).
-    groups: p.groups && p.groups.length > 0 ? withoutNames(p.groups) : undefined,
+    groups: groups === undefined ? undefined : withoutNames(groups),
     locks: p.locks,
   });
   return cyrb53(canonical).toString(16).padStart(14, "0");

@@ -159,7 +159,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
     return result;
   }
   const enforceBounds = opts.enforceBounds ?? true;
-  const blocking = validateProject(result.project).filter(
+  const blocking = validateProject(result.project, result.foreign).filter(
     (n) => isBlocking(n) && (enforceBounds || !n.code.startsWith("limit.")),
   );
   if (blocking.length > 0) {

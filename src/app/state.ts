@@ -133,9 +133,10 @@ export function createState(
   now?: () => number,
 ): State {
   const project = signal(initial);
+  const foreignData = signal(foreign);
   const lastResult = signal<LayoutResult | null>(null);
   const lastResultHash = signal<string | null>(null);
-  const validation = computed(() => validateProject(project.value));
+  const validation = computed(() => validateProject(project.value, foreignData.value));
   const currentHash = computed(() => inputsHash(project.value));
   const stale = computed(() => {
     const layout = project.value.layout;
@@ -235,7 +236,7 @@ export function createState(
 
   return {
     project,
-    foreign: signal(foreign),
+    foreign: foreignData,
     projects: signal<ProjectListEntry[]>([]),
     run,
     lastResult,

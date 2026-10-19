@@ -1,10 +1,21 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import groupedLegacy from "../../test/fixtures/legacy/grouped-space.json";
+import hashes from "../../test/fixtures/legacy/hashes.json";
+import perPlayerLegacy from "../../test/fixtures/legacy/per-player.json";
+import plainLegacy from "../../test/fixtures/legacy/plain.json";
 import { FIXTURES } from "../layout/test-fixtures";
 import { newComponent, newProject } from "./defaults";
 import { canonicalJson, cyrb53, inputsHash } from "./hash";
 import { parseProject } from "./schema";
-import type { BulkComponent, CardsComponent, MinisComponent, Project } from "./types";
+import type {
+  BulkComponent,
+  CardsComponent,
+  Component,
+  Group,
+  MinisComponent,
+  Project,
+} from "./types";
 
 function sample(): Project {
   const p = newProject();
@@ -284,5 +295,115 @@ describe("inputsHash", () => {
     for (const v of variants) {
       expect(inputsHash(v)).not.toBe(before);
     }
+  });
+});
+
+function opened(raw: unknown): Project {
+  const result = parseProject(structuredClone(raw));
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+  return result.project;
+}
+
+describe("inputsHash: groups, copies, turn locks and flat decks", () => {
+  const kit = (memberIds: string[], patch: Partial<Group> = {}): Group => ({
+    id: "kit",
+    name: "Player kit",
+    access: "sometimes",
+    memberIds,
+    ...patch,
+  });
+  // One sample, so every variant below has the same item ids (newComponent makes random ones).
+  const fixed = sample();
+  /** The sample project with its first two items grouped. */
+  function grouped(patch: Partial<Group> = {}): Project {
+    const [c0, c1] = fixed.components as [Component, Component];
+    return { ...fixed, groups: [kit([c0.id, c1.id], patch)] };
+  }
+
+  it("legacy hashes: a plain and a per-player 0.6 project keep theirs, a grouped one gets a new one", () => {
+    expect(inputsHash(opened(plainLegacy))).toBe(hashes.plain);
+    expect(inputsHash(opened(perPlayerLegacy))).toBe(hashes["per-player"]);
+    expect(inputsHash(opened(groupedLegacy))).not.toBe(hashes["grouped-space"]);
+  });
+
+  it("copies N hashes as perPlayer N, and copies 1 like no field", () => {
+    const base = sample();
+    const [c0, ...rest] = base.components as [BulkComponent, ...Component[]];
+    const withCopies = (copies: number): Project => ({
+      ...base,
+      components: [{ ...c0, copies }, ...rest],
+    });
+    const old = { ...c0, perPlayer: { players: 3 } } as unknown as Component;
+    expect(inputsHash(withCopies(3))).toBe(inputsHash({ ...base, components: [old, ...rest] }));
+    expect(inputsHash(withCopies(1))).toBe(inputsHash(base));
+    expect(inputsHash(withCopies(2))).not.toBe(inputsHash(base));
+    expect(inputsHash(withCopies(2))).not.toBe(inputsHash(withCopies(3)));
+  });
+
+  it("a grouped project gets a new hash", () => {
+    expect(inputsHash(grouped())).not.toBe(inputsHash(fixed));
+  });
+
+  it("empty groups, group names, group order and a member's hidden access don't change the hash", () => {
+    const base = grouped();
+    const before = inputsHash(base);
+    const empty: Group = { id: "zzz", name: "Nothing", access: "often", memberIds: [] };
+    expect(inputsHash({ ...base, groups: [...(base.groups ?? []), empty] })).toBe(before);
+    expect(inputsHash(grouped({ name: "Renamed" }))).toBe(before);
+    const [c0, c1, c2] = base.components as [Component, Component, Component];
+    const second: Group = { id: "abc", name: "Other", access: "often", memberIds: [c2.id] };
+    const two = { ...base, groups: [kit([c0.id, c1.id]), second] };
+    const swapped = { ...base, groups: [second, kit([c0.id, c1.id])] };
+    expect(inputsHash(swapped)).toBe(inputsHash(two));
+    expect(inputsHash(two)).not.toBe(before);
+    const hidden = { ...base, components: [{ ...c0, access: "often" as const }, c1, c2] };
+    expect(inputsHash(hidden)).toBe(before);
+    // An item in no group still hashes its access.
+    const visible = { ...base, components: [c0, c1, { ...c2, access: "often" as const }] };
+    expect(inputsHash(visible)).not.toBe(before);
+  });
+
+  it("only empty groups hash like no groups", () => {
+    const base = sample();
+    const empty: Group = { id: "zzz", name: "Nothing", access: "often", memberIds: [] };
+    expect(inputsHash({ ...base, groups: [empty] })).toBe(inputsHash(base));
+  });
+
+  it("member order, group copies, access and growth do change the hash", () => {
+    const before = inputsHash(grouped());
+    const [c0, c1] = fixed.components as [Component, Component];
+    const reordered = { ...grouped(), groups: [kit([c1.id, c0.id])] };
+    expect(inputsHash(reordered)).not.toBe(before);
+    expect(inputsHash(grouped({ copies: 2 }))).not.toBe(before);
+    expect(inputsHash(grouped({ copies: 3 }))).not.toBe(inputsHash(grouped({ copies: 2 })));
+    expect(inputsHash(grouped({ access: "often" }))).not.toBe(before);
+    expect(inputsHash(grouped({ growth: { w: "max" } }))).not.toBe(before);
+    expect(inputsHash(grouped({ growth: { w: 5 } }))).not.toBe(
+      inputsHash(grouped({ growth: { w: "max" } })),
+    );
+  });
+
+  it("a turn lock changes the hash; flatDecks walls doesn't, dividers does", () => {
+    const base = sample();
+    const turned: Project = {
+      ...base,
+      locks: [...base.locks, { kind: "turn", trayKey: "a:0", rotated: true }],
+    };
+    expect(inputsHash(turned)).not.toBe(inputsHash(base));
+    const straight: Project = {
+      ...base,
+      locks: [...base.locks, { kind: "turn", trayKey: "a:0", rotated: false }],
+    };
+    expect(inputsHash(straight)).not.toBe(inputsHash(turned));
+    const flat = (flatDecks?: "walls" | "dividers"): Project => ({
+      ...base,
+      components: base.components.map((c) =>
+        c.kind === "cards" ? { ...c, ...(flatDecks ? { flatDecks } : {}) } : c,
+      ),
+    });
+    expect(inputsHash(flat("walls"))).toBe(inputsHash(flat()));
+    expect(inputsHash(flat("dividers"))).not.toBe(inputsHash(flat()));
   });
 });

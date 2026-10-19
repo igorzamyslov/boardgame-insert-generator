@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { newComponent, newGroup } from "./defaults";
-import { copiesOf, groupOfItem, mostFrequentAccess, requirementKeyOf } from "./groups";
+import {
+  copiesOf,
+  groupById,
+  groupOfItem,
+  mostFrequentAccess,
+  nextGroupName,
+  requirementKeyOf,
+} from "./groups";
 import type { Group } from "./types";
 
 describe("mostFrequentAccess", () => {
@@ -46,5 +53,38 @@ describe("group lookups", () => {
     expect(g).toMatchObject({ name: "Player kit", access: "sometimes", memberIds: [] });
     expect("copies" in g).toBe(false);
     expect(g.id).toMatch(/^[a-z0-9]{8}$/);
+  });
+});
+
+describe("groupById", () => {
+  const kit: Group = { id: "kit", name: "Kit", access: "often", memberIds: [] };
+
+  it("finds a group by its id, and none for an id that is not one (an item's, or none)", () => {
+    expect(groupById({ groups: [kit] }, "kit")).toBe(kit);
+    expect(groupById({ groups: [kit] }, "other")).toBeUndefined();
+    expect(groupById({}, "kit")).toBeUndefined();
+  });
+});
+
+describe("nextGroupName", () => {
+  const named = (...names: string[]): { groups: Group[] } => ({
+    groups: names.map((name, i) => ({ id: `g${i}`, name, access: "often", memberIds: [] })),
+  });
+
+  it("is Group first, then Group 2, Group 3", () => {
+    expect(nextGroupName({})).toBe("Group");
+    expect(nextGroupName(named())).toBe("Group");
+    expect(nextGroupName(named("Group"))).toBe("Group 2");
+    expect(nextGroupName(named("Group", "Group 2"))).toBe("Group 3");
+  });
+
+  it("takes the first free name, whatever the order, and ignores other names", () => {
+    expect(nextGroupName(named("Group 2"))).toBe("Group");
+    expect(nextGroupName(named("Group", "Group 3"))).toBe("Group 2");
+    expect(nextGroupName(named("Player kit", "Group"))).toBe("Group 2");
+  });
+
+  it("counts an unnamed group, which shows as Group, as that name", () => {
+    expect(nextGroupName(named(""))).toBe("Group 2");
   });
 });
