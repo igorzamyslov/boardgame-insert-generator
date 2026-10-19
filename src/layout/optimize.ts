@@ -11,6 +11,7 @@ import {
   moveEnvOf,
   noLocks,
   resolveLocks,
+  withTurns,
   trayNamer,
   type ResolvedLocks,
 } from "./locks";
@@ -150,7 +151,10 @@ function startPhase(
       }
     }
   }
-  const start = best ?? evalTree(greedyTree(ctx, noLocks(ctx), "x"));
+  // No start took the locks (no unlocked leaf was left to insert into): the plain greedy tree
+  // stands in, with the turned trays still turned (the moves can't undo a turn lock).
+  const start =
+    best ?? evalTree(withTurns(greedyTree(ctx, noLocks(ctx), "x"), ctx, resolved.turns));
   return {
     ctx,
     resolved,

@@ -625,6 +625,24 @@ function sameItems(a: readonly StackItem[], b: readonly StackItem[], ctx: Ctx): 
   );
 }
 
+/** The tree with every turn-locked tray in the rotation its lock gives; other items as they are. */
+export function withTurns(tree: Tree, ctx: Ctx, turns: ReadonlyMap<number, boolean>): Tree {
+  if (turns.size === 0) {
+    return tree;
+  }
+  let root = tree.root;
+  for (const l of leaves(tree.root)) {
+    if (l.leaf.stack.some((i) => turns.has(ctx.partId(i)))) {
+      const stack = l.leaf.stack.map((i) => ({
+        ...i,
+        rotated: turns.get(ctx.partId(i)) ?? i.rotated,
+      }));
+      root = replaceAt(root, l.path, leaf(stack, l.leaf.frozen));
+    }
+  }
+  return { ...tree, root };
+}
+
 /**
  * Ensures every requirement has exactly the parts of its active variant in the tree:
  * drops duplicates and parts of other variants, inserts missing parts.
@@ -747,7 +765,9 @@ export function applyLocks(
   if (out === null) {
     return null;
   }
-  return completeTree({ root: out, variants }, env, rng);
+  // whatever start the tree came from, turned trays are turned
+  const done = completeTree({ root: out, variants }, env, rng);
+  return done && withTurns(done, ctx, resolved.turns);
 }
 
 /**

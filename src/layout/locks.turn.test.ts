@@ -8,10 +8,9 @@ import { completeTree, moveEnvOf, noLocks, resolveLocks, applyLocks } from "./lo
 import { changeVariant } from "./moves";
 import { optimize } from "./optimize";
 import { createRng } from "./prng";
-import { boxReq, comp, fakeMeasure, makeInput, part, req, variant } from "./test-utils";
+import { boxReq, comp, fakeMeasure, makeInput, part, req, traySpec, variant } from "./test-utils";
 import { itemsOf, leaf, type StackItem, type Tree } from "./tree";
 import { warmHints, warmTree } from "./warmstart";
-import { traySpec } from "./test-utils";
 
 const reqs = [
   boxReq("a", 60, 40, 10),
@@ -221,6 +220,7 @@ describe("a turn lock fixes rotation wherever a tray is created", () => {
     const start: Tree = { root: leaf([at(0), at(1), at(2)]), variants: [0, 0, 0] };
     const t = applyLocks(start, resolved, env, createRng(3));
     expect(t).not.toBeNull();
+    expect(rotatedOf(t, 0)).toBe(true);
   });
 });
 
@@ -233,6 +233,22 @@ describe("a run with a turn lock", () => {
       expect(r.lockConflicts).toEqual([]);
       const tray = r.layout?.trays.find((t) => t.key === "a:p0:0" && t.part === "tray");
       expect(tray?.rotated).toBe(true);
+    }
+  });
+
+  it("holds the rotation even when no start could take the locks", () => {
+    // a and b are pinned, so every leaf is locked and c has nowhere to be inserted: the start is
+    // the plain greedy tree, whose c is not turned
+    const three = [boxReq("a", 60, 40, 10), boxReq("b", 60, 40, 10), boxReq("c", 60, 40, 10)];
+    const locks: Lock[] = [
+      { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
+      { kind: "position", trayKey: "b:p0:0", path: "1", rotated: false },
+      turn("c:p0:0", true),
+    ];
+    for (let seed = 1; seed <= 20; seed++) {
+      const r = optimize(makeInput(three, { locks }), seed, 300);
+      const c = r.layout?.trays.find((t) => t.key === "c:p0:0" && t.part === "tray");
+      expect(c?.rotated).toBe(true);
     }
   });
 
