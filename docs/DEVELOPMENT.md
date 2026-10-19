@@ -54,7 +54,7 @@ a commit can rewrite your files. Node version: `.nvmrc` (24).
   (`scene.ts` loads lazily).
 - `instructions/` handles tray names (`naming.ts`), part ids (`numbering.ts`), the packing
   guide and the PNG.
-- `share/` holds the local project store, JSON files, printer prefs and the reader for old
+- `share/` holds the local project store, JSON files, printer and rail-width prefs and the reader for old
   `#1.` links. `styles/` holds tokens, fonts and the legacy `pf-` classes.
 
 **Test environment.** Tests run in Node by default. A component test opts into jsdom with a

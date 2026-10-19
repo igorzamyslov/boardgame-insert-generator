@@ -124,6 +124,7 @@ const EDITOR_SUMMARY = "More options says what is inside it";
 const EDITOR_NOTES = "An option change speaks through a note in the stage slot";
 const EDITOR_SENTENCE = "The stage sentence is the page's h1 while editing";
 const EDITOR_MAX = "A growth choice on Max says what Max means";
+const RESIZE = "The rail's handle is named";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
 const EDITOR_CHANGED = "More options marks what differs from its default";
 const EDITOR_ROOM = "Extra room shows the insert's number and lets the item change it";
@@ -604,6 +605,8 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Removed “{name}”.", states: ["editor-removed"], ruling: EDITOR_REMOVE },
   { text: "Undo removal", states: ["editor-removed"], ruling: EDITOR_REMOVE },
   { text: "Dismiss", states: ["editor-removed"], ruling: EDITOR_REMOVE },
+  // the rail's handle (every screen with a rail, beside the stage)
+  { text: "Resize the list", states: "all", ruling: RESIZE },
 ];
 
 /**

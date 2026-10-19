@@ -1,8 +1,8 @@
 /*
  * The workspace shell (UI rebuild Task 3): Main's three regions. The page is one screen tall and
  * never scrolls on a desktop; the header takes what it needs, the rail and the stage share the
- * rest the way Main draws it: the rail from 300 to 350 px (one width on every screen), the
- * stage the rest. Below 760 px the stage comes first and the rail is the sheet at the foot.
+ * rest the way Main draws it: the rail's width is the person's (300 to 480 px, `--rail-w` on the
+ * shell, one width on every screen; the handle between the two sets it), the stage the rest. Below 760 px the stage comes first and the rail is the sheet at the foot.
  * On the tokens (styles/tokens.css).
  */
 .ws {
@@ -44,16 +44,66 @@
 .ws-rail {
   position: relative; /* the visually hidden text inside is placed in the column, not in the page */
   display: flex;
-  flex: 1 1 var(--rail-basis);
+  flex: 0 1 var(--rail-w);
   flex-direction: column;
   box-sizing: border-box;
   min-height: 0;
   max-height: 100%;
-  max-width: var(--rail-max);
   padding: var(--rail-pad);
   overflow: hidden;
   border-right: 1px solid var(--rule);
   background: var(--sheet);
+}
+
+/*
+ * The rail's resize handle (RailHandle.tsx): a separator on the rail's stage-side edge, 6 px wide
+ * but taking no room (a box with no width is "hidden" to assistive technology and test tools). A thin line shows on hover, focus and drag; the hit area is 44 px wide, on the
+ * stage's side, so the rail's scrollbar (at the rail's own edge) is never covered.
+ */
+.ws-handle {
+  --handle-w: 6px;
+
+  position: relative;
+  z-index: 5;
+  flex: none;
+  align-self: stretch;
+  width: var(--handle-w);
+
+  /* it takes no room: the stage starts where the rail ends */
+  margin-right: calc(-1 * var(--handle-w));
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.ws-handle::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--control-h);
+  content: "";
+}
+
+.ws-handle::after {
+  position: absolute;
+  inset: 0 auto 0 -1px;
+  width: 3px;
+  content: "";
+  background: transparent;
+  transition: background-color 120ms;
+}
+
+.ws-handle:hover::after,
+.ws--resizing .ws-handle::after {
+  background: var(--edge);
+}
+
+.ws-handle:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px; /* inside the 6 px box: one solid bar, not two thin lines */
+}
+
+.ws--resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .ws-stage {
@@ -142,13 +192,18 @@
 }
 
 /*
- * A tablet (760 to 960 px) keeps the rail beside the stage: the stage's basis drops so that the
- * two fit in 760 px (300 + 440), where 640 would wrap the rail under it. Task 15 does the final
- * tablet pass.
+ * A tablet (760 to 960 px) keeps the rail beside the stage: the stage's basis drops to 360 px so
+ * the two fit even at 760 px, where 640 would wrap the rail under it, and the rail clamps to what
+ * leaves the stage that much, whatever width the person chose (300 at least, so 400 at most at
+ * 760 px). Task 15 does the final tablet pass.
  */
 @media (width >= 760px) and (width <= 960px) {
+  .ws-rail {
+    flex-basis: clamp(var(--rail-min), var(--rail-w), calc(100vw - 360px));
+  }
+
   .ws-stage {
-    flex-basis: 440px;
+    flex-basis: 360px;
   }
 }
 
@@ -179,10 +234,14 @@
     scroll-padding-bottom: calc(var(--sheet-foot) + var(--s-12));
   }
 
+  /* No handle: the rail is the sheet (or, on a first visit, a block under the stage). */
+  .ws-handle {
+    display: none;
+  }
+
   .ws-rail {
     flex-basis: 100%;
     max-height: none;
-    max-width: none;
     overflow: visible;
     border-top: 1px solid var(--rule);
     border-right: 0;

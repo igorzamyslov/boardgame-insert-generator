@@ -68,9 +68,15 @@ and a press on the backdrop closes the sheet.
 When `workspace` and `workspace-searching` both run, `scripts/design/jump.mjs` compares the header,
 the rail, the status row and the plan box (`data-region="plan-box"`): none may move or change
 size by more than 1 px, or the run fails ("Keep searching" turning into
-"Stop" must not shift the page). `workspace` and `workspace-tray` are compared too: the tray bar
-is taller than the slot's hint, so the plan's box may slide down but must keep its size. With a
-swap chosen (`workspace-swap`) the box is where `workspace-tray` has it: the prompt lies over the box.
+"Stop" must not shift the page). `workspace` is compared with `workspace-3d` (the 3D view holds the
+plan's caption line, so the frame has the same height) and with `workspace-tray` (the slot over the
+plan is as tall as the tray bar, `--stage-slot-bar`, so choosing a tray moves nothing). With a
+swap chosen (`workspace-swap`) the box is where `workspace` has it: the prompt lies over the box.
+`workspace-tray` and `workspace-3d-selected` (a tray chosen, then 3D) are compared with no slide allowed,
+and `workspace-1920` against `workspace-3d-1920` and `workspace-tray-1920`: at 1920×1080 the plan is at its
+900 px cap (`--plan-max`). The board is drawn at 1440 only, so the 1920 pairs show Main for reference and
+their numbers differ by design. `workspace-rail-wide` has the rail dragged to 420 px (a state's `storage`
+sets the prefs entry before the app starts).
 
 The board renderer adds `a{color:inherit}` ahead of a board's own styles: some boards have links
 with no colour set (MobileWorkspace's sheet rows), which a browser draws blue, and no board means that.

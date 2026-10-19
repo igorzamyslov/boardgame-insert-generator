@@ -75,6 +75,15 @@
 }
 
 /*
+ * Over the plan the slot is as tall as the tray bar, so choosing a tray (the bar replaces the hint)
+ * moves and resizes nothing below it: with the plan's frame limited by the height the stage has
+ * left (0.6.0: it is up to 900 px now), a slot that grew would shrink the frame.
+ */
+.plan-col .stage-slot {
+  min-height: var(--stage-slot-bar);
+}
+
+/*
  * What the plan says while a swap is chosen, with the tray bar in the slot: a small pill over the
  * top of the box, so the slot keeps its height and the plan does not move. It lets presses through
  * to the tiles under it.

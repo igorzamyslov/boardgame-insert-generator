@@ -611,7 +611,7 @@ async function openApp(browser, appUrl, name, state, seeds) {
         );
       }
     },
-    { storage: seed?.storage ?? {}, holds: state.holds ?? [] },
+    { storage: { ...seed?.storage, ...state.storage }, holds: state.holds ?? [] },
   );
   const problems = [];
   page.on("pageerror", (e) => problems.push(`page error: ${e.message}`));
@@ -690,14 +690,19 @@ const regionSource = (name) => REGIONS[name].board.toString();
 // ---------------------------------------------------------------- nothing jumps (Review Focus 4)
 
 // Pairs that must not differ: Keep searching turning into Stop, and the View segment turning to 3D.
-// `sizeOnly`: a tray bar is taller than the slot's hint, so the plan's box slides down; it may not change size (Task 8).
+// `sizeOnly`: a region that may slide but not change size (none now: the slot over the plan is as tall as the tray bar).
 const JUMP_PAIRS = [
   { pair: ["workspace", "workspace-searching"], sizeOnly: [] },
   { pair: ["workspace", "workspace-3d"], sizeOnly: [] },
-  { pair: ["workspace", "workspace-tray"], sizeOnly: ["plan-box"] },
+  // a tray chosen, then the 3D view: the plan's frame is where the selected top view has it (Task 8, 0.6.0)
+  { pair: ["workspace-tray", "workspace-3d-selected"], sizeOnly: [] },
+  { pair: ["workspace", "workspace-tray"], sizeOnly: [] },
   // a swap chosen puts its prompt over the box, so the plan is where it was with the bar alone (Task 8)
-  { pair: ["workspace", "workspace-swap"], sizeOnly: ["plan-box"] },
+  { pair: ["workspace", "workspace-swap"], sizeOnly: [] },
   { pair: ["workspace-tray", "workspace-swap"], sizeOnly: [] },
+  // the same at 1920×1080, where the plan is at its 900 px cap
+  { pair: ["workspace-1920", "workspace-3d-1920"], sizeOnly: [] },
+  { pair: ["workspace-1920", "workspace-tray-1920"], sizeOnly: [] },
 ];
 const JUMP_STATES = [...new Set(JUMP_PAIRS.flatMap((j) => j.pair))];
 const jumpBoxes = new Map();

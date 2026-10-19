@@ -47,9 +47,9 @@ describe("fitProblem.css", () => {
     expect(body).toMatch(/justify-content:\s*flex-start/);
   });
 
-  it("draws the picture at the box's 582 px, its caption 12 px under it", () => {
+  it("draws the picture at the plan's --plan-max, its caption 12 px under it", () => {
     const draw = ruleFor(".fp-draw");
-    expect(draw).toMatch(/flex:\s*0 1 582px/);
+    expect(draw).toMatch(/flex:\s*0 1 var\(--plan-max\)/);
     expect(draw).toMatch(/flex-direction:\s*column/);
     expect(draw).toMatch(/gap:\s*var\(--s-12\)/);
     // it shrinks with the stage rather than push the notices out of it

@@ -9,6 +9,7 @@
 //   nearest    set when no board of its own exists: why this board is the nearest
 //   viewport   the app's window; the board variant is drawn at this size too
 //   seed       a docs/design/seeds name, or null for empty storage (first visit)
+//   storage    extra localStorage entries (key -> JSON text) set over the seed's, e.g. the prefs entry
 //   url        the page to open, relative to the dev server ("/kit.html"); the app's own by default
 //   fullPage   the app is drawn in full, not just the window (a page that scrolls, like the kit gallery)
 //   holds      shots-mode holds to set before the app starts ("export", "search")
@@ -28,7 +29,10 @@
 //      | { wait: ms }  a pause, for what has no mark to wait on (the 3D view building its meshes)
 
 const DESKTOP = { width: 1440, height: 900 };
+const WIDE = { width: 1920, height: 1080 };
 const PHONE = { width: 390, height: 844 };
+// What the app keeps per browser (src/share/prefs.ts): the rail's width, as the handle leaves it.
+const PREFS_RAIL_420 = { "insert-generator:prefs": JSON.stringify({ railWidth: 420 }) };
 
 const MENU = { click: { role: "button", name: /^Project menu/ } };
 // The rail (Task 5) and the editor opened from it (Task 10).
@@ -93,7 +97,8 @@ export const STATES = {
     noPageScroll: true,
     steps: [{ fill: { label: "Height", value: "0" } }, { waitFor: { role: "alert" } }],
   },
-  // The plan is the hero: at 1440×900 its box is at least 560 px wide (Main's is 582).
+  // The plan is the hero: at 1440×900 its box is at least 560 px wide (Main's is 582; the stage's height
+  // now limits it, not the old cap, so it is wider than that).
   workspace: {
     board: "Main",
     viewport: DESKTOP,
@@ -101,6 +106,27 @@ export const STATES = {
     minPlanWidth: 560,
     noStageScroll: true,
     probes: ["plan-gaps"],
+  },
+  // 1920×1080: the plan's frame grows to 900 px (owner decision C, 2026-10-19). The board is drawn at 1440
+  // only, so the pair shows Main for reference and the numbers differ by design.
+  "workspace-1920": {
+    board: "Main",
+    nearest: "Main at 1440: the board is not drawn at 1920, so its numbers differ by design",
+    viewport: WIDE,
+    seed: "harbour-kings",
+    minPlanWidth: 780,
+    noStageScroll: true,
+    probes: ["plan-gaps"],
+  },
+  // The rail dragged wider (420 px, kept in the prefs): the stage takes the rest, and the plan fits it.
+  "workspace-rail-wide": {
+    board: "Main",
+    nearest:
+      "Main with the rail at 420 px: the board's rail is 300, so the rail's width differs by design",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    storage: PREFS_RAIL_420,
+    noStageScroll: true,
   },
   // The tablet band: the rail stays beside the stage (Task 3 checks it; Task 15 does the pass).
   "workspace-820": {
@@ -134,13 +160,13 @@ export const STATES = {
     seed: "harbour-kings-notes",
     noStageScroll: true,
   },
-  // A box that is not square (400 × 285 mm): its longer side is 582 px wide, as a square box's is.
+  // A box that is not square (400 × 285 mm): its longer side is the width the stage leaves (up to 900 px), as a square box's is.
   "workspace-wide": {
     board: "Main",
     nearest: "no board of its own: Main's box frame, wider than it is tall",
     viewport: DESKTOP,
     seed: "harbour-kings-wide",
-    planWidth: 582,
+    minPlanWidth: 700,
     noStageScroll: true,
   },
   // The 3D view: three.js in the plan's frame. Main's own 3D is a CSS tilt of the flat box.
@@ -154,6 +180,16 @@ export const STATES = {
     steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   // A long box in 3D (feedback on 0.5.0, point 10): the camera fits it however it is turned and spread.
+  "workspace-3d-1920": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest:
+      "no board of its own: Main's box frame and segments (drawn at 1440; 1920 differs by design)",
+    viewport: WIDE,
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
+  },
   "workspace-3d-wide": {
     board: "Main",
     boardOpts: { state: { view: "3d" } },
@@ -208,7 +244,16 @@ export const STATES = {
     boardOpts: { state: { sel: "market" } },
     viewport: DESKTOP,
     seed: "harbour-kings",
-    planWidth: 582,
+    minPlanWidth: 560,
+    noStageScroll: true,
+    steps: [SELECT_MARKET],
+  },
+  "workspace-tray-1920": {
+    board: "Main",
+    boardOpts: { state: { sel: "market" } },
+    nearest: "Main with a tray selected, drawn at 1440; 1920 differs by design",
+    viewport: WIDE,
+    seed: "harbour-kings",
     noStageScroll: true,
     steps: [SELECT_MARKET],
   },

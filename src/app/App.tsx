@@ -670,6 +670,8 @@ export function App(props: AppProps) {
       firstVisit={firstVisit}
     />
   );
+  // The rail's width, the person's choice on a desktop (kept per browser; `prefs.railWidth`).
+  const railWidth = { value: store.prefs.railWidth.value, onChange: store.prefs.setRailWidth };
   const headerSlot = (
     <>
       <Header
@@ -1025,6 +1027,7 @@ export function App(props: AppProps) {
               headerExtra={fileInput}
               stageBefore={notices}
               stageAfter={removedNote}
+              railWidth={railWidth}
             />
           ) : (
             <Workspace
@@ -1034,6 +1037,7 @@ export function App(props: AppProps) {
               rail={railSlot}
               stage={stageSlot}
               inert={sheetCoversScreen}
+              railWidth={railWidth}
               sheet={
                 !phone
                   ? undefined

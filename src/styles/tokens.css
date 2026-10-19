@@ -157,8 +157,10 @@
   --dialog-btn-h: 48px; /* Exporting's buttons, the phone tray's Edit */
   --header-h: 60px;
   --header-h-phone: 56px;
-  --rail-basis: 300px; /* one rail width on every screen (Main's) */
-  --rail-max: 350px;
+  --rail-w: 300px; /* the rail's width on every screen: the person's choice from --rail-min to --rail-max (the handle sets it on the shell), 300 until they choose */
+  --rail-min: 300px;
+  --rail-max: 480px;
+  --plan-max: 900px; /* the plan's frame: its longer side at most this (the 3D view and the fit problems' picture are in the same frame) */
   --rail-pad: 20px;
   --scroll-gutter: 11px; /* what a thin scrollbar that takes room reserves (`scrollbar-gutter: stable`); the rail's padding on that side is cut by it, so bar and padding stay near --rail-pad */
   --stage-pad: 22px 36px 28px; /* the workspace */
@@ -166,6 +168,7 @@
   --row-min: 52px; /* list rows, check rows */
   --kind-tile-h: 56px;
   --stage-slot: 52px;
+  --stage-slot-bar: 62px; /* the workspace's slot over the plan is as tall as the tray bar (Main's board draws 85), so a tray chosen moves and resizes nothing */
   --status-icon: 40px;
   --status-icon-phone: 32px;
   --menu-w: 260px;
@@ -214,7 +217,7 @@
   --radius-sm: var(--r-cell);
   --radius-md: var(--r-tile);
   --radius-lg: var(--r-card);
-  --rail-width: var(--rail-max);
+  --rail-width: var(--rail-w);
   --page-max: 1440px;
   --on-focus: var(--sheet);
   --focus-wash: var(--info-bg);
