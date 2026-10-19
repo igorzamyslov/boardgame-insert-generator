@@ -384,7 +384,8 @@ describe("size", () => {
       // A one-card deck's well is too narrow for a cut through its front or back, so it needs a
       // free end wall; between two piles it has none. Member order is a promise: sizing never
       // moves the deck, and never drops the tray.
-      const pile = (id: string) => bulk({ id, name: id, items: [{ name: "Pile", volumeMl: 40 }] });
+      const pile = (id: string, ml = 40) =>
+        bulk({ id, name: id, items: [{ name: "Pile", volumeMl: ml }] });
       const starter = cards({
         id: "d1",
         name: "Starter deck",
@@ -402,6 +403,62 @@ describe("size", () => {
         expect(notices).toEqual([]);
         const req = at(requirements, 0);
         expect(req.variants.length).toBeGreaterThan(0);
+        for (const v of req.variants) {
+          for (const part of v.parts) {
+            if (part.compartments.some((c) => c.componentId === "d1")) {
+              expect(wallCuts(part, "d1")).toBeGreaterThan(0);
+            }
+          }
+        }
+      });
+
+      it("never pays for a missing cut with a split: whole variants are kept without the cut next to the splits that give it", () => {
+        // Piles of 100, 20, (the deck), 20, 20 ml: the deck stands inside every whole tray, but
+        // the three-tray split leaves it at the end of a tray.
+        const members = [pile("b1", 100), pile("b2", 20), starter, pile("b3", 20), pile("b4", 20)];
+        const { requirements, notices } = size(members, s, [
+          inGroup(members, "g", { name: "Kit" }),
+        ]);
+        const req = at(requirements, 0);
+        const whole = req.variants.filter((v) => v.parts.length === 1);
+        const split = req.variants.filter((v) => v.parts.length > 1);
+        expect(whole.length).toBeGreaterThan(0);
+        expect(split.length).toBeGreaterThan(0);
+        // the whole trays come first, as split1 always did
+        expect(req.variants.slice(0, whole.length)).toEqual(whole);
+        for (const v of whole) {
+          expect(wallCuts(at(v.parts, 0), "d1")).toBe(0);
+        }
+        for (const v of split) {
+          expect(v.parts.reduce((n, part) => n + wallCuts(part, "d1"), 0)).toBeGreaterThan(0);
+        }
+        expect(notices).toEqual([
+          {
+            level: "warning",
+            code: "sizing.noFingerSlot",
+            path: "/components/2",
+            message: "Starter deck has no finger cut here. Move it to the start of Kit for one.",
+          },
+        ]);
+        // a member's cuts come off only where it stands behind another member
+        for (const v of req.variants) {
+          for (const part of v.parts) {
+            if (
+              wallCuts(part, "d1") === 0 &&
+              part.compartments.some((c) => c.componentId === "d1")
+            ) {
+              expect(at(part.compartments, 0).componentId).not.toBe("d1");
+            }
+          }
+        }
+      });
+
+      it("keeps today's variants, and says nothing, when some whole variant gives every cut", () => {
+        const members = [pile("b1"), starter, pile("b2")];
+        const { requirements, notices } = size(members, s, [inGroup(members, "g")]);
+        expect(notices).toEqual([]);
+        const req = at(requirements, 0);
+        expect(req.variants.some((v) => v.parts.length === 1)).toBe(true);
         for (const v of req.variants) {
           for (const part of v.parts) {
             if (part.compartments.some((c) => c.componentId === "d1")) {

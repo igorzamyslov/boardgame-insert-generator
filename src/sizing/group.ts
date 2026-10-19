@@ -9,11 +9,11 @@ import { bulkFallback } from "./fallback";
 import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
 import type {
-  CompartmentReq,
   FeatureReq,
   RealizeOptions,
   TrayPartReq,
   TrayRequirement,
+  TrayVariant,
 } from "./types";
 import { buildVariants } from "./variants";
 
@@ -239,33 +239,100 @@ function requirementOf(
 }
 
 /**
- * The requirement's variants whose every part gets its cuts, and the error of each other one.
- * Every copy is the same arrangement, so only the first copy's parts are tried.
+ * The requirement's variants whose every part gets its cuts, the error of each other one, and the
+ * outcome of every variant in order (null: it gets every cut). Every copy is the same arrangement,
+ * so only the first copy's parts are tried.
  */
 function withCuts(
   requirement: TrayRequirement,
   copies: number,
   settings: Settings,
-): { kept: TrayRequirement; errors: CutFitError[] } {
-  const found = requirement.variants.map((v) =>
+): { kept: TrayRequirement; errors: CutFitError[]; results: (CutFitError | null)[] } {
+  const results = requirement.variants.map((v) =>
     cutFitError(v.parts.slice(0, v.parts.length / copies), settings),
   );
   return {
-    kept: { ...requirement, variants: requirement.variants.filter((_, i) => found[i] === null) },
-    errors: found.filter((e) => e !== null),
+    kept: { ...requirement, variants: requirement.variants.filter((_, i) => results[i] === null) },
+    errors: results.filter((e) => e !== null),
+    results,
   };
 }
 
-/** The member with its finger cuts off: every compartment's wall cutouts removed. */
-function withoutCuts(u: Usable): Usable {
-  const strip = (c: CompartmentReq): CompartmentReq => ({
-    ...c,
-    features: c.features.filter((f) => f.type !== "wallCutout"),
+/** A variant that gives a cut to every compartment but not to some, with why. */
+interface Failed {
+  variant: TrayVariant;
+  error: CutFitError;
+}
+
+/** The variants that fail, each with its error, among `requirement`'s and their outcomes. */
+function failedOf(
+  requirement: TrayRequirement,
+  results: readonly (CutFitError | null)[],
+): Failed[] {
+  return requirement.variants.flatMap((variant, i) => {
+    const error = results[i];
+    return error ? [{ variant, error }] : [];
   });
-  return {
-    ...u,
-    options: u.options.map((o) => ({ ...o, blocks: o.blocks.map((b) => b.map(strip)) })),
-  };
+}
+
+/** The parts with the wall cutouts of the compartments of members `ids` removed, in every copy. */
+function withoutCutsOf(parts: readonly TrayPartReq[], ids: ReadonlySet<string>): TrayPartReq[] {
+  return parts.map((part) => ({
+    ...part,
+    compartments: part.compartments.map((c) =>
+      ids.has(c.componentId)
+        ? { ...c, features: c.features.filter((f) => f.type !== "wallCutout") }
+        : c,
+    ),
+  }));
+}
+
+/**
+ * The failed variants that give every cut once the members member order blocks (`blocked`) have
+ * theirs taken off, in the same order, and which members lost theirs. Cuts come off a member only in
+ * a variant where it stands behind another member in the part that refuses it: a member first in
+ * its part would get its cut, so its refusal is not order's doing and that variant is dropped.
+ * Groups spec §6.5.
+ */
+function keptWithoutCuts(
+  failed: readonly Failed[],
+  blocked: ReadonlySet<string>,
+  copies: number,
+  settings: Settings,
+): { variants: TrayVariant[]; members: Set<string> } {
+  const variants: TrayVariant[] = [];
+  const members = new Set<string>();
+  for (const { variant, error: first } of failed) {
+    const perCopy = variant.parts.length / copies;
+    const removed = new Set<string>();
+    let parts = variant.parts;
+    let error: CutFitError | null = first;
+    while (error !== null) {
+      const stuck: string[] = error.componentIds.filter(
+        (id) =>
+          blocked.has(id) &&
+          !removed.has(id) &&
+          parts
+            .slice(0, perCopy)
+            .some(
+              (p) =>
+                p.compartments.some((c) => c.componentId === id) &&
+                p.compartments[0]?.componentId !== id,
+            ),
+      );
+      if (stuck.length === 0) {
+        break;
+      }
+      stuck.forEach((id) => removed.add(id));
+      parts = withoutCutsOf(variant.parts, removed);
+      error = cutFitError(parts.slice(0, perCopy), settings);
+    }
+    if (error === null) {
+      variants.push({ ...variant, parts });
+      removed.forEach((id) => members.add(id));
+    }
+  }
+  return { variants, members };
 }
 
 /**
@@ -300,56 +367,83 @@ function blockedByOrder(
 
 /**
  * The requirement of one bucket with only the variants that give every cut, or null when none
- * can. While none does, each pass takes the members stuck without a cut out of the way: those
- * that member order blocks lose their cuts (kept, with a warning), the others go to their bulk
- * fallback (kept, with an info), and the requirement is built again. A requirement still without
- * a variant when nothing is left to change is left out with a warning.
+ * can. A group's member that member order blocks (it would get its cut first) never costs the tray
+ * its place, and never costs it a split (groups spec §6.3, §6.5):
+ *
+ * - when some whole-tray variant (one part per copy) gives every cut, only the variants that give
+ *   every cut are kept;
+ * - when none does, the whole-tray variants are kept too, without the blocked members' cuts, next
+ *   to the variants that give every cut, with a `sizing.noFingerSlot` warning per member;
+ * - when no variant does, they are all kept without those cuts.
+ *
+ * Members stuck for another reason (no room for a cut anywhere) go to their bulk fallback (kept,
+ * with an info) pass by pass, and a requirement still without a variant when nothing is left to
+ * change is left out with a warning.
  */
 function settle(sized: Sized, settings: Settings, notices: Notice[]): TrayRequirement | null {
   const { copies, access, group } = sized;
   const key = sized.requirement.key;
   let usable = sized.usable;
   let requirement: TrayRequirement | null = sized.requirement;
-  const without: Usable[] = [];
   const binned: { u: Usable; error: CutFitError }[] = [];
   let last: CutFitError | undefined;
-  // Each pass turns at least one member from what it was, so there are at most as many as
-  // members (twice, for a member that is both).
-  for (let pass = 0; requirement !== null && pass <= 2 * usable.length; pass++) {
+  const whole = (v: TrayVariant): boolean => v.parts.length === copies;
+  const finish = (result: TrayRequirement, members: ReadonlySet<string>): TrayRequirement => {
+    if (group) {
+      notices.push(...usable.filter((u) => members.has(u.c.id)).map((u) => orderBlocked(u, group)));
+    }
+    for (const { u, error } of binned) {
+      notices.push(binnedInstead(u, error, result));
+    }
+    return result;
+  };
+  // Each pass turns at least one member from what it was, so there are at most as many as members.
+  for (let pass = 0; requirement !== null && pass <= usable.length; pass++) {
     const found = withCuts(requirement, copies, settings);
-    if (found.kept.variants.length > 0) {
-      if (group) {
-        notices.push(...without.map((u) => orderBlocked(u, group)));
-      }
-      for (const { u, error } of binned) {
-        notices.push(binnedInstead(u, error, found.kept));
-      }
-      return found.kept;
+    const failed = failedOf(requirement, found.results);
+    const kept = found.kept;
+    if (kept.variants.length > 0 && (!group || kept.variants.some(whole))) {
+      return finish(kept, new Set());
     }
     last = found.errors[0];
+    const wholeFailed = failed.filter(({ variant }) => whole(variant));
     const blocked = group
-      ? blockedByOrder(usable, found.errors, { key, copies, access }, settings)
+      ? blockedByOrder(
+          usable,
+          (kept.variants.length > 0 ? wholeFailed : failed).map((f) => f.error),
+          { key, copies, access },
+          settings,
+        )
       : [];
-    let changed = false;
     if (blocked.length > 0) {
-      usable = usable.map((u) => (blocked.includes(u) ? withoutCuts(u) : u));
-      without.push(...blocked);
-      changed = true;
-    } else {
-      usable = usable.map((u): Usable => {
-        const error = u.binned
-          ? undefined
-          : found.errors.find((e) => e.componentIds.includes(u.c.id));
-        const options = error ? bulkFallback(u.c, settings) : null;
-        if (options === null || error === undefined) {
-          return u;
-        }
-        changed = true;
-        const fallen: Usable = { ...u, options, binned: true };
-        binned.push({ u: fallen, error });
-        return fallen;
-      });
+      const res = keptWithoutCuts(
+        kept.variants.length > 0 ? wholeFailed : failed,
+        new Set(blocked.map((u) => u.c.id)),
+        copies,
+        settings,
+      );
+      if (res.variants.length > 0) {
+        return finish({ ...kept, variants: [...res.variants, ...kept.variants] }, res.members);
+      }
     }
+    if (kept.variants.length > 0) {
+      // Split variants give every cut and nothing can make a whole one: as it was.
+      return finish(kept, new Set());
+    }
+    let changed = false;
+    usable = usable.map((u): Usable => {
+      const error = u.binned
+        ? undefined
+        : found.errors.find((e) => e.componentIds.includes(u.c.id));
+      const options = error ? bulkFallback(u.c, settings) : null;
+      if (options === null || error === undefined) {
+        return u;
+      }
+      changed = true;
+      const fallen: Usable = { ...u, options, binned: true };
+      binned.push({ u: fallen, error });
+      return fallen;
+    });
     if (!changed) {
       break;
     }
