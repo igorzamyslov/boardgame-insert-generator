@@ -82,7 +82,7 @@ const PIN_CONFLICT = ["pin-conflict", "m-pin-conflict"] as const;
 // Task 8: the tray bar and the phone's tray sheet. The states are the tray cases of copy.board.test.tsx.
 const MORE = "More holds Swap with… and Lock size";
 const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
-const PIN_LABEL = "Pin/Unpin and Lock size carry no `aria-pressed`";
+const PIN_WORDS = "Pin and Turn say what they hold";
 const TRAY_SHEET = "A phone's tray bar is a modal sheet";
 const BAR_STATES = ["workspace-tray", "workspace-tray-more", "workspace-tray-spacer"] as const;
 const SHEET_STATES = ["m-tray", "m-tray-more", "m-tray-market", "m-tray-spacer"] as const;
@@ -529,8 +529,15 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   },
   { text: "Edit {name}", states: SHEET_STATES, ruling: TRAY_SHEET },
   // MobileTray's tile says "Pin here" and never "Unpin"; the label is the action, as on the bar
-  { text: "Pin", states: SHEET_STATES, ruling: PIN_LABEL },
-  { text: "Unpin", states: SHEET_STATES, ruling: PIN_LABEL },
+  // the buttons say what they hold: this tray alone, or the stack it is in (its tray count follows, for a reader)
+  ...["tray", "stack"].flatMap((what) =>
+    [`Pin this ${what}`, `Unpin this ${what}`, `Turn this ${what} 90°`].map((text) => ({
+      text,
+      states: [...BAR_STATES, ...SHEET_STATES],
+      ruling: PIN_WORDS,
+    })),
+  ),
+  { text: ", {n} trays", states: [...BAR_STATES, ...SHEET_STATES], ruling: PIN_WORDS },
   // "6 figure pockets" is MobileTray's own; the others say the same of the other kinds
   ...Object.values(COMPARTMENT_WORDS).flatMap(([one, many]) => [
     { text: `{n} ${one}`, states: SHEET_STATES, ruling: TRAY_SHEET },

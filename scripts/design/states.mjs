@@ -262,7 +262,7 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [
       { click: { role: "button", name: /^Market deck/, in: '[data-region="stage"]' } },
-      { click: { role: "button", name: "Pin" } },
+      { click: { role: "button", name: /^Pin this/ } },
       // the pin makes the plan stale and the rail loses its layers; they are back with the new plan
       { waitFor: { role: "button", name: /^Market deck, .*bottom layer/ } },
     ],
