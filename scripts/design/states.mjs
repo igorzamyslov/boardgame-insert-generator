@@ -328,6 +328,14 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [EDIT_MARKET],
   },
+  // The tablet width: Edit's board drawn at 820, the rail the editor and the stage beside it.
+  "editor-820": {
+    board: "Edit",
+    boardOpts: { props: { moreOpen: false } },
+    viewport: { width: 820, height: 1180 },
+    seed: "harbour-kings",
+    steps: [EDIT_MARKET],
+  },
   "editor-more": {
     board: "Edit",
     viewport: DESKTOP,
@@ -623,6 +631,18 @@ export const STATES = {
   // MobileStart: the h1, the two steps, the foot as a bar at the bottom of the screen; no page scroll.
   "m-start": { board: "MobileStart", viewport: PHONE, seed: null, noPageScroll: true },
   "m-workspace": { board: "MobileWorkspace", viewport: PHONE, seed: "harbour-kings" },
+  // The phone's 3D view (0.6.0 pass): the canvas fills the box frame, no blank band, no sideways scroll.
+  "m-workspace-3d": {
+    board: "MobileWorkspace",
+    nearest: "no board of its own: MobileWorkspace's box frame and segments",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [
+      { click: { role: "button", name: "3D", in: '[data-region="switches"]' } },
+      { wait: 3000 },
+    ],
+  },
   // The tray sheet (Task 8): a modal dialog; the other trays are at half behind it.
   "m-tray": {
     board: "MobileTray",

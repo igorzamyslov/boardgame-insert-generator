@@ -637,6 +637,15 @@ async function openApp(browser, appUrl, name, state, seeds) {
       problems.push("the page scrolls at this size (it must not, with many components)");
     }
   }
+  if (state.viewport.width < 760) {
+    // A phone never scrolls sideways (0.6.0 pass): the page is no wider than the window.
+    const sideways = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth + 1,
+    );
+    if (sideways) {
+      problems.push("the page scrolls sideways on a phone (it must not)");
+    }
+  }
   if (state.noStageScroll) {
     // The plan's box shrinks to what the stage has left, so the stage never scrolls on a desktop.
     const scrolls = await page.evaluate(() => {

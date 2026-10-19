@@ -626,6 +626,43 @@ describe("breakpoints", () => {
     eager: true,
   });
 
+  it("never scrolls sideways on a phone: no rule sets a fixed width over 390 px outside the wide screens' blocks", () => {
+    // what is left once the blocks that only apply from 760 px (and print) are cut out
+    const phoneRules = (source: string): string => {
+      let out = source.replace(/\/\*[\s\S]*?\*\//g, "");
+      for (const query of ["(width >= 760px)", "(width >= 760px) and (width <= 960px)", "print"]) {
+        for (;;) {
+          const at = out.indexOf(`@media ${query}`);
+          if (at === -1) {
+            break;
+          }
+          const open = out.indexOf("{", at);
+          let depth = 0;
+          let end = open;
+          for (; end < out.length; end += 1) {
+            depth += out[end] === "{" ? 1 : out[end] === "}" ? -1 : 0;
+            if (depth === 0) {
+              break;
+            }
+          }
+          out = out.slice(0, at) + out.slice(end + 1);
+        }
+      }
+      return out;
+    };
+    const wide: string[] = [];
+    for (const [file, source] of Object.entries(sheets)) {
+      for (const m of phoneRules(source).matchAll(
+        /([^{};]+)\{[^{}]*?[;{\s](?:min-)?width:\s*(\d+(?:\.\d+)?)px/g,
+      )) {
+        if (Number(m[2]) > 390) {
+          wide.push(`${file}: ${(m[1] ?? "").trim()} ${m[2]}px`);
+        }
+      }
+    }
+    expect(wide).toEqual([]);
+  });
+
   it("are 760 (phone), 600 (full-screen dialogs) and the 760 to 960 tablet band, and nothing else", () => {
     const RULED = new Set([
       "(width < 760px)",
