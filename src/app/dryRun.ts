@@ -6,7 +6,7 @@ import { createCtx } from "../layout/context";
 import type { Ctx } from "../layout/context";
 import { resolveLocks } from "../layout/locks";
 import { warmHints } from "../layout/warmstart";
-import type { Lock, Project, StoredLayout, TraySpec } from "../model/types";
+import type { ForeignData, Lock, Project, StoredLayout, TraySpec } from "../model/types";
 import { buildLayoutInput, canOptimize } from "./runner";
 
 export interface TurnCheck {
@@ -89,15 +89,16 @@ function ctxOf(p: Project): Ctx {
  * show as is when not. Reads the stored plan; synchronous, main thread, no optimizer. It checks
  * what `resolveLocks` checks: that the pins a turn writes don't clash with each other or with the
  * trays' sizes and rotations. Whether the turned stack then fits the box is only known to the
- * optimizer, which the next run reports. Never throws.
+ * optimizer, which the next run reports. `foreign` is the file's unread components, so a group
+ * listing one is no error. Never throws.
  */
-export function canTurn(p: Project, trayKey: string): TurnCheck {
+export function canTurn(p: Project, trayKey: string, foreign?: ForeignData): TurnCheck {
   try {
     const layout = p.layout;
     if (!layout) {
       return { ok: false, reason: "Make a plan first." };
     }
-    if (!canOptimize(p)) {
+    if (!canOptimize(p, undefined, foreign)) {
       return { ok: false, reason: "Fix the errors first." };
     }
     const found = stackOf(layout, trayKey);

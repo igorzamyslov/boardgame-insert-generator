@@ -44,25 +44,22 @@ function withoutNames(value: unknown): unknown {
 }
 
 /**
- * An item with `copies` N (above 1) as the item it was before schema 0.2.0: `perPlayer: { players: N }`.
- * The two mean the same layout, and hashing the old shape keeps the hash of every saved per-player
- * project, so its plan stays current across the migration.
- */
-function withCopiesAsPerPlayer(c: Component): unknown {
-  const { copies, ...rest } = c;
-  return copies !== undefined && copies > 1 ? { ...rest, perPlayer: { players: copies } } : rest;
-}
-
-/**
- * What of an item reaches the hash (groups spec §5): with copies as above, without `access` when
- * it is in a group (the group's own access is used, so the item's is hidden), and with
- * `flatDecks` only when it is "dividers" (they cut slots into the floor; "walls" lays out as
- * before the field existed).
+ * What of an item reaches the hash (groups spec §5):
+ * - `copies` N (above 1) as the item it was before schema 0.2.0, `perPlayer: { players: N }`: the
+ *   two mean the same layout, and hashing the old shape keeps the hash of every saved per-player
+ *   project, so its plan stays current across the migration. 1 or absent adds nothing;
+ * - for an item in a group, neither `access` nor `copies`: the group's are used (a grouped item's
+ *   copies is also an error), so the item's own are hidden;
+ * - `flatDecks` only when it is "dividers" (they cut slots into the floor; "walls" lays out as
+ *   before the field existed).
  */
 function hashedItem(c: Component, grouped: ReadonlySet<string>): unknown {
-  const item: Record<string, unknown> = { ...(withCopiesAsPerPlayer(c) as object) };
+  const item: Record<string, unknown> = { ...c };
+  delete item.copies;
   if (grouped.has(c.id)) {
     delete item.access;
+  } else if (c.copies !== undefined && c.copies > 1) {
+    item.perPlayer = { players: c.copies };
   }
   if (item.flatDecks !== "dividers") {
     delete item.flatDecks;

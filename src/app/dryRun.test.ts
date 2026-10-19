@@ -106,6 +106,18 @@ describe("canTurn", () => {
     expect(canTurn(broken, ALONE)).toEqual({ ok: false, reason: "Fix the errors first." });
   });
 
+  it("is not blocked by a group member this app doesn't read, given the file's foreign data", () => {
+    const p = planned();
+    const first = p.components[0]?.id ?? "";
+    const withForeign: Project = {
+      ...p,
+      groups: [{ id: "kit", name: "Kit", access: "often", memberIds: [first, "dial0001"] }],
+    };
+    const foreign = { components: [{ index: 9, raw: { id: "dial0001", kind: "dial" } }] };
+    expect(canTurn(withForeign, ALONE).reason).toBe("Fix the errors first.");
+    expect(canTurn(withForeign, ALONE, foreign).reason).not.toBe("Fix the errors first.");
+  });
+
   it("never throws", () => {
     const p = planned();
     const bad = {

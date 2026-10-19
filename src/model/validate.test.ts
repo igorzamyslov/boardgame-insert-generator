@@ -658,7 +658,11 @@ describe("validateProject: groups", () => {
         [invalid.group, "/groups/0/id"],
       ]);
     }
-    for (const id of ["a-b", "A_b9"]) {
+    // 1 to 40 characters: 41 is too long, 40 is fine.
+    expect(codes(validateProject(withGroups([a], [group("g".repeat(41), [])])))).toEqual([
+      [invalid.group, "/groups/0/id"],
+    ]);
+    for (const id of ["a-b", "A_b9", "g".repeat(40)]) {
       expect(validateProject(withGroups([a], [group(id, [])])), id).toEqual([]);
     }
   });
@@ -703,7 +707,7 @@ describe("validateProject: turn locks and flat decks", () => {
         level: "error",
         code: field.turnLock,
         path: "/locks/1/trayKey",
-        message: "A pinned turn needs a tray.",
+        message: "A turn needs a tray.",
       },
     ]);
   });

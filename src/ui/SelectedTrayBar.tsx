@@ -3,7 +3,7 @@ import { useMemo } from "preact/hooks";
 import { toggleLock, toggleSizeLock, turnTray } from "../app/actions";
 import { trayNames } from "../instructions/naming";
 import { numberParts, parentKey } from "../instructions/numbering";
-import type { Project, TraySpec } from "../model/types";
+import type { ForeignData, Project, TraySpec } from "../model/types";
 import { isAddOn, levelsOf } from "../plan/layers";
 import { layerLabel } from "../plan/PlanView";
 import { lookOfTray } from "../plan/glyph";
@@ -12,6 +12,8 @@ import { TrayBar } from "./TrayBar";
 
 export interface SelectedTrayBarProps {
   project: Project;
+  /** What the file kept of components this app doesn't read (for the Turn dry run). */
+  foreign?: ForeignData;
   /** The parts as they print (what the plan and the 3D view draw). */
   trays: readonly TraySpec[];
   selectedKey: string | null;
@@ -75,6 +77,7 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
   return (
     <TrayBar
       project={project}
+      {...(p.foreign === undefined ? {} : { foreign: p.foreign })}
       tray={tray}
       name={names.get(key)?.full ?? "Tray"}
       layer={at >= 0 ? layerLabel(at, levels.length) : `Layer ${tray.level + 1}`}

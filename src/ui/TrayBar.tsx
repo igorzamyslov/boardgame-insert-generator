@@ -9,7 +9,7 @@ import { canTurn } from "../app/dryRun";
 import { printedHeight } from "../instructions/numbering";
 import { summarize } from "../layout";
 import { Button, CloseButton, Dialog, Icon, IconTile, MenuItem, MenuPanel } from "../kit";
-import type { Project, TraySpec } from "../model/types";
+import type { ForeignData, Project, TraySpec } from "../model/types";
 import type { TrayLook } from "../plan/glyph";
 import { formatPrintCost } from "./estimates";
 import { mm } from "./identity";
@@ -18,6 +18,8 @@ import "./trayBar.css";
 export interface TrayBarProps {
   /** The project: its locks say what is pinned, and the dry run behind Turn reads its plan. */
   project: Project;
+  /** What the file kept of components this app doesn't read; the dry run behind Turn validates with it. */
+  foreign?: ForeignData;
   /** The selected part, as it prints. */
   tray: TraySpec;
   /** What the tray is called, in full. */
@@ -72,15 +74,15 @@ function shadeStyle(look: TrayLook | null | undefined): CSSProperties | undefine
 
 /** What the bar knows about the tray: its rules, whether Turn can go, and the lines it says. */
 function useTrayFacts(p: TrayBarProps) {
-  const { project, tray } = p;
+  const { project, tray, foreign } = p;
   const full = isLockable(tray);
   const pin = project.locks.find((l) => l.kind === "position" && l.trayKey === tray.key);
   const pinned = lockedKeys(project).has(tray.key);
   const turned = pin?.kind === "position" && pin.rotated;
   const sizeLocked = sizeLockedKeys(project).has(tray.key);
   const turnCheck = useMemo(
-    () => (full ? canTurn(project, tray.key) : { ok: false as const, reason: "" }),
-    [project, tray.key, full],
+    () => (full ? canTurn(project, tray.key, foreign) : { ok: false as const, reason: "" }),
+    [project, tray.key, full, foreign],
   );
   const estimate = useMemo(
     () => (full ? printEstimate(project, tray) : null),

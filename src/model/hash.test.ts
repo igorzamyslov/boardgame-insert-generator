@@ -365,6 +365,17 @@ describe("inputsHash: groups, copies, turn locks and flat decks", () => {
     expect(inputsHash(visible)).not.toBe(before);
   });
 
+  it("a grouped item's own copies don't reach the hash, an ungrouped item's do", () => {
+    const base = grouped();
+    const [c0, c1, c2] = base.components as [Component, Component, Component];
+    expect(inputsHash({ ...base, components: [{ ...c0, copies: 3 }, c1, c2] })).toBe(
+      inputsHash(base),
+    );
+    expect(inputsHash({ ...base, components: [c0, c1, { ...c2, copies: 3 }] })).not.toBe(
+      inputsHash(base),
+    );
+  });
+
   it("only empty groups hash like no groups", () => {
     const base = sample();
     const empty: Group = { id: "zzz", name: "Nothing", access: "often", memberIds: [] };

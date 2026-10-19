@@ -3,7 +3,7 @@ import { batch } from "@preact/signals";
 import { DEFAULT_ITERATIONS, REPEAT_FACTOR } from "../layout";
 import type { LayoutInput, LayoutResult } from "../layout/types";
 import { inputsHash } from "../model/hash";
-import type { Notice, Project } from "../model/types";
+import type { ForeignData, Notice, Project } from "../model/types";
 import { validateProject } from "../model/validate";
 import { APP_VERSION } from "../model/version";
 import { size } from "../sizing";
@@ -43,12 +43,17 @@ export interface Runner {
   dispose(): void;
 }
 
-/** Components exist and nothing is in error; pass the project's current validation to reuse it. */
+/**
+ * Components exist and nothing is in error; pass the project's current validation to reuse it, or
+ * the file's foreign data so a group's member that this app doesn't read is not an error.
+ */
 export function canOptimize(
   p: Project,
-  validation: readonly Notice[] = validateProject(p),
+  validation?: readonly Notice[],
+  foreign?: ForeignData,
 ): boolean {
-  return p.components.length > 0 && !validation.some((n) => n.level === "error");
+  const notices = validation ?? validateProject(p, foreign);
+  return p.components.length > 0 && !notices.some((n) => n.level === "error");
 }
 
 export function buildLayoutInput(p: Project): LayoutInput {
@@ -171,7 +176,7 @@ export function createRunner(state: State, deps: RunnerDeps, hooks: RunnerHooks)
     }
     clearTimer();
     const p = state.project.value;
-    if (!canOptimize(p)) {
+    if (!canOptimize(p, undefined, state.foreign.value)) {
       invalidate();
       batch(() => {
         state.lockConflicts.value = [];

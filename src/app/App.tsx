@@ -453,6 +453,7 @@ export function App(props: AppProps) {
     layout !== undefined && printable.some((t) => t.key === s.selection.value);
   const barProps = {
     project,
+    foreign: s.foreign.value,
     trays: printable,
     selectedKey: layout ? s.selection.value : null,
     edit: store.edit,

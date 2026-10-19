@@ -692,18 +692,14 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
       return;
     case "turn":
       if (lock.trayKey === "") {
-        ck.error(
-          VALIDATION_NOTICE_CODES.field.turnLock,
-          `${at}/trayKey`,
-          "A pinned turn needs a tray.",
-        );
+        ck.error(VALIDATION_NOTICE_CODES.field.turnLock, `${at}/trayKey`, "A turn needs a tray.");
       }
       return;
   }
 }
 
-/** Group ids share the alphabet of item ids (newId), minus ":" which tray keys use. */
-const GROUP_ID = /^[A-Za-z0-9_-]+$/;
+/** Group ids: 1 to 40 characters of the alphabet of item ids (newId), minus ":" which tray keys use. */
+const GROUP_ID = /^[A-Za-z0-9_-]{1,40}$/;
 
 /**
  * The groups table (groups spec §4.4), after the items: a group's own copies and growth, then its
@@ -734,7 +730,7 @@ function checkGroups(ck: Checker, p: Project, foreignIds: ReadonlySet<string>): 
       ck.error(
         VALIDATION_NOTICE_CODES.invalid.group,
         `${at}/id`,
-        "A group id may only contain letters, digits, - and _.",
+        "A group id is 1 to 40 letters, digits, - or _.",
       );
     } else if (itemIds.has(g.id) || foreignIds.has(g.id) || groupIds.has(g.id)) {
       ck.error(
