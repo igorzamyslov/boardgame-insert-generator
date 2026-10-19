@@ -54,7 +54,7 @@ a commit can rewrite your files. Node version: `.nvmrc` (24).
   (`scene.ts` loads lazily).
 - `instructions/` handles tray names (`naming.ts`), part ids (`numbering.ts`), the packing
   guide and the PNG.
-- `share/` holds the local project store, JSON files, printer prefs and the reader for old
+- `share/` holds the local project store, JSON files, printer and rail-width prefs and the reader for old
   `#1.` links. `styles/` holds tokens, fonts and the legacy `pf-` classes.
 
 **Test environment.** Tests run in Node by default. A component test opts into jsdom with a
@@ -571,7 +571,9 @@ addition:
   (`kit/Dialog.tsx`; `Drawer` for Settings' right-hand placement), with `labelledBy` (the id of its
   h1), `onClose` and optional `class` and `region`. The owner mounts it to open and unmounts it to
   close. Dialog handles the rest:
-  - it opens a native `<dialog>` with `showModal()`, which traps focus and makes the page inert
+  - it opens a native `<dialog>` with `showModal()`, which keeps focus on the dialog and makes the
+    page inert (Tab past the last control goes to the browser's own interface and the next Tab
+    comes back to the first: the platform's way, checked by the `settings-keys` probe)
   - Escape goes through `onCancel` to your `onClose`
   - it returns focus to the opener on unmount
   - it goes full screen below 600 px (`.k-dialog`, `.k-drawer` in `kit/kit.css`)

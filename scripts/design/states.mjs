@@ -9,6 +9,7 @@
 //   nearest    set when no board of its own exists: why this board is the nearest
 //   viewport   the app's window; the board variant is drawn at this size too
 //   seed       a docs/design/seeds name, or null for empty storage (first visit)
+//   storage    extra localStorage entries (key -> JSON text) set over the seed's, e.g. the prefs entry
 //   url        the page to open, relative to the dev server ("/kit.html"); the app's own by default
 //   fullPage   the app is drawn in full, not just the window (a page that scrolls, like the kit gallery)
 //   holds      shots-mode holds to set before the app starts ("export", "search")
@@ -16,19 +17,27 @@
 //   noPageScroll  the state fails when the page scrolls at its size (a review focus)
 //   noStageScroll  the state fails when the stage scrolls: the plan's box shrinks instead (Task 7)
 //   minPlanWidth  the state fails when the plan's box is narrower than this many px
+//   stageBesideRail  the state fails when the stage is not beside the rail (it wrapped under it) or is under 360 px wide
 //   planWidth     the state fails when the plan's box is not this many px wide (±1), by its computed size
 //   probes        names of probes (shots.mjs PROBES) run in Chromium after the pictures; a problem fails the state
 //   needsWebGL    the state draws the 3D view: without WebGL it notes the fallback and the jump check skips it
+//   expectedErrors  console.error messages the state expects: a string the message contains, or a
+//                 RegExp. Any other error the page logs (or an uncaught one) fails the state. Empty by default.
 //
 // Step = { click: { role, name, in? } }  click getByRole(role, { name }), inside the CSS selector `in`
 //      | { waitFor: { role?, name?, text?, timeout? } }  (default 15 s)
 //      | { fill: { label, value } }  type a value into the text box with that label (getByLabel)
+//      | { tabTo: { role, name, in?, max? } }  press Tab until the focus is on that control (keyboard-only states)
 //      | { press: key }
 //      | { scrollTop: selector }  a scrolling panel back to its top
 //      | { wait: ms }  a pause, for what has no mark to wait on (the 3D view building its meshes)
 
 const DESKTOP = { width: 1440, height: 900 };
+const WIDE = { width: 1920, height: 1080 };
 const PHONE = { width: 390, height: 844 };
+// What the app keeps per browser (src/share/prefs.ts): the rail's width, as the handle leaves it.
+const PREFS_RAIL_480 = { "insert-generator:prefs": JSON.stringify({ railWidth: 480 }) };
+const PREFS_RAIL_420 = { "insert-generator:prefs": JSON.stringify({ railWidth: 420 }) };
 
 const MENU = { click: { role: "button", name: /^Project menu/ } };
 // The rail (Task 5) and the editor opened from it (Task 10).
@@ -66,6 +75,15 @@ const SETTINGS_STEPS = [
   SCROLL,
 ];
 
+// Settings opened by keys alone: the project menu's button, Enter, its Settings item, Enter.
+const KEYS_TO_SETTINGS = [
+  { tabTo: { role: "button", name: /^Project menu/ } },
+  { press: "Enter" },
+  { tabTo: { role: "button", name: "Settings", in: "#project-menu" } },
+  { press: "Enter" },
+  { waitFor: { role: "heading", name: "Settings" } },
+];
+
 /** Seeds: a current plan each, and the ones that are stale on purpose (make-seeds.mjs). */
 export const SEEDS = {
   current: ["harbour-kings", "harbour-kings-headroom", "harbour-kings-long", "harbour-kings-wide"],
@@ -93,7 +111,8 @@ export const STATES = {
     noPageScroll: true,
     steps: [{ fill: { label: "Height", value: "0" } }, { waitFor: { role: "alert" } }],
   },
-  // The plan is the hero: at 1440×900 its box is at least 560 px wide (Main's is 582).
+  // The plan is the hero: at 1440×900 its box is at least 560 px wide (Main's is 582; the stage's height
+  // now limits it, not the old cap, so it is wider than that).
   workspace: {
     board: "Main",
     viewport: DESKTOP,
@@ -102,12 +121,116 @@ export const STATES = {
     noStageScroll: true,
     probes: ["plan-gaps"],
   },
+  // 1920×1080: the plan's frame grows to 900 px (owner decision C, 2026-10-19). The board is drawn at 1440
+  // only, so the pair shows Main for reference and the numbers differ by design.
+  "workspace-1920": {
+    board: "Main",
+    nearest: "Main at 1440: the board is not drawn at 1920, so its numbers differ by design",
+    viewport: WIDE,
+    seed: "harbour-kings",
+    minPlanWidth: 780,
+    noStageScroll: true,
+    probes: ["plan-gaps"],
+  },
+  // The rail dragged wider (420 px, kept in the prefs): the stage takes the rest, and the plan fits it.
+  "workspace-rail-wide": {
+    board: "Main",
+    nearest:
+      "Main with the rail at 420 px: the board's rail is 300, so the rail's width differs by design",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    storage: PREFS_RAIL_420,
+    noStageScroll: true,
+  },
+  // 1024×768 with the rail chosen at 480: the stage keeps 360 px beside it, so nothing wraps (the rail shows 480
+  // at 1024 only because 1024 less 360 is more; at 800 it would show 440).
+  "workspace-rail-wide-1024": {
+    board: "Main",
+    nearest:
+      "Main with the rail at 480 px in a 1024 px window: the board is drawn at 1440, so its widths differ by design",
+    viewport: { width: 1024, height: 768 },
+    seed: "harbour-kings",
+    storage: PREFS_RAIL_480,
+    noPageScroll: true,
+    noStageScroll: true,
+    stageBesideRail: true,
+  },
   // The tablet band: the rail stays beside the stage (Task 3 checks it; Task 15 does the pass).
   "workspace-820": {
     board: "Main",
     viewport: { width: 820, height: 1180 },
     seed: "harbour-kings",
     noPageScroll: true,
+  },
+  // The same at 820 px, where the status row's controls take two rows (stage.css): the View switch still
+  // stays where it is when Keep searching turns into Stop and when the 3D view adds "All" to the Layer switch.
+  "workspace-820-searching": {
+    board: "Main",
+    boardOpts: { state: { searching: true } },
+    nearest: "Main's searching state, drawn at 1440; 820 differs by design",
+    viewport: { width: 820, height: 1180 },
+    seed: "harbour-kings",
+    holds: ["search"],
+    steps: [
+      { click: { role: "button", name: "Keep searching", in: STATUS } },
+      { waitFor: { role: "button", name: "Stop" } },
+    ],
+  },
+  "workspace-820-3d": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest: "no board of its own: Main's 3D view, drawn at 1440; 820 differs by design",
+    viewport: { width: 820, height: 1180 },
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
+  },
+  // The band between the narrow two-row controls and the wide one row (a stage of about 600 to 750 px):
+  // 3D's "All" (586 px of controls) and three layers (617, and 664 with All) once overflowed a 940 to 960 px
+  // window. The View switch stays put there too (jump pairs).
+  "workspace-940": {
+    board: "Main",
+    nearest: "Main at 1440; 940 differs by design",
+    viewport: { width: 940, height: 800 },
+    seed: "harbour-kings",
+  },
+  "workspace-940-3d": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest: "no board of its own: Main's 3D view, drawn at 1440; 940 differs by design",
+    viewport: { width: 940, height: 800 },
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
+  },
+  "workspace-940-searching": {
+    board: "Main",
+    boardOpts: { state: { searching: true } },
+    nearest: "Main's searching state, drawn at 1440; 940 differs by design",
+    viewport: { width: 940, height: 800 },
+    seed: "harbour-kings",
+    holds: ["search"],
+    steps: [
+      { click: { role: "button", name: "Keep searching", in: STATUS } },
+      { waitFor: { role: "button", name: "Stop" } },
+    ],
+  },
+  // Three layers (the long seed): the Layer slot grows to 334 px (381 with All).
+  "workspace-960-long": {
+    board: "Main",
+    nearest: "Main at 1440 with three layers; 960 differs by design",
+    viewport: { width: 960, height: 800 },
+    seed: "harbour-kings-long",
+  },
+  "workspace-960-long-3d": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest:
+      "no board of its own: Main's 3D view, drawn at 1440 with three layers; 960 differs by design",
+    viewport: { width: 960, height: 800 },
+    seed: "harbour-kings-long",
+    needsWebGL: true,
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   "workspace-searching": {
     board: "Main",
@@ -134,13 +257,13 @@ export const STATES = {
     seed: "harbour-kings-notes",
     noStageScroll: true,
   },
-  // A box that is not square (400 × 285 mm): its longer side is 582 px wide, as a square box's is.
+  // A box that is not square (400 × 285 mm): its longer side is the width the stage leaves (up to 900 px), as a square box's is.
   "workspace-wide": {
     board: "Main",
     nearest: "no board of its own: Main's box frame, wider than it is tall",
     viewport: DESKTOP,
     seed: "harbour-kings-wide",
-    planWidth: 582,
+    minPlanWidth: 700,
     noStageScroll: true,
   },
   // The 3D view: three.js in the plan's frame. Main's own 3D is a CSS tilt of the flat box.
@@ -154,6 +277,16 @@ export const STATES = {
     steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
   // A long box in 3D (feedback on 0.5.0, point 10): the camera fits it however it is turned and spread.
+  "workspace-3d-1920": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest:
+      "no board of its own: Main's box frame and segments (drawn at 1440; 1920 differs by design)",
+    viewport: WIDE,
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
+  },
   "workspace-3d-wide": {
     board: "Main",
     boardOpts: { state: { view: "3d" } },
@@ -208,7 +341,16 @@ export const STATES = {
     boardOpts: { state: { sel: "market" } },
     viewport: DESKTOP,
     seed: "harbour-kings",
-    planWidth: 582,
+    minPlanWidth: 560,
+    noStageScroll: true,
+    steps: [SELECT_MARKET],
+  },
+  "workspace-tray-1920": {
+    board: "Main",
+    boardOpts: { state: { sel: "market" } },
+    nearest: "Main with a tray selected, drawn at 1440; 1920 differs by design",
+    viewport: WIDE,
+    seed: "harbour-kings",
     noStageScroll: true,
     steps: [SELECT_MARKET],
   },
@@ -280,6 +422,14 @@ export const STATES = {
     board: "Edit",
     boardOpts: { props: { moreOpen: false } },
     viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [EDIT_MARKET],
+  },
+  // The tablet width: Edit's board drawn at 820, the rail the editor and the stage beside it.
+  "editor-820": {
+    board: "Edit",
+    boardOpts: { props: { moreOpen: false } },
+    viewport: { width: 820, height: 1180 },
     seed: "harbour-kings",
     steps: [EDIT_MARKET],
   },
@@ -447,6 +597,23 @@ export const STATES = {
     noPageScroll: true,
     steps: [MAKE_NEW_PLAN, { waitFor: { text: FIT_YET, timeout: 90_000 } }],
   },
+  // The box's editor while the plan does not fit (0.6.0 carry): the box is open over the no-fit
+  // seed (Heroes is 80 mm in a 70 mm box), so the editor tells the problem in a line. No board
+  // draws this: Box is the editor, NoFit's status line is the problem's words.
+  "box-nofit": {
+    board: "Box",
+    nearest:
+      "Box, with the no-fit line of NoFit above the fields (neither board draws the two together)",
+    viewport: DESKTOP,
+    seed: "harbour-kings-nofit",
+    noPageScroll: true,
+    steps: [
+      MAKE_NEW_PLAN,
+      { waitFor: { text: FIT_YET, timeout: 90_000 } },
+      { click: { role: "button", name: /^The box/, in: '[data-region="rail"]' } },
+      { waitFor: { role: "heading", name: "Side view of the box" } },
+    ],
+  },
   // PinConflict (Task 12): the plan the runner kept, the pins whole, and the column "Unpin one".
   "pin-conflict": {
     probes: ["plan-gaps"],
@@ -545,6 +712,26 @@ export const STATES = {
     seed: "harbour-kings",
     steps: SETTINGS_STEPS,
   },
+  // Settings by keyboard only (0.6.0 carry): Tab to the project menu's button, Enter, Tab to
+  // Settings, Enter; the `settings-keys` probe then checks the trap, the inert page, Escape and
+  // where the focus goes back to. The drawer is drawn with nothing changed, so its header differs
+  // from the board's ("3 changed").
+  "settings-keys": {
+    board: "Settings",
+    nearest: "Settings, drawn with three values changed where this state changes none",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: KEYS_TO_SETTINGS,
+    probes: ["settings-keys"],
+  },
+  "m-settings-keys": {
+    board: "Settings",
+    nearest: "Settings, drawn with three values changed where this state changes none",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: KEYS_TO_SETTINGS,
+    probes: ["settings-keys"],
+  },
   // Export (Task 13): the dialog opened from the header. Export draws "Other formats" open; the
   // app folds it, so the state opens it too.
   download: {
@@ -617,6 +804,18 @@ export const STATES = {
   // MobileStart: the h1, the two steps, the foot as a bar at the bottom of the screen; no page scroll.
   "m-start": { board: "MobileStart", viewport: PHONE, seed: null, noPageScroll: true },
   "m-workspace": { board: "MobileWorkspace", viewport: PHONE, seed: "harbour-kings" },
+  // The phone's 3D view (0.6.0 pass): the canvas fills the box frame, no blank band, no sideways scroll.
+  "m-workspace-3d": {
+    board: "MobileWorkspace",
+    nearest: "no board of its own: MobileWorkspace's box frame and segments",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [
+      { click: { role: "button", name: "3D", in: '[data-region="switches"]' } },
+      { wait: 3000 },
+    ],
+  },
   // The tray sheet (Task 8): a modal dialog; the other trays are at half behind it.
   "m-tray": {
     board: "MobileTray",
@@ -678,6 +877,20 @@ export const STATES = {
     viewport: PHONE,
     seed: "harbour-kings-pins",
     steps: [MAKE_NEW_PLAN, { waitFor: { text: /fit with/, timeout: 90_000 } }],
+  },
+  // The same on a phone: the sheet's first line in the scroll is the problem.
+  "m-box-nofit": {
+    board: "MobileBox",
+    nearest:
+      "MobileBox, with the no-fit line of MobileFix above the fields (neither board draws the two together)",
+    viewport: PHONE,
+    seed: "harbour-kings-nofit",
+    steps: [
+      MAKE_NEW_PLAN,
+      { waitFor: { text: FIT_YET, timeout: 90_000 } },
+      { click: { role: "button", name: /^The box/, in: '[data-region="sheet"]' } },
+      { waitFor: { role: "heading", name: "The box" } },
+    ],
   },
   // MobileBox: the sheet fills the screen; its h1 is "The box" and the side view is under the fields.
   "m-box": {

@@ -49,10 +49,61 @@
 
 .stage-controls__layer {
   min-width: var(--stage-layer-slot);
+
+  /* in a row wide enough for three layers and "All" (below), a longer switch scrolls in its slot, never past the row */
+  max-width: calc(100cqw - var(--stage-action-slot) - 7.5rem - 2 * var(--s-10));
+  overflow-x: auto;
 }
 
 .stage-controls__action {
   min-width: var(--stage-action-slot);
+}
+
+/*
+ * A status row narrower than 42 rem is a container, and its controls take two rows that keep the
+ * same places in every state: the Layer slot on its own row, always the height of a switch (empty
+ * when there is no switch), and under it the View switch with the action beside it. 42 rem (672 px)
+ * is the widest the one-row controls get with a switch of three layers and the 3D view's "All"
+ * (measured: 539 px for two layers, 586 with All, 617 for three layers, 664 for three with All, the
+ * Layer slot growing about 78 px a layer); that is a stage under about 745 px, any window from 760 px
+ * with a 300 px rail up to about 1045 px, and more with a wider rail. Wider, more layers than that
+ * scroll inside the Layer slot. The View switch stays where it is when the Layer switch comes or goes
+ * and when Keep searching turns into Stop, at every width; the page never scrolls sideways.
+ */
+.ws-stage .k-status {
+  container: stage-status / inline-size;
+}
+
+@container stage-status (width < 42rem) {
+  .stage-controls {
+    display: grid;
+    grid-template-areas:
+      "layer layer"
+      "view action";
+    grid-template-columns: auto 1fr; /* the 1fr takes what the Layer row spans, so the action starts where the View switch ends, whatever it holds */
+    justify-content: start;
+    justify-items: start; /* each keeps its own width: the View switch is the same box whatever the other rows hold */
+    max-width: 100%;
+  }
+
+  .stage-controls__layer {
+    grid-area: layer;
+    justify-content: flex-start;
+    min-width: 0;
+    max-width: 100%;
+    min-height: calc(var(--control-h) + 2 * var(--s-3));
+    overflow-x: auto;
+  }
+
+  .stage-controls__view {
+    grid-area: view;
+  }
+
+  .stage-controls__action {
+    grid-area: action;
+    justify-content: flex-start;
+    min-width: 0;
+  }
 }
 
 /* A long name on a button (Unpin Heroes — Hero 1/6, …) is cut with an ellipsis, not pushed past the row. */
@@ -100,6 +151,26 @@
   align-items: center;
   align-self: stretch;
   min-height: var(--stage-slot);
+}
+
+/*
+ * Over the plan the slot is as tall as the tray bar, so choosing a tray (the bar replaces the hint)
+ * moves and resizes nothing below it: with the plan's frame limited by the height the stage has
+ * left (0.6.0: it is up to 900 px now), a slot that grew would shrink the frame.
+ */
+.plan-col .stage-slot {
+  min-height: var(--stage-slot-bar);
+}
+
+/*
+ * A phone's plan has no slot while nothing is said (MobileWorkspace goes from the segments straight
+ * to the box): the idle slot is only for a reader, out of the flow and with no height, whatever the
+ * desktop slot above gives it. (`.visually-hidden` is declared before this file, so the slot's own
+ * `position: relative` and min-height won, and an 80 px empty band sat above the box.)
+ */
+.stage-slot.visually-hidden {
+  position: absolute;
+  min-height: 0;
 }
 
 /*

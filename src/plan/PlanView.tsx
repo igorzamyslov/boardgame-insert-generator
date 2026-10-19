@@ -77,7 +77,12 @@ function trayLabel(name: string, layer: number, pinned: boolean, sizeLocked: boo
   return `${name}, layer ${layer}${pinned ? ", pinned" : ""}${sizeLocked ? ", size locked" : ""}`;
 }
 
-/** The floor's width at Main's full size (a 582 px box less its 6 px floor inset each side), and a phone's before it is measured. */
+/**
+ * The floor's width the first paint guesses before the box is measured (a desktop's, and a
+ * phone's): the plan's frame is measured right after mount and follows the stage from then on, so
+ * these only size names for one frame. A desktop's guess is the old 582 px frame less its 6 px floor
+ * inset each side; the frame is up to `--plan-max` (900 px) now.
+ */
 const FLOOR_PX = 570;
 const PHONE_FLOOR_PX = 346;
 /** A tile is drawn 3 px inside its footprint, so neighbours are 6 px apart (Main). */

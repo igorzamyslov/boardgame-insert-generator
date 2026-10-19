@@ -65,4 +65,12 @@ describe("prefs store across tabs", () => {
     otherTabWrites(KEY, JSON.stringify({ printer: MINE }));
     expect(prefs.printer.value).toBe(before);
   });
+
+  it("follows the rail's width another tab saved, and goes back to 300 when it is cleared", () => {
+    const prefs = createPrefsStore(localStorage);
+    otherTabWrites(KEY, JSON.stringify({ railWidth: 440 }));
+    expect(prefs.railWidth.value).toBe(440);
+    otherTabWrites(KEY, null);
+    expect(prefs.railWidth.value).toBe(300);
+  });
 });

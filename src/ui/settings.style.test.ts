@@ -52,6 +52,10 @@ describe("settings.css", () => {
     expect(ruleFor(".st-head")).toMatch(/gap:\s*var\(--s-12\)/);
     expect(ruleFor(".st-head")).toMatch(/border-bottom:\s*1px solid var\(--rule-soft\)/);
     expect(ruleFor(".st-title")).toMatch(/var\(--h1-drawer\)/);
+    // only as wide as its text, so the focus ring hugs the word; what follows is pushed right
+    expect(ruleFor(".st-title")).toMatch(/flex:\s*none/);
+    expect(ruleFor(".st-title")).not.toMatch(/flex-grow/);
+    expect(ruleFor(".st-head .st-title + *")).toMatch(/margin-left:\s*auto/);
     expect(ruleFor(".st-tabs")).toMatch(/padding:\s*var\(--s-14\) var\(--s-28\) 0/);
     expect(ruleFor(".st-body")).toMatch(/padding:\s*var\(--s-8\) var\(--s-28\) var\(--s-24\)/);
     const foot = ruleFor(".st-foot");

@@ -387,8 +387,11 @@ export function App(props: AppProps) {
   const showStale = placed.banner.some((n) => n.code === STALE_CODE);
   const showGeometry = placed.banner.some((n) => n.code === GEOMETRY_MAJOR_CODE);
   // The stale and older-geometry notices are the banner's: the notes under the plan list the others.
+  // The engine's no-fit paragraph is on no stage (owner, 0.6.0 checkpoint C): the heading's line (or
+  // the editor's problem line) carries the fact and how far the plan is short.
   const summaryNotices = layoutNotices.filter(
-    (n) => n.code !== STALE_CODE && n.code !== GEOMETRY_MAJOR_CODE,
+    (n) =>
+      n.code !== STALE_CODE && n.code !== GEOMETRY_MAJOR_CODE && n.code !== NOTICE_CODES.doesNotFit,
   );
   // The file chooser lives here, not in the menu: the menu may close while the system dialog is up.
   async function readFile(input: HTMLInputElement): Promise<void> {
@@ -670,6 +673,8 @@ export function App(props: AppProps) {
       firstVisit={firstVisit}
     />
   );
+  // The rail's width, the person's choice on a desktop (kept per browser; `prefs.railWidth`).
+  const railWidth = { value: store.prefs.railWidth.value, onChange: store.prefs.setRailWidth };
   const headerSlot = (
     <>
       <Header
@@ -831,10 +836,6 @@ export function App(props: AppProps) {
   );
   // The layout and sizing notices, under the plan caption.
   const stageNotes = <StageNotes notices={summaryNotices} />;
-  // The fit problems say how far the plan is short in the heading's line: the engine's paragraph is not repeated.
-  const fitNotes = (
-    <StageNotes notices={summaryNotices.filter((n) => n.code !== NOTICE_CODES.doesNotFit)} />
-  );
   const stageSlot = (
     <>
       {notices}
@@ -889,7 +890,7 @@ export function App(props: AppProps) {
           misfitKey={misfit?.trayKey}
           focusKey={fitKind === "noFit" ? misfit?.trayKey : firstConflict?.trayKey}
           phone={phone}
-          after={fitNotes}
+          after={stageNotes}
         />
       ) : (
         <>
@@ -1025,6 +1026,7 @@ export function App(props: AppProps) {
               headerExtra={fileInput}
               stageBefore={notices}
               stageAfter={removedNote}
+              railWidth={railWidth}
             />
           ) : (
             <Workspace
@@ -1034,6 +1036,7 @@ export function App(props: AppProps) {
               rail={railSlot}
               stage={stageSlot}
               inert={sheetCoversScreen}
+              railWidth={railWidth}
               sheet={
                 !phone
                   ? undefined

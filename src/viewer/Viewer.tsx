@@ -401,6 +401,10 @@ export function Viewer(p: ViewerProps) {
           </div>
         </div>
       </div>
+      {/* The plan's caption has a line under its frame; this holds the same room, so Top and 3D leave the frame the same height. */}
+      <p class="plan-caption plan-caption--spacer" aria-hidden="true">
+        {"\u00a0"}
+      </p>
     </div>
   );
 }

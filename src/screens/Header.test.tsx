@@ -7,7 +7,10 @@ import type { SaveState } from "../app/state";
 import { Header } from "./Header";
 import type { HeaderProps } from "./Header";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 function props(over: Partial<HeaderProps> = {}): HeaderProps {
   return {
@@ -322,6 +325,42 @@ describe("Header", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByText("Inside the menu")).toBeNull();
     expect(document.activeElement).toBe(button);
+  });
+
+  it("does not reopen after a choice made with Enter (the key's click lands on the button the focus went to)", () => {
+    vi.useFakeTimers();
+    render(<Header {...props()} />);
+    const button = screen.getByRole("button", { name: "Project menu" });
+    fireEvent.click(button);
+    const item = screen.getByText("Inside the menu");
+    // what the browser does for Enter on an item: keydown, the item's click, then the same key's click on the
+    // element that has the focus by then (the button, which the choice gave it)
+    fireEvent.keyDown(item, { key: "Enter" });
+    fireEvent.click(item);
+    expect(document.activeElement).toBe(button);
+    fireEvent.click(button);
+    expect(screen.queryByText("Inside the menu")).toBeNull();
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    // the next real click is not dropped, whatever became of the key-up (it lands outside the menu
+    // when the choice opened a dialog)
+    fireEvent.keyUp(document.body, { key: "Enter" });
+    vi.advanceTimersByTime(200);
+    fireEvent.click(button);
+    expect(screen.getByText("Inside the menu")).toBeTruthy();
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("drops only the click that comes with the key, not a later one on the same press's account", () => {
+    vi.useFakeTimers();
+    render(<Header {...props()} />);
+    const button = screen.getByRole("button", { name: "Project menu" });
+    fireEvent.click(button);
+    fireEvent.keyDown(screen.getByText("Inside the menu"), { key: "Enter" });
+    fireEvent.click(screen.getByText("Inside the menu"));
+    // the key's own click never came (a browser that sends none); a click a moment later is a real one
+    vi.advanceTimersByTime(200);
+    fireEvent.click(button);
+    expect(screen.getByText("Inside the menu")).toBeTruthy();
   });
 
   it("closes on a click outside it, not on a click inside, and when the content asks", () => {

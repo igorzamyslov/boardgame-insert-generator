@@ -12,7 +12,7 @@
 
 /*
  * The room for the box. It is as tall as the box at the stage's width, up to the box's height at
- * Main's full size, so the caption sits 12 px under the box and nothing floats. It shrinks, never
+ * its full size (--plan-max), so the caption sits 12 px under the box and nothing floats. It shrinks, never
  * grows, when the stage has less left after the banner, the status row, the slot, the caption and
  * the notes. It is a size container, so the box takes its measure from it: the box shrinks before
  * the stage scrolls (the desktop stage never does).
@@ -23,13 +23,15 @@
   align-self: stretch;
   place-items: center;
   min-height: 0;
-  max-height: calc(570px * var(--box-l) / max(var(--box-w), var(--box-l)) + 12px);
+  max-height: calc(
+    (var(--plan-max) - 12px) * var(--box-l) / max(var(--box-w), var(--box-l)) + 12px
+  );
   aspect-ratio: var(--box-w) / var(--box-l);
   container-type: size;
 }
 
 /*
- * The frame, the plan's and the 3D view's alike. Its longer side is Main's 582 px, or the width
+ * The frame, the plan's and the 3D view's alike. Its longer side is --plan-max (900 px), or the width
  * and height the stage leaves (the container's); the other side follows the box's W:L. The floor
  * is the frame less 6 px each side, so a 285 mm box is drawn at 2 px per mm at full size.
  */
@@ -37,9 +39,9 @@
 .viewer-stage {
   --long: max(var(--box-w), var(--box-l));
 
-  /* the longer side: 582 px, or what makes the width fit 100cqw and the height 100cqh, whichever way the box lies */
+  /* the longer side: --plan-max, or what makes the width fit 100cqw and the height 100cqh, whichever way the box lies */
   --side: min(
-    582px,
+    var(--plan-max),
     calc((100cqw - 12px) * var(--long) / var(--box-w) + 12px),
     calc((100cqh - 12px) * var(--long) / var(--box-l) + 12px)
   );
@@ -278,6 +280,15 @@
   gap: var(--s-6);
 }
 
+/*
+ * The 3D view holds the caption's place under its frame (an empty, hidden line like the plan's
+ * caption), so the frame has the height the plan's has, and Top turning to 3D moves nothing. A
+ * phone's 3D view has none: the plan's caption there is its own and the stage scrolls.
+ */
+.plan-caption--spacer {
+  visibility: hidden;
+}
+
 /* MobileWorkspace: the box takes the width the page leaves, and the stage scrolls (no height cap). */
 @media (width < 760px) {
   .plan-fit {
@@ -296,6 +307,10 @@
 
   .plan-caption {
     font-size: var(--text-2xs);
+  }
+
+  .plan-caption--spacer {
+    display: none;
   }
 
   /* MobileWorkspace: no cells, and a smaller pill. */
