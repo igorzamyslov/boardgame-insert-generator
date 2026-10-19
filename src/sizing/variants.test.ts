@@ -22,7 +22,7 @@ function opt(id: string, blocks: number): StorageOption {
 }
 
 describe("buildVariants", () => {
-  it("ranks by (mode + arrangement + split, storage, mode, arrangement, split) and keeps 8", () => {
+  it("ranks by (mode + arrangement + split, storage, mode, arrangement, split) and keeps all", () => {
     const variants = buildVariants({
       key: "k",
       options: [opt("A", 4), opt("B", 4), opt("C", 4)],
@@ -37,6 +37,13 @@ describe("buildVariants", () => {
       "B|strip|split2",
       "B|rows2|split1",
       "C|strip|split2",
+      "C|rows2|split1",
+      "A|strip|split3",
+      "A|rows2|split2",
+      "B|strip|split3",
+      "B|rows2|split2",
+      "C|strip|split3",
+      "C|rows2|split2",
     ]);
     const split2 = at(variants, 3);
     expect(split2.parts.map((p) => p.trayKey)).toEqual(["k:p0:0", "k:p0:1"]);
@@ -101,9 +108,11 @@ describe("buildVariants", () => {
     ).toEqual(["A|strip|split1|separate", "A|rows2|split1|separate"]);
   });
 
-  it("never returns more than 8 variants and keeps the best 8", () => {
+  it("returns at most 8 variants per storage option, best first", () => {
     const options = ["A", "B", "C", "D", "E", "F", "G", "H", "I"].map((id) => opt(id, 3));
-    expect(buildVariants({ key: "k", options, players: 4 }).map((v) => v.id)).toEqual([
+    const ids = buildVariants({ key: "k", options, players: 4 }).map((v) => v.id);
+    expect(ids.length).toBeLessThanOrEqual(8 * options.length);
+    expect(ids.slice(0, 9)).toEqual([
       "A|strip|split1|separate",
       "B|strip|split1|separate",
       "C|strip|split1|separate",
@@ -112,10 +121,11 @@ describe("buildVariants", () => {
       "F|strip|split1|separate",
       "G|strip|split1|separate",
       "H|strip|split1|separate",
+      "I|strip|split1|separate",
     ]);
   });
 
-  it("does not let duplicates use up the 8 slots", () => {
+  it("drops duplicates from the list", () => {
     const options = [opt("A", 3), { id: "Adup", blocks: opt("A", 3).blocks }, opt("B", 3)].concat(
       ["C", "D", "E"].map((id) => opt(id, 3)),
     );
@@ -129,7 +139,20 @@ describe("buildVariants", () => {
       "A|strip|split2",
       "A|rows2|split1",
       "B|strip|split2",
+      "B|rows2|split1",
+      "C|strip|split2",
+      "C|rows2|split1",
+      "D|strip|split2",
+      "D|rows2|split1",
+      "E|strip|split2",
+      "E|rows2|split1",
+      "A|strip|split3",
+      "B|strip|split3",
+      "C|strip|split3",
+      "D|strip|split3",
+      "E|strip|split3",
     ]);
+    expect(ids.some((id) => id.startsWith("Adup"))).toBe(false);
   });
 
   it("drops combined variants that equal a separate one, whatever their tray keys", () => {
@@ -160,6 +183,8 @@ describe("buildVariants", () => {
       "B|strip|split1|combined",
       "A|rows2|split1|combined",
       "B|rows2|split1|combined",
+      "A|strip|split3|combined",
+      "B|strip|split3|combined",
     ]);
     expect(ids.indexOf("A|strip|split1|combined")).toBeLessThan(
       ids.indexOf("B|rows2|split1|separate"),
@@ -236,6 +261,19 @@ describe("buildVariants", () => {
       [],
     );
     expect(buildVariants({ key: "k", options: [{ id: "A", blocks: [] }], players: 2 })).toEqual([]);
+  });
+
+  it("keeps every variant each storage option has alone (auto is a superset)", () => {
+    // Auto used to keep only the best 8 of all options together, so a three-deck flat split
+    // (rank 2) lost its place to upright ones and auto found no fit where flat did.
+    for (const players of [null, 3]) {
+      const options = [opt("A", 3), opt("B", 3), opt("C", 3)];
+      const all = buildVariants({ key: "k", options, players }).map((v) => v.id);
+      for (const option of options) {
+        const alone = buildVariants({ key: "k", options: [option], players }).map((v) => v.id);
+        expect(all).toEqual(expect.arrayContaining(alone));
+      }
+    }
   });
 
   it("is deterministic", () => {

@@ -1,10 +1,14 @@
 // src/kit/ChoiceChips.tsx
+import { useState } from "preact/hooks";
+import { useBlocked } from "./blocked";
 
 export interface Chip<T extends string> {
   value: T;
   label: string;
   /** This chip's value differs from its default: an 8 px dot in the changed colour after the label, and ", changed" for a reader. */
   changed?: boolean;
+  /** Present: this chip is blocked (`aria-disabled`, still focusable) and this says why. */
+  blockedReason?: string;
 }
 
 export interface ChoiceChipsProps<T extends string> {
@@ -28,25 +32,65 @@ export function ChoiceChips<T extends string>({
   describedBy,
 }: ChoiceChipsProps<T>) {
   const on = (v: T): boolean => (typeof value === "string" ? value === v : value.includes(v));
+  // A press on a blocked chip says why in a line under the chips (a touch has no title to hover);
+  // the line follows the chip: it goes when the chip is unblocked or another chip is pressed.
+  const [said, setSaid] = useState<T | null>(null);
+  const reason = options.find((o) => o.value === said)?.blockedReason;
   return (
-    <div class="k-chips" role="group" aria-label={label} aria-describedby={describedBy}>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          class="k-chip"
-          aria-pressed={on(o.value)}
-          onClick={() => onChange(o.value)}
-        >
-          {o.label}
-          {o.changed === true ? (
-            <>
-              <span class="visually-hidden">, changed</span>
-              <span class="k-chip__dot" aria-hidden="true" />
-            </>
-          ) : null}
-        </button>
-      ))}
-    </div>
+    <>
+      <div class="k-chips" role="group" aria-label={label} aria-describedby={describedBy}>
+        {options.map((o) => (
+          <Item
+            key={o.value}
+            chip={o}
+            pressed={on(o.value)}
+            onPick={(v) => {
+              setSaid(null);
+              onChange(v);
+            }}
+            onBlocked={() => setSaid(o.value)}
+          />
+        ))}
+      </div>
+      {reason !== undefined && reason !== "" ? (
+        <p class="k-chips__said" role="status">
+          {reason}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function Item<T extends string>({
+  chip,
+  pressed,
+  onPick,
+  onBlocked,
+}: {
+  chip: Chip<T>;
+  pressed: boolean;
+  onPick: (value: T) => void;
+  onBlocked: () => void;
+}) {
+  const blocked = useBlocked(chip.blockedReason, () => onPick(chip.value), onBlocked);
+  return (
+    <>
+      <button
+        type="button"
+        class="k-chip"
+        aria-pressed={pressed}
+        title={chip.blockedReason}
+        {...blocked.props}
+      >
+        {chip.label}
+        {chip.changed === true ? (
+          <>
+            <span class="visually-hidden">, changed</span>
+            <span class="k-chip__dot" aria-hidden="true" />
+          </>
+        ) : null}
+      </button>
+      {blocked.reason}
+    </>
   );
 }

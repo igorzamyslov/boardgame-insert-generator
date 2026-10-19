@@ -127,16 +127,24 @@ export function lockedKeys(p: Project): Set<string> {
   return keys;
 }
 
+/**
+ * The trays a pin on `tray` holds: its whole stack, bottom to top (the trays of the stored plan
+ * that share its path), or the tray alone when it is not in a stack of the plan.
+ */
+export function stackOf(p: Project, tray: TraySpec): TraySpec[] {
+  const stack = (p.layout?.trays ?? [])
+    .filter((t) => t.part === "tray" && t.path === tray.path)
+    .sort((a, b) => a.level - b.level);
+  return stack.some((t) => t.key === tray.key) ? stack : [tray];
+}
+
 export function toggleLock(p: Project, tray: TraySpec): Project {
   if (!isLockable(tray)) {
     return p;
   }
   // The whole stack: locking one tray of a stack alone would put it on the floor and evict
   // the trays under and over it (a run reports such a lock as a pin conflict).
-  const stack = (p.layout?.trays ?? [])
-    .filter((t) => t.part === "tray" && t.path === tray.path)
-    .sort((a, b) => a.level - b.level);
-  const members = stack.some((t) => t.key === tray.key) ? stack : [tray];
+  const members = stackOf(p, tray);
   const keys = new Set(members.map((t) => t.key));
   const rest = p.locks.filter((l) =>
     l.kind === "stack"

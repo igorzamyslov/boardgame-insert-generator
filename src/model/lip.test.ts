@@ -14,7 +14,7 @@ import { DEFAULT_SETTINGS, MIN_FEATURE_MM, chamferMinimums, maxCornerRadius } fr
 import type { Settings } from "./types";
 
 const ON: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: true } };
-const OFF = DEFAULT_SETTINGS;
+const OFF: Settings = { ...DEFAULT_SETTINGS, lip: { ...DEFAULT_SETTINGS.lip, enabled: false } };
 
 describe("lipShape", () => {
   it("is a 0.6 mm flat and a 45° ramp over the rest of the thickness", () => {

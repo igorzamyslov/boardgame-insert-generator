@@ -7,6 +7,7 @@ const page = (over = {}) => ({
   header: box(0, 0, 1440, 61),
   rail: box(0, 61, 300, 839),
   status: box(337, 83, 1067, 60),
+  "view-switch": box(1100, 85, 150, 50),
   "plan-box": box(337, 143, 1067, 700),
   ...over,
 });

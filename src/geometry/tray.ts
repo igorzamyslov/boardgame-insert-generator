@@ -1,12 +1,14 @@
 import type { Manifold, ManifoldToplevel, Vec2, Vec3 } from "manifold-3d";
 import type { Groove } from "../model/lip";
-import type { MergedPart, Settings, TraySpec } from "../model/types";
+import type { BoxMm, MergedPart, Settings, TraySpec } from "../model/types";
 import type { Mesh } from "./types";
 import { planTray } from "./plan";
 import { carriesName } from "../model/part-name";
 import { buildEngravings, hasEngraving, planEngravings, planMergedEngraving } from "./engrave";
 import type { Engravings } from "./engrave";
 import { cutFace, filletStrip } from "./plan-cuts";
+import { mergedBody, mergedOutline } from "./merged-outline";
+import type { Band } from "./merged-outline";
 import { INNER_CORNER_RADIUS_MM } from "./plan-types";
 import type { CompartmentPlan, CutPlan, LipPlan, Rect, ScoopPlan, TrayPlan } from "./plan-types";
 import { withScope } from "./scope";
@@ -302,20 +304,15 @@ function toMesh(solid: Manifold): Mesh {
   return { positions, indices: new Uint32Array(raw.triVerts) };
 }
 
-// The solid of one tray part from its TraySpec alone, tracked in `scope`; its frame is tray-local
-// (origin at the outer min corner, z = 0 at the bottom). Throws like buildTray.
-function buildSolid(
+// What a part's solid loses: the compartments' cutters, a spacer's notch and the engraving, in the
+// part's own frame (origin at its outer min corner).
+function buildCutters(
   m: ManifoldToplevel,
   scope: Scope,
   spec: TraySpec,
-  settings: Settings,
-  plan: TrayPlan = planTray(spec, settings),
-  engravings: Engravings | null = null,
-): Manifold {
-  let solid = buildOuter(m, scope, plan);
-  if (plan.lip) {
-    solid = scope.track(solid.add(buildLip(m, scope, plan, plan.lip)));
-  }
+  plan: TrayPlan,
+  engravings: Engravings | null,
+): Manifold[] {
   const cutters = plan.compartments.map((c) => buildCutter(m, scope, plan, c));
   if (plan.notch) {
     // A spacer's notch leaves through both end faces: past them by OVERSHOOT.
@@ -334,6 +331,24 @@ function buildSolid(
   if (engraved) {
     cutters.push(engraved);
   }
+  return cutters;
+}
+
+// The solid of one tray part from its TraySpec alone, tracked in `scope`; its frame is tray-local
+// (origin at the outer min corner, z = 0 at the bottom). Throws like buildTray.
+function buildSolid(
+  m: ManifoldToplevel,
+  scope: Scope,
+  spec: TraySpec,
+  settings: Settings,
+  plan: TrayPlan = planTray(spec, settings),
+  engravings: Engravings | null = null,
+): Manifold {
+  let solid = buildOuter(m, scope, plan);
+  if (plan.lip) {
+    solid = scope.track(solid.add(buildLip(m, scope, plan, plan.lip)));
+  }
+  const cutters = buildCutters(m, scope, spec, plan, engravings);
   if (cutters.length > 0) {
     solid = scope.track(solid.subtract(scope.track(m.Manifold.union(cutters))));
   }
@@ -363,10 +378,20 @@ function buildPart(
   return buildSolid(m, scope, spec, settings, plan, engravingsOf(plan, spec));
 }
 
-// A merged part (several fillers and risers printed as one, mergeParts): each member built as it
-// would be alone and moved to its place, joined by the solid bridges that fill the tray gaps
-// between them. Everything is in the merged part's frame: its bounding box's min corner is the
-// origin.
+// A merged part (several fillers and risers printed as one, mergeParts) is its members and the
+// solid bridges that fill the tray gaps between them. Everything is in the merged part's frame: its
+// bounding box's min corner is the origin.
+//
+// Built as one shape: the outline is the union of the members' footprints and the bridges (one per
+// height, as members differ in height), its convex corners are rounded once and its bottom edge is
+// chamfered once, so the joined outline has no step where two members meet (a member built alone
+// has rounded corners and a chamfer of its own, and the seam between two of them is a notch the
+// bridge only fills so far). Each member's own cuts (its pocket, notch and engraving) are then
+// taken out of it, and only out of it.
+//
+// A flipped part (members on different floors, printed upside down), a member with a groove or a
+// lip, and members with different chamfers are built the way each member would be alone, joined by
+// the bridges (buildMergedAsMembers).
 function buildMerged(
   m: ManifoldToplevel,
   scope: Scope,
@@ -384,6 +409,12 @@ function buildMerged(
       : null;
   const onMember = found?.member ?? -1;
   const engravings: Engravings | null = found ? { walls: found.engravings, underside: null } : null;
+  const once = buildMergedOnce(m, scope, spec, merged, plans, (i) =>
+    i === onMember ? engravings : null,
+  );
+  if (once) {
+    return once;
+  }
   const pieces: Manifold[] = merged.members.map((member, i) =>
     scope.track(
       buildSolid(
@@ -397,16 +428,115 @@ function buildMerged(
     ),
   );
   for (const b of merged.bridges) {
-    pieces.push(
-      box(
-        m,
-        scope,
-        [b.x - spec.x, b.y - spec.y, b.z - spec.z],
-        [b.x + b.w - spec.x, b.y + b.d - spec.y, b.z + b.h - spec.z],
-      ),
-    );
+    pieces.push(bridgeBox(m, scope, spec, b));
   }
   return scope.track(m.Manifold.union(pieces));
+}
+
+// A bridge, in the merged part's frame.
+function bridgeBox(m: ManifoldToplevel, scope: Scope, spec: TraySpec, b: BoxMm): Manifold {
+  return box(
+    m,
+    scope,
+    [b.x - spec.x, b.y - spec.y, b.z - spec.z],
+    [b.x + b.w - spec.x, b.y + b.d - spec.y, b.z + b.h - spec.z],
+  );
+}
+
+// The merged part as one rounded outline (see buildMerged); null for a part that is built from its
+// members instead, or when the outline cannot be made.
+function buildMergedOnce(
+  m: ManifoldToplevel,
+  scope: Scope,
+  spec: TraySpec,
+  merged: MergedPart,
+  plans: TrayPlan[],
+  engravingsOf: (member: number) => Engravings | null,
+): Manifold | null {
+  const first = plans[0];
+  if (
+    !first ||
+    merged.flipped ||
+    plans.some(
+      (p) => p.lip !== null || p.groove !== null || Math.abs(p.chamfer - first.chamfer) > 1e-9,
+    )
+  ) {
+    return null;
+  }
+  const inFrame = (b: BoxMm) => ({
+    x0: b.x - spec.x,
+    y0: b.y - spec.y,
+    z0: b.z - spec.z,
+    x1: b.x + b.w - spec.x,
+    y1: b.y + b.d - spec.y,
+    z1: b.z + b.h - spec.z,
+  });
+  const members = merged.members.map((member, i) => ({
+    ...inFrame({ x: member.x, y: member.y, z: member.z, w: member.w, d: member.d, h: member.h }),
+    radius: plans[i]?.cornerRadius ?? 0,
+  }));
+  const feet = [...members, ...merged.bridges.map(inFrame)];
+  // Everything stands on one floor (a part with members on different floors is flipped).
+  const floor = Math.min(...feet.map((b) => b.z0));
+  if (feet.some((b) => Math.abs(b.z0 - floor) > 1e-6)) {
+    return null;
+  }
+  const tops = [...new Set(feet.map((b) => Math.round((b.z1 - floor) * 1e4) / 1e4))].sort(
+    (a, b) => a - b,
+  );
+  const fallback = Math.min(...members.map((b) => b.radius));
+  const bands: Band[] = [];
+  for (const top of tops) {
+    const outline = mergedOutline(
+      m,
+      scope,
+      feet.filter((b) => b.z1 - floor >= top - 1e-4),
+      first.chamfer,
+      fallback,
+    );
+    if (!outline) {
+      return null;
+    }
+    bands.push({ outline, top });
+  }
+  const body = mergedBody(m, scope, bands, first.chamfer);
+  if (!body) {
+    return null;
+  }
+  const solid = body.translate([0, 0, floor]);
+  scope.track(solid);
+  // A member's cuts leave through its faces (a notch, a wall cutout) and past them by OVERSHOOT:
+  // they take material out of the member and the air around it, and never out of a neighbour or a
+  // bridge, which would have filled them again.
+  const cuts: Manifold[] = [];
+  for (const [i, member] of merged.members.entries()) {
+    const plan = plans[i] as TrayPlan;
+    const cutters = buildCutters(m, scope, member, plan, engravingsOf(i));
+    if (cutters.length === 0) {
+      continue;
+    }
+    const own = members[i] as (typeof members)[number];
+    const others = [
+      ...members
+        .filter((_, j) => j !== i)
+        .map((b) => box(m, scope, [b.x0, b.y0, b.z0], [b.x1, b.y1, b.z1])),
+      ...merged.bridges.map((b) => bridgeBox(m, scope, spec, b)),
+    ];
+    const reach = box(
+      m,
+      scope,
+      [own.x0 - OVERSHOOT, own.y0 - OVERSHOOT, own.z0 - OVERSHOOT],
+      [own.x1 + OVERSHOOT, own.y1 + OVERSHOOT, own.z1 + OVERSHOOT],
+    );
+    const room = scope.track(reach.subtract(scope.track(m.Manifold.union(others))));
+    const moved = scope.track(
+      scope.track(m.Manifold.union(cutters)).translate([own.x0, own.y0, own.z0]),
+    );
+    cuts.push(scope.track(moved.intersect(room)));
+  }
+  return cuts.length === 0
+    ? solid
+    : scope.track(solid.subtract(scope.track(m.Manifold.union(cuts))));
 }
 
 // Builds one printed part from its TraySpec alone, plus the settings that define

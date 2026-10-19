@@ -76,10 +76,10 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   cornerRadius: 3,
   scoopRadius: 12,
   fingerPocket: { width: 25, floorNotch: 12.5, wallRoom: 0, dividerRoom: 0 },
-  // Off by default: only the lower tray carries the lip, so the upper one sits inside it with
-  // play on every side and can rattle. Flush-stacked trays bear on the whole rim below
-  // instead. Turn it back on where the trays need keying together.
-  lip: { enabled: false, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
+  // On for new inserts: every upper tray has a groove that takes the lip below it, flush (geometry
+  // 0.8.0), so the trays key together and do not rattle. The cost is a wall of about 2.56 mm beside
+  // the groove. Files that say nothing about the lip read it off (LIP_ENABLED_WHEN_ABSENT).
+  lip: { enabled: true, height: 2, thickness: 1.2, ledge: 1.7, play: 0.25 },
   topPressFit: 0,
   packingFactor: 0.5,
   leftover: "spare",

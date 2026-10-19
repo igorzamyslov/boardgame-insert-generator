@@ -3,10 +3,8 @@ import { useId, useRef } from "preact/hooks";
 import {
   cornerReliefsOn,
   curvedFloorKind,
-  curvedFloorOffered,
   defaultTogglesOf,
   dividersOf,
-  dividersOffered,
   fingerCutsOn,
   separatorsOf,
   withDividers,
@@ -17,7 +15,7 @@ import type { Component } from "../../model/types";
 import { DIVIDERS, SEPARATORS } from "../limits";
 import { useSizingNotices } from "../validation";
 import { Alert, BackLink, ExactRow, Group, Notes, NumField } from "./controls";
-import { curvedFloorShown, wellMayGrow } from "./moreSummary";
+import { curvedFloorShown, dividersBlock, isWellKind, spacersBlock } from "./moreSummary";
 import type { EditorProps } from "./types";
 
 type Shape = "fingerCuts" | "curvedFloor" | "cornerReliefs" | "dividers";
@@ -61,7 +59,10 @@ function without<C extends Component>(
 export function TrayShape<C extends Component>({ component: c, index, onChange }: EditorProps<C>) {
   const errorId = useId();
   const group = useRef<HTMLDivElement>(null);
-  const floor = curvedFloorOffered(c);
+  // Only a kind that can have a curved floor offers the chip. A file that set one on a kind that can't
+  // (the engine refuses it, with an error) gets the way back below, not a chip that removes itself.
+  const floor = curvedFloorKind(c);
+  const stray = !floor && c.curvedFloor === true;
   const defaults = defaultTogglesOf(c);
   const on: Shape[] = [];
   if (fingerCutsOn(c)) {
@@ -76,7 +77,7 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
   if (dividersOf(c) > 0) {
     on.push("dividers");
   }
-  const chips: { value: Shape; label: string; changed: boolean }[] = [
+  const chips: { value: Shape; label: string; changed: boolean; blockedReason?: string }[] = [
     { value: "fingerCuts", label: "Finger cuts", changed: fingerCutsOn(c) !== defaults.fingerCuts },
   ];
   if (floor) {
@@ -91,13 +92,22 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
     label: "Corner holes",
     changed: cornerReliefsOn(c) !== defaults.cornerReliefs,
   });
-  if (dividersOffered(c)) {
-    chips.push({ value: "dividers", label: "Removable dividers", changed: false });
+  // A deck or stack of tiles always has the chip; where it can't have dividers it is blocked and says why.
+  if (isWellKind(c)) {
+    chips.push({
+      value: "dividers",
+      label: "Removable dividers",
+      changed: false,
+      blockedReason: dividersBlock(c),
+    });
   }
   // the toggles that differ from the kind's: the dividers are counted by their row, not here
-  const changed = chips.flatMap((chip) =>
-    chip.changed && chip.value !== "dividers" ? [{ ...chip, value: chip.value }] : [],
-  );
+  const changed = [
+    ...chips.flatMap((chip) =>
+      chip.changed && chip.value !== "dividers" ? [{ ...chip, value: chip.value }] : [],
+    ),
+    ...(stray ? [{ value: "curvedFloor" as const, label: "Curved floor", changed: true }] : []),
+  ];
   const toggle = (which: Shape): void => {
     switch (which) {
       case "fingerCuts":
@@ -109,15 +119,8 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
       case "dividers":
         onChange(withDividers(c, dividersOf(c) > 0 ? 0 : 1));
         return;
-      case "curvedFloor": {
-        const now = curvedFloorShown(c);
-        if (now && !curvedFloorKind(c)) {
-          // The chip only exists on this kind while a file set it, so turning it off removes it:
-          // keep the keyboard focus in the group.
-          document.getElementById(`${c.id}-shape`)?.querySelector<HTMLElement>("button")?.focus();
-        }
-        onChange({ ...c, curvedFloor: !now });
-      }
+      case "curvedFloor":
+        onChange({ ...c, curvedFloor: !curvedFloorShown(c) });
     }
   };
   return (
@@ -158,51 +161,51 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
  * stack have them (spec §5); the dividers take the plates' place when there are any.
  */
 export function WellRows<C extends Component>({ component: c, index, onChange }: EditorProps<C>) {
-  if (!wellMayGrow(c)) {
+  if (!isWellKind(c)) {
     return null;
   }
   const dividers = dividersOf(c);
+  const spacersBlocked = spacersBlock(c);
+  const dividersBlocked = dividersBlock(c);
   return (
     <>
-      {dividers === 0 ? (
-        <ExactRow
-          title="Spacer plates"
-          errorPaths={[`/components/${index}/separators`]}
-          revert={
-            separatorsOf(c) === 0
-              ? undefined
-              : { to: "0", onBack: () => onChange(withSeparators(c, 0)) }
-          }
-        >
-          <NumField
-            id={`${c.id}-separators`}
-            label="Spacer plates"
-            value={separatorsOf(c)}
-            {...SEPARATORS}
-            path={`/components/${index}/separators`}
-            onCommit={(v) => onChange(withSeparators(c, v))}
-          />
-          <SeparatorNotes index={index} />
-        </ExactRow>
-      ) : null}
-      {dividersOffered(c) ? (
-        <ExactRow
-          title="Dividers"
-          errorPaths={[`/components/${index}/dividers`]}
-          revert={
-            dividers === 0 ? undefined : { to: "0", onBack: () => onChange(withDividers(c, 0)) }
-          }
-        >
-          <NumField
-            id={`${c.id}-dividers`}
-            label="Number of dividers"
-            value={dividers}
-            {...DIVIDERS}
-            path={`/components/${index}/dividers`}
-            onCommit={(v) => onChange(withDividers(c, v))}
-          />
-        </ExactRow>
-      ) : null}
+      <ExactRow
+        title="Spacer plates"
+        errorPaths={[`/components/${index}/separators`]}
+        blockedReason={spacersBlocked}
+        revert={
+          separatorsOf(c) === 0
+            ? undefined
+            : { to: "0", onBack: () => onChange(withSeparators(c, 0)) }
+        }
+      >
+        <NumField
+          id={`${c.id}-separators`}
+          label="Spacer plates"
+          value={separatorsOf(c)}
+          {...SEPARATORS}
+          path={`/components/${index}/separators`}
+          onCommit={(v) => onChange(withSeparators(c, v))}
+        />
+        <SeparatorNotes index={index} />
+      </ExactRow>
+      <ExactRow
+        title="Dividers"
+        errorPaths={[`/components/${index}/dividers`]}
+        blockedReason={dividersBlocked}
+        revert={
+          dividers === 0 ? undefined : { to: "0", onBack: () => onChange(withDividers(c, 0)) }
+        }
+      >
+        <NumField
+          id={`${c.id}-dividers`}
+          label="Number of dividers"
+          value={dividers}
+          {...DIVIDERS}
+          path={`/components/${index}/dividers`}
+          onCommit={(v) => onChange(withDividers(c, v))}
+        />
+      </ExactRow>
     </>
   );
 }

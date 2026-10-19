@@ -76,7 +76,7 @@ describe("InsertSettings: how the trays sit", () => {
     expect(headings).toEqual(["How the trays sit", "Exact numbers"]);
   });
 
-  it("offers Fit in the box as Snug, Standard and Loose, and writes the resolved value", () => {
+  it("offers Fit in the box as Snug, Standard, Loose and Custom, and writes the resolved value", () => {
     const onChange = vi.fn();
     render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
     const fit = within(screen.getByRole("group", { name: "Fit in the box" }));
@@ -84,6 +84,7 @@ describe("InsertSettings: how the trays sit", () => {
       "Snug",
       "Standard",
       "Loose",
+      "Custom",
     ]);
     expect(fit.getByRole("button", { name: "Standard" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(fit.getByRole("button", { name: "Loose" }));
@@ -140,14 +141,31 @@ describe("InsertSettings: how the trays sit", () => {
     expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("");
   });
 
-  it("says a fit that is no choice: none pressed, a dot, and the value below", () => {
-    render(<InsertSettings settings={changedFrom({ fit: 1.2 })} onChange={vi.fn()} />);
+  it("says a fit that is no choice: Custom pressed and marked changed, a dot, and the value below", () => {
+    const onChange = vi.fn();
+    render(<InsertSettings settings={changedFrom({ fit: 1.2 })} onChange={onChange} />);
     const fit = within(screen.getByRole("group", { name: "Fit in the box" }));
-    for (const b of fit.getAllByRole("button")) {
-      expect(b.getAttribute("aria-pressed")).toBe("false");
+    expect(fit.getByRole("button", { name: "Custom" }).getAttribute("aria-pressed")).toBe("true");
+    expect(fit.getByRole("button", { name: "Custom" }).hasAttribute("data-changed")).toBe(true);
+    for (const name of ["Snug", "Standard", "Loose"]) {
+      expect(fit.getByRole("button", { name }).getAttribute("aria-pressed")).toBe("false");
     }
     expect(screen.getByText("You set the fit to 1.2 below.")).toBeTruthy();
     expect(screen.getAllByRole("img", { name: "Changed" })).toHaveLength(1);
+    // like Walls' Custom, it takes the person to the number and sets nothing
+    fireEvent.click(fit.getByRole("button", { name: "Custom" }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(document.activeElement?.id).toBe("settings-fit");
+  });
+
+  it("takes Fit's Custom to the Fit number from another group", () => {
+    render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Fit in the box" })).getByRole("button", {
+        name: "Custom",
+      }),
+    );
+    expect(document.activeElement?.id).toBe("settings-fit");
   });
 
   it("offers Room for fingers, Rim between layers and Fill to the lid with the board's hints", () => {
@@ -158,11 +176,11 @@ describe("InsertSettings: how the trays sit", () => {
     fireEvent.click(fingers);
     expect(onChange).toHaveBeenLastCalledWith(applyFingerRoom(DEFAULT_SETTINGS, true));
     const rim = screen.getByRole("checkbox", { name: /^Rim between layers/ }) as HTMLInputElement;
-    expect(rim.checked).toBe(false);
+    expect(rim.checked).toBe(true);
     fireEvent.click(rim);
     expect(onChange).toHaveBeenLastCalledWith({
       ...DEFAULT_SETTINGS,
-      lip: { ...DEFAULT_SETTINGS.lip, enabled: true },
+      lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
     });
     const lid = screen.getByRole("checkbox", { name: "Fill to the lid" }) as HTMLInputElement;
     expect(lid.checked).toBe(true);

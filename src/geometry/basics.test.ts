@@ -48,8 +48,8 @@ describe("UnsupportedFeatureError and GEOMETRY_VERSION", () => {
     expect(err.message).toMatch(/"magnet".*newer app version/);
   });
 
-  it("is at 0.8.1: 0.8.0 stacks flush (a new line); 0.8.1 engraves names, a mesh-only PATCH", () => {
-    expect(GEOMETRY_VERSION).toBe("0.8.1");
+  it("is at 0.8.2: 0.8.0 stacks flush (a new line); 0.8.1 engraves names and 0.8.2 rounds a merged part once, both mesh-only PATCHes", () => {
+    expect(GEOMETRY_VERSION).toBe("0.8.2");
   });
 });
 

@@ -807,7 +807,12 @@ describe("the name reads left to right, upright, from outside whichever face the
 });
 
 describe("an engraved merged part", () => {
-  const settings: Settings = { ...DEFAULT_SETTINGS, mergeRisers: true };
+  // Rim off: a filler in a stack level has a groove with it on, and is not merged.
+  const settings: Settings = {
+    ...DEFAULT_SETTINGS,
+    lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+    mergeRisers: true,
+  };
   const filler = (o: Partial<TraySpec> & Pick<TraySpec, "w" | "d">): TraySpec =>
     traySpec({
       key: "leftover:0",

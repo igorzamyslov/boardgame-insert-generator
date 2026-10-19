@@ -22,7 +22,8 @@
   --chip: #e9e5db; /* Empty's size chips */
   --track: #e9e7e0; /* Main's Layer and View segments */
   --icon-ground: #edeae2; /* box card icon, step badge 2 */
-  --scrim: #8e8b83; /* behind dialogs and the drawer */
+  --scrim: #8e8b83; /* behind dialogs */
+  --scrim-see: rgb(29 31 28 / 49%); /* behind the drawer: the page (#f4f3ef) under it reads as --scrim, the plan shows */
 
   /* Lines. */
   --rule: #e4e1d9;
@@ -167,6 +168,8 @@
   --kind-tile-h: 56px;
   --stage-slot: 52px;
   --status-icon: 40px;
+  --stage-layer-slot: 14rem; /* the status row's Layer slot: a two-layer switch */
+  --stage-action-slot: 9.5rem; /* and its action slot: Keep searching */
   --status-icon-phone: 32px;
   --menu-w: 260px;
   --dialog-max: 560px;

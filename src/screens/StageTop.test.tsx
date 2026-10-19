@@ -397,6 +397,47 @@ describe("StageTop", () => {
     });
   });
 
+  describe("the controls' slots (DESIGN, Flow)", () => {
+    const slots = (): { layer: HTMLElement; view: HTMLElement; action: HTMLElement } => ({
+      layer: document.querySelector(".stage-controls__layer") as HTMLElement,
+      view: document.querySelector('[data-region="view-switch"]') as HTMLElement,
+      action: document.querySelector(".stage-controls__action") as HTMLElement,
+    });
+
+    it("keeps the Layer, View and action slots with or without a Layer switch, and in either action", () => {
+      const { rerender } = render(<StageTop {...props()} />);
+      expect(slots().layer.querySelector('[role="group"]')).not.toBeNull();
+      expect(slots().view.querySelector('[role="group"]')).not.toBeNull();
+      // one layer: the slot stays, empty, in the same order before the View slot
+      rerender(<StageTop {...props({ trays: ONE_LAYER })} />);
+      const one = slots();
+      expect(one.layer.childElementCount).toBe(0);
+      expect(one.view.querySelector('[role="group"]')).not.toBeNull();
+      expect(one.layer.nextElementSibling).toBe(one.view);
+      expect(one.view.nextElementSibling).toBe(one.action);
+      // Keep searching turning into Stop: both are in the action slot, after the View slot
+      expect(one.action.textContent).toContain("Keep searching");
+      rerender(
+        <StageTop
+          {...props({
+            trays: ONE_LAYER,
+            run: { status: "running", kind: "improve", done: 1, total: 4 },
+          })}
+        />,
+      );
+      expect(slots().action.textContent).toContain("Stop");
+      expect(slots().view.nextElementSibling).toBe(slots().action);
+    });
+
+    it("has no slots without a plan, nor on a phone", () => {
+      const { unmount } = render(<StageTop {...props({ trays: undefined })} />);
+      expect(document.querySelector(".stage-controls")).toBeNull();
+      unmount();
+      render(<StageTop {...props({ phone: true })} />);
+      expect(document.querySelector(".stage-controls")).toBeNull();
+    });
+  });
+
   describe("the View switch", () => {
     it("is Top and 3D, one pressed", () => {
       const p = props();

@@ -46,13 +46,14 @@ describe("score", () => {
           WEIGHTS.trays +
           WEIGHTS.moved +
           WEIGHTS.unturned +
-          WEIGHTS.apart +
+          WEIGHTS.scattered +
           WEIGHTS.fillers +
           WEIGHTS.sealed) +
       20_000 * WEIGHTS.play +
       100_000 * WEIGHTS.filament +
-      // thirty trays, each swollen to the cap on both axes
-      30 * 2 * SWOLLEN_CAP_MM ** 2 * WEIGHTS.swollen;
+      // thirty trays, each swollen to the cap on both axes, each but one in a stack apart from the
+      // rest of its requirement, and each one tray more than its requirement needed
+      30 * (2 * SWOLLEN_CAP_MM ** 2 * WEIGHTS.swollen + WEIGHTS.apart + WEIGHTS.split);
     expect(OVERFLOW_WEIGHT).toBeGreaterThan(maxFeasible);
   });
 
@@ -224,42 +225,104 @@ describe("score", () => {
       expect(score(side([piece(0)], [piece(1)], [piece(2)], [k])).terms.apart).toBe(2);
     });
 
-    it("counts the trays of other requirements standing between a requirement's parts", () => {
-      // adjacent in the stack, or not: one foreign tray between two of its parts is one more
-      expect(score(side([piece(0), piece(1), k])).terms.apart).toBe(0);
-      expect(score(side([k, piece(0), piece(1)])).terms.apart).toBe(0);
-      expect(score(side([piece(0), k, piece(1)])).terms.apart).toBe(1);
-      expect(score(side([piece(0), k, piece(1)], [piece(2)])).terms.apart).toBe(2);
+    it("charges exactly its weight for each extra stack, all else equal", () => {
+      // The third part on the other requirement's tray, and the same plan with that part's stack
+      // relabelled as its siblings' (on top of them, still on top and still stacked): only the
+      // count of stacks the requirement stands in differs.
+      const plan = evaluate(ctx, {
+        root: side([piece(0), piece(1)], [k, piece(2)]),
+        variants: [0, 0],
+      });
+      const home = plan.trays.find((t) => t.item.req === 0 && t.item.part === 0)?.stack ?? -1;
+      const together = {
+        ...plan,
+        trays: plan.trays.map((t) =>
+          t.item.req === 0 && t.item.part === 2 ? { ...t, stack: home, level: 2 } : t,
+        ),
+      };
+      const a = scorePlan(ctx, plan);
+      const b = scorePlan(ctx, together);
+      expect(a.terms.apart).toBe(1);
+      expect(b.terms.apart).toBe(0);
+      // the weak adjacency term counts the same stack, and nothing else moves
+      expect(a.terms.scattered - b.terms.scattered).toBe(1);
+      expect(a.total - b.total).toBe(WEIGHTS.apart + WEIGHTS.scattered);
     });
 
-    it("never outweighs keeping an often-used tray on top", () => {
-      // The Star Realms case: grouping all three parts buries two of them, the interleaved layout
-      // only one. The weak term must not decide it, however it is arranged around them.
+    it("counts the trays of other requirements standing between a requirement's parts", () => {
+      // adjacent in the stack, or not: one foreign tray between two of its parts is one more
+      expect(score(side([piece(0), piece(1), k])).terms.scattered).toBe(0);
+      expect(score(side([k, piece(0), piece(1)])).terms.scattered).toBe(0);
+      const between = score(side([piece(0), k, piece(1)])).terms;
+      expect(between.scattered).toBe(1);
+      expect(between.apart).toBe(0); // still one stack
+      const two = score(side([piece(0), k, piece(1)], [piece(2)])).terms;
+      expect(two.scattered).toBe(2);
+      expect(two.apart).toBe(1);
+    });
+
+    it("keeps one player's trays together, and the players' only weakly", () => {
+      // one tray per player: four copies of one tray, in four stacks, is no item split apart
+      const kit = req("k", [
+        variant(
+          "separate",
+          [0, 1, 2, 3].map((p) => part(`k:p${p}:0`, [comp({ minW: 40, minD: 40, minH: 10 })])),
+        ),
+      ]);
+      const kits = createCtx(makeInput([kit]), fakeMeasure);
+      const player = (p: number) => ({ req: 0, variant: 0, part: p, rotated: false });
+      const spread = scorePlan(
+        kits,
+        evaluate(kits, {
+          root: cut(
+            "x",
+            cut("x", leaf([player(0)]), leaf([player(1)])),
+            cut("x", leaf([player(2)]), leaf([player(3)])),
+          ),
+          variants: [0],
+        }),
+      );
+      expect(spread.overflow).toBe(0);
+      expect(spread.terms.apart).toBe(0);
+      expect(spread.terms.scattered).toBe(3);
+    });
+
+    it("keeps the parts in one stack even when that buries one more often-used part", () => {
+      // The Star Realms case (owner, 0.5.3): grouping all three parts buries two of them, the
+      // interleaved layout only one. Keeping one item's trays together now comes first.
       const grouped = score(side([piece(0), piece(1), piece(2)], [k]));
       const split = score(side([piece(0), piece(1)], [k, piece(2)]));
       expect(grouped.terms.access).toBe(2);
       expect(split.terms.access).toBe(1);
       expect(grouped.terms.apart).toBe(0);
       expect(split.terms.apart).toBe(1);
-      expect(split.total).toBeLessThan(grouped.total);
-      // and by construction, for any number of parts: one buried tray costs more than every stack
-      // it could save, and than every orientation
-      expect(WEIGHTS.apart).toBeLessThan(WEIGHTS.access);
-      expect(WEIGHTS.unturned).toBeLessThan(WEIGHTS.access);
+      expect(grouped.total).toBeLessThan(split.total);
     });
 
-    it("stays below an extra printed part and a stacked tray, and above a moved one", () => {
-      for (const w of [WEIGHTS.unturned, WEIGHTS.apart]) {
+    it("weighs an extra stack above a loose tray on top, a filler and 1 % of the box", () => {
+      // so keeping an item together may cost a filler, a buried tray or a little room, never fit
+      expect(WEIGHTS.apart).toBeGreaterThan(WEIGHTS.coverage);
+      expect(WEIGHTS.apart).toBeGreaterThan(WEIGHTS.access);
+      expect(WEIGHTS.apart).toBeGreaterThan(WEIGHTS.trays + WEIGHTS.fillers);
+      expect(WEIGHTS.apart).toBeGreaterThan(1000 * WEIGHTS.leftover);
+      expect(WEIGHTS.apart).toBeLessThan(3000 * WEIGHTS.leftover);
+      expect(WEIGHTS.apart).toBeLessThan(OVERFLOW_WEIGHT / 100);
+    });
+
+    it("keeps orientation and adjacency below an extra printed part and a stacked tray, above a moved one", () => {
+      for (const w of [WEIGHTS.unturned, WEIGHTS.scattered]) {
         expect(w).toBeLessThan(WEIGHTS.trays);
         expect(w).toBeLessThan(WEIGHTS.stacked);
         expect(w).toBeGreaterThan(WEIGHTS.moved);
+        expect(w).toBeLessThan(WEIGHTS.access);
       }
     });
 
     it("cannot make an infeasible layout beat a feasible one", () => {
       // The worst case a requirement can add: 100 parts, each turned unlike the other half and in
       // a stack of its own.
-      const most = 100 * WEIGHTS.apart + 50 * WEIGHTS.unturned;
+      const most =
+        100 * (WEIGHTS.apart + WEIGHTS.scattered + WEIGHTS.split) + 50 * WEIGHTS.unturned;
       expect(most).toBeLessThan(OVERFLOW_WEIGHT);
       const flat = createCtx(makeInput(family, { box: { innerWidth: 60 } }), fakeMeasure);
       const over = scorePlan(
@@ -268,6 +331,56 @@ describe("score", () => {
       );
       expect(over.overflow).toBeGreaterThan(0);
       expect(over.total).toBeGreaterThan(score(side([piece(0), piece(1), piece(2)], [k])).total);
+    });
+  });
+
+  describe("one tray unless no single tray fits (groups spec §6.3)", () => {
+    const a = comp({ minW: 90, minD: 80, minH: 20, contents: "a" });
+    const b = comp({ minW: 90, minD: 80, minH: 20, contents: "b" });
+    const w = req("w", [
+      variant("whole", [part("w:p0:0", [a, b])]),
+      variant("halves", [part("w:p0:0", [a]), part("w:p0:1", [b])]),
+    ]);
+    const whole: Tree = { root: leaf([item(0)]), variants: [0] };
+    const halves: Tree = {
+      root: cut(
+        "x",
+        leaf([{ req: 0, variant: 1, part: 0, rotated: false }]),
+        leaf([{ req: 0, variant: 1, part: 1, rotated: false }]),
+      ),
+      variants: [1],
+    };
+
+    it("charges each tray beyond one when a whole tray fits", () => {
+      const ctx = createCtx(makeInput([w]), fakeMeasure);
+      expect(scorePlan(ctx, evaluate(ctx, whole)).terms.split).toBe(0);
+      const split = scorePlan(ctx, evaluate(ctx, halves));
+      expect(split.overflow).toBe(0);
+      expect(split.terms.split).toBe(1);
+    });
+
+    it("charges nothing when no whole tray fits", () => {
+      // 180 mm of usable bed: the 184 mm whole tray is over it, the halves are not
+      const ctx = createCtx(makeInput([w], { printer: { bedX: 190, bedY: 190 } }), fakeMeasure);
+      const split = scorePlan(ctx, evaluate(ctx, halves));
+      expect(split.overflow).toBe(0);
+      expect(split.terms.split).toBe(0);
+    });
+
+    it("outweighs every packing preference but coverage, and stays under overflow", () => {
+      for (const other of [
+        WEIGHTS.access,
+        WEIGHTS.stacked,
+        WEIGHTS.trays + WEIGHTS.fillers,
+        WEIGHTS.setup,
+        WEIGHTS.unturned,
+        WEIGHTS.scattered,
+        WEIGHTS.sealed,
+      ]) {
+        expect(WEIGHTS.split).toBeGreaterThan(other);
+      }
+      expect(WEIGHTS.split).toBeLessThan(WEIGHTS.coverage);
+      expect(WEIGHTS.split).toBeLessThan(OVERFLOW_WEIGHT / 100);
     });
   });
 
@@ -319,9 +432,9 @@ describe("score", () => {
       expect(large.total).toBeLessThan(small.total);
     });
 
-    it("costs more than any cohesion preference, so none of them buys a filler", () => {
+    it("costs more than the weak cohesion preferences, so none of them buys a filler", () => {
       expect(WEIGHTS.fillers).toBeGreaterThan(WEIGHTS.unturned);
-      expect(WEIGHTS.fillers).toBeGreaterThan(WEIGHTS.apart);
+      expect(WEIGHTS.fillers).toBeGreaterThan(WEIGHTS.scattered);
       expect(WEIGHTS.fillers).toBeGreaterThan(WEIGHTS.setup);
       expect(WEIGHTS.fillers).toBeGreaterThan(WEIGHTS.moved);
     });

@@ -9,7 +9,7 @@ import {
   type FixedSize,
   type PartRef,
 } from "./context";
-import { trayLabel } from "./labels";
+import { partLabel, REMOVED_TRAY } from "./labels";
 import { insertItem, insertLeaf, removeItems, type MoveEnv } from "./moves";
 import type { Rng } from "./prng";
 import { stackHeights, stackLevels } from "./stack";
@@ -62,9 +62,27 @@ export interface LockHints {
   readonly singleLeaf?: boolean;
 }
 
-/** Names trays for notices from the layout's contents. */
+/**
+ * Names trays for notices from the layout's contents. A key several variants share names the
+ * tray of the variant that has all of `withKeys` (the other trays of its stack lock), so a
+ * stack lock's trays are named from one variant and each deck is named by one tray.
+ */
 export function trayNamer(ctx: Ctx): TrayNamer {
-  return (key) => trayLabel(ctx, key);
+  return (key, withKeys = []) => {
+    const refs = ctx.refsOfKey(key);
+    const sameVariant = (ref: PartRef): boolean =>
+      withKeys
+        .filter((k) => ctx.refsOfKey(k)[0]?.req === ref.req)
+        .every((k) => ctx.refsOfKey(k).some((o) => o.variant === ref.variant));
+    const ref = refs.find(sameVariant) ?? refs[0];
+    const part = ref ? ctx.part(ref) : undefined;
+    return part
+      ? partLabel(
+          part.compartments.map((c) => c.contents),
+          key,
+        )
+      : REMOVED_TRAY;
+  };
 }
 
 export function noLocks(ctx: Ctx): ResolvedLocks {
@@ -85,7 +103,7 @@ export function isValidPath(path: string): boolean {
 }
 
 /** Names a tray by its key for a notice (`trayLabel` with the layout's context). */
-export type TrayNamer = (trayKey: string) => string;
+export type TrayNamer = (trayKey: string, withKeys?: readonly string[]) => string;
 
 interface PosLock {
   readonly lock: Lock & { kind: "position" };
@@ -102,7 +120,7 @@ export function conflictOf(lock: Lock, reason: string, name: TrayNamer): LockCon
     return {
       trayKey: lock.trayKeys[0] ?? "",
       kind: lock.kind,
-      name: lock.trayKeys.map(name).join(", "),
+      name: [...new Set(lock.trayKeys.map((k) => name(k, lock.trayKeys)))].join(", "),
       reason,
     };
   }
@@ -234,7 +252,9 @@ function resolveOnce(
       return null;
     }
     const preferred = hints.variantOf?.(r);
-    return preferred !== undefined && set.has(preferred) ? preferred : Math.min(...set);
+    return preferred !== undefined && set.has(preferred)
+      ? preferred
+      : bestVariant(ctx, r, set, accepted);
   });
   const refOf = (key: string): PartRef => {
     const refs = ctx.refsOfKey(key);
@@ -466,6 +486,66 @@ function resolveOnce(
     lateDropped,
     lateConflicts,
   };
+}
+
+/**
+ * Which of the variants that have every key the locks name on requirement `req` to pin when no
+ * layout says which one the user saw. A key is shared by variants (`<key>:p0:0` is the single strip
+ * and the first tray of a split), so the lowest index would pin whatever comes first, an upright
+ * variant that no box lock can hold. Picks the one whose trays the size locks fit, then the one
+ * whose locked trays are lowest (the most any pin or stack can hold), then the lowest index.
+ */
+function bestVariant(
+  ctx: Ctx,
+  req: number,
+  variants: ReadonlySet<number>,
+  accepted: readonly Lock[],
+): number {
+  const keys = new Set(
+    accepted.flatMap((l) =>
+      (l.kind === "stack" ? l.trayKeys : [l.trayKey]).filter(
+        (k) => ctx.refsOfKey(k)[0]?.req === req,
+      ),
+    ),
+  );
+  const cost = (variant: number): [number, number] => {
+    const refOf = (key: string): PartRef | undefined =>
+      ctx.refsOfKey(key).find((r) => r.req === req && r.variant === variant);
+    let misfit = 0;
+    for (const lock of accepted) {
+      const ref = lock.kind === "size" ? refOf(lock.trayKey) : undefined;
+      if (lock.kind !== "size" || !ref) {
+        continue;
+      }
+      const m = ctx.metrics(ref, false, 0);
+      const w = toU(lock.w);
+      const d = toU(lock.d);
+      const fits =
+        ((w >= m.w && d >= m.d) || (rotatable(ctx, ref) && w >= m.d && d >= m.w)) &&
+        toU(lock.h) >= m.h;
+      misfit += fits ? 0 : 1;
+    }
+    let height = 0;
+    for (const key of keys) {
+      const ref = refOf(key);
+      height += ref ? ctx.metrics(ref, false, 0).h : 0;
+    }
+    return [misfit, height];
+  };
+  let best = Math.min(...variants);
+  let bestCost = cost(best);
+  for (const v of [...variants].sort((a, b) => a - b)) {
+    const c = cost(v);
+    if (c[0] < bestCost[0] || (c[0] === bestCost[0] && c[1] < bestCost[1])) {
+      best = v;
+      bestCost = c;
+    }
+  }
+  return best;
+}
+
+function rotatable(ctx: Ctx, ref: PartRef): boolean {
+  return ctx.part(ref)?.rotatable ?? false;
 }
 
 export function moveEnvOf(ctx: Ctx, resolved: ResolvedLocks): MoveEnv {

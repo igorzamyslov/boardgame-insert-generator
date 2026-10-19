@@ -504,6 +504,7 @@ const FIT_OPTIONS = [
   { value: "tight", label: "Snug" },
   { value: "normal", label: "Standard" },
   { value: "loose", label: "Loose" },
+  { value: "custom", label: "Custom", changed: true },
 ] as const;
 
 /** A name over its control: the board's 600 weight label, a dot when the value was changed. */
@@ -533,8 +534,11 @@ function Labelled({
 function HowTheTraysSit({
   settings,
   onChange,
-  onCustomWall,
-}: SettingsFormProps & { onCustomWall: () => void }) {
+  onCustom,
+}: SettingsFormProps & {
+  /** "Custom" takes the person to the number: open this group and focus this field. */
+  onCustom: (group: string, fieldId: string) => void;
+}) {
   const wall = wallChoiceOf(settings);
   const fit = fitChoiceOf(settings);
   return (
@@ -555,7 +559,9 @@ function HowTheTraysSit({
           options={FIT_OPTIONS}
           value={fit}
           onChange={(c) => {
-            if (c !== "custom") {
+            if (c === "custom") {
+              onCustom("room", "settings-fit");
+            } else {
               onChange(applyFitChoice(settings, c));
             }
           }}
@@ -582,7 +588,7 @@ function HowTheTraysSit({
           value={wall}
           onChange={(c) => {
             if (c === "custom") {
-              onCustomWall();
+              onCustom("walls", "settings-wall");
             } else {
               onChange(applyWallChoice(settings, c));
             }
@@ -667,10 +673,10 @@ export function InsertSettings({ settings, onChange }: SettingsFormProps) {
       <HowTheTraysSit
         settings={settings}
         onChange={onChange}
-        onCustomWall={() => {
+        onCustom={(group, fieldId) => {
           setQuery("");
-          setOpen("walls");
-          focusAfter({ id: "settings-wall" });
+          setOpen(group);
+          focusAfter({ id: fieldId });
         }}
       />
       <ExactNumbers

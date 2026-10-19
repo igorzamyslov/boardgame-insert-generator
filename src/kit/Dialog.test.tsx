@@ -212,6 +212,8 @@ describe("the dialog's styles", () => {
     const body = rule(".k-drawer");
     expect(body).toMatch(/box-shadow:\s*var\(--shadow-drawer\)/);
     expect(body).toMatch(/var\(--dialog-max\)/);
+    // Settings' board shows the plan dimmed behind the drawer, not hidden.
+    expect(rule(".k-drawer::backdrop")).toMatch(/background:\s*var\(--scrim-see\)/);
   });
 
   it("fills the screen below 600 px: no radius, 20 px padding", () => {

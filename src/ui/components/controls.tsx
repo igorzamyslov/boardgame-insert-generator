@@ -347,19 +347,29 @@ export function ExactRow({
   meta,
   errorPaths = [],
   revert,
+  blockedReason,
   children,
 }: {
   title: string;
   hint?: string;
   meta?: string;
+  /** Present: the row stays on screen but opens nothing, and this says why (DESIGN, Flow). */
+  blockedReason?: string;
   /** Validation paths of the values inside; an error at one (or below it) opens the row. */
   errorPaths?: readonly string[];
   /** The value inside differs from its default: the dot on the row, and the way back at the foot of its values. */
   revert?: Revert;
-  children: ComponentChildren;
+  children?: ComponentChildren;
 }) {
   const [open, setOpen] = useOpenOnError(errorPaths);
   const panelId = useId();
+  if (blockedReason !== undefined) {
+    return (
+      <div class="ed-exact">
+        <DisclosureRow plain title={title} blockedReason={blockedReason} />
+      </div>
+    );
+  }
   return (
     <div class="ed-exact">
       <DisclosureRow
