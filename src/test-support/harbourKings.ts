@@ -59,24 +59,24 @@ export interface Tuning {
 export const NO_TUNING: Tuning = { settings: {}, components: {} };
 
 /**
- * What `npm run seeds` found (see Tuning): 6 mm of clearance around every component, the first
- * value the tune pass reached that puts the Heroes in a short bottom layer (Settings values and
- * deck sleeves came first in its order and did not). Counts and names the rail shows are never in it.
+ * What `npm run seeds` found (see Tuning): a clearance of its own on each component (2 to 10 mm),
+ * the first one its last pass reached that puts the Heroes in a short bottom layer and leaves no
+ * sliver of a spacer in the plan or the no-fit plan. Every simpler
+ * tuning (Settings values, deck sleeves, one clearance on all) came first in its order and did not,
+ * since 0.5.3 keeps one item's trays in one stack. Counts and names the rail shows are never in it.
  */
 export const LAYER_TUNING: Tuning = {
   settings: {},
-  components: Object.fromEntries(
-    [
-      "market01",
-      "starter1",
-      "events01",
-      "coins001",
-      "resourc1",
-      "dice0001",
-      "hextiles",
-      "heroes01",
-    ].map((id) => [id, { clearance: 6 }]),
-  ),
+  components: {
+    market01: { clearance: 7 },
+    starter1: { clearance: 6.5 },
+    events01: { clearance: 7.5 },
+    coins001: { clearance: 3.5 },
+    resourc1: { clearance: 2 },
+    dice0001: { clearance: 8 },
+    hextiles: { clearance: 8.5 },
+    heroes01: { clearance: 5 },
+  },
 };
 
 /** The project with the tuning applied: settings merged, component fields overlaid by id. */
@@ -226,8 +226,8 @@ function trayOf(layout: readonly TraySpec[] | undefined, componentId: string): T
 
 /**
  * `base` with Market deck and Heroes pinned where `base`'s plan has them, and Hex tiles raised to
- * `count`. The engine only reports a pin conflict at some counts (with the tuned base: 100 does;
- * 30 to 80 and 120 still fit around the pins, 90, 110 and 130 and up fit nowhere), so
+ * `count`. The engine only reports a pin conflict at some counts (the rest fit around the pins or
+ * fit nowhere, and which ones moves with the engine), so
  * `npm run seeds` checks the outcome.
  */
 export function harbourKingsPinConflict(base: Project, count = 100): Project {
