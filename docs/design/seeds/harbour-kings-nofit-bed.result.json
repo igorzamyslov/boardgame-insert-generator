@@ -55,7 +55,7 @@
             "d": 97.5,
             "floorZ": 63.8,
             "kind": "well",
-            "contents": "Starter decks — Deck 3 ×12",
+            "contents": "Starter decks — Deck 2 ×12",
             "componentId": "starter1",
             "features": [
               {
@@ -83,7 +83,7 @@
             "d": 97.5,
             "floorZ": 63.8,
             "kind": "well",
-            "contents": "Starter decks — Deck 2 ×12",
+            "contents": "Starter decks — Deck 3 ×12",
             "componentId": "starter1",
             "features": [
               {
@@ -342,7 +342,7 @@
             "d": 47.08,
             "floorZ": 19.8,
             "kind": "scoop",
-            "contents": "Resource tokens — Grain ×20",
+            "contents": "Resource tokens — Stone ×20",
             "componentId": "resourc1",
             "features": [
               {
@@ -359,7 +359,7 @@
             "d": 47.07,
             "floorZ": 19.8,
             "kind": "scoop",
-            "contents": "Resource tokens — Ore ×20",
+            "contents": "Resource tokens — Grain ×20",
             "componentId": "resourc1",
             "features": [
               {
@@ -376,7 +376,7 @@
             "d": 47.08,
             "floorZ": 19.8,
             "kind": "scoop",
-            "contents": "Resource tokens — Stone ×20",
+            "contents": "Resource tokens — Wool ×20",
             "componentId": "resourc1",
             "features": [
               {
@@ -393,7 +393,7 @@
             "d": 47.08,
             "floorZ": 19.8,
             "kind": "scoop",
-            "contents": "Resource tokens — Wool ×20",
+            "contents": "Resource tokens — Ore ×20",
             "componentId": "resourc1",
             "features": [
               {
@@ -626,7 +626,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 3/40",
+            "contents": "Heroes — Hero 2/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -654,7 +654,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 5/40",
+            "contents": "Heroes — Hero 3/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -682,7 +682,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 7/40",
+            "contents": "Heroes — Hero 4/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -710,7 +710,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 9/40",
+            "contents": "Heroes — Hero 5/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -738,7 +738,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 11/40",
+            "contents": "Heroes — Hero 6/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -766,7 +766,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 13/40",
+            "contents": "Heroes — Hero 7/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -794,7 +794,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 15/40",
+            "contents": "Heroes — Hero 8/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -822,7 +822,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 17/40",
+            "contents": "Heroes — Hero 9/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -850,7 +850,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 19/40",
+            "contents": "Heroes — Hero 10/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -878,7 +878,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 21/40",
+            "contents": "Heroes — Hero 11/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -906,7 +906,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 23/40",
+            "contents": "Heroes — Hero 12/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -934,7 +934,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 25/40",
+            "contents": "Heroes — Hero 13/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -962,7 +962,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 27/40",
+            "contents": "Heroes — Hero 14/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -990,7 +990,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 29/40",
+            "contents": "Heroes — Hero 15/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1018,7 +1018,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 31/40",
+            "contents": "Heroes — Hero 16/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1046,7 +1046,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 33/40",
+            "contents": "Heroes — Hero 17/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1074,7 +1074,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 35/40",
+            "contents": "Heroes — Hero 18/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1102,7 +1102,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 37/40",
+            "contents": "Heroes — Hero 19/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1130,7 +1130,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 39/40",
+            "contents": "Heroes — Hero 20/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1158,7 +1158,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 2/40",
+            "contents": "Heroes — Hero 21/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1186,7 +1186,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 4/40",
+            "contents": "Heroes — Hero 22/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1214,7 +1214,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 6/40",
+            "contents": "Heroes — Hero 23/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1242,7 +1242,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 8/40",
+            "contents": "Heroes — Hero 24/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1270,7 +1270,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 10/40",
+            "contents": "Heroes — Hero 25/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1298,7 +1298,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 12/40",
+            "contents": "Heroes — Hero 26/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1326,7 +1326,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 14/40",
+            "contents": "Heroes — Hero 27/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1354,7 +1354,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 16/40",
+            "contents": "Heroes — Hero 28/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1382,7 +1382,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 18/40",
+            "contents": "Heroes — Hero 29/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1410,7 +1410,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 20/40",
+            "contents": "Heroes — Hero 30/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1438,7 +1438,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 22/40",
+            "contents": "Heroes — Hero 31/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1466,7 +1466,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 24/40",
+            "contents": "Heroes — Hero 32/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1494,7 +1494,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 26/40",
+            "contents": "Heroes — Hero 33/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1522,7 +1522,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 28/40",
+            "contents": "Heroes — Hero 34/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1550,7 +1550,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 30/40",
+            "contents": "Heroes — Hero 35/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1578,7 +1578,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 32/40",
+            "contents": "Heroes — Hero 36/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1606,7 +1606,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 34/40",
+            "contents": "Heroes — Hero 37/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1634,7 +1634,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 36/40",
+            "contents": "Heroes — Hero 38/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1662,7 +1662,7 @@
             "d": 35,
             "floorZ": 27,
             "kind": "pocket",
-            "contents": "Heroes — Hero 38/40",
+            "contents": "Heroes — Hero 39/40",
             "componentId": "heroes01",
             "features": [
               {
@@ -1801,7 +1801,7 @@
     {
       "level": "error",
       "code": "layout.doesNotFit",
-      "message": "No fit found yet. The search ran 100,000 iterations without finding a layout that fits. This is not proof that what's inside can't fit: a very tight box can need a much longer search. The closest attempt so far is short by 442.0 mm in width (X). Too large for the print bed: \"Heroes — Hero 1/40, Heroes — Hero 3/40, Heroes — Hero 5/40, Heroes — Hero 7/40, Heroes — Hero 9/40, Heroes — Hero 11/40, Heroes — Hero 13/40, Heroes — Hero 15/40, Heroes — Hero 17/40, Heroes — Hero 19/40, Heroes — Hero 21/40, Heroes — Hero 23/40, Heroes — Hero 25/40, Heroes — Hero 27/40, Heroes — Hero 29/40, Heroes — Hero 31/40, Heroes — Hero 33/40, Heroes — Hero 35/40, Heroes — Hero 37/40, Heroes — Hero 39/40, Heroes — Hero 2/40, Heroes — Hero 4/40, Heroes — Hero 6/40, Heroes — Hero 8/40, Heroes — Hero 10/40, Heroes — Hero 12/40, Heroes — Hero 14/40, Heroes — Hero 16/40, Heroes — Hero 18/40, Heroes — Hero 20/40, Heroes — Hero 22/40, Heroes — Hero 24/40, Heroes — Hero 26/40, Heroes — Hero 28/40, Heroes — Hero 30/40, Heroes — Hero 32/40, Heroes — Hero 34/40, Heroes — Hero 36/40, Heroes — Hero 38/40, Heroes — Hero 40/40\" is 726.0 × 74.4 × 70.0 mm; the usable bed is 246.0 × 246.0 mm. Press “Keep searching” to search about 3 times longer. If it still doesn't fit, try: use unsleeved cards or thinner sleeves; store cards flat or upright (Storage: auto tries both); choose a tighter fit (Fit: tight); use a printer with a larger bed; split groups into separate items."
+      "message": "No fit found yet. The search ran 100,000 iterations without finding a layout that fits. This is not proof that what's inside can't fit: a very tight box can need a much longer search. The closest attempt so far is short by 442.0 mm in width (X). Too large for the print bed: \"Heroes — Hero 1/40, Heroes — Hero 2/40, Heroes — Hero 3/40, Heroes — Hero 4/40, Heroes — Hero 5/40, Heroes — Hero 6/40, Heroes — Hero 7/40, Heroes — Hero 8/40, Heroes — Hero 9/40, Heroes — Hero 10/40, Heroes — Hero 11/40, Heroes — Hero 12/40, Heroes — Hero 13/40, Heroes — Hero 14/40, Heroes — Hero 15/40, Heroes — Hero 16/40, Heroes — Hero 17/40, Heroes — Hero 18/40, Heroes — Hero 19/40, Heroes — Hero 20/40, Heroes — Hero 21/40, Heroes — Hero 22/40, Heroes — Hero 23/40, Heroes — Hero 24/40, Heroes — Hero 25/40, Heroes — Hero 26/40, Heroes — Hero 27/40, Heroes — Hero 28/40, Heroes — Hero 29/40, Heroes — Hero 30/40, Heroes — Hero 31/40, Heroes — Hero 32/40, Heroes — Hero 33/40, Heroes — Hero 34/40, Heroes — Hero 35/40, Heroes — Hero 36/40, Heroes — Hero 37/40, Heroes — Hero 38/40, Heroes — Hero 39/40, Heroes — Hero 40/40\" is 726.0 × 74.4 × 70.0 mm; the usable bed is 246.0 × 246.0 mm. Press “Keep searching” to search about 3 times longer. If it still doesn't fit, try: use unsleeved cards or thinner sleeves; store cards flat or upright (Storage: auto tries both); choose a tighter fit (Fit: tight); use a printer with a larger bed; split groups into separate items."
     }
   ],
   "lockConflicts": []

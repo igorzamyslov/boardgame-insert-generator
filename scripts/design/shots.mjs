@@ -371,6 +371,25 @@ const PROBES = {
     return problems.map((p) => `probe tray-sheet: ${p}`);
   },
   /**
+   * Drag and drop in the rail (0.7.0, R14; spec §7.3): a skeleton, failing on purpose until Task 14
+   * builds the drag and writes the checks. The state (`kit-drag`) starts on the kit seed. Task 14
+   * drags Market deck's grip between Starter deck and Resources with the mouse and asserts:
+   *   - while the button is down, the lifted row carries `--shadow-sheet`, a 2 px `--focus` line
+   *     marks the drop place, and the group being entered has `--focus-wash`;
+   *   - after the drop, the rail's order is Starter deck, Market deck, Resources, Hero (and the
+   *     plan is stale), the live region says where the item went, and one undo step puts it back;
+   *   - Escape in the middle of a drag cancels it: the order is as it was, nothing to undo.
+   */
+  async "drag-into-group"(page) {
+    const grip = page
+      .locator('[data-region="rail"]')
+      .getByRole("button", { name: /^Move Market deck/ });
+    if ((await grip.count()) === 0) {
+      return ["probe drag-into-group: the Market deck row has no drag grip yet (Task 14)"];
+    }
+    return ["probe drag-into-group: the drag checks are not written yet (Task 14)"];
+  },
+  /**
    * The Settings drawer by keyboard (0.6.0 carry): the state opened it with keys alone (Tab to the
    * project menu's button, Enter, Tab to Settings, Enter). Tab then stays inside the drawer and
    * comes round from the last control to the first, Shift+Tab from the first goes to the last, what

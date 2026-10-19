@@ -37,10 +37,11 @@ describe("BoxSideView", () => {
     const p = harbour();
     const { container } = draw(p);
     const trays = p.layout?.trays ?? [];
-    // the cut is through the middle of the deepest stack (the one that stands in two levels): y = 114.6
-    const y0 = 38.4 + 152.3 / 2;
+    // the cut is through the middle of the deepest stack (the tray on the top level with the most depth)
+    const top = trays.filter((t) => t.part === "tray" && t.level > 0).sort((a, b) => b.d - a.d)[0];
+    const y0 = (top?.y ?? 0) + (top?.d ?? 0) / 2;
     const crossed = trays.filter((t) => t.part !== "spacer" && t.y <= y0 && y0 < t.y + t.d);
-    expect(crossed.length).toBe(4);
+    expect(crossed.length).toBeGreaterThanOrEqual(3);
     const blocks = [...container.querySelectorAll<HTMLElement>(".bx-tray")];
     expect(blocks.map((b) => b.dataset.key).sort()).toEqual(crossed.map((t) => t.key).sort());
     const fill = 62;

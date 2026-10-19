@@ -31,6 +31,8 @@ try {
   const memory = await loader.load("src/test-support/memory-storage.ts");
   const geometry = await loader.load("src/geometry/version.ts");
   const layers = await loader.load("src/plan/layers.ts");
+  const numbering = await loader.load("src/instructions/numbering.ts");
+  const naming = await loader.load("src/instructions/naming.ts");
 
   const { DEFAULT_ITERATIONS, DEFAULT_TIME_CAP_MS, optimize } = optimizeModule;
   const { DEFAULT_SEED, buildLayoutInput } = runner;
@@ -63,6 +65,76 @@ try {
       project.components,
     );
     return `no fit, misfit ${misfit?.name ?? "none"}`;
+  }
+
+  /** The names the packing guide and the plan give the parts of `project`'s layout, by tray key. */
+  function namesOf(project, layout) {
+    return naming.trayNames(
+      numbering.numberParts(layout.trays),
+      project.components,
+      project.groups ?? [],
+    );
+  }
+
+  /** Searches `project` with seed `seed` (cold start), as the runner would with a plan stored under it. */
+  function searchWith(project, seed) {
+    return optimize(buildLayoutInput(project), seed, DEFAULT_ITERATIONS, {
+      timeCapMs: DEFAULT_TIME_CAP_MS,
+    });
+  }
+
+  /**
+   * G1's arrangement (R12): one layer, six trays, the four "Player kit 1…4" trays on one x, and
+   * Market deck and Hex tiles in the other column (starting where the kit trays end, give or take
+   * the 3 mm a tray's width may differ). Returns what is wrong with `result`, or null.
+   */
+  function kitArrangementProblem(project, result) {
+    if (result.layout === null) {
+      return "no layout";
+    }
+    const trays = result.layout.trays;
+    const parts = trays.filter((t) => t.part === "tray");
+    const kits = parts.filter((t) => t.key.startsWith("plrkit01:"));
+    const others = parts.filter((t) => !t.key.startsWith("plrkit01:"));
+    if (layers.levelsOf(trays).length !== 1) {
+      return `${layers.levelsOf(trays).length} layers`;
+    }
+    if (parts.length !== 6 || kits.length !== 4 || others.length !== 2) {
+      return `${parts.length} trays (${kits.length} of the kit)`;
+    }
+    const names = namesOf(project, result.layout);
+    const kitNames = kits.map((t) => names.get(t.key)?.full).sort();
+    if (kitNames.join("|") !== "Player kit 1|Player kit 2|Player kit 3|Player kit 4") {
+      return `kit trays named ${kitNames.join(", ")}`;
+    }
+    if (!kits.every((t) => Math.abs(t.x - (kits[0]?.x ?? 0)) < 1)) {
+      return "the kit trays are not on one x";
+    }
+    const kitLeft = Math.min(...kits.map((t) => t.x));
+    const kitRight = Math.max(...kits.map((t) => t.x + t.w));
+    const right = others.every((t) => t.x >= kitRight - 3);
+    const left = others.every((t) => t.x + t.w <= kitLeft + 3);
+    return right || left ? null : "Market deck and Hex tiles are not in the other column";
+  }
+
+  /** Searches seeds 1, 2, 3 … until `accept` takes the run; the stored plan records the seed. */
+  function findSeed(label, project, accept, last = 400) {
+    const tried = [];
+    for (let seed = DEFAULT_SEED; seed <= last; seed++) {
+      const result = searchWith(project, seed);
+      const problem = accept(project, result);
+      if (problem === null) {
+        if (result.layout.capped) {
+          console.warn(`warning: ${label} hit the time cap`);
+        }
+        return { ...project, layout: result.layout };
+      }
+      if (tried.length < 12) {
+        tried.push({ count: seed, what: problem });
+      }
+    }
+    failures.push({ label, first: 0, tried, text: `no search seed in 1..${last} gives it` });
+    return null;
   }
 
   function withLayout(project) {
@@ -215,9 +287,48 @@ try {
     process.exit(1);
   }
   const base = withLayout(kit.harbourKings());
-  const headroom = withLayout(kit.harbourKingsHeadroom());
+  // The box with a lid: the engine's plan for it moves with the engine (since 0.7.0's sizing it is
+  // three layers under seed 1), and the box editor's state wants two, as the base game has.
+  const headroom = findSeed(
+    "harbour-kings-headroom",
+    kit.harbourKingsHeadroom(),
+    (_project, result) =>
+      result.layout !== null && layers.levelsOf(result.layout.trays).length === 2
+        ? null
+        : "not two layers",
+  );
   const long = withLayout(kit.harbourKingsLong());
   const wide = withLayout(kit.harbourKingsWide());
+
+  // Groups (0.7.0). The kit is G1's project: found under a search seed, which the plan records.
+  const kitProject = findSeed("harbour-kings-kit", kit.harbourKingsKit(), kitArrangementProblem);
+  const kitLoose = withLayout(kit.harbourKingsKitLoose());
+  // The kit with a Hero too long for one copy to fit the bed: each copy is two trays, 1a and 1b.
+  const kitSplit = withLayout(kit.harbourKingsKitSplit());
+  const splitNames = namesOf(kitSplit, kitSplit.layout);
+  for (const want of ["Player kit 1a", "Player kit 1b"]) {
+    if (![...splitNames.values()].some((n) => n.full === want)) {
+      failures.push({
+        label: "harbour-kings-kit-split",
+        first: 0,
+        tried: [],
+        text: `no tray is named "${want}" (names: ${[...splitNames.values()].map((n) => n.full).join(", ")})`,
+      });
+    }
+  }
+  // Three flat decks in one well: the Starter deck is one tray with one compartment.
+  const flat = withLayout(kit.harbourKingsFlat());
+  const flatTrays = flat.layout.trays.filter(
+    (t) => t.part === "tray" && t.key.startsWith("flatdeck:"),
+  );
+  if (flatTrays.length !== 1 || flatTrays[0]?.compartments.length !== 1) {
+    failures.push({
+      label: "harbour-kings-flat",
+      first: 0,
+      tried: [],
+      text: `the Starter deck is ${flatTrays.length} tray(s) with ${flatTrays.map((t) => t.compartments.length).join(", ")} compartment(s), not one well`,
+    });
+  }
 
   // Stale seeds: the base plan with an edit that the plan does not cover.
   const stale = {
@@ -294,6 +405,10 @@ try {
       "harbour-kings-headroom": { project: headroom },
       "harbour-kings-long": { project: long },
       "harbour-kings-wide": { project: wide },
+      "harbour-kings-kit": { project: kitProject },
+      "harbour-kings-kit-loose": { project: kitLoose },
+      "harbour-kings-kit-split": { project: kitSplit },
+      "harbour-kings-flat": { project: flat },
       "harbour-kings-stale": { project: stale },
       "harbour-kings-notes": { project: notes },
       "harbour-kings-nofit": { project: noFitRun.project, result: noFitRun.result },
@@ -330,7 +445,7 @@ try {
       );
     }
     console.log(
-      `\nfinal values: Heroes figure height ${noFitRun.count} mm (no fit, box), Heroes figures ${noFitBedRun.count} (no fit, bed), Hex tiles ${pinsRun.count} (pin conflict), sizing notices ${noticeCodes.length}`,
+      `\nsearch seeds: kit ${kitProject.layout.seed}, headroom ${headroom.layout.seed}; final values: Heroes figure height ${noFitRun.count} mm (no fit, box), Heroes figures ${noFitBedRun.count} (no fit, bed), Hex tiles ${pinsRun.count} (pin conflict), sizing notices ${noticeCodes.length}`,
     );
   }
 } finally {
