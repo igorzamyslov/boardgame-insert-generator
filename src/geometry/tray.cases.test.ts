@@ -47,8 +47,8 @@ describe("buildTray at the thinnest wall and largest chamfer", () => {
 
 describe("buildTray with finger room on a cut across the row", () => {
   it("builds a deck kept between bulk compartments, cut through its thicker front and back", () => {
-    // A hand-built part: the deck gets no cut along its row, so it is cut through the front and
-    // back walls, which take the 10 mm of finger room.
+    // Member order keeps the deck between the piles: it gets no cut along its row, so it is cut
+    // through the front and back walls, which take the 10 mm of finger room.
     const settings = applyFingerRoom(DEFAULT_SETTINGS, true);
     const pile = (id: string) => bulk({ id, items: [{ name: "Pile", volumeMl: 40 }] });
     const deck = cards({
@@ -61,7 +61,7 @@ describe("buildTray with finger room on a cut across the row", () => {
       "shallow+upright-long+shallow|strip|split1",
       settings,
     );
-    const part = { ...sorted, compartments: [1, 0, 2].map((i) => at(sorted.compartments, i)) };
+    const part = sorted;
     for (const opts of SWEEP_OPTIONS) {
       const outer = minOuter(part, settings, opts);
       const realized = realizeTray(part, outer, settings, opts);

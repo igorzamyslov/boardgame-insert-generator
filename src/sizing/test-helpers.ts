@@ -137,14 +137,19 @@ export function partOf(
   const first = at(components, 0);
   const grouped = { groups };
   const key = requirementKeyOf(grouped, first);
-  const members = components.flatMap((c, index) =>
-    requirementKeyOf(grouped, c) === key ? [componentOptions(c, settings, index).options] : [],
+  // A group's members stand in its memberIds order, as size() takes them.
+  const ids = groups.find((g) => g.id === key)?.memberIds;
+  const ofKey = components.flatMap((c, index) =>
+    requirementKeyOf(grouped, c) === key ? [{ c, index }] : [],
   );
+  const ordered =
+    ids === undefined ? ofKey : ids.flatMap((id) => ofKey.filter((member) => member.c.id === id));
+  const members = ordered.map(({ c, index }) => componentOptions(c, settings, index).options);
   const copies = copiesOf(grouped, first);
   const variants = buildVariants({
     key,
     options: combineOptions(members.filter((options) => options.length > 0)),
-    players: copies > 1 ? copies : null,
+    copies,
   });
   const variant = variants.find((v) => v.id === variantId);
   if (variant === undefined) {

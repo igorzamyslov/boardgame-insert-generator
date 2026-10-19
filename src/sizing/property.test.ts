@@ -14,7 +14,7 @@ import { requirementKeyOf } from "../model/groups";
 import { validateComponent } from "../model/validate";
 import { MIN_SPACER } from "./constants";
 import { hasGrip, minOuter, needsGrip, realizeTray, rotateRealized, size } from "./index";
-import { assertTrayInvariants } from "./test-helpers";
+import { assertTrayInvariants, at } from "./test-helpers";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
 
 const EPS = 0.011;
@@ -192,7 +192,6 @@ const customArb: Arbitrary<Component> = fc
   .record({ access, w: mm(5, 80), d: mm(5, 80), h: mm(1, 60), count: count(4) })
   .map((r): Component => ({ id: "", name: "Thing", kind: "custom", ...r }));
 
-/** 1–3 components, all in one group or not; the first is per player only when ungrouped (plan 1 rule). */
 /** A component with its finger cut and curved floor toggles set or left to the kind's default. */
 const toggledArb: Arbitrary<Component> = fc
   .record({
@@ -220,17 +219,29 @@ const componentsArb: Arbitrary<Case> = fc
   .record({
     list: fc.array(toggledArb, { minLength: 1, maxLength: 3 }),
     grouped: fc.boolean(),
+    // The item's Copies when ungrouped, the group's when grouped.
     copies: fc.option(fc.integer({ min: 1, max: 4 }), { nil: undefined }),
+    // The group's members stand in memberIds order, whatever the list order is.
+    reversed: fc.boolean(),
   })
-  .map(({ list, grouped, copies }): Case => {
+  .map(({ list, grouped, copies, reversed }): Case => {
     const components = list.map((c, i): Component => {
       const withId: Component = { ...c, id: `c${i}` };
       return !grouped && i === 0 && copies !== undefined ? { ...withId, copies } : withId;
     });
+    const ids = components.map((c) => c.id);
     return {
       components,
       groups: grouped
-        ? [{ id: "g", name: "g", access: "sometimes", memberIds: components.map((c) => c.id) }]
+        ? [
+            {
+              id: "g",
+              name: "g",
+              access: "sometimes",
+              ...(copies === undefined ? {} : { copies }),
+              memberIds: reversed ? ids.reverse() : ids,
+            },
+          ]
         : [],
     };
   });
@@ -360,7 +371,8 @@ function checkTray(part: TrayPartReq, outer: OuterSize, s: Settings, opts: Reali
 /**
  * size() of valid components: asserts the property is not vacuous. Every component is sized,
  * except a component or group size() leaves out with a sizing.noFingerSlot warning naming one of
- * its members; one stored in a bin instead (an info sizing.noFingerSlot) is sized.
+ * its members; one stored in a bin instead (an info sizing.noFingerSlot) is sized, and so is a
+ * group kept without a member's finger cuts (the warning "has no finger cut here").
  */
 function sized({ components, groups }: Case, s: Settings): ReturnType<typeof size> {
   components.forEach((c, i) => {
@@ -376,6 +388,7 @@ function sized({ components, groups }: Case, s: Settings): ReturnType<typeof siz
         (n) =>
           n.code === "sizing.noFingerSlot" &&
           n.level === "warning" &&
+          !n.message.includes("has no finger cut here") &&
           n.path === `/components/${i}`,
       )
         ? [keyOf(c)]
@@ -416,6 +429,48 @@ describe("sizing properties", () => {
               for (const part of v.parts) {
                 expect(part.compartments.length).toBeGreaterThan(0);
               }
+            }
+          }
+        }),
+        { numRuns: 200, seed: SEED },
+      );
+    },
+  );
+
+  it(
+    "keeps member order, and gives every copy the same keyed parts numbered from 0",
+    { timeout: 60_000 },
+    () => {
+      fc.assert(
+        fc.property(componentsArb, settingsArb, (found, s) => {
+          const group = found.groups[0];
+          for (const req of sized(found, s).requirements) {
+            const copies =
+              group !== undefined && group.id === req.key
+                ? (group.copies ?? 1)
+                : (found.components.find((c) => c.id === req.key)?.copies ?? 1);
+            for (const v of req.variants) {
+              expect(v.parts.length % copies).toBe(0);
+              const perCopy = v.parts.length / copies;
+              v.parts.forEach((part, i) => {
+                expect(part.trayKey).toBe(`${req.key}:p${Math.floor(i / perCopy)}:${i % perCopy}`);
+                // every copy is the first one again
+                const first = at(v.parts, i % perCopy);
+                expect(part.compartments).toEqual(first.compartments);
+                expect(part.arrangement).toBe(first.arrangement);
+                expect(part.rowBreak).toBe(first.rowBreak);
+                if (part.arrangement === "rows2") {
+                  const front = part.rowBreak ?? 0;
+                  expect(front).toBeGreaterThanOrEqual(1);
+                  expect(front).toBeLessThanOrEqual(part.compartments.length - 1);
+                }
+              });
+              // One copy's compartments, part after part, take the members in order.
+              const owners = v.parts
+                .slice(0, perCopy)
+                .flatMap((p) => p.compartments.map((c) => c.componentId))
+                .filter((id, i, all) => id !== all[i - 1]);
+              expect(owners).toEqual(req.componentIds.filter((id) => owners.includes(id)));
             }
           }
         }),

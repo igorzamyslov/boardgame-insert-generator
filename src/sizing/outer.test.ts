@@ -49,6 +49,10 @@ describe("rowsOf", () => {
     expect(rowsOf("strip", [1, 2, 3])).toEqual([[1, 2, 3]]);
     expect(rowsOf("rows2", [1, 2, 3])).toEqual([[1, 2], [3]]);
     expect(rowsOf("rows2", [1])).toEqual([[1]]);
+    // A part's rowBreak sets the front row.
+    expect(rowsOf("rows2", [1, 2, 3, 4], 1)).toEqual([[1], [2, 3, 4]]);
+    expect(rowsOf("rows2", [1, 2, 3, 4], 3)).toEqual([[1, 2, 3], [4]]);
+    expect(rowsOf("strip", [1, 2, 3], 1)).toEqual([[1, 2, 3]]);
   });
 });
 

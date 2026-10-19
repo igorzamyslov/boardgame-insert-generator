@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { StorageOption } from "./common";
+import { DEFAULT_SETTINGS } from "../model/settings";
+import { rowsOf } from "./outer";
+import { minOuter } from "./realize";
 import { at } from "./test-helpers";
 import type { CompartmentReq } from "./types";
 import { buildVariants } from "./variants";
@@ -26,7 +29,7 @@ describe("buildVariants", () => {
     const variants = buildVariants({
       key: "k",
       options: [opt("A", 4), opt("B", 4), opt("C", 4)],
-      players: null,
+      copies: 1,
     });
     expect(variants.map((v) => v.id)).toEqual([
       "A|strip|split1",
@@ -55,8 +58,8 @@ describe("buildVariants", () => {
     expect(at(rows2.parts, 0).arrangement).toBe("rows2");
     expect(at(rows2.parts, 0).compartments.map((c) => c.contents)).toEqual([
       "A0",
-      "A2",
       "A1",
+      "A2",
       "A3",
     ]);
     for (const v of variants) {
@@ -67,61 +70,125 @@ describe("buildVariants", () => {
   });
 
   it("skips rows2 with one compartment and splits with too few blocks", () => {
-    expect(
-      buildVariants({ key: "k", options: [opt("A", 1)], players: null }).map((v) => v.id),
-    ).toEqual(["A|strip|split1"]);
+    expect(buildVariants({ key: "k", options: [opt("A", 1)], copies: 1 }).map((v) => v.id)).toEqual(
+      ["A|strip|split1"],
+    );
   });
 
   it("drops later duplicates (tray keys ignored)", () => {
     const same: StorageOption = { id: "B", blocks: opt("A", 1).blocks };
     expect(
-      buildVariants({ key: "k", options: [opt("A", 1), same], players: null }).map((v) => v.id),
+      buildVariants({ key: "k", options: [opt("A", 1), same], copies: 1 }).map((v) => v.id),
     ).toEqual(["A|strip|split1"]);
   });
 
-  it("offers separate trays per player first, then one combined tray", () => {
-    const variants = buildVariants({ key: "k", options: [opt("A", 2)], players: 3 });
-    // Combined split3 is absent: with 6 equal blocks it cuts exactly at the player boundaries, so
-    // it duplicates the separate variant (tray keys are ignored) and the earlier one is kept.
+  it("gives C copies of the same arrangement, keyed p0…pC-1, with parts numbered from 0 in each", () => {
+    const variants = buildVariants({ key: "k", options: [opt("A", 2)], copies: 4 });
     expect(variants.map((v) => v.id)).toEqual([
-      "A|strip|split1|separate",
-      "A|rows2|split1|separate",
-      "A|strip|split1|combined",
-      "A|strip|split2|combined",
-      "A|rows2|split1|combined",
-      "A|rows2|split2|combined",
+      "A|strip|split1",
+      "A|strip|split2",
+      "A|rows2|split1",
     ]);
-    const separate = at(variants, 0);
-    expect(separate.parts.map((p) => p.trayKey)).toEqual(["k:p0:0", "k:p1:0", "k:p2:0"]);
-    expect(at(separate.parts, 1).compartments.map((c) => c.contents)).toEqual([
-      "A0 (P2)",
-      "A1 (P2)",
+    const whole = at(variants, 0);
+    expect(whole.parts.map((p) => p.trayKey)).toEqual(["k:p0:0", "k:p1:0", "k:p2:0", "k:p3:0"]);
+    for (const part of whole.parts) {
+      expect(part.compartments.map((c) => c.contents)).toEqual(["A0", "A1"]);
+    }
+    const split = at(variants, 1);
+    expect(split.parts.map((p) => p.trayKey)).toEqual([
+      "k:p0:0",
+      "k:p0:1",
+      "k:p1:0",
+      "k:p1:1",
+      "k:p2:0",
+      "k:p2:1",
+      "k:p3:0",
+      "k:p3:1",
     ]);
-    const combined = at(variants, 2);
-    expect(combined.parts.map((p) => p.trayKey)).toEqual(["k:pall:0"]);
-    expect(at(combined.parts, 0).compartments).toHaveLength(6);
   });
 
-  it("offers only separate variants for a single player", () => {
-    expect(
-      buildVariants({ key: "k", options: [opt("A", 2)], players: 1 }).map((v) => v.id),
-    ).toEqual(["A|strip|split1|separate", "A|rows2|split1|separate"]);
+  it("splits every copy the same way: each copy has the same number of parts", () => {
+    const variants = buildVariants({ key: "k", options: [opt("A", 6)], copies: 3 });
+    for (const v of variants) {
+      const perCopy = [0, 1, 2].map((c) => v.parts.filter((p) => p.trayKey.startsWith(`k:p${c}:`)));
+      expect(new Set(perCopy.map((parts) => parts.length)).size).toBe(1);
+      expect(
+        perCopy.map((parts) => parts.map((p) => p.compartments.map((c) => c.contents))),
+      ).toEqual([0, 1, 2].map(() => perCopy[0]?.map((p) => p.compartments.map((c) => c.contents))));
+      perCopy.forEach((parts) =>
+        expect(parts.map((p) => p.trayKey.split(":")[2])).toEqual(parts.map((_, i) => String(i))),
+      );
+    }
+    expect(variants.some((v) => v.id.endsWith("split3"))).toBe(true);
+  });
+
+  it("has no combined variants and puts no player suffix on a compartment", () => {
+    const variants = buildVariants({ key: "k", options: [opt("A", 2)], copies: 3 });
+    for (const v of variants) {
+      expect(v.id).not.toContain("combined");
+      expect(v.id).not.toContain("separate");
+      for (const part of v.parts) {
+        expect(part.trayKey).not.toContain("pall");
+        expect(part.compartments.every((c) => /^A\d$/.test(c.contents))).toBe(true);
+      }
+    }
+  });
+
+  it("keys a single copy p0", () => {
+    const variants = buildVariants({ key: "k", options: [opt("A", 2)], copies: 1 });
+    expect(at(variants, 0).parts.map((p) => p.trayKey)).toEqual(["k:p0:0"]);
+  });
+
+  it("cuts rows2 into a front and a back run that keep the order, and records the break", () => {
+    const blocks = [[req("a", 50)], [req("b", 40)], [req("c", 30)], [req("d", 20)], [req("e", 10)]];
+    const variants = buildVariants({ key: "k", options: [{ id: "A", blocks }], copies: 1 });
+    const part = at(
+      at(
+        variants.filter((v) => v.id === "A|rows2|split1"),
+        0,
+      ).parts,
+      0,
+    );
+    expect(part.compartments.map((c) => c.contents)).toEqual(["a", "b", "c", "d", "e"]);
+    expect(part.rowBreak).toBe(2);
+    expect(rowsOf(part.arrangement, part.compartments, part.rowBreak).map((r) => r.length)).toEqual(
+      [2, 3],
+    );
+  });
+
+  it("sizes a rows2 part by its own break, not the half", () => {
+    const blocks = [[req("a", 50)], [req("b", 10)], [req("c", 10)]];
+    const variants = buildVariants({ key: "k", options: [{ id: "A", blocks }], copies: 1 });
+    const part = at(
+      at(
+        variants.filter((v) => v.id === "A|rows2|split1"),
+        0,
+      ).parts,
+      0,
+    );
+    expect(part.rowBreak).toBe(1);
+    const own = minOuter(part, DEFAULT_SETTINGS, { lipped: false, level: 0 });
+    const halved = minOuter({ ...part, rowBreak: undefined }, DEFAULT_SETTINGS, {
+      lipped: false,
+      level: 0,
+    });
+    expect(own.w).toBeLessThan(halved.w);
   });
 
   it("returns at most 8 variants per storage option, best first", () => {
     const options = ["A", "B", "C", "D", "E", "F", "G", "H", "I"].map((id) => opt(id, 3));
-    const ids = buildVariants({ key: "k", options, players: 4 }).map((v) => v.id);
+    const ids = buildVariants({ key: "k", options, copies: 4 }).map((v) => v.id);
     expect(ids.length).toBeLessThanOrEqual(8 * options.length);
     expect(ids.slice(0, 9)).toEqual([
-      "A|strip|split1|separate",
-      "B|strip|split1|separate",
-      "C|strip|split1|separate",
-      "D|strip|split1|separate",
-      "E|strip|split1|separate",
-      "F|strip|split1|separate",
-      "G|strip|split1|separate",
-      "H|strip|split1|separate",
-      "I|strip|split1|separate",
+      "A|strip|split1",
+      "B|strip|split1",
+      "C|strip|split1",
+      "D|strip|split1",
+      "E|strip|split1",
+      "F|strip|split1",
+      "G|strip|split1",
+      "H|strip|split1",
+      "I|strip|split1",
     ]);
   });
 
@@ -129,7 +196,7 @@ describe("buildVariants", () => {
     const options = [opt("A", 3), { id: "Adup", blocks: opt("A", 3).blocks }, opt("B", 3)].concat(
       ["C", "D", "E"].map((id) => opt(id, 3)),
     );
-    const ids = buildVariants({ key: "k", options, players: null }).map((v) => v.id);
+    const ids = buildVariants({ key: "k", options, copies: 1 }).map((v) => v.id);
     expect(ids).toEqual([
       "A|strip|split1",
       "B|strip|split1",
@@ -155,74 +222,22 @@ describe("buildVariants", () => {
     expect(ids.some((id) => id.startsWith("Adup"))).toBe(false);
   });
 
-  it("drops combined variants that equal a separate one, whatever their tray keys", () => {
-    const ids = buildVariants({ key: "k", options: [opt("A", 2)], players: 2 }).map((v) => v.id);
-    expect(ids).toEqual([
-      "A|strip|split1|separate",
-      "A|rows2|split1|separate",
-      "A|strip|split1|combined",
-      "A|rows2|split1|combined",
-      "A|strip|split3|combined",
-    ]);
-    expect(ids).not.toContain("A|strip|split2|combined");
-    expect(ids).not.toContain("A|rows2|split2|combined");
-  });
-
-  it("ranks by storage option before player mode", () => {
-    const ids = buildVariants({
-      key: "k",
-      options: [opt("A", 2), opt("B", 2)],
-      players: 2,
-    }).map((v) => v.id);
-    expect(ids).toEqual([
-      "A|strip|split1|separate",
-      "B|strip|split1|separate",
-      "A|rows2|split1|separate",
-      "A|strip|split1|combined",
-      "B|rows2|split1|separate",
-      "B|strip|split1|combined",
-      "A|rows2|split1|combined",
-      "B|rows2|split1|combined",
-      "A|strip|split3|combined",
-      "B|strip|split3|combined",
-    ]);
-    expect(ids.indexOf("A|strip|split1|combined")).toBeLessThan(
-      ids.indexOf("B|rows2|split1|separate"),
+  it("ranks by storage option within each split step", () => {
+    const ids = buildVariants({ key: "k", options: [opt("A", 2), opt("B", 2)], copies: 2 }).map(
+      (v) => v.id,
     );
-  });
-
-  it("keys the trays of a combined split by part", () => {
-    const variants = buildVariants({ key: "k", options: [opt("A", 2)], players: 3 });
-    const split2 = variants.find((v) => v.id === "A|strip|split2|combined");
-    expect(split2?.parts.map((p) => p.trayKey)).toEqual(["k:pall:0", "k:pall:1"]);
-  });
-
-  it("orders combined contents by player and suffixes every compartment, leaving the input alone", () => {
-    const options = [opt("A", 2)];
-    const snapshot = structuredClone(options);
-    const variants = buildVariants({ key: "k", options, players: 2 });
-    const combined = variants.find((v) => v.id === "A|strip|split1|combined");
-    expect(at(combined?.parts ?? [], 0).compartments.map((c) => c.contents)).toEqual([
-      "A0 (P1)",
-      "A1 (P1)",
-      "A0 (P2)",
-      "A1 (P2)",
-    ]);
-    expect(options).toEqual(snapshot);
-  });
-
-  it("keys and suffixes a single player's tray", () => {
-    const variants = buildVariants({ key: "k", options: [opt("A", 2)], players: 1 });
-    const separate = at(variants, 0);
-    expect(separate.parts.map((p) => p.trayKey)).toEqual(["k:p0:0"]);
-    expect(at(separate.parts, 0).compartments.map((c) => c.contents)).toEqual([
-      "A0 (P1)",
-      "A1 (P1)",
+    expect(ids).toEqual([
+      "A|strip|split1",
+      "B|strip|split1",
+      "A|strip|split2",
+      "A|rows2|split1",
+      "B|strip|split2",
+      "B|rows2|split1",
     ]);
   });
 
-  it("makes every part rotatable in per-player variants", () => {
-    const variants = buildVariants({ key: "k", options: [opt("A", 2)], players: 3 });
+  it("makes every part rotatable with copies", () => {
+    const variants = buildVariants({ key: "k", options: [opt("A", 2)], copies: 3 });
     expect(variants.length).toBeGreaterThan(0);
     for (const v of variants) {
       for (const part of v.parts) {
@@ -232,9 +247,9 @@ describe("buildVariants", () => {
   });
 
   it("offers splits into three trays and skips rows2 parts with one compartment", () => {
-    expect(
-      buildVariants({ key: "k", options: [opt("A", 3)], players: null }).map((v) => v.id),
-    ).toEqual(["A|strip|split1", "A|strip|split2", "A|rows2|split1", "A|strip|split3"]);
+    expect(buildVariants({ key: "k", options: [opt("A", 3)], copies: 1 }).map((v) => v.id)).toEqual(
+      ["A|strip|split1", "A|strip|split2", "A|rows2|split1", "A|strip|split3"],
+    );
   });
 
   it("splits only on block boundaries", () => {
@@ -243,7 +258,7 @@ describe("buildVariants", () => {
       [req("b0", 10)],
       [req("c0", 10), req("c1", 10), req("c2", 10)],
     ];
-    const variants = buildVariants({ key: "k", options: [{ id: "A", blocks }], players: null });
+    const variants = buildVariants({ key: "k", options: [{ id: "A", blocks }], copies: 1 });
     const contents = (id: string): string[][] =>
       (variants.find((v) => v.id === id)?.parts ?? []).map((p) =>
         p.compartments.map((c) => c.contents),
@@ -256,28 +271,26 @@ describe("buildVariants", () => {
   });
 
   it("returns no variants without options or blocks", () => {
-    expect(buildVariants({ key: "k", options: [], players: null })).toEqual([]);
-    expect(buildVariants({ key: "k", options: [{ id: "A", blocks: [] }], players: null })).toEqual(
-      [],
-    );
-    expect(buildVariants({ key: "k", options: [{ id: "A", blocks: [] }], players: 2 })).toEqual([]);
+    expect(buildVariants({ key: "k", options: [], copies: 1 })).toEqual([]);
+    expect(buildVariants({ key: "k", options: [{ id: "A", blocks: [] }], copies: 1 })).toEqual([]);
+    expect(buildVariants({ key: "k", options: [{ id: "A", blocks: [] }], copies: 2 })).toEqual([]);
   });
 
   it("keeps every variant each storage option has alone (auto is a superset)", () => {
     // Auto used to keep only the best 8 of all options together, so a three-deck flat split
     // (rank 2) lost its place to upright ones and auto found no fit where flat did.
-    for (const players of [null, 3]) {
+    for (const copies of [1, 3]) {
       const options = [opt("A", 3), opt("B", 3), opt("C", 3)];
-      const all = buildVariants({ key: "k", options, players }).map((v) => v.id);
+      const all = buildVariants({ key: "k", options, copies }).map((v) => v.id);
       for (const option of options) {
-        const alone = buildVariants({ key: "k", options: [option], players }).map((v) => v.id);
+        const alone = buildVariants({ key: "k", options: [option], copies }).map((v) => v.id);
         expect(all).toEqual(expect.arrayContaining(alone));
       }
     }
   });
 
   it("is deterministic", () => {
-    const input = { key: "k", options: [opt("A", 3), opt("B", 2)], players: 3 };
+    const input = { key: "k", options: [opt("A", 3), opt("B", 2)], copies: 3 };
     expect(buildVariants(input)).toEqual(buildVariants(input));
   });
 });

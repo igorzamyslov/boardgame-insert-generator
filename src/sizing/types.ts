@@ -32,10 +32,11 @@ export interface CompartmentReq {
 }
 
 export interface TrayPartReq {
-  trayKey: string; // "<group id ?? component id>:p<copy>:<part>" ("p0" without copies, "pall" for combined)
+  trayKey: string; // "<group id ?? component id>:p<copy>:<part>" ("p0" without copies); part counts from 0 in each copy
   arrangement: "strip" | "rows2";
-  compartments: CompartmentReq[]; // strip order; rows2: first half row 0, rest row 1; in each row
-  // the compartments asking for a left or right cutout come first (cutsFirst)
+  compartments: CompartmentReq[]; // strip order; rows2: the first `rowBreak` in row 0, the rest in row 1; inside one
+  // member the compartments asking for a left or right cutout come first (cutsFirst)
+  rowBreak?: number; // rows2 only: how many compartments the front row holds (1..n-1); absent = ceil(n/2)
   rotatable: boolean;
 }
 
@@ -46,11 +47,10 @@ export interface TrayVariant {
 
 export interface TrayRequirement {
   key: string; // "<group id ?? component id>". One requirement per component or group; copies and
-  // splits are expressed as variants with several parts (e.g. "separate": parts p0..pN-1;
-  // "combined": one part keyed "<key>:pall:0" with one compartment per player).
-  // Layout places exactly one variant per requirement, and every part of it.
+  // splits are expressed as variants with several parts: C copies of the same 1–3 parts, keyed
+  // "<key>:p<copy>:<part>". Layout places exactly one variant per requirement, and every part of it.
   componentIds: string[];
-  access: Access; // most frequent of its members
+  access: Access; // the group's, or the item's own
   loose: boolean; // contains bulk, minis-bulk, tiles or a member in its bulk fallback (coverage rule)
   variants: TrayVariant[]; // 1..8 per storage option, preferred first, fixed order
 }

@@ -146,7 +146,10 @@ export function partId(ref: PartRef): number {
  * absorb is what realizeTray then does.
  */
 function growth(part: TrayPartReq, axis: "w" | "d"): U {
-  return Math.min(INF_U, partGrowthCapU(rowsOf(part.arrangement, part.compartments), axis));
+  return Math.min(
+    INF_U,
+    partGrowthCapU(rowsOf(part.arrangement, part.compartments, part.rowBreak), axis),
+  );
 }
 
 /** The most height slack the part's compartments that grow deeper can take: the largest of their caps. */
