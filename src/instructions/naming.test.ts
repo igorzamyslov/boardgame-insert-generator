@@ -9,7 +9,7 @@ import { makeTray } from "../app/test-helpers";
 import { optimize, printableParts } from "../layout";
 import { fixtureInput, type FixtureName } from "../layout/test-fixtures";
 import { parseProject } from "../model/schema";
-import type { Component, CompartmentSpec, TraySpec } from "../model/types";
+import type { Component, CompartmentSpec, Group, TraySpec } from "../model/types";
 import { numberParts } from "./numbering";
 import { trayNames } from "./naming";
 
@@ -368,5 +368,119 @@ describe.each(Object.keys(LAYOUTS))("trayNames on fixture %s", (name) => {
     expect([...trayNames([...parts].reverse(), components)]).toEqual([...names]);
     const shuffled = [...parts].sort((a, b) => ((a.number * 7) % 11) - ((b.number * 7) % 11));
     expect([...trayNames(shuffled, components)]).toEqual([...names]);
+  });
+});
+
+describe("trayNames for a group", () => {
+  const hero = cards("h", "Hero");
+  const board = cards("b", "Board");
+  const components = [hero, board, cards("d", "Dice")];
+  const group = (name: string, copies?: number): Group => ({
+    id: "kit",
+    name,
+    ...(copies === undefined ? {} : { copies }),
+    access: "often",
+    memberIds: ["h", "b"],
+  });
+  /** One tray of the group: copy c, part n, holding both members. */
+  const kitTray = (copy: number, part: number, over: Partial<TraySpec> = {}): TraySpec =>
+    makeTray({
+      key: `kit:p${copy}:${part}`,
+      stack: copy * 4 + part,
+      compartments: [well("h", "Hero ×1"), well("b", "Board ×1")],
+      ...over,
+    });
+  const fullNames = (trays: TraySpec[], groups: Group[]) =>
+    [...trayNames(numberParts(trays), components, groups).entries()].map(
+      ([key, n]) => [key, n.full] as const,
+    );
+
+  it("calls the trays of a group by its name, numbered by copy", () => {
+    const trays = [0, 1, 2, 3].map((c) => kitTray(c, 0));
+    expect(fullNames(trays, [group("Player kit", 4)])).toEqual([
+      ["kit:p0:0", "Player kit 1"],
+      ["kit:p1:0", "Player kit 2"],
+      ["kit:p2:0", "Player kit 3"],
+      ["kit:p3:0", "Player kit 4"],
+    ]);
+  });
+
+  it("calls one copy by the group's name alone", () => {
+    expect(fullNames([kitTray(0, 0)], [group("Player kit")])).toEqual([["kit:p0:0", "Player kit"]]);
+  });
+
+  it("gives a copy that had to split a letter: 2a and 2b", () => {
+    const trays = [kitTray(0, 0), kitTray(1, 0), kitTray(1, 1), kitTray(2, 0)];
+    expect(fullNames(trays, [group("Player kit", 3)])).toEqual([
+      ["kit:p0:0", "Player kit 1"],
+      ["kit:p1:0", "Player kit 2a"],
+      ["kit:p1:1", "Player kit 2b"],
+      ["kit:p2:0", "Player kit 3"],
+    ]);
+  });
+
+  it("gives the parts of a single split copy a letter alone: a and b", () => {
+    const trays = [kitTray(0, 0), kitTray(0, 1), kitTray(0, 2)];
+    expect(fullNames(trays, [group("Player kit")])).toEqual([
+      ["kit:p0:0", "Player kit a"],
+      ["kit:p0:1", "Player kit b"],
+      ["kit:p0:2", "Player kit c"],
+    ]);
+  });
+
+  it("calls an unnamed group Group", () => {
+    expect(fullNames([kitTray(0, 0)], [group("")])).toEqual([["kit:p0:0", "Group"]]);
+    expect(fullNames([kitTray(0, 0)], [group("  ")])).toEqual([["kit:p0:0", "Group"]]);
+  });
+
+  it("gives short names the same stem, with the copy and the letter", () => {
+    const trays = [kitTray(0, 0), kitTray(1, 0), kitTray(1, 1)];
+    const names = trayNames(numberParts(trays), components, [group("Player kit", 2)]);
+    expect(names.get("kit:p0:0")?.short).toBe("Player 1");
+    expect(names.get("kit:p1:0")?.short).toBe("Player 2a");
+    expect(names.get("kit:p1:1")?.short).toBe("Player 2b");
+    const one = trayNames(numberParts([kitTray(0, 0)]), components, [group("Player kit")]);
+    expect(one.get("kit:p0:0")?.short).toBe("Player");
+    for (const n of names.values()) {
+      expect(n.short.length).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("names a part beside a group tray by that tray's name", () => {
+    const spare = makeTray({
+      key: "leftover:0",
+      part: "leftover",
+      solid: true,
+      compartments: [],
+      x: 101,
+      y: 0,
+      w: 30,
+      d: 80,
+    });
+    const names = trayNames(numberParts([kitTray(0, 0), spare]), components, [group("Player kit")]);
+    expect(names.get("leftover:0")?.full).toBe("Spacer by Player kit");
+  });
+
+  it("names ungrouped trays as it always did, with or without groups given", () => {
+    const trays = [
+      trayOf("b:p0:0", "d", { x: 100 }),
+      trayOf("a:p0:0", "d", { x: 0 }),
+      trayOf("z:p0:0", "h", { x: 200 }),
+    ];
+    const without = trayNames(numberParts(trays), components);
+    const withGroups = trayNames(numberParts(trays), components, [group("Player kit", 4)]);
+    expect([...withGroups]).toEqual([...without]);
+    expect(withGroups.get("a:p0:0")?.full).toBe("Dice 1");
+    expect(withGroups.get("b:p0:0")?.full).toBe("Dice 2");
+    expect(withGroups.get("z:p0:0")?.full).toBe("Hero");
+  });
+
+  it("keeps a group tray beside ungrouped trays, and no name repeats", () => {
+    const trays = [kitTray(0, 0), kitTray(1, 0), trayOf("d:p0:0", "d", { x: 300 })];
+    const names = trayNames(numberParts(trays), components, [group("Dice", 2)]);
+    const full = [...names.values()].map((n) => n.full.toLowerCase());
+    expect(new Set(full).size).toBe(full.length);
+    const short = [...names.values()].map((n) => n.short.toUpperCase());
+    expect(new Set(short).size).toBe(short.length);
   });
 });

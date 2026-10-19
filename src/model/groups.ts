@@ -61,3 +61,11 @@ export function copiesOf(p: Grouped, c: Component): number {
   const group = groupOfItem(p, c.id);
   return (group ? group.copies : c.copies) ?? 1;
 }
+
+/** A tray key `<stem>:p<copy>:<part>…` taken apart; undefined for any other key ("leftover:0"). */
+export function parseTrayKey(
+  key: string,
+): { stem: string; copy: number; part: number } | undefined {
+  const m = /^(.+?):p(\d+):(\d+)(?::|$)/.exec(key);
+  return m === null ? undefined : { stem: m[1] ?? "", copy: Number(m[2]), part: Number(m[3]) };
+}

@@ -29,8 +29,9 @@ import { COPY_RULINGS, DOWNLOAD_STATES } from "../screens/copy-rulings";
  * ALLOWED is the allow-list of legitimate uses of a Not-word. Each entry is removed from the text
  * before the check, so the rest of the same string is still checked:
  *
- * - "Lock size", "Unlock size", "size locked", "size lock(s)": the size lock is a real control
- *   and its name (spec: only the position lock is a "pin").
+ * - "Lock size", "Unlock size", "size locked", "size lock(s)", "Size unlocked on": the size lock
+ *   is a real control and its name (spec: only the position lock is a "pin"); "Size unlocked on
+ *   <n> trays" is what an edit says when it takes size locks off trays that are gone (DESIGN §7).
  * - "Keep searching", "Keep space free", "Part of it": real labels (the box's headroom choice;
  *   named in DESIGN §2 Words). "Keep this version": the project menu's choice after another tab
  *   changed the insert (Main's board; it has nothing to do with pins). "keeps the top layer from
@@ -194,7 +195,7 @@ const NOT_WORDS =
 
 /** Legitimate uses, removed from the text before NOT_WORDS looks at it. */
 const ALLOWED =
-  /\b(?:Lock size|Unlock size|size[ -]locked|size locks?|Keep searching|Keep space free|Keep this version|keeps the top layer from sliding|Keeps everything snug|Part of it|data-part)\b/gi;
+  /\b(?:Lock size|Unlock size|Size unlocked on|size[ -]locked|size locks?|Keep searching|Keep space free|Keep this version|keeps the top layer from sliding|Keeps everything snug|Part of it|data-part)\b/gi;
 
 /** Files that write the download list, why a part could not be exported, and part names. */
 const PART_FILES: readonly RegExp[] = [
@@ -276,6 +277,8 @@ describe("copy", () => {
     expect(not("Keep space free on top")).toBeNull();
     expect(not("Keep this version")).toBeNull();
     expect(not("Size locked")).toBeNull();
+    expect(not("Size unlocked on 2 trays")).toBeNull();
+    expect(not("Unlocked trays")).toBe("Unlocked");
     expect(not("Pinned and size-locked trays")).toBeNull();
     expect(not("the filler piece")).toBe("filler");
     expect(not("Parts")).toBe("Parts");

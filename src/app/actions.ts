@@ -1,7 +1,15 @@
 // src/app/actions.ts
-import { newComponent } from "../model/defaults";
-import { requirementKeyOf } from "../model/groups";
+import { componentName } from "../instructions/naming";
+import { newComponent, newGroup } from "../model/defaults";
+import {
+  DEFAULT_GROUP_NAME,
+  groupById,
+  groupOfItem,
+  nextGroupName,
+  requirementKeyOf,
+} from "../model/groups";
 import type {
+  Access,
   Box,
   CardsComponent,
   Component,
@@ -279,6 +287,272 @@ export function setItemCopies<C extends Component>(c: C, n: number | undefined):
     next.copies = n;
   }
   return next;
+}
+
+/** What a group edit gives back: the new project, and the words the edit says (spec §8), in order. */
+export interface EditResult {
+  project: Project;
+  notes: string[];
+}
+
+/** The most copies an item or a group has (spec §3.3). */
+const MAX_COPIES = 10;
+
+const groupLabel = (g: Group): string => g.name.trim() || DEFAULT_GROUP_NAME;
+
+/** The locks without those of the trays keyed `<key>:…`, and what that took off, in words. */
+function pruneLocks(locks: Lock[], keys: ReadonlySet<string>): { locks: Lock[]; notes: string[] } {
+  if (keys.size === 0) {
+    return { locks, notes: [] };
+  }
+  const after = withoutKeys(locks, keys);
+  const count = (ls: readonly Lock[], kind: Lock["kind"]): number =>
+    ls.filter((l) => l.kind === kind).length;
+  const pins = count(locks, "position") - count(after, "position");
+  const sizes = count(locks, "size") - count(after, "size");
+  const notes: string[] = [];
+  if (pins > 0) {
+    notes.push(pins === 1 ? "1 pin removed" : `${pins} pins removed`);
+  }
+  if (sizes > 0) {
+    notes.push(sizes === 1 ? "Size unlocked on 1 tray" : `Size unlocked on ${sizes} trays`);
+  }
+  // A turn lock goes without a word (R16): it is a rotation, not something the person placed.
+  return { locks: after, notes };
+}
+
+/** The key stems of the copies from `from` up to `to` (exclusive) of a key: `<key>:p<c>`. */
+function copyStems(key: string, from: number, to: number): Set<string> {
+  const out = new Set<string>();
+  for (let c = from; c < to; c++) {
+    out.add(`${key}:p${c}`);
+  }
+  return out;
+}
+
+/** The project with these keys' trays' locks pruned; the notes say what went. */
+function withPrunedLocks(p: Project, keys: ReadonlySet<string>, notes: string[]): EditResult {
+  const pruned = pruneLocks(p.locks, keys);
+  return {
+    project: pruned.locks === p.locks ? p : { ...p, locks: pruned.locks },
+    notes: [...notes, ...pruned.notes],
+  };
+}
+
+/** The item with these copies: 1 is none (one tray, as before). */
+const withCopies = <C extends Component>(c: C, n: number): C =>
+  setItemCopies(c, n > 1 ? n : undefined);
+
+/** The group with these copies: 1 is none. */
+function groupWithCopies(g: Group, n: number): Group {
+  const next = { ...g };
+  if (n > 1) {
+    next.copies = n;
+  } else {
+    delete next.copies;
+  }
+  return next;
+}
+
+const clampCopies = (n: number): number =>
+  Math.min(MAX_COPIES, Math.max(1, Number.isFinite(n) ? Math.round(n) : 1));
+
+/** "Hero now has the group's 4 copies." / "…the group's single copy." */
+const copiesNote = (item: Component, n: number): string =>
+  `${componentName(item)} now has the group's ${n === 1 ? "single copy" : `${n} copies`}.`;
+
+/** An empty group named the next free name: Copies 1, reached for sometimes, at the end. */
+export function addGroup(p: Project): { project: Project; groupId: string } {
+  const group = newGroup(nextGroupName(p));
+  return { project: { ...p, groups: [...(p.groups ?? []), group] }, groupId: group.id };
+}
+
+/**
+ * A new group with this item as its only member. It inherits the item's Copies and its access, so
+ * no pieces change and the tray reaches the same as before (no Copies note). The item's own trays
+ * have a new key, so their locks go, and `notes` say so.
+ */
+export function newGroupWith(
+  p: Project,
+  itemId: string,
+): { project: Project; groupId: string; notes: string[] } {
+  const item = p.components.find((c) => c.id === itemId);
+  const existing = groupOfItem(p, itemId);
+  if (item === undefined || existing !== undefined) {
+    return { project: p, groupId: existing?.id ?? "", notes: [] };
+  }
+  const group: Group = {
+    ...newGroup(nextGroupName(p)),
+    access: item.access,
+    memberIds: [itemId],
+  };
+  if ((item.copies ?? 1) > 1) {
+    group.copies = item.copies;
+  }
+  const grouped: Project = {
+    ...p,
+    components: p.components.map((c) => (c.id === itemId ? setItemCopies(c, undefined) : c)),
+    groups: [...(p.groups ?? []), group],
+  };
+  const r = withPrunedLocks(grouped, new Set([itemId]), []);
+  return { project: r.project, groupId: group.id, notes: r.notes };
+}
+
+/** The place `index` clamped into 0..length. */
+const clampIndex = (index: number, length: number): number =>
+  Math.min(length, Math.max(0, Math.trunc(index) || 0));
+
+/**
+ * Moves an item into a group at a place (an item already in it is only ordered). Its own `copies`
+ * go and it has the group's: the first note says so when the number changes. Its own `access` stays,
+ * hidden. The item's own trays' locks go, and so do all of the group it leaves if it was the last.
+ */
+export function moveToGroup(
+  p: Project,
+  itemId: string,
+  groupId: string,
+  index: number,
+): EditResult {
+  const item = p.components.find((c) => c.id === itemId);
+  const target = groupById(p, groupId);
+  if (item === undefined || target === undefined) {
+    return { project: p, notes: [] };
+  }
+  const from = groupOfItem(p, itemId);
+  if (from?.id === groupId) {
+    return { project: orderMember(p, groupId, itemId, index), notes: [] };
+  }
+  const had = from === undefined ? (item.copies ?? 1) : (from.copies ?? 1);
+  const has = target.copies ?? 1;
+  const groups = (p.groups ?? []).map((g): Group => {
+    if (g.id === from?.id) {
+      return { ...g, memberIds: g.memberIds.filter((m) => m !== itemId) };
+    }
+    if (g.id === groupId) {
+      const at = clampIndex(index, g.memberIds.length);
+      return { ...g, memberIds: [...g.memberIds.slice(0, at), itemId, ...g.memberIds.slice(at)] };
+    }
+    return g;
+  });
+  const moved: Project = {
+    ...p,
+    components: p.components.map((c) => (c.id === itemId ? setItemCopies(c, undefined) : c)),
+    groups,
+  };
+  const gone = new Set<string>();
+  if (from === undefined) {
+    gone.add(itemId);
+  } else if (from.memberIds.length === 1) {
+    gone.add(from.id);
+  }
+  return withPrunedLocks(moved, gone, had === has ? [] : [copiesNote(item, has)]);
+}
+
+/**
+ * Takes an item out of its group. It has the group's Copies as its own, so no pieces vanish, and
+ * its own `access` is back. The group's locks go with its last member.
+ */
+export function takeOutOfGroup(p: Project, itemId: string): EditResult {
+  const item = p.components.find((c) => c.id === itemId);
+  const from = groupOfItem(p, itemId);
+  if (item === undefined || from === undefined) {
+    return { project: p, notes: [] };
+  }
+  const out: Project = {
+    ...p,
+    components: p.components.map((c) => (c.id === itemId ? withCopies(c, from.copies ?? 1) : c)),
+    groups: (p.groups ?? []).map((g) =>
+      g.id === from.id ? { ...g, memberIds: g.memberIds.filter((m) => m !== itemId) } : g,
+    ),
+  };
+  const gone = from.memberIds.length === 1 ? new Set([from.id]) : new Set<string>();
+  return withPrunedLocks(out, gone, [`${componentName(item)} is out of ${groupLabel(from)}.`]);
+}
+
+/** Moves a member to a place in its group's order; the place is clamped. Locks do not move. */
+export function orderMember(p: Project, groupId: string, itemId: string, index: number): Project {
+  const group = groupById(p, groupId);
+  if (group === undefined || !group.memberIds.includes(itemId)) {
+    return p;
+  }
+  const rest = group.memberIds.filter((m) => m !== itemId);
+  const at = clampIndex(index, rest.length);
+  const memberIds = [...rest.slice(0, at), itemId, ...rest.slice(at)];
+  return {
+    ...p,
+    groups: (p.groups ?? []).map((g) => (g.id === groupId ? { ...g, memberIds } : g)),
+  };
+}
+
+/**
+ * Removes the group: each member has the group's Copies and its own access back, and the group's
+ * locks go. The first note is the group's own.
+ */
+export function removeGroup(p: Project, groupId: string): EditResult {
+  const group = groupById(p, groupId);
+  if (group === undefined) {
+    return { project: p, notes: [] };
+  }
+  const copies = group.copies ?? 1;
+  const groups = (p.groups ?? []).filter((g) => g.id !== groupId);
+  const after: Project = {
+    ...p,
+    components: p.components.map((c) =>
+      group.memberIds.includes(c.id) ? withCopies(c, copies) : c,
+    ),
+    groups,
+  };
+  if (groups.length === 0) {
+    // no groups at all is a project without the field, as a file has it
+    delete after.groups;
+  }
+  return withPrunedLocks(after, new Set([groupId]), [
+    `${groupLabel(group)} removed. Its items are back in the list.`,
+  ]);
+}
+
+/**
+ * Sets an item's Copies (1..10; 1 is none). Lowering it drops the locks of the copies that go
+ * (`p<c>` with c at or past the new count). A grouped item's Copies are its group's: nothing changes.
+ */
+export function setCopies(p: Project, itemId: string, n: number): EditResult {
+  const item = p.components.find((c) => c.id === itemId);
+  if (item === undefined || groupOfItem(p, itemId) !== undefined) {
+    return { project: p, notes: [] };
+  }
+  const next = clampCopies(n);
+  const changed: Project = {
+    ...p,
+    components: p.components.map((c) => (c.id === itemId ? withCopies(c, next) : c)),
+  };
+  return withPrunedLocks(changed, copyStems(itemId, next, item.copies ?? 1), []);
+}
+
+/** Sets a group's Copies (1..10; 1 is none), dropping the locks of the copies that go. */
+export function setGroupCopies(p: Project, groupId: string, n: number): EditResult {
+  const group = groupById(p, groupId);
+  if (group === undefined) {
+    return { project: p, notes: [] };
+  }
+  const next = clampCopies(n);
+  const changed: Project = {
+    ...p,
+    groups: (p.groups ?? []).map((g) => (g.id === groupId ? groupWithCopies(g, next) : g)),
+  };
+  return withPrunedLocks(changed, copyStems(groupId, next, group.copies ?? 1), []);
+}
+
+/** How often the group's tray is reached for. */
+export function setGroupAccess(p: Project, groupId: string, access: Access): Project {
+  return groupById(p, groupId) === undefined
+    ? p
+    : { ...p, groups: (p.groups ?? []).map((g) => (g.id === groupId ? { ...g, access } : g)) };
+}
+
+export function renameGroup(p: Project, groupId: string, name: string): Project {
+  return groupById(p, groupId) === undefined
+    ? p
+    : { ...p, groups: (p.groups ?? []).map((g) => (g.id === groupId ? { ...g, name } : g)) };
 }
 
 export function setClearance<C extends Component>(c: C, clearance: number | undefined): C {
