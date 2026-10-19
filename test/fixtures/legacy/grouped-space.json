@@ -1,0 +1,308 @@
+{
+  "schemaVersion": "0.1.16",
+  "createdWith": "0.7.0",
+  "id": "legacy01",
+  "name": "Legacy grouped",
+  "box": {
+    "innerWidth": 290,
+    "innerDepth": 210,
+    "innerHeight": 60,
+    "headroom": 0,
+    "headroomCoverage": "full",
+    "storedOnSide": false
+  },
+  "printer": { "bedX": 256, "bedY": 256, "bedZ": 256, "bedMargin": 5, "layerHeight": 0.2 },
+  "settings": {
+    "wall": 1.6,
+    "floor": 1.2,
+    "divider": 1.2,
+    "fit": 1,
+    "cardClearance": 1.5,
+    "cardStackClearance": 1,
+    "cardStackClearancePct": 0.03,
+    "cardThickness": 0.32,
+    "pieceClearance": 1,
+    "boxClearance": 0.5,
+    "trayGap": 0.2,
+    "bottomChamfer": 0.4,
+    "cornerRadius": 3,
+    "scoopRadius": 12,
+    "fingerPocket": { "width": 25, "floorNotch": 12.5, "wallRoom": 0, "dividerRoom": 0 },
+    "lip": { "enabled": true, "height": 2, "thickness": 1.2, "ledge": 1.7, "play": 0.25 },
+    "topPressFit": 0,
+    "packingFactor": 0.5,
+    "leftover": "spare",
+    "fillToTop": true,
+    "wallAbsorb": 0,
+    "infill": 15,
+    "playLimit": 1.5
+  },
+  "components": [
+    {
+      "id": "cards001",
+      "name": "Deck",
+      "access": "sometimes",
+      "kind": "cards",
+      "shortSide": 63.5,
+      "longSide": 88,
+      "decks": [{ "name": "", "count": 60 }],
+      "sleeve": "standard",
+      "thickness": { "mode": "preset" },
+      "storage": "auto"
+    },
+    {
+      "id": "kitcard1",
+      "name": "Hero cards",
+      "access": "often",
+      "kind": "cards",
+      "shortSide": 63.5,
+      "longSide": 88,
+      "decks": [{ "name": "", "count": 20 }],
+      "sleeve": "standard",
+      "thickness": { "mode": "preset" },
+      "storage": "auto",
+      "groupId": "Player kit"
+    },
+    {
+      "id": "kitbits1",
+      "name": "Hero bits",
+      "access": "sometimes",
+      "kind": "bulk",
+      "items": [{ "name": "Cubes", "count": 20, "w": 12, "d": 12, "h": 12 }],
+      "groupId": "Player kit"
+    },
+    {
+      "id": "spare001",
+      "name": "Spare cubes",
+      "access": "sometimes",
+      "kind": "bulk",
+      "items": [{ "name": "Cubes", "count": 20, "w": 12, "d": 12, "h": 12 }]
+    }
+  ],
+  "locks": [
+    { "kind": "position", "trayKey": "Player kit:p0:0", "path": "00", "rotated": false },
+    { "kind": "stack", "trayKeys": ["Player kit:p0:0", "cards001:p0:0"] }
+  ],
+  "layout": {
+    "createdWith": "0.7.0",
+    "geometryVersion": "0.8.2",
+    "inputsHash": "1f2bd73b7c4df6",
+    "seed": 7,
+    "iterations": 20000,
+    "capped": false,
+    "trays": [
+      {
+        "key": "Player kit:p0:0",
+        "part": "tray",
+        "path": "00",
+        "stack": 0,
+        "x": 0,
+        "y": 0,
+        "w": 73.8,
+        "d": 100.06,
+        "h": 11,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "lip": true,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 3.78,
+            "w": 68,
+            "d": 92.5,
+            "floorZ": 1.34,
+            "kind": "well",
+            "contents": "Hero cards ×20",
+            "componentId": "kitcard1",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 50.03,
+                "width": 25,
+                "depth": 9.66,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 50.03,
+                "width": 25,
+                "depth": 9.66,
+                "floorNotch": 12.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "cards001:p0:0",
+        "part": "tray",
+        "path": "00",
+        "stack": 0,
+        "level": 1,
+        "x": 0,
+        "y": 0,
+        "z": 11,
+        "w": 73.8,
+        "d": 100.06,
+        "h": 49,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 2.9,
+            "y": 3.78,
+            "w": 68,
+            "d": 92.5,
+            "floorZ": 22.04,
+            "kind": "well",
+            "contents": "Deck ×60",
+            "componentId": "cards001",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 50.03,
+                "width": 25,
+                "depth": 26.96,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 50.03,
+                "width": 25,
+                "depth": 26.96,
+                "floorNotch": 12.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "Player kit:p0:1",
+        "part": "tray",
+        "path": "01",
+        "stack": 1,
+        "x": 0,
+        "y": 100.26,
+        "w": 99.2,
+        "d": 99.2,
+        "h": 60,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 96,
+            "d": 96,
+            "floorZ": 25,
+            "kind": "scoop",
+            "contents": "Hero bits — Cubes ×20",
+            "componentId": "kitbits1",
+            "features": [
+              { "type": "scoop", "side": "front", "r": 12 },
+              { "type": "scoop", "side": "back", "r": 12 }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "spare001:p0:0",
+        "part": "tray",
+        "path": "1",
+        "stack": 2,
+        "x": 177.01,
+        "y": 0,
+        "w": 111.99,
+        "d": 111.99,
+        "h": 60,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 108.79,
+            "d": 108.79,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Spare cubes — Cubes ×20",
+            "componentId": "spare001",
+            "features": [
+              { "type": "scoop", "side": "front", "r": 12 },
+              { "type": "scoop", "side": "back", "r": 12 }
+            ]
+          }
+        ]
+      },
+      {
+        "part": "leftover",
+        "path": "00",
+        "stack": 3,
+        "x": 74,
+        "y": 0,
+        "w": 102.81,
+        "d": 100.06,
+        "h": 60,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false
+      },
+      {
+        "part": "leftover",
+        "path": "01",
+        "stack": 4,
+        "x": 99.4,
+        "y": 100.26,
+        "w": 77.41,
+        "d": 108.74,
+        "h": 60,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false
+      },
+      {
+        "part": "leftover",
+        "path": "01",
+        "stack": 5,
+        "x": 0,
+        "y": 199.66,
+        "w": 99.2,
+        "d": 9.34,
+        "h": 60,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": true,
+        "compartments": []
+      },
+      {
+        "part": "leftover",
+        "path": "1",
+        "stack": 6,
+        "x": 177.01,
+        "y": 112.19,
+        "w": 111.99,
+        "d": 96.81,
+        "h": 60,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false
+      }
+    ]
+  }
+}
