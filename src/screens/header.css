@@ -73,6 +73,25 @@
   white-space: nowrap;
 }
 
+/*
+ * A tablet (760 to 960 px): the wordmark leaves the eye so the insert's name has the room (owner
+ * decision, 0.6.0; Undo and Redo both stay). It is clipped, not removed, so a reader still hears the
+ * app's name. The logo mark stays.
+ */
+@media (width >= 760px) and (width <= 960px) {
+  .hd-wordmark {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .hd-divider {
+    display: none;
+  }
+}
+
 .hd-divider {
   flex: none;
   width: 1px;

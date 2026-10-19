@@ -55,9 +55,24 @@ describe("header.css", () => {
     expect(ruleFor(".pm-note .k-btn::before")).toMatch(/inset:\s*-2px 0/);
   });
 
-  it("writes no raw colour and no media query of its own", () => {
+  it("keeps the wordmark out of sight on a tablet (760 to 960 px) but for a reader, and Undo and Redo stay", () => {
+    const tablet = /@media \(width >= 760px\) and \(width <= 960px\) \{([\s\S]*?\n\})\n/.exec(
+      stripped,
+    )?.[1];
+    expect(tablet).toBeDefined();
+    const wordmark = ruleFor(".hd-wordmark", tablet);
+    // clipped, not display: none: the app's name is still read
+    expect(wordmark).toMatch(/clip-path:\s*inset\(50%\)/);
+    expect(wordmark).not.toMatch(/display:\s*none/);
+    // nothing in the band touches the buttons
+    expect(tablet).not.toMatch(/\.k-iconbtn|\.hd-undo|\.hd-redo/);
+  });
+
+  it("writes no raw colour, and no media query but the tablet's", () => {
     expect(stripped).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
-    expect(stripped).not.toContain("@media");
+    expect(stripped.match(/@media[^{]*/g)).toEqual([
+      "@media (width >= 760px) and (width <= 960px) ",
+    ]);
   });
 });
 
