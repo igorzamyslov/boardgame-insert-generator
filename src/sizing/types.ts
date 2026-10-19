@@ -52,7 +52,7 @@ export interface TrayRequirement {
   componentIds: string[];
   access: Access; // most frequent of its members
   loose: boolean; // contains bulk, minis-bulk, tiles or a member in its bulk fallback (coverage rule)
-  variants: TrayVariant[]; // 1..8, preferred first, fixed order
+  variants: TrayVariant[]; // 1..8 per storage option, preferred first, fixed order
 }
 
 export interface OuterSize {

@@ -59,8 +59,9 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    "Layer n (top)", and the Layer segment above the box has a button for each.
 5. **Trays.** Select a tray, in the plan, in the 3D view or in the list, to see its tray bar: one
    row with its colour, its name over one line ("Layer 1 (bottom) · 95 × 190 × 40 mm · about 4.5 h,
-   76 g"), "Pin", "Turn 90°", "Edit", "More" and Close. "Pin" holds it where it is, "Turn 90°"
-   turns it (which pins its stack), "Edit" opens its item, and "More" holds "Swap with…" (swap
+   76 g"), "Pin this tray", "Turn this tray 90°", "Edit", "More" and Close ("this stack" for a tray in a
+   stack of two or more). "Pin this tray" holds it where it is (a stack: all its trays), "Turn this
+   tray 90°" turns it (which pins its stack), "Edit" opens its item, and "More" holds "Swap with…" (swap
    two trays: drag one onto another, or use the keyboard; both stacks are pinned) and "Lock size"
    (holds it at the size it is). A line says why an action is blocked. Spacers, spare trays and
    risers have no actions, only Close. Pins and size locks also show as chips on the item's row,

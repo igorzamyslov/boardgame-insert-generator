@@ -106,6 +106,17 @@ export function insertLeaf(root: TreeNode, added: Leaf, env: MoveEnv, rng: Rng):
   return splitLeafAt(root, target.path, randomAxis(rng), added, rng.nextInt(2) === 0);
 }
 
+/** `item` may go on top of the stack at `l`: a free, unlocked stack with a level to spare. */
+function canStackOn(env: MoveEnv, l: { path: string; leaf: Leaf }, item: StackItem): boolean {
+  return (
+    !l.leaf.frozen &&
+    !isLockedLeaf(env, l.path) &&
+    l.leaf.stack.length > 0 &&
+    l.leaf.stack.length < MAX_LEVELS &&
+    stackAllowed(env.ctx, [...l.leaf.stack, item])
+  );
+}
+
 /** Puts one item into the tree: an empty leaf, on top of a free stack, or a new leaf. */
 export function insertItem(
   root: TreeNode,
@@ -113,14 +124,7 @@ export function insertItem(
   env: MoveEnv,
   rng: Rng,
 ): TreeNode | null {
-  const stackable = leaves(root).filter(
-    (l) =>
-      !l.leaf.frozen &&
-      !isLockedLeaf(env, l.path) &&
-      l.leaf.stack.length > 0 &&
-      l.leaf.stack.length < MAX_LEVELS &&
-      stackAllowed(env.ctx, [...l.leaf.stack, item]),
-  );
+  const stackable = leaves(root).filter((l) => canStackOn(env, l, item));
   if (stackable.length > 0 && rng.nextInt(4) === 0) {
     const s = rng.pick(stackable);
     return replaceAt(root, s.path, leaf([...s.leaf.stack, item]));
@@ -194,7 +198,18 @@ export const changeVariant: Move = (tree, env, rng) => {
       part: p,
       rotated: rotatable && rng.nextInt(2) === 1,
     };
-    root = insertItem(root, item, env, rng);
+    // One item's trays belong in one stack (score `apart`): mostly on top of the part before of
+    // the same copy, where it can stand, so a new split is not scattered over the box and refused
+    // for it. The copies of a per-player variant go anywhere.
+    const before = { ...item, part: p - 1 };
+    const home: { path: string; leaf: Leaf } | undefined =
+      p === 0 || env.ctx.copyOf(before) !== env.ctx.copyOf(item)
+        ? undefined
+        : leaves(root).find((l) => l.leaf.stack.some((it) => it.req === i && it.part === p - 1));
+    root =
+      home !== undefined && canStackOn(env, home, item) && rng.nextInt(4) !== 0
+        ? replaceAt(root, home.path, leaf([...home.leaf.stack, item]))
+        : insertItem(root, item, env, rng);
   }
   if (root === null) {
     return null;

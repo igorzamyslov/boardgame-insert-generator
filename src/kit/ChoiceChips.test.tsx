@@ -85,4 +85,63 @@ describe("ChoiceChips describedBy", () => {
       null,
     );
   });
+
+  it("keeps a blocked chip focusable, says why, and does nothing when it is pressed", () => {
+    const onChange = vi.fn();
+    render(
+      <ChoiceChips
+        label="Tray shape"
+        options={[
+          { value: "a", label: "A" },
+          { value: "b", label: "B", blockedReason: "B needs room." },
+        ]}
+        value={[]}
+        onChange={onChange}
+      />,
+    );
+    const chip = screen.getByRole("button", { name: "B" });
+    expect(chip.getAttribute("aria-disabled")).toBe("true");
+    expect(chip.hasAttribute("disabled")).toBe(false);
+    expect(chip.getAttribute("title")).toBe("B needs room.");
+    expect(document.getElementById(chip.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "B needs room.",
+    );
+    fireEvent.click(chip);
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    expect(onChange).toHaveBeenCalledWith("a");
+  });
+
+  it("shows the reason in a visible line when a blocked chip is pressed, and drops it with the block", () => {
+    const options = (blocked: boolean) => [
+      { value: "a", label: "A" },
+      { value: "b", label: "B", blockedReason: blocked ? "B needs room." : undefined },
+    ];
+    const view = render(
+      <ChoiceChips
+        label="Tray shape"
+        options={options(true)}
+        value={[]}
+        onChange={() => undefined}
+      />,
+    );
+    // nothing until it is pressed (the hidden description is not a visible line)
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "B" }));
+    expect(screen.getByRole("status").textContent).toBe("B needs room.");
+    // another chip's press takes it away
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "B" }));
+    expect(screen.getByRole("status")).toBeTruthy();
+    view.rerender(
+      <ChoiceChips
+        label="Tray shape"
+        options={options(false)}
+        value={[]}
+        onChange={() => undefined}
+      />,
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+  });
 });

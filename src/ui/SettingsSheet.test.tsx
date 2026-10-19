@@ -418,7 +418,7 @@ describe("This insert", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /^Rim between layers/ }));
     expect(props.onSettingsChange).toHaveBeenLastCalledWith({
       ...DEFAULT_SETTINGS,
-      lip: { ...DEFAULT_SETTINGS.lip, enabled: true },
+      lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
     });
   });
 

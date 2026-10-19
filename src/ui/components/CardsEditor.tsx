@@ -1,8 +1,9 @@
 // src/ui/components/CardsEditor.tsx
-// Edit's cards editor: how many, the card size, the sleeves; the rest is under More options.
-import { useContext, useState } from "preact/hooks";
+// Edit's cards editor: how many (one stepper, or the decks), the card size, the sleeves; the rest is
+// under More options.
+import { useContext, useEffect, useState } from "preact/hooks";
 import { setCardSides } from "../../app/actions";
-import { ChoiceChips, CheckRow, Segmented } from "../../kit";
+import { ChoiceChips, CheckRow, Segmented, Stepper } from "../../kit";
 import type { SegmentedOption } from "../../kit";
 import { COMPONENT_DEFAULTS } from "../../model/defaults";
 import { CARD_PRESETS, SLEEVES } from "../../model/presets";
@@ -11,7 +12,7 @@ import { mm } from "../identity";
 import { COUNT, LENGTH, OFFSET, THICKNESS_CORRECTION } from "../limits";
 import { SettingsContext } from "../validation";
 import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
-import { Choice, CountField, ExactRow, Group, NumField, TextBox } from "./controls";
+import { Alert, Choice, CountField, ExactRow, Group, Notes, NumField, TextBox } from "./controls";
 import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
 import { changedOptions } from "./moreSummary";
@@ -38,6 +39,7 @@ const SLEEVE_OPTIONS: SegmentedOption<SleeveChoice>[] = [
   { value: "none", label: "None" },
   { value: "standard", label: "Standard" },
   { value: "premium", label: "Premium" },
+  { value: "custom", label: "Custom" },
 ];
 
 const STAND_OPTIONS: SegmentedOption<CardsComponent["storage"]>[] = [
@@ -80,68 +82,110 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
   const setDeck = (j: number, patch: Partial<Deck>): void => {
     onChange({ ...c, decks: c.decks.map((d, k) => (k === j ? { ...d, ...patch } : d)) });
   };
+  // A control stays where it first appeared (DESIGN, Flow): "+ Another deck" sits under the stepper,
+  // and under the list once it is one. The new deck's name takes the focus, so it can be typed at once.
+  const [focusDeck, setFocusDeck] = useState<number | null>(null);
+  useEffect(() => {
+    if (focusDeck !== null && focusDeck < c.decks.length) {
+      document.getElementById(`${c.id}-deck${focusDeck}-name`)?.focus();
+      setFocusDeck(null);
+    }
+  }, [focusDeck, c.decks.length, c.id]);
   const addDeck = (
     <button
       type="button"
       class="ed-add"
-      onClick={() =>
-        onChange({ ...c, decks: [...c.decks, { name: `Deck ${c.decks.length + 1}`, count: 50 }] })
-      }
+      onClick={() => {
+        // A lone deck carries no name (the item's name stands for it); a second deck names both.
+        const first = c.decks.map((d) => (d.name === "" ? { ...d, name: "Deck 1" } : d));
+        onChange({ ...c, decks: [...first, { name: `Deck ${c.decks.length + 1}`, count: 50 }] });
+        setFocusDeck(c.decks.length);
+      }}
     >
       {ANOTHER_DECK}
     </button>
   );
   const only = c.decks.length === 1 ? c.decks[0] : undefined;
+  // An old file's lone deck keeps a name, so its field stays: it shows from the moment the editor
+  // opens with a named lone deck, and stays while it is edited (even emptied), as a control stays
+  // where it first appeared. A removal that leaves one deck clears the name, and the field stays away.
+  const [nameField, setNameField] = useState(only !== undefined && only.name !== "");
+  // Custom was just chosen: the width field takes the focus once it is drawn.
+  const [focusSleeve, setFocusSleeve] = useState(false);
+  useEffect(() => {
+    if (focusSleeve && sleeveChoice === "custom") {
+      document.getElementById(`${c.id}-sleeveW`)?.focus();
+      setFocusSleeve(false);
+    }
+  }, [focusSleeve, sleeveChoice, c.id]);
   const sleeveCustom = (patch: Partial<typeof sleeveNow>): void =>
     onChange({ ...c, sleeve: { ...sleeveNow, ...patch } });
 
   return (
     <>
       {only !== undefined ? (
-        <CountField
-          label="How many cards?"
-          name="Number of cards"
-          value={only.count}
-          path={`${at}/decks/0/count`}
-          onChange={(count) => setDeck(0, { count })}
-        />
+        <>
+          <CountField
+            label="How many cards?"
+            name="Number of cards"
+            value={only.count}
+            path={`${at}/decks/0/count`}
+            onChange={(count) => setDeck(0, { count })}
+          />
+          {nameField ? (
+            <TextBox
+              id={`${c.id}-deck0-name`}
+              label="Deck name"
+              value={only.name}
+              onCommit={(name) => setDeck(0, { name })}
+            />
+          ) : null}
+        </>
       ) : (
         <>
           <div class="ed-cards">
             {c.decks.map((deck, j) => (
-              <div class="ed-card" key={j}>
-                <div class="ed-card__top">
-                  <TextBox
-                    class="ed-grow"
-                    id={`${c.id}-deck${j}-name`}
-                    label="Deck"
-                    labelExtra={`${j + 1}`}
-                    value={deck.name}
-                    onCommit={(name) => setDeck(j, { name })}
-                  />
-                  <NumField
-                    class="ed-count"
-                    id={`${c.id}-deck${j}-count`}
-                    label="How many"
-                    labelExtra={`in deck ${j + 1}`}
+              <div class="ed-card ed-card--deck" key={j}>
+                <TextBox
+                  id={`${c.id}-deck${j}-name`}
+                  label="Deck"
+                  labelExtra={`${j + 1}`}
+                  value={deck.name}
+                  onCommit={(name) => setDeck(j, { name })}
+                />
+                <span class="k-field__label">How many</span>
+                <div class="ed-card__top ed-card__top--center">
+                  <Stepper
+                    label={`Number of cards in deck ${j + 1}`}
                     value={deck.count}
-                    {...COUNT}
-                    path={`${at}/decks/${j}/count`}
-                    onCommit={(count) => setDeck(j, { count })}
+                    min={COUNT.min}
+                    max={COUNT.max}
+                    onChange={(count) => setDeck(j, { count })}
                   />
                   <RowRemove
                     label={`Remove deck ${deck.name === "" ? j + 1 : deck.name}`}
                     onlyOne={c.decks.length <= 1}
                     reason="There has to be at least one deck."
-                    onRemove={() => onChange({ ...c, decks: c.decks.filter((_d, k) => k !== j) })}
+                    onRemove={() => {
+                      const rest = c.decks.filter((_d, k) => k !== j);
+                      // Left alone, a deck carries no name: the item's name stands for it.
+                      const [lone] = rest;
+                      setNameField(false);
+                      onChange({
+                        ...c,
+                        decks: rest.length === 1 && lone ? [{ ...lone, name: "" }] : rest,
+                      });
+                    }}
                   />
                 </div>
+                <Alert id={`${c.id}-deck${j}-count-error`} path={`${at}/decks/${j}/count`} />
+                <Notes path={`${at}/decks/${j}/count`} />
               </div>
             ))}
           </div>
-          {addDeck}
         </>
       )}
+      {addDeck}
       <Group label="Card size">
         <ChoiceChips
           label="Card size"
@@ -197,25 +241,59 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
         <Segmented
           label="Sleeves"
           stretch
-          options={
-            sleeveChoice === "custom"
-              ? [...SLEEVE_OPTIONS, { value: "custom", label: "Custom" }]
-              : SLEEVE_OPTIONS
-          }
+          options={SLEEVE_OPTIONS}
           value={sleeveChoice}
           onChange={(v) => {
-            if (v !== "custom") {
+            if (v === "custom") {
+              // Custom starts from the size the sleeve has now, so nothing jumps; the fields open below.
+              if (sleeveChoice !== "custom") {
+                onChange({ ...c, sleeve: { ...sleeveNow } });
+                setFocusSleeve(true);
+              }
+            } else {
               onChange({ ...c, sleeve: v });
             }
           }}
         />
+        {sleeveChoice === "custom" ? (
+          <>
+            <div class="ed-pair">
+              <NumField
+                id={`${c.id}-sleeveW`}
+                label="Sleeve outer width"
+                unit="mm"
+                value={sleeveNow.w}
+                path={`${at}/sleeve/w`}
+                {...LENGTH}
+                onCommit={(w) => sleeveCustom({ w })}
+              />
+              <NumField
+                id={`${c.id}-sleeveH`}
+                label="Sleeve outer length"
+                unit="mm"
+                value={sleeveNow.h}
+                path={`${at}/sleeve/h`}
+                {...LENGTH}
+                onCommit={(h) => sleeveCustom({ h })}
+              />
+            </div>
+            <NumField
+              id={`${c.id}-sleeveT`}
+              label="Added thickness per card"
+              unit="mm"
+              value={sleeveNow.thickness}
+              path={`${at}/sleeve/thickness`}
+              {...OFFSET}
+              onCommit={(thickness) => sleeveCustom({ thickness })}
+            />
+          </>
+        ) : null}
       </Group>
       <BinNotes component={c} index={index} />
       <MoreOptions
         component={c}
         errorPaths={[
           ...commonOptionPaths(index),
-          `${at}/sleeve`,
           `${at}/thickness/scale`,
           `${at}/thickness/cards`,
           `${at}/thickness/stackMm`,
@@ -304,48 +382,7 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
             </>
           ) : null}
         </ExactRow>
-        <ExactRow title="Sleeve size" errorPaths={[`${at}/sleeve`]}>
-          <NumField
-            id={`${c.id}-sleeveW`}
-            label="Sleeve outer width"
-            unit="mm"
-            value={sleeveNow.w}
-            path={`${at}/sleeve/w`}
-            {...LENGTH}
-            onCommit={(w) => sleeveCustom({ w })}
-          />
-          <NumField
-            id={`${c.id}-sleeveH`}
-            label="Sleeve outer length"
-            unit="mm"
-            value={sleeveNow.h}
-            path={`${at}/sleeve/h`}
-            {...LENGTH}
-            onCommit={(h) => sleeveCustom({ h })}
-          />
-          <NumField
-            id={`${c.id}-sleeveT`}
-            label="Added thickness per card"
-            unit="mm"
-            value={sleeveNow.thickness}
-            path={`${at}/sleeve/thickness`}
-            {...OFFSET}
-            onCommit={(thickness) => sleeveCustom({ thickness })}
-          />
-        </ExactRow>
         <WellRows component={c} index={index} onChange={onChange} />
-        {only !== undefined ? (
-          <ExactRow title="Decks">
-            <TextBox
-              id={`${c.id}-deck0-name`}
-              label="Deck"
-              labelExtra="1"
-              value={only.name}
-              onCommit={(name) => setDeck(0, { name })}
-            />
-            {addDeck}
-          </ExactRow>
-        ) : null}
         <CommonRows component={c} index={index} onChange={onChange} />
       </MoreOptions>
     </>

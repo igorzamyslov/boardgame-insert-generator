@@ -68,9 +68,9 @@ describe("when it doesn't fit (NoFit)", () => {
     expect(misfit?.name).toBe("Heroes");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(h1().textContent).toBe(`The ${misfit?.name} tray doesn't fit yet`);
-    // the engine's whole-plan shortfall (17.2 mm in height) is the one figure
+    // the engine's whole-plan shortfall (16.2 mm in height) is the one figure
     expect(document.querySelector(".k-status__line")?.textContent).toBe(
-      "There's no room left for it in the box. The closest plan is 17.2 mm too tall.",
+      "There's no room left for it in the box. The closest plan is 16.2 mm too tall.",
     );
     // the status is in the stage as a region of its own, in the warn tone
     expect(

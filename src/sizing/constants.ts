@@ -58,7 +58,7 @@ export const RISER_SUFFIX = ":riser";
 export const ONE_WALL_MAX_MM = 20;
 /** Corner relief diameter in tile and custom wells (spec §6.1). */
 export const CORNER_RELIEF_D = 3;
-/** At most this many variants per requirement (spec §7.1). */
+/** At most this many variants per storage option of a requirement (spec §7.1). */
 export const MAX_VARIANTS = 8;
 /** Splits across at most this many trays (spec §7.1). */
 export const MAX_SPLITS = 3;

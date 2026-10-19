@@ -34,11 +34,24 @@ export interface ScoreTerms {
    */
   readonly unturned: number;
   /**
-   * Parts of one requirement spread over several stacks: per requirement, its stacks beyond the
-   * first, plus the trays of other requirements standing between its parts in a stack, so its
-   * parts end up adjacent. Only a preference; a tray reachable on top comes first (spec §6).
+   * The trays one item is split into spread over several stacks: per copy of a requirement (one
+   * item, or one player's share of a per-player one; `ctx.copyOf`), its stacks beyond the first.
+   * The split trays of one item belong in one stack (owner, 0.5.3): a strong term, over a buried
+   * "often" tray and a filler (spec §6).
    */
   readonly apart: number;
+  /**
+   * Parts of one requirement not side by side: per requirement, its stacks beyond the first, plus
+   * the trays of other requirements standing between its parts in a stack, so its parts (and its
+   * copies, one tray per player) end up adjacent. Only a preference (spec §6).
+   */
+  readonly scattered: number;
+  /**
+   * Trays a requirement is split into beyond one per copy, counted only when some variant holds
+   * each copy in a tray that fits on its own (`ctx.wholeFits`): an item stays in one tray unless
+   * no single tray fits (groups spec §6.3).
+   */
+  readonly split: number;
   /**
    * Filler parts (leftovers, in a stack level too): one is a loose piece a person places by hand,
    * so each costs its own term on top of `trays` (spec §6, lever 2).
@@ -76,9 +89,13 @@ export interface Score {
  *   one unburied "setup" tray    =                    15 000
  *   1 % of the box in filament   = 1 000 × 10 =       10 000
  *   one moved tray (warm start)  =                     5 000
- * and two cohesion terms for the parts of one requirement (spec §6), both preferences only:
- *   one part turned unlike its siblings =             15 000
- *   one extra stack for a requirement   =             10 000
+ * and four terms for the parts of one requirement, which are one thing to the user. Two are
+ * strong, set by the owner over the packing preferences above:
+ *   one extra stack for one item's trays =         2 000 000 (spec §6, owner 0.5.3)
+ *   one tray more than a whole one       =           300 000 (groups spec §6.3)
+ * and two are preferences only:
+ *   one part turned unlike its siblings  =            15 000
+ *   one extra stack, or tray between     =            10 000
  * and one for the loose pieces a person places by hand (spec §6, lever 2):
  *   one filler part (on top of `trays`)  =             20 000
  * and two preferences about how a stack and its fillers look (spec §6.4):
@@ -100,22 +117,42 @@ export const WEIGHTS: Readonly<ScoreTerms> = {
   trays: 20_000,
   filament: 10,
   moved: 5_000,
-  // The parts of one requirement are one thing to the user, so they should look alike. Orientation
-  // is the cheap win (turning a tray rarely costs the packing anything: when it does, it costs a
-  // leftover, a play step or a part, each worth more), so it weighs more than keeping them in one
-  // stack. Both stay under `trays` (20 000, one filler to place by hand) and `stacked` (50 000), so
-  // neither ever buys a filler or a stacked tray, far under `access` (200 000, a buried "often"
-  // tray) and above `moved` (5 000) so a warm start can still be regrouped. The whole of them is a
-  // few hundred thousand at most, nowhere near OVERFLOW_WEIGHT, so they can never make an
-  // infeasible layout beat a feasible one.
+  // The parts of one requirement are one thing to the user. Owner (0.5.3): "keep the split trays
+  // of one item in one stack whenever possible", so an extra stack for one item (one copy: the
+  // trays of one player's share are kept together, the players' trays need not be) is the
+  // heaviest preference there is, 2 000 000. Above 1 % of the box left over (1 000 000), so an
+  // item kept together may leave a filler and up to about 2 % of the box unused (the Star Realms
+  // Starter deck, kept in one stack, gives up the 1.5 % of the box it would fill on the Trade
+  // deck); above `coverage` (500 000) and `access` (200 000), so it buries an "often" part or
+  // leaves a loose tray on top rather than part the item; above a filler (40 000 with its part)
+  // and a stacked tray; equal to a wall swollen 5 mm per side. Far below OVERFLOW_WEIGHT (1/500 of
+  // 0.01 mm), so it never costs a fit: when no stack can hold the parts, they spread. At the
+  // annealer's start temperature (T_START, 1 000 000) a move that parts an item is still taken
+  // about one time in seven, so the search can pass through such layouts early on.
+  apart: 2_000_000,
+  // Groups spec §6.3 (owner A): one tray per copy unless no single tray fits. Above a buried
+  // "often" tray (200 000), a stacked tray (50 000), a filler with its part (40 000) and the weak
+  // cohesion terms, so no packing preference buys a split; below `coverage` (500 000), 1 % of
+  // the box and `apart`, so a split still wins when the whole tray would cost a loose tray on top,
+  // real room or the item's stack; and never an overflow: a whole tray that fits the box alone but
+  // not beside the others gives way. Charged only when `ctx.wholeFits`, so an item too big for one
+  // tray splits free.
+  split: 300_000,
+  // They should also look alike and sit together. Orientation is the cheap win (turning a tray
+  // rarely costs the packing anything: when it does, it costs a leftover, a play step or a part,
+  // each worth more), so it weighs more than adjacency (a requirement's copies in one stack, no
+  // other tray between its parts). Both stay under `trays` (20 000, one filler to place by hand)
+  // and `stacked` (50 000), so neither ever buys a filler or a stacked tray, far under `access`
+  // (200 000, a buried "often" tray) and above `moved` (5 000) so a warm start can still be
+  // regrouped.
   unturned: 15_000,
-  apart: 10_000,
+  scattered: 10_000,
   // A filler is a loose piece to place by hand ("the less fillers I have to put manually, the
   // better"), so on top of the 20 000 every part costs it costs 20 000 of its own: twice a tray,
   // 40 000 in all. That is under `stacked` (50 000), so avoiding a filler never buys a stacked
-  // tray's reach, and over every cohesion preference (15 000, 10 000) and `setup`, so none of
-  // them buys a filler. Count, not volume: one large filler beats two small ones of the same
-  // volume by the whole of it. Measured flat between 10 000 and 29 000 (spec §6.2), so the value
+  // tray's reach, and over the weak cohesion preferences (15 000, 10 000) and `setup`, so none
+  // of them buys a filler (keeping an item in one stack or in one tray does). Count, not volume:
+  // one large filler beats two small ones of the same volume by the whole of it. Measured flat between 10 000 and 29 000 (spec §6.2), so the value
   // is set by those neighbours, not by the search. Spec §6 lever 3, a reward for fillers against
   // the box wall, was measured and dropped: it raised the filler count (spec §6.2).
   fillers: 20_000,
@@ -270,19 +307,31 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
   let setup = 0;
   let stacked = 0;
   let moved = 0;
-  // Per requirement: the parts turned each way, and the stacks they stand in.
+  // Per requirement: its variant, the parts turned each way, the stacks they stand in, and the
+  // stacks of each copy.
   const siblings = new Map<
     number,
-    { turned: number; straight: number; stacks: Map<number, { lo: number; hi: number; n: number }> }
+    {
+      variant: number;
+      turned: number;
+      straight: number;
+      stacks: Map<number, { lo: number; hi: number; n: number }>;
+      copies: Map<number, Set<number>>;
+    }
   >();
   for (const t of plan.trays) {
     const kin = siblings.get(t.item.req) ?? {
+      variant: t.item.variant,
       turned: 0,
       straight: 0,
       stacks: new Map<number, { lo: number; hi: number; n: number }>(),
+      copies: new Map<number, Set<number>>(),
     };
     siblings.set(t.item.req, kin);
     kin[t.item.rotated ? "turned" : "straight"]++;
+    const copy = ctx.copyOf(t.item);
+    const copyStacks = kin.copies.get(copy) ?? new Set<number>();
+    kin.copies.set(copy, copyStacks.add(t.stack));
     const at = kin.stacks.get(t.stack) ?? { lo: t.level, hi: t.level, n: 0 };
     kin.stacks.set(t.stack, {
       lo: Math.min(at.lo, t.level),
@@ -318,12 +367,20 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
   }
   let unturned = 0;
   let apart = 0;
-  for (const kin of siblings.values()) {
+  let scattered = 0;
+  let split = 0;
+  for (const [req, kin] of siblings) {
     unturned += Math.min(kin.turned, kin.straight);
-    apart += kin.stacks.size - 1;
+    for (const stacks of kin.copies.values()) {
+      apart += stacks.size - 1;
+    }
+    scattered += kin.stacks.size - 1;
     // the trays of other components standing between its parts in a stack
     for (const { lo, hi, n } of kin.stacks.values()) {
-      apart += hi - lo + 1 - n;
+      scattered += hi - lo + 1 - n;
+    }
+    if (ctx.wholeFits[req] === true) {
+      split += ctx.extraParts(req, kin.variant);
     }
   }
   for (const l of plan.leftovers) {
@@ -344,6 +401,8 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     moved,
     unturned,
     apart,
+    scattered,
+    split,
     fillers: plan.leftovers.length,
     swollen: swollenTotal(ctx, plan.trays),
     sealed: sealedTotal(ctx, plan.trays, plan.leftovers),
@@ -362,6 +421,8 @@ export function scorePlan(ctx: Ctx, plan: Plan, prev?: ReadonlyMap<string, PrevP
     terms.moved * WEIGHTS.moved +
     terms.unturned * WEIGHTS.unturned +
     terms.apart * WEIGHTS.apart +
+    terms.scattered * WEIGHTS.scattered +
+    terms.split * WEIGHTS.split +
     terms.fillers * WEIGHTS.fillers +
     terms.swollen * WEIGHTS.swollen +
     terms.sealed * WEIGHTS.sealed;

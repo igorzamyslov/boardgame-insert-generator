@@ -82,7 +82,7 @@ const PIN_CONFLICT = ["pin-conflict", "m-pin-conflict"] as const;
 // Task 8: the tray bar and the phone's tray sheet. The states are the tray cases of copy.board.test.tsx.
 const MORE = "More holds Swap with… and Lock size";
 const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
-const PIN_LABEL = "Pin/Unpin and Lock size carry no `aria-pressed`";
+const PIN_WORDS = "Pin and Turn say what they hold";
 const TRAY_SHEET = "A phone's tray bar is a modal sheet";
 const BAR_STATES = ["workspace-tray", "workspace-tray-more", "workspace-tray-spacer"] as const;
 const SHEET_STATES = ["m-tray", "m-tray-more", "m-tray-market", "m-tray-spacer"] as const;
@@ -128,6 +128,7 @@ const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the 
 const EDITOR_CHANGED = "More options marks what differs from its default";
 const EDITOR_ROOM = "Extra room shows the insert's number and lets the item change it";
 const EDITOR_NAME = "The phone editor has a Name field";
+const EDITOR_BLOCKED = "A blocked option stays on screen and says why";
 const EDITOR_WORDS = "The Words table beats MobileEdit's second way to store figures";
 /** The strings the editors print that no board of theirs has (the boards have them in other states, or in the old words). */
 const EDITOR_LABELS: readonly string[] = [
@@ -198,8 +199,8 @@ const EDITOR_LABELS: readonly string[] = [
   "Spacer plates",
   "Dividers",
   "Number of dividers",
-  "Decks",
   "Deck",
+  "Deck name",
   "+ Another deck",
   "Per player",
   "Counts are per player",
@@ -528,9 +529,15 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: NO_ACTIONS,
   },
   { text: "Edit {name}", states: SHEET_STATES, ruling: TRAY_SHEET },
-  // MobileTray's tile says "Pin here" and never "Unpin"; the label is the action, as on the bar
-  { text: "Pin", states: SHEET_STATES, ruling: PIN_LABEL },
-  { text: "Unpin", states: SHEET_STATES, ruling: PIN_LABEL },
+  // the buttons say what they hold: this tray alone, or the stack it is in (its tray count follows, for a reader)
+  ...["tray", "stack"].flatMap((what) =>
+    [`Pin this ${what}`, `Unpin this ${what}`, `Turn this ${what} 90°`].map((text) => ({
+      text,
+      states: [...BAR_STATES, ...SHEET_STATES],
+      ruling: PIN_WORDS,
+    })),
+  ),
+  { text: ", {n} trays", states: [...BAR_STATES, ...SHEET_STATES], ruling: PIN_WORDS },
   // "6 figure pockets" is MobileTray's own; the others say the same of the other kinds
   ...Object.values(COMPARTMENT_WORDS).flatMap(([one, many]) => [
     { text: `{n} ${one}`, states: SHEET_STATES, ruling: TRAY_SHEET },
@@ -549,6 +556,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Space on top (mm)", states: ["box", "m-box"], ruling: BOX_WORDS },
   // Task 10: the editors (Edit, EditKinds, MobileEdit) and the stage beside them
   ...EDITOR_LABELS.map((text) => ({ text, states: EDITING, ruling: EDITOR_OPTIONS })),
+  // a blocked option says why in one line (DESIGN, Flow): the spacer plates, the dividers and their chip
+  ...[
+    "Flat decks have no dividers.",
+    "Flat stacks have no dividers.",
+    "Dividers need room for expansions.",
+    "Spacer plates need room for expansions.",
+    "Dividers take the place of spacer plates.",
+  ].map((text) => ({ text, states: EDITING, ruling: EDITOR_BLOCKED })),
   // the engine's presets, as the chips and the size line say them
   { text: "Standard American", states: EDITING, ruling: EDITOR_SIZES },
   { text: "Euro", states: EDITING, ruling: EDITOR_SIZES },

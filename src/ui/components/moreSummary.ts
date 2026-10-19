@@ -6,6 +6,7 @@ import {
   defaultGrowth,
   defaultTogglesOf,
   dividersOf,
+  dividersOffered,
   fingerCutsOn,
   groupOf,
   growthAxesOf,
@@ -41,6 +42,36 @@ export function wellMayGrow(c: Component): boolean {
     (c.kind === "cards" || c.kind === "tiles") &&
     growthOf(c, "stack", c.storage === "flat") !== "off"
   );
+}
+
+/** A stack of cards or tiles: the kinds whose well may have spacer plates and dividers. */
+export function isWellKind(c: Component): c is Component & { kind: "cards" | "tiles" } {
+  return c.kind === "cards" || c.kind === "tiles";
+}
+
+/**
+ * Why a deck or stack of tiles has no spacer plates right now, in a line, or undefined when it
+ * may. The row stays on screen, blocked, and says it (DESIGN, Flow: a control does not vanish).
+ */
+export function spacersBlock(c: Component): string | undefined {
+  if (!isWellKind(c)) {
+    return undefined;
+  }
+  if (dividersOf(c) > 0) {
+    return "Dividers take the place of spacer plates.";
+  }
+  return wellMayGrow(c) ? undefined : "Spacer plates need room for expansions.";
+}
+
+/** Why a deck or stack of tiles has no dividers right now, in a line, or undefined when it may. */
+export function dividersBlock(c: Component): string | undefined {
+  if (!isWellKind(c) || dividersOffered(c)) {
+    return undefined;
+  }
+  if (c.storage === "flat") {
+    return c.kind === "cards" ? "Flat decks have no dividers." : "Flat stacks have no dividers.";
+  }
+  return "Dividers need room for expansions.";
 }
 
 /**

@@ -380,6 +380,13 @@
   gap: var(--s-8);
 }
 
+/* The reason a pressed blocked chip gives, under the chips. */
+.k-chips__said {
+  margin: var(--s-8) 0 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
 .k-chip {
   --k-bg: var(--sheet);
 
@@ -404,6 +411,16 @@
   border: 1.5px solid var(--ink);
   color: var(--sheet);
   font-weight: 600;
+}
+
+/* A blocked chip (its reason is in its title and read with it): dimmer, and the cursor says so. */
+.k-chip[aria-disabled="true"] {
+  --k-bg: var(--page);
+
+  border-color: var(--rule);
+  background: var(--k-bg);
+  color: var(--ink-off);
+  cursor: not-allowed;
 }
 
 /* A chip whose value differs from its default: the changed dot, ringed in the page colour so it shows on the ink of a pressed chip too. */
@@ -944,6 +961,18 @@
   font-weight: 600;
 }
 
+/* A blocked row (it opens nothing): the title is set in the off ink, the reason stays muted. */
+.k-drow[aria-disabled="true"] {
+  border-color: transparent;
+  background: var(--k-bg);
+  color: var(--ink);
+  cursor: not-allowed;
+}
+
+.k-drow[aria-disabled="true"] .k-drow__title {
+  color: var(--ink-off);
+}
+
 .k-drow__chevron {
   display: flex;
   transition: transform 200ms;
@@ -1108,9 +1137,13 @@
   flex-direction: column;
 }
 
-.k-dialog::backdrop,
-.k-drawer::backdrop {
+.k-dialog::backdrop {
   background: var(--scrim);
+}
+
+/* Settings' board dims the plan behind the drawer instead of hiding it: a change there can move the fit. */
+.k-drawer::backdrop {
+  background: var(--scrim-see);
 }
 
 /*

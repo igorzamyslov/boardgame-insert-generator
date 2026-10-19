@@ -40,6 +40,22 @@ describe("inputsHash", () => {
     expect(inputsHash(sample())).toMatch(/^[0-9a-f]{14}$/);
   });
 
+  it("hashes the stored rim setting, so a saved project with the rim off keeps its hash", () => {
+    // Saved projects carry lip.enabled; the new default (on) must not reach them.
+    const base = sample();
+    const off: Project = {
+      ...base,
+      settings: { ...base.settings, lip: { ...base.settings.lip, enabled: false } },
+    };
+    const reread = parseProject(JSON.parse(JSON.stringify(off)));
+    if (!reread.ok) {
+      throw new Error(reread.error);
+    }
+    expect(reread.project.settings.lip.enabled).toBe(false);
+    expect(inputsHash(reread.project)).toBe(inputsHash(off));
+    expect(inputsHash(off)).not.toBe(inputsHash(base));
+  });
+
   it("changes with fillToTop, so a stored layout made the other way is stale", () => {
     const on = sample();
     const off: Project = { ...on, settings: { ...on.settings, fillToTop: false } };

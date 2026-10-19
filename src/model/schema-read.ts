@@ -147,10 +147,19 @@ function readPrinter(r: Reader | null): Printer {
 }
 
 /** Every missing setting gets its spec §5 default (older-minor files, spec §9). */
+/**
+ * What a file with no `lip` (or no `lip.enabled`) means: the rim between layers is off. New inserts
+ * start with it on (DEFAULT_SETTINGS), but older and hand-written files were made when the default
+ * was off and keep that meaning. Saved projects carry the value, so this only reaches such files.
+ */
+export const LIP_ENABLED_WHEN_ABSENT = false;
+
 function readSettings(r: Reader | undefined): Settings {
   const d = DEFAULT_SETTINGS;
   if (!r) {
-    return structuredClone(d);
+    const whole = structuredClone(d);
+    whole.lip.enabled = LIP_ENABLED_WHEN_ABSENT;
+    return whole;
   }
   const fp = r.optChild("fingerPocket");
   const lip = r.optChild("lip");
@@ -185,13 +194,13 @@ function readSettings(r: Reader | undefined): Settings {
       : { ...d.fingerPocket },
     lip: lip
       ? lip.finish({
-          enabled: lip.bool("enabled", d.lip.enabled),
+          enabled: lip.bool("enabled", LIP_ENABLED_WHEN_ABSENT),
           height: lip.num("height", d.lip.height),
           thickness: lip.num("thickness", d.lip.thickness),
           ledge: lip.num("ledge", d.lip.ledge),
           play: lip.num("play", d.lip.play),
         })
-      : { ...d.lip },
+      : { ...d.lip, enabled: LIP_ENABLED_WHEN_ABSENT },
     topPressFit: r.num("topPressFit", d.topPressFit),
     packingFactor: r.num("packingFactor", d.packingFactor),
     leftover: r.oneOf("leftover", ["spare", "solid"], d.leftover),

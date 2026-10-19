@@ -8,6 +8,8 @@ export const JUMP_REGIONS = {
   header: '[data-region="header"]',
   rail: '[data-region="rail"]',
   status: '[data-region="status"]',
+  // the Top / 3D switch: it stays put when Layer comes or goes and when the action changes (DESIGN, Flow)
+  "view-switch": '[data-region="view-switch"]',
   "plan-box": '[data-region="plan-box"]',
 };
 

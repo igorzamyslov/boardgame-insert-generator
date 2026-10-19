@@ -83,7 +83,7 @@ describe("TrayBar", () => {
       actions.map(
         (a) => (a.matches("button") ? a : (a.querySelector("button") as Element)).textContent,
       ),
-    ).toEqual(["Pin", "Turn 90°", "Edit", "More", ""]);
+    ).toEqual(["Pin this tray", "Turn this tray 90°", "Edit", "More", ""]);
     // Close is the last, named by its label
     expect(actions.at(-1)?.getAttribute("aria-label")).toBe("Close");
     expect(ruleFor(".tray-bar")).toMatch(/flex-wrap:\s*wrap/);
@@ -276,9 +276,9 @@ describe("TrayBar", () => {
     expect(screen.queryByText(/other layer|top layer|bottom layer/i)).toBeNull();
   });
 
-  it("Pin toggles to Unpin, and the pin is told in the live region, not in a chip", () => {
+  it("Pin this tray toggles to Unpin this tray, and the pin is told in the live region, not in a chip", () => {
     const { p, view } = bar();
-    const pin = button("Pin");
+    const pin = button("Pin this tray");
     // The label is the action: no aria-pressed to say it twice.
     expect(pin.hasAttribute("aria-pressed")).toBe(false);
     expect(pin.getAttribute("data-on")).toBeNull();
@@ -286,9 +286,9 @@ describe("TrayBar", () => {
     expect(p.onPin).toHaveBeenCalledTimes(1);
     const locks: Lock[] = [{ kind: "position", trayKey: KEY, path: "0", rotated: false }];
     view.rerender(<TrayBar {...p} project={planned([p.tray], locks)} />);
-    expect(button("Unpin").hasAttribute("aria-pressed")).toBe(false);
-    expect(button("Unpin").getAttribute("data-on")).toBe("true");
-    expect(screen.queryByRole("button", { name: "Pin" })).toBeNull();
+    expect(button("Unpin this tray").hasAttribute("aria-pressed")).toBe(false);
+    expect(button("Unpin this tray").getAttribute("data-on")).toBe("true");
+    expect(screen.queryByRole("button", { name: "Pin this tray" })).toBeNull();
     const live = region().querySelector("[aria-live]") as HTMLElement;
     expect(live.classList.contains("visually-hidden")).toBe(true);
     expect(within(live).getByText("Pinned")).toBeTruthy();
@@ -302,6 +302,35 @@ describe("TrayBar", () => {
     expect(screen.queryByText("Pinned")).toBeNull();
   });
 
+  it("says what Pin and Turn hold: a tray alone, or the stack it is in, with how many trays", () => {
+    const low = tray({ key: "fxcrd002:p0:1", path: "10", level: 0 });
+    const mid = tray({ key: "fxcrd002:p0:2", path: "10", level: 1, z: 20 });
+    const high = tray({ key: "fxcrd002:p0:0", path: "10", level: 2, z: 40 });
+    const { p, view } = bar({ project: planned([low, mid, high]), tray: mid });
+    const pin = button("Pin this stack, 3 trays");
+    expect(pin.getAttribute("title")).toBe("Pin this stack: 3 trays");
+    expect(button("Turn this stack 90°, 3 trays").getAttribute("title")).toBe(
+      "Turn this stack 90°: 3 trays",
+    );
+    expect(screen.queryByRole("button", { name: /this tray/ })).toBeNull();
+    fireEvent.click(pin);
+    expect(p.onPin).toHaveBeenCalledTimes(1);
+    // pinned: the same words, the other way
+    const locks: Lock[] = [low, mid, high].map((t) => ({
+      kind: "position",
+      trayKey: t.key,
+      path: "10",
+      rotated: false,
+    }));
+    view.rerender(<TrayBar {...p} project={planned([low, mid, high], locks)} />);
+    expect(button("Unpin this stack, 3 trays").getAttribute("data-on")).toBe("true");
+    view.unmount();
+    // a tray of a stack of one, and a plan that has not got it, read as a tray alone
+    bar({ project: planned([tray()]) });
+    expect(button("Pin this tray").getAttribute("title")).toBeNull();
+    expect(screen.queryByText(/trays?$/, { selector: ".visually-hidden" })).toBeNull();
+  });
+
   it("says Size locked in the live region once locked", () => {
     const locks: Lock[] = [{ kind: "size", trayKey: KEY, w: 72, d: 96, h: 40 }];
     bar({ project: planned([tray()], locks) });
@@ -310,7 +339,7 @@ describe("TrayBar", () => {
 
   it("Turn 90° asks to turn, and is offered while nothing is in the way", () => {
     const { p } = bar();
-    const turn = button("Turn 90°");
+    const turn = button("Turn this tray 90°");
     expect(turn.getAttribute("aria-disabled")).toBeNull();
     fireEvent.click(turn);
     expect(p.onTurn).toHaveBeenCalledTimes(1);
@@ -319,7 +348,7 @@ describe("TrayBar", () => {
 
   it("Turn says why it is unavailable for a square tray, on a line of its own", () => {
     const { p } = bar({ tray: tray({ w: 80, d: 80.3 }) });
-    const turn = button("Turn 90°");
+    const turn = button("Turn this tray 90°");
     expect(turn.getAttribute("aria-disabled")).toBe("true");
     expect(turn.hasAttribute("disabled")).toBe(false);
     const reason = "This tray is square, so turning changes nothing.";
@@ -342,7 +371,7 @@ describe("TrayBar", () => {
       [{ kind: "size", trayKey: high.key, w: 150, d: 150, h: 90 }],
     );
     bar({ project, tray: low });
-    expect(button("Turn 90°").getAttribute("aria-disabled")).toBe("true");
+    expect(button("Turn this stack 90°, 2 trays").getAttribute("aria-disabled")).toBe("true");
     expect(
       screen.getByText(/^Turning doesn't work for .+: it conflicts with the size lock/, {
         selector: ".tray-bar__why p",
@@ -421,8 +450,8 @@ describe("TrayBar as the phone's sheet", () => {
     expect(onEdit).toHaveBeenCalledTimes(1);
     const tiles = dialog().querySelector(".tray-sheet__tiles") as HTMLElement;
     expect([...tiles.querySelectorAll("button")].map((b) => b.textContent)).toEqual([
-      "Pin",
-      "Turn 90°",
+      "Pin this tray",
+      "Turn this tray 90°",
       "More",
     ]);
     expect(button("Close")).toBeTruthy();
@@ -447,9 +476,9 @@ describe("TrayBar as the phone's sheet", () => {
 
   it("Pin and Turn work as on the bar, and a blocked Turn says why under the tiles", () => {
     const { p } = sheet({ tray: tray({ w: 80, d: 80 }) });
-    fireEvent.click(button("Pin"));
+    fireEvent.click(button("Pin this tray"));
     expect(p.onPin).toHaveBeenCalledTimes(1);
-    const turn = button("Turn 90°");
+    const turn = button("Turn this tray 90°");
     expect(turn.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(turn);
     expect(p.onTurn).not.toHaveBeenCalled();

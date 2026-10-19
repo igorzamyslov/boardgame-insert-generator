@@ -4,7 +4,7 @@ import { COMPONENT_DEFAULTS } from "./defaults";
 import type { Json } from "./json";
 import { SCHEMA_NOTICE_CODES } from "./schema";
 import type { ReadOptions } from "./schema-read";
-import { readProject } from "./schema-read";
+import { LIP_ENABLED_WHEN_ABSENT, readProject } from "./schema-read";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ParseResult } from "./types";
 import { validateProject } from "./validate";
@@ -81,7 +81,11 @@ describe("readProject: files of this schema line", () => {
       bedMargin: 5,
       layerHeight: 0.2,
     });
-    expect(project.settings).toEqual(DEFAULT_SETTINGS);
+    // The rim between layers is on in new inserts, but a file that says nothing about it reads it off.
+    expect(project.settings).toEqual({
+      ...DEFAULT_SETTINGS,
+      lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+    });
     expect(project.components).toEqual([]);
     expect(project.locks).toEqual([]);
     expect(project.layout).toBeUndefined();
@@ -113,6 +117,28 @@ describe("readProject: files of this schema line", () => {
       wall: 2,
       lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
     });
+  });
+
+  it("a file without lip.enabled reads it off", () => {
+    // New inserts start with the rim on, but a file that says nothing about it was made when it
+    // was off and keeps that meaning (LIP_ENABLED_WHEN_ABSENT).
+    expect(DEFAULT_SETTINGS.lip.enabled).toBe(true);
+    const cases: Json[] = [
+      MINIMAL,
+      { ...MINIMAL, settings: { wall: 2 } },
+      { ...MINIMAL, settings: { lip: {} } },
+      { ...MINIMAL, settings: { lip: { height: 3 } } },
+    ];
+    for (const raw of cases) {
+      const { project } = expectOk(readProject(raw, CURRENT));
+      expect(project.settings.lip.enabled, JSON.stringify(raw)).toBe(LIP_ENABLED_WHEN_ABSENT);
+      expect(project.settings.lip.enabled, JSON.stringify(raw)).toBe(false);
+    }
+    // A stored value is used as it is.
+    const on = expectOk(
+      readProject({ ...MINIMAL, settings: { lip: { enabled: true } } }, CURRENT),
+    ).project;
+    expect(on.settings.lip.enabled).toBe(true);
   });
 
   it("fills the finger room and notch of an older file and drops its finger pocket reach", () => {

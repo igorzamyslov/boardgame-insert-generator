@@ -127,9 +127,11 @@ function separateCandidates(
 }
 
 /**
- * Enumerates up to MAX_VARIANTS (0..8) tray variants for one requirement, best first; none when
- * no option has a compartment. `players` is the perPlayer count (1..10, validateComponent's
- * range) or null without perPlayer. `key` is passed through into the tray keys unchanged.
+ * Enumerates the tray variants for one requirement, best first: up to MAX_VARIANTS (8) per
+ * storage option, so a requirement with several options ("auto") offers every variant each of
+ * them offers alone and never fits worse than one of them. None when no option has a
+ * compartment. `players` is the perPlayer count (1..10, validateComponent's range) or null
+ * without perPlayer. `key` is passed through into the tray keys unchanged.
  */
 export function buildVariants(input: VariantInput): TrayVariant[] {
   const { key, options, players } = input;
@@ -152,8 +154,12 @@ export function buildVariants(input: VariantInput): TrayVariant[] {
   candidates.sort((x, y) => compareRank(x.rank, y.rank));
   const seen = new Set<string>();
   const variants: TrayVariant[] = [];
+  // One option yields at most 8 (2 separate + 6 split), so this cap never drops a variant one
+  // option offers alone; it only bounds the list. A cap over all options together used to keep the
+  // best 8 of auto's ~16 and drop its 3-tray splits, the only ones that fit some boxes.
+  const cap = MAX_VARIANTS * Math.max(1, options.length);
   for (const { variant } of candidates) {
-    if (variants.length >= MAX_VARIANTS) {
+    if (variants.length >= cap) {
       break;
     }
     const signature = dedupeKey(variant);
