@@ -4,7 +4,7 @@
 // is a modal sheet at the foot of the screen.
 import type { CSSProperties } from "preact";
 import { useEffect, useId, useMemo, useRef, useState } from "preact/hooks";
-import { isLockable, lockedKeys, sizeLockedKeys } from "../app/actions";
+import { isLockable, lockedKeys, sizeLockedKeys, stackOf } from "../app/actions";
 import { canTurn } from "../app/dryRun";
 import { printedHeight } from "../instructions/numbering";
 import { summarize } from "../layout";
@@ -88,7 +88,29 @@ function useTrayFacts(p: TrayBarProps) {
   );
   const size = `${mm(tray.w)} × ${mm(tray.d)} × ${mm(printedHeight(tray, project.settings))} mm`;
   const why = full && !turnCheck.ok ? turnCheck.reason : undefined;
-  return { full, pinned, turned, sizeLocked, turnCheck, why, estimate, size };
+  const stack = full ? stackOf(project, tray).length : 1;
+  return { full, pinned, turned, sizeLocked, turnCheck, why, estimate, size, stack };
+}
+
+/** What Pin and Turn hold, in the button's words: this tray alone, or the stack it is in. */
+function actionWords(stack: number, pinned: boolean) {
+  const what = stack > 1 ? "stack" : "tray";
+  return {
+    pin: `${pinned ? "Unpin" : "Pin"} this ${what}`,
+    turn: `Turn this ${what} 90°`,
+    /** For a reader and the tooltip: how many trays the press holds. */
+    count: stack > 1 ? `${stack} trays` : null,
+  };
+}
+
+/** A button's words, with how many trays the press holds as words for a reader after them. */
+function Words({ text, count }: { text: string; count: string | null }) {
+  return (
+    <>
+      {text}
+      {count === null ? null : <span class="visually-hidden">{`, ${count}`}</span>}
+    </>
+  );
 }
 
 /** The line a part with no actions says about itself. */
@@ -238,6 +260,7 @@ type Inner = TrayBarProps & { facts: Facts; more: More };
 
 function DesktopBar(p: Inner) {
   const { facts, more } = p;
+  const words = actionWords(facts.stack, facts.pinned);
   const meta = facts.full
     ? [p.layer, facts.size, facts.estimate].filter((part) => part !== null).join(" · ")
     : partLine(p, facts.size);
@@ -269,17 +292,19 @@ function DesktopBar(p: Inner) {
             variant="soft"
             data-on={facts.pinned ? "true" : undefined}
             icon={<Icon name="pin" size={15} />}
+            title={words.count === null ? undefined : `${words.pin}: ${words.count}`}
             onClick={p.onPin}
           >
-            {facts.pinned ? "Unpin" : "Pin"}
+            <Words text={words.pin} count={words.count} />
           </Button>
           <Button
             variant="soft"
             icon={<Icon name="turn" size={15} />}
+            title={words.count === null ? undefined : `${words.turn}: ${words.count}`}
             blockedReason={facts.turnCheck.ok ? undefined : facts.turnCheck.reason}
             onClick={p.onTurn}
           >
-            Turn 90°
+            <Words text={words.turn} count={words.count} />
           </Button>
           {p.onEdit ? (
             <Button variant="primary" class="tray-bar__edit" onClick={p.onEdit}>
@@ -325,6 +350,7 @@ function DesktopBar(p: Inner) {
 
 function PhoneSheet(p: Inner) {
   const { facts, more } = p;
+  const words = actionWords(facts.stack, facts.pinned);
   const titleId = useId();
   const title = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -382,18 +408,20 @@ function PhoneSheet(p: Inner) {
                 class="tray-sheet__tile"
                 data-on={facts.pinned ? "true" : undefined}
                 icon={<Icon name="pin" size={20} />}
+                title={words.count === null ? undefined : `${words.pin}: ${words.count}`}
                 onClick={p.onPin}
               >
-                {facts.pinned ? "Unpin" : "Pin"}
+                <Words text={words.pin} count={words.count} />
               </Button>
               <Button
                 variant="soft"
                 class="tray-sheet__tile"
                 icon={<Icon name="turn" size={20} />}
+                title={words.count === null ? undefined : `${words.turn}: ${words.count}`}
                 blockedReason={facts.turnCheck.ok ? undefined : facts.turnCheck.reason}
                 onClick={p.onTurn}
               >
-                Turn 90°
+                <Words text={words.turn} count={words.count} />
               </Button>
               <span
                 class="tray-more"

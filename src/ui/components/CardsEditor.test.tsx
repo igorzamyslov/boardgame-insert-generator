@@ -1,6 +1,6 @@
 // src/ui/components/CardsEditor.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newComponent } from "../../model/defaults";
 import { CARD_PRESETS } from "../../model/presets";
@@ -115,12 +115,146 @@ describe("CardsEditor", () => {
       expect(last().decks[0]).toMatchObject({ count: 51 });
     });
 
-    it("keeps the way to a second deck under More options, not among the basics", () => {
+    it("offers a second deck among the basics, under the stepper and before More options", () => {
       const { last } = setup(cards());
-      expect(screen.queryByRole("button", { name: "+ Another deck" })).toBeNull();
-      openRows();
+      const add = screen.getByRole("button", { name: "+ Another deck" });
+      const stepper = screen.getByLabelText("Number of cards");
+      const more = screen.getByRole("button", { name: /^More options/ });
+      expect(stepper.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(add.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(more.getAttribute("aria-expanded")).toBe("false");
+      fireEvent.click(add);
+      expect(last().decks).toEqual([
+        { name: "Deck 1", count: 50 },
+        { name: "Deck 2", count: 50 },
+      ]);
+    });
+
+    it("shows no name field for a lone deck without a name", () => {
+      setup(cards());
+      expect(screen.queryByLabelText("Deck name")).toBeNull();
+    });
+
+    it("keeps a lone deck's old name editable, under the stepper and before + Another deck", () => {
+      const { last } = setup(cards({ decks: [{ name: "Deck 1", count: 15 }] }));
+      const field = screen.getByLabelText("Deck name") as HTMLInputElement;
+      expect(field.value).toBe("Deck 1");
+      const stepper = screen.getByLabelText("Number of cards");
+      const add = screen.getByRole("button", { name: "+ Another deck" });
+      expect(
+        stepper.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(field.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      fireEvent.input(field, { target: { value: "Base set" } });
+      expect(last().decks).toEqual([{ name: "Base set", count: 15 }]);
+    });
+
+    it("keeps the name field while the name is emptied, and drops it on reopening", () => {
+      const named = cards({ decks: [{ name: "Deck 1", count: 15 }] });
+      const view = setup(named).view;
+      fireEvent.input(screen.getByLabelText("Deck name"), { target: { value: "" } });
+      view.rerender(
+        <CardsEditor
+          component={cards({ decks: [{ name: "", count: 15 }] })}
+          index={0}
+          onChange={vi.fn()}
+        />,
+      );
+      expect((screen.getByLabelText("Deck name") as HTMLInputElement).value).toBe("");
+      cleanup();
+      setup(cards({ decks: [{ name: "", count: 15 }] }));
+      expect(screen.queryByLabelText("Deck name")).toBeNull();
+    });
+
+    it("names a nameless lone deck Deck 1 when another is added", () => {
+      const { last } = setup(cards({ decks: [{ name: "", count: 15 }] }));
       fireEvent.click(screen.getByRole("button", { name: "+ Another deck" }));
-      expect(last().decks).toHaveLength(2);
+      expect(last().decks).toEqual([
+        { name: "Deck 1", count: 15 },
+        { name: "Deck 2", count: 50 },
+      ]);
+    });
+
+    it("keeps a named lone deck's name when another is added", () => {
+      const { last } = setup(cards({ decks: [{ name: "Base", count: 15 }] }));
+      fireEvent.click(screen.getByRole("button", { name: "+ Another deck" }));
+      expect(last().decks).toEqual([
+        { name: "Base", count: 15 },
+        { name: "Deck 2", count: 50 },
+      ]);
+    });
+
+    it("clears the name of the deck a removal leaves alone, and offers no name field for it", () => {
+      const two = cards({
+        decks: [
+          { name: "A", count: 10 },
+          { name: "B", count: 20 },
+        ],
+      });
+      const view = setup(two);
+      fireEvent.click(screen.getByRole("button", { name: "Remove deck A" }));
+      expect(view.last().decks).toEqual([{ name: "", count: 20 }]);
+      view.view.rerender(
+        <CardsEditor
+          component={cards({ decks: view.last().decks })}
+          index={0}
+          onChange={vi.fn()}
+        />,
+      );
+      expect(screen.getByLabelText("Number of cards")).toBeTruthy();
+      expect(screen.queryByLabelText("Deck name")).toBeNull();
+    });
+
+    it("turns the stepper into the deck list in the same place, and back", () => {
+      const slot = (view: ReturnType<typeof setup>["view"]): number =>
+        Array.from(view.container.children).findIndex(
+          (el) =>
+            el.matches(".ed-cards") || el.querySelector('[aria-label="Number of cards"]') !== null,
+        );
+      const one = setup(cards());
+      const place = slot(one.view);
+      expect(place).toBeGreaterThanOrEqual(0);
+      const grown = cards({
+        decks: [
+          { name: "", count: 50 },
+          { name: "Deck 2", count: 50 },
+        ],
+      });
+      one.view.rerender(<CardsEditor component={grown} index={0} onChange={one.onChange} />);
+      expect(screen.queryByLabelText("Number of cards")).toBeNull();
+      expect(slot(one.view)).toBe(place);
+      // "+ Another deck" stays under the list
+      const list = one.view.container.querySelector(".ed-cards");
+      const add = screen.getByRole("button", { name: "+ Another deck" });
+      expect(list?.compareDocumentPosition(add)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      one.view.rerender(<CardsEditor component={cards()} index={0} onChange={one.onChange} />);
+      expect(screen.getByLabelText("Number of cards")).toBeTruthy();
+      expect(slot(one.view)).toBe(place);
+      expect(screen.getByRole("button", { name: "+ Another deck" })).toBeTruthy();
+    });
+
+    it("moves focus to the new deck's name", async () => {
+      const onChange = vi.fn<(next: CardsComponent) => void>();
+      const view = render(<CardsEditor component={cards()} index={0} onChange={onChange} />);
+      fireEvent.click(screen.getByRole("button", { name: "+ Another deck" }));
+      const grown = cards({
+        decks: [
+          { name: "", count: 50 },
+          { name: "Deck 2", count: 50 },
+        ],
+      });
+      view.rerender(<CardsEditor component={grown} index={0} onChange={onChange} />);
+      await waitFor(() => {
+        expect(document.activeElement?.id).toBe("c1-deck1-name");
+      });
+    });
+
+    it("has no Decks row under More options", () => {
+      setup(cards());
+      openRows();
+      expect(screen.queryByRole("button", { name: /^Decks/ })).toBeNull();
+      expect(screen.getAllByRole("button", { name: "+ Another deck" })).toHaveLength(1);
+      expect(screen.queryByLabelText(/^Deck/)).toBeNull();
     });
 
     it("shows several decks as cards with a name, a count and a ×, and removes one", () => {
@@ -132,15 +266,20 @@ describe("CardsEditor", () => {
       });
       const { last } = setup(two);
       expect(screen.queryByLabelText("Number of cards")).toBeNull();
-      fireEvent.input(screen.getByLabelText("How many in deck 2"), { target: { value: "25" } });
+      fireEvent.input(screen.getByLabelText("Number of cards in deck 2"), {
+        target: { value: "25" },
+      });
       expect(last().decks).toEqual([
         { name: "A", count: 10 },
         { name: "B", count: 25 },
       ]);
+      // each deck's count is a stepper, as the single deck's is
+      const more = screen.getAllByRole("button", { name: "More" });
+      expect(more).toHaveLength(2);
+      fireEvent.click(more[0] as HTMLElement);
+      expect(last().decks[0]).toEqual({ name: "A", count: 11 });
       fireEvent.click(screen.getByRole("button", { name: "Remove deck A" }));
-      expect(last().decks).toEqual([{ name: "B", count: 20 }]);
-      fireEvent.click(screen.getByRole("button", { name: "+ Another deck" }));
-      expect(last().decks).toHaveLength(3);
+      expect(last().decks).toEqual([{ name: "", count: 20 }]);
     });
   });
 
@@ -152,23 +291,48 @@ describe("CardsEditor", () => {
       expect(last().sleeve).toBe("premium");
     });
 
-    it("sets a sleeve size of its own from the exact values, starting from what the sleeves add", () => {
+    it("always offers Custom as the fourth segment", () => {
+      setup(cards());
+      const labels = Array.from(
+        screen.getByRole("group", { name: "Sleeves" }).querySelectorAll("button"),
+      ).map((b) => b.textContent);
+      expect(labels).toEqual(["None", "Standard", "Premium", "Custom"]);
+      expect(screen.queryByLabelText(/Sleeve outer width/)).toBeNull();
+    });
+
+    it("opens the sleeve-size fields on Custom, seeded with the sleeve's size now", async () => {
       const { last, view, onChange } = setup(cards({ sleeve: "standard" }));
-      openRows();
+      choose("Sleeves", "Custom");
+      // 63.5 × 88 card, standard sleeve adds 3 mm and 0.1 mm per card
+      expect(last().sleeve).toEqual({ w: 66.5, h: 91, thickness: 0.1 });
+      view.rerender(
+        <CardsEditor component={cards({ sleeve: last().sleeve })} index={0} onChange={onChange} />,
+      );
+      expect(pressedIn("Sleeves")).toBe("Custom");
       expect((screen.getByLabelText(/Sleeve outer width/) as HTMLInputElement).value).toBe("66.5");
+      expect((screen.getByLabelText(/Sleeve outer length/) as HTMLInputElement).value).toBe("91");
+      await waitFor(() => {
+        expect(document.activeElement?.id).toBe("c1-sleeveW");
+      });
+    });
+
+    it("seeds Custom from no sleeve with the card's own size, and goes back to a named sleeve", () => {
+      const { last, view, onChange } = setup(cards());
+      choose("Sleeves", "Custom");
+      expect(last().sleeve).toEqual({ w: 63.5, h: 88, thickness: 0 });
+      view.rerender(
+        <CardsEditor component={cards({ sleeve: last().sleeve })} index={0} onChange={onChange} />,
+      );
+      choose("Sleeves", "Premium");
+      expect(last().sleeve).toBe("premium");
+    });
+
+    it("sets a sleeve size of its own from the fields", () => {
+      const { last } = setup(cards({ sleeve: { w: 66.5, h: 91, thickness: 0.1 } }));
       fireEvent.input(screen.getByLabelText(/Added thickness per card/), {
         target: { value: "0,2" },
       });
       expect(last().sleeve).toEqual({ w: 66.5, h: 91, thickness: 0.2 });
-      view.rerender(
-        <CardsEditor
-          component={cards({ sleeve: { w: 66.5, h: 91, thickness: 0.2 } })}
-          index={0}
-          onChange={onChange}
-        />,
-      );
-      // a sleeve of its own has a segment of its own, pressed
-      expect(pressedIn("Sleeves")).toBe("Custom");
     });
   });
 
@@ -274,13 +438,20 @@ describe("CardsEditor", () => {
       expect(last().cornerReliefs).toBe(true);
     });
 
-    it("shows a curved floor a file set on cards, so it can be turned off", () => {
-      const { last } = setup(cards({ curvedFloor: true }));
+    it("never offers a curved floor on cards, and gives a file that set one the way back instead of a chip", () => {
+      const { view } = setup(cards());
       openMore();
-      const floor = screen.getByRole("button", { name: /^Curved floor/ });
-      expect(floor.getAttribute("aria-pressed")).toBe("true");
-      fireEvent.click(floor);
-      expect(last().curvedFloor).toBe(false);
+      expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Back to curved floor/ })).toBeNull();
+      view.unmount();
+      const set = setup(cards({ curvedFloor: true }));
+      openMore();
+      // the chip is not offered, so it can't remove itself; the way back is the "Back to" link
+      expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Back to curved floor off for Tray shape" }),
+      );
+      expect("curvedFloor" in set.last()).toBe(false);
     });
   });
 
@@ -400,15 +571,60 @@ describe("CardsEditor", () => {
       expect(screen.queryByRole("button", { name: "Removable dividers" })).not.toBeNull();
     });
 
-    it("are not offered to a flat deck, or to one that may not grow", () => {
-      const { view } = setup(cards({ storage: "flat" }));
+    /** The reason a blocked control gives, as a reader is given it (aria-describedby). */
+    const reasonOf = (el: HTMLElement): string =>
+      document.getElementById(el.getAttribute("aria-describedby") ?? "")?.textContent ?? "";
+
+    it("blocks the dividers of a flat deck and says why, instead of dropping them", () => {
+      const { onChange } = setup(cards({ storage: "flat" }));
       openRows();
-      expect(screen.queryByRole("button", { name: "Removable dividers" })).toBeNull();
-      view.unmount();
-      const { view: off } = setup(cards({ growth: { stack: "off" } }));
+      const chip = screen.getByRole("button", { name: "Removable dividers" });
+      expect(chip.getAttribute("aria-disabled")).toBe("true");
+      expect(reasonOf(chip)).toBe("Flat decks have no dividers.");
+      fireEvent.click(chip);
+      // a press shows the reason where the chip is, for a touch that has no title
+      expect(screen.getByRole("status").textContent).toBe("Flat decks have no dividers.");
+      const row = screen.getByRole("button", { name: /^Dividers/ });
+      expect(row.getAttribute("aria-disabled")).toBe("true");
+      expect(row.getAttribute("aria-expanded")).toBeNull();
+      expect(row.textContent).toContain("Flat decks have no dividers.");
+      fireEvent.click(row);
+      expect(screen.queryByLabelText("Number of dividers")).toBeNull();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("blocks the spacer plates and the dividers of a deck with no room to grow, with the reasons", () => {
+      setup(cards({ growth: { stack: "off" } }));
       openRows();
-      expect(screen.queryByRole("button", { name: "Removable dividers" })).toBeNull();
-      off.unmount();
+      expect(screen.getByRole("button", { name: /^Spacer plates/ }).textContent).toContain(
+        "Spacer plates need room for expansions.",
+      );
+      const chip = screen.getByRole("button", { name: "Removable dividers" });
+      expect(chip.getAttribute("aria-disabled")).toBe("true");
+      expect(reasonOf(chip)).toBe("Dividers need room for expansions.");
+      expect(screen.getByRole("button", { name: /^Dividers/ }).textContent).toContain(
+        "Dividers need room for expansions.",
+      );
+    });
+
+    it("blocks the spacer plates while the well has dividers", () => {
+      setup(cards({ storage: "upright-long", dividers: 2, separators: 4 }));
+      openRows();
+      const row = screen.getByRole("button", { name: /^Spacer plates/ });
+      expect(row.getAttribute("aria-disabled")).toBe("true");
+      expect(row.textContent).toContain("Dividers take the place of spacer plates.");
+      // the dividers themselves are on offer
+      expect(
+        screen.getByRole("button", { name: /^Dividers/ }).getAttribute("aria-disabled"),
+      ).toBeNull();
+    });
+
+    it("blocks nothing where the deck can have both", () => {
+      setup(cards({ storage: "upright-long" }));
+      openRows();
+      for (const name of [/^Spacer plates/, /^Dividers/, /^Removable dividers$/]) {
+        expect(screen.getByRole("button", { name }).getAttribute("aria-disabled")).toBeNull();
+      }
     });
 
     it("stores nothing when the count goes back to 0", () => {
@@ -416,12 +632,6 @@ describe("CardsEditor", () => {
       openRows();
       fireEvent.input(screen.getByLabelText("Number of dividers"), { target: { value: "0" } });
       expect("dividers" in last()).toBe(false);
-    });
-
-    it("replace the spacer plates, which are not offered while the well has dividers", () => {
-      setup(cards({ storage: "upright-long", dividers: 2, separators: 4 }));
-      openRows();
-      expect(screen.queryByLabelText("Spacer plates")).toBeNull();
     });
 
     it("are held to the bound", () => {

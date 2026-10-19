@@ -27,6 +27,34 @@
   padding: 0 var(--s-18);
 }
 
+/*
+ * The status row's controls, with a plan: three slots that keep their width, so the View switch
+ * stays where it is when the Layer switch comes or goes and when Keep searching turns into Stop
+ * (DESIGN, Flow). The Layer slot is as wide as a two-layer switch and grows to the left for more;
+ * the action slot is as wide as Keep searching and holds Stop or nothing at its right edge.
+ */
+.stage-controls {
+  display: flex;
+  gap: var(--s-10);
+  align-items: center;
+}
+
+.stage-controls__layer,
+.stage-controls__action {
+  display: flex;
+  gap: var(--s-10);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.stage-controls__layer {
+  min-width: var(--stage-layer-slot);
+}
+
+.stage-controls__action {
+  min-width: var(--stage-action-slot);
+}
+
 /* A long name on a button (Unpin Heroes — Hero 1/6, …) is cut with an ellipsis, not pushed past the row. */
 .k-status__extra .k-btn {
   min-width: 0;

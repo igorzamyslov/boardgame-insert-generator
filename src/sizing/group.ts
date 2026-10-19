@@ -174,7 +174,7 @@ function requirementOf(key: string, usable: readonly Usable[]): TrayRequirement 
     options: combineOptions(usable.map((u) => u.options)),
     players: only?.c.perPlayer?.players ?? null,
   });
-  // Defensive: options without compartments have no variants, and a requirement needs 1–8.
+  // Defensive: options without compartments have no variants, and a requirement needs at least 1.
   if (variants.length === 0) {
     return null;
   }

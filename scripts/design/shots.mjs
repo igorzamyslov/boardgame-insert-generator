@@ -1342,7 +1342,7 @@ try {
     lines.push(
       hard.length > 0
         ? `FAILED  jump (${pair.join(" and ")}): ${hard.join("; ")}`
-        : `ok      jump: header, rail, status and plan box do not move between ${pair.join(" and ")}${slides}${problems.length > 0 ? ` (${problems.join("; ")})` : ""}`,
+        : `ok      jump: header, rail, status, view switch and plan box do not move between ${pair.join(" and ")}${slides}${problems.length > 0 ? ` (${problems.join("; ")})` : ""}`,
     );
   }
   lines.push("", consoleSummary(consoleErrorsByState));

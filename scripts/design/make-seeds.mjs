@@ -127,7 +127,8 @@ try {
    * Looks for a tuning (values the rail never shows) that gives two layers, in this order: the
    * Settings board's own values (the wall at 1.6, and the "Room around things" values it shows as
    * changed), the sleeve or thickness of the Market and Starter decks, then padding (a clearance on
-   * every component, then the Heroes pockets). The first that works wins. Prints each try.
+   * every component, then the Heroes pockets, then a clearance of its own on each). The first that
+   * works wins, and its no-fit plan has no sliver of a spacer (see noSlivers). Prints each try.
    */
   function* tuningCandidates() {
     for (const cardClearance of [2, 2.5, 3, 3.5, 4, 5]) {
@@ -155,6 +156,35 @@ try {
       const figure = { name: "Hero", w: 30 + pad, d: 30 + pad, h: 38, count: 6 };
       yield { settings: {}, components: { heroes01: { figures: [figure] } } };
     }
+    // Last: a different clearance (2 to 10 mm, in halves) on each component, from a fixed
+    // pseudo-random sequence, so a rerun tries the same ones. Plans move a lot with these, and
+    // the engine's later weights (one stack per item) leave few of the even ones with two layers.
+    let state = 1;
+    const next = () => {
+      state = (state * 1664525 + 1013904223) % 4294967296;
+      return state / 4294967296;
+    };
+    for (let i = 0; i < 300; i++) {
+      yield {
+        settings: {},
+        components: Object.fromEntries(
+          ids.map((id) => [id, { clearance: Math.round((2 + next() * 8) * 2) / 2 }]),
+        ),
+      };
+    }
+  }
+
+  /**
+   * The plan draws a tile 3 px in on each side (a 6 px gap) and its 2 px dashed border needs 4 px
+   * more, so a spacer under 6 mm (12 px at the board's scale) is a bare dashed line against its
+   * neighbour and the plan-gaps probe fails. The no-fit state draws the closest attempt of a
+   * failed search, which varies a lot with the tuning.
+   */
+  function noSlivers(project, result) {
+    const base = { ...project, layout: result.layout };
+    const failed = search(kit.harbourKingsNoFit(base, 80)).result;
+    const trays = [...result.layout.trays, ...(failed.layout ?? failed.bestAttempt).trays];
+    return trays.every((t) => t.part === "tray" || Math.min(t.w, t.d) >= 6);
   }
 
   function tuneLayers() {
@@ -163,7 +193,7 @@ try {
       const { result } = search(project);
       const levels = result.layout ? layers.levelsOf(result.layout.trays).length : 0;
       console.error(`  tried ${JSON.stringify(tuning)}: ${levels} layers`);
-      if (twoLayers(project, result)) {
+      if (twoLayers(project, result) && noSlivers(project, result)) {
         return tuning;
       }
     }

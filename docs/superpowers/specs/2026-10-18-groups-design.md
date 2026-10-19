@@ -283,7 +283,7 @@ The "no finger slot" notice says `the group "<name>"`, not the key.
   `p0`, as now.
 - Each copy may be split into 1–3 parts (`MAX_SPLITS`), the same way in every copy:
   strip/rows2 × split1/2/3, at most 6 variants per storage option, still capped at
-  `MAX_VARIANTS`. Today a per-player copy can never split, so a kit too big for the bed has no
+  `MAX_VARIANTS` per storage option (since 0.5.3 the cap is per option, not per requirement). Today a per-player copy can never split, so a kit too big for the bed has no
   variant at all; now it splits when it must.
 - Compartment contents no longer get " (P1)" suffixes: the tray name carries the copy (§6.6).
 
@@ -303,11 +303,24 @@ unless it can't fit.
   so a whole tray that cannot be placed still gives way to a split. A requirement with no fitting
   whole variant pays nothing for splitting.
 - Variant order stays as is (split1 first), so the greedy start already prefers whole trays.
+- **Built for single items in 0.5.3** (before groups). The exact test, as built: some variant
+  whose every copy is one tray (`ctx.extraParts` 0: no two of its trays share a copy, i.e. a key
+  but for the part number; one tray per player counts as whole), and each of its trays, measured
+  alone in a stack (level 0, no lip), fits the box floor less the box clearance (turned only when
+  the part may be turned) under the top plane, and the bed less its margin in either orientation
+  (`fitsBed`). Whether the rest of the box leaves it room is not part of the test: a whole tray
+  that fits alone but not beside the others overflows, and overflow outweighs `split`. The term
+  counts `ctx.extraParts` of the chosen variant: a combined per-player split (`pall`) counts its
+  parts beyond one, a separate per-player variant nothing. Measured on the layout fixtures with the
+  0.5.3 `apart` change (the 0.5.3 report r053-task1): no fit lost.
 - Cost: S–M. No schema or geometry change; layouts change on the next run (stored plans stay
   current, §5).
 
-`apart` and `unturned` still apply to the copies of one requirement, so copies prefer one
-orientation and to sit together; nothing here changes that.
+`unturned` and `scattered` (the weak 10 000 adjacency term; before 0.5.3 it was `apart`) still
+apply to the copies of one requirement, so copies prefer one orientation and to sit together;
+nothing here changes that. Since 0.5.3 `apart` is the strong term (2 000 000 per extra stack) and
+counts each copy on its own: a copy split into trays keeps them in one stack, the copies need not
+share one.
 
 ### 6.4 "Combined" per-player variants: removed
 

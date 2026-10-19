@@ -132,6 +132,21 @@ describe("moves", () => {
     expect(changeVariant(start, env([], [false, false, true, false]), createRng(4))).toBeNull();
   });
 
+  it("puts a new split's parts mostly in one stack, as the score wants them", () => {
+    let together = 0;
+    for (let seed = 0; seed < 100; seed++) {
+      const t = changeVariant(start, env(), createRng(seed));
+      if (t?.variants[2] !== 1) {
+        continue;
+      }
+      expectComplete(t);
+      const homes = leaves(t.root).filter((l) => l.leaf.stack.some((it) => it.req === 2));
+      together += homes.length === 1 ? 1 : 0;
+    }
+    // three in four go on the part before when it can carry them; the rest anywhere
+    expect(together).toBeGreaterThan(65);
+  });
+
   it("rotates only rotatable, unlocked items", () => {
     for (let s = 0; s < 20; s++) {
       const t = rotateItem(start, env(), createRng(s));

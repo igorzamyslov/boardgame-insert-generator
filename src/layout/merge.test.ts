@@ -10,7 +10,13 @@ const WALL = 1.6;
 const FLOOR = 1.2;
 const GAP = DEFAULT_SETTINGS.trayGap;
 
-const settings = (o: Partial<Settings> = {}): Settings => ({ ...DEFAULT_SETTINGS, ...o });
+// Without the rim between layers unless a test asks for it: with it on, a filler in a stack level
+// has a groove and stays a part of its own (the rim tests below pass `lip` themselves).
+const settings = (o: Partial<Settings> = {}): Settings => ({
+  ...DEFAULT_SETTINGS,
+  lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+  ...o,
+});
 const inputs = (s: Partial<Settings> = {}, printer: Printer = TEST_PRINTER) => ({
   settings: settings(s),
   printer,

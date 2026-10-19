@@ -454,7 +454,7 @@ describe("App", () => {
     expect(screen.getAllByRole("region", { name: "Selected tray" })).toHaveLength(1);
     openMore();
     expect(screen.getAllByRole("button", { name: "Lock size" })).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: "Pin" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Pin this (tray|stack)/ })).toHaveLength(1);
     // A swap is made on the plan, so the 3D view's bar has no Swap with….
     expect(screen.queryByRole("button", { name: "Swap with…" })).toBeNull();
     expect(document.querySelectorAll(".tray-bar")).toHaveLength(1);
@@ -834,8 +834,9 @@ describe("App", () => {
         }),
       );
       expect(store.state.project.value.settings.wall).toBe(2);
-      // the header counts it, and Reset all puts it back as one more step
-      expect(screen.getByText("1 changed")).toBeTruthy();
+      // the header counts it, and so does the Walls group (the fixture's rim is on, the default);
+      // Reset all puts it back as one more step
+      expect(screen.getAllByText("1 changed")).toHaveLength(2);
       vi.setSystemTime(Date.now() + 5000);
       fireEvent.click(screen.getByRole("button", { name: "Reset all" }));
       expect(store.state.project.value.settings.wall).toBe(DEFAULT_SETTINGS.wall);
@@ -1702,7 +1703,7 @@ describe("App", () => {
     ];
     const { store } = renderApp({ project: { ...p, layout: makeLayout(inputsHash(p), trays) } });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: "Pin" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Pin this (tray|stack)/ }));
     const locks = store.state.project.value.locks;
     expect(locks.filter((l) => l.kind === "position").map((l) => l.trayKey)).toEqual([
       "a:p0:0",
@@ -1710,7 +1711,7 @@ describe("App", () => {
     ]);
     expect(locks.some((l) => l.kind === "stack")).toBe(true);
     expect(screen.getByText("Pinned")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Unpin" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Unpin this (tray|stack)/ }));
     expect(store.state.project.value.locks).toEqual([]);
   });
 
@@ -1729,7 +1730,7 @@ describe("App", () => {
     for (const b of within(trayBar()).getAllByRole("button")) {
       expect(b.getAttribute("tabindex")).not.toBe("-1");
     }
-    press(within(trayBar()).getByRole("button", { name: "Pin" }), " ");
+    press(within(trayBar()).getByRole("button", { name: /^Pin this (tray|stack)/ }), " ");
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "a:p0:0", path: "0", rotated: false },
     ]);
@@ -1751,7 +1752,9 @@ describe("App", () => {
     ]);
     // The swap leaves the first tray selected, pinned, with its chip.
     expect(store.state.swapFrom.value).toBeNull();
-    expect(within(trayBar()).getByRole("button", { name: "Unpin" })).toBeTruthy();
+    expect(
+      within(trayBar()).getByRole("button", { name: /^Unpin this (tray|stack)/ }),
+    ).toBeTruthy();
     expect(within(trayBar()).getByText("Pinned")).toBeTruthy();
   });
 
@@ -1769,25 +1772,25 @@ describe("App", () => {
   it("turns a tray from the bar, which pins it turned, and Unpin undoes it", () => {
     const { store } = renderApp({ project: turnable() });
     fireEvent.keyDown(tile("fxcrd003:p0:0"), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: "Turn 90°" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Turn this (tray|stack) 90°/ }));
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "fxcrd003:p0:0", path: "0", rotated: true },
     ]);
     expect(within(trayBar()).getByText("Pinned, turned")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Unpin" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Unpin this (tray|stack)/ }));
     expect(store.state.project.value.locks).toEqual([]);
   });
 
   it("reads Pinned, turned for a tray the optimizer had already turned, and Turn flips it back", () => {
     const { store } = renderApp({ project: turnable({ rotated: true }) });
     fireEvent.keyDown(tile("fxcrd003:p0:0"), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: "Pin" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Pin this (tray|stack)/ }));
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "fxcrd003:p0:0", path: "0", rotated: true },
     ]);
     // The chip reads the pin's rotation, so a pin of a tray that was laid turned says so too.
     expect(within(trayBar()).getByText("Pinned, turned")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Turn 90°" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Turn this (tray|stack) 90°/ }));
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "fxcrd003:p0:0", path: "0", rotated: false },
     ]);
@@ -1800,7 +1803,7 @@ describe("App", () => {
     const trays = [makeTray({ key: "a:p0:0", w: 80, d: 80 })];
     const { store } = renderApp({ project: { ...p, layout: makeLayout(inputsHash(p), trays) } });
     fireEvent.keyDown(tile("a:p0:0"), { key: "Enter" });
-    const turn = screen.getByRole("button", { name: "Turn 90°" });
+    const turn = screen.getByRole("button", { name: /^Turn this (tray|stack) 90°/ });
     expect(turn.getAttribute("aria-disabled")).toBe("true");
     expect(
       within(trayBar()).getByText("This tray is square, so turning changes nothing.", {

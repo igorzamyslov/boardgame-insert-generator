@@ -113,8 +113,21 @@ import type { Semver } from "../model/version";
  * still a recess in a face's interior, so the outer size, lip, groove, wells and cuts do not move
  * and parts printed before and after still mate and stack. A merged part carries its name on walls
  * only.
+ *
+ * 0.8.2 rounds a merged part once, after the merge. A merged part (`mergeParts`) used to be its
+ * members, each built alone with rounded corners and a chamfer, joined by box bridges, so a step
+ * was left at every seam (an open member's rounding is only filled as far as its wall: 0.35 mm at
+ * the defaults) and the chamfer broke across it. It is now the union of the members' footprints
+ * and the bridges, one outline per height, whose convex corners are rounded once with the radius
+ * of the member that has the corner (concave corners stay sharp) and whose bottom edge is
+ * chamfered once; each member's pocket, notch and engraving are then cut from the part, and only
+ * from the part. Material only leaves convex corners and the bottom edge, so every outer size,
+ * wall and pocket is as before: a PATCH, as 0.5.1 and 0.8.1 were, and parts printed before and
+ * after still fit the same wells and trays. A part whose members stand on different floors
+ * (`merged.flipped`, printed upside down), has a groove or lip, or has members with different
+ * chamfers is still built from its members as before.
  */
-export const GEOMETRY_VERSION = "0.8.1";
+export const GEOMETRY_VERSION = "0.8.2";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

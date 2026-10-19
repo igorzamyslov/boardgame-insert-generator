@@ -273,6 +273,13 @@ describe("size", () => {
         "upright-short|strip|split2",
         "upright-short|rows2|split1",
         "flat|strip|split2",
+        "flat|rows2|split1",
+        "upright-long|strip|split3",
+        "upright-long|rows2|split2",
+        "upright-short|strip|split3",
+        "upright-short|rows2|split2",
+        "flat|strip|split3",
+        "flat|rows2|split2",
       ]);
     });
   });

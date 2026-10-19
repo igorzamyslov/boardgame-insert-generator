@@ -203,6 +203,23 @@
   align-items: center;
 }
 
+/* A deck's card: the name on a line of its own, then the count and the ×. In the rail's 260 px the stepper is tight. */
+.ed-card--deck {
+  gap: var(--s-6);
+}
+
+.ed-card--deck .ed-card__top {
+  justify-content: space-between;
+}
+
+.ed-card--deck .k-stepper {
+  gap: var(--s-4);
+}
+
+.ed-card--deck .k-stepper__input {
+  width: 64px;
+}
+
 .ed-card__sizes {
   display: flex;
   gap: var(--s-8);

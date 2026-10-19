@@ -48,6 +48,10 @@ describe("newProject", () => {
     expect(p.box.headroom).toBe(0);
   });
 
+  it("starts with the rim between layers on", () => {
+    expect(newProject().settings.lip.enabled).toBe(true);
+  });
+
   it("never shares nested objects with DEFAULT_SETTINGS", () => {
     const p = newProject();
     expect(p.settings.lip).not.toBe(DEFAULT_SETTINGS.lip);
