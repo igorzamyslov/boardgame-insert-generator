@@ -946,6 +946,10 @@ const JUMP_PAIRS = [
   // a narrow stage (820 px: the controls take two rows): the View switch stays put too
   { pair: ["workspace-820", "workspace-820-searching"], sizeOnly: [] },
   { pair: ["workspace-820", "workspace-820-3d"], sizeOnly: [] },
+  // the band just above the two-row controls: 3D's "All" and three layers fit one row or scroll in their slot
+  { pair: ["workspace-940", "workspace-940-3d"], sizeOnly: [] },
+  { pair: ["workspace-940", "workspace-940-searching"], sizeOnly: [] },
+  { pair: ["workspace-960-long", "workspace-960-long-3d"], sizeOnly: [] },
 ];
 const JUMP_STATES = [...new Set(JUMP_PAIRS.flatMap((j) => j.pair))];
 const jumpBoxes = new Map();

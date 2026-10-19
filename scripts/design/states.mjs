@@ -185,6 +185,53 @@ export const STATES = {
     needsWebGL: true,
     steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
   },
+  // The band between the narrow two-row controls and the wide one row (a stage of about 600 to 750 px):
+  // 3D's "All" (586 px of controls) and three layers (617, and 664 with All) once overflowed a 940 to 960 px
+  // window. The View switch stays put there too (jump pairs).
+  "workspace-940": {
+    board: "Main",
+    nearest: "Main at 1440; 940 differs by design",
+    viewport: { width: 940, height: 800 },
+    seed: "harbour-kings",
+  },
+  "workspace-940-3d": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest: "no board of its own: Main's 3D view, drawn at 1440; 940 differs by design",
+    viewport: { width: 940, height: 800 },
+    seed: "harbour-kings",
+    needsWebGL: true,
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
+  },
+  "workspace-940-searching": {
+    board: "Main",
+    boardOpts: { state: { searching: true } },
+    nearest: "Main's searching state, drawn at 1440; 940 differs by design",
+    viewport: { width: 940, height: 800 },
+    seed: "harbour-kings",
+    holds: ["search"],
+    steps: [
+      { click: { role: "button", name: "Keep searching", in: STATUS } },
+      { waitFor: { role: "button", name: "Stop" } },
+    ],
+  },
+  // Three layers (the long seed): the Layer slot grows to 334 px (381 with All).
+  "workspace-960-long": {
+    board: "Main",
+    nearest: "Main at 1440 with three layers; 960 differs by design",
+    viewport: { width: 960, height: 800 },
+    seed: "harbour-kings-long",
+  },
+  "workspace-960-long-3d": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest:
+      "no board of its own: Main's 3D view, drawn at 1440 with three layers; 960 differs by design",
+    viewport: { width: 960, height: 800 },
+    seed: "harbour-kings-long",
+    needsWebGL: true,
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
+  },
   "workspace-searching": {
     board: "Main",
     boardOpts: { state: { searching: true } },

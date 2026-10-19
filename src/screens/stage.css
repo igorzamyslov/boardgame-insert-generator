@@ -49,6 +49,10 @@
 
 .stage-controls__layer {
   min-width: var(--stage-layer-slot);
+
+  /* in a row wide enough for three layers and "All" (below), a longer switch scrolls in its slot, never past the row */
+  max-width: calc(100cqw - var(--stage-action-slot) - 7.5rem - 2 * var(--s-10));
+  overflow-x: auto;
 }
 
 .stage-controls__action {
@@ -56,25 +60,27 @@
 }
 
 /*
- * A status row narrower than the three slots side by side (34 rem: a stage under about 610 px, which
- * is any window from 760 px with a 300 px rail up to about 910 px, and more with a wider rail) is a
- * container, and its controls take two rows that keep the same places in every state: the Layer
- * slot on its own row, always the height of a switch (empty when there is no switch), and under it
- * the View switch with the action beside it. The View switch still stays where it is when the Layer
- * switch comes or goes and when Keep searching turns into Stop. A Layer switch longer than the row
- * (three layers or more) scrolls inside its own slot; the page never scrolls sideways.
+ * A status row narrower than 42 rem is a container, and its controls take two rows that keep the
+ * same places in every state: the Layer slot on its own row, always the height of a switch (empty
+ * when there is no switch), and under it the View switch with the action beside it. 42 rem (672 px)
+ * is the widest the one-row controls get with a switch of three layers and the 3D view's "All"
+ * (measured: 539 px for two layers, 586 with All, 617 for three layers, 664 for three with All, the
+ * Layer slot growing about 78 px a layer); that is a stage under about 745 px, any window from 760 px
+ * with a 300 px rail up to about 1045 px, and more with a wider rail. Wider, more layers than that
+ * scroll inside the Layer slot. The View switch stays where it is when the Layer switch comes or goes
+ * and when Keep searching turns into Stop, at every width; the page never scrolls sideways.
  */
 .ws-stage .k-status {
   container: stage-status / inline-size;
 }
 
-@container stage-status (width < 34rem) {
+@container stage-status (width < 42rem) {
   .stage-controls {
     display: grid;
     grid-template-areas:
       "layer layer"
       "view action";
-    grid-template-columns: auto auto;
+    grid-template-columns: auto 1fr; /* the 1fr takes what the Layer row spans, so the action starts where the View switch ends, whatever it holds */
     justify-content: start;
     justify-items: start; /* each keeps its own width: the View switch is the same box whatever the other rows hold */
     max-width: 100%;
@@ -84,6 +90,7 @@
     grid-area: layer;
     justify-content: flex-start;
     min-width: 0;
+    max-width: 100%;
     min-height: calc(var(--control-h) + 2 * var(--s-3));
     overflow-x: auto;
   }

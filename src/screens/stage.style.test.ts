@@ -86,8 +86,8 @@ describe("stage.css", () => {
     const text = strip(css);
     // the row is a size container, in the stage only
     expect(ruleFor(".ws-stage .k-status")).toMatch(/container:\s*stage-status \/ inline-size/);
-    // narrower than the three slots side by side (34 rem; they need about 33)
-    const at = text.indexOf("@container stage-status (width < 34rem)");
+    // narrower than 42 rem: the widest one-row controls (three layers and All) measured 664 px
+    const at = text.indexOf("@container stage-status (width < 42rem)");
     expect(at).toBeGreaterThan(-1);
     const block = text.slice(at);
     const inBlock = (selector: string): string =>
@@ -95,6 +95,8 @@ describe("stage.css", () => {
     const controls = inBlock(".stage-controls");
     expect(controls).toMatch(/display:\s*grid/);
     expect(controls).toMatch(/"layer layer"\s*"view action"/);
+    // the action starts where the View switch ends, whatever the action is (Stop lines up with Keep searching)
+    expect(controls).toMatch(/grid-template-columns:\s*auto 1fr/);
     // each keeps its own width, so the View switch is the same box whatever the other rows hold
     expect(controls).toMatch(/justify-items:\s*start/);
     // the Layer row keeps a switch's height when it is empty, so the View switch does not rise
