@@ -411,6 +411,7 @@
   --k-bg: var(--page);
 
   border-color: var(--rule);
+  background: var(--k-bg);
   color: var(--ink-off);
   cursor: not-allowed;
 }
@@ -955,6 +956,9 @@
 
 /* A blocked row (it opens nothing): the title is set in the off ink, the reason stays muted. */
 .k-drow[aria-disabled="true"] {
+  border-color: transparent;
+  background: var(--k-bg);
+  color: var(--ink);
   cursor: not-allowed;
 }
 

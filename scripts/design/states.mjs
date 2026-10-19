@@ -315,6 +315,34 @@ export const STATES = {
       { click: { role: "button", name: /^Extra room/, in: RAIL } },
     ],
   },
+  // A deck that lies flat: Spacer plates and Dividers (and the Removable dividers chip) stay, blocked, each
+  // with its reason (the owner's rule, 0.5.3). The board has them only as open rows.
+  "editor-blocked": {
+    board: "Edit",
+    nearest:
+      "Edit's open More options, with the blocked spacer plates and dividers the board does not draw",
+    viewport: { width: 1440, height: 1700 },
+    seed: "harbour-kings",
+    steps: [
+      EDIT_MARKET,
+      MORE_OPTIONS,
+      { click: { role: "button", name: "Flat", in: RAIL } },
+      { waitFor: { text: "Flat decks have no dividers." } },
+    ],
+  },
+  // Sleeves: Custom chosen, which opens the sleeve's three numbers under the segments, seeded with its size.
+  "editor-sleeves": {
+    board: "Edit",
+    boardOpts: { props: { moreOpen: false } },
+    nearest: "Edit with Sleeves on Custom: the board has three segments and no sleeve numbers",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      EDIT_MARKET,
+      { click: { role: "button", name: "Custom", in: RAIL } },
+      { waitFor: { text: "Sleeve outer width" } },
+    ],
+  },
   // EditKinds draws the other three editors side by side: each is judged by its own section.
   "editor-tokens": {
     board: "EditKinds",
