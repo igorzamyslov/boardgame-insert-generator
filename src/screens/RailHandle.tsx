@@ -1,10 +1,17 @@
 // src/screens/RailHandle.tsx
-import { useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { RAIL_WIDTH, clampRailWidth } from "../share/prefs";
 
 /** The arrow keys' step, and Shift's (DESIGN §2, Layout). */
 const STEP = 16;
 const BIG_STEP = 48;
+/** The least width the stage keeps (`--stage-min` in tokens.css): the rail is shown no wider than the window less this. */
+const STAGE_MIN = 360;
+
+/** The widest the rail can be shown in a window this wide (CSS clamps the same: workspace.css). */
+export function widestRail(windowWidth: number): number {
+  return Math.min(RAIL_WIDTH.max, Math.max(RAIL_WIDTH.min, windowWidth - STAGE_MIN));
+}
 
 export interface RailHandleProps {
   /** The rail's width now, in px (live while a drag goes on). */
@@ -19,6 +26,8 @@ interface Grab {
   pointerId: number;
   startX: number;
   startWidth: number;
+  /** What was chosen when the drag began: a press that moves nothing keeps it, even where the window shows less. */
+  startChosen: number;
   last: number;
 }
 
@@ -29,15 +38,27 @@ interface Grab {
  * every move. It draws nothing but a thin line on hover, focus and drag; the 44 px hit area lies
  * on the stage's side so the rail's own scrollbar stays clear (`workspace.css`).
  */
-export function RailHandle({ width, onPreview, onCommit }: RailHandleProps) {
+export function RailHandle({ width: chosen, onPreview, onCommit }: RailHandleProps) {
   const grab = useRef<Grab | null>(null);
+  // The width the rail is shown at: what was chosen, held to what the window leaves the stage.
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const onResize = (): void => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const widest = widestRail(windowWidth);
+  const width = Math.min(chosen, widest);
+  const within = (px: number): number => Math.min(widest, clampRailWidth(px) ?? width);
 
   const end = (commit: boolean): void => {
     const g = grab.current;
     grab.current = null;
-    if (g && commit) {
-      onCommit(g.last);
+    if (!g) {
+      return;
     }
+    // a drag that is cancelled (the system took the pointer), or never moved, leaves the width it began with
+    onCommit(!commit ? g.startChosen : g.last === g.startWidth ? g.startChosen : g.last);
   };
 
   return (
@@ -48,7 +69,7 @@ export function RailHandle({ width, onPreview, onCommit }: RailHandleProps) {
       aria-label="Resize the list"
       aria-valuenow={width}
       aria-valuemin={RAIL_WIDTH.min}
-      aria-valuemax={RAIL_WIDTH.max}
+      aria-valuemax={widest}
       tabIndex={0}
       onPointerDown={(e) => {
         if (e.button !== 0 || grab.current) {
@@ -61,6 +82,7 @@ export function RailHandle({ width, onPreview, onCommit }: RailHandleProps) {
           pointerId: e.pointerId,
           startX: e.clientX,
           startWidth: width,
+          startChosen: chosen,
           last: width,
         };
         onPreview(width);
@@ -70,7 +92,7 @@ export function RailHandle({ width, onPreview, onCommit }: RailHandleProps) {
         if (!g || e.pointerId !== g.pointerId) {
           return;
         }
-        g.last = clampRailWidth(g.startWidth + e.clientX - g.startX) ?? g.startWidth;
+        g.last = within(g.startWidth + e.clientX - g.startX);
         onPreview(g.last);
       }}
       onPointerUp={(e) => {
@@ -80,7 +102,7 @@ export function RailHandle({ width, onPreview, onCommit }: RailHandleProps) {
       }}
       onPointerCancel={(e) => {
         if (grab.current?.pointerId === e.pointerId) {
-          end(true);
+          end(false);
         }
       }}
       onDblClick={() => onCommit(RAIL_WIDTH.default)}
@@ -100,7 +122,8 @@ export function RailHandle({ width, onPreview, onCommit }: RailHandleProps) {
           return;
         }
         e.preventDefault();
-        onCommit(clampRailWidth(next) ?? width);
+        // Home and End choose the ends of the range (a narrow window shows less of End); the arrows move from what is shown
+        onCommit(e.key === "Home" || e.key === "End" ? next : within(next));
       }}
     />
   );

@@ -17,6 +17,7 @@
 //   noPageScroll  the state fails when the page scrolls at its size (a review focus)
 //   noStageScroll  the state fails when the stage scrolls: the plan's box shrinks instead (Task 7)
 //   minPlanWidth  the state fails when the plan's box is narrower than this many px
+//   stageBesideRail  the state fails when the stage is not beside the rail (it wrapped under it) or is under 360 px wide
 //   planWidth     the state fails when the plan's box is not this many px wide (±1), by its computed size
 //   probes        names of probes (shots.mjs PROBES) run in Chromium after the pictures; a problem fails the state
 //   needsWebGL    the state draws the 3D view: without WebGL it notes the fallback and the jump check skips it
@@ -32,6 +33,7 @@ const DESKTOP = { width: 1440, height: 900 };
 const WIDE = { width: 1920, height: 1080 };
 const PHONE = { width: 390, height: 844 };
 // What the app keeps per browser (src/share/prefs.ts): the rail's width, as the handle leaves it.
+const PREFS_RAIL_480 = { "insert-generator:prefs": JSON.stringify({ railWidth: 480 }) };
 const PREFS_RAIL_420 = { "insert-generator:prefs": JSON.stringify({ railWidth: 420 }) };
 
 const MENU = { click: { role: "button", name: /^Project menu/ } };
@@ -127,6 +129,19 @@ export const STATES = {
     seed: "harbour-kings",
     storage: PREFS_RAIL_420,
     noStageScroll: true,
+  },
+  // 1024×768 with the rail chosen at 480: the stage keeps 360 px beside it, so nothing wraps (the rail shows 480
+  // at 1024 only because 1024 less 360 is more; at 800 it would show 440).
+  "workspace-rail-wide-1024": {
+    board: "Main",
+    nearest:
+      "Main with the rail at 480 px in a 1024 px window: the board is drawn at 1440, so its widths differ by design",
+    viewport: { width: 1024, height: 768 },
+    seed: "harbour-kings",
+    storage: PREFS_RAIL_480,
+    noPageScroll: true,
+    noStageScroll: true,
+    stageBesideRail: true,
   },
   // The tablet band: the rail stays beside the stage (Task 3 checks it; Task 15 does the pass).
   "workspace-820": {

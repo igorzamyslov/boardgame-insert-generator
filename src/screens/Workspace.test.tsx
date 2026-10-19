@@ -192,6 +192,70 @@ describe("Workspace: the rail's handle", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("goes back to the width it began with when the system cancels a drag", () => {
+    const { handle, onChange, shell } = setup(340);
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 300 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 400 });
+    expect(shell?.style.getPropertyValue("--rail-w")).toBe("440px");
+    fireEvent.pointerCancel(handle, { pointerId: 1 });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(340);
+  });
+
+  describe("in a window too narrow for the chosen width", () => {
+    const real = window.innerWidth;
+    const resizeTo = (w: number): void => {
+      Object.defineProperty(window, "innerWidth", { value: w, configurable: true, writable: true });
+    };
+    afterEach(() => resizeTo(real));
+
+    it("reports the width shown and the widest there is room for (the window less 360 px)", () => {
+      resizeTo(800);
+      const { handle } = setup(480);
+      expect(handle.getAttribute("aria-valuenow")).toBe("440");
+      expect(handle.getAttribute("aria-valuemax")).toBe("440");
+      cleanup();
+      resizeTo(1024);
+      expect(setup(480).handle.getAttribute("aria-valuenow")).toBe("480");
+    });
+
+    it("never goes below 300 and follows the window as it is resized", () => {
+      resizeTo(700);
+      const { handle } = setup(480);
+      expect(handle.getAttribute("aria-valuenow")).toBe("340");
+      resizeTo(1200);
+      fireEvent(window, new Event("resize"));
+      return Promise.resolve().then(() => {
+        expect(handle.getAttribute("aria-valuenow")).toBe("480");
+      });
+    });
+
+    it("moves the arrows from the width shown, and holds a drag to the room there is", () => {
+      resizeTo(800);
+      const { handle, onChange } = setup(480);
+      fireEvent.keyDown(handle, { key: "ArrowLeft" });
+      expect(onChange).toHaveBeenLastCalledWith(424);
+      fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 300 });
+      fireEvent.pointerMove(handle, { pointerId: 1, clientX: 900 });
+      // already at the room there is: the chosen 480 stays, nothing is stored over it
+      expect(handle.getAttribute("aria-valuenow")).toBe("440");
+      fireEvent.pointerUp(handle, { pointerId: 1 });
+      expect(onChange).toHaveBeenLastCalledWith(480);
+      fireEvent.pointerDown(handle, { pointerId: 2, button: 0, clientX: 300 });
+      fireEvent.pointerMove(handle, { pointerId: 2, clientX: 200 });
+      fireEvent.pointerUp(handle, { pointerId: 2 });
+      expect(onChange).toHaveBeenLastCalledWith(340);
+    });
+
+    it("leaves the chosen width alone when a press moves nothing", () => {
+      resizeTo(800);
+      const { handle, onChange } = setup(480);
+      fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 300 });
+      fireEvent.pointerUp(handle, { pointerId: 1 });
+      expect(onChange).toHaveBeenLastCalledWith(480);
+    });
+  });
+
   it("goes back to 300 on a double click", () => {
     const { handle, onChange } = setup(420);
     fireEvent.dblClick(handle);

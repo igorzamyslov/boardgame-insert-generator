@@ -76,7 +76,7 @@ swap chosen (`workspace-swap`) the box is where `workspace` has it: the prompt l
 and `workspace-1920` against `workspace-3d-1920` and `workspace-tray-1920`: at 1920×1080 the plan is at its
 900 px cap (`--plan-max`). The board is drawn at 1440 only, so the 1920 pairs show Main for reference and
 their numbers differ by design. `workspace-rail-wide` has the rail dragged to 420 px (a state's `storage`
-sets the prefs entry before the app starts).
+sets the prefs entry before the app starts). `workspace-rail-wide-1024` (1024×768, rail at 480) fails when the stage is not beside the rail with 360 px (`stageBesideRail`).
 
 The board renderer adds `a{color:inherit}` ahead of a board's own styles: some boards have links
 with no colour set (MobileWorkspace's sheet rows), which a browser draws blue, and no board means that.

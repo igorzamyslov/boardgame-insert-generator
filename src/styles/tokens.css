@@ -160,6 +160,7 @@
   --rail-w: 300px; /* the rail's width on every screen: the person's choice from --rail-min to --rail-max (the handle sets it on the shell), 300 until they choose */
   --rail-min: 300px;
   --rail-max: 480px;
+  --stage-min: 360px; /* the least width the stage keeps beside the rail at any desktop width (the rail clamps to 100vw less this) */
   --plan-max: 900px; /* the plan's frame: its longer side at most this (the 3D view and the fit problems' picture are in the same frame) */
   --rail-pad: 20px;
   --scroll-gutter: 11px; /* what a thin scrollbar that takes room reserves (`scrollbar-gutter: stable`); the rail's padding on that side is cut by it, so bar and padding stay near --rail-pad */

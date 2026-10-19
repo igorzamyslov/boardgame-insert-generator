@@ -214,6 +214,7 @@ describe("tokens.css", () => {
       "--rail-w": "300px",
       "--rail-min": "300px",
       "--rail-max": "480px",
+      "--stage-min": "360px",
       "--plan-max": "900px",
       "--rail-pad": "20px",
       "--stage-pad": "22px 36px 28px",
@@ -702,7 +703,7 @@ describe("workspace.css", () => {
 
   it("gives the rail one width on every screen: the person's, 300 to 480 px, from --rail-w", () => {
     const rail = ruleFor(".ws-rail", stripped);
-    expect(rail).toMatch(/flex:\s*0 1 var\(--rail-w\)/);
+    expect(rail).toMatch(/flex:\s*0 1 clamp\(var\(--rail-min\), var\(--rail-w\),/);
     // the range is in the tokens, not a max-width of the rule
     expect(rail).not.toMatch(/max-width/);
     expect(rail).toMatch(/padding:\s*var\(--rail-pad\)/);
@@ -749,7 +750,7 @@ describe("workspace.css", () => {
 
   it("lets the stage take the rest", () => {
     const stage = ruleFor(".ws-stage", stripped);
-    expect(stage).toMatch(/flex:\s*999 1 640px/);
+    expect(stage).toMatch(/flex:\s*999 1 var\(--stage-min\)/);
     expect(stage).toMatch(/min-width:\s*0/);
     expect(stage).toMatch(/padding:\s*var\(--stage-pad\)/);
     expect(stage).toMatch(/gap:\s*var\(--s-16\)/);
@@ -768,19 +769,22 @@ describe("workspace.css", () => {
     expect(ruleFor(".ws-stage", phone)).not.toMatch(/--sheet-foot/);
   });
 
-  it("keeps the rail beside the stage between 760 and 960 px: the rail clamps to what leaves the stage its basis", () => {
-    const tablet = mediaBlock("(width >= 760px) and (width <= 960px)", stripped);
-    const basis = Number(/flex-basis:\s*(\d+)px/.exec(ruleFor(".ws-stage", tablet))?.[1]);
-    const rail = Number(/--rail-min:\s*(\d+)px/.exec(tokens)?.[1]);
-    expect(basis).toBeGreaterThan(0);
-    // the stage keeps at least 360 px, and the narrowest rail and the stage fit side by side at 760 px, so the line does not wrap
-    expect(basis).toBeGreaterThanOrEqual(360);
-    expect(rail + basis).toBeLessThanOrEqual(760);
-    // whatever width the person chose, the rail leaves the stage its basis
-    expect(ruleFor(".ws-rail", tablet)).toMatch(
-      new RegExp(
-        `flex-basis:\\s*clamp\\(var\\(--rail-min\\), var\\(--rail-w\\), calc\\(100vw - ${basis}px\\)\\)`,
-      ),
+  it("keeps the stage beside the rail at every desktop width: the rail clamps to 100vw less the stage's floor, and the floor fits the narrowest desktop", () => {
+    const light = declarations(tokens.replace(/\/\*[\s\S]*?\*\//g, ""));
+    const floor = Number.parseInt(light.get("--stage-min") ?? "", 10);
+    const railMin = Number.parseInt(light.get("--rail-min") ?? "", 10);
+    // the narrowest rail and the stage's floor fit side by side at 760 px, so the line never wraps
+    expect(floor).toBeGreaterThanOrEqual(360);
+    expect(railMin + floor).toBeLessThanOrEqual(760);
+    // whatever width the person chose, at any width: not only in a media band
+    const rail = ruleFor(".ws-rail", stripped);
+    expect(rail).toMatch(
+      /flex:\s*0 1 clamp\(var\(--rail-min\), var\(--rail-w\), calc\(100vw - var\(--stage-min\)\)\)/,
+    );
+    expect(ruleFor(".ws-stage", stripped)).toMatch(/flex:\s*999 1 var\(--stage-min\)/);
+    // and no media rule gives either a basis of its own to undo it
+    expect(mediaBlock("(width >= 760px) and (width <= 960px)", stripped)).not.toMatch(
+      /\.ws-(rail|stage)\b/,
     );
   });
 

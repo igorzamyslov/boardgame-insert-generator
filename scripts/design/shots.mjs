@@ -665,6 +665,32 @@ async function openApp(browser, appUrl, name, state, seeds) {
       "WebGL is missing here: the 3D view shows its fallback line, so its frame was not drawn or compared",
     );
   }
+  if (state.stageBesideRail) {
+    // The rail's width is the person's: the stage must still sit beside it, 360 px wide at least.
+    const at = await page.evaluate(() => {
+      const rail = document.querySelector('[data-region="rail"]')?.getBoundingClientRect();
+      const stage = document.querySelector('[data-region="stage"]')?.getBoundingClientRect();
+      return rail && stage
+        ? {
+            railRight: rail.right,
+            railTop: rail.top,
+            stageLeft: stage.left,
+            stageTop: stage.top,
+            stageW: stage.width,
+          }
+        : null;
+    });
+    if (
+      at === null ||
+      Math.abs(at.stageTop - at.railTop) > 1 ||
+      at.stageLeft < at.railRight - 1 ||
+      at.stageW < 359
+    ) {
+      problems.push(
+        `the stage is not beside the rail with 360 px (${at === null ? "missing" : JSON.stringify(at)})`,
+      );
+    }
+  }
   if (state.planWidth !== undefined) {
     // The computed size of the plan's box, not a string in the CSS: a wide box is as wide as a square one.
     const box = await page.evaluate(() => {
@@ -1074,7 +1100,7 @@ try {
       const { regions, problems } = await shootState(browser, appUrl, name, seeds);
       // what fails a state (its pictures are written first: they show by how much)
       const hard = problems.filter((p) =>
-        /^(the (page scrolls|stage scrolls|plan box)|probe )/.test(p),
+        /^(the (page scrolls|stage scrolls|stage is not beside|plan box)|probe )/.test(p),
       );
       const paired = `regions ${regions.length > 0 ? regions.join(", ") : "none paired"}`;
       if (hard.length > 0) {

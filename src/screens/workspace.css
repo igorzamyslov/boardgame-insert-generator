@@ -44,7 +44,12 @@
 .ws-rail {
   position: relative; /* the visually hidden text inside is placed in the column, not in the page */
   display: flex;
-  flex: 0 1 var(--rail-w);
+
+  /*
+   * The person's width, held to what leaves the stage its floor (--stage-min) at any desktop width,
+   * so the stage never wraps under the rail: 400 px at 760 px wide, 480 from 840 px on.
+   */
+  flex: 0 1 clamp(var(--rail-min), var(--rail-w), calc(100vw - var(--stage-min)));
   flex-direction: column;
   box-sizing: border-box;
   min-height: 0;
@@ -109,7 +114,7 @@
 .ws-stage {
   position: relative; /* as the rail: hidden text far down a scrolled stage must not stretch the page */
   display: flex;
-  flex: 999 1 640px;
+  flex: 999 1 var(--stage-min); /* only the floor: the stage takes the rest, and the rail is clamped so this never wraps */
   flex-direction: column;
   box-sizing: border-box;
   gap: var(--s-16);
@@ -189,22 +194,6 @@
   align-self: stretch;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
-}
-
-/*
- * A tablet (760 to 960 px) keeps the rail beside the stage: the stage's basis drops to 360 px so
- * the two fit even at 760 px, where 640 would wrap the rail under it, and the rail clamps to what
- * leaves the stage that much, whatever width the person chose (300 at least, so 400 at most at
- * 760 px). Task 15 does the final tablet pass.
- */
-@media (width >= 760px) and (width <= 960px) {
-  .ws-rail {
-    flex-basis: clamp(var(--rail-min), var(--rail-w), calc(100vw - 360px));
-  }
-
-  .ws-stage {
-    flex-basis: 360px;
-  }
 }
 
 @media (width < 760px) {
