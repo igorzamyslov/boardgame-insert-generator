@@ -340,13 +340,20 @@ describe("CardsEditor", () => {
       expect(last().cornerReliefs).toBe(true);
     });
 
-    it("shows a curved floor a file set on cards, so it can be turned off", () => {
-      const { last } = setup(cards({ curvedFloor: true }));
+    it("never offers a curved floor on cards, and gives a file that set one the way back instead of a chip", () => {
+      const { view } = setup(cards());
       openMore();
-      const floor = screen.getByRole("button", { name: /^Curved floor/ });
-      expect(floor.getAttribute("aria-pressed")).toBe("true");
-      fireEvent.click(floor);
-      expect(last().curvedFloor).toBe(false);
+      expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Back to curved floor/ })).toBeNull();
+      view.unmount();
+      const set = setup(cards({ curvedFloor: true }));
+      openMore();
+      // the chip is not offered, so it can't remove itself; the way back is the "Back to" link
+      expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Back to curved floor off for Tray shape" }),
+      );
+      expect("curvedFloor" in set.last()).toBe(false);
     });
   });
 

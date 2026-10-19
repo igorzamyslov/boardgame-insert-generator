@@ -3,7 +3,6 @@ import { useId, useRef } from "preact/hooks";
 import {
   cornerReliefsOn,
   curvedFloorKind,
-  curvedFloorOffered,
   defaultTogglesOf,
   dividersOf,
   fingerCutsOn,
@@ -60,7 +59,10 @@ function without<C extends Component>(
 export function TrayShape<C extends Component>({ component: c, index, onChange }: EditorProps<C>) {
   const errorId = useId();
   const group = useRef<HTMLDivElement>(null);
-  const floor = curvedFloorOffered(c);
+  // Only a kind that can have a curved floor offers the chip. A file that set one on a kind that can't
+  // (the engine refuses it, with an error) gets the way back below, not a chip that removes itself.
+  const floor = curvedFloorKind(c);
+  const stray = !floor && c.curvedFloor === true;
   const defaults = defaultTogglesOf(c);
   const on: Shape[] = [];
   if (fingerCutsOn(c)) {
@@ -100,9 +102,12 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
     });
   }
   // the toggles that differ from the kind's: the dividers are counted by their row, not here
-  const changed = chips.flatMap((chip) =>
-    chip.changed && chip.value !== "dividers" ? [{ ...chip, value: chip.value }] : [],
-  );
+  const changed = [
+    ...chips.flatMap((chip) =>
+      chip.changed && chip.value !== "dividers" ? [{ ...chip, value: chip.value }] : [],
+    ),
+    ...(stray ? [{ value: "curvedFloor" as const, label: "Curved floor", changed: true }] : []),
+  ];
   const toggle = (which: Shape): void => {
     switch (which) {
       case "fingerCuts":
@@ -114,15 +119,8 @@ export function TrayShape<C extends Component>({ component: c, index, onChange }
       case "dividers":
         onChange(withDividers(c, dividersOf(c) > 0 ? 0 : 1));
         return;
-      case "curvedFloor": {
-        const now = curvedFloorShown(c);
-        if (now && !curvedFloorKind(c)) {
-          // The chip only exists on this kind while a file set it, so turning it off removes it:
-          // keep the keyboard focus in the group.
-          document.getElementById(`${c.id}-shape`)?.querySelector<HTMLElement>("button")?.focus();
-        }
-        onChange({ ...c, curvedFloor: !now });
-      }
+      case "curvedFloor":
+        onChange({ ...c, curvedFloor: !curvedFloorShown(c) });
     }
   };
   return (

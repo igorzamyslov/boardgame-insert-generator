@@ -1,6 +1,6 @@
 // src/ui/components/editors.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import type { JSX } from "preact";
 import { useState } from "preact/hooks";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -515,17 +515,20 @@ describe("validation shown in place", () => {
     expect(document.body.textContent).not.toContain("Add at least one");
   });
 
-  it("moves focus into the shape chips when a file-set curved floor on tiles is turned off", () => {
+  it("gives a file-set curved floor on tiles a way back, not a chip, and moves focus into the shape chips", async () => {
     function Harness() {
       const [c, setC] = useState<TilesComponent>({ ...of("tiles"), curvedFloor: true });
       return <TilesEditor component={c} index={0} onChange={setC} />;
     }
     render(<Harness />);
     openMore();
-    const floor = screen.getByRole("button", { name: /^Curved floor/ });
-    floor.focus();
-    fireEvent.click(floor);
     expect(screen.queryByRole("button", { name: /^Curved floor/ })).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Finger cuts" }));
+    const back = screen.getByRole("button", { name: "Back to curved floor off for Tray shape" });
+    back.focus();
+    fireEvent.click(back);
+    expect(screen.queryByRole("button", { name: /^Back to curved floor/ })).toBeNull();
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Finger cuts" }));
+    });
   });
 });

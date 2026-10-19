@@ -6,7 +6,7 @@ import { growthCapU, partGrowthCapU } from "../sizing/growth";
 import { rowsOf } from "../sizing/outer";
 import { MIN_GRIP, ONE_WALL_MAX_MM, UPPER_TRAY_MIN_ABOVE_LIP } from "../sizing/constants";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
-import type { Bed } from "./bed";
+import { fitsBed, type Bed } from "./bed";
 import type { LayoutInput } from "./types";
 import { toU, toUCeil, toUFloor, type U } from "./units";
 
@@ -98,6 +98,21 @@ export interface Ctx {
   readonly bed: Bed;
   /** Size locks keyed by partId. */
   readonly sizeLocks: ReadonlyMap<number, FixedSize>;
+  /**
+   * Per requirement: some variant holds each copy in one tray, and each of those trays fits on its
+   * own, i.e. alone in a stack (level 0, no lip), on the box floor (turned only if it may be)
+   * under the top plane, and on the print bed in either orientation (groups spec §6.3). When it is
+   * true the score charges a split (`split`); when no whole tray can fit, splitting is free.
+   */
+  readonly wholeFits: readonly boolean[];
+  /**
+   * The trays a variant has beyond one per copy: the most parts of one copy, less one. A copy is
+   * the trays whose keys differ only in their part number (`<key>:p<c>:<part>`), so one tray per
+   * player is no split, and a three-tray split of one deck is two.
+   */
+  extraParts(req: number, variant: number): number;
+  /** Which copy of its variant a part belongs to (see `extraParts`): 0, 1, … in order of first part. */
+  copyOf(ref: PartRef): number;
   part(ref: PartRef): TrayPartReq | undefined;
   partId(ref: PartRef): number;
   metrics(ref: PartRef, lipped: boolean, level: number): PartMetrics;
@@ -142,6 +157,22 @@ function growthH(part: TrayPartReq): U {
   return Math.min(INF_U, best);
 }
 
+/** The copy a tray key belongs to: the key without its last segment, the part number. */
+function copyKey(trayKey: string): string {
+  const cut = trayKey.lastIndexOf(":");
+  return cut < 0 ? trayKey : trayKey.slice(0, cut);
+}
+
+/** The most parts any one copy of the variant has, less one (see Ctx.extraParts). */
+function extraPartsOf(parts: readonly TrayPartReq[]): number {
+  const perCopy = new Map<string, number>();
+  for (const p of parts) {
+    const c = copyKey(p.trayKey);
+    perCopy.set(c, (perCopy.get(c) ?? 0) + 1);
+  }
+  return Math.max(0, ...perCopy.values()) - 1;
+}
+
 export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx {
   const { box, printer, settings } = input;
   const eff = effective(settings);
@@ -176,7 +207,20 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
   });
   const part = (ref: PartRef): TrayPartReq | undefined =>
     input.requirements[ref.req]?.variants[ref.variant]?.parts[ref.part];
-  return {
+  const extra = input.requirements.map((r) => r.variants.map((v) => extraPartsOf(v.parts)));
+  const copies = input.requirements.map((r) =>
+    r.variants.map((v) => {
+      const seen: string[] = [];
+      return v.parts.map((p) => {
+        const c = copyKey(p.trayKey);
+        if (!seen.includes(c)) {
+          seen.push(c);
+        }
+        return seen.indexOf(c);
+      });
+    }),
+  );
+  const ctx: Ctx = {
     input,
     floorW: toUFloor(box.innerWidth) - 2 * boxClearance,
     floorD: toUFloor(box.innerDepth) - 2 * boxClearance,
@@ -243,7 +287,35 @@ export function createCtx(input: LayoutInput, measure: Measure = minOuter): Ctx 
       return rotated ? { right: own.front, back: own.right, left: own.back, front: own.left } : own;
     },
     refsOfKey: (trayKey) => byKey.get(trayKey) ?? [],
+    wholeFits: [],
+    extraParts: (req, variant) => extra[req]?.[variant] ?? 0,
+    copyOf: (ref) => copies[ref.req]?.[ref.variant]?.[ref.part] ?? 0,
   };
+  return { ...ctx, wholeFits: input.requirements.map((_, req) => wholeFitsOf(ctx, req)) };
+}
+
+/**
+ * Ctx.wholeFits for one requirement. Each tray is measured as it would stand alone in a stack:
+ * level 0, without the lip a tray carries only under another, so this is the most room a whole
+ * tray can ever need; the margins are the engine's own (the floor less the box clearance, the top
+ * plane, the bed less its margin). Whether the rest of the box leaves it room is the search's
+ * business, not this test's: a whole tray that fits here but not beside the others overflows, and
+ * overflow outweighs the split term.
+ */
+function wholeFitsOf(ctx: Ctx, req: number): boolean {
+  const variants = ctx.input.requirements[req]?.variants ?? [];
+  return variants.some(
+    (v, variant) =>
+      v.parts.length > 0 &&
+      ctx.extraParts(req, variant) === 0 &&
+      v.parts.every((p, part) => {
+        const m = ctx.metrics({ req, variant, part }, false, 0);
+        const onFloor =
+          (m.w <= ctx.floorW && m.d <= ctx.floorD) ||
+          (p.rotatable && m.d <= ctx.floorW && m.w <= ctx.floorD);
+        return onFloor && m.h <= ctx.topPlane && fitsBed(ctx.bed, m.w, m.d, m.h);
+      }),
+  );
 }
 
 export function withSizeLocks(ctx: Ctx, sizeLocks: ReadonlyMap<number, FixedSize>): Ctx {

@@ -105,3 +105,67 @@ describe("createCtx", () => {
     expect(() => createCtx(makeInput([req("k", [parts(257)])]), fakeMeasure)).toThrow(RangeError);
   });
 });
+
+describe("whole trays (groups spec §6.3)", () => {
+  const a = comp({ minW: 90, minD: 80, minH: 20, contents: "a" });
+  const b = comp({ minW: 90, minD: 80, minH: 20, contents: "b" });
+  // One requirement: the whole of it in one tray (184 × 84 × 21.2 with fakeMeasure, no lip: it stands alone), or in two.
+  const item = (rotatable = true) =>
+    req("w", [
+      variant("whole", [part("w:p0:0", [a, b], rotatable)]),
+      variant("halves", [part("w:p0:0", [a], rotatable), part("w:p0:1", [b], rotatable)]),
+    ]);
+
+  it("knows a requirement fits whole when its one-tray variant fits the box and the bed", () => {
+    expect(createCtx(makeInput([item()]), fakeMeasure).wholeFits).toEqual([true]);
+  });
+
+  it("does not, when the one tray is too wide for the box floor either way round", () => {
+    const narrow = makeInput([item()], { box: { innerWidth: 150, innerDepth: 150 } });
+    expect(createCtx(narrow, fakeMeasure).wholeFits).toEqual([false]);
+  });
+
+  it("turns the tray in the box only when it may be turned", () => {
+    const deep = { box: { innerWidth: 100, innerDepth: 200 } };
+    expect(createCtx(makeInput([item()], deep), fakeMeasure).wholeFits).toEqual([true]);
+    expect(createCtx(makeInput([item(false)], deep), fakeMeasure).wholeFits).toEqual([false]);
+  });
+
+  it("does not, when the one tray is taller than the space in the box", () => {
+    const low = makeInput([item()], { box: { innerHeight: 20 } });
+    expect(createCtx(low, fakeMeasure).wholeFits).toEqual([false]);
+  });
+
+  it("does not, when the one tray is too big for the print bed in either orientation", () => {
+    // 180 mm of usable bed: the 184 mm tray is over it however it lies
+    const small = makeInput([item()], { printer: { bedX: 190, bedY: 190 } });
+    expect(createCtx(small, fakeMeasure).wholeFits).toEqual([false]);
+    // turned on the bed: 96 × 196 mm of usable bed takes it lying the other way
+    const long = makeInput([item()], { printer: { bedX: 206, bedY: 106 } });
+    expect(createCtx(long, fakeMeasure).wholeFits).toEqual([true]);
+  });
+
+  it("does not, without a one-tray variant", () => {
+    const halves = req("w", [
+      variant("halves", [part("w:p0:0", [a]), part("w:p0:1", [b])]),
+    ]);
+    expect(createCtx(makeInput([halves]), fakeMeasure).wholeFits).toEqual([false]);
+  });
+
+  it("counts the trays of a variant beyond one per copy", () => {
+    const ctx = createCtx(makeInput([item()]), fakeMeasure);
+    expect(ctx.extraParts(0, 0)).toBe(0);
+    expect(ctx.extraParts(0, 1)).toBe(1);
+    // one tray per player is one tray per copy; a combined split is not
+    const kit = req("k", [
+      variant("separate", [part("k:p0:0", [a]), part("k:p1:0", [b])]),
+      variant("combined", [part("k:pall:0", [a]), part("k:pall:1", [b])]),
+    ]);
+    const kits = createCtx(makeInput([kit]), fakeMeasure);
+    expect(kits.extraParts(0, 0)).toBe(0);
+    expect(kits.extraParts(0, 1)).toBe(1);
+    expect(kits.wholeFits).toEqual([true]);
+    const copy = (variant: number, p: number) => kits.copyOf({ req: 0, variant, part: p });
+    expect([copy(0, 0), copy(0, 1), copy(1, 0), copy(1, 1)]).toEqual([0, 1, 0, 0]);
+  });
+});
