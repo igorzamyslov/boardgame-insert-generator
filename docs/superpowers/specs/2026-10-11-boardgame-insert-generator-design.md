@@ -403,7 +403,7 @@ interface Settings {
 | `fingerPocket.floorNotch`                            | advanced                                                             | 12.5 (0 = none, up to 50) |
 | `fingerPocket.wallRoom`                              | "Extra finger room in the box": on = 10                              | 0 (off; up to 20)         |
 | `fingerPocket.dividerRoom`                           | "Extra finger room in the box": on = 5                               | 0 (off; up to 20)         |
-| `lip` on / height / thickness / ledge                | advanced                                                             | off / 2 / 1.2 / 1.7       |
+| `lip` on / height / thickness / ledge                | advanced                                                             | on / 2 / 1.2 / 1.7        |
 | `lip.play` (×Fit)                                    | via Fit                                                              | 0.25                      |
 | `topPressFit`                                        | advanced                                                             | 0 (−2…+1)                 |
 | `packingFactor`                                      | advanced                                                             | 0.5                       |
@@ -742,10 +742,11 @@ Cross-section, `u` in from the outer face, `z` up:
   force. A groove runs along the whole outer edge of a filler too, also where nothing is under it
   (the side facing another part of its level): the wall costs a little there, nothing else.
 
-The lip is **off by default**: only the lower tray carries it, and without it the upper tray has
+The lip is **on by default for new inserts** (0.5.3); a project file that does not say reads it off,
+as it always did. Only the lower tray carries it, and with it off the upper tray has
 no groove and sits on the whole rim below, flush as the lip-off case always was, so it can
 rattle by `trayGap` and the box clearance; the app still warns that nothing keys the trays together
-(rule 4). Turn the lip on where the trays need keying.
+(rule 4). Turn the lip off where flush trays are wanted.
 
 **Part numbers** (`engraveNumbers`, schema 0.1.14, geometry 0.7.1). Nine similar trays are hard to
 tell apart, so each printed part carries the number the assembly instructions and the plan give it
