@@ -85,4 +85,30 @@ describe("ChoiceChips describedBy", () => {
       null,
     );
   });
+
+  it("keeps a blocked chip focusable, says why, and does nothing when it is pressed", () => {
+    const onChange = vi.fn();
+    render(
+      <ChoiceChips
+        label="Tray shape"
+        options={[
+          { value: "a", label: "A" },
+          { value: "b", label: "B", blockedReason: "B needs room." },
+        ]}
+        value={[]}
+        onChange={onChange}
+      />,
+    );
+    const chip = screen.getByRole("button", { name: "B" });
+    expect(chip.getAttribute("aria-disabled")).toBe("true");
+    expect(chip.hasAttribute("disabled")).toBe(false);
+    expect(chip.getAttribute("title")).toBe("B needs room.");
+    expect(document.getElementById(chip.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "B needs room.",
+    );
+    fireEvent.click(chip);
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    expect(onChange).toHaveBeenCalledWith("a");
+  });
 });

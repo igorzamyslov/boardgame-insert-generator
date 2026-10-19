@@ -201,7 +201,7 @@ describe("CardsEditor", () => {
       // each deck's count is a stepper, as the single deck's is
       const more = screen.getAllByRole("button", { name: "More" });
       expect(more).toHaveLength(2);
-      fireEvent.click(more[0]);
+      fireEvent.click(more[0] as HTMLElement);
       expect(last().decks[0]).toEqual({ name: "A", count: 11 });
       fireEvent.click(screen.getByRole("button", { name: "Remove deck A" }));
       expect(last().decks).toEqual([{ name: "B", count: 20 }]);
@@ -466,15 +466,58 @@ describe("CardsEditor", () => {
       expect(screen.queryByRole("button", { name: "Removable dividers" })).not.toBeNull();
     });
 
-    it("are not offered to a flat deck, or to one that may not grow", () => {
-      const { view } = setup(cards({ storage: "flat" }));
+    /** The reason a blocked control gives, as a reader is given it (aria-describedby). */
+    const reasonOf = (el: HTMLElement): string =>
+      document.getElementById(el.getAttribute("aria-describedby") ?? "")?.textContent ?? "";
+
+    it("blocks the dividers of a flat deck and says why, instead of dropping them", () => {
+      const { onChange } = setup(cards({ storage: "flat" }));
       openRows();
-      expect(screen.queryByRole("button", { name: "Removable dividers" })).toBeNull();
-      view.unmount();
-      const { view: off } = setup(cards({ growth: { stack: "off" } }));
+      const chip = screen.getByRole("button", { name: "Removable dividers" });
+      expect(chip.getAttribute("aria-disabled")).toBe("true");
+      expect(reasonOf(chip)).toBe("Flat decks have no dividers.");
+      fireEvent.click(chip);
+      const row = screen.getByRole("button", { name: /^Dividers/ });
+      expect(row.getAttribute("aria-disabled")).toBe("true");
+      expect(row.getAttribute("aria-expanded")).toBeNull();
+      expect(row.textContent).toContain("Flat decks have no dividers.");
+      fireEvent.click(row);
+      expect(screen.queryByLabelText("Number of dividers")).toBeNull();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("blocks the spacer plates and the dividers of a deck with no room to grow, with the reasons", () => {
+      setup(cards({ growth: { stack: "off" } }));
       openRows();
-      expect(screen.queryByRole("button", { name: "Removable dividers" })).toBeNull();
-      off.unmount();
+      expect(screen.getByRole("button", { name: /^Spacer plates/ }).textContent).toContain(
+        "Spacer plates need room for expansions.",
+      );
+      const chip = screen.getByRole("button", { name: "Removable dividers" });
+      expect(chip.getAttribute("aria-disabled")).toBe("true");
+      expect(reasonOf(chip)).toBe("Dividers need room for expansions.");
+      expect(screen.getByRole("button", { name: /^Dividers/ }).textContent).toContain(
+        "Dividers need room for expansions.",
+      );
+    });
+
+    it("blocks the spacer plates while the well has dividers", () => {
+      setup(cards({ storage: "upright-long", dividers: 2, separators: 4 }));
+      openRows();
+      const row = screen.getByRole("button", { name: /^Spacer plates/ });
+      expect(row.getAttribute("aria-disabled")).toBe("true");
+      expect(row.textContent).toContain("Dividers take the place of spacer plates.");
+      // the dividers themselves are on offer
+      expect(
+        screen.getByRole("button", { name: /^Dividers/ }).getAttribute("aria-disabled"),
+      ).toBeNull();
+    });
+
+    it("blocks nothing where the deck can have both", () => {
+      setup(cards({ storage: "upright-long" }));
+      openRows();
+      for (const name of [/^Spacer plates/, /^Dividers/, /^Removable dividers$/]) {
+        expect(screen.getByRole("button", { name }).getAttribute("aria-disabled")).toBeNull();
+      }
     });
 
     it("stores nothing when the count goes back to 0", () => {
@@ -482,12 +525,6 @@ describe("CardsEditor", () => {
       openRows();
       fireEvent.input(screen.getByLabelText("Number of dividers"), { target: { value: "0" } });
       expect("dividers" in last()).toBe(false);
-    });
-
-    it("replace the spacer plates, which are not offered while the well has dividers", () => {
-      setup(cards({ storage: "upright-long", dividers: 2, separators: 4 }));
-      openRows();
-      expect(screen.queryByLabelText("Spacer plates")).toBeNull();
     });
 
     it("are held to the bound", () => {

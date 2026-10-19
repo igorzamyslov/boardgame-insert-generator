@@ -1,5 +1,6 @@
 // src/kit/DisclosureRow.tsx
 import type { ButtonHTMLAttributes } from "preact";
+import { useId } from "preact/hooks";
 import { Icon } from "./icons";
 
 export interface DisclosureRowProps extends Omit<
@@ -24,6 +25,11 @@ export interface DisclosureRowProps extends Omit<
   open?: boolean;
   /** The id of the panel the row opens. */
   controls?: string;
+  /**
+   * Present: the row opens nothing, for the reason given. It stays on screen and focusable
+   * (`aria-disabled`, never `disabled`), the reason is its hint line, and a press does nothing.
+   */
+  blockedReason?: string;
 }
 
 /** A 48 px row that opens a group of settings (Settings' "Room around things"). */
@@ -36,32 +42,51 @@ export function DisclosureRow({
   dot = false,
   open,
   controls,
+  blockedReason,
   type = "button",
+  onClick,
   ...rest
 }: DisclosureRowProps) {
+  const reasonId = useId();
+  const blocked = blockedReason !== undefined;
   const hasChanged = changed !== undefined && changed > 0;
-  const plain = hint !== undefined || plainLook;
+  const plain = blocked || hint !== undefined || plainLook;
   return (
     <button
       {...rest}
       type={type}
       class="k-drow"
       data-plain={plain ? "" : undefined}
-      aria-expanded={open}
-      aria-controls={controls}
+      aria-expanded={blocked ? undefined : open}
+      aria-controls={blocked ? undefined : controls}
+      aria-disabled={blocked ? "true" : undefined}
+      aria-describedby={blocked ? reasonId : undefined}
+      onClick={
+        blocked
+          ? (e) => {
+              e.preventDefault();
+            }
+          : onClick
+      }
     >
       <span class="k-drow__text">
         <span class="k-drow__title">
           {title}
           {dot ? <span class="k-drow__dot" role="img" aria-label="Changed" /> : null}
         </span>
-        {plain ? <span class="k-drow__hint">{hint}</span> : null}
+        {plain ? (
+          <span class="k-drow__hint" id={blocked ? reasonId : undefined}>
+            {blocked ? blockedReason : hint}
+          </span>
+        ) : null}
       </span>
       <span class="k-drow__meta" data-changed={hasChanged ? "" : undefined}>
         {hasChanged ? `${changed} changed` : meta}
-        <span class="k-drow__chevron" data-open={open ? "" : undefined} aria-hidden="true">
-          <Icon name="chevron-right" size={plain ? 16 : 14} />
-        </span>
+        {blocked ? null : (
+          <span class="k-drow__chevron" data-open={open ? "" : undefined} aria-hidden="true">
+            <Icon name="chevron-right" size={plain ? 16 : 14} />
+          </span>
+        )}
       </span>
     </button>
   );
