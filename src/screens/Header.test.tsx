@@ -7,7 +7,10 @@ import type { SaveState } from "../app/state";
 import { Header } from "./Header";
 import type { HeaderProps } from "./Header";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 function props(over: Partial<HeaderProps> = {}): HeaderProps {
   return {
@@ -325,6 +328,7 @@ describe("Header", () => {
   });
 
   it("does not reopen after a choice made with Enter (the key's click lands on the button the focus went to)", () => {
+    vi.useFakeTimers();
     render(<Header {...props()} />);
     const button = screen.getByRole("button", { name: "Project menu" });
     fireEvent.click(button);
@@ -337,8 +341,24 @@ describe("Header", () => {
     fireEvent.click(button);
     expect(screen.queryByText("Inside the menu")).toBeNull();
     expect(button.getAttribute("aria-expanded")).toBe("false");
-    // and once the key is up the button works as it did
-    fireEvent.keyUp(button, { key: "Enter" });
+    // the next real click is not dropped, whatever became of the key-up (it lands outside the menu
+    // when the choice opened a dialog)
+    fireEvent.keyUp(document.body, { key: "Enter" });
+    vi.advanceTimersByTime(200);
+    fireEvent.click(button);
+    expect(screen.getByText("Inside the menu")).toBeTruthy();
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("drops only the click that comes with the key, not a later one on the same press's account", () => {
+    vi.useFakeTimers();
+    render(<Header {...props()} />);
+    const button = screen.getByRole("button", { name: "Project menu" });
+    fireEvent.click(button);
+    fireEvent.keyDown(screen.getByText("Inside the menu"), { key: "Enter" });
+    fireEvent.click(screen.getByText("Inside the menu"));
+    // the key's own click never came (a browser that sends none); a click a moment later is a real one
+    vi.advanceTimersByTime(200);
     fireEvent.click(button);
     expect(screen.getByText("Inside the menu")).toBeTruthy();
   });

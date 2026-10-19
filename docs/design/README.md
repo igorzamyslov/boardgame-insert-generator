@@ -59,7 +59,8 @@ The default out folder is `.superpowers/sdd/2026-10-16-ui-rebuild/shots/` (not c
 makes it FAILED (and `npm run shots` exit non-zero), unless the state lists the message in its
 `expectedErrors` (a string the message contains, or a RegExp; empty by default). The last line of
 the run says which states had errors ("console errors in 2 states: a (1), b (3)") or "console errors:
-none". The helpers are `scripts/design/consoleErrors.mjs` (tested).
+none". The helpers are `scripts/design/consoleErrors.mjs` (tested). Only the app's page is listened to
+(from its first load to the end of the probes), not the page the board is drawn on.
 
 Board PNGs and seeds are committed; app shots are not, until the final pairs (Task 17) are.
 
@@ -82,7 +83,7 @@ Settings opens, and the dialog hands it back to whatever had it). A native modal
 wrap the focus inside the page: Tab past the last control goes to the browser's own interface (the
 body in a headless run) and the next Tab comes back to the first control. The probe accepts that one
 step and fails only a focus that lands on the page behind the drawer. Each check's verdict is printed
-under the state in the run's output (`keys: pass …`); `scripts/design/keys.mjs` judges it (tested).
+under the state in the run's output (`keys: pass …`); a focus that falls to the body in the middle of the trap counts as the browser step, so only a drawer that comes round every time passes; `scripts/design/keys.mjs` judges it (tested).
 
 `box-nofit` and `m-box-nofit` have the box editor open over the no-fit seed (Heroes is 80 mm in a 70 mm box):
 the editor tells the problem in a line ("The Heroes tray doesn't fit yet" with how far the closest

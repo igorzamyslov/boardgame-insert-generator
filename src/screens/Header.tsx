@@ -167,17 +167,20 @@ export function HeaderMenu(p: HeaderMenuProps) {
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   /**
-   * Enter or Space is down, and a choice made with it. A choice hands the focus to the button while
-   * the key is still down, and the browser sends the key's click to whatever has the focus then:
-   * the button, which would open the menu again behind what the choice opened (Settings' drawer
-   * took a hidden menu item as its opener, and lost the focus when it closed). That one click is
-   * dropped; the key coming up ends it.
+   * A choice made with Enter hands the focus to the button, and the browser sends that Enter's click
+   * (keydown, keypress, click: one task) to whatever has the focus then: the button, which would open
+   * the menu again behind what the choice opened (Settings' drawer took a hidden menu item as its
+   * opener and lost the focus when it closed). That one click is dropped, within a moment of the key
+   * going down and no longer: nothing waits on a key coming up, so the person's next real click
+   * is never lost. Space clicks on key-up, after the choice, and is not affected.
    */
-  const keyDown = useRef(false);
-  const dropClick = useRef(false);
+  const enterAt = useRef(0);
+  const dropUntil = useRef(0);
+  const DROP_MS = 80;
   /** Shuts the menu and puts the focus back on its button. */
   const close = (): void => {
-    dropClick.current = keyDown.current;
+    const now = Date.now();
+    dropUntil.current = now - enterAt.current < DROP_MS ? now + DROP_MS : 0;
     setOpen(false);
     button.current?.focus();
   };
@@ -220,11 +223,9 @@ export function HeaderMenu(p: HeaderMenuProps) {
       ref={wrap}
       // on the menu's own element, not the document: the app has one document keydown listener
       onKeyDownCapture={(e) => {
-        keyDown.current = e.key === "Enter" || e.key === " ";
-      }}
-      onKeyUpCapture={() => {
-        keyDown.current = false;
-        dropClick.current = false;
+        if (e.key === "Enter") {
+          enterAt.current = Date.now();
+        }
       }}
       onBlurCapture={(e) => {
         // The focus went somewhere outside the menu (Tab past its end, say): it closes and
@@ -244,8 +245,8 @@ export function HeaderMenu(p: HeaderMenuProps) {
         aria-expanded={open}
         aria-controls={open ? "project-menu" : undefined}
         onClick={() => {
-          if (dropClick.current) {
-            dropClick.current = false;
+          if (Date.now() < dropUntil.current) {
+            dropUntil.current = 0;
             return;
           }
           setOpen(!open);

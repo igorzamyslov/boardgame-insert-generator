@@ -275,12 +275,13 @@ async function runStep(page, step) {
   }
 }
 
+/** The keyboard probe's verdict per check, by state name (for the run's summary). */
+const keyChecks = new Map();
+
 /**
  * Probes run in Chromium after the pictures are taken: what jsdom cannot see of a native
  * `<dialog>`. A probe returns the problems it found; each one fails the state.
  */
-/** The keyboard probe's verdict per check, by state name (for the run's summary). */
-const keyChecks = new Map();
 const PROBES = {
   /**
    * The box editor's fields (Task 11): no text box cuts its value off ("285.5" in an 80 px field).
@@ -381,8 +382,8 @@ const PROBES = {
   async "settings-keys"(page, name) {
     const problems = [];
     const checks = [];
-    const check = (name, found) => {
-      checks.push(`${found.length === 0 ? "pass" : "FAIL"}  ${name}`);
+    const check = (what, found) => {
+      checks.push(`${found.length === 0 ? "pass" : "FAIL"}  ${what}`);
       problems.push(...found);
     };
     const dialog = page.locator('dialog[data-region="drawer"]');
