@@ -159,6 +159,19 @@ const setRules = (store: Store): void => {
   );
 };
 
+/** Turn 90° on the first component's tray: a turn lock and no pin (the chip and the note are the rail's). */
+const setTurn = (store: Store): void => {
+  act(() =>
+    store.edit((q) => {
+      const [a] = q.components;
+      if (a === undefined) {
+        throw new Error("the seed has no components");
+      }
+      return { ...q, locks: [{ kind: "turn", trayKey: `${a.id}:p0:0`, rotated: true }] };
+    }),
+  );
+};
+
 /** A count no deck can have: the first component's editor holds an error. */
 const breakFirst = (store: Store): void => {
   act(() =>
@@ -686,6 +699,29 @@ const CASES: readonly Case[] = [
   { state: "workspace", board: "Main", region: "rail", steps: () => undefined },
   { state: "workspace-add", board: "Main", region: "rail", steps: addKind },
   { state: "workspace-rules", board: "Main", region: "rail", steps: setRules },
+  // 0.7.0 Task 13: Turn 90° alone (the Turned chip and its note), and the Cards editor's Between decks
+  { state: "workspace-turned", board: "Main", region: "rail", steps: setTurn },
+  {
+    state: "editor-flat-decks",
+    board: "Edit",
+    region: "rail",
+    seed: "harbour-kings-flat",
+    steps: editMore(/^Starter deck, /),
+  },
+  {
+    // upright storage blocks Between decks, with its reason
+    state: "editor-flat-decks-upright",
+    board: "Edit",
+    region: "rail",
+    seed: "harbour-kings-flat",
+    project: (p) => ({
+      ...p,
+      components: p.components.map((c) =>
+        c.kind === "cards" && c.decks.length > 1 ? { ...c, storage: "upright-long" } : c,
+      ),
+    }),
+    steps: editMore(/^Starter deck, /),
+  },
   // 0.7.0 Task 9: GroupRail's card, GroupAdd's empty card and its picker
   {
     state: "kit-rail",
@@ -745,6 +781,7 @@ const CASES: readonly Case[] = [
     phone: true,
     steps: setRules,
   },
+  { state: "m-turned", board: "MobileWorkspace", region: "sheet", phone: true, steps: setTurn },
   // Task 6: the status heading with its switches and action, the banner, the notes
   { state: "workspace", board: "Main", region: "status", steps: () => undefined },
   { state: "workspace-searching", board: "Main", region: "status", steps: searching },

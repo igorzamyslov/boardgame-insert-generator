@@ -30,6 +30,14 @@ const SUMMARY = "A row's line under the name is short";
 const CHIPS = "The rail's rule chips are one per rule";
 const CLEAR = "Clear all my choices lifts every pin";
 const NOTE = "The rules note says what stays";
+// 0.7.0 Task 13: Turned, the rules note's turn sentence and Between decks
+const TURNED = "A tray turned and not pinned says";
+const TURNS_NOTE = "The rules note names the turns";
+const BETWEEN = "Between decks is a row under Cards stand";
+/** The states that draw a turned tray's chip: the rail of the desktop and the phone's sheet. */
+const TURNED_STATES = ["workspace-turned", "m-turned"] as const;
+/** The Cards editor of an item with flat decks (copy.board.test.tsx has a case for each). */
+const FLAT_DECKS = ["editor-flat-decks", "editor-flat-decks-upright"] as const;
 const BOXCARD = "The rail's box card says its size on one line";
 const BED = "The rail's footer line shows the insert's printer";
 const ADDING = ["workspace-add", "m-workspace-add"] as const;
@@ -68,9 +76,12 @@ const RAIL = [
   "no-fit",
   "no-fit-bed",
   "pin-conflict",
+  "workspace-turned",
+  ...FLAT_DECKS,
 ] as const;
 const SHEET = [
   "m-workspace",
+  "m-turned",
   "m-workspace-add",
   "m-workspace-rules",
   "m-fix",
@@ -147,6 +158,7 @@ const EDITS = [
   "editor-custom-more",
   "editor-minis",
   "editor-minis-more",
+  ...FLAT_DECKS,
 ] as const;
 const PHONE_EDITS = ["m-edit", "m-edit-more"] as const;
 // 0.7.0 Task 12: an item's editor in a group's terms (a member's, the Move to group… panel, what moving
@@ -171,6 +183,7 @@ const OPENED_ROWS = [
   "kit-member",
   "kit-move-panel",
   "kit-member-moved",
+  ...FLAT_DECKS,
 ] as const;
 const EDITOR_OPTIONS = "The editors name every option the engine has";
 const EDITOR_SIZES = "Card sizes are the engine's presets";
@@ -435,6 +448,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Add", states: SHEET, ruling: PICKER },
   { text: "Pinned", states: ["m-workspace-rules", "m-pin-conflict"], ruling: CHIPS },
   { text: "Pinned, turned", states: RULED, ruling: CHIPS },
+  { text: "Turned", states: TURNED_STATES, ruling: TURNED },
   { text: "Size locked", states: RULED, ruling: CHIPS },
   // Main's "These stay as you set them when the plan updates." is in COPY_DENIED: it does not say what stays
   {
@@ -447,6 +461,22 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: RULED,
     ruling: NOTE,
   },
+  // a turn is its own rule: the note says what the plan keeps of it, after the pin sentence when there is one
+  {
+    text: "Turned trays keep their direction when the plan updates.",
+    states: TURNED_STATES,
+    ruling: TURNS_NOTE,
+  },
+  {
+    text: "Pinned trays stay where you put them when the plan updates. Turned trays keep their direction when the plan updates.",
+    states: TURNED_STATES,
+    ruling: TURNS_NOTE,
+  },
+  {
+    text: "Pinned and size-locked trays stay as you set them when the plan updates. Turned trays keep their direction when the plan updates.",
+    states: TURNED_STATES,
+    ruling: TURNS_NOTE,
+  },
   // Main and MobileWorkspace draw five tiles; GroupAdd's sixth is the app's in every picker
   { text: "Group", states: ADDING, ruling: GROUP_TILE },
   // GroupRail draws "3 items · 4 trays" as one string; the app counts, and says one in the singular
@@ -458,7 +488,11 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "mm", states: RAIL, ruling: BOXCARD },
   // Main's footer says "Printer bed 256 × 256 mm", which wraps beside Settings in the 300 px rail
   { text: "Bed {n} × {n} mm", states: RAIL, ruling: BED },
-  { text: "Clear all my choices", states: ["m-workspace-rules", "m-pin-conflict"], ruling: CLEAR },
+  {
+    text: "Clear all my choices",
+    states: ["m-workspace-rules", "m-pin-conflict", "m-turned"],
+    ruling: CLEAR,
+  },
   { text: "bottom layer", states: RAIL, ruling: SUMMARY },
   { text: "top layer", states: RAIL, ruling: SUMMARY },
   { text: "layer {n}", states: RAIL, ruling: SUMMARY },
@@ -628,6 +662,13 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     "Dividers take the place of spacer plates.",
   ].map((text) => ({ text, states: EDITING, ruling: EDITOR_BLOCKED })),
   // the engine's presets, as the chips and the size line say them
+  // Between decks, and the reasons its blocked rows give (the stand and the dividers of a flat deck)
+  // the deck list's label over each deck's stepper (the decks list is in the basics from the second deck on)
+  { text: "How many", states: FLAT_DECKS, ruling: "Decks live in the basics" },
+  { text: "Between decks", states: FLAT_DECKS, ruling: BETWEEN },
+  { text: "Fixed walls", states: FLAT_DECKS, ruling: BETWEEN },
+  { text: "Only flat decks can share one well.", states: FLAT_DECKS, ruling: BETWEEN },
+  { text: "For flat decks, see Between decks.", states: FLAT_DECKS, ruling: BETWEEN },
   { text: "Standard American", states: EDITING, ruling: EDITOR_SIZES },
   { text: "Euro", states: EDITING, ruling: EDITOR_SIZES },
   { text: "Mini Euro", states: EDITING, ruling: EDITOR_SIZES },

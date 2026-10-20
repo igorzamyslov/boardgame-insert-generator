@@ -651,6 +651,23 @@ describe("statusOf, the fit problems", () => {
     ]);
   });
 
+  it("words a turn that is in the way as its own, with Let <name> turn as its action", () => {
+    const turn: LockConflict = {
+      trayKey: "a",
+      kind: "turn",
+      name: "Market deck",
+      reason: "it can't stay turned in its spot",
+    };
+    const s = statusOf(input({ fits: null, conflicts: [turn] }));
+    expect(s).toMatchObject({
+      tone: "warn",
+      fit: "pins",
+      title: "Market deck doesn't fit the way it is turned",
+      line: "It can't stay turned in its spot.",
+    });
+    expect(s.actions).toEqual([{ kind: "unpin", conflict: turn, label: "Let Market deck turn" }]);
+  });
+
   it("speaks before a no-fit, and has no Keep searching of its own", () => {
     const s = statusOf(input({ fits: null, conflicts, noFit: { misfit: null } }));
     expect(s.fit).toBe("pins");

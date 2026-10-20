@@ -581,6 +581,23 @@ describe("CardsEditor", () => {
       expect(onChange).not.toHaveBeenCalled();
     });
 
+    it("points a flat deck's blocked dividers at Between decks when it has decks to put between", () => {
+      const decks = [
+        { name: "A", count: 20 },
+        { name: "B", count: 20 },
+      ];
+      setup(cards({ storage: "flat", decks }));
+      openRows();
+      const chip = within(screen.getByRole("group", { name: "Tray shape" })).getByRole("button", {
+        name: "Removable dividers",
+      });
+      expect(chip.getAttribute("aria-disabled")).toBe("true");
+      expect(reasonOf(chip)).toBe("For flat decks, see Between decks.");
+      expect(screen.getByRole("button", { name: /^Dividers/ }).textContent).toContain(
+        "For flat decks, see Between decks.",
+      );
+    });
+
     it("blocks the spacer plates and the dividers of a deck with no room to grow, with the reasons", () => {
       setup(cards({ growth: { stack: "off" } }));
       openRows();
@@ -752,5 +769,81 @@ describe("the thickness correction", () => {
       "From the sleeve table. Measure your stack if decks come out tight.",
     );
     expect(document.body.textContent).not.toMatch(/card stack clearance/);
+  });
+  describe("Between decks", () => {
+    const two = [
+      { name: "Starter", count: 20 },
+      { name: "Market", count: 20 },
+    ];
+    const between = (): HTMLElement => screen.getByRole("button", { name: /^Between decks/ });
+
+    /** The children of More options' panel, in order. */
+    const panel = (): Element[] => {
+      const more = screen.getByRole("button", { name: /^More options/ });
+      return [
+        ...(document.getElementById(more.getAttribute("aria-controls") ?? "")?.children ?? []),
+      ];
+    };
+    const rowOf = (): Element => between().closest(".ed-exact") as Element;
+
+    it("is a row directly under Cards stand once the item has two decks or more", () => {
+      setup(cards({ decks: two }));
+      openMore();
+      const at = panel().indexOf(rowOf());
+      expect(at).toBeGreaterThan(0);
+      expect(
+        panel()[at - 1]?.querySelector('[role="group"][aria-label="Cards stand"]'),
+      ).not.toBeNull();
+      expect(between().textContent).toContain("Fixed walls");
+    });
+
+    it("is absent with one deck", () => {
+      setup(cards());
+      openMore();
+      expect(screen.queryByRole("button", { name: /^Between decks/ })).toBeNull();
+    });
+
+    it("offers Fixed walls and Removable dividers, and writes flatDecks", () => {
+      const { last } = setup(cards({ decks: two, storage: "flat" }));
+      openRows();
+      expect(pressedIn("Between decks")).toBe("Fixed walls");
+      choose("Between decks", "Removable dividers");
+      expect(last().flatDecks).toBe("dividers");
+      choose("Between decks", "Fixed walls");
+      // walls is the default: it is stored as nothing
+      expect(last().flatDecks).toBeUndefined();
+    });
+
+    it("reads as set under Auto, and applies when Auto picks flat", () => {
+      setup(cards({ decks: two, storage: "auto", flatDecks: "dividers" }));
+      openMore();
+      expect(between().getAttribute("aria-disabled")).toBeNull();
+      expect(between().textContent).toContain("Removable dividers");
+    });
+
+    it("is blocked with upright storage, with its reason", () => {
+      const { onChange } = setup(cards({ decks: two, storage: "upright-long" }));
+      openMore();
+      expect(between().getAttribute("aria-disabled")).toBe("true");
+      expect(between().textContent).toContain("Only flat decks can share one well.");
+      fireEvent.click(between());
+      expect(screen.queryByRole("group", { name: "Between decks" })).toBeNull();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("keeps its place when the storage changes", () => {
+      const view = setup(cards({ decks: two, storage: "flat" }));
+      openMore();
+      const flat = panel().indexOf(rowOf());
+      expect(flat).toBeGreaterThan(0);
+      view.view.rerender(
+        <CardsEditor
+          component={cards({ decks: two, storage: "upright-short" })}
+          index={0}
+          onChange={view.onChange}
+        />,
+      );
+      expect(panel().indexOf(rowOf())).toBe(flat);
+    });
   });
 });

@@ -59,6 +59,7 @@ import {
   addComponent,
   addGroup,
   clearChoices,
+  freeTurn,
   lockedKeys,
   moveToGroup,
   newGroupWith,
@@ -715,6 +716,7 @@ export function App(props: AppProps) {
         hoveredMembers.value = ids;
       }}
       onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
+      onFreeTurn={(keys) => store.edit((q) => keys.reduce(freeTurn, q))}
       onUnlockSize={(keys) =>
         store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
       }

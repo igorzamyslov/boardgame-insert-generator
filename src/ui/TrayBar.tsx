@@ -4,7 +4,7 @@
 // is a modal sheet at the foot of the screen.
 import type { CSSProperties } from "preact";
 import { useEffect, useId, useMemo, useRef, useState } from "preact/hooks";
-import { isLockable, lockedKeys, sizeLockedKeys, stackOf } from "../app/actions";
+import { isLockable, lockedKeys, sizeLockedKeys, stackOf, turnedKeys } from "../app/actions";
 import { canTurn } from "../app/dryRun";
 import { printedHeight } from "../instructions/numbering";
 import { summarize } from "../layout";
@@ -118,7 +118,8 @@ function useTrayFacts(p: TrayBarProps) {
   const full = isLockable(tray);
   const pin = project.locks.find((l) => l.kind === "position" && l.trayKey === tray.key);
   const pinned = lockedKeys(project).has(tray.key);
-  const turned = pin?.kind === "position" && pin.rotated;
+  // a pin says whether it holds the tray turned; a tray that is not pinned is turned by its turn lock
+  const turned = pin?.kind === "position" ? pin.rotated : turnedKeys(project).has(tray.key);
   const sizeLocked = sizeLockedKeys(project).has(tray.key);
   const turnCheck = useMemo(
     () => (full ? canTurn(project, tray.key, foreign) : { ok: false as const, reason: "" }),
@@ -272,11 +273,15 @@ function MoreItems(p: MoreItemsProps) {
   );
 }
 
-/** The pin and the size lock, in words for a reader: the bar draws them in the buttons, not in chips. */
+/**
+ * The pin, the turn and the size lock, in words for a reader: the bar draws them in the buttons, not
+ * in chips. A tray that is turned and not pinned is "Turned"; a pin says whether it holds the turn.
+ */
 function Told(p: { pinned: boolean; turned: boolean; sizeLocked: boolean }) {
   return (
     <span class="visually-hidden" aria-live="polite">
       {p.pinned ? <span>{p.turned ? "Pinned, turned" : "Pinned"}</span> : null}
+      {!p.pinned && p.turned ? <span>Turned</span> : null}
       {p.sizeLocked ? <span>Size locked</span> : null}
     </span>
   );

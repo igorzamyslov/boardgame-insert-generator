@@ -43,19 +43,23 @@ export interface ComponentListProps {
   onEditGroup?: (groupId: string) => void;
   /** The pins of these trays, and of the stacks they are in, come off. */
   onUnpin?: (trayKeys: string[]) => void;
+  /** The turn locks of these trays come off: they may turn as the plan likes. */
+  onFreeTurn?: (trayKeys: string[]) => void;
   /** The size locks of these trays come off. */
   onUnlockSize?: (trayKeys: string[]) => void;
 }
 
 interface Chip {
   label: string;
-  kind: "pin" | "size";
+  kind: "pin" | "turn" | "size";
   trayKeys: string[];
 }
 
 /**
  * One chip per rule the trays of an owner (an ungrouped item, or a group) are under: pins (turned
- * or not) and size locks. The owner's id is the stem of its trays' keys.
+ * or not), turns and size locks. A turn under a pin of the same tray is the pin's (it says "Pinned,
+ * turned" when the pin holds the turn), so it has no chip of its own. The owner's id is the stem of
+ * its trays' keys.
  */
 function chipsOf(ownerId: string, locks: readonly Lock[]): Chip[] {
   const prefix = `${ownerId}:`;
@@ -72,6 +76,12 @@ function chipsOf(ownerId: string, locks: readonly Lock[]): Chip[] {
   for (const l of mine) {
     if (l.kind === "position") {
       add(l.rotated ? "Pinned, turned" : "Pinned", "pin", l.trayKey);
+    }
+  }
+  const pinned = new Set(mine.flatMap((l) => (l.kind === "position" ? [l.trayKey] : [])));
+  for (const l of mine) {
+    if (l.kind === "turn" && !pinned.has(l.trayKey)) {
+      add("Turned", "turn", l.trayKey);
     }
   }
   for (const l of mine) {
@@ -157,6 +167,7 @@ export function ComponentList({
   onLight,
   onEditGroup,
   onUnpin,
+  onFreeTurn,
   onUnlockSize,
 }: ComponentListProps) {
   const notices = useContext(ValidationContext);
@@ -231,7 +242,9 @@ export function ComponentList({
               aria-label={
                 chip.kind === "pin"
                   ? `Unpin ${who}${inStack(chip.trayKeys, locks) ? " and its stack" : ""}`
-                  : `Unlock size of ${who}`
+                  : chip.kind === "turn"
+                    ? `Let ${who} turn`
+                    : `Unlock size of ${who}`
               }
               onClick={(e) => {
                 pressed.current = {
@@ -242,6 +255,8 @@ export function ComponentList({
                 };
                 if (chip.kind === "pin") {
                   onUnpin?.(chip.trayKeys);
+                } else if (chip.kind === "turn") {
+                  onFreeTurn?.(chip.trayKeys);
                 } else {
                   onUnlockSize?.(chip.trayKeys);
                 }

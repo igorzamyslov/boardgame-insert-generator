@@ -34,6 +34,8 @@ interface ListProps {
   /** A group's header was chosen: its editor. */
   onEditGroup?: (groupId: string) => void;
   onUnpin?: (trayKeys: string[]) => void;
+  /** A "Turned" chip's ×: these trays may turn as the plan likes. */
+  onFreeTurn?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
   /** Every pin and size lock comes off, in one undo step. */
   onClearChoices: () => void;
@@ -56,11 +58,24 @@ function clearChoices(onClear: () => void): () => void {
   };
 }
 
-/** What the note says the plan keeps: the pins, and the size locks when there are any (a ruling, DESIGN §7). */
+const TURNED_NOTE = "Turned trays keep their direction when the plan updates.";
+
+/**
+ * What the note says the plan keeps, by which rules exist (a ruling, DESIGN §7): the pins, and the
+ * size locks when there are any; the turns, after those when there are both. A turn under a pin of
+ * its tray is the pin's, so it asks for no sentence of its own.
+ */
 export function rulesNoteText(locks: readonly Lock[]): string {
-  return locks.some((l) => l.kind === "size")
+  const pins = locks.some((l) => l.kind !== "turn");
+  const held = new Set(locks.flatMap((l) => (l.kind === "position" ? [l.trayKey] : [])));
+  const turns = locks.some((l) => l.kind === "turn" && !held.has(l.trayKey));
+  const pinSentence = locks.some((l) => l.kind === "size")
     ? "Pinned and size-locked trays stay as you set them when the plan updates."
     : "Pinned trays stay where you put them when the plan updates.";
+  if (!turns) {
+    return pinSentence;
+  }
+  return pins ? `${pinSentence} ${TURNED_NOTE}` : TURNED_NOTE;
 }
 
 /** Main's note under the list while any rule is set, and the way to lift them all. */
@@ -119,6 +134,7 @@ export function Rail(p: RailProps) {
         onLight={p.onLight}
         onEditGroup={p.onEditGroup}
         onUnpin={p.onUnpin}
+        onFreeTurn={p.onFreeTurn}
         onUnlockSize={p.onUnlockSize}
       />
       {locks.length > 0 ? (
@@ -157,6 +173,7 @@ export function SheetList(p: ListProps) {
         onLight={p.onLight}
         onEditGroup={p.onEditGroup}
         onUnpin={p.onUnpin}
+        onFreeTurn={p.onFreeTurn}
         onUnlockSize={p.onUnlockSize}
         first={
           <li class="rail-item">

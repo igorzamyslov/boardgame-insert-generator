@@ -90,6 +90,7 @@ export interface WhatsInsideProps {
   /** Returns false when nothing was removed. */
   onRemove: (id: string) => boolean;
   onUnpin?: (trayKeys: string[]) => void;
+  onFreeTurn?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
   /** An option of the open editor changed, and this is what it does: the stage shows it as a note. */
   onNote?: (text: string) => void;
@@ -129,6 +130,7 @@ export function WhatsInside({
   onChange,
   onRemove,
   onUnpin,
+  onFreeTurn,
   onUnlockSize,
   onNote,
   strip,
@@ -315,6 +317,7 @@ export function WhatsInside({
       onLight,
       onEditGroup: setOpenGroupId,
       onUnpin,
+      onFreeTurn,
       onUnlockSize,
       onClearChoices,
     };

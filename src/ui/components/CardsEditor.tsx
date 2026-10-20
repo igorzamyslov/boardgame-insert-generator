@@ -5,7 +5,7 @@ import { useContext, useEffect, useState } from "preact/hooks";
 import { setCardSides } from "../../app/actions";
 import { ChoiceChips, CheckRow, Segmented, Stepper } from "../../kit";
 import type { SegmentedOption } from "../../kit";
-import { COMPONENT_DEFAULTS } from "../../model/defaults";
+import { COMPONENT_DEFAULTS, flatDecksOffered } from "../../model/defaults";
 import { CARD_PRESETS, SLEEVES } from "../../model/presets";
 import type { CardsComponent } from "../../model/types";
 import { mm } from "../identity";
@@ -15,7 +15,7 @@ import { AccessChoice, CommonRows, commonOptionPaths } from "./CommonOptions";
 import { Alert, Choice, CountField, ExactRow, Group, Notes, NumField, TextBox } from "./controls";
 import { GrowthOptions } from "./GrowthOptions";
 import { MoreOptions } from "./MoreOptions";
-import { changedOptions } from "./moreSummary";
+import { changedOptions, flatDecksBlock } from "./moreSummary";
 import { RowRemove } from "./RowRemove";
 import { BinNotes, TrayShape, WellRows } from "./ToggleOptions";
 import type { EditorProps } from "./types";
@@ -49,9 +49,21 @@ const STAND_OPTIONS: SegmentedOption<CardsComponent["storage"]>[] = [
   { value: "auto", label: "Auto" },
 ];
 
+const BETWEEN_OPTIONS: SegmentedOption<NonNullable<CardsComponent["flatDecks"]>>[] = [
+  { value: "walls", label: "Fixed walls" },
+  { value: "dividers", label: "Removable dividers" },
+];
+
 const ANOTHER_DECK = "+ Another deck";
 
 type Deck = CardsComponent["decks"][number];
+
+/** Fixed walls is the default, so it is stored as nothing. */
+function withoutFlatDecks(c: CardsComponent): CardsComponent {
+  return Object.fromEntries(
+    Object.entries(c).filter(([key]) => key !== "flatDecks"),
+  ) as unknown as CardsComponent;
+}
 
 export function CardsEditor({ component: c, index, onChange }: EditorProps<CardsComponent>) {
   const at = `/components/${index}`;
@@ -294,6 +306,7 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
         component={c}
         errorPaths={[
           ...commonOptionPaths(index),
+          `${at}/flatDecks`,
           `${at}/thickness/scale`,
           `${at}/thickness/cards`,
           `${at}/thickness/stackMm`,
@@ -317,6 +330,30 @@ export function CardsEditor({ component: c, index, onChange }: EditorProps<Cards
                 }
           }
         />
+        {flatDecksOffered(c) ? (
+          <ExactRow
+            title="Between decks"
+            meta={c.flatDecks === "dividers" ? "Removable dividers" : "Fixed walls"}
+            errorPaths={[`${at}/flatDecks`]}
+            blockedReason={flatDecksBlock(c)}
+            revert={
+              c.flatDecks === "dividers"
+                ? { to: "Fixed walls", onBack: () => onChange(withoutFlatDecks(c)) }
+                : undefined
+            }
+          >
+            <Segmented
+              label="Between decks"
+              stretch
+              options={BETWEEN_OPTIONS}
+              value={c.flatDecks ?? "walls"}
+              onChange={(v) =>
+                onChange(v === "walls" ? withoutFlatDecks(c) : { ...c, flatDecks: v })
+              }
+            />
+            <Alert id={`${c.id}-flatDecks-error`} path={`${at}/flatDecks`} />
+          </ExactRow>
+        ) : null}
         <TrayShape component={c} index={index} onChange={onChange} />
         <ExactRow
           title="Card thickness"

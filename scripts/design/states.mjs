@@ -1079,8 +1079,8 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [
       SELECT_MARKET,
-      { click: { role: "button", name: /^Turn 90/, in: TRAY_BAR } },
-      { waitFor: { role: "button", name: /^Market deck, .*Turned/ } },
+      { click: { role: "button", name: /^Turn this (tray|stack) 90/, in: TRAY_BAR } },
+      { waitFor: { role: "button", name: "Let Market deck turn" } },
     ],
   },
   // A cards item with three flat decks in one well: its editor shows Between decks (Task 13).
@@ -1088,9 +1088,13 @@ export const STATES = {
     board: "EditKinds",
     boardCrop: { rail: "main section:nth-of-type(1)" },
     nearest: "Edit / EditKinds: no board draws Between decks",
-    viewport: DESKTOP,
+    viewport: { width: 1440, height: 1500 },
     seed: "harbour-kings-flat",
-    steps: [{ click: { role: "button", name: /^Starter deck, /, in: RAIL } }],
+    steps: [
+      { click: { role: "button", name: /^Starter deck, /, in: RAIL } },
+      MORE_OPTIONS,
+      { click: { role: "button", name: /^Between decks/, in: RAIL } },
+    ],
   },
   // Drag and drop has no board (R14): its look is judged against spec §7.3 and its gate is the probe
   // `drag-into-group` (shots.mjs), failing until Task 14. The pair shows GroupRail for reference.
@@ -1146,7 +1150,9 @@ export const STATES = {
     seed: "harbour-kings",
     steps: [
       SELECT_MARKET,
-      { click: { role: "button", name: /^Turn 90/, in: '[data-region="sheet"]' } },
+      {
+        click: { role: "button", name: /^Turn this (tray|stack) 90/, in: '[data-region="sheet"]' },
+      },
     ],
   },
 };

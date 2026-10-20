@@ -8,6 +8,7 @@ import {
   dividersOf,
   dividersOffered,
   fingerCutsOn,
+  flatDecksOffered,
   growthAxesOf,
   growthOf,
   separatorsOf,
@@ -25,6 +26,7 @@ export type OptionId =
   | `growth-${GrowthAxis}`
   | "access"
   | "storage"
+  | "flatDecks"
   | "fingerCuts"
   | "curvedFloor"
   | "cornerReliefs"
@@ -67,9 +69,23 @@ export function dividersBlock(c: Component): string | undefined {
     return undefined;
   }
   if (c.storage === "flat") {
+    if (flatDecksOffered(c)) {
+      return "For flat decks, see Between decks.";
+    }
     return c.kind === "cards" ? "Flat decks have no dividers." : "Flat stacks have no dividers.";
   }
   return "Dividers need room for expansions.";
+}
+
+/**
+ * Why Between decks can't be chosen right now, in a line, or undefined when it may (or when the
+ * item has one deck, and the row is not drawn). Decks share one well only when they lie flat; under
+ * Auto the choice stands and applies if Auto picks flat.
+ */
+export function flatDecksBlock(c: Component): string | undefined {
+  return c.kind === "cards" && flatDecksOffered(c) && c.storage.startsWith("upright")
+    ? "Only flat decks can share one well."
+    : undefined;
 }
 
 /**
@@ -130,6 +146,10 @@ export function changedOptions(c: Component, settings: Settings, grouped = false
   if (c.kind === "cards") {
     if (c.storage !== COMPONENT_DEFAULTS.cards.storage) {
       out.add("storage");
+    }
+    // a blocked row has no dot, and a choice that is the default is no news
+    if (flatDecksOffered(c) && c.flatDecks === "dividers" && flatDecksBlock(c) === undefined) {
+      out.add("flatDecks");
     }
     if (c.thickness.mode === "measured" || (c.thickness.scale ?? 1) !== 1) {
       out.add("thickness");

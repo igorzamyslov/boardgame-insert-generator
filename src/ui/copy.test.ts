@@ -36,7 +36,8 @@ import { COPY_RULINGS, DOWNLOAD_STATES } from "../screens/copy-rulings";
  *   named in DESIGN §2 Words). "Keep this version": the project menu's choice after another tab
  *   changed the insert (Main's board; it has nothing to do with pins). "keeps the top layer from
  *   sliding" and "Keeps everything snug": the hints of Settings' board, where "keeps" is the plain
- *   verb (DESIGN §7).
+ *   verb (DESIGN §7). "Turned trays keep their direction when the plan updates": the rules note's
+ *   sentence about turns (DESIGN §7), where "keep" is the plain verb too, for that sentence only.
  * - "data-part": an attribute name inside an SVG string, not text.
  * - "part"/"parts" is the download list's word, so it is allowed (PART_FILES) only in the three
  *   files that write the download list (ExportPanel.tsx), the reason it can be empty
@@ -195,7 +196,7 @@ const NOT_WORDS =
 
 /** Legitimate uses, removed from the text before NOT_WORDS looks at it. */
 const ALLOWED =
-  /\b(?:Lock size|Unlock size|Size unlocked on|size[ -]locked|size locks?|Keep searching|Keep space free|Keep this version|keeps the top layer from sliding|Keeps everything snug|Part of it|data-part)\b/gi;
+  /\b(?:Lock size|Unlock size|Size unlocked on|size[ -]locked|size locks?|Keep searching|Keep space free|Keep this version|keeps the top layer from sliding|Keeps everything snug|Turned trays keep their direction when the plan updates|Part of it|data-part)\b/gi;
 
 /** Files that write the download list, why a part could not be exported, and part names. */
 const PART_FILES: readonly RegExp[] = [

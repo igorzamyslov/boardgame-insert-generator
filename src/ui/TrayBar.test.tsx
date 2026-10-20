@@ -304,6 +304,28 @@ describe("TrayBar", () => {
     expect(screen.queryByText("Pinned")).toBeNull();
   });
 
+  it("says Turned for a tray that was turned and not pinned, and Pin still reads Pin", () => {
+    const base = planned([tray()]);
+    const turned = turnTray(base, tray());
+    expect(turned.locks).toEqual([{ kind: "turn", trayKey: KEY, rotated: true }]);
+    bar({ project: turned });
+    expect(screen.getByText("Turned")).toBeTruthy();
+    expect(screen.queryByText("Pinned, turned")).toBeNull();
+    expect(screen.queryByText("Pinned")).toBeNull();
+    expect(button("Pin this tray")).toBeTruthy();
+    expect(button("Pin this tray").getAttribute("data-on")).toBeNull();
+  });
+
+  it("says Pinned, not Turned, for a pin that is not turned, even with a turn lock under it", () => {
+    const locks: Lock[] = [
+      { kind: "position", trayKey: KEY, path: "0", rotated: false },
+      { kind: "turn", trayKey: KEY, rotated: false },
+    ];
+    bar({ project: planned([tray()], locks) });
+    expect(screen.getByText("Pinned")).toBeTruthy();
+    expect(screen.queryByText("Turned")).toBeNull();
+  });
+
   it("says what Pin and Turn hold: a tray alone, or the stack it is in, with how many trays", () => {
     const low = tray({ key: "fxcrd002:p0:1", path: "10", level: 0 });
     const mid = tray({ key: "fxcrd002:p0:2", path: "10", level: 1, z: 20 });
