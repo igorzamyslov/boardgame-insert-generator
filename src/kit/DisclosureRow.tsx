@@ -81,7 +81,9 @@ export function DisclosureRow({
         ) : null}
       </span>
       <span class="k-drow__meta" data-changed={hasChanged ? "" : undefined}>
-        <span class="k-drow__metatext">{hasChanged ? `${changed} changed` : meta}</span>
+        <span class="k-drow__metatext" title={meta}>
+          {hasChanged ? `${changed} changed` : meta}
+        </span>
         {blocked ? null : (
           <span class="k-drow__chevron" data-open={open ? "" : undefined} aria-hidden="true">
             <Icon name="chevron-right" size={plain ? 16 : 14} />

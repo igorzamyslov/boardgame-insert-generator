@@ -87,7 +87,7 @@ export interface WhatsInsideProps {
   groupActions?: GroupEditActions;
   /** What an item's editor does to the project's groups (Copies, the Group row). */
   itemActions?: ItemGroupActions;
-  /** Every pin and size lock comes off, in one undo step. */
+  /** Every rule comes off (pins, stack locks, size locks, turn locks), in one undo step. */
   onClearChoices: () => void;
   onAdd: (kind: ComponentKind) => void;
   /** Add's Group tile: an empty group, its header focused. */

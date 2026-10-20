@@ -40,7 +40,7 @@ interface ListProps {
   /** A "Turned" chip's ×: these trays may turn as the plan likes. */
   onFreeTurn?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
-  /** Every pin and size lock comes off, in one undo step. */
+  /** Every rule comes off (pins, stack locks, size locks, turn locks), in one undo step. */
   onClearChoices: () => void;
 }
 
