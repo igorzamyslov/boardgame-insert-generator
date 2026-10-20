@@ -1,7 +1,7 @@
 import { cutoutSides } from "./common";
 import { MAX_SPLITS } from "./constants";
 import type { CompartmentReq } from "./types";
-import { sum } from "./units";
+import { ceilU, maxOf, sum } from "./units";
 
 /**
  * rows2: where the ordered compartments are cut into a front run and a back run (groups spec
@@ -24,6 +24,33 @@ export function rows2Break(compartments: readonly CompartmentReq[]): number {
     }
   }
   return best;
+}
+
+/**
+ * columns: where the ordered compartments start a new column (group-tray-fill spec §3 (b)), as the
+ * indices of each column's first compartment after the first column, ascending. The limit is the
+ * deepest compartment's minD: each compartment stacks front to back in the current column, a
+ * `divider` (mm) after the one before it, while the column stays within the limit, else it starts
+ * the next column to the right. Greedy and in order, as rows2Break is: member order stays the only
+ * control, nothing is moved. Compared in whole 0.01 mm units, as the layout is built.
+ */
+export function columnBreaks(compartments: readonly CompartmentReq[], divider: number): number[] {
+  const limit = maxOf(compartments.map((c) => ceilU(c.minD)));
+  const gap = ceilU(divider);
+  const breaks: number[] = [];
+  let depth = 0;
+  compartments.forEach((c, i) => {
+    const d = ceilU(c.minD);
+    if (i > 0 && depth + gap + d <= limit) {
+      depth += gap + d;
+      return;
+    }
+    if (i > 0) {
+      breaks.push(i);
+    }
+    depth = d;
+  });
+  return breaks;
 }
 
 /**

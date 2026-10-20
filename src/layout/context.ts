@@ -2,8 +2,7 @@ import { MIN_FEATURE_MM, chamferMinimums, effective, topPlane } from "../model/s
 import { bottomMinimums } from "../model/lip";
 import type { Settings } from "../model/types";
 import { minOuter, outerCutSides, wallFor, type OuterCutSides } from "../sizing";
-import { growthCapU, partGrowthCapU } from "../sizing/growth";
-import { rowsOf } from "../sizing/outer";
+import { growthCapU, partGrowthCapOf } from "../sizing/growth";
 import { MIN_GRIP, ONE_WALL_MAX_MM, UPPER_TRAY_MIN_ABOVE_LIP } from "../sizing/constants";
 import type { OuterSize, RealizeOptions, TrayPartReq, TrayRequirement } from "../sizing/types";
 import { fitsBed, type Bed } from "./bed";
@@ -146,10 +145,7 @@ export function partId(ref: PartRef): number {
  * absorb is what realizeTray then does.
  */
 function growth(part: TrayPartReq, axis: "w" | "d"): U {
-  return Math.min(
-    INF_U,
-    partGrowthCapU(rowsOf(part.arrangement, part.compartments, part.rowBreak), axis),
-  );
+  return Math.min(INF_U, partGrowthCapOf(part, axis));
 }
 
 /** The most height slack the part's compartments that grow deeper can take: the largest of their caps. */

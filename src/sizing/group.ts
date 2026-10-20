@@ -236,7 +236,7 @@ function sizeBuckets(
     const first = members[0];
     const copies = first === undefined ? 1 : copiesOf({ groups }, first.c);
     const access = group?.access ?? first?.c.access ?? "setup";
-    const requirement = requirementOf(key, usable, copies, access);
+    const requirement = requirementOf(key, usable, copies, access, settings);
     if (requirement !== null) {
       sized.push({ requirement, usable, copies, access, group });
     }
@@ -250,6 +250,7 @@ function requirementOf(
   usable: readonly Usable[],
   copies: number,
   access: Access,
+  settings: Settings,
 ): TrayRequirement | null {
   if (usable.length === 0) {
     return null;
@@ -258,6 +259,7 @@ function requirementOf(
     key,
     options: combineOptions(usable.map((u) => u.options)),
     copies,
+    divider: settings.divider,
   });
   // Defensive: options without compartments have no variants, and a requirement needs at least 1.
   if (variants.length === 0) {
@@ -388,7 +390,13 @@ function blockedByOrder(
     if (u.binned || !errors.some((e) => e.componentIds.includes(u.c.id))) {
       return false;
     }
-    const first = requirementOf(key, [u, ...usable.filter((o) => o !== u)], copies, access);
+    const first = requirementOf(
+      key,
+      [u, ...usable.filter((o) => o !== u)],
+      copies,
+      access,
+      settings,
+    );
     return (
       first !== null &&
       first.variants.some((v) => {
@@ -485,7 +493,7 @@ function settle(sized: Sized, settings: Settings, notices: Notice[]): TrayRequir
     if (!changed) {
       break;
     }
-    requirement = requirementOf(key, usable, copies, access);
+    requirement = requirementOf(key, usable, copies, access, settings);
   }
   if (last !== undefined) {
     notices.push(noFingerSlot(last, key, usable, group));

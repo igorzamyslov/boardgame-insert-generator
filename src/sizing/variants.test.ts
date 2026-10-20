@@ -20,6 +20,11 @@ function req(contents: string, minW: number): CompartmentReq {
   };
 }
 
+/** A compartment `minD` deep (minW 10), for the columns arrangement. */
+function deep(contents: string, minD: number): CompartmentReq {
+  return { ...req(contents, 10), minD };
+}
+
 function opt(id: string, blocks: number): StorageOption {
   return { id, blocks: Array.from({ length: blocks }, (_, i) => [req(`${id}${i}`, 10)]) };
 }
@@ -175,10 +180,84 @@ describe("buildVariants", () => {
     expect(own.w).toBeLessThan(halved.w);
   });
 
-  it("returns at most 8 variants per storage option, best first", () => {
+  it("offers columns when a column stacks two or more, ranked after rows2, and records the breaks", () => {
+    // The kit's depths: [66.5] [25 | 25] [25 | 31] under a 1.2 mm divider.
+    const blocks = [
+      [deep("deck", 66.5)],
+      [deep("wood", 25), deep("stone", 25), deep("grain", 25)],
+      [deep("hero", 31)],
+    ];
+    const variants = buildVariants({
+      key: "k",
+      options: [{ id: "A", blocks }],
+      copies: 2,
+      divider: 1.2,
+    });
+    // rows2 and columns split in three, and rows2 in two, leave a tray of one well: none.
+    expect(variants.map((v) => v.id)).toEqual([
+      "A|strip|split1",
+      "A|strip|split2",
+      "A|rows2|split1",
+      "A|strip|split3",
+      "A|columns|split1",
+    ]);
+    const columns = at(
+      variants.filter((v) => v.id === "A|columns|split1"),
+      0,
+    );
+    for (const part of columns.parts) {
+      expect(part.arrangement).toBe("columns");
+      expect(part.compartments.map((c) => c.contents)).toEqual([
+        "deck",
+        "wood",
+        "stone",
+        "grain",
+        "hero",
+      ]);
+      expect(part.columnBreaks).toEqual([1, 3]);
+      expect(
+        rowsOf(part.arrangement, part.compartments, part.rowBreak, part.columnBreaks).map(
+          (c) => c.length,
+        ),
+      ).toEqual([1, 2, 2]);
+    }
+    // Split in two, a tray whose columns stack nothing is a strip; the variant is columns by the
+    // other tray.
+    const wide = (contents: string): CompartmentReq => ({ ...deep(contents, 10), minW: 50 });
+    const mixed = [
+      deep("x", 30),
+      deep("y", 10),
+      deep("z", 10),
+      wide("a"),
+      wide("b"),
+      wide("c"),
+      wide("d"),
+      wide("e"),
+    ];
+    const split = at(
+      buildVariants({
+        key: "k",
+        options: [{ id: "A", blocks: mixed.map((c) => [c]) }],
+        copies: 1,
+        divider: 1.2,
+      }).filter((v) => v.id === "A|columns|split2"),
+      0,
+    );
+    expect(split.parts.map((p) => p.arrangement)).toEqual(["columns", "strip"]);
+    expect(at(split.parts, 0).columnBreaks).toEqual([1, 3]);
+  });
+
+  it("offers no columns where none stacks: it would be the strip", () => {
+    const ids = buildVariants({ key: "k", options: [opt("A", 4)], copies: 1, divider: 1.2 }).map(
+      (v) => v.id,
+    );
+    expect(ids.some((id) => id.includes("|columns|"))).toBe(false);
+  });
+
+  it("returns at most 9 variants per storage option, best first", () => {
     const options = ["A", "B", "C", "D", "E", "F", "G", "H", "I"].map((id) => opt(id, 3));
     const ids = buildVariants({ key: "k", options, copies: 4 }).map((v) => v.id);
-    expect(ids.length).toBeLessThanOrEqual(8 * options.length);
+    expect(ids.length).toBeLessThanOrEqual(9 * options.length);
     expect(ids.slice(0, 9)).toEqual([
       "A|strip|split1",
       "B|strip|split1",

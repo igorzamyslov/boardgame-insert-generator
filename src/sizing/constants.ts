@@ -58,8 +58,12 @@ export const RISER_SUFFIX = ":riser";
 export const ONE_WALL_MAX_MM = 20;
 /** Corner relief diameter in tile and custom wells (spec §6.1). */
 export const CORNER_RELIEF_D = 3;
-/** At most this many variants per storage option of a requirement (spec §7.1). */
-export const MAX_VARIANTS = 8;
+/**
+ * At most this many variants per storage option of a requirement (spec §7.1): every arrangement
+ * (strip, rows2, columns) × every split (MAX_SPLITS). It was 8 (2 × 3 and room to spare) until
+ * group-tray-fill spec §3 (b) added columns.
+ */
+export const MAX_VARIANTS = 9;
 /** Splits across at most this many trays (spec §7.1). */
 export const MAX_SPLITS = 3;
 /** A measured card thickness below this (mm per card) is implausible; the preset is used. */

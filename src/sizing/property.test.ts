@@ -13,6 +13,7 @@ import type {
 import { requirementKeyOf } from "../model/groups";
 import { validateComponent } from "../model/validate";
 import { MIN_SPACER } from "./constants";
+import { rowsOf } from "./outer";
 import { hasGrip, minOuter, needsGrip, realizeTray, rotateRealized, size } from "./index";
 import { assertTrayInvariants, at } from "./test-helpers";
 import type { OuterSize, RealizedTray, RealizeOptions, TrayPartReq } from "./types";
@@ -351,6 +352,28 @@ function checkAgainstPart(part: TrayPartReq, outer: OuterSize, r: RealizedTray):
   }
   spacersInsideCompartments(r);
   expect(hasGrip(r.compartments, outer.h) || !needsGrip(part)).toBe(true);
+  if (part.arrangement === "columns") {
+    columnMajor(part, r);
+  }
+}
+
+/**
+ * A columns tray keeps its order column-major (group-tray-fill spec §3 (b)): each column's wells
+ * front to back, and each column wholly right of the one before it.
+ */
+function columnMajor(part: TrayPartReq, r: RealizedTray): void {
+  const columns = rowsOf(part.arrangement, r.compartments, part.rowBreak, part.columnBreaks);
+  expect(columns.flat()).toHaveLength(part.compartments.length);
+  let right = Number.NEGATIVE_INFINITY;
+  for (const column of columns) {
+    const left = Math.min(...column.map((c) => c.x));
+    expect(left).toBeGreaterThan(right - EPS);
+    right = Math.max(...column.map((c) => c.x + c.w));
+    column.slice(1).forEach((c, i) => {
+      const before = at(column, i);
+      expect(c.y).toBeGreaterThan(before.y + before.d - EPS);
+    });
+  }
 }
 
 /** Realizes `part` in `outer`, checks it, then checks the same tray rotated by 90°. */
@@ -407,7 +430,7 @@ function allParts(found: Case, s: Settings): TrayPartReq[] {
 
 describe("sizing properties", () => {
   it(
-    "returns 1–8 uniquely named variants per storage option with non-empty parts",
+    "returns 1–9 uniquely named variants per storage option with non-empty parts",
     { timeout: 60_000 },
     () => {
       fc.assert(
@@ -421,7 +444,7 @@ describe("sizing properties", () => {
               perOption.set(option, (perOption.get(option) ?? 0) + 1);
             }
             for (const n of perOption.values()) {
-              expect(n).toBeLessThanOrEqual(8);
+              expect(n).toBeLessThanOrEqual(9);
             }
             expect(new Set(req.variants.map((v) => v.id)).size).toBe(req.variants.length);
             for (const v of req.variants) {
@@ -463,6 +486,15 @@ describe("sizing properties", () => {
                   const front = part.rowBreak ?? 0;
                   expect(front).toBeGreaterThanOrEqual(1);
                   expect(front).toBeLessThanOrEqual(part.compartments.length - 1);
+                }
+                if (part.arrangement === "columns") {
+                  // Ascending in 1..n-1, and some column stacks two (else it is the strip).
+                  const breaks = part.columnBreaks ?? [];
+                  const bounds = [0, ...breaks, part.compartments.length];
+                  bounds.slice(1).forEach((end, k) => {
+                    expect(end).toBeGreaterThan(bounds[k] ?? 0);
+                  });
+                  expect(bounds.slice(1).some((end, k) => end - (bounds[k] ?? 0) >= 2)).toBe(true);
                 }
               });
               // One copy's compartments, part after part, take the members in order.
@@ -541,6 +573,33 @@ describe("sizing properties", () => {
           },
         ),
         { numRuns: 150, seed: SEED },
+      );
+      expect(planned).toBeGreaterThan(0);
+    },
+  );
+
+  it(
+    "realizes every columns variant at its minimum and with slack, in column order",
+    { timeout: 120_000 },
+    () => {
+      let planned = 0;
+      fc.assert(
+        fc.property(
+          componentsArb,
+          settingsArb,
+          fc.record({ w: mm(0, 40), d: mm(0, 40), h: mm(0, 20) }),
+          fc.constantFrom(...OPTS),
+          (found, s, extra, opts) => {
+            const parts = allParts(found, s).filter((p) => p.arrangement === "columns");
+            for (const part of parts) {
+              const m = minOuter(part, s, opts);
+              checkTray(part, m, s, opts);
+              checkTray(part, { w: m.w + extra.w, d: m.d + extra.d, h: m.h + extra.h }, s, opts);
+              planned += 1;
+            }
+          },
+        ),
+        { numRuns: 200, seed: SEED },
       );
       expect(planned).toBeGreaterThan(0);
     },

@@ -282,7 +282,7 @@ The "no finger slot" notice says `the group "<name>"`, not the key.
   (the existing `p<n>` tag, so 0.5.x per-player keys and pins still match). With C = 1 the tag is
   `p0`, as now.
 - Each copy may be split into 1–3 parts (`MAX_SPLITS`), the same way in every copy:
-  strip/rows2 × split1/2/3, at most 6 variants per storage option, still capped at
+  strip/rows2 × split1/2/3 (and columns since the group-tray-fill spec §3 (b): at most 9), at most 6 variants per storage option, still capped at
   `MAX_VARIANTS` per storage option (since 0.5.3 the cap is per option, not per requirement). Today a per-player copy can never split, so a kit too big for the bed has no
   variant at all; now it splits when it must.
 - Compartment contents no longer get " (P1)" suffixes: the tray name carries the copy (§6.6).
@@ -355,6 +355,12 @@ members in `memberIds` order):
   the member's path), in the person's words: "Starter deck has no finger cut here. Move it to the
   start of Player kit for one." (§8). The order stays a promise, and the missing cut is said, not
   hidden.
+
+- **columns** (added 2026-10-20, [group-tray-fill spec](2026-10-20-group-tray-fill.md) §3 (b)): a
+  third arrangement. The ordered list is stacked front to back in columns under the deepest
+  compartment's depth, a new column starting where the next one would not fit (`columnBreaks`),
+  the columns side by side left to right. Still no reordering and no free placement; offered only
+  where some column holds two or more.
 
 A member's own Room for more (`growth`) behaves differently in a group: its **Max** on width,
 length or height fills the room its group tray already has and never makes the tray bigger

@@ -7,7 +7,8 @@ import {
   PLATED_RETENTION,
   UNPLATED_RETENTION,
 } from "./constants";
-import type { CompartmentReq } from "./types";
+import { linesOf } from "./outer";
+import type { CompartmentReq, TrayPartReq } from "./types";
 import { ceilU, floorU, fromU, maxOf } from "./units";
 
 /** "No limit" for growth, in units: the layout's INF_U (src/layout/context.ts) is the same. */
@@ -160,4 +161,66 @@ export function partGrowthCapU(rows: readonly CompartmentReq[][], axis: "w" | "d
   const widest = maxOf(minWidths);
   const caps = rows.map((row, r) => rowWidthCapU(row) - (widest - (minWidths[r] ?? 0)));
   return caps.length === 0 ? 0 : Math.max(0, Math.min(...caps));
+}
+
+/** Whether a compartment of a column takes the column's width: it may grow loose in width, or fills it. */
+export function columnWide(c: CompartmentReq): boolean {
+  return (c.elastic.w && c.spacerAxis !== "w") || c.fill?.w === true;
+}
+
+/**
+ * How much wider a column can be made for its contents, in units (0 when nothing in it grows loose
+ * in width; group-tray-fill spec §3 (b)). Its loose compartments all take the column's width, as a
+ * row's elastic ones take its depth (rowDepthCapU), so it grows as far as the least tolerant allows,
+ * counting how much narrower its own minimum is than the column. A deck's spacer never takes width
+ * in a column: the spare beside it stays wall.
+ */
+export function columnWidthCapU(column: readonly CompartmentReq[]): number {
+  const loose = looseInWidth(column);
+  if (loose.length === 0) {
+    return 0;
+  }
+  const width = maxOf(column.map((c) => ceilU(c.minW)));
+  const caps = loose.map((c) => growthCapU(c, "w") - (width - ceilU(c.minW)));
+  return Math.max(0, Math.min(...caps));
+}
+
+/**
+ * How much deeper a column can be made for its contents, in units: its compartments stack front to
+ * back, so what each that grows in depth can take adds, as a row's loose widths do (rowWidthCapU).
+ */
+export function columnDepthCapU(column: readonly CompartmentReq[]): number {
+  return Math.min(
+    UNBOUNDED_U,
+    column.reduce((total, c) => total + growthCapU(c, "d"), 0),
+  );
+}
+
+/**
+ * partGrowthCapU for columns (group-tray-fill spec §3 (b)), turned: the columns stand side by side,
+ * so what each can take in width adds; they share the tray's depth, so it is the least any column
+ * can take, after the room a shallower column already has (by the compartments' minimums; the
+ * dividers are left out as partGrowthCapU leaves them out of a row, which only errs low here).
+ */
+export function columnsGrowthCapU(columns: readonly CompartmentReq[][], axis: "w" | "d"): number {
+  if (axis === "w") {
+    return Math.min(
+      UNBOUNDED_U,
+      columns.reduce((total, column) => total + columnWidthCapU(column), 0),
+    );
+  }
+  const minDepths = columns.map((column) => column.reduce((total, c) => total + ceilU(c.minD), 0));
+  const deepest = maxOf(minDepths);
+  const caps = columns.map(
+    (column, k) => columnDepthCapU(column) - (deepest - (minDepths[k] ?? 0)),
+  );
+  return caps.length === 0 ? 0 : Math.max(0, Math.min(...caps));
+}
+
+/** How much slack the part's tray can give its contents along an axis (partGrowthCapU, columnsGrowthCapU). */
+export function partGrowthCapOf(part: TrayPartReq, axis: "w" | "d"): number {
+  const lines = linesOf(part);
+  return part.arrangement === "columns"
+    ? columnsGrowthCapU(lines, axis)
+    : partGrowthCapU(lines, axis);
 }
