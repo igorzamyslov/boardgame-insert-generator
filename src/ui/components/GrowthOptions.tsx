@@ -4,6 +4,7 @@ import type { SegmentedOption } from "../../kit";
 import type { Component, GrowthAxis, GrowthMode } from "../../model/types";
 import { OFFSET } from "../limits";
 import { Choice, NumField } from "./controls";
+import { useItemGroup } from "./GroupRow";
 import type { EditorProps } from "./types";
 
 type Mode = "off" | "auto" | "amount" | "max";
@@ -33,8 +34,15 @@ export function growthLabel(c: Component, axis: GrowthAxis): string {
  * What "Max" means on `axis`, in one line. The item puts no limit of its own on the axis, so the
  * tray takes what the layout leaves it (`fill.ts`): on the footprint the room beside the other
  * trays, up to the printer's bed; in height (a deck lying flat grows taller) the box's.
+ *
+ * In a group (`groupName`, as the person sees it) Max on a width, length or height means something
+ * else: the item takes the room its group's tray already has and never makes the tray bigger
+ * (group-tray-fill spec §2). The stack axis of a deck or tiles keeps the line above.
  */
-export function growthMaxLine(c: Component, axis: GrowthAxis): string {
+export function growthMaxLine(c: Component, axis: GrowthAxis, groupName?: string): string {
+  if (groupName !== undefined && axis !== "stack") {
+    return `Fills the room left in ${groupName}'s tray. The tray doesn't get bigger.`;
+  }
   const lying = (c.kind === "cards" || c.kind === "tiles") && c.storage === "flat";
   return axis === "h" || (axis === "stack" && lying)
     ? "As tall as the box allows."
@@ -57,6 +65,7 @@ export function GrowthOptions<C extends Component>({
   onChange,
 }: Pick<EditorProps<C>, "component" | "index" | "onChange">) {
   const lying = (c.kind === "cards" || c.kind === "tiles") && c.storage === "flat";
+  const group = useItemGroup();
   return (
     <>
       {growthAxesOf(c).map((axis) => {
@@ -83,7 +92,9 @@ export function GrowthOptions<C extends Component>({
                     }
               }
             />
-            {mode === "max" ? <span class="ed-line">{growthMaxLine(c, axis)}</span> : null}
+            {mode === "max" ? (
+              <span class="ed-line">{growthMaxLine(c, axis, group?.name)}</span>
+            ) : null}
             {typeof mode === "number" ? (
               <NumField
                 id={`${c.id}-growth-${axis}-amount`}

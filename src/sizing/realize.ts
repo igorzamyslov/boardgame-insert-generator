@@ -589,6 +589,19 @@ function layoutAt(
         slack -= take;
       }
     }
+    // Wells filling in width (group Max, spec §2) take what would otherwise go to the walls,
+    // evenly. The row's width was decided without them, so this is slack the tray already has.
+    const filling = row.flatMap((c, i) => (c.fill?.w === true ? [i] : []));
+    if (filling.length > 0 && slack > 0) {
+      const shares = fillCapped(
+        slack,
+        filling.map(() => slack),
+      );
+      filling.forEach((i, k) => {
+        growth[i] = (growth[i] ?? 0) + (shares[k] ?? 0);
+      });
+      slack -= sum(shares);
+    }
     const xExtra = fillCapped(slack, [
       wallAbsorb,
       ...row.slice(1).map(() => dividerAbsorb),
@@ -601,8 +614,11 @@ function layoutAt(
     let x = wall + roomLeft + (xExtra[0] ?? 0) + leftX;
     row.forEach((req, i) => {
       const w = (widths[i] ?? 0) + (growth[i] ?? 0);
-      const d = req.elastic.d ? rowDepth : ceilU(req.minD);
-      const top = req.elastic.d ? rowY : rowY + Math.floor((rowDepth - d) / 2);
+      // A well filling in depth (group Max, spec §2) is as deep as its row from the row's top, as an
+      // elastic one is; the row's depth was decided without it.
+      const deep = req.elastic.d || req.fill?.d === true;
+      const d = deep ? rowDepth : ceilU(req.minD);
+      const top = deep ? rowY : rowY + Math.floor((rowDepth - d) / 2);
       placed.push({
         req,
         alloc: { x, y: top, w, d },
@@ -615,7 +631,14 @@ function layoutAt(
     });
   });
 
-  const items = placed.map((p) => ({ ...p, depth: contentDepth(p.req, p.alloc, H, floor) }));
+  const sized = placed.map((p) => ({ ...p, depth: contentDepth(p.req, p.alloc, H, floor) }));
+  // A well filling in height (group Max, spec §2) goes down to the tray's deepest floor: the least
+  // floorZ of the wells that do not fill. Never shallower than its own content depth. The tray's
+  // height was decided without it, so this is depth the tray already has.
+  const deepest = Math.max(0, ...sized.filter((p) => p.req.fill?.h !== true).map((p) => p.depth));
+  const items = sized.map((p) =>
+    p.req.fill?.h === true ? { ...p, depth: Math.max(p.depth, deepest) } : p,
+  );
   const { byOwner: cuts, placed: cutsPlaced } = wallCutouts(items, {
     trayKey: part.trayKey,
     W,

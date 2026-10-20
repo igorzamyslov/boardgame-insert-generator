@@ -356,6 +356,10 @@ members in `memberIds` order):
   start of Player kit for one." (§8). The order stays a promise, and the missing cut is said, not
   hidden.
 
+A member's own Room for more (`growth`) behaves differently in a group: its **Max** on width,
+length or height fills the room its group tray already has and never makes the tray bigger
+(decided 2026-10-20, [group-tray-fill spec](2026-10-20-group-tray-fill.md) §2).
+
 **Group "Extra room"** (`Group.growth`, w/d/h, the owner's "extra width/length/height growth"): room
 in the tray beyond what its members ask for, for things added later. Width and length become one
 empty well (a `spare` compartment, the kind leftover trays already use) at the end of the strip,

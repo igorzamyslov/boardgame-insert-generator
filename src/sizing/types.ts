@@ -27,6 +27,12 @@ export interface CompartmentReq {
   // How much more (mm) on each elastic axis: absent means as much as there is. Never Infinity, so a
   // requirement survives JSON; `max` is the absence of a cap.
   growth?: { w?: number; d?: number; h?: number };
+  // A group member's axis on Max (group-tray-fill spec §2): the well takes the slack its group tray
+  // already has on that axis and never makes the tray bigger. Such an axis is NOT elastic and has no
+  // cap, so the layout sees no growth room from it and the outer size is as with the axis Off; only
+  // realize (layoutAt) draws the well bigger: d as deep as its row, w with the slack the walls would
+  // take, h down to the tray's deepest floor.
+  fill?: { w?: true; d?: true; h?: true };
   minVolume?: number; // mm³; bulk: w·d·h must stay ≥ this
   maxHRatio?: number; // bulk: h ≤ maxHRatio × min(w, d)
   features: FeatureReq[];

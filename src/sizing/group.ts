@@ -1,3 +1,4 @@
+import { binGrowthOf, growthAxesOf, growthOf } from "../model/defaults";
 import { copiesOf, DEFAULT_GROUP_NAME } from "../model/groups";
 import { POST_MM } from "../model/settings";
 import type { Access, Component, Group, Notice, Settings } from "../model/types";
@@ -9,6 +10,7 @@ import { bulkFallback } from "./fallback";
 import { minOuter } from "./realize";
 import { realizeTray } from "./realize";
 import type {
+  CompartmentReq,
   FeatureReq,
   RealizeOptions,
   TrayPartReq,
@@ -27,6 +29,37 @@ interface Usable {
   index: number;
   options: StorageOption[];
   binned: boolean; // its options are its bulk fallback: loose in scoop bins
+}
+
+/**
+ * `options` of a member of a group with its Max axes made filling (group-tray-fill spec §2): in a
+ * shared tray "as much as fits" can only mean "as much as this tray has", so a compartment's axis on
+ * Max takes the slack the group tray already has and never asks it to grow. The axis stops being
+ * elastic (the layout sees no room from it: the tray is the size it would be with the axis Off) and
+ * is marked `fill` for realize. `binned`: the options are the bulk fallback, whose axes are the
+ * bin's own (binGrowthOf). Cards and tiles keep today's Max (their growth axis is the stack).
+ */
+function filling(c: Component, options: StorageOption[], binned: boolean): StorageOption[] {
+  const axes = (["w", "d", "h"] as const).filter(
+    (axis) =>
+      (binned || growthAxesOf(c).includes(axis)) &&
+      (binned ? binGrowthOf(c, axis) : growthOf(c, axis)) === "max",
+  );
+  if (axes.length === 0) {
+    return options;
+  }
+  const fill = (req: CompartmentReq): CompartmentReq => {
+    const on = axes.filter((axis) => req.elastic[axis]);
+    if (on.length === 0) {
+      return req;
+    }
+    return {
+      ...req,
+      elastic: { ...req.elastic, ...Object.fromEntries(on.map((axis) => [axis, false])) },
+      fill: { ...req.fill, ...Object.fromEntries(on.map((axis) => [axis, true])) },
+    };
+  };
+  return options.map((o) => ({ ...o, blocks: o.blocks.map((block) => block.map(fill)) }));
 }
 
 /** Every option layout may build a part at: unlipped or lipped, on the ground or stacked. */
@@ -196,7 +229,8 @@ function sizeBuckets(
       const result = componentOptions(c, settings, index);
       notices.push(...result.notices);
       if (result.options.length > 0) {
-        usable.push({ c, index, options: result.options, binned: false });
+        const options = group ? filling(c, result.options, false) : result.options;
+        usable.push({ c, index, options, binned: false });
       }
     }
     const first = members[0];
@@ -440,7 +474,11 @@ function settle(sized: Sized, settings: Settings, notices: Notice[]): TrayRequir
         return u;
       }
       changed = true;
-      const fallen: Usable = { ...u, options, binned: true };
+      const fallen: Usable = {
+        ...u,
+        options: group ? filling(u.c, options, true) : options,
+        binned: true,
+      };
       binned.push({ u: fallen, error });
       return fallen;
     });

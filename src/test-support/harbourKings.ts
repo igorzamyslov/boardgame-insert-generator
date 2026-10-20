@@ -215,7 +215,9 @@ export function harbourKingsKitLoose(): Project {
         "Resources",
         "often",
         ["Wood", "Stone", "Grain"].map((name) => ({ name, count: 10, w: 16, d: 16, h: 2 })),
-        { growth: { w: "off", d: "off", h: "off" } },
+        // Max: grouped in the Player kit it fills the room its tray already has (group-tray-fill
+        // spec §2) and never makes the tray bigger; loose it would take all the room there is.
+        { growth: { w: "max", d: "max", h: "max" } },
       ),
       {
         id: "kithero1",
