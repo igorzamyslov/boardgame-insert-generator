@@ -111,6 +111,10 @@ function OrderList({
       return;
     }
     const to = way === "up" ? i - 1 : i + 1;
+    // nothing to move at an end: no place to go, nothing to say
+    if (to < 0 || to >= members.length) {
+      return;
+    }
     pressed.current = { id: m.id, way };
     onMove(m.id, to);
     // after the move, who stands before it: the item it passed (down), or the one before that (up)

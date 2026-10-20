@@ -55,10 +55,11 @@ export interface PlanViewProps {
    */
   editedId?: string | null;
   /**
-   * A group's editor (G2): the ids of its items. Every tray that holds one of them is lifted, so a
-   * copy cut in two lifts both its trays. Overrides `editedId`.
+   * A group's editor (G2): the keys of its trays (`traysOfGroup`, by the key's stem, as the
+   * sentence and the Layer switch count them). Exactly those are lifted, so a copy cut in two lifts
+   * both its trays, and a stale plan keyed by an item lifts none of the group's. Overrides `editedId`.
    */
-  editedIds?: readonly string[];
+  editedKeys?: readonly string[];
   /** Index of the layer shown (0 = the bottom layer); the app owns it. Clamped to the layers there are. */
   level: number;
   onLevelChange: (level: number) => void;
@@ -254,12 +255,8 @@ export function PlanView(props: PlanViewProps) {
   const railId = hoveredComponent.value;
   // A group's card pointed at names every member: all the group's trays light.
   const railMembers = hoveredMembers.value;
-  const edited: readonly string[] | null =
-    props.editedIds !== undefined
-      ? props.editedIds
-      : props.editedId !== undefined && props.editedId !== null
-        ? [props.editedId]
-        : null;
+  const editedKeys = props.editedKeys === undefined ? null : new Set(props.editedKeys);
+  const editedId = props.editedId ?? null;
   const withSharers = (ids: readonly string[]): Set<string> =>
     new Set(ids.flatMap((id) => [...sharingTrayWith(id, trays, components)]));
   const litWith = (key: string | null): Set<string> | null => {
@@ -267,13 +264,17 @@ export function PlanView(props: PlanViewProps) {
     return ids === null ? null : withSharers(ids);
   };
   const active: Set<string> | null =
-    edited !== null
-      ? new Set(edited)
-      : railId !== null || railMembers !== null
-        ? withSharers([...(railId === null ? [] : [railId]), ...(railMembers ?? [])])
-        : (litWith(hoverKey) ?? litWith(focusKey) ?? litWith(selectedKey));
+    editedKeys !== null
+      ? new Set<string>()
+      : editedId !== null
+        ? new Set([editedId])
+        : railId !== null || railMembers !== null
+          ? withSharers([...(railId === null ? [] : [railId]), ...(railMembers ?? [])])
+          : (litWith(hoverKey) ?? litWith(focusKey) ?? litWith(selectedKey));
   const isActive = (key: string): boolean =>
-    active !== null && (identitiesOf(key) ?? []).some((id) => active.has(id));
+    editedKeys !== null
+      ? editedKeys.has(key)
+      : active !== null && (identitiesOf(key) ?? []).some((id) => active.has(id));
   const lightsSome =
     !readOnly && !searching && active !== null && shown.some((t) => isActive(t.key));
 
@@ -534,7 +535,9 @@ export function PlanView(props: PlanViewProps) {
               const held = isActive(t.key);
               const lit = lightsSome && held;
               const lifted =
-                edited !== null && (identitiesOf(t.key) ?? []).some((id) => edited.includes(id));
+                editedKeys !== null
+                  ? editedKeys.has(t.key)
+                  : editedId !== null && (identitiesOf(t.key) ?? []).includes(editedId);
               const misfit = readOnly && t.key === misfitKey;
               const dimmed = readOnly
                 ? props.dim === undefined || misfit

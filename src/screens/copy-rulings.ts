@@ -43,6 +43,13 @@ const SPLIT = "A split copy's stage sentence adds";
 // 0.7.0 Task 11: the group editor (GroupEdit) and its Remove group… question and note
 const GROUP_REMOVE = "Remove group… asks in place";
 const GROUP_REMOVED = "A group's removal is one note";
+const GROUP_ORDER = "The order of a group's items is set with";
+/** What a removal's lock notes can say, as sentences: pins, a size lock, or both (the actions' own words). */
+const GROUP_LOCK_NOTES: readonly string[] = (() => {
+  const pins = ["1 pin removed.", "{n} pins removed."];
+  const sizes = ["Size unlocked on 1 tray.", "Size unlocked on {n} trays."];
+  return [...pins, ...sizes, ...pins.flatMap((p) => sizes.map((z) => `${p} ${z}`))];
+})();
 /** The group editor's states (copy.board.test.tsx has a case for each; `kit-removed` is the copy test's own). */
 const GROUP_EDITS = [
   "kit-edit",
@@ -693,11 +700,19 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["kit-removed"],
     ruling: GROUP_REMOVED,
   },
-  {
-    text: "{name} removed. Its items are back in the list. {n}.",
-    states: ["kit-removed"],
+  // after it, what the group's trays' rules lost, each note a sentence (spec §8): pins, a size lock, or both
+  ...GROUP_LOCK_NOTES.map((notes) => ({
+    text: `{name} removed. Its items are back in the list. ${notes}`,
+    states: ["kit-removed"] as readonly string[],
     ruling: GROUP_REMOVED,
-  },
+  })),
+  // the group editor's order buttons: their titles and what a move says aloud, by names (spec §7.9, §8)
+  ...[
+    "{name} is already first.",
+    "{name} is already last.",
+    "{name} is now after {name}.",
+    "{name} is now first.",
+  ].map((text) => ({ text, states: GROUP_EDITS, ruling: GROUP_ORDER })),
   { text: "Undo removal", states: ["kit-removed"], ruling: GROUP_REMOVED },
   // the rail's handle (every screen with a rail, beside the stage)
   { text: "Resize the list", states: "all", ruling: RESIZE },

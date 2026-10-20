@@ -180,6 +180,12 @@ describe("GroupEditor (the rail's panel)", () => {
     );
   });
 
+  it("draws a blocked chevron in the pale ink of G2 (--line-strong), not the text's --ink-off", () => {
+    expect(editorCss).toMatch(
+      /\.ed-order \.k-iconbtn\[aria-disabled="true"\]\s*\{[^}]*--k-fg:\s*var\(--line-strong\)/,
+    );
+  });
+
   it("tells two items of one name apart in the buttons and the words", () => {
     const { onAnnounce } = editor({
       members: [member("a", "Cards"), { ...member("b", "Cards"), who: "Cards (item 2)" }],

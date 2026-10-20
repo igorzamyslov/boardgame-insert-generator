@@ -204,7 +204,7 @@ export interface EditorStageProps {
   /** The plan, as the workspace draws it; null while there is none (the placeholder takes its place). */
   plan: Omit<
     PlanViewProps,
-    "bar" | "editedId" | "editedIds" | "level" | "onLevelChange" | "selectedKey" | "onSelect"
+    "bar" | "editedId" | "editedKeys" | "level" | "onLevelChange" | "selectedKey" | "onSelect"
   > | null;
   /** What stands where the plan would be while there is none. */
   placeholder?: ComponentChildren;
@@ -265,10 +265,11 @@ function targetOf(
 ) {
   const group = p.groupId === undefined ? undefined : groupById({ groups: p.groups }, p.groupId);
   if (group !== undefined) {
+    const mine = traysOfGroup({ components: p.components, groups: p.groups }, group.id, trays);
     return {
       id: group.id,
-      mine: traysOfGroup({ components: p.components, groups: p.groups }, group.id, trays),
-      edited: { editedIds: group.memberIds },
+      mine,
+      edited: { editedKeys: mine.map((t) => t.key) },
       sentence: (mine: readonly TraySpec[], tag?: "h1" | "p", hidden?: boolean) => (
         <GroupSentence group={group} trays={mine} tag={tag} hidden={hidden} />
       ),

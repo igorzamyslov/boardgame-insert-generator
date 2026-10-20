@@ -373,8 +373,9 @@
   --k-fg: var(--muted-strong);
 }
 
+/* G2's blocked chevron is a pale grey (#B4AFA3), the nearest token --line-strong: an inactive icon-only control is exempt from 1.4.11, and the title and aria-describedby carry the reason (DESIGN §7). */
 .ed-order .k-iconbtn[aria-disabled="true"] {
-  --k-fg: var(--ink-off);
+  --k-fg: var(--line-strong);
 }
 
 /* An empty group's dashed line in the editor takes the panel's width, as G3's does in the card. */

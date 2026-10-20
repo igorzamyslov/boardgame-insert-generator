@@ -58,6 +58,20 @@ describe("opening the group's editor", () => {
     expect(document.activeElement?.textContent).toBe("Player kit");
   });
 
+  it("lifts the trays its sentence counts, by the key's stem: a stale plan's item-keyed tray is not the group's", () => {
+    const base = kit();
+    const trays = (base.layout?.trays ?? []).map((t) =>
+      t.key === "plrkit01:p3:0" ? { ...t, key: "kitdeck1:p3:0" } : t,
+    );
+    renderApp({ project: { ...base, layout: base.layout && { ...base.layout, trays } } });
+    openFromCard();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Player kit, 3 trays.");
+    expect(document.querySelectorAll(".plan-tile.is-lifted[data-key]")).toHaveLength(3);
+    expect(document.querySelector('.plan-tile[data-key="kitdeck1:p3:0"]')?.className).not.toMatch(
+      /is-lifted/,
+    );
+  });
+
   it("opens from the tray bar's Edit on one of its trays", () => {
     renderApp({ project: kit() });
     const tile = document.querySelector('.plan-tile[data-key$=":p1:0"]') as HTMLElement;
