@@ -209,6 +209,16 @@ const DRAWINGS = {
     stroke: 1.8,
     shapes: <rect x="4" y="4" width="16" height="16" rx="2.5" stroke-dasharray="3 2.5" />,
   },
+  // Not a kind: a group's glyph (G1, G3): a tray with two walls
+  group: {
+    stroke: 1.8,
+    shapes: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2.5" />
+        <path d="M9 5v14M15 5v14" />
+      </>
+    ),
+  },
 } satisfies Record<string, Drawing>;
 
 export type IconName = keyof typeof DRAWINGS;
@@ -242,4 +252,26 @@ export function Icon({ name, size = 18 }: IconProps) {
 /** The icon of a component kind. */
 export function KindGlyph({ kind, size = 18 }: { kind: ComponentKind; size?: number }) {
   return <Icon name={kind} size={size} />;
+}
+
+/** A group's glyph: a tray with two walls, in `currentColor` (a group is not a kind of item). */
+export function GroupGlyph({ size = 18 }: { size?: number }) {
+  return <Icon name="group" size={size} />;
+}
+
+/**
+ * The drag grip (G1): six dots, 3 across two columns, in `currentColor`. A pointer convenience, so
+ * it is hidden from assistive technology (the keyboard's ways are the editors' Move buttons).
+ */
+export function GripIcon() {
+  return (
+    <svg aria-hidden="true" width="12" height="16" viewBox="0 0 12 16" fill="currentColor">
+      <circle cx="3" cy="3" r="1.5" />
+      <circle cx="9" cy="3" r="1.5" />
+      <circle cx="3" cy="8" r="1.5" />
+      <circle cx="9" cy="8" r="1.5" />
+      <circle cx="3" cy="13" r="1.5" />
+      <circle cx="9" cy="13" r="1.5" />
+    </svg>
+  );
 }

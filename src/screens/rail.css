@@ -73,6 +73,7 @@
 
 /* ---- The heading and the Add pill ---- */
 .rail-head {
+  position: relative; /* the picker is placed against the heading's row (G3) */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -93,7 +94,7 @@
   font-size: 15px;
 }
 
-/* The picker opens under the pill, right-aligned to it; on the phone's sheet it opens over it. */
+/* On the phone's sheet the picker opens over the pill, right-aligned to it. */
 .kp {
   position: relative;
 }
@@ -112,6 +113,41 @@
 
 .kp__panel > .k-menu {
   gap: var(--s-4);
+}
+
+/*
+ * The rail's picker (G3): six tiles in two columns of three, in a 400 px panel under the heading,
+ * from the rail's left edge. The rail is 300 px at its narrowest, so the panel reaches over the
+ * stage as the board draws it; the rail's clipping gives way while it is open.
+ */
+.rail-head > .kp {
+  position: static;
+}
+
+.rail-head .kp__panel {
+  top: calc(100% + var(--s-8)); /* G3: 52 px under a 44 px pill's top */
+  right: auto;
+  left: 0;
+  z-index: 6; /* over the resize handle (5), which lies on the stage's side of the rail's edge */
+}
+
+.rail-head .kp__panel > .k-menu {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-8);
+  max-width: calc(100vw - 2 * var(--rail-pad));
+  padding: var(--s-8);
+}
+
+/* The rail is a desktop's: on a phone the picker is the sheet's, a column at the menu's width. */
+@media (width >= 760px) {
+  .rail-head .kp__panel > .k-menu {
+    width: 400px; /* G3 */
+  }
+}
+
+.ws-rail:has(.kp__panel) {
+  overflow: visible;
 }
 
 /* ---- The list: one row a component, a chip beside it for each rule ---- */
@@ -157,6 +193,91 @@
 .rail-chips > li {
   margin: 0;
   padding: 0;
+}
+
+/*
+ * A group's card (G1, G3): a frame in the box card's ground, its header, and the members at full
+ * size, each with a grip. The list's 4 px between rows keeps the card apart from its neighbours.
+ */
+.gc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  background: var(--row);
+}
+
+/* The header is a row of its own look: a neutral tile and, pressed or lit, the strong edge on the sheet ground (G1). */
+.gc-head[aria-pressed="true"],
+.gc-head[data-lit="true"] {
+  --k-bg: var(--sheet);
+
+  border-color: var(--muted-strong);
+}
+
+/* The name and "×4" on one baseline; the line under them is the row's own. */
+.gc-head__title {
+  display: flex;
+  gap: var(--s-6);
+  align-items: baseline;
+  min-width: 0;
+}
+
+.gc-head__copies {
+  flex: none;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.gc-members {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gc-member {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.gc-member > .k-rowwrap {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* The grip is drawn for the pointer: a 24 × 44 slot at the row's left, the row's tile 2 px from it (G1). */
+.gc-grip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--s-24);
+  height: 44px;
+  color: var(--box-dash);
+  cursor: grab;
+}
+
+.gc-member .k-row {
+  padding-left: calc(var(--s-2) - 1.5px); /* its 1.5 px edge is the rest of G1's 2 px */
+}
+
+/* An empty group's drop area (G3): dashed, in the muted words. */
+.gc-empty {
+  margin: 0 var(--s-4) var(--s-4);
+  padding: var(--s-14) var(--s-12);
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--r-tile);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  text-align: center;
 }
 
 /* A row with a chip beside it has less room: its line wraps, as Main's does; the name keeps its ellipsis. */

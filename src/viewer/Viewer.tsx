@@ -6,7 +6,7 @@ import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
-import { hoveredComponent } from "../screens/hover";
+import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
@@ -221,18 +221,23 @@ export function Viewer(p: ViewerProps) {
   // The rail row the pointer or focus is on lights its component's trays, as it does in the top
   // view. A string key, so the scene hears of a change and not of every render.
   const railId = hoveredComponent.value;
+  // A group's card pointed at names every member: all the group's trays light.
+  const railMembers = hoveredMembers.value;
   const litKey = useMemo(() => {
     const comps = p.components ?? [];
-    if (railId === null) {
+    if (railId === null && railMembers === null) {
       return "";
     }
     // The items that share a tray with the one pointed at light with it, as in the top view.
-    const lit = sharingTrayWith(railId, p.trays, comps);
+    const lit = new Set<string>();
+    for (const id of [...(railId === null ? [] : [railId]), ...(railMembers ?? [])]) {
+      sharingTrayWith(id, p.trays, comps).forEach((other) => lit.add(other));
+    }
     return p.trays
       .filter((t) => componentIdsOfTray(t, comps).some((id) => lit.has(id)))
       .map((t) => t.key)
       .join("\n");
-  }, [railId, p.trays, p.components]);
+  }, [railId, railMembers, p.trays, p.components]);
   useEffect(() => {
     handleRef.current?.setLit(litKey === "" ? [] : litKey.split("\n"));
   }, [status, litKey]);

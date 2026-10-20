@@ -28,19 +28,33 @@ export function KindTiles({ onPick }: { onPick: (kind: ComponentKind) => void })
 export const KIND_PICKER_LABEL = "Add something inside";
 
 /**
- * What the Add pill opens (no board of its own, DESIGN §7): the menu's panel holding five kind
- * tiles, as Empty draws them.
+ * What the Add pill opens (G3): the menu's panel holding the five kind tiles, as Empty draws them,
+ * and, when a group can be added, a sixth, "Group". The first visit has no such tile (a group
+ * needs items first): it draws `KindTiles` alone.
  */
-export function KindPicker({ onPick }: { onPick: (kind: ComponentKind) => void }) {
+export function KindPicker({
+  onPick,
+  onGroup,
+}: {
+  onPick: (kind: ComponentKind) => void;
+  onGroup?: () => void;
+}) {
   return (
     <MenuPanel label={KIND_PICKER_LABEL} region="kind-picker">
       <KindTiles onPick={onPick} />
+      {onGroup === undefined ? null : (
+        <KindTile kind="group" onClick={onGroup}>
+          Group
+        </KindTile>
+      )}
     </MenuPanel>
   );
 }
 
 export interface AddMenuProps {
   onPick: (kind: ComponentKind) => void;
+  /** Adds an empty group: the picker has its sixth tile when this is given. */
+  onGroup?: () => void;
   /** Where the picker opens: under the pill (the rail), or over it (the phone's sheet). */
   placement?: "below" | "above";
 }
@@ -48,9 +62,10 @@ export interface AddMenuProps {
 /**
  * The Add pill (Main) with the picker it opens. It is a disclosure, as the project menu is:
  * opening puts the focus on the first kind; Escape, a click outside, or the focus leaving closes
- * it; choosing a kind closes it and hands the kind to the owner (which opens the new item).
+ * it; choosing a kind closes it and hands the kind to the owner (which opens the new item); choosing
+ * Group closes it and has the owner add an empty group.
  */
-export function AddMenu({ onPick, placement = "below" }: AddMenuProps) {
+export function AddMenu({ onPick, onGroup, placement = "below" }: AddMenuProps) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const wrap = useRef<HTMLDivElement>(null);
@@ -112,6 +127,14 @@ export function AddMenu({ onPick, placement = "below" }: AddMenuProps) {
               setOpen(false);
               onPick(kind);
             }}
+            onGroup={
+              onGroup === undefined
+                ? undefined
+                : () => {
+                    setOpen(false);
+                    onGroup();
+                  }
+            }
           />
         </div>
       ) : null}

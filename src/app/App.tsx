@@ -15,7 +15,7 @@ import { EditorStage, EditorStrip, ProblemLine } from "../screens/EditorStage";
 import { FitCards, FitProblem, fitKindOf, fitTitle } from "../screens/FitProblem";
 import type { EditNote } from "../screens/EditorStage";
 import { Header } from "../screens/Header";
-import { hoveredComponent } from "../screens/hover";
+import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { FirstVisit } from "../screens/FirstVisit";
 import { AddMenu } from "../screens/KindPicker";
 import { ProjectMenu } from "../screens/ProjectMenu";
@@ -51,6 +51,7 @@ import { hasWebGL } from "../viewer/webgl";
 import type { ViewerProps } from "../viewer/Viewer";
 import {
   addComponent,
+  addGroup,
   clearChoices,
   lockedKeys,
   removeComponent,
@@ -139,6 +140,7 @@ export function App(props: AppProps) {
   useEffect(() => {
     return () => {
       hoveredComponent.value = null;
+      hoveredMembers.value = null;
     };
   }, []);
   const firstVisit = project.components.length === 0;
@@ -351,6 +353,31 @@ export function App(props: AppProps) {
       setSheetOpen(true);
     }
   };
+  // Add → Group: an empty group at the end of the list, one undo step. It opens nothing (a group is
+  // made by putting items in it): the focus goes to its header, once the list has drawn it.
+  const focusNewGroup = useRef<string | null>(null);
+  const addGroupToList = (): void => {
+    let groupId: string | null = null;
+    store.edit((q) => {
+      const added = addGroup(q);
+      groupId = added.groupId;
+      return added.project;
+    });
+    focusNewGroup.current = groupId;
+    setBoxOpen(false);
+    setEditingId(null);
+    if (phone) {
+      setSheetOpen(true);
+    }
+  };
+  useEffect(() => {
+    const id = focusNewGroup.current;
+    if (id === null) {
+      return;
+    }
+    focusNewGroup.current = null;
+    document.querySelector<HTMLElement>(`[data-group-head="${id}"]`)?.focus();
+  });
   const addExample = (): void => {
     store.edit((q) => (["cards", "bulk", "tiles"] as const).reduce(addComponent, q));
   };
@@ -579,6 +606,10 @@ export function App(props: AppProps) {
       }}
       onClearChoices={() => store.edit(clearChoices)}
       onAdd={addComponentOfKind}
+      onAddGroup={addGroupToList}
+      onLight={(ids) => {
+        hoveredMembers.value = ids;
+      }}
       onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
       onUnlockSize={(keys) =>
         store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
@@ -1066,7 +1097,11 @@ export function App(props: AppProps) {
                       },
                       action:
                         editing || boxOpen || showFit ? null : (
-                          <AddMenu placement="above" onPick={addComponentOfKind} />
+                          <AddMenu
+                            placement="above"
+                            onPick={addComponentOfKind}
+                            onGroup={addGroupToList}
+                          />
                         ),
                     }
               }

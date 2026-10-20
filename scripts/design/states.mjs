@@ -53,8 +53,13 @@ const MAKE_NEW_PLAN = {
 // The status heading of the stage (Task 6): the h1, its switches and its action.
 const STATUS = '[data-region="status"]';
 // The kit seeds (Task 9 and after): a tray of the Player kit in the plan, and the group's header in the rail.
+// Until Task 10 names the group's tiles, the plan calls a copy by its members ("Starter deck + Resources + Hero 2").
 const PLAN_KIT_2 = {
-  click: { role: "button", name: /^Player kit 2/, in: '[data-region="stage"]' },
+  click: {
+    role: "button",
+    name: /^(Player kit|Starter deck \+ Resources \+ Hero) 2/,
+    in: '[data-region="stage"]',
+  },
 };
 const KIT_HEADER = { click: { role: "button", name: /^Player kit/, in: RAIL } };
 // The tray bar (Task 8), and the tray the harness selects in it.
@@ -943,7 +948,7 @@ export const STATES = {
   // GroupAdd's picker: six tiles, Group the sixth (Task 9). The board's own picker is judged by its grid.
   "kit-picker": {
     board: "GroupAdd",
-    boardCrop: { "kind-picker": "aside > div:nth-of-type(2) > div" },
+    boardCrop: { "kind-picker": "#kind-picker" },
     viewport: DESKTOP,
     seed: "harbour-kings-kit-loose",
     steps: [{ click: { role: "button", name: "Add", in: RAIL } }],

@@ -7,7 +7,7 @@ import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import { SPACER_SHADE, shadeHex } from "../ui/identity";
-import { hoveredComponent } from "../screens/hover";
+import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import type { Component } from "../model/types";
 import type { ViewBasis } from "./axes";
 import type { SceneFactory, SceneHandle } from "./types";
@@ -700,6 +700,7 @@ describe("Viewer", () => {
 
     afterEach(() => {
       hoveredComponent.value = null;
+      hoveredMembers.value = null;
     });
 
     it("tints the trays of that component only, spacers and other components' trays left out", async () => {
@@ -742,6 +743,20 @@ describe("Viewer", () => {
         hoveredComponent.value = second.id;
       });
       expect(scene.handle.setLit).toHaveBeenLastCalledWith(["a:p0:0", "b:p0:0"]);
+    });
+
+    it("tints the trays of every item of the group card the rail points at", async () => {
+      const scene = stubScene();
+      render(<Viewer {...props({ trays: all, components }, scene)} />);
+      await waitFor(() => expect(scene.handle.setLit).toHaveBeenCalled());
+      act(() => {
+        hoveredMembers.value = [second.id, third.id];
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["a:p0:0", "b:p0:0"]);
+      act(() => {
+        hoveredMembers.value = null;
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith([]);
     });
 
     it("tints nothing for a component that holds no tray here", async () => {

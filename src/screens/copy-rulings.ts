@@ -33,8 +33,13 @@ const NOTE = "The rules note says what stays";
 const BOXCARD = "The rail's box card says its size on one line";
 const BED = "The rail's footer line shows the insert's printer";
 const ADDING = ["workspace-add", "m-workspace-add"] as const;
+// 0.7.0 Task 9: a group's card in the rail and Add → Group. The states are the kit cases of copy.board.test.tsx.
+const KIT_RAIL = ["kit-rail", "kit-add", "kit-picker"] as const;
+const GROUP_TILE = "Add's picker has a sixth tile";
+const GROUP_COUNTS = "A group's card in the rail says its counts";
 /** The rail's states and the phone sheet's (copy.board.test.tsx has a case for each). */
 const RAIL = [
+  ...KIT_RAIL,
   "workspace",
   "workspace-rules",
   "workspace-add",
@@ -396,6 +401,13 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: RULED,
     ruling: NOTE,
   },
+  // Main and MobileWorkspace draw five tiles; GroupAdd's sixth is the app's in every picker
+  { text: "Group", states: ADDING, ruling: GROUP_TILE },
+  // GroupRail draws "3 items · 4 trays" as one string; the app counts, and says one in the singular
+  { text: "{n} items", states: KIT_RAIL, ruling: GROUP_COUNTS },
+  { text: "1 item", states: KIT_RAIL, ruling: GROUP_COUNTS },
+  { text: "{n} trays", states: KIT_RAIL, ruling: GROUP_COUNTS },
+  { text: "1 tray", states: KIT_RAIL, ruling: GROUP_COUNTS },
   // the box card's unit is its own, smaller element: "285 × 285 × 70" and "mm"
   { text: "mm", states: RAIL, ruling: BOXCARD },
   // Main's footer says "Printer bed 256 × 256 mm", which wraps beside Settings in the 300 px rail

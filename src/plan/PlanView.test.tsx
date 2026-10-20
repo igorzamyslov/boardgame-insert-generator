@@ -7,7 +7,7 @@ import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX, newComponent } from "../model/defaults";
 import type { CompartmentSpec } from "../model/types";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { hoveredComponent } from "../screens/hover";
+import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { shadeHex } from "../ui/identity";
 import planCss from "./plan.css?raw";
 import { planFrame } from "./layers";
@@ -37,6 +37,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   hoveredComponent.value = null;
+  hoveredMembers.value = null;
 });
 
 /** A phone: the width query the app asks (below 760 px) answers yes. */
@@ -543,6 +544,25 @@ describe("PlanView", () => {
     expect(box.querySelector('[data-key="a:p0:0"] .plan-pill svg')).toBeTruthy();
     act(() => {
       hoveredComponent.value = null;
+    });
+    expect(box.querySelectorAll(".is-dimmed")).toHaveLength(0);
+  });
+
+  it("lights the trays of every item of the group card the rail is pointing at", () => {
+    const { box } = setup();
+    act(() => {
+      hoveredMembers.value = [deck.id];
+    });
+    expect(box.querySelector('[data-key="a:p0:0"]')?.getAttribute("class")).not.toContain(
+      "is-dimmed",
+    );
+    expect(box.querySelector('[data-key="b:p0:0"]')?.getAttribute("class")).toContain("is-dimmed");
+    act(() => {
+      hoveredMembers.value = [deck.id, dice.id];
+    });
+    expect(box.querySelectorAll(".is-dimmed")).toHaveLength(0);
+    act(() => {
+      hoveredMembers.value = null;
     });
     expect(box.querySelectorAll(".is-dimmed")).toHaveLength(0);
   });

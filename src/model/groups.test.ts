@@ -6,6 +6,7 @@ import {
   groupOfItem,
   mostFrequentAccess,
   nextGroupName,
+  railEntries,
   requirementKeyOf,
 } from "./groups";
 import type { Group } from "./types";
@@ -86,5 +87,58 @@ describe("nextGroupName", () => {
 
   it("counts an unnamed group, which shows as Group, as that name", () => {
     expect(nextGroupName(named(""))).toBe("Group 2");
+  });
+});
+
+describe("railEntries", () => {
+  const items = ["a", "b", "c", "d"].map((id) => ({ ...newComponent("cards"), id }));
+  const group = (id: string, memberIds: string[]): Group => ({
+    id,
+    name: id,
+    access: "often",
+    memberIds,
+  });
+  const ids = (p: Parameters<typeof railEntries>[0]) =>
+    railEntries(p).map((e) => `${e.kind}:${e.id}`);
+
+  it("lists the items in order when there are no groups", () => {
+    expect(ids({ components: items })).toEqual(["item:a", "item:b", "item:c", "item:d"]);
+    expect(ids({ components: items, groups: [] })).toEqual([
+      "item:a",
+      "item:b",
+      "item:c",
+      "item:d",
+    ]);
+  });
+
+  it("stands a group's card where its first member stands, once", () => {
+    const groups = [group("g", ["c", "b"])];
+    expect(ids({ components: items, groups })).toEqual(["item:a", "group:g", "item:d"]);
+  });
+
+  it("puts empty groups at the end, in the order of `groups`", () => {
+    const groups = [group("e1", []), group("g", ["a"]), group("e2", [])];
+    expect(ids({ components: items, groups })).toEqual([
+      "group:g",
+      "item:b",
+      "item:c",
+      "item:d",
+      "group:e1",
+      "group:e2",
+    ]);
+  });
+
+  it("does not move the components: an item moved into a group leaves `components` alone", () => {
+    const before = items.map((c) => c.id);
+    const groups = [group("g", ["d"])];
+    railEntries({ components: items, groups });
+    expect(items.map((c) => c.id)).toEqual(before);
+    // the card takes the place of its member
+    expect(ids({ components: items, groups })).toEqual(["item:a", "item:b", "item:c", "group:g"]);
+  });
+
+  it("keeps a group whose members are all gone at the end rather than dropping it", () => {
+    const groups = [group("g", ["gone"])];
+    expect(ids({ components: items, groups }).at(-1)).toBe("group:g");
   });
 });

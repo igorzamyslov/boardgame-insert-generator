@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../../app/test-helpers";
 import { newComponent } from "../../model/defaults";
-import { hoveredComponent } from "../../screens/hover";
+import { hoveredComponent, hoveredMembers } from "../../screens/hover";
 import type { Component, ComponentKind, Group, Lock } from "../../model/types";
 import { ValidationContext } from "../validation";
 import { ComponentList } from "./ComponentList";
@@ -12,6 +12,7 @@ import { ComponentList } from "./ComponentList";
 afterEach(() => {
   cleanup();
   hoveredComponent.value = null;
+  hoveredMembers.value = null;
 });
 
 const KINDS: ComponentKind[] = ["cards", "bulk", "tiles", "minis", "custom"];
@@ -304,7 +305,7 @@ describe("ComponentList", () => {
       expect(h.onUnlockSize).toHaveBeenCalledWith(["b:p0:0"]);
     });
 
-    it("follows a group's key, so each member of the group shows the pin", () => {
+    it("follows a group's key: the group's card shows the pin once, on its header", () => {
       const a = named("bulk", "a", "Cubes");
       const b = named("bulk", "b", "Dice");
       const tokens: Group = {
@@ -321,7 +322,9 @@ describe("ComponentList", () => {
           {...handlers()}
         />,
       );
-      expect(screen.getAllByText("Pinned")).toHaveLength(2);
+      // one chip for the group's tray, not one for each member
+      expect(screen.getAllByText("Pinned")).toHaveLength(1);
+      expect(screen.getByRole("list", { name: "Rules for Tokens" })).toBeTruthy();
     });
   });
 });
@@ -371,6 +374,233 @@ describe("ComponentList, a row that does not fit", () => {
     render(<ComponentList compact components={comps} culprits={new Set(["b"])} {...handlers()} />);
     const row = screen.getByRole("button", { name: "Heroes, Doesn't fit" });
     expect(row.classList.contains("is-culprit")).toBe(true);
+  });
+});
+
+describe("ComponentList, groups", () => {
+  const items = [
+    named("cards", "m", "Market deck"),
+    named("cards", "s", "Starter deck"),
+    named("bulk", "r", "Resources"),
+    named("minis", "h", "Hero"),
+    named("tiles", "t", "Hex tiles"),
+  ];
+  const kit: Group = {
+    id: "g",
+    name: "Player kit",
+    copies: 4,
+    access: "often",
+    memberIds: ["s", "r", "h"],
+  };
+  const empty: Group = { id: "e", name: "Group", access: "sometimes", memberIds: [] };
+  const trayOf = (key: string, level = 0) =>
+    makeTray({
+      key,
+      level,
+      compartments: [well("s"), well("r"), well("h")],
+    });
+  const kitTrays = (level = 0) =>
+    ["g:p0:0", "g:p1:0", "g:p2:0", "g:p3:0"].map((key) => trayOf(key, level));
+  const marketTray = makeTray({ key: "m:p0:0", compartments: [well("m")] });
+
+  it("stands the card where its first member stands, members inside it, other rows as they were", () => {
+    render(<ComponentList components={items} groups={[kit]} {...handlers()} />);
+    const top = [...(document.querySelector(".rail-list")?.children ?? [])].map(
+      (li) =>
+        li.querySelector("[role=group]")?.getAttribute("aria-label") ??
+        li.getAttribute("aria-label"),
+    );
+    expect(top).toEqual(["Market deck", "Player kit, 4 copies", "Hex tiles"]);
+    const card = screen.getByRole("group", { name: "Player kit, 4 copies" });
+    expect(
+      within(card)
+        .getAllByRole("listitem")
+        .map((li) => li.getAttribute("aria-label")),
+    ).toEqual(["Starter deck", "Resources", "Hero"]);
+  });
+
+  it("puts an empty group last, as 'Group, empty'", () => {
+    render(<ComponentList components={items} groups={[empty, kit]} {...handlers()} />);
+    const top = [...(document.querySelector(".rail-list")?.children ?? [])];
+    expect(top.at(-1)?.querySelector("[role=group]")?.getAttribute("aria-label")).toBe(
+      "Group, empty",
+    );
+    // the list has something to draw even when every item is out of the list
+    cleanup();
+    render(<ComponentList components={[]} groups={[empty]} {...handlers()} />);
+    expect(screen.getByRole("group", { name: "Group, empty" })).toBeTruthy();
+  });
+
+  it("counts the group's trays and names its layer on the header only", () => {
+    render(
+      <ComponentList
+        components={items}
+        groups={[kit]}
+        trays={[marketTray, ...kitTrays(1)]}
+        {...handlers()}
+      />,
+    );
+    const head = screen.getByRole("button", { name: "Player kit, 4 copies" });
+    expect(head.textContent).toContain("3 items · 4 trays · top layer");
+    // a member's own line has no layer
+    expect(screen.getByRole("button", { name: /^Hero,/ }).textContent).not.toContain("layer");
+  });
+
+  it("opens the item's editor from a member and the group's from the header", () => {
+    const onOpen = vi.fn();
+    const onEditGroup = vi.fn();
+    render(
+      <ComponentList components={items} groups={[kit]} onOpen={onOpen} onEditGroup={onEditGroup} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Hero,/ }));
+    expect(onOpen).toHaveBeenCalledWith("h");
+    fireEvent.click(screen.getByRole("button", { name: "Player kit, 4 copies" }));
+    expect(onEditGroup).toHaveBeenCalledWith("g");
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("presses the header when a tray of the group is selected, not the members", () => {
+    render(
+      <ComponentList
+        components={items}
+        groups={[kit]}
+        selectedIds={["s", "r", "h"]}
+        {...handlers()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Player kit, 4 copies" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(screen.getByRole("button", { name: /^Hero,/ }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
+    expect(screen.getByRole("button", { name: /^Market deck,/ }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
+  });
+
+  it("says Doesn't fit on the header when the culprit is in the group", () => {
+    render(
+      <ComponentList components={items} groups={[kit]} culprits={new Set(["s"])} {...handlers()} />,
+    );
+    expect(screen.getByRole("button", { name: "Player kit, 4 copies" }).textContent).toContain(
+      "Doesn't fit",
+    );
+    expect(screen.getByRole("button", { name: /^Starter deck, 50 cards/ })).toBeTruthy();
+  });
+
+  it("tells every member's id when the header or a member is pointed at", () => {
+    const onLight = vi.fn();
+    const onHover = vi.fn();
+    render(
+      <ComponentList
+        components={items}
+        groups={[kit]}
+        onLight={onLight}
+        onHover={onHover}
+        {...handlers()}
+      />,
+    );
+    fireEvent.mouseEnter(screen.getByRole("button", { name: /^Resources,/ }));
+    expect(onLight).toHaveBeenLastCalledWith(["s", "r", "h"]);
+    // an item outside the group lights by itself, as before
+    fireEvent.mouseEnter(screen.getByRole("button", { name: /^Hex tiles,/ }));
+    expect(onHover).toHaveBeenLastCalledWith("t");
+    expect(onLight).toHaveBeenCalledTimes(1);
+  });
+
+  it("lights the header, not the members, while the group's trays are lit", () => {
+    render(<ComponentList components={items} groups={[kit]} {...handlers()} />);
+    const lit = (name: string | RegExp): string | null =>
+      screen.getByRole("button", { name }).getAttribute("data-lit");
+    expect(lit("Player kit, 4 copies")).toBeNull();
+    act(() => {
+      hoveredMembers.value = ["s", "r", "h"];
+    });
+    expect(lit("Player kit, 4 copies")).toBe("true");
+    expect(lit(/^Starter deck,/)).toBeNull();
+    expect(lit(/^Market deck,/)).toBeNull();
+    act(() => {
+      hoveredMembers.value = null;
+      // the plan pointing at a group's tray names one member: the card lights as one
+      hoveredComponent.value = "r";
+    });
+    expect(lit("Player kit, 4 copies")).toBe("true");
+    expect(lit(/^Resources,/)).toBeNull();
+    act(() => {
+      hoveredComponent.value = "t";
+    });
+    expect(lit("Player kit, 4 copies")).toBeNull();
+  });
+
+  it("lights nothing once the list goes", () => {
+    const onLight = vi.fn();
+    const view = render(
+      <ComponentList components={items} groups={[kit]} onLight={onLight} {...handlers()} />,
+    );
+    fireEvent.mouseEnter(screen.getByRole("button", { name: /^Hero,/ }));
+    act(() => {
+      view.unmount();
+    });
+    expect(onLight).toHaveBeenLastCalledWith(null);
+  });
+
+  describe("rules", () => {
+    const locks: Lock[] = [
+      pin("g:p0:0"),
+      pin("g:p2:0", true),
+      pin("g:p3:0"),
+      { kind: "size", trayKey: "g:p1:0", w: 190, d: 71, h: 38 },
+      pin("m:p0:0"),
+    ];
+
+    it("shows one chip per rule beside the header, none on the members or the other rows", () => {
+      render(<ComponentList components={items} groups={[kit]} locks={locks} {...handlers()} />);
+      const chips = screen.getByRole("list", { name: "Rules for Player kit" });
+      expect(
+        within(chips)
+          .getAllByRole("button")
+          .map((b) => b.textContent),
+      ).toEqual(["Pinned", "Pinned, turned", "Size locked"]);
+      // Market deck's own pin is its own chip, and only one list per owner
+      expect(screen.getAllByRole("list", { name: /^Rules for/ })).toHaveLength(2);
+      expect(screen.queryByRole("list", { name: "Rules for Hero" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Player kit, 4 copies" }).contains(chips)).toBe(
+        false,
+      );
+    });
+
+    it("lifts a rule from every tray of the group with one call", () => {
+      const h = handlers();
+      render(<ComponentList components={items} groups={[kit]} locks={locks} {...h} />);
+      const chips = within(screen.getByRole("list", { name: "Rules for Player kit" }));
+      fireEvent.click(chips.getByText("Pinned"));
+      expect(h.onUnpin).toHaveBeenCalledTimes(1);
+      expect(h.onUnpin).toHaveBeenCalledWith(["g:p0:0", "g:p3:0"]);
+      fireEvent.click(chips.getByRole("button", { name: "Unlock size of Player kit" }));
+      expect(h.onUnlockSize).toHaveBeenCalledWith(["g:p1:0"]);
+    });
+
+    it("keeps the focus in the card when a chip goes", () => {
+      const only: Lock[] = [pin("g:p0:0")];
+      const h = handlers();
+      const view = render(<ComponentList components={items} groups={[kit]} locks={only} {...h} />);
+      const chip = screen.getByRole("button", { name: "Unpin Player kit" });
+      chip.focus();
+      fireEvent.click(chip);
+      view.rerender(<ComponentList components={items} groups={[kit]} locks={[]} {...h} />);
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Player kit, 4 copies" }),
+      );
+    });
+  });
+
+  it("draws the card on the phone's sheet too, with compact member rows", () => {
+    const { container } = render(
+      <ComponentList compact components={items} groups={[kit]} {...handlers()} />,
+    );
+    expect(screen.getByRole("group", { name: "Player kit, 4 copies" })).toBeTruthy();
+    expect(container.querySelectorAll(".gc-member .k-row--compact")).toHaveLength(3);
   });
 });
 

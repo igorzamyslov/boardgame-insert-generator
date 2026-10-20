@@ -447,6 +447,13 @@ describe("componentSummary", () => {
         ],
       }),
     ).toBe("6 figures");
+    // one figure is "1 figure", as GroupRail's Hero row says
+    expect(
+      componentSummary({
+        ...minis,
+        figures: [{ ...(minis.figures[0] as MinisComponent["figures"][number]), count: 1 }],
+      }),
+    ).toBe("1 figure");
     expect(
       componentSummary({ ...newComponent("custom"), count: 2, w: 30, d: 20, h: 10 } as Component),
     ).toBe("2 × 30 × 20 × 10 mm");

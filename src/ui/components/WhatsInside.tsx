@@ -39,9 +39,15 @@ export interface WhatsInsideProps {
   onOpenBox: () => void;
   onSettings: () => void;
   onHover?: (id: string | null) => void;
+  /** The pointer or the focus is on a group's card (every member's id: all its trays light), or left it (null). */
+  onLight?: (ids: readonly string[] | null) => void;
+  /** A group's header was chosen: its editor (the group editor is the next task's). */
+  onEditGroup?: (groupId: string) => void;
   /** Every pin and size lock comes off, in one undo step. */
   onClearChoices: () => void;
   onAdd: (kind: ComponentKind) => void;
+  /** Add's Group tile: an empty group, its header focused. */
+  onAddGroup: () => void;
   onChange: (id: string, next: Component) => void;
   /** Returns false when nothing was removed. */
   onRemove: (id: string) => boolean;
@@ -74,8 +80,11 @@ export function WhatsInside({
   onOpenBox,
   onSettings,
   onHover,
+  onLight,
+  onEditGroup,
   onClearChoices,
   onAdd,
+  onAddGroup,
   onChange,
   onRemove,
   onUnpin,
@@ -147,6 +156,8 @@ export function WhatsInside({
       onOpenBox,
       onOpenEditor: setOpenId,
       onHover,
+      onLight,
+      onEditGroup,
       onUnpin,
       onUnlockSize,
       onClearChoices,
@@ -160,6 +171,7 @@ export function WhatsInside({
             {...list}
             printer={printer}
             onSettings={onSettings}
+            onAddGroup={onAddGroup}
             onAdd={(kind) => {
               adding.current = true;
               onAdd(kind);

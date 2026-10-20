@@ -22,6 +22,7 @@ function handlers() {
     onOpenBox: vi.fn(),
     onOpenEditor: vi.fn(),
     onAdd: vi.fn(),
+    onAddGroup: vi.fn(),
     onHover: vi.fn(),
     onClearChoices: vi.fn(),
     onSettings: vi.fn(),
@@ -67,10 +68,31 @@ describe("Rail", () => {
       within(picker)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Cards", "Tokens and dice", "Tiles", "Miniatures", "Something else"]);
+    ).toEqual(["Cards", "Tokens and dice", "Tiles", "Miniatures", "Something else", "Group"]);
     fireEvent.click(screen.getByRole("button", { name: "Tiles" }));
     expect(h.onAdd).toHaveBeenCalledWith("tiles");
+    expect(h.onAddGroup).not.toHaveBeenCalled();
     expect(screen.queryByRole("group", { name: "Add something inside" })).toBeNull();
+  });
+
+  it("adds a group from the sixth tile, and the picker closes", () => {
+    const h = props();
+    render(<Rail {...h} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(screen.getByRole("button", { name: "Group" }));
+    expect(h.onAddGroup).toHaveBeenCalledTimes(1);
+    expect(h.onAdd).not.toHaveBeenCalled();
+    expect(screen.queryByRole("group", { name: "Add something inside" })).toBeNull();
+  });
+
+  it("lists a group as a card among the rows", () => {
+    const h = props({
+      groups: [{ id: "g", name: "Player kit", access: "often", memberIds: ["b"] }],
+    });
+    render(<Rail {...h} />);
+    const card = screen.getByRole("group", { name: "Player kit, 1 copy" });
+    fireEvent.click(within(card).getByRole("button", { name: new RegExp(`^${LONG}`) }));
+    expect(h.onOpenEditor).toHaveBeenCalledWith("b");
   });
 
   it("puts the focus on the first kind when the picker opens, and Escape closes it", () => {

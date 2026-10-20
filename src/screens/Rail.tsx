@@ -29,6 +29,10 @@ interface ListProps {
   onOpenBox: () => void;
   onOpenEditor: (id: string) => void;
   onHover?: (id: string | null) => void;
+  /** The pointer or the focus is on a group's card (every member's id), or left it (null). */
+  onLight?: (ids: readonly string[] | null) => void;
+  /** A group's header was chosen: its editor. */
+  onEditGroup?: (groupId: string) => void;
   onUnpin?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
   /** Every pin and size lock comes off, in one undo step. */
@@ -39,6 +43,8 @@ export interface RailProps extends ListProps {
   /** The insert's printer: the footer says its bed. */
   printer: Printer;
   onAdd: (kind: ComponentKind) => void;
+  /** Add's Group tile: an empty group. */
+  onAddGroup: () => void;
   onSettings: () => void;
 }
 
@@ -99,7 +105,7 @@ export function Rail(p: RailProps) {
       </Card>
       <div class="rail-head">
         <h2 class="rail-title">What&apos;s inside</h2>
-        <AddMenu onPick={p.onAdd} />
+        <AddMenu onPick={p.onAdd} onGroup={p.onAddGroup} />
       </div>
       <ComponentList
         components={p.components}
@@ -110,6 +116,8 @@ export function Rail(p: RailProps) {
         culprits={p.culprits}
         onOpen={p.onOpenEditor}
         onHover={p.onHover}
+        onLight={p.onLight}
+        onEditGroup={p.onEditGroup}
         onUnpin={p.onUnpin}
         onUnlockSize={p.onUnlockSize}
       />
@@ -146,6 +154,8 @@ export function SheetList(p: ListProps) {
         culprits={p.culprits}
         onOpen={p.onOpenEditor}
         onHover={p.onHover}
+        onLight={p.onLight}
+        onEditGroup={p.onEditGroup}
         onUnpin={p.onUnpin}
         onUnlockSize={p.onUnlockSize}
         first={

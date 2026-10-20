@@ -310,8 +310,10 @@ export function componentSummary(c: Component): string {
     }
     case "tiles":
       return `${c.count} tiles`;
-    case "minis":
-      return `${c.figures.reduce((sum, f) => sum + f.count, 0)} figures`;
+    case "minis": {
+      const figures = c.figures.reduce((sum, f) => sum + f.count, 0);
+      return `${figures} ${figures === 1 ? "figure" : "figures"}`;
+    }
     case "custom":
       return `${c.count} × ${mm(c.w)} × ${mm(c.d)} × ${mm(c.h)} mm`;
   }
@@ -385,7 +387,7 @@ export function compartmentWords(tray: TraySpec, component: Component | undefine
  */
 export function groupOfTray(
   tray: TraySpec,
-  p: Pick<Project, "components" | "groups">,
+  p: { components: readonly Component[]; groups?: readonly Group[] },
 ): Group | undefined {
   const stem = parseTrayKey(tray.key)?.stem;
   const byKey = stem === undefined ? undefined : groupById(p, stem);

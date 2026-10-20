@@ -7,7 +7,7 @@ import { trayNames } from "../instructions/naming";
 import { numberParts, partsByKey } from "../instructions/numbering";
 import { Icon, KindGlyph } from "../kit";
 import type { Box, Component, Settings, TraySpec } from "../model/types";
-import { hoveredComponent } from "../screens/hover";
+import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { StageSlot } from "../screens/StageSlot";
 import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
 import { PHONE_QUERY, useMediaQuery } from "../ui/useMediaQuery";
@@ -241,6 +241,8 @@ export function PlanView(props: PlanViewProps) {
   const misfitKey = props.misfitKey ?? null;
   const searching = props.searching === true;
   const railId = hoveredComponent.value;
+  // A group's card pointed at names every member: all the group's trays light.
+  const railMembers = hoveredMembers.value;
   const editedId = props.editedId ?? null;
   const withSharers = (ids: readonly string[]): Set<string> =>
     new Set(ids.flatMap((id) => [...sharingTrayWith(id, trays, components)]));
@@ -251,8 +253,8 @@ export function PlanView(props: PlanViewProps) {
   const active: Set<string> | null =
     editedId !== null
       ? new Set([editedId])
-      : railId !== null
-        ? withSharers([railId])
+      : railId !== null || railMembers !== null
+        ? withSharers([...(railId === null ? [] : [railId]), ...(railMembers ?? [])])
         : (litWith(hoverKey) ?? litWith(focusKey) ?? litWith(selectedKey));
   const isActive = (key: string): boolean =>
     active !== null && (identitiesOf(key) ?? []).some((id) => active.has(id));

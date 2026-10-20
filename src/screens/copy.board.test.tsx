@@ -125,6 +125,12 @@ const addKind = (): void => {
   fireEvent.click(screen.getByRole("button", { name: "Add" }));
 };
 
+/** Add, then its Group tile: an empty group, its card at the end of the list. */
+const addGroup = (): void => {
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
+  fireEvent.click(screen.getByRole("button", { name: "Group" }));
+};
+
 /** One of each rule on the first three components: a pin, a turned pin and a size lock. */
 const setRules = (store: Store): void => {
   act(() =>
@@ -560,6 +566,28 @@ const CASES: readonly Case[] = [
   { state: "workspace", board: "Main", region: "rail", steps: () => undefined },
   { state: "workspace-add", board: "Main", region: "rail", steps: addKind },
   { state: "workspace-rules", board: "Main", region: "rail", steps: setRules },
+  // 0.7.0 Task 9: GroupRail's card, GroupAdd's empty card and its picker
+  {
+    state: "kit-rail",
+    board: "GroupRail",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: () => undefined,
+  },
+  {
+    state: "kit-add",
+    board: "GroupAdd",
+    region: "rail",
+    seed: "harbour-kings-kit-loose",
+    steps: addGroup,
+  },
+  {
+    state: "kit-picker",
+    board: "GroupAdd",
+    region: "rail",
+    seed: "harbour-kings-kit-loose",
+    steps: addKind,
+  },
   { state: "workspace-error", board: "Main", region: "rail", steps: breakFirst },
   {
     state: "m-workspace",
@@ -860,6 +888,8 @@ function dataOf(store: Store): Set<string> {
   const project = store.state.project.value;
   out.add(project.name);
   walk(project.components);
+  // a group's name is the person's too: "Player kit"
+  walk(project.groups);
   if (project.layout !== undefined) {
     for (const name of trayNames(numberParts(project.layout.trays), project.components).values()) {
       out.add(name.full);

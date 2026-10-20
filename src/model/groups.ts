@@ -69,3 +69,35 @@ export function parseTrayKey(
   const m = /^(.+?):p(\d+):(\d+)(?::|$)/.exec(key);
   return m === null ? undefined : { stem: m[1] ?? "", copy: Number(m[2]), part: Number(m[3]) };
 }
+
+/** One place in the rail's list: an item, or a group's card. */
+export type RailEntry = { kind: "item"; id: string } | { kind: "group"; id: string };
+
+/**
+ * What the rail lists, in order (spec §7.1): the items in `components` order, with a group's card
+ * standing where its first member (in list order) stands and its other members left out of the
+ * list; the groups that have no member in the list (empty ones) follow, in `groups` order. Moving
+ * an item into a group changes no order in `components`.
+ */
+export function railEntries(p: {
+  components: readonly Component[];
+  groups?: readonly Group[];
+}): RailEntry[] {
+  const out: RailEntry[] = [];
+  const shown = new Set<string>();
+  for (const c of p.components) {
+    const group = groupOfItem(p, c.id);
+    if (group === undefined) {
+      out.push({ kind: "item", id: c.id });
+    } else if (!shown.has(group.id)) {
+      shown.add(group.id);
+      out.push({ kind: "group", id: group.id });
+    }
+  }
+  for (const g of p.groups ?? []) {
+    if (!shown.has(g.id)) {
+      out.push({ kind: "group", id: g.id });
+    }
+  }
+  return out;
+}

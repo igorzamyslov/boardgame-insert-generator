@@ -39,10 +39,18 @@ function lockStillThere(c: LockConflict, locks: readonly Lock[]): boolean {
   );
 }
 
+/**
+ * Whether an edit changed no structure: the same items in the same order, and the same groups with
+ * the same members. Only such an edit (a field typed into) may merge into the step before it; adding
+ * or removing an item or a group, or moving an item into one, is a step of its own.
+ */
 function sameComponents(a: Project, b: Project): boolean {
+  const groups = (p: Project): string =>
+    (p.groups ?? []).map((g) => `${g.id}:${g.memberIds.join(",")}`).join(";");
   return (
     a.components.length === b.components.length &&
-    a.components.every((c, i) => c.id === b.components[i]?.id)
+    a.components.every((c, i) => c.id === b.components[i]?.id) &&
+    groups(a) === groups(b)
   );
 }
 

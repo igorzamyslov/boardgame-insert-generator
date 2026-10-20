@@ -92,4 +92,49 @@ describe("rail.css", () => {
     expect(list).toMatch(/overflow:\s*visible/);
     expect(list).toMatch(/gap:\s*0/);
   });
+
+  it("draws the picker (G3) as two columns of 400 px from the heading's left, over the stage", () => {
+    const panel = ruleFor(".rail-head .kp__panel");
+    expect(panel).toMatch(/left:\s*0/);
+    expect(panel).toMatch(/right:\s*auto/);
+    // over the rail's resize handle (z-index 5), whose hit area lies where the panel reaches
+    expect(panel).toMatch(/z-index:\s*6/);
+    expect(panel).toMatch(/top:\s*calc\(100% \+ var\(--s-8\)\)/);
+    const grid = ruleFor(".rail-head .kp__panel > .k-menu");
+    expect(grid).toMatch(/grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+    // 400 px is a desktop's: a fixed width over 390 px stays out of the phone's rules
+    expect(stripped).toMatch(
+      /@media \(width >= 760px\)\s*\{\s*\.rail-head \.kp__panel > \.k-menu\s*\{[^}]*width:\s*400px/,
+    );
+    expect(grid).toMatch(/gap:\s*var\(--s-8\)/);
+    expect(grid).toMatch(/padding:\s*var\(--s-8\)/);
+    // the rail clips its content; while the picker is open it may overhang the stage
+    expect(ruleFor(".ws-rail:has(.kp__panel)")).toMatch(/overflow:\s*visible/);
+  });
+
+  it("frames a group's card (G1): the box card's ground, a 1 px rule, 4 px inside, 2 px between rows", () => {
+    const card = ruleFor(".gc");
+    expect(card).toMatch(/padding:\s*var\(--s-4\)/);
+    expect(card).toMatch(/gap:\s*var\(--s-2\)/);
+    expect(card).toMatch(/border:\s*1px solid var\(--rule\)/);
+    expect(card).toMatch(/border-radius:\s*var\(--r-card\)/);
+    expect(card).toMatch(/background:\s*var\(--row\)/);
+  });
+
+  it("presses or lights a group's header with the strong edge on the sheet ground (G1)", () => {
+    const pressed = ruleFor('.gc-head[aria-pressed="true"],\n.gc-head[data-lit="true"]');
+    expect(pressed).toMatch(/--k-bg:\s*var\(--sheet\)/);
+    expect(pressed).toMatch(/border-color:\s*var\(--muted-strong\)/);
+    expect(ruleFor(".gc-head__copies")).toMatch(/color:\s*var\(--muted\)/);
+  });
+
+  it("gives each member a 24 × 44 grip in the box's dash colour, and an empty card its dashed drop area", () => {
+    const grip = ruleFor(".gc-grip");
+    expect(grip).toMatch(/width:\s*var\(--s-24\)/);
+    expect(grip).toMatch(/height:\s*44px/);
+    expect(grip).toMatch(/color:\s*var\(--box-dash\)/);
+    const empty = ruleFor(".gc-empty");
+    expect(empty).toMatch(/border:\s*1\.5px dashed var\(--line-strong\)/);
+    expect(empty).toMatch(/color:\s*var\(--muted\)/);
+  });
 });
