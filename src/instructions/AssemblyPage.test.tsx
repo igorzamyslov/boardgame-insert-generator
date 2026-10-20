@@ -354,3 +354,64 @@ describe("AssemblyPage", () => {
     expect(screen.getByRole("button", { name: "Back to your insert" })).toBeTruthy();
   });
 });
+
+describe("AssemblyPage for a group's trays (spec §7.7)", () => {
+  const base = deckProject();
+  const other: Component = {
+    ...structuredClone(base.components[0] as Component),
+    id: "hero0001",
+    name: "Hero",
+  };
+  const deck = base.components[0] as Component;
+  const project = {
+    ...base,
+    components: [deck, other],
+    groups: [
+      {
+        id: "kit",
+        name: "Player kit",
+        copies: 2,
+        access: "often" as const,
+        memberIds: [deck.id, other.id],
+      },
+    ],
+  };
+  const well = (id: string, contents: string, x: number) => ({
+    x,
+    y: 2,
+    w: 30,
+    d: 30,
+    floorZ: 1.2,
+    kind: "well" as const,
+    contents,
+    componentId: id,
+    features: [],
+  });
+  const kit = (n: number) =>
+    makeTray({
+      key: `kit:p${n}:0`,
+      stack: n,
+      x: n * 100,
+      compartments: [well(deck.id, "Deck A ×12", 2), well(other.id, "Hero ×1", 40)],
+    });
+  const kitLayout = makeLayout("h", [kit(0), kit(1)]);
+
+  it("reads Player kit 1 and 2 in the steps, the row names and the pictures, with Holds in tray order", () => {
+    render(<AssemblyPage project={project} layout={kitLayout} onBack={vi.fn()} />);
+    const items = screen.getAllByRole("listitem").map((li) => li.textContent);
+    expect(items).toContain("Layer 1: place Player kit 1.");
+    expect(items).toContain("Layer 1: place Player kit 2.");
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows.map((r) => r.querySelector("th")?.textContent)).toEqual([
+      "Player kit 1",
+      "Player kit 2",
+    ]);
+    for (const row of rows) {
+      expect(row.querySelector('td[data-label="Holds"]')?.textContent).toBe("Deck A ×12, Hero ×1");
+    }
+    expect(screen.getByRole("img", { name: /^Layer 1 \(bottom\)/ }).getAttribute("alt")).toBe(
+      "Layer 1 (bottom): trays Player kit 1, Player kit 2",
+    );
+    expect(document.body.textContent).not.toMatch(/\(P\d+\)/);
+  });
+});

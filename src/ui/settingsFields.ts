@@ -2,7 +2,7 @@
 import { trayNames } from "../instructions/naming";
 import { numberParts } from "../instructions/numbering";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { Component, Settings, TraySpec } from "../model/types";
+import type { Component, Group, Settings, TraySpec } from "../model/types";
 
 /** Pure setters keyed by plan 1's SETTING_RANGES paths. */
 export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Settings> = {
@@ -154,9 +154,10 @@ export interface NameExample {
 export function nameExampleOf(
   trays: readonly TraySpec[],
   components: readonly Component[],
+  groups: readonly Group[] = [],
 ): NameExample | undefined {
   const parts = numberParts(trays);
-  const names = trayNames(parts, components);
+  const names = trayNames(parts, components, groups);
   // A tray's own name: a riser or a spacer is named after the tray it serves, which reads badly cut short.
   for (const part of parts) {
     const n = part.spec.part === "tray" ? names.get(part.spec.key) : undefined;

@@ -7,8 +7,9 @@ import type { ComponentChildren } from "preact";
 import { Fragment } from "preact";
 import { useState } from "preact/hooks";
 import { Button, Segmented, Toast } from "../kit";
-import type { Box, Component, Settings, TraySpec } from "../model/types";
+import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
 import { growthOf } from "../model/defaults";
+import { parseTrayKey } from "../model/groups";
 import { planFrame, toSvgRect, traysAt } from "../plan/layers";
 import { levelsOf } from "../plan/layers";
 import { lookOfTray } from "../plan/glyph";
@@ -50,6 +51,29 @@ export function traysOfComponent(
       );
 }
 
+/** The words a sentence adds when a copy was cut into several trays (spec §7.4, §8). */
+export const SPLIT_SENTENCE = " Too big for one tray, so it is split.";
+
+/**
+ * Whether a copy of these trays is printed as several: two trays with one key but for the part
+ * ("Player kit 2a", "Player kit 2b"). Several copies of one tray each are not a split.
+ */
+export function hasSplitCopy(trays: readonly TraySpec[]): boolean {
+  const seen = new Set<string>();
+  for (const t of trays) {
+    const at = parseTrayKey(t.key);
+    if (at === undefined) {
+      continue;
+    }
+    const copy = `${at.stem}:${at.copy}`;
+    if (seen.has(copy)) {
+      return true;
+    }
+    seen.add(copy);
+  }
+  return false;
+}
+
 /**
  * "Market deck tray, 95 × 190 mm. It grows as you add cards." (Edit's sentence): the name in bold,
  * the first tray's footprint, and for a deck that leaves room to grow, that it does. Several trays:
@@ -72,7 +96,7 @@ export function StageSentence({
   const grows = c.kind === "cards" && growthOf(c, "stack", c.storage === "flat") !== "off";
   let rest = "";
   if (trays.length > 1) {
-    rest = `, ${trays.length} trays.`;
+    rest = `, ${trays.length} trays.${hasSplitCopy(trays) ? SPLIT_SENTENCE : ""}`;
   } else if (first !== undefined) {
     rest = ` tray, ${mm(first.w)} × ${mm(first.d)} mm.${grows ? " It grows as you add cards." : ""}`;
   }
@@ -251,6 +275,7 @@ const STRIP_PX = 84;
 export function EditorStrip({
   componentId,
   components,
+  groups,
   trays,
   box,
   settings,
@@ -261,6 +286,8 @@ export function EditorStrip({
 }: {
   componentId: string;
   components: readonly Component[];
+  /** The project's groups: a group's tray is drawn in its neutral colours. */
+  groups?: readonly Group[];
   trays: readonly TraySpec[];
   box: Box;
   settings: Settings;
@@ -292,7 +319,7 @@ export function EditorStrip({
       >
         {traysAt(trays, level).map((t) => {
           const r = toSvgRect(t, frame);
-          const look = lookOfTray(t, components);
+          const look = lookOfTray(t, components, groups);
           const edited = mine.some((m) => m.key === t.key);
           return (
             <Fragment key={t.key}>

@@ -241,7 +241,7 @@ export function explodedView(layout: StoredLayout, project: Project): ExplodedVi
   if (parts.length === 0) {
     return null;
   }
-  const names = trayNames(parts, project.components);
+  const names = trayNames(parts, project.components, project.groups);
   const shortOf = (part: NumberedPart): string =>
     (names.get(part.spec.key)?.short ?? "?").toUpperCase();
   const fullOf = (part: NumberedPart): string => names.get(part.spec.key)?.full ?? part.label;

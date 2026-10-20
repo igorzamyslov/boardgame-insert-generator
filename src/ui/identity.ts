@@ -201,7 +201,7 @@ export function shadeIndexOf(components: readonly Component[], index: number): n
 }
 
 /** The component a compartment holds, by the id it names, else by its words; null for none. */
-function componentIndexOfCompartment(
+export function componentIndexOfCompartment(
   compartment: TraySpec["compartments"][number],
   components: readonly Component[],
 ): number | null {
@@ -414,4 +414,65 @@ export function traysOfGroup(
   return (p.layout?.trays ?? []).filter(
     (t) => t.part === "tray" && groupOfTray(t, p)?.id === groupId,
   );
+}
+
+/**
+ * Whether a tray is a group's: a tray (not a spacer, riser, divider or spare) of a group. It is
+ * drawn and shaded neutral everywhere (spec §7.6): a mixed tray has no single kind.
+ */
+export function isGroupTray(
+  tray: TraySpec,
+  p: { components: readonly Component[]; groups?: readonly Group[] },
+): boolean {
+  return tray.part === "tray" && (p.groups?.length ?? 0) > 0 && groupOfTray(tray, p) !== undefined;
+}
+
+/** What a compartment is drawn in: its member's kind, and the member's place among its kind. */
+export interface MemberShade {
+  kind: ComponentKind;
+  /** The nth of its kind (`shadeIndexOf`): the argument `shadeHex` and `shadeOf` take. */
+  index: number;
+}
+
+/** The member a compartment holds, for its colours; null for a spare well or one that names no item. */
+export function memberShadeOfCompartment(
+  compartment: TraySpec["compartments"][number],
+  components: readonly Component[],
+): MemberShade | null {
+  if (compartment.kind === "spare") {
+    return null;
+  }
+  const at = componentIndexOfCompartment(compartment, components);
+  const member = at === null ? undefined : components[at];
+  return at === null || member === undefined
+    ? null
+    : { kind: member.kind, index: shadeIndexOf(components, at) };
+}
+
+/**
+ * A group tray's members as the tray bar's tiny tray draws them: one cell each, in compartment
+ * order, as wide as the members' compartments are in all (the cells' area), so a deck's well reads
+ * wider than a figure pocket.
+ */
+export function memberCellsOfTray(
+  tray: TraySpec,
+  components: readonly Component[],
+): (MemberShade & { weight: number })[] {
+  const out: (MemberShade & { id: string; weight: number })[] = [];
+  for (const c of tray.compartments) {
+    const at = c.kind === "spare" ? null : componentIndexOfCompartment(c, components);
+    const member = at === null ? undefined : components[at];
+    const shade = memberShadeOfCompartment(c, components);
+    if (member === undefined || shade === null) {
+      continue;
+    }
+    const area = Math.max(1, c.w * c.d);
+    const have = out.find((m) => m.id === member.id);
+    if (have === undefined) {
+      out.push({ ...shade, id: member.id, weight: area });
+    } else {
+      have.weight += area;
+    }
+  }
+  return out.map(({ kind, index, weight }) => ({ kind, index, weight }));
 }

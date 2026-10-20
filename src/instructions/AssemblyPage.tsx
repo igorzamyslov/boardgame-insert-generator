@@ -26,12 +26,12 @@ export function AssemblyPage(p: AssemblyPageProps) {
   const svgs = useMemo(() => render(p.layout, p.project), [p.layout, p.project]);
   const exploded = useMemo(() => explodedView(p.layout, p.project), [p.layout, p.project]);
   const steps = useMemo(
-    () => packingSteps(p.layout, p.project.components),
-    [p.layout, p.project.components],
+    () => packingSteps(p.layout, p.project.components, p.project.groups),
+    [p.layout, p.project.components, p.project.groups],
   );
   const layers = useMemo(
-    () => layerInfo(p.layout, p.project.components),
-    [p.layout, p.project.components],
+    () => layerInfo(p.layout, p.project.components, p.project.groups),
+    [p.layout, p.project.components, p.project.groups],
   );
   const rows = useMemo(() => whatGoesWhere(p.layout, p.project), [p.layout, p.project]);
   const [pngError, setPngError] = useState<string | null>(null);

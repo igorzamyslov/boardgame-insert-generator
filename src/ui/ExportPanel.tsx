@@ -19,10 +19,10 @@ import { buildErrorReason } from "../app/support";
 import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts } from "../instructions/numbering";
 import type { LayoutSummary } from "../layout/types";
-import type { Component, Printer, Settings, TraySpec } from "../model/types";
+import type { Component, Group, Printer, Settings, TraySpec } from "../model/types";
 import { Button, Card, CloseButton, Dialog, Icon, IconTile, ProgressBar } from "../kit";
 import { formatGrams, formatPrintTime } from "./estimates";
-import { componentIndexOfTray, shadeIndexOf, shadeVars } from "./identity";
+import { componentIndexOfTray, isGroupTray, shadeIndexOf, shadeVars } from "./identity";
 import "./export.css";
 
 export type ExportKind = "parts" | "combined" | "stl";
@@ -45,6 +45,8 @@ export interface ExportPanelProps {
   trays: readonly TraySpec[];
   /** The components the trays hold: the trays are named after them. */
   components?: readonly Component[];
+  /** The project's groups: a group's trays are named by it ("Player kit 1") and chipped in the neutral swatch. */
+  groups?: readonly Group[];
   printer: Printer;
   settings: Settings;
   meshes: MeshSource;
@@ -94,8 +96,8 @@ export function ExportPanel(p: ExportPanelProps) {
   const components = p.components ?? [];
   // Every part is called as on the screens and the packing guide, in files and in the list below.
   const names = useMemo(
-    () => trayNames(numberParts(p.trays), p.components ?? []),
-    [p.trays, p.components],
+    () => trayNames(numberParts(p.trays), p.components ?? [], p.groups ?? []),
+    [p.trays, p.components, p.groups],
   );
   const [busy, setBusy] = useState<Busy | null>(null);
   const [error, setError] = useState<{ kind: ExportKind; message: string } | null>(null);
@@ -518,15 +520,20 @@ export function ExportPanel(p: ExportPanelProps) {
         const name = names.get(part.spec.key)?.full ?? part.label;
         const at = componentIndexOfTray(part.spec, components);
         const kind = at === null ? undefined : components[at]?.kind;
+        // a group's tray has no kind of its own: the neutral swatch, with a line to show on the sheet
+        const grouped = isGroupTray(part.spec, { components, groups: p.groups ?? [] });
         return (
           <li
             class="export-chip"
             key={part.spec.key}
             title={name}
+            data-group={grouped ? "true" : undefined}
             style={
-              at === null || kind === undefined
-                ? undefined
-                : shadeVars(kind, shadeIndexOf(components, at))
+              grouped
+                ? shadeVars("group", 0)
+                : at === null || kind === undefined
+                  ? undefined
+                  : shadeVars(kind, shadeIndexOf(components, at))
             }
           >
             {name}

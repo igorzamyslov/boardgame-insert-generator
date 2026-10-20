@@ -52,12 +52,12 @@ const MAKE_NEW_PLAN = {
 };
 // The status heading of the stage (Task 6): the h1, its switches and its action.
 const STATUS = '[data-region="status"]';
-// The kit seeds (Task 9 and after): a tray of the Player kit in the plan, and the group's header in the rail.
-// Until Task 10 names the group's tiles, the plan calls a copy by its members ("Starter deck + Resources + Hero 2").
+// The kit seeds (Task 9 and after): a tray of the Player kit in the plan (called "Player kit 2" since Task 10),
+// and the group's header in the rail.
 const PLAN_KIT_2 = {
   click: {
     role: "button",
-    name: /^(Player kit|Starter deck \+ Resources \+ Hero) 2/,
+    name: /^Player kit 2/,
     in: '[data-region="stage"]',
   },
 };

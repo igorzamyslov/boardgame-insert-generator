@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { shadeHex } from "../ui/identity";
+import { GROUP_SHADE, shadeHex } from "../ui/identity";
 import type { Component, Project } from "../model/types";
 import { pngSize, svgDataUrl } from "./png";
 import { escapeXml, layerInfo, packingSteps, render, truncate, whatGoesWhere } from "./render";
@@ -557,5 +557,125 @@ describe("a merged filler in the instructions", () => {
     expect(row).toMatchObject({ layer: 1, goesInto: null, carries: null });
     expect(rows).toHaveLength(2);
     expect(packingSteps(withMerged, named.components).join("\n")).toContain(row?.name ?? "?");
+  });
+});
+
+describe("a group's trays in the packing guide (spec §7.7)", () => {
+  const kit = {
+    id: "kit",
+    name: "Player kit",
+    copies: 2,
+    access: "often" as const,
+    memberIds: ["deck0001", "coin0001"],
+  };
+  const well = (id: string, contents: string, x: number, w: number) => ({
+    x,
+    y: 3,
+    w,
+    d: 80,
+    floorZ: 1.2,
+    kind: "well" as const,
+    contents,
+    componentId: id,
+    features: [],
+  });
+  const copy = (n: number, x: number) =>
+    makeTray({
+      key: `kit:p${n}:0`,
+      path: String(n),
+      stack: n,
+      level: 0,
+      x,
+      y: 0,
+      w: 120,
+      d: 90,
+      h: 30,
+      compartments: [well("deck0001", "Deck A ×50", 3, 50), well("coin0001", "Coins ×12", 60, 50)],
+    });
+  const own = makeTray({
+    key: "own:p0:0",
+    path: "5",
+    stack: 5,
+    level: 0,
+    x: 250,
+    y: 0,
+    w: 80,
+    d: 90,
+    h: 30,
+    compartments: [well("deck0001", "Deck A ×5", 3, 60)],
+  });
+  const grouped = { ...named, groups: [kit] };
+  // an ungrouped tray of the project, for the unchanged look
+  const lone = {
+    ...named,
+    components: [
+      ...named.components,
+      { ...(named.components[0] as Component), id: "hex00001", name: "Hex tiles" },
+    ],
+  };
+  const kitLayout = makeLayout("h", [copy(0, 0), copy(1, 125)]);
+
+  it("draws a group's tray neutral with each well in its member's colours", () => {
+    const [svg] = render(kitLayout, grouped);
+    const doc = parse(svg ?? "");
+    const rects = [...doc.querySelectorAll("rect")];
+    const tray = rects.find(
+      (r) => r.getAttribute("fill") === GROUP_SHADE.light.fill && r.getAttribute("rx") === "1.5",
+    );
+    expect(tray, "a neutral tray").toBeTruthy();
+    expect(tray?.getAttribute("stroke")).toBe(GROUP_SHADE.light.line);
+    const cards = shadeHex("cards", 0, "light");
+    // both members are cards here: the second takes the second shade of the hue, as in the rail
+    const bulk = shadeHex("cards", 1, "light");
+    const wells = rects.filter((r) => r.getAttribute("data-well") !== null);
+    expect(wells).toHaveLength(4);
+    expect(wells[0]?.getAttribute("fill")).toBe(cards.fill);
+    expect(wells[0]?.getAttribute("stroke")).toBe(cards.line);
+    expect(wells[1]?.getAttribute("fill")).toBe(bulk.fill);
+    expect(wells[1]?.getAttribute("stroke")).toBe(bulk.line);
+    // a well sits where it is in the tray: x from the left, y from the front (the bottom)
+    const t = tray as Element;
+    expect(Number(wells[0]?.getAttribute("x"))).toBeCloseTo(Number(t.getAttribute("x")) + 3, 1);
+    expect(Number(wells[0]?.getAttribute("y"))).toBeCloseTo(Number(t.getAttribute("y")) + 7, 1);
+    expect(Number(wells[0]?.getAttribute("width"))).toBeCloseTo(50, 1);
+    expect(Number(wells[0]?.getAttribute("height"))).toBeCloseTo(80, 1);
+  });
+
+  it("names each copy: a caption and a badge in the group's name, never a member's", () => {
+    const [svg] = render(kitLayout, grouped);
+    expect(svg).toContain("Player kit 1");
+    expect(svg).toContain("Player kit 2");
+    expect(svg).toContain(">PLAYER 1</text>");
+    expect(svg).toContain(">PLAYER 2</text>");
+    expect(svg).not.toContain("Deck A + ");
+  });
+
+  it("leaves an ungrouped tray as it was: its kind's fill, no wells drawn", () => {
+    const [svg] = render(makeLayout("h", [own]), lone);
+    const doc = parse(svg ?? "");
+    expect(doc.querySelectorAll("rect[data-well]")).toHaveLength(0);
+    expect(svg).toContain(`fill="${shadeHex("cards", 0, "light").fill}"`);
+  });
+
+  it("lists a row per copy, named by the group, holding its compartments in tray order", () => {
+    const rows = whatGoesWhere(kitLayout, grouped);
+    expect(rows.map((r) => r.name)).toEqual(["Player kit 1", "Player kit 2"]);
+    expect(rows.map((r) => r.contents)).toEqual([
+      ["Deck A ×50", "Coins ×12"],
+      ["Deck A ×50", "Coins ×12"],
+    ]);
+    expect(rows.every((r) => r.contents.every((c) => !/\(P\d+\)/.test(c)))).toBe(true);
+    expect(rows.map((r) => r.engraved)).toEqual(["PLAYER 1", "PLAYER 2"]);
+  });
+
+  it("says Player kit 1 … in the packing steps and the layer lists", () => {
+    expect(packingSteps(kitLayout, grouped.components, grouped.groups)).toEqual([
+      "Layer 1: place Player kit 1.",
+      "Layer 1: place Player kit 2.",
+    ]);
+    expect(layerInfo(kitLayout, grouped.components, grouped.groups)[0]?.trays).toEqual([
+      "Player kit 1",
+      "Player kit 2",
+    ]);
   });
 });

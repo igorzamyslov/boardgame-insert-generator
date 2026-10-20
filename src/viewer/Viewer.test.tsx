@@ -6,7 +6,7 @@ import type { MeshSource } from "../app/meshes";
 import { cubeMesh, fixtureProject, flush, makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { SPACER_SHADE, shadeHex } from "../ui/identity";
+import { GROUP_SHADE, SPACER_SHADE, shadeHex } from "../ui/identity";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import type { Component } from "../model/types";
 import type { ViewBasis } from "./axes";
@@ -260,6 +260,61 @@ describe("Viewer", () => {
     render(<Viewer {...props({ meshes: off, settings, trays: twoDecks, components }, scene)} />);
     await waitFor(() => expect(off.get).toHaveBeenCalledTimes(2));
     expect(off.get.mock.calls.every(([spec]) => spec.partName === undefined)).toBe(true);
+  });
+
+  describe("a group's trays", () => {
+    const [deck, , objectives] = fixtureProject().components as [Component, Component, Component];
+    const inKit = (n: number) =>
+      makeTray({
+        key: `kit:p${n}:0`,
+        level: 0,
+        compartments: [
+          { ...deckWell("x"), contents: `${deck.name} ×20`, componentId: deck.id },
+          { ...deckWell("x"), contents: `${objectives.name} ×10`, componentId: objectives.id },
+        ],
+      });
+    const kit = {
+      id: "kit",
+      name: "Player kit",
+      copies: 2,
+      access: "often" as const,
+      memberIds: [deck.id, objectives.id],
+    };
+    const own = makeTray({ key: "own:p0:0", level: 0, compartments: [deckWell("Market ×20")] });
+    const base = { components: fixtureProject().components, groups: [kit] };
+
+    it("takes the neutral body colour of the group, and an ungrouped tray its kind's shade", async () => {
+      const scene = stubScene();
+      render(<Viewer {...props({ ...base, trays: [inKit(0), inKit(1), own] }, scene)} />);
+      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
+      const shown = vi.mocked(scene.handle.setTrays).mock.calls.at(-1)?.[0] ?? [];
+      const got = Object.fromEntries(shown.map((t) => [t.spec.key, t.color]));
+      expect(got["kit:p0:0"]).toBe(GROUP_SHADE.light.fill);
+      expect(got["kit:p1:0"]).toBe(GROUP_SHADE.light.fill);
+      expect(got["own:p0:0"]).toBe(shadeHex("cards", 1, "light").fill);
+    });
+
+    it("names the selected tray by the group and its copy", () => {
+      const scene = stubScene();
+      const view = render(
+        <Viewer
+          {...props({ ...base, trays: [inKit(0), inKit(1)], selectedKey: "kit:p1:0" }, scene)}
+        />,
+      );
+      expect(view.container.querySelector(".viewer-selection")?.textContent).toBe("Player kit 2");
+    });
+
+    it("engraves each copy with the group's short name and its copy, as the packing guide names it", async () => {
+      const scene = stubScene();
+      const m = meshes();
+      render(<Viewer {...props({ ...base, meshes: m, trays: [inKit(0), inKit(1)] }, scene)} />);
+      await waitFor(() => expect(m.get).toHaveBeenCalledTimes(2));
+      const engraved = m.get.mock.calls.map(([spec]) => spec.partName);
+      expect(engraved).toHaveLength(2);
+      expect(engraved.every((n) => typeof n === "string" && n.startsWith("Player"))).toBe(true);
+      expect(new Set(engraved).size).toBe(2);
+      expect(engraved.every((n) => (n ?? "").length <= 10)).toBe(true);
+    });
   });
 
   it("reports trays that could not be built and retries", async () => {

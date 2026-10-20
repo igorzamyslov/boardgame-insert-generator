@@ -7,7 +7,13 @@ import type { ForeignData, Project, TraySpec } from "../model/types";
 import { isAddOn, levelsOf } from "../plan/layers";
 import { layerLabel } from "../plan/PlanView";
 import { lookOfTray } from "../plan/glyph";
-import { compartmentWords, componentIndexOfTray } from "./identity";
+import {
+  compartmentWords,
+  componentIndexOfTray,
+  groupOfTray,
+  memberCellsOfTray,
+  shadeOf,
+} from "./identity";
 import { TrayBar } from "./TrayBar";
 
 export interface SelectedTrayBarProps {
@@ -28,6 +34,8 @@ export interface SelectedTrayBarProps {
   onSwapFromChange: (key: string | null) => void;
   /** Opens a component's editor. */
   onEditComponent: (id: string) => void;
+  /** Opens a group's editor: Edit on a group's tray goes there, not to one of its members. */
+  onEditGroup?: (groupId: string) => void;
 }
 
 /**
@@ -54,8 +62,8 @@ function focusTray(key: string, inPlan: boolean): void {
 export function SelectedTrayBar(p: SelectedTrayBarProps) {
   const { project, trays } = p;
   const names = useMemo(
-    () => trayNames(numberParts(trays), project.components),
-    [trays, project.components],
+    () => trayNames(numberParts(trays), project.components, project.groups),
+    [trays, project.components, project.groups],
   );
   const tray = p.selectedKey === null ? undefined : trays.find((t) => t.key === p.selectedKey);
   if (tray === undefined || (p.phone && p.swapFrom !== null)) {
@@ -67,6 +75,18 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
   const owner = isAddOn(tray) ? names.get(parentKey(tray)) : undefined;
   const componentIndex = componentIndexOfTray(tray, project.components);
   const component = componentIndex === null ? undefined : project.components[componentIndex];
+  // A group's tray is the group's: its look is neutral with its members' cells, and Edit opens the group.
+  const look = lookOfTray(tray, project.components, project.groups);
+  const group = look?.group === true ? groupOfTray(tray, project) : undefined;
+  const cells =
+    group === undefined
+      ? undefined
+      : memberCellsOfTray(tray, project.components).map((m) => ({
+          shade: shadeOf(m.kind, m.index),
+          weight: m.weight,
+        }));
+  const compartmentCount = tray.compartments.filter((c) => c.kind !== "spare").length;
+  const onEditGroup = p.onEditGroup;
   // Locks are written against the stored plan's trays.
   const withStored = (fn: (stored: TraySpec) => (q: Project) => Project): void => {
     const stored = project.layout?.trays.find((t) => t.key === key);
@@ -81,16 +101,29 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
       tray={tray}
       name={names.get(key)?.full ?? "Tray"}
       layer={at >= 0 ? layerLabel(at, levels.length) : `Layer ${tray.level + 1}`}
-      look={lookOfTray(tray, project.components)}
+      look={look}
+      {...(cells === undefined ? {} : { cells })}
+      layerCount={levels.length}
       carries={tray.part === "riser" ? (owner?.full ?? null) : null}
-      compartments={compartmentWords(tray, component)}
+      compartments={
+        group === undefined
+          ? compartmentWords(tray, component)
+          : `${compartmentCount} ${compartmentCount === 1 ? "compartment" : "compartments"}`
+      }
       phone={p.phone}
       swapping={p.swapFrom === key}
       onPin={() => withStored((stored) => (q) => toggleLock(q, stored))}
       onTurn={() => withStored((stored) => (q) => turnTray(q, stored))}
       onSwap={p.inPlan ? () => p.onSwapFromChange(p.swapFrom === key ? null : key) : undefined}
       onToggleSizeLock={() => withStored((stored) => (q) => toggleSizeLock(q, stored))}
-      onEdit={component === undefined ? undefined : () => p.onEditComponent(component.id)}
+      onEdit={
+        // G1 draws Edit on a group's tray; the group's editor is wired by the app (a no-op until it is)
+        group !== undefined
+          ? () => onEditGroup?.(group.id)
+          : component === undefined
+            ? undefined
+            : () => p.onEditComponent(component.id)
+      }
       onClose={() => {
         // A swap from this tray ends with the bar.
         p.onSwapFromChange(null);

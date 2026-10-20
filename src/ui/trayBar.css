@@ -48,6 +48,22 @@
   );
 }
 
+/*
+ * A group's swatch is a tiny tray (G1): the neutral tile (the sheet, a 2 px strong line) with a cell
+ * per member in the member's kind fill and a 1 px kind line inside it, widths set per member.
+ */
+.tray-bar__swatch--group {
+  display: grid;
+  gap: 2px;
+  padding: 3px;
+}
+
+.tray-bar__cell {
+  border-radius: 2px;
+  background: var(--cell-own-fill);
+  box-shadow: inset 0 0 0 1px var(--cell-own-line);
+}
+
 /* The name over its line, taking what the buttons leave (200 px at least, then the buttons wrap). */
 .tray-bar__text {
   display: flex;

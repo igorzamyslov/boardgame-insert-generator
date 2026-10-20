@@ -3,7 +3,7 @@ import { holdsOf, trayNames } from "../instructions/naming";
 import { numberParts } from "../instructions/numbering";
 import { topPlane } from "../model/settings";
 import type { LockConflict } from "../layout/types";
-import type { Box, Component, Lock, Settings, TraySpec } from "../model/types";
+import type { Box, Component, Group, Lock, Settings, TraySpec } from "../model/types";
 
 /** The tray a failed search could not fit, for the status line to name and open. */
 export interface Misfit {
@@ -39,11 +39,12 @@ export function misfitOf(
   box: Box,
   settings: Settings,
   components: readonly Component[],
+  groups: readonly Group[] = [],
 ): Misfit | null {
   if (attempt === null) {
     return null;
   }
-  const names = trayNames(numberParts(attempt.trays as TraySpec[]), components);
+  const names = trayNames(numberParts(attempt.trays as TraySpec[]), components, groups);
   const overBed = new Set(attempt.overBedKeys ?? []);
   let best: { tray: TraySpec; held: Component; bed: boolean; over: number } | null = null;
   for (const tray of attempt.trays) {
@@ -83,11 +84,12 @@ export function namedConflicts(
   trays: readonly TraySpec[] | undefined,
   components: readonly Component[],
   locks: readonly Lock[],
+  groups: readonly Group[] = [],
 ): LockConflict[] {
   if (trays === undefined) {
     return [...conflicts];
   }
-  const names = trayNames(numberParts(trays as TraySpec[]), components);
+  const names = trayNames(numberParts(trays as TraySpec[]), components, groups);
   // only a tray that holds something has a name worth the person's reading ("Spare 1" is not one)
   const nameOf = (key: string): string | undefined => {
     const tray = trays.find((t) => t.key === key);

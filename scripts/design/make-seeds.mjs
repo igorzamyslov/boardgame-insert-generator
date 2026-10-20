@@ -63,6 +63,7 @@ try {
       project.box,
       project.settings,
       project.components,
+      project.groups ?? [],
     );
     return `no fit, misfit ${misfit?.name ?? "none"}`;
   }
@@ -396,7 +397,13 @@ try {
 
   const misfitOf = (project, result) =>
     result.layout === null
-      ? noFit.misfitOf(result.bestAttempt, project.box, project.settings, project.components)
+      ? noFit.misfitOf(
+          result.bestAttempt,
+          project.box,
+          project.settings,
+          project.components,
+          project.groups ?? [],
+        )
       : null;
   // The height story: a figure too tall for the box, so the closest attempt overhangs it.
   const noFitRun = tune(

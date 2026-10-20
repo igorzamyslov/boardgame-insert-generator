@@ -588,6 +588,21 @@ const CASES: readonly Case[] = [
     seed: "harbour-kings-kit-loose",
     steps: addKind,
   },
+  // 0.7.0 Task 10: GroupRail's plan (the kit's trays named Player kit 1…4) and its tray bar
+  {
+    state: "kit-rail",
+    board: "GroupRail",
+    region: "plan-box",
+    seed: "harbour-kings-kit",
+    steps: () => undefined,
+  },
+  {
+    state: "kit-rail",
+    board: "GroupRail",
+    region: "tray-bar",
+    seed: "harbour-kings-kit",
+    steps: selectTray(/^Player kit 2/),
+  },
   { state: "workspace-error", board: "Main", region: "rail", steps: breakFirst },
   {
     state: "m-workspace",

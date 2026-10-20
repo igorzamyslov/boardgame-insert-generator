@@ -8,11 +8,21 @@ import { isLockable, lockedKeys, sizeLockedKeys, stackOf } from "../app/actions"
 import { canTurn } from "../app/dryRun";
 import { printedHeight } from "../instructions/numbering";
 import { summarize } from "../layout";
-import { Button, CloseButton, Dialog, Icon, IconTile, MenuItem, MenuPanel } from "../kit";
+import {
+  Button,
+  CloseButton,
+  Dialog,
+  GroupGlyph,
+  Icon,
+  IconTile,
+  MenuItem,
+  MenuPanel,
+} from "../kit";
 import type { ForeignData, Project, TraySpec } from "../model/types";
 import type { TrayLook } from "../plan/glyph";
 import { formatPrintCost } from "./estimates";
 import { mm } from "./identity";
+import type { Shade } from "./identity";
 import "./trayBar.css";
 
 export interface TrayBarProps {
@@ -28,9 +38,16 @@ export interface TrayBarProps {
   layer: string;
   /** The component's kind and its own shade, for the swatch; none for a part that holds nothing. */
   look?: TrayLook | null;
+  /**
+   * A group's tray: its members' colours, in order, for the swatch drawn as a tiny tray (one cell
+   * each, as wide as `weight`).
+   */
+  cells?: readonly { shade: Shade; weight: number }[];
+  /** How many layers the plan has: a group's line names the layer only when there are two or more. */
+  layerCount?: number;
   /** A riser carries a tray: its name. */
   carries?: string | null;
-  /** What the compartments are, in words, for the phone's line ("6 figure pockets"). */
+  /** What the compartments are, in words: the phone's line ("6 figure pockets"), and a group's ("5 compartments"). */
   compartments?: string | null;
   /** The phone's modal sheet, not the bar in the stage's slot. */
   phone?: boolean;
@@ -70,6 +87,28 @@ function shadeStyle(look: TrayLook | null | undefined): CSSProperties | undefine
         "--shade-line": look.shade.line,
         "--shade-ink": look.shade.ink,
       } as CSSProperties);
+}
+
+/** The swatch of a group's tray: a tiny tray, a neutral tile with a cell per member in the member's colours. */
+function GroupSwatch({ cells }: { cells: NonNullable<TrayBarProps["cells"]> }) {
+  const columns = cells.map((c) => `${Math.round(c.weight * 100) / 100}fr`).join(" ");
+  return (
+    <span
+      class="tray-bar__swatch tray-bar__swatch--group"
+      aria-hidden="true"
+      style={{ gridTemplateColumns: columns } as CSSProperties}
+    >
+      {cells.map((c, i) => (
+        <span
+          key={i}
+          class="tray-bar__cell"
+          style={
+            { "--cell-own-fill": c.shade.fill, "--cell-own-line": c.shade.line } as CSSProperties
+          }
+        />
+      ))}
+    </span>
+  );
 }
 
 /** What the bar knows about the tray: its rules, whether Turn can go, and the lines it says. */
@@ -263,8 +302,15 @@ type Inner = TrayBarProps & { facts: Facts; more: More };
 function DesktopBar(p: Inner) {
   const { facts, more } = p;
   const words = actionWords(facts.stack, facts.pinned);
+  // A group's line (G1): the size, how many compartments, then the cost; the layer first only with two.
+  const group = p.look?.group === true;
   const meta = facts.full
-    ? [p.layer, facts.size, facts.estimate].filter((part) => part !== null).join(" · ")
+    ? (group
+        ? [(p.layerCount ?? 1) > 1 ? p.layer : null, facts.size, p.compartments, facts.estimate]
+        : [p.layer, facts.size, facts.estimate]
+      )
+        .filter((part) => part !== null && part !== undefined && part !== "")
+        .join(" · ")
     : partLine(p, facts.size);
   return (
     <div
@@ -274,10 +320,14 @@ function DesktopBar(p: Inner) {
       data-region="tray-bar"
       style={shadeStyle(p.look)}
     >
-      <span
-        class={`tray-bar__swatch${p.look ? "" : " tray-bar__swatch--spacer"}`}
-        aria-hidden="true"
-      />
+      {group && p.cells !== undefined && p.cells.length > 0 ? (
+        <GroupSwatch cells={p.cells} />
+      ) : (
+        <span
+          class={`tray-bar__swatch${p.look ? "" : " tray-bar__swatch--spacer"}`}
+          aria-hidden="true"
+        />
+      )}
       <span class="tray-bar__text">
         <span class="tray-bar__name" title={p.name}>
           {p.name}
@@ -376,6 +426,10 @@ function PhoneSheet(p: Inner) {
         <div class="tray-sheet__head">
           {!p.look ? (
             <span class="tray-sheet__swatch" aria-hidden="true" />
+          ) : p.look.group ? (
+            <IconTile size={36} tone="group">
+              <GroupGlyph size={18} />
+            </IconTile>
           ) : (
             <IconTile size={36} kind={p.look.kind} lined />
           )}

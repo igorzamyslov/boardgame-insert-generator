@@ -113,6 +113,17 @@
     box-shadow 180ms;
 }
 
+/*
+ * A group's tray is neutral (G1, spec §7.6): a mixed tray has no single kind, so the page's own
+ * tokens stand for it, `--sheet` for the ground and `--muted-strong` for the 2 px line, the pill's
+ * ink and Edit's lift; its cells say what is where, each in its member's kind colours.
+ */
+.plan-tile.is-group {
+  --tile-fill: var(--sheet);
+  --tile-line: var(--muted-strong);
+  --tile-ink: var(--muted-strong);
+}
+
 /* Spare trays and spacers belong to no component: hatched, with a dashed edge (Main). */
 .plan-tile.is-leftover {
   border: 2px dashed var(--spacer-dash);
@@ -196,6 +207,12 @@
   border: 1px solid color-mix(in srgb, var(--tile-line, var(--edge)) 25%, transparent);
   border-radius: var(--r-cell);
   background: var(--cell-fill);
+}
+
+/* A group's cell wears its member's kind fill and a 1.5 px kind line. */
+.plan-tile.is-group .plan-cell {
+  border: 1.5px solid var(--cell-own-line, var(--tile-line));
+  background: var(--cell-own-fill, var(--cell-fill));
 }
 
 /* The name sits in a pill so it reads on any shade and over the hatching. */
@@ -313,9 +330,18 @@
     display: none;
   }
 
-  /* MobileWorkspace: no cells, and a smaller pill. */
+  /* MobileWorkspace: no cells, except a group's, which are what says what is in its tray (G4); and a smaller pill. */
   .plan-cells {
     display: none;
+  }
+
+  .plan-tile.is-group .plan-cells {
+    inset: 5px;
+    display: block;
+  }
+
+  .plan-tile.is-group .plan-cell {
+    border-radius: 4px;
   }
 
   .plan-center {

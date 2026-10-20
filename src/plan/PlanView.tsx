@@ -6,7 +6,7 @@ import { isLockable } from "../app/actions";
 import { trayNames } from "../instructions/naming";
 import { numberParts, partsByKey } from "../instructions/numbering";
 import { Icon, KindGlyph } from "../kit";
-import type { Box, Component, Settings, TraySpec } from "../model/types";
+import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { StageSlot } from "../screens/StageSlot";
 import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
@@ -20,7 +20,7 @@ import {
   toSvgRect,
   traysAt,
 } from "./layers";
-import { lookOfTray } from "./glyph";
+import { cellShadeOf, lookOfTray } from "./glyph";
 import { DESKTOP_PILL, PHONE_PILL, hasPillRoom } from "./tileText";
 import "./plan.css";
 
@@ -32,6 +32,11 @@ export interface PlanViewProps {
   settings: Settings;
   /** The components the trays hold: each tray takes the tint of its component's swatch. */
   components?: readonly Component[];
+  /**
+   * The project's groups: a group's trays are called by its name and drawn neutral, each cell in
+   * its member's kind colours (spec §7.6).
+   */
+  groups?: readonly Group[];
   lockedKeys: ReadonlySet<string>;
   selectedKey: string | null;
   onSelect: (key: string | null) => void;
@@ -197,7 +202,8 @@ export function PlanView(props: PlanViewProps) {
   const numbered = numberParts(trays);
   const byKey = partsByKey(numbered);
   const components = props.components ?? [];
-  const names = trayNames(numbered, components);
+  const groups = props.groups ?? [];
+  const names = trayNames(numbered, components, groups);
   const shown = traysAt(trays, level);
   const rects = shown.flatMap((t) =>
     footprintsAt(t, level).map((f) => ({ key: t.key, rect: toSvgRect(f, frame) })),
@@ -513,7 +519,8 @@ export function PlanView(props: PlanViewProps) {
               const name = names.get(t.key)?.full ?? t.key;
               const locked = lockedKeys.has(t.key);
               const sizeLocked = sizeLockedKeys.has(t.key);
-              const look = lookOfTray(t, components);
+              const look = lookOfTray(t, components, groups);
+              const grouped = look !== null && look.group;
               const held = isActive(t.key);
               const lit = lightsSome && held;
               const lifted = editedId !== null && (identitiesOf(t.key) ?? []).includes(editedId);
@@ -526,7 +533,8 @@ export function PlanView(props: PlanViewProps) {
                   ? !locked
                   : lightsSome && !held;
               // The kind icon says what a tray holds when you point at it: the lit trays.
-              const icon = look !== null && lit;
+              // A group's tray has no kind of its own, so no icon.
+              const icon = look !== null && !grouped && lit;
               // The pill shows the whole name and its CSS cuts it to the tile; here only whether there is room.
               const pill = hasPillRoom(
                 name,
@@ -537,6 +545,7 @@ export function PlanView(props: PlanViewProps) {
               const cls = [
                 "plan-tile",
                 t.part === "leftover" ? "is-leftover" : "",
+                grouped ? "is-group" : "",
                 t.key === selectedKey ? "is-selected" : "",
                 lifted ? "is-lifted" : "",
                 dimmed ? "is-dimmed" : "",
@@ -548,8 +557,9 @@ export function PlanView(props: PlanViewProps) {
               ]
                 .filter((c) => c !== "")
                 .join(" ");
+              // A group's tile takes the page's neutral tokens (plan.css), not a kind's shade.
               const shade =
-                look === null
+                look === null || grouped
                   ? {}
                   : {
                       "--tile-fill": look.shade.fill,
@@ -604,19 +614,26 @@ export function PlanView(props: PlanViewProps) {
                       <span class="plan-misfit">{name}</span>
                     ) : look !== null && t.part === "tray" && t.compartments.length > 0 ? (
                       <div class="plan-cells" aria-hidden="true">
-                        {t.compartments.map((c, i) => (
-                          <span
-                            key={i}
-                            class="plan-cell"
-                            style={{
-                              // tray-local, y from the front: the front is the bottom of the tile
-                              left: pct((c.x / t.w) * 100),
-                              top: pct(((t.d - c.y - c.d) / t.d) * 100),
-                              width: pct((c.w / t.w) * 100),
-                              height: pct((c.d / t.d) * 100),
-                            }}
-                          />
-                        ))}
+                        {t.compartments.map((c, i) => {
+                          // a group's cell wears its member's kind colours
+                          const own = grouped ? cellShadeOf(c, components) : null;
+                          return (
+                            <span
+                              key={i}
+                              class="plan-cell"
+                              style={{
+                                // tray-local, y from the front: the front is the bottom of the tile
+                                left: pct((c.x / t.w) * 100),
+                                top: pct(((t.d - c.y - c.d) / t.d) * 100),
+                                width: pct((c.w / t.w) * 100),
+                                height: pct((c.d / t.d) * 100),
+                                ...(own === null
+                                  ? {}
+                                  : { "--cell-own-fill": own.fill, "--cell-own-line": own.line }),
+                              }}
+                            />
+                          );
+                        })}
                       </div>
                     ) : null}
                     {pill && !misfit ? (

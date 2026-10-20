@@ -390,6 +390,7 @@ export function App(props: AppProps) {
     layout?.trays,
     project.components,
     project.locks,
+    project.groups,
   );
   const canPlan = canOptimize(project, validation);
   const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
@@ -504,7 +505,7 @@ export function App(props: AppProps) {
     selectedTray === undefined ? [] : componentIdsOfTray(selectedTray, project.components);
   // The tray the closest attempt could not fit, for the status and for the picture that marks it.
   const misfit = noFit
-    ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components)
+    ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components, project.groups)
     : null;
   // What the status says (the heading; and, while an editor is open, the problems it still tells).
   const statusInput: StatusInput = {
@@ -570,6 +571,7 @@ export function App(props: AppProps) {
       <EditorStrip
         componentId={editedComponent.id}
         components={project.components}
+        groups={project.groups}
         trays={printable}
         box={project.box}
         settings={projSettings}
@@ -843,6 +845,7 @@ export function App(props: AppProps) {
         box: project.box,
         settings: project.settings,
         components: project.components,
+        groups: project.groups,
         lockedKeys: locked,
         stale: s.stale.value,
         searching: run.status === "running",
@@ -880,6 +883,7 @@ export function App(props: AppProps) {
           settings={projSettings}
           layout={layout}
           components={project.components}
+          groups={project.groups}
           phone={phone}
           plan={planProps}
           placeholder={workingOnIt}
@@ -918,6 +922,7 @@ export function App(props: AppProps) {
           box={project.box}
           settings={projSettings}
           components={project.components}
+          groups={project.groups}
           lockedKeys={locked}
           misfitKey={misfit?.trayKey}
           focusKey={fitKind === "noFit" ? misfit?.trayKey : firstConflict?.trayKey}
@@ -987,6 +992,7 @@ export function App(props: AppProps) {
                     box={project.box}
                     settings={project.settings}
                     components={project.components}
+                    groups={project.groups}
                     stale={s.stale.value}
                     meshes={meshes}
                     selectedKey={s.selection.value}
@@ -1016,6 +1022,7 @@ export function App(props: AppProps) {
           titleId="export-title"
           trays={printable}
           components={project.components}
+          groups={project.groups}
           printer={project.printer}
           settings={project.settings}
           meshes={meshes}
@@ -1111,7 +1118,7 @@ export function App(props: AppProps) {
             <SettingsSheet
               initialTab={settingsOpen.tab}
               settings={project.settings}
-              nameExample={nameExampleOf(printable, project.components)}
+              nameExample={nameExampleOf(printable, project.components, project.groups)}
               onSettingsChange={(next) => store.edit((q) => setSettings(q, next))}
               printer={project.printer}
               myPrinter={store.prefs.printer.value}

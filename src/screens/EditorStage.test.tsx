@@ -314,6 +314,39 @@ describe("StageSentence", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Starter decks, 3 trays.");
   });
 
+  it("adds that the tray is split when a copy had to be printed as several trays", () => {
+    const keys = (...ks: string[]) => ks.map((key) => tray({ key }));
+    render(
+      <StageSentence
+        component={cards({ name: "Player kit" })}
+        trays={keys("kit:p0:0", "kit:p0:1")}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Player kit, 2 trays. Too big for one tray, so it is split.",
+    );
+    cleanup();
+    render(
+      <StageSentence
+        component={cards({ name: "Player kit" })}
+        trays={keys("kit:p0:0", "kit:p0:1", "kit:p1:0", "kit:p1:1")}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Player kit, 4 trays. Too big for one tray, so it is split.",
+    );
+  });
+
+  it("does not say split of several copies, each one tray", () => {
+    render(
+      <StageSentence
+        component={cards({ name: "Player kit" })}
+        trays={["kit:p0:0", "kit:p1:0", "kit:p2:0", "kit:p3:0"].map((key) => tray({ key }))}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Player kit, 4 trays.");
+  });
+
   it("is the name alone while there is no plan, and names an unnamed one", () => {
     render(<StageSentence component={cards()} trays={[]} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Market deck");

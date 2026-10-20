@@ -8,6 +8,7 @@ import { toggleLock, turnTray } from "../app/actions";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { inputsHash } from "../model/hash";
 import type { Lock, Project, TraySpec } from "../model/types";
+import { shadeOf } from "./identity";
 import { TrayBar } from "./TrayBar";
 import type { TrayBarProps } from "./TrayBar";
 
@@ -527,5 +528,90 @@ describe("TrayBar as the phone's sheet", () => {
     expect(strip(tokens)).toMatch(/--tray-sheet-h:\s*404px/);
     expect(ruleFor(".tray-sheet__tile.k-btn")).toMatch(/min-height:\s*68px/);
     expect(ruleFor(".tray-sheet__tiles")).toMatch(/repeat\(3, minmax\(0, 1fr\)\)/);
+  });
+});
+
+describe("TrayBar for a group's tray (G1)", () => {
+  const groupLook = { kind: "cards" as const, shade: shadeOf("group", 0), group: true };
+  const cells = [
+    { shade: shadeOf("cards", 0), weight: 1.4 },
+    { shade: shadeOf("bulk", 0), weight: 1 },
+    { shade: shadeOf("minis", 0), weight: 1 },
+  ];
+  const kit = (over: Partial<TrayBarProps> = {}) =>
+    bar({
+      name: "Player kit 2",
+      look: groupLook,
+      cells,
+      compartments: "5 compartments",
+      layerCount: 1,
+      onEdit: vi.fn(),
+      ...over,
+    });
+
+  it("draws the swatch as a tiny tray: a neutral tile with a cell per member, in order", () => {
+    kit();
+    const swatch = region().querySelector(".tray-bar__swatch") as HTMLElement;
+    expect(swatch.classList.contains("tray-bar__swatch--group")).toBe(true);
+    const spans = [...swatch.querySelectorAll<HTMLElement>(".tray-bar__cell")];
+    expect(spans).toHaveLength(3);
+    expect(spans.map((c) => c.style.getPropertyValue("--cell-own-fill"))).toEqual(
+      cells.map((c) => c.shade.fill),
+    );
+    expect(spans.map((c) => c.style.getPropertyValue("--cell-own-line"))).toEqual(
+      cells.map((c) => c.shade.line),
+    );
+    expect(swatch.style.gridTemplateColumns).toBe("1.4fr 1fr 1fr");
+    // the tile itself is the group's neutral, not a kind's
+    expect(region().style.getPropertyValue("--shade-fill")).toBe(groupLook.shade.fill);
+  });
+
+  it("styles the tiny tray from the page's tokens: 30 px, a 2 px --muted-strong line, --sheet ground", () => {
+    const rule = ruleFor(".tray-bar__swatch--group");
+    expect(rule).toMatch(/display:\s*grid/);
+    expect(rule).toMatch(/gap:\s*2px/);
+    expect(rule).toMatch(/padding:\s*3px/);
+    expect(ruleFor(".tray-bar__swatch")).toMatch(/border:\s*2px solid var\(--shade-line/);
+    expect(ruleFor(".tray-bar__cell")).toMatch(/background:\s*var\(--cell-own-fill/);
+    expect(ruleFor(".tray-bar__cell")).toMatch(
+      /box-shadow:\s*inset 0 0 0 1px var\(--cell-own-line/,
+    );
+  });
+
+  it("says the size, the compartments and what it costs to print", () => {
+    kit();
+    const meta = region().querySelector(".tray-bar__meta")?.textContent ?? "";
+    expect(meta).toMatch(/^72 × 96 × 40 mm · 5 compartments · about [\d.]+ (h|min), \d+ g$/);
+  });
+
+  it("puts the layer first only when the plan has two", () => {
+    kit({ layerCount: 2 });
+    expect(region().querySelector(".tray-bar__meta")?.textContent).toMatch(
+      /^Layer 1 \(bottom\) · 72 × 96 × 40 mm · 5 compartments · about /,
+    );
+  });
+
+  it("opens the group's editor with Edit", () => {
+    const { p } = kit();
+    fireEvent.click(button("Edit"));
+    expect(p.onEdit).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Pin, Turn 90°, More and Close, as for any tray", () => {
+    kit({ onSwap: vi.fn() });
+    expect(button(/^Pin this tray/)).toBeTruthy();
+    expect(button(/^Turn this tray/)).toBeTruthy();
+    expect(button("More")).toBeTruthy();
+    expect(button("Close")).toBeTruthy();
+  });
+
+  it("names the tray in the phone's sheet with the group's neutral tile and its compartments", () => {
+    kit({ phone: true, layerCount: 1 });
+    const d = screen.getByRole("dialog");
+    expect(within(d).getByRole("heading", { level: 2 }).textContent).toBe("Player kit 2");
+    expect(d.querySelector(".tray-sheet__meta")?.textContent).toBe(
+      "Layer 1 (bottom) · 5 compartments",
+    );
+    expect(d.querySelector(".k-tile")?.getAttribute("data-tone")).toBe("group");
   });
 });

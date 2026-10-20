@@ -37,6 +37,9 @@ const ADDING = ["workspace-add", "m-workspace-add"] as const;
 const KIT_RAIL = ["kit-rail", "kit-add", "kit-picker"] as const;
 const GROUP_TILE = "Add's picker has a sixth tile";
 const GROUP_COUNTS = "A group's card in the rail says its counts";
+// 0.7.0 Task 10: a group's tray bar and the stage sentence of a split copy
+const GROUP_BAR = "A group's tray bar says its size";
+const SPLIT = "A split copy's stage sentence adds";
 /** The rail's states and the phone sheet's (copy.board.test.tsx has a case for each). */
 const RAIL = [
   ...KIT_RAIL,
@@ -89,7 +92,13 @@ const MORE = "More holds Swap with… and Lock size";
 const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
 const PIN_WORDS = "Pin and Turn say what they hold";
 const TRAY_SHEET = "A phone's tray bar is a modal sheet";
-const BAR_STATES = ["workspace-tray", "workspace-tray-more", "workspace-tray-spacer"] as const;
+// 0.7.0 Task 10: "kit-rail" has the bar of a group's tray selected (G1), the same buttons and words.
+const BAR_STATES = [
+  "workspace-tray",
+  "workspace-tray-more",
+  "workspace-tray-spacer",
+  "kit-rail",
+] as const;
 const SHEET_STATES = ["m-tray", "m-tray-more", "m-tray-market", "m-tray-spacer"] as const;
 /** Every stage-top case that has a plan under it, so a Layer switch. */
 const SWITCHED = [
@@ -613,6 +622,15 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     ruling: EDITOR_SENTENCE,
   },
   { text: ", {n} trays.", states: [...EDITS, ...PHONE_EDITS], ruling: EDITOR_SENTENCE },
+  // GroupRail draws "5 compartments" in the tray bar's line (the app says one in the singular)
+  { text: "{n} compartments", states: ["kit-rail"], ruling: GROUP_BAR },
+  { text: "1 compartment", states: ["kit-rail"], ruling: GROUP_BAR },
+  // a copy that had to split (spec §7.4, §8): the group's editor (Task 11) and the item's say it after the count
+  {
+    text: ", {n} trays. Too big for one tray, so it is split.",
+    states: ["kit-edit"],
+    ruling: SPLIT,
+  },
   ...OPTION_NOTE_TEXTS.map((text) => ({
     text,
     states: ["editor-note", ...PHONE_EDITS] as readonly string[],
