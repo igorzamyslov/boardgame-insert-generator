@@ -1,6 +1,6 @@
 // src/ui/components/CardsEditor.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newComponent } from "../../model/defaults";
 import { CARD_PRESETS } from "../../model/presets";
@@ -368,15 +368,19 @@ describe("CardsEditor", () => {
       expect(last().thickness).toEqual({ mode: "measured", cards: 50, stackMm: 22 });
     });
 
-    it("counts per player: the item's copies", () => {
+    it("has Copies: a stepper that sets the item's copies, and 1 is none", () => {
       const { last, view, onChange } = setup(cards());
       openRows();
-      fireEvent.click(screen.getByLabelText(/per player/));
-      expect(last().copies).toBe(4);
+      fireEvent.click(
+        within(
+          screen.getByRole("textbox", { name: "Copies" }).closest(".k-stepper-box") as HTMLElement,
+        ).getByRole("button", { name: "More" }),
+      );
+      expect(last().copies).toBe(2);
       view.rerender(<CardsEditor component={cards({ copies: 4 })} index={0} onChange={onChange} />);
-      fireEvent.input(screen.getByLabelText(/^Players/), { target: { value: "3" } });
+      fireEvent.input(screen.getByRole("textbox", { name: "Copies" }), { target: { value: "3" } });
       expect(last().copies).toBe(3);
-      fireEvent.click(screen.getByLabelText(/per player/));
+      fireEvent.input(screen.getByRole("textbox", { name: "Copies" }), { target: { value: "1" } });
       expect("copies" in last()).toBe(false);
     });
 
@@ -390,7 +394,7 @@ describe("CardsEditor", () => {
       const { last } = setup(cards());
       openRows();
       // the insert's card clearance, 1.5 mm at Fit 1, is in the box: nothing is set
-      const box = screen.getByLabelText(/^Extra room/) as HTMLInputElement;
+      const box = screen.getByLabelText(/^Room around the pieces/) as HTMLInputElement;
       expect(box.value).toBe("1.5");
       expect(
         screen.getByText("The insert's setting. Type another number to give this item its own."),
@@ -402,7 +406,9 @@ describe("CardsEditor", () => {
     it("sets nothing when the number typed is the insert's own", () => {
       const { last } = setup(cards({ clearance: 2 }));
       openRows();
-      fireEvent.input(screen.getByLabelText(/^Extra room/), { target: { value: "1,5" } });
+      fireEvent.input(screen.getByLabelText(/^Room around the pieces/), {
+        target: { value: "1,5" },
+      });
       expect("clearance" in last()).toBe(false);
     });
 

@@ -82,9 +82,8 @@ describe("describeOptionChange", () => {
     );
     expect(describeOptionChange(c, { ...c, cornerReliefs: true })).toBe("Corner holes added.");
     expect(describeOptionChange(c, { ...c, curvedFloor: false })).toBe("Curved floor removed.");
-    expect(describeOptionChange(c, { ...c, copies: 4 })).toBe(
-      "Each player's set gets its own tray or compartment.",
-    );
+    // Copies are not an option: the stage's sentence counts the trays, and no note says "players"
+    expect(describeOptionChange(c, { ...c, copies: 4 })).toBeNull();
   });
 
   it("explains how the cards stand", () => {

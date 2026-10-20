@@ -215,6 +215,12 @@
   background: var(--cell-own-fill, var(--cell-fill));
 }
 
+/* The wells of the member whose editor is open (spec §7.5): a 2 px ink outline among the group's lifted trays. */
+.plan-tile.is-group .plan-cell.is-own {
+  outline: 2px solid var(--ink);
+  outline-offset: 0;
+}
+
 /* The name sits in a pill so it reads on any shade and over the hatching. */
 .plan-center {
   position: absolute;

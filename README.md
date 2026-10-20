@@ -36,7 +36,8 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    that same shade marks its trays in the plan and in the 3D view. Editing an item opens
    a panel with the basics and, under "More options", the rest: room for expansions, how
    often you reach for it, finger cuts, curved floor, corner holes, how cards stand,
-   one pile per player, removable dividers, and the exact numbers in rows that open in place.
+   copies (each its own tray), the group an item belongs to, removable dividers, and the exact
+   numbers in rows that open in place.
    The box beside it shows the item's trays lifted, and each change to an option shows a short
    note over the box. When
    no tray variant can give tiles, miniatures (pockets) or an other item a finger cut, its

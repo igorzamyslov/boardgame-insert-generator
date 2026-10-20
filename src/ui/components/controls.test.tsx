@@ -109,15 +109,15 @@ describe("ExactRow", () => {
 
   it("opens by itself for an error at one of its paths, and stays open when it is mended", () => {
     const view = render(
-      <ExactRow title="Per player" errorPaths={["/components/0/copies"]}>
+      <ExactRow title="Copies" errorPaths={["/components/0/copies"]}>
         <p>Inside</p>
       </ExactRow>,
     );
-    const row = () => screen.getByRole("button", { name: /Per player/ });
+    const row = () => screen.getByRole("button", { name: /Copies/ });
     expect(row().getAttribute("aria-expanded")).toBe("false");
     view.rerender(
       <ValidationContext.Provider value={[error("/components/0/copies", "Bad.")]}>
-        <ExactRow title="Per player" errorPaths={["/components/0/copies"]}>
+        <ExactRow title="Copies" errorPaths={["/components/0/copies"]}>
           <p>Inside</p>
         </ExactRow>
       </ValidationContext.Provider>,
@@ -125,7 +125,7 @@ describe("ExactRow", () => {
     expect(row().getAttribute("aria-expanded")).toBe("true");
     view.rerender(
       <ValidationContext.Provider value={[]}>
-        <ExactRow title="Per player" errorPaths={["/components/0/copies"]}>
+        <ExactRow title="Copies" errorPaths={["/components/0/copies"]}>
           <p>Inside</p>
         </ExactRow>
       </ValidationContext.Provider>,
@@ -135,7 +135,7 @@ describe("ExactRow", () => {
     cleanup();
     render(
       <ValidationContext.Provider value={[error("/components/3/copies", "Bad.")]}>
-        <ExactRow title="Per player" errorPaths={["/components/0/copies"]}>
+        <ExactRow title="Copies" errorPaths={["/components/0/copies"]}>
           <p>Inside</p>
         </ExactRow>
       </ValidationContext.Provider>,

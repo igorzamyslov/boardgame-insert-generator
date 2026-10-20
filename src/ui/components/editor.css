@@ -60,6 +60,38 @@
   font-size: var(--text-xs);
 }
 
+/* An item's name, and under it "In Player kit" when it is in a group: a link that opens the group's editor. */
+.ed-id__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ed-id__text > .ed-id__label {
+  flex: 0 0 auto;
+}
+
+.ed-ingroup {
+  align-self: flex-start;
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  margin: 0;
+  padding: 0 var(--s-2);
+  border: 0;
+  border-radius: var(--r-logo);
+  background: none;
+  color: var(--muted-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ed-ingroup:hover:not(:disabled) {
+  background: none;
+}
+
 .ed .ed-title {
   box-sizing: border-box;
   width: 100%;
@@ -141,6 +173,25 @@
   margin: 0;
   color: var(--muted);
   font-size: var(--text-xs);
+}
+
+/* The Group row's words: "In Player kit" in ink, and the panel of groups to move into. */
+.ed-line--ink {
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.ed-move {
+  /* scrolled into sight with the sticky foot (44 px and its padding) out of the way */
+  scroll-margin-bottom: calc(var(--control-h) + var(--s-24));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  align-items: flex-start;
+}
+
+.ed-move .k-menu {
+  width: 100%;
 }
 
 .ed-stack {

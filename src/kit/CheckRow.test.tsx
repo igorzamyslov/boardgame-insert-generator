@@ -42,8 +42,8 @@ describe("CheckRow blocked", () => {
     const onChange = vi.fn();
     render(
       <CheckRow
-        label="Counts are per player"
-        hint="Not available for grouped items."
+        label="Round the corners"
+        hint="Not available for flat decks."
         checked={false}
         blocked
         onChange={onChange}
@@ -53,7 +53,7 @@ describe("CheckRow blocked", () => {
     expect(box.disabled).toBe(false);
     expect(box.getAttribute("aria-disabled")).toBe("true");
     expect(document.getElementById(box.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
-      "Not available for grouped items.",
+      "Not available for flat decks.",
     );
     fireEvent.click(box);
     expect(onChange).not.toHaveBeenCalled();

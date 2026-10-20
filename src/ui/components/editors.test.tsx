@@ -376,7 +376,7 @@ const err = (code: string, path: string, message: string): Notice => ({
 });
 
 describe("validation shown in place", () => {
-  it("shows a copies error beside the Players field", () => {
+  it("shows a copies error beside the Copies stepper", () => {
     render(
       <ValidationContext.Provider
         value={[
@@ -391,8 +391,7 @@ describe("validation shown in place", () => {
       </ValidationContext.Provider>,
     );
     // the row opens by itself: the error is in sight
-    const players = screen.getByLabelText(/^Players/);
-    expect(players.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByRole("textbox", { name: "Copies" })).toBeTruthy();
     expect(screen.getByRole("alert").textContent).toBe(
       "Copies must be a whole number of at least 1.",
     );
@@ -443,7 +442,8 @@ describe("validation shown in place", () => {
     const panel = document.getElementById(more.getAttribute("aria-controls") ?? "") as HTMLElement;
     expect(within(panel).getByRole("group", { name: "How often you reach for it" })).toBeTruthy();
     expect(within(panel).getByRole("button", { name: "Finger cuts" })).toBeTruthy();
-    expect(within(panel).getByRole("button", { name: "Per player" })).toBeTruthy();
+    expect(within(panel).getByRole("button", { name: "Copies" })).toBeTruthy();
+    expect(within(panel).queryByRole("button", { name: "Per player" })).toBeNull();
   });
 
   it("opens More options when a field inside has an error, and keeps it open", () => {

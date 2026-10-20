@@ -592,7 +592,7 @@ export function Gallery() {
           <div class="gal__list">
             <DisclosureRow title="Room around trays" changed={2} />
             <DisclosureRow title="Cards" meta="4 values" />
-            <DisclosureRow plain dot title="Per player" meta="4 players" />
+            <DisclosureRow plain dot title="Copies" meta="×4" />
             <DisclosureRow title="Rim between layers" meta="5 values" open controls="gal-open" />
           </div>
         </Section>

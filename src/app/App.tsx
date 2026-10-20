@@ -34,7 +34,7 @@ import type { StageView, StatusInput } from "../screens/StageTop";
 import { Workspace } from "../screens/Workspace";
 import { BoxPanel } from "../ui/BoxPanel";
 import { WhatsInside } from "../ui/components/WhatsInside";
-import type { GroupEditActions } from "../ui/components/WhatsInside";
+import type { GroupEditActions, ItemGroupActions } from "../ui/components/WhatsInside";
 import { ExportPanel } from "../ui/ExportPanel";
 import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
 import { Notices } from "../ui/Notices";
@@ -60,17 +60,21 @@ import {
   addGroup,
   clearChoices,
   lockedKeys,
+  moveToGroup,
+  newGroupWith,
   orderMember,
   removeComponent,
   removeGroup,
   removeLock,
   renameGroup,
   renameProject,
+  setCopies,
   setGroupAccess,
   setGroupCopies,
   setSettings,
   swapTrays,
   sizeLockedKeys,
+  takeOutOfGroup,
   applyPrinter,
   unpinTrays,
   updateBox,
@@ -628,14 +632,17 @@ export function App(props: AppProps) {
     });
     return notes;
   };
+  // What an edit says (the rules that went, the copies an item now has) shows in the stage's slot.
+  const sayNotes = (notes: readonly string[]): void => {
+    if (notes.length > 0) {
+      noteSeq.current += 1;
+      setEditNote({ text: notesAsSentences(notes).join(" "), id: noteSeq.current });
+    }
+  };
   const groupActions: GroupEditActions = {
     rename: (id, name) => store.edit((q) => renameGroup(q, id, name)),
     copies: (id, n) => {
-      const notes = editGroupWith((q) => setGroupCopies(q, id, n));
-      if (notes.length > 0) {
-        noteSeq.current += 1;
-        setEditNote({ text: notesAsSentences(notes).join(" "), id: noteSeq.current });
-      }
+      sayNotes(editGroupWith((q) => setGroupCopies(q, id, n)));
     },
     access: (id, access: Access) => store.edit((q) => setGroupAccess(q, id, access)),
     move: (id, itemId, index) => store.edit((q) => orderMember(q, id, itemId, index)),
@@ -649,6 +656,20 @@ export function App(props: AppProps) {
       setRemoved({ words: groupRemovedWords(notes), version: s.history.version.peek() });
       return true;
     },
+  };
+  // An item's Copies and its Group row: each is one undo step; the notes (the group's copies it now
+  // has, who left, the pins that went) are said in the stage's slot, as the group editor's are.
+  const itemActions: ItemGroupActions = {
+    copies: (id, n) => sayNotes(editGroupWith((q) => setCopies(q, id, n))),
+    moveTo: (id, groupId) => sayNotes(editGroupWith((q) => moveToGroup(q, id, groupId, Infinity))),
+    newGroup: (id) =>
+      sayNotes(
+        editGroupWith((q) => {
+          const made = newGroupWith(q, id);
+          return { project: made.project, notes: made.notes };
+        }),
+      ),
+    takeOut: (id) => sayNotes(editGroupWith((q) => takeOutOfGroup(q, id))),
   };
   // What's inside: the rail's list (the sheet's, on a phone), or a component's editor in its place.
   const whatsInside = (
@@ -673,6 +694,7 @@ export function App(props: AppProps) {
         }
       }}
       groupActions={groupActions}
+      itemActions={itemActions}
       trays={listTrays}
       locks={project.locks}
       groups={project.groups}

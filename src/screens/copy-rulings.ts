@@ -149,7 +149,29 @@ const EDITS = [
   "editor-minis-more",
 ] as const;
 const PHONE_EDITS = ["m-edit", "m-edit-more"] as const;
-const EDITING = [...EDITS, ...PHONE_EDITS] as const;
+// 0.7.0 Task 12: an item's editor in a group's terms (a member's, the Move to group… panel, what moving
+// and taking out say). The states are the member cases of copy.board.test.tsx.
+const KIT_ITEM_EDITS = [
+  "kit-member",
+  "kit-move-panel",
+  "kit-member-moved",
+  "kit-member-out",
+  "m-kit-member",
+] as const;
+const EDITING = [...EDITS, ...PHONE_EDITS, ...KIT_ITEM_EDITS] as const;
+/** The states that draw the rows under More options with their contents open (the rows Task 12 adds or renames). */
+const OPENED_ROWS = [
+  "editor-more",
+  "editor-more-changed",
+  "editor-tokens-more",
+  "editor-tiles-more",
+  "editor-custom-more",
+  "editor-minis-more",
+  "m-edit-more",
+  "kit-member",
+  "kit-move-panel",
+  "kit-member-moved",
+] as const;
 const EDITOR_OPTIONS = "The editors name every option the engine has";
 const EDITOR_SIZES = "Card sizes are the engine's presets";
 const EDITOR_SUMMARY = "More options says what is inside it";
@@ -159,7 +181,9 @@ const EDITOR_MAX = "A growth choice on Max says what Max means";
 const RESIZE = "The rail's handle is named";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
 const EDITOR_CHANGED = "More options marks what differs from its default";
-const EDITOR_ROOM = "Extra room shows the insert's number and lets the item change it";
+const EDITOR_ROOM = "Room around the pieces shows the insert's number and lets the item change it";
+const ITEM_COPIES = "An item's Copies and Group row replace Per player and the Group box";
+const ITEM_MOVES = "Moving an item into or out of a group says what happens to its copies";
 const EDITOR_NAME = "The phone editor has a Name field";
 const EDITOR_BLOCKED = "A blocked option stays on screen and says why";
 const EDITOR_WORDS = "The Words table beats MobileEdit's second way to store figures";
@@ -235,12 +259,7 @@ const EDITOR_LABELS: readonly string[] = [
   "Deck",
   "Deck name",
   "+ Another deck",
-  "Per player",
-  "Counts are per player",
-  "Not available for grouped items.",
-  "Players",
   "Group",
-  "Extra room",
   "Other sizes",
   "Don't know the size of {name}? Give a volume instead",
 ];
@@ -523,6 +542,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
       "kit-edit",
       "kit-removed",
       "kit-split-edit",
+      "kit-member",
     ],
     ruling: CAPTION,
   },
@@ -630,7 +650,33 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: EDITING,
     ruling: EDITOR_ROOM,
   },
-  { text: "Name", states: [...PHONE_EDITS, "m-kit-edit"], ruling: EDITOR_NAME },
+  { text: "Name", states: [...PHONE_EDITS, "m-kit-edit", "m-kit-member"], ruling: EDITOR_NAME },
+  // 0.7.0 Task 12 (spec §7.3, §7.5, §8): Copies replaces Per player; the Group row replaces the Group box
+  { text: "Copies", states: OPENED_ROWS, ruling: ITEM_COPIES },
+  { text: "Each copy is its own tray.", states: OPENED_ROWS, ruling: ITEM_COPIES },
+  { text: "Move to group…", states: OPENED_ROWS, ruling: ITEM_COPIES },
+  { text: "New group", states: ["kit-move-panel"], ruling: ITEM_COPIES },
+  { text: "×{n}", states: ["kit-move-panel"], ruling: ITEM_COPIES },
+  { text: "In {name}", states: [...KIT_ITEM_EDITS], ruling: ITEM_COPIES },
+  { text: "Edit {name}", states: [...KIT_ITEM_EDITS], ruling: ITEM_COPIES },
+  { text: "Take out of group", states: ["kit-member", "kit-member-moved"], ruling: ITEM_COPIES },
+  {
+    text: "Copies and how often you reach for it are set on {name}.",
+    states: ["kit-member", "kit-member-moved", "m-kit-member"],
+    ruling: ITEM_COPIES,
+  },
+  { text: "Room around the pieces", states: OPENED_ROWS, ruling: EDITOR_ROOM },
+  {
+    text: "{name} now has the group's {n} copies.",
+    states: ["kit-member-moved"],
+    ruling: ITEM_MOVES,
+  },
+  {
+    text: "{name} now has the group's single copy.",
+    states: ["kit-member-moved"],
+    ruling: ITEM_MOVES,
+  },
+  { text: "{name} is out of {name}.", states: ["kit-member-out"], ruling: ITEM_MOVES },
   // the stage sentence: Edit's, for the kinds and the counts it does not draw
   {
     text: "tray, {name} × {name} mm.",
@@ -642,7 +688,11 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["workspace-failed", "no-fit", "pin-conflict"],
     ruling: EDITOR_SENTENCE,
   },
-  { text: ", {n} trays.", states: [...EDITS, ...PHONE_EDITS], ruling: EDITOR_SENTENCE },
+  {
+    text: ", {n} trays.",
+    states: [...EDITS, ...PHONE_EDITS, ...KIT_ITEM_EDITS],
+    ruling: EDITOR_SENTENCE,
+  },
   // GroupRail draws "5 compartments" in the tray bar's line (the app says one in the singular)
   { text: "{n} compartments", states: ["kit-rail"], ruling: GROUP_BAR },
   { text: "1 compartment", states: ["kit-rail"], ruling: GROUP_BAR },

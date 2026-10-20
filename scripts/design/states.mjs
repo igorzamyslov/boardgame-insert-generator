@@ -471,7 +471,7 @@ export const STATES = {
     steps: [EDIT_MARKET, { click: { role: "button", name: "+ Another deck", in: RAIL } }],
   },
   // The same on a tall window (the rail scrolls in a 900 px one): Corner holes turned on, so a chip, and
-  // the Extra room row opened, show the changed dot and "Back to <default>" beside the Market deck's own.
+  // the Room around the pieces row opened, show the changed dot and "Back to <default>" beside the Market deck's own.
   "editor-more-changed": {
     board: "Edit",
     nearest:
@@ -482,7 +482,7 @@ export const STATES = {
       EDIT_MARKET,
       MORE_OPTIONS,
       { click: { role: "button", name: /^Corner holes/, in: RAIL } },
-      { click: { role: "button", name: /^Extra room/, in: RAIL } },
+      { click: { role: "button", name: /^Room around the pieces/, in: RAIL } },
     ],
   },
   // A deck that lies flat: Spacer plates and Dividers (and the Removable dividers chip) stay, blocked, each
@@ -971,23 +971,32 @@ export const STATES = {
     steps: [{ click: { role: "button", name: /What's inside/ } }],
   },
   // A member's editor: no board of its own, judged against Edit with More options open (Task 12).
+  // Tall, so the rows at the foot of More options are in the picture: the line that stands where
+  // Copies did, and the Group row opened on "In Player kit", Edit and Take out of group.
   "kit-member": {
     board: "Edit",
     nearest: "Edit with More options open (`editor-more`): no board draws a member's editor",
-    viewport: DESKTOP,
+    viewport: { width: 1440, height: 1500 },
     seed: "harbour-kings-kit",
-    steps: [{ click: { role: "button", name: /^Hero, /, in: RAIL } }, MORE_OPTIONS],
+    steps: [
+      { click: { role: "button", name: /^Hero, /, in: RAIL } },
+      MORE_OPTIONS,
+      { click: { role: "button", name: /^Group/, in: RAIL } },
+      { waitFor: { role: "button", name: "Take out of group" } },
+    ],
   },
   // An item's Group row and its Move to group… panel (Task 12).
   "kit-move-panel": {
     board: "Edit",
     nearest: "Edit (`editor-more`): no board draws the Move to group… panel",
-    viewport: DESKTOP,
+    viewport: { width: 1440, height: 1500 },
     seed: "harbour-kings-kit",
     steps: [
       EDIT_MARKET,
+      MORE_OPTIONS,
       { click: { role: "button", name: /^Group/, in: RAIL } },
       { click: { role: "button", name: /^Move to group/, in: RAIL } },
+      { waitFor: { role: "button", name: "New group" } },
     ],
   },
   // Remove group…: the question in place of the foot's buttons (Task 11).

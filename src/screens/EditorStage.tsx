@@ -9,7 +9,7 @@ import { useState } from "preact/hooks";
 import { Button, Segmented, Toast } from "../kit";
 import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
 import { growthOf } from "../model/defaults";
-import { DEFAULT_GROUP_NAME, groupById, parseTrayKey } from "../model/groups";
+import { DEFAULT_GROUP_NAME, groupById, groupOfItem, parseTrayKey } from "../model/groups";
 import { planFrame, toSvgRect, traysAt } from "../plan/layers";
 import { levelsOf } from "../plan/layers";
 import { lookOfTray } from "../plan/glyph";
@@ -204,7 +204,14 @@ export interface EditorStageProps {
   /** The plan, as the workspace draws it; null while there is none (the placeholder takes its place). */
   plan: Omit<
     PlanViewProps,
-    "bar" | "editedId" | "editedKeys" | "level" | "onLevelChange" | "selectedKey" | "onSelect"
+    | "bar"
+    | "editedId"
+    | "editedKeys"
+    | "ownedId"
+    | "level"
+    | "onLevelChange"
+    | "selectedKey"
+    | "onSelect"
   > | null;
   /** What stands where the plan would be while there is none. */
   placeholder?: ComponentChildren;
@@ -283,7 +290,12 @@ function targetOf(
   return {
     id: component.id,
     mine: traysOfComponent(trays, p.components, component.id),
-    edited: { editedId: component.id },
+    // a member of a group has its own wells outlined among the group's lifted trays
+    edited: {
+      editedId: component.id,
+      ownedId:
+        groupOfItem({ groups: p.groups }, component.id) === undefined ? undefined : component.id,
+    },
     sentence: (mine: readonly TraySpec[], tag?: "h1" | "p", hidden?: boolean) => (
       <StageSentence component={component} trays={mine} tag={tag} hidden={hidden} />
     ),

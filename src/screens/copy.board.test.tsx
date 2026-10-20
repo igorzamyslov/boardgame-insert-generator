@@ -104,6 +104,14 @@ const editMore = (name: RegExp) => (): void => {
   openAllRows();
 };
 
+/** Market deck, moved into the Player kit from its editor's Group row. */
+const moveMarketIntoKit = (): void => {
+  editMore(/^Market deck, /)();
+  fireEvent.click(screen.getByRole("button", { name: /^Move to group…/ }));
+  const panel = screen.getByRole("group", { name: "Move to group…" });
+  fireEvent.click(within(panel).getByRole("button", { name: /^Player kit/ }));
+};
+
 /** The kind picker's "Something else", added: its editor opens at once. */
 const addCustom = (): void => {
   fireEvent.click(screen.getByRole("button", { name: "Add" }));
@@ -583,6 +591,65 @@ const CASES: readonly Case[] = [
     phone: true,
     seed: "harbour-kings-kit",
     steps: editRow(/^Player kit, /),
+  },
+  // 0.7.0 Task 12: a member's editor with More options open (no board draws it: Edit's), the Move to
+  // group… panel, what a move in and a take out say in the stage's slot, and the phone's sheet
+  {
+    state: "kit-member",
+    board: "Edit",
+    also: "MobileEdit",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: editMore(/^Hero, /),
+  },
+  {
+    state: "kit-member",
+    board: "Edit",
+    region: "stage",
+    seed: "harbour-kings-kit",
+    steps: editMore(/^Hero, /),
+  },
+  {
+    state: "kit-move-panel",
+    board: "Edit",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: () => {
+      editMore(/^Market deck, /)();
+      fireEvent.click(screen.getByRole("button", { name: /^Move to group…/ }));
+    },
+  },
+  {
+    state: "kit-member-moved",
+    board: "Edit",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: moveMarketIntoKit,
+  },
+  {
+    state: "kit-member-moved",
+    board: "Edit",
+    region: "status",
+    seed: "harbour-kings-kit",
+    steps: moveMarketIntoKit,
+  },
+  {
+    state: "kit-member-out",
+    board: "Edit",
+    region: "status",
+    seed: "harbour-kings-kit",
+    steps: () => {
+      editMore(/^Hero, /)();
+      fireEvent.click(screen.getByRole("button", { name: "Take out of group" }));
+    },
+  },
+  {
+    state: "m-kit-member",
+    board: "MobileEdit",
+    region: "sheet",
+    phone: true,
+    seed: "harbour-kings-kit",
+    steps: editRow(/^Hero, /),
   },
   // Task 9: the first visit, Empty at 1440 and MobileStart on a phone
   { state: "first-visit", board: "Empty", region: "header", empty: true, steps: () => undefined },

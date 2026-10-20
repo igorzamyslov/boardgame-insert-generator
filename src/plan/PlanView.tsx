@@ -60,6 +60,11 @@ export interface PlanViewProps {
    * both its trays, and a stale plan keyed by an item lifts none of the group's. Overrides `editedId`.
    */
   editedKeys?: readonly string[];
+  /**
+   * The member of a group whose editor is open: its own compartments in the group's trays get a 2 px
+   * ink outline, so the person sees which wells are theirs (spec §7.5). Only a group's trays have any.
+   */
+  ownedId?: string;
   /** Index of the layer shown (0 = the bottom layer); the app owns it. Clamped to the layers there are. */
   level: number;
   onLevelChange: (level: number) => void;
@@ -634,7 +639,13 @@ export function PlanView(props: PlanViewProps) {
                           return (
                             <span
                               key={i}
-                              class="plan-cell"
+                              class={
+                                grouped &&
+                                props.ownedId !== undefined &&
+                                c.componentId === props.ownedId
+                                  ? "plan-cell is-own"
+                                  : "plan-cell"
+                              }
                               style={{
                                 // tray-local, y from the front: the front is the bottom of the tile
                                 left: pct((c.x / t.w) * 100),

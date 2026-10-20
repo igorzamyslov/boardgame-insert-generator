@@ -34,8 +34,8 @@ function named(label: Label): RegExp {
 /** What each kind offers: the basics, and what sits under More options (opened, with its rows). */
 const COMMON: Label[] = [
   "How often you reach for it",
-  /^Counts are per player/,
-  "Extra room",
+  /^Copies/,
+  "Room around the pieces",
   "Finger cuts",
   "Corner holes",
 ];

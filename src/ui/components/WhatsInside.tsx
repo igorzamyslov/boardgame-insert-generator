@@ -10,12 +10,14 @@ import type {
   Printer,
   TraySpec,
 } from "../../model/types";
-import { DEFAULT_GROUP_NAME, groupById } from "../../model/groups";
+import { DEFAULT_GROUP_NAME, groupById, groupOfItem } from "../../model/groups";
 import type { Access } from "../../model/types";
 import { Rail, SheetList } from "../../screens/Rail";
 import { kindIndexOf, shadeVars } from "../identity";
 import { EditorPanel } from "./EditorPanel";
 import { GroupEditor } from "./GroupEditor";
+import { groupNameOf } from "./GroupRow";
+import type { GroupChoice, ItemGrouping } from "./GroupRow";
 import type { GroupEditorMember } from "./GroupEditor";
 
 /** What the group editor does to the project: each is one undo step, and the app says what it changed. */
@@ -27,6 +29,18 @@ export interface GroupEditActions {
   move: (groupId: string, itemId: string, index: number) => void;
   /** Returns false when nothing was removed. */
   remove: (groupId: string) => boolean;
+}
+
+/** What an item's editor does to the project's groups: each is one undo step, and the app says what it changed. */
+export interface ItemGroupActions {
+  /** The item's own Copies. */
+  copies: (itemId: string, copies: number) => void;
+  /** The item goes to the end of a group. */
+  moveTo: (itemId: string, groupId: string) => void;
+  /** A new group with the item as its only member. */
+  newGroup: (itemId: string) => void;
+  /** The item leaves its group. */
+  takeOut: (itemId: string) => void;
 }
 
 export interface WhatsInsideProps {
@@ -65,6 +79,8 @@ export interface WhatsInsideProps {
   onOpenGroupChange?: (groupId: string | null) => void;
   /** What the group editor does to the project. */
   groupActions?: GroupEditActions;
+  /** What an item's editor does to the project's groups (Copies, the Group row). */
+  itemActions?: ItemGroupActions;
   /** Every pin and size lock comes off, in one undo step. */
   onClearChoices: () => void;
   onAdd: (kind: ComponentKind) => void;
@@ -106,6 +122,7 @@ export function WhatsInside({
   openGroupId: controlledGroupId,
   onOpenGroupChange,
   groupActions,
+  itemActions,
   onClearChoices,
   onAdd,
   onAddGroup,
@@ -322,8 +339,10 @@ export function WhatsInside({
     );
   }
   // The group this item's editor came from, if it is still there: the way back goes to its editor.
-  const backGroup =
+  const fromGroup =
     from !== null && from.itemId === open.id ? groupById({ groups }, from.groupId) : undefined;
+  // an item taken out of the group it came from has no way back to it
+  const backGroup = fromGroup?.memberIds.includes(open.id) === true ? fromGroup : undefined;
   const closeItem = (removed: boolean): void => {
     if (backGroup === undefined) {
       comeBackTo.current = { id: open.id, index, removed };
@@ -336,6 +355,29 @@ export function WhatsInside({
     setOpenGroupId(backGroup.id);
   };
   const leave = (): void => closeItem(false);
+  // The item's Group row and Copies: the groups as the row names them, and what it may ask for.
+  const choices: GroupChoice[] = (groups ?? []).map((g) => ({
+    id: g.id,
+    name: groupNameOf(g.name),
+    copies: g.copies ?? 1,
+  }));
+  const own = groupOfItem({ groups }, open.id);
+  const grouping: ItemGrouping | undefined =
+    itemActions === undefined
+      ? undefined
+      : {
+          group: choices.find((g) => g.id === own?.id),
+          groups: choices,
+          onMoveTo: (groupId) => itemActions.moveTo(open.id, groupId),
+          onNewGroup: () => itemActions.newGroup(open.id),
+          onTakeOut: () => itemActions.takeOut(open.id),
+          onEditGroup: (groupId) => {
+            // the group's editor, in this one's place; coming back from it is the list
+            setOpenId(null);
+            setOpenGroupId(groupId);
+          },
+          onCopies: (n) => itemActions.copies(open.id, n),
+        };
   return (
     <div class="wi ws-interim wi--edit" ref={rootRef}>
       <EditorPanel
@@ -347,6 +389,7 @@ export function WhatsInside({
         phone={phone}
         strip={strip}
         onNote={onNote}
+        grouping={grouping}
         onChange={(next) => onChange(open.id, next)}
         onBack={leave}
         backLabel={backGroup === undefined ? undefined : backGroup.name || DEFAULT_GROUP_NAME}
