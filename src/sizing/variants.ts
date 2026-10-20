@@ -1,4 +1,4 @@
-import { cutsFirst, rows2Break, splitBlocks } from "./arrange";
+import { cutsFirst, isOneMember, rows2Break, rows2Order, splitBlocks } from "./arrange";
 import { rowsOf } from "./outer";
 import type { StorageOption } from "./common";
 import { MAX_SPLITS, MAX_VARIANTS } from "./constants";
@@ -23,8 +23,9 @@ interface Candidate {
 }
 
 /**
- * One tray's part of a copy: the compartments in the order given (member order), a strip or two
- * contiguous rows. Inside a member the compartments with a cut along the row come first.
+ * One tray's part of a copy: a strip or two rows. One member's compartments are laid out as
+ * before 0.7.0 (rows2 balanced by width); a part of several members keeps member order, in a strip
+ * or in two contiguous rows. Inside a member the compartments with a cut along the row come first.
  */
 function makePart(
   trayKey: string,
@@ -39,6 +40,12 @@ function makePart(
   }
   if (compartments.length < 2) {
     return null;
+  }
+  if (isOneMember(compartments)) {
+    // One member's own blocks lay out as they did before 0.7.0: widths balanced across the two
+    // rows, then the cuts along a row first. No row break: it is ceil(n/2).
+    const rows = rowsOf(arrangement, rows2Order(compartments));
+    return { trayKey, arrangement, compartments: rows.flatMap(cutsFirst), rotatable: true };
   }
   const rowBreak = rows2Break(compartments);
   const rows = rowsOf(arrangement, compartments, rowBreak);

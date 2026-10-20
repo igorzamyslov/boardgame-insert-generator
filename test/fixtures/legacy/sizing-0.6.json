@@ -1,0 +1,1225 @@
+{
+  "plain": {
+    "notices": 0,
+    "requirements": [
+      {
+        "key": "cards001",
+        "access": "sometimes",
+        "loose": false,
+        "variants": [
+          {
+            "id": "upright-long|strip|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Deck ×60"],
+                "sha1": "de16e7af9ca1"
+              }
+            ]
+          },
+          {
+            "id": "upright-short|strip|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Deck ×60"],
+                "sha1": "36bde2ff3f2b"
+              }
+            ]
+          },
+          {
+            "id": "flat|strip|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Deck ×60"],
+                "sha1": "9f68fcfde289"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "bulk0001",
+        "access": "sometimes",
+        "loose": true,
+        "variants": [
+          {
+            "id": "shallow|strip|split1",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "strip",
+                "order": ["Cubes ×20"],
+                "sha1": "558c64593c4a"
+              }
+            ]
+          },
+          {
+            "id": "deep|strip|split1",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "strip",
+                "order": ["Cubes ×20"],
+                "sha1": "78fd6c074c90"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "per-player": {
+    "notices": 0,
+    "requirements": [
+      {
+        "key": "cards001",
+        "access": "sometimes",
+        "loose": false,
+        "variants": [
+          {
+            "id": "upright-long|strip|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Deck ×60"],
+                "sha1": "de16e7af9ca1"
+              }
+            ]
+          },
+          {
+            "id": "upright-short|strip|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Deck ×60"],
+                "sha1": "36bde2ff3f2b"
+              }
+            ]
+          },
+          {
+            "id": "flat|strip|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Deck ×60"],
+                "sha1": "9f68fcfde289"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "bits0001",
+        "access": "sometimes",
+        "loose": true,
+        "variants": [
+          {
+            "id": "shallow|strip|split1|separate",
+            "parts": [
+              {
+                "trayKey": "bits0001:p0:0",
+                "arrangement": "strip",
+                "order": ["Player bits — Cubes ×20"],
+                "sha1": "982ed4f552ae"
+              },
+              {
+                "trayKey": "bits0001:p1:0",
+                "arrangement": "strip",
+                "order": ["Player bits — Cubes ×20"],
+                "sha1": "98e7158b0ba3"
+              },
+              {
+                "trayKey": "bits0001:p2:0",
+                "arrangement": "strip",
+                "order": ["Player bits — Cubes ×20"],
+                "sha1": "9c12e8fa97a9"
+              }
+            ]
+          },
+          {
+            "id": "deep|strip|split1|separate",
+            "parts": [
+              {
+                "trayKey": "bits0001:p0:0",
+                "arrangement": "strip",
+                "order": ["Player bits — Cubes ×20"],
+                "sha1": "eda13b46783b"
+              },
+              {
+                "trayKey": "bits0001:p1:0",
+                "arrangement": "strip",
+                "order": ["Player bits — Cubes ×20"],
+                "sha1": "403d7150eceb"
+              },
+              {
+                "trayKey": "bits0001:p2:0",
+                "arrangement": "strip",
+                "order": ["Player bits — Cubes ×20"],
+                "sha1": "701d343945d0"
+              }
+            ]
+          },
+          {
+            "id": "shallow|strip|split1|combined",
+            "parts": [
+              {
+                "trayKey": "bits0001:pall:0",
+                "arrangement": "strip",
+                "order": [
+                  "Player bits — Cubes ×20",
+                  "Player bits — Cubes ×20",
+                  "Player bits — Cubes ×20"
+                ],
+                "sha1": "6ede47b108d9"
+              }
+            ]
+          },
+          {
+            "id": "deep|strip|split1|combined",
+            "parts": [
+              {
+                "trayKey": "bits0001:pall:0",
+                "arrangement": "strip",
+                "order": [
+                  "Player bits — Cubes ×20",
+                  "Player bits — Cubes ×20",
+                  "Player bits — Cubes ×20"
+                ],
+                "sha1": "99590d598679"
+              }
+            ]
+          },
+          {
+            "id": "shallow|strip|split2|combined",
+            "parts": [
+              {
+                "trayKey": "bits0001:pall:0",
+                "arrangement": "strip",
+                "order": ["Player bits — Cubes ×20"],
+                "sha1": "2c83612008d9"
+              },
+              {
+                "trayKey": "bits0001:pall:1",
+                "arrangement": "strip",
+                "order": ["Player bits — Cubes ×20", "Player bits — Cubes ×20"],
+                "sha1": "35244616bd0c"
+              }
+            ]
+          },
+          {
+            "id": "shallow|rows2|split1|combined",
+            "parts": [
+              {
+                "trayKey": "bits0001:pall:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Player bits — Cubes ×20",
+                  "Player bits — Cubes ×20",
+                  "Player bits — Cubes ×20"
+                ],
+                "sha1": "fc39ca889a88"
+              }
+            ]
+          },
+          {
+            "id": "deep|strip|split2|combined",
+            "parts": [
+              {
+                "trayKey": "bits0001:pall:0",
+                "arrangement": "strip",
+                "order": ["Player bits — Cubes ×20"],
+                "sha1": "d703fb13e5dc"
+              },
+              {
+                "trayKey": "bits0001:pall:1",
+                "arrangement": "strip",
+                "order": ["Player bits — Cubes ×20", "Player bits — Cubes ×20"],
+                "sha1": "ccea2f19d213"
+              }
+            ]
+          },
+          {
+            "id": "deep|rows2|split1|combined",
+            "parts": [
+              {
+                "trayKey": "bits0001:pall:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Player bits — Cubes ×20",
+                  "Player bits — Cubes ×20",
+                  "Player bits — Cubes ×20"
+                ],
+                "sha1": "4dd5f377a5d3"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "multi-block": {
+    "notices": 0,
+    "requirements": [
+      {
+        "key": "cards001",
+        "access": "often",
+        "loose": false,
+        "variants": [
+          {
+            "id": "upright-long|strip|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": [
+                  "Main deck — Action ×60",
+                  "Main deck — Event ×40",
+                  "Main deck — Boss ×12"
+                ],
+                "sha1": "a4e641adae5d"
+              }
+            ]
+          },
+          {
+            "id": "upright-short|strip|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": [
+                  "Main deck — Action ×60",
+                  "Main deck — Event ×40",
+                  "Main deck — Boss ×12"
+                ],
+                "sha1": "f413aa42206a"
+              }
+            ]
+          },
+          {
+            "id": "flat|strip|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": [
+                  "Main deck — Action ×60",
+                  "Main deck — Event ×40",
+                  "Main deck — Boss ×12"
+                ],
+                "sha1": "3b81e25de67c"
+              }
+            ]
+          },
+          {
+            "id": "upright-long|strip|split2",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Main deck — Action ×60"],
+                "sha1": "f2a330d4e49b"
+              },
+              {
+                "trayKey": "cards001:p0:1",
+                "arrangement": "strip",
+                "order": ["Main deck — Event ×40", "Main deck — Boss ×12"],
+                "sha1": "0fadf9e0fd47"
+              }
+            ]
+          },
+          {
+            "id": "upright-long|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Main deck — Action ×60",
+                  "Main deck — Boss ×12",
+                  "Main deck — Event ×40"
+                ],
+                "sha1": "40162a2ac06a"
+              }
+            ]
+          },
+          {
+            "id": "upright-short|strip|split2",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Main deck — Action ×60"],
+                "sha1": "358552cde0b8"
+              },
+              {
+                "trayKey": "cards001:p0:1",
+                "arrangement": "strip",
+                "order": ["Main deck — Event ×40", "Main deck — Boss ×12"],
+                "sha1": "bbc85b4c6486"
+              }
+            ]
+          },
+          {
+            "id": "upright-short|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Main deck — Action ×60",
+                  "Main deck — Boss ×12",
+                  "Main deck — Event ×40"
+                ],
+                "sha1": "eaec35a23d41"
+              }
+            ]
+          },
+          {
+            "id": "flat|strip|split2",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Main deck — Action ×60"],
+                "sha1": "e1cf4d2c4ad1"
+              },
+              {
+                "trayKey": "cards001:p0:1",
+                "arrangement": "strip",
+                "order": ["Main deck — Event ×40", "Main deck — Boss ×12"],
+                "sha1": "81bc999bcc95"
+              }
+            ]
+          },
+          {
+            "id": "flat|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Main deck — Action ×60",
+                  "Main deck — Boss ×12",
+                  "Main deck — Event ×40"
+                ],
+                "sha1": "b12dae359da4"
+              }
+            ]
+          },
+          {
+            "id": "upright-long|strip|split3",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Main deck — Action ×60"],
+                "sha1": "f2a330d4e49b"
+              },
+              {
+                "trayKey": "cards001:p0:1",
+                "arrangement": "strip",
+                "order": ["Main deck — Event ×40"],
+                "sha1": "2e6298a8d0e1"
+              },
+              {
+                "trayKey": "cards001:p0:2",
+                "arrangement": "strip",
+                "order": ["Main deck — Boss ×12"],
+                "sha1": "ff6b22de266a"
+              }
+            ]
+          },
+          {
+            "id": "upright-short|strip|split3",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Main deck — Action ×60"],
+                "sha1": "358552cde0b8"
+              },
+              {
+                "trayKey": "cards001:p0:1",
+                "arrangement": "strip",
+                "order": ["Main deck — Event ×40"],
+                "sha1": "02c2944c3e24"
+              },
+              {
+                "trayKey": "cards001:p0:2",
+                "arrangement": "strip",
+                "order": ["Main deck — Boss ×12"],
+                "sha1": "01dba76f937d"
+              }
+            ]
+          },
+          {
+            "id": "flat|strip|split3",
+            "parts": [
+              {
+                "trayKey": "cards001:p0:0",
+                "arrangement": "strip",
+                "order": ["Main deck — Action ×60"],
+                "sha1": "e1cf4d2c4ad1"
+              },
+              {
+                "trayKey": "cards001:p0:1",
+                "arrangement": "strip",
+                "order": ["Main deck — Event ×40"],
+                "sha1": "7f6f3a3ab202"
+              },
+              {
+                "trayKey": "cards001:p0:2",
+                "arrangement": "strip",
+                "order": ["Main deck — Boss ×12"],
+                "sha1": "b16809b07258"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "bulk0001",
+        "access": "sometimes",
+        "loose": true,
+        "variants": [
+          {
+            "id": "shallow|strip|split1",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "strip",
+                "order": [
+                  "Tokens — Coins ×40",
+                  "Tokens — Cubes ×30",
+                  "Tokens — Meeples ×12",
+                  "Tokens — Markers ×8",
+                  "Tokens — Score 20 ml"
+                ],
+                "sha1": "d4f1dd7a22eb"
+              }
+            ]
+          },
+          {
+            "id": "deep|strip|split1",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "strip",
+                "order": [
+                  "Tokens — Coins ×40",
+                  "Tokens — Cubes ×30",
+                  "Tokens — Meeples ×12",
+                  "Tokens — Markers ×8",
+                  "Tokens — Score 20 ml"
+                ],
+                "sha1": "ff0a9792d522"
+              }
+            ]
+          },
+          {
+            "id": "shallow|strip|split2",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "strip",
+                "order": ["Tokens — Coins ×40", "Tokens — Cubes ×30"],
+                "sha1": "c0472327b1a1"
+              },
+              {
+                "trayKey": "bulk0001:p0:1",
+                "arrangement": "strip",
+                "order": ["Tokens — Meeples ×12", "Tokens — Markers ×8", "Tokens — Score 20 ml"],
+                "sha1": "64af9876beb0"
+              }
+            ]
+          },
+          {
+            "id": "shallow|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Tokens — Cubes ×30",
+                  "Tokens — Markers ×8",
+                  "Tokens — Score 20 ml",
+                  "Tokens — Coins ×40",
+                  "Tokens — Meeples ×12"
+                ],
+                "sha1": "638c3f02bd0d"
+              }
+            ]
+          },
+          {
+            "id": "deep|strip|split2",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "strip",
+                "order": ["Tokens — Coins ×40", "Tokens — Cubes ×30"],
+                "sha1": "274eecf2cfaa"
+              },
+              {
+                "trayKey": "bulk0001:p0:1",
+                "arrangement": "strip",
+                "order": ["Tokens — Meeples ×12", "Tokens — Markers ×8", "Tokens — Score 20 ml"],
+                "sha1": "3bd1efd49483"
+              }
+            ]
+          },
+          {
+            "id": "deep|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Tokens — Cubes ×30",
+                  "Tokens — Markers ×8",
+                  "Tokens — Score 20 ml",
+                  "Tokens — Coins ×40",
+                  "Tokens — Meeples ×12"
+                ],
+                "sha1": "03b8aefe95aa"
+              }
+            ]
+          },
+          {
+            "id": "shallow|strip|split3",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "strip",
+                "order": ["Tokens — Coins ×40"],
+                "sha1": "dd06406d84b2"
+              },
+              {
+                "trayKey": "bulk0001:p0:1",
+                "arrangement": "strip",
+                "order": ["Tokens — Cubes ×30"],
+                "sha1": "2de03bf3ac17"
+              },
+              {
+                "trayKey": "bulk0001:p0:2",
+                "arrangement": "strip",
+                "order": ["Tokens — Meeples ×12", "Tokens — Markers ×8", "Tokens — Score 20 ml"],
+                "sha1": "ea5a2d00b589"
+              }
+            ]
+          },
+          {
+            "id": "shallow|rows2|split2",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "rows2",
+                "order": ["Tokens — Cubes ×30", "Tokens — Coins ×40"],
+                "sha1": "c3b72a8d9869"
+              },
+              {
+                "trayKey": "bulk0001:p0:1",
+                "arrangement": "rows2",
+                "order": ["Tokens — Meeples ×12", "Tokens — Score 20 ml", "Tokens — Markers ×8"],
+                "sha1": "d226b94f244e"
+              }
+            ]
+          },
+          {
+            "id": "deep|strip|split3",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "strip",
+                "order": ["Tokens — Coins ×40"],
+                "sha1": "c1cfeac5d443"
+              },
+              {
+                "trayKey": "bulk0001:p0:1",
+                "arrangement": "strip",
+                "order": ["Tokens — Cubes ×30"],
+                "sha1": "990e021fbab3"
+              },
+              {
+                "trayKey": "bulk0001:p0:2",
+                "arrangement": "strip",
+                "order": ["Tokens — Meeples ×12", "Tokens — Markers ×8", "Tokens — Score 20 ml"],
+                "sha1": "9cb0a04c41fc"
+              }
+            ]
+          },
+          {
+            "id": "deep|rows2|split2",
+            "parts": [
+              {
+                "trayKey": "bulk0001:p0:0",
+                "arrangement": "rows2",
+                "order": ["Tokens — Cubes ×30", "Tokens — Coins ×40"],
+                "sha1": "f0f8f6faa1a7"
+              },
+              {
+                "trayKey": "bulk0001:p0:1",
+                "arrangement": "rows2",
+                "order": ["Tokens — Meeples ×12", "Tokens — Score 20 ml", "Tokens — Markers ×8"],
+                "sha1": "34cbf789a25d"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "minis001",
+        "access": "sometimes",
+        "loose": false,
+        "variants": [
+          {
+            "id": "standing|strip|split1",
+            "parts": [
+              {
+                "trayKey": "minis001:p0:0",
+                "arrangement": "strip",
+                "order": [
+                  "Heroes — Knight 1/2",
+                  "Heroes — Knight 2/2",
+                  "Heroes — Dragon",
+                  "Heroes — Rogue 1/3",
+                  "Heroes — Rogue 2/3",
+                  "Heroes — Rogue 3/3"
+                ],
+                "sha1": "fcac8b21917e"
+              }
+            ]
+          },
+          {
+            "id": "lying|strip|split1",
+            "parts": [
+              {
+                "trayKey": "minis001:p0:0",
+                "arrangement": "strip",
+                "order": [
+                  "Heroes — Knight 1/2",
+                  "Heroes — Knight 2/2",
+                  "Heroes — Dragon",
+                  "Heroes — Rogue 1/3",
+                  "Heroes — Rogue 2/3",
+                  "Heroes — Rogue 3/3"
+                ],
+                "sha1": "a75dafa68726"
+              }
+            ]
+          },
+          {
+            "id": "standing|strip|split2",
+            "parts": [
+              {
+                "trayKey": "minis001:p0:0",
+                "arrangement": "strip",
+                "order": ["Heroes — Knight 1/2", "Heroes — Knight 2/2", "Heroes — Dragon"],
+                "sha1": "0cfd54b369e4"
+              },
+              {
+                "trayKey": "minis001:p0:1",
+                "arrangement": "strip",
+                "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 2/3", "Heroes — Rogue 3/3"],
+                "sha1": "172b60f0ae21"
+              }
+            ]
+          },
+          {
+            "id": "standing|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "minis001:p0:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Heroes — Dragon",
+                  "Heroes — Rogue 2/3",
+                  "Heroes — Rogue 3/3",
+                  "Heroes — Knight 1/2",
+                  "Heroes — Knight 2/2",
+                  "Heroes — Rogue 1/3"
+                ],
+                "sha1": "340696149c6f"
+              }
+            ]
+          },
+          {
+            "id": "lying|strip|split2",
+            "parts": [
+              {
+                "trayKey": "minis001:p0:0",
+                "arrangement": "strip",
+                "order": ["Heroes — Knight 1/2", "Heroes — Knight 2/2", "Heroes — Dragon"],
+                "sha1": "755827c86623"
+              },
+              {
+                "trayKey": "minis001:p0:1",
+                "arrangement": "strip",
+                "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 2/3", "Heroes — Rogue 3/3"],
+                "sha1": "5ed0c9b61ff8"
+              }
+            ]
+          },
+          {
+            "id": "lying|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "minis001:p0:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Heroes — Dragon",
+                  "Heroes — Rogue 1/3",
+                  "Heroes — Rogue 3/3",
+                  "Heroes — Knight 1/2",
+                  "Heroes — Knight 2/2",
+                  "Heroes — Rogue 2/3"
+                ],
+                "sha1": "85a2fc98154b"
+              }
+            ]
+          },
+          {
+            "id": "standing|strip|split3",
+            "parts": [
+              {
+                "trayKey": "minis001:p0:0",
+                "arrangement": "strip",
+                "order": ["Heroes — Knight 1/2", "Heroes — Knight 2/2"],
+                "sha1": "28a78bbf31a5"
+              },
+              {
+                "trayKey": "minis001:p0:1",
+                "arrangement": "strip",
+                "order": ["Heroes — Dragon"],
+                "sha1": "d39ba4d1fa20"
+              },
+              {
+                "trayKey": "minis001:p0:2",
+                "arrangement": "strip",
+                "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 2/3", "Heroes — Rogue 3/3"],
+                "sha1": "640bc61010c5"
+              }
+            ]
+          },
+          {
+            "id": "standing|rows2|split2",
+            "parts": [
+              {
+                "trayKey": "minis001:p0:0",
+                "arrangement": "rows2",
+                "order": ["Heroes — Knight 2/2", "Heroes — Dragon", "Heroes — Knight 1/2"],
+                "sha1": "0518ee682ec2"
+              },
+              {
+                "trayKey": "minis001:p0:1",
+                "arrangement": "rows2",
+                "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 3/3", "Heroes — Rogue 2/3"],
+                "sha1": "f8be5e118a6a"
+              }
+            ]
+          },
+          {
+            "id": "lying|strip|split3",
+            "parts": [
+              {
+                "trayKey": "minis001:p0:0",
+                "arrangement": "strip",
+                "order": ["Heroes — Knight 1/2", "Heroes — Knight 2/2"],
+                "sha1": "dba9806720c2"
+              },
+              {
+                "trayKey": "minis001:p0:1",
+                "arrangement": "strip",
+                "order": ["Heroes — Dragon"],
+                "sha1": "c3b91c83914d"
+              },
+              {
+                "trayKey": "minis001:p0:2",
+                "arrangement": "strip",
+                "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 2/3", "Heroes — Rogue 3/3"],
+                "sha1": "c6913d9c99e3"
+              }
+            ]
+          },
+          {
+            "id": "lying|rows2|split2",
+            "parts": [
+              {
+                "trayKey": "minis001:p0:0",
+                "arrangement": "rows2",
+                "order": ["Heroes — Knight 2/2", "Heroes — Dragon", "Heroes — Knight 1/2"],
+                "sha1": "4cb669b37342"
+              },
+              {
+                "trayKey": "minis001:p0:1",
+                "arrangement": "rows2",
+                "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 3/3", "Heroes — Rogue 2/3"],
+                "sha1": "92f10d37b8fc"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "tiles001",
+        "access": "setup",
+        "loose": true,
+        "variants": [
+          {
+            "id": "flat-c1|strip|split1",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×60"],
+                "sha1": "09058ce1d04f"
+              }
+            ]
+          },
+          {
+            "id": "flat-c3|strip|split1",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20", "Map tiles ×20", "Map tiles ×20"],
+                "sha1": "3dd7a88d4dd7"
+              }
+            ]
+          },
+          {
+            "id": "flat-c5|strip|split1",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": [
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12"
+                ],
+                "sha1": "601fafb48e32"
+              }
+            ]
+          },
+          {
+            "id": "upright-c1|strip|split1",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×60"],
+                "sha1": "363ac9e22b5a"
+              }
+            ]
+          },
+          {
+            "id": "upright-c3|strip|split1",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20", "Map tiles ×20", "Map tiles ×20"],
+                "sha1": "0ab947aa0b59"
+              }
+            ]
+          },
+          {
+            "id": "upright-c5|strip|split1",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": [
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12"
+                ],
+                "sha1": "a7240bc06253"
+              }
+            ]
+          },
+          {
+            "id": "flat-c3|strip|split2",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20"],
+                "sha1": "207e4200863f"
+              },
+              {
+                "trayKey": "tiles001:p0:1",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20", "Map tiles ×20"],
+                "sha1": "f8d1a5733e4d"
+              }
+            ]
+          },
+          {
+            "id": "flat-c3|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "rows2",
+                "order": ["Map tiles ×20", "Map tiles ×20", "Map tiles ×20"],
+                "sha1": "a1259a7a5178"
+              }
+            ]
+          },
+          {
+            "id": "flat-c5|strip|split2",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×12", "Map tiles ×12", "Map tiles ×12"],
+                "sha1": "564c1f55b309"
+              },
+              {
+                "trayKey": "tiles001:p0:1",
+                "arrangement": "strip",
+                "order": ["Map tiles ×12", "Map tiles ×12"],
+                "sha1": "c537c41868af"
+              }
+            ]
+          },
+          {
+            "id": "flat-c5|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12"
+                ],
+                "sha1": "8deea4a9e9e5"
+              }
+            ]
+          },
+          {
+            "id": "upright-c3|strip|split2",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20"],
+                "sha1": "bc44815b2678"
+              },
+              {
+                "trayKey": "tiles001:p0:1",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20", "Map tiles ×20"],
+                "sha1": "b3770eca9b40"
+              }
+            ]
+          },
+          {
+            "id": "upright-c3|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "rows2",
+                "order": ["Map tiles ×20", "Map tiles ×20", "Map tiles ×20"],
+                "sha1": "2bfac0e472b1"
+              }
+            ]
+          },
+          {
+            "id": "upright-c5|strip|split2",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×12", "Map tiles ×12"],
+                "sha1": "73e8a1d63798"
+              },
+              {
+                "trayKey": "tiles001:p0:1",
+                "arrangement": "strip",
+                "order": ["Map tiles ×12", "Map tiles ×12", "Map tiles ×12"],
+                "sha1": "58764cba82bc"
+              }
+            ]
+          },
+          {
+            "id": "upright-c5|rows2|split1",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "rows2",
+                "order": [
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12",
+                  "Map tiles ×12"
+                ],
+                "sha1": "c61f0cfa6dc1"
+              }
+            ]
+          },
+          {
+            "id": "flat-c3|strip|split3",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20"],
+                "sha1": "207e4200863f"
+              },
+              {
+                "trayKey": "tiles001:p0:1",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20"],
+                "sha1": "f8a747f9efc6"
+              },
+              {
+                "trayKey": "tiles001:p0:2",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20"],
+                "sha1": "b715ad82ed44"
+              }
+            ]
+          },
+          {
+            "id": "flat-c5|strip|split3",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×12", "Map tiles ×12"],
+                "sha1": "df23835f686c"
+              },
+              {
+                "trayKey": "tiles001:p0:1",
+                "arrangement": "strip",
+                "order": ["Map tiles ×12", "Map tiles ×12"],
+                "sha1": "c537c41868af"
+              },
+              {
+                "trayKey": "tiles001:p0:2",
+                "arrangement": "strip",
+                "order": ["Map tiles ×12"],
+                "sha1": "a4bf80ea7022"
+              }
+            ]
+          },
+          {
+            "id": "flat-c5|rows2|split2",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "rows2",
+                "order": ["Map tiles ×12", "Map tiles ×12", "Map tiles ×12"],
+                "sha1": "b1183b82ebf0"
+              },
+              {
+                "trayKey": "tiles001:p0:1",
+                "arrangement": "rows2",
+                "order": ["Map tiles ×12", "Map tiles ×12"],
+                "sha1": "5287ab25ff52"
+              }
+            ]
+          },
+          {
+            "id": "upright-c3|strip|split3",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20"],
+                "sha1": "bc44815b2678"
+              },
+              {
+                "trayKey": "tiles001:p0:1",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20"],
+                "sha1": "94da0972bdc4"
+              },
+              {
+                "trayKey": "tiles001:p0:2",
+                "arrangement": "strip",
+                "order": ["Map tiles ×20"],
+                "sha1": "78be36a465bb"
+              }
+            ]
+          },
+          {
+            "id": "upright-c5|strip|split3",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "strip",
+                "order": ["Map tiles ×12"],
+                "sha1": "523d243d04ff"
+              },
+              {
+                "trayKey": "tiles001:p0:1",
+                "arrangement": "strip",
+                "order": ["Map tiles ×12", "Map tiles ×12"],
+                "sha1": "8d65b6d2aff7"
+              },
+              {
+                "trayKey": "tiles001:p0:2",
+                "arrangement": "strip",
+                "order": ["Map tiles ×12", "Map tiles ×12"],
+                "sha1": "e9163ff5d122"
+              }
+            ]
+          },
+          {
+            "id": "upright-c5|rows2|split2",
+            "parts": [
+              {
+                "trayKey": "tiles001:p0:0",
+                "arrangement": "rows2",
+                "order": ["Map tiles ×12", "Map tiles ×12"],
+                "sha1": "24e0841ac875"
+              },
+              {
+                "trayKey": "tiles001:p0:1",
+                "arrangement": "rows2",
+                "order": ["Map tiles ×12", "Map tiles ×12", "Map tiles ×12"],
+                "sha1": "140e3044e471"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "custom01",
+        "access": "setup",
+        "loose": false,
+        "variants": [
+          {
+            "id": "custom|strip|split1",
+            "parts": [
+              {
+                "trayKey": "custom01:p0:0",
+                "arrangement": "strip",
+                "order": ["Score pad"],
+                "sha1": "37e349114bd3"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

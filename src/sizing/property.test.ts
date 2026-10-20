@@ -459,7 +459,13 @@ describe("sizing properties", () => {
                 expect(part.compartments).toEqual(first.compartments);
                 expect(part.arrangement).toBe(first.arrangement);
                 expect(part.rowBreak).toBe(first.rowBreak);
-                if (part.arrangement === "rows2") {
+                const oneMember = part.compartments.every(
+                  (c) => c.componentId === part.compartments[0]?.componentId,
+                );
+                if (part.arrangement === "rows2" && oneMember) {
+                  // One member's blocks keep the pre-0.7.0 rows2 (greedy by width): no break.
+                  expect(part.rowBreak).toBeUndefined();
+                } else if (part.arrangement === "rows2") {
                   const front = part.rowBreak ?? 0;
                   expect(front).toBeGreaterThanOrEqual(1);
                   expect(front).toBeLessThanOrEqual(part.compartments.length - 1);
