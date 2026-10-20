@@ -428,6 +428,85 @@ describe("trayNames for a group", () => {
     ]);
   });
 
+  describe("copy numbers follow the plan: copy 1 is the one nearest the front", () => {
+    /** The copy numbers of a group's trays by place: key → full name. */
+    const at = (copy: number, x: number, y: number, over: Partial<TraySpec> = {}) =>
+      kitTray(copy, 0, { x, y, w: 100, d: 80, ...over });
+    const byKey = (trays: TraySpec[], groups: Group[]) =>
+      Object.fromEntries(fullNames(trays, groups));
+
+    it("counts front to back, then left to right, whatever the copy index in the key", () => {
+      // y grows towards the back; two rows of two. p0 stands at the back right, p3 at the front left.
+      const trays = [at(0, 100, 80), at(1, 0, 80), at(2, 100, 0), at(3, 0, 0)];
+      expect(byKey(trays, [group("Player kit", 4)])).toEqual({
+        "kit:p3:0": "Player kit 1", // front left
+        "kit:p2:0": "Player kit 2", // front right
+        "kit:p1:0": "Player kit 3", // back left
+        "kit:p0:0": "Player kit 4", // back right
+      });
+    });
+
+    it("gives the same names however the parts are passed in", () => {
+      const trays = [at(0, 100, 80), at(1, 0, 80), at(2, 100, 0), at(3, 0, 0)];
+      const forward = byKey(trays, [group("Player kit", 4)]);
+      expect(byKey([...trays].reverse(), [group("Player kit", 4)])).toEqual(forward);
+      expect(
+        byKey(
+          [trays[2] as TraySpec, trays[0] as TraySpec, trays[3] as TraySpec, trays[1] as TraySpec],
+          [group("Player kit", 4)],
+        ),
+      ).toEqual(forward);
+    });
+
+    it("counts a lower layer first, then the front of the next", () => {
+      const trays = [
+        at(0, 0, 0, { level: 1, z: 42 }), // the very front, but on the second layer
+        at(1, 0, 90),
+        at(2, 0, 0),
+      ];
+      expect(byKey(trays, [group("Player kit", 3)])).toEqual({
+        "kit:p2:0": "Player kit 1",
+        "kit:p1:0": "Player kit 2",
+        "kit:p0:0": "Player kit 3",
+      });
+    });
+
+    it("takes trays whose fronts are within a millimetre as one row, left to right", () => {
+      const trays = [at(0, 100, 0), at(1, 0, 0.4), at(2, 200, 0.9)];
+      expect(byKey(trays, [group("Player kit", 3)])).toEqual({
+        "kit:p1:0": "Player kit 1",
+        "kit:p0:0": "Player kit 2",
+        "kit:p2:0": "Player kit 3",
+      });
+    });
+
+    it("keeps the copy number of a split copy's parts, lettered in part order", () => {
+      // Copy 0 splits, standing at the back; its part b is nearer the front than its part a, but
+      // the copy is counted where its first part (the one nearest the front) stands.
+      const trays = [
+        kitTray(0, 0, { x: 0, y: 160, w: 100, d: 40 }),
+        kitTray(0, 1, { x: 100, y: 120, w: 100, d: 40 }),
+        at(1, 0, 0),
+      ];
+      expect(byKey(trays, [group("Player kit", 2)])).toEqual({
+        "kit:p1:0": "Player kit 1",
+        "kit:p0:0": "Player kit 2a",
+        "kit:p0:1": "Player kit 2b",
+      });
+    });
+  });
+
+  it("counts an item's copies by place too", () => {
+    const dice = cards("d", "Dice");
+    const copy = (n: number, x: number, y: number) =>
+      trayOf(`d:p${n}:0`, "d", { x, y, w: 60, d: 60 });
+    const names = trayNames(numberParts([copy(0, 60, 60), copy(1, 0, 60), copy(2, 0, 0)]), [dice]);
+    expect(names.get("d:p2:0")?.full).toBe("Dice 1");
+    expect(names.get("d:p1:0")?.full).toBe("Dice 2");
+    expect(names.get("d:p0:0")?.full).toBe("Dice 3");
+    expect(names.get("d:p2:0")?.short).toBe("Dice 1");
+  });
+
   it("calls an unnamed group Group", () => {
     expect(fullNames([kitTray(0, 0)], [group("")])).toEqual([["kit:p0:0", "Group"]]);
     expect(fullNames([kitTray(0, 0)], [group("  ")])).toEqual([["kit:p0:0", "Group"]]);

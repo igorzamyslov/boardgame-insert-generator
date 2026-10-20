@@ -3,10 +3,9 @@
 // for the legacy fixtures equals what main@a8581fb gave for them. The snapshot,
 // test/fixtures/legacy/sizing-0.6.json, was captured by running that commit's
 // `size(project.components, project.settings)` over the parsed fixtures and keeping, for every
-// part, its tray key, arrangement, the order of its compartments (their contents) and a SHA-1 of
+// part, its tray key, arrangement, the order of its compartments (their contents) and a hash (cyrb53) of
 // the whole part (keys sorted, undefined dropped, a copy's " (P1)" suffix removed), so every
 // minimum size, feature and growth is pinned too.
-import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import multiBlock from "../../test/fixtures/legacy/multi-block.json";
 import perPlayer from "../../test/fixtures/legacy/per-player.json";
@@ -24,7 +23,7 @@ interface Shot {
     loose: boolean;
     variants: {
       id: string;
-      parts: { trayKey: string; arrangement: string; order: string[]; sha1: string }[];
+      parts: { trayKey: string; arrangement: string; order: string[]; hash: string }[];
     }[];
   }[];
 }
@@ -42,18 +41,29 @@ const sorted = (v: unknown): unknown =>
         )
       : v;
 const own = (contents: string): string => contents.replace(/ \(P\d+\)$/, "");
-const sha1 = (part: TrayPartReq): string =>
-  createHash("sha1")
-    .update(
-      JSON.stringify(
-        sorted({
-          ...part,
-          compartments: part.compartments.map((c) => ({ ...c, contents: own(c.contents) })),
-        }),
-      ),
-    )
-    .digest("hex")
-    .slice(0, 12);
+/** cyrb53: a small string hash, enough to tell two parts apart. */
+function hash(text: string): string {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (const ch of text) {
+    const c = ch.charCodeAt(0);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
+}
+
+const hashOf = (part: TrayPartReq): string =>
+  hash(
+    JSON.stringify(
+      sorted({
+        ...part,
+        compartments: part.compartments.map((c) => ({ ...c, contents: own(c.contents) })),
+      }),
+    ),
+  );
 
 function shotOf(requirements: TrayRequirement[], notices: number): Shot {
   return {
@@ -68,7 +78,7 @@ function shotOf(requirements: TrayRequirement[], notices: number): Shot {
           trayKey: p.trayKey,
           arrangement: p.arrangement,
           order: p.compartments.map((c) => own(c.contents)),
-          sha1: sha1(p),
+          hash: hashOf(p),
         })),
       })),
     })),

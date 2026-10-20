@@ -14,7 +14,7 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Deck ×60"],
-                "sha1": "de16e7af9ca1"
+                "hash": "16ead6e6fb9047"
               }
             ]
           },
@@ -25,7 +25,7 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Deck ×60"],
-                "sha1": "36bde2ff3f2b"
+                "hash": "1af397b66ede1b"
               }
             ]
           },
@@ -36,7 +36,7 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Deck ×60"],
-                "sha1": "9f68fcfde289"
+                "hash": "5d1e986e59f49"
               }
             ]
           }
@@ -54,7 +54,7 @@
                 "trayKey": "bulk0001:p0:0",
                 "arrangement": "strip",
                 "order": ["Cubes ×20"],
-                "sha1": "558c64593c4a"
+                "hash": "f64b951f82d06"
               }
             ]
           },
@@ -65,7 +65,7 @@
                 "trayKey": "bulk0001:p0:0",
                 "arrangement": "strip",
                 "order": ["Cubes ×20"],
-                "sha1": "78fd6c074c90"
+                "hash": "a16184e9aed7c"
               }
             ]
           }
@@ -88,7 +88,7 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Deck ×60"],
-                "sha1": "de16e7af9ca1"
+                "hash": "16ead6e6fb9047"
               }
             ]
           },
@@ -99,7 +99,7 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Deck ×60"],
-                "sha1": "36bde2ff3f2b"
+                "hash": "1af397b66ede1b"
               }
             ]
           },
@@ -110,7 +110,7 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Deck ×60"],
-                "sha1": "9f68fcfde289"
+                "hash": "5d1e986e59f49"
               }
             ]
           }
@@ -128,19 +128,19 @@
                 "trayKey": "bits0001:p0:0",
                 "arrangement": "strip",
                 "order": ["Player bits — Cubes ×20"],
-                "sha1": "982ed4f552ae"
+                "hash": "19af225912824f"
               },
               {
                 "trayKey": "bits0001:p1:0",
                 "arrangement": "strip",
                 "order": ["Player bits — Cubes ×20"],
-                "sha1": "98e7158b0ba3"
+                "hash": "17a88e7879867c"
               },
               {
                 "trayKey": "bits0001:p2:0",
                 "arrangement": "strip",
                 "order": ["Player bits — Cubes ×20"],
-                "sha1": "9c12e8fa97a9"
+                "hash": "1fd786b2d03d1a"
               }
             ]
           },
@@ -151,19 +151,19 @@
                 "trayKey": "bits0001:p0:0",
                 "arrangement": "strip",
                 "order": ["Player bits — Cubes ×20"],
-                "sha1": "eda13b46783b"
+                "hash": "a154a3de09771"
               },
               {
                 "trayKey": "bits0001:p1:0",
                 "arrangement": "strip",
                 "order": ["Player bits — Cubes ×20"],
-                "sha1": "403d7150eceb"
+                "hash": "9e61eafbf2220"
               },
               {
                 "trayKey": "bits0001:p2:0",
                 "arrangement": "strip",
                 "order": ["Player bits — Cubes ×20"],
-                "sha1": "701d343945d0"
+                "hash": "178a4822d604e1"
               }
             ]
           },
@@ -178,7 +178,7 @@
                   "Player bits — Cubes ×20",
                   "Player bits — Cubes ×20"
                 ],
-                "sha1": "6ede47b108d9"
+                "hash": "175a45e8008277"
               }
             ]
           },
@@ -193,7 +193,7 @@
                   "Player bits — Cubes ×20",
                   "Player bits — Cubes ×20"
                 ],
-                "sha1": "99590d598679"
+                "hash": "16377a29031ce6"
               }
             ]
           },
@@ -204,13 +204,13 @@
                 "trayKey": "bits0001:pall:0",
                 "arrangement": "strip",
                 "order": ["Player bits — Cubes ×20"],
-                "sha1": "2c83612008d9"
+                "hash": "3d42c5a81f3a2"
               },
               {
                 "trayKey": "bits0001:pall:1",
                 "arrangement": "strip",
                 "order": ["Player bits — Cubes ×20", "Player bits — Cubes ×20"],
-                "sha1": "35244616bd0c"
+                "hash": "1d9f061979d366"
               }
             ]
           },
@@ -225,7 +225,7 @@
                   "Player bits — Cubes ×20",
                   "Player bits — Cubes ×20"
                 ],
-                "sha1": "fc39ca889a88"
+                "hash": "12d6ede3cdd312"
               }
             ]
           },
@@ -236,13 +236,13 @@
                 "trayKey": "bits0001:pall:0",
                 "arrangement": "strip",
                 "order": ["Player bits — Cubes ×20"],
-                "sha1": "d703fb13e5dc"
+                "hash": "17e10833125c6d"
               },
               {
                 "trayKey": "bits0001:pall:1",
                 "arrangement": "strip",
                 "order": ["Player bits — Cubes ×20", "Player bits — Cubes ×20"],
-                "sha1": "ccea2f19d213"
+                "hash": "5d2d7f1169f95"
               }
             ]
           },
@@ -257,7 +257,7 @@
                   "Player bits — Cubes ×20",
                   "Player bits — Cubes ×20"
                 ],
-                "sha1": "4dd5f377a5d3"
+                "hash": "e7acbf5ca5d20"
               }
             ]
           }
@@ -284,7 +284,7 @@
                   "Main deck — Event ×40",
                   "Main deck — Boss ×12"
                 ],
-                "sha1": "a4e641adae5d"
+                "hash": "19ce736313e792"
               }
             ]
           },
@@ -299,7 +299,7 @@
                   "Main deck — Event ×40",
                   "Main deck — Boss ×12"
                 ],
-                "sha1": "f413aa42206a"
+                "hash": "160993ccb2424a"
               }
             ]
           },
@@ -314,7 +314,7 @@
                   "Main deck — Event ×40",
                   "Main deck — Boss ×12"
                 ],
-                "sha1": "3b81e25de67c"
+                "hash": "13c04f1976d2ba"
               }
             ]
           },
@@ -325,13 +325,13 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Main deck — Action ×60"],
-                "sha1": "f2a330d4e49b"
+                "hash": "140f7fd8d5aea9"
               },
               {
                 "trayKey": "cards001:p0:1",
                 "arrangement": "strip",
                 "order": ["Main deck — Event ×40", "Main deck — Boss ×12"],
-                "sha1": "0fadf9e0fd47"
+                "hash": "b8b519635ee8c"
               }
             ]
           },
@@ -346,7 +346,7 @@
                   "Main deck — Boss ×12",
                   "Main deck — Event ×40"
                 ],
-                "sha1": "40162a2ac06a"
+                "hash": "130317eca3894"
               }
             ]
           },
@@ -357,13 +357,13 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Main deck — Action ×60"],
-                "sha1": "358552cde0b8"
+                "hash": "fb62b530a905f"
               },
               {
                 "trayKey": "cards001:p0:1",
                 "arrangement": "strip",
                 "order": ["Main deck — Event ×40", "Main deck — Boss ×12"],
-                "sha1": "bbc85b4c6486"
+                "hash": "7f2688f2ec582"
               }
             ]
           },
@@ -378,7 +378,7 @@
                   "Main deck — Boss ×12",
                   "Main deck — Event ×40"
                 ],
-                "sha1": "eaec35a23d41"
+                "hash": "1e16eea5a9fbe1"
               }
             ]
           },
@@ -389,13 +389,13 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Main deck — Action ×60"],
-                "sha1": "e1cf4d2c4ad1"
+                "hash": "158bac9b40399e"
               },
               {
                 "trayKey": "cards001:p0:1",
                 "arrangement": "strip",
                 "order": ["Main deck — Event ×40", "Main deck — Boss ×12"],
-                "sha1": "81bc999bcc95"
+                "hash": "8bb57425b972d"
               }
             ]
           },
@@ -410,7 +410,7 @@
                   "Main deck — Boss ×12",
                   "Main deck — Event ×40"
                 ],
-                "sha1": "b12dae359da4"
+                "hash": "16694e2813f8e1"
               }
             ]
           },
@@ -421,19 +421,19 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Main deck — Action ×60"],
-                "sha1": "f2a330d4e49b"
+                "hash": "140f7fd8d5aea9"
               },
               {
                 "trayKey": "cards001:p0:1",
                 "arrangement": "strip",
                 "order": ["Main deck — Event ×40"],
-                "sha1": "2e6298a8d0e1"
+                "hash": "b18aa922d3f1b"
               },
               {
                 "trayKey": "cards001:p0:2",
                 "arrangement": "strip",
                 "order": ["Main deck — Boss ×12"],
-                "sha1": "ff6b22de266a"
+                "hash": "19480ee25a809a"
               }
             ]
           },
@@ -444,19 +444,19 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Main deck — Action ×60"],
-                "sha1": "358552cde0b8"
+                "hash": "fb62b530a905f"
               },
               {
                 "trayKey": "cards001:p0:1",
                 "arrangement": "strip",
                 "order": ["Main deck — Event ×40"],
-                "sha1": "02c2944c3e24"
+                "hash": "1902b250fb9eb7"
               },
               {
                 "trayKey": "cards001:p0:2",
                 "arrangement": "strip",
                 "order": ["Main deck — Boss ×12"],
-                "sha1": "01dba76f937d"
+                "hash": "1ec8c997fb1301"
               }
             ]
           },
@@ -467,19 +467,19 @@
                 "trayKey": "cards001:p0:0",
                 "arrangement": "strip",
                 "order": ["Main deck — Action ×60"],
-                "sha1": "e1cf4d2c4ad1"
+                "hash": "158bac9b40399e"
               },
               {
                 "trayKey": "cards001:p0:1",
                 "arrangement": "strip",
                 "order": ["Main deck — Event ×40"],
-                "sha1": "7f6f3a3ab202"
+                "hash": "5c38b71c738ae"
               },
               {
                 "trayKey": "cards001:p0:2",
                 "arrangement": "strip",
                 "order": ["Main deck — Boss ×12"],
-                "sha1": "b16809b07258"
+                "hash": "1e5e8ae4c71e71"
               }
             ]
           }
@@ -503,7 +503,7 @@
                   "Tokens — Markers ×8",
                   "Tokens — Score 20 ml"
                 ],
-                "sha1": "d4f1dd7a22eb"
+                "hash": "14dff409dd6bb8"
               }
             ]
           },
@@ -520,7 +520,7 @@
                   "Tokens — Markers ×8",
                   "Tokens — Score 20 ml"
                 ],
-                "sha1": "ff0a9792d522"
+                "hash": "186d94a28409ac"
               }
             ]
           },
@@ -531,13 +531,13 @@
                 "trayKey": "bulk0001:p0:0",
                 "arrangement": "strip",
                 "order": ["Tokens — Coins ×40", "Tokens — Cubes ×30"],
-                "sha1": "c0472327b1a1"
+                "hash": "11ac4f9e8fd01b"
               },
               {
                 "trayKey": "bulk0001:p0:1",
                 "arrangement": "strip",
                 "order": ["Tokens — Meeples ×12", "Tokens — Markers ×8", "Tokens — Score 20 ml"],
-                "sha1": "64af9876beb0"
+                "hash": "e6709ea145277"
               }
             ]
           },
@@ -554,7 +554,7 @@
                   "Tokens — Coins ×40",
                   "Tokens — Meeples ×12"
                 ],
-                "sha1": "638c3f02bd0d"
+                "hash": "a864d594561ff"
               }
             ]
           },
@@ -565,13 +565,13 @@
                 "trayKey": "bulk0001:p0:0",
                 "arrangement": "strip",
                 "order": ["Tokens — Coins ×40", "Tokens — Cubes ×30"],
-                "sha1": "274eecf2cfaa"
+                "hash": "422877f89dc"
               },
               {
                 "trayKey": "bulk0001:p0:1",
                 "arrangement": "strip",
                 "order": ["Tokens — Meeples ×12", "Tokens — Markers ×8", "Tokens — Score 20 ml"],
-                "sha1": "3bd1efd49483"
+                "hash": "144573542c74dc"
               }
             ]
           },
@@ -588,7 +588,7 @@
                   "Tokens — Coins ×40",
                   "Tokens — Meeples ×12"
                 ],
-                "sha1": "03b8aefe95aa"
+                "hash": "9f97abc9a1d69"
               }
             ]
           },
@@ -599,19 +599,19 @@
                 "trayKey": "bulk0001:p0:0",
                 "arrangement": "strip",
                 "order": ["Tokens — Coins ×40"],
-                "sha1": "dd06406d84b2"
+                "hash": "8e5d25f94143e"
               },
               {
                 "trayKey": "bulk0001:p0:1",
                 "arrangement": "strip",
                 "order": ["Tokens — Cubes ×30"],
-                "sha1": "2de03bf3ac17"
+                "hash": "13446cf25de89"
               },
               {
                 "trayKey": "bulk0001:p0:2",
                 "arrangement": "strip",
                 "order": ["Tokens — Meeples ×12", "Tokens — Markers ×8", "Tokens — Score 20 ml"],
-                "sha1": "ea5a2d00b589"
+                "hash": "7e9d610e0da49"
               }
             ]
           },
@@ -622,13 +622,13 @@
                 "trayKey": "bulk0001:p0:0",
                 "arrangement": "rows2",
                 "order": ["Tokens — Cubes ×30", "Tokens — Coins ×40"],
-                "sha1": "c3b72a8d9869"
+                "hash": "f8c0415169fc5"
               },
               {
                 "trayKey": "bulk0001:p0:1",
                 "arrangement": "rows2",
                 "order": ["Tokens — Meeples ×12", "Tokens — Score 20 ml", "Tokens — Markers ×8"],
-                "sha1": "d226b94f244e"
+                "hash": "16c434844b321d"
               }
             ]
           },
@@ -639,19 +639,19 @@
                 "trayKey": "bulk0001:p0:0",
                 "arrangement": "strip",
                 "order": ["Tokens — Coins ×40"],
-                "sha1": "c1cfeac5d443"
+                "hash": "e40fe05d525c8"
               },
               {
                 "trayKey": "bulk0001:p0:1",
                 "arrangement": "strip",
                 "order": ["Tokens — Cubes ×30"],
-                "sha1": "990e021fbab3"
+                "hash": "231b801bb0ce8"
               },
               {
                 "trayKey": "bulk0001:p0:2",
                 "arrangement": "strip",
                 "order": ["Tokens — Meeples ×12", "Tokens — Markers ×8", "Tokens — Score 20 ml"],
-                "sha1": "9cb0a04c41fc"
+                "hash": "e4ed0920827f1"
               }
             ]
           },
@@ -662,13 +662,13 @@
                 "trayKey": "bulk0001:p0:0",
                 "arrangement": "rows2",
                 "order": ["Tokens — Cubes ×30", "Tokens — Coins ×40"],
-                "sha1": "f0f8f6faa1a7"
+                "hash": "11ec88a1d6794d"
               },
               {
                 "trayKey": "bulk0001:p0:1",
                 "arrangement": "rows2",
                 "order": ["Tokens — Meeples ×12", "Tokens — Score 20 ml", "Tokens — Markers ×8"],
-                "sha1": "34cbf789a25d"
+                "hash": "f96c65b573d0a"
               }
             ]
           }
@@ -693,7 +693,7 @@
                   "Heroes — Rogue 2/3",
                   "Heroes — Rogue 3/3"
                 ],
-                "sha1": "fcac8b21917e"
+                "hash": "11993d02ab226"
               }
             ]
           },
@@ -711,7 +711,7 @@
                   "Heroes — Rogue 2/3",
                   "Heroes — Rogue 3/3"
                 ],
-                "sha1": "a75dafa68726"
+                "hash": "1c02f64d39592e"
               }
             ]
           },
@@ -722,13 +722,13 @@
                 "trayKey": "minis001:p0:0",
                 "arrangement": "strip",
                 "order": ["Heroes — Knight 1/2", "Heroes — Knight 2/2", "Heroes — Dragon"],
-                "sha1": "0cfd54b369e4"
+                "hash": "1e4d1f885901b8"
               },
               {
                 "trayKey": "minis001:p0:1",
                 "arrangement": "strip",
                 "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 2/3", "Heroes — Rogue 3/3"],
-                "sha1": "172b60f0ae21"
+                "hash": "de6069da9a9f9"
               }
             ]
           },
@@ -746,7 +746,7 @@
                   "Heroes — Knight 2/2",
                   "Heroes — Rogue 1/3"
                 ],
-                "sha1": "340696149c6f"
+                "hash": "9815d822fe1e"
               }
             ]
           },
@@ -757,13 +757,13 @@
                 "trayKey": "minis001:p0:0",
                 "arrangement": "strip",
                 "order": ["Heroes — Knight 1/2", "Heroes — Knight 2/2", "Heroes — Dragon"],
-                "sha1": "755827c86623"
+                "hash": "361216c9aada7"
               },
               {
                 "trayKey": "minis001:p0:1",
                 "arrangement": "strip",
                 "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 2/3", "Heroes — Rogue 3/3"],
-                "sha1": "5ed0c9b61ff8"
+                "hash": "9db27c67963f5"
               }
             ]
           },
@@ -781,7 +781,7 @@
                   "Heroes — Knight 2/2",
                   "Heroes — Rogue 2/3"
                 ],
-                "sha1": "85a2fc98154b"
+                "hash": "103d27471ce8b2"
               }
             ]
           },
@@ -792,19 +792,19 @@
                 "trayKey": "minis001:p0:0",
                 "arrangement": "strip",
                 "order": ["Heroes — Knight 1/2", "Heroes — Knight 2/2"],
-                "sha1": "28a78bbf31a5"
+                "hash": "247aac5eeffc7"
               },
               {
                 "trayKey": "minis001:p0:1",
                 "arrangement": "strip",
                 "order": ["Heroes — Dragon"],
-                "sha1": "d39ba4d1fa20"
+                "hash": "4eff78ee23e06"
               },
               {
                 "trayKey": "minis001:p0:2",
                 "arrangement": "strip",
                 "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 2/3", "Heroes — Rogue 3/3"],
-                "sha1": "640bc61010c5"
+                "hash": "1d696322ddb784"
               }
             ]
           },
@@ -815,13 +815,13 @@
                 "trayKey": "minis001:p0:0",
                 "arrangement": "rows2",
                 "order": ["Heroes — Knight 2/2", "Heroes — Dragon", "Heroes — Knight 1/2"],
-                "sha1": "0518ee682ec2"
+                "hash": "c43efe296c4a3"
               },
               {
                 "trayKey": "minis001:p0:1",
                 "arrangement": "rows2",
                 "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 3/3", "Heroes — Rogue 2/3"],
-                "sha1": "f8be5e118a6a"
+                "hash": "179137d0456b2a"
               }
             ]
           },
@@ -832,19 +832,19 @@
                 "trayKey": "minis001:p0:0",
                 "arrangement": "strip",
                 "order": ["Heroes — Knight 1/2", "Heroes — Knight 2/2"],
-                "sha1": "dba9806720c2"
+                "hash": "11cdd563c1512e"
               },
               {
                 "trayKey": "minis001:p0:1",
                 "arrangement": "strip",
                 "order": ["Heroes — Dragon"],
-                "sha1": "c3b91c83914d"
+                "hash": "1eea336f34ca8b"
               },
               {
                 "trayKey": "minis001:p0:2",
                 "arrangement": "strip",
                 "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 2/3", "Heroes — Rogue 3/3"],
-                "sha1": "c6913d9c99e3"
+                "hash": "c3a756a04efc9"
               }
             ]
           },
@@ -855,13 +855,13 @@
                 "trayKey": "minis001:p0:0",
                 "arrangement": "rows2",
                 "order": ["Heroes — Knight 2/2", "Heroes — Dragon", "Heroes — Knight 1/2"],
-                "sha1": "4cb669b37342"
+                "hash": "62e943c0d86a1"
               },
               {
                 "trayKey": "minis001:p0:1",
                 "arrangement": "rows2",
                 "order": ["Heroes — Rogue 1/3", "Heroes — Rogue 3/3", "Heroes — Rogue 2/3"],
-                "sha1": "92f10d37b8fc"
+                "hash": "15bb649477d93a"
               }
             ]
           }
@@ -879,7 +879,7 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×60"],
-                "sha1": "09058ce1d04f"
+                "hash": "e5db26701091a"
               }
             ]
           },
@@ -890,7 +890,7 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20", "Map tiles ×20", "Map tiles ×20"],
-                "sha1": "3dd7a88d4dd7"
+                "hash": "1150e6dfb03fe6"
               }
             ]
           },
@@ -907,7 +907,7 @@
                   "Map tiles ×12",
                   "Map tiles ×12"
                 ],
-                "sha1": "601fafb48e32"
+                "hash": "d0bffbe4b8a26"
               }
             ]
           },
@@ -918,7 +918,7 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×60"],
-                "sha1": "363ac9e22b5a"
+                "hash": "c1af5977a985d"
               }
             ]
           },
@@ -929,7 +929,7 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20", "Map tiles ×20", "Map tiles ×20"],
-                "sha1": "0ab947aa0b59"
+                "hash": "f78a4089fb1de"
               }
             ]
           },
@@ -946,7 +946,7 @@
                   "Map tiles ×12",
                   "Map tiles ×12"
                 ],
-                "sha1": "a7240bc06253"
+                "hash": "1b116e24195898"
               }
             ]
           },
@@ -957,13 +957,13 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20"],
-                "sha1": "207e4200863f"
+                "hash": "12a0c0e2ca0388"
               },
               {
                 "trayKey": "tiles001:p0:1",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20", "Map tiles ×20"],
-                "sha1": "f8d1a5733e4d"
+                "hash": "1c5513443d36b3"
               }
             ]
           },
@@ -974,7 +974,7 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "rows2",
                 "order": ["Map tiles ×20", "Map tiles ×20", "Map tiles ×20"],
-                "sha1": "a1259a7a5178"
+                "hash": "12f95804442f9"
               }
             ]
           },
@@ -985,13 +985,13 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×12", "Map tiles ×12", "Map tiles ×12"],
-                "sha1": "564c1f55b309"
+                "hash": "1dbbc9f14adb0d"
               },
               {
                 "trayKey": "tiles001:p0:1",
                 "arrangement": "strip",
                 "order": ["Map tiles ×12", "Map tiles ×12"],
-                "sha1": "c537c41868af"
+                "hash": "149dc4268e2a4a"
               }
             ]
           },
@@ -1008,7 +1008,7 @@
                   "Map tiles ×12",
                   "Map tiles ×12"
                 ],
-                "sha1": "8deea4a9e9e5"
+                "hash": "e64cc2ec3f2ab"
               }
             ]
           },
@@ -1019,13 +1019,13 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20"],
-                "sha1": "bc44815b2678"
+                "hash": "19b98fb4dbd1c9"
               },
               {
                 "trayKey": "tiles001:p0:1",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20", "Map tiles ×20"],
-                "sha1": "b3770eca9b40"
+                "hash": "19665c9a69d05b"
               }
             ]
           },
@@ -1036,7 +1036,7 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "rows2",
                 "order": ["Map tiles ×20", "Map tiles ×20", "Map tiles ×20"],
-                "sha1": "2bfac0e472b1"
+                "hash": "197110cb65ba73"
               }
             ]
           },
@@ -1047,13 +1047,13 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×12", "Map tiles ×12"],
-                "sha1": "73e8a1d63798"
+                "hash": "1aa4c5591109c8"
               },
               {
                 "trayKey": "tiles001:p0:1",
                 "arrangement": "strip",
                 "order": ["Map tiles ×12", "Map tiles ×12", "Map tiles ×12"],
-                "sha1": "58764cba82bc"
+                "hash": "a63ca42b03623"
               }
             ]
           },
@@ -1070,7 +1070,7 @@
                   "Map tiles ×12",
                   "Map tiles ×12"
                 ],
-                "sha1": "c61f0cfa6dc1"
+                "hash": "11fd5750334faf"
               }
             ]
           },
@@ -1081,19 +1081,19 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20"],
-                "sha1": "207e4200863f"
+                "hash": "12a0c0e2ca0388"
               },
               {
                 "trayKey": "tiles001:p0:1",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20"],
-                "sha1": "f8a747f9efc6"
+                "hash": "2e462af953ce6"
               },
               {
                 "trayKey": "tiles001:p0:2",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20"],
-                "sha1": "b715ad82ed44"
+                "hash": "1e88840fde0627"
               }
             ]
           },
@@ -1104,19 +1104,19 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×12", "Map tiles ×12"],
-                "sha1": "df23835f686c"
+                "hash": "d3e5d5d6ba2cc"
               },
               {
                 "trayKey": "tiles001:p0:1",
                 "arrangement": "strip",
                 "order": ["Map tiles ×12", "Map tiles ×12"],
-                "sha1": "c537c41868af"
+                "hash": "149dc4268e2a4a"
               },
               {
                 "trayKey": "tiles001:p0:2",
                 "arrangement": "strip",
                 "order": ["Map tiles ×12"],
-                "sha1": "a4bf80ea7022"
+                "hash": "b946394acf180"
               }
             ]
           },
@@ -1127,13 +1127,13 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "rows2",
                 "order": ["Map tiles ×12", "Map tiles ×12", "Map tiles ×12"],
-                "sha1": "b1183b82ebf0"
+                "hash": "197c9c2695d405"
               },
               {
                 "trayKey": "tiles001:p0:1",
                 "arrangement": "rows2",
                 "order": ["Map tiles ×12", "Map tiles ×12"],
-                "sha1": "5287ab25ff52"
+                "hash": "1f0d718bfef3a0"
               }
             ]
           },
@@ -1144,19 +1144,19 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20"],
-                "sha1": "bc44815b2678"
+                "hash": "19b98fb4dbd1c9"
               },
               {
                 "trayKey": "tiles001:p0:1",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20"],
-                "sha1": "94da0972bdc4"
+                "hash": "1e197044969c69"
               },
               {
                 "trayKey": "tiles001:p0:2",
                 "arrangement": "strip",
                 "order": ["Map tiles ×20"],
-                "sha1": "78be36a465bb"
+                "hash": "1d842ed30865f7"
               }
             ]
           },
@@ -1167,19 +1167,19 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "strip",
                 "order": ["Map tiles ×12"],
-                "sha1": "523d243d04ff"
+                "hash": "1bf5011c478473"
               },
               {
                 "trayKey": "tiles001:p0:1",
                 "arrangement": "strip",
                 "order": ["Map tiles ×12", "Map tiles ×12"],
-                "sha1": "8d65b6d2aff7"
+                "hash": "1dbdbaffb19d60"
               },
               {
                 "trayKey": "tiles001:p0:2",
                 "arrangement": "strip",
                 "order": ["Map tiles ×12", "Map tiles ×12"],
-                "sha1": "e9163ff5d122"
+                "hash": "173e7b8f7d8a66"
               }
             ]
           },
@@ -1190,13 +1190,13 @@
                 "trayKey": "tiles001:p0:0",
                 "arrangement": "rows2",
                 "order": ["Map tiles ×12", "Map tiles ×12"],
-                "sha1": "24e0841ac875"
+                "hash": "15cdf99f473727"
               },
               {
                 "trayKey": "tiles001:p0:1",
                 "arrangement": "rows2",
                 "order": ["Map tiles ×12", "Map tiles ×12", "Map tiles ×12"],
-                "sha1": "140e3044e471"
+                "hash": "72064163dc3c"
               }
             ]
           }
@@ -1214,7 +1214,7 @@
                 "trayKey": "custom01:p0:0",
                 "arrangement": "strip",
                 "order": ["Score pad"],
-                "sha1": "37e349114bd3"
+                "hash": "13d967ca70ac4c"
               }
             ]
           }

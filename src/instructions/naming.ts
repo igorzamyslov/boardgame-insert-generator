@@ -331,6 +331,98 @@ function trayShorts(trays: readonly Draft[]): Map<string, string> {
 }
 
 /**
+ * Where each copy of a group or an item stands, as its place in the numbering (0 first), by
+ * `<stem>:p<copy>`: lower layer first, then front to back, then left to right, as seen from the
+ * front of the box (the plan's bottom edge: y grows towards the back). A copy that splits stands
+ * where its first part (lowest layer, then nearest the front, then leftmost) stands. Trays whose
+ * fronts are within TOUCH_MM of each other are one row. The copy's own number in the key (`p0`…) is
+ * only a name for it and never decides the order (owner ruling, 0.7.0: copy 1 is the one nearest
+ * the front).
+ */
+function copyPlaces(parts: readonly NumberedPart[]): Map<string, number> {
+  const inPlan = (a: TraySpec, b: TraySpec): number => a.level - b.level || a.y - b.y || a.x - b.x;
+  interface Anchor {
+    id: string;
+    copy: number;
+    spec: TraySpec;
+  }
+  const anchors = new Map<string, Anchor>();
+  const stems = new Map<string, Anchor[]>();
+  for (const { spec } of parts) {
+    const at = spec.part === "tray" ? parseTrayKey(spec.key) : undefined;
+    if (at === undefined) {
+      continue;
+    }
+    const id = `${at.stem}:p${at.copy}`;
+    const held = anchors.get(id);
+    if (held === undefined) {
+      const anchor = { id, copy: at.copy, spec };
+      anchors.set(id, anchor);
+      stems.set(at.stem, [...(stems.get(at.stem) ?? []), anchor]);
+    } else if (inPlan(spec, held.spec) < 0) {
+      held.spec = spec;
+    }
+  }
+  const places = new Map<string, number>();
+  for (const copies of stems.values()) {
+    // The key's copy number settles a tie, so the order never depends on the order of `parts`.
+    const sorted = [...copies].sort((a, b) => inPlan(a.spec, b.spec) || a.copy - b.copy);
+    // Rows: a copy joins the row of the one before it when it starts within TOUCH_MM of that
+    // row's front, in the same layer; inside a row, left to right.
+    const rows: Anchor[][] = [];
+    for (const anchor of sorted) {
+      const row = rows[rows.length - 1];
+      const head = row?.[0]?.spec;
+      if (
+        row !== undefined &&
+        head !== undefined &&
+        head.level === anchor.spec.level &&
+        anchor.spec.y - head.y <= TOUCH_MM
+      ) {
+        row.push(anchor);
+      } else {
+        rows.push([anchor]);
+      }
+    }
+    rows
+      .flatMap((row) => row.sort((a, b) => a.spec.x - b.spec.x || a.copy - b.copy))
+      .forEach((anchor, i) => places.set(anchor.id, i));
+  }
+  return places;
+}
+
+/**
+ * The parts with each copy's trays renumbered in the order of the copies' places: a stem's tray
+ * numbers (assembly order) are dealt out again, copy by copy in `copyPlaces` order and each copy's
+ * parts in part order, so the names that count in numbering order count by position.
+ */
+function byPlace(
+  parts: readonly NumberedPart[],
+  places: ReadonlyMap<string, number>,
+): NumberedPart[] {
+  const stems = new Map<string, { part: NumberedPart; copy: number; at: number }[]>();
+  for (const part of parts) {
+    const at = part.spec.part === "tray" ? parseTrayKey(part.spec.key) : undefined;
+    if (at !== undefined) {
+      const list = stems.get(at.stem) ?? [];
+      list.push({ part, copy: places.get(`${at.stem}:p${at.copy}`) ?? at.copy, at: at.part });
+      stems.set(at.stem, list);
+    }
+  }
+  const numberOf = new Map<string, number>();
+  for (const list of stems.values()) {
+    const numbers = list.map((e) => e.part.number).sort((a, b) => a - b);
+    [...list]
+      .sort((a, b) => a.copy - b.copy || a.at - b.at)
+      .forEach((e, i) => numberOf.set(e.part.spec.key, numbers[i] ?? e.part.number));
+  }
+  return parts.map((part) => {
+    const number = numberOf.get(part.spec.key);
+    return number === undefined ? part : { ...part, number };
+  });
+}
+
+/**
  * The words a group's tray adds to the group's name, by the tray's copy and part: " 2" (copy 2 of
  * several), " 2a" (its first part, when the copy is split), " a" (a split single copy), or "".
  */
@@ -342,10 +434,11 @@ function groupTail(copy: number, copies: number, part: number, parts: number): s
 
 /**
  * Names for every part, by the part's key. A tray of a group is called by the group's name,
- * "Player kit 1" … "Player kit 4" by copy ("Player kit" for one copy); a copy that had to split
+ * "Player kit 1" … "Player kit 4" by copy ("Player kit" for one copy), counted lower layer first, then
+ * front to back and left to right, so copy 1 is the one nearest the front (`copyPlaces`); a copy that had to split
  * gets a letter ("Player kit 2a", "Player kit 2b"; "Player kit a", "Player kit b" for a single
  * copy), and a group with no name is "Group". A component with one tray is called by its name; with
- * several, its name and " 1", " 2" in plan order. A card spacer, spacer block, riser or divider is
+ * several, its name and " 1", " 2" in the same order (an item's copies count by place too). A card spacer, spacer block, riser or divider is
  * "Spacer by <the tray beside it>" ("Spare by …" for a spare tray, "Riser under …", "Divider in …");
  * several by the same tray are numbered "Spacer 1 by …", "Spacer 2 by …". `short` is what fits
  * engraved on the part: at most SHORT_NAME_MAX characters of letters, digits, spaces and hyphens
@@ -358,7 +451,9 @@ export function trayNames(
   components: readonly Component[],
   groups: readonly Group[] = [],
 ): Map<string, TrayName> {
-  const ordered = [...parts].sort((a, b) => a.number - b.number);
+  // Copies count by where they stand, not by the number in their key.
+  const places = copyPlaces(parts);
+  const ordered = byPlace(parts, places).sort((a, b) => a.number - b.number);
   const drafts: Draft[] = [];
   const named: NumberedPart[] = [];
   const draftOf = (part: NumberedPart, over: Partial<Draft>): Draft => ({
@@ -409,7 +504,12 @@ export function trayNames(
           base: at.group.name.trim() === "" ? DEFAULT_GROUP_NAME : at.group.name.trim(),
           kindName: DEFAULT_GROUP_NAME,
           // the letter goes by the part's place among its copy's parts, so a gap does not skip one
-          tail: groupTail(at.copy, howMany, own.indexOf(at.part), own.length),
+          tail: groupTail(
+            places.get(`${at.group.id}:p${at.copy}`) ?? at.copy,
+            howMany,
+            own.indexOf(at.part),
+            own.length,
+          ),
         }),
       );
       continue;

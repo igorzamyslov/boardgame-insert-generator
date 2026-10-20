@@ -97,7 +97,11 @@ describe("misfitOf", () => {
       memberIds: [deck.id, boards.id],
     };
     const attempt = {
-      trays: [holding([deck, boards], { key: "kit:p1:0", x: 100, y: 0, w: 120, d: 80 })],
+      // copy 1 stands left of the one that overhangs the box, so the overhanging one is the second
+      trays: [
+        holding([deck, boards], { key: "kit:p0:0", x: 0, y: 0, w: 90, d: 80 }),
+        holding([deck, boards], { key: "kit:p1:0", x: 100, y: 0, w: 120, d: 80 }),
+      ],
     };
     expect(misfitOf(attempt, box, settings, all, [kit])).toEqual({
       componentId: deck.id,
