@@ -597,7 +597,7 @@ export const STATES = {
       { wait: 400 },
     ],
   },
-  // NoFit (Task 12): the closest attempt of a failed search (box height: Heroes 80 mm), the culprit
+  // NoFit (Task 12): the closest attempt of a failed search (box height: a Heroes figure taller than the box, 90 mm as make-seeds tunes it), the culprit
   // tray marked, and the panel of what the engine can do. The seed holds no result (the store keeps
   // none), so the state asks for a new plan and waits for the run.
   "no-fit": {
@@ -618,7 +618,7 @@ export const STATES = {
     steps: [MAKE_NEW_PLAN, { waitFor: { text: FIT_YET, timeout: 90_000 } }],
   },
   // The box's editor while the plan does not fit (0.6.0 carry): the box is open over the no-fit
-  // seed (Heroes is 80 mm in a 70 mm box), so the editor tells the problem in a line. No board
+  // seed (a Heroes figure taller than the 70 mm box), so the editor tells the problem in a line. No board
   // draws this: Box is the editor, NoFit's status line is the problem's words.
   "box-nofit": {
     board: "Box",

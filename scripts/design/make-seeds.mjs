@@ -288,13 +288,17 @@ try {
    * The plan draws a tile 3 px in on each side (a 6 px gap) and its 2 px dashed border needs 4 px
    * more, so a spacer under 6 mm (12 px at the board's scale) is a bare dashed line against its
    * neighbour and the plan-gaps probe fails. The no-fit state draws the closest attempt of a
-   * failed search, which varies a lot with the tuning.
+   * failed search, which varies a lot with the tuning (the no-fit seed's own tuning checks it too).
    */
+  function noSliverTrays(trays) {
+    return trays.every((t) => t.part === "tray" || Math.min(t.w, t.d) >= 6);
+  }
+
   function noSlivers(project, result) {
     const base = { ...project, layout: result.layout };
     const failed = search(kit.harbourKingsNoFit(base, 80)).result;
     const trays = [...result.layout.trays, ...(failed.layout ?? failed.bestAttempt).trays];
-    return trays.every((t) => t.part === "tray" || Math.min(t.w, t.d) >= 6);
+    return noSliverTrays(trays);
   }
 
   function tuneLayers() {
@@ -412,7 +416,7 @@ try {
     (height) => kit.harbourKingsNoFit(base, height),
     (project, result) => {
       const m = misfitOf(project, result);
-      return m?.name === "Heroes" && m.reason === "box";
+      return m?.name === "Heroes" && m.reason === "box" && noSliverTrays(result.bestAttempt.trays);
     },
   );
   // An extra, kept because it is cheap: too many pockets for the print bed.
