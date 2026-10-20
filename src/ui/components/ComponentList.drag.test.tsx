@@ -79,16 +79,17 @@ const up = (x: number, y: number) =>
 
 function setup(props: { compact?: boolean; groups?: Group[] } = {}) {
   const onDrop = vi.fn();
+  const onOpen = vi.fn();
   const { container } = render(
     <ComponentList
       components={items}
       groups={props.groups ?? [kit, empty]}
       compact={props.compact}
-      onOpen={vi.fn()}
+      onOpen={onOpen}
       onDrop={onDrop}
     />,
   );
-  return { container, onDrop, list: drawList(container) };
+  return { container, onDrop, onOpen, list: drawList(container) };
 }
 
 describe("the grips", () => {
@@ -227,6 +228,30 @@ describe("a drag", () => {
     expect(list.classList.contains("is-dragging")).toBe(false);
     expect(container.querySelector("[data-drop]")).toBeNull();
     up(100, 149);
+    expect(onDrop).not.toHaveBeenCalled();
+  });
+
+  it("lets no menu open in the middle of a drag, and none is held back once it is over", () => {
+    const { container } = setup();
+    down(grip(container, "m"), 20, 25);
+    move(100, 149);
+    const during = new Event("contextmenu", { cancelable: true });
+    document.body.dispatchEvent(during);
+    expect(during.defaultPrevented).toBe(true);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    const after = new Event("contextmenu", { cancelable: true });
+    document.body.dispatchEvent(after);
+    expect(after.defaultPrevented).toBe(false);
+  });
+
+  it("opens the row on a plain click, and a press on the grip that does not move opens nothing and drops nothing", () => {
+    const { container, onDrop, onOpen } = setup();
+    fireEvent.click(container.querySelector('[data-row-id="m"]') as Element);
+    expect(onOpen).toHaveBeenCalledWith("m");
+    onOpen.mockClear();
+    down(grip(container, "m"), 20, 25);
+    up(20, 25);
+    expect(onOpen).not.toHaveBeenCalled();
     expect(onDrop).not.toHaveBeenCalled();
   });
 

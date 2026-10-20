@@ -262,6 +262,7 @@
   display: flex;
   touch-action: none;
   user-select: none;
+  -webkit-touch-callout: none; /* no callout on a long press: it is a drag */
   flex: none;
   align-items: center;
   justify-content: center;
@@ -288,15 +289,23 @@
   box-shadow: 0 0 0 1px var(--rule);
   opacity: 0;
   transform: translateY(-50%);
+
+  /* unseen, it takes no press: a press on the row's left edge opens the row */
+  pointer-events: none;
 }
 
 .rail-item:hover > .gc-grip--loose,
 .rail-item:focus-within > .gc-grip--loose {
   opacity: 1;
+  pointer-events: auto;
 }
 
+/* No hover (a tablet): always shown, and as big a target as a member's grip (24 × 44). */
 .rail-list[data-no-hover] .gc-grip--loose {
+  width: var(--s-24);
+  height: 44px;
   opacity: 1;
+  pointer-events: auto;
 }
 
 .gc-member .k-row {

@@ -142,6 +142,8 @@ describe("rail.css", () => {
     const grip = ruleFor(".gc-grip");
     expect(grip).toMatch(/touch-action:\s*none/);
     expect(grip).toMatch(/user-select:\s*none/);
+    // a long press shows no callout
+    expect(grip).toMatch(/-webkit-touch-callout:\s*none/);
   });
 
   it("shows an ungrouped row's grip on hover and focus within, out of the row's layout, and always without hover", () => {
@@ -152,8 +154,17 @@ describe("rail.css", () => {
     expect(
       ruleFor(".rail-item:hover > .gc-grip--loose,\n.rail-item:focus-within > .gc-grip--loose"),
     ).toMatch(/opacity:\s*1/);
-    // a tablet has no hover: the list says so, and the grip is there without it
-    expect(ruleFor(".rail-list[data-no-hover] .gc-grip--loose")).toMatch(/opacity:\s*1/);
+    // a tablet has no hover: the list says so, and the grip is there without it, 24 × 44 as a member's
+    const touch = ruleFor(".rail-list[data-no-hover] .gc-grip--loose");
+    expect(touch).toMatch(/opacity:\s*1/);
+    expect(touch).toMatch(/width:\s*var\(--s-24\)/);
+    expect(touch).toMatch(/height:\s*44px/);
+    // unseen, the grip takes no press (a press on the row's edge opens the row); seen, it does
+    expect(loose).toMatch(/pointer-events:\s*none/);
+    expect(
+      ruleFor(".rail-item:hover > .gc-grip--loose,\n.rail-item:focus-within > .gc-grip--loose"),
+    ).toMatch(/pointer-events:\s*auto/);
+    expect(touch).toMatch(/pointer-events:\s*auto/);
   });
 
   it("draws the drag (spec §7.3): the lifted row on the sheet shadow, a 2 px focus line, the entered group washed and dashed, no animation", () => {

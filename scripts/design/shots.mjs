@@ -412,6 +412,19 @@ const PROBES = {
       const b = await rail.locator('.gc-member[aria-label="Resources"]').boundingBox();
       return { x: a.x + a.width / 2, y: (a.y + a.height + b.y) / 2 };
     };
+    // off hover the grip is unseen and takes no press: what is at the row's left edge is the row
+    await page.mouse.move(700, 450);
+    const edge = await marketRow.boundingBox();
+    const atEdge = await page.evaluate(
+      ([x, y]) => {
+        const el = document.elementFromPoint(x, y);
+        return { grip: el?.closest(".gc-grip") !== null, row: el?.closest(".k-row") !== null };
+      },
+      [edge.x + 4, edge.y + edge.height / 2],
+    );
+    if (atEdge.grip || !atEdge.row) {
+      problems.push("off hover a press on the row's left edge lands on the grip, not the row");
+    }
     // the grip of an ungrouped row shows on hover: the pointer goes to the row first
     const holdMarket = async () => {
       const row = await marketRow.boundingBox();

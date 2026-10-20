@@ -347,6 +347,7 @@ export function useRailDrag(options: RailDragOptions): {
       window.removeEventListener("pointerup", up, true);
       window.removeEventListener("pointercancel", cancel, true);
       window.removeEventListener("keydown", key, true);
+      window.removeEventListener("contextmenu", noMenu, true);
       window.removeEventListener("blur", cancel);
       if (s.frame !== null) {
         window.cancelAnimationFrame(s.frame);
@@ -397,6 +398,8 @@ export function useRailDrag(options: RailDragOptions): {
       }
     };
     const cancel = (): void => end();
+    // a long press on a touch screen, or the secondary button, must not open a menu in the middle of a drag
+    const noMenu = (ev: Event): void => ev.preventDefault();
     const key = (ev: KeyboardEvent): void => {
       if (ev.key === "Escape") {
         // only the drag is cancelled: nothing else answers this Escape
@@ -410,6 +413,7 @@ export function useRailDrag(options: RailDragOptions): {
     window.addEventListener("pointerup", up, true);
     window.addEventListener("pointercancel", cancel, true);
     window.addEventListener("keydown", key, true);
+    window.addEventListener("contextmenu", noMenu, true);
     window.addEventListener("blur", cancel);
   };
 
