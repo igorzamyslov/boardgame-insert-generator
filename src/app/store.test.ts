@@ -1,6 +1,6 @@
 // src/app/store.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyPrinter, renameProject, updateBox } from "./actions";
+import { addGroup, applyPrinter, renameGroup, renameProject, updateBox } from "./actions";
 import { inputsHash } from "../model/hash";
 import type { Lock } from "../model/types";
 import { STORAGE_PREFIX, createPrefsStore, createProjectStore } from "../share";
@@ -61,6 +61,29 @@ describe("app store", () => {
     store.start(encodeHash(withoutLayout(fixtureProject()), EMPTY_FOREIGN));
     await flush();
     expect(stub.calls).toHaveLength(1);
+  });
+
+  it("never merges a field edit into the structural step just before it (a group's rename is its own step)", () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "A second name"));
+    let groupId = "";
+    store.edit((q) => {
+      const added = addGroup(q);
+      groupId = added.groupId;
+      return added.project;
+    });
+    // typed within the same second, and again a moment later: the first is its own step, the second joins it
+    store.edit((q) => renameGroup(q, groupId, "Player kit"));
+    store.edit((q) => renameGroup(q, groupId, "Player kits"));
+    expect(store.state.project.value.groups?.[0]?.name).toBe("Player kits");
+    store.undo();
+    // the rename (typed in one go) is gone; the group the step before it made is still there
+    expect(store.state.project.value.groups?.[0]?.name).toBe("Group");
+    store.undo();
+    expect(store.state.project.value.groups ?? []).toHaveLength(0);
+    expect(store.state.project.value.name).toBe("A second name");
   });
 
   it("renaming saves but does not re-optimize", async () => {

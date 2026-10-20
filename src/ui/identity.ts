@@ -1,7 +1,7 @@
 // src/ui/identity.ts
 import { KIND_NAMES } from "../model/defaults";
-import { groupById, groupOfItem, parseTrayKey } from "../model/groups";
-import type { Component, ComponentKind, Group, Project, TraySpec } from "../model/types";
+import { groupById, parseTrayKey } from "../model/groups";
+import type { Component, ComponentKind, Group, TraySpec } from "../model/types";
 import { contrast, hexToHsl, hslToHex } from "./color";
 
 export type ColorScheme = "light" | "dark";
@@ -380,40 +380,35 @@ export function compartmentWords(tray: TraySpec, component: Component | undefine
 }
 
 /**
- * The group a tray belongs to: the one whose id is its key's stem (`<group id>:p<copy>:<part>`,
- * and the spacers, risers and dividers under it), else the one that holds the components it holds
- * (a stored plan keeps an item's own keys after the item joined a group). Undefined for a tray of
- * an ungrouped item and for a part that holds nothing.
+ * The group a tray belongs to: the one whose id is its key's stem (`<group id>:p<copy>:<part>`, and
+ * the spacers, risers and dividers under it). One rule for the names (`trayNames`), the look
+ * (`isGroupTray`) and the editor's lift: a stored plan that keeps an item's own keys after the item
+ * joined a group is out of date, and its trays stay the item's until the plan is made again.
+ * Undefined for a tray of an ungrouped item and for a part with no group's stem.
  */
 export function groupOfTray(
   tray: TraySpec,
   p: { components: readonly Component[]; groups?: readonly Group[] },
 ): Group | undefined {
   const stem = parseTrayKey(tray.key)?.stem;
-  const byKey = stem === undefined ? undefined : groupById(p, stem);
-  if (byKey !== undefined) {
-    return byKey;
-  }
-  for (const id of componentIdsOfTray(tray, p.components)) {
-    const group = groupOfItem(p, id);
-    if (group !== undefined) {
-      return group;
-    }
-  }
-  return undefined;
+  return stem === undefined ? undefined : groupById(p, stem);
 }
 
 /**
  * The trays of the plan that make up a group, every copy and every part of a split copy, in the
- * plan's order. Its spacers, risers and dividers are not trays and are left out. None without a plan.
+ * plan's order. Its spacers, risers and dividers are not trays and are left out. None without a
+ * plan. `trays` are the plan's (the stored ones by default; the app's printed parts for a stage).
  */
 export function traysOfGroup(
-  p: Pick<Project, "components" | "groups" | "layout">,
+  p: {
+    components: readonly Component[];
+    groups?: readonly Group[];
+    layout?: { trays: readonly TraySpec[] };
+  },
   groupId: string,
+  trays: readonly TraySpec[] = p.layout?.trays ?? [],
 ): TraySpec[] {
-  return (p.layout?.trays ?? []).filter(
-    (t) => t.part === "tray" && groupOfTray(t, p)?.id === groupId,
-  );
+  return trays.filter((t) => t.part === "tray" && groupOfTray(t, p)?.id === groupId);
 }
 
 /**
@@ -451,28 +446,18 @@ export function memberShadeOfCompartment(
 
 /**
  * A group tray's members as the tray bar's tiny tray draws them: one cell each, in compartment
- * order, as wide as the members' compartments are in all (the cells' area), so a deck's well reads
- * wider than a figure pocket.
+ * order, in the member's colours. G1 draws near-equal bars, so a cell has no size of its own.
  */
-export function memberCellsOfTray(
-  tray: TraySpec,
-  components: readonly Component[],
-): (MemberShade & { weight: number })[] {
-  const out: (MemberShade & { id: string; weight: number })[] = [];
+export function memberCellsOfTray(tray: TraySpec, components: readonly Component[]): MemberShade[] {
+  const out: (MemberShade & { id: string })[] = [];
   for (const c of tray.compartments) {
     const at = c.kind === "spare" ? null : componentIndexOfCompartment(c, components);
     const member = at === null ? undefined : components[at];
     const shade = memberShadeOfCompartment(c, components);
-    if (member === undefined || shade === null) {
+    if (member === undefined || shade === null || out.some((m) => m.id === member.id)) {
       continue;
     }
-    const area = Math.max(1, c.w * c.d);
-    const have = out.find((m) => m.id === member.id);
-    if (have === undefined) {
-      out.push({ ...shade, id: member.id, weight: area });
-    } else {
-      have.weight += area;
-    }
+    out.push({ ...shade, id: member.id });
   }
-  return out.map(({ kind, index, weight }) => ({ kind, index, weight }));
+  return out.map(({ kind, index }) => ({ kind, index }));
 }

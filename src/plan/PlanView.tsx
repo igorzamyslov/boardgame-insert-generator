@@ -54,6 +54,11 @@ export interface PlanViewProps {
    * the pointer is on. The slot above the box is the editor's then (`bar`).
    */
   editedId?: string | null;
+  /**
+   * A group's editor (G2): the ids of its items. Every tray that holds one of them is lifted, so a
+   * copy cut in two lifts both its trays. Overrides `editedId`.
+   */
+  editedIds?: readonly string[];
   /** Index of the layer shown (0 = the bottom layer); the app owns it. Clamped to the layers there are. */
   level: number;
   onLevelChange: (level: number) => void;
@@ -249,7 +254,12 @@ export function PlanView(props: PlanViewProps) {
   const railId = hoveredComponent.value;
   // A group's card pointed at names every member: all the group's trays light.
   const railMembers = hoveredMembers.value;
-  const editedId = props.editedId ?? null;
+  const edited: readonly string[] | null =
+    props.editedIds !== undefined
+      ? props.editedIds
+      : props.editedId !== undefined && props.editedId !== null
+        ? [props.editedId]
+        : null;
   const withSharers = (ids: readonly string[]): Set<string> =>
     new Set(ids.flatMap((id) => [...sharingTrayWith(id, trays, components)]));
   const litWith = (key: string | null): Set<string> | null => {
@@ -257,8 +267,8 @@ export function PlanView(props: PlanViewProps) {
     return ids === null ? null : withSharers(ids);
   };
   const active: Set<string> | null =
-    editedId !== null
-      ? new Set([editedId])
+    edited !== null
+      ? new Set(edited)
       : railId !== null || railMembers !== null
         ? withSharers([...(railId === null ? [] : [railId]), ...(railMembers ?? [])])
         : (litWith(hoverKey) ?? litWith(focusKey) ?? litWith(selectedKey));
@@ -523,7 +533,8 @@ export function PlanView(props: PlanViewProps) {
               const grouped = look !== null && look.group;
               const held = isActive(t.key);
               const lit = lightsSome && held;
-              const lifted = editedId !== null && (identitiesOf(t.key) ?? []).includes(editedId);
+              const lifted =
+                edited !== null && (identitiesOf(t.key) ?? []).some((id) => edited.includes(id));
               const misfit = readOnly && t.key === misfitKey;
               const dimmed = readOnly
                 ? props.dim === undefined || misfit

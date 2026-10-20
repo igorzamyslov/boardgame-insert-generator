@@ -531,6 +531,59 @@ const CASES: readonly Case[] = [
     phone: true,
     steps: editMore(/^Heroes, /),
   },
+  // 0.7.0 Task 11: GroupEdit's editor (rail and stage), its Remove group… question, the toast of
+  // a removal (the copy test's own state), and the phone's sheet (no board draws it: MobileEdit)
+  {
+    state: "kit-edit",
+    board: "GroupEdit",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: editRow(/^Player kit, /),
+  },
+  {
+    state: "kit-edit",
+    board: "GroupEdit",
+    region: "stage",
+    seed: "harbour-kings-kit",
+    steps: editRow(/^Player kit, /),
+  },
+  {
+    state: "kit-remove",
+    board: "GroupEdit",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: () => {
+      editRow(/^Player kit, /)();
+      fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
+    },
+  },
+  {
+    state: "kit-removed",
+    board: "GroupEdit",
+    region: "plan",
+    seed: "harbour-kings-kit",
+    steps: () => {
+      editRow(/^Player kit, /)();
+      fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove group" }));
+    },
+  },
+  {
+    state: "kit-split-edit",
+    board: "GroupEdit",
+    region: "stage",
+    seed: "harbour-kings-kit-split",
+    steps: editRow(/^Player kit, /),
+  },
+  {
+    state: "m-kit-edit",
+    board: "MobileEdit",
+    also: "GroupEdit",
+    region: "sheet",
+    phone: true,
+    seed: "harbour-kings-kit",
+    steps: editRow(/^Player kit, /),
+  },
   // Task 9: the first visit, Empty at 1440 and MobileStart on a phone
   { state: "first-visit", board: "Empty", region: "header", empty: true, steps: () => undefined },
   { state: "first-visit", board: "Empty", region: "rail", empty: true, steps: () => undefined },

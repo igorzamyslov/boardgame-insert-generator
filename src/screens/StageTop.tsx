@@ -254,7 +254,14 @@ export function statusOf(s: StatusInput): Status {
       actions: [
         ...(misfit === null
           ? []
-          : [{ kind: "show", id: misfit.componentId, label: `Edit ${misfit.name}` } as const]),
+          : [
+              {
+                kind: "show",
+                // a group's tray opens the group's editor, called by the group ("Edit Player kit")
+                id: misfit.groupId ?? misfit.componentId,
+                label: `Edit ${misfit.groupName ?? misfit.name}`,
+              } as const,
+            ]),
         ...keep,
       ],
     };

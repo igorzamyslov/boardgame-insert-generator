@@ -128,6 +128,8 @@ export function GroupCard({
     setOn(null);
     onLight?.(null);
   };
+  // The members' list has no name of its own: the frame and the header already say it, and a screen
+  // reader would hear the card's label once more for each of them.
   return (
     <div
       class="gc"
@@ -172,7 +174,7 @@ export function GroupCard({
       {members.length === 0 ? (
         <p class="gc-empty">Drag items here, or use Move to group… in an item.</p>
       ) : (
-        <ul class="gc-members" aria-label={label}>
+        <ul class="gc-members">
           {members.map((m) => (
             <li class="gc-member" key={m.id} aria-label={m.who}>
               <span class="gc-grip" aria-hidden="true">

@@ -534,9 +534,9 @@ describe("TrayBar as the phone's sheet", () => {
 describe("TrayBar for a group's tray (G1)", () => {
   const groupLook = { kind: "cards" as const, shade: shadeOf("group", 0), group: true };
   const cells = [
-    { shade: shadeOf("cards", 0), weight: 1.4 },
-    { shade: shadeOf("bulk", 0), weight: 1 },
-    { shade: shadeOf("minis", 0), weight: 1 },
+    { shade: shadeOf("cards", 0) },
+    { shade: shadeOf("bulk", 0) },
+    { shade: shadeOf("minis", 0) },
   ];
   const kit = (over: Partial<TrayBarProps> = {}) =>
     bar({
@@ -561,7 +561,8 @@ describe("TrayBar for a group's tray (G1)", () => {
     expect(spans.map((c) => c.style.getPropertyValue("--cell-own-line"))).toEqual(
       cells.map((c) => c.shade.line),
     );
-    expect(swatch.style.gridTemplateColumns).toBe("1.4fr 1fr 1fr");
+    // G1 draws near-equal bars: no cell is sized by its compartments
+    expect(swatch.style.gridTemplateColumns).toBe("1fr 1fr 1fr");
     // the tile itself is the group's neutral, not a kind's
     expect(region().style.getPropertyValue("--shade-fill")).toBe(groupLook.shade.fill);
   });

@@ -24,6 +24,7 @@ import {
   componentIndexesOfTray,
   componentSummary,
   groupOfTray,
+  isGroupTray,
   kindIndexOf,
   layerLabel,
   layerWords,
@@ -540,12 +541,12 @@ describe("group identity", () => {
     ).toBe(kit);
   });
 
-  it("falls back to the group that holds the tray's components", () => {
-    // a stored plan of an item that has since joined a group still has the item's keys
-    expect(groupOfTray(trayOf("c1:p0:0"), project)).toBe(kit);
-    expect(
-      groupOfTray(trayOf("c1:p0:0", { compartments: [well({ componentId: "c2" })] }), project),
-    ).toBe(kit);
+  it("reads the key's stem alone: an item's own keys in a stored plan are not the group's", () => {
+    // a stored plan of an item that has since joined a group still has the item's keys; the names
+    // (`trayNames`) read the stem alone, so the look and the lift must too
+    expect(groupOfTray(trayOf("c1:p0:0"), project)).toBeUndefined();
+    expect(isGroupTray(trayOf("c1:p0:0"), project)).toBe(false);
+    expect(isGroupTray(trayOf("kit:p0:0"), project)).toBe(true);
   });
 
   it("has no group for an ungrouped item's tray, a part that holds nothing, or a project without groups", () => {
@@ -571,5 +572,11 @@ describe("group identity", () => {
     expect(listed.map((t) => t.key)).toEqual(["kit:p0:0", "kit:p1:0", "kit:p1:1"]);
     expect(traysOfGroup({ ...project, layout: { trays } as never }, "nope")).toEqual([]);
     expect(traysOfGroup(project, "kit")).toEqual([]);
+    // the app's printed trays can be handed in, as the editor's stage does
+    expect(traysOfGroup(project, "kit", trays).map((t) => t.key)).toEqual([
+      "kit:p0:0",
+      "kit:p1:0",
+      "kit:p1:1",
+    ]);
   });
 });

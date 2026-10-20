@@ -40,9 +40,9 @@ export interface TrayBarProps {
   look?: TrayLook | null;
   /**
    * A group's tray: its members' colours, in order, for the swatch drawn as a tiny tray (one cell
-   * each, as wide as `weight`).
+   * each, near-equal bars as G1 draws them).
    */
-  cells?: readonly { shade: Shade; weight: number }[];
+  cells?: readonly { shade: Shade }[];
   /** How many layers the plan has: a group's line names the layer only when there are two or more. */
   layerCount?: number;
   /** A riser carries a tray: its name. */
@@ -91,7 +91,8 @@ function shadeStyle(look: TrayLook | null | undefined): CSSProperties | undefine
 
 /** The swatch of a group's tray: a tiny tray, a neutral tile with a cell per member in the member's colours. */
 function GroupSwatch({ cells }: { cells: NonNullable<TrayBarProps["cells"]> }) {
-  const columns = cells.map((c) => `${Math.round(c.weight * 100) / 100}fr`).join(" ");
+  // G1 draws near-equal bars: a member's cell is as wide as any other's, whatever its compartments' area
+  const columns = cells.map(() => "1fr").join(" ");
   return (
     <span
       class="tray-bar__swatch tray-bar__swatch--group"

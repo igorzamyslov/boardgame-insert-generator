@@ -308,6 +308,24 @@
   box-shadow: inset 0 0 0 2px var(--warn);
 }
 
+/* A group whose tray does not fit: its header says so as an item's row does (the same wash, edge, meta and tile). */
+.gc-head[data-misfit="true"] {
+  --k-bg: var(--warn-bg);
+
+  border-color: var(--warn);
+}
+
+.gc-head[data-misfit="true"] .k-row__meta {
+  color: var(--warn-ink);
+  font-weight: 600;
+}
+
+.gc-head[data-misfit="true"] .k-tile {
+  background: var(--sheet);
+  color: var(--warn-ink);
+  box-shadow: inset 0 0 0 2px var(--warn);
+}
+
 .k-row--compact.is-culprit .k-row__swatch {
   border-color: var(--warn);
   background: var(--warn);

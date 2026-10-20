@@ -139,6 +139,10 @@ export function createAppStore(deps: AppDeps): AppStore {
     }
   }
 
+  // Whether the step the history is on was a structural one (an item or a group added, removed or
+  // moved): a field typed into just after it is a step of its own, not part of it.
+  let lastWasStructural = false;
+
   function edit(fn: (p: Project) => Project): void {
     const before = state.project.value;
     const beforeHash = state.currentHash.value;
@@ -148,8 +152,12 @@ export function createAppStore(deps: AppDeps): AppStore {
     }
     batch(() => {
       state.history.ensureBase(before);
-      // Typing in a field is one step; adding or removing a component never merges into its neighbours.
-      state.history.push(next, sameComponents(before, next) ? { coalesceMs: COALESCE_MS } : {});
+      // Typing in a field is one step; adding or removing a component never merges into its
+      // neighbours, and a field edit never merges into a step like that (a rename just after an
+      // Add → Group would take the group with it on Undo).
+      const structural = !sameComponents(before, next);
+      state.history.push(next, structural || lastWasStructural ? {} : { coalesceMs: COALESCE_MS });
+      lastWasStructural = structural;
       state.project.value = next;
       // A conflict whose lock the edit removed is settled now, not after the next run.
       if (next.locks !== before.locks && state.lockConflicts.value.length > 0) {

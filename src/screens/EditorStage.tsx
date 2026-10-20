@@ -9,13 +9,13 @@ import { useState } from "preact/hooks";
 import { Button, Segmented, Toast } from "../kit";
 import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
 import { growthOf } from "../model/defaults";
-import { parseTrayKey } from "../model/groups";
+import { DEFAULT_GROUP_NAME, groupById, parseTrayKey } from "../model/groups";
 import { planFrame, toSvgRect, traysAt } from "../plan/layers";
 import { levelsOf } from "../plan/layers";
 import { lookOfTray } from "../plan/glyph";
 import { PlanView } from "../plan/PlanView";
 import type { PlanViewProps } from "../plan/PlanView";
-import { componentIndexesOfTray, mm } from "../ui/identity";
+import { componentIndexesOfTray, mm, traysOfGroup } from "../ui/identity";
 import { layerOptions } from "./StageTop";
 import type { EditorProblem } from "./StageTop";
 import { useNoteClock } from "../kit/Toast";
@@ -75,25 +75,27 @@ export function hasSplitCopy(trays: readonly TraySpec[]): boolean {
 }
 
 /**
- * "Market deck tray, 95 × 190 mm. It grows as you add cards." (Edit's sentence): the name in bold,
- * the first tray's footprint, and for a deck that leaves room to grow, that it does. Several trays:
- * "Starter decks, 4 trays." Without a plan yet, the name alone.
+ * The sentence: the name in bold, then what the plan says of the trays. One tray: "Market deck
+ * tray, 95 × 190 mm." (and, for a deck that leaves room to grow, that it does). Several: "Starter
+ * decks, 4 trays." (and, when a copy was cut into several, that it was). Without a plan yet, the
+ * name alone.
  */
-export function StageSentence({
-  component: c,
+function Sentence({
+  name,
   trays,
+  grows = false,
   tag: Tag = "h1",
   hidden = false,
 }: {
-  component: Component;
+  name: string;
   trays: readonly TraySpec[];
+  /** The one tray's deck leaves room to grow. */
+  grows?: boolean;
   tag?: "h1" | "p";
   /** Not drawn (the note is in its place), still on the page: the page always has its h1. */
   hidden?: boolean;
 }) {
-  const name = c.name === "" ? "(unnamed)" : c.name;
   const first = trays[0];
-  const grows = c.kind === "cards" && growthOf(c, "stack", c.storage === "flat") !== "off";
   let rest = "";
   if (trays.length > 1) {
     rest = `, ${trays.length} trays.${hasSplitCopy(trays) ? SPLIT_SENTENCE : ""}`;
@@ -105,6 +107,56 @@ export function StageSentence({
       <strong>{name}</strong>
       {rest === "" ? null : rest}
     </Tag>
+  );
+}
+
+/**
+ * "Market deck tray, 95 × 190 mm. It grows as you add cards." (Edit's sentence): the name in bold,
+ * the first tray's footprint, and for a deck that leaves room to grow, that it does. Several trays:
+ * "Starter decks, 4 trays." Without a plan yet, the name alone.
+ */
+export function StageSentence({
+  component: c,
+  trays,
+  tag,
+  hidden,
+}: {
+  component: Component;
+  trays: readonly TraySpec[];
+  tag?: "h1" | "p";
+  hidden?: boolean;
+}) {
+  const grows = c.kind === "cards" && growthOf(c, "stack", c.storage === "flat") !== "off";
+  return (
+    <Sentence
+      name={c.name === "" ? "(unnamed)" : c.name}
+      trays={trays}
+      grows={grows}
+      tag={tag}
+      hidden={hidden}
+    />
+  );
+}
+
+/** A group's sentence (G2): "Player kit, 4 trays.", with " Too big for one tray, so it is split." when a copy was cut. */
+export function GroupSentence({
+  group,
+  trays,
+  tag,
+  hidden,
+}: {
+  group: Group;
+  trays: readonly TraySpec[];
+  tag?: "h1" | "p";
+  hidden?: boolean;
+}) {
+  return (
+    <Sentence
+      name={group.name === "" ? DEFAULT_GROUP_NAME : group.name}
+      trays={trays}
+      tag={tag}
+      hidden={hidden}
+    />
   );
 }
 
@@ -135,8 +187,13 @@ export function ProblemLine({
 }
 
 export interface EditorStageProps {
-  componentId: string;
+  /** The item being edited. Without it, `groupId` names the group being edited. */
+  componentId?: string;
+  /** The group being edited (G2): its trays are lifted and its sentence is the h1. */
+  groupId?: string;
   components: readonly Component[];
+  /** The project's groups: a group's trays are told apart from an item's by their key. */
+  groups?: readonly Group[];
   /** The plan's trays as printed (the app's `printable`). */
   trays: readonly TraySpec[];
   note: EditNote | null;
@@ -147,7 +204,7 @@ export interface EditorStageProps {
   /** The plan, as the workspace draws it; null while there is none (the placeholder takes its place). */
   plan: Omit<
     PlanViewProps,
-    "bar" | "editedId" | "level" | "onLevelChange" | "selectedKey" | "onSelect"
+    "bar" | "editedId" | "editedIds" | "level" | "onLevelChange" | "selectedKey" | "onSelect"
   > | null;
   /** What stands where the plan would be while there is none. */
   placeholder?: ComponentChildren;
@@ -165,16 +222,15 @@ const nothing = (): void => undefined;
  * always on the page, so a reader hears it arrive.
  */
 function Slot({
-  component,
-  trays,
+  sentence,
   note,
   onNoteDone,
   problem,
   onRetry,
   layers,
 }: {
-  component: Component;
-  trays: readonly TraySpec[];
+  /** The sentence, drawn or not (`hidden`: the note is in its place). */
+  sentence: (hidden: boolean) => ComponentChildren;
   note: EditNote | null;
   onNoteDone: () => void;
   problem?: EditorProblem | null;
@@ -186,7 +242,7 @@ function Slot({
     <div class="ed-slot" data-region="status">
       <div class="ed-slot__row">
         <Toast message={note?.text ?? null} nonce={note?.id} onDone={onNoteDone} />
-        <StageSentence component={component} trays={trays} hidden={note !== null} />
+        {sentence(note !== null)}
         {layers}
       </div>
       {problem ? <ProblemLine problem={problem} onRetry={onRetry} /> : null}
@@ -194,10 +250,51 @@ function Slot({
   );
 }
 
-/** The stage of the editor: the slot, the box with the component's trays lifted, and its caption. */
+/**
+ * What the editor is for: an item or a group, the trays that are its own in the plan, the ids that
+ * light with it and the sentence that says which tray this is.
+ */
+function targetOf(
+  p: {
+    componentId?: string;
+    groupId?: string;
+    components: readonly Component[];
+    groups?: readonly Group[];
+  },
+  trays: readonly TraySpec[],
+) {
+  const group = p.groupId === undefined ? undefined : groupById({ groups: p.groups }, p.groupId);
+  if (group !== undefined) {
+    return {
+      id: group.id,
+      mine: traysOfGroup({ components: p.components, groups: p.groups }, group.id, trays),
+      edited: { editedIds: group.memberIds },
+      sentence: (mine: readonly TraySpec[], tag?: "h1" | "p", hidden?: boolean) => (
+        <GroupSentence group={group} trays={mine} tag={tag} hidden={hidden} />
+      ),
+    };
+  }
+  const component =
+    p.componentId === undefined ? undefined : p.components.find((c) => c.id === p.componentId);
+  if (component === undefined) {
+    return undefined;
+  }
+  return {
+    id: component.id,
+    mine: traysOfComponent(trays, p.components, component.id),
+    edited: { editedId: component.id },
+    sentence: (mine: readonly TraySpec[], tag?: "h1" | "p", hidden?: boolean) => (
+      <StageSentence component={component} trays={mine} tag={tag} hidden={hidden} />
+    ),
+  };
+}
+
+/** The stage of the editor: the slot, the box with the edited trays lifted, and its caption. */
 export function EditorStage({
   componentId,
+  groupId,
   components,
+  groups,
   trays,
   note,
   onNoteDone,
@@ -208,18 +305,18 @@ export function EditorStage({
   problem,
   onRetry,
 }: EditorStageProps) {
-  // The layer the person picked, for this component only: another one opens on its own layer.
+  // The layer the person picked, for this item or group only: another one opens on its own layer.
   const [picked, setPicked] = useState<{ id: string; layer: number } | null>(null);
-  const component = components.find((c) => c.id === componentId);
-  if (component === undefined) {
+  const target = targetOf({ componentId, groupId, components, groups }, trays);
+  if (target === undefined) {
     return null;
   }
-  const mine = traysOfComponent(trays, components, componentId);
-  // The box opens on the layer of the component's first tray, so its lift is in sight; the Layer
-  // switch moves it to see the others (the top view's: one layer at a time).
+  const { mine } = target;
+  // The box opens on the layer of the first tray, so its lift is in sight; the Layer switch moves
+  // it to see the others (the top view's: one layer at a time).
   const levels = levelsOf(trays);
   const home = mine[0] === undefined ? 0 : Math.max(0, levels.indexOf(mine[0].level));
-  const chosen = picked !== null && picked.id === componentId ? picked.layer : null;
+  const chosen = picked !== null && picked.id === target.id ? picked.layer : null;
   const at = chosen !== null && chosen < levels.length ? chosen : home;
   const layers =
     levels.length > 1 ? (
@@ -228,13 +325,12 @@ export function EditorStage({
         tone="track"
         options={layerOptions(trays)}
         value={String(at)}
-        onChange={(v) => setPicked({ id: componentId, layer: Number(v) })}
+        onChange={(v) => setPicked({ id: target.id, layer: Number(v) })}
       />
     ) : undefined;
   const slot = phone ? undefined : (
     <Slot
-      component={component}
-      trays={mine}
+      sentence={(hidden) => target.sentence(mine, "h1", hidden)}
       note={note}
       onNoteDone={onNoteDone}
       problem={problem}
@@ -253,7 +349,7 @@ export function EditorStage({
         <PlanView
           {...plan}
           bar={slot}
-          editedId={componentId}
+          {...target.edited}
           level={at}
           onLevelChange={nothing}
           selectedKey={null}
@@ -274,6 +370,7 @@ const STRIP_PX = 84;
  */
 export function EditorStrip({
   componentId,
+  groupId,
   components,
   groups,
   trays,
@@ -284,7 +381,9 @@ export function EditorStrip({
   problem,
   onRetry,
 }: {
-  componentId: string;
+  /** The item being edited. Without it, `groupId` names the group being edited. */
+  componentId?: string;
+  groupId?: string;
   components: readonly Component[];
   /** The project's groups: a group's tray is drawn in its neutral colours. */
   groups?: readonly Group[];
@@ -297,11 +396,11 @@ export function EditorStrip({
   onRetry?: () => void;
 }) {
   useNoteClock(note?.text ?? null, note?.id, onNoteDone);
-  const component = components.find((c) => c.id === componentId);
-  if (component === undefined) {
+  const target = targetOf({ componentId, groupId, components, groups }, trays);
+  if (target === undefined) {
     return null;
   }
-  const mine = traysOfComponent(trays, components, componentId);
+  const { mine } = target;
   const levels = levelsOf(trays);
   const level = mine[0] === undefined ? (levels[0] ?? 0) : mine[0].level;
   const frame = planFrame(box, settings);
@@ -342,7 +441,7 @@ export function EditorStrip({
       </div>
       <div>
         <div role="status">{note === null ? null : <p class="ed-strip__text">{note.text}</p>}</div>
-        {note === null ? <StageSentence component={component} trays={mine} tag="p" /> : null}
+        {note === null ? target.sentence(mine, "p") : null}
         {problem ? <ProblemLine problem={problem} onRetry={onRetry} /> : null}
       </div>
     </div>

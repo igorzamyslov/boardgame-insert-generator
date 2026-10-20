@@ -40,6 +40,17 @@ const GROUP_COUNTS = "A group's card in the rail says its counts";
 // 0.7.0 Task 10: a group's tray bar and the stage sentence of a split copy
 const GROUP_BAR = "A group's tray bar says its size";
 const SPLIT = "A split copy's stage sentence adds";
+// 0.7.0 Task 11: the group editor (GroupEdit) and its Remove group… question and note
+const GROUP_REMOVE = "Remove group… asks in place";
+const GROUP_REMOVED = "A group's removal is one note";
+/** The group editor's states (copy.board.test.tsx has a case for each; `kit-removed` is the copy test's own). */
+const GROUP_EDITS = [
+  "kit-edit",
+  "kit-remove",
+  "kit-removed",
+  "kit-split-edit",
+  "m-kit-edit",
+] as const;
 /** The rail's states and the phone sheet's (copy.board.test.tsx has a case for each). */
 const RAIL = [
   ...KIT_RAIL,
@@ -502,6 +513,9 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
       "editor-more",
       "editor-note",
       "editor-removed",
+      "kit-edit",
+      "kit-removed",
+      "kit-split-edit",
     ],
     ruling: CAPTION,
   },
@@ -609,7 +623,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: EDITING,
     ruling: EDITOR_ROOM,
   },
-  { text: "Name", states: PHONE_EDITS, ruling: EDITOR_NAME },
+  { text: "Name", states: [...PHONE_EDITS, "m-kit-edit"], ruling: EDITOR_NAME },
   // the stage sentence: Edit's, for the kinds and the counts it does not draw
   {
     text: "tray, {name} × {name} mm.",
@@ -628,7 +642,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // a copy that had to split (spec §7.4, §8): the group's editor (Task 11) and the item's say it after the count
   {
     text: ", {n} trays. Too big for one tray, so it is split.",
-    states: ["kit-edit"],
+    states: ["kit-edit", "kit-split-edit"],
     ruling: SPLIT,
   },
   ...OPTION_NOTE_TEXTS.map((text) => ({
@@ -649,7 +663,42 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Cancel", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Removed “{name}”.", states: ["editor-removed"], ruling: EDITOR_REMOVE },
   { text: "Undo removal", states: ["editor-removed"], ruling: EDITOR_REMOVE },
-  { text: "Dismiss", states: ["editor-removed"], ruling: EDITOR_REMOVE },
+  { text: "Dismiss", states: ["editor-removed", "kit-removed"], ruling: EDITOR_REMOVE },
+  // Remove group… (spec §7.4, §8): GroupEdit draws the button alone; the app asks, and says what went
+  {
+    text: "Remove the group “{name}”? Its {n} items stay, with {n} copies each.",
+    states: GROUP_EDITS,
+    ruling: GROUP_REMOVE,
+  },
+  {
+    text: "Remove the group “{name}”? Its {n} items stay.",
+    states: GROUP_EDITS,
+    ruling: GROUP_REMOVE,
+  },
+  {
+    text: "Remove the group “{name}”? Its 1 item stays, with {n} copies.",
+    states: GROUP_EDITS,
+    ruling: GROUP_REMOVE,
+  },
+  {
+    text: "Remove the group “{name}”? Its 1 item stays.",
+    states: GROUP_EDITS,
+    ruling: GROUP_REMOVE,
+  },
+  { text: "Remove the group “{name}”?", states: GROUP_EDITS, ruling: GROUP_REMOVE },
+  { text: "Remove group", states: GROUP_EDITS, ruling: GROUP_REMOVE },
+  { text: "Cancel", states: GROUP_EDITS, ruling: GROUP_REMOVE },
+  {
+    text: "{name} removed. Its items are back in the list.",
+    states: ["kit-removed"],
+    ruling: GROUP_REMOVED,
+  },
+  {
+    text: "{name} removed. Its items are back in the list. {n}.",
+    states: ["kit-removed"],
+    ruling: GROUP_REMOVED,
+  },
+  { text: "Undo removal", states: ["kit-removed"], ruling: GROUP_REMOVED },
   // the rail's handle (every screen with a rail, beside the stage)
   { text: "Resize the list", states: "all", ruling: RESIZE },
 ];

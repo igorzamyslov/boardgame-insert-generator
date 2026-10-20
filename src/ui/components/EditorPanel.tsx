@@ -23,8 +23,10 @@ export interface EditorPanelProps {
   /** Another component has the same name: the Remove button says which one by its position. */
   sameName?: boolean;
   onChange: (next: Component) => void;
-  /** The back link and Done: leave the editor for the list. */
+  /** The back link and Done: leave the editor for the list (or the group's editor it was opened from). */
   onBack: () => void;
+  /** What the back link says: the group's name when the item was opened from its editor. */
+  backLabel?: string;
   /** The removal was confirmed. */
   onRemove: () => void;
   /** A change to an option has this to say: the stage shows it as a note (Edit's toast). */
@@ -67,6 +69,7 @@ export function EditorPanel({
   sameName = false,
   onChange,
   onBack,
+  backLabel,
   onRemove,
   onNote,
   phone = false,
@@ -173,7 +176,7 @@ export function EditorPanel({
       </h2>
       <button type="button" class="ed-back" onClick={onBack}>
         <Icon name="chevron-left" size={16} />
-        What&apos;s inside
+        {backLabel ?? "What's inside"}
       </button>
       <div class="ed-id">
         <IconTile size={44} kind={c.kind} />

@@ -83,7 +83,6 @@ export function SelectedTrayBar(p: SelectedTrayBarProps) {
       ? undefined
       : memberCellsOfTray(tray, project.components).map((m) => ({
           shade: shadeOf(m.kind, m.index),
-          weight: m.weight,
         }));
   const compartmentCount = tray.compartments.filter((c) => c.kind !== "spare").length;
   const onEditGroup = p.onEditGroup;

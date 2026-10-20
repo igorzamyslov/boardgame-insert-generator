@@ -61,7 +61,8 @@ const PLAN_KIT_2 = {
     in: '[data-region="stage"]',
   },
 };
-const KIT_HEADER = { click: { role: "button", name: /^Player kit/, in: RAIL } };
+// the card's header: its name is the group's ("Player kit, 4 copies"), and opens the group's editor (Task 11)
+const KIT_HEADER = { click: { role: "button", name: "Player kit, 4 copies", in: RAIL } };
 // The tray bar (Task 8), and the tray the harness selects in it.
 const TRAY_BAR = '[data-region="tray-bar"]';
 const SELECT_HEROES = {
@@ -953,7 +954,9 @@ export const STATES = {
     seed: "harbour-kings-kit-loose",
     steps: [{ click: { role: "button", name: "Add", in: RAIL } }],
   },
-  // GroupEdit: the group's editor in the rail (Task 11).
+  // GroupEdit: the group's editor in the rail and its stage sentence (Task 11). The editor's h2 is
+  // the panel's name (visually hidden); the h1 is the sentence, "Player kit, 4 trays.". The only
+  // difference from the board is the missing Extra room row (owner's ruling O2).
   "kit-edit": {
     board: "GroupEdit",
     viewport: DESKTOP,
@@ -987,13 +990,17 @@ export const STATES = {
       { click: { role: "button", name: /^Move to group/, in: RAIL } },
     ],
   },
-  // Remove group…: the choice of what happens to the members (Task 11).
+  // Remove group…: the question in place of the foot's buttons (Task 11).
   "kit-remove": {
     board: "GroupEdit",
-    nearest: "GroupEdit: no board draws the Remove group… panel",
+    nearest: "GroupEdit: no board draws the Remove group… question",
     viewport: DESKTOP,
     seed: "harbour-kings-kit",
-    steps: [KIT_HEADER, { click: { role: "button", name: /^Remove group/, in: RAIL } }],
+    steps: [
+      KIT_HEADER,
+      { click: { role: "button", name: "Remove group…", in: RAIL } },
+      { waitFor: { text: /Its 3 items stay/ } },
+    ],
   },
   // The kit with a Hero too long for one copy to fit the bed: "Player kit 1a" and "1b" (Task 10).
   "workspace-kit-split": {
@@ -1075,7 +1082,8 @@ export const STATES = {
     seed: "harbour-kings-kit",
     steps: [
       { click: { role: "button", name: /What's inside/ } },
-      { click: { role: "button", name: /^Player kit/, in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: "Player kit, 4 copies", in: '[data-region="sheet"]' } },
+      { waitFor: { role: "heading", name: "Player kit" } },
     ],
   },
   "m-kit-member": {

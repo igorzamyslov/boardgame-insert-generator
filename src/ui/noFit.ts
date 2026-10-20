@@ -1,14 +1,20 @@
 // src/ui/noFit.ts
 import { holdsOf, trayNames } from "../instructions/naming";
 import { numberParts } from "../instructions/numbering";
+import { DEFAULT_GROUP_NAME } from "../model/groups";
 import { topPlane } from "../model/settings";
+import { groupOfTray } from "./identity";
 import type { LockConflict } from "../layout/types";
 import type { Box, Component, Group, Lock, Settings, TraySpec } from "../model/types";
 
 /** The tray a failed search could not fit, for the status line to name and open. */
 export interface Misfit {
-  /** The first component the tray holds: what Edit opens. */
+  /** The first component the tray holds: what Edit opens (a group's tray: `groupId` is what it opens). */
   componentId: string;
+  /** The group the tray is a copy of: Edit opens its editor, and its row says "Doesn't fit". */
+  groupId?: string;
+  /** What Edit calls the group ("Edit Player kit"): the group's name, not the tray's ("Player kit 2"). */
+  groupName?: string;
   /** The tray itself in the attempt: the plan marks its tile. */
   trayKey: string;
   /** What the tray is called (trayNames), a group of components included. */
@@ -65,8 +71,15 @@ export function misfitOf(
   if (best === null) {
     return null;
   }
+  const group = groupOfTray(best.tray, { components, groups });
   return {
     componentId: best.held.id,
+    ...(group === undefined
+      ? {}
+      : {
+          groupId: group.id,
+          groupName: group.name.trim() === "" ? DEFAULT_GROUP_NAME : group.name,
+        }),
     trayKey: best.tray.key,
     name: names.get(best.tray.key)?.full ?? best.held.name,
     reason: best.bed ? "bed" : "box",

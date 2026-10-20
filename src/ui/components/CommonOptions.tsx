@@ -12,7 +12,7 @@ import { Choice, ExactRow, NumField } from "./controls";
 import { insertClearance } from "./moreSummary";
 import type { EditorProps } from "./types";
 
-const ACCESS_OPTIONS: SegmentedOption<Access>[] = [
+export const ACCESS_OPTIONS: SegmentedOption<Access>[] = [
   { value: "often", label: "Often" },
   { value: "sometimes", label: "Sometimes" },
   { value: "setup", label: "Only at setup" },

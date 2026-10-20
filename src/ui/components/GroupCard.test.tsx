@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../../app/test-helpers";
+import rail from "../../screens/rail.css?raw";
 import type { Group } from "../../model/types";
 import { GroupCard, groupLine, type GroupMemberView } from "./GroupCard";
 
@@ -227,6 +228,32 @@ describe("GroupCard", () => {
     const head = screen.getByRole("button", { name: "Player kit, 4 copies" });
     expect(head.textContent).toContain("Doesn't fit");
     expect(head.textContent).not.toContain("trays");
+  });
+
+  it("names the card once for the frame and once for the header, not again for the members' list", () => {
+    render(
+      <GroupCard group={group()} members={MEMBERS} trays={FOUR} pressed={false} {...handlers()} />,
+    );
+    expect(screen.getAllByLabelText("Player kit, 4 copies")).toHaveLength(2);
+    expect(screen.getByRole("list").hasAttribute("aria-label")).toBe(false);
+  });
+
+  it("warns on a header that doesn't fit as an item's row does: the warn wash, edge and meta", () => {
+    const rule = (selector: string): string => {
+      let out = "";
+      for (const [, selectors = "", body = ""] of rail
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (selectors.split(",").some((one) => one.trim() === selector)) {
+          out += body;
+        }
+      }
+      return out;
+    };
+    expect(rule('.gc-head[data-misfit="true"]')).toMatch(/--k-bg:\s*var\(--warn-bg\)/);
+    expect(rule('.gc-head[data-misfit="true"]')).toMatch(/border-color:\s*var\(--warn\)/);
+    expect(rule('.gc-head[data-misfit="true"] .k-row__meta')).toMatch(/color:\s*var\(--warn-ink\)/);
+    expect(rule(".k-row.is-culprit")).toMatch(/border-color:\s*var\(--warn\)/);
   });
 
   it("puts the rules' chips beside the header, outside its button", () => {
