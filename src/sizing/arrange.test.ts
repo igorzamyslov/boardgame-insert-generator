@@ -1,6 +1,14 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { blockWeight, columnBreaks, cutsFirst, rows2Break, splitBlocks } from "./arrange";
+import {
+  blockWeight,
+  columnBreaks,
+  cutsFirst,
+  isOneMember,
+  rows2Break,
+  rows2Order,
+  splitBlocks,
+} from "./arrange";
 import { wallCutout } from "./common";
 import type { CompartmentReq } from "./types";
 
@@ -20,6 +28,30 @@ function req(contents: string, minW: number, minD = 1, componentId = "x"): Compa
 const names = (cs: readonly CompartmentReq[]): string[] => cs.map((c) => c.contents);
 const groupNames = (groups: CompartmentReq[][][] | null): string[][] | null =>
   groups === null ? null : groups.map((g) => names(g.flat()));
+
+describe("rows2Order", () => {
+  it("fills rows greedily, largest first, first half in row 0 (one member's blocks, as in 0.6)", () => {
+    const out = rows2Order([req("a", 50), req("b", 40), req("c", 30), req("d", 20), req("e", 10)]);
+    // row 0: a, d, e (80); row 1: b, c (70)
+    expect(names(out)).toEqual(["a", "d", "e", "b", "c"]);
+  });
+
+  it("keeps original order inside a row and breaks size ties by index", () => {
+    const out = rows2Order([req("a", 10), req("b", 10), req("c", 10), req("d", 10)]);
+    expect(names(out)).toEqual(["a", "c", "b", "d"]);
+  });
+
+  it("puts the larger of two compartments in row 0", () => {
+    expect(names(rows2Order([req("small", 5), req("big", 9)]))).toEqual(["big", "small"]);
+  });
+});
+
+describe("isOneMember", () => {
+  it("is true for one member's compartments and false for a group's mix", () => {
+    expect(isOneMember([req("a", 1, 1, "x"), req("b", 1, 1, "x")])).toBe(true);
+    expect(isOneMember([req("a", 1, 1, "x"), req("b", 1, 1, "y")])).toBe(false);
+  });
+});
 
 describe("rows2Break", () => {
   it("cuts the ordered list where the wider row is narrowest", () => {

@@ -153,12 +153,18 @@
   box-shadow: var(--ring-selected);
 }
 
-/* Edit's lifted tray: a 4 px sheet ring, a 6 px ring in the kind's line, and a drop shadow under it. */
+/*
+ * Edit's lifted tray: a double edge drawn INSIDE the tile (the 2 px border, then an inset 2 px
+ * sheet ring and an inset 2 px ring in the kind's line) and a small drop shadow that reaches at
+ * most 3 px out. A group lifts every copy at once and neighbours are 6 px apart, so nothing of a
+ * lifted tray may reach further than half that gap: the old 6 px ring and 28 px shadow ran into
+ * the next copy and the upper one covered the lower one's edge (before-merge fix, item 1).
+ */
 .plan-tile.is-lifted {
   z-index: 2;
   box-shadow:
-    0 0 0 4px var(--sheet),
-    0 0 0 6px var(--tile-line, var(--edge)),
+    inset 0 0 0 2px var(--sheet),
+    inset 0 0 0 4px var(--tile-line, var(--edge)),
     var(--shadow-lift-drop);
 }
 

@@ -7,9 +7,9 @@ import { at } from "./test-helpers";
 import type { CompartmentReq } from "./types";
 import { buildVariants } from "./variants";
 
-function req(contents: string, minW: number): CompartmentReq {
+function req(contents: string, minW: number, componentId = "x"): CompartmentReq {
   return {
-    componentId: "x",
+    componentId,
     contents,
     kind: "well",
     minW,
@@ -61,12 +61,14 @@ describe("buildVariants", () => {
     ]);
     const rows2 = at(variants, 4);
     expect(at(rows2.parts, 0).arrangement).toBe("rows2");
+    // One member's blocks: the pre-0.7.0 greedy by width (A0, A2 / A1, A3), no row break.
     expect(at(rows2.parts, 0).compartments.map((c) => c.contents)).toEqual([
       "A0",
-      "A1",
       "A2",
+      "A1",
       "A3",
     ]);
+    expect(at(rows2.parts, 0).rowBreak).toBeUndefined();
     for (const v of variants) {
       for (const part of v.parts) {
         expect(part.rotatable).toBe(true);
@@ -144,8 +146,14 @@ describe("buildVariants", () => {
     expect(at(variants, 0).parts.map((p) => p.trayKey)).toEqual(["k:p0:0"]);
   });
 
-  it("cuts rows2 into a front and a back run that keep the order, and records the break", () => {
-    const blocks = [[req("a", 50)], [req("b", 40)], [req("c", 30)], [req("d", 20)], [req("e", 10)]];
+  it("cuts rows2 of several members into a front and a back run that keep the order, and records the break", () => {
+    const blocks = [
+      [req("a", 50, "x")],
+      [req("b", 40, "x")],
+      [req("c", 30, "y")],
+      [req("d", 20, "y")],
+      [req("e", 10, "y")],
+    ];
     const variants = buildVariants({ key: "k", options: [{ id: "A", blocks }], copies: 1 });
     const part = at(
       at(
@@ -162,7 +170,7 @@ describe("buildVariants", () => {
   });
 
   it("sizes a rows2 part by its own break, not the half", () => {
-    const blocks = [[req("a", 50)], [req("b", 10)], [req("c", 10)]];
+    const blocks = [[req("a", 50, "x")], [req("b", 10, "y")], [req("c", 10, "y")]];
     const variants = buildVariants({ key: "k", options: [{ id: "A", blocks }], copies: 1 });
     const part = at(
       at(
@@ -252,6 +260,21 @@ describe("buildVariants", () => {
       (v) => v.id,
     );
     expect(ids.some((id) => id.includes("|columns|"))).toBe(false);
+  });
+
+  it("lays one member's blocks out as before 0.7.0: rows2 balanced by width, cuts along a row first, no row break", () => {
+    const blocks = [[req("a", 50)], [req("b", 40)], [req("c", 30)], [req("d", 20)], [req("e", 10)]];
+    const variants = buildVariants({ key: "k", options: [{ id: "A", blocks }], copies: 1 });
+    const part = at(
+      at(
+        variants.filter((v) => v.id === "A|rows2|split1"),
+        0,
+      ).parts,
+      0,
+    );
+    // row 0: a, d, e (80); row 1: b, c (70)
+    expect(part.compartments.map((c) => c.contents)).toEqual(["a", "d", "e", "b", "c"]);
+    expect(part.rowBreak).toBeUndefined();
   });
 
   it("returns at most 9 variants per storage option, best first", () => {

@@ -1,4 +1,11 @@
-import { columnBreaks, cutsFirst, rows2Break, splitBlocks } from "./arrange";
+import {
+  columnBreaks,
+  cutsFirst,
+  isOneMember,
+  rows2Break,
+  rows2Order,
+  splitBlocks,
+} from "./arrange";
 import { rowsOf } from "./outer";
 import { DEFAULT_SETTINGS, MIN_FEATURE_MM } from "../model/settings";
 import type { StorageOption } from "./common";
@@ -29,10 +36,13 @@ interface Candidate {
 }
 
 /**
- * One tray's part of a copy: the compartments in the order given (member order), a strip, two
- * contiguous rows, or columns (group-tray-fill spec §3 (b)). Inside a member the compartments with a
- * cut along the row come first. Columns where no column stacks two compartments would be the strip,
- * and are made as one.
+ * One tray's part of a copy: a strip, two rows, or columns (group-tray-fill spec §3 (b)). One
+ * member's compartments are laid out as before 0.7.0 (rows2 balanced by width); a part of several
+ * members keeps member order, in a strip, in two contiguous rows or in columns. Inside a member the
+ * compartments with a cut along the row come first. Columns walk the same order rows2 would (one
+ * member: balanced by width, then cuts first; several: member order) and only choose where each
+ * column starts; columns where no column stacks two compartments would be the strip, and are made
+ * as one.
  */
 function makePart(
   trayKey: string,
@@ -47,7 +57,11 @@ function makePart(
     return { trayKey, arrangement, compartments: cutsFirst(compartments), rotatable: true };
   }
   if (arrangement === "columns") {
-    const ordered = cutsFirst(compartments);
+    const ordered = cutsFirst(
+      compartments.length >= 2 && isOneMember(compartments)
+        ? rows2Order(compartments)
+        : compartments,
+    );
     const breaks = columnBreaks(ordered, divider);
     return breaks.length === ordered.length - 1
       ? makePart(trayKey, "strip", compartments, divider)
@@ -55,6 +69,12 @@ function makePart(
   }
   if (compartments.length < 2) {
     return null;
+  }
+  if (isOneMember(compartments)) {
+    // One member's own blocks lay out as they did before 0.7.0: widths balanced across the two
+    // rows, then the cuts along a row first. No row break: it is ceil(n/2).
+    const rows = rowsOf(arrangement, rows2Order(compartments));
+    return { trayKey, arrangement, compartments: rows.flatMap(cutsFirst), rotatable: true };
   }
   const rowBreak = rows2Break(compartments);
   const rows = rowsOf(arrangement, compartments, rowBreak);

@@ -3,11 +3,53 @@ import { MAX_SPLITS } from "./constants";
 import type { CompartmentReq } from "./types";
 import { ceilU, maxOf, sum } from "./units";
 
+interface Indexed {
+  c: CompartmentReq;
+  i: number;
+}
+
+/** True when every compartment belongs to one member (an item's own blocks), false for a group's mix. */
+export function isOneMember(compartments: readonly CompartmentReq[]): boolean {
+  return compartments.every((c) => c.componentId === compartments[0]?.componentId);
+}
+
 /**
- * rows2: where the ordered compartments are cut into a front run and a back run (groups spec
- * §6.5): how many stand in the front row, 1..n-1. The cut is the one that makes the wider row (by
- * the compartments' minimum widths) narrowest; ties go to the smaller front row. The order itself
- * is never changed. Needs at least two compartments.
+ * rows2 for the compartments of ONE member (an ungrouped item, or a part of a group holding one
+ * member's blocks), as before 0.7.0: greedy by minW, largest first; row 0 holds ceil(n/2).
+ * Returns row 0 then row 1. A part of several members keeps member order instead (`rows2Break`).
+ * Columns of one member walk this order too.
+ */
+export function rows2Order(compartments: readonly CompartmentReq[]): CompartmentReq[] {
+  const n = compartments.length;
+  const cap0 = Math.ceil(n / 2);
+  const cap1 = n - cap0;
+  const bySize = compartments
+    .map((c, i): Indexed => ({ c, i }))
+    .sort((a, b) => b.c.minW - a.c.minW || a.i - b.i);
+  const row0: Indexed[] = [];
+  const row1: Indexed[] = [];
+  let width0 = 0;
+  let width1 = 0;
+  for (const item of bySize) {
+    const toRow0 = row1.length >= cap1 || (width0 <= width1 && row0.length < cap0);
+    if (toRow0) {
+      row0.push(item);
+      width0 += item.c.minW;
+    } else {
+      row1.push(item);
+      width1 += item.c.minW;
+    }
+  }
+  const byIndex = (a: Indexed, b: Indexed): number => a.i - b.i;
+  return [...row0.sort(byIndex), ...row1.sort(byIndex)].map((x) => x.c);
+}
+
+/**
+ * rows2 of a part that holds several members (a group's): where the ordered compartments are cut
+ * into a front run and a back run (groups spec §6.5): how many stand in the front row, 1..n-1.
+ * The cut is the one that makes the wider row (by the compartments' minimum widths) narrowest;
+ * ties go to the smaller front row. The order itself is never changed. Needs at least two
+ * compartments.
  */
 export function rows2Break(compartments: readonly CompartmentReq[]): number {
   const n = compartments.length;
@@ -31,8 +73,8 @@ export function rows2Break(compartments: readonly CompartmentReq[]): number {
  * indices of each column's first compartment after the first column, ascending. The limit is the
  * deepest compartment's minD: each compartment stacks front to back in the current column, a
  * `divider` (mm) after the one before it, while the column stays within the limit, else it starts
- * the next column to the right. Greedy and in order, as rows2Break is: member order stays the only
- * control, nothing is moved. Compared in whole 0.01 mm units, as the layout is built.
+ * the next column to the right. Greedy and in order, as rows2Break is: the order given (member
+ * order, or one member's rows2Order) is kept, nothing is moved. Compared in whole 0.01 mm units, as the layout is built.
  */
 export function columnBreaks(compartments: readonly CompartmentReq[], divider: number): number[] {
   const limit = maxOf(compartments.map((c) => ceilU(c.minD)));

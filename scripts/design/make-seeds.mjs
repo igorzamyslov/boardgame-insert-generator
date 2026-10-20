@@ -329,16 +329,7 @@ try {
     process.exit(1);
   }
   const base = withLayout(kit.harbourKings());
-  // The box with a lid: the engine's plan for it moves with the engine (since 0.7.0's sizing it is
-  // three layers under seed 1), and the box editor's state wants two, as the base game has.
-  const headroom = findSeed(
-    "harbour-kings-headroom",
-    kit.harbourKingsHeadroom(),
-    (_project, result) =>
-      result.layout !== null && layers.levelsOf(result.layout.trays).length === 2
-        ? null
-        : "not two layers",
-  );
+  const headroom = withLayout(kit.harbourKingsHeadroom());
   const long = withLayout(kit.harbourKingsLong());
   const wide = withLayout(kit.harbourKingsWide());
 
