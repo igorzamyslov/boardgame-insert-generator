@@ -169,7 +169,7 @@ describe("tokens.css", () => {
       "--shadow-toast": "0 10px 24px rgba(29, 31, 28, 0.18)",
       "--shadow-peek": "0 -8px 30px rgba(29, 31, 28, 0.14)",
       "--shadow-sheet-modal": "0 -8px 30px rgba(29, 31, 28, 0.18)",
-      "--shadow-lift-drop": "0 14px 28px rgba(29, 31, 28, 0.2)",
+      "--shadow-lift-drop": "0 2px 2px -1px rgba(29, 31, 28, 0.3)",
       "--ring-selected": "0 0 0 3px var(--sheet), 0 0 0 5px var(--ink)",
       "--ring-dot": "0 0 0 2px var(--sheet)",
       "--box-inset-plan": "inset 0 0 0 1px var(--box-edge)",

@@ -563,7 +563,7 @@ name. The stage is `EditorStage` for the group: its sentence is the h1 ("Player 
   several trays "<name>, <n> trays.", the name alone before there is a plan), or, for four seconds
   after an option changed, the note about it as the kit's `Toast`, in the sentence's place. The notes
   are `describeOptionChange`'s (`src/ui/components/optionNotes.ts`). The edited component's trays are
-  lifted (a 4 px sheet ring, a 6 px ring in the kind's line, a drop shadow) and the box shows their
+  lifted (a double edge inside the tile: a 2 px sheet ring, a 2 px ring in the kind's line, and a drop shadow that reaches 3 px out at most, so lifted neighbours 6 px apart never meet) and the box shows their
   layer; the other trays are dimmed and cannot be picked. The status heading is not drawn while an
   editor is open (one h1): errors in the inputs are marked in the editor, a failed run, a tray that
   does not fit and pins in the way are told in the slot under the sentence in the heading's words

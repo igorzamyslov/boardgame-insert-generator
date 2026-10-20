@@ -113,7 +113,7 @@
   --shadow-toast: 0 10px 24px rgba(29, 31, 28, 0.18);
   --shadow-peek: 0 -8px 30px rgba(29, 31, 28, 0.14); /* the phone sheets that peek */
   --shadow-sheet-modal: 0 -8px 30px rgba(29, 31, 28, 0.18); /* the phone tray sheet */
-  --shadow-lift-drop: 0 14px 28px rgba(29, 31, 28, 0.2); /* Edit's lifted tray, after a 4 px --sheet ring and a 6 px kind-line ring */
+  --shadow-lift-drop: 0 2px 2px -1px rgba(29, 31, 28, 0.3); /* Edit's lifted tray: reaches 3 px out at most (half the 6 px gap between tiles), after its inset double edge */
   --ring-selected: 0 0 0 3px var(--sheet), 0 0 0 5px var(--ink);
   --ring-dot: 0 0 0 2px var(--sheet); /* the menu dot */
   --box-inset-plan: inset 0 0 0 1px var(--box-edge); /* the plan's box frame */

@@ -6,6 +6,7 @@ import kit from "../../kit/kit.css?raw";
 import plan from "../../plan/plan.css?raw";
 import stage from "../../screens/editorStage.css?raw";
 import workspace from "../../screens/workspace.css?raw";
+import tokens from "../../styles/tokens.css?raw";
 import css from "./editor.css?raw";
 
 const strip = (source: string): string => source.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -111,12 +112,50 @@ describe("the editor's stage", () => {
     );
   });
 
-  it("lifts the edited tray: a 4 px sheet ring, a 6 px ring in the kind's line, the drop shadow", () => {
+  it("lifts the edited tray: a double edge inside the tile (sheet ring, then the kind's line), a small drop shadow", () => {
     const lifted = ruleFor(".plan-tile.is-lifted", plan);
-    expect(lifted).toMatch(/0 0 0 4px var\(--sheet\)/);
-    expect(lifted).toMatch(/0 0 0 6px var\(--tile-line/);
+    expect(lifted).toMatch(/inset 0 0 0 2px var\(--sheet\)/);
+    expect(lifted).toMatch(/inset 0 0 0 4px var\(--tile-line/);
     expect(lifted).toMatch(/var\(--shadow-lift-drop\)/);
     expect(lifted).toMatch(/z-index:\s*2/);
+  });
+
+  it("never lets a lifted tray reach past half the 6 px gap between tiles, so two lifted neighbours (a group lifts every copy) never meet", () => {
+    const body = ruleFor(".plan-tile.is-lifted", plan);
+    const value = /box-shadow:\s*([^;]+);/.exec(body)?.[1] ?? "";
+    const token = /--shadow-lift-drop:\s*([^;]+);/.exec(strip(tokens))?.[1] ?? "";
+    const layers: string[] = [];
+    let depth = 0;
+    let current = "";
+    for (const ch of value.replace(/var\(--shadow-lift-drop\)/, token)) {
+      depth += ch === "(" ? 1 : ch === ")" ? -1 : 0;
+      if (ch === "," && depth === 0) {
+        layers.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    layers.push(current);
+    expect(layers.length).toBeGreaterThanOrEqual(3);
+    // How far each layer paints beyond the tile's edge: its offset, plus spread, plus blur.
+    const reach = (layer: string): number => {
+      if (/^\s*inset\b/.test(layer)) {
+        return 0;
+      }
+      const [x = 0, y = 0, blur = 0, spread = 0] =
+        layer
+          .replace(/rgba?\([^)]*\)|var\([^)]*\)/g, "")
+          .match(/-?\d+(\.\d+)?px|(?<![\w.])-?0(?![\w.])/g)
+          ?.map((n) => Number.parseFloat(n)) ?? [];
+      return Math.max(Math.abs(x), Math.abs(y)) + spread + blur;
+    };
+    const GAP_PX = 6;
+    for (const layer of layers) {
+      expect(reach(layer), layer).toBeLessThanOrEqual(GAP_PX / 2);
+    }
+    // The double edge is real: two inset rings, and no ring drawn outside the tile.
+    expect(layers.filter((l) => /^\s*inset\b/.test(l))).toHaveLength(2);
   });
 
   it("gives an editor 12 px above its back link, and the stage Edit's padding", () => {
