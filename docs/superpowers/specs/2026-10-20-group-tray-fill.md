@@ -159,9 +159,7 @@ valid, and no schema change: arrangement is not stored).
 2. **Then decide on (b)** with (a) in hand: it is L, it saves width more than plastic once (a) is in
    (131 g vs 176 g per tray, −25 % more), and its value depends on the box having a use for the
    freed strip. Worth it if narrower kit trays matter for fitting other things; otherwise defer.
-3. Height fill as a follow-up question, not in the first cut.
-
-4. Height: part of Max per axis (decided above), not a separate question.
+3. Height: part of Max per axis (decided above), not a separate question.
 
 ## 5. Questions for the owner
 
