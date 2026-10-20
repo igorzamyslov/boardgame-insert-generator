@@ -15,10 +15,11 @@ import type { Access } from "../../model/types";
 import { Rail, SheetList } from "../../screens/Rail";
 import { kindIndexOf, shadeVars } from "../identity";
 import { EditorPanel } from "./EditorPanel";
-import { GroupEditor } from "./GroupEditor";
+import { GroupEditor, movedWords } from "./GroupEditor";
 import { groupNameOf } from "./GroupRow";
 import type { GroupChoice, ItemGrouping } from "./GroupRow";
 import type { GroupEditorMember } from "./GroupEditor";
+import { dropChange, type DropTarget } from "./useRailDrag";
 
 /** What the group editor does to the project: each is one undo step, and the app says what it changed. */
 export interface GroupEditActions {
@@ -41,6 +42,11 @@ export interface ItemGroupActions {
   newGroup: (itemId: string) => void;
   /** The item leaves its group. */
   takeOut: (itemId: string) => void;
+  /**
+   * The item was dragged in the rail: into a group at a place (an item of the group is only ordered),
+   * or out of its group. One undo step. Returns the notes the edit gives, as sentences.
+   */
+  drop: (itemId: string, target: DropTarget) => string[];
 }
 
 export interface WhatsInsideProps {
@@ -225,6 +231,31 @@ export function WhatsInside({
     )?.focus();
   }, [open, openGroup, components, groups]);
 
+  // A drop in the rail: the edit is the app's; what it did is said here, by names, never by place.
+  const dropped = (itemId: string, target: DropTarget): void => {
+    const item = components.find((c) => c.id === itemId);
+    if (item === undefined || itemActions === undefined) {
+      return;
+    }
+    const nameOf = (c: Component): string => (c.name === "" ? "(unnamed)" : c.name);
+    const change = dropChange(groups ?? [], itemId, target);
+    const into = "groupId" in target ? groupById({ groups }, target.groupId) : undefined;
+    // the member now before it, by its place among the group's others
+    const before =
+      "groupId" in target && into !== undefined
+        ? into.memberIds.filter((m) => m !== itemId)[target.index - 1]
+        : undefined;
+    const beforeName = components.find((c) => c.id === before);
+    const notes = itemActions.drop(itemId, target);
+    if (change === "order") {
+      setSaid(movedWords(nameOf(item), beforeName === undefined ? undefined : nameOf(beforeName)));
+    } else if (change === "into" && into !== undefined) {
+      setSaid([`${nameOf(item)} moved to ${groupNameOf(into.name)}.`, ...notes].join(" "));
+    } else {
+      setSaid(notes.join(" "));
+    }
+  };
+
   // Always mounted, so a reader hears a move as it is said.
   const live = (
     <div class="visually-hidden" role="status" data-live="rail">
@@ -316,6 +347,7 @@ export function WhatsInside({
       onHover,
       onLight,
       onEditGroup: setOpenGroupId,
+      onDrop: itemActions === undefined ? undefined : dropped,
       onUnpin,
       onFreeTurn,
       onUnlockSize,

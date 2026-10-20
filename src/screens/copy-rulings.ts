@@ -42,7 +42,7 @@ const BOXCARD = "The rail's box card says its size on one line";
 const BED = "The rail's footer line shows the insert's printer";
 const ADDING = ["workspace-add", "m-workspace-add"] as const;
 // 0.7.0 Task 9: a group's card in the rail and Add → Group. The states are the kit cases of copy.board.test.tsx.
-const KIT_RAIL = ["kit-rail", "kit-add", "kit-picker"] as const;
+const KIT_RAIL = ["kit-rail", "kit-add", "kit-picker", "kit-drag"] as const;
 const GROUP_TILE = "Add's picker has a sixth tile";
 const GROUP_COUNTS = "A group's card in the rail says its counts";
 // 0.7.0 Task 10: a group's tray bar and the stage sentence of a split copy
@@ -197,6 +197,8 @@ const EDITOR_CHANGED = "More options marks what differs from its default";
 const EDITOR_ROOM = "Room around the pieces shows the insert's number and lets the item change it";
 const ITEM_COPIES = "An item's Copies and Group row replace Per player and the Group box";
 const ITEM_MOVES = "Moving an item into or out of a group says what happens to its copies";
+// 0.7.0 Task 14: a drop in the rail
+const DROP = "A drop in the rail says what it did";
 const EDITOR_NAME = "The phone editor has a Name field";
 const EDITOR_BLOCKED = "A blocked option stays on screen and says why";
 const EDITOR_WORDS = "The Words table beats MobileEdit's second way to store figures";
@@ -577,6 +579,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
       "kit-removed",
       "kit-split-edit",
       "kit-member",
+      "kit-drag",
     ],
     ruling: CAPTION,
   },
@@ -709,15 +712,18 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Room around the pieces", states: OPENED_ROWS, ruling: EDITOR_ROOM },
   {
     text: "{name} now has the group's {n} copies.",
-    states: ["kit-member-moved"],
+    states: ["kit-member-moved", "kit-drag"],
     ruling: ITEM_MOVES,
   },
   {
     text: "{name} now has the group's single copy.",
-    states: ["kit-member-moved"],
+    states: ["kit-member-moved", "kit-drag"],
     ruling: ITEM_MOVES,
   },
-  { text: "{name} is out of {name}.", states: ["kit-member-out"], ruling: ITEM_MOVES },
+  { text: "{name} is out of {name}.", states: ["kit-member-out", "kit-drag"], ruling: ITEM_MOVES },
+  // a drop in the rail (the live region says the first, the toast the notes and the button)
+  { text: "{name} moved to {name}.", states: ["kit-drag"], ruling: DROP },
+  { text: "Undo move", states: ["kit-drag"], ruling: DROP },
   // the stage sentence: Edit's, for the kinds and the counts it does not draw
   {
     text: "tray, {name} × {name} mm.",

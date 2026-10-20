@@ -44,6 +44,8 @@ export interface GroupCardProps {
   onEditItem: (id: string) => void;
   /** The pointer or the focus is on the header or a member (every member's id: all the group's trays light), or left it (null). */
   onLight?: (ids: readonly string[] | null) => void;
+  /** A member's grip: its `onPointerDown`, for the drag that moves it (`useRailDrag`). */
+  onGrip?: (itemId: string) => (e: PointerEvent) => void;
 }
 
 /** "1 item", "3 items". */
@@ -111,6 +113,7 @@ export function GroupCard({
   onEdit,
   onEditItem,
   onLight,
+  onGrip,
 }: GroupCardProps) {
   const lineId = useId();
   // The row the pointer or the focus is on takes the lit look; the card's header is lit for the group.
@@ -176,10 +179,17 @@ export function GroupCard({
       ) : (
         <ul class="gc-members">
           {members.map((m) => (
-            <li class="gc-member" key={m.id} aria-label={m.who}>
-              <span class="gc-grip" aria-hidden="true">
-                <GripIcon />
-              </span>
+            <li class="gc-member" key={m.id} aria-label={m.who} data-member-id={m.id}>
+              {compact ? null : (
+                <span
+                  class="gc-grip"
+                  aria-hidden="true"
+                  data-grip={m.id}
+                  onPointerDown={onGrip?.(m.id)}
+                >
+                  <GripIcon />
+                </span>
+              )}
               <ListRow
                 kind={m.kind}
                 name={m.name}

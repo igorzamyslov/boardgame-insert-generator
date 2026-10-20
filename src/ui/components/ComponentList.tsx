@@ -1,7 +1,7 @@
 // src/ui/components/ComponentList.tsx
 import type { ComponentChildren } from "preact";
 import { useContext, useEffect, useRef } from "preact/hooks";
-import { ListRow, RuleChip } from "../../kit";
+import { GripIcon, ListRow, RuleChip } from "../../kit";
 import { groupById, railEntries } from "../../model/groups";
 import type { Component, Group, Lock, TraySpec } from "../../model/types";
 import { levelsOf } from "../../plan/layers";
@@ -17,6 +17,7 @@ import {
 } from "../identity";
 import { ValidationContext } from "../validation";
 import { GroupCard, type GroupMemberView } from "./GroupCard";
+import { useRailDrag, type DropTarget } from "./useRailDrag";
 
 export interface ComponentListProps {
   components: readonly Component[];
@@ -47,6 +48,11 @@ export interface ComponentListProps {
   onFreeTurn?: (trayKeys: string[]) => void;
   /** The size locks of these trays come off. */
   onUnlockSize?: (trayKeys: string[]) => void;
+  /**
+   * An item was dragged by its grip (desktop and tablet, never the phone's sheet) into a group, out
+   * of one, or to another place in its group's order; a drop that changes nothing is not reported.
+   */
+  onDrop?: (itemId: string, target: DropTarget) => void;
 }
 
 interface Chip {
@@ -169,6 +175,7 @@ export function ComponentList({
   onUnpin,
   onFreeTurn,
   onUnlockSize,
+  onDrop,
 }: ComponentListProps) {
   const notices = useContext(ValidationContext);
   // The component being pointed at, on the plan or here: its row takes the selected look (Main),
@@ -186,6 +193,16 @@ export function ComponentList({
           ...(pointedGroup ?? []),
         ]);
   const listRef = useRef<HTMLUListElement>(null);
+  // A tablet has no hover: an ungrouped row's grip is shown there all the time (rail.css).
+  const noHover = useRef(
+    typeof window.matchMedia === "function" && window.matchMedia("(hover: none)").matches,
+  );
+  const drag = useRailDrag({
+    listRef,
+    groups,
+    disabled: compact || onDrop === undefined,
+    onDrop: (id, target) => onDrop?.(id, target),
+  });
   // The × that was pressed goes with its chip: the focus moves to the next chip of the row, or to
   // the row itself, once the list has re-rendered without it.
   const pressed = useRef<Pressed | null>(null);
@@ -286,6 +303,7 @@ export function ComponentList({
     <ul
       class={compact ? "rail-list rail-list--sheet" : "rail-list"}
       aria-label="What's inside"
+      data-no-hover={noHover.current ? "true" : undefined}
       ref={listRef}
     >
       {first}
@@ -331,6 +349,7 @@ export function ComponentList({
                 onEdit={() => onEditGroup?.(group.id)}
                 onEditItem={onOpen}
                 onLight={onLight}
+                onGrip={compact ? undefined : drag.gripDown}
               />
             </li>
           );
@@ -357,6 +376,16 @@ export function ComponentList({
         const leave = (): void => onHover?.(null);
         return (
           <li class="rail-item" key={c.id} aria-label={who}>
+            {compact ? null : (
+              <span
+                class="gc-grip gc-grip--loose"
+                aria-hidden="true"
+                data-grip={c.id}
+                onPointerDown={drag.gripDown(c.id)}
+              >
+                <GripIcon />
+              </span>
+            )}
             <ListRow
               kind={c.kind}
               name={name}

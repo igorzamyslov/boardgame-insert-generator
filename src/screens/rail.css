@@ -160,6 +160,7 @@
  * or macOS set to always) sits there with a gutter of its own and never against the rows.
  */
 .rail-list {
+  position: relative; /* the drop line lies in it and scrolls with it */
   display: flex;
   flex: 0 1 auto;
   flex-direction: column;
@@ -176,6 +177,7 @@
 }
 
 .rail-item {
+  position: relative; /* an ungrouped row's grip lies over its edge */
   margin: 0;
   padding: 0;
 }
@@ -252,9 +254,14 @@
   min-width: 0;
 }
 
-/* The grip is drawn for the pointer: a 24 × 44 slot at the row's left, the row's tile 2 px from it (G1). */
+/*
+ * The grip is drawn for the pointer: a 24 × 44 slot at the row's left, the row's tile 2 px from it (G1).
+ * A press on it is a drag, not a scroll (a tablet), and not a text selection.
+ */
 .gc-grip {
   display: flex;
+  touch-action: none;
+  user-select: none;
   flex: none;
   align-items: center;
   justify-content: center;
@@ -262,6 +269,34 @@
   height: 44px;
   color: var(--box-dash);
   cursor: grab;
+}
+
+/*
+ * An ungrouped row's grip (spec §7.3): not in the row's layout, a small pill over its left edge,
+ * shown on hover and while focus is within the row. A tablet has no hover (`data-no-hover`, set by
+ * the list from `(hover: none)`; the style test allows no other media query), so it is always shown there.
+ */
+.gc-grip--loose {
+  position: absolute;
+  top: calc(var(--row-min) / 2);
+  left: 0;
+  z-index: 1;
+  width: var(--s-18);
+  height: 30px;
+  border-radius: var(--s-6);
+  background: var(--sheet);
+  box-shadow: 0 0 0 1px var(--rule);
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.rail-item:hover > .gc-grip--loose,
+.rail-item:focus-within > .gc-grip--loose {
+  opacity: 1;
+}
+
+.rail-list[data-no-hover] .gc-grip--loose {
+  opacity: 1;
 }
 
 .gc-member .k-row {
@@ -278,6 +313,51 @@
   font-size: var(--text-xs);
   line-height: 1.5;
   text-align: center;
+}
+
+/*
+ * The drag (spec §7.3; ruled R14: no board, judged against the spec): the row lifts on the sheet's
+ * shadow and follows the pointer, a 2 px focus line marks the place, and a group being entered takes
+ * the focus wash and a dashed focus edge. The line is made by the drag (`useRailDrag`) and is not in
+ * the list's markup. No transition: under reduced motion the move is plain, and it is plain otherwise.
+ */
+.is-lifted {
+  position: relative;
+  z-index: 3;
+  border-radius: var(--r-field);
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet);
+  cursor: grabbing;
+  pointer-events: none;
+}
+
+.rail-list.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.rail-list.is-dragging .k-row,
+.rail-list.is-dragging .gc-grip {
+  cursor: grabbing;
+}
+
+.rail-dropline {
+  position: absolute;
+  z-index: 4; /* above the lifted row, which the pointer holds over the very place it marks */
+  height: 2px;
+  border-radius: 1px;
+  background: var(--focus);
+  pointer-events: none;
+}
+
+.rail-dropline[hidden] {
+  display: none;
+}
+
+.gc[data-drop="true"] {
+  border-style: dashed;
+  border-color: var(--focus);
+  background: var(--focus-wash);
 }
 
 /* A row with a chip beside it has less room: its line wraps, as Main's does; the name keeps its ellipsis. */

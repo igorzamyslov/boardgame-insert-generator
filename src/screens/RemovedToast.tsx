@@ -8,6 +8,8 @@ export interface RemovedToastProps {
   name?: string;
   /** What to say instead of the item's words: a group's removal and what it took off the plan. */
   words?: string;
+  /** The Undo button's words: "Undo removal", or "Undo move" for a drop in the rail. */
+  undoLabel?: string;
   onUndo: () => void;
   onDismiss: () => void;
 }
@@ -26,13 +28,23 @@ export const notesAsSentences = (notes: readonly string[]): string[] =>
 export const groupRemovedWords = (notes: readonly string[]): string =>
   notesAsSentences(notes).join(" ");
 
-export function RemovedToast({ name = "", words, onUndo, onDismiss }: RemovedToastProps) {
+/** The words of the Undo button after a removal (the default), and after a drop in the rail. */
+export const UNDO_REMOVAL = "Undo removal";
+export const UNDO_MOVE = "Undo move";
+
+export function RemovedToast({
+  name = "",
+  words,
+  undoLabel = UNDO_REMOVAL,
+  onUndo,
+  onDismiss,
+}: RemovedToastProps) {
   return (
     <div class="removed-toast">
       <ToastNote>
         {`${words ?? removedWords(name)} `}
         <button type="button" class="toast-btn" onClick={onUndo}>
-          Undo removal
+          {undoLabel}
         </button>
         <button type="button" class="toast-btn" onClick={onDismiss}>
           Dismiss

@@ -1097,7 +1097,7 @@ export const STATES = {
     ],
   },
   // Drag and drop has no board (R14): its look is judged against spec §7.3 and its gate is the probe
-  // `drag-into-group` (shots.mjs), failing until Task 14. The pair shows GroupRail for reference.
+  // `drag-into-group` (shots.mjs; Task 14), with a mid-drag picture, `kit-drag.mid-drag.png`. The pair shows GroupRail for reference.
   "kit-drag": {
     board: "GroupRail",
     nearest: "no board of its own (spec §7.3): the rail of GroupRail; the gate is the probe",

@@ -112,6 +112,45 @@ const moveMarketIntoKit = (): void => {
   fireEvent.click(within(panel).getByRole("button", { name: /^Player kit/ }));
 };
 
+/**
+ * Market deck, dragged by its grip between the Player kit's Starter deck and Resources (jsdom has no
+ * layout: the rectangles of the list and the kit's card are set by hand).
+ */
+const dragMarketIntoKit = (): void => {
+  const box = (top: number, bottom: number) => ({
+    top,
+    bottom,
+    left: 0,
+    right: 300,
+    width: 300,
+    height: bottom - top,
+    x: 0,
+    y: top,
+    toJSON: () => ({}),
+  });
+  const at = (el: Element | null, top: number, bottom: number): void => {
+    (el as HTMLElement).getBoundingClientRect = () => box(top, bottom);
+  };
+  const rail = document.querySelector('[data-region="rail"]') as Element;
+  at(rail.querySelector(".rail-list"), 0, 600);
+  at(rail.querySelector(".gc"), 0, 200);
+  at(rail.querySelector(".gc-members"), 50, 174);
+  const rows = [...rail.querySelectorAll("[data-member-id]")];
+  at(rows[0] ?? null, 50, 90);
+  at(rows[1] ?? null, 92, 132);
+  at(rows[2] ?? null, 134, 174);
+  const grip = [...rail.querySelectorAll<HTMLElement>("[data-grip]")].find((g) =>
+    g.closest("li")?.getAttribute("aria-label")?.startsWith("Market deck"),
+  ) as HTMLElement;
+  const at1 = { pointerId: 1, button: 0 };
+  fireEvent.pointerDown(grip, { clientX: 20, clientY: 10, ...at1 });
+  fireEvent.pointerMove(document.body, { clientX: 30, clientY: 20, ...at1 });
+  fireEvent.pointerMove(document.body, { clientX: 100, clientY: 91, ...at1 });
+  act(() => {
+    fireEvent.pointerUp(document.body, { clientX: 100, clientY: 91, ...at1 });
+  });
+};
+
 /** The kind picker's "Something else", added: its editor opens at once. */
 const addCustom = (): void => {
   fireEvent.click(screen.getByRole("button", { name: "Add" }));
@@ -655,6 +694,22 @@ const CASES: readonly Case[] = [
       editMore(/^Hero, /)();
       fireEvent.click(screen.getByRole("button", { name: "Take out of group" }));
     },
+  },
+  // 0.7.0 Task 14: a drop in the rail. No board draws it (R14); the rail and the toast in the plan's slot
+  {
+    state: "kit-drag",
+    board: "GroupRail",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: dragMarketIntoKit,
+  },
+  {
+    state: "kit-drag",
+    board: "GroupRail",
+    also: "Main",
+    region: "plan",
+    seed: "harbour-kings-kit",
+    steps: dragMarketIntoKit,
   },
   {
     state: "m-kit-member",

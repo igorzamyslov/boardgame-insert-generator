@@ -21,6 +21,8 @@ import { AddMenu } from "../screens/KindPicker";
 import { ProjectMenu } from "../screens/ProjectMenu";
 import {
   RemovedToast,
+  UNDO_MOVE,
+  UNDO_REMOVAL,
   groupRemovedWords,
   notesAsSentences,
   removedWords,
@@ -221,7 +223,14 @@ export function App(props: AppProps) {
   const [settingsOpen, setSettingsOpen] = useState<{ tab: SettingsTab } | null>(null);
   // What was just removed, in the words the toast says, for the Undo toast (cleared when another
   // project opens): an item's, or a group's with what its trays' rules lost.
-  const [removed, setRemoved] = useState<{ words: string; version: number } | null>(null);
+  // A drop in the rail that gave a note shows its toast the same way, with "Undo move"; the rail's own
+  // live region has said it, so the toast is silent.
+  const [removed, setRemoved] = useState<{
+    words: string;
+    version: number;
+    undo?: string;
+    silent?: boolean;
+  } | null>(null);
   // The older plan the person chose to keep (project and geometry line), so its banner stays away.
   const [geometryKept, setGeometryKept] = useState<string | null>(null);
   const run = s.run.value;
@@ -671,6 +680,26 @@ export function App(props: AppProps) {
         }),
       ),
     takeOut: (id) => sayNotes(editGroupWith((q) => takeOutOfGroup(q, id))),
+    // A drop in the rail (spec §7.3): one undo step. The list is showing, not an editor, so the notes
+    // go in the removal's toast (with "Undo move"), and back to the rail to be said aloud once.
+    drop: (id, target) => {
+      const notes = notesAsSentences(
+        editGroupWith((q) =>
+          "out" in target
+            ? takeOutOfGroup(q, id)
+            : moveToGroup(q, id, target.groupId, target.index),
+        ),
+      );
+      if (notes.length > 0) {
+        setRemoved({
+          words: notes.join(" "),
+          version: s.history.version.peek(),
+          undo: UNDO_MOVE,
+          silent: true,
+        });
+      }
+      return notes;
+    },
   };
   // What's inside: the rail's list (the sheet's, on a phone), or a component's editor in its place.
   const whatsInside = (
@@ -923,12 +952,15 @@ export function App(props: AppProps) {
   const removedShown = removed !== null && removed.version === s.history.version.value;
   const removedLive = (
     <div class="visually-hidden" role="status" data-live="removed">
-      {removedShown && removed !== null ? `${removed.words} Undo removal is available.` : ""}
+      {removedShown && removed !== null && removed.silent !== true
+        ? `${removed.words} ${removed.undo ?? UNDO_REMOVAL} is available.`
+        : ""}
     </div>
   );
   const removedToast = removedShown ? (
     <RemovedToast
       words={removed?.words}
+      undoLabel={removed?.undo}
       onUndo={() => {
         setRemoved(null);
         store.undo();

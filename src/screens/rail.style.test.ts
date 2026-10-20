@@ -137,4 +137,42 @@ describe("rail.css", () => {
     expect(empty).toMatch(/border:\s*1\.5px dashed var\(--line-strong\)/);
     expect(empty).toMatch(/color:\s*var\(--muted\)/);
   });
+
+  it("keeps the grip from scrolling or selecting: a press on it is a drag", () => {
+    const grip = ruleFor(".gc-grip");
+    expect(grip).toMatch(/touch-action:\s*none/);
+    expect(grip).toMatch(/user-select:\s*none/);
+  });
+
+  it("shows an ungrouped row's grip on hover and focus within, out of the row's layout, and always without hover", () => {
+    const loose = ruleFor(".gc-grip--loose");
+    expect(loose).toMatch(/position:\s*absolute/);
+    expect(loose).toMatch(/opacity:\s*0/);
+    expect(ruleFor(".rail-item")).toMatch(/position:\s*relative/);
+    expect(
+      ruleFor(".rail-item:hover > .gc-grip--loose,\n.rail-item:focus-within > .gc-grip--loose"),
+    ).toMatch(/opacity:\s*1/);
+    // a tablet has no hover: the list says so, and the grip is there without it
+    expect(ruleFor(".rail-list[data-no-hover] .gc-grip--loose")).toMatch(/opacity:\s*1/);
+  });
+
+  it("draws the drag (spec §7.3): the lifted row on the sheet shadow, a 2 px focus line, the entered group washed and dashed, no animation", () => {
+    const lifted = ruleFor(".is-lifted");
+    expect(lifted).toMatch(/box-shadow:\s*var\(--shadow-sheet\)/);
+    expect(lifted).toMatch(/pointer-events:\s*none/);
+    const line = ruleFor(".rail-dropline");
+    expect(line).toMatch(/height:\s*2px/);
+    expect(line).toMatch(/background:\s*var\(--focus\)/);
+    expect(ruleFor(".rail-dropline[hidden]")).toMatch(/display:\s*none/);
+    const entered = ruleFor('.gc[data-drop="true"]');
+    expect(entered).toMatch(/background:\s*var\(--focus-wash\)/);
+    expect(entered).toMatch(/border-style:\s*dashed/);
+    expect(entered).toMatch(/border-color:\s*var\(--focus\)/);
+    // the drop line lies in the list and scrolls with it
+    expect(ruleFor(".rail-list")).toMatch(/position:\s*relative/);
+    // none of the drag's rules moves by transition or animation
+    for (const selector of [".is-lifted", ".rail-dropline", '.gc[data-drop="true"]']) {
+      expect(ruleFor(selector), selector).not.toMatch(/transition|animation/);
+    }
+  });
 });

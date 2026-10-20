@@ -3,6 +3,7 @@ import type { ComponentKind, Box, Component, Group, Lock, Printer, TraySpec } fr
 import { Button, Card, Icon, IconTile, ListRow } from "../kit";
 import { mm } from "../ui/identity";
 import { ComponentList } from "../ui/components/ComponentList";
+import type { DropTarget } from "../ui/components/useRailDrag";
 import { AddMenu } from "./KindPicker";
 
 /** "285 × 285 × 70": the box's inside, without its unit. */
@@ -33,6 +34,8 @@ interface ListProps {
   onLight?: (ids: readonly string[] | null) => void;
   /** A group's header was chosen: its editor. */
   onEditGroup?: (groupId: string) => void;
+  /** An item was dragged by its grip (the rail only, not the phone's sheet): see `ComponentList`. */
+  onDrop?: (itemId: string, target: DropTarget) => void;
   onUnpin?: (trayKeys: string[]) => void;
   /** A "Turned" chip's ×: these trays may turn as the plan likes. */
   onFreeTurn?: (trayKeys: string[]) => void;
@@ -133,6 +136,7 @@ export function Rail(p: RailProps) {
         onHover={p.onHover}
         onLight={p.onLight}
         onEditGroup={p.onEditGroup}
+        onDrop={p.onDrop}
         onUnpin={p.onUnpin}
         onFreeTurn={p.onFreeTurn}
         onUnlockSize={p.onUnlockSize}
