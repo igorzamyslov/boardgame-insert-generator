@@ -1,6 +1,6 @@
 # Group trays: less solid plastic (proposal, not built)
 
-Date: 2026-10-20. Status: **for the owner to choose**. Builds on the groups spec
+Date: 2026-10-20. Status: **(a) decided (A2, as Max in a group), not built; (b) open.** Builds on the groups spec
 ([2026-10-18-groups-design.md](2026-10-18-groups-design.md)) as of 0.7.0 (PR #19, not on `main` yet).
 
 ## 1. The problem
@@ -53,39 +53,50 @@ the tray bigger.** Slack is what the tray's other members create: a row deeper t
 column wider than it (§3), and in height the deepest member's floor. The tray's size is decided
 exactly as today; only the wells inside it change.
 
-Two ways to offer it; the owner picks:
+Two ways were offered: A1, every grouped bin and pocket always fills (no control), and A2, a new
+growth mode "Fill its tray" (`GrowthMode` gains `"fill"`, a schema PATCH).
 
-- **A1. Always, for grouped bins and pockets (recommended).** No new control, no schema change.
-  "Room for more" keeps its meaning (may the _tray_ get bigger for this item); the solid plastic
-  around a small well is already paid for, so giving it to the well is not growth. Card and tile
-  stacks are excluded (a deck needs its retention and spacer rules, minimal-trays spec §5), so the
-  Starter deck is unchanged. Groups are not on `main` yet, so nothing saved changes meaning.
-- **A2. A new growth mode "Fill its tray"**, offered only in a grouped item's Room for more.
-  `GrowthMode` gains `"fill"`: schema PATCH (`SCHEMA_VERSION` 0.2.0 → 0.2.1, fixture, validate,
-  reader), a choice and a "what it means" line in `GrowthOptions` (DESIGN's Max-line ruling), copy.
-  More honest if the owner wants "off" to mean a snug well even in a group; one more control to learn.
+**Owner's decision (2026-10-20): A2, as Max.** In a group there is no separate mode: an item's
+**Max** becomes **"Fill its tray"**. Outside a group Max keeps its meaning (as much as the layout
+and the bed allow). Inside a group, Max on an axis means: take the slack the group tray already has
+on that axis, and never make the tray bigger. Why: in a shared tray "as much as fits" can only
+sensibly mean "as much as this tray has"; Max growing the whole tray (the +51 % above) was the
+surprise. It keeps the user in control (Off and Auto still give a snug well, a number still caps it)
+without adding a choice, and needs no schema change: `"max"` is already stored, only what it means
+in a group changes. Groups are not on `main` yet, so no saved project changes meaning.
 
-Length (d) and width (w) by default; height (h) only if the owner wants it: a 39 mm deep scoop bin
-for 2 mm tokens is reachable, but it is deep. Recommend d + w now, h as a later question.
+- **Per axis, as Max already is.** Max in length and width fills the row (or column, §3); Max in
+  height deepens the well down to the tray's deepest floor (the Hero's here). The seed's Resources
+  on Max in all three gives the 140 g row above; Max in length and width only, the 176 g row.
+- **Which items:** those whose Room for more offers w/d/h (bins, custom wells, minis in pockets or
+  loose). A deck or stack of tiles grows along its stack only, under its retention and spacer rules
+  (minimal-trays spec §5); its Max is unchanged.
+- **Auto and a number** in a group stay as today (they may still enlarge the tray up to their cap).
+- **The group's own Extra room** (groups spec §6.5) is separate: it is the one way to make a group
+  tray bigger on purpose, and its Max keeps the layout meaning.
+- **Words:** the choice is still labelled Max; its one-line meaning (DESIGN's Max-line ruling) reads,
+  for a grouped item, "Fills the room left in Player kit's tray. The tray doesn't get bigger."
+  (group name inserted). DESIGN's Max-line row gets the group case; the decision log gets this entry.
+  The seed's Resources goes from Off to Max.
 
 ### What changes (engine)
 
-- `src/sizing/growth.ts`: a filling compartment is placed as elastic in d but adds nothing to
-  `rowDepthCapU` / `rowWidthCapU` / `partGrowthCapU` (its cap is exactly `rowDepth − minD`, which
-  those already subtract, so the layout sees no extra room and never grows the tray for it).
-- `src/sizing/realize.ts` `layoutAt`: today a well is drawn `rowDepth` deep only when
-  `req.elastic.d`; a filling well is drawn that deep too, at the row's top instead of centred. In
-  width, a row's slack that would go to the walls goes to its filling wells first.
-- `src/sizing/common.ts` / the group's requirement builder: mark grouped bins/pockets as filling
-  (A1) or read `"fill"` (A2). Scoops and pocket cuts follow the new rect (`featureSpecs` already
-  works from the allocated rect).
-- Height (if chosen): `contentDepth` takes the deepest member's floor for filling wells.
-- Tests: growth/realize unit tests, the kit seed refreshed (`npm run seeds`), a property test that
-  a grouped tray's outer size is identical with fill on and off.
+- Group requirement builder (`src/sizing/group.ts` / `common.ts`): a grouped member's axis on Max
+  becomes a _filling_ compartment on that axis instead of an unbounded cap.
+- `src/sizing/growth.ts`: a filling compartment's cap is exactly `rowDepth − minD` (width: the
+  row's spare after its non-filling wells), which `rowDepthCapU` / `rowWidthCapU` /
+  `partGrowthCapU` already subtract: the layout sees no extra room and never grows the tray for it.
+- `src/sizing/realize.ts` `layoutAt`: a filling well is drawn the row's depth, from the row's top
+  (today only `req.elastic.d` wells are, others are centred). In width, slack that would go to the
+  walls goes to filling wells first. Height: `contentDepth` takes the tray's deepest floor for a
+  well filling in h. Scoops and pocket cuts already follow the allocated rect (`featureSpecs`).
+- `src/ui/components/GrowthOptions.tsx`: the Max line for a grouped item (it knows the group).
+- Tests: growth/realize unit tests; a property test that a grouped tray's outer size is the same
+  with its members on Max and on Off; the kit seed refreshed (`npm run seeds`).
 
-**Cost: S** (A1) / **M** (A2, adds schema, UI and copy). **Versions:** app MINOR (0.8.0, or folded
-into 0.7.x before 0.7.0 merges); `GEOMETRY_VERSION` PATCH (0.8.2 → 0.8.3: wells change, outer size
-and fit do not); A2 also `SCHEMA_VERSION` PATCH.
+**Cost: S–M** (engine S; the Max line, DESIGN rows and seed small). **Versions:** app MINOR (0.8.0,
+or folded into 0.7.x before 0.7.0 merges); `GEOMETRY_VERSION` PATCH (0.8.2 → 0.8.3: wells change,
+outer size and fit do not); `SCHEMA_VERSION` unchanged.
 
 ## 3. (b) A third arrangement: `columns`
 
@@ -142,16 +153,18 @@ valid, and no schema change: arrangement is not stored).
 
 ## 4. Recommendation
 
-1. **Build (a) as A1 now** (S, −51 % filament and print time per kit tray with the tray unchanged).
-   It fixes what the owner saw without a new control, and it helps every group, whatever its
+1. **Build (a) now, as Max in a group** (S–M, −51 % filament and print time per kit tray with the tray unchanged).
+   It fixes what the owner saw without a new choice, and it helps every group, whatever its
    arrangement.
 2. **Then decide on (b)** with (a) in hand: it is L, it saves width more than plastic once (a) is in
    (131 g vs 176 g per tray, −25 % more), and its value depends on the box having a use for the
    freed strip. Worth it if narrower kit trays matter for fitting other things; otherwise defer.
 3. Height fill as a follow-up question, not in the first cut.
 
+4. Height: part of Max per axis (decided above), not a separate question.
+
 ## 5. Questions for the owner
 
-1. (a): A1 (always, no control) or A2 (a "Fill its tray" choice)?
-2. (a): length/width only, or deepen small wells to the tray's deepest floor too?
+1. ~~(a): A1 or A2?~~ Decided: A2, as Max in a group (§2).
+2. ~~(a): which axes?~~ Decided: Max per axis, height included.
 3. (b): build `columns` now, after (a), or not at all?
