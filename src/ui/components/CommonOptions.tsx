@@ -7,7 +7,8 @@ import { COMPONENT_DEFAULTS } from "../../model/defaults";
 import type { Access, Component } from "../../model/types";
 import { COPIES, OFFSET } from "../limits";
 import { formatNumber } from "../NumberField";
-import { SettingsContext } from "../validation";
+import { messagesOf } from "../FieldMessages";
+import { SettingsContext, useFieldNotices } from "../validation";
 import { Alert, Choice, ExactRow, Group as Field, NumField } from "./controls";
 import { GroupRow, ItemGroupingContext, SetOnGroup, useItemGroup } from "./GroupRow";
 import { insertClearance } from "./moreSummary";
@@ -109,6 +110,7 @@ function CopiesRow<C extends Component>({ component: c, index, onChange }: Edito
   const at = `/components/${index}`;
   const grouping = useContext(ItemGroupingContext);
   const alertId = useId();
+  const refused = messagesOf(useFieldNotices(`${at}/copies`)).errors.length > 0;
   // inside the app a count is one undo step of the project (it lets go of the pins of copies that
   // go); an editor drawn alone changes the item
   const set = (n: number): void =>
@@ -128,6 +130,8 @@ function CopiesRow<C extends Component>({ component: c, index, onChange }: Edito
           min={COPIES.min}
           max={COPIES.max}
           onChange={set}
+          invalid={refused}
+          describedBy={refused ? alertId : undefined}
         />
         <Alert id={alertId} path={`${at}/copies`} />
         <span class="ed-line">Each copy is its own tray.</span>

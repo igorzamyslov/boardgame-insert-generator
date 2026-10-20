@@ -391,7 +391,9 @@ describe("validation shown in place", () => {
       </ValidationContext.Provider>,
     );
     // the row opens by itself: the error is in sight
-    expect(screen.getByRole("textbox", { name: "Copies" })).toBeTruthy();
+    const copies = screen.getByRole("textbox", { name: "Copies" });
+    expect(copies.getAttribute("aria-invalid")).toBe("true");
+    expect(copies.getAttribute("aria-describedby")).toBe(screen.getByRole("alert").id);
     expect(screen.getByRole("alert").textContent).toBe(
       "Copies must be a whole number of at least 1.",
     );

@@ -476,7 +476,20 @@
 
 .ed-ask__buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--s-8);
+}
+
+/* A button named for a group: a long name is cut with an ellipsis (the whole name is its title), never run out of the rail. */
+.ed-ask__buttons .ed-fit {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ed-fit__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ed .ed-remove-yes {

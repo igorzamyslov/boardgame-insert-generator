@@ -21,6 +21,10 @@ function ruleFor(selector: string, source: string): string {
 }
 
 describe("editor.css", () => {
+  it("lets a row of two buttons wrap, so a long group name's Edit and Take out of group stay in the rail", () => {
+    expect(ruleFor(".ed-ask__buttons", css)).toMatch(/flex-wrap:\s*wrap/);
+  });
+
   it("lays the panel out as Edit's rail: 20 px between the parts, the foot at the bottom and in sight", () => {
     const panel = ruleFor(".ed", css);
     expect(panel).toMatch(/gap:\s*var\(--s-20\)/);

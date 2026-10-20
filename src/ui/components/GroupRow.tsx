@@ -130,8 +130,13 @@ export function GroupRow() {
           <>
             <span class="ed-line ed-line--ink">{`In ${groupNameOf(group.name)}`}</span>
             <div class="ed-ask__buttons">
-              <Button variant="secondary" onClick={() => g.onEditGroup(group.id)}>
-                {`Edit ${groupNameOf(group.name)}`}
+              <Button
+                variant="secondary"
+                class="ed-fit"
+                title={`Edit ${groupNameOf(group.name)}`}
+                onClick={() => g.onEditGroup(group.id)}
+              >
+                <span class="ed-fit__label">{`Edit ${groupNameOf(group.name)}`}</span>
               </Button>
               <Button variant="quiet" onClick={act(g.onTakeOut)}>
                 Take out of group

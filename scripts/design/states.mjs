@@ -985,6 +985,23 @@ export const STATES = {
       { waitFor: { role: "button", name: "Take out of group" } },
     ],
   },
+  // A member of a group with a long name, its Group row open: "Edit <group>" and "Take out of group" wrap
+  // inside the 300 px rail instead of running into its padding (Task 12, fix round 1).
+  "kit-member-long": {
+    board: "Edit",
+    nearest: "Edit with More options open (`editor-more`): no board draws a member's editor",
+    viewport: { width: 1440, height: 1500 },
+    seed: "harbour-kings-kit",
+    steps: [
+      KIT_HEADER,
+      { fill: { label: "Name", value: "Starter kit for every player at the table" } },
+      { click: { role: "button", name: "What's inside", in: RAIL } },
+      { click: { role: "button", name: /^Hero, /, in: RAIL } },
+      MORE_OPTIONS,
+      { click: { role: "button", name: /^Group/, in: RAIL } },
+      { waitFor: { role: "button", name: "Take out of group" } },
+    ],
+  },
   // An item's Group row and its Move to group… panel (Task 12).
   "kit-move-panel": {
     board: "Edit",
@@ -1103,6 +1120,23 @@ export const STATES = {
     steps: [
       { click: { role: "button", name: /What's inside/ } },
       { click: { role: "button", name: /^Hero, /, in: '[data-region="sheet"]' } },
+    ],
+  },
+  // The same on a phone, in the sheet.
+  "m-kit-member-long": {
+    board: "MobileEdit",
+    nearest: "MobileEdit: no board draws a member's editor on a phone",
+    viewport: PHONE,
+    seed: "harbour-kings-kit",
+    steps: [
+      { click: { role: "button", name: /What's inside/ } },
+      { click: { role: "button", name: "Player kit, 4 copies", in: '[data-region="sheet"]' } },
+      { fill: { label: "Name", value: "Starter kit for every player at the table" } },
+      { click: { role: "button", name: "Back", in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^Hero, /, in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^More options/, in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^Group/, in: '[data-region="sheet"]' } },
+      { waitFor: { role: "button", name: "Take out of group" } },
     ],
   },
   "m-turned": {

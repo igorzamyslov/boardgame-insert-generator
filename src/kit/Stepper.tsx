@@ -15,6 +15,10 @@ export interface StepperProps {
   minReason?: string;
   /** Why More is blocked at the highest count. */
   maxReason?: string;
+  /** The id of words that say what is wrong with the value from outside (the engine's error under it). */
+  describedBy?: string;
+  /** The count is refused from outside: it is marked invalid, and `describedBy` says why. */
+  invalid?: boolean;
 }
 
 /**
@@ -29,6 +33,8 @@ export function Stepper({
   onChange,
   minReason = "That is the fewest it can be.",
   maxReason = "That is the most it can be.",
+  describedBy,
+  invalid = false,
 }: StepperProps) {
   const typed = useNumberText(value, onChange, { integer: true, min, max });
   const errorId = useId();
@@ -50,8 +56,11 @@ export function Stepper({
           autoComplete="off"
           {...numberInputAttrs(true)}
           aria-label={label}
-          aria-invalid={typed.error === null ? undefined : true}
-          aria-describedby={typed.error === null ? undefined : errorId}
+          aria-invalid={typed.error === null && !invalid ? undefined : true}
+          aria-describedby={
+            [typed.error === null ? undefined : errorId, describedBy].filter(Boolean).join(" ") ||
+            undefined
+          }
           value={typed.text}
           onInput={(e) => typed.onInput(e.currentTarget.value)}
           onBlur={typed.onBlur}

@@ -9,6 +9,8 @@ import { DEFAULT_GROUP_NAME } from "../../model/groups";
 import type { Access, ComponentKind, Group } from "../../model/types";
 import { COPIES } from "../limits";
 import { ACCESS_OPTIONS } from "./CommonOptions";
+import { messagesOf } from "../FieldMessages";
+import { useFieldNotices } from "../validation";
 import { Alert, Choice, Group as Field, TextBox, TitleInput } from "./controls";
 
 /** One of the group's items, as the order list shows it. */
@@ -206,6 +208,7 @@ export function GroupEditor({
   const removeRef = useRef<HTMLButtonElement>(null);
   const keepRef = useRef<HTMLButtonElement>(null);
   const copiesAlertId = useId();
+  const copiesRefused = messagesOf(useFieldNotices(`/groups/${index}/copies`)).errors.length > 0;
   const [asking, setAsking] = useState(false);
 
   // The panel replaced the list: the reader starts at its top, and a screen reader hears whose it is.
@@ -247,6 +250,8 @@ export function GroupEditor({
         min={COPIES.min}
         max={COPIES.max}
         onChange={onCopies}
+        invalid={copiesRefused}
+        describedBy={copiesRefused ? copiesAlertId : undefined}
       />
       <Alert id={copiesAlertId} path={`/groups/${index}/copies`} />
       <span class="ed-line">Each copy is its own tray.</span>
