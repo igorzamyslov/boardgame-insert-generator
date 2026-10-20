@@ -267,7 +267,11 @@ export function GroupEditor({
   );
   const order =
     members.length === 0 ? (
-      <p class="gc-empty ed-empty">Drag items here, or use Move to group… in an item.</p>
+      <p class="gc-empty ed-empty">
+        {phone === true
+          ? "Use Move to group… in an item."
+          : "Drag items here, or use Move to group… in an item."}
+      </p>
     ) : (
       <OrderList
         members={members}

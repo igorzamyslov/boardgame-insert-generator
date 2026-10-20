@@ -199,6 +199,8 @@ const ITEM_COPIES = "An item's Copies and Group row replace Per player and the G
 const ITEM_MOVES = "Moving an item into or out of a group says what happens to its copies";
 // 0.7.0 Task 14: a drop in the rail
 const DROP = "A drop in the rail says what it did";
+// 0.7.0 Task 15 fix round 1: an empty group on the phone
+const EMPTY_PHONE = "An empty group on the phone says";
 const EDITOR_NAME = "The phone editor has a Name field";
 const EDITOR_BLOCKED = "A blocked option stays on screen and says why";
 const EDITOR_WORDS = "The Words table beats MobileEdit's second way to store figures";
@@ -724,6 +726,12 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   // a drop in the rail (the live region says the first, the toast the notes and the button)
   { text: "{name} moved to {name}.", states: ["kit-drag"], ruling: DROP },
   { text: "Undo move", states: ["kit-drag"], ruling: DROP },
+  // an empty group on the phone: no drag there, so the card and the group editor offer only Move to group…
+  {
+    text: "Use Move to group… in an item.",
+    states: ["m-workspace", "m-kit-edit"],
+    ruling: EMPTY_PHONE,
+  },
   // the stage sentence: Edit's, for the kinds and the counts it does not draw
   {
     text: "tray, {name} × {name} mm.",

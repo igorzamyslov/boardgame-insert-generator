@@ -116,6 +116,21 @@ describe("GroupCard", () => {
     expect(within(frame).queryByRole("list")).toBeNull();
   });
 
+  it("offers no drag in an empty card on the phone's sheet, only Move to group…", () => {
+    render(
+      <GroupCard
+        group={{ id: "e", name: "Group", access: "sometimes", memberIds: [] }}
+        members={[]}
+        pressed={false}
+        compact
+        {...handlers()}
+      />,
+    );
+    const frame = screen.getByRole("group", { name: "Group, empty" });
+    expect(within(frame).getByText("Use Move to group… in an item.")).toBeTruthy();
+    expect(within(frame).queryByText(/Drag/)).toBeNull();
+  });
+
   it("lists the members at full size, each opening its own editor, and the header opens the group's", () => {
     const h = handlers();
     render(<GroupCard group={group()} members={MEMBERS} trays={FOUR} pressed={false} {...h} />);

@@ -200,6 +200,12 @@ describe("GroupEditor (the rail's panel)", () => {
     expect(screen.getByText("Drag items here, or use Move to group… in an item.")).toBeTruthy();
   });
 
+  it("offers no drag in an empty group's line on a phone, only Move to group…", () => {
+    editor({ phone: true, group: group({ memberIds: [] }), members: [] });
+    expect(screen.getByText("Use Move to group… in an item.")).toBeTruthy();
+    expect(screen.queryByText(/Drag/)).toBeNull();
+  });
+
   it("shows an unnamed group as Group", () => {
     editor({ group: group({ name: "" }) });
     expect(screen.getByRole("region", { name: "Group" })).toBeTruthy();

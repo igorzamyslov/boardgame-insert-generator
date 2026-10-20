@@ -85,7 +85,16 @@ const openMore = (): void => {
 };
 
 /** A component's editor, opened from its row in the rail (the phone's sheet has the same rows). */
-const editRow = (name: RegExp) => (): void => {
+/** The kit's project with one more group, empty (a phone's card has no drag to offer it). */
+const withEmptyGroup = (p: Project): Project => ({
+  ...p,
+  groups: [
+    ...(p.groups ?? []),
+    { id: "emptyg01", name: "Group", access: "sometimes", memberIds: [] },
+  ],
+});
+
+const editRow = (name: RegExp | string) => (): void => {
   const rail = (document.querySelector('[data-region="rail"], [data-region="sheet"]') ??
     document.body) as HTMLElement;
   fireEvent.click(within(rail).getByRole("button", { name }));
@@ -718,6 +727,28 @@ const CASES: readonly Case[] = [
     phone: true,
     seed: "harbour-kings-kit",
     steps: editRow(/^Hero, /),
+  },
+  // 0.7.0 Task 15: an empty group on the phone (the sheet's card, and its editor), no drag offered
+  {
+    // the sheet's strings are ruled for m-workspace; the card's "Empty" is GroupAdd's
+    state: "m-workspace",
+    board: "MobileGroup",
+    also: "GroupAdd",
+    region: "sheet",
+    phone: true,
+    seed: "harbour-kings-kit",
+    project: withEmptyGroup,
+    steps: () => undefined,
+  },
+  {
+    state: "m-kit-edit",
+    board: "MobileEdit",
+    also: "GroupEdit",
+    region: "sheet",
+    phone: true,
+    seed: "harbour-kings-kit",
+    project: withEmptyGroup,
+    steps: editRow("Group, empty"),
   },
   // Task 9: the first visit, Empty at 1440 and MobileStart on a phone
   { state: "first-visit", board: "Empty", region: "header", empty: true, steps: () => undefined },

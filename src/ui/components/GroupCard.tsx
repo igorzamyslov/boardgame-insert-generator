@@ -200,7 +200,11 @@ export function GroupCard({
         {chips}
       </div>
       {members.length === 0 ? (
-        <p class="gc-empty">Drag items here, or use Move to group… in an item.</p>
+        <p class="gc-empty">
+          {compact
+            ? "Use Move to group… in an item."
+            : "Drag items here, or use Move to group… in an item."}
+        </p>
       ) : (
         <ul class="gc-members">
           {members.map((m) => (
