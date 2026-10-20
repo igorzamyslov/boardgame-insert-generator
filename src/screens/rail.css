@@ -312,6 +312,50 @@
   padding-left: calc(var(--s-2) - 1.5px); /* its 1.5 px edge is the rest of G1's 2 px */
 }
 
+/*
+ * The group on the phone's sheet (G4): a frame with a 2 px rim of air, a compact header (a 14 px
+ * swatch in the group's neutral look, the name and "×4", the count on the right) and the members as
+ * compact rows indented under it, a 2 px --rule line on their left. No grips: the sheet has no drag.
+ */
+.gc--compact {
+  gap: 0;
+  padding: var(--s-2) 0;
+}
+
+.gc--compact .gc-head--compact {
+  padding: 0 var(--s-8) 0 var(--s-10);
+}
+
+.gc--compact .gc-head__title {
+  flex: 1 1 auto;
+  gap: var(--s-6);
+}
+
+.gc--compact .gc-head__title .k-row__name {
+  flex: 0 1 auto;
+}
+
+.gc--compact .gc-head__copies {
+  color: var(--muted);
+}
+
+/* The whole border, not its colour: the swatch's own is a var() the group has no value for. */
+.gc-head--compact .k-row__swatch--group {
+  border: 2px solid var(--muted-strong);
+  background: var(--sheet);
+}
+
+.gc--compact .gc-members {
+  gap: 0;
+  margin-left: var(--s-16);
+  border-left: 2px solid var(--rule);
+}
+
+.gc--compact .gc-member .k-row--compact {
+  padding: 0 var(--s-8) 0 var(--s-10);
+  border-radius: 0 var(--r-field) var(--r-field) 0;
+}
+
 /* An empty group's drop area (G3): dashed, in the muted words. */
 .gc-empty {
   margin: 0 var(--s-4) var(--s-4);
@@ -415,7 +459,8 @@
   box-shadow: inset 0 0 0 2px var(--warn);
 }
 
-.k-row--compact.is-culprit .k-row__swatch {
+.k-row--compact.is-culprit .k-row__swatch,
+.gc-head--compact[data-misfit="true"] .k-row__swatch {
   border-color: var(--warn);
   background: var(--warn);
 }

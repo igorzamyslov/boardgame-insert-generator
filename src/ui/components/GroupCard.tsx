@@ -121,7 +121,10 @@ export function GroupCard({
   const label = groupLabel(group, members.length);
   const name = group.name === "" ? DEFAULT_GROUP_NAME : group.name;
   const copies = group.copies ?? 1;
-  const line = groupLine({ items: members.length, trays: groupTrays?.length, layer, misfit });
+  // The sheet's header has room for one short line on the right: how many items, no trays or layer.
+  const line = compact
+    ? groupLine({ items: members.length, misfit })
+    : groupLine({ items: members.length, trays: groupTrays?.length, layer, misfit });
   const ids = members.map((m) => m.id);
   const enter = (id: string | null) => (): void => {
     setOn(id);
@@ -131,11 +134,19 @@ export function GroupCard({
     setOn(null);
     onLight?.(null);
   };
+  const title = (
+    <span class="gc-head__title">
+      <span class="k-row__name ellipsis" title={name}>
+        {name}
+      </span>
+      {copies > 1 ? <span class="gc-head__copies">{`×${copies}`}</span> : null}
+    </span>
+  );
   // The members' list has no name of its own: the frame and the header already say it, and a screen
   // reader would hear the card's label once more for each of them.
   return (
     <div
-      class="gc"
+      class={compact ? "gc gc--compact" : "gc"}
       role="group"
       aria-label={label}
       data-region="group-card"
@@ -144,11 +155,17 @@ export function GroupCard({
       <div class="k-rowwrap">
         <button
           type="button"
-          class={chips === undefined ? "k-row gc-head" : "k-row gc-head rail-row--wrap"}
+          class={[
+            "k-row gc-head",
+            compact ? "k-row--compact gc-head--compact" : "",
+            chips === undefined ? "" : "rail-row--wrap",
+          ]
+            .filter((x) => x !== "")
+            .join(" ")}
           aria-label={label}
           aria-describedby={lineId}
-          aria-pressed={pressed}
-          data-lit={lit ? "true" : undefined}
+          aria-pressed={compact ? undefined : pressed}
+          data-lit={lit && !compact ? "true" : undefined}
           data-misfit={misfit ? "true" : undefined}
           data-group-head={group.id}
           onClick={() => onEdit?.()}
@@ -157,20 +174,28 @@ export function GroupCard({
           onFocus={enter(null)}
           onBlur={leave}
         >
-          <IconTile size={36} tone="group">
-            <GroupGlyph size={17} />
-          </IconTile>
-          <span class="k-row__text">
-            <span class="gc-head__title">
-              <span class="k-row__name ellipsis" title={name}>
-                {name}
+          {compact ? (
+            <span class="k-row__swatch k-row__swatch--group" aria-hidden="true" />
+          ) : (
+            <IconTile size={36} tone="group">
+              <GroupGlyph size={17} />
+            </IconTile>
+          )}
+          {compact ? (
+            <>
+              {title}
+              <span class="k-row__meta ellipsis" id={lineId} title={line}>
+                {line}
               </span>
-              {copies > 1 ? <span class="gc-head__copies">{`×${copies}`}</span> : null}
+            </>
+          ) : (
+            <span class="k-row__text">
+              {title}
+              <span class="k-row__meta ellipsis" id={lineId} title={line}>
+                {line}
+              </span>
             </span>
-            <span class="k-row__meta ellipsis" id={lineId} title={line}>
-              {line}
-            </span>
-          </span>
+          )}
         </button>
         {chips}
       </div>

@@ -602,6 +602,39 @@ describe("ComponentList, groups", () => {
     expect(screen.getByRole("group", { name: "Player kit, 4 copies" })).toBeTruthy();
     expect(container.querySelectorAll(".gc-member .k-row--compact")).toHaveLength(3);
   });
+
+  it("gives the phone's header a swatch, the name, ×4 and '3 items' on the right, and no grips", () => {
+    const { container } = render(
+      <ComponentList compact components={items} groups={[kit]} {...handlers()} />,
+    );
+    const head = screen.getByRole("button", { name: "Player kit, 4 copies" });
+    expect(head.classList.contains("k-row--compact")).toBe(true);
+    expect(head.querySelector(".k-row__swatch--group")).not.toBeNull();
+    expect(head.querySelector(".k-tile")).toBeNull();
+    expect(head.querySelector(".gc-head__copies")?.textContent).toBe("×4");
+    expect(head.querySelector(".k-row__meta")?.textContent).toBe("3 items");
+    expect(head.hasAttribute("aria-pressed")).toBe(false);
+    expect(container.querySelector(".gc--compact")).not.toBeNull();
+    expect(container.querySelector(".gc-grip, [data-grip]")).toBeNull();
+  });
+
+  it("says 'Empty' and, for a tray that does not fit, 'Doesn't fit' on the phone's header", () => {
+    render(<ComponentList compact components={items} groups={[empty]} {...handlers()} />);
+    expect(screen.getByRole("button", { name: "Group, empty" }).textContent).toContain("Empty");
+    cleanup();
+    render(
+      <ComponentList
+        compact
+        components={items}
+        groups={[kit]}
+        culprits={new Set(["r"])}
+        {...handlers()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Player kit, 4 copies" }).textContent).toContain(
+      "Doesn't fit",
+    );
+  });
 });
 
 function well(componentId: string) {

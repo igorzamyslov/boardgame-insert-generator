@@ -138,6 +138,20 @@ describe("rail.css", () => {
     expect(empty).toMatch(/color:\s*var\(--muted\)/);
   });
 
+  it("draws the group on the phone's sheet as G4 does: a neutral 14 px swatch, members indented under a 2 px --rule line", () => {
+    expect(ruleFor(".gc--compact")).toMatch(/gap:\s*0/);
+    expect(ruleFor(".gc--compact")).toMatch(/padding:\s*var\(--s-2\) 0/);
+    const swatch = ruleFor(".gc-head--compact .k-row__swatch--group");
+    expect(swatch).toMatch(/border:\s*2px solid var\(--muted-strong\)/);
+    expect(swatch).toMatch(/background:\s*var\(--sheet\)/);
+    // the 14 px size and 2 px border are the compact swatch's own (kit.css)
+    expect(strip(kit)).toMatch(/\.k-row__swatch \{[^}]*width:\s*14px/);
+    const members = ruleFor(".gc--compact .gc-members");
+    expect(members).toMatch(/margin-left:\s*var\(--s-16\)/);
+    expect(members).toMatch(/border-left:\s*2px solid var\(--rule\)/);
+    expect(members).toMatch(/gap:\s*0/);
+  });
+
   it("keeps the grip from scrolling or selecting: a press on it is a drag", () => {
     const grip = ruleFor(".gc-grip");
     expect(grip).toMatch(/touch-action:\s*none/);
