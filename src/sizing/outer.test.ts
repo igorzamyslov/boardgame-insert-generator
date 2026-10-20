@@ -53,6 +53,9 @@ describe("rowsOf", () => {
     expect(rowsOf("rows2", [1, 2, 3, 4], 1)).toEqual([[1], [2, 3, 4]]);
     expect(rowsOf("rows2", [1, 2, 3, 4], 3)).toEqual([[1, 2, 3], [4]]);
     expect(rowsOf("strip", [1, 2, 3], 1)).toEqual([[1, 2, 3]]);
+    // columns: cut before each break (group-tray-fill spec §3 (b)); no breaks, one column.
+    expect(rowsOf("columns", [1, 2, 3, 4, 5], undefined, [1, 3])).toEqual([[1], [2, 3], [4, 5]]);
+    expect(rowsOf("columns", [1, 2])).toEqual([[1, 2]]);
   });
 });
 

@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { withGrowth } from "../../model/defaults";
 import type { Component, GrowthAxis } from "../../model/types";
 import { GrowthOptions, growthMaxLine } from "./GrowthOptions";
+import { ItemGroupingContext } from "./GroupRow";
+import type { ItemGrouping } from "./GroupRow";
 import { of } from "./test-editors";
 
 afterEach(cleanup);
@@ -87,5 +89,47 @@ describe("GrowthOptions: what Max means", () => {
       .closest(".ed-stack") as HTMLElement;
     expect(within(width).queryByText(HEIGHT)).toBeNull();
     expect(within(height).queryByText(FOOTPRINT)).toBeNull();
+  });
+});
+
+describe("GrowthOptions: Max in a group", () => {
+  const IN_KIT = "Fills the room left in Player kit's tray. The tray doesn't get bigger.";
+  const kit = { id: "g1", name: "Player kit", copies: 4 };
+  const grouping: ItemGrouping = {
+    group: kit,
+    groups: [kit],
+    onMoveTo: vi.fn(),
+    onNewGroup: vi.fn(),
+    onTakeOut: vi.fn(),
+    onEditGroup: vi.fn(),
+    onCopies: vi.fn(),
+  };
+
+  it("says Max fills the group's tray, for width, length and height", () => {
+    let c: Component = of("bulk");
+    for (const axis of ["w", "d", "h"] as GrowthAxis[]) {
+      c = withGrowth(c, axis, "max");
+    }
+    render(
+      <ItemGroupingContext.Provider value={grouping}>
+        <GrowthOptions component={c} index={0} onChange={vi.fn()} />
+      </ItemGroupingContext.Provider>,
+    );
+    for (const label of ["Extra width", "Extra length", "Extra height"]) {
+      expect(lineUnder(label)).toEqual([IN_KIT]);
+    }
+  });
+
+  it("keeps the stack axis of a deck as it was, and names no group outside one", () => {
+    const deck = withGrowth({ ...of("cards"), storage: "upright-long" as const }, "stack", "max");
+    render(
+      <ItemGroupingContext.Provider value={grouping}>
+        <GrowthOptions component={deck} index={0} onChange={vi.fn()} />
+      </ItemGroupingContext.Provider>,
+    );
+    expect(lineUnder("Room for expansions")).toEqual([FOOTPRINT]);
+    cleanup();
+    show(withGrowth(of("bulk"), "w", "max"));
+    expect(lineUnder("Extra width")).toEqual([FOOTPRINT]);
   });
 });

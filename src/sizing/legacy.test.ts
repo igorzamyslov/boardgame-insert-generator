@@ -102,7 +102,19 @@ describe("an ungrouped project sizes as it did in 0.6", () => {
 
   it("multi-block.json (cards with three decks, tokens with five kinds, minis, tiles, a custom well): the same, in every arrangement and split", () => {
     const { shot, requirements } = sizedNow(multiBlock);
-    expect(shot).toEqual(was["multi-block"]);
+    // 0.8.0 adds a third arrangement, columns (group-tray-fill spec §3 (b)), ranked after strip and
+    // rows2: 0.6's variants are all still there, the same and in the same order, with columns after.
+    const without = {
+      ...shot,
+      requirements: shot.requirements.map((r) => ({
+        ...r,
+        variants: r.variants.filter((v) => !v.id.includes("|columns|")),
+      })),
+    };
+    expect(without).toEqual(was["multi-block"]);
+    expect(shot.requirements.some((r) => r.variants.some((v) => v.id.includes("|columns|")))).toBe(
+      true,
+    );
     // The fixture does exercise rows2 and splits, or this test would prove nothing.
     const variants = requirements.flatMap((r) => r.variants);
     expect(variants.some((v) => v.id.includes("|rows2|"))).toBe(true);

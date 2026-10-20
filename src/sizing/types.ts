@@ -2,7 +2,8 @@
 // (The roadmap's import line also names `Settings`; it is unused here and would
 // fail `noUnusedLocals`, so it is left out.)
 // 0.7.0 added the optional FeatureReq.perSection (flat decks sharing one well), approved by the
-// controller; nothing else here changed.
+// controller; nothing else here changed. Group-tray-fill (spec §2, §3) added CompartmentReq.fill and
+// the `columns` arrangement with TrayPartReq.columnBreaks.
 import type { Access, CompartmentSpec, Side, TraySpec } from "../model/types";
 
 export interface FeatureReq {
@@ -27,6 +28,12 @@ export interface CompartmentReq {
   // How much more (mm) on each elastic axis: absent means as much as there is. Never Infinity, so a
   // requirement survives JSON; `max` is the absence of a cap.
   growth?: { w?: number; d?: number; h?: number };
+  // A group member's axis on Max (group-tray-fill spec §2): the well takes the slack its group tray
+  // already has on that axis and never makes the tray bigger. Such an axis is NOT elastic and has no
+  // cap, so the layout sees no growth room from it and the outer size is as with the axis Off; only
+  // realize (layoutAt) draws the well bigger: d as deep as its row, w with the slack the walls would
+  // take, h down to the tray's deepest floor.
+  fill?: { w?: true; d?: true; h?: true };
   minVolume?: number; // mm³; bulk: w·d·h must stay ≥ this
   maxHRatio?: number; // bulk: h ≤ maxHRatio × min(w, d)
   features: FeatureReq[];
@@ -38,10 +45,14 @@ export interface CompartmentReq {
 
 export interface TrayPartReq {
   trayKey: string; // "<group id ?? component id>:p<copy>:<part>" ("p0" without copies); part counts from 0 in each copy
-  arrangement: "strip" | "rows2";
-  compartments: CompartmentReq[]; // strip order; rows2: the first `rowBreak` in row 0, the rest in row 1; inside one
-  // member the compartments asking for a left or right cutout come first (cutsFirst)
+  arrangement: "strip" | "rows2" | "columns";
+  compartments: CompartmentReq[]; // strip order; rows2: the first `rowBreak` in row 0, the rest in row 1;
+  // columns: column after column from the left, each front to back; inside one member the
+  // compartments asking for a left or right cutout come first (cutsFirst)
   rowBreak?: number; // rows2 only: how many compartments the front row holds (1..n-1); absent = ceil(n/2)
+  // columns only (group-tray-fill spec §3 (b)): the index of each column's first compartment after
+  // the first column, ascending in 1..n-1 (columnBreaks); absent = one column
+  columnBreaks?: number[];
   rotatable: boolean;
 }
 
@@ -57,7 +68,7 @@ export interface TrayRequirement {
   componentIds: string[];
   access: Access; // the group's, or the item's own
   loose: boolean; // contains bulk, minis-bulk, tiles or a member in its bulk fallback (coverage rule)
-  variants: TrayVariant[]; // 1..8 per storage option, preferred first, fixed order
+  variants: TrayVariant[]; // 1..MAX_VARIANTS (9) per storage option, preferred first, fixed order
 }
 
 export interface OuterSize {

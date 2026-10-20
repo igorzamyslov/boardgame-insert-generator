@@ -1,7 +1,7 @@
 import { cutoutSides } from "./common";
 import { MAX_SPLITS } from "./constants";
 import type { CompartmentReq } from "./types";
-import { sum } from "./units";
+import { ceilU, maxOf, sum } from "./units";
 
 interface Indexed {
   c: CompartmentReq;
@@ -17,6 +17,7 @@ export function isOneMember(compartments: readonly CompartmentReq[]): boolean {
  * rows2 for the compartments of ONE member (an ungrouped item, or a part of a group holding one
  * member's blocks), as before 0.7.0: greedy by minW, largest first; row 0 holds ceil(n/2).
  * Returns row 0 then row 1. A part of several members keeps member order instead (`rows2Break`).
+ * Columns of one member walk this order too.
  */
 export function rows2Order(compartments: readonly CompartmentReq[]): CompartmentReq[] {
   const n = compartments.length;
@@ -65,6 +66,33 @@ export function rows2Break(compartments: readonly CompartmentReq[]): number {
     }
   }
   return best;
+}
+
+/**
+ * columns: where the ordered compartments start a new column (group-tray-fill spec §3 (b)), as the
+ * indices of each column's first compartment after the first column, ascending. The limit is the
+ * deepest compartment's minD: each compartment stacks front to back in the current column, a
+ * `divider` (mm) after the one before it, while the column stays within the limit, else it starts
+ * the next column to the right. Greedy and in order, as rows2Break is: the order given (member
+ * order, or one member's rows2Order) is kept, nothing is moved. Compared in whole 0.01 mm units, as the layout is built.
+ */
+export function columnBreaks(compartments: readonly CompartmentReq[], divider: number): number[] {
+  const limit = maxOf(compartments.map((c) => ceilU(c.minD)));
+  const gap = ceilU(divider);
+  const breaks: number[] = [];
+  let depth = 0;
+  compartments.forEach((c, i) => {
+    const d = ceilU(c.minD);
+    if (i > 0 && depth + gap + d <= limit) {
+      depth += gap + d;
+      return;
+    }
+    if (i > 0) {
+      breaks.push(i);
+    }
+    depth = d;
+  });
+  return breaks;
 }
 
 /**

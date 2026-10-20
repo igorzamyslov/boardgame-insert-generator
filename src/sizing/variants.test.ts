@@ -20,6 +20,11 @@ function req(contents: string, minW: number, componentId = "x"): CompartmentReq 
   };
 }
 
+/** A compartment `minD` deep (minW 10), for the columns arrangement. */
+function deep(contents: string, minD: number, componentId = "x"): CompartmentReq {
+  return { ...req(contents, 10, componentId), minD };
+}
+
 function opt(id: string, blocks: number): StorageOption {
   return { id, blocks: Array.from({ length: blocks }, (_, i) => [req(`${id}${i}`, 10)]) };
 }
@@ -183,6 +188,110 @@ describe("buildVariants", () => {
     expect(own.w).toBeLessThan(halved.w);
   });
 
+  it("offers columns when a column stacks two or more, ranked after rows2, and records the breaks", () => {
+    // The kit's depths: [66.5] [25 | 25] [25 | 31] under a 1.2 mm divider, three members of a
+    // group, so the columns walk member order.
+    const blocks = [
+      [deep("deck", 66.5, "cards")],
+      [deep("wood", 25, "res"), deep("stone", 25, "res"), deep("grain", 25, "res")],
+      [deep("hero", 31, "hero")],
+    ];
+    const variants = buildVariants({
+      key: "k",
+      options: [{ id: "A", blocks }],
+      copies: 2,
+      divider: 1.2,
+    });
+    // rows2 and columns split in three, and rows2 in two, leave a tray of one well: none.
+    expect(variants.map((v) => v.id)).toEqual([
+      "A|strip|split1",
+      "A|strip|split2",
+      "A|rows2|split1",
+      "A|strip|split3",
+      "A|columns|split1",
+    ]);
+    const columns = at(
+      variants.filter((v) => v.id === "A|columns|split1"),
+      0,
+    );
+    for (const part of columns.parts) {
+      expect(part.arrangement).toBe("columns");
+      expect(part.compartments.map((c) => c.contents)).toEqual([
+        "deck",
+        "wood",
+        "stone",
+        "grain",
+        "hero",
+      ]);
+      expect(part.columnBreaks).toEqual([1, 3]);
+      expect(
+        rowsOf(part.arrangement, part.compartments, part.rowBreak, part.columnBreaks).map(
+          (c) => c.length,
+        ),
+      ).toEqual([1, 2, 2]);
+    }
+    // Split in two, a tray whose columns stack nothing is a strip; the variant is columns by the
+    // other tray.
+    const wide = (contents: string): CompartmentReq => ({
+      ...deep(contents, 10, contents),
+      minW: 50,
+    });
+    const mixed = [
+      deep("x", 30, "x"),
+      deep("y", 10, "y"),
+      deep("z", 10, "z"),
+      wide("a"),
+      wide("b"),
+      wide("c"),
+      wide("d"),
+      wide("e"),
+    ];
+    const split = at(
+      buildVariants({
+        key: "k",
+        options: [{ id: "A", blocks: mixed.map((c) => [c]) }],
+        copies: 1,
+        divider: 1.2,
+      }).filter((v) => v.id === "A|columns|split2"),
+      0,
+    );
+    expect(split.parts.map((p) => p.arrangement)).toEqual(["columns", "strip"]);
+    expect(at(split.parts, 0).columnBreaks).toEqual([1, 3]);
+  });
+
+  it("walks one member's own wells in its rows2 order (balanced by width) when it stands them in columns", () => {
+    // One item, minW 50 40 30 20 10: rows2Order is a, d, e | b, c. Depths stack d+e and b+c.
+    const one = (contents: string, minW: number, minD: number): CompartmentReq => ({
+      ...req(contents, minW),
+      minD,
+    });
+    const blocks = [
+      [one("a", 50, 40)],
+      [one("b", 40, 15)],
+      [one("c", 30, 15)],
+      [one("d", 20, 15)],
+      [one("e", 10, 15)],
+    ];
+    const part = at(
+      at(
+        buildVariants({ key: "k", options: [{ id: "A", blocks }], copies: 1, divider: 1.2 }).filter(
+          (v) => v.id === "A|columns|split1",
+        ),
+        0,
+      ).parts,
+      0,
+    );
+    expect(part.compartments.map((c) => c.contents)).toEqual(["a", "d", "e", "b", "c"]);
+    expect(part.columnBreaks).toEqual([1, 3]);
+  });
+
+  it("offers no columns where none stacks: it would be the strip", () => {
+    const ids = buildVariants({ key: "k", options: [opt("A", 4)], copies: 1, divider: 1.2 }).map(
+      (v) => v.id,
+    );
+    expect(ids.some((id) => id.includes("|columns|"))).toBe(false);
+  });
+
   it("lays one member's blocks out as before 0.7.0: rows2 balanced by width, cuts along a row first, no row break", () => {
     const blocks = [[req("a", 50)], [req("b", 40)], [req("c", 30)], [req("d", 20)], [req("e", 10)]];
     const variants = buildVariants({ key: "k", options: [{ id: "A", blocks }], copies: 1 });
@@ -198,10 +307,10 @@ describe("buildVariants", () => {
     expect(part.rowBreak).toBeUndefined();
   });
 
-  it("returns at most 8 variants per storage option, best first", () => {
+  it("returns at most 9 variants per storage option, best first", () => {
     const options = ["A", "B", "C", "D", "E", "F", "G", "H", "I"].map((id) => opt(id, 3));
     const ids = buildVariants({ key: "k", options, copies: 4 }).map((v) => v.id);
-    expect(ids.length).toBeLessThanOrEqual(8 * options.length);
+    expect(ids.length).toBeLessThanOrEqual(9 * options.length);
     expect(ids.slice(0, 9)).toEqual([
       "A|strip|split1",
       "B|strip|split1",

@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   blockWeight,
+  columnBreaks,
   cutsFirst,
   isOneMember,
   rows2Break,
@@ -81,6 +82,60 @@ describe("rows2Break", () => {
             );
           const best = Math.min(...ws.slice(1).map((_, k) => widest(k + 1)));
           expect(widest(j)).toBe(best);
+        },
+      ),
+    );
+  });
+});
+
+describe("columnBreaks", () => {
+  const well = (contents: string, minD: number): CompartmentReq => req(contents, 10, minD);
+
+  it("stacks the kit's wells under its deepest one: [deck] [wood | stone] [grain | hero]", () => {
+    const kit = [
+      well("deck", 66.5),
+      well("wood", 25),
+      well("stone", 25),
+      well("grain", 25),
+      well("hero", 31),
+    ];
+    // 25 + 1.2 + 25 = 51.2 fits under 66.5, a third bin (77.4) does not; 25 + 1.2 + 31 = 57.2.
+    expect(columnBreaks(kit, 1.2)).toEqual([1, 3]);
+  });
+
+  it("counts the divider between stacked wells against the limit", () => {
+    const list = [well("deep", 50), well("a", 25), well("b", 25)];
+    expect(columnBreaks(list, 0)).toEqual([1]);
+    expect(columnBreaks(list, 1.2)).toEqual([1, 2]);
+  });
+
+  it("gives every well its own column when none stacks, and one column for one well", () => {
+    expect(columnBreaks([well("a", 10), well("b", 10), well("c", 10)], 1)).toEqual([1, 2]);
+    expect(columnBreaks([well("a", 10)], 1)).toEqual([]);
+  });
+
+  it("keeps order: columns are contiguous runs, each within the deepest well's depth", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 1, max: 100 }), { minLength: 1, maxLength: 9 }),
+        fc.integer({ min: 0, max: 3 }),
+        (ds, divider) => {
+          const list = ds.map((d, i) => well(`c${i}`, d));
+          const breaks = columnBreaks(list, divider);
+          const bounds = [0, ...breaks, list.length];
+          const limit = Math.max(...ds);
+          bounds.slice(1).forEach((end, k) => {
+            const start = bounds[k] ?? 0;
+            expect(end).toBeGreaterThan(start);
+            const col = ds.slice(start, end);
+            const depth = col.reduce((a, b) => a + b, 0) + divider * (col.length - 1);
+            expect(depth).toBeLessThanOrEqual(limit);
+            // Greedy: the next well would not have fitted in this column.
+            const next = ds[end];
+            if (next !== undefined) {
+              expect(depth + divider + next).toBeGreaterThan(limit);
+            }
+          });
         },
       ),
     );

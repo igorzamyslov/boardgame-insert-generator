@@ -643,6 +643,8 @@ describe("size", () => {
         "upright-long+bulk-shallow|strip|split2",
         "upright-long+bulk-shallow|rows2|split1",
         "upright-long+bulk-shallow|strip|split3",
+        // The fallback bins stack in a column beside the deck (group-tray-fill spec §3 (b)).
+        "upright-long+bulk-shallow|columns|split1",
       ]);
       expect(req.loose).toBe(true);
       expect(notices.map((n) => [n.level, n.path])).toEqual([["info", "/components/1"]]);

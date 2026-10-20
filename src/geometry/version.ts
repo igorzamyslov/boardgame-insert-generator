@@ -126,8 +126,20 @@ import type { Semver } from "../model/version";
  * after still fit the same wells and trays. A part whose members stand on different floors
  * (`merged.flipped`, printed upside down), has a groove or lip, or has members with different
  * chamfers is still built from its members as before.
+ *
+ * 0.8.3 lets a group member's Max fill its tray (group-tray-fill spec §2): in a group, a well on
+ * Max in length, width or height is drawn as deep as its row, takes the width slack the walls
+ * would, and goes down to the tray's deepest floor, where it used to ask the tray to grow. Wells
+ * change, outer size and fit do not (the layout sees no room for it), so it is a PATCH, as 0.5.1
+ * was.
+ *
+ * 0.8.4 adds a third tray arrangement, columns (group-tray-fill spec §3 (b)): wells stacked front
+ * to back in columns under the deepest well's depth, the columns side by side. A new optional
+ * tray shape the layout may pick: every tray spec planTray accepted before it still accepts and
+ * builds the same, and stored plans stay valid (the arrangement is not stored; a plan made again
+ * may come out narrower). A PATCH, as 0.8.3 was.
  */
-export const GEOMETRY_VERSION = "0.8.2";
+export const GEOMETRY_VERSION = "0.8.4";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

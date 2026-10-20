@@ -18,7 +18,7 @@ import type { CutAsk, CutPlacement, PlacedCut } from "./cutouts";
 import { chamferMinimumsU, minLayoutU, requestedWalls, wallFor } from "./outer";
 import type { CutWalls, MinLayout } from "./outer";
 import { CutFitError } from "./errors";
-import { UNBOUNDED_U, growthCapU, rowDepthCapU } from "./growth";
+import { UNBOUNDED_U, columnWide, columnWidthCapU, growthCapU, rowDepthCapU } from "./growth";
 import type { CompartmentReq, OuterSize, RealizeOptions, RealizedTray, TrayPartReq } from "./types";
 import { ceilU, fillCapped, floorU, fromU, sum, toU } from "./units";
 
@@ -404,15 +404,19 @@ function wallCutouts(
 /**
  * The walls and dividers the placed cuts pass through (CutWalls), by the rows of `min` (the items
  * are its rows, in order): the end wall or the front or back a cut leaves through (and the dividers
- * between rows it crosses on the way), the divider between twins.
+ * between rows it crosses on the way), the divider between twins. Columns the same turned (spec
+ * group-tray-fill §3 (b)): a column's front or back end wall, the left or right wall and the
+ * dividers between columns crossed on the way.
  */
-function cutWallsOf(placed: readonly PlacedCut[], min: MinLayout): CutWalls {
+function cutWallsOf(placed: readonly PlacedCut[], min: MinLayout, columns: boolean): CutWalls {
   const rows = min.rows;
+  const one = (): boolean[] => [false];
+  const each = (): boolean[] => rows.map(() => false);
   const walls: CutWalls = {
-    left: rows.map(() => false),
-    right: rows.map(() => false),
-    front: false,
-    back: false,
+    left: columns ? one() : each(),
+    right: columns ? one() : each(),
+    front: columns ? each() : one(),
+    back: columns ? each() : one(),
     dividers: rows.map((row) => row.map(() => false)),
     rows: rows.slice(1).map(() => false),
   };
@@ -422,38 +426,43 @@ function cutWallsOf(placed: readonly PlacedCut[], min: MinLayout): CutWalls {
       walls.rows[r] = true;
     }
   };
+  // Along a line: its start (left; a column's front) and end (right; back). Across: the sides past
+  // the first and the last line (front and back; for columns left and right).
+  const [start, end, before, after]: readonly [Side, Side, Side, Side] = columns
+    ? ["front", "back", "left", "right"]
+    : ["left", "right", "front", "back"];
   for (const cut of placed) {
-    const r = starts.filter((start) => start <= cut.owner).length - 1;
+    const r = starts.filter((s) => s <= cut.owner).length - 1;
     const i = cut.owner - (starts[r] ?? 0);
     const row = walls.dividers[r] ?? [];
     const through = cut.to !== "twin";
     switch (cut.side) {
-      case "left":
+      case start:
         if (through) {
-          walls.left[r] = true;
+          walls[start][columns ? r : r] = true;
         } else {
           row[i - 1] = true;
         }
         break;
-      case "right":
+      case end:
         if (through) {
-          walls.right[r] = true;
+          walls[end][r] = true;
         }
-        // Into its twin, or out through the row's end wall (the last entry has no divider to widen,
-        // but requestedWalls sets it the same way, so settleRoom's comparison stays exact).
+        // Into its twin, or out through the line's end wall (the last entry has no divider to
+        // widen, but requestedWalls sets it the same way, so settleRoom's comparison stays exact).
         row[through ? row.length - 1 : i] = true;
         break;
-      case "front":
+      case before:
         if (through) {
-          walls.front = true;
+          walls[before][0] = true;
           cross(0, r);
         } else {
           cross(r - 1, r);
         }
         break;
-      case "back":
+      case after:
         if (through) {
-          walls.back = true;
+          walls[after][0] = true;
           cross(r, rows.length - 1);
         } else {
           cross(r, r + 1);
@@ -486,28 +495,54 @@ export function oneWallOf(farCut: boolean, nearCut: boolean): "back" | "front" |
   return nearCut ? null : "front";
 }
 
+/** What a placement pass is given: the outer, how much the stack forces, the walls to keep clear. */
+interface Frame {
+  W: number;
+  D: number;
+  forced: { w: number; d: number };
+  cut: CutWalls | null;
+}
+
 /**
- * Realizes `part` in an outer of W × D × H units (at least `min`), with the walls and dividers its
- * cuts pass through. Throws CutFitError when a compartment gets no wall cutout.
+ * How much slack the walls and dividers may still take (thicker walls, not finger room). Growth
+ * caps are maximums, so they round down; minimums (wall, divider, pocket) round up. With `oneWall`
+ * the slack goes to one outer wall instead (oneWallOf), so nothing thickens twice.
  */
-function layoutAt(
-  part: TrayPartReq,
-  min: MinLayout,
-  [W, D, H]: readonly [number, number, number],
-  settings: Settings,
-  // How much of the room the stack asks for (opts.stackMin) the contents take beyond their cap.
-  forced: { w: number; d: number } = { w: 0, d: 0 },
-  // `oneWall` only: the walls a finger cut passes through (or may), which must not take the slack.
-  cut: CutWalls | null = null,
-): { tray: RealizedTray; walls: CutWalls } {
-  const { wall, divider, floor, rows, room } = min;
-  // How much slack a wall or divider may still take (thicker walls, not finger room). Growth caps
-  // are maximums, so they round down; minimums (wall, divider, pocket) round up.
-  // With `oneWall` the slack goes to one outer wall instead (below), so nothing thickens twice.
-  const wallAbsorb = settings.oneWall ? 0 : Math.max(0, floorU(settings.wallAbsorb));
+function wallAbsorbU(settings: Settings): number {
+  return settings.oneWall ? 0 : Math.max(0, floorU(settings.wallAbsorb));
+}
+
+/**
+ * Elastic lines (rows in depth, columns in width) take `slack` as far as their contents may grow
+ * (`caps`, growth) beyond what the stack asks of the tray (`forced`): each line's share.
+ */
+function elasticShares(slack: number, caps: readonly number[], forced: number): number[] {
+  return fillCapped(
+    Math.min(slack, withForced(caps, forced).total),
+    caps.map((cap) => (cap > 0 ? cap + forced : 0)),
+  );
+}
+
+/**
+ * Where the slack left for the outer walls along an axis goes in front of the first line (or the
+ * left of the first compartment): half, or with `oneWall` all or none of it (oneWallOf; `far` and
+ * `near` say whether a cut goes through the far and the near wall).
+ */
+function nearShare(slack: number, settings: Settings, far: boolean, near: boolean): number {
+  const one = settings.oneWall ? oneWallOf(far, near) : null;
+  return one === "back" ? 0 : one === "front" ? slack : Math.floor(slack / 2);
+}
+
+/** The rows' wells (strip, rows2), in order. */
+function placeRows(min: MinLayout, frame: Frame, settings: Settings): Placed[] {
+  const { W, D, forced, cut } = frame;
+  const { wall, divider, rows, room } = min;
+  const wallAbsorb = wallAbsorbU(settings);
   const dividerAbsorb = wallAbsorb;
   const innerW = W - 2 * wall;
   const innerD = D - 2 * wall;
+  const roomFront = room.front[0] ?? 0;
+  const roomBack = room.back[0] ?? 0;
 
   // Y: elastic rows → thicker walls/dividers (wallAbsorb) → the rest to the walls. Never an empty
   // pocket: slack that reaches no component's contents is not growth (spec §4).
@@ -515,13 +550,13 @@ function layoutAt(
   const rowDepths = min.rowDepths.slice();
   // Dividers between rows a finger cut passes through are thicker by the divider room too.
   const rowGapAfter = (i: number): number => min.rowGaps[i] ?? divider;
-  let slackY = innerD - room.front - room.back - sum(rowDepths) - sum(min.rowGaps.slice(0, -1));
+  let slackY = innerD - roomFront - roomBack - sum(rowDepths) - sum(min.rowGaps.slice(0, -1));
   // Elastic rows take it as far as their contents may grow (growth) beyond what the stack asks of
   // the tray, the rest goes on.
-  const rowCaps = rows.map((row) => rowDepthCapU(row));
-  const shares = fillCapped(
-    Math.min(slackY, withForced(rowCaps, forced.d).total),
-    rowCaps.map((cap) => (cap > 0 ? cap + forced.d : 0)),
+  const shares = elasticShares(
+    slackY,
+    rows.map((row) => rowDepthCapU(row)),
+    forced.d,
   );
   rowDepths.forEach((_, r) => {
     rowDepths[r] = (rowDepths[r] ?? 0) + (shares[r] ?? 0);
@@ -534,10 +569,9 @@ function layoutAt(
   ]);
   slackY -= sum(yExtra);
   // One wall takes all of it: the back one unless a cut goes through it, else the front.
-  const oneY = settings.oneWall ? oneWallOf(cut?.back === true, cut?.front === true) : null;
-  const frontY = oneY === "back" ? 0 : oneY === "front" ? slackY : Math.floor(slackY / 2);
+  const frontY = nearShare(slackY, settings, cut?.back[0] === true, cut?.front[0] === true);
   const rowYs: number[] = [];
-  let y = wall + room.front + (yExtra[0] ?? 0) + frontY;
+  let y = wall + roomFront + (yExtra[0] ?? 0) + frontY;
   rows.forEach((_, i) => {
     rowYs.push(y);
     y += rowDepths[i] ?? 0;
@@ -564,10 +598,10 @@ function layoutAt(
     let spacerAt = -1;
     const elastic = row.flatMap((c, i) => (c.elastic.w && c.spacerAxis !== "w" ? [i] : []));
     if (elastic.length > 0) {
-      const caps = elastic.map((i) => growthCapU(row[i] as CompartmentReq, "w"));
-      const shares = fillCapped(
-        Math.min(slack, withForced(caps, forced.w).total),
-        caps.map((cap) => (cap > 0 ? cap + forced.w : 0)),
+      const shares = elasticShares(
+        slack,
+        elastic.map((i) => growthCapU(row[i] as CompartmentReq, "w")),
+        forced.w,
       );
       elastic.forEach((i, k) => {
         growth[i] = shares[k] ?? 0;
@@ -589,6 +623,19 @@ function layoutAt(
         slack -= take;
       }
     }
+    // Wells filling in width (group Max, spec §2) take what would otherwise go to the walls,
+    // evenly. The row's width was decided without them, so this is slack the tray already has.
+    const filling = row.flatMap((c, i) => (c.fill?.w === true ? [i] : []));
+    if (filling.length > 0 && slack > 0) {
+      const shares = fillCapped(
+        slack,
+        filling.map(() => slack),
+      );
+      filling.forEach((i, k) => {
+        growth[i] = (growth[i] ?? 0) + (shares[k] ?? 0);
+      });
+      slack -= sum(shares);
+    }
     const xExtra = fillCapped(slack, [
       wallAbsorb,
       ...row.slice(1).map(() => dividerAbsorb),
@@ -596,13 +643,15 @@ function layoutAt(
     ]);
     slack -= sum(xExtra);
     // One wall takes all of it: the right one unless a cut goes through it, else the left.
-    const oneX = settings.oneWall ? oneWallOf(cut?.right[r] === true, cut?.left[r] === true) : null;
-    const leftX = oneX === "back" ? 0 : oneX === "front" ? slack : Math.floor(slack / 2);
+    const leftX = nearShare(slack, settings, cut?.right[r] === true, cut?.left[r] === true);
     let x = wall + roomLeft + (xExtra[0] ?? 0) + leftX;
     row.forEach((req, i) => {
       const w = (widths[i] ?? 0) + (growth[i] ?? 0);
-      const d = req.elastic.d ? rowDepth : ceilU(req.minD);
-      const top = req.elastic.d ? rowY : rowY + Math.floor((rowDepth - d) / 2);
+      // A well filling in depth (group Max, spec §2) is as deep as its row from the row's top, as an
+      // elastic one is; the row's depth was decided without it.
+      const deep = req.elastic.d || req.fill?.d === true;
+      const d = deep ? rowDepth : ceilU(req.minD);
+      const top = deep ? rowY : rowY + Math.floor((rowDepth - d) / 2);
       placed.push({
         req,
         alloc: { x, y: top, w, d },
@@ -614,8 +663,159 @@ function layoutAt(
       }
     });
   });
+  return placed;
+}
 
-  const items = placed.map((p) => ({ ...p, depth: contentDepth(p.req, p.alloc, H, floor) }));
+/**
+ * The columns' wells (group-tray-fill spec §3 (b)), column after column from the left, each front to
+ * back: the rows' pass with the axes swapped per line, sharing its steps rather than turning the
+ * part (its cut and scoop sides and spacer axis would all have to turn and back).
+ * X: elastic columns (columnWidthCapU) → columns with a well filling in width, evenly → thicker
+ * walls/dividers (wallAbsorb) → the rest to the side walls. A well that grows loose in width or
+ * fills it takes its column's width; any other is centred in it, the spare beside it wall.
+ * Y, per column: elastic wells → wells filling in depth, evenly → thicker walls/dividers → the
+ * rest to the front and back walls. No spacer: a deck's spare width in a column stays wall.
+ */
+function placeColumns(min: MinLayout, frame: Frame, settings: Settings): Placed[] {
+  const { W, D, forced, cut } = frame;
+  const { wall, divider, rows: columns, room } = min;
+  const wallAbsorb = wallAbsorbU(settings);
+  const dividerAbsorb = wallAbsorb;
+  const innerW = W - 2 * wall;
+  const innerD = D - 2 * wall;
+  const roomLeft = room.left[0] ?? 0;
+  const roomRight = room.right[0] ?? 0;
+
+  const columnWidths = min.columnWidths.slice();
+  const columnGapAfter = (k: number): number => min.rowGaps[k] ?? divider;
+  let slackX = innerW - roomLeft - roomRight - sum(columnWidths) - sum(min.rowGaps.slice(0, -1));
+  const shares = elasticShares(
+    slackX,
+    columns.map((column) => columnWidthCapU(column)),
+    forced.w,
+  );
+  slackX -= sum(shares);
+  // Columns with a well filling in width (group Max, spec §2) take what would otherwise go to the
+  // walls, evenly: slack the tray already has.
+  const filling = columns.flatMap((column, k) =>
+    column.some((c) => c.fill?.w === true) ? [k] : [],
+  );
+  const fills =
+    filling.length > 0 && slackX > 0
+      ? fillCapped(
+          slackX,
+          filling.map(() => slackX),
+        )
+      : [];
+  slackX -= sum(fills);
+  columnWidths.forEach((_, k) => {
+    const filled = filling.indexOf(k);
+    columnWidths[k] =
+      (columnWidths[k] ?? 0) + (shares[k] ?? 0) + (filled < 0 ? 0 : (fills[filled] ?? 0));
+  });
+  const xExtra = fillCapped(slackX, [
+    wallAbsorb,
+    ...columns.slice(1).map(() => dividerAbsorb),
+    wallAbsorb,
+  ]);
+  slackX -= sum(xExtra);
+  // One wall takes all of it: the right one unless a cut goes through it, else the left.
+  const leftX = nearShare(slackX, settings, cut?.right[0] === true, cut?.left[0] === true);
+  const columnXs: number[] = [];
+  let x = wall + roomLeft + (xExtra[0] ?? 0) + leftX;
+  columns.forEach((_, k) => {
+    columnXs.push(x);
+    x += columnWidths[k] ?? 0;
+    if (k < columns.length - 1) {
+      x += columnGapAfter(k) + (xExtra[k + 1] ?? 0);
+    }
+  });
+
+  const placed: Placed[] = [];
+  columns.forEach((column, k) => {
+    const columnX = columnXs[k] ?? wall;
+    const columnWidth = columnWidths[k] ?? 0;
+    const depths = min.depths[k] ?? [];
+    const growth = column.map(() => 0);
+    const roomFront = room.front[k] ?? 0;
+    const roomBack = room.back[k] ?? 0;
+    // Dividers a finger cut passes through are thicker by the divider room (minLayoutU).
+    const gaps = min.gaps[k] ?? [];
+    const gapAfter = (i: number): number => gaps[i] ?? divider;
+    let slack = innerD - roomFront - roomBack - sum(depths) - sum(gaps.slice(0, -1));
+    const elastic = column.flatMap((c, i) => (c.elastic.d ? [i] : []));
+    const grown = elasticShares(
+      slack,
+      elastic.map((i) => growthCapU(column[i] as CompartmentReq, "d")),
+      forced.d,
+    );
+    elastic.forEach((i, j) => {
+      growth[i] = grown[j] ?? 0;
+    });
+    slack -= sum(grown);
+    // Wells filling in depth take the column's spare depth, evenly (group Max, spec §2).
+    const deep = column.flatMap((c, i) => (c.fill?.d === true ? [i] : []));
+    if (deep.length > 0 && slack > 0) {
+      const more = fillCapped(
+        slack,
+        deep.map(() => slack),
+      );
+      deep.forEach((i, j) => {
+        growth[i] = (growth[i] ?? 0) + (more[j] ?? 0);
+      });
+      slack -= sum(more);
+    }
+    const yExtra = fillCapped(slack, [
+      wallAbsorb,
+      ...column.slice(1).map(() => dividerAbsorb),
+      wallAbsorb,
+    ]);
+    slack -= sum(yExtra);
+    // One wall takes all of it: the back one unless a cut goes through it, else the front.
+    const frontY = nearShare(slack, settings, cut?.back[k] === true, cut?.front[k] === true);
+    let y = wall + roomFront + (yExtra[0] ?? 0) + frontY;
+    column.forEach((req, i) => {
+      const d = (depths[i] ?? 0) + (growth[i] ?? 0);
+      const wide = columnWide(req);
+      const w = wide ? columnWidth : ceilU(req.minW);
+      const left = wide ? columnX : columnX + Math.floor((columnWidth - w) / 2);
+      placed.push({ req, alloc: { x: left, y, w, d }, spacer: 0 });
+      y += d;
+      if (i < column.length - 1) {
+        y += gapAfter(i) + (yExtra[i + 1] ?? 0);
+      }
+    });
+  });
+  return placed;
+}
+
+/**
+ * Realizes `part` in an outer of W × D × H units (at least `min`), with the walls and dividers its
+ * cuts pass through. Throws CutFitError when a compartment gets no wall cutout.
+ */
+function layoutAt(
+  part: TrayPartReq,
+  min: MinLayout,
+  [W, D, H]: readonly [number, number, number],
+  settings: Settings,
+  // How much of the room the stack asks for (opts.stackMin) the contents take beyond their cap.
+  forced: { w: number; d: number } = { w: 0, d: 0 },
+  // `oneWall` only: the walls a finger cut passes through (or may), which must not take the slack.
+  cut: CutWalls | null = null,
+): { tray: RealizedTray; walls: CutWalls } {
+  const { floor } = min;
+  const columns = part.arrangement === "columns";
+  const frame: Frame = { W, D, forced, cut };
+  const placed = columns ? placeColumns(min, frame, settings) : placeRows(min, frame, settings);
+
+  const sized = placed.map((p) => ({ ...p, depth: contentDepth(p.req, p.alloc, H, floor) }));
+  // A well filling in height (group Max, spec §2) goes down to the tray's deepest floor: the least
+  // floorZ of the wells that do not fill. Never shallower than its own content depth. The tray's
+  // height was decided without it, so this is depth the tray already has.
+  const deepest = Math.max(0, ...sized.filter((p) => p.req.fill?.h !== true).map((p) => p.depth));
+  const items = sized.map((p) =>
+    p.req.fill?.h === true ? { ...p, depth: Math.max(p.depth, deepest) } : p,
+  );
   const { byOwner: cuts, placed: cutsPlaced } = wallCutouts(items, {
     trayKey: part.trayKey,
     W,
@@ -647,7 +847,7 @@ function layoutAt(
   });
   // The base (unlipped) wall, rounded up to 0.01 mm like every other TraySpec length.
   const tray = { wall: fromU(ceilU(wallFor(settings, false))), compartments, spacers };
-  return { tray, walls: cutWallsOf(cutsPlaced, min) };
+  return { tray, walls: cutWallsOf(cutsPlaced, min, columns) };
 }
 
 const layouts = new WeakMap<TrayPartReq, WeakMap<Settings, Map<string, MinLayout>>>();
@@ -687,8 +887,8 @@ function unionOf(a: CutWalls, b: CutWalls): CutWalls {
   return {
     left: or(a.left, b.left),
     right: or(a.right, b.right),
-    front: a.front || b.front,
-    back: a.back || b.back,
+    front: or(a.front, b.front),
+    back: or(a.back, b.back),
     dividers: a.dividers.map((row, r) => or(row, b.dividers[r] ?? [])),
     rows: or(a.rows, b.rows),
   };
@@ -772,8 +972,8 @@ export function outerCutSides(
   return {
     left: walls.left.some(Boolean),
     right: walls.right.some(Boolean),
-    front: walls.front,
-    back: walls.back,
+    front: walls.front.some(Boolean),
+    back: walls.back.some(Boolean),
   };
 }
 
