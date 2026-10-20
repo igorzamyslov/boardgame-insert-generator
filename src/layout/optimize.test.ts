@@ -472,14 +472,21 @@ describe("optimize", () => {
     const c1 = comp({ minW: 50, minD: 40, minH: 20, contents: "k1" });
     const one = variant("one", [part("k:p0:0", [c0, c1])]);
     const split = variant("split", [part("k:p0:0", [c0]), part("k:p0:1", [c1])]);
-    const splitOnly = makeInput([req("k", [split])]);
+    // 35 mm of height holds one 20 mm tray, not two: the split trays stand side by side, so
+    // k:p0:1 has a leaf of its own to be pinned to. In a taller box the search keeps one item's
+    // trays in one stack (`apart`), the whole layout one leaf at the root path "", where a pin
+    // needs the layout it came from (resolveLocks: `singleLeaf`, `levelOf`).
+    const box = { innerHeight: 35 };
+    const splitOnly = makeInput([req("k", [split])], { box });
     const base = optimize(splitOnly, 1, 1000).layout;
     const t = base?.trays.find((x) => x.key === "k:p0:1");
     expect(t).toBeDefined();
     if (!t) {
       return;
     }
+    expect(t.path).not.toBe("");
     const both = makeInput([req("k", [one, split])], {
+      box,
       locks: [{ kind: "position", trayKey: "k:p0:1", path: t.path, rotated: t.rotated }],
     });
     const r = optimize(both, 1, 1500);
