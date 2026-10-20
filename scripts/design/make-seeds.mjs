@@ -84,6 +84,39 @@ try {
   }
 
   /**
+   * R12's definition of the kit (the group's copies and access, its members in order, then Market
+   * deck and Hex tiles), and of the loose seed (the same five items, no group, G3's list order).
+   * Returns what is wrong, or null.
+   */
+  function kitDefinitionProblem(project, loose) {
+    const names = project.components.map((c) => c.name).join(", ");
+    if (loose) {
+      const want = "Market deck, Starter deck, Resources, Hero, Hex tiles";
+      if ((project.groups ?? []).length > 0) {
+        return "the loose kit has a group";
+      }
+      return names === want ? null : `items are ${names}`;
+    }
+    const groups = project.groups ?? [];
+    const group = groups[0];
+    if (groups.length !== 1 || group === undefined) {
+      return `${groups.length} groups`;
+    }
+    const members = group.memberIds
+      .map((id) => project.components.find((c) => c.id === id)?.name)
+      .join(", ");
+    if (group.name !== "Player kit" || group.copies !== 4 || group.access !== "often") {
+      return `group is ${group.name} x${group.copies}, ${group.access}`;
+    }
+    if (members !== "Starter deck, Resources, Hero") {
+      return `members are ${members}`;
+    }
+    return names === "Starter deck, Resources, Hero, Market deck, Hex tiles"
+      ? null
+      : `items are ${names}`;
+  }
+
+  /**
    * G1's arrangement (R12): one layer, six trays, the four "Player kit 1…4" trays on one x, and
    * Market deck and Hex tiles in the other column (starting where the kit trays end, give or take
    * the 3 mm a tray's width may differ). Returns what is wrong with `result`, or null.
@@ -91,6 +124,10 @@ try {
   function kitArrangementProblem(project, result) {
     if (result.layout === null) {
       return "no layout";
+    }
+    const definition = kitDefinitionProblem(project, false);
+    if (definition !== null) {
+      return definition;
     }
     const trays = result.layout.trays;
     const parts = trays.filter((t) => t.part === "tray");
@@ -303,6 +340,15 @@ try {
   // Groups (0.7.0). The kit is G1's project: found under a search seed, which the plan records.
   const kitProject = findSeed("harbour-kings-kit", kit.harbourKingsKit(), kitArrangementProblem);
   const kitLoose = withLayout(kit.harbourKingsKitLoose());
+  const looseProblem = kitDefinitionProblem(kitLoose, true);
+  if (looseProblem !== null) {
+    failures.push({
+      label: "harbour-kings-kit-loose",
+      first: 0,
+      tried: [],
+      text: looseProblem,
+    });
+  }
   // The kit with a Hero too long for one copy to fit the bed: each copy is two trays, 1a and 1b.
   const kitSplit = withLayout(kit.harbourKingsKitSplit());
   const splitNames = namesOf(kitSplit, kitSplit.layout);

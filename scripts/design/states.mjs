@@ -1029,7 +1029,10 @@ export const STATES = {
       { waitFor: { role: "heading", name: /packing guide$/ } },
     ],
   },
-  // Turn 90° on the Market deck: the Turned chip beside its row, the plan kept (Task 13).
+  // Turn 90° on the Market deck: the Turned chip beside its row, the plan kept (Task 13). The pin in
+  // boardOpts is only there for the board: its `pins` state draws a chip beside Market deck's row and
+  // the rules note under the list, where the Turned chip and the rules note (R17) go. The app side
+  // pins nothing.
   "workspace-turned": {
     board: "Main",
     boardOpts: { state: { pins: { market: { x: 0, y: 0, layer: "bottom" } } } },
