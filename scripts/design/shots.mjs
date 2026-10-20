@@ -460,7 +460,7 @@ const PROBES = {
       for (const el of [shadow, wash, focus]) {
         el.remove();
       }
-      const lifted = document.querySelector(".is-lifted");
+      const lifted = document.querySelector(".is-drag-lifted");
       const mark = document.querySelector(".rail-dropline");
       const card = document.querySelector('.gc[data-drop="true"]');
       return {
@@ -485,7 +485,7 @@ const PROBES = {
       };
     });
     if (look.lifted === null) {
-      problems.push("while the grip is held the row does not lift (no .is-lifted)");
+      problems.push("while the grip is held the row does not lift (no .is-drag-lifted)");
     } else {
       if (look.lifted.shadow !== look.want.shadow) {
         problems.push(`the lifted row's shadow is ${look.lifted.shadow}, not --shadow-sheet`);
@@ -534,7 +534,7 @@ const PROBES = {
     if (!said.includes("Market deck moved to Player kit.")) {
       problems.push(`the live region says "${said}", not that Market deck moved to Player kit`);
     }
-    if ((await page.locator(".is-lifted, .rail-dropline, [data-drop]").count()) !== 0) {
+    if ((await page.locator(".is-drag-lifted, .rail-dropline, [data-drop]").count()) !== 0) {
       problems.push("the lift, the line or the group's wash is left after the drop");
     }
     if ((await rail.boundingBox())?.width !== widthBefore) {
@@ -557,12 +557,12 @@ const PROBES = {
 
     // 3. Escape in the middle of a drag cancels it
     await holdMarket();
-    if ((await page.locator(".is-lifted").count()) !== 1) {
+    if ((await page.locator(".is-drag-lifted").count()) !== 1) {
       problems.push("the second drag did not begin (nothing is lifted)");
     }
     await page.keyboard.press("Escape");
     await page.waitForTimeout(100);
-    if ((await page.locator(".is-lifted, .rail-dropline, [data-drop]").count()) !== 0) {
+    if ((await page.locator(".is-drag-lifted, .rail-dropline, [data-drop]").count()) !== 0) {
       problems.push("Escape left the lift, the line or the group's wash");
     }
     await page.mouse.up();

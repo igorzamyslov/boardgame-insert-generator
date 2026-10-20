@@ -374,7 +374,7 @@
  * the focus wash and a dashed focus edge. The line is made by the drag (`useRailDrag`) and is not in
  * the list's markup. No transition: under reduced motion the move is plain, and it is plain otherwise.
  */
-.is-lifted {
+.is-drag-lifted {
   position: relative;
   z-index: 3;
   border-radius: var(--r-field);

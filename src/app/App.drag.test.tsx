@@ -183,7 +183,7 @@ describe("a drop in the rail", () => {
       Object.assign(handle, { setPointerCapture: vi.fn(), releasePointerCapture: vi.fn() });
       fireEvent.pointerDown(handle, { clientX: 300, clientY: 100, button: 0, pointerId: 1 });
       fireEvent.pointerMove(document.body, { clientX: 340, clientY: 100, pointerId: 1 });
-      expect(rail.querySelector(".is-lifted")).toBeNull();
+      expect(rail.querySelector(".is-drag-lifted")).toBeNull();
       fireEvent.pointerUp(document.body, { clientX: 340, clientY: 100, pointerId: 1 });
     }
   });

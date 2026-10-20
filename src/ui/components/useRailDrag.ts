@@ -208,7 +208,7 @@ const reducedMotion = (): boolean =>
 
 /**
  * The rail's drag (spec §7.3). `gripDown(id)` is a grip's `onPointerDown`: the drag begins after 4 px
- * of movement; the row then lifts (`is-lifted`: `--shadow-sheet`) and follows the pointer, a 2 px
+ * of movement; the row then lifts (`is-drag-lifted`: `--shadow-sheet`) and follows the pointer, a 2 px
  * `--focus` line marks the place, a group being entered takes `data-drop`; the list scrolls when the
  * pointer nears its top or bottom edge (a step per move under reduced motion, no animation).
  * Escape, and a drop outside the list, cancel.
@@ -334,7 +334,7 @@ export function useRailDrag(options: RailDragOptions): {
     const begin = (): void => {
       s.began = true;
       s.rowTop = s.row.getBoundingClientRect().top;
-      s.row.classList.add("is-lifted");
+      s.row.classList.add("is-drag-lifted");
       root.classList.add("is-dragging");
       mark = document.createElement("li");
       mark.className = "rail-dropline";
@@ -355,7 +355,7 @@ export function useRailDrag(options: RailDragOptions): {
       clearTarget();
       mark?.remove();
       mark = null;
-      s.row.classList.remove("is-lifted");
+      s.row.classList.remove("is-drag-lifted");
       s.row.style.transform = "";
       root.classList.remove("is-dragging");
       try {

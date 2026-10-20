@@ -2,6 +2,7 @@
 // The rail's rules that no DOM test can see (jsdom draws no CSS).
 import { describe, expect, it } from "vitest";
 import kit from "../kit/kit.css?raw";
+import plan from "../plan/plan.css?raw";
 import css from "./rail.css?raw";
 
 const strip = (source: string): string => source.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -182,7 +183,7 @@ describe("rail.css", () => {
   });
 
   it("draws the drag (spec §7.3): the lifted row on the sheet shadow, a 2 px focus line, the entered group washed and dashed, no animation", () => {
-    const lifted = ruleFor(".is-lifted");
+    const lifted = ruleFor(".is-drag-lifted");
     expect(lifted).toMatch(/box-shadow:\s*var\(--shadow-sheet\)/);
     expect(lifted).toMatch(/pointer-events:\s*none/);
     const line = ruleFor(".rail-dropline");
@@ -196,8 +197,33 @@ describe("rail.css", () => {
     // the drop line lies in the list and scrolls with it
     expect(ruleFor(".rail-list")).toMatch(/position:\s*relative/);
     // none of the drag's rules moves by transition or animation
-    for (const selector of [".is-lifted", ".rail-dropline", '.gc[data-drop="true"]']) {
+    for (const selector of [".is-drag-lifted", ".rail-dropline", '.gc[data-drop="true"]']) {
       expect(ruleFor(selector), selector).not.toMatch(/transition|animation/);
     }
+  });
+
+  it("keeps the drag's class off the plan: a lifted plan tile stays absolute, and no rule but the rail's names the drag's class", () => {
+    // `.is-lifted` is the editor's lifted tray (plan.css); the drag has its own class. A bare
+    // `.is-lifted` rule here once turned every lifted tray `position: relative` (final review C1).
+    const sheets = import.meta.glob("../**/*.css", {
+      query: "?raw",
+      import: "default",
+      eager: true,
+    });
+    for (const [path, source] of Object.entries(sheets)) {
+      for (const [, selectors = ""] of strip(source as string).matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+        for (const selector of selectors.split(",")) {
+          if (/\.is-lifted\b/.test(selector)) {
+            expect(selector, `${path}: ${selector.trim()}`).toMatch(/\.plan-tile/);
+          }
+          if (/\.is-drag-lifted\b/.test(selector)) {
+            expect(path, selector.trim()).toMatch(/rail\.css$/);
+          }
+        }
+      }
+    }
+    expect(ruleFor(".plan-tile", strip(plan))).toMatch(/position:\s*absolute/);
+    expect(ruleFor(".plan-tile.is-lifted", strip(plan))).not.toMatch(/position:/);
+    expect(ruleFor(".is-drag-lifted")).toMatch(/position:\s*relative/);
   });
 });

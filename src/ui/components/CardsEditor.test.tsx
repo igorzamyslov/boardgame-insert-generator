@@ -797,6 +797,14 @@ describe("the thickness correction", () => {
       expect(between().textContent).toContain("Fixed walls");
     });
 
+    it("carries its value in a title, so a narrow rail that clips the meta still says it", () => {
+      setup(cards({ decks: two, storage: "flat", flatDecks: "dividers" }));
+      openMore();
+      expect(between().querySelector(".k-drow__metatext")?.getAttribute("title")).toBe(
+        "Removable dividers",
+      );
+    });
+
     it("is absent with one deck", () => {
       setup(cards());
       openMore();

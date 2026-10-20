@@ -19,6 +19,7 @@ import {
   bulk,
   cards,
   custom,
+  inGroup,
   minis,
   partOf,
   partOfGroup,
@@ -1163,6 +1164,40 @@ describe("flat decks in one well (0.7.0, R7 and R21)", () => {
     // Only the front: the dividers are loose plates, a channel along the row would stop at one.
     expect(well.features.filter((f) => f.type === "wallCutout" && f.side !== "front")).toEqual([]);
     assertTrayInvariants(r, outer, s, ground, part);
+  });
+
+  it("a grouped item with flat dividers shares one well inside the group's tray, in every variant", () => {
+    // 0.7.0 final review I3: [flat 12/30/12 decks, bulk] as a group with Copies 2. Each variant that
+    // sizes keeps the decks' well (2 slots, one cut per deck) and passes the tray invariants.
+    const members = [shared(), bulk()];
+    const group = inGroup(members, "g", { copies: 2 });
+    const { requirements } = size(members, s, [group]);
+    const variants = at(requirements, 0).variants;
+    expect(variants.length).toBeGreaterThan(0);
+    for (const variant of variants) {
+      // a split variant spreads one copy over several trays: the decks' well is in one of them
+      const wells: CompartmentSpec[] = [];
+      for (const part of variant.parts) {
+        const outer = minOuter(part, s, ground);
+        const r = realizeTray(part, outer, s, ground);
+        assertTrayInvariants(r, outer, s, ground, part);
+        wells.push(...r.compartments.filter((c) => slotsOf(c).length > 0));
+        // the decks are not split into wells of their own
+        expect(
+          r.compartments.filter((c) => c.contents.startsWith("Cards")).length,
+          `${variant.id} ${part.trayKey}`,
+        ).toBeLessThanOrEqual(1);
+      }
+      // one shared well per copy: two copies, two wells, each with 2 slots and a cut per deck
+      expect(wells, variant.id).toHaveLength(2);
+      for (const well of wells) {
+        expect(slotsOf(well), variant.id).toHaveLength(2);
+        expect(
+          well.features.filter((f) => f.type === "wallCutout"),
+          variant.id,
+        ).toHaveLength(3);
+      }
+    }
   });
 
   it("asks the front wall for its finger room, and not the end walls", () => {

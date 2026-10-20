@@ -126,7 +126,7 @@ describe("a drag", () => {
     down(grip(container, "m"), 20, 25);
     move(23, 25);
     expect(list.classList.contains("is-dragging")).toBe(false);
-    expect(container.querySelector(".is-lifted")).toBeNull();
+    expect(container.querySelector(".is-drag-lifted")).toBeNull();
     up(23, 25);
     expect(onDrop).not.toHaveBeenCalled();
   });
@@ -136,7 +136,7 @@ describe("a drag", () => {
     down(grip(container, "m"), 20, 25);
     move(24, 25);
     const row = grip(container, "m").closest("li") as HTMLElement;
-    expect(row.classList.contains("is-lifted")).toBe(true);
+    expect(row.classList.contains("is-drag-lifted")).toBe(true);
     expect(list.classList.contains("is-dragging")).toBe(true);
     move(40, 125);
     // held 6 px below its top edge by the pointer (its rectangle is at 0 here)
@@ -158,7 +158,7 @@ describe("a drag", () => {
     expect(onDrop).toHaveBeenCalledTimes(1);
     expect(onDrop).toHaveBeenCalledWith("m", { groupId: "g", index: 1 });
     // nothing is left behind
-    expect(container.querySelector(".is-lifted")).toBeNull();
+    expect(container.querySelector(".is-drag-lifted")).toBeNull();
     expect(container.querySelector("[data-drop]")).toBeNull();
     expect(container.querySelector(".rail-dropline")).toBeNull();
   });
@@ -213,7 +213,7 @@ describe("a drag", () => {
     move(600, 149);
     up(600, 149);
     expect(onDrop).not.toHaveBeenCalled();
-    expect(container.querySelector(".is-lifted")).toBeNull();
+    expect(container.querySelector(".is-drag-lifted")).toBeNull();
   });
 
   it("is cancelled by Escape: the row is back, nothing is called, and the later release does nothing", () => {
@@ -224,7 +224,7 @@ describe("a drag", () => {
     expect(row.style.transform).not.toBe("");
     fireEvent.keyDown(document.body, { key: "Escape" });
     expect(row.style.transform).toBe("");
-    expect(row.classList.contains("is-lifted")).toBe(false);
+    expect(row.classList.contains("is-drag-lifted")).toBe(false);
     expect(list.classList.contains("is-dragging")).toBe(false);
     expect(container.querySelector("[data-drop]")).toBeNull();
     up(100, 149);
@@ -260,7 +260,7 @@ describe("a drag", () => {
     const row = container.querySelector('[data-row-id="m"]') as HTMLElement;
     down(row, 20, 25);
     move(100, 149);
-    expect(container.querySelector(".is-lifted")).toBeNull();
+    expect(container.querySelector(".is-drag-lifted")).toBeNull();
     up(100, 149);
     expect(onDrop).not.toHaveBeenCalled();
     // the secondary button does not drag
@@ -271,7 +271,7 @@ describe("a drag", () => {
       pointerId: 1,
     });
     move(100, 149);
-    expect(container.querySelector(".is-lifted")).toBeNull();
+    expect(container.querySelector(".is-drag-lifted")).toBeNull();
   });
 
   it("is off in the phone's sheet", () => {

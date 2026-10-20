@@ -1,6 +1,13 @@
 // src/app/store.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { addGroup, applyPrinter, renameGroup, renameProject, updateBox } from "./actions";
+import {
+  addGroup,
+  applyPrinter,
+  renameGroup,
+  renameProject,
+  setGroupCopies,
+  updateBox,
+} from "./actions";
 import { inputsHash } from "../model/hash";
 import type { Lock } from "../model/types";
 import { STORAGE_PREFIX, createPrefsStore, createProjectStore } from "../share";
@@ -84,6 +91,44 @@ describe("app store", () => {
     store.undo();
     expect(store.state.project.value.groups ?? []).toHaveLength(0);
     expect(store.state.project.value.name).toBe("A second name");
+  });
+
+  it("lowering a group's copies drops the vanished copies' pins in one step, and Undo brings them back", () => {
+    const { store } = setup();
+    const base = fixtureProject();
+    const [first, second] = base.components;
+    const keep: Lock = { kind: "position", trayKey: "kit:p0:0", path: "0", rotated: false };
+    const gone: Lock = { kind: "position", trayKey: "kit:p3:0", path: "0", rotated: false };
+    const p = {
+      ...base,
+      groups: [
+        {
+          id: "kit",
+          name: "Player kit",
+          copies: 4,
+          access: "often" as const,
+          memberIds: [first?.id ?? "", second?.id ?? ""],
+        },
+      ],
+      locks: [keep, gone],
+    };
+    store.start(encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN));
+    expect(store.state.project.value.locks).toEqual([keep, gone]);
+    let notes: string[] = [];
+    store.edit((q) => {
+      const r = setGroupCopies(q, "kit", 2);
+      notes = r.notes;
+      return r.project;
+    });
+    expect(notes).toEqual(["1 pin removed"]);
+    expect(store.state.project.value.groups?.[0]?.copies).toBe(2);
+    expect(store.state.project.value.locks).toEqual([keep]);
+    // one undo step: the copies and the pin that went with them come back together
+    store.undo();
+    expect(store.state.project.value.groups?.[0]?.copies).toBe(4);
+    expect(store.state.project.value.locks).toEqual([keep, gone]);
+    store.redo();
+    expect(store.state.project.value.locks).toEqual([keep]);
   });
 
   it("renaming saves but does not re-optimize", async () => {
