@@ -1,6 +1,6 @@
-# Group trays: less solid plastic (proposal, not built)
+# Group trays: less solid plastic
 
-Date: 2026-10-20. Status: **(a) decided (A2, as Max in a group), not built; (b) open.** Builds on the groups spec
+Date: 2026-10-20. Status: **decided 2026-10-20: (a) as Max in a group, and (b) `columns`; both built in one release.** Builds on the groups spec
 ([2026-10-18-groups-design.md](2026-10-18-groups-design.md)) as of 0.7.0 (PR #19, not on `main` yet).
 
 ## 1. The problem
@@ -165,4 +165,5 @@ valid, and no schema change: arrangement is not stored).
 
 1. ~~(a): A1 or A2?~~ Decided: A2, as Max in a group (§2).
 2. ~~(a): which axes?~~ Decided: Max per axis, height included.
-3. (b): build `columns` now, after (a), or not at all?
+3. ~~(b): build `columns`?~~ Decided: yes, in the same release as (a). The variant search offers
+   it beside `strip` and `rows2` and keeps whichever lays out best.
