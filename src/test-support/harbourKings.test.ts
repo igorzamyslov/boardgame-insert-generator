@@ -4,13 +4,25 @@ import { GEOMETRY_VERSION } from "../geometry/version";
 import { inputsHash } from "../model/hash";
 import { levelsOf } from "../plan/layers";
 import { misfitOf } from "../ui/noFit";
-import { harbourKings, loadSeed, LONG_NAME } from "./harbourKings";
+import { numberParts } from "../instructions/numbering";
+import { trayNames } from "../instructions/naming";
+import {
+  harbourKings,
+  harbourKingsKit,
+  harbourKingsKitLoose,
+  loadSeed,
+  LONG_NAME,
+} from "./harbourKings";
 
 const CURRENT = [
   "harbour-kings",
   "harbour-kings-headroom",
   "harbour-kings-long",
   "harbour-kings-wide",
+  "harbour-kings-kit",
+  "harbour-kings-kit-loose",
+  "harbour-kings-kit-split",
+  "harbour-kings-flat",
 ];
 const STALE = [
   "harbour-kings-stale",
@@ -99,7 +111,8 @@ describe("harbourKings", () => {
     expect(project.components).toHaveLength(25);
     expect(project.components.some((c) => c.name === LONG_NAME)).toBe(true);
     expect(LONG_NAME.length).toBeGreaterThanOrEqual(40);
-    expect(project.components.filter((c) => c.groupId !== undefined)).toHaveLength(3);
+    // R20: no "Crew" group, so Main's long-list states keep their boards.
+    expect(project.groups ?? []).toEqual([]);
   });
 
   it("stores the fresh runs that no store can restore", () => {
@@ -133,5 +146,91 @@ describe("harbourKings", () => {
     };
     expect(reasonOf("harbour-kings-nofit")).toMatchObject({ name: "Heroes", reason: "box" });
     expect(reasonOf("harbour-kings-nofit-bed")).toMatchObject({ name: "Heroes", reason: "bed" });
+  });
+});
+
+describe("the groups seeds (0.7.0)", () => {
+  /** What the packing guide calls each tray of the seed's plan, by tray key. */
+  function names(name: string): Map<string, string> {
+    const { project } = loadSeed(name);
+    const parts = numberParts(project.layout?.trays ?? []);
+    const all = trayNames(parts, project.components, project.groups ?? []);
+    return new Map([...all].map(([key, n]) => [key, n.full]));
+  }
+
+  it("holds the kit as G1 draws it: one layer, six trays, the four copies on one x", () => {
+    const { project } = loadSeed("harbour-kings-kit");
+    expect(project.groups).toEqual([
+      {
+        id: "plrkit01",
+        name: "Player kit",
+        copies: 4,
+        access: "often",
+        growth: { w: "off", d: "off", h: "off" },
+        memberIds: ["kitdeck1", "kitres01", "kithero1"],
+      },
+    ]);
+    expect(project.components.map((c) => c.name)).toEqual([
+      "Starter deck",
+      "Resources",
+      "Hero",
+      "Market deck",
+      "Hex tiles",
+    ]);
+    const trays = project.layout?.trays ?? [];
+    expect(levelsOf(trays)).toHaveLength(1);
+    const parts = trays.filter((t) => t.part === "tray");
+    expect(parts).toHaveLength(6);
+    const kit = parts.filter((t) => t.key.startsWith("plrkit01:"));
+    expect(kit).toHaveLength(4);
+    expect(new Set(kit.map((t) => Math.round(t.x))).size).toBe(1);
+    const right = Math.max(...kit.map((t) => t.x + t.w));
+    for (const other of parts.filter((t) => !t.key.startsWith("plrkit01:"))) {
+      expect(other.x).toBeGreaterThanOrEqual(right - 3);
+    }
+    const named = names("harbour-kings-kit");
+    expect(kit.map((t) => named.get(t.key)).sort()).toEqual([
+      "Player kit 1",
+      "Player kit 2",
+      "Player kit 3",
+      "Player kit 4",
+    ]);
+  });
+
+  it("holds the same five items, ungrouped, in G3's order", () => {
+    const { project } = loadSeed("harbour-kings-kit-loose");
+    expect(project.groups).toBeUndefined();
+    expect(project.components.map((c) => c.name)).toEqual([
+      "Market deck",
+      "Starter deck",
+      "Resources",
+      "Hero",
+      "Hex tiles",
+    ]);
+    expect(harbourKingsKitLoose().components.map((c) => c.id)).toEqual(
+      project.components.map((c) => c.id),
+    );
+    // the kit is the loose project with three of them grouped
+    expect(
+      harbourKingsKit()
+        .components.map((c) => c.id)
+        .sort(),
+    ).toEqual(project.components.map((c) => c.id).sort());
+  });
+
+  it("splits each copy of the kit in two in the split seed: Player kit 1a and 1b", () => {
+    const named = [...names("harbour-kings-kit-split").values()];
+    expect(named).toEqual(expect.arrayContaining(["Player kit 1a", "Player kit 1b"]));
+  });
+
+  it("puts three flat decks in one well in the flat seed", () => {
+    const { project } = loadSeed("harbour-kings-flat");
+    const deck = project.components.find((c) => c.id === "flatdeck");
+    expect(deck?.kind === "cards" && deck.flatDecks).toBe("dividers");
+    const trays = (project.layout?.trays ?? []).filter(
+      (t) => t.part === "tray" && t.key.startsWith("flatdeck:"),
+    );
+    expect(trays).toHaveLength(1);
+    expect(trays[0]?.compartments).toHaveLength(1);
   });
 });

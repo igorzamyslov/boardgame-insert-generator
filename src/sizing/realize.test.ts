@@ -1,17 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "../model/settings";
-import type { CompartmentSpec, Component, FeatureSpec, Settings } from "../model/types";
+import { DEFAULT_SETTINGS, FINGER_ROOM_MM, applyFingerRoom } from "../model/settings";
+import type {
+  CardsComponent,
+  CompartmentSpec,
+  Component,
+  FeatureSpec,
+  Settings,
+} from "../model/types";
+import { DIVIDER_GROOVE } from "./constants";
+import { dividerSlotWidth } from "./dividers";
 import { CutFitError } from "./errors";
 import { size } from "./group";
 import { minOuter, oneWallOf, realizeTray } from "./realize";
+import { rotateRealized } from "./rotate";
 import {
   assertTrayInvariants,
   at,
   bulk,
   cards,
   custom,
+  inGroup,
   minis,
   partOf,
+  partOfGroup,
   tiles,
 } from "./test-helpers";
 import type { CompartmentReq, OuterSize, RealizeOptions, TrayPartReq } from "./types";
@@ -345,10 +356,7 @@ describe("realizeTray", () => {
   });
 
   it("raises the floor of shallow contents to the rim in a group", () => {
-    const part = partOf(
-      [cards({ groupId: "g" }), custom({ groupId: "g", count: 1 })],
-      "upright-long+custom|strip|split1",
-    );
+    const part = partOfGroup([cards(), custom({ count: 1 })], "upright-long+custom|strip|split1");
     expect(part.trayKey).toBe("g:p0:0");
     const outer = minOuter(part, s, ground);
     expect(outer).toEqual({ w: 68.9, d: 95.7, h: 69.2 });
@@ -932,10 +940,7 @@ describe("realizeTray", () => {
   describe("geometry contract", () => {
     const lipped: RealizeOptions = { lipped: true, level: 0 };
     const upper: RealizeOptions = { lipped: false, level: 1 };
-    const group = partOf(
-      [cards({ groupId: "g" }), custom({ groupId: "g", count: 1 })],
-      "upright-long+custom|strip|split1",
-    );
+    const group = partOfGroup([cards(), custom({ count: 1 })], "upright-long+custom|strip|split1");
     const rows = partOf(
       [
         cards({
@@ -1099,5 +1104,183 @@ describe("oneWall: the slack goes into one wall (minimal-trays spec §6)", () =>
     expect(oneWallOf(false, true)).toBe("back");
     expect(oneWallOf(true, false)).toBe("front");
     expect(oneWallOf(true, true)).toBeNull();
+  });
+});
+
+describe("flat decks in one well (0.7.0, R7 and R21)", () => {
+  const decks = [
+    { name: "A", count: 12 },
+    { name: "B", count: 30 },
+    { name: "C", count: 12 },
+  ];
+  const shared = (over: Partial<CardsComponent> = {}) =>
+    cards({ storage: "flat", flatDecks: "dividers", decks, ...over });
+  const slotOf = dividerSlotWidth(s);
+  type Slot = Extract<FeatureSpec, { type: "dividerSlot" }>;
+  type Cut = Extract<FeatureSpec, { type: "wallCutout" }>;
+  const slotsOf = (c: CompartmentSpec): Slot[] =>
+    c.features.flatMap((f) => (f.type === "dividerSlot" ? [f] : []));
+  const frontCuts = (c: CompartmentSpec): Cut[] =>
+    c.features.flatMap((f) => (f.type === "wallCutout" && f.side === "front" ? [f] : []));
+
+  function realized(component = shared(), over: Partial<Settings> = {}) {
+    const cfg = { ...s, ...over };
+    const part = partOf([component], "flat|strip|split1", cfg);
+    const outer = minOuter(part, cfg, ground);
+    return { part, outer, cfg, r: realizeTray(part, outer, cfg, ground) };
+  }
+
+  it("realizes one well with two slots, each centred in the gap between two decks", () => {
+    const { r } = realized();
+    expect(r.compartments).toHaveLength(1);
+    const well = at(r.compartments, 0);
+    const slots = slotsOf(well);
+    const section = (well.w - 2 * slotOf) / 3;
+    expect(slots).toHaveLength(2);
+    expect(section).toBeCloseTo(68, 1); // a card's 66.5 and its 1.5 mm of clearance
+    slots.forEach((slot, k) => {
+      expect(slot.axis).toBe("y");
+      expect(slot.width).toBe(slotOf);
+      expect(slot.depth).toBe(DIVIDER_GROOVE);
+      // the gap after deck k begins at k+1 sections and k slots from the well's left face
+      expect(slot.at).toBeCloseTo(well.x + (k + 1) * section + k * slotOf + slotOf / 2, 1);
+    });
+  });
+
+  it("cuts the front wall once per deck, centred on its section and clear of the slots", () => {
+    const { r, part, outer } = realized();
+    const well = at(r.compartments, 0);
+    const cuts = frontCuts(well);
+    const slots = slotsOf(well);
+    const section = (well.w - 2 * slotOf) / 3;
+    expect(cuts).toHaveLength(3);
+    cuts.forEach((cut, k) => {
+      expect(cut.at).toBeCloseTo(well.x + k * (section + slotOf) + section / 2, 1);
+      for (const slot of slots) {
+        const clear = Math.abs(cut.at - slot.at) - cut.width / 2 - slot.width / 2;
+        expect(clear, `cut ${k} clear of the slot at ${slot.at}`).toBeGreaterThan(0.5);
+      }
+    });
+    // Only the front: the dividers are loose plates, a channel along the row would stop at one.
+    expect(well.features.filter((f) => f.type === "wallCutout" && f.side !== "front")).toEqual([]);
+    assertTrayInvariants(r, outer, s, ground, part);
+  });
+
+  it("a grouped item with flat dividers shares one well inside the group's tray, in every variant", () => {
+    // 0.7.0 final review I3: [flat 12/30/12 decks, bulk] as a group with Copies 2. Each variant that
+    // sizes keeps the decks' well (2 slots, one cut per deck) and passes the tray invariants.
+    const members = [shared(), bulk()];
+    const group = inGroup(members, "g", { copies: 2 });
+    const { requirements } = size(members, s, [group]);
+    const variants = at(requirements, 0).variants;
+    expect(variants.length).toBeGreaterThan(0);
+    for (const variant of variants) {
+      // a split variant spreads one copy over several trays: the decks' well is in one of them
+      const wells: CompartmentSpec[] = [];
+      for (const part of variant.parts) {
+        const outer = minOuter(part, s, ground);
+        const r = realizeTray(part, outer, s, ground);
+        assertTrayInvariants(r, outer, s, ground, part);
+        wells.push(...r.compartments.filter((c) => slotsOf(c).length > 0));
+        // the decks are not split into wells of their own
+        expect(
+          r.compartments.filter((c) => c.contents.startsWith("Cards")).length,
+          `${variant.id} ${part.trayKey}`,
+        ).toBeLessThanOrEqual(1);
+      }
+      // one shared well per copy: two copies, two wells, each with 2 slots and a cut per deck
+      expect(wells, variant.id).toHaveLength(2);
+      for (const well of wells) {
+        expect(slotsOf(well), variant.id).toHaveLength(2);
+        expect(
+          well.features.filter((f) => f.type === "wallCutout"),
+          variant.id,
+        ).toHaveLength(3);
+      }
+    }
+  });
+
+  it("asks the front wall for its finger room, and not the end walls", () => {
+    const on = applyFingerRoom(s, true);
+    const part = partOf([shared()], "flat|strip|split1", on);
+    const off = minOuter(part, s, ground);
+    const room = minOuter(part, on, ground);
+    expect(room.d).toBeCloseTo(off.d + FINGER_ROOM_MM, 2);
+    expect(room.w).toBeCloseTo(off.w, 9);
+  });
+
+  it("gives a well wider than its minimum the same sections, the extra width going to the walls", () => {
+    const { part, cfg, outer } = realized();
+    const wide = { ...outer, w: outer.w + 10 };
+    const r = realizeTray(part, wide, cfg, ground);
+    const well = at(r.compartments, 0);
+    expect(well.w).toBeCloseTo(at(realizeTray(part, outer, cfg, ground).compartments, 0).w, 9);
+    expect(frontCuts(well)).toHaveLength(3);
+    assertTrayInvariants(r, wide, cfg, ground, part);
+  });
+
+  it("two decks: one slot and two cuts, the cuts either side of it", () => {
+    const { r } = realized(shared({ decks: decks.slice(0, 2) }));
+    const well = at(r.compartments, 0);
+    expect(slotsOf(well)).toHaveLength(1);
+    const cuts = frontCuts(well);
+    expect(cuts).toHaveLength(2);
+    const [slot] = slotsOf(well);
+    expect((cuts[0]?.at ?? 0) < (slot?.at ?? 0)).toBe(true);
+    expect((cuts[1]?.at ?? 0) > (slot?.at ?? 0)).toBe(true);
+  });
+
+  it("refuses the tray where a section is too narrow for a front or back cut, never a side channel", () => {
+    // 8 mm cards: a section has no room for a cut with its posts. The left and right retry would
+    // chain one channel through every section, which the loose plates stop: no cut at all.
+    const narrow = shared({ shortSide: 8, longSide: 80, sleeve: "none" });
+    const part = partOf([narrow], "flat|strip|split1");
+    expect(() => realizeTray(part, minOuter(part, s, ground), s, ground)).toThrow(CutFitError);
+    expect(() => size([narrow], s)).not.toThrow();
+  });
+
+  it("puts every cut on the back wall when the front faces another row (rows2)", () => {
+    const front = at(
+      partOf([custom({ w: 220, d: 30, h: 10 })], "custom|strip|split1").compartments,
+      0,
+    );
+    const wellPart = partOf([shared()], "flat|strip|split1");
+    const part: TrayPartReq = {
+      ...wellPart,
+      arrangement: "rows2",
+      rowBreak: 1,
+      compartments: [front, ...wellPart.compartments],
+    };
+    const outer = minOuter(part, s, ground);
+    const r = realizeTray(part, outer, s, ground);
+    const well = at(r.compartments, 1);
+    const cuts = well.features.flatMap((f) => (f.type === "wallCutout" ? [f] : []));
+    expect(cuts.map((c) => c.side)).toEqual(["back", "back", "back"]);
+    const section = (well.w - 2 * slotOf) / 3;
+    cuts.forEach((cut, k) => {
+      expect(cut.at).toBeCloseTo(well.x + k * (section + slotOf) + section / 2, 1);
+    });
+    assertTrayInvariants(r, outer, s, ground, part);
+  });
+
+  it("a turned tray keeps one cut per section, on one side, at the sections' centres", () => {
+    const { r, outer } = realized();
+    const turned = rotateRealized(r, outer);
+    const well = at(turned.compartments, 0);
+    const cuts = well.features.flatMap((f) => (f.type === "wallCutout" ? [f] : []));
+    const slots = slotsOf(well);
+    expect(slots.map((f) => f.axis)).toEqual(["x", "x"]);
+    expect(new Set(cuts.map((c) => c.side)).size).toBe(1);
+    expect(cuts).toHaveLength(3);
+    // along y now: the sections between the slots, each with its cut in the middle
+    const edges = [
+      well.y,
+      ...slots.flatMap((f) => [f.at - f.width / 2, f.at + f.width / 2]),
+      well.y + well.d,
+    ];
+    const centres = [0, 2, 4].map((i) => ((edges[i] ?? 0) + (edges[i + 1] ?? 0)) / 2);
+    const found = cuts.map((c) => c.at).sort((a, b) => a - b);
+    centres.sort((a, b) => a - b).forEach((centre, k) => expect(found[k]).toBeCloseTo(centre, 1));
+    assertTrayInvariants(turned, { w: outer.d, d: outer.w, h: outer.h }, s, ground);
   });
 });

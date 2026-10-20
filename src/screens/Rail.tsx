@@ -1,8 +1,9 @@
 // src/screens/Rail.tsx
-import type { ComponentKind, Box, Component, Lock, Printer, TraySpec } from "../model/types";
+import type { ComponentKind, Box, Component, Group, Lock, Printer, TraySpec } from "../model/types";
 import { Button, Card, Icon, IconTile, ListRow } from "../kit";
 import { mm } from "../ui/identity";
 import { ComponentList } from "../ui/components/ComponentList";
+import type { DropTarget } from "../ui/components/useRailDrag";
 import { AddMenu } from "./KindPicker";
 
 /** "285 × 285 × 70": the box's inside, without its unit. */
@@ -20,6 +21,7 @@ interface ListProps {
   /** The plan's trays; absent while the plan is out of date (no layer is named then). */
   trays?: readonly TraySpec[];
   locks?: readonly Lock[];
+  groups?: readonly Group[];
   box: Box;
   /** The components the selected tray belongs to (a group's tray has several). */
   selectedIds?: readonly string[];
@@ -28,9 +30,17 @@ interface ListProps {
   onOpenBox: () => void;
   onOpenEditor: (id: string) => void;
   onHover?: (id: string | null) => void;
+  /** The pointer or the focus is on a group's card (every member's id), or left it (null). */
+  onLight?: (ids: readonly string[] | null) => void;
+  /** A group's header was chosen: its editor. */
+  onEditGroup?: (groupId: string) => void;
+  /** An item was dragged by its grip (the rail only, not the phone's sheet): see `ComponentList`. */
+  onDrop?: (itemId: string, target: DropTarget) => void;
   onUnpin?: (trayKeys: string[]) => void;
+  /** A "Turned" chip's ×: these trays may turn as the plan likes. */
+  onFreeTurn?: (trayKeys: string[]) => void;
   onUnlockSize?: (trayKeys: string[]) => void;
-  /** Every pin and size lock comes off, in one undo step. */
+  /** Every rule comes off (pins, stack locks, size locks, turn locks), in one undo step. */
   onClearChoices: () => void;
 }
 
@@ -38,6 +48,8 @@ export interface RailProps extends ListProps {
   /** The insert's printer: the footer says its bed. */
   printer: Printer;
   onAdd: (kind: ComponentKind) => void;
+  /** Add's Group tile: an empty group. */
+  onAddGroup: () => void;
   onSettings: () => void;
 }
 
@@ -49,11 +61,24 @@ function clearChoices(onClear: () => void): () => void {
   };
 }
 
-/** What the note says the plan keeps: the pins, and the size locks when there are any (a ruling, DESIGN §7). */
+const TURNED_NOTE = "Turned trays keep their direction when the plan updates.";
+
+/**
+ * What the note says the plan keeps, by which rules exist (a ruling, DESIGN §7): the pins, and the
+ * size locks when there are any; the turns, after those when there are both. A turn under a pin of
+ * its tray is the pin's, so it asks for no sentence of its own.
+ */
 export function rulesNoteText(locks: readonly Lock[]): string {
-  return locks.some((l) => l.kind === "size")
+  const pins = locks.some((l) => l.kind !== "turn");
+  const held = new Set(locks.flatMap((l) => (l.kind === "position" ? [l.trayKey] : [])));
+  const turns = locks.some((l) => l.kind === "turn" && !held.has(l.trayKey));
+  const pinSentence = locks.some((l) => l.kind === "size")
     ? "Pinned and size-locked trays stay as you set them when the plan updates."
     : "Pinned trays stay where you put them when the plan updates.";
+  if (!turns) {
+    return pinSentence;
+  }
+  return pins ? `${pinSentence} ${TURNED_NOTE}` : TURNED_NOTE;
 }
 
 /** Main's note under the list while any rule is set, and the way to lift them all. */
@@ -98,17 +123,22 @@ export function Rail(p: RailProps) {
       </Card>
       <div class="rail-head">
         <h2 class="rail-title">What&apos;s inside</h2>
-        <AddMenu onPick={p.onAdd} />
+        <AddMenu onPick={p.onAdd} onGroup={p.onAddGroup} />
       </div>
       <ComponentList
         components={p.components}
         trays={p.trays}
         locks={locks}
+        groups={p.groups}
         selectedIds={p.selectedIds}
         culprits={p.culprits}
         onOpen={p.onOpenEditor}
         onHover={p.onHover}
+        onLight={p.onLight}
+        onEditGroup={p.onEditGroup}
+        onDrop={p.onDrop}
         onUnpin={p.onUnpin}
+        onFreeTurn={p.onFreeTurn}
         onUnlockSize={p.onUnlockSize}
       />
       {locks.length > 0 ? (
@@ -140,10 +170,14 @@ export function SheetList(p: ListProps) {
         components={p.components}
         trays={p.trays}
         locks={locks}
+        groups={p.groups}
         culprits={p.culprits}
         onOpen={p.onOpenEditor}
         onHover={p.onHover}
+        onLight={p.onLight}
+        onEditGroup={p.onEditGroup}
         onUnpin={p.onUnpin}
+        onFreeTurn={p.onFreeTurn}
         onUnlockSize={p.onUnlockSize}
         first={
           <li class="rail-item">

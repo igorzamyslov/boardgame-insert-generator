@@ -10,6 +10,7 @@ import type {
   ComponentKind,
   GrowthAxis,
   GrowthMode,
+  Group,
   MinisComponent,
   Printer,
   Project,
@@ -262,6 +263,15 @@ export function dividersOffered(c: Component): boolean {
   return false;
 }
 
+/**
+ * Whether a cards item can put its flat decks in one well with loose dividers between them
+ * (`flatDecks`): it has two decks or more. It acts only when the storage chosen is flat (sizing/cards
+ * picks it up per storage option), so `auto` counts: a layout that stands the decks up ignores it.
+ */
+export function flatDecksOffered(c: Component): boolean {
+  return c.kind === "cards" && c.decks.length >= 2;
+}
+
 /** How many dividers the component's grown well gets: what it set where they are offered, else 0. */
 export function dividersOf(c: Component): number {
   return dividersOffered(c) ? (c.dividers ?? 0) : 0;
@@ -308,9 +318,9 @@ export function binTogglesOf(c: Component): Toggles {
   };
 }
 
-/** The component's group, or undefined when it has none. An empty groupId means no group. */
-export function groupOf(c: Component): string | undefined {
-  return c.groupId === "" ? undefined : c.groupId;
+/** A new, empty group: no copies, reached for "sometimes", with no members yet. */
+export function newGroup(name: string): Group {
+  return { id: newId(), name, access: COMPONENT_DEFAULTS.access, memberIds: [] };
 }
 
 export function newProject(): Project {

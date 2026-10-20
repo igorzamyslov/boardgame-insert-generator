@@ -55,8 +55,7 @@ const SCENARIOS: { name: string; component: Component; changed: OptionId[] }[] =
       cornerReliefs: true,
       separators: 3,
       thickness: { mode: "preset", scale: 1.1 },
-      perPlayer: { players: 4 },
-      groupId: "g",
+      copies: 4,
       clearance: 3,
     }),
     changed: [
@@ -67,8 +66,7 @@ const SCENARIOS: { name: string; component: Component; changed: OptionId[] }[] =
       "cornerReliefs",
       "separators",
       "thickness",
-      "perPlayer",
-      "group",
+      "copies",
       "clearance",
     ],
   },
@@ -150,7 +148,6 @@ describe("changedOptions", () => {
       separators: 0,
       dividers: 0,
       thickness: { mode: "preset", scale: 1 },
-      groupId: "",
       clearance: 1.5,
     });
     expect([...changedOptions(cards, DEFAULT_SETTINGS)]).toEqual([]);
@@ -226,8 +223,7 @@ describe("More options: the dot and the way back", () => {
         cornerReliefs: true,
         separators: 2,
         thickness: { mode: "preset", scale: 1.1 },
-        perPlayer: { players: 4 },
-        groupId: "g",
+        copies: 4,
         clearance: 3,
       }),
     );
@@ -240,8 +236,7 @@ describe("More options: the dot and the way back", () => {
         "Back to corner holes off",
         "Back to 0",
         "Back to the sleeve table",
-        "Back to off",
-        "Back to no group",
+        "Back to 1",
         "Back to 1.5",
       ]),
     );
@@ -266,8 +261,8 @@ describe("More options: the dot and the way back", () => {
   });
 
   it("marks a row with a named dot", () => {
-    panel(of("cards", { groupId: "g" }));
-    const row = screen.getByRole("button", { name: /^Group/ });
+    panel(of("cards", { copies: 4 }));
+    const row = screen.getByRole("button", { name: /^Copies/ });
     expect(row.querySelector('.k-drow__dot[aria-label="Changed"]')).not.toBeNull();
   });
 
@@ -318,23 +313,23 @@ describe("More options: the dot and the way back", () => {
   });
 });
 
-describe("Extra room: the insert's number, and the item's own", () => {
-  const rowOf = () => screen.getByRole("button", { name: /^Extra room/ });
+describe("Room around the pieces: the insert's number, and the item's own", () => {
+  const rowOf = () => screen.getByRole("button", { name: /^Room around the pieces/ });
 
   it("shows the insert's number in the row and the box while the item has none of its own", () => {
     panel(of("bulk"));
     expect(rowOf().textContent).toContain("1 mm");
-    expect((screen.getByLabelText(/^Extra room/) as HTMLInputElement).value).toBe("1");
+    expect((screen.getByLabelText(/^Room around the pieces/) as HTMLInputElement).value).toBe("1");
     expect(rowOf().querySelector(".k-drow__dot")).toBeNull();
     expect(screen.queryByRole("button", { name: /^Back to/ })).toBeNull();
   });
 
   it("follows Fit and the kind: a piece's clearance times Fit, a card's own number for cards", () => {
     panel(of("bulk"), { ...DEFAULT_SETTINGS, fit: 2 });
-    expect((screen.getByLabelText(/^Extra room/) as HTMLInputElement).value).toBe("2");
+    expect((screen.getByLabelText(/^Room around the pieces/) as HTMLInputElement).value).toBe("2");
     cleanup();
     panel(of("cards"), { ...DEFAULT_SETTINGS, cardClearance: 3 });
-    expect((screen.getByLabelText(/^Extra room/) as HTMLInputElement).value).toBe("3");
+    expect((screen.getByLabelText(/^Room around the pieces/) as HTMLInputElement).value).toBe("3");
   });
 
   it("says whose number it is, and puts the insert's back", () => {
@@ -344,7 +339,7 @@ describe("Extra room: the insert's number, and the item's own", () => {
     expect(
       screen.getByText("This item's own, whatever Fit says. The insert's is 1 mm."),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Back to 1 for Extra room" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to 1 for Room around the pieces" }));
     expect("clearance" in (onChange.mock.calls[0]?.[0] as object)).toBe(false);
   });
 });

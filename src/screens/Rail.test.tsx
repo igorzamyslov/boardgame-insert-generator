@@ -22,8 +22,10 @@ function handlers() {
     onOpenBox: vi.fn(),
     onOpenEditor: vi.fn(),
     onAdd: vi.fn(),
+    onAddGroup: vi.fn(),
     onHover: vi.fn(),
     onClearChoices: vi.fn(),
+    onFreeTurn: vi.fn(),
     onSettings: vi.fn(),
   };
 }
@@ -67,10 +69,31 @@ describe("Rail", () => {
       within(picker)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Cards", "Tokens and dice", "Tiles", "Miniatures", "Something else"]);
+    ).toEqual(["Cards", "Tokens and dice", "Tiles", "Miniatures", "Something else", "Group"]);
     fireEvent.click(screen.getByRole("button", { name: "Tiles" }));
     expect(h.onAdd).toHaveBeenCalledWith("tiles");
+    expect(h.onAddGroup).not.toHaveBeenCalled();
     expect(screen.queryByRole("group", { name: "Add something inside" })).toBeNull();
+  });
+
+  it("adds a group from the sixth tile, and the picker closes", () => {
+    const h = props();
+    render(<Rail {...h} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(screen.getByRole("button", { name: "Group" }));
+    expect(h.onAddGroup).toHaveBeenCalledTimes(1);
+    expect(h.onAdd).not.toHaveBeenCalled();
+    expect(screen.queryByRole("group", { name: "Add something inside" })).toBeNull();
+  });
+
+  it("lists a group as a card among the rows", () => {
+    const h = props({
+      groups: [{ id: "g", name: "Player kit", access: "often", memberIds: ["b"] }],
+    });
+    render(<Rail {...h} />);
+    const card = screen.getByRole("group", { name: "Player kit, 1 copy" });
+    fireEvent.click(within(card).getByRole("button", { name: new RegExp(`^${LONG}`) }));
+    expect(h.onOpenEditor).toHaveBeenCalledWith("b");
   });
 
   it("puts the focus on the first kind when the picker opens, and Escape closes it", () => {
@@ -130,6 +153,44 @@ describe("Rail", () => {
     // a size lock alone is a rule too
     rerender(<Rail {...props({ locks: [size] })} />);
     expect(screen.getByText(/size-locked trays stay as you set them/)).toBeTruthy();
+  });
+
+  it("words the note by which choices exist: turns alone, or after the pin sentence", () => {
+    const turn: Lock = { kind: "turn", trayKey: "a:p0:0", rotated: true };
+    const size: Lock = { kind: "size", trayKey: "b:p0:0", w: 80, d: 80, h: 30 };
+    const turned = "Turned trays keep their direction when the plan updates.";
+    const { rerender } = render(<Rail {...props({ locks: [turn] })} />);
+    expect(screen.getByText(turned)).toBeTruthy();
+    expect(screen.queryByText(/stay where you put them/)).toBeNull();
+    rerender(<Rail {...props({ locks: [{ ...pin, trayKey: "b:p0:0" }, turn] })} />);
+    expect(
+      screen.getByText(`Pinned trays stay where you put them when the plan updates. ${turned}`),
+    ).toBeTruthy();
+    rerender(<Rail {...props({ locks: [pin, size, { ...turn, trayKey: "b:p0:0" }] })} />);
+    expect(
+      screen.getByText(
+        `Pinned and size-locked trays stay as you set them when the plan updates. ${turned}`,
+      ),
+    ).toBeTruthy();
+    // a turn under a pin of the same tray is the pin's: the note does not ask for it twice
+    rerender(<Rail {...props({ locks: [pin, turn] })} />);
+    expect(screen.queryByText(turned)).toBeNull();
+    expect(
+      screen.getByText("Pinned trays stay where you put them when the plan updates."),
+    ).toBeTruthy();
+  });
+
+  it("shows a Turned chip whose × lets that tray turn, and none for a turn under a pin", () => {
+    const turn: Lock = { kind: "turn", trayKey: "a:p0:0", rotated: true };
+    const h = props({ locks: [turn] });
+    const { rerender } = render(<Rail {...h} />);
+    const chips = within(screen.getByRole("list", { name: "Rules for Market deck" }));
+    expect(chips.getByText("Turned")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Let Market deck turn" }));
+    expect(h.onFreeTurn).toHaveBeenCalledWith(["a:p0:0"]);
+    rerender(<Rail {...props({ locks: [pin, turn] })} />);
+    expect(screen.queryByRole("button", { name: /^Let Market deck turn/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Unpin Market deck" })).toBeTruthy();
   });
 
   it("puts the focus on the Add pill when the note goes with its button", () => {

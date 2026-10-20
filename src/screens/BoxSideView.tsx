@@ -4,7 +4,7 @@
 // the trays fill. A drawing for the eye (aria-hidden); the caption is text. Nothing here says how the box is stored:
 // the engine's stored-on-its-side only steers the loose pieces (coverage scoring and a warning).
 import { topPlane } from "../model/settings";
-import type { Box, Component, Settings, StoredLayout } from "../model/types";
+import type { Box, Component, Group, Settings, StoredLayout } from "../model/types";
 import { lookOfTray } from "../plan/glyph";
 import { planFrame, sideSection } from "../plan/layers";
 import { mm } from "../ui/identity";
@@ -17,6 +17,8 @@ export interface BoxSideViewProps {
   /** The stored plan; without one the floor is drawn empty. */
   layout: StoredLayout | undefined;
   components: readonly Component[];
+  /** The project's groups: a group's tray is the group's neutral, as in the plan. */
+  groups?: readonly Group[];
   /** Below 760 px: MobileBox's smaller drawing (358 wide). */
   phone?: boolean;
 }
@@ -35,6 +37,7 @@ export function BoxSideView({
   settings,
   layout,
   components,
+  groups = [],
   phone = false,
 }: BoxSideViewProps) {
   const kept = box.headroom > 0;
@@ -48,7 +51,7 @@ export function BoxSideView({
         <div class="bx-floor">
           <div class="bx-plane">
             {parts.map((t) => {
-              const look = lookOfTray(t, components);
+              const look = lookOfTray(t, components, groups);
               return (
                 <span
                   class="bx-tray"

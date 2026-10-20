@@ -4,9 +4,9 @@ import type { MeshSource } from "../app/meshes";
 import { STALE_MESSAGE } from "../app/state";
 import { trayNames } from "../instructions/naming";
 import { buildSpecOf, numberParts, partsByKey } from "../instructions/numbering";
-import type { Box, Component, Settings, TraySpec } from "../model/types";
+import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
-import { hoveredComponent } from "../screens/hover";
+import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
 import { AxisGizmo } from "./AxisGizmo";
 import type { ViewBasis } from "./axes";
@@ -21,6 +21,8 @@ export interface ViewerProps {
   settings: Settings;
   /** The components the trays hold: each tray takes the tint of its component, as in the plan. */
   components?: readonly Component[];
+  /** The project's groups: a group's trays are called by its name and drawn in its neutral colour. */
+  groups?: readonly Group[];
   /** The inputs no longer match the layout: keep what was built rather than build for new settings. */
   stale?: boolean;
   meshes: MeshSource;
@@ -67,7 +69,10 @@ export function Viewer(p: ViewerProps) {
   const levels = p.levels ?? ownLevels;
   const parts = useMemo(() => numberParts(p.trays), [p.trays]);
   const byKey = useMemo(() => partsByKey(parts), [parts]);
-  const names = useMemo(() => trayNames(parts, p.components ?? []), [parts, p.components]);
+  const names = useMemo(
+    () => trayNames(parts, p.components ?? [], p.groups ?? []),
+    [parts, p.components, p.groups],
+  );
   // The chosen layer may vanish when the layout changes: show everything then.
   const shownLevel =
     p.topLayer === null || p.topLayer === undefined ? null : (levels[p.topLayer] ?? null);
@@ -176,7 +181,7 @@ export function Viewer(p: ViewerProps) {
           results[i] = {
             spec,
             mesh: built.mesh,
-            color: shadeColorOf(spec, p.components ?? [], scheme),
+            color: shadeColorOf(spec, p.components ?? [], scheme, p.groups ?? []),
           };
         } catch {
           failed += 1;
@@ -204,7 +209,19 @@ export function Viewer(p: ViewerProps) {
     // p.components and the colour scheme are dependencies because they decide each tray's colour:
     // without them, editing the components (which can leave the layout alone) or switching the
     // page to dark left the scene on its old colours while the list, plan and chips moved on.
-  }, [status, p.trays, p.settings, p.stale, p.meshes, p.components, scheme, byKey, names, attempt]);
+  }, [
+    status,
+    p.trays,
+    p.settings,
+    p.stale,
+    p.meshes,
+    p.components,
+    p.groups,
+    scheme,
+    byKey,
+    names,
+    attempt,
+  ]);
 
   useEffect(() => {
     handleRef.current?.setExplode(explode);
@@ -221,18 +238,23 @@ export function Viewer(p: ViewerProps) {
   // The rail row the pointer or focus is on lights its component's trays, as it does in the top
   // view. A string key, so the scene hears of a change and not of every render.
   const railId = hoveredComponent.value;
+  // A group's card pointed at names every member: all the group's trays light.
+  const railMembers = hoveredMembers.value;
   const litKey = useMemo(() => {
     const comps = p.components ?? [];
-    if (railId === null) {
+    if (railId === null && railMembers === null) {
       return "";
     }
     // The items that share a tray with the one pointed at light with it, as in the top view.
-    const lit = sharingTrayWith(railId, p.trays, comps);
+    const lit = new Set<string>();
+    for (const id of [...(railId === null ? [] : [railId]), ...(railMembers ?? [])]) {
+      sharingTrayWith(id, p.trays, comps).forEach((other) => lit.add(other));
+    }
     return p.trays
       .filter((t) => componentIdsOfTray(t, comps).some((id) => lit.has(id)))
       .map((t) => t.key)
       .join("\n");
-  }, [railId, p.trays, p.components]);
+  }, [railId, railMembers, p.trays, p.components]);
   useEffect(() => {
     handleRef.current?.setLit(litKey === "" ? [] : litKey.split("\n"));
   }, [status, litKey]);

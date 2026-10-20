@@ -36,7 +36,11 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    that same shade marks its trays in the plan and in the 3D view. Editing an item opens
    a panel with the basics and, under "More options", the rest: room for expansions, how
    often you reach for it, finger cuts, curved floor, corner holes, how cards stand,
-   one pile per player, removable dividers, and the exact numbers in rows that open in place.
+   copies (each its own tray), the group an item belongs to, removable dividers between flat
+   decks in one well, and the exact numbers in rows that open in place. A group is a set of
+   items that share one tray: it has a name, Copies (each copy is its own tray, "×4" in its
+   header), the order of its items (the order of the wells in the tray) and how often you reach
+   for it. Drag an item by its grip into or out of a group, or use "Move to group…".
    The box beside it shows the item's trays lifted, and each change to an option shows a short
    note over the box. When
    no tray variant can give tiles, miniatures (pockets) or an other item a finger cut, its
@@ -61,7 +65,7 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    row with its colour, its name over one line ("Layer 1 (bottom) · 95 × 190 × 40 mm · about 4.5 h,
    76 g"), "Pin this tray", "Turn this tray 90°", "Edit", "More" and Close ("this stack" for a tray in a
    stack of two or more). "Pin this tray" holds it where it is (a stack: all its trays), "Turn this
-   tray 90°" turns it (which pins its stack), "Edit" opens its item, and "More" holds "Swap with…" (swap
+   tray 90°" turns it without pinning it ("Turned" says so; its × lets it turn as the plan likes), "Edit" opens its item, and "More" holds "Swap with…" (swap
    two trays: drag one onto another, or use the keyboard; both stacks are pinned) and "Lock size"
    (holds it at the size it is). A line says why an action is blocked. Spacers, spare trays and
    risers have no actions, only Close. Pins and size locks also show as chips on the item's row,
@@ -195,7 +199,10 @@ in `app/meshes.ts`.
    `model/schema-read-components.ts`. Bump `SCHEMA_VERSION`
    (`model/version.ts`) for an additive change: while MAJOR is 0 that is the
    PATCH (MINOR is breaking and needs a migration); from 1.0 on it is the
-   MINOR (MAJOR is breaking). Add a fixture under `test/fixtures/schema/`.
+   MINOR (MAJOR is breaking). Add a fixture under `test/fixtures/schema/`. A
+   breaking change (a 0.x MINOR) also needs an entry in `MIGRATIONS`
+   (`model/schema.ts`; the first is `model/migrate-0.2.ts`), tested against the
+   projects in `test/fixtures/legacy/`.
 2. **Sizing:** turn it into `TrayRequirement` variants in `src/sizing/`
    (one compartment requirement per item, finger cuts, elastic axes). Decide
    its defaults for the "Finger cuts", "Curved floor" and "Corner reliefs"

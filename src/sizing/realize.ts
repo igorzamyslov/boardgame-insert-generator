@@ -11,7 +11,7 @@ import {
   DIVIDER_GROOVE,
   SPACER_TOP_GAP,
 } from "./constants";
-import { slotCentres, slotWidthU } from "./dividers";
+import { sectionSpans, slotCentres, slotWidthU } from "./dividers";
 import { cutoutSides } from "./common";
 import { placeCutouts } from "./cutouts";
 import type { CutAsk, CutPlacement, PlacedCut } from "./cutouts";
@@ -37,9 +37,12 @@ interface Placed {
   spacer: number; // spacer length at the well's +X end, 0 = none
 }
 
+/** A compartment's placed wall cutouts by side, along the side: one each, but a sectioned well's. */
+type CutsBySide = ReadonlyMap<Side, readonly CutPlacement[]>;
+
 interface FeatureContext {
   settings: Settings;
-  cuts: ReadonlyMap<Side, CutPlacement>; // this compartment's wall cutouts (placeCutouts)
+  cuts: CutsBySide; // this compartment's wall cutouts (placeCutouts)
 }
 
 function lastIndex<T>(items: readonly T[], test: (item: T) => boolean): number {
@@ -135,21 +138,16 @@ function featureSpecs(
     }
     const asked = cutoutSides(req.features);
     const sides = [...asked, ...SIDES.filter((other) => !asked.includes(other))];
-    return sides.flatMap((s): FeatureSpec[] => {
-      const cut = ctx.cuts.get(s);
-      return cut === undefined
-        ? []
-        : [
-            {
-              type: "wallCutout",
-              side: s,
-              at: fromU(cut.at),
-              width: fromU(cut.width),
-              depth: fromU(cut.depth),
-              floorNotch: fromU(cut.notch),
-            },
-          ];
-    });
+    return sides.flatMap((s): FeatureSpec[] =>
+      (ctx.cuts.get(s) ?? []).map((cut): FeatureSpec => ({
+        type: "wallCutout",
+        side: s,
+        at: fromU(cut.at),
+        width: fromU(cut.width),
+        depth: fromU(cut.depth),
+        floorNotch: fromU(cut.notch),
+      })),
+    );
   });
 }
 
@@ -167,11 +165,11 @@ function featureSpecs(
  */
 function spacerNotch(
   well: Rect,
-  cuts: ReadonlyMap<Side, CutPlacement>,
+  cuts: CutsBySide,
   height: number,
   settings: Settings,
 ): { features: FeatureSpec[]; height: number } {
-  const cut = cuts.get("right") ?? cuts.get("left");
+  const cut = cuts.get("right")?.[0] ?? cuts.get("left")?.[0];
   const depth = cut === undefined ? 0 : cut.depth - toU(SPACER_TOP_GAP);
   if (cut === undefined || depth < 1) {
     return { features: [], height };
@@ -274,7 +272,44 @@ function corners(r: Rect): RectMm {
   return { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.d };
 }
 
-/** The wall cutouts of every placed compartment (placeCutouts), per compartment and side. */
+/** Whether `req` is a divided well whose cuts are placed per section (FeatureReq.perSection). */
+function isSectioned(req: CompartmentReq | undefined): boolean {
+  return (
+    req !== undefined &&
+    (req.dividers ?? 0) > 0 &&
+    req.features.some((f) => f.type === "wallCutout" && f.perSection === true)
+  );
+}
+
+/** Whether a cut on `side` runs along y, through the left or right wall. */
+function throughEnd(side: Side): boolean {
+  return side === "left" || side === "right";
+}
+
+/**
+ * The sections of `alloc` a divided well's cuts are placed in: one rectangle per deck where the
+ * well asks for a cut `perSection` (flat decks sharing one well: the sections are those between
+ * its slots), else the well itself. Only the cut placement sees them; the tray has one well.
+ */
+function sectionsOf(req: CompartmentReq, alloc: Rect, settings: Settings): Rect[] {
+  const count = req.dividers ?? 0;
+  if (!isSectioned(req)) {
+    return [alloc];
+  }
+  return sectionSpans(alloc.x, alloc.w, count, slotWidthU(settings)).map(([x0, x1]): Rect => ({
+    ...alloc,
+    x: x0,
+    w: x1 - x0,
+  }));
+}
+
+/**
+ * The wall cutouts of every placed compartment (placeCutouts), per compartment and side. A well
+ * with `perSection` cuts is placed as its sections, one compartment each (so a cut centres on
+ * its section and keeps its posts there, as it would for separate wells), and its cuts come back
+ * as the one well's, in order along the side. A section that gets no cut refuses the tray, as a
+ * well does.
+ */
 function wallCutouts(
   items: readonly { req: CompartmentReq; alloc: Rect; spacer: number; depth: number }[],
   frame: {
@@ -285,22 +320,34 @@ function wallCutouts(
     min: MinLayout;
     settings: Settings;
   },
-): { byOwner: Map<Side, CutPlacement>[]; placed: PlacedCut[] } {
+): { byOwner: Map<Side, CutPlacement[]>[]; placed: PlacedCut[] } {
   const { W, D, H, min, settings } = frame;
-  const requests: CutAsk[] = items.flatMap(({ req }, owner) =>
-    cutoutSides(req.features).map((side): CutAsk => {
-      const asks = req.features.filter((f) => f.type === "wallCutout" && f.side === side);
-      return {
-        owner,
-        side,
-        fraction: Math.min(...asks.map((f) => f.depthFraction ?? 1)),
-        notch: asks.some((f) => f.floorNotch === true),
-      };
-    }),
-  );
-  const placed = placeCutouts(requests, {
-    rects: items.map((item) => item.alloc).map(corners),
-    spacers: items.map(({ alloc, spacer }) =>
+  // The compartments the cuts are placed in, each with the item it belongs to.
+  const cells = items.flatMap((item, owner) => {
+    const sections = sectionsOf(item.req, item.alloc, settings);
+    return sections.map((alloc) => ({
+      owner,
+      alloc,
+      spacer: sections.length > 1 ? 0 : item.spacer,
+    }));
+  });
+  const requests: CutAsk[] = cells.flatMap(({ owner }, cell) => {
+    const req = items[owner]?.req;
+    return req === undefined
+      ? []
+      : cutoutSides(req.features).map((side): CutAsk => {
+          const asks = req.features.filter((f) => f.type === "wallCutout" && f.side === side);
+          return {
+            owner: cell,
+            side,
+            fraction: Math.min(...asks.map((f) => f.depthFraction ?? 1)),
+            notch: asks.some((f) => f.floorNotch === true),
+          };
+        });
+  });
+  const placedAll = placeCutouts(requests, {
+    rects: cells.map((cell) => corners(cell.alloc)),
+    spacers: cells.map(({ alloc, spacer }) =>
       spacer > 0
         ? {
             x0: alloc.x + alloc.w - spacer,
@@ -310,7 +357,7 @@ function wallCutouts(
           }
         : null,
     ),
-    depths: items.map((item) => item.depth),
+    depths: cells.map(({ owner }) => items[owner]?.depth ?? 0),
     span: { x: W, y: D },
     H,
     chamfer: min.chamfer,
@@ -318,24 +365,38 @@ function wallCutouts(
     width: ceilU(settings.fingerPocket.width),
     notch: ceilU(settings.fingerPocket.floorNotch),
   });
-  const byOwner = items.map(() => new Map<Side, CutPlacement>());
-  for (const { owner, side, at, width, depth, notch } of placed) {
-    byOwner[owner]?.set(side, { at, width, depth, notch });
-  }
-  const uncut = items.filter(
-    (_, owner) => requests.some((q) => q.owner === owner) && byOwner[owner]?.size === 0,
+  // A section is cut through the front or back wall only: placeCutouts' last retry asks for the
+  // left and right of a cell that got neither, and neighbouring sections would chain one channel
+  // through every section, which the loose plates between them stop. Such a cut is no cut, so the
+  // section counts as uncut and the tray is refused (R21: never a silent side channel).
+  const sectioned = cells.map(({ owner }) => isSectioned(items[owner]?.req));
+  const placedCells = placedAll.filter((p) => !(sectioned[p.owner] === true && throughEnd(p.side)));
+  const uncut = cells.flatMap((cell, c) =>
+    requests.some((q) => q.owner === c) && !placedCells.some((p) => p.owner === c) ? [cell] : [],
   );
   if (uncut.length > 0) {
     // Finger access is never left out silently (review 1, I2): a well too small for a cut of
     // MIN_CUT_MM with POST_MM posts on every side refuses the tray.
-    const contents = [...new Set(uncut.map(({ req }) => req.contents))];
+    const reqs = uncut.flatMap(({ owner }) => items[owner]?.req ?? []);
+    const contents = [...new Set(reqs.map((req) => req.contents))];
     const least = Math.min(MIN_CUT_MM, settings.fingerPocket.width);
     throw new CutFitError(
       `Tray ${frame.trayKey}: no wall cutout of at least ${least} mm fits for ${contents.join(", ")}`,
       least,
-      [...new Set(uncut.map(({ req }) => req.componentId))],
+      [...new Set(reqs.map((req) => req.componentId))],
       contents,
     );
+  }
+  const placed = placedCells.map((p) => ({ ...p, owner: cells[p.owner]?.owner ?? p.owner }));
+  const byOwner = items.map(() => new Map<Side, CutPlacement[]>());
+  for (const { owner, side, at, width, depth, notch } of placed) {
+    const bySide = byOwner[owner];
+    bySide?.set(side, [...(bySide.get(side) ?? []), { at, width, depth, notch }]);
+  }
+  for (const bySide of byOwner) {
+    for (const cuts of bySide.values()) {
+      cuts.sort((a, b) => a.at - b.at);
+    }
   }
   return { byOwner, placed };
 }

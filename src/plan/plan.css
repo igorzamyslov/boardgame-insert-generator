@@ -113,6 +113,17 @@
     box-shadow 180ms;
 }
 
+/*
+ * A group's tray is neutral (G1, spec §7.6): a mixed tray has no single kind, so the page's own
+ * tokens stand for it, `--sheet` for the ground and `--muted-strong` for the 2 px line, the pill's
+ * ink and Edit's lift; its cells say what is where, each in its member's kind colours.
+ */
+.plan-tile.is-group {
+  --tile-fill: var(--sheet);
+  --tile-line: var(--muted-strong);
+  --tile-ink: var(--muted-strong);
+}
+
 /* Spare trays and spacers belong to no component: hatched, with a dashed edge (Main). */
 .plan-tile.is-leftover {
   border: 2px dashed var(--spacer-dash);
@@ -142,12 +153,18 @@
   box-shadow: var(--ring-selected);
 }
 
-/* Edit's lifted tray: a 4 px sheet ring, a 6 px ring in the kind's line, and a drop shadow under it. */
+/*
+ * Edit's lifted tray: a double edge drawn INSIDE the tile (the 2 px border, then an inset 2 px
+ * sheet ring and an inset 2 px ring in the kind's line) and a small drop shadow that reaches at
+ * most 3 px out. A group lifts every copy at once and neighbours are 6 px apart, so nothing of a
+ * lifted tray may reach further than half that gap: the old 6 px ring and 28 px shadow ran into
+ * the next copy and the upper one covered the lower one's edge (before-merge fix, item 1).
+ */
 .plan-tile.is-lifted {
   z-index: 2;
   box-shadow:
-    0 0 0 4px var(--sheet),
-    0 0 0 6px var(--tile-line, var(--edge)),
+    inset 0 0 0 2px var(--sheet),
+    inset 0 0 0 4px var(--tile-line, var(--edge)),
     var(--shadow-lift-drop);
 }
 
@@ -196,6 +213,18 @@
   border: 1px solid color-mix(in srgb, var(--tile-line, var(--edge)) 25%, transparent);
   border-radius: var(--r-cell);
   background: var(--cell-fill);
+}
+
+/* A group's cell wears its member's kind fill and a 1.5 px kind line. */
+.plan-tile.is-group .plan-cell {
+  border: 1.5px solid var(--cell-own-line, var(--tile-line));
+  background: var(--cell-own-fill, var(--cell-fill));
+}
+
+/* The wells of the member whose editor is open (spec §7.5): a 2 px ink outline among the group's lifted trays. */
+.plan-tile.is-group .plan-cell.is-own {
+  outline: 2px solid var(--ink);
+  outline-offset: 0;
 }
 
 /* The name sits in a pill so it reads on any shade and over the hatching. */
@@ -313,9 +342,18 @@
     display: none;
   }
 
-  /* MobileWorkspace: no cells, and a smaller pill. */
+  /* MobileWorkspace: no cells, except a group's, which are what says what is in its tray (G4); and a smaller pill. */
   .plan-cells {
     display: none;
+  }
+
+  .plan-tile.is-group .plan-cells {
+    inset: 5px;
+    display: block;
+  }
+
+  .plan-tile.is-group .plan-cell {
+    border-radius: 4px;
   }
 
   .plan-center {

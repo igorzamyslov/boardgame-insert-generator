@@ -59,14 +59,15 @@ export const REGIONS = {
       )?.parentElement || null,
   },
   menu: { board: (doc) => doc.querySelector('[role="menu"]') },
-  // Empty's kind tiles: the grid of the five kinds (the nearest board of the Add pill's picker).
+  // The grid of kind tiles: Empty's five links (the nearest board of the Add pill's picker) or
+  // GroupAdd's six buttons, Group the sixth (0.7.0).
   "kind-picker": {
     board: (doc) =>
       Array.from(doc.querySelectorAll("div")).find(
         (el) =>
           /display:\s*grid/.test(el.getAttribute("style") || "") &&
-          el.children.length === 5 &&
-          Array.from(el.children).every((c) => c.localName === "a"),
+          (el.children.length === 5 || el.children.length === 6) &&
+          Array.from(el.children).every((c) => c.localName === "a" || c.localName === "button"),
       ) || null,
   },
   dialog: { board: (doc) => doc.querySelector('[role="dialog"]') },

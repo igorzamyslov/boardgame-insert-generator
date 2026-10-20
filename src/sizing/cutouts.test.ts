@@ -15,6 +15,7 @@ import {
   custom,
   minis,
   partOf,
+  partOfGroup,
   tiles,
 } from "./test-helpers";
 import { MIN_REACH_OVERLAP } from "./constants";
@@ -136,8 +137,8 @@ describe("upright cards and tiles: one finger channel", () => {
   });
 
   it("opens no channel into bits: a deck beside a bulk compartment is cut on its other side only", () => {
-    const part = partOf(
-      [cards({ groupId: "g", decks: decks(30) }), bulk({ groupId: "g" })],
+    const part = partOfGroup(
+      [cards({ decks: decks(30) }), bulk({})],
       "upright-long+shallow|strip|split1",
     );
     const r = realize(part);
@@ -147,16 +148,15 @@ describe("upright cards and tiles: one finger channel", () => {
     expect(at(r.compartments, 1).features.filter((f) => f.type === "wallCutout")).toEqual([]);
   });
 
-  it("gives a deck grouped between two bulk compartments its channel at the row's end", () => {
-    const pile = (id: string) =>
-      bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
-    const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(30) });
-    const part = partOf(
-      [pile("b1"), deck, pile("b2")],
-      "shallow+upright-long+shallow|strip|split1",
+  it("gives a deck that leads its group its channel at the row's end", () => {
+    const pile = (id: string) => bulk({ id, items: [{ name: "Pile", volumeMl: 40 }] });
+    const deck = cards({ shortSide: 63, longSide: 88, decks: decks(30) });
+    const part = partOfGroup(
+      [deck, pile("b1"), pile("b2")],
+      "upright-long+shallow+shallow|strip|split1",
     );
-    // The deck moves to the start of the row, its channel out through the left wall (review 1, I2:
-    // between the two bulk compartments it got none).
+    // The deck stands first (member order): its channel goes out through the left wall (review 1,
+    // I2: between the two bulk compartments it got none).
     expect(part.compartments.map((c) => c.componentId)).toEqual(["c1", "b1", "b2"]);
     const r = realize(part);
     expect(cutsOf(at(r.compartments, 0)).map((f) => f.type === "wallCutout" && f.side)).toEqual([
@@ -165,16 +165,15 @@ describe("upright cards and tiles: one finger channel", () => {
   });
 
   it("cuts a deck with no free wall along its row through the walls across it instead", () => {
-    const pile = (id: string) =>
-      bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
-    const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(80) });
-    const sorted = partOf(
+    const pile = (id: string) => bulk({ id, items: [{ name: "Pile", volumeMl: 40 }] });
+    const deck = cards({ shortSide: 63, longSide: 88, decks: decks(80) });
+    const sorted = partOfGroup(
       [pile("b1"), deck, pile("b2")],
       "shallow+upright-long+shallow|strip|split1",
     );
-    // Kept between the bulk compartments (a part built by hand): centred on the deck's well, out
+    // Member order puts the deck between the bulk compartments: centred on the deck's well, out
     // through the front and back walls.
-    const part = { ...sorted, compartments: [1, 0, 2].map((i) => at(sorted.compartments, i)) };
+    const part = sorted;
     const r = realize(part);
     const well = at(r.compartments, 1);
     const cuts = cutsOf(well);
@@ -190,21 +189,19 @@ describe("upright cards and tiles: one finger channel", () => {
   // grown well, so growth stops where the cut still covers MIN_REACH_OVERLAP of it there.
   it("keeps a deck at either end of its grown well under the cut across the row", () => {
     const narrow: Settings = { ...s, fingerPocket: { ...s.fingerPocket, width: 14 } };
-    const pile = (id: string) =>
-      bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
+    const pile = (id: string) => bulk({ id, items: [{ name: "Pile", volumeMl: 40 }] });
     const deck = cards({
       growth: { stack: "max" },
-      groupId: "g",
       shortSide: 63,
       longSide: 88,
       decks: decks(80),
     });
-    const sorted = partOf(
+    const sorted = partOfGroup(
       [pile("b1"), deck, pile("b2")],
       "shallow+upright-long+shallow|strip|split1",
       narrow,
     );
-    const part = { ...sorted, compartments: [1, 0, 2].map((i) => at(sorted.compartments, i)) };
+    const part = sorted;
     const stack = at(part.compartments, 1).minW; // the deck's own thickness in its well
     // a lot of room along the row: the deck takes what it may, the bins what they may
     const min = minOuter(part, narrow, ground);
@@ -236,20 +233,19 @@ describe("upright cards and tiles: one finger channel", () => {
   });
 
   it("keeps such a cut clear of the deck's spacer", () => {
-    const dial = (id: string) => custom({ id, groupId: "g", count: 1 });
+    const dial = (id: string) => custom({ id, count: 1 });
     const deck = cards({
       growth: { stack: "max" },
       separators: 1,
-      groupId: "g",
       shortSide: 63,
       longSide: 88,
       decks: decks(80),
     });
-    const sorted = partOf(
+    const sorted = partOfGroup(
       [dial("x1"), deck, dial("x2")],
       "custom+upright-long+custom|strip|split1",
     );
-    const part = { ...sorted, compartments: [1, 0, 2].map((i) => at(sorted.compartments, i)) };
+    const part = sorted;
     const min = minOuter(part, s, ground);
     // 30 mm of slack along the row become a spacer at the end of the deck's well.
     const r = realize(part, s, ground, { ...min, w: min.w + 30 });
@@ -419,15 +415,15 @@ describe("cut sides beside a rounded outer corner", () => {
 });
 
 describe("finger room where the cuts actually go", () => {
-  // A deck kept between two bulk compartments (a hand-built part): no cut along its row, so it is
+  // A deck between two bulk compartments (member order): no cut along its row, so it is
   // cut through the front and back walls instead (placeCutouts' second try).
-  const pile = (id: string) => bulk({ id, groupId: "g", items: [{ name: "Pile", volumeMl: 40 }] });
-  const deck = cards({ groupId: "g", shortSide: 63, longSide: 88, decks: decks(80) });
-  const sorted = partOf(
+  const pile = (id: string) => bulk({ id, items: [{ name: "Pile", volumeMl: 40 }] });
+  const deck = cards({ shortSide: 63, longSide: 88, decks: decks(80) });
+  const sorted = partOfGroup(
     [pile("b1"), deck, pile("b2")],
     "shallow+upright-long+shallow|strip|split1",
   );
-  const between = { ...sorted, compartments: [1, 0, 2].map((i) => at(sorted.compartments, i)) };
+  const between = sorted;
 
   it("thickens the front and back walls a cut on the other axis leaves through", () => {
     const plain = minOuter(between, s, ground);
@@ -642,8 +638,8 @@ describe("finger room in the cut dividers (fingerPocket.dividerRoom)", () => {
   });
 
   it("leaves a divider no cut crosses alone", () => {
-    const part = partOf(
-      [cards({ groupId: "g", decks: decks(30, 30) }), bulk({ groupId: "g" })],
+    const part = partOfGroup(
+      [cards({ decks: decks(30, 30) }), bulk({})],
       "upright-long+shallow|strip|split1",
     );
     const plain = realize(part);

@@ -8,9 +8,9 @@ afterEach(cleanup);
 
 describe("DisclosureRow", () => {
   it("shows the changed dot after the title, named for a reader, only when asked", () => {
-    const { rerender } = render(<DisclosureRow plain title="Per player" />);
+    const { rerender } = render(<DisclosureRow plain title="Copies" />);
     expect(screen.queryByRole("img", { name: "Changed" })).toBeNull();
-    rerender(<DisclosureRow plain dot title="Per player" />);
+    rerender(<DisclosureRow plain dot title="Copies" />);
     const dot = screen.getByRole("img", { name: "Changed" });
     expect(dot.className).toBe("k-drow__dot");
     expect(dot.parentElement?.className).toBe("k-drow__title");

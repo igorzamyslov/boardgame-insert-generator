@@ -1,6 +1,7 @@
 // src/ui/identity.ts
 import { KIND_NAMES } from "../model/defaults";
-import type { Component, ComponentKind, TraySpec } from "../model/types";
+import { groupById, parseTrayKey } from "../model/groups";
+import type { Component, ComponentKind, Group, TraySpec } from "../model/types";
 import { contrast, hexToHsl, hslToHex } from "./color";
 
 export type ColorScheme = "light" | "dark";
@@ -63,13 +64,30 @@ const MIN_LINE_CONTRAST = 3.2;
 const MIN_INK_CONTRAST = 4.8;
 
 /**
+ * A group's tray is neutral: a mixed tray has no single kind, so no kind hue stands for it. Light
+ * mirrors `--sheet` (the fill) and `--muted-strong` (the line and the ink); the line keeps 3:1 on
+ * the box and on the fill, the ink 4.5:1 on the fill. In 3D the body takes `fill`; the wells are
+ * not tinted there.
+ */
+export const GROUP_SHADE: Record<ColorScheme, Shade> = {
+  light: { fill: "#ffffff", line: "#3e413c", ink: "#3e413c" },
+  dark: { fill: "#26241f", line: "#d6d3c8", ink: "#e6e3d9" },
+};
+
+/** What a shade is asked for: a component's kind, or "group" for the neutral of a group's tray. */
+export type ShadeKind = ComponentKind | "group";
+
+/**
  * The colours of the nth component of a kind, as hex for one colour scheme. Index 0 is the
  * kind's base hue; the next ones step lightness and saturation inside that hue (the other way
  * round on a dark page, where the lighter fill is the one that stands out), and then they
  * start over. The line is pushed until it keeps 3:1 on the box and on its own fill, and the ink
  * until it keeps 4.5:1 on the fill, so any shade can be used for outlines and for text.
  */
-export function shadeHex(kind: ComponentKind, index: number, scheme: ColorScheme): Shade {
+export function shadeHex(kind: ShadeKind, index: number, scheme: ColorScheme): Shade {
+  if (kind === "group") {
+    return { ...GROUP_SHADE[scheme] };
+  }
   const base = KIND_BASES[kind][scheme];
   const slot = ((Math.trunc(index) % SHADE_COUNT) + SHADE_COUNT) % SHADE_COUNT;
   if (slot === 0) {
@@ -114,7 +132,7 @@ export function shadeHex(kind: ComponentKind, index: number, scheme: ColorScheme
  * the PNG and SVG export (a standalone SVG, `svgDataUrl` in instructions/png.ts) and anything
  * printed must use plain hex, `shadeHex(kind, index, "light")`: paper is always light.
  */
-export function shadeOf(kind: ComponentKind, index: number): Shade {
+export function shadeOf(kind: ShadeKind, index: number): Shade {
   const light = shadeHex(kind, index, "light");
   const dark = shadeHex(kind, index, "dark");
   return {
@@ -125,7 +143,7 @@ export function shadeOf(kind: ComponentKind, index: number): Shade {
 }
 
 /** The shade of the nth component of a kind as CSS custom properties, for a row or a panel to take. */
-export function shadeVars(kind: ComponentKind, index: number): Record<string, string> {
+export function shadeVars(kind: ShadeKind, index: number): Record<string, string> {
   const shade = shadeOf(kind, index);
   return { "--shade-fill": shade.fill, "--shade-line": shade.line, "--shade-ink": shade.ink };
 }
@@ -183,7 +201,7 @@ export function shadeIndexOf(components: readonly Component[], index: number): n
 }
 
 /** The component a compartment holds, by the id it names, else by its words; null for none. */
-function componentIndexOfCompartment(
+export function componentIndexOfCompartment(
   compartment: TraySpec["compartments"][number],
   components: readonly Component[],
 ): number | null {
@@ -292,8 +310,10 @@ export function componentSummary(c: Component): string {
     }
     case "tiles":
       return `${c.count} tiles`;
-    case "minis":
-      return `${c.figures.reduce((sum, f) => sum + f.count, 0)} figures`;
+    case "minis": {
+      const figures = c.figures.reduce((sum, f) => sum + f.count, 0);
+      return `${figures} ${figures === 1 ? "figure" : "figures"}`;
+    }
     case "custom":
       return `${c.count} × ${mm(c.w)} × ${mm(c.d)} × ${mm(c.h)} mm`;
   }
@@ -357,4 +377,87 @@ export function compartmentWords(tray: TraySpec, component: Component | undefine
             ? COMPARTMENT_WORDS.tile
             : COMPARTMENT_WORDS.other;
   return `${own.length} ${own.length === 1 ? words[0] : words[1]}`;
+}
+
+/**
+ * The group a tray belongs to: the one whose id is its key's stem (`<group id>:p<copy>:<part>`, and
+ * the spacers, risers and dividers under it). One rule for the names (`trayNames`), the look
+ * (`isGroupTray`) and the editor's lift: a stored plan that keeps an item's own keys after the item
+ * joined a group is out of date, and its trays stay the item's until the plan is made again.
+ * Undefined for a tray of an ungrouped item and for a part with no group's stem.
+ */
+export function groupOfTray(
+  tray: TraySpec,
+  p: { components: readonly Component[]; groups?: readonly Group[] },
+): Group | undefined {
+  const stem = parseTrayKey(tray.key)?.stem;
+  return stem === undefined ? undefined : groupById(p, stem);
+}
+
+/**
+ * The trays of the plan that make up a group, every copy and every part of a split copy, in the
+ * plan's order. Its spacers, risers and dividers are not trays and are left out. None without a
+ * plan. `trays` are the plan's (the stored ones by default; the app's printed parts for a stage).
+ */
+export function traysOfGroup(
+  p: {
+    components: readonly Component[];
+    groups?: readonly Group[];
+    layout?: { trays: readonly TraySpec[] };
+  },
+  groupId: string,
+  trays: readonly TraySpec[] = p.layout?.trays ?? [],
+): TraySpec[] {
+  return trays.filter((t) => t.part === "tray" && groupOfTray(t, p)?.id === groupId);
+}
+
+/**
+ * Whether a tray is a group's: a tray (not a spacer, riser, divider or spare) of a group. It is
+ * drawn and shaded neutral everywhere (spec §7.6): a mixed tray has no single kind.
+ */
+export function isGroupTray(
+  tray: TraySpec,
+  p: { components: readonly Component[]; groups?: readonly Group[] },
+): boolean {
+  return tray.part === "tray" && (p.groups?.length ?? 0) > 0 && groupOfTray(tray, p) !== undefined;
+}
+
+/** What a compartment is drawn in: its member's kind, and the member's place among its kind. */
+export interface MemberShade {
+  kind: ComponentKind;
+  /** The nth of its kind (`shadeIndexOf`): the argument `shadeHex` and `shadeOf` take. */
+  index: number;
+}
+
+/** The member a compartment holds, for its colours; null for a spare well or one that names no item. */
+export function memberShadeOfCompartment(
+  compartment: TraySpec["compartments"][number],
+  components: readonly Component[],
+): MemberShade | null {
+  if (compartment.kind === "spare") {
+    return null;
+  }
+  const at = componentIndexOfCompartment(compartment, components);
+  const member = at === null ? undefined : components[at];
+  return at === null || member === undefined
+    ? null
+    : { kind: member.kind, index: shadeIndexOf(components, at) };
+}
+
+/**
+ * A group tray's members as the tray bar's tiny tray draws them: one cell each, in compartment
+ * order, in the member's colours. G1 draws near-equal bars, so a cell has no size of its own.
+ */
+export function memberCellsOfTray(tray: TraySpec, components: readonly Component[]): MemberShade[] {
+  const out: (MemberShade & { id: string })[] = [];
+  for (const c of tray.compartments) {
+    const at = c.kind === "spare" ? null : componentIndexOfCompartment(c, components);
+    const member = at === null ? undefined : components[at];
+    const shade = memberShadeOfCompartment(c, components);
+    if (member === undefined || shade === null || out.some((m) => m.id === member.id)) {
+      continue;
+    }
+    out.push({ ...shade, id: member.id });
+  }
+  return out.map(({ kind, index }) => ({ kind, index }));
 }

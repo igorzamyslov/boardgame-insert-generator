@@ -10,6 +10,8 @@ import { CardsEditor } from "./CardsEditor";
 import { TextBox, TitleInput } from "./controls";
 import { CustomEditor } from "./CustomEditor";
 import { MinisEditor } from "./MinisEditor";
+import { groupNameOf, ItemGroupingContext } from "./GroupRow";
+import type { ItemGrouping } from "./GroupRow";
 import { describeOptionChange } from "./optionNotes";
 import { TilesEditor } from "./TilesEditor";
 import "./editor.css";
@@ -23,10 +25,18 @@ export interface EditorPanelProps {
   /** Another component has the same name: the Remove button says which one by its position. */
   sameName?: boolean;
   onChange: (next: Component) => void;
-  /** The back link and Done: leave the editor for the list. */
+  /** The back link and Done: leave the editor for the list (or the group's editor it was opened from). */
   onBack: () => void;
+  /** What the back link says: the group's name when the item was opened from its editor. */
+  backLabel?: string;
   /** The removal was confirmed. */
   onRemove: () => void;
+  /**
+   * The groups, for an item's Group row and its Copies; the app gives it. Without it the editor is
+   * drawn alone: the item is in no group and has no Group row. An item in a group has "In <group>"
+   * under its name and no Copies or access of its own (spec §7.5).
+   */
+  grouping?: ItemGrouping;
   /** A change to an option has this to say: the stage shows it as a note (Edit's toast). */
   onNote?: (text: string) => void;
   /** Below 760 px: MobileEdit's full-screen sheet, with its own header and no foot. */
@@ -67,8 +77,10 @@ export function EditorPanel({
   sameName = false,
   onChange,
   onBack,
+  backLabel,
   onRemove,
   onNote,
+  grouping,
   phone = false,
   strip,
 }: EditorPanelProps) {
@@ -128,6 +140,19 @@ export function EditorPanel({
   );
   const kind = KIND_TILES.find((t) => t.kind === c.kind)?.label ?? "";
   const rename = (next: string): void => onChange({ ...c, name: next });
+  const group = grouping?.group;
+  // "In Player kit", under the name: it opens the group's editor
+  const inGroup =
+    group === undefined ? null : (
+      <button type="button" class="ed-ingroup" onClick={() => grouping?.onEditGroup(group.id)}>
+        {`In ${groupNameOf(group.name)}`}
+      </button>
+    );
+  const kindEditor = (
+    <ItemGroupingContext.Provider value={grouping}>
+      <KindEditor component={c} index={index} onChange={change} />
+    </ItemGroupingContext.Provider>
+  );
 
   if (phone) {
     return (
@@ -154,7 +179,8 @@ export function EditorPanel({
         {strip}
         <div class="ed-scroll">
           <TextBox id={`${c.id}-name`} label="Name" value={c.name} onCommit={rename} />
-          <KindEditor component={c} index={index} onChange={change} />
+          {inGroup}
+          {kindEditor}
           <div class="ed-remove-row">{asking ? answer : remove}</div>
         </div>
       </section>
@@ -173,16 +199,19 @@ export function EditorPanel({
       </h2>
       <button type="button" class="ed-back" onClick={onBack}>
         <Icon name="chevron-left" size={16} />
-        What&apos;s inside
+        {backLabel ?? "What's inside"}
       </button>
       <div class="ed-id">
         <IconTile size={44} kind={c.kind} />
-        <label class="ed-id__label">
-          <span class="ed-id__kind">{kind}</span>
-          <TitleInput id={`${c.id}-name`} label="Name" value={c.name} onCommit={rename} />
-        </label>
+        <div class="ed-id__text">
+          <label class="ed-id__label">
+            <span class="ed-id__kind">{kind}</span>
+            <TitleInput id={`${c.id}-name`} label="Name" value={c.name} onCommit={rename} />
+          </label>
+          {inGroup}
+        </div>
       </div>
-      <KindEditor component={c} index={index} onChange={change} />
+      {kindEditor}
       <div class="ed-foot">
         {asking ? (
           answer

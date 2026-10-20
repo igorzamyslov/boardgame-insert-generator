@@ -218,3 +218,52 @@ describe("explodedView", () => {
     expect(doc.querySelectorAll("g[data-badge]")).toHaveLength(2);
   });
 });
+
+describe("explodedView with a group's trays", () => {
+  it("names a group's trays by the group and draws them neutral", () => {
+    const base = fixtureProject();
+    const [a, b] = base.components as [
+      (typeof base.components)[number],
+      (typeof base.components)[number],
+    ];
+    const well = (id: string, contents: string) => ({
+      x: 2,
+      y: 2,
+      w: 30,
+      d: 30,
+      floorZ: 1.2,
+      kind: "well" as const,
+      contents,
+      componentId: id,
+      features: [],
+    });
+    const tray = (n: number) =>
+      makeTray({
+        key: `kit:p${n}:0`,
+        stack: n,
+        x: n * 125,
+        y: 0,
+        w: 120,
+        d: 90,
+        compartments: [well(a.id, `${a.name} ×4`), well(b.id, `${b.name} ×4`)],
+      });
+    const p = {
+      ...base,
+      groups: [
+        {
+          id: "kit",
+          name: "Player kit",
+          copies: 2,
+          access: "often" as const,
+          memberIds: [a.id, b.id],
+        },
+      ],
+    };
+    const view = explodedView(makeLayout("h", [tray(0), tray(1)]), p);
+    expect(view?.parts.map((x) => x.name)).toEqual(["Player kit 1", "Player kit 2"]);
+    const doc = parse(view?.svg ?? "");
+    const top = doc.querySelector('g[data-part="1"]')?.querySelectorAll("polygon");
+    expect(top?.[top.length - 1]?.getAttribute("fill")).toBe("#ffffff");
+    expect(top?.[top.length - 1]?.getAttribute("stroke")).toBe("#3e413c");
+  });
+});

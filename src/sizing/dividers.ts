@@ -41,6 +41,24 @@ export function slotCentres(x0: number, width: number, count: number, slot: numb
   );
 }
 
+/**
+ * The sections of a well `width` units wide, from `x0`, with `count` dividers (the same sharing as
+ * slotCentres): `[start, end]` in units, in order, each one whole `section` wide between the slots
+ * and the last taking the few units over. A section's centre is where a finger cut for its deck goes.
+ */
+export function sectionSpans(
+  x0: number,
+  width: number,
+  count: number,
+  slot: number,
+): [number, number][] {
+  const section = Math.floor((width - count * slot) / (count + 1));
+  return Array.from({ length: count + 1 }, (_, k): [number, number] => {
+    const start = x0 + k * (section + slot);
+    return [start, k === count ? x0 + width : start + section];
+  });
+}
+
 /** `toU` of a slot width, for realize. */
 export function slotWidthU(settings: Settings): number {
   return toU(dividerSlotWidth(settings));

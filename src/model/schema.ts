@@ -1,6 +1,7 @@
 import { DEFAULT_BOX, DEFAULT_PRINTER } from "./defaults";
 import { deepFreeze } from "./freeze";
 import type { Json } from "./json";
+import { migrateTo020 } from "./migrate-0.2";
 import {
   isArrayIndex,
   isRecord,
@@ -54,11 +55,15 @@ export interface Migration {
 }
 
 /**
- * Registered migrations. Empty before 1.0 (0.x promises no compatibility).
- * From 1.0 on, every schema MAJOR bump adds one migration from the previous
- * line, and a saved file of the old MAJOR to test/fixtures/schema/. Frozen.
+ * Registered migrations: one per breaking schema step, each from the previous compatibility line.
+ * While MAJOR is 0 a breaking change is a MINOR (README, "How to add a kind of item"), so a 0.x
+ * MINOR needs its migration too, and a saved file of the old line in test/fixtures/schema/. From
+ * 1.0 on, every schema MAJOR bump adds one. Frozen.
  */
-export const MIGRATIONS: Migration[] = deepFreeze([]);
+export const MIGRATIONS: Migration[] = deepFreeze([
+  // 0.1 → 0.2.0: text groups become `groups`, `perPlayer` becomes `copies` (migrate-0.2.ts).
+  { from: "0.1", to: "0.2.0", migrate: migrateTo020 },
+]);
 
 export interface ParseOptions {
   appSchemaVersion: string;
@@ -154,7 +159,7 @@ function parseWith(raw: unknown, opts: ParseOptions, app: Semver): ParseResult {
     return result;
   }
   const enforceBounds = opts.enforceBounds ?? true;
-  const blocking = validateProject(result.project).filter(
+  const blocking = validateProject(result.project, result.foreign).filter(
     (n) => isBlocking(n) && (enforceBounds || !n.code.startsWith("limit.")),
   );
   if (blocking.length > 0) {
@@ -290,6 +295,10 @@ export function toSerializable(p: Project, foreign: ForeignData): Json {
   }
   // Always a deep copy: the result shares nothing with `p` or `foreign`.
   const out = structuredClone({ ...p, createdWith: APP_VERSION, components }) as Json;
+  // Groups are written only when there are some: a project without them is a 0.1 file's shape.
+  if (Array.isArray(out.groups) && out.groups.length === 0) {
+    delete out.groups;
+  }
   restoreValues(out, foreign.values ?? []);
   compactLayout(out);
   compactSettings(out);

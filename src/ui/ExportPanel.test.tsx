@@ -13,6 +13,7 @@ import type { LayoutSummary } from "../layout/types";
 import type { Component, FeatureSpec } from "../model/types";
 import { loadSeed } from "../test-support/harbourKings";
 import css from "./export.css?raw";
+import { shadeOf } from "./identity";
 import { ExportPanel } from "./ExportPanel";
 import type { ExportPanelProps } from "./ExportPanel";
 
@@ -969,5 +970,75 @@ describe("ExportPanel", () => {
     );
     const style = (await import("../style.css?raw")).default;
     expect(style).toMatch(/--control-h/);
+  });
+});
+
+describe("ExportPanel for a group's trays", () => {
+  const kit = {
+    id: "kit",
+    name: "Player kit",
+    copies: 2,
+    access: "often" as const,
+    memberIds: ["comp0000", "comp0001"],
+  };
+  const well = (id: string, contents: string) => ({
+    x: 2,
+    y: 2,
+    w: 20,
+    d: 20,
+    floorZ: 1.2,
+    kind: "well" as const,
+    contents,
+    componentId: id,
+    features: [],
+  });
+  const copy = (n: number) =>
+    makeTray({
+      key: `kit:p${n}:0`,
+      stack: n,
+      compartments: [well("comp0000", "Deck A ×10"), well("comp0001", "Magnets ×4")],
+    });
+  const hex = { ...(components[0] as Component), id: "comp0002", name: "Hex tiles" };
+  const own = makeTray({
+    key: "own:p0:0",
+    stack: 5,
+    compartments: [well("comp0002", "Hex tiles ×5")],
+  });
+  const asked = () =>
+    props({ trays: [copy(0), copy(1), own], groups: [kit], components: [...components, hex] });
+
+  it("lists a chip per copy, named by the group, in the neutral swatch", () => {
+    render(<ExportPanel {...asked()} />);
+    const chips = screen.getAllByRole("listitem") as HTMLElement[];
+    expect(chips.map((c) => c.textContent)).toEqual(["Player kit 1", "Player kit 2", "Hex tiles"]);
+    const neutral = shadeOf("group", 0);
+    for (const chip of chips.slice(0, 2)) {
+      expect(chip.style.getPropertyValue("--shade-fill")).toBe(neutral.fill);
+      expect(chip.style.getPropertyValue("--shade-line")).toBe(neutral.line);
+      expect(chip.style.getPropertyValue("--shade-ink")).toBe(neutral.ink);
+      expect(chip.getAttribute("data-group")).toBe("true");
+    }
+    // an ungrouped tray's chip is still its kind's colour
+    expect(chips[2]?.getAttribute("data-group")).toBeNull();
+    expect(chips[2]?.style.getPropertyValue("--shade-fill")).not.toBe(neutral.fill);
+  });
+
+  it("draws the group's chip with a line of its own, so it shows on the sheet", () => {
+    expect(css).toMatch(
+      /\.export-chip\[data-group="true"\]\s*\{[^}]*border:\s*1\.5px solid var\(--shade-line/,
+    );
+  });
+
+  it("calls each copy's file by the group's name, and engraves its short name", async () => {
+    const p = asked();
+    render(<ExportPanel {...p} />);
+    openOtherFormats();
+    fireEvent.click(screen.getByRole("button", { name: PER_PART }));
+    await waitFor(() => expect(p.download).toHaveBeenCalled());
+    const [blob] = vi.mocked(p.download ?? vi.fn()).mock.calls[0] ?? [];
+    const zip = unzipSync(new Uint8Array(await (blob as Blob).arrayBuffer()));
+    expect(Object.keys(zip)).toEqual(["Player-kit-1.3mf", "Player-kit-2.3mf", "Hex-tiles.3mf"]);
+    const engraved = vi.mocked(p.meshes.get).mock.calls.map(([spec]) => spec.partName);
+    expect(engraved).toEqual(["Player 1", "Player 2", "Hex"]);
   });
 });

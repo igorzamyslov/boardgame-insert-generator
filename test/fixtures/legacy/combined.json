@@ -1,0 +1,205 @@
+{
+  "schemaVersion": "0.1.16",
+  "createdWith": "0.7.0",
+  "id": "legacy01",
+  "name": "Legacy combined",
+  "box": {
+    "innerWidth": 290,
+    "innerDepth": 210,
+    "innerHeight": 60,
+    "headroom": 0,
+    "headroomCoverage": "full",
+    "storedOnSide": false
+  },
+  "printer": { "bedX": 256, "bedY": 256, "bedZ": 256, "bedMargin": 5, "layerHeight": 0.2 },
+  "settings": {
+    "wall": 1.6,
+    "floor": 1.2,
+    "divider": 1.2,
+    "fit": 1,
+    "cardClearance": 1.5,
+    "cardStackClearance": 1,
+    "cardStackClearancePct": 0.03,
+    "cardThickness": 0.32,
+    "pieceClearance": 1,
+    "boxClearance": 0.5,
+    "trayGap": 0.2,
+    "bottomChamfer": 0.4,
+    "cornerRadius": 3,
+    "scoopRadius": 12,
+    "fingerPocket": { "width": 25, "floorNotch": 12.5, "wallRoom": 0, "dividerRoom": 0 },
+    "lip": { "enabled": true, "height": 2, "thickness": 1.2, "ledge": 1.7, "play": 0.25 },
+    "topPressFit": 0,
+    "packingFactor": 0.5,
+    "leftover": "spare",
+    "fillToTop": true,
+    "wallAbsorb": 0,
+    "infill": 15,
+    "playLimit": 1.5
+  },
+  "components": [
+    {
+      "id": "cards001",
+      "name": "Deck",
+      "access": "sometimes",
+      "kind": "cards",
+      "shortSide": 63.5,
+      "longSide": 88,
+      "decks": [{ "name": "", "count": 60 }],
+      "sleeve": "standard",
+      "thickness": { "mode": "preset" },
+      "storage": "auto"
+    },
+    {
+      "id": "bits0001",
+      "name": "Player bits",
+      "access": "sometimes",
+      "kind": "bulk",
+      "items": [{ "name": "Cubes", "count": 20, "w": 12, "d": 12, "h": 12 }],
+      "perPlayer": { "players": 3 }
+    }
+  ],
+  "locks": [],
+  "layout": {
+    "createdWith": "0.7.0",
+    "geometryVersion": "0.8.2",
+    "inputsHash": "03d0f5d25b0d5d",
+    "seed": 7,
+    "iterations": 20000,
+    "capped": false,
+    "trays": [
+      {
+        "key": "bits0001:pall:0",
+        "part": "tray",
+        "path": "0",
+        "stack": 0,
+        "x": 0,
+        "y": 0,
+        "w": 217.6,
+        "d": 111.99,
+        "h": 60,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 70.67,
+            "d": 108.79,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Player bits — Cubes ×20 (P1)",
+            "componentId": "bits0001",
+            "features": [
+              { "type": "scoop", "side": "left", "r": 12 },
+              { "type": "scoop", "side": "right", "r": 12 }
+            ]
+          },
+          {
+            "x": 73.47,
+            "y": 1.6,
+            "w": 70.67,
+            "d": 108.79,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Player bits — Cubes ×20 (P2)",
+            "componentId": "bits0001",
+            "features": [
+              { "type": "scoop", "side": "left", "r": 12 },
+              { "type": "scoop", "side": "right", "r": 12 }
+            ]
+          },
+          {
+            "x": 145.34,
+            "y": 1.6,
+            "w": 70.66,
+            "d": 108.79,
+            "floorZ": 35,
+            "kind": "scoop",
+            "contents": "Player bits — Cubes ×20 (P3)",
+            "componentId": "bits0001",
+            "features": [
+              { "type": "scoop", "side": "left", "r": 12 },
+              { "type": "scoop", "side": "right", "r": 12 }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "cards001:p0:0",
+        "part": "tray",
+        "path": "1",
+        "stack": 1,
+        "x": 217.8,
+        "y": 0,
+        "w": 71.2,
+        "d": 95.7,
+        "h": 60,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false,
+        "compartments": [
+          {
+            "x": 1.6,
+            "y": 1.6,
+            "w": 68,
+            "d": 92.5,
+            "floorZ": 33.04,
+            "kind": "well",
+            "contents": "Deck ×60",
+            "componentId": "cards001",
+            "features": [
+              {
+                "type": "wallCutout",
+                "side": "left",
+                "at": 47.85,
+                "width": 25,
+                "depth": 26.96,
+                "floorNotch": 12.5
+              },
+              {
+                "type": "wallCutout",
+                "side": "right",
+                "at": 47.85,
+                "width": 25,
+                "depth": 26.96,
+                "floorNotch": 12.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "part": "leftover",
+        "path": "0",
+        "stack": 2,
+        "x": 0,
+        "y": 112.19,
+        "w": 217.6,
+        "d": 96.81,
+        "h": 60,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false
+      },
+      {
+        "part": "leftover",
+        "path": "1",
+        "stack": 3,
+        "x": 217.8,
+        "y": 95.9,
+        "w": 71.2,
+        "d": 113.1,
+        "h": 60,
+        "rotated": false,
+        "wall": 1.6,
+        "floor": 1.2,
+        "solid": false
+      }
+    ]
+  }
+}

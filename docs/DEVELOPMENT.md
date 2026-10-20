@@ -182,7 +182,9 @@ it only with a written reason in the code or the PR.
   <name>: <reason>.", and a catch-all "Turning isn't possible right now.".
 - MUST bump versions as the README says ("How to add a kind of item" and "Releasing"):
   - `SCHEMA_VERSION` (`model/version.ts`) for any change to the file format. While 0.x, an
-    additive change is a PATCH and a breaking one is a MINOR plus a migration. Add
+    additive change is a PATCH and a breaking one is a MINOR plus a migration: a 0.x MINOR MUST
+    come with a `MIGRATIONS` entry (`model/schema.ts`; the first is `model/migrate-0.2.ts`, line
+    "0.1" → "0.2.0"), and `schema-versions.test.ts` fails without one. Add
     `test/fixtures/schema/<new version>.json` and keep the old fixtures.
   - `GEOMETRY_VERSION` (`geometry/version.ts`) for any change to printed geometry. A mesh-only
     change or a new optional feature is a PATCH. A change that breaks how trays mate, or makes
@@ -512,6 +514,18 @@ addition:
   spec's words.
 - Check that `instructions/naming.ts` names it sensibly when the user leaves the name empty (it
   falls back to the kind's name).
+
+### Add a migration
+
+A breaking schema change (a 0.x MINOR) needs one. Write it as a module of its own beside
+`model/migrate-0.2.ts` (a pure function from the old raw project to the new one, with the
+`inputsHash` cleared when the old plan would no longer match) and add it to `MIGRATIONS` in
+`model/schema.ts`. Before changing the model, write the old projects the migration must carry
+into `test/fixtures/legacy/` and their `inputsHash` into `hashes.json`, with the old code, the
+way `scripts/make-legacy-fixtures.mjs` did for 0.2.0 (it needs the pre-change model, so run it
+on the old commit and commit its output). Test the migration against those fixtures in a
+`migrate-<line>.test.ts` beside it, and the unchanged hash of every plan that must stay current
+in `model/hash.test.ts`.
 
 ### Add a setting
 

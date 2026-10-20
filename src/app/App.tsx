@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { AssemblyPage } from "../instructions/AssemblyPage";
 import { NOTICE_CODES, printableParts } from "../layout";
-import type { Component, ComponentKind } from "../model/types";
+import type { Access, ComponentKind, Lock, Project } from "../model/types";
+import { groupById, requirementKeyOf } from "../model/groups";
 import { topPlane } from "../model/settings";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
@@ -14,11 +15,18 @@ import { EditorStage, EditorStrip, ProblemLine } from "../screens/EditorStage";
 import { FitCards, FitProblem, fitKindOf, fitTitle } from "../screens/FitProblem";
 import type { EditNote } from "../screens/EditorStage";
 import { Header } from "../screens/Header";
-import { hoveredComponent } from "../screens/hover";
+import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { FirstVisit } from "../screens/FirstVisit";
 import { AddMenu } from "../screens/KindPicker";
 import { ProjectMenu } from "../screens/ProjectMenu";
-import { RemovedToast, removedWords } from "../screens/RemovedToast";
+import {
+  RemovedToast,
+  UNDO_MOVE,
+  UNDO_REMOVAL,
+  groupRemovedWords,
+  notesAsSentences,
+  removedWords,
+} from "../screens/RemovedToast";
 import { RunAnnouncer } from "../screens/RunAnnouncer";
 import { StageSlot } from "../screens/StageSlot";
 import { StageNotes } from "../screens/StageNotes";
@@ -28,6 +36,7 @@ import type { StageView, StatusInput } from "../screens/StageTop";
 import { Workspace } from "../screens/Workspace";
 import { BoxPanel } from "../ui/BoxPanel";
 import { WhatsInside } from "../ui/components/WhatsInside";
+import type { GroupEditActions, ItemGroupActions } from "../ui/components/WhatsInside";
 import { ExportPanel } from "../ui/ExportPanel";
 import { hasNativeUndo, historyKeyOf, modalIsOpen } from "../ui/historyKeys";
 import { Notices } from "../ui/Notices";
@@ -50,20 +59,31 @@ import { hasWebGL } from "../viewer/webgl";
 import type { ViewerProps } from "../viewer/Viewer";
 import {
   addComponent,
+  addGroup,
   clearChoices,
+  freeTurn,
   lockedKeys,
+  moveToGroup,
+  newGroupWith,
+  orderMember,
   removeComponent,
-  requirementKey,
+  removeGroup,
   removeLock,
+  renameGroup,
   renameProject,
+  setCopies,
+  setGroupAccess,
+  setGroupCopies,
   setSettings,
   swapTrays,
   sizeLockedKeys,
+  takeOutOfGroup,
   applyPrinter,
   unpinTrays,
   updateBox,
   updateComponent,
 } from "./actions";
+import type { EditResult } from "./actions";
 import { downloadBlob } from "./download";
 import type { MeshSource } from "./meshes";
 import { OPEN_FAILED_CODE } from "./persistence";
@@ -126,19 +146,23 @@ export function App(props: AppProps) {
   // The component whose editor is open in the rail (null: the list). The tray bar's Edit sets it
   // too, and an item just added opens at once.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // The group whose editor is open in the rail (G2), instead of an item's: the card's header, the
+  // tray bar's Edit and the status heading's "Edit <group>" open it.
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   // What the last option change of the open editor said, for the stage's slot (Edit's note toast).
   const [editNote, setEditNote] = useState<EditNote | null>(null);
   const noteSeq = useRef(0);
   useEffect(() => {
     // another editor, or none: the note belonged to the one before
     setEditNote(null);
-  }, [editingId]);
+  }, [editingId, editingGroupId]);
   // The box's editor is open in the rail, in the list's place (the sheet on a phone).
   const [boxOpen, setBoxOpen] = useState(false);
   // The pointer or focus on a rail row lights that component's trays; nothing is lit once the rail goes.
   useEffect(() => {
     return () => {
       hoveredComponent.value = null;
+      hoveredMembers.value = null;
     };
   }, []);
   const firstVisit = project.components.length === 0;
@@ -197,8 +221,16 @@ export function App(props: AppProps) {
   const [exportOpen, setExportOpen] = useState(false);
   // The settings sheet is a dialog too; null while it is closed.
   const [settingsOpen, setSettingsOpen] = useState<{ tab: SettingsTab } | null>(null);
-  // The component just removed, for the Undo toast (cleared when another project opens).
-  const [removed, setRemoved] = useState<{ component: Component; version: number } | null>(null);
+  // What was just removed, in the words the toast says, for the Undo toast (cleared when another
+  // project opens): an item's, or a group's with what its trays' rules lost.
+  // A drop in the rail that gave a note shows its toast the same way, with "Undo move"; the rail's own
+  // live region has said it, so the toast is silent.
+  const [removed, setRemoved] = useState<{
+    words: string;
+    version: number;
+    undo?: string;
+    silent?: boolean;
+  } | null>(null);
   // The older plan the person chose to keep (project and geometry line), so its banner stays away.
   const [geometryKept, setGeometryKept] = useState<string | null>(null);
   const run = s.run.value;
@@ -323,21 +355,32 @@ export function App(props: AppProps) {
   // The box's editor, in the rail's place (a phone's sheet opens for it).
   const openBox = (): void => {
     setEditingId(null);
+    setEditingGroupId(null);
     setBoxOpen(true);
     setSheetOpen(true);
   };
   // A component's editor, in the list's place, as a click on its row opens it.
   const editComponent = (id: string): void => {
     setBoxOpen(false);
+    setEditingGroupId(null);
     setEditingId(id);
     setSheetOpen(true);
   };
-  // Where the status heading's jump buttons lead: the box's editor, a component's, or Settings.
+  // A group's editor, in the list's place (the card's header, the tray bar's Edit, the status heading).
+  const editGroup = (id: string): void => {
+    setBoxOpen(false);
+    setEditingId(null);
+    setEditingGroupId(id);
+    setSheetOpen(true);
+  };
+  // Where the status heading's jump buttons lead: the box's editor, a component's or a group's, or Settings.
   const showSection = (id: string): void => {
     if (id === "settings") {
       openSettings();
     } else if (id === "box") {
       openBox();
+    } else if (groupById(project, id) !== undefined) {
+      editGroup(id);
     } else {
       editComponent(id);
     }
@@ -346,11 +389,39 @@ export function App(props: AppProps) {
     store.edit((q) => addComponent(q, kind));
     // The new item opens at once, whether the Add was the rail's, the phone sheet's or the first visit's.
     setEditingId(store.state.project.peek().components.at(-1)?.id ?? null);
+    setEditingGroupId(null);
     setBoxOpen(false);
     if (firstVisit || phone) {
       setSheetOpen(true);
     }
   };
+  // Add → Group: an empty group at the end of the list, one undo step. It opens nothing (a group is
+  // made by putting items in it): the focus goes to its header, once the list has drawn it.
+  const focusNewGroup = useRef<string | null>(null);
+  const addGroupToList = (): void => {
+    let groupId: string | null = null;
+    store.edit((q) => {
+      const added = addGroup(q);
+      groupId = added.groupId;
+      return added.project;
+    });
+    focusNewGroup.current = groupId;
+    setBoxOpen(false);
+    setEditingId(null);
+    setEditingGroupId(null);
+    if (phone) {
+      setSheetOpen(true);
+    }
+  };
+  useEffect(() => {
+    const id = focusNewGroup.current;
+    if (id === null) {
+      return;
+    }
+    focusNewGroup.current = null;
+    document.querySelector<HTMLElement>(`[data-group-head="${id}"]`)?.focus();
+    // the card is there once the groups have changed (the edit that added it)
+  }, [project.groups]);
   const addExample = (): void => {
     store.edit((q) => (["cards", "bulk", "tiles"] as const).reduce(addComponent, q));
   };
@@ -363,6 +434,7 @@ export function App(props: AppProps) {
     layout?.trays,
     project.components,
     project.locks,
+    project.groups,
   );
   const canPlan = canOptimize(project, validation);
   const geometryKey = layout ? `${project.id}|${layout.geometryVersion}` : "";
@@ -456,6 +528,7 @@ export function App(props: AppProps) {
     layout !== undefined && printable.some((t) => t.key === s.selection.value);
   const barProps = {
     project,
+    foreign: s.foreign.value,
     trays: printable,
     selectedKey: layout ? s.selection.value : null,
     edit: store.edit,
@@ -466,6 +539,7 @@ export function App(props: AppProps) {
       s.swapFrom.value = key;
     },
     onEditComponent: editComponent,
+    onEditGroup: editGroup,
   };
 
   // The component the selected tray belongs to: its row in the rail is pressed.
@@ -476,7 +550,7 @@ export function App(props: AppProps) {
     selectedTray === undefined ? [] : componentIdsOfTray(selectedTray, project.components);
   // The tray the closest attempt could not fit, for the status and for the picture that marks it.
   const misfit = noFit
-    ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components)
+    ? misfitOf(s.noFitAttempt.value, project.box, projSettings, project.components, project.groups)
     : null;
   // What the status says (the heading; and, while an editor is open, the problems it still tells).
   const statusInput: StatusInput = {
@@ -497,10 +571,14 @@ export function App(props: AppProps) {
   const editedComponent =
     editingId === null ? undefined : project.components.find((c) => c.id === editingId);
   const editing = editedComponent !== undefined;
+  // The group whose editor is open, if it is still there; an editor of either kind is "editing".
+  const editedGroup = editingGroupId === null ? undefined : groupById(project, editingGroupId);
+  const editingGroup = editedGroup !== undefined;
+  const editingAny = editing || editingGroup;
   // A fit problem has the stage to itself (NoFit, PinConflict, MobileFix) unless an editor or the
   // box is open: their stages tell it in a line.
   const fitKind = status.fit === undefined ? null : fitKindOf(status.fit);
-  const showFit = fitKind !== null && !editing && !boxOpen;
+  const showFit = fitKind !== null && !editingAny && !boxOpen;
   // The rows that say "Doesn't fit": the tray of the closest attempt that does not, or the component
   // of every pin in the way (the heading names the first).
   const firstConflict = conflicts[0];
@@ -510,7 +588,7 @@ export function App(props: AppProps) {
   } else if (fitKind === "pinConflict") {
     for (const conflict of conflicts) {
       const owner = project.components.find((c) =>
-        conflict.trayKey.startsWith(`${requirementKey(c)}:`),
+        conflict.trayKey.startsWith(`${requirementKeyOf(project, c)}:`),
       );
       if (owner !== undefined) {
         culprits.add(owner.id);
@@ -532,17 +610,18 @@ export function App(props: AppProps) {
       // only a search that began has a Stop to hand the focus to
       keptFromFit.current = store.state.run.peek().status === "running";
     },
-    onUnpin: (c: { trayKey: string; kind?: "position" | "size" | "stack" }) =>
-      store.unpin(c.trayKey, c.kind),
+    onUnpin: (c: { trayKey: string; kind?: Lock["kind"] }) => store.unpin(c.trayKey, c.kind),
   } as const;
 
   const clearEditNote = useCallback(() => setEditNote(null), []);
   // The phone's strip in the sheet's editor: the tray drawn small, and the sentence or the note.
   const editorStrip =
-    editedComponent !== undefined && phone ? (
+    (editedComponent !== undefined || editedGroup !== undefined) && phone ? (
       <EditorStrip
-        componentId={editedComponent.id}
+        componentId={editedComponent?.id}
+        groupId={editedGroup?.id}
         components={project.components}
+        groups={project.groups}
         trays={printable}
         box={project.box}
         settings={projSettings}
@@ -552,6 +631,76 @@ export function App(props: AppProps) {
         onRetry={() => store.retry()}
       />
     ) : undefined;
+  // One group edit, one undo step. The notes it gives (the rules that went with a lower number of
+  // copies) are said in the stage's slot, as an option's note is.
+  const editGroupWith = (fn: (q: Project) => EditResult): string[] => {
+    let notes: string[] = [];
+    store.edit((q) => {
+      const result = fn(q);
+      notes = result.notes;
+      return result.project;
+    });
+    return notes;
+  };
+  // What an edit says (the rules that went, the copies an item now has) shows in the stage's slot.
+  const sayNotes = (notes: readonly string[]): void => {
+    if (notes.length > 0) {
+      noteSeq.current += 1;
+      setEditNote({ text: notesAsSentences(notes).join(" "), id: noteSeq.current });
+    }
+  };
+  const groupActions: GroupEditActions = {
+    rename: (id, name) => store.edit((q) => renameGroup(q, id, name)),
+    copies: (id, n) => {
+      sayNotes(editGroupWith((q) => setGroupCopies(q, id, n)));
+    },
+    access: (id, access: Access) => store.edit((q) => setGroupAccess(q, id, access)),
+    move: (id, itemId, index) => store.edit((q) => orderMember(q, id, itemId, index)),
+    remove: (id) => {
+      const group = groupById(project, id);
+      if (group === undefined) {
+        return false;
+      }
+      const notes = editGroupWith((q) => removeGroup(q, id));
+      // Undo on the toast is only right while the removal is still the latest step.
+      setRemoved({ words: groupRemovedWords(notes), version: s.history.version.peek() });
+      return true;
+    },
+  };
+  // An item's Copies and its Group row: each is one undo step; the notes (the group's copies it now
+  // has, who left, the pins that went) are said in the stage's slot, as the group editor's are.
+  const itemActions: ItemGroupActions = {
+    copies: (id, n) => sayNotes(editGroupWith((q) => setCopies(q, id, n))),
+    moveTo: (id, groupId) => sayNotes(editGroupWith((q) => moveToGroup(q, id, groupId, Infinity))),
+    newGroup: (id) =>
+      sayNotes(
+        editGroupWith((q) => {
+          const made = newGroupWith(q, id);
+          return { project: made.project, notes: made.notes };
+        }),
+      ),
+    takeOut: (id) => sayNotes(editGroupWith((q) => takeOutOfGroup(q, id))),
+    // A drop in the rail (spec §7.3): one undo step. The list is showing, not an editor, so the notes
+    // go in the removal's toast (with "Undo move"), and back to the rail to be said aloud once.
+    drop: (id, target) => {
+      const notes = notesAsSentences(
+        editGroupWith((q) =>
+          "out" in target
+            ? takeOutOfGroup(q, id)
+            : moveToGroup(q, id, target.groupId, target.index),
+        ),
+      );
+      if (notes.length > 0) {
+        setRemoved({
+          words: notes.join(" "),
+          version: s.history.version.peek(),
+          undo: UNDO_MOVE,
+          silent: true,
+        });
+      }
+      return notes;
+    },
+  };
   // What's inside: the rail's list (the sheet's, on a phone), or a component's editor in its place.
   const whatsInside = (
     <WhatsInside
@@ -561,11 +710,24 @@ export function App(props: AppProps) {
         setEditingId(id);
         // A row chosen from the folded sheet opens it on the editor.
         if (id !== null) {
+          setEditingGroupId(null);
           setSheetOpen(true);
         }
       }}
+      openGroupId={editingGroupId}
+      onOpenGroupChange={(id) => {
+        setEditingGroupId(id);
+        if (id !== null) {
+          setEditingId(null);
+          setBoxOpen(false);
+          setSheetOpen(true);
+        }
+      }}
+      groupActions={groupActions}
+      itemActions={itemActions}
       trays={listTrays}
       locks={project.locks}
+      groups={project.groups}
       box={project.box}
       printer={projPrinter}
       phone={phone}
@@ -578,7 +740,12 @@ export function App(props: AppProps) {
       }}
       onClearChoices={() => store.edit(clearChoices)}
       onAdd={addComponentOfKind}
+      onAddGroup={addGroupToList}
+      onLight={(ids) => {
+        hoveredMembers.value = ids;
+      }}
       onUnpin={(keys) => store.edit((q) => unpinTrays(q, keys))}
+      onFreeTurn={(keys) => store.edit((q) => keys.reduce(freeTurn, q))}
       onUnlockSize={(keys) =>
         store.edit((q) => keys.reduce((p, key) => removeLock(p, key, "size"), q))
       }
@@ -595,7 +762,10 @@ export function App(props: AppProps) {
         }
         store.edit((q) => removeComponent(q, id));
         // Undo on the toast is only right while the removal is still the latest step.
-        setRemoved({ component, version: s.history.version.peek() });
+        setRemoved({
+          words: removedWords(component.name === "" ? "(unnamed)" : component.name),
+          version: s.history.version.peek(),
+        });
         return true;
       }}
     />
@@ -628,7 +798,7 @@ export function App(props: AppProps) {
   );
   // The editor is showing in the sheet, or the box has it: the sheet is "full"; below 600 px that
   // fills the screen, and what is behind it is out of reach of Tab and screen readers (inert).
-  const sheetFull = editing || boxOpen;
+  const sheetFull = editingAny || boxOpen;
   const sheetCoversScreen = phone && narrow && sheetOpen && sheetFull;
 
   // The three slots of the workspace shell. What is in them is the old UI, unchanged, until the
@@ -743,7 +913,7 @@ export function App(props: AppProps) {
   // A phone's tray bar is a modal sheet (MobileTray). It gives way to an editor in the sheet below, and
   // to the plan while a swap is chosen (SelectedTrayBar). It is in the top layer: where it is in the tree does not matter.
   const traySheet =
-    phone && hasSelectedTray && !editing && !boxOpen && !showFit ? (
+    phone && hasSelectedTray && !editingAny && !boxOpen && !showFit ? (
       <SelectedTrayBar
         {...barProps}
         phone
@@ -780,16 +950,17 @@ export function App(props: AppProps) {
   // The removal's note: said aloud (always mounted, so it is heard), and shown in the stage's slot,
   // as Edit's note toast is (the first visit has no slot: it follows the empty box).
   const removedShown = removed !== null && removed.version === s.history.version.value;
-  const removedName =
-    removed === null ? "" : removed.component.name === "" ? "(unnamed)" : removed.component.name;
   const removedLive = (
     <div class="visually-hidden" role="status" data-live="removed">
-      {removedShown ? `${removedWords(removedName)} Undo removal is available.` : ""}
+      {removedShown && removed !== null && removed.silent !== true
+        ? `${removed.words} ${removed.undo ?? UNDO_REMOVAL} is available.`
+        : ""}
     </div>
   );
   const removedToast = removedShown ? (
     <RemovedToast
-      name={removedName}
+      words={removed?.words}
+      undoLabel={removed?.undo}
       onUndo={() => {
         setRemoved(null);
         store.undo();
@@ -811,6 +982,7 @@ export function App(props: AppProps) {
         box: project.box,
         settings: project.settings,
         components: project.components,
+        groups: project.groups,
         lockedKeys: locked,
         stale: s.stale.value,
         searching: run.status === "running",
@@ -848,6 +1020,7 @@ export function App(props: AppProps) {
           settings={projSettings}
           layout={layout}
           components={project.components}
+          groups={project.groups}
           phone={phone}
           plan={planProps}
           placeholder={workingOnIt}
@@ -855,12 +1028,14 @@ export function App(props: AppProps) {
           problem={boxProblem}
           onRetry={() => store.retry()}
         />
-      ) : editedComponent !== undefined ? (
-        // While a component is edited the stage is Edit's: the sentence is the page's h1, the box
-        // shows the component's trays lifted. (A phone's sheet has the h1.)
+      ) : editedComponent !== undefined || editedGroup !== undefined ? (
+        // While a component (or a group, G2) is edited the stage is Edit's: the sentence is the
+        // page's h1, the box shows its trays lifted. (A phone's sheet has the h1.)
         <EditorStage
-          componentId={editedComponent.id}
+          componentId={editedComponent?.id}
+          groupId={editedGroup?.id}
           components={project.components}
+          groups={project.groups}
           trays={printable}
           note={editNote}
           onNoteDone={clearEditNote}
@@ -886,6 +1061,7 @@ export function App(props: AppProps) {
           box={project.box}
           settings={projSettings}
           components={project.components}
+          groups={project.groups}
           lockedKeys={locked}
           misfitKey={misfit?.trayKey}
           focusKey={fitKind === "noFit" ? misfit?.trayKey : firstConflict?.trayKey}
@@ -955,6 +1131,7 @@ export function App(props: AppProps) {
                     box={project.box}
                     settings={project.settings}
                     components={project.components}
+                    groups={project.groups}
                     stale={s.stale.value}
                     meshes={meshes}
                     selectedKey={s.selection.value}
@@ -984,6 +1161,7 @@ export function App(props: AppProps) {
           titleId="export-title"
           trays={printable}
           components={project.components}
+          groups={project.groups}
           printer={project.printer}
           settings={project.settings}
           meshes={meshes}
@@ -1030,8 +1208,10 @@ export function App(props: AppProps) {
             />
           ) : (
             <Workspace
-              focus={(editing || boxOpen || (showFit && fitKind === "noFit")) && !phone}
-              class={editing ? "ws--edit" : boxOpen ? "ws--box" : showFit ? "ws--fit" : undefined}
+              focus={(editingAny || boxOpen || (showFit && fitKind === "noFit")) && !phone}
+              class={
+                editingAny ? "ws--edit" : boxOpen ? "ws--box" : showFit ? "ws--fit" : undefined
+              }
               header={headerSlot}
               rail={railSlot}
               stage={stageSlot}
@@ -1060,12 +1240,17 @@ export function App(props: AppProps) {
                         // An editor, or the box, has the sheet to itself: folding it comes back to the list.
                         if (!open) {
                           setEditingId(null);
+                          setEditingGroupId(null);
                           setBoxOpen(false);
                         }
                       },
                       action:
-                        editing || boxOpen || showFit ? null : (
-                          <AddMenu placement="above" onPick={addComponentOfKind} />
+                        editingAny || boxOpen || showFit ? null : (
+                          <AddMenu
+                            placement="above"
+                            onPick={addComponentOfKind}
+                            onGroup={addGroupToList}
+                          />
                         ),
                     }
               }
@@ -1075,7 +1260,7 @@ export function App(props: AppProps) {
             <SettingsSheet
               initialTab={settingsOpen.tab}
               settings={project.settings}
-              nameExample={nameExampleOf(printable, project.components)}
+              nameExample={nameExampleOf(printable, project.components, project.groups)}
               onSettingsChange={(next) => store.edit((q) => setSettings(q, next))}
               printer={project.printer}
               myPrinter={store.prefs.printer.value}

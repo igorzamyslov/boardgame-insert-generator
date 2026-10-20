@@ -8,12 +8,14 @@ import type {
   Component,
   CompartmentSpec,
   ComponentKind,
+  Group,
   MinisComponent,
 } from "../model/types";
 import tokens from "../styles/tokens.css?raw";
 import { contrast, hexToHsl, hexToRgb, rgbToHex } from "./color";
 import {
   BOX_COLOR,
+  GROUP_SHADE,
   SPACER_SHADE,
   SHADE_COUNT,
   compartmentWords,
@@ -21,6 +23,8 @@ import {
   componentIndexOfTray,
   componentIndexesOfTray,
   componentSummary,
+  groupOfTray,
+  isGroupTray,
   kindIndexOf,
   layerLabel,
   layerWords,
@@ -28,6 +32,7 @@ import {
   shadeIndexOf,
   shadeOf,
   sharingTrayWith,
+  traysOfGroup,
 } from "./identity";
 
 function cards(id: string, name: string): Component {
@@ -215,6 +220,34 @@ describe("component shades", () => {
       expect(SPACER_SHADE[scheme].hatch, `${scheme} hatch`).toBe(found.get("--spacer-hatch"));
       expect(SPACER_SHADE[scheme].dash, `${scheme} dash`).toBe(found.get("--spacer-dash"));
     }
+  });
+
+  it("gives a group's tray one neutral shade, light and dark, the same through shadeHex", () => {
+    for (const scheme of SCHEMES) {
+      expect(shadeHex("group", 0, scheme)).toEqual(GROUP_SHADE[scheme]);
+      // it does not move with the index: a group has no kind to step through
+      expect(shadeHex("group", 3, scheme)).toEqual(GROUP_SHADE[scheme]);
+      const { fill, line, ink } = GROUP_SHADE[scheme];
+      expect(contrast(line, BOX_COLOR[scheme]), `${scheme} line on box`).toBeGreaterThanOrEqual(3);
+      expect(contrast(line, fill), `${scheme} line on fill`).toBeGreaterThanOrEqual(3);
+      expect(contrast(ink, fill), `${scheme} ink on fill`).toBeGreaterThanOrEqual(4.5);
+      // no kind hue stands for a mixed tray: none of them is one of the kinds' fills
+      for (const kind of KINDS) {
+        expect(fill.toLowerCase()).not.toBe(shadeHex(kind, 0, scheme).fill.toLowerCase());
+      }
+    }
+    // it is not the spacer's neutral either
+    expect(GROUP_SHADE.light.fill).not.toBe(SPACER_SHADE.light.fill);
+    expect(GROUP_SHADE.dark.fill).not.toBe(SPACER_SHADE.dark.fill);
+  });
+
+  it("mirrors the neutral tokens: the sheet ground and the strong muted line", () => {
+    const found = new Map(
+      [...tokens.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1], m[2]]),
+    );
+    expect(GROUP_SHADE.light.fill.toLowerCase()).toBe(found.get("--sheet"));
+    expect(GROUP_SHADE.light.line.toLowerCase()).toBe(found.get("--muted-strong"));
+    expect(GROUP_SHADE.light.ink.toLowerCase()).toBe(found.get("--muted-strong"));
   });
 
   it("keeps every shade's line at 3:1 on the box and on its own fill, and its ink at 4.5:1 on the fill", () => {
@@ -415,6 +448,13 @@ describe("componentSummary", () => {
         ],
       }),
     ).toBe("6 figures");
+    // one figure is "1 figure", as GroupRail's Hero row says
+    expect(
+      componentSummary({
+        ...minis,
+        figures: [{ ...(minis.figures[0] as MinisComponent["figures"][number]), count: 1 }],
+      }),
+    ).toBe("1 figure");
     expect(
       componentSummary({ ...newComponent("custom"), count: 2, w: 30, d: 20, h: 10 } as Component),
     ).toBe("2 × 30 × 20 × 10 mm");
@@ -466,5 +506,77 @@ describe("compartmentWords", () => {
     expect(compartmentWords(trayOf("well", "spare"), newComponent("cards") as Component)).toBe(
       "1 card well",
     );
+  });
+});
+
+describe("group identity", () => {
+  const components = [cards("c1", "Hero"), cards("c2", "Board"), cards("c3", "Dice")];
+  const kit: Group = {
+    id: "kit",
+    name: "Player kit",
+    copies: 2,
+    access: "often",
+    memberIds: ["c1", "c2"],
+  };
+  const project = { components, groups: [kit] };
+  const trayOf = (key: string, over: Partial<ReturnType<typeof makeTray>> = {}) =>
+    makeTray({
+      key,
+      compartments: [well({ componentId: "c1" }), well({ componentId: "c2" })],
+      ...over,
+    });
+
+  it("finds a tray's group by the stem of its key", () => {
+    expect(groupOfTray(trayOf("kit:p0:0"), project)).toBe(kit);
+    expect(groupOfTray(trayOf("kit:p1:2"), project)).toBe(kit);
+    // a spacer, riser or divider under it is its too
+    expect(
+      groupOfTray(makeTray({ key: "kit:p1:0:spacer", part: "spacer", compartments: [] }), project),
+    ).toBe(kit);
+    expect(
+      groupOfTray(
+        makeTray({ key: "kit:p0:0:divider:1", part: "divider", compartments: [] }),
+        project,
+      ),
+    ).toBe(kit);
+  });
+
+  it("reads the key's stem alone: an item's own keys in a stored plan are not the group's", () => {
+    // a stored plan of an item that has since joined a group still has the item's keys; the names
+    // (`trayNames`) read the stem alone, so the look and the lift must too
+    expect(groupOfTray(trayOf("c1:p0:0"), project)).toBeUndefined();
+    expect(isGroupTray(trayOf("c1:p0:0"), project)).toBe(false);
+    expect(isGroupTray(trayOf("kit:p0:0"), project)).toBe(true);
+  });
+
+  it("has no group for an ungrouped item's tray, a part that holds nothing, or a project without groups", () => {
+    const dice = makeTray({ key: "c3:p0:0", compartments: [well({ componentId: "c3" })] });
+    expect(groupOfTray(dice, project)).toBeUndefined();
+    expect(
+      groupOfTray(makeTray({ key: "leftover:0", part: "leftover", compartments: [] }), project),
+    ).toBeUndefined();
+    expect(groupOfTray(trayOf("kit:p0:0"), { components })).toBeUndefined();
+    // a key that merely starts with the id is not its stem
+    expect(groupOfTray(makeTray({ key: "kit2:p0:0", compartments: [] }), project)).toBeUndefined();
+  });
+
+  it("lists every copy's trays of a group, in the plan's order, and no other group's", () => {
+    const trays = [
+      trayOf("kit:p0:0"),
+      makeTray({ key: "c3:p0:0", compartments: [well({ componentId: "c3" })] }),
+      trayOf("kit:p1:0"),
+      trayOf("kit:p1:1"),
+      makeTray({ key: "kit:p1:0:spacer", part: "spacer", compartments: [] }),
+    ];
+    const listed = traysOfGroup({ ...project, layout: { trays } as never }, "kit");
+    expect(listed.map((t) => t.key)).toEqual(["kit:p0:0", "kit:p1:0", "kit:p1:1"]);
+    expect(traysOfGroup({ ...project, layout: { trays } as never }, "nope")).toEqual([]);
+    expect(traysOfGroup(project, "kit")).toEqual([]);
+    // the app's printed trays can be handed in, as the editor's stage does
+    expect(traysOfGroup(project, "kit", trays).map((t) => t.key)).toEqual([
+      "kit:p0:0",
+      "kit:p1:0",
+      "kit:p1:1",
+    ]);
   });
 });

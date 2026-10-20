@@ -371,6 +371,211 @@ const PROBES = {
     return problems.map((p) => `probe tray-sheet: ${p}`);
   },
   /**
+   * Drag and drop in the rail (0.7.0 Task 14, R14; spec §7.3): the state (`kit-drag`) starts on the kit
+   * seed. The probe drags Market deck's grip (an ungrouped row's grip shows on hover) with the mouse to
+   * the gap between Starter deck and Resources, and asserts:
+   *   - while the button is down: the lifted row carries `--shadow-sheet`, a 2 px `--focus` line marks
+   *     the place, the group being entered has `--focus-wash` and a dashed `--focus` edge (the mid-drag
+   *     picture is `kit-drag.mid-drag.png`, for the reviewer to judge against §7.3), and the rail's
+   *     width has not moved (a drag does not start a resize);
+   *   - after the drop: the group's order is Starter deck, Market deck, Resources, Hero, the rail's
+   *     live region says Market deck moved to Player kit, and one Undo puts it back and leaves
+   *     nothing more to undo;
+   *   - Escape in the middle of a drag cancels it: the order is as it was, the row and the line are
+   *     gone, and there is nothing to undo.
+   */
+  async "drag-into-group"(page) {
+    const problems = [];
+    const rail = page.locator('[data-region="rail"]');
+    const marketRow = rail.locator('li.rail-item[aria-label="Market deck"]');
+    const grip = marketRow.locator("[data-grip]");
+    if ((await grip.count()) === 0) {
+      return ["probe drag-into-group: the Market deck row has no drag grip"];
+    }
+    const members = () =>
+      rail
+        .locator(".gc-member")
+        .evaluateAll((els) => els.map((el) => el.getAttribute("aria-label")));
+    const live = () => rail.locator('[data-live="rail"]').textContent();
+    const undo = page.getByRole("button", { name: "Undo", exact: true });
+    const canUndo = async () =>
+      (await undo.getAttribute("aria-disabled")) !== "true" && !(await undo.isDisabled());
+    const start = ["Starter deck", "Resources", "Hero"];
+    const sameOrder = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    if (!sameOrder(await members(), start)) {
+      return [`probe drag-into-group: it starts from ${JSON.stringify(await members())}`];
+    }
+    const widthBefore = (await rail.boundingBox())?.width;
+    /** The pointer's place: the gap between two member rows, in the page. */
+    const gap = async () => {
+      const a = await rail.locator('.gc-member[aria-label="Starter deck"]').boundingBox();
+      const b = await rail.locator('.gc-member[aria-label="Resources"]').boundingBox();
+      return { x: a.x + a.width / 2, y: (a.y + a.height + b.y) / 2 };
+    };
+    // off hover the grip is unseen and takes no press: what is at the row's left edge is the row
+    await page.mouse.move(700, 450);
+    const edge = await marketRow.boundingBox();
+    const atEdge = await page.evaluate(
+      ([x, y]) => {
+        const el = document.elementFromPoint(x, y);
+        return { grip: el?.closest(".gc-grip") !== null, row: el?.closest(".k-row") !== null };
+      },
+      [edge.x + 4, edge.y + edge.height / 2],
+    );
+    if (atEdge.grip || !atEdge.row) {
+      problems.push("off hover a press on the row's left edge lands on the grip, not the row");
+    }
+    // the grip of an ungrouped row shows on hover: the pointer goes to the row first
+    const holdMarket = async () => {
+      const row = await marketRow.boundingBox();
+      await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
+      const g = await grip.boundingBox();
+      await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+      await page.mouse.down();
+      const to = await gap();
+      await page.mouse.move(to.x, to.y - 20, { steps: 6 });
+      await page.mouse.move(to.x, to.y, { steps: 6 });
+      return to;
+    };
+
+    // 1. mid-drag: the look (spec §7.3)
+    await holdMarket();
+    const look = await page.evaluate(() => {
+      const css = (el, p) => getComputedStyle(el)[p];
+      // what the tokens come to, read off scratch elements
+      const scratch = (style) => {
+        const el = document.createElement("div");
+        el.style.cssText = `position:fixed;${style}`;
+        document.body.append(el);
+        return el;
+      };
+      const shadow = scratch("box-shadow:var(--shadow-sheet)");
+      const wash = scratch("background-color:var(--focus-wash)");
+      const focus = scratch("background-color:var(--focus)");
+      const want = {
+        shadow: css(shadow, "boxShadow"),
+        wash: css(wash, "backgroundColor"),
+        focus: css(focus, "backgroundColor"),
+      };
+      for (const el of [shadow, wash, focus]) {
+        el.remove();
+      }
+      const lifted = document.querySelector(".is-drag-lifted");
+      const mark = document.querySelector(".rail-dropline");
+      const card = document.querySelector('.gc[data-drop="true"]');
+      return {
+        lifted: lifted
+          ? { shadow: css(lifted, "boxShadow"), name: lifted.getAttribute("aria-label") }
+          : null,
+        line: mark
+          ? {
+              height: mark.getBoundingClientRect().height,
+              color: css(mark, "backgroundColor"),
+              shown: css(mark, "display") !== "none",
+            }
+          : null,
+        card: card
+          ? {
+              wash: css(card, "backgroundColor"),
+              edge: css(card, "borderTopStyle"),
+              edgeColor: css(card, "borderTopColor"),
+            }
+          : null,
+        want,
+      };
+    });
+    if (look.lifted === null) {
+      problems.push("while the grip is held the row does not lift (no .is-drag-lifted)");
+    } else {
+      if (look.lifted.shadow !== look.want.shadow) {
+        problems.push(`the lifted row's shadow is ${look.lifted.shadow}, not --shadow-sheet`);
+      }
+      if (look.lifted.name !== "Market deck") {
+        problems.push(`the lifted row is ${look.lifted.name}, not Market deck`);
+      }
+    }
+    if (look.line === null || !look.line.shown) {
+      problems.push("no drop line is shown between Starter deck and Resources");
+    } else {
+      if (Math.abs(look.line.height - 2) > 0.01) {
+        problems.push(`the drop line is ${look.line.height} px high, not 2`);
+      }
+      if (look.line.color !== look.want.focus) {
+        problems.push(`the drop line is ${look.line.color}, not --focus`);
+      }
+    }
+    if (look.card === null) {
+      problems.push("the group being entered has no data-drop");
+    } else {
+      if (look.card.wash !== look.want.wash) {
+        problems.push(`the group being entered is ${look.card.wash}, not --focus-wash`);
+      }
+      if (look.card.edge !== "dashed" || look.card.edgeColor !== look.want.focus) {
+        problems.push(
+          `the group being entered has a ${look.card.edge} ${look.card.edgeColor} edge, not dashed --focus`,
+        );
+      }
+    }
+    const widthDuring = (await rail.boundingBox())?.width;
+    if (widthBefore !== widthDuring) {
+      problems.push(`the rail's width went from ${widthBefore} to ${widthDuring} during the drag`);
+    }
+    await page.screenshot({ path: `${outDir}kit-drag.mid-drag.png` });
+    await rail.screenshot({ path: `${outDir}kit-drag.mid-drag.rail.png` });
+
+    // 2. the drop: the order, the live region, one undo step
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+    const dropped = await members();
+    if (!sameOrder(dropped, ["Starter deck", "Market deck", "Resources", "Hero"])) {
+      problems.push(`after the drop the group's order is ${JSON.stringify(dropped)}`);
+    }
+    const said = (await live()) ?? "";
+    if (!said.includes("Market deck moved to Player kit.")) {
+      problems.push(`the live region says "${said}", not that Market deck moved to Player kit`);
+    }
+    if ((await page.locator(".is-drag-lifted, .rail-dropline, [data-drop]").count()) !== 0) {
+      problems.push("the lift, the line or the group's wash is left after the drop");
+    }
+    if ((await rail.boundingBox())?.width !== widthBefore) {
+      problems.push("the rail's width changed with the drop");
+    }
+    if (!(await canUndo())) {
+      problems.push("after the drop there is nothing to undo");
+    } else {
+      await undo.click();
+      await page.waitForTimeout(100);
+      if (!sameOrder(await members(), start)) {
+        problems.push(
+          `one Undo leaves the order ${JSON.stringify(await members())}, not the start`,
+        );
+      }
+      if (await canUndo()) {
+        problems.push("after one Undo there is still a step to undo: the drop was more than one");
+      }
+    }
+
+    // 3. Escape in the middle of a drag cancels it
+    await holdMarket();
+    if ((await page.locator(".is-drag-lifted").count()) !== 1) {
+      problems.push("the second drag did not begin (nothing is lifted)");
+    }
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(100);
+    if ((await page.locator(".is-drag-lifted, .rail-dropline, [data-drop]").count()) !== 0) {
+      problems.push("Escape left the lift, the line or the group's wash");
+    }
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+    if (!sameOrder(await members(), start)) {
+      problems.push(`after Escape the order is ${JSON.stringify(await members())}, not the start`);
+    }
+    if (await canUndo()) {
+      problems.push("a cancelled drag left a step to undo");
+    }
+    return problems.map((p) => `probe drag-into-group: ${p}`);
+  },
+  /**
    * The Settings drawer by keyboard (0.6.0 carry): the state opened it with keys alone (Tab to the
    * project menu's button, Enter, Tab to Settings, Enter). Tab then stays inside the drawer and
    * comes round from the last control to the first, Shift+Tab from the first goes to the last, what

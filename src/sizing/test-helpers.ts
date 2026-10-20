@@ -7,6 +7,7 @@ import type {
   CardsComponent,
   CompartmentSpec,
   Component,
+  Group,
   CustomComponent,
   MinisComponent,
   Settings,
@@ -14,7 +15,7 @@ import type {
   TraySpec,
 } from "../model/types";
 import { axes } from "../model/cut-rules";
-import { groupOf } from "../model/defaults";
+import { copiesOf, mostFrequentAccess, requirementKeyOf } from "../model/groups";
 import { componentOptions } from "./component";
 import { combineOptions } from "./group";
 import { buildVariants } from "./variants";
@@ -98,8 +99,32 @@ export function custom(over: Partial<CustomComponent> = {}): CustomComponent {
 }
 
 /**
+ * A group of `members`, in the order given, for the tests of grouped sizing: its id and name are
+ * `id`, its access is the members' most frequent, and `over` replaces any field.
+ */
+export function inGroup(members: readonly Component[], id = "g", over: Partial<Group> = {}): Group {
+  return {
+    id,
+    name: id,
+    access: mostFrequentAccess(members),
+    memberIds: members.map((m) => m.id),
+    ...over,
+  };
+}
+
+/** partOf for `members` that are one group (id "g"): the part of the group's tray. */
+export function partOfGroup(
+  members: Component[],
+  variantId: string,
+  settings: Settings = DEFAULT_SETTINGS,
+  partIndex = 0,
+): TrayPartReq {
+  return partOf(members, variantId, settings, partIndex, [inGroup(members)]);
+}
+
+/**
  * The part `partIndex` of variant `variantId` of the first requirement size() would make from
- * `components` (the first component's group), before size() drops the variants where a
+ * `components` (the first component's group, when `groups` names it), before size() drops the variants where a
  * compartment gets no finger cut, so tests can realize those too. Built from size()'s own pieces.
  */
 export function partOf(
@@ -107,16 +132,24 @@ export function partOf(
   variantId: string,
   settings: Settings = DEFAULT_SETTINGS,
   partIndex = 0,
+  groups: readonly Group[] = [],
 ): TrayPartReq {
   const first = at(components, 0);
-  const key = groupOf(first) ?? first.id;
-  const members = components.flatMap((c, index) =>
-    (groupOf(c) ?? c.id) === key ? [componentOptions(c, settings, index).options] : [],
+  const grouped = { groups };
+  const key = requirementKeyOf(grouped, first);
+  // A group's members stand in its memberIds order, as size() takes them.
+  const ids = groups.find((g) => g.id === key)?.memberIds;
+  const ofKey = components.flatMap((c, index) =>
+    requirementKeyOf(grouped, c) === key ? [{ c, index }] : [],
   );
+  const ordered =
+    ids === undefined ? ofKey : ids.flatMap((id) => ofKey.filter((member) => member.c.id === id));
+  const members = ordered.map(({ c, index }) => componentOptions(c, settings, index).options);
+  const copies = copiesOf(grouped, first);
   const variants = buildVariants({
     key,
     options: combineOptions(members.filter((options) => options.length > 0)),
-    players: members.length === 1 ? (first.perPlayer?.players ?? null) : null,
+    copies,
   });
   const variant = variants.find((v) => v.id === variantId);
   if (variant === undefined) {

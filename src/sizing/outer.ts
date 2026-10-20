@@ -45,13 +45,19 @@ export function bottomEdgeU(settings: Settings, level: number): BottomEdge {
   };
 }
 
-/** strip → one row; rows2 → first ceil(n/2) items, then the rest. Empty rows are dropped. */
-export function rowsOf<T>(arrangement: TrayPartReq["arrangement"], items: readonly T[]): T[][] {
+/**
+ * strip → one row; rows2 → the first `front` items (the part's `rowBreak`; ceil(n/2) when absent),
+ * then the rest. Empty rows are dropped.
+ */
+export function rowsOf<T>(
+  arrangement: TrayPartReq["arrangement"],
+  items: readonly T[],
+  front: number = Math.ceil(items.length / 2),
+): T[][] {
   if (arrangement === "strip") {
     return [items.slice()];
   }
-  const half = Math.ceil(items.length / 2);
-  return [items.slice(0, half), items.slice(half)].filter((row) => row.length > 0);
+  return [items.slice(0, front), items.slice(front)].filter((row) => row.length > 0);
 }
 
 /**
@@ -90,7 +96,7 @@ export interface MinLayout {
   chamfer: number; // the tray's bottom chamfer (effectiveBottomChamfer), rounded up
   edge: BottomEdge; // its bottom edge: the chamfer, or the groove (bottomEdgeU), in units
   room: CutRoom;
-  rows: CompartmentReq[][]; // rowsOf(part.arrangement, part.compartments)
+  rows: CompartmentReq[][]; // rowsOf(part.arrangement, part.compartments, part.rowBreak)
   widths: number[][]; // per row: each compartment's minW
   // per row: the divider after each compartment but the last (the last entry is unused);
   // dividers a finger cut passes through get fingerPocket.dividerRoom more (CutWalls)
@@ -116,7 +122,7 @@ function cutsOn(c: CompartmentReq | undefined, side: Side): boolean {
  * where the compartments on both sides ask for a cut on it.
  */
 export function requestedWalls(part: TrayPartReq): CutWalls {
-  const rows = rowsOf(part.arrangement, part.compartments);
+  const rows = rowsOf(part.arrangement, part.compartments, part.rowBreak);
   return {
     left: rows.map((row) => cutsOn(row[0], "left")),
     right: rows.map((row) => cutsOn(row[row.length - 1], "right")),
@@ -151,7 +157,7 @@ export function minLayoutU(
   const wall = ceilU(wallFor(settings, opts.lipped, opts.level));
   const divider = ceilU(Math.max(settings.divider, MIN_FEATURE_MM));
   const floor = ceilU(Math.max(settings.floor, MIN_FEATURE_MM));
-  const rows = rowsOf(part.arrangement, part.compartments);
+  const rows = rowsOf(part.arrangement, part.compartments, part.rowBreak);
   const wallRoom = ceilU(settings.fingerPocket.wallRoom);
   const dividerRoom = ceilU(settings.fingerPocket.dividerRoom);
   const on = (yes: boolean | undefined, room: number): number => (yes === true ? room : 0);

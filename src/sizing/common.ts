@@ -68,6 +68,14 @@ export function wallCutout(side: Side, depthFraction: number, floorNotch: boolea
   return { type: "wallCutout", side, depthFraction, floorNotch };
 }
 
+/**
+ * A full-depth cutout through `side` of a well divided by loose dividers (flat decks sharing one
+ * well): one cut for each section, centred on it, so every deck is reachable (realize expands it).
+ */
+export function sectionCutouts(side: Side): FeatureReq {
+  return { type: "wallCutout", side, depthFraction: 1, floorNotch: true, perSection: true };
+}
+
 /** The sides that ask for a wall cutout, each once, in feature order. */
 export function cutoutSides(features: readonly FeatureReq[]): Side[] {
   const sides: Side[] = [];

@@ -306,6 +306,14 @@ describe("swapLocks", () => {
     ]);
   });
 
+  it("keeps a turn lock and gives the swapped pins its rotation", () => {
+    const turn: Lock = { kind: "turn", trayKey: "b", rotated: true };
+    const out = swapLocks([turn], "a", "b", layout);
+    expect(out).toContainEqual(turn);
+    expect(out).toContainEqual({ kind: "position", trayKey: "b", path: "0", rotated: true });
+    expect(out).toContainEqual({ kind: "position", trayKey: "a", path: "1", rotated: false });
+  });
+
   it("swaps levels within one stack via a stack lock", () => {
     expect(swapLocks([], "a", "x", layout)).toEqual([{ kind: "stack", trayKeys: ["x", "a"] }]);
   });

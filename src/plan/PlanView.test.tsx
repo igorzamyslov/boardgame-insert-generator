@@ -5,9 +5,9 @@ import { useState } from "preact/hooks";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX, newComponent } from "../model/defaults";
-import type { CompartmentSpec } from "../model/types";
+import type { CompartmentSpec, Group } from "../model/types";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import { hoveredComponent } from "../screens/hover";
+import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { shadeHex } from "../ui/identity";
 import planCss from "./plan.css?raw";
 import { planFrame } from "./layers";
@@ -37,6 +37,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   hoveredComponent.value = null;
+  hoveredMembers.value = null;
 });
 
 /** A phone: the width query the app asks (below 760 px) answers yes. */
@@ -543,6 +544,25 @@ describe("PlanView", () => {
     expect(box.querySelector('[data-key="a:p0:0"] .plan-pill svg')).toBeTruthy();
     act(() => {
       hoveredComponent.value = null;
+    });
+    expect(box.querySelectorAll(".is-dimmed")).toHaveLength(0);
+  });
+
+  it("lights the trays of every item of the group card the rail is pointing at", () => {
+    const { box } = setup();
+    act(() => {
+      hoveredMembers.value = [deck.id];
+    });
+    expect(box.querySelector('[data-key="a:p0:0"]')?.getAttribute("class")).not.toContain(
+      "is-dimmed",
+    );
+    expect(box.querySelector('[data-key="b:p0:0"]')?.getAttribute("class")).toContain("is-dimmed");
+    act(() => {
+      hoveredMembers.value = [deck.id, dice.id];
+    });
+    expect(box.querySelectorAll(".is-dimmed")).toHaveLength(0);
+    act(() => {
+      hoveredMembers.value = null;
     });
     expect(box.querySelectorAll(".is-dimmed")).toHaveLength(0);
   });
@@ -1061,5 +1081,168 @@ describe("a merged filler on the plan", () => {
     fireEvent.pointerDown(part, { ...at(95, 20), pointerId: 1, button: 0 });
     fireEvent.pointerUp(box, { ...at(95, 20), pointerId: 1 });
     expect(onSelect).toHaveBeenCalledWith("merged:0");
+  });
+});
+
+describe("a group's trays in the plan (G1)", () => {
+  const kit: Group = {
+    id: "kit",
+    name: "Player kit",
+    copies: 2,
+    access: "often",
+    memberIds: [deck.id, dice.id],
+  };
+  const member = (id: string, x: number, w: number, contents: string): CompartmentSpec => ({
+    ...holding(contents),
+    x,
+    y: 1.6,
+    w,
+    d: 40,
+    componentId: id,
+  });
+  const copy = (n: number, y: number) =>
+    makeTray({
+      key: `kit:p${n}:0`,
+      path: String(n),
+      stack: n,
+      x: 100,
+      y,
+      w: 99,
+      d: 45,
+      compartments: [
+        member(deck.id, 1.6, 40, "Region deck ×50"),
+        member(dice.id, 45, 30, "Dice ×12"),
+      ],
+    });
+  const K1 = copy(0, 0);
+  const K2 = copy(1, 50);
+  const plain = makeTray({ ...A, w: 90, d: 99, compartments: [holding("Region deck ×50")] });
+  const another = { ...newComponent("tiles"), name: "Hex tiles" };
+  const loneTray = makeTray({
+    key: "hex:p0:0",
+    path: "5",
+    stack: 5,
+    x: 0,
+    y: 0,
+    w: 90,
+    d: 99,
+    compartments: [{ ...holding("Hex tiles ×20"), componentId: another.id }],
+  });
+  const withKit = (over: Partial<PlanViewProps> = {}) =>
+    setup({
+      trays: [loneTray, K1, K2],
+      components: [deck, dice, another],
+      groups: [kit],
+      ...over,
+    });
+
+  it("leaves an ungrouped tile as it was (snapshot)", () => {
+    const { box } = setup({ trays: [plain] });
+    const tile = box.querySelector('[data-key="a:p0:0"]') as HTMLElement;
+    expect(tile.outerHTML).toMatchInlineSnapshot(
+      `"<div data-key="a:p0:0" class="plan-tile" style="--tile-fill: light-dark(#C0D3F7, #263654); --tile-line: light-dark(#335AA6, #829FD9); --tile-ink: light-dark(#22457E, #C3D2E9); --x: 0.25%; --y: 0.5%; --w: 45%; --d: 99%;" title="Region deck" role="button" tabindex="0" aria-pressed="false" aria-label="Region deck, layer 1"><div class="plan-cells" aria-hidden="true"><span class="plan-cell" style="left: 1.1111%; top: 88.8889%; width: 11.1111%; height: 10.101%;"></span></div><span class="plan-center" aria-hidden="true"><span class="plan-pill"><span class="plan-name">Region deck</span></span></span></div>"`,
+    );
+  });
+
+  it("names the trays of a group by its name and copy", () => {
+    const { box } = withKit();
+    expect(box.querySelector('[data-key="kit:p0:0"] .plan-name')?.textContent).toBe("Player kit 1");
+    expect(box.querySelector('[data-key="kit:p1:0"] .plan-name')?.textContent).toBe("Player kit 2");
+    expect(screen.getByRole("button", { name: "Player kit 2, layer 1" })).toBeTruthy();
+    expect(box.querySelector('[data-key="kit:p1:0"]')?.getAttribute("title")).toBe("Player kit 2");
+  });
+
+  it("draws a group's tray neutral: no kind shade on the tile, the tile marked as a group's", () => {
+    const { box } = withKit();
+    const tile = box.querySelector('[data-key="kit:p0:0"]') as HTMLElement;
+    expect(tile.classList.contains("is-group")).toBe(true);
+    expect(tile.style.getPropertyValue("--tile-fill")).toBe("");
+    expect(tile.style.getPropertyValue("--tile-line")).toBe("");
+    expect(tile.style.getPropertyValue("--tile-ink")).toBe("");
+    const lone = box.querySelector('[data-key="hex:p0:0"]') as HTMLElement;
+    expect(lone.classList.contains("is-group")).toBe(false);
+    expect(lone.style.getPropertyValue("--tile-fill")).not.toBe("");
+  });
+
+  it("gives each cell its own member's kind fill and line", () => {
+    const { box } = withKit();
+    const cells = Array.from(box.querySelectorAll<HTMLElement>('[data-key="kit:p0:0"] .plan-cell'));
+    expect(cells).toHaveLength(2);
+    const cards = shadeHex("cards", 0, "light");
+    const bulk = shadeHex("bulk", 0, "light");
+    expect(cells[0]?.style.getPropertyValue("--cell-own-fill")).toContain(cards.fill);
+    expect(cells[0]?.style.getPropertyValue("--cell-own-line")).toContain(cards.line);
+    expect(cells[1]?.style.getPropertyValue("--cell-own-fill")).toContain(bulk.fill);
+    expect(cells[1]?.style.getPropertyValue("--cell-own-line")).toContain(bulk.line);
+    // an ungrouped tile's cell takes no such colours
+    const lone = box.querySelector('[data-key="hex:p0:0"] .plan-cell') as HTMLElement;
+    expect(lone.style.getPropertyValue("--cell-own-fill")).toBe("");
+  });
+
+  it("shades a member by its place among its kind, as the rail does", () => {
+    const second = { ...newComponent("cards"), name: "Event deck" };
+    const tray = makeTray({
+      ...K1,
+      compartments: [member(second.id, 1.6, 40, "Event deck ×30")],
+    });
+    const { box } = setup({
+      trays: [tray],
+      components: [deck, second],
+      groups: [{ ...kit, memberIds: [second.id] }],
+    });
+    const cell = box.querySelector('[data-key="kit:p0:0"] .plan-cell') as HTMLElement;
+    expect(cell.style.getPropertyValue("--cell-own-fill")).toContain(
+      shadeHex("cards", 1, "light").fill,
+    );
+  });
+
+  it("selects one tray and lights every copy of the group", () => {
+    const onSelect = vi.fn();
+    const { box, view, p } = withKit({ onSelect });
+    fireEvent.keyDown(box.querySelector('[data-key="kit:p1:0"]') as Element, { key: "Enter" });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith("kit:p1:0");
+    view.rerender(<Host {...p} selectedKey="kit:p1:0" />);
+    const pressed = Array.from(box.querySelectorAll('[aria-pressed="true"]')).map((e) =>
+      e.getAttribute("data-key"),
+    );
+    expect(pressed).toEqual(["kit:p1:0"]);
+    const dimmed = (key: string) =>
+      box.querySelector(`[data-key="${key}"]`)?.getAttribute("class")?.includes("is-dimmed");
+    expect(dimmed("kit:p0:0")).toBe(false);
+    expect(dimmed("kit:p1:0")).toBe(false);
+    expect(dimmed("hex:p0:0")).toBe(true);
+  });
+
+  it("shows no kind icon on a lit group tray: no kind stands for it", () => {
+    const { box, view, p } = withKit();
+    view.rerender(<Host {...p} selectedKey="kit:p1:0" />);
+    expect(box.querySelector('[data-key="kit:p1:0"] .plan-pill svg')).toBeNull();
+    expect(box.querySelector('[data-key="kit:p0:0"] .plan-pill svg')).toBeNull();
+  });
+
+  it("lifts a group's tray in its own editor with the neutral ring", () => {
+    expect(planCss).toMatch(/\.plan-tile\.is-lifted\s*\{[^}]*var\(--tile-line/);
+  });
+
+  it("is drawn from the page's tokens: --sheet ground, a 2 px --muted-strong line and pill", () => {
+    const rule = /\.plan-tile\.is-group\s*\{([^}]*)\}/.exec(planCss)?.[1] ?? "";
+    expect(rule).toMatch(/--tile-fill:\s*var\(--sheet\)/);
+    expect(rule).toMatch(/--tile-line:\s*var\(--muted-strong\)/);
+    expect(rule).toMatch(/--tile-ink:\s*var\(--muted-strong\)/);
+    // the tile's line is 2 px for every tile (the base rule) and the cells' 1.5 px in their own colours
+    expect(planCss).toMatch(/\.plan-tile\s*\{[^}]*border:\s*2px solid var\(--tile-line/);
+    const cell = /\.plan-tile\.is-group \.plan-cell\s*\{([^}]*)\}/.exec(planCss)?.[1] ?? "";
+    expect(cell).toMatch(/border:\s*1\.5px solid var\(--cell-own-line/);
+    expect(cell).toMatch(/background:\s*var\(--cell-own-fill/);
+  });
+
+  it("keeps a group's cells on a phone, at the phone board's sizes", () => {
+    const phoneBlock =
+      /@media \(width < 760px\) \{([\s\S]*)\n\}\s*\n\s*@media \(prefers-reduced/.exec(
+        planCss,
+      )?.[1] ?? "";
+    expect(phoneBlock).toMatch(/\.plan-tile\.is-group \.plan-cells\s*\{[^}]*display:\s*block/);
+    expect(phoneBlock).toMatch(/\.plan-tile\.is-group \.plan-cell\s*\{[^}]*border-radius:\s*4px/);
   });
 });

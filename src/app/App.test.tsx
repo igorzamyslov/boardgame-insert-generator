@@ -1769,16 +1769,21 @@ describe("App", () => {
     return { ...p, layout: makeLayout(inputsHash(p), trays) };
   }
 
-  it("turns a tray from the bar, which pins it turned, and Unpin undoes it", () => {
+  it("turns a tray from the bar without pinning it; Pin then agrees, and Unpin leaves the turn", () => {
     const { store } = renderApp({ project: turnable() });
     fireEvent.keyDown(tile("fxcrd003:p0:0"), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: /^Turn this (tray|stack) 90°/ }));
+    const turn = { kind: "turn", trayKey: "fxcrd003:p0:0", rotated: true };
+    expect(store.state.project.value.locks).toEqual([turn]);
+    expect(within(trayBar()).queryByText(/^Pinned/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^Pin this (tray|stack)/ }));
     expect(store.state.project.value.locks).toEqual([
+      turn,
       { kind: "position", trayKey: "fxcrd003:p0:0", path: "0", rotated: true },
     ]);
     expect(within(trayBar()).getByText("Pinned, turned")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /^Unpin this (tray|stack)/ }));
-    expect(store.state.project.value.locks).toEqual([]);
+    expect(store.state.project.value.locks).toEqual([turn]);
   });
 
   it("reads Pinned, turned for a tray the optimizer had already turned, and Turn flips it back", () => {
@@ -1791,8 +1796,10 @@ describe("App", () => {
     // The chip reads the pin's rotation, so a pin of a tray that was laid turned says so too.
     expect(within(trayBar()).getByText("Pinned, turned")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /^Turn this (tray|stack) 90°/ }));
+    // a pinned tray turns with its pin, and the turn lock holds the same rotation
     expect(store.state.project.value.locks).toEqual([
       { kind: "position", trayKey: "fxcrd003:p0:0", path: "0", rotated: false },
+      { kind: "turn", trayKey: "fxcrd003:p0:0", rotated: false },
     ]);
     expect(within(trayBar()).getByText("Pinned")).toBeTruthy();
     expect(within(trayBar()).queryByText("Pinned, turned")).toBeNull();

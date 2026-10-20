@@ -43,7 +43,7 @@ export function fixtureInput(name: FixtureName | TightFixtureName): LayoutInput 
     throw new Error(`fixture ${name}: ${parsed.error}`);
   }
   const p = parsed.project;
-  const { requirements } = size(p.components, p.settings);
+  const { requirements } = size(p.components, p.settings, p.groups);
   return {
     requirements,
     box: p.box,

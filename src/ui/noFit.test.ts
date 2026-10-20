@@ -88,6 +88,34 @@ describe("misfitOf", () => {
     });
   });
 
+  it("names the group of a group's tray, so Edit opens the group's editor and calls it by its name", () => {
+    const kit = {
+      id: "kit",
+      name: "Player kit",
+      copies: 2,
+      access: "often" as const,
+      memberIds: [deck.id, boards.id],
+    };
+    const attempt = {
+      // copy 1 stands left of the one that overhangs the box, so the overhanging one is the second
+      trays: [
+        holding([deck, boards], { key: "kit:p0:0", x: 0, y: 0, w: 90, d: 80 }),
+        holding([deck, boards], { key: "kit:p1:0", x: 100, y: 0, w: 120, d: 80 }),
+      ],
+    };
+    expect(misfitOf(attempt, box, settings, all, [kit])).toEqual({
+      componentId: deck.id,
+      groupId: "kit",
+      groupName: "Player kit",
+      trayKey: "kit:p1:0",
+      name: "Player kit 2",
+      reason: "box",
+    });
+    // an unnamed group is called Group; an ungrouped item's tray has no group
+    expect(misfitOf(attempt, box, settings, all, [{ ...kit, name: "" }])?.groupName).toBe("Group");
+    expect(misfitOf(attempt, box, settings, all)?.groupId).toBeUndefined();
+  });
+
   it("is null when nothing stands out, or there is no attempt", () => {
     const attempt = { trays: [holding([deck], { key: "d", x: 0, y: 0, w: 100, d: 80 })] };
     expect(misfitOf(attempt, box, settings, all)).toBeNull();

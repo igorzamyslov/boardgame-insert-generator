@@ -154,10 +154,10 @@ describe("whole trays (groups spec §6.3)", () => {
     const ctx = createCtx(makeInput([item()]), fakeMeasure);
     expect(ctx.extraParts(0, 0)).toBe(0);
     expect(ctx.extraParts(0, 1)).toBe(1);
-    // one tray per player is one tray per copy; a combined split is not
+    // a variant with one tray per copy adds none; a split into more trays does
     const kit = req("k", [
-      variant("separate", [part("k:p0:0", [a]), part("k:p1:0", [b])]),
-      variant("combined", [part("k:pall:0", [a]), part("k:pall:1", [b])]),
+      variant("per copy", [part("k:p0:0", [a]), part("k:p1:0", [b])]),
+      variant("joined", [part("k:all:0", [a]), part("k:all:1", [b])]),
     ]);
     const kits = createCtx(makeInput([kit]), fakeMeasure);
     expect(kits.extraParts(0, 0)).toBe(0);
@@ -167,7 +167,7 @@ describe("whole trays (groups spec §6.3)", () => {
     expect([copy(0, 0), copy(0, 1), copy(1, 0), copy(1, 1)]).toEqual([0, 1, 0, 0]);
   });
 
-  it("sums the extra trays over the copies, so four players each split in two count four", () => {
+  it("sums the extra trays over the copies, so four copies each split in two count four", () => {
     const split = req("k", [
       variant("each in two", [
         part("k:p0:0", [a]),

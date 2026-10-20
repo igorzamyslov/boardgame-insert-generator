@@ -32,7 +32,7 @@ const GROWTH_AXES: readonly GrowthAxis[] = ["w", "d", "h", "stack"];
 const GROWTH_WORDS = ["off", "auto", "max"] as const;
 
 /** A growth mode: a word, or a number of mm (null is a half-edited number, left for validation). */
-function readGrowthMode(g: Reader, axis: GrowthAxis): GrowthMode | undefined {
+export function readGrowthMode(g: Reader, axis: GrowthAxis): GrowthMode | undefined {
   const v = g.take(axis);
   if (v === undefined) {
     return undefined;
@@ -79,13 +79,9 @@ function readBase(r: Reader, kind: ComponentKind): ComponentBase {
     name: r.str("name", KIND_NAMES[kind]),
     access: r.oneOf("access", ["often", "sometimes", "setup"], COMPONENT_DEFAULTS.access),
   };
-  const groupId = r.optStr("groupId");
-  if (groupId !== undefined) {
-    base.groupId = groupId;
-  }
-  const perPlayer = r.optChild("perPlayer");
-  if (perPlayer) {
-    base.perPlayer = perPlayer.finish({ players: perPlayer.num("players") });
+  const copies = r.optNum("copies");
+  if (copies !== undefined) {
+    base.copies = copies;
   }
   const clearance = r.optNum("clearance");
   if (clearance !== undefined) {
@@ -163,6 +159,7 @@ function readCards(r: Reader, base: ComponentBase): Component {
     ["upright-long", "upright-short", "flat", "auto"],
     COMPONENT_DEFAULTS.cards.storage,
   );
+  const flatDecks = r.has("flatDecks") ? r.oneOf("flatDecks", ["walls", "dividers"]) : undefined;
   return r.finish({
     ...base,
     kind: "cards",
@@ -172,6 +169,7 @@ function readCards(r: Reader, base: ComponentBase): Component {
     sleeve,
     thickness,
     storage,
+    ...(flatDecks === undefined ? {} : { flatDecks }),
   });
 }
 

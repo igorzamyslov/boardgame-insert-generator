@@ -84,7 +84,13 @@ function env(
   lockedPaths: string[] = [],
   pinned: boolean[] = [false, false, false, false],
 ): MoveEnv {
-  return { ctx, lockedPaths, variantPinned: pinned, rotationFixed: new Set() };
+  return {
+    ctx,
+    lockedPaths,
+    variantPinned: pinned,
+    rotationFixed: new Set(),
+    turns: new Map(),
+  };
 }
 
 /** Every part of every active variant appears exactly once; nothing else does. */
@@ -289,6 +295,7 @@ describe("stacks the bed cannot print", () => {
     lockedPaths: [],
     variantPinned: [false, false, false],
     rotationFixed: new Set(),
+    turns: new Map(),
   };
   const wide = at(0);
   const badStack = (t: Tree): boolean =>
@@ -343,6 +350,7 @@ describe("stacks the bed cannot print", () => {
       lockedPaths: [],
       variantPinned: [false, false],
       rotationFixed: new Set(),
+      turns: new Map(),
     };
     expect(printable(longCtx, [at(0), at(1)])).toBe(true);
     expect(printable(longCtx, [at(0), { ...at(1), rotated: true }])).toBe(false);

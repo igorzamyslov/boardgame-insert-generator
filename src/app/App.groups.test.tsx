@@ -2,14 +2,14 @@
 // @vitest-environment jsdom
 // A tray belongs to every item in it, not only to its first: a group puts several items in one
 // tray, and each of them has to find it (its row names the layer, its editor lifts it, a click on
-// the tray presses every row that is in it), while the tray keeps the colour of the first.
+// the tray presses every row that is in it), and the tray is drawn neutral, with each item's own colour in its wells (spec §7.6).
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { newComponent } from "../model/defaults";
 import { inputsHash } from "../model/hash";
 import type { Component, Project } from "../model/types";
 import { hoveredComponent } from "../screens/hover";
-import { lookOfTray } from "../plan/glyph";
+import { shadeHex } from "../ui/identity";
 import { fixtureProject, makeLayout, makeTray } from "./test-helpers";
 import { renderApp } from "./test-app";
 
@@ -45,7 +45,7 @@ const well = (componentId: string, contents: string) => ({
  * Tableau has a tray to itself on the bottom layer. Market and Gems are one group: they share one
  * tray on the top layer, Market's compartment first.
  */
-function grouped(): Project {
+function grouped(asGroup = false): Project {
   const p = fixtureProject();
   const components = [
     item("cards", "tab", "Tableau"),
@@ -62,7 +62,7 @@ function grouped(): Project {
       compartments: [well("tab", "Tableau ×20")],
     }),
     makeTray({
-      key: "mkt:p0:0",
+      key: asGroup ? "kit:p0:0" : "mkt:p0:0",
       path: "1",
       stack: 0,
       level: 1,
@@ -71,7 +71,19 @@ function grouped(): Project {
       compartments: [well("mkt", "Market ×30"), well("gem", "Gems ×12")],
     }),
   ];
-  const next = { ...p, components, locks: [] };
+  // a real group is a group of the project, its tray keyed by the group's id; the others share a tray without one
+  const groups = asGroup
+    ? [
+        {
+          id: "kit",
+          name: "Player kit",
+          copies: 1,
+          access: "often" as const,
+          memberIds: ["mkt", "gem"],
+        },
+      ]
+    : undefined;
+  const next = { ...p, components, ...(groups === undefined ? {} : { groups }), locks: [] };
   return { ...next, layout: makeLayout(inputsHash(next), trays) };
 }
 
@@ -157,17 +169,40 @@ describe("a tray that holds a group's items", () => {
     expect(tile("tab:p0:0").classList.contains("is-lifted")).toBe(true);
   });
 
-  it("keeps the tray's colour the first member's, whoever else is in it", () => {
-    const project = grouped();
+  it("draws the tray neutral, with each member's own colour in its wells", () => {
+    const project = grouped(true);
     renderApp({ project });
     showLayer(/^Layer 2/);
-    const look = lookOfTray(project.layout?.trays[1] as never, project.components);
-    expect(look?.kind).toBe("cards");
-    expect(tile("mkt:p0:0").style.getPropertyValue("--tile-fill")).toBe(look?.shade.fill);
-    // Market is the second of the cards, Tableau the first: its shade, not Gems' bits colour
+    const group = tile("kit:p0:0");
+    // no kind's shade on the tile: the neutral tokens of the plan's CSS stand for it
+    expect(group.classList.contains("is-group")).toBe(true);
+    expect(group.style.getPropertyValue("--tile-fill")).toBe("");
+    // the wells wear the members' own kinds: Market's cards, then Gems' bits
+    const wells = [...group.querySelectorAll<HTMLElement>(".plan-cell")];
+    expect(wells.map((c) => c.style.getPropertyValue("--cell-own-fill"))).toEqual([
+      expect.stringContaining(shadeHex("cards", 1, "light").fill),
+      expect.stringContaining(shadeHex("bulk", 0, "light").fill),
+    ]);
+    // the member's row keeps its own kind's colour, as before
     const market = (row("mkt").closest(".k-rowwrap") as HTMLElement).style.getPropertyValue(
       "--shade-fill",
     );
-    expect(market).toBe(look?.shade.fill);
+    expect(market).toContain(shadeHex("cards", 1, "light").fill);
+    // an ungrouped tray is still its kind's
+    showLayer(/^Layer 1/);
+    expect(tile("tab:p0:0").style.getPropertyValue("--tile-fill")).toContain(
+      shadeHex("cards", 0, "light").fill,
+    );
+    expect(tile("tab:p0:0").classList.contains("is-group")).toBe(false);
+  });
+
+  it("calls the group's tray by the group's name, in the plan, and its tray bar too", () => {
+    renderApp({ project: grouped(true) });
+    showLayer(/^Layer 2/);
+    expect(tile("kit:p0:0").querySelector(".plan-name")?.textContent).toBe("Player kit");
+    fireEvent.keyDown(tile("kit:p0:0"), { key: "Enter" });
+    const bar = screen.getByRole("region", { name: "Selected tray" });
+    expect(bar.querySelector(".tray-bar__name")?.textContent).toBe("Player kit");
+    expect(bar.querySelector(".tray-bar__swatch--group")).not.toBeNull();
   });
 });

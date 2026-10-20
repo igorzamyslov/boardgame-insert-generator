@@ -19,6 +19,7 @@ function around() {
     printer: p.printer,
     onOpenBox: vi.fn(),
     onSettings: vi.fn(),
+    onAddGroup: vi.fn(),
     onClearChoices: vi.fn(),
   };
 }

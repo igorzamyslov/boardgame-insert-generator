@@ -494,6 +494,12 @@
   color: var(--shade-ink, var(--kind-ink, var(--muted)));
 }
 
+/* A group's tile (G1, G3): the neutral ground with the strong ink, where a kind's has its own. */
+.k-tile[data-tone="group"] {
+  background: var(--icon-ground);
+  color: var(--muted-strong);
+}
+
 .k-tile--34 {
   --tile: 34px;
   --tile-r: var(--r-icon);
@@ -912,9 +918,12 @@
   cursor: pointer;
 }
 
+/* The title keeps its width and the value gives way to it (a long group name is cut with an ellipsis). */
 .k-drow__text {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -948,8 +957,17 @@
   border-radius: 0;
 }
 
+.k-drow__metatext {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .k-drow__meta {
   display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
   gap: var(--s-6);
   align-items: center;
   color: var(--muted);

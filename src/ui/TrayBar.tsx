@@ -4,20 +4,32 @@
 // is a modal sheet at the foot of the screen.
 import type { CSSProperties } from "preact";
 import { useEffect, useId, useMemo, useRef, useState } from "preact/hooks";
-import { isLockable, lockedKeys, sizeLockedKeys, stackOf } from "../app/actions";
+import { isLockable, lockedKeys, sizeLockedKeys, stackOf, turnedKeys } from "../app/actions";
 import { canTurn } from "../app/dryRun";
 import { printedHeight } from "../instructions/numbering";
 import { summarize } from "../layout";
-import { Button, CloseButton, Dialog, Icon, IconTile, MenuItem, MenuPanel } from "../kit";
-import type { Project, TraySpec } from "../model/types";
+import {
+  Button,
+  CloseButton,
+  Dialog,
+  GroupGlyph,
+  Icon,
+  IconTile,
+  MenuItem,
+  MenuPanel,
+} from "../kit";
+import type { ForeignData, Project, TraySpec } from "../model/types";
 import type { TrayLook } from "../plan/glyph";
 import { formatPrintCost } from "./estimates";
 import { mm } from "./identity";
+import type { Shade } from "./identity";
 import "./trayBar.css";
 
 export interface TrayBarProps {
   /** The project: its locks say what is pinned, and the dry run behind Turn reads its plan. */
   project: Project;
+  /** What the file kept of components this app doesn't read; the dry run behind Turn validates with it. */
+  foreign?: ForeignData;
   /** The selected part, as it prints. */
   tray: TraySpec;
   /** What the tray is called, in full. */
@@ -26,9 +38,16 @@ export interface TrayBarProps {
   layer: string;
   /** The component's kind and its own shade, for the swatch; none for a part that holds nothing. */
   look?: TrayLook | null;
+  /**
+   * A group's tray: its members' colours, in order, for the swatch drawn as a tiny tray (one cell
+   * each, near-equal bars as G1 draws them).
+   */
+  cells?: readonly { shade: Shade }[];
+  /** How many layers the plan has: a group's line names the layer only when there are two or more. */
+  layerCount?: number;
   /** A riser carries a tray: its name. */
   carries?: string | null;
-  /** What the compartments are, in words, for the phone's line ("6 figure pockets"). */
+  /** What the compartments are, in words: the phone's line ("6 figure pockets"), and a group's ("5 compartments"). */
   compartments?: string | null;
   /** The phone's modal sheet, not the bar in the stage's slot. */
   phone?: boolean;
@@ -70,17 +89,41 @@ function shadeStyle(look: TrayLook | null | undefined): CSSProperties | undefine
       } as CSSProperties);
 }
 
+/** The swatch of a group's tray: a tiny tray, a neutral tile with a cell per member in the member's colours. */
+function GroupSwatch({ cells }: { cells: NonNullable<TrayBarProps["cells"]> }) {
+  // G1 draws near-equal bars: a member's cell is as wide as any other's, whatever its compartments' area
+  const columns = cells.map(() => "1fr").join(" ");
+  return (
+    <span
+      class="tray-bar__swatch tray-bar__swatch--group"
+      aria-hidden="true"
+      style={{ gridTemplateColumns: columns } as CSSProperties}
+    >
+      {cells.map((c, i) => (
+        <span
+          key={i}
+          class="tray-bar__cell"
+          style={
+            { "--cell-own-fill": c.shade.fill, "--cell-own-line": c.shade.line } as CSSProperties
+          }
+        />
+      ))}
+    </span>
+  );
+}
+
 /** What the bar knows about the tray: its rules, whether Turn can go, and the lines it says. */
 function useTrayFacts(p: TrayBarProps) {
-  const { project, tray } = p;
+  const { project, tray, foreign } = p;
   const full = isLockable(tray);
   const pin = project.locks.find((l) => l.kind === "position" && l.trayKey === tray.key);
   const pinned = lockedKeys(project).has(tray.key);
-  const turned = pin?.kind === "position" && pin.rotated;
+  // a pin says whether it holds the tray turned; a tray that is not pinned is turned by its turn lock
+  const turned = pin?.kind === "position" ? pin.rotated : turnedKeys(project).has(tray.key);
   const sizeLocked = sizeLockedKeys(project).has(tray.key);
   const turnCheck = useMemo(
-    () => (full ? canTurn(project, tray.key) : { ok: false as const, reason: "" }),
-    [project, tray.key, full],
+    () => (full ? canTurn(project, tray.key, foreign) : { ok: false as const, reason: "" }),
+    [project, tray.key, full, foreign],
   );
   const estimate = useMemo(
     () => (full ? printEstimate(project, tray) : null),
@@ -230,11 +273,15 @@ function MoreItems(p: MoreItemsProps) {
   );
 }
 
-/** The pin and the size lock, in words for a reader: the bar draws them in the buttons, not in chips. */
+/**
+ * The pin, the turn and the size lock, in words for a reader: the bar draws them in the buttons, not
+ * in chips. A tray that is turned and not pinned is "Turned"; a pin says whether it holds the turn.
+ */
 function Told(p: { pinned: boolean; turned: boolean; sizeLocked: boolean }) {
   return (
     <span class="visually-hidden" aria-live="polite">
       {p.pinned ? <span>{p.turned ? "Pinned, turned" : "Pinned"}</span> : null}
+      {!p.pinned && p.turned ? <span>Turned</span> : null}
       {p.sizeLocked ? <span>Size locked</span> : null}
     </span>
   );
@@ -261,8 +308,15 @@ type Inner = TrayBarProps & { facts: Facts; more: More };
 function DesktopBar(p: Inner) {
   const { facts, more } = p;
   const words = actionWords(facts.stack, facts.pinned);
+  // A group's line (G1): the size, how many compartments, then the cost; the layer first only with two.
+  const group = p.look?.group === true;
   const meta = facts.full
-    ? [p.layer, facts.size, facts.estimate].filter((part) => part !== null).join(" · ")
+    ? (group
+        ? [(p.layerCount ?? 1) > 1 ? p.layer : null, facts.size, p.compartments, facts.estimate]
+        : [p.layer, facts.size, facts.estimate]
+      )
+        .filter((part) => part !== null && part !== undefined && part !== "")
+        .join(" · ")
     : partLine(p, facts.size);
   return (
     <div
@@ -272,10 +326,14 @@ function DesktopBar(p: Inner) {
       data-region="tray-bar"
       style={shadeStyle(p.look)}
     >
-      <span
-        class={`tray-bar__swatch${p.look ? "" : " tray-bar__swatch--spacer"}`}
-        aria-hidden="true"
-      />
+      {group && p.cells !== undefined && p.cells.length > 0 ? (
+        <GroupSwatch cells={p.cells} />
+      ) : (
+        <span
+          class={`tray-bar__swatch${p.look ? "" : " tray-bar__swatch--spacer"}`}
+          aria-hidden="true"
+        />
+      )}
       <span class="tray-bar__text">
         <span class="tray-bar__name" title={p.name}>
           {p.name}
@@ -374,6 +432,10 @@ function PhoneSheet(p: Inner) {
         <div class="tray-sheet__head">
           {!p.look ? (
             <span class="tray-sheet__swatch" aria-hidden="true" />
+          ) : p.look.group ? (
+            <IconTile size={36} tone="group">
+              <GroupGlyph size={18} />
+            </IconTile>
           ) : (
             <IconTile size={36} kind={p.look.kind} lined />
           )}

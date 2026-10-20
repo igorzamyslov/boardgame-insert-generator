@@ -4,7 +4,7 @@ import { narrowestCutMm } from "../model/settings";
 import type { Component, Settings } from "../model/types";
 import { size } from "./group";
 import { minOuter, realizeTray } from "./realize";
-import { assertTrayInvariants } from "./test-helpers";
+import { assertTrayInvariants, inGroup } from "./test-helpers";
 import type { RealizeOptions } from "./types";
 
 // Inputs the property "realizes every variant part at a larger outer" found at 8 times its run
@@ -56,7 +56,6 @@ const minis = (id: string, figures: unknown[], storage: "pockets" | "bulk") =>
     kind: "minis",
     figures,
     storage,
-    groupId: "g",
   }) as unknown;
 const fig = (w: number, d: number, h: number, count: number) => ({ name: "Fig", w, d, h, count });
 const bits = (id: string, count: number) =>
@@ -66,7 +65,6 @@ const bits = (id: string, count: number) =>
     access: "often",
     kind: "bulk",
     items: Array.from({ length: count }, () => ({ name: "Pile", volumeMl: 1 })),
-    groupId: "g",
   }) as unknown;
 
 const CASES: [string, Component[], Settings, number][] = [
@@ -133,7 +131,6 @@ const CASES: [string, Component[], Settings, number][] = [
         d: 5,
         h: 1,
         count: 1,
-        groupId: "g",
       } as unknown,
       minis(
         "c1",
@@ -155,7 +152,8 @@ const ground: RealizeOptions = { lipped: false, level: 0 };
 
 describe.each(CASES)("realizing at a larger outer: %s", (_name, components, s, extraW) => {
   it("gets every pocket its cut at the minimum and at the larger outer", () => {
-    const parts = size(components, s).requirements.flatMap((r) =>
+    // every component of a case is one group, as they were before groups had their own list
+    const parts = size(components, s, [inGroup(components)]).requirements.flatMap((r) =>
       r.variants.flatMap((v) => v.parts),
     );
     expect(parts.length).toBeGreaterThan(0);

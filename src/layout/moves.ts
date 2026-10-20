@@ -27,6 +27,8 @@ export interface MoveEnv {
   readonly variantPinned: readonly boolean[];
   /** partIds whose rotation is fixed by a lock. */
   readonly rotationFixed: ReadonlySet<number>;
+  /** partId → the rotation a turn lock gives that tray, wherever a move creates it. */
+  readonly turns: ReadonlyMap<number, boolean>;
 }
 
 /** A move is a pure function of (tree, rng): a new tree, or null when it doesn't apply. */
@@ -192,12 +194,10 @@ export const changeVariant: Move = (tree, env, rng) => {
   const parts = r.variants[next]?.parts ?? [];
   for (let p = 0; p < parts.length && root !== null; p++) {
     const rotatable = parts[p]?.rotatable ?? false;
-    const item: StackItem = {
-      req: i,
-      variant: next,
-      part: p,
-      rotated: rotatable && rng.nextInt(2) === 1,
-    };
+    const ref = { req: i, variant: next, part: p };
+    // a turn lock decides the rotation; else a random one, if the part can rotate
+    const rotated = env.turns.get(env.ctx.partId(ref)) ?? (rotatable && rng.nextInt(2) === 1);
+    const item: StackItem = { ...ref, rotated };
     // One item's trays belong in one stack (score `apart`): mostly on top of the part before of
     // the same copy, where it can stand, so a new split is not scattered over the box and refused
     // for it. The copies of a per-player variant go anywhere.

@@ -1,4 +1,3 @@
-import { groupOf } from "./defaults";
 import { deepFreeze } from "./freeze";
 import {
   FLOAT_EPSILON,
@@ -10,7 +9,8 @@ import {
   maxBottomChamfer,
   topPlane,
 } from "./settings";
-import type { Component, Lock, Notice, Project, Settings } from "./types";
+import { DEFAULT_GROUP_NAME } from "./groups";
+import type { Component, ForeignData, Group, Lock, Notice, Project, Settings } from "./types";
 
 /**
  * Codes of the notices validateProject() emits, by family: `field.*` (shown
@@ -23,35 +23,39 @@ export const VALIDATION_NOTICE_CODES = deepFreeze({
     bottomChamfer: "field.bottomChamfer",
     cardSides: "field.cardSides",
     curvedFloor: "field.curvedFloor",
+    copies: "field.copies",
+    copiesInGroup: "field.copiesInGroup",
     count: "field.count",
     dividers: "field.dividers",
     empty: "field.empty",
-    groupId: "field.groupId",
+    flatDecks: "field.flatDecks",
     headroom: "field.headroom",
     layerHeight: "field.layerHeight",
     length: "field.length",
     lipBearing: "field.lipBearing",
     lockPath: "field.lockPath",
     lockStack: "field.lockStack",
-    perPlayerInGroup: "field.perPlayerInGroup",
-    players: "field.players",
     separators: "field.separators",
     setting: "field.setting",
+    turnLock: "field.turnLock",
     topPlane: "field.topPlane",
     thicknessScale: "field.thicknessScale",
     volume: "field.volume",
   },
   limit: {
     components: "limit.components",
+    copies: "limit.copies",
     count: "limit.count",
     dividers: "limit.dividers",
+    groups: "limit.groups",
     length: "limit.length",
-    players: "limit.players",
     separators: "limit.separators",
     volume: "limit.volume",
   },
   invalid: {
     duplicateId: "invalid.duplicateId",
+    group: "invalid.group",
+    groupMember: "invalid.groupMember",
     id: "invalid.id",
   },
 } as const);
@@ -61,7 +65,9 @@ export const BOUNDS = Object.freeze({
   maxComponents: 100,
   maxCount: 2000,
   maxLength: 1000,
-  maxPlayers: 10,
+  maxCopies: 10,
+  // Groups don't count toward maxComponents: a group is one tray, its members are the items.
+  maxGroups: 100,
   maxSeparators: 10,
   maxDividers: 6,
 } as const);
@@ -402,6 +408,32 @@ class Checker {
     return true;
   }
 
+  /** Whole number 1…10, on an item or a group. The upper bound is tested first, as for count. */
+  copies(path: string, n: number): void {
+    if (n > BOUNDS.maxCopies) {
+      this.error(
+        VALIDATION_NOTICE_CODES.limit.copies,
+        path,
+        `Copies must be at most ${BOUNDS.maxCopies}.`,
+      );
+    } else if (!Number.isInteger(n) || n < 1) {
+      this.error(
+        VALIDATION_NOTICE_CODES.field.copies,
+        path,
+        "Copies must be a whole number of at least 1.",
+      );
+    }
+  }
+
+  /** `off`, `auto`, `max` or a length of 0 mm or more, per axis: an item's and a group's growth. */
+  growth(at: string, growth: Group["growth"]): void {
+    for (const [axis, mode] of Object.entries(growth ?? {})) {
+      if (typeof mode === "number") {
+        this.nonNegativeLength(`${at}/${axis}`, "Growth", mode);
+      }
+    }
+  }
+
   notEmpty(path: string, what: string, list: unknown[]): void {
     if (list.length === 0) {
       this.error(VALIDATION_NOTICE_CODES.field.empty, path, `Add at least one ${what}.`);
@@ -410,28 +442,8 @@ class Checker {
 }
 
 function checkBase(ck: Checker, c: Component, at: string): void {
-  if (c.perPlayer) {
-    const n = c.perPlayer.players;
-    if (n > BOUNDS.maxPlayers) {
-      ck.error(
-        VALIDATION_NOTICE_CODES.limit.players,
-        `${at}/perPlayer/players`,
-        `Players must be at most ${BOUNDS.maxPlayers}.`,
-      );
-    } else if (!Number.isInteger(n) || n < 1) {
-      ck.error(
-        VALIDATION_NOTICE_CODES.field.players,
-        `${at}/perPlayer/players`,
-        "Players must be a whole number of at least 1.",
-      );
-    }
-    if (groupOf(c) !== undefined) {
-      ck.error(
-        VALIDATION_NOTICE_CODES.field.perPlayerInGroup,
-        `${at}/perPlayer`,
-        "A grouped item can't be per player. Remove it from the group or turn off per player.",
-      );
-    }
+  if (c.copies !== undefined) {
+    ck.copies(`${at}/copies`, c.copies);
   }
   if (c.clearance !== undefined) {
     ck.nonNegativeLength(`${at}/clearance`, "Clearance", c.clearance);
@@ -468,11 +480,7 @@ function checkBase(ck: Checker, c: Component, at: string): void {
       );
     }
   }
-  for (const [axis, mode] of Object.entries(c.growth ?? {})) {
-    if (typeof mode === "number") {
-      ck.nonNegativeLength(`${at}/growth/${axis}`, "Growth", mode);
-    }
-  }
+  ck.growth(`${at}/growth`, c.growth);
   // A curved floor bends cards and tilts upright tiles (spec §6.1).
   if (c.curvedFloor === true && (c.kind === "cards" || c.kind === "tiles")) {
     ck.error(
@@ -496,6 +504,13 @@ function checkComponent(ck: Checker, c: Component, at: string): void {
           VALIDATION_NOTICE_CODES.field.cardSides,
           `${at}/shortSide`,
           "The short side is longer than the long side; they will be swapped.",
+        );
+      }
+      if (c.flatDecks !== undefined && c.flatDecks !== "walls" && c.flatDecks !== "dividers") {
+        ck.error(
+          VALIDATION_NOTICE_CODES.field.flatDecks,
+          `${at}/flatDecks`,
+          "Flat decks in one well must be set to walls or dividers.",
         );
       }
       ck.notEmpty(`${at}/decks`, "deck", c.decks);
@@ -675,7 +690,95 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
         );
       }
       return;
+    case "turn":
+      if (lock.trayKey === "") {
+        ck.error(VALIDATION_NOTICE_CODES.field.turnLock, `${at}/trayKey`, "A turn needs a tray.");
+      }
+      return;
   }
+}
+
+/** Group ids: 1 to 40 characters of the alphabet of item ids (newId), minus ":" which tray keys use. */
+const GROUP_ID = /^[A-Za-z0-9_-]{1,40}$/;
+
+/**
+ * The groups table (groups spec §4.4), after the items: a group's own copies and growth, then its
+ * structure. `foreignIds` are the ids of components of a newer 0.2.x file that this app keeps
+ * verbatim and does not read: they are valid members and valid ids to avoid, but they are not in
+ * `p.components`.
+ */
+function checkGroups(ck: Checker, p: Project, foreignIds: ReadonlySet<string>): void {
+  const groups = p.groups ?? [];
+  if (groups.length > BOUNDS.maxGroups) {
+    ck.error(
+      VALIDATION_NOTICE_CODES.limit.groups,
+      "/groups",
+      `Too many groups (${groups.length}); the maximum is ${BOUNDS.maxGroups}.`,
+    );
+  }
+  const itemIds = new Set(p.components.map((c) => c.id));
+  const groupIds = new Set<string>();
+  const memberOf = new Map<string, Group>();
+  groups.forEach((g, i) => {
+    const at = `/groups/${i}`;
+    if (g.copies !== undefined) {
+      ck.copies(`${at}/copies`, g.copies);
+    }
+    ck.growth(`${at}/growth`, g.growth);
+    // Tray keys are `<id>:…`, so the id of a group is held to the same rule as an item's.
+    if (!GROUP_ID.test(g.id)) {
+      ck.error(
+        VALIDATION_NOTICE_CODES.invalid.group,
+        `${at}/id`,
+        "A group id is 1 to 40 letters, digits, - or _.",
+      );
+    } else if (itemIds.has(g.id) || foreignIds.has(g.id) || groupIds.has(g.id)) {
+      ck.error(
+        VALIDATION_NOTICE_CODES.invalid.group,
+        `${at}/id`,
+        `The group id "${g.id}" is used by another item or group.`,
+      );
+    }
+    groupIds.add(g.id);
+    const inThis = new Set<string>();
+    g.memberIds.forEach((id, j) => {
+      const path = `${at}/memberIds/${j}`;
+      if (!itemIds.has(id) && !foreignIds.has(id)) {
+        ck.error(
+          VALIDATION_NOTICE_CODES.invalid.groupMember,
+          path,
+          `Group "${g.name || DEFAULT_GROUP_NAME}" lists an item that is not in the project.`,
+        );
+      } else if (inThis.has(id)) {
+        ck.error(
+          VALIDATION_NOTICE_CODES.invalid.group,
+          path,
+          `Group "${g.name || DEFAULT_GROUP_NAME}" lists the same item twice.`,
+        );
+      } else if (memberOf.has(id)) {
+        ck.error(
+          VALIDATION_NOTICE_CODES.invalid.group,
+          path,
+          `An item is in two groups: "${memberOf.get(id)?.name || DEFAULT_GROUP_NAME}" and "${g.name || DEFAULT_GROUP_NAME}".`,
+        );
+      }
+      inThis.add(id);
+      if (!memberOf.has(id)) {
+        memberOf.set(id, g);
+      }
+    });
+  });
+  // An item's copies are set on its group: the group's are the ones printed.
+  p.components.forEach((c, i) => {
+    const group = memberOf.get(c.id);
+    if (group !== undefined && c.copies !== undefined) {
+      ck.error(
+        VALIDATION_NOTICE_CODES.field.copiesInGroup,
+        `/components/${i}/copies`,
+        `Copies are set on the group, ${group.name || DEFAULT_GROUP_NAME}.`,
+      );
+    }
+  });
 }
 
 /**
@@ -685,9 +788,10 @@ function checkLock(ck: Checker, lock: Lock, at: string): void {
  * `path` points at the field. Cross-field checks run
  * only on values that passed their own check, so one bad value never produces
  * a second notice. Plans 4 and 5 must not optimize while any notice has level
- * "error".
+ * "error". `foreign` is what the file kept of components this app doesn't know: a group may list
+ * one of them, which is no `invalid.groupMember`.
  */
-export function validateProject(p: Project): Notice[] {
+export function validateProject(p: Project, foreign?: ForeignData): Notice[] {
   const ck = new Checker();
   const { box, printer, settings } = p;
 
@@ -745,10 +849,6 @@ export function validateProject(p: Project): Notice[] {
       `Too many items (${p.components.length}); the maximum is ${BOUNDS.maxComponents}.`,
     );
   }
-  const idCounts = new Map<string, number>();
-  for (const c of p.components) {
-    idCounts.set(c.id, (idCounts.get(c.id) ?? 0) + 1);
-  }
   const seen = new Set<string>();
   p.components.forEach((c, i) => {
     const at = `/components/${i}`;
@@ -765,27 +865,17 @@ export function validateProject(p: Project): Notice[] {
       );
     }
     seen.add(c.id);
-    const group = groupOf(c);
-    if (group?.includes(":")) {
-      // Tray keys are `<group or component id>:p…`, matched by prefix: a ":" would let two groups collide.
-      ck.error(
-        VALIDATION_NOTICE_CODES.field.groupId,
-        `${at}/groupId`,
-        "A group name can't contain ':'.",
-      );
-    } else if (group !== undefined) {
-      // A component naming its own id as its group is not a collision.
-      const others = (idCounts.get(group) ?? 0) - (group === c.id ? 1 : 0);
-      if (others > 0) {
-        ck.error(
-          VALIDATION_NOTICE_CODES.field.groupId,
-          `${at}/groupId`,
-          "Group name collides with another item's id.",
-        );
-      }
-    }
     checkComponent(ck, c, at);
   });
+
+  const foreignIds = new Set<string>();
+  for (const f of foreign?.components ?? []) {
+    const id = (f.raw as { id?: unknown } | null)?.id;
+    if (typeof id === "string") {
+      foreignIds.add(id);
+    }
+  }
+  checkGroups(ck, p, foreignIds);
 
   p.locks.forEach((lock, i) => {
     checkLock(ck, lock, `/locks/${i}`);

@@ -9,7 +9,7 @@
 import type { ComponentChildren } from "preact";
 import { useId } from "preact/hooks";
 import { StatusHeading } from "../kit";
-import type { Box, Component, Settings, TraySpec } from "../model/types";
+import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { PlanView } from "../plan/PlanView";
 import type { Status, StatusAction } from "./StageTop";
@@ -111,6 +111,8 @@ export interface FitProblemProps extends FitCardsProps {
   box: Box;
   settings: Settings;
   components: readonly Component[];
+  /** The project's groups: a group's trays are drawn neutral and called by its name. */
+  groups?: readonly Group[];
   /** Position pins, for the badges and what stays whole (the pins' picture). */
   lockedKeys: ReadonlySet<string>;
   /** The tray that does not fit, marked on the picture (NoFit). */
@@ -151,6 +153,7 @@ export function FitProblem(p: FitProblemProps) {
               box={p.box}
               settings={p.settings}
               components={p.components}
+              groups={p.groups}
               lockedKeys={noFit ? NONE : p.lockedKeys}
               sizeLockedKeys={NONE}
               selectedKey={null}

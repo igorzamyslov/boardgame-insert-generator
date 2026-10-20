@@ -85,7 +85,16 @@ const openMore = (): void => {
 };
 
 /** A component's editor, opened from its row in the rail (the phone's sheet has the same rows). */
-const editRow = (name: RegExp) => (): void => {
+/** The kit's project with one more group, empty (a phone's card has no drag to offer it). */
+const withEmptyGroup = (p: Project): Project => ({
+  ...p,
+  groups: [
+    ...(p.groups ?? []),
+    { id: "emptyg01", name: "Group", access: "sometimes", memberIds: [] },
+  ],
+});
+
+const editRow = (name: RegExp | string) => (): void => {
   const rail = (document.querySelector('[data-region="rail"], [data-region="sheet"]') ??
     document.body) as HTMLElement;
   fireEvent.click(within(rail).getByRole("button", { name }));
@@ -102,6 +111,53 @@ const openAllRows = (): void => {
 const editMore = (name: RegExp) => (): void => {
   editRow(name)();
   openAllRows();
+};
+
+/** Market deck, moved into the Player kit from its editor's Group row. */
+const moveMarketIntoKit = (): void => {
+  editMore(/^Market deck, /)();
+  fireEvent.click(screen.getByRole("button", { name: /^Move to group…/ }));
+  const panel = screen.getByRole("group", { name: "Move to group…" });
+  fireEvent.click(within(panel).getByRole("button", { name: /^Player kit/ }));
+};
+
+/**
+ * Market deck, dragged by its grip between the Player kit's Starter deck and Resources (jsdom has no
+ * layout: the rectangles of the list and the kit's card are set by hand).
+ */
+const dragMarketIntoKit = (): void => {
+  const box = (top: number, bottom: number) => ({
+    top,
+    bottom,
+    left: 0,
+    right: 300,
+    width: 300,
+    height: bottom - top,
+    x: 0,
+    y: top,
+    toJSON: () => ({}),
+  });
+  const at = (el: Element | null, top: number, bottom: number): void => {
+    (el as HTMLElement).getBoundingClientRect = () => box(top, bottom);
+  };
+  const rail = document.querySelector('[data-region="rail"]') as Element;
+  at(rail.querySelector(".rail-list"), 0, 600);
+  at(rail.querySelector(".gc"), 0, 200);
+  at(rail.querySelector(".gc-members"), 50, 174);
+  const rows = [...rail.querySelectorAll("[data-member-id]")];
+  at(rows[0] ?? null, 50, 90);
+  at(rows[1] ?? null, 92, 132);
+  at(rows[2] ?? null, 134, 174);
+  const grip = [...rail.querySelectorAll<HTMLElement>("[data-grip]")].find((g) =>
+    g.closest("li")?.getAttribute("aria-label")?.startsWith("Market deck"),
+  ) as HTMLElement;
+  const at1 = { pointerId: 1, button: 0 };
+  fireEvent.pointerDown(grip, { clientX: 20, clientY: 10, ...at1 });
+  fireEvent.pointerMove(document.body, { clientX: 30, clientY: 20, ...at1 });
+  fireEvent.pointerMove(document.body, { clientX: 100, clientY: 91, ...at1 });
+  act(() => {
+    fireEvent.pointerUp(document.body, { clientX: 100, clientY: 91, ...at1 });
+  });
 };
 
 /** The kind picker's "Something else", added: its editor opens at once. */
@@ -125,6 +181,12 @@ const addKind = (): void => {
   fireEvent.click(screen.getByRole("button", { name: "Add" }));
 };
 
+/** Add, then its Group tile: an empty group, its card at the end of the list. */
+const addGroup = (): void => {
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
+  fireEvent.click(screen.getByRole("button", { name: "Group" }));
+};
+
 /** One of each rule on the first three components: a pin, a turned pin and a size lock. */
 const setRules = (store: Store): void => {
   act(() =>
@@ -141,6 +203,19 @@ const setRules = (store: Store): void => {
           { kind: "size", trayKey: `${a.id}:p0:0`, w: 95, d: 190, h: 40 },
         ],
       };
+    }),
+  );
+};
+
+/** Turn 90° on the first component's tray: a turn lock and no pin (the chip and the note are the rail's). */
+const setTurn = (store: Store): void => {
+  act(() =>
+    store.edit((q) => {
+      const [a] = q.components;
+      if (a === undefined) {
+        throw new Error("the seed has no components");
+      }
+      return { ...q, locks: [{ kind: "turn", trayKey: `${a.id}:p0:0`, rotated: true }] };
     }),
   );
 };
@@ -525,6 +600,156 @@ const CASES: readonly Case[] = [
     phone: true,
     steps: editMore(/^Heroes, /),
   },
+  // 0.7.0 Task 11: GroupEdit's editor (rail and stage), its Remove group… question, the toast of
+  // a removal (the copy test's own state), and the phone's sheet (no board draws it: MobileEdit)
+  {
+    state: "kit-edit",
+    board: "GroupEdit",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: editRow(/^Player kit, /),
+  },
+  {
+    state: "kit-edit",
+    board: "GroupEdit",
+    region: "stage",
+    seed: "harbour-kings-kit",
+    steps: editRow(/^Player kit, /),
+  },
+  {
+    state: "kit-remove",
+    board: "GroupEdit",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: () => {
+      editRow(/^Player kit, /)();
+      fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
+    },
+  },
+  {
+    state: "kit-removed",
+    board: "GroupEdit",
+    region: "plan",
+    seed: "harbour-kings-kit",
+    steps: () => {
+      editRow(/^Player kit, /)();
+      fireEvent.click(screen.getByRole("button", { name: "Remove group…" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove group" }));
+    },
+  },
+  {
+    state: "kit-split-edit",
+    board: "GroupEdit",
+    region: "stage",
+    seed: "harbour-kings-kit-split",
+    steps: editRow(/^Player kit, /),
+  },
+  {
+    state: "m-kit-edit",
+    board: "MobileEdit",
+    also: "GroupEdit",
+    region: "sheet",
+    phone: true,
+    seed: "harbour-kings-kit",
+    steps: editRow(/^Player kit, /),
+  },
+  // 0.7.0 Task 12: a member's editor with More options open (no board draws it: Edit's), the Move to
+  // group… panel, what a move in and a take out say in the stage's slot, and the phone's sheet
+  {
+    state: "kit-member",
+    board: "Edit",
+    also: "MobileEdit",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: editMore(/^Hero, /),
+  },
+  {
+    state: "kit-member",
+    board: "Edit",
+    region: "stage",
+    seed: "harbour-kings-kit",
+    steps: editMore(/^Hero, /),
+  },
+  {
+    state: "kit-move-panel",
+    board: "Edit",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: () => {
+      editMore(/^Market deck, /)();
+      fireEvent.click(screen.getByRole("button", { name: /^Move to group…/ }));
+    },
+  },
+  {
+    state: "kit-member-moved",
+    board: "Edit",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: moveMarketIntoKit,
+  },
+  {
+    state: "kit-member-moved",
+    board: "Edit",
+    region: "status",
+    seed: "harbour-kings-kit",
+    steps: moveMarketIntoKit,
+  },
+  {
+    state: "kit-member-out",
+    board: "Edit",
+    region: "status",
+    seed: "harbour-kings-kit",
+    steps: () => {
+      editMore(/^Hero, /)();
+      fireEvent.click(screen.getByRole("button", { name: "Take out of group" }));
+    },
+  },
+  // 0.7.0 Task 14: a drop in the rail. No board draws it (R14); the rail and the toast in the plan's slot
+  {
+    state: "kit-drag",
+    board: "GroupRail",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: dragMarketIntoKit,
+  },
+  {
+    state: "kit-drag",
+    board: "GroupRail",
+    also: "Main",
+    region: "plan",
+    seed: "harbour-kings-kit",
+    steps: dragMarketIntoKit,
+  },
+  {
+    state: "m-kit-member",
+    board: "MobileEdit",
+    region: "sheet",
+    phone: true,
+    seed: "harbour-kings-kit",
+    steps: editRow(/^Hero, /),
+  },
+  // 0.7.0 Task 15: an empty group on the phone (the sheet's card, and its editor), no drag offered
+  {
+    // the sheet's strings are ruled for m-workspace; the card's "Empty" is GroupAdd's
+    state: "m-workspace",
+    board: "MobileGroup",
+    also: "GroupAdd",
+    region: "sheet",
+    phone: true,
+    seed: "harbour-kings-kit",
+    project: withEmptyGroup,
+    steps: () => undefined,
+  },
+  {
+    state: "m-kit-edit",
+    board: "MobileEdit",
+    also: "GroupEdit",
+    region: "sheet",
+    phone: true,
+    seed: "harbour-kings-kit",
+    project: withEmptyGroup,
+    steps: editRow("Group, empty"),
+  },
   // Task 9: the first visit, Empty at 1440 and MobileStart on a phone
   { state: "first-visit", board: "Empty", region: "header", empty: true, steps: () => undefined },
   { state: "first-visit", board: "Empty", region: "rail", empty: true, steps: () => undefined },
@@ -560,6 +785,66 @@ const CASES: readonly Case[] = [
   { state: "workspace", board: "Main", region: "rail", steps: () => undefined },
   { state: "workspace-add", board: "Main", region: "rail", steps: addKind },
   { state: "workspace-rules", board: "Main", region: "rail", steps: setRules },
+  // 0.7.0 Task 13: Turn 90° alone (the Turned chip and its note), and the Cards editor's Between decks
+  { state: "workspace-turned", board: "Main", region: "rail", steps: setTurn },
+  {
+    state: "editor-flat-decks",
+    board: "Edit",
+    region: "rail",
+    seed: "harbour-kings-flat",
+    steps: editMore(/^Starter deck, /),
+  },
+  {
+    // upright storage blocks Between decks, with its reason
+    state: "editor-flat-decks-upright",
+    board: "Edit",
+    region: "rail",
+    seed: "harbour-kings-flat",
+    project: (p) => ({
+      ...p,
+      components: p.components.map((c) =>
+        c.kind === "cards" && c.decks.length > 1 ? { ...c, storage: "upright-long" } : c,
+      ),
+    }),
+    steps: editMore(/^Starter deck, /),
+  },
+  // 0.7.0 Task 9: GroupRail's card, GroupAdd's empty card and its picker
+  {
+    state: "kit-rail",
+    board: "GroupRail",
+    region: "rail",
+    seed: "harbour-kings-kit",
+    steps: () => undefined,
+  },
+  {
+    state: "kit-add",
+    board: "GroupAdd",
+    region: "rail",
+    seed: "harbour-kings-kit-loose",
+    steps: addGroup,
+  },
+  {
+    state: "kit-picker",
+    board: "GroupAdd",
+    region: "rail",
+    seed: "harbour-kings-kit-loose",
+    steps: addKind,
+  },
+  // 0.7.0 Task 10: GroupRail's plan (the kit's trays named Player kit 1…4) and its tray bar
+  {
+    state: "kit-rail",
+    board: "GroupRail",
+    region: "plan-box",
+    seed: "harbour-kings-kit",
+    steps: () => undefined,
+  },
+  {
+    state: "kit-rail",
+    board: "GroupRail",
+    region: "tray-bar",
+    seed: "harbour-kings-kit",
+    steps: selectTray(/^Player kit 2/),
+  },
   { state: "workspace-error", board: "Main", region: "rail", steps: breakFirst },
   {
     state: "m-workspace",
@@ -582,6 +867,7 @@ const CASES: readonly Case[] = [
     phone: true,
     steps: setRules,
   },
+  { state: "m-turned", board: "MobileWorkspace", region: "sheet", phone: true, steps: setTurn },
   // Task 6: the status heading with its switches and action, the banner, the notes
   { state: "workspace", board: "Main", region: "status", steps: () => undefined },
   { state: "workspace-searching", board: "Main", region: "status", steps: searching },
@@ -860,6 +1146,8 @@ function dataOf(store: Store): Set<string> {
   const project = store.state.project.value;
   out.add(project.name);
   walk(project.components);
+  // a group's name is the person's too: "Player kit"
+  walk(project.groups);
   if (project.layout !== undefined) {
     for (const name of trayNames(numberParts(project.layout.trays), project.components).values()) {
       out.add(name.full);

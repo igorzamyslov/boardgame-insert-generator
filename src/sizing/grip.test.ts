@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CompartmentSpec } from "../model/types";
 import { hasGrip, needsGrip } from "./grip";
-import { bulk, cards, custom, partOf } from "./test-helpers";
+import { bulk, cards, custom, partOf, partOfGroup } from "./test-helpers";
 
 const base: CompartmentSpec = {
   x: 0,
@@ -62,17 +62,17 @@ describe("hasGrip", () => {
 
 describe("needsGrip", () => {
   it("applies rule 8 unless every component has finger cuts and the curved floor off", () => {
-    const plainBits = bulk({ groupId: "g", fingerCuts: false, curvedFloor: false });
-    const plainDeck = cards({ groupId: "g", fingerCuts: false });
-    const plainWell = custom({ groupId: "g", fingerCuts: false });
+    const plainBits = bulk({ fingerCuts: false, curvedFloor: false });
+    const plainDeck = cards({ fingerCuts: false });
+    const plainWell = custom({ fingerCuts: false });
     expect(needsGrip(partOf([plainBits], "shallow|strip|split1"))).toBe(false);
-    expect(needsGrip(partOf([plainDeck, plainWell], "upright-long+custom|strip|split1"))).toBe(
+    expect(needsGrip(partOfGroup([plainDeck, plainWell], "upright-long+custom|strip|split1"))).toBe(
       false,
     );
     expect(needsGrip(partOf([bulk()], "shallow|strip|split1"))).toBe(true);
     expect(needsGrip(partOf([cards()], "upright-long|strip|split1"))).toBe(true);
-    expect(
-      needsGrip(partOf([plainDeck, custom({ groupId: "g" })], "upright-long+custom|strip|split1")),
-    ).toBe(true);
+    expect(needsGrip(partOfGroup([plainDeck, custom()], "upright-long+custom|strip|split1"))).toBe(
+      true,
+    );
   });
 });

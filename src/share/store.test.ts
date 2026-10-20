@@ -317,7 +317,7 @@ describe("createProjectStore with a project from a newer minor", () => {
     const storage = new MemoryStorage();
     const store = createProjectStore(storage);
     const file = JSON.parse(serializeProject(sampleProject(), noForeign())) as Json;
-    file.schemaVersion = "0.1.17";
+    file.schemaVersion = "0.2.1";
     file.theme = { colours: ["dark"] };
     (file.box as Json).lidColour = "blue";
     (file.components as Json[]).splice(1, 0, { kind: "dial", id: "dial0001", ring: { n: 1 } });
@@ -336,7 +336,7 @@ describe("createProjectStore with a project from a newer minor", () => {
     if (!loaded?.ok) {
       throw new Error("expected the autosave to load");
     }
-    expect(loaded.project.schemaVersion).toBe("0.1.17");
+    expect(loaded.project.schemaVersion).toBe("0.2.1");
     expect(loaded.project).toHaveProperty("theme", { colours: ["dark"] });
     expect(loaded.project.box).toHaveProperty("lidColour", "blue");
     expect(loaded.foreign).toEqual(opened.foreign);

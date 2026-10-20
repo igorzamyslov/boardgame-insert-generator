@@ -4,10 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import kit from "../kit/kit.css?raw";
 import tokens from "../styles/tokens.css?raw";
 import css from "./trayBar.css?raw";
-import { turnTray } from "../app/actions";
+import { toggleLock, turnTray } from "../app/actions";
 import { fixtureProject, makeLayout, makeTray } from "../app/test-helpers";
 import { inputsHash } from "../model/hash";
 import type { Lock, Project, TraySpec } from "../model/types";
+import { shadeOf } from "./identity";
 import { TrayBar } from "./TrayBar";
 import type { TrayBarProps } from "./TrayBar";
 
@@ -295,11 +296,34 @@ describe("TrayBar", () => {
   });
 
   it("says Pinned, turned for a pin that turned the tray", () => {
+    // Turn alone doesn't pin: it is the Turn of a pinned tray that writes a turned pin.
     const base = planned([tray()]);
-    const turned = turnTray(base, tray());
+    const turned = turnTray(toggleLock(base, tray()), tray());
     bar({ project: turned });
     expect(screen.getByText("Pinned, turned")).toBeTruthy();
     expect(screen.queryByText("Pinned")).toBeNull();
+  });
+
+  it("says Turned for a tray that was turned and not pinned, and Pin still reads Pin", () => {
+    const base = planned([tray()]);
+    const turned = turnTray(base, tray());
+    expect(turned.locks).toEqual([{ kind: "turn", trayKey: KEY, rotated: true }]);
+    bar({ project: turned });
+    expect(screen.getByText("Turned")).toBeTruthy();
+    expect(screen.queryByText("Pinned, turned")).toBeNull();
+    expect(screen.queryByText("Pinned")).toBeNull();
+    expect(button("Pin this tray")).toBeTruthy();
+    expect(button("Pin this tray").getAttribute("data-on")).toBeNull();
+  });
+
+  it("says Pinned, not Turned, for a pin that is not turned, even with a turn lock under it", () => {
+    const locks: Lock[] = [
+      { kind: "position", trayKey: KEY, path: "0", rotated: false },
+      { kind: "turn", trayKey: KEY, rotated: false },
+    ];
+    bar({ project: planned([tray()], locks) });
+    expect(screen.getByText("Pinned")).toBeTruthy();
+    expect(screen.queryByText("Turned")).toBeNull();
   });
 
   it("says what Pin and Turn hold: a tray alone, or the stack it is in, with how many trays", () => {
@@ -363,12 +387,23 @@ describe("TrayBar", () => {
     expect(ruleFor(".tray-bar__why")).toMatch(/font-size:\s*var\(--text-xs\)/);
   });
 
-  it("gives canTurn's reason when the pins a turn writes clash with a size lock", () => {
+  it("gives canTurn's reason when the pins a turn flips clash with a size lock", () => {
     const low = tray({ key: "fxcrd002:p0:1", path: "10", level: 0 });
     const high = tray({ key: "fxcrd002:p0:0", path: "10", level: 1, z: 20 });
+    // a pinned stack turns as one, so a size lock that only fits its tray as it is stands in the way
+    const pins: Lock[] = [low, high].map((t) => ({
+      kind: "position",
+      trayKey: t.key,
+      path: "10",
+      rotated: false,
+    }));
     const project = planned(
       [low, high],
-      [{ kind: "size", trayKey: high.key, w: 150, d: 150, h: 90 }],
+      [
+        ...pins,
+        { kind: "stack", trayKeys: [low.key, high.key] },
+        { kind: "size", trayKey: high.key, w: 72, d: 96, h: 37 },
+      ],
     );
     bar({ project, tray: low });
     expect(button("Turn this stack 90°, 2 trays").getAttribute("aria-disabled")).toBe("true");
@@ -515,5 +550,91 @@ describe("TrayBar as the phone's sheet", () => {
     expect(strip(tokens)).toMatch(/--tray-sheet-h:\s*404px/);
     expect(ruleFor(".tray-sheet__tile.k-btn")).toMatch(/min-height:\s*68px/);
     expect(ruleFor(".tray-sheet__tiles")).toMatch(/repeat\(3, minmax\(0, 1fr\)\)/);
+  });
+});
+
+describe("TrayBar for a group's tray (G1)", () => {
+  const groupLook = { kind: "cards" as const, shade: shadeOf("group", 0), group: true };
+  const cells = [
+    { shade: shadeOf("cards", 0) },
+    { shade: shadeOf("bulk", 0) },
+    { shade: shadeOf("minis", 0) },
+  ];
+  const kit = (over: Partial<TrayBarProps> = {}) =>
+    bar({
+      name: "Player kit 2",
+      look: groupLook,
+      cells,
+      compartments: "5 compartments",
+      layerCount: 1,
+      onEdit: vi.fn(),
+      ...over,
+    });
+
+  it("draws the swatch as a tiny tray: a neutral tile with a cell per member, in order", () => {
+    kit();
+    const swatch = region().querySelector(".tray-bar__swatch") as HTMLElement;
+    expect(swatch.classList.contains("tray-bar__swatch--group")).toBe(true);
+    const spans = [...swatch.querySelectorAll<HTMLElement>(".tray-bar__cell")];
+    expect(spans).toHaveLength(3);
+    expect(spans.map((c) => c.style.getPropertyValue("--cell-own-fill"))).toEqual(
+      cells.map((c) => c.shade.fill),
+    );
+    expect(spans.map((c) => c.style.getPropertyValue("--cell-own-line"))).toEqual(
+      cells.map((c) => c.shade.line),
+    );
+    // G1 draws near-equal bars: no cell is sized by its compartments
+    expect(swatch.style.gridTemplateColumns).toBe("1fr 1fr 1fr");
+    // the tile itself is the group's neutral, not a kind's
+    expect(region().style.getPropertyValue("--shade-fill")).toBe(groupLook.shade.fill);
+  });
+
+  it("styles the tiny tray from the page's tokens: 30 px, a 2 px --muted-strong line, --sheet ground", () => {
+    const rule = ruleFor(".tray-bar__swatch--group");
+    expect(rule).toMatch(/display:\s*grid/);
+    expect(rule).toMatch(/gap:\s*2px/);
+    expect(rule).toMatch(/padding:\s*3px/);
+    expect(ruleFor(".tray-bar__swatch")).toMatch(/border:\s*2px solid var\(--shade-line/);
+    expect(ruleFor(".tray-bar__cell")).toMatch(/background:\s*var\(--cell-own-fill/);
+    expect(ruleFor(".tray-bar__cell")).toMatch(
+      /box-shadow:\s*inset 0 0 0 1px var\(--cell-own-line/,
+    );
+  });
+
+  it("says the size, the compartments and what it costs to print", () => {
+    kit();
+    const meta = region().querySelector(".tray-bar__meta")?.textContent ?? "";
+    expect(meta).toMatch(/^72 × 96 × 40 mm · 5 compartments · about [\d.]+ (h|min), \d+ g$/);
+  });
+
+  it("puts the layer first only when the plan has two", () => {
+    kit({ layerCount: 2 });
+    expect(region().querySelector(".tray-bar__meta")?.textContent).toMatch(
+      /^Layer 1 \(bottom\) · 72 × 96 × 40 mm · 5 compartments · about /,
+    );
+  });
+
+  it("opens the group's editor with Edit", () => {
+    const { p } = kit();
+    fireEvent.click(button("Edit"));
+    expect(p.onEdit).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Pin, Turn 90°, More and Close, as for any tray", () => {
+    kit({ onSwap: vi.fn() });
+    expect(button(/^Pin this tray/)).toBeTruthy();
+    expect(button(/^Turn this tray/)).toBeTruthy();
+    expect(button("More")).toBeTruthy();
+    expect(button("Close")).toBeTruthy();
+  });
+
+  it("names the tray in the phone's sheet with the group's neutral tile and its compartments", () => {
+    kit({ phone: true, layerCount: 1 });
+    const d = screen.getByRole("dialog");
+    expect(within(d).getByRole("heading", { level: 2 }).textContent).toBe("Player kit 2");
+    expect(d.querySelector(".tray-sheet__meta")?.textContent).toBe(
+      "Layer 1 (bottom) · 5 compartments",
+    );
+    expect(d.querySelector(".k-tile")?.getAttribute("data-tone")).toBe("group");
   });
 });

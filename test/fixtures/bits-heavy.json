@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.1.16",
+  "schemaVersion": "0.2.0",
   "createdWith": "0.2.0",
   "id": "fxbits01",
   "name": "Fixture: bits heavy",
@@ -61,7 +61,7 @@
       "name": "Player pieces",
       "access": "sometimes",
       "kind": "bulk",
-      "perPlayer": { "players": 4 },
+      "copies": 4,
       "items": [
         { "name": "Meeple", "count": 5, "w": 16, "d": 10, "h": 16 },
         { "name": "Disc", "count": 10, "w": 15, "d": 15, "h": 4 }

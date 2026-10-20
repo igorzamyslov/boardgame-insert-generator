@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { newComponent, newProject } from "./defaults";
+import { parseProject } from "./schema";
 import { DEFAULT_SETTINGS, maxBottomChamfer } from "./settings";
 import type {
   BulkComponent,
@@ -9,6 +10,7 @@ import type {
   ComponentKind,
   CustomComponent,
   GrowthMode,
+  Group,
   MinisComponent,
   Notice,
   Project,
@@ -174,13 +176,6 @@ describe("validateProject", () => {
     ]);
   });
 
-  it("forbids perPlayer inside a group", () => {
-    const p = withComponents(cards({ groupId: "g1", perPlayer: { players: 4 } }));
-    expect(codes(validateProject(p))).toEqual([
-      [field.perPlayerInGroup, "/components/0/perPlayer"],
-    ]);
-  });
-
   it("refuses a curved floor on cards and tiles, and allows it on the other kinds", () => {
     const p = withComponents(
       cards({ curvedFloor: true }),
@@ -202,22 +197,16 @@ describe("validateProject", () => {
     expect(notices.map((n) => n.level)).toEqual(["error", "error"]);
   });
 
-  it("treats an empty groupId as no group", () => {
-    const p = withComponents(
-      { ...newComponent("custom"), id: "x" },
-      cards({ groupId: "", perPlayer: { players: 4 } }),
-    );
-    expect(validateProject(p)).toEqual([]);
-  });
-
-  it("bounds players to 1…10", () => {
-    const p = withComponents(
-      cards({ perPlayer: { players: 0 } }),
-      cards({ perPlayer: { players: 11 } }),
-    );
-    expect(codes(validateProject(p))).toEqual([
-      [field.players, "/components/0/perPlayer/players"],
-      [limit.players, "/components/1/perPlayer/players"],
+  it("bounds copies to 1…10", () => {
+    const p = withComponents(cards({ copies: 0 }), cards({ copies: 11 }));
+    const notices = validateProject(p);
+    expect(codes(notices)).toEqual([
+      [field.copies, "/components/0/copies"],
+      [limit.copies, "/components/1/copies"],
+    ]);
+    expect(notices.map((n) => n.message)).toEqual([
+      "Copies must be a whole number of at least 1.",
+      "Copies must be at most 10.",
     ]);
   });
 
@@ -400,16 +389,16 @@ describe("validateProject", () => {
     );
   });
 
-  const playerCases: [number, string][] = [
-    [10.5, limit.players],
-    [Number.POSITIVE_INFINITY, limit.players],
-    [2.5, field.players],
+  const copiesCases: [number, string][] = [
+    [10.5, limit.copies],
+    [Number.POSITIVE_INFINITY, limit.copies],
+    [2.5, field.copies],
   ];
-  it.each(playerCases)(
-    "tests the players upper bound before integrality (%s gives %s)",
-    (players, code) => {
-      expect(codes(validateProject(withComponents(cards({ perPlayer: { players } }))))).toEqual([
-        [code, "/components/0/perPlayer/players"],
+  it.each(copiesCases)(
+    "tests the copies upper bound before integrality (%s gives %s)",
+    (copies, code) => {
+      expect(codes(validateProject(withComponents(cards({ copies }))))).toEqual([
+        [code, "/components/0/copies"],
       ]);
     },
   );
@@ -527,31 +516,11 @@ describe("validateProject", () => {
     expect(codes(validateProject(p))).toEqual([[field.topPlane, "/box/headroom"]]);
   });
 
-  it("flags a group id that names another component", () => {
-    const target = newComponent("custom");
-    const member = cards({ groupId: target.id });
-    expect(codes(validateProject(withComponents(target, member)))).toEqual([
-      [field.groupId, "/components/1/groupId"],
-    ]);
-  });
-
-  it("rejects a group name containing a colon, which would collide with tray key prefixes", () => {
-    const notices = validateProject(withComponents(cards({ groupId: "g:x" })));
-    expect(codes(notices)).toEqual([[field.groupId, "/components/0/groupId"]]);
-    expect(notices[0]?.message).toBe("A group name can't contain ':'.");
-    expect(validateProject(withComponents(cards({ groupId: "g x" })))).toEqual([]);
-  });
-
   it("rejects a component id containing a colon, which would break tray key prefixes", () => {
     const notices = validateProject(withComponents({ ...cards(), id: "a:b" }));
     expect(codes(notices)).toEqual([[invalid.id, "/components/0/id"]]);
     expect(notices[0]?.message).toBe("An item id can't contain ':'.");
     expect(isBlocking(notices[0] as Notice)).toBe(true);
-  });
-
-  it("does not flag a component whose group is its own id", () => {
-    const solo = cards();
-    expect(validateProject(withComponents({ ...solo, groupId: solo.id }))).toEqual([]);
   });
 
   it("treats an empty component id as blocking", () => {
@@ -575,6 +544,184 @@ describe("validateProject", () => {
   });
 });
 
+function group(id: string, memberIds: string[], patch: Partial<Group> = {}): Group {
+  return { id, name: "Player kit", access: "sometimes", memberIds, ...patch };
+}
+
+function withGroups(components: Component[], groups: Group[]): Project {
+  return { ...newProject(), components, groups };
+}
+
+describe("validateProject: groups", () => {
+  const a = custom({ id: "item0001" });
+  const b = custom({ id: "item0002" });
+
+  it("accepts a group of items, and an empty one", () => {
+    expect(validateProject(withGroups([a, b], [group("kit", [a.id, b.id])]))).toEqual([]);
+    expect(validateProject(withGroups([a, b], [group("kit", [])]))).toEqual([]);
+  });
+
+  it.each([
+    [11, limit.copies, "Copies must be at most 10."],
+    [0, field.copies, "Copies must be a whole number of at least 1."],
+    [1.5, field.copies, "Copies must be a whole number of at least 1."],
+  ])("checks a group's copies (%s gives %s)", (copies, code, message) => {
+    const notices = validateProject(withGroups([a], [group("kit", [a.id], { copies })]));
+    expect(notices).toEqual([{ level: "error", code, path: "/groups/0/copies", message }]);
+  });
+
+  it("accepts group copies from 1 to 10", () => {
+    for (const copies of [1, 4, 10]) {
+      expect(validateProject(withGroups([a], [group("kit", [a.id], { copies })]))).toEqual([]);
+    }
+  });
+
+  it("refuses copies on a grouped item: they are set on the group", () => {
+    const notices = validateProject(
+      withGroups([{ ...a, copies: 2 }, b], [group("kit", [a.id], { name: "Player kit" })]),
+    );
+    expect(notices).toEqual([
+      {
+        level: "error",
+        code: field.copiesInGroup,
+        path: "/components/0/copies",
+        message: "Copies are set on the group, Player kit.",
+      },
+    ]);
+    expect(notices.some(isBlocking)).toBe(false);
+  });
+
+  it("names an unnamed group Group in that message", () => {
+    const notices = validateProject(
+      withGroups([{ ...a, copies: 2 }], [group("kit", [a.id], { name: "" })]),
+    );
+    expect(notices.map((n) => n.message)).toEqual(["Copies are set on the group, Group."]);
+  });
+
+  it("allows copies on an item in no group, and no copies on a grouped one", () => {
+    expect(validateProject(withGroups([{ ...a, copies: 2 }, b], [group("kit", [b.id])]))).toEqual(
+      [],
+    );
+  });
+
+  it("blocks a member that is no item of the project", () => {
+    const notices = validateProject(withGroups([a], [group("kit", [a.id, "ghost001"])]));
+    expect(codes(notices)).toEqual([[invalid.groupMember, "/groups/0/memberIds/1"]]);
+    expect(notices.every(isBlocking)).toBe(true);
+  });
+
+  it("refuses to open a file with such a member", () => {
+    const file = {
+      ...JSON.parse(JSON.stringify(withGroups([a], [group("kit", [a.id, "ghost001"])]))),
+    };
+    const result = parseProject(file);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/\/groups\/0\/memberIds\/1/);
+    }
+  });
+
+  it("is no error when the member is a foreign component of a newer 0.2.x file", () => {
+    const base = withGroups([a], [group("kit", [a.id, "dial0001"])]);
+    const file = JSON.parse(JSON.stringify(base)) as Record<string, unknown>;
+    file.schemaVersion = "0.2.9";
+    (file.components as unknown[]).push({ id: "dial0001", name: "Dial", kind: "dial", size: 40 });
+    const result = parseProject(file);
+    expect(result).toMatchObject({ ok: true });
+    if (result.ok) {
+      expect(result.project.groups?.[0]?.memberIds).toEqual([a.id, "dial0001"]);
+      // The running app has the foreign component only in `foreign`, and validates with it.
+      expect(validateProject(result.project)).toEqual([
+        expect.objectContaining({ code: invalid.groupMember }),
+      ]);
+      expect(validateProject(result.project, result.foreign)).toEqual([]);
+    }
+  });
+
+  it("blocks an item in two groups, and a repeated member", () => {
+    const two = validateProject(withGroups([a], [group("one", [a.id]), group("two", [a.id])]));
+    expect(codes(two)).toEqual([[invalid.group, "/groups/1/memberIds/0"]]);
+    const twice = validateProject(withGroups([a], [group("one", [a.id, a.id])]));
+    expect(codes(twice)).toEqual([[invalid.group, "/groups/0/memberIds/1"]]);
+    expect([...two, ...twice].every(isBlocking)).toBe(true);
+  });
+
+  it("blocks a group id that is a component id, another group's id, or has a stray character", () => {
+    expect(codes(validateProject(withGroups([a], [group(a.id, [])])))).toEqual([
+      [invalid.group, "/groups/0/id"],
+    ]);
+    expect(codes(validateProject(withGroups([a], [group("kit", []), group("kit", [])])))).toEqual([
+      [invalid.group, "/groups/1/id"],
+    ]);
+    for (const id of ["a:b", "", "a b", "kit/1"]) {
+      expect(codes(validateProject(withGroups([a], [group(id, [])]))), id).toEqual([
+        [invalid.group, "/groups/0/id"],
+      ]);
+    }
+    // 1 to 40 characters: 41 is too long, 40 is fine.
+    expect(codes(validateProject(withGroups([a], [group("g".repeat(41), [])])))).toEqual([
+      [invalid.group, "/groups/0/id"],
+    ]);
+    for (const id of ["a-b", "A_b9", "g".repeat(40)]) {
+      expect(validateProject(withGroups([a], [group(id, [])])), id).toEqual([]);
+    }
+  });
+
+  it("does not count groups toward the item limit, and has its own limit of 100", () => {
+    const items = Array.from({ length: 100 }, (_, i) => custom({ id: `item${i}` }));
+    const three = [group("g1", ["item0", "item1"]), group("g2", ["item2"]), group("g3", ["item3"])];
+    expect(validateProject(withGroups(items, three))).toEqual([]);
+    const many = Array.from({ length: 101 }, (_, i) => group(`g${i}`, []));
+    const notices = validateProject(withGroups([a], many));
+    expect(notices).toEqual([
+      {
+        level: "error",
+        code: limit.groups,
+        path: "/groups",
+        message: "Too many groups (101); the maximum is 100.",
+      },
+    ]);
+    expect(notices.every(isBlocking)).toBe(true);
+    expect(validateProject(withGroups([a], many.slice(0, 100)))).toEqual([]);
+  });
+
+  it("checks a group's growth like an item's", () => {
+    expect(
+      codes(validateProject(withGroups([a], [group("kit", [a.id], { growth: { w: -1 } })]))),
+    ).toEqual([[field.length, "/groups/0/growth/w"]]);
+    for (const growth of [{ w: "off" }, { w: "auto" }, { w: 5, d: "max" }, { h: 0 }] as const) {
+      expect(validateProject(withGroups([a], [group("kit", [a.id], { growth })]))).toEqual([]);
+    }
+  });
+});
+
+describe("validateProject: turn locks and flat decks", () => {
+  it("blocks nothing for a turn lock with a tray, and flags one with an empty trayKey", () => {
+    const p = newProject();
+    p.locks = [
+      { kind: "turn", trayKey: "kit:0", rotated: true },
+      { kind: "turn", trayKey: "", rotated: false },
+    ];
+    expect(validateProject(p)).toEqual([
+      {
+        level: "error",
+        code: field.turnLock,
+        path: "/locks/1/trayKey",
+        message: "A turn needs a tray.",
+      },
+    ]);
+  });
+
+  it("accepts flatDecks walls and dividers, and flags another value", () => {
+    expect(validateProject(withComponents(cards({ flatDecks: "walls" })))).toEqual([]);
+    expect(validateProject(withComponents(cards({ flatDecks: "dividers" })))).toEqual([]);
+    const bad = cards({ flatDecks: "sideways" as unknown as "walls" });
+    expect(codes(validateProject(withComponents(bad)))).toEqual([
+      [field.flatDecks, "/components/0/flatDecks"],
+    ]);
+  });
+});
+
 describe("validateComponent", () => {
   it("returns exactly the per-component notices of validateProject, with the same paths", () => {
     const bad = withComponents(
@@ -583,13 +730,13 @@ describe("validateComponent", () => {
       custom({ w: 0, count: 3000 }),
       { ...newComponent("tiles"), thickness: 0 } as Component,
       { ...newComponent("minis"), figures: [] } as Component,
-      custom({ perPlayer: { players: 0 }, groupId: "g" }),
+      custom({ copies: 0 }),
     );
-    // A duplicate id and a colliding group name are cross-component: not part of validateComponent.
+    // A duplicate id is cross-component: not part of validateComponent.
     const dup = { ...custom({ h: 0 }), id: bad.components.map((c) => c.id)[0] ?? "" };
     const project = { ...bad, components: [...bad.components, dup] };
     const all = validateProject(project);
-    const crossComponent = new Set<string>([invalid.duplicateId, invalid.id, field.groupId]);
+    const crossComponent = new Set<string>([invalid.duplicateId, invalid.id]);
     project.components.forEach((c, i) => {
       const slice = all.filter(
         (n) => n.path?.startsWith(`/components/${i}/`) === true && !crossComponent.has(n.code),
@@ -599,7 +746,7 @@ describe("validateComponent", () => {
     expect(all.some((n) => n.code === invalid.duplicateId)).toBe(true);
     expect(validateComponent(dup, 6).some((n) => n.code === invalid.duplicateId)).toBe(false);
     expect(project.components.map((c, i) => validateComponent(c, i).length)).toEqual([
-      1, 3, 2, 1, 1, 2, 1,
+      1, 3, 2, 1, 1, 1, 1,
     ]);
   });
 
@@ -621,7 +768,8 @@ describe("shared constants", () => {
       maxCount: 2000,
       maxDividers: 6,
       maxLength: 1000,
-      maxPlayers: 10,
+      maxCopies: 10,
+      maxGroups: 100,
       maxSeparators: 10,
     });
   });

@@ -181,6 +181,7 @@ export function warmTree(
   trays: readonly TraySpec[],
   pinnedVariant: readonly (number | null)[],
   hints: WarmHints,
+  turns: ReadonlyMap<number, boolean> = new Map(),
 ): Tree | null {
   const parts = trays.filter((t) => t.part === "tray" || t.part === "leftover");
   if (parts.length === 0 || parts.some((t) => !isValidPath(t.path))) {
@@ -209,7 +210,8 @@ export function warmTree(
     seen.add(ctx.partId(ref));
     const rotatable = ctx.part(ref)?.rotatable ?? false;
     const list = stacks.get(t.path) ?? [];
-    list.push({ ...ref, rotated: rotatable && t.rotated });
+    // a turn lock decides the rotation, whatever the stored plan shows
+    list.push({ ...ref, rotated: turns.get(ctx.partId(ref)) ?? (rotatable && t.rotated) });
     stacks.set(t.path, list);
   }
   const pathSet = new Set(paths);

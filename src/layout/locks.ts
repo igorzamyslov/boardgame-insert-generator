@@ -44,6 +44,8 @@ export interface ResolvedLocks {
   readonly pinnedVariant: readonly (number | null)[];
   /** Size locks keyed by partId. */
   readonly sizes: ReadonlyMap<number, FixedSize>;
+  /** Turn locks keyed by partId: the rotation a tray must have, wherever it stands. */
+  readonly turns: ReadonlyMap<number, boolean>;
   readonly rotationFixed: ReadonlySet<number>;
   /** Locks that survived validation, in input order. */
   readonly kept: readonly Lock[];
@@ -92,6 +94,7 @@ export function noLocks(ctx: Ctx): ResolvedLocks {
     lockedPaths: [],
     pinnedVariant: ctx.input.requirements.map(() => null),
     sizes: new Map(),
+    turns: new Map(),
     rotationFixed: new Set(),
     kept: [],
   };
@@ -156,6 +159,10 @@ export function dedupeConflicts(conflicts: readonly LockConflict[]): LockConflic
  * whole stack with a position lock per tray plus a stack lock). The root path "" is a valid
  * position only when the layout is a single tray, or the layout being re-run is one single
  * stack (`hints.singleLeaf`).
+ *
+ * Turn locks fix a tray's rotation and nothing else: no place, no stack. A turn conflicts only
+ * with a position or size lock on the same tray that holds the other rotation (the turn is
+ * the lock reported; `store.unpin(key, "turn")` frees it), or on a tray that can't rotate.
  *
  * Size locks are checked against the unlipped level-0 metrics. A size-locked tray that ends
  * up lower in a stack (lipped) can need more; the search then sees lock overflow, and the
@@ -262,7 +269,38 @@ function resolveOnce(
   };
   const rotatable = (ref: PartRef): boolean => ctx.part(ref)?.rotatable ?? false;
 
-  // 2. Size locks.
+  // 2. Turn locks: a tray's rotation, nothing else. One per tray, and a tray that can't rotate
+  // can't be turned. A size or position lock on the same tray that holds the other rotation is
+  // checked below, where those locks are known.
+  const turns = new Map<number, boolean>();
+  const turnLockOf = new Map<number, Lock & { kind: "turn" }>();
+  for (const lock of accepted) {
+    if (lock.kind !== "turn") {
+      continue;
+    }
+    const ref = refOf(lock.trayKey);
+    const id = ctx.partId(ref);
+    if (turns.has(id)) {
+      drop(lock, "another turn already fixes this tray");
+      continue;
+    }
+    if (lock.rotated && !rotatable(ref)) {
+      drop(lock, "this tray can't be rotated");
+      continue;
+    }
+    turns.set(id, lock.rotated);
+    turnLockOf.set(id, lock);
+  }
+  const dropTurn = (id: number, reason: string): void => {
+    const lock = turnLockOf.get(id);
+    if (lock) {
+      drop(lock, reason);
+    }
+    turns.delete(id);
+    turnLockOf.delete(id);
+  };
+
+  // 3. Size locks.
   const sizes = new Map<number, FixedSize>();
   for (const lock of accepted) {
     if (lock.kind !== "size") {
@@ -292,11 +330,17 @@ function resolveOnce(
       drop(lock, "it is larger than the print bed");
       continue;
     }
-    const rotated = asIs && turned ? (hints.rotatedOf?.(lock.trayKey) ?? false) : !asIs;
+    const rotated =
+      asIs && turned ? (turns.get(id) ?? hints.rotatedOf?.(lock.trayKey) ?? false) : !asIs;
     sizes.set(id, { w, d, h, rotated });
   }
+  for (const [id, size] of sizes) {
+    if (turns.has(id) && turns.get(id) !== size.rotated) {
+      dropTurn(id, "it conflicts with the size lock on the same tray");
+    }
+  }
 
-  // 3. Position locks.
+  // 4. Position locks.
   const singleTray =
     reqs.length === 1 && (reqs[0]?.variants[pinnedVariant[0] ?? 0]?.parts.length ?? 0) === 1;
   const pos = new Map<number, PosLock>();
@@ -342,7 +386,7 @@ function resolveOnce(
   const sized = withSizeLocks(ctx, sizes);
   const rotationOf = (ref: PartRef, key: string): boolean => {
     const id = ctx.partId(ref);
-    const fixed = pos.get(id)?.lock.rotated ?? sizes.get(id)?.rotated;
+    const fixed = pos.get(id)?.lock.rotated ?? sizes.get(id)?.rotated ?? turns.get(id);
     if (fixed !== undefined) {
       return fixed;
     }
@@ -357,7 +401,7 @@ function resolveOnce(
     return h.overflow === 0 && h.lockOverflow === 0;
   };
 
-  // 4. Stack locks.
+  // 5. Stack locks.
   const inGroup = new Map<number, { lock: Lock; items: StackItem[] }>();
   const groupsAll: { lock: Lock; items: StackItem[]; path: string | null }[] = [];
   for (const lock of accepted) {
@@ -395,7 +439,7 @@ function resolveOnce(
     }
   }
 
-  // 5. Locked leaves: position-locked trays (and their stack groups) per path. Trays locked to
+  // 6. Locked leaves: position-locked trays (and their stack groups) per path. Trays locked to
   // one path stack in the order of their level in the layout being re-run (input order without
   // one); a stack lock keeps the order it gives. A tray that sat above others there and now
   // would be the lowest locked one at its path would silently drop to the floor, so its lock
@@ -461,9 +505,21 @@ function resolveOnce(
   const groups = groupsAll
     .filter((g) => !g.items.some((i) => pos.has(ctx.partId(i))))
     .map((g) => g.items);
-  const rotationFixed = new Set<number>([...pos.keys(), ...sizes.keys(), ...inGroup.keys()]);
+  // A pin that holds the other rotation than the turn lock on its tray is the conflict (the pin
+  // stays: the turn is the lock that was added to it).
+  for (const [id, p] of pos) {
+    if (turns.has(id) && turns.get(id) !== p.lock.rotated) {
+      dropTurn(id, "it conflicts with the pin on the same tray");
+    }
+  }
+  const rotationFixed = new Set<number>([
+    ...pos.keys(),
+    ...sizes.keys(),
+    ...inGroup.keys(),
+    ...turns.keys(),
+  ]);
 
-  // 6. Locks in conflict above must not keep pinning their requirement's variant. A requirement a
+  // 7. Locks in conflict above must not keep pinning their requirement's variant. A requirement a
   // kept lock names keeps its pin: the kept locks were resolved under it, and it lies in
   // their intersection.
   const kept = locks.filter((l) => !dropped.has(l));
@@ -479,6 +535,7 @@ function resolveOnce(
       lockedPaths: lockedLeaves.map((l) => l.path),
       pinnedVariant: pinnedVariant.map((v, r) => (named.has(r) ? v : null)),
       sizes,
+      turns,
       rotationFixed,
       kept,
     },
@@ -554,6 +611,7 @@ export function moveEnvOf(ctx: Ctx, resolved: ResolvedLocks): MoveEnv {
     lockedPaths: resolved.lockedPaths,
     variantPinned: resolved.pinnedVariant.map((v) => v !== null),
     rotationFixed: resolved.rotationFixed,
+    turns: resolved.turns,
   };
 }
 
@@ -565,6 +623,24 @@ function sameItems(a: readonly StackItem[], b: readonly StackItem[], ctx: Ctx): 
       return y !== undefined && ctx.partId(x) === ctx.partId(y);
     })
   );
+}
+
+/** The tree with every turn-locked tray in the rotation its lock gives; other items as they are. */
+export function withTurns(tree: Tree, ctx: Ctx, turns: ReadonlyMap<number, boolean>): Tree {
+  if (turns.size === 0) {
+    return tree;
+  }
+  let root = tree.root;
+  for (const l of leaves(tree.root)) {
+    if (l.leaf.stack.some((i) => turns.has(ctx.partId(i)))) {
+      const stack = l.leaf.stack.map((i) => ({
+        ...i,
+        rotated: turns.get(ctx.partId(i)) ?? i.rotated,
+      }));
+      root = replaceAt(root, l.path, leaf(stack, l.leaf.frozen));
+    }
+  }
+  return { ...tree, root };
 }
 
 /**
@@ -592,12 +668,9 @@ export function completeTree(tree: Tree, env: MoveEnv, rng: Rng): Tree | null {
     (r.variants[v]?.parts ?? []).forEach((p, k) => {
       const item: StackItem = { req: i, variant: v, part: k, rotated: false };
       if (root !== null && !seen.has(ctx.partId(item))) {
-        root = insertItem(
-          root,
-          { ...item, rotated: p.rotatable && rng.nextInt(2) === 1 },
-          env,
-          rng,
-        );
+        // a turn lock decides the rotation; else a random one, if the part can rotate
+        const rotated = env.turns.get(ctx.partId(item)) ?? (p.rotatable && rng.nextInt(2) === 1);
+        root = insertItem(root, { ...item, rotated }, env, rng);
       }
     });
   });
@@ -692,7 +765,9 @@ export function applyLocks(
   if (out === null) {
     return null;
   }
-  return completeTree({ root: out, variants }, env, rng);
+  // whatever start the tree came from, turned trays are turned
+  const done = completeTree({ root: out, variants }, env, rng);
+  return done && withTurns(done, ctx, resolved.turns);
 }
 
 /**
@@ -731,13 +806,22 @@ export function swapLocks(
     }
     return !(l.kind === "position" && moved.has(l.trayKey));
   });
+  const turnedTo = new Map(
+    locks.flatMap((l) => (l.kind === "turn" ? [[l.trayKey, l.rotated] as const] : [])),
+  );
   const out: Lock[] = [...rest];
   for (const [stack, path] of [
     [sa, b.path],
     [sb, a.path],
   ] as const) {
     for (const t of stack) {
-      out.push({ kind: "position", trayKey: t.key, path, rotated: t.rotated });
+      // the pin keeps the rotation a turn lock gives, which the stored plan may not show yet
+      out.push({
+        kind: "position",
+        trayKey: t.key,
+        path,
+        rotated: turnedTo.get(t.key) ?? t.rotated,
+      });
     }
     if (stack.length > 1) {
       out.push({ kind: "stack", trayKeys: stack.map((t) => t.key) });

@@ -32,6 +32,16 @@ stops when the outcome is not the one the state needs, printing the counts it tr
 fixture's count and run it again. A seed that goes stale (the inputs or the geometry version
 changed) fails the seed tests and the screenshots with "run npm run seeds".
 
+The groups seeds (0.7.0): `harbour-kings-kit` (G1: a "Player kit" group of Starter deck, Resources
+and Hero, four copies, beside Market deck and Hex tiles), `-kit-loose` (the same five items with no
+group, the seed for Add → Group), `-kit-split` (a Hero too long for a copy to fit the bed: "Player
+kit 1a"/"1b") and `-flat` (three flat decks in one well with removable dividers). The kit and
+headroom plans are found under a search seed (the script tries 1, 2, 3 … until the plan has the
+arrangement the state needs, and the stored plan records it: `kit` 1, `headroom` 3). The script
+asserts the kit's arrangement (one layer, six trays, the four copies on one x, Market deck and Hex
+tiles in the other column), the split names and the single flat well; the names come from
+`trayNames` with the project's groups, as the UI callers don't pass them until Task 10.
+
 ## `npm run shots`
 
 `npm run shots` draws every board and runs every state. `npm run shots -- <state>… [--out <dir>]`

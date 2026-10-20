@@ -8,7 +8,7 @@ import {
   dividersOf,
   dividersOffered,
   fingerCutsOn,
-  groupOf,
+  flatDecksOffered,
   growthAxesOf,
   growthOf,
   separatorsOf,
@@ -26,14 +26,14 @@ export type OptionId =
   | `growth-${GrowthAxis}`
   | "access"
   | "storage"
+  | "flatDecks"
   | "fingerCuts"
   | "curvedFloor"
   | "cornerReliefs"
   | "dividers"
   | "separators"
   | "thickness"
-  | "perPlayer"
-  | "group"
+  | "copies"
   | "clearance";
 
 /** Whether the deck or stack of tiles may grow along its stack, which is what offers spacer plates and dividers. */
@@ -69,9 +69,23 @@ export function dividersBlock(c: Component): string | undefined {
     return undefined;
   }
   if (c.storage === "flat") {
+    if (flatDecksOffered(c)) {
+      return "For flat decks, see Between decks.";
+    }
     return c.kind === "cards" ? "Flat decks have no dividers." : "Flat stacks have no dividers.";
   }
   return "Dividers need room for expansions.";
+}
+
+/**
+ * Why Between decks can't be chosen right now, in a line, or undefined when it may (or when the
+ * item has one deck, and the row is not drawn). Decks share one well only when they lie flat; under
+ * Auto the choice stands and applies if Auto picks flat.
+ */
+export function flatDecksBlock(c: Component): string | undefined {
+  return c.kind === "cards" && flatDecksOffered(c) && c.storage.startsWith("upright")
+    ? "Only flat decks can share one well."
+    : undefined;
 }
 
 /**
@@ -91,9 +105,10 @@ export function curvedFloorShown(c: Component): boolean {
 /**
  * The options under More options whose value differs from its default, and so show the changed dot.
  * Only a row that is on screen counts (a divider count on a deck that lies flat has no row), and a
- * value equal to its default does not, however the file wrote it.
+ * value equal to its default does not, however the file wrote it. An item in a group has no row for
+ * its access or its Copies (they are the group's), so neither counts.
  */
-export function changedOptions(c: Component, settings: Settings): Set<OptionId> {
+export function changedOptions(c: Component, settings: Settings, grouped = false): Set<OptionId> {
   const out = new Set<OptionId>();
   const lying = (c.kind === "cards" || c.kind === "tiles") && c.storage === "flat";
   for (const axis of growthAxesOf(c)) {
@@ -101,7 +116,7 @@ export function changedOptions(c: Component, settings: Settings): Set<OptionId> 
       out.add(`growth-${axis}`);
     }
   }
-  if (c.access !== COMPONENT_DEFAULTS.access) {
+  if (!grouped && c.access !== COMPONENT_DEFAULTS.access) {
     out.add("access");
   }
   const toggles = defaultTogglesOf(c);
@@ -122,11 +137,8 @@ export function changedOptions(c: Component, settings: Settings): Set<OptionId> 
       out.add("separators");
     }
   }
-  if (c.perPlayer !== undefined) {
-    out.add("perPlayer");
-  }
-  if (groupOf(c) !== undefined) {
-    out.add("group");
+  if (!grouped && c.copies !== undefined) {
+    out.add("copies");
   }
   if (c.clearance !== undefined && c.clearance !== insertClearance(c, settings)) {
     out.add("clearance");
@@ -134,6 +146,10 @@ export function changedOptions(c: Component, settings: Settings): Set<OptionId> 
   if (c.kind === "cards") {
     if (c.storage !== COMPONENT_DEFAULTS.cards.storage) {
       out.add("storage");
+    }
+    // a blocked row has no dot, and a choice that is the default is no news
+    if (flatDecksOffered(c) && c.flatDecks === "dividers" && flatDecksBlock(c) === undefined) {
+      out.add("flatDecks");
     }
     if (c.thickness.mode === "measured" || (c.thickness.scale ?? 1) !== 1) {
       out.add("thickness");
@@ -143,8 +159,8 @@ export function changedOptions(c: Component, settings: Settings): Set<OptionId> 
 }
 
 /** How many of the options under More options differ from their default: the rows with a dot. */
-export function optionsChanged(c: Component, settings: Settings): number {
-  return changedOptions(c, settings).size;
+export function optionsChanged(c: Component, settings: Settings, grouped = false): number {
+  return changedOptions(c, settings, grouped).size;
 }
 
 /**
@@ -152,7 +168,7 @@ export function optionsChanged(c: Component, settings: Settings): number {
  * the finger cuts, how a stack of cards stands or whether a bin has a curved floor, whether it
  * leaves room to grow, and how many options differ from their default.
  */
-export function moreSummary(c: Component, settings: Settings): string {
+export function moreSummary(c: Component, settings: Settings, grouped = false): string {
   const parts = [`Finger cuts ${fingerCutsOn(c) ? "on" : "off"}`];
   if (c.kind === "cards") {
     parts.push(
@@ -170,6 +186,6 @@ export function moreSummary(c: Component, settings: Settings): string {
   if ((c.kind === "cards" || c.kind === "tiles") && chosen !== undefined && chosen !== "off") {
     parts.push("room to grow");
   }
-  const changed = optionsChanged(c, settings);
+  const changed = optionsChanged(c, settings, grouped);
   return `${parts.join(", ")}${changed > 0 ? ` · ${changed} changed` : ""}`;
 }

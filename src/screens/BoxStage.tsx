@@ -7,7 +7,7 @@
 import type { ComponentChildren } from "preact";
 import { PlanView } from "../plan/PlanView";
 import type { PlanViewProps } from "../plan/PlanView";
-import type { Box, Component, Settings, StoredLayout } from "../model/types";
+import type { Box, Component, Group, Settings, StoredLayout } from "../model/types";
 import { BoxSideView } from "./BoxSideView";
 import { ProblemLine } from "./EditorStage";
 import type { EditorProblem } from "./StageTop";
@@ -18,6 +18,8 @@ export interface BoxStageProps {
   settings: Settings;
   layout: StoredLayout | undefined;
   components: readonly Component[];
+  /** The project's groups, for the side view's colours. */
+  groups?: readonly Group[];
   /** Below 760 px: the sheet has the h1 and the side view; the stage is the plan alone. */
   phone?: boolean;
   /** The plan, as the workspace draws it; null while there is none (the placeholder takes its place). */
@@ -42,6 +44,7 @@ export function BoxStage({
   settings,
   layout,
   components,
+  groups,
   phone = false,
   plan,
   placeholder,
@@ -72,7 +75,13 @@ export function BoxStage({
       {problem ? <ProblemLine problem={problem} onRetry={onRetry} /> : null}
       <div class="bx-stage__body">
         <h1 class="bx-label">Side view of the box</h1>
-        <BoxSideView box={box} settings={settings} layout={layout} components={components} />
+        <BoxSideView
+          box={box}
+          settings={settings}
+          layout={layout}
+          components={components}
+          groups={groups}
+        />
       </div>
       {after}
     </div>

@@ -26,6 +26,13 @@ describe("the kit gallery", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it("shows the Copies row in the changed state, and no Per player", () => {
+    const { container } = render(<Gallery />);
+    const row = container.querySelector('[data-primitive="DisclosureRow"]');
+    expect(row?.textContent).toContain("Copies");
+    expect(container.textContent).not.toMatch(/Per player|players/);
+  });
+
   it("shows the states the boards use: blocked, pressed, error and every tone", () => {
     const { container } = render(<Gallery />);
     expect(container.querySelector('.k-btn[aria-disabled="true"]')).toBeTruthy();

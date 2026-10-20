@@ -5,6 +5,7 @@ import { Disclosure } from "../../kit";
 import type { Component } from "../../model/types";
 import { SettingsContext } from "../validation";
 import { useOpenOnError } from "./controls";
+import { useItemGroup } from "./GroupRow";
 import { moreSummary } from "./moreSummary";
 
 export interface MoreOptionsProps {
@@ -25,11 +26,12 @@ export interface MoreOptionsProps {
  */
 export function MoreOptions({ component, errorPaths = [], children }: MoreOptionsProps) {
   const settings = useContext(SettingsContext);
+  const grouped = useItemGroup() !== undefined;
   const [open, setOpen] = useOpenOnError(errorPaths);
   return (
     <Disclosure
       title="More options"
-      summary={moreSummary(component, settings)}
+      summary={moreSummary(component, settings, grouped)}
       open={open}
       onOpenChange={setOpen}
     >

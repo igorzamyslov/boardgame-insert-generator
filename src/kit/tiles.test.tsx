@@ -2,6 +2,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { GripIcon, GroupGlyph } from "./icons";
 import { IconTile } from "./IconTile";
 import { KindTile } from "./KindTile";
 import { StepBadge } from "./StepBadge";
@@ -40,7 +41,43 @@ describe("IconTile", () => {
   });
 });
 
+describe("GroupGlyph and GripIcon", () => {
+  it("draw a tray with two walls and six grip dots, both hidden from assistive technology", () => {
+    const { container } = render(
+      <>
+        <GroupGlyph size={17} />
+        <GripIcon />
+      </>,
+    );
+    const [glyph, grip] = [...container.querySelectorAll("svg")];
+    expect(glyph?.getAttribute("aria-hidden")).toBe("true");
+    expect(glyph?.getAttribute("width")).toBe("17");
+    expect(glyph?.querySelector("rect")).toBeTruthy();
+    expect(glyph?.querySelectorAll("path")).toHaveLength(1);
+    expect(grip?.getAttribute("aria-hidden")).toBe("true");
+    expect(grip?.querySelectorAll("circle")).toHaveLength(6);
+  });
+
+  it("make the group's neutral tile: the icon ground with the strong ink", () => {
+    const { container } = render(
+      <IconTile size={36} tone="group">
+        <GroupGlyph size={17} />
+      </IconTile>,
+    );
+    const tile = container.querySelector(".k-tile");
+    expect(tile?.getAttribute("data-tone")).toBe("group");
+    expect(tile?.hasAttribute("data-kind")).toBe(false);
+  });
+});
+
 describe("KindTile", () => {
+  it("is Group's tile too: the neutral tile and the group glyph", () => {
+    render(<KindTile kind="group">Group</KindTile>);
+    const button = screen.getByRole("button", { name: "Group" });
+    expect(button.querySelector(".k-tile")?.getAttribute("data-tone")).toBe("group");
+    expect(button.querySelector("svg rect")).toBeTruthy();
+  });
+
   it("is a button named by its words", () => {
     const onClick = vi.fn();
     render(

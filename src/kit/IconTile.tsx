@@ -13,17 +13,20 @@ export interface IconTileProps {
   kind?: ComponentKind;
   /** The kind's line round the tile, 2 px (MobileTray's header). */
   lined?: boolean;
+  /** "group": a group's neutral tile, the icon ground with the strong ink (G1), not a kind's colours. */
+  tone?: "group";
   /** An icon of the caller's, on the kind's colours or on the neutral ground. */
   children?: ComponentChildren;
 }
 
 /** A rounded square with an icon in it, hidden from assistive technology. */
-export function IconTile({ size, kind, lined = false, children }: IconTileProps) {
+export function IconTile({ size, kind, lined = false, tone, children }: IconTileProps) {
   const glyph = Math.round(size / 2);
   return (
     <span
       class={cx("k-tile", `k-tile--${size}`, lined && "k-tile--lined")}
       data-kind={kind}
+      data-tone={tone}
       aria-hidden="true"
     >
       {children ?? (kind !== undefined ? <KindGlyph kind={kind} size={glyph} /> : null)}

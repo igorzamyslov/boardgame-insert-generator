@@ -73,6 +73,7 @@
 
 /* ---- The heading and the Add pill ---- */
 .rail-head {
+  position: relative; /* the picker is placed against the heading's row (G3) */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -93,7 +94,7 @@
   font-size: 15px;
 }
 
-/* The picker opens under the pill, right-aligned to it; on the phone's sheet it opens over it. */
+/* On the phone's sheet the picker opens over the pill, right-aligned to it. */
 .kp {
   position: relative;
 }
@@ -114,6 +115,41 @@
   gap: var(--s-4);
 }
 
+/*
+ * The rail's picker (G3): six tiles in two columns of three, in a 400 px panel under the heading,
+ * from the rail's left edge. The rail is 300 px at its narrowest, so the panel reaches over the
+ * stage as the board draws it; the rail's clipping gives way while it is open.
+ */
+.rail-head > .kp {
+  position: static;
+}
+
+.rail-head .kp__panel {
+  top: calc(100% + var(--s-8)); /* G3: 52 px under a 44 px pill's top */
+  right: auto;
+  left: 0;
+  z-index: 6; /* over the resize handle (5), which lies on the stage's side of the rail's edge */
+}
+
+.rail-head .kp__panel > .k-menu {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-8);
+  max-width: calc(100vw - 2 * var(--rail-pad));
+  padding: var(--s-8);
+}
+
+/* The rail is a desktop's: on a phone the picker is the sheet's, a column at the menu's width. */
+@media (width >= 760px) {
+  .rail-head .kp__panel > .k-menu {
+    width: 400px; /* G3 */
+  }
+}
+
+.ws-rail:has(.kp__panel) {
+  overflow: visible;
+}
+
 /* ---- The list: one row a component, a chip beside it for each rule ---- */
 
 /*
@@ -124,6 +160,7 @@
  * or macOS set to always) sits there with a gutter of its own and never against the rows.
  */
 .rail-list {
+  position: relative; /* the drop line lies in it and scrolls with it */
   display: flex;
   flex: 0 1 auto;
   flex-direction: column;
@@ -140,6 +177,7 @@
 }
 
 .rail-item {
+  position: relative; /* an ungrouped row's grip lies over its edge */
   margin: 0;
   padding: 0;
 }
@@ -157,6 +195,222 @@
 .rail-chips > li {
   margin: 0;
   padding: 0;
+}
+
+/*
+ * A group's card (G1, G3): a frame in the box card's ground, its header, and the members at full
+ * size, each with a grip. The list's 4 px between rows keeps the card apart from its neighbours.
+ */
+.gc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  background: var(--row);
+}
+
+/* The header is a row of its own look: a neutral tile and, pressed or lit, the strong edge on the sheet ground (G1). */
+.gc-head[aria-pressed="true"],
+.gc-head[data-lit="true"] {
+  --k-bg: var(--sheet);
+
+  border-color: var(--muted-strong);
+}
+
+/* The name and "×4" on one baseline; the line under them is the row's own. */
+.gc-head__title {
+  display: flex;
+  gap: var(--s-6);
+  align-items: baseline;
+  min-width: 0;
+}
+
+.gc-head__copies {
+  flex: none;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.gc-members {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gc-member {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.gc-member > .k-rowwrap {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/*
+ * The grip is drawn for the pointer: a 24 × 44 slot at the row's left, the row's tile 2 px from it (G1).
+ * A press on it is a drag, not a scroll (a tablet), and not a text selection.
+ */
+.gc-grip {
+  display: flex;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none; /* no callout on a long press: it is a drag */
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--s-24);
+  height: 44px;
+  color: var(--box-dash);
+  cursor: grab;
+}
+
+/*
+ * An ungrouped row's grip (spec §7.3): not in the row's layout, a small pill over its left edge,
+ * shown on hover and while focus is within the row. A tablet has no hover (`data-no-hover`, set by
+ * the list from `(hover: none)`; the style test allows no other media query), so it is always shown there.
+ */
+.gc-grip--loose {
+  position: absolute;
+  top: calc(var(--row-min) / 2);
+  left: 0;
+  z-index: 1;
+  width: var(--s-18);
+  height: 30px;
+  border-radius: var(--s-6);
+  background: var(--sheet);
+  box-shadow: 0 0 0 1px var(--rule);
+  opacity: 0;
+  transform: translateY(-50%);
+
+  /* unseen, it takes no press: a press on the row's left edge opens the row */
+  pointer-events: none;
+}
+
+.rail-item:hover > .gc-grip--loose,
+.rail-item:focus-within > .gc-grip--loose {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* No hover (a tablet): always shown, and as big a target as a member's grip (24 × 44). */
+.rail-list[data-no-hover] .gc-grip--loose {
+  width: var(--s-24);
+  height: 44px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.gc-member .k-row {
+  padding-left: calc(var(--s-2) - 1.5px); /* its 1.5 px edge is the rest of G1's 2 px */
+}
+
+/*
+ * The group on the phone's sheet (G4): a frame with a 2 px rim of air, a compact header (a 14 px
+ * swatch in the group's neutral look, the name and "×4", the count on the right) and the members as
+ * compact rows indented under it, a 2 px --rule line on their left. No grips: the sheet has no drag.
+ */
+.gc--compact {
+  gap: 0;
+  padding: var(--s-2) 0;
+}
+
+.gc--compact .gc-head--compact {
+  padding: 0 var(--s-8) 0 var(--s-10);
+}
+
+.gc--compact .gc-head__title {
+  flex: 1 1 auto;
+  gap: var(--s-6);
+}
+
+.gc--compact .gc-head__title .k-row__name {
+  flex: 0 1 auto;
+}
+
+.gc--compact .gc-head__copies {
+  color: var(--muted);
+}
+
+/* The whole border, not its colour: the swatch's own is a var() the group has no value for. */
+.gc-head--compact .k-row__swatch--group {
+  border: 2px solid var(--muted-strong);
+  background: var(--sheet);
+}
+
+.gc--compact .gc-members {
+  gap: 0;
+  margin-left: var(--s-16);
+  border-left: 2px solid var(--rule);
+}
+
+.gc--compact .gc-member .k-row--compact {
+  padding: 0 var(--s-8) 0 var(--s-10);
+  border-radius: 0 var(--r-field) var(--r-field) 0;
+}
+
+/* An empty group's drop area (G3): dashed, in the muted words. */
+.gc-empty {
+  margin: 0 var(--s-4) var(--s-4);
+  padding: var(--s-14) var(--s-12);
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--r-tile);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  text-align: center;
+}
+
+/*
+ * The drag (spec §7.3; ruled R14: no board, judged against the spec): the row lifts on the sheet's
+ * shadow and follows the pointer, a 2 px focus line marks the place, and a group being entered takes
+ * the focus wash and a dashed focus edge. The line is made by the drag (`useRailDrag`) and is not in
+ * the list's markup. No transition: under reduced motion the move is plain, and it is plain otherwise.
+ */
+.is-drag-lifted {
+  position: relative;
+  z-index: 3;
+  border-radius: var(--r-field);
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet);
+  cursor: grabbing;
+  pointer-events: none;
+}
+
+.rail-list.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.rail-list.is-dragging .k-row,
+.rail-list.is-dragging .gc-grip {
+  cursor: grabbing;
+}
+
+.rail-dropline {
+  position: absolute;
+  z-index: 4; /* above the lifted row, which the pointer holds over the very place it marks */
+  height: 2px;
+  border-radius: 1px;
+  background: var(--focus);
+  pointer-events: none;
+}
+
+.rail-dropline[hidden] {
+  display: none;
+}
+
+.gc[data-drop="true"] {
+  border-style: dashed;
+  border-color: var(--focus);
+  background: var(--focus-wash);
 }
 
 /* A row with a chip beside it has less room: its line wraps, as Main's does; the name keeps its ellipsis. */
@@ -187,7 +441,26 @@
   box-shadow: inset 0 0 0 2px var(--warn);
 }
 
-.k-row--compact.is-culprit .k-row__swatch {
+/* A group whose tray does not fit: its header says so as an item's row does (the same wash, edge, meta and tile). */
+.gc-head[data-misfit="true"] {
+  --k-bg: var(--warn-bg);
+
+  border-color: var(--warn);
+}
+
+.gc-head[data-misfit="true"] .k-row__meta {
+  color: var(--warn-ink);
+  font-weight: 600;
+}
+
+.gc-head[data-misfit="true"] .k-tile {
+  background: var(--sheet);
+  color: var(--warn-ink);
+  box-shadow: inset 0 0 0 2px var(--warn);
+}
+
+.k-row--compact.is-culprit .k-row__swatch,
+.gc-head--compact[data-misfit="true"] .k-row__swatch {
   border-color: var(--warn);
   background: var(--warn);
 }

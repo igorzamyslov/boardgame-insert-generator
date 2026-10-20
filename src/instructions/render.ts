@@ -1,6 +1,19 @@
 // src/instructions/render.ts
-import type { Component, ComponentKind, Project, StoredLayout, TraySpec } from "../model/types";
-import { SPACER_SHADE, componentIndexOfTray, shadeHex } from "../ui/identity";
+import type {
+  Component,
+  ComponentKind,
+  Group,
+  Project,
+  StoredLayout,
+  TraySpec,
+} from "../model/types";
+import {
+  SPACER_SHADE,
+  componentIndexOfTray,
+  isGroupTray,
+  memberShadeOfCompartment,
+  shadeHex,
+} from "../ui/identity";
 import type { Shade } from "../ui/identity";
 import {
   footprintsAt,
@@ -76,9 +89,13 @@ const GHOST = "#767676";
 
 /**
  * A tray's colours on paper: its component's shade of its kind's hue (the light-scheme hex of
- * `shadeOf`, as on screen), or null for a part that holds nothing (spare, filler).
+ * `shadeOf`, as on screen), the group's neutral for a tray of a group (its wells wear the members'
+ * colours, `wellsSvg`), or null for a part that holds nothing (spare, filler).
  */
 export function paperShadeOf(t: TraySpec, project: Project): Shade | null {
+  if (isGroupTray(t, project)) {
+    return shadeHex("group", 0, "light");
+  }
   const index = t.part === "leftover" ? null : componentIndexOfTray(t, project.components);
   const component = index === null ? undefined : project.components[index];
   if (index === null || component === undefined) {
@@ -106,6 +123,31 @@ function glyphSvg(kind: ComponentKind, r: { x: number; y: number; w: number; h: 
   const x = r.x + r.w - size - 1;
   const y = r.y + 1;
   return `<g transform="translate(${n(x)} ${n(y)}) scale(${n(size / 24)})" fill="none" stroke="${INK}" stroke-width="1.5" stroke-linecap="square">${GLYPH_MARKUP[kind]}</g>`;
+}
+
+/**
+ * A group's tray drawn with tinted wells (spec §7.7): each compartment at its own place and size in
+ * its member's kind fill and line, the front at the bottom as the tray is. A spare well has no member
+ * and is left to the tray's own colour.
+ */
+function wellsSvg(
+  t: TraySpec,
+  r: { x: number; y: number; w: number; h: number },
+  project: Project,
+): string[] {
+  const out: string[] = [];
+  for (const c of t.compartments) {
+    const member = memberShadeOfCompartment(c, project.components);
+    if (member === null) {
+      continue;
+    }
+    const shade = shadeHex(member.kind, member.index, "light");
+    // tray-local, y from the front: the front is the bottom of the picture
+    out.push(
+      `<rect data-well="" x="${n(r.x + (c.x / t.w) * r.w)}" y="${n(r.y + ((t.d - c.y - c.d) / t.d) * r.h)}" width="${n((c.w / t.w) * r.w)}" height="${n((c.d / t.d) * r.h)}" rx="1" fill="${shade.fill}" stroke="${shade.line}" stroke-width="0.4"/>`,
+    );
+  }
+  return out;
 }
 
 function layerSvg(
@@ -145,7 +187,12 @@ function layerSvg(
       );
     }
     const r = largestOf(shapes) ?? toSvgRect(t, frame);
-    const kind = index === null ? undefined : project.components[index]?.kind;
+    const grouped = isGroupTray(t, project);
+    if (grouped) {
+      out.push(...wellsSvg(t, r, project));
+    }
+    // a group's tray has no kind of its own, so no kind glyph
+    const kind = index === null || grouped ? undefined : project.components[index]?.kind;
     if (kind !== undefined && Math.min(r.w, r.h) >= GLYPH_MIN_SIZE) {
       out.push(glyphSvg(kind, r));
     }
@@ -240,7 +287,7 @@ function layerSvg(
 export function render(layout: StoredLayout, project: Project): string[] {
   const frame = planFrame(project.box, project.settings);
   const vb = planViewBox(frame);
-  const names = trayNames(numberParts(layout.trays), project.components);
+  const names = trayNames(numberParts(layout.trays), project.components, project.groups);
   const levels = levelsOf(layout.trays);
   return levels.map((_level, i) => layerSvg(layout, project, frame, vb, names, levels, i));
 }
@@ -292,7 +339,7 @@ function fullNameOf(
 export function whatGoesWhere(layout: StoredLayout, project: Project): PartRow[] {
   const levels = levelsOf(layout.trays);
   const parts = numberParts(layout.trays);
-  const names = trayNames(parts, project.components);
+  const names = trayNames(parts, project.components, project.groups);
   return parts.map((p) => {
     const parent = fullNameOf(parts, names, p.parentNumber);
     const short = names.get(p.spec.key)?.short ?? "";
@@ -322,10 +369,14 @@ export interface LayerInfo {
   trays: string[];
 }
 
-export function layerInfo(layout: StoredLayout, components: readonly Component[]): LayerInfo[] {
+export function layerInfo(
+  layout: StoredLayout,
+  components: readonly Component[],
+  groups: readonly Group[] = [],
+): LayerInfo[] {
   const levels = levelsOf(layout.trays);
   const parts = numberParts(layout.trays);
-  const names = trayNames(parts, components);
+  const names = trayNames(parts, components, groups);
   return levels.map((level, i) => ({
     layer: i + 1,
     title: `Layer ${i + 1}${i === 0 ? " (bottom)" : i === levels.length - 1 ? " (top)" : ""}`,
@@ -335,9 +386,13 @@ export function layerInfo(layout: StoredLayout, components: readonly Component[]
   }));
 }
 
-export function packingSteps(layout: StoredLayout, components: readonly Component[]): string[] {
+export function packingSteps(
+  layout: StoredLayout,
+  components: readonly Component[],
+  groups: readonly Group[] = [],
+): string[] {
   const parts = numberParts(layout.trays);
-  const names = trayNames(parts, components);
+  const names = trayNames(parts, components, groups);
   const nameOf = (p: NumberedPart): string => names.get(p.spec.key)?.full ?? p.label;
   const levels = levelsOf(layout.trays);
   const steps: string[] = [];

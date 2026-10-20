@@ -5,10 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderApp } from "../app/test-app";
 import { makeTray } from "../app/test-helpers";
 import { newComponent } from "../model/defaults";
-import type { CardsComponent, Component, TraySpec } from "../model/types";
+import type { CardsComponent, Component, Group, TraySpec } from "../model/types";
 import { describeOptionChange } from "../ui/components/optionNotes";
 import { loadSeed } from "../test-support/harbourKings";
-import { EditorStrip, StageSentence } from "./EditorStage";
+import { EditorStage, EditorStrip, GroupSentence, StageSentence } from "./EditorStage";
 
 afterEach(() => {
   cleanup();
@@ -314,6 +314,39 @@ describe("StageSentence", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Starter decks, 3 trays.");
   });
 
+  it("adds that the tray is split when a copy had to be printed as several trays", () => {
+    const keys = (...ks: string[]) => ks.map((key) => tray({ key }));
+    render(
+      <StageSentence
+        component={cards({ name: "Player kit" })}
+        trays={keys("kit:p0:0", "kit:p0:1")}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Player kit, 2 trays. Too big for one tray, so it is split.",
+    );
+    cleanup();
+    render(
+      <StageSentence
+        component={cards({ name: "Player kit" })}
+        trays={keys("kit:p0:0", "kit:p0:1", "kit:p1:0", "kit:p1:1")}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Player kit, 4 trays. Too big for one tray, so it is split.",
+    );
+  });
+
+  it("does not say split of several copies, each one tray", () => {
+    render(
+      <StageSentence
+        component={cards({ name: "Player kit" })}
+        trays={["kit:p0:0", "kit:p1:0", "kit:p2:0", "kit:p3:0"].map((key) => tray({ key }))}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Player kit, 4 trays.");
+  });
+
   it("is the name alone while there is no plan, and names an unnamed one", () => {
     render(<StageSentence component={cards()} trays={[]} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Market deck");
@@ -373,5 +406,127 @@ describe("EditorStrip", () => {
       vi.advanceTimersByTime(4000);
     });
     expect(done).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a group's stage (G2)", () => {
+  const kit: Group = {
+    id: "kit",
+    name: "Player kit",
+    copies: 4,
+    access: "often",
+    memberIds: ["c1", "c2"],
+  };
+  const members = [
+    { ...newComponent("cards"), id: "c1", name: "Starter deck" },
+    { ...newComponent("minis"), id: "c2", name: "Hero" },
+  ] as Component[];
+  const trayOf = (key: string, level = 0, over: Partial<TraySpec> = {}): TraySpec => {
+    const base = makeTray({ key, level });
+    const well = base.compartments[0];
+    return {
+      ...base,
+      compartments: members.map((c) => ({
+        ...(well as NonNullable<typeof well>),
+        componentId: c.id,
+        contents: c.name,
+      })),
+      ...over,
+    };
+  };
+
+  it("says the group's name and how many trays, with the name in bold, as the page's h1", () => {
+    render(
+      <GroupSentence
+        group={kit}
+        trays={["kit:p0:0", "kit:p1:0", "kit:p2:0", "kit:p3:0"].map((key) => trayOf(key))}
+      />,
+    );
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1.textContent).toBe("Player kit, 4 trays.");
+    expect(h1.querySelector("strong")?.textContent).toBe("Player kit");
+  });
+
+  it("gives one tray's size, adds that a copy is split, and is the name alone without a plan", () => {
+    const { rerender } = render(<GroupSentence group={kit} trays={[trayOf("kit:p0:0")]} />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Player kit tray, 100 × 80 mm.",
+    );
+    rerender(
+      <GroupSentence
+        group={{ ...kit, copies: 1 }}
+        trays={[trayOf("kit:p0:0"), trayOf("kit:p0:1")]}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Player kit, 2 trays. Too big for one tray, so it is split.",
+    );
+    rerender(<GroupSentence group={{ ...kit, name: "" }} trays={[]} />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Group");
+  });
+
+  it("takes its trays from the plan by their key, and the sentence of the stage counts them", () => {
+    render(
+      <EditorStage
+        groupId="kit"
+        components={members}
+        groups={[kit]}
+        trays={[
+          trayOf("kit:p0:0"),
+          trayOf("kit:p1:0"),
+          makeTray({ key: "other:p0:0" }),
+          trayOf("kit:p1:0:spacer", 0, { part: "spacer", compartments: [] }),
+        ]}
+        note={null}
+        onNoteDone={() => undefined}
+        plan={null}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Player kit, 2 trays.");
+  });
+
+  it("has the Layer switch as the item editor has it: it opens on the group's layer and moves the view", () => {
+    render(
+      <EditorStage
+        groupId="kit"
+        components={members}
+        groups={[kit]}
+        trays={[
+          makeTray({ key: "other:p0:0", level: 0 }),
+          trayOf("kit:p0:0", 1),
+          trayOf("kit:p1:0", 1),
+        ]}
+        note={null}
+        onNoteDone={() => undefined}
+        plan={null}
+      />,
+    );
+    const layers = screen.getByRole("group", { name: "Layer" });
+    const pressed = (): string[] =>
+      within(layers)
+        .getAllByRole("button", { pressed: true })
+        .map((b) => b.textContent ?? "");
+    // the group is on the second layer, and the box opens there
+    expect(pressed()).toEqual(["Layer 2 (top)"]);
+    fireEvent.click(within(layers).getByRole("button", { name: "Layer 1 (bottom)" }));
+    expect(pressed()).toEqual(["Layer 1 (bottom)"]);
+  });
+
+  it("draws the strip for a phone with the group's trays edited", () => {
+    const { project } = loadSeed("harbour-kings-kit");
+    render(
+      <EditorStrip
+        groupId="plrkit01"
+        components={project.components}
+        groups={project.groups}
+        trays={project.layout?.trays ?? []}
+        box={project.box}
+        settings={project.settings}
+        note={null}
+        onNoteDone={() => undefined}
+      />,
+    );
+    expect(document.querySelectorAll(".ed-strip__box [data-edited]")).toHaveLength(4);
+    expect(screen.getByText(/^, 4 trays\./).closest("p")?.textContent).toBe("Player kit, 4 trays.");
   });
 });

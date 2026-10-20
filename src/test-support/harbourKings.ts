@@ -4,7 +4,7 @@
 // screenshot harness and the board copy tests. Test-only: nothing in the app imports it.
 import { toggleLock } from "../app/actions";
 import { DEFAULT_SETTINGS } from "../model/settings";
-import type { Component, Project, Settings, TraySpec } from "../model/types";
+import type { Component, Group, Project, Settings, TraySpec } from "../model/types";
 import { APP_VERSION, SCHEMA_VERSION } from "../model/version";
 import type { LayoutResult } from "../layout/types";
 import { createProjectStore } from "../share";
@@ -172,7 +172,7 @@ export function harbourKingsWide(): Project {
   return { ...p, box: { ...p.box, innerWidth: 400 } };
 }
 
-/** 25 components, one with a 40-character name and a group of three: a long list and long names. */
+/** 25 components, one with a 40-character name: a long list and long names. */
 export function harbourKingsLong(): Project {
   const p = harbourKings();
   const extra: Component[] = [
@@ -183,15 +183,121 @@ export function harbourKingsLong(): Project {
       ]),
     ),
     ...["Scouts", "Knights", "Ships"].map((name, i) =>
-      bulk(`group00${i}`, name, "setup", [{ name, count: 4, w: 10, d: 10, h: 8 }], {
-        groupId: "Crew",
-      }),
+      bulk(`group00${i}`, name, "setup", [{ name, count: 4, w: 10, d: 10, h: 8 }]),
     ),
     ...["Banners", "Anchors", "Barrels", "Flags", "Keys", "Maps", "Torches"].map((name, i) =>
       bulk(`small00${i}`, name, "sometimes", [{ name, count: 4, w: 8, d: 8, h: 6 }]),
     ),
   ];
   return { ...p, components: [...p.components, ...extra] };
+}
+
+/**
+ * Groups spec G1: the five items of a game that keeps a "Player kit" (Starter deck, Resources and
+ * a Hero) for each of four players, besides a Market deck and Hex tiles, with no group yet and in
+ * the order G3 lists them. The seed for Add → Group.
+ */
+export function harbourKingsKitLoose(): Project {
+  const p = untuned();
+  return {
+    ...p,
+    id: "harbkit1",
+    components: [
+      cards("market01", "Market deck", "often", [{ name: "Market deck", count: 80 }]),
+      // Mini cards, lying flat: a copy's tray is about 70 mm deep, so four copies stand in one column.
+      cards("kitdeck1", "Starter deck", "often", [{ name: "Starter deck", count: 12 }], {
+        shortSide: 41,
+        longSide: 62,
+        storage: "flat",
+      }),
+      bulk(
+        "kitres01",
+        "Resources",
+        "often",
+        ["Wood", "Stone", "Grain"].map((name) => ({ name, count: 10, w: 16, d: 16, h: 2 })),
+        { growth: { w: "off", d: "off", h: "off" } },
+      ),
+      {
+        id: "kithero1",
+        name: "Hero",
+        access: "often",
+        kind: "minis",
+        figures: [{ name: "Hero", w: 30, d: 30, h: 38, count: 1 }],
+        storage: "pockets",
+      },
+      p.components.find((c) => c.id === "hextiles") as Component,
+    ],
+  };
+}
+
+/** The ids of the Player kit's members, in compartment order. */
+export const KIT_MEMBER_IDS = ["kitdeck1", "kitres01", "kithero1"];
+
+/**
+ * Groups spec G1's project: the loose items with the Starter deck, Resources and Hero in a
+ * "Player kit" group (4 copies, "often"), listed first, then Market deck and Hex tiles.
+ */
+export function harbourKingsKit(): Project {
+  const loose = harbourKingsKitLoose();
+  const byId = (id: string) => loose.components.find((c) => c.id === id) as Component;
+  const kit: Group = {
+    id: "plrkit01",
+    name: "Player kit",
+    copies: 4,
+    access: "often",
+    growth: { w: "off", d: "off", h: "off" },
+    memberIds: KIT_MEMBER_IDS,
+  };
+  return {
+    ...loose,
+    components: [...KIT_MEMBER_IDS.map(byId), byId("market01"), byId("hextiles")],
+    groups: [kit],
+  };
+}
+
+/**
+ * The kit with a Hero that is too long for one copy to fit the print bed beside its other
+ * compartments, so the Player kit splits ("Player kit 1a" and "1b"). `length` is the Hero's
+ * footprint (mm); `npm run seeds` checks the outcome.
+ */
+export function harbourKingsKitSplit(length = 140): Project {
+  const kit = harbourKingsKit();
+  return {
+    ...kit,
+    id: "harbkit2",
+    components: kit.components.map((c) =>
+      c.id === "kithero1" && c.kind === "minis"
+        ? { ...c, figures: [{ name: "Hero", w: length, d: 30, h: 38, count: 1 }] }
+        : c,
+    ),
+  };
+}
+
+/**
+ * A cards item with three flat decks of 12, 30 and 12 cards that share one well, with removable
+ * dividers between them (flat-deck spec). `npm run seeds` checks it comes out as one well.
+ */
+export function harbourKingsFlat(): Project {
+  const p = untuned();
+  return {
+    ...p,
+    id: "harbflat",
+    components: [
+      cards(
+        "flatdeck",
+        "Starter deck",
+        "often",
+        [
+          { name: "Deck 1", count: 12 },
+          { name: "Deck 2", count: 30 },
+          { name: "Deck 3", count: 12 },
+        ],
+        { storage: "flat", flatDecks: "dividers" },
+      ),
+      cards("market01", "Market deck", "often", [{ name: "Market deck", count: 80 }]),
+      p.components.find((c) => c.id === "hextiles") as Component,
+    ],
+  };
 }
 
 function withComponent(p: Project, id: string, change: (c: Component) => Component): Project {

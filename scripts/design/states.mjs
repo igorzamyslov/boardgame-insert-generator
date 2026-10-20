@@ -52,6 +52,17 @@ const MAKE_NEW_PLAN = {
 };
 // The status heading of the stage (Task 6): the h1, its switches and its action.
 const STATUS = '[data-region="status"]';
+// The kit seeds (Task 9 and after): a tray of the Player kit in the plan (called "Player kit 2" since Task 10),
+// and the group's header in the rail.
+const PLAN_KIT_2 = {
+  click: {
+    role: "button",
+    name: /^Player kit 2/,
+    in: '[data-region="stage"]',
+  },
+};
+// the card's header: its name is the group's ("Player kit, 4 copies"), and opens the group's editor (Task 11)
+const KIT_HEADER = { click: { role: "button", name: "Player kit, 4 copies", in: RAIL } };
 // The tray bar (Task 8), and the tray the harness selects in it.
 const TRAY_BAR = '[data-region="tray-bar"]';
 const SELECT_HEROES = {
@@ -86,7 +97,16 @@ const KEYS_TO_SETTINGS = [
 
 /** Seeds: a current plan each, and the ones that are stale on purpose (make-seeds.mjs). */
 export const SEEDS = {
-  current: ["harbour-kings", "harbour-kings-headroom", "harbour-kings-long", "harbour-kings-wide"],
+  current: [
+    "harbour-kings",
+    "harbour-kings-headroom",
+    "harbour-kings-long",
+    "harbour-kings-wide",
+    "harbour-kings-kit",
+    "harbour-kings-kit-loose",
+    "harbour-kings-kit-split",
+    "harbour-kings-flat",
+  ],
   stale: [
     "harbour-kings-stale",
     "harbour-kings-notes",
@@ -451,7 +471,7 @@ export const STATES = {
     steps: [EDIT_MARKET, { click: { role: "button", name: "+ Another deck", in: RAIL } }],
   },
   // The same on a tall window (the rail scrolls in a 900 px one): Corner holes turned on, so a chip, and
-  // the Extra room row opened, show the changed dot and "Back to <default>" beside the Market deck's own.
+  // the Room around the pieces row opened, show the changed dot and "Back to <default>" beside the Market deck's own.
   "editor-more-changed": {
     board: "Edit",
     nearest:
@@ -462,7 +482,7 @@ export const STATES = {
       EDIT_MARKET,
       MORE_OPTIONS,
       { click: { role: "button", name: /^Corner holes/, in: RAIL } },
-      { click: { role: "button", name: /^Extra room/, in: RAIL } },
+      { click: { role: "button", name: /^Room around the pieces/, in: RAIL } },
     ],
   },
   // A deck that lies flat: Spacer plates and Dividers (and the Removable dividers chip) stay, blocked, each
@@ -577,7 +597,7 @@ export const STATES = {
       { wait: 400 },
     ],
   },
-  // NoFit (Task 12): the closest attempt of a failed search (box height: Heroes 80 mm), the culprit
+  // NoFit (Task 12): the closest attempt of a failed search (box height: a Heroes figure taller than the box, 90 mm as make-seeds tunes it), the culprit
   // tray marked, and the panel of what the engine can do. The seed holds no result (the store keeps
   // none), so the state asks for a new plan and waits for the run.
   "no-fit": {
@@ -598,7 +618,7 @@ export const STATES = {
     steps: [MAKE_NEW_PLAN, { waitFor: { text: FIT_YET, timeout: 90_000 } }],
   },
   // The box's editor while the plan does not fit (0.6.0 carry): the box is open over the no-fit
-  // seed (Heroes is 80 mm in a 70 mm box), so the editor tells the problem in a line. No board
+  // seed (a Heroes figure taller than the 70 mm box), so the editor tells the problem in a line. No board
   // draws this: Box is the editor, NoFit's status line is the problem's words.
   "box-nofit": {
     board: "Box",
@@ -900,6 +920,239 @@ export const STATES = {
     steps: [
       { click: { role: "button", name: /^The box/, in: '[data-region="sheet"]' } },
       { waitFor: { role: "heading", name: "The box" } },
+    ],
+  },
+
+  // ---- Groups, copies, turns and flat decks (0.7.0). Each screen below is built by the task named in
+  // its comment; until then its state fails (no region, no button): that is the expected gap.
+  // The kit seeds are drawn at the 0.6.0 defaults (rail 300 px, plan 582 px, R10): a pair is judged
+  // on regions, order and arrangement, not on pixels.
+  // GroupRail: the Player kit card (members indented, "×4"), one copy selected in the plan (Tasks 9, 10).
+  "kit-rail": {
+    board: "GroupRail",
+    viewport: DESKTOP,
+    seed: "harbour-kings-kit",
+    minPlanWidth: 560,
+    noStageScroll: true,
+    steps: [PLAN_KIT_2],
+  },
+  // GroupAdd: Add, then Group: an empty card with its drop target, focused (Task 9).
+  "kit-add": {
+    board: "GroupAdd",
+    viewport: DESKTOP,
+    seed: "harbour-kings-kit-loose",
+    steps: [
+      { click: { role: "button", name: "Add", in: RAIL } },
+      { click: { role: "button", name: "Group", in: '[data-region="kind-picker"]' } },
+    ],
+  },
+  // GroupAdd's picker: six tiles, Group the sixth (Task 9). The board's own picker is judged by its grid.
+  "kit-picker": {
+    board: "GroupAdd",
+    boardCrop: { "kind-picker": "#kind-picker" },
+    viewport: DESKTOP,
+    seed: "harbour-kings-kit-loose",
+    steps: [{ click: { role: "button", name: "Add", in: RAIL } }],
+  },
+  // GroupEdit: the group's editor in the rail and its stage sentence (Task 11). The editor's h2 is
+  // the panel's name (visually hidden); the h1 is the sentence, "Player kit, 4 trays.". The only
+  // difference from the board is the missing Extra room row (owner's ruling O2).
+  "kit-edit": {
+    board: "GroupEdit",
+    viewport: DESKTOP,
+    seed: "harbour-kings-kit",
+    steps: [KIT_HEADER, { waitFor: { role: "heading", name: "Player kit" } }],
+  },
+  // MobileGroup: the sheet's group card with its members, over the plan (Task 15).
+  "m-kit": {
+    board: "MobileGroup",
+    viewport: PHONE,
+    seed: "harbour-kings-kit",
+    steps: [{ click: { role: "button", name: /What's inside/ } }],
+  },
+  // A member's editor: no board of its own, judged against Edit with More options open (Task 12).
+  // Tall, so the rows at the foot of More options are in the picture: the line that stands where
+  // Copies did, and the Group row opened on "In Player kit", Edit and Take out of group.
+  "kit-member": {
+    board: "Edit",
+    nearest: "Edit with More options open (`editor-more`): no board draws a member's editor",
+    viewport: { width: 1440, height: 1500 },
+    seed: "harbour-kings-kit",
+    steps: [
+      { click: { role: "button", name: /^Hero, /, in: RAIL } },
+      MORE_OPTIONS,
+      { click: { role: "button", name: /^Group/, in: RAIL } },
+      { waitFor: { role: "button", name: "Take out of group" } },
+    ],
+  },
+  // A member of a group with a long name, its Group row open: "Edit <group>" and "Take out of group" wrap
+  // inside the 300 px rail instead of running into its padding (Task 12, fix round 1).
+  "kit-member-long": {
+    board: "Edit",
+    nearest: "Edit with More options open (`editor-more`): no board draws a member's editor",
+    viewport: { width: 1440, height: 1500 },
+    seed: "harbour-kings-kit",
+    steps: [
+      KIT_HEADER,
+      { fill: { label: "Name", value: "Starter kit for every player at the table" } },
+      { click: { role: "button", name: "What's inside", in: RAIL } },
+      { click: { role: "button", name: /^Hero, /, in: RAIL } },
+      MORE_OPTIONS,
+      { click: { role: "button", name: /^Group/, in: RAIL } },
+      { waitFor: { role: "button", name: "Take out of group" } },
+    ],
+  },
+  // An item's Group row and its Move to group… panel (Task 12).
+  "kit-move-panel": {
+    board: "Edit",
+    nearest: "Edit (`editor-more`): no board draws the Move to group… panel",
+    viewport: { width: 1440, height: 1500 },
+    seed: "harbour-kings-kit",
+    steps: [
+      EDIT_MARKET,
+      MORE_OPTIONS,
+      { click: { role: "button", name: /^Group/, in: RAIL } },
+      { click: { role: "button", name: /^Move to group/, in: RAIL } },
+      { waitFor: { role: "button", name: "New group" } },
+    ],
+  },
+  // Remove group…: the question in place of the foot's buttons (Task 11).
+  "kit-remove": {
+    board: "GroupEdit",
+    nearest: "GroupEdit: no board draws the Remove group… question",
+    viewport: DESKTOP,
+    seed: "harbour-kings-kit",
+    steps: [
+      KIT_HEADER,
+      { click: { role: "button", name: "Remove group…", in: RAIL } },
+      { waitFor: { text: /Its 3 items stay/ } },
+    ],
+  },
+  // The kit with a Hero too long for one copy to fit the bed: "Player kit 1a" and "1b" (Task 10).
+  "workspace-kit-split": {
+    board: "GroupRail",
+    nearest: "GroupRail: no board draws a split group, its trays named 1a and 1b",
+    viewport: DESKTOP,
+    seed: "harbour-kings-kit-split",
+    noStageScroll: true,
+  },
+  "workspace-kit-3d": {
+    board: "Main",
+    boardOpts: { state: { view: "3d" } },
+    nearest: "no board of its own: Main's box frame and segments, with the kit's four copies",
+    viewport: DESKTOP,
+    seed: "harbour-kings-kit",
+    needsWebGL: true,
+    steps: [{ click: { role: "button", name: "3D", in: STATUS } }, { wait: 3000 }],
+  },
+  "kit-download": {
+    board: "Export",
+    nearest: "Export (`download`): no board draws a group's trays in the list",
+    viewport: DESKTOP,
+    seed: "harbour-kings-kit",
+    steps: [
+      { click: { role: "button", name: "Download" } },
+      { click: { role: "button", name: "Other formats" } },
+    ],
+  },
+  "kit-packing-guide": {
+    board: "Export",
+    nearest: "Export (`packing-guide`): no board draws a group's trays in the guide",
+    viewport: DESKTOP,
+    seed: "harbour-kings-kit",
+    fullPage: true,
+    steps: [
+      { click: { role: "button", name: "Download" } },
+      { click: { role: "button", name: /^Packing guide/ } },
+      { waitFor: { role: "heading", name: /packing guide$/ } },
+    ],
+  },
+  // Turn 90° on the Market deck: the Turned chip beside its row, the plan kept (Task 13). The pin in
+  // boardOpts is only there for the board: its `pins` state draws a chip beside Market deck's row and
+  // the rules note under the list, where the Turned chip and the rules note (R17) go. The app side
+  // pins nothing.
+  "workspace-turned": {
+    board: "Main",
+    boardOpts: { state: { pins: { market: { x: 0, y: 0, layer: "bottom" } } } },
+    nearest: "Main `workspace-rules`: no board draws the Turned chip",
+    viewport: DESKTOP,
+    seed: "harbour-kings",
+    steps: [
+      SELECT_MARKET,
+      { click: { role: "button", name: /^Turn this (tray|stack) 90/, in: TRAY_BAR } },
+      { waitFor: { role: "button", name: "Let Market deck turn" } },
+    ],
+  },
+  // A cards item with three flat decks in one well: its editor shows Between decks (Task 13).
+  "editor-flat-decks": {
+    board: "EditKinds",
+    boardCrop: { rail: "main section:nth-of-type(1)" },
+    nearest: "Edit / EditKinds: no board draws Between decks",
+    viewport: { width: 1440, height: 1500 },
+    seed: "harbour-kings-flat",
+    steps: [
+      { click: { role: "button", name: /^Starter deck, /, in: RAIL } },
+      MORE_OPTIONS,
+      { click: { role: "button", name: /^Between decks/, in: RAIL } },
+    ],
+  },
+  // Drag and drop has no board (R14): its look is judged against spec §7.3 and its gate is the probe
+  // `drag-into-group` (shots.mjs; Task 14), with a mid-drag picture, `kit-drag.mid-drag.png`. The pair shows GroupRail for reference.
+  "kit-drag": {
+    board: "GroupRail",
+    nearest: "no board of its own (spec §7.3): the rail of GroupRail; the gate is the probe",
+    viewport: DESKTOP,
+    seed: "harbour-kings-kit",
+    probes: ["drag-into-group"],
+  },
+  "m-kit-edit": {
+    board: "MobileEdit",
+    nearest: "MobileEdit: no board draws a group's editor on a phone",
+    viewport: PHONE,
+    seed: "harbour-kings-kit",
+    steps: [
+      { click: { role: "button", name: /What's inside/ } },
+      { click: { role: "button", name: "Player kit, 4 copies", in: '[data-region="sheet"]' } },
+      { waitFor: { role: "heading", name: "Player kit" } },
+    ],
+  },
+  "m-kit-member": {
+    board: "MobileEdit",
+    nearest: "MobileEdit: no board draws a member's editor on a phone",
+    viewport: PHONE,
+    seed: "harbour-kings-kit",
+    steps: [
+      { click: { role: "button", name: /What's inside/ } },
+      { click: { role: "button", name: /^Hero, /, in: '[data-region="sheet"]' } },
+    ],
+  },
+  // The same on a phone, in the sheet.
+  "m-kit-member-long": {
+    board: "MobileEdit",
+    nearest: "MobileEdit: no board draws a member's editor on a phone",
+    viewport: PHONE,
+    seed: "harbour-kings-kit",
+    steps: [
+      { click: { role: "button", name: /What's inside/ } },
+      { click: { role: "button", name: "Player kit, 4 copies", in: '[data-region="sheet"]' } },
+      { fill: { label: "Name", value: "Starter kit for every player at the table" } },
+      { click: { role: "button", name: "Back", in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^Hero, /, in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^More options/, in: '[data-region="sheet"]' } },
+      { click: { role: "button", name: /^Group/, in: '[data-region="sheet"]' } },
+      { waitFor: { role: "button", name: "Take out of group" } },
+    ],
+  },
+  "m-turned": {
+    board: "MobileWorkspace",
+    nearest: "MobileWorkspace: no board draws the Turned chip",
+    viewport: PHONE,
+    seed: "harbour-kings",
+    steps: [
+      SELECT_MARKET,
+      {
+        click: { role: "button", name: /^Turn this (tray|stack) 90/, in: '[data-region="sheet"]' },
+      },
     ],
   },
 };

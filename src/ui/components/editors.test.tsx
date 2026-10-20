@@ -376,18 +376,27 @@ const err = (code: string, path: string, message: string): Notice => ({
 });
 
 describe("validation shown in place", () => {
-  it("shows a group name error beside the Group field (collision and colon)", () => {
+  it("shows a copies error beside the Copies stepper", () => {
     render(
       <ValidationContext.Provider
-        value={[err("field.groupId", "/components/0/groupId", "A group name can't contain ':'.")]}
+        value={[
+          err(
+            "field.copies",
+            "/components/0/copies",
+            "Copies must be a whole number of at least 1.",
+          ),
+        ]}
       >
-        <CustomEditor component={of("custom")} index={0} onChange={vi.fn()} />
+        <CustomEditor component={{ ...of("custom"), copies: 0 }} index={0} onChange={vi.fn()} />
       </ValidationContext.Provider>,
     );
     // the row opens by itself: the error is in sight
-    const group = screen.getByLabelText(/^Group/);
-    expect(group.getAttribute("aria-invalid")).toBe("true");
-    expect(screen.getByRole("alert").textContent).toBe("A group name can't contain ':'.");
+    const copies = screen.getByRole("textbox", { name: "Copies" });
+    expect(copies.getAttribute("aria-invalid")).toBe("true");
+    expect(copies.getAttribute("aria-describedby")).toBe(screen.getByRole("alert").id);
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Copies must be a whole number of at least 1.",
+    );
   });
 
   it("shows a curved floor error on tiles by the chips, tied by aria-describedby", () => {
@@ -435,12 +444,13 @@ describe("validation shown in place", () => {
     const panel = document.getElementById(more.getAttribute("aria-controls") ?? "") as HTMLElement;
     expect(within(panel).getByRole("group", { name: "How often you reach for it" })).toBeTruthy();
     expect(within(panel).getByRole("button", { name: "Finger cuts" })).toBeTruthy();
-    expect(within(panel).getByRole("button", { name: "Group" })).toBeTruthy();
+    expect(within(panel).getByRole("button", { name: "Copies" })).toBeTruthy();
+    expect(within(panel).queryByRole("button", { name: "Per player" })).toBeNull();
   });
 
   it("opens More options when a field inside has an error, and keeps it open", () => {
-    const notice = err("field.count", "/components/0/perPlayer/players", "Bad players.");
-    const c = { ...of("custom"), perPlayer: { players: 0 } };
+    const notice = err("field.copies", "/components/0/copies", "Bad players.");
+    const c = { ...of("custom"), copies: 0 };
     const more = () => screen.getByRole("button", { name: /^More options/ });
     const view = render(<CustomEditor component={c} index={0} onChange={vi.fn()} />);
     expect(more().getAttribute("aria-expanded")).toBe("false");
@@ -466,8 +476,7 @@ describe("validation shown in place", () => {
     const more = () => screen.getByRole("button", { name: /^More options/ });
 
     it.each([
-      "groupId",
-      "perPlayer/players",
+      "copies",
       "clearance",
       "curvedFloor",
       "separators",

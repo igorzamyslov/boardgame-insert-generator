@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Component, Settings, TraySpec } from "../model/types";
+import type { Component, Group, Settings, TraySpec } from "../model/types";
 import { settingsValid } from "../model/validate";
 import { minOuter, realizeTray, rotateRealized, size } from "../sizing";
 import { openSpacers } from "../layout/spacers";
@@ -26,7 +26,12 @@ interface Tally {
   failures: string[];
 }
 
-function exercise(components: Component[], settings: Settings, label: string): Tally {
+function exercise(
+  components: Component[],
+  groups: Group[],
+  settings: Settings,
+  label: string,
+): Tally {
   const tally: Tally = { planned: 0, lipped: 0, spacers: 0, open: 0, rotated: 0, failures: [] };
   const check = (spec: TraySpec, where: string): void => {
     try {
@@ -44,7 +49,7 @@ function exercise(components: Component[], settings: Settings, label: string): T
     check(sp, where);
     openSpacers([sp], { settings }).forEach((open) => check(open, `${where} (open)`));
   };
-  const { requirements } = size(components, settings);
+  const { requirements } = size(components, settings, groups);
   for (const req of requirements) {
     for (const variant of req.variants) {
       for (const part of variant.parts) {
@@ -73,12 +78,12 @@ function exercise(components: Component[], settings: Settings, label: string): T
 }
 
 describe.each(SWEEP_FIXTURES)("planTray accepts sizing output of %s", (_name, raw) => {
-  const { components, settings: base } = loadFixture(raw);
+  const { components, groups, settings: base } = loadFixture(raw);
 
   it.each(PROFILES)("with %s", { timeout: 60_000 }, (label, profile) => {
     const settings = profile(base);
     expect(settingsValid(settings), "profile settings are valid").toBe(true);
-    const tally = exercise(components, settings, label);
+    const tally = exercise(components, groups, settings, label);
     expect(tally.failures.slice(0, 3)).toEqual([]);
     expect(tally.planned).toBeGreaterThan(0);
     expect(tally.rotated).toBeGreaterThan(0);
@@ -89,8 +94,8 @@ describe.each(SWEEP_FIXTURES)("planTray accepts sizing output of %s", (_name, ra
 describe("the sizing fixtures cover spacers", () => {
   it("plans spacers from at least one fixture", () => {
     const tallies = SWEEP_FIXTURES.map(([name, raw]) => {
-      const { components, settings } = loadFixture(raw);
-      return exercise(components, settings, name);
+      const { components, groups, settings } = loadFixture(raw);
+      return exercise(components, groups, settings, name);
     });
     expect(tallies.reduce((a, t) => a + t.spacers, 0)).toBeGreaterThan(0);
     expect(

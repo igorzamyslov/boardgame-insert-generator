@@ -1,6 +1,7 @@
 // src/instructions/naming.ts
 import { KIND_NAMES } from "../model/defaults";
-import type { Component, TraySpec } from "../model/types";
+import { DEFAULT_GROUP_NAME, groupById, parseTrayKey } from "../model/groups";
+import type { Component, Group, TraySpec } from "../model/types";
 import { componentIndexOfContents } from "../ui/identity";
 import { type NumberedPart, parentKey } from "./numbering";
 
@@ -53,6 +54,8 @@ interface Draft {
   kindName: string;
   /** " 1", " 2" … when several parts would otherwise share a name. */
   index: number | null;
+  /** A tray of a group: " 2", " 2a", " a" or "" (its copy and part), fixed, not counted. Else null. */
+  tail: string | null;
   full: string;
 }
 
@@ -268,7 +271,7 @@ function trayShorts(trays: readonly Draft[]): Map<string, string> {
     const words = wordsOf(d.base);
     return words.length > 0 ? words : [d.kindName];
   };
-  const tailOf = (d: Draft) => (d.index === null ? "" : ` ${d.index}`);
+  const tailOf = (d: Draft) => d.tail ?? (d.index === null ? "" : ` ${d.index}`);
   const groups = new Map<string, Draft[]>();
   for (const d of [...trays].sort((x, y) => x.order - y.order)) {
     const k = cut(wordsOfDraft(d)[0] ?? "", SHORT_NAME_MAX).toUpperCase();
@@ -328,8 +331,114 @@ function trayShorts(trays: readonly Draft[]): Map<string, string> {
 }
 
 /**
- * Names for every part, by the part's key. A component with one tray is called by its name; with
- * several, its name and " 1", " 2" in plan order. A card spacer, spacer block, riser or divider is
+ * Where each copy of a group or an item stands, as its place in the numbering (0 first), by
+ * `<stem>:p<copy>`: lower layer first, then front to back, then left to right, as seen from the
+ * front of the box (the plan's bottom edge: y grows towards the back). A copy that splits stands
+ * where its first part (lowest layer, then nearest the front, then leftmost) stands. Trays whose
+ * fronts are within TOUCH_MM of each other are one row. The copy's own number in the key (`p0`…) is
+ * only a name for it and never decides the order (owner ruling, 0.7.0: copy 1 is the one nearest
+ * the front).
+ */
+function copyPlaces(parts: readonly NumberedPart[]): Map<string, number> {
+  const inPlan = (a: TraySpec, b: TraySpec): number => a.level - b.level || a.y - b.y || a.x - b.x;
+  interface Anchor {
+    id: string;
+    copy: number;
+    spec: TraySpec;
+  }
+  const anchors = new Map<string, Anchor>();
+  const stems = new Map<string, Anchor[]>();
+  for (const { spec } of parts) {
+    const at = spec.part === "tray" ? parseTrayKey(spec.key) : undefined;
+    if (at === undefined) {
+      continue;
+    }
+    const id = `${at.stem}:p${at.copy}`;
+    const held = anchors.get(id);
+    if (held === undefined) {
+      const anchor = { id, copy: at.copy, spec };
+      anchors.set(id, anchor);
+      stems.set(at.stem, [...(stems.get(at.stem) ?? []), anchor]);
+    } else if (inPlan(spec, held.spec) < 0) {
+      held.spec = spec;
+    }
+  }
+  const places = new Map<string, number>();
+  for (const copies of stems.values()) {
+    // The key's copy number settles a tie, so the order never depends on the order of `parts`.
+    const sorted = [...copies].sort((a, b) => inPlan(a.spec, b.spec) || a.copy - b.copy);
+    // Rows: a copy joins the row of the one before it when it starts within TOUCH_MM of that
+    // row's front, in the same layer; inside a row, left to right.
+    const rows: Anchor[][] = [];
+    for (const anchor of sorted) {
+      const row = rows[rows.length - 1];
+      const head = row?.[0]?.spec;
+      if (
+        row !== undefined &&
+        head !== undefined &&
+        head.level === anchor.spec.level &&
+        anchor.spec.y - head.y <= TOUCH_MM
+      ) {
+        row.push(anchor);
+      } else {
+        rows.push([anchor]);
+      }
+    }
+    rows
+      .flatMap((row) => row.sort((a, b) => a.spec.x - b.spec.x || a.copy - b.copy))
+      .forEach((anchor, i) => places.set(anchor.id, i));
+  }
+  return places;
+}
+
+/**
+ * The parts with each copy's trays renumbered in the order of the copies' places: a stem's tray
+ * numbers (assembly order) are dealt out again, copy by copy in `copyPlaces` order and each copy's
+ * parts in part order, so the names that count in numbering order count by position.
+ */
+function byPlace(
+  parts: readonly NumberedPart[],
+  places: ReadonlyMap<string, number>,
+): NumberedPart[] {
+  const stems = new Map<string, { part: NumberedPart; copy: number; at: number }[]>();
+  for (const part of parts) {
+    const at = part.spec.part === "tray" ? parseTrayKey(part.spec.key) : undefined;
+    if (at !== undefined) {
+      const list = stems.get(at.stem) ?? [];
+      list.push({ part, copy: places.get(`${at.stem}:p${at.copy}`) ?? at.copy, at: at.part });
+      stems.set(at.stem, list);
+    }
+  }
+  const numberOf = new Map<string, number>();
+  for (const list of stems.values()) {
+    const numbers = list.map((e) => e.part.number).sort((a, b) => a - b);
+    [...list]
+      .sort((a, b) => a.copy - b.copy || a.at - b.at)
+      .forEach((e, i) => numberOf.set(e.part.spec.key, numbers[i] ?? e.part.number));
+  }
+  return parts.map((part) => {
+    const number = numberOf.get(part.spec.key);
+    return number === undefined ? part : { ...part, number };
+  });
+}
+
+/**
+ * The words a group's tray adds to the group's name, by the tray's copy and part: " 2" (copy 2 of
+ * several), " 2a" (its first part, when the copy is split), " a" (a split single copy), or "".
+ */
+function groupTail(copy: number, copies: number, part: number, parts: number): string {
+  const number = copies > 1 ? ` ${copy + 1}` : "";
+  const letter = parts > 1 ? String.fromCharCode(97 + part) : "";
+  return letter === "" ? number : number === "" ? ` ${letter}` : `${number}${letter}`;
+}
+
+/**
+ * Names for every part, by the part's key. A tray of a group is called by the group's name,
+ * "Player kit 1" … "Player kit 4" by copy ("Player kit" for one copy), counted lower layer first, then
+ * front to back and left to right, so copy 1 is the one nearest the front (`copyPlaces`); a copy that had to split
+ * gets a letter ("Player kit 2a", "Player kit 2b"; "Player kit a", "Player kit b" for a single
+ * copy), and a group with no name is "Group". A component with one tray is called by its name; with
+ * several, its name and " 1", " 2" in the same order (an item's copies count by place too). A card spacer, spacer block, riser or divider is
  * "Spacer by <the tray beside it>" ("Spare by …" for a spare tray, "Riser under …", "Divider in …");
  * several by the same tray are numbered "Spacer 1 by …", "Spacer 2 by …". `short` is what fits
  * engraved on the part: at most SHORT_NAME_MAX characters of letters, digits, spaces and hyphens
@@ -340,8 +449,11 @@ function trayShorts(trays: readonly Draft[]): Map<string, string> {
 export function trayNames(
   parts: readonly NumberedPart[],
   components: readonly Component[],
+  groups: readonly Group[] = [],
 ): Map<string, TrayName> {
-  const ordered = [...parts].sort((a, b) => a.number - b.number);
+  // Copies count by where they stand, not by the number in their key.
+  const places = copyPlaces(parts);
+  const ordered = byPlace(parts, places).sort((a, b) => a.number - b.number);
   const drafts: Draft[] = [];
   const named: NumberedPart[] = [];
   const draftOf = (part: NumberedPart, over: Partial<Draft>): Draft => ({
@@ -352,13 +464,56 @@ export function trayNames(
     by: null,
     kindName: "",
     index: null,
+    tail: null,
     full: "",
     ...over,
   });
 
-  // Trays that hold components are named after them.
+  // The trays of each group, by group and copy: the names run on the copy and the part.
+  const groupTrays = new Map<string, Map<number, number[]>>();
+  const groupOf = (part: NumberedPart): { group: Group; copy: number; part: number } | null => {
+    const key = part.spec.part === "tray" ? parseTrayKey(part.spec.key) : undefined;
+    const group = key === undefined ? undefined : groupById({ groups }, key.stem);
+    return key === undefined || group === undefined
+      ? null
+      : { group, copy: key.copy, part: key.part };
+  };
+  for (const part of ordered) {
+    const at = groupOf(part);
+    if (at !== null) {
+      const copies = groupTrays.get(at.group.id) ?? new Map<number, number[]>();
+      copies.set(
+        at.copy,
+        [...(copies.get(at.copy) ?? []), at.part].sort((a, b) => a - b),
+      );
+      groupTrays.set(at.group.id, copies);
+    }
+  }
+
+  // Trays that hold components are named after them; a group's, after the group.
   const rest: NumberedPart[] = [];
   for (const part of ordered) {
+    const at = groupOf(part);
+    if (at !== null) {
+      const copies = groupTrays.get(at.group.id) ?? new Map<number, number[]>();
+      const own = copies.get(at.copy) ?? [];
+      const howMany = Math.max(at.group.copies ?? 1, copies.size);
+      named.push(part);
+      drafts.push(
+        draftOf(part, {
+          base: at.group.name.trim() === "" ? DEFAULT_GROUP_NAME : at.group.name.trim(),
+          kindName: DEFAULT_GROUP_NAME,
+          // the letter goes by the part's place among its copy's parts, so a gap does not skip one
+          tail: groupTail(
+            places.get(`${at.group.id}:p${at.copy}`) ?? at.copy,
+            howMany,
+            own.indexOf(at.part),
+            own.length,
+          ),
+        }),
+      );
+      continue;
+    }
     const holds = part.spec.part === "tray" ? holdsOf(part.spec, components) : [];
     const first = holds[0];
     if (first !== undefined) {
@@ -417,8 +572,9 @@ export function trayNames(
   const numbered = (d: Draft) => (d.index === null ? "" : ` ${d.index}`);
   nameGroup(
     trays,
-    (d) => d.base,
-    (d) => `${d.base}${numbered(d)}`,
+    // a group's trays are never counted with an item of the same name: their tail is their number
+    (d) => (d.tail === null ? d.base : `\u0000${d.base}`),
+    (d) => `${d.base}${d.tail ?? numbered(d)}`,
   );
   const beside = (d: Draft) => draftByKey.get(d.by ?? "")?.full;
   const stemBy = (d: Draft, own: string) => {

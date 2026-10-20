@@ -291,13 +291,15 @@ describe("corner material of sizing output", () => {
     { timeout: 60_000 },
     (name, raw) => {
       const hasCuts = !name.startsWith("bits-heavy");
-      const { components, settings: base } = loadFixture(raw);
+      const { components, groups, settings: base } = loadFixture(raw);
       const failures: string[] = [];
       let cutCorners = 0;
       for (const [wall, floor] of WALL_FLOOR) {
         for (const settings of [{ ...base, wall, floor }, withLargestChamfer(base, wall, floor)]) {
           expect(settingsValid(settings), `wall ${wall}, floor ${floor} is valid`).toBe(true);
-          const variants = size(components, settings).requirements.flatMap((r) => r.variants);
+          const variants = size(components, settings, groups).requirements.flatMap(
+            (r) => r.variants,
+          );
           for (const variant of variants) {
             for (const part of variant.parts) {
               for (const opts of SWEEP_OPTIONS) {

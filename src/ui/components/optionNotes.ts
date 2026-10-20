@@ -123,8 +123,6 @@ function sleeveKey(sleeve: CardsComponent["sleeve"]): keyof typeof SLEEVE_NOTES 
 export const OPTION_NOTE_TEXTS: readonly string[] = [
   ...Object.values(ACCESS_NOTES),
   ...Object.values(SLEEVE_NOTES),
-  "One set for everyone.",
-  "Each player's set gets its own tray or compartment.",
   "The planner chooses how it sits.",
   "The tiles lie flat in stacks.",
   "The decks lie flat.",
@@ -159,11 +157,6 @@ export const OPTION_NOTE_TEXTS: readonly string[] = [
 export function describeOptionChange(prev: Component, next: Component): string | null {
   if (prev.access !== next.access) {
     return ACCESS_NOTES[next.access];
-  }
-  if ((prev.perPlayer === undefined) !== (next.perPlayer === undefined)) {
-    return next.perPlayer === undefined
-      ? "One set for everyone."
-      : "Each player's set gets its own tray or compartment.";
   }
   return (
     sleeveNote(prev, next) ??

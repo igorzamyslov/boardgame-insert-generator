@@ -1,6 +1,13 @@
 // src/app/store.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyPrinter, renameProject, updateBox } from "./actions";
+import {
+  addGroup,
+  applyPrinter,
+  renameGroup,
+  renameProject,
+  setGroupCopies,
+  updateBox,
+} from "./actions";
 import { inputsHash } from "../model/hash";
 import type { Lock } from "../model/types";
 import { STORAGE_PREFIX, createPrefsStore, createProjectStore } from "../share";
@@ -61,6 +68,67 @@ describe("app store", () => {
     store.start(encodeHash(withoutLayout(fixtureProject()), EMPTY_FOREIGN));
     await flush();
     expect(stub.calls).toHaveLength(1);
+  });
+
+  it("never merges a field edit into the structural step just before it (a group's rename is its own step)", () => {
+    const { store } = setup();
+    const p = fixtureProject();
+    store.start(encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN));
+    store.edit((q) => renameProject(q, "A second name"));
+    let groupId = "";
+    store.edit((q) => {
+      const added = addGroup(q);
+      groupId = added.groupId;
+      return added.project;
+    });
+    // typed within the same second, and again a moment later: the first is its own step, the second joins it
+    store.edit((q) => renameGroup(q, groupId, "Player kit"));
+    store.edit((q) => renameGroup(q, groupId, "Player kits"));
+    expect(store.state.project.value.groups?.[0]?.name).toBe("Player kits");
+    store.undo();
+    // the rename (typed in one go) is gone; the group the step before it made is still there
+    expect(store.state.project.value.groups?.[0]?.name).toBe("Group");
+    store.undo();
+    expect(store.state.project.value.groups ?? []).toHaveLength(0);
+    expect(store.state.project.value.name).toBe("A second name");
+  });
+
+  it("lowering a group's copies drops the vanished copies' pins in one step, and Undo brings them back", () => {
+    const { store } = setup();
+    const base = fixtureProject();
+    const [first, second] = base.components;
+    const keep: Lock = { kind: "position", trayKey: "kit:p0:0", path: "0", rotated: false };
+    const gone: Lock = { kind: "position", trayKey: "kit:p3:0", path: "0", rotated: false };
+    const p = {
+      ...base,
+      groups: [
+        {
+          id: "kit",
+          name: "Player kit",
+          copies: 4,
+          access: "often" as const,
+          memberIds: [first?.id ?? "", second?.id ?? ""],
+        },
+      ],
+      locks: [keep, gone],
+    };
+    store.start(encodeHash({ ...p, layout: makeLayout(inputsHash(p)) }, EMPTY_FOREIGN));
+    expect(store.state.project.value.locks).toEqual([keep, gone]);
+    let notes: string[] = [];
+    store.edit((q) => {
+      const r = setGroupCopies(q, "kit", 2);
+      notes = r.notes;
+      return r.project;
+    });
+    expect(notes).toEqual(["1 pin removed"]);
+    expect(store.state.project.value.groups?.[0]?.copies).toBe(2);
+    expect(store.state.project.value.locks).toEqual([keep]);
+    // one undo step: the copies and the pin that went with them come back together
+    store.undo();
+    expect(store.state.project.value.groups?.[0]?.copies).toBe(4);
+    expect(store.state.project.value.locks).toEqual([keep, gone]);
+    store.redo();
+    expect(store.state.project.value.locks).toEqual([keep]);
   });
 
   it("renaming saves but does not re-optimize", async () => {
@@ -365,6 +433,35 @@ describe("app store", () => {
       await flush();
       expect(s.store.state.lockConflicts.value).toEqual([sizeConflict]);
       s.store.unpin("c:p0:0", "size");
+      expect(s.store.state.project.value.locks).toEqual([both[0]]);
+      expect(s.store.state.lockConflicts.value).toEqual([]);
+    });
+
+    it("removes a turn that conflicts with the pin on its tray, and keeps the pin", async () => {
+      const s = setup();
+      const both: Lock[] = [
+        { kind: "position", trayKey: "c:p0:0", path: "1", rotated: false },
+        { kind: "turn", trayKey: "c:p0:0", rotated: true },
+      ];
+      const withBoth = { ...fixtureProject(), locks: both };
+      s.store.start(
+        encodeHash({ ...withBoth, layout: makeLayout(inputsHash(withBoth)) }, EMPTY_FOREIGN),
+      );
+      s.store.refit();
+      await flush();
+      const turnConflict = {
+        trayKey: "c:p0:0",
+        kind: "turn" as const,
+        name: "Deck C",
+        reason: "it conflicts with the pin on the same tray",
+      };
+      const call = s.stub.calls[0];
+      call?.resolve(
+        makeResult(makeLayout(call.input.inputsHash), { lockConflicts: [turnConflict] }),
+      );
+      await flush();
+      expect(s.store.state.lockConflicts.value).toEqual([turnConflict]);
+      s.store.unpin("c:p0:0", "turn");
       expect(s.store.state.project.value.locks).toEqual([both[0]]);
       expect(s.store.state.lockConflicts.value).toEqual([]);
     });

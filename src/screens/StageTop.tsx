@@ -113,7 +113,17 @@ const LAST_GOOD = "The plan shown is the last good one, from before your latest 
 const conflictSentence = (c: LockConflict): string =>
   c.kind === "size"
     ? `${c.name} doesn't fit with its size locked`
-    : `${c.name} doesn't fit with your pins`;
+    : c.kind === "turn"
+      ? `${c.name} doesn't fit the way it is turned`
+      : `${c.name} doesn't fit with your pins`;
+
+/** What the action of a conflict says it does: a size lock is unlocked, a turn let go, a pin unpinned. */
+const conflictAction = (c: LockConflict): string =>
+  c.kind === "size"
+    ? `Unlock size of ${c.name}`
+    : c.kind === "turn"
+      ? `Let ${c.name} turn`
+      : `Unpin ${c.name}`;
 
 /**
  * "The closest plan is 17.2 mm too tall." (a figure for each axis that is short, the largest first,
@@ -232,7 +242,7 @@ export function statusOf(s: StatusInput): Status {
       actions: s.conflicts.map((c) => ({
         kind: "unpin",
         conflict: c,
-        label: c.kind === "size" ? `Unlock size of ${c.name}` : `Unpin ${c.name}`,
+        label: conflictAction(c),
       })),
     };
   }
@@ -254,7 +264,14 @@ export function statusOf(s: StatusInput): Status {
       actions: [
         ...(misfit === null
           ? []
-          : [{ kind: "show", id: misfit.componentId, label: `Edit ${misfit.name}` } as const]),
+          : [
+              {
+                kind: "show",
+                // a group's tray opens the group's editor, called by the group ("Edit Player kit")
+                id: misfit.groupId ?? misfit.componentId,
+                label: `Edit ${misfit.groupName ?? misfit.name}`,
+              } as const,
+            ]),
         ...keep,
       ],
     };

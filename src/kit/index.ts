@@ -16,7 +16,7 @@ export {
   type IconButtonVariant,
 } from "./IconButton";
 export { IconTile, type IconTileProps, type IconTileSize } from "./IconTile";
-export { Icon, KindGlyph, type IconName, type IconProps } from "./icons";
+export { GripIcon, GroupGlyph, Icon, KindGlyph, type IconName, type IconProps } from "./icons";
 export { KindTile, type KindTileProps } from "./KindTile";
 export { ListRow, type ListRowProps } from "./ListRow";
 export {

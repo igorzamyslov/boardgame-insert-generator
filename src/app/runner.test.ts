@@ -125,6 +125,29 @@ describe("runner", () => {
     expect(guarded.state.runPending.value).toBe(false);
   });
 
+  it("plans a project whose group lists a component this app doesn't read (foreign)", async () => {
+    const p = fixtureProject();
+    const first = p.components[0]?.id ?? "";
+    const withForeign: Project = {
+      ...p,
+      groups: [{ id: "kit", name: "Kit", access: "often", memberIds: [first, "dial0001"] }],
+    };
+    const foreign = { components: [{ index: 9, raw: { id: "dial0001", kind: "dial" } }] };
+    // Without the foreign data the member is a dangling id: no plan.
+    expect(canOptimize(withForeign)).toBe(false);
+    expect(canOptimize(withForeign, undefined, foreign)).toBe(true);
+    const state = createState(withForeign, foreign);
+    const stub = stubLayoutClient();
+    const runner = createRunner(
+      state,
+      { loadLayoutClient: () => Promise.resolve(stub.client), confirm: vi.fn(() => true) },
+      { onAccepted: vi.fn() },
+    );
+    void runner.runNow("edit", "user");
+    await flush();
+    expect(stub.calls).toHaveLength(1);
+  });
+
   it("accepts a finished run and keeps the previous layout for undo", async () => {
     const p = fixtureProject();
     const old = makeLayout(inputsHash(p));

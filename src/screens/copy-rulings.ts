@@ -30,11 +30,45 @@ const SUMMARY = "A row's line under the name is short";
 const CHIPS = "The rail's rule chips are one per rule";
 const CLEAR = "Clear all my choices lifts every pin";
 const NOTE = "The rules note says what stays";
+// 0.7.0 Task 13: Turned, the rules note's turn sentence and Between decks
+const TURNED = "A tray turned and not pinned says";
+const TURNS_NOTE = "The rules note names the turns";
+const BETWEEN = "Between decks is a row under Cards stand";
+/** The states that draw a turned tray's chip: the rail of the desktop and the phone's sheet. */
+const TURNED_STATES = ["workspace-turned", "m-turned"] as const;
+/** The Cards editor of an item with flat decks (copy.board.test.tsx has a case for each). */
+const FLAT_DECKS = ["editor-flat-decks", "editor-flat-decks-upright"] as const;
 const BOXCARD = "The rail's box card says its size on one line";
 const BED = "The rail's footer line shows the insert's printer";
 const ADDING = ["workspace-add", "m-workspace-add"] as const;
+// 0.7.0 Task 9: a group's card in the rail and Add → Group. The states are the kit cases of copy.board.test.tsx.
+const KIT_RAIL = ["kit-rail", "kit-add", "kit-picker", "kit-drag"] as const;
+const GROUP_TILE = "Add's picker has a sixth tile";
+const GROUP_COUNTS = "A group's card in the rail says its counts";
+// 0.7.0 Task 10: a group's tray bar and the stage sentence of a split copy
+const GROUP_BAR = "A group's tray bar says its size";
+const SPLIT = "A split copy's stage sentence adds";
+// 0.7.0 Task 11: the group editor (GroupEdit) and its Remove group… question and note
+const GROUP_REMOVE = "Remove group… asks in place";
+const GROUP_REMOVED = "A group's removal is one note";
+const GROUP_ORDER = "The order of a group's items is set with";
+/** What a removal's lock notes can say, as sentences: pins, a size lock, or both (the actions' own words). */
+const GROUP_LOCK_NOTES: readonly string[] = (() => {
+  const pins = ["1 pin removed.", "{n} pins removed."];
+  const sizes = ["Size unlocked on 1 tray.", "Size unlocked on {n} trays."];
+  return [...pins, ...sizes, ...pins.flatMap((p) => sizes.map((z) => `${p} ${z}`))];
+})();
+/** The group editor's states (copy.board.test.tsx has a case for each; `kit-removed` is the copy test's own). */
+const GROUP_EDITS = [
+  "kit-edit",
+  "kit-remove",
+  "kit-removed",
+  "kit-split-edit",
+  "m-kit-edit",
+] as const;
 /** The rail's states and the phone sheet's (copy.board.test.tsx has a case for each). */
 const RAIL = [
+  ...KIT_RAIL,
   "workspace",
   "workspace-rules",
   "workspace-add",
@@ -42,9 +76,12 @@ const RAIL = [
   "no-fit",
   "no-fit-bed",
   "pin-conflict",
+  "workspace-turned",
+  ...FLAT_DECKS,
 ] as const;
 const SHEET = [
   "m-workspace",
+  "m-turned",
   "m-workspace-add",
   "m-workspace-rules",
   "m-fix",
@@ -84,7 +121,13 @@ const MORE = "More holds Swap with… and Lock size";
 const NO_ACTIONS = "Spacers, spare trays and risers show no actions";
 const PIN_WORDS = "Pin and Turn say what they hold";
 const TRAY_SHEET = "A phone's tray bar is a modal sheet";
-const BAR_STATES = ["workspace-tray", "workspace-tray-more", "workspace-tray-spacer"] as const;
+// 0.7.0 Task 10: "kit-rail" has the bar of a group's tray selected (G1), the same buttons and words.
+const BAR_STATES = [
+  "workspace-tray",
+  "workspace-tray-more",
+  "workspace-tray-spacer",
+  "kit-rail",
+] as const;
 const SHEET_STATES = ["m-tray", "m-tray-more", "m-tray-market", "m-tray-spacer"] as const;
 /** Every stage-top case that has a plan under it, so a Layer switch. */
 const SWITCHED = [
@@ -115,9 +158,33 @@ const EDITS = [
   "editor-custom-more",
   "editor-minis",
   "editor-minis-more",
+  ...FLAT_DECKS,
 ] as const;
 const PHONE_EDITS = ["m-edit", "m-edit-more"] as const;
-const EDITING = [...EDITS, ...PHONE_EDITS] as const;
+// 0.7.0 Task 12: an item's editor in a group's terms (a member's, the Move to group… panel, what moving
+// and taking out say). The states are the member cases of copy.board.test.tsx.
+const KIT_ITEM_EDITS = [
+  "kit-member",
+  "kit-move-panel",
+  "kit-member-moved",
+  "kit-member-out",
+  "m-kit-member",
+] as const;
+const EDITING = [...EDITS, ...PHONE_EDITS, ...KIT_ITEM_EDITS] as const;
+/** The states that draw the rows under More options with their contents open (the rows Task 12 adds or renames). */
+const OPENED_ROWS = [
+  "editor-more",
+  "editor-more-changed",
+  "editor-tokens-more",
+  "editor-tiles-more",
+  "editor-custom-more",
+  "editor-minis-more",
+  "m-edit-more",
+  "kit-member",
+  "kit-move-panel",
+  "kit-member-moved",
+  ...FLAT_DECKS,
+] as const;
 const EDITOR_OPTIONS = "The editors name every option the engine has";
 const EDITOR_SIZES = "Card sizes are the engine's presets";
 const EDITOR_SUMMARY = "More options says what is inside it";
@@ -127,7 +194,13 @@ const EDITOR_MAX = "A growth choice on Max says what Max means";
 const RESIZE = "The rail's handle is named";
 const EDITOR_REMOVE = "Removing asks in place, and the removal is a note in the slot";
 const EDITOR_CHANGED = "More options marks what differs from its default";
-const EDITOR_ROOM = "Extra room shows the insert's number and lets the item change it";
+const EDITOR_ROOM = "Room around the pieces shows the insert's number and lets the item change it";
+const ITEM_COPIES = "An item's Copies and Group row replace Per player and the Group box";
+const ITEM_MOVES = "Moving an item into or out of a group says what happens to its copies";
+// 0.7.0 Task 14: a drop in the rail
+const DROP = "A drop in the rail says what it did";
+// 0.7.0 Task 15 fix round 1: an empty group on the phone
+const EMPTY_PHONE = "An empty group on the phone says";
 const EDITOR_NAME = "The phone editor has a Name field";
 const EDITOR_BLOCKED = "A blocked option stays on screen and says why";
 const EDITOR_WORDS = "The Words table beats MobileEdit's second way to store figures";
@@ -203,12 +276,7 @@ const EDITOR_LABELS: readonly string[] = [
   "Deck",
   "Deck name",
   "+ Another deck",
-  "Per player",
-  "Counts are per player",
-  "Not available for grouped items.",
-  "Players",
   "Group",
-  "Extra room",
   "Other sizes",
   "Don't know the size of {name}? Give a volume instead",
 ];
@@ -384,6 +452,7 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Add", states: SHEET, ruling: PICKER },
   { text: "Pinned", states: ["m-workspace-rules", "m-pin-conflict"], ruling: CHIPS },
   { text: "Pinned, turned", states: RULED, ruling: CHIPS },
+  { text: "Turned", states: TURNED_STATES, ruling: TURNED },
   { text: "Size locked", states: RULED, ruling: CHIPS },
   // Main's "These stay as you set them when the plan updates." is in COPY_DENIED: it does not say what stays
   {
@@ -396,11 +465,38 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: RULED,
     ruling: NOTE,
   },
+  // a turn is its own rule: the note says what the plan keeps of it, after the pin sentence when there is one
+  {
+    text: "Turned trays keep their direction when the plan updates.",
+    states: TURNED_STATES,
+    ruling: TURNS_NOTE,
+  },
+  {
+    text: "Pinned trays stay where you put them when the plan updates. Turned trays keep their direction when the plan updates.",
+    states: TURNED_STATES,
+    ruling: TURNS_NOTE,
+  },
+  {
+    text: "Pinned and size-locked trays stay as you set them when the plan updates. Turned trays keep their direction when the plan updates.",
+    states: TURNED_STATES,
+    ruling: TURNS_NOTE,
+  },
+  // Main and MobileWorkspace draw five tiles; GroupAdd's sixth is the app's in every picker
+  { text: "Group", states: ADDING, ruling: GROUP_TILE },
+  // GroupRail draws "3 items · 4 trays" as one string; the app counts, and says one in the singular
+  { text: "{n} items", states: KIT_RAIL, ruling: GROUP_COUNTS },
+  { text: "1 item", states: KIT_RAIL, ruling: GROUP_COUNTS },
+  { text: "{n} trays", states: KIT_RAIL, ruling: GROUP_COUNTS },
+  { text: "1 tray", states: KIT_RAIL, ruling: GROUP_COUNTS },
   // the box card's unit is its own, smaller element: "285 × 285 × 70" and "mm"
   { text: "mm", states: RAIL, ruling: BOXCARD },
   // Main's footer says "Printer bed 256 × 256 mm", which wraps beside Settings in the 300 px rail
   { text: "Bed {n} × {n} mm", states: RAIL, ruling: BED },
-  { text: "Clear all my choices", states: ["m-workspace-rules", "m-pin-conflict"], ruling: CLEAR },
+  {
+    text: "Clear all my choices",
+    states: ["m-workspace-rules", "m-pin-conflict", "m-turned"],
+    ruling: CLEAR,
+  },
   { text: "bottom layer", states: RAIL, ruling: SUMMARY },
   { text: "top layer", states: RAIL, ruling: SUMMARY },
   { text: "layer {n}", states: RAIL, ruling: SUMMARY },
@@ -481,6 +577,11 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
       "editor-more",
       "editor-note",
       "editor-removed",
+      "kit-edit",
+      "kit-removed",
+      "kit-split-edit",
+      "kit-member",
+      "kit-drag",
     ],
     ruling: CAPTION,
   },
@@ -566,6 +667,13 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     "Dividers take the place of spacer plates.",
   ].map((text) => ({ text, states: EDITING, ruling: EDITOR_BLOCKED })),
   // the engine's presets, as the chips and the size line say them
+  // Between decks, and the reasons its blocked rows give (the stand and the dividers of a flat deck)
+  // the deck list's label over each deck's stepper (the decks list is in the basics from the second deck on)
+  { text: "How many", states: FLAT_DECKS, ruling: "Decks live in the basics" },
+  { text: "Between decks", states: FLAT_DECKS, ruling: BETWEEN },
+  { text: "Fixed walls", states: FLAT_DECKS, ruling: BETWEEN },
+  { text: "Only flat decks can share one well.", states: FLAT_DECKS, ruling: BETWEEN },
+  { text: "For flat decks, see Between decks.", states: FLAT_DECKS, ruling: BETWEEN },
   { text: "Standard American", states: EDITING, ruling: EDITOR_SIZES },
   { text: "Euro", states: EDITING, ruling: EDITOR_SIZES },
   { text: "Mini Euro", states: EDITING, ruling: EDITOR_SIZES },
@@ -588,7 +696,42 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: EDITING,
     ruling: EDITOR_ROOM,
   },
-  { text: "Name", states: PHONE_EDITS, ruling: EDITOR_NAME },
+  { text: "Name", states: [...PHONE_EDITS, "m-kit-edit", "m-kit-member"], ruling: EDITOR_NAME },
+  // 0.7.0 Task 12 (spec §7.3, §7.5, §8): Copies replaces Per player; the Group row replaces the Group box
+  { text: "Copies", states: OPENED_ROWS, ruling: ITEM_COPIES },
+  { text: "Each copy is its own tray.", states: OPENED_ROWS, ruling: ITEM_COPIES },
+  { text: "Move to group…", states: OPENED_ROWS, ruling: ITEM_COPIES },
+  { text: "New group", states: ["kit-move-panel"], ruling: ITEM_COPIES },
+  { text: "×{n}", states: ["kit-move-panel"], ruling: ITEM_COPIES },
+  { text: "In {name}", states: [...KIT_ITEM_EDITS], ruling: ITEM_COPIES },
+  { text: "Edit {name}", states: [...KIT_ITEM_EDITS], ruling: ITEM_COPIES },
+  { text: "Take out of group", states: ["kit-member", "kit-member-moved"], ruling: ITEM_COPIES },
+  {
+    text: "Copies and how often you reach for it are set on {name}.",
+    states: ["kit-member", "kit-member-moved", "m-kit-member"],
+    ruling: ITEM_COPIES,
+  },
+  { text: "Room around the pieces", states: OPENED_ROWS, ruling: EDITOR_ROOM },
+  {
+    text: "{name} now has the group's {n} copies.",
+    states: ["kit-member-moved", "kit-drag"],
+    ruling: ITEM_MOVES,
+  },
+  {
+    text: "{name} now has the group's single copy.",
+    states: ["kit-member-moved", "kit-drag"],
+    ruling: ITEM_MOVES,
+  },
+  { text: "{name} is out of {name}.", states: ["kit-member-out", "kit-drag"], ruling: ITEM_MOVES },
+  // a drop in the rail (the live region says the first, the toast the notes and the button)
+  { text: "{name} moved to {name}.", states: ["kit-drag"], ruling: DROP },
+  { text: "Undo move", states: ["kit-drag"], ruling: DROP },
+  // an empty group on the phone: no drag there, so the card and the group editor offer only Move to group…
+  {
+    text: "Use Move to group… in an item.",
+    states: ["m-workspace", "m-kit-edit"],
+    ruling: EMPTY_PHONE,
+  },
   // the stage sentence: Edit's, for the kinds and the counts it does not draw
   {
     text: "tray, {name} × {name} mm.",
@@ -600,7 +743,20 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: ["workspace-failed", "no-fit", "pin-conflict"],
     ruling: EDITOR_SENTENCE,
   },
-  { text: ", {n} trays.", states: [...EDITS, ...PHONE_EDITS], ruling: EDITOR_SENTENCE },
+  {
+    text: ", {n} trays.",
+    states: [...EDITS, ...PHONE_EDITS, ...KIT_ITEM_EDITS],
+    ruling: EDITOR_SENTENCE,
+  },
+  // GroupRail draws "5 compartments" in the tray bar's line (the app says one in the singular)
+  { text: "{n} compartments", states: ["kit-rail"], ruling: GROUP_BAR },
+  { text: "1 compartment", states: ["kit-rail"], ruling: GROUP_BAR },
+  // a copy that had to split (spec §7.4, §8): the group's editor (Task 11) and the item's say it after the count
+  {
+    text: ", {n} trays. Too big for one tray, so it is split.",
+    states: ["kit-edit", "kit-split-edit"],
+    ruling: SPLIT,
+  },
   ...OPTION_NOTE_TEXTS.map((text) => ({
     text,
     states: ["editor-note", ...PHONE_EDITS] as readonly string[],
@@ -619,7 +775,50 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
   { text: "Cancel", states: EDITING, ruling: EDITOR_REMOVE },
   { text: "Removed “{name}”.", states: ["editor-removed"], ruling: EDITOR_REMOVE },
   { text: "Undo removal", states: ["editor-removed"], ruling: EDITOR_REMOVE },
-  { text: "Dismiss", states: ["editor-removed"], ruling: EDITOR_REMOVE },
+  { text: "Dismiss", states: ["editor-removed", "kit-removed"], ruling: EDITOR_REMOVE },
+  // Remove group… (spec §7.4, §8): GroupEdit draws the button alone; the app asks, and says what went
+  {
+    text: "Remove the group “{name}”? Its {n} items stay, with {n} copies each.",
+    states: GROUP_EDITS,
+    ruling: GROUP_REMOVE,
+  },
+  {
+    text: "Remove the group “{name}”? Its {n} items stay.",
+    states: GROUP_EDITS,
+    ruling: GROUP_REMOVE,
+  },
+  {
+    text: "Remove the group “{name}”? Its 1 item stays, with {n} copies.",
+    states: GROUP_EDITS,
+    ruling: GROUP_REMOVE,
+  },
+  {
+    text: "Remove the group “{name}”? Its 1 item stays.",
+    states: GROUP_EDITS,
+    ruling: GROUP_REMOVE,
+  },
+  { text: "Remove the group “{name}”?", states: GROUP_EDITS, ruling: GROUP_REMOVE },
+  { text: "Remove group", states: GROUP_EDITS, ruling: GROUP_REMOVE },
+  { text: "Cancel", states: GROUP_EDITS, ruling: GROUP_REMOVE },
+  {
+    text: "{name} removed. Its items are back in the list.",
+    states: ["kit-removed"],
+    ruling: GROUP_REMOVED,
+  },
+  // after it, what the group's trays' rules lost, each note a sentence (spec §8): pins, a size lock, or both
+  ...GROUP_LOCK_NOTES.map((notes) => ({
+    text: `{name} removed. Its items are back in the list. ${notes}`,
+    states: ["kit-removed"] as readonly string[],
+    ruling: GROUP_REMOVED,
+  })),
+  // the group editor's order buttons: their titles and what a move says aloud, by names (spec §7.9, §8)
+  ...[
+    "{name} is already first.",
+    "{name} is already last.",
+    "{name} is now after {name}.",
+    "{name} is now first.",
+  ].map((text) => ({ text, states: GROUP_EDITS, ruling: GROUP_ORDER })),
+  { text: "Undo removal", states: ["kit-removed"], ruling: GROUP_REMOVED },
   // the rail's handle (every screen with a rail, beside the stage)
   { text: "Resize the list", states: "all", ruling: RESIZE },
 ];

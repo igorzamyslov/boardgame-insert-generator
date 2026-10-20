@@ -1,6 +1,6 @@
 // src/ui/components/CardsEditor.test.tsx
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newComponent } from "../../model/defaults";
 import { CARD_PRESETS } from "../../model/presets";
@@ -368,36 +368,33 @@ describe("CardsEditor", () => {
       expect(last().thickness).toEqual({ mode: "measured", cards: 50, stackMm: 22 });
     });
 
-    it("counts per player, and says why a grouped one can't", () => {
+    it("has Copies: a stepper that sets the item's copies, and 1 is none", () => {
       const { last, view, onChange } = setup(cards());
       openRows();
-      fireEvent.click(screen.getByLabelText(/per player/));
-      expect(last().perPlayer).toEqual({ players: 4 });
-      view.rerender(
-        <CardsEditor component={cards({ groupId: "g" })} index={0} onChange={onChange} />,
+      fireEvent.click(
+        within(
+          screen.getByRole("textbox", { name: "Copies" }).closest(".k-stepper-box") as HTMLElement,
+        ).getByRole("button", { name: "More" }),
       );
-      // the box stays focusable, says why, and does nothing
-      const perPlayer = screen.getByLabelText(/per player/) as HTMLInputElement;
-      expect(perPlayer.disabled).toBe(false);
-      expect(perPlayer.getAttribute("aria-disabled")).toBe("true");
-      expect(
-        document.getElementById(perPlayer.getAttribute("aria-describedby") ?? "")?.textContent,
-      ).toContain("Not available for grouped items.");
-      onChange.mockClear();
-      fireEvent.click(perPlayer);
-      expect(onChange).not.toHaveBeenCalled();
-      expect(perPlayer.checked).toBe(false);
-      const group = screen.getByLabelText(/^Group/);
-      fireEvent.input(group, { target: { value: "" } });
-      fireEvent.blur(group);
-      expect("groupId" in last()).toBe(false);
+      expect(last().copies).toBe(2);
+      view.rerender(<CardsEditor component={cards({ copies: 4 })} index={0} onChange={onChange} />);
+      fireEvent.input(screen.getByRole("textbox", { name: "Copies" }), { target: { value: "3" } });
+      expect(last().copies).toBe(3);
+      fireEvent.input(screen.getByRole("textbox", { name: "Copies" }), { target: { value: "1" } });
+      expect("copies" in last()).toBe(false);
+    });
+
+    it("has no Group box: a group is made of items, not typed on one", () => {
+      setup(cards());
+      openRows();
+      expect(screen.queryByLabelText(/^Group/)).toBeNull();
     });
 
     it("shows the insert's extra room, and a different number gives the component its own", () => {
       const { last } = setup(cards());
       openRows();
       // the insert's card clearance, 1.5 mm at Fit 1, is in the box: nothing is set
-      const box = screen.getByLabelText(/^Extra room/) as HTMLInputElement;
+      const box = screen.getByLabelText(/^Room around the pieces/) as HTMLInputElement;
       expect(box.value).toBe("1.5");
       expect(
         screen.getByText("The insert's setting. Type another number to give this item its own."),
@@ -409,19 +406,10 @@ describe("CardsEditor", () => {
     it("sets nothing when the number typed is the insert's own", () => {
       const { last } = setup(cards({ clearance: 2 }));
       openRows();
-      fireEvent.input(screen.getByLabelText(/^Extra room/), { target: { value: "1,5" } });
+      fireEvent.input(screen.getByLabelText(/^Room around the pieces/), {
+        target: { value: "1,5" },
+      });
       expect("clearance" in last()).toBe(false);
-    });
-
-    it("trims the group name on blur without committing an unchanged value", () => {
-      const onChange = vi.fn();
-      render(<CardsEditor component={cards({ groupId: "g" })} index={0} onChange={onChange} />);
-      openRows();
-      const group = screen.getByLabelText(/^Group/) as HTMLInputElement;
-      fireEvent.input(group, { target: { value: "g " } });
-      fireEvent.blur(group);
-      expect(group.value).toBe("g");
-      expect(onChange).not.toHaveBeenCalled();
     });
 
     it("shows finger cuts on, no curved floor, and corner holes off", () => {
@@ -591,6 +579,23 @@ describe("CardsEditor", () => {
       fireEvent.click(row);
       expect(screen.queryByLabelText("Number of dividers")).toBeNull();
       expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("points a flat deck's blocked dividers at Between decks when it has decks to put between", () => {
+      const decks = [
+        { name: "A", count: 20 },
+        { name: "B", count: 20 },
+      ];
+      setup(cards({ storage: "flat", decks }));
+      openRows();
+      const chip = within(screen.getByRole("group", { name: "Tray shape" })).getByRole("button", {
+        name: "Removable dividers",
+      });
+      expect(chip.getAttribute("aria-disabled")).toBe("true");
+      expect(reasonOf(chip)).toBe("For flat decks, see Between decks.");
+      expect(screen.getByRole("button", { name: /^Dividers/ }).textContent).toContain(
+        "For flat decks, see Between decks.",
+      );
     });
 
     it("blocks the spacer plates and the dividers of a deck with no room to grow, with the reasons", () => {
@@ -764,5 +769,89 @@ describe("the thickness correction", () => {
       "From the sleeve table. Measure your stack if decks come out tight.",
     );
     expect(document.body.textContent).not.toMatch(/card stack clearance/);
+  });
+  describe("Between decks", () => {
+    const two = [
+      { name: "Starter", count: 20 },
+      { name: "Market", count: 20 },
+    ];
+    const between = (): HTMLElement => screen.getByRole("button", { name: /^Between decks/ });
+
+    /** The children of More options' panel, in order. */
+    const panel = (): Element[] => {
+      const more = screen.getByRole("button", { name: /^More options/ });
+      return [
+        ...(document.getElementById(more.getAttribute("aria-controls") ?? "")?.children ?? []),
+      ];
+    };
+    const rowOf = (): Element => between().closest(".ed-exact") as Element;
+
+    it("is a row directly under Cards stand once the item has two decks or more", () => {
+      setup(cards({ decks: two }));
+      openMore();
+      const at = panel().indexOf(rowOf());
+      expect(at).toBeGreaterThan(0);
+      expect(
+        panel()[at - 1]?.querySelector('[role="group"][aria-label="Cards stand"]'),
+      ).not.toBeNull();
+      expect(between().textContent).toContain("Fixed walls");
+    });
+
+    it("carries its value in a title, so a narrow rail that clips the meta still says it", () => {
+      setup(cards({ decks: two, storage: "flat", flatDecks: "dividers" }));
+      openMore();
+      expect(between().querySelector(".k-drow__metatext")?.getAttribute("title")).toBe(
+        "Removable dividers",
+      );
+    });
+
+    it("is absent with one deck", () => {
+      setup(cards());
+      openMore();
+      expect(screen.queryByRole("button", { name: /^Between decks/ })).toBeNull();
+    });
+
+    it("offers Fixed walls and Removable dividers, and writes flatDecks", () => {
+      const { last } = setup(cards({ decks: two, storage: "flat" }));
+      openRows();
+      expect(pressedIn("Between decks")).toBe("Fixed walls");
+      choose("Between decks", "Removable dividers");
+      expect(last().flatDecks).toBe("dividers");
+      choose("Between decks", "Fixed walls");
+      // walls is the default: it is stored as nothing
+      expect(last().flatDecks).toBeUndefined();
+    });
+
+    it("reads as set under Auto, and applies when Auto picks flat", () => {
+      setup(cards({ decks: two, storage: "auto", flatDecks: "dividers" }));
+      openMore();
+      expect(between().getAttribute("aria-disabled")).toBeNull();
+      expect(between().textContent).toContain("Removable dividers");
+    });
+
+    it("is blocked with upright storage, with its reason", () => {
+      const { onChange } = setup(cards({ decks: two, storage: "upright-long" }));
+      openMore();
+      expect(between().getAttribute("aria-disabled")).toBe("true");
+      expect(between().textContent).toContain("Only flat decks can share one well.");
+      fireEvent.click(between());
+      expect(screen.queryByRole("group", { name: "Between decks" })).toBeNull();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("keeps its place when the storage changes", () => {
+      const view = setup(cards({ decks: two, storage: "flat" }));
+      openMore();
+      const flat = panel().indexOf(rowOf());
+      expect(flat).toBeGreaterThan(0);
+      view.view.rerender(
+        <CardsEditor
+          component={cards({ decks: two, storage: "upright-short" })}
+          index={0}
+          onChange={view.onChange}
+        />,
+      );
+      expect(panel().indexOf(rowOf())).toBe(flat);
+    });
   });
 });
