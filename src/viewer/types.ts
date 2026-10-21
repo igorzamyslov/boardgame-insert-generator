@@ -1,7 +1,6 @@
 // src/viewer/types.ts
 import type { Mesh } from "../geometry/types";
 import type { TraySpec } from "../model/types";
-import type { ViewBasis } from "./axes";
 
 export interface SceneTray {
   spec: TraySpec;
@@ -27,11 +26,6 @@ export interface SceneHandle {
    */
   setLit(keys: readonly string[]): void;
   onPick(cb: (key: string | null) => void): void;
-  /**
-   * Reports the camera's orientation now and on every turn, for the axis indicator; `null` stops
-   * reporting. Orientation only: the indicator is drawn over the canvas, never in the scene.
-   */
-  onView(cb: ((view: ViewBasis) => void) | null): void;
   resize(width: number, height: number): void;
   dispose(): void;
 }

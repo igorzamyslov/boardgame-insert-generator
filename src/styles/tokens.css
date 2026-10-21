@@ -96,11 +96,6 @@
   --spacer-hatch: #ddd8cc;
   --spacer-dash: #6e695c;
 
-  /* The X, Y and Z of the 3D view's axis indicator, one hue each. */
-  --axis-x: #d03a3a;
-  --axis-y: #2a8a3e;
-  --axis-z: #3466d1;
-
   /* Paper: the packing guide's pictures are drawn for white paper, whatever the screen theme. */
   --paper-white: #ffffff;
 

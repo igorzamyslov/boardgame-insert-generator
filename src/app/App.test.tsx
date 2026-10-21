@@ -52,7 +52,6 @@ function stubSceneFactory(): SceneFactory {
     setSelected: vi.fn(),
     setLit: vi.fn(),
     onPick: vi.fn(),
-    onView: vi.fn(),
     resize: vi.fn(),
     dispose: vi.fn(),
   };

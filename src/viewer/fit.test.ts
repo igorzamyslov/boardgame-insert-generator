@@ -147,7 +147,8 @@ function project(p: Vec3, camera: Vec3, target: Vec3, aspect: number): [number, 
 describe("a long box fits the frame after any turn", () => {
   const target = outlineTarget(OUTLINE);
   // the plan's frame is the box's W:L (400:285); the phone's and a narrow stage's are others
-  const FRAMES = [400 / 285, 1, 0.6, 2.5];
+  // (a tall, narrow frame, 101 over 195 as the Star Realms box's, is among them)
+  const FRAMES = [400 / 285, 1, 0.6, 2.5, 101 / 195];
 
   it.each(FRAMES)("in a frame of aspect %f, at every turn and every spread", (aspect) => {
     const all = parts(TRAYS);
@@ -167,8 +168,9 @@ describe("a long box fits the frame after any turn", () => {
           for (const p of points) {
             const [x, y, depth] = project(p, camera, target, aspect);
             expect(depth, "in front of the camera").toBeGreaterThan(0);
-            expect(Math.abs(x), `x at ${az}°/${el}° spread ${explode}`).toBeLessThanOrEqual(1);
-            expect(Math.abs(y), `y at ${az}°/${el}° spread ${explode}`).toBeLessThanOrEqual(1);
+            // inside the frame with a margin: at least a tenth of its half-size to the edge
+            expect(Math.abs(x), `x at ${az}°/${el}° spread ${explode}`).toBeLessThanOrEqual(0.9);
+            expect(Math.abs(y), `y at ${az}°/${el}° spread ${explode}`).toBeLessThanOrEqual(0.9);
           }
         }
       }

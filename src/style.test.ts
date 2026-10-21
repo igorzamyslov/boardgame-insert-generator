@@ -303,9 +303,6 @@ describe("tokens.css", () => {
       "--on-ochre",
       "--ochre-wash",
       "--tint-8",
-      "--axis-x",
-      "--axis-y",
-      "--axis-z",
       "--paper-white",
     ];
     expect(legacy.filter((name) => !light.has(name))).toEqual([]);
@@ -445,17 +442,9 @@ describe("style.css", () => {
     expect(ruleFor(".viewer-canvas")).not.toMatch(/background/);
   });
 
-  it("lets every pointer event through the axis indicator, so trays under it can still be picked", () => {
-    expect(ruleFor(".axis-gizmo")).toMatch(/pointer-events:\s*none/);
-    expect(ruleFor(".viewer-stage", plan)).toMatch(/position:\s*relative/);
-  });
-
-  it("keeps the axes toggle in the view's corner with a 44 px target", () => {
-    const body = ruleFor(".viewer-axes-toggle");
-    expect(body).toMatch(/position:\s*absolute/);
-    expect(body).toMatch(/min-width:\s*var\(--control-h\)/);
-    expect(body).toMatch(/min-height:\s*var\(--control-h\)/);
+  it("keeps the selected tray's name from catching the pointer, so trays under it can still be picked", () => {
     expect(ruleFor(".viewer-selection-live")).toMatch(/pointer-events:\s*none/);
+    expect(ruleFor(".viewer-stage", plan)).toMatch(/position:\s*relative/);
   });
 
   it("keeps the 3D controls out of the flow, over the foot of the frame, so the frame never shrinks", () => {
@@ -664,13 +653,14 @@ describe("breakpoints", () => {
     expect(wide).toEqual([]);
   });
 
-  it("are 760 (phone), 600 (full-screen dialogs) and the 760 to 960 tablet band, and nothing else", () => {
+  it("are 760 (phone), 600 (full-screen dialogs), the 760 to 960 tablet band and the page block's edge (1600), and nothing else", () => {
     const RULED = new Set([
       "(width < 760px)",
       "screen and (width < 760px)",
       "(width >= 760px)",
       "(width >= 760px) and (width <= 960px)",
       "(width < 600px)",
+      "(width > 1600px)", // wide windows: the page block's edge (--block-max, 0.9.0)
       "(prefers-reduced-motion: reduce)",
       "print",
     ]);

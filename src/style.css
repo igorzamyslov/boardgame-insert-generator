@@ -487,35 +487,10 @@ input[aria-invalid="true"] {
 
 /*
  * The 3D view is the plan's frame (plan.css: the same size, radius and ground) with the canvas in
- * it; the controls under it are `.viewer-under`. The corner controls sit over the canvas: the axes
- * toggle top right, the selected tray's name top left.
+ * it; the controls under it are `.viewer-under`. The selected tray's name sits over the canvas, top left.
  */
 .viewer {
   display: contents;
-}
-
-.viewer-axes-toggle {
-  position: absolute;
-  top: var(--s-8);
-  right: var(--s-8);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--control-h);
-  min-height: var(--control-h);
-  padding: 0;
-  border-radius: var(--r-pill);
-  background: var(--sheet);
-}
-
-.viewer-axes-toggle svg {
-  width: 24px;
-  height: 24px;
-}
-
-.viewer-axes-toggle[aria-pressed="true"] {
-  border-color: var(--ink);
-  box-shadow: inset 0 0 0 2px var(--ink);
 }
 
 .viewer-selection-live {
@@ -523,7 +498,7 @@ input[aria-invalid="true"] {
   top: var(--s-8);
   left: var(--s-8);
   display: flex;
-  max-width: calc(100% - var(--control-h) - var(--s-8) * 3);
+  max-width: calc(100% - var(--s-8) * 2);
   pointer-events: none;
 }
 
@@ -538,49 +513,6 @@ input[aria-invalid="true"] {
   font: 600 var(--text-xs) var(--font-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.axis-gizmo {
-  position: absolute;
-  top: calc(var(--s-8) + 32px); /* under the selected tray's name */
-  left: var(--s-8);
-  width: 84px;
-  height: 84px;
-  pointer-events: none;
-  overflow: visible;
-  font: 700 12px/1 var(--font-ui);
-}
-
-.axis-gizmo [data-axis="x"] {
-  --axis: var(--axis-x);
-}
-
-.axis-gizmo [data-axis="y"] {
-  --axis: var(--axis-y);
-}
-
-.axis-gizmo [data-axis="z"] {
-  --axis: var(--axis-z);
-}
-
-.axis-gizmo line {
-  stroke: var(--axis);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-}
-
-.axis-gizmo circle {
-  fill: var(--axis);
-}
-
-/* A halo in the page colour keeps each letter readable over a tray of any tint. */
-.axis-gizmo text {
-  fill: var(--axis);
-  stroke: var(--sheet-sunken);
-  stroke-width: 3;
-  paint-order: stroke;
-  text-anchor: middle;
-  dominant-baseline: central;
 }
 
 /* The canvas fills the frame, whose size is the plan's (an explicit CSS size: no ResizeObserver feedback). */

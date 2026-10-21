@@ -72,7 +72,7 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    each with an x ("Unpin", "Unlock size"). The optimizer works around them and never drops one
    silently.
 6. **3D view.** The "3D" segment (beside "Top") shows the trays in the same frame as the plan (it
-   needs WebGL; the rest works without). One quiet row holds "Spread apart" and "Show axes", a small X, Y, Z indicator that turns with the model.
+   needs WebGL; the rest works without). One quiet row holds "Spread apart".
    The Layer switch above works here too: "All", or "Layer 2" to show layers 1 and 2, so you can peel the layers off the top. A
    tray chosen in the plan or the list is chosen in 3D too, and the other way round: the same bar,
    the same row, and the trays not chosen fade.

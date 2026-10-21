@@ -5,7 +5,7 @@
 // the same share of the fit.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeTray } from "../app/test-helpers";
-import { fitDistance, modelRadius, outlineTarget } from "./fit";
+import { fitDistance, modelCorners, modelRadius, ndcOf, outlineTarget } from "./fit";
 import type { FitPart } from "./fit";
 import type { BoxOutline } from "./types";
 
@@ -130,5 +130,59 @@ describe("the camera's refit", () => {
     setup();
     const controls = made.controls[0] as { enablePan: boolean };
     expect(controls.enablePan).toBe(false);
+  });
+});
+
+describe("a tall box in a tall, narrow frame stays inside it, turned any way", () => {
+  // the owner's box (101 x 195 x 37 mm) in a frame about as wide as the box is: 101 over 195
+  const TALL: BoxOutline = { min: [0, 0, 0], size: [101, 195, 37] };
+  const TALL_TRAYS = [
+    makeTray({ key: "a:p0:0", x: 0, y: 0, z: 0, w: 101, d: 95, h: 18, level: 0 }),
+    makeTray({ key: "b:p0:0", x: 0, y: 100, z: 0, w: 101, d: 95, h: 18, level: 0, stack: 1 }),
+    makeTray({ key: "c:p0:0", x: 0, y: 0, z: 18, w: 101, d: 195, h: 18, level: 1 }),
+  ];
+
+  it.each([0, 0.5, 1])("at every orbit angle, spread apart %f, with a margin", (spread) => {
+    vi.stubGlobal("requestAnimationFrame", () => 1);
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    const scene = createScene(document.createElement("canvas"));
+    scene.resize(260, 500);
+    scene.setBox(TALL);
+    scene.setTrays(TALL_TRAYS.map((spec) => ({ spec, mesh })));
+    scene.setExplode(spread);
+    const camera = made.cameras[0] as import("three").PerspectiveCamera;
+    const controls = made
+      .controls[0] as import("three/addons/controls/OrbitControls.js").OrbitControls;
+    const target = outlineTarget(TALL);
+    const dist = camera.position.distanceTo(controls.target);
+    const points = modelCorners(
+      TALL,
+      TALL_TRAYS.map((spec) => ({ spec, anchor: spec })),
+      spread,
+    );
+    let worst = 0;
+    for (let az = 0; az < 360; az += 20) {
+      for (let el = -88; el <= 88; el += 11) {
+        const a = (az * Math.PI) / 180;
+        const e = (el * Math.PI) / 180;
+        camera.position.set(
+          target[0] + dist * Math.cos(e) * Math.sin(a),
+          target[1] - dist * Math.cos(e) * Math.cos(a),
+          target[2] + dist * Math.sin(e),
+        );
+        controls.update();
+        camera.updateMatrixWorld();
+        for (const p of points) {
+          const [x, y] = ndcOf(
+            camera.matrixWorldInverse.elements,
+            camera.projectionMatrix.elements,
+            p,
+          );
+          worst = Math.max(worst, Math.abs(x), Math.abs(y));
+        }
+      }
+    }
+    // inside the frame, with a margin of at least a tenth of its half-size on every side
+    expect(worst).toBeLessThanOrEqual(0.9);
   });
 });
