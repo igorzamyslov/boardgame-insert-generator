@@ -6,6 +6,7 @@ import { evaluate } from "./fill";
 import { greedyTree, partitionTrees } from "./greedy";
 import {
   applyLocks,
+  brokenLocks,
   conflictOf,
   dedupeConflicts,
   moveEnvOf,
@@ -223,24 +224,25 @@ export function createRun(
           conflictOf(lock, "the pins together leave no layout that fits", trayNamer(phase.ctx)),
         );
       }
-    } else if (phase?.startIgnoredLocks) {
-      // The search began from a tree without the pins (no free place was left for the other
-      // trays), so the layout it found need not keep them.
-      for (const lock of phase.resolved.kept) {
-        lockConflicts.push(
-          conflictOf(
-            lock,
-            "the pins leave no free place for the other trays",
-            trayNamer(phase.ctx),
-          ),
-        );
-      }
     }
     const best = phase?.annealer.bestFeasible;
     const capped = stop !== null;
     if (phase !== undefined && best) {
       notices.push(...bedNotices(phase.ctx));
       const trays = materialize(phase.ctx, best.plan, opts.realize);
+      if (phase.startIgnoredLocks) {
+        // The search began from a tree without the pins (no free place was left for the other
+        // trays): report the kept pins the layout it found breaks, and only those.
+        for (const lock of brokenLocks(phase.resolved.kept, trays)) {
+          lockConflicts.push(
+            conflictOf(
+              lock,
+              "the pins leave no free place for the other trays",
+              trayNamer(phase.ctx),
+            ),
+          );
+        }
+      }
       const summary = summarize(trays, input);
       notices.push(...layoutWarnings(phase.ctx, trays, summary));
       if (stop) {

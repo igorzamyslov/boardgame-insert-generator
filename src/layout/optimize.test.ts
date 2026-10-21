@@ -662,15 +662,20 @@ describe("pins no start tree can take", () => {
     { kind: "position" as const, trayKey: "q:p0:0", path: "1", rotated: false },
   ];
 
-  it("never drops a pin silently: reports it, or keeps the tray at its path", () => {
+  it("reports the pins the layout breaks, and only those", () => {
     const inp = makeInput(reqs3, { box, locks });
     const r = optimize(inp, 1, 1000);
     expect(r.layout).not.toBeNull();
-    const conflicted = new Set(r.lockConflicts.map((c) => c.trayKey));
-    for (const l of locks) {
-      const t = r.layout?.trays.find((x) => x.key === l.trayKey);
-      const honoured = t?.path === l.path && t.rotated === l.rotated;
-      expect(honoured || conflicted.has(l.trayKey)).toBe(true);
-    }
+    const at = (key: string) => r.layout?.trays.find((t) => t.key === key)?.path;
+    // the search started without the pins and kept p at its path, but moved q
+    expect(at("p:p0:0")).toBe("0");
+    expect(at("q:p0:0")).not.toBe("1");
+    expect(r.lockConflicts).toEqual([
+      expect.objectContaining({
+        trayKey: "q:p0:0",
+        kind: "position",
+        reason: "the pins leave no free place for the other trays",
+      }),
+    ]);
   });
 });

@@ -100,6 +100,37 @@ export function noLocks(ctx: Ctx): ResolvedLocks {
   };
 }
 
+/**
+ * The locks the trays break: a position lock whose tray is off its path or rotation, a size
+ * lock whose tray has another size, a turn lock whose tray is turned the other way, a stack
+ * lock whose trays are not together in its order. A missing tray breaks its lock.
+ */
+export function brokenLocks(locks: readonly Lock[], trays: readonly TraySpec[]): Lock[] {
+  const real = trays.filter((t) => t.part === "tray");
+  const find = (key: string): TraySpec | undefined => real.find((t) => t.key === key);
+  return locks.filter((lock) => {
+    if (lock.kind === "stack") {
+      const ts = lock.trayKeys.map(find);
+      const first = ts[0];
+      return !(
+        first !== undefined &&
+        ts.every((t, i) => t !== undefined && t.path === first.path && t.level === first.level + i)
+      );
+    }
+    const t = find(lock.trayKey);
+    if (t === undefined) {
+      return true;
+    }
+    if (lock.kind === "position") {
+      return t.path !== lock.path || t.rotated !== lock.rotated;
+    }
+    if (lock.kind === "size") {
+      return toU(t.w) !== toU(lock.w) || toU(t.d) !== toU(lock.d) || toU(t.h) !== toU(lock.h);
+    }
+    return t.rotated !== lock.rotated;
+  });
+}
+
 /** A guillotine path (a string of 0/1 digits) no longer than MAX_DEPTH: locks, stored layouts. */
 export function isValidPath(path: string): boolean {
   return /^[01]*$/.test(path) && path.length <= MAX_DEPTH;
