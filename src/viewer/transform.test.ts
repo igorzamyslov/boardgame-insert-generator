@@ -5,6 +5,9 @@ import { makeTray } from "../app/test-helpers";
 import { DEFAULT_BOX } from "../model/defaults";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import {
+  EDITED_EMISSIVE,
+  EDITED_FADE,
+  EDITED_OPACITY,
   EXPLODE_MM,
   FADE_BLEND,
   LIT_EMISSIVE,
@@ -14,6 +17,7 @@ import {
   emissiveOf,
   fadeOf,
   isVisible,
+  opacityOf,
   trayPosition,
 } from "./transform";
 
@@ -182,5 +186,31 @@ describe("viewer transforms", () => {
 
   it("fades toward the page's own colour", () => {
     expect(tokens).toContain(`--page: ${PAGE_HEX};`);
+  });
+  describe("while an item is edited (the editor's 3D view)", () => {
+    const lit = new Set(["a", "b"]);
+    const none = new Set<string>();
+    /** How far a colour is from the page's, as a share of the way from its own colour (0 to 1). */
+    const shownBlend = (fade: number, opacity: number): number => fade + (1 - fade) * (1 - opacity);
+
+    it("glows the edited trays more than a rail row's hover does, and still less than white", () => {
+      expect(emissiveOf("a", null, lit, true)).toBe(EDITED_EMISSIVE);
+      expect(EDITED_EMISSIVE).toBeGreaterThan(LIT_EMISSIVE);
+      expect(emissiveOf("z", null, lit, true)).toBe(0);
+      expect(emissiveOf("a", null, lit)).toBe(LIT_EMISSIVE);
+    });
+
+    it("fades the others more than the plan dims a tile, and lets the edited ones show through them", () => {
+      expect(fadeOf("z", null, lit, true)).toBe(EDITED_FADE);
+      expect(fadeOf("a", null, lit, true)).toBe(0);
+      expect(opacityOf("z", null, lit, true)).toBe(EDITED_OPACITY);
+      expect(opacityOf("a", null, lit, true)).toBe(1);
+      // a tray that is not faded is opaque, edited or not
+      expect(opacityOf("z", null, none, true)).toBe(1);
+      expect(opacityOf("z", null, lit)).toBe(1);
+      // the plan's dimmed tile shows the page through by 0.4; the editor's faded tray, well over half
+      expect(shownBlend(EDITED_FADE, EDITED_OPACITY)).toBeGreaterThanOrEqual(FADE_BLEND * 1.75);
+      expect(EDITED_OPACITY).toBeLessThan(0.7);
+    });
   });
 });

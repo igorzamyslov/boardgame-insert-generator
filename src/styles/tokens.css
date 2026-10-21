@@ -96,11 +96,6 @@
   --spacer-hatch: #ddd8cc;
   --spacer-dash: #6e695c;
 
-  /* The X, Y and Z of the 3D view's axis indicator, one hue each. */
-  --axis-x: #d03a3a;
-  --axis-y: #2a8a3e;
-  --axis-z: #3466d1;
-
   /* Paper: the packing guide's pictures are drawn for white paper, whatever the screen theme. */
   --paper-white: #ffffff;
 
@@ -163,17 +158,17 @@
   --rail-max: 480px;
   --stage-min: 360px; /* the least width the stage keeps beside the rail at any desktop width (the rail clamps to 100vw less this) */
   --plan-max: 900px; /* the plan's frame: its longer side at most this (the 3D view and the fit problems' picture are in the same frame) */
+  --block-max: 1600px; /* wide windows: the header's content, the rail and the stage are one centred block this wide, the page behind it (WideStage2); workspace.css's one media query repeats the number */
+  --stage-col: var(--plan-max); /* the stage's working column: the heading, the switches, the tray bar and the frame (the frame is never wider than --plan-max), centred; a narrower stage holds it all, edge to edge */
   --rail-pad: 20px;
   --scroll-gutter: 11px; /* what a thin scrollbar that takes room reserves (`scrollbar-gutter: stable`); the rail's padding on that side is cut by it, so bar and padding stay near --rail-pad */
   --stage-pad: 22px 36px 28px; /* the workspace */
-  --stage-pad-focus: 28px 40px; /* first visit, the editor, the box, fit problems */
+  --stage-pad-focus: 28px 40px; /* first visit, the box, fit problems (the editor shares the normal stage's padding) */
   --row-min: 52px; /* list rows, check rows */
   --kind-tile-h: 56px;
   --stage-slot: 52px;
   --stage-slot-bar: 62px; /* the workspace's slot over the plan is as tall as the tray bar (Main's board draws 85), so a tray chosen moves and resizes nothing */
   --status-icon: 40px;
-  --stage-layer-slot: 14rem; /* the status row's Layer slot: a two-layer switch */
-  --stage-action-slot: 9.5rem; /* and its action slot: Keep searching */
   --status-icon-phone: 32px;
   --menu-w: 260px;
   --dialog-max: 560px;

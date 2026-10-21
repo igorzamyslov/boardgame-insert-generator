@@ -98,11 +98,11 @@ describe("editor.css", () => {
 });
 
 describe("the editor's stage", () => {
-  it("sets the sentence as Edit does: 17 px, 400, in a 52 px slot", () => {
+  it("sets the sentence as Edit does: 17 px, 400, in a slot as tall as the status heading", () => {
     const sentence = ruleFor(".ed-sentence", stage);
     expect(sentence).toMatch(/font-size:\s*17px/);
     expect(sentence).toMatch(/font-weight:\s*400/);
-    expect(ruleFor(".ed-slot", stage)).toMatch(/min-height:\s*var\(--stage-slot\)/);
+    expect(ruleFor(".ed-slot", stage)).toMatch(/min-height:\s*calc\(var\(--h1\) \* 1\.2/);
   });
 
   it("draws a problem under the sentence as a tinted line: warn for a tray that does not fit, danger for a failed run", () => {
@@ -158,7 +158,7 @@ describe("the editor's stage", () => {
     expect(layers.filter((l) => /^\s*inset\b/.test(l))).toHaveLength(2);
   });
 
-  it("gives an editor 12 px above its back link, and the stage Edit's padding", () => {
+  it("gives an editor 12 px above its back link, and leaves its stage the normal stage's padding", () => {
     expect(ruleFor(".ws--edit .ws-rail", workspace)).toMatch(/padding-top:\s*var\(--s-12\)/);
     expect(ruleFor(".ws-stage--focus", workspace)).toMatch(/padding:\s*var\(--stage-pad-focus\)/);
   });

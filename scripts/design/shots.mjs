@@ -746,6 +746,90 @@ const PROBES = {
     return problems.map((p) => `probe settings-keys: ${p}`);
   },
   /**
+   * The edited item's trays in 3D (0.9.0 review): they stand out from the rest at once, with the
+   * model closed up. Reads `__shotsScene` (shots mode only): at least one tray glows (the item's own),
+   * each glowing tray keeps its own colour at full strength, and every other tray is faded well past
+   * the plan's dimmed tile (a blend of 0.4) and drawn through (opacity 0.5 at most), so a tray behind
+   * another still shows.
+   */
+  async "edit-3d-contrast"(page) {
+    if ((await page.locator("canvas.viewer-canvas").count()) === 0) {
+      return [];
+    }
+    const read = await page.evaluate(() =>
+      globalThis.__shotsScene
+        ? { emissive: globalThis.__shotsScene.emissive(), tints: globalThis.__shotsScene.tints() }
+        : null,
+    );
+    if (read === null) {
+      return [
+        "probe edit-3d-contrast: the scene's shots window (__shotsScene) is missing: is this a --mode shots build?",
+      ];
+    }
+    const rgb = (hex) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+    const problems = [];
+    const page_ = rgb(read.tints.page);
+    const litKeys = Object.keys(read.emissive).filter((k) => read.emissive[k] !== 0);
+    if (litKeys.length === 0) {
+      problems.push("no tray glows in the editor's 3D view");
+    }
+    for (const [key, t] of Object.entries(read.tints.trays)) {
+      if (litKeys.includes(key)) {
+        if (t.color !== t.base || t.opacity !== 1) {
+          problems.push(`the edited tray ${key} is not at full colour and opaque`);
+        }
+        continue;
+      }
+      const [b, c] = [rgb(t.base), rgb(t.color)];
+      // the share of the way from its own colour to the page's, on the channel that has most to go
+      const far = b.map((v, i) => Math.abs(page_[i] - v));
+      const i = far.indexOf(Math.max(...far));
+      const blend = far[i] < 20 ? 1 : (c[i] - b[i]) / (page_[i] - b[i]);
+      if (blend < 0.5 || t.opacity > 0.5) {
+        problems.push(
+          `${key} is faded by ${blend.toFixed(2)} at opacity ${t.opacity}: the rest must be at 0.5 or more and 0.5 or less`,
+        );
+      }
+    }
+    return problems.map((p) => `probe edit-3d-contrast: ${p}`);
+  },
+  /**
+   * The heading's room (0.9.0 review): with several actions beside it, the h1 keeps a width it can
+   * be read in and the actions stay inside the stage's column (they wrap under the heading).
+   */
+  async "heading-room"(page) {
+    const found = await page.evaluate(() => {
+      const status = document.querySelector('[data-region="status"]');
+      const h1 = status?.querySelector("h1");
+      const stage = document.querySelector('[data-region="stage"]');
+      if (!status || !h1 || !stage) {
+        return null;
+      }
+      const edge = stage.getBoundingClientRect().right;
+      return {
+        h1: h1.getBoundingClientRect().width,
+        buttons: status.querySelectorAll(".k-status__extra .k-btn").length,
+        past: [...status.querySelectorAll(".k-status__extra .k-btn")]
+          .filter((b) => b.getBoundingClientRect().right > edge + 1)
+          .map((b) => (b.textContent ?? "").trim()),
+      };
+    });
+    if (found === null) {
+      return ["probe heading-room: the status heading or the stage is missing"];
+    }
+    const problems = [];
+    if (found.buttons < 3) {
+      problems.push(`only ${found.buttons} action(s): the state is meant to have several`);
+    }
+    if (found.h1 < 200) {
+      problems.push(`the h1 is ${Math.round(found.h1)} px wide, it needs 200 at least`);
+    }
+    if (found.past.length > 0) {
+      problems.push(`the actions run past the stage's edge: ${found.past.join(", ")}`);
+    }
+    return problems.map((p) => (p.startsWith("probe") ? p : `probe heading-room: ${p}`));
+  },
+  /**
    * The 3D frame and camera (feedback on 0.5.0, point 10): a long box is not cut off by its frame,
    * however it is turned and however far apart it is spread. The page's camera is turned by
    * dragging the canvas, a turn at a time round and over the model, with the spread at rest and at
@@ -941,7 +1025,7 @@ const PROBES = {
     // 3. back to Top: the same tray is selected and the bar stays; then 3D again, where closing
     // the bar leaves nothing selected and nothing faded
     await page
-      .locator('[data-region="status"]')
+      .locator('[data-region="switches"]')
       .getByRole("button", { name: "Top", exact: true })
       .first()
       .click({ timeout: STEP_TIMEOUT });
@@ -957,7 +1041,7 @@ const PROBES = {
       problems.push(`the pressed rail rows in Top are ${JSON.stringify(rowsTop)}`);
     }
     await page
-      .locator('[data-region="status"]')
+      .locator('[data-region="switches"]')
       .getByRole("button", { name: "3D", exact: true })
       .click({ timeout: STEP_TIMEOUT });
     await page.waitForFunction(
@@ -1136,25 +1220,36 @@ const regionSource = (name) => REGIONS[name].board.toString();
 
 // Pairs that must not differ: Keep searching turning into Stop, and the View segment turning to 3D.
 // `sizeOnly`: a region that may slide but not change size (none now: the slot over the plan is as tall as the tray bar).
+// `widens`: a region that may change width about its middle (the 3D frame fills the working column, the
+// top view's box keeps the box's shape: 0.9.0); its top and height stay.
 const JUMP_PAIRS = [
   { pair: ["workspace", "workspace-searching"], sizeOnly: [] },
-  { pair: ["workspace", "workspace-3d"], sizeOnly: [] },
+  { pair: ["workspace", "workspace-3d"], sizeOnly: [], widens: ["plan-box"] },
   // a tray chosen, then the 3D view: the plan's frame is where the selected top view has it (Task 8, 0.6.0)
-  { pair: ["workspace-tray", "workspace-3d-selected"], sizeOnly: [] },
+  { pair: ["workspace-tray", "workspace-3d-selected"], sizeOnly: [], widens: ["plan-box"] },
   { pair: ["workspace", "workspace-tray"], sizeOnly: [] },
   // a swap chosen puts its prompt over the box, so the plan is where it was with the bar alone (Task 8)
   { pair: ["workspace", "workspace-swap"], sizeOnly: [] },
   { pair: ["workspace-tray", "workspace-swap"], sizeOnly: [] },
   // the same at 1920×1080, where the plan is at its 900 px cap
-  { pair: ["workspace-1920", "workspace-3d-1920"], sizeOnly: [] },
+  { pair: ["workspace-1920", "workspace-3d-1920"], sizeOnly: [], widens: ["plan-box"] },
   { pair: ["workspace-1920", "workspace-tray-1920"], sizeOnly: [] },
   // a narrow stage (820 px: the controls take two rows): the View switch stays put too
   { pair: ["workspace-820", "workspace-820-searching"], sizeOnly: [] },
-  { pair: ["workspace-820", "workspace-820-3d"], sizeOnly: [] },
+  { pair: ["workspace-820", "workspace-820-3d"], sizeOnly: [], widens: ["plan-box"] },
   // the band just above the two-row controls: 3D's "All" and three layers fit one row or scroll in their slot
-  { pair: ["workspace-940", "workspace-940-3d"], sizeOnly: [] },
+  { pair: ["workspace-940", "workspace-940-3d"], sizeOnly: [], widens: ["plan-box"] },
   { pair: ["workspace-940", "workspace-940-searching"], sizeOnly: [] },
-  { pair: ["workspace-960-long", "workspace-960-long-3d"], sizeOnly: [] },
+  { pair: ["workspace-960-long", "workspace-960-long-3d"], sizeOnly: [], widens: ["plan-box"] },
+  // 0.9.0: an item's editor opening on the same stage moves nothing of the stage (the sentence stands
+  // where the heading did, the empty band where the tray bar's slot is), in Top and in 3D, at both widths
+  { pair: ["star-1440-top", "star-1440-edit-top"], sizeOnly: [] },
+  { pair: ["star-1440-3d", "star-1440-edit-3d"], sizeOnly: [] },
+  { pair: ["star-2400-top", "star-2400-edit-top"], sizeOnly: [] },
+  { pair: ["star-2400-3d", "star-2400-edit-3d"], sizeOnly: [] },
+  // a landscape box (400 × 285 mm) in a tall window: the 3D frame is as tall as the top view's box, not the room (0.9.0 review)
+  { pair: ["workspace-wide-2400", "workspace-wide-2400-3d"], sizeOnly: [], widens: ["plan-box"] },
+  { pair: ["workspace-wide-1440", "workspace-3d-wide"], sizeOnly: [], widens: ["plan-box"] },
 ];
 const JUMP_STATES = [...new Set(JUMP_PAIRS.flatMap((j) => j.pair))];
 const jumpBoxes = new Map();
@@ -1548,16 +1643,17 @@ try {
       lines.push(`FAILED  ${name}: ${firstLine(e)}`);
     }
   }
-  for (const { pair, sizeOnly } of JUMP_PAIRS) {
+  for (const { pair, sizeOnly, widens = [] } of JUMP_PAIRS) {
     if (!pair.every((n) => jumpBoxes.has(n))) {
       continue;
     }
-    const problems = jumpProblems(...pair.map((n) => jumpBoxes.get(n)), { sizeOnly });
+    const problems = jumpProblems(...pair.map((n) => jumpBoxes.get(n)), { sizeOnly, widens });
     // a region found in neither state is not a failure: it only says the check had nothing to compare
     const hard = problems.filter((p) => !p.endsWith("(nothing compared)"));
     failed += hard.length > 0 ? 1 : 0;
     const slides =
-      sizeOnly.length > 0 ? ` (the ${sizeOnly.join(" and ")} may slide, not resize)` : "";
+      (sizeOnly.length > 0 ? ` (the ${sizeOnly.join(" and ")} may slide, not resize)` : "") +
+      (widens.length > 0 ? ` (the ${widens.join(" and ")} may widen about its middle)` : "");
     lines.push(
       hard.length > 0
         ? `FAILED  jump (${pair.join(" and ")}): ${hard.join("; ")}`

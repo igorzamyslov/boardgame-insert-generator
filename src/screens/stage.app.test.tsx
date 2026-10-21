@@ -336,7 +336,7 @@ describe("the plan's column, in the app", () => {
     const kids = [...plan().children].map((c) => c.getAttribute("class") ?? c.localName);
     expect(kids.slice(0, 2)).toEqual(["stage-slot", "viewer"]);
     expect(plan().querySelector(":scope > .viewer > .plan-fit")).not.toBeNull();
-    expect(plan().querySelector(".plan-fit > .viewer-stage .viewer-axes-toggle")).not.toBeNull();
+    expect(plan().querySelector(".plan-fit > .viewer-stage canvas.viewer-canvas")).not.toBeNull();
     expect(screen.getByText("Tap a tray for details.")).toBeTruthy();
   });
 });

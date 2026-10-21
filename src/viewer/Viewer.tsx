@@ -1,5 +1,5 @@
 // src/viewer/Viewer.tsx
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { MeshSource } from "../app/meshes";
 import { STALE_MESSAGE } from "../app/state";
 import { trayNames } from "../instructions/naming";
@@ -8,8 +8,6 @@ import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
 import { levelsOf } from "../plan/layers";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import { componentIdsOfTray, sharingTrayWith } from "../ui/identity";
-import { AxisGizmo } from "./AxisGizmo";
-import type { ViewBasis } from "./axes";
 import { pageScheme, shadeColorOf } from "./shades";
 import { boxOutline } from "./transform";
 import type { SceneFactory, SceneHandle, SceneTray } from "./types";
@@ -38,6 +36,11 @@ export interface ViewerProps {
    * index into it. Without it the list is made from `trays`.
    */
   levels?: readonly number[];
+  /**
+   * Trays lit as the item or group being edited is (the rest fades), the way a rail row lights its
+   * trays; the editor's stage gives them. They join the trays a rail row lights.
+   */
+  litKeys?: readonly string[];
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -58,8 +61,6 @@ export function Viewer(p: ViewerProps) {
     (p.webgl ?? hasWebGL)() ? "loading" : "nowebgl",
   );
   const [explode, setExplode] = useState(0);
-  // The axis indicator is off until asked for: most people never need it.
-  const [showAxes, setShowAxes] = useState(false);
   const [build, setBuild] = useState({ done: 0, total: 0, failed: 0 });
   const [attempt, setAttempt] = useState(0);
   // A lost or broken WebGL canvas can't be reused: a new scene gets a new canvas element.
@@ -76,11 +77,6 @@ export function Viewer(p: ViewerProps) {
   // The chosen layer may vanish when the layout changes: show everything then.
   const shownLevel =
     p.topLayer === null || p.topLayer === undefined ? null : (levels[p.topLayer] ?? null);
-
-  const watchView = useCallback((cb: (view: ViewBasis) => void) => {
-    handleRef.current?.onView(cb);
-    return () => handleRef.current?.onView(null);
-  }, []);
 
   function dropScene(): void {
     handleRef.current?.dispose();
@@ -240,24 +236,33 @@ export function Viewer(p: ViewerProps) {
   const railId = hoveredComponent.value;
   // A group's card pointed at names every member: all the group's trays light.
   const railMembers = hoveredMembers.value;
+  const editedKey = (p.litKeys ?? []).join("\n");
+  // An item is being edited (the editor gave its trays): they are lit hard, not as a hover is.
+  const editing = editedKey !== "";
   const litKey = useMemo(() => {
     const comps = p.components ?? [];
+    const keys = editedKey === "" ? [] : editedKey.split("\n");
     if (railId === null && railMembers === null) {
-      return "";
+      return keys.join("\n");
     }
     // The items that share a tray with the one pointed at light with it, as in the top view.
     const lit = new Set<string>();
     for (const id of [...(railId === null ? [] : [railId]), ...(railMembers ?? [])]) {
       sharingTrayWith(id, p.trays, comps).forEach((other) => lit.add(other));
     }
-    return p.trays
+    const pointed = p.trays
       .filter((t) => componentIdsOfTray(t, comps).some((id) => lit.has(id)))
-      .map((t) => t.key)
-      .join("\n");
-  }, [railId, railMembers, p.trays, p.components]);
+      .map((t) => t.key);
+    return [...new Set([...keys, ...pointed])].join("\n");
+  }, [railId, railMembers, p.trays, p.components, editedKey]);
   useEffect(() => {
-    handleRef.current?.setLit(litKey === "" ? [] : litKey.split("\n"));
-  }, [status, litKey]);
+    const keys = litKey === "" ? [] : litKey.split("\n");
+    if (editing) {
+      handleRef.current?.setLit(keys, true);
+    } else {
+      handleRef.current?.setLit(keys);
+    }
+  }, [status, litKey, editing]);
 
   useEffect(() => {
     const h = handleRef.current;
@@ -320,7 +325,7 @@ export function Viewer(p: ViewerProps) {
   return (
     <div class="viewer">
       <div
-        class="plan-fit"
+        class="plan-fit viewer-fit"
         style={{ "--box-w": String(p.box.innerWidth), "--box-l": String(p.box.innerDepth) }}
       >
         <div class="viewer-stage" data-region="plan-box">
@@ -332,7 +337,6 @@ export function Viewer(p: ViewerProps) {
             aria-label="3D preview. Drag to turn, scroll or pinch to zoom, click a tray for details, or step through the trays with the arrow keys. On a touch screen use two fingers; one finger scrolls the page."
             onKeyDown={stepTray}
           />
-          {showAxes && status === "ready" ? <AxisGizmo watch={watchView} /> : null}
           {/* Always mounted, so a reader that watches it hears the name appear. */}
           <div class="viewer-selection-live" role="status">
             {selectedName !== null ? (
@@ -341,30 +345,6 @@ export function Viewer(p: ViewerProps) {
               </span>
             ) : null}
           </div>
-          <button
-            type="button"
-            class="viewer-axes-toggle"
-            aria-pressed={showAxes}
-            aria-label="Show axes"
-            aria-describedby="viewer-axes-hint"
-            title="Show axes"
-            onClick={() => setShowAxes((v) => !v)}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              aria-hidden="true"
-            >
-              <path d="M5 19V4M5 19h15M5 19l8-8" />
-            </svg>
-          </button>
-          <span id="viewer-axes-hint" class="visually-hidden">
-            A small X, Y, Z indicator in the corner that turns with the model: X runs across the
-            box, Y from its front to its back, Z up.
-          </span>
           <div class="viewer-under">
             {status === "loading" ? <p class="hint">Loading the 3D preview…</p> : null}
             {status === "error" || status === "lost" ? (

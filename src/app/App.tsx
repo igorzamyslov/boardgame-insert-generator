@@ -54,7 +54,6 @@ import {
   ValidationContext,
   errorsWithoutField,
 } from "../ui/validation";
-import { Viewer } from "../viewer/Viewer";
 import { hasWebGL } from "../viewer/webgl";
 import type { ViewerProps } from "../viewer/Viewer";
 import {
@@ -1045,6 +1044,16 @@ export function App(props: AppProps) {
           after={stageNotes}
           problem={editorProblem(status)}
           onRetry={() => store.retry()}
+          view={view}
+          onViewChange={showView}
+          webgl={webgl}
+          viewer={{
+            box: project.box,
+            settings: project.settings,
+            stale: s.stale.value,
+            meshes,
+            ...props.viewerProps,
+          }}
         />
       ) : showFit ? (
         // NoFit, PinConflict and MobileFix: the heading, the picture and the panel of what to do.
@@ -1069,31 +1078,49 @@ export function App(props: AppProps) {
           after={stageNotes}
         />
       ) : (
-        <>
-          <StageTop
-            {...statusInput}
-            trays={layout?.trays}
-            levels={planLevels}
-            level={s.viewLevel.value}
-            onLevelChange={(l) => {
-              s.viewLevel.value = l;
-            }}
-            cut={s.viewCut.value}
-            onCutChange={(c) => {
-              s.viewCut.value = c;
-            }}
-            view={view}
-            onViewChange={showView}
-            webgl={webgl}
-            phone={phone}
-            onKeepSearching={() => store.refit()}
-            onStop={() => store.cancelRun()}
-            onRetry={() => store.retry()}
-            onShow={showSection}
-          />
-          <section class="plan-col" aria-label="Preview" data-region="plan">
-            {planProps !== null ? (
-              view === "plan" ? (
+        // The normal stage is the editor's component too, with no item: one frame, so the 3D view
+        // is the same Viewer whether an item is open or not (EditorStage's StageFrame).
+        <EditorStage
+          components={project.components}
+          groups={project.groups}
+          trays={printable}
+          note={null}
+          onNoteDone={clearEditNote}
+          phone={phone}
+          plan={planProps}
+          viewer={{
+            box: project.box,
+            settings: project.settings,
+            stale: s.stale.value,
+            meshes,
+            ...props.viewerProps,
+          }}
+          normal={{
+            top: (
+              <StageTop
+                {...statusInput}
+                trays={layout?.trays}
+                levels={planLevels}
+                level={s.viewLevel.value}
+                onLevelChange={(l) => {
+                  s.viewLevel.value = l;
+                }}
+                cut={s.viewCut.value}
+                onCutChange={(c) => {
+                  s.viewCut.value = c;
+                }}
+                view={view}
+                onViewChange={showView}
+                webgl={webgl}
+                phone={phone}
+                onKeepSearching={() => store.refit()}
+                onStop={() => store.cancelRun()}
+                onRetry={() => store.retry()}
+                onShow={showSection}
+              />
+            ),
+            body:
+              planProps !== null ? (
                 <PlanView
                   {...planProps}
                   selectedKey={s.selection.value}
@@ -1119,42 +1146,50 @@ export function App(props: AppProps) {
                 />
               ) : (
                 <>
-                  <StageSlot idle={phone}>
-                    {hasSelectedTray && !phone ? (
-                      <SelectedTrayBar {...barProps} phone={false} inPlan={false} swapFrom={null} />
-                    ) : phone ? undefined : (
-                      (removedToast ?? undefined)
-                    )}
+                  <StageSlot quiet idle={phone}>
+                    {phone ? undefined : (removedToast ?? undefined)}
                   </StageSlot>
-                  <Viewer
-                    trays={printable}
-                    box={project.box}
-                    settings={project.settings}
-                    components={project.components}
-                    groups={project.groups}
-                    stale={s.stale.value}
-                    meshes={meshes}
-                    selectedKey={s.selection.value}
-                    topLayer={s.viewCut.value}
-                    levels={planLevels}
-                    onSelect={(key) => {
-                      s.selection.value = key;
-                    }}
-                    {...props.viewerProps}
-                  />
+                  {workingOnIt}
                 </>
-              )
-            ) : (
-              <>
-                <StageSlot quiet idle={phone}>
-                  {phone ? undefined : (removedToast ?? undefined)}
-                </StageSlot>
-                {workingOnIt}
-              </>
-            )}
-            {stageNotes}
-          </section>
-        </>
+              ),
+            threeD:
+              planProps !== null && view !== "plan"
+                ? {
+                    slot: {
+                      idle: phone,
+                      children:
+                        hasSelectedTray && !phone ? (
+                          <SelectedTrayBar
+                            {...barProps}
+                            phone={false}
+                            inPlan={false}
+                            swapFrom={null}
+                          />
+                        ) : phone ? undefined : (
+                          (removedToast ?? undefined)
+                        ),
+                    },
+                    viewer: {
+                      trays: printable,
+                      box: project.box,
+                      settings: project.settings,
+                      components: project.components,
+                      groups: project.groups,
+                      stale: s.stale.value,
+                      meshes,
+                      selectedKey: s.selection.value,
+                      topLayer: s.viewCut.value,
+                      levels: planLevels,
+                      onSelect: (key) => {
+                        s.selection.value = key;
+                      },
+                      ...props.viewerProps,
+                    },
+                  }
+                : null,
+            after: stageNotes,
+          }}
+        />
       )}
       {exportOpen && layout !== undefined ? (
         <ExportPanel
@@ -1208,7 +1243,8 @@ export function App(props: AppProps) {
             />
           ) : (
             <Workspace
-              focus={(editingAny || boxOpen || (showFit && fitKind === "noFit")) && !phone}
+              // the editor shares the normal stage (WideStage2): its padding is the normal one, so the frame does not move
+              focus={(boxOpen || (showFit && fitKind === "noFit")) && !phone}
               class={
                 editingAny ? "ws--edit" : boxOpen ? "ws--box" : showFit ? "ws--fit" : undefined
               }

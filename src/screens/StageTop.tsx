@@ -348,6 +348,36 @@ export function layerOptions(
   return all ? [{ value: ALL_LAYERS, label: "All" }, ...layers] : layers;
 }
 
+/**
+ * The Top / 3D switch of the stage, the normal one's and the editor's: 3D is blocked, with its
+ * reason, where the browser cannot draw it.
+ */
+export function ViewSwitch(p: {
+  view: StageView;
+  onViewChange: (view: StageView) => void;
+  webgl: boolean;
+}) {
+  return (
+    <Segmented
+      label="View"
+      tone="track"
+      options={[
+        { value: "plan", label: "Top" },
+        { value: "3d", label: "3D", blockedReason: p.webgl ? undefined : WEBGL_REASON },
+      ]}
+      value={p.view}
+      onChange={p.onViewChange}
+    />
+  );
+}
+
+/** Under the switches where the browser cannot draw 3D: why the 3D button is blocked. */
+export function WebGlNote() {
+  return (
+    <p class="stage-note">3D needs a browser with WebGL turned on. The top view works the same.</p>
+  );
+}
+
 export interface StageTopProps extends StatusInput {
   /** The stored plan's trays (`layout.trays`), for the Layer switch; without them (no plan) there are no switches. */
   trays?: readonly TraySpec[];
@@ -376,8 +406,8 @@ export interface StageTopProps extends StatusInput {
 }
 
 /**
- * The status row: the heading (the page's one h1, with its tone's icon and a muted line), the
- * Layer and View switches, and the action. The Summary's jobs that belong here: the optimizer
+ * The status row: the heading (the page's one h1, with its tone's icon and a muted line) with the
+ * action beside it, and under it the Layer and View switches. The Summary's jobs that belong here: the optimizer
  * error and Retry, the errors with no field, the jump links.
  */
 export function StageTop(p: StageTopProps) {
@@ -496,35 +526,15 @@ export function StageTop(p: StageTopProps) {
       3D
     </Button>
   ) : (
-    <Segmented
-      label="View"
-      tone="track"
-      options={[
-        { value: "plan", label: "Top" },
-        { value: "3d", label: "3D", blockedReason: blocked },
-      ]}
-      value={p.view}
-      onChange={p.onViewChange}
-    />
+    <ViewSwitch view={p.view} onViewChange={p.onViewChange} webgl={p.webgl} />
   );
 
-  // Desktop: the switches and the action in one group (Main); phone: the action alone, the switches under.
-  // With a plan the group is three fixed slots, Layer, View and the action, so the View switch stays
-  // where it is whether the Layer switch is there (one layer has none, the 3D view adds "All") and
-  // whichever action stands at the right (Keep searching, Stop, none): DESIGN, Flow.
-  const extra = p.phone
-    ? actions
-    : showView
-      ? [
-          <div class="stage-controls" key="controls">
-            <div class="stage-controls__layer">{layer}</div>
-            <div class="stage-controls__view" data-region="view-switch">
-              {view}
-            </div>
-            <div class="stage-controls__action">{actions}</div>
-          </div>,
-        ]
-      : [layer, view, ...actions].filter((x) => x !== null);
+  // The action (Keep searching, Stop) stands beside the heading on the same line, at every width
+  // above a phone's; the switches take the row under it, right-aligned in the column, with the View
+  // switch last, so it stays where it is whether the Layer switch is there (one layer has none, the
+  // 3D view adds "All") and whichever action stands in the heading (WideStage2; DESIGN, Flow). On a
+  // phone the switches' row is the board's own (MobileWorkspace).
+  const extra = actions;
 
   const line: ComponentChildren =
     status.list !== undefined ? (
@@ -551,16 +561,19 @@ export function StageTop(p: StageTopProps) {
         />
       </div>
       {p.phone && (layer !== null || view !== null) ? (
-        <div class="stage-segs" data-region="switches">
+        <div class="stage-segs stage-segs--phone" data-region="switches">
           {layer}
           {view}
         </div>
+      ) : !p.phone && showView ? (
+        <div class="stage-segs" data-region="switches">
+          <div class="stage-segs__layer">{layer}</div>
+          <div class="stage-segs__view" data-region="view-switch">
+            {view}
+          </div>
+        </div>
       ) : null}
-      {showView && !p.webgl ? (
-        <p class="stage-note">
-          3D needs a browser with WebGL turned on. The top view works the same.
-        </p>
-      ) : null}
+      {showView && !p.webgl ? <WebGlNote /> : null}
       {status.alert === true ? (
         <p class="visually-hidden" role="alert">
           {`${status.title}. ${status.line ?? ""}`}

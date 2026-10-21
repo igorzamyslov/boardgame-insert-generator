@@ -22,13 +22,13 @@ import {
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { TraySpec } from "../model/types";
 import { SPACER_SHADE } from "../ui/identity";
-import type { ViewBasis } from "./axes";
 import {
   PAGE_HEX,
   anchorOf,
   emissiveOf,
   fadeOf,
   isVisible,
+  opacityOf,
   outlineCenter,
   trayPosition,
 } from "./transform";
@@ -122,9 +122,9 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   let maxLevel: number | null = null;
   let selected: string | null = null;
   let lit: ReadonlySet<string> = new Set();
+  let edited = false;
   const pageColor = new Color(PAGE_HEX);
   let pick: ((key: string | null) => void) | null = null;
-  let viewCb: ((view: ViewBasis) => void) | null = null;
   let frameId = 0;
   let down: { x: number; y: number } | null = null;
   const raycaster = new Raycaster();
@@ -138,22 +138,8 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       frameId = requestAnimationFrame(draw);
     }
   };
-  // The camera's own axes are the columns of its world matrix (right, up, back).
-  function emitView(): void {
-    if (!viewCb) {
-      return;
-    }
-    camera.updateMatrixWorld();
-    const e = camera.matrixWorld.elements;
-    viewCb({
-      right: [e[0] ?? 0, e[1] ?? 0, e[2] ?? 0],
-      up: [e[4] ?? 0, e[5] ?? 0, e[6] ?? 0],
-      back: [e[8] ?? 0, e[9] ?? 0, e[10] ?? 0],
-    });
-  }
   const onControlsChange = (): void => {
     requestDraw();
-    emitView();
   };
   controls.addEventListener("change", onControlsChange);
 
@@ -162,8 +148,13 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       const [x, y, z] = trayPosition(t.spec, explode, center, t.anchor);
       t.object.position.set(x, y, z);
       t.object.visible = isVisible(t.spec, maxLevel);
-      t.material.emissive.setHex(emissiveOf(t.spec.key, selected, lit));
-      t.material.color.copy(t.base).lerp(pageColor, fadeOf(t.spec.key, selected, lit));
+      t.material.emissive.setHex(emissiveOf(t.spec.key, selected, lit, edited));
+      t.material.color.copy(t.base).lerp(pageColor, fadeOf(t.spec.key, selected, lit, edited));
+      // The faded trays of an edited item are drawn through, so the item's own show behind them.
+      const opacity = opacityOf(t.spec.key, selected, lit, edited);
+      t.material.opacity = opacity;
+      t.material.transparent = opacity < 1;
+      t.material.depthWrite = opacity === 1;
     }
     requestDraw();
   }
@@ -258,7 +249,10 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
     tints: () => ({
       page: PAGE_HEX,
       trays: Object.fromEntries(
-        trays.map((t) => [t.spec.key, { color: hexOf(t.material.color), base: hexOf(t.base) }]),
+        trays.map((t) => [
+          t.spec.key,
+          { color: hexOf(t.material.color), base: hexOf(t.base), opacity: t.material.opacity },
+        ]),
       ),
     }),
     framing: () => {
@@ -315,7 +309,6 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       camera.far = dist * 10;
       camera.updateProjectionMatrix();
       controls.update();
-      emitView();
       apply();
     },
     setTrays(list: readonly SceneTray[]) {
@@ -356,16 +349,13 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       selected = key;
       apply();
     },
-    setLit(keys) {
+    setLit(keys, asEdited = false) {
       lit = new Set(keys);
+      edited = asEdited;
       apply();
     },
     onPick(cb) {
       pick = cb;
-    },
-    onView(cb) {
-      viewCb = cb;
-      emitView();
     },
     resize(width, height) {
       if (width <= 0 || height <= 0) {
@@ -393,7 +383,6 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       release(renderer);
       dropShotsScene();
       pick = null;
-      viewCb = null;
     },
   };
   return handle;

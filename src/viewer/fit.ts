@@ -11,8 +11,12 @@ import type { BoxOutline } from "./types";
 /** The camera's vertical field of view, in degrees. */
 export const CAMERA_FOV = 40;
 
-/** A little air between the sphere and the frame's edge (the model never touches it). */
-export const FIT_AIR = 1.06;
+/**
+ * Air between the sphere and the frame's edge: the model never comes nearer to the edge than a
+ * tenth of the frame's half-size (1 / 1.12 is 0.893), which is clear of the rounded corners and the
+ * pills over the frame, so a part at the edge reads as inside it and not as cut off.
+ */
+export const FIT_AIR = 1.12;
 
 export type Vec3 = readonly [number, number, number];
 

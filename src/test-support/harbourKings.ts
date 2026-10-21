@@ -347,6 +347,21 @@ export function harbourKingsPinConflict(base: Project, count = 100): Project {
 }
 
 /**
+ * `base` with four items given a size of 0 mm (three card sides and a figure's height), so the
+ * status heading says "Fix the errors marked in the inputs" and offers an "Edit <item>" button for
+ * each: the longest row of actions the heading has to hold (stage.css). The plan of `base` is kept.
+ */
+export function harbourKingsErrors(base: Project): Project {
+  let p = base;
+  for (const id of ["market01", "starter1", "events01"]) {
+    p = withComponent(p, id, (c) => (c.kind === "cards" ? { ...c, shortSide: 0 } : c));
+  }
+  return withComponent(p, "heroes01", (c) =>
+    c.kind === "minis" ? { ...c, figures: c.figures.map((f) => ({ ...f, h: 0 })) } : c,
+  );
+}
+
+/**
  * `base` with changes that give sizing notices (a measured thickness under the least a card can
  * have, on each deck), and the plan of `base` kept: the banner and the notices show at once.
  */

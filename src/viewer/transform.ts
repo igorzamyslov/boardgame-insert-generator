@@ -96,12 +96,26 @@ export const LIT_EMISSIVE = 0x383838;
  * A tray's emissive colour: the selected tray's own glow, else the lit one while its component's
  * rail row is pointed at, else none. The selected tray keeps its stronger glow while lit.
  */
-export function emissiveOf(key: string, selected: string | null, lit: ReadonlySet<string>): number {
+export function emissiveOf(
+  key: string,
+  selected: string | null,
+  lit: ReadonlySet<string>,
+  edited = false,
+): number {
   if (key === selected) {
     return SELECTED_EMISSIVE;
   }
-  return lit.has(key) ? LIT_EMISSIVE : 0x000000;
+  return lit.has(key) ? (edited ? EDITED_EMISSIVE : LIT_EMISSIVE) : 0x000000;
 }
+
+/**
+ * While an item is edited (the editor's 3D view) the lit trays are the item's own, and they must
+ * be seen at once, with the model closed up (Spread apart 0) as much as spread: a stronger glow, and
+ * the others faded further and drawn through, so a tray hidden behind one shows.
+ */
+export const EDITED_EMISSIVE = 0x505050;
+export const EDITED_FADE = 0.65;
+export const EDITED_OPACITY = 0.45;
 
 /** The page's colour (`--page` in tokens.css): what a faded tray blends toward, as the plan's dimmed tiles let it show through. */
 export const PAGE_HEX = "#f4f3ef";
@@ -117,9 +131,24 @@ export const FADE_BLEND = 0.4;
  * row is pointed at, as in the plan, the trays in focus (the selected one, the lit ones) keep
  * their full colour and every other tray fades; with neither, nothing fades.
  */
-export function fadeOf(key: string, selected: string | null, lit: ReadonlySet<string>): number {
+export function fadeOf(
+  key: string,
+  selected: string | null,
+  lit: ReadonlySet<string>,
+  edited = false,
+): number {
   if (selected === null && lit.size === 0) {
     return 0;
   }
-  return key === selected || lit.has(key) ? 0 : FADE_BLEND;
+  return key === selected || lit.has(key) ? 0 : edited ? EDITED_FADE : FADE_BLEND;
+}
+
+/** How opaque a tray is drawn: 1, but for the trays an edited item fades, which are drawn through. */
+export function opacityOf(
+  key: string,
+  selected: string | null,
+  lit: ReadonlySet<string>,
+  edited = false,
+): number {
+  return edited && fadeOf(key, selected, lit, true) > 0 ? EDITED_OPACITY : 1;
 }

@@ -1,12 +1,15 @@
 // src/screens/EditorStage.tsx
-// The stage while a component is being edited (Edit): the slot above the box holds the sentence
-// that says which tray this is (the page's one h1) or, for a few seconds after an option changed,
-// the note about it; the edited component's trays are lifted and the rest dimmed. On a phone the
-// sheet's name is the h1, and the strip under its header shows the same two things.
+// The stage while a component is being edited (Edit), on the normal stage's own frame (WideStage2):
+// where the status heading stood is the sentence that says which tray this is (the page's one h1)
+// or, for a few seconds after an option changed, the note about it; under it the same Layer and
+// Top / 3D switches; the tray bar's slot is an empty band; the box is drawn from above or in 3D with
+// the edited component's trays lifted and the rest dimmed. On a phone the sheet's name is the h1,
+// and the strip under its header shows the same two things.
 import type { ComponentChildren } from "preact";
 import { Fragment } from "preact";
 import { useState } from "preact/hooks";
 import { Button, Segmented, Toast } from "../kit";
+import { parentKey } from "../instructions/numbering";
 import type { Box, Component, Group, Settings, TraySpec } from "../model/types";
 import { growthOf } from "../model/defaults";
 import { DEFAULT_GROUP_NAME, groupById, groupOfItem, parseTrayKey } from "../model/groups";
@@ -16,8 +19,13 @@ import { lookOfTray } from "../plan/glyph";
 import { PlanView } from "../plan/PlanView";
 import type { PlanViewProps } from "../plan/PlanView";
 import { componentIndexesOfTray, mm, traysOfGroup } from "../ui/identity";
-import { layerOptions } from "./StageTop";
-import type { EditorProblem } from "./StageTop";
+import { Viewer } from "../viewer/Viewer";
+import type { ViewerProps } from "../viewer/Viewer";
+import { StageSlot } from "./StageSlot";
+import type { StageSlotProps } from "./StageSlot";
+import { ViewSwitch, WebGlNote, layerOptions } from "./StageTop";
+import type { EditorProblem, StageView } from "./StageTop";
+import { SETTLE_MS, useSettled } from "./useSettled";
 import { useNoteClock } from "../kit/Toast";
 import "./editorStage.css";
 
@@ -220,13 +228,88 @@ export interface EditorStageProps {
   /** What the plan's status says that the editor must not lose (null: nothing). */
   problem?: EditorProblem | null;
   onRetry?: () => void;
+  /** The stage's View switch (Top / 3D), the workspace's own: the choice carries into and out of the editor. */
+  view?: StageView;
+  onViewChange?: (view: StageView) => void;
+  /** The browser can draw the 3D view. */
+  webgl?: boolean;
+  /** The 3D view of the plan (its selection and layer cut are the editor's); null while there is none. */
+  viewer?: Omit<
+    ViewerProps,
+    | "trays"
+    | "components"
+    | "groups"
+    | "selectedKey"
+    | "onSelect"
+    | "topLayer"
+    | "levels"
+    | "litKeys"
+  > | null;
+  /**
+   * The normal stage, drawn by this same component while no item is edited, so the 3D view is one
+   * `Viewer` across opening and closing an editor: same place in the tree, only its props change
+   * (the camera, Spread apart and the scene stay).
+   */
+  normal?: NormalStage;
+}
+
+/** What the normal stage gives the shared frame (App): its heading and switches, and its column. */
+export interface NormalStage {
+  /** The status heading and the switches. */
+  top: ComponentChildren;
+  /** The column when it is not the 3D view: the plan, or the placeholder. */
+  body: ComponentChildren;
+  /** The 3D view, when that is what the column shows: the slot above it and the viewer's props. */
+  threeD: { slot: StageSlotProps; viewer: ViewerProps } | null;
+  /** Under the plan: the layout and sizing notices. */
+  after: ComponentChildren;
+}
+
+/**
+ * The frame both stages share: what stands above the column, and the column. The 3D view is the
+ * same element at the same place in it whichever stage draws it, so opening or closing an editor
+ * only changes its props.
+ */
+function StageFrame({
+  top,
+  className,
+  threeD,
+  body,
+  after,
+}: {
+  top: ComponentChildren;
+  className?: string;
+  threeD: { slot: StageSlotProps; viewer: ViewerProps } | null;
+  body: ComponentChildren;
+  after: ComponentChildren;
+}) {
+  return (
+    <>
+      {top}
+      <section
+        class={`plan-col${className ? ` ${className}` : ""}`}
+        aria-label="Preview"
+        data-region="plan"
+      >
+        {threeD !== null ? (
+          <>
+            <StageSlot {...threeD.slot} />
+            <Viewer {...threeD.viewer} />
+          </>
+        ) : (
+          body
+        )}
+        {after}
+      </section>
+    </>
+  );
 }
 
 const nothing = (): void => undefined;
 
 /**
- * The slot's content: the sentence (the page's h1), or the note in its place. The note's region is
- * always on the page, so a reader hears it arrive.
+ * The status heading's place: the sentence (the page's h1), or the note in its place. The note's
+ * region is always on the page, so a reader hears it arrive.
  */
 function Slot({
   sentence,
@@ -234,7 +317,6 @@ function Slot({
   onNoteDone,
   problem,
   onRetry,
-  layers,
 }: {
   /** The sentence, drawn or not (`hidden`: the note is in its place). */
   sentence: (hidden: boolean) => ComponentChildren;
@@ -242,15 +324,12 @@ function Slot({
   onNoteDone: () => void;
   problem?: EditorProblem | null;
   onRetry?: () => void;
-  /** The Layer switch, when the plan has two layers or more. */
-  layers?: ComponentChildren;
 }) {
   return (
     <div class="ed-slot" data-region="status">
       <div class="ed-slot__row">
         <Toast message={note?.text ?? null} nonce={note?.id} onDone={onNoteDone} />
         {sentence(note !== null)}
-        {layers}
       </div>
       {problem ? <ProblemLine problem={problem} onRetry={onRetry} /> : null}
     </div>
@@ -302,7 +381,26 @@ function targetOf(
   };
 }
 
-/** The stage of the editor: the slot, the box with the edited trays lifted, and its caption. */
+/**
+ * The keys the 3D view lights for the edited trays: each of theirs, and the spacers and dividers
+ * that stand in them (they travel with their tray).
+ */
+function litKeysOf(mine: readonly TraySpec[], trays: readonly TraySpec[]): string[] {
+  const keys = new Set(mine.map((t) => t.key));
+  return trays
+    .filter(
+      (t) =>
+        keys.has(t.key) ||
+        ((t.part === "spacer" || t.part === "divider") && keys.has(parentKey(t))),
+    )
+    .map((t) => t.key);
+}
+
+/**
+ * The stage of the editor, on the normal stage's frame: the sentence where the status heading
+ * stood, the Layer and Top / 3D switches, an empty band where the tray bar stands, and the box
+ * with the edited trays lifted (from above) or lit (in 3D), the rest dimmed.
+ */
 export function EditorStage({
   componentId,
   groupId,
@@ -317,12 +415,27 @@ export function EditorStage({
   after,
   problem,
   onRetry,
+  view = "plan",
+  onViewChange = nothing,
+  webgl = true,
+  viewer = null,
+  normal,
 }: EditorStageProps) {
   // The layer the person picked, for this item or group only: another one opens on its own layer.
   const [picked, setPicked] = useState<{ id: string; layer: number } | null>(null);
+  // In 3D the switch cuts instead (layers 1 to it, or null for All), as the workspace's does.
+  const [cutPicked, setCutPicked] = useState<{ id: string; cut: number | null } | null>(null);
+  // The 3D scene is redrawn once a change has settled, not on each keystroke: it is given the
+  // model as it stood when the last change was over.
+  const [sTrays, sComponents, sGroups, sBox, sSettings, sStale] = useSettled(
+    [trays, components, groups, viewer?.box, viewer?.settings, viewer?.stale],
+    SETTLE_MS,
+  );
   const target = targetOf({ componentId, groupId, components, groups }, trays);
   if (target === undefined) {
-    return null;
+    return normal === undefined ? null : (
+      <StageFrame top={normal.top} threeD={normal.threeD} body={normal.body} after={normal.after} />
+    );
   }
   const { mine } = target;
   // The box opens on the layer of the first tray, so its lift is in sight; the Layer switch moves
@@ -331,47 +444,104 @@ export function EditorStage({
   const home = mine[0] === undefined ? 0 : Math.max(0, levels.indexOf(mine[0].level));
   const chosen = picked !== null && picked.id === target.id ? picked.layer : null;
   const at = chosen !== null && chosen < levels.length ? chosen : home;
+  const in3d = view === "3d" && plan !== null && !phone;
+  const cut =
+    cutPicked !== null && cutPicked.id === target.id && (cutPicked.cut ?? 0) < levels.length
+      ? cutPicked.cut
+      : null;
   const layers =
     levels.length > 1 ? (
-      <Segmented
-        label="Layer"
-        tone="track"
-        options={layerOptions(trays)}
-        value={String(at)}
-        onChange={(v) => setPicked({ id: target.id, layer: Number(v) })}
-      />
+      in3d ? (
+        <Segmented
+          label="Layer"
+          tone="track"
+          options={layerOptions(trays, true)}
+          value={cut === null ? "all" : String(cut)}
+          onChange={(v) => setCutPicked({ id: target.id, cut: v === "all" ? null : Number(v) })}
+        />
+      ) : (
+        <Segmented
+          label="Layer"
+          tone="track"
+          options={layerOptions(trays)}
+          value={String(at)}
+          onChange={(v) => setPicked({ id: target.id, layer: Number(v) })}
+        />
+      )
     ) : undefined;
-  const slot = phone ? undefined : (
+  const showView = plan !== null && !phone;
+  const status = phone ? undefined : (
     <Slot
       sentence={(hidden) => target.sentence(mine, "h1", hidden)}
       note={note}
       onNoteDone={onNoteDone}
       problem={problem}
       onRetry={onRetry}
-      layers={layers}
     />
   );
-  return (
-    <section class="plan-col ed-stage" aria-label="Preview" data-region="plan">
-      {plan === null ? (
-        <>
-          {slot === undefined ? null : <div class="stage-slot">{slot}</div>}
-          {placeholder}
-        </>
-      ) : (
-        <PlanView
-          {...plan}
-          bar={slot}
-          {...target.edited}
-          level={at}
-          onLevelChange={nothing}
-          selectedKey={null}
-          onSelect={nothing}
-        />
-      )}
-      {after}
-    </section>
+  // The same row as the workspace's (StageTop): Layer, then View last.
+  const switches =
+    phone || (layers === undefined && !showView) ? null : (
+      <div class="stage-segs" data-region="switches">
+        <div class="stage-segs__layer">{layers}</div>
+        <div class="stage-segs__view" data-region="view-switch">
+          {showView ? <ViewSwitch view={view} onViewChange={onViewChange} webgl={webgl} /> : null}
+        </div>
+      </div>
+    );
+  // The tray bar's place stays, empty, so the frame is where the normal stage's is.
+  const band = <span class="ed-band" />;
+  // What the 3D view draws: the model as it was when the last change was over, and the edited trays lit.
+  const settledTarget = targetOf(
+    { componentId, groupId, components: sComponents ?? components, groups: sGroups },
+    sTrays ?? trays,
   );
+  const lit = settledTarget === undefined ? [] : litKeysOf(settledTarget.mine, sTrays ?? trays);
+  const top = (
+    <>
+      {status}
+      {switches}
+      {showView && !webgl ? <WebGlNote /> : null}
+    </>
+  );
+  const threeD =
+    plan !== null && in3d && viewer !== null
+      ? {
+          slot: { quiet: true },
+          viewer: {
+            ...viewer,
+            trays: sTrays ?? trays,
+            components: sComponents,
+            groups: sGroups,
+            box: sBox ?? viewer.box,
+            settings: sSettings ?? viewer.settings,
+            stale: sStale,
+            selectedKey: null,
+            onSelect: nothing,
+            topLayer: cut,
+            levels,
+            litKeys: lit,
+          } satisfies ViewerProps,
+        }
+      : null;
+  const body =
+    plan === null ? (
+      <>
+        {phone ? null : <StageSlot quiet />}
+        {placeholder}
+      </>
+    ) : (
+      <PlanView
+        {...plan}
+        bar={phone ? undefined : band}
+        {...target.edited}
+        level={at}
+        onLevelChange={nothing}
+        selectedKey={null}
+        onSelect={nothing}
+      />
+    );
+  return <StageFrame top={top} className="ed-stage" threeD={threeD} body={body} after={after} />;
 }
 
 const STRIP_PX = 84;

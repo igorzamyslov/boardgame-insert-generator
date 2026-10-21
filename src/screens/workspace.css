@@ -25,13 +25,30 @@
   z-index: 25;
   flex: none;
   min-height: var(--header-h);
+
+  /* the rule runs across the window; the bar's content stays in the block (below) */
+  border-bottom: 1px solid var(--rule);
+}
+
+/*
+ * Wide windows (WideStage2): the header's content, the rail and the stage are one block, at most
+ * --block-max wide and centred, the page behind it. Undo, the menu and Download stay inside it.
+ */
+.ws-header > .hd {
+  /* a content box with --s-24 of padding each side (header.css): the bar is --block-max wide with its padding */
+  max-width: calc(var(--block-max) - 2 * var(--s-24));
+  margin-inline: auto;
+  border-bottom: 0;
 }
 
 .ws-body {
   display: flex;
   flex: 1;
   flex-wrap: wrap;
+  width: 100%;
+  max-width: var(--block-max);
   min-height: 0;
+  margin-inline: auto;
 
   /* Only a width that cannot hold the rail and the stage side by side (a tablet, until Task 15) scrolls here. */
   overflow-y: auto;
@@ -128,6 +145,13 @@
   padding: var(--stage-pad-focus);
 }
 
+/* The rail's left edge, where the block starts: only a window wider than the block has one (--block-max, 1600 px). */
+@media (width > 1600px) {
+  .ws-rail {
+    border-left: 1px solid var(--rule);
+  }
+}
+
 /* An editor in the rail (Edit): its back link sits 12 px from the top, not the rail's 20. */
 .ws--edit .ws-rail {
   padding-top: var(--s-12);
@@ -181,6 +205,22 @@
   align-items: center;
   min-width: 0;
   min-height: 0;
+}
+
+/*
+ * The working column (WideStage2): the notices, the heading with Keep searching beside it, the
+ * Layer and Top / 3D switches, and the plan column (the tray bar, the frame) are one width,
+ * --stage-col (the frame's longest side), centred in the stage. A stage narrower than that holds
+ * them edge to edge, as before.
+ */
+.ws-stage > .app-notices:not([data-empty="true"]),
+.ws-stage > [data-region="status"],
+.ws-stage > .stage-segs,
+.ws-stage > .plan-col {
+  align-self: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--stage-col);
 }
 
 .plan-col > .stage-notes {

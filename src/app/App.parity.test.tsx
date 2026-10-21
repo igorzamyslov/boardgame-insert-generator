@@ -37,7 +37,6 @@ function stubScene() {
     onPick: vi.fn((cb: (key: string | null) => void) => {
       picked = cb;
     }),
-    onView: vi.fn(),
     resize: vi.fn(),
     dispose: vi.fn(),
   };

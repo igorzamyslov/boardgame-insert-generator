@@ -9,7 +9,6 @@ import { DEFAULT_SETTINGS } from "../model/settings";
 import { GROUP_SHADE, SPACER_SHADE, shadeHex } from "../ui/identity";
 import { hoveredComponent, hoveredMembers } from "../screens/hover";
 import type { Component } from "../model/types";
-import type { ViewBasis } from "./axes";
 import type { SceneFactory, SceneHandle } from "./types";
 import { Viewer } from "./Viewer";
 import type { ViewerProps } from "./Viewer";
@@ -19,7 +18,6 @@ afterEach(cleanup);
 
 function stubScene() {
   let picked: ((key: string | null) => void) | null = null;
-  let viewing: ((view: ViewBasis) => void) | null = null;
   const handle: SceneHandle = {
     setBox: vi.fn(),
     setTrays: vi.fn(),
@@ -30,9 +28,6 @@ function stubScene() {
     onPick: vi.fn((cb: (key: string | null) => void) => {
       picked = cb;
     }),
-    onView: vi.fn((cb: ((view: ViewBasis) => void) | null) => {
-      viewing = cb;
-    }),
     resize: vi.fn(),
     dispose: vi.fn(),
   };
@@ -41,9 +36,6 @@ function stubScene() {
     handle,
     factory,
     pick: (key: string | null) => picked?.(key),
-    /** The camera turning: what the scene reports to whoever is listening. */
-    look: (view: ViewBasis) => viewing?.(view),
-    listening: () => viewing !== null,
   };
 }
 
@@ -152,92 +144,6 @@ describe("Viewer", () => {
       view.unmount();
     });
     expect(scene.handle.dispose).toHaveBeenCalled();
-  });
-
-  describe("axis indicator", () => {
-    /** The camera in front of the box, level: X to the right, Z up, Y away from the viewer. */
-    const FRONT: ViewBasis = { right: [1, 0, 0], up: [0, 0, 1], back: [0, -1, 0] };
-
-    it("is off by default: an unpressed toggle with a hint, no indicator, no camera reports", async () => {
-      const scene = stubScene();
-      render(<Viewer {...props({}, scene)} />);
-      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-      const toggle = screen.getByRole("button", { name: "Show axes" });
-      expect(toggle.getAttribute("aria-pressed")).toBe("false");
-      const hint = document.getElementById(toggle.getAttribute("aria-describedby") ?? "");
-      expect(hint?.textContent).toMatch(
-        /X runs across the box, Y from its front to its back, Z up/,
-      );
-      expect(screen.queryByTestId("axis-gizmo")).toBeNull();
-      expect(scene.listening()).toBe(false);
-    });
-
-    it("sits in the corner of the view, not among the controls below it", async () => {
-      const scene = stubScene();
-      render(<Viewer {...props({}, scene)} />);
-      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-      const toggle = screen.getByRole("button", { name: "Show axes" });
-      expect(toggle.closest(".viewer-stage")).toBeTruthy();
-      expect(toggle.closest(".viewer-controls")).toBeNull();
-      expect(toggle.classList.contains("viewer-axes-toggle")).toBe(true);
-    });
-
-    it("is pressed while the axes show", async () => {
-      const scene = stubScene();
-      render(<Viewer {...props({}, scene)} />);
-      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-      const toggle = screen.getByRole("button", { name: "Show axes" });
-      fireEvent.click(toggle);
-      expect(toggle.getAttribute("aria-pressed")).toBe("true");
-      fireEvent.click(toggle);
-      expect(toggle.getAttribute("aria-pressed")).toBe("false");
-    });
-
-    it("shows labelled X, Y and Z axes that follow the camera, and stops listening when turned off", async () => {
-      const scene = stubScene();
-      render(<Viewer {...props({}, scene)} />);
-      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-      fireEvent.click(screen.getByRole("button", { name: "Show axes" }));
-      expect(scene.listening()).toBe(true);
-      // Nothing is drawn before the camera has said which way it looks.
-      expect(screen.queryByTestId("axis-gizmo")).toBeNull();
-      act(() => scene.look(FRONT));
-      const gizmo = screen.getByTestId("axis-gizmo");
-      expect(gizmo.getAttribute("aria-label")).toMatch(/^Axis indicator: X \(red\)/);
-      const labels = [...gizmo.querySelectorAll("text")].map((t) => t.textContent);
-      expect(labels.sort()).toEqual(["X", "Y", "Z"]);
-      const tip = (axis: string): { x: number; y: number } => {
-        const c = gizmo.querySelector(`g[data-axis="${axis}"] circle`);
-        return { x: Number(c?.getAttribute("cx")), y: Number(c?.getAttribute("cy")) };
-      };
-      // Seen from the front: X goes right, Z goes up (smaller SVG y), Y points into the screen.
-      expect(tip("x").x).toBeGreaterThan(42);
-      expect(tip("z").y).toBeLessThan(42);
-      expect(tip("y")).toEqual({ x: 42, y: 42 });
-      // Turned a quarter: X now points at the viewer and Y goes right.
-      act(() => scene.look({ right: [0, 1, 0], up: [0, 0, 1], back: [1, 0, 0] }));
-      expect(tip("y").x).toBeGreaterThan(42);
-      expect(tip("x")).toEqual({ x: 42, y: 42 });
-      fireEvent.click(screen.getByRole("button", { name: "Show axes" }));
-      expect(scene.listening()).toBe(false);
-      expect(screen.queryByTestId("axis-gizmo")).toBeNull();
-    });
-
-    it("does not get in the way of picking trays", async () => {
-      const scene = stubScene();
-      const p = props({}, scene);
-      render(<Viewer {...p} />);
-      await waitFor(() => expect(scene.handle.setTrays).toHaveBeenCalled());
-      fireEvent.click(screen.getByRole("button", { name: "Show axes" }));
-      act(() => scene.look(FRONT));
-      // The picking is the scene's, on the canvas: the indicator is not inside it, takes no
-      // pointer events (see style.test.ts) and the scene is never told about it.
-      const canvas = document.querySelector("canvas");
-      expect(canvas?.contains(screen.getByTestId("axis-gizmo"))).toBe(false);
-      scene.pick("b:p0:0");
-      expect(p.onSelect).toHaveBeenCalledWith("b:p0:0");
-      expect(scene.handle.setTrays).toHaveBeenCalledTimes(1);
-    });
   });
 
   it("asks for each part with its short name to engrave, as the instructions name it, unless that is off", async () => {
@@ -550,8 +456,7 @@ describe("Viewer", () => {
     expect(fit?.style.getPropertyValue("--box-l")).toBe("150");
     const frame = fit?.querySelector(".viewer-stage");
     expect(frame?.querySelector("canvas.viewer-canvas")).not.toBeNull();
-    // the axes toggle is in the frame's corner; the one row of controls is inside it, out of the flow
-    expect(frame?.querySelector(".viewer-axes-toggle")).not.toBeNull();
+    // the one row of controls is inside the frame, out of the flow
     const under = container.querySelector(".viewer-under");
     const row = under?.querySelector(".viewer-controls");
     expect(row).not.toBeNull();
@@ -774,6 +679,25 @@ describe("Viewer", () => {
       act(() => {
         hoveredComponent.value = null;
       });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith([]);
+    });
+
+    it("lights the trays it is given (the editor's own), and those a rail row points at as well", async () => {
+      const scene = stubScene();
+      const { rerender } = render(
+        <Viewer {...props({ trays: all, components, litKeys: ["b:p0:0"] }, scene)} />,
+      );
+      await waitFor(() => expect(scene.handle.setLit).toHaveBeenCalled());
+      // the editor's own are lit as the item being edited (hard), not as a hover is
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["b:p0:0"], true);
+      act(() => {
+        hoveredComponent.value = second.id;
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["b:p0:0", "a:p0:0"], true);
+      act(() => {
+        hoveredComponent.value = null;
+      });
+      rerender(<Viewer {...props({ trays: all, components }, scene)} />);
       expect(scene.handle.setLit).toHaveBeenLastCalledWith([]);
     });
 

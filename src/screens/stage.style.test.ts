@@ -30,13 +30,28 @@ describe("stage.css", () => {
 
   it("lets Layer take the width of a phone's switch row, beside the 3D toggle", () => {
     expect(ruleFor(".stage-segs")).toMatch(/display:\s*flex/);
-    expect(ruleFor(".stage-segs > .k-seg")).toMatch(/flex:\s*1\b/);
+    expect(ruleFor(".stage-segs--phone > .k-seg")).toMatch(/flex:\s*1\b/);
   });
 
   it("draws Stop with a 1 px ink border and 18 px of padding, as Main does", () => {
     const stop = ruleFor(".stage-stop");
     expect(stop).toMatch(/--k-edge:\s*var\(--ink\)/);
     expect(stop).toMatch(/padding:\s*0 var\(--s-18\)/);
+  });
+
+  it("lets the heading's row wrap, so a row of actions drops under the heading instead of squeezing it", () => {
+    // 0.9.0 review: four "Edit <item>" buttons left the h1 0 px wide and the stage scrolling sideways at 820 px
+    const wide = strip(css).slice(strip(css).indexOf("@media (width >= 760px)"));
+    expect(ruleFor(".ws-stage .k-status", wide)).toMatch(/flex-wrap:\s*wrap/);
+    // the heading holds a share of the row before the actions wrap; it grows into what is free
+    const lead = ruleFor(".ws-stage .k-status__lead", wide);
+    expect(lead).toMatch(/flex:\s*1 1 \d+px/);
+    expect(lead).toMatch(/min-width:\s*0/);
+    // and the actions shrink into their own lines rather than past the row's edge
+    const extra = ruleFor(".ws-stage .k-status__extra", wide);
+    expect(extra).toMatch(/flex:\s*0 1 auto/);
+    expect(extra).toMatch(/min-width:\s*0/);
+    expect(extra).toMatch(/max-width:\s*100%/);
   });
 
   it("cuts a long name on a status button instead of pushing it past the row", () => {
@@ -80,30 +95,5 @@ describe("stage.css", () => {
   it("gives the heading a 13 px line on a phone, in the kit", () => {
     const phone = kit.slice(kit.indexOf("The status heading on a phone"));
     expect(phone).toMatch(/\.k-status__line\s*\{[^}]*font-size:\s*var\(--text-xs\)/);
-  });
-
-  it("takes a narrow status row's controls to two rows with the same places: Layer on its own row, then View and the action", () => {
-    const text = strip(css);
-    // the row is a size container, in the stage only
-    expect(ruleFor(".ws-stage .k-status")).toMatch(/container:\s*stage-status \/ inline-size/);
-    // narrower than 42 rem: the widest one-row controls (three layers and All) measured 664 px
-    const at = text.indexOf("@container stage-status (width < 42rem)");
-    expect(at).toBeGreaterThan(-1);
-    const block = text.slice(at);
-    const inBlock = (selector: string): string =>
-      ruleFor(selector, block.slice(block.indexOf("{") + 1));
-    const controls = inBlock(".stage-controls");
-    expect(controls).toMatch(/display:\s*grid/);
-    expect(controls).toMatch(/"layer layer"\s*"view action"/);
-    // the action starts where the View switch ends, whatever the action is (Stop lines up with Keep searching)
-    expect(controls).toMatch(/grid-template-columns:\s*auto 1fr/);
-    // each keeps its own width, so the View switch is the same box whatever the other rows hold
-    expect(controls).toMatch(/justify-items:\s*start/);
-    // the Layer row keeps a switch's height when it is empty, so the View switch does not rise
-    expect(inBlock(".stage-controls__layer")).toMatch(
-      /min-height:\s*calc\(var\(--control-h\) \+ 2 \* var\(--s-3\)\)/,
-    );
-    // and a long Layer switch scrolls in its slot, never the page
-    expect(inBlock(".stage-controls__layer")).toMatch(/overflow-x:\s*auto/);
   });
 });

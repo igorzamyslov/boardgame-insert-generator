@@ -59,6 +59,19 @@ describe("jumpProblems", () => {
     expect(problems[0]).toMatch(/^status moved/);
   });
 
+  it("lets a region named in widens change width about its middle, and nothing else", () => {
+    const wide = page({ "plan-box": box(237, 143, 1267, 700) });
+    expect(jumpProblems(page(), wide, { widens: ["plan-box"] })).toEqual([]);
+    expect(jumpProblems(page(), wide)).toHaveLength(1);
+    // off-centre, taller, or lower: still a problem
+    const off = page({ "plan-box": box(337, 143, 1267, 700) });
+    expect(jumpProblems(page(), off, { widens: ["plan-box"] })[0]).toMatch(/^plan-box moved/);
+    const tall = page({ "plan-box": box(237, 143, 1267, 760) });
+    expect(jumpProblems(page(), tall, { widens: ["plan-box"] })[0]).toMatch(/^plan-box moved/);
+    const low = page({ "plan-box": box(237, 163, 1267, 700) });
+    expect(jumpProblems(page(), low, { widens: ["plan-box"] })[0]).toMatch(/^plan-box moved/);
+  });
+
   it("finds the plan's box by its data-region, with no fallback", () => {
     expect(JUMP_REGIONS["plan-box"]).toBe('[data-region="plan-box"]');
   });
