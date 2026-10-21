@@ -118,7 +118,12 @@ describe("SettingsSheet", () => {
     for (const name of ["Fit in the box", "Walls", "Walls and floors"]) {
       expect(screen.getByRole("group", { name }), name).toBeTruthy();
     }
-    for (const name of ["Room for fingers", /^Rim between layers/, "Fill to the lid"]) {
+    for (const name of [
+      "Room for fingers",
+      /^Rim between layers/,
+      "Fill to the lid",
+      "Fold risers into the joined spacers",
+    ]) {
       expect(screen.getByRole("checkbox", { name }), String(name)).toBeTruthy();
     }
     expect(screen.getByRole("searchbox", { name: "Find a setting" })).toBeTruthy();
@@ -149,11 +154,7 @@ describe("SettingsSheet", () => {
     for (const name of ["Bed X", "Bed Y", "Bed Z", "Bed margin", "Layer height"]) {
       expect(screen.getByLabelText(new RegExp(`^${name}`)), name).toBeTruthy();
     }
-    for (const name of [
-      "Engrave tray names",
-      "Join spacers into fewer pieces to print",
-      "Fold risers into the joined spacers",
-    ]) {
+    for (const name of ["Engrave tray names", "Join spacers into fewer pieces to print"]) {
       expect(screen.getByRole("checkbox", { name }), name).toBeTruthy();
     }
   });
@@ -347,19 +348,18 @@ describe("My printer", () => {
     expect(screen.getByText("This insert uses another printer")).toBeTruthy();
   });
 
-  it("keeps margin, layer height and folding risers under Printer details", () => {
+  it("keeps margin and layer height under Printer details, and the riser rows are not on this tab", () => {
     open();
     expect(screen.queryByLabelText(/^Bed margin/)).toBeNull();
     expect(screen.queryByLabelText(/^Layer height/)).toBeNull();
-    expect(
-      screen.queryByRole("checkbox", { name: "Fold risers into the joined spacers" }),
-    ).toBeNull();
     details();
     expect(screen.getByLabelText(/^Bed margin/)).toBeTruthy();
     expect(screen.getByLabelText(/^Layer height/)).toBeTruthy();
+    // they moved to This insert, beside Fill to the lid (DESIGN §7, 2026-10-21)
     expect(
-      screen.getByRole("checkbox", { name: "Fold risers into the joined spacers" }),
-    ).toBeTruthy();
+      screen.queryByRole("checkbox", { name: "Fold risers into the joined spacers" }),
+    ).toBeNull();
+    expect(screen.queryByLabelText(/^Separate risers from/)).toBeNull();
   });
 
   it("edits this insert's printing options", () => {
@@ -372,8 +372,7 @@ describe("My printer", () => {
   });
 
   it("blocks the riser fold while spacers are not joined, and says why", () => {
-    const { props } = open({ settings: { ...DEFAULT_SETTINGS, mergeFillers: false } });
-    details();
+    const { props } = sheet({ settings: { ...DEFAULT_SETTINGS, mergeFillers: false } });
     const box = screen.getByRole("checkbox", {
       name: "Fold risers into the joined spacers",
     }) as HTMLInputElement;
@@ -388,13 +387,17 @@ describe("My printer", () => {
     expect(props.onSettingsChange).not.toHaveBeenCalled();
   });
 
-  it("offers the fold when spacers are joined", () => {
-    const { props } = open();
-    details();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Fold risers into the joined spacers" }));
+  it("offers the fold, on by default, when spacers are joined", () => {
+    const { props } = sheet();
+    const box = screen.getByRole("checkbox", {
+      name: "Fold risers into the joined spacers",
+    }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(box.getAttribute("aria-disabled")).toBeNull();
+    fireEvent.click(box);
     expect(props.onSettingsChange).toHaveBeenLastCalledWith({
       ...DEFAULT_SETTINGS,
-      mergeRisers: true,
+      mergeRisers: false,
     });
   });
 
@@ -487,7 +490,7 @@ describe("every switch shows when it was changed, and the way back", () => {
     },
     {
       label: "Fold risers into the joined spacers",
-      tab: "My printer",
+      tab: "This insert",
       changed: { ...DEFAULT_SETTINGS, mergeRisers: !DEFAULT_SETTINGS.mergeRisers },
       to: word(DEFAULT_SETTINGS.mergeRisers),
     },
@@ -497,10 +500,6 @@ describe("every switch shows when it was changed, and the way back", () => {
   function open(label: string, tabName: "This insert" | "My printer") {
     if (tabName === "My printer") {
       fireEvent.click(tab(/^My printer/));
-    }
-    if (label === "Fold risers into the joined spacers") {
-      // it sits in Printer details
-      fireEvent.click(screen.getByRole("button", { name: /^Printer details/ }));
     }
     const box = screen.getByRole("checkbox", { name: label });
     const wrap = box.closest(".st-switch") as HTMLElement;
@@ -538,14 +537,9 @@ describe("every switch shows when it was changed, and the way back", () => {
     expect(document.activeElement).toBe(row.box);
   });
 
-  it("a closed Printer details says when the riser fold inside it was changed", () => {
-    sheet({ settings: { ...DEFAULT_SETTINGS, mergeRisers: true } });
+  it("a closed Printer details has no changed count of its own: it holds only the printer", () => {
+    sheet({ settings: { ...DEFAULT_SETTINGS, mergeRisers: false } });
     fireEvent.click(tab(/^My printer/));
-    const row = screen.getByRole("button", { name: /^Printer details/ });
-    expect(row.textContent).toBe("Printer details1 changed");
-    cleanup();
-    sheet();
-    fireEvent.click(tab("My printer"));
     expect(screen.getByRole("button", { name: /^Printer details/ }).textContent).toMatch(
       /margin, .* mm layers$/,
     );
@@ -597,7 +591,7 @@ describe("the tabs say where a changed setting is", () => {
   });
 
   it("marks both tabs when both differ, and neither at the defaults", () => {
-    sheet({ settings: { ...DEFAULT_SETTINGS, wall: 1.8, mergeRisers: true } });
+    sheet({ settings: { ...DEFAULT_SETTINGS, wall: 1.8, engraveNames: false } });
     expect(tab("This insert, changed")).toBeTruthy();
     expect(tab("My printer, changed")).toBeTruthy();
     cleanup();

@@ -194,6 +194,27 @@ describe("inputsHash", () => {
     }
   });
 
+  it("ignores minRiser: it only decides which padding is printed as a riser", () => {
+    // splitRisers reads it from the stored trays, so no tray moves or grows for it: changing it
+    // must neither stale a plan nor re-run the optimizer, and a project saved before the setting
+    // existed keeps its hash (the setting is absent from what is hashed).
+    const base = sample();
+    expect(base.settings.minRiser).toBe(3);
+    const hash = inputsHash(base);
+    for (const minRiser of [1, 2.5, 3, 10, 50]) {
+      const p: Project = { ...base, settings: { ...base.settings, minRiser } };
+      expect(inputsHash(p), String(minRiser)).toBe(hash);
+    }
+    const without: Record<string, unknown> = { ...base.settings };
+    delete without.minRiser;
+    expect(inputsHash({ ...base, settings: without as unknown as typeof base.settings })).toBe(
+      hash,
+    );
+    // ... and the riser fold, now on by default, still is not in it either
+    expect(base.settings.mergeRisers).toBe(true);
+    expect(inputsHash({ ...base, settings: { ...base.settings, mergeRisers: false } })).toBe(hash);
+  });
+
   it("ignores engraveNames: it only engraves the printed meshes", () => {
     const base = sample();
     for (const engraveNames of [true, false]) {

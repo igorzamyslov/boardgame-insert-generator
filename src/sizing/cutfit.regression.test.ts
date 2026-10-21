@@ -34,6 +34,7 @@ const BASE = {
   packingFactor: 0.5,
   leftover: "spare",
   fillToTop: true,
+  minRiser: 3,
   wallAbsorb: 0,
   infill: 15,
   playLimit: 1.5,

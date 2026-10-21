@@ -176,6 +176,7 @@ describe("createState", () => {
     expect(codesFor("0.7.2")).toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.8.0")).not.toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.8.4")).not.toContain(GEOMETRY_MAJOR_CODE);
+    expect(codesFor("0.8.5")).not.toContain(GEOMETRY_MAJOR_CODE);
     expect(codesFor("0.9.0")).not.toContain(GEOMETRY_MAJOR_CODE);
   });
 

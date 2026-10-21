@@ -57,6 +57,14 @@ export const EXACT_GROUPS: readonly ExactGroup[] = [
   },
 ];
 
+/**
+ * The numbers `SETTING_RANGES` has that the first screen of "This insert" draws, beside the
+ * switches they belong with, so no group of Exact numbers does (DESIGN §7, 2026-10-21: "Separate
+ * risers from", under Fill to the lid). An error at one is never hidden: that screen has no
+ * disclosure.
+ */
+export const FIRST_SCREEN_PATHS: readonly string[] = ["minRiser"];
+
 /** The group that holds the number an error at `/settings/<path>` is about. */
 export function groupOfPath(errorPath: string): ExactGroup | undefined {
   const prefix = "/settings/";

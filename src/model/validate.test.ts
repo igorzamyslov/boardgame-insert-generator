@@ -268,6 +268,20 @@ describe("validateProject", () => {
     ]);
   });
 
+  it("checks the least riser against 1 to 50 mm, at /settings/minRiser", () => {
+    const at = (minRiser: number) => {
+      const p = newProject();
+      p.settings = { ...p.settings, minRiser };
+      return codes(validateProject(p));
+    };
+    expect(at(1)).toEqual([]);
+    expect(at(3)).toEqual([]);
+    expect(at(50)).toEqual([]);
+    expect(at(0.5)).toEqual([[field.setting, "/settings/minRiser"]]);
+    expect(at(50.5)).toEqual([[field.setting, "/settings/minRiser"]]);
+    expect(at(Number.NaN)).toEqual([[field.setting, "/settings/minRiser"]]);
+  });
+
   it("treats duplicate component ids as blocking", () => {
     const a = newComponent("custom");
     const notices = validateProject(withComponents(a, { ...a }));

@@ -138,8 +138,17 @@ import type { Semver } from "../model/version";
  * tray shape the layout may pick: every tray spec planTray accepted before it still accepts and
  * builds the same, and stored plans stay valid (the arrangement is not stored; a plan made again
  * may come out narrower). A PATCH, as 0.8.3 was.
+ *
+ * 0.8.5 prints a riser under a stack from 3 mm of padding, where it was 10 mm (the `minRiser`
+ * setting, DESIGN §7, 2026-10-21; `splitRisers`). A stack that gave 6.4 mm or 9.5 mm of padding
+ * kept it as a raised floor in its trays and now prints it as a riser under its bottom tray, solid
+ * under 6.2 mm and an open walled box above it. The stack adds up to the same height, every outer
+ * size, wall, lip, groove and well is as before, and a tray's well floor drops to the normal one,
+ * so parts printed before and after still mate and stack: a PATCH, as 0.5.2 (the open riser) was.
+ * The stored layout is the same, so no plan goes stale; a project saved before reads the setting
+ * as 3 mm and prints the riser from its next export.
  */
-export const GEOMETRY_VERSION = "0.8.4";
+export const GEOMETRY_VERSION = "0.8.5";
 
 /** A version's compatibility line: MAJOR from 1.0 on; pre-1.0, each 0.MINOR (spec §9). */
 function line(v: Semver): [number, number] {

@@ -388,7 +388,7 @@ describe("schema 0.2.0: groups, copies, turn locks and flat decks", () => {
     for (const path of old) {
       const result = expectOk(parseProject(structuredClone(HISTORY[path])));
       expect(migrated(result), path).toHaveLength(1);
-      expect(result.project.schemaVersion, path).toBe("0.2.0");
+      expect(result.project.schemaVersion, path).toBe(SCHEMA_VERSION);
     }
   });
 

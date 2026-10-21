@@ -774,7 +774,7 @@ export const STATES = {
     ],
   },
   // The printer tab's parts the board does not draw, judged against its printer tab: Printer
-  // details open with My own size (the three sizes, margin, layer height, folding risers) ...
+  // details open with My own size (the three sizes, margin, layer height) ...
   "settings-printer-details": {
     board: "Settings",
     boardOpts: { state: { tab: "printer" } },

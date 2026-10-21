@@ -109,7 +109,14 @@ function NumberRow({
   onChange,
   plain = false,
   rules,
-}: SettingsFormProps & { range: Range; plain?: boolean; rules?: NumberRules }) {
+  showUnit = false,
+}: SettingsFormProps & {
+  range: Range;
+  plain?: boolean;
+  rules?: NumberRules;
+  /** Say the unit beside the box: a row outside Exact numbers has no "All in mm." over it. */
+  showUnit?: boolean;
+}) {
   const id = inputId(range);
   const path = `/settings/${range.path}`;
   const set = SETTING_SETTERS[range.path];
@@ -134,6 +141,22 @@ function NumberRow({
   ]
     .filter((x) => x !== null)
     .join(" ");
+  const box = (
+    <input
+      id={id}
+      class="st-num"
+      type="text"
+      {...numberInputAttrs(false)}
+      autoComplete="off"
+      value={typed.text}
+      data-changed={changed ? "" : undefined}
+      aria-invalid={error !== null ? true : undefined}
+      aria-describedby={describedBy === "" ? undefined : describedBy}
+      onInput={(e) => typed.onInput(e.currentTarget.value)}
+      onBlur={typed.onBlur}
+      onKeyDown={typed.onKeyDown}
+    />
+  );
   return (
     <>
       <label class="st-row__label" htmlFor={id}>
@@ -141,20 +164,16 @@ function NumberRow({
         {unit !== undefined ? <span class="visually-hidden">{` (${unit})`}</span> : null}
         {changed ? <Dot /> : null}
       </label>
-      <input
-        id={id}
-        class="st-num"
-        type="text"
-        {...numberInputAttrs(false)}
-        autoComplete="off"
-        value={typed.text}
-        data-changed={changed ? "" : undefined}
-        aria-invalid={error !== null ? true : undefined}
-        aria-describedby={describedBy === "" ? undefined : describedBy}
-        onInput={(e) => typed.onInput(e.currentTarget.value)}
-        onBlur={typed.onBlur}
-        onKeyDown={typed.onKeyDown}
-      />
+      {showUnit && unit !== undefined ? (
+        <span class="st-num-unit">
+          {box}
+          <span class="st-num-unit__text" aria-hidden="true">
+            {unit}
+          </span>
+        </span>
+      ) : (
+        box
+      )}
       {changed ? (
         <button
           type="button"
@@ -531,6 +550,20 @@ function Labelled({
   );
 }
 
+/** What the least riser does, under its box: the trays carry any smaller padding as a thicker floor. */
+const MIN_RISER_LINE = "Smaller padding stays a thicker tray floor.";
+
+/** "Separate risers from": the one number of the first screen, beside the switches it belongs with. */
+function MinRiserRow({ settings, onChange }: SettingsFormProps) {
+  const range = rangeOf("minRiser");
+  return range === undefined ? null : (
+    <div class="st-rows st-rows--lone">
+      <NumberRow range={range} settings={settings} onChange={onChange} showUnit />
+      <p class="st-row__msg st-note">{MIN_RISER_LINE}</p>
+    </div>
+  );
+}
+
 function HowTheTraysSit({
   settings,
   onChange,
@@ -631,6 +664,8 @@ function HowTheTraysSit({
           onChange={(fillToTop) => onChange({ ...settings, fillToTop })}
           onBack={() => onChange({ ...settings, fillToTop: DEFAULT_SETTINGS.fillToTop })}
         />
+        <MinRiserRow settings={settings} onChange={onChange} />
+        <FoldRisers settings={settings} onChange={onChange} />
       </div>
     </section>
   );
@@ -737,12 +772,11 @@ export function PrintingOptions({
   );
 }
 
-/** Folding risers into the joined spacers: it needs joined spacers, and says so while it has none. */
-export function FoldRisers({ settings, onChange }: SettingsFormProps) {
+/** Folding risers into the joined spacers: it needs joined spacers (a printing option), and says so while it has none. */
+function FoldRisers({ settings, onChange }: SettingsFormProps) {
   const blocked = !settings.mergeFillers;
   return (
     <SwitchRow
-      compact
       label="Fold risers into the joined spacers"
       hint={blocked ? "Needs joined spacers." : undefined}
       blocked={blocked}

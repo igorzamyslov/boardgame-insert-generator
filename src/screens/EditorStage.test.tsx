@@ -104,7 +104,9 @@ describe("EditorStage", () => {
       renderApp({ project });
       editMarket();
       const trays = project.layout?.trays ?? [];
-      const level = (key: string): number => trays.find((t) => t.key === key)?.level ?? -1;
+      // a merged part (fillers and risers printed as one) is derived, not stored: it stands on the floor
+      const level = (key: string): number =>
+        key.startsWith("merged:") ? 0 : (trays.find((t) => t.key === key)?.level ?? -1);
       const first = trays.find((t) => t.key.startsWith("market01:"));
       expect(first).toBeDefined();
       const home = first?.level ?? 0;

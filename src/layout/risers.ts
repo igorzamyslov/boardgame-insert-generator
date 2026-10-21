@@ -1,6 +1,11 @@
 import { bottomMinimums } from "../model/lip";
 import type { Lock, Printer, Settings, TraySpec } from "../model/types";
-import { MIN_RISER, MIN_SPARE, RISER_SUFFIX, UPPER_TRAY_MIN_ABOVE_LIP } from "../sizing/constants";
+import {
+  MIN_RISER_POCKET,
+  MIN_SPARE,
+  RISER_SUFFIX,
+  UPPER_TRAY_MIN_ABOVE_LIP,
+} from "../sizing/constants";
 import { roundDownTo, roundMm, roundUpTo, toMm, toU, toUFloor, type U } from "./units";
 
 /** What splitRisers reads from a project. */
@@ -13,13 +18,14 @@ export interface RiserInputs {
 /**
  * The riser under a stack (spec §3 rule 2): the height its trays give up, as a part of its own
  * with the bottom tray's footprint. It follows the leftover style: a solid block, or an open
- * walled box with a floor (a solid block when it is too small to open).
+ * walled box with a floor (a solid block when it is too small to open: narrower than MIN_SPARE
+ * inside, or with a pocket shallower than MIN_RISER_POCKET).
  */
 function riserSpec(bottom: TraySpec, h: number, leftover: Settings["leftover"]): TraySpec {
   const { wall, floor } = bottom;
   const w = roundMm(bottom.w - 2 * wall);
   const d = roundMm(bottom.d - 2 * wall);
-  const solid = leftover === "solid" || Math.min(w, d) < MIN_SPARE;
+  const solid = leftover === "solid" || Math.min(w, d) < MIN_SPARE || h - floor < MIN_RISER_POCKET;
   return {
     key: `${bottom.key}${RISER_SUFFIX}`,
     part: "riser",
@@ -46,10 +52,11 @@ function riserSpec(bottom: TraySpec, h: number, leftover: Settings["leftover"]):
 /**
  * The parts to print for a stored layout (spec §3 rule 2, §6.2). The stored layout pads a stack to
  * the top plane with a raised floor in its trays; printed, that height is better a part of its
- * own. A stack whose trays together have at least MIN_RISER of floor raised in every compartment
- * gets a riser under its bottom tray, and the trays lose that floor, so the heights still add up
- * exactly. A riser is derived, not stored: it is a pure function of the stored trays and these
- * inputs, so a stored layout (and a share link) is the same with or without it.
+ * own. A stack whose trays together have at least `settings.minRiser` of floor raised in every
+ * compartment (and at least what a level 0 part with the bottom chamfer can be high) gets a riser
+ * under its bottom tray, and the trays lose that floor, so the heights still add up exactly. A
+ * riser is derived, not stored: it is a pure function of the stored trays and these inputs, so a
+ * stored layout (and a share link) is the same with or without it.
  *
  * Only whole layers move, a tray never goes below the height it needs as a lipped, chamfered
  * upper tray, a size-locked tray keeps its height, and the riser is never taller than the print
@@ -100,7 +107,7 @@ export function splitRisers(trays: readonly TraySpec[], o: RiserInputs): TraySpe
       total -= give;
     }
     const bottom = list[0];
-    if (!bottom || total < toU(MIN_RISER)) {
+    if (!bottom || total < Math.max(toU(settings.minRiser), toU(bottomMinimums(settings, 0).h))) {
       continue;
     }
     let below: U = 0;

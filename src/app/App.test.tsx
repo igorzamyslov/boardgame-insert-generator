@@ -833,12 +833,15 @@ describe("App", () => {
         }),
       );
       expect(store.state.project.value.settings.wall).toBe(2);
-      // the header counts it, and so does the Walls group (the fixture's rim is on, the default);
-      // Reset all puts it back as one more step
-      expect(screen.getAllByText("1 changed")).toHaveLength(2);
+      // the header counts it, and so does the Walls group (the fixture's rim is on, the default); the
+      // fixture is a file that says nothing of the riser fold, which reads it off where new inserts
+      // have it on, so the header counts that too. Reset all puts both back as one more step
+      expect(screen.getAllByText("1 changed")).toHaveLength(1);
+      expect(screen.getByText("2 changed")).toBeTruthy();
       vi.setSystemTime(Date.now() + 5000);
       fireEvent.click(screen.getByRole("button", { name: "Reset all" }));
       expect(store.state.project.value.settings.wall).toBe(DEFAULT_SETTINGS.wall);
+      expect(store.state.project.value.settings.mergeRisers).toBe(DEFAULT_SETTINGS.mergeRisers);
       act(() => store.undo());
       expect(store.state.project.value.settings.wall).toBe(2);
       act(() => store.undo());

@@ -39,6 +39,7 @@ export const SETTING_SETTERS: Record<string, (s: Settings, v: number) => Setting
   wallAbsorb: (s, v) => ({ ...s, wallAbsorb: v }),
   infill: (s, v) => ({ ...s, infill: v }),
   playLimit: (s, v) => ({ ...s, playLimit: v }),
+  minRiser: (s, v) => ({ ...s, minRiser: v }),
 };
 
 /**
@@ -110,10 +111,10 @@ const FINGER_ROOM_LEAVES = ["fingerPocket/wallRoom", "fingerPocket/dividerRoom"]
 const SPARE_ROOM_LEAVES = ["wallAbsorb", "oneWall"];
 
 /**
- * The settings the "My printer" tab draws (the printing options and folding risers into the
- * joined spacers); every other one is on "This insert".
+ * The settings the "My printer" tab draws (the printing options); every other one is on "This
+ * insert", Fold risers into the joined spacers and Separate risers from among them.
  */
-const PRINTER_TAB_LEAVES = ["engraveNames", "mergeFillers", "mergeRisers"];
+const PRINTER_TAB_LEAVES = ["engraveNames", "mergeFillers"];
 
 /**
  * The settings that differ from their defaults, each one as the sheet draws it: a number, a choice

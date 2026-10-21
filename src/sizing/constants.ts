@@ -42,12 +42,16 @@ export const SPACER_MIN_WALL = 2;
 /** Card spacer: this much lower than the well (spec §6.2: well height − 5). */
 export const SPACER_TOP_GAP = 5;
 /**
- * Smallest height of padding worth printing as a riser of its own under a stack (spec §3 rule 2).
- * 10 mm is 50 layers at 0.2 mm: below it the raised floor it would replace costs less plastic
- * than a second part (a bed slot, a print job, a step in the instructions) and is not what makes
- * a tray look bulky. A riser's key is its bottom tray's key plus this suffix.
+ * Deepest pocket a riser must have to print as an open walled box; a riser whose pocket (its
+ * height less the floor) is shallower prints solid, as a spacer does (MIN_SPACER, the same 5 mm).
+ * Under it the walls and floor are most of the part anyway, and a pocket that shallow saves
+ * under a millimetre of plastic.
+ *
+ * The least height of padding worth printing as a riser at all is a setting, `minRiser`
+ * (spec §3 rule 2; 10 mm until 0.10.0, 3 mm now). A riser's key is its bottom tray's key plus
+ * RISER_SUFFIX.
  */
-export const MIN_RISER = 10;
+export const MIN_RISER_POCKET = MIN_SPACER;
 export const RISER_SUFFIX = ":riser";
 /**
  * The most slack (mm, per axis) the `oneWall` setting lets a tray's one thick wall take beyond what

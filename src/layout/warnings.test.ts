@@ -50,6 +50,7 @@ const okSummary: LayoutSummary = {
   fillerCount: 0,
   mergeFillers: true,
   mergeRisers: false,
+  minRiser: 3,
   playX: 1.2,
   playY: 1.4,
   crossX: 3,

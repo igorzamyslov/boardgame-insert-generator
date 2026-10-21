@@ -4,7 +4,7 @@ import { COMPONENT_DEFAULTS } from "./defaults";
 import type { Json } from "./json";
 import { SCHEMA_NOTICE_CODES } from "./schema";
 import type { ReadOptions } from "./schema-read";
-import { LIP_ENABLED_WHEN_ABSENT, readProject } from "./schema-read";
+import { LIP_ENABLED_WHEN_ABSENT, MERGE_RISERS_WHEN_ABSENT, readProject } from "./schema-read";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ParseResult } from "./types";
 import { validateProject } from "./validate";
@@ -81,10 +81,12 @@ describe("readProject: files of this schema line", () => {
       bedMargin: 5,
       layerHeight: 0.2,
     });
-    // The rim between layers is on in new inserts, but a file that says nothing about it reads it off.
+    // The rim between layers and the riser fold are on in new inserts, but a file that says nothing
+    // about them reads them off; the least riser has no old meaning, so it reads the default.
     expect(project.settings).toEqual({
       ...DEFAULT_SETTINGS,
       lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+      mergeRisers: false,
     });
     expect(project.components).toEqual([]);
     expect(project.locks).toEqual([]);
@@ -116,6 +118,7 @@ describe("readProject: files of this schema line", () => {
       ...DEFAULT_SETTINGS,
       wall: 2,
       lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
+      mergeRisers: false,
     });
   });
 
@@ -139,6 +142,36 @@ describe("readProject: files of this schema line", () => {
       readProject({ ...MINIMAL, settings: { lip: { enabled: true } } }, CURRENT),
     ).project;
     expect(on.settings.lip.enabled).toBe(true);
+  });
+
+  it("a file without mergeRisers reads it off, and a stored value is used as it is", () => {
+    // New inserts fold risers into the joined spacers, but a project saved before that left the
+    // switch out at its old default of off (it was not written then): it keeps that meaning.
+    expect(DEFAULT_SETTINGS.mergeRisers).toBe(true);
+    expect(MERGE_RISERS_WHEN_ABSENT).toBe(false);
+    for (const raw of [MINIMAL, { ...MINIMAL, settings: { wall: 2 } }]) {
+      const { project } = expectOk(readProject(raw, CURRENT));
+      expect(project.settings.mergeRisers, JSON.stringify(raw)).toBe(false);
+    }
+    for (const stored of [true, false]) {
+      const { project } = expectOk(
+        readProject({ ...MINIMAL, settings: { mergeRisers: stored } }, CURRENT),
+      );
+      expect(project.settings.mergeRisers).toBe(stored);
+    }
+  });
+
+  it("a file without minRiser reads the default 3 mm, and a stored value is used as it is", () => {
+    // A project saved before the setting existed prints the riser the owner asked for (its plan
+    // stays current: the setting is not in the hash).
+    expect(DEFAULT_SETTINGS.minRiser).toBe(3);
+    for (const raw of [MINIMAL, { ...MINIMAL, settings: { wall: 2 } }]) {
+      const { project } = expectOk(readProject(raw, CURRENT));
+      expect(project.settings.minRiser, JSON.stringify(raw)).toBe(3);
+    }
+    const ten = expectOk(readProject({ ...MINIMAL, settings: { minRiser: 10 } }, CURRENT));
+    expect(ten.project.settings.minRiser).toBe(10);
+    expect(ten.notices).toEqual([]);
   });
 
   it("fills the finger room and notch of an older file and drops its finger pocket reach", () => {

@@ -12,7 +12,7 @@ import {
   valueAt,
 } from "./json";
 import type { ForeignValue } from "./schema-read";
-import { readProject, TOO_DEEP_ERROR } from "./schema-read";
+import { MERGE_RISERS_WHEN_ABSENT, readProject, TOO_DEEP_ERROR } from "./schema-read";
 import { spareCompartment } from "./schema-read-layout";
 import { SCHEMA_NOTICE_CODES } from "./schema-reader";
 import { DEFAULT_SETTINGS } from "./settings";
@@ -306,9 +306,10 @@ export function toSerializable(p: Project, foreign: ForeignData): Json {
 }
 
 /**
- * The two print-time merge switches and the engraving switch at their defaults are left out:
- * reading puts them back, so a share link (2 000 characters) does not pay for three settings
- * nearly every project leaves alone.
+ * The two print-time merge switches and the engraving switch at what reading puts back are left
+ * out, so a share link (2 000 characters) does not pay for three settings nearly every project
+ * leaves alone. For mergeRisers that is what a file without it means (MERGE_RISERS_WHEN_ABSENT,
+ * off), not the default (on): a project that has it on writes it.
  */
 function compactSettings(out: Json): void {
   const settings = out.settings;
@@ -318,7 +319,7 @@ function compactSettings(out: Json): void {
   if (settings.mergeFillers === DEFAULT_SETTINGS.mergeFillers) {
     delete settings.mergeFillers;
   }
-  if (settings.mergeRisers === DEFAULT_SETTINGS.mergeRisers) {
+  if (settings.mergeRisers === MERGE_RISERS_WHEN_ABSENT) {
     delete settings.mergeRisers;
   }
   if (settings.engraveNames === DEFAULT_SETTINGS.engraveNames) {

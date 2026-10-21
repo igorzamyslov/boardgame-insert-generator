@@ -8,7 +8,7 @@ import { Button, CloseButton, Drawer, Segmented } from "../kit";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { Notice, Printer, Settings } from "../model/types";
 import { printerProblems } from "../share";
-import { FoldRisers, InsertSettings, PrintingOptions } from "./SettingsForm";
+import { InsertSettings, PrintingOptions } from "./SettingsForm";
 import { PrinterForm } from "./PrinterForm";
 import { changedByTab, changedCount } from "./settingsFields";
 import type { NameExample } from "./settingsFields";
@@ -80,7 +80,6 @@ function PrinterTab(p: SettingsSheetProps) {
       <p class="st-intro">Bed, margin and layer height are kept in this browser.</p>
       <PrinterForm
         printer={p.myPrinter}
-        changedInside={p.settings.mergeRisers !== DEFAULT_SETTINGS.mergeRisers ? 1 : 0}
         onChange={(patch) => {
           const next = { ...p.myPrinter, ...patch };
           const found = printerProblems(next);
@@ -93,7 +92,6 @@ function PrinterTab(p: SettingsSheetProps) {
         {notSaved !== null ? (
           <p class="k-field__error" role="alert">{`Not saved: ${notSaved}`}</p>
         ) : null}
-        <FoldRisers settings={p.settings} onChange={p.onSettingsChange} />
       </PrinterForm>
       <PrintingOptions
         settings={p.settings}
