@@ -6,6 +6,7 @@ import { evaluate } from "./fill";
 import { greedyTree, partitionTrees } from "./greedy";
 import {
   applyLocks,
+  brokenLocks,
   conflictOf,
   dedupeConflicts,
   moveEnvOf,
@@ -77,6 +78,8 @@ interface Phase {
   readonly ctx: Ctx;
   readonly resolved: ResolvedLocks;
   readonly conflicts: LockConflict[];
+  /** No start tree took the locks, so the search began from a tree that ignores them. */
+  readonly startIgnoredLocks: boolean;
   readonly annealer: Annealer;
 }
 
@@ -153,12 +156,14 @@ function startPhase(
   }
   // No start took the locks (no unlocked leaf was left to insert into): the plain greedy tree
   // stands in, with the turned trays still turned (the moves can't undo a turn lock).
+  const startIgnoredLocks = best === null && resolved.kept.length > 0;
   const start =
     best ?? evalTree(withTurns(greedyTree(ctx, noLocks(ctx), "x"), ctx, resolved.turns));
   return {
     ctx,
     resolved,
     conflicts,
+    startIgnoredLocks,
     annealer: createAnnealer(env, evalTree, start, rng, iterations),
   };
 }
@@ -225,6 +230,19 @@ export function createRun(
     if (phase !== undefined && best) {
       notices.push(...bedNotices(phase.ctx));
       const trays = materialize(phase.ctx, best.plan, opts.realize);
+      if (phase.startIgnoredLocks) {
+        // The search began from a tree without the pins (no free place was left for the other
+        // trays): report the kept pins the layout it found breaks, and only those.
+        for (const lock of brokenLocks(phase.resolved.kept, trays)) {
+          lockConflicts.push(
+            conflictOf(
+              lock,
+              "the pins leave no free place for the other trays",
+              trayNamer(phase.ctx),
+            ),
+          );
+        }
+      }
       const summary = summarize(trays, input);
       notices.push(...layoutWarnings(phase.ctx, trays, summary));
       if (stop) {

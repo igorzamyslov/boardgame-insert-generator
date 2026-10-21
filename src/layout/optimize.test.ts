@@ -651,3 +651,31 @@ describe("a tight box with one exact partition of the heights is solved cold", (
     });
   }
 });
+
+describe("pins no start tree can take", () => {
+  // Two trays pinned to the only two leaves of the root cut leave no free leaf for the third:
+  // applyLocks returns null for every start, so the plain greedy tree stands in.
+  const reqs3 = [boxReq("p", 60, 40, 20), boxReq("q", 60, 40, 20), boxReq("r", 60, 40, 20)];
+  const box = { innerWidth: 300, innerDepth: 200, innerHeight: 40 };
+  const locks = [
+    { kind: "position" as const, trayKey: "p:p0:0", path: "0", rotated: false },
+    { kind: "position" as const, trayKey: "q:p0:0", path: "1", rotated: false },
+  ];
+
+  it("reports the pins the layout breaks, and only those", () => {
+    const inp = makeInput(reqs3, { box, locks });
+    const r = optimize(inp, 1, 1000);
+    expect(r.layout).not.toBeNull();
+    const at = (key: string) => r.layout?.trays.find((t) => t.key === key)?.path;
+    // the search started without the pins and kept p at its path, but moved q
+    expect(at("p:p0:0")).toBe("0");
+    expect(at("q:p0:0")).not.toBe("1");
+    expect(r.lockConflicts).toEqual([
+      expect.objectContaining({
+        trayKey: "q:p0:0",
+        kind: "position",
+        reason: "the pins leave no free place for the other trays",
+      }),
+    ]);
+  });
+});
