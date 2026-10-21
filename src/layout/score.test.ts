@@ -299,13 +299,13 @@ describe("score", () => {
       expect(grouped.total).toBeLessThan(split.total);
     });
 
-    it("weighs an extra stack above a loose tray on top, a filler and 1 % of the box", () => {
-      // so keeping an item together may cost a filler, a buried tray or a little room, never fit
+    it("weighs an extra stack as 5 % of the box, above a loose tray on top and a filler", () => {
+      // so keeping an item together may cost a filler, a buried tray or up to 5 % of the box
+      // (the owner's Star Realms box, 0.8.1: 2.25 % and a filler's filament), never fit
       expect(WEIGHTS.apart).toBeGreaterThan(WEIGHTS.coverage);
       expect(WEIGHTS.apart).toBeGreaterThan(WEIGHTS.access);
       expect(WEIGHTS.apart).toBeGreaterThan(WEIGHTS.trays + WEIGHTS.fillers);
-      expect(WEIGHTS.apart).toBeGreaterThan(1000 * WEIGHTS.leftover);
-      expect(WEIGHTS.apart).toBeLessThan(3000 * WEIGHTS.leftover);
+      expect(WEIGHTS.apart).toBe(5000 * WEIGHTS.leftover);
       expect(WEIGHTS.apart).toBeLessThan(OVERFLOW_WEIGHT / 100);
     });
 

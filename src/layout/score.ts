@@ -91,7 +91,7 @@ export interface Score {
  *   one moved tray (warm start)  =                     5 000
  * and four terms for the parts of one requirement, which are one thing to the user. Two are
  * strong, set by the owner over the packing preferences above:
- *   one extra stack for one item's trays =         2 000 000 (spec §6, owner 0.5.3)
+ *   one extra stack for one item's trays =         5 000 000 (spec §6, owner 0.5.3; 0.8.1)
  *   one tray more than a whole one       =           300 000 (groups spec §6.3)
  * and two are preferences only:
  *   one part turned unlike its siblings  =            15 000
@@ -120,16 +120,18 @@ export const WEIGHTS: Readonly<ScoreTerms> = {
   // The parts of one requirement are one thing to the user. Owner (0.5.3): "keep the split trays
   // of one item in one stack whenever possible", so an extra stack for one item (one copy: the
   // trays of one player's share are kept together, the players' trays need not be) is the
-  // heaviest preference there is, 2 000 000. Above 1 % of the box left over (1 000 000), so an
-  // item kept together may leave a filler and up to about 2 % of the box unused (the Star Realms
-  // Starter deck, kept in one stack, gives up the 1.5 % of the box it would fill on the Trade
-  // deck); above `coverage` (500 000) and `access` (200 000), so it buries an "often" part or
-  // leaves a loose tray on top rather than part the item; above a filler (40 000 with its part)
-  // and a stacked tray; equal to a wall swollen 5 mm per side. Far below OVERFLOW_WEIGHT (1/500 of
-  // 0.01 mm), so it never costs a fit: when no stack can hold the parts, they spread. At the
-  // annealer's start temperature (T_START, 1 000 000) a move that parts an item is still taken
-  // about one time in seven, so the search can pass through such layouts early on.
-  apart: 2_000_000,
+  // heaviest preference there is, 5 000 000: 5 % of the box left over (5 × 1 000 000). The rule
+  // it states: an item kept together may leave up to about 5 % of the box unused, less the filler,
+  // filament and sealed cuts that come with that room. The owner's Star Realms box gives up
+  // 2.25 % (the three Starter trays in one stack, the Trade deck alone: 0.8.1, when 2 000 000 parted
+  // them); with a smaller Counter deck it was 1.5 %. Above `coverage` (500 000) and `access`
+  // (200 000), so it buries an "often" part or leaves a loose tray on top rather than part the
+  // item; above a filler (40 000 with its part) and a stacked tray; about a wall swollen 8 mm per
+  // side. Far below OVERFLOW_WEIGHT (1/400 of 0.01 mm), so it never costs a fit: when no stack can
+  // hold the parts, they spread. At the annealer's start temperature (T_START, 1 000 000) a move
+  // that parts an item is taken about one time in 150 (e^-5): the search crosses such layouts
+  // rarely, and settles on the item's one stack early.
+  apart: 5_000_000,
   // Groups spec §6.3 (owner A): one tray per copy unless no single tray fits. Above a buried
   // "often" tray (200 000), a stacked tray (50 000), a filler with its part (40 000) and the weak
   // cohesion terms, so no packing preference buys a split; below `coverage` (500 000), 1 % of
@@ -173,7 +175,9 @@ export const WEIGHTS: Readonly<ScoreTerms> = {
   sealed: 10_000,
 };
 
-export const OVERFLOW_WEIGHT = 1_000_000_000;
+// 2 000 000 000 since 0.8.1: `apart` at 5 000 000 lifts the worst feasible score (score.test) past
+// 1 000 000 000. Totals stay exact: 1 m of overflow in all is 2 × 10^14, far below 2^53.
+export const OVERFLOW_WEIGHT = 2_000_000_000;
 
 function share(mm3: number, boxMm3: number): number {
   return Math.round((mm3 * 100_000) / boxMm3);

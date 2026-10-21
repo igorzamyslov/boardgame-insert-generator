@@ -5,6 +5,7 @@ import { parseProject } from "../model/schema";
 import type { CardsComponent, Project } from "../model/types";
 import { size } from "../sizing";
 import starRealmsAuto from "../../test/fixtures/star-realms-auto.json";
+import starRealmsOwner4 from "../../test/fixtures/star-realms-owner-4.json";
 import { DEFAULT_ITERATIONS, optimize } from "./optimize";
 import type { LayoutInput } from "./types";
 
@@ -67,3 +68,40 @@ describe("one item's split trays stay in one stack when they can", { timeout: 60
     expect(new Set(starter.map((t) => t.stack)).size).toBe(1);
   });
 });
+
+// The owner's fourth project on this box (0.8.1): the Counter deck is 63.5 × 88 like the others,
+// not 56 × 87, so keeping the three Starter trays in one stack leaves 2.25 % of the box unused
+// rather than 1.5 %. The optimizer parted them (two with the Counter, one on the Trade deck).
+describe(
+  "one item's split trays stay in one stack on the owner's file",
+  { timeout: 60_000 },
+  () => {
+    function ownerInput(): LayoutInput {
+      const parsed = parseProject(starRealmsOwner4);
+      if (!parsed.ok) {
+        throw new Error(parsed.error);
+      }
+      const p = parsed.project;
+      return {
+        requirements: size(p.components, p.settings).requirements,
+        box: p.box,
+        printer: p.printer,
+        settings: p.settings,
+        locks: p.locks,
+        inputsHash: inputsHash(p),
+        appVersion: "0.0.0-test",
+      };
+    }
+
+    it.each([1, 2, 3])("stacks the three Starter trays together (seed %i)", (seed) => {
+      const input = ownerInput();
+      const key = input.requirements[1]?.key ?? "";
+      const result = optimize(input, seed, DEFAULT_ITERATIONS);
+      const starter = (result.layout?.trays ?? []).filter(
+        (t) => t.part === "tray" && t.key.startsWith(`${key}:`),
+      );
+      expect(starter).toHaveLength(3);
+      expect(new Set(starter.map((t) => t.stack)).size).toBe(1);
+    });
+  },
+);
