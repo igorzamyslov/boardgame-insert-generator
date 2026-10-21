@@ -53,9 +53,15 @@ jobs:
       - name: npm run typecheck
         run: npm run typecheck
 
-  test:
-    name: Tests (vitest)
+  # The suite is split across runners (vitest --shard); the `test` job below gathers the
+  # shards under the name branch protection requires.
+  test-shard:
+    name: Tests (vitest) shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -63,8 +69,19 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: npm test
-        run: npm test
+      - name: npm test (shard ${{ matrix.shard }}/4)
+        run: npm test -- --shard=${{ matrix.shard }}/4
+
+  # Keeps the old job name: "Tests (vitest)" is a required check in the repository ruleset.
+  test:
+    name: Tests (vitest)
+    if: ${{ always() }}
+    needs: [test-shard]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All test shards passed
+        run: |
+          [ "${{ needs.test-shard.result }}" = "success" ]
 
   build:
     name: Build, third-party licences, dist smoke test
