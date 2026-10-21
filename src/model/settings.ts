@@ -88,7 +88,7 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   wallAbsorb: 0,
   oneWall: false,
   mergeFillers: true,
-  // On for new inserts (owner, 2026-10-21). Files that say nothing read it off: MERGE_RISERS_WHEN_ABSENT.
+  // On by default (owner, 2026-10-21): a file that says nothing about it reads on too.
   mergeRisers: true,
   infill: 15,
   playLimit: 1.5,

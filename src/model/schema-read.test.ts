@@ -4,7 +4,7 @@ import { COMPONENT_DEFAULTS } from "./defaults";
 import type { Json } from "./json";
 import { SCHEMA_NOTICE_CODES } from "./schema";
 import type { ReadOptions } from "./schema-read";
-import { LIP_ENABLED_WHEN_ABSENT, MERGE_RISERS_WHEN_ABSENT, readProject } from "./schema-read";
+import { LIP_ENABLED_WHEN_ABSENT, readProject } from "./schema-read";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { ParseResult } from "./types";
 import { validateProject } from "./validate";
@@ -81,12 +81,10 @@ describe("readProject: files of this schema line", () => {
       bedMargin: 5,
       layerHeight: 0.2,
     });
-    // The rim between layers and the riser fold are on in new inserts, but a file that says nothing
-    // about them reads them off; the least riser has no old meaning, so it reads the default.
+    // The rim between layers is on in new inserts, but a file that says nothing about it reads it off.
     expect(project.settings).toEqual({
       ...DEFAULT_SETTINGS,
       lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
-      mergeRisers: false,
     });
     expect(project.components).toEqual([]);
     expect(project.locks).toEqual([]);
@@ -118,7 +116,6 @@ describe("readProject: files of this schema line", () => {
       ...DEFAULT_SETTINGS,
       wall: 2,
       lip: { ...DEFAULT_SETTINGS.lip, enabled: false },
-      mergeRisers: false,
     });
   });
 
@@ -144,14 +141,13 @@ describe("readProject: files of this schema line", () => {
     expect(on.settings.lip.enabled).toBe(true);
   });
 
-  it("a file without mergeRisers reads it off, and a stored value is used as it is", () => {
-    // New inserts fold risers into the joined spacers, but a project saved before that left the
-    // switch out at its old default of off (it was not written then): it keeps that meaning.
+  it("a file without mergeRisers reads the default, on; an explicit value is used as it is", () => {
+    // Folding risers is on by default (0.10.0) and a project saved before shows no changed dot for
+    // a setting nobody touched: a file that says nothing reads on, an explicit false stays false.
     expect(DEFAULT_SETTINGS.mergeRisers).toBe(true);
-    expect(MERGE_RISERS_WHEN_ABSENT).toBe(false);
     for (const raw of [MINIMAL, { ...MINIMAL, settings: { wall: 2 } }]) {
       const { project } = expectOk(readProject(raw, CURRENT));
-      expect(project.settings.mergeRisers, JSON.stringify(raw)).toBe(false);
+      expect(project.settings.mergeRisers, JSON.stringify(raw)).toBe(true);
     }
     for (const stored of [true, false]) {
       const { project } = expectOk(

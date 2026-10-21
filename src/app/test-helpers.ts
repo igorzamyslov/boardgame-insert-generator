@@ -95,7 +95,7 @@ export function makeResult(
           playLimit: 1.5,
           fillerCount: 0,
           mergeFillers: true,
-          mergeRisers: false,
+          mergeRisers: true,
           minRiser: 3,
           playX: 1.2,
           playY: 1.6,

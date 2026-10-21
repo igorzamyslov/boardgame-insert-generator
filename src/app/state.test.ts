@@ -83,7 +83,7 @@ describe("createState", () => {
     const result = makeResult(layout);
     s.lastResult.value = result;
     expect(s.summary.value).toBe(result.summary);
-    for (const merge of [{ mergeFillers: false }, { mergeRisers: true }]) {
+    for (const merge of [{ mergeFillers: false }, { mergeRisers: false }]) {
       s.project.value = { ...s.project.value, settings: { ...s.project.value.settings, ...merge } };
       // not stale: the stored layout is the same, only how it is grouped for printing differs
       expect(s.stale.value).toBe(false);

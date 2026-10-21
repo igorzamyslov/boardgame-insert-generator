@@ -197,43 +197,34 @@ describe("toSerializable", () => {
       ],
     });
     expect(out.box).toEqual({ ...p.box, headroomCoverage: "none" });
-    // the join switch and the engraving switch at their defaults are left out of what is written;
-    // the riser fold is on by default and written (only "off" is what reading puts back)
-    const { mergeFillers, engraveNames, oneWall, ...written } = p.settings;
-    expect([mergeFillers, engraveNames, oneWall]).toEqual([true, true, false]);
-    expect(written.mergeRisers).toBe(true);
+    // the two merge switches and the engraving switch at their defaults are left out of what is written
+    const { mergeFillers, mergeRisers, engraveNames, oneWall, ...written } = p.settings;
+    expect([mergeFillers, mergeRisers, engraveNames, oneWall]).toEqual([true, true, true, false]);
     expect(out.settings).toEqual({ ...written, leftover: "hollow" });
     expect(p).toEqual(before);
   });
 
-  it("leaves the join switch out at its default and writes the riser fold unless it is off", () => {
-    // A share link has 2 000 characters: a setting nearly every project leaves alone is not
-    // written, and reading puts it back. For the riser fold that is "off" (what a file that
-    // says nothing means, MERGE_RISERS_WHEN_ABSENT), not the default, which is on: a project
-    // that has it on says so, so that no later change of the default can move it.
+  it("leaves the merge switches out at their defaults and writes them when changed", () => {
+    // A share link has 2 000 characters: two settings nearly every project leaves alone are not
+    // written, and reading puts the defaults back (both on; an explicit off is what is written).
     const p = sampleProject();
     expect(p.settings.mergeRisers).toBe(true);
     const same = serializeProject(p, noForeign());
     expect(same).not.toContain("mergeFillers");
-    expect(same).toContain('"mergeRisers":true');
+    expect(same).not.toContain("mergeRisers");
     const read = parseProject(JSON.parse(same));
     expect(read.ok && read.project.settings).toMatchObject({
       mergeFillers: true,
       mergeRisers: true,
     });
-    // off is left out, and reads back off, not on
-    const off = { ...p, settings: { ...p.settings, mergeRisers: false } };
-    const offText = serializeProject(off, noForeign());
-    expect(offText).not.toContain("mergeRisers");
-    const offBack = parseProject(JSON.parse(offText));
-    expect(offBack.ok && offBack.project.settings.mergeRisers).toBe(false);
-    const changed = { ...p, settings: { ...p.settings, mergeFillers: false } };
+    const changed = { ...p, settings: { ...p.settings, mergeFillers: false, mergeRisers: false } };
     const text = serializeProject(changed, noForeign());
     expect(text).toContain('"mergeFillers":false');
+    expect(text).toContain('"mergeRisers":false');
     const back = parseProject(JSON.parse(text));
     expect(back.ok && back.project.settings).toMatchObject({
       mergeFillers: false,
-      mergeRisers: true,
+      mergeRisers: false,
     });
     // writing leaves the project itself alone
     expect(p.settings.mergeFillers).toBe(true);

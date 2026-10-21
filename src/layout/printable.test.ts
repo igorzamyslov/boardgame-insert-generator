@@ -98,8 +98,9 @@ describe("merging is a print-time decomposition", () => {
       printer: p.printer,
       locks: p.locks,
     });
-    expect(printableParts(trays, inputs({ mergeFillers: true })).trays).toEqual(
-      printableParts(trays, inputs({ mergeFillers: false })).trays,
+    // (the risers are left out of the question too: with them folded they would merge among themselves)
+    expect(printableParts(trays, inputs({ mergeFillers: true, mergeRisers: false })).trays).toEqual(
+      printableParts(trays, inputs({ mergeFillers: false, mergeRisers: false })).trays,
     );
   });
 });

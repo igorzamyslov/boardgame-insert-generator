@@ -265,7 +265,7 @@ describe("schema history", () => {
     const older = loadOld(HISTORY["../../test/fixtures/schema/0.1.8.json"]);
     expect(older.notices).toEqual([]);
     expect(older.project.settings.mergeFillers).toBe(true);
-    expect(older.project.settings.mergeRisers).toBe(false);
+    expect(older.project.settings.mergeRisers).toBe(true);
   });
 
   it("reads the least riser from the 0.2.1 file, and defaults it to 3 mm for older files", () => {
@@ -275,11 +275,11 @@ describe("schema history", () => {
     const older = loadOld(HISTORY["../../test/fixtures/schema/0.2.0.json"]);
     expect(older.notices).toEqual([]);
     expect(older.project.settings.minRiser).toBe(3);
-    // the riser fold: stored in both, as saved; and a file of before the switch reads it off
+    // the riser fold: as saved in a file that has it, and on (the default) in a file from before it
     expect(project.settings.mergeRisers).toBe(true);
     expect(
       loadOld(HISTORY["../../test/fixtures/schema/0.1.8.json"]).project.settings.mergeRisers,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("reads the engraving switch from the 0.1.14 file, and defaults it on for older files", () => {

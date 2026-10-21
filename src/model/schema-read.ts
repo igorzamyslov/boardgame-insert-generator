@@ -161,21 +161,11 @@ function readPrinter(r: Reader | null): Printer {
  */
 export const LIP_ENABLED_WHEN_ABSENT = false;
 
-/**
- * What a file with no `mergeRisers` means: risers stay parts of their own. New inserts start with
- * them folded into the joined spacers (DEFAULT_SETTINGS, 0.10.0), but a project saved before then
- * left the switch out at its default of off, so a file that says nothing keeps that meaning. A
- * project written now carries the value unless it is off (toSerializable), so this only reaches
- * such files.
- */
-export const MERGE_RISERS_WHEN_ABSENT = false;
-
 function readSettings(r: Reader | undefined): Settings {
   const d = DEFAULT_SETTINGS;
   if (!r) {
     const whole = structuredClone(d);
     whole.lip.enabled = LIP_ENABLED_WHEN_ABSENT;
-    whole.mergeRisers = MERGE_RISERS_WHEN_ABSENT;
     return whole;
   }
   const fp = r.optChild("fingerPocket");
@@ -226,7 +216,7 @@ function readSettings(r: Reader | undefined): Settings {
     wallAbsorb: r.num("wallAbsorb", legacyWallAbsorb),
     oneWall: r.bool("oneWall", d.oneWall),
     mergeFillers: r.bool("mergeFillers", d.mergeFillers),
-    mergeRisers: r.bool("mergeRisers", MERGE_RISERS_WHEN_ABSENT),
+    mergeRisers: r.bool("mergeRisers", d.mergeRisers),
     infill: r.num("infill", d.infill),
     playLimit: r.num("playLimit", d.playLimit),
     engraveNames: r.bool("engraveNames", legacyEngrave),

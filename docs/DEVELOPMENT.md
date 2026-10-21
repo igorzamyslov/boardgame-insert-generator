@@ -577,11 +577,12 @@ in `model/hash.test.ts`.
 1. Add it to `Settings` in `src/model/types.ts` and to `DEFAULT_SETTINGS` in
    `src/model/settings.ts`.
 2. Read it in `readSettings` in `src/model/schema-read.ts`. A missing value falls back to the
-   default, so older files keep loading. If you change the default of a setting that is already
-   stored (`mergeRisers` went from off to on in 0.10.0) and old files must keep their meaning, give
-   the reader its own "when absent" constant (`MERGE_RISERS_WHEN_ABSENT`, as `LIP_ENABLED_WHEN_ABSENT`)
-   and see that `compactSettings` in `model/schema.ts` drops only a value equal to that constant, never
-   one equal to the new default: a file written with the default left out cannot tell the two apart.
+   default, so older files keep loading.
+   If you change the default of a setting that is already stored and `compactSettings` in
+   `model/schema.ts` leaves it out at its default (`mergeRisers` went from off to on in 0.10.0), a
+   saved file cannot tell an old "off" from "never said": decide which meaning old files get, and
+   say so in a decision-log row. (A reader constant like `LIP_ENABLED_WHEN_ABSENT` keeps the old
+   meaning, but marks every old project as changed.)
 3. If it's numeric, validate it: add an entry to `SETTING_RANGES` in `src/model/validate.ts`, and
    a setter in `SETTING_SETTERS` in `src/ui/settingsFields.ts` if the settings form edits it.
    Error paths are `/settings/<name>`.

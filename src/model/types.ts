@@ -230,8 +230,8 @@ export interface Settings {
   /**
    * With `mergeFillers`, fold the risers into the merged fillers too (lever 1b): a riser stands
    * under a tray and a filler beside it, so a part with both is an L in elevation. Also
-   * print-time, and no part of the inputs hash. Does nothing while `mergeFillers` is off. On for
-   * new inserts; a file that says nothing reads it off (MERGE_RISERS_WHEN_ABSENT).
+   * print-time, and no part of the inputs hash. Does nothing while `mergeFillers` is off. On by
+   * default (0.10.0), a file that says nothing included; an explicit off is kept.
    */
   mergeRisers: boolean;
   /**
