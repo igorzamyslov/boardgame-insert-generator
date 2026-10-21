@@ -28,6 +28,8 @@ export default defineConfig({
     // Pure modules run in Node. Component tests opt in to a DOM with a
     // `// @vitest-environment jsdom` comment in the header comment at the top of the file.
     environment: "node",
+    // Flushes Preact's deferred effect cleanups before a test file's page is torn down.
+    setupFiles: ["src/test-support/preact-effects.setup.ts"],
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     // Vitest stubs CSS imports to ""; PlanView.test.tsx reads plan.css, AssemblyPage.test.tsx
     // assembly.css, ExportPanel.test.tsx export.css, style.test.ts style.css, base.css, fonts.css and tokens.css (tokens also read by identity.test.ts), the kit's tests kit.css, Workspace's style tests workspace.css, the header's header.css, the rail's rail.css, the stage's stage.css and the first visit's firstVisit.css, the tray bar's trayBar.css, the editors' editor.css, the editor stage's editorStage.css and the box's boxPanel.css and boxStage.css and the fit problems' fitProblem.css and the settings drawer's settings.css, as `?raw` to check their rules, so those files are
