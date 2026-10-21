@@ -506,6 +506,32 @@ branch before you trust a red or green result.
 `SelectedTrayBar.tsx`, which was pulled out of App) and have App pass props. Serialise tasks
 that change the same App state.
 
+**The 3D scene rebuilds on every keystroke while an editor is open.**
+→ A rename leaves the plan's hash unchanged (names are not hashed), but it changes `components`, so
+anything keyed on them redraws. The layout runner's 400 ms debounce does not cover it.
+→ Hand the scene what `useSettled(values, ms)` returns (`src/screens/useSettled.ts`, `SETTLE_MS`
+400): the values as they were when the last change was over, the first ones at once.
+`EditorStage` does this for the 3D scene's trays, components, groups, box, settings and lit keys.
+
+**Lighting trays in the 3D scene from outside the viewer.**
+→ `Viewer` takes `litKeys`, merged with what a rail row lights; the scene already glows lit trays
+and fades the rest (`setLit`, `fadeOf`, `emissiveOf`). The editor passes its item's or group's
+trays and the spacers and dividers that travel with them. Don't add a second lighting path.
+
+**A new file matched by `import.meta.glob` is not seen by the tests.**
+→ Vitest's transform cache is keyed by the content of the file that holds the glob, not of the
+files it matches (seen with the seeds under `docs/design/seeds/`).
+→ Delete `node_modules/.vitest-cache` once after adding such a file.
+
+**`npm run shots` changes committed board PNGs.**
+→ The harness re-renders every board under `docs/design/boards/png/`, and the anti-aliasing differs a little each time.
+→ Before you commit, `git restore -- docs/design/boards/png/`, and delete the untracked
+variants of a board the run made (keep only the ones you meant to add).
+
+**`npm run seeds` changes every seed.**
+→ It rewrites `createdWith` in each seed under `docs/design/seeds/` to the current app version.
+→ Run it to add a seed, then `git restore` the other seeds, or commit them all on purpose.
+
 ---
 
 ## 5. Recipes

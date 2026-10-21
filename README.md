@@ -37,7 +37,9 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    a panel with the basics and, under "More options", the rest: room for expansions, how
    often you reach for it, finger cuts, curved floor, corner holes, how cards stand,
    copies (each its own tray), the group an item belongs to, removable dividers between flat
-   decks in one well, and the exact numbers in rows that open in place. A group is a set of
+   decks in one well, and the exact numbers in rows that open in place. While you edit, the stage
+   stays as it is (the same Layer and Top / 3D switches, the plan or 3D in the same place) and
+   shows the item's trays lit. A group is a set of
    items that share one tray: it has a name, Copies (each copy is its own tray, "×4" in its
    header), the order of its items (the order of the wells in the tray) and how often you reach
    for it. Drag an item by its grip into or out of a group, or use "Move to group…".
@@ -60,7 +62,9 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    it becomes "Stop" while the search runs. Trays are named by what they hold, never
    shown with numbers ("Market", "Spare by Market"). Spare trays and spacers fill gaps so the other
    trays cannot move; print them too. Layers are labelled "Layer 1 (bottom)" to
-   "Layer n (top)", and the Layer segment above the box has a button for each.
+   "Layer n (top)", and the Layer segment above the box, beside the Top / 3D segment, has a button
+   for each. On a wide screen the app is one centred block, 1600 px at most, with the status, the
+   switches and the box in one column.
 5. **Trays.** Select a tray, in the plan, in the 3D view or in the list, to see its tray bar: one
    row with its colour, its name over one line ("Layer 1 (bottom) · 95 × 190 × 40 mm · about 4.5 h,
    76 g"), "Pin this tray", "Turn this tray 90°", "Edit", "More" and Close ("this stack" for a tray in a
@@ -71,8 +75,9 @@ One screen, one mode: plain choices come first, and the exact numbers sit behind
    risers have no actions, only Close. Pins and size locks also show as chips on the item's row,
    each with an x ("Unpin", "Unlock size"). The optimizer works around them and never drops one
    silently.
-6. **3D view.** The "3D" segment (beside "Top") shows the trays in the same frame as the plan (it
-   needs WebGL; the rest works without). One quiet row holds "Spread apart".
+6. **3D view.** The "3D" segment (beside "Top") shows the trays in a frame as wide as the plan's
+   column (it needs WebGL; the rest works without), with the model kept inside it however you turn
+   it. One quiet row holds "Spread apart". There is no axis button.
    The Layer switch above works here too: "All", or "Layer 2" to show layers 1 and 2, so you can peel the layers off the top. A
    tray chosen in the plan or the list is chosen in 3D too, and the other way round: the same bar,
    the same row, and the trays not chosen fade.
