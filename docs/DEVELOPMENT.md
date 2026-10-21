@@ -62,6 +62,10 @@ a commit can rewrite your files. Node version: `.nvmrc` (24).
 imports to `""`, except the files listed under `test.css.include` in `vite.config.ts`. Tests read
 those as `?raw`. If you add a CSS file that a test reads, add it to that list.
 
+Preact 11 runs the cleanup of an unmounted component's `useEffect` after paint, on a timer, not at
+unmount. `test-support/preact-effects.setup.ts` (a `setupFiles` entry) flushes those after every
+jsdom test, so no cleanup fires after the file's page is gone. Don't add `document` guards to app code for it.
+
 ---
 
 ## 2. Architecture in one page
@@ -389,6 +393,11 @@ project menu). Safari doesn't focus buttons on click, so keep an outside-click h
 → It isn't in Preact's JSX typings yet.
 → Spread it from a loosely typed object: `const behindSheet = { inert: sheetCoversScreen } as
 Record<string, unknown>;` then `<main {...behindSheet}>` (`app/App.tsx`).
+
+**`ReferenceError: document is not defined` at the end of a test run, from an effect cleanup.**
+→ Preact 11 defers an unmounted component's effect cleanup to a timer (35 ms), and a short test file
+can end first. `test-support/preact-effects.setup.ts` flushes it after every test; keep it in
+`setupFiles` (0.8.3).
 
 **`el.scrollIntoView is not a function` in tests.**
 → jsdom has no `scrollIntoView`.
