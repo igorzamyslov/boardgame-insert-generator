@@ -28,6 +28,7 @@ import {
   emissiveOf,
   fadeOf,
   isVisible,
+  opacityOf,
   outlineCenter,
   trayPosition,
 } from "./transform";
@@ -121,6 +122,7 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
   let maxLevel: number | null = null;
   let selected: string | null = null;
   let lit: ReadonlySet<string> = new Set();
+  let edited = false;
   const pageColor = new Color(PAGE_HEX);
   let pick: ((key: string | null) => void) | null = null;
   let frameId = 0;
@@ -146,8 +148,13 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       const [x, y, z] = trayPosition(t.spec, explode, center, t.anchor);
       t.object.position.set(x, y, z);
       t.object.visible = isVisible(t.spec, maxLevel);
-      t.material.emissive.setHex(emissiveOf(t.spec.key, selected, lit));
-      t.material.color.copy(t.base).lerp(pageColor, fadeOf(t.spec.key, selected, lit));
+      t.material.emissive.setHex(emissiveOf(t.spec.key, selected, lit, edited));
+      t.material.color.copy(t.base).lerp(pageColor, fadeOf(t.spec.key, selected, lit, edited));
+      // The faded trays of an edited item are drawn through, so the item's own show behind them.
+      const opacity = opacityOf(t.spec.key, selected, lit, edited);
+      t.material.opacity = opacity;
+      t.material.transparent = opacity < 1;
+      t.material.depthWrite = opacity === 1;
     }
     requestDraw();
   }
@@ -242,7 +249,10 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
     tints: () => ({
       page: PAGE_HEX,
       trays: Object.fromEntries(
-        trays.map((t) => [t.spec.key, { color: hexOf(t.material.color), base: hexOf(t.base) }]),
+        trays.map((t) => [
+          t.spec.key,
+          { color: hexOf(t.material.color), base: hexOf(t.base), opacity: t.material.opacity },
+        ]),
       ),
     }),
     framing: () => {
@@ -339,8 +349,9 @@ function buildScene(canvas: HTMLCanvasElement, renderer: WebGLRenderer): SceneHa
       selected = key;
       apply();
     },
-    setLit(keys) {
+    setLit(keys, asEdited = false) {
       lit = new Set(keys);
+      edited = asEdited;
       apply();
     },
     onPick(cb) {

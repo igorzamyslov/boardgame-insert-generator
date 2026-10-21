@@ -746,6 +746,90 @@ const PROBES = {
     return problems.map((p) => `probe settings-keys: ${p}`);
   },
   /**
+   * The edited item's trays in 3D (0.9.0 review): they stand out from the rest at once, with the
+   * model closed up. Reads `__shotsScene` (shots mode only): at least one tray glows (the item's own),
+   * each glowing tray keeps its own colour at full strength, and every other tray is faded well past
+   * the plan's dimmed tile (a blend of 0.4) and drawn through (opacity 0.5 at most), so a tray behind
+   * another still shows.
+   */
+  async "edit-3d-contrast"(page) {
+    if ((await page.locator("canvas.viewer-canvas").count()) === 0) {
+      return [];
+    }
+    const read = await page.evaluate(() =>
+      globalThis.__shotsScene
+        ? { emissive: globalThis.__shotsScene.emissive(), tints: globalThis.__shotsScene.tints() }
+        : null,
+    );
+    if (read === null) {
+      return [
+        "probe edit-3d-contrast: the scene's shots window (__shotsScene) is missing: is this a --mode shots build?",
+      ];
+    }
+    const rgb = (hex) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+    const problems = [];
+    const page_ = rgb(read.tints.page);
+    const litKeys = Object.keys(read.emissive).filter((k) => read.emissive[k] !== 0);
+    if (litKeys.length === 0) {
+      problems.push("no tray glows in the editor's 3D view");
+    }
+    for (const [key, t] of Object.entries(read.tints.trays)) {
+      if (litKeys.includes(key)) {
+        if (t.color !== t.base || t.opacity !== 1) {
+          problems.push(`the edited tray ${key} is not at full colour and opaque`);
+        }
+        continue;
+      }
+      const [b, c] = [rgb(t.base), rgb(t.color)];
+      // the share of the way from its own colour to the page's, on the channel that has most to go
+      const far = b.map((v, i) => Math.abs(page_[i] - v));
+      const i = far.indexOf(Math.max(...far));
+      const blend = far[i] < 20 ? 1 : (c[i] - b[i]) / (page_[i] - b[i]);
+      if (blend < 0.5 || t.opacity > 0.5) {
+        problems.push(
+          `${key} is faded by ${blend.toFixed(2)} at opacity ${t.opacity}: the rest must be at 0.5 or more and 0.5 or less`,
+        );
+      }
+    }
+    return problems.map((p) => `probe edit-3d-contrast: ${p}`);
+  },
+  /**
+   * The heading's room (0.9.0 review): with several actions beside it, the h1 keeps a width it can
+   * be read in and the actions stay inside the stage's column (they wrap under the heading).
+   */
+  async "heading-room"(page) {
+    const found = await page.evaluate(() => {
+      const status = document.querySelector('[data-region="status"]');
+      const h1 = status?.querySelector("h1");
+      const stage = document.querySelector('[data-region="stage"]');
+      if (!status || !h1 || !stage) {
+        return null;
+      }
+      const edge = stage.getBoundingClientRect().right;
+      return {
+        h1: h1.getBoundingClientRect().width,
+        buttons: status.querySelectorAll(".k-status__extra .k-btn").length,
+        past: [...status.querySelectorAll(".k-status__extra .k-btn")]
+          .filter((b) => b.getBoundingClientRect().right > edge + 1)
+          .map((b) => (b.textContent ?? "").trim()),
+      };
+    });
+    if (found === null) {
+      return ["probe heading-room: the status heading or the stage is missing"];
+    }
+    const problems = [];
+    if (found.buttons < 3) {
+      problems.push(`only ${found.buttons} action(s): the state is meant to have several`);
+    }
+    if (found.h1 < 200) {
+      problems.push(`the h1 is ${Math.round(found.h1)} px wide, it needs 200 at least`);
+    }
+    if (found.past.length > 0) {
+      problems.push(`the actions run past the stage's edge: ${found.past.join(", ")}`);
+    }
+    return problems.map((p) => (p.startsWith("probe") ? p : `probe heading-room: ${p}`));
+  },
+  /**
    * The 3D frame and camera (feedback on 0.5.0, point 10): a long box is not cut off by its frame,
    * however it is turned and however far apart it is spread. The page's camera is turned by
    * dragging the canvas, a turn at a time round and over the model, with the spread at rest and at
@@ -1163,6 +1247,9 @@ const JUMP_PAIRS = [
   { pair: ["star-1440-3d", "star-1440-edit-3d"], sizeOnly: [] },
   { pair: ["star-2400-top", "star-2400-edit-top"], sizeOnly: [] },
   { pair: ["star-2400-3d", "star-2400-edit-3d"], sizeOnly: [] },
+  // a landscape box (400 × 285 mm) in a tall window: the 3D frame is as tall as the top view's box, not the room (0.9.0 review)
+  { pair: ["workspace-wide-2400", "workspace-wide-2400-3d"], sizeOnly: [], widens: ["plan-box"] },
+  { pair: ["workspace-wide-1440", "workspace-3d-wide"], sizeOnly: [], widens: ["plan-box"] },
 ];
 const JUMP_STATES = [...new Set(JUMP_PAIRS.flatMap((j) => j.pair))];
 const jumpBoxes = new Map();

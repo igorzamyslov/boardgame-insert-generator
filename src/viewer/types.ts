@@ -22,9 +22,11 @@ export interface SceneHandle {
   setSelected(key: string | null): void;
   /**
    * The trays to tint softly, those of the component whose rail row is pointed at or focused (the
-   * top view lights them the same way). The selected tray keeps its stronger glow.
+   * top view lights them the same way). The selected tray keeps its stronger glow. `edited` (the
+   * editor's 3D view): they are the item being edited, so they glow more and the rest is faded
+   * further and drawn through.
    */
-  setLit(keys: readonly string[]): void;
+  setLit(keys: readonly string[], edited?: boolean): void;
   onPick(cb: (key: string | null) => void): void;
   resize(width: number, height: number): void;
   dispose(): void;

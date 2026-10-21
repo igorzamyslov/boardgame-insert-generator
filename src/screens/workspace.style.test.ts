@@ -43,7 +43,9 @@ describe("the page block (workspace.css)", () => {
   it("keeps the header's rule across the window and its content in the block", () => {
     expect(ruleFor(".ws-header")).toMatch(/border-bottom:\s*1px solid var\(--rule\)/);
     const bar = ruleFor(".ws-header > .hd");
-    expect(bar).toMatch(/max-width:\s*var\(--block-max\)/);
+    // `.hd` is a content box with 24 px of padding each side: its content is 48 px less than the
+    // block, so the bar, padding and all, is the block's width and its logo and Download sit inside it
+    expect(bar).toMatch(/max-width:\s*calc\(var\(--block-max\) - 2 \* var\(--s-24\)\)/);
     expect(bar).toMatch(/margin-inline:\s*auto/);
     expect(bar).toMatch(/border-bottom:\s*0/);
   });
@@ -94,15 +96,16 @@ describe("the switches row (stage.css)", () => {
     expect(layer).toMatch(/overflow-x:\s*auto/);
   });
 
-  it("keeps the action on the heading's line from a tablet's width: the heading gives way", () => {
+  it("keeps the action on the heading's line from a tablet's width while it fits: the heading gives way, then the row wraps", () => {
     const at = rules.indexOf("@media (width >= 760px)");
     expect(at).toBeGreaterThan(-1);
     const block = rules.slice(at);
     const inBlock = (selector: string): string =>
       ruleFor(selector, block.slice(block.indexOf("{") + 1));
-    expect(inBlock(".ws-stage .k-status")).toMatch(/flex-wrap:\s*nowrap/);
-    expect(inBlock(".ws-stage .k-status__lead")).toMatch(/flex:\s*0 1 auto/);
-    expect(inBlock(".ws-stage .k-status__extra")).toMatch(/flex:\s*none/);
+    // a lone action (Keep searching, Stop) fits beside the heading's 260 px; many (an "Edit <item>" each) wrap under it (0.9.0 review)
+    expect(inBlock(".ws-stage .k-status")).toMatch(/flex-wrap:\s*wrap/);
+    expect(inBlock(".ws-stage .k-status__lead")).toMatch(/flex:\s*1 1 260px/);
+    expect(inBlock(".ws-stage .k-status__extra")).toMatch(/flex:\s*0 1 auto/);
     // the muted line is one line, so Stop and Keep searching leave the heading as tall as it was
     expect(inBlock(".ws-stage .k-status__line:not(:has(.stage-list))")).toMatch(
       /white-space:\s*nowrap/,

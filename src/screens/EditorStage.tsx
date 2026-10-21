@@ -22,6 +22,7 @@ import { componentIndexesOfTray, mm, traysOfGroup } from "../ui/identity";
 import { Viewer } from "../viewer/Viewer";
 import type { ViewerProps } from "../viewer/Viewer";
 import { StageSlot } from "./StageSlot";
+import type { StageSlotProps } from "./StageSlot";
 import { ViewSwitch, WebGlNote, layerOptions } from "./StageTop";
 import type { EditorProblem, StageView } from "./StageTop";
 import { SETTLE_MS, useSettled } from "./useSettled";
@@ -244,6 +245,64 @@ export interface EditorStageProps {
     | "levels"
     | "litKeys"
   > | null;
+  /**
+   * The normal stage, drawn by this same component while no item is edited, so the 3D view is one
+   * `Viewer` across opening and closing an editor: same place in the tree, only its props change
+   * (the camera, Spread apart and the scene stay).
+   */
+  normal?: NormalStage;
+}
+
+/** What the normal stage gives the shared frame (App): its heading and switches, and its column. */
+export interface NormalStage {
+  /** The status heading and the switches. */
+  top: ComponentChildren;
+  /** The column when it is not the 3D view: the plan, or the placeholder. */
+  body: ComponentChildren;
+  /** The 3D view, when that is what the column shows: the slot above it and the viewer's props. */
+  threeD: { slot: StageSlotProps; viewer: ViewerProps } | null;
+  /** Under the plan: the layout and sizing notices. */
+  after: ComponentChildren;
+}
+
+/**
+ * The frame both stages share: what stands above the column, and the column. The 3D view is the
+ * same element at the same place in it whichever stage draws it, so opening or closing an editor
+ * only changes its props.
+ */
+function StageFrame({
+  top,
+  className,
+  threeD,
+  body,
+  after,
+}: {
+  top: ComponentChildren;
+  className?: string;
+  threeD: { slot: StageSlotProps; viewer: ViewerProps } | null;
+  body: ComponentChildren;
+  after: ComponentChildren;
+}) {
+  return (
+    <>
+      {top}
+      <section
+        class={`plan-col${className ? ` ${className}` : ""}`}
+        aria-label="Preview"
+        data-region="plan"
+      >
+        {threeD !== null ? (
+          <>
+            <StageSlot {...threeD.slot} />
+            <Viewer {...threeD.viewer} />
+          </>
+        ) : (
+          body
+        )}
+        {after}
+      </section>
+    </>
+  );
 }
 
 const nothing = (): void => undefined;
@@ -360,6 +419,7 @@ export function EditorStage({
   onViewChange = nothing,
   webgl = true,
   viewer = null,
+  normal,
 }: EditorStageProps) {
   // The layer the person picked, for this item or group only: another one opens on its own layer.
   const [picked, setPicked] = useState<{ id: string; layer: number } | null>(null);
@@ -373,7 +433,9 @@ export function EditorStage({
   );
   const target = targetOf({ componentId, groupId, components, groups }, trays);
   if (target === undefined) {
-    return null;
+    return normal === undefined ? null : (
+      <StageFrame top={normal.top} threeD={normal.threeD} body={normal.body} after={normal.after} />
+    );
   }
   const { mine } = target;
   // The box opens on the layer of the first tray, so its lift is in sight; the Layer switch moves
@@ -435,50 +497,51 @@ export function EditorStage({
     sTrays ?? trays,
   );
   const lit = settledTarget === undefined ? [] : litKeysOf(settledTarget.mine, sTrays ?? trays);
-  return (
+  const top = (
     <>
       {status}
       {switches}
       {showView && !webgl ? <WebGlNote /> : null}
-      <section class="plan-col ed-stage" aria-label="Preview" data-region="plan">
-        {plan === null ? (
-          <>
-            {phone ? null : <StageSlot quiet />}
-            {placeholder}
-          </>
-        ) : in3d && viewer !== null ? (
-          <>
-            <StageSlot quiet />
-            <Viewer
-              {...viewer}
-              trays={sTrays ?? trays}
-              components={sComponents}
-              groups={sGroups}
-              box={sBox ?? viewer.box}
-              settings={sSettings ?? viewer.settings}
-              stale={sStale}
-              selectedKey={null}
-              onSelect={nothing}
-              topLayer={cut}
-              levels={levels}
-              litKeys={lit}
-            />
-          </>
-        ) : (
-          <PlanView
-            {...plan}
-            bar={phone ? undefined : band}
-            {...target.edited}
-            level={at}
-            onLevelChange={nothing}
-            selectedKey={null}
-            onSelect={nothing}
-          />
-        )}
-        {after}
-      </section>
     </>
   );
+  const threeD =
+    plan !== null && in3d && viewer !== null
+      ? {
+          slot: { quiet: true },
+          viewer: {
+            ...viewer,
+            trays: sTrays ?? trays,
+            components: sComponents,
+            groups: sGroups,
+            box: sBox ?? viewer.box,
+            settings: sSettings ?? viewer.settings,
+            stale: sStale,
+            selectedKey: null,
+            onSelect: nothing,
+            topLayer: cut,
+            levels,
+            litKeys: lit,
+          } satisfies ViewerProps,
+        }
+      : null;
+  const body =
+    plan === null ? (
+      <>
+        {phone ? null : <StageSlot quiet />}
+        {placeholder}
+      </>
+    ) : (
+      <PlanView
+        {...plan}
+        bar={phone ? undefined : band}
+        {...target.edited}
+        level={at}
+        onLevelChange={nothing}
+        selectedKey={null}
+        onSelect={nothing}
+      />
+    );
+  return <StageFrame top={top} className="ed-stage" threeD={threeD} body={body} after={after} />;
 }
 
 const STRIP_PX = 84;

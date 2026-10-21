@@ -6,7 +6,10 @@ import type { ShotsScene } from "./shotsScene";
 /** A scene window whose glow table is `emissive` and whose tints are one tray's. */
 const window = (emissive: Record<string, number>): ShotsScene => ({
   emissive: () => emissive,
-  tints: () => ({ page: "#f4f3ef", trays: { a: { color: "#101010", base: "#202020" } } }),
+  tints: () => ({
+    page: "#f4f3ef",
+    trays: { a: { color: "#101010", base: "#202020", opacity: 1 } },
+  }),
   framing: () => ({ overflow: 0.5 }),
 });
 
@@ -27,7 +30,11 @@ describe("exposeShotsScene", () => {
     vi.stubEnv("MODE", "shots");
     const off = exposeShotsScene(window({ a: 0x383838 }));
     expect(globalThis.__shotsScene?.emissive()).toEqual({ a: 0x383838 });
-    expect(globalThis.__shotsScene?.tints().trays.a).toEqual({ color: "#101010", base: "#202020" });
+    expect(globalThis.__shotsScene?.tints().trays.a).toEqual({
+      color: "#101010",
+      base: "#202020",
+      opacity: 1,
+    });
     off();
     expect(globalThis.__shotsScene).toBeUndefined();
   });

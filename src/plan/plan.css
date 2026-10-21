@@ -320,7 +320,7 @@
 
 /*
  * From a tablet's width the 3D view's frame fills the working column (WideStage2): as wide as the
- * column, as tall as the stage leaves under the tray bar's slot (a square at most). The model is fitted to the frame's
+ * column, as tall as the top view's box (a square at most). The model is fitted to the frame's
  * own shape (viewer/fit.ts), so a tall box turns in a wide frame without being cut off. The top
  * view's frame keeps the box's shape; a phone's 3D frame does too (below).
  */
@@ -332,10 +332,20 @@
     max-height: none;
   }
 
-  /* never taller than wide: in a narrow, tall stage (a tablet) it is a square, as the top view's box of a square box is */
+  /*
+   * As wide as the column, and as tall as the top view's frame is for this box: that frame is the
+   * room's height, or the column's width at the box's W:L (`.plan-fit`'s aspect-ratio), up to its
+   * --plan-max cap. So a landscape box does not grow taller when Top turns to 3D (0.9.0 review).
+   * Never taller than wide, so in a narrow, tall stage (a tablet) a tall box's frame is a square at most.
+   */
   .viewer-fit > .viewer-stage {
     width: 100cqw;
-    height: min(100cqh, 100cqw);
+    height: min(
+      100cqh,
+      100cqw,
+      100cqw * var(--box-l) / var(--box-w),
+      (var(--plan-max) - 12px) * var(--box-l) / max(var(--box-w), var(--box-l)) + 12px
+    );
   }
 }
 

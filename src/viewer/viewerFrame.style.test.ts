@@ -49,10 +49,24 @@ describe("the 3D view's frame", () => {
     expect(fit).toMatch(/align-items:\s*start/);
   });
 
-  it("is as wide and as tall as that room, and never taller than wide", () => {
+  it("is as wide as the column and as tall as the top view's frame, never taller than wide", () => {
     const stage = ruleFor(".viewer-fit > .viewer-stage", wide);
     expect(stage).toMatch(/width:\s*100cqw/);
-    expect(stage).toMatch(/height:\s*min\(100cqh, 100cqw\)/);
+    // the top view's frame is the room's height, or the column's width at the box's W:L, up to
+    // its cap (`.plan-fit`): the same here, so a landscape box does not grow taller when Top turns
+    // to 3D (0.9.0 review); the room alone (the old rule) made a 400 × 285 mm box 3 to 216 px taller
+    const height = stage.replace(/\s+/g, " ");
+    expect(height).toMatch(/height:\s*min\(/);
+    expect(height).toContain("100cqh,");
+    expect(height).toContain("100cqw,");
+    expect(height).toContain("100cqw * var(--box-l) / var(--box-w),");
+    expect(height).toContain(
+      "(var(--plan-max) - 12px) * var(--box-l) / max(var(--box-w), var(--box-l)) + 12px",
+    );
+    // the same cap `.plan-fit` has
+    expect(strip(plan)).toMatch(
+      /\.plan-fit \{[^}]*max-height:\s*calc\(\s*\(var\(--plan-max\) - 12px\) \* var\(--box-l\) \/ max\(var\(--box-w\), var\(--box-l\)\) \+ 12px\s*\);/,
+    );
   });
 
   it("leaves the top view's frame and a phone's frame as they were", () => {

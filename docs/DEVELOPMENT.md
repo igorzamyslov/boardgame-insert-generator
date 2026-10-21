@@ -517,6 +517,16 @@ anything keyed on them redraws. The layout runner's 400 ms debounce does not cov
 → `Viewer` takes `litKeys`, merged with what a rail row lights; the scene already glows lit trays
 and fades the rest (`setLit`, `fadeOf`, `emissiveOf`). The editor passes its item's or group's
 trays and the spacers and dividers that travel with them. Don't add a second lighting path.
+While `litKeys` is given the scene is told `setLit(keys, true)`: the lit trays glow harder and the
+rest fade further and are drawn through (`EDITED_*` in `viewer/transform.ts`), so they show at
+Spread apart 0. A hover alone stays mild.
+
+**Opening an item in 3D reset the camera and Spread apart, with "Loading…".**
+→ The workspace and the editor drew two `Viewer`s in two places of the tree, so one unmounted and
+the other mounted.
+→ Both stages are drawn by `EditorStage` (the workspace passes its own parts as `normal`), and its
+`StageFrame` puts the one `Viewer` at the same place; only props change. Keep it that way: a new
+stage that has a 3D view goes through `StageFrame` too (test: `EditorStage.sameStage.test.tsx`).
 
 **A new file matched by `import.meta.glob` is not seen by the tests.**
 → Vitest's transform cache is keyed by the content of the file that holds the glob, not of the

@@ -688,11 +688,12 @@ describe("Viewer", () => {
         <Viewer {...props({ trays: all, components, litKeys: ["b:p0:0"] }, scene)} />,
       );
       await waitFor(() => expect(scene.handle.setLit).toHaveBeenCalled());
-      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["b:p0:0"]);
+      // the editor's own are lit as the item being edited (hard), not as a hover is
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["b:p0:0"], true);
       act(() => {
         hoveredComponent.value = second.id;
       });
-      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["b:p0:0", "a:p0:0"]);
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["b:p0:0", "a:p0:0"], true);
       act(() => {
         hoveredComponent.value = null;
       });

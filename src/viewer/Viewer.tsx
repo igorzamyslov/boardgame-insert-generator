@@ -237,6 +237,8 @@ export function Viewer(p: ViewerProps) {
   // A group's card pointed at names every member: all the group's trays light.
   const railMembers = hoveredMembers.value;
   const editedKey = (p.litKeys ?? []).join("\n");
+  // An item is being edited (the editor gave its trays): they are lit hard, not as a hover is.
+  const editing = editedKey !== "";
   const litKey = useMemo(() => {
     const comps = p.components ?? [];
     const keys = editedKey === "" ? [] : editedKey.split("\n");
@@ -254,8 +256,13 @@ export function Viewer(p: ViewerProps) {
     return [...new Set([...keys, ...pointed])].join("\n");
   }, [railId, railMembers, p.trays, p.components, editedKey]);
   useEffect(() => {
-    handleRef.current?.setLit(litKey === "" ? [] : litKey.split("\n"));
-  }, [status, litKey]);
+    const keys = litKey === "" ? [] : litKey.split("\n");
+    if (editing) {
+      handleRef.current?.setLit(keys, true);
+    } else {
+      handleRef.current?.setLit(keys);
+    }
+  }, [status, litKey, editing]);
 
   useEffect(() => {
     const h = handleRef.current;

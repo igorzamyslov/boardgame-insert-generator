@@ -31,6 +31,7 @@ try {
   const sizing = await loader.load("src/sizing/index.ts");
   const share = await loader.load("src/share/index.ts");
   const schema = await loader.load("src/model/schema.ts");
+  const validate = await loader.load("src/model/validate.ts");
   const memory = await loader.load("src/test-support/memory-storage.ts");
   const geometry = await loader.load("src/geometry/version.ts");
   const layers = await loader.load("src/plan/layers.ts");
@@ -414,6 +415,20 @@ try {
     });
   }
 
+  // Four items with a size of 0 mm: the heading's longest row of "Edit <item>" buttons (0.9.0 review).
+  const errors = kit.harbourKingsErrors(base);
+  const errorAreas = validate
+    .validateProject(errors)
+    .filter((n) => n.level === "error" && n.path?.startsWith("/components/")).length;
+  if (errorAreas < 4) {
+    failures.push({
+      label: "harbour-kings-errors",
+      first: 0,
+      tried: [],
+      text: `only ${errorAreas} component errors, not the four the heading's row needs`,
+    });
+  }
+
   const misfitOf = (project, result) =>
     result.layout === null
       ? noFit.misfitOf(
@@ -484,6 +499,7 @@ try {
       "harbour-kings-flat": { project: flat },
       "harbour-kings-stale": { project: stale },
       "harbour-kings-notes": { project: notes },
+      "harbour-kings-errors": { project: errors },
       "harbour-kings-nofit": { project: noFitRun.project, result: noFitRun.result },
       "harbour-kings-nofit-bed": { project: noFitBedRun.project, result: noFitBedRun.result },
       "harbour-kings-pins": { project: pinsRun.project, result: pinsRun.result },

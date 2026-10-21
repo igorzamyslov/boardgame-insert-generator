@@ -35,7 +35,8 @@
  * --block-max wide and centred, the page behind it. Undo, the menu and Download stay inside it.
  */
 .ws-header > .hd {
-  max-width: var(--block-max);
+  /* a content box with --s-24 of padding each side (header.css): the bar is --block-max wide with its padding */
+  max-width: calc(var(--block-max) - 2 * var(--s-24));
   margin-inline: auto;
   border-bottom: 0;
 }

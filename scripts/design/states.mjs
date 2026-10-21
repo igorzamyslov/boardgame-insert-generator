@@ -115,6 +115,7 @@ export const SEEDS = {
   stale: [
     "harbour-kings-stale",
     "harbour-kings-notes",
+    "harbour-kings-errors",
     "harbour-kings-nofit",
     "harbour-kings-nofit-bed",
     "harbour-kings-pins",
@@ -141,6 +142,8 @@ function starStates() {
           noPageScroll: true,
           // the 3D frame fills the working column (900 px), whatever the box's shape
           ...(view === "3d" ? { needsWebGL: true, planWidth: 900 } : {}),
+          // the edited item's trays stand out, with the model closed up (0.9.0 review)
+          ...(view === "3d" && mode === "edit" ? { probes: ["edit-3d-contrast"] } : {}),
           steps: [...(mode === "edit" ? [EDIT_STARTER] : []), ...(view === "3d" ? to3d : [])],
         };
       }
@@ -270,6 +273,49 @@ export const STATES = {
   // The band between the narrow two-row controls and the wide one row (a stage of about 600 to 750 px):
   // 3D's "All" (586 px of controls) and three layers (617, and 664 with All) once overflowed a 940 to 960 px
   // window. The View switch stays put there too (jump pairs).
+  // 0.9.0 review: a landscape box (400 × 285 mm) in a tall window. The 3D frame is as tall as the top
+  // view's box, so Top turning to 3D leaves its top, height and middle (jump pairs).
+  "workspace-wide-2400": {
+    board: "WideStage2",
+    boardOpts: { props: { width: "2400", mode: "normal", view: "top" } },
+    nearest: "WideStage2 at 2400: the board's box is tall, this one is landscape",
+    viewport: { width: 2400, height: 1300 },
+    seed: "harbour-kings-wide",
+    noPageScroll: true,
+  },
+  "workspace-wide-2400-3d": {
+    board: "WideStage2",
+    boardOpts: { props: { width: "2400", mode: "normal", view: "3d" } },
+    nearest: "WideStage2 at 2400: the board's box is tall, this one is landscape",
+    viewport: { width: 2400, height: 1300 },
+    seed: "harbour-kings-wide",
+    needsWebGL: true,
+    noPageScroll: true,
+    steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
+  },
+  "workspace-wide-1440": {
+    board: "Main",
+    nearest: "no board of its own: Main's box frame, wider than it is tall",
+    viewport: DESKTOP,
+    seed: "harbour-kings-wide",
+    noStageScroll: true,
+  },
+  // 0.9.0 review: four items with a size of 0 mm, so the heading offers an "Edit <item>" for each. At 820
+  // they wrap under the heading, which keeps its width; nothing scrolls sideways (probe heading-room).
+  "workspace-820-errors": {
+    board: "Main",
+    nearest: "no board of its own: Main's error heading, at 820 (differs by design)",
+    viewport: { width: 820, height: 1180 },
+    seed: "harbour-kings-errors",
+    probes: ["heading-room"],
+  },
+  "workspace-1440-errors": {
+    board: "Main",
+    nearest: "Main's error heading at 1440",
+    viewport: DESKTOP,
+    seed: "harbour-kings-errors",
+    probes: ["heading-room"],
+  },
   "workspace-940": {
     board: "Main",
     nearest: "Main at 1440; 940 differs by design",

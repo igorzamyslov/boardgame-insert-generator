@@ -230,3 +230,39 @@ describe("the editor in 3D", () => {
     );
   });
 });
+
+describe("the 3D view across the editor", () => {
+  it("is one scene: opening and closing an item keeps the canvas, the camera and Spread apart", async () => {
+    const created = vi.fn();
+    const scene = stubScene();
+    const factory: SceneFactory = (canvas) => {
+      created(canvas);
+      return scene.handle;
+    };
+    renderApp({
+      project: loadSeed("harbour-kings").project,
+      overrides: { viewerProps: { webgl: () => true, loadScene: () => Promise.resolve(factory) } },
+    });
+    openView("3D");
+    await waitFor(() => expect(screen.getByLabelText("Spread apart")).toBeTruthy());
+    await waitFor(() => expect(created).toHaveBeenCalledTimes(1));
+    const canvas = stage().querySelector("canvas");
+    const slider = screen.getByLabelText("Spread apart") as HTMLInputElement;
+    fireEvent.input(slider, { target: { value: "0.5" } });
+    expect(slider.value).toBe("0.5");
+    const loading = (): HTMLElement | null => screen.queryByText("Loading the 3D preview…");
+
+    editMarket();
+    expect(loading()).toBeNull();
+    expect(stage().querySelector("canvas")).toBe(canvas);
+    expect((screen.getByLabelText("Spread apart") as HTMLInputElement).value).toBe("0.5");
+    expect(scene.handle.dispose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(loading()).toBeNull();
+    expect(stage().querySelector("canvas")).toBe(canvas);
+    expect((screen.getByLabelText("Spread apart") as HTMLInputElement).value).toBe("0.5");
+    expect(scene.handle.dispose).not.toHaveBeenCalled();
+    expect(created).toHaveBeenCalledTimes(1);
+  });
+});

@@ -39,6 +39,21 @@ describe("stage.css", () => {
     expect(stop).toMatch(/padding:\s*0 var\(--s-18\)/);
   });
 
+  it("lets the heading's row wrap, so a row of actions drops under the heading instead of squeezing it", () => {
+    // 0.9.0 review: four "Edit <item>" buttons left the h1 0 px wide and the stage scrolling sideways at 820 px
+    const wide = strip(css).slice(strip(css).indexOf("@media (width >= 760px)"));
+    expect(ruleFor(".ws-stage .k-status", wide)).toMatch(/flex-wrap:\s*wrap/);
+    // the heading holds a share of the row before the actions wrap; it grows into what is free
+    const lead = ruleFor(".ws-stage .k-status__lead", wide);
+    expect(lead).toMatch(/flex:\s*1 1 \d+px/);
+    expect(lead).toMatch(/min-width:\s*0/);
+    // and the actions shrink into their own lines rather than past the row's edge
+    const extra = ruleFor(".ws-stage .k-status__extra", wide);
+    expect(extra).toMatch(/flex:\s*0 1 auto/);
+    expect(extra).toMatch(/min-width:\s*0/);
+    expect(extra).toMatch(/max-width:\s*100%/);
+  });
+
   it("cuts a long name on a status button instead of pushing it past the row", () => {
     const button = ruleFor(".k-status__extra .k-btn");
     expect(button).toMatch(/max-width:\s*100%/);
