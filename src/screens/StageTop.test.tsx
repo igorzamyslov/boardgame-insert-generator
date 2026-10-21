@@ -397,43 +397,59 @@ describe("StageTop", () => {
     });
   });
 
-  describe("the controls' slots (DESIGN, Flow)", () => {
-    const slots = (): { layer: HTMLElement; view: HTMLElement; action: HTMLElement } => ({
-      layer: document.querySelector(".stage-controls__layer") as HTMLElement,
-      view: document.querySelector('[data-region="view-switch"]') as HTMLElement,
-      action: document.querySelector(".stage-controls__action") as HTMLElement,
+  describe("the heading's row and the switches row (board WideStage2)", () => {
+    const rows = (): { status: HTMLElement; row: HTMLElement | null } => ({
+      status: document.querySelector('[data-region="status"]') as HTMLElement,
+      row: document.querySelector(".stage-segs"),
     });
 
-    it("keeps the Layer, View and action slots with or without a Layer switch, and in either action", () => {
-      const { rerender } = render(<StageTop {...props()} />);
-      expect(slots().layer.querySelector('[role="group"]')).not.toBeNull();
-      expect(slots().view.querySelector('[role="group"]')).not.toBeNull();
-      // one layer: the slot stays, empty, in the same order before the View slot
-      rerender(<StageTop {...props({ trays: ONE_LAYER })} />);
-      const one = slots();
-      expect(one.layer.childElementCount).toBe(0);
-      expect(one.view.querySelector('[role="group"]')).not.toBeNull();
-      expect(one.layer.nextElementSibling).toBe(one.view);
-      expect(one.view.nextElementSibling).toBe(one.action);
-      // Keep searching turning into Stop: both are in the action slot, after the View slot
-      expect(one.action.textContent).toContain("Keep searching");
-      rerender(
-        <StageTop
-          {...props({
-            trays: ONE_LAYER,
-            run: { status: "running", kind: "improve", done: 1, total: 4 },
-          })}
-        />,
+    it("puts Keep searching in the heading's row, on the same line as the heading", () => {
+      render(<StageTop {...props()} />);
+      const { status } = rows();
+      const keep = screen.getByRole("button", { name: "Keep searching" });
+      expect(status.querySelector(".k-status__extra")?.contains(keep)).toBe(true);
+      expect(status.querySelector(".k-status__lead")?.contains(keep)).toBe(false);
+    });
+
+    it("puts the Layer and View switches in a row of their own under the heading, not in it", () => {
+      render(<StageTop {...props()} />);
+      const { status, row } = rows();
+      expect(row).not.toBeNull();
+      expect(status.contains(row)).toBe(false);
+      expect(status.compareDocumentPosition(row as HTMLElement)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
       );
-      expect(slots().action.textContent).toContain("Stop");
-      expect(slots().view.nextElementSibling).toBe(slots().action);
+      expect(row?.classList.contains("stage-segs--phone")).toBe(false);
+      expect(row?.querySelector('.stage-segs__layer [role="group"]')).not.toBeNull();
+      expect(row?.querySelector('[data-region="view-switch"] [role="group"]')).not.toBeNull();
+      expect(status.querySelector('[role="group"]')).toBeNull();
     });
 
-    it("has no slots without a plan, nor on a phone", () => {
-      const { unmount } = render(<StageTop {...props({ trays: undefined })} />);
-      expect(document.querySelector(".stage-controls")).toBeNull();
-      unmount();
-      render(<StageTop {...props({ phone: true })} />);
+    it("keeps the View switch last in the row, with or without a Layer switch", () => {
+      const { rerender } = render(<StageTop {...props()} />);
+      const last = (): Element | null => (rows().row as HTMLElement).lastElementChild;
+      expect(last()?.getAttribute("data-region")).toBe("view-switch");
+      // one layer: no Layer switch, and the View switch is still the row's last
+      rerender(<StageTop {...props({ trays: ONE_LAYER })} />);
+      expect(rows().row?.querySelector('.stage-segs__layer [role="group"]')).toBeNull();
+      expect(last()?.getAttribute("data-region")).toBe("view-switch");
+    });
+
+    it("turns Keep searching into Stop in the heading's row, and leaves the switches alone", () => {
+      const { rerender } = render(<StageTop {...props()} />);
+      const view = rows().row?.querySelector('[data-region="view-switch"]');
+      rerender(
+        <StageTop {...props({ run: { status: "running", kind: "improve", done: 1, total: 4 } })} />,
+      );
+      const stop = screen.getByRole("button", { name: "Stop" });
+      expect(rows().status.querySelector(".k-status__extra")?.contains(stop)).toBe(true);
+      expect(rows().row?.contains(stop)).toBe(false);
+      expect(rows().row?.querySelector('[data-region="view-switch"]')).toBe(view);
+    });
+
+    it("has no switches row without a plan", () => {
+      render(<StageTop {...props({ trays: undefined })} />);
+      expect(document.querySelector(".stage-segs")).toBeNull();
       expect(document.querySelector(".stage-controls")).toBeNull();
     });
   });
@@ -471,6 +487,7 @@ describe("StageTop", () => {
       const { container } = render(<StageTop {...p} />);
       const row = container.querySelector(".stage-segs") as HTMLElement;
       expect(row).not.toBeNull();
+      expect(row.classList.contains("stage-segs--phone")).toBe(true);
       // the heading is above it, not beside it
       expect(row.closest(".k-status")).toBeNull();
       const layer = within(row).getByRole("group", { name: "Layer" });

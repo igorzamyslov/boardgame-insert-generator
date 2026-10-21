@@ -941,7 +941,7 @@ const PROBES = {
     // 3. back to Top: the same tray is selected and the bar stays; then 3D again, where closing
     // the bar leaves nothing selected and nothing faded
     await page
-      .locator('[data-region="status"]')
+      .locator('[data-region="switches"]')
       .getByRole("button", { name: "Top", exact: true })
       .first()
       .click({ timeout: STEP_TIMEOUT });
@@ -957,7 +957,7 @@ const PROBES = {
       problems.push(`the pressed rail rows in Top are ${JSON.stringify(rowsTop)}`);
     }
     await page
-      .locator('[data-region="status"]')
+      .locator('[data-region="switches"]')
       .getByRole("button", { name: "3D", exact: true })
       .click({ timeout: STEP_TIMEOUT });
     await page.waitForFunction(

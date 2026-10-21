@@ -5,18 +5,36 @@
  */
 
 /*
- * MobileWorkspace: the switches take a row under the heading; Layer takes the width, "3D" is a
- * toggle beside it. The heading is 10 px above the row and the box 12 px under it, so the stage's
- * 10 px gap gets 2 px more below.
+ * The switches' row: Layer, then Top / 3D, right-aligned under the heading in the working column
+ * (WideStage2); the View switch is last, so it stays where it is whether the Layer switch is there
+ * or not. A Layer switch longer than the row (three layers and "All" in a narrow stage) scrolls in
+ * its own slot, never the page. The heading is 8 px above it, the tray bar's slot 12 px under it,
+ * so the stage's 16 px gap gets 8 px less above and 4 px less below.
  */
 .stage-segs {
   display: flex;
   gap: var(--s-8);
   align-items: center;
-  margin-bottom: var(--s-2);
+  justify-content: flex-end;
+  margin: calc(-1 * var(--s-8)) 0 calc(-1 * var(--s-4));
 }
 
-.stage-segs > .k-seg {
+.stage-segs__layer {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+/*
+ * MobileWorkspace: the switches take a row under the heading; Layer takes the width, "3D" is a
+ * toggle beside it. The heading is 10 px above the row and the box 12 px under it, so the stage's
+ * 10 px gap gets 2 px more below.
+ */
+.stage-segs--phone {
+  justify-content: flex-start;
+  margin: 0 0 var(--s-2);
+}
+
+.stage-segs--phone > .k-seg {
   flex: 1;
 }
 
@@ -28,81 +46,28 @@
 }
 
 /*
- * The status row's controls, with a plan: three slots that keep their width, so the View switch
- * stays where it is when the Layer switch comes or goes and when Keep searching turns into Stop
- * (DESIGN, Flow). The Layer slot is as wide as a two-layer switch and grows to the left for more;
- * the action slot is as wide as Keep searching and holds Stop or nothing at its right edge.
+ * Keep searching (or Stop) stands beside the heading on the same line at every width from a
+ * tablet's: the heading's text gives way (its muted line and its title are cut with an ellipsis), the
+ * action never drops under it. A phone's heading has the icon button and wraps as the kit does.
  */
-.stage-controls {
-  display: flex;
-  gap: var(--s-10);
-  align-items: center;
-}
-
-.stage-controls__layer,
-.stage-controls__action {
-  display: flex;
-  gap: var(--s-10);
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.stage-controls__layer {
-  min-width: var(--stage-layer-slot);
-
-  /* in a row wide enough for three layers and "All" (below), a longer switch scrolls in its slot, never past the row */
-  max-width: calc(100cqw - var(--stage-action-slot) - 7.5rem - 2 * var(--s-10));
-  overflow-x: auto;
-}
-
-.stage-controls__action {
-  min-width: var(--stage-action-slot);
-}
-
-/*
- * A status row narrower than 42 rem is a container, and its controls take two rows that keep the
- * same places in every state: the Layer slot on its own row, always the height of a switch (empty
- * when there is no switch), and under it the View switch with the action beside it. 42 rem (672 px)
- * is the widest the one-row controls get with a switch of three layers and the 3D view's "All"
- * (measured: 539 px for two layers, 586 with All, 617 for three layers, 664 for three with All, the
- * Layer slot growing about 78 px a layer); that is a stage under about 745 px, any window from 760 px
- * with a 300 px rail up to about 1045 px, and more with a wider rail. Wider, more layers than that
- * scroll inside the Layer slot. The View switch stays where it is when the Layer switch comes or goes
- * and when Keep searching turns into Stop, at every width; the page never scrolls sideways.
- */
-.ws-stage .k-status {
-  container: stage-status / inline-size;
-}
-
-@container stage-status (width < 42rem) {
-  .stage-controls {
-    display: grid;
-    grid-template-areas:
-      "layer layer"
-      "view action";
-    grid-template-columns: auto 1fr; /* the 1fr takes what the Layer row spans, so the action starts where the View switch ends, whatever it holds */
-    justify-content: start;
-    justify-items: start; /* each keeps its own width: the View switch is the same box whatever the other rows hold */
-    max-width: 100%;
+@media (width >= 760px) {
+  .ws-stage .k-status {
+    flex-wrap: nowrap;
   }
 
-  .stage-controls__layer {
-    grid-area: layer;
-    justify-content: flex-start;
-    min-width: 0;
-    max-width: 100%;
-    min-height: calc(var(--control-h) + 2 * var(--s-3));
-    overflow-x: auto;
+  .ws-stage .k-status__lead {
+    flex: 0 1 auto;
   }
 
-  .stage-controls__view {
-    grid-area: view;
+  .ws-stage .k-status__extra {
+    flex: none;
   }
 
-  .stage-controls__action {
-    grid-area: action;
-    justify-content: flex-start;
-    min-width: 0;
+  /* One line, as tall with Stop as with Keep searching: the muted line is cut, not wrapped (a list of errors wraps). */
+  .ws-stage .k-status__line:not(:has(.stage-list)) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
