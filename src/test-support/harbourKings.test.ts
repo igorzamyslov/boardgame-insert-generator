@@ -23,6 +23,7 @@ const CURRENT = [
   "harbour-kings-kit-loose",
   "harbour-kings-kit-split",
   "harbour-kings-flat",
+  "star-realms",
 ];
 const STALE = [
   "harbour-kings-stale",
@@ -104,6 +105,24 @@ describe("harbourKings", () => {
     const { project } = loadSeed("harbour-kings-wide");
     expect([project.box.innerWidth, project.box.innerDepth]).toEqual([400, 285]);
     expect(project.layout).toBeDefined();
+  });
+
+  it("keeps the owner's Star Realms (a tall 101 by 195 by 37 mm box) in the Star Realms seed", () => {
+    const { project } = loadSeed("star-realms");
+    expect(project.name).toBe("Star Realms");
+    expect([project.box.innerWidth, project.box.innerDepth, project.box.innerHeight]).toEqual([
+      101, 195, 37,
+    ]);
+    expect(project.components.map((c) => c.name)).toEqual([
+      "Trade deck",
+      "Starter deck",
+      "Counter",
+    ]);
+    // WideStage2 draws five trays in four layers, the Starter deck's three among them
+    const trays = (project.layout?.trays ?? []).filter((t) => t.part === "tray");
+    expect(trays).toHaveLength(5);
+    expect(levelsOf(project.layout?.trays ?? [])).toHaveLength(4);
+    expect(trays.filter((t) => t.key.startsWith("70kgton0:"))).toHaveLength(3);
   });
 
   it("keeps a 25-component list with a long name in the long seed", () => {

@@ -66,6 +66,9 @@ function phone(): void {
   }));
 }
 
+/** The browser can draw 3D: the stage's switches are the board's, without the line that says it cannot. */
+const WEBGL: Partial<AppProps> = { viewerProps: { webgl: () => true } };
+
 /** A tray of the plan, selected as a person does: Enter on its tile, found by the name its label starts with. */
 const selectTray = (name: RegExp) => (): void => {
   const stage = document.querySelector('[data-region="stage"]') as HTMLElement;
@@ -488,7 +491,14 @@ const CASES: readonly Case[] = [
   // Task 10: the editors. Edit's Cards, EditKinds' other three, MobileEdit's Miniatures (on a
   // desktop, which no board draws: Edit's layout and MobileEdit's content), and the phone's sheet.
   { state: "editor", board: "Edit", region: "rail", steps: editRow(/^Market deck, /) },
-  { state: "editor", board: "Edit", region: "stage", steps: editRow(/^Market deck, /) },
+  {
+    state: "editor",
+    board: "Edit",
+    also: "WideStage2",
+    region: "stage",
+    overrides: WEBGL,
+    steps: editRow(/^Market deck, /),
+  },
   { state: "editor-more", board: "Edit", region: "rail", steps: editMore(/^Market deck, /) },
   {
     // an option turned on, so a chip and a row show the changed dot and "Back to <default>"
@@ -534,7 +544,9 @@ const CASES: readonly Case[] = [
   {
     state: "editor-note",
     board: "Edit",
+    also: "WideStage2",
     region: "stage",
+    overrides: WEBGL,
     steps: () => {
       editRow(/^Market deck, /)();
       fireEvent.click(
@@ -612,7 +624,9 @@ const CASES: readonly Case[] = [
   {
     state: "kit-edit",
     board: "GroupEdit",
+    also: "WideStage2",
     region: "stage",
+    overrides: WEBGL,
     seed: "harbour-kings-kit",
     steps: editRow(/^Player kit, /),
   },
@@ -640,7 +654,9 @@ const CASES: readonly Case[] = [
   {
     state: "kit-split-edit",
     board: "GroupEdit",
+    also: "WideStage2",
     region: "stage",
+    overrides: WEBGL,
     seed: "harbour-kings-kit-split",
     steps: editRow(/^Player kit, /),
   },
@@ -666,7 +682,9 @@ const CASES: readonly Case[] = [
   {
     state: "kit-member",
     board: "Edit",
+    also: "WideStage2",
     region: "stage",
+    overrides: WEBGL,
     seed: "harbour-kings-kit",
     steps: editMore(/^Hero, /),
   },

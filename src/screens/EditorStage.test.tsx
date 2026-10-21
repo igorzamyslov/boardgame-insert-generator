@@ -82,11 +82,13 @@ describe("EditorStage", () => {
       fireEvent.click(within(rail).getByRole("button", { name }));
     };
 
-    it("is in the slot beside the sentence, one group, with the layers' names", () => {
+    it("is in the switches' row under the sentence, one group, with the layers' names", () => {
       renderApp({ project: loadSeed("harbour-kings").project });
       editMarket();
-      const slot = stage().querySelector(".ed-slot__row") as HTMLElement;
-      expect(slot.contains(layerGroup())).toBe(true);
+      const row = stage().querySelector(
+        '[data-region="switches"] .stage-segs__layer',
+      ) as HTMLElement;
+      expect(row.contains(layerGroup())).toBe(true);
       expect(screen.getAllByRole("group", { name: "Layer" })).toHaveLength(1);
       expect(
         within(layerGroup())

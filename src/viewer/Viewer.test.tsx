@@ -682,6 +682,24 @@ describe("Viewer", () => {
       expect(scene.handle.setLit).toHaveBeenLastCalledWith([]);
     });
 
+    it("lights the trays it is given (the editor's own), and those a rail row points at as well", async () => {
+      const scene = stubScene();
+      const { rerender } = render(
+        <Viewer {...props({ trays: all, components, litKeys: ["b:p0:0"] }, scene)} />,
+      );
+      await waitFor(() => expect(scene.handle.setLit).toHaveBeenCalled());
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["b:p0:0"]);
+      act(() => {
+        hoveredComponent.value = second.id;
+      });
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith(["b:p0:0", "a:p0:0"]);
+      act(() => {
+        hoveredComponent.value = null;
+      });
+      rerender(<Viewer {...props({ trays: all, components }, scene)} />);
+      expect(scene.handle.setLit).toHaveBeenLastCalledWith([]);
+    });
+
     it("tints a group's shared tray from either member's row, and lights the pair's trays together", async () => {
       const scene = stubScene();
       // Objectives and the second component share the tray b; the second also has the tray a

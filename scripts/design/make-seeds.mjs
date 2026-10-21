@@ -8,12 +8,15 @@
 // here: when an outcome is not the one a state needs, the script prints the counts it tried and
 // exits 1, and a person edits the fixture.
 import { deepStrictEqual } from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { createModuleLoader } from "./viteModules.mjs";
 
 const OUT = fileURLToPath(new URL("../../docs/design/seeds/", import.meta.url));
+const STAR_REALMS = fileURLToPath(
+  new URL("../../test/fixtures/star-realms-owner-4.json", import.meta.url),
+);
 const PINNED_AT = 1792108800000; // 2026-10-16T00:00:00Z
 const TRY_OFFSETS = [10, 20, 30, 40, 50];
 
@@ -333,6 +336,27 @@ try {
   const long = withLayout(kit.harbourKingsLong());
   const wide = withLayout(kit.harbourKingsWide());
 
+  // The owner's Star Realms (a tall box, 101 x 195 x 37 mm), the project WideStage2 draws: his file
+  // as the app reads it, without the plan his version stored, searched here under the runner's own
+  // seed and budget like the others. The boards draw Trade deck, Starter deck (3 trays) and Counter.
+  const starFile = JSON.parse(readFileSync(STAR_REALMS, "utf8"));
+  delete starFile.layout;
+  const starParsed = schema.parseProject(starFile);
+  if (!starParsed.ok) {
+    throw new Error(`star-realms-owner-4.json does not open: ${starParsed.error}`);
+  }
+  const star = withLayout(starParsed.project);
+  const starTrays = star.layout.trays.filter((t) => t.part === "tray").length;
+  const starLevels = layers.levelsOf(star.layout.trays).length;
+  if (starTrays !== 5 || starLevels !== 4) {
+    failures.push({
+      label: "star-realms",
+      first: 0,
+      tried: [],
+      text: `the plan has ${starTrays} trays in ${starLevels} layers; WideStage2 draws 5 trays in 4 layers`,
+    });
+  }
+
   // Groups (0.7.0). The kit is G1's project: found under a search seed, which the plan records.
   const kitProject = findSeed("harbour-kings-kit", kit.harbourKingsKit(), kitArrangementProblem);
   const kitLoose = withLayout(kit.harbourKingsKitLoose());
@@ -453,6 +477,7 @@ try {
       "harbour-kings-headroom": { project: headroom },
       "harbour-kings-long": { project: long },
       "harbour-kings-wide": { project: wide },
+      "star-realms": { project: star },
       "harbour-kings-kit": { project: kitProject },
       "harbour-kings-kit-loose": { project: kitLoose },
       "harbour-kings-kit-split": { project: kitSplit },

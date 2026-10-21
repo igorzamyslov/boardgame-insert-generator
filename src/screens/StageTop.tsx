@@ -348,6 +348,36 @@ export function layerOptions(
   return all ? [{ value: ALL_LAYERS, label: "All" }, ...layers] : layers;
 }
 
+/**
+ * The Top / 3D switch of the stage, the normal one's and the editor's: 3D is blocked, with its
+ * reason, where the browser cannot draw it.
+ */
+export function ViewSwitch(p: {
+  view: StageView;
+  onViewChange: (view: StageView) => void;
+  webgl: boolean;
+}) {
+  return (
+    <Segmented
+      label="View"
+      tone="track"
+      options={[
+        { value: "plan", label: "Top" },
+        { value: "3d", label: "3D", blockedReason: p.webgl ? undefined : WEBGL_REASON },
+      ]}
+      value={p.view}
+      onChange={p.onViewChange}
+    />
+  );
+}
+
+/** Under the switches where the browser cannot draw 3D: why the 3D button is blocked. */
+export function WebGlNote() {
+  return (
+    <p class="stage-note">3D needs a browser with WebGL turned on. The top view works the same.</p>
+  );
+}
+
 export interface StageTopProps extends StatusInput {
   /** The stored plan's trays (`layout.trays`), for the Layer switch; without them (no plan) there are no switches. */
   trays?: readonly TraySpec[];
@@ -496,16 +526,7 @@ export function StageTop(p: StageTopProps) {
       3D
     </Button>
   ) : (
-    <Segmented
-      label="View"
-      tone="track"
-      options={[
-        { value: "plan", label: "Top" },
-        { value: "3d", label: "3D", blockedReason: blocked },
-      ]}
-      value={p.view}
-      onChange={p.onViewChange}
-    />
+    <ViewSwitch view={p.view} onViewChange={p.onViewChange} webgl={p.webgl} />
   );
 
   // The action (Keep searching, Stop) stands beside the heading on the same line, at every width
@@ -552,11 +573,7 @@ export function StageTop(p: StageTopProps) {
           </div>
         </div>
       ) : null}
-      {showView && !p.webgl ? (
-        <p class="stage-note">
-          3D needs a browser with WebGL turned on. The top view works the same.
-        </p>
-      ) : null}
+      {showView && !p.webgl ? <WebGlNote /> : null}
       {status.alert === true ? (
         <p class="visually-hidden" role="alert">
           {`${status.title}. ${status.line ?? ""}`}

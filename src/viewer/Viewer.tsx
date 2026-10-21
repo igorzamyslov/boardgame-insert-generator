@@ -36,6 +36,11 @@ export interface ViewerProps {
    * index into it. Without it the list is made from `trays`.
    */
   levels?: readonly number[];
+  /**
+   * Trays lit as the item or group being edited is (the rest fades), the way a rail row lights its
+   * trays; the editor's stage gives them. They join the trays a rail row lights.
+   */
+  litKeys?: readonly string[];
   webgl?: () => boolean;
   loadScene?: () => Promise<SceneFactory>;
 }
@@ -231,21 +236,23 @@ export function Viewer(p: ViewerProps) {
   const railId = hoveredComponent.value;
   // A group's card pointed at names every member: all the group's trays light.
   const railMembers = hoveredMembers.value;
+  const editedKey = (p.litKeys ?? []).join("\n");
   const litKey = useMemo(() => {
     const comps = p.components ?? [];
+    const keys = editedKey === "" ? [] : editedKey.split("\n");
     if (railId === null && railMembers === null) {
-      return "";
+      return keys.join("\n");
     }
     // The items that share a tray with the one pointed at light with it, as in the top view.
     const lit = new Set<string>();
     for (const id of [...(railId === null ? [] : [railId]), ...(railMembers ?? [])]) {
       sharingTrayWith(id, p.trays, comps).forEach((other) => lit.add(other));
     }
-    return p.trays
+    const pointed = p.trays
       .filter((t) => componentIdsOfTray(t, comps).some((id) => lit.has(id)))
-      .map((t) => t.key)
-      .join("\n");
-  }, [railId, railMembers, p.trays, p.components]);
+      .map((t) => t.key);
+    return [...new Set([...keys, ...pointed])].join("\n");
+  }, [railId, railMembers, p.trays, p.components, editedKey]);
   useEffect(() => {
     handleRef.current?.setLit(litKey === "" ? [] : litKey.split("\n"));
   }, [status, litKey]);
@@ -311,7 +318,7 @@ export function Viewer(p: ViewerProps) {
   return (
     <div class="viewer">
       <div
-        class="plan-fit"
+        class="plan-fit viewer-fit"
         style={{ "--box-w": String(p.box.innerWidth), "--box-l": String(p.box.innerDepth) }}
       >
         <div class="viewer-stage" data-region="plan-box">

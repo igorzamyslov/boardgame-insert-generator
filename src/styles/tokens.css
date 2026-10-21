@@ -163,7 +163,7 @@
   --rail-pad: 20px;
   --scroll-gutter: 11px; /* what a thin scrollbar that takes room reserves (`scrollbar-gutter: stable`); the rail's padding on that side is cut by it, so bar and padding stay near --rail-pad */
   --stage-pad: 22px 36px 28px; /* the workspace */
-  --stage-pad-focus: 28px 40px; /* first visit, the editor, the box, fit problems */
+  --stage-pad-focus: 28px 40px; /* first visit, the box, fit problems (the editor shares the normal stage's padding) */
   --row-min: 52px; /* list rows, check rows */
   --kind-tile-h: 56px;
   --stage-slot: 52px;

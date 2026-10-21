@@ -1,21 +1,26 @@
 /*
- * The editor's stage (UI rebuild Task 10), from Edit: the 52 px slot above the box holds the
- * sentence that says which tray this is, or the note about the option just changed, in the page's
- * own place. The box is the workspace's (plan.css); its lifted tray is there too.
+ * The editor's stage (UI rebuild Task 10), from Edit, on the normal stage's frame (WideStage2): the
+ * slot where the status heading stood holds the sentence that says which tray this is, or the note
+ * about the option just changed, in the page's own place. It is as tall as the heading (its title,
+ * its muted line and the gap between), so the switches under it and the frame under those do not
+ * move when an item is opened. The box is the workspace's (plan.css); its lifted tray is there too.
  */
 .ed-slot {
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
   justify-content: center;
   min-width: 0;
-  min-height: var(--stage-slot);
+  min-height: calc(var(--h1) * 1.2 + var(--s-2) + 18px);
 }
 
 .ed-slot__row {
   display: flex;
   align-items: center;
-  min-height: var(--stage-slot);
+}
+
+/* The tray bar's slot, empty: the band stays so the frame is where the normal stage's is (no tray is picked while an editor is open). */
+.ed-band {
+  display: block;
 }
 
 /* A failed run, a tray that does not fit or pins in the way, in the status heading's words (no heading: the sentence is the h1). */
@@ -46,16 +51,10 @@
   line-height: normal;
 }
 
-/* The Layer switch sits at the slot's right end; the sentence takes the rest and wraps. */
+/* The sentence takes the slot's width and wraps. */
 .ed-slot__row > .ed-sentence {
   flex: 1 1 auto;
   min-width: 0;
-  margin-right: var(--s-12);
-}
-
-.ed-slot__row > .k-seg {
-  flex: none;
-  margin-left: auto;
 }
 
 /* The phone's strip repeats the sentence as a plain line, and the slot above the box is not drawn. */

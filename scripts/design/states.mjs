@@ -43,6 +43,8 @@ const MENU = { click: { role: "button", name: /^Project menu/ } };
 // The rail (Task 5) and the editor opened from it (Task 10).
 const RAIL = '[data-region="rail"]';
 const EDIT_MARKET = { click: { role: "button", name: /^Market deck, /, in: RAIL } };
+// The owner's Star Realms (a tall box): WideStage2's own insert; its second item is the Starter deck.
+const EDIT_STARTER = { click: { role: "button", name: /^Starter deck, /, in: RAIL } };
 const MORE_OPTIONS = { click: { role: "button", name: /^More options/, in: RAIL } };
 // The no-fit heading: "The <name> tray doesn't fit yet" (owner decision; the board's is "<name> don't fit yet").
 const FIT_YET = /tray doesn't fit yet|Not everything fits yet/;
@@ -108,6 +110,7 @@ export const SEEDS = {
     "harbour-kings-kit-loose",
     "harbour-kings-kit-split",
     "harbour-kings-flat",
+    "star-realms",
   ],
   stale: [
     "harbour-kings-stale",
@@ -117,6 +120,34 @@ export const SEEDS = {
     "harbour-kings-pins",
   ],
 };
+
+/**
+ * The Star Realms states of WideStage2: "star-<width>-<top|3d>" (normal) and "star-<width>-edit-<top|3d>"
+ * (the Starter deck's editor open). The 3D ones switch the View and wait for the meshes.
+ */
+function starStates() {
+  const out = {};
+  const sizes = { 2400: { width: 2400, height: 1300 }, 1440: DESKTOP };
+  const to3d = [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }];
+  for (const [width, viewport] of Object.entries(sizes)) {
+    for (const mode of ["normal", "edit"]) {
+      for (const view of ["top", "3d"]) {
+        const name = `star-${width}-${mode === "edit" ? "edit-" : ""}${view}`;
+        out[name] = {
+          board: "WideStage2",
+          boardOpts: { props: { width, mode, view } },
+          viewport,
+          seed: "star-realms",
+          noPageScroll: true,
+          // the 3D frame fills the working column (900 px), whatever the box's shape
+          ...(view === "3d" ? { needsWebGL: true, planWidth: 900 } : {}),
+          steps: [...(mode === "edit" ? [EDIT_STARTER] : []), ...(view === "3d" ? to3d : [])],
+        };
+      }
+    }
+  }
+  return out;
+}
 
 /** @type {Record<string, any>} */
 export const STATES = {
@@ -178,6 +209,11 @@ export const STATES = {
     noPageScroll: true,
     steps: [{ click: { role: "button", name: "3D", in: SWITCHES } }, { wait: 3000 }],
   },
+  // 0.9.0 Task 3: WideStage2's own insert, the owner's Star Realms (a 101 x 195 x 37 mm box, Trade deck,
+  // Starter deck in 3 trays, Counter), in the board's eight states: normal and editing the Starter deck,
+  // Top and 3D, at 2400 and 1440. The board's words and the seed's are the same; its plan is the app's own
+  // search, so the trays may stand a little differently.
+  ...starStates(),
   // The rail dragged wider (420 px, kept in the prefs): the stage takes the rest, and the plan fits it.
   "workspace-rail-wide": {
     board: "Main",

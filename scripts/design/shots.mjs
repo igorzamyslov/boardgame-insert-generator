@@ -1136,25 +1136,33 @@ const regionSource = (name) => REGIONS[name].board.toString();
 
 // Pairs that must not differ: Keep searching turning into Stop, and the View segment turning to 3D.
 // `sizeOnly`: a region that may slide but not change size (none now: the slot over the plan is as tall as the tray bar).
+// `widens`: a region that may change width about its middle (the 3D frame fills the working column, the
+// top view's box keeps the box's shape: 0.9.0); its top and height stay.
 const JUMP_PAIRS = [
   { pair: ["workspace", "workspace-searching"], sizeOnly: [] },
-  { pair: ["workspace", "workspace-3d"], sizeOnly: [] },
+  { pair: ["workspace", "workspace-3d"], sizeOnly: [], widens: ["plan-box"] },
   // a tray chosen, then the 3D view: the plan's frame is where the selected top view has it (Task 8, 0.6.0)
-  { pair: ["workspace-tray", "workspace-3d-selected"], sizeOnly: [] },
+  { pair: ["workspace-tray", "workspace-3d-selected"], sizeOnly: [], widens: ["plan-box"] },
   { pair: ["workspace", "workspace-tray"], sizeOnly: [] },
   // a swap chosen puts its prompt over the box, so the plan is where it was with the bar alone (Task 8)
   { pair: ["workspace", "workspace-swap"], sizeOnly: [] },
   { pair: ["workspace-tray", "workspace-swap"], sizeOnly: [] },
   // the same at 1920×1080, where the plan is at its 900 px cap
-  { pair: ["workspace-1920", "workspace-3d-1920"], sizeOnly: [] },
+  { pair: ["workspace-1920", "workspace-3d-1920"], sizeOnly: [], widens: ["plan-box"] },
   { pair: ["workspace-1920", "workspace-tray-1920"], sizeOnly: [] },
   // a narrow stage (820 px: the controls take two rows): the View switch stays put too
   { pair: ["workspace-820", "workspace-820-searching"], sizeOnly: [] },
-  { pair: ["workspace-820", "workspace-820-3d"], sizeOnly: [] },
+  { pair: ["workspace-820", "workspace-820-3d"], sizeOnly: [], widens: ["plan-box"] },
   // the band just above the two-row controls: 3D's "All" and three layers fit one row or scroll in their slot
-  { pair: ["workspace-940", "workspace-940-3d"], sizeOnly: [] },
+  { pair: ["workspace-940", "workspace-940-3d"], sizeOnly: [], widens: ["plan-box"] },
   { pair: ["workspace-940", "workspace-940-searching"], sizeOnly: [] },
-  { pair: ["workspace-960-long", "workspace-960-long-3d"], sizeOnly: [] },
+  { pair: ["workspace-960-long", "workspace-960-long-3d"], sizeOnly: [], widens: ["plan-box"] },
+  // 0.9.0: an item's editor opening on the same stage moves nothing of the stage (the sentence stands
+  // where the heading did, the empty band where the tray bar's slot is), in Top and in 3D, at both widths
+  { pair: ["star-1440-top", "star-1440-edit-top"], sizeOnly: [] },
+  { pair: ["star-1440-3d", "star-1440-edit-3d"], sizeOnly: [] },
+  { pair: ["star-2400-top", "star-2400-edit-top"], sizeOnly: [] },
+  { pair: ["star-2400-3d", "star-2400-edit-3d"], sizeOnly: [] },
 ];
 const JUMP_STATES = [...new Set(JUMP_PAIRS.flatMap((j) => j.pair))];
 const jumpBoxes = new Map();
@@ -1548,16 +1556,17 @@ try {
       lines.push(`FAILED  ${name}: ${firstLine(e)}`);
     }
   }
-  for (const { pair, sizeOnly } of JUMP_PAIRS) {
+  for (const { pair, sizeOnly, widens = [] } of JUMP_PAIRS) {
     if (!pair.every((n) => jumpBoxes.has(n))) {
       continue;
     }
-    const problems = jumpProblems(...pair.map((n) => jumpBoxes.get(n)), { sizeOnly });
+    const problems = jumpProblems(...pair.map((n) => jumpBoxes.get(n)), { sizeOnly, widens });
     // a region found in neither state is not a failure: it only says the check had nothing to compare
     const hard = problems.filter((p) => !p.endsWith("(nothing compared)"));
     failed += hard.length > 0 ? 1 : 0;
     const slides =
-      sizeOnly.length > 0 ? ` (the ${sizeOnly.join(" and ")} may slide, not resize)` : "";
+      (sizeOnly.length > 0 ? ` (the ${sizeOnly.join(" and ")} may slide, not resize)` : "") +
+      (widens.length > 0 ? ` (the ${widens.join(" and ")} may widen about its middle)` : "");
     lines.push(
       hard.length > 0
         ? `FAILED  jump (${pair.join(" and ")}): ${hard.join("; ")}`

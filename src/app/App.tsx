@@ -1045,6 +1045,16 @@ export function App(props: AppProps) {
           after={stageNotes}
           problem={editorProblem(status)}
           onRetry={() => store.retry()}
+          view={view}
+          onViewChange={showView}
+          webgl={webgl}
+          viewer={{
+            box: project.box,
+            settings: project.settings,
+            stale: s.stale.value,
+            meshes,
+            ...props.viewerProps,
+          }}
         />
       ) : showFit ? (
         // NoFit, PinConflict and MobileFix: the heading, the picture and the panel of what to do.
@@ -1208,7 +1218,8 @@ export function App(props: AppProps) {
             />
           ) : (
             <Workspace
-              focus={(editingAny || boxOpen || (showFit && fitKind === "noFit")) && !phone}
+              // the editor shares the normal stage (WideStage2): its padding is the normal one, so the frame does not move
+              focus={(boxOpen || (showFit && fitKind === "noFit")) && !phone}
               class={
                 editingAny ? "ws--edit" : boxOpen ? "ws--box" : showFit ? "ws--fit" : undefined
               }
