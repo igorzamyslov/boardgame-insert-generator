@@ -78,12 +78,12 @@ describe("settings.css", () => {
     expect(card).toMatch(/border-radius:\s*var\(--r-card\)/);
     expect(ruleFor(".st-card__head")).toMatch(/padding:\s*var\(--s-12\) var\(--s-14\)/);
     expect(ruleFor(".st-rows")).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\) auto auto/);
-    const num = ruleFor(".st-card .st-num");
+    const num = ruleFor(".st-rows .st-num");
     expect(num).toMatch(/width:\s*72px/);
     expect(num).toMatch(/height:\s*var\(--field-h-compact\)/);
     expect(num).toMatch(/border-radius:\s*var\(--r-tile\)/);
     expect(num).toMatch(/text-align:\s*right/);
-    expect(ruleFor(".st-card .st-num[data-changed]")).toMatch(/1\.5px solid var\(--changed\)/);
+    expect(ruleFor(".st-rows .st-num[data-changed]")).toMatch(/1\.5px solid var\(--changed\)/);
     const back = ruleFor(".st-back");
     expect(back).toMatch(/background:\s*var\(--changed-bg\)/);
     expect(back).toMatch(/color:\s*var\(--changed-ink\)/);
@@ -98,7 +98,7 @@ describe("settings.css", () => {
     const rows = ruleFor(".st-rows");
     // a column gap would sit after an empty way-back column and push every box off the edge
     expect(rows).toMatch(/gap:\s*var\(--s-4\) 0;/);
-    expect(ruleFor(".st-card .st-num")).toMatch(/margin-left:\s*var\(--s-12\)/);
+    expect(ruleFor(".st-rows .st-num")).toMatch(/margin-left:\s*var\(--s-12\)/);
     expect(ruleFor(".st-rows .st-back")).toMatch(/margin-left:\s*var\(--s-12\)/);
     // a choice takes the whole row and never the number columns, which it would widen
     const choice = ruleFor(".st-row__choice");
@@ -109,9 +109,18 @@ describe("settings.css", () => {
     expect(ruleFor(".st-rows .st-row__choice .st-back")).toMatch(/margin-left:\s*0/);
   });
 
+  it("draws the first screen's one number as a row with no card around it, its unit after the box", () => {
+    // Separate risers from sits among the switches: the grid of a group's rows, without the card's padding
+    expect(ruleFor(".st-rows--lone")).toMatch(/padding:\s*0/);
+    expect(ruleFor(".st-rows--lone .st-row__label")).toMatch(/font-weight:\s*600/);
+    const unit = ruleFor(".st-num-unit");
+    expect(unit).toMatch(/display:\s*flex/);
+    expect(unit).toMatch(/align-items:\s*center/);
+  });
+
   it("right-aligns the printer's number fields as the groups' boxes are", () => {
     expect(ruleFor(".st-details .k-field .k-field__input")).toMatch(/text-align:\s*right/);
-    expect(ruleFor(".st-card .st-num")).toMatch(/text-align:\s*right/);
+    expect(ruleFor(".st-rows .st-num")).toMatch(/text-align:\s*right/);
   });
 
   it("draws the other-printer row in the info colours, 12 14, radius 12", () => {

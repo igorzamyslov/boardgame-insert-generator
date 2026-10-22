@@ -119,6 +119,18 @@ describe("createMeshSource", () => {
     expect(f.build).toHaveBeenCalledTimes(2);
   });
 
+  it("builds a part again when the least riser changed: the settings are in the cache key", async () => {
+    // A print-only setting (it is not in the inputs hash) still reaches the key, with every other
+    // setting, so a part built under another one is another mesh and none is served stale.
+    const f = fakeClient();
+    const source = createMeshSource(() => Promise.resolve(f.client));
+    await source.get(makeTray(), DEFAULT_SETTINGS);
+    await source.get(makeTray(), DEFAULT_SETTINGS);
+    expect(f.build).toHaveBeenCalledTimes(1);
+    await source.get(makeTray(), { ...DEFAULT_SETTINGS, minRiser: 10 });
+    expect(f.build).toHaveBeenCalledTimes(2);
+  });
+
   it("retries a build once when the worker was restarted under it or crashed", async () => {
     for (const reason of ["WorkerRestartedError", "WorkerError"]) {
       const f = fakeClient();

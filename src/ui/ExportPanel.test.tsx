@@ -67,6 +67,7 @@ const summary: LayoutSummary = {
   fillerCount: 0,
   mergeFillers: false,
   mergeRisers: false,
+  minRiser: 3,
   filamentG: 210,
   filamentAtInfillG: 123.4,
   infillPct: 15,

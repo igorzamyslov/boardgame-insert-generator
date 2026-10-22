@@ -179,6 +179,7 @@ export function summarize(
     fillerCount: parts.filter((t) => t.part === "leftover").length,
     mergeFillers: settings.mergeFillers,
     mergeRisers: settings.mergeRisers,
+    minRiser: settings.minRiser,
     filamentG: round(filament * PLA_G_PER_MM3, 1),
     filamentAtInfillG: round(filamentAtInfill * PLA_G_PER_MM3, 1),
     infillPct: settings.infill,

@@ -11,7 +11,7 @@ import {
 import { SETTING_RANGES } from "../model/validate";
 import { ValidationContext } from "./validation";
 import { InsertSettings, PrintingOptions, changedRanges } from "./SettingsForm";
-import { EXACT_GROUPS } from "./settingsGroups";
+import { EXACT_GROUPS, FIRST_SCREEN_PATHS } from "./settingsGroups";
 import { SETTING_SETTERS, settingUnit } from "./settingsFields";
 
 afterEach(cleanup);
@@ -27,9 +27,9 @@ const error = (path: string, message: string, code = "field.setting") => ({
 
 /**
  * The number of rows the search can show: every exact number and the two choices, less the wall
- * thickness, which "Fill small gaps with" draws itself.
+ * thickness, which "Fill small gaps with" draws itself, and the numbers of the first screen.
  */
-const ROWS = SETTING_RANGES.length + 1;
+const ROWS = SETTING_RANGES.length + 1 - FIRST_SCREEN_PATHS.length;
 
 const WALL = /^Wall( \(mm\))?$/;
 const field = (name: RegExp | string): HTMLInputElement =>
@@ -209,6 +209,90 @@ describe("InsertSettings: how the trays sit", () => {
     expect(box.checked).toBe(true);
     fireEvent.click(box);
     expect(onChange).toHaveBeenCalledWith(applyFingerRoom(four, false));
+  });
+});
+
+describe("InsertSettings: the riser rows beside Fill to the lid", () => {
+  const LABEL = /^Separate risers from( \(mm\))?$/;
+  const FOLD = "Fold risers into the joined spacers";
+  const section = (): HTMLElement =>
+    screen.getByRole("region", { name: "How the trays sit" }) as HTMLElement;
+  const before = (a: Element, b: Element): boolean =>
+    (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
+  it("draws both in How the trays sit, after Fill to the lid, and not under Exact numbers", () => {
+    render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={vi.fn()} />);
+    const here = within(section());
+    const lid = here.getByRole("checkbox", { name: "Fill to the lid" });
+    const number = here.getByLabelText(LABEL);
+    const fold = here.getByRole("checkbox", { name: FOLD });
+    expect(before(lid, number)).toBe(true);
+    expect(before(number, fold)).toBe(true);
+    // one box, 3 mm, with its unit said beside it
+    expect((number as HTMLInputElement).value).toBe("3");
+    expect(number.closest(".st-num-unit")?.textContent).toContain("mm");
+    expect(here.getByText("Smaller padding stays a thicker tray floor.")).toBeTruthy();
+    // the search covers Exact numbers only, and this number is no part of it
+    expect(FIRST_SCREEN_PATHS).toContain("minRiser");
+    for (const g of EXACT_GROUPS) {
+      expect(g.paths).not.toContain("minRiser");
+    }
+    expect(screen.getAllByLabelText(LABEL)).toHaveLength(1);
+  });
+
+  it("has the riser fold on by default, and writes the switch", () => {
+    const onChange = vi.fn();
+    render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
+    const fold = screen.getByRole("checkbox", { name: FOLD }) as HTMLInputElement;
+    expect(fold.checked).toBe(true);
+    expect(screen.queryByRole("button", { name: `Back to on for ${FOLD}` })).toBeNull();
+    fireEvent.click(fold);
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, mergeRisers: false });
+  });
+
+  it("blocks the riser fold while spacers are not joined, with the same words as before", () => {
+    const onChange = vi.fn();
+    render(<InsertSettings settings={changedFrom({ mergeFillers: false })} onChange={onChange} />);
+    const fold = screen.getByRole("checkbox", { name: FOLD }) as HTMLInputElement;
+    expect(fold.getAttribute("aria-disabled")).toBe("true");
+    const why = (fold.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent ?? "")
+      .join(" ");
+    expect(why).toContain("Needs joined spacers.");
+    fireEvent.click(fold);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("writes the least riser in mm, and offers the way back to 3 once it differs", () => {
+    const onChange = vi.fn();
+    const view = render(<InsertSettings settings={DEFAULT_SETTINGS} onChange={onChange} />);
+    expect(within(section()).queryByRole("button", { name: /^Back to 3/ })).toBeNull();
+    fireEvent.input(field(LABEL), { target: { value: "5,5" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SETTINGS, minRiser: 5.5 });
+    view.rerender(<InsertSettings settings={changedFrom({ minRiser: 10 })} onChange={onChange} />);
+    const back = within(section()).getByRole("button", {
+      name: "Back to 3 for Separate risers from",
+    });
+    expect(back.textContent).toBe("Back to 3");
+    fireEvent.click(back);
+    expect(onChange).toHaveBeenLastCalledWith(DEFAULT_SETTINGS);
+  });
+
+  it("says a value outside 1 to 50 mm next to the box, with nothing closed around it", () => {
+    render(
+      <ValidationContext.Provider
+        value={[error("/settings/minRiser", "Separate risers from must be from 1 to 50.")]}
+      >
+        <InsertSettings settings={changedFrom({ minRiser: 80 })} onChange={vi.fn()} />
+      </ValidationContext.Provider>,
+    );
+    const input = field(LABEL);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toBe("Separate risers from must be from 1 to 50.");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(input.getAttribute("aria-describedby")).toContain(alert.id);
+    expect(alert.closest("details")).toBeNull();
   });
 });
 

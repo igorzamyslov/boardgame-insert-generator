@@ -141,6 +141,35 @@ describe("readProject: files of this schema line", () => {
     expect(on.settings.lip.enabled).toBe(true);
   });
 
+  it("a file without mergeRisers reads the default, on; an explicit value is used as it is", () => {
+    // Folding risers is on by default (0.10.0) and a project saved before shows no changed dot for
+    // a setting nobody touched: a file that says nothing reads on, an explicit false stays false.
+    expect(DEFAULT_SETTINGS.mergeRisers).toBe(true);
+    for (const raw of [MINIMAL, { ...MINIMAL, settings: { wall: 2 } }]) {
+      const { project } = expectOk(readProject(raw, CURRENT));
+      expect(project.settings.mergeRisers, JSON.stringify(raw)).toBe(true);
+    }
+    for (const stored of [true, false]) {
+      const { project } = expectOk(
+        readProject({ ...MINIMAL, settings: { mergeRisers: stored } }, CURRENT),
+      );
+      expect(project.settings.mergeRisers).toBe(stored);
+    }
+  });
+
+  it("a file without minRiser reads the default 3 mm, and a stored value is used as it is", () => {
+    // A project saved before the setting existed prints the riser the owner asked for (its plan
+    // stays current: the setting is not in the hash).
+    expect(DEFAULT_SETTINGS.minRiser).toBe(3);
+    for (const raw of [MINIMAL, { ...MINIMAL, settings: { wall: 2 } }]) {
+      const { project } = expectOk(readProject(raw, CURRENT));
+      expect(project.settings.minRiser, JSON.stringify(raw)).toBe(3);
+    }
+    const ten = expectOk(readProject({ ...MINIMAL, settings: { minRiser: 10 } }, CURRENT));
+    expect(ten.project.settings.minRiser).toBe(10);
+    expect(ten.notices).toEqual([]);
+  });
+
   it("fills the finger room and notch of an older file and drops its finger pocket reach", () => {
     // The reach went with the finger pockets: like any field this app no longer has, it is
     // dropped with the one info notice, not an error.

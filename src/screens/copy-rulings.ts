@@ -342,8 +342,8 @@ export const SETTINGS_STATES: readonly string[] = [
 const SET_FIRST = "Settings' first screen is the board's plain choices";
 const SET_EXACT = "Every setting the board does not show is under Exact numbers";
 const SET_PRINTER = "My printer shows another printer on this insert as a row with Apply";
-const SET_DETAILS =
-  "Printer details holds the own bed size, margin, layer height and folding risers";
+const SET_DETAILS = "Printer details holds the own bed size, margin and layer height";
+const SET_RISERS = "Settings' first screen also has two riser rows";
 const SET_INTRO = "My printer's intro names the values it covers";
 const SET_BACK = "Every switch in Settings has the changed dot and a way back";
 const SET_WORDS = "Settings' hints follow the Words table";
@@ -404,8 +404,14 @@ export const COPY_RULINGS: readonly CopyRuling[] = [
     states: SETTINGS_STATES,
     ruling: SET_DETAILS,
   })),
-  { text: "Fold risers into the joined spacers", states: SETTINGS_STATES, ruling: SET_DETAILS },
-  { text: "Needs joined spacers.", states: SETTINGS_STATES, ruling: SET_DETAILS },
+  { text: "Separate risers from", states: SETTINGS_STATES, ruling: SET_RISERS },
+  {
+    text: "Smaller padding stays a thicker tray floor.",
+    states: SETTINGS_STATES,
+    ruling: SET_RISERS,
+  },
+  { text: "Fold risers into the joined spacers", states: SETTINGS_STATES, ruling: SET_RISERS },
+  { text: "Needs joined spacers.", states: SETTINGS_STATES, ruling: SET_RISERS },
   { text: "Not saved: {name}", states: SETTINGS_STATES, ruling: SET_DETAILS },
   // Task 13: Export, Exporting and MobileDownload have the plural forms only, and no failure of a whole build
   ...HOLDS.map((text) => ({ text, states: DOWNLOAD, ruling: DL_COUNT })),

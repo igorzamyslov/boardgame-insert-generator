@@ -212,6 +212,7 @@ function readSettings(r: Reader | undefined): Settings {
     packingFactor: r.num("packingFactor", d.packingFactor),
     leftover: r.oneOf("leftover", ["spare", "solid"], d.leftover),
     fillToTop: r.bool("fillToTop", d.fillToTop),
+    minRiser: r.num("minRiser", d.minRiser),
     wallAbsorb: r.num("wallAbsorb", legacyWallAbsorb),
     oneWall: r.bool("oneWall", d.oneWall),
     mergeFillers: r.bool("mergeFillers", d.mergeFillers),

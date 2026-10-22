@@ -308,7 +308,8 @@ export function toSerializable(p: Project, foreign: ForeignData): Json {
 /**
  * The two print-time merge switches and the engraving switch at their defaults are left out:
  * reading puts them back, so a share link (2 000 characters) does not pay for three settings
- * nearly every project leaves alone.
+ * nearly every project leaves alone. An explicit "off" of the riser fold (on by default since
+ * 0.10.0) is written.
  */
 function compactSettings(out: Json): void {
   const settings = out.settings;

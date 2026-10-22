@@ -84,10 +84,12 @@ export const DEFAULT_SETTINGS: Settings = deepFreeze({
   packingFactor: 0.5,
   leftover: "spare",
   fillToTop: true,
+  minRiser: 3,
   wallAbsorb: 0,
   oneWall: false,
   mergeFillers: true,
-  mergeRisers: false,
+  // On by default (owner, 2026-10-21): a file that says nothing about it reads on too.
+  mergeRisers: true,
   infill: 15,
   playLimit: 1.5,
   engraveNames: true,

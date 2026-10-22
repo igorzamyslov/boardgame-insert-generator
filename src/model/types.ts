@@ -200,6 +200,13 @@ export interface Settings {
   /** Pad every stack to the top plane, so nothing shifts (spec §3 rule 2); off = trays stay at content height. */
   fillToTop: boolean;
   /**
+   * The least height (mm) of padding that is printed as a riser of its own under a stack (spec §3
+   * rule 2) rather than left as a raised floor in its trays. A print-time decomposition like the
+   * merge switches: splitRisers reads it from the stored layout, so it is no part of the inputs
+   * hash. It never goes below what a part with a chamfer can be (splitRisers). Default 3.
+   */
+  minRiser: number;
+  /**
    * Most extra thickness (mm) each wall or divider may take on to soak up leaf slack instead of
    * the slack becoming a filler part (spec §7.2). 0 = never thicken: slack is printed as a filler.
    * This is absorption, not growth: a thicker wall gives the contents no more room (spec §4).
@@ -223,7 +230,8 @@ export interface Settings {
   /**
    * With `mergeFillers`, fold the risers into the merged fillers too (lever 1b): a riser stands
    * under a tray and a filler beside it, so a part with both is an L in elevation. Also
-   * print-time, and no part of the inputs hash. Does nothing while `mergeFillers` is off.
+   * print-time, and no part of the inputs hash. Does nothing while `mergeFillers` is off. On by
+   * default (0.10.0), a file that says nothing included; an explicit off is kept.
    */
   mergeRisers: boolean;
   /**

@@ -228,7 +228,7 @@ describe("mergeParts: risers, with mergeRisers (an L in elevation)", () => {
 
   it("stay as they are while mergeRisers is off", () => {
     const parts = [t, r, f];
-    expect(mergeParts(parts, inputs())).toEqual(parts);
+    expect(mergeParts(parts, inputs({ mergeRisers: false }))).toEqual(parts);
   });
 
   it("fold into the filler beside them: a low shelf with a full-height wall alongside", () => {

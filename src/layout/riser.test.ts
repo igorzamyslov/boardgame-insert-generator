@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../model/settings";
 import type { StoredLayout, TraySpec } from "../model/types";
-import { MIN_RISER } from "../sizing/constants";
 import { realizeTray } from "../sizing/realize";
 import { cards, partOf } from "../sizing/test-helpers";
 import { createCtx, type Ctx } from "./context";
@@ -129,12 +128,36 @@ describe("splitRisers: a riser under a stack (spec §3 rule 2)", () => {
     expect(solid).toMatchObject({ solid: true, compartments: [] });
   });
 
-  it(`is not emitted for less than ${MIN_RISER} mm: the tray keeps its raised floor`, () => {
-    const parts = splitRisers([padded(28.8)], base());
-    expect(parts.some((t) => t.part === "riser")).toBe(false);
-    expect(parts).toEqual([padded(28.8)]);
-    const at = splitRisers([padded(21.2 + MIN_RISER)], base());
-    expect(at.find((t) => t.part === "riser")?.h).toBe(MIN_RISER);
+  it("is emitted for a raise of the minimum riser setting (3 mm by default), not below it", () => {
+    expect(DEFAULT_SETTINGS.minRiser).toBe(3);
+    // content 20 + floor 1.2 + a raise of 3 mm
+    const parts = splitRisers([padded(24.2)], base());
+    expect(parts.find((t) => t.part === "riser")?.h).toBe(3);
+    expect(parts.find((t) => t.part === "tray")).toMatchObject({ z: 3, h: 21.2 });
+    expect(parts.find((t) => t.part === "tray")?.compartments.map((c) => c.floorZ)).toEqual([1.2]);
+    // 2.8 mm is under it: the tray keeps its raised floor
+    const under = splitRisers([padded(24)], base());
+    expect(under.some((t) => t.part === "riser")).toBe(false);
+    expect(under).toEqual([padded(24)]);
+  });
+
+  it("splits at the setting the person chose: 10 mm is the old rule, 1 mm is the smallest", () => {
+    const ten = { settings: { ...DEFAULT_SETTINGS, minRiser: 10 } };
+    expect(splitRisers([padded(28.8)], base(ten)).some((t) => t.part === "riser")).toBe(false);
+    expect(splitRisers([padded(31.2)], base(ten)).find((t) => t.part === "riser")?.h).toBe(10);
+    const one = { settings: { ...DEFAULT_SETTINGS, minRiser: 1 } };
+    // a riser is a part of its own, so it is never lower than the chamfer and a wall's worth (1.2 mm)
+    expect(splitRisers([padded(22.2)], base(one)).some((t) => t.part === "riser")).toBe(false);
+    expect(splitRisers([padded(22.4)], base(one)).find((t) => t.part === "riser")?.h).toBe(1.2);
+  });
+
+  it("prints a low riser solid and a deep one open, as the leftover style allows", () => {
+    // an open riser needs a pocket of at least MIN_SPACER (5 mm) above its floor (1.2 mm)
+    const low = splitRisers([padded(27.2)], base()).find((t) => t.part === "riser");
+    expect(low).toMatchObject({ h: 6, solid: true, compartments: [] });
+    const deep = splitRisers([padded(27.4)], base()).find((t) => t.part === "riser");
+    expect(deep).toMatchObject({ h: 6.2, solid: false });
+    expect(deep?.compartments).toHaveLength(1);
   });
 
   it("is not blocked by a full-depth spare: the spare is clamped to the shortened tray's floor", () => {
@@ -249,8 +272,9 @@ describe("splitRisers: a riser under a stack (spec §3 rule 2)", () => {
 
     it("is left alone when nothing is shed, and a walled one keeps its floor", () => {
       const f = filler();
-      expect(splitRisers([padded(28.8, { stack: 1 }), f], base())).toEqual([
-        padded(28.8, { stack: 1 }),
+      // a raise of 2 mm is under the 3 mm minimum
+      expect(splitRisers([padded(23.2, { stack: 1 }), f], base())).toEqual([
+        padded(23.2, { stack: 1 }),
         f,
       ]);
       const walled = filler({

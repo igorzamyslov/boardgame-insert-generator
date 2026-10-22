@@ -199,34 +199,48 @@ describe("toSerializable", () => {
     expect(out.box).toEqual({ ...p.box, headroomCoverage: "none" });
     // the two merge switches and the engraving switch at their defaults are left out of what is written
     const { mergeFillers, mergeRisers, engraveNames, oneWall, ...written } = p.settings;
-    expect([mergeFillers, mergeRisers, engraveNames, oneWall]).toEqual([true, false, true, false]);
+    expect([mergeFillers, mergeRisers, engraveNames, oneWall]).toEqual([true, true, true, false]);
     expect(out.settings).toEqual({ ...written, leftover: "hollow" });
     expect(p).toEqual(before);
   });
 
   it("leaves the merge switches out at their defaults and writes them when changed", () => {
     // A share link has 2 000 characters: two settings nearly every project leaves alone are not
-    // written, and reading puts the defaults back.
+    // written, and reading puts the defaults back (both on; an explicit off is what is written).
     const p = sampleProject();
+    expect(p.settings.mergeRisers).toBe(true);
     const same = serializeProject(p, noForeign());
     expect(same).not.toContain("mergeFillers");
     expect(same).not.toContain("mergeRisers");
     const read = parseProject(JSON.parse(same));
     expect(read.ok && read.project.settings).toMatchObject({
       mergeFillers: true,
-      mergeRisers: false,
+      mergeRisers: true,
     });
-    const changed = { ...p, settings: { ...p.settings, mergeFillers: false, mergeRisers: true } };
+    const changed = { ...p, settings: { ...p.settings, mergeFillers: false, mergeRisers: false } };
     const text = serializeProject(changed, noForeign());
     expect(text).toContain('"mergeFillers":false');
-    expect(text).toContain('"mergeRisers":true');
+    expect(text).toContain('"mergeRisers":false');
     const back = parseProject(JSON.parse(text));
     expect(back.ok && back.project.settings).toMatchObject({
       mergeFillers: false,
-      mergeRisers: true,
+      mergeRisers: false,
     });
     // writing leaves the project itself alone
     expect(p.settings.mergeFillers).toBe(true);
+  });
+
+  it("writes the least riser as it is, so no later change of the default can move it", () => {
+    const p = sampleProject();
+    expect(p.settings.minRiser).toBe(3);
+    const text = serializeProject(p, noForeign());
+    expect(text).toContain('"minRiser":3');
+    const back = parseProject(
+      JSON.parse(
+        serializeProject({ ...p, settings: { ...p.settings, minRiser: 8.5 } }, noForeign()),
+      ),
+    );
+    expect(back.ok && back.project.settings.minRiser).toBe(8.5);
   });
 
   it("round-trips the one-wall switch: left out while off, written when on", () => {

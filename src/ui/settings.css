@@ -272,7 +272,17 @@
   min-width: 0;
 }
 
-.st-card .st-num {
+/* The one number outside a group (Separate risers from): no card around it, so no card padding. */
+.st-rows--lone {
+  padding: 0;
+}
+
+/* Its name is read with the switches around it: the same weight as theirs. */
+.st-rows--lone .st-row__label {
+  font-weight: 600;
+}
+
+.st-rows .st-num {
   box-sizing: border-box;
   width: 72px; /* Settings */
   margin-left: var(--s-12);
@@ -289,14 +299,25 @@
 }
 
 /* A value that differs from its default: a 1.5 px line in the changed colour, the words heavier. */
-.st-card .st-num[data-changed] {
+.st-rows .st-num[data-changed] {
   border: 1.5px solid var(--changed); /* Settings */
   font-weight: 600;
 }
 
 /* After the focus rule of base.css and the changed one, so a value with an error keeps its red edge. */
-.st-card .st-num[aria-invalid="true"] {
+.st-rows .st-num[aria-invalid="true"] {
   border: 2px solid var(--danger);
+}
+
+/* A box with its unit after it ("3 mm"), where no heading says what the numbers are in. */
+.st-num-unit {
+  display: flex;
+  gap: var(--s-6);
+  align-items: center;
+}
+
+.st-num-unit__text {
+  color: var(--muted);
 }
 
 .st-back {

@@ -319,6 +319,14 @@ const settingRanges: SettingRange[] = [
     max: 5,
     hint: "How much sideways play the trays may have in the box before the plan counts it against a layout and warns. Raise it if the warning is more caution than you need; lower it for a tighter box. It changes no tray, but the optimizer then re-fits.",
   },
+  {
+    path: "minRiser",
+    label: "Separate risers from",
+    get: (s) => s.minRiser,
+    min: 1,
+    max: 50,
+    hint: "With Fill to the lid on, the least height of padding under a stack that is printed as a riser of its own. Under it the trays carry the padding as a thicker floor. A riser is never lower than the trays' bottom chamfer needs. It changes no tray's place, only what is printed.",
+  },
 ];
 
 /**

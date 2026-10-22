@@ -100,7 +100,7 @@ export function cyrb53(str: string, seed = 0): number {
  * Hash of everything that affects the layout (spec §5 StoredLayout.inputsHash):
  * box, printer, settings, components and locks. Names are left out, so renaming never
  * triggers a re-optimize. `separators` is in: set, it makes a grown deck's room a spacer (and lifts the cap on how far it may grow), so it changes the stored layout. `dividers` is in too: it cuts slots into the tray's floor, so the stored layout and the geometry differ (the dividers themselves are derived from those slots, not stored). `settings.playLimit` is in, but only when it is not the default 1.5 mm (so older plans stay current). `settings.infill` is out: it only
- * changes the displayed filament estimate, so editing it never marks the plan stale. So are `mergeFillers` and `mergeRisers`: they only change how the stored parts are grouped for printing (mergeParts). So is `engraveNames`: it only engraves the tray names into the printed meshes. Project id, name, schemaVersion,
+ * changes the displayed filament estimate, so editing it never marks the plan stale. So are `mergeFillers` and `mergeRisers`: they only change how the stored parts are grouped for printing (mergeParts). So is `minRiser`: it only changes how much of a stack's padding is printed as a riser (splitRisers). So is `engraveNames`: it only engraves the tray names into the printed meshes. Project id, name, schemaVersion,
  * createdWith and the stored layout itself are left out too. Unknown fields
  * preserved from a newer-minor file are included as-is. 14 hex characters.
  */
@@ -109,7 +109,7 @@ export function inputsHash(p: Project): string {
   // wallAbsorb is hashed under its old name, wallGrowth: renaming the setting must not change the
   // hash of every saved project and so mark all of their plans stale.
   const { wallAbsorb, oneWall, playLimit, ...rest } = p.settings;
-  // mergeFillers and mergeRisers are print-time decompositions (mergeParts), so they are out too.
+  // mergeFillers and mergeRisers are print-time decompositions (mergeParts), so they are out too, as is minRiser (splitRisers).
   const settings = {
     ...rest,
     wallGrowth: wallAbsorb,
@@ -119,6 +119,9 @@ export function inputsHash(p: Project): string {
     infill: undefined,
     mergeFillers: undefined,
     mergeRisers: undefined,
+    // The least riser decides which part a stack's padding is printed as (splitRisers reads it from
+    // the stored trays), so no tray moves or grows for it.
+    minRiser: undefined,
     // The engraved names change the printed mesh only, never the layout.
     engraveNames: undefined,
     // The default limit is left out, so plans made before the setting existed (all at 1.5 mm) are

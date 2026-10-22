@@ -160,7 +160,7 @@ it only with a written reason in the code or the PR.
     default, because the hash covers box, printer, settings, components (without `name`) and
     locks.
   - It changes only the mesh or the print (e.g. `engraveNames`, `mergeFillers`, `mergeRisers`,
-    `infill`): leave it out of the hash explicitly, in `inputsHash`'s settings block, with a
+    `minRiser`, `infill`): leave it out of the hash explicitly, in `inputsHash`'s settings block, with a
     comment. The mesh cache key in `app/meshes.ts` is `JSON.stringify([spec, settings])`, so
     settings and every `TraySpec` field (including `partName`, the engraved text) reach the key
     automatically. Don't build a narrower key.
@@ -578,6 +578,11 @@ in `model/hash.test.ts`.
    `src/model/settings.ts`.
 2. Read it in `readSettings` in `src/model/schema-read.ts`. A missing value falls back to the
    default, so older files keep loading.
+   If you change the default of a setting that is already stored and `compactSettings` in
+   `model/schema.ts` leaves it out at its default (`mergeRisers` went from off to on in 0.10.0), a
+   saved file cannot tell an old "off" from "never said": decide which meaning old files get, and
+   say so in a decision-log row. (A reader constant like `LIP_ENABLED_WHEN_ABSENT` keeps the old
+   meaning, but marks every old project as changed.)
 3. If it's numeric, validate it: add an entry to `SETTING_RANGES` in `src/model/validate.ts`, and
    a setter in `SETTING_SETTERS` in `src/ui/settingsFields.ts` if the settings form edits it.
    Error paths are `/settings/<name>`.
@@ -598,7 +603,9 @@ in `model/hash.test.ts`.
    printer tab for printer things). A number goes in a group of `ui/settingsGroups.ts` (a test
    fails while a `SETTING_RANGES` path is in no group); an error at its path then opens that group.
    The first screen of "This insert" is the board's plain choices: do not add to it without a
-   decision-log row.
+   decision-log row. A number drawn there (`minRiser`, "Separate risers from") is listed in
+   `FIRST_SCREEN_PATHS` instead of a group, and its new strings are ruled in
+   `screens/copy-rulings.ts` against that row.
 7. Tests: the hash test (`model/hash.test.ts`: it changes, or doesn't change, the hash), the
    schema read test, and a form test that the error shows next to the field.
 

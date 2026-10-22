@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, applyFingerRoom } from "../model/settings";
 import { SETTING_RANGES } from "../model/validate";
-import { EXACT_GROUPS, groupOfPath } from "./settingsGroups";
+import { EXACT_GROUPS, FIRST_SCREEN_PATHS, groupOfPath } from "./settingsGroups";
 import { changedByTab, changedCount } from "./settingsFields";
 
 describe("EXACT_GROUPS", () => {
@@ -18,9 +18,15 @@ describe("EXACT_GROUPS", () => {
     ]);
   });
 
-  it("holds every exact number once, and nothing else", () => {
+  it("holds every exact number once, and nothing else, but the ones the first screen draws", () => {
     const placed = EXACT_GROUPS.flatMap((g) => g.paths);
-    expect([...placed].sort()).toEqual(SETTING_RANGES.map((r) => r.path).sort());
+    const elsewhere = SETTING_RANGES.map((r) => r.path).filter(
+      (path) => !FIRST_SCREEN_PATHS.includes(path),
+    );
+    expect([...placed].sort()).toEqual(elsewhere.sort());
+    // and the first screen's numbers are real ones, in no group
+    expect(FIRST_SCREEN_PATHS.every((p) => SETTING_RANGES.some((r) => r.path === p))).toBe(true);
+    expect(FIRST_SCREEN_PATHS.some((p) => placed.includes(p))).toBe(false);
   });
 
   it("gives the board's counts: Cards 4, Finger cuts 4, Rim between layers 5", () => {
@@ -113,15 +119,16 @@ describe("changedByTab", () => {
     expect(changedByTab(DEFAULT_SETTINGS)).toEqual({ insert: 0, printer: 0 });
   });
 
-  it("puts the printing options and the folding of risers on My printer, the rest on This insert", () => {
+  it("puts the printing options on My printer, the rest (the riser rows too) on This insert", () => {
     expect(
       changedByTab({
         ...DEFAULT_SETTINGS,
         engraveNames: false,
         mergeFillers: false,
-        mergeRisers: true,
+        mergeRisers: false,
+        minRiser: 10,
       }),
-    ).toEqual({ insert: 0, printer: 3 });
+    ).toEqual({ insert: 2, printer: 2 });
     expect(
       changedByTab({
         ...applyFingerRoom(DEFAULT_SETTINGS, true),

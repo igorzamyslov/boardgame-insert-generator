@@ -18,6 +18,7 @@ export interface LayoutSummary {
   fillerCount: number; // filler parts to place by hand, after merging (settings.mergeFillers / mergeRisers); a stack level's fillers included
   mergeFillers: boolean; // the merge switches this summary was made under: it stands for these only
   mergeRisers: boolean;
+  minRiser: number; // the least riser it was made under (settings.minRiser): it moves the filament and the parts
   filamentG: number; // upper bound over the printed parts (risers split out): solid volume × 1.24 g/cm³
   filamentAtInfillG: number; // shell-and-core estimate at settings.infill (see summarize.ts)
   infillPct: number; // the settings.infill the estimate used
