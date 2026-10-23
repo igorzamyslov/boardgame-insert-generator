@@ -1,5 +1,6 @@
 import { dividersOf, growthOf, separatorsOf, togglesOf } from "../model/defaults";
-import type { Settings, Side, TileShape, TilesComponent } from "../model/types";
+import { FLOAT_EPSILON, POST_MM, reachableCutMm } from "../model/settings";
+import type { Notice, Settings, Side, TileShape, TilesComponent } from "../model/types";
 import {
   compartment,
   displayName,
@@ -114,9 +115,38 @@ function uprightStack(
   });
 }
 
-/** Storage options for a tiles component. Precondition: it passes validateComponent. */
-export function tileOptions(c: TilesComponent, s: Settings): OptionsResult {
+/**
+ * Whether a finger can get into the cut an upright stack gets: its slot is as long as the tile
+ * (plus clearance) and the cut leaves POST_MM at each end, so it is that much narrower. Under
+ * reachableCutMm it only touches the end tile, through a gap narrower than a fingertip. Always
+ * true with finger cuts off: there is no cut to reach into.
+ */
+function uprightReachable(c: TilesComponent, clearance: number, s: Settings): boolean {
+  if (!togglesOf(c).fingerCuts) {
+    return true;
+  }
+  const room = uprightProfile(c.shape).length + clearance - 2 * POST_MM;
+  return room >= reachableCutMm(s.fingerPocket.width) - FLOAT_EPSILON;
+}
+
+/** The warning for an upright choice whose cut is under a fingertip's width. */
+function hardToReach(c: TilesComponent, s: Settings, index: number): Notice {
+  return {
+    level: "warning",
+    code: "sizing.uprightHardToReach",
+    message: `${displayName(c)}: standing upright, its finger cuts are narrower than ${reachableCutMm(s.fingerPocket.width)} mm, so only the tile at the end of each stack can be taken out. Lying flat is easier to reach.`,
+    path: `/components/${index}`,
+  };
+}
+
+/**
+ * Storage options for a tiles component. Precondition: it passes validateComponent. `auto` offers
+ * upright only where a finger can reach into its cut (uprightReachable) and lies the tiles flat
+ * otherwise; an explicit `upright` is kept, with a warning where it is hard to reach.
+ */
+export function tileOptions(c: TilesComponent, s: Settings, index = 0): OptionsResult {
   const clearance = mainClearance(c, s);
+  const reachable = uprightReachable(c, clearance, s);
   const counts = columnCounts(c.count, c.thickness);
   const options: StorageOption[] = [];
   if (c.storage !== "upright") {
@@ -127,7 +157,7 @@ export function tileOptions(c: TilesComponent, s: Settings): OptionsResult {
       });
     }
   }
-  if (c.storage !== "flat") {
+  if (c.storage === "upright" || (c.storage === "auto" && reachable)) {
     for (const columns of counts) {
       options.push({
         id: `upright-c${columns}`,
@@ -135,5 +165,8 @@ export function tileOptions(c: TilesComponent, s: Settings): OptionsResult {
       });
     }
   }
-  return { options, notices: [] };
+  return {
+    options,
+    notices: c.storage === "upright" && !reachable ? [hardToReach(c, s, index)] : [],
+  };
 }
